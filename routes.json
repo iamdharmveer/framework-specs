@@ -1,0 +1,13 @@
+{
+  "_comment": "ADVISORY ONLY. bootstrap.py verifies ALL files every run; this map just tells the model which spec is a step's entry point to READ. Confirm/extend trigger names as needed — an imperfect entry here cannot cause a missing-file bug.",
+  "PYQSort":          ["Framework_PYQSort.md"],
+  "PYQCount":         ["Framework_PYQAnalyse.md"],
+  "PYQExtract":       ["Framework_MockTestAnalyse.md"],
+  "PYQPrepare":       ["Framework_PYQPrepare.md"],
+  "Blueprint":        ["Framework_Blueprint.md"],
+  "MockCreate":       ["Framework_MockTestCreate.md"],
+  "MockCreateAudit":  ["Framework_MockTestCreateAudit.md"],
+  "MockExplain":      ["Framework_MockTestExplain.md"],
+  "MockExplainAudit": ["Framework_MockTestExplainAudit.md"],
+  "MockDeliver":      ["Framework_MockDeliver.md", "Framework_DeliveryFooter.md"]
+}
