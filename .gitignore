@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Framework integrity gate runtime token (written by bootstrap.py; never committed)
+.verified

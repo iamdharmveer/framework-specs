@@ -17,4 +17,4 @@ jobs:
       - name: Whole-framework verify gate must pass
         run: python3 bootstrap.py
       - name: Framework markdown validator (if present)
-        run: if [ -f validate_framework_md.py ]; then python3 validate_framework_md.py; fi
+        run: if [ -f validate_framework_md.py ]; then python3 validate_framework_md.py Framework_*.md; fi
