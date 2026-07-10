@@ -1,0 +1,20 @@
+name: validate-framework
+on:
+  push: { branches: [ main ] }
+  pull_request: { branches: [ main ] }
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Manifest must be up to date
+        run: |
+          python3 gen_manifest.py
+          git diff --exit-code MANIFEST.json \
+            || (echo "::error::MANIFEST.json stale. Run gen_manifest.py and commit." && exit 1)
+      - name: Whole-framework verify gate must pass
+        run: python3 bootstrap.py
+      - name: Framework markdown validator (if present)
+        run: if [ -f validate_framework_md.py ]; then python3 validate_framework_md.py; fi

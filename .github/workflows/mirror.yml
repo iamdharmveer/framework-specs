@@ -1,0 +1,20 @@
+name: mirror-production
+on:
+  push:
+    branches: [ production ]
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Push production to mirror remote
+        env:
+          MIRROR_URL: ${{ secrets.MIRROR_URL }}   # e.g. https://gitlab.com/<you>/framework-specs.git
+          MIRROR_PAT: ${{ secrets.MIRROR_PAT }}   # write token for the mirror host
+        run: |
+          if [ -z "$MIRROR_URL" ] || [ -z "$MIRROR_PAT" ]; then
+            echo "::warning::MIRROR_URL / MIRROR_PAT not set — skipping mirror sync"; exit 0
+          fi
+          AUTH_URL=$(echo "$MIRROR_URL" | sed -E "s#https://#https://oauth2:${MIRROR_PAT}@#")
+          git push --force "$AUTH_URL" HEAD:production
