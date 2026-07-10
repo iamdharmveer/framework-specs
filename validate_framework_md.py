@@ -122,7 +122,12 @@ def validate(path):
 
     changelog_ver = None
     for l in lines:
-        m = re.match(r'^[#*\s]*v(\d+\.\d+)\s*[—–-]\s*\d{4}', l.strip())
+        s = l.strip()
+        # Accept BOTH changelog styles used across the framework specs:
+        #   "vX.Y — 2026-07-07 — …"   (dated list entry)
+        #   "vX.Y changes: …"          (top-of-file per-version summary)
+        m = re.match(r'^[#*\s]*v(\d+\.\d+)\s*[—–-]\s*\d{4}', s) or \
+            re.match(r'^[#*\s]*v(\d+\.\d+)\s+changes:', s)
         if m:
             v = m.group(1)
             if changelog_ver is None or tuple(map(int, v.split('.'))) > tuple(map(int, changelog_ver.split('.'))):
@@ -194,7 +199,7 @@ def validate(path):
     # ─────────────────── I: STALE MARKERS ────────────────────────
     for kw in ('TODO', 'FIXME', 'PLACEHOLDER', 'TBD'):
         for i, l in enumerate(lines, 1):
-            if kw in l and not l.strip().startswith('#') and not l.strip().startswith('*'):
+            if re.search(rf'\b{kw}\b', l) and not l.strip().startswith('#') and not l.strip().startswith('*'):
                 add('I-STALE', f'L{i}: stale marker "{kw}" found')
 
     # ─────────────────── J: SELF-TEST COUNT ──────────────────────
@@ -270,7 +275,7 @@ def validate(path):
         # v2.6: a SPLIT rule (RA-15a / RA-15b) DEFINES the base number RA-15 for
         # reference resolution; the duplicate check keys on the FULL label so 15a and
         # 15b are distinct and do not read as "RA-15 defined twice".
-        def_ra = set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', text, re.M))
+        def_ra = set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', text, re.M)) | set(GLOBAL_RA)
         ref_ra = set(re.findall(r'\bRA-(\d+)\b', text))
         for r in sorted(int(x) for x in (ref_ra - def_ra)):
             add('N-RA', f'reference to RA-{r} but no RA-{r} definition')
@@ -281,7 +286,7 @@ def validate(path):
     if has_mandates:
         extended_ran.append('O-MANDATE')
         # MANDATE definitions: "# MANDATE X —" where X is 0-9 or a single uppercase letter
-        def_mand = set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', text, re.M))
+        def_mand = set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', text, re.M)) | set(GLOBAL_MANDATE)
         # References: "MANDATE X" where X is 0-9 or a single uppercase letter (not full words)
         ref_mand = set(re.findall(r'\bMANDATE\s+([0-9A-Z])\b', text))
         for m in sorted(ref_mand - def_mand):
@@ -400,10 +405,24 @@ def validate(path):
     print(f'RESULT: ❌ {len(issues)} ISSUE(S) FOUND.')
     return len(issues)
 
+GLOBAL_MANDATE, GLOBAL_RA = set(), set()
+
+def _prescan(paths):
+    """Corpus-wide anchor gather so a reference in file A to an anchor DEFINED
+    in file B (batch runs) is not flagged as a missing definition."""
+    gm, gr = set(), set()
+    for p in paths:
+        if not os.path.isfile(p): continue
+        t = open(p, encoding='utf-8').read()
+        gm |= set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', t, re.M))
+        gr |= set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', t, re.M))
+    return gm, gr
+
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Usage: python3 validate_framework_md.py <file.md> [file2.md ...]')
         sys.exit(1)
+    GLOBAL_MANDATE, GLOBAL_RA = _prescan(sys.argv[1:])
     total = 0
     for p in sys.argv[1:]:
         if os.path.isfile(p): total += validate(p)

@@ -9,6 +9,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
+      - name: Install validator runtime deps (embedded self-test needs python-docx)
+        run: pip install python-docx
       - name: Manifest must be up to date
         run: |
           python3 gen_manifest.py

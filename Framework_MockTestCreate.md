@@ -627,8 +627,8 @@
 #             (4) MEDIUM — S13-9 handoff message used old step numbers: "Step 4
 #                 (MockExplain)" and "Step 3 (MockCreateAudit)" instead of canonical
 #                 Step 9 / Step 8. FIXED.
-#             (5) MEDIUM — S3-3 SSC-specific MANDATE numbering: "MANDATE 8 equivalent
-#                 block" / "MANDATE 9 equivalent block" are SSC-specific mandate numbers
+#             (5) MEDIUM — S3-3 SSC-specific MANDATE numbering: "MANDATE-8-equivalent
+#                 block" / "MANDATE-9-equivalent block" are SSC-specific mandate numbers
 #                 baked into an exam-agnostic spec (prime-directive violation). A GATE
 #                 exam wouldn't number mandates 8/9. FIXED: replaced with generic
 #                 directive-block descriptions. Same fix in §17 DoD.
@@ -850,7 +850,7 @@
 #           prime-directive class as v4.9's 2a strip). Two prose sites asserted a fixed count
 #           of mandatory General-Awareness areas — an SSC-specific value baked into an
 #           exam-agnostic spec (a 6-section GATE/NEET paper has a different count, or none).
-#           The framework already SOURCES these areas "from the MANDATE 9 equivalent block" in
+#           The framework already SOURCES these areas "from the MANDATE-9-equivalent block" in
 #           section_rules; only the literal count was wrong to fix. FIX: S3-3 extraction line
 #           and the §17 DoD item now read "ALL mandatory GA areas as declared in section_rules"
 #           — count is data, never hardcoded. No gate/rule/logic change; empty ⇒ vacuous.

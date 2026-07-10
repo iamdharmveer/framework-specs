@@ -3102,6 +3102,7 @@ def check_dimensional_splits(questions, sec, top, sub):
     pass
     # NOTE (v2.13): Claude produces the named `new_subtopics` at runtime, then MUST validate
     # them with the deterministic guards below before applying (D6-4/D6-5).
+```
 
 # ── v2.13 SPLIT GOVERNANCE GUARDS (register D6-4 over-split / D6-5 under-split) ──
 # D6-4: after Claude proposes `new_subtopics` for a split, run split_children_valid();
@@ -3167,6 +3168,7 @@ def merge_record(kept_name, merged_forms, reason):
 # These records travel with the taxonomy so Step 7 keeps the forms distinct at scenario_key.
 ```
 
+```python
 def reclassify_after_refinement(classifications, refinement_splits):
     """
     After refinement splits, update all existing classifications to use
