@@ -74,7 +74,7 @@
       "bytes": 32428
     },
     "Framework_MockDeliver.md": {
-      "sha256": "fb718a4616dfa599db4daf0e66807978d4bdb8067896be6d2618de98b631383b",
+      "sha256": "70187498860caf90b523dbb43f54915ad14a8ca84ada7531d3d08dba90bc2348",
       "version_header": "# Framework_MockDeliver v1.4 \u2014 Universal Mock Test Tagger & Delivery Engine",
       "end_sentinel": "# END OF Framework_MockDeliver v1.4",
       "lines": 1582,

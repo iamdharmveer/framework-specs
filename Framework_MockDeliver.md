@@ -1544,7 +1544,7 @@ then re-run. Not a HARD STOP.
 
 ---
 
-*End of Framework_MockDeliver v1.3*
+*End of Framework_MockDeliver v1.4*
 
 *Four hard invariants: (1) never deliver a render-source docx that still
 contains raw OMML — linearize ALL `<m:oMath>` via Rule 19 before assembling
