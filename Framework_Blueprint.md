@@ -3840,10 +3840,14 @@ be unique):
     family, 1). A STEERING TARGET audited within tolerance at Step 8 — NEVER a hard blocker.
     Over-cap is a diversity note, not a failure (every question is still unique at form_key).
 
-PREREQUISITE (Step 5 v2.24): section_rules.md carries form_key, question_mechanic,
+PREREQUISITE (Step 5 v2.24.1): section_rules.md carries form_key, question_mechanic,
 concept_group(=family) and collision_domain for every subtopic. Fallback chain if a field
-is absent: form_key → question_mechanic → concept_group → subtopic name; collision_domain →
-section name. (Absent form_key is now only possible on a pre-v2.24 manifest; re-run Step 5.)
+is absent: form_key → question_mechanic → subtopic_id; collision_domain → section name.
+(§7.1 CRITICAL, v2.24.1: concept_group is REMOVED from the form_key fallback chain. Under
+v2.24.1 concept_group is DELIBERATELY SHARED across subtopics on a subject exam, so falling
+back to it would read one family token for several distinct subtopics and raise a FALSE
+BV-10a duplicate HALT. An absent form_key on a v2.24.1 manifest means the file is stale —
+re-run Step 5; do NOT guess from concept_group.)
 
 PROCEDURE (runs in B2 per batch AND B3 full validation):
 
@@ -3858,7 +3862,7 @@ PROCEDURE (runs in B2 per batch AND B3 full validation):
               dom = read_field(S,'collision_domain',section_rules_text) or section['name']
               fk  = (read_field(S,'form_key',section_rules_text)
                      or read_field(S,'question_mechanic',section_rules_text)
-                     or read_field(S,'concept_group',section_rules_text)
+                     or read_field(S,'subtopic_id',section_rules_text)   # §7.1 v2.24.1: NOT concept_group
                      or S.lower().strip())
               fam = (read_field(S,'concept_group',section_rules_text)
                      or read_field(S,'question_mechanic',section_rules_text) or fk)
