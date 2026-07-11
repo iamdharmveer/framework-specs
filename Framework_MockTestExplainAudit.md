@@ -4,13 +4,27 @@
 **Step 10 — MockExplainAudit**
 **The independent auditor and rectifier of explanation documents produced by Step 9.**
 
-Version: v1.7
+Version: v1.8
 Status: Active
-Engine: `explain_engine.py` (shared universal engine; core `--self-test` 47/47, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
+Engine: `explain_engine.py` (shared universal engine; core `--self-test` 44/44, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
 
 ---
 
 ## VERSION HISTORY
+
+**v1.8** — 2026-07-11 — FIGURE SECTION REMOVED (parallel to Step 9 v1.13 / MockDeliver).
+Step 9 no longer emits any ⬛ FIGURE / figure-note section, so Step 10's figure-note AUDIT
+is retired to stay in lock-step with the engine. Removed: §8.2 Figure-note audit (former
+S5-3) and its two defect codes (`FIGURE-NOTE-WRONG`, `FIGURE-NOTE-MISSING`); the
+"(figure note if figural)" clause from the header-order check (§8.1); the "figure note"
+arm of the figural-set union (§11) — the set is now registry figural manifest ∪ an actual
+image in the question region, which is the authoritative signal anyway (the paper wins).
+UNCHANGED and explicitly preserved: the figural image-VIEWING requirement (§11 / RXA-8) and
+completion-gate CA5 (a figural Q must be grounded in a viewed-image evidence file) — these
+never depended on the figure note and remain HARD. C-FIGURAL (§8) still audits that the
+axiom / deduction / wrong-option reasoning matches the viewed image. Engine core self-test
+47/47 → 44/44 (Step 9 v1.13 dropped the four FIGURE tests for one regression lock);
+`--self-test-audit` stays 10/10; gate `--self-test` stays 8/8. No other logic change.
 
 **v1.7** — 2026-07-08 — MECHANICAL COMPLETION GATE (close the explanation false-clean chain).
 ROOT-CAUSE PARALLEL: the same false-clean chain fixed for Step 8 in
@@ -163,7 +177,7 @@ Every audit judgement, every re-derivation, and every rectified sentence is reas
 
 # MANDATE A — The engine is the only read and write path
 
-Step 10 never parses the Solutions document by ad-hoc text matching and never writes explanation paragraphs by hand. It reads through `parse_solution_blocks` and writes through `build_interleaved_docx`, both driven by the `EngineConfig` reconstructed from the frozen configuration. The engine is the same universal `explain_engine.py` Step 9 uses, now carrying the Step 10 reader (Appendix A). Pre-flight (§3) refuses to start unless the engine's core self-test passes cleanly at 47 of 47 and the reader round-trip passes cleanly at 10 of 10. Re-deriving answers independently (D1) means Step 10 builds its own key and never reads a key sidecar, because none is delivered. NOTE (v1.7): the ledger completion gate (`explain_audit_gate.py`, §18/§20) is a SEPARATE module — it reads the JSON audit ledger + evidence sidecars, never the docx, so it does not touch the engine's read/write path and needs no python-docx; it is a distinct enforcement layer, not a second write path.
+Step 10 never parses the Solutions document by ad-hoc text matching and never writes explanation paragraphs by hand. It reads through `parse_solution_blocks` and writes through `build_interleaved_docx`, both driven by the `EngineConfig` reconstructed from the frozen configuration. The engine is the same universal `explain_engine.py` Step 9 uses, now carrying the Step 10 reader (Appendix A). Pre-flight (§3) refuses to start unless the engine's core self-test passes cleanly at 44 of 44 and the reader round-trip passes cleanly at 10 of 10. Re-deriving answers independently (D1) means Step 10 builds its own key and never reads a key sidecar, because none is delivered. NOTE (v1.7): the ledger completion gate (`explain_audit_gate.py`, §18/§20) is a SEPARATE module — it reads the JSON audit ledger + evidence sidecars, never the docx, so it does not touch the engine's read/write path and needs no python-docx; it is a distinct enforcement layer, not a second write path.
 
 # MANDATE B — Batch or halt; one batch per response
 
@@ -239,7 +253,7 @@ Resolution sequence:
 Pre-flight runs once at the start of a run (or resume) and gates everything after it. Any failed pre-flight check halts Step 10 with a specific reason; no batch is audited until all pass.
 
 ## P0 — Engine present and honest
-Run `explain_engine.py --self-test` and require a clean 47-of-47 core pass. Run `explain_engine.py --self-test-audit` and require a clean 10-of-10 extended reader suite. **v1.7: also run `explain_audit_gate.py --self-test` and require a clean `COMPLETION-SELF-TEST: 8/8 PASS` — a completion gate that fails its own fixtures is not a working gate (parallel to Step 8 P1 hardened), and Phase 3 relies on it.** The engine self-tests prove the exact write→read→rebuild inverse holds for mcq, msq and nat, across numeric, alpha and roman label schemes, with OMML fractions and figure notes; that a genuine fraction survives `verify_explanations` (the fraction-extraction regression); and that `parse_learnings` reads a learnings file back into the pinned rule schema (the loop the producer feeds — §24). Without all three green, Step 10 halts.
+Run `explain_engine.py --self-test` and require a clean 44-of-44 core pass. Run `explain_engine.py --self-test-audit` and require a clean 10-of-10 extended reader suite. **v1.7: also run `explain_audit_gate.py --self-test` and require a clean `COMPLETION-SELF-TEST: 8/8 PASS` — a completion gate that fails its own fixtures is not a working gate (parallel to Step 8 P1 hardened), and Phase 3 relies on it.** The engine self-tests prove the exact write→read→rebuild inverse holds for mcq, msq and nat, across numeric, alpha and roman label schemes, with OMML fractions; that a genuine fraction survives `verify_explanations` (the fraction-extraction regression); and that `parse_learnings` reads a learnings file back into the pinned rule schema (the loop the producer feeds — §24). Without all three green, Step 10 halts.
 
 ## P1 — Configuration loads and is complete
 Every configuration field the `EngineConfig` needs resolves to a concrete value. No default is silently substituted for a missing exam fact.
@@ -254,7 +268,7 @@ Both documents open, and `parse_paper` on the paper validates ascending-contiguo
 Reconstruct all blocks with `parse_solution_blocks`, rebuild against the paper with `build_interleaved_docx`, and confirm the rebuild passes `verify_fidelity` (question regions byte-identical) and `verify_explanations` (structure intact). This proves the reconstructed `EngineConfig` matches how the document was written *before* any auditing relies on that reconstruction. A failure here means the config is wrong or the document was hand-edited outside the engine; either halts the run.
 
 ## P5 — Figural manifest resolves
-Every question the registry marks figural, and every question whose Solutions region carries a figure note, is collected into the figural set (union; §11). Every image the paper references resolves to a media part (no dangling relationship). A figural question whose image cannot be resolved halts the run for that batch when reached (§11).
+Every question the registry marks figural, and every question whose region carries an actual image (a `<w:drawing>` in the stem or an option), is collected into the figural set (union; §11). Every image the paper references resolves to a media part (no dangling relationship). A figural question whose image cannot be resolved halts the run for that batch when reached (§11).
 
 ## P6 — Batch plan freezes
 Derive the batch plan from the blueprint section ranges (§18), write it to `audit_progress.json`, and never recompute it mid-run. Atomic linked groups are identified now so no batch boundary splits one.
@@ -336,7 +350,7 @@ The ten classes and the correctness question each one forces the auditor to answ
 - **C-MULTI-SELECT** — a multi-select question (msq). Re-derive the full correct **set**; is the set exactly right (no missing correct option, no included wrong option), and does the last deduction step bind every selected option?
 - **C-NUMERICAL-INPUT** — a numerical-answer question (nat). Re-derive the value; is it within the accepted range, does the last deduction step contain the value, and does each common-pitfall reconstruct to a plausible wrong value a real method would produce?
 
-A question may carry more than one class (a computational reading-comprehension sub-question is both C-LINKED and C-COMPUTATIONAL); the audit applies every class that fits. Class is inferred, per question, from: registry type (mcq/msq/nat), presence of a figure (registry figural manifest ∪ figure note), a shared stimulus (linked-group manifest), and the reasoning the stem demands. The inferred classes are recorded on the ledger entry (§18) so the completion gate can require the class's evidence (figural→viewed image, factual/vocab→web source). §8.0 runs the universal checks; the per-class question above is answered inside §8's per-section audit.
+A question may carry more than one class (a computational reading-comprehension sub-question is both C-LINKED and C-COMPUTATIONAL); the audit applies every class that fits. Class is inferred, per question, from: registry type (mcq/msq/nat), presence of a figure (registry figural manifest ∪ an actual image in the question region), a shared stimulus (linked-group manifest), and the reasoning the stem demands. The inferred classes are recorded on the ledger entry (§18) so the completion gate can require the class's evidence (figural→viewed image, factual/vocab→web source). §8.0 runs the universal checks; the per-class question above is answered inside §8's per-section audit.
 
 ---
 
@@ -368,16 +382,19 @@ Applied to every question regardless of class:
 - **Type-container match.** The registry type (mcq/msq/nat) matches the rendered container: mcq has a single-option correct-answer line and a why-wrong section keyed by the non-selected options; msq has a multi-option correct-answer line and a why-wrong section keyed by the non-selected options; nat has a value (and optional accepted range) correct-answer line and a common-pitfalls section. A mismatch is `TYPE-CONTAINER-MISMATCH` (BLOCKER): the explanation is built for the wrong question type.
 - **Answer re-derivation.** The answer is re-derived from scratch (§9) and compared to the rendered correct answer. Disagreement is a Lane-1 BLOCKER: `CA-WRONG` (mcq), `MSQ-SET-WRONG` (msq), `NAT-VALUE-WRONG` or `NAT-RANGE-WRONG` (nat). The re-derivation and its route(s) are recorded on the ledger entry (CA4).
 - **Answer-binding.** The last deduction step binds the answer the explanation itself claims — the selected option(s) by option-word-and-label, or the value for nat. A binding gap is `DEDUCTION-BIND-FAIL` (Lane-1/2).
-- **Header order and presence.** Correct-answer line, then (figure note if figural), then axiom, then deduction, then optional speed hack, then why-wrong (mcq/msq) or common-pitfalls (nat). A disorder or a missing mandatory section is a structural defect (`SECTION-ORDER` / `SECTION-MISSING`).
+- **Header order and presence.** Correct-answer line, then axiom, then deduction, then optional speed hack, then why-wrong (mcq/msq) or common-pitfalls (nat). A disorder or a missing mandatory section is a structural defect (`SECTION-ORDER` / `SECTION-MISSING`). (v1.8: no FIGURE section is rendered for any question type.)
 - **Prose hygiene.** Every prose paragraph is exactly one sentence, free of banned glyphs, metacommentary, template filler, fake citations and banned blocks, with no inline or vulgar fraction. These are caught mechanically by `verify_explanations`; §8.0 confirms they are clean after any rectification too.
 
 ## S5-2 — §8.1 Correct-answer line audit
 
 The correct-answer line is the explanation's headline claim. Re-derive independently (§9) and confirm the line names the right option, the right set, or the right value/range. For nat, confirm the displayed value and the accepted range are consistent with the re-derived value (the re-derived value lies inside the displayed range, and the range is not absurdly wide or inverted). A correct-answer line that disagrees with the re-derivation is the highest-severity defect Step 10 can find and gates the whole question's rectification: fix the answer first, because axiom, deduction and wrong-option notes all cascade from it (§16 coupling).
 
-## S5-3 — §8.2 Figure-note audit (figural questions)
+## S5-3 — §8.2 (removed in v1.8)
 
-For every figural question (§11), the figure note must describe what the viewed image actually shows and must not smuggle in the answer as an unearned assertion. A figure note that mis-describes the image, or that is absent on a figural question whose reasoning needs it, is a defect (`FIGURE-NOTE-WRONG` / `FIGURE-NOTE-MISSING`). This audit is impossible without viewing the image; §11 makes the view mandatory and records it as evidence (the viewed-image path on the ledger entry — CA5).
+The former Figure-note audit is retired: Step 9 v1.13 no longer renders any figure note or
+⬛ FIGURE section, so there is nothing to audit here. Figural correctness is still enforced —
+the image is VIEWED (§11 / CA5) and the axiom / deduction / wrong-option reasoning is checked
+against what the image shows (C-FIGURAL, §8.3–§8.6). Only the separate descriptive line is gone.
 
 ## S5-4 — §8.3 AXIOM audit
 
@@ -473,14 +490,13 @@ The point is that Step 10 does not treat "has a speed hack" or "has no speed hac
 
 Figural questions are the pipeline's highest-risk explanations because their correctness cannot be judged from text alone.
 
-**Union detection.** The figural set is the union of (a) questions the registry figural manifest marks figural and (b) questions whose Solutions region carries a figure note. Where the two disagree, the paper (registry ∪ actually-rendered image) wins: a question with an image in the paper is figural even if the registry missed it, and a question with a figure note is figural even if the manifest is silent. This union also catches questions whose **options** are images, not only questions whose **stem** is an image.
+**Union detection.** The figural set is the union of (a) questions the registry figural manifest marks figural and (b) questions whose question region carries an actual image (a `<w:drawing>` in the stem or in any option). Where the two disagree, the paper wins: a question with an image in the paper is figural even if the registry missed it. This union also catches questions whose **options** are images, not only questions whose **stem** is an image. (v1.8: the former "carries a figure note" signal is dropped — Step 9 no longer renders figure notes; the actual-image signal is authoritative anyway.)
 
 **The view is mandatory and recorded.** For every question in the figural set, Step 10 views every image involved — stem image and each option image — before deriving or auditing. Each view is saved to the evidence directory and its path recorded on the ledger entry (which images, viewed). An empty evidence record on a figural question is a **hard stop** for that batch and a completion-gate failure (CA5): Step 10 will not certify or rectify a figural explanation it has not visually grounded (§17 makes the empty record mechanically detectable).
 
 **What the view establishes:**
 
 - The correct option is the **unique** satisfier of the figural rule read from the image — not merely *a* satisfier. If two options satisfy the rule as drawn, the question has a defect that escalates to Step 7/8 (a figural question with a non-unique answer is a paper defect, not an explanation defect).
-- The figure note describes what is actually shown (§8.2).
 - The axiom, deduction and wrong-option notes are consistent with the image; a figural fix cascades through all of them (§16 coupling), because a corrected reading of the image can change every downstream section.
 
 **Rendering constraints Step 10 preserves.** Figural options render as single-column vertical stacks (never a two-by-two or composite panel), decomposed into discrete per-option images at full resolution. Step 10 never re-renders or reflows figural content; it audits the explanation around the frozen figures, and its rebuild re-seeds the figures byte-identically from the paper (verified by `verify_fidelity`).
@@ -547,7 +563,6 @@ Every defect carries a code, the lane it belongs to (§5), a severity, and a dis
 | DEDUCTION-BIND-FAIL | Correctness | BLOCKER | FIX |
 | WHY-WRONG-DIAG | Correctness | BLOCKER | FIX |
 | PITFALL-DIAG-WRONG | Correctness | BLOCKER | FIX |
-| FIGURE-NOTE-WRONG | Correctness | BLOCKER | FIX |
 | FRACTION-INLINE | Correctness | BLOCKER | FIX |
 | FIDELITY-BREACH | Correctness | BLOCKER | ESCALATE |
 | SECOND-CORRECT-ANSWER | Correctness | BLOCKER | ESCALATE |
@@ -560,7 +575,6 @@ Every defect carries a code, the lane it belongs to (§5), a severity, and a dis
 | WHY-WRONG-COVERAGE | Sufficiency | FIXABLE | FIX |
 | COMMON-PITFALLS-MISSING | Sufficiency | FIXABLE | FIX |
 | COMMON-PITFALLS-THIN | Sufficiency | FIXABLE | FIX |
-| FIGURE-NOTE-MISSING | Sufficiency | FIXABLE | FIX |
 | MISSING-SPEED-HACK | Sufficiency | FIXABLE | FIX |
 | FAKE-SPEED-HACK | Sufficiency | FIXABLE | FIX |
 | LINKED-OUTSIDE-STIMULUS | Sufficiency | FIXABLE | FIX |
@@ -758,7 +772,7 @@ The report asserts, in plain terms, that the audited document is certified clean
 
 Step 10 is done for a mock only when **all** of the following hold:
 
-1. Pre-flight P0–P9 passed (engine honest 47/47 + 10/10; completion gate honest 8/8; config complete, round-trip clean).
+1. Pre-flight P0–P9 passed (engine honest 44/44 + 10/10; completion gate honest 8/8; config complete, round-trip clean).
 2. Every question audited in a frozen batch; zero questions sampled or skipped; every closed batch fully evidenced (§17).
 3. Every answer independently re-derived (D1); no answer taken from Step 9; no key sidecar read (none exists).
 4. Every explanation section cleared all three lanes (§5), or was rectified until it did, or its question was escalated.
@@ -907,7 +921,7 @@ The rules below are the enforceable contract; the sections above are their ratio
 
 Step 10 runs two canonical, exam-agnostic Python artifacts. To avoid the multi-copy drift that enabled the Step-8 false-clean (see Framework_MockTestCreateAudit.md v2.6 / §21), the runnable code is NOT re-embedded here; it lives in ONE place each and this section points to it:
 
-- **`explain_engine.py`** — the universal explanation engine (the ONLY docx read/write path, MANDATE A). It carries `EngineConfig`, `ExplanationBlock`, `add_math_text`, `parse_paper`, `build_interleaved_docx`, `verify_fidelity`, `verify_structure`, `verify_explanations`, `strip_solutions`, the Step-10 reader `parse_solution_blocks`, and `parse_learnings`. Self-tests: `--self-test` → `SELF-TEST: 47/47 PASS` (core), `--self-test-audit` → `AUDIT-SELF-TEST: 10/10 PASS` (reader round-trip). Pre-flight P0 requires both green. This is the same file Step 9 uses.
+- **`explain_engine.py`** — the universal explanation engine (the ONLY docx read/write path, MANDATE A). It carries `EngineConfig`, `ExplanationBlock`, `add_math_text`, `parse_paper`, `build_interleaved_docx`, `verify_fidelity`, `verify_structure`, `verify_explanations`, `strip_solutions`, the Step-10 reader `parse_solution_blocks`, and `parse_learnings`. Self-tests: `--self-test` → `SELF-TEST: 44/44 PASS` (core), `--self-test-audit` → `AUDIT-SELF-TEST: 10/10 PASS` (reader round-trip). Pre-flight P0 requires both green. This is the same file Step 9 uses.
 
 - **`explain_audit_gate.py`** — the mechanical Phase-3 COMPLETION GATE (v1.7). It reads `audit_progress.json` (§18) + the evidence sidecars and asserts CA1–CA7 (evidence-bound). It touches no docx and needs no python-docx. Self-test: `--self-test` → `COMPLETION-SELF-TEST: 8/8 PASS` (fixtures: clean-pass, skipped-Phase-2 [CA1+CA2], partial-review [CA2], open-verdict [CA3], unviewed-figure [CA5], missing-evidence-file [CA5], unsourced-fact [CA6], not-derived [CA4]). Pre-flight P0 requires it green; Phase 3 (§20) requires `AUDIT-COMPLETION-GATE: PASS`.
 
@@ -921,4 +935,4 @@ Both files are delivered alongside this spec and uploaded to the [ExamCode] proj
 
 ---
 
-**End of Framework_MockTestExplainAudit.md (v1.7)**
+**End of Framework_MockTestExplainAudit.md (v1.8)**

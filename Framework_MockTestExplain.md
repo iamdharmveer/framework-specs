@@ -1,8 +1,39 @@
-# Framework_MockTestExplain v1.12
+# Framework_MockTestExplain v1.13
 # [ExamCode] project | Step 9 (MockExplain) | Universal Mock Test Explanation Generator
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
+#   v1.13 — 2026-07-11 — FIGURE SECTION REMOVED FROM SOLUTIONS OUTPUT (owner decision).
+#           The ⬛ FIGURE / figure_note block is no longer emitted for figural
+#           questions — the Solutions docx now renders exactly Correct Answer →
+#           ⬛ AXIOM → ⬛ DEDUCTION → (⚡ SPEED HACK) → ❌ WHY WRONG? / ❌ COMMON
+#           PITFALLS for EVERY question type. The figure_note field is removed from
+#           ExplanationBlock entirely (not merely un-rendered) — the same clean-
+#           removal discipline the framework applies to dead fields. Coordinated
+#           edits, all mechanical:
+#             (1) EngineConfig: 'figure' dropped from labels + markers.
+#             (2) ExplanationBlock: figure_note param + attribute + both validate()
+#                 guard-scans removed. _block_paragraphs no longer emits the FIGURE
+#                 header or note.
+#             (3) verify_explanations / parse_solution_blocks: 'figure' dropped from
+#                 the header map; the FIGURE position/presence checks and the reader's
+#                 pre/figure note-capture modes removed.
+#             (4) SELF-TESTS: the four FIGURE tests (FIGURE-NOTE, FIGURE-HDR,
+#                 FIGURE-HDR-VERIFY, FIGURE-HDR-ABSENT) replaced by ONE regression
+#                 lock (FIGURAL-NO-FIGURE-SECTION: a figural question renders NO
+#                 FIGURE section, its image survives byte-identical, the audit passes).
+#                 Core self-test 47/47 → 44/44; reader --self-test-audit stays 10/10
+#                 (the round-trip test drops its figure_note assertion).
+#           NO SIDE EFFECT to correctness: the image-VIEWING discipline is untouched —
+#           RE-11 / §13 still require every figural image extracted, role-bound and
+#           VIEWED, and Step 10's completion-gate CA5 (viewed-image evidence) is
+#           unchanged (it never read figure_note). C-FIGURAL (§6) still governs how
+#           AXIOM / DEDUCTION / WHY WRONG are written for figural questions; only the
+#           separate descriptive anchor line is gone (the figure itself is in the
+#           question region above, preserved byte-identical). Fidelity, batching,
+#           coverage, NAT/MSQ, learnings: all byte-identical to v1.12. §8-6 deleted;
+#           §5-1 / §5-3 / §6-1 / §13-4 / §18 / §21 de-referenced. Parallel edits in
+#           Framework_MockTestExplainAudit.md and Framework_MockDeliver.md (same pass).
 #   v1.12 — 2026-07-08 — PRODUCER-SIDE COMPLETION-GATE ALIGNMENT + ENGINE SINGLE-SOURCE.
 #           Parallel to Framework_MockTestCreateAudit.md v2.6 and Step 10 v1.7. Step 9's
 #           §18 per-batch self-audit is already largely MECHANICAL (engine verify_fidelity/
@@ -404,7 +435,7 @@
 #   NEVER print any stem, option, passage, table cell, figure description, derived
 #   answer, or explanation sentence in chat — not while solving, not in a finding,
 #   not in the report. Refer to a question ONLY as "Q.[n]" plus a code + a structural
-#   locator (e.g. "Q.47 — figure_note missing"). The ONE content-bearing artefact —
+#   locator (e.g. "Q.47 — DEDUCTION binding missing"). The ONE content-bearing artefact —
 #   [ExamCode]_Mock[N]_Solutions.docx — is a FILE, not chat, and is the legitimate,
 #   intended home for answers + full worked solutions (its whole purpose is to publish
 #   them). Nothing changes for chat: the dashboard (§3), the report (§20) and every
@@ -433,7 +464,7 @@
 #   explain_engine.py in every project (NOT exam-prefixed — there is no per-exam
 #   variant to disambiguate, and a prefix would falsely imply exam-specificity). The
 #   user uploads it once and reuses the SAME file in every exam project. It self-tests
-#   with `--self-test` (must print "SELF-TEST: 47/47 PASS").
+#   with `--self-test` (must print "SELF-TEST: 44/44 PASS").
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE B — BATCH-OR-HALT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -636,7 +667,7 @@
   P1  AUTO-LOAD (exact order): this spec → section_rules.md → blueprint.json →
       subtopic_manifest.json → registry.json → explain_engine.py. Copy the engine to
       /home/claude and run `python3 explain_engine.py --self-test` → MUST print
-      "SELF-TEST: 47/47 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
+      "SELF-TEST: 44/44 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (Step-10 feedback) and
       [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT, and index every
@@ -646,9 +677,9 @@
       failure → HALT.
   P2  STATUS DASHBOARD (print every turn, before any solving):
 ```text
-      === MockExplain v1.12 — Session Status ===
+      === MockExplain v1.13 — Session Status ===
       Spec / section_rules / blueprint / manifest / registry : [loaded]
-      explain_engine.py --self-test                          : [47/47 PASS]
+      explain_engine.py --self-test                          : [44/44 PASS]
       Exam config (CATEGORY C)  : options=[k or per-section map] · labels=[scheme] ·
                                   q_re=[..] · opt_re=[..] · lang=[..] · terminators=[..]
       Level / Medium             : [level] · [medium]  (from exam_config via CATEGORY C)
@@ -795,7 +826,6 @@
   | speed_hack      | list[str]/None       | present IFF a genuinely faster route exists (§14); else None |
   | why_wrong       | dict{int:list}       | MCQ/MSQ only: keys == exactly the NON-selected options; each names an error type that reproduces the option (§15) |
   | common_pitfalls | dict{val:list}       | NAT only: ≥1 wrong-VALUE entry; each names the slip that yields that value (the NAT analogue of WHY WRONG) |
-  | figure_note     | str/None             | one sentence; figural only; describes what the images SHOW (§13) |
   | anomaly         | str/None             | INTERNAL escalation flag only — NEVER rendered to a student (§17) |
 
   Option index → displayed label is via cfg.option_label() (numeric / alpha / roman /
@@ -836,7 +866,6 @@
   [ ] WHY WRONG covers exactly the non-selected options, each first sentence naming an
       error type (§9) that ACTUALLY produces it (mcq/msq); NAT uses COMMON PITFALLS —
       ≥1 wrong VALUE, each with the slip that yields it                            (§15)
-  [ ] figure_note present (figural) — describes what the images SHOW
   [ ] applicable learnings routed (§24): AL/EX rules whose defect_code this question's
       class can exhibit are loaded and obeyed; any >=2-occurrence AL-rule for a present
       class is honored
@@ -861,7 +890,7 @@
   | C-VOCAB-ITEM     | synonym/antonym/idiom/one-word/spelling     | AXIOM = the sense/register under test; WHY WRONG = the one nuance each near-miss gets wrong; 2–3 lines total |
   | C-GRAMMAR        | error-spotting/improvement/voice/narration/jumble | DEDUCTION = re-derive the correct form; each WHY WRONG = the one rule violated |
   | C-LINKED         | member of a shared-stimulus group (RC/cloze/DI/puzzle) | POINT to the licensing line in the stimulus ("the passage states … → answer"); do NOT re-argue it |
-  | C-FIGURAL        | answer is/depends on a figure (§13)          | figure_note + AXIOM = the visual rule; DEDUCTION traces the VISIBLE transformation; WHY WRONG = the visual difference per wrong figure |
+  | C-FIGURAL        | answer is/depends on a figure (§13)          | AXIOM = the visual rule; DEDUCTION traces the VISIBLE transformation; WHY WRONG = the visual difference per wrong figure |
   | C-MATRIX/MATCH   | match-the-column / matrix                    | DEDUCTION = re-derive every pair; isolate the one fully-correct option |
   | C-MULTI-SELECT   | MSQ — more than one correct option (section_rules answer_cardinality == 'multi') | DEDUCTION = a truth-verdict line per option, then state the full correct SET; WHY WRONG = why each NON-selected option fails; CA line lists the set |
   | C-NUMERICAL-INPUT| NAT — typed numerical answer, NO options (section_rules answer_type == 'numerical') | DEDUCTION leads to the VALUE (last step contains it); AXIOM = formula+units; COMMON PITFALLS replace WHY WRONG (the wrong VALUES students compute + the slip for each); CA line shows the value (+ tolerance range if the exam allows one) |
@@ -993,22 +1022,12 @@
   templates/glyphs (engine); reproduces-the-wrong-answer + factual truth by discipline +
   Step 10.
 
-## S8-6 — figure_note (figural only — rendered under ⬛ FIGURE)
-  Role: a one-sentence anchor describing what the extracted images SHOW (not the answer),
-  derived from VIEWING them (§13) — makes the solution self-contained and proves the
-  images were looked at. A vague/generic note ("a figure is shown") is the tell of an
-  unviewed figure and is a Step-10 defect.
-  Render contract (v1.6): emitted under a bold ⬛ FIGURE heading, positioned AFTER the
-  Correct Answer line and BEFORE ⬛ AXIOM. The full rendered section order for a figural
-  question is: Correct Answer → ⬛ FIGURE → ⬛ AXIOM → ⬛ DEDUCTION → (⚡ SPEED HACK) →
-  ❌ WHY WRONG? / ❌ COMMON PITFALLS. Non-figural questions omit the FIGURE section
-  entirely (no empty heading). The ⬛ marker matches the AXIOM/DEDUCTION family and
-  renders reliably in Word; cfg.labels['figure'] and cfg.markers['figure'] are
-  configurable via EngineConfig like all other section headers.
-  Enforced: single guarded sentence (engine); heading emission (engine _block_paragraphs);
-  position check (verify_explanations — FIGURE must be first in header sequence when
-  present; spurious FIGURE on a non-figural block is flagged); "actually describes the
-  image" by discipline + Step 10.
+# NOTE (v1.13): the former S8-6 (figure_note, rendered under ⬛ FIGURE) is REMOVED.
+#   Figural questions no longer emit any FIGURE section; the rendered order for EVERY
+#   question type is Correct Answer → ⬛ AXIOM → ⬛ DEDUCTION → (⚡ SPEED HACK) →
+#   ❌ WHY WRONG? / ❌ COMMON PITFALLS. The figure itself stays in the question region
+#   (byte-identical, §12); how a figural AXIOM / DEDUCTION / WHY WRONG is written is
+#   governed by C-FIGURAL (§6-1) and the image-viewing protocol (§13), both unchanged.
 
 # ════════════════════════════════════════════════════════════════════════
 # §9 — ERROR-TYPE TAXONOMY (name one in each WHY WRONG first line)
@@ -1166,12 +1185,13 @@
   requirement (§12-3).
 
 ## S13-4 — Write what is visible; never anomaly-for-figural
-  figure_note describes what the images SHOW. AXIOM = the visual rule (rotation /
-  reflection / element add-remove / count / net-folding). DEDUCTION traces the VISIBLE
-  transformation step by step to the chosen option, citing concrete features. WHY WRONG
-  names, per wrong option-figure, the specific visual difference. anomaly is NEVER used
-  merely because options are images — a figural question always has a derivable answer
-  once viewed.
+  AXIOM = the visual rule (rotation / reflection / element add-remove / count /
+  net-folding). DEDUCTION traces the VISIBLE transformation step by step to the chosen
+  option, citing concrete features. WHY WRONG names, per wrong option-figure, the
+  specific visual difference. (v1.13: no separate figure-description line is rendered —
+  the figure itself sits in the question region above; the images are still VIEWED
+  before solving, §13-2 / RE-11.) anomaly is NEVER used merely because options are
+  images — a figural question always has a derivable answer once viewed.
 
 # ════════════════════════════════════════════════════════════════════════
 # §14 — SPEED HACK INCLUSION GATE (derivation-driven; omit, never fake)
@@ -1318,7 +1338,7 @@
   • COMMON (essentially always): what looked wrong was an incomplete solve → solve it
     properly and write the explanation. No defect.
   • RARE (should not occur on a certified paper): after §17-1/§17-2, there is provably no
-    single defensible answer → set the INTERNAL anomaly flag (never rendered, §5/§8-6),
+    single defensible answer → set the INTERNAL anomaly flag (never rendered, §5-1),
     HALT the run, and ESCALATE to Step 8 with the reproduced evidence. A defect surviving
     into Step 9 means Step 8 erred OR Step 9 did — and since Step 9 is the likelier
     culprit, escalation forces a re-check of both rather than a unilateral override.
@@ -1362,8 +1382,8 @@
   Any item open → fix, re-build, re-audit. present_files is FORBIDDEN until ALL hold.
   Why verify_explanations exists alongside verify_structure: the latter re-validates the
   in-memory block OBJECTS, the former re-parses the RENDERED ARTIFACT. Trusting the build
-  is not the same as verifying the output — a future renderer change, a figure_note, or a
-  build bug could write something the construction-time guards never saw, and only an
+  is not the same as verifying the output — a future renderer change or a build bug
+  could write something the construction-time guards never saw, and only an
   independent read-back of the document catches it.
 
 ## S18-2 — The independent gate is Step 10's completion gate (the loop's other half — v1.12)
@@ -1436,8 +1456,8 @@ Step 9 uses BOTH footer types:
 # ════════════════════════════════════════════════════════════════════════
 # §20 — END-OF-MOCK REPORT (after the FINAL batch's confirmation; MANDATE-0 safe)
 # ════════════════════════════════════════════════════════════════════════
-  §R1 PROVENANCE: mock N · registry state · blueprint reference · spec v1.12 · engine
-      47/47 · timestamp · EngineConfig (option count(s), label scheme, language,
+  §R1 PROVENANCE: mock N · registry state · blueprint reference · spec v1.13 · engine
+      44/44 · timestamp · EngineConfig (option count(s), label scheme, language,
       terminators) actually used.
   §R2 VERDICT: SHIP (delivered) / HALTED (escalation) — first line, unambiguous.
   §R3 COVERAGE: Q_TOTAL/Q_TOTAL explained · question-type split (mcq/msq/nat counts) ·
@@ -1460,13 +1480,13 @@ Step 9 uses BOTH footer types:
 # ════════════════════════════════════════════════════════════════════════
 # §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
 # ════════════════════════════════════════════════════════════════════════
-  1.  Pre-flight P0–P9 passed; engine --self-test 47/47; N in mocks_completed; config built.
+  1.  Pre-flight P0–P9 passed; engine --self-test 44/44; N in mocks_completed; config built.
   2.  Every question explained (zero sampling); every ExplanationBlock.validate() clean.
   3.  Every answer independently derived two ways; disagreements resolved 2-of-3 +
       DERIVATION-CONFIDENCE; zero guesses. Each block typed correctly (mcq/msq/nat) and
       the answer bound accordingly (one option / the full set / the value+range).
   4.  Every figural question's images extracted, role-bound, VIEWED; answer from the
-      images, not the manifest; figure_note present and concrete.
+      images, not the manifest (no FIGURE section is rendered — v1.13).
   5.  Every CA/factual option web-verified with a recorded source.
   6.  WHY WRONG (mcq/msq): keys == exactly the non-selected options, each naming an error
       type that REPRODUCES its option; COMMON PITFALLS (nat): ≥1 wrong value, each with the
@@ -1617,7 +1637,7 @@ Step 9 uses BOTH footer types:
 #   add_math_text, parse_paper, build_interleaved_docx, verify_fidelity, verify_structure,
 #   verify_explanations, strip_solutions, the Step-10 reader parse_solution_blocks, and
 #   parse_learnings. Self-tests: `python3 explain_engine.py --self-test` →
-#   "SELF-TEST: 47/47 PASS" (core, required at P1) and `--self-test-audit` →
+#   "SELF-TEST: 44/44 PASS" (core, required at P1) and `--self-test-audit` →
 #   "AUDIT-SELF-TEST: 10/10 PASS" (reader round-trip).
 #
 #   WHY THE LISTING WAS REMOVED (v1.12): through v1.11 the full engine was reproduced
@@ -1643,5 +1663,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.12
+# END OF Framework_MockTestExplain v1.13
 # ════════════════════════════════════════════════════════════════════════

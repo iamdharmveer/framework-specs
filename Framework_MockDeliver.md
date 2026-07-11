@@ -1,4 +1,4 @@
-# Framework_MockDeliver v1.3 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.4 — Universal Mock Test Tagger & Delivery Engine
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 # PURPOSE:
@@ -60,6 +60,14 @@
 #   UPSC (variable), or any MCQ/MSQ/NAT exam.
 #
 # VERSION HISTORY:
+#   v1.4 — 2026-07-11 — FIGURE SECTION REMOVED FROM SOLUTIONS LAYOUT LEGEND
+#          (parallel to Step 9 v1.13 / Step 10 v1.8). Step 9 no longer renders the
+#          ⬛ FIGURE / figure-description block, so the §S2-2 per-question interleaved-
+#          Solutions layout legend drops those two lines. The per-question block is now
+#          Correct Answer → ⬛ AXIOM → ⬛ DEDUCTION → (⚡ SPEED HACK) → ❌ WHY WRONG? /
+#          ❌ COMMON PITFALLS for every question type. Documentation-only; MockDeliver
+#          reads and delivers the finished docx and never rendered or checked the FIGURE
+#          header, so there is zero logic change.
 #   v1.3 — 2026-07-09 — DOCX VALIDITY HARDENING (fixes Word "unreadable content —
 #          recover?" on the delivered Tagged.docx). Roots out an OOXML-corruption class
 #          that python-docx and LibreOffice opened SILENTLY while Microsoft Word — the
@@ -438,8 +446,6 @@ Q.N  [bold stem text]            ← may span multiple paragraphs
 [option lines]                   ← numbered or lettered per exam
 [blank para]                     ← separator between options and explanation
 Correct Answer: K                ← bold, color NAVY 003366
-⬛ FIGURE                        ← bold header (figural Qs only)
-[figure description]
 ⬛ AXIOM                         ← bold header
 [axiom sentences]
 ⬛ DEDUCTION                     ← bold header
@@ -1573,4 +1579,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.3
+# END OF Framework_MockDeliver v1.4

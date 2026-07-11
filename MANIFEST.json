@@ -74,11 +74,11 @@
       "bytes": 32428
     },
     "Framework_MockDeliver.md": {
-      "sha256": "ef32ba8fc95733d6d79236bd917cca81f6469e0fdc8f8cd5b42a2b91e16ab310",
-      "version_header": "# Framework_MockDeliver v1.3 \u2014 Universal Mock Test Tagger & Delivery Engine",
-      "end_sentinel": "# END OF Framework_MockDeliver v1.3",
-      "lines": 1576,
-      "bytes": 72494
+      "sha256": "fb718a4616dfa599db4daf0e66807978d4bdb8067896be6d2618de98b631383b",
+      "version_header": "# Framework_MockDeliver v1.4 \u2014 Universal Mock Test Tagger & Delivery Engine",
+      "end_sentinel": "# END OF Framework_MockDeliver v1.4",
+      "lines": 1582,
+      "bytes": 73073
     },
     "Framework_MockTestAnalyse.md": {
       "sha256": "c3988aa6e4c6d7b53ba90a5fffb697ea7245c3ee22d1c9b1b897fe5c410881e6",
@@ -102,18 +102,18 @@
       "bytes": 317077
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "34c275be60b4439ce42fcba64fbcee36d2f45d98888ccc8b75b08a6732e86212",
-      "version_header": "# Framework_MockTestExplain v1.12",
+      "sha256": "683341383d9c0e36d750b2f1fd7470d1cc2fb5f10a914e0292199b343aa76da6",
+      "version_header": "# Framework_MockTestExplain v1.13",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1647,
-      "bytes": 132664
+      "lines": 1667,
+      "bytes": 134330
     },
     "Framework_MockTestExplainAudit.md": {
-      "sha256": "70a2d5406d19a661cacdd2b14f0719712d022c2454d2a528d75cf3da21c73d3b",
+      "sha256": "5978b46155fa52b4dff8d6ba9db2af22f3ebeb1777dae3245624b08fe9f1fef1",
       "version_header": "# Framework_MockTestExplainAudit.md",
-      "end_sentinel": "**End of Framework_MockTestExplainAudit.md (v1.7)**",
-      "lines": 924,
-      "bytes": 96811
+      "end_sentinel": "**End of Framework_MockTestExplainAudit.md (v1.8)**",
+      "lines": 938,
+      "bytes": 97843
     },
     "Framework_PYQAnalyse.md": {
       "sha256": "c1e3487edeeb68f985ae6b3c49dbdd8f7eb0380c6eab06bca7dea5872e64b4d4",
