@@ -1,4 +1,4 @@
-# Framework_MockTestAnalyse v2.24 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.1 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
 # v2.24 changes: MECHANIC / FORM-KEY ENGINE — permanent fix for the BV-10 same-mechanic
@@ -27,6 +27,28 @@
 #   PAIRS WITH: Step 6 B1 feasibility gate + two-tier BV-10a(HARD form_key)/BV-10b(SOFT
 #   family cap) — delivered separately. Verified by step5_harness (21/21) + engine
 #   extracted-from-this-file (13/13) + whole-document syntax parity.
+#
+# v2.24.1 changes: EXAM-INDEPENDENT fix for the BV-10a form_key-collision HALT class.
+#   v2.24 collapsed family/question_mechanic/form_key onto ONE token whenever no
+#   reasoning qualifier matched — always, on any subject exam — so any two subtopics
+#   sharing a _FAMILY_MAP keyword (e.g. three "…Classification…" biochemistry subtopics)
+#   got an identical form_key and Step 6 BV-10a HALTed two steps later. Latent in EVERY
+#   single-section subject exam, not just one. WHAT CHANGED (defect report D1..D9):
+#     (D1) form_key now derives from the subtopic's OWN identity base (→ unique subtopic_id),
+#          NEVER the family token. Uniqueness is by construction, not by qualifier accident.
+#     (D2) _FAMILY_MAP rows are (keywords, family, template_set); the keyword table fires
+#          only for template_sets the exam DECLARES. _is_verbal() demoted to narrow-only.
+#     (D3) collision_domain uses the collision-safe section_prefix (EC-M4).
+#     (D5/D8) derive-once: mint subtopic_id → stamp_mechanic_axes() (asserts uniqueness) →
+#          run_qv(), all reading the SAME stamped fields. _absent_entry/scaffold emit None
+#          and are filled by the single stamp site. QV-13 is now FAIL (no allowlist); name
+#          shape split to QV-13a (advisory).
+#     (D7) subtopic_merges (TRUE duplicates only) replaces the retracted allowlist.
+#     (D9) _extract_qualifiers() returns ALL matches, alphabetical, word-boundary-redundancy.
+#   PER-EXAM INPUT: [ExamCode]_mechanic_overrides.json ONLY. Absent ⇒ legacy family
+#   selection (REGR-1) + the always-on uniqueness improvement. REQUIRES Step 6 §7.1
+#   (Blueprint): remove concept_group from the form_key fallback chain (now deliberately
+#   shared). Verified: patched-code checks 6/6 (biochemistry unblock + EC-M1/M2/M6/M8/M17/M18).
 #
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP NUMBER NOTE — CANONICAL PIPELINE MAPPING
@@ -3272,10 +3294,10 @@ def _absent_entry(section, topic, subtopic):
         'linked_group_size':0,'max_per_paper':0,'typical_per_paper':0,
         'stem_word_count':{'min':0,'max':0,'typical':0},
         'sub_type_label':subtopic,
-        'concept_group': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['family'],        # v2.24
-        'question_mechanic': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['mechanic'],   # v2.24
-        'form_key': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['form_key'],            # v2.24
-        'collision_domain': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['collision_domain'],  # v2.24
+        'concept_group': None,        # v2.24.1 (D8): stamped later by stamp_mechanic_axes()
+        'question_mechanic': None,    # v2.24.1 (D8)
+        'form_key': None,             # v2.24.1 (D8)
+        'collision_domain': None,     # v2.24.1 (D8)
         'PYQ_STEM_PATTERNS':[{'id':'P1','template':'(no PYQ observed)','approach':'(unknown)',
                                'frequency':100,'raw_count':0,'confidence':'absent',
                                'deprecated':False,'years':[],'note_block':'never','note_text':''}],
@@ -3501,23 +3523,34 @@ def _compute_structural_changes(entries):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# v2.24 MECHANIC / FORM-KEY ENGINE  (fixes BV-10 same-mechanic deadlock class)
+# v2.24.1 MECHANIC / FORM-KEY ENGINE  (permanent, EXAM-INDEPENDENT fix for the
+#                                      BV-10a form_key-collision HALT class)
 # ------------------------------------------------------------------------------
-# WHY: the old _derive_question_mechanic used English-verbal-only substring keywords
-# and silently fell back to the coarse concept_group for every reasoning/quant/GA
-# subtopic. Distinct forms (Number Series, Letter Series, ...) collapsed onto one
-# label; BV-10 then read that "cousins" label as a "twins" identity and deadlocked.
-# This engine emits, per subtopic:
-#   family           — coarse diversity family (for the SOFT per-mock cap, BV-10b)
-#   mechanic/form_key — FINE, qualifier-aware identity (for the HARD guard, BV-10a)
-#   collision_domain  — default = section (stops cross-section false collisions)
-# Properties (all covered by the Step-5 harness): word-boundary matching (no
-# 'voice' in 'invoice', no 'clock' in 'clockwise'); verbal keywords gated to
-# verbal sections/formats; qualifier-aware so variants stay distinct; Devanagari/
-# regional safe via transliteration + subtopic_id fallback; NEVER empty; and
-# deterministic in (section, name/id) — NOT in volatile PYQ templates.
-# The public wrappers _derive_concept_group()/_derive_question_mechanic() are kept
-# so every existing caller keeps working.
+# THREE AXES, THREE GRANULARITIES. They are NOT the same variable.
+#   family / concept_group  — COARSE. May be shared. Feeds BV-10b (SOFT cap).
+#   question_mechanic       — SEMANTIC FORM. May be shared. Feeds Step 7 CHECK D.
+#   form_key                — IDENTITY. MUST be unique per collision_domain.
+#                             Feeds BV-10a (HARD cap = 1, not configurable).
+#
+# v2.24 collapsed all three onto `family` whenever no qualifier was found — which,
+# because _QUALIFIERS is a reasoning-domain vocabulary, is ALWAYS the case on a
+# subject-knowledge exam. Any two subtopics sharing a _FAMILY_MAP keyword then got
+# an IDENTICAL form_key, and Step 6 BV-10a HALTed two steps later. This is not
+# exam-specific: it is latent in EVERY single-section subject exam. See the
+# v2.24.1 defect report (D1..D9).
+#
+# v2.24.1 relocates the uniqueness guarantee from an ACCIDENT (a reasoning
+# qualifier happening to match the name) to a CONSTRUCTION: form_key derives from
+# the subtopic's own identity base, which bottoms out at the unique subtopic_id.
+# It scopes the keyword table by a per-exam `template_sets` declaration, derives +
+# stamps every axis exactly ONCE after id minting, and asserts form_key uniqueness
+# BEFORE any artifact is written. The failure mode (defective manifest promoted,
+# HALT two steps later) is therefore impossible for any exam: the worst case is a
+# LOUD Step-5 FAIL naming the offending ids, never a silent downstream HALT.
+#
+# EXAM-INDEPENDENCE: the engine is identical for every exam. The ONLY per-exam
+# input is [ExamCode]_mechanic_overrides.json. Absent file ⇒ legacy family
+# selection (REGR-1) PLUS the SPEC-1 uniqueness improvement, which is always on.
 
 def canon_text(s):
     """NFC + casefold + hyphen/slash/ampersand->space + collapse whitespace. Never raises."""
@@ -3531,14 +3564,17 @@ def canon_text(s):
 def _has_word(text, kw):
     """Word-boundary containment; allows only simple plural (s/es), never arbitrary
     continuation. 'voice' does NOT match 'invoice'; 'clock' does NOT match 'clockwise';
-    but 'antonym' DOES match 'antonyms'."""
+    but 'antonym' DOES match 'antonyms'. EC-M12: plural suffix applies to the FINAL
+    token of a multi-word keyword too."""
     import re
     if ' ' in kw:
-        return re.search(r'(?<!\w)'+re.escape(kw)+r'(?!\w)', text) is not None
+        head, _, tail = kw.rpartition(' ')
+        pat = r'(?<!\w)' + re.escape(head) + r'\s+' + re.escape(tail) + r'(?:e?s)?(?!\w)'
+        return re.search(pat, text) is not None
     return re.search(r'\b'+re.escape(kw)+r'(?:e?s)?\b', text) is not None
 
 # Minimal, extensible transliteration for common Hindi verbal/reasoning terms so a
-# pure-Devanagari name never collapses to '' (extend per exam as needed).
+# pure-Devanagari name never collapses to '' for the FAMILY axis (never for form_key).
 _HI_MAP = {
     'पर्यायवाची':'synonym',
     'विलोम':'antonym',
@@ -3557,87 +3593,333 @@ def _translit_hint(raw):
 _VERBAL_SECTION_HINTS = ('english','verbal','language','comprehension','hindi',
                          'हिंदी','भाषा')
 def _is_verbal(section, fmt):
+    """v2.24.1: DEMOTED. It may only NARROW a declared template set (advisory), never
+    WIDEN one. Its old ability to enable the verbal table for any TEXT exam (the D2
+    defect) is gone — the verbal table now fires only when the exam DECLARES 'verbal'
+    in template_sets AND this returns True."""
     sec = canon_text(section)
     if any(h in sec for h in _VERBAL_SECTION_HINTS):
         return True
     return (fmt or 'TEXT').upper() in ('TEXT','PASSAGE')
 
-# (keywords, family, verbal_only). verbal_only rows only fire in verbal sections/formats.
+# ── Per-exam overrides loader (SPEC-2 / SPEC-6; EC-M17 exam_code, EC-M18 malformed) ──
+_OVERRIDES = None
+_MERGE_LOG = []          # populated by apply_subtopic_merges(); read by write_analysis_summary()
+
+def load_mechanic_overrides(exam_code):
+    """Discovery: /mnt/project/, then /mnt/user-data/uploads/.
+    Absent               → all defaults (legacy family selection; SPEC-1 still applies).
+    Present + malformed  → FAIL (EC-M18).  exam_code mismatch → FAIL (EC-M17)."""
+    global _OVERRIDES
+    if _OVERRIDES is not None:
+        return _OVERRIDES
+    _OVERRIDES = {'template_sets': None, 'template_sets_by_section': {},
+                  'subtopic_overrides': {}, 'subtopic_merges': []}
+    for d in ('/mnt/project/', '/mnt/user-data/uploads/'):
+        path = os.path.join(d, f'{exam_code}_mechanic_overrides.json')
+        if not os.path.exists(path):
+            continue
+        try:
+            with io_open_utf8(path) as fh:
+                data = json.load(fh)
+        except json.JSONDecodeError as ex:
+            raise SystemExit(f'FAIL: {path} is not valid JSON — {ex}')                 # EC-M18
+        if data.get('exam_code') != exam_code:                                          # EC-M17
+            raise SystemExit(f"FAIL: {path} declares exam_code={data.get('exam_code')!r}, "
+                             f"expected {exam_code!r}")
+        _valid = {'verbal','reasoning'}
+        bad = set(data.get('template_sets') or []) - _valid                             # OV-5
+        if bad:
+            raise SystemExit(f"FAIL: {path} template_sets has unknown values {sorted(bad)}")
+        for _sec, _sets in (data.get('template_sets_by_section') or {}).items():         # OV-5b
+            _badsec = set(_sets or []) - _valid
+            if _badsec:
+                raise SystemExit(f"FAIL: {path} template_sets_by_section[{_sec!r}] has "
+                                 f"unknown values {sorted(_badsec)} (check case/whitespace)")
+        _OVERRIDES.update(data)
+        break
+    return _OVERRIDES
+
+def io_open_utf8(path):
+    import io as _io
+    return _io.open(path, encoding='utf-8')
+
+# ── The keyword table. Rows are 3-tuples now: (keywords, family, template_set). ──
+#    Every former verbal_only=True row is 'verbal'; every former False row is
+#    'reasoning'. A row fires only if its template_set is declared for the exam.
 _FAMILY_MAP = [
-    (['synonym','similar in meaning','nearest in meaning'], 'synonym', True),
-    (['antonym','opposite in meaning','opposite meaning'],  'antonym', True),
-    (['one word substitution','one word substitute'],       'one_word_substitution', True),
-    (['idiom','phrasal verb'],                              'idiom', True),
-    (['cloze'],                                             'cloze_test', True),
-    (['fill in the blank','fill in the blanks','sentence completion'], 'fill_in_blank', True),
-    (['spelling','correctly spelt','misspelt'],             'spelling', True),
-    (['grammatical error','error detection','spotting error','find the error'], 'error_detection', True),
-    (['sentence improvement','sentence correction','best improves'], 'sentence_improvement', True),
-    (['voice','active voice','passive voice'],              'voice', True),
-    (['narration','direct speech','indirect speech','reported speech'], 'narration', True),
-    (['para jumble','sentence rearrangement','sentence order'], 'para_jumble', True),
-    (['reading comprehension'],                            'reading_comprehension', True),
-    (['series'],                                           'series', False),
-    (['analogy'],                                          'analogy', False),
-    (['classification','odd one out','odd pair','does not belong'], 'classification', False),
-    (['coding','decoding'],                                'coding_decoding', False),
-    (['blood relation','family relation'],                 'blood_relation', False),
-    (['direction'],                                        'direction_sense', False),
-    (['seating','arrangement','puzzle'],                   'arrangement', False),
-    (['syllogism','statement conclusion','statement assumption','course of action','logical deduction'], 'syllogism', False),
-    (['mirror image'],                                     'mirror_image', False),
-    (['water image'],                                      'water_image', False),
-    (['paper folding','paper cutting'],                    'paper_folding', False),
-    (['embedded figure','hidden figure'],                  'embedded_figure', False),
-    (['venn diagram'],                                     'venn_diagram', False),
-    (['dice','cube'],                                      'dice', False),
-    (['missing number','number matrix','number grid'],     'missing_number', False),
-    (['calendar'],                                         'calendar', False),
-    (['clock'],                                            'clock', False),
-    (['data interpretation','bar graph','pie chart','line graph','tabulation'], 'data_interpretation', False),
-    (['current affairs'],                                  'current_affairs', False),
-    (['static gk','static general knowledge'],             'static_gk', False),
+    (['synonym','similar in meaning','nearest in meaning'], 'synonym', 'verbal'),
+    (['antonym','opposite in meaning','opposite meaning'],  'antonym', 'verbal'),
+    (['one word substitution','one word substitute'],       'one_word_substitution', 'verbal'),
+    (['idiom','phrasal verb'],                              'idiom', 'verbal'),
+    (['cloze'],                                             'cloze_test', 'verbal'),
+    (['fill in the blank','fill in the blanks','sentence completion'], 'fill_in_blank', 'verbal'),
+    (['spelling','correctly spelt','misspelt'],             'spelling', 'verbal'),
+    (['grammatical error','error detection','spotting error','find the error'], 'error_detection', 'verbal'),
+    (['sentence improvement','sentence correction','best improves'], 'sentence_improvement', 'verbal'),
+    (['voice','active voice','passive voice'],              'voice', 'verbal'),
+    (['narration','direct speech','indirect speech','reported speech'], 'narration', 'verbal'),
+    (['para jumble','sentence rearrangement','sentence order'], 'para_jumble', 'verbal'),
+    (['reading comprehension'],                            'reading_comprehension', 'verbal'),
+    (['series'],                                           'series', 'reasoning'),
+    (['analogy'],                                          'analogy', 'reasoning'),
+    (['classification','odd one out','odd pair','does not belong'], 'classification', 'reasoning'),
+    (['coding','decoding'],                                'coding_decoding', 'reasoning'),
+    (['blood relation','family relation'],                 'blood_relation', 'reasoning'),
+    (['direction'],                                        'direction_sense', 'reasoning'),
+    (['seating','arrangement','puzzle'],                   'arrangement', 'reasoning'),
+    (['syllogism','statement conclusion','statement assumption','course of action','logical deduction'], 'syllogism', 'reasoning'),
+    (['mirror image'],                                     'mirror_image', 'reasoning'),
+    (['water image'],                                      'water_image', 'reasoning'),
+    (['paper folding','paper cutting'],                    'paper_folding', 'reasoning'),
+    (['embedded figure','hidden figure'],                  'embedded_figure', 'reasoning'),
+    (['venn diagram'],                                     'venn_diagram', 'reasoning'),
+    (['dice','cube'],                                      'dice', 'reasoning'),
+    (['missing number','number matrix','number grid'],     'missing_number', 'reasoning'),
+    (['calendar'],                                         'calendar', 'reasoning'),
+    (['clock'],                                            'clock', 'reasoning'),
+    (['data interpretation','bar graph','pie chart','line graph','tabulation'], 'data_interpretation', 'reasoning'),
+    (['current affairs'],                                  'current_affairs', 'reasoning'),
+    (['static gk','static general knowledge'],             'static_gk', 'reasoning'),
 ]
 _QUALIFIERS = ['alphanumeric','symbolic','semantic','number','numeric','numerical',
                'letter','alphabet','word','figural','figure','spatial',
                'linear','circular','floor','matrix','wheel','triangle','substitution']
-# qualifiers only discriminate WITHIN these reasoning families; elsewhere they are noise
 _QUALIFIABLE = {'series','analogy','classification','coding_decoding','missing_number',
                 'arrangement','mirror_image','paper_folding','embedded_figure'}
-def _extract_qualifier(name_c):
-    for q in _QUALIFIERS:
-        if _has_word(name_c, q):
-            return re.sub(r'\s+','_', q)
-    return None
+_ALL_FAMILY_NAMES = {fam for _, fam, _ in _FAMILY_MAP}
+_TEMPLATE_SET     = {fam: ts for _, fam, ts in _FAMILY_MAP}
 
-def derive_mechanic(section, subtopic, sub_type_label=None, templates='', fmt='TEXT', subtopic_id=None):
-    """Return {family, mechanic, form_key, collision_domain}. See engine header."""
+def _identity_base(display_name, subtopic_id):
+    """SPEC-1 / EC-M2. The collision-safe identity root. ONE recipe, ONE call site.
+    A fully non-Latin name slugifies to '' and must still yield a stable, unique,
+    call-site-independent value. Ultimately bottoms out at the unique subtopic_id."""
+    import hashlib as _hl
+    return (slugify(display_name)
+            or slugify(subtopic_id)
+            or ('u_' + _hl.md5((display_name or '').encode('utf-8')).hexdigest()[:8]))
+
+def _redundant(qual, base):
+    """EC-M13: word-boundary test, not substring. 'number' is redundant against base
+    'missing_number' only if it appears there as a whole token."""
+    return _has_word(base.replace('_', ' '), qual)
+
+def _extract_qualifiers(name_c):
+    """EC-M14: ALL matching qualifiers, canonical (alphabetical) order — order-independent."""
+    import re
+    return tuple(sorted(re.sub(r'\s+', '_', q) for q in _QUALIFIERS if _has_word(name_c, q)))
+
+def _allowed_template_sets(section, ov):
+    allowed = ov.get('template_sets_by_section', {}).get(section, ov.get('template_sets'))
+    if allowed is None:
+        allowed = ['verbal', 'reasoning']            # ABSENT ⇒ legacy behaviour (REGR-1)
+    return allowed
+
+def derive_mechanic(section, subtopic, sub_type_label=None, templates='',
+                    fmt='TEXT', subtopic_id=None, prefix_overrides=None):
+    """Returns {family, mechanic, form_key, collision_domain}.
+    PRECONDITION: subtopic_id is the FINAL, de-duplicated, minted id (EC-M3)."""
+    import re
+    ov       = _OVERRIDES or {}
     raw_name = subtopic or sub_type_label or ''
     name_c   = canon_text(raw_name + ' ' + (sub_type_label or ''))
-    verbal   = _is_verbal(section, fmt)
-    def _match_family(hay):
-        for keywords, fam, verbal_only in _FAMILY_MAP:
-            if verbal_only and not verbal:
-                continue
-            if any(_has_word(hay, kw) for kw in keywords):
+    base     = _identity_base(raw_name, subtopic_id)
+    domain   = section_prefix(section, prefix_overrides) or 'default'    # SPEC-3 / EC-M4
+    allowed  = _allowed_template_sets(section, ov)                       # SPEC-2 / EC-M6
+
+    def _match(hay):
+        for kws, fam, tset in _FAMILY_MAP:
+            if tset not in allowed:                                 continue
+            if tset == 'verbal' and not _is_verbal(section, fmt):   continue   # advisory NARROW only
+            if any(_has_word(hay, kw) for kw in kws):
                 return fam
         return None
-    # NAME is authoritative (deterministic); templates only rescue an uninformative name.
-    family = _match_family(name_c) if name_c.strip() else None
-    if family is None:
-        family = _match_family(canon_text(templates))
-    if family is None:
-        family = _translit_hint(raw_name)
-    if family is None:  # never empty; FULLY DETERMINISTIC (hashlib, never runtime hash())
-        import hashlib as _hl
-        family = (slugify(raw_name)
-                  or (('sid_' + slugify(subtopic_id)) if subtopic_id else '')
-                  or ('u_' + _hl.md5((raw_name or '').encode('utf-8')).hexdigest()[:8]))
-    qual = _extract_qualifier(name_c) if family in _QUALIFIABLE else None
-    mechanic = f'{family}__{qual}' if (qual and qual not in family) else family
-    return {'family': family, 'mechanic': mechanic, 'form_key': mechanic,
-            'collision_domain': canon_text(section) or 'default'}
 
+    # COARSE axis. NAME is authoritative. Templates rescue ONLY a name with no
+    # alphanumeric content at all (never merely "a name that matched nothing").
+    family = _match(name_c) if name_c.strip() else None
+    if family is None and not re.search(r'[a-z0-9]', name_c):
+        family = _match(canon_text(templates))
+    if family is None:
+        family = _translit_hint(raw_name)                           # EC-M2: family ONLY
+    if family is None:
+        family = base                                               # coarse identity == the name
+
+    # FINE axis. SPEC-1: starts from the NAME/id base, NEVER from the family token.
+    quals    = _extract_qualifiers(name_c) if family in _QUALIFIABLE else ()
+    suffix   = '__'.join(q for q in quals if not _redundant(q, base))   # EC-M13 / EC-M14
+    form_key = f'{base}__{suffix}' if suffix else base
+
+    # Explicit curator override wins over everything (applied per subtopic_id).
+    per      = ov.get('subtopic_overrides', {}).get(subtopic_id or '', {})
+    family   = per.get('concept_group',     family)
+    form_key = per.get('form_key',          form_key)
+    mechanic = per.get('question_mechanic', form_key)               # v2.24.1: mechanic == form_key
+
+    return {'family': family, 'mechanic': mechanic,
+            'form_key': form_key, 'collision_domain': domain}
+
+def mint_subtopic_ids(entries, exam_meta=None):
+    """v2.24.1: mint the canonical, collision-safe subtopic_id for every entry, IDEMPOTENTLY
+    (an entry that already carries an id is left untouched). Called from run_synthesise()
+    BEFORE merges/stamp/QV so the gate and every writer read the SAME id. write_section_rules()
+    also calls it as a no-op guard."""
+    pov  = (exam_meta or {}).get('section_prefix_overrides', {})
+    pmap = build_section_prefix_map(sorted({e['section'] for e in entries}), pov)
+    seen = {}
+    for e in entries:
+        if e.get('subtopic_id'):
+            seen[e['subtopic_id']] = (e['section'], e['topic'], e['subtopic'])
+    for e in entries:
+        if e.get('subtopic_id'):
+            continue
+        sid = make_subtopic_id(e['section'], e['topic'], e['subtopic'], pmap)
+        base = sid; n = 2
+        key = (e['section'], e['topic'], e['subtopic'])
+        while sid in seen and seen[sid] != key:
+            sid = f'{base}_{n}'; n += 1
+        seen[sid] = key
+        e['subtopic_id'] = sid
+    return entries
+
+def apply_subtopic_merges(entries, exam_code):
+    """D7 / SPEC-7. TRUE-duplicate merge (NOT an allowlist). Each group of >=2 subtopic_ids
+    is collapsed into the FIRST member; the others are dropped. Members must share a section
+    (OV-3). Runs AFTER id minting, BEFORE stamp/QV. Records every drop in _MERGE_LOG so
+    write_analysis_summary() can emit the mandatory '## MERGED SUBTOPICS' section (a merge
+    removes a subtopic_id that Steps 6/7 join on — the curator must see what disappeared)."""
+    global _MERGE_LOG
+    _MERGE_LOG = []
+    ov = load_mechanic_overrides(exam_code)
+    groups = ov.get('subtopic_merges', []) or []
+    if not groups:
+        return entries
+    by_id = {e.get('subtopic_id'): e for e in entries}
+    drop  = set()
+    _across = {}                                                                     # id -> group index
+    for _gi, _grp in enumerate(groups):                                              # OV-4b: groups disjoint
+        for _g in _grp:
+            if _g in _across:
+                raise SystemExit(f"FAIL: subtopic_merges: {_g!r} appears in two groups "
+                                 f"({groups[_across[_g]]} and {_grp}); groups must be disjoint")
+            _across[_g] = _gi
+    for grp in groups:
+        if len(grp) < 2:                                                             # OV-4
+            raise SystemExit(f"FAIL: subtopic_merges group {grp} has <2 members")
+        missing = [g for g in grp if g not in by_id]
+        if missing:                                                                  # OV-3
+            raise SystemExit(f"FAIL: subtopic_merges references unknown subtopic_id(s) {missing}")
+        secs = {by_id[g]['section'] for g in grp}
+        if len(secs) > 1:                                                            # OV-3
+            raise SystemExit(f"FAIL: subtopic_merges group {grp} spans sections {sorted(secs)}")
+        survivor = by_id[grp[0]]
+        members  = [by_id[g] for g in grp]
+        survivor['observed_count'] = sum(m.get('observed_count', 0) for m in members)
+        survivor['max_per_paper']  = max(m.get('max_per_paper', 0) for m in members)
+        tpp = [m.get('typical_per_paper', 0) for m in members]
+        survivor['typical_per_paper'] = round(sum(tpp) / len(tpp)) if tpp else 0
+        for g in grp[1:]:
+            drop.add(g)
+            _MERGE_LOG.append((g, grp[0]))
+    kept = [e for e in entries if e.get('subtopic_id') not in drop]
+    for g, keep in _MERGE_LOG:
+        print(f"  MERGE: {g} → {keep} (observed_count summed)")
+    return kept
+
+def stamp_mechanic_axes(entries, exam_code, exam_meta=None):
+    """SPEC-5 / D8. Derive ONCE, stamp, then assert. Called from run_synthesise() AFTER
+    taxonomy sync, AFTER merges, AFTER subtopic_id minting — and BEFORE run_qv() and any
+    writer. Every downstream consumer reads the stamped field; NONE recompute."""
+    import difflib
+    ov = load_mechanic_overrides(exam_code)
+    pov = (exam_meta or {}).get('section_prefix_overrides', {})
+    po  = build_section_prefix_map(sorted({e['section'] for e in entries}), pov)
+
+    # PRECONDITION (§8-4): every entry must already carry a minted subtopic_id. mint runs
+    # before stamp in run_synthesise; guard here so a misordered caller fails clearly, not
+    # with a bare KeyError.
+    _noid = [i for i, e in enumerate(entries) if not e.get('subtopic_id')]
+    if _noid:
+        raise SystemExit(f"stamp_mechanic_axes precondition violated: {len(_noid)} entr(y/ies) "
+                         f"have no subtopic_id — mint_subtopic_ids() must run first.")
+
+    known   = {e['subtopic_id'] for e in entries}
+    unknown = set(ov.get('subtopic_overrides', {})) - known                          # OV-1 / EC-M7
+    if unknown:
+        for u in sorted(unknown):
+            near = difflib.get_close_matches(u, list(known), n=3)
+            print(f'  FAIL: override key {u!r} matches no subtopic_id. Did you mean: {near}')
+        raise SystemExit(f'OV-1: {len(unknown)} override key(s) match no subtopic_id')
+    for sec in ov.get('template_sets_by_section', {}):                               # OV-6
+        if sec not in {e['section'] for e in entries}:
+            raise SystemExit(f"OV-6: template_sets_by_section names unknown section {sec!r}")
+
+    _ovsub = ov.get('subtopic_overrides', {})
+    _forced_fk = set()          # ids whose form_key was set by an EXPLICIT curator override
+    for e in entries:
+        templates = ' '.join(p.get('template', '') for p in e.get('PYQ_STEM_PATTERNS', []))
+        ax = derive_mechanic(e['section'], e.get('subtopic') or e.get('sub_type_label',''),
+                             e.get('sub_type_label'), templates,
+                             e.get('format', 'TEXT'), e['subtopic_id'], po)
+        e['concept_group']     = ax['family']
+        e['question_mechanic'] = ax['mechanic']
+        e['form_key']          = ax['form_key']
+        e['collision_domain']  = ax['collision_domain']
+        if 'form_key' in _ovsub.get(e['subtopic_id'], {}):
+            _forced_fk.add(e['subtopic_id'])
+
+    # EC-M1: two subtopics whose DISPLAY_NAME yields the SAME derived base in one
+    # collision_domain both fall back to slugify(subtopic_id) — deterministic, unique.
+    # This applies ONLY to derived collisions. A collision in which ANY member carries an
+    # EXPLICIT override form_key is NOT auto-resolved: that is an OV-2 curator error and
+    # must FAIL loudly below (silently rewriting a curator's declared value would hide a
+    # real mistake). See EC-M8.
+    import hashlib as _hl
+    claims = {}
+    for e in entries:
+        claims.setdefault((e['collision_domain'], e['form_key']), []).append(e)
+    for (_dom, _fk), grp in claims.items():
+        if len({e['subtopic_id'] for e in grp}) > 1 and not any(e['subtopic_id'] in _forced_fk for e in grp):
+            for e in grp:
+                e['form_key'] = slugify(e['subtopic_id'])
+    # Residual guard: subtopic_ids are unique, but slugify() maps '.' and '_' alike, so two
+    # DISTINCT ids can slugify to the same string (e.g. 'p.a_b.c' and 'p.a.b_c'). Any residual
+    # (domain, form_key) collision among AUTO-RESOLVED entries (no forced override) is broken
+    # deterministically with a short id-hash suffix, so genuinely-distinct subtopics never
+    # provoke a false HALT. Override-induced collisions are left for the invariant to reject.
+    _res = {}
+    for e in entries:
+        _res.setdefault((e['collision_domain'], e['form_key']), []).append(e)
+    for (_dom, _fk), grp in _res.items():
+        if len({e['subtopic_id'] for e in grp}) > 1 and not any(e['subtopic_id'] in _forced_fk for e in grp):
+            for e in grp:
+                _h = _hl.md5(e['subtopic_id'].encode('utf-8')).hexdigest()[:6]
+                e['form_key'] = f"{e['form_key']}_{_h}"
+
+    # OV-2 / D7 / EC-M8 / EC-M15: uniqueness is an INVARIANT, asserted before any write.
+    seen, violations = {}, []
+    for e in entries:
+        k = (e['collision_domain'], e['form_key'])
+        if not e['form_key']:
+            violations.append(f"{e['subtopic_id']}: empty form_key")
+        if e['form_key'] == e['collision_domain']:
+            violations.append(f"{e['subtopic_id']}: form_key equals collision_domain")
+        if k in seen and seen[k] != e['subtopic_id']:
+            violations.append(f"{k[0]}:{k[1]} shared by {seen[k]} and {e['subtopic_id']}")
+        seen[k] = e['subtopic_id']
+    if violations:
+        raise SystemExit(
+            'form_key uniqueness invariant violated. A manifest with a shared form_key is a '
+            'latent Step 6 BV-10a HALT whose triggering depends on N_mocks and batch_size, '
+            'which Step 5 cannot know. Merge the subtopics via subtopic_merges, or give them '
+            'distinct form_keys via subtopic_overrides.\n  ' + '\n  '.join(violations))
+    print(f'  form_key invariant: PASS — {len(entries)} entries, '
+          f'{len(seen)} distinct (collision_domain, form_key) pairs')
+    return entries
+
+# ── Back-compat wrappers. They read the STAMPED field first and only fall back to a
+#    fresh derivation for a legacy caller that never ran stamp_mechanic_axes(). After
+#    the v2.24.1 run_synthesise() path they always return the stamped value. ──
 def _derive_axes(entry):
     templates = ' '.join(p.get('template','') for p in entry.get('PYQ_STEM_PATTERNS', []))
     return derive_mechanic(entry.get('section',''),
@@ -3646,11 +3928,9 @@ def _derive_axes(entry):
                            entry.get('format','TEXT'), entry.get('subtopic_id'))
 
 def _derive_concept_group(entry):
-    """Coarse diversity family (SOFT cap axis). Back-compat wrapper over the v2.24 engine."""
     return entry.get('concept_group') or _derive_axes(entry)['family']
 
 def _derive_question_mechanic(entry):
-    """Fine, qualifier-aware mechanic == form_key (HARD guard axis). v2.24 engine."""
     return entry.get('question_mechanic') or _derive_axes(entry)['mechanic']
 
 def _derive_form_key(entry):
@@ -3774,24 +4054,10 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
     by_sec = {}
     for e in entries: by_sec.setdefault(e['section'], []).append(e)
 
-    # ── v2.4 SUBTOPIC_ID: mint once, collision-safe, stamp onto each entry ──
-    # Build the section→prefix map ONCE from the full section list (collision-safe),
-    # then stamp e['subtopic_id'] so BOTH the section_rules block AND the manifest
-    # read the SAME pre-computed id. This guarantees block id == manifest id == the
-    # id Step 6 will copy — the join can never silently diverge.
-    _prefix_overrides = (exam_meta or {}).get('section_prefix_overrides', {})
-    # Use SORTED section order so the prefix map is identical to the manifest
-    # fallback's map (which also sorts). Determinism across both call sites.
-    _prefix_map = build_section_prefix_map(sorted(by_sec.keys()), _prefix_overrides)
-    _seen_ids = {}
-    for e in entries:
-        sid = make_subtopic_id(e['section'], e['topic'], e['subtopic'], _prefix_map)
-        base = sid; n = 2
-        key = (e['section'], e['topic'], e['subtopic'])
-        while sid in _seen_ids and _seen_ids[sid] != key:
-            sid = f'{base}_{n}'; n += 1
-        _seen_ids[sid] = key
-        e['subtopic_id'] = sid   # authoritative id, reused by format_entry + manifest
+    # ── v2.4 / v2.24.1 SUBTOPIC_ID: mint once, collision-safe, IDEMPOTENT ──
+    # v2.24.1: run_synthesise() now mints ids BEFORE run_qv() (so the gate and every
+    # writer read the SAME id). This is a no-op guard for entries already stamped.
+    mint_subtopic_ids(entries, exam_meta)
 
     for section, sec_entries in by_sec.items():
         # v2.15 BUG-D03 fix: derive option LABEL style from per-question option_label
@@ -3993,10 +4259,10 @@ def make_zero_pyq_scaffold_entry(section, topic, subtopic):
         'typical_per_paper': 1,
         'stem_word_count': {'min': 10, 'max': 50, 'typical': 25},
         'sub_type_label': subtopic,
-        'concept_group': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['family'],        # v2.24
-        'question_mechanic': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['mechanic'],   # v2.24
-        'form_key': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['form_key'],            # v2.24
-        'collision_domain': derive_mechanic(section, subtopic, subtopic, '', 'TEXT', slugify(subtopic))['collision_domain'],  # v2.24
+        'concept_group': None,        # v2.24.1 (D8): stamped later by stamp_mechanic_axes()
+        'question_mechanic': None,    # v2.24.1 (D8)
+        'form_key': None,             # v2.24.1 (D8)
+        'collision_domain': None,     # v2.24.1 (D8)
         'mandate_every_mock': False,
         'alternation_group': None,
         'min_per_series_window': None,
@@ -4395,7 +4661,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None):
             'display_name': e['subtopic'],
             'section': e['section'],
             'topic': e['topic'],
-            'concept_group': e.get('concept_group', _derive_concept_group(e)),
+            'concept_group': e.get('concept_group') or _derive_concept_group(e),
             'question_mechanic': e.get('question_mechanic') or _derive_question_mechanic(e),  # v2.24
             'form_key': e.get('form_key') or _derive_form_key(e),                             # v2.24
             'collision_domain': e.get('collision_domain') or _derive_collision_domain(e),     # v2.24
@@ -4938,36 +5204,66 @@ def run_qv(entries, taxonomy, progress):
                           f'Near-dups: {dups[:3]}' if dups else 'OK')
 
     # QV-13 (v2.24) — MECHANIC INTEGRITY & COLLISION GUARD. Stops Step 5 from ever
-    # shipping the BV-10 deadlock silently. (a) every subtopic yields a NON-EMPTY,
-    # deterministic mechanic/form_key; (b) no fine form_key is shared by >=2 DISTINCT
-    # subtopic_ids in one collision_domain unless truly interchangeable (surfaced for
-    # review, not silently collided); (c) name-shape sanity (no raw-question names).
-    _ax = {}
-    empty = []
-    for e in entries:
-        ax = _derive_axes(e)
-        _ax[(e['section'], e['topic'], e['subtopic'])] = ax
-        if not ax['mechanic'] or not ax['form_key']:
-            empty.append(e['subtopic'])
-    nondet = [e['subtopic'] for e in entries
-              if _derive_axes(e)['form_key'] != _ax[(e['section'],e['topic'],e['subtopic'])]['form_key']]
+    # QV-13 (v2.24.1) — MECHANIC IDENTITY INTEGRITY. FAIL severity, NO allowlist.
+    # Reads the STAMPED fields (D5); never recomputes for the collision test. Step 5
+    # cannot know N_mocks/batch_size, so it must reject ALL shared form_keys (D4/D7).
     from collections import defaultdict as _dd
-    _dom = _dd(lambda: _dd(set))
-    for (sec,top,sub), ax in _ax.items():
-        _dom[ax['collision_domain']][ax['form_key']].add(sub)
-    fk_collisions = [f"{d}:{fk}={sorted(subs)}"
-                     for d, fks in _dom.items() for fk, subs in fks.items() if len(subs) > 1]
+    empty     = [e['subtopic_id'] for e in entries if not e.get('form_key')]
+    unstamped = [e['subtopic_id'] for e in entries if 'form_key' not in e or e['form_key'] is None]
+    # a REAL determinism check (D5): does a fresh derivation reproduce the stamped value?
+    _pov = (progress.get('_meta', {}) or {}).get('section_prefix_overrides', {})
+    _po  = build_section_prefix_map(sorted({e['section'] for e in entries}), _pov)
+    nondet = []
+    for e in entries:
+        if not e.get('subtopic_id') or e.get('form_key') is None:
+            continue
+        _tpl = ' '.join(p.get('template','') for p in e.get('PYQ_STEM_PATTERNS', []))
+        _fk  = derive_mechanic(e['section'], e.get('subtopic') or e.get('sub_type_label',''),
+                               e.get('sub_type_label'), _tpl, e.get('format','TEXT'),
+                               e['subtopic_id'], _po)['form_key']
+        # a curator override legitimately makes the stamped value differ from a bare
+        # derivation; only flag when NO override explains it.
+        _ov  = (_OVERRIDES or {}).get('subtopic_overrides', {}).get(e['subtopic_id'], {})
+        if _fk != e['form_key'] and 'form_key' not in _ov and e['form_key'] != slugify(e['subtopic_id']):
+            nondet.append(e['subtopic_id'])
+    dom = _dd(lambda: _dd(list))
+    for e in entries:
+        dom[e.get('collision_domain')][e.get('form_key')].append(e['subtopic_id'])
+    collisions = [f'{d}:{fk}={sorted(ids)}'
+                  for d, fks in dom.items() for fk, ids in fks.items() if len(ids) > 1]
+    # a bare family token is illegal unless this exam declared the owning template set
+    def _decl(e):
+        _ov = _OVERRIDES or {}
+        a = _ov.get('template_sets_by_section', {}).get(e['section'], _ov.get('template_sets'))
+        return ['verbal','reasoning'] if a is None else a
+    # A family-named form_key is illegal ONLY when it is a FOREIGN token, i.e. it did NOT
+    # come from the subtopic's own identity base. Under v2.24.1 form_key == base for a
+    # subtopic legitimately named like a family (e.g. a real verbal "Analogy"); that is not
+    # contamination and must NOT FAIL. A foreign token can only arrive via a curator override.
+    illegal = [e['subtopic_id'] for e in entries
+               if e.get('form_key') in _ALL_FAMILY_NAMES
+               and _TEMPLATE_SET.get(e.get('form_key')) not in _decl(e)
+               and e['form_key'] != _identity_base(e.get('subtopic') or e.get('sub_type_label',''),
+                                                    e.get('subtopic_id'))]
+    same_as_domain = [e['subtopic_id'] for e in entries
+                      if e.get('form_key') and e['form_key'] == e.get('collision_domain')]
     import re as _re
     bad_shape = [e['subtopic'] for e in entries
                  if len(e['subtopic']) > 60 or e['subtopic'].strip().endswith('?')
                  or _re.match(r'^\s*(what|which|how|why|find|choose|select|the average)\b',
                               e['subtopic'].strip(), _re.I)]
-    if empty or nondet:
-        results['QV-13'] = ('FAIL', f'empty_mechanic={empty[:3]} nondeterministic={nondet[:3]}')
-    elif fk_collisions or bad_shape:
-        results['QV-13'] = ('WARN', f'form_key_collisions={fk_collisions[:3]} name_shape={bad_shape[:3]}')
+    if empty or unstamped or nondet or collisions or illegal or same_as_domain:
+        results['QV-13'] = ('FAIL',
+            f'empty={empty[:3]} unstamped={unstamped[:3]} nondeterministic={nondet[:3]} '
+            f'collisions={collisions[:3]} illegal_family_token={illegal[:3]} '
+            f'equals_domain={same_as_domain[:3]}')
     else:
-        results['QV-13'] = ('PASS', 'All mechanics non-empty, deterministic, no unexpected collisions')
+        results['QV-13'] = ('PASS', f'{len(entries)} form_keys: non-empty, deterministic, '
+                                    f'unique per collision_domain, no foreign family tokens')
+    # QV-13a — NAME SHAPE. Advisory only; split so an editorial nit can neither mask nor
+    # be masked by an identity failure.
+    results['QV-13a'] = (('WARN', f'{len(bad_shape)} long/question-shaped names: {bad_shape[:3]}')
+                         if bad_shape else ('PASS', 'OK'))
 
     return results
 
@@ -5534,6 +5830,18 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
     print(f"Taxonomy sync: {len(zero_pyq_scaffolds)} zero-PYQ scaffold entries added.")
     print(f"Total subtopics after sync: {len(all_entries)}")
     print("--- End taxonomy sync ---\n")
+
+    # ── v2.24.1 DERIVE-ONCE PIPELINE (§8-4 order): mint id → merges → stamp → QV ──
+    # (subtopic_merges is keyed by subtopic_id, so ids MUST be minted before merging.)
+    # subtopic_id is minted HERE (moved out of write_section_rules) so QV-13 and every
+    # writer read the SAME id and the SAME stamped mechanic axes. stamp_mechanic_axes()
+    # asserts form_key uniqueness before anything is written — a shared form_key can no
+    # longer reach Step 6 as a silent, two-steps-later HALT.
+    _stamp_meta = {'section_prefix_overrides':
+                   (progress.get('_meta', {}) or {}).get('section_prefix_overrides', {})}
+    mint_subtopic_ids(all_entries, _stamp_meta)                    # ids first (merges join on them)
+    all_entries = apply_subtopic_merges(all_entries, exam_code)    # D7 (no-op if none declared)
+    stamp_mechanic_axes(all_entries, exam_code, _stamp_meta)
 
     # QV checks
     qv_results  = run_qv(all_entries, taxonomy, progress)
