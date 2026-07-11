@@ -151,11 +151,11 @@
       "bytes": 11008
     },
     "explain_engine.py": {
-      "sha256": "e91d71bb2467f380d3801f94d22cf8d78497b83082ab113582ec9ef026402f7d",
+      "sha256": "fe11a61dda53035c1134ff211fdb4ede8ff640846104724767aebac72088452c",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 1760,
-      "bytes": 93928
+      "lines": 1712,
+      "bytes": 91095
     }
   }
 }

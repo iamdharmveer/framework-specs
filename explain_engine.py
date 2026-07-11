@@ -78,22 +78,18 @@ class EngineConfig:
         self.sentence_terminators = sentence_terminators or '.!?'
         self.labels = labels or {
             'correct_answer': 'Correct Answer',
-            'figure': 'FIGURE',
             'axiom': 'AXIOM', 'deduction': 'DEDUCTION',
             'speed_hack': 'SPEED HACK', 'why_wrong': 'WHY WRONG?',
             'common_pitfalls': 'COMMON PITFALLS',
             'option': 'Option', 'solution_ref': 'Solution',
             'accepted_range': 'accepted range',
         }
-        self.labels.setdefault('figure', 'FIGURE')
         self.labels.setdefault('common_pitfalls', 'COMMON PITFALLS')
         self.labels.setdefault('accepted_range', 'accepted range')
         self.markers = markers or {
-            'figure': '\u2b1b',
             'axiom': '\u2b1b', 'deduction': '\u2b1b',
             'speed_hack': '\u26a1', 'why_wrong': '\u274c', 'common_pitfalls': '\u274c',
         }
-        self.markers.setdefault('figure', '\u2b1b')
         self.markers.setdefault('common_pitfalls', '\u274c')
         self.colors = colors or {
             'ca': '003366', 'sub': '000000', 'sent': '000000',
@@ -342,7 +338,7 @@ class ExplanationBlock:
                 step contains the value; common_pitfalls (value -> sentences, ≥1)
                 replaces why_wrong (there are no options to reject)."""
     def __init__(self, q, ca=None, axiom=None, deduction=None, speed_hack=None,
-                 why_wrong=None, figure_note=None, anomaly=None, cfg=None,
+                 why_wrong=None, anomaly=None, cfg=None,
                  qtype=None, ca_range=None, common_pitfalls=None):
         self.q = int(q)
         self.cfg = cfg or EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
@@ -353,7 +349,6 @@ class ExplanationBlock:
         self.speed_hack = list(speed_hack) if speed_hack else None
         self.why_wrong = dict(why_wrong or {})
         self.common_pitfalls = dict(common_pitfalls or {})
-        self.figure_note = figure_note
         self.anomaly = anomaly
         # infer question type if not given
         if qtype is None:
@@ -420,8 +415,6 @@ class ExplanationBlock:
                 lo, hi = self.ca_range
                 if not (lo <= hi):
                     raise ValueError(f'Q{self.q}: ca_range {self.ca_range} not lo<=hi')
-            if self.figure_note is not None:
-                g(self.figure_note)
             return True
 
         # MCQ / MSQ share the option machinery.
@@ -451,8 +444,6 @@ class ExplanationBlock:
                 raise ValueError(f'Q{self.q}: WHY WRONG option {k} empty')
             for s in sents:
                 g(s)
-        if self.figure_note is not None:
-            g(self.figure_note)
         return True
 
 # ───────────────────────── paragraph construction ──────────────────────────
@@ -503,10 +494,6 @@ def _block_paragraphs(cfg, blk):
         disp = ', '.join(cfg.option_label(i) for i in sorted(blk.ca_set()))
         out.append(_new_para(cfg, 'ca', text=f'{ca_label}: {disp}', before=120,
                              after=120, bold=True, color=cfg.colors['ca'], math=False))
-    if blk.figure_note:
-        out.append(_header_para(cfg, 'figure'))
-        out.append(_new_para(cfg, 'sent', text=blk.figure_note, before=0,
-                             after=120, color=cfg.colors['sent']))
     out.append(_header_para(cfg, 'axiom'))
     for s in blk.axiom:
         out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
@@ -778,13 +765,12 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
     """Independent POST-RENDER audit (A2, parity with T2 verify_master 10-17): it
     re-parses the RENDERED docx — NOT the in-memory blocks — and re-checks the
     explanation region from the bytes that were actually written. Catches anything
-    a build bug, figure_note, or future renderer change could let slip past the
+    a build bug or future renderer change could let slip past the
     construction-time guards. Returns (ok, problems).
 
-    Per question it confirms: header order (FIGURE) → AXIOM → DEDUCTION →
-    (SPEED HACK) → WHY WRONG/COMMON PITFALLS, where FIGURE is present IFF the
-    block has figure_note; the last DEDUCTION line binds the answer (option /
-    set / value, type-aware); WHY WRONG covers exactly the wrong options (mcq/msq)
+    Per question it confirms: header order AXIOM → DEDUCTION →
+    (SPEED HACK) → WHY WRONG/COMMON PITFALLS; the last DEDUCTION line binds the
+    answer (option / set / value, type-aware); WHY WRONG covers exactly the wrong options (mcq/msq)
     or COMMON PITFALLS the wrong values (nat); zero banned glyphs/metacommentary/
     templates/fake-cites/banned-blocks and zero inline or vulgar fractions in the
     rendered prose; one sentence per rendered prose paragraph. Document-wide it
@@ -800,7 +786,7 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
     ca_label = cfg.labels['correct_answer']
     opt_word = cfg.labels['option']
     H = {k: f"{cfg.markers.get(k, '')} {cfg.labels.get(k, k)}".strip()
-         for k in ('figure', 'axiom', 'deduction', 'speed_hack', 'why_wrong', 'common_pitfalls')}
+         for k in ('axiom', 'deduction', 'speed_hack', 'why_wrong', 'common_pitfalls')}
     HEADERS = set(H.values())
 
     # segment rendered paragraphs into per-question explanation line lists
@@ -828,18 +814,11 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
         texts = [t for t, _, _ in lines]
         srcs = [s for _, _, s in lines]
         seq = [t for t in texts if t in HEADERS]
-        # 1. header order (FIGURE and SPEED HACK are positional/optional; core = the rest)
-        fig_h = H.get('figure', '')
-        core = [h for h in seq if h not in (H['speed_hack'], fig_h)]
+        # 1. header order (SPEED HACK is positional/optional; core = the rest)
+        core = [h for h in seq if h != H['speed_hack']]
         wrong_hdr = H['common_pitfalls'] if (b and b.qtype == 'nat') else H['why_wrong']
         if core != [H['axiom'], H['deduction'], wrong_hdr]:
             problems.append(f'Q{q}: header order/presence wrong: {core}')
-        # 1b. FIGURE header position: if present, must be first in seq (before AXIOM)
-        if fig_h and fig_h in seq:
-            if seq[0] != fig_h:
-                problems.append(f'Q{q}: FIGURE header not in first position (before AXIOM)')
-            if b and not b.figure_note:
-                problems.append(f'Q{q}: FIGURE header rendered but block has no figure_note')
         # 2. DEDUCTION last line binds the answer (type-aware), read from render
         if H['deduction'] in texts:
             di = texts.index(H['deduction'])
@@ -1308,7 +1287,9 @@ def self_test():
         except Exception:
             omml_ok = False
     check('OMML-HELPERS', omml_ok)
-    # 34 figural block: figure_note renders and survives, drawing preserved
+    # 34 figural question: NO FIGURE section is rendered (removed by design), yet
+    #    the image inside the question region survives byte-identical and the
+    #    post-render audit passes. Regression-lock for the FIGURE-section removal.
     cfgF = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
     dF = tempfile.mkdtemp(); sF = os.path.join(dF, 'p.docx'); oF = os.path.join(dF, 's.docx')
     docF = Document()
@@ -1319,7 +1300,6 @@ def self_test():
         docF.add_paragraph(f'{o}. figure')
     docF.add_paragraph(''); docF.save(sF)
     figblk = ExplanationBlock(q=1, ca=1, cfg=cfgF,
-        figure_note='The series rotates the inner arrow ninety degrees clockwise each step.',
         axiom=['A figural series applies one fixed transformation at every step.'],
         deduction=['Tracing the rotation forward predicts the next figure.',
                    'That predicted figure matches Option 1 here.'],
@@ -1328,33 +1308,11 @@ def self_test():
                    4:['Option 4 changes the wrong element (process_confusion).']})
     figblk.validate()
     build_interleaved_docx(sF, [figblk], oF, cfgF)
-    okfF, _ = verify_fidelity(oF, sF, cfgF)
-    note_rendered = any('rotates the inner arrow' in p.text for p in Document(oF).paragraphs)
-    check('FIGURE-NOTE', okfF and note_rendered)
-    # 34b FIGURE header: the ⬛ FIGURE heading exists, positioned before ⬛ AXIOM
-    fig_hdr_text = f"{cfgF.markers['figure']} {cfgF.labels['figure']}".strip()
-    axm_hdr_text = f"{cfgF.markers['axiom']} {cfgF.labels['axiom']}".strip()
+    okfF, _ = verify_fidelity(oF, sF, cfgF)                 # question-region image preserved
     fig_paras = [p.text.strip() for p in Document(oF).paragraphs]
-    fig_hdr_present = fig_hdr_text in fig_paras
-    fig_before_axiom = (fig_hdr_present and axm_hdr_text in fig_paras
-                        and fig_paras.index(fig_hdr_text) < fig_paras.index(axm_hdr_text))
-    check('FIGURE-HDR', fig_hdr_present and fig_before_axiom)
-    # 34c verify_explanations passes on a figural block WITH the FIGURE header
-    okeF, _ = verify_explanations(oF, [figblk], cfgF)
-    check('FIGURE-HDR-VERIFY', okeF)
-    # 34d non-figural block must NOT have a FIGURE header in the rendered doc
-    nf_blk = ExplanationBlock(q=1, ca=1, cfg=cfgF,
-        axiom=['A principle stated as a truth here.'],
-        deduction=['A first step yields a value.', 'The value maps to Option 1 here.'],
-        why_wrong={2:['Option 2 swaps a value (value_swap).'],
-                   3:['Option 3 mis-signs a term (sign_error).'],
-                   4:['Option 4 covers only part (partial_truth).']})
-    oNF = os.path.join(dF, 'nf.docx')
-    build_interleaved_docx(sF, [nf_blk], oNF, cfgF)
-    nf_paras = [p.text.strip() for p in Document(oNF).paragraphs]
-    nf_no_fig_hdr = fig_hdr_text not in nf_paras
-    okeNF, _ = verify_explanations(oNF, [nf_blk], cfgF)
-    check('FIGURE-HDR-ABSENT', nf_no_fig_hdr and okeNF)
+    no_figure_section = not any('FIGURE' in t for t in fig_paras)   # section fully gone
+    okeF, _ = verify_explanations(oF, [figblk], cfgF)       # audit passes with no FIGURE header
+    check('FIGURAL-NO-FIGURE-SECTION', okfF and no_figure_section and okeF)
     # 35 vulgar-fraction glyphs and U+2044 are rejected (A1)
     vulgar_caught = all(_raises(lambda s=s: guard_sentence(s))
                         for s in ('The share is \u00bd of the total here.',
@@ -1417,7 +1375,7 @@ def self_test():
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP-10 ADDITION (MockExplainAudit) — the docx→ExplanationBlock reader.
-# Additive: no existing write/verify path changes; --self-test stays 47/47. The
+# Additive: no existing write/verify path changes; --self-test stays 44/44. The
 # EXACT INVERSE of _block_paragraphs, driven by the SAME cfg, so a rectified block
 # is structurally identical to how Step 9 would have written it correctly.
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1497,7 +1455,7 @@ def parse_solution_blocks(path, cfg, expected_qs=None):
     ca_label = cfg.labels['correct_answer'].lower(); opt_word = cfg.labels['option']
     acc = cfg.labels.get('accepted_range', 'accepted range')
     H = {k: f"{cfg.markers.get(k, '')} {cfg.labels.get(k, k)}".strip()
-         for k in ('figure', 'axiom', 'deduction', 'speed_hack', 'why_wrong', 'common_pitfalls')}
+         for k in ('axiom', 'deduction', 'speed_hack', 'why_wrong', 'common_pitfalls')}
     HREV = {v: k for k, v in H.items()}
     ca_prefix = ca_label + ':'
     segs = {}; cur = None; in_expl = False
@@ -1548,16 +1506,12 @@ def parse_solution_blocks(path, cfg, expected_qs=None):
                 qtype = 'msq'; ca = set(idxs)
         axiom, deduction, speed = [], [], []
         why_wrong, pitfalls = {}, {}
-        figure_note = None; mode = 'pre'; key = None
+        mode = None; key = None
         sub_re = re.compile(rf'^{re.escape(opt_word)}\s+(\S+)\s*$')
         for disp, s, p_el in body:
             if disp in HREV:                     # block headers are plain text
                 mode = HREV[disp]; key = None; continue
-            if mode == 'pre':
-                figure_note = s              # backwards-compat: bare note before any header
-            elif mode == 'figure':
-                figure_note = s              # new format: note under ⬛ FIGURE header
-            elif mode == 'axiom':
+            if mode == 'axiom':
                 axiom.append(s)
             elif mode == 'deduction':
                 deduction.append(s)
@@ -1586,7 +1540,7 @@ def parse_solution_blocks(path, cfg, expected_qs=None):
                     pitfalls[key].append(s)
         kwargs = dict(q=q, cfg=cfg, qtype=qtype, ca=ca, ca_range=ca_range,
                       axiom=axiom, deduction=deduction,
-                      speed_hack=(speed or None), figure_note=figure_note)
+                      speed_hack=(speed or None))
         kwargs['common_pitfalls' if qtype == 'nat' else 'why_wrong'] = (
             pitfalls if qtype == 'nat' else why_wrong)
         blocks[q] = ExplanationBlock(**kwargs)
@@ -1632,7 +1586,7 @@ def parse_learnings(path):
 def self_test_audit():
     """Round-trip gate for parse_solution_blocks: write -> read -> rebuild -> assert
     the read-back block reproduces the source, across mcq/msq/nat, numeric/alpha/
-    roman labels, OMML fractions, figure_note. Run with --self-test-audit."""
+    roman labels, OMML fractions. Run with --self-test-audit."""
     import tempfile, os
     res = []
     def chk(name, cond): res.append((name, bool(cond)))
@@ -1654,8 +1608,7 @@ def self_test_audit():
                     and [s.strip() for s in r.axiom] == [s.strip() for s in b.axiom]
                     and [s.strip() for s in r.deduction] == [s.strip() for s in b.deduction]
                     and set(r.why_wrong) == set(b.why_wrong)
-                    and set(map(str, r.common_pitfalls)) == set(map(str, b.common_pitfalls))
-                    and (r.figure_note or '').strip() == (b.figure_note or '').strip())
+                    and set(map(str, r.common_pitfalls)) == set(map(str, b.common_pitfalls)))
             if b.qtype == 'nat':
                 same = same and str(r.ca) == str(b.ca) and r.ca_range == b.ca_range
             r.validate(); ok = ok and same
@@ -1665,12 +1618,11 @@ def self_test_audit():
         chk(tag, ok and ve)
     cfg4 = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
     roundtrip(cfg4, [ExplanationBlock(q=1, ca=3, cfg=cfg4,
-        figure_note='The two panels show a rotating arrow here.',
         axiom=['The mean equals the sum over the count here.'],
         deduction=['Divide 235/5 to get the value here.', 'The result is Option 3 here.'],
         why_wrong={1: ['Option 1 swaps a value (value_swap).'],
                    2: ['Option 2 mis-signs the term (sign_error).'],
-                   4: ['Option 4 covers only part (partial_truth).']})], 1, 'RT-MCQ-FRAC-FIGNOTE')
+                   4: ['Option 4 covers only part (partial_truth).']})], 1, 'RT-MCQ-FRAC')
     cfgA = EngineConfig(r'^Q\.?\s*(\d+)', r'^([A-D])[.\)]', 4, label_scheme='alpha_upper')
     roundtrip(cfgA, [ExplanationBlock(q=1, ca={1, 3}, cfg=cfgA,
         axiom=['A statement is valid when both halves hold here.'],
