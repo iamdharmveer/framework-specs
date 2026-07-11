@@ -2,32 +2,56 @@
   "framework_version": "2026.07.10",
   "generated_by": "gen_manifest.py",
   "routes": {
+    "PYQPrepare": [
+      "Framework_PYQPrepare.md",
+      "Framework_DeliveryFooter.md"
+    ],
+    "PYQDraft": [
+      "Framework_PYQAnalyse.md",
+      "Framework_DeliveryFooter.md"
+    ],
+    "PYQScan": [
+      "Framework_PYQAnalyse.md",
+      "Framework_DeliveryFooter.md"
+    ],
+    "PYQApprove": [
+      "Framework_PYQAnalyse.md",
+      "Framework_DeliveryFooter.md"
+    ],
     "PYQSort": [
-      "Framework_PYQSort.md"
+      "Framework_PYQSort.md",
+      "Framework_DeliveryFooter.md"
     ],
     "PYQCount": [
-      "Framework_PYQAnalyse.md"
+      "Framework_PYQAnalyse.md",
+      "Framework_DeliveryFooter.md"
     ],
     "PYQExtract": [
-      "Framework_MockTestAnalyse.md"
+      "Framework_MockTestAnalyse.md",
+      "Framework_DeliveryFooter.md"
     ],
-    "PYQPrepare": [
-      "Framework_PYQPrepare.md"
-    ],
-    "Blueprint": [
-      "Framework_Blueprint.md"
+    "MockBlueprint": [
+      "Framework_Blueprint.md",
+      "Framework_DeliveryFooter.md"
     ],
     "MockCreate": [
-      "Framework_MockTestCreate.md"
+      "Framework_MockTestCreate.md",
+      "Framework_DeliveryFooter.md"
     ],
     "MockCreateAudit": [
-      "Framework_MockTestCreateAudit.md"
+      "Framework_MockTestCreateAudit.md",
+      "Framework_DeliveryFooter.md"
     ],
     "MockExplain": [
-      "Framework_MockTestExplain.md"
+      "Framework_MockTestExplain.md",
+      "explain_engine.py",
+      "Framework_DeliveryFooter.md"
     ],
     "MockExplainAudit": [
-      "Framework_MockTestExplainAudit.md"
+      "Framework_MockTestExplainAudit.md",
+      "explain_engine.py",
+      "explain_audit_gate.py",
+      "Framework_DeliveryFooter.md"
     ],
     "MockDeliver": [
       "Framework_MockDeliver.md",
