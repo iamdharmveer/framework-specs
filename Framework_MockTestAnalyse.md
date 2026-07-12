@@ -1,4 +1,4 @@
-# Framework_MockTestAnalyse v2.24.1 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.2 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
 # v2.24 changes: MECHANIC / FORM-KEY ENGINE — permanent fix for the BV-10 same-mechanic
@@ -49,6 +49,24 @@
 #   selection (REGR-1) + the always-on uniqueness improvement. REQUIRES Step 6 §7.1
 #   (Blueprint): remove concept_group from the form_key fallback chain (now deliberately
 #   shared). Verified: patched-code checks 6/6 (biochemistry unblock + EC-M1/M2/M6/M8/M17/M18).
+#
+# v2.24.2 changes: LANGUAGE-AGNOSTIC MATCH DETECTION — closes the format-fidelity gap where
+#   match-the-following questions were mis-tagged (and, downstream, mis-RENDERED as plain text
+#   instead of a Word table). classify_axis2's MATCH rule relied on ENGLISH stem keywords
+#   (match / list-I / column), so (a) non-English match papers and (b) matches whose List-I/
+#   List-II body sits in a table (absent from stem_raw) fell through to DIRECT — silently
+#   under-counting the MATCH format and producing a false readiness signal. WHAT CHANGED:
+#     (1) NEW self-contained helper _opts_are_match_pairs() (+ _label_family, _MATCH_*_RE) in
+#         the SHARED AXIS CLASSIFIER v1.0 block: detects a CROSS-DOMAIN label-pair OPTION shape
+#         (A-I / 1-A / I-A / A-1; separators - u2013 u2014 : > arrow; bracketed or bare). Cross-
+#         domain (left family != right family) rejects digit:digit ratios, coordinate pairs and
+#         word-word hyphens. Column-level family resolves the roman-vs-letter 'I' ambiguity.
+#     (2) classify_axis2 gains a THIRD MATCH trigger AFTER the two keyword rules — additive and
+#         monotone: it can only convert a would-be non-MATCH class to MATCH, never the reverse
+#         (proven over 240 stem x option x linked combinations; zero regressions).
+#   MUST PROPAGATE (byte-identical) to Step 8 MockCreateAudit S6-1b (verbatim classifier copy).
+#   E-8 classify_option_format left untouched (descriptive metadata, no functional coupling).
+#   Verified: helper matrix 20/20 + invariant proof 240/240 + extracted-from-this-file parity.
 #
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP NUMBER NOTE — CANONICAL PIPELINE MAPPING
@@ -2952,6 +2970,66 @@ def _opts_are_combination_labels(opts):
             combo += 1
     return combo >= max(2, (len(opts) + 1) // 2)
 
+# ── MATCH option-shape backstop (v2.24.2) ──────────────────────────────────────
+# A language-agnostic MATCH signal: the OPTIONS are a set of CROSS-DOMAIN label pairs
+# (e.g. "A-I, B-III, C-IV, D-II" / "1-C 2-A 3-D 4-B" / "(A)-(i), (B)-(iv) ..."). It fires
+# when the stem keywords (match / list-I / column) are ABSENT — the two cases that matter:
+#   (a) NON-ENGLISH match papers (Hindi/regional), whose stems carry no English cue;
+#   (b) matches whose List-I/List-II body has been rendered into a Word table, so the list
+#       labels no longer appear in stem_raw (only the "Match ..." instruction does).
+# CROSS-DOMAIN (left label family != right label family) is REQUIRED, so digit:digit ratios
+# ("2:3, 4:5"), coordinate pairs and word-word hyphenations never trip it. The family of a
+# COLUMN (not a single token) is used so the roman-vs-letter "I" ambiguity resolves from
+# context (a column carrying II/III/IV is roman even where a bare I appears).
+_MATCH_PAIR_RE = re.compile(
+    r'\(?\s*([A-Za-z]{1,4}|\d{1,2})\s*\)?\s*[-\u2010-\u2015:\u2192>]+\s*'
+    r'\(?\s*([A-Za-z]{1,4}|\d{1,2})\s*\)?')
+_MATCH_PAIR_SUB = (r'\(?\s*(?:[A-Za-z]{1,4}|\d{1,2})\s*\)?\s*[-\u2010-\u2015:\u2192>]+\s*'
+                   r'\(?\s*(?:[A-Za-z]{1,4}|\d{1,2})\s*\)?')
+_MATCH_OPT_RE = re.compile(r'^\s*' + _MATCH_PAIR_SUB + r'(?:[,;\s]+' + _MATCH_PAIR_SUB + r'){1,}\s*$')
+
+def _label_family(tokens):
+    """Family of a same-side label COLUMN: 'digit' | 'roman' | 'alpha' | 'other'.
+    Column-level (not per-token) so a bare 'I' resolves to roman when its column also
+    carries II/III/IV, and to alpha when its column is A/B/C/D."""
+    low = [t.lower() for t in tokens if t]
+    if not low:
+        return 'other'
+    if all(re.fullmatch(r'\d{1,2}', t) for t in low):
+        return 'digit'
+    romanish = all(re.fullmatch(r'[ivxlcdm]+', t) for t in low)
+    if romanish and any(len(t) > 1 for t in low):
+        return 'roman'
+    if all(re.fullmatch(r'[a-z]', t) for t in low):
+        return 'roman' if set(low) <= {'i', 'v', 'x'} else 'alpha'
+    if romanish:
+        return 'roman'
+    if all(re.fullmatch(r'[a-z]{1,4}', t) for t in low):
+        return 'alpha'
+    return 'other'
+
+def _opts_are_match_pairs(opts):
+    """True when a MAJORITY of options are each a set of >=2 CROSS-DOMAIN label pairs that
+    consume the whole option text. Threshold mirrors _opts_are_combination_labels. Used by
+    classify_axis2 AFTER the keyword rules, so it can only convert a would-be non-MATCH
+    class to MATCH, never the reverse (additive + monotone)."""
+    if not opts:
+        return False
+    hits = 0
+    for o in opts:
+        st = (o or '').strip()
+        if not st or not _MATCH_OPT_RE.match(st):
+            continue
+        pairs = _MATCH_PAIR_RE.findall(st)
+        if len(pairs) < 2:
+            continue
+        lf = _label_family([p[0] for p in pairs])
+        rf = _label_family([p[1] for p in pairs])
+        if lf == rf or 'other' in (lf, rf):
+            continue
+        hits += 1
+    return hits >= max(2, (len(opts) + 1) // 2)
+
 def classify_axis2(q):
     """STEM STRUCTURE — the exclusive 8-class ladder (first-match-wins). Discrimination
     is by task-verb + option-shape, not ladder position alone, so collisions are rare and
@@ -2965,10 +3043,16 @@ def classify_axis2(q):
     # 1 — ASSERTION_REASON (EC-8): both an Assertion and a Reason clause present.
     if re.search(r'\bassertion\b', s) and re.search(r'\breason\b', s):
         return 'ASSERTION_REASON'
-    # 2 — MATCH (EC-13): match/list-I/column stems, or value-pair-quad option shape.
+    # 2 — MATCH (EC-13): match/list-I/column stems, OR (v2.24.2) a CROSS-DOMAIN label-pair
+    #     option shape. The option-shape backstop is language-agnostic and table-safe (see
+    #     _opts_are_match_pairs): it catches non-English matches and matches whose List-I/
+    #     List-II body has moved into a Word table. Placed AFTER the keyword rules it is
+    #     additive/monotone — it only converts a would-be non-MATCH class to MATCH.
     if re.search(r'\bmatch\b', s) and re.search(r'\b(following|list|column|set)\b', s):
         return 'MATCH'
     if re.search(r'list[\s\-]*i\b|column[\s\-]*(i|a)\b', s):
+        return 'MATCH'
+    if _opts_are_match_pairs(opts):
         return 'MATCH'
     # 3 — SEQUENCE / ORDERING (v2.23): the OPERATION is arranging (kept above STATEMENT).
     if re.search(r'\b(arrange|rearrange|correct sequence|proper sequence|correct order|'
@@ -7447,4 +7531,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.24
+# END OF Framework_MockTestAnalyse v2.24.2

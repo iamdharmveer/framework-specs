@@ -276,7 +276,9 @@ def validate(path):
         # reference resolution; the duplicate check keys on the FULL label so 15a and
         # 15b are distinct and do not read as "RA-15 defined twice".
         def_ra = set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', text, re.M)) | set(GLOBAL_RA)
-        ref_ra = set(re.findall(r'\bRA-(\d+)\b', text))
+        # "RA-N equivalent" describes an analogous rule in another scheme, not a reference to a
+        # defined RA-N anchor — exclude it (symmetric with the MANDATE rule below).
+        ref_ra = set(re.findall(r'\bRA-(\d+)\b(?!\s*-?\s*(?i:equivalent))', text))
         for r in sorted(int(x) for x in (ref_ra - def_ra)):
             add('N-RA', f'reference to RA-{r} but no RA-{r} definition')
         for k, v in Counter(re.findall(r'^\s{0,4}(RA-\d+[a-z]?)\s', text, re.M)).items():
@@ -287,8 +289,11 @@ def validate(path):
         extended_ran.append('O-MANDATE')
         # MANDATE definitions: "# MANDATE X —" where X is 0-9 or a single uppercase letter
         def_mand = set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', text, re.M)) | set(GLOBAL_MANDATE)
-        # References: "MANDATE X" where X is 0-9 or a single uppercase letter (not full words)
-        ref_mand = set(re.findall(r'\bMANDATE\s+([0-9A-Z])\b', text))
+        # References: "MANDATE X" where X is 0-9 or a single uppercase letter (not full words).
+        # EXCLUDE "MANDATE X equivalent" / "MANDATE-X-equivalent": that phrasing describes an
+        # ANALOGOUS item in another (e.g. SSC) numbering scheme, not a reference to a framework
+        # MANDATE that must be defined — so it must never count as an unresolved anchor.
+        ref_mand = set(re.findall(r'\bMANDATE\s+([0-9A-Z])\b(?!\s*-?\s*(?i:equivalent))', text))
         for m in sorted(ref_mand - def_mand):
             add('O-MANDATE', f'reference to MANDATE {m} but no MANDATE {m} definition')
 

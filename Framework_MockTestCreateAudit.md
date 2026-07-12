@@ -1,8 +1,18 @@
-# Framework_MockTestCreateAudit v2.7
+# Framework_MockTestCreateAudit v2.7.1
 # [ExamCode] project | Step 8 (MockCreateAudit) | Universal Mock Test Auditor & Rectifier
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
+#   v2.7.1 — LANGUAGE-AGNOSTIC MATCH DETECTION + A-MATCH-TABLE gate. (1) Ported the SHARED
+#           AXIS CLASSIFIER v1.0 update from Step 5 (Analyse v2.24.2) BYTE-IDENTICAL: new
+#           _opts_are_match_pairs()/_label_family + a third MATCH trigger, so non-English
+#           matches and matches whose List body sits in a table are re-tagged MATCH (were
+#           silently DIRECT). Verified: dedented logic identical + 220/220 behavioural parity
+#           with Step 5's copy. (2) NEW executable gate gate_match_table() → A-MATCH-TABLE:
+#           promotes the S7-3 manual 'match must be a real grid' checklist to a machine gate —
+#           any re-derived MATCH question with 0 <w:tbl> FAILs (rebuild the List body as a real
+#           table). 2 new self-test fixtures (A-MATCH-TABLE-catch + -pass); self-test N 45→47
+#           (>= AUTH_GATE_FLOOR 35). Exam-agnostic; no hardcoded exam/section label.
 #   v2.7 — 2026-07-09 — A-HEADER INVERTED (strip pre-Q.1 block, not validate figures).
 #           Pairs with Step 7 v5.18 (R8b / G-PREQ1). The generated paper is questions-only:
 #           the first non-blank body paragraph MUST be Q.1. Previously A-HEADER only
@@ -1484,6 +1494,9 @@
        *CP when the stimulus exists elsewhere in the group (embed a copy, Model A);
         RG only if the stimulus itself is absent/defective.
 
+  MATCH-GRID RENDERING
+  | A-MATCH-TABLE | every Axis-2 MATCH question (re-derived by the shared S6-1b classifier) renders its List columns as a real <w:tbl>; a match rendered as text lines or space/tab pseudo-columns is a format-fidelity defect (MATCH counted present, skill un-rehearsed) | re-derived axis2 (S6-1b) + block.tables | S7-3 / G-MATCH-TABLE | CP (rebuild List body as a real table) |
+
   RENDERING FIDELITY (the gates that catch "faked-as-text/raster" defects)
   | A-UNDERLINE | underline-class Q carries a real <w:u> run; no "(underlined: X)" | section_rules (sentence_embedded_underlined) + stem cue | R-UNDERLINE | CP |
   | A-MATHRASTER| no built-up math shipped as a raster image (see S5-3)    | section_rules OMML_required + math cues | R-MATH-OMML | CP/RG |
@@ -1699,6 +1712,66 @@
               combo += 1
       return combo >= max(2, (len(opts) + 1) // 2)
 
+  # ── MATCH option-shape backstop (v2.24.2) ──────────────────────────────────────
+  # A language-agnostic MATCH signal: the OPTIONS are a set of CROSS-DOMAIN label pairs
+  # (e.g. "A-I, B-III, C-IV, D-II" / "1-C 2-A 3-D 4-B" / "(A)-(i), (B)-(iv) ..."). It fires
+  # when the stem keywords (match / list-I / column) are ABSENT — the two cases that matter:
+  #   (a) NON-ENGLISH match papers (Hindi/regional), whose stems carry no English cue;
+  #   (b) matches whose List-I/List-II body has been rendered into a Word table, so the list
+  #       labels no longer appear in stem_raw (only the "Match ..." instruction does).
+  # CROSS-DOMAIN (left label family != right label family) is REQUIRED, so digit:digit ratios
+  # ("2:3, 4:5"), coordinate pairs and word-word hyphenations never trip it. The family of a
+  # COLUMN (not a single token) is used so the roman-vs-letter "I" ambiguity resolves from
+  # context (a column carrying II/III/IV is roman even where a bare I appears).
+  _MATCH_PAIR_RE = re.compile(
+      r'\(?\s*([A-Za-z]{1,4}|\d{1,2})\s*\)?\s*[-\u2010-\u2015:\u2192>]+\s*'
+      r'\(?\s*([A-Za-z]{1,4}|\d{1,2})\s*\)?')
+  _MATCH_PAIR_SUB = (r'\(?\s*(?:[A-Za-z]{1,4}|\d{1,2})\s*\)?\s*[-\u2010-\u2015:\u2192>]+\s*'
+                     r'\(?\s*(?:[A-Za-z]{1,4}|\d{1,2})\s*\)?')
+  _MATCH_OPT_RE = re.compile(r'^\s*' + _MATCH_PAIR_SUB + r'(?:[,;\s]+' + _MATCH_PAIR_SUB + r'){1,}\s*$')
+
+  def _label_family(tokens):
+      """Family of a same-side label COLUMN: 'digit' | 'roman' | 'alpha' | 'other'.
+      Column-level (not per-token) so a bare 'I' resolves to roman when its column also
+      carries II/III/IV, and to alpha when its column is A/B/C/D."""
+      low = [t.lower() for t in tokens if t]
+      if not low:
+          return 'other'
+      if all(re.fullmatch(r'\d{1,2}', t) for t in low):
+          return 'digit'
+      romanish = all(re.fullmatch(r'[ivxlcdm]+', t) for t in low)
+      if romanish and any(len(t) > 1 for t in low):
+          return 'roman'
+      if all(re.fullmatch(r'[a-z]', t) for t in low):
+          return 'roman' if set(low) <= {'i', 'v', 'x'} else 'alpha'
+      if romanish:
+          return 'roman'
+      if all(re.fullmatch(r'[a-z]{1,4}', t) for t in low):
+          return 'alpha'
+      return 'other'
+
+  def _opts_are_match_pairs(opts):
+      """True when a MAJORITY of options are each a set of >=2 CROSS-DOMAIN label pairs that
+      consume the whole option text. Threshold mirrors _opts_are_combination_labels. Used by
+      classify_axis2 AFTER the keyword rules, so it can only convert a would-be non-MATCH
+      class to MATCH, never the reverse (additive + monotone)."""
+      if not opts:
+          return False
+      hits = 0
+      for o in opts:
+          st = (o or '').strip()
+          if not st or not _MATCH_OPT_RE.match(st):
+              continue
+          pairs = _MATCH_PAIR_RE.findall(st)
+          if len(pairs) < 2:
+              continue
+          lf = _label_family([p[0] for p in pairs])
+          rf = _label_family([p[1] for p in pairs])
+          if lf == rf or 'other' in (lf, rf):
+              continue
+          hits += 1
+      return hits >= max(2, (len(opts) + 1) // 2)
+
   def classify_axis2(q):
       """STEM STRUCTURE — the exclusive 8-class ladder (first-match-wins). Discrimination
       is by task-verb + option-shape, not ladder position alone, so collisions are rare and
@@ -1712,10 +1785,16 @@
       # 1 — ASSERTION_REASON (EC-8): both an Assertion and a Reason clause present.
       if re.search(r'\bassertion\b', s) and re.search(r'\breason\b', s):
           return 'ASSERTION_REASON'
-      # 2 — MATCH (EC-13): match/list-I/column stems, or value-pair-quad option shape.
+      # 2 — MATCH (EC-13): match/list-I/column stems, OR (v2.24.2) a CROSS-DOMAIN label-pair
+      #     option shape. The option-shape backstop is language-agnostic and table-safe (see
+      #     _opts_are_match_pairs): it catches non-English matches and matches whose List-I/
+      #     List-II body has moved into a Word table. Placed AFTER the keyword rules it is
+      #     additive/monotone — it only converts a would-be non-MATCH class to MATCH.
       if re.search(r'\bmatch\b', s) and re.search(r'\b(following|list|column|set)\b', s):
           return 'MATCH'
       if re.search(r'list[\s\-]*i\b|column[\s\-]*(i|a)\b', s):
+          return 'MATCH'
+      if _opts_are_match_pairs(opts):
           return 'MATCH'
       # 3 — SEQUENCE / ORDERING (v2.23): the OPERATION is arranging (kept above STATEMENT).
       if re.search(r'\b(arrange|rearrange|correct sequence|proper sequence|correct order|'
@@ -2911,6 +2990,7 @@ Replace for registry.json), and next-step reference.
     A-SECHDR ← R8/G-SECTIONHDR · A-ANSKEY ← R5/G-ANSWERKEY · A-FONT ← R24/G-FONTCHECK
     A-BLANKSEP ← R13 · A-QNFIRST ← R14/G-QNUM-FIRST
     A-STIMORPHAN ← R-LINKED/G-STIMULUS-ORPHAN
+    A-MATCH-TABLE ← S7-3/G-MATCH-TABLE (Step 7 match-render mandate; re-derived MATCH must carry a real table)
     A-UNDERLINE ← R-UNDERLINE/G-UNDERLINE
     A-MATHRASTER ← R-MATH-OMML/G-MATH-RASTER (view-backed, S5-3) · A-FRAC ← G-FRAC
     A-OMML ← R-MATH-OMML/G-OMML(+FLOOR)
@@ -3139,7 +3219,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.6):
-#     • `--self-test`  → SELF-TEST: 45/45 PASS  (exit 0). The 35 v2.5 tests cover every
+#     • `--self-test`  → SELF-TEST: 47/47 PASS  (exit 0). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
 #       Greek-math text that must NOT trip A-SCRIPT; a Devanagari word that MUST trip
@@ -3152,8 +3232,10 @@ Replace for registry.json), and next-step reference.
 #       ledger stamp ⇒ C7 FAIL; a stamp whose evidence file is missing ⇒ C6 FAIL; a
 #       stamp whose evidence file exists ⇒ PASS. PLUS 2 v2.7 A-HEADER-inversion fixtures
 #       (a pre-Q.1 title/info block ⇒ A-HEADER FAIL i.e. strip; the SAME block with
-#       EXAM_STRUCTURE paper_header_block declared ⇒ dormant, no failure).
-#     • AUTH_GATE_FLOOR = 35 (MANDATE A / P1). N (45) >= floor.
+#       EXAM_STRUCTURE paper_header_block declared ⇒ dormant, no failure). PLUS 2 v2.7.1
+#       A-MATCH-TABLE fixtures (a MATCH question rendered WITHOUT a table ⇒ A-MATCH-TABLE
+#       FAIL; the same MATCH body rendered AS a real table ⇒ dormant, no failure).
+#     • AUTH_GATE_FLOOR = 35 (MANDATE A / P1). N (47) >= floor.
 #     • run against a real 100-question paper → parses all 100 blocks; the
 #       blueprint-driven gates (A-COUNT 100/100, A-SEQ 1..100, A-SECCOUNT
 #       25/25/25/25) pass; A-OPTN correctly reads 4 image-options on figural
@@ -3826,6 +3908,94 @@ def gate_stimorphan(blocks, src):
         _ok('A-STIMORPHAN-XREF', 'no "Q.x and Q.y" cross-references.')
 
 
+# ── self-contained MATCH detector for the machine gate (v2.7.1) ────────────────
+# The runnable audit.py (this block) is standalone and does NOT import the S6-1b spec
+# classifier, so A-MATCH-TABLE carries its OWN detector. It MIRRORS the S6-1b classifier's
+# MATCH rules EXACTLY (keyword rules + cross-domain label-pair option shape) — both live in
+# THIS file (S6-1b + here); if one changes the other MUST match. Kept minimal: only the
+# MATCH decision is needed here, not the full 8-class ladder.
+_MT_PAIR_RE = re.compile(r'\(?\s*([A-Za-z]{1,4}|\d{1,2})\s*\)?\s*[-\u2010-\u2015:\u2192>]+\s*'
+                         r'\(?\s*([A-Za-z]{1,4}|\d{1,2})\s*\)?')
+_MT_SUB = (r'\(?\s*(?:[A-Za-z]{1,4}|\d{1,2})\s*\)?\s*[-\u2010-\u2015:\u2192>]+\s*'
+           r'\(?\s*(?:[A-Za-z]{1,4}|\d{1,2})\s*\)?')
+_MT_OPT_RE = re.compile(r'^\s*' + _MT_SUB + r'(?:[,;\s]+' + _MT_SUB + r'){1,}\s*$')
+
+def _mt_family(tokens):
+    low = [x.lower() for x in tokens if x]
+    if not low:
+        return 'other'
+    if all(re.fullmatch(r'\d{1,2}', x) for x in low):
+        return 'digit'
+    romanish = all(re.fullmatch(r'[ivxlcdm]+', x) for x in low)
+    if romanish and any(len(x) > 1 for x in low):
+        return 'roman'
+    if all(re.fullmatch(r'[a-z]', x) for x in low):
+        return 'roman' if set(low) <= {'i', 'v', 'x'} else 'alpha'
+    if romanish:
+        return 'roman'
+    if all(re.fullmatch(r'[a-z]{1,4}', x) for x in low):
+        return 'alpha'
+    return 'other'
+
+def _opts_match_pairs(opts):
+    if not opts:
+        return False
+    hits = 0
+    for o in opts:
+        s = (o or '').strip()
+        if not s or not _MT_OPT_RE.match(s):
+            continue
+        pairs = _MT_PAIR_RE.findall(s)
+        if len(pairs) < 2:
+            continue
+        lf = _mt_family([p[0] for p in pairs])
+        rf = _mt_family([p[1] for p in pairs])
+        if lf == rf or 'other' in (lf, rf):
+            continue
+        hits += 1
+    return hits >= max(2, (len(opts) + 1) // 2)
+
+def _block_is_match(stem, opts):
+    # Mirror the S6-1b ladder precedence: ASSERTION_REASON outranks MATCH, so an
+    # assertion/reason stem is NOT a match even if its options look like pairs. (LINKED also
+    # outranks MATCH; the gate skips linked members via src, below.)
+    s = (stem or '').lower()
+    if re.search(r'\bassertion\b', s) and re.search(r'\breason\b', s):
+        return False
+    if re.search(r'\bmatch\b', s) and re.search(r'\b(following|list|column|set)\b', s):
+        return True
+    if re.search(r'list[\s\-]*i\b|column[\s\-]*(i|a)\b', s):
+        return True
+    return _opts_match_pairs(opts)
+
+
+def gate_match_table(blocks, src):
+    """A-MATCH-TABLE (v2.7.1) — executable promotion of the S7-3 'MATRICES & MATCH-THE-COLUMN
+    must be a REAL grid' checklist item. For every block re-derived as Axis-2 MATCH by the
+    SHARED classifier (S6-1b — the SAME functions Step 5 and Step 7 use), the List columns
+    MUST render as a real <w:tbl>. A match rendered as plain text lines (or space/tab pseudo-
+    columns) is a format-fidelity defect: S6-6 still counts the MATCH format PRESENT while the
+    skill is left un-rehearsed — a false readiness signal. Exam-agnostic: the MATCH signal is
+    language-independent (keyword OR cross-domain option shape), never a hardcoded exam label."""
+    if not blocks:
+        return
+    oc = src.get('options_count', 4)
+    linked = src.get('passage_linked', set()) | src.get('cloze_linked', set())
+    missing = []
+    for b in blocks:
+        if b.qnum in linked:          # LINKED outranks MATCH (S6-1b); A-STIMORPHAN covers it
+            continue
+        labs = _label_paras(b)
+        opts = [x[2] for x in (labs[-oc:] if len(labs) >= oc else labs)]
+        if _block_is_match(block_stem_text(b), opts):
+            if not b.tables:
+                missing.append(f'Q{b.qnum}')
+    (_ok if not missing else _fail)('A-MATCH-TABLE',
+        'every MATCH question renders its List columns as a real table.' if not missing else
+        'MATCH question(s) rendered without a <w:tbl> grid (S7-3 defect — rebuild the List '
+        'body as a real table, never text/space columns): ' + ' '.join(missing[:15]))
+
+
 def gate_underline(blocks):
     missing, fake = [], []
     for b in blocks:
@@ -4340,6 +4510,7 @@ def run_audit(args):
     gate_sechdr(blocks, doc, src)
     gate_anskey(doc)
     gate_stimorphan(blocks, src)
+    gate_match_table(blocks, src)          # v2.7.1 — MATCH must render a real table
     gate_underline(blocks)
     gate_omml(doc, src, args.final)
     gate_frac_ascii(blocks, src)
@@ -4446,6 +4617,31 @@ def self_test():
     p = _mini_doc(tmp, b_notfirst); _reset()
     _t, bl = parse_blocks(Document(p)); gate_qnfirst(bl)
     check('A-QNFIRST-catch', any(c == 'A-QNFIRST' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 5b. A-MATCH-TABLE catches a MATCH question rendered WITHOUT a real table (v2.7.1)
+    _MPAIRS = ('(A)-(I), (B)-(III), (C)-(IV), (D)-(II)', '(A)-(II), (B)-(IV), (C)-(III), (D)-(I)',
+               '(A)-(IV), (B)-(III), (C)-(II), (D)-(I)', '(A)-(III), (B)-(I), (C)-(IV), (D)-(II)')
+    def b_match_notable(d):
+        d.add_paragraph('Q.1  Match List-I with List-II.')
+        for i, o in enumerate(_MPAIRS, 1):
+            d.add_paragraph(f'{i}.  {o}')
+        d.add_paragraph('')
+    p = _mini_doc(tmp, b_match_notable); _reset()
+    _t, bl = parse_blocks(Document(p)); gate_match_table(bl, _src_stub(tq=1))
+    check('A-MATCH-TABLE-catch', any(c == 'A-MATCH-TABLE' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 5c. A-MATCH-TABLE passes (dormant) when the MATCH body IS a real table
+    def b_match_table(d):
+        d.add_paragraph('Q.1  Match List-I with List-II.')
+        tb = d.add_table(rows=2, cols=2)
+        tb.cell(0, 0).text = '(A) Collagen'; tb.cell(0, 1).text = '(I) triple helix'
+        tb.cell(1, 0).text = '(B) Keratin';  tb.cell(1, 1).text = '(II) coiled coil'
+        for i, o in enumerate(_MPAIRS, 1):
+            d.add_paragraph(f'{i}.  {o}')
+        d.add_paragraph('')
+    p = _mini_doc(tmp, b_match_table); _reset()
+    _t, bl = parse_blocks(Document(p)); gate_match_table(bl, _src_stub(tq=1))
+    check('A-MATCH-TABLE-pass', not any(c == 'A-MATCH-TABLE' and l == 'FAIL' for l, c, _ in RESULTS))
 
     # 6. A-FONT catches Arial run
     def b_arial(d):
@@ -4904,5 +5100,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.7
+# END OF Framework_MockTestCreateAudit v2.7.1
 # ════════════════════════════════════════════════════════════════════════

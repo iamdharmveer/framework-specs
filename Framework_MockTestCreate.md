@@ -1,4 +1,26 @@
-# Framework_MockTestCreate v5.18
+# Framework_MockTestCreate v5.19
+#
+# v5.19 — 2026-07-11 — MATCH-THE-COLUMN RENDERS AS A REAL TABLE (match grid no longer ships as plain text).
+#   ROOT CAUSE: the S4-7 FORMAT DISPATCH keyed only on Axis-1 format (FIGURAL/DI/TEXT); a match
+#   (Axis-2 MATCH, format=TEXT) fell through to add_standard_question(), so its List-I/List-II
+#   body rendered as plain text lines — a silently un-rehearsed format that gives a false
+#   readiness signal and mismatches the exam's format mix.
+#   (1) NEW renderer add_match_table() (§10-S10-3M): Q.N-first bold instruction paragraph, THEN
+#       a real bordered Word table (List-I | List-II | … columns; >=2 columns supported and
+#       UNEQUAL columns blank-padded so an extra distractor renders as its own row), THEN the
+#       pairing-quad options. Exam-agnostic — headers + item labels come from the caller;
+#       composes the existing add_question_stem / add_text_options helpers.
+#   (2) S4-7 FORMAT DISPATCH: new branch — stem_format_variant == 'match_the_following' →
+#       add_match_table(); add_standard_question() with the lists embedded in stem text is
+#       BANNED for match (renders the grid as plain text).
+#   (3) NEW gate G-MATCH-TABLE (S12-NEW-28, gate count 67 → 68): every match question must
+#       render its List columns as a real <w:tbl>. Executable enforcement is DELEGATED to the
+#       Step 8 audit A-MATCH-TABLE (already runs on the cumulative docx during S4-11 STEP B when
+#       AUDIT_AVAILABLE); the S4-11 manual checklist (39 → 40 items) is the no-audit fallback.
+#       NO match-detection logic is duplicated in Step 7 (anti-drift). Added to §12 catalogue,
+#       §13-2 sweep, §17 DoD, §18 glossary, footer total.
+#   Pairs with Analyse v2.24.2 (language-agnostic MATCH classifier) + CreateAudit v2.7.1
+#       (A-MATCH-TABLE gate).
 #
 # v5.18 — 2026-07-09 — PRE-Q.1 BODY-BLOCK BAN (title/info/scoring cover removed at source).
 #   A generated Complete.docx must contain ONLY Q.1..Q.N and their options — no title,
@@ -627,8 +649,8 @@
 #             (4) MEDIUM — S13-9 handoff message used old step numbers: "Step 4
 #                 (MockExplain)" and "Step 3 (MockCreateAudit)" instead of canonical
 #                 Step 9 / Step 8. FIXED.
-#             (5) MEDIUM — S3-3 SSC-specific MANDATE numbering: "MANDATE-8-equivalent
-#                 block" / "MANDATE-9-equivalent block" are SSC-specific mandate numbers
+#             (5) MEDIUM — S3-3 SSC-specific MANDATE numbering: "MANDATE 8 equivalent
+#                 block" / "MANDATE 9 equivalent block" are SSC-specific mandate numbers
 #                 baked into an exam-agnostic spec (prime-directive violation). A GATE
 #                 exam wouldn't number mandates 8/9. FIXED: replaced with generic
 #                 directive-block descriptions. Same fix in §17 DoD.
@@ -850,7 +872,7 @@
 #           prime-directive class as v4.9's 2a strip). Two prose sites asserted a fixed count
 #           of mandatory General-Awareness areas — an SSC-specific value baked into an
 #           exam-agnostic spec (a 6-section GATE/NEET paper has a different count, or none).
-#           The framework already SOURCES these areas "from the MANDATE-9-equivalent block" in
+#           The framework already SOURCES these areas "from the MANDATE 9 equivalent block" in
 #           section_rules; only the literal count was wrong to fix. FIX: S3-3 extraction line
 #           and the §17 DoD item now read "ALL mandatory GA areas as declared in section_rules"
 #           — count is data, never hardcoded. No gate/rule/logic change; empty ⇒ vacuous.
@@ -2596,6 +2618,15 @@
                → Mark figural_qs[str(qnum)].rendered = true in batch_state
                → Verify via view tool (9-item visual checklist, §10-S10-7)
                Text stem with add_question_stem() alone is BANNED for format=FIGURAL.
+             IF stem_format_variant == 'match_the_following' (any TEXT/PASSAGE format):
+               → Render via add_match_table() (§10-S10-3M): the Q.N-first bold instruction
+                 paragraph, THEN a REAL Word table (List-I | List-II | … columns; unequal
+                 columns blank-padded), THEN the pairing-quad options. Pass the List columns +
+                 options as DATA — NEVER embed the lists as stem text.
+               → add_standard_question() with the lists in the stem is BANNED for match: it
+                 renders the grid as plain text (G-MATCH-TABLE; re-verified by Step 8
+                 A-MATCH-TABLE). Keep the 'Match …' instruction in the Q.N paragraph so the
+                 audit re-detects the MATCH axis.
              IF format == TEXT/PASSAGE/DI:
                → Generate via add_standard_question() (§10-S10-3)
                → add_figural_question() / add_figural_stem_question() NOT called.
@@ -2818,8 +2849,12 @@
                   ca_range lo<=hi. HARD FAIL.
   [ ] G-NAT-INSTR: (numerical only) numerical-entry instruction present in
                   Q.N stem line (R14). HARD FAIL.
+  [ ] G-MATCH-TABLE: Every match question (stem_format_variant == 'match_the_following')
+                  renders its List columns as a REAL Word table, not plain text. Executable
+                  enforcement is the Step-8 audit A-MATCH-TABLE (STEP B); this item is the
+                  no-audit fallback. HARD FAIL — re-emit via add_match_table().
 
-  All 39 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 40 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
@@ -4552,6 +4587,73 @@
       add_text_options(doc, options)
       add_blank_separator(doc)
       return {'msq_instr_in_stem': bool(msq_instr)}   # caller forwards to write_q_to_sidecar
+
+  def add_match_table(doc, qnum, instruction, columns, options,
+                      answer_cardinality='single', section_rules_text='', language='english',
+                      header_fill=None):
+      """MANDATORY renderer for stem_format_variant == 'match_the_following' (§10-S10-3M).
+      Renders a MATCH question as a REAL Word table grid — never plain text. Layout:
+        (1) Q.N-first bold instruction paragraph (R14 / G-QNUM-FIRST; MSQ instruction in-stem);
+        (2) a bordered Word table, one column per list (List-I | List-II | …): a header row
+            plus one row per item. UNEQUAL columns are blank-padded (an extra List-II
+            distractor renders as a row whose List-I cell is empty);
+        (3) the pairing-quad options (e.g. 'A-I, B-III, …') via the standard option block;
+        (4) blank separator (R13).
+      columns : list of (header, [item, …]); each item already carries its own label
+                ('(A) Collagen', 'I. triple helix', …). >=2 columns supported (List-III).
+      options : the pairing-quad option texts.
+      Exam-agnostic: headers, labels and the optional header_fill come from the caller — no
+      hardcoded scheme. Emitting a match via add_standard_question() (lists as stem text) is
+      BANNED — its grid renders as plain text: G-MATCH-TABLE, re-verified by Step 8
+      A-MATCH-TABLE. Keeping the 'Match …' instruction in the Q.N paragraph (not inside the
+      table) is what lets Step 8 re-detect the MATCH axis and confirm the table is present.
+      """
+      from docx.shared import Pt, RGBColor
+      from docx.oxml import parse_xml
+      from docx.enum.text import WD_ALIGN_PARAGRAPH
+      msq_instr = (msq_instruction_for(section_rules_text, language)
+                   if answer_cardinality == 'multi' else None)
+      add_question_stem(doc, qnum, instruction, msq_instruction=msq_instr)
+      headers   = [str(h) for h, _ in columns]
+      col_items = [[str(x) for x in items] for _, items in columns]
+      ncols = len(headers)
+      nrows = max((len(c) for c in col_items), default=0)
+      BORDER = (
+          '<w:tcBorders xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+          '<w:top    w:val="single" w:sz="6" w:color="000000"/>'
+          '<w:left   w:val="single" w:sz="6" w:color="000000"/>'
+          '<w:bottom w:val="single" w:sz="6" w:color="000000"/>'
+          '<w:right  w:val="single" w:sz="6" w:color="000000"/>'
+          '</w:tcBorders>')
+      table = doc.add_table(rows=1 + nrows, cols=ncols)
+      # header row (bold; optional fill for a styled header)
+      for ci, h in enumerate(headers):
+          cell = table.rows[0].cells[ci]
+          run = cell.paragraphs[0].add_run(h)
+          run.bold = True
+          run.font.name = FONT_NAME
+          run.font.size = Pt(FONT_SIZE_PT)
+          if header_fill:
+              run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+              cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+              cell._tc.get_or_add_tcPr().append(parse_xml(
+                  f'<w:shd xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+                  f' w:val="clear" w:color="auto" w:fill="{header_fill}"/>'))
+      # data rows (blank-pad short columns so unequal lists render correctly)
+      for ri in range(nrows):
+          for ci in range(ncols):
+              items = col_items[ci]
+              cell = table.rows[ri + 1].cells[ci]
+              run = cell.paragraphs[0].add_run(items[ri] if ri < len(items) else '')
+              run.font.name = FONT_NAME
+              run.font.size = Pt(FONT_SIZE_PT)
+      # borders on every cell
+      for row in table.rows:
+          for cell in row.cells:
+              cell._tc.get_or_add_tcPr().append(parse_xml(BORDER))
+      add_text_options(doc, options)
+      add_blank_separator(doc)
+      return {'msq_instr_in_stem': bool(msq_instr), 'rendered_match_table': True}
   ```
 
 ## S10-4 — OMML library (complete — see v1.0 for full implementation)
@@ -5103,7 +5205,7 @@
   Q numbers in docx must exactly equal keys in answer_key.json.
 
 # ════════════════════════════════════════════════════════════════════════
-# §12 — GUARD SCRIPT (all 67 gates — 39 v1.0 baseline + 28 added since v1.0)
+# §12 — GUARD SCRIPT (all 68 gates — 39 v1.0 baseline + 29 added since v1.0)
 # ════════════════════════════════════════════════════════════════════════
 
 ## S12-0 — Zero-Warning Policy (unchanged)
@@ -5650,6 +5752,9 @@
   fully dormant when nat_present is false (no concept_map entry has answer_type=='numerical').
   v5.18 adds G-PREQ1 (S12-NEW-27) — the pre-Q.1 body-block ban. Total gates: 67.
 
+  v5.19 adds G-MATCH-TABLE (S12-NEW-28) — match-grid rendering; executable enforcement
+  delegated to the Step 8 audit A-MATCH-TABLE (no logic duplicated here). Total gates: 68.
+
   S12-NEW-26 — G-QINDEX (v5.2 — question-index certification, HARD STOP; runs at Final
     Assembly; executable home S13-QINDEX, after S13-REGCHECK). Certifies the mock-N
     registry.question_index this session built (S13-4) — the per-question {subtopic_id,
@@ -5682,6 +5787,16 @@
     no current exam declares it). Fixable: remove the offending paragraphs from the docx.
     Independently re-verified by Step 8 A-HEADER (strip, not validate).
 
+  S12-NEW-28 — G-MATCH-TABLE (v5.19 — match-grid rendering; per-batch S4-11 + Step-8 audit):
+    Every question rendered from stem_format_variant == 'match_the_following' MUST carry a real
+    Word table (<w:tbl>) for its List columns. A match emitted via add_standard_question()
+    (lists as plain text) is a format-fidelity defect: the MATCH format is counted present
+    while the skill is left un-rehearsed. ENFORCEMENT: executable detection is DELEGATED to the
+    Step 8 audit A-MATCH-TABLE, which already runs on the cumulative docx during S4-11 STEP B
+    when AUDIT_AVAILABLE — the match-detection logic is NOT duplicated here (anti-drift). The
+    S4-11 manual checklist item is the no-audit fallback. Fixable: re-emit the question via
+    add_match_table() (§10-S10-3M).
+
 
 # ════════════════════════════════════════════════════════════════════════
 # §13 — FINAL ASSEMBLY (v2.0 — REGISTRY INIT FIX)
@@ -5689,7 +5804,7 @@
 
 ## S13-1 — Final Assembly trigger (unchanged)
 
-## S13-2 — Complete gate sweep (all 67 gates)
+## S13-2 — Complete gate sweep (all 68 gates)
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -6157,13 +6272,13 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   □ Final batch auto-ran Final Assembly in same response (S4-9)  **
   □ Every batch: Layer 1 STOP executed (separate response per batch)  *
   □ Every batch: Manual gate checklist (S4-11) completed if no audit.py  *
-  □ Final Assembly gate check passed (67 gates)  *
+  □ Final Assembly gate check passed (68 gates)  *
   □ (Issue 2b) group-presence (G-GROUPMANDATE) + min-count (G-MINCOUNT) verified for
     this mock; cadence left to Step 1 (cross-mock, not gated in Step 7)  *
   □ Audit STDOUT appended to every batch reply
 
   CONTENT QUALITY:
-  □ All 67 gates: PASS or NON-FIX-WARN  *
+  □ All 68 gates: PASS or NON-FIX-WARN  *
   □ Each subtopic has EXACTLY its blueprint q_count (RULE A, G-ALLOC-SUBTOPIC) — DOUBT-3  ***
   □ No scenario_key repeats anywhere in the mock (RULE B, G-CONCEPTDUP) — DOUBT-3  ***
   □ Subtopics with N>1 use N distinct scenarios; extra concepts invented as needed  ***
@@ -6255,7 +6370,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 ## S17-2 — Step 8 handoff (unchanged from v1.0)
 
 # ════════════════════════════════════════════════════════════════════════
-# §18 — AUDIT GATE GLOSSARY (67 gates total — 39 v1.0 baseline + 28 tabled below)
+# §18 — AUDIT GATE GLOSSARY (68 gates total — 39 v1.0 baseline + 29 tabled below)
 # ════════════════════════════════════════════════════════════════════════
 
   v2.0 adds 6 new gates to the 39 from v1.0:
@@ -6506,6 +6621,12 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   |-----------|---------------------------------------------------------------|------|-----------------------------------------|
   | G-PREQ1   | No non-blank paragraph before Q.1 (title/info/scoring/cover)  | YES  | Delete the pre-Q.1 paragraphs from docx |
 
+  v5.19 adds 1 new gate (→ 68), per-batch (S4-11 fallback) + Step-8 audit A-MATCH-TABLE:
+
+  | Gate Code     | Checks                                                        | Fix? | Fix                                        |
+  |---------------|---------------------------------------------------------------|------|--------------------------------------------|
+  | G-MATCH-TABLE | Every match question renders its List columns as a real table | YES  | Re-emit via add_match_table() (§10-S10-3M) |
+
   G-PREQ1 (definition): the generated paper is questions-only at the DOCUMENT level — the
   first non-blank body paragraph must be the bold "Q.1" stem. Any title, "Total Questions /
   Maximum Marks / Time" line, "Each question carries ... Negative marking ..." instruction, or
@@ -6697,7 +6818,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.18
+# END OF Framework_MockTestCreate v5.19
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below
@@ -6726,7 +6847,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #              render-consistency + verify_presentation_match; G-FORMATDUP selects
 #              by class (missing-key now caught); RULE C requires distinct visible
 #              stem_format. No new gate/rule — pure closure.
-# Total guard gates: 67 (see the §12 catalogue + §17 DoD, current through v5.18; the
+# Total guard gates: 68 (see the §12 catalogue + §17 DoD, current through v5.19; the
 #   per-batch/Final-Assembly gate set — MSQ gates dormant unless multi_present, NAT gates
 #   dormant unless nat_present; G-GROUPMANDATE/G-MINCOUNT dormant unless their manifest
 #   structure is non-empty; G-PREQ1 dormant only if EXAM_STRUCTURE declares paper_header_block)
