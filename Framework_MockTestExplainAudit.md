@@ -4,13 +4,27 @@
 **Step 10 — MockExplainAudit**
 **The independent auditor and rectifier of explanation documents produced by Step 9.**
 
-Version: v1.8
+Version: v1.10
 Status: Active
 Engine: `explain_engine.py` (shared universal engine; core `--self-test` 44/44, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
 
 ---
 
 ## VERSION HISTORY
+
+**v1.10** — 2026-07-12 — PAPER-REFERENCE ALIGNMENT (docs-only, zero logic).
+The frozen question paper Step 10 loads and re-seeds from is the Step-8 rectified, certified
+paper, now named explicitly: bare `[ExamCode]_Mock[N].docx` → `[ExamCode]_Mock[N]_Create_Complete.docx`
+in the §0 input contract and the P1 resolve step. The pipeline-position block's Step-7 line is
+corrected to Step 7's actual output `[ExamCode]_Mock[N]_Create.docx` (Step 8 remains the "rectified
+paper" line). Supersedes the v1.9 note that left the bare reference unchanged. No gate, sidecar,
+or engine logic touched; chain re-verified against Step 8 (reads Create_Complete.docx) / Step 9 / Step 11.
+
+**v1.9** — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
+Audited output renamed `[ExamCode]_Mock[N]_Solutions_Audited.docx` → `[ExamCode]_Mock[N]_Explanation_Complete.docx`.
+Input renamed accordingly: reads the Step-9 `[ExamCode]_Mock[N]_Explanation.docx`. The frozen
+paper reference (`[ExamCode]_Mock[N].docx`), all CA1–CA7 gates, the audit sidecars, and the
+shared engine reader are unchanged. Chain re-verified against Step 9 / Step 11.
 
 **v1.8** — 2026-07-11 — FIGURE SECTION REMOVED (parallel to Step 9 v1.13 / MockDeliver).
 Step 9 no longer emits any ⬛ FIGURE / figure-note section, so Step 10's figure-note AUDIT
@@ -128,7 +142,7 @@ No logic change; engine untouched.
 - **D2 — the reader lives in the engine.** Reading a rendered Solutions document back into structured blocks is not a text-scrape: the block headers, the option word, the correct-answer label, the accepted-range label and the option-label scheme are all configuration-driven glyphs, not literals. A reader that hardcoded them would be exam-bound. The reader (`parse_solution_blocks`) is therefore an engine function driven by the same `EngineConfig` that Step 4 wrote with, making it the exact inverse of the writer. See §7, §16, Appendix A.
 - **D3 — learnings loop is emit-now, wire-later.** Step 5 emits `[ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v1.md` capturing every recurring defect class it fixed. Step 4 consumes that file at its P1 and applies its rules while authoring (Step 4 §24 / RE-22, wired in v1.1); the producer schema here is pinned to that consumer. See §24.
 - **D4 — rule-family prefix RXA.** Audit rules are numbered RXA-1, RXA-2, … (Rules, eXplanation Audit), keeping them distinct from Step 3's RA-* and Step 4's rule families.
-- **D5 — output filename.** The rectified document is `[ExamCode]_Mock[N]_Solutions_Audited.docx`. The input `[ExamCode]_Mock[N]_Solutions.docx` is never modified in place. See §0, §20.
+- **D5 — output filename.** The rectified document is `[ExamCode]_Mock[N]_Explanation_Complete.docx`. The input `[ExamCode]_Mock[N]_Explanation.docx` is never modified in place. See §0, §20.
 - **D6 — per-batch rectification.** Defects are fixed in the same response that finds them, while the derivation is fresh, then the document is rebuilt and re-verified before the batch closes. Fix-later batching is a decay vector and is forbidden. See §16, §17.
 - **Engine fraction-extraction fix (discovered during Step 5 bring-up).** While proving the reader, the round-trip surfaced a latent defect in the shared engine: `frac()` stores a fraction's digits as the direct text of the `m:num`/`m:den` elements, but `verify_explanations` read them only through `m:t` descendants, so every genuine digit/digit fraction was falsely reported as a malformed OMML fraction. Because Step 4's own §18 self-audit calls `verify_explanations`, any explanation containing a real stacked fraction could not pass that gate — which explains why quantitative explanations in practice avoid OMML fractions entirely. The root-cause fix reads the full text content via `itertext()` (handling both the direct-text and the wrapped `m:r`/`m:t` forms); it changes no rendered bytes and leaves the core self-test at 44/44. The fix is locked by a regression test in the reader round-trip suite (`RT-FRAC-VERIFY`). See §7 and Appendix A.
 
@@ -147,11 +161,11 @@ Step 10 audits and rectifies explanation content. It does not audit the question
 ```text
 Step 5   PYQExtract       -> section_rules.md
 Step 6   MockBlueprint    -> blueprint.json, subtopic_manifest.json
-Step 7   MockCreate       -> [ExamCode]_Mock[N].docx, registry.json
+Step 7   MockCreate       -> [ExamCode]_Mock[N]_Create.docx, registry.json
 Step 8   MockCreateAudit  -> rectified paper, re-synced registry
-Step 9   MockExplain      -> [ExamCode]_Mock[N]_Solutions.docx
-Step 10  MockExplainAudit -> [ExamCode]_Mock[N]_Solutions_Audited.docx   <-- THIS STEP
-Step 11  MockDeliver      -> [ExamCode]_Mock[N]_Tagged.docx
+Step 9   MockExplain      -> [ExamCode]_Mock[N]_Explanation.docx
+Step 10  MockExplainAudit -> [ExamCode]_Mock[N]_Explanation_Complete.docx   <-- THIS STEP
+Step 11  MockDeliver      -> [ExamCode]_Mock[N]_Final.docx
 ```
 
 Step 10 consumes the Step 9 Solutions document and the frozen paper artifacts, and produces an audited Solutions document plus its audit sidecars. It is the last gate before the explanation product is considered final.
@@ -165,7 +179,7 @@ This specification hardcodes **no** exam value. Section names, section counts, q
 - `blueprint.json` (Step 6) — sections, per-section question ranges, option contracts, question-type contracts (mcq / msq / nat).
 - `section_rules.md` (Step 5) — labels, markers, language parameters, msq/nat instructions, the accepted-range label.
 - `registry.json` (Step 7/8) — the per-question option count and type manifest, and the figural manifest.
-- `[ExamCode]_Mock[N]_Solutions.docx` (Step 9) — the explanation content under audit.
+- `[ExamCode]_Mock[N]_Explanation.docx` (Step 9) — the explanation content under audit.
 
 Any place a reader might expect an exam-specific value, this document instead names the configuration field it is read from. SSC CGL Tier 1 is used only as a worked reference instance; not one of its values is embedded here. A hardcoded exam value anywhere in this file is a defect regardless of whether the policy behind it is correct.
 
@@ -202,13 +216,13 @@ It validates the audit ledger (§18) + the on-disk evidence sidecars against CA1
 
 **Inputs (all read-only to Step 10):**
 
-- `[ExamCode]_Mock[N]_Solutions.docx` — the Step 9 explanation document under audit. Never modified in place.
-- `[ExamCode]_Mock[N].docx` — the frozen question paper (Step 7/8). Used to reconstruct the question region and to re-seed the rebuild so question regions stay byte-identical.
+- `[ExamCode]_Mock[N]_Explanation.docx` — the Step 9 explanation document under audit. Never modified in place.
+- `[ExamCode]_Mock[N]_Create_Complete.docx` — the frozen question paper (the Step-8 rectified, certified paper). Used to reconstruct the question region and to re-seed the rebuild so question regions stay byte-identical.
 - `blueprint.json`, `section_rules.md`, `registry.json`, `subtopic_manifest.json` — the frozen configuration (CATEGORY C). Source of every exam-specific value. **`registry.question_index` (Step 8-certified) is FROZEN and read-only here** (Contract_QuestionMetadataIndex v1.0): Step 10 never reads it as a source and never writes the registry at all — it writes only its own audit sidecars (below). A paper defect that Step 10 escalates and that Step 7/8 regenerate causes Step 8 to re-run and re-sync `question_index` from the rectified paper, so the index stays consistent with the corrected paper without Step 10 ever touching it.
 
 **Outputs (written by Step 10):**
 
-- `[ExamCode]_Mock[N]_Solutions_Audited.docx` — the rectified Solutions document (D5). Byte-identical to the input wherever no defect was found; every defective explanation section replaced with a correct, sufficient, proportionate one.
+- `[ExamCode]_Mock[N]_Explanation_Complete.docx` — the rectified Solutions document (D5). Byte-identical to the input wherever no defect was found; every defective explanation section replaced with a correct, sufficient, proportionate one.
 - `[ExamCode]_Mock[N]_audit_answer_keys.json` — Step 10's independently re-derived answer key (D1), with per-question derivation confidence and evidence pointers.
 - `[ExamCode]_Mock[N]_audit_defect_log.json` — every defect found, its code, lane, severity, verdict, and the before/after of the fix.
 - `[ExamCode]_Mock[N]_audit_progress.json` — the frozen batch plan and the resume-safe progress ledger (§18). **v1.7: this is the load-bearing ledger the completion gate validates (CA1–CA7).**
@@ -242,7 +256,7 @@ MockExplainAudit M[N]
 Resolution sequence:
 
 1. Resolve `[ExamCode]` to its project configuration (`blueprint.json`, `section_rules.md`, `registry.json`, `subtopic_manifest.json`). If any is missing, halt: Step 10 cannot reconstruct the `EngineConfig` and therefore cannot read the document faithfully.
-2. Resolve `M[N]` to `[ExamCode]_Mock[N]_Solutions.docx` and `[ExamCode]_Mock[N].docx`. If the Solutions document is absent, halt (nothing to audit). If the paper is absent, halt (cannot re-seed the rebuild or re-verify fidelity).
+2. Resolve `M[N]` to `[ExamCode]_Mock[N]_Explanation.docx` and `[ExamCode]_Mock[N]_Create_Complete.docx`. If the Solutions document is absent, halt (nothing to audit). If the paper is absent, halt (cannot re-seed the rebuild or re-verify fidelity).
 3. Reconstruct the `EngineConfig` exactly as Step 9 built it: question regex, option regex, per-question option map (including 0 for nat), label scheme, language terminators, labels and markers — all from configuration. A mis-reconstructed config makes the reader mis-segment the document; §3 P4 proves the reconstruction before any audit begins.
 4. If an `audit_progress.json` for this mock already exists, resume from its ledger (§18); otherwise freeze a new batch plan.
 
@@ -739,7 +753,7 @@ Delivery happens once (MANDATE D), in Phase 3, after the last batch closes clean
 2. Final whole-document re-verification: `verify_fidelity`, `verify_structure`, `verify_explanations` pass for the entire paper.
 3. Every question is CLEAN or FIXED; no ESCALATED/UNVERIFIED question remains open (any that do are resolved via Step 7/8 and re-audited, or the mock is returned as not-yet-certifiable with the open list).
 4. Sidecars finalized: `audit_answer_keys.json`, `audit_defect_log.json`, `audit_web_sources.json`, `audit_progress.json` (marked complete), and `EXPLAIN_AUDIT_LEARNINGS_v1.md` (§24).
-5. Present `[ExamCode]_Mock[N]_Solutions_Audited.docx` exactly once, with the end-of-mock report (§21). The input Solutions document is never presented as the output and is never modified (D5).
+5. Present `[ExamCode]_Mock[N]_Explanation_Complete.docx` exactly once, with the end-of-mock report (§21). The input Solutions document is never presented as the output and is never modified (D5).
 
 Nothing is presented before the completion gate prints PASS and every batch has closed clean; a partial audited document is not a deliverable.
 
@@ -747,7 +761,7 @@ Nothing is presented before the completion gate prints PASS and every batch has 
 After the present_files call and end-of-mock report (§21), render the standardized visual
 delivery footer as the LAST element in the response. Follow Framework_DeliveryFooter.md
 for footer type (F2 step-complete — always for Step 10 since it delivers once), file badge
-(Use locally for Solutions_Audited.docx), and next-step reference.
+(Use locally for Explanation_Complete.docx), and next-step reference.
 
 ---
 

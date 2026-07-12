@@ -1,4 +1,4 @@
-# Framework_MockDeliver v1.4 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.5 — Universal Mock Test Tagger & Delivery Engine
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 # PURPOSE:
@@ -15,25 +15,25 @@
 # PIPELINE POSITION:
 #   Step 5  PYQExtract       → section_rules.md, subtopic_manifest.json
 #   Step 6  MockBlueprint    → blueprint.json, registry.json (template)
-#   Step 7  MockCreate       → [ExamCode]_Mock[N]_Complete.docx, registry.json
+#   Step 7  MockCreate       → [ExamCode]_Mock[N]_Create.docx, registry.json
 #   Step 8  MockCreateAudit  → rectified paper, re-synced registry
-#   Step 9  MockExplain      → [ExamCode]_Mock[N]_Solutions.docx
-#   Step 10 MockExplainAudit → [ExamCode]_Mock[N]_Solutions_Audited.docx
-#   Step 11 MockDeliver      → [ExamCode]_Mock[N]_Tagged.docx   ← THIS STEP
+#   Step 9  MockExplain      → [ExamCode]_Mock[N]_Explanation.docx
+#   Step 10 MockExplainAudit → [ExamCode]_Mock[N]_Explanation_Complete.docx
+#   Step 11 MockDeliver      → [ExamCode]_Mock[N]_Final.docx   ← THIS STEP
 #
 #   Step 11 runs in the [ExamCode] project (exam-specific).
 #   Step 11 runs AFTER Step 10 has completed and the audited Solutions docx is available.
 #
 # INPUTS:
 #   1. Solutions docx — attached by user (output of Step 10 or Step 9)
-#      Accepted filenames: [ExamCode]_Mock[N]_Solutions_Audited.docx
-#                          [ExamCode]_Mock[N]_Solutions.docx
+#      Accepted filenames: [ExamCode]_Mock[N]_Explanation_Complete.docx
+#                          [ExamCode]_Mock[N]_Explanation.docx
 #   2. [ExamCode]_blueprint.json   — in project knowledge (loaded automatically)
 #   3. [ExamCode]_registry.json    — in project knowledge (loaded automatically)
 #
 # OUTPUT:
 #   One tagged Word document (.docx) — delivered via present_files.
-#   Filename: [ExamCode]_Mock[N]_Tagged.docx
+#   Filename: [ExamCode]_Mock[N]_Final.docx
 #
 # TRIGGER FORMAT:
 #   Step 11: MockDeliver M[N]
@@ -60,6 +60,13 @@
 #   UPSC (variable), or any MCQ/MSQ/NAT exam.
 #
 # VERSION HISTORY:
+#   v1.5 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
+#          Tagged output renamed [ExamCode]_Mock[N]_Tagged.docx →
+#          [ExamCode]_Mock[N]_Final.docx. Accepted inputs renamed accordingly:
+#          [ExamCode]_Mock[N]_Explanation_Complete.docx (Step 10, preferred) /
+#          [ExamCode]_Mock[N]_Explanation.docx (Step 9, acceptable). Internal scratch names
+#          (_src.docx, _integrity.docx), the C1–C16 checklist and all render transforms
+#          unchanged. Pipeline-position header + §8 naming updated to match.
 #   v1.4 — 2026-07-11 — FIGURE SECTION REMOVED FROM SOLUTIONS LAYOUT LEGEND
 #          (parallel to Step 9 v1.13 / Step 10 v1.8). Step 9 no longer renders the
 #          ⬛ FIGURE / figure-description block, so the §S2-2 per-question interleaved-
@@ -69,7 +76,7 @@
 #          reads and delivers the finished docx and never rendered or checked the FIGURE
 #          header, so there is zero logic change.
 #   v1.3 — 2026-07-09 — DOCX VALIDITY HARDENING (fixes Word "unreadable content —
-#          recover?" on the delivered Tagged.docx). Roots out an OOXML-corruption class
+#          recover?" on the delivered Final.docx). Roots out an OOXML-corruption class
 #          that python-docx and LibreOffice opened SILENTLY while Microsoft Word — the
 #          only strict consumer — rejected. SIX exam-agnostic fixes:
 #          (1) ROOT CAUSE — removed etree.cleanup_namespaces() from BOTH the integrity
@@ -271,8 +278,8 @@ Parse:
 
 ```
 1. Verify Solutions docx attached. Accept either:
-     [ExamCode]_Mock[N]_Solutions_Audited.docx  (Step 10 output — preferred)
-     [ExamCode]_Mock[N]_Solutions.docx           (Step 9 output — acceptable)
+     [ExamCode]_Mock[N]_Explanation_Complete.docx  (Step 10 output — preferred)
+     [ExamCode]_Mock[N]_Explanation.docx           (Step 9 output — acceptable)
    If neither attached → HARD STOP: "Attach the Solutions docx for Mock [N]."
 
 2. Verify blueprint.json in project knowledge.
@@ -878,7 +885,7 @@ if unresolved:
 DELIVERED file — the corruption the learner saw came from this assembly.
 
 ```python
-render_out_path = f'/home/claude/deliver_work/out/{EXAM}_Mock{N}_Tagged.docx'
+render_out_path = f'/home/claude/deliver_work/out/{EXAM}_Mock{N}_Final.docx'
 reassign_docpr_ids(render_root)
 with zipfile.ZipFile(src_path) as src_zip:
     with zipfile.ZipFile(render_out_path, 'w') as out_zip:
@@ -898,7 +905,7 @@ with zipfile.ZipFile(src_path) as src_zip:
                         else zipfile.ZIP_DEFLATED)
             out_zip.writestr(name, data, compress_type=compress)
 shutil.copy(render_out_path,
-            f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Tagged.docx')
+            f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Final.docx')
 ```
 
 **The render-source docx IS the final delivered file. No `soffice` conversion
@@ -1354,8 +1361,8 @@ so Rule 22's `<w:color>` propagates automatically).
 
 # §8 — FILE NAMING & DELIVERY
 
-Output file: `[ExamCode]_Mock[N]_Tagged.docx`
-Output path: `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Tagged.docx`
+Output file: `[ExamCode]_Mock[N]_Final.docx`
+Output path: `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Final.docx`
 
 `present_files` is called immediately after all 16 checklist gates pass.
 No other files are presented.
@@ -1401,14 +1408,14 @@ Tag summary:
     [Section2] ([count]): [Subtopic1: N, Subtopic2: N, ...]
     ...
 
-Output: [ExamCode]_Mock[N]_Tagged.docx
+Output: [ExamCode]_Mock[N]_Final.docx
 ```
 
 **Post-delivery footer (MANDATORY after present_files):**
 After the present_files call and in-chat delivery report above, render the standardized
 visual delivery footer as the LAST element in the response. Follow Framework_DeliveryFooter.md
 for footer type (F2 step-complete — always for Step 11), file badge (Use locally for
-Tagged.docx), and next-step reference. Step 11 uses the special bottom text:
+Final.docx), and next-step reference. Step 11 uses the special bottom text:
 "Pipeline complete for [ExamCode] Mock [N]. Thank you!" (last step — no next step).
 For the next mock: "Step 7: MockCreate M[N+1]".
 
@@ -1429,7 +1436,7 @@ report reads "Headers stripped: 0" and "Header regression: none".
 This should NOT occur: Step 7 R8b / G-PREQ1 and Step 8 A-HEADER together guarantee a
 questions-only paper. If a title/info/scoring block nonetheless appears before Q.1, it is
 an upstream regression (a Step 7 generator leak that Step 8 failed to strip). The
-safety-net `detect_header_paras()` still removes it (the delivered Tagged.docx stays
+safety-net `detect_header_paras()` still removes it (the delivered Final.docx stays
 questions-only) and C4 verifies removal, but the delivery report raises a REGRESSION ALARM
 naming the count so the upstream Step 7/8 run can be fixed. Never silently absorb it as if
 it were normal — Step 11 delivers correctly AND surfaces the leak.
@@ -1530,7 +1537,7 @@ then re-run. Not a HARD STOP.
      (non-ASCII → per-codepoint safe font — FIX 6).
 9. ☐ Phase 5: assemble render-source docx ZIP (KEEP webSettings.xml — FIX 3; NO
      cleanup_namespaces — FIX 1). Copy to
-     `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Tagged.docx`.
+     `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Final.docx`.
 10. ☐ Run docx gate C11–C16 on the DELIVERED render-source docx (C16 = namespace +
      reference + tag-order integrity; needs the inputs_safe/ source for C16(b)).
      Optionally validate document.xml against the OOXML wml.xsd if present. Any
@@ -1579,4 +1586,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.4
+# END OF Framework_MockDeliver v1.5

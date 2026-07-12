@@ -1,8 +1,13 @@
-# Framework_MockTestExplain v1.13
+# Framework_MockTestExplain v1.14
 # [ExamCode] project | Step 9 (MockExplain) | Universal Mock Test Explanation Generator
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
+#   v1.14 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
+#           Solutions output renamed [ExamCode]_Mock[N]_Solutions.docx →
+#           [ExamCode]_Mock[N]_Explanation.docx. Input renamed accordingly: reads the Step-8
+#           rectified paper [ExamCode]_Mock[N]_Create_Complete.docx. Whole-paper incremental
+#           delivery model (RE-8), coverage/batch law, §18/§19 and the engine unchanged.
 #   v1.13 — 2026-07-11 — FIGURE SECTION REMOVED FROM SOLUTIONS OUTPUT (owner decision).
 #           The ⬛ FIGURE / figure_note block is no longer emitted for figural
 #           questions — the Solutions docx now renders exactly Correct Answer →
@@ -66,7 +71,7 @@
 #           Added S19-4: post-delivery footer rendering reference to
 #           Framework_DeliveryFooter.md v1.3. Per-batch (F1 mid-step) and final
 #           batch (F2 step-complete) now render the standardized visual footer.
-#           Same Solutions.docx delivered each batch (whole-paper incremental).
+#           Same Explanation.docx delivered each batch (whole-paper incremental).
 #           Zero logic change.
 #   v1.10 — 2026-07-06 — EXAM_CONFIG V2.5 CONTRACT SYNC (level + marking_scheme).
 #           Step 6 v1.19 now carries level, medium, marking_scheme in blueprint.json.
@@ -282,20 +287,20 @@
 #           (we add MSQ + NAT). The correct-option echo / WHY-WRONG option-content
 #           cloning remains an OPEN design question for the owner (index-only stands).
 #   v1.0 — 2026-06-30 — Initial release. Takes the Step-3 (MockCreateAudit)
-#           rectified, certified-clean Mock[N]_Complete.docx + the frozen
-#           registry.json and produces [ExamCode]_Mock[N]_Solutions.docx — the
+#           rectified, certified-clean Mock[N]_Create_Complete.docx + the frozen
+#           registry.json and produces [ExamCode]_Mock[N]_Explanation.docx — the
 #           same paper with a perfect, audited explanation interleaved after each
 #           question. Built exam-agnostic from the ground up (zero hardcoded exam
 #           values — every count, format, label, language, option-count, figural
 #           type, escape token and section family is read at runtime from
 #           blueprint.json / section_rules.md / subtopic_manifest.json /
 #           registry.json). Design decisions locked with the framework owner:
-#             D1. Step 4 receives ONLY {Mock[N]_Complete.docx, registry.json}
+#             D1. Step 4 receives ONLY {Mock[N]_Create_Complete.docx, registry.json}
 #                 (Step-3 closed set). Step 3 derived a key INTERNALLY to audit and
 #                 NEVER delivered it (Step-3 §11-3 / §19). So Step 4 has NO key and
 #                 re-derives every answer independently (§7) — it is the FIRST step
 #                 that publishes a learner-facing key.
-#             D2. Output is a NEW file [ExamCode]_Mock[N]_Solutions.docx. The Step-3
+#             D2. Output is a NEW file [ExamCode]_Mock[N]_Explanation.docx. The Step-3
 #                 questions-only secure paper is PRESERVED untouched (never
 #                 overwritten). registry.json is FROZEN — read for manifests/context,
 #                 never re-synced or rewritten (that closed at Step 3).
@@ -331,7 +336,7 @@
 #   Take the certified-clean .docx produced by Step 8 and the frozen registry.json,
 #   INDEPENDENTLY DERIVE the answer to every Question, and INTERLEAVE a perfect,
 #   highest-standard explanation after each question — without altering one byte of
-#   the paper. Emit [ExamCode]_Mock[N]_Solutions.docx: a 100%-explained, zero-defect
+#   the paper. Emit [ExamCode]_Mock[N]_Explanation.docx: a 100%-explained, zero-defect
 #   learner-facing solution document, plus an author handoff for Step 10.
 #
 # ════════════════════════════════════════════════════════════════════════
@@ -339,10 +344,10 @@
 # ════════════════════════════════════════════════════════════════════════
 #   Step 5 (PYQExtract)   → [ExamCode]_section_rules.md + _subtopic_manifest.json
 #   Step 6 (MockBlueprint) → [ExamCode]_blueprint.json + _registry.json (template)
-#   Step 7 (MockCreate)    → [ExamCode]_Mock[N]_Complete.docx + registry.json
-#   Step 8 (MockCreateAudit) → [ExamCode]_Mock[N]_Complete.docx (RECTIFIED, certified)
+#   Step 7 (MockCreate)    → [ExamCode]_Mock[N]_Create.docx + registry.json
+#   Step 8 (MockCreateAudit) → [ExamCode]_Mock[N]_Create_Complete.docx (RECTIFIED, certified)
 #                                  [ExamCode]_registry.json (re-synced — now FROZEN)
-#   THIS STEP — Step 9 (MockExplain) → [ExamCode]_Mock[N]_Solutions.docx (interleaved explanations)
+#   THIS STEP — Step 9 (MockExplain) → [ExamCode]_Mock[N]_Explanation.docx (interleaved explanations)
 #   Step 10 (MockExplainAudit) → independently audits the Solutions docx
 #   Step 11 (MockDeliver)
 #
@@ -391,7 +396,7 @@
 ## S0-1 — INPUTS (what Step 9 is given)
 
   DELIVERED BY STEP 8 (the closed set; both already in the [ExamCode] project):
-    1. [ExamCode]_Mock[N]_Complete.docx   — the certified-clean paper to explain
+    1. [ExamCode]_Mock[N]_Create_Complete.docx   — the certified-clean paper to explain
     2. [ExamCode]_registry.json           — FROZEN; read for figural_manifests[] /
                                             rc_manifests[] cross-checks + dedup context +
                                             options_by_q[str(N)] (v1.3: per-question expected
@@ -414,7 +419,7 @@
 ## S0-2 — OUTPUTS (what Step 9 delivers)
 
   CORE DELIVERABLE (every batch, via ONE present_files call — the WHOLE paper):
-    1. /mnt/user-data/outputs/[ExamCode]_Mock[N]_Solutions.docx
+    1. /mnt/user-data/outputs/[ExamCode]_Mock[N]_Explanation.docx
        The complete paper: every question solved so far carries its interleaved
        explanation; every not-yet-solved question is byte-identical to the Step-8
        input (D4). The same file grows explanation-coverage each batch until 100%.
@@ -436,7 +441,7 @@
 #   answer, or explanation sentence in chat — not while solving, not in a finding,
 #   not in the report. Refer to a question ONLY as "Q.[n]" plus a code + a structural
 #   locator (e.g. "Q.47 — DEDUCTION binding missing"). The ONE content-bearing artefact —
-#   [ExamCode]_Mock[N]_Solutions.docx — is a FILE, not chat, and is the legitimate,
+#   [ExamCode]_Mock[N]_Explanation.docx — is a FILE, not chat, and is the legitimate,
 #   intended home for answers + full worked solutions (its whole purpose is to publish
 #   them). Nothing changes for chat: the dashboard (§3), the report (§20) and every
 #   progress line stay content-free. The one permitted exception is web-search queries
@@ -608,7 +613,7 @@
 
 ## S1-1 — Sources of truth (strict priority order)
 
-  1. THE PAPER ITSELF — [ExamCode]_Mock[N]_Complete.docx. The rendered stem +
+  1. THE PAPER ITSELF — [ExamCode]_Mock[N]_Create_Complete.docx. The rendered stem +
      options + attached artefacts are the ground truth for what must be explained.
   2. section_rules.md — CATEGORY C (option count, language, labels, escape tokens,
      figural types) + per-subtopic patterns (what the AXIOM must state per class).
@@ -691,7 +696,7 @@
       Figural manifest / RC manifest : [found in registry] OR [absent — derive visually]
       Batch plan                 : [K batches · ceiling 10 · linked groups atomic]
       Mode                       : [interactive — halt per batch] OR [autonomous — no pause, §MANDATE B]
-      Output                     : /mnt/user-data/outputs/[ExamCode]_Mock[N]_Solutions.docx
+      Output                     : /mnt/user-data/outputs/[ExamCode]_Mock[N]_Explanation.docx
       State                      : /home/claude (chat-scoped)
       Status                     : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted — reason]
 ```
@@ -1408,7 +1413,7 @@
 ```python
 import os
 out = '/mnt/user-data/outputs'
-sol = f'{EXAMCODE}_Mock{NNN}_Solutions.docx'
+sol = f'{EXAMCODE}_Mock{NNN}_Explanation.docx'
 present = set(os.listdir(out))
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
 leaked = [f for f in present if any(b in f.lower() for b in BANNED)]
@@ -1429,7 +1434,7 @@ if fails:
 
 ## S19-2 — The single present_files call (per batch)
 ```python
-present_files([f'/mnt/user-data/outputs/{EXAMCODE}_Mock{NNN}_Solutions.docx'])
+present_files([f'/mnt/user-data/outputs/{EXAMCODE}_Mock{NNN}_Explanation.docx'])
 ```
 
 ## S19-3 — Progress line + confirmation request (ENDS the turn — MANDATE B)
@@ -1446,11 +1451,11 @@ After every present_files call and any in-chat progress line (S19-3),
 render the standardized visual delivery footer as the LAST element in the response.
 
 Follow Framework_DeliveryFooter.md for footer type selection (F1 mid-step / F2 step-complete),
-deliverable file badges (Use locally — always for Solutions.docx), and next-step reference.
+deliverable file badges (Use locally — always for Explanation.docx), and next-step reference.
 
 Step 9 uses BOTH footer types:
-  - F1 (amber) after each non-final batch (same Solutions.docx, incrementally filled)
-  - F2 (green) after the final batch (same Solutions.docx, now fully explained)
+  - F1 (amber) after each non-final batch (same Explanation.docx, incrementally filled)
+  - F2 (green) after the final batch (same Explanation.docx, now fully explained)
 ```
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1663,5 +1668,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.13
+# END OF Framework_MockTestExplain v1.14
 # ════════════════════════════════════════════════════════════════════════
