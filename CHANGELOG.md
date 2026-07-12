@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.07.12
+- Deliverable filename rename across the delivery contract and the Create/Explain/Deliver
+  specs: Step 7 -> Create, Step 8 -> Create_Complete, Step 9 -> Explanation,
+  Step 10 -> Explanation_Complete, Step 11 -> Final.
+- Specs updated to: MockTestAnalyse v2.24.2, MockTestCreate v5.20, MockTestCreateAudit v2.7.2,
+  DeliveryFooter v1.6, MockTestExplain v1.14, MockTestExplainAudit v1.8 (content refresh),
+  MockDeliver v1.5.
+- validate_framework_md.py: permanently exempt "MANDATE/RA N equivalent" descriptive phrasing
+  from the anchor checks (O-MANDATE/N-RA false-positive fix; genuine dangling refs still caught).
+- MockDeliver: fixed stray internal "End of v1.3" marker.
+- Added CLAUDE.md documenting the release-manager protocol (approved_framework, seal_release,
+  guardrails) so future sessions inherit it.
+
 ## 2026.07.11
 - Framework_MockTestAnalyse.md: v2.24 -> v2.24.1
 - Framework_Blueprint.md: v1.27 content refresh
