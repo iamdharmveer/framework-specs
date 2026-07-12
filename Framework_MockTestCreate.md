@@ -1,5 +1,11 @@
-# Framework_MockTestCreate v5.19
+# Framework_MockTestCreate v5.20
 #
+# v5.20 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
+#   Final-assembly output renamed [ExamCode]_Mock[N]_Complete.docx →
+#   [ExamCode]_Mock[N]_Create.docx. Per-batch cumulative Q1to[K].docx, registry.json, and
+#   every gate/render path unchanged. Pairs with Step 8 (→ Create_Complete.docx), Step 9
+#   (→ Explanation.docx), Step 10 (→ Explanation_Complete.docx), Step 11 (→ Final.docx) and
+#   DeliveryFooter v1.6. Cross-file input/output chain re-verified end-to-end.
 # v5.19 — 2026-07-11 — MATCH-THE-COLUMN RENDERS AS A REAL TABLE (match grid no longer ships as plain text).
 #   ROOT CAUSE: the S4-7 FORMAT DISPATCH keyed only on Axis-1 format (FIGURAL/DI/TEXT); a match
 #   (Axis-2 MATCH, format=TEXT) fell through to add_standard_question(), so its List-I/List-II
@@ -23,7 +29,7 @@
 #       (A-MATCH-TABLE gate).
 #
 # v5.18 — 2026-07-09 — PRE-Q.1 BODY-BLOCK BAN (title/info/scoring cover removed at source).
-#   A generated Complete.docx must contain ONLY Q.1..Q.N and their options — no title,
+#   A generated Create.docx must contain ONLY Q.1..Q.N and their options — no title,
 #   marks/time/instruction, or cover paragraph before Q.1. ROOT CAUSE: the generator
 #   synthesised a courtesy cover ("... Mock Test [N] ...", "Total Questions / Maximum Marks /
 #   Time", "Each question carries ... Negative marking ...") from CATEGORY-C values
@@ -705,7 +711,7 @@
 #   v5.12 — 2026-07-07 — DELIVERY FOOTER CROSS-REFERENCE.
 #           Added S13-9A: post-delivery footer rendering reference to
 #           Framework_DeliveryFooter.md v1.3. Per-batch (F1 mid-step with cumulative
-#           Q1to[K].docx) and Final Assembly (F2 step-complete with Complete.docx +
+#           Q1to[K].docx) and Final Assembly (F2 step-complete with Create.docx +
 #           registry.json) now render the standardized visual footer. Zero logic change.
 #   v5.11 — 2026-07-06 — AUDIT SCRIPT SOURCE-OF-TRUTH MIGRATION (EC-A1, EC-A2).
 #           Step 6 v1.20 now auto-generates [ExamCode]_mock_test_audit.py as its
@@ -1162,7 +1168,7 @@
                                [ExamCode]_registry.json (empty template),
                                [ExamCode]_ExplainLearnings.md,
                                [ExamCode]_ExplainAuditLearnings.md
-  THIS STEP — Step 7 (MockCreate) → produces [ExamCode]_Mock[N]_Complete.docx,
+  THIS STEP — Step 7 (MockCreate) → produces [ExamCode]_Mock[N]_Create.docx,
                                updated [ExamCode]_registry.json
   Step 8 (MockCreateAudit) → consumes outputs of this step
 
@@ -1301,7 +1307,7 @@
        — Options: configured font, configured size, normal weight.
        — Verify: scan all runs; if run.font.name not in [configured_font, None]: fix.
   R-DELIVER (v3.5, HARD STOP): Step 7 delivers EXACTLY two files at Final
-       Assembly — [ExamCode]_Mock[N]_Complete.docx and [ExamCode]_registry.json —
+       Assembly — [ExamCode]_Mock[N]_Create.docx and [ExamCode]_registry.json —
        and NOTHING else. Producing a standalone answer-key file (any format:
        .docx/.pdf/.json/.txt) as a deliverable is forbidden with the same force
        as R5 (no answer key in the paper). Internal sidecars (answer_key.json,
@@ -2734,7 +2740,7 @@
 
   Per-batch cumulative: [ExamCode]_Mock[N]_Q1to[last_q].docx
     (e.g. SSC_CGL_TIER1_Mock7_Q1to30.docx after batch 3)
-  Final:                [ExamCode]_Mock[N]_Complete.docx
+  Final:                [ExamCode]_Mock[N]_Create.docx
   Answer key (internal): [ExamCode]_M[N]_answer_key.json
   Figural (internal):    [ExamCode]_fig_manifest.json
   Batch state (internal):[ExamCode]_M[N]_batch_state.json
@@ -6089,7 +6095,7 @@
   NOTHING ELSE. This is an exhaustive, closed list — not a minimum.
 
   DELIVER (both mandatory, both via the SAME present_files call):
-    1. [ExamCode]_Mock[N]_Complete.docx     — the final mock paper
+    1. [ExamCode]_Mock[N]_Create.docx     — the final mock paper
     2. [ExamCode]_registry.json             — updated dedup/tracking registry
 
   DO NOT DELIVER (internal — never passed to present_files):
@@ -6098,7 +6104,7 @@
     ✗ [ExamCode]_fig_manifest.json          — internal
     ✗ [ExamCode]_M[N]_batch_state.json      — internal
     ✗ [ExamCode]_M[N]_progress.json         — internal
-    ✗ any per-batch cumulative docx (Q1to[k]) — superseded by _Complete.docx
+    ✗ any per-batch cumulative docx (Q1to[k]) — superseded by _Create.docx
 
   This is the inline anchor for R-DELIVER. The answers exist ONLY in the
   internal answer_key.json sidecar (S3-14), which is NEVER delivered. If the
@@ -6113,7 +6119,7 @@
   ```python
   import os, json
   out = '/mnt/user-data/outputs'
-  docx_name = f'{EXAM}_Mock{N}_Complete.docx'
+  docx_name = f'{EXAM}_Mock{N}_Create.docx'
   reg_name  = f'{EXAM}_registry.json'
   docx_path = f'{out}/{docx_name}'
   reg_path  = f'{out}/{reg_name}'
@@ -6159,7 +6165,7 @@
 
   Call present_files ONCE, with BOTH files, docx first (most relevant):
     present_files([
-        f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Complete.docx',
+        f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Create.docx',
         f'/mnt/user-data/outputs/{EXAM}_registry.json'
     ])
 
@@ -6174,7 +6180,7 @@
   ```
   === MOCK [N] COMPLETE — Step 7 done ===
   Delivered (2 files):
-    • [ExamCode]_Mock[N]_Complete.docx   — the mock paper
+    • [ExamCode]_Mock[N]_Create.docx   — the mock paper
     • [ExamCode]_registry.json           — updated registry
 
   ⚠ REGISTRY HANDOFF — REQUIRED before generating the next mock:
@@ -6203,7 +6209,7 @@ deliverable file badges (Upload / Replace / Use locally), and next-step referenc
 
 Step 7 uses BOTH footer types:
   - F1 (amber) after each non-final batch (delivers cumulative Q1to[K].docx)
-  - F2 (green) after Final Assembly (delivers Complete.docx + registry.json)
+  - F2 (green) after Final Assembly (delivers Create.docx + registry.json)
 
 NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   1. S13-7 pre-delivery checklist → 2. S13-8 present_files → 3. S13-9 handoff → 4. Footer
@@ -6398,7 +6404,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   | G-DELIVERY-SET | Outputs dir holds EXACTLY the 2 deliverables    | YES  | Remove stray/internal files; add reg |
 
   G-DELIVERY-SET (definition): at Final Assembly, /mnt/user-data/outputs must
-  contain exactly { [ExamCode]_Mock[N]_Complete.docx, [ExamCode]_registry.json }
+  contain exactly { [ExamCode]_Mock[N]_Create.docx, [ExamCode]_registry.json }
   — no more, no fewer. A standalone answer-key file, a leaked internal sidecar,
   or a missing registry → Exit 1. This is the machine-checkable form of the
   S13-6 closed contract (identical to S13-7 items 4–6) and runs inside the S13-2
@@ -6818,7 +6824,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.19
+# END OF Framework_MockTestCreate v5.20
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below

@@ -1,4 +1,4 @@
-# Framework_DeliveryFooter v1.5 — Universal Delivery Footer Contract
+# Framework_DeliveryFooter v1.6 — Universal Delivery Footer Contract
 # MockTestFramework | Cross-step | Exam-agnostic
 #
 # PURPOSE:
@@ -18,6 +18,15 @@
 #   "Follow Framework_DeliveryFooter.md for post-delivery footer rendering."
 #
 # VERSION HISTORY:
+#   v1.6 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
+#          Per-step registry (§3) + LOCAL_ONLY badge globs (§2) updated to the new
+#          deliverable names: Step 7 Complete→Create, Step 8 Complete→Create_Complete,
+#          Step 9 Solutions→Explanation, Step 10 Solutions_Audited→Explanation_Complete,
+#          Step 11 Tagged→Final. The single Mock*_Complete.docx glob is SPLIT into two
+#          distinct patterns (Mock*_Create.docx + Mock*_Create_Complete.docx) since Step 7
+#          and Step 8 outputs are now distinct files. Glob cross-match + badge logic
+#          re-tested: each delivered file matches exactly one pattern. The v1.2 changelog
+#          entries below are preserved as history and intentionally keep the old names.
 #   v1.5 — 2026-07-09 — RENDERING CONTRACT REBUILT (widget dependency removed).
 #          ROOT CAUSE of the intermittent footer failures seen across the pipeline:
 #          §4 mandated rendering via the LOCAL show_widget / visualizer MCP server.
@@ -193,11 +202,12 @@ def get_badge(filename, step, is_first_run):
         'PYQ_Frequency.xlsx',       # reference spreadsheet
         'Sorted_*.docx',            # goes to Google Drive PYQ folder
         'Mock*_Q1to*.docx',         # Step 7 per-batch cumulative paper
-        'Mock*_Complete.docx',      # Step 7 final / Step 8 rectified (same filename)
+        'Mock*_Create.docx',        # Step 7 final
+        'Mock*_Create_Complete.docx', # Step 8 rectified (distinct filename)
         'Mock*_audit_changelog.md', # Step 8 conditional (only if Qs regenerated)
-        'Mock*_Solutions.docx',     # Step 9 solutions (same file each batch)
-        'Mock*_Solutions_Audited.docx', # Step 10 audited solutions
-        'Mock*_Tagged.docx',        # Step 11 tagged final deliverable
+        'Mock*_Explanation.docx',     # Step 9 solutions (same file each batch)
+        'Mock*_Explanation_Complete.docx', # Step 10 audited solutions
+        'Mock*_Final.docx',        # Step 11 tagged final deliverable
         'analysis_summary.md',      # Step 5 final — human review audit trail
     }
 
@@ -380,7 +390,7 @@ MID-STEP DELIVERABLES (per batch — cumulative whole-paper):
   (K = last Q number in this batch; filename grows: Q1to10, Q1to20, ...)
 
 FINAL DELIVERABLES:
-  [ExamCode]_Mock[N]_Complete.docx   → Use locally
+  [ExamCode]_Mock[N]_Create.docx   → Use locally
   [ExamCode]_registry.json           → Replace in Project Files
 
 NEXT STEP  : Step 8: MockCreateAudit M[N]
@@ -392,8 +402,8 @@ PARTS      : 1 (single response)
 FOOTER TYPE: F2 (step-complete) — always
 
 DELIVERABLES:
-  [ExamCode]_Mock[N]_Complete.docx   → Use locally
-    (SAME filename as Step 7 output — rectified version REPLACES it)
+  [ExamCode]_Mock[N]_Create_Complete.docx   → Use locally
+    (DISTINCT filename — reads Mock[N]_Create.docx, writes Mock[N]_Create_Complete.docx)
   [ExamCode]_registry.json           → Replace in Project Files
     (re-synced from rectified paper)
 
@@ -414,10 +424,10 @@ DELIVERY MODEL: Whole-paper incremental (RE-8). Each batch delivers the
   SAME file — explained-so-far + untouched remainder. NOT separate batch files.
 
 MID-STEP DELIVERABLES (per batch — same file, incrementally filled):
-  [ExamCode]_Mock[N]_Solutions.docx  → Use locally
+  [ExamCode]_Mock[N]_Explanation.docx  → Use locally
 
 FINAL DELIVERABLES (same file, now fully explained):
-  [ExamCode]_Mock[N]_Solutions.docx  → Use locally
+  [ExamCode]_Mock[N]_Explanation.docx  → Use locally
 
 NOTE: registry.json is NOT delivered by Step 9 (frozen/read-only).
 
@@ -430,7 +440,7 @@ PARTS      : 1 (single response)
 FOOTER TYPE: F2 (step-complete) — always
 
 DELIVERABLES:
-  [ExamCode]_Mock[N]_Solutions_Audited.docx → Use locally
+  [ExamCode]_Mock[N]_Explanation_Complete.docx → Use locally
 
 NEXT STEP  : Step 11: MockDeliver M[N]
 
@@ -441,7 +451,7 @@ PARTS      : 1 (single response)
 FOOTER TYPE: F2 (step-complete) — always
 
 DELIVERABLES:
-  [ExamCode]_Mock[N]_Tagged.docx     → Use locally
+  [ExamCode]_Mock[N]_Final.docx     → Use locally
 
 NEXT STEP  : Pipeline complete for this mock.
              For next mock: Step 7: MockCreate M[N+1]

@@ -1,8 +1,15 @@
-# Framework_MockTestCreateAudit v2.7.1
+# Framework_MockTestCreateAudit v2.7.2
 # [ExamCode] project | Step 8 (MockCreateAudit) | Universal Mock Test Auditor & Rectifier
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
+#   v2.7.2 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
+#           Rectified-paper output renamed [ExamCode]_Mock[N]_Complete.docx →
+#           [ExamCode]_Mock[N]_Create_Complete.docx. Input renamed accordingly: reads the
+#           Step-7 paper [ExamCode]_Mock[N]_Create.docx. The output is now a DISTINCT file
+#           from the input (no longer an in-place same-filename replace); the input is
+#           retained. registry re-sync, conditional audit_changelog.md, every A-* gate and
+#           the COMPLETION GATE unchanged. Chain re-verified against Step 7 / Step 9.
 #   v2.7.1 — LANGUAGE-AGNOSTIC MATCH DETECTION + A-MATCH-TABLE gate. (1) Ported the SHARED
 #           AXIS CLASSIFIER v1.0 update from Step 5 (Analyse v2.24.2) BYTE-IDENTICAL: new
 #           _opts_are_match_pairs()/_label_family + a third MATCH trigger, so non-English
@@ -388,7 +395,7 @@
 #           Step-2 gates) WITHOUT trusting the Step-2 self-audit sidecar, then
 #           rectifies every defect in place and ships a 100%-verified, zero-
 #           defect paper. Design decisions locked with the framework owner:
-#             D1. Step 3 receives ONLY {Mock[N]_Complete.docx, registry.json}
+#             D1. Step 3 receives ONLY {Mock[N]_Create.docx, registry.json}
 #                 (Step-2 closed delivery set, S13-6). The answer-key/concept_map
 #                 sidecar is NEVER delivered, so Step 3 is fully INDEPENDENT:
 #                 it solves every question itself to verify answer uniqueness and
@@ -432,9 +439,9 @@
 #                                 [ExamCode]_subtopic_manifest.json
 #   Step 6 (MockBlueprint) → [ExamCode]_blueprint.json
 #                                 [ExamCode]_registry.json (empty template)
-#   Step 7 (MockCreate)    → [ExamCode]_Mock[N]_Complete.docx
+#   Step 7 (MockCreate)    → [ExamCode]_Mock[N]_Create.docx
 #                                 [ExamCode]_registry.json (updated, mock N appended)
-#   THIS STEP (MockCreateAudit) → [ExamCode]_Mock[N]_Complete.docx (RECTIFIED)
+#   THIS STEP (MockCreateAudit) → [ExamCode]_Mock[N]_Create_Complete.docx (RECTIFIED)
 #                                      [ExamCode]_registry.json (re-synced from fixed file)
 #   Step 9 (MockExplain)   → consumes the rectified paper; builds the key + solutions
 #   Step 10 (MockExplainAudit)
@@ -476,7 +483,7 @@
 ## S0-1 — INPUTS (what Step 8 is given)
 
   DELIVERED BY STEP 7 (the closed set; user uploads both to the [ExamCode] project):
-    1. [ExamCode]_Mock[N]_Complete.docx   — the paper to audit (the audit surface)
+    1. [ExamCode]_Mock[N]_Create.docx   — the paper to audit (the audit surface)
     2. [ExamCode]_registry.json           — dedup/tracking corpus (mock N appended)
 
   ALREADY IN PROJECT KNOWLEDGE (from Steps 0/1; required):
@@ -500,8 +507,9 @@
 ## S0-2 — OUTPUTS (what Step 8 delivers)
 
   CORE DELIVERABLE SET (always; via ONE present_files call, at certification / Phase 3):
-    1. [ExamCode]_Mock[N]_Complete.docx   — the RECTIFIED, zero-defect paper
-                                            (same filename — it REPLACES the input)
+    1. [ExamCode]_Mock[N]_Create_Complete.docx   — the RECTIFIED, zero-defect paper
+                                            (distinct filename — reads Mock[N]_Create.docx,
+                                             writes Mock[N]_Create_Complete.docx; input retained)
     2. [ExamCode]_registry.json           — RE-SYNCED from the fixed file (§13):
                                             mock-N hashes/stems/tuples/manifests/
                                             content_tracking rebuilt to match the
@@ -836,9 +844,9 @@
 
   N is resolved from TWO sources; both must agree:
     (a) the trigger's M[N];
-    (b) the uploaded docx filename [ExamCode]_Mock[N]_Complete.docx.
+    (b) the uploaded docx filename [ExamCode]_Mock[N]_Create.docx.
   (v2.7: the paper's own title block is NO LONGER a source. Step 7 R8b / G-PREQ1 makes
-   the Complete.docx questions-only — the first non-blank paragraph is Q.1, so there is
+   the Create.docx questions-only — the first non-blank paragraph is Q.1, so there is
    no title paragraph to read. A-HEADER now STRIPS any residual pre-Q.1 block rather than
    reading N from it. Trigger + filename are sufficient and are the two reliable sources.)
   DISAGREEMENT → HARD STOP. Print which sources disagree and ask the user to
@@ -883,7 +891,7 @@
       return None
 
   REQUIRED = {
-      'docx'    : f'{EXAM}_Mock{N}_Complete.docx',
+      'docx'    : f'{EXAM}_Mock{N}_Create.docx',
       'registry': f'{EXAM}_registry.json',
       'rules'   : f'{EXAM}_section_rules.md',
       'blueprint': f'{EXAM}_blueprint.json',
@@ -1391,7 +1399,7 @@
 
   ```bash
   python3 /home/claude/[ExamCode]_mock_test_audit.py \
-      /home/claude/[ExamCode]_Mock[N]_Complete.docx \
+      /home/claude/[ExamCode]_Mock[N]_Create.docx \
       --blueprint /home/claude/[ExamCode]_blueprint.json \
       --rules     /home/claude/[ExamCode]_section_rules.md \
       --manifest  /home/claude/[ExamCode]_subtopic_manifest.json \
@@ -1416,7 +1424,7 @@
 
   NEW Phase-3 invocation (REQUIRED to certify):
     python3 .../[ExamCode]_mock_test_audit.py \
-        /home/claude/[ExamCode]_Mock[N]_Complete.docx \
+        /home/claude/[ExamCode]_Mock[N]_Create.docx \
         --blueprint ... --rules ... --manifest ... --registry ... --mockN N \
         --final --audit-state /home/claude/[ExamCode]_M[N]_audit_state.json
 
@@ -2760,7 +2768,7 @@
 ## S14-1 — The deliverable set (CORE closed; change-log conditional)
 
   CORE SET (always — = Step 7 R-DELIVER discipline):
-    1. /mnt/user-data/outputs/[ExamCode]_Mock[N]_Complete.docx   — RECTIFIED paper
+    1. /mnt/user-data/outputs/[ExamCode]_Mock[N]_Create_Complete.docx   — RECTIFIED paper
     2. /mnt/user-data/outputs/[ExamCode]_registry.json           — RE-SYNCED registry
   CONDITIONAL (iff audit_state.regenerations is non-empty — S8-5):
     3. /mnt/user-data/outputs/[ExamCode]_Mock[N]_audit_changelog.md  — author-only
@@ -2807,7 +2815,7 @@
   ```python
   import os
   out = '/mnt/user-data/outputs'
-  docx_name = f'{EXAM}_Mock{N}_Complete.docx'; reg_name = f'{EXAM}_registry.json'
+  docx_name = f'{EXAM}_Mock{N}_Create_Complete.docx'; reg_name = f'{EXAM}_registry.json'
   cl_name   = f'{EXAM}_Mock{N}_audit_changelog.md'
   expected  = {docx_name, reg_name} | ({cl_name} if regens else set())
   present   = set(os.listdir(out))
@@ -2836,7 +2844,7 @@
 ## S14-3 — The single present_files call
 
   ```python
-  files = [f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Complete.docx',
+  files = [f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Create_Complete.docx',
            f'/mnt/user-data/outputs/{EXAM}_registry.json']
   if regens:
       files.append(f'/mnt/user-data/outputs/{EXAM}_Mock{N}_audit_changelog.md')
@@ -2853,7 +2861,7 @@
   ╔════════════════════════════════════════════════════════════════════╗
   ║  STEP 8 · MOCK [N] AUDIT — STATUS REPORT            ✅ CERTIFIED ║
   ╠════════════════════════════════════════════════════════════════════╣
-  ║  Paper    : [ExamCode]_Mock[N]_Complete.docx ([size], md5 [….])    ║
+  ║  Paper    : [ExamCode]_Mock[N]_Create_Complete.docx ([size], md5 [….])    ║
   ║  Verdict  : CERTIFIED CLEAN — delivered                             ║
   ║  Gate     : COMPLETION-GATE: PASS (C1–C7)   [S5-1A]                 ║
   ╠════════════════════════════════════════════════════════════════════╣
@@ -2891,7 +2899,7 @@
   ```
   === MOCK [N] AUDIT COMPLETE — Step 8 done (CERTIFIED CLEAN) ===
   Delivered ([2|3] files):
-    • [ExamCode]_Mock[N]_Complete.docx       — rectified, zero-defect paper
+    • [ExamCode]_Mock[N]_Create_Complete.docx       — rectified, zero-defect paper
     • [ExamCode]_registry.json               — re-synced from the fixed file
     • [ExamCode]_Mock[N]_audit_changelog.md  — author-only before/after diff
                                                (ONLY if questions were regenerated)
@@ -5076,7 +5084,7 @@ def self_test():
 
 def main():
     ap = argparse.ArgumentParser(description='Universal exam-agnostic Part-A mock auditor')
-    ap.add_argument('docx', nargs='?', help='the Mock[N]_Complete.docx to audit')
+    ap.add_argument('docx', nargs='?', help='the Mock[N]_Create.docx to audit')
     ap.add_argument('--blueprint'); ap.add_argument('--rules')
     ap.add_argument('--manifest');  ap.add_argument('--registry')
     ap.add_argument('--mockN', type=int)
@@ -5100,5 +5108,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.7.1
+# END OF Framework_MockTestCreateAudit v2.7.2
 # ════════════════════════════════════════════════════════════════════════
