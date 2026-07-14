@@ -1,5 +1,13 @@
 # Paste-in Custom Instructions (identical for ALL 200 exam projects)
 
+> ⚠️ **DEPRECATED — superseded by `mocktestframework_SKILL.md`.**
+> The live path is now the **account-level skill** (claude.ai → Customize → Skills),
+> which is the single source of truth for the STEP 0 load-and-verify bootstrap and the
+> trigger list. This paste-in block is kept ONLY for environments that cannot use the
+> skill. **Do not edit trigger names or bootstrap logic here — change the skill instead;**
+> `check_triggers.py` enforces that the skill's trigger list matches `routes.json`.
+> (This block is not auto-synced, so treat the skill as authoritative if they differ.)
+
 Paste the block below into each exam project's **Custom Instructions**.
 Only the two URLs are constants; everything else is identical everywhere.
 Replace <YOU> with your GitHub username and <MIRROR_URL> with your mirror repo.

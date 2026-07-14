@@ -20,3 +20,5 @@ jobs:
         run: python3 bootstrap.py
       - name: Framework markdown validator (if present)
         run: if [ -f validate_framework_md.py ]; then python3 validate_framework_md.py Framework_*.md; fi
+      - name: Trigger names consistent (skill == routes.json == PIPELINE)
+        run: if [ -f check_triggers.py ]; then python3 check_triggers.py; fi

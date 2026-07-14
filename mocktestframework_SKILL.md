@@ -15,12 +15,16 @@ appear in project knowledge. Always pull and verify the latest specs first.
 set -e
 FW=/tmp/fw && rm -rf "$FW"
 PRIMARY=https://github.com/iamdharmveer/framework-specs.git
-MIRROR=https://github.com/iamdharmveer/framework-specs.git   # swap to DR mirror once created
+# NOTE: no DR yet — same URL as PRIMARY; set a distinct mirror before relying on failover.
+MIRROR=https://github.com/iamdharmveer/framework-specs.git
 n=0
 until git clone --depth 1 --branch production "$PRIMARY" "$FW" 2>/dev/null; do
   n=$((n+1)); [ "$n" -ge 3 ] && break; sleep $((2**n)); done
-[ -d "$FW/.git" ] || git clone --depth 1 --branch production "$MIRROR" "$FW" 2>/dev/null \
-  || { echo "HARD STOP: framework repo unreachable. DO NOT proceed from memory."; exit 1; }
+if [ ! -d "$FW/.git" ]; then
+  [ "$MIRROR" = "$PRIMARY" ] && { echo "HARD STOP: primary unreachable and no DR mirror configured (MIRROR == PRIMARY). DO NOT proceed from memory."; exit 1; }
+  git clone --depth 1 --branch production "$MIRROR" "$FW" 2>/dev/null \
+    || { echo "HARD STOP: framework repo unreachable (primary + mirror). DO NOT proceed from memory."; exit 1; }
+fi
 cd "$FW" && python3 bootstrap.py \
   || { echo "HARD STOP: framework verification failed. DO NOT proceed."; exit 1; }
 ```
