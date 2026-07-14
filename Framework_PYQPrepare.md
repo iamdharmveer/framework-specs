@@ -1,4 +1,4 @@
-# Framework_PYQPrepare v1.6 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v1.7 — Universal PYQ Row File Generator
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:
@@ -86,6 +86,44 @@
 #   GATE, NEET, UPSC, CAT, Banking, RRB, state PSC, or any exam.
 #
 # VERSION HISTORY:
+#   v1.7 — 2026-07-14 — SCANNED-SOURCE VISION TRANSCRIPTION (FORMAT C fix).
+#          Root cause: FORMAT C (scanned image-only PDF) was an unconditional
+#          HALT expressed as INTERPRETIVE PROSE, not executable code. That
+#          prose contradicted S1-6/S1-12 (vision is the fallback; placeholdering
+#          readable content is a HARD BUG) — and S1-12's own trigger fires on
+#          "embedded images in PDF", which a scan contains. With the decision
+#          left to interpretation, the same source resolved to HALT in one run
+#          and vision-transcribe in another (non-deterministic).
+#          Fix: (1) new S1-13 SCANNED-SOURCE VISION TRANSCRIPTION protocol.
+#          (2) FORMAT C (S2-1) split into three MECHANICAL tiers computed by a
+#          runnable classify_source_pdf() — C0 (illegible → HALT, retained),
+#          C1 (legible scan → vision-transcribe), C-HYBRID (mixed pages). The
+#          decision is now RUN, not read; the encrypted/corrupt/exotic-codec
+#          cases degrade to C0 via a guard, never a crash.
+#          (3) poisoned-text-layer guard (_text_is_sane) — a coverage==1 source
+#          whose text is mostly garbage routes to C1 instead of silently
+#          producing a garbage Row file (threshold tuned high so clean FORMAT A
+#          papers are never misrouted).
+#          (4) mandatory VISION provenance marker (core_properties.category +
+#          filename suffix) set at BUILD time in the C1 path.
+#          (5) page-level classification reuses EC-P2 (skip blank/instruction),
+#          EC-P13 (English-only), EC-P17 (never transcribe answers); new EC-P21
+#          excludes specimen/sample questions (e.g. "Q.201" नमुना प्रश्न).
+#          Page-level ANSWER-KEY pages are dropped at S1-13 classification
+#          (EC-P17); CHECK 8 answer-marker scan is unchanged.
+#          (6) three new checks — CHECK 14 (vision provenance consistency),
+#          CHECK 15 (specimen/out-of-range exclusion), CHECK 16 (Q-count vs
+#          stated-total reconciliation). All new checks are WARN-only,
+#          consistent with the S5 "warn, deliver anyway" contract; the
+#          provenance guarantee is enforced at BUILD time, not by a hard-fail.
+#          (7) batch model for large scans reuses the EXISTING DeliveryFooter
+#          F1 continue / session-break variants (no DeliveryFooter change).
+#          FORMAT A/B/D/E paths and checks 1–13 are UNTOUCHED; validate_row_file
+#          gains two OPTIONAL params (backward-compatible).
+#          KNOWN LIMITATION: a ZIP-of-images with no .txt (FORMAT-C-in-a-ZIP)
+#          is out of scope for v1.7.
+#          Total checks: 13→16. Tool call budget: 5–15 → page-count-dependent
+#          for FORMAT C1 (~one view call per question-content page + overhead).
 #   v1.6 — 2026-07-07 — IMAGE INSPECTION PROTOCOL (math-as-image fix).
 #          Root cause: source files (especially docx from coaching platforms)
 #          render math questions as embedded images with no extractable text.
@@ -876,6 +914,189 @@ CLASSIFICATION ACCURACY:
   is catastrophic.
 ```
 
+### S1-13 — Scanned-Source Vision Transcription (v1.7 — FORMAT C1)
+
+```
+PURPOSE:
+  Reconcile the FORMAT C halt with the S1-6/S1-12 principle that Claude's
+  vision is a first-class transcription mechanism. A scanned page is just a
+  very large TEXT/MATH/TABLE/VISUAL image; S1-12 already transcribes those
+  when embedded. S1-13 extends the same capability to WHOLE PAGES, behind a
+  MECHANICAL tier decision and a mandatory provenance marker — so the halt is
+  relaxed for LEGIBLE scans without re-introducing silent OCR-error risk.
+
+WHEN THIS PROTOCOL APPLIES:
+  Whenever classify_source_pdf() (below) returns C1, C-HYBRID, or C0_OR_C1.
+  C0_OR_C1 (a zero-text scan — the COMMON case, e.g. a bare scanned paper) is
+  NOT a halt: it ENTERS this protocol at steps 1-2 (rasterise + legibility
+  gate), which RESOLVE it to C1 (legible -> proceed) or C0 (illegible ->
+  HALT). The legibility gate (step 2) is the ONLY producer of C0. FORMAT A
+  (clean text) and FORMAT B/D/E paths are untouched.
+
+DECISION IS COMPUTED, NEVER INTERPRETED:
+  The A / C1 / C-HYBRID / C0_OR_C1 routing is returned by a runnable
+  function, so the same source yields the same result on every run and in
+  every project. For a zero-text scan the function emits C0_OR_C1; the ONLY
+  human-like judgment retained is then a single bounded legibility check
+  (one rendered page: readable? yes -> C1, no -> C0), whose default on doubt
+  is the SAFE one (C0 -> HALT).
+```
+
+```python
+def _text_is_sane(t):
+    """Conservative poisoned-OCR-layer detector. Returns False only when the
+    extracted text is mostly garbage (mojibake / replacement / C0 controls).
+    Tuned high so clean FORMAT A papers are NEVER misrouted to vision."""
+    if not t:
+        return True
+    bad = sum(1 for c in t
+              if c == '\ufffd' or (ord(c) < 32 and c not in '\t\n\r'))
+    return (bad / max(len(t), 1)) < 0.30   # <30% garbage -> treat as sane text
+
+
+def classify_source_pdf(pdf_path, k_chars=20):
+    """Deterministic FORMAT tier for a PDF source. Returns one of:
+      'A'         clean text layer (existing FORMAT A path)
+      'C1'        image-only OR poisoned-text scan -> S1-13 vision path
+      'C-HYBRID'  some text pages + some image pages -> per-page routing
+      'C0_OR_C1'  zero text everywhere -> legibility gate decides C0 vs C1
+    Never returns a bare 'HALT'; C0 is resolved by the legibility gate so the
+    decision that used to be interpretive prose is now executed code."""
+    import fitz  # PyMuPDF
+    try:
+        doc = fitz.open(pdf_path)
+    except Exception:
+        return 'C0_OR_C1'          # unreadable container -> legibility gate -> C0
+    if getattr(doc, 'needs_pass', False) or getattr(doc, 'is_encrypted', False):
+        return 'C0_OR_C1'          # encrypted -> cannot extract/rasterise -> C0
+    n = doc.page_count or 1
+    text_pages = 0
+    sane_pages = 0
+    for pg in doc:
+        try:
+            t = pg.get_text().strip()
+        except Exception:
+            t = ''                 # a single unreadable page counts as image page
+        if len(t) >= k_chars:
+            text_pages += 1
+            if _text_is_sane(t):
+                sane_pages += 1
+    coverage = text_pages / n
+    if coverage == 0:
+        return 'C0_OR_C1'
+    if coverage == 1 and sane_pages == text_pages:
+        return 'A'
+    if coverage == 1 and sane_pages < text_pages:
+        return 'C1'                 # poisoned layer -> prefer vision over garbage
+    return 'C-HYBRID'               # 0 < coverage < 1
+```
+
+```
+MANDATORY ORDERED STEPS (C1 / C-HYBRID image pages):
+
+  1. RASTERISE each image page to a viewable PNG at >=150 dpi
+     (PyMuPDF page.get_pixmap(dpi=150).save(...)). This is the step that did
+     not exist before v1.7 — without it the JBIG2/CCITT stream is not
+     viewable in-context. If rasterisation raises (exotic codec, corrupt,
+     encrypted) -> C0 -> HALT with that specific reason.
+
+  2. LEGIBILITY GATE. View one representative rasterised page. If it is
+     unreadable (too low resolution, heavy noise, illegible) -> downgrade the
+     whole source to C0 -> HALT. Default on doubt: HALT. Otherwise proceed.
+
+  3. PAGE CLASSIFICATION (extends EC-P2 to page granularity). Label every
+     page and SKIP all but question pages:
+       COVER / INSTRUCTION  -> skip (EC-P2)
+       ROUGH-WORK / BLANK   -> skip (EC-P2)
+       SAMPLE / SPECIMEN    -> skip (EC-P21 — the "Q.201" trap)
+       ANSWER-KEY           -> skip (EC-P17 — NEVER transcribe answers)
+       QUESTION-CONTENT     -> transcribe (step 4)
+     Bilingual policy: reuse EC-P13 — transcribe the ENGLISH question text,
+     drop pure other-language instruction/cover chrome. (Configurable per
+     exam, but English-only is the default, identical to EC-P13.)
+
+  4. REGION-LEVEL CONTENT CLASSIFICATION (extends S1-12's four categories to
+     sub-page regions, because one scanned page may hold several questions of
+     mixed type):
+       TEXT   -> transcribe verbatim (S1-11: underline preserved via {{u}};
+                 italic dropped as decorative)
+       MATH   -> transcribe for OMML (S1-6 tiers / S3-4 helpers)
+       TABLE  -> transcribe rows -> native Word table (S1-8)
+       VISUAL -> red placeholder for THAT region only (S1-7)
+
+  5. CROSS-PAGE CONCATENATION (extends EC-P1). Build ONE continuous question
+     buffer across page images BEFORE numbering. Never number page-by-page.
+
+  6. BUILD VIA THE STANDARD TEXT PATH. The transcription becomes the content
+     source (exactly like a FORMAT E raw-text source). It feeds the SAME
+     add_stem / add_option / render_text_with_math / build_di_table builders.
+     S1-13 does NOT use the paragraph-keyed IMAGE_CLASSIFICATIONS dict (there
+     are no source paragraphs in a bare scan) — that dict remains S1-12-only.
+
+  7. EMIT the standard Row file (§1 output contract UNCHANGED) PLUS the
+     provenance marker (below). Continuous Q.1..Q.N, canonical options, one
+     date label per question — all identical to any other Row file.
+
+C-HYBRID PER-PAGE ROUTING (v1.7):
+  For a C-HYBRID source, route EACH page independently: a page whose extracted
+  text PASSES _text_is_sane() uses normal text extraction; a page with NO text
+  OR whose text FAILS _text_is_sane() (poisoned OCR) is treated as an image
+  page and vision-transcribed via steps 1-6. This prevents a garbage OCR page
+  from being extracted verbatim. All pages merge into the single continuous
+  buffer (step 5) before numbering.
+
+PROVENANCE MARKER (mandatory, set at BUILD time — the key new control):
+  Every C1 / C-HYBRID Row file MUST carry a machine-readable trust flag so a
+  vision-transcribed file is distinguishable from a deterministically
+  extracted one. Set BOTH, in the C1 build path, before delivery:
+```
+
+```python
+def mark_vision_transcribed(doc, mixed=False):
+    """Set the mandatory VISION provenance marker on a C1/C-HYBRID Row file.
+    Called unconditionally by the S1-13 build path -> the marker cannot be
+    forgotten. CHECK 14 is only a post-build safety net."""
+    trust = 'MIXED' if mixed else 'VISION-TRANSCRIBED'
+    doc.core_properties.category = 'PYQPrepare-Source-Trust:' + trust
+    return trust
+```
+
+```
+  Plus a filename suffix: insert "__vision-unverified" before ".docx"
+  (see §6). Human reviewers see the suffix; downstream steps may read the
+  core-property (see §10). No in-document banner paragraph is added, so no
+  downstream text parser can trip over an unexpected leading paragraph.
+
+DELIVERY (see §7): C1/C-HYBRID uses the F2 step-complete footer PLUS a
+  prominent "VISION-TRANSCRIBED — human verification required" note listing
+  any low-confidence Q-numbers. The Row file is still delivered (the S5
+  contract is warn-and-deliver).
+
+BUDGET / BATCH MODEL:
+  FORMAT C1 tool-call budget is PAGE-COUNT-DEPENDENT: roughly one view call
+  per QUESTION-CONTENT page + ~7 overhead calls (inspect + rasterise + build
+  + validate + deliver). For papers with <= ~40 question-content pages, run
+  in one session (a typical 150-question paper is ~20-25 question pages). For
+  larger scans, transcribe in batches, delivering an interim file per batch
+  under the EXISTING DeliveryFooter F1 amber "continue" variant (and the F1
+  session-break variant on a forced context-limit break). No DeliveryFooter
+  change is required — those variants already exist.
+
+  OUT OF SCOPE (v1.7 — documented limitation):
+    A ZIP-of-images source with no per-page .txt (a "FORMAT C inside a ZIP")
+    is NOT handled here — S1-13 is PDF-scan-only. Such a source stays on the
+    FORMAT B path and is a known limitation to be addressed separately.
+
+DECISION POLICY (the one governance dial):
+  DEFAULT = AUTO-PROCEED for a legible, pure-text C1 scan within budget (the
+  common Indian-exam paper): transcribe, mark, deliver with the verification
+  note — reproducing a clean first-trigger success while keeping the marker
+  as the safety floor. Confirm-first is used only for the harder cases
+  (figures present, or page count over the batch threshold). C0 always halts.
+  This default is what makes the GitHub (strict-skill) path succeed
+  deterministically instead of halting.
+```
+
 ---
 
 ## §2 — SOURCE PARSING LAYER (adaptive — varies by source format)
@@ -911,12 +1132,30 @@ FORMAT B — ZIP-OF-IMAGES (mislabelled PDF)
   Special    : manifest.json has_visual_content flag is USELESS (always true).
                Decide figure presence from TEXT CONTENT only.
 
-FORMAT C — SCANNED PDF (image-only, no text layer)
-  Description: Each page is a rasterised image with no embedded text.
-  Detection  : pdftotext yields empty/garbage output. Pages are images.
-  Strategy   : HALT — inform user that OCR pre-processing is needed.
-               Step 1 does not perform OCR. User must provide a text-layer
-               PDF or an OCR-processed version.
+FORMAT C — SCANNED / IMAGE-ONLY PDF (three mechanical tiers — v1.7)
+  Description: Pages are rasterised images; text extraction yields little or
+               no text, OR the extracted text is garbage (poisoned OCR layer).
+  Detection  : MECHANICAL — call classify_source_pdf() (S1-13). Do NOT decide
+               by interpretation. The function returns a tier from measured
+               text coverage + a sanity gate:
+                 C0_OR_C1  — zero extractable text (the common bare scan) →
+                             ENTERS S1-13; its legibility gate resolves it to
+                             C1 (legible) or C0 (illegible)
+                 C1        — legible / poisoned-text scan → vision-transcribe (S1-13)
+                 C-HYBRID  — some text pages, some image pages → per-page route
+                 C0        — produced ONLY by the S1-13 legibility gate → HALT
+  Strategy   : C0 → HALT with a specific reason (rasterisation failed, encrypted,
+               or the legibility gate judged the rendered page unreadable). This
+               is the ONLY terminal FORMAT C state. Inform the user OCR/a
+               text-layer PDF is needed.
+               C1 / C-HYBRID / C0_OR_C1 → run the S1-13 Scanned-Source Vision
+               Transcription protocol (C0_OR_C1 is resolved to C1 or C0 by the
+               legibility gate). Output is a standard Row file (§1 contract
+               unchanged) PLUS a mandatory VISION-TRANSCRIBED marker (S1-13).
+  NOTE       : "image-only PDF" is NO LONGER an automatic halt. Claude's vision
+               is a first-class transcription mechanism (S1-6/S1-12 principle);
+               S1-13 extends it to full pages. HALT is reserved for illegible
+               scans only.
 
 FORMAT D — DOCX SOURCE
   Description: Question paper already in Word format.
@@ -1843,14 +2082,35 @@ CHECK 13 — IMAGE CLASSIFICATION VERIFICATION (v1.6)
   This check catches the exact production defect that v1.6 was
   designed to prevent: math questions delivered with red boxes
   instead of transcribed content.
+
+CHECK 14 — VISION PROVENANCE CONSISTENCY (v1.7)
+  For vision-transcribed Row files (FORMAT C1 / C-HYBRID): the trust
+  marker must be coherent. If EITHER the doc core-property category
+  carries "PYQPrepare-Source-Trust:" OR the filename ends with
+  "__vision-unverified", then BOTH must be present. WARN on any
+  half-marked file. (The marker itself is set at build time in the
+  S1-13 path — this check is the safety net.)
+
+CHECK 15 — SPECIMEN / OUT-OF-RANGE EXCLUSION (v1.7)
+  Scanned papers often carry a demonstration "sample question" with an
+  out-of-range number (e.g. "Q.201", नमुना प्रश्न / "sample question" /
+  "specimen"). It must NOT appear in the Row file. WARN if any stem text
+  contains a specimen marker, or if any Q-number exceeds the built count
+  (a specimen leaking through).
+
+CHECK 16 — Q-COUNT vs STATED-TOTAL (v1.7)
+  If the source cover states a total ("Total Questions: N" / "एकूण प्रश्न")
+  and that number is passed as stated_total, compare it to the built
+  Q-count. WARN on mismatch (dropped, duplicated, or specimen questions).
+  Skipped silently when stated_total is not available.
 ```
 
 ### S5-2 — Validation implementation
 
 ```python
-def validate_row_file(doc_path, date_label_text):
+def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total=None):
     """
-    Run all 13 validation checks. Return (pass_count, warn_count, messages).
+    Run all 16 validation checks. Return (pass_count, warn_count, messages).
     """
     from docx import Document
     import re
@@ -2038,11 +2298,53 @@ def validate_row_file(doc_path, date_label_text):
     else:
         print("CHECK 13: No figure-only stems — all content transcribed OK")
 
+    # CHECK 14 — Vision provenance consistency (v1.7)
+    import os as _os
+    cat = (doc.core_properties.category or '')
+    has_prop = 'PYQPrepare-Source-Trust:' in cat
+    has_suffix = _os.path.basename(doc_path).endswith('__vision-unverified.docx')
+    if has_prop != has_suffix:
+        warnings.append(
+            f"CHECK 14 WARN: half-marked vision file "
+            f"(property={has_prop}, filename_suffix={has_suffix}) — both or neither")
+    else:
+        print(f"CHECK 14: Vision provenance consistent (marked={has_prop})")
+
+    # CHECK 15 — Specimen / out-of-range exclusion (v1.7)
+    SPECIMEN_RE = re.compile(
+        r'(sample\s+question|specimen|\u0928\u092e\u0941\u0928\u093e)', re.IGNORECASE)
+    specimen_hits = 0
+    for p in paras:
+        t = p.text.strip()
+        if re.match(r'^Q\.\d+', t) and SPECIMEN_RE.search(t):
+            specimen_hits += 1
+    out_of_range = sum(1 for qn in q_nums if qn > q_count)
+    if specimen_hits or out_of_range:
+        warnings.append(
+            f"CHECK 15 WARN: {specimen_hits} specimen-marked stems, "
+            f"{out_of_range} out-of-range Q-numbers (possible specimen leak)")
+    else:
+        print("CHECK 15: No specimen / out-of-range questions OK")
+
+    # CHECK 16 — Q-count vs stated-total reconciliation (v1.7)
+    if stated_total is not None:
+        try:
+            st = int(stated_total)
+            if st != q_count:
+                warnings.append(
+                    f"CHECK 16 WARN: built Q-count={q_count} != cover stated total={st}")
+            else:
+                print(f"CHECK 16: Q-count matches stated total ({st}) OK")
+        except (TypeError, ValueError):
+            print("CHECK 16: stated_total not numeric — skipped")
+    else:
+        print("CHECK 16: stated_total not provided — skipped")
+
     # Summary
-    pass_count = 13 - len(warnings)
+    pass_count = 16 - len(warnings)
     for w in warnings:
         print(f"  ⚠️ {w}")
-    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/13 checks passed, {len(warnings)} warnings")
+    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/16 checks passed, {len(warnings)} warnings")
 
     return pass_count, len(warnings), warnings
 ```
@@ -2064,6 +2366,13 @@ Examples:
   UPSC_CSE_02-Jun-2024.docx
 
 ExamCode, date, and session all come from the trigger text.
+
+VISION-TRANSCRIBED (FORMAT C1 / C-HYBRID — v1.7):
+  Append "__vision-unverified" before ".docx":
+    [ExamCode]_DD-Mon-YYYY[_session]__vision-unverified.docx
+  This is the human-visible half of the S1-13 provenance marker (the
+  machine-readable half is core_properties.category). Only C1/C-HYBRID
+  outputs carry the suffix; all other formats are unchanged.
 ```
 
 ---
@@ -2081,6 +2390,14 @@ File badge: "Use locally" — Row files go to Google Drive PYQ folder
             or are uploaded to project Files by the user manually.
 Next step: "Step 2a: PYQDraft — provide Exam Syllabus + Exam Pattern
             to build taxonomy and exam_config.json"
+
+FORMAT C1 / C-HYBRID (v1.7 — vision-transcribed):
+  Deliver the Row file (still EXACTLY 1 file, closed set) with the
+  __vision-unverified suffix. The delivery message MUST carry a prominent
+  "VISION-TRANSCRIBED — human verification required" note listing any
+  low-confidence Q-numbers. Large scans that were batched use the F1 amber
+  "continue" footer per batch and F2 on the final batch. The S5
+  warn-and-deliver contract is unchanged.
 
 DELIVERABLE SET CONTRACT (CLOSED):
   present_files MUST contain EXACTLY 1 file:
@@ -2258,6 +2575,17 @@ EC-P20: MATH-AS-IMAGE (v1.6)
     and others with math as images. Both paths coexist in the same
     pipeline run. OMML math → Tier 1/2 rendering. Image math →
     S1-12 inspection + transcription. No conflict.
+
+EC-P21: SCANNED-SOURCE SPECIMEN / SAMPLE QUESTION (v1.7)
+  Scanned papers frequently print a DEMONSTRATION question on an
+  instruction page — a "sample question" shown only to explain how to
+  mark the answer sheet, carrying an OUT-OF-RANGE number (e.g. "Q.201",
+  नमुना प्रश्न). It is NOT part of the real Q.1..N set and MUST be
+  excluded. During S1-13 page classification (step 3) the SAMPLE/SPECIMEN
+  page is skipped entirely. CHECK 15 verifies no specimen marker or
+  out-of-range Q-number leaked into the Row file. Also applies to text
+  sources: a specimen block on an instruction page is dropped like any
+  other instruction chrome (EC-P2).
 ```
 
 ---
@@ -2344,6 +2672,16 @@ PHASE B — BUILD (3–4 tool calls):
   CALL B4: Deliver
     present_files: /mnt/user-data/outputs/SSC_CGL_T1_18-Jan-2025_Shift-1.docx
 
+FORMAT C1 VARIANT (scanned source — v1.7):
+  After CALL A2, run classify_source_pdf(). If C1 / C-HYBRID / C0_OR_C1:
+  rasterise each page (page.get_pixmap), pass the legibility gate (which
+  resolves C0_OR_C1 to C1 -> proceed or C0 -> HALT), classify + skip
+  non-question pages (EC-P2/P13/P17/P21), view question pages in order,
+  transcribe into a continuous buffer, then build via the standard text
+  path (S1-13). Call mark_vision_transcribed() and add the filename suffix
+  before delivery. View-call budget scales with question-page count; batch
+  beyond ~40 pages using the F1 continue footer.
+
 POST-DELIVERY:
   Render delivery footer per Framework_DeliveryFooter.md.
 ```
@@ -2380,6 +2718,13 @@ PYQSort SYNC STATUS: COMPLETE (v1.8)
     ^\[(\d{1,2})-([A-Za-z]{3})-(\d{4})(?:\s+<keyword>\s+(\d+))?\]$
   parse_date_label() defaults session to 1 when not present.
   No further updates needed.
+
+PROVENANCE RIPPLE (v1.7 — additive, non-breaking):
+  FORMAT C1/C-HYBRID Row files carry core_properties.category =
+  "PYQPrepare-Source-Trust:VISION-TRANSCRIBED". This is ADDITIVE metadata;
+  Steps 2b/3/4/5/7 need NO change to keep working. Optionally, a consuming
+  step MAY read this property and surface a "source unverified" flag so the
+  verification burden travels with the data. No consumer is REQUIRED to.
 ```
 
 ---
@@ -2395,12 +2740,14 @@ UNIVERSAL IN THIS SPEC (identical every exam):
   Metadata stripping vocabulary (§2 S2-3, all 6 categories)
   Red placeholder specification (§1 S1-7)
   Image Inspection Protocol (§1 S1-12, v1.6)
+  Scanned-source vision transcription (§1 S1-13, v1.7 — deterministic
+    C0/C1/C-HYBRID tiers, provenance marker)
   OMML helper functions (§3 S3-4)
   DI table builder (§4 S4-3)
   Document builder functions (§4)
   Validation checks (§5)
   Delivery contract (§7)
-  All edge cases (§8, 20 total — EC-P1 through EC-P20)
+  All edge cases (§8, 21 total — EC-P1 through EC-P21)
 
 EXAM-SPECIFIC (from trigger + source content at runtime):
   ExamCode (from trigger)
@@ -2443,12 +2790,14 @@ PROOF:
 ☐ 8.  Each option on its own line: no multi-option rows
 ☐ 9.  Math converted to OMML: fractions, roots, superscripts rendered
 ☐ 10. Figures handled: red placeholders ONLY for VISUAL-IMAGE classified
+☐ 10a. Scanned source (C1/C-HYBRID): legibility-gated vision transcription
+       with mandatory VISION provenance marker (v1.7 — S1-13)
 ☐ 11. DI tables rendered: native Word tables, not images
 ☐ 12. Passages repeated: every sub-question has passage, Q.N-FIRST layout
 ☐ 13. Date labels present: one per question, correct format and style
 ☐ 14. Answer markers stripped: no ✓/✗, no correct answer indicators
 ☐ 15. Document formatting: Arial 11pt, A4, 1" margins, proper spacing
-☐ 16. Validation run: all 13 checks executed, results logged
+☐ 16. Validation run: all 16 checks executed, results logged
 ☐ 17. Row file delivered via present_files (1 file, closed set)
 ☐ 18. Delivery footer rendered per Framework_DeliveryFooter.md
 
@@ -2460,4 +2809,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v1.6
+# END OF Framework_PYQPrepare v1.7

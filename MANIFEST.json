@@ -123,11 +123,11 @@
       "bytes": 248614
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "22b013385c24136055972d305d79e8fcc76c13642758dd966fe1983d0be595cd",
-      "version_header": "# Framework_PYQPrepare v1.6 \u2014 Universal PYQ Row File Generator",
-      "end_sentinel": "# END OF Framework_PYQPrepare v1.6",
-      "lines": 2463,
-      "bytes": 101640
+      "sha256": "f2424d505ee6442afd5494dae7e65597c6263246da60ee836e669f1643a30356",
+      "version_header": "# Framework_PYQPrepare v1.7 \u2014 Universal PYQ Row File Generator",
+      "end_sentinel": "# END OF Framework_PYQPrepare v1.7",
+      "lines": 2812,
+      "bytes": 120770
     },
     "Framework_PYQSort.md": {
       "sha256": "53c4d5739035d47dbe547eb9610478e86082c98797217c1e531189d6d52d1a66",
