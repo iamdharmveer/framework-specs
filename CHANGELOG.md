@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.07.14
+- Framework_PYQPrepare.md: v1.6 -> v1.7.
+- Added mocktestframework_SKILL.md — canonical account-level skill (STEP 0 load-and-verify
+  bootstrap; trigger list synced to the live 13-trigger routing). Added an explicit no-DR-mirror
+  guard that hard-stops when MIRROR == PRIMARY instead of silently re-cloning the same URL.
+- Added check_triggers.py — enforces that the skill trigger list, routes.json, and the validator
+  PIPELINE dict stay in sync; wired into CI (validate.yml) so drift fails the build.
+- Deprecated docs/CUSTOM_INSTRUCTIONS.md to a pointer at the skill (single source of truth).
+
 ## 2026.07.12
 - Deliverable filename rename across the delivery contract and the Create/Explain/Deliver
   specs: Step 7 -> Create, Step 8 -> Create_Complete, Step 9 -> Explanation,
