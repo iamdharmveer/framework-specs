@@ -1,4 +1,4 @@
-# Framework_MockDeliver v1.5 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.6 — Universal Mock Test Tagger & Delivery Engine
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 # PURPOSE:
@@ -60,6 +60,11 @@
 #   UPSC (variable), or any MCQ/MSQ/NAT exam.
 #
 # VERSION HISTORY:
+#   v1.6 — 2026-07-15 — C3: paper_id PROPAGATION (Step 11; additive, mock output bit-identical).
+#       Derives paper_id/paper_slug from the blueprint (C1; fallback "MOCK:M{N:02d}"); the
+#       deliverable names (integrity, Final ×2) use paper_slug ("Mock[N]" for a mock — unchanged);
+#       the question_index JOIN keys on paper_id (self-contained from blueprint+mock_n). Engine
+#       untouched. Proven by blueprint_c3_propagate_test.py. Pairs with MockCreate v5.21.
 #   v1.5 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
 #          Tagged output renamed [ExamCode]_Mock[N]_Tagged.docx →
 #          [ExamCode]_Mock[N]_Final.docx. Accepted inputs renamed accordingly:
@@ -337,14 +342,18 @@ def build_tag_lookup(blueprint, registry, mock_n):
     Tolerant of BOTH registry schemas so a clean run never hard-stops merely on
     the key name.
     """
-    # 1. Find mock N in question_index
+    # 1. Find THIS paper in question_index. C3: key on paper_id (mock == "MOCK:M{mock_n:02d}",
+    #    so this is bit-identical for a mock); tolerant of legacy entries that carry only 'mock'.
+    _tp  = next((mk for mk in blueprint.get('mocks', []) if mk.get('mock') == mock_n), None)
+    _pid = (_tp or {}).get('paper_id', f"MOCK:M{int(mock_n):02d}")
     qi_entry = next(
-        (e for e in registry.get('question_index', []) if e.get('mock') == mock_n),
+        (e for e in registry.get('question_index', [])
+         if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == _pid),
         None
     )
     if qi_entry is None:
         raise SystemExit(
-            f"HARD STOP: No question_index entry for Mock {mock_n} in registry.json.")
+            f"HARD STOP: No question_index entry for paper {_pid} in registry.json.")
 
     # 2. Build TWO lookup maps from blueprint.subtopic_list so the JOIN works
     #    whether the registry stores subtopic_id (preferred) or only the
@@ -747,6 +756,12 @@ blueprint = json.load(open(bp_path, encoding='utf-8'))
 registry = json.load(open(reg_path, encoding='utf-8'))
 
 EXAM = blueprint['exam_code']
+
+# C3 (v1.6): paper identity for deliverable naming. paper_slug = "Mock[N]" for a mock
+# (byte-identical), else the scoped paper_id (":"→"_"). Fallback "MOCK:M{N:02d}" for pre-C1.
+_tp = next((mk for mk in blueprint.get('mocks', []) if mk.get('mock') == N), None)
+paper_id   = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
+paper_slug = f'Mock{N}' if paper_id.startswith('MOCK:') else paper_id.replace(':', '_')
 total_questions = blueprint['total_questions']
 
 # Build the tag-value lookup table (§3)
@@ -808,7 +823,7 @@ changes are load-bearing for Word validity — see the notes in the code.
 
 ```python
 os.makedirs('/home/claude/deliver_work/out', exist_ok=True)
-integrity_path = f'/home/claude/deliver_work/out/{EXAM}_Mock{N}_integrity.docx'
+integrity_path = f'/home/claude/deliver_work/out/{EXAM}_{paper_slug}_integrity.docx'  # C3
 
 STRUCTURAL_STORED = {
     '[Content_Types].xml', '_rels/.rels', 'word/_rels/document.xml.rels'
@@ -885,7 +900,7 @@ if unresolved:
 DELIVERED file — the corruption the learner saw came from this assembly.
 
 ```python
-render_out_path = f'/home/claude/deliver_work/out/{EXAM}_Mock{N}_Final.docx'
+render_out_path = f'/home/claude/deliver_work/out/{EXAM}_{paper_slug}_Final.docx'  # C3
 reassign_docpr_ids(render_root)
 with zipfile.ZipFile(src_path) as src_zip:
     with zipfile.ZipFile(render_out_path, 'w') as out_zip:
@@ -905,7 +920,7 @@ with zipfile.ZipFile(src_path) as src_zip:
                         else zipfile.ZIP_DEFLATED)
             out_zip.writestr(name, data, compress_type=compress)
 shutil.copy(render_out_path,
-            f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Final.docx')
+            f'/mnt/user-data/outputs/{EXAM}_{paper_slug}_Final.docx')  # C3
 ```
 
 **The render-source docx IS the final delivered file. No `soffice` conversion
@@ -1586,4 +1601,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.5
+# END OF Framework_MockDeliver v1.6

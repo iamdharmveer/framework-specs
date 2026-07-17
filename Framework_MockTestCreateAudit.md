@@ -1,4 +1,11 @@
-# Framework_MockTestCreateAudit v2.7.2
+# Framework_MockTestCreateAudit v2.7.3
+#
+# v2.7.3 — 2026-07-15 — C3: paper_id PROPAGATION (Step 8; additive, mock output bit-identical).
+#   Derives paper_id/paper_slug from the blueprint (Blueprint v1.29 C1; fallback "MOCK:M{N:02d}");
+#   input/output docx use paper_slug ("Mock[N]" for a mock — unchanged); the S2-2 guard checks
+#   papers_completed[-1]==paper_id; the question_index re-sync keys on paper_id and tags it.
+#   Engine untouched. Proven by blueprint_c3_propagate_test.py. Pairs with MockCreate v5.21.
+#
 # [ExamCode] project | Step 8 (MockCreateAudit) | Universal Mock Test Auditor & Rectifier
 # ════════════════════════════════════════════════════════════════════════
 #
@@ -890,8 +897,18 @@
               return p
       return None
 
+  # C3 (v2.7.3): derive the paper identity from the blueprint (its filename is fixed, so it can
+  # be read before the paper docx). paper_slug names the input Step 7 actually wrote — "Mock[N]"
+  # for a mock (byte-identical), else a scoped paper_slug. Fallback "MOCK:M{N:02d}" for pre-C1.
+  import re as _re_pid
+  _bp_path = _find(f'{EXAM}_blueprint.json')
+  _bp      = json.load(open(_bp_path, encoding='utf-8')) if _bp_path else {}
+  _tp      = next((mk for mk in _bp.get('mocks', []) if mk.get('mock') == N), None)
+  paper_id   = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
+  paper_slug = f'Mock{N}' if paper_id.startswith('MOCK:') else paper_id.replace(':', '_')
+
   REQUIRED = {
-      'docx'    : f'{EXAM}_Mock{N}_Create.docx',
+      'docx'    : f'{EXAM}_{paper_slug}_Create.docx',
       'registry': f'{EXAM}_registry.json',
       'rules'   : f'{EXAM}_section_rules.md',
       'blueprint': f'{EXAM}_blueprint.json',
@@ -2591,7 +2608,8 @@
   from docx import Document   # parse_blocks/block_stem_text are the §P6 helpers
 
   reg = json.load(open(f'/home/claude/{EXAM}_registry.json', encoding='utf-8'))
-  assert reg['mocks_completed'][-1] == N, "S2-2 guard: registry must end with mock N."
+  _pc = reg.get('papers_completed') or [f"MOCK:M{int(x):02d}" for x in reg.get('mocks_completed', [])]
+  assert _pc[-1] == paper_id, "S2-2 guard: registry must end with THIS paper (paper_id)."  # C3
   _title, fixed_blocks = parse_blocks(Document(FIXED_DOCX))   # §P6 → (title, blocks)
   assert len(fixed_blocks) == total_questions
 
@@ -2637,7 +2655,9 @@
   #                   difficulty target (RA-6 / S8-2), so the carried value stays correct.
   #     This is Step 8's certification of the four subtopic_id-derived tags + the carried Complexity
   #     tag that Step 6 renders. Exam-agnostic; writes NOTHING to the docx.
-  _s2      = next((e for e in reg.get('question_index', []) if e.get('mock') == N), {'questions': []})
+  _s2      = next((e for e in reg.get('question_index', [])
+                   if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == paper_id),
+                  {'questions': []})   # C3: key on paper_id (== mock for a mock)
   _s2map   = {int(x['q']): x for x in _s2.get('questions', [])}
   _regen_q = {r['q'] for r in audit_state.get('regenerations', [])}
   _qi = []
@@ -2651,8 +2671,9 @@
       _qi.append({'q': q,
                   'subtopic_id': _cert_id,                 # certified = independently re-derived
                   'difficulty':  _s2q.get('difficulty')})  # carried forward (never from the docx)
-  reg['question_index'] = [e for e in reg.get('question_index', []) if e.get('mock') != N]
-  reg['question_index'].append({'mock': N, 'questions': _qi})
+  reg['question_index'] = [e for e in reg.get('question_index', [])
+                           if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") != paper_id]
+  reg['question_index'].append({'mock': N, 'paper_id': paper_id, 'questions': _qi})   # C3
 
   # 3) content_tracking L4–L18: drop mock_n==N rows, re-append from the fixed file's ledger
   ct = reg.setdefault('content_tracking', {})
@@ -2815,7 +2836,7 @@
   ```python
   import os
   out = '/mnt/user-data/outputs'
-  docx_name = f'{EXAM}_Mock{N}_Create_Complete.docx'; reg_name = f'{EXAM}_registry.json'
+  docx_name = f'{EXAM}_{paper_slug}_Create_Complete.docx'; reg_name = f'{EXAM}_registry.json'  # C3
   cl_name   = f'{EXAM}_Mock{N}_audit_changelog.md'
   expected  = {docx_name, reg_name} | ({cl_name} if regens else set())
   present   = set(os.listdir(out))
@@ -2844,7 +2865,7 @@
 ## S14-3 — The single present_files call
 
   ```python
-  files = [f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Create_Complete.docx',
+  files = [f'/mnt/user-data/outputs/{EXAM}_{paper_slug}_Create_Complete.docx',
            f'/mnt/user-data/outputs/{EXAM}_registry.json']
   if regens:
       files.append(f'/mnt/user-data/outputs/{EXAM}_Mock{N}_audit_changelog.md')
@@ -5108,5 +5129,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.7.2
+# END OF Framework_MockTestCreateAudit v2.7.3
 # ════════════════════════════════════════════════════════════════════════

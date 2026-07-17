@@ -1,4 +1,44 @@
-# Framework_MockTestCreate v5.20
+# Framework_MockTestCreate v5.23
+#
+# v5.23 — 2026-07-15 — D: SUBTOPIC-SHARDED DEDUP INDEX (scale; correctness-neutral, additive,
+#   ZERO storage change → no migration). At S3-5 an IN-MEMORY index partitions the naturally
+#   subtopic-keyed dedup fields by subtopic_id (semantic_usage by 'subtopic_id'; semantic_tuples
+#   by their first element), so a lookup scans only that subtopic's shard — O(shard) not O(all),
+#   bounding cost for 100k+ question exams. subtopic_usage() serves the index (identical membership
+#   to the prior O(n) filter); controlled_reuse (B) now uses it. The L2 lookup is subtopic-partitioned
+#   via SUBTOPIC_INDEX. L1 (question_hashes/stem_texts) stays GLOBAL — deliberately NOT sharded so a
+#   verbatim duplicate is still caught across subtopics. Stored registry UNCHANGED (flat lists);
+#   a flat snapshot indexes transparently. Engine untouched. Proven by blueprint_d_shard_test.py.
+#   Completes the generation layer (C1/C2/C3 + B + D). Pairs with ScopedBlueprint §9 'shard by subtopic'.
+#
+# v5.22 — 2026-07-15 — B: (item × angle) NARROW-FACTUAL EXHAUSTION + CONTROLLED REUSE (generation-
+#   time escape valve; DORMANT for mocks → mock output bit-identical). The enforcement loop is
+#   unchanged for generative subtopics (supply effectively infinite → widen). NEW: when a
+#   C-FACTUAL subtopic (decision b: question_mechanic) drains its bounded (item × angle) universe
+#   after repeated fruitless widening (decision c: _WIDEN_EXHAUST=3), controlled_reuse() rebuilds a
+#   FRESH-surface question from a prior (item × angle) that is ≥ SPACING_GAP=8 papers back (cross-
+#   tier); if none qualifies in a dense series, decision (b): least-recent + WARN (never hard-stop).
+#   Guardrails preserved: CHECK 1 (a new angle this paper), L1 (never verbatim — cross_mock_duplicate
+#   l1_only), quality gates, and C-FACTUAL web-verify (never fabricate); only L2 is bypassed BY DESIGN.
+#   A sticky, cross-tier exhausted_subtopics flag is set (set-once, never clears). Registry: additive
+#   semantic_usage[] (per-use paper_index; the L2 semantic_tuples list is UNCHANGED so L2 matching is
+#   byte-identical) + exhausted_subtopics{}; both in REQUIRED_TOP self-heal + seed. Engine untouched.
+#   Proven by blueprint_b_dedup_test.py. Pairs with ScopedBlueprint §9 registry contract.
+#
+# v5.21 — 2026-07-15 — C2: GENERALISED paper_id GENERATION PATH (mock↔scoped unification;
+#   additive, mock output bit-identical). Routes the six mock_n seams through a universal
+#   identity derived once at S3-4: paper_id = blueprint.mocks[N].paper_id (Blueprint v1.29 C1;
+#   fallback "MOCK:M{N:02d}"), paper_index = its numeric suffix (mock → == N). For a mock,
+#   paper_id=="MOCK:M{N:02d}" and paper_index==N, so window index, filenames and registry
+#   integers are UNCHANGED. Seams: (1) identity/HS-4 → paper_id vs papers_completed (legacy
+#   mocks_completed fallback); (2) S3-4 read → papers_done + expected_cnt; (3) window index →
+#   paper_index (both S3-4 read & S13-4 commit); (4) content_tracking entries also carry
+#   paper_id (via batch_state); (5) filenames → paper_slug (Mock[N] for a mock, else
+#   paper_id with ':'→'_'); (6) batch_state carries paper_id; (7) write-back tags paper_id +
+#   appends papers_completed (mocks_completed retained); REQUIRED_TOP += papers_completed.
+#   blueprint_core.py untouched (Step 7 doesn't call it). Proven by blueprint_c2_seam_test.py
+#   (mock-case bit-identical + scoped-case correct) + validator (0 issues). Pairs with
+#   Blueprint v1.29 (C1) and ScopedBlueprint v1.0. C3 (Steps 8-11) next.
 #
 # v5.20 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
 #   Final-assembly output renamed [ExamCode]_Mock[N]_Complete.docx →
@@ -1209,7 +1249,9 @@
   RESUME:  MockCreate M[N] resume   (v3.0 — see S4-12)
 
   ExamCode: read from exam_config.json in project knowledge; must match blueprint + registry.
-  [N]: integer ≥ 1; must not be in registry.mocks_completed[]; must ≤ total_mocks.
+  [N]: integer ≥ 1; must ≤ total_mocks. Identity is paper_id (= blueprint.mocks[N].paper_id,
+       mock "MOCK:M{N:02d}"): it must not already be in registry.papers_completed[]
+       (legacy registries fall back to mocks_completed[]).
 
 ## S2-2 — Universal Absolute Rules table
 
@@ -1784,16 +1826,30 @@
 ## S3-4 — Load registry.json — integrity check (non-blocking)
 
   ```python
+  import re as _re_pid
   reg = json.load(open(f'/home/claude/{EXAM}_registry.json'))
+
+  # C2 (v5.21): UNIVERSAL paper identity. paper_id comes from THIS paper's blueprint.mocks[]
+  # entry (C1/Blueprint v1.29 added it); fallback "MOCK:M{N:02d}" for pre-C1 blueprints.
+  # paper_index = its numeric suffix (mock → == N; scoped "SUBJ:Physics:03" → 3), used only for
+  # the window index. For a mock, paper_id == "MOCK:M{N:02d}" and paper_index == N, so EVERY
+  # downstream value (window, filename, registry integers) is bit-identical to pre-C2.
+  _this_paper = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
+  paper_id    = (_this_paper or {}).get('paper_id', f"MOCK:M{N:02d}")
+  paper_index = int(_re_pid.sub(r'\D', '', paper_id.rsplit(':', 1)[-1]) or N)
+
+  # papers_completed is the generalised paper-identity ledger (C1); mocks_completed retained
+  # for backward-compatibility (a legacy registry falls back to it).
   mocks_done   = reg.get('mocks_completed', [])
+  papers_done  = reg.get('papers_completed', mocks_done)
   q_hashes     = reg.get('question_hashes', [])
-  expected_cnt = len(mocks_done) * total_questions
+  expected_cnt = len(papers_done) * total_questions
 
   # v5.14 THREE-AXIS: the WINDOW-level Axis-2 counts live in the registry (cross-mock;
   # batch_state.json is per-mock and cannot span a 10-mock window). Read the current
-  # window's running counts; RESET when this mock N opens a new window.
+  # window's running counts; RESET when this paper opens a new window.
   _win = bp.get('batch_size_qs', 10)
-  _cur_window = (N - 1) // max(1, _win)
+  _cur_window = (paper_index - 1) // max(1, _win)   # C2: paper_index (== N for a mock)
   _reg_axis = reg.get('axis2_window', {})            # {'window': int, 'sections': {sec: {counts,...}}}
   if _reg_axis.get('window') != _cur_window:
       axis2_window_counts = {}                        # new window → fresh counts
@@ -1813,6 +1869,7 @@
       'question_hashes': [],
       'stem_texts': [],
       'semantic_tuples': [],
+      'semantic_usage': [],
       'image_phashes': [],
       'image_sources_used': [],
       'ga_facts_used': [],
@@ -1837,6 +1894,33 @@
   ```python
   shutil.copy(f'/home/claude/{EXAM}_registry.json',
               f'/home/claude/{EXAM}_registry_snapshot.json')
+  registry_snapshot = json.load(open(f'/home/claude/{EXAM}_registry_snapshot.json'))
+
+  # D (v5.23): build an IN-MEMORY dedup index PARTITIONED by subtopic_id, so a lookup for a
+  # subtopic scans only that subtopic's prior entries — O(shard) instead of O(all) — which
+  # bounds cost for large exams (100k+ questions). CORRECTNESS-NEUTRAL: the stored registry is
+  # UNCHANGED (flat lists), and only the naturally subtopic-keyed fields are indexed
+  # (semantic_usage keyed by 'subtopic_id'; semantic_tuples keyed by their first element,
+  # [subtopic, approach, values]). L1 (question_hashes / stem_texts) stays GLOBAL — a verbatim
+  # duplicate must be caught across subtopics, so it is deliberately NOT sharded.
+  def _build_subtopic_index(snap):
+      idx = {'semantic_usage': {}, 'semantic_tuples': {}}
+      for u in snap.get('semantic_usage', []):
+          idx['semantic_usage'].setdefault(u.get('subtopic_id'), []).append(u)
+      for t in snap.get('semantic_tuples', []):
+          sid = (t[0] if isinstance(t, (list, tuple)) and t else
+                 (t.get('subtopic') if isinstance(t, dict) else None))
+          idx['semantic_tuples'].setdefault(sid, []).append(t)
+      return idx
+
+  SUBTOPIC_INDEX = _build_subtopic_index(registry_snapshot)
+
+  def subtopic_usage(snap, sid):
+      """D: prior semantic_usage for ONE subtopic, from the index when available (built from
+      this same snap), else an O(n) filter — identical membership either way."""
+      if snap is registry_snapshot:
+          return SUBTOPIC_INDEX['semantic_usage'].get(sid, [])
+      return [u for u in snap.get('semantic_usage', []) if u.get('subtopic_id') == sid]
   ```
   Guard script uses snapshot. Live registry never modified during generation.
 
@@ -2208,6 +2292,7 @@
   batch_state = {
       'exam_code': EXAM,
       'mock_n': N,
+      'paper_id': paper_id,          # C2: universal identity (mock == "MOCK:M{N:02d}")
       'total_questions': total_questions,
       'batch_plan': batch_plan,
       'batches_completed': [],
@@ -2372,7 +2457,7 @@
   HS-1: Any mandatory file missing from /mnt/project/
   HS-2: Section allocation sums mismatch
   HS-3: ExamCode mismatch between trigger/blueprint/registry
-  HS-4: Mock N already in registry.mocks_completed
+  HS-4: paper_id already in registry.papers_completed (legacy: Mock N in mocks_completed)
   HS-5: Audit script self-test fails (if audit.py present)
   HS-6: blueprint.json invalid JSON
   HS-7: section_rules.md empty
@@ -2465,6 +2550,7 @@
   {
     "exam_code": "[ExamCode]",
     "mock_n": N,
+    "paper_id": "MOCK:M0N",
     "total_questions": 100,
     "batch_plan": [
       {"batch_id": 1, "section": "Section_A", "q_start": 1, "q_end": 10,
@@ -2738,9 +2824,12 @@
 
 ## S4-10 — File naming convention
 
-  Per-batch cumulative: [ExamCode]_Mock[N]_Q1to[last_q].docx
-    (e.g. SSC_CGL_TIER1_Mock7_Q1to30.docx after batch 3)
-  Final:                [ExamCode]_Mock[N]_Create.docx
+  All deliverable names use paper_slug (C2 v5.21): "Mock[N]" for a mock (paper_id starts
+  "MOCK:") — byte-identical to pre-C2 — else the paper_id with ":" → "_" for a scoped paper.
+
+  Per-batch cumulative: [ExamCode]_[paper_slug]_Q1to[last_q].docx
+    (mock e.g. SSC_CGL_TIER1_Mock7_Q1to30.docx; scoped e.g. NEET_SUBJ_Physics_03_Q1to30.docx)
+  Final:                [ExamCode]_[paper_slug]_Create.docx
   Answer key (internal): [ExamCode]_M[N]_answer_key.json
   Figural (internal):    [ExamCode]_fig_manifest.json
   Batch state (internal):[ExamCode]_M[N]_batch_state.json
@@ -2958,6 +3047,12 @@
 
   L1: MD5 hash + near-verbatim (Jaccard ≥0.75 → HARD FAIL; 0.60-0.74 → WARN)
   L2: Semantic tuple [subtopic, approach, sorted_values] — CROSS-MOCK only
+      (B v5.22: unchanged; a SEPARATE semantic_usage log tags each use with paper_index
+       for the narrow-factual controlled-reuse spacing gap — L2 matching is untouched)
+      (D v5.23: the L2 lookup is PARTITIONED by subtopic via SUBTOPIC_INDEX['semantic_tuples']
+       (S3-5) — a candidate's tuple carries its subtopic, so only that subtopic's shard can
+       match; the result is identical, just O(shard). L1 below stays GLOBAL — deliberately
+       NOT sharded, so a verbatim duplicate is caught across subtopics.)
   L3: Per-subtopic exact count (blueprint q_count) + intra-mock scenario_key
       uniqueness + intra-mock presentation_key uniqueness (CLASS 2/3, RULE C,
       v3.8). SEE S6-3b/S6-3c for the authoritative rules. NOTE: CONCEPT_GROUP is
@@ -3635,6 +3730,10 @@
   # ledgers initialised at session start; persisted in batch_state.json across
   # batches (see S4-12 resume): mock_scenario_ledger, mock_presentation_ledger.
   MAX_SCENARIO_TRIES = 12   # safe bound only; supply is effectively infinite
+  _WIDEN_EXHAUST     = 3     # B (v5.22): fruitless widenings for a narrow-FACTUAL subtopic
+                            #   before its bounded (item × angle) universe is treated as drained
+                            #   (decision c — empirical). Generative subtopics widen without limit.
+  SPACING_GAP        = 8     # B: cumulative cross-tier spacing (papers) before an item may recur.
 
   def generate_subtopic(subtopic_data, N, section, registry_snapshot, axis2_tracker=None):
       """
@@ -3653,6 +3752,7 @@
                          or (subtopic_data.get('is_zp', False) and axis2_tracker is not None))
       produced = []
       used_formats_for_cg = set()                  # for RULE C2 (≥2 formats if N≥3)
+      _widen_count = {}                            # B (v5.22): per-cg fruitless-widen counter
 
       scenario_source = scenario_iterator(subtopic_data)  # SOURCE 1 then SOURCE 2
 
@@ -3696,8 +3796,10 @@
                                          prefer_negative=axis2_want_negative(axis2_tracker))
               candidate.answer_cardinality = answer_cardinality
 
-              if cross_mock_duplicate(candidate, registry_snapshot):   # CHECK 2
-                  continue
+              if cross_mock_duplicate(candidate, registry_snapshot):   # CHECK 2 (L1+L2)
+                  continue                                 # (B: same fn supports l1_only=True —
+                                                           #  the reuse path uses it to keep L1
+                                                           #  verbatim blocking while bypassing L2)
               if not passes_quality_gates(candidate, subtopic_data, section):  # CHECK 3
                   continue                                 # includes verify_answer (R-ANSWER)
 
@@ -3710,14 +3812,43 @@
               break
 
           if accepted is None:
-              scenario_source = widen_scenario_space(subtopic_data, scenario_source)
-              continue                                  # never decrement N
+              # B (v5.22): the bound was hit with no NEW distinct (item × angle). For a
+              # GENERATIVE subtopic (supply effectively infinite) this is a generator-effort
+              # signal → widen and keep trying (UNCHANGED behaviour; the mock path only ever
+              # takes this branch). For a genuinely narrow-FACTUAL subtopic that has drained its
+              # bounded (item × angle) universe (decision b: C-FACTUAL classification, gated by
+              # decision c: repeated fruitless widening), take the CONTROLLED-REUSE valve.
+              _widen_count[cg] = _widen_count.get(cg, 0) + 1
+              if _is_narrow_factual(subtopic_data) and _widen_count[cg] >= _WIDEN_EXHAUST:
+                  _pidx = globals().get('paper_index', N)          # C2 session identity (== N for a mock)
+                  _pid  = globals().get('paper_id', f"MOCK:M{N:02d}")
+                  reused = controlled_reuse(subtopic_data, registry_snapshot, _pidx,
+                                            mock_scenario_ledger, do_presentation, cg,
+                                            used_formats_for_cg, N - len(produced))
+                  if reused is not None:
+                      accepted = reused                            # fresh-surface, ≥8-back item;
+                      mark_subtopic_exhausted(subtopic_data, _pid)  # sticky, cross-tier
+                  else:
+                      scenario_source = widen_scenario_space(subtopic_data, scenario_source)
+                      continue
+              else:
+                  scenario_source = widen_scenario_space(subtopic_data, scenario_source)
+                  continue                                  # never decrement N
 
           produced.append(accepted)
           mock_scenario_ledger.add(accepted.scenario_key)
           if do_presentation:
               mock_presentation_ledger.add((cg, accepted.presentation_key))
               used_formats_for_cg.add(accepted.stem_format_variant)
+          # B (v5.22): record this (item × angle) usage in a SEPARATE additive field tagged with
+          # the paper_index — so a later paper can measure the cross-tier spacing gap. The existing
+          # semantic_tuples list (the L2 dedup unit) is left EXACTLY as-is (bare tuples), so L2
+          # matching is byte-unchanged; semantic_usage is read only by B's controlled_reuse.
+          pending_registry.setdefault('semantic_usage', []).append(
+              {'subtopic_id': subtopic_data['subtopic_id'],
+               'angle': accepted.scenario_key,
+               'values': getattr(accepted, 'sorted_values', ''),
+               'paper_index': globals().get('paper_index', N)})
           # v5.14: record this question's Axis-2 class + negativity into the WINDOW tracker.
           # LINKED for CLASS4 (stimulus-locked), the variant's class when one was chosen,
           # else DIRECT. axis2_need()==0 for DIRECT/LINKED so this never mis-steers; it keeps
@@ -3734,6 +3865,73 @@
               "RULE C2 violated — diversify stem_format_variant"
       assert len(produced) == N, "RULE A violated — must never happen"
       return produced
+
+  # ── B (v5.22): NARROW-FACTUAL EXHAUSTION + CONTROLLED REUSE ────────────────────
+  # Dormant for generative subtopics and for mocks (which never drain a bounded universe);
+  # the mock path is bit-identical. Active only for a C-FACTUAL subtopic whose finite
+  # (item × angle) universe genuinely drains under a dense (e.g. scoped) series.
+  def _is_narrow_factual(subtopic_data):
+      """decision (b): questions are bounded FACTUAL recall → finite (item × angle) universe.
+      From the Step-5 question_mechanic (C-FACTUAL family); never fabricated. Generative
+      subtopics (CI, syllogism, …) return False and keep the strict never-reuse path."""
+      mech = str(subtopic_data.get('question_mechanic', '')).lower()
+      return any(k in mech for k in ('factual', 'recall', 'static_gk', 'current_affairs', 'fact'))
+
+  def mark_subtopic_exhausted(subtopic_data, paper_id):
+      """Sticky, cross-tier flag → pending_registry (committed at Final Assembly). Once set it
+      NEVER clears: a subtopic drained in a mock stays drained for every scoped tier, and back."""
+      ex = pending_registry.setdefault('exhausted_subtopics', {})
+      ex.setdefault(subtopic_data['subtopic_id'], {'exhausted': True, 'since_paper': paper_id})
+
+  # semantic_usage entries: {'subtopic_id': sid, 'angle': scenario_key, 'values': sorted_values,
+  # 'paper_index': k}. A SEPARATE additive log (semantic_tuples/L2 stays bare + unchanged).
+  def controlled_reuse(subtopic_data, registry_snapshot, paper_index,
+                       scenario_ledger, do_presentation, cg, used_formats, remaining):
+      """Build a fresh-SURFACE question reusing a prior (item × angle) for this exhausted
+      narrow-factual subtopic, chosen so the reuse is safe:
+        • spacing-{SPACING_GAP}: the item's LAST use is ≥ SPACING_GAP papers back (cross-tier).
+          If none qualifies (dense series) → decision (b): least-recent + WARN (never hard-stop).
+        • new angle: a scenario_key NOT already used THIS paper (CHECK 1 still holds).
+        • never verbatim: the L1 (Jaccard/MD5) ban STILL applies; C-FACTUAL still web-verifies.
+      Returns an accepted candidate, or None (→ caller widens again)."""
+      sid  = subtopic_data['subtopic_id']
+      uses = subtopic_usage(registry_snapshot, sid)   # D (v5.23): O(shard) via subtopic index
+      if not uses:
+          return None
+      _pidx = lambda u: u.get('paper_index', -10**9)
+      eligible = [u for u in uses if paper_index - _pidx(u) >= SPACING_GAP]
+      if eligible:
+          pool = sorted(eligible, key=_pidx)                    # oldest first
+      else:
+          pool = sorted(uses, key=_pidx)                        # decision (b): least-recent + WARN
+          flag(f"B: subtopic {sid} exhausted and spacing-{SPACING_GAP} unsatisfiable in a dense "
+               f"series — reusing the least-recent item with a fresh angle (never verbatim). WARN.")
+      for u in pool:
+          op, shape = u.get('angle', ''), u.get('values', '')
+          scenario_key = canonical(op + "|" + shape)
+          if scenario_key in scenario_ledger:                   # CHECK 1 (this paper) still holds
+              continue
+          fmt = dstr = presentation_key = None
+          if do_presentation:
+              fmt, dstr = pick_presentation(subtopic_data, cg, used_formats, remaining)
+              presentation_key = f"{fmt}|{dstr}"
+              if (cg, presentation_key) in mock_presentation_ledger:
+                  continue
+          cand = build_question(subtopic_data, op, shape, None,
+                                stem_format_variant=fmt, distractor_strategy=dstr,
+                                answer_cardinality=subtopic_data.get('answer_cardinality', 'single'),
+                                reuse=True)                       # a FRESH surface of a known item
+          if cross_mock_duplicate(cand, registry_snapshot, l1_only=True):   # L1 verbatim STILL blocks
+              continue                                            # (L2 is bypassed BY DESIGN here)
+          if not passes_quality_gates(cand, subtopic_data, None):
+              continue
+          cand.scenario_key        = scenario_key
+          cand.stem_format_variant = fmt
+          cand.distractor_strategy = dstr
+          cand.presentation_key    = presentation_key
+          cand.subtopic_class      = subtopic_data['SUBTOPIC_CLASS']
+          return cand
+      return None
 
   def pick_presentation(subtopic_data, cg, used_formats, remaining, tracker=None):
       """Return a (stem_format_variant, distractor_strategy) pair from the §6-3c
@@ -5819,7 +6017,7 @@
   FIRST-MOCK REGISTRY INITIALISATION (run only when mocks_completed=[]):
   If Mock 1 (registry.mocks_completed is empty), initialise ALL fields:
   ```python
-  is_first_mock = len(reg.get('mocks_completed', [])) == 0
+  is_first_mock = len(reg.get('papers_completed', reg.get('mocks_completed', []))) == 0
 
   if is_first_mock:
       # Initialise fields that Step 1 registry template may not have:
@@ -5827,6 +6025,9 @@
       if 'content_tracking' not in reg:
           reg['content_tracking'] = {
               '_schema': {
+                  '_note': 'C2 (v5.21): every entry also carries paper_id (from batch_state) '
+                           'for cross-tier dedup; mock_n retained. The generalised uniqueness '
+                           'ledger (B phase) keys on paper_id.',
                   'ga_facts_used': 'list of {fact, source_url, mock_n}',
                   'passage_topics': 'list of {topic, type, mock_n}',
                   'cloze_topics': 'list of {topic, mock_n}',
@@ -5879,6 +6080,13 @@
   registry['question_hashes'].extend(pending_registry['question_hashes'])
   registry['stem_texts'].extend(pending_registry['stem_texts'])
   registry['semantic_tuples'].extend(pending_registry['semantic_tuples'])
+  # B (v5.22): append this paper's (item × angle) usage log (for cross-paper spacing-8).
+  registry.setdefault('semantic_usage', []).extend(pending_registry.get('semantic_usage', []))
+  # B: merge the sticky, cross-tier exhaustion flags — set-once, NEVER clear (setdefault keeps
+  # the earliest since_paper if a subtopic was already flagged in a prior paper).
+  _ex = registry.setdefault('exhausted_subtopics', {})
+  for _sid, _rec in pending_registry.get('exhausted_subtopics', {}).items():
+      _ex.setdefault(_sid, _rec)
   registry.setdefault('image_phashes', []).extend(pending_registry.get('image_phashes', []))
   registry.setdefault('image_sources_used', []).extend(
       pending_registry.get('image_sources_used', []))
@@ -5920,25 +6128,32 @@
           "subtopic_id": _cm[qn].get("subtopic_id"),
           "difficulty":  _cm[qn].get("difficulty")}
          for qn in sorted(_cm, key=int)]
+  # C2: re-derive identity here (self-contained — bp + N are session-level, always in scope).
+  import re as _re_wb
+  _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
+  paper_id = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
   registry.setdefault('question_index', [])
-  registry['question_index'] = [e for e in registry['question_index'] if e.get('mock') != N]
-  registry['question_index'].append({"mock": N, "questions": _qi})
+  registry['question_index'] = [e for e in registry['question_index']
+                                if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") != paper_id]
+  registry['question_index'].append({"mock": N, "paper_id": paper_id, "questions": _qi})
 
-  # Append mock and session log:
+  # Append to BOTH ledgers: mocks_completed (legacy int) + papers_completed (generalised id).
   registry.setdefault('mocks_completed', []).append(N)
+  registry.setdefault('papers_completed', []).append(paper_id)
   registry.setdefault('session_log', []).append({
-      "mock": N, "batches": len(batches_completed),
+      "mock": N, "paper_id": paper_id, "batches": len(batches_completed),
       "q_range": [1, total_questions], "questions_added": total_questions,
       "audit_result": "exit_0", "verdict": "SHIP",
       "timestamp": datetime.now(timezone.utc).isoformat(),
       "notes": "v2.0 session"
   })
 
-  # v5.14 THREE-AXIS: commit this mock's contribution to the WINDOW-level Axis-2 counts.
-  # Window index is recomputed here from N + batch_size_qs (same formula as S3-4) so the
-  # commit is self-consistent even if the read-side variables are out of scope at assembly.
+  # v5.14 THREE-AXIS: commit this paper's contribution to the WINDOW-level Axis-2 counts.
+  # Window index is recomputed here from paper_index + batch_size_qs (same formula as S3-4) so
+  # the commit is self-consistent even if the read-side variables are out of scope at assembly.
   _win = bp.get('batch_size_qs', 10)
-  _cur_window = (N - 1) // max(1, _win)
+  _pidx = int(_re_wb.sub(r'\D', '', paper_id.rsplit(':', 1)[-1]) or N)   # == N for a mock
+  _cur_window = (_pidx - 1) // max(1, _win)
   # axis2_window_counts holds the per-section snapshots accumulated during generation (S7-AXIS).
   if any(v is not None for v in axis2_window_counts.values()):
       registry['axis2_window'] = {'window': _cur_window,
@@ -5962,8 +6177,9 @@
   reg = json.load(open(f'/home/claude/{EXAM}_registry.json'))
 
   REQUIRED_TOP = [
-      'exam_code', 'schema_version', 'mocks_completed',
-      'question_hashes', 'stem_texts', 'semantic_tuples',
+      'exam_code', 'schema_version', 'mocks_completed', 'papers_completed',
+      'question_hashes', 'stem_texts', 'semantic_tuples', 'semantic_usage',
+      'exhausted_subtopics',
       'question_index',
       'image_phashes', 'image_sources_used', 'session_log',
       'content_tracking',
@@ -5983,7 +6199,7 @@
   # Step-1 template omitted, as an empty container. Same intent as the S13-4
   # first-mock init, but enforced as a GATE that ALWAYS runs.
   for f in missing_top:
-      reg[f] = {} if f == 'content_tracking' else []
+      reg[f] = {} if f in ('content_tracking', 'exhausted_subtopics') else []
   ct = reg.setdefault('content_tracking', {})
   for f in missing_ct:
       ct[f] = []
@@ -6119,7 +6335,11 @@
   ```python
   import os, json
   out = '/mnt/user-data/outputs'
-  docx_name = f'{EXAM}_Mock{N}_Create.docx'
+  # C2 (v5.21): paper-scoped deliverable name. A mock keeps the EXACT Mock[N] name; a scoped
+  # paper uses its paper_id (":" → "_"), e.g. SUBJ_Physics_03. For a mock, paper_slug ==
+  # f'Mock{N}', so docx_name is byte-identical to pre-C2.
+  paper_slug = f'Mock{N}' if paper_id.startswith('MOCK:') else paper_id.replace(':', '_')
+  docx_name = f'{EXAM}_{paper_slug}_Create.docx'
   reg_name  = f'{EXAM}_registry.json'
   docx_path = f'{out}/{docx_name}'
   reg_path  = f'{out}/{reg_name}'
@@ -6165,8 +6385,8 @@
 
   Call present_files ONCE, with BOTH files, docx first (most relevant):
     present_files([
-        f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Create.docx',
-        f'/mnt/user-data/outputs/{EXAM}_registry.json'
+        docx_path,        # C2: paper-scoped ({EXAM}_Mock{N}_Create.docx for a mock)
+        reg_path
     ])
 
   This is the ONLY present_files call at Final Assembly. Do NOT call it once
@@ -6229,6 +6449,8 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     "question_hashes"    : [],
     "stem_texts"         : [],
     "semantic_tuples"    : [],
+    "semantic_usage"     : [],
+    "exhausted_subtopics": {},
     "question_index"     : [],
     "image_phashes"      : [],
     "image_sources_used" : [],
@@ -6824,7 +7046,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.20
+# END OF Framework_MockTestCreate v5.23
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below
