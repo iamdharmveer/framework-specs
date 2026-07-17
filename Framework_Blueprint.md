@@ -766,26 +766,29 @@ If files uploaded AFTER trigger in same session:
 #
 #   blueprint_core.py is UNIVERSAL — no exam-specific edits, no [ExamCode]
 #   prefix. It parameterises itself purely from the plain-data arguments the
-#   wrappers pass. Ships with the framework repo (cloned by Step 0 to /tmp/fw).
+#   wrappers pass. Ships with the framework repo (cloned by Step 0 to /tmp/fw); a
+#   direct-upload project may instead keep it in /mnt/project — either location works.
 #
-#   If blueprint_core.py is absent from the framework clone → HARD STOP. Print:
+#   If blueprint_core.py is absent from BOTH locations → HARD STOP. Print:
 #     "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the framework
-#      clone (/tmp/fw). Step 6 cannot allocate without it. It ships WITH the
-#      framework repo — re-run Step 0 to reload the framework, then re-run
+#      clone (/tmp/fw) or the project Files (/mnt/project). Step 6 cannot allocate
+#      without it — reload the framework (Step 0) or upload the engine, then re-run
 #      MockBlueprint."
 ```
 
 ```python
 import os, shutil, subprocess, sys
 
-# 1) PRESENCE GATE — engine ships with the framework repo (cloned by Step 0 to /tmp/fw).
-_engine_src = '/tmp/fw/blueprint_core.py'
-if not os.path.exists(_engine_src):
+# 1) PRESENCE GATE — prefer the framework clone (GitHub model); fall back to the project
+#    Files (direct-upload model). Either location satisfies the engine mandate.
+_engine_src = next((p for p in ('/tmp/fw/blueprint_core.py',
+                                '/mnt/project/blueprint_core.py')
+                    if os.path.exists(p)), None)
+if _engine_src is None:
     raise SystemExit(
         "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the framework "
-        "clone (/tmp/fw). Step 6 cannot allocate without it. It ships WITH the "
-        "framework repo — re-run Step 0 to reload the framework, then re-run "
-        "MockBlueprint.")
+        "clone (/tmp/fw) or the project Files (/mnt/project). Step 6 cannot allocate "
+        "without it — reload the framework (Step 0) or upload the engine, then re-run.")
 
 # 2) COPY TO WORKING DIR so `import blueprint_core` resolves (cwd = /home/claude).
 shutil.copy(_engine_src, '/home/claude/blueprint_core.py')

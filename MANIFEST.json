@@ -66,11 +66,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "7d1fe1dbff5c1d2f4289a90c7509f03d5b9185d1c4f3de6acaf9cbd23ebd4c1c",
+      "sha256": "5b85c15f62cad61f2c44a135ead3e1569c32fe878463ca23452f1cc362a715dd",
       "version_header": "# Framework_Blueprint v1.31 \u2014 Universal Mock Test Blueprint Generator",
       "end_sentinel": "# END OF Framework_Blueprint v1.31",
-      "lines": 6391,
-      "bytes": 333567
+      "lines": 6394,
+      "bytes": 333860
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "e4bc5c1770f55d02ead95005f1cc2df1636bad14047535d5d22c87e1099b25d7",
@@ -143,11 +143,11 @@
       "bytes": 64470
     },
     "Framework_ScopedBlueprint.md": {
-      "sha256": "5590a05ee7c09a24e3e4f81d846f6d6a08df2c0c48f307aebffb4d8e01e7ed70",
+      "sha256": "a8eb6aaf55f0ba44dfffd9e277c246dd0b691864a198bfa7e5b37cbfe2223bdf",
       "version_header": "# Framework_ScopedBlueprint v1.5 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
       "end_sentinel": "# END OF Framework_ScopedBlueprint v1.5 (\u00a71\u2013\u00a710, adversarially verified; qualified subtopic scope)",
-      "lines": 1261,
-      "bytes": 71990
+      "lines": 1265,
+      "bytes": 72245
     },
     "validate_framework_md.py": {
       "sha256": "ebb0b2cda8385036129c2c5ef3cd7306c3d35f6de721474619267544dee98a01",
