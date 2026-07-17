@@ -225,29 +225,29 @@ and §6 (format). If any mandatory input is missing → HARD STOP naming it.
 #   All allocation MATH in this spec is provided by the SHARED ENGINE
 #   blueprint_core.py — the SAME engine the mock Blueprint uses, so scoped and mock
 #   allocation can never drift. It is universal (no exam-specific edits, no
-#   [ExamCode] prefix; uploaded once, reused in every project). Its correctness is
+#   [ExamCode] prefix; ships with the framework repo). Its correctness is
 #   proven by blueprint_core_test.py + qa_pass2_differential.py.
 #
-#   If blueprint_core.py is absent from the project → HARD STOP. Print:
-#     "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the [ExamCode]
-#      project Files. Step 6S cannot allocate without it. It is universal (uploaded
-#      once, reused in every project) — upload it, then re-run ScopedBlueprint."
+#   If blueprint_core.py is absent from the framework clone → HARD STOP. Print:
+#     "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the framework
+#      clone (/tmp/fw). Step 6S cannot allocate without it. It ships WITH the
+#      framework repo — re-run Step 0 to reload the framework, then re-run ScopedBlueprint."
 ```
 
 ```python
 import os, shutil, subprocess, sys, re as _re
 
-# 1) PRESENCE GATE
-_engine_src = '/mnt/project/blueprint_core.py'
+# 1) PRESENCE GATE — engine ships with the framework repo (cloned by Step 0 to /tmp/fw).
+_engine_src = '/tmp/fw/blueprint_core.py'
 if not os.path.exists(_engine_src):
     raise SystemExit(
-        "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the [ExamCode] "
-        "project Files. Step 6S cannot allocate without it. It is universal (uploaded "
-        "once, reused in every project) — upload it, then re-run ScopedBlueprint.")
+        "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the framework "
+        "clone (/tmp/fw). Step 6S cannot allocate without it. It ships WITH the "
+        "framework repo — re-run Step 0 to reload the framework, then re-run ScopedBlueprint.")
 
-# 2) COPY TO WORKING DIR so `import blueprint_core` resolves the PROJECT's engine (cwd =
+# 2) COPY TO WORKING DIR so `import blueprint_core` resolves the framework engine (cwd =
 #    /home/claude). Prioritise it on sys.path and drop any stale cached import so the copy
-#    just made — the project's current engine — is the one that loads.
+#    just made — the framework's current engine — is the one that loads.
 shutil.copy(_engine_src, '/home/claude/blueprint_core.py')
 sys.path.insert(0, '/home/claude')
 sys.modules.pop('blueprint_core', None)

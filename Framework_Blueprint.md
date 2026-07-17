@@ -766,26 +766,26 @@ If files uploaded AFTER trigger in same session:
 #
 #   blueprint_core.py is UNIVERSAL — no exam-specific edits, no [ExamCode]
 #   prefix. It parameterises itself purely from the plain-data arguments the
-#   wrappers pass. Uploaded once, reused in every exam project.
+#   wrappers pass. Ships with the framework repo (cloned by Step 0 to /tmp/fw).
 #
-#   If blueprint_core.py is absent from the project → HARD STOP. Print:
-#     "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the
-#      [ExamCode] project Files. Step 6 cannot allocate without it. It is
-#      universal (uploaded once, reused in every project) — upload it, then
-#      re-run MockBlueprint."
+#   If blueprint_core.py is absent from the framework clone → HARD STOP. Print:
+#     "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the framework
+#      clone (/tmp/fw). Step 6 cannot allocate without it. It ships WITH the
+#      framework repo — re-run Step 0 to reload the framework, then re-run
+#      MockBlueprint."
 ```
 
 ```python
 import os, shutil, subprocess, sys
 
-# 1) PRESENCE GATE — engine must be in the project.
-_engine_src = '/mnt/project/blueprint_core.py'
+# 1) PRESENCE GATE — engine ships with the framework repo (cloned by Step 0 to /tmp/fw).
+_engine_src = '/tmp/fw/blueprint_core.py'
 if not os.path.exists(_engine_src):
     raise SystemExit(
-        "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the "
-        "[ExamCode] project Files. Step 6 cannot allocate without it. It is "
-        "universal (uploaded once, reused in every project) — upload it, then "
-        "re-run MockBlueprint.")
+        "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the framework "
+        "clone (/tmp/fw). Step 6 cannot allocate without it. It ships WITH the "
+        "framework repo — re-run Step 0 to reload the framework, then re-run "
+        "MockBlueprint.")
 
 # 2) COPY TO WORKING DIR so `import blueprint_core` resolves (cwd = /home/claude).
 shutil.copy(_engine_src, '/home/claude/blueprint_core.py')
