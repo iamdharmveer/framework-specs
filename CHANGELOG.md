@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.07.17
+- NEW spec Framework_ScopedBlueprint.md v1.5 (Step 6S — scoped subject/topic/subtopic test
+  blueprints). Wired into routes.json / PIPELINE / skill (14 triggers).
+- NEW shared engine blueprint_core.py (added to the tracked set; self-test 33/33). Bootstrap
+  count is now 16/16. Framework_Blueprint.md v1.27 -> v1.31 (allocation math extracted into
+  blueprint_core.py). NOTE: blueprint_core.py must be uploaded to each project's /mnt/project/
+  or Step 6/6S HARD STOPs (operational, outside this repo).
+- Framework_MockTestAnalyse.md v2.24.2 -> v2.24.5.
+- Framework_MockTestCreate.md v5.20 -> v5.23; Framework_MockTestCreateAudit.md v2.7.2 -> v2.7.3;
+  Framework_MockDeliver.md v1.5 -> v1.6.
+- Framework_MockTestExplain.md v1.14 -> v1.15; Framework_MockTestExplainAudit.md v1.8 refresh.
+
 ## 2026.07.14
 - Framework_PYQPrepare.md: v1.6 -> v1.7.
 - Added mocktestframework_SKILL.md — canonical account-level skill (STEP 0 load-and-verify
