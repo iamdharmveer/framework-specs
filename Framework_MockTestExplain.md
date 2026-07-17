@@ -1,4 +1,9 @@
-# Framework_MockTestExplain v1.14
+# Framework_MockTestExplain v1.15
+#
+# v1.15 — 2026-07-15 — C3: paper_slug FILENAME CONVENTION (docs; no logic). Input/output
+#   [ExamCode]_Mock[N]_*.docx use the paper_slug of the paper ("Mock[N]" for a mock — unchanged;
+#   scoped = paper_id with ':'→'_'). No registry writes. Pairs with MockCreate v5.21.
+#
 # [ExamCode] project | Step 9 (MockExplain) | Universal Mock Test Explanation Generator
 # ════════════════════════════════════════════════════════════════════════
 #
@@ -348,6 +353,10 @@
 #   Step 8 (MockCreateAudit) → [ExamCode]_Mock[N]_Create_Complete.docx (RECTIFIED, certified)
 #                                  [ExamCode]_registry.json (re-synced — now FROZEN)
 #   THIS STEP — Step 9 (MockExplain) → [ExamCode]_Mock[N]_Explanation.docx (interleaved explanations)
+#   C3 (v1.15): in every [ExamCode]_Mock[N]_*.docx name above, "Mock[N]" is the paper_slug of the
+#   paper being processed — "Mock[N]" for a mock (byte-identical), else the scoped paper_id with
+#   ":"→"_" (e.g. SUBJ_Physics_03), derived from blueprint.mocks[N].paper_id (fallback MOCK:M{N:02d}).
+#   Read the input under, and write the output under, that same paper_slug. No registry writes here.
 #   Step 10 (MockExplainAudit) → independently audits the Solutions docx
 #   Step 11 (MockDeliver)
 #
@@ -1668,5 +1677,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.14
+# END OF Framework_MockTestExplain v1.15
 # ════════════════════════════════════════════════════════════════════════

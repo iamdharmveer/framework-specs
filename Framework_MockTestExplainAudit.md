@@ -12,6 +12,11 @@ Engine: `explain_engine.py` (shared universal engine; core `--self-test` 44/44, 
 
 ## VERSION HISTORY
 
+**v1.11** — 2026-07-15 — C3: paper_slug filename convention (docs; no logic). Input, output, and the
+`audit_answer_keys.json` sidecar use the paper_slug of the paper being processed ("Mock[N]" for a
+mock — byte-identical; scoped = paper_id with ':'→'_', from blueprint.mocks[N].paper_id). Pairs with
+MockCreate v5.21. No output bytes change for a mock.
+
 **v1.10** — 2026-07-12 — PAPER-REFERENCE ALIGNMENT (docs-only, zero logic).
 The frozen question paper Step 10 loads and re-seeds from is the Step-8 rectified, certified
 paper, now named explicitly: bare `[ExamCode]_Mock[N].docx` → `[ExamCode]_Mock[N]_Create_Complete.docx`
@@ -165,6 +170,9 @@ Step 7   MockCreate       -> [ExamCode]_Mock[N]_Create.docx, registry.json
 Step 8   MockCreateAudit  -> rectified paper, re-synced registry
 Step 9   MockExplain      -> [ExamCode]_Mock[N]_Explanation.docx
 Step 10  MockExplainAudit -> [ExamCode]_Mock[N]_Explanation_Complete.docx   <-- THIS STEP
+(C3 v1.11: "Mock[N]" in every filename is the paper_slug of the paper being processed — "Mock[N]"
+ for a mock, byte-identical; else the scoped paper_id with ":"→"_", from blueprint.mocks[N].paper_id,
+ fallback MOCK:M{N:02d}. Input, output, and the audit_answer_keys.json sidecar all use that slug.)
 Step 11  MockDeliver      -> [ExamCode]_Mock[N]_Final.docx
 ```
 
