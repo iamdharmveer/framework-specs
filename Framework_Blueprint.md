@@ -1,4 +1,54 @@
-# Framework_Blueprint v1.31 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.32 — Universal Mock Test Blueprint Generator
+#
+# v1.32 — 2026-07-17 — GAP ANALYSIS FIX A + FIX D + FIX E (MPSC_Botany root-cause audit,
+#   Framework_Gap_Analysis — Step 6 §6 HALT investigation). Closes three structural defects
+#   that recur on EVERY exam with (a) any Zero-PYQ subtopic, (b) any PASSAGE/DI subtopic, or
+#   (c) an OTS section label that differs from the taxonomy Subject — not exam-specific bugs.
+#   WHAT CHANGED:
+#     FIX A — §6 FORMAT NOW READ FROM THE MANIFEST (was: Frequency Excel):
+#       S6-1 rewritten to build format_map from MANIFEST_IDS[sid]['format'] (the manifest's
+#       4-way TEXT/FIGURAL/PASSAGE/DI value) for every allocated subtopic — PYQ AND Zero-PYQ.
+#       The manifest is taxonomy-complete by construction (S2-MANIFEST gate); the Excel is
+#       derived from PYQ occurrence only, so a Zero-PYQ subtopic could structurally never
+#       appear in it — every exam with ≥1 Zero-PYQ subtopic guaranteed a false HALT (root
+#       cause of the MPSC_Botany 41-subtopic HALT). NEW S6-1b: the Excel Format column, when
+#       present, becomes an ADVISORY cross-check only (manifest wins, logged as a note, never
+#       a HALT) for PYQ subtopics. HALT is now reserved for a REAL manifest defect (missing/
+#       invalid `format` — a pre-v2.22 manifest). Also fixes passage_present/di_present being
+#       silently False for any exam with real PASSAGE/DI content, because the Excel writer
+#       (aggregate_frequency_data) is only ever 2-way (TEXT/FIGURAL) while the manifest is
+#       4-way — §6 was reading the weaker source. SOURCES OF TRUTH, S10-3, S10-7, S10-11,
+#       S1-5/S1-6, and the §8-2 checklist updated to match (Excel Format inference retired —
+#       no longer needed since the manifest, required by S2-MANIFEST, is always present).
+#     FIX D — SECTION↔SUBJECT MAPPING RESOLVER (new, §2 S2-1):
+#       New subjects_for_section()/section_for_subtopic()/subtopic_in_section() resolver,
+#       built once per B1 run (single section → all manifest Subjects map to it; N sections
+#       with names == Subjects → identity map, zero behaviour change; anything ambiguous →
+#       HARD STOP requesting explicit exam_config.sections[].subjects[]). Every raw
+#       `MANIFEST_IDS[sid]['section'] == section['name']` / `AXIS_DIST_BY_SECTION.get(sec_name)`
+#       string-equality site now routes through it: §4-2 mandate-first reservation (3 sites),
+#       preflight_mandate_ravg_check, §7-7 axis_schedule build loop (pyq_ids/zp_ids +
+#       axis_distribution lookup, now section-spanning-Subject-aware via
+#       _resolve_axis_dist_for_section). Previously, any exam where the OTS section label
+#       differed from the manifest's taxonomy Subject (e.g. exam_config "MPSC Botany" vs.
+#       manifest Subject "Botany" — true of every single-Subject exam) silently dropped ALL
+#       mandate enforcement and left the three-axis feature permanently inert with no error
+#       — MPSC Botany's axis_schedule was 'no_pyq' for exactly this reason. New SEC-8 gate in
+#       BV-AXIS (§9 S9-12) now HARD-FAILS when a section has PYQ subtopics and the manifest
+#       carries axis data, yet status is still 'no_pyq' — converting the silent disable into
+#       a caught mapping error. zero_pyq_rotation{}/sections[] stay OTS-section-keyed
+#       (contract preserved, §14 S14-4) — the resolver bridges internally, never the reverse.
+#     FIX E — COVERAGE GATE OVER-READ (§2 S2-3, low severity):
+#       New explicit over-coverage (>105%) INFO branch: when a historical PYQ paper is larger
+#       than the current exam pattern (e.g. a 150-Q 2011 paper vs. a 100-Q current pattern),
+#       the aggregate ≥95% PASS no longer masks a genuine per-subtopic gap — a per-subtopic
+#       coverage cross-check against the Analysis-doc taxonomy now runs instead, using the
+#       same 90%/95% FLAG/HALT thresholds applied per-subtopic.
+#   PAIRS WITH: Framework_MockTestAnalyse v2.24.6 FIX B (Frequency Excel completeness +
+#   Format parity with the manifest) + FIX C (structural DI/PASSAGE detection, propagated
+#   byte-identical to MockTestCreateAudit v2.7.4 S6-1b).
+#   Verified: validate_framework_md.py (0 issues, 39/39 code blocks AST-clean), pyflakes
+#   clean on all extracted Python blocks touched by this change.
 #
 # v1.31 — 2026-07-15 — DOC: clarified that blueprint_version is the shared blueprint.json SCHEMA
 #   version (Step-7 floor MIN_BLUEPRINT_VERSION=(1,7)), decoupled from the spec-FILE version, and
@@ -128,11 +178,15 @@
 #                                                      level, medium, max_attempt (PRIMARY)
 #   3. Exam Pattern document (FALLBACK)             — section structure (when exam_config absent)
 #   4. Analysis Word Document(s)                    — subtopic taxonomy + Q counts
-#   5. Frequency Excel                              — year-wise data + Format column
+#   5. Frequency Excel                              — year-wise data. Format column is
+#      ADVISORY ONLY (cross-check against #7) — see §6 GOLDEN RULE and FIX A note below.
 #   6. blueprint.json (prior batches only)          — cumulative allocation state
-#   7. [ExamCode]_subtopic_manifest.json (from Step 5) — REQUIRED v1.7. The
-#      authoritative subtopic_id↔name registry + mandate data. Step 1 reads it to
-#      assign ids and enforce mandates. Without it → HARD STOP (gate S2-MANIFEST).
+#   7. [ExamCode]_subtopic_manifest.json (from Step 5) — REQUIRED v1.7+ (v2.22+ writer
+#      REQUIRED for §6 Format resolution — see FMT-3). The authoritative subtopic_id↔name
+#      registry, per-subtopic Format (TEXT/FIGURAL/PASSAGE/DI — AUTHORITATIVE, ref §6 FIX A),
+#      taxonomy Subject (AUTHORITATIVE, ref §2-1 FIX D resolver), and mandate data. Step 1
+#      reads it to assign ids, resolve Format, resolve Section↔Subject, and enforce mandates.
+#      Without it → HARD STOP (gate S2-MANIFEST).
 #
 # TRIGGER FORMAT:
 #   Step 6: MockBlueprint [N_mocks]
@@ -853,8 +907,9 @@ After reading Exam Pattern document:
 ### S1-5 — Format column check
 
 ```
-Note: S1-5 performs a quick column-EXISTENCE check only.
-Full reading of Format values happens in B1 Step 2 (§8-2).
+Note: S1-5 performs a quick column-EXISTENCE check only, for the ADVISORY Excel
+cross-check (§6 S6-1b). Full AUTHORITATIVE Format reading happens from the
+subtopic_manifest at B1 Step 4 (§6 S6-1) — it does not depend on this check.
 
 After opening Frequency Excel during session start:
   Check Master Data sheet for a column named 'Format' (or close variant).
@@ -866,10 +921,10 @@ After opening Frequency Excel during session start:
     → proceed to S1-6 normally
 
   If Format column absent from Master Data sheet:
-    "Format column: not found in Master Data sheet"
-    → Format inference fallback applies (ref §10 S10-7 / S10-11)
-    → Claude will infer Format from subtopic names during B1, with user confirmation
-    → Document as assumption in Paper Structure sheet
+    "Format column: not found in Master Data sheet — Format will be read from the
+     subtopic_manifest (authoritative); Excel cross-check (§6 S6-1b) is skipped."
+    → Not a fallback and not a HALT — B1 proceeds normally (ref §10 S10-7 / S10-11)
+    → Document as a note (not an assumption) in Paper Structure sheet
 ```
 
 ### S1-6 — Verification summary output
@@ -882,7 +937,7 @@ Print before B1 begins:
    Sections     : [N] sections found
    Analysis docs: [N] received ([subject list])
    Excel years  : [year list, e.g. 2019–2025]
-   Format column: [present / not found — inference fallback applies]
+   Format column: [present — advisory cross-check active / not found — manifest-only, no cross-check]
    N_mocks      : [N]
    Difficulty   : [25/25/50 default | E:M:H custom | progressive]
    Collision    : [none | prior run detected — confirmed by user]
@@ -947,7 +1002,8 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
   (V1-V10). When present, this is the authoritative source — no AI interpretation needed.
 
   Read from exam_config.json:
-    sections[]       : list of {name, q_count, q_range, max_attempt, subject_order}
+    sections[]       : list of {name, q_count, q_range, max_attempt, subject_order,
+                                 subjects (OPTIONAL, v1.32 FIX D)}
     total_questions  : sum of all section q_counts
     marking_scheme[] : per-range {q_range, question_type, correct_marks, negative_marks}
     level            : academic level (e.g., "Post Graduation", "Graduation")
@@ -955,6 +1011,15 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
     n_papers         : NOT in exam_config — infer from context or ask user.
                        Default: 1 (single-paper exam). Multi-paper exams (UPSC CSE)
                        require user confirmation.
+    subjects         : OPTIONAL per-section list of taxonomy Subject names this OTS
+                       section contains (e.g. sections: [{"name":"MPSC Botany",
+                       "subjects":["Botany"]}]). When present, authoritative for the
+                       Section↔Subject resolver (S2-1b) — skips the deterministic
+                       fallback rules entirely for that section. Absent for most exams;
+                       only needed when the fallback rules (S2-1b) would otherwise
+                       HARD STOP (SEC-4: N sections where labels don't cleanly cover
+                       the manifest Subjects, e.g. one Subject split across sections
+                       by Q-range).
 
   SECTION ≠ SUBJECT NOTE:
     Section names in exam_config (e.g., "Part A", "Part B", "Part C") are OTS
@@ -962,6 +1027,26 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
     The taxonomy (Subject > Topic > Subtopic) comes from Analysis docs (S2-2).
     A single Subject from the syllabus can span multiple sections.
     See Step 2a v2.5 S2-2a for the full architectural note.
+
+  SECTION↔SUBJECT MAPPING RESOLVER (v1.32 FIX D):
+    Every place in this spec that needs "which manifest subtopics belong to this
+    OTS section" MUST go through the resolver below — NEVER a raw
+    `MANIFEST_IDS[sid]['section'] == section['name']` string comparison. Raw `==`
+    silently returns an empty match whenever the OTS label differs from the
+    taxonomy Subject (e.g. exam_config section "MPSC Botany" vs. manifest Subject
+    "Botany") — this disables axis scheduling (§7-7) and ALL mandate enforcement
+    (§4-2/§17) with no error raised. The resolver makes that failure loud instead.
+
+    Preferred config (Step 2a, optional): exam_config.sections[].subjects: [...]
+      — the explicit list of taxonomy Subjects that compose this OTS section.
+      When present, this is authoritative and skips the fallback rules below.
+
+    Built once per B1 run, AFTER sections[] is finalized (either path — see "BOTH
+    PATHS produce the same output contract" below) and MANIFEST_IDS is loaded
+    (S2-MANIFEST, session start, always precedes B1 Step 2 / this section). The
+    executable resolver is defined at the end of this subsection, after both the
+    PRIMARY and FALLBACK paths converge on a finished sections[] — never earlier,
+    since the FALLBACK path builds sections[] differently and finishes later.
 
   Q-range validation (same checks as Step 2a — defensive re-check):
     Ranges must be: non-overlapping AND contiguous.
@@ -1020,6 +1105,99 @@ FALLBACK (legacy): Exam Pattern document (image/PDF/.docx/plain text).
 BOTH PATHS produce the same output contract:
   sections[], total_questions, marking_scheme[], level, medium, n_papers
   ready for blueprint.json population at B1.
+```
+
+### S2-1b — Build the Section↔Subject mapping resolver (v1.32 FIX D)
+
+Runs immediately after S2-1 converges on a finished `sections[]` (either source) and
+after MANIFEST_IDS is loaded (S2-MANIFEST, session start — always precedes B1 Step 2).
+See the SECTION↔SUBJECT MAPPING RESOLVER note in S2-1 above for the full rationale.
+
+```python
+def _manifest_subjects():
+    # distinct taxonomy Subject values actually present in the manifest
+    return sorted({mv.get('section') for mv in MANIFEST_IDS.values() if mv.get('section')})
+
+def build_section_subject_map(sections):
+    """
+    Returns (subjects_for_section: {ots_name -> [subjects]},
+             section_for_subject: {subject -> ots_name})
+    Deterministic; HARD STOPs (never silently inert) on real ambiguity.
+    Reads MANIFEST_IDS (module-level, loaded at S2-MANIFEST/session start) via
+    _manifest_subjects() — sections is the only parameter because it is the only
+    input that varies per B1 run at the point this is called.
+    """
+    subjects_for_section = {}
+    section_for_subject  = {}
+    manifest_subjects = _manifest_subjects()
+
+    # Case 0 — explicit config wins outright (per-section, independently)
+    explicit = {s['name']: s['subjects'] for s in sections if s.get('subjects')}
+    remaining_sections = [s for s in sections if s['name'] not in explicit]
+    for name, subs in explicit.items():
+        subjects_for_section[name] = subs
+        for subj in subs:
+            section_for_subject[subj] = name
+
+    if remaining_sections:
+        remaining_manifest_subjects = [s for s in manifest_subjects
+                                        if s not in section_for_subject]
+        if len(sections) == 1 and not explicit:
+            # SEC-1/SEC-2: single OTS section → ALL manifest Subjects map to it,
+            # regardless of label text. Covers every single-Subject exam
+            # (e.g. MPSC Botany: section "MPSC Botany", Subject "Botany").
+            name = sections[0]['name']
+            subjects_for_section[name] = manifest_subjects
+            for subj in manifest_subjects:
+                section_for_subject[subj] = name
+        elif all(s['name'] in manifest_subjects for s in remaining_sections) and \
+             len(remaining_sections) == len(remaining_manifest_subjects):
+            # SEC-3: N sections, names exactly equal Subjects → identity map.
+            # (Current pre-v1.32 behavior — zero change for exams already shaped this way.)
+            for s in remaining_sections:
+                subjects_for_section[s['name']] = [s['name']]
+                section_for_subject[s['name']] = s['name']
+        else:
+            # SEC-4 / anything else ambiguous (N sections, labels don't cleanly
+            # cover the manifest Subjects — e.g. one Subject spans 2+ sections
+            # via a Q-range split): NO silent guess. Require explicit config.
+            raise SystemExit(
+                "HARD STOP (SEC-MAP): cannot determine Section↔Subject mapping.\n"
+                f"  OTS sections: {[s['name'] for s in remaining_sections]}\n"
+                f"  Manifest Subjects: {remaining_manifest_subjects}\n"
+                "These do not resolve 1:1 by name and there is more than one OTS "
+                "section, so the single-section fallback (SEC-1) does not apply.\n"
+                "FIX: add explicit `sections[].subjects: [...]` to exam_config.json "
+                "naming the taxonomy Subject(s) each OTS section contains, then re-run.")
+
+    # SEC-6/SEC-7 guard: every manifest Subject must resolve to some OTS section.
+    unmapped = [s for s in manifest_subjects if s not in section_for_subject]
+    if unmapped:
+        raise SystemExit(
+            f"HARD STOP (SEC-MAP): manifest Subject(s) {unmapped} map to NO OTS "
+            "section under the current sections[] / exam_config.json. A mandate or "
+            "axis target referencing these Subjects would silently disable itself. "
+            "FIX: add/correct `sections[].subjects: [...]` in exam_config.json.")
+
+    return subjects_for_section, section_for_subject
+
+# Built once, used everywhere a section↔Subject bridge is needed (§4-2, §7-7, §9-12,
+# §17). zero_pyq_rotation{} and sections[] STAY keyed by the OTS section name (S14-4
+# contract preserved) — the resolver bridges to the Subject internally, never the reverse.
+SUBJECTS_FOR_SECTION, SECTION_FOR_SUBJECT = build_section_subject_map(sections)
+
+def subjects_for_section(section_name):
+    """OTS section label -> list of taxonomy Subjects it contains."""
+    return SUBJECTS_FOR_SECTION.get(section_name, [])
+
+def section_for_subtopic(sid):
+    """Manifest subtopic id -> the OTS section label it belongs to."""
+    subj = MANIFEST_IDS.get(sid, {}).get('section')
+    return SECTION_FOR_SUBJECT.get(subj)
+
+def subtopic_in_section(sid, section_name):
+    """True iff manifest subtopic sid resolves (via Subject) into OTS section_name."""
+    return section_for_subtopic(sid) == section_name
 ```
 
 ### S2-2 — Reading Analysis Word Document(s)
@@ -1200,7 +1378,7 @@ COVERAGE VALIDATION GATE (v1.26 — mandatory after reading Excel; D6-7 per-pape
     If exam_total_qs is known (from Exam Pattern document):
       coverage_pct = excel_per_paper_qs / exam_total_qs * 100   # per-paper vs per-paper
       
-      coverage_pct ≥ 95%  → PASS silently.
+      coverage_pct ≥ 95%  → PASS silently — UNLESS coverage_pct > 105% (v1.32 FIX E, below).
       90% ≤ coverage_pct < 95% → FLAG:
         "Frequency Excel accounts for [excel_per_paper_qs] Qs but exam has
          [exam_total_qs] total ([coverage_pct]% coverage). [gap] questions
@@ -1215,6 +1393,28 @@ COVERAGE VALIDATION GATE (v1.26 — mandatory after reading Excel; D6-7 per-pape
          Action required: Re-run Step 5 (PYQExtract) to fix classification
          gaps, then re-run Step 6 with the corrected Frequency Excel."
         Do NOT proceed until user provides corrected Excel or confirms override.
+
+      OVER-COVERAGE — coverage_pct > 105% (v1.32 FIX E):
+        A historical PYQ paper had MORE questions than the current exam pattern
+        (e.g. MPSC Botany: a 2011 paper of 150 Qs vs. exam_config.total_questions=100
+        → coverage_pct ≈ 150%). The aggregate ≥95% branch PASSES this silently, but a
+        >100% aggregate is NOT evidence of true coverage — it means the pattern
+        likely changed size, and the aggregate can mask a genuine per-subtopic gap
+        (a subtopic entirely missing from the current-size pattern is invisible in
+        a summed ratio that's already inflated by the size mismatch).
+        Emit an INFO note (never a HALT — this is an expected historical-paper-size
+        difference, not a data defect):
+          "Historical paper(s) larger than the current exam pattern
+           ([excel_per_paper_qs] Qs/paper vs. [exam_total_qs] current) —
+           coverage_pct=[coverage_pct]% reflects pattern-size change, not
+           genuine over-classification. Running per-subtopic coverage check
+           against the Analysis-doc taxonomy instead."
+        Then, where Analysis-doc taxonomy data exists, compute per-subtopic coverage
+        (does every taxonomy subtopic with PYQ history appear in the Excel Master
+        Data with a non-zero count consistent with the Analysis doc?) so genuine
+        classification gaps are still caught rather than hidden behind the inflated
+        aggregate. Any per-subtopic gap found here follows the SAME 90%/95% FLAG/HALT
+        thresholds as the aggregate gate, applied per-subtopic instead of in aggregate.
 
     If exam_total_qs is NOT known (Exam Pattern absent — S10-4 fallback):
       Skip this gate. Note in Paper Structure sheet:
@@ -1704,14 +1904,18 @@ def bv10_preflight(subs, N, batch_size=10, caps=None):
 # compatible instead of adversarial.
 
 # Identify mandated subtopics in THIS section (resolve ids → display names)
+# v1.32 FIX D: route through subtopic_in_section() (Subject→OTS-section resolver),
+# never raw `MANIFEST_IDS[sid]['section'] == section['name']` — that comparison
+# silently drops every mandate whenever the OTS label differs from the taxonomy
+# Subject (ref SEC-MAP HARD STOP already fired at map-build time if unresolvable).
 section_mandate_ids = {}   # id -> deterministic total needed
 for sid in MANDATORY_IDS:
-    if sid in MANIFEST_IDS and MANIFEST_IDS[sid].get('section') == section['name']:
+    if sid in MANIFEST_IDS and subtopic_in_section(sid, section['name']):
         # M1: must appear every mock → exactly N slots minimum
         section_mandate_ids[sid] = N
 
 for sid, k in MIN_COUNTS.items():
-    if sid in MANIFEST_IDS and MANIFEST_IDS[sid].get('section') == section['name']:
+    if sid in MANIFEST_IDS and subtopic_in_section(sid, section['name']):
         # M6: must have ≥k per mock → exactly k*N slots minimum
         section_mandate_ids[sid] = max(section_mandate_ids.get(sid, 0), k * N)
 
@@ -1719,7 +1923,7 @@ for gname, gdata in MANDATORY_GROUPS.items():
     group_min = gdata.get('min', 1)
     group_members_in_section = [
         mid for mid in gdata.get('members', [])
-        if mid in MANIFEST_IDS and MANIFEST_IDS[mid].get('section') == section['name']
+        if mid in MANIFEST_IDS and subtopic_in_section(mid, section['name'])
     ]
     if group_members_in_section:
         # M4: ≥ group_min members per mock → distribute group_min*N across members
@@ -2499,11 +2703,14 @@ After §5 completes for ALL sections:
 
 ## §6 — FORMAT FLAG DETECTION
 
-Reads the Format column from the Frequency Excel and sets
+Reads Format from the subtopic_manifest (AUTHORITATIVE, v1.32 FIX A) — cross-checked,
+never overridden, against the Frequency Excel Format column when present — and sets
 passage_present / figural_present / di_present flags in blueprint.json.
 These flags drive registry schema (§12) and Step 2 generation pipelines.
 
-§6 runs during B1 Step 4 (§8-2), after Excel is read in B1 Step 2.
+§6 runs during B1 Step 4 (§8-2). MANIFEST_IDS is already loaded (S2-MANIFEST, session
+start); the Excel, if present, was read in B1 Step 2 and is used only for the S6-1b
+advisory cross-check.
 
 ### ══════════════════════════════════════════════════════════════
 ### GOLDEN RULE — FORMAT IS CLASSIFICATION ONLY, NEVER EXCLUSION
@@ -2556,7 +2763,20 @@ v1.23 RECONCILIATION — FORMAT NOW ALSO INFLUENCES SCHEDULING (still never EXCL
 
 ### ═══════════════════════════════════════════════════════════════
 
-### S6-1 — Read and normalize Format values
+### S6-1 — Read and normalize Format values (v1.32 FIX A — MANIFEST-AUTHORITATIVE)
+
+```
+v1.32 CHANGE OF SOURCE: Format is now read from the subtopic_manifest (SOURCES OF TRUTH
+#7), not the Frequency Excel. RATIONALE: the manifest is taxonomy-complete by construction
+(S2-MANIFEST gate; the v2.20+ taxonomy-sync FIX A routes Zero-PYQ scaffold entries through
+write_subtopic_manifest() for every taxonomy subtopic), whereas the Frequency Excel is
+derived from PYQ occurrence only — a Zero-PYQ subtopic can structurally never appear in it.
+Reading Format from the Excel therefore guaranteed a false HALT on every exam with ≥1
+Zero-PYQ subtopic. The manifest is also STRICTLY MORE EXPRESSIVE (4-way TEXT/FIGURAL/
+PASSAGE/DI vs. the Excel writer's 2-way TEXT/FIGURAL — ref Step 5 aggregate_frequency_data),
+so this also fixes PASSAGE/DI subtopics being silently reported as passage_present=False /
+di_present=False regardless of what the manifest and axis_schedule actually contain.
+```
 
 ```python
 VALID_FORMATS = {'TEXT', 'FIGURAL', 'PASSAGE', 'DI'}
@@ -2581,63 +2801,96 @@ ALIASES = {
     'PIE'         : 'DI',
 }
 
-format_map        = {}   # subtopic_name → normalized Format string
-flagged_subtopics = []   # [(subtopic, reason)] — missing or unknown Format values
+format_map        = {}   # subtopic_name → normalized Format string (kept name-keyed —
+                          # S6-2/S6-3 and every downstream consumer already index by name)
+flagged_subtopics = []   # [(subtopic, reason)] — missing or invalid manifest Format only.
+                          # Zero-PYQ absence from the Excel is NEVER a reason to flag here.
 
-# 'master_data_sheet' = the identified Master Data sheet from S2-3
-# (not hardcoded name — identified by column structure during B1 Step 2)
-for row in master_data_sheet:
-    subtopic   = row.get('Sub-Topic', None)
-
-    # Skip blank rows (merged headers, empty rows)
-    if not subtopic or str(subtopic).strip() == '':
-        continue
-    subtopic = str(subtopic).strip()
-
-    raw_format = row.get('Format', None)
-
-    # Missing Format value
-    if raw_format is None or str(raw_format).strip() == '':
-        flagged_subtopics.append((subtopic, 'missing'))
-        continue
-
-    normalized = str(raw_format).strip().upper()
-    normalized = ALIASES.get(normalized, normalized)
-
-    # Unknown value after alias resolution
-    if normalized not in VALID_FORMATS:
-        flagged_subtopics.append((subtopic, f'unknown value: {raw_format!r}'))
-        continue
-
-    format_map[subtopic] = normalized
-
-# Fallback: if subtopic not in format_map, check subject-specific tab
+# MANIFEST_IDS, NAME_TO_ID: loaded at S2-MANIFEST (HARD STOP already fired earlier in B1
+# if the manifest is absent or a subtopic name is unresolvable — so resolve_subtopic_id()
+# below is guaranteed to succeed for every S already accepted into pyq_subtopics /
+# zero_pyq_subtopics).
 for section in sections:
     for S in pyq_subtopics[section] + zero_pyq_subtopics[section]:
-        if S not in format_map:
-            # Try subject-specific tab for this section
-            tab_format = _get_format_from_subject_tab(S, section)
-            if tab_format:
-                normalized = ALIASES.get(tab_format.strip().upper(), tab_format.strip().upper())
-                if normalized in VALID_FORMATS:
-                    format_map[S] = normalized
-                    note(f"Format for '{S}' found in subject tab (not Master Data).")
-                else:
-                    flagged_subtopics.append((S, f'unknown in subject tab: {tab_format!r}'))
-            else:
-                flagged_subtopics.append((S, 'missing from Master Data and subject tab'))
+        sid = resolve_subtopic_id(S, section)
+        raw_format = MANIFEST_IDS.get(sid, {}).get('format')
 
-# HALT B1 if any Format values unresolved
+        # Missing Format value — only occurs on a pre-v2.22 Step-5 manifest, where the
+        # `format` field was never written. This is a real data defect (FMT-3), not a
+        # Zero-PYQ artifact — a v2.22+ manifest always carries `format` for every entry.
+        if raw_format is None or str(raw_format).strip() == '':
+            flagged_subtopics.append((S, 'manifest entry has no format field (pre-v2.22 manifest)'))
+            continue
+
+        normalized = str(raw_format).strip().upper()
+        normalized = ALIASES.get(normalized, normalized)
+
+        # Unknown value after alias resolution — a real data error (typo/corruption),
+        # not something re-running Step 5 alone silently fixes unless the value is corrected.
+        if normalized not in VALID_FORMATS:
+            flagged_subtopics.append((S, f'manifest format not in VALID_FORMATS: {raw_format!r}'))
+            continue
+
+        format_map[S] = normalized
+
+# HALT B1 only on a REAL manifest defect (missing/invalid format on a resolved subtopic) —
+# NEVER on Zero-PYQ absence from the Excel (structurally expected, not a defect; ref FMT-1/FMT-11).
 if flagged_subtopics:
     unresolved = "\n".join(f"  • {s}: {r}" for s, r in flagged_subtopics)
     raise RuntimeError(
-        "Format column incomplete — B1 cannot proceed.\n"
+        "Manifest Format incomplete/invalid — B1 cannot proceed.\n"
         f"Unresolved subtopics:\n{unresolved}\n\n"
-        "Options:\n"
-        "  (a) Update Excel Format column and re-upload\n"
-        "  (b) Confirm TEXT for each flagged subtopic\n"
-        "  (See §10 S10-11 for handling partial Format column)"
+        "FIX: re-run Step 5 (PYQExtract) with v2.22+ — it writes a valid 4-way "
+        "TEXT/FIGURAL/PASSAGE/DI format for every taxonomy subtopic (PYQ and Zero-PYQ).\n"
+        "If the value shown above is a typo in an otherwise v2.22+ manifest, correct it "
+        "directly in [ExamCode]_subtopic_manifest.json and re-run."
     )
+```
+
+### S6-1b — Excel Format cross-check (v1.32 FIX A — ADVISORY ONLY, manifest wins)
+
+```
+Runs immediately after S6-1, for PYQ subtopics only (Zero-PYQ subtopics have no Excel row
+by construction — never cross-checked, never flagged). If the Frequency Excel or its Format
+column is entirely absent, this step is a no-op (ref S10-7 / S10-11) — it never blocks B1.
+```
+
+```python
+# 'master_data_sheet' = the identified Master Data sheet from S2-3, if present.
+# Defensive load (same pattern as §6 S6-2's section_rules_text guard below): if the
+# Frequency Excel was never read (entirely absent — ref S10-7), master_data_sheet may
+# not exist as a variable at all in this session, not just be empty/None. Never let a
+# missing/optional Excel raise a NameError in an ADVISORY-ONLY cross-check step.
+try:
+    master_data_sheet
+except NameError:
+    master_data_sheet = None
+
+excel_format_map = {}   # subtopic_name → raw Excel Format value, PYQ rows only
+if master_data_sheet:
+    for row in master_data_sheet:
+        subtopic = row.get('Sub-Topic', None)
+        if not subtopic or str(subtopic).strip() == '':
+            continue
+        subtopic = str(subtopic).strip()
+        raw_format = row.get('Format', None)
+        if raw_format is not None and str(raw_format).strip() != '':
+            norm = str(raw_format).strip().upper()
+            excel_format_map[subtopic] = ALIASES.get(norm, norm)
+
+for section in sections:
+    for S in pyq_subtopics[section]:   # PYQ only — Zero-PYQ never has an Excel row
+        ex = excel_format_map.get(S)
+        mn = format_map.get(S)
+        if ex and mn and ex in VALID_FORMATS and ex != mn:
+            note(f"Format reconciliation: '{S}' Excel={ex} vs manifest={mn} "
+                 f"→ using manifest ({mn}). Recorded in Paper Structure sheet, not a HALT.")
+            # OPTIONAL escalation hook (config-gated, default OFF): if require_format_confirm
+            # is set AND the disagreement crosses the visual boundary (TEXT <-> any of
+            # FIGURAL/PASSAGE/DI), ask the user to confirm before proceeding — because it
+            # changes registry schema (§12) + the Step 7 generation dispatch. Manifest still
+            # wins by default; this only adds a confirmation prompt, never a HALT.
+        # ex missing, or ex == mn, or ex not a valid format value: nothing to do — silent pass.
 ```
 
 ### S6-2 — Set exam-level flags
@@ -3058,6 +3311,35 @@ import blueprint_core as bc   # ENGINE (mandated in S1-2b)
 derive_axis_schedule = bc.derive_axis_schedule
 axis1_feasibility    = bc.axis1_feasibility
 
+# v1.32 FIX D: resolve which manifest Subject(s)' axis_distribution entry applies to
+# this OTS section via the resolver (subjects_for_section), never a raw
+# AXIS_DIST_BY_SECTION.get(sec_name) keyed by the OTS label — that lookup returned
+# None (silent no_pyq/inert) whenever the label differed from the manifest's Subject
+# key, e.g. exam_config "MPSC Botany" vs. manifest axis_distribution key "Botany".
+from collections import Counter as _Counter
+
+def _resolve_axis_dist_for_section(sec_name):
+    subjects = subjects_for_section(sec_name)
+    dists = [AXIS_DIST_BY_SECTION[s] for s in subjects if s in AXIS_DIST_BY_SECTION]
+    if not dists:
+        return None   # legitimately absent: pre-v2.23 manifest, or no axis data at all
+    if len(dists) == 1:
+        return dists[0]
+    # Section spans 2+ Subjects (rare, SEC-2/SEC-4 config case): merge by summing the
+    # per-paper averages across Subjects — the combined section's format mix is the
+    # sum of its constituent Subjects' contributions. negative_rate/recent_years take
+    # the first entry's values (informational fields, not summed).
+    merged = {'axis1_per_paper': _Counter(), 'axis2_per_paper': _Counter(),
+              'axis3_per_paper': _Counter(), 'negative_rate': dists[0].get('negative_rate', 0.0),
+              'recent_years': dists[0].get('recent_years', [])}
+    for d in dists:
+        for axis in ('axis1_per_paper', 'axis2_per_paper', 'axis3_per_paper'):
+            for k, v in d.get(axis, {}).items():
+                merged[axis][k] += v
+    for axis in ('axis1_per_paper', 'axis2_per_paper', 'axis3_per_paper'):
+        merged[axis] = dict(merged[axis])
+    return merged
+
 # ── build axis_schedule for ALL sections (B1, right after difficulty_schedule) ────
 axis_schedule = {}
 for section in sections:
@@ -3069,11 +3351,11 @@ for section in sections:
     pyq_names = pyq_subtopics[section]
     zp_names  = zero_pyq_subtopics[section]
     pyq_ids = [sid for sid, mv in MANIFEST_IDS.items()
-               if mv.get('section') == sec_name and mv['display_name'] in pyq_names]
+               if subtopic_in_section(sid, sec_name) and mv['display_name'] in pyq_names]
     zp_ids  = [sid for sid, mv in MANIFEST_IDS.items()
-               if mv.get('section') == sec_name and mv['display_name'] in zp_names]
+               if subtopic_in_section(sid, sec_name) and mv['display_name'] in zp_names]
     batch_win = blueprint.get('batch_size_qs', 10)   # B1 uses `blueprint` (bp is a B2 alias)
-    sched = derive_axis_schedule(sec_name, AXIS_DIST_BY_SECTION.get(sec_name), sec_qs,
+    sched = derive_axis_schedule(sec_name, _resolve_axis_dist_for_section(sec_name), sec_qs,
                                  pyq_ids, zp_ids, AXIS2_CAP_BY_ID, MANIFEST_IDS,
                                  papers_per_window=batch_win)   # renamed param (was mocks_per_window)
     # advisory feasibility annotations (never block B1)
@@ -3143,6 +3425,8 @@ Step 1  Session start (§1): trigger parse, file inventory, collision check,
         HALT here if any critical issue unresolved.
 
 Step 2  Input processing (§2): read exam pattern → sections[] + q_ranges[].
+        Build the Section↔Subject mapping resolver (§2 S2-1b — v1.32 FIX D);
+        HALT here (SEC-MAP) if the mapping is genuinely ambiguous.
         Read Analysis doc(s) → subtopic taxonomy per section.
         Read Frequency Excel → year-wise data + master_data_sheet identified.
 
@@ -3150,9 +3434,12 @@ Step 3  Frequency calculation (§3): compute r_avg per subtopic.
         Classify PYQ-based vs Zero-PYQ.
         Compute pooled_avg (reference only, stored in XLS only).
 
-Step 4  Format flag detection (§6): read Format column, normalize values,
-        set passage_present / figural_present / di_present.
-        HALT here if any Format values unresolved.
+Step 4  Format flag detection (§6): read Format from subtopic_manifest (authoritative),
+        normalize values, cross-check PYQ subtopics against Excel Format column
+        (advisory only — S6-1b), set passage_present / figural_present / di_present.
+        HALT here only on a real manifest defect (missing/invalid format — FMT-3);
+        NEVER on Zero-PYQ absence from the Excel and NEVER on an Excel/manifest
+        disagreement (manifest wins, logged as a note).
 
 Step 4A BV-0A — Subtopic completeness check (§9 S9-0A):
         Verify every subtopic from Analysis doc taxonomy is in
@@ -4016,6 +4303,16 @@ only on structural corruption (missing/malformed schedule), never on a format sh
 
 Absent-safe: if the manifest predates Step 5 v2.23, every section's schedule has
 status='no_pyq' — BV-AXIS passes vacuously and prints "inert (no axis targets in manifest)".
+
+v1.32 FIX D — SEC-8 MAPPING-FAILURE GATE: a v2.23+ manifest carrying axis_distribution
+data ANYWHERE, combined with a section that resolves to ≥1 PYQ subtopic (via the §2-1
+resolver) yet still reports status='no_pyq', is NOT legitimate inertness — it means the
+Section↔Subject mapping silently failed to find that section's axis_distribution entry
+(the exact MPSC Botany failure mode: OTS label "MPSC Botany" vs. manifest Subject
+"Botany"). This now HARD-FAILS instead of passing vacuously. Genuine inertness (pre-v2.23
+manifest with NO axis_distribution data at all anywhere, or a section that is legitimately
+100% Zero-PYQ) still passes silently — SEC-8 only fires when PYQ coverage and axis data
+both exist but failed to connect for THIS section.
 ```
 ```python
 def bv_axis(blueprint, sections):
@@ -4025,6 +4322,7 @@ def bv_axis(blueprint, sections):
         return
     inert = True
     report_lines = []
+    manifest_has_axis_data = bool(AXIS_DIST_BY_SECTION)   # v2.23+ manifest signal
     REQUIRED = {'section', 'status', 'axis2_audit_mode', 'axis2_window_target',
                 'axis2_guarantee', 'guarantee_feasibility', 'axis1_target_per_mock',
                 'axis3_target_per_mock', 'negative_rate', 'mocks_per_window'}
@@ -4039,6 +4337,18 @@ def bv_axis(blueprint, sections):
             fail(f"BV-AXIS FAIL [{name}]: axis_schedule missing keys {sorted(missing)}.")
             continue
         if s['status'] == 'no_pyq':
+            # v1.32 SEC-8: distinguish genuine inertness from a silent mapping failure.
+            section_pyq_count = sum(1 for sid, mv in MANIFEST_IDS.items()
+                                     if subtopic_in_section(sid, name)
+                                     and mv['display_name'] in pyq_subtopics[section])
+            if manifest_has_axis_data and section_pyq_count > 0:
+                fail(f"BV-AXIS FAIL (SEC-MAP) [{name}]: section has {section_pyq_count} PYQ "
+                     f"subtopic(s) and the manifest carries axis_distribution data, but this "
+                     f"section's axis_schedule is status='no_pyq'. This is a Section↔Subject "
+                     f"mapping failure (§2-1 resolver), not legitimate inertness — the axis "
+                     f"feature silently disabled itself instead of erroring. "
+                     f"FIX: add/correct `sections[].subjects: [...]` in exam_config.json so "
+                     f"this OTS section resolves to its manifest Subject(s).")
             continue
         inert = False
         # STRUCTURAL: band-mode Axis-2 window targets must be non-negative ints; guarantee list
@@ -4067,6 +4377,61 @@ def bv_axis(blueprint, sections):
 
 BV-AXIS runs in B3 alongside BV-7/BV-8 (S8-5 final validation). It never blocks delivery on a
 format shortfall — only on a corrupt/missing schedule (a Blueprint bug, not an exam-data issue).
+
+### S9-13 — Validation / test plan for v1.32 FIX A/D/E (DoD, non-blocking documentation)
+
+```
+These are the DoD test cases FIX A/D/E must satisfy (paired with Framework_MockTestAnalyse
+v2.24.6's FIX B/C test plan — see that file's §15-1 DoD additions). Documented here for
+traceability; these are harness-level tests (e.g. blueprint_core_test.py-style), not
+inline B1 assertions — B1 itself enforces the same invariants live via the HALT/note paths
+in S6-1, S9-12, and S2-1b above.
+
+  format_source_manifest_test: a manifest with 46 PYQ + 41 Zero-PYQ (all with `format`) and
+    an Excel with only the 46 PYQ rows → B1 completes WITHOUT HALT; subtopic_list[].format
+    matches the manifest for all 87. (Reproduces the exact MPSC_Botany shape.)
+
+  format_flags_di_passage_test: a manifest containing ≥1 DI and ≥1 PASSAGE subtopic →
+    di_present==True, passage_present==True (S6-2) regardless of what the Excel Format
+    column says or whether it's present at all.
+
+  format_reconcile_warn_test: Excel=TEXT, manifest=DI for a PYQ subtopic → manifest wins
+    (S6-1b), a reconciliation note is recorded, NO HALT.
+
+  format_missing_manifest_halt_test: a pre-v2.22 manifest entry with no `format` field →
+    HALT (FMT-3, S6-1) naming the subtopic and directing a Step 5 re-run.
+
+  section_map_single_subject_test: exam_config section "MPSC Botany" + manifest Subject
+    "Botany" (single OTS section) → S2-1b resolves subjects_for_section('MPSC Botany') ==
+    ['Botany']; axis_schedule status=='ok' (not 'no_pyq'); pyq_ids non-empty; mandate
+    filters resolve correctly for that section.
+
+  section_map_failloud_test: PYQ subtopics present for a section, axis_distribution data
+    exists in the manifest, but axis_schedule.status=='no_pyq' for that section (simulated
+    mapping failure) → BV-AXIS SEC-8 HARD STOP (S9-12), not a vacuous "✓ inert" pass.
+
+  section_map_identity_test: N OTS sections whose names exactly equal N manifest Subjects
+    (e.g. SSC-style multi-section exam) → S2-1b resolves to the identity map; zero
+    behavioural change from pre-v1.32 (BC-3).
+
+  section_map_ambiguous_halt_test: N>1 OTS sections where labels don't cleanly cover the
+    manifest Subjects (e.g. one Subject split across 2 sections by Q-range, SEC-4) and no
+    explicit `sections[].subjects[]` is configured → S2-1b HARD STOP (SEC-MAP), directing
+    the user to add explicit config, never a silent guess.
+
+  coverage_overread_test: a historical PYQ paper larger than the current exam pattern
+    (coverage_pct > 105%, e.g. MPSC Botany's 150-Q 2011 paper vs. a 100-Q current pattern)
+    → S2-3 emits the over-coverage INFO note and runs the per-subtopic fallback check,
+    rather than passing silently on the inflated aggregate alone.
+
+DoD additions (mirrors gap-analysis §9, now implemented — v1.32):
+  "§6 Format read from manifest; Excel cross-check advisory; 0 false-halts on
+   Zero-PYQ subtopics." — S6-1/S6-1b.
+  "Section↔Subject resolver used for all section filtering; BV-AXIS fails loud on
+   mapping failure." — S2-1b, S4-2, S7-7, S9-12 SEC-8.
+  "Coverage gate reports over-coverage explicitly rather than passing silently on an
+   inflated aggregate." — S2-3 FIX E.
+```
 
 ## §10 — MISSING DOCUMENT HANDLING
 
@@ -4113,7 +4478,11 @@ When BOTH Analysis doc AND Excel are available:
   Trend data          : Excel ONLY
   Importance class    : Derived from r_avg (§3-6), which is computed from Excel year-wise data.
                         Not read directly from Excel — Excel provides raw input, §3 computes output.
-  Format flags        : Excel ONLY    (Format column — Analysis doc has no Format data)
+  Format flags        : subtopic_manifest ONLY (AUTHORITATIVE — ref §6 FIX A, v2.22+ writer
+                        guarantees a 4-way TEXT/FIGURAL/PASSAGE/DI value for every taxonomy
+                        subtopic). Excel Format column (if present) is an ADVISORY cross-check
+                        only — never authoritative, never the sole source, never a HALT trigger
+                        on its own (ref §6-1b reconciliation). Analysis doc has no Format data.
   n_papers            : Exam Pattern ONLY — not in Analysis doc or Excel.
                         Inferred if Exam Pattern missing (ref S10-4).
 
@@ -4207,31 +4576,22 @@ Fallback: use Analysis doc combined Q counts directly as r_avg proxy.
   frequencies across subtopics even without per-paper normalization.
   total_papers_estimate is NOT needed — use raw counts directly.)
 
-Format flags unavailable from Excel.
-  Claude infers Format from subtopic name keywords:
-    FIGURAL : Mirror, Figural, Paper Fold, Embedded, Cube, Dice,
-              Space Orientation, Non-Verbal, Nonverbal, Image
-    PASSAGE : Cloze, Reading Comprehension, Passage, RC, Comprehension
-    DI      : Data Interpretation, Bar Graph, Pie Chart, Line Graph,
-              Table, Graph (standalone)
-    TEXT    : all others (default)
+Format flags: NO INFERENCE NEEDED (v1.32 FIX A). Since v2.22+, the subtopic_manifest is
+  the sole authoritative Format source (ref §6 S6-1, SOURCES OF TRUTH #7) and is REQUIRED
+  by gate S2-MANIFEST independently of the Excel — so a missing Excel never blocks Format
+  resolution. §6 S6-1 reads `MANIFEST_IDS[sid]['format']` directly for every allocated
+  subtopic (PYQ + Zero-PYQ), Excel or no Excel. The former name-keyword inference path
+  (FIGURAL: Mirror/Figural/Paper Fold/…; PASSAGE: Cloze/RC/…; DI: Data Interpretation/…)
+  is retired — it was a workaround for the Excel's incomplete/2-way Format column, and the
+  manifest never had that limitation.
+  See §6-1 ALIASES dict for the complete alias → Format mapping applied to manifest values.
 
-  For EACH inferred non-TEXT format: state inference explicitly and ask:
-    "Inferred FIGURAL for 'Mirror Image' based on name. Confirm? (yes/no)"
-
-  No subtopic proceeds with unconfirmed non-TEXT Format.
-  See §6-1 ALIASES dict for complete alias → Format mapping used during B1.
-
-  CRITICAL — INFERRED FORMAT DOES NOT AFFECT ALLOCATION INCLUSION:
-    After Format is confirmed (TEXT / FIGURAL / PASSAGE / DI), the subtopic
-    is included in §4 allocation (if r_avg > 0) or §5 ZP rotation (if r_avg = 0).
-    A confirmed FIGURAL subtopic is NEVER excluded from allocation.
-    Format only tells Step 2 how to generate the question.
-    Ref: §6 GOLDEN RULE — FORMAT IS CLASSIFICATION ONLY, NEVER EXCLUSION.
+  If the manifest itself predates v2.22 and lacks `format` on any entry, §6 S6-1 HALTs
+  with FMT-3 (re-run Step 5) — this is the ONLY Format-related HALT path remaining.
 
 Flag:
   "Excel missing. Recency weighting not possible. Using Analysis doc Q counts
-   as r_avg proxy. Format flags inferred from subtopic names — confirming each."
+   as r_avg proxy. Format read from subtopic_manifest (authoritative) — no Excel needed."
 
 Documented in Paper Structure sheet.
 ```
@@ -4285,29 +4645,27 @@ Flagged in Paper Structure sheet:
   "Excel missing [year] column. Treated as 0 papers for that year."
 ```
 
-### S10-11 — Partial Format column in Excel (MD-11)
+### S10-11 — Partial Format column in Excel (MD-11) — ADVISORY ONLY (v1.32 FIX A)
 
 ```
-If some subtopic rows have no Format value (blank cell):
-  Claude flags each missing entry:
-    "Format value missing for subtopic [X] in [section]."
+Since v1.32, Excel Format is a cross-check against the manifest (ref §6 S6-1b), never the
+resolution path — so a blank/partial Excel Format column CANNOT block B1 and does NOT
+trigger a HALT. §6 S6-1 already resolved every allocated subtopic's Format from the
+manifest before the Excel is even consulted for cross-check.
 
-Options:
-  (a) User fills missing Format values → re-upload Excel → fresh chat
-  (b) Claude infers from subtopic name using:
-      - Name keyword matching (ref S10-7 inference keywords above)
-      - §6-1 ALIASES dict for complete alias → Format mapping
-      For EACH inferred non-TEXT value: ask user to confirm.
-      Blank = TEXT assumed ONLY after user explicitly confirms.
+If some Excel subtopic rows have no Format value (blank cell):
+  Claude notes it in the Paper Structure sheet, informational only:
+    "Format value missing for subtopic [X] in [section]'s Frequency Excel — no action
+     needed; Format for this subtopic was resolved from the subtopic_manifest ([value])."
 
-No subtopic proceeds with unknown Format (consistent with §6-1 HALT rule).
+No user confirmation is required and no HALT occurs on account of a blank/partial Excel
+Format column. (The only Format-related HALT is FMT-3 — an incomplete or invalid manifest
+— see S10-7 and §6 S6-1.)
 
-CRITICAL — RESOLVING FORMAT DOES NOT AFFECT ALLOCATION INCLUSION:
-  Once Format is resolved (by user input or confirmed inference), the subtopic
-  is included in §4 allocation (if r_avg > 0) or §5 ZP rotation (if r_avg = 0).
-  A subtopic with a blank Format cell is NEVER excluded from allocation.
-  It is only held pending Format resolution — once resolved, it proceeds normally.
-  Ref: §6 GOLDEN RULE — FORMAT IS CLASSIFICATION ONLY, NEVER EXCLUSION.
+CRITICAL — FORMAT IS NEVER AN EXCLUSION CRITERION:
+  Once Format is resolved (from the manifest), the subtopic is included in §4 allocation
+  (if r_avg > 0) or §5 ZP rotation (if r_avg = 0), regardless of what the Excel says or
+  doesn't say. Ref: §6 GOLDEN RULE — FORMAT IS CLASSIFICATION ONLY, NEVER EXCLUSION.
 ```
 
 ### S10-12 — All assumptions in Paper Structure sheet (MD-12)
@@ -5331,6 +5689,11 @@ NOTE: Keys are section names — must match sections[].name EXACTLY.
 Values are alphabetically sorted Zero-PYQ subtopic names for that section.
 Populated by Step 1 §5. All values read from section_rules.md — never hardcoded.
 
+v1.32 FIX D: this contract is UNCHANGED — zero_pyq_rotation{} (and sections[] generally)
+stay keyed by the OTS section name, never the manifest Subject. The §2-1 Section↔Subject
+resolver bridges internally wherever a manifest Subject lookup is needed (§4-2, §7-7,
+§9-12); it never changes what external consumers (Step 2, B2/B3) see here.
+
 ```
 Key   : section name — must match sections[].name EXACTLY (case and spaces).
 Value : alphabetically sorted array of zero-PYQ subtopic names for that section.
@@ -6142,7 +6505,11 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
           if sid not in MANIFEST_IDS:
               continue   # unknown id — will be caught by resolve_subtopic_id()
           # v1.13: only check ids that belong to THIS section
-          if MANIFEST_IDS[sid].get('section') != section_name:
+          # v1.32 FIX D: resolved via subtopic_in_section() (Subject→OTS-section
+          # resolver), not raw string equality — see SECTION↔SUBJECT MAPPING
+          # RESOLVER note (§2 S2-1). Raw equality silently skipped every mandate
+          # whenever the OTS label differed from the manifest's taxonomy Subject.
+          if not subtopic_in_section(sid, section_name):
               continue
           dn = MANIFEST_IDS[sid]['display_name']
           if dn in zero_pyq_subs or dn not in pq_subs:
@@ -6391,4 +6758,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.31
+# END OF Framework_Blueprint v1.32

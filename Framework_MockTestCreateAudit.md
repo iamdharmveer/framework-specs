@@ -1,4 +1,17 @@
-# Framework_MockTestCreateAudit v2.7.3
+# Framework_MockTestCreateAudit v2.7.4
+#
+# v2.7.4 — 2026-07-17 — FIX C PROPAGATION (byte-identical from Step 5 v2.24.6). The S6-1b
+#   AXIS CLASSIFIER v1.0 (COPIED VERBATIM from Step 5) had the same naive substring DI
+#   detection as Step 5's pre-fix classify_axis1 ('|' in stem or 'table' in stem.lower()),
+#   which false-positived on any word merely CONTAINING "table" ("vegetable", "acceptable",
+#   "notable", ...). Replaced with the SAME structural/word-boundary _looks_like_table_
+#   stimulus() helper Step 5 v2.24.6 now uses (>=2 pipe-delimited rows, OR a word-boundary
+#   table-keyword match co-occurring with >=1 pipe-delimited row). Required by this file's
+#   own contract: "if Step 5's classifier changes, this copy MUST be updated to match."
+#   No other change — MATCH detection (S6-1b's other rules) and the self-contained
+#   A-MATCH-TABLE mirror detector (§ standalone audit.py block) are untouched (they don't
+#   duplicate the table/DI check). Verified: dynamic embedded self-test SELF-TEST: 47/47
+#   PASS unchanged; validate_framework_md.py 0 issues.
 #
 # v2.7.3 — 2026-07-15 — C3: paper_id PROPAGATION (Step 8; additive, mock output bit-identical).
 #   Derives paper_id/paper_slug from the blueprint (Blueprint v1.29 C1; fallback "MOCK:M{N:02d}");
@@ -1702,6 +1715,16 @@
   AXIS2_CLASSES = ['LINKED', 'ASSERTION_REASON', 'MATCH', 'SEQUENCE', 'STATEMENT',
                    'FILL_BLANK', 'ODD_ONE_OUT', 'DIRECT']   # ladder order == precedence
 
+  # v2.7.4 FIX C PROPAGATION (byte-identical to Step 5 v2.24.6) — see Step 5's
+  # _looks_like_table_stimulus docstring for full rationale. Was a naive substring
+  # match ('|' in stem or 'table' in stem.lower()) that false-positived on any word
+  # merely containing "table" (vegetable, acceptable, notable, ...).
+  _TABLE_WORD_RE = re.compile(r'(?i)\b(table|tabulated|following data|dataset)\b')
+  def _looks_like_table_stimulus(stem):
+      stem = stem or ''
+      pipe_rows = sum(1 for ln in stem.splitlines() if ln.count('|') >= 2)
+      return pipe_rows >= 2 or (bool(_TABLE_WORD_RE.search(stem)) and pipe_rows >= 1)
+
   def classify_axis1(q):
       """STIMULUS/MEDIA. Priority FIGURAL > PASSAGE > DI > TEXT — identical ordering to
       the per-subtopic `fmt` line in synthesise_subtopic (a linked DI passage resolves
@@ -1711,7 +1734,7 @@
       if q.get('linked_group_id'):
           return 'PASSAGE'
       stem = (q.get('stem') or q.get('stem_raw') or '')
-      if '|' in stem or 'table' in stem.lower():
+      if _looks_like_table_stimulus(stem):
           return 'DI'
       return 'TEXT'
 
@@ -5129,5 +5152,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.7.3
+# END OF Framework_MockTestCreateAudit v2.7.4
 # ════════════════════════════════════════════════════════════════════════

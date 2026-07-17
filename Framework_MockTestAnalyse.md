@@ -1,5 +1,41 @@
-# Framework_MockTestAnalyse v2.24.5 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.6 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
+#
+# v2.24.6 changes: GAP ANALYSIS FIX B + FIX C — MPSC_Botany root-cause audit
+#   (Framework_Gap_Analysis, Step 6 §6 HALT investigation). Closes the Step-5 half of
+#   two structural defects that recur on every exam with (a) any Zero-PYQ subtopic, or
+#   (b) any PASSAGE/DI subtopic, or (c) a subtopic whose stem merely CONTAINS the
+#   substring "table" ("vegetable", "acceptable", ...). The Step-6 (Framework_Blueprint)
+#   half — reading Format from the manifest instead of the Excel — ships as Blueprint
+#   v1.32 FIX A/D/E; this is the Step-5 defense-in-depth + source hardening half.
+#   WHAT CHANGED:
+#     FIX B — FREQUENCY EXCEL COMPLETENESS + FORMAT PARITY (§16-1, §16-4, §15-1):
+#       aggregate_frequency_data() and generate_frequency_xlsx() now accept `all_entries`
+#       (the same PYQ + Zero-PYQ-scaffold list write_subtopic_manifest() writes from).
+#       When supplied: (1) every all_entries subtopic seeds a Master Data row FIRST — so
+#       Zero-PYQ scaffolds appear as all-zero rows, making the Excel taxonomy-complete by
+#       construction, not just the manifest; (2) Format is taken directly from
+#       entry['format'] (the manifest's own 4-way TEXT/FIGURAL/PASSAGE/DI value) instead
+#       of being re-derived locally with a 2-way (TEXT/FIGURAL-only) image_role rule — so
+#       Excel Format == manifest Format for every subtopic by construction, never merely
+#       by coincidence. run_synthesise() updated to pass all_entries through. Backward-
+#       compatible: all_entries=None reproduces the exact pre-v2.24.6 behavior.
+#     FIX C — STRUCTURAL DI/PASSAGE TABLE DETECTION (SHARED AXIS CLASSIFIER v1.0 +
+#       synthesise_subtopic): replaced the naive substring match
+#       (`'|' in stem or 'table' in stem.lower()`) with a shared, single-source-of-truth
+#       `_looks_like_table_stimulus()` helper — word-boundary table-keyword match
+#       co-occurring with a real pipe-delimited row, or >=2 pipe-delimited rows alone.
+#       Eliminates false positives on "vegetable"/"acceptable"/stray single pipes while
+#       still catching real data tables. Used by BOTH classify_axis1() (the canonical
+#       per-question classifier feeding axis_distribution) and synthesise_subtopic()'s
+#       per-subtopic `fmt` derivation (previously two independent, driftable
+#       implementations of the same rule — now one). MUST PROPAGATE (byte-identical) to
+#       Step 8 MockCreateAudit S6-1b (verbatim classifier copy) — done, MockTestCreateAudit
+#       v2.7.4.
+#   PAIRS WITH: Framework_Blueprint v1.32 FIX A (§6 Format source: manifest, not Excel)
+#   + FIX D (§2-1 Section↔Subject resolver) + FIX E (§2-3 over-coverage INFO branch).
+#   Verified: master_data_completeness_test, excel_manifest_format_parity_test,
+#   di_heuristic_false_positive_test design specified in Blueprint §9 S9-13 validation plan.
 #
 # v2.24 changes: MECHANIC / FORM-KEY ENGINE — permanent fix for the BV-10 same-mechanic
 #   collision DEADLOCK CLASS (blocks Step 6 MockBlueprint on a large fraction of exams).
@@ -2961,6 +2997,22 @@ FAMILY_AXIS2_MENU = {
                               'ODD_ONE_OUT', 'STATEMENT'},
 }
 
+_TABLE_WORD_RE = re.compile(r'(?i)\b(table|tabulated|following data|dataset)\b')
+def _looks_like_table_stimulus(stem):
+    """v2.24.6 FIX C — SHARED, single-source-of-truth structural table detector.
+    Was, independently in TWO places (classify_axis1 here and synthesise_subtopic's
+    has_tbl), a naive substring match `'|' in stem or 'table' in stem.lower()` that
+    false-positived on any word merely CONTAINING "table" — "vegetable", "acceptable",
+    "notable" — with no real tabular data present. Requires either (a) >=2 pipe-delimited
+    rows (a real rendered table), or (b) a word-boundary table-keyword match co-occurring
+    with >=1 pipe-delimited row. A bare stray '|' or an unrelated "table"-containing word
+    alone no longer qualifies. MUST PROPAGATE (byte-identical) to Step 8 MockCreateAudit
+    S6-1b (verbatim classifier copy) — same requirement as classify_axis2's MATCH rule.
+    """
+    stem = stem or ''
+    pipe_rows = sum(1 for ln in stem.splitlines() if ln.count('|') >= 2)
+    return pipe_rows >= 2 or (bool(_TABLE_WORD_RE.search(stem)) and pipe_rows >= 1)
+
 def classify_axis1(q):
     """STIMULUS/MEDIA. Priority FIGURAL > PASSAGE > DI > TEXT — identical ordering to
     the per-subtopic `fmt` line in synthesise_subtopic (a linked DI passage resolves
@@ -2970,7 +3022,7 @@ def classify_axis1(q):
     if q.get('linked_group_id'):
         return 'PASSAGE'
     stem = (q.get('stem') or q.get('stem_raw') or '')
-    if '|' in stem or 'table' in stem.lower():
+    if _looks_like_table_stimulus(stem):
         return 'DI'
     return 'TEXT'
 
@@ -3233,8 +3285,13 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     sw      = [len(q['stem'].split()) for q in questions if q.get('stem')]
     has_img  = any(q.get('image_role','none') != 'none' for q in questions)
     has_pass = any(q.get('linked_group_id') for q in questions)
-    has_tbl  = any('|' in q.get('stem','') or 'table' in q.get('stem','').lower()
-                   for q in questions)
+    # v2.24.6 FIX C — delegates to the SAME structural/word-boundary table detector used
+    # by the canonical classify_axis1() (SHARED AXIS CLASSIFIER v1.0, below) — was a
+    # locally-duplicated naive substring match (`'table' in stem.lower()`), which
+    # false-positived on "vege**table**", "accep**table**", "no**table**", etc. Single
+    # source of truth now; both DI derivations can never drift apart again.
+    has_tbl  = any(_looks_like_table_stimulus(q.get('stem', '')) for q in questions) \
+               or any(q.get('has_rendered_table') for q in questions)   # extractor tag, if present
     fmt      = ('FIGURAL' if has_img else 'PASSAGE' if has_pass else
                 'DI' if has_tbl else 'TEXT')
 
@@ -6195,7 +6252,10 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
                                              progress=progress)   # v2.23: per-section axis dist
     summary_path  = write_analysis_summary(all_entries, progress, exam_code)
     # v2.15 BUG-D01 fix: generate_frequency_xlsx() was defined in §16 but NEVER called.
-    xlsx_path     = generate_frequency_xlsx(progress, exam_code)
+    # v2.24.6 FIX B: pass all_entries (PYQ + Zero-PYQ scaffolds, post taxonomy-sync +
+    # zero-PYQ format inference) so the xlsx is taxonomy-complete and Format-parity-
+    # guaranteed with the manifest — was `progress` only (PYQ-observed subtopics only).
+    xlsx_path     = generate_frequency_xlsx(progress, exam_code, all_entries=all_entries)
 
     # Final delivery
     deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
@@ -7055,6 +7115,17 @@ MockCreate M1 MUST NOT start until [8] AND [9] both hold.
 # DEFINITION OF DONE additions (v2.20):
 #   [22] Taxonomy sync ran: run_synthesise printed "Taxonomy sync:" summary line.
 #   [23] Completeness invariant holds: manifest subtopic count >= taxonomy subtopic count.
+# DEFINITION OF DONE additions (v2.24.6 — FIX B/C):
+#   [24] Frequency Excel completeness invariant holds (master_data_completeness_test):
+#        set(master_data_subtopic_ids) == set(manifest_subtopic_ids) —
+#        aggregate_frequency_data(progress, all_entries=...) printed no
+#        "master_data_completeness_test would FAIL" WARN.
+#   [25] Excel Format == manifest Format for every subtopic (excel_manifest_format_parity_test)
+#        — guaranteed by construction when all_entries is passed (both read entry['format']
+#        from the same dict).
+#   [26] DI/PASSAGE detection uses the structural _looks_like_table_stimulus() helper
+#        (di_heuristic_false_positive_test) — word-boundary + pipe-row signal, not a bare
+#        substring match; "vegetable"/"acceptable"/stray single pipes no longer false-positive.
 # ════════════════════════════════════════════════════════════════════════
 #
 # ════════════════════════════════════════════════════════════════════════
@@ -7065,7 +7136,12 @@ MockCreate M1 MUST NOT start until [8] AND [9] both hold.
 #   with the exam's approved taxonomy. For every taxonomy-defined subtopic
 #   NOT already in the PYQ-derived entries, create a scaffold entry with
 #   zero-PYQ defaults. These scaffolds flow through the normal
-#   write_section_rules() and write_subtopic_manifest() paths.
+#   write_section_rules() and write_subtopic_manifest() paths, AND (v2.24.6
+#   FIX B) through generate_frequency_xlsx() via the all_entries parameter —
+#   so the Frequency Excel is now ALSO complete by construction, not just
+#   section_rules.md and the manifest. Previously the Excel was derived from
+#   `progress` only (PYQ-observed keys), so Zero-PYQ scaffolds could never
+#   appear in it regardless of how complete the manifest itself was.
 #
 # WHEN: Called by run_synthesise() AFTER the PYQ-based entry loop and
 #   BEFORE QV checks, write_section_rules(), and write_subtopic_manifest().
@@ -7122,10 +7198,35 @@ MockCreate M1 MUST NOT start until [8] AND [9] both hold.
 from collections import Counter, defaultdict
 import re
 
-def aggregate_frequency_data(progress):
+def aggregate_frequency_data(progress, all_entries=None):
     """
     Aggregate per-subtopic, per-year data from analysis_progress.json.
     Returns structured data ready for xlsx generation.
+
+    v2.24.6 FIX B (defense-in-depth for Gap 1 + Gap 2, closed authoritatively at Step 6
+    by FIX A): previously iterated ONLY `progress` — which is populated exclusively by
+    PYQ-OBSERVED (section, topic, subtopic) keys, so a Zero-PYQ subtopic (never observed
+    in any PYQ paper) could structurally never become an Excel row — and derived Format
+    with a 2-way (TEXT/FIGURAL only) `image_role`-only rule independent of the manifest's
+    4-way (TEXT/FIGURAL/PASSAGE/DI) `synthesise_subtopic` derivation, so the Excel and the
+    manifest could disagree on the SAME subtopic.
+
+    When `all_entries` (the full PYQ + Zero-PYQ-scaffold list — the SAME list
+    write_subtopic_manifest() writes from) is supplied, this function now:
+      (1) seeds subtopic_data from all_entries FIRST, so every taxonomy subtopic gets a
+          row (Zero-PYQ ones as all-zero rows) — Excel is taxonomy-complete, matching the
+          manifest's COMPLETENESS INVARIANT (ref §15-1 taxonomy-sync FIX A).
+      (2) takes Format from each entry['format'] (already the manifest's 4-way value —
+          the SAME field write_subtopic_manifest() reads) instead of re-deriving it
+          locally, so Excel Format == manifest Format for every subtopic BY CONSTRUCTION,
+          never merely by coincidence.
+    `progress` is still the sole source of PER-YEAR counts (all_entries only carries an
+    aggregate `observed_count`, not a year-by-year breakdown).
+
+    Backward-compatible: if `all_entries` is omitted (all_entries=None), falls back to the
+    pre-v2.24.6 progress-only behavior (PYQ-observed subtopics only, 2-way Format) — so any
+    caller that hasn't been updated to pass all_entries still gets a working (if incomplete)
+    workbook rather than an error.
     """
     meta = progress.get('_meta', {})
     all_years = sorted(meta.get('years_processed', []))
@@ -7141,6 +7242,21 @@ def aggregate_frequency_data(progress):
     # Aggregate questions per (section, topic, subtopic) per year
     subtopic_data = {}
 
+    # ── STEP 1 (v2.24.6 FIX B): seed EVERY taxonomy subtopic from all_entries, PYQ +
+    # Zero-PYQ alike, with its manifest-identical 4-way Format. This is what makes the
+    # Excel taxonomy-complete and Format-parity-guaranteed with the manifest.
+    if all_entries:
+        for e in all_entries:
+            key = (e['section'], e['topic'], e['subtopic'])
+            subtopic_data[key] = {
+                'section': e['section'],
+                'topic': e['topic'],
+                'subtopic': e['subtopic'],
+                'format': e.get('format', 'TEXT'),   # manifest-identical — same field, same source
+                'year_counts': defaultdict(int),
+                'total': 0
+            }
+
     for key, questions in progress.items():
         if not isinstance(key, tuple) or len(key) != 3:
             continue
@@ -7151,6 +7267,9 @@ def aggregate_frequency_data(progress):
         section, topic, subtopic = key
 
         if key not in subtopic_data:
+            # Only reachable when all_entries is None (backward-compat path) or a
+            # progress key somehow isn't in all_entries (shouldn't happen post-taxonomy-
+            # sync, but handled defensively rather than dropping data).
             subtopic_data[key] = {
                 'section': section,
                 'topic': topic,
@@ -7167,10 +7286,27 @@ def aggregate_frequency_data(progress):
                 entry['year_counts'][year] += 1
                 entry['total'] += 1
 
-            # Detect format from image_role
-            role = q.get('image_role', 'none')
-            if role in ('stem_only', 'stem_and_options', 'options_only'):
-                entry['format'] = 'FIGURAL'
+            # Legacy 2-way format fallback — ONLY used when all_entries was not supplied
+            # (entry['format'] already carries the manifest's 4-way value otherwise; never
+            # overwrite a value that already came from all_entries).
+            if not all_entries:
+                role = q.get('image_role', 'none')
+                if role in ('stem_only', 'stem_and_options', 'options_only'):
+                    entry['format'] = 'FIGURAL'
+
+    # ── COMPLETENESS INVARIANT (v2.24.6 FIX B — mirrors the manifest's own S2-MANIFEST-
+    # COMPLETENESS gate): when all_entries is supplied, the Excel MUST cover exactly the
+    # same subtopic set as the manifest. Advisory WARN here (xlsx generation never hard-
+    # stops synthesis) — genuine gaps still surface downstream at Step 6 S2-MANIFEST.
+    if all_entries:
+        manifest_keys = {(e['section'], e['topic'], e['subtopic']) for e in all_entries}
+        excel_keys = set(subtopic_data.keys())
+        missing_from_excel = manifest_keys - excel_keys
+        if missing_from_excel:
+            print(f"  WARN: master_data_completeness_test would FAIL — "
+                  f"{len(missing_from_excel)} manifest subtopic(s) absent from the "
+                  f"Frequency Excel: {sorted(missing_from_excel)[:5]}"
+                  + (" ..." if len(missing_from_excel) > 5 else ""))
 
     return {
         'subtopic_data': subtopic_data,
@@ -7322,7 +7458,7 @@ DATA_FONT = Font(name='Arial', size=10)
 BOLD_FONT = Font(bold=True, name='Arial', size=10)
 TITLE_FONT = Font(bold=True, name='Arial', size=14)
 
-def generate_frequency_xlsx(progress, exam_code):
+def generate_frequency_xlsx(progress, exam_code, all_entries=None):
     """
     Generate the complete Frequency xlsx from analysis_progress.json.
     Called during synthesis phase after section_rules and manifest are written.
@@ -7330,8 +7466,12 @@ def generate_frequency_xlsx(progress, exam_code):
     v2.17: Now reads exam_config.json to get exam_total_questions per section
     for accurate % of Subject calculations. Also performs coverage validation,
     topic name consistency check, and duplicate/near-duplicate detection.
+
+    v2.24.6 FIX B: accepts `all_entries` (the same PYQ + Zero-PYQ-scaffold list passed to
+    write_subtopic_manifest()) so the workbook is taxonomy-complete and Format-parity-
+    guaranteed with the manifest — see aggregate_frequency_data() docstring (§16-1).
     """
-    agg = aggregate_frequency_data(progress)
+    agg = aggregate_frequency_data(progress, all_entries=all_entries)
     data = agg['subtopic_data']
     all_years = agg['all_years']
     papers_per_year = agg['papers_per_year']
@@ -7736,7 +7876,12 @@ EC-F1: EXAM WITH ONLY 1 YEAR OF DATA
 
 EC-F2: SUBTOPIC WITH 0 QUESTIONS ACROSS ALL YEARS
   Appears in Master Data with all zeroes. Consistency=0. Trend="No Data".
-  Importance="Low". These are taxonomy subtopics with no PYQ observed.
+  Importance="Low". These are taxonomy subtopics with no PYQ observed (Zero-PYQ
+  scaffolds). v2.24.6 FIX B: now reachable-by-construction — aggregate_frequency_data
+  seeds every all_entries subtopic (PYQ + Zero-PYQ) BEFORE scanning progress, so this
+  row exists even though it has no progress[] key. Was previously UNREACHABLE via the
+  taxonomy-sync path (progress-only iteration structurally excluded Zero-PYQ scaffolds) —
+  this note was aspirational until v2.24.6 closed the gap (see Framework_Blueprint FIX A/B).
 
 EC-F3: VERY LARGE NUMBER OF YEARS (10+)
   Columns grow linearly. No structural issue.
@@ -7747,10 +7892,18 @@ EC-F4: SECTION NAME TOO LONG FOR SHEET TAB
 EC-F5: PAPERS_PER_YEAR = 0 FOR A YEAR
   Avg/Paper = 0 for that year (division guarded).
 
-EC-F6: FORMAT DETECTION UNCERTAINTY
-  Default to TEXT. Step 6 reads Format from xlsx — TEXT is safe default.
+EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
+  When all_entries is supplied (the standard run_synthesise path), Format is taken
+  directly from entry['format'] — the SAME 4-way TEXT/FIGURAL/PASSAGE/DI value
+  synthesise_subtopic computed and write_subtopic_manifest() writes to the manifest.
+  There is no separate "detection uncertainty" in this path: Excel Format == manifest
+  Format by construction, not by chance. TEXT-as-default only applies in the backward-
+  compat path (all_entries=None) or for a genuinely absent/malformed value.
+  Step 6 (Framework_Blueprint v1.32+) no longer reads Format from this xlsx at all —
+  the manifest is authoritative there; this Excel Format column is advisory-only
+  (cross-check, ref Blueprint §6 S6-1b).
 ```
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.24.5
+# END OF Framework_MockTestAnalyse v2.24.6
