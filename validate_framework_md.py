@@ -47,7 +47,7 @@ from collections import Counter
 PIPELINE = {
     'PYQPrepare': '1', 'PYQDraft': '2a', 'PYQScan': '2b', 'PYQApprove': '2c',
     'PYQSort': '3', 'PYQCount': '4', 'PYQExtract': '5',
-    'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6',
+    'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6', 'ScopedBlueprint': '6S',
     'MockCreate': '7', 'MockCreateAudit': '8',
     'MockExplain': '9', 'MockExplainAudit': '10', 'MockDeliver': '11',
 }

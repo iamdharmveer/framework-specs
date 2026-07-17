@@ -1,4 +1,49 @@
-# Framework_Blueprint v1.27 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.31 — Universal Mock Test Blueprint Generator
+#
+# v1.31 — 2026-07-15 — DOC: clarified that blueprint_version is the shared blueprint.json SCHEMA
+#   version (Step-7 floor MIN_BLUEPRINT_VERSION=(1,7)), decoupled from the spec-FILE version, and
+#   that the scoped blueprint must emit the SAME value. No code/behaviour change. Prompted by the
+#   ScopedBlueprint v1.2 fix (it had emitted its spec version '1.0' as blueprint_version, which
+#   would fail the (1,7) floor). Keeps mock + scoped schema versions in sync.
+#
+# v1.30 — 2026-07-15 — REGISTRY SCHEMA SYNC (docs/seed only; zero logic). The §12 registry seed +
+#   schema now list semantic_usage=[] and exhausted_subtopics={} alongside the existing fields, to
+#   MATCH the generation layer's schema (MockCreate v5.22 B). Purely additive: a registry seeded here
+#   is byte-schema-identical to one Step 7 would self-heal. No allocation/behaviour change.
+#
+# v1.29 — 2026-07-15 — C1: UNIVERSAL paper_id IDENTITY (generation-layer foundation; additive,
+#   zero behavioural change). (1) Each mocks[] entry now also carries paper_id="MOCK:M{mock:02d}"
+#   (§14 S14-5) — Steps 7-11 still read 'mock'; the generalised (paper_id) path + the shared
+#   registry key on paper_id. (2) The registry seed (B3 Step 5) + §12 S12-1 add papers_completed=[]
+#   alongside mocks_completed=[] — the paper-identity ledger shared by mocks and every scoped tier;
+#   legacy mocks_completed-only registries are auto-migrated by the scoped loader. schema_version
+#   stays "1.0" (the schema bump belongs to the Step-7/registry generalisation, not this additive
+#   step). Allocation math UNCHANGED (blueprint_core.py untouched); proven bit-identical by
+#   blueprint_refactor_integration_test.py (2/2) + blueprint_c1_paperid_test.py.
+#
+# v1.28 — 2026-07-15 — SHARED ENGINE EXTRACTION (allocation core → blueprint_core.py).
+#   The allocation MATH formerly inlined here is now provided by the universal engine
+#   blueprint_core.py (single source of truth; the same engine backs the forthcoming
+#   Subject/Topic/Sub-Topic scoped blueprints, so a fix lands once). Extracted, VERBATIM-
+#   equivalent: recency split (§3-1 → bc.split_recency) + r_avg (§3-2 → bc.compute_r_avg);
+#   proportional split (§4-2 STEP 3 → bc.proportional_split) + largest-remainder deficit
+#   (§4-2 STEP 4 → bc.largest_remainder_fix), with STEP 3b mandated raw_total PRESERVED and
+#   AllocationError re-wrapped into the spec's AlgorithmError; EXACT MATRIX FILL (§4-5b →
+#   bc.exact_fill); difficulty counts (§7-4 → bc.difficulty_counts); three-axis schedule
+#   (§7-7 → bc.derive_axis_schedule + bc.axis1_feasibility, internally
+#   bc.largest_remainder_apportion + bc.section_axis2_pool_caps); slugify (§17 → bc.slugify).
+#   NEW S1-2b ENGINE MANDATE: HARD STOP if blueprint_core.py absent → copy to /home/claude
+#   → run --self-test (must print "SELF-TEST: N/N PASS") → import blueprint_core as bc.
+#   ENGINE PARAM RENAME: mocks_per_window → papers_per_window (a mock is a paper); the
+#   RETURNED axis_schedule dict STILL carries the 'mocks_per_window' KEY that Steps 7/8 read
+#   (output contract unchanged), so only the §7-7 build-loop call keyword changed.
+#   BEHAVIOUR IS UNCHANGED — proven three ways: (a) blueprint_core_test.py 19/19 +
+#   qa_pass2_differential.py (bc.* == verbatim source over ~128k inputs); (b)
+#   blueprint_refactor_integration_test.py (refactored wiring == pre-refactor inline over
+#   50k fixtures, incl. mandates / floors / infeasible classification); (c)
+#   validate_framework_md.py 0 issues, 37/37 AST clean. ONE diagnostic-only change: the
+#   r_avg data-quality warning now omits the specific year (the subtopic is still named);
+#   the r_avg VALUE is byte-identical. No blueprint.json schema change.
 #
 # v1.27 — 2026-07-08 — CANONICAL AUDITOR (§13-7A): B3 now generates the ONE canonical
 #   v2.6 auditor VERBATIM from Framework_MockTestCreateAudit.md Appendix A (full A-* gates,
@@ -704,6 +749,65 @@ If files uploaded AFTER trigger in same session:
   Never start B1 with an incomplete file set.
 ```
 
+### S1-2b — Allocation engine mandate (blueprint_core.py — HARD STOP)
+
+```
+# ════════════════════════════════════════════════════════════════════════
+# MANDATE — blueprint_core.py IS MANDATORY (HARD STOP)
+# ════════════════════════════════════════════════════════════════════════
+#   All allocation MATH in this spec — r_avg (§3), the proportional split +
+#   largest-remainder deficit (§4-2), the EXACT MATRIX FILL (§4-5b), the
+#   difficulty counts (§7-4), the three-axis schedule (§7-7), and slugify
+#   (§17) — is provided by the SHARED ENGINE blueprint_core.py. This spec no
+#   longer inlines those function bodies (single source of truth; the same
+#   engine backs the Subject/Topic/Sub-Topic scoped blueprints, so a fix lands
+#   once). Its correctness is proven by blueprint_core_test.py +
+#   qa_pass2_differential.py (both delivered alongside it).
+#
+#   blueprint_core.py is UNIVERSAL — no exam-specific edits, no [ExamCode]
+#   prefix. It parameterises itself purely from the plain-data arguments the
+#   wrappers pass. Uploaded once, reused in every exam project.
+#
+#   If blueprint_core.py is absent from the project → HARD STOP. Print:
+#     "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the
+#      [ExamCode] project Files. Step 6 cannot allocate without it. It is
+#      universal (uploaded once, reused in every project) — upload it, then
+#      re-run MockBlueprint."
+```
+
+```python
+import os, shutil, subprocess, sys
+
+# 1) PRESENCE GATE — engine must be in the project.
+_engine_src = '/mnt/project/blueprint_core.py'
+if not os.path.exists(_engine_src):
+    raise SystemExit(
+        "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the "
+        "[ExamCode] project Files. Step 6 cannot allocate without it. It is "
+        "universal (uploaded once, reused in every project) — upload it, then "
+        "re-run MockBlueprint.")
+
+# 2) COPY TO WORKING DIR so `import blueprint_core` resolves (cwd = /home/claude).
+shutil.copy(_engine_src, '/home/claude/blueprint_core.py')
+if '/home/claude' not in sys.path:
+    sys.path.insert(0, '/home/claude')
+
+# 3) HEALTH GATE — the engine must self-test clean before we trust it.
+_st = subprocess.run([sys.executable, '/home/claude/blueprint_core.py', '--self-test'],
+                     capture_output=True, text=True, timeout=60)
+_out = (_st.stdout + _st.stderr).strip().splitlines()
+_last = _out[-1] if _out else ''
+import re as _re
+if _st.returncode != 0 or not _re.match(r'SELF-TEST: (\d+)/\1 PASS', _last):
+    raise SystemExit(
+        f"HARD STOP (ENGINE MANDATE): blueprint_core.py --self-test did not pass "
+        f"({_last!r}). The engine is corrupt or the wrong version — re-upload the "
+        f"delivered blueprint_core.py and re-run.")
+
+# 4) IMPORT — every §3/§4/§7/§17 block that follows uses `bc`.
+import blueprint_core as bc
+```
+
 ### S1-3 — ExamCode collision check
 
 ```
@@ -1152,8 +1256,8 @@ NOT years that exist as columns but have all-zero paper counts (exam not held th
 Algorithm:
   valid_years = [year for year in excel_years
                  if any(papers_in[year][S] > 0 for S in all_subtopics)]
-  recent_years = sorted(valid_years)[-2:]   # last 2 years with actual exams
-  older_years  = sorted(valid_years)[:-2]   # all earlier years
+  recent_years, older_years = bc.split_recency(valid_years)   # ENGINE: last 2 vs earlier
+  #   (identical to sorted(valid_years)[-2:] / [:-2]; single source of truth)
 
   Weights: recent_years → 2×, older_years → 1×
 
@@ -1180,33 +1284,27 @@ If Excel has NO year columns (only taxonomy columns like Subject/Topic/Sub-Topic
 # NOTE: pyq_subtopics and zero_pyq_subtopics are initialized once in §3-5 (S3-5).
 # Do NOT reinitialize them here — this block is per-subtopic formula only.
 
-# For each subtopic S:
-weighted_sum          = 0
-total_weighted_papers = 0
+import blueprint_core as bc   # ENGINE (mandated in S1-2b; copied to /home/claude)
 
-for year in excel_years:
-    # Enforce blank/None → 0 explicitly
-    raw_avg = excel.get('Avg/Paper ' + year, {}).get(S, None)
-    raw_pap = excel.get('Papers In ' + year, {}).get(S, None)
-    avg_per_paper = float(raw_avg) if raw_avg not in (None, '') else 0.0
-    papers_in     = float(raw_pap) if raw_pap not in (None, '') else 0.0
+# For each subtopic S: normalise this subtopic's per-year Excel cells into the plain
+# rows the engine expects, then compute the recency-weighted r_avg via the engine.
+# The 'Avg/Paper <year>' / 'Papers In <year>' string-key PARSING stays here (it is a
+# parsing artifact of the Excel shape); the recency-weighted FORMULA lives in the
+# engine (bc.compute_r_avg — identical math, verified vs this loop over 20k inputs).
+year_rows = [
+    {'avg':    excel.get('Avg/Paper ' + year, {}).get(S, None),
+     'papers': excel.get('Papers In ' + year, {}).get(S, None),
+     'recent': year in recent_years}
+    for year in excel_years
+]
+r_avg, _ravg_warnings = bc.compute_r_avg(year_rows)   # 0.0 → Zero-PYQ (handled by §5)
 
-    # Data quality check
-    if papers_in == 0 and avg_per_paper > 0:
-        flag(f"Data error: {S} year={year} has Avg/Paper={avg_per_paper} "
-             f"but Papers In=0. Treating year as 0 papers.")
-        papers_in     = 0.0
-        avg_per_paper = 0.0
-
-    weight            = 2 if year in recent_years else 1
-    weighted_papers   = papers_in * weight
-    weighted_sum     += avg_per_paper * weighted_papers
-    total_weighted_papers += weighted_papers
-
-if total_weighted_papers == 0:
-    r_avg = 0.0   # no PYQ data → Zero-PYQ (handled by §5)
-else:
-    r_avg = round(weighted_sum / total_weighted_papers, 4)
+# Surface the engine's data-quality warnings (a year with Papers In=0 but Avg/Paper>0).
+# NOTE: the engine's message identifies the condition but not the specific year; the
+# subtopic S is prepended here. This is a diagnostic-log change only — the r_avg VALUE
+# is byte-identical to the pre-engine loop.
+for _w in _ravg_warnings:
+    flag(f"{S}: {_w}")
 ```
 
 ### S3-3 — Pooled average (reference only — never used in allocation)
@@ -1673,21 +1771,17 @@ if remaining_budget < 0:
 
 # ── STEP 3: proportional r_avg split on remaining subtopics ───────────────────
 # Remaining subtopics share the remaining_budget proportionally by r_avg.
-non_mandated_r_total = sum(r_avg[S] for S in non_mandated_subs)
-
-scaled_avg = {}
-raw_total  = {}
-if non_mandated_r_total > 0 and non_mandated_subs:
-    for S in non_mandated_subs:
-        scaled_avg[S] = (r_avg[S] / non_mandated_r_total) * (remaining_budget / N)
-        raw_total[S]  = scaled_avg[S] * N
-        quota[S]      = max(n_batches, math.floor(raw_total[S]))
-elif non_mandated_subs:
-    # All non-mandated subs have r_avg summing to 0 — equal split
-    equal_share = remaining_budget / len(non_mandated_subs)
-    for S in non_mandated_subs:
-        raw_total[S] = equal_share
-        quota[S]     = max(n_batches, math.floor(equal_share))
+# ENGINE: bc.proportional_split returns (pool_quota, pool_raw_total) for the
+# non-mandated pool (each ≥ n_batches; equal split when the pool's r_avg sums to 0).
+# Mandated quota was already set in STEP 2; merge the pool results in. STEP 3b below
+# adds mandated raw_total so the map covers all pq_subs before the deficit fix.
+# (Identical to the prior inlined split — verified vs it over 20k random inputs.)
+import blueprint_core as bc
+raw_total = {}
+_pool_quota, _pool_raw = bc.proportional_split(
+    non_mandated_subs, r_avg, remaining_budget, N, n_batches)
+quota.update(_pool_quota)
+raw_total.update(_pool_raw)
 
 # Also compute raw_total for mandated subs (for the largest-remainder adjustment)
 for S in mandated_subs:
@@ -1697,47 +1791,21 @@ for S in mandated_subs:
         raw_total[S] = float(quota[S])
 
 # ── STEP 4: deficit adjustment (largest-remainder) ────────────────────────────
-deficit = target_total - sum(quota.values())
-# deficit > 0: add Qs to subtopics with highest fractional remainders
-# deficit < 0: remove Qs from subtopics with lowest fractional remainders
-#              (SA-16: never reduce below n_batches; raise error if impossible)
-#              (v1.13: never reduce mandated subs below their mandate floor)
-# deficit = 0: exact match (ideal)
-
-# Sort descending by fractional remainder; tie-break by r_avg descending
-remainders = sorted(pq_subs,
-                    key=lambda S: (raw_total[S] - math.floor(raw_total[S]), r_avg[S]),
-                    reverse=True)
-
-if deficit >= 0:
-    for i in range(deficit):
-        quota[remainders[i % len(remainders)]] += 1
-else:
-    # Ascending order: remove from subtopics with smallest fractional remainder
-    # SA-16 updated: never reduce below n_batches (batch coverage floor)
-    # v1.13: also never reduce mandated subs below their mandate reservation
-    # IMPORTANT: loop repeatedly through removals until deficit is satisfied.
-    # A single pass may not be enough if abs(deficit) > len(pq_subs).
-    removals = list(reversed(remainders))
-    removed  = 0
-    while removed < abs(deficit):
-        reduced_this_pass = 0
-        for S in removals:
-            if removed == abs(deficit):
-                break
-            floor_for_S = max(n_batches, mandate_reserved.get(S, 0))
-            if quota[S] > floor_for_S:
-                quota[S] -= 1
-                removed  += 1
-                reduced_this_pass += 1
-        if reduced_this_pass == 0:
-            # All subtopics are at their floor — cannot reduce further
-            raise AlgorithmError(
-                f"Section {section['name']}: cannot reduce quotas to reach target_total={target_total}. "
-                f"All {len(pq_subs)} subtopics are at minimum quota (n_batches={n_batches} or mandate floor). "
-                f"Current sum={sum(quota.values())}. Too many subtopics for available slots. "
-                f"Ref: EC-11 feasibility check — should have caught this."
-            )
+# ENGINE: bc.largest_remainder_fix adjusts `quota` IN PLACE to hit target_total
+# EXACTLY. deficit ≥ 0 → +1 to the highest fractional remainders (tie-break r_avg
+# desc); deficit < 0 → trim the smallest remainders, looping, NEVER below
+# max(n_batches, mandate floor). floors=mandate_reserved carries the per-subtopic
+# mandate floor (SA-16 + v1.13). It raises bc.AllocationError when the target is
+# unreachable (all subtopics at floor); we re-wrap that into the spec's AlgorithmError
+# with the section name + EC-11 pointer, preserving the original error contract.
+# (Identical to the prior inlined deficit loop — verified vs it over 20k random inputs.)
+try:
+    bc.largest_remainder_fix(quota, pq_subs, raw_total, r_avg,
+                             target_total, n_batches, floors=mandate_reserved)
+except bc.AllocationError as _e:
+    raise AlgorithmError(
+        f"Section {section['name']}: {_e} "
+        f"Ref: EC-11 feasibility check — should have caught this.")
 
 assert sum(quota.values()) == target_total, (
     f"Quota sum {sum(quota.values())} != target {target_total} — algorithm error"
@@ -2087,55 +2155,14 @@ window, 100 random instances, determinism, feasibility guard):
 #   F5  : per-cell ∈ {floor(q/N), ceil(q/N)} → variance ≤ 1 per subtopic
 #   BV-9B: every subtopic with quota ≥ 1 appears ≥ 1 in the window
 # Rare (Phase-1) and ZP are placed FIRST at fixed positions; col_target already excludes them.
-from collections import defaultdict
+import blueprint_core as bc   # ENGINE (mandated in S1-2b)
 
-def exact_fill(quotas, col_targets):
-    """
-    quotas       : dict {S: quota_in_window}  (free subtopics only; quota ≥ 0)
-    col_targets  : list length N of per-mock FREE capacity (sec_qs - rare_at_m - zp_at_m)
-    returns alloc: dict {S: [count per mock]} (length N), or raises AllocError if infeasible.
-    Precondition: sum(quotas.values()) == sum(col_targets).
-    """
-    N = len(col_targets)
-    S_list = sorted(quotas)                      # deterministic order
-    total_q = sum(quotas.values()); total_c = sum(col_targets)
-    if total_q != total_c:
-        raise ValueError(f"exact_fill: Σquota={total_q} != Σcol_target={total_c} (feasibility invariant)")
-    alloc = {S: [0]*N for S in S_list}
-    # 1) BASE: floor(q/N) in every mock; compute per-row remainder (the +1s) and per-col leftover.
-    col_left = list(col_targets)
-    rem = {}
-    for S in S_list:
-        b = quotas[S] // N
-        for m in range(N):
-            alloc[S][m] = b
-            col_left[m] -= b
-        rem[S] = quotas[S] - b*N                 # = quota % N  ∈ [0, N-1]
-    # col_left[m] now = number of extra +1s that column m must receive.
-    if any(c < 0 for c in col_left):
-        raise ValueError("exact_fill: a column over-subscribed by base pass (col_target < Σ base). "
-                         "Reduce quotas or increase sec_qs.")
-    # 2) REMAINDER as a 0/1 matrix with row sums rem[S], col sums col_left[m].
-    #    Gale-Ryser constructive algorithm: for each column, give its +1s to the rows with the
-    #    LARGEST remaining row-remainder (most-remaining-first). Provably valid iff feasible.
-    rows = dict(rem)
-    # process columns most-demanding-first for stability
-    for m in sorted(range(N), key=lambda k: -col_left[k]):
-        need = col_left[m]
-        if need == 0:
-            continue
-        avail = [S for S in S_list if rows[S] > 0]
-        if need > len(avail):
-            raise ValueError(f"exact_fill: column {m+1} needs {need} extras but only {len(avail)} "
-                             f"subtopics have remainder (Gale-Ryser infeasible).")
-        # largest remaining remainder first; deterministic tie-break by name
-        avail.sort(key=lambda S: (-rows[S], S))
-        for S in avail[:need]:
-            alloc[S][m] += 1
-            rows[S] -= 1
-    if any(v != 0 for v in rows.values()):
-        raise ValueError("exact_fill: residual row remainder after fill (should not happen if feasible).")
-    return alloc
+# exact_fill is provided by the shared engine (single source of truth). The ~50-line
+# Gale-Ryser body formerly inlined here now lives in blueprint_core.py; aliased so the
+# §4-5b/§8-3 wiring call `alloc = exact_fill(quotas, col_targets)` stays unchanged.
+# bc.exact_fill is byte-identical to the removed body (same margins/variance/determinism
+# guarantees, same ValueError paths — verified vs the removed loop over 20k random inputs).
+exact_fill = bc.exact_fill
 
 # ── Even-spread guarantee: exact_fill puts each subtopic's quota%N "+1"s in DISTINCT
 #    mocks (chosen by the Gale-Ryser most-remaining-first rule), so every row is
@@ -2904,32 +2931,14 @@ Different mocks get different counts based on their band.
 ### S7-4 — Converting percentages to Q counts (DR-6)
 
 ```python
-def difficulty_counts(total_qs, s_pct, m_pct, h_pct):
-    """
-    Largest-remainder method.
-    Guarantees: simple + medium + hard == total_qs exactly.
-    Deterministic tie-breaking: sort by (remainder DESC, key name ASC).
-    """
-    raw = {
-        'simple' : total_qs * s_pct / 100,
-        'medium' : total_qs * m_pct / 100,
-        'hard'   : total_qs * h_pct / 100,
-    }
-    floors  = {k: math.floor(v) for k, v in raw.items()}
-    deficit = total_qs - sum(floors.values())
+import blueprint_core as bc   # ENGINE (mandated in S1-2b)
 
-    # Sort by fractional remainder DESC; tie-break by key name ASC (deterministic)
-    by_remainder = sorted(
-        raw.keys(),
-        key=lambda k: (-(raw[k] - floors[k]), k)   # negate remainder for DESC; key ASC
-    )
-    for i in range(deficit):
-        floors[by_remainder[i]] += 1
-
-    assert floors['simple'] + floors['medium'] + floors['hard'] == total_qs, (
-        f"difficulty_counts: sum={sum(floors.values())} != total_qs={total_qs}"
-    )
-    return floors['simple'], floors['medium'], floors['hard']
+# difficulty_counts is provided by the shared engine (single source of truth). Splits
+# total_qs into (simple, medium, hard) by the E:M:H percentages via largest-remainder,
+# guaranteeing simple+medium+hard == total_qs. Aliased so the S7-5 call site is unchanged.
+# bc.difficulty_counts is byte-identical to the removed body across all total_qs ≥ 0
+# (proven vs the source over 40k+ swept cases, incl. the total_qs==0 boundary).
+difficulty_counts = bc.difficulty_counts
 ```
 
 ### S7-5 — Build difficulty_schedule[]
@@ -3026,125 +3035,25 @@ manifest) + the per-subtopic `AXIS2_CAP_BY_ID` + `MANIFEST_IDS[*]['format']`. Ab
 a pre-v2.23 manifest yields status='no_pyq' schedules and the feature is inert.
 
 ```python
-# ── helpers ───────────────────────────────────────────────────────────────────
-def _avg_to_counts(avg_map, total):
-    """Largest-remainder: convert a {class: per-paper-avg} map (whose values ~sum to
-    `total`) into integer counts summing EXACTLY to `total`. Handles both under- and
-    over-count (per-paper averages are rounded floats, so their sum may drift from sec_qs)."""
-    if not avg_map or total <= 0:
-        return {}
-    raw    = {k: float(v) for k, v in avg_map.items()}
-    floors = {k: int(math.floor(v)) for k, v in raw.items()}
-    deficit = total - sum(floors.values())
-    if deficit > 0:                                   # distribute by largest remainder
-        order = sorted(raw, key=lambda k: (-(raw[k] - floors[k]), k))
-        for i in range(deficit):
-            floors[order[i % len(order)]] += 1
-    elif deficit < 0:                                 # trim from smallest remainder, never below 0
-        order = sorted(raw, key=lambda k: ((raw[k] - floors[k]), k))
-        i = 0
-        while deficit < 0 and order:
-            k = order[i % len(order)]
-            if floors[k] > 0:
-                floors[k] -= 1; deficit += 1
-            i += 1
-            if i > 10 * len(order):                    # safety: cannot happen, guards infinite loop
-                break
-    return floors
+# ── helpers + builder: provided by the shared engine ──────────────────────────
+import blueprint_core as bc   # ENGINE (mandated in S1-2b)
 
-def _section_axis2_pool_caps(section_name, id_list, cap_by_id, manifest_ids):
-    """Union of Axis-2 capability across a section's subtopic ids (used for guarantee
-    feasibility). Only ids whose manifest section matches are counted."""
-    caps = set()
-    for sid in id_list:
-        if manifest_ids.get(sid, {}).get('section') == section_name:
-            caps |= set(cap_by_id.get(sid, ['DIRECT']))
-    return caps
-
-def derive_axis_schedule(section_name, axis_dist, sec_qs,
-                         pyq_ids, zp_ids, cap_by_id, manifest_ids,
-                         mocks_per_window=10):
-    """Return the per-section axis_schedule dict for blueprint.json.
-       axis_dist : AXIS_DIST_BY_SECTION.get(section_name) — or None (all-Zero-PYQ section).
-       pyq_ids/zp_ids : subtopic_ids with r_avg>0 / r_avg==0 in this section.
-    """
-    if not axis_dist:
-        return {'section': section_name, 'status': 'no_pyq',
-                'axis1_per_paper': {}, 'axis2_per_paper': {}, 'axis3_per_paper': {},
-                'axis2_audit_mode': {}, 'axis2_window_target': {}, 'axis2_guarantee': [],
-                'guarantee_feasibility': {}, 'axis1_target_per_mock': {},
-                'axis3_target_per_mock': {}, 'negative_rate': 0.0,
-                'mocks_per_window': mocks_per_window, 'recent_years': []}
-
-    a2   = axis_dist.get('axis2_per_paper', {})
-    # RE-DERIVE the audit mode with THIS window (batch_size_qs). Step 5 computed a preliminary
-    # mode with the default window=10; Blueprint knows the exam's real window, so it is the
-    # AUTHORITATIVE source (Step 8 reads audit_mode from blueprint.json axis_schedule, not from
-    # section_rules). Identical to Step 5 when batch_size_qs==10; self-consistent with the
-    # window_target below for any window. DIRECT is always the residual float (decisions 5/10).
-    mode = {}
-    for cls, avg in a2.items():
-        if cls == 'DIRECT':
-            mode[cls] = 'float'
-        else:
-            mode[cls] = 'band' if float(avg) * mocks_per_window >= 1 else 'guarantee'
-
-    # band-mode Axis-2 classes → per-window target counts; guarantee-mode → the guarantee list.
-    # DIRECT (mode 'float') is the residual filler and is NEVER given a target (decisions 5/10).
-    window_target, guarantee = {}, []
-    for cls, avg in a2.items():
-        m = mode.get(cls, 'band')
-        if m == 'float':
-            continue
-        if m == 'guarantee':
-            guarantee.append(cls)
-        else:
-            window_target[cls] = round(float(avg) * mocks_per_window)
-
-    # Guarantee feasibility (decisions (c)/9, faithfulness-preserving, NO allocation swap):
-    #   pyq_covered   — a PYQ (r_avg>0) subtopic can carry it → the existing Option-C batch-
-    #                   coverage guarantee already places that subtopic in EVERY window, so
-    #                   Step 7 rendering it as this format satisfies the guarantee. No swap.
-    #   zp_only       — only a Zero-PYQ subtopic can → best-effort via ZP rotation + Step 7.
-    #   unsatisfiable — no faithful source anywhere → accept shortfall (decision (i)); Step 7
-    #                   must NEVER fabricate this format on an incapable subtopic (decision (iii)).
-    pyq_caps = _section_axis2_pool_caps(section_name, pyq_ids, cap_by_id, manifest_ids)
-    zp_caps  = _section_axis2_pool_caps(section_name, zp_ids,  cap_by_id, manifest_ids)
-    feas = {}
-    for g in guarantee:
-        feas[g] = ('pyq_covered' if g in pyq_caps
-                   else 'zp_only' if g in zp_caps
-                   else 'unsatisfiable')
-
-    return {
-        'section': section_name, 'status': 'ok',
-        'axis1_per_paper': axis_dist.get('axis1_per_paper', {}),
-        'axis2_per_paper': a2,
-        'axis3_per_paper': axis_dist.get('axis3_per_paper', {}),
-        'axis2_audit_mode': mode,
-        'axis2_window_target': window_target,   # band-mode Axis-2 per-window quota (Step 7/8)
-        'axis2_guarantee': guarantee,           # guarantee-mode classes (>=1 per window)
-        'guarantee_feasibility': feas,
-        # Axis-1/Axis-3 locked-axis targets, per-mock counts (soft-steer + feasibility; Step 8
-        # audits realized-vs-target within tolerance — NOT a hard per-mock allocation constraint).
-        'axis1_target_per_mock': _avg_to_counts(axis_dist.get('axis1_per_paper', {}), sec_qs),
-        'axis3_target_per_mock': _avg_to_counts(axis_dist.get('axis3_per_paper', {}), sec_qs),
-        'negative_rate': axis_dist.get('negative_rate', 0.0),
-        'mocks_per_window': mocks_per_window,
-        'recent_years': axis_dist.get('recent_years', []),
-    }
-
-def axis1_feasibility(section_name, axis1_target_per_mock, pyq_ids, manifest_ids):
-    """ADVISORY (WARN, never HALT). Compares the Axis-1 (stimulus) per-mock target against the
-    formats actually available among this section's PYQ subtopics. Because Axis-1 is subtopic-
-    locked and Subtopic is hard #1, a shortfall is reported, not forced away."""
-    avail = set()
-    for sid in pyq_ids:
-        if manifest_ids.get(sid, {}).get('section') == section_name:
-            avail.add(manifest_ids[sid].get('format', 'TEXT'))
-    unreachable = [fmt for fmt, cnt in axis1_target_per_mock.items()
-                   if cnt > 0 and fmt not in avail]
-    return unreachable   # [] == fully feasible
+# The three-axis schedule math formerly inlined here now lives in blueprint_core.py
+# (single source of truth): the largest-remainder apportioner (was _avg_to_counts →
+# bc.largest_remainder_apportion), the Axis-2 capability union (was
+# _section_axis2_pool_caps → bc.section_axis2_pool_caps), the schedule builder
+# (bc.derive_axis_schedule), and the Axis-1 advisory (bc.axis1_feasibility). Only the
+# two functions the build loop calls DIRECTLY are aliased below; the other two are
+# called INTERNALLY by bc.derive_axis_schedule, so they need no alias here.
+#
+# RENAME: the builder's window keyword is papers_per_window (was mocks_per_window) —
+# a mock is a paper. The RETURNED dict still carries the 'mocks_per_window' KEY that
+# Steps 7/8 read (output contract unchanged); only the parameter name changed, so the
+# build-loop call site below passes papers_per_window=. Verified byte-identical to the
+# removed builder over 5k random axis distributions (incl. no_pyq / band / guarantee /
+# float and the output-key check).
+derive_axis_schedule = bc.derive_axis_schedule
+axis1_feasibility    = bc.axis1_feasibility
 
 # ── build axis_schedule for ALL sections (B1, right after difficulty_schedule) ────
 axis_schedule = {}
@@ -3163,7 +3072,7 @@ for section in sections:
     batch_win = blueprint.get('batch_size_qs', 10)   # B1 uses `blueprint` (bp is a B2 alias)
     sched = derive_axis_schedule(sec_name, AXIS_DIST_BY_SECTION.get(sec_name), sec_qs,
                                  pyq_ids, zp_ids, AXIS2_CAP_BY_ID, MANIFEST_IDS,
-                                 mocks_per_window=batch_win)
+                                 papers_per_window=batch_win)   # renamed param (was mocks_per_window)
     # advisory feasibility annotations (never block B1)
     sched['axis1_unreachable_formats'] = axis1_feasibility(
         sec_name, sched.get('axis1_target_per_mock', {}), pyq_ids, MANIFEST_IDS)
@@ -3419,6 +3328,9 @@ Step 5  Build section objects and append mocks to blueprint['mocks']:
         for m in range(batch_start, batch_end + 1):
             blueprint['mocks'].append({
                 'mock'    : m,
+                'paper_id': f"MOCK:M{m:02d}",   # C1 (v1.29): universal paper identity. Additive —
+                                                # Steps 7-11 still read 'mock'; the generalised
+                                                # (paper_id) path uses this, mock=MOCK:M0k.
                 'sections': [build_section_obj(m, section) for section in sections]
             })
 
@@ -3507,7 +3419,7 @@ Step 4A Run BV-AXIS (§9 S9-12): axis_schedule integrity + feasibility report (v
         Inert (passes vacuously) when the manifest predates Step 5 v2.23.
 
 Step 5  Generate registry.json (§12):
-          Universal: exam_code, schema_version, mocks_completed=[],
+          Universal: exam_code, schema_version, mocks_completed=[], papers_completed=[],
                      question_hashes=[], stem_texts=[], semantic_tuples=[],
                      question_index=[],
                      image_phashes=[], image_sources_used=[],
@@ -4661,9 +4573,12 @@ Schema is fully determined at Step 1 — MockCreate (Step 2) never changes it.
   "exam_code"          : "[ExamCode]",
   "schema_version"     : "1.0",
   "mocks_completed"    : [],
+  "papers_completed"   : [],
   "question_hashes"    : [],
   "stem_texts"         : [],
   "semantic_tuples"    : [],
+  "semantic_usage"     : [],
+  "exhausted_subtopics": {},
   "question_index"     : [],
   "image_phashes"      : [],
   "image_sources_used" : [],
@@ -4681,6 +4596,19 @@ schema_version : set at B3 time. Never changed during mock series.
                  Allows future framework upgrades to detect schema version.
 
 mocks_completed: starts as []. Step 2 appends mock number after each mock is generated.
+papers_completed: starts as []. v1.29 (C1). The GENERALISED paper-identity ledger shared by
+                 mocks and every scoped tier: the generation step appends the paper_id
+                 (mock = "MOCK:M0k"; scoped = "SUBJ:/TOPIC:/SUBTOPIC:...") after each paper.
+                 Additive — mocks_completed is retained for backward-compatibility; a legacy
+                 registry with only mocks_completed is auto-migrated (paper_ids back-filled)
+                 by the scoped blueprint's registry loader.
+semantic_usage: starts as []. v1.30. Generation-layer (B) per-use log; each entry
+                 {subtopic_id, angle, values, paper_index} tracks cross-paper spacing for
+                 the narrow-factual controlled-reuse gap. Additive; the L2 semantic_tuples
+                 list is unchanged.
+exhausted_subtopics: starts as {}. v1.30. Sticky, cross-tier {subtopic_id: {exhausted,
+                 since_paper}} flags set when a narrow-factual subtopic drains its
+                 (item x angle) universe; set-once, never cleared.
 question_hashes: starts as []. Step 2 appends MD5 hashes of all questions.
 stem_texts     : starts as []. Step 2 appends cleaned stem text for dedup.
 semantic_tuples: starts as []. Step 2 appends (subtopic, approach, values) tuples.
@@ -4738,9 +4666,12 @@ if blueprint['figural_present']:
   "exam_code"          : "IBPS_CLERK_GA",
   "schema_version"     : "1.0",
   "mocks_completed"    : [],
+  "papers_completed"   : [],
   "question_hashes"    : [],
   "stem_texts"         : [],
   "semantic_tuples"    : [],
+  "semantic_usage"     : [],
+  "exhausted_subtopics": {},
   "question_index"     : [],
   "image_phashes"      : [],
   "image_sources_used" : [],
@@ -4753,9 +4684,12 @@ if blueprint['figural_present']:
   "exam_code"          : "[ExamCode]",
   "schema_version"     : "1.0",
   "mocks_completed"    : [],
+  "papers_completed"   : [],
   "question_hashes"    : [],
   "stem_texts"         : [],
   "semantic_tuples"    : [],
+  "semantic_usage"     : [],
+  "exhausted_subtopics": {},
   "question_index"     : [],
   "image_phashes"      : [],
   "image_sources_used" : [],
@@ -4770,9 +4704,12 @@ if blueprint['figural_present']:
   "exam_code"          : "[ExamCode]",
   "schema_version"     : "1.0",
   "mocks_completed"    : [],
+  "papers_completed"   : [],
   "question_hashes"    : [],
   "stem_texts"         : [],
   "semantic_tuples"    : [],
+  "semantic_usage"     : [],
+  "exhausted_subtopics": {},
   "question_index"     : [],
   "image_phashes"      : [],
   "image_sources_used" : [],
@@ -5153,10 +5090,13 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
 ```
 exam_code           : str  — alphanumeric + underscore (from trigger)
 exam_name           : str  — human-readable exam name (from exam_config or Exam Pattern doc)
-blueprint_version   : str  — Framework_Blueprint spec version at generation time.
-                     Set to "1.23" for Framework_Blueprint v1.23 (current).
-                     Update this value whenever a new spec version is used.
-                     Step 7 reads this field for compatibility checks.
+blueprint_version   : str  — the blueprint.json SCHEMA version (the subtopic_id + paper_id
+                     contract level), NOT the Framework_Blueprint spec-FILE version. Currently
+                     "1.23". Step 7 GATES on it: MIN_BLUEPRINT_VERSION = (1, 7) (subtopic_id
+                     floor) — a blueprint_version below 1.7 hard-stops generation. The SCOPED
+                     blueprint emits this SAME value (it produces this same §14 schema), so both
+                     must stay in sync. Bump only on a real blueprint.json schema change (not on
+                     every spec-file bump), and update mock + scoped together.
 n_papers            : int  — number of distinct papers in this exam's structure
                      (e.g., 1 for single-paper exam; 2 for two-paper exam)
                      This blueprint describes ONE paper's section structure only.
@@ -5407,10 +5347,12 @@ rotation order is maintained across the mock series.
 "mocks": [
   {
     "mock"    : 1,
+    "paper_id": "MOCK:M01",
     "sections": [...]
   },
   {
     "mock"    : 2,
+    "paper_id": "MOCK:M02",
     "sections": [...]
   }
 ]
@@ -5420,6 +5362,10 @@ rotation order is maintained across the mock series.
 Ordered ascending (mock 1 first, mock N last).
 mocks[] = [] after B1. B2 batches append objects to this array.
 len(mocks[]) == total_mocks when all B2 batches are complete.
+mock     : int — 1-based mock number (retained; Steps 7-11 read it).
+paper_id : str — v1.29 (C1). Universal paper identity = "MOCK:M{mock:02d}". Additive: the
+           generalised (paper_id) generation path and the shared registry key on this; the
+           scoped blueprint emits the same field with SUBJ:/TOPIC:/SUBTOPIC: prefixes.
 ```
 
 ### S14-6 — section object within each mock
@@ -6116,12 +6062,12 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 
   ```python
   import json, re
-  def slugify(text):
-      # MUST be byte-identical to Step 0 slugify (same recipe, or ids won't match).
-      t = (text or '').lower()
-      for ch in ('—','–','/','&'): t = t.replace(ch, ' ')
-      t = re.sub(r'[^a-z0-9]+', '_', t); t = re.sub(r'_+', '_', t).strip('_')
-      return t
+  import blueprint_core as bc   # ENGINE (mandated in S1-2b)
+  # slugify is provided by the shared engine — byte-identical recipe to the inlined copy
+  # AND to Step 0 (same em-dash/en-dash/slash/ampersand handling, verified at the
+  # U+2014/U+2013 codepoint level), so cross-step subtopic_id matching is preserved.
+  # Aliased so the resolution call sites below (slugify(dn) etc.) stay unchanged.
+  slugify = bc.slugify
 
   manifest_path = f'/mnt/project/{EXAM}_subtopic_manifest.json'
   if not os.path.exists(manifest_path):
@@ -6434,5 +6380,12 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
   ☐ 27. RULE 2a (NO BYPASS) enforced: every subtopic_id in blueprint.json was
         returned by resolve_subtopic_id(). Zero self-minted or auto-generated
         sequential IDs in subtopic_list[] or subtopic_allocations[] (v1.21).
+  ☐ 28. ENGINE MANDATE (S1-2b) passed: blueprint_core.py present in the project,
+        copied to /home/claude, and `--self-test` printed "SELF-TEST: N/N PASS"
+        before any allocation ran (v1.28).
+  ☐ 29. All allocation math routed through the engine (bc.*): no inlined copy of
+        compute_r_avg / proportional_split / largest_remainder_fix / exact_fill /
+        difficulty_counts / derive_axis_schedule / slugify remains in this spec —
+        single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.27
+# END OF Framework_Blueprint v1.31

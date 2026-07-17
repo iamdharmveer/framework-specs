@@ -11,7 +11,8 @@ repo root before running the gate.
 ## The safety gate (run for every deploy)
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
-3. `python3 bootstrap.py`      → must print `14/14 ... VERIFIED`
+3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
+   **16/16** — 12 `Framework_*.md` + 4 engines. The count grows when a new spec/engine is added.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
 
 If any step fails: **STOP, show the error in plain words, push nothing.**
@@ -38,12 +39,18 @@ Steps:
 `approved_framework` with **no names** → deploy nothing; ask which files.
 
 ### Non-spec files (routes.json, engines)
-`routes.json`, `explain_engine.py`, `explain_audit_gate.py` are NOT `Framework_*.md`, so
-`approved_framework` STOPs on them. Deploy them only on an **explicit** instruction
-("deploy routes.json"). For the two engine `.py` files, also run their own self-tests before
-pushing (integrity checks can't catch a logic regression):
+`routes.json`, `explain_engine.py`, `explain_audit_gate.py`, `blueprint_core.py` are NOT
+`Framework_*.md`, so `approved_framework` STOPs on them. Deploy them only on an **explicit**
+instruction ("deploy routes.json"). For the engine `.py` files, also run their own self-tests
+before pushing (integrity checks can't catch a logic regression):
 - `python3 explain_engine.py --self-test` and `--self-test-audit`
 - `python3 explain_audit_gate.py --self-test`
+- `python3 blueprint_core.py --self-test`  (shared allocation core for MockBlueprint + ScopedBlueprint)
+
+Engines are ALSO uploaded per-project to `/mnt/project/` (the specs load them from there and
+HARD STOP if absent). Adding/updating an engine in the repo therefore requires provisioning the
+new copy into each exam project too — the repo copy is canonical/integrity-checked, not the one
+the steps import at runtime.
 
 ## Command: `seal_release`
 Stamp a clean version + changelog over everything shipped since the last seal.

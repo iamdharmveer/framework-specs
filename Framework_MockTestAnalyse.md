@@ -1,4 +1,4 @@
-# Framework_MockTestAnalyse v2.24.2 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.5 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
 # v2.24 changes: MECHANIC / FORM-KEY ENGINE — permanent fix for the BV-10 same-mechanic
@@ -49,6 +49,30 @@
 #   selection (REGR-1) + the always-on uniqueness improvement. REQUIRES Step 6 §7.1
 #   (Blueprint): remove concept_group from the form_key fallback chain (now deliberately
 #   shared). Verified: patched-code checks 6/6 (biochemistry unblock + EC-M1/M2/M6/M8/M17/M18).
+#
+# v2.24.5 changes: AUTOMATIC ZERO-PYQ FORMAT INFERENCE (no curator input). New pure
+#   infer_zero_pyq_axes() + post-pass apply_zero_pyq_format_inference() refine each zero-PYQ
+#   scaffold's format/answer_type/answer_cardinality from (1) NAME keywords (-> FIGURAL, same
+#   heuristic as the PYQ path) and (2) same-topic PYQ siblings (UNANIMOUS non-TEXT format
+#   inherited; >=2/3 NAT or MSQ inherited); else TEXT/option/single. Fires only on strong
+#   evidence (name match, or >=2 unanimous/>=2-of-3 siblings); PYQ entries never touched; every
+#   change logged (audit trail, no prompt). Runs before id-mint/stamp/QV/writers so section_rules
+#   + manifest both carry the inferred axes; a zero-PYQ FIGURAL becomes a real Axis-1 supplier
+#   (axis1_feasibility sees it, Step-7 dispatch renders it, Step-8 audits it). Proven by
+#   blueprint_zero_pyq_inference_test.py.
+#
+# v2.24.4 changes: TAXONOMY 'How to use' WORDING FIX (docs only, no logic). The sub-topic guidance
+#   now leads with the readable "Subject::Topic::Sub Topic Name" form (the Topic disambiguates
+#   same-named sub-topics across topics — e.g. Kinematics under Mechanics vs Rotational Motion),
+#   and clarifies the Sub Topic Id is only needed when a name repeats under the SAME topic.
+#
+# v2.24.3 changes: HUMAN-READABLE TAXONOMY EXPORT. New write_taxonomy_xlsx() emits
+#   [ExamCode]_taxonomy.xlsx alongside subtopic_manifest.json — a plain 4-column list
+#   (Subject | Topic | Sub Topic Name | Sub Topic Id, one row per sub-topic, sorted, with a
+#   filterable header + a 'How to use' sheet) so the Step-6 operator can pick scope values
+#   without reading JSON. Called from BOTH manifest writers (write_subtopic_manifest +
+#   rebuild_...); added to deliver_final (now 6 files). Additive, generated from the same
+#   manifest dict (JSON stays authoritative); openpyxl-absent → WARN, never a hard stop.
 #
 # v2.24.2 changes: LANGUAGE-AGNOSTIC MATCH DETECTION — closes the format-fidelity gap where
 #   match-the-following questions were mis-tagged (and, downstream, mis-RENDERED as plain text
@@ -209,7 +233,7 @@
 #     additional content after the loop. Added both elements to S8-2 and S8-3.
 #
 #   ROOT CAUSE 2 — DELIVERABLE SET: header OUTPUT FILES listed only 3 files but
-#     actual final delivery (S11-2 PART B) is 5 files (subtopic_manifest.json
+#     actual final delivery (S11-2 PART B) is 6 files (subtopic_manifest.json + taxonomy.xlsx (v2.24)
 #     added v2.14, PYQ_Frequency.xlsx added v2.13). No "NOTHING ELSE" qualifier,
 #     no DO-NOT-DELIVER list, no pre-delivery checklist. Same gap pattern as
 #     PYQAnalyse (unauthorized taxonomy_draft_v2.json delivery).
@@ -615,9 +639,11 @@
 #   PER-BATCH delivery (1 file, nothing else):
 #     [ExamCode]_analysis_progress.json  -> batch accumulator; delivered after each batch
 #
-#   FINAL delivery (5 files, nothing else):
+#   FINAL delivery (6 files, nothing else):
 #     [ExamCode]_section_rules.md        -> PRIMARY: upload to [ExamCode] project knowledge
 #     [ExamCode]_subtopic_manifest.json  -> upload to [ExamCode] project knowledge
+#     [ExamCode]_taxonomy.xlsx           -> human-readable Subject/Topic/Sub-topic list (v2.24);
+#                                           browse it to pick Step-6 scope values (no JSON needed)
 #     [ExamCode]_PYQ_Frequency.xlsx      -> keep for Step 6 input
 #     [ExamCode]_analysis_progress.json  -> keep locally (resume if adding papers later)
 #     [ExamCode]_analysis_summary.md     -> human review audit trail
@@ -4303,6 +4329,102 @@ def make_subtopic_id(section, topic, subtopic, prefix_overrides=None):
 # Called by run_synthesise() AFTER PYQ-based entries are built and BEFORE
 # write_section_rules() / write_subtopic_manifest() run.
 
+# ── v2.24.5: AUTOMATIC ZERO-PYQ FORMAT INFERENCE ────────────────────────────────
+# Mirrors the _VISUAL_KEYWORDS set used in synthesise() (the PYQ path). KEEP IN SYNC — any
+# keyword added there should be added here so PYQ and zero-PYQ agree on what "looks visual".
+_ZP_VISUAL_KEYWORDS = re.compile(
+    r'(?i)\b(figure[s]?|figural|diagram[s]?|venn|'
+    r'mirror\s+image[s]?|water\s+image[s]?|paper\s*fold(ing)?|'
+    r'counting\s+(figure|triangle|shape)[s]?|embedded\s+figure[s]?|'
+    r'completion\s+of\s+(figure|pattern)[s]?|dice|cube\s+fold(ing)?|'
+    r'pattern\s+completion|image\s+series|visual\s+reasoning)\b')
+
+
+def infer_zero_pyq_axes(name, sibling_formats, sibling_answer_types, sibling_cardinalities):
+    """v2.24.5 — PURE. Automatically infer a zero-PYQ subtopic's Axis-1 format + answer_type +
+    answer_cardinality from evidence available WITHOUT any curator input:
+      (1) NAME keyword  -> FIGURAL  (per-subtopic; the same heuristic trusted for PYQ subtopics);
+      (2) same-topic PYQ SIBLINGS   -> inherit a UNANIMOUS non-TEXT format (>=2 siblings, all
+          identical); inherit 'numerical' / 'multi' when >= two-thirds of (>=2) siblings are.
+    Falls back to TEXT / option / single when there is no strong signal. Deterministic; no I/O.
+    Precedence: name keyword (1) beats sibling inheritance (2). Returns
+      {format, answer_type, answer_cardinality, inherently_visual, reason}.
+    """
+    fmt, inh_vis, reason = 'TEXT', False, 'default'
+    if _ZP_VISUAL_KEYWORDS.search(name or ''):                      # (1) name -> FIGURAL
+        fmt, inh_vis, reason = 'FIGURAL', True, 'name_keyword'
+    else:                                                           # (2) UNANIMOUS topic siblings
+        sibs = [f for f in (sibling_formats or []) if f]
+        if len(sibs) >= 2 and len(set(sibs)) == 1 and sibs[0] != 'TEXT':
+            fmt, reason = sibs[0], 'topic_unanimous'
+
+    ans_type = 'option'                                             # NAT: >=2/3 of >=2 siblings
+    at = [a for a in (sibling_answer_types or []) if a]
+    if len(at) >= 2 and at.count('numerical') * 3 >= len(at) * 2:
+        ans_type = 'numerical'
+
+    ans_card = 'single'                                             # MSQ: >=2/3 of >=2 siblings
+    ac = [c for c in (sibling_cardinalities or []) if c]
+    if len(ac) >= 2 and ac.count('multi') * 3 >= len(ac) * 2:
+        ans_card = 'multi'
+
+    return {'format': fmt, 'answer_type': ans_type, 'answer_cardinality': ans_card,
+            'inherently_visual': inh_vis, 'reason': reason}
+
+
+def apply_zero_pyq_format_inference(entries):
+    """v2.24.5 — In-place post-pass over the full entry set. For each ZERO-PYQ entry
+    (observed_count == 0), infer format/answer_type/answer_cardinality from its NAME and its
+    same-(section, topic) PYQ siblings (observed_count > 0), via infer_zero_pyq_axes(). PYQ
+    entries are NEVER touched. Every change is logged (audit trail; no prompt). Runs BEFORE
+    id-mint / stamp / QV / writers, so both section_rules and the manifest see the inferred axes.
+    """
+    from collections import defaultdict
+    sib_fmt, sib_at, sib_ac = defaultdict(list), defaultdict(list), defaultdict(list)
+    for e in entries:
+        if e.get('observed_count', 0) > 0:                          # PYQ sibling
+            k = (e.get('section'), e.get('topic'))
+            sib_fmt[k].append(e.get('format', 'TEXT'))
+            sib_at[k].append(e.get('answer_type', 'option'))
+            sib_ac[k].append(e.get('answer_cardinality', 'single'))
+
+    changed = 0
+    for e in entries:
+        if e.get('observed_count', 0) != 0:                         # PYQ subtopic — untouched
+            continue
+        k = (e.get('section'), e.get('topic'))
+        res = infer_zero_pyq_axes(e.get('subtopic', ''), sib_fmt.get(k, []),
+                                  sib_at.get(k, []), sib_ac.get(k, []))
+        if res['reason'] == 'default' and res['answer_type'] == 'option' \
+                and res['answer_cardinality'] == 'single':
+            continue                                                # no signal → keep safe defaults
+        before = (e.get('format'), e.get('answer_type'), e.get('answer_cardinality'))
+        e['format'] = res['format']
+        e['answer_type'] = res['answer_type']
+        e['answer_cardinality'] = res['answer_cardinality']
+        e['inherently_visual'] = bool(res['inherently_visual']) or e.get('inherently_visual', False)
+        # keep the freq fields consistent with the inferred string type (some derivations read them)
+        if res['answer_type'] == 'numerical':
+            e['nat_freq'] = max(e.get('nat_freq', 0), 100)
+        if res['answer_cardinality'] == 'multi':
+            e['msq_freq'] = max(e.get('msq_freq', 0), 100)
+        if res['format'] == 'FIGURAL' and not e.get('figural_data'):
+            e['figural_data'] = {                                   # same conservative default as PYQ path
+                'image_role': 'stem_only',
+                'object_types': {'dominant': [], 'observed': [], 'avoid': []},
+                'transformation_types': [], 'arrangement_types': [],
+                'complexity_dist': {}, 'images_analysed': 0, 'images_unclear': 0}
+        changed += 1
+        print(f"  ZERO-PYQ INFERENCE: '{e.get('subtopic')}' "
+              f"[{e.get('section')} > {e.get('topic')}] {before} -> "
+              f"({res['format']}, {res['answer_type']}, {res['answer_cardinality']}) "
+              f"[{res['reason']}]")
+    if changed:
+        print(f"Zero-PYQ format inference: {changed} scaffold entr"
+              f"{'y' if changed == 1 else 'ies'} refined from name/topic evidence.")
+    return entries
+
+
 def make_zero_pyq_scaffold_entry(section, topic, subtopic):
     """
     v2.20 Fix C — Create a COMPLETE entry dict for a zero-PYQ subtopic.
@@ -4632,6 +4754,93 @@ def _extract_taxonomy_tuples_from_analysis_doc(docx_path):
     return tuples
 
 
+def write_taxonomy_xlsx(manifest, exam_code):
+    """v2.24 — Emit [ExamCode]_taxonomy.xlsx: a plain, human-readable list of
+    Subject | Topic | Sub Topic Name | Sub Topic Id (one row per sub-topic, sorted), so the
+    Step-6 operator can pick scope values WITHOUT reading the manifest JSON. It is a companion
+    to subtopic_manifest.json, generated from the SAME dict — the JSON stays authoritative.
+    Failure to write (e.g. openpyxl absent) is a WARN, never a hard stop.
+
+    Column -> Step-6 use:  Subject = subject scope · "Subject::Topic" = topic scope ·
+    "Subject::Topic::Sub Topic Name" = subtopic scope (or the Sub Topic Id if that name repeats
+    under the same topic).
+    """
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        print("WARN: openpyxl unavailable — skipped taxonomy.xlsx (manifest.json is authoritative).")
+        return None
+
+    rows = sorted(
+        ([v.get('section', ''), v.get('topic', ''), v.get('display_name', ''), sid]
+         for sid, v in manifest.get('subtopics', {}).items()),
+        key=lambda r: (str(r[0]).lower(), str(r[1]).lower(), str(r[2]).lower()))
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Taxonomy'
+    head_font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
+    head_fill = PatternFill('solid', fgColor='1F4E79')
+    arial = Font(name='Arial', size=11)
+    thin = Side(style='thin', color='D0D0D0')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    for c, name in enumerate(['Subject', 'Topic', 'Sub Topic Name', 'Sub Topic Id'], start=1):
+        cell = ws.cell(row=1, column=c, value=name)
+        cell.font = head_font
+        cell.fill = head_fill
+        cell.alignment = Alignment(horizontal='left', vertical='center')
+        cell.border = border
+    band = PatternFill('solid', fgColor='F2F6FB')
+    prev_subject, shade = None, False
+    for i, row in enumerate(rows, start=2):
+        if row[0] != prev_subject:
+            shade = not shade
+            prev_subject = row[0]
+        for c, val in enumerate(row, start=1):
+            cell = ws.cell(row=i, column=c, value=val)
+            cell.font = arial
+            cell.border = border
+            cell.alignment = Alignment(horizontal='left', vertical='center')
+            if shade:
+                cell.fill = band
+    for c, width in enumerate([26, 30, 46, 30], start=1):
+        ws.column_dimensions[get_column_letter(c)].width = width
+    ws.freeze_panes = 'A2'
+    ws.auto_filter.ref = f'A1:D{len(rows) + 1}'
+
+    hw = wb.create_sheet('How to use')
+    guide = [
+        (f'{exam_code} — how to use this list in Step 6', True),
+        ('', False),
+        ('This lists every Subject, Topic and Sub-Topic in your exam. Pick from the', False),
+        ('"Taxonomy" tab, then copy the value into the Step-6 trigger (match text EXACTLY —', False),
+        ('spelling and capital letters matter). Use the header filter arrows to narrow down.', False),
+        ('', False),
+        ('SUBJECT test   -> copy the Subject cell (column A):', True),
+        ('    ScopedBlueprint --level subject  --scope "<Subject>"          --count N --qs_per_paper Q', False),
+        ('', False),
+        ('TOPIC test     -> join Subject and Topic with "::" (columns A and B):', True),
+        ('    ScopedBlueprint --level topic    --scope "<Subject>::<Topic>" --count N --qs_per_paper Q', False),
+        ('', False),
+        ('SUB-TOPIC test -> join Subject + Topic + Sub Topic Name with "::" (columns A, B, C):', True),
+        ('    ScopedBlueprint --level subtopic --scope "<Subject>::<Topic>::<Sub Topic Name>" --count N --qs_per_paper Q', False),
+        ('    The Topic in the middle keeps same-named sub-topics apart — e.g. "Kinematics"', False),
+        ('    under Mechanics vs under Rotational Motion resolve to two DIFFERENT sub-topics.', False),
+        ('    Use the Sub Topic Id (column D) ONLY if the same name repeats under the same Topic:', False),
+        ('        --scope <Sub Topic Id>', False),
+    ]
+    for i, (text, bold) in enumerate(guide, start=1):
+        hw.cell(row=i, column=1, value=text).font = Font(name='Arial', size=11, bold=bold)
+    hw.column_dimensions['A'].width = 100
+
+    out = f'/mnt/user-data/outputs/{exam_code}_taxonomy.xlsx'
+    wb.save(out)
+    print(f'Written: {out} ({len(rows)} sub-topics — human-readable taxonomy for Step 6)')
+    return out
+
+
 def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None):
     """
     v2.4 — Write [ExamCode]_subtopic_manifest.json: the AUTHORITATIVE id↔name
@@ -4792,6 +5001,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None):
           f'{len(manifest["mandatory_groups"])} group-presence, '
           f'{len(manifest["cadence_windows"])} cadence, '
           f'{len(manifest["min_counts"])} min-count)')
+    write_taxonomy_xlsx(manifest, exam_code)   # v2.24 — human-readable companion
     return out
 
 
@@ -4956,6 +5166,7 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
               f'SKIPPED (cannot be joined by Step 6/7): {id_less[:8]}'
               f'{" ..." if len(id_less) > 8 else ""}. Mint ids in Step 5 or add them, '
               f'then re-run rebuild.')
+    write_taxonomy_xlsx(manifest, exam_code)   # v2.24 — human-readable companion
     return out
 
 
@@ -5915,6 +6126,12 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
     print(f"Total subtopics after sync: {len(all_entries)}")
     print("--- End taxonomy sync ---\n")
 
+    # v2.24.5: AUTOMATIC zero-PYQ format inference. Runs on the full entry set (PYQ + scaffolds)
+    # so same-topic siblings are visible; refines ONLY zero-PYQ entries in place (name keyword →
+    # FIGURAL; unanimous sibling format inherited; ≥2/3 NAT/MSQ inherited) before ids/stamp/QV/
+    # writers see them. No prompt — every change is logged for the audit trail.
+    apply_zero_pyq_format_inference(all_entries)
+
     # ── v2.24.1 DERIVE-ONCE PIPELINE (§8-4 order): mint id → merges → stamp → QV ──
     # (subtopic_merges is keyed by subtopic_id, so ids MUST be minted before merging.)
     # subtopic_id is minted HERE (moved out of write_section_rules) so QV-13 and every
@@ -6014,6 +6231,11 @@ def deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
     delivery = [rules_path]
     if manifest_path: delivery.append(manifest_path)
     if xlsx_path:     delivery.append(xlsx_path)
+    # v2.24: the human-readable taxonomy companion (Subject/Topic/Sub-topic + id), written by
+    # write_subtopic_manifest → write_taxonomy_xlsx. Deterministic path; include if it exists.
+    import os as _os
+    _tax_path = f'/mnt/user-data/outputs/{exam_code}_taxonomy.xlsx'
+    if _os.path.exists(_tax_path): delivery.append(_tax_path)
     delivery += [progress_path, summary_path]
     present_files(delivery)
     # present_files is the Claude tool that makes files downloadable in chat.
@@ -7531,4 +7753,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.24.2
+# END OF Framework_MockTestAnalyse v2.24.5

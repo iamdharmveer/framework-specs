@@ -32,6 +32,12 @@
     ],
     "MockBlueprint": [
       "Framework_Blueprint.md",
+      "blueprint_core.py",
+      "Framework_DeliveryFooter.md"
+    ],
+    "ScopedBlueprint": [
+      "Framework_ScopedBlueprint.md",
+      "blueprint_core.py",
       "Framework_DeliveryFooter.md"
     ],
     "MockCreate": [
@@ -60,11 +66,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "1cbbbc9f40524679eccc0278c6c601533be7cb7abe6b1fb66e4876c5cb404093",
-      "version_header": "# Framework_Blueprint v1.27 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.27",
-      "lines": 6438,
-      "bytes": 332277
+      "sha256": "35a0e9618a448cb13eab89fa3565bebe4d6f7f682fdda4ebd97056098426d7f8",
+      "version_header": "# Framework_Blueprint v1.31 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.31",
+      "lines": 6391,
+      "bytes": 333501
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "e4bc5c1770f55d02ead95005f1cc2df1636bad14047535d5d22c87e1099b25d7",
@@ -81,11 +87,11 @@
       "bytes": 73658
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "2976824d8ee2501e4866e5b9ae6c2dbd8be9ed984fd0f7f961f8330e75ddf576",
-      "version_header": "# Framework_MockTestAnalyse v2.24.2 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.24.2",
-      "lines": 7534,
-      "bytes": 404845
+      "sha256": "b09d2faf5a4b23d52484f3c528c7e983c5356fa6ce898ef09884dc910e6a4d4b",
+      "version_header": "# Framework_MockTestAnalyse v2.24.5 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.24.5",
+      "lines": 7756,
+      "bytes": 418171
     },
     "Framework_MockTestCreate.md": {
       "sha256": "00405bd37ea1fc2e1d926efebd75bfb3d6e2807ff2c54878233275975c4ce3dc",
@@ -136,12 +142,19 @@
       "lines": 1538,
       "bytes": 64470
     },
+    "Framework_ScopedBlueprint.md": {
+      "sha256": "e7027a266a425b93f9c88e8f5482e1081b476b6c6d0c3ce485273bace0d272ee",
+      "version_header": "# Framework_ScopedBlueprint v1.5 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.5 (\u00a71\u2013\u00a710, adversarially verified; qualified subtopic scope)",
+      "lines": 1261,
+      "bytes": 71912
+    },
     "validate_framework_md.py": {
-      "sha256": "a5b998f1dcc8d10759fa5c885bd5296ac79dfab74a1bc32895832cce62929a2d",
+      "sha256": "ebb0b2cda8385036129c2c5ef3cd7306c3d35f6de721474619267544dee98a01",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
       "lines": 440,
-      "bytes": 24832
+      "bytes": 24857
     },
     "explain_audit_gate.py": {
       "sha256": "b92522cb379fa6fc2249b3de18c8b4c344966881249d88070b5c2ee0e20d8e1e",
@@ -156,6 +169,13 @@
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
       "lines": 1712,
       "bytes": 91095
+    },
+    "blueprint_core.py": {
+      "sha256": "71f938be6c2ed9c9dd496604c30c4cce40c91c5935e50c312c33daf443d2ddc1",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
+      "lines": 692,
+      "bytes": 33222
     }
   }
 }
