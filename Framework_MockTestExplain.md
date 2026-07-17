@@ -466,19 +466,22 @@
 #   and it raises at write time on every known defect (inline fraction, bad glyph,
 #   LaTeX, year-range slash, template sentence, fake citation, metacommentary, CA
 #   not bound, WHY-WRONG key mismatch, fidelity breach). If the file is absent from
-#   project knowledge:
+#   BOTH the framework clone (/tmp/fw) and the project Files (/mnt/project):
 #     HARD STOP. Print:
-#       "HARD STOP (MANDATE A): explain_engine.py not found in the
-#        [ExamCode] project Files. Step 9 cannot build explanations without it.
-#        Obtain it from Appendix A of this spec (the canonical runnable copy) — it is
-#        universal (no exam-specific edits; it parameterises itself from blueprint.json
-#        + section_rules.md via EngineConfig) — and upload it, then re-run."
+#       "HARD STOP (MANDATE A): explain_engine.py not found in the framework clone
+#        (/tmp/fw) or the [ExamCode] project Files (/mnt/project). Step 9 cannot build
+#        explanations without it. It ships with the framework repo (GitHub projects get
+#        it from the clone) — reload the framework (Step 0); or for a direct-upload
+#        project obtain it from Appendix A (the canonical runnable copy) and upload it,
+#        then re-run."
 #   Appendix A points to the COMPLETE, working, exam-agnostic engine. Because it is
 #   UNIVERSAL and byte-identical for every exam, the file keeps the plain neutral name
 #   explain_engine.py in every project (NOT exam-prefixed — there is no per-exam
-#   variant to disambiguate, and a prefix would falsely imply exam-specificity). The
-#   user uploads it once and reuses the SAME file in every exam project. It self-tests
-#   with `--self-test` (must print "SELF-TEST: 44/44 PASS").
+#   variant to disambiguate, and a prefix would falsely imply exam-specificity). It
+#   ships with the framework repo, so a GitHub project finds it in the /tmp/fw clone
+#   (no upload needed); a direct-upload project uploads it once to /mnt/project and
+#   reuses the SAME file in every exam project. It self-tests with `--self-test`
+#   (must print "SELF-TEST: 44/44 PASS").
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE B — BATCH-OR-HALT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -679,8 +682,9 @@
 
   P0  TRIGGER DETECTION (§2). Resolve N; pick FRESH / RESUME / STATUS / CONT.
   P1  AUTO-LOAD (exact order): this spec → section_rules.md → blueprint.json →
-      subtopic_manifest.json → registry.json → explain_engine.py. Copy the engine to
-      /home/claude and run `python3 explain_engine.py --self-test` → MUST print
+      subtopic_manifest.json → registry.json → explain_engine.py (from the framework
+      clone /tmp/fw, else the project Files /mnt/project). Copy the engine to /home/claude
+      and run `python3 explain_engine.py --self-test` → MUST print
       "SELF-TEST: 44/44 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (Step-10 feedback) and

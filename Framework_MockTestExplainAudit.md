@@ -275,6 +275,7 @@ Resolution sequence:
 Pre-flight runs once at the start of a run (or resume) and gates everything after it. Any failed pre-flight check halts Step 10 with a specific reason; no batch is audited until all pass.
 
 ## P0 — Engine present and honest
+Both engines (`explain_engine.py` + `explain_audit_gate.py`) come from the framework clone (`/tmp/fw`) for GitHub projects, or the project Files (`/mnt/project`) for direct-upload projects — either location satisfies the mandate; absent from both → halt.
 Run `explain_engine.py --self-test` and require a clean 44-of-44 core pass. Run `explain_engine.py --self-test-audit` and require a clean 10-of-10 extended reader suite. **v1.7: also run `explain_audit_gate.py --self-test` and require a clean `COMPLETION-SELF-TEST: 8/8 PASS` — a completion gate that fails its own fixtures is not a working gate (parallel to Step 8 P1 hardened), and Phase 3 relies on it.** The engine self-tests prove the exact write→read→rebuild inverse holds for mcq, msq and nat, across numeric, alpha and roman label schemes, with OMML fractions; that a genuine fraction survives `verify_explanations` (the fraction-extraction regression); and that `parse_learnings` reads a learnings file back into the pinned rule schema (the loop the producer feeds — §24). Without all three green, Step 10 halts.
 
 ## P1 — Configuration loads and is complete
@@ -953,7 +954,7 @@ Step 10 runs two canonical, exam-agnostic Python artifacts. To avoid the multi-c
       → AUDIT-COMPLETION-GATE: PASS   (else exit 1, delivery forbidden — MANDATE D)
   ```
 
-Both files are delivered alongside this spec and uploaded to the [ExamCode] project. The framework linter (`validate_framework_md.py`) runs each file's `--self-test`. Never patch either by hand — regenerate from the canonical source. (Historical note: through v1.6 the engine listing was reproduced verbatim in this Appendix "for self-containment"; v1.7 replaces that with this pointer to end the multi-copy drift, exactly as Step 8 v2.6 did for its auditor.)
+Both files ship with the framework repo (GitHub projects get them from the /tmp/fw clone) and, for direct-upload projects, are uploaded to the [ExamCode] project. The framework linter (`validate_framework_md.py`) runs each file's `--self-test`. Never patch either by hand — regenerate from the canonical source. (Historical note: through v1.6 the engine listing was reproduced verbatim in this Appendix "for self-containment"; v1.7 replaces that with this pointer to end the multi-copy drift, exactly as Step 8 v2.6 did for its auditor.)
 
 ---
 
