@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.07.17.1
+- Dual-path engine sourcing: Blueprint (Step 6), ScopedBlueprint (Step 6S), MockTestExplain
+  (Step 9), MockTestExplainAudit (Step 10) now load their engines (blueprint_core.py /
+  explain_engine.py / explain_audit_gate.py) from the framework clone (/tmp/fw) with fallback
+  to the project Files (/mnt/project). GitHub-connected projects no longer need the engines
+  uploaded to their Files; direct-upload projects continue to work.
+- Framework_Blueprint.md v1.31 -> v1.32 (dual-path gate now in the spec source);
+  Framework_MockTestAnalyse.md v2.24.5 -> v2.24.6; Framework_MockTestCreateAudit.md v2.7.3 -> v2.7.4.
+
 ## 2026.07.17
 - NEW spec Framework_ScopedBlueprint.md v1.5 (Step 6S — scoped subject/topic/subtopic test
   blueprints). Wired into routes.json / PIPELINE / skill (14 triggers).
