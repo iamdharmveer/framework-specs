@@ -1,4 +1,19 @@
-# Framework_PYQAnalyse v2.14 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.15 — Universal PYQ Analysis & Taxonomy Builder
+#
+# v2.15 — 2026-07-18 — LOCAL-COPY CORRUPTION REPAIR (B-PYAST false positive; zero content/
+#   logic change). This project's local Files-section copy of this spec had silently DROPPED
+#   2 markdown code-fence lines somewhere between §D6-3 (the "pass" / NOTE comment ending the
+#   dimensional-split-detection block) and §D6-4/D6-5 (the split-governance-guards block) —
+#   a closing ``` after the v2.13 NOTE comment, and an opening ```python before
+#   reclassify_after_refinement(). Missing fences caused validate_framework_md.py to parse
+#   two separate, independently-valid Python blocks as one contiguous block, producing a
+#   false "invalid syntax (line 188 of block)" AST error at the boundary. Verified via direct
+#   byte-for-byte diff against the canonical framework-specs GitHub repo (production branch,
+#   commit 74d395f) that the CANONICAL source was never affected — this was local-copy
+#   corruption only, likely introduced during an earlier Files-section upload/sync, not a
+#   spec defect. Fix: restored both fence lines exactly as they exist upstream. Confirmed
+#   post-fix: this file is now byte-identical to the canonical GitHub copy in its entirety
+#   (diff clean, matching line count). No prose, code, gate, or rule content changed.
 #
 # v2.14 changes: FORMAT AUTHORITY RECONCILIATION (register D6-11). S3-3b reconcile_format()
 #   makes the authoritative full-parse format (PYQSort Phase A) supersede the lightweight
@@ -4846,4 +4861,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.14
+# END OF Framework_PYQAnalyse v2.15

@@ -16,27 +16,60 @@ Checks (each reports PASS/issues):
   A. FENCED CODE BLOCKS — pairing + indentation consistency
   B. PYTHON AST — every ```python block is syntax-clean (placeholder-tolerant)
   C. VERSION CONSISTENCY — header version == footer version == changelog top entry
+     (accepts both the dated 'vX.Y — DATE — ...' format AND the undated 'vX.Y changes:
+     ...' format used by several files' latest entries — v2.8)
   D. GATE COUNT DRIFT — all live gate-count totals agree (no hardcoded number)
   E. STEP NUMBER VALIDATION — Step N (Name) patterns vs the canonical pipeline
   F. VARIABLE REFERENCES — known dangerous patterns in code blocks
   G. CHECKLIST COUNT — "All N items" matches actual [ ] count in that section
   H. CROSS-REFERENCES — §N references resolve to defined section headers
-  I. STALE MARKERS — TODO / FIXME / PLACEHOLDER / TBD
+  I. STALE MARKERS — TODO / FIXME / PLACEHOLDER / TBD (word-boundary matched — v2.8, so a
+     legitimate identifier like `_PLACEHOLDER` or `PLACEHOLDER_URL` is not false-flagged;
+     a genuine standalone marker still is)
   J. SELF-TEST COUNT — prose "N/N PASS" matches actual unique check() names
   K. DUPLICATE SECTIONS — no §N or sub-section defined twice
 
   ═══ AUTO-DETECTED EXTENDED (run when patterns found) ═══
   M. GATE-CODE EMISSION — embedded script emitted codes vs documented A-* codes
-  N. RA-RULE ANCHORS — every RA-N reference resolves to a definition
-  O. MANDATE ANCHORS — every MANDATE X reference resolves to a definition
+  N. RA-RULE ANCHORS — every RA-N reference resolves to a definition (checked locally;
+     ALSO checked against every other file in the batch when 2+ files are passed — v2.8,
+     since RA-N is a framework-wide numbering space, not per-file: e.g. RA-12 is
+     referenced in Framework_MockTestCreate.md but defined in
+     Framework_MockTestCreateAudit.md)
+  O. MANDATE ANCHORS — every MANDATE X reference resolves to a definition (same v2.8
+     local-then-batch fallback as N; MANDATE 0/1/2 are GLOBAL — defined once in
+     Framework_MockTestCreate.md, referenced from other Step specs — while MANDATE A/B/D
+     are intentionally redefined LOCALLY per Step spec; cross-file fallback is harmless
+     for the latter since this check only verifies an anchor exists somewhere, never
+     compares content)
   P. CONSTANT CONSISTENCY — AUDIT_BATCH_SIZE, RUN_MAX values agree
   Q. DYNAMIC EXECUTION — extract + run the largest embedded script --self-test
   R. RA/SUB-SECTION DUPLICATES — RA-N and S/P sub-anchors not defined twice
   S. COMPLETION-GATE (v2.6) — S5-1A wiring + C1-C7 regression fixtures present
 
+  ═══ BATCH-LEVEL (only runs / only fully effective when 2+ files are passed) ═══
+  T. CROSS-FILE TOKEN CONTRACT (v2.7 — added after A-INTEGRITY-FALSEPOS-01) — for every
+     consumer spec's literal re.search()/re.match() applied against a KNOWN producer
+     artifact's content (currently: section_rules.md, produced by
+     Framework_MockTestAnalyse.md's write_section_rules()), verify the literal pattern
+     can actually match one of the producer's real emitted tokens. Catches a consumer
+     hard-coding a producer's internal DOC-ALIAS name (e.g. "CATEGORY C") instead of the
+     literal on-disk text the producer actually writes (e.g. '=== EXAM_STRUCTURE ===') —
+     the exact defect class that caused P0.5 to HARD STOP on every valid exam
+     (Framework_MockTestCreateAudit.md v2.6-v2.7.4). Only runs in batch mode (2+ files),
+     since it is inherently a cross-file check; silently skipped for single-file runs.
+  U. JSON PRODUCER/CONSUMER FIELD CONTRACT (v2.8) — the same defect class as Check T,
+     applied to blueprint.json/registry.json instead of literal text markers. Flags a
+     bare-indexed d['field'] READ (not a `.get('field', default)` read, which is already
+     safe against a missing key by Python's own fallback) where 'field' cannot be found
+     in that artifact's own "§N — ... SCHEMA" reference section(s). Schema sources:
+     Framework_Blueprint.md §14 (blueprint.json) and §12 (registry.json base fields) +
+     Framework_MockTestCreate.md §14 (registry.json Step-7 additions). Only runs when at
+     least one relevant schema source file is present in the batch.
+
 Usage:
   python3 validate_framework_md.py <file.md>
-  python3 validate_framework_md.py /mnt/project/*.md   (batch mode)
+  python3 validate_framework_md.py /mnt/project/*.md   (batch mode — enables Check T)
 """
 import re, ast, sys, os
 from collections import Counter
@@ -52,7 +85,13 @@ PIPELINE = {
     'MockExplain': '9', 'MockExplainAudit': '10', 'MockDeliver': '11',
 }
 
-def validate(path):
+def validate(path, all_texts=None):
+    """all_texts: optional {basename: text} for every file in the current batch run,
+    including this one. When provided (batch mode, 2+ files), RA-N and MANDATE X
+    references that don't resolve locally are ALSO checked against every other file in
+    the batch before being flagged — a reference is only reported unresolved if it fails
+    to resolve ANYWHERE in the batch. In single-file mode (all_texts is None), behavior
+    is unchanged from before: local-file resolution only."""
     text = open(path, encoding='utf-8').read()
     lines = text.split('\n')
     fname = os.path.basename(path)
@@ -121,13 +160,17 @@ def validate(path):
         add('C-VERSION', f'header version v{header_ver} != footer version v{footer_ver}')
 
     changelog_ver = None
+    # v2.8: accept EITHER the dated 'vX.Y — DATE — ...' format (original, used by the
+    # majority of entries project-wide) OR the undated 'vX.Y changes: ...' format (used by
+    # several files' most-recent entries, e.g. Framework_PYQAnalyse.md v2.12-v2.14 and
+    # Framework_MockTestAnalyse.md's v2.24 entry — confirmed a real, repeated project
+    # convention rather than a typo, by checking multiple files). Previously only the dated
+    # form was recognised, so an undated latest-entry silently failed to register as the
+    # "current" version and a lower, older dated entry won the max() comparison instead —
+    # producing a false "header vX.Y != highest changelog entry vY.Z" report even when the
+    # header correctly matched the file's actual latest (undated) entry.
     for l in lines:
-        s = l.strip()
-        # Accept BOTH changelog styles used across the framework specs:
-        #   "vX.Y — 2026-07-07 — …"   (dated list entry)
-        #   "vX.Y changes: …"          (top-of-file per-version summary)
-        m = re.match(r'^[#*\s]*v(\d+\.\d+)\s*[—–-]\s*\d{4}', s) or \
-            re.match(r'^[#*\s]*v(\d+\.\d+)\s+changes:', s)
+        m = re.match(r'^[#*\s]*v(\d+\.\d+)\s*(?:[—–-]\s*\d{4}|changes:)', l.strip())
         if m:
             v = m.group(1)
             if changelog_ver is None or tuple(map(int, v.split('.'))) > tuple(map(int, changelog_ver.split('.'))):
@@ -197,9 +240,18 @@ def validate(path):
         add('H-XREF', f'reference to §{s} but no section §{s} header defined')
 
     # ─────────────────── I: STALE MARKERS ────────────────────────
+    # v2.8: word-boundary matching (not bare substring) — a bare substring search
+    # false-flags legitimate identifiers that happen to CONTAIN a stale-marker word, e.g.
+    # a real Python constant `_PLACEHOLDER = {...}` (used as a genuine sentinel-value set,
+    # not an unfinished stub) and its call sites. \b requires a non-word character (or
+    # string boundary) on each side, so "_PLACEHOLDER" does NOT match (no boundary between
+    # '_' and 'P' — '_' is a word character) while a genuine standalone "PLACEHOLDER",
+    # "TODO", "FIXME", or "TBD" — always separated from surrounding text by whitespace,
+    # punctuation, or quotes in real usage — is still caught exactly as before.
     for kw in ('TODO', 'FIXME', 'PLACEHOLDER', 'TBD'):
+        kw_pat = re.compile(r'\b' + re.escape(kw) + r'\b')
         for i, l in enumerate(lines, 1):
-            if re.search(rf'\b{kw}\b', l) and not l.strip().startswith('#') and not l.strip().startswith('*'):
+            if kw_pat.search(l) and not l.strip().startswith('#') and not l.strip().startswith('*'):
                 add('I-STALE', f'L{i}: stale marker "{kw}" found')
 
     # ─────────────────── J: SELF-TEST COUNT ──────────────────────
@@ -275,12 +327,23 @@ def validate(path):
         # v2.6: a SPLIT rule (RA-15a / RA-15b) DEFINES the base number RA-15 for
         # reference resolution; the duplicate check keys on the FULL label so 15a and
         # 15b are distinct and do not read as "RA-15 defined twice".
-        def_ra = set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', text, re.M)) | set(GLOBAL_RA)
-        # "RA-N equivalent" describes an analogous rule in another scheme, not a reference to a
-        # defined RA-N anchor — exclude it (symmetric with the MANDATE rule below).
-        ref_ra = set(re.findall(r'\bRA-(\d+)\b(?!\s*-?\s*(?i:equivalent))', text))
-        for r in sorted(int(x) for x in (ref_ra - def_ra)):
-            add('N-RA', f'reference to RA-{r} but no RA-{r} definition')
+        def_ra = set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', text, re.M))
+        ref_ra = set(re.findall(r'\bRA-(\d+)\b', text))
+        unresolved_ra = ref_ra - def_ra
+        # CROSS-FILE FALLBACK (v2.8): a reference unresolved LOCALLY may still be defined
+        # in a sibling spec file — RA-N rules are a framework-wide numbering space, not
+        # per-file (e.g. RA-12 is referenced in Framework_MockTestCreate.md but DEFINED in
+        # Framework_MockTestCreateAudit.md). Only flag if unresolved EVERYWHERE in the batch.
+        if all_texts and unresolved_ra:
+            other_def_ra = set()
+            for ofname, otext in all_texts.items():
+                if ofname == fname:
+                    continue
+                other_def_ra |= set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', otext, re.M))
+            unresolved_ra -= other_def_ra
+        for r in sorted(int(x) for x in unresolved_ra):
+            add('N-RA', f'reference to RA-{r} but no RA-{r} definition (checked '
+                        f'{"this file + batch" if all_texts else "this file only"})')
         for k, v in Counter(re.findall(r'^\s{0,4}(RA-\d+[a-z]?)\s', text, re.M)).items():
             if v > 1: add('N-RA', f'{k} defined {v} times')
 
@@ -288,14 +351,28 @@ def validate(path):
     if has_mandates:
         extended_ran.append('O-MANDATE')
         # MANDATE definitions: "# MANDATE X —" where X is 0-9 or a single uppercase letter
-        def_mand = set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', text, re.M)) | set(GLOBAL_MANDATE)
-        # References: "MANDATE X" where X is 0-9 or a single uppercase letter (not full words).
-        # EXCLUDE "MANDATE X equivalent" / "MANDATE-X-equivalent": that phrasing describes an
-        # ANALOGOUS item in another (e.g. SSC) numbering scheme, not a reference to a framework
-        # MANDATE that must be defined — so it must never count as an unresolved anchor.
-        ref_mand = set(re.findall(r'\bMANDATE\s+([0-9A-Z])\b(?!\s*-?\s*(?i:equivalent))', text))
-        for m in sorted(ref_mand - def_mand):
-            add('O-MANDATE', f'reference to MANDATE {m} but no MANDATE {m} definition')
+        def_mand = set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', text, re.M))
+        # References: "MANDATE X" where X is 0-9 or a single uppercase letter (not full words)
+        ref_mand = set(re.findall(r'\bMANDATE\s+([0-9A-Z])\b', text))
+        unresolved_mand = ref_mand - def_mand
+        # CROSS-FILE FALLBACK (v2.8): MANDATE 0/1/2 are GLOBAL — defined once (in
+        # Framework_MockTestCreate.md) and legitimately referenced from other Step specs
+        # (e.g. Framework_MockTestAnalyse.md, Framework_PYQAnalyse.md). MANDATE A/B/D are
+        # LOCAL — each Step spec intentionally defines its OWN A/B/D with step-specific
+        # content, so those never need cross-file resolution but resolving them cross-file
+        # too is harmless (same letter existing elsewhere doesn't change local semantics,
+        # and the anchor-existence check never inspects content). Only flag if unresolved
+        # EVERYWHERE in the batch.
+        if all_texts and unresolved_mand:
+            other_def_mand = set()
+            for ofname, otext in all_texts.items():
+                if ofname == fname:
+                    continue
+                other_def_mand |= set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', otext, re.M))
+            unresolved_mand -= other_def_mand
+        for m in sorted(unresolved_mand):
+            add('O-MANDATE', f'reference to MANDATE {m} but no MANDATE {m} definition '
+                              f'(checked {"this file + batch" if all_texts else "this file only"})')
 
     # ─────────────────── P: CONSTANT CONSISTENCY ─────────────────
     if has_batch_size:
@@ -410,29 +487,289 @@ def validate(path):
     print(f'RESULT: ❌ {len(issues)} ISSUE(S) FOUND.')
     return len(issues)
 
-GLOBAL_MANDATE, GLOBAL_RA = set(), set()
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK T — CROSS-FILE TOKEN CONTRACT (batch-level; needs 2+ files)
+# ═══════════════════════════════════════════════════════════════════════
+# Registry of known producer functions and the literal on-disk marker tokens they emit.
+# Each entry maps an artifact key (matching the `paths['KEY']` naming convention already
+# used consistently across every step spec: 'rules', 'blueprint', 'registry', 'manifest')
+# to the function that produces it and a regex that extracts its literal marker strings
+# from that function's source body. Extend this dict as new producer/marker pairs are
+# added to the framework — that is what closes this defect class permanently, rather than
+# only for the one instance that has already been found and fixed.
+PRODUCER_REGISTRY = {
+    'rules': {
+        # 'produced_by' must be the literal ACTUAL FUNCTION DEFINITION line (anchored on
+        # 'def '), never a bare function-name substring — a bare substring can false-match
+        # prose mentions of the function name elsewhere in the file (e.g. changelog text
+        # saying "...written by write_section_rules()...") and silently find the WRONG,
+        # earlier occurrence, causing this check to find no producer and go silently inert.
+        # This exact failure mode was caught empirically during this check's own regression
+        # test (a changelog entry mentioning the function name preceded the real def line).
+        'produced_by': 'def write_section_rules(',
+        'display_name': 'write_section_rules()',
+        # Literal marker tokens are plain (non-f-string) quoted strings containing '===' or
+        # '---' assigned inside the producer function — e.g. '=== EXAM_STRUCTURE ===',
+        # '=== SECTION: {section} ===', '--- Subtopic: {e["subtopic"]} ---'. The f-string
+        # {…} placeholders are normalized to a wildcard so a consumer's regex can be tested
+        # against a realistic instance of the token.
+        'token_pattern': re.compile(r"""['"]((?:===|---)[^'"]*(?:===|---))['"]"""),
+    },
+}
 
-def _prescan(paths):
-    """Corpus-wide anchor gather so a reference in file A to an anchor DEFINED
-    in file B (batch runs) is not flagged as a missing definition."""
-    gm, gr = set(), set()
-    for p in paths:
-        if not os.path.isfile(p): continue
-        t = open(p, encoding='utf-8').read()
-        gm |= set(re.findall(r'^#\s*MANDATE\s+([0-9A-Z])\b', t, re.M))
-        gr |= set(re.findall(r'^\s{0,4}RA-(\d+)[a-z]?\s', t, re.M))
-    return gm, gr
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK U — JSON PRODUCER/CONSUMER FIELD CONTRACT (batch-level; needs 2+ files)
+# ═══════════════════════════════════════════════════════════════════════
+# Same underlying defect class as Check T (a consumer trusting a key/token that no
+# producer ever actually emits), applied to JSON artifacts instead of literal text
+# markers. Deliberately scoped narrower than "every dict access": a `.get('key', default)`
+# read is inherently safe against a missing key (Python's own fallback), so it is NOT the
+# same risk category as P0.5's unconditional regex search — flagging every `.get()` call
+# would be noise, not signal. The genuinely risky pattern is BARE INDEXING (`d['key']`),
+# which raises KeyError if the producer never wrote that key. This check flags exactly
+# that: a bare-indexed READ (not a write — `d['key'] = ...` is excluded) of a key that
+# cannot be found anywhere in the artifact's own documented schema section(s).
+#
+# Schema sources are the "§N — ... SCHEMA" reference sections the spec authors themselves
+# already maintain as the canonical contract (Framework_Blueprint.md §14 for blueprint.json,
+# §12 for registry.json's base fields + Framework_MockTestCreate.md §14 for registry.json's
+# Step-7 additions). Field names are extracted from BOTH JSON-literal key syntax
+# ("field_name":) and Python write-assignment syntax (registry['field_name'] = ...) within
+# each bounded section — the registry schema documents its CONDITIONAL fields (added only
+# for passage/figural exams) as Python code, not a JSON block, so scanning only JSON syntax
+# would incorrectly report figural_manifests/rc_manifests as undocumented.
+
+def _python_code_line_numbers(text):
+    """Return the set of 1-indexed line numbers that are (a) inside an actual ```python
+    fenced code block and (b) not themselves a bare '#'-comment line. Reuses the same
+    fence-pairing algorithm as Check A. This exists because a bracket-index expression
+    like reg['field'] can appear in THREE contexts that are NOT live, executable code and
+    must not be treated as a real consumer read: plain prose describing a formula (no
+    fence at all), a markdown table/checklist row quoting a field name for documentation,
+    and a '#'-comment INSIDE a python fence that merely mentions where a field is written
+    elsewhere. All three were found empirically while testing Check U against the real
+    corpus (6 of its first 7 flags were exactly this false-positive class) — this filter
+    is what makes the check trustworthy rather than noisy."""
+    lines = text.split('\n')
+    fences = []
+    for i, l in enumerate(lines, 1):
+        st = l.lstrip()
+        if st.startswith('```'):
+            indent = len(l) - len(st)
+            lang = st[3:].strip() or None
+            fences.append((i, indent, lang))
+    stack, pairs = [], []
+    for (ln, ind, lang) in fences:
+        if stack and lang is None:
+            pairs.append((stack.pop(), (ln, ind, lang)))
+        elif lang is not None:
+            stack.append((ln, ind, lang))
+        else:
+            if stack: pairs.append((stack.pop(), (ln, ind, lang)))
+            else: stack.append((ln, ind, lang))
+    code_lines = set()
+    for (op, cl) in pairs:
+        if op[2] != 'python':
+            continue
+        for ln in range(op[0] + 1, cl[0]):
+            if not lines[ln - 1].strip().startswith('#'):
+                code_lines.add(ln)
+    return code_lines
+
+JSON_SCHEMA_REGISTRY = {
+    'blueprint': {
+        'var_names': ('bp', 'blueprint'),
+        'schema_sections': [
+            ('Framework_Blueprint.md',
+             re.compile(r'^## §14 — BLUEPRINT JSON SCHEMA', re.M),
+             re.compile(r'^## §', re.M)),
+        ],
+        'display_name': '§14 BLUEPRINT JSON SCHEMA (Framework_Blueprint.md)',
+    },
+    'registry': {
+        'var_names': ('reg', 'registry'),
+        'schema_sections': [
+            ('Framework_Blueprint.md',
+             re.compile(r'^## §12 — REGISTRY SCHEMA', re.M),
+             re.compile(r'^## §', re.M)),
+            ('Framework_MockTestCreate.md',
+             re.compile(r'^# §14 — REGISTRY SCHEMA', re.M),
+             re.compile(r'^# §', re.M)),
+        ],
+        'display_name': "§12/§14 REGISTRY SCHEMA (Framework_Blueprint.md + "
+                         "Framework_MockTestCreate.md)",
+    },
+}
+
+def _extract_bounded_section(text, start_pat, end_pat):
+    m = start_pat.search(text)
+    if not m:
+        return None
+    m2 = end_pat.search(text, m.end())
+    return text[m.start():m2.start() if m2 else len(text)]
+
+def _json_schema_fields(all_texts, artifact_key):
+    """Union of every field name documented for artifact_key, across all its schema
+    source files/sections that are present in this batch. Returns None (not an empty
+    set) if none of the schema source files are in the batch, so the caller can skip
+    the check entirely rather than flag everything as undocumented."""
+    spec = JSON_SCHEMA_REGISTRY[artifact_key]
+    fields = set()
+    found_any = False
+    for fname, start_pat, end_pat in spec['schema_sections']:
+        text = all_texts.get(fname)
+        if text is None:
+            continue
+        section = _extract_bounded_section(text, start_pat, end_pat)
+        if section is None:
+            continue
+        found_any = True
+        fields |= set(re.findall(r'"(\w+)"\s*:', section))          # JSON-literal keys
+        for var in spec['var_names']:                                 # Python conditional
+            fields |= set(re.findall(re.escape(var) + r"\['(\w+)'\]\s*=(?!=)", section))
+    return fields if found_any else None
+
+def check_u_json_field_contract(all_texts):
+    """Batch-level: flag a bare-indexed d['field'] READ (var name bp/blueprint/reg/
+    registry) where 'field' is not documented anywhere in that artifact's schema
+    section(s) present in this batch. A trailing '=' (not '==') immediately after the
+    subscript marks a WRITE, not a read, and is excluded — this check is specifically
+    about the KeyError-on-read risk, not about who is allowed to populate the dict."""
+    issues = []
+    for artifact_key, spec in JSON_SCHEMA_REGISTRY.items():
+        fields = _json_schema_fields(all_texts, artifact_key)
+        if fields is None:
+            continue  # none of this artifact's schema source files are in this batch
+        for fname, text in all_texts.items():
+            code_lines = _python_code_line_numbers(text)
+            lines = text.split('\n')
+            for i, l in enumerate(lines):
+                if (i + 1) not in code_lines:
+                    continue  # prose, table row, or comment — not live executable code
+                for var in spec['var_names']:
+                    for m in re.finditer(re.escape(var) + r"\['(\w+)'\]", l):
+                        field = m.group(1)
+                        after = l[m.end():].lstrip()
+                        if after.startswith('=') and not after.startswith('=='):
+                            continue  # write, not a read — out of scope for this check
+                        if field not in fields:
+                            issues.append((fname,
+                                f"L{i+1}: bare {var}['{field}'] read — {field!r} not found "
+                                f"in {spec['display_name']} (KeyError risk if this key is "
+                                f"ever absent from a real {artifact_key}.json; either the "
+                                f"schema doc is missing this field, or this reads an "
+                                f"undocumented/nonexistent key — verify which)"))
+    return issues
+
+def _extract_function_body(text, def_line_substr):
+    """Return the source text of the top-level function whose 'def name(' line matches
+    def_line_substr EXACTLY as a def-statement (not a bare mention of the name elsewhere
+    in the file), from that 'def ' line up to (but not including) the next top-level
+    'def ' at column 0, or end of text. Returns None if no such def line exists."""
+    m = re.search(r'^' + re.escape(def_line_substr), text, re.M)
+    if not m:
+        return None
+    def_start = m.start()
+    next_def = text.find('\ndef ', def_start + len(def_line_substr))
+    return text[def_start:next_def] if next_def > 0 else text[def_start:]
+
+def _producer_tokens(all_texts, artifact_key):
+    """Collect real literal marker tokens the artifact_key's producer function emits,
+    across whichever file in the batch actually defines that producer."""
+    spec = PRODUCER_REGISTRY[artifact_key]
+    tokens = set()
+    producer_file = None
+    for fname, text in all_texts.items():
+        body = _extract_function_body(text, spec['produced_by'])
+        if body:
+            producer_file = fname
+            for m in spec['token_pattern'].finditer(body):
+                # normalise f-string placeholders like {section} / {e["subtopic"]} to a
+                # wildcard so the token is testable as a realistic on-disk instance
+                norm = re.sub(r'\{[^}]*\}', 'X', m.group(1))
+                tokens.add(norm)
+    return producer_file, tokens
+
+def check_t_cross_file_contract(all_texts):
+    """Batch-level: for every consumer's literal re.search()/re.match() applied against
+    an artifact read via paths['KEY'], verify the literal pattern matches at least one of
+    that artifact's producer's real emitted tokens. Returns list of (file, issue_msg)."""
+    issues = []
+    for artifact_key, spec in PRODUCER_REGISTRY.items():
+        producer_file, tokens = _producer_tokens(all_texts, artifact_key)
+        if not producer_file or not tokens:
+            continue  # producer not in this batch; nothing to cross-check
+        for fname, text in all_texts.items():
+            lines = text.split('\n')
+            for i, l in enumerate(lines):
+                # a consumer read of this artifact: open(paths['KEY'], ...)
+                if not re.search(r"paths\[\s*['\"]%s['\"]\s*\]" % re.escape(artifact_key), l):
+                    continue
+                # look at this line + next few for a re.search/re.match against the
+                # variable this open() call assigned (simple proximity heuristic — the
+                # existing P0.5-style pattern always reads then immediately checks)
+                var_m = re.search(r'(\w+)\s*=\s*open\(', l)
+                if not var_m:
+                    continue
+                var = var_m.group(1)
+                window = '\n'.join(lines[i:i+6])
+                for pm in re.finditer(
+                        r"re\.(?:search|match)\(\s*r?['\"]([^'\"]+)['\"]\s*,\s*" + re.escape(var),
+                        window):
+                    consumer_pattern = pm.group(1)
+                    try:
+                        matches_any = any(re.search(consumer_pattern, tok, re.I) for tok in tokens)
+                    except re.error:
+                        continue  # not our concern here — Check F/B would catch a bad regex
+                    if not matches_any:
+                        line_no = i + 1
+                        issues.append((fname,
+                            f"L{line_no}: literal pattern {consumer_pattern!r} tested against "
+                            f"'{artifact_key}' (produced by {spec['display_name']} in "
+                            f"{producer_file}) does not match ANY real token that producer "
+                            f"emits ({sorted(tokens)}) — likely hard-coded a doc-alias name "
+                            f"instead of the actual on-disk literal (see A-INTEGRITY-FALSEPOS-01)"))
+    return issues
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print('Usage: python3 validate_framework_md.py <file.md> [file2.md ...]')
         sys.exit(1)
-    GLOBAL_MANDATE, GLOBAL_RA = _prescan(sys.argv[1:])
+    all_texts = {}
+    file_list = [p for p in sys.argv[1:] if os.path.isfile(p)]
+    for p in file_list:
+        all_texts[os.path.basename(p)] = open(p, encoding='utf-8').read()
+    n = len(all_texts)
     total = 0
-    for p in sys.argv[1:]:
-        if os.path.isfile(p): total += validate(p)
+    for p in file_list:
+        total += validate(p, all_texts if n >= 2 else None)
+    if n >= 2:
+        t_issues = check_t_cross_file_contract(all_texts)
+        print(f'\n{"="*60}')
+        print(f'BATCH CHECK T: CROSS-FILE TOKEN CONTRACT ({n} files)')
+        print('-'*60)
+        if t_issues:
+            for fname, msg in t_issues:
+                print(f'  [T-CONTRACT] {fname}: {msg}')
+            total += len(t_issues)
+            print('-'*60)
+            print(f'RESULT: ❌ {len(t_issues)} cross-file contract issue(s) found.')
+        else:
+            print('RESULT: ✅ 0 ISSUES — all cross-file literal-token contracts verified.')
+
+        u_issues = check_u_json_field_contract(all_texts)
+        print(f'\n{"="*60}')
+        print(f'BATCH CHECK U: JSON PRODUCER/CONSUMER FIELD CONTRACT ({n} files)')
+        print('-'*60)
+        if u_issues:
+            for fname, msg in u_issues:
+                print(f'  [U-JSONFIELD] {fname}: {msg}')
+            total += len(u_issues)
+            print('-'*60)
+            print(f'RESULT: ❌ {len(u_issues)} JSON field contract issue(s) found.')
+        else:
+            print('RESULT: ✅ 0 ISSUES — all bare-indexed JSON field reads are documented.')
     print(f'\n{"="*60}')
-    n = len([p for p in sys.argv[1:] if os.path.isfile(p)])
     if total == 0:
         print(f'GRAND TOTAL: ✅ ALL FILES CLEAN — 0 issues across {n} file(s)')
     else:

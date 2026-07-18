@@ -1,4 +1,37 @@
-# Framework_MockTestCreateAudit v2.7.4
+# Framework_MockTestCreateAudit v2.7.6
+#
+# v2.7.6 — 2026-07-18 — §6.4 PREVENTIVE FIX for A-INTEGRITY-FALSEPOS-01 (docs-only, zero
+#   logic change). Added regression test 7 (HEADER-TOKEN-FALSE-POSITIVE) to §21's
+#   REGRESSION TESTS list, documenting the exact fixture that would have caught the P0.5
+#   false-positive defect (fixed at v2.7.5) before it reached a live exam session: a
+#   real, well-formed section_rules.md built from Step 5's actual write_section_rules()
+#   output MUST NOT trigger HARD STOP (P0.5 / A-INTEGRITY). Cross-references
+#   validate_framework_md.py Check T (added same day), which now runs this class of
+#   check automatically in batch mode. No code, gate, or self-test-count change; the
+#   embedded audit.py self-test remains 47/47 PASS (this test lives at the P0.5
+#   pre-flight layer, which is Claude-executed pseudocode, not part of the runnable
+#   script — same precedent as regression tests 1-6).
+#
+# v2.7.5 — 2026-07-18 — FIX A-INTEGRITY-FALSEPOS-01: P0.5's section_rules.md integrity
+#   check searched for the literal string "CATEGORY-C" (re.search(r'CATEGORY[\s\-]*C', ...))
+#   as evidence the file was intact. "CATEGORY C" has only ever been an internal
+#   documentation alias in Framework_MockTestAnalyse.md's prose/comments (§14) for the
+#   file-level header block -- write_section_rules() has never written that literal string
+#   to disk. The only literal token it ever writes is '=== EXAM_STRUCTURE ===' (since the
+#   header's introduction at Step 5 v2.3). Net effect: P0.5 HARD-STOPPED on every valid
+#   section_rules.md ever generated, for every exam, 100% reproducible, on every framework
+#   build >= v2.6 (2026-07-08, when P0.5 was introduced) -- confirmed 100% Step 8 blocker,
+#   first surfaced on MPSC_Botany M1 (2026-07-18). Fix: corrected the regex to
+#   r'===\s*EXAM_STRUCTURE\s*===' (the actual producer-emitted token), matching how every
+#   other consumer of this file (cat_c(), Steps 7/9/10/11) already reads it. True-positive
+#   truncation detection is unaffected: the header is the first block write_section_rules()
+#   emits, so a file truncated early enough to lose it still fails len(rt)<200 or the token
+#   check; a file predating the header's v2.3 introduction still correctly fails (desired).
+#   Updated the two matching prose references (S5-2 gate catalogue row, §17 edge-case
+#   playbook row) for consistency. No data, no other exam project, no other step, and no
+#   other file required any change (confirmed by exhaustive grep: this literal-CATEGORY
+#   regex search existed in exactly one location in the entire 14-file spec repo). No
+#   relaxation of the P0.5 HARD STOP / MANDATE B / MANDATE D policy.
 #
 # v2.7.4 — 2026-07-17 — FIX C PROPAGATION (byte-identical from Step 5 v2.24.6). The S6-1b
 #   AXIS CLASSIFIER v1.0 (COPIED VERBATIM from Step 5) had the same naive substring DI
@@ -974,12 +1007,15 @@
           if k not in obj:
               integrity_fail.append(f"{os.path.basename(p)}: required top-level key "
                                     f"{k!r} missing (likely truncated)")
-  # section_rules must be non-empty AND contain the CATEGORY-C block:
+  # section_rules must be non-empty AND contain the EXAM_STRUCTURE header block
+  # (the on-disk literal token written by Step 5 write_section_rules(); this block is
+  # referred to as "CATEGORY C" ONLY in spec prose/comments -- never search for that
+  # phrase as literal file content, see Framework_MockTestAnalyse.md §14):
   try:
       rt = open(paths['rules'], encoding='utf-8').read()
-      if len(rt) < 200 or not re.search(r'CATEGORY[\s\-]*C', rt, re.I):
+      if len(rt) < 200 or not re.search(r'===\s*EXAM_STRUCTURE\s*===', rt, re.I):
           integrity_fail.append(f"{os.path.basename(paths['rules'])}: empty or missing "
-                                f"CATEGORY-C block (likely truncated)")
+                                f"EXAM_STRUCTURE header block (likely truncated)")
   except Exception as e:
       integrity_fail.append(f"section_rules read failed ({e})")
   # audit.py must ast.parse (a mid-function truncation is a SyntaxError) AND pass the
@@ -1551,7 +1587,7 @@
   | A-ZIP      | document.xml present; every image rId resolves to an existing part | —                          | (structural) | HALT |
   | A-ENCODING | no U+FFFD replacement characters                        | —                                  | (structural) | RG  |
   | A-SCRIPT   | non-ASCII regional script present ONLY if language permits it (else copy-paste corruption) | section_rules language (RA-10) | (structural) | RG |
-  | A-INTEGRITY| (P0.5 pre-flight) every JSON input parses + carries its required top-level keys; audit.py ast-parses + passes the hardened self-test; section_rules non-empty with CATEGORY-C | (structural) | HALT (repair audit.py only) |
+  | A-INTEGRITY| (P0.5 pre-flight) every JSON input parses + carries its required top-level keys; audit.py ast-parses + passes the hardened self-test; section_rules non-empty with EXAM_STRUCTURE header | (structural) | HALT (repair audit.py only) |
 
   CROSS-MOCK DEDUP
   | A-DUP      | no stem in mock N exact-matches OR near-matches (Jaccard ≥ J_FAIL) a stem from a PRIOR mock in registry.stem_texts (self-excluding mock N via --mockN); image MD5/pHash not reused from a prior mock | registry stem_texts/question_hashes/image_phashes/content_tracking | R2/R3 | RG |
@@ -3089,7 +3125,7 @@ Replace for registry.json), and next-step reference.
   | audit.py self-test not a fixture-based N/N (N>=AUTH_GATE_FLOOR) | HARD STOP (P1 hardened) — a constant-print PASS is REJECTED; regenerate the canonical auditor. |
   | audit.py truncated but --self-test prints PASS | HARD STOP (P0.5 ast.parse + P1 hardened) — hollow/constant self-test rejected; regenerate from Appendix A / Step 6 B3. |
   | *.json input fails to parse / missing required keys (truncated/corrupt) | HARD STOP (P0.5 / A-INTEGRITY) — re-upload intact; never audit against a truncated blueprint/registry. |
-  | section_rules empty or missing CATEGORY-C | HARD STOP (P0.5 / A-INTEGRITY) — re-upload intact. |
+  | section_rules empty or missing EXAM_STRUCTURE header | HARD STOP (P0.5 / A-INTEGRITY) — re-upload intact. |
   | Phase 2 skipped / spot-checked instead of batched | IMPOSSIBLE to certify — completion gate (S5-1A) fails C1/C2; MANDATE B / MANDATE D block delivery. |
   | Ledger fabricated with stamps but no evidence files | Caught — S5-1A C5/C6 fail (named montage/fact/trace file absent); certification blocked. |
   | Autonomous/"don't pause" preference given | Waive the inter-batch pause ONLY (RA-15b / S4-3A); every question still audited + stamped + evidenced (RA-15a / RA-0). |
@@ -3230,7 +3266,7 @@ Replace for registry.json), and next-step reference.
 #   |   Its correctness now depends on S5-1A actually gating certification.               |
 #
 #   REGRESSION TESTS (add to validate_framework_md.py / the Appendix A self-test — a
-#   build that passes all six is provably immune to the exact failure that occurred):
+#   build that passes all seven is provably immune to the exact failure that occurred):
 #     1. SKIPPED-PHASE-2: audit_state with batches_done=[] and empty ledger; run
 #        --final --audit-state → MUST exit non-zero, COMPLETION-GATE failing C1+C2.
 #     2. PARTIAL-REVIEW: ledger with total_questions-1 entries → MUST fail C2 naming
@@ -3243,6 +3279,20 @@ Replace for registry.json), and next-step reference.
 #        fixtures → MUST be rejected at P1 (fixture-based check fails / N<floor).
 #     6. TRUNCATED-INPUT: a blueprint.json cut mid-object → MUST HARD STOP at P0.5
 #        (A-INTEGRITY), not proceed.
+#     7. HEADER-TOKEN-FALSE-POSITIVE (v2.7.5 — A-INTEGRITY-FALSEPOS-01): run P0.5 against
+#        a section_rules.md fixture built by literally invoking (or byte-for-byte
+#        replicating the header-writing portion of) Step 5's write_section_rules() —
+#        i.e., a real, complete, well-formed file using the actual '=== EXAM_STRUCTURE
+#        ===' token. MUST NOT raise HARD STOP (P0.5 / A-INTEGRITY). This is the
+#        regression fixture that would have caught the exact false-positive defect that
+#        blocked every exam's Step 8 on framework builds v2.6-v2.7.4 (fixed at v2.7.5) —
+#        empirically verified via a 5-fixture harness (valid file / empty file / early
+#        truncation / pre-v2.3 legacy file / valid file containing an unrelated
+#        "same_category" substring), all five behaving correctly post-fix. Paired with
+#        validate_framework_md.py Check T (§6.3), which catches this defect class
+#        automatically at spec-authoring time by cross-checking every consumer's literal
+#        hard-stop pattern against the actual producer output, across all files in a
+#        batch run — not just this one instance.
 #
 #   THE UNIFYING PRINCIPLE (why this closes the chain across all 200 exams): every
 #   certification claim is the EXIT CODE OF A COMMAND, never a sentence the model writes
@@ -5152,5 +5202,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.7.4
+# END OF Framework_MockTestCreateAudit v2.7.6
 # ════════════════════════════════════════════════════════════════════════

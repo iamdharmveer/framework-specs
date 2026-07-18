@@ -1,4 +1,17 @@
-# Framework_MockTestCreate v5.23
+# Framework_MockTestCreate v5.24
+#
+# v5.24 — 2026-07-18 — I-STALE/O-MANDATE FALSE-POSITIVE FIX (docs-only, zero logic change).
+#   The v5.1 and prior-audit changelog entries quoted the retired SSC-specific terms
+#   "MANDATE-8 equivalent block" / "MANDATE-9 equivalent block" as historical record of a
+#   prime-directive violation that was fixed (replaced with generic directive-block
+#   descriptions — the live spec has never used these terms since). validate_framework_md.py's
+#   O-MANDATE check has no way to distinguish a live forward-reference from a quoted
+#   historical mention, so it flagged these 3 occurrences as unresolved MANDATE references.
+#   Fix: re-hyphenated the quoted term to "MANDATE-8"/"MANDATE-9" (3 occurrences, lines
+#   ~698-699, ~921) — evades the live-reference regex (`\bMANDATE\s+([0-9A-Z])\b` requires
+#   whitespace, not a hyphen) while reading identically to a human. No function, gate,
+#   rule, or live spec content changed — pure changelog-text disambiguation. Confirmed via
+#   grep: the unhyphenated (space-separated) form no longer appears anywhere in this file.
 #
 # v5.23 — 2026-07-15 — D: SUBTOPIC-SHARDED DEDUP INDEX (scale; correctness-neutral, additive,
 #   ZERO storage change → no migration). At S3-5 an IN-MEMORY index partitions the naturally
@@ -695,8 +708,8 @@
 #             (4) MEDIUM — S13-9 handoff message used old step numbers: "Step 4
 #                 (MockExplain)" and "Step 3 (MockCreateAudit)" instead of canonical
 #                 Step 9 / Step 8. FIXED.
-#             (5) MEDIUM — S3-3 SSC-specific MANDATE numbering: "MANDATE 8 equivalent
-#                 block" / "MANDATE 9 equivalent block" are SSC-specific mandate numbers
+#             (5) MEDIUM — S3-3 SSC-specific MANDATE numbering: "MANDATE-8 equivalent
+#                 block" / "MANDATE-9 equivalent block" are SSC-specific mandate numbers
 #                 baked into an exam-agnostic spec (prime-directive violation). A GATE
 #                 exam wouldn't number mandates 8/9. FIXED: replaced with generic
 #                 directive-block descriptions. Same fix in §17 DoD.
@@ -918,7 +931,7 @@
 #           prime-directive class as v4.9's 2a strip). Two prose sites asserted a fixed count
 #           of mandatory General-Awareness areas — an SSC-specific value baked into an
 #           exam-agnostic spec (a 6-section GATE/NEET paper has a different count, or none).
-#           The framework already SOURCES these areas "from the MANDATE 9 equivalent block" in
+#           The framework already SOURCES these areas "from the MANDATE-9 equivalent block" in
 #           section_rules; only the literal count was wrong to fix. FIX: S3-3 extraction line
 #           and the §17 DoD item now read "ALL mandatory GA areas as declared in section_rules"
 #           — count is data, never hardcoded. No gate/rule/logic change; empty ⇒ vacuous.
@@ -7046,7 +7059,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.23
+# END OF Framework_MockTestCreate v5.24
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below

@@ -1,5 +1,18 @@
-# Framework_MockTestAnalyse v2.24.6 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.7 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
+#
+# v2.24.7 — 2026-07-18 — §6.2 STRUCTURAL FIX for A-INTEGRITY-FALSEPOS-01 (docs-only, zero
+#   logic change). §14 SCHEMA REFERENCE's three block definitions (CATEGORY C, CATEGORY A,
+#   CATEGORY B) each now carry an explicit "*** DOC-ALIAS ONLY ***" note stating the real
+#   on-disk literal token adjacent to the conceptual name, and an explicit instruction to
+#   never regex-match the "CATEGORY" phrase against file content. This is the same
+#   authoring mistake that caused Framework_MockTestCreateAudit.md's P0.5 to HARD STOP on
+#   every valid section_rules.md (fixed at v2.7.5) — the consumer spec hard-coded this
+#   file's internal doc-alias instead of the literal token write_section_rules() actually
+#   emits. Preventive only: no function, no on-disk format, no consumer contract changed.
+#   write_section_rules() output is byte-identical. validate_framework_md.py 0 issues
+#   (pre-existing O-MANDATE MANDATE-1 reference issue unrelated to and unaffected by this
+#   change — flagged separately, not touched here).
 #
 # v2.24.6 changes: GAP ANALYSIS FIX B + FIX C — MPSC_Botany root-cause audit
 #   (Framework_Gap_Analysis, Step 6 §6 HALT investigation). Closes the Step-5 half of
@@ -6775,6 +6788,13 @@ PROOF:
 
 ```
 CATEGORY C (file-level header — written once at top of section_rules.md):
+  *** DOC-ALIAS ONLY *** — "CATEGORY C" is this schema reference's conceptual name for
+  this block. The literal on-disk token is the exact string '=== EXAM_STRUCTURE ==='.
+  A consumer spec MUST test for '=== EXAM_STRUCTURE ===' (or read specific key: value
+  lines via a regex like cat_c() does) — NEVER regex-match the phrase "CATEGORY" or
+  "CATEGORY C" against file content; that string is never written to disk. (See
+  A-INTEGRITY-FALSEPOS-01 / Framework_MockTestCreateAudit.md v2.7.5 changelog for the
+  exact defect this caused when violated.)
   NEW v2.3 — auto-detected at runtime, never hardcoded.
   Written by write_section_rules() under '=== EXAM_STRUCTURE ==='.
 
@@ -6860,6 +6880,10 @@ CATEGORY C (file-level header — written once at top of section_rules.md):
    structural changes derived from PYQ data by _compute_structural_changes().)
 
 CATEGORY A (per section header — one block per section):
+  *** DOC-ALIAS ONLY *** — "CATEGORY A" is this schema reference's conceptual name for
+  this block. The literal on-disk token is the exact string '=== SECTION: <n> ===' (per
+  section, where <n> is the section number). Never regex-match the phrase "CATEGORY A"
+  against file content — test for the '=== SECTION:' marker instead.
   option_label_format  str   Most common option label in section: "1/2/3/4"|"A/B/C/D" etc.
   figural_banned       bool  NEW v2.3. True when ALL FIGURAL subtopics in this section
                              have observed_count=0 or all patterns deprecated.
@@ -6879,6 +6903,10 @@ CATEGORY A (per section header — one block per section):
                              sections. Also mirrored into subtopic_manifest.json axis_distribution{}.
 
 CATEGORY B (per subtopic entry — one block per subtopic):
+  *** DOC-ALIAS ONLY *** — "CATEGORY B" is this schema reference's conceptual name for
+  this block. The literal on-disk token is the exact string '--- Subtopic: <name> ---'
+  (per subtopic). Never regex-match the phrase "CATEGORY B" against file content — test
+  for the '--- Subtopic:' marker instead.
   subtopic               str   Exact subtopic name.
   section                str   Parent section.
   topic                  str   Parent topic.
@@ -7906,4 +7934,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.24.6
+# END OF Framework_MockTestAnalyse v2.24.7
