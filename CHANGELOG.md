@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026.07.18.1
+- Framework_MockDeliver.md v1.6 -> v1.7.
+
 ## 2026.07.18
 - validate_framework_md.py -> v2.8: adds Check T (cross-file token contract) and Check U (JSON
   producer/consumer field contract); generalises cross-file RA/MANDATE anchor resolution; drops
