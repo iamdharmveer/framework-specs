@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.07.18
+- validate_framework_md.py -> v2.8: adds Check T (cross-file token contract) and Check U (JSON
+  producer/consumer field contract); generalises cross-file RA/MANDATE anchor resolution; drops
+  the "equivalent"-exemption now that the MANDATE 8/9 prose is root-fixed in the specs.
+  Re-added 'ScopedBlueprint': '6S' to the PIPELINE dict.
+- Framework_MockTestCreate.md, Framework_MockTestAnalyse.md, Framework_PYQAnalyse.md,
+  Framework_MockTestCreateAudit.md updated (MANDATE 8/9 "equivalent" prose removed at source).
+
 ## 2026.07.17.1
 - Dual-path engine sourcing: Blueprint (Step 6), ScopedBlueprint (Step 6S), MockTestExplain
   (Step 9), MockTestExplainAudit (Step 10) now load their engines (blueprint_core.py /
