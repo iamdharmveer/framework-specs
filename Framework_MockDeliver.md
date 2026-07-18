@@ -1,4 +1,4 @@
-# Framework_MockDeliver v1.6 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.7 — Universal Mock Test Tagger & Delivery Engine
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 # PURPOSE:
@@ -60,6 +60,38 @@
 #   UPSC (variable), or any MCQ/MSQ/NAT exam.
 #
 # VERSION HISTORY:
+#   v1.7 — 2026-07-18 — POSITION-BASED QUESTION TYPE RESOLUTION FIX (GAP_ANALYSIS:
+#       Question Type Mislabeling in Step 11, discovered via GATE_ECOLOGY_EVOLUTION
+#       Mock 3 Tagged.docx — 23/65 Question Type tags wrong, incl. all 11 MSQ positions).
+#       Root cause: resolve_question_type() used ONLY blueprint.subtopic_list[].
+#       answer_type + .answer_cardinality — whole-subtopic properties from Step 5's
+#       PYQ majority vote. For position-based exams (GATE: Q25-31/44-47 always MSQ,
+#       Q32-35/48-65 always NAT, regardless of which subtopic Step 6 assigns there),
+#       this is the wrong axis: the same subtopic legitimately carries different
+#       Question Types across different Q-ranges/mocks (see new EC-13). Step 7 already
+#       resolves this correctly via _type_for_q() reading blueprint.marking_scheme[]
+#       (Step 2a v2.5+ contract) — Step 11 never read that field.
+#       FIX: build_tag_lookup() now classifies each paper ONCE by counting DISTINCT
+#       question_type values in blueprint.marking_scheme[]. >1 distinct type →
+#       position-based — Question Type resolved from marking_scheme by Q-number
+#       (mirrors Step 7's _type_for_q(), HARD STOPs if a Q is uncovered — never
+#       guesses). 0/1 distinct type → subtopic-based — unchanged v1.6 resolution.
+#       CRITICAL SAFEGUARD: every scoped blueprint (Framework_ScopedBlueprint.md §7)
+#       deliberately collapses marking_scheme to ONE modal-type [1,Q] range even when
+#       the scope has heterogeneous MCQ/MSQ/NAT subtopics — this correctly falls into
+#       subtopic-based mode (1 distinct type), so scoped-test tagging is UNCHANGED and
+#       still driven by each subtopic's own answer_type/answer_cardinality (S8-1:
+#       "Step 11 tagging (mock parity)"). Verified via isolated 17/17 test harness
+#       (test_resolve_question_type.py) covering: GATE-style multi-type position-based
+#       resolution against the real Mock 3 error set (23/65, all now correct); SSC
+#       CGL-style single-type byte-identity with v1.6; scoped-blueprint modal-collapse
+#       non-regression (NAT/MSQ subtopics inside an MCQ-modal scope still tag
+#       correctly); legacy empty-marking_scheme byte-identity; out-of-range Q HARD
+#       STOP; blank question_type entries excluded from the distinct-type count.
+#       Backward-compatible: any blueprint with 0 or 1 distinct marking_scheme type
+#       (every exam except position-based ones, and 100% of scoped tests) produces
+#       BYTE-IDENTICAL output to v1.6. §1 S1-2, S1-3, §3 (architectural note, S3-1,
+#       S3-2/S3-2a/S3-2b), EC-3, EC-4, NEW EC-13, §8 delivery report all updated.
 #   v1.6 — 2026-07-15 — C3: paper_id PROPAGATION (Step 11; additive, mock output bit-identical).
 #       Derives paper_id/paper_slug from the blueprint (C1; fallback "MOCK:M{N:02d}"); the
 #       deliverable names (integrity, Final ×2) use paper_slug ("Mock[N]" for a mock — unchanged);
@@ -170,6 +202,7 @@ blueprint.subtopic_list[].answer_type + answer_cardinality
   → MCQ (option + single)
   → MSQ (option + multi)
   → NAT (numerical + single or multi)           = Question Type
+    (subtopic-based mode only — see below)
 
 registry.question_index[mock_N].questions[q].difficulty
   → canonical label from blueprint.difficulty_labels  = Complexity
@@ -178,6 +211,24 @@ registry.question_index[mock_N].questions[q].difficulty
 **Zero AI classification. Zero hardcoded exam values. Fully deterministic.
 Already certified by Step 8.** A tag value is wrong only if the registry or
 blueprint is wrong — and those are certified artifacts.
+
+**Position-based vs. subtopic-based typing (v1.7).** The JOIN path above assumes
+Question Type is a property of the subtopic. This is correct for subtopic-based
+exams (e.g. SSC CGL, where every marking_scheme range is MCQ). For position-based
+exams (e.g. GATE, where Q25-31 is always MSQ and Q48-65 is always NAT regardless
+of which subtopic Step 6 assigns there in a given mock), Question Type depends on
+the Q-NUMBER, not on subtopic identity — the same subtopic can be MCQ in one mock's
+Q11-24 and NAT in another mock's Q48-65 (see EC-13). `blueprint.marking_scheme[]`
+already carries this per-Q-range type (Step 2a v2.5+ contract, the same field Step 7
+already uses via `_type_for_q()` to GENERATE the question). Step 11 now reads it too:
+when `marking_scheme` carries more than one distinct `question_type` value, Question
+Type is resolved from the Q-number against `marking_scheme`, and the subtopic's
+`answer_type` / `answer_cardinality` are ignored for this tag. When `marking_scheme`
+is absent, empty, or carries only one distinct type — including every scoped
+blueprint, whose §7 marking_scheme is deliberately collapsed to one modal-type range
+regardless of how many real types are in scope — resolution falls back to the
+subtopic-based JOIN above, byte-identical to v1.6. See §3 S3-2a for the full
+mode-selection rule.
 
 ---
 
@@ -289,7 +340,8 @@ Parse:
 
 2. Verify blueprint.json in project knowledge.
    Read: exam_code, total_questions, sections[], subtopic_list[],
-         difficulty_labels, q_types.
+         difficulty_labels, q_types, marking_scheme[] (v1.7 — optional; absent/empty
+         is valid and means subtopic-based Question Type resolution, see §3 S3-2a).
    If exam_code missing → HARD STOP.
 
 3. Verify registry.json in project knowledge.
@@ -383,14 +435,70 @@ def build_tag_lookup(blueprint, registry, mock_n):
     # 3. Read difficulty_labels for canonical Complexity vocabulary
     difficulty_labels = blueprint.get('difficulty_labels', ['Easy', 'Medium', 'Hard'])
 
-    # 4. Resolve Question Type from answer_type + answer_cardinality
-    def resolve_question_type(answer_type, answer_cardinality):
+    # 4. Resolve Question Type — DUAL MODE (v1.7 FIX).
+    #
+    #    blueprint.marking_scheme[] (Step 2a v2.5+, carried by Step 6 v1.19+; ALSO
+    #    inherited by every scoped blueprint per Framework_ScopedBlueprint.md §7) is
+    #    exam-wide config, not mock-specific, so this classification is identical and
+    #    stable across every mock/paper generated for the same exam.
+    #
+    #    MODE SELECTION — count of DISTINCT question_type values across marking_scheme:
+    #      > 1 distinct type  → POSITION-BASED (e.g. GATE: Q1-24/36-43=MCQ, Q25-31/44-47=
+    #                           MSQ, Q32-35/48-65=NAT — the SAME subtopic can legitimately
+    #                           land in an MCQ range in one mock and a NAT range in another;
+    #                           see EC-13). Question Type is resolved from the Q-NUMBER via
+    #                           marking_scheme — EXACTLY the source Step 7's _type_for_q()
+    #                           already uses to generate the question. The subtopic's
+    #                           answer_type / answer_cardinality are NOT consulted for this
+    #                           tag in this mode.
+    #      0 or 1 distinct type → SUBTOPIC-BASED (e.g. SSC CGL: every range is MCQ). Also
+    #                           covers EVERY scoped blueprint unconditionally: Framework_
+    #                           ScopedBlueprint.md §7 deliberately collapses marking_scheme
+    #                           to a single [1,Q] MODAL-type range even when the scope
+    #                           contains a heterogeneous mix of MCQ/MSQ/NAT subtopics — that
+    #                           single range must NOT be treated as authoritative per-Q
+    #                           typing, or every scoped-test question would be mistagged
+    #                           with the one modal type. Scoped subtopics carry their own
+    #                           answer_type/answer_cardinality specifically for this tag
+    #                           (Framework_ScopedBlueprint.md S8-1: "Step 11 tagging (mock
+    #                           parity)" / "NAT/MSQ fidelity for scoped"). Question Type is
+    #                           resolved per-subtopic — BYTE-IDENTICAL to v1.6 output.
+    #      Also covers legacy blueprints where marking_scheme is absent (pre-v1.19):
+    #      empty list → 0 distinct types → subtopic-based, byte-identical to v1.6.
+    bp_marking_scheme = blueprint.get('marking_scheme', [])
+    _distinct_q_types = {ms.get('question_type') for ms in bp_marking_scheme
+                          if ms.get('question_type')}
+    _position_based_typing = len(_distinct_q_types) > 1
+
+    def resolve_question_type_by_subtopic(answer_type, answer_cardinality):
         if answer_type == 'numerical':
             return 'NAT'
         elif answer_cardinality == 'multi':
             return 'MSQ'
         else:
             return 'MCQ'
+
+    def resolve_question_type_by_position(qnum):
+        for ms in bp_marking_scheme:
+            qr = ms.get('q_range')
+            if qr and qr[0] <= qnum <= qr[1]:
+                qt = ms.get('question_type')
+                if qt:
+                    return qt
+                break
+        raise SystemExit(
+            f"HARD STOP: Q{qnum} — Question Type resolution is position_based "
+            f"(blueprint.marking_scheme has {sorted(_distinct_q_types)} across its "
+            f"ranges) but Q{qnum} does not resolve to a usable question_type from any "
+            f"marking_scheme q_range. blueprint.marking_scheme is corrupt, stale, or "
+            f"does not cover the full paper — fix marking_scheme (or the upstream "
+            f"exam_config.json) before re-running Step 11. Step 11 never guesses a "
+            f"Question Type tag.")
+
+    def resolve_question_type(qnum, answer_type, answer_cardinality):
+        if _position_based_typing:
+            return resolve_question_type_by_position(qnum)
+        return resolve_question_type_by_subtopic(answer_type, answer_cardinality)
 
     # 5. Build the per-question lookup
     lookup = {}
@@ -430,7 +538,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
             'topic': st_info['topic'],
             'subtopic': st_info['subtopic'],
             'question_type': resolve_question_type(
-                st_info['answer_type'], st_info['answer_cardinality']),
+                q, st_info['answer_type'], st_info['answer_cardinality']),
             'complexity': difficulty,
         }
 
@@ -495,10 +603,31 @@ see §7 Rule 21 (v1.3 fix 6).
 | 1 | Subject | `blueprint.subtopic_list[].section` | JOIN on subtopic_id or (section, subtopic) |
 | 2 | Topic | `blueprint.subtopic_list[].topic` | JOIN on subtopic_id or (section, subtopic) |
 | 3 | Subtopic | `blueprint.subtopic_list[].subtopic` | JOIN on subtopic_id or (section, subtopic) |
-| 4 | Question Type | `blueprint.subtopic_list[].answer_type` + `.answer_cardinality` | Resolved per subtopic |
+| 4 | Question Type | Conditional (v1.7) — (a) `blueprint.marking_scheme[]` when it carries >1 distinct `question_type`, resolved by Q-number; (b) otherwise `blueprint.subtopic_list[].answer_type` + `.answer_cardinality`, resolved per subtopic | See S3-2a |
 | 5 | Complexity | `registry.question_index[mock_N].questions[q].difficulty` | Canonical label from `difficulty_labels` |
 
-## S3-2 — Question Type resolution table
+## S3-2 — Question Type resolution
+
+### S3-2a — Resolution mode selection (v1.7)
+
+Question Type resolution is CONDITIONAL on `blueprint.marking_scheme[]`, evaluated
+ONCE per paper (marking_scheme is exam-wide, not mock-specific):
+
+| Distinct `question_type` values in `marking_scheme` | Mode | Source |
+|---|---|---|
+| > 1 (e.g. MCQ + MSQ + NAT) | Position-based | `blueprint.marking_scheme[]` — Q-number looked up against each entry's `q_range` |
+| 0 or 1 (absent, empty, or every range the same type — includes ALL scoped blueprints per Framework_ScopedBlueprint.md §7) | Subtopic-based | `blueprint.subtopic_list[].answer_type` + `.answer_cardinality`, per S3-2b |
+
+When position-based: for question number `q`, scan `marking_scheme[]` for the
+entry whose `q_range = [start, end]` satisfies `start <= q <= end`, and return
+that entry's `question_type`. The subtopic's `answer_type` / `answer_cardinality`
+are IGNORED for this tag in this mode. If no entry covers `q` (or the matching
+entry has no usable `question_type`) → HARD STOP (marking_scheme does not fully
+cover the paper — a data-integrity fault, never silently guessed).
+
+When subtopic-based: use S3-2b, unchanged from v1.6.
+
+### S3-2b — Subtopic-based resolution table (used when NOT position-based)
 
 | answer_type | answer_cardinality | Question Type |
 |---|---|---|
@@ -1417,6 +1546,9 @@ Tag summary:
   Question Type distribution:
     [type1]: [count] Q
     [type2]: [count] Q  (if multiple types exist)
+  Type resolution mode (v1.7): [position_based | subtopic_based]
+    (position_based: marking_scheme has >1 distinct type — subtopic_based: 0 or 1,
+     always true for scoped tests)
 
   Subject distribution:
     [Section1] ([count]): [Subtopic1: N, Subtopic2: N, ...]
@@ -1458,16 +1590,25 @@ it were normal — Step 11 delivers correctly AND surfaces the leak.
 
 ## EC-3 — Exam with MSQ questions
 
-Some questions may have `Question Type: MSQ`. This is resolved entirely from
-`blueprint.subtopic_list[].answer_cardinality == 'multi'`. No special handling
-in the tagging pipeline — the tag value is simply `MSQ` instead of `MCQ`.
+Some questions may have `Question Type: MSQ`. Resolution depends on mode (S3-2a):
+  - **Position-based** (marking_scheme has >1 distinct type, e.g. GATE): a question
+    is `MSQ` if its Q-number falls inside an MSQ `q_range` in `marking_scheme`,
+    regardless of the subtopic's `answer_cardinality`.
+  - **Subtopic-based** (everything else, including scoped tests): resolved from
+    `blueprint.subtopic_list[].answer_cardinality == 'multi'`, as in v1.6.
+No special handling elsewhere in the tagging pipeline — the tag value is simply
+`MSQ` instead of `MCQ`.
 
 ## EC-4 — Exam with NAT questions
 
-Some questions may have `Question Type: NAT`. Resolved from
-`blueprint.subtopic_list[].answer_type == 'numerical'`. NAT questions may have
-different option structures (no option lines, or a single answer field). The
-tagging pipeline does not inspect option structure — it only inserts tags.
+Some questions may have `Question Type: NAT`. Resolution depends on mode (S3-2a):
+  - **Position-based**: a question is `NAT` if its Q-number falls inside a NAT
+    `q_range` in `marking_scheme`, regardless of the subtopic's `answer_type`.
+  - **Subtopic-based**: resolved from `blueprint.subtopic_list[].answer_type ==
+    'numerical'`, as in v1.6.
+NAT questions may have different option structures (no option lines, or a single
+answer field). The tagging pipeline does not inspect option structure — it only
+inserts tags.
 
 ## EC-5 — Zero OMML in source docx
 
@@ -1525,6 +1666,20 @@ in its original font (so Word can font-substitute) and lists it under
 correct); only the visual glyph is at risk. If a learner-visible marker is affected,
 add a covering font (e.g. Noto Sans Symbols) to the preflight font set and `_SAFE_STACK`,
 then re-run. Not a HARD STOP.
+
+## EC-13 — Position-based exam where subtopic-level type disagrees with position-level type (v1.7)
+
+When `blueprint.marking_scheme[]` carries >1 distinct `question_type` (position-based
+mode, S3-2a), the same subtopic may have `answer_type='numerical'` or
+`answer_cardinality='multi'` (from Step 5 PYQ whole-subtopic majority voting) while
+being assigned by Step 6 to an MCQ Q-range in this particular mock — or the reverse.
+This is NORMAL and EXPECTED, not an error: `marking_scheme` is authoritative for the
+Question Type tag in position-based mode, and the subtopic-level `answer_type` /
+`answer_cardinality` fields are statistical artifacts of PYQ observation (used
+elsewhere for allocation and axis scheduling) that do not constrain, and are not
+constrained by, which Q-position a subtopic lands on in any given mock. Step 11 never
+uses subtopic-level `answer_type` / `answer_cardinality` for the Question Type tag
+when in position-based mode. No warning is logged; this is not a data-quality signal.
 
 ---
 
@@ -1601,4 +1756,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.6
+# END OF Framework_MockDeliver v1.7
