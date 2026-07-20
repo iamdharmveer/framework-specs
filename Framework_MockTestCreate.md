@@ -1,4 +1,61 @@
-# Framework_MockTestCreate v5.24
+# Framework_MockTestCreate v5.27
+#
+# v5.27 — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial audit,
+#   docs-only, zero logic/gate/value change). v5.25 introduced a new "## S7-NEW-B" heading
+#   for the NAT portal-grading section — but that identifier was ALREADY LIVE, naming an
+#   unrelated pre-existing section ("Figural generation mandate", v2.0 GAP-12 fix, with 18
+#   of its own pre-existing cross-references throughout this file). Two different headings
+#   sharing one ID is a real defect (an ambiguous "(S7-NEW-B)" pointer could resolve to
+#   either topic) that slipped past validate_framework_md.py, self-tests, and three prior
+#   rounds of review because none of them check for duplicate section-heading identifiers.
+#   FIX: renamed the NAT-grading section to "## S7-NEW-C" (the true next-free letter in the
+#   S7-NEW-A/B/C sequence — A is the sidecar writer, B is figural, C is this). Updated all 9
+#   of my own cross-references in this file to match; the 18 pre-existing figural
+#   references to S7-NEW-B are UNTOUCHED (verified individually, not just by pattern).
+#   Companion renames in Framework_MockTestCreateAudit.md (8 refs; 1 pre-existing figural
+#   ref at its own line 4413 left untouched), Framework_MockTestExplain.md (4 refs,
+#   including its own S7-4 heading text), and Framework_MockTestExplainAudit.md (2 refs).
+#   No function body, gate, value, or already-rendered byte changed — purely a
+#   heading/cross-reference identifier correction.
+#
+# v5.26 — 2026-07-18 — AMENDMENT (found while building the Step 8 consumer): S7-NEW-A
+#   `write_q_to_sidecar` gained a `stem_precision` param, persisted verbatim into the
+#   sidecar alongside nat_grading_type/nat_grading_value. v5.25 shipped the grading value
+#   itself but not the third input that produced it — Step 8's new A-NAT-GRADE
+#   self-consistency check (Framework_MockTestCreateAudit.md) needs to re-run
+#   derive_nat_grading() on the EXACT SAME (value, ca_range, stem_precision) triple to be
+#   a real self-consistency proof rather than a guess reconstructed from the already-
+#   formatted string (which cannot distinguish a stated-precision decimal_fixed call from
+#   a coincidentally-same-looking plain decimal one). No change to derive_nat_grading()
+#   itself, no change to the decision tree, no change to any already-shipped grading value
+#   — purely an additive plumbing fix so the NEXT step's audit can actually do its job.
+#
+# v5.25 — 2026-07-18 — NAT PORTAL GRADING VALUE (charset/scale correctness for the delivery
+#   portal's auto-grader). ROOT CAUSE: the math VALUE a NAT question computes (well-posed,
+#   ca_range-banded per nat_contract) was being treated as ALSO being the string the delivery
+#   portal ingests for auto-grading — but the portal accepts ONLY the character set
+#   "0123456789.-" across 5 validation types (Positive Integer / Integer / Decimal / Decimal
+#   fixed-precision / Range), and neither scientific notation nor a unit-descaled raw value nor
+#   the old "N (accepted range lo-hi)" wording survive that constraint. Observed failure: a
+#   stem stating "answer in units of 10⁻⁹" produced a portal-facing value of "3e-9" instead of
+#   the stem-scaled "3", which the portal's grader silently rejects against a correct student
+#   entry. WHAT CHANGED: (1) new §S7-NEW-C `derive_nat_grading()` — a pure, exam-agnostic
+#   function implementing the locked decision tree (stem-stated precision > tolerance-band
+#   Range typing > integral-vs-decimal single value; round-half-up; NOT-SUPPORTED hard-fail on
+#   negative-bounded ranges, never a guessed delimiter); (2) `write_q_to_sidecar` (S7-NEW-A)
+#   gains `nat_grading_type`/`nat_grading_value` params, sourced FROM derive_nat_grading() at
+#   the call site, never re-derived by the sidecar writer; (3) new gate G-NAT-GRADE (S12-NEW-29
+#   — numbered out of the contiguous 21/22/23 NAT-gate sequence because 24/25 were already
+#   G-GROUPMANDATE/G-MINCOUNT) enforcing charset purity + deterministic re-derivation at
+#   generation time, independently re-checked by Step 8's new A-NAT-GRADE. Total gates: 69.
+#   The existing math-correctness path (nat_contract.nat_answer_type/nat_tolerance, ca_range,
+#   G-NAT-ANSWER) is UNCHANGED — portal-grading-format and content-correctness are orthogonal
+#   concerns and were previously conflated; they now have separate, non-overlapping validation.
+#   Companion fix already shipped in the shared engine (explain_engine.py v1.16 — charset guard
+#   + 'lo-hi' range render/parse, confirmed byte-identical and self-tested 61/61 + 10/10 before
+#   this change). Coordinated changes still pending in this same defect chain: Step 8
+#   A-NAT-GRADE (Framework_MockTestCreateAudit.md), Step 10 RXA-CHARSET
+#   (Framework_MockTestExplainAudit.md), Step 11 last-mile sweep (Framework_MockDeliver.md).
 #
 # v5.24 — 2026-07-18 — I-STALE/O-MANDATE FALSE-POSITIVE FIX (docs-only, zero logic change).
 #   The v5.1 and prior-audit changelog entries quoted the retired SSC-specific terms
@@ -1529,7 +1586,124 @@
          • the value MUST NOT appear as a GIVEN anywhere else in the paper (no cross-question
            leak) — the same self-containment R-ANSWER demands of any key, here keyed on the
            derived VALUE (enforced by G-NAT-ANSWER + the value-leak arm of S11-4).
+         • v5.25 — PORTAL GRADING VALUE (locked, DJ rules; see S7-NEW-C): the typed value above
+           is the MATH answer, used for well-posedness/ca_range/OMML display. It is a SEPARATE
+           concern from the exact string the delivery portal ingests to auto-grade the question
+           — that string must derive from `derive_nat_grading()` (S7-NEW-C), never from ad-hoc
+           formatting, and is stored alongside the math value in the sidecar (nat_grading_type,
+           nat_grading_value), never inferred later by a downstream step.
        There are no distractors to make indefensible; correctness is the value + its band.
+
+## S7-NEW-C — NAT portal grading value derivation (v5.25, locked DJ rules)
+
+  MOTIVATION: the delivery portal auto-grades a NAT question by exact/tolerant string match
+  against ONE field, and that field accepts ONLY the character set `0123456789.-` — no
+  scientific notation, no units, no words, no en-dash, no parentheses, no spaces (confirmed
+  against the portal's own answer-entry configuration screen). The math VALUE computed above
+  (and its ca_range) is exam-content-correct but is NOT automatically portal-safe: a value that
+  is legitimately tiny (e.g. a rate stated "in units of 10⁻⁹") or that carries a tolerance band
+  must be TRANSFORMED into a portal-safe string before it ever reaches a sidecar, a docx, or an
+  audit gate. This transformation is a PURE FUNCTION of (value, ca_range, stem_precision) — it
+  is computed ONCE, here, at generation time, and carried forward verbatim by every downstream
+  step (Step 8 re-derives it independently; Steps 9-11 render/pass it through, never reformat
+  it). EXAM-AGNOSTIC — zero hardcoded exam values; the function reads only its three arguments.
+
+  INPUTS:
+    value          : the computed math answer (already expressed in whatever units the stem
+                     states — a "units of 10⁻⁹" stem means `value` here is the SMALL number,
+                     e.g. 3, not the raw 3×10⁻⁹; that pre-scaling is the author's job when
+                     computing `value` in the first place, upstream of this function).
+    ca_range       : the SAME (lo, hi) tuple computed above for R-ANSWER/G-NAT-ANSWER, or None.
+    stem_precision : int N if the stem contains an explicit rounding instruction ("round off
+                     to N decimal places" / "correct to N decimal places"), else None.
+
+  DECISION TREE (zero-halt except the one explicit NOT-SUPPORTED gate below):
+  ```python
+  from decimal import Decimal, ROUND_HALF_UP
+  import re
+
+  _NAT_GRADE_CHARSET = frozenset('0123456789.-')
+  _NAT_INTEGRAL_EPS = Decimal('1e-9')   # float-arithmetic-residue guard, NOT a domain judgement
+
+  def _fmt_portal_number(value, precision=None):
+      """One bound/value -> a portal-safe string. precision=None -> minimal
+      representation (bare integer if integral, else unpadded decimal — this
+      is what makes 'Decimal' point-optional / 'decimal-capable' per the
+      portal's numeric-tolerance matching, no forced trailing zeros).
+      precision=int N -> exactly N digits after the point, zero-padded,
+      ROUND_HALF_UP (locked rule — never banker's rounding, never truncation)."""
+      d = Decimal(str(value))
+      if precision is not None:
+          q = Decimal(1).scaleb(-precision)
+          d = d.quantize(q, rounding=ROUND_HALF_UP)
+          s = format(d, 'f')
+      else:
+          if abs(d - d.to_integral_value()) <= _NAT_INTEGRAL_EPS:
+              s = str(int(d.to_integral_value()))
+          else:
+              s = format(d.normalize(), 'f')
+      if re.fullmatch(r'-0(\.0+)?', s):        # never emit negative zero
+          s = s.lstrip('-')
+      return s
+
+  def _fmt_portal_range(lo, hi, precision=None):
+      lo_s = _fmt_portal_number(lo, precision)
+      hi_s = _fmt_portal_number(hi, precision)
+      if lo_s.startswith('-') or hi_s.startswith('-'):
+          # LOCKED, NOT an inferred default: '-' is both the range delimiter and a
+          # possible bound sign, so a negative-bounded range is structurally
+          # ambiguous with no confirmed portal-side escape convention. Escalate
+          # rather than guess — same halt-on-genuine-ambiguity posture as
+          # G-NAT-ANSWER/A-NAT-ANSWER elsewhere in this spec.
+          raise ValueError(
+              f"NAT range has a negative bound (lo={lo_s!r}, hi={hi_s!r}) — NOT "
+              f"SUPPORTED. Rework the question so both bounds are non-negative, "
+              f"or get an explicit portal-side range convention confirmed before "
+              f"this gate is ever lifted.")
+      if Decimal(lo_s) > Decimal(hi_s):
+          raise ValueError(f"NAT range lo>hi ({lo_s!r} > {hi_s!r})")
+      return f'{lo_s}-{hi_s}'
+
+  def derive_nat_grading(value, ca_range=None, stem_precision=None):
+      """Returns (grading_type, grading_value). grading_type is one of
+      'positive_integer'|'integer'|'decimal'|'decimal_fixed'|'range'.
+      grading_value is the final 0-9.- only string, ready for the sidecar,
+      the docx Correct-Answer line, and the portal upload — identical string
+      used in all three, never reformatted downstream."""
+      # 1. Stem-stated rounding instruction wins outright (overrides both the
+      #    range/no-range and the integral/non-integral branches below).
+      if stem_precision is not None:
+          if ca_range is not None:
+              lo, hi = ca_range
+              return ('range', _fmt_portal_range(lo, hi, precision=stem_precision))
+          return ('decimal_fixed', _fmt_portal_number(value, precision=stem_precision))
+      # 2. No stated precision, but a tolerance band exists -> Range type.
+      #    (nat_tolerance != 0 for this question, i.e. ca_range is not None,
+      #    is the ONLY signal for Range typing — no separate judgement call.)
+      if ca_range is not None:
+          lo, hi = ca_range
+          return ('range', _fmt_portal_range(lo, hi, precision=None))
+      # 3. Single exact value: Positive Integer / Integer / Decimal by sign
+      #    and integrality, epsilon-tolerant against float noise.
+      d = Decimal(str(value))
+      if abs(d - d.to_integral_value()) <= _NAT_INTEGRAL_EPS:
+          v_int = int(d.to_integral_value())
+          return (('positive_integer', str(v_int)) if v_int >= 0
+                  else ('integer', str(v_int)))
+      return ('decimal', _fmt_portal_number(value, precision=None))
+  ```
+
+  CALL SITE (v5.25): computed IMMEDIATELY after the math value + ca_range are finalized for a
+  NAT question, BEFORE `write_q_to_sidecar` is called — the two new sidecar fields
+  (`nat_grading_type`, `nat_grading_value`) are populated FROM this function's output, never
+  independently derived by the sidecar writer itself (single source of truth; see S7-NEW-A).
+  A `ValueError` from `derive_nat_grading` (the NOT-SUPPORTED negative-range case) is a
+  HARD-STOP defect on the QUESTION, not a formatting bug — DISAMBIGUATE/rework the stem's
+  numbers so both bounds are non-negative, exactly as any other well-posedness failure in this
+  section is handled; never suppress or work around it.
+
+  Enforced by gate G-NAT-GRADE (S12-NEW-29) at generation time and independently re-derived by
+  Step 8's A-NAT-GRADE.
 
        Enforced by §7 CHECK 3 verify_answer (persisted as answer_verified in the
        S7-NEW-A sidecar) and gates G-UNIQUE (record backstop, both modes) + G-MSQ-SET /
@@ -2955,6 +3129,8 @@
                   renders ZERO option paragraphs. HARD FAIL.
   [ ] G-NAT-ANSWER: (numerical only) NAT value well-formed for nat_answer_type;
                   ca_range lo<=hi. HARD FAIL.
+  [ ] G-NAT-GRADE: (numerical only) portal grading value/type well-formed
+                  (0-9.- only charset) and deterministically re-derivable. HARD FAIL.
   [ ] G-NAT-INSTR: (numerical only) numerical-entry instruction present in
                   Q.N stem line (R14). HARD FAIL.
   [ ] G-MATCH-TABLE: Every match question (stem_format_variant == 'match_the_following')
@@ -2962,7 +3138,7 @@
                   enforcement is the Step-8 audit A-MATCH-TABLE (STEP B); this item is the
                   no-audit fallback. HARD FAIL — re-emit via add_match_table().
 
-  All 40 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 41 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
@@ -4167,6 +4343,8 @@
                           has_aota_option=False, msq_instr_in_stem=False,
                           answer_type='option', nat_value=None, ca_range=None,
                           nat_instr_in_stem=False,
+                          nat_grading_type=None, nat_grading_value=None,
+                          stem_precision=None,
                           subtopic_id=None, difficulty=None):
       # v4.5: correct_pos is an int for single-answer Qs and a SORTED list[int] (the
       # correct set S) for MSQ (answer_cardinality=='multi'). The sidecar stores it verbatim.
@@ -4216,6 +4394,20 @@
           "msq_instr_in_stem": bool(msq_instr_in_stem), # select-instruction is in Q.N line
           # v4.7 — NAT fields (numerical only; harmless defaults otherwise):
           "ca_range": (list(ca_range) if ca_range is not None else None),  # (lo,hi) | None
+          # v5.25 — NAT fields (numerical only; harmless None otherwise): the PORTAL-safe
+          # grading type/value, sourced FROM derive_nat_grading() (S7-NEW-C) at the call
+          # site — never re-derived here. nat_grading_value is the exact string that
+          # reaches the docx Correct-Answer line AND the portal upload, unmodified by any
+          # downstream step.
+          "nat_grading_type": nat_grading_type,       # 'positive_integer'|'integer'|
+                                                       # 'decimal'|'decimal_fixed'|'range'|None
+          "nat_grading_value": nat_grading_value,     # the 0-9.- only string, or None
+          # v5.26 — the stem-stated rounding-instruction N (int) or None, EXACTLY the
+          # third argument passed to derive_nat_grading() when nat_grading_type/value
+          # were computed. Persisted so Step 8's A-NAT-GRADE self-consistency check can
+          # re-run the SAME function call, not just guess the precision back out of the
+          # already-formatted string.
+          "stem_precision": stem_precision,
           "nat_instr_in_stem": bool(nat_instr_in_stem), # nat_instruction is in Q.N line
           # v4.5 — R-ANSWER: True iff CHECK 3 verify_answer passed for this Q (either
           # mode). G-UNIQUE (S12-NEW-16) Exit 1's if this is missing/False. (Renamed
@@ -5883,6 +6075,23 @@
     Fully dormant when nat_present=false. EXAM-AGNOSTIC.
     Report: "G-NAT-INSTR: Q.[n] (NAT) has no numerical-entry instruction in its Q.N stem line."
 
+  S12-NEW-29 — G-NAT-GRADE (v5.25 — NAT portal grading value well-formed, HARD STOP;
+    NUMERICAL ONLY): Runs ONLY for answer_type=='numerical' questions. Reads the sidecar's
+    nat_grading_type/nat_grading_value (S7-NEW-C) and re-runs `derive_nat_grading()` against
+    the SAME (value, ca_range, stem_precision) inputs. Exit 1 when: (a) nat_grading_value is
+    missing/None while answer_type=='numerical'; (b) nat_grading_value contains any character
+    outside `0123456789.-` (allowlist check — a blacklist of "known-bad" patterns like
+    scientific notation is NOT sufficient, since it silently admits anything nobody thought to
+    ban); (c) the re-derived (type, value) does not EXACTLY match the stored pair — this is a
+    determinism check, not a re-judgement, since derive_nat_grading is a pure function of its
+    three inputs; (d) a range-typed value's re-derivation raises the NOT-SUPPORTED
+    negative-bound error — this Exit 1's as a WELL-POSEDNESS defect on the question (rework the
+    numbers), never silently reformatted around. This is the generation-side backstop for the
+    portal-grading contract (S7-NEW-C); Step 8 A-NAT-GRADE independently re-derives it again
+    from scratch, exactly as A-NAT-ANSWER does for the math value. EXAM-AGNOSTIC.
+    Report: "G-NAT-GRADE: Q.[n] [charset/type/determinism problem]."
+
+
   S12-NEW-17 — G-MATH-RASTER (v4.3 — math-as-OMML routing, HARD STOP):
     Enforces R-MATH-OMML / §10-S10-4. Catches the M1 Q.55 defect where two
     algebraic expressions ("x + 1/x = 5", "x²+1/x²") shipped as 300-DPI matplotlib
@@ -5967,10 +6176,16 @@
   G-MSQ-INSTR (S12-NEW-20) — all MULTI-mode only, fully dormant when multi_present is false.
   G-NAT-NOOPT / G-NAT-ANSWER / G-NAT-INSTR (S12-NEW-21/22/23) — all NUMERICAL-mode only,
   fully dormant when nat_present is false (no concept_map entry has answer_type=='numerical').
+  v5.25 adds G-NAT-GRADE (S12-NEW-29, numbered out of sequence — 24/25 were already taken by
+  G-GROUPMANDATE/G-MINCOUNT — see that entry below) to the same NUMERICAL-mode-only family.
   v5.18 adds G-PREQ1 (S12-NEW-27) — the pre-Q.1 body-block ban. Total gates: 67.
 
   v5.19 adds G-MATCH-TABLE (S12-NEW-28) — match-grid rendering; executable enforcement
   delegated to the Step 8 audit A-MATCH-TABLE (no logic duplicated here). Total gates: 68.
+
+  v5.25 adds G-NAT-GRADE (S12-NEW-29) — NAT portal grading value/type well-formedness
+  (0-9.- charset, deterministic re-derivation via derive_nat_grading, S7-NEW-C). NUMERICAL-mode
+  only, fully dormant when nat_present is false. Total gates: 69.
 
   S12-NEW-26 — G-QINDEX (v5.2 — question-index certification, HARD STOP; runs at Final
     Assembly; executable home S13-QINDEX, after S13-REGCHECK). Certifies the mock-N
@@ -6593,9 +6808,10 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   □ G-MSQ-CARD passed (multi + fixed-k only): every MSQ key has |S|==msq_k  **
   □ G-MSQ-INSTR passed (multi only): every MSQ stem carries its select-instruction
     on the Q.N line (R14)  **
-  □ G-NAT-NOOPT / G-NAT-ANSWER / G-NAT-INSTR passed (numerical only): every NAT question
-    renders zero options, carries a well-formed value (+ca_range lo<=hi for real NAT), and
-    its nat_instruction sits on the Q.N line (R4/R13/R14 NAT exemptions)  **
+  □ G-NAT-NOOPT / G-NAT-ANSWER / G-NAT-GRADE / G-NAT-INSTR passed (numerical only): every NAT
+    question renders zero options, carries a well-formed value (+ca_range lo<=hi for real NAT),
+    a portal-safe grading value/type (0-9.- charset, S7-NEW-C), and its nat_instruction sits
+    on the Q.N line (R4/R13/R14 NAT exemptions)  **
   □ options_by_q written to registry (per-question expected option count, 0 for NAT) so
     Step 4 resolves question type (ND6)  **
   □ G-MATH-RASTER passed: no algebraic/built-up expression ships as a raster
@@ -6804,6 +7020,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   | G-MSQ-INSTR | the multi instruction line is present in the Q.N stem (R14)       | YES  | Re-emit stem with instruction on the Q.N line |
   | G-NAT-NOOPT | NAT question renders ZERO option paragraphs (R4/R13 exempt)        | YES  | Re-emit as a 0-option NAT block (stem only)   |
   | G-NAT-ANSWER| NAT value well-formed for nat_answer_type; ca_range lo<=hi         | YES  | Regenerate value/band per nat_contract        |
+  | G-NAT-GRADE  | portal grading value/type well-formed (0-9.- charset), deterministic | YES  | Re-run derive_nat_grading(); rework Q if NOT-SUPPORTED negative-range |
   | G-NAT-INSTR | the numerical-entry instruction is present in the Q.N stem (R14)   | YES  | Re-emit stem with nat_instruction on Q.N line |
 
   G-MSQ-SET (definition): enforces the structural half of R-ANSWER (multi) + R-MSQ-ESCAPE.
@@ -7059,7 +7276,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.24
+# END OF Framework_MockTestCreate v5.27
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below

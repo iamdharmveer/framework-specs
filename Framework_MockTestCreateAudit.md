@@ -1,4 +1,38 @@
-# Framework_MockTestCreateAudit v2.7.6
+# Framework_MockTestCreateAudit v2.8.1
+#
+# v2.8.1 — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial
+#   audit of Framework_MockTestCreate.md; docs-only, zero logic change). This file's
+#   8 references to Step 7's canonical S7-NEW-B were pointing at a heading ID that
+#   collided with an unrelated pre-existing section (figural generation mandate).
+#   Renamed to S7-NEW-C, matching Framework_MockTestCreate.md v5.27. The one
+#   pre-existing reference to the FIGURAL S7-NEW-B (line ~4413, unrelated to NAT
+#   grading) is untouched. No gate, function, or value changed.
+#
+# v2.8 — 2026-07-18 — A-NAT-GRADE (NAT portal grading value self-consistency, part of the
+#   same defect chain as Framework_MockTestCreate.md v5.25/v5.26 and explain_engine.py
+#   v1.16). RA-12's NUMERICAL branch extended: the portal grading transform (S7-NEW-C in
+#   Step 7) is a SEPARATE concern from math-value correctness — a NAT value can be right
+#   while its portal string is wrong (the original defect: value 3×10⁻⁹ correct, sidecar
+#   string "3e-9" wrong, which violates the delivery portal's "0123456789.-"-only grading
+#   charset). TWO-LAYER enforcement, mirroring the existing A-NAT-ANSWER/A-NAT-NOOPT split:
+#   (1) A-NAT-ANSWER (Claude-derivation, unchanged gate, extended scope) now also cross-
+#   checks the grading transform against the SAME value it independently re-derives from
+#   the stem; (2) new A-NAT-GRADE (machine) — a self-consistency backstop embedding a
+#   PINNED byte-identical copy of derive_nat_grading() (Framework_MockTestCreate.md
+#   §S7-NEW-C) that re-runs on the sidecar's OWN recorded (nat_value, ca_range,
+#   stem_precision) and checks the result matches the sidecar's OWN recorded
+#   (nat_grading_type, nat_grading_value) exactly, plus an independent charset allowlist
+#   check. Dormant when no numerical subtopics exist, or when no answer_key sidecar was
+#   supplied via --key (Step 8 does not receive it by default, S0-1) — matching the
+#   existing concept_map-availability pattern already used by gate_images. Placed
+#   deliberately BEFORE A-NAT-INSTR in gate_nat() (A-NAT-INSTR has an early `return` on its
+#   own dormant path that would otherwise silently skip anything placed after it — caught
+#   by actually running the self-test, not by inspection alone: an initial placement after
+#   A-NAT-INSTR passed structural validation but failed the dynamic self-test at 50/51).
+#   4 new self-test fixtures (catch / pass-with-stem-precision / dormant-no-nat /
+#   dormant-no-key): 47 → 51. Total gate count unchanged at the A-* catalogue level (38
+#   emitted machine/Claude-derivation gates was already inclusive; A-NAT-GRADE adds to the
+#   45 documented A-* tokens). No change to any other gate's logic.
 #
 # v2.7.6 — 2026-07-18 — §6.4 PREVENTIVE FIX for A-INTEGRITY-FALSEPOS-01 (docs-only, zero
 #   logic change). Added regression test 7 (HEADER-TOKEN-FALSE-POSITIVE) to §21's
@@ -799,7 +833,22 @@
           decimal at the exam's precision); for real NAT the accepted band is
           [value−nat_tolerance, value+nat_tolerance] = ca_range (lo≤hi). A 0/negative/fractional
           value is valid (presence-tested, never truthiness). The value must not leak as a given
-          elsewhere. Enforced by A-NAT-ANSWER (Claude-derivation) + A-NAT-NOOPT/A-NAT-INSTR
+          elsewhere.
+          v2.8 — PORTAL GRADING VALUE (S7-NEW-C in Step 7; separate concern from the math VALUE
+          above): the sidecar's nat_grading_type/nat_grading_value must be exactly what
+          `derive_nat_grading()` (byte-identical to Step 7's canonical §S7-NEW-C definition —
+          copied here, never re-implemented independently, per anti-drift-by-design) produces
+          from the SAME re-derived value + ca_range + any stem-stated rounding instruction. A
+          mismatch here is a defect on the GRADING TRANSFORM, not the math — the value can be
+          correct while its portal string is wrong (this was the original SSC-Biology defect:
+          value 3×10⁻⁹ correct, portal string "3e-9" wrong). Enforced by A-NAT-ANSWER
+          (Claude-derivation — cross-checks the grading transform against the SAME value it just
+          independently re-derived, in the same review pass) + A-NAT-GRADE (machine — a
+          self-consistency backstop: re-runs derive_nat_grading() on the SIDECAR's OWN recorded
+          value/ca_range/tolerance and checks the result matches the sidecar's OWN recorded
+          grading type/value, catching a Step-7-side execution bug independent of whether the
+          math value itself is later found correct or incorrect).
+          Enforced by A-NAT-ANSWER (Claude-derivation) + A-NAT-NOOPT/A-NAT-INSTR/A-NAT-GRADE
           (machine) — see §5.
   RA-13 : CROSS-MOCK INTEGRITY. Cross-mock dedup runs FULLY against registry.json
           with --mockN N self-exclusion (so re-auditing the registered mock does
@@ -1602,7 +1651,8 @@
   | A-KBAL     | per-section answer-option balance within the band (SINGLE-mode Qs only; multi AND numerical excluded) | OPTIONS_COUNT + per-section counts | — | RG (rotate distractor) |
   | A-KPAT     | no same-answer run ≥ RUN_MAX across the SINGLE-mode Qs in Q1..QN incl. cross-section boundaries (multi AND numerical excluded) | RUN_MAX=3 (framework const) | — | RG (rotate distractor) |
   | A-MSQ-KEY  | (multi only) re-derived set S is a non-empty PROPER subset of 1..OPTIONS_COUNT (1≤|S|≤n−1; |S|=msq_k when msq_k_mode=fixed); no banned AOTA option under multi (msq_allow_aota) | blueprint answer_cardinality + msq_k_mode/msq_k + section_rules msq_allow_aota | RA-12 | RG (re-form the set) |
-  | A-NAT-ANSWER| (numerical only; Claude-derivation) re-derived VALUE is uniquely determined by the stem, form-matched to nat_answer_type (integer⇒integral; real⇒within ca_range, lo≤hi); 0/negative/fractional valid; value does not leak | blueprint nat_answer_type/nat_tolerance | RA-12 | RG (disambiguate the stem / re-derive the value) |
+  | A-NAT-ANSWER| (numerical only; Claude-derivation) re-derived VALUE is uniquely determined by the stem, form-matched to nat_answer_type (integer⇒integral; real⇒within ca_range, lo≤hi); 0/negative/fractional valid; value does not leak; the grading transform (nat_grading_type/value, S7-NEW-C) matches derive_nat_grading() applied to this SAME re-derived value | blueprint nat_answer_type/nat_tolerance | RA-12 | RG (disambiguate the stem / re-derive the value / re-run the grading transform) |
+  | A-NAT-GRADE | (numerical only; machine) sidecar's OWN nat_grading_type/nat_grading_value exactly matches derive_nat_grading() applied to the sidecar's OWN recorded value/ca_range/tolerance; charset is 0-9.- only | sidecar concept_map (nat_value, ca_range, nat_grading_type, nat_grading_value) | RA-12 | RG (re-run derive_nat_grading(); rework Q if NOT-SUPPORTED negative-range) |
 
   SUB-CODES: a parent gate may emit refinement sub-codes that sharpen the locator —
   A-STIMORPHAN-XREF (a "Q.x and Q.y" cross-reference), A-UNDERLINE-FAKE (a
@@ -3320,8 +3370,8 @@ Replace for registry.json), and next-step reference.
 #   blueprint.json + section_rules.md + subtopic_manifest.json + registry.json).
 #   MANDATE A requires it for Step 8.
 #
-#   Validation status (v2.6):
-#     • `--self-test`  → SELF-TEST: 47/47 PASS  (exit 0). The 35 v2.5 tests cover every
+#   Validation status (v2.8):
+#     • `--self-test`  → SELF-TEST: 51/51 PASS  (exit 0). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
 #       Greek-math text that must NOT trip A-SCRIPT; a Devanagari word that MUST trip
@@ -3336,8 +3386,13 @@ Replace for registry.json), and next-step reference.
 #       (a pre-Q.1 title/info block ⇒ A-HEADER FAIL i.e. strip; the SAME block with
 #       EXAM_STRUCTURE paper_header_block declared ⇒ dormant, no failure). PLUS 2 v2.7.1
 #       A-MATCH-TABLE fixtures (a MATCH question rendered WITHOUT a table ⇒ A-MATCH-TABLE
-#       FAIL; the same MATCH body rendered AS a real table ⇒ dormant, no failure).
-#     • AUTH_GATE_FLOOR = 35 (MANDATE A / P1). N (47) >= floor.
+#       FAIL; the same MATCH body rendered AS a real table ⇒ dormant, no failure). PLUS
+#       4 v2.8 A-NAT-GRADE fixtures (S7-NEW-C self-consistency backstop: a sidecar
+#       nat_grading_value that doesn't match a fresh derive_nat_grading() re-run on its
+#       own recorded inputs ⇒ FAIL, e.g. a stored '3e-9' when re-derivation gives '3';
+#       a stem_precision-driven decimal_fixed value that DOES match ⇒ PASS; dormant when
+#       no numerical subtopics; dormant when no --key sidecar supplied).
+#     • AUTH_GATE_FLOOR = 35 (MANDATE A / P1). N (51) >= floor.
 #     • run against a real 100-question paper → parses all 100 blocks; the
 #       blueprint-driven gates (A-COUNT 100/100, A-SEQ 1..100, A-SECCOUNT
 #       25/25/25/25) pass; A-OPTN correctly reads 4 image-options on figural
@@ -3533,9 +3588,11 @@ def load_sources(args):
     # (e.g., passed via --key), load it; otherwise empty dict (gate_images falls
     # back to default image_role='stem_and_options' per subtopic).
     src['concept_map'] = {}
+    src['answers'] = {}
     if getattr(args, 'key', None) and Path(args.key).exists():
         _key_data = json.load(open(args.key, encoding='utf-8'))
         src['concept_map'] = _key_data.get('concept_map', {})
+        src['answers'] = _key_data.get('answers', {})
 
     # v1.2 — MSQ re-derivation (INDEPENDENT of any Step-7 self-report). Dormant when the
     # blueprint declares no multi subtopics (every value below is empty/zero ⇒ the MSQ
@@ -3950,6 +4007,93 @@ def gate_nat(blocks, src):
             else 'numerical Q carries options: ' + ' '.join(bad_opt[:15]))
     else:
         _ok('A-NAT-NOOPT', 'no numerical subtopics in this mock (dormant).')
+    # v2.8 — A-NAT-GRADE (machine, NUMERICAL only): self-consistency backstop for the
+    # portal grading transform (S7-NEW-C). Re-runs derive_nat_grading() on the SIDECAR's
+    # OWN recorded (nat_value, ca_range) and checks the result matches the sidecar's OWN
+    # recorded (nat_grading_type, nat_grading_value) EXACTLY. This does NOT re-derive the
+    # math value from the stem (that is A-NAT-ANSWER's Claude-derivation job, run
+    # separately in Phase 2) — it only proves Step 7's own execution of the SAME function
+    # this file also embeds actually ran correctly and wasn't hand-edited or bypassed.
+    # PINNED: this function body MUST stay byte-identical to Framework_MockTestCreate.md
+    # §S7-NEW-C derive_nat_grading() — never re-implemented independently (anti-drift).
+    # NOTE: placed BEFORE A-NAT-INSTR deliberately — A-NAT-INSTR has an early `return` on
+    # its own dormant path, which would silently skip any code placed after it.
+    from decimal import Decimal, ROUND_HALF_UP
+    _NAT_GRADE_CHARSET = frozenset('0123456789.-')
+    _NAT_INTEGRAL_EPS = Decimal('1e-9')
+    def _fmt_portal_number(value, precision=None):
+        d = Decimal(str(value))
+        if precision is not None:
+            q = Decimal(1).scaleb(-precision)
+            d = d.quantize(q, rounding=ROUND_HALF_UP)
+            s = format(d, 'f')
+        else:
+            if abs(d - d.to_integral_value()) <= _NAT_INTEGRAL_EPS:
+                s = str(int(d.to_integral_value()))
+            else:
+                s = format(d.normalize(), 'f')
+        if re.fullmatch(r'-0(\.0+)?', s):
+            s = s.lstrip('-')
+        return s
+    def _fmt_portal_range(lo, hi, precision=None):
+        lo_s = _fmt_portal_number(lo, precision); hi_s = _fmt_portal_number(hi, precision)
+        if lo_s.startswith('-') or hi_s.startswith('-'):
+            raise ValueError(f'NOT SUPPORTED negative-bound range lo={lo_s} hi={hi_s}')
+        if Decimal(lo_s) > Decimal(hi_s):
+            raise ValueError(f'lo>hi {lo_s} {hi_s}')
+        return f'{lo_s}-{hi_s}'
+    def _derive_nat_grading(value, ca_range=None, stem_precision=None):
+        if stem_precision is not None:
+            if ca_range is not None:
+                lo, hi = ca_range
+                return ('range', _fmt_portal_range(lo, hi, precision=stem_precision))
+            return ('decimal_fixed', _fmt_portal_number(value, precision=stem_precision))
+        if ca_range is not None:
+            lo, hi = ca_range
+            return ('range', _fmt_portal_range(lo, hi, precision=None))
+        d = Decimal(str(value))
+        if abs(d - d.to_integral_value()) <= _NAT_INTEGRAL_EPS:
+            v_int = int(d.to_integral_value())
+            return (('positive_integer', str(v_int)) if v_int >= 0 else ('integer', str(v_int)))
+        return ('decimal', _fmt_portal_number(value, precision=None))
+    if not nat_present:
+        _ok('A-NAT-GRADE', 'no numerical subtopics in this mock (dormant).')
+    elif not src.get('concept_map'):
+        # Step 8 does not receive the answer_key sidecar by default (S0-1) — this
+        # self-consistency backstop is only checkable when --key is supplied,
+        # exactly like the concept_map-dependent parts of gate_images.
+        _ok('A-NAT-GRADE', 'answer_key sidecar not supplied via --key (dormant).')
+    else:
+        cmap = src.get('concept_map', {})
+        answers = src.get('answers', {})
+        bad_grade = []
+        for b in blocks:
+            entry = cmap.get(str(b.qnum), {})
+            if entry.get('qtype') != 'nat':
+                continue
+            nat_value = answers.get(str(b.qnum))
+            ca_range = entry.get('ca_range')
+            g_type = entry.get('nat_grading_type'); g_val = entry.get('nat_grading_value')
+            if nat_value is None:
+                bad_grade.append(f'Q{b.qnum}: nat_value missing from sidecar answers'); continue
+            if g_val is None:
+                bad_grade.append(f'Q{b.qnum}: nat_grading_value missing from sidecar'); continue
+            bad_chars = sorted(set(str(g_val)) - _NAT_GRADE_CHARSET)
+            if bad_chars:
+                bad_grade.append(f'Q{b.qnum}: nat_grading_value {g_val!r} has banned chars {bad_chars}')
+                continue
+            try:
+                re_type, re_val = _derive_nat_grading(
+                    nat_value, tuple(ca_range) if ca_range is not None else None,
+                    stem_precision=entry.get('stem_precision'))
+            except ValueError as e:
+                bad_grade.append(f'Q{b.qnum}: re-derivation raised: {e}'); continue
+            if (re_type, re_val) != (g_type, g_val):
+                bad_grade.append(f'Q{b.qnum}: sidecar says ({g_type!r},{g_val!r}), '
+                                  f're-derived ({re_type!r},{re_val!r})')
+        (_ok if not bad_grade else _fail)('A-NAT-GRADE',
+            'every NAT grading value is self-consistent and charset-pure.' if not bad_grade
+            else 'grading value defect(s): ' + ' | '.join(bad_grade[:15]))
     # A-NAT-INSTR: per-section EXPECTED NAT count (re-derived from blueprint allocations,
     # src['expected_nat_by_section']) vs OBSERVED count of Q blocks whose stem carries a
     # numerical-entry instruction phrase. Mismatch ⇒ a NAT Q missing its instruction (or a
@@ -3978,6 +4122,9 @@ def gate_nat(blocks, src):
     (_ok if not bad else _fail)('A-NAT-INSTR',
         'observed numerical instruction counts match the blueprint per section.' if not bad
         else 'numerical instruction-count mismatch — ' + ' | '.join(bad))
+
+
+
 
 
 def gate_stimorphan(blocks, src):
@@ -5075,6 +5222,55 @@ def self_test():
     gate_nat(bl, s)
     check('A-NAT-INSTR-dormant', not any(c == 'A-NAT-INSTR' and l == 'FAIL' for l, c, _ in RESULTS))
 
+    # 35. A-NAT-GRADE (machine, v2.8): sidecar's own nat_grading_value does NOT match a
+    #     fresh derive_nat_grading() re-run on the sidecar's own nat_value/ca_range/
+    #     stem_precision -> FAIL (e.g. Step 7 stored '3e-9' instead of the correct '3').
+    def b_grade_bad(d):
+        _add_q(d, 1, opts=(), stem='Find the rate. Enter your answer as a numerical value.')
+    p = _mini_doc(tmp, b_grade_bad); _reset()
+    _t, bl = parse_blocks(Document(p))
+    s = _src_stub(tq=1); s['nat_present'] = True
+    s['concept_map'] = {'1': {'qtype': 'nat', 'ca_range': None,
+                               'nat_grading_type': 'positive_integer',
+                               'nat_grading_value': '3e-9', 'stem_precision': None}}
+    s['answers'] = {'1': 3}
+    gate_nat(bl, s)
+    check('A-NAT-GRADE-catch', any(c == 'A-NAT-GRADE' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 36. A-NAT-GRADE passes when the sidecar's grading value matches a fresh re-run,
+    #     including the stem_precision-driven decimal_fixed branch (round-half-up, padded).
+    def b_grade_ok(d):
+        _add_q(d, 1, opts=(), stem='Find the value. Round off to two decimal places.')
+    p = _mini_doc(tmp, b_grade_ok); _reset()
+    _t, bl = parse_blocks(Document(p))
+    s = _src_stub(tq=1); s['nat_present'] = True
+    s['concept_map'] = {'1': {'qtype': 'nat', 'ca_range': None,
+                               'nat_grading_type': 'decimal_fixed',
+                               'nat_grading_value': '3.00', 'stem_precision': 2}}
+    s['answers'] = {'1': 3}
+    gate_nat(bl, s)
+    check('A-NAT-GRADE-pass', not any(c == 'A-NAT-GRADE' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 37. A-NAT-GRADE is DORMANT when the blueprint declares no numerical subtopics.
+    def b_grade_dormant(d): _add_q(d, 1)
+    p = _mini_doc(tmp, b_grade_dormant); _reset()
+    _t, bl = parse_blocks(Document(p))
+    s = _src_stub(tq=1)   # nat_present default false
+    gate_nat(bl, s)
+    check('A-NAT-GRADE-dormant-nonat',
+          not any(c == 'A-NAT-GRADE' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 38. A-NAT-GRADE is DORMANT when nat_present=True but no --key sidecar was supplied
+    #     (Step 8 does not receive the answer_key sidecar by default, S0-1).
+    def b_grade_dormant_nokey(d):
+        _add_q(d, 1, opts=(), stem='Find the value. Enter your answer as a numerical value.')
+    p = _mini_doc(tmp, b_grade_dormant_nokey); _reset()
+    _t, bl = parse_blocks(Document(p))
+    s = _src_stub(tq=1); s['nat_present'] = True   # concept_map left empty (no --key)
+    gate_nat(bl, s)
+    check('A-NAT-GRADE-dormant-nokey',
+          not any(c == 'A-NAT-GRADE' and l == 'FAIL' for l, c, _ in RESULTS))
+
     # ── v2.6 COMPLETION-GATE fixtures (S5-1A C1–C7) ────────────────────────────
     # Shared: a clean 1-Q docx (no artefacts) and an evidence dir.
     def _cg_doc(build):
@@ -5202,5 +5398,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.7.6
+# END OF Framework_MockTestCreateAudit v2.8.1
 # ════════════════════════════════════════════════════════════════════════

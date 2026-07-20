@@ -1,5 +1,27 @@
-# Framework_MockDeliver v1.7 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.8 — Universal Mock Test Tagger & Delivery Engine
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
+#
+#   v1.8 — 2026-07-18 — C17: NAT PORTAL GRADING-VALUE CHARSET (last-mile defense-in-depth;
+#       part of the same defect chain as Framework_MockTestCreate.md v5.25/v5.26,
+#       Framework_MockTestCreateAudit.md v2.8, Framework_MockTestExplainAudit.md v1.12, and
+#       explain_engine.py v1.16/v1.17). New gate_c17_natcharset(out_docx, tag_lookup): on
+#       the FINAL DELIVERED docx, immediately before present_files, independently
+#       re-validates every NAT question's rendered 'Correct Answer:' value against the
+#       delivery portal's grading charset ('0123456789.-' only — no scientific notation,
+#       units, spaces, en-dash, or parentheses). Scoped by tag_lookup's ALREADY-RESOLVED
+#       question_type (never re-derived a second time) rather than by pattern-matching the
+#       value, because a numeric-labeled MCQ's 'Correct Answer: 3' is legitimately
+#       charset-identical to a NAT point value and must not be confused with it, and an
+#       MSQ's 'Correct Answer: 2, 4' is a different field entirely. Any violation is a HARD
+#       STOP — this is the last gate in the pipeline; there is no later step to catch it.
+#       Checklist: 16 → 17 gates (three live-count references updated: §6 title, §10 step
+#       11, §8 delivery-report Checklist line — historical changelog mentions of "16" left
+#       untouched as accurate period record). Also retired (annotated, not deleted, for any
+#       older mid-pipeline document) the now-dead 'Accepted Range' EXPL_MARKERS entry: that
+#       separate-paragraph format was replaced when explain_engine.py v1.16 folded a NAT
+#       range directly into the same Correct-Answer line; 'Correct Answer' alone already
+#       covers detection of the current format. No other gate, transform, or rendered byte
+#       changed.
 #
 # PURPOSE:
 #   Take the audited Solutions document from Step 10 (MockExplainAudit),
@@ -718,7 +740,13 @@ OPT_RE = re.compile(r'^\s*(?:\d+\.|[a-zA-Z]\.|\(\d+\)|\([a-zA-Z]+\))\s')
 EXPL_MARKERS = [
     r'^⬛', r'^⚡', r'^❌',
     r'^Correct\s+Answer',
-    r'^Accepted\s+Range',          # NAT answer line
+    # v1.8: retired-format legacy marker. Pre-explain_engine.py-v1.16 documents rendered a
+    # SEPARATE 'Accepted Range: lo-hi' paragraph for a NAT tolerance band; that format was
+    # replaced by folding the range directly into the SAME 'Correct Answer: lo-hi' line
+    # (explain_engine.py v1.16 — see C17 above), so this pattern will never match a
+    # freshly-generated document and is kept only for any older mid-pipeline document that
+    # predates the fix. 'Correct Answer' above already covers the current format.
+    r'^Accepted\s+Range',
     r'^Option\s+\d+',              # WHY WRONG sub-headers (with or without dash)
     r'^STRUCTURAL_ANOMALY',
 ]
@@ -1057,7 +1085,7 @@ is performed.**
 
 ---
 
-# §6 — VALIDATION CHECKLIST (all 16 must PASS)
+# §6 — VALIDATION CHECKLIST (all 17 must PASS)
 
 **Content-integrity gate — integrity docx (Phase 3.5):**
 
@@ -1137,6 +1165,23 @@ C16(b).
   - **C16(d) — tag-block order:** for every inserted tag paragraph, `pPr` children
     must be `[spacing, jc]` in that order (guards FIX 2, which C16(a–c) cannot see).
 
+**Portal grading-value charset gate — render-source docx (v1.8, last-mile defense-in-depth):**
+
+**C17** NAT Correct-Answer portal charset (part of the same defect chain as
+Framework_MockTestCreate.md v5.25/v5.26, Framework_MockTestCreateAudit.md v2.8,
+Framework_MockTestExplainAudit.md v1.12, and explain_engine.py v1.16/v1.17). Runs on the
+FINAL DELIVERED docx, immediately before `present_files` — the last possible check before
+the artifact reaches the upload-ready state. For every question whose `tag_lookup[q]
+['question_type'] == 'NAT'` (the SAME resolved type already used for that question's
+Question Type tag — never re-derived a second time), the rendered `Correct Answer:` value
+MUST match the delivery portal's grading charset exactly: `0123456789.-` and nothing
+else, either a plain number (`-?\d+(\.\d+)?`) or a `lo-hi` range with both bounds
+non-negative. A numeric-labeled MCQ's `Correct Answer: 3` is legitimately
+charset-identical to a NAT value and is correctly NOT checked here (scoped by
+`question_type`, not by pattern-matching the value, which would be ambiguous); an MSQ's
+`Correct Answer: 2, 4` is a different field entirely and is also correctly out of scope.
+Any violation → HARD STOP (this is the LAST gate; there is no later step to catch it).
+
 ```python
 import re, posixpath, zipfile
 from lxml import etree
@@ -1180,9 +1225,47 @@ def gate_c16(src_docx, out_docx,
     return (a and b and c and d,
             {'ignorable_ok': a, 'ns_superset': b, 'no_dangling': c,
              'tag_order_ok': d, 'dangling': dangling})
+
+
+_NAT_CHARSET_ALLOWED = frozenset('0123456789.-')
+_NAT_POINT_RE = re.compile(r'^-?\d+(?:\.\d+)?$')
+_NAT_RANGE_RE = re.compile(r'^\d+(?:\.\d+)?-\d+(?:\.\d+)?$')
+
+def gate_c17_natcharset(out_docx, tag_lookup):
+    """C17 — NAT portal grading-value charset (v1.8, last-mile defense-in-depth).
+    Independently re-validates every NAT question's rendered Correct-Answer VALUE
+    against the delivery portal's grading charset ('0123456789.-' only), reading
+    the FINAL DELIVERED docx directly — the last check before present_files.
+    Uses tag_lookup's ALREADY-RESOLVED question_type (never re-derived a second
+    time — anti-drift, single source of truth) to scope the check to NAT
+    questions only: a numeric-labeled MCQ's 'Correct Answer: 3' is legitimately
+    charset-identical to a NAT point value, and an MSQ's 'Correct Answer: 2, 4'
+    is a different field entirely — pattern-matching the value alone cannot
+    distinguish these, only question_type can."""
+    with zipfile.ZipFile(out_docx) as z:
+        root = etree.fromstring(z.read('word/document.xml'))
+    cur_q = None
+    bad = []
+    for p in root.iter(f'{{{W}}}p'):
+        txt = ''.join(t.text or '' for t in p.iter(f'{{{W}}}t')).strip()
+        qm = Q_STEM_RE.match(txt)
+        if qm:
+            cur_q = int(qm.group(1))
+            continue
+        if cur_q is None or not txt.startswith('Correct Answer:'):
+            continue
+        if tag_lookup.get(cur_q, {}).get('question_type') != 'NAT':
+            continue
+        val = txt[len('Correct Answer:'):].strip()
+        bad_chars = sorted(set(val) - _NAT_CHARSET_ALLOWED)
+        if bad_chars:
+            bad.append(f'Q{cur_q}: {val!r} has banned character(s) {bad_chars}')
+        elif not (_NAT_POINT_RE.match(val) or _NAT_RANGE_RE.match(val)):
+            bad.append(f'Q{cur_q}: {val!r} is not a well-formed plain number or lo-hi range')
+    return (len(bad) == 0, {'bad': bad})
 ```
 
-Any C16 FAIL → HARD STOP (fix and re-run).
+Any C16 or C17 FAIL → HARD STOP (fix and re-run).
 
 **Optional stronger gate — OOXML XSD validation (recommended for a 200-exam guarantee):**
 If the OOXML `wml.xsd` schema set is available in the environment, validate
@@ -1508,7 +1591,7 @@ so Rule 22's `<w:color>` propagates automatically).
 Output file: `[ExamCode]_Mock[N]_Final.docx`
 Output path: `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Final.docx`
 
-`present_files` is called immediately after all 16 checklist gates pass.
+`present_files` is called immediately after all 17 checklist gates pass.
 No other files are presented.
 
 **In-chat delivery report (printed after `present_files`):**
@@ -1518,7 +1601,7 @@ MockDeliver M[N] — Delivery Report
 =====================================
 Exam         : [ExamCode] ([exam_name])
 Mock         : [N]
-Checklist    : C1–C16 all PASS
+Checklist    : C1–C17 all PASS
 
 Questions tagged  : [total_questions] / [total_questions]
 Headers stripped  : [count]  (expected 0 — input is questions-only per Step 7/8)
@@ -1708,9 +1791,10 @@ when in position-based mode. No warning is logged; this is not a data-quality si
 9. ☐ Phase 5: assemble render-source docx ZIP (KEEP webSettings.xml — FIX 3; NO
      cleanup_namespaces — FIX 1). Copy to
      `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Final.docx`.
-10. ☐ Run docx gate C11–C16 on the DELIVERED render-source docx (C16 = namespace +
-     reference + tag-order integrity; needs the inputs_safe/ source for C16(b)).
-     Optionally validate document.xml against the OOXML wml.xsd if present. Any
+10. ☐ Run docx gate C11–C17 on the DELIVERED render-source docx (C16 = namespace +
+     reference + tag-order integrity, needs the inputs_safe/ source for C16(b); C17 = NAT
+     portal grading-value charset, needs `tag_lookup` — already built at Preflight, never
+     re-derived). Optionally validate document.xml against the OOXML wml.xsd if present. Any
      FAIL → HARD STOP, fix and re-run.
 11. ☐ `present_files([output_path])`.
 12. ☐ Print delivery report (§8).
@@ -1756,4 +1840,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.7
+# END OF Framework_MockDeliver v1.8

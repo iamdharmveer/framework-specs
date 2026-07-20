@@ -1,4 +1,34 @@
-# Framework_MockTestExplain v1.15
+# Framework_MockTestExplain v1.17
+#
+# v1.17 — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial audit;
+#   docs-only, zero logic change). §S7-4's reference to Step 7's canonical derive_nat_grading
+#   definition (Framework_MockTestCreate.md) pointed at "S7-NEW-B" — an ID that collided
+#   with an unrelated pre-existing figural-generation section. Renamed to S7-NEW-C
+#   throughout (4 references, including S7-4's own heading subtitle), matching
+#   Framework_MockTestCreate.md v5.27. No procedure, formula, or rendered byte changed.
+#
+# v1.16 — 2026-07-18 — S7-4: NAT PORTAL GRADING VALUE (closes a gap found during a
+#   cross-file consistency audit of the same defect chain as Framework_MockTestCreate.md
+#   v5.25/v5.26, Framework_MockTestCreateAudit.md v2.8, Framework_MockTestExplainAudit.md
+#   v1.12, Framework_MockDeliver.md v1.8, and explain_engine.py v1.16/v1.17). ROOT CAUSE:
+#   this file's S8-1 standard STILL SHOWED the retired "47 (accepted range 46.5–47.5)"
+#   format as the live example — meaning Step 9, followed literally, would still have
+#   produced the exact original defect (a Correct-Answer line the delivery portal's
+#   grading charset rejects). Separately, S10c instructed setting `ca` to the raw
+#   derive-twice VALUE directly — a Python float's bare str() (e.g. "3.0") can legitimately
+#   differ from the certified portal string ("3"), a distinct defect class from getting the
+#   math wrong. WHAT CHANGED: new §S7-4 embeds a PINNED, byte-identical copy of
+#   `derive_nat_grading()` (Framework_MockTestCreate.md §S7-NEW-C) — the third independent
+#   copy alongside Step 7's canonical definition and Step 8's A-NAT-GRADE copy. Because the
+#   function is pure and deterministic, running it on the SAME (value, ca_range,
+#   stem_precision) triple Step 7 used is GUARANTEED to reproduce the SAME certified
+#   string — no new dependency on reading Step 7's internal sidecar is introduced; this is
+#   a determinism guarantee, not a lookup, consistent with this step's existing
+#   derive-independently philosophy (S7-1). S10c and S5-1's field table updated to source
+#   ca/ca_range from this transform's output, never a hand-formatted or raw value. S8-1's
+#   retired example replaced with the current lo-hi format, with the old wording now
+#   explicitly named and banned. No change to any MCQ/MSQ instruction, any gate unrelated
+#   to NAT, or any already-rendered byte outside the NAT Correct-Answer line.
 #
 # v1.15 — 2026-07-15 — C3: paper_slug FILENAME CONVENTION (docs; no logic). Input/output
 #   [ExamCode]_Mock[N]_*.docx use the paper_slug of the paper ("Mock[N]" for a mock — unchanged;
@@ -837,8 +867,8 @@
   |-----------------|----------------------|-----------------------------------------------------|
   | q               | int                  | the question number                                 |
   | qtype           | 'mcq'/'msq'/'nat'    | auto-inferred (0 expected options → nat; ca is a set → msq; else mcq) or set explicitly |
-  | ca              | int / set[int] / val | MCQ: 1-based index. MSQ: a non-empty set of indices. NAT: the answer value (number/string) |
-  | ca_range        | (lo,hi) / None       | NAT only; optional accepted-tolerance range          |
+  | ca              | int / set[int] / val | MCQ: 1-based index. MSQ: a non-empty set of indices. NAT: the PORTAL GRADING VALUE string from `derive_nat_grading()` (S7-4) — never the raw derived number directly; a bare `str()` of a float can differ from the certified string (e.g. "3.0" vs "3") |
+  | ca_range        | (lo,hi) / None       | NAT only; when grading_type=='range' (S7-4), `(_fmt_portal_number(lo, stem_precision), _fmt_portal_number(hi, stem_precision))` — the SAME S7-4 helper, called directly on the two bounds; never raw floats (lose stated precision) and never a string split apart from `grading_value` (an unnecessary extra step with its own failure modes) |
   | axiom           | list[str]            | ≥1 DENSE sentence (content floor, not length floor — §8) |
   | deduction       | list[str]            | ≥2 steps. MCQ: last binds "Option L(ca)". MSQ: last binds EVERY selected option. NAT: last contains the value |
   | speed_hack      | list[str]/None       | present IFF a genuinely faster route exists (§14); else None |
@@ -853,7 +883,8 @@
 ## S5-2 — Hard structural guards (engine, write-time — position-independent)
 
   Correct Answer line = INDEX/VALUE ONLY (no option text): MCQ shows the one label, MSQ
-  the label set ("A, C"), NAT the value (+ optional range). The CA line, the DEDUCTION's
+  the label set ("A, C"), NAT the S7-4 grading value (a plain value, or a lo-hi range when
+  the exam publishes a tolerance). The CA line, the DEDUCTION's
   binding, and the stored answer_keys.json value must agree (three-way CA binding).
   DEDUCTION ≥2 steps; last binds the answer (every selected option for MSQ; the value for
   NAT). WHY WRONG keys == exactly the non-selected options (MCQ/MSQ); NAT uses
@@ -962,6 +993,97 @@
   (a misread stem, an unmerged OMML stem, an unviewed figure) — go to §17 before
   concluding a defect.
 
+## S7-4 — NAT portal grading value (v1.16, S7-NEW-C parity; NUMERICAL only)
+
+  MOTIVATION: the derive-twice VALUE (S7-1) is the MATH answer — content-correct, but not
+  automatically the exact string the delivery portal's auto-grader accepts (charset
+  exactly "0123456789.-", no scientific notation, no units, no en-dash, no parentheses;
+  confirmed against the portal's own answer-entry configuration). A value that is
+  legitimately tiny (a stem stating "in units of 10⁻⁹") or that carries a tolerance band
+  must be run through the SAME PURE, DETERMINISTIC transform Step 7 used when the question
+  was created (`derive_nat_grading()`, Framework_MockTestCreate.md §S7-NEW-C) — never
+  hand-formatted, never a naive `str()` of the derived value (a Python float `3.0` renders
+  as `"3.0"`, not the portal-correct `"3"` — a real, distinct defect class from getting the
+  math wrong). Because the function is pure, running it on the SAME (value, ca_range,
+  stem_precision) triple Step 7 used is GUARANTEED to reproduce the SAME certified string —
+  no sidecar read is needed; this is a determinism guarantee, not a lookup.
+
+  PROCEDURE (every NAT question, after S7-1's value is pinned):
+  1. `ca_range` (the numeric tuple, unchanged from existing practice): the tolerance band
+     if the exam publishes one (nat_tolerance != 0), else None.
+  2. `stem_precision`: detect mechanically from the STEM TEXT itself (the same text S7-1
+     already reads) — an explicit "round off to N decimal places" / "correct to N decimal
+     places" instruction gives int N; its absence gives None. This is a literal-phrase
+     read, not a judgement call.
+  3. Call `derive_nat_grading(value, ca_range, stem_precision)` below to get
+     `(grading_type, grading_value)`. Populate the ExplanationBlock EXACTLY as follows —
+     never any other construction:
+       - `grading_type != 'range'`: `ca = grading_value` (the string, used as-is);
+         `ca_range = None`.
+       - `grading_type == 'range'`: `ca = _fmt_portal_number(value, precision=None)` (the
+         central point value, charset-valid, used ONLY for the DEDUCTION-binding check —
+         never displayed, since `ca_range` takes over CA-line rendering); `ca_range =
+         (_fmt_portal_number(lo, stem_precision), _fmt_portal_number(hi, stem_precision))`
+         — the SAME helper called directly on the two bounds (S5-1). This reproduces
+         `grading_value` exactly by construction (it's literally how `_fmt_portal_range`
+         builds it) without ever needing to parse a string back apart.
+  4. If step 3's call to `derive_nat_grading` raises (the NOT-SUPPORTED negative-bound-
+     range case), that is a well-posedness defect on the QUESTION, not a formatting bug —
+     go to §17 HALT-AND-ESCALATE exactly as an unpinned value would (S7-3), never
+     hand-work around it.
+
+  ```python
+  from decimal import Decimal, ROUND_HALF_UP
+  import re
+
+  _NAT_GRADE_CHARSET = frozenset('0123456789.-')
+  _NAT_INTEGRAL_EPS = Decimal('1e-9')   # float-arithmetic-residue guard, NOT a domain call
+
+  def _fmt_portal_number(value, precision=None):
+      d = Decimal(str(value))
+      if precision is not None:
+          q = Decimal(1).scaleb(-precision)
+          d = d.quantize(q, rounding=ROUND_HALF_UP)
+          s = format(d, 'f')
+      else:
+          if abs(d - d.to_integral_value()) <= _NAT_INTEGRAL_EPS:
+              s = str(int(d.to_integral_value()))
+          else:
+              s = format(d.normalize(), 'f')
+      if re.fullmatch(r'-0(\.0+)?', s):
+          s = s.lstrip('-')
+      return s
+
+  def _fmt_portal_range(lo, hi, precision=None):
+      lo_s = _fmt_portal_number(lo, precision); hi_s = _fmt_portal_number(hi, precision)
+      if lo_s.startswith('-') or hi_s.startswith('-'):
+          raise ValueError(f'NOT SUPPORTED negative-bound range lo={lo_s} hi={hi_s}')
+      if Decimal(lo_s) > Decimal(hi_s):
+          raise ValueError(f'lo>hi {lo_s} {hi_s}')
+      return f'{lo_s}-{hi_s}'
+
+  def derive_nat_grading(value, ca_range=None, stem_precision=None):
+      if stem_precision is not None:
+          if ca_range is not None:
+              lo, hi = ca_range
+              return ('range', _fmt_portal_range(lo, hi, precision=stem_precision))
+          return ('decimal_fixed', _fmt_portal_number(value, precision=stem_precision))
+      if ca_range is not None:
+          lo, hi = ca_range
+          return ('range', _fmt_portal_range(lo, hi, precision=None))
+      d = Decimal(str(value))
+      if abs(d - d.to_integral_value()) <= _NAT_INTEGRAL_EPS:
+          v_int = int(d.to_integral_value())
+          return (('positive_integer', str(v_int)) if v_int >= 0 else ('integer', str(v_int)))
+      return ('decimal', _fmt_portal_number(value, precision=None))
+  ```
+
+  PINNED: this function body MUST stay byte-identical to Framework_MockTestCreate.md
+  §S7-NEW-C and Framework_MockTestCreateAudit.md's A-NAT-GRADE copy — never re-implemented
+  independently (anti-drift by design). Three independent copies computing the SAME
+  deterministic function on the SAME true inputs is the intended redundancy (matches Step
+  8's own pinned-copy pattern); three DIFFERENT implementations would not be.
+
 # ════════════════════════════════════════════════════════════════════════
 # §8 — SECTION QUALITY STANDARDS (the highest-standard contract per section)
 # ════════════════════════════════════════════════════════════════════════
@@ -974,8 +1096,12 @@
   Role: the one line the student trusts absolutely; the most dangerous line in the
   pipeline. Standard: INDEX/VALUE ONLY, in the paper's own label scheme, no option text —
   MCQ "Correct Answer: 3" (or "C" for a lettered paper); MSQ the full set "Correct
-  Answer: 1, 3"; NAT the value "Correct Answer: 47" plus the accepted range when the exam
-  allows one ("Correct Answer: 47 (accepted range 46.5–47.5)"). Equals the independently
+  Answer: 1, 3"; NAT the portal grading value from S7-4 — a plain value ("Correct Answer:
+  47") or, when the exam publishes a tolerance band, the lo-hi range with NO parentheses,
+  words, or en-dash ("Correct Answer: 46.50-47.50"). The retired
+  "47 (accepted range 46.5–47.5)" wording is banned outright — it fails the delivery
+  portal's grading charset on five separate counts (space, parens, letters, en-dash) and
+  must never appear in a rendered document. Equals the independently
   derived answer; bound three ways (line = DEDUCTION binding = answer_keys.json). For a
   negative stem it is the option the stem asks to IDENTIFY, polarity-correct (§10a).
   Enforced: three-way binding asserted at write time; truth by derive-twice + web-verify
@@ -1098,10 +1224,18 @@
   excluded). The CA line lists the set. Never collapse an MSQ to a single option, and
   never leave a selected option unexplained in the DEDUCTION verdict chain.
   NAT: there are NO options — derive the VALUE (derive-twice, §7), bind it in the last
-  DEDUCTION step, set ca to the value (and ca_range if the exam publishes a tolerance), and
-  write COMMON PITFALLS (the wrong values students compute + the slip for each) in place of
-  WHY WRONG. A fractional NAT value renders as OMML (§11). Carrying why_wrong on a NAT block
-  (or common_pitfalls on an option block) is a write-time error.
+  DEDUCTION step (the DERIVED VALUE, in natural form — the DEDUCTION prose is not held to
+  the portal charset, only the CA line is), run it through `derive_nat_grading()` (S7-4)
+  to get the portal-safe grading value/type, and set ca/ca_range from THAT output (never
+  the raw derived number) exactly as S5-1 specifies. Write COMMON PITFALLS (the wrong
+  values students compute + the slip for each) in place of WHY WRONG — pitfall labels are
+  explanation prose, not graded, so they are unaffected by the portal charset and may use
+  natural notation (including fractions). A fractional NAT value renders as OMML (§11) IN
+  THE DEDUCTION/PITFALL prose; the CA line itself is always the plain grading-value string
+  from S7-4, never a fraction or OMML — a NAT answer that is naturally a fraction is
+  converted to its decimal equivalent by `derive_nat_grading()` before it ever reaches the
+  CA line. Carrying why_wrong on a NAT block (or common_pitfalls on an option block) is a
+  write-time error.
 
 # ════════════════════════════════════════════════════════════════════════
 # §11 — MATH / OMML RENDERING DISCIPLINE
@@ -1681,5 +1815,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.15
+# END OF Framework_MockTestExplain v1.17
 # ════════════════════════════════════════════════════════════════════════

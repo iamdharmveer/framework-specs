@@ -4,13 +4,35 @@
 **Step 10 — MockExplainAudit**
 **The independent auditor and rectifier of explanation documents produced by Step 9.**
 
-Version: v1.10
+Version: v1.13
 Status: Active
-Engine: `explain_engine.py` (shared universal engine; core `--self-test` 44/44, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
+Engine: `explain_engine.py` (shared universal engine; core `--self-test` 62/62, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
 
 ---
 
 ## VERSION HISTORY
+
+**v1.13** — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial audit; docs-only, zero logic change). RXA-11's reference to Step 7's canonical derive_nat_grading definition pointed at "S7-NEW-B" — an ID that collided with an unrelated pre-existing figural-generation section in Framework_MockTestCreate.md. Renamed to S7-NEW-C (2 references), matching Framework_MockTestCreate.md v5.27. No rule, gate, or rendered byte changed.
+
+**v1.12** — 2026-07-18 — RXA-CHARSET: NAT portal grading value (part of the same defect
+chain as Framework_MockTestCreate.md v5.25/v5.26, Framework_MockTestCreateAudit.md v2.8,
+and explain_engine.py v1.16/v1.17). RXA-11 clarified: the NAT Correct-Answer LINE (its
+grading value string, S7-NEW-C) is EXPLANATION content Step 9 renders, not part of the
+question/paper Step 8 owns — a malformed grading string (wrong charset, wrong scale, the
+retired "N (accepted range lo-hi)" wording) is a Step 10 rectification like any other
+explanation defect, never escalated to Step 7/8 unless the underlying math value itself is
+also wrong. New RXA-20: `verify_explanations` (explain_engine.py v1.17) now independently
+re-validates every rendered NAT Correct-Answer line against the delivery portal's grading
+charset ("0123456789.-" only) by reading the ACTUAL RENDERED TEXT on disk — not the
+in-memory block — closing the gap where a bad grading string could ship simply because
+nothing else about the explanation looked wrong. This runs automatically as part of the
+already-mandated RXA-2 re-verification; no new invocation, no new evidence-ledger field,
+no change to explain_audit_gate.py (this is a structural/mechanical check, not a per-
+question evidence stamp). Pre-flight (§3) core self-test requirement corrected from the
+stale 44/44 to the current 62/62 (four locations: the top banner, §3, §22 item 1, and
+Appendix A's engine listing) — this had silently drifted since explain_engine.py v1.16
+shipped and would have caused a false pre-flight HARD STOP on the next real Step 10 run
+had it gone unnoticed. Zero change to any other RXA rule, gate, or rendered byte.
 
 **v1.11** — 2026-07-15 — C3: paper_slug filename convention (docs; no logic). Input, output, and the
 `audit_answer_keys.json` sidecar use the paper_slug of the paper being processed ("Mock[N]" for a
@@ -199,7 +221,7 @@ Every audit judgement, every re-derivation, and every rectified sentence is reas
 
 # MANDATE A — The engine is the only read and write path
 
-Step 10 never parses the Solutions document by ad-hoc text matching and never writes explanation paragraphs by hand. It reads through `parse_solution_blocks` and writes through `build_interleaved_docx`, both driven by the `EngineConfig` reconstructed from the frozen configuration. The engine is the same universal `explain_engine.py` Step 9 uses, now carrying the Step 10 reader (Appendix A). Pre-flight (§3) refuses to start unless the engine's core self-test passes cleanly at 44 of 44 and the reader round-trip passes cleanly at 10 of 10. Re-deriving answers independently (D1) means Step 10 builds its own key and never reads a key sidecar, because none is delivered. NOTE (v1.7): the ledger completion gate (`explain_audit_gate.py`, §18/§20) is a SEPARATE module — it reads the JSON audit ledger + evidence sidecars, never the docx, so it does not touch the engine's read/write path and needs no python-docx; it is a distinct enforcement layer, not a second write path.
+Step 10 never parses the Solutions document by ad-hoc text matching and never writes explanation paragraphs by hand. It reads through `parse_solution_blocks` and writes through `build_interleaved_docx`, both driven by the `EngineConfig` reconstructed from the frozen configuration. The engine is the same universal `explain_engine.py` Step 9 uses, now carrying the Step 10 reader (Appendix A). Pre-flight (§3) refuses to start unless the engine's core self-test passes cleanly at 62 of 62 and the reader round-trip passes cleanly at 10 of 10. Re-deriving answers independently (D1) means Step 10 builds its own key and never reads a key sidecar, because none is delivered. NOTE (v1.7): the ledger completion gate (`explain_audit_gate.py`, §18/§20) is a SEPARATE module — it reads the JSON audit ledger + evidence sidecars, never the docx, so it does not touch the engine's read/write path and needs no python-docx; it is a distinct enforcement layer, not a second write path.
 
 # MANDATE B — Batch or halt; one batch per response
 
@@ -795,7 +817,7 @@ The report asserts, in plain terms, that the audited document is certified clean
 
 Step 10 is done for a mock only when **all** of the following hold:
 
-1. Pre-flight P0–P9 passed (engine honest 44/44 + 10/10; completion gate honest 8/8; config complete, round-trip clean).
+1. Pre-flight P0–P9 passed (engine honest 62/62 + 10/10; completion gate honest 8/8; config complete, round-trip clean).
 2. Every question audited in a frozen batch; zero questions sampled or skipped; every closed batch fully evidenced (§17).
 3. Every answer independently re-derived (D1); no answer taken from Step 9; no key sidecar read (none exists).
 4. Every explanation section cleared all three lanes (§5), or was rectified until it did, or its question was escalated.
@@ -892,7 +914,9 @@ The rules below are the enforceable contract; the sections above are their ratio
   RXA-1  Re-derive every answer independently (§9); never read Step 9's answer as
          input to the derivation, and never read a key sidecar (none is delivered).
   RXA-2  Re-run verify_fidelity, verify_structure, verify_explanations in Step 10
-         (§7); never trust Step 9's §18 self-report.
+         (§7); never trust Step 9's §18 self-report. verify_explanations now also
+         performs the NAT portal-charset check (RXA-20) as part of this same re-run —
+         no separate invocation needed.
   RXA-3  Read only through parse_solution_blocks and write only through
          build_interleaved_docx, both driven by the reconstructed EngineConfig
          (MANDATE A). No hand-parsing, no hand-writing. (The completion gate reads the
@@ -919,6 +943,12 @@ The rules below are the enforceable contract; the sections above are their ratio
   RXA-10 Every fraction is real OMML (§8.5); no inline or vulgar fraction ships.
   RXA-11 Rectify explanations only; escalate question defects to Step 7/8 (§16).
          Never write an eloquent explanation of a broken question.
+         v1.12 clarification: the NAT Correct-Answer LINE (its grading value string,
+         S7-NEW-C in Step 7) is EXPLANATION content Step 9 renders — not part of the
+         question/paper Step 8 owns. A malformed grading string (wrong charset, wrong
+         scale, stale "N (accepted range lo-hi)" wording) is a Step 10 rectification,
+         same as any other explanation defect; it is NEVER escalated to Step 7/8 unless
+         the underlying MATH value itself (not its portal formatting) is also wrong.
   RXA-12 Verify a fact against authoritative current sources or mark it
          FACT-UNVERIFIABLE (§9); never invent a citation; save the source as evidence (CA6).
   RXA-13 Determine speed-hack "should-exist" from Step 10's own second derivation
@@ -936,6 +966,15 @@ The rules below are the enforceable contract; the sections above are their ratio
   RXA-19 Certification is a COMMAND RESULT, not a self-judgment: Phase 3 runs
          explain_audit_gate.py --audit-progress and it MUST print
          AUDIT-COMPLETION-GATE: PASS before present_files (MANDATE D / §20).
+  RXA-20 CHARSET (v1.12 — portal grading value, NAT only): every NAT question's rendered
+         Correct-Answer line is independently re-validated against the delivery portal's
+         grading charset (exactly "0123456789.-", nothing else) by `verify_explanations`
+         (RXA-2) — reading the ACTUAL RENDERED TEXT on disk, not the in-memory block —
+         regardless of whether any other lane flagged the question for rectification. A
+         charset or malformed-range violation is a HARD defect, rectified in the same
+         batch (RXA-6), never left for a later pass. This closes the gap where an
+         otherwise-clean explanation could ship with a bad grading string simply because
+         nothing else about it looked wrong.
 ```
 
 ---
@@ -944,7 +983,7 @@ The rules below are the enforceable contract; the sections above are their ratio
 
 Step 10 runs two canonical, exam-agnostic Python artifacts. To avoid the multi-copy drift that enabled the Step-8 false-clean (see Framework_MockTestCreateAudit.md v2.6 / §21), the runnable code is NOT re-embedded here; it lives in ONE place each and this section points to it:
 
-- **`explain_engine.py`** — the universal explanation engine (the ONLY docx read/write path, MANDATE A). It carries `EngineConfig`, `ExplanationBlock`, `add_math_text`, `parse_paper`, `build_interleaved_docx`, `verify_fidelity`, `verify_structure`, `verify_explanations`, `strip_solutions`, the Step-10 reader `parse_solution_blocks`, and `parse_learnings`. Self-tests: `--self-test` → `SELF-TEST: 44/44 PASS` (core), `--self-test-audit` → `AUDIT-SELF-TEST: 10/10 PASS` (reader round-trip). Pre-flight P0 requires both green. This is the same file Step 9 uses.
+- **`explain_engine.py`** — the universal explanation engine (the ONLY docx read/write path, MANDATE A). It carries `EngineConfig`, `ExplanationBlock`, `add_math_text`, `parse_paper`, `build_interleaved_docx`, `verify_fidelity`, `verify_structure`, `verify_explanations`, `strip_solutions`, the Step-10 reader `parse_solution_blocks`, and `parse_learnings`. Self-tests: `--self-test` → `SELF-TEST: 62/62 PASS` (core), `--self-test-audit` → `AUDIT-SELF-TEST: 10/10 PASS` (reader round-trip). Pre-flight P0 requires both green. This is the same file Step 9 uses.
 
 - **`explain_audit_gate.py`** — the mechanical Phase-3 COMPLETION GATE (v1.7). It reads `audit_progress.json` (§18) + the evidence sidecars and asserts CA1–CA7 (evidence-bound). It touches no docx and needs no python-docx. Self-test: `--self-test` → `COMPLETION-SELF-TEST: 8/8 PASS` (fixtures: clean-pass, skipped-Phase-2 [CA1+CA2], partial-review [CA2], open-verdict [CA3], unviewed-figure [CA5], missing-evidence-file [CA5], unsourced-fact [CA6], not-derived [CA4]). Pre-flight P0 requires it green; Phase 3 (§20) requires `AUDIT-COMPLETION-GATE: PASS`.
 
