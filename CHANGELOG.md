@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.07.20
+- explain_engine.py core self-test 44/44 -> 62/62 (audit stays 10/10). MockTestExplain -> v1.18 and
+  MockTestExplainAudit P0 corrected to 62-of-62, so Step 9/10 pre-flight demands exactly what the
+  engine prints. Deployed as a version-matched bundle (engine + both Explain specs).
+- MockTestCreate v5.24 -> v5.27; MockTestCreateAudit v2.7.6 -> v2.8.1; MockTestExplain v1.15 -> v1.18;
+  MockTestExplainAudit v1.8 refresh; MockDeliver v1.7 -> v1.8.
+
 ## 2026.07.18.1
 - Framework_MockDeliver.md v1.6 -> v1.7.
 
