@@ -4,13 +4,32 @@
 **Step 10 — MockExplainAudit**
 **The independent auditor and rectifier of explanation documents produced by Step 9.**
 
-Version: v1.14
+Version: v1.16
 Status: Active
 Engine: `explain_engine.py` (shared universal engine; core `--self-test` 62/62, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
 
 ---
 
 ## VERSION HISTORY
+
+**v1.16** — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION (twin of Framework_
+MockTestCreate v5.29, found during the same full line-by-line adversarial re-audit). §2
+resolution step 2's `[ExamCode]*_blueprint.json` glob is a PREFIX match — added an
+explicit `bp['exam_code'] == [ExamCode]` check immediately after `pp.pick_blueprint`
+returns, HALTING on mismatch instead of silently trusting the glob.
+
+**v1.15** — 2026-07-20 — TEST* TRIGGERS + DOCX-DRIVEN BLUEPRINT SELECTION (paper_pipeline.py
+integration; twin of Framework_MockTestExplain v1.19). Adds `TestExplainAudit P[N]` as the
+primary trigger (works for mock AND every scoped tier via `--level`/`--scope`), keeping
+`MockExplainAudit M[N]` as a working alias (implicitly `level='mock'`). §2 resolution step 2
+now discovers the uploaded `_Explanation.docx`, parses its `paper_slug` from the filename,
+loads every `[ExamCode]*_blueprint.json` present, and calls
+`pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=paper_slug)` to identify which ONE
+blueprint (mock or scoped) produced it — replacing the old hard assumption of a single
+`[ExamCode]_blueprint.json`. D5 output-filename note and all filenames in §2 generalised
+from `Mock[N]` to `[paper_slug]` (`pp.paper_slug(paper_id)`). Shared logic lives ONLY in
+`paper_pipeline.py`. Does not touch the CA1–CA7 completion gate, `explain_audit_gate.py`,
+or any audit/rectification logic.
 
 **v1.14** — 2026-07-18 — P0 GATE FIX (found via a live deployment attempt — this file's
 OWN P0 pre-flight check, §"P0 — Engine present and honest", hard-demanded a "44-of-44"
@@ -180,7 +199,7 @@ No logic change; engine untouched.
 - **D2 — the reader lives in the engine.** Reading a rendered Solutions document back into structured blocks is not a text-scrape: the block headers, the option word, the correct-answer label, the accepted-range label and the option-label scheme are all configuration-driven glyphs, not literals. A reader that hardcoded them would be exam-bound. The reader (`parse_solution_blocks`) is therefore an engine function driven by the same `EngineConfig` that Step 4 wrote with, making it the exact inverse of the writer. See §7, §16, Appendix A.
 - **D3 — learnings loop is emit-now, wire-later.** Step 5 emits `[ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v1.md` capturing every recurring defect class it fixed. Step 4 consumes that file at its P1 and applies its rules while authoring (Step 4 §24 / RE-22, wired in v1.1); the producer schema here is pinned to that consumer. See §24.
 - **D4 — rule-family prefix RXA.** Audit rules are numbered RXA-1, RXA-2, … (Rules, eXplanation Audit), keeping them distinct from Step 3's RA-* and Step 4's rule families.
-- **D5 — output filename.** The rectified document is `[ExamCode]_Mock[N]_Explanation_Complete.docx`. The input `[ExamCode]_Mock[N]_Explanation.docx` is never modified in place. See §0, §20.
+- **D5 — output filename.** The rectified document is `[ExamCode]_[paper_slug]_Explanation_Complete.docx`. The input `[ExamCode]_[paper_slug]_Explanation.docx` is never modified in place (v1.15: `paper_slug` is `pp.paper_slug(paper_id)` — "Mock[N]" zero-padded for a mock, else the scoped slug; §0, §2, §20).
 - **D6 — per-batch rectification.** Defects are fixed in the same response that finds them, while the derivation is fresh, then the document is rebuilt and re-verified before the batch closes. Fix-later batching is a decay vector and is forbidden. See §16, §17.
 - **Engine fraction-extraction fix (discovered during Step 5 bring-up).** While proving the reader, the round-trip surfaced a latent defect in the shared engine: `frac()` stores a fraction's digits as the direct text of the `m:num`/`m:den` elements, but `verify_explanations` read them only through `m:t` descendants, so every genuine digit/digit fraction was falsely reported as a malformed OMML fraction. Because Step 4's own §18 self-audit calls `verify_explanations`, any explanation containing a real stacked fraction could not pass that gate — which explains why quantitative explanations in practice avoid OMML fractions entirely. The root-cause fix reads the full text content via `itertext()` (handling both the direct-text and the wrapped `m:r`/`m:t` forms); it changes no rendered bytes and leaves the core self-test at 44/44. The fix is locked by a regression test in the reader round-trip suite (`RT-FRAC-VERIFY`). See §7 and Appendix A.
 
@@ -286,20 +305,28 @@ Where this document and any earlier step's document disagree about a label, mark
 
 ---
 
-# §2 — Trigger and mock resolution
+# §2 — Trigger and mock/paper resolution
 
 Step 10 begins on the instruction form:
 
 ```text
-MockExplainAudit M[N]
+TestExplainAudit P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
 ```
+
+ALIAS (v1.15 — mock-only, working alias, unchanged behaviour):
+```text
+MockExplainAudit M[N]   ==   TestExplainAudit P[N] --level mock
+```
+`--level`, when given, is cross-checked (not required) against the blueprint
+`pp.pick_blueprint` resolves via the uploaded docx (step 2 below) — a mismatch halts.
+`MockExplainAudit M[N]` always implies `level='mock'`.
 
 Resolution sequence:
 
-1. Resolve `[ExamCode]` to its project configuration (`blueprint.json`, `section_rules.md`, `registry.json`, `subtopic_manifest.json`). If any is missing, halt: Step 10 cannot reconstruct the `EngineConfig` and therefore cannot read the document faithfully.
-2. Resolve `M[N]` to `[ExamCode]_Mock[N]_Explanation.docx` and `[ExamCode]_Mock[N]_Create_Complete.docx`. If the Solutions document is absent, halt (nothing to audit). If the paper is absent, halt (cannot re-seed the rebuild or re-verify fidelity).
+1. Resolve `[ExamCode]` to its project configuration (`section_rules.md`, `registry.json`, `subtopic_manifest.json`, and BLUEPRINT — v1.15: every `[ExamCode]*_blueprint.json` present, mock and any scoped). If any is missing, halt: Step 10 cannot reconstruct the `EngineConfig` and therefore cannot read the document faithfully.
+2. Resolve `P[N]` / `M[N]` to `[ExamCode]_[paper_slug]_Explanation.docx` and `[ExamCode]_[paper_slug]_Create_Complete.docx` (v1.15: `paper_slug` is discovered from the uploaded `_Explanation.docx` filename itself, then `pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=paper_slug)` — imported from `paper_pipeline.py` — selects the ONE blueprint that produced it, mock or scoped; `PickError` halts with its actionable message. `paper_slug` is `pp.paper_slug(paper_id)` — "Mock[N]" zero-padded for a mock, else the scoped slug. SAFETY CHECK: the `[ExamCode]*_blueprint.json` glob is a PREFIX match — verify the selected blueprint's `exam_code` equals `[ExamCode]` exactly; a mismatch halts, since a different ExamCode's file may have been swept in by the glob). If the Solutions document is absent, halt (nothing to audit). If the paper is absent, halt (cannot re-seed the rebuild or re-verify fidelity).
 3. Reconstruct the `EngineConfig` exactly as Step 9 built it: question regex, option regex, per-question option map (including 0 for nat), label scheme, language terminators, labels and markers — all from configuration. A mis-reconstructed config makes the reader mis-segment the document; §3 P4 proves the reconstruction before any audit begins.
-4. If an `audit_progress.json` for this mock already exists, resume from its ledger (§18); otherwise freeze a new batch plan.
+4. If an `audit_progress.json` for this paper already exists, resume from its ledger (§18); otherwise freeze a new batch plan.
 
 ---
 

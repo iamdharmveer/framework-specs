@@ -1,4 +1,29 @@
-# Framework_MockTestExplain v1.18
+# Framework_MockTestExplain v1.20
+#
+# v1.20 — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION (twin of Framework_
+#   MockTestCreate v5.29, found during the same full line-by-line adversarial re-audit).
+#   P1's [ExamCode]*_blueprint.json glob is a PREFIX match — added an explicit
+#   bp['exam_code'] == [ExamCode] check immediately after pp.pick_blueprint returns,
+#   HALTING on mismatch instead of silently trusting the glob.
+#
+# v1.19 — 2026-07-20 — TEST* TRIGGERS + DOCX-DRIVEN BLUEPRINT SELECTION (paper_pipeline.py
+#   integration; twin of Framework_MockTestCreateAudit v2.9). Adds TestExplain P[N] as the
+#   primary trigger (works for mock AND every scoped tier), keeping MockExplain M[N] as a
+#   working alias (implicitly level='mock'). WHAT CHANGED:
+#     §2 S2-1 — new PRIMARY trigger TestExplain P[N] [--level ...] [--scope ...];
+#       MockExplain M[N]/resume/--status retained as the mock-only alias.
+#     §2 S2-2 — registry check generalised to registry.papers_completed containing this
+#       paper's paper_id, falling back to legacy mocks_completed containing N for a mock.
+#     §3 P1 — blueprint load is now DOCX-DRIVEN: discovers the uploaded
+#       [ExamCode]_[paper_slug]_Create_Complete.docx, parses its paper_slug from the
+#       filename, loads every [ExamCode]*_blueprint.json present, and calls
+#       pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=paper_slug) — replacing the
+#       old hard assumption of a single [ExamCode]_blueprint.json.
+#     §19 S19-1/S19-2 — output filename now f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
+#       (PAPER_SLUG = pp.paper_slug(paper_id) from P1), replacing the hardcoded
+#       f'{EXAMCODE}_Mock{NNN}_Explanation.docx' — the old form only ever worked for mocks.
+#   Shared logic (paper_slug, pick_blueprint) lives ONLY in paper_pipeline.py. Does not
+#   touch explain_engine.py, the §18 self-audit, or any solving/derivation logic.
 #
 # v1.18 — 2026-07-18 — LIVE SELF-TEST COUNT FIX (found during an actual deployment attempt
 #   in a downstream project — this file's own P0 pre-flight gate hard-demanded exactly
@@ -700,21 +725,31 @@
 ## S2-1 — Trigger formats
 
 ```text
-  FRESH  : MockExplain M[N]         (+ Mock[N] docx already in project)
-  RESUME : MockExplain M[N] resume  (re-enter mid-mock; reload state, §4)
-  STATUS : MockExplain M[N] --status (dashboard only, then WAIT)
+  FRESH  : TestExplain P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
+           (+ [paper_slug] Create_Complete docx already in project)
+  RESUME : TestExplain P[N] resume  (re-enter mid-paper; reload state, §4)
+  STATUS : TestExplain P[N] --status (dashboard only, then WAIT)
   CONT   : continue | next | go                     (proceed to the next batch — §4)
+
+  ALIAS (v1.19 — mock-only, working alias, unchanged behaviour):
+    MockExplain M[N]          == TestExplain P[N] --level mock
+    MockExplain M[N] resume   == TestExplain P[N] --level mock resume
+    MockExplain M[N] --status == TestExplain P[N] --level mock --status
 ```
 
   Unclear trigger → ask ONE clarifying question. Never solve on ambiguous input.
-  Trigger WITHOUT the Mock[N] docx present → HALT, request the upload.
+  Trigger WITHOUT the matching Create_Complete docx present → HALT, request the upload.
+  --level, when given, is cross-checked (not required) against the blueprint
+  pp.pick_blueprint resolves via the uploaded docx (P1) — a mismatch is a HARD STOP.
+  MockExplain M[N] always implies level='mock'.
 
-## S2-2 — Mock-number resolution (do this BEFORE loading questions)
+## S2-2 — Mock/paper-number resolution (do this BEFORE loading questions)
 
-  Resolve N from the trigger. Confirm registry.mocks_completed CONTAINS N (Step 8
-  certified it). If N not in mocks_completed:
-    HARD STOP: "registry.mocks_completed = [...] does not contain mock N. Step 9
-    explains a Step-8-certified paper; run Step 8 on mock N first."
+  Resolve N from the trigger. Confirm registry.papers_completed CONTAINS this paper's
+  paper_id (Step 8 certified it) — falling back to legacy registry.mocks_completed
+  containing N for a mock on an older registry. If neither holds:
+    HARD STOP: "registry.papers_completed = [...] does not contain paper_id [paper_id].
+    Step 9 explains a Step-8-certified paper; run Step 8 on it first."
   registry is FROZEN here — this is a read-only alignment check, never a re-sync.
 
   DEFENSIVE INDEX ALIGNMENT (v1.5 — read-only; Contract_QuestionMetadataIndex v1.0):
@@ -731,10 +766,20 @@
 # ════════════════════════════════════════════════════════════════════════
 
   P0  TRIGGER DETECTION (§2). Resolve N; pick FRESH / RESUME / STATUS / CONT.
-  P1  AUTO-LOAD (exact order): this spec → section_rules.md → blueprint.json →
-      subtopic_manifest.json → registry.json → explain_engine.py (from the framework
-      clone /tmp/fw, else the project Files /mnt/project). Copy the engine to /home/claude
-      and run `python3 explain_engine.py --self-test` → MUST print
+  P1  AUTO-LOAD (exact order): this spec → section_rules.md → BLUEPRINT (v1.19,
+      docx-driven pp.pick_blueprint — twin of Step 8's P0): discover the uploaded
+      [ExamCode]_[paper_slug]_Create_Complete.docx, parse its paper_slug from the
+      filename, load every [ExamCode]*_blueprint.json present (mock + any scoped),
+      import paper_pipeline as pp, and call
+      pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=paper_slug) to select the
+      ONE blueprint that produced this paper (cross-checked against --level if given;
+      PickError → HARD STOP, never a guess). SAFETY CHECK: the [ExamCode]*_blueprint.json
+      glob is a PREFIX match — verify the selected blueprint's exam_code equals
+      [ExamCode] exactly; a mismatch is a HARD STOP (a different ExamCode's file may
+      have been swept in by the glob) → subtopic_manifest.json → registry.json →
+      explain_engine.py (from the framework clone /tmp/fw, else the project Files
+      /mnt/project). Copy the engine to /home/claude and run
+      `python3 explain_engine.py --self-test` → MUST print
       "SELF-TEST: 62/62 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (Step-10 feedback) and
@@ -745,7 +790,7 @@
       failure → HALT.
   P2  STATUS DASHBOARD (print every turn, before any solving):
 ```text
-      === MockExplain v1.13 — Session Status ===
+      === MockExplain v1.20 — Session Status ===
       Spec / section_rules / blueprint / manifest / registry : [loaded]
       explain_engine.py --self-test                          : [62/62 PASS]
       Exam config (CATEGORY C)  : options=[k or per-section map] · labels=[scheme] ·
@@ -1580,7 +1625,10 @@
 ```python
 import os
 out = '/mnt/user-data/outputs'
-sol = f'{EXAMCODE}_Mock{NNN}_Explanation.docx'
+# PAPER_SLUG = pp.paper_slug(paper_id) of the blueprint mock/paper resolved at P1 (v1.19).
+# "Mock[N]" zero-padded for a mock, else the scoped slug — same value the input
+# Create_Complete.docx filename carries.
+sol = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
 present = set(os.listdir(out))
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
 leaked = [f for f in present if any(b in f.lower() for b in BANNED)]
@@ -1601,7 +1649,7 @@ if fails:
 
 ## S19-2 — The single present_files call (per batch)
 ```python
-present_files([f'/mnt/user-data/outputs/{EXAMCODE}_Mock{NNN}_Explanation.docx'])
+present_files([f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'])
 ```
 
 ## S19-3 — Progress line + confirmation request (ENDS the turn — MANDATE B)
@@ -1835,5 +1883,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.18
+# END OF Framework_MockTestExplain v1.20
 # ════════════════════════════════════════════════════════════════════════

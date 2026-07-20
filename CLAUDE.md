@@ -12,7 +12,7 @@ repo root before running the gate.
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **16/16** — 12 `Framework_*.md` + 4 engines. The count grows when a new spec/engine is added.)
+   **17/17** — 12 `Framework_*.md` + 5 engines. The count grows when a new spec/engine is added.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
 
 If any step fails: **STOP, show the error in plain words, push nothing.**
@@ -46,6 +46,7 @@ before pushing (integrity checks can't catch a logic regression):
 - `python3 explain_engine.py --self-test` and `--self-test-audit`
 - `python3 explain_audit_gate.py --self-test`
 - `python3 blueprint_core.py --self-test`  (shared allocation core for MockBlueprint + ScopedBlueprint)
+- `python3 paper_pipeline.py`  (shared naming/numbering/registry plumbing for Steps 6-11 + Test* triggers)
 
 Engines are ALSO uploaded per-project to `/mnt/project/` (the specs load them from there and
 HARD STOP if absent). Adding/updating an engine in the repo therefore requires provisioning the

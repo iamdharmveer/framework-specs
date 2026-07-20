@@ -1,4 +1,44 @@
-# Framework_MockTestCreate v5.27
+# Framework_MockTestCreate v5.29
+#
+# v5.29 — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION (found during a full
+#   line-by-line adversarial re-audit of the v5.28 Test* build). The v5.28
+#   {EXAM}*_blueprint.json glob (S3-1) is a PREFIX match, not an exact match — the exact-
+#   filename load it replaced made cross-ExamCode selection structurally impossible; the
+#   glob does not. If a differently-prefixed ExamCode's blueprint file were ever present
+#   in the same project (e.g. "SSC_CGL" vs "SSC_CGL_TIER1"), pp.pick_blueprint could
+#   silently select the WRONG exam's blueprint with no error. FIX: §3 S3-2 now asserts
+#   bp['exam_code'] == EXAM immediately after pick_blueprint returns, HARD STOPPING with
+#   an actionable message on mismatch instead of silently proceeding on the wrong exam's
+#   data. Also independently re-verified: the `pp` name used for `import paper_pipeline
+#   as pp` does not collide with the pre-existing `pp = doc.add_paragraph()` locals in
+#   add_linked_stimulus() (§9) — those are function-scoped Python locals and never read
+#   the outer `pp`, confirmed safe, no change needed there.
+#
+# v5.28 — 2026-07-20 — TEST* TRIGGERS + CROSS-TIER BLUEPRINT SELECTION (paper_pipeline.py
+#   integration). Adds TestCreate P[N] as the primary, exam-agnostic trigger (works for mock
+#   AND every scoped tier via --level/--scope), keeping MockCreate M[N] as a working alias
+#   (implicitly level='mock', unchanged behaviour for existing callers/automation). WHAT CHANGED:
+#     §2 S2-1 — new PRIMARY trigger TestCreate P[N] [--level <mock|subject|topic|subtopic>]
+#       [--scope <Subject[::Topic]>]; MockCreate M[N] retained as the mock-only alias (sets
+#       level='mock' implicitly, scope_subject/scope_topic=None).
+#     §3 S3-1 — blueprint discovery now globs for EVERY [ExamCode]*_blueprint.json file present
+#       (the mock file AND any [ExamCode]_[SCOPETAG]_blueprint.json scoped files), copying all
+#       found ones instead of hard-requiring exactly [ExamCode]_blueprint.json.
+#     §3 S3-2 — `import paper_pipeline as pp`; loads every discovered blueprint into a list and
+#       calls pp.pick_blueprint(blueprints, level=LEVEL, scope_subject=SCOPE_SUBJECT,
+#       scope_topic=SCOPE_TOPIC) to select `bp`, instead of assuming the single mock file.
+#       PickError surfaces as a HARD STOP with pp's actionable message (ambiguous scope, no
+#       blueprint found, etc.) — Claude does not guess.
+#     §4 S4-10, §13 S13-7 — paper_slug is now ALWAYS pp.paper_slug(paper_id) (the shared,
+#       single-source-of-truth implementation), replacing the inline
+#       `f'Mock{N}' if paper_id.startswith('MOCK:') else paper_id.replace(':', '_')`.
+#       BEHAVIOUR CHANGE (confirmed with Radheshyam): mock filenames for single-digit mocks
+#       change from unpadded (Mock1) to zero-padded (Mock01) — pp.paper_slug always zero-pads.
+#       This also fixes a real bug in the old inline scoped branch: replacing every ':'
+#       independently turned a topic paper_id's '::' into '__' (double underscore); pp.paper_slug
+#       handles '::' first, producing the correct single underscore.
+#   Shared logic (paper_slug, pick_blueprint) lives ONLY in paper_pipeline.py — not duplicated
+#   here. Does not touch NAT-portal-grading logic (S7-NEW-C) or any allocation/gate logic.
 #
 # v5.27 — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial audit,
 #   docs-only, zero logic/gate/value change). v5.25 introduced a new "## S7-NEW-B" heading
@@ -1314,14 +1354,33 @@
 
 ## S2-1 — Trigger formats
 
-  PRIMARY: MockCreate M[N]
-  STATUS:  MockCreate status
-  RESUME:  MockCreate M[N] resume   (v3.0 — see S4-12)
+  PRIMARY: TestCreate P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
+  STATUS:  TestCreate status
+  RESUME:  TestCreate P[N] resume   (v3.0 — see S4-12)
+
+  ALIAS (v5.28 — mock-only, working alias, unchanged behaviour):
+    MockCreate M[N]          == TestCreate P[N] --level mock
+    MockCreate status        == TestCreate status
+    MockCreate M[N] resume   == TestCreate P[N] --level mock resume
+
+  --level: selects WHICH blueprint tier to generate from when more than one
+    [ExamCode]*_blueprint.json is present (§3 S3-1/S3-2, pp.pick_blueprint).
+    mock            → [ExamCode]_blueprint.json (no --scope needed)
+    subject         → requires --scope <Subject>
+    topic           → requires --scope <Subject::Topic>
+    subtopic        → requires --scope identifying the subtopic-scoped blueprint
+    Omitted (Test* with no --level): single-active default — resolves automatically
+    ONLY if exactly one blueprint file is present; otherwise pp.pick_blueprint raises
+    PickError and Claude HARD STOPS with its actionable message (does not guess).
+    MockCreate M[N] always sets level='mock' implicitly — --level is never needed
+    (and is ignored if given) on the Mock* alias.
 
   ExamCode: read from exam_config.json in project knowledge; must match blueprint + registry.
-  [N]: integer ≥ 1; must ≤ total_mocks. Identity is paper_id (= blueprint.mocks[N].paper_id,
-       mock "MOCK:M{N:02d}"): it must not already be in registry.papers_completed[]
-       (legacy registries fall back to mocks_completed[]).
+  [N]: integer ≥ 1 (P[N] for TestCreate, M[N] for the MockCreate alias — same meaning: the
+       paper number within the selected blueprint's series); must ≤ that blueprint's
+       total_mocks/n_papers. Identity is paper_id (= blueprint.mocks[N].paper_id): it must
+       not already be in registry.papers_completed[] (legacy registries fall back to
+       mocks_completed[] for the mock tier only).
 
 ## S2-2 — Universal Absolute Rules table
 
@@ -1747,13 +1806,12 @@
   /mnt/user-data/outputs/ (delivery)
 
   ```python
-  import shutil, os, json, re
+  import shutil, os, json, re, glob
   from pathlib import Path
   EXAM = "[ExamCode]"  # from trigger
 
-  # MANDATORY COPIES — HARD STOP if any missing:
+  # MANDATORY COPIES (non-blueprint) — HARD STOP if any missing:
   required = [
-      f'{EXAM}_blueprint.json',
       f'{EXAM}_registry.json',
       f'{EXAM}_section_rules.md',
       f'{EXAM}_subtopic_manifest.json',   # v3.4 — cross-step contract (REQUIRED)
@@ -1764,6 +1822,20 @@
           raise SystemExit(f"HARD STOP: {f} not found in project knowledge. "
                            f"Upload it to [{EXAM}] project Files, then retry.")
       shutil.copy(src, f'/home/claude/{f}')
+
+  # BLUEPRINT DISCOVERY (v5.28, paper_pipeline.py): copy EVERY [ExamCode]*_blueprint.json
+  # present in project knowledge — the mock blueprint ([ExamCode]_blueprint.json) AND any
+  # scoped blueprints ([ExamCode]_[SCOPETAG]_blueprint.json from ScopedBlueprint). §3 S3-2
+  # (pp.pick_blueprint) decides which ONE of these this trigger actually generates from.
+  blueprint_srcs = sorted(glob.glob(f'/mnt/project/{EXAM}*_blueprint.json'))
+  if not blueprint_srcs:
+      raise SystemExit(f"HARD STOP: no {EXAM}*_blueprint.json found in project knowledge. "
+                       f"Run MockBlueprint or ScopedBlueprint first, then retry.")
+  BLUEPRINT_PATHS = []
+  for src in blueprint_srcs:
+      fname = os.path.basename(src)
+      shutil.copy(src, f'/home/claude/{fname}')
+      BLUEPRINT_PATHS.append(f'/home/claude/{fname}')
 
   # OPTIONAL — audit script (Layer 2 guard — not required for Layer 1):
   audit_py = f'/mnt/project/{EXAM}_mock_test_audit.py'
@@ -1790,7 +1862,7 @@
           shutil.copy(src, f'/home/claude/{learn_file}')
   ```
 
-## S3-2 — Load blueprint.json — read ALL fields (v2.0 GAP-02 fix)
+## S3-2 — Select and load the blueprint — read ALL fields (v2.0 GAP-02 fix; v5.28 pp.pick_blueprint)
 
   CRITICAL FIX: blueprint.json stores per-mock allocations under
   `mocks[i]['sections'][j]['subtopic_allocations']` — NOT under a
@@ -1798,7 +1870,37 @@
   which would raise KeyError on the actual file. This is fixed below.
 
   ```python
-  bp   = json.load(open(f'/home/claude/{EXAM}_blueprint.json'))
+  import paper_pipeline as pp
+
+  # LEVEL / SCOPE_SUBJECT / SCOPE_TOPIC come from the trigger (§2 S2-1):
+  #   MockCreate M[N] alias        -> LEVEL='mock', SCOPE_SUBJECT=None, SCOPE_TOPIC=None
+  #   TestCreate P[N] --level mock -> same as above
+  #   TestCreate P[N] --level subject --scope Physics
+  #                                 -> LEVEL='subject', SCOPE_SUBJECT='Physics', SCOPE_TOPIC=None
+  #   TestCreate P[N] --level topic --scope Physics::Mechanics
+  #                                 -> LEVEL='topic', SCOPE_SUBJECT='Physics', SCOPE_TOPIC='Mechanics'
+  #   TestCreate P[N] (no --level)  -> LEVEL=None, SCOPE_SUBJECT=None, SCOPE_TOPIC=None
+  #                                    (single-active default; requires exactly one blueprint file)
+
+  blueprints = [json.load(open(p)) for p in BLUEPRINT_PATHS]
+  try:
+      bp = pp.pick_blueprint(blueprints, level=LEVEL, scope_subject=SCOPE_SUBJECT,
+                              scope_topic=SCOPE_TOPIC)
+  except pp.PickError as e:
+      raise SystemExit(f"HARD STOP: {e}")
+
+  # v5.29 SAFETY CHECK: the {EXAM}*_blueprint.json glob (S3-1) is a PREFIX match — if a
+  # different ExamCode's files were ever uploaded into this same project (e.g. "SSC_CGL"
+  # vs "SSC_CGL_TIER1"), the glob could sweep in a blueprint that isn't this exam's. The
+  # exact-filename match this replaced made that structurally impossible; the glob does
+  # not, so it must be checked explicitly rather than trusted implicitly.
+  if bp['exam_code'] != EXAM:
+      raise SystemExit(
+          f"HARD STOP: selected blueprint's exam_code {bp['exam_code']!r} does not "
+          f"match the trigger's ExamCode {EXAM!r}. A blueprint file from a different "
+          f"ExamCode may have been picked up by the {EXAM}*_blueprint.json glob (S3-1) "
+          f"— check this project for a similarly-prefixed ExamCode's files.")
+
   sr_text = open(f'/home/claude/{EXAM}_section_rules.md',
                  encoding='utf-8').read()
 
@@ -3011,11 +3113,16 @@
 
 ## S4-10 — File naming convention
 
-  All deliverable names use paper_slug (C2 v5.21): "Mock[N]" for a mock (paper_id starts
-  "MOCK:") — byte-identical to pre-C2 — else the paper_id with ":" → "_" for a scoped paper.
+  All deliverable names use pp.paper_slug(paper_id) (v5.28 — the single shared
+  implementation in paper_pipeline.py, replacing the old inline C2 v5.21 version):
+  "Mock[N]" ZERO-PADDED to 2 digits for a mock (e.g. Mock01, Mock07, Mock12), else the
+  scoped paper_id with "::" collapsed to a single "_" first, then remaining ":" to "_"
+  (e.g. TOPIC:Physics::Mechanics:01 → TOPIC_Physics_Mechanics_01 — single underscore).
+  BEHAVIOUR CHANGE from pre-v5.28: single-digit mock filenames were unpadded (Mock1);
+  they are now zero-padded (Mock01) — confirmed with Radheshyam (v5.28 changelog).
 
   Per-batch cumulative: [ExamCode]_[paper_slug]_Q1to[last_q].docx
-    (mock e.g. SSC_CGL_TIER1_Mock7_Q1to30.docx; scoped e.g. NEET_SUBJ_Physics_03_Q1to30.docx)
+    (mock e.g. SSC_CGL_TIER1_Mock07_Q1to30.docx; scoped e.g. NEET_SUBJ_Physics_03_Q1to30.docx)
   Final:                [ExamCode]_[paper_slug]_Create.docx
   Answer key (internal): [ExamCode]_M[N]_answer_key.json
   Figural (internal):    [ExamCode]_fig_manifest.json
@@ -6563,10 +6670,10 @@
   ```python
   import os, json
   out = '/mnt/user-data/outputs'
-  # C2 (v5.21): paper-scoped deliverable name. A mock keeps the EXACT Mock[N] name; a scoped
-  # paper uses its paper_id (":" → "_"), e.g. SUBJ_Physics_03. For a mock, paper_slug ==
-  # f'Mock{N}', so docx_name is byte-identical to pre-C2.
-  paper_slug = f'Mock{N}' if paper_id.startswith('MOCK:') else paper_id.replace(':', '_')
+  # v5.28: paper_slug is ALWAYS pp.paper_slug(paper_id) — the single shared implementation
+  # (paper_pipeline.py), replacing the old inline C2 v5.21 version. Zero-pads mocks to 2
+  # digits (Mock01, not Mock1) and correctly collapses scoped "::" before remaining ":".
+  paper_slug = pp.paper_slug(paper_id)
   docx_name = f'{EXAM}_{paper_slug}_Create.docx'
   reg_name  = f'{EXAM}_registry.json'
   docx_path = f'{out}/{docx_name}'
@@ -7276,7 +7383,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.27
+# END OF Framework_MockTestCreate v5.29
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below

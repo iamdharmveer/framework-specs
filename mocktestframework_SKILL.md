@@ -1,6 +1,6 @@
 ---
 name: mock-test-framework
-description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, MockBlueprint, ScopedBlueprint, MockCreate, MockCreateAudit, MockExplain, MockExplainAudit, or MockDeliver — or asks to generate, audit, explain, tag, or deliver a mock test paper. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
+description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockCreateAudit, TestCreateAudit, MockExplain, TestExplain, MockExplainAudit, TestExplainAudit, MockDeliver, or TestDeliver — or asks to generate, audit, explain, tag, or deliver a mock test paper. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
 ---
 
 # Mock Test Framework — Source of Truth

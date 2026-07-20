@@ -1,4 +1,47 @@
-# Framework_MockTestCreateAudit v2.8.1
+# Framework_MockTestCreateAudit v2.9.1
+#
+# v2.9.1 — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION + LEVEL/BP_LEVEL NAME
+#   COLLISION (found during a full line-by-line adversarial re-audit of the v2.9 Test*
+#   build). Two independent fixes:
+#   (1) EXAM_CODE CROSS-VALIDATION (twin of Framework_MockTestCreate v5.29): the v2.9
+#   {EXAM}*_blueprint.json glob (P0) is a PREFIX match — docx_slug matching alone is not
+#   sufficient protection against a different ExamCode's blueprint being swept in, since
+#   two different exams could coincidentally both have a "Mock07". FIX: P0 now asserts
+#   bp['exam_code'] == EXAM immediately after pick_blueprint returns, HARD STOPPING with
+#   an actionable message on mismatch.
+#   (2) LEVEL/BP_LEVEL NAME COLLISION (real bug, not just a risk): v2.9's P0 introduced a
+#   bare `LEVEL` variable for blueprint-scope selection ('mock'/'subject'/'topic'/
+#   'subtopic'), but P2 ALREADY has a pre-existing `LEVEL = cat_c('level', 'unknown')` —
+#   the exam's ACADEMIC level (e.g. "undergraduate"), an entirely different value.
+#   Execution order happened to save v2.9 from a live misfire (P0's pick_blueprint call
+#   completes before P2's reassignment), but any future code path reading LEVEL after P2
+#   for blueprint-selection purposes would silently get the wrong value. FIX: renamed
+#   the blueprint-scope-selector variable to BP_LEVEL throughout P0; the pre-existing
+#   academic-level LEVEL at P2 is untouched.
+#
+# v2.9 — 2026-07-20 — TEST* TRIGGERS + DOCX-DRIVEN BLUEPRINT SELECTION (paper_pipeline.py
+#   integration; twin of Framework_MockTestCreate v5.28). Adds TestCreateAudit P[N] as the
+#   primary trigger (works for mock AND every scoped tier), keeping MockCreateAudit M[N] as
+#   a working alias (implicitly level='mock'). WHAT CHANGED:
+#     §2 S2-1 — new PRIMARY trigger TestCreateAudit P[N] [--level ...] [--scope ...];
+#       MockCreateAudit M[N]/resume/status retained as the mock-only alias.
+#     §2 S2-2 — registry-alignment check generalised to registry.papers_completed ending
+#       with this paper's paper_id, falling back to legacy mocks_completed for a mock (same
+#       fallback pattern already used elsewhere in this file, e.g. the existing
+#       `papers_completed or mocks_completed` read at the Step-8 re-sync).
+#     §3 P0 — blueprint resolution is now DOCX-DRIVEN: discovers the uploaded
+#       [ExamCode]_*_Create.docx, parses its paper_slug from the filename, loads every
+#       [ExamCode]*_blueprint.json present (mock + any scoped), and calls
+#       pp.pick_blueprint(blueprints, level=BP_LEVEL, docx_slug=docx_slug) to identify which
+#       ONE blueprint produced it — replacing the old hard assumption of a single
+#       [ExamCode]_blueprint.json. Cross-checks the resolved paper_slug against the docx
+#       filename; mismatch is a HARD STOP, never a guess.
+#     §5 S5-1/S5-1A — invocation docs updated to reference [paper_slug] (pp.paper_slug,
+#       zero-padded for a mock) and the ACTUAL resolved --blueprint path, instead of
+#       assuming Mock[N]/blueprint.json literally.
+#   Shared logic (paper_slug, pick_blueprint) lives ONLY in paper_pipeline.py. Does not
+#   touch the Part-A/Part-B gate logic, MANDATE A-D, or the canonical auditor script
+#   (Appendix A) itself.
 #
 # v2.8.1 — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial
 #   audit of Framework_MockTestCreate.md; docs-only, zero logic change). This file's
@@ -935,18 +978,29 @@
 
 ## S2-1 — Trigger formats
 
-  PRIMARY: MockCreateAudit M[N]
-  RESUME : MockCreateAudit M[N] resume     (re-enter mid-audit; §4 / RA-18)
-  STATUS : MockCreateAudit M[N] status     (print audit dashboard, no work)
+  PRIMARY: TestCreateAudit P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
+  RESUME : TestCreateAudit P[N] resume     (re-enter mid-audit; §4 / RA-18)
+  STATUS : TestCreateAudit P[N] status     (print audit dashboard, no work)
+
+  ALIAS (v2.9 — mock-only, working alias, unchanged behaviour):
+    MockCreateAudit M[N]          == TestCreateAudit P[N] --level mock
+    MockCreateAudit M[N] resume   == TestCreateAudit P[N] --level mock resume
+    MockCreateAudit M[N] status   == TestCreateAudit P[N] --level mock status
+
+  --level: cross-checked (not required) against the blueprint pp.pick_blueprint resolves
+    via the uploaded docx (P0). If given and it disagrees with the docx's actual tier,
+    HARD STOP. MockCreateAudit M[N] always implies level='mock'.
 
   ExamCode: read from exam_config.json in project knowledge; must match blueprint + registry exam_code.
-  [N]       : integer ≥ 1. The mock to audit. Resolution + validation in S2-2.
+  [N]       : integer ≥ 1. The mock/paper to audit. Resolution + validation in S2-2.
 
-## S2-2 — Mock-number resolution (do this BEFORE loading questions)
+## S2-2 — Mock/paper-number resolution (do this BEFORE loading questions)
 
   N is resolved from TWO sources; both must agree:
-    (a) the trigger's M[N];
-    (b) the uploaded docx filename [ExamCode]_Mock[N]_Create.docx.
+    (a) the trigger's M[N] / P[N];
+    (b) the uploaded docx filename [ExamCode]_[paper_slug]_Create.docx (v5.28: paper_slug
+        is "Mock[N]" zero-padded for a mock, else the scoped pp.paper_slug — P0 parses N
+        back out of whichever slug it actually is, via the matched blueprint mock entry).
   (v2.7: the paper's own title block is NO LONGER a source. Step 7 R8b / G-PREQ1 makes
    the Create.docx questions-only — the first non-blank paragraph is Q.1, so there is
    no title paragraph to read. A-HEADER now STRIPS any residual pre-Q.1 block rather than
@@ -955,15 +1009,16 @@
   confirm N. A wrong N corrupts the registry re-sync (§13) and the --mockN
   self-exclusion of cross-mock dedup (§10). Never guess.
 
-  REGISTRY ALIGNMENT (critical for §13): registry.mocks_completed must END with N
-  (Step 7 appended it). If mocks_completed[-1] != N OR N not in mocks_completed:
+  REGISTRY ALIGNMENT (critical for §13): registry.papers_completed must END with this
+  paper's paper_id (Step 7 appended it) — falling back to registry.mocks_completed
+  ending with N for a legacy registry auditing a mock. If neither holds:
     HARD STOP. Print:
-      "HARD STOP (S2-2): registry.mocks_completed = [...] does not end with mock
-       [N]. Step 8 re-syncs the registry by rebuilding the most-recently-appended
-       mock's slice; that requires the registry from the Step-7 run that generated
-       mock [N]. Upload the registry delivered alongside this docx, then re-run."
-    This catches: a stale registry, a skipped mock, or auditing an out-of-order
-    mock — all of which would make the §13 trailing-slice rebuild unsafe.
+      "HARD STOP (S2-2): registry.papers_completed = [...] does not end with paper_id
+       [paper_id]. Step 8 re-syncs the registry by rebuilding the most-recently-appended
+       paper's slice; that requires the registry from the Step-7 run that generated
+       this paper. Upload the registry delivered alongside this docx, then re-run."
+    This catches: a stale registry, a skipped mock/paper, or auditing an out-of-order
+    mock/paper — all of which would make the §13 trailing-slice rebuild unsafe.
 
 # ════════════════════════════════════════════════════════════════════════
 # §3 — SESSION START: PRE-FLIGHT (P0 … P9) — run ALL before any audit
@@ -975,9 +1030,9 @@
 ## P0 — Copy inputs to the working directory
 
   ```python
-  import shutil, os, json, re, sys, zipfile, hashlib
+  import shutil, os, json, re, sys, zipfile, hashlib, glob
   EXAM = "[ExamCode]"     # from trigger
-  N    = [N]              # resolved mock number (S2-2)
+  N    = [N]              # resolved mock/paper number (S2-2)
   WORK = "/home/claude"
   PROJ = "/mnt/project"
   UPL  = "/mnt/user-data/uploads"
@@ -992,25 +1047,90 @@
               return p
       return None
 
-  # C3 (v2.7.3): derive the paper identity from the blueprint (its filename is fixed, so it can
-  # be read before the paper docx). paper_slug names the input Step 7 actually wrote — "Mock[N]"
-  # for a mock (byte-identical), else a scoped paper_slug. Fallback "MOCK:M{N:02d}" for pre-C1.
-  import re as _re_pid
-  _bp_path = _find(f'{EXAM}_blueprint.json')
-  _bp      = json.load(open(_bp_path, encoding='utf-8')) if _bp_path else {}
-  _tp      = next((mk for mk in _bp.get('mocks', []) if mk.get('mock') == N), None)
-  paper_id   = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
-  paper_slug = f'Mock{N}' if paper_id.startswith('MOCK:') else paper_id.replace(':', '_')
+  def _find_glob(pattern):
+      for base in (UPL, PROJ):
+          hits = sorted(glob.glob(os.path.join(base, pattern)))
+          if hits:
+              return hits
+      return []
+
+  import paper_pipeline as pp
+
+  # v5.28 (twin of MockTestCreate v5.28): infer WHICH blueprint (mock or scoped) this audit
+  # is for from the UPLOADED docx itself, rather than assuming the single mock blueprint file.
+  # 1) find the Create.docx (uploads preferred, then project); 2) parse its paper_slug from
+  # the filename; 3) load every discovered blueprint; 4) pp.pick_blueprint(docx_slug=...)
+  # identifies the ONE blueprint that produced it (cross-checked against --level if given).
+  _docx_hits = _find_glob(f'{EXAM}_*_Create.docx')
+  if not _docx_hits:
+      raise SystemExit(f"HARD STOP: no {EXAM}_*_Create.docx found in uploads or project "
+                       f"knowledge. Upload the Step-7 output, then retry.")
+  if len(_docx_hits) > 1:
+      raise SystemExit(f"HARD STOP: {len(_docx_hits)} candidate Create.docx files found "
+                       f"({[os.path.basename(h) for h in _docx_hits]}) — remove the stale "
+                       f"one(s), keep only the paper you're auditing.")
+  _docx_path = _docx_hits[0]
+  _docx_name = os.path.basename(_docx_path)
+  _docx_m = re.match(rf'^{re.escape(EXAM)}_(.+)_Create\.docx$', _docx_name)
+  if not _docx_m:
+      raise SystemExit(f"HARD STOP: could not parse a paper_slug from docx filename "
+                       f"{_docx_name!r}.")
+  docx_slug = _docx_m.group(1)
+
+  # BP_LEVEL comes from the trigger (§2 S2-1): MockCreateAudit M[N] alias -> 'mock';
+  # TestCreateAudit P[N] --level X -> X; TestCreateAudit P[N] with no --level -> None.
+  # NOTE: named BP_LEVEL (not LEVEL) to avoid colliding with the unrelated LEVEL =
+  # cat_c('level', ...) academic-level variable assigned later at P2.
+
+  _bp_srcs = sorted(glob.glob(os.path.join(PROJ, f'{EXAM}*_blueprint.json'))) or \
+             sorted(glob.glob(os.path.join(UPL, f'{EXAM}*_blueprint.json')))
+  if not _bp_srcs:
+      raise SystemExit(f"HARD STOP: no {EXAM}*_blueprint.json found in project knowledge.")
+  _bp_paths_by_dict = []
+  for src in _bp_srcs:
+      dst = os.path.join(WORK, os.path.basename(src))
+      shutil.copy(src, dst)
+      _bp_paths_by_dict.append((dst, json.load(open(dst, encoding='utf-8'))))
+  _blueprints = [d for _, d in _bp_paths_by_dict]
+
+  try:
+      bp = pp.pick_blueprint(_blueprints, level=BP_LEVEL, docx_slug=docx_slug)
+  except pp.PickError as e:
+      raise SystemExit(f"HARD STOP: {e}")
+  _bp_path = next(p for p, d in _bp_paths_by_dict if d is bp)
+
+  # v2.9.1 SAFETY CHECK: the {EXAM}*_blueprint.json glob is a PREFIX match — if a
+  # different ExamCode's files were ever uploaded into this project, the glob could
+  # sweep one in. docx_slug matching alone is not sufficient protection: two different
+  # exams could coincidentally both have a "Mock07". The exact-filename match this
+  # replaced made cross-exam selection structurally impossible; the glob does not, so
+  # check explicitly.
+  if bp['exam_code'] != EXAM:
+      raise SystemExit(
+          f"HARD STOP: selected blueprint's exam_code {bp['exam_code']!r} does not "
+          f"match the trigger's ExamCode {EXAM!r}. A blueprint file from a different "
+          f"ExamCode may have been picked up by the {EXAM}*_blueprint.json glob — check "
+          f"this project for a similarly-prefixed ExamCode's files.")
+
+  _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
+  if _tp is None:
+      raise SystemExit(f"HARD STOP (S2-2): mock/paper number {N} not found in the "
+                       f"selected blueprint's mocks[].")
+  paper_id   = _tp.get('paper_id', f"MOCK:M{N:02d}")   # fallback for pre-C1 blueprints
+  paper_slug = pp.paper_slug(paper_id)
+  if paper_slug != docx_slug:
+      raise SystemExit(f"HARD STOP: uploaded docx paper_slug {docx_slug!r} does not match "
+                       f"blueprint mock {N}'s paper_slug {paper_slug!r}. Wrong docx, wrong "
+                       f"N, or stale blueprint — resolve before continuing.")
 
   REQUIRED = {
       'docx'    : f'{EXAM}_{paper_slug}_Create.docx',
       'registry': f'{EXAM}_registry.json',
       'rules'   : f'{EXAM}_section_rules.md',
-      'blueprint': f'{EXAM}_blueprint.json',
       'manifest': f'{EXAM}_subtopic_manifest.json',
       'audit_py': f'{EXAM}_mock_test_audit.py',     # MANDATE A — hard stop if absent
   }
-  paths = {}
+  paths = {'blueprint': _bp_path}   # already copied above
   missing = []
   for kind, name in REQUIRED.items():
       src = _find(name)
@@ -1514,14 +1634,18 @@
 
   ```bash
   python3 /home/claude/[ExamCode]_mock_test_audit.py \
-      /home/claude/[ExamCode]_Mock[N]_Create.docx \
-      --blueprint /home/claude/[ExamCode]_blueprint.json \
+      /home/claude/[ExamCode]_[paper_slug]_Create.docx \
+      --blueprint /home/claude/[blueprint filename resolved by pp.pick_blueprint, P0] \
       --rules     /home/claude/[ExamCode]_section_rules.md \
       --manifest  /home/claude/[ExamCode]_subtopic_manifest.json \
       --registry  /home/claude/[ExamCode]_registry.json \
       --mockN     [N] \
       --final
   ```
+  v5.28: [paper_slug] is pp.paper_slug(paper_id) — "Mock[N]" zero-padded for a mock,
+  else the scoped slug; the --blueprint path is whichever [ExamCode]*_blueprint.json
+  file P0's pp.pick_blueprint actually selected (paths['blueprint']) — not necessarily
+  the plain [ExamCode]_blueprint.json filename when auditing a scoped paper.
   --mockN [N] makes cross-mock dedup self-exclude mock N's own stems (re-auditing
   the registered mock is legal and must not flag the mock against itself). --final
   applies the full gate set + the OMML floor. Record exit code + full STDOUT;
@@ -1539,7 +1663,7 @@
 
   NEW Phase-3 invocation (REQUIRED to certify):
     python3 .../[ExamCode]_mock_test_audit.py \
-        /home/claude/[ExamCode]_Mock[N]_Create.docx \
+        /home/claude/[ExamCode]_[paper_slug]_Create.docx \
         --blueprint ... --rules ... --manifest ... --registry ... --mockN N \
         --final --audit-state /home/claude/[ExamCode]_M[N]_audit_state.json
 
@@ -3180,7 +3304,7 @@ Replace for registry.json), and next-step reference.
   | Ledger fabricated with stamps but no evidence files | Caught — S5-1A C5/C6 fail (named montage/fact/trace file absent); certification blocked. |
   | Autonomous/"don't pause" preference given | Waive the inter-batch pause ONLY (RA-15b / S4-3A); every question still audited + stamped + evidenced (RA-15a / RA-0). |
   | Trigger N ≠ filename N ≠ title N | HARD STOP (S2-2) — ask; wrong N corrupts re-sync + dedup. |
-  | registry.mocks_completed doesn't end with N | HARD STOP (S2-2) — upload the registry delivered with this docx. |
+  | registry.papers_completed doesn't end with this paper_id (or legacy mocks_completed doesn't end with N) | HARD STOP (S2-2) — upload the registry delivered with this docx. |
   | Only docx uploaded, registry missing | HARD STOP (P0) — registry is required (dedup + re-sync). |
   | registry lags by an earlier mock | Cross-mock dedup PARTIAL — log as §19 limitation; audit proceeds. |
   | docx < 50 KB | WARN — verify N; tiny paper is suspicious. |
@@ -5398,5 +5522,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.8.1
+# END OF Framework_MockTestCreateAudit v2.9.1
 # ════════════════════════════════════════════════════════════════════════
