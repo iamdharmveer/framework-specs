@@ -1,4 +1,24 @@
-# Framework_MockTestExplain v1.17
+# Framework_MockTestExplain v1.18
+#
+# v1.18 — 2026-07-18 — LIVE SELF-TEST COUNT FIX (found during an actual deployment attempt
+#   in a downstream project — this file's own P0 pre-flight gate hard-demanded exactly
+#   "SELF-TEST: 44/44 PASS" from explain_engine.py, which has legitimately read 62/62 since
+#   v1.16/v1.17 of that file (NAT charset guard fixtures). This is the SAME class of defect
+#   already fixed in Framework_MockTestExplainAudit.md v1.12 — that file's live references
+#   were checked and corrected then; this file's OWN live references were never checked,
+#   an omission, not a deliberate scope decision. Had this shipped as-is, Step 9 would have
+#   hard-stopped at its own P0 pre-flight on every single run, unconditionally, on any
+#   project using the current engine — this was a deploy-blocking defect, not cosmetic.
+#   FIX: 6 live requirement statements corrected to 62/62 — the self-test-with-self-test
+#   description near MANDATE B, the P1 pre-flight instruction (§ near P6 RESUME), the
+#   session-status template, §R1 PROVENANCE's reporting line, §21's Definition-of-Done
+#   invariant, and Appendix A's engine-module description. 5 historical changelog mentions
+#   (44/44, 44→47, 43→44 — describing past version transitions accurately) correctly left
+#   untouched; confirmed individually, not by blanket pattern-replace. Verified against
+#   Framework_MockTestExplainAudit.md's OWN references at the same time (a claim that it was
+#   "still inconsistent, 5x say 44" was checked directly and found inaccurate — its 4 live
+#   references already correctly say 62/62; the "44" mentions there are legitimate history).
+#   No procedure, gate, or rendered byte changed — purely a stale-count correction.
 #
 # v1.17 — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial audit;
 #   docs-only, zero logic change). §S7-4's reference to Step 7's canonical derive_nat_grading
@@ -511,7 +531,7 @@
 #   ships with the framework repo, so a GitHub project finds it in the /tmp/fw clone
 #   (no upload needed); a direct-upload project uploads it once to /mnt/project and
 #   reuses the SAME file in every exam project. It self-tests with `--self-test`
-#   (must print "SELF-TEST: 44/44 PASS").
+#   (must print "SELF-TEST: 62/62 PASS").
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE B — BATCH-OR-HALT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -715,7 +735,7 @@
       subtopic_manifest.json → registry.json → explain_engine.py (from the framework
       clone /tmp/fw, else the project Files /mnt/project). Copy the engine to /home/claude
       and run `python3 explain_engine.py --self-test` → MUST print
-      "SELF-TEST: 44/44 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
+      "SELF-TEST: 62/62 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (Step-10 feedback) and
       [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT, and index every
@@ -727,7 +747,7 @@
 ```text
       === MockExplain v1.13 — Session Status ===
       Spec / section_rules / blueprint / manifest / registry : [loaded]
-      explain_engine.py --self-test                          : [44/44 PASS]
+      explain_engine.py --self-test                          : [62/62 PASS]
       Exam config (CATEGORY C)  : options=[k or per-section map] · labels=[scheme] ·
                                   q_re=[..] · opt_re=[..] · lang=[..] · terminators=[..]
       Level / Medium             : [level] · [medium]  (from exam_config via CATEGORY C)
@@ -1609,7 +1629,7 @@ Step 9 uses BOTH footer types:
 # §20 — END-OF-MOCK REPORT (after the FINAL batch's confirmation; MANDATE-0 safe)
 # ════════════════════════════════════════════════════════════════════════
   §R1 PROVENANCE: mock N · registry state · blueprint reference · spec v1.13 · engine
-      44/44 · timestamp · EngineConfig (option count(s), label scheme, language,
+      62/62 · timestamp · EngineConfig (option count(s), label scheme, language,
       terminators) actually used.
   §R2 VERDICT: SHIP (delivered) / HALTED (escalation) — first line, unambiguous.
   §R3 COVERAGE: Q_TOTAL/Q_TOTAL explained · question-type split (mcq/msq/nat counts) ·
@@ -1632,7 +1652,7 @@ Step 9 uses BOTH footer types:
 # ════════════════════════════════════════════════════════════════════════
 # §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
 # ════════════════════════════════════════════════════════════════════════
-  1.  Pre-flight P0–P9 passed; engine --self-test 44/44; N in mocks_completed; config built.
+  1.  Pre-flight P0–P9 passed; engine --self-test 62/62; N in mocks_completed; config built.
   2.  Every question explained (zero sampling); every ExplanationBlock.validate() clean.
   3.  Every answer independently derived two ways; disagreements resolved 2-of-3 +
       DERIVATION-CONFIDENCE; zero guesses. Each block typed correctly (mcq/msq/nat) and
@@ -1789,7 +1809,7 @@ Step 9 uses BOTH footer types:
 #   add_math_text, parse_paper, build_interleaved_docx, verify_fidelity, verify_structure,
 #   verify_explanations, strip_solutions, the Step-10 reader parse_solution_blocks, and
 #   parse_learnings. Self-tests: `python3 explain_engine.py --self-test` →
-#   "SELF-TEST: 44/44 PASS" (core, required at P1) and `--self-test-audit` →
+#   "SELF-TEST: 62/62 PASS" (core, required at P1) and `--self-test-audit` →
 #   "AUDIT-SELF-TEST: 10/10 PASS" (reader round-trip).
 #
 #   WHY THE LISTING WAS REMOVED (v1.12): through v1.11 the full engine was reproduced
@@ -1815,5 +1835,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.17
+# END OF Framework_MockTestExplain v1.18
 # ════════════════════════════════════════════════════════════════════════

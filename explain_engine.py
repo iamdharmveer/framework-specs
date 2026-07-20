@@ -17,7 +17,7 @@
 #   build_interleaved_docx(src, blocks, out, cfg)  — seed WHOLE source, append blocks (append-only)
 #   verify_fidelity(out, src, cfg)     — question region byte-identical to source; rIds resolve (every batch)
 #   verify_structure(out, blocks, cfg) — block model + coverage + CA-binding (every batch)
-#   verify_explanations(out, blocks, cfg) — INDEPENDENT post-render re-audit of the rendered docx (every batch)
+#   verify_explanations(out, blocks, cfg) — INDEPENDENT post-render re-audit of the rendered docx (every batch); v1.17 adds NAT Correct-Answer portal-charset validation (RXA-CHARSET)
 #   strip_solutions(out, stripped, cfg)— questions-only copy for the Step-2 re-audit
 #   self_test()                        — N/N PASS gate; run with --self-test
 #   parse_solution_blocks(path, cfg)   — [STEP 5] read a Solutions docx back into blocks (inverse of build)
@@ -224,6 +224,65 @@ def sentence_count(text, terminators='.!?'):
     parts = [p for p in re.split(f'[{cls}]+', t) if p.strip()]
     return max(1, len(parts))
 
+_NAT_CHARSET_ALLOWED = frozenset('0123456789.-')
+_NAT_POINT_RE = re.compile(r'^-?\d+(?:\.\d+)?$')
+
+def validate_nat_grading_value(s, ctx=''):
+    """Portal-safe grading-value check for a NAT point value (locked, DJ rule,
+    v1.16 hardening). ALLOWLIST-only — 0-9 . - and NOTHING else — never a
+    blacklist of known-bad patterns, because a blacklist only catches the
+    patterns someone thought to ban (scientific notation, e.g.) and silently
+    lets a stray unit letter, en-dash, space, or paren through. Raises
+    ValueError naming the exact bad character(s) so the failure is traceable
+    to Step 7/9 authoring, never silently coerced/stripped.
+    `ctx` is prepended to the error (e.g. 'Q7' or 'Q7 ca_range.lo')."""
+    if s is None:
+        raise ValueError(f'{ctx}: NAT grading value missing')
+    s = str(s).strip()
+    if s == '':
+        raise ValueError(f'{ctx}: NAT grading value empty')
+    bad = sorted(set(s) - _NAT_CHARSET_ALLOWED)
+    if bad:
+        raise ValueError(f'{ctx}: NAT grading value {s!r} contains banned '
+                          f'character(s) {bad} — portal charset is exactly '
+                          f'"0123456789.-", nothing else (no scientific notation, '
+                          f'no units, no spaces, no en-dash, no parentheses). The '
+                          f'value must already be pre-scaled to the units the '
+                          f'question stem states before it reaches this engine.')
+    if not _NAT_POINT_RE.match(s):
+        raise ValueError(f'{ctx}: NAT grading value {s!r} is not a well-formed '
+                          f'plain number (expected: optional leading "-", digits, '
+                          f'optional single "." followed by digits — e.g. "3", '
+                          f'"-47", "3.00")')
+    return s
+
+
+def format_nat_range(lo, hi, ctx=''):
+    """Build the portal Range-type grading string '{lo}-{hi}' (locked, DJ rule,
+    v1.16 hardening) — no space, no parentheses, no words, no en-dash. Each
+    bound is independently charset-validated first.
+    NEGATIVE BOUNDS ARE NOT SUPPORTED (explicit DJ decision, not an inferred
+    default): the '-' join delimiter is structurally ambiguous with a bound's
+    own leading minus sign (e.g. is '-5-7' the range [-5,7] or a malformed
+    single value?). Rather than guess a convention the portal was never
+    confirmed to parse, this raises and requires escalation — matching the
+    project's existing halt-on-genuine-ambiguity pattern (G-NAT-ANSWER /
+    A-NAT-ANSWER), not a silent workaround."""
+    lo_s = validate_nat_grading_value(lo, ctx=f'{ctx} ca_range.lo')
+    hi_s = validate_nat_grading_value(hi, ctx=f'{ctx} ca_range.hi')
+    if lo_s.startswith('-') or hi_s.startswith('-'):
+        raise ValueError(f'{ctx}: NAT range with a negative bound '
+                          f'(lo={lo_s!r}, hi={hi_s!r}) is NOT SUPPORTED — the '
+                          f'"-" delimiter between lo/hi is ambiguous with a '
+                          f'bound\'s own sign. Escalate to Step 7/8: rework this '
+                          f'question so both bounds are non-negative, or confirm '
+                          f'an unambiguous portal-side range convention before '
+                          f'this gate is ever lifted.')
+    if float(lo_s) > float(hi_s):
+        raise ValueError(f'{ctx}: NAT range lo>hi ({lo_s!r} > {hi_s!r})')
+    return f'{lo_s}-{hi_s}'
+
+
 def has_inline_fraction(text):
     """True if a vulgar-fraction glyph, the Unicode fraction slash, or any bare
     inline fraction (digit/digit, a/letter, a/(, a/√, x²/2, (a+b)/c) remains after
@@ -397,11 +456,40 @@ class ExplanationBlock:
             if cfg.expected_options(self.q) not in (0, None):
                 raise ValueError(f'Q{self.q}: NAT must have 0 expected options, '
                                  f'got {cfg.expected_options(self.q)}')
-            if self.ca is None or str(self.ca).strip() == '':
-                raise ValueError(f'Q{self.q}: NAT answer value missing')
-            if str(self.ca) not in last:
-                raise ValueError(f'Q{self.q}: DEDUCTION last step must contain the '
-                                 f'answer value {str(self.ca)!r}')
+            # v1.16: ca may be None ONLY when ca_range is present — that is the
+            # reader-reconstruction case (parse_solution_blocks rebuilding a
+            # block from a rendered 'lo-hi' Correct-Answer line, where the
+            # single point value is no longer recoverable from that line by
+            # design: the range format replaces it entirely, it doesn't append
+            # to it). Author-constructed blocks (Step 7/9, building fresh) must
+            # still always supply ca — this does not relax authoring.
+            if self.ca_range is None:
+                if self.ca is None or str(self.ca).strip() == '':
+                    raise ValueError(f'Q{self.q}: NAT answer value missing')
+                # v1.16: portal-safe grading charset (0-9 . - only), independent
+                # of nat_answer_type — catches scientific notation, unit
+                # suffixes, en-dashes, spaces, parentheses BEFORE the block can
+                # be written. Fail-at-construction: this is the primary gate;
+                # render() re-checks as defense-in-depth, not the only line
+                # of defense.
+                validate_nat_grading_value(self.ca, ctx=f'Q{self.q}')
+                if str(self.ca) not in last:
+                    raise ValueError(f'Q{self.q}: DEDUCTION last step must contain '
+                                     f'the answer value {str(self.ca)!r}')
+            else:
+                lo, hi = self.ca_range
+                # raises on bad charset / negative bound (NOT SUPPORTED) / lo>hi
+                format_nat_range(lo, hi, ctx=f'Q{self.q}')
+                if self.ca is not None:
+                    # author-constructed range block: ca is the underlying point
+                    # value the range was built around (V ± tolerance) — still
+                    # charset-validated and still must be traceable in DEDUCTION,
+                    # exactly as before this change, unaffected by the display
+                    # format switch.
+                    validate_nat_grading_value(self.ca, ctx=f'Q{self.q}')
+                    if str(self.ca) not in last:
+                        raise ValueError(f'Q{self.q}: DEDUCTION last step must '
+                                         f'contain the answer value {str(self.ca)!r}')
             if self.why_wrong:
                 raise ValueError(f'Q{self.q}: NAT uses common_pitfalls, not why_wrong')
             if len(self.common_pitfalls) < 1:
@@ -483,10 +571,15 @@ def _block_paragraphs(cfg, blk):
     opt_word = cfg.labels['option']
     # ── Correct Answer line (shaped by type; index/label only, no option text) ──
     if blk.qtype == 'nat':
-        val = str(blk.ca)
+        # v1.16: portal grading value must be EXACTLY '0-9 . -', nothing else.
+        # A range REPLACES the point display entirely ('lo-hi', no parenthetical
+        # 'accepted range' wording, no en-dash) — the portal's Range validator
+        # reads the whole field as one delimited pair, not a value + a note.
         if blk.ca_range is not None:
             lo, hi = blk.ca_range
-            val = f'{val} ({cfg.labels["accepted_range"]} {lo}\u2013{hi})'
+            val = format_nat_range(lo, hi, ctx=f'Q{blk.q}')
+        else:
+            val = validate_nat_grading_value(blk.ca, ctx=f'Q{blk.q}')
         # math=True so a fractional answer renders as OMML
         out.append(_new_para(cfg, 'ca', text=f'{ca_label}: {val}', before=120,
                              after=120, bold=True, color=cfg.colors['ca'], math=True))
@@ -791,6 +884,10 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
 
     # segment rendered paragraphs into per-question explanation line lists
     segs = {}
+    ca_texts = {}   # v1.17: the ACTUAL rendered 'Correct Answer: X' value per question,
+                     # captured (not just consumed as a boundary marker) so it can be
+                     # independently re-validated against the portal charset below —
+                     # this checks what was WRITTEN, not what the in-memory block claims.
     cur = None
     in_expl = False
     for p in doc.paragraphs:
@@ -800,7 +897,9 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
         if cur is None:
             continue
         if t.startswith(ca_label + ':'):
-            in_expl = True; segs[cur] = []; continue
+            in_expl = True; segs[cur] = []
+            ca_texts[cur] = t[len(ca_label) + 1:].strip()
+            continue
         if in_expl:
             _s = _para_source(p._p, cur, strict=False).strip()
             if t or _s:                          # keep OMML-only paras (fraction value headers)
@@ -813,6 +912,25 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
         lines = segs[q]
         texts = [t for t, _, _ in lines]
         srcs = [s for _, _, s in lines]
+        # v1.17: independent portal-charset check on the RENDERED Correct-Answer text
+        # (RXA-2 / RXA-CHARSET) — runs regardless of whether any other lane flags this
+        # question for rectification, so a bad grading string can never silently pass
+        # through unexamined just because the surrounding prose looked fine.
+        if b and b.qtype == 'nat':
+            ca_rendered = ca_texts.get(q)
+            if ca_rendered is None:
+                problems.append(f'Q{q}: no rendered Correct Answer text captured')
+            else:
+                bad_chars = sorted(set(ca_rendered) - _NAT_CHARSET_ALLOWED)
+                is_range = bool(re.fullmatch(r'\d+(?:\.\d+)?-\d+(?:\.\d+)?', ca_rendered))
+                is_point = bool(_NAT_POINT_RE.match(ca_rendered))
+                if bad_chars:
+                    problems.append(f'Q{q}: rendered Correct Answer {ca_rendered!r} has '
+                                     f'banned character(s) {bad_chars} — portal charset is '
+                                     f'exactly "0123456789.-"')
+                elif not (is_range or is_point):
+                    problems.append(f'Q{q}: rendered Correct Answer {ca_rendered!r} is not '
+                                     f'a well-formed plain number or lo-hi range')
         seq = [t for t in texts if t in HEADERS]
         # 1. header order (SPEED HACK is positional/optional; core = the rest)
         core = [h for h in seq if h != H['speed_hack']]
@@ -829,7 +947,11 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
             last_src = srcs[last_i] if last_i > di else ''
             if b is not None:
                 if b.qtype == 'nat':
-                    if str(b.ca) not in last_src:
+                    # v1.16: a range-type block with no point value (ca is None
+                    # — the reader-reconstruction case; see ExplanationBlock.
+                    # validate()) has nothing to bind-check here. The band
+                    # itself round-trips via ca_range, checked elsewhere.
+                    if b.ca is not None and str(b.ca) not in last_src:
                         problems.append(f'Q{q}: DEDUCTION last line does not bind value {b.ca!r}')
                 else:
                     need = [f'{opt_word} {cfg.option_label(i)}' for i in sorted(b.ca_set())]
@@ -1018,6 +1140,63 @@ def self_test():
             why_wrong={2:['a.'],3:['b.']}, cfg=cfg); bad.validate()
         check('B-WWKEYS', False)
     except ValueError: check('B-WWKEYS', True)
+    # 13a NAT charset guard — full portal scenario matrix (v1.16)
+    # positive integer
+    check('NAT-CS-POSINT', validate_nat_grading_value('3') == '3')
+    # signed integer
+    check('NAT-CS-NEGINT', validate_nat_grading_value(-47) == '-47')
+    # plain decimal, decimal-capable (no forced point)
+    check('NAT-CS-DEC', validate_nat_grading_value('3.5') == '3.5')
+    # fixed-precision decimal (padding is Step 7's job; engine just accepts a
+    # well-formed already-padded string)
+    check('NAT-CS-DECFIX', validate_nat_grading_value('3.00') == '3.00')
+    # leading zero required under 1 — engine does not coerce, only rejects what
+    # is actually malformed; '.5' has no digit before the point
+    check('NAT-CS-LEADZERO-REJECT', _raises(lambda: validate_nat_grading_value('.5')))
+    # scientific notation — the original bug class ('3e-9')
+    check('NAT-CS-SCINOT-REJECT', _raises(lambda: validate_nat_grading_value('3e-9')))
+    # unicode multiplication sign / superscript exponent
+    check('NAT-CS-UNICODE-SCINOT-REJECT',
+          _raises(lambda: validate_nat_grading_value('3\u00d710\u207b\u2079')))
+    # unit suffix leaking into the grading field
+    check('NAT-CS-UNIT-REJECT', _raises(lambda: validate_nat_grading_value('47 nm')))
+    # stray plus sign (not in the allowed charset)
+    check('NAT-CS-PLUS-REJECT', _raises(lambda: validate_nat_grading_value('+3')))
+    # valid range, both bounds non-negative
+    check('NAT-RANGE-VALID', format_nat_range('46.50', '47.50', ctx='Q1') == '46.50-47.50')
+    check('NAT-RANGE-INT', format_nat_range('5', '7', ctx='Q1') == '5-7')
+    # old broken format (parenthetical + en-dash + word) must be gone for good
+    check('NAT-RANGE-NO-ENDASH',
+          _raises(lambda: validate_nat_grading_value('47 (accepted range 46.5\u201347.5)')))
+    # negative-bounded range — explicit NOT SUPPORTED gate (locked decision)
+    check('NAT-RANGE-NEGATIVE-NOTSUPPORTED',
+          _raises(lambda: format_nat_range('-5', '7', ctx='Q1')))
+    check('NAT-RANGE-BOTH-NEGATIVE-NOTSUPPORTED',
+          _raises(lambda: format_nat_range('-10', '-5', ctx='Q1')))
+    # lo>hi still hard-fails (pre-existing invariant, must survive the rewrite)
+    check('NAT-RANGE-LOGT-HI-REJECT', _raises(lambda: format_nat_range('9', '3', ctx='Q1')))
+    # ExplanationBlock end-to-end: a NAT block with a bad ca must fail AT
+    # CONSTRUCTION (validate()), never silently reach render()
+    nat_cfg = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, options_by_q={9: 0})
+    try:
+        bad_nat = ExplanationBlock(q=9, ca='3e-9', qtype='nat',
+            axiom=['A rate under neutral theory equals mutation rate times neutral fraction.'],
+            deduction=['5e-9 times 0.60 gives the neutral rate.', '3e-9 per site per generation.'],
+            common_pitfalls={'5e-9': ['Uses the total rate, ignoring the neutral fraction.']},
+            cfg=nat_cfg)
+        bad_nat.validate()
+        check('NAT-BLOCK-SCINOT-REJECT', False)
+    except ValueError:
+        check('NAT-BLOCK-SCINOT-REJECT', True)
+    # ExplanationBlock end-to-end: a correctly pre-scaled NAT value passes clean
+    good_nat = ExplanationBlock(q=9, ca='3', qtype='nat',
+        axiom=['A rate under neutral theory equals mutation rate times neutral fraction.'],
+        deduction=['Total rate is 5, in units of 10 to the -9, times 0.60.',
+                   'The neutral substitution rate is 3, in units of 10 to the -9.'],
+        common_pitfalls={'5': ['Uses the total rate, ignoring the neutral fraction.']},
+        cfg=nat_cfg)
+    check('NAT-BLOCK-VALID', good_nat.validate())
+
     # 16 build + fidelity + structure round-trip (Q2 has a trailing option figure,
     #    Q4 ends in a table — both must survive byte-identical)
     import tempfile, os
@@ -1162,9 +1341,13 @@ def self_test():
     nN = build_interleaved_docx(sN, [natblk], oN, cfgN)
     okfN, _ = verify_fidelity(oN, sN, cfgN)
     oksN, _ = verify_structure(oN, [natblk], cfgN, expected_qs=[1])
-    # NAT CA line shows the VALUE (not an option index)
+    # NAT CA line shows the VALUE (not an option index). v1.16: when ca_range
+    # is present the rendered line is the portal Range format 'lo-hi' ONLY —
+    # it replaces the point value + parenthetical wording entirely (the old
+    # 'Correct Answer: 47 (accepted range 46.5-47.5)' format is banned: it
+    # violates the portal's 0-9.- grading charset on five different counts).
     docNo = Document(oN)
-    ca_line_ok = any(p.text.strip().startswith('Correct Answer: 47') for p in docNo.paragraphs)
+    ca_line_ok = any(p.text.strip() == 'Correct Answer: 46.5-47.5' for p in docNo.paragraphs)
     check('NAT', nat_ok and nN == 1 and okfN and oksN and ca_line_ok)
 
     # 26b STR-KEYED options_by_q (registry.json boundary): keys arriving as JSON strings
@@ -1360,6 +1543,32 @@ def self_test():
     tP = os.path.join(dP, 't.docx'); dtam.save(tP)
     tam_caught, _ = verify_explanations(tP, [pblk], cfgP)
     check('POST-RENDER-AUDIT', clean_ok and not tam_caught)
+    # v1.17: independent Correct-Answer charset audit (RXA-CHARSET) — a NAT block that
+    # is perfectly clean AT CONSTRUCTION (passes validate()) but whose RENDERED docx is
+    # hand-tampered afterward (simulating a future renderer bug or a hand-edited file)
+    # must still be caught by verify_explanations, since it re-reads the actual bytes on
+    # disk rather than trusting the in-memory block that produced them.
+    cfgNG = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', None, options_by_q={1: 0})
+    dNG = tempfile.mkdtemp(); sNG = os.path.join(dNG, 'p.docx'); oNG = os.path.join(dNG, 's.docx')
+    dNGdoc = Document(); dNGdoc.add_paragraph('Q.1 stem'); dNGdoc.add_paragraph(''); dNGdoc.save(sNG)
+    ngblk = ExplanationBlock(q=1, ca='3', cfg=cfgNG,
+        axiom=['A rate under neutral theory equals mutation rate times neutral fraction.'],
+        deduction=['Total rate is 5, in units of 10 to the -9, times 0.60.',
+                   'The neutral substitution rate is 3, in units of 10 to the -9.'],
+        common_pitfalls={'5': ['Uses the total rate, ignoring the neutral fraction.']})
+    build_interleaved_docx(sNG, [ngblk], oNG, cfgNG)
+    ng_clean_ok, _ = verify_explanations(oNG, [ngblk], cfgNG)
+    dtamNG = Document(oNG)
+    for p in dtamNG.paragraphs:
+        if p.text.strip().startswith('Correct Answer:'):
+            for r in list(p.runs):
+                r.text = ''
+            p.runs[0].text = 'Correct Answer: 3e-9'   # the original bug, hand-injected
+            break
+    tNG = os.path.join(dNG, 't.docx'); dtamNG.save(tNG)
+    ng_tam_caught, ng_probs = verify_explanations(tNG, [ngblk], cfgNG)
+    check('RXA-CHARSET-CATCH', ng_clean_ok and not ng_tam_caught
+          and any('banned character' in p for p in ng_probs))
     # 40 rels resolution: clean build has no dangling image rIds (A3)
     okrel, _ = verify_fidelity(oF, sF, cfgF)
     check('RELS-RESOLVE', okrel and not (_embed_ids(oF) - _rel_ids(oF)))
@@ -1453,7 +1662,6 @@ def parse_solution_blocks(path, cfg, expected_qs=None):
     explanation and to rebuild corrected blocks."""
     doc = Document(path)
     ca_label = cfg.labels['correct_answer'].lower(); opt_word = cfg.labels['option']
-    acc = cfg.labels.get('accepted_range', 'accepted range')
     H = {k: f"{cfg.markers.get(k, '')} {cfg.labels.get(k, k)}".strip()
          for k in ('axiom', 'deduction', 'speed_hack', 'why_wrong', 'common_pitfalls')}
     HREV = {v: k for k, v in H.items()}
@@ -1483,14 +1691,19 @@ def parse_solution_blocks(path, cfg, expected_qs=None):
         disp = ca_src[len(ca_prefix):].strip(); ca_range = None
         if n == 0:
             qtype = 'nat'
-            if acc in disp and '(' in disp:
-                head, _, tail = disp.partition('(')
-                rng = tail.split(acc, 1)[1].strip().rstrip(')').strip()
-                for sep in ('\u2013', '\u2014', '-'):
-                    if sep in rng:
-                        lo, hi = rng.split(sep, 1)
-                        ca_range = (float(lo.strip()), float(hi.strip())); break
-                ca = head.strip()
+            # v1.16: portal grading format is EXACTLY '{lo}-{hi}' for a range, or
+            # a plain point value otherwise — no parentheses, no 'accepted range'
+            # wording, no en-dash (that format is retired; the charset guard in
+            # ExplanationBlock.validate()/render would now reject it outright).
+            # A range never has a leading '-' (negative-bounded ranges are a
+            # locked NOT-SUPPORTED case — see format_nat_range), so a leading
+            # '-' unambiguously means a signed point value, never a range.
+            _rng_m = re.match(r'^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$', disp)
+            if _rng_m:
+                ca_range = (float(_rng_m.group(1)), float(_rng_m.group(2)))
+                # the point value is not recoverable from a range-format line
+                # by design (see ExplanationBlock.validate() ca_range branch)
+                ca = None
             else:
                 ca = disp
         else:
@@ -1604,13 +1817,19 @@ def self_test_audit():
         for b in blocks:
             r = got.get(b.q)
             if r is None: ok = False; break
-            same = (r.qtype == b.qtype and r.ca_set() == b.ca_set()
+            same = (r.qtype == b.qtype
+                    and (b.qtype == 'nat' or r.ca_set() == b.ca_set())
                     and [s.strip() for s in r.axiom] == [s.strip() for s in b.axiom]
                     and [s.strip() for s in r.deduction] == [s.strip() for s in b.deduction]
                     and set(r.why_wrong) == set(b.why_wrong)
                     and set(map(str, r.common_pitfalls)) == set(map(str, b.common_pitfalls)))
             if b.qtype == 'nat':
-                same = same and str(r.ca) == str(b.ca) and r.ca_range == b.ca_range
+                if b.ca_range is not None:
+                    # point value is not recoverable from a rendered range
+                    # line by design — only the band round-trips
+                    same = same and r.ca_range == b.ca_range
+                else:
+                    same = same and str(r.ca) == str(b.ca) and r.ca_range == b.ca_range
             r.validate(); ok = ok and same
         out2 = os.path.join(d, 'o2.docx')
         build_interleaved_docx(src, list(got.values()), out2, cfg)
@@ -1660,9 +1879,15 @@ def self_test_audit():
     # regression: a NAT with a FRACTION answer AND a fraction pitfall value must
     # round-trip AND pass verify_explanations (both were OMML-blind before the fix).
     _cn = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', None, options_by_q={1: 0})
-    _bn = ExplanationBlock(q=1, ca='3/4', cfg=_cn,
+    # v1.16: ca (the GRADED value) must be portal-charset-pure — a fraction
+    # answer is pre-converted to its decimal equivalent before reaching the
+    # engine, same as any other NAT value. common_pitfalls KEYS are prose
+    # labels only (never graded, never sent to the portal), so fraction
+    # notation there is unaffected and still exercises the OMML-fraction
+    # round-trip path this fixture exists to protect.
+    _bn = ExplanationBlock(q=1, ca='0.75', cfg=_cn,
         axiom=['The probability equals favourable over total here.'],
-        deduction=['Count 3 favourable of 4 here.', 'The value is 3/4 here.'],
+        deduction=['Count 3 favourable of 4 here.', 'The value is 0.75 here.'],
         common_pitfalls={'1/2': ['An even split gives 1/2 here (process_confusion).'],
                          '4/3': ['Inverting gives 4/3 here (reversed_relationship).']})
     _dn = _t.mkdtemp(); _sn = _o.path.join(_dn, 's.docx'); _on = _o.path.join(_dn, 'o.docx')
@@ -1671,7 +1896,7 @@ def self_test_audit():
     _ven, _ = verify_explanations(_on, [_bn], _cn)
     _gn = parse_solution_blocks(_on, _cn)[1]
     chk('RT-NAT-FRAC', _ven and set(map(str, _gn.common_pitfalls)) == {'1/2', '4/3'}
-        and str(_gn.ca) == '3/4')
+        and str(_gn.ca) == '0.75')
     # parse_learnings round-trip: a synthetic AUDIT_LEARNINGS parses to structured
     # rules indexed by defect_code (the Step-4 P10 consumer contract).
     _lm = (

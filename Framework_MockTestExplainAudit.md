@@ -4,13 +4,24 @@
 **Step 10 — MockExplainAudit**
 **The independent auditor and rectifier of explanation documents produced by Step 9.**
 
-Version: v1.13
+Version: v1.14
 Status: Active
 Engine: `explain_engine.py` (shared universal engine; core `--self-test` 62/62, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
 
 ---
 
 ## VERSION HISTORY
+
+**v1.14** — 2026-07-18 — P0 GATE FIX (found via a live deployment attempt — this file's
+OWN P0 pre-flight check, §"P0 — Engine present and honest", hard-demanded a "44-of-44"
+core pass — a THIRD phrasing convention (hyphenated, distinct from "44/44" and "44 of 44")
+that the v1.12/v1.13 sweeps searched for but missed, because those searches matched exact
+substrings rather than the underlying fact. This is the most consequential of the three
+misses: P0 is the very first check Step 10 runs, so this alone would have hard-stopped
+every run unconditionally. Fixed to "62-of-62". Re-swept all 6 files in this defect chain
+for the same hyphenated-N-of-N pattern with any number, not just 44 — the only other hits
+("2-of-3") are an unrelated majority-vote concept, confirmed by inspection. No rule, gate,
+or rendered byte changed.
 
 **v1.13** — 2026-07-18 — SECTION-ID COLLISION FIX (found during a final adversarial audit; docs-only, zero logic change). RXA-11's reference to Step 7's canonical derive_nat_grading definition pointed at "S7-NEW-B" — an ID that collided with an unrelated pre-existing figural-generation section in Framework_MockTestCreate.md. Renamed to S7-NEW-C (2 references), matching Framework_MockTestCreate.md v5.27. No rule, gate, or rendered byte changed.
 
@@ -298,7 +309,7 @@ Pre-flight runs once at the start of a run (or resume) and gates everything afte
 
 ## P0 — Engine present and honest
 Both engines (`explain_engine.py` + `explain_audit_gate.py`) come from the framework clone (`/tmp/fw`) for GitHub projects, or the project Files (`/mnt/project`) for direct-upload projects — either location satisfies the mandate; absent from both → halt.
-Run `explain_engine.py --self-test` and require a clean 44-of-44 core pass. Run `explain_engine.py --self-test-audit` and require a clean 10-of-10 extended reader suite. **v1.7: also run `explain_audit_gate.py --self-test` and require a clean `COMPLETION-SELF-TEST: 8/8 PASS` — a completion gate that fails its own fixtures is not a working gate (parallel to Step 8 P1 hardened), and Phase 3 relies on it.** The engine self-tests prove the exact write→read→rebuild inverse holds for mcq, msq and nat, across numeric, alpha and roman label schemes, with OMML fractions; that a genuine fraction survives `verify_explanations` (the fraction-extraction regression); and that `parse_learnings` reads a learnings file back into the pinned rule schema (the loop the producer feeds — §24). Without all three green, Step 10 halts.
+Run `explain_engine.py --self-test` and require a clean 62-of-62 core pass. Run `explain_engine.py --self-test-audit` and require a clean 10-of-10 extended reader suite. **v1.7: also run `explain_audit_gate.py --self-test` and require a clean `COMPLETION-SELF-TEST: 8/8 PASS` — a completion gate that fails its own fixtures is not a working gate (parallel to Step 8 P1 hardened), and Phase 3 relies on it.** The engine self-tests prove the exact write→read→rebuild inverse holds for mcq, msq and nat, across numeric, alpha and roman label schemes, with OMML fractions; that a genuine fraction survives `verify_explanations` (the fraction-extraction regression); and that `parse_learnings` reads a learnings file back into the pinned rule schema (the loop the producer feeds — §24). Without all three green, Step 10 halts.
 
 ## P1 — Configuration loads and is complete
 Every configuration field the `EngineConfig` needs resolves to a concrete value. No default is silently substituted for a missing exam fact.

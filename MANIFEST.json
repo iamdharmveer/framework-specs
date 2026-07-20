@@ -108,18 +108,18 @@
       "bytes": 348973
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "69ee4a640c09f063b0606c3bb52579e4d6ec699b2d585834e8fcf55a7750e80d",
-      "version_header": "# Framework_MockTestExplain v1.17",
+      "sha256": "edcc0467fc1e026b1f91e2c196cbd11cbbc644df8788eb3828dd7a06e32eda5d",
+      "version_header": "# Framework_MockTestExplain v1.18",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1819,
-      "bytes": 145002
+      "lines": 1839,
+      "bytes": 146730
     },
     "Framework_MockTestExplainAudit.md": {
-      "sha256": "5438caf2c411a8c213c3254ed8751cef40961e78259b234e2c68d8190ec4dc71",
+      "sha256": "46d270767873f6dd4d32513f9c0505e4380d5854e8237730c3afe49f99c8bb76",
       "version_header": "# Framework_MockTestExplainAudit.md",
       "end_sentinel": "**End of Framework_MockTestExplainAudit.md (v1.8)**",
-      "lines": 1000,
-      "bytes": 103660
+      "lines": 1011,
+      "bytes": 104502
     },
     "Framework_PYQAnalyse.md": {
       "sha256": "2ee8ea3c079e84eb81e1b3f86603d0a44653c584d9b52b5708116ef0ecc095bf",
@@ -164,11 +164,11 @@
       "bytes": 11008
     },
     "explain_engine.py": {
-      "sha256": "fe11a61dda53035c1134ff211fdb4ede8ff640846104724767aebac72088452c",
+      "sha256": "be358fdf2c771aa55300c70162406398827fb5d682e9faf6054581f6ce9da3a7",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 1712,
-      "bytes": 91095
+      "lines": 1937,
+      "bytes": 105810
     },
     "blueprint_core.py": {
       "sha256": "71f938be6c2ed9c9dd496604c30c4cce40c91c5935e50c312c33daf443d2ddc1",
