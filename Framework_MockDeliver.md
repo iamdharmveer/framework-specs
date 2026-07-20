@@ -1,5 +1,32 @@
-# Framework_MockDeliver v1.8 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.9 — Universal Mock Test Tagger & Delivery Engine
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
+#
+#   v1.9 — 2026-07-20 — TEST* TRIGGERS + MULTI-BLUEPRINT SUPPORT (paper_pipeline.py
+#       integration; twin of Framework_MockTestExplainAudit v1.15). Adds TestDeliver P[N]
+#       as the primary trigger (works for mock AND every scoped tier via --level/--scope),
+#       keeping MockDeliver M[N] as a working alias (implicitly level='mock'). WHAT CHANGED:
+#         §1 S1-1 — new PRIMARY trigger TestDeliver P[N] [--level ...] [--scope ...];
+#           MockDeliver M[N] retained as the mock-only alias.
+#         §1 S1-2 — Solutions-docx filename acceptance generalised from Mock[N] to
+#           [paper_slug] (pp.paper_slug); blueprint verification now refers to the
+#           RESOLVED blueprint (§5 Phase 1), not an assumed single file.
+#         §5 Phase 1 — STRUCTURAL FIX: the old collision check HARD-STOPPED if more than
+#           one *_blueprint.json existed in project knowledge. That is now the NORMAL
+#           state once any scoped tier has been generated alongside the mock series, so
+#           this was blocking every scoped delivery. Replaced with: load every
+#           *_blueprint.json present, derive EXAM from them, parse paper_slug from the
+#           UPLOADED docx filename, then pp.pick_blueprint(blueprints, level=LEVEL,
+#           docx_slug=paper_slug) selects the ONE blueprint this delivery is for
+#           (PickError → HARD STOP, never a guess). registry.json collision check is
+#           UNCHANGED (still exactly one registry per project — the shared cross-tier
+#           ledger). paper_slug itself is now ALWAYS pp.paper_slug(paper_id) (zero-padded
+#           for a mock), replacing the old inline `f'Mock{N}' if ... else .replace(':','_')`
+#           — the render pipeline (§5 Phase 1 onward, e.g. render_out_path) already
+#           consumed the `paper_slug` variable from prior C3 work, so this fix propagates
+#           through unchanged.
+#       Shared logic (paper_slug, pick_blueprint) lives ONLY in paper_pipeline.py. Does
+#       not touch the C1–C17 gate logic, the NAT portal-grading charset validation, or any
+#       render/tagging logic.
 #
 #   v1.8 — 2026-07-18 — C17: NAT PORTAL GRADING-VALUE CHARSET (last-mile defense-in-depth;
 #       part of the same defect chain as Framework_MockTestCreate.md v5.25/v5.26,
@@ -340,27 +367,36 @@ The output Word document is NOT finished until ALL hold:
 ## S1-1 — Trigger parsing
 
 ```
-Trigger: MockDeliver M[N]
+Trigger: TestDeliver P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
 Trigger matching is case-insensitive.
 
+ALIAS (v1.9 — mock-only, working alias, unchanged behaviour):
+  MockDeliver M[N]   ==   TestDeliver P[N] --level mock
+
 Parse:
-  N        : positive integer — mock number
-  ExamCode : read from blueprint.json in project knowledge.
-             If no blueprint.json found → HARD STOP:
-               "No blueprint.json found in project knowledge.
-                Run MockBlueprint first and upload blueprint.json
-                to this project."
+  N        : positive integer — mock/paper number
+  LEVEL    : from --level, or 'mock' if the MockDeliver alias was used, else None
+             (single-active-default / docx-driven resolution — §5 Phase 1).
+  ExamCode : derived from the *_blueprint.json file(s) found in project knowledge
+             (v1.9: every [ExamCode]*_blueprint.json, not just one — §5 Phase 1).
+             If none found → HARD STOP:
+               "No *_blueprint.json found in project knowledge.
+                Run MockBlueprint or ScopedBlueprint first and upload
+                its blueprint.json to this project."
 ```
 
 ## S1-2 — Preflight (HARD STOP on any failure)
 
 ```
 1. Verify Solutions docx attached. Accept either:
-     [ExamCode]_Mock[N]_Explanation_Complete.docx  (Step 10 output — preferred)
-     [ExamCode]_Mock[N]_Explanation.docx           (Step 9 output — acceptable)
-   If neither attached → HARD STOP: "Attach the Solutions docx for Mock [N]."
+     [ExamCode]_[paper_slug]_Explanation_Complete.docx  (Step 10 output — preferred)
+     [ExamCode]_[paper_slug]_Explanation.docx           (Step 9 output — acceptable)
+   (v1.9: paper_slug is pp.paper_slug(paper_id) — "Mock[N]" zero-padded for a mock, else
+   the scoped slug; parsed from the uploaded filename itself, §5 Phase 1.)
+   If neither attached → HARD STOP: "Attach the Solutions docx for [N]."
 
-2. Verify blueprint.json in project knowledge.
+2. Verify the resolved blueprint (§5 Phase 1 — pp.pick_blueprint over every
+   [ExamCode]*_blueprint.json in project knowledge, driven by the uploaded docx).
    Read: exam_code, total_questions, sections[], subtopic_list[],
          difficulty_labels, q_types, marking_scheme[] (v1.7 — optional; absent/empty
          is valid and means subtopic-based Question Type resolution, see §3 S3-2a).
@@ -877,48 +913,73 @@ def reassign_docpr_ids(root):
 ```python
 import os, re, copy, zipfile, shutil, json
 from lxml import etree
+import paper_pipeline as pp
 
 # ── Session variables (set from trigger and uploaded file) ──
-N = MOCK_NUMBER                 # integer from "MockDeliver M[N]"
+N = MOCK_NUMBER                 # integer from "MockDeliver M[N]" / "TestDeliver P[N]"
 src_path = UPLOADED_FILE_PATH   # path to the attached Solutions docx
 
 os.makedirs('/home/claude/deliver_work/inputs_safe', exist_ok=True)
 os.makedirs('/home/claude/deliver_work/out', exist_ok=True)
-safe_path = f'/home/claude/deliver_work/inputs_safe/Mock{N}_src.docx'
-shutil.copy(src_path, safe_path)
-src_path = safe_path
 
-# Load blueprint.json and registry.json from project knowledge
-# COLLISION CHECK: if multiple *_blueprint.json files exist, HARD STOP
-bp_matches = [f'/mnt/project/{f}' for f in os.listdir('/mnt/project/')
-              if f.endswith('_blueprint.json')]
+# Load registry.json from project knowledge (still exactly ONE per ExamCode/project —
+# the registry is the single shared ledger across mock AND every scoped tier).
 reg_matches = [f'/mnt/project/{f}' for f in os.listdir('/mnt/project/')
                if f.endswith('_registry.json')]
-if not bp_matches:
-    raise SystemExit("HARD STOP: No *_blueprint.json in project knowledge.")
-if len(bp_matches) > 1:
-    raise SystemExit(
-        f"HARD STOP: Multiple blueprint files found: {bp_matches}\n"
-        f"Only one [ExamCode]_blueprint.json should exist per project.")
 if not reg_matches:
     raise SystemExit("HARD STOP: No *_registry.json in project knowledge.")
 if len(reg_matches) > 1:
     raise SystemExit(
         f"HARD STOP: Multiple registry files found: {reg_matches}\n"
         f"Only one [ExamCode]_registry.json should exist per project.")
-bp_path = bp_matches[0]
-reg_path = reg_matches[0]
+registry = json.load(open(reg_matches[0], encoding='utf-8'))
 
-blueprint = json.load(open(bp_path, encoding='utf-8'))
-registry = json.load(open(reg_path, encoding='utf-8'))
+# BLUEPRINT DISCOVERY (v1.9, paper_pipeline.py): load EVERY *_blueprint.json present — the
+# mock blueprint AND any scoped ([ExamCode]_[SCOPETAG]_blueprint.json) blueprints. No
+# collision HARD STOP here: multiple blueprint files is the NORMAL state once any scoped
+# tier has been generated alongside the mock series. pp.pick_blueprint (below) selects
+# the ONE this delivery is actually for, driven by the uploaded docx.
+bp_matches = [f'/mnt/project/{f}' for f in os.listdir('/mnt/project/')
+              if f.endswith('_blueprint.json')]
+if not bp_matches:
+    raise SystemExit("HARD STOP: No *_blueprint.json in project knowledge. "
+                     "Run MockBlueprint or ScopedBlueprint first.")
+blueprints = [json.load(open(p, encoding='utf-8')) for p in bp_matches]
+_exam_codes = {b['exam_code'] for b in blueprints}
+if len(_exam_codes) > 1:
+    raise SystemExit(
+        f"HARD STOP: blueprint files disagree on exam_code: {_exam_codes}\n"
+        f"Only one ExamCode's files should exist per project.")
+EXAM = next(iter(_exam_codes))
 
-EXAM = blueprint['exam_code']
+# v1.9: derive paper_slug from the UPLOADED filename itself (accepts either Step-9 or
+# Step-10 output naming), then let pp.pick_blueprint identify WHICH blueprint (mock or
+# scoped) produced it — cross-checked against --level if given.
+_uploaded_name = os.path.basename(src_path)
+_slug_m = re.match(rf'^{re.escape(EXAM)}_(.+)_Explanation(?:_Complete)?\.docx$', _uploaded_name)
+if not _slug_m:
+    raise SystemExit(f"HARD STOP: could not parse a paper_slug from the uploaded filename "
+                     f"{_uploaded_name!r}. Expected [ExamCode]_[paper_slug]_Explanation.docx "
+                     f"or [ExamCode]_[paper_slug]_Explanation_Complete.docx.")
+docx_slug = _slug_m.group(1)
 
-# C3 (v1.6): paper identity for deliverable naming. paper_slug = "Mock[N]" for a mock
-# (byte-identical), else the scoped paper_id (":"→"_"). Fallback "MOCK:M{N:02d}" for pre-C1.
+try:
+    blueprint = pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=docx_slug)
+except pp.PickError as e:
+    raise SystemExit(f"HARD STOP: {e}")
+
+safe_path = f'/home/claude/deliver_work/inputs_safe/{docx_slug}_src.docx'
+shutil.copy(src_path, safe_path)
+src_path = safe_path
+
+# C3 (v1.9): paper identity for deliverable naming. paper_slug is ALWAYS pp.paper_slug —
+# "Mock[N]" ZERO-PADDED for a mock, else the scoped slug. Fallback "MOCK:M{N:02d}" for pre-C1.
 _tp = next((mk for mk in blueprint.get('mocks', []) if mk.get('mock') == N), None)
 paper_id   = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
-paper_slug = f'Mock{N}' if paper_id.startswith('MOCK:') else paper_id.replace(':', '_')
+paper_slug = pp.paper_slug(paper_id)
+if paper_slug != docx_slug:
+    raise SystemExit(f"HARD STOP: uploaded docx paper_slug {docx_slug!r} does not match "
+                     f"blueprint mock/paper {N}'s paper_slug {paper_slug!r}.")
 total_questions = blueprint['total_questions']
 
 # Build the tag-value lookup table (§3)
@@ -1840,4 +1901,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.8
+# END OF Framework_MockDeliver v1.9

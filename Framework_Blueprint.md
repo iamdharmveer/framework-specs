@@ -1,4 +1,57 @@
-# Framework_Blueprint v1.32 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.34 — Universal Mock Test Blueprint Generator
+#
+# v1.34 — 2026-07-20 — REGISTRY CARRY-FORWARD REDESIGN (cross-step, Steps 1-11, schema-
+#   sync audit). §8-5 Step 5's v1.33 logic reconstructed the registry field-by-field
+#   from a hardcoded "carry forward these 5 fields, reset these other 7" list. Auditing
+#   it against §12-1's own documentation found the split was WRONG for 5 of the 7
+#   fields it reset: question_index, image_phashes, image_sources_used, session_log,
+#   and content_tracking are ALL documented as accumulating across the mock series —
+#   image_phashes/image_sources_used SPECIFICALLY to prevent reusing the same figural
+#   image across mocks, content_tracking SPECIFICALLY to prevent reusing the same GA
+#   fact/vocab word/idiom/etc. across mocks. Resetting them every series would have
+#   silently disabled that dedup across any series boundary — the exact failure class
+#   this feature exists to prevent. (A first pass of this same audit had already caught
+#   two smaller omissions this way — semantic_usage and exhausted_subtopics — which
+#   is what prompted checking every remaining field instead of stopping there.)
+#   ROOT CAUSE: reconstructing a hardcoded field subset is inherently fragile — it
+#   silently drops anything not explicitly listed, and nothing catches the omission
+#   until content quality degrades in a way nobody traces back to a series restart.
+#   FIX: Step 5 REDESIGNED to mirror Framework_ScopedBlueprint.md §8-7 (the reference
+#   implementation this whole feature was modeled on — confirmed via audit to have
+#   never had this bug): if a prior-series registry exists, pass it through VERBATIM
+#   (no field-by-field reconstruction at all) with a self-heal pass that only ADDS any
+#   of the 13 §12-1 universal fields a legacy registry is missing, never drops a
+#   present one. Only a genuine first-ever series (no existing registry at all) seeds
+#   the full blank template. This eliminates the whole bug class, not just the two
+#   fields the first pass found — a future schema addition can no longer be silently
+#   dropped by an incomplete carry-forward list, because there is no longer a
+#   carry-forward list to be incomplete.
+#   Verified: validate_framework_md.py (0 issues); simulated both the old (proven
+#   losing exhausted_subtopics/image_phashes across a series) and new (verbatim
+#   pass-through, nothing lost) behavior against paper_pipeline.py.
+#
+# v1.33 — 2026-07-20 — CROSS-SLOT REGISTRY CONTINUATION (paper_pipeline.py integration).
+#   Mock blueprints switch from "fresh registry per series" to "preserve-and-continue"
+#   (aligning mocks with the scoped tiers), enabling cross-slot dedup + continued numbering
+#   when an ExamCode's MockBlueprint is re-run for a new series. WHAT CHANGED:
+#     §8-5 S8-5 (B3): new Step 4B — imports paper_pipeline as pp; reads the existing
+#       [ExamCode]_registry.json from a prior series if present (flagged at S1-3); calls
+#       pp.apply_mock_offset(blueprint, existing_reg) BEFORE blueprint.json/blueprint.xlsx
+#       are written, so mocks[].mock, mocks[].paper_id, and difficulty_schedule[].mock
+#       continue numbering from the prior series instead of restarting at M01. First-ever
+#       series (no existing registry, offset 0): blueprint returned UNCHANGED by
+#       apply_mock_offset — blueprint.json is byte-identical to pre-v1.33 output.
+#     §8-5 Step 5 (registry.json generation): papers_completed, mocks_completed,
+#       question_hashes, stem_texts, semantic_tuples (and rc_manifests/figural_manifests
+#       when applicable) are now CARRIED FORWARD from the existing registry instead of
+#       seeded as blank arrays, then passed through pp.registry_guard(...) as a defensive
+#       check against accidentally emitting an empty registry over a populated one.
+#     EC-6 and RS-10 reworded: registry is preserved across series (append, never wipe) —
+#       previously described as "replaced" / "dedup starts fresh for new series", which is
+#       no longer correct behaviour.
+#   Shared logic lives ONLY in paper_pipeline.py (self-test 30/30) — not duplicated here.
+#   Verified: first-ever series produces byte-identical blueprint.json to pre-v1.33; a
+#   second series continues mock numbering and the registry is carried forward, never blanked.
 #
 # v1.32 — 2026-07-17 — GAP ANALYSIS FIX A + FIX D + FIX E (MPSC_Botany root-cause audit,
 #   Framework_Gap_Analysis — Step 6 §6 HALT investigation). Closes three structural defects
@@ -3708,16 +3761,84 @@ Step 4A Run BV-AXIS (§9 S9-12): axis_schedule integrity + feasibility report (v
         realized-vs-target proportion is audited within tolerance at Step 8, not here.
         Inert (passes vacuously) when the manifest predates Step 5 v2.23.
 
-Step 5  Generate registry.json (§12):
-          Universal: exam_code, schema_version, mocks_completed=[], papers_completed=[],
-                     question_hashes=[], stem_texts=[], semantic_tuples=[],
-                     question_index=[],
-                     image_phashes=[], image_sources_used=[],
-                     session_log=[], content_tracking={}
-          Conditional (from blueprint flags):
-            if passage_present: rc_manifests = []
-            if figural_present: figural_manifests = []
-            if di_present: no additional field (self-containment rule)
+Step 4B Apply cross-slot mock offset (paper_pipeline.py — v1.33):
+        import paper_pipeline as pp
+
+        Check project knowledge for an existing [ExamCode]_registry.json from a
+        PRIOR series (this is the same file flagged at the S1-3 collision check).
+          If found  : existing_reg = parsed JSON of that file.
+          If absent : existing_reg = None (first-ever series for this ExamCode).
+
+        blueprint = pp.apply_mock_offset(blueprint, existing_reg)
+          — First-ever series (existing_reg is None, or has no papers_completed/
+            mocks_completed entries): next_offset(...) == 0 → apply_mock_offset
+            returns the blueprint UNCHANGED. blueprint.json/blueprint.xlsx are
+            byte-identical to pre-v1.33 output.
+          — Continuing series: every mocks[].mock, mocks[].paper_id, and
+            difficulty_schedule[].mock is relabeled to continue from the highest
+            MOCK paper number already recorded in existing_reg.papers_completed
+            (falling back to legacy mocks_completed for pre-C1 registries).
+            blueprint['mock_offset'] records the applied offset for audit.
+          — Idempotent-guarded: pp.apply_mock_offset raises ValueError if the
+            blueprint already carries a mock_offset. This should never happen in
+            normal B3 flow (Step 1 reads a fresh blueprint.json each session) —
+            if it does, HALT and investigate; do not silently retry or strip the
+            field.
+
+        This offset-applied blueprint — NOT the raw B2 numbering — is what
+        Step 8 writes to [ExamCode]_blueprint.json and blueprint.xlsx.
+
+Step 5  Generate registry.json (§12) — PRESERVED ACROSS SERIES (v1.34 REDESIGN):
+          v1.34: REDESIGNED after a cross-step (Steps 1-11) schema-sync audit found the
+          original v1.33 field-by-field carry-forward was structurally fragile and
+          WRONG for 5 of its 7 "always fresh" fields. Per §12-1's own documentation,
+          EVERY registry field except exam_code/schema_version accumulates across the
+          mock series for cross-mock dedup — including question_index, image_phashes,
+          image_sources_used, session_log, and content_tracking, which v1.33 wrongly
+          reset to blank every series. image_phashes/image_sources_used exist
+          SPECIFICALLY to prevent reusing the same figural image across mocks;
+          content_tracking exists SPECIFICALLY to prevent reusing the same GA fact/
+          vocab word/idiom/etc. across mocks. Resetting them every series would have
+          silently disabled that dedup for anything spanning a series boundary — the
+          exact failure class this whole feature exists to prevent, just for five
+          fields instead of the two (semantic_usage, exhausted_subtopics) an earlier
+          pass of this same audit had already caught.
+          REDESIGNED to mirror Framework_ScopedBlueprint.md §8-7 (the reference
+          implementation this whole feature was modeled on): rather than
+          reconstructing the registry field-by-field from a hardcoded carry-forward
+          list — which is exactly the pattern that produced this bug and could produce
+          the same class of bug again for any future field — Step 5 now either passes
+          existing_reg through UNCHANGED, or seeds a full blank template. There is no
+          third path that reconstructs a subset of fields.
+
+          existing_reg is the value Step 4B already read (the prior series' registry,
+          or None for a first-ever series). Do NOT re-read it separately.
+
+          if existing_reg:
+            registry = existing_reg   # VERBATIM — every field, known or future,
+                                       # survives untouched. No reconstruction.
+            SELF-HEAL (idempotent, same intent as Step 7's REQUIRED_TOP gate):
+              for each of the 13 §12-1 universal fields absent from registry (a
+              legacy registry predating a schema addition), add it at its documented
+              empty default ([] for list fields, {} for content_tracking and
+              exhausted_subtopics) — never drop an existing value, only fill a true
+              gap. This is what makes v1.34 safe even if a FUTURE schema field is
+              added and an old registry predates it: self-heal adds it once, carry-
+              forward (because we never reconstruct) can never again drop it.
+              Conditionally add rc_manifests=[] / figural_manifests=[] if
+              passage_present / figural_present and not already present.
+            registry = pp.registry_guard(registry, existing_reg)
+              Cheap, permanent safety net — should never fire now (registry IS
+              existing_reg, so it can't be emptier than itself), but costs nothing
+              to keep as the last line of defense against a future refactor
+              reintroducing a reconstruction bug.
+
+          else (existing_reg is None — first-ever series for this ExamCode):
+            registry = { <the full §12-1 template — all 13 universal fields at their
+                         documented empty defaults, exam_code/schema_version set> }
+              Conditional: rc_manifests=[] if passage_present; figural_manifests=[]
+              if figural_present; di_present adds no field (self-containment rule).
+            — byte-identical to pre-v1.33 output.
 
 Step 6  Generate [ExamCode]_ExplainLearnings.md:
           # [ExamCode] — [exam_name] MockExplain Learnings
@@ -5111,13 +5232,25 @@ RS-9  : Registry schema fixed at Step 1 B3. Step 2 only ADDS entries to
          created lazily by Step 2 via setdefault() — this is not a top-level
          addition and is permitted under RS-9.
 
-RS-10 : Registry must be REPLACED (not appended) after every Step 2 session.
+RS-10 : WITHIN a series, the registry FILE is swapped (not hand-edited) after
+         every Step 2 session — this is a file-management rule, not a data-loss
+         rule: Step 2 (§12-5) appends the new mock's entries to the existing
+         arrays in memory, then outputs the complete updated registry.json, and
+         the user swaps that in for the old file. No registry content is lost;
+         the array VALUES are always append-only, only the FILE on disk changes.
          User deletes old registry.json from project knowledge.
          User uploads new registry.json (output of Step 2 session).
          Never keep two registry versions.
-         Never append to old registry.
-         Failure to replace → G-DUP gate at Step 3 misses duplicates
-         from skipped mock → dedup integrity compromised for entire series.
+         Never hand-append to old registry.json instead of using Step 2's output.
+         Failure to swap in the updated file → G-DUP gate at Step 3 misses
+         duplicates from the skipped mock → dedup integrity compromised for
+         entire series.
+
+         ACROSS series (v1.33, paper_pipeline.py): the registry is PRESERVED —
+         a re-run of MockBlueprint for the same ExamCode (EC-6) carries the
+         prior registry's dedup ledger and mock numbering forward (§8-5 Step
+         4B/Step 5) rather than starting from a blank template. Append, never
+         wipe, applies across series exactly as it does within one.
 ```
 
 ### S12-5 — How Step 2 populates the registry
@@ -6229,8 +6362,14 @@ Claude warns (ref S1-3):
    Confirm to proceed — existing files will be replaced on delivery."
 
 After confirmation: proceeds normally.
-Old files replaced when user uploads new files after B3.
-Prior registry.json replaced → dedup starts fresh for new series.
+blueprint.xlsx, blueprint.json, and the Learnings files are replaced when user
+uploads new files after B3.
+registry.json is PRESERVED ACROSS SERIES (v1.33, paper_pipeline.py) — never
+wiped. §8-5 Step 4B reads the prior registry, continues mock numbering from it
+(pp.apply_mock_offset), and §8-5 Step 5 (v1.34) passes the ENTIRE prior registry
+through verbatim — every field, not an enumerated subset — self-healing only
+genuinely missing §12-1 fields, rather than emitting a blank template.
+pp.registry_guard(...) refuses to emit an empty registry over a populated one.
 ```
 
 ### EC-7: Files uploaded after trigger is typed
@@ -6758,4 +6897,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.32
+# END OF Framework_Blueprint v1.34

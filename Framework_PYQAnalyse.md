@@ -1,4 +1,25 @@
-# Framework_PYQAnalyse v2.15 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.16 — Universal PYQ Analysis & Taxonomy Builder
+#
+# v2.16 — 2026-07-20 — PYQ CORPUS DRIVE-ONLY STANDARDIZATION, STEP 2b/PYQScan (twin fix:
+#   Framework_MockTestAnalyse.md Step 5/PYQExtract v2.24.8). Found during a project-level
+#   audit: three pipeline steps that all handle the SAME document class (Row/Sorted PYQ
+#   .docx corpus files) disagreed on whether Google Drive was required — Step 4 (PYQCount,
+#   this file) always mandated Drive with no fallback; this step (Step 2b/PYQScan) allowed
+#   an uploads-only fallback; Step 5 (PYQExtract) allowed the broadest fallback (project/
+#   uploads). STANDARDIZED to Step 4's existing Drive-only rule (confirmed with
+#   Radheshyam) — Row files must be in Google Drive for --scan mode now, same as
+#   --counts mode always required. WHAT CHANGED:
+#     Header, S1-1 trigger parsing, S1-2 mode validation, S1-2 file inventory — PYQ:
+#       <<Drive link>> is now REQUIRED for --scan mode; absent → HARD STOP (was: silent
+#       fallback to /mnt/user-data/uploads/).
+#     collect_row_files() (§3 S3-2) — removed the 'uploads' source branch entirely;
+#       now takes drive_folder_id as a required argument and raises SystemExit if
+#       absent, instead of silently scanning uploads/.
+#   --taxonomy mode (Exam Syllabus/Pattern docs) and --approve mode (scan_progress.json)
+#   are UNAFFECTED — those are a different document class (small config/state files),
+#   not the PYQ corpus, and remain project/uploads-eligible per existing architecture.
+#   Does not touch taxonomy-building logic, batch processing, or gate/mandate checks.
+#   Verified: validate_framework_md.py (0 issues, AST-clean).
 #
 # v2.15 — 2026-07-18 — LOCAL-COPY CORRUPTION REPAIR (B-PYAST false positive; zero content/
 #   logic change). This project's local Files-section copy of this spec had silently DROPPED
@@ -69,7 +90,7 @@
 #                Exam Pattern  (ANY format: image/PDF/.docx/.xlsx/plain text)
 #                  PREFERRED: .xlsx with 3 standardized tabs (Overview/Sections/Range)
 #                  See S2-2 for xlsx parser specification.
-#   --scan     : Row files (.docx) — from uploads or Google Drive
+#   --scan     : Row files (.docx) — from Google Drive (required, v2.16)
 #                scan_progress.json (for resume across sessions)
 #   --approve  : scan_progress.json (completed scan)
 #   --counts   : Sorted PYQ files from Google Drive (output of PYQSort)
@@ -92,7 +113,7 @@
 # TRIGGER FORMAT:
 #   Step 2a: PYQDraft [ExamCode]          (ExamCode provided ONLY here, saved in exam_config.json)
 #   Step 2b: PYQScan                      (reads ExamCode from exam_config.json)
-#   Step 2b: PYQScan PYQ: <<Google Drive folder link>>  (optional — Drive source for Row files)
+#   Step 2b: PYQScan PYQ: <<Google Drive folder link>>  (required, v2.16 — Drive source for Row files)
 #   Step 2c: PYQApprove                   (reads ExamCode from exam_config.json)
 #   Step 4:  PYQCount PYQ: <<Google Drive folder link>>  (reads ExamCode from exam_config.json)
 #
@@ -796,9 +817,11 @@ Parse:
   PYQScan  → Step 2b (--scan mode)
     ExamCode : read from exam_config.json in project knowledge.
                If exam_config not found → "Run PYQDraft [ExamCode] first."
-    PYQ:     : Google Drive folder link (OPTIONAL)
+    PYQ:     : Google Drive folder link (REQUIRED — v2.16, standardized with Step 4)
                Extract folder ID: r'drive\.google\.com/drive/folders/([A-Za-z0-9_-]+)'
-               If absent → scan /mnt/user-data/uploads/ for .docx (fallback)
+               If absent → HARD STOP: "PYQScan requires PYQ: <<Google Drive folder
+               link>>. Row files must be in Google Drive — the local upload fallback
+               was removed (v2.16) to match Step 4 (PYQCount)."
   PYQApprove → Step 2c (--approve mode)
     ExamCode : read from exam_config.json.
   PYQCount → Step 4 (--counts mode)
@@ -808,7 +831,7 @@ Parse:
 
 Mode validation:
   PYQDraft   → requires: Exam Syllabus + Exam Pattern in uploads or chat
-  PYQScan    → requires: Row files (uploads or PYQ: Drive link) + taxonomy_draft.json in project
+  PYQScan    → requires: PYQ: Drive link to Row files + taxonomy_draft.json in project
   PYQApprove → requires: scan_progress.json in project or uploads
   PYQCount   → requires: PYQ: Drive link to sorted PYQ folder
 ```
@@ -827,10 +850,12 @@ For --taxonomy mode:
   If either missing → ask user to provide.
 
 For --scan mode:
-  ✓ Row files (.docx) : from PYQ: Drive link (if provided) OR uploads fallback
+  ✓ Row files (.docx) : from PYQ: Drive link (REQUIRED — v2.16, no local fallback)
   ✓ taxonomy_draft.json : from project knowledge or uploads
-  If PYQ: Drive link provided → use Google Drive MCP to list files recursively
-  If PYQ: absent and no .docx in uploads → "Provide Row files via PYQ: Drive link or upload to chat."
+  Use Google Drive MCP to list files recursively.
+  If PYQ: absent → HARD STOP: "PYQScan requires PYQ: <<Google Drive folder link>>.
+  Row files must be in Google Drive — the local upload fallback was removed (v2.16)
+  to match Step 4 (PYQCount)."
   If taxonomy_draft.json missing → "Run --taxonomy mode first."
 
 For --approve mode:
@@ -2091,10 +2116,14 @@ def reconcile_stats(pairs):
 ```
 
 ```python
-def collect_row_files(source, drive_folder_id=None, cached_inventory=None):
+def collect_row_files(drive_folder_id, cached_inventory=None):
     """
-    Collect all Row file paths, grouped by year.
-    Source: 'uploads' or 'gdrive'.
+    Collect all Row file paths, grouped by year, from Google Drive.
+    v2.16: DRIVE-ONLY — the local /mnt/user-data/uploads/ fallback was REMOVED to
+    standardize with Step 4 (PYQCount), which has always required Drive with no
+    fallback (see S1-1's PYQCount PYQ: parameter). Row files via chat upload are
+    no longer accepted for --scan mode; PYQ: <<Drive link>> is a required trigger
+    parameter.
     cached_inventory: from scan_progress.json['drive_file_inventory']
                       Used ONLY on first session if already cached.
                       Resume sessions re-list from Drive (v2.3 — see S3-7).
@@ -2105,18 +2134,18 @@ def collect_row_files(source, drive_folder_id=None, cached_inventory=None):
     if cached_inventory and len(cached_inventory) > 0:
         return cached_inventory
 
+    if not drive_folder_id:
+        raise SystemExit(
+            "HARD STOP: PYQScan requires PYQ: <<Google Drive folder link>>. Row "
+            "files must be in Google Drive — the local upload fallback was removed "
+            "(v2.16) to match Step 4 (PYQCount). Provide the Drive link and retry.")
+
     files = []
-    if source == 'gdrive' and drive_folder_id:
-        # Use Google Drive MCP to list files recursively
-        # (same pattern as Step 5's S1-2 Drive path)
-        # v1.7: Filter .docx only (EC-P21: skip PDFs, images, Google Docs)
-        # Only files with mimeType = wordprocessingml.document
-        pass  # Drive MCP calls
-    else:
-        import glob
-        for f in glob.glob('/mnt/user-data/uploads/*.docx'):
-            files.append({'name': os.path.basename(f), 'path': f,
-                          'source': 'uploads'})
+    # Use Google Drive MCP to list files recursively
+    # (same pattern as Step 5's S1-2 Drive path)
+    # v1.7: Filter .docx only (EC-P21: skip PDFs, images, Google Docs)
+    # Only files with mimeType = wordprocessingml.document
+    pass  # Drive MCP calls
 
     # Extract year from filename
     for f in files:
@@ -4861,4 +4890,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.15
+# END OF Framework_PYQAnalyse v2.16

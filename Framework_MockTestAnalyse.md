@@ -1,5 +1,29 @@
-# Framework_MockTestAnalyse v2.24.7 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.8 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
+#
+# v2.24.8 — 2026-07-20 — PYQ CORPUS DRIVE-ONLY STANDARDIZATION (twin fix: Framework_
+#   PYQAnalyse.md Step 2b / PYQScan). Found during a project-level audit: three
+#   pipeline steps that all handle the SAME document class (Row/Sorted PYQ .docx
+#   corpus files) disagreed on whether Google Drive was required — Step 4 (PYQCount)
+#   always mandated Drive with no fallback; Step 2b (PYQScan) allowed an uploads-only
+#   fallback; this step (Step 5) allowed the broadest fallback (project/uploads).
+#   STANDARDIZED to Step 4's existing Drive-only rule (confirmed with Radheshyam) —
+#   Row/Sorted PYQ corpus files must be in Google Drive across all three steps now.
+#   WHAT CHANGED:
+#     Header comment block, §1 S1-1 — PYQ: <<Drive link>> is now REQUIRED for paper-processing
+#       (auto-mode); absent → HARD STOP. --status/--synthesise are exempt (they don't
+#       re-scan the PYQ corpus) — if PYQ: is given anyway for those modes it's used
+#       opportunistically, non-fatal on Drive error.
+#     §1 S1-2 — removed the local project/uploads fallback loop for pyq_doc_paths
+#       (the raw PYQ corpus). Exam Pattern and Analysis documents are UNCHANGED —
+#       those remain project/uploads-eligible (small state/reference files, not the
+#       corpus) via the existing unconditional local-collection loop, including the
+#       loose image/PDF exam-pattern fallback (preserved unchanged, not part of this
+#       standardization).
+#     Drive listing errors now HARD STOP instead of silently degrading to a local
+#       scan — there is no local fallback for the corpus left to degrade to.
+#   Does not touch synthesis, subtopic mapping, gate logic, or any Analysis-doc
+#   generation. Verified: validate_framework_md.py (0 issues, AST-clean).
 #
 # v2.24.7 — 2026-07-18 — §6.2 STRUCTURAL FIX for A-INTEGRITY-FALSEPOS-01 (docs-only, zero
 #   logic change). §14 SCHEMA REFERENCE's three block definitions (CATEGORY C, CATEGORY A,
@@ -653,15 +677,14 @@
 #   NO CONFIG FILE REQUIRED: all parameters auto-detected from documents.
 #
 # TRIGGER FORMAT:
-#   Step 5: PYQExtract PYQ: <<Google Drive Link>>       -- process PYQ from Drive
-#   Step 5: PYQExtract                                   -- process from project/uploads
+#   Step 5: PYQExtract PYQ: <<Google Drive Link>>       -- process PYQ from Drive (required)
 #   Step 5: PYQExtract --status                          -- show progress dashboard
 #   Step 5: PYQExtract --synthesise ALL                  -- re-synthesise only
 #
 #   Trigger matching is case-insensitive.
 #   ExamCode read from exam_config.json in project knowledge (set during Step 2a PYQDraft).
 #
-#   PYQ parameter (optional):
+#   PYQ parameter (REQUIRED — v2.24.8, standardized with Step 4/Step 2b):
 #     PYQ: <<Google Drive folder link>>
 #     Link can point to:
 #       • A flat folder (all docx files directly inside)
@@ -671,13 +694,16 @@
 #       https://drive.google.com/drive/folders/FOLDER_ID  → ID = FOLDER_ID
 #       https://drive.google.com/drive/folders/FOLDER_ID?usp=sharing → same
 #
-#   If PYQ parameter absent: scan /mnt/project/ and /mnt/user-data/uploads/ for .docx
-#   (fallback for when Drive is not connected or user uploads files directly)
+#   If PYQ parameter absent: HARD STOP (v2.24.8). PYQ papers must be in Google
+#   Drive — the local project/uploads fallback for the PYQ .docx corpus was
+#   removed to standardize with Step 4 (PYQCount) and Step 2b (PYQScan), which
+#   have always required Drive with no fallback. The Exam Pattern document and
+#   any existing Analysis doc are UNAFFECTED — those small reference/state files
+#   still come from project knowledge or chat upload, same as before.
 #
 #   Examples:
 #     PYQExtract PYQ: https://drive.google.com/drive/folders/[YOUR_FOLDER_ID]
-#     PYQExtract PYQ: https://drive.google.com/drive/folders/[YOUR_FOLDER_ID]
-#     PYQExtract                           (uses project/uploads fallback)
+#     PYQExtract --status
 #
 # NO CONFIG FILE REQUIRED:
 #   All parameters are auto-detected from the Exam Pattern document and PYQ papers.
@@ -724,26 +750,32 @@ document and PYQ papers. The only inputs are documents the user already has.
 ### S1-1 — Trigger parsing and ExamCode detection
 
 ```
-Trigger: PYQExtract  [PYQ: <<link>>]  [--mode]
+Trigger: PYQExtract  PYQ: <<link>>  [--mode]
 Trigger matching is case-insensitive.
 
 ExamCode: alphanumeric + underscore only (e.g. SSC_CGL_TIER1, GATE_CS, IBPS_PO).
   If ExamCode contains invalid chars: flag and ask to correct.
 
-PYQ parameter (optional):
+PYQ parameter (REQUIRED for paper-processing modes — v2.24.8, standardized with
+Step 4/Step 2b; not needed for --status or --synthesise, which don't read the
+PYQ corpus):
   Format : PYQ: <<Google Drive folder URL>>
   Parsing: extract folder ID from URL using regex:
              r'drive\.google\.com/drive/folders/([A-Za-z0-9_-]+)'
   Example: PYQ: https://drive.google.com/drive/folders/[YOUR_FOLDER_ID]
              → pyq_drive_folder_id = '[YOUR_FOLDER_ID]'
 
-  If PYQ parameter present   → use Google Drive as source (S1-2 Drive path)
-  If PYQ parameter absent    → use project/uploads fallback (S1-2 local path)
+  If PYQ parameter present    → use Google Drive as source (S1-2 Drive path)
+  If PYQ parameter absent AND mode is auto (none) → HARD STOP: "PYQExtract
+    requires PYQ: <<Google Drive folder link>>. The local project/uploads
+    fallback for PYQ corpus files was removed (v2.24.8)."
+  If PYQ parameter absent AND mode is --status/--synthesise → fine, proceed
+    (these modes don't re-scan the PYQ corpus).
   If link format unrecognised → flag: "Cannot extract folder ID from link.
                                        Expected: https://drive.google.com/drive/folders/ID"
 
 Mode flags:
-  (none)           -> auto-mode: scan Drive folder (or uploads), process pending papers
+  (none)           -> auto-mode: scan Drive folder (PYQ: required), process pending papers
   --status         -> print progress dashboard, then HALT
   --synthesise ALL -> re-synthesise from existing progress.json, skip paper processing
   --synthesise [S] -> synthesise named section only
@@ -1000,42 +1032,42 @@ def collect_drive_docx_recursive(folder_id, all_files=None):
 
     return all_files
 
-if pyq_drive_folder_id:
-    # PYQ: link was given in trigger — use Drive
+_needs_pyq_corpus = not (mode == '--status' or (mode or '').startswith('--synthesise'))
+
+if _needs_pyq_corpus:
+    if not pyq_drive_folder_id:
+        raise SystemExit(
+            "HARD STOP: PYQExtract requires PYQ: <<Google Drive folder link>>. PYQ "
+            "papers must be in Google Drive — the local project/uploads fallback for "
+            "PYQ .docx corpus files was removed (v2.24.8) to standardize with Step 4 "
+            "(PYQCount) and Step 2b (PYQScan). Exam pattern and Analysis documents may "
+            "still be provided via project knowledge or chat upload (see below) — only "
+            "the PYQ paper corpus itself now requires Drive.")
+
     try:
         pyq_doc_paths = collect_drive_docx_recursive(pyq_drive_folder_id)
         print(f"Google Drive: found {len(pyq_doc_paths)} PYQ .docx file(s)")
         print(f"  Folder ID: {pyq_drive_folder_id}")
     except Exception as e:
-        print(f"Google Drive error: {e}")
-        print("Falling back to project/uploads scan.")
-        pyq_drive_folder_id = None   # trigger local fallback below
-
-# ── LOCAL FALLBACK (no PYQ link, or Drive error) ─────────────────────────
-
-if not pyq_drive_folder_id:
-    for search_dir in ['/mnt/project/', '/mnt/user-data/uploads/']:
-        for f in glob.glob(os.path.join(search_dir, '*')):
-            bn  = os.path.basename(f).lower()
-            ext = os.path.splitext(bn)[1]
-
-            if 'analysis' in bn or 'analyse' in bn:
-                if ext in ('.docx', '.doc'):
-                    analysis_doc_paths.append({'source': 'local', 'path': f})
-
-            elif any(kw in bn for kw in ('pattern', 'exam_pattern', 'notification')):
-                if ext in ('.docx', '.doc', '.pdf', '.jpg', '.jpeg', '.png'):
-                    exam_pattern_paths.append({'source': 'local', 'path': f})
-
-            elif ext in ('.docx', '.doc'):
-                pyq_doc_paths.append({'source': 'local', 'path': f,
-                                      'name': os.path.basename(f)})
-
-            elif ext in ('.jpg', '.jpeg', '.png', '.pdf') and not exam_pattern_paths:
-                exam_pattern_paths.append({'source': 'local', 'path': f})
+        raise SystemExit(
+            f"HARD STOP: Google Drive error while listing the PYQ folder: {e}\n"
+            f"Fix the Drive link/permissions and retry — there is no local fallback "
+            f"for PYQ corpus files (v2.24.8, standardized with Step 4/Step 2b).")
+elif pyq_drive_folder_id:
+    # v2.24.8: --status / --synthesise don't strictly need the PYQ corpus, but if a
+    # PYQ: link was given anyway, honor it — harmless, and useful for --status to
+    # report accurate Drive counts. Non-fatal on error since these modes don't
+    # depend on it.
+    try:
+        pyq_doc_paths = collect_drive_docx_recursive(pyq_drive_folder_id)
+    except Exception as e:
+        print(f"NOTE: Google Drive error while listing PYQ folder "
+              f"(non-fatal for {mode!r}): {e}")
 
 # ── Exam pattern + Analysis docs always from project/uploads ─────────────
-# (these are small files — no Drive needed for them)
+# (these are small files — no Drive needed for them; unaffected by the v2.24.8
+#  PYQ-corpus Drive-only standardization — only the raw PYQ .docx corpus was
+#  tightened, not these small state/reference documents)
 
 for search_dir in ['/mnt/project/', '/mnt/user-data/uploads/']:
     for f in glob.glob(os.path.join(search_dir, '*')):
@@ -1048,6 +1080,13 @@ for search_dir in ['/mnt/project/', '/mnt/user-data/uploads/']:
             if ext in ('.docx', '.doc', '.pdf', '.jpg', '.jpeg', '.png'):
                 if f not in [x.get('path') for x in exam_pattern_paths]:
                     exam_pattern_paths.append({'source': 'local', 'path': f})
+        elif ext in ('.jpg', '.jpeg', '.png', '.pdf') and not exam_pattern_paths:
+            # v2.24.8: preserved from the old PYQ-corpus fallback loop — a loose
+            # image/PDF with no pattern/notification keyword in its name is still
+            # accepted as the Exam Pattern doc if nothing else has matched yet.
+            # Unrelated to the PYQ-corpus Drive-only change; kept unchanged.
+            if f not in [x.get('path') for x in exam_pattern_paths]:
+                exam_pattern_paths.append({'source': 'local', 'path': f})
 
 # ── Status print ──────────────────────────────────────────────────────────
 
@@ -1056,14 +1095,15 @@ exam_pattern_present  = bool(exam_pattern_paths)
 pyq_available         = bool(pyq_doc_paths)
 
 print(f"Files found:")
-print(f"  PYQ papers    : {len(pyq_doc_paths)}"
-      f"  (source: {'Google Drive' if pyq_drive_folder_id else 'project/uploads'})")
+print(f"  PYQ papers    : {len(pyq_doc_paths)}  (source: Google Drive)")
 print(f"  Exam pattern  : {len(exam_pattern_paths)}")
 print(f"  Analysis docs : {len(analysis_doc_paths)}")
 
-# No-PYQ path: valid when PYQ simply does not exist for this exam
+# No-PYQ path: valid when Drive was correctly provided and searched, but this
+# exam genuinely has zero PYQ papers available (a real PYQ-less exam, not a
+# Drive-access problem — that case already HARD STOPPED above).
 if not pyq_available and not (mode or '').startswith('--synthesise') and mode != '--status':
-    print("INFO: No PYQ .docx files found. "
+    print("INFO: No PYQ .docx files found in the Drive folder. "
           "Proceeding to --synthesise with absent entries.")
     mode = '--synthesise ALL'
 
@@ -7934,4 +7974,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.24.7
+# END OF Framework_MockTestAnalyse v2.24.8
