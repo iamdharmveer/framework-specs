@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026.07.21
+- NEW engine paper_pipeline.py — shared naming/numbering/registry plumbing for Steps 6-11
+  (self-test 37/37; added to tracked set -> bootstrap now 17/17). Added 5 Test* trigger aliases
+  (TestCreate/TestCreateAudit/TestExplain/TestExplainAudit/TestDeliver -> 19 triggers), wired into
+  routes.json / PIPELINE / skill.
+- Specs: MockTestCreate v5.29, MockTestCreateAudit v2.9.1, MockTestExplain v1.20, MockTestExplainAudit
+  refresh; Blueprint v1.32 -> v1.34; MockTestAnalyse v2.24.7 -> v2.24.8; PYQAnalyse v2.15 -> v2.16;
+  MockDeliver v1.8 -> v1.9; ScopedBlueprint v1.5 -> v1.7.
+- Added manifest_to_taxonomy_xlsx.py (untracked helper: subtopic_manifest.json -> taxonomy Excel).
+
 ## 2026.07.20
 - explain_engine.py core self-test 44/44 -> 62/62 (audit stays 10/10). MockTestExplain -> v1.18 and
   MockTestExplainAudit P0 corrected to 62-of-62, so Step 9/10 pre-flight demands exactly what the
