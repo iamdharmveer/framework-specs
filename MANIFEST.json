@@ -177,11 +177,11 @@
       "bytes": 64470
     },
     "Framework_ScopedBlueprint.md": {
-      "sha256": "a8eb6aaf55f0ba44dfffd9e277c246dd0b691864a198bfa7e5b37cbfe2223bdf",
-      "version_header": "# Framework_ScopedBlueprint v1.5 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
-      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.5 (\u00a71\u2013\u00a710, adversarially verified; qualified subtopic scope)",
-      "lines": 1265,
-      "bytes": 72245
+      "sha256": "f0f2ae72657e2ca2124b568f930525e9706e1f886a5c4347615c77088f14bc85",
+      "version_header": "# Framework_ScopedBlueprint v1.7 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.7 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
+      "lines": 1404,
+      "bytes": 82494
     },
     "validate_framework_md.py": {
       "sha256": "2d4784a925e7946a788fed0e8f1354e1b5f6ba4c1478b64ceb75f9e7a75acad8",

@@ -1,4 +1,43 @@
-# Framework_ScopedBlueprint v1.5 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# Framework_ScopedBlueprint v1.7 — Universal Subject / Topic / Sub-Topic Test Blueprint
+#
+# v1.7 — 2026-07-21 — HARDENING PASS on v1.6 (line-by-line adversarial re-audit, 2 passes,
+#   found and fixed 3 real issues before any downstream reliance):
+#   (1) ENVELOPE COMPUTATION WAS NOT ACTUALLY GATED — S5-1's prose claimed "S5-1/S5-2 are
+#       SKIPPED entirely" under override_mode, but the v1.6 code had `ENVELOPE =
+#       scope_envelope()` as an unconditional top-level statement — true only in the sense
+#       that Branch B's math never READS ENVELOPE, not that it's never COMPUTED. Fixed:
+#       `ENVELOPE = scope_envelope() if not override_mode else None` (S5-2), and merged the
+#       former S5-3a/S5-3b into a single S5-3 with an explicit `if override_mode: ... else:
+#       ...` — mirroring the mock's own proven S7-5 unified-branch pattern exactly, so there
+#       is zero ambiguity about which branch runs and ENVELOPE is never touched in Branch B.
+#   (2) STALE DUPLICATE CLAIM IN §10 DoD ITEM 11 — a second, independent occurrence of
+#       "difficulty ... from the Step-5 outputs" (absolute, pre-v1.6 wording) survived in the
+#       Definition-of-Done checklist even after the same claim was corrected in the
+#       EXAM-AGNOSTIC GUARANTEE paragraph at the top of the file. Fixed: item 11 now states
+#       difficulty may come from Step-5 outputs OR the trigger override, matching the header.
+#   (3) NO CATCH-ALL FOR MALFORMED --difficulty VALUES — S1-1 defined 'progressive', a valid
+#       S:M:H ratio, and "neither given", but not a value that is neither (typo, wrong count
+#       of numbers, non-numeric). Added an explicit ERROR path naming the accepted formats.
+#   Verified: validate_framework_md.py 0 issues (24/24 AST-clean); both S5-3 branches
+#   extracted and literally executed against 5 edge cases (uniform override, full-bypass
+#   100:0:0, N=1, non-divisible Q rounding, N=200 uniformity, plus a Branch-A ramp regression
+#   and single-level-envelope degenerate case) — all assertions held, zero errors. Full
+#   before/after SHA256 diff of all 21 OTHER tracked files in the corpus confirmed untouched.
+#
+# v1.6 — 2026-07-21 — FEATURE: fixed-uniform difficulty override (--difficulty S:M:H). §5 gains
+#   a second mode alongside the default/`progressive` envelope-bounded ramp: an explicit S:M:H
+#   ratio (same parse/validate rules as the mock's S7-2 — colon or space-separated, whole numbers,
+#   sum=100) makes EVERY paper in the series identical, no ramp, and DELIBERATELY BYPASSES the
+#   scope envelope (§5 S5-2) — a requested level is honoured even with zero observed PYQ for that
+#   scope, per explicit user instruction. This is a FULL OVERRIDE, not envelope-masked: unlike the
+#   ramp's silent masking, override mode does not renormalise or substitute — it runs exactly the
+#   ratio given. No confirmation echo (mirrors the mock's behaviour on a valid ratio) and no schema
+#   addition — blueprint.json's difficulty_schedule[] is written identically to the ramp path, so
+#   nothing downstream (Step 7 G-QINDEX, MockTestCreateAudit, MockTestAnalyse) needs to change; all
+#   of them already consume difficulty_schedule[N] as a flat per-paper count with zero envelope-
+#   awareness. §5 S5-1/S5-2/S5-3 (envelope + ramp) are UNCHANGED and remain the default when
+#   --difficulty is omitted or 'progressive'. §10 DoD item 6 and the EXAM-AGNOSTIC GUARANTEE
+#   paragraph updated to state the invariant conditionally (mode-dependent) instead of absolutely.
 #
 # v1.5 — 2026-07-15 — FEATURE: qualified subtopic scope "Subject::Topic::SubTopic" (§2 S2-1,
 #   additive). The subtopic level now accepts three forms — (1) exact subtopic_id, (2) NEW
@@ -134,7 +173,7 @@
 #
 # TRIGGER FORMAT:
 #   Step 6S: ScopedBlueprint --level <subject|topic|subtopic> --scope "<SCOPE>"
-#            --count N --qs_per_paper Q [--batch_size B] [--difficulty progressive]
+#            --count N --qs_per_paper Q [--batch_size B] [--difficulty progressive|S:M:H]
 #
 #   Trigger matching is case-insensitive. ExamCode read from exam_config.json.
 #   --level      : subject | topic | subtopic (REQUIRED)
@@ -156,12 +195,20 @@
 #                  batches of B, exactly like the mock B2 loop.
 #   --difficulty progressive : optional. Default IS a batch-local easy→hard ramp
 #                  (§5); this flag is accepted for symmetry with the mock trigger.
+#   --difficulty S:M:H : optional. FIXED-UNIFORM OVERRIDE (§5 S5-3 Branch B, v1.6). Same parse/
+#                  validate rules as the mock's Blueprint S7-2 (colon or space-separated
+#                  whole numbers, must sum to 100). Every one of the N papers gets these
+#                  EXACT counts — no ramp, no envelope check. This is a FULL BYPASS of the
+#                  §5 S5-2 scope envelope: a level with zero observed PYQ for the scope is
+#                  still honoured exactly as given, silently, no confirmation echo, per
+#                  explicit user instruction. Mutually exclusive with `progressive`.
 #
 #   Examples:
 #     ScopedBlueprint --level subject   --scope "Physics"            --count 10 --qs_per_paper 50
 #     ScopedBlueprint --level topic     --scope "Physics::Mechanics" --count 20 --qs_per_paper 30
 #     ScopedBlueprint --level subtopic  --scope ST0042               --count 15 --qs_per_paper 25
 #     ScopedBlueprint --level subtopic  --scope "Physics::Mechanics::Kinematics" --count 15 --qs_per_paper 25
+#     ScopedBlueprint --level subtopic  --scope ST0042  --count 10 --qs_per_paper 25 --difficulty 15:30:55
 #
 # OUTPUT FILES (all with [ExamCode] prefix + scope tag):
 #   [ExamCode]_[SCOPETAG]_blueprint.json   — authoritative allocation for this series
@@ -171,7 +218,10 @@
 #
 # EXAM-AGNOSTIC GUARANTEE:
 #   Zero hardcoded exam values. Scope, counts, and Q/paper are read from the trigger;
-#   subtopics, r_avg, formats, and difficulty come from the Step-5 outputs.
+#   subtopics, r_avg, and formats come from the Step-5 outputs. Difficulty comes from the
+#   Step-5 outputs (default / --difficulty progressive, envelope-bounded per §5 S5-2) OR
+#   directly from the trigger (--difficulty S:M:H, full override per §5 S5-3 Branch B) — either
+#   way, no exam-specific value is ever hardcoded in this spec.
 #
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -191,7 +241,25 @@ Parse and validate the trigger:
   --qs_per_paper Q : positive integer > 0. If missing → ERROR:
                   "--qs_per_paper is required (a scoped test has no exam-pattern total)."
   --batch_size B : optional, default 10. Positive integer > 0.
-  --difficulty  : optional; 'progressive' accepted (default behaviour anyway, §5).
+  --difficulty  : optional. Two accepted forms (case-insensitive keyword; mutually exclusive):
+                  (a) 'progressive' — default behaviour anyway (§5 S5-1..S5-3).
+                  (b) 'S:M:H' fixed-uniform override (§5 S5-3 Branch B, v1.6) — full bypass of the
+                      scope envelope, per explicit user instruction:
+                      Accept colon-separated (15:30:55) or space-separated (15 30 55, inferred
+                      as 15:30:55 — same as the mock's S7-2, no confirmation echo either way).
+                      s_pct/m_pct/h_pct must be whole numbers (integers only) — reject decimals
+                      with: "Difficulty percentages must be whole numbers. Received: {vals}.
+                      Please re-enter with integers only."
+                      Must sum to exactly 100 and all values ≥ 0 — else ERROR:
+                      "Difficulty percentages must sum to 100. Received: {s}+{m}+{h}={total}"
+                      (no auto-correct; user must re-enter). Values may include levels absent
+                      from the scope's observed PYQ — proceed exactly as given, no warning,
+                      no substitution (§5 S5-3 Branch B).
+                  Neither form given → default envelope-bounded ramp (§5 S5-1..S5-3, unchanged).
+                  Value given but recognised as NEITHER 'progressive' NOR a well-formed 3-part
+                  ratio (e.g. wrong count of numbers, non-numeric, empty) → ERROR:
+                  "--difficulty must be 'progressive' or three whole numbers S:M:H summing to
+                  100 (e.g. 15:30:55). Received: {raw_value}." Never guess or silently default.
 
   If --level or --scope or --count or --qs_per_paper is missing → ERROR listing the
   missing flag(s) and the trigger format. Never guess a scope or a count.
@@ -212,8 +280,10 @@ List ALL received / project files immediately after trigger:
 
 Mandatory for Step 6S: blueprint_core.py (S1-2b), subtopic_manifest.json, exam_config.json,
 and the r_avg inputs (Frequency Excel or Analysis docs — the same missing-input fallback
-chain the mock Blueprint uses). section_rules.md is required for §5 (difficulty envelope)
-and §6 (format). If any mandatory input is missing → HARD STOP naming it.
+chain the mock Blueprint uses). section_rules.md is required for §6 (format) UNCONDITIONALLY,
+and additionally for §5's envelope (S5-1/S5-2) when override_mode is False; even under
+--difficulty S:M:H (override_mode True, which skips the envelope) section_rules.md is still
+mandatory because §6 always needs it. If any mandatory input is missing → HARD STOP naming it.
 ```
 
 ### S1-2b — Allocation engine mandate (blueprint_core.py — HARD STOP)
@@ -735,17 +805,42 @@ exact_fill puts Q in every paper. No special-casing needed; the general path han
 batch_target; it is practised exactly like any other, from domain knowledge at generation.)
 ```
 
-## §5 — DIFFICULTY (batch-local, envelope-bounded ramp)
+## §5 — DIFFICULTY (batch-local envelope-bounded ramp, OR fixed-uniform override)
 
-Each batch runs its OWN fresh easy→hard ramp (paper 1 easiest → paper P_b hardest;
-saw-tooth across batches is accepted per the locked decision). The ramp is ENVELOPE-
-BOUNDED: it only schedules difficulty levels the scope actually exhibits in PYQ, so a
-scoped test never drills a difficulty the exam does not use for that scope (which would
-be a false-readiness signal). Per-question difficulty is assigned at GENERATION (Step-7
-analog) within each subtopic's calibration; §5 sets the per-paper COUNTS as the target
-(SCHEDULE-FIRST, exactly like the mock), audited within tolerance downstream.
+TWO MODES, selected by the trigger's --difficulty value (S1-1):
+
+  (a) DEFAULT / progressive (S5-1..S5-3 Branch A, unchanged since v1.5): each batch runs its OWN
+      fresh easy→hard ramp (paper 1 easiest → paper P_b hardest; saw-tooth across batches
+      is accepted per the locked decision). The ramp is ENVELOPE-BOUNDED: it only schedules
+      difficulty levels the scope actually exhibits in PYQ, so a scoped test never drills a
+      difficulty the exam does not use for that scope (which would be a false-readiness
+      signal).
+
+  (b) FIXED-UNIFORM OVERRIDE / --difficulty S:M:H (S5-3 Branch B, v1.6): every paper in the series
+      gets the IDENTICAL user-specified S:M:H counts. No ramp, no envelope check — this is a
+      deliberate FULL BYPASS of (a)'s false-readiness-signal protection, run exactly as given,
+      per explicit user instruction (mirrors the mock's --difficulty E:M:H, S7-2).
+
+Per-question difficulty is assigned at GENERATION (Step-7 analog) within each subtopic's
+calibration; §5 sets the per-paper COUNTS as the target (SCHEDULE-FIRST, exactly like the
+mock), audited within tolerance downstream — true in both modes.
+
+### S5-0 — Mode selection
+
+```python
+# override_mode / override_pct set during S1-1 trigger parsing:
+#   override_mode = True  if trigger had '--difficulty S:M:H' (any valid ratio)
+#   override_mode = False if trigger had no --difficulty flag, or '--difficulty progressive'
+# override_pct = (s_pct, m_pct, h_pct) when override_mode else None
+```
 
 ### S5-1 — Per-subtopic observed difficulty envelope
+
+```
+Only computed when override_mode is False. When override_mode is True, S5-1/S5-2 are
+SKIPPED entirely — ENVELOPE is never consulted by S5-3 Branch B (§5 mode (b) is a full bypass,
+not a masked one; see S1-1 for the validated override_pct).
+```
 
 ```python
 import blueprint_core as bc
@@ -793,21 +888,30 @@ def scope_envelope():
             return env
     return set(LEVELS)   # default: full Easy/Medium/Hard range
 
-ENVELOPE = scope_envelope()
+# EXPLICITLY GATED (v1.6): ENVELOPE is computed if and only if override_mode is False, so
+# the S5-1 "skipped entirely" claim is literally true in code, not just descriptive. In
+# override mode ENVELOPE stays None and MUST NOT be referenced anywhere in S5-3's override
+# branch (verified: it isn't — see S5-3 below).
+ENVELOPE = scope_envelope() if not override_mode else None
 ```
 
-### S5-3 — Batch-local ramp → per-paper difficulty counts
+### S5-3 — Build difficulty_schedule[] (mode-branched; mirrors the mock's unified S7-5)
 
 ```python
-# Default ramp anchors (paper at the easy end vs the hard end of a batch). Overridable;
-# these are Simple:Medium:Hard percentages BEFORE envelope masking.
+# ONE unified build, explicitly branched on override_mode (S5-0) — same shape as the
+# mock's S7-5 if/else, so there is never any ambiguity about which branch ran.
+#
+# Branch A (override_mode == False): batch-local ramp anchors (paper at the easy end vs
+# the hard end of a batch). These are Simple:Medium:Hard percentages BEFORE envelope
+# masking.
 RAMP_EASY_ANCHOR = (50, 30, 20)
 RAMP_HARD_ANCHOR = (20, 30, 50)
 
 def paper_emh(t):
     """t in [0,1] (0 = easy end of the batch, 1 = hard end). Linearly interpolate the
     anchors, MASK to the scope envelope (levels not exhibited get 0%), renormalise to 100.
-    bc.difficulty_counts then rounds to integer counts summing exactly to Q."""
+    bc.difficulty_counts then rounds to integer counts summing exactly to Q. Only called
+    when override_mode is False (ENVELOPE is non-None on that path — see S5-2)."""
     interp = [RAMP_EASY_ANCHOR[i] + t * (RAMP_HARD_ANCHOR[i] - RAMP_EASY_ANCHOR[i])
               for i in range(3)]
     masked = [interp[i] if LEVELS[i] in ENVELOPE else 0.0 for i in range(3)]
@@ -815,36 +919,66 @@ def paper_emh(t):
     pct = [100.0 * m / s for m in masked]
     return pct[0], pct[1], pct[2]
 
-# difficulty_schedule[k] = (simple, medium, hard) integer counts for global paper k.
-# Ramp position resets each batch (BATCH-LOCAL): paper j of a P_b-paper batch → t=j/(P_b-1)
-# (single-paper batch → t=0.5, the batch midpoint).
+# difficulty_schedule[k] = (simple, medium, hard) integer counts for global paper k (1..N).
 difficulty_schedule = {}
-k = 0
-for b, P_b in enumerate(papers_per_batch):
-    for j in range(P_b):
-        k += 1
-        t = 0.5 if P_b == 1 else j / (P_b - 1)
-        s_pct, m_pct, h_pct = paper_emh(t)
-        difficulty_schedule[k] = bc.difficulty_counts(Q, s_pct, m_pct, h_pct)
-        # (canonical labels: simple→Easy, medium→Medium, hard→Hard — same alias as the mock.)
 
-# INVARIANTS (assert): every paper's counts sum to Q; no paper schedules a level outside
-# the envelope; within a batch the Hard count is non-decreasing when Hard ∈ ENVELOPE.
+if override_mode:
+    # Branch B (v1.6): FIXED-UNIFORM OVERRIDE. override_pct = (s_pct, m_pct, h_pct),
+    # validated at S1-1 (whole numbers, sum==100). ENVELOPE is never read on this path —
+    # this is a FULL BYPASS, not a masked one (contrast Branch A's paper_emh masking).
+    # No ramp: every one of the N papers gets IDENTICAL counts, mirroring the mock's
+    # --difficulty E:M:H exactly (Framework_Blueprint.md S7-2).
+    s_pct, m_pct, h_pct = override_pct
+    for k in range(1, N + 1):
+        difficulty_schedule[k] = bc.difficulty_counts(Q, s_pct, m_pct, h_pct)
+else:
+    # Branch A: batch-local envelope-bounded ramp (unchanged since v1.5). Ramp position
+    # resets each batch (BATCH-LOCAL): paper j of a P_b-paper batch → t=j/(P_b-1)
+    # (single-paper batch → t=0.5, the batch midpoint).
+    k = 0
+    for b, P_b in enumerate(papers_per_batch):
+        for j in range(P_b):
+            k += 1
+            t = 0.5 if P_b == 1 else j / (P_b - 1)
+            s_pct, m_pct, h_pct = paper_emh(t)
+            difficulty_schedule[k] = bc.difficulty_counts(Q, s_pct, m_pct, h_pct)
+
+# (canonical labels in both branches: simple→Easy, medium→Medium, hard→Hard — same alias
+# as the mock.)
+
+# INVARIANTS (assert): every paper's counts sum to Q — TRUE IN BOTH BRANCHES.
 for kk, (s_, m_, h_) in difficulty_schedule.items():
     assert s_ + m_ + h_ == Q
-    if 'Simple' not in ENVELOPE: assert s_ == 0
-    if 'Medium' not in ENVELOPE: assert m_ == 0
-    if 'Hard'   not in ENVELOPE: assert h_ == 0
+
+if override_mode:
+    # Branch B invariant: every paper IDENTICAL to paper 1 (uniform — no ramp).
+    # Deliberately NO envelope assertion here: a level absent from the scope's observed
+    # PYQ is allowed and expected to appear when the user asked for it (Branch B is an
+    # explicit, silent, full bypass — no warning, no confirmation echo, no substitution,
+    # per locked decision).
+    for kk, (s_, m_, h_) in difficulty_schedule.items():
+        assert (s_, m_, h_) == difficulty_schedule[1]
+else:
+    # Branch A invariants: no paper schedules a level outside the envelope; within a
+    # batch the Hard count is non-decreasing when Hard ∈ ENVELOPE.
+    for kk, (s_, m_, h_) in difficulty_schedule.items():
+        if 'Simple' not in ENVELOPE: assert s_ == 0
+        if 'Medium' not in ENVELOPE: assert m_ == 0
+        if 'Hard'   not in ENVELOPE: assert h_ == 0
 ```
 
-### S5-4 — Degenerate envelopes
+### S5-4 — Degenerate envelopes (Branch A / override_mode == False only)
 
 ```
-Single-level envelope (e.g. an inherently-Hard subtopic, ENVELOPE={'Hard'}): every paper
-is 100% that level — no ramp is possible or desirable (drilling another difficulty would
-be a false signal). Two-level envelopes (e.g. {'Simple','Hard'} with no observed Medium)
-ramp between the two present levels, skipping the absent one. The masking in paper_emh
-handles all subsets uniformly.
+Applies only to Branch A (the ramp path). Single-level envelope (e.g. an inherently-Hard
+subtopic, ENVELOPE={'Hard'}): every paper is 100% that level — no ramp is possible or
+desirable (drilling another difficulty would be a false signal). Two-level envelopes
+(e.g. {'Simple','Hard'} with no observed Medium) ramp between the two present levels,
+skipping the absent one. The masking in paper_emh handles all subsets uniformly.
+
+Under Branch B (override_mode == True, v1.6) there is no envelope and therefore no
+"degenerate" case in this sense — the user's ratio runs exactly as given regardless of
+what PYQ exhibits for the scope.
 ```
 
 ## §6 — FORMAT (per-scope three-axis signature)
@@ -1246,8 +1380,11 @@ strict-global uniqueness holds across all tiers:
   ☐ 5.  ALLOCATION (§4): EC-11 feasibility passed; every paper has exactly Q questions; every
          in-scope subtopic (PYQ and Zero-PYQ) appears ≥1 in every batch (coverage floor);
          series total == Q×N.
-  ☐ 6.  DIFFICULTY (§5): each paper's simple+medium+hard == Q; no level scheduled outside the
-         scope envelope; batch-local ramp (Hard non-decreasing within a batch when in-envelope).
+  ☐ 6.  DIFFICULTY (§5): each paper's simple+medium+hard == Q, in BOTH modes.
+         override_mode == False (default/progressive): no level scheduled outside the scope
+         envelope; batch-local ramp (Hard non-decreasing within a batch when in-envelope).
+         override_mode == True (--difficulty S:M:H, v1.6): every paper IDENTICAL to the
+         user-specified ratio; envelope is deliberately NOT checked (full bypass, S5-3 Branch B).
   ☐ 7.  FORMAT (§6): axis_schedule built via bc.derive_axis_schedule (subject verbatim;
          topic/subtopic axis-2 rescoped, axis-1/3 inherited; all axes normalised to Q);
          axis1_unreachable_formats present; no fabrication of unsatisfiable formats.
@@ -1259,7 +1396,9 @@ strict-global uniqueness holds across all tiers:
          single synthetic section; total_mocks==N; total_questions==Q; every allocation
          subtopic_id is a real manifest id (never minted); each paper's validation.status=='pass'.
   ☐ 11. EXAM-AGNOSTIC: zero hardcoded exam values — scope/counts/Q from the trigger; subtopics,
-         r_avg, difficulty, format, marking from the Step-5 outputs + exam_config.
+         r_avg, format, marking from the Step-5 outputs + exam_config. Difficulty from the
+         Step-5 outputs (default/progressive) OR directly from the trigger (--difficulty S:M:H
+         override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
 ```
 
-# END OF Framework_ScopedBlueprint v1.5 (§1–§10, adversarially verified; qualified subtopic scope)
+# END OF Framework_ScopedBlueprint v1.7 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
