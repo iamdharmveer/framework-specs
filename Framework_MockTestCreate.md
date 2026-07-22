@@ -1,4 +1,22 @@
-# Framework_MockTestCreate v5.29
+# Framework_MockTestCreate v5.30
+#
+# v5.30 — 2026-07-22 — POSITION-BASED QUESTION TYPE DISPATCH (GAP-2026-07-22-001 §6 FIX).
+#   For question-type sections (e.g. IIT JAM: Section A=MCQ, Section B=MSQ, Section C=NAT),
+#   the same subtopic can appear in different sections with different question types. The
+#   per-subtopic answer_cardinality/answer_type from section_rules was unreliable — it
+#   reflects PYQ observation majority, not the section's authoritative type. A subtopic
+#   observed mostly as MCQ (Section A has 30 Qs) would generate MCQ even in Section B
+#   (which should be MSQ) or Section C (which should be NAT).
+#   FIX: DUAL-MODE DISPATCH (mirrors Framework_MockDeliver.md v1.7 FIX):
+#     > 1 distinct question_type in marking_scheme → POSITION-BASED: answer_cardinality and
+#       answer_type derived from Q position's marking_scheme entry via _type_for_q(qnum).
+#       New _resolve_answer_axes(qnum, subtopic_id) helper. msq_positions/nat_positions
+#       computed from marking_scheme Q-ranges directly (not from per-subtopic IDs).
+#     0 or 1 distinct type → SUBTOPIC-BASED: unchanged per-subtopic values from blueprint
+#       subtopic_list. Covers all existing 1:1 exams (SSC CGL, MPPSC, etc.) with zero
+#       behavior change. Also covers legacy blueprints (empty marking_scheme → 0 types).
+#   Ships atomically with Framework_Blueprint.md v1.35 (marking_scheme authority for
+#   multi_present/nat_present/multi_select_allowed/nat_allowed flags).
 #
 # v5.29 — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION (found during a full
 #   line-by-line adversarial re-audit of the v5.28 Test* build). The v5.28
@@ -1959,6 +1977,37 @@
   # cardinality). Defaults 'option' for any subtopic ⇒ legacy/non-NAT blueprints are inert.
   answer_type_by_id = {s.get('subtopic_id'): s.get('answer_type', 'option')
                        for s in subtopic_list}
+
+  # v5.X POSITION-BASED QUESTION TYPE (GAP-2026-07-22-001 §6 FIX):
+  # For question-type sections (e.g. IIT JAM: Section A=MCQ, B=MSQ, C=NAT), the same
+  # subtopic can appear in different sections with different question types. The per-subtopic
+  # answer_cardinality/answer_type from section_rules is unreliable — it reflects PYQ
+  # observation majority, not the section's authoritative type.
+  # DUAL-MODE DISPATCH (mirrors Framework_MockDeliver.md v1.7 FIX):
+  #   > 1 distinct question_type in marking_scheme → POSITION-BASED: answer_cardinality and
+  #     answer_type derived from the Q position's marking_scheme entry via _type_for_q().
+  #   0 or 1 distinct type → SUBTOPIC-BASED: unchanged, uses per-subtopic values from
+  #     blueprint subtopic_list (current behavior). Also covers legacy blueprints with no
+  #     marking_scheme (empty → 0 types → subtopic-based, byte-identical to pre-v5.X).
+  _distinct_q_types = {ms.get('question_type') for ms in bp_marking_scheme
+                       if ms.get('question_type')}
+  _position_based_typing = len(_distinct_q_types) > 1
+
+  def _resolve_answer_axes(qnum, subtopic_id):
+      """Return (answer_cardinality, answer_type) for a question at position qnum.
+      Position-based mode: derives from marking_scheme (authoritative for question-type
+      sections). Subtopic-based mode: from blueprint subtopic_list (current behavior)."""
+      if _position_based_typing:
+          qt = _type_for_q(qnum)
+          if qt == 'MSQ':
+              return ('multi', 'option')
+          elif qt == 'NAT':
+              return ('single', 'numerical')
+          else:  # MCQ or unknown
+              return ('single', 'option')
+      else:
+          return (answer_cardinality_by_id.get(subtopic_id, 'single'),
+                  answer_type_by_id.get(subtopic_id, 'option'))
   difficulty_schedule = bp.get('difficulty_schedule', [])
   # v5.14 THREE-AXIS: per-section format-distribution target (Step 6 v1.23 axis_schedule).
   # Absent-safe: pre-v1.23 blueprint → {} → the whole Axis-2 steering path stays inert and
@@ -2480,22 +2529,32 @@
   # K-PAT are never corrupted by a multi Q either way.
   msq_positions = set()
   if multi_present:
-      multi_ids = {sid for sid, am in answer_cardinality_by_id.items() if am == 'multi'}
-      try:
-          # subtopic_by_qnum[q] = subtopic_id assigned to Q q (same map fixed_positions uses)
-          msq_positions = {q for q, sid in subtopic_by_qnum.items() if sid in multi_ids}
-      except NameError:
-          msq_positions = set()   # plan not materialised yet → MSQ Qs self-skip the budget
+      if _position_based_typing:
+          # v5.X: for position-based exams, MSQ positions come from marking_scheme Q-ranges,
+          # not from per-subtopic answer_cardinality. Every Q in an MSQ range is MSQ regardless
+          # of which subtopic is placed there.
+          msq_positions = {q for q in range(1, total_questions + 1) if _type_for_q(q) == 'MSQ'}
+      else:
+          multi_ids = {sid for sid, am in answer_cardinality_by_id.items() if am == 'multi'}
+          try:
+              # subtopic_by_qnum[q] = subtopic_id assigned to Q q (same map fixed_positions uses)
+              msq_positions = {q for q, sid in subtopic_by_qnum.items() if sid in multi_ids}
+          except NameError:
+              msq_positions = set()   # plan not materialised yet → MSQ Qs self-skip the budget
   # v4.7: nat_positions = the set of Q numbers whose placed subtopic has
   # answer_type=='numerical'. Same placement plan, same dormancy/defensive semantics as MSQ.
   # Empty when blueprint nat_present is false ⇒ budget identical to v4.6.
   nat_positions = set()
   if nat_present:
-      nat_ids = {sid for sid, at in answer_type_by_id.items() if at == 'numerical'}
-      try:
-          nat_positions = {q for q, sid in subtopic_by_qnum.items() if sid in nat_ids}
-      except NameError:
-          nat_positions = set()   # plan not materialised yet → NAT Qs self-skip the budget
+      if _position_based_typing:
+          # v5.X: for position-based exams, NAT positions come from marking_scheme Q-ranges.
+          nat_positions = {q for q in range(1, total_questions + 1) if _type_for_q(q) == 'NAT'}
+      else:
+          nat_ids = {sid for sid, at in answer_type_by_id.items() if at == 'numerical'}
+          try:
+              nat_positions = {q for q, sid in subtopic_by_qnum.items() if sid in nat_ids}
+          except NameError:
+              nat_positions = set()   # plan not materialised yet → NAT Qs self-skip the budget
   answer_budget = build_answer_budget(total_questions, sections,
                                       msq_positions=msq_positions,
                                       nat_positions=nat_positions)
@@ -3791,6 +3850,11 @@
     answer_cardinality_by_id.get(subtopic_id, 'single')` (whole-subtopic mode from the
     blueprint subtopic_list). This is the value build_question / verify_answer /
     write_q_to_sidecar read. 'single' for every subtopic when multi_present is false.
+    v5.X POSITION-BASED OVERRIDE (GAP-2026-07-22-001 §6): when the exam has >1 distinct
+    question_type in marking_scheme (e.g. IIT JAM: MCQ/MSQ/NAT), answer_cardinality and
+    answer_type are overridden PER Q POSITION during the generation loop (not at S3-8 join
+    time) via _resolve_answer_axes(qnum, subtopic_id). The S3-8 join still sets the
+    per-subtopic defaults; the per-Q override happens at generation dispatch (S7-CONCEPT).
     v5.14 (THREE-AXIS): at the SAME join, ALSO set from section_rules.md (File-1 CATEGORY B) +
     blueprint subtopic_list:
       • subtopic_data['axis2_capability'] = the parsed axis2_capability list (default ['DIRECT']).
@@ -4084,7 +4148,15 @@
               # flags. For 'multi', build_question must populate candidate.correct_set
               # (the intended set S) and candidate.has_aota_option, and obey the k-bound /
               # R-MSQ-ESCAPE. Inert ('single') when blueprint multi_present is false.
-              answer_cardinality = subtopic_data.get('answer_cardinality', 'single')
+              # v5.X POSITION-BASED OVERRIDE (GAP-2026-07-22-001 §6): when the exam has
+              # position-based typing (_position_based_typing True), derive answer_cardinality
+              # and answer_type from the Q POSITION's marking_scheme entry, not from the
+              # per-subtopic value. This ensures the same subtopic generates MCQ in Section A,
+              # MSQ in Section B, NAT in Section C (e.g. IIT JAM).
+              answer_cardinality, _answer_type = _resolve_answer_axes(
+                  qnum, subtopic_data.get('subtopic_id'))
+              if _position_based_typing:
+                  subtopic_data['answer_type'] = _answer_type
               candidate = build_question(subtopic_data, op, shape, section,
                                          stem_format_variant=fmt,
                                          distractor_strategy=dstr,
@@ -7383,7 +7455,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.29
+# END OF Framework_MockTestCreate v5.30
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below
