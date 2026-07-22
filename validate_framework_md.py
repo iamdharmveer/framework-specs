@@ -80,6 +80,7 @@ from collections import Counter
 PIPELINE = {
     'PYQPrepare': '1', 'PYQDraft': '2a', 'PYQScan': '2b', 'PYQApprove': '2c',
     'PYQSort': '3', 'PYQCount': '4', 'PYQExtract': '5',
+    'PYQExplain': 'PYQ-1', 'PYQExplainAudit': 'PYQ-2', 'PYQFormat': 'PYQ-3', 'PYQDeliver': 'PYQ-4',
     'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6', 'ScopedBlueprint': '6S',
     'MockCreate': '7', 'MockCreateAudit': '8', 'TestCreate': '7', 'TestCreateAudit': '8',
     'MockExplain': '9', 'MockExplainAudit': '10', 'MockDeliver': '11',
@@ -442,7 +443,12 @@ def validate(path, all_texts=None):
     # (explain_audit_gate.py — reads audit_progress.json, not the docx). If a file
     # references it, it must name the module AND state the CA1-CA7 contract, so the
     # wiring cannot be mentioned without the enforcing gate + evidence binding.
-    has_explain_gate = ('AUDIT-COMPLETION-GATE' in text) or ('explain_audit_gate' in text)
+    # "Wired" means the gate is actually INVOKED (a CLI run line) or its PASS-output
+    # contract is documented — NOT merely named in prose. A spec that only disclaims the
+    # gate (e.g. "✗ explain_audit_gate.py — no audit performed", or "used by PYQ-2, not
+    # this step") names the module without a `.py --` invocation, so it no longer trips
+    # this check (self-contained PYQ-3/PYQ-4 + the PYQ-1 delegation note).
+    has_explain_gate = ('AUDIT-COMPLETION-GATE' in text) or bool(re.search(r'explain_audit_gate\.py\s+--', text))
     if has_explain_gate:
         extended_ran.append('S2-EXPLAINGATE')
         if 'explain_audit_gate' not in text:

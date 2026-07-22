@@ -1,11 +1,11 @@
 ---
 name: mock-test-framework
-description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockCreateAudit, TestCreateAudit, MockExplain, TestExplain, MockExplainAudit, TestExplainAudit, MockDeliver, or TestDeliver — or asks to generate, audit, explain, tag, or deliver a mock test paper. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
+description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, PYQExplain, PYQExplainAudit, PYQFormat, PYQDeliver, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockCreateAudit, TestCreateAudit, MockExplain, TestExplain, MockExplainAudit, TestExplainAudit, MockDeliver, or TestDeliver — or asks to generate, audit, explain, tag, or deliver a mock test paper. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
 ---
 
 # Mock Test Framework — Source of Truth
 
-The 11 framework specs and 3 engine scripts live ONLY in the central GitHub repo below,
+The 16 framework specs and 5 engine scripts live ONLY in the central GitHub repo below,
 never in project knowledge. NEVER work from memory or from any Framework_*.md that may
 appear in project knowledge. Always pull and verify the latest specs first.
 

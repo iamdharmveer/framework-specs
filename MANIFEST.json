@@ -30,6 +30,25 @@
       "Framework_MockTestAnalyse.md",
       "Framework_DeliveryFooter.md"
     ],
+    "PYQExplain": [
+      "Framework_PYQExplain.md",
+      "explain_engine.py",
+      "Framework_DeliveryFooter.md"
+    ],
+    "PYQExplainAudit": [
+      "Framework_PYQExplainAudit.md",
+      "explain_engine.py",
+      "explain_audit_gate.py",
+      "Framework_DeliveryFooter.md"
+    ],
+    "PYQFormat": [
+      "Framework_PYQFormat.md",
+      "Framework_DeliveryFooter.md"
+    ],
+    "PYQDeliver": [
+      "Framework_PYQDeliver.md",
+      "Framework_DeliveryFooter.md"
+    ],
     "MockBlueprint": [
       "Framework_Blueprint.md",
       "blueprint_core.py",
@@ -162,6 +181,34 @@
       "lines": 4893,
       "bytes": 252125
     },
+    "Framework_PYQDeliver.md": {
+      "sha256": "bde1c7d38353c82ad31128df6e50e0f3533f1d3274b924de8c47aa0dd0eb7154",
+      "version_header": "# Framework_PYQDeliver v1.0 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.0)**",
+      "lines": 634,
+      "bytes": 27195
+    },
+    "Framework_PYQExplain.md": {
+      "sha256": "f9b2701c61f5c1b7a9b52780d7d5ce73354581e8bddc80aabb5b4cf072361ed9",
+      "version_header": "# Framework_PYQExplain v1.0 \u2014 Universal PYQ Explanation Generator",
+      "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "lines": 1165,
+      "bytes": 80209
+    },
+    "Framework_PYQExplainAudit.md": {
+      "sha256": "75cd3658459dd56d985edaa449de87a37076aef282377e386d3ab9d9a9552a49",
+      "version_header": "# Framework_PYQExplainAudit v1.0 \u2014 Universal PYQ Explanation Auditor",
+      "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.0)**",
+      "lines": 927,
+      "bytes": 92121
+    },
+    "Framework_PYQFormat.md": {
+      "sha256": "abdb61553a4da93fdb7044dcaa1f99ef5d85014b5f901f4b8aa8ae5996bd5e7f",
+      "version_header": "# Framework_PYQFormat v1.0 \u2014 Universal PYQ Student Document Formatter",
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.0)**",
+      "lines": 610,
+      "bytes": 25633
+    },
     "Framework_PYQPrepare.md": {
       "sha256": "f2424d505ee6442afd5494dae7e65597c6263246da60ee836e669f1643a30356",
       "version_header": "# Framework_PYQPrepare v1.7 \u2014 Universal PYQ Row File Generator",
@@ -184,11 +231,11 @@
       "bytes": 82494
     },
     "validate_framework_md.py": {
-      "sha256": "2d4784a925e7946a788fed0e8f1354e1b5f6ba4c1478b64ceb75f9e7a75acad8",
+      "sha256": "143da1987b537181d279612fc254716824cbbc14013d2f63997eb6537858844b",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 778,
-      "bytes": 45813
+      "lines": 784,
+      "bytes": 46367
     },
     "explain_audit_gate.py": {
       "sha256": "b92522cb379fa6fc2249b3de18c8b4c344966881249d88070b5c2ee0e20d8e1e",
