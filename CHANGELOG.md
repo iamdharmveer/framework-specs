@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026.07.22
+- NEW PYQ Explanation Pipeline — 4 specs: PYQExplain (PYQ-1), PYQExplainAudit (PYQ-2),
+  PYQFormat (PYQ-3), PYQDeliver (PYQ-4). Wired into routes.json / PIPELINE / skill
+  (19 -> 23 triggers); tracked set 17 -> 21 (bootstrap now 21/21). PYQ-1/PYQ-2 reuse
+  explain_engine.py (+ explain_audit_gate.py for PYQ-2); PYQ-3/PYQ-4 are self-contained
+  (write their own format_pipeline.py / pyq_deliver_pipeline.py, no framework engine).
+- validate_framework_md.py — S2-EXPLAINGATE now fires on an actual gate invocation
+  (`explain_audit_gate.py --`) or the AUDIT-COMPLETION-GATE output, not on a bare name-drop,
+  so specs that only DISCLAIM the gate (PYQ-1 delegation note; PYQ-3/PYQ-4 NOT-REQUIRED
+  lists) no longer false-positive. Genuine gate-users (Step 10 / PYQ-2) still fully checked.
+- GAP-2026-07-22-001 section<->subject mapping chain (shipped atomically):
+  MockTestCreate v5.29 -> v5.30 (position-based question-type dispatch, §6);
+  MockTestCreateAudit v2.9.1 -> v2.9.2 (position-based question-type in audit);
+  MockTestAnalyse v2.24.8 -> v2.24.9 (BUG 1 — sections[].subjects);
+  Blueprint v1.34 -> v1.35 (BUGS 2-4 — section<->subject mapping);
+  ScopedBlueprint BLUEPRINT_SCHEMA_VERSION 1.23 -> 1.35 (schema sync to Blueprint);
+  DeliveryFooter Step 5 deliverable-count doc fix (5 -> 6 files).
+- routes.json — PYQ explanation triggers reordered to end (no functional change; syncs the
+  repo to the generator's emit order).
+
 ## 2026.07.21
 - NEW engine paper_pipeline.py — shared naming/numbering/registry plumbing for Steps 6-11
   (self-test 37/37; added to tracked set -> bootstrap now 17/17). Added 5 Test* trigger aliases
