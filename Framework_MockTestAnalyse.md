@@ -1,5 +1,22 @@
-# Framework_MockTestAnalyse v2.24.8 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.9 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
+#
+# v2.24.9 — 2026-07-22 — S-SECMAP: SECTION↔SUBJECT MAPPING (BUG 1 of 4, GAP-2026-07-22-001).
+#   Root cause: exam_config.json sections[] never carried a `subjects` field listing which
+#   taxonomy Subjects belong to each OTS section. For any exam where OTS section names differ
+#   from manifest Subject names AND there are multiple sections (e.g. IIT JAM "Section A/B/C"
+#   vs manifest "General Biology"/"Chemistry"/...), Step 6's resolver (S2-1b) would HARD STOP
+#   at SEC-4 — unable to determine the mapping. For 1:1 exams (SSC CGL, MPPSC) the resolver's
+#   SEC-3 identity-map path handled it, masking the gap.
+#   FIX: new S-SECMAP rule in run_synthesise(), after taxonomy sync and before writing outputs.
+#   3-stage derivation: (1) OBSERVE which subjects appear in which section Q-ranges from PYQ
+#   classifications, (2) AUGMENT cross-subject sections with union of all cross-subject pools,
+#   (3) FALLBACK unmapped taxonomy subjects to cross-subject or all sections.
+#   Writes subjects[] to each section in exam_config.json; adds exam_config.json to final
+#   delivery (6 files, was 5). User must REPLACE exam_config.json in project knowledge.
+#   Zero behavior change for 1:1 exams (subjects[] = single-element list matching SEC-3).
+#   12/12 edge cases pass (SSC CGL, MPPSC, IIT JAM, GATE, CSIR NET, UGC NET, NEET,
+#   fuzzy names, sampling gap, Zero-PYQ subject, structure change, single-section).
 #
 # v2.24.8 — 2026-07-20 — PYQ CORPUS DRIVE-ONLY STANDARDIZATION (twin fix: Framework_
 #   PYQAnalyse.md Step 2b / PYQScan). Found during a project-level audit: three
@@ -6258,6 +6275,95 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
     qv_results  = run_qv(all_entries, taxonomy, progress)
     qv_ok       = print_qv(qv_results)
 
+    # ── S-SECMAP: DERIVE SECTION↔SUBJECT MAPPING AND UPDATE EXAM_CONFIG ──────
+    # v2.24.9 GAP FIX (BUG 1 of 4). After classification completes, derive which
+    # taxonomy Subjects appear in which OTS sections and write the mapping as
+    # sections[].subjects in exam_config.json. This enables Step 6's resolver
+    # (S2-1b) to handle cross-subject exams (e.g. IIT JAM, CSIR NET) where a
+    # single Subject spans multiple OTS sections. Without this, S2-1b falls to
+    # SEC-4 HARD STOP on any exam where section names ≠ manifest Subject names
+    # AND there are multiple OTS sections.
+    #
+    # 3-stage rule:
+    #   STAGE 1 (OBSERVE): for each (section, subject) pair in classified PYQ data,
+    #     record which subjects appeared in which Q-ranges (sections).
+    #   STAGE 2 (AUGMENT): cross-subject sections (≥2 subjects) pool all subjects
+    #     and assign the union to every cross-subject section — covers sampling gaps.
+    #   STAGE 3 (FALLBACK): any taxonomy subject not mapped to ANY section by Stage 1
+    #     → assign to cross-subject sections (or all sections if none are cross-subject).
+    #
+    # Properties:
+    #   100% automatic (zero user prompts).
+    #   100% from PYQ evidence (zero heuristics).
+    #   Zero behavior change for 1:1 exams (single-element subject lists).
+    #   Exam-independent (no hardcoded names/types/structure).
+
+    _ecfg_path = None
+    for _sd in ['/mnt/project/', '/mnt/user-data/uploads/']:
+        _matches = sorted(glob.glob(os.path.join(_sd, '*exam_config.json')))
+        if _matches:
+            _ecfg_path = _matches[0]
+            break
+
+    if _ecfg_path:
+        import json as _json
+        with open(_ecfg_path, encoding='utf-8') as _f:
+            _ecfg = _json.load(_f)
+        _sections = _ecfg.get('sections', [])
+        _taxonomy_subjects = sorted({e['section'] for e in all_entries if e.get('section')})
+
+        # STAGE 1: OBSERVE — which subjects appear in which section Q-ranges
+        _sec_subjects = {s['name']: set() for s in _sections}
+        for _paper_id, _paper_classifs in progress.items():
+            if not isinstance(_paper_classifs, list):
+                continue   # skip _meta and other non-list keys
+            for _q in _paper_classifs:
+                if not isinstance(_q, dict) or 'q_num' not in _q:
+                    continue
+                for _s in _sections:
+                    _qr = _s.get('q_range', [0, 0])
+                    if _qr[0] <= _q['q_num'] <= _qr[1]:
+                        if _q.get('section'):
+                            _sec_subjects[_s['name']].add(_q['section'])
+                        break
+
+        # STAGE 2: AUGMENT — cross-subject sections get union of all cross-subject pools
+        _cross_secs = [_s['name'] for _s in _sections if len(_sec_subjects.get(_s['name'], set())) >= 2]
+        if _cross_secs:
+            _pool = set()
+            for _cs in _cross_secs:
+                _pool |= _sec_subjects[_cs]
+            for _cs in _cross_secs:
+                _sec_subjects[_cs] = set(_pool)
+
+        # STAGE 3: FALLBACK — unmapped taxonomy subjects → cross-subject sections (or all)
+        _mapped = set()
+        for _v in _sec_subjects.values():
+            _mapped |= _v
+        _unmapped = set(_taxonomy_subjects) - _mapped
+        if _unmapped:
+            _targets = _cross_secs if _cross_secs else [_s['name'] for _s in _sections]
+            for _t in _targets:
+                _sec_subjects[_t] |= _unmapped
+
+        # Write subjects[] to each section in exam_config
+        for _s in _sections:
+            _s['subjects'] = sorted(_sec_subjects.get(_s['name'], set()))
+
+        # Write updated exam_config.json to outputs
+        _out_ecfg = f'/mnt/user-data/outputs/{exam_code}_exam_config.json'
+        with open(_out_ecfg, 'w', encoding='utf-8') as _f:
+            _json.dump(_ecfg, _f, ensure_ascii=False, indent=2)
+
+        print(f"\n--- S-SECMAP (v2.24.9) ---")
+        for _s in _sections:
+            print(f"  {_s['name']}: subjects = {_s.get('subjects', [])}")
+        print(f"  → exam_config.json updated with subjects[] per section.")
+        print(f"--- End S-SECMAP ---\n")
+    else:
+        print("\n⚠ S-SECMAP: exam_config.json not found — subjects[] not derived.")
+        print("  Step 6 resolver will use fallback rules (SEC-1/SEC-3/SEC-4).\n")
+
     # Build exam_meta from progress._meta for EXAM_STRUCTURE header (NEW v2.3)
     from datetime import datetime
     meta_raw  = progress.get('_meta', {})
@@ -6340,10 +6446,16 @@ def deliver_final(exam_code, rules_path, summary_path, qv_results, progress,
 
     # Present all files as downloadable chat attachments
     # v2.15 BUG-D02 fix: xlsx_path included in delivery (was missing).
-    # Order: section_rules (most important) → manifest → xlsx → progress → summary
+    # v2.24.9 S-SECMAP: exam_config.json added (carries subjects[] for Step 6 resolver).
+    # Order: section_rules (most important) → manifest → xlsx → exam_config → progress → summary
     delivery = [rules_path]
     if manifest_path: delivery.append(manifest_path)
     if xlsx_path:     delivery.append(xlsx_path)
+    # v2.24.9: include updated exam_config.json (with subjects[]) if it was generated
+    _ecfg_out = f'/mnt/user-data/outputs/{exam_code}_exam_config.json'
+    import os as _os2
+    if _os2.path.exists(_ecfg_out):
+        delivery.append(_ecfg_out)
     # v2.24: the human-readable taxonomy companion (Subject/Topic/Sub-topic + id), written by
     # write_subtopic_manifest → write_taxonomy_xlsx. Deterministic path; include if it exists.
     import os as _os
@@ -6608,14 +6720,16 @@ PART A — QV results in chat:
    v QV-12 Dedup           : PASS
    ==========================="
 
-PART B — present_files (all 4 in one call, in this order):
+PART B — present_files (all in one call, in this order):
   1. [ExamCode]_section_rules.md        <- PRIMARY: download → upload to [ExamCode] project
   2. [ExamCode]_subtopic_manifest.json  <- download → upload to [ExamCode] project
   3. [ExamCode]_PYQ_Frequency.xlsx      <- download → keep for Step 6 input
-  4. [ExamCode]_analysis_progress.json  <- download → keep locally
-  5. [ExamCode]_analysis_summary.md     <- download → review if WARNs exist
+  4. [ExamCode]_exam_config.json        <- download → REPLACE in [ExamCode] project (v2.24.9:
+                                           now carries subjects[] for Step 6 resolver)
+  5. [ExamCode]_analysis_progress.json  <- download → keep locally
+  6. [ExamCode]_analysis_summary.md     <- download → review if WARNs exist
 
-  All 5 are delivered as downloadable chat attachments.
+  All 6 are delivered as downloadable chat attachments.
   NOTHING is uploaded to Google Drive.
 
 PART C — Handoff message:
@@ -6624,11 +6738,13 @@ PART C — Handoff message:
 
    ACTION REQUIRED — upload to [ExamCode] Claude project:
      [tick] Download [ExamCode]_section_rules.md from the file above
+     [tick] Download [ExamCode]_subtopic_manifest.json from the file above
+     [tick] Download [ExamCode]_exam_config.json from the file above
+           (v2.24.9: now carries subjects[] per section for Step 6 resolver)
      [tick] Go to your [ExamCode] Claude project → Files (or Knowledge) section
-     [tick] Upload the downloaded section_rules.md file there
-     (This is how Step 7 reads it — directly from the project Files section)
+     [tick] Upload all 3 files (replace any existing versions)
 
-   KEEP FOR STEP 1:
+   KEEP FOR STEP 6:
      [ExamCode]_PYQ_Frequency.xlsx — Step 6 input (Frequency Excel)
 
    KEEP LOCALLY (downloaded to your computer):
@@ -6638,9 +6754,9 @@ PART C — Handoff message:
    To add new PYQ papers later:
      1. Add new .docx files to your Google Drive PYQ folder
      2. Run: PYQExtract PYQ: <<same Drive link>>
-     3. New papers auto-detected → processed → auto-synthesis → refreshed section_rules.md
-     4. Download refreshed section_rules.md from chat
-     5. Replace old section_rules.md in [ExamCode] project Files/Knowledge section
+     3. New papers auto-detected → processed → auto-synthesis → refreshed outputs
+     4. Download all 6 output files from chat
+     5. Replace old files in [ExamCode] project Files/Knowledge section
      Existing mocks: unaffected. Future mocks: use improved patterns.
 
    NEXT:
@@ -6676,12 +6792,13 @@ DO NOT DELIVER:
 ────────────────────────────────────────────────────────────────────
 FINAL DELIVERY (last batch → auto-synthesis → QV checks complete)
 ────────────────────────────────────────────────────────────────────
-DELIVER (all 5 in one present_files call, in this order):
+DELIVER (all 6 in one present_files call, in this order):
   1. [ExamCode]_section_rules.md
   2. [ExamCode]_subtopic_manifest.json
   3. [ExamCode]_PYQ_Frequency.xlsx
-  4. [ExamCode]_analysis_progress.json
-  5. [ExamCode]_analysis_summary.md
+  4. [ExamCode]_exam_config.json
+  5. [ExamCode]_analysis_progress.json
+  6. [ExamCode]_analysis_summary.md
 
 DO NOT DELIVER:
   ✗ Input PYQ .docx files (these are INPUTS)
@@ -6693,8 +6810,8 @@ PRE-DELIVERY CHECKLIST (before every present_files call):
   delivering = set of files about to be passed to present_files
   expected   = per-batch: {analysis_progress.json}
                final:     {section_rules.md, subtopic_manifest.json,
-                           PYQ_Frequency.xlsx, analysis_progress.json,
-                           analysis_summary.md}
+                           PYQ_Frequency.xlsx, exam_config.json,
+                           analysis_progress.json, analysis_summary.md}
   Check 1: All expected files present in delivery — assert not (expected - delivering)
   Check 2: No unexpected files in delivery — assert not (delivering - expected)
   Check 3: No internal files leaked — no banned patterns in filenames
@@ -6713,7 +6830,7 @@ deliverable file badges (Upload / Replace / Use locally), and next-step referenc
 
 Step 5 uses BOTH footer types:
   - F1 (amber) after each non-final batch (delivers analysis_progress.json)
-  - F2 (green) after final batch + auto-synthesis (delivers all 5 files)
+  - F2 (green) after final batch + auto-synthesis (delivers all 6 files)
 ```
 
 ---

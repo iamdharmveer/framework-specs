@@ -140,7 +140,7 @@ WHEN TO SHOW:
   Examples:
     - Step 2a PYQDraft: after delivering taxonomy_draft + exam_config
     - Step 3 PYQSort: after delivering the sorted docx
-    - Step 5 PYQExtract: after final batch + auto-synthesis + all 5 files
+    - Step 5 PYQExtract: after final batch + auto-synthesis + all 6 files
     - Step 6 MockBlueprint: after B3 final delivery of all 6 files
     - Step 11 MockDeliver: after delivering the tagged docx
 

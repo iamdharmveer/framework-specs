@@ -1,4 +1,27 @@
-# Framework_MockTestCreateAudit v2.9.1
+# Framework_MockTestCreateAudit v2.9.2
+#
+# v2.9.2 — 2026-07-22 — POSITION-BASED QUESTION TYPE IN AUDIT (GAP-2026-07-22-001 §6 FIX).
+#   For question-type sections (IIT JAM: Section A=MCQ, B=MSQ, C=NAT), per-subtopic
+#   answer_cardinality/answer_type is unreliable — multi_ids/nat_ids from subtopic_list
+#   were empty or incomplete, causing A-MSQ-INSTR and A-NAT-INSTR gates to pass vacuously
+#   (dormant) instead of validating MSQ/NAT instruction presence in the generated paper.
+#   FIX: DUAL-MODE detection (mirrors Step 7 v5.30 and Step 11 v1.7):
+#     > 1 distinct question_type in marking_scheme → POSITION-BASED:
+#       expected_multi_by_section / expected_nat_by_section computed from marking_scheme
+#       Q-ranges per section (not from per-subtopic IDs). multi_subtopic_ids / nat_subtopic_ids
+#       augmented with ALL subtopics allocated to MSQ/NAT sections, so Part B semantic checks
+#       and A-FIGCOMP stem_only routing work correctly.
+#     0 or 1 distinct type → SUBTOPIC-BASED: unchanged pre-v2.9.2 behavior.
+#   Edge cases:
+#     - Section spans multiple marking_scheme ranges (e.g. GATE): per-Q _audit_type_for_q()
+#       handles heterogeneous ranges within a single section correctly.
+#     - No marking_scheme (legacy blueprint): _audit_distinct_q_types = {} → 0 types →
+#       subtopic-based → byte-identical to pre-v2.9.2.
+#     - multi_present=True but no per-subtopic multi_ids (position-based exam where
+#       Blueprint v1.35 set the flag from marking_scheme): expected counts now correct.
+#     - Scoped blueprints: always 0 or 1 distinct type (modal collapse) → subtopic-based,
+#       unchanged.
+#   Ships atomically with Framework_Blueprint.md v1.35 + Framework_MockTestCreate.md v5.30.
 #
 # v2.9.1 — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION + LEVEL/BP_LEVEL NAME
 #   COLLISION (found during a full line-by-line adversarial re-audit of the v2.9 Test*
@@ -3727,8 +3750,62 @@ def load_sources(args):
     src['multi_subtopic_ids'] = multi_ids
     # expected count of multi-mode questions per section, from THIS mock's allocations.
     mock_entry = next((m for m in bp.get('mocks', []) if m.get('mock') == N), None)
+
+    # v2.9 POSITION-BASED QUESTION TYPE (GAP-2026-07-22-001 §6 FIX, mirrors Step 7 v5.30
+    # and Step 11 v1.7 dual-mode pattern):
+    # For question-type sections (IIT JAM: Section A=MCQ, B=MSQ, C=NAT), per-subtopic
+    # answer_cardinality/answer_type is unreliable — multi_ids/nat_ids from subtopic_list
+    # would be empty or incomplete because no single subtopic has majority MSQ/NAT
+    # observations. The marking_scheme is authoritative: if it defines >1 distinct
+    # question_type, derive expected MSQ/NAT counts from Q-position ranges directly.
+    #
+    # MODE SELECTION (identical to Step 7/Step 11):
+    #   > 1 distinct question_type in marking_scheme → POSITION-BASED
+    #   0 or 1 distinct type → SUBTOPIC-BASED (unchanged behavior)
+    #
+    # For POSITION-BASED mode:
+    #   expected_multi_by_section = count of Qs in each section whose marking_scheme says MSQ
+    #   expected_nat_by_section = count of Qs in each section whose marking_scheme says NAT
+    #   multi_subtopic_ids = ALL subtopics that appear in MSQ ranges (for Part B checks)
+    #   nat_subtopic_ids = ALL subtopics that appear in NAT ranges (for A-FIGCOMP stem_only)
+    #
+    # Backward compatible: 0 or 1 distinct type → exact pre-v2.9 behavior. Covers all
+    # existing exams (SSC CGL, MPPSC, etc.) and legacy blueprints with no marking_scheme.
+    _bp_ms = bp.get('marking_scheme', [])
+    _audit_distinct_q_types = {ms.get('question_type') for ms in _bp_ms
+                               if ms.get('question_type')}
+    _audit_position_based = len(_audit_distinct_q_types) > 1
+
+    def _audit_type_for_q(qnum):
+        """Return question_type for a given Q number from marking_scheme."""
+        for ms in _bp_ms:
+            qr = ms.get('q_range', [0, 0])
+            if qr[0] <= qnum <= qr[1]:
+                return ms.get('question_type', 'MCQ')
+        return 'MCQ'
+
     exp = {}
-    if mock_entry and multi_ids:
+    if _audit_position_based and mock_entry:
+        # POSITION-BASED: expected counts from marking_scheme Q-ranges per section
+        for sec in mock_entry.get('sections', []):
+            sec_name = sec.get('section_name')
+            qr = sec.get('q_range', [0, 0])
+            msq_count = sum(1 for q in range(qr[0], qr[1] + 1)
+                            if _audit_type_for_q(q) == 'MSQ')
+            if msq_count:
+                exp[sec_name] = msq_count
+        # Augment multi_subtopic_ids: for position-based exams, ANY subtopic in an MSQ
+        # range is effectively MSQ — add all subtopics allocated to MSQ sections.
+        for sec in mock_entry.get('sections', []):
+            qr = sec.get('q_range', [0, 0])
+            if any(_audit_type_for_q(q) == 'MSQ' for q in range(qr[0], qr[1] + 1)):
+                for sa in sec.get('subtopic_allocations', []):
+                    sid = sa.get('subtopic_id')
+                    if sid:
+                        multi_ids.add(sid)
+        src['multi_subtopic_ids'] = multi_ids
+    elif mock_entry and multi_ids:
+        # SUBTOPIC-BASED: unchanged pre-v2.9 behavior
         for sec in mock_entry.get('sections', []):
             c = sum(sa.get('q_count', 0) for sa in sec.get('subtopic_allocations', [])
                     if sa.get('subtopic_id') in multi_ids)
@@ -3757,7 +3834,28 @@ def load_sources(args):
     src['nat_subtopic_ids'] = nat_ids
     # expected count of numerical questions per section, from THIS mock's allocations.
     nexp = {}
-    if mock_entry and nat_ids:
+    if _audit_position_based and mock_entry:
+        # POSITION-BASED: expected NAT counts from marking_scheme Q-ranges per section
+        for sec in mock_entry.get('sections', []):
+            sec_name = sec.get('section_name')
+            qr = sec.get('q_range', [0, 0])
+            nat_count = sum(1 for q in range(qr[0], qr[1] + 1)
+                            if _audit_type_for_q(q) == 'NAT')
+            if nat_count:
+                nexp[sec_name] = nat_count
+        # Augment nat_subtopic_ids: for position-based exams, ANY subtopic in a NAT
+        # range is effectively NAT — add all subtopics allocated to NAT sections.
+        # This ensures A-FIGCOMP correctly treats figural NAT Qs as stem_only (line ~4505).
+        for sec in mock_entry.get('sections', []):
+            qr = sec.get('q_range', [0, 0])
+            if any(_audit_type_for_q(q) == 'NAT' for q in range(qr[0], qr[1] + 1)):
+                for sa in sec.get('subtopic_allocations', []):
+                    sid = sa.get('subtopic_id')
+                    if sid:
+                        nat_ids.add(sid)
+        src['nat_subtopic_ids'] = nat_ids
+    elif mock_entry and nat_ids:
+        # SUBTOPIC-BASED: unchanged pre-v2.9 behavior
         for sec in mock_entry.get('sections', []):
             c = sum(sa.get('q_count', 0) for sa in sec.get('subtopic_allocations', [])
                     if sa.get('subtopic_id') in nat_ids)
@@ -5522,5 +5620,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.9.1
+# END OF Framework_MockTestCreateAudit v2.9.2
 # ════════════════════════════════════════════════════════════════════════

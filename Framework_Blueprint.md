@@ -1,4 +1,46 @@
-# Framework_Blueprint v1.34 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.35 — Universal Mock Test Blueprint Generator
+#
+# v1.35 — 2026-07-22 — SECTION↔SUBJECT MAPPING FIX (BUGS 2-4 of 4, GAP-2026-07-22-001).
+#   Ships atomically with Framework_MockTestAnalyse v2.24.9 (BUG 1). All 4 bugs are chained:
+#   fixing only some exposes the next. All must ship together.
+#
+#   BUG 2 FIX — RESOLVER SUPPORTS 1:N SUBJECT→SECTION (§2 S2-1b):
+#     section_for_subject was a scalar dict — for exams where one Subject spans multiple OTS
+#     sections (IIT JAM, CSIR NET), only the LAST section survived (last-write-wins). Every
+#     subtopic resolved to the last section; all other sections got zero subtopics silently.
+#     FIXED: section_for_subject → sections_for_subject (dict of lists). subtopic_in_section()
+#     changed from == to 'in'. section_for_subtopic() → sections_for_subtopic() (returns list).
+#     Backward compatible: 1:1 exams produce single-element lists.
+#
+#   BUG 3 FIX — RE-KEY SUBTOPICS FROM TAXONOMY SUBJECT TO OTS SECTION (new S2-2c):
+#     Analysis doc taxonomy uses Subject names as keys ("General Biology"). Working data
+#     structures (all_subtopics, pyq_subtopics, zero_pyq_subtopics) are keyed by OTS section
+#     names ("Section A"). Without re-keying, all_subtopics['Section A'] was empty for any
+#     cross-subject exam → §3-5 classified nothing → allocation got zero subtopics.
+#     FIXED: new S2-2c step builds all_subtopics[ots_section] by iterating over
+#     subjects_for_section(ots_section) and collecting subtopics from each subject.
+#     For 1:1 exams: identity re-key → zero behavior change.
+#
+#   BUG 4 FIX — B2/B3 SUBTOPIC RECONSTRUCTION VIA SUBJECTS_FOR_SECTION (§8-3, §8-5, §14):
+#     B2/B3 rebuilt pyq_subtopics per section by comparing st['section'] == section['name'].
+#     But st['section'] = taxonomy Subject ("General Biology"), while section['name'] = OTS
+#     section ("Section A"). For cross-subject exams, this comparison returned 0 matches →
+#     0 subtopics → AlgorithmError.
+#     FIXED: B1 writes subjects_for_section to blueprint.json (new top-level field in §14
+#     S14-1). B2/B3 read it and filter subtopic_list using st['section'] in subjects
+#     (list membership, not equality). Fallback [section_name] preserves backward compat
+#     for legacy blueprint.json files from 1:1 exams.
+#
+#   blueprint_version bumped to "1.35".
+#   Zero behavior change for 1:1 exams (SSC CGL, MPPSC, etc.).
+#   12/12 edge cases pass.
+#
+#   SECONDARY FIX — §6 MARKING_SCHEME AUTHORITY FOR multi_present/nat_present (§6 S6-2):
+#     For question-type exams (IIT JAM: marking_scheme has MCQ+MSQ+NAT ranges), per-subtopic
+#     PYQ observation could miss setting multi_present/nat_present because no single subtopic
+#     has majority MSQ/NAT observations. The marking_scheme is authoritative: if it defines
+#     MSQ/NAT ranges, the presence flags MUST be True so Step 7's generation paths activate.
+#     Ships with Framework_MockTestCreate v5.30 (position-based dispatch).
 #
 # v1.34 — 2026-07-20 — REGISTRY CARRY-FORWARD REDESIGN (cross-step, Steps 1-11, schema-
 #   sync audit). §8-5 Step 5's v1.33 logic reconstructed the registry field-by-field
@@ -1056,7 +1098,7 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
 
   Read from exam_config.json:
     sections[]       : list of {name, q_count, q_range, max_attempt, subject_order,
-                                 subjects (OPTIONAL, v1.32 FIX D)}
+                                 subjects (RECOMMENDED, v1.35 — auto-derived by Step 5 v2.24.9)}
     total_questions  : sum of all section q_counts
     marking_scheme[] : per-range {q_range, question_type, correct_marks, negative_marks}
     level            : academic level (e.g., "Post Graduation", "Graduation")
@@ -1064,15 +1106,18 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
     n_papers         : NOT in exam_config — infer from context or ask user.
                        Default: 1 (single-paper exam). Multi-paper exams (UPSC CSE)
                        require user confirmation.
-    subjects         : OPTIONAL per-section list of taxonomy Subject names this OTS
-                       section contains (e.g. sections: [{"name":"MPSC Botany",
-                       "subjects":["Botany"]}]). When present, authoritative for the
-                       Section↔Subject resolver (S2-1b) — skips the deterministic
-                       fallback rules entirely for that section. Absent for most exams;
-                       only needed when the fallback rules (S2-1b) would otherwise
-                       HARD STOP (SEC-4: N sections where labels don't cleanly cover
-                       the manifest Subjects, e.g. one Subject split across sections
-                       by Q-range).
+    subjects         : RECOMMENDED per-section list of taxonomy Subject names this OTS
+                       section contains (e.g. sections: [{"name":"Section A",
+                       "subjects":["General Biology","Chemistry","Physics"]}]).
+                       v1.35: auto-derived by Step 5 v2.24.9 S-SECMAP from PYQ
+                       classifications — no manual configuration needed. When present,
+                       authoritative for the Section↔Subject resolver (S2-1b) — skips
+                       the deterministic fallback rules entirely for that section.
+                       REQUIRED for any exam where OTS section names differ from manifest
+                       Subject names AND there are multiple sections (e.g. IIT JAM,
+                       CSIR NET). Without it, S2-1b falls to SEC-4 HARD STOP.
+                       For 1:1 exams (SSC CGL, MPPSC): auto-derived as single-element
+                       lists, harmless (SEC-3 identity map would have handled it anyway).
 
   SECTION ≠ SUBJECT NOTE:
     Section names in exam_config (e.g., "Part A", "Part B", "Part C") are OTS
@@ -1174,14 +1219,19 @@ def _manifest_subjects():
 def build_section_subject_map(sections):
     """
     Returns (subjects_for_section: {ots_name -> [subjects]},
-             section_for_subject: {subject -> ots_name})
+             sections_for_subject: {subject -> [ots_names]})
     Deterministic; HARD STOPs (never silently inert) on real ambiguity.
     Reads MANIFEST_IDS (module-level, loaded at S2-MANIFEST/session start) via
     _manifest_subjects() — sections is the only parameter because it is the only
     input that varies per B1 run at the point this is called.
+
+    v1.35 BUG 2 FIX (GAP-2026-07-22-001): sections_for_subject is now a dict of LISTS
+    (was scalar — last-section-wins). A Subject that spans multiple OTS sections
+    (e.g. IIT JAM "General Biology" in Sections A, B, C) maps to ALL of them.
+    Backward compatible: 1:1 exams produce single-element lists.
     """
-    subjects_for_section = {}
-    section_for_subject  = {}
+    subjects_for_section  = {}
+    sections_for_subject  = {}   # v1.35: dict of LISTS (was scalar section_for_subject)
     manifest_subjects = _manifest_subjects()
 
     # Case 0 — explicit config wins outright (per-section, independently)
@@ -1190,11 +1240,14 @@ def build_section_subject_map(sections):
     for name, subs in explicit.items():
         subjects_for_section[name] = subs
         for subj in subs:
-            section_for_subject[subj] = name
+            # v1.35 BUG 2 FIX: append to list instead of scalar overwrite
+            sections_for_subject.setdefault(subj, [])
+            if name not in sections_for_subject[subj]:
+                sections_for_subject[subj].append(name)
 
     if remaining_sections:
         remaining_manifest_subjects = [s for s in manifest_subjects
-                                        if s not in section_for_subject]
+                                        if s not in sections_for_subject]
         if len(sections) == 1 and not explicit:
             # SEC-1/SEC-2: single OTS section → ALL manifest Subjects map to it,
             # regardless of label text. Covers every single-Subject exam
@@ -1202,14 +1255,16 @@ def build_section_subject_map(sections):
             name = sections[0]['name']
             subjects_for_section[name] = manifest_subjects
             for subj in manifest_subjects:
-                section_for_subject[subj] = name
+                sections_for_subject.setdefault(subj, [])
+                if name not in sections_for_subject[subj]:
+                    sections_for_subject[subj].append(name)
         elif all(s['name'] in manifest_subjects for s in remaining_sections) and \
              len(remaining_sections) == len(remaining_manifest_subjects):
             # SEC-3: N sections, names exactly equal Subjects → identity map.
             # (Current pre-v1.32 behavior — zero change for exams already shaped this way.)
             for s in remaining_sections:
                 subjects_for_section[s['name']] = [s['name']]
-                section_for_subject[s['name']] = s['name']
+                sections_for_subject[s['name']] = [s['name']]
         else:
             # SEC-4 / anything else ambiguous (N sections, labels don't cleanly
             # cover the manifest Subjects — e.g. one Subject spans 2+ sections
@@ -1221,36 +1276,39 @@ def build_section_subject_map(sections):
                 "These do not resolve 1:1 by name and there is more than one OTS "
                 "section, so the single-section fallback (SEC-1) does not apply.\n"
                 "FIX: add explicit `sections[].subjects: [...]` to exam_config.json "
-                "naming the taxonomy Subject(s) each OTS section contains, then re-run.")
+                "naming the taxonomy Subject(s) each OTS section contains, then "
+                "re-run Step 5 (v2.24.9+ derives this automatically from PYQ data).")
 
     # SEC-6/SEC-7 guard: every manifest Subject must resolve to some OTS section.
-    unmapped = [s for s in manifest_subjects if s not in section_for_subject]
+    unmapped = [s for s in manifest_subjects if s not in sections_for_subject]
     if unmapped:
         raise SystemExit(
             f"HARD STOP (SEC-MAP): manifest Subject(s) {unmapped} map to NO OTS "
             "section under the current sections[] / exam_config.json. A mandate or "
             "axis target referencing these Subjects would silently disable itself. "
-            "FIX: add/correct `sections[].subjects: [...]` in exam_config.json.")
+            "FIX: add/correct `sections[].subjects: [...]` in exam_config.json, "
+            "or re-run Step 5 (v2.24.9+ derives this automatically from PYQ data).")
 
-    return subjects_for_section, section_for_subject
+    return subjects_for_section, sections_for_subject
 
 # Built once, used everywhere a section↔Subject bridge is needed (§4-2, §7-7, §9-12,
 # §17). zero_pyq_rotation{} and sections[] STAY keyed by the OTS section name (S14-4
 # contract preserved) — the resolver bridges to the Subject internally, never the reverse.
-SUBJECTS_FOR_SECTION, SECTION_FOR_SUBJECT = build_section_subject_map(sections)
+SUBJECTS_FOR_SECTION, SECTIONS_FOR_SUBJECT = build_section_subject_map(sections)
 
 def subjects_for_section(section_name):
     """OTS section label -> list of taxonomy Subjects it contains."""
     return SUBJECTS_FOR_SECTION.get(section_name, [])
 
-def section_for_subtopic(sid):
-    """Manifest subtopic id -> the OTS section label it belongs to."""
+def sections_for_subtopic(sid):
+    """Manifest subtopic id -> list of OTS section labels it belongs to (v1.35: returns list)."""
     subj = MANIFEST_IDS.get(sid, {}).get('section')
-    return SECTION_FOR_SUBJECT.get(subj)
+    return SECTIONS_FOR_SUBJECT.get(subj, [])
 
 def subtopic_in_section(sid, section_name):
-    """True iff manifest subtopic sid resolves (via Subject) into OTS section_name."""
-    return section_for_subtopic(sid) == section_name
+    """True iff manifest subtopic sid resolves (via Subject) into OTS section_name.
+    v1.35 BUG 2 FIX: uses 'in' (list membership) instead of '==' (scalar equality)."""
+    return section_name in sections_for_subtopic(sid)
 ```
 
 ### S2-2 — Reading Analysis Word Document(s)
@@ -1613,6 +1671,42 @@ CASE 4: Missing Frequency Excel entirely
   → Use Analysis doc combined Q counts as pooled avg proxy.
   → No recency weighting applied.
   → See §10 S10-7 for full procedure.
+```
+
+### S2-2c — Re-key subtopics from taxonomy Subject to OTS section (v1.35 BUG 3 FIX)
+
+```python
+# v1.35 BUG 3 FIX (GAP-2026-07-22-001): Analysis doc taxonomy uses Subject names as keys
+# (e.g. 'General Biology'). Working data structures (pyq_subtopics, zero_pyq_subtopics,
+# all_subtopics) must be keyed by OTS section names (e.g. 'Section A'). Without this
+# re-keying, all_subtopics['Section A'] would be empty for any exam where section names
+# differ from subject names → §3-5 classifies nothing → allocation gets zero subtopics.
+#
+# For 1:1 exams (SSC CGL: section 'GIR' = subject 'GIR'):
+#   subjects_for_section('GIR') returns ['GIR'] → identity re-key → zero behavior change.
+#
+# For cross-subject exams (IIT JAM: section 'Section A' contains all 6 subjects):
+#   subjects_for_section('Section A') returns ['Biotechniques', 'Chemistry', ...] →
+#   all_subtopics['Section A'] = union of all subjects' subtopics.
+
+# analysis_taxonomy: {subject_name: [subtopic_names]} — built from Analysis doc in S2-2.
+# all_subtopics: {ots_section_name: [subtopic_names]} — what §3-5 and §4 consume.
+
+all_subtopics = {}
+for section in sections:
+    sec_name = section['name']
+    all_subtopics[sec_name] = []
+    for subject in subjects_for_section(sec_name):
+        all_subtopics[sec_name].extend(analysis_taxonomy.get(subject, []))
+    # Deduplicate (same subtopic name under different subjects in same section)
+    all_subtopics[sec_name] = list(dict.fromkeys(all_subtopics[sec_name]))
+
+# Diagnostic: log re-keying result
+for section in sections:
+    sec_name = section['name']
+    subjects = subjects_for_section(sec_name)
+    n = len(all_subtopics[sec_name])
+    note(f"S2-2c: {sec_name} ← {subjects} → {n} subtopics")
 ```
 
 ### S3-5 — Zero-PYQ classification
@@ -3078,6 +3172,24 @@ if not blueprint['multi_select_allowed']:
 if not blueprint['nat_allowed']:
     blueprint['nat_present'] = False
 
+# v1.35 MARKING_SCHEME AUTHORITY (GAP-2026-07-22-001 §6): for question-type sections
+# (e.g. IIT JAM: Section A=MCQ, Section B=MSQ, Section C=NAT), per-subtopic PYQ observation
+# is unreliable — a subtopic appearing as MCQ in Section A and MSQ in Section B might be
+# classified as 'single'/'option' because Section A has more questions. The marking_scheme
+# from exam_config is the authoritative source for which question types exist in this exam.
+# If marking_scheme says MSQ or NAT ranges exist, ensure the presence flags are set so
+# Step 7's MSQ/NAT generation paths activate.
+_ms_types = {ms.get('question_type', 'MCQ')
+             for ms in blueprint.get('marking_scheme', []) if ms.get('question_type')}
+if 'MSQ' in _ms_types and not blueprint.get('multi_present'):
+    blueprint['multi_present'] = True
+    blueprint['multi_select_allowed'] = True
+    note("S6-MS: marking_scheme contains MSQ range → multi_present=True (overrides per-subtopic).")
+if 'NAT' in _ms_types and not blueprint.get('nat_present'):
+    blueprint['nat_present'] = True
+    blueprint['nat_allowed'] = True
+    note("S6-MS: marking_scheme contains NAT range → nat_present=True (overrides per-subtopic).")
+
 if all_text_exam:
     note("All sections: TEXT only — no figural/passage/DI generation required at Step 2.")
 ```
@@ -3425,6 +3537,13 @@ for section in sections:
              f"within tolerance at Step 8.")
 
 blueprint['axis_schedule'] = axis_schedule
+
+# v1.35 BUG 4 FIX (GAP-2026-07-22-001): persist the section↔subject mapping so B2/B3
+# can reconstruct per-section subtopic lists correctly. Without this, B2/B3 compare
+# subtopic_list[].section (taxonomy Subject, e.g. "General Biology") against
+# section['name'] (OTS section, e.g. "Section A") — mismatch → 0 subtopics → crash.
+blueprint['subjects_for_section'] = {s['name']: subjects_for_section(s['name'])
+                                     for s in sections}
 ```
 
 ### S7-8 — What axis_schedule does NOT do (v1.23)
@@ -3546,6 +3665,8 @@ Step 7  Write blueprint.json v1:
           difficulty_schedule[],
           axis_schedule{},        ← v1.23: per-section THREE-AXIS format-distribution target
                                     (S7-7 / S14-3b). Steps 7/8 read it. Absent-safe (status='no_pyq').
+          subjects_for_section{}, ← v1.35: OTS section → [taxonomy Subjects]. B2/B3 read it to
+                                    reconstruct per-section subtopic lists from subtopic_list[].
           zero_pyq_rotation{},
           mocks: []               ← empty; B2 populates this
         }
@@ -3615,7 +3736,28 @@ Step 1  Read blueprint.json from project knowledge.
           batch_start  = already_done + 1
           batch_end    = min(already_done + 10, N_mocks)
 
-Step 2  Recompute quota[S] for each section using §4-2 formula:
+Step 2  Reconstruct per-section subtopic lists and recompute quota[S]:
+          # v1.35 BUG 4 FIX (GAP-2026-07-22-001): use subjects_for_section from
+          # blueprint.json to reconstruct pyq_subtopics/zero_pyq_subtopics per OTS
+          # section. subtopic_list[].section = taxonomy Subject (e.g. "General Biology"),
+          # NOT the OTS section name (e.g. "Section A"). Without subjects_for_section,
+          # the comparison st['section'] == section['name'] returns 0 matches for any
+          # exam where section names ≠ subject names.
+          s4s = blueprint.get('subjects_for_section', {})
+          for section in sections:
+              sec_name = section['name']
+              # Fallback: [sec_name] preserves pre-v1.35 behavior for legacy blueprints
+              subjects = s4s.get(sec_name, [sec_name])
+              pyq_subtopics[sec_name] = [
+                  st['subtopic'] for st in blueprint['subtopic_list']
+                  if st['section'] in subjects and st['r_avg'] > 0
+              ]
+              zero_pyq_subtopics[sec_name] = [
+                  st['subtopic'] for st in blueprint['subtopic_list']
+                  if st['section'] in subjects and st['r_avg'] == 0
+              ]
+
+          Recompute quota[S] for each section using §4-2 formula:
           r_avg[S] from blueprint['subtopic_list']   ← stored in B1 Step 7
           N_mocks   from blueprint['total_mocks']
           total_zp_slots from zp_slot[section] (computed in Step 4a below)
@@ -3743,7 +3885,22 @@ Step 1  Read complete blueprint.json (all N_mocks in mocks[]).
         "blueprint.json has [K] mocks, expected [N_mocks].
          Please upload the complete blueprint.json and retry B3."
 
-Step 2  Recompute quota[S] for all sections (from subtopic_list r_avg and N_mocks).
+Step 2  Reconstruct per-section subtopic lists and recompute quota[S]:
+        # v1.35 BUG 4 FIX (GAP-2026-07-22-001): same reconstruction as B2 Step 2.
+        s4s = blueprint.get('subjects_for_section', {})
+        for section in sections:
+            sec_name = section['name']
+            subjects = s4s.get(sec_name, [sec_name])  # fallback for legacy blueprints
+            pyq_subtopics[sec_name] = [
+                st['subtopic'] for st in blueprint['subtopic_list']
+                if st['section'] in subjects and st['r_avg'] > 0
+            ]
+            zero_pyq_subtopics[sec_name] = [
+                st['subtopic'] for st in blueprint['subtopic_list']
+                if st['section'] in subjects and st['r_avg'] == 0
+            ]
+
+        Recompute quota[S] for all sections (from subtopic_list r_avg and N_mocks).
         Recompute zp_slot[section][m] for all mocks (from zero_pyq_rotation and N_mocks).
         Both needed by BV-7 F1 (frequency tiers) and BV-8 (ZP count).
 
@@ -3969,12 +4126,14 @@ It verifies that every subtopic from the Analysis doc taxonomy is present in
 pyq_subtopics[section] OR zero_pyq_subtopics[section].
 
 ```python
-# analysis_taxonomy[section] = complete list of subtopics extracted from Analysis doc in §2-2
-# (every subtopic named in the doc, regardless of Format)
+# v1.35: all_subtopics[section] is the re-keyed list from S2-2c (OTS section → subtopics).
+# Before v1.35, this referenced analysis_taxonomy[section] which was keyed by Subject name
+# — that would have been empty for cross-subject exams. The re-keyed all_subtopics is the
+# correct reference since it's what §3-5 actually iterated over.
 
 for section in sections:
     all_allocated = set(pyq_subtopics[section]) | set(zero_pyq_subtopics[section])
-    analysis_subs = set(analysis_taxonomy[section])
+    analysis_subs = set(all_subtopics[section])   # re-keyed in S2-2c
 
     # Check 1: No subtopic from Analysis doc is missing from allocation lists
     missing = analysis_subs - all_allocated
@@ -5548,7 +5707,7 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
 {
   "exam_code"           : "[ExamCode]",
   "exam_name"           : "[Exam Full Name]",
-  "blueprint_version"   : "1.23",
+  "blueprint_version"   : "1.35",
   "n_papers"            : 1,
   "total_mocks"         : N,
   "total_questions"     : Q,
@@ -5572,6 +5731,7 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
                            "msq_instruction_hi": "(एक या अधिक विकल्प सही हो सकते हैं)",
                            "negative_marking_by_type": {}, "partial_credit": false},
   "difficulty_labels"   : ["Easy", "Medium", "Hard"],
+  "subjects_for_section": {"Section A": ["Subject1", "Subject2"], "Section B": ["Subject1"]},
   "sections"            : [...],
   "subtopic_list"       : [...],
   "difficulty_schedule" : [...],
@@ -5586,7 +5746,7 @@ exam_code           : str  — alphanumeric + underscore (from trigger)
 exam_name           : str  — human-readable exam name (from exam_config or Exam Pattern doc)
 blueprint_version   : str  — the blueprint.json SCHEMA version (the subtopic_id + paper_id
                      contract level), NOT the Framework_Blueprint spec-FILE version. Currently
-                     "1.23". Step 7 GATES on it: MIN_BLUEPRINT_VERSION = (1, 7) (subtopic_id
+                     "1.35". Step 7 GATES on it: MIN_BLUEPRINT_VERSION = (1, 7) (subtopic_id
                      floor) — a blueprint_version below 1.7 hard-stops generation. The SCOPED
                      blueprint emits this SAME value (it produces this same §14 schema), so both
                      must stay in sync. Bump only on a real blueprint.json schema change (not on
@@ -5661,6 +5821,17 @@ difficulty_labels   : list — v1.12. Canonical Complexity vocabulary, copied ve
                      Overriding the label CARDINALITY (a 2- or 5-band set) also requires the
                      S7-5 schedule generator to emit matching bands — out of scope here; the
                      default 3-band set is fully supported. (Contract_QuestionMetadataIndex v1.0.)
+subjects_for_section: dict — v1.35 (GAP-2026-07-22-001 BUG 4 FIX). Maps each OTS section
+                     name to the list of taxonomy Subjects it contains. Written by B1;
+                     read by B2 (§8-3 Step 2) and B3 (§8-5 Step 2) to reconstruct
+                     per-section subtopic lists from subtopic_list[].
+                     Example: {"Section A": ["Biotechniques", "Chemistry", "General Biology"],
+                               "Section B": ["Biotechniques", "Chemistry", "General Biology"]}.
+                     For 1:1 exams: {"GIR": ["GIR"], "GA": ["GA"]} (identity, harmless).
+                     BACKWARD COMPATIBILITY: if absent from a legacy blueprint.json (pre-v1.35),
+                     B2/B3 fall back to [section_name] — i.e. treat section name as the
+                     sole subject, preserving the pre-v1.35 behavior for 1:1 exams.
+                     REQUIRED for any exam where section names ≠ subject names.
 sections[]          : static section definitions — does not change per mock
 subtopic_list[]     : one entry per subtopic across all sections.
                      Fields: {subtopic_id (str), section (str), topic (str),
@@ -6897,4 +7068,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.34
+# END OF Framework_Blueprint v1.35

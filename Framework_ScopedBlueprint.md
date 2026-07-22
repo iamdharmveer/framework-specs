@@ -67,7 +67,7 @@
 # v1.2 — 2026-07-15 — CRITICAL FIX: blueprint_version emitted the SCHEMA version, not SCOPED_VERSION.
 #   §8 had emitted 'blueprint_version': SCOPED_VERSION ('1.0'); Step 7 gates blueprint_version against
 #   MIN_BLUEPRINT_VERSION=(1,7) → _ver_tuple('1.0')=(1,0) < (1,7) HARD-STOPPED every scoped generation.
-#   Fix: emit BLUEPRINT_SCHEMA_VERSION='1.23' (the shared blueprint.json schema version the mock also emits;
+#   Fix: emit BLUEPRINT_SCHEMA_VERSION='1.35' (the shared blueprint.json schema version the mock also emits;
 #   passes the floor); SCOPED_VERSION is preserved as scope.scoped_spec_version. The scoped e2e never
 #   caught it (it runs the blueprint, not Step 7's gate) — now locked by an emitted-version floor
 #   assertion in blueprint_scoped_emit_test.py (6/6) + blueprint_scoped_e2e_test.py (7/7).
@@ -1174,10 +1174,10 @@ import json
 SCOPED_VERSION = '1.0'   # this SPEC's version (scoped_spec_version below) — NOT blueprint_version.
 # blueprint_version is the SHARED blueprint.json SCHEMA version that Steps 7-11 gate on
 # (Step 7: MIN_BLUEPRINT_VERSION = (1,7), the subtopic_id contract floor). The scoped blueprint
-# emits the SAME blueprint.json schema as the mock (which emits "1.23"), so it MUST emit the same schema
+# emits the SAME blueprint.json schema as the mock (which emits "1.35"), so it MUST emit the same schema
 # version — emitting SCOPED_VERSION ('1.0') here would fail Step 7's (1,7) floor and hard-stop
 # every scoped generation. Keep this in sync with the mock Blueprint's emitted blueprint_version.
-BLUEPRINT_SCHEMA_VERSION = '1.23'
+BLUEPRINT_SCHEMA_VERSION = '1.35'
 
 # S8-1 — subtopic_list[] (top-level; r_avg stored ONCE per subtopic, per the mock schema S14-8).
 subtopic_list = [{
