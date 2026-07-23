@@ -1,5 +1,15 @@
-# Framework_MockTestAnalyse v2.24.9 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.24.10 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
+#
+# v2.24.10 — 2026-07-23 — E-9/E-10 CANONICAL COPY MOVED TO blueprint_core.py (annotation
+#   only — ZERO logic change in this spec). score_difficulty (E-9) and determine_strip_mode
+#   (E-10) were extracted VERBATIM into blueprint_core.py Cluster E so PYQ-4 (PYQDeliver
+#   v1.2 §2-3 Tier 2) can resolve per-question Complexity from the SAME scorer Step 5 uses,
+#   without a third embedded copy. blueprint_core.py is now the CANONICAL shared copy.
+#   CROSS-FILE SYNC RULE: any change to E-9/E-10 in this spec MUST be applied in the same
+#   session to blueprint_core.py Cluster E (and vice versa), re-verified byte-identical.
+#   Step 8 B-DIFF mirrors the MSQ load term — threshold/flag changes also need a Step 8
+#   review. Step 5's own execution is unchanged: it continues to run the code embedded here.
 #
 # v2.24.9 — 2026-07-22 — S-SECMAP: SECTION↔SUBJECT MAPPING (BUG 1 of 4, GAP-2026-07-22-001).
 #   Root cause: exam_config.json sections[] never carried a `subjects` field listing which
@@ -2205,6 +2215,12 @@ def subtopic_option_format(qs):
 
 ### E-9 — Difficulty scoring (3-axis universal system)
 
+> **CROSS-FILE SYNC RULE (v2.24.10):** the canonical shared copy of
+> `score_difficulty` lives in `blueprint_core.py` Cluster E (consumed by
+> PYQDeliver v1.2 Tier 2). Any edit here MUST be mirrored there (and vice
+> versa) in the same session, byte-identical. Step 8 B-DIFF mirrors the MSQ
+> load term — threshold/flag changes also require a Step 8 review.
+
 ```python
 def score_difficulty(q, marks=1, strip_mode='reasoning'):
     """
@@ -2283,6 +2299,10 @@ def score_difficulty(q, marks=1, strip_mode='reasoning'):
 ```
 
 ### E-10 — Template generation (subject-aware variable stripping)
+
+> **CROSS-FILE SYNC RULE (v2.24.10):** `determine_strip_mode` below also has
+> its canonical shared copy in `blueprint_core.py` Cluster E. Same mirroring
+> obligation as E-9.
 
 ```python
 def determine_strip_mode(section, topic, subtopic):

@@ -114,6 +114,7 @@
     ],
     "PYQDeliver": [
       "Framework_PYQDeliver.md",
+      "blueprint_core.py",
       "Framework_DeliveryFooter.md"
     ]
   },
@@ -140,11 +141,11 @@
       "bytes": 96160
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "0e3545e9aa710b96083fe3a30ce66b99cb424295f31732edf85eddad404681eb",
-      "version_header": "# Framework_MockTestAnalyse v2.24.9 \u2014 Universal PYQ Pattern Extraction Engine",
+      "sha256": "53956a92199e162e2faa69918c409213e5319af29dd55443bbdb43bb1119a67d",
+      "version_header": "# Framework_MockTestAnalyse v2.24.10 \u2014 Universal PYQ Pattern Extraction Engine",
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.24.8",
-      "lines": 8094,
-      "bytes": 441453
+      "lines": 8114,
+      "bytes": 442811
     },
     "Framework_MockTestCreate.md": {
       "sha256": "06f09c9586a7ab65e55bd3348fea84a98564901a0bd1607c79bbffb7e56e163c",
@@ -182,11 +183,11 @@
       "bytes": 252125
     },
     "Framework_PYQDeliver.md": {
-      "sha256": "bde1c7d38353c82ad31128df6e50e0f3533f1d3274b924de8c47aa0dd0eb7154",
-      "version_header": "# Framework_PYQDeliver v1.0 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.0)**",
-      "lines": 634,
-      "bytes": 27195
+      "sha256": "43a9b7e6652e2a514e36fbb5a33a99e5bd93338ad0b9e2ff1e6f6e3c92ebe6a9",
+      "version_header": "# Framework_PYQDeliver v1.2.1 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.2.1)**",
+      "lines": 960,
+      "bytes": 46112
     },
     "Framework_PYQExplain.md": {
       "sha256": "f9b2701c61f5c1b7a9b52780d7d5ce73354581e8bddc80aabb5b4cf072361ed9",
