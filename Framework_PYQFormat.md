@@ -1,9 +1,42 @@
-# Framework_PYQFormat v1.0 — Universal PYQ Student Document Formatter
+# Framework_PYQFormat v1.3 — Universal PYQ Student Document Formatter
 # [ExamCode] project | PYQ-3 (PYQFormat) | Exam-agnostic
+#
+# v1.3 — 2026-07-23 — Page-level header and footer (every page). The exam
+#   header (§3) and IFAS footer (§6) are no longer one-time body paragraphs;
+#   they are real Word page header/footer PARTS (header1.xml / footer1.xml
+#   wired via sectPr references) that repeat automatically on every page.
+#   Header layout: exam name LEFT, date · session CENTER, IFAS RIGHT.
+#   Footer layout: website LEFT, tagline CENTER, phone RIGHT. Tagline (D5)
+#   changed to "IFAS – India's No. 1 Exam Preparation Platform". No page
+#   numbers; first page identical to all others. Body insertions are now
+#   pills ONLY, simplifying S8-3/S8-8. New decision D10; new S13-6
+#   part-wiring mechanics.
+#
+# v1.2 — 2026-07-23 — Explanation tag restyle (§7-4..§7-6). The explanation
+#   tag headers (AXIOM, DEDUCTION, SPEED HACK, WHY WRONG?, COMMON PITFALLS),
+#   the Correct Answer line, and the Option/pitfall sub-heads are restyled
+#   into colored tint bands with 3pt left accent bars, per-tag colors from
+#   the document-wide design palette (Appendix A). Marker glyphs upgraded
+#   in tag headers only: ⬛→📘 (AXIOM), ⬛→🧮 (DEDUCTION), ❌→⚠️ (COMMON
+#   PITFALLS); ⚡ and ❌ WHY WRONG? unchanged. The glyph substitution is the
+#   ONLY text change PYQFormat ever performs (D9) — verified by a new
+#   full-document text-stream integrity check (S8-8). Delivery report gains
+#   §R6 (Tag styling). New architecture decision D9.
+#
+# v1.1 — 2026-07-23 — Date/Session tag removal (§4). The per-question
+#   date/session tag paragraph (PYQSort date_label, e.g. "[12-Sep-2025 Shift 1]"
+#   or "[02-Feb-2025]") that rides through PYQExplain/PYQExplainAudit above
+#   each question is now REMOVED from the student-facing document. This is the
+#   ONLY sanctioned deletion — the zero-mutation rule is amended accordingly.
+#   Removal uses a keyword-agnostic anchored regex (works even when
+#   exam_config.json is absent), verifies each removed paragraph is media-free
+#   (no OMML, no drawings), and a new integrity check (S8-7) confirms zero tag
+#   paragraphs remain in the output. Delivery report gains §R4 (Tags removed).
+#   New architecture decision D8.
 #
 # v1.0 — 2026-07-22 — Initial release. Takes the audited PYQ explanation
 #   document from PYQ-2 (PYQExplainAudit) and transforms it into a beautiful,
-#   student-facing Word document: exam header, IFAS branding footer, per-
+#   student-facing Word document: page header/footer on every page, per-
 #   question colored Subject/Topic/Subtopic pills, and visual polish.
 #   ZERO content changes — every question, option, explanation sentence, and
 #   OMML fraction is byte-identical to the input. This is purely a VISUAL
@@ -31,6 +64,28 @@
 #         session from the trigger/filename.
 #     D7. STUDENT-FACING OUTPUT. This file is the final download artifact
 #         students receive. It must look professional and beautiful.
+#     D8. DATE/SESSION TAGS REMOVED (v1.1). The per-question date/session tag
+#         paragraphs (PYQSort date_label lines) are internal pipeline metadata,
+#         not student content. PYQFormat removes them. The paper's date and
+#         session already appear ONCE in the exam header (§3) — repeating them
+#         above every question adds noise. This is the ONLY deletion PYQFormat
+#         ever performs.
+#     D9. EXPLANATION TAG RESTYLE (v1.2). The engine (explain_engine.py)
+#         deliberately writes plain headers (black text, no shading) so the
+#         explanation document stays clean for engine/audit verification —
+#         same rationale as D3. PYQFormat restyles them for students: tint
+#         band + accent bar per tag, one palette shared with the pills.
+#         Marker glyph substitution (⬛→📘/🧮, ❌→⚠️ on COMMON PITFALLS) is
+#         the ONLY text change in the whole spec, allowed in exact-match tag
+#         header paragraphs only, and verified by S8-8.
+#     D10. PAGE-LEVEL HEADER/FOOTER (v1.3). The exam header and IFAS footer
+#         are Word page header/footer parts, not body paragraphs — Word
+#         repeats them on every page automatically, surviving any reflow.
+#         References are registered for default, even, AND first page types
+#         pointing to the same parts, so every page is identical regardless
+#         of the document's evenAndOddHeaders / titlePg settings. No page
+#         numbers. Tagline (D5 constant) is
+#         "IFAS – India's No. 1 Exam Preparation Platform".
 
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
@@ -75,18 +130,36 @@
 # ★ ZERO-MUTATION RULE — NON-NEGOTIABLE
 
 The content of every question block is SACRED. PYQ-3 may only:
-- **Insert** the exam header as the first element (new content only)
-- **Insert** colored pill tables before each Q-stem (new content only)
-- **Insert** the IFAS branding footer as the last element (new content only)
+- **Add** the exam page header and IFAS page footer as document PARTS
+  (header1.xml / footer1.xml + sectPr references, §3/§6/S13-6) — these
+  never enter the body
+- **Insert** colored pill tables before each Q-stem — the ONLY body
+  insertion (new content only)
+- **Remove** the per-question date/session tag paragraphs (§4) — the ONLY
+  sanctioned deletion. A tag is a standalone paragraph whose FULL text matches
+  DATE_TAG_RE and which contains no OMML and no drawings. Nothing else is
+  ever deleted.
+- **Restyle** the explanation tag header paragraphs, the Correct Answer line,
+  and the Option/pitfall sub-heads (§7-4..§7-5) — pPr/rPr styling only
+  (shading, borders, color, size, letter-spacing, keep-with-next).
+- **Substitute** the leading marker glyph in exact-match tag header
+  paragraphs (§7-6): ⬛→📘 (AXIOM), ⬛→🧮 (DEDUCTION), ❌→⚠️ (COMMON
+  PITFALLS). This is the ONLY text change PYQFormat ever performs (D9),
+  verified by S8-8. No other character anywhere is ever altered.
 - **Apply** visual styling (font, spacing, page margins) to existing elements
 
 It **NEVER**:
-- Changes any character in any question stem, option, table, image, or explanation
+- Changes any character in any question stem, option, table, image, or
+  explanation sentence (the sole exception being the §7-6 marker glyph in
+  tag HEADER paragraphs — never in body content)
 - Reorders questions
 - Removes, rewrites, or paraphrases any content
 - Modifies any OMML fraction or math element
 - Alters any image, drawing, or media part
-- Changes the correct-answer line, axiom, deduction, speed hack, or why-wrong text
+- Changes the TEXT of the correct-answer line, or of any axiom, deduction,
+  speed-hack, why-wrong, or pitfall sentence (their STYLING changes per
+  §7-4..§7-5; the §7-6 marker glyph is the sole text exception, in tag
+  header paragraphs only)
 
 Violation of this rule is a hard failure regardless of any other outcome. The
 input was certified by PYQ-2's completion gate (CA1–CA7) — PYQ-3 preserves that
@@ -126,8 +199,10 @@ NOT REQUIRED (PYQ-3 adds no content):
 **Output:**
 
 - `[ExamCode]_[date]_[session]_PYQ_Formatted.docx` — the student-facing document.
-  Contains: exam header + (pill + question + explanation) × Q_TOTAL + IFAS footer.
-  Every question/explanation byte-identical to the input; only visual elements added.
+  Body: (pill + question + explanation) × Q_TOTAL. Exam header and IFAS
+  footer repeat on EVERY page as page header/footer parts (§3/§6).
+  Every question/explanation byte-identical to the input; only visual elements
+  added, and the per-question date/session tag paragraphs removed (§4).
 
 ---
 
@@ -182,9 +257,11 @@ needed. The entire document is processed in one response:
 
 ```text
 1. create_file  → write the complete format_pipeline.py script
-2. bash_tool    → run it (open input → insert header → insert pills → insert
-                  footer → apply styling → save output)
-3. bash_tool    → verify output (Q-count, pill-count, content integrity)
+2. bash_tool    → run it (open input → remove date/session tags → restyle
+                  explanation tags → insert pills → wire page header/footer
+                  parts → apply styling → save output)
+3. bash_tool    → verify output (Q-count, pill-count, tag absence, header/
+                  footer parts, text-stream integrity, content integrity)
 4. present_files → deliver [ExamCode]_[date]_[session]_PYQ_Formatted.docx
 ```
 
@@ -194,50 +271,133 @@ that must preserve all existing formatting, OMML, images, and drawings intact).
 
 ---
 
-# §3 — Exam header
+# §3 — Exam page header (every page, v1.3)
 
-The exam header is the FIRST visible element in the formatted document, inserted
-before Q.1 (before Q.1's pill, before Q.1's stem — the very top of the document).
+The exam header is a Word PAGE HEADER part — it appears at the top of EVERY
+page of the formatted document, including the first (D10, no titlePg). It is
+NOT a body paragraph.
 
-## S3-1 — Header content
+## S3-1 — Header content and layout
+
+One paragraph, three zones via tab stops:
 
 ```text
-[exam_name]   ·   [DD-Mon-YYYY]   ·   [Shift/Session N]   ·   IFAS
+LEFT                      CENTER                      RIGHT
+[exam_name]               [DD-Mon-YYYY] · [Session]   IFAS
 ```
 
 Example:
 ```text
-SSC CGL Tier 1   ·   12-Sep-2025   ·   Shift 1   ·   IFAS
+SSC CGL Tier 1            18-Jan-2025 · Shift 1       IFAS
 ```
 
 - `exam_name`: from exam_config.json `exam_name` field (or ExamCode as fallback)
 - `DD-Mon-YYYY`: from the trigger DATE
-- `Shift/Session N`: from the trigger SESSION (omit the session part if no session)
+- `Session`: from the trigger SESSION, joined to the date with ` · `
+  (omit the ` · Session` part entirely if no session)
 - `IFAS`: hardcoded (D5)
-- Separator: ` · ` (space · middle-dot · space)
+- Zones: left-aligned run at margin, `<w:tab w:val="center">` at the page
+  center, `<w:tab w:val="right">` at the right margin. Tab positions are
+  computed from the section's page width and margins at runtime — never
+  hardcoded twips (page size varies per exam).
 
 ## S3-2 — Header styling
 
 ```text
-Font        : Arial, 14pt, Bold
-Alignment   : Center
-Color       : Dark blue (#1F3864)
-Spacing     : 6pt before, 12pt after (visual separation from first question)
-Border      : Thin bottom border, dark blue (#1F3864), 0.5pt
+Exam name (LEFT)    : Bold, 9pt, dark blue (#1F3864)
+Date · Session (CTR): Regular, 9pt, muted slate (#5A6B85)
+IFAS (RIGHT)        : Bold, 10pt, dark blue (#1F3864), letter-spacing 40
+                      (2pt tracking — wordmark treatment)
+Font face           : Arial (header/footer parts are NEW content, so a font
+                      face is set here — S7-3 applies to existing content)
+Border              : Thin bottom border, dark blue (#1F3864), sz=6 (0.75pt),
+                      space=4 — separates header from body
+Spacing             : after=120 (6pt)
 ```
 
-The header is a SINGLE paragraph with the four elements separated by middle-dot
-spacers. No table, no multi-line — one clean centered line.
+## S3-3 — Repetition guarantee
+
+The header repeats on every page because it is wired as header parts
+referenced from every sectPr for ALL THREE reference types (default, even,
+first) — see S13-6. First page is identical to all others; no page numbers
+anywhere (D10).
 
 ---
 
-# §4 — Colored pills (Option C)
+# §4 — Date/Session tag removal (v1.1)
+
+The input document carries a per-question date/session tag paragraph — the
+PYQSort `date_label` line that sits immediately above each Q-stem and rides
+through PYQExplain/PYQExplainAudit unchanged:
+
+```text
+[12-Sep-2025 Shift 1]     (multi-session exam, keyword from exam_config)
+[02-Feb-2025 Session 2]   (GATE-style keyword)
+[15-Jun-2025]             (single-session exam — no keyword/number)
+```
+
+These tags are internal pipeline metadata, not student content (D8). The
+paper's date and session already appear once in the exam header (§3).
+PYQFormat removes every tag paragraph from the document body.
+
+## S4-1 — Tag matching regex
+
+```python
+import re
+
+# Keyword-agnostic, anchored full-paragraph match.
+# DELIBERATE DIVERGENCE from PYQSort's build_date_label_re(): PYQSort needs
+# the exact session_keyword from exam_config.json because it PARSES the
+# session number for sorting. PYQFormat only needs to RECOGNIZE the tag for
+# deletion, and must work even when exam_config.json is absent (§1 WARN
+# case). [A-Za-z]+ therefore matches ANY session keyword (Shift, Slot,
+# Phase, Paper, Session, Morning, Afternoon, or custom).
+DATE_TAG_RE = re.compile(
+    r'^\[\d{1,2}-[A-Za-z]{3}-\d{4}'   # [DD-Mon-YYYY
+    r'(?:\s+[A-Za-z]+\s+\d+)?'        # optional: <keyword> <number>
+    r'\]$'                            # ] — anchored: FULL paragraph only
+)
+```
+
+A paragraph is a tag if and only if its FULL reconstructed text (all `<w:t>`
+runs concatenated, then `.strip()`) matches DATE_TAG_RE. The anchors guarantee
+PYQFormat can never partially delete text: a stem or explanation that merely
+CONTAINS a date label inline (e.g. "This question appeared in
+[12-Sep-2025 Shift 1] and asks…") does not match and is never touched.
+
+## S4-2 — Removal algorithm
+
+1. Walk every body-level `<w:p>` element of `word/document.xml`.
+2. Reconstruct its full text from all `<w:t>` descendants; `.strip()`.
+3. If the text matches DATE_TAG_RE:
+   a. SAFETY GATE: if the paragraph contains any `<m:oMath>` or `<w:drawing>`
+      descendant, SKIP removal for that paragraph and WARN (a real tag never
+      contains media — this is defensive; deleting it would break S8-5/S8-6).
+   b. Otherwise remove the `<w:p>` from its parent `<w:body>`.
+4. Record `tags_removed` (count deleted) and `tags_skipped` (safety-gate skips).
+
+Removal runs FIRST — before header/pill/footer insertion (§13-2) — so all
+subsequent position arithmetic operates on the tag-free body.
+
+## S4-3 — Removal outcomes
+
+- `tags_removed ≥ 1` → normal. Reported in §R4.
+- `tags_removed == 0` → WARN (not HALT): "No date/session tag paragraphs
+  found — document may predate tagging or tags were already removed."
+  Formatting proceeds.
+- `tags_skipped ≥ 1` → WARN per paragraph with its position, listed in §R4.
+- Tags are removed WHEREVER they match — count does not need to equal
+  Q_TOTAL (some sources tag only on date change; some tag every question).
+
+---
+
+# §5 — Colored pills (Option C)
 
 Per-question Subject/Topic/Subtopic classification displayed as three colored
 pill cells inserted BEFORE each Q-stem. This is the visual signature of PYQ-3
 and must look professional and beautiful in the downloaded Word document.
 
-## S4-1 — Pill structure (per question)
+## S5-1 — Pill structure (per question)
 
 For each question Q.n, insert a 1-row, 3-cell Word table immediately before
 the Q-stem paragraph. Each cell displays one classification level:
@@ -251,7 +411,7 @@ the Q-stem paragraph. Each cell displays one classification level:
 The table is inserted as a NEW element — it does not modify or displace the
 Q-stem or any other existing content.
 
-## S4-2 — Pill styling
+## S5-2 — Pill styling
 
 ```text
 CELL 1 — Subject:
@@ -276,7 +436,7 @@ CELL 3 — Subtopic:
   Padding       : 2pt top/bottom, 4pt left/right
 ```
 
-## S4-3 — Pill table properties
+## S5-3 — Pill table properties
 
 ```text
 Table width     : 100% of page width (between margins)
@@ -289,7 +449,7 @@ Cell shading    : ShadingType.CLEAR with the fill color (NOT ShadingType.SOLID �
 Vertical align  : Center
 ```
 
-## S4-4 — Pill data resolution
+## S5-4 — Pill data resolution
 
 For each question Q.n, look up `q_to_classification[n]`:
 - `subject` → Cell 1 text
@@ -300,7 +460,7 @@ If Q.n is missing from the classification map → SKIP the pill for that questio
 (WARN in the delivery report, do not HALT). The question and its explanation are
 still included — only the pill is omitted.
 
-## S4-5 — Pill insertion position
+## S5-5 — Pill insertion position
 
 The pill table is inserted IMMEDIATELY BEFORE the Q-stem paragraph. In the
 document's XML, this means: find the `<w:p>` element that starts with the
@@ -315,57 +475,64 @@ option paragraphs      ← EXISTING (unchanged)
 explanation block      ← EXISTING (unchanged)
 ```
 
-For Q.1, the order is:
+For Q.1, the pill table is the very first BODY element (v1.3 — the exam
+header lives in the page header part, §3, not in the body):
 ```text
-[exam header]          ← NEW (§3)
-[pill table for Q.1]   ← NEW (§4)
+[pill table for Q.1]   ← NEW (§5) — first child of <w:body>
 Q.1 stem paragraph     ← EXISTING
 ...
 ```
 
 ---
 
-# §5 — IFAS branding footer
+# §6 — IFAS page footer (every page, v1.3)
 
-The IFAS branding footer is the LAST visible element in the formatted document,
-inserted after the last question's explanation block — the very bottom of the
-document.
+The IFAS branding footer is a Word PAGE FOOTER part — it appears at the
+bottom of EVERY page, including the first (D10). It is NOT a body paragraph.
 
-## S5-1 — Footer content
+## S6-1 — Footer content and layout
 
-```text
-ifasonline.com   ·   IFAS: India's No. 1 Sarkari Exam Preparation   ·   +91-9172266888
-```
-
-All three elements on ONE line, separated by ` · ` (middle-dot spacers).
-
-## S5-2 — Footer styling
+One paragraph, three zones via tab stops (same tab mechanics as S3-1):
 
 ```text
-Font        : Arial, 10pt, Bold
-Alignment   : Center
-Color       : Dark blue (#1F3864)
-Spacing     : 18pt before (visual separation from last explanation), 6pt after
-Border      : Thin top border, dark blue (#1F3864), 0.5pt
+LEFT                CENTER                                        RIGHT
+ifasonline.com      IFAS – India's No. 1 Exam Preparation Platform  +91-9172266888
 ```
 
-## S5-3 — Footer hardcoded values (D5)
+## S6-2 — Footer styling
+
+```text
+Website (LEFT)   : Bold, 9pt, dark blue (#1F3864)
+Tagline (CENTER) : Regular, 9pt, dark blue (#1F3864)
+Phone (RIGHT)    : Bold, 9pt, dark blue (#1F3864)
+Font face        : Arial (new content — same note as S3-2)
+Border           : Thin top border, dark blue (#1F3864), sz=6 (0.75pt),
+                   space=4 — separates footer from body
+Spacing          : before=120 (6pt)
+```
+
+No page numbers (D10).
+
+## S6-3 — Footer hardcoded values (D5)
 
 These are COMPANY branding constants, not exam-specific values:
 - Website: `ifasonline.com`
-- Tagline: `IFAS: India's No. 1 Sarkari Exam Preparation`
+- Tagline: `IFAS – India's No. 1 Exam Preparation Platform`
+  (v1.3 — en dash `–` U+2013 after IFAS; replaces the former
+  "IFAS: India's No. 1 Sarkari Exam Preparation")
 - Phone: `+91-9172266888`
 
 Same across all exams, all papers, all sessions. Hardcoded by design.
 
 ---
 
-# §6 — Visual polish
+# §7 — Visual polish
 
-Optional visual improvements applied to the EXISTING content elements. These
-changes affect STYLING ONLY — never text content, never OMML math, never images.
+Visual improvements applied to the EXISTING content elements. These changes
+affect STYLING ONLY — never text content (sole exception: the §7-6 marker
+glyph), never OMML math, never images.
 
-## S6-1 — Page margins (if not already set)
+## S7-1 — Page margins (if not already set)
 
 ```text
 Top     : 1.27 cm (0.5 in)
@@ -376,75 +543,224 @@ Right   : 1.91 cm (0.75 in)
 
 Compact margins maximize content per page for a student printout.
 
-## S6-2 — Consistent spacing
+## S7-2 — Consistent spacing
 
 Ensure paragraph spacing between questions is uniform:
 - Before each Q-stem (after the pill table): 8pt
 - After the last explanation element of each Q: 12pt
-- Between explanation sub-sections (AXIOM → DEDUCTION → etc.): unchanged
+- Between explanation sub-sections (AXIOM → DEDUCTION → etc.): the tag
+  header spacing is set by S7-5; sentence spacing stays unchanged
   (preserve the spacing PYQ-1/PYQ-2 set through the engine)
 
-## S6-3 — What is NOT changed
+## S7-3 — What is NOT changed
 
-- Font face of question/option/explanation text → NEVER changed (preserve
-  whatever font the Row file and engine used)
-- Bold/italic/underline formatting on any text → NEVER changed
+- Font face of ANY text → NEVER changed (preserve whatever font the Row
+  file and engine used — including on restyled tag headers: S7-5 sets
+  size/color/bold/spacing but never rFonts)
+- Bold/italic/underline on question stems, options, and explanation
+  SENTENCES → NEVER changed (tag headers, the Correct Answer line, and
+  Option/pitfall sub-heads are restyled per S7-4..S7-5 — those paragraphs
+  only)
 - OMML fractions and math elements → NEVER touched
 - Images, drawings, charts, tables → NEVER modified
-- Paragraph content → NEVER modified (zero-mutation rule)
+- Paragraph content → NEVER modified (zero-mutation rule; sole exception:
+  the §7-6 marker glyph in tag header paragraphs)
+
+## S7-4 — Explanation tag restyle (v1.2): detection
+
+The engine writes plain explanation blocks (D9). PYQFormat identifies four
+classes of paragraph to restyle. Labels and markers are read from
+exam_config.json key `explain_labels` / `explain_markers` when present
+(non-English exams), else the engine defaults below — matching
+explain_engine.py's cfg.labels / cfg.markers. NEVER hardcode beyond these
+config-backed defaults.
+
+```text
+ENGINE DEFAULT LABELS (cfg.labels):
+  correct_answer   → "Correct Answer"
+  axiom            → "AXIOM"
+  deduction        → "DEDUCTION"
+  speed_hack       → "SPEED HACK"
+  why_wrong        → "WHY WRONG?"
+  common_pitfalls  → "COMMON PITFALLS"
+ENGINE DEFAULT MARKERS (cfg.markers):
+  axiom ⬛   deduction ⬛   speed_hack ⚡   why_wrong ❌   common_pitfalls ❌
+```
+
+CLASS 1 — Tag header paragraph: full stripped text equals
+`"<marker> <LABEL>"` or `"<LABEL>"` for one of axiom / deduction /
+speed_hack / why_wrong / common_pitfalls. Exact full-paragraph match —
+a sentence merely CONTAINING the word "AXIOM" is never touched.
+
+CLASS 2 — Correct Answer line: full stripped text starts with
+`"<correct_answer label>:"` (e.g. "Correct Answer: 3"). Prefix match
+because the paragraph carries the answer value (possibly OMML for NAT —
+the OMML is left untouched; only pPr/run styling is applied).
+
+CLASS 3 — Option / pitfall sub-heads: paragraphs strictly BETWEEN a
+why_wrong or common_pitfalls header (CLASS 1) and the next CLASS-1 header,
+next Q-stem, or document end, that the engine wrote as sub-headers. Detect
+structurally, exactly as explain_engine.py's _is_subheader(): a sub-header
+has spacing before > after; sentences have before < after. Fall back to
+the engine's textual heuristic only when spacing is absent; when still
+uncertain → leave the paragraph unstyled (WARN). Never guess-style a body
+sentence.
+
+CLASS 4 — Everything else: never restyled.
+
+## S7-5 — Explanation tag style table (v1.2)
+
+All colors are document-wide design tokens (Appendix A). Font FACE is never
+set — existing rFonts preserved. sz values are half-points; w:spacing in
+rPr is letter-spacing in twentieths of a point; pBdr left sz=24 is a 3pt
+bar; w:ind left=120 twips clears the bar; shd uses w:val="clear" (S13-1
+warning: "solid" renders black).
+
+```text
+TAG HEADERS (CLASS 1) — common: bold, sz 24 (12pt), letter-spacing 20,
+  left bar sz=24 space=8 (color = FG), shd clear fill = BG, ind left 120,
+  spacing before=280 after=120, keepNext + keepLines.
+
+  axiom            📘 AXIOM            BG #D6E4F0   FG/bar #1F3864  (blue)
+  deduction        🧮 DEDUCTION        BG #E8E2F4   FG/bar #4C3D8F  (purple)
+  speed_hack       ⚡ SPEED HACK       BG #FFF2CC   FG/bar #7F6000  (amber)
+  why_wrong        ❌ WHY WRONG?       BG #FDECEC   FG/bar #991B1B  (red)
+  common_pitfalls  ⚠️ COMMON PITFALLS  BG #FBE5D6   FG/bar #843C0C  (orange)
+
+CORRECT ANSWER (CLASS 2): bold, sz 22 (11pt), letter-spacing 10,
+  left bar sz=24 space=8 #375623, shd clear fill #E2EFDA, ind left 120,
+  spacing before=240 after=180, keepNext.
+  Run color #375623 applied to TEXT runs only — OMML answer values (NAT)
+  keep their own math run properties untouched.
+
+SUB-HEADS (CLASS 3): bold, sz 22 (11pt), keepNext + keepLines. Run color:
+  #7F1D1D under a why_wrong header, #7A3708 under a common_pitfalls header.
+  SPACING PRESERVED AS-IS — the engine's before>after relation on
+  sub-heads is a structural invariant (_is_subheader) and must survive.
+  No shading, no bar — sub-heads stay lighter than section headers.
+
+BODY SENTENCES (CLASS 4): untouched — color, size, spacing, everything.
+```
+
+## S7-6 — Marker glyph substitution (v1.2, D9)
+
+The ONLY text change in this spec. Applied ONLY to CLASS-1 tag header
+paragraphs whose full text exactly equals `"<old_marker> <LABEL>"`:
+
+```text
+⬛ AXIOM            →  📘 AXIOM
+⬛ DEDUCTION        →  🧮 DEDUCTION
+❌ COMMON PITFALLS  →  ⚠️ COMMON PITFALLS
+⚡ SPEED HACK       →  (unchanged)
+❌ WHY WRONG?       →  (unchanged)
+```
+
+Rules:
+1. Substitution replaces the single leading marker glyph in the header's
+   run text; the label word(s) and everything else are untouched.
+2. If a header carries no marker, an unexpected marker, or already carries
+   the new glyph (engine re-run with updated markers) → NO substitution;
+   restyle still applies. WARN only when the marker is unexpected.
+3. Word renders emoji via the platform color-emoji font regardless of run
+   color — the header's color identity is carried by the label text and
+   the band/bar, so glyph color variance across platforms is acceptable.
+4. Every substitution performed is recorded as
+   (paragraph position, old_text, new_text) for S8-8 verification and the
+   §R6 report.
 
 ---
 
-# §7 — Content integrity verification
+# §8 — Content integrity verification
 
 After all visual elements are inserted and styling is applied, PYQ-3 verifies
 that the content is intact. This is the LAST check before delivery.
 
-## S7-1 — Question count match
+## S8-1 — Question count match
 
 Count the Q-stems in the output document and verify it equals Q_TOTAL from the
 input document. A mismatch means PYQ-3 accidentally displaced or deleted a
 question paragraph — HARD STOP.
 
-## S7-2 — Pill count match
+## S8-2 — Pill count match
 
 Count the pill tables in the output document. Expected: one per question that
 has a classification entry (may be fewer than Q_TOTAL if some Qs are missing
 from the map). Verify: pill_count == len(q_to_classification ∩ {1..Q_TOTAL}).
 
-## S7-3 — Header and footer presence
+## S8-3 — Header and footer parts check (v1.3)
 
-Verify the exam header paragraph is the first element (before Q.1's pill).
-Verify the IFAS footer paragraph is the last element (after the last Q's
-explanation).
+Verify in the output package:
+1. The header and footer parts exist (e.g. word/header1.xml,
+   word/footer1.xml) and contain the exact expected texts: exam name,
+   date · session, "IFAS"; and "ifasonline.com", the D5 tagline,
+   "+91-9172266888".
+2. word/_rels/document.xml.rels contains relationships to both parts, and
+   [Content_Types].xml declares their content types.
+3. EVERY `<w:sectPr>` in word/document.xml carries `<w:headerReference>`
+   and `<w:footerReference>` for ALL THREE types (default, even, first)
+   pointing to those relationships (S13-6).
+4. The BODY's first element is Q.1's pill table and its last element is
+   the final explanation paragraph — no header/footer paragraphs in the
+   body.
+Any failure — HARD STOP.
 
-## S7-4 — Content byte-identity spot-check
+## S8-4 — Content byte-identity spot-check
 
 For a sample of questions (first 3, last 3, and 3 random), extract the Q-stem
 text from both the input and output documents and confirm they are byte-identical.
-This is a spot-check, not a full fidelity verification (PYQ-2 already certified
-the content — PYQ-3 only adds around it).
+This is a fast early-fail check; S8-8 performs the full-document text-stream
+verification.
 
-## S7-5 — OMML survival check
+## S8-5 — OMML survival check
 
 Count the `<m:oMath>` elements in the input and output. They must be equal —
 PYQ-3 never creates, modifies, or removes OMML. A mismatch means the XML
 manipulation accidentally corrupted a math element — HARD STOP.
 
-## S7-6 — Image survival check
+## S8-6 — Image survival check
 
 Count the `<w:drawing>` elements in the input and output. They must be equal.
 A mismatch means an image was lost or duplicated — HARD STOP.
 
+NOTE (v1.1): S8-5 and S8-6 remain exact input==output equality checks. Tag
+removal (§4) cannot affect them because the S4-2 safety gate refuses to delete
+any paragraph containing OMML or drawings.
+
+## S8-7 — Date/session tag absence check (v1.1)
+
+Count the body-level paragraphs in the OUTPUT whose full text matches
+DATE_TAG_RE (§4). Expected: exactly `tags_skipped` (0 in the normal case).
+Additionally verify: `input_tag_count == tags_removed + tags_skipped`.
+Any other result means removal missed a tag or the accounting is wrong —
+HARD STOP.
+
+## S8-8 — Full text-stream integrity check (v1.2)
+
+The strongest check in the spec — full-document, not a spot-check:
+
+1. Extract the ordered list of paragraph texts from the INPUT, minus the
+   date/session tag paragraphs removed per §4 accounting.
+2. Extract the ordered list of paragraph texts from the OUTPUT body, minus
+   the pill tables PYQFormat inserted (v1.3: pills are the only body
+   insertion — header/footer live in separate parts and never enter this
+   comparison).
+3. The two lists must be identical in length and content, where the ONLY
+   permitted differences are the exact (position, old_text, new_text)
+   marker substitutions recorded in S7-6.
+
+Any other difference — one character, anywhere — means text was mutated:
+HARD STOP. This check makes the D9 guarantee ("the marker glyph is the
+only text change") machine-verified rather than asserted.
+
 ---
 
-# §8 — Delivery
+# §9 — Delivery
 
 PYQ-3 delivers in a single response (no batching):
 
-1. All integrity checks (§7) pass.
+1. All integrity checks (§8) pass.
 2. Present `[ExamCode]_[date]_[session]_PYQ_Formatted.docx` via present_files.
-3. Print the delivery report (§9).
+3. Print the delivery report (§10).
 4. Render the post-delivery footer per Framework_DeliveryFooter.md:
    - F2 (step-complete, GREEN) — PYQ-3 delivers once, always complete.
    - File badge: `📁 Use locally` for PYQ_Formatted.docx.
@@ -454,54 +770,79 @@ PYQ-3 delivers in a single response (no batching):
 
 ---
 
-# §9 — Delivery report
+# §10 — Delivery report
 
 Printed in chat after present_files. Brief and skimmable:
 
 - **§R1 — Scope.** Exam, paper (date, session), Q_TOTAL.
-- **§R2 — Header.** Exam header text as rendered.
+- **§R2 — Header.** Page header as rendered (left / center / right zones),
+  confirmed on every page via the S8-3 parts check.
 - **§R3 — Pills.** pill_count of Q_TOTAL questions have pills. Any missing
   classifications listed by Q number.
-- **§R4 — Footer.** IFAS branding footer text as rendered.
-- **§R5 — Integrity.** Q-count match, OMML count match, image count match,
-  spot-check results. All must show PASS.
-- **§R6 — Note.** "This is the student-facing document. Review in Microsoft
+- **§R4 — Tags removed.** tags_removed date/session tag paragraphs removed
+  (§4). Any safety-gate skips (tags_skipped) listed with position and reason.
+  "0 removed" shown with the S4-3 WARN when no tags were found.
+- **§R5 — Tag styling.** Counts of restyled paragraphs per class: tag
+  headers by tag, Correct Answer lines, sub-heads. Marker substitutions
+  performed (S7-6). Any detection WARNs (unstyled uncertain sub-heads,
+  unexpected markers) listed.
+- **§R6 — Footer.** Page footer as rendered (website / tagline / phone),
+  confirmed on every page via the S8-3 parts check.
+- **§R7 — Integrity.** Q-count match, OMML count match, image count match,
+  tag absence (S8-7), text-stream integrity (S8-8), spot-check results.
+  All must show PASS.
+- **§R8 — Note.** "This is the student-facing document. Review in Microsoft
   Word (OMML renders correctly only in Word). For portal delivery, run PYQ-4
   (PYQDeliver) in a new chat — it takes PYQ-2 output directly."
 
 ---
 
-# §10 — Definition of done
+# §11 — Definition of done
 
 PYQ-3 is done when **all** hold:
 
 1. The input document opened successfully and Q_TOTAL was determined.
 2. The q_to_classification map was loaded with coverage for the paper.
-3. The exam header is the first element, correctly formatted (§3).
+3. The exam page header appears on every page, correctly formatted with
+   its three zones (§3, S8-3).
 4. Every question with a classification entry has a colored pill table
-   immediately before its Q-stem (§4).
-5. The IFAS branding footer is the last element, correctly formatted (§5).
-6. ZERO content was changed — no question, option, explanation, OMML, or
-   image was modified (zero-mutation rule).
-7. All integrity checks (§7) pass: Q-count, pill-count, header/footer
-   presence, content spot-check, OMML count, image count.
-8. The output is a valid .docx that opens clean in Microsoft Word.
-9. Delivered via present_files with the delivery report and footer.
+   immediately before its Q-stem (§5).
+5. The IFAS page footer appears on every page with the D5 tagline
+   "IFAS – India's No. 1 Exam Preparation Platform" (§6, S8-3).
+6. Every date/session tag paragraph has been removed (§4) — none remain in
+   the output (S8-7), barring reported safety-gate skips.
+7. Explanation tags are restyled per S7-4..S7-5 and marker glyphs
+   substituted per S7-6, with counts reported in §R5.
+8. ZERO content was changed — no question, option, explanation, OMML, or
+   image was modified (zero-mutation rule); the tag paragraphs are the ONLY
+   removed elements and the S7-6 marker glyphs the ONLY changed characters.
+9. All integrity checks (§8) pass: Q-count, pill-count, header/footer
+   parts, content spot-check, OMML count, image count, tag absence,
+   text-stream integrity.
+10. The output is a valid .docx that opens clean in Microsoft Word.
+11. Delivered via present_files with the delivery report and footer.
 
 **Hard invariants (never violated):**
 
-- No text content is modified (zero-mutation rule).
+- No text content is modified (zero-mutation rule) — sole exception: the
+  S7-6 marker glyph in exact-match tag header paragraphs, machine-verified
+  by S8-8's full text-stream comparison.
+- The date/session tag paragraphs (§4) are the ONLY elements ever removed —
+  each verified media-free before deletion. Nothing else is deleted.
+- Restyling (S7-4..S7-5) touches ONLY the four detected classes; body
+  sentences are never restyled, and font FACE is never changed anywhere.
 - No OMML element is created, modified, or removed.
 - No image or drawing is modified, moved, or removed.
 - The pill table is the ONLY new element between questions.
-- The exam header is the ONLY new element before Q.1.
-- The IFAS footer is the ONLY new element after the last explanation.
+- The pill tables are the ONLY new elements in the body; the exam header
+  and IFAS footer live exclusively in page header/footer parts (D10) and
+  never appear as body paragraphs.
 - No exam-specific value is hardcoded (exam-agnostic guarantee).
   The only hardcoded values are IFAS branding constants (D5).
 
 ---
 
-# §11 — Edge cases
+# §12 — Edge cases
 
 1. **q_to_classification map missing entirely** → HARD STOP with message
    (§0). Cannot generate pills without classification data.
@@ -525,7 +866,7 @@ PYQ-3 is done when **all** hold:
    is always shown.
 
 7. **Document with images/OMML** → All preserved. PYQ-3 inserts new
-   elements only; existing elements are untouched (§6-3, §7-5, §7-6).
+   elements only; existing elements are untouched (§7-3, §8-5, §8-6).
 
 8. **Multi-session exam (same date, 3 shifts)** → Each session is a
    separate PYQFormat run. The filename includes the session identifier.
@@ -537,11 +878,70 @@ PYQ-3 is done when **all** hold:
    appears to already be a formatted document. Attach the
    _PYQ_Explanation_Complete.docx instead."
 
+10. **No date/session tags in the document** → WARN (not HALT, S4-3).
+    The document may predate tagging or use a non-standard label the
+    anchored regex does not match. Formatting proceeds; §R4 reports
+    "0 removed" with the WARN.
+
+11. **Date-label text inline inside a stem or explanation** → NOT removed.
+    DATE_TAG_RE is anchored to the full paragraph text (§4-1) — partial
+    deletion is structurally impossible. Only standalone tag paragraphs
+    are removed.
+
+12. **Tag paragraph containing OMML or a drawing** → removal SKIPPED for
+    that paragraph, WARN with position (S4-2 safety gate). S8-7 accounts
+    for it via tags_skipped; S8-5/S8-6 equality checks stay intact.
+
+13. **Non-English exam (custom labels/markers)** → labels and markers read
+    from exam_config.json `explain_labels` / `explain_markers` (S7-4). If
+    absent and the English defaults match nothing → WARN "no explanation
+    tag headers detected — restyle skipped"; formatting proceeds without
+    the tag restyle. Never HALT over styling.
+
+14. **Header already carries the new glyph** (engine re-run with updated
+    markers, or PYQFormat re-run) → no substitution (S7-6 rule 2), restyle
+    applies normally, no WARN.
+
+15. **SPEED HACK absent** → normal; the block is optional in the engine.
+    Restyle whatever headers exist — no completeness requirement on tags.
+
+16. **Sub-head detection uncertain** (spacing absent AND textual heuristic
+    inconclusive) → paragraph left unstyled, WARN in §R5 (S7-4 CLASS 3).
+    An unstyled sub-head is cosmetically imperfect; a mis-styled body
+    sentence is a defect. Choose the former.
+
+17. **NAT Correct Answer with OMML value** → the paragraph band/bar/bold
+    is applied via pPr; run color applies to TEXT runs only, OMML math
+    runs untouched (S7-5). S8-5 still requires exact OMML count equality.
+
+18. **A body sentence that happens to start with "Correct Answer:"** →
+    styled as CLASS 2 only if the paragraph is positioned as the engine
+    writes it (immediately after the option block / before the first tag
+    header). Elsewhere → left alone, WARN. Positional context guards the
+    prefix match.
+
+19. **Input already has header/footer parts** (rare — engine output is
+    plain, but python-docx templates can carry empty defaults) → existing
+    header/footer parts and their sectPr references are REPLACED by
+    PYQFormat's (S13-6). The replaced parts are document chrome, not
+    certified content — the zero-mutation rule protects the body, and
+    S8-8 proves the body text stream is intact.
+
+20. **Multiple `<w:sectPr>` elements** (multi-section body) → the
+    header/footer references are added to EVERY sectPr, including the
+    body-level trailing sectPr and any paragraph-level ones. S8-3 rule 3
+    verifies all of them.
+
+21. **`evenAndOddHeaders` or `titlePg` present in the input** → harmless
+    by construction: references are registered for default, even, and
+    first types pointing to the same parts (D10), so every page renders
+    identically without editing settings.xml.
+
 ---
 
-# §12 — Implementation notes
+# §13 — Implementation notes
 
-## S12-1 — Pill table XML structure
+## S13-1 — Pill table XML structure
 
 The pill table is built as a `<w:tbl>` element in the document XML with:
 - `<w:tblPr>`: table width 100%, layout fixed, no borders
@@ -553,31 +953,38 @@ The pill table is built as a `<w:tbl>` element in the document XML with:
 Cell shading uses `<w:shd w:val="clear" w:fill="[HEX]"/>` — the `clear` val
 is critical (Word renders `solid` as opaque black).
 
-## S12-2 — Insertion strategy
+## S13-2 — Insertion strategy
 
 The document is processed via `unzip → XML edit → zip`:
 
 1. Unzip the input .docx to a working directory
 2. Parse `word/document.xml` as XML
-3. Find each Q-stem `<w:p>` by matching the question regex pattern
-4. For each Q-stem found (in reverse order to preserve positions):
+3. REMOVE date/session tag paragraphs (§4) — every body-level `<w:p>` whose
+   full text matches DATE_TAG_RE and passes the media-free safety gate.
+   This runs FIRST so all subsequent position arithmetic is tag-free.
+4. RESTYLE explanation tags (S7-4..S7-6) — detect the four classes, apply
+   pPr/rPr styling in place, substitute marker glyphs, record every
+   substitution for S8-8.
+5. Find each Q-stem `<w:p>` by matching the question regex pattern
+6. For each Q-stem found (in reverse order to preserve positions):
    - Build the pill `<w:tbl>` element
    - Insert it BEFORE the Q-stem `<w:p>` in the parent `<w:body>`
-5. Insert the exam header `<w:p>` as the first child of `<w:body>`
-6. Insert the IFAS footer `<w:p>` as the last child of `<w:body>`
-7. Re-zip to the output .docx
+7. WIRE the page header/footer parts (S13-6) — create header1.xml /
+   footer1.xml, register relationships and content types, add references
+   to every sectPr.
+8. Re-zip to the output .docx
 
 Processing in REVERSE ORDER (Q.N → Q.1) ensures that inserting elements
 for Q.5 doesn't shift the positions of Q.6-Q.N (which were already processed).
 
-## S12-3 — Namespace preservation
+## S13-3 — Namespace preservation
 
 When editing the XML, ALL existing namespace declarations on the root element
 must be preserved exactly. No `cleanup_namespaces()` — this strips xmlns
 declarations that `mc:Ignorable` and drawing content reference, causing Word
 to show "unreadable content" errors (learned from MockDeliver v1.3).
 
-## S12-4 — Why not python-docx for insertion
+## S13-4 — Why not python-docx for insertion
 
 python-docx can READ the document structure but has limitations for INSERTING
 tables at arbitrary positions in an existing document while preserving all
@@ -585,6 +992,53 @@ existing OMML, drawings, and complex formatting. Direct XML manipulation gives
 full control over insertion position and guarantees zero mutation of existing
 elements. The `unzip → edit → zip` approach is the same one MockDeliver uses
 for tag insertion.
+
+## S13-5 — Restyle mechanics (v1.2)
+
+Restyling modifies elements IN PLACE — no paragraph is recreated:
+
+- pPr: create it if absent; add/replace `<w:pBdr>` (left bar), `<w:shd>`
+  (w:val="clear" — S13-1 warning applies), `<w:ind>`, `<w:spacing>`,
+  `<w:keepNext>`, `<w:keepLines>`. Existing pPr children not listed in
+  S7-5 are preserved.
+- rPr on each affected run: add/replace `<w:b>`, `<w:color>`, `<w:sz>`/
+  `<w:szCs>`, `<w:spacing>` (letter-spacing). NEVER add or modify
+  `<w:rFonts>` — font face preservation is a hard invariant (S7-3).
+- CLASS-2 (Correct Answer) paragraphs: iterate runs; style `<w:r>` runs
+  containing `<w:t>`; skip `<m:oMath>` children entirely.
+- Marker substitution (S7-6): edit the text of the first `<w:t>` in the
+  header paragraph — replace the single leading glyph, preserving any
+  `xml:space="preserve"` attribute and all following characters.
+- Sub-head spacing (CLASS 3) is read but never written (S7-5).
+
+## S13-6 — Page header/footer part wiring (v1.3)
+
+The mechanism the reference documents use, made exam-agnostic:
+
+1. **Parts.** Create `word/headerN.xml` (`<w:hdr>`) and `word/footerN.xml`
+   (`<w:ftr>`) where N is the lowest positive integer not already used by
+   an existing part (collision-safe). Each contains the single three-zone
+   paragraph of S3-1 / S6-1: left run, `<w:r><w:tab/></w:r>`, center run,
+   `<w:r><w:tab/></w:r>`, right run, with `<w:tabs>` defining a center tab
+   at (page_width − left_margin − right_margin) / 2 and a right tab at
+   (page_width − left_margin − right_margin), both computed from the
+   section's `<w:pgSz>` / `<w:pgMar>` at runtime. `xml:space="preserve"`
+   on every `<w:t>`.
+2. **Relationships.** Append to `word/_rels/document.xml.rels` two new
+   `<Relationship>` entries (next free rIds) with types
+   `.../header` and `.../footer` targeting the parts.
+3. **Content types.** Add `<Override>` entries to `[Content_Types].xml`
+   for both parts (wordprocessingml header/footer content types).
+4. **References.** In EVERY `<w:sectPr>`: remove any existing
+   `<w:headerReference>`/`<w:footerReference>` (edge case 19), then add
+   references for ALL THREE `w:type` values — `default`, `even`, `first`
+   — all pointing to the new parts (D10). Insert them at the head of
+   sectPr (schema order: header/footer references precede pgSz).
+5. **Namespaces.** The parts declare the full namespace set the document
+   root uses (S13-3 discipline applies to new parts too).
+
+Header/footer parts contain no OMML and no drawings, so S8-5/S8-6 input==
+output equality is unaffected by construction.
 
 ---
 
@@ -601,10 +1055,25 @@ PILL COLORS (named for easy reference in code):
 
 HEADER/FOOTER ACCENT = "#1F3864" (dark blue — matches Subject pill foreground)
 
+EXPLANATION TAG COLORS (v1.2 — named for easy reference in code):
+  TAG_CA_BG        = "#E2EFDA"  TAG_CA_FG        = "#375623"  (green — success)
+  TAG_AXIOM_BG     = "#D6E4F0"  TAG_AXIOM_FG     = "#1F3864"  (blue)
+  TAG_DEDUCTION_BG = "#E8E2F4"  TAG_DEDUCTION_FG = "#4C3D8F"  (purple)
+  TAG_SPEED_BG     = "#FFF2CC"  TAG_SPEED_FG     = "#7F6000"  (amber)
+  TAG_WRONG_BG     = "#FDECEC"  TAG_WRONG_FG     = "#991B1B"  (red)
+  TAG_PITFALL_BG   = "#FBE5D6"  TAG_PITFALL_FG   = "#843C0C"  (orange)
+  SUBHEAD_WRONG_FG   = "#7F1D1D"  (Option sub-heads under WHY WRONG?)
+  SUBHEAD_PITFALL_FG = "#7A3708"  (value sub-heads under COMMON PITFALLS)
+
+MARKER GLYPHS (v1.2): axiom 📘  deduction 🧮  speed_hack ⚡
+                      why_wrong ❌  common_pitfalls ⚠️
+
 These are design tokens, not exam-specific values. They are the same
-across all exams and all papers.
+across all exams and all papers. Note the deliberate reuse: AXIOM shares
+the Subject pill family, SPEED HACK the Subtopic pill family, and the
+Correct Answer band the Topic pill family — one palette document-wide.
 ```
 
 ---
 
-**End of Framework_PYQFormat.md (v1.0)**
+**End of Framework_PYQFormat.md (v1.3)**

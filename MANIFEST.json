@@ -203,11 +203,11 @@
       "bytes": 92121
     },
     "Framework_PYQFormat.md": {
-      "sha256": "abdb61553a4da93fdb7044dcaa1f99ef5d85014b5f901f4b8aa8ae5996bd5e7f",
-      "version_header": "# Framework_PYQFormat v1.0 \u2014 Universal PYQ Student Document Formatter",
-      "end_sentinel": "**End of Framework_PYQFormat.md (v1.0)**",
-      "lines": 610,
-      "bytes": 25633
+      "sha256": "b3c0b8bdbaeda60329b634201f1f3ae3f5d2b5b2ad691150b21bdf284413e0e6",
+      "version_header": "# Framework_PYQFormat v1.3 \u2014 Universal PYQ Student Document Formatter",
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.3)**",
+      "lines": 1079,
+      "bytes": 50975
     },
     "Framework_PYQPrepare.md": {
       "sha256": "f2424d505ee6442afd5494dae7e65597c6263246da60ee836e669f1643a30356",
