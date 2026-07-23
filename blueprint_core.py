@@ -25,6 +25,10 @@ PROVENANCE
       derive_axis_schedule ..... §7-7
       axis1_feasibility ........ §7-7
       slugify .................. §17 S2-MANIFEST
+    Source anchors (Framework_MockTestAnalyse.md v2.24.10 — Cluster E):
+      score_difficulty ......... E-9  (3-axis universal difficulty scorer)
+      determine_strip_mode ..... E-10 (taxonomy → strip mode, RIGID-5 Hindi)
+      map_difficulty_level ..... NEW  (Blueprint §7 S7-6 fixed ordinal alias)
 
 THIN-CORE INVARIANT (enforced by validate_framework_md.py)
     This module is PURE. It performs no I/O, imports nothing exam-specific, and has
@@ -52,6 +56,9 @@ __all__ = [
     "parse_section_rules_difficulty",
     "parse_section_rules_field",
     "slugify",
+    "score_difficulty",
+    "determine_strip_mode",
+    "map_difficulty_level",
 ]
 
 
@@ -546,6 +553,169 @@ def slugify(text):
 # each of the 11 functions against a fixed expected value or invariant so a corrupted
 # or wrong-version engine can never silently pass.
 
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER E — PYQ DIFFICULTY SCORING  (Framework_MockTestAnalyse.md E-9 / E-10)
+# ════════════════════════════════════════════════════════════════════════════
+# PROVENANCE: score_difficulty and determine_strip_mode are extracted VERBATIM
+# from Framework_MockTestAnalyse.md, sections E-9 (score_difficulty) and
+# E-10 (determine_strip_mode). Extracted at v2.24.9; code byte-identical
+# through v2.24.10 (current) — the v2.24.10 bump was annotation-only.
+# ANCHORS ARE SECTION IDs, NOT LINE NUMBERS: line numbers shift whenever
+# the source spec gains a changelog entry (they went stale within one
+# session of being written). Locate by the E-9/E-10 headings.
+# This module is now the CANONICAL shared copy, consumed by:
+#   * Step 5  (PYQExtract / MockTestAnalyse) — per-PYQ scoring during extraction
+#   * PYQ-4   (PYQDeliver) — Tier-2 Complexity resolution (§2-3 v1.2)
+# CROSS-FILE SYNC RULE: any change to these functions MUST be applied in the
+# SAME session to the embedded copies in Framework_MockTestAnalyse.md (E-9/E-10)
+# and re-verified byte-identical by the parity harness. Step 8 B-DIFF mirrors
+# the MSQ load term — a threshold or flag change also requires a Step 8 review.
+# PURE: text + plain data in, plain data out. No I/O. Only ``re`` used.
+
+def score_difficulty(q, marks=1, strip_mode='reasoning'):
+    """
+    BUG-B07 fix: marks parameter USED in threshold scaling.
+    BUG-B08 fix: 'rate','find the','what is' gated to quantitative mode only.
+    BUG-A27 fix: decimal numbers included in V axis via float() conversion.
+    time_per_q_sec parameter removed — difficulty is C+I+V axis-based, not time-based.
+    Returns: {level, C, I, V, score, flags}
+    """
+    stem = q.get('stem', '')
+
+    # AXIS 1: Computation steps (C)
+    C = 1
+    if any(kw in stem.lower() for kw in
+           ['both','combined','together','compare','between two','ratio of two']):
+        C = 4
+    elif any(kw in stem.lower() for kw in
+             ['partial','remaining','after repay','multi-year',
+              'correct to two decimal']):
+        C = 3
+    # BUG-B08 fix: broad keywords only apply in quantitative mode
+    elif strip_mode == 'quantitative' and any(kw in stem.lower() for kw in
+             ['rate','find the','calculate','what is']):
+        C = 2
+
+    # AXIS 2: Indirection (I)
+    I = 1
+    if any(re.search(p, stem.lower()) for p in
+           [r'ratio of .+ to', r'find .+ if .+ together', r'compare .+ two']):
+        I = 3
+    elif any(re.search(p, stem.lower()) for p in
+             [r'if .+, find', r'such that', r'given that .+ find']):
+        I = 2
+
+    # AXIS 3: Value complexity (V)
+    V = 1
+    raw_nums = re.findall(r'\d+(?:,\d+)*(?:\.\d+)?', stem)
+    if raw_nums:
+        try:
+            # BUG-A27 fix: use float() so decimals like '22.5' are included
+            parsed = [float(n.replace(',', '')) for n in raw_nums]
+            max_v   = max(parsed)
+            has_dec = any('.' in n for n in raw_nums)
+            non_rnd = max_v > 50000 and int(max_v) % 100 != 0
+            if non_rnd or (max_v > 50000 and has_dec): V = 3
+            elif has_dec or max_v > 10000:              V = 2
+        except:
+            pass
+
+    score = C + I + V
+    flags = []
+    if re.search(r'\b(NOT|INCORRECT|EXCEPT|FALSE|WRONG)\b', stem):
+        score += 1; flags.append('negative_question')
+    # v2.5: MSQ cognitive-load term. A multi-select question forces independent
+    # evaluation of EVERY option (not "find the one right answer"), so it is
+    # strictly harder than its single-answer twin. +1, analogous to the negative_
+    # question term. Dormant for single-answer exams (is_msq is always False when
+    # multi_select_allowed=false). Step 8 B-DIFF mirrors this term for sync.
+    if q.get('is_msq'):
+        score += 1; flags.append('msq')
+
+    # Difficulty thresholds: score <= simple → Simple, <= medium → Medium, else Hard.
+    # Thresholds are universal — derived from the C+I+V axis system (min=3, max=10+).
+    # C+I+V=3 (all axes at minimum) = trivially Simple for any exam.
+    # C+I+V=10 (all axes at maximum) = Hard for any exam.
+    # marks scaling: 2-mark Qs take 2× time so the bar for 'Simple' shifts up by 1.
+    # These values are stable across exams because the axes are exam-agnostic.
+    simple_threshold = 4 + (marks - 1)   # score ≤ this → Simple
+    medium_threshold = 7 + (marks - 1)   # score ≤ this → Medium; else Hard
+
+    if score <= simple_threshold:   level = 'Simple'
+    elif score <= medium_threshold: level = 'Medium'
+    else:                           level = 'Hard'
+
+    return {'level':level, 'C':C, 'I':I, 'V':V, 'score':score, 'flags':flags}
+
+
+def determine_strip_mode(section, topic, subtopic):
+    """
+    Exam-agnostic: infer stripping mode from taxonomy context words.
+    v2.16 RIGID-5: Hindi equivalents added so Hindi-medium exams (e.g. MP PSC,
+    UP PCS, Bihar PSC) with Devanagari headings are correctly classified instead
+    of always falling to the default 'reasoning'.
+    """
+    s = section.lower(); t = topic.lower(); u = subtopic.lower()
+    # Quantitative: English + Hindi keywords
+    if any(kw in s for kw in ['quantitative','arithmetic','mathematics','math',
+                               '\u0917\u0923\u093f\u0924',            # गणित (math)
+                               '\u0905\u0902\u0915\u0917\u0923\u093f\u0924',  # अंकगणित (arithmetic)
+                               '\u092e\u093e\u0924\u094d\u0930\u093e\u0924\u094d\u092e\u0915',  # मात्रात्मक
+                              ]): return 'quantitative'
+    if any(kw in t for kw in ['arithmetic','algebra','geometry','mensuration',
+                               'trigonometry','statistics','number',
+                               '\u092c\u0940\u091c\u0917\u0923\u093f\u0924',  # बीजगणित (algebra)
+                               '\u0930\u0947\u0916\u093e\u0917\u0923\u093f\u0924',  # रेखागणित (geometry)
+                               '\u0924\u094d\u0930\u093f\u0915\u094b\u0923\u092e\u093f\u0924\u093f',  # त्रिकोणमिति
+                              ]): return 'quantitative'
+    # English / Language
+    if any(kw in s for kw in ['english','language','comprehension','verbal',
+                               '\u0905\u0902\u0917\u094d\u0930\u0947\u091c\u0940',  # अंग्रेजी
+                               '\u092d\u093e\u0937\u093e',           # भाषा (language)
+                              ]): return 'english'
+    # Logical
+    if any(kw in u for kw in ['syllogism','statement','conclusion','venn',
+                               '\u0928\u094d\u092f\u093e\u092f\u0935\u093e\u0915\u094d\u092f',  # न्यायवाक्य (syllogism)
+                              ]): return 'logical'
+    # Reasoning
+    if any(kw in s for kw in ['reasoning','intelligence',
+                               '\u0924\u0930\u094d\u0915\u0936\u0915\u094d\u0924\u093f',  # तर्कशक्ति (reasoning)
+                               '\u092c\u0941\u0926\u094d\u0927\u093f',  # बुद्धि (intelligence)
+                              ]):
+        if any(kw in t for kw in ['analogy','series','coding','blood',
+                                    'arrangement','sequence',
+                                    '\u0938\u093e\u0926\u0943\u0936\u094d\u092f',  # सादृश्य (analogy)
+                                    '\u0936\u094d\u0930\u0943\u0902\u0916\u0932\u093e',  # श्रृंखला (series)
+                                   ]): return 'reasoning'
+    # Factual / General Awareness
+    if any(kw in s for kw in ['awareness','knowledge','general studies',
+                               'current','static',
+                               '\u0938\u093e\u092e\u093e\u0928\u094d\u092f \u091c\u094d\u091e\u093e\u0928',  # सामान्य ज्ञान
+                               '\u091c\u093e\u0917\u0930\u0942\u0915\u0924\u093e',  # जागरूकता (awareness)
+                              ]): return 'factual'
+    return 'reasoning'
+
+
+def map_difficulty_level(level, labels):
+    """Ordinal map from the E-9 vocabulary (Simple/Medium/Hard) to an exam's
+    ``difficulty_labels`` list. Same fixed alias as Framework_Blueprint.md
+    §7 S7-6 (simple→labels[0], medium→labels[1], hard→labels[2]).
+
+    Valid ONLY for exactly-3-label sets: a 2- or 5-band custom vocabulary has
+    no defensible ordinal correspondence to a 3-level scorer, so the caller
+    must fall back (PYQ-4 Tier 3) rather than guess. Returns None in that
+    case, and None for an unknown ``level`` value (defensive; E-9 can only
+    emit the three known levels).
+
+    Pure: strings + list in, string or None out. No I/O.
+    """
+    if not isinstance(labels, (list, tuple)) or len(labels) != 3:
+        return None
+    idx = {'Simple': 0, 'Medium': 1, 'Hard': 2}.get(level)
+    return labels[idx] if idx is not None else None
+
+
 def self_test():
     passed = 0
     total = 0
@@ -677,6 +847,59 @@ def self_test():
     _fc = parse_section_rules_field(_srf, 'answer_cardinality', 'single')
     check('parse_sr_field_present', _ft['a.b'] == 'numerical' and _fc['a.b'] == 'multi')
     check('parse_sr_field_default', _ft['c.d'] == 'option' and _fc['c.d'] == 'single')
+
+    # ── Cluster E: PYQ difficulty scoring (E-9/E-10) ─────────────────────────
+    # Axis minimum: bare recall stem → C=1,I=1,V=1, score 3 → Simple
+    _d = score_difficulty({'stem': 'Who wrote the national anthem?'})
+    check('e9_min_simple', _d['level'] == 'Simple' and _d['score'] == 3
+          and (_d['C'], _d['I'], _d['V']) == (1, 1, 1))
+    # C axis top: 'compare' keyword → C=4
+    check('e9_C4', score_difficulty({'stem': 'Compare the two rates.'})['C'] == 4)
+    # C=2 gated to quantitative mode only (BUG-B08)
+    check('e9_C2_gate',
+          score_difficulty({'stem': 'Find the value of x.'}, strip_mode='reasoning')['C'] == 1
+          and score_difficulty({'stem': 'Find the value of x.'}, strip_mode='quantitative')['C'] == 2)
+    # I axis: 'if ..., find' pattern → I=2 ; 'such that' → I=2 ; ratio-of-to → I=3
+    check('e9_I2', score_difficulty({'stem': 'If x = 4, find y.'})['I'] == 2)
+    check('e9_I3', score_difficulty({'stem': 'The ratio of a to b is 2:3.'})['I'] == 3)
+    # V axis: decimal → V=2 (BUG-A27 float parse); large non-round → V=3
+    check('e9_V2_decimal', score_difficulty({'stem': 'A rod is 22.5 cm long.'})['V'] == 2)
+    check('e9_V3_nonround', score_difficulty({'stem': 'He invested 50,001 rupees.'})['V'] == 3)
+    # Negative flag: +1 and flagged
+    _n = score_difficulty({'stem': 'Which is NOT a prime?'})
+    check('e9_negative_flag', 'negative_question' in _n['flags'] and _n['score'] == 4)
+    # MSQ flag: +1, dormant when is_msq absent
+    check('e9_msq_flag',
+          score_difficulty({'stem': 'Pick all primes.', 'is_msq': True})['score'] == 4
+          and score_difficulty({'stem': 'Pick all primes.'})['score'] == 3)
+    # Threshold boundaries at marks=1: score 4 → Simple; 5 → Medium; 7 → Medium; 8 → Hard
+    check('e9_thr_simple_edge', score_difficulty({'stem': 'Which is NOT a prime?'})['level'] == 'Simple')
+    _m = score_difficulty({'stem': 'Which is NOT a prime?', 'is_msq': True})           # 3+1+1=5
+    check('e9_thr_medium_low', _m['level'] == 'Medium')
+    _h = score_difficulty({'stem': 'Compare the ratio of A to B if 50,001.5 is NOT round.',
+                           'is_msq': True})                                            # 4+3+3+1+1=12
+    check('e9_thr_hard', _h['level'] == 'Hard' and _h['score'] >= 8)
+    # marks scaling (BUG-B07): score 5 is Medium at marks=1 but Simple at marks=2
+    check('e9_marks_scaling',
+          score_difficulty({'stem': 'Which is NOT a prime?', 'is_msq': True}, marks=2)['level'] == 'Simple')
+    # Empty stem: degenerate but defined → Simple, no crash
+    check('e9_empty_stem', score_difficulty({})['level'] == 'Simple')
+    # E-10 strip modes: quantitative / english / logical / factual / default
+    check('e10_quant', determine_strip_mode('Quantitative Aptitude', 'Arithmetic', 'Percentages') == 'quantitative')
+    check('e10_quant_hindi', determine_strip_mode('\u0917\u0923\u093f\u0924', '', '') == 'quantitative')
+    check('e10_english', determine_strip_mode('English Language', 'Grammar', 'Articles') == 'english')
+    check('e10_logical', determine_strip_mode('Reasoning', 'Verbal', 'Syllogism') == 'logical')
+    check('e10_factual', determine_strip_mode('General Awareness', 'History', 'Medieval India') == 'factual')
+    check('e10_default', determine_strip_mode('Biology', 'Genetics', 'Mendel Laws') == 'reasoning')
+    # map_difficulty_level: 3-label ordinal alias; non-3 sets and unknown level → None
+    check('map_3', map_difficulty_level('Simple', ['Easy', 'Medium', 'Hard']) == 'Easy'
+          and map_difficulty_level('Medium', ['Easy', 'Medium', 'Hard']) == 'Medium'
+          and map_difficulty_level('Hard', ['L1', 'L2', 'L3']) == 'L3')
+    check('map_non3_none', map_difficulty_level('Medium', ['Basic', 'Advanced']) is None
+          and map_difficulty_level('Medium', ['A', 'B', 'C', 'D', 'E']) is None)
+    check('map_bad_level_none', map_difficulty_level('Extreme', ['Easy', 'Medium', 'Hard']) is None)
+    check('map_bad_type_none', map_difficulty_level('Medium', None) is None
+          and map_difficulty_level('Medium', 'EasyMediumHard') is None)
 
 
     print(f"SELF-TEST: {passed}/{total} PASS")

@@ -252,11 +252,11 @@
       "bytes": 105810
     },
     "blueprint_core.py": {
-      "sha256": "71f938be6c2ed9c9dd496604c30c4cce40c91c5935e50c312c33daf443d2ddc1",
+      "sha256": "d5212aa78311a345a2b241407d719696cf9ff35d414ad26126637d4da1c2cb4a",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 692,
-      "bytes": 33222
+      "lines": 915,
+      "bytes": 47128
     },
     "paper_pipeline.py": {
       "sha256": "04ee4dc4565c33149d97bc23898d1798df730c425f4f8806d07a26d58605f126",
