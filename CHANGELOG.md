@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.07.23.1
+- blueprint_core.py +Cluster E — score_difficulty / determine_strip_mode /
+  map_difficulty_level, the canonical shared difficulty scorer for Step 5 and PYQ-4.
+  Self-test 33 -> 57 PASS; byte-identical to MockTestAnalyse E-9/E-10 (V-SYNC verified).
+- NEW audit_specs_ext.py — supplementary corpus auditor (V-SYNC cross-file parity,
+  W-DECISION decision-ID integrity, X-NUMBER list contiguity, Y-CONFIG field-contract,
+  Z-VERSION full 3-part compare). Untracked dev tool; 0 issues across the corpus.
+- Framework_PYQDeliver.md v1.0 -> v1.2.1: date/session tag removal (§4A), three-tier
+  deterministic Complexity resolver via blueprint_core Cluster E (D11 supersedes D4),
+  adversarial audit fixes (marks_default declared, JSON int-key normalization,
+  difficulty_labels fallback). RELEASE-MANAGER FIX: converted blueprint_core.py sourcing
+  from /mnt/project-only to dual-path (/tmp/fw first, else /mnt/project) so GitHub-connected
+  projects no longer HARD STOP. routes.json: PYQDeliver now lists blueprint_core.py.
+- Framework_MockTestAnalyse.md v2.24.9 -> v2.24.10: annotation-only (E-9/E-10 canonical
+  copy moved to blueprint_core Cluster E; zero logic change).
+- routes.json reformatted to the generator's pretty-printed emit style (no functional change).
+
 ## 2026.07.23
 - Framework_PYQFormat.md v1.0 -> v1.3 (PYQ-3, self-contained formatter):
   v1.1 removes the per-question date/session tag paragraphs (only sanctioned deletion);
