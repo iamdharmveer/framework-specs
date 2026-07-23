@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026.07.23
+- Framework_PYQFormat.md v1.0 -> v1.3 (PYQ-3, self-contained formatter):
+  v1.1 removes the per-question date/session tag paragraphs (only sanctioned deletion);
+  v1.2 restyles explanation tag headers into colored bands + marker-glyph swaps
+  (⬛->📘/🧮, ❌->⚠️), machine-verified by a full text-stream integrity check (S8-8);
+  v1.3 promotes the exam header + IFAS footer to real page header/footer parts that
+  repeat on every page, and updates the footer tagline. Trigger/step unchanged; no
+  framework engine; bootstrap stays 21/21.
+
 ## 2026.07.22
 - NEW PYQ Explanation Pipeline — 4 specs: PYQExplain (PYQ-1), PYQExplainAudit (PYQ-2),
   PYQFormat (PYQ-3), PYQDeliver (PYQ-4). Wired into routes.json / PIPELINE / skill
