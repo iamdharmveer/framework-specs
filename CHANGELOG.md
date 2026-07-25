@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.07.25.1
+- GAP-2026-07-25-001 (S4-0 silent check-skip): reconcile_taxonomy.py v1.0 -> v1.1 — the
+  early `return` inside C4's style-aware branch that disabled C5/C6/C7 for every
+  syllabus_style exam is removed; reconcile() is now SINGLE-EXIT. Adds CheckLedger
+  (INV-7 completeness, INV-8 measured-domain), materialise() (INV-9 no-derivation,
+  INV-10 resolvable-target), DEGRADED mode, C6 scale-relative, C4 normalized subject
+  match; self-test 54/54. PYQAnalyse v2.22.1 -> v2.23 (S4-0 check-completeness
+  architecture). PYQSort v1.12.2 -> v1.13 and DeliveryFooter v1.6 -> v1.7 wire the
+  [ExamCode]_approval_record.json contract (produced at Step 2c, consumed at PYQSort entry).
+  validate_framework_md.py +Check AC (aggregator single-exit) so the drift cannot return;
+  routes.json routes reconcile_taxonomy.py to PYQApprove.
+- CLAUDE.md release-manager protocol updated: corpus-level checks AA-AE are part of the
+  gate; "a red check is never advisory"; corrected engine-load model (engines load from
+  the repo clone, /mnt/project is data-only, no per-project provisioning). SPEC_MANIFEST.json
+  33-file workbench baseline regenerated to match production.
+
 ## 2026.07.25
 - NEW audit_sync.py — cross-step synchronisation auditor (engine-API, trigger/route/SKILL
   parity, version xrefs, filename chain, blueprint.json schema). Untracked dev tool.
