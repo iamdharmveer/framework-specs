@@ -1,6 +1,38 @@
 """
-corpus_io.py v1.0.1 — I/O shell for PYQ corpus acquisition, image integrity and
+corpus_io.py v1.0.3 — I/O shell for PYQ corpus acquisition, image integrity and
                        document size governance.
+
+v1.0.3 — 2026-07-25 — optimize_docx gains `always`, which runs the tier ladder even when
+    the input is already under budget. Requested so PYQCompress can be driven purely by
+    what the operator attaches rather than by a size threshold. force_tier was NOT reused
+    for this: it pins one tier and makes the closing `return True` unconditional, so an
+    oversized paper would have stopped at that tier, still over budget, and reported
+    success with the floor-exceeded WARN suppressed. Adds _no_gain_guard, a
+    document-level counterpart to the existing per-part no-growth rule: the ZIP container
+    can grow even when no part does, and CHECK 5 treats growth as a HARD STOP, so a small
+    already-optimal document would have aborted the run instead of being left alone.
+
+v1.0.2 — 2026-07-25 — MEDIA STEM COLLISION (silent figure loss). optimize_docx renamed
+    every re-encoded part to .jpeg/.png and stored it in a dict keyed by that name, so
+    two parts sharing a stem and taking the same encoder route (word/media/image1.png +
+    word/media/image1.jpg, both photographic) both resolved to word/media/image1.jpeg
+    and one OVERWROTE the other. The writer then emitted a duplicate zip member and Word
+    rendered whichever it met first, silently replacing one figure with the other.
+    Invisible to every existing gate: parts, media and refs all still matched, no
+    relationship dangled, and the per-stem pixel check that would have caught it is
+    skipped by design at T2-T4 (allow_resample=True) — so the corrupted file passed
+    parity and was DELIVERED. Reproduced end to end; T1 caught it, T2-T4 did not.
+    Four changes: (a) _target_media_name keeps a part's name when its extension already
+    maps to the encoder's content type, so .jpg is no longer renamed to .jpeg and the
+    common collision never forms; (b) a genuine remaining collision is disambiguated
+    (__c2) rather than overwritten; (c) an explicit input->output name map replaces the
+    reverse-lookup in the writer, which could not express a disambiguated name; (d) the
+    relationship rewrite is a single regex pass — chained str.replace() with
+    {image1.png -> image1.jpeg, image1.jpeg -> image1__c2.jpeg} rewrote the part it had
+    just manufactured and pointed both references at one file. A part-count guard
+    (len(parts) == len(names)) backstops all of it. assert_docx_parity now compares
+    pixel dimensions as an unordered multiset: keying on the stem carried the v1.0.1
+    false positive one level up, because a disambiguated name changes the stem.
 
 v1.0.1 — 2026-07-25 — assert_docx_parity raised a FALSE-POSITIVE HARD STOP whenever the
     governor renamed a media part. Re-encoding a photographic PNG produces image1.jpeg
@@ -63,6 +95,7 @@ import io
 import json
 import os
 import re
+import shutil
 import zipfile
 
 import blueprint_core as bc
@@ -845,7 +878,43 @@ def _recode(raw, quality, dpi_ceiling, display_in):
                                     else 'jpeg/photo')
 
 
-def optimize_docx(src, dst, budget=None, force_tier=None):
+#: Extensions already carrying the right content type for each encoder route, so a
+#: part using one needs no rename. Renaming gratuitously (image1.jpg -> image1.jpeg)
+#: churns every relationship that references it and manufactures stem collisions that
+#: would not otherwise exist.
+_EXT_OK = {'jpeg': ('.jpeg', '.jpg'), 'png': ('.png',)}
+
+
+def _target_media_name(name, ext):
+    """Output name for one re-encoded media part. Keeps the name when the existing
+    extension already maps to the encoder's content type."""
+    stem, cur = os.path.splitext(name)
+    if cur.lower() in _EXT_OK[ext]:
+        return name
+    return stem + ('.jpeg' if ext == 'jpeg' else '.png')
+
+
+def _no_gain_guard(src, dst, orig, report):
+    """v1.0.3 — never hand back a file LARGER than the one we were given.
+
+    Per-PART growth is already prevented (_recode keeps the original bytes whenever a
+    re-encode comes out bigger), but the ZIP CONTAINER can still grow: a package whose
+    media is already optimally encoded gains nothing from re-deflation and can lose to
+    the original writer's settings by a few bytes.
+
+    Before `always` this was unreachable — a file under budget was never re-encoded at
+    all — so no document-level rule was needed. It is now the normal case for small
+    documents, and Framework_PYQCompress CHECK 5 treats growth as a HARD STOP, so a file
+    with nothing to gain would have ABORTED THE RUN rather than simply being left alone.
+    Restoring the original bytes makes "nothing to gain" a reportable outcome instead.
+    """
+    if os.path.getsize(dst) >= orig:
+        shutil.copyfile(src, dst)
+        return dict(report, bytes=orig, ratio=1.0, no_gain=True)
+    return dict(report, no_gain=False)
+
+
+def optimize_docx(src, dst, budget=None, force_tier=None, always=False):
     """Bring `src` under `budget` using blueprint_core's deterministic tier ladder.
 
     Stops at the FIRST tier that meets the budget, so the least invasive change that
@@ -861,7 +930,12 @@ def optimize_docx(src, dst, budget=None, force_tier=None):
     """
     budget = bc.SIZE_BUDGET if budget is None else budget
     orig = os.path.getsize(src)
-    if orig <= budget and not force_tier:
+    # v1.0.3 — `always` runs the ladder regardless of input size. The ladder itself needs
+    # no change: a small file's T1 output is under budget, so it returns at T1, which is
+    # the least invasive tier. NOTE for callers: force_tier is NOT a substitute — it pins
+    # a single tier AND makes the final `return True` unconditional, so an oversized file
+    # would stop at that tier, still over budget, and be reported as a success.
+    if orig <= budget and not force_tier and not always:
         return True, {'tier': 'T0', 'bytes': orig, 'orig': orig, 'ratio': 1.0,
                       'quality': None, 'dpi_ceiling': None,
                       'note': 'already under budget — untouched'}, []
@@ -874,7 +948,8 @@ def optimize_docx(src, dst, budget=None, force_tier=None):
             continue
         zin = zipfile.ZipFile(src)
         names = zin.namelist()
-        parts, renames, log = {}, {}, []
+        name_set = set(names)
+        parts, renames, outname, log = {}, {}, {}, []
 
         for n in names:
             raw = zin.read(n)
@@ -882,26 +957,64 @@ def optimize_docx(src, dst, budget=None, force_tier=None):
                 base = os.path.basename(n)
                 data, ext, how = _recode(raw, quality, dpi, display.get(base, 0.0))
                 if data is None or len(data) >= len(raw):
-                    parts[n] = raw                        # never grow a part
+                    new, payload = n, raw                  # never grow a part
                     log.append((base, len(raw), len(raw), how + ' [kept]'))
                 else:
-                    new = os.path.splitext(n)[0] + ('.jpeg' if ext == 'jpeg' else '.png')
-                    parts[new] = data
-                    if new != n:
-                        renames[base] = os.path.basename(new)
+                    new = _target_media_name(n, ext)
+                    payload = data
                     log.append((base, len(raw), len(data), how))
+
+                # v1.0.2 — a media part may NEVER overwrite another. Two parts that
+                # share a stem and take the same encoder route (image1.png +
+                # image1.bmp, both photographic) both want image1.jpeg; the old code
+                # collapsed them into ONE zip member, so Word rendered whichever it
+                # met first and the other figure was silently replaced. Every count
+                # the parity assert checks — parts, media, refs — still matched, and
+                # the per-stem pixel check is skipped at T2-T4, so the corrupted file
+                # was delivered clean. Disambiguate instead of overwriting.
+                if new in parts or (new != n and new in name_set):
+                    stem, dot_ext = os.path.splitext(new)
+                    k = 2
+                    while (f'{stem}__c{k}{dot_ext}' in parts
+                           or f'{stem}__c{k}{dot_ext}' in name_set):
+                        k += 1
+                    new = f'{stem}__c{k}{dot_ext}'
+
+                parts[new] = payload
+                outname[n] = new
+                if os.path.basename(new) != base:
+                    renames[base] = os.path.basename(new)
             else:
                 parts[n] = raw
+                outname[n] = n
         zin.close()
+
+        # v1.0.2 — belt-and-braces: one member out for every member in. Catches any
+        # future path that collapses two parts into one key, including a duplicate
+        # member name in a damaged input package.
+        if len(parts) != len(names) or len(outname) != len(names):
+            raise IntegrityError(
+                f'part collision in {os.path.basename(src)} at tier {tier}: '
+                f'{len(names)} package member(s) in, {len(parts)} out. Two parts '
+                'resolved to a single name — refusing to write a package in which '
+                'one figure silently replaces another.')
 
         # Renaming a media part invalidates every reference to it. Rewrite the
         # relationship targets and guarantee the content-type defaults exist, or Word
         # reports the file as corrupt.
+        #
+        # v1.0.2 — SINGLE PASS. Sequential str.replace() chained: with renames
+        # {'image1.png': 'image1.jpeg', 'image1.jpeg': 'image1__c2.jpeg'} the first
+        # substitution manufactured a second 'image1.jpeg', which the second
+        # substitution then rewrote as well, pointing both references at one part.
+        rename_re = (re.compile('|'.join(re.escape(k) for k in
+                                sorted(renames, key=len, reverse=True)))
+                     if renames else None)
         for pn in list(parts):
             if pn.endswith('.rels') or pn == '[Content_Types].xml':
                 txt = parts[pn].decode('utf-8')
-                for old, new in renames.items():
-                    txt = txt.replace(old, new)
+                if rename_re is not None:
+                    txt = rename_re.sub(lambda m: renames[m.group(0)], txt)
                 if pn == '[Content_Types].xml':
                     for ext_, ctype in (('jpeg', 'image/jpeg'), ('png', 'image/png'),
                                         ('jpg', 'image/jpeg')):
@@ -915,20 +1028,19 @@ def optimize_docx(src, dst, budget=None, force_tier=None):
         os.makedirs(os.path.dirname(os.path.abspath(dst)) or '.', exist_ok=True)
         with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zo:
             for n in names:
-                key = n
-                if key not in parts:
-                    key = os.path.splitext(n)[0] + '.jpeg'
-                if key not in parts:
-                    key = os.path.splitext(n)[0] + '.png'
-                zo.writestr(key, parts[key])
+                # v1.0.2 — write through the explicit map built above. The previous
+                # reverse-lookup guessed the output name by trying '.jpeg' then
+                # '.png', which cannot express a disambiguated name and silently
+                # resolved two inputs to one key.
+                zo.writestr(outname[n], parts[outname[n]])
 
         size = os.path.getsize(dst)
         report = {'tier': tier, 'bytes': size, 'orig': orig,
                   'ratio': size / float(orig), 'quality': quality, 'dpi_ceiling': dpi}
         if size <= budget or force_tier:
-            return True, report, log
+            return True, _no_gain_guard(src, dst, orig, report), log
 
-    return False, report, log
+    return False, _no_gain_guard(src, dst, orig, report), log
 
 
 def docx_invariants(path):
@@ -999,26 +1111,34 @@ def assert_docx_parity(src, dst, allow_resample=False):
     if after['dangling']:
         failures.append(f"dangling relationship(s): {after['dangling'][:3]}")
     if not allow_resample:
-        # v1.0.1 — compare by extension-less part name. Re-encoding legitimately RENAMES a
-        # part (image1.png -> image1.jpeg when the photo route is taken, image1.jpg ->
-        # image1.jpeg on canonicalisation), and the old comparison keyed on the full
-        # basename, so `after` had no entry under the old name and every renamed part was
-        # reported as "pixel dimensions changed" — a FALSE-POSITIVE HARD STOP on a document
-        # whose dimensions were untouched. It was dormant on the measured corpus only
-        # because those papers store .jpeg parts, which the jpeg route leaves named as they
-        # were. Any PNG-sourced photographic figure tripped it.
-        # Sizes are compared as sorted lists so that two parts sharing a stem with different
-        # extensions cannot mask each other.
-        def _by_stem(px):
-            out = {}
-            for k, v in px.items():
-                out.setdefault(os.path.splitext(k)[0], []).append(v)
-            return out
+        # v1.0.1 — the original comparison keyed on the full basename, so a legitimately
+        # renamed part (image1.png -> image1.jpeg on the photo route) had no counterpart
+        # in `after` and was reported as a dimension change on a document whose
+        # dimensions were untouched — a FALSE-POSITIVE HARD STOP. Dormant on the
+        # measured corpus, whose papers store .jpeg parts the jpeg route leaves named as
+        # they were; it fired on any PNG-sourced photograph. Fixed by keying on the
+        # extension-less name.
+        #
+        # v1.0.2 — keying on the STEM has the same defect one level up: the governor may
+        # now emit a disambiguated name (image1__c2.jpeg) when two parts share a stem and
+        # take the same route, which changes the stem and reproduced the identical false
+        # positive. Pixel dimensions are therefore compared as an unordered MULTISET over
+        # all raster parts, which is what the invariant actually asserts — "no figure's
+        # pixel dimensions changed" — and is immune to any renaming the governor performs.
+        b_px = sorted(before['px'].values())
+        a_px = sorted(after['px'].values())
+        if b_px != a_px:
+            def _by_stem(px):
+                out = {}
+                for k, v in px.items():
+                    out.setdefault(os.path.splitext(k)[0], []).append(v)
+                return out
 
-        b_px, a_px = _by_stem(before['px']), _by_stem(after['px'])
-        px = [k for k, v in b_px.items() if sorted(v) != sorted(a_px.get(k, []))]
-        if px:
-            failures.append(f'pixel dimensions changed: {px[:3]}')
+            b_stem, a_stem = _by_stem(before['px']), _by_stem(after['px'])
+            named = [k for k, v in b_stem.items() if sorted(v) != sorted(a_stem.get(k, []))]
+            failures.append(
+                'pixel dimensions changed: '
+                + (str(named[:3]) if named else f'{b_px[:3]} -> {a_px[:3]}'))
     if failures:
         raise IntegrityError(
             'Optimised document failed the parity assertion — HARD STOP.\n  '

@@ -1,4 +1,4 @@
-# Framework_PYQCompress v1.0 — Universal Document Size Remediation
+# Framework_PYQCompress v1.1 — Universal Document Size Remediation
 # [ExamCode] project | Layer 2 remediation | Exam-agnostic | Document-class-agnostic
 #
 # PURPOSE:
@@ -41,9 +41,11 @@
 #   Drive fetch here would fail for exactly the reason the operator came.
 #
 # OUTPUT:
-#   One compressed .docx per input that needed compressing, delivered via present_files
-#   with a BYTE-IDENTICAL FILENAME (see §2 — this is load-bearing, not cosmetic).
-#   Files already under budget are REPORTED and deliberately NOT delivered.
+#   One compressed .docx per input, delivered via present_files with a BYTE-IDENTICAL
+#   FILENAME (see §2 — this is load-bearing, not cosmetic).
+#   EVERY attached file is compressed regardless of its size (v1.1). The only file not
+#   delivered is one that came out no smaller than it went in — there is nothing to
+#   replace in Drive, and delivering it invites a pointless " (1)" rename.
 #
 # TRIGGER FORMAT:
 #   PYQCompress
@@ -65,6 +67,14 @@
 #   the OOXML package. The same run handles an SSC Row file and a GATE Analysis doc.
 #
 # VERSION HISTORY:
+#   v1.1 — 2026-07-25 — SIZE GATE REMOVED. Every attached file is now compressed
+#          regardless of size (corpus_io v1.0.3 `always=True`); previously anything at or
+#          under SIZE_BUDGET was reported T0 and skipped. The operator selects what to
+#          compress by selecting what to attach. SIZE_BUDGET is unchanged and still
+#          governs the LADDER TARGET and the MARGINAL/BLOCKED verdicts — it is no longer
+#          an eligibility test. New EC-C1b covers the file that cannot be improved:
+#          corpus_io restores the original bytes and it is reported but not delivered,
+#          which stops CHECK 5 from hard-stopping the run on an already-optimal document.
 #   v1.0 — 2026-07-25 — Initial release. Layer 2 of the corpus-transport response
 #          (Framework_MockTestAnalyse v2.29 · Framework_PYQSort v1.12 ·
 #          Framework_PYQAnalyse v2.22 · Framework_PYQPrepare v1.9 · corpus_io v1.0.1).
@@ -147,6 +157,8 @@ def report_inventory(inputs, ignored):
     for f in inputs:
         print(f"  {f['name'][:58]:<58} {f['bytes']:>12,}  {f['status']}")
     print(f"\n  budget {bc.SIZE_BUDGET:,} · cap {bc.DRIVE_CAP:,}")
+    print(f"  (v1.1 — the budget is the ladder's TARGET, not an eligibility test: every")
+    print(f"   attached file is compressed, including files already reported OK.)")
     print(f"  BLOCKED  = above the cap; cannot be fetched from Drive at all today")
     print(f"  MARGINAL = fetchable, but under 10% headroom — one re-save flips it")
     print(f"  OK       = comfortably fetchable; compression not required")
@@ -273,15 +285,16 @@ budget at T4 is DELIVERED with a warning, never squeezed further and never rejec
 ```python
 def compress_one(path, name, pre):
     """Compress one document and prove nothing was lost. Returns a per-file report."""
-    if os.path.getsize(path) <= bc.SIZE_BUDGET:
-        # Already fetchable with headroom. Re-encoding would be lossy work for no gain,
-        # and delivering an untouched file invites a pointless Drive replace.
-        return {'name': name, 'action': 'none', 'tier': 'T0',
-                'before': os.path.getsize(path), 'after': os.path.getsize(path),
-                'note': 'already under budget — not compressed, not delivered'}
-
+    # v1.1 — NO SIZE GATE. Every attached file is compressed, whatever its size. The
+    # operator decides what to compress by deciding what to attach; the spec does not
+    # second-guess that with a threshold. `always=True` is what carries this into the
+    # engine — see corpus_io v1.0.3 for why force_tier is NOT the right lever.
+    #
+    # The ladder still picks the least invasive tier by itself: a small file's T1 output
+    # is under budget, so it returns at T1 with every pixel dimension preserved.
     dst = os.path.join(OUT_DIR, name)          # §2 — SAME NAME. Never a suffix.
-    ok, report, log = corpus_io.optimize_docx(path, dst, budget=bc.SIZE_BUDGET)
+    ok, report, log = corpus_io.optimize_docx(path, dst, budget=bc.SIZE_BUDGET,
+                                              always=True)
 
     # allow_resample only for the tiers that downscale BY DESIGN. T1 re-encodes quality
     # only, so a pixel-dimension change there would mean something went wrong.
@@ -289,6 +302,12 @@ def compress_one(path, name, pre):
                                  allow_resample=report['tier'] not in ('T0', 'T1'))
 
     after = os.path.getsize(dst)
+    if report.get('no_gain'):
+        # Output was no smaller than the input, so corpus_io restored the original bytes.
+        # Reported, NOT delivered: there is nothing to replace in Drive.
+        return {'name': name, 'action': 'nogain', 'tier': report['tier'],
+                'before': report['orig'], 'after': after, 'path': dst,
+                'note': 'already optimal — nothing to gain, original retained'}
     return {'name': name, 'action': 'compressed', 'tier': report['tier'],
             'before': report['orig'], 'after': after,
             'ratio': after / float(report['orig']),
@@ -343,9 +362,9 @@ def report_results(reports):
     """One line per file, then the operator's next action. Never silent about a miss."""
     print(f"\n  {'FILE':<44} {'BEFORE':>12} {'AFTER':>12}  TIER  VERDICT")
     for r in reports:
-        if r['action'] == 'none':
-            print(f"  {r['name'][:44]:<44} {r['before']:>12,} {'—':>12}  T0    "
-                  f"already under budget")
+        if r['action'] == 'nogain':
+            print(f"  {r['name'][:44]:<44} {r['before']:>12,} {'—':>12}  "
+                  f"{r['tier']:<5} no gain — already optimal, not delivered")
             continue
         print(f"  {r['name'][:44]:<44} {r['before']:>12,} {r['after']:>12,}  "
               f"{r['tier']:<5} {r['status']}")
@@ -405,9 +424,11 @@ CHECK 4 — FILENAME IDENTITY
   cosmetic one.
 
 CHECK 5 — NO GROWTH
-  after <= before for every delivered file. The governor keeps original bytes whenever
-  a re-encode would be larger, so a grown file means something is wrong upstream of the
-  ladder. HARD STOP.
+  after <= before for every delivered file. Guaranteed twice over: _recode keeps the
+  original bytes for any PART that would grow, and (v1.1) _no_gain_guard restores the
+  original DOCUMENT whenever the container itself would grow. This check is therefore a
+  backstop that should now be unreachable; if it fires, the defect is in corpus_io.
+  HARD STOP.
 ```
 
 ```python
@@ -452,13 +473,14 @@ DELIVERABLE SET CONTRACT (CLOSED):
 
   DO NOT include:
     ✗ compress_pipeline.py
-    ✗ files that were already under budget (they were not modified; delivering them
-      invites a pointless Drive replace and a needless " (1)" rename)
+    ✗ files that came out no smaller than they went in (corpus_io restored the
+      original bytes; delivering them invites a pointless Drive replace and a
+      needless " (1)" rename)
     ✗ extracted images or any probe artefact from /home/claude/compress
     ✗ the uploaded originals
 
-  If EVERY input was already under budget, deliver NOTHING and say so plainly:
-    "All N file(s) are already under the budget — no compression needed."
+  If NO input came out smaller, deliver NOTHING and say so plainly:
+    "All N file(s) are already optimally encoded — nothing to gain."
   An empty delivery is the correct outcome there, not a failure.
 
 CHAT FILE LIMIT: the platform accepts bc.CHAT_FILE_LIMIT files per conversation, so at
@@ -477,9 +499,19 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ```
 EC-C1: FILE ALREADY UNDER BUDGET
-  Nothing to do. Reported as T0, NOT compressed and NOT delivered. Re-encoding a file
-  that does not need it is lossy work for no gain, and delivering it unchanged causes
-  a needless Drive replace with a browser-renamed copy.
+  v1.1 — COMPRESSED ANYWAY. Size is no longer an eligibility test: the operator selects
+  what to compress by selecting what to attach, and the spec does not override that.
+  Such a file clears at T1, so no image is downscaled and every pixel dimension is
+  preserved; the saving comes from CMYK->RGB normalisation, not from resolution loss.
+  Note the trade this makes: a re-encode is not free, and on an already-JPEG figure it
+  costs one generation. That cost is the operator's to accept, and it is why the
+  pre-v1.1 default was to skip these files.
+
+EC-C1b: FILE THAT CANNOT BE IMPROVED
+  Output no smaller than input. corpus_io._no_gain_guard restores the original bytes,
+  and the file is REPORTED but NOT delivered — there is nothing to replace in Drive.
+  Without that guard CHECK 5 (no growth) would treat it as a HARD STOP and abort the
+  run, which is the wrong answer for a document that is simply already optimal.
 
 EC-C2: LADDER FLOOR REACHED, STILL OVER CAP
   Delivered with a WARN naming the remaining options, which are structural rather than
@@ -584,7 +616,8 @@ PROOF OF DOCUMENT-CLASS INDEPENDENCE:
 ☐ 8.  CHECK 3 image survival PASSED — independently re-derived, not taken on trust
 ☐ 9.  CHECK 4 filename identity PASSED — output name byte-identical to input name
 ☐ 10. CHECK 5 no growth PASSED
-☐ 11. Files already under budget reported as T0 and NOT delivered
+☐ 11. Every attached file compressed regardless of size; files that gained nothing
+      reported and NOT delivered
 ☐ 12. Floor-exceeded files DELIVERED with a WARN naming the structural options
 ☐ 13. Results table printed: before, after, tier, verdict
 ☐ 14. Delivery message states REPLACE-do-not-add and the " (1)" rename warning
@@ -638,4 +671,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQCompress v1.0
+# END OF Framework_PYQCompress v1.1
