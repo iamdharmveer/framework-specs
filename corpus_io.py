@@ -1,6 +1,16 @@
 """
-corpus_io.py v1.0.3 — I/O shell for PYQ corpus acquisition, image integrity and
-                       document size governance.
+corpus_io.py v1.1 — I/O shell for PYQ corpus acquisition, image integrity,
+                    document size governance and the Analysis doc.
+
+v1.1 — 2026-07-25 — CLUSTER K: THE Analysis-doc reader, writer and verifier
+    (GAP-2026-07-25-002). The Step-2c Analysis doc previously had FOUR readers
+    across four specs, implementing four different structural conventions, and no
+    writer at all (PYQAnalyse S4-2 was `pass`). Three of the four were measurably
+    wrong on the first real exam's doc. One reader, one writer, one verifier; all
+    heading recognition delegated to blueprint_core.parse_taxonomy_level so every
+    label form works in every step; correctness asserted by round-trip over a
+    GENERATED matrix of exam shapes rather than by review. See Cluster K header.
+
 
 v1.0.3 — 2026-07-25 — optimize_docx gains `always`, which runs the tier ladder even when
     the input is already under budget. Requested so PYQCompress can be driven purely by
@@ -1147,6 +1157,720 @@ def assert_docx_parity(src, dst, allow_resample=False):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# CLUSTER K SHELL — ANALYSIS DOC  (the Step-2c taxonomy artefact)
+# ═══════════════════════════════════════════════════════════════════════════════
+# GAP-2026-07-25-002. Before this cluster the Analysis doc had FOUR independent
+# readers implementing FOUR different structural conventions, and no writer at all
+# (Framework_PYQAnalyse S4-2 was `pass`). Measured on the live IIT_JAM_BIOTECHNOLOGY
+# doc, three of the four readers were wrong:
+#
+#   Framework_PYQSort S1-2          1 subject  / 26 topics / 131 subtopics  (truth 6/26/131)
+#   MockTestAnalyse extract_...     1 section  /  0 subtopics
+#   MockTestAnalyse _extract_..._   0 sections /  0 subtopics
+#   Blueprint S2-2                  prose ("Claude extracts") — non-deterministic
+#
+# The first flattened every subject into the first one (a `not section_name` latch);
+# the other two read doc.paragraphs while every subtopic lives in a TABLE, and keyed
+# hierarchy off Word Heading styles that the generator does not emit (para.style is
+# None for every paragraph of a real doc).
+#
+# This cluster is now THE reader, THE writer and THE verifier. Every consumer
+# delegates. Heading recognition is delegated one level further, to
+# blueprint_core.parse_taxonomy_level() — so all six level-1 label forms
+# (Subject/Domain/Section/Part/Area) and all six level-2 forms
+# (Topic/Chapter/Unit/Module/Block, numbered or colon-style, case-insensitive)
+# work in EVERY step automatically, including any form the engine learns later.
+#
+# WHY A WRITER LIVES HERE TOO: correctness is asserted by round-trip,
+# read(write(taxonomy)) == taxonomy, over a GENERATED matrix of exam shapes. The
+# framework serves ~200 exams; it cannot be validated against 200 real corpora, so
+# the self-test generates the shapes instead. That matrix is the correctness claim.
+
+ANALYSIS_DOC_SUFFIX = '_PYQ_Analysis.docx'
+ANALYSIS_SEARCH_DIRS = ('/mnt/project/', '/mnt/user-data/uploads/')
+
+_NS_W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+
+# Cells that are never a subtopic name. Compared case-insensitively after strip.
+# A legitimate subtopic literally named "TOTAL" would be dropped here — that is
+# SAFE rather than silent, because the per-topic "Subtopics: k" declaration then
+# disagrees with the parse and verify_analysis_doc() HARD STOPS naming the topic.
+_SKIP_CELLS = frozenset(('subtopic', 'topic', 'grand total', 'total', ''))
+
+# Declaration patterns. The doc states its own shape THREE times per subject; the
+# reader asserts its parse against all three. This is what makes a mis-parse loud
+# without needing any second artefact.
+_D1_RE = re.compile(r'(\d+)\s*Topics?\b.*?\b(\d+)\s*Subtopics?', re.IGNORECASE)
+_D3_RE = re.compile(r'\bSubtopics?\s*:\s*(\d+)', re.IGNORECASE)
+_GRAND_RE = re.compile(r'^GRAND\s+TOTAL$', re.IGNORECASE)
+
+
+class AnalysisDocError(Exception):
+    """Raised for every Analysis-doc fault. Callers surface .args[0] verbatim as a
+    HARD STOP: the message always names the file, the fault and the operator action."""
+
+
+def _para_text(child):
+    """Text of a w:p element, runs joined. docx-js splits runs on '&' and on style
+    changes, so joining is mandatory — reading only the first run truncates names."""
+    return ''.join(t.text for t in child.iter('{%s}t' % _NS_W) if t.text).strip()
+
+
+def _table_rows(child, doc):
+    from docx.table import Table as _DocxTable
+    return [[c.text.strip() for c in row.cells] for row in _DocxTable(child, doc).rows]
+
+
+def discover_analysis_doc(search_dirs=ANALYSIS_SEARCH_DIRS):
+    """Locate the ONE Analysis doc. Returns a path; raises AnalysisDocError otherwise.
+
+    There is exactly one conforming name, [ExamCode]_PYQ_Analysis.docx. The
+    per-subject form [ExamCode]_PYQ_Analysis_[Subject].docx was retired by
+    PYQAnalyse v2.6 and no project has ever held one, so it is NOT a supported
+    generation — it is a nonconforming file, and it is named as such rather than
+    silently ignored (a silently-ignored file is how an operator ends up sorting
+    against a taxonomy they did not intend).
+    """
+    seen, found, nonconforming, word97 = set(), [], [], []
+    for d in search_dirs:
+        if not os.path.isdir(d):
+            continue
+        for name in sorted(os.listdir(d)):
+            if name.startswith('~$') or name.startswith('.'):
+                continue                      # Word lock file / hidden artefact
+            low = name.lower()
+            if name in seen:
+                continue                      # same name in both dirs: project wins
+            if low.endswith(ANALYSIS_DOC_SUFFIX.lower()):
+                seen.add(name)
+                found.append(os.path.join(d, name))
+            elif low.endswith('.docx') and '_pyq_analysis_' in low:
+                seen.add(name)
+                nonconforming.append(name)
+            elif low.endswith('.doc') and '_pyq_analysis' in low:
+                seen.add(name)
+                word97.append(name)
+
+    if len(found) > 1:
+        raise AnalysisDocError(
+            "HARD STOP: %d Analysis docs found — exactly one is expected.\n"
+            "  %s\n"
+            "One project holds one exam. Remove the ones that do not belong to this "
+            "exam and re-run." % (len(found), '\n  '.join(os.path.basename(p) for p in found)))
+    if found:
+        return found[0]
+    if word97:
+        raise AnalysisDocError(
+            "HARD STOP: %s is a Word 97 .doc, which cannot be read.\n"
+            "Open it in Word and Save As .docx, then upload it as %s."
+            % (word97[0], '[ExamCode]' + ANALYSIS_DOC_SUFFIX))
+    if nonconforming:
+        raise AnalysisDocError(
+            "HARD STOP: found %s, which is not the expected deliverable name.\n"
+            "PYQApprove (Step 2c) produces ONE merged doc named "
+            "[ExamCode]%s containing every subject. The per-subject form was retired "
+            "in PYQAnalyse v2.6.\n"
+            "Re-run PYQApprove and upload the doc it delivers."
+            % (nonconforming[0], ANALYSIS_DOC_SUFFIX))
+    raise AnalysisDocError(
+        "HARD STOP: no Analysis doc found in %s.\n"
+        "Expected [ExamCode]%s from PYQApprove (Step 2c).\n"
+        "If the file IS in project Files, project knowledge may have stored it as "
+        "extracted text rather than as the .docx package — attach the downloaded "
+        ".docx to this chat as well." % (' or '.join(search_dirs), ANALYSIS_DOC_SUFFIX))
+
+
+def _scan(doc_path):
+    """Single pass over the body. Returns (subjects, order, declared, anomalies).
+
+    ONE pass over doc.element.body, never doc.paragraphs, so paragraphs and tables
+    are seen in true document order. The two-pass form the pre-fix readers used
+    cannot attribute a table to a subject at all: by the time pass 2 runs, the
+    subject boundaries from pass 1 are gone.
+    """
+    from docx import Document
+    doc = Document(doc_path)
+
+    subjects, order, declared, anomalies = {}, [], [], []
+    cur_s = cur_t = None
+    blk = None
+
+    for child in doc.element.body:
+        tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+
+        if tag == 'p':
+            text = _para_text(child)
+            if not text:
+                continue
+            level, name = bc.parse_taxonomy_level(text)
+
+            if level == 1:
+                cur_s, cur_t = name, None
+                if cur_s not in subjects:
+                    subjects[cur_s] = {}
+                    order.append(cur_s)
+                blk = {'subject': cur_s, 'd1': None, 'd2': [], 'd2_grand': None,
+                       'd3': [], 'master_seen': False}
+                declared.append(blk)
+                continue
+
+            if level == 2:
+                if cur_s is None:
+                    anomalies.append("topic heading %r appears before any subject "
+                                     "heading" % text[:60])
+                    continue
+                cur_t = name
+                subjects[cur_s].setdefault(cur_t, {})
+                continue
+
+            # level 3 => a decorative paragraph of the header/footer block.
+            # Subtopics live in TABLES, never in paragraphs, so a level-3 paragraph
+            # is never data. It may still carry a DECLARATION.
+            if blk is None:
+                continue
+            m = _D1_RE.search(text)
+            if m and blk['d1'] is None and not blk['master_seen']:
+                blk['d1'] = (int(m.group(1)), int(m.group(2)))
+                continue
+            m = _D3_RE.search(text)
+            if m and cur_t is not None:
+                blk['d3'].append((cur_t, int(m.group(1))))
+            continue
+
+        if tag != 'tbl':
+            continue
+
+        rows = _table_rows(child, doc)
+        data = [r for r in rows if r and r[0].strip()]
+        is_master = bool(data) and any(
+            bc.parse_taxonomy_level(r[0])[0] == 2 for r in data)
+
+        if is_master:
+            # MASTER SUMMARY TABLE — a declaration, never data.
+            if blk is None:
+                anomalies.append("a master summary table appears before any subject heading")
+                continue
+            blk['master_seen'] = True
+            for r in data:
+                lvl, tname = bc.parse_taxonomy_level(r[0])
+                if lvl == 2 and len(r) >= 2 and r[1].strip().isdigit():
+                    blk['d2'].append((tname, int(r[1].strip())))
+                elif _GRAND_RE.match(r[0].strip()) and len(r) >= 2 and r[1].strip().isdigit():
+                    blk['d2_grand'] = int(r[1].strip())
+            continue
+
+        if cur_s is None or cur_t is None:
+            anomalies.append("a subtopic table at document position %d belongs to no "
+                             "topic — the heading above it was not recognised"
+                             % list(doc.element.body).index(child))
+            continue
+
+        bucket = subjects[cur_s][cur_t]
+        for r in rows:
+            if len(r) < 2:
+                continue
+            name = r[0].strip()
+            if name.lower() in _SKIP_CELLS:
+                continue
+            if bc.parse_taxonomy_level(name)[0] == 2:
+                continue                      # a stray topic row inside a data table
+            if name not in bucket:
+                bucket[name] = len(bucket)
+
+    return subjects, order, declared, anomalies
+
+
+def verify_analysis_doc(subjects, order, declared, anomalies, doc_name='Analysis doc'):
+    """Assert the PARSE against the document's OWN declarations. Returns a list of
+    plain-English failures; empty means the doc and the parse agree.
+
+    The doc states its shape three times per subject:
+      D1  header  "Total: — Questions | <T> Topics | <S> Subtopics"
+      D2  master summary table: one row per topic (+ GRAND TOTAL)
+      D3  per topic "Total PYQs: — | Subtopics: <k>"
+    Nothing but a correct parse satisfies all three. This is what makes a
+    mis-parse LOUD without any second artefact, on any exam, from day one.
+    """
+    fails = list(anomalies)
+    decl_names = [b['subject'] for b in declared]
+
+    dupes = sorted({s for s in decl_names if decl_names.count(s) > 1})
+    if dupes:
+        fails.append("the document declares the same subject more than once: %s — "
+                     "each subject must appear exactly once" % dupes)
+    if len(order) != len(declared):
+        fails.append("SUBJECT COUNT: parsed %d, the document declares %d subject "
+                     "heading(s) -> %s" % (len(order), len(declared), decl_names))
+
+    for b in declared:
+        s = b['subject']
+        if s not in subjects:
+            fails.append("[%s] declared in the document but absent from the parse" % s)
+            continue
+        topics = subjects[s]
+        n_t = len(topics)
+        n_s = sum(len(v) for v in topics.values())
+
+        if b['d1'] and b['d1'] != (n_t, n_s):
+            fails.append("[%s] header declares %d topics / %d subtopics; parsed %d / %d"
+                         % (s, b['d1'][0], b['d1'][1], n_t, n_s))
+        if b['d2']:
+            if len(b['d2']) != n_t:
+                fails.append("[%s] master summary table lists %d topics; parsed %d"
+                             % (s, len(b['d2']), n_t))
+            for tname, tcount in b['d2']:
+                if tname not in topics:
+                    fails.append("[%s] master summary lists topic %r, which is absent "
+                                 "from the parse" % (s, tname))
+                elif len(topics[tname]) != tcount:
+                    fails.append("[%s] master summary declares %d subtopics under %r; "
+                                 "parsed %d" % (s, tcount, tname, len(topics[tname])))
+        if b['d2_grand'] is not None and b['d2_grand'] != n_s:
+            fails.append("[%s] master summary GRAND TOTAL is %d; parsed %d"
+                         % (s, b['d2_grand'], n_s))
+        for tname, k in b['d3']:
+            if tname in topics and len(topics[tname]) != k:
+                fails.append("[%s] topic %r declares Subtopics: %d; parsed %d"
+                             % (s, tname, k, len(topics[tname])))
+        if not topics:
+            fails.append("[%s] has no topics — an empty subject cannot be sorted "
+                         "against" % s)
+        for tname, subs in topics.items():
+            if not subs:
+                fails.append("[%s] topic %r has no subtopics" % (s, tname))
+
+    for s in order:
+        if s not in decl_names:
+            fails.append("[%s] parsed but the document contains no matching subject "
+                         "heading for it" % s)
+
+    # Every name must survive the round trip through the sorted-PYQ heading parser.
+    # bc.is_taxonomy_heading() rejects text at or above MAX_HEADING_LEN, so a longer
+    # name stops being a heading at Step 4/5 and its questions are silently absorbed
+    # by the PREVIOUS subtopic. Caught HERE, at the artefact, not four steps later.
+    for s, topics in subjects.items():
+        for label, value in [('subject', s)] + \
+                [('topic', t) for t in topics] + \
+                [('subtopic', x) for t in topics for x in topics[t]]:
+            if len(value) >= bc.MAX_HEADING_LEN:
+                fails.append("%s name is %d characters, at or above the %d-character "
+                             "heading limit: %r. A name this long stops being "
+                             "recognised as a heading in the sorted files and its "
+                             "questions are silently attributed to the preceding "
+                             "subtopic. Shorten it in the taxonomy and re-run "
+                             "PYQApprove." % (label, len(value), bc.MAX_HEADING_LEN, value))
+    return fails
+
+
+def read_analysis_doc(path=None, search_dirs=ANALYSIS_SEARCH_DIRS, verify=True):
+    """THE Analysis-doc reader. Returns a dict:
+
+        {'path','exam_code','subjects','taxonomy','triples','counts','fingerprint'}
+
+    taxonomy/triples carry exactly the shape PYQSort S1-2 has always returned, so
+    downstream consumers are unchanged:
+        {subject: {'subject_order': int,
+                   'topics': {topic: {'topic_idx': int,
+                                      'subtopics': {name: {'subtopic_idx': int}}}}}}
+
+    topic_idx is POSITIONAL WITHIN THE SUBJECT, which is what Framework_PYQSort
+    §L1111 has always specified ("position of topic within its section's Analysis
+    doc"). The pre-fix code derived it from the printed "Topic N:" label, which
+    restarts at 1 for every subject in a merged doc — six topics claiming index 0.
+    """
+    if path is None:
+        path = discover_analysis_doc(search_dirs)
+    base = os.path.basename(path)
+
+    try:
+        subjects, order, declared, anomalies = _scan(path)
+    except AnalysisDocError:
+        raise
+    except Exception as ex:
+        raise AnalysisDocError(
+            "HARD STOP: %s could not be opened as a .docx package (%s: %s).\n"
+            "Most common cause: project knowledge stored the Word document as "
+            "extracted TEXT rather than as the original binary. Attach the "
+            "downloaded .docx to this chat and re-run." % (base, type(ex).__name__, ex))
+
+    if not order:
+        raise AnalysisDocError(
+            "HARD STOP: %s contains no subject heading.\n"
+            "Expected a paragraph of the form 'Subject: <name>' (or Domain:/Section:/"
+            "Part:/Area:) for each subject. Either this is not a PYQApprove Analysis "
+            "doc, or the PYQAnalyse §6 HEADING FORMAT CONTRACT was violated." % base)
+
+    if verify:
+        fails = verify_analysis_doc(subjects, order, declared, anomalies, base)
+        if fails:
+            raise AnalysisDocError(
+                "HARD STOP: %s does not agree with itself — the taxonomy parsed out of "
+                "it does not match the totals the document declares. Sorting against a "
+                "taxonomy that fails this check silently mis-files questions.\n  %s\n"
+                "Re-run PYQApprove to regenerate the Analysis doc."
+                % (base, '\n  '.join(fails[:12]) +
+                   ('\n  ... and %d more' % (len(fails) - 12) if len(fails) > 12 else '')))
+
+    taxonomy, triples = {}, []
+    for subject in order:
+        topics_out = {}
+        for t_i, (topic, subs) in enumerate(subjects[subject].items()):
+            topics_out[topic] = {
+                'topic_idx': t_i,
+                'subtopics': {n: {'subtopic_idx': i} for n, i in subs.items()}}
+            for n in subs:
+                triples.append((subject, topic, n))
+        taxonomy[subject] = {'subject_order': len(taxonomy), 'topics': topics_out}
+
+    exam_code = base[:-len(ANALYSIS_DOC_SUFFIX)] if base.endswith(ANALYSIS_DOC_SUFFIX) else None
+    return {
+        'path': path,
+        'exam_code': exam_code,
+        'subjects': list(order),
+        'taxonomy': taxonomy,
+        'triples': triples,
+        'counts': {'subjects': len(order),
+                   'topics': sum(len(v['topics']) for v in taxonomy.values()),
+                   'subtopics': len(triples)},
+        'fingerprint': bc.taxonomy_fingerprint(triples),
+    }
+
+
+def write_analysis_doc(taxonomy, exam_code, subject_order=None, out_dir='/mnt/user-data/outputs',
+                       counts=None):
+    """THE Analysis-doc writer (PYQAnalyse S4-2, which was `pass` until v2.24).
+
+    taxonomy : {subject: {topic: [subtopic, ...]}}   — insertion order is preserved
+    counts   : optional {(subject, topic, subtopic): int} for Phase B (--counts).
+               Absent => every PYQ Count cell is an em-dash, per S4-1.
+
+    Emits exactly the structure read_analysis_doc() contracts on, including all
+    three redundant declarations. One writer + one reader + a round-trip assertion
+    is the whole correctness argument; a doc this function produces is a doc that
+    function reads, by construction rather than by review.
+    """
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_BREAK
+
+    order = list(subject_order or taxonomy.keys())
+    missing = [s for s in taxonomy if s not in order]
+    order += missing
+
+    over = [(lbl, v) for s in taxonomy
+            for lbl, v in ([('subject', s)] +
+                           [('topic', t) for t in taxonomy[s]] +
+                           [('subtopic', x) for t in taxonomy[s] for x in taxonomy[s][t]])
+            if len(v) >= bc.MAX_HEADING_LEN]
+    if over:
+        raise AnalysisDocError(
+            "HARD STOP: %d taxonomy name(s) are at or above the %d-character heading "
+            "limit and cannot be written — they would stop being recognised as "
+            "headings in the sorted files.\n  %s"
+            % (len(over), bc.MAX_HEADING_LEN,
+               '\n  '.join('%s (%d chars): %r' % (l, len(v), v) for l, v in over[:5])))
+
+    doc = Document()
+
+    def bold(text, size):
+        p = doc.add_paragraph()
+        r = p.add_run(text)
+        r.bold = True
+        r.font.size = Pt(size)
+        r.font.color.rgb = RGBColor(0x00, 0x33, 0x66)
+        return p
+
+    def cell(v):
+        return '—' if v is None else str(v)
+
+    for i, subject in enumerate(order):
+        topics = taxonomy[subject]
+        if i:
+            doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+
+        n_sub = sum(len(v) for v in topics.values())
+        bold('%s — %s' % (exam_code, subject), 14)
+        bold('Subject: %s' % subject, 12)                      # LEVEL 1 — §6 contract
+        bold('PYQ Topic & Subtopic-wise Count', 11)
+        bold('Total: %s Questions  |  %d Topics  |  %d Subtopics'      # D1
+             % (cell(sum(counts.get((subject, t, x), 0)
+                         for t in topics for x in topics[t]) if counts else None),
+                len(topics), n_sub), 11)
+
+        tbl = doc.add_table(rows=1, cols=3)                     # D2
+        h = tbl.rows[0].cells
+        h[0].text, h[1].text, h[2].text = 'Topic', 'Total Subtopics', 'Total PYQs'
+        for t_i, (topic, subs) in enumerate(topics.items(), 1):
+            c = tbl.add_row().cells
+            c[0].text = 'Topic %d: %s' % (t_i, topic)
+            c[1].text = str(len(subs))
+            c[2].text = cell(sum(counts.get((subject, topic, x), 0) for x in subs)
+                             if counts else None)
+        c = tbl.add_row().cells
+        c[0].text = 'GRAND TOTAL'
+        c[1].text = str(n_sub)
+        c[2].text = cell(sum(counts.get((subject, t, x), 0)
+                             for t in topics for x in topics[t]) if counts else None)
+
+        for t_i, (topic, subs) in enumerate(topics.items(), 1):
+            bold('Topic %d: %s' % (t_i, topic), 12)             # LEVEL 2 — §6 contract
+            bold('Total PYQs: %s  |  Subtopics: %d'             # D3
+                 % (cell(sum(counts.get((subject, topic, x), 0) for x in subs)
+                         if counts else None), len(subs)), 11)
+            st = doc.add_table(rows=1, cols=2)
+            hh = st.rows[0].cells
+            hh[0].text, hh[1].text = 'Subtopic', 'PYQ Count'
+            for x in subs:
+                r = st.add_row().cells
+                r[0].text = x
+                r[1].text = cell(counts.get((subject, topic, x), 0) if counts else None)
+            r = st.add_row().cells
+            r[0].text = 'TOTAL'
+            r[1].text = cell(sum(counts.get((subject, topic, x), 0) for x in subs)
+                             if counts else None)
+
+        bold('IFAS Edutech  —  %s %s PYQ Analysis' % (exam_code, subject), 10)
+
+    os.makedirs(out_dir, exist_ok=True)
+    out = os.path.join(out_dir, '%s%s' % (exam_code, ANALYSIS_DOC_SUFFIX))
+    doc.save(out)
+    return out
+
+
+CK_LIVE_FIXTURE = 'IIT_JAM_BIOTECHNOLOGY_PYQ_Analysis.docx'
+
+
+def _ck_shapes():
+    """The exam-shape matrix. The framework serves ~200 exams and cannot be validated
+    against 200 real corpora, so the shapes are GENERATED. This matrix IS the
+    exam-agnostic correctness claim; it covers shapes no real exam has produced yet.
+    """
+    # ABSOLUTE length, never derived from bc.MAX_HEADING_LEN. Deriving it would make
+    # this shape vacuous with respect to the constant: lowering the cap would shrink
+    # the fixture with it and the test would stay green (INV-8, a check that measures
+    # nothing). 150 characters is comfortably legal at 300 and illegal at the old 100.
+    long_ok = 'Regulation of Gene Expression in Prokaryotes and Eukaryotes ' + 'x' * 90
+    assert len(long_ok) == 150
+    return [
+        ('single subject', {'Physics': {'Mechanics': ['Kinematics', 'Newton Laws']}}),
+        ('six subjects', {'S%d' % i: {'T%d' % j: ['x%d_%d' % (i, j)]
+                                      for j in range(1, i + 2)} for i in range(1, 7)}),
+        ('thirty subjects', {'Sub %02d' % i: {'Topic A': ['one', 'two']}
+                             for i in range(1, 31)}),
+        ('duplicate TOPIC name across subjects',
+         {'Physics': {'Thermodynamics': ['Entropy', 'Carnot']},
+          'Chemistry': {'Thermodynamics': ['Enthalpy', 'Free Energy']}}),
+        ('duplicate SUBTOPIC name across topics',
+         {'Biology': {'Cell': ['Introduction', 'Organelles'],
+                      'Genetics': ['Introduction', 'Linkage']}}),
+        ('punctuation in names',
+         {'General Intelligence & Reasoning':
+          {'Analogy — Verbal / Non-Verbal': ["Bloom's Taxonomy, Applied",
+                                             'Ratio & Proportion']}}),
+        ('unicode in names', {'\u0938\u093e\u092e\u093e\u0928\u094d\u092f \u0939\u093f\u0902\u0926\u0940':
+                              {'\u0935\u094d\u092f\u093e\u0915\u0930\u0923': ['\u0938\u0902\u0927\u093f', '\u0938\u092e\u093e\u0938']}}),
+        ('name at the length boundary', {'Physics': {'Mechanics': [long_ok]}}),
+        ('single subtopic per topic', {'Maths': {'Algebra': ['Matrices']}}),
+        ('many topics one subject',
+         {'GS': {'Topic %02d' % i: ['a', 'b', 'c'] for i in range(1, 21)}}),
+    ]
+
+
+def _ck_selftest(check, tmp):
+    """Cluster K assertions. `check(name, cond)` is the caller's harness hook."""
+    import glob as _glob
+
+    # ── the heading limit is real, and a 150-char name must survive it ─────────
+    class _R:
+        def __init__(self, t):
+            self.text, self.bold = t, True
+    class _P:
+        def __init__(self, t):
+            self.text, self.runs = t, [_R(t)]
+    check('K MAX_HEADING_LEN admits a 150-character subtopic heading',
+          bc.is_taxonomy_heading(_P('n' * 150), lambda t: False))
+    check('K MAX_HEADING_LEN still rejects a pasted stem',
+          not bc.is_taxonomy_heading(_P('n' * bc.MAX_HEADING_LEN), lambda t: False))
+
+    # ── ROUND TRIP over the generated matrix ────────────────────────────────────
+    for label, tax in _ck_shapes():
+        d = os.path.join(tmp, 'rt_' + re.sub(r'[^a-z0-9]+', '_', label.lower()))
+        os.makedirs(d, exist_ok=True)
+        try:
+            p = write_analysis_doc(tax, 'EXAM', out_dir=d)
+            got = read_analysis_doc(p)
+        except Exception as ex:
+            # Report per shape instead of aborting the suite: when this cluster
+            # regresses, the operator needs to see WHICH shapes broke, not just the
+            # first one.
+            for suffix in ('round-trip', 'subject order', 'counts', 'topic_idx positional'):
+                check('K %s: %s [%s]' % (suffix, label, type(ex).__name__), False)
+            continue
+        rebuilt = {s: {t: list(v['subtopics']) for t, v in d2['topics'].items()}
+                   for s, d2 in got['taxonomy'].items()}
+        check('K round-trip: ' + label, rebuilt == tax)
+        check('K subject order: ' + label, got['subjects'] == list(tax))
+        n = sum(len(x) for t in tax.values() for x in t.values())
+        check('K counts: ' + label,
+              got['counts'] == {'subjects': len(tax),
+                                'topics': sum(len(t) for t in tax.values()),
+                                'subtopics': n})
+        # topic_idx must be contiguous 0..n-1 WITHIN each subject and never collide
+        ok = all(sorted(v['topic_idx'] for v in d2['topics'].values())
+                 == list(range(len(d2['topics']))) for d2 in got['taxonomy'].values())
+        check('K topic_idx positional: ' + label, ok)
+
+    # ── every level-1 and level-2 label form the engine blesses ─────────────────
+    tax = {'Alpha': {'Beta': ['gamma', 'delta']}}
+    d = os.path.join(tmp, 'labels'); os.makedirs(d, exist_ok=True)
+    src = write_analysis_doc(tax, 'EXAM', out_dir=d)
+    from docx import Document as _D
+    for l1 in ('Subject', 'Domain', 'Section', 'Part', 'Area'):
+        for l2 in ('Topic 1', 'Chapter 1', 'Unit 1', 'Module 1', 'Block 1'):
+            doc = _D(src)
+            for para in doc.paragraphs:
+                t = para.text.strip()
+                if t.startswith('Subject:'):
+                    para.runs[0].text = '%s: Alpha' % l1
+                elif t.startswith('Topic 1:'):
+                    para.runs[0].text = '%s: Beta' % l2
+            alt = os.path.join(d, 'ALT%s' % ANALYSIS_DOC_SUFFIX)
+            doc.save(alt)
+            # the master-summary rows still say "Topic 1:", which is level 2 either way
+            got = read_analysis_doc(alt, verify=False)
+            check('K label form %s / %s' % (l1, l2),
+                  got['subjects'] == ['Alpha']
+                  and list(got['taxonomy']['Alpha']['topics']) == ['Beta'])
+
+    # ── the self-check must FIRE on each corruption, not just pass on good input ─
+    def _mutate(fn, name):
+        d2 = os.path.join(tmp, 'mut_' + name); os.makedirs(d2, exist_ok=True)
+        p = write_analysis_doc({'Physics': {'Mechanics': ['Kinematics', 'Newton Laws']},
+                                'Chemistry': {'Bonding': ['Ionic']}}, 'EXAM', out_dir=d2)
+        doc = _D(p)
+        fn(doc)
+        doc.save(p)
+        try:
+            read_analysis_doc(p)
+            return False
+        except AnalysisDocError:
+            return True
+
+    def drop_subject_line(doc):
+        for para in doc.paragraphs:
+            if para.text.strip() == 'Subject: Chemistry':
+                para.runs[0].text = 'Chemistry notes'
+                return
+
+    def dup_subject(doc):
+        for para in doc.paragraphs:
+            if para.text.strip() == 'Subject: Chemistry':
+                para.runs[0].text = 'Subject: Physics'
+                return
+
+    def wrong_declared_count(doc):
+        for para in doc.paragraphs:
+            if para.text.strip().startswith('Total PYQs:'):
+                para.runs[0].text = 'Total PYQs: —  |  Subtopics: 7'
+                return
+
+    def wrong_grand_total(doc):
+        for tbl in doc.tables:
+            for row in tbl.rows:
+                if row.cells[0].text.strip() == 'GRAND TOTAL':
+                    row.cells[1].text = '99'
+                    return
+
+    def drop_a_subtopic_row(doc):
+        for tbl in doc.tables:
+            for row in tbl.rows:
+                if row.cells[0].text.strip() == 'Newton Laws':
+                    row.cells[0].text = ''
+                    return
+
+    check('K catches a missing subject heading', _mutate(drop_subject_line, 'dropsubj'))
+    check('K catches a duplicated subject', _mutate(dup_subject, 'dupsubj'))
+    check('K catches a wrong declared subtopic count', _mutate(wrong_declared_count, 'badcount'))
+    check('K catches a wrong GRAND TOTAL', _mutate(wrong_grand_total, 'badgrand'))
+    check('K catches a dropped subtopic row', _mutate(drop_a_subtopic_row, 'droprow'))
+
+    # ── name length is refused at the PRODUCER, not discovered downstream ───────
+    too_long = 'y' * bc.MAX_HEADING_LEN
+    d3 = os.path.join(tmp, 'toolong'); os.makedirs(d3, exist_ok=True)
+    try:
+        write_analysis_doc({'Physics': {'Mechanics': [too_long]}}, 'EXAM', out_dir=d3)
+        check('K refuses to write an over-length name', False)
+    except AnalysisDocError:
+        check('K refuses to write an over-length name', True)
+
+    # ── discovery ──────────────────────────────────────────────────────────────
+    dd = os.path.join(tmp, 'disc'); os.makedirs(dd, exist_ok=True)
+    up = os.path.join(tmp, 'disc_up'); os.makedirs(up, exist_ok=True)
+    dirs = (dd + os.sep, up + os.sep)
+
+    def _clear():
+        for d4 in (dd, up):
+            for f in _glob.glob(os.path.join(d4, '*')):
+                os.remove(f)
+
+    def _raises(sub):
+        try:
+            discover_analysis_doc(dirs)
+            return False
+        except AnalysisDocError as ex:
+            return sub in str(ex)
+
+    _clear()
+    check('K no doc -> named stop', _raises('no Analysis doc found'))
+
+    _clear()
+    open(os.path.join(dd, '~$EXAM' + ANALYSIS_DOC_SUFFIX), 'w').close()
+    check('K ignores a Word lock file', _raises('no Analysis doc found'))
+
+    _clear()
+    open(os.path.join(dd, 'EXAM_PYQ_Analysis.doc'), 'w').close()
+    check('K names the Word 97 .doc case', _raises('Word 97'))
+
+    _clear()
+    open(os.path.join(dd, 'EXAM_PYQ_Analysis_Physics.docx'), 'w').close()
+    check('K names the retired per-subject form', _raises('not the expected deliverable name'))
+
+    _clear()
+    open(os.path.join(dd, 'A' + ANALYSIS_DOC_SUFFIX), 'w').close()
+    open(os.path.join(dd, 'B' + ANALYSIS_DOC_SUFFIX), 'w').close()
+    check('K stops on two Analysis docs', _raises('exactly one is expected'))
+
+    _clear()
+    write_analysis_doc({'Physics': {'Mechanics': ['Kinematics']}}, 'EXAM', out_dir=dd)
+    write_analysis_doc({'Physics': {'Mechanics': ['DIFFERENT']}}, 'EXAM', out_dir=up)
+    got = read_analysis_doc(search_dirs=dirs)
+    check('K same name in both dirs -> project wins, loaded once',
+          got['triples'] == [('Physics', 'Mechanics', 'Kinematics')])
+
+    # ── fingerprint ────────────────────────────────────────────────────────────
+    a = read_analysis_doc(os.path.join(dd, 'EXAM' + ANALYSIS_DOC_SUFFIX))
+    b = read_analysis_doc(os.path.join(up, 'EXAM' + ANALYSIS_DOC_SUFFIX))
+    check('K fingerprint distinguishes different taxonomies',
+          a['fingerprint'] != b['fingerprint'])
+    check('K fingerprint is stable across reads',
+          a['fingerprint'] == read_analysis_doc(a['path'])['fingerprint'])
+
+    # ── the live fixture: the one shape that is field evidence, not generated ───
+    fx = None
+    for cand in (os.path.join(os.path.dirname(os.path.abspath(__file__)), CK_LIVE_FIXTURE),
+                 os.path.join('fixtures', CK_LIVE_FIXTURE), CK_LIVE_FIXTURE):
+        if os.path.exists(cand):
+            fx = cand
+            break
+    if fx:
+        live = read_analysis_doc(fx)
+        check('K live fixture: 6 subjects / 26 topics / 131 subtopics',
+              live['counts'] == {'subjects': 6, 'topics': 26, 'subtopics': 131})
+        check('K live fixture: 6 distinct subjects across the triples',
+              len({t[0] for t in live['triples']}) == 6)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # SELF-TEST
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1389,6 +2113,11 @@ def self_test():
                   bool(assert_docx_parity(_src, _dst, allow_resample=True)))
     except DependencyMissing:
         pass                                # optional deps absent — nothing to assert
+
+    # ── CLUSTER K — ANALYSIS DOC (GAP-2026-07-25-002) ──────────────────────
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as _tmp:
+        _ck_selftest(check, _tmp)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

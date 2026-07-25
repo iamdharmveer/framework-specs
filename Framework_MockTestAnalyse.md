@@ -1,6 +1,26 @@
-# Framework_MockTestAnalyse v2.29.1 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.30 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
+# MINIMUM COMPANION VERSIONS (v2.30):
+#   corpus_io.py          >= v1.1   — both Analysis-doc readers delegate to Cluster K
+#   blueprint_core.py     — Cluster E/G delegation (score_difficulty, determine_strip_mode)
+#
+# v2.30 — 2026-07-25 — BOTH ANALYSIS-DOC READERS DELEGATED (GAP-2026-07-25-002).
+#         extract_taxonomy_from_analysis_doc() and _extract_taxonomy_tuples_from_analysis_doc()
+#         both returned ZERO subtopics from a real Analysis doc — on every exam, since they were
+#         written. Verified by executing both against the first exam's live doc: 0 tuples against
+#         a truth of 131. Two independent causes: they iterate doc.paragraphs while every subtopic
+#         lives in a TABLE, and they key hierarchy off Word Heading 1/2/3 styles and left_indent
+#         that the generator does not emit (para.style is None for every paragraph of a real doc).
+#         Both also carried the same `not cur_sec` first-value latch as the P0 fixed in
+#         Framework_PYQSort v1.14, and on a styled doc the first reported 12 phantom sections by
+#         reading the title line and the "Subject:" line as two separate level-1 headings.
+#         Consequence: Source 2 of the v2.20 taxonomy sync — the net that mints ids for zero-PYQ
+#         subtopics — has never contributed anything, and because both except branches swallow
+#         silently, that emptiness was indistinguishable from "the doc had nothing to add".
+#         Both now delegate to corpus_io Cluster K, THE reader/writer/verifier for this artefact,
+#         which additionally HARD STOPS when a parse disagrees with the totals the document
+#         declares about itself. Signatures and failure contracts unchanged.
 # v2.29.1 — 2026-07-25 — E-2 Q_PATTERNS TABLE RECONCILED WITH THE ENGINE. E-2 is the table every
 #         other spec says it aligns to, and it listed five patterns against an engine
 #         implementing two. audit_deep TABLE-PARITY could not detect this — its regex truncated
@@ -1869,34 +1889,34 @@ CROSS-STEP SUBTOPIC NAME RULE (applies to Step 5 and Step 6 both):
 
 ```python
 def extract_taxonomy_from_analysis_doc(doc_path, taxonomy):
+    """Populate taxonomy {section: [{'topic','subtopic'}]} from the Analysis doc.
+
+    v2.30 (GAP-2026-07-25-002) — DELEGATED. The previous implementation returned
+    ZERO subtopics from a real Analysis doc, on every exam, and had done so since
+    it was written. Two independent reasons, both verified by executing it against
+    the first exam's live doc:
+      (1) it iterated doc.paragraphs, while EVERY subtopic in the Analysis doc
+          lives in a TABLE;
+      (2) it keyed hierarchy off Word Heading 1/2/3 styles and left_indent, and the
+          generator emits neither — para.style is None for every paragraph of a
+          real doc, so those branches are unreachable.
+    It also carried the same `not cur_sec` first-value latch as the P0 in
+    Framework_PYQSort S1-2, and on a styled doc reported 12 phantom sections by
+    reading the title line AND the "Subject:" line as level 1.
+    Net effect: Source 2 of the v2.20 taxonomy sync — the safety net that mints ids
+    for zero-PYQ subtopics — has never contributed a single tuple.
+
+    corpus_io Cluster K is now THE reader for this artefact. Signature and
+    in-place-mutation contract are unchanged, so callers are untouched.
     """
-    Read Analysis Word doc and populate taxonomy dict.
-    taxonomy: {section_name: [{'topic': str, 'subtopic': str}]}
-    Same 3-level hierarchy (Section > Topic > Subtopic) as Step 6.
-    doc_path: either a string path OR a dict {'source','path'} — both handled.
-    """
-    from docx import Document as WDoc
-    # Handle both string path and dict {source, path} from analysis_doc_paths
+    import corpus_io
     actual_path = doc_path['path'] if isinstance(doc_path, dict) else doc_path
-    doc     = WDoc(actual_path)
-    cur_sec = cur_top = ''
-
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        if not text: continue
-        has_bold = any(r.bold for r in para.runs if r.text.strip())
-        if not has_bold: continue
-
-        style_name = para.style.name if para.style else ''
-        indent     = para.paragraph_format.left_indent or 0
-
-        if 'Heading 1' in style_name or (indent == 0 and not cur_sec):
-            cur_sec = text; cur_top = ''
-            taxonomy.setdefault(cur_sec, [])
-        elif 'Heading 2' in style_name or (indent == 0 and cur_sec):
-            cur_top = text
-        elif 'Heading 3' in style_name or (has_bold and cur_sec):
-            taxonomy[cur_sec].append({'topic': cur_top, 'subtopic': text})
+    try:
+        doc = corpus_io.read_analysis_doc(actual_path)
+    except corpus_io.AnalysisDocError as ex:
+        raise RuntimeError(str(ex))
+    for section, topic, subtopic in doc['triples']:
+        taxonomy.setdefault(section, []).append({'topic': topic, 'subtopic': subtopic})
 
 taxonomy = {}
 if analysis_docs_present:
@@ -2512,79 +2532,16 @@ def subtopic_option_format(qs):
 
 ```python
 def score_difficulty(q, marks=1, strip_mode='reasoning'):
-    """
-    BUG-B07 fix: marks parameter USED in threshold scaling.
-    BUG-B08 fix: 'rate','find the','what is' gated to quantitative mode only.
-    BUG-A27 fix: decimal numbers included in V axis via float() conversion.
-    time_per_q_sec parameter removed — difficulty is C+I+V axis-based, not time-based.
-    Returns: {level, C, I, V, score, flags}
-    """
-    stem = q.get('stem', '')
+    """v2.30 — DELEGATED to blueprint_core Cluster E (GAP-2026-07-25-002).
+    This spec carried a byte-identical second copy of the engine's implementation.
+    Identical TODAY is not a mechanism for staying identical: the corpus has already
+    paid for that assumption once (PYQAnalyse v2.20, parse_taxonomy_level drifting
+    from Step 5's copy despite a comment in each demanding they match). One
+    definition, called from both places."""
+    import blueprint_core as bc      # local: this code block does not share the
+                                     # module-level alias bound in the S1-1 block
+    return bc.score_difficulty(q, marks=marks, strip_mode=strip_mode)
 
-    # AXIS 1: Computation steps (C)
-    C = 1
-    if any(kw in stem.lower() for kw in
-           ['both','combined','together','compare','between two','ratio of two']):
-        C = 4
-    elif any(kw in stem.lower() for kw in
-             ['partial','remaining','after repay','multi-year',
-              'correct to two decimal']):
-        C = 3
-    # BUG-B08 fix: broad keywords only apply in quantitative mode
-    elif strip_mode == 'quantitative' and any(kw in stem.lower() for kw in
-             ['rate','find the','calculate','what is']):
-        C = 2
-
-    # AXIS 2: Indirection (I)
-    I = 1
-    if any(re.search(p, stem.lower()) for p in
-           [r'ratio of .+ to', r'find .+ if .+ together', r'compare .+ two']):
-        I = 3
-    elif any(re.search(p, stem.lower()) for p in
-             [r'if .+, find', r'such that', r'given that .+ find']):
-        I = 2
-
-    # AXIS 3: Value complexity (V)
-    V = 1
-    raw_nums = re.findall(r'\d+(?:,\d+)*(?:\.\d+)?', stem)
-    if raw_nums:
-        try:
-            # BUG-A27 fix: use float() so decimals like '22.5' are included
-            parsed = [float(n.replace(',', '')) for n in raw_nums]
-            max_v   = max(parsed)
-            has_dec = any('.' in n for n in raw_nums)
-            non_rnd = max_v > 50000 and int(max_v) % 100 != 0
-            if non_rnd or (max_v > 50000 and has_dec): V = 3
-            elif has_dec or max_v > 10000:              V = 2
-        except:
-            pass
-
-    score = C + I + V
-    flags = []
-    if re.search(r'\b(NOT|INCORRECT|EXCEPT|FALSE|WRONG)\b', stem):
-        score += 1; flags.append('negative_question')
-    # v2.5: MSQ cognitive-load term. A multi-select question forces independent
-    # evaluation of EVERY option (not "find the one right answer"), so it is
-    # strictly harder than its single-answer twin. +1, analogous to the negative_
-    # question term. Dormant for single-answer exams (is_msq is always False when
-    # multi_select_allowed=false). Step 8 B-DIFF mirrors this term for sync.
-    if q.get('is_msq'):
-        score += 1; flags.append('msq')
-
-    # Difficulty thresholds: score <= simple → Simple, <= medium → Medium, else Hard.
-    # Thresholds are universal — derived from the C+I+V axis system (min=3, max=10+).
-    # C+I+V=3 (all axes at minimum) = trivially Simple for any exam.
-    # C+I+V=10 (all axes at maximum) = Hard for any exam.
-    # marks scaling: 2-mark Qs take 2× time so the bar for 'Simple' shifts up by 1.
-    # These values are stable across exams because the axes are exam-agnostic.
-    simple_threshold = 4 + (marks - 1)   # score ≤ this → Simple
-    medium_threshold = 7 + (marks - 1)   # score ≤ this → Medium; else Hard
-
-    if score <= simple_threshold:   level = 'Simple'
-    elif score <= medium_threshold: level = 'Medium'
-    else:                           level = 'Hard'
-
-    return {'level':level, 'C':C, 'I':I, 'V':V, 'score':score, 'flags':flags}
 ```
 
 ### E-10 — Template generation (subject-aware variable stripping)
@@ -2595,51 +2552,12 @@ def score_difficulty(q, marks=1, strip_mode='reasoning'):
 
 ```python
 def determine_strip_mode(section, topic, subtopic):
-    """
-    Exam-agnostic: infer stripping mode from taxonomy context words.
-    v2.16 RIGID-5: Hindi equivalents added so Hindi-medium exams (e.g. MP PSC,
-    UP PCS, Bihar PSC) with Devanagari headings are correctly classified instead
-    of always falling to the default 'reasoning'.
-    """
-    s = section.lower(); t = topic.lower(); u = subtopic.lower()
-    # Quantitative: English + Hindi keywords
-    if any(kw in s for kw in ['quantitative','arithmetic','mathematics','math',
-                               '\u0917\u0923\u093f\u0924',            # गणित (math)
-                               '\u0905\u0902\u0915\u0917\u0923\u093f\u0924',  # अंकगणित (arithmetic)
-                               '\u092e\u093e\u0924\u094d\u0930\u093e\u0924\u094d\u092e\u0915',  # मात्रात्मक
-                              ]): return 'quantitative'
-    if any(kw in t for kw in ['arithmetic','algebra','geometry','mensuration',
-                               'trigonometry','statistics','number',
-                               '\u092c\u0940\u091c\u0917\u0923\u093f\u0924',  # बीजगणित (algebra)
-                               '\u0930\u0947\u0916\u093e\u0917\u0923\u093f\u0924',  # रेखागणित (geometry)
-                               '\u0924\u094d\u0930\u093f\u0915\u094b\u0923\u092e\u093f\u0924\u093f',  # त्रिकोणमिति
-                              ]): return 'quantitative'
-    # English / Language
-    if any(kw in s for kw in ['english','language','comprehension','verbal',
-                               '\u0905\u0902\u0917\u094d\u0930\u0947\u091c\u0940',  # अंग्रेजी
-                               '\u092d\u093e\u0937\u093e',           # भाषा (language)
-                              ]): return 'english'
-    # Logical
-    if any(kw in u for kw in ['syllogism','statement','conclusion','venn',
-                               '\u0928\u094d\u092f\u093e\u092f\u0935\u093e\u0915\u094d\u092f',  # न्यायवाक्य (syllogism)
-                              ]): return 'logical'
-    # Reasoning
-    if any(kw in s for kw in ['reasoning','intelligence',
-                               '\u0924\u0930\u094d\u0915\u0936\u0915\u094d\u0924\u093f',  # तर्कशक्ति (reasoning)
-                               '\u092c\u0941\u0926\u094d\u0927\u093f',  # बुद्धि (intelligence)
-                              ]):
-        if any(kw in t for kw in ['analogy','series','coding','blood',
-                                    'arrangement','sequence',
-                                    '\u0938\u093e\u0926\u0943\u0936\u094d\u092f',  # सादृश्य (analogy)
-                                    '\u0936\u094d\u0930\u0943\u0902\u0916\u0932\u093e',  # श्रृंखला (series)
-                                   ]): return 'reasoning'
-    # Factual / General Awareness
-    if any(kw in s for kw in ['awareness','knowledge','general studies',
-                               'current','static',
-                               '\u0938\u093e\u092e\u093e\u0928\u094d\u092f \u091c\u094d\u091e\u093e\u0928',  # सामान्य ज्ञान
-                               '\u091c\u093e\u0917\u0930\u0942\u0915\u0924\u093e',  # जागरूकता (awareness)
-                              ]): return 'factual'
-    return 'reasoning'
+    """v2.30 — DELEGATED to blueprint_core Cluster E (GAP-2026-07-25-002).
+    Second copy removed; see score_difficulty above. The engine's version carries the
+    v2.16 RIGID-5 Devanagari terms, so delegating also means a Hindi-medium exam is
+    classified by the same table everywhere rather than by whichever copy ran."""
+    import blueprint_core as bc      # local: see score_difficulty above
+    return bc.determine_strip_mode(section, topic, subtopic)
 
 def strip_variables(stem, mode):
     """
@@ -4762,8 +4680,12 @@ def build_section_prefix_map(sections, overrides=None):
         seen[p] = s; result[s] = p
     return result
 
-def _as_int(v):
-    """v2.11 — coerce a mandate integer field (may arrive as a str from section_rules,
+def _as_mandate_int(v):
+    """v2.30 — renamed from _as_int (GAP-2026-07-25-002): blueprint_core defines a
+    DIFFERENT _as_int with different semantics (returns a 0 default, not None). Two
+    private helpers sharing a name across an engine and a spec that imports it is a
+    trap waiting for the first `from blueprint_core import *`.
+    v2.11 — coerce a mandate integer field (may arrive as a str from section_rules,
     or as 'none'/None/'' when unset) to int or None. Used for min_per_series_window,
     min_count, and any future numeric mandate field."""
     if v in (None, '', 'none', 'None'):
@@ -5190,54 +5112,27 @@ def taxonomy_sync_entries(existing_entries, exam_code):
 
 
 def _extract_taxonomy_tuples_from_analysis_doc(docx_path):
-    """
-    v2.20 — Extract (section, topic, subtopic) tuples from an approved
-    Analysis doc (.docx). Uses the SAME python-docx heading-style parsing
-    as extract_taxonomy_from_analysis_doc() but returns tuples instead of
-    modifying a dict in-place.
+    """(section, topic, subtopic) tuples from the approved Analysis doc.
 
-    The Analysis doc uses Word formatting (Heading 1/2/3 + bold paragraphs)
-    to denote hierarchy, NOT text markers like '=== SECTION:'. This function
-    reads paragraph styles and bold runs to detect the hierarchy.
+    v2.30 (GAP-2026-07-25-002) — DELEGATED to corpus_io Cluster K, THE reader for
+    this artefact. The previous implementation was the tuple-returning twin of
+    extract_taxonomy_from_analysis_doc() and shared all of its defects: paragraphs
+    only (subtopics are in tables), Heading-style detection against a generator
+    that emits no styles, and a first-value latch. It returned an empty list from
+    every real Analysis doc, and — because both its except branches swallow
+    silently — that emptiness was indistinguishable from "the doc had nothing to
+    add". Measured on the first exam's live doc: 0 tuples against a truth of 131.
 
-    Returns: list of (section_name, topic_name, subtopic_name) tuples.
-    Returns empty list if the doc cannot be parsed or python-docx unavailable.
+    Returns [] on failure, unchanged: this is an ADDITIONAL source and the caller
+    logs a WARN and falls through to the others. The Cluster K reader's own hard
+    stops are converted to that WARN here rather than aborting extraction, because
+    Step 5 must still run when the Analysis doc is absent by design.
     """
-    tuples = []
     try:
-        from docx import Document as WDoc
-        doc = WDoc(docx_path)
-        cur_sec = cur_top = ''
-
-        for para in doc.paragraphs:
-            text = para.text.strip()
-            if not text:
-                continue
-            has_bold = any(r.bold for r in para.runs if r.text.strip())
-            if not has_bold:
-                continue
-
-            style_name = para.style.name if para.style else ''
-            indent = para.paragraph_format.left_indent or 0
-
-            if 'Heading 1' in style_name or (indent == 0 and not cur_sec):
-                cur_sec = text
-                cur_top = ''
-            elif 'Heading 2' in style_name or (indent == 0 and cur_sec):
-                cur_top = text
-            elif 'Heading 3' in style_name or (has_bold and cur_sec):
-                if cur_sec and cur_top:
-                    tuples.append((cur_sec, cur_top, text))
-                elif cur_sec:
-                    # Topic not yet set — use section as topic fallback
-                    tuples.append((cur_sec, cur_sec, text))
-
-    except ImportError:
-        pass  # python-docx not available — caller falls through to other sources
+        import corpus_io
+        return list(corpus_io.read_analysis_doc(docx_path)['triples'])
     except Exception:
-        pass  # Non-fatal — caller handles empty return
-
-    return tuples
+        return []
 
 
 def write_taxonomy_xlsx(manifest, exam_code):
@@ -5499,9 +5394,9 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
             'mandates': {
                 'mandatory_every_mock': mand_every,
                 'alternation_group': e.get('alternation_group'),
-                'min_per_series_window': _as_int(e.get('min_per_series_window')),
+                'min_per_series_window': _as_mandate_int(e.get('min_per_series_window')),
                 'mandatory_group': e.get('mandatory_group'),          # v2.11 group-presence
-                'min_count': _as_int(e.get('min_count'))              # v2.11 min Q per mock
+                'min_count': _as_mandate_int(e.get('min_count'))              # v2.11 min Q per mock
             }
         }
         if mand_every:
@@ -5517,10 +5412,10 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
             g = manifest['mandatory_groups'].setdefault(mg, {'members': [], 'min': 1})
             if sid not in g['members']:
                 g['members'].append(sid)
-        _win = _as_int(e.get('min_per_series_window'))
+        _win = _as_mandate_int(e.get('min_per_series_window'))
         if _win:
             manifest['cadence_windows'][sid] = _win
-        _mc = _as_int(e.get('min_count'))
+        _mc = _as_mandate_int(e.get('min_count'))
         if _mc:
             manifest['min_counts'][sid] = _mc
 
@@ -5610,11 +5505,11 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
         av = EXPL_ALT.search(raw)
         ag = av.group(1) if (av and av.group(1).lower() != 'none') else None
         wv  = EXPL_WIN.search(raw)
-        win = _as_int(wv.group(1)) if wv else None
+        win = _as_mandate_int(wv.group(1)) if wv else None
         gv  = EXPL_GRP.search(raw)                                   # v2.11
         grp = gv.group(1) if (gv and gv.group(1).lower() != 'none') else None
         mcv = EXPL_MINC.search(raw)                                  # v2.11
-        mc  = _as_int(mcv.group(1)) if mcv else None
+        mc  = _as_mandate_int(mcv.group(1)) if mcv else None
         _sec_r = SEC_RE.search(raw).group(1).strip() if SEC_RE.search(raw) else ''   # v2.24
         _fmt_r = FMT_RE.search(raw).group(1) if FMT_RE.search(raw) else 'TEXT'        # v2.24
         _ax_r  = derive_mechanic(_sec_r, disp, None, '', _fmt_r, sid)                 # v2.24
@@ -8619,4 +8514,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.29.1
+# END OF Framework_MockTestAnalyse v2.30

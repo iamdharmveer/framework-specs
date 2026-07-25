@@ -764,13 +764,20 @@ def _cluster_hij_names(directory):
     bcp = os.path.join(directory, 'blueprint_core.py')
     if os.path.exists(bcp):
         try:
+            # GAP-2026-07-25-002. This used to start at the 'CLUSTER H' marker, which
+            # guarded 10 of the engine's 40 public names. The 30 it did NOT guard were
+            # Clusters A-G — the entire taxonomy-parsing surface (parse_taxonomy_level,
+            # is_taxonomy_heading, slugify, detect_question_start) and the entire
+            # allocation core. Measured consequence: the corpus reported 0 issues while
+            # Framework_MockTestAnalyse carried duplicate copies of score_difficulty and
+            # determine_strip_mode, and Framework_PYQSort re-implemented heading matching
+            # rather than calling the canonical parser it already imported — which is the
+            # defect this gap was raised for. A check that covers a quarter of what it
+            # names is not a check. The whole public surface is now owned.
             src = open(bcp, encoding='utf-8').read()
-            marker = src.find('CLUSTER H')
-            if marker != -1:
-                start_line = src[:marker].count('\n') + 1
-                names |= {n.name for n in ast.parse(src).body
-                          if isinstance(n, (ast.FunctionDef, ast.ClassDef))
-                          and not n.name.startswith('_') and n.lineno > start_line}
+            names |= {n.name for n in ast.parse(src).body
+                      if isinstance(n, (ast.FunctionDef, ast.ClassDef))
+                      and not n.name.startswith('_')}
         except (SyntaxError, OSError):
             pass
     names -= _Z_GENERIC
@@ -789,6 +796,165 @@ def _is_forwarding_adapter(text, def_end):
     body = text[def_end:def_end + 900]
     body = body.split('\ndef ')[0]
     return bool(re.search(r'\b(corpus_io|bc|blueprint_core)\.\w+\s*\(', body))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AF — DELIVERABLE FILENAME CONTRACT (corpus-level)
+# ═══════════════════════════════════════════════════════════════════════
+# GAP-2026-07-25-002. Producers declare deliverables as [ExamCode]_<n>.<ext> in
+# their delivery contracts; consumers discover them with glob() literals. NOTHING
+# compared the two. PYQAnalyse v2.6 renamed the Analysis doc and PYQSort's glob
+# became EXACTLY COMPLEMENTARY to the new name — it matched every filename the
+# framework no longer produced and none of the one it did — for 19 days and 7
+# releases, through a changelog that asserted downstream compatibility.
+#
+# This is Check T's idea applied to the right primitive: T covers re.search/re.match
+# against paths['KEY'] and cannot see glob().
+#
+# A pattern matching at least ONE declared deliverable passes: a consumer may
+# legitimately accept several shapes. The point is that it must match SOMETHING the
+# corpus actually produces.
+DELIVERABLE_DECL_RE = re.compile(
+    r'\[ExamCode\]_([A-Za-z0-9_\[\]]+)\.(docx|json|xlsx|md)')
+GLOB_LITERAL_RE = re.compile(r"glob\.glob\(\s*(?:os\.path\.join\([^,]+,\s*)?"
+                             r"f?['\"]([^'\"]+)['\"]")
+# Matched against the pattern text WITHOUT a leading underscore. The first draft of
+# this check watched '_exam_config' and '_taxonomy_draft', which silently skipped
+# the four real globs written as '*exam_config.json' and '*taxonomy_draft*.json' —
+# the two most load-bearing JSON artefacts in Phase 1 would have been free to be
+# renamed undetected. A watchlist that misses the live cases is decoration.
+AF_WATCHED = ('PYQ_', 'Analysis', 'blueprint', 'registry', 'exam_config',
+              'approval_record', 'taxonomy_draft', 'Create', 'scan_progress',
+              'classifications', 'count_progress', 'subtopic_manifest',
+              'section_rules')
+
+
+def check_af_deliverable_filename_contract(all_texts):
+    """Every watched glob literal must match at least one declared deliverable."""
+    import fnmatch
+    declared = set()
+    for text in all_texts.values():
+        for m in DELIVERABLE_DECL_RE.finditer(text):
+            stem, ext = m.group(1), m.group(2)
+            stem = re.sub(r'\[[^\]]+\]', 'X', stem)   # [N]/[Subject] -> probe value
+            declared.add('EXAMCODE_%s.%s' % (stem, ext))
+    if not declared:
+        return []
+    issues = []
+    for fname, text in sorted(all_texts.items()):
+        for i, line in enumerate(text.split('\n'), 1):
+            for m in GLOB_LITERAL_RE.finditer(line):
+                pat = os.path.basename(m.group(1))
+                if not any(w in pat for w in AF_WATCHED):
+                    continue
+                probe = (pat.replace('{EXAM}', 'EXAMCODE')
+                            .replace('{exam_code}', 'EXAMCODE'))
+                if not any(fnmatch.fnmatch(d, probe) for d in declared):
+                    issues.append((fname,
+                        'L%d: glob pattern %r matches NONE of the deliverable '
+                        'filenames declared anywhere in the corpus. A deliverable '
+                        'rename is a cross-step contract change, not a docs edit '
+                        '(GAP-2026-07-25-002).' % (i, pat)))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AG — SHARED ARTEFACT READERS (corpus-level)
+# ═══════════════════════════════════════════════════════════════════════
+# GAP-2026-07-25-002, the structural half. Check AF catches a consumer that looks
+# for the WRONG NAME. It cannot catch a consumer that finds the right file and then
+# parses it WRONGLY — which was the silent P0, and which had three instances at
+# once: PYQSort flattened six subjects into one, and both of Step 5's readers
+# returned zero subtopics from any real Analysis doc.
+#
+# Root cause was structural, not attentional: nothing prevented a spec from opening
+# a shared artefact and inventing its own parse. corpus_io Cluster K is now THE
+# reader/writer/verifier for the Analysis doc; this check enforces that it is the
+# ONLY one, so the class cannot be reintroduced by a future edit that looks locally
+# reasonable.
+AG_ARTEFACTS = {'Analysis': ('_PYQ_Analysis', 'Analysis doc', 'Analysis Word'),
+                }
+AG_READER_HINTS = ('read_analysis_doc', 'write_analysis_doc', 'corpus_io')
+
+
+def check_ag_shared_artefact_readers(all_texts):
+    """No spec may hand-parse a shared artefact that an engine owns a reader for."""
+    issues = []
+    opener = re.compile(r'\b(?:Document|WDoc)\s*\(')
+    for fname, text in sorted(all_texts.items()):
+        if not fname.endswith('.md'):
+            continue
+        for block in re.findall(r'```python\n(.*?)```', text, re.S):
+            if not opener.search(block):
+                continue
+            if not any(tok in block for tok in AG_ARTEFACTS['Analysis']):
+                continue
+            if any(h in block for h in AG_READER_HINTS):
+                continue          # delegates — correct
+            first = block.strip().split('\n', 1)[0][:70]
+            issues.append((fname,
+                'a code block opens a Word document and refers to the Analysis doc '
+                'without going through corpus_io Cluster K. The Analysis doc has '
+                'exactly ONE reader (corpus_io.read_analysis_doc) and ONE writer '
+                '(corpus_io.write_analysis_doc). Four independent readers is how '
+                'GAP-2026-07-25-002 happened: three of them were wrong and nothing '
+                'compared them. Block starts: %r' % first))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AH — SPEC <-> ENGINE ROUTING (corpus-level)
+# ═══════════════════════════════════════════════════════════════════════
+# GAP-2026-07-25-002, found by the post-release sync audit. Check AA proves every
+# trigger in routes.json is nameable in the skill and vice versa. It says nothing
+# about whether the ENGINES a spec actually imports are routed to the trigger that
+# runs it — and 9 such desyncs existed silently, including corpus_io.py absent from
+# PYQApprove. That one was harmless only for as long as S4-2 was a `pass` stub; the
+# moment S4-2 became a real call it would have been an ImportError at the exact
+# point PYQApprove generates the Analysis doc.
+#
+# Rule, deliberately conservative: every engine a spec imports or calls by module
+# alias must be routed to EVERY trigger that loads that spec. Routing an engine a
+# particular trigger does not exercise costs nothing; omitting one it does is a
+# runtime failure the operator sees as an unexplained traceback.
+_AH_ENGINES = ('blueprint_core.py', 'corpus_io.py', 'reconcile_taxonomy.py',
+               'paper_pipeline.py', 'explain_engine.py', 'explain_audit_gate.py',
+               'syllabus_provenance.py')
+
+
+def check_ah_spec_engine_routing(directory):
+    issues = []
+    routes_path = os.path.join(directory, 'routes.json')
+    if not os.path.exists(routes_path):
+        return issues
+    try:
+        import json as _json
+        routes = _json.load(open(routes_path, encoding='utf-8'))
+    except Exception as exc:
+        return [('routes.json', 'unreadable: %s' % exc)]
+    cache = {}
+    for trig, files in sorted(routes.items()):
+        for spec in [f for f in files if f.startswith('Framework_')]:
+            path = os.path.join(directory, spec)
+            if not os.path.exists(path):
+                continue
+            if spec not in cache:
+                try:
+                    cache[spec] = open(path, encoding='utf-8').read()
+                except OSError:
+                    cache[spec] = ''
+            text = cache[spec]
+            for eng in _AH_ENGINES:
+                mod = eng[:-3]
+                used = (re.search(r'(?:^|\n)\s*(?:import\s+%s\b|from\s+%s\s+import)'
+                                  % (mod, mod), text)
+                        or re.search(r'(?:^|\n)[^#\n]*\b%s\.\w+\s*\(' % mod, text))
+                if used and eng not in files:
+                    issues.append(('routes.json',
+                        'trigger %r loads %s, which imports %s — but %s is not routed '
+                        'to that trigger. The step will raise ImportError at the first '
+                        'call (GAP-2026-07-25-002).' % (trig, spec, eng, eng)))
+    return issues
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1363,6 +1529,26 @@ if __name__ == '__main__':
             print(f'RESULT: ❌ {len(u_issues)} JSON field contract issue(s) found.')
         else:
             print('RESULT: ✅ 0 ISSUES — all bare-indexed JSON field reads are documented.')
+        for _code, _label, _tag, _fn, _clean in (
+            ('AF', 'DELIVERABLE FILENAME CONTRACT', 'AF-FILENAME',
+             check_af_deliverable_filename_contract,
+             'every watched glob pattern matches a declared deliverable.'),
+            ('AG', 'SHARED ARTEFACT READERS', 'AG-READER',
+             check_ag_shared_artefact_readers,
+             'no spec hand-parses an artefact an engine owns a reader for.'),
+        ):
+            _iss = _fn(all_texts)
+            print(f'\n{"="*60}')
+            print(f'BATCH CHECK {_code}: {_label} ({n} files)')
+            print('-'*60)
+            if _iss:
+                for fname, msg in _iss:
+                    print(f'  [{_tag}] {fname}: {msg}')
+                total += len(_iss)
+                print('-'*60)
+                print(f'RESULT: ❌ {len(_iss)} issue(s) found.')
+            else:
+                print(f'RESULT: ✅ 0 ISSUES — {_clean}')
     # ── AA / AB — corpus-level, run whenever the engines/routes sit beside the specs.
     # Both are directory-scoped rather than file-scoped: they check artefacts that are
     # not .md files at all, and that no single spec owns.
@@ -1412,6 +1598,9 @@ if __name__ == '__main__':
                 ('AE', 'NORMALIZATION CONFORMANCE',
                  check_ae_normalization_conformance,
                  'all name comparisons go through normalize_label().'),
+                ('AH', 'SPEC <-> ENGINE ROUTING',
+                 check_ah_spec_engine_routing,
+                 'every engine a spec imports is routed to its triggers.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')

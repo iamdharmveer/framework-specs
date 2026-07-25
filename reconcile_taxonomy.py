@@ -1,5 +1,23 @@
 """
-reconcile_taxonomy.py v1.1 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+reconcile_taxonomy.py v1.2 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+
+v1.2 — 2026-07-25 — TAXONOMY ATTESTATION (GAP-2026-07-25-002). SCHEMA_VERSION 1.1 -> 1.2.
+    build_approval_record() gains final_taxonomy= and, when given one, records
+    taxonomy_fingerprint + taxonomy_counts. Until now this record proved the
+    reconciliation RAN — status, mode, ledger, conservation — and said nothing about WHAT
+    it locked, so PYQSort could verify the lock was earned and still sort against an
+    entirely different taxonomy. That is not hypothetical: a reader that flattened six
+    subjects into one passed every check in this record cleanly. Verified downstream at
+    PYQSort S1-0b.
+    FAIL-SAFE: with no taxonomy supplied the keys are OMITTED, never computed over an
+    empty dict. A fingerprint of nothing is a well-formed value that would report a
+    content MISMATCH and point the operator at the Analysis doc, which is not where the
+    fault would be. An absent key instead names the real cause — a caller that does not
+    yet pass final_taxonomy. Unknown is never attested.
+    NEW HARD DEPENDENCY: blueprint_core (for taxonomy_fingerprint / slugify). Both ship
+    in the same clone and blueprint_core is standard-library only, so this adds no
+    package requirement — but this engine LOCKS taxonomies, so the dependency is stated
+    rather than left to be discovered.
 Exam-agnostic. Zero hardcoded exam/section/subtopic names.
 
 Converts the PYQApprove human quiz into a deterministic 3-tier verdict:
@@ -67,10 +85,11 @@ CHANGELOG
   v1.0  Initial release (Framework_PYQAnalyse v2.17).
 """
 import json, re, hashlib, unicodedata
+from blueprint_core import taxonomy_fingerprint   # v1.2 — THE canonical fingerprint
 from difflib import SequenceMatcher
 
-ENGINE_VERSION = "reconcile_taxonomy.py v1.1"
-SCHEMA_VERSION = "1.1"
+ENGINE_VERSION = "reconcile_taxonomy.py v1.2"
+SCHEMA_VERSION = "1.2"
 
 MIN_PATTERN_SIZE = 3      # MUST match S3-6 refinement threshold
 RATIO_WARN       = 2.0    # S2-3 guardrail (LEGACY C4 form only)
@@ -745,7 +764,8 @@ def conservation_check(classifications, taxonomy_after, quarantined_paths=()):
 
 
 def build_approval_record(exam_code, findings, resolved, adjudications, conservation,
-                          mode="FULL", ledger=None, blocked=None, prior_record=None):
+                          mode="FULL", ledger=None, blocked=None, prior_record=None,
+                          final_taxonomy=None):
     """
     mode    : "FULL" | "DEGRADED" — MUST match the mode reconcile() ran under.
     ledger  : the CheckLedger reconcile() attested into. FAIL-SAFE: None means
@@ -829,7 +849,25 @@ def build_approval_record(exam_code, findings, resolved, adjudications, conserva
     if prior_record is not None:
         prior_attested = bool(prior_record.get("checks", {}).get("executed"))
 
-    return {
+    # v1.2 (GAP-2026-07-25-002): ATTEST THE TAXONOMY THAT WAS LOCKED.
+    # Until now this record proved the reconciliation RAN — status, mode, ledger,
+    # conservation — and said nothing about WHAT it locked. PYQSort could therefore
+    # verify the lock was earned and still sort against a completely different
+    # taxonomy, which is precisely what Defect B did: it flattened six subjects into
+    # one and passed every check in this record cleanly. A lock that does not name
+    # its subject is a receipt for an unnamed thing.
+    # Computed over slugify()-normalised triples so it is invariant to the cosmetic
+    # variance the subtopic_id contract already tolerates, and sensitive to
+    # everything else. Verified downstream at PYQSort S1-0b.
+    #
+    # FAIL-SAFE, NOT FAIL-CONVENIENT: when no taxonomy is supplied the key is
+    # OMITTED, never emitted over an empty dict. A fingerprint of nothing is a
+    # well-formed value that would match nothing, so PYQSort S1-0b would report a
+    # content MISMATCH — pointing the operator at the Analysis doc, which is not
+    # where the fault is. An absent key instead triggers S1-0b's "no fingerprint"
+    # branch, which names the real cause: the record was built by a caller that
+    # does not yet pass final_taxonomy. Unknown is never attested.
+    _record = {
         "exam_code": exam_code,
         "schema_version": SCHEMA_VERSION,
         "status": status,
@@ -862,6 +900,17 @@ def build_approval_record(exam_code, findings, resolved, adjudications, conserva
         "unmaterialisable": list(blocked or []),
         "conservation": conservation,
     }
+    if final_taxonomy:
+        _triples = [(sec, top, sub)
+                    for sec, tops in final_taxonomy.items()
+                    for top, subs in tops.items()
+                    for sub in subs]
+        _record["taxonomy_fingerprint"] = taxonomy_fingerprint(_triples)
+        _record["taxonomy_counts"] = {
+            "subjects": len(final_taxonomy),
+            "topics": sum(len(t) for t in final_taxonomy.values()),
+            "subtopics": len(_triples)}
+    return _record
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -1048,7 +1097,38 @@ def _self_test():
     # ---- T13: schema / stamping ----
     rec = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
                                 ledger=_full_ledger())
-    ck("T13a schema 1.1", rec["schema_version"] == "1.1")
+    ck("T13a schema 1.2", rec["schema_version"] == "1.2")
+
+    # ---- T13-FP: taxonomy attestation (v1.2, GAP-2026-07-25-002) ----
+    # A record that does not name the taxonomy it locked cannot be matched against
+    # the doc PYQSort loads; that gap is what let Defect B pass the lock gate.
+    _tx = {"Physics": {"Mechanics": ["Kinematics", "Newton Laws"]},
+           "Chemistry": {"Bonding": ["Ionic"]}}
+    _r1 = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
+                                ledger=_full_ledger(), final_taxonomy=_tx)
+    ck("T13-FP1 fingerprint present", bool(_r1.get("taxonomy_fingerprint")))
+    ck("T13-FP2 counts attested",
+       _r1["taxonomy_counts"] == {"subjects": 2, "topics": 2, "subtopics": 3})
+    _tx2 = {"Physics": {"Mechanics": ["Kinematics"]},
+            "Chemistry": {"Bonding": ["Ionic"]}}
+    _r2 = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
+                                ledger=_full_ledger(), final_taxonomy=_tx2)
+    ck("T13-FP3 a changed taxonomy changes the fingerprint",
+       _r1["taxonomy_fingerprint"] != _r2["taxonomy_fingerprint"])
+    # SUBJECT FLATTENING must change it — this is the exact Defect B shape, and a
+    # fingerprint that survived it would attest nothing.
+    _flat = {"Physics": {"Mechanics": ["Kinematics", "Newton Laws"],
+                         "Bonding": ["Ionic"]}}
+    _r3 = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
+                                ledger=_full_ledger(), final_taxonomy=_flat)
+    ck("T13-FP4 subject flattening changes the fingerprint",
+       _r1["taxonomy_fingerprint"] != _r3["taxonomy_fingerprint"])
+    ck("T13-FP5 cosmetic variance does NOT change it",
+       _r1["taxonomy_fingerprint"] == build_approval_record(
+           "X", [], [], [], {"pass": True}, mode="FULL", ledger=_full_ledger(),
+           final_taxonomy={"physics": {"Mechanics ": ["Kinematics", "Newton  Laws"]},
+                           "CHEMISTRY": {"Bonding": ["Ionic"]}}
+       )["taxonomy_fingerprint"])
     ck("T13b engine version stamped", rec["engine_version"] == ENGINE_VERSION)
     ck("T13c mode stamped", rec["mode"] == "FULL")
     ck("T13d clean run is CLEAN", rec["status"] == "CLEAN")

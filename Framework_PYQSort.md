@@ -1,5 +1,13 @@
-# Framework_PYQSort v1.13 — Universal PYQ Sorter
+# Framework_PYQSort v1.14 — Universal PYQ Sorter
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
+#
+# MINIMUM COMPANION VERSIONS (v1.14):
+#   corpus_io.py          >= v1.1   — Cluster K read_analysis_doc() is S1-2's ONLY
+#                                     reader. Under v1.0.x this spec does not run.
+#   reconcile_taxonomy.py >= v1.2   — S1-0b compares taxonomy_fingerprint, which the
+#                                     record only carries from schema 1.2 onward. An
+#                                     older record HARD STOPS with a named message.
+#   blueprint_core.py     — parse_taxonomy_level / MAX_HEADING_LEN / taxonomy_fingerprint
 #
 # PURPOSE:
 #   Take one Row file (.docx, output of Step 1 PYQ Prepare) and re-sort every
@@ -84,6 +92,33 @@
 #   to Step 1 as the fix location — not a PYQSort bug.
 #
 # VERSION HISTORY:
+#   v1.14 — 2026-07-25 — ANALYSIS-DOC READER DELEGATED + S1-0b CONTENT CROSS-CHECK
+#          (GAP-2026-07-25-002). S1-2 carried its own reader and it was wrong twice over.
+#          DEFECT A (loud): the discovery glob '*_PYQ_Analysis_*.docx' required a trailing
+#          '_' that PYQAnalyse v2.6 removed 19 days and 7 releases ago — it matched every
+#          filename the framework no longer produces and none of the one it does, so PYQSort
+#          hard-stopped telling the operator to upload a file already correctly in place.
+#          DEFECT B (silent, P0): a `if not section_name` latch delimited SUBJECTS BY FILE
+#          BOUNDARY, which is exactly what the merge to a single doc removed. Measured on the
+#          first real exam: 1 subject parsed where the doc declares 6, all 131 subtopics filed
+#          under one subject, 5 topic_idx collision groups, correct totals throughout. Every
+#          sorted file would have carried "Subject: General Biology" above Physics questions.
+#          A was the ONLY control preventing B from shipping, and it was protecting by
+#          accident: fixing the glob alone converts a loud stop into silent corpus-wide
+#          corruption. They are fixed together, and by deletion rather than by repair —
+#          the reader now lives in corpus_io Cluster K, the single reader/writer/verifier for
+#          this artefact, with heading recognition delegated to
+#          blueprint_core.parse_taxonomy_level(). Two consequences beyond the reported bug:
+#          (a) all six level-1 label forms (Subject/Domain/Section/Part/Area) and all six
+#          level-2 forms (Topic/Chapter/Unit/Module/Block) now work here, where the old
+#          hardcoded matcher saw one of each; (b) the reader HARD STOPS when its parse
+#          disagrees with the totals the document declares about itself, so a future variant
+#          of B cannot be silent. NEW S1-0b closes the other half: S1-0 proved the lock was
+#          earned, never that the loaded taxonomy IS the locked one — Defect B passed S1-0
+#          cleanly. S1-0b compares blueprint_core.taxonomy_fingerprint() against the
+#          approval record's. topic_idx becomes positional within the subject, which is what
+#          §S6-2 always specified; the old label-derived form could not survive a merged doc,
+#          where "Topic N:" restarts at 1 for every subject.
 #   v1.13 — 2026-07-25 — S1-0 TAXONOMY LOCK VERIFICATION added (GAP-2026-07-25-001,
 #          Layer 4). approval_record.json was produced at Step 2c and read by NOTHING —
 #          the string did not appear in this spec or in any other downstream spec. A lock
@@ -380,6 +415,57 @@ with zero detection points precisely because no such point existed.
     "Taxonomy lock verified: [status], checks C1-C7 executed, engine [engine_version]."
 ```
 
+### S1-0b — TAXONOMY CONTENT CROSS-CHECK (v1.14 — MANDATORY, runs with S1-0)
+
+```
+S1-0 proves the lock was EARNED. It does not prove that the taxonomy PYQSort is
+about to sort against is the taxonomy that was LOCKED. Those are different claims,
+and GAP-2026-07-25-002 Defect B satisfied the first while violating the second:
+the record read CLEAN, every attestation passed, and the reader had flattened six
+subjects into one.
+
+  fp_locked = approval_record['taxonomy_fingerprint']    (reconcile_taxonomy >= v1.2)
+  fp_loaded = corpus_io.read_analysis_doc()['fingerprint']
+
+  HARD STOP — "no fingerprint":
+    If the record carries no 'taxonomy_fingerprint' key:
+      "Taxonomy lock cannot be matched to the Analysis doc — the approval record
+       predates the fingerprint contract (reconcile_taxonomy.py v1.2).
+       NEXT ACTION: re-run PYQApprove. This is RECONCILIATION, not re-derivation:
+       it reads taxonomy_draft.json and rewrites only approval_record.json, and
+       CANNOT change a locked taxonomy. Do NOT re-run PYQDraft."
+      DO NOT sort.
+
+  HARD STOP — "mismatch":
+    If fp_locked != fp_loaded:
+      "The Analysis doc in project Files is NOT the taxonomy that was locked.
+         locked : [fp_locked]
+         loaded : [fp_loaded]
+         subjects  locked [K] / loaded [K']
+         subtopics locked [N] / loaded [N']
+       Either the Analysis doc was edited after PYQApprove, or a different exam's
+       doc is in this project.
+       NEXT ACTION: restore the Analysis doc PYQApprove delivered, or re-run
+       PYQApprove if the taxonomy genuinely changed — and re-sort every paper
+       already sorted under the old taxonomy."
+      DO NOT sort.
+
+  The fingerprint is computed over slugify()-normalised triples
+  (blueprint_core.taxonomy_fingerprint), so it is invariant to exactly the cosmetic
+  variance the subtopic_id contract already tolerates and sensitive to everything
+  else. Byte-identity of display names is a separate guarantee, enforced at Step 4
+  by PYQAnalyse Task 2.5.
+
+  WHY THIS IS NOT REDUNDANT WITH THE READER'S OWN SELF-CHECK. Cluster K asserts the
+  doc agrees with ITSELF; S1-0b asserts the doc is the one that was APPROVED. A doc
+  that is internally perfect but belongs to a different run passes the first and
+  fails the second.
+
+  Print one line on success:
+    "Taxonomy content verified: [K] subjects / [N] subtopics, fingerprint matches
+     the lock."
+```
+
 ### S1-1 — Trigger parsing
 
 ```
@@ -412,6 +498,7 @@ from docx import Document
 # Framework_MockTestAnalyse v2.26, where a failed `import blueprint_core` aborted
 # Step 5 for EVERY exam. corpus_io is the one home for impure corpus plumbing.
 import corpus_io                 # v1.12 — S7-5 census, S7-6 governor, S7-7 survival gate
+                                 # v1.14 — Cluster K: THE Analysis-doc reader (S1-2)
 
 def load_exam_config():
     """
@@ -434,104 +521,54 @@ def load_exam_config():
     return exam_code, config
 
 def load_taxonomy_from_analysis_docs():
+    """Load the COMPLETE taxonomy from the approved Analysis doc.
+
+    v1.14 (GAP-2026-07-25-002) — DELEGATED. This function used to carry its own
+    reader, and that reader was wrong in two independent ways:
+
+      DEFECT A (loud)   its glob required a trailing '_' after "Analysis", so it
+                        matched the per-subject filenames PYQAnalyse retired at
+                        v2.6 and NO filename it has produced since. Zero files
+                        found; hard stop; the message told the operator to upload
+                        a file that was already correctly present.
+      DEFECT B (silent) it delimited SUBJECTS BY FILE BOUNDARY — a
+                        `if not section_name` latch pinned the first "Subject:"
+                        heading and discarded every later one. On the first real
+                        exam it returned 1 subject where the doc declares 6, filed
+                        all 131 subtopics under "General Biology", and produced
+                        five topic_idx collision groups. Counts were right, so
+                        nothing looked wrong.
+
+    Defect A was the only thing preventing Defect B from reaching production. It
+    was protecting by accident, which is why the obvious one-character glob fix
+    would have been strictly worse than shipping nothing.
+
+    The reader now lives in corpus_io Cluster K — ONE reader, ONE writer, ONE
+    verifier for this artefact, with heading recognition delegated a level further
+    to blueprint_core.parse_taxonomy_level() so every label form the engine knows
+    works here automatically. corpus_io.read_analysis_doc() also HARD STOPS when
+    the taxonomy it parses disagrees with the totals the document declares about
+    itself, which is what makes this class of mis-parse loud rather than silent.
+
+    Return shape is UNCHANGED, so every downstream consumer in this spec is
+    untouched:
+      { section_name: { 'subject_order': int,
+                        'topics': { topic_name: {
+                            'topic_idx': int,
+                            'subtopics': { subtopic_name: {'subtopic_idx': int} } } } } }
+    plus the ordered list of (subject, topic, subtopic) triples.
+
+    NOTE ON topic_idx — it is now POSITIONAL WITHIN THE SUBJECT, which is what
+    §S6-2 has always specified ("position of topic within its section's Analysis
+    doc"). The old code derived it from the printed "Topic N:" label, which
+    restarts at 1 for every subject in a merged doc.
     """
-    Load the COMPLETE taxonomy from ALL Analysis docs in project knowledge.
-    Returns: {
-      section_name: {
-        'subject_order': int,
-        'topics': {
-          topic_name: {
-            'topic_idx': int,
-            'subtopics': {
-              subtopic_name: {'subtopic_idx': int}
-            }
-          }
-        }
-      }
-    }
-    Also returns: ordered list of (subject, topic, subtopic) triples.
-    """
-    taxonomy = {}
-    triples = []
-
-    # Find all Analysis docs in project
-    analysis_files = sorted(glob.glob('/mnt/project/*_PYQ_Analysis_*.docx'))
-    if not analysis_files:
-        raise SystemExit(
-            "HARD STOP: No PYQ Analysis docs found in project knowledge.\n"
-            "Upload the approved Analysis docs from PYQApprove.")
-
-    for doc_path in analysis_files:
-        doc = Document(doc_path)
-        section_name = None
-        topics = {}
-        cur_topic = None
-        topic_idx = -1
-
-        # PASS 1: Parse paragraphs for section name and topic headers
-        for para in doc.paragraphs:
-            text = para.text.strip()
-            if not text:
-                continue
-
-            # Detect section name from header
-            if not section_name and 'Subject:' in text:
-                section_name = text.split('Subject:')[1].strip()
-                continue
-
-            # Detect topic headers: "Topic N: <Name>"
-            topic_match = re.match(r'Topic\s+(\d+):\s*(.+)', text)
-            if topic_match:
-                topic_idx = int(topic_match.group(1)) - 1
-                cur_topic = topic_match.group(2).strip()
-                topics[cur_topic] = {'topic_idx': topic_idx, 'subtopics': {}}
-                continue
-
-        # PASS 2: Parse tables for subtopic extraction
-        # Tables follow their parent topic in document order.
-        # Track which topic each table belongs to by re-scanning
-        # the document structure (paragraphs + tables interleaved).
-        cur_topic_for_tables = None
-        for child in doc.element.body:
-            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-            if tag == 'p':
-                # Check if this paragraph is a topic header
-                ns = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
-                p_text = ''.join(
-                    t.text for t in child.iter(f'{{{ns}}}t') if t.text
-                ).strip()
-                topic_match = re.match(r'Topic\s+(\d+):\s*(.+)', p_text)
-                if topic_match:
-                    cur_topic_for_tables = topic_match.group(2).strip()
-            elif tag == 'tbl' and cur_topic_for_tables and cur_topic_for_tables in topics:
-                # This table belongs to cur_topic_for_tables
-                subtopic_idx = len(topics[cur_topic_for_tables]['subtopics'])
-                from docx.table import Table as DocxTable
-                tbl_obj = DocxTable(child, doc)
-                for row in tbl_obj.rows:
-                    cells = [c.text.strip() for c in row.cells]
-                    if len(cells) >= 2:
-                        name = cells[0]
-                        # Skip header rows and total rows
-                        if name in ('Subtopic', 'Topic', 'GRAND TOTAL', 'TOTAL', ''):
-                            continue
-                        if name.startswith('Topic '):
-                            continue
-                        # This is a subtopic row
-                        if name not in topics[cur_topic_for_tables]['subtopics']:
-                            topics[cur_topic_for_tables]['subtopics'][name] = {
-                                'subtopic_idx': subtopic_idx
-                            }
-                            triples.append((section_name, cur_topic_for_tables, name))
-                            subtopic_idx += 1
-
-        if section_name:
-            taxonomy[section_name] = {
-                'subject_order': len(taxonomy),  # order by file discovery
-                'topics': topics
-            }
-
-    return taxonomy, triples
+    try:
+        doc = corpus_io.read_analysis_doc()
+    except corpus_io.AnalysisDocError as ex:
+        raise SystemExit(str(ex))
+    ANALYSIS_DOC = doc                      # kept for S1-0b and S1-3
+    return doc['taxonomy'], doc['triples']
 ```
 
 ### S1-3 — File inventory
@@ -2371,4 +2408,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.13
+# END OF Framework_PYQSort v1.14

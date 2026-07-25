@@ -16,7 +16,9 @@ repo root before running the gate.
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
    This includes the CORPUS-level checks (AA routes/skill sync, AB thin-core purity,
    AC aggregator single-exit, AD emitted-class documented, AE normalization conformance).
-   They are part of the gate, not commentary appended after it.
+   They are part of the gate, not commentary appended after it. The BATCH-level
+   checks (T, U, AF deliverable-filename contract, AG shared-artefact readers) are part
+   of it too.
 
 (`MANIFEST.json`/`bootstrap.py` track the 25 files a session clones. `SPEC_MANIFEST.json`/
 `spec_manifest.py check` is the separate, wider workbench baseline — currently 33 files,
@@ -103,6 +105,31 @@ Stamp a clean version + changelog over everything shipped since the last seal.
 `seal_release` is the ONLY thing that bumps `VERSION` (satisfies "bump only when asked").
 
 ## Standing guardrails
+- **A deliverable RENAME or CARDINALITY change is a cross-step contract change, never a
+  docs-only edit.** Changing any `[ExamCode]_<n>.<ext>` — its name, or how many of them
+  there are — requires, in the SAME commit:
+  (a) every consumer's discovery pattern re-tested against the new literal name;
+  (b) every consumer's PARSER re-tested against the new file SHAPE — a cardinality change
+      (N files → 1) breaks parsers that never mention the filename at all;
+  (c) Check AF and Check AG green.
+  A changelog assertion that downstream consumers are unaffected is not evidence.
+  (GAP-2026-07-25-002: PYQAnalyse v2.6 changed both axes and its changelog asserted
+  "Cross-step contract unchanged". PYQSort's glob then matched zero files for 19 days,
+  and behind that loud failure sat a silent one — its parser delimited subjects by file
+  boundary, the exact thing v2.6 removed. Fixing the glob alone would have converted a
+  hard stop into silent corpus-wide corruption.)
+- **A shared artefact has ONE reader.** If two steps parse the same file, the parser
+  belongs in an engine and both steps call it. Four readers of the Analysis doc existed
+  simultaneously; three were wrong, and the corpus reported 0 issues throughout.
+  Enforced by Check AG and by Check Z, which now owns the ENGINE'S WHOLE public surface
+  (it used to start at the `CLUSTER H` marker and so guarded 10 of 40 names — the 30 it
+  missed included every taxonomy-parsing function in the framework).
+- **A bound that only the consumer enforces is not enforced.** If a value must satisfy a
+  constraint to survive downstream, gate it at the PRODUCER. `MAX_HEADING_LEN` lived as a
+  bare `100` inside `is_taxonomy_heading()` and nothing upstream checked it, so an
+  over-length subtopic name was written, locked, sorted, and then silently stopped being
+  a heading — its questions attributed to the preceding subtopic, with zero orphans and
+  conservation still passing.
 - Never edit or push `production` directly — only the `main:production` fast-forward.
 - Never force-push `production` without explicit authorization.
 - `.verified` is gitignored and must never be committed.

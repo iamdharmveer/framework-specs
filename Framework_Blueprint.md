@@ -1,5 +1,24 @@
-# Framework_Blueprint v1.38 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.39 — Universal Mock Test Blueprint Generator
 #
+# MINIMUM COMPANION VERSIONS (v1.39):
+#   corpus_io.py          >= v1.1   — S2-2 reads the Analysis doc through Cluster K
+#   blueprint_core.py     — allocation core (Clusters A-C)
+#   paper_pipeline.py     — naming / numbering / registry plumbing
+#
+# v1.39 — 2026-07-25 — S2-2 ANALYSIS-DOC READING DELEGATED (GAP-2026-07-25-002).
+#   S2-2 described four "accepted arrangements" and told Claude to extract the
+#   Topic|Sub-Topic|Q-count structure itself. That made Step 6 the FOURTH independent
+#   reader of a machine-readable artefact three other steps also parsed — each by a
+#   different convention, and three of the four measurably wrong on the first real
+#   exam's doc. Prose over a structured file is non-deterministic across runs, and the
+#   entire blueprint rests on the taxonomy it produces. S2-2 now calls
+#   corpus_io.read_analysis_doc() (Cluster K — THE reader), which additionally HARD
+#   STOPS when its parse disagrees with the totals the document declares about itself.
+#   Options A and C (per-subject / mixed .docx sets) described a deliverable retired at
+#   PYQAnalyse v2.6 that no project has ever held, and are removed rather than carried
+#   as dead tolerance. Option D (a table pasted into chat) is removed because it lets
+#   allocation run against a taxonomy nothing locked or fingerprinted; a missing
+#   Analysis doc is §10 S10-5. No allocation arithmetic changes.
 # v1.38 — 2026-07-23 — §14 SCHEMA SYNC: PRESENTATION PASSTHROUGHS (cross-step audit finding).
 #   Framework_MockTestCreate §2 R24 resolves font_name / font_size_pt / di_header_color
 #   through exam_config -> section_rules -> blueprint.json -> default. The blueprint tier
@@ -1396,15 +1415,36 @@ def subtopic_in_section(sid, section_name):
 ### S2-2 — Reading Analysis Word Document(s)
 
 ```
-Accepted arrangements:
-  Option A: one .docx per subject section (e.g., GI.docx, GA.docx, QA.docx, English.docx)
-  Option B: all subjects combined in one .docx
-  Option C: mix — some subjects separate, some combined
-  Option D: plain text table pasted directly in chat
-             (any readable format — Claude extracts Topic|Sub-Topic|Q-count structure.
-              If format is unclear: Claude asks user to clarify before extraction.)
+v1.39 (GAP-2026-07-25-002) — THE ANALYSIS DOC IS READ BY corpus_io, NOT BY PROSE.
 
-From each Analysis doc, extract per section:
+  import corpus_io                                 # ENGINE (routed to MockBlueprint)
+  taxonomy = corpus_io.read_analysis_doc()          # Cluster K — THE reader
+  # -> {'taxonomy','triples','subjects','counts','fingerprint', ...}
+
+  This section used to describe four "accepted arrangements" and instruct Claude to
+  extract the structure itself. That is spec-as-prose for a machine-readable
+  artefact, and it made Step 6 the fourth independent reader of a document that
+  three other steps also parsed — each by a different convention, three of them
+  measurably wrong. Interpretive prose over a structured file produces a different
+  answer on different runs; the whole blueprint rests on this taxonomy.
+
+  Options A and C (one .docx per subject / a mix) described a deliverable PYQAnalyse
+  retired at v2.6 and that no project has ever held. They are NOT accepted: exactly
+  one merged [ExamCode]_PYQ_Analysis.docx is expected, and anything else is named as
+  nonconforming by the reader rather than silently interpreted.
+
+  Option D (a table pasted into chat) is likewise NOT an input to this step. The
+  Analysis doc is the taxonomy authority (§7 NAME CONSISTENCY); accepting a pasted
+  substitute means allocating against a taxonomy nothing has locked or fingerprinted.
+  If the doc is missing, that is §10 S10-5 — not a prompt to paste a table.
+
+  The reader HARD STOPS when its parse disagrees with the totals the document
+  declares about itself, so Step 6 can no longer begin from a mis-read taxonomy.
+
+  ERA NOTE (unchanged, v1.37): Step 4 PYQCount has no era scope, so Analysis-doc
+  counts are always all-era. That comparison rule is untouched by this change.
+
+From the Analysis doc, per section:
   topics[]   : list of topic names
   subtopics[]: list of subtopic names under each topic
   q_count[]  : combined PYQ Q count per subtopic (all years together)
@@ -7309,4 +7349,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.38
+# END OF Framework_Blueprint v1.39

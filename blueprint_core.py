@@ -1345,6 +1345,24 @@ def filter_progress_to_eras(progress, eras, keep=("current",)):
 # (verified: exactly ONE distinct definition of this table exists in the corpus).
 Q_PATTERNS = [r'^Q\.\s*(\d+)\s+', r'^Q(\d+)\.\s+']
 
+# GAP-2026-07-25-002 (Defect D). is_taxonomy_heading() rejects long text so that a
+# wrapped question stem is never mistaken for a heading. That bound used to be the
+# bare literal 100, written here and enforced NOWHERE ELSE in the corpus — no
+# producer checked it. Measured consequence: a 131-character subtopic name is
+# written into the Analysis doc by PYQApprove, written as a bold heading into the
+# sorted file by PYQSort, and then silently stops being a heading at Step 4 and
+# Step 5 — its questions are attributed to the PRECEDING subtopic, with zero
+# orphans, zero warnings, and INV-5 conservation still passing because nothing is
+# lost, only mis-filed.
+#
+# It is now a named, exported constant so the PRODUCER can gate on the same number
+# the consumer enforces (corpus_io.verify_analysis_doc / write_analysis_doc, and
+# PYQAnalyse S4-0 before the taxonomy is locked). Raised 100 -> 300: the first real
+# exam's longest subtopic name is 65 characters and its longest generated
+# subtopic_id is already 116, so 100 sat uncomfortably close to ordinary data,
+# while 300 still cannot be reached by anything but a stem pasted into a heading.
+MAX_HEADING_LEN = 300
+
 
 def detect_question_start(text):
     """Return the source Q-number if this line starts a question, else None."""
@@ -1406,7 +1424,32 @@ def is_taxonomy_heading(para, is_option_fn):
     if re.match(r'\[\d{1,2}-', text):
         return False
     has_bold = any(r.bold for r in para.runs if r.text.strip())
-    return has_bold and len(text) < 100
+    return has_bold and len(text) < MAX_HEADING_LEN
+
+
+def taxonomy_fingerprint(triples):
+    """Stable fingerprint of a taxonomy. THE canonical implementation.
+
+    GAP-2026-07-25-002. PYQApprove LOCKS a taxonomy and PYQSort sorts against one;
+    until now nothing checked that they were the SAME taxonomy. S1-0 verified the
+    approval record's attestation (status, schema, checks) — never its content — so
+    a reader that flattened six subjects into one passed the lock gate cleanly.
+
+    Computed over slugify()-normalised triples, not raw display strings, so the
+    fingerprint is over IDENTITIES: it is invariant to exactly the cosmetic
+    variance the subtopic_id contract already tolerates (em-dash vs hyphen, case,
+    spacing), and changes for anything else. Byte-identity of display names is a
+    separate concern, enforced by PYQAnalyse Phase B Task 2.5.
+
+    Ordering is sorted, not insertion order, so a fingerprint match does not depend
+    on two steps having walked the taxonomy in the same direction.
+    """
+    import hashlib
+    norm = sorted('%s\x1f%s\x1f%s' % (slugify(a), slugify(b), slugify(c))
+                  for a, b, c in triples)
+    h = hashlib.sha256('\x1e'.join(norm).encode('utf-8')).hexdigest()
+    subjects = {slugify(a) for a, _, _ in triples}
+    return 'v1:%d:%d:%s' % (len(subjects), len(norm), h)
 
 
 def extract_year_from_filename(path):

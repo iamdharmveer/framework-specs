@@ -1,5 +1,36 @@
-# Framework_PYQAnalyse v2.23 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.24 — Universal PYQ Analysis & Taxonomy Builder
 #
+# MINIMUM COMPANION VERSIONS (v2.24):
+#   corpus_io.py          >= v1.1   — Cluster K write_analysis_doc() IS S4-2. Under
+#                                     v1.0.x PYQApprove cannot produce the Analysis doc.
+#   reconcile_taxonomy.py >= v1.2   — S4-0 passes final_taxonomy=; older builds accept
+#                                     no such argument and raise TypeError.
+#   blueprint_core.py     — MAX_HEADING_LEN for the S4-0 name gate
+#
+# v2.24 — 2026-07-25 — S4-2 DE-STUBBED + TAXONOMY ATTESTED + NAME-LENGTH GATE
+#         (GAP-2026-07-25-002). Three changes, one theme: this step produces the artefact
+#         the rest of the pipeline is built on, and it neither defined it nor attested it.
+#         (1) S4-2 generate_merged_analysis_doc() was `pass`, deferring to "the npm docx
+#             package per SKILL.md". The Analysis doc therefore had NO definition anywhere,
+#             so its four consumers each guessed at a different structure and three guessed
+#             wrong. It now delegates to corpus_io.write_analysis_doc() — THE writer, paired
+#             with THE reader, asserted against each other by round-trip over a GENERATED
+#             matrix of exam shapes (corpus_io --self-test). The framework serves ~200 exams
+#             and cannot be validated against 200 real corpora; that matrix is the claim.
+#         (2) S4-0 now passes final_taxonomy to build_approval_record(), which records a
+#             taxonomy_fingerprint (reconcile_taxonomy v1.2, schema 1.2). Until now the
+#             record proved the reconciliation RAN and said nothing about WHAT it locked, so
+#             PYQSort could verify the lock was earned and still sort against a different
+#             taxonomy — which is precisely what happened. Verified at PYQSort S1-0b.
+#         (3) S4-0 HARD STOPS before locking when any subject/topic/subtopic name reaches
+#             blueprint_core.MAX_HEADING_LEN. That bound governs whether text is recognised
+#             as a heading in the sorted files and was enforced NOWHERE upstream: proven by
+#             execution, a 131-character subtopic name written here survived PYQSort and then
+#             silently stopped being a heading at Steps 4 and 5, with its questions
+#             attributed to the PRECEDING subtopic — zero orphans, INV-5 conservation still
+#             passing, because nothing was lost, only mis-filed. Raised 100 -> 300 and now a
+#             named constant the producer and the consumer share.
+#         Also corrects the v2.6 entry's false downstream-compatibility claim in place.
 # v2.23 — 2026-07-25 — S4-0 CHECK-COMPLETENESS ARCHITECTURE (GAP-2026-07-25-001).
 #         reconcile() returned from INSIDE C4's style-aware branch, so C5 (near-duplicate),
 #         C6 (over-aggregation) and C7 (anchoring) never ran for ANY exam carrying a
@@ -585,10 +616,36 @@
 #             "Single merged Analysis .docx with all subjects".
 #           CHANGE 8 — S1-2 --counts mode, EC-P1, EC-P29: plural → singular.
 #
-#           All downstream consumers (PYQSort, Step 5, Step 6) require NO spec
-#           changes — they already parse by content pattern, not file boundary.
-#           The downstream specs use glob patterns or direct file load; both work
-#           with a single file. Cross-step contract unchanged.
+#           DOWNSTREAM CONSUMERS — CORRECTED 2026-07-25 (GAP-2026-07-25-002).
+#           The original v2.6 entry claimed: "All downstream consumers (PYQSort,
+#           Step 5, Step 6) require NO spec changes — they already parse by content
+#           pattern, not file boundary. The downstream specs use glob patterns or
+#           direct file load; both work with a single file. Cross-step contract
+#           unchanged." Every clause of that was wrong, and it stood for 19 days
+#           and 7 PYQSort releases.
+#             "parse by content pattern, not file boundary" conflated two things.
+#           PYQSort parsed taxonomy LEVELS by content pattern — true, and presumably
+#           what was checked — but it DISCOVERED the file by filename glob and
+#           DELIMITED SUBJECTS BY FILE BOUNDARY, which is exactly what this change
+#           removed. The analysis inspected the parser's inner loop, never its outer.
+#             "both work with a single file" reasoned only about CARDINALITY. v2.6
+#           changed two independent axes: cardinality (N -> 1) AND the filename. A
+#           glob does work with a single file; it does not work with a RENAMED file.
+#             "Cross-step contract unchanged" — a deliverable's filename IS the
+#           cross-step contract. It changed.
+#           ACTUAL IMPACT, measured 2026-07-25 against the first exam's live doc:
+#             PYQSort  BROKEN ON BOTH AXES. Its glob matched zero files (loud), and
+#                      its parser flattened 6 subjects into 1 (silent). Fixed v1.14.
+#             Step 5   BROKEN, but not by this change — both of its Analysis-doc
+#                      readers returned ZERO subtopics from any real doc and always
+#                      had. Fixed in MockTestAnalyse v2.30.
+#             Step 6   read the doc as prose: format-tolerant but non-deterministic.
+#                      Fixed in Blueprint v1.39.
+#           RULE: a deliverable RENAME, or a CARDINALITY change, is a cross-step
+#           contract change. Every consumer's discovery pattern must be re-tested
+#           against the new literal name AND every consumer's parser re-tested
+#           against the new file SHAPE. A changelog assertion of downstream
+#           compatibility is not evidence. Enforced by Check AF.
 #
 #   v2.5 — 2026-07-06 — STANDARDIZED EXAM PATTERN XLSX + EXAM_CONFIG SCHEMA OVERHAUL.
 #           ROOT CAUSE: Exam pattern was read via AI interpretation of image/PDF/docx —
@@ -4302,11 +4359,39 @@ EXECUTION
 
     conservation      = conservation_check(classifications, final_taxonomy,
                                            quarantined_paths)
+    # v2.24 (GAP-2026-07-25-002): S4-0 must ATTEST THE TAXONOMY IT LOCKS.
+    # NAME-LENGTH GATE FIRST. bc.is_taxonomy_heading() stops recognising text at or
+    # above MAX_HEADING_LEN as a heading, so a name longer than that survives this
+    # step, survives PYQSort, and then silently stops being a heading at Step 4 and
+    # Step 5 — its questions are attributed to the PRECEDING subtopic, with zero
+    # orphans and INV-5 conservation still passing because nothing is lost, only
+    # mis-filed. The bound is enforced HERE, before the lock, because a name that
+    # cannot survive the round trip must never be locked into a taxonomy.
+    import blueprint_core as bc
+    over_length = [(kind, nm)
+                   for sec, tops in final_taxonomy.items()
+                   for kind, nm in ([('subject', sec)] +
+                                    [('topic', t) for t in tops] +
+                                    [('subtopic', x) for t in tops for x in tops[t]])
+                   if len(nm) >= bc.MAX_HEADING_LEN]
+    if over_length:
+        raise SystemExit(
+            "HARD STOP: %d taxonomy name(s) are at or above the %d-character heading "
+            "limit and cannot be locked.\n  %s\n"
+            "A name this long stops being recognised as a heading in the sorted PYQ "
+            "files, and every question under it is silently attributed to the "
+            "preceding subtopic. Shorten these names in the syllabus mapping (S2-3) "
+            "and re-run PYQDraft, then PYQScan, then PYQApprove."
+            % (len(over_length), bc.MAX_HEADING_LEN,
+               '\n  '.join('%s (%d chars): %r' % (k, len(n), n)
+                           for k, n in over_length[:5])))
+
     record            = build_approval_record(exam_code, findings, resolved,
                                               adjudications, conservation,
                                               mode=mode, ledger=ledger,
                                               blocked=blocked,
-                                              prior_record=prior_record)
+                                              prior_record=prior_record,
+                                              final_taxonomy=final_taxonomy)
 
 ROUTING: routes.json MUST route reconcile_taxonomy.py to PYQApprove. NOT OPTIONAL.
          S4-0 cannot execute without it, and an unrouted mandatory engine is the
@@ -4582,6 +4667,25 @@ This generates a SINGLE merged .docx Analysis doc containing ALL subjects:
 
   [ExamCode]_PYQ_Analysis.docx
 
+INVOCATION (v2.24 — MANDATORY, not illustrative):
+
+  path = generate_merged_analysis_doc(taxonomy, exam_code, section_order)
+
+  Phase B (--counts) passes the filled counts and REGENERATES rather than editing:
+
+  path = generate_merged_analysis_doc(taxonomy, exam_code, section_order,
+                                      counts={(subject, topic, subtopic): n, ...})
+
+  S4-2 delegates to corpus_io.write_analysis_doc(). Do NOT hand-build this document
+  with docx-js or python-docx: it is the artefact four steps parse, it has exactly
+  ONE writer, and that writer is paired with the reader by a round-trip assertion in
+  corpus_io --self-test. A hand-built doc is unverified by construction.
+
+  Before v2.24 this function was `pass` and nothing in this spec called it, so the
+  doc's structure existed only as prose in S4-1 and every consumer guessed. A
+  function that is defined and never invoked is the same defect class as a
+  deliverable that is produced and never read.
+
 The doc contains one section per subject (taxonomy top-level), separated by
 PAGE BREAKS. Internal format per subject matches the IFAS reference:
 
@@ -4637,23 +4741,36 @@ SUBJECT ORDERING (v2.23 — corrected):
 # See §6 HEADING FORMAT CONTRACT for heading text patterns.
 # All subtopic names MUST be .strip()-ed before writing (§7 NAME CONTRACT).
 
-def generate_merged_analysis_doc(taxonomy, exam_code, section_order):
-    """
-    Generate a SINGLE merged Analysis .docx containing ALL subjects.
-    taxonomy: { section_name: { topic_name: [subtopic_1, ...] } }
-    section_order: ordered list of section names (from exam_config.sections[])
-    PYQ counts are '—' (to be filled by Phase B --counts).
+def generate_merged_analysis_doc(taxonomy, exam_code, section_order, counts=None):
+    """Generate the SINGLE merged Analysis .docx containing ALL subjects.
 
-    Each subject section is separated by a PAGE BREAK (except the first).
-    Internal structure per subject: header block, master summary table,
-    per-topic subtopic tables, footer — identical to the previous per-file format.
+    v2.24 (GAP-2026-07-25-002) — DELEGATED. This function was `pass`, with a comment
+    deferring to "the npm docx package per SKILL.md". A stub is not a contract: the
+    artefact that four downstream steps parse had no definition anywhere, so each
+    consumer guessed at a different structure and three of the four guessed wrong.
+
+    corpus_io.write_analysis_doc() is now THE writer, and corpus_io.read_analysis_doc()
+    is THE reader. They are asserted against each other by round-trip,
+    read(write(taxonomy)) == taxonomy, over a generated matrix of exam shapes in
+    corpus_io --self-test: 1/6/30 subjects, every level-1 and level-2 label form,
+    duplicate topic names across subjects, duplicate subtopic names across topics,
+    punctuation and non-ASCII in names, boundary-length names, single-subtopic
+    topics. The framework serves ~200 exams and cannot be validated against 200 real
+    corpora; that matrix is the exam-agnostic correctness claim.
+
+    taxonomy      : {subject: {topic: [subtopic, ...]}}  — order preserved
+    section_order : ordered subject list (S4-1 SUBJECT ORDERING, v2.23)
+    counts        : Phase B only — {(subject, topic, subtopic): int}. Absent means
+                    every PYQ Count cell is an em-dash, per S4-1.
+
+    Emits the header block, the master summary table, the per-topic subtopic tables
+    and the footer, with a page break before each subject after the first — and, in
+    each of those three places, the count declarations the reader asserts its parse
+    against. Those redundant declarations are what make a mis-parse LOUD.
     """
-    # Implementation uses npm docx package per SKILL.md
-    # Iterate section_order → for each section:
-    #   if not first section: insert page break
-    #   write header block, master summary table, per-topic tables, footer
-    # Output: single [ExamCode]_PYQ_Analysis.docx
-    pass
+    import corpus_io
+    return corpus_io.write_analysis_doc(taxonomy, exam_code,
+                                        subject_order=section_order, counts=counts)
 ```
 
 ### S4-3 — Exam config delivery
@@ -6608,4 +6725,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.23
+# END OF Framework_PYQAnalyse v2.24
