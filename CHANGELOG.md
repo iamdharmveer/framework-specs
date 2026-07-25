@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.07.25.2
+- GAP-2026-07-25-002 (Analysis-doc reader delegation): MockTestAnalyse v2.29.1 -> v2.30
+  delegates both Analysis-doc readers (score_difficulty / determine_strip_mode) to
+  blueprint_core Cluster E — the byte-identical second copy is replaced by a thin adapter,
+  so one definition is called from both places. Blueprint v1.38 -> v1.39 (S2-2 reader
+  delegated), PYQAnalyse v2.23 -> v2.24 (S4-2 de-stubbed, taxonomy attested, name-length
+  gate), PYQSort v1.13 -> v1.14 (reader delegated + S1-0b content cross-check).
+- Engines: blueprint_core (164/164), corpus_io (138/138), reconcile_taxonomy (59/59),
+  validate_framework_md.py — +batch checks AF (deliverable-filename contract) and AG
+  (shared-artefact readers); Check Z widened to the engine's whole public surface.
+- routes.json: engine routing broadened across the PYQ steps. CLAUDE.md: guardrails added —
+  deliverable rename/cardinality is a cross-step contract change; a shared artefact has ONE
+  reader; producer-enforced bounds. MANIFEST.json + SPEC_MANIFEST.json regenerated.
+
 ## 2026.07.25.1
 - GAP-2026-07-25-001 (S4-0 silent check-skip): reconcile_taxonomy.py v1.0 -> v1.1 — the
   early `return` inside C4's style-aware branch that disabled C5/C6/C7 for every
