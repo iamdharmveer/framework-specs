@@ -12,10 +12,26 @@ repo root before running the gate.
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **17/17** — 12 `Framework_*.md` + 5 engines. The count grows when a new spec/engine is added.)
+   **25/25** — 17 `Framework_*.md` + 8 engines. The count grows when a new spec/engine is added.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
+   This includes the CORPUS-level checks (AA routes/skill sync, AB thin-core purity,
+   AC aggregator single-exit, AD emitted-class documented, AE normalization conformance).
+   They are part of the gate, not commentary appended after it.
+
+(`MANIFEST.json`/`bootstrap.py` track the 25 files a session clones. `SPEC_MANIFEST.json`/
+`spec_manifest.py check` is the separate, wider workbench baseline — currently 33 files,
+including the audit and tooling scripts. Both must be clean.)
 
 If any step fails: **STOP, show the error in plain words, push nothing.**
+
+**A red check is never advisory.** `validate_framework_md.py` must print `0 issues` before any
+push. If a check is judged wrong, FIX OR REMOVE THE CHECK in its own commit with a stated
+reason — never ship past it, and never treat a corpus-level check as lower priority than a
+per-file one. (GAP-2026-07-25-001: Check AA had been reporting `reconcile_taxonomy.py` as
+unrouted, and release `2026.07.25` shipped anyway. The P0 that release carried — a `return`
+that silently disabled three taxonomy checks for every current-generation exam — was found by
+a live run, not by the gate that was already red about the same file. A check that can be
+shipped past is decoration.)
 Remove the `.verified` runtime token after bootstrap (it is gitignored anyway).
 
 ## Command: `approved_framework <name1> [name2 ...]`
@@ -38,20 +54,40 @@ Steps:
 
 `approved_framework` with **no names** → deploy nothing; ask which files.
 
-### Non-spec files (routes.json, engines)
-`routes.json`, `explain_engine.py`, `explain_audit_gate.py`, `blueprint_core.py` are NOT
-`Framework_*.md`, so `approved_framework` STOPs on them. Deploy them only on an **explicit**
-instruction ("deploy routes.json"). For the engine `.py` files, also run their own self-tests
-before pushing (integrity checks can't catch a logic regression):
+### Non-spec files (routes.json, engines, validator)
+`routes.json`, `validate_framework_md.py` and every engine `.py` are NOT `Framework_*.md`, so
+`approved_framework` STOPs on them. Deploy them only on an **explicit** instruction
+("deploy reconcile_taxonomy.py, routes.json"). For the engine `.py` files, also run their own
+self-tests before pushing (integrity checks can't catch a logic regression — checksums prove
+the bytes are the intended bytes, never that the code is reachable):
 - `python3 explain_engine.py --self-test` and `--self-test-audit`
 - `python3 explain_audit_gate.py --self-test`
 - `python3 blueprint_core.py --self-test`  (shared allocation core for MockBlueprint + ScopedBlueprint)
 - `python3 paper_pipeline.py`  (shared naming/numbering/registry plumbing for Steps 6-11 + Test* triggers)
+- `python3 reconcile_taxonomy.py --self-test`  (S4-0 — its output LOCKS a taxonomy)
+- `python3 corpus_io.py --self-test`  (corpus I/O shell)
 
-Engines are ALSO uploaded per-project to `/mnt/project/` (the specs load them from there and
-HARD STOP if absent). Adding/updating an engine in the repo therefore requires provisioning the
-new copy into each exam project too — the repo copy is canonical/integrity-checked, not the one
-the steps import at runtime.
+An engine whose output locks or gates an artifact MUST have a self-test, and that self-test
+MUST contain a fixture that fails on the defect it was written for. A regression test that
+passes on the broken code tests nothing.
+
+#### Where engines actually load from — the repo, not the project
+`mocktestframework_SKILL.md` Step 0 clones the repo to `$FW` and does `cd "$FW"` before
+anything runs, so the clone is the working directory and a bare `import reconcile_taxonomy`
+resolves there. **No spec and no engine ever places `/mnt/project` on `sys.path`** (verified by
+grep across the whole corpus), and `mocktestframework_SKILL.md` states the rule directly: the
+specs and engine scripts live ONLY in the central repo.
+
+`/mnt/project` holds the exam's DATA — `blueprint.json`, `registry.json`, `taxonomy_draft.json`,
+`approval_record.json`, per-exam config and output documents. It is not an import source.
+
+Therefore: **a fix pushed to `production` reaches all ~200 exam projects on their next clone.**
+No per-project engine provisioning is required, and none should be performed — a `.py` copy
+sitting in an exam's Files section is never imported, so editing one produces no effect while
+looking like a fix. (Pre-2026-07-25 this file claimed the opposite: that specs load engines from
+`/mnt/project` and hard-stop if absent, and that the repo copy is "not the one the steps import
+at runtime". That was false in both directions and, acted upon, would have turned every engine
+fix into a 200-project manual migration with no way to tell whether it had taken.)
 
 ## Command: `seal_release`
 Stamp a clean version + changelog over everything shipped since the last seal.
