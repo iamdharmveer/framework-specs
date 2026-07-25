@@ -1,4 +1,254 @@
-# Framework_PYQAnalyse v2.16 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.22.1 — Universal PYQ Analysis & Taxonomy Builder
+#
+# v2.22.1 — 2026-07-25 — PRE-SCAN GATE Q_PATTERNS CORRECTED. The inline copy in the Step 2b
+#         confirmation gate listed five patterns "from Step 5 E-2" and was used to COUNT
+#         questions per file. Counting a normalised Row file with the bare-number pattern counts
+#         every option as a question — the gate would have reported roughly five times the true
+#         total and the operator would have confirmed it. Corrected to the engine's two.
+# v2.22 — 2026-07-25 — DEFECT C AT STEP 2b + v2.21 RATIONALE CORRECTION.
+#         (1) Step 2b (PYQScan) carried the SAME batch-level durability defect that v2.21
+#             fixed at Step 4. S3-5's per-paper loop calls scan_paper(), appends to
+#             papers_scanned_list, increments papers_scanned, records years_covered and
+#             adds every newly discovered subtopic to the taxonomy — all in memory — while
+#             save_scan_progress ran only AFTER the loop. An exception on paper 3 therefore
+#             discarded papers 1 and 2 together with their discoveries, and the progress
+#             file showed them as never scanned. Found by validate_framework_md.py v3.0
+#             Check X (per-item durability), not by reading: the same shape had been fixed
+#             twice already and still went unnoticed here, which is the entire argument for
+#             encoding a defect as a check rather than as a memory.
+#             Fix: save_scan_progress + save_classifications inside the per-paper loop.
+#             Convergence is untouched — consecutive_empty_batches is a per-BATCH,
+#             complete-batches-only counter, and EC-P26 already specifies that a partial
+#             batch persists its papers without affecting it. BATCH_SIZE unchanged.
+#         (2) CORRECTION to v2.21. That entry justified the Step 4 fix with "the failure
+#             mode is a silent undercount". It is not. Counts and files_processed_list are
+#             written by the same save, so a skipped save loses both and the resume simply
+#             recounts those files — the total comes out right, and S5-4a would catch it if
+#             it did not. The real costs are lost work, a progress file that understates
+#             what was done, and a latent double-count if the accumulator and the
+#             processed-list are ever persisted at different moments. The fix stands; the
+#             stated reason was overclaimed and is corrected in S5-4. An inflated rationale
+#             invites a future reader to check it, disbelieve it, and discount the rule.
+#
+# v2.21 — 2026-07-25 — STEP 4 CORPUS TRANSPORT (DEFECTS A, B, C, N + O at Step 4).
+#         Twin of Framework_MockTestAnalyse v2.29 / Framework_PYQSort v1.12 / corpus_io v1.0.1.
+#         Step 4 (PYQCount) and Step 5 (PYQExtract) fetch the SAME corpus from the SAME Drive
+#         folder through the SAME connector, and Step 4 carried every one of the defects that
+#         took Step 5 down on 2026-07-24 — it had simply not been run far enough to hit them.
+#         (1) DEFECT C (CRITICAL) — count_progress.json was saved AFTER each batch, not after
+#             each file (S5-4 item 7). process → accumulate → save is the only thing that
+#             persists a file's counts, so ANY exception inside the loop skipped the save and
+#             discarded every file already counted in that batch, with no trace: the progress
+#             file shows them as never processed and a resume silently recounts them. At
+#             BATCH_SIZE_COUNTS = 5 that is up to FOUR papers of work lost per failure. This
+#             is the same defect that made the Step 5 incident destructive. (v2.21 stated the
+#             consequence as "a silent undercount"; v2.22 corrects that — see below.)
+#             Fix: save inside the per-file loop, immediately after each file is counted. The
+#             batch-level save REMAINS as a redundant flush. BATCH_SIZE_COUNTS = 5 is
+#             UNCHANGED — batching is the user-facing pacing unit, never the durability unit.
+#         (2) DEFECT A — enumeration discarded fileSize. The Drive listing carries it inline,
+#             already in the response, and S5-1 read only the name. With size unknown there is
+#             no pre-flight partition, so a paper above the connector's 10 MiB cap cannot be
+#             known to be unfetchable until the download is attempted — which in the reported
+#             incident happened at batch 6 of a clean-looking run. Enumeration now records
+#             {id, name, mimeType, fileSize, parentId, source} and screens every entry:
+#             native Google Docs, Drive shortcuts and legacy .doc are REJECTED WITH A REASON
+#             instead of vanishing, and a paper with no reported size is rejected rather than
+#             silently processed.
+#         (3) DEFECT B (CRITICAL) — the download was unguarded. Verified across the corpus:
+#             ZERO try/except existed around any Drive call anywhere. Every fetch now goes
+#             through corpus_io.fetch_drive_docx; every failure — size, permission, network,
+#             malformed payload, unknown — raises TransportFallback and routes that paper to
+#             the UPLOAD LANE. A transport failure is NEVER fatal to the run. This is what
+#             makes Step 4 survive a future change to the connector's cap: correctness rests
+#             on the fallback being taken, not on the predicted partition being right.
+#         (4) DEFECT N — the retrieval envelope is documented for the first time. For any real
+#             paper the connector's result exceeds context and spills to
+#             /mnt/user-data/tool_results/*.json; that file is a LIST whose [0]['text'] is
+#             itself a JSON STRING which parses to {id, title, mimeType, content} with content
+#             base64. Every previous execution rediscovered this by trial and error with a
+#             different improvisation each time — non-determinism in the hot path. One
+#             implementation now: corpus_io.decode_drive_payload, followed by a byte-count and
+#             PK magic assertion, because a payload truncated at a ZIP member boundary still
+#             opens as a valid archive while presenting fewer questions.
+#         (5) DEFECT O at Step 4 — the duplicate rule actively selected the unfetchable file.
+#             S5-1 kept the LARGER of two sorted files for the same date+session on the
+#             reasoning that it was "more likely to have images intact". Under a 10 MiB
+#             download cap that rule picks precisely the copy that cannot be fetched, and
+#             under Phase B's zero-tolerance standard picking EITHER copy silently is wrong:
+#             a re-sorted paper and its superseded predecessor differ in content, so the
+#             choice changes the counts. Both duplicate classes are now HARD STOPs naming
+#             both files — canonical identity (X.docx vs "X (1).docx") via Cluster H at
+#             enumeration, and same date+session with different Q-ranges at the filter stage.
+#             Image survival is no longer a reason to prefer the larger file: PYQSort v1.12
+#             CHECK 10 gates it at the point of production.
+#         (6) 4-batches-per-chat arithmetic stated up front (S5-7). The binding constraint on
+#             the upload lane is the platform's 20-files-per-chat limit, not the batch size:
+#             at BATCH_SIZE_COUNTS = 5 that is exactly 4 batches / 20 papers per chat. Derived
+#             from bc.upload_batch_plan, never restated as a literal.
+#         (7) Step 2b banner (S3-2): the absence of images and OMML during the scan is BY
+#             DESIGN and is NOT the defect class fixed in Steps 3/5. Added because a reader
+#             arriving from the v2.29 image-integrity work would otherwise reasonably conclude
+#             Step 2b was broken too and "fix" it. S3-2, EC-P24 and EC-P25 are UNCHANGED.
+#         (8) New edge cases EC-P31..EC-P34. §11 and §12 updated.
+#         NOT CHANGED: BATCH_SIZE_COUNTS (5), the S5-1a Task 1 confirmation gate, the S5-4a
+#         zero-tolerance accuracy gate, Task 2.5, Task 3, the sorted-filename filter, and every
+#         Phase 0a / 0b / 0c behaviour other than the S3-2 banner.
+#         ROUTING: routes.json must route corpus_io.py to PYQCount. NOT OPTIONAL.
+#
+# v2.20 — 2026-07-23 — PHASE-B HEADING PARSER DRIFT CLOSED (line-by-line audit finding).
+#   parse_taxonomy_level() and is_taxonomy_heading() each carried a comment demanding they
+#   stay IDENTICAL to Step 5's, and EC-P14 named the exact failure mode and remedy. Both had
+#   nevertheless drifted: Framework_MockTestAnalyse v2.16 (RIGID-4) expanded the heading
+#   table from 3 patterns to 12+ (Section:/Part:/Area:, Unit/Module/Block, colon-style
+#   topics, case-insensitive) and this file was never mirrored, and the two
+#   is_taxonomy_heading copies used DIFFERENT question-exclusion regexes.
+#   IMPACT: for any exam not using the Subject:/Topic N: convention, Step 5 read a heading as
+#   level 1/2 while Step 4 fell through to level 3 and counted it as a SUBTOPIC — wrong
+#   per-subtopic counts, caught (if at all) only by Step 6's BV-0A cross-check.
+#   FIX: both now delegate to blueprint_core Cluster G. The engine form is Step 5's superset,
+#   proven by test_cluster_g.py to classify every heading the old copy handled identically
+#   while additionally levelling the forms it silently mis-filed. A comment asking two files
+#   to stay in step is not a mechanism; one definition is.
+#
+# v2.19 — 2026-07-23 — ERA LOGIC UNIFIED INTO THE ENGINE + MARKER-MODE COVERAGE
+#   (audit follow-up to v2.18; fixes defects introduced BY v2.18).
+#   (1) ANTI-DRIFT. v2.18 transcribed the era-classification chain into S3-2a step 3b as
+#       prose while blueprint_core carried its own implementation, and routes.json routed
+#       no engine to PYQScan — two independent definitions of "current era" with nothing
+#       keeping them in step. The v2.25 Step-5 changelog even CLAIMED they were shared;
+#       they were not. Step 3b now CALLS bc.classify_paper_era / bc.exam_config_bounds /
+#       bc.type_resolver_from_config, and routes.json routes blueprint_core.py to
+#       PYQDraft/PYQScan/PYQApprove/PYQSort/PYQCount/PYQExtract. Same for the
+#       OUT_OF_PATTERN literal, which now lives in the engine only.
+#   (2) NEW ERA 'retyped' (EC-P9b). Era was defined by SIZE alone, so an exam that keeps its
+#       question count but changes its question TYPES — all-MCQ becoming MCQ/MSQ/NAT — was
+#       classified 'current' and blended into the mix and the axis-3 distribution. Across
+#       ~200 exams that is at least as common as a count change, so size-only classification
+#       was missing the majority case. Backward compatible: with no marking_scheme, or with
+#       no detected types, no comparison runs and the v2.18 chain applies unchanged.
+#   (3) MARKER-MODE ERA DETECTION (EC-P9c). marker_mode exams had NO era detection at all —
+#       the Q-number chain cannot run without Q-ranges. Step 3b now compares observed module
+#       names against exam_config.sections[].name and reports retired modules instead of
+#       letting EC-S2 fuzzy matching silently absorb them into a surviving section.
+#
+# v2.18 — 2026-07-23 — PATTERN-ERA AWARENESS AT SCAN TIME (GAP-2026-07-23-001;
+#   PYQ-side twin of Framework_PYQSort v1.9 and Framework_Blueprint v1.36).
+#   ROOT CAUSE (shared by all three specs): exam_config describes the CURRENT exam
+#   pattern, but a PYQ corpus routinely spans several patterns. Nothing in the pipeline
+#   recorded, reported, or handled that. RULE 4 said "section from Q-number range in
+#   exam_config" with no branch for a Q-number outside every range, and EC-P9 documented
+#   only the SHORTER direction ("later sections may have 0 questions"). The LONGER
+#   direction — a previous-era paper with MORE questions than the current pattern — was
+#   undocumented corpus-wide, and it is the dangerous one: surplus Q-numbers match no
+#   range at all, so they were assigned None and then failed every (section, topic,
+#   subtopic) lookup downstream. A 100-question legacy paper scanned against a
+#   60-question current config lost 40 questions silently.
+#   (1) RULE 4 (§8) — new OUT-OF-RANGE branch. Q-numbers outside every configured range
+#       take the OUT_OF_PATTERN sentinel (the same constant as Framework_PYQSort v1.9
+#       S2-2) and are classified against the FULL taxonomy instead of one section's slice.
+#       This is the ONE relaxation of the rule's "not content" half, and only because the
+#       rule's premise fails: it presupposes a structural section EXISTS. Gated on the
+#       sentinel, never on a failed match, so a question that has a section cannot reach
+#       it. pattern_era='out_of_pattern' is recorded on the classification.
+#   (2) EC-P9 — the missing mirror documented: papers LARGER than the current pattern.
+#   (3) S3-3 step (c) — the out-of-range route made explicit at the classification site
+#       rather than only in the rules section.
+#   (4) S3-2a PRE-SCAN GATE — new step 3b computes each paper's pattern era
+#       (current / larger / smaller / unverified) from exam_config and the observed
+#       Q-numbers ALONE; new Pattern Era column; new step 5b notice printed ONLY when the
+#       corpus spans more than one era. A single-era corpus — the common case across the
+#       ~200 exams — sees no behavioural or output change whatsoever.
+#   DESIGN INTENT: both eras are scanned and both feed the taxonomy. Older papers are
+#   retained precisely because the variety of concepts, phrasings, difficulties and
+#   formats they expose is what makes generated questions good, and a subtopic observed
+#   across many eras is better characterised than one observed twice. The defect was
+#   never that old papers were included — it was that the pipeline noticed the structural
+#   mismatch and said nothing.
+#   SCOPE BOUNDARY (stated so it is not mistaken for solved): question COUNTS are safe —
+#   Framework_Blueprint §4-2 consumes r_avg as a PROPORTION against a sec_qs budget from
+#   exam_config, so a different-size paper can neither inflate nor shrink allocation.
+#   Subject/subtopic MIX and format mix remain era-blended; §3 recency weighting dampens
+#   but does not remove this. Era-scoped frequency would require era-tagging through the
+#   Step-5 manifest and the Frequency xlsx and is deliberately NOT attempted here.
+#   The pre-scan notice reports the exposure so the operator holds that decision.
+#
+# v2.17 — 2026-07-23 — PYQAPPROVE OPERATOR-SAFE APPROVAL GATE (root-cause fix).
+#   INCLUDES (Issue C + C-1):
+#     C-1 CRITICAL — DELIMITER AMBIGUITY. Paths were '/'-joined strings, but
+#         real subject names contain '/' (live example: IIT JAM Biotechnology's
+#         "Microbial/Plant/Animal Biotech"). Every anchor check produced a FALSE
+#         FAILURE on that exam. FIX: paths are LISTS OF COMPONENTS, compared as
+#         tuples, never split or joined for comparison. Delimiter-free by design.
+#     C   EMISSION BURDEN. S2-1/S2-3 had to emit 9 fields x N items by prose-
+#         following (~1800 values for a 200-item syllabus). FIX: emit 4 fields
+#         (path, text, to, why); DERIVE the other 5 (id, subject,
+#         syllabus_group, enumerated, deviation) in syllabus_provenance.py.
+#         A derived field cannot be emitted wrong.
+#     CIRCULARITY GATE. group_topic_map must be DECLARED from syllabus
+#         structure; a map derived from the mappings it checks makes anchoring
+#         vacuous. Found by testing 11 real syllabi (all passed spuriously).
+#     4-LEVEL COLLAPSE. Syllabi whose depth exceeds Subject>Topic>Subtopic
+#         (NEET Chemistry: CHEMISTRY > PHYSICAL CHEMISTRY > SOLUTIONS > item)
+#         MUST record the collapse as a declared deviation. Verified: NEET
+#         correctly build-blocks until the collapse decision is recorded.
+#     §7 CANONICALIZATION. A destination matching the taxonomy only after
+#         normalization is snapped to the taxonomy's EXACT spelling, so
+#         byte-identity holds downstream instead of failing at Step 5/6.
+#   PROBLEM: S4-4 posed four ACADEMIC questions ("are subtopics faithful to the
+#   syllabus?", "is anything MISSING/EXTRA?") to an operator who is non-technical
+#   and non-academic by role definition. The gate was therefore unanswerable at
+#   the point of use, yielding either a rubber-stamp (gate protects nothing) or a
+#   stall (no escalation path). Approval theatre, not approval.
+#
+#   ROOT CAUSE (found during this fix, deeper than S4-4): S2-4 persisted the
+#   DERIVED taxonomy but NEVER persisted the extracted syllabus items. At
+#   PYQApprove time no machine-readable ground truth existed, so the four
+#   questions COULD NOT be answered by machine — they had to be delegated to a
+#   human. The gate was a symptom; the missing provenance record was the defect.
+#
+#   FIX (4 changes):
+#     (1) S2-4 — taxonomy_draft.json now persists syllabus_subjects[] (verbatim
+#         S2-1 subject names) and syllabus_items[] (id, subject, raw_text,
+#         enumerated, source_ref, mapped_paths[]). This is the provenance record
+#         that makes Tier 0 possible. Backward compatible: absent => legacy mode.
+#     (2) NEW S4-0 — TAXONOMY RECONCILIATION ENGINE (reconcile_taxonomy.py).
+#         Deterministic 3-tier resolution replacing the human quiz:
+#           Tier 0  machine reconciliation  (C1..C6, no judgment)
+#           Tier 1  codified auto-policy    (PATH_EXTRA by PYQ evidence)
+#           Tier 2  evidence-bound adjudication, REPLAYED from approval_record
+#     (3) S4-4 REWRITTEN — emits a VERDICT + receipt, not a questionnaire.
+#         CLEAN / CLEAN_ADJUDICATED => auto-lock, operator only uploads files.
+#         HELD => named finding routed for adjudication. Operator never performs
+#         academic judgment in any branch.
+#     (4) S4-3 / S10-1 / S10-2 — approve-mode closed set 2 -> 3 files
+#         (+ [ExamCode]_approval_record.json, the audit + replay ledger).
+#
+#   TIER 1 POLICY (confirmed): out-of-syllabus but PYQ-backed subtopics are
+#   AUTO-RETAINED. Rationale is the framework's own anti-data-loss rule (S2-3
+#   MPPSC Botany evidence) plus S3-6, which already gates every scan-added
+#   subtopic at MIN_PATTERN_SIZE >= 3 PYQs — so such subtopics are PYQ-evidenced
+#   BY CONSTRUCTION before they ever reach PYQApprove.
+#
+#   DETERMINISM GUARANTEE: Tier 2 adjudication is constrained by six hard
+#   invariants that an adjudicating verdict CANNOT override. Unsafe or
+#   unevidenced verdicts are rewritten to the safe default rather than rejected,
+#   so a bad adjudication degrades to data-preserving, never to data loss:
+#     INV-1 NO_SUPPRESS_SYLLABUS      never remove a syllabus-enumerated item
+#     INV-2 NO_DROP_PYQ_BACKED        never drop a path with >= 3 PYQs
+#     INV-3 LOW_CONFIDENCE_SAFE_DEFAULT
+#     INV-4 EVIDENCE_REQUIRED         destructive verdict needs a syllabus quote
+#     INV-5 CONSERVATION              no classified question may be orphaned
+#     INV-6 REPLAY_DETERMINISM        prior verdicts replayed, never re-decided
+#   INV-6 is what makes the gate reproducible across sessions and model
+#   instances — it closes the framework's known "spec-as-prose is
+#   non-deterministic" failure class at the adjudication boundary.
+#
+#   Verified: 24/24 adversarial unit tests (test_reconcile.py) incl. attempts to
+#   drop syllabus items, drop PYQ-backed paths, adjudicate with no evidence, and
+#   adjudicate under silence; plus end-to-end IIT JAM BT simulation reproducing
+#   the reported case (both scan-discovered subtopics auto-retained, 0
+#   escalations, conservation pass, status CLEAN).
 #
 # v2.16 — 2026-07-20 — PYQ CORPUS DRIVE-ONLY STANDARDIZATION, STEP 2b/PYQScan (twin fix:
 #   Framework_MockTestAnalyse.md Step 5/PYQExtract v2.24.8). Found during a project-level
@@ -883,6 +1133,82 @@ For each subject listed in the syllabus:
   2. List every individual topic/item mentioned under that subject
   3. Preserve each item as-is — do NOT merge or group items at this stage
      (S2-3's Topic Integrity Test determines final Topic structure)
+  4. v2.17 — PRESERVE THE SYLLABUS'S OWN HIERARCHY. If the syllabus places
+     items under intermediate headings, RECORD THOSE HEADINGS. Do NOT flatten
+     them away.
+
+GRANULARITY — WHAT COUNTS AS ONE ITEM (v2.17, MANDATORY):
+
+  The old wording ("list every individual topic/item") did not define the unit.
+  For CSIR Life Sciences that spans 85 (lettered subsections) to ~700
+  (individual concepts) — a ~10x swing that FLIPS the S2-3 ratio guardrail
+  between WARN and pass on an IDENTICAL taxonomy. Six of eleven real syllabi
+  tested are prose-dense, so the ambiguity governs the majority of items.
+
+  TWO LEVELS ARE RECORDED. Do not pick one and discard the other:
+
+    ENTRY  — the smallest unit carrying its OWN heading, bullet, or
+             letter/number label. THIS is a syllabus_item.
+             CSIR "A. Photosynthesis" = 1 entry.
+             CTET bullet "Remedial Teaching" = 1 entry.
+    ATOMIC — a delimiter-separated concept INSIDE an entry (';' preferred,
+             else ','). Recorded as a COUNT ONLY, never as separate items.
+             "Light harvesting complexes, mechanisms of electron transport,
+              photoprotective mechanisms, CO2 fixation" = 1 entry, 4 atomic.
+
+  Never split an entry into multiple items on a delimiter. Splitting inflates
+  the item count, breaks 1:1 coverage checking, and makes counts irreproducible
+  across sessions — the exact non-determinism the provenance record exists to
+  remove.
+
+  WHY BOTH: the inflation guardrail means different things per syllabus style.
+    ENUMERATED (entries ARE concepts — CTET, CAT, UGC glossary):
+      measure subtopics / ENTRIES, thresholds 2.0x warn / 3.0x hard stop.
+      Preserves the MPPSC Botany calibration (336/81 = 4.1x) the thresholds
+      were originally set against — verified still HARD STOPs.
+    PROSE (a whole section is one entry — JAM Physics, CUET PG Math, GATE, NEET):
+      measure subtopics / ATOMIC, thresholds 0.85x warn / 1.0x hard stop.
+      Measured against entries instead, 7 of 11 real syllabi HARD STOP as FALSE
+      POSITIVES. For prose the failure is INVERTED: a ratio at or above 1.0 means
+      one subtopic per concept, i.e. NO grouping happened — MPPSC restated.
+
+  Style is DETECTED, not chosen: median atomic-per-entry <= 1.5 => ENUMERATED,
+  else PROSE. Computed per SUBJECT (a syllabus may mix both). Depends only on
+  delimiters present in the text, so it is reproducible across sessions.
+  See classify_style() / ratio_verdict() in syllabus_provenance.py.
+
+HIERARCHY PRESERVATION (v2.17 — MANDATORY):
+
+  WHY: a syllabus that reads
+        Chemistry > Physical Chemistry > Thermodynamics
+  already STATES which group the item belongs to. Flattening it to
+  (Chemistry, Thermodynamics) discards that fact and forces S2-3 to
+  RE-DERIVE by judgment something the source document supplied as data.
+  Re-derived facts cannot be verified against anything; recorded facts can.
+  This is the same defect class as discarding the subject would be.
+
+  For every item record:
+    syllabus_path  : ordered list of headings ABOVE the item, outermost
+                     first, verbatim. e.g. ["Chemistry","Physical Chemistry"]
+                     For a flat syllabus this is just ["Chemistry"].
+    syllabus_group : the IMMEDIATE parent heading below the subject —
+                     syllabus_path[1] if it exists, else None.
+                     None means the syllabus supplied NO grouping.
+
+  DO NOT INVENT A GROUP. If the syllabus lists items directly under the
+  subject with no intermediate heading, syllabus_group is None. Inventing
+  one manufactures false ground truth — strictly worse than recording none,
+  because downstream checks would then verify against fiction.
+
+  DEEP HIERARCHIES (Subject > Unit > Chapter > item): record the FULL
+  path in syllabus_path. syllabus_group is always the immediate child of
+  the subject (syllabus_path[1]). Deeper levels are preserved for audit
+  but are NOT used for anchoring — which level maps to a taxonomy Topic
+  is exam-specific and cannot be assumed.
+
+  ENUMERATIVE HEADINGS ("Unit I", "Part A", "Module 2") are recorded like
+  any other heading. Anchoring never compares heading NAMES to topic names,
+  only consistency of mapping, so semantically empty labels work fine.
 
 TERMINOLOGY NOTE — "Subject" vs "Section":
   The SYLLABUS defines Subject names (the top-level taxonomy grouping).
@@ -1674,16 +2000,321 @@ def question_shape_verdict(name):
   subtopics) → merge them into one subtopic.
 ```
 
+
+### S2-3e — SYLLABUS MAPPING EMISSION (v2.17, MANDATORY — closes S2-3)
+
+```
+S2-3 derives the taxonomy from the syllabus. This step RECORDS HOW.
+
+WHY MANDATORY: Step 2c (PYQApprove) reconciles the taxonomy against the
+syllabus (S4-0). It can only do that if the derivation recorded which
+taxonomy path(s) each syllabus item became. Without this record, PYQApprove
+has no ground truth and must fall back to asking a human an academic
+question — the exact defect v2.17 exists to remove.
+
+The mapping is a BY-PRODUCT OF DERIVATION, not a reconstruction after the
+fact. Claude MUST record each item's destination AT THE MOMENT it places
+that item into the taxonomy. Reconstructing the mapping afterwards by
+name-matching re-introduces the guesswork this record exists to eliminate.
+
+EMIT, for every syllabus item identified in S2-1:
+
+  {
+    "id":             "SYL-001",          # stable, assigned in S2-1 order
+    "subject":        "<verbatim S2-1 subject name>",
+    "syllabus_path":  ["Chemistry","Physical Chemistry"],   # S2-1, verbatim
+    "syllabus_group": "Physical Chemistry",                 # or null if flat
+    "raw_text":       "<verbatim syllabus item text>",
+    "enumerated":     true,               # explicitly listed in syllabus
+    "source_ref":     "<locator: page/line/bullet, best effort>",
+    "mapped_paths":   ["Subject/Topic/Subtopic", ...],
+    "deviation":      null                # or {"rule": ..., "reason": ...}
+  }
+
+ALSO EMIT the group -> topic mapping (one entry per non-null syllabus group):
+
+  group_topic_map: [
+    {"subject": "Chemistry",
+     "group":   "Physical Chemistry",
+     "mapped_topics": ["Chemistry/Physical Chemistry"]}    # 1..N topics
+  ]
+
+  This declares, ONCE per group, which taxonomy Topic(s) that syllabus group
+  legitimately became. Items are then anchored THROUGH this declaration.
+
+─────────────────────────────────────────────────────────────────────
+CONFORM-OR-DECLARE (v2.17 — the topic-placement anchor)
+─────────────────────────────────────────────────────────────────────
+S2-3 is EXPECTED to override syllabus grouping — the Topic Integrity Test
+exists precisely to split badly-grouped syllabus entries (e.g. a single
+"Grammar" heading MUST become separate Topics for distinct question types).
+So deviation from the syllabus grouping is NORMAL AND OFTEN CORRECT. It is
+NOT an error signal, and MUST NOT be auto-flagged as one — doing so would
+fire on exactly the cases the framework is designed to produce.
+
+The rule is therefore CONFORM OR DECLARE, never CONFORM OR FAIL:
+
+  CONFORM  — every mapped_path's Topic appears in group_topic_map for that
+             item's (subject, group). Nothing further required.
+
+  DECLARE  — the item lands in a Topic outside its group's declared map.
+             LEGAL, but the item MUST carry:
+               "deviation": {
+                 "rule":   "TOPIC_INTEGRITY_TEST" | "SPLIT" | "MERGE" | "OTHER",
+                 "reason": "<one line: why this item left its syllabus group>"
+               }
+
+  UNDECLARED DEVIATION → HARD ERROR. This is the only failure mode, and it
+  is purely structural: no judgment about whether the placement is CORRECT,
+  only whether it was DECLARED. Zero false positives by construction.
+
+WHAT THIS DOES AND DOES NOT ACHIEVE (do not overstate):
+  DOES     — makes every departure from the syllabus's own structure
+             explicit, recorded, and reviewable. Silent misplacement becomes
+             impossible: an item cannot quietly drift to another Topic.
+  DOES NOT — verify that a declared deviation is CORRECT. A wrong placement
+             with a plausible reason still passes. Declaration converts an
+             invisible unbounded risk into a small named list; it does not
+             eliminate the risk.
+
+FLAT SYLLABI (syllabus_group is null):
+  No grouping was supplied, so there is NOTHING to anchor against. The
+  correct Topic is not present in ANY input — not the syllabus, not the exam
+  pattern, and not the PYQs (the scan classifies by SUBTOPIC, inheriting the
+  parent Topic, so a wrong parent produces no classification error). This is
+  an INFORMATION limit, not an engineering gap.
+  Handling: skip anchoring for that subject and RECORD it as unanchorable in
+  the approval record, so the gap is named rather than silent.
+
+MAPPING RULES:
+  1. An item that became its OWN Topic maps to EVERY subtopic under that
+     Topic (a Topic is realized by its subtopics — the Topic itself is a
+     label, not a leaf).
+  2. An item GROUPED under a shared Topic maps to the ONE subtopic that
+     represents it (per S2-3 GROUPED ITEMS ARE SUBTOPICS).
+  3. An item SPLIT across multiple subtopics maps to ALL of them.
+  4. Two items MERGED as genuinely synonymous both map to the SAME single
+     path. This is legal and is NOT a duplicate.
+  5. mapped_paths MUST be [] if the item genuinely has no taxonomy
+     representation. NEVER invent a path to make the list non-empty —
+     an empty list is a truthful signal that S4-0 will surface as
+     ITEM_UNMAPPED. A fabricated mapping hides data loss permanently.
+  6. Path strings MUST be byte-identical to the taxonomy keys/values
+     (§7 NAME CONSISTENCY CONTRACT). No re-typing; copy from the taxonomy.
+
+Pass syllabus_subjects and syllabus_items to save_taxonomy_draft() (S2-4).
+Run syllabus_provenance.validate_provenance() BEFORE saving. HARD STOP on failure.
+It is the ONLY implementation of these checks — do not re-implement it here.
+```
+
+```python
+# ─────────────────────────────────────────────────────────────────
+# S2-3e VALIDATION — SINGLE IMPLEMENTATION (v2.17)
+# ─────────────────────────────────────────────────────────────────
+# There is exactly ONE implementation of these checks:
+#     syllabus_provenance.validate_provenance()
+#
+# Two spec-embedded duplicates (verify_syllabus_mapping,
+# verify_topic_anchoring) were REMOVED here. They parsed paths as
+# '/'-delimited STRINGS while build_items() emits LIST paths, so a
+# perfectly valid mapping was reported as an UNDECLARED DEVIATION on
+# EVERY item of EVERY exam. Two call sites were live simultaneously,
+# each using a different implementation.
+#
+# ANTI-DRIFT (same force as the §D6 detection-logic rule): validation
+# logic MUST NOT exist in two places. A second copy does not stay in
+# sync — it silently diverges and then contradicts the first.
+#
+# All path handling is LIST-based end to end. Nothing splits or joins
+# a path for comparison; see norm_path() in syllabus_provenance.py.
+# ─────────────────────────────────────────────────────────────────
+```
+
+
+
+### S2-3e-1 — MINIMAL EMISSION FORMAT (v2.17, Issue C — supersedes hand-built records)
+
+```
+DO NOT hand-emit the 9-field item records. Emit FOUR fields per item and let
+syllabus_provenance.build_items() derive the rest. A field that is DERIVED
+cannot be emitted wrong; a field that is TYPED can be.
+
+PER ITEM emit exactly:
+  path : ["Chemistry","Physical Chemistry"]      headings ABOVE the item,
+                                                 outermost first, verbatim.
+                                                 ["Chemistry"] if flat.
+  text : "Thermodynamics"                        verbatim item text
+  to   : [["Chemistry","Physical Chemistry","Thermodynamics"]]
+                                                 destination(s), each a LIST of
+                                                 exactly 3 components
+  why  : "one line"                              ONLY when a destination leaves
+                                                 the item's syllabus group
+  rule : TOPIC_INTEGRITY_TEST | SPLIT | MERGE | OTHER   (optional, with `why`)
+
+DERIVED AUTOMATICALLY (never emit these):
+  id, subject, syllabus_group, enumerated, deviation{rule,reason}
+
+PATHS ARE LISTS, NEVER STRINGS. This is not stylistic. Real subject names
+contain '/' — IIT JAM Biotechnology has "Microbial/Plant/Animal Biotech".
+Any '/'-joined path is unparseable in general and produced FALSE ANCHOR
+FAILURES on live data. A joined string is REJECTED at build time.
+
+group_topic_map MUST BE DECLARED FROM THE SYLLABUS STRUCTURE — i.e. what each
+heading SHOULD become — NOT derived from where items were actually sent.
+A DERIVED map makes conform-or-declare CIRCULAR: every item conforms by
+construction and the check silently passes any misplacement. This was found by
+testing 11 real syllabi: all 11 initially passed anchoring for this reason, not
+because the mappings were correct. derive_group_topic_map() therefore refuses to
+run without _authorized=True and is for bootstrapping an editable draft ONLY;
+validate_provenance(map_is_declared=False) hard-errors.
+
+ALSO emit ONCE (not per item):
+  syllabus_style   : classify_style(items) output, per subject. Drives the
+                     style-aware C4 inflation check at S4-0. Omitting it makes
+                     C4 fall back to the legacy whole-corpus ratio, which
+                     false-hard-stops prose syllabi.
+  syllabus_total   : integer count of ENTRIES you are about to emit.
+                     Compared against what actually arrives — catches silent
+                     truncation on long syllabi, the dominant failure mode.
+  group_topic_map  : one entry per syllabus group:
+                     {"subject":..., "group":..., "mapped_topics":[[subj,topic]]}
+                     ~1 line per group (tens), not per item (hundreds).
+
+BATCHING (long syllabi): process in bounded chunks, emitting the running count
+after each. Never emit a partial set as if complete — syllabus_total is the
+contract that makes truncation detectable rather than silent.
+```
+
+```python
+# S2-3e EXECUTION (replaces hand-built records)
+from syllabus_provenance import (build_items, canonicalize_paths,
+                                 validate_provenance, derive_group_topic_map)
+
+items, build_errors = build_items(emissions, group_topic_map)
+if build_errors:
+    raise AnchoringGateFailure(build_errors)          # S2-3f self-correction
+
+# §7: snap destinations to the taxonomy's exact spelling BEFORE validation
+name_fixes = canonicalize_paths(taxonomy, items)
+
+ok, errors, warnings, unanchorable = validate_provenance(
+    taxonomy, items, syllabus_subjects, group_topic_map,
+    declared_total=syllabus_total)
+if not ok:
+    raise AnchoringGateFailure(errors)                # S2-3f self-correction
+
+# name_fixes must be PASSED to save_taxonomy_draft — it is not a global:
+#   save_taxonomy_draft(taxonomy, exam_config, exam_code, syllabus_subjects,
+#                       items, group_topic_map, name_fixes=name_fixes)
+```
+
+### S2-3f — GATE FAILURE HANDLING (v2.17, B-FIX — operator never sees a traceback)
+
+```
+The S2-3e gate fires on CLAUDE'S OWN output during Step 2a. The operator did
+nothing wrong and can do nothing about it. A Python traceback reaching them is
+a spec violation of the same class as asking them an academic question: it
+puts an unanswerable artifact in front of someone with no means to act.
+
+ON AnchoringGateFailure — SELF-CORRECT, DO NOT ESCALATE:
+
+  ATTEMPT 1 — read each error and fix the CAUSE, not the symptom:
+    "UNDECLARED DEVIATION"      -> the item left its syllabus group. Decide:
+                                   is the placement CORRECT?
+                                     YES -> add deviation {rule, reason}
+                                     NO  -> correct mapped_paths instead
+                                   Do NOT reflexively add a declaration to
+                                   silence the gate — a declaration on a WRONG
+                                   placement launders an error into a record
+                                   that looks reviewed. Fix the mapping first.
+    "no group_topic_map entry"  -> add the missing group -> topic declaration
+    "deviation.rule not in..."  -> use TOPIC_INTEGRITY_TEST | SPLIT | MERGE | OTHER
+    "empty reason"              -> write a real one-line reason
+    "mapped_path not present"   -> the path is a typo or the taxonomy lacks it
+    "hierarchy ... inconsistent"-> re-run S2-1 extraction for that subject:
+                                   some items got a group, some did not
+    Re-run the gate.
+
+  ATTEMPT 2 — if it still fails, re-derive that subject's mapping from S2-3.
+
+  AFTER 2 FAILED ATTEMPTS — stop. Do NOT loop, do NOT save a partial draft,
+  and do NOT surface the exception. Print the operator message below.
+
+OPERATOR MESSAGE (plain language, closed set — this is the ONLY form in which
+this failure may reach the operator):
+
+  "Step 2a could not complete. The syllabus mapping has an issue I could not
+   resolve automatically.
+
+   WHAT HAPPENED:
+     [one plain line per error, max 5, jargon removed]
+
+   This is a taxonomy build issue, not something you did, and not something
+   you need to evaluate.
+
+   YOUR NEXT ACTION (1 step):
+   1. Re-run: PYQDraft [ExamCode]
+      If it fails again, report the WHAT HAPPENED lines above."
+
+  No traceback. No field names. No stack. No request to judge anything.
+
+TRANSLATION TABLE (error -> plain line):
+  UNDECLARED DEVIATION        -> "A syllabus item was placed under a different
+                                  topic than the syllabus lists it under."
+  no group_topic_map entry    -> "A syllabus heading has no matching topic."
+  mapped_path not present     -> "An item points to a topic that doesn't exist."
+  hierarchy ... inconsistent  -> "The syllabus headings were read inconsistently
+                                  for one subject."
+  deviation rule/reason bad   -> "A recorded change is missing its explanation."
+  COUNT MISMATCH              -> "Part of the syllabus was not read — the number
+                                  of items does not match what was expected."
+  must be a list / joined str -> "A topic location was written in the wrong
+                                  format."
+  exactly 3 components        -> "A topic location is incomplete."
+```
+
 ### S2-4 — Taxonomy draft output
 
 ```python
 import json
 
-def save_taxonomy_draft(taxonomy, exam_config, exam_code):
+class AnchoringGateFailure(Exception):
+    """S2-3e gate failure. Caught and self-corrected by Claude (S2-3f).
+    Reaches the operator ONLY as the plain-language S2-3f message."""
+    def __init__(self, errors):
+        self.errors = list(errors)
+        super().__init__(f"{len(self.errors)} undeclared/invalid mapping(s)")
+
+
+def save_taxonomy_draft(taxonomy, exam_config, exam_code,
+                        syllabus_subjects=None, syllabus_items=None,
+                        group_topic_map=None, name_fixes=None):
+    """
+    v2.17: persists the SYLLABUS PROVENANCE RECORD alongside the derived
+    taxonomy. Without it, Step 2c (PYQApprove) has no machine-readable ground
+    truth and its reconciliation cannot run (S4-0).
+
+    syllabus_subjects: [str] verbatim subject names exactly as S2-1 recorded.
+    syllabus_items:    [{'id','subject','raw_text','enumerated',
+                         'source_ref','mapped_paths':[...]}]
+      mapped_paths = taxonomy paths ('Section/Topic/Subtopic') realizing this
+      item. EMPTY list means the item was dropped -> S4-0 flags ITEM_UNMAPPED.
+      Every item S2-3 places into the taxonomy MUST record its path(s) here.
+    name_fixes:       output of canonicalize_paths() (§7 spelling corrections).
+                      Passed in, NOT a free variable — it is produced by the
+                      S2-3e block that runs BEFORE this function.
+    group_topic_map:  [{'subject','group','mapped_topics':[...]}] — declares
+      which taxonomy Topic(s) each syllabus group legitimately became.
+      Required for CONFORM-OR-DECLARE anchoring (S2-3e). Omit ONLY when the
+      syllabus supplies no grouping at all (fully flat).
+    """
     draft = {
         'exam_code': exam_code,
         'version': 'draft',
         'source': 'syllabus + exam pattern',
+        'syllabus_subjects': syllabus_subjects or [],
+        'syllabus_items': syllabus_items or [],
+        'group_topic_map': group_topic_map or [],
         'sections': {},
         'exam_config': exam_config
     }
@@ -1698,6 +2329,38 @@ def save_taxonomy_draft(taxonomy, exam_config, exam_code):
         for subs in topics.values()
     )
     draft['total_subtopics'] = total_subtopics
+
+    # v2.17 provenance gate — surfaces a broken S2-3 mapping immediately
+    # rather than 3 steps later at PYQApprove.
+    if syllabus_items:
+        unmapped = [i['raw_text'] for i in syllabus_items if not i.get('mapped_paths')]
+        if unmapped:
+            print(f"WARNING: {len(unmapped)} syllabus item(s) have no mapped_paths "
+                  f"— these will be flagged ITEM_UNMAPPED at PYQApprove: {unmapped[:5]}")
+
+        # v2.17 CONFORM-OR-DECLARE gate. Runs HERE so an undeclared topic
+        # deviation is caught at Step 2a, not discovered at Step 2c or later.
+        ok_a, err_a, warn_a, unanchorable = validate_provenance(
+            taxonomy, syllabus_items, syllabus_subjects, group_topic_map,
+            declared_total=len(syllabus_items))
+        if not ok_a:
+            # v2.17 (B-FIX): this gate fires during CLAUDE'S OWN Step 2a work,
+            # never as a result of anything the operator did. Claude MUST
+            # self-correct per S2-3f and re-run. A raw traceback must NEVER be
+            # the operator's first contact with this failure — they cannot act
+            # on it, and surfacing it recreates the exact "unanswerable prompt"
+            # problem v2.17 exists to remove.
+            raise AnchoringGateFailure(err_a)
+        draft['unanchorable_subjects'] = unanchorable
+        draft['name_canonicalizations'] = list(name_fixes or [])
+        draft['syllabus_style'] = classify_style(syllabus_items)
+        draft['declared_deviations'] = [
+            {'id': i['id'], 'subject': i.get('subject'),
+             'group': i.get('syllabus_group'), 'deviation': i['deviation']}
+            for i in syllabus_items if i.get('deviation')]
+        if unanchorable:
+            print(f"NOTE: {len(unanchorable)} subject(s) have a FLAT syllabus — "
+                  f"topic placement cannot be anchored for: {unanchorable}")
 
     path = f'/mnt/user-data/outputs/{exam_code}_taxonomy_draft.json'
     with open(path, 'w', encoding='utf-8') as f:
@@ -1997,6 +2660,43 @@ CLASSIFICATION STORAGE STRATEGY (v1.7):
 ### S3-2 — Paper collection and round-robin ordering
 
 ```
+═══════════════════════════════════════════════════════════════════════
+BY DESIGN — THE SCAN DOES NOT SEE IMAGES OR OMML, AND THAT IS CORRECT
+(v2.21 banner. S3-2 behaviour, EC-P24 and EC-P25 are UNCHANGED.)
+═══════════════════════════════════════════════════════════════════════
+Framework_MockTestAnalyse v2.29, Framework_PYQSort v1.12 and corpus_io made
+image loss a HARD STOP everywhere images MATTER. A reader arriving from that
+work will notice that Step 2b reads text only — no image extraction, no
+image-count gate, OMML often reduced to placeholders — and could reasonably
+conclude Step 2b has the same defect and "fix" it. It does not. Do not add
+image extraction or an image gate here.
+
+WHY IT IS CORRECT:
+  * The scan's ONLY job is discovering SUBTOPIC NAMES to extend the draft
+    taxonomy. It is explicitly lightweight — 80%+ accuracy is sufficient.
+  * Figural subtopics do NOT come from the scan. They come from Step 2a's
+    syllabus-faithful derivation, so a figural question the scan misreads
+    cannot remove a subtopic that already exists (EC-P24).
+  * PYQSort (Step 3) reclassifies every question with FULL python-docx image
+    and OMML access, and Step 5 extracts the format distribution from that.
+    Nothing downstream inherits a scan-level format judgement.
+  * The scan never counts. Counts come from Phase B (§5) against sorted files.
+
+WHERE IMAGE INTEGRITY IS ENFORCED, AND WHY NOT HERE:
+  Step 3 PYQSort  S7-5/S7-6/S7-7 + CHECK 10 — images are re-embedded there,
+                  so that is where loss can occur and where it is gated.
+  Step 5 PYQExtract IMG-1..IMG-6 — the format distribution that drives Step 7
+                  generation is derived there, so a missed figure corrupts it.
+  Step 2b (here)  neither produces nor consumes a figure. There is nothing to
+                  gate. A gate here would fail every text-extracted paper for
+                  a condition that is the intended operating mode.
+
+WHAT WOULD MAKE THIS WRONG: if the scan ever began deriving question FORMAT,
+counting questions, or feeding anything other than subtopic names forward.
+None of those is true today. Revisit this banner if any of them changes.
+```
+
+```
 FILE READING METHOD (v1.7):
   For Drive-sourced papers, use Google Drive:read_file_content for text extraction.
   This provides question stems and options but OMML formulas may render as
@@ -2156,10 +2856,9 @@ def collect_row_files(drive_folder_id, cached_inventory=None):
 
     return files
 
-def extract_year_from_filename(filename):
-    """Extract year from Row file filename."""
-    m = re.search(r'(\d{4})', filename)
-    return int(m.group(1)) if m else None
+# v2.20 — DELEGATED (Cluster G). The local copy searched the WHOLE path for any 4-digit run,
+# so a digit-bearing folder could supply the year instead of the file.
+extract_year_from_filename = bc.extract_year_from_filename
 
 def deduplicate_files(files):
     """EC-P22: If two files have the same date+shift (ignoring trailing
@@ -2239,24 +2938,76 @@ any batch scanning (S3-5):
      For uploaded files: use python-docx or text read.
   2. For each file: count total questions using Q_PATTERNS from Step 5's E-2:
        Q_PATTERNS = [
-         r'^Q\.\s*(\d+)\s+',        r'^Q(\d+)\.\s+',
-         r'^Question\s+(\d+)\s*[:.] ', r'^(\d+)\.\s+(?!\d)',
-         r'^\((\d+)\)\s+'
+         r'^Q\.\s*(\d+)\s+',        r'^Q(\d+)\.\s+'
        ]
+     TWO patterns, matching blueprint_core exactly — never five. Row files are
+     NORMALISED (questions "Q.N", options "N. text"), so a bare-number pattern
+     would count every OPTION as a question: 100 questions would count as 500.
      Mark each count as:
        ✓ = verified by parsing (file content was readable, Q-patterns matched)
        * = from filename pattern (file unreadable but filename has Q range like Q1-Q150)
   3. Extract year from filename (reuse extract_year_from_filename from S3-2)
+
+  3b. DETERMINE PATTERN ERA per paper (v2.19 — ENGINE-BACKED, exam-agnostic).
+
+      Call the ENGINE. Do NOT re-implement this logic here:
+
+        import blueprint_core as bc     # routed for PYQScan in routes.json
+
+        cfg_total, min_cfg_q, max_cfg_q = bc.exam_config_bounds(exam_config)
+        cfg_type = bc.type_resolver_from_config(exam_config)   # None if no marking_scheme
+        era = bc.classify_paper_era(
+                  observed_q_numbers,          # Q-numbers parsed from THIS file
+                  cfg_total, min_cfg_q, max_cfg_q,
+                  observed_types=observed_types,   # {q_num: 'MCQ'|'MSQ'|'NAT'} if detected
+                  cfg_type_for_q=cfg_type)
+
+      Returns exactly one of bc.PATTERN_ERAS:
+        'current'    — same count, all Q-numbers in range, types agree with marking_scheme
+        'larger'     — more questions than the current pattern
+        'smaller'    — fewer questions than the current pattern
+        'renumbered' — right count, but Q-numbers outside every configured range
+        'retyped'    — right count and numbering, but question TYPES disagree
+      Papers whose count could not be verified by parsing (marked * ) are era='unverified'
+      and are never guessed — 'unverified' is a pre-scan display value, not an engine era.
+
+      v2.19 REPLACED A TRANSCRIBED COPY. v2.18 spelled this chain out in prose here while
+      blueprint_core carried its own implementation, and routes.json gave PYQScan no engine
+      to call — two independent definitions of "current era" that could drift apart silently.
+      They are now one. The engine is also where the 'retyped' era was added: an exam that
+      keeps its question COUNT but changes its question TYPES (all-MCQ becoming MCQ/MSQ/NAT
+      is the textbook case) used to classify as 'current' and blend straight in. Across ~200
+      exams a type or marking change is at least as common as a count change.
+
+      Record out_of_range for era in ('larger', 'renumbered'): these are exactly the
+      questions RULE 4's OUT-OF-RANGE branch routes through bc.OUT_OF_PATTERN. Note that
+      era='smaller' produces NO out-of-range questions — a short paper merely leaves later
+      ranges empty (EC-P9 first clause), which is why the shorter direction was never a
+      data-loss risk and the longer one always was.
+
+      MARKER-MODE EXAMS (v2.19 — previously had NO era detection at all).
+      When marker_mode = true, questions are grouped by === Module === separators and
+      Q-ranges are unused, so the Q-number chain above cannot run. A pattern change still
+      shows up, in a different place: a RETIRED MODULE. Compare each paper's observed module
+      names against exam_config.sections[].name:
+        unknown_modules = [m for m in observed_modules
+                           if m not in {s['name'] for s in exam_config['sections']}]
+      Any unknown module means the paper predates (or postdates) the current pattern; label
+      the paper era='larger' when it carries modules the current pattern does not have.
+      Report them by name. Do NOT let EC-S2 fuzzy matching silently absorb a retired module
+      into a surviving section — that is a mis-assignment, not a match, and it is exactly the
+      marker-mode analogue of the out-of-range data loss fixed in Framework_PYQSort v1.9.
+
   4. Display a YEAR-WISE PAPER INVENTORY table:
 
      TASK 1 — PRE-SCAN CONFIRMATION
 
-     | Year | Paper File | Q Count |
-     |------|-----------|---------|
-     | 2025 | [ExamCode]_12-Sep-2025_Shift-1_Q1-Q100.docx | 100 ✓ |
-     | 2025 | [ExamCode]_13-Sep-2025_Shift-2_Q1-Q100.docx | 100 * |
-     | ...  | ...       | ...     |
-     | TOTAL | [N] papers | [T] questions |
+     | Year | Paper File | Q Count | Pattern Era |
+     |------|-----------|---------|-------------|
+     | 2025 | [ExamCode]_12-Sep-2025_Shift-1_Q1-Q100.docx | 100 ✓ | current |
+     | 2025 | [ExamCode]_13-Sep-2025_Shift-2_Q1-Q100.docx | 100 * | unverified |
+     | ...  | ...       | ...     | ...         |
+     | TOTAL | [N] papers | [T] questions | [C] current / [L] larger / [S] smaller |
 
      ✓ = verified by parsing, * = from filename pattern (same structure as verified files)
 
@@ -2272,6 +3023,40 @@ any batch scanning (S3-5):
       Once confirmed, I will proceed with subtopic-level scanning
       ([BATCH_SIZE] papers per batch).
       If anything looks wrong, tell me and I will re-scan."
+
+  5b. PATTERN-ERA NOTICE (v2.18 — print ONLY when some paper is not era='current';
+      the single-era corpus, which is the common case across the ~200 exams, sees
+      no extra output at all and this gate is unchanged for it):
+
+     "PATTERN ERA: this corpus spans more than one exam pattern.
+        current-pattern papers : [C]  ([total] Q each)
+        larger-pattern papers  : [L]  (e.g. [file]: [n] Q — [k] Q above the
+                                       current pattern's last question)
+        smaller-pattern papers : [S]
+
+      Both eras are SCANNED and both feed the taxonomy. That is deliberate: the
+      reason older papers are retained is the variety of concepts, phrasings,
+      difficulties and question formats they expose, and a subtopic seen across
+      many eras yields better generated questions than one seen twice. Questions
+      beyond the current pattern's last Q-number are NOT dropped — RULE 4 routes
+      them through the OUT_OF_PATTERN sentinel and classifies them against the full
+      taxonomy.
+
+      What this does and does not affect:
+        SAFE   — question COUNTS. Framework_Blueprint §4-2 uses r_avg only as a
+                 proportion; the absolute budget always comes from exam_config's
+                 sec_qs. A 100-Q historical paper cannot produce a 100-Q mock when
+                 the pattern says 60.
+        AT RISK— subject/subtopic MIX and format mix, which are inherited from
+                 whichever eras dominate the corpus. §3 recency weighting (last 2
+                 valid years x2) dampens this but does not remove it: an exam with
+                 many old-era years still lets the retired pattern outweigh the
+                 live one in r_avg.
+
+      No action is required to proceed — this is a report, not an error. If the mix
+      matters more to you than the variety for this exam, restrict the corpus to
+      current-pattern papers and re-run. That is an operator decision and the
+      framework will not make it silently in either direction."
 
   6. WAIT for explicit user confirmation. Do NOT proceed to S3-5 until
      confirmed. The confirmed paper count and total questions become the
@@ -2301,6 +3086,11 @@ For each paper in the batch:
      c. Determine SECTION:
         - If marker_mode=true: use module separator (=== Subject ===)
         - If marker_mode=false: use Q-number range from exam_config.sections
+        - If marker_mode=false AND the Q-number is outside every configured range
+          (a previous-era paper larger than the current pattern): assign the
+          OUT_OF_PATTERN sentinel and classify against the FULL taxonomy in (d).
+          NEVER None, NEVER dropped, NEVER guessed into the nearest section.
+          See RULE 4 OUT-OF-RANGE branch (§8) and EC-P9.
      d. Classify into (Topic, Subtopic) within that section:
         - Match against current taxonomy
         - Use universal classification rules (§8)
@@ -2781,6 +3571,23 @@ def run_scan(exam_code, progress, paper_queue, total_available):
             year = paper_ref.get('year')
             if year and year not in progress['_meta']['years_covered']:
                 progress['_meta']['years_covered'].append(year)
+
+            # v2.22 — PERSIST AFTER EVERY PAPER (DEFECT C, third instance; found by
+            # validate_framework_md Check X, not by reading). scan_paper() mutates
+            # progress in memory — the scanned list, the paper count, the years covered
+            # and any newly discovered subtopics already added to the taxonomy above.
+            # Until v2.22 the only save was after the batch, so an exception on paper 3
+            # discarded papers 1 and 2 along with every subtopic they discovered, and the
+            # progress file showed them as never scanned.
+            # This does NOT disturb convergence. consecutive_empty_batches is updated
+            # below, per BATCH and only for complete batches, and EC-P26 already
+            # establishes that a partial batch persists its papers WITHOUT touching that
+            # counter. Saving per paper produces exactly the state EC-P26 describes; it
+            # simply reaches it on an exception as well as on a context limit.
+            # BATCH_SIZE is unchanged — batching remains the pacing unit, not the
+            # durability unit.
+            save_scan_progress(progress, exam_code)
+            save_classifications(classifications, exam_code)
 
         # v1.7: Update convergence tracking — ONLY for complete batches
         # A batch with 2 empty papers + 1 discovery = RESET (not increment)
@@ -3378,6 +4185,178 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ## §4 — PHASE 0c: ANALYSIS DOC GENERATION (for approval)
 
+### S4-0 — TAXONOMY RECONCILIATION ENGINE (v2.17, MANDATORY before S4-4)
+
+```
+PURPOSE
+  PYQApprove is executed by an operator who is non-technical and non-academic
+  BY ROLE DEFINITION. Any gate that asks that operator an academic question is
+  not a gate — it is theatre with two possible outcomes (rubber-stamp or stall).
+  S4-0 converts every question the old S4-4 asked a human into a deterministic
+  machine verdict, and constrains the residue so tightly that the operator never
+  exercises academic judgment in ANY branch.
+
+EXECUTION
+  Module: reconcile_taxonomy.py (tracked in SPEC_MANIFEST.json)
+  Run AFTER the Analysis doc is generated (S4-1/S4-2), BEFORE the gate (S4-4).
+
+    from reconcile_taxonomy import (reconcile, apply_tier1, adjudicate,
+                                    conservation_check, build_approval_record)
+
+    findings          = reconcile(syllabus_items, scan_taxonomy, classifications,
+                                  exam_config, syllabus_subjects=syllabus_subjects,
+                                  group_topic_map=group_topic_map,
+                                  unanchorable_subjects=unanchorable_subjects,
+                                  declared_deviations=declared_deviations,
+                                  name_canonicalizations=name_canonicalizations,
+                                  syllabus_style=syllabus_style)
+    resolved, escalated = apply_tier1(findings)
+    adjudications     = adjudicate(escalated, verdicts, prior_record)
+    conservation      = conservation_check(classifications, final_taxonomy,
+                                           quarantined_paths)
+    record            = build_approval_record(exam_code, findings, resolved,
+                                              adjudications, conservation)
+
+INPUTS
+  syllabus_subjects  taxonomy_draft.json['syllabus_subjects']   (S2-4, v2.17)
+  syllabus_items     taxonomy_draft.json['syllabus_items']      (S2-4, v2.17)
+  scan_taxonomy      scan_progress.json['taxonomy']             (S3-8)
+  classifications    [ExamCode]_classifications.json            (S3-8)
+  group_topic_map        taxonomy_draft.json['group_topic_map']        (S2-4)
+  unanchorable_subjects  taxonomy_draft.json['unanchorable_subjects']  (S2-4)
+  declared_deviations    taxonomy_draft.json['declared_deviations']    (S2-4)
+  name_canonicalizations taxonomy_draft.json['name_canonicalizations'] (S2-4)
+  syllabus_style         taxonomy_draft.json['syllabus_style']         (S2-1e)
+  prior_record       [ExamCode]_approval_record.json if present (INV-6 replay)
+
+  ALL of the above MUST be passed to reconcile(). An artifact produced at S2-4
+  and not consumed here is a silent regression: the anchoring state would be
+  recorded at Step 2a and then invisible at the gate where approval happens.
+
+─────────────────────────────────────────────────────────────────────
+APPLICABILITY SCOPING (R1 — MANDATORY, read before running S4-0)
+─────────────────────────────────────────────────────────────────────
+S4-0 requires the S2-3e provenance record. Exams created before v2.17 do not
+have one. The scoping rule below exists because the naive response to a
+missing record — "re-run PYQDraft" — is DANGEROUS: PYQDraft RE-DERIVES the
+taxonomy, and re-deriving a taxonomy that is already LOCKED can silently
+diverge it from mock tests already generated against it. A taxonomy is a
+CONTRACT with every downstream artifact built on it.
+
+  RULE: S4-0 NEVER triggers re-derivation of a LOCKED taxonomy. Ever.
+
+Determine mode BEFORE running S4-0:
+
+  A) NEW EXAM — no [ExamCode]_PYQ_Analysis.docx in project Files.
+     Taxonomy is not yet locked.
+     -> syllabus_items present  : FULL MODE. Run S4-0 Tier 0/1/2. Auto-lock.
+     -> syllabus_items absent   : HARD STOP —
+          "taxonomy_draft.json has no syllabus provenance record (pre-v2.17)
+           and this exam has no locked taxonomy. Re-run PYQDraft to
+           regenerate it, then re-run PYQApprove."
+        Safe here ONLY because nothing is locked and nothing depends on it.
+
+  B) LEGACY EXAM — [ExamCode]_PYQ_Analysis.docx already exists AND no
+     [ExamCode]_approval_record.json. Taxonomy is LOCKED under v2.16 rules.
+     -> DEGRADED MODE. Do NOT hard stop. Do NOT re-derive. Do NOT auto-lock.
+        Run ONLY the checks that need no provenance record:
+          C3 PATH_EXTRA (vs the locked Analysis doc taxonomy)
+          C4 ratio, C5 near-duplicate, INV-5 conservation
+        Emit approval_record.json with mode="DEGRADED" and the checks that
+        were SKIPPED explicitly named (C1, C2, C6 — cannot run without
+        provenance). Then fall through to the v2.16 human gate text.
+        A degraded record MUST NOT report status CLEAN — CLEAN asserts a
+        full reconciliation that did not occur. Use status="DEGRADED".
+
+  C) RE-RUN — [ExamCode]_approval_record.json exists.
+     -> FULL MODE with INV-6 replay of all stored verdicts.
+
+  Migration path for a legacy exam (OPTIONAL, operator never initiates):
+    A locked exam is migrated to FULL MODE only by deliberately
+    reconstructing syllabus_items against the EXISTING locked taxonomy —
+    mapping recorded to what IS, never re-derived into what WOULD BE. This
+    is a maintenance task, never part of a PYQApprove run.
+
+─────────────────────────────────────────────────────────────────────
+TIER 0 — DETERMINISTIC RECONCILIATION (no judgment, no human)
+─────────────────────────────────────────────────────────────────────
+  C1 SUBJECT_MISSING    syllabus subject with no taxonomy section      -> Tier 2
+     SUBJECT_EXTRA      taxonomy section not in syllabus subjects      -> Tier 2
+  C2 ITEM_UNMAPPED      syllabus item with empty mapped_paths          -> Tier 2
+                        (the data-loss class — MPPSC Botany defect)
+  C3 PATH_EXTRA         taxonomy path claimed by no syllabus item      -> Tier 1
+  C4 RATIO_WARN  >= 2.0x  informational                                -> Tier 0
+     RATIO_HARDSTOP >= 3.0x                                            -> Tier 2
+  C5 NEAR_DUPLICATE     >75% name similarity within the same Topic     -> Tier 2
+  C6 TOPIC_OVER_AGGREGATION  <=4 topics for >=10 syllabus items        -> Tier 2
+
+  All comparison is via normalize_label(): NFKC, unicode-dash folding,
+  '&'->'and', punctuation strip, whitespace collapse, casefold. This prevents
+  false MISSING/EXTRA from cosmetic variance (en-dash vs hyphen, trailing
+  space, case) — the exact failure class §7 NAME CONSISTENCY CONTRACT governs.
+
+─────────────────────────────────────────────────────────────────────
+TIER 1 — CODIFIED AUTO-POLICY (no judgment, no human)
+─────────────────────────────────────────────────────────────────────
+  PATH_EXTRA with pyq_count >= MIN_PATTERN_SIZE (3)  -> AUTO-RETAIN
+  PATH_EXTRA with pyq_count <  MIN_PATTERN_SIZE      -> AUTO-QUARANTINE
+
+  RATIONALE (why this needs no human): S3-6 already gates every scan-added
+  subtopic at MIN_PATTERN_SIZE >= 3 PYQs. A subtopic that is out-of-syllabus but
+  present at PYQApprove is therefore PYQ-EVIDENCED BY CONSTRUCTION — real past
+  questions were classified into it. S2-3's anti-suppression rule (MPPSC Botany:
+  suppressing real content is data loss, not conservative merging) settles the
+  call. Retention is also the ASYMMETRIC-COST choice: an extra low-count subtopic
+  costs a near-zero blueprint allocation; a dropped subtopic is unrecoverable
+  downstream. Retention is logged, never asked.
+
+─────────────────────────────────────────────────────────────────────
+TIER 2 — EVIDENCE-BOUND ADJUDICATION (never routed to the operator)
+─────────────────────────────────────────────────────────────────────
+  Only genuine build defects reach Tier 2. Each verdict MUST supply:
+    action            closed set per class (see SAFE_DEFAULT)
+    confidence        HIGH | LOW
+    syllabus_present  bool — is the item in the syllabus?
+    syllabus_quote    verbatim syllabus text (required for any destructive action)
+    rationale         short justification
+
+  SIX HARD INVARIANTS — a verdict CANNOT override these. An unsafe verdict is
+  REWRITTEN to the safe default (not rejected), so a bad adjudication degrades
+  to data-preserving, never to data loss:
+    INV-1 NO_SUPPRESS_SYLLABUS         never remove a syllabus-enumerated item
+    INV-2 NO_DROP_PYQ_BACKED           never drop a path with >= 3 PYQs
+    INV-3 LOW_CONFIDENCE_SAFE_DEFAULT  non-HIGH confidence -> safe default
+    INV-4 EVIDENCE_REQUIRED            destructive action needs syllabus_quote
+    INV-5 CONSERVATION                 no classified question may be orphaned
+    INV-6 REPLAY_DETERMINISM           a finding already adjudicated in
+                                       approval_record.json is REPLAYED verbatim,
+                                       never re-decided
+
+  INV-6 is the determinism guarantee. Finding IDs are content fingerprints
+  (sha256 of class + normalized identity), so the same finding yields the same
+  ID across sessions and model instances. Re-running PYQApprove replays stored
+  verdicts instead of re-deriving them — closing the framework's known
+  "spec-as-prose is non-deterministic across instances" failure class at the
+  adjudication boundary.
+
+  ADJUDICATION IS NOT DELIVERED AS PROSE. It is a structured record persisted to
+  [ExamCode]_approval_record.json. Prose commentary about findings is an
+  anti-editorializing violation with the same force as S3-4.
+
+─────────────────────────────────────────────────────────────────────
+STATUS (three states — Tier 2 activity is never invisible)
+─────────────────────────────────────────────────────────────────────
+  CLEAN              zero Tier 2 escalations. Auto-lock.
+  CLEAN_ADJUDICATED  Tier 2 ran, all resolved safely. Auto-lock, logged.
+  HELD               RE_DERIVE, RATIO_HARDSTOP, or FAILED CONSERVATION (INV-5).
+                     Taxonomy NOT locked.
+  DEGRADED           legacy exam (mode B). Partial checks only, NO auto-lock,
+                     falls through to the v2.16 human gate. Never CLEAN.
+
+  A CLEAN result MUST NOT be printed when adjudications occurred — masking
+  Tier 2 activity behind CLEAN defeats the audit trail.
+```
+
 ### S4-1 — Generate merged Analysis doc from taxonomy
 
 ```
@@ -3466,9 +4445,10 @@ def generate_merged_analysis_doc(taxonomy, exam_code, section_order):
 
 ```
 APPROVE MODE DELIVERY (S10-1 closed set):
-  Deliver via present_files: EXACTLY 2 files.
+  Deliver via present_files: EXACTLY 3 files (v2.17).
     1. [ExamCode]_PYQ_Analysis.docx  (single merged doc)
     2. [ExamCode]_exam_config.json
+    3. [ExamCode]_approval_record.json  (S4-0 audit + INV-6 replay ledger)
   No other files. Run S10-2 pre-delivery checklist before present_files.
   scan_progress.json and classifications.json are INPUTS — do NOT forward.
 
@@ -3478,41 +4458,108 @@ This file is needed by PYQSort for section detection in Q-range mode.
 Both the Analysis doc and exam_config.json go to [ExamCode] project Files section.
 ```
 
-### S4-4 — Approval gate
+### S4-4 — Approval gate (v2.17 — VERDICT, not questionnaire)
 
 ```
+The gate PRINTS A VERDICT produced by S4-0. It NEVER asks the operator an
+academic question. There are exactly two operator-facing branches, and in
+neither does the operator exercise academic judgment.
+
+MANDATORY ORDER: S4-1/S4-2 (generate doc) -> S4-0 (reconcile) -> S4-4 (print).
+Printing S4-4 without a completed S4-0 record is a spec violation.
+
+─────────────────────────────────────────────────────────────────────
+BRANCH A — status CLEAN or CLEAN_ADJUDICATED  => TAXONOMY AUTO-LOCKED
+            (mode A/C only — a DEGRADED run can NEVER reach Branch A)
+─────────────────────────────────────────────────────────────────────
 Print:
-  "Phase 0c complete. Merged Analysis doc generated:
+  "Phase 0c complete. Taxonomy reconciled and LOCKED.
+
+   RECONCILIATION: [CLEAN | CLEAN_ADJUDICATED]
+     Syllabus subjects   : [K] / [K] present as sections
+     Syllabus items      : [N] / [N] mapped to taxonomy paths
+     Scan-discovered     : [R] retained (PYQ-evidenced), [Q] quarantined (<3 PYQs)
+     Taxonomy ratio      : [S]/[N] = [ratio]x   (limit [RATIO_HARDSTOP]x)
+     Near-duplicates     : [D] pair(s)
+     Question conservation: [T] classified, 0 orphaned
+     Topic anchoring     : [P] subject(s) anchored, [U] unanchorable (flat syllabus)
+     Declared deviations : [V] recorded
+     Name corrections    : [W] destination spelling(s) snapped to taxonomy (§7)
+     Syllabus style      : [subject]=[ENUMERATED|PROSE] ([E] entries, [A] concepts)
+
+   Unanchorable subjects (flat syllabus — topic placement NOT verified):
+     [Subject]
+     ...
+   Declared deviations (departures from syllabus grouping, recorded):
+     [SYL-id] [Subject > Group] [rule] — [reason]
+     ...
+
+   Retained beyond syllabus (auto, PYQ-evidenced):
+     [Subject > Topic > Subtopic]  — [n] PYQs
+     ...
+   Quarantined (below 3-PYQ threshold, recorded in approval_record.json):
+     [Subject > Topic > Subtopic]  — [n] PYQs
+     ...
+
+   Files:
    • [ExamCode]_PYQ_Analysis.docx
-     Sections:
-       [Section1]: [N1] topics, [M1] subtopics
-       [Section2]: [N2] topics, [M2] subtopics
-       ...
-     Grand total: [T] topics, [S] subtopics across [K] sections
    • [ExamCode]_exam_config.json
+   • [ExamCode]_approval_record.json
 
-   ★ APPROVAL REQUIRED ★
-   Review the Analysis doc carefully:
-   - Are all subjects from the syllabus present as sections?
-   - Does each distinct syllabus item have its own Topic
-     (not merged into super-categories like 'Vocabulary' or 'Grammar')?
-   - Are subtopics faithful to the syllabus structure — does each
-     explicitly identified syllabus entry correspond to a subtopic?
-   - Is anything MISSING that the syllabus mentions?
-   - Is anything EXTRA that is NOT in the syllabus?
-   - Taxonomy ratio: [total_subtopics] / [syllabus_entries] = [ratio]×
-     (guardrail from S2-3: flag at 2.0×, hard-stop at 3.0×)
-   - Near-duplicate check: 0 pairs with >75% name similarity
+   YOUR NEXT ACTION (2 steps, no review needed):
+   1. Upload all 3 files to the [ExamCode] project Files section
+   2. Run: PYQSort   (upload 1 Row file, same project)"
 
-   After approval:
-   1. Upload Analysis doc + exam_config.json to [ExamCode] project Files
-   2. Taxonomy is LOCKED — no further changes after upload
-   3. Start PYQSort: upload 1 Row file + trigger PYQSort in [ExamCode] project
+  If [R] == 0 and [Q] == 0, omit both retained/quarantined lists entirely.
+  NO approval prompt. NO confirmation request. NO academic question.
 
-   If changes needed:
-   - Edit the taxonomy_draft.json or re-run --taxonomy
-   - Re-run --scan if needed
-   - Re-run --approve to regenerate the Analysis doc"
+─────────────────────────────────────────────────────────────────────
+BRANCH B — status HELD  => TAXONOMY NOT LOCKED
+─────────────────────────────────────────────────────────────────────
+Print:
+  "Phase 0c HELD — taxonomy NOT locked. A build defect was detected.
+
+   HELD ON:
+     [finding class] — [item]
+       [one-line machine detail]
+     ...
+
+   This is a taxonomy construction defect, not an operator decision.
+   Do NOT upload the Analysis doc. Do NOT run PYQSort.
+
+   YOUR NEXT ACTION (1 step):
+   1. Report the HELD line(s) above and re-run: PYQApprove
+      (or re-run PYQDraft if the fix requires taxonomy re-derivation)
+
+   Full detail: [ExamCode]_approval_record.json"
+
+  The operator's entire job in Branch B is to RELAY the named finding.
+  They are never asked to evaluate, judge, or decide it.
+
+─────────────────────────────────────────────────────────────────────
+BRANCH C — status DEGRADED (legacy exam, mode B)  => NO AUTO-LOCK
+─────────────────────────────────────────────────────────────────────
+Print the partial reconciliation result, NAME the skipped checks (C1/C2/C6),
+state that the taxonomy remains under v2.16 rules, then print the v2.16
+approval-gate text unchanged. The operator's position is exactly what it was
+before v2.17 — no better, no worse, and critically: nothing is re-derived.
+
+Do NOT present a DEGRADED run as verified. Partial checks reported as if
+complete is the false-confidence failure this scoping exists to prevent.
+
+─────────────────────────────────────────────────────────────────────
+ANTI-EDITORIALIZING (same force as S3-4)
+─────────────────────────────────────────────────────────────────────
+The gate output is the CLOSED SET above. Do NOT add:
+  ✗ any question directed at the operator
+  ✗ "please confirm", "please review", "does this look right"
+  ✗ commentary, assessment, or recommendation prose about the taxonomy
+  ✗ any request to verify syllabus faithfulness, completeness, or coverage
+Every such question is answered by S4-0 or it is a defect in S4-0.
+
+POST-LOCK: after Branch A upload, the taxonomy is LOCKED. approval_record.json
+must accompany it — later PYQApprove runs REPLAY its verdicts (INV-6). Losing
+this file forfeits the determinism guarantee.
 ```
 
 ---
@@ -3530,31 +4577,170 @@ These are the output of PYQSort — one sorted .docx per original Row file.
 Processing model: batch up to 5 files at a time (BATCH_SIZE_COUNTS = 5).
 Accumulate counts in a count_progress.json across batches.
 
+═══════════════════════════════════════════════════════════════════════
+v2.21 — ACQUISITION IS DELEGATED TO CLUSTER H / corpus_io
+═══════════════════════════════════════════════════════════════════════
+Step 4 and Step 5 read the SAME corpus from the SAME folder through the SAME
+connector. They must not hold two independent enumerations — that is the drift
+the framework forbids, and it is how Step 4 came to carry every defect that
+took Step 5 down on 2026-07-24 while looking untouched.
+
+  blueprint_core (Cluster H)  DECIDES  — screening rules, identity, partition
+  corpus_io                   PERFORMS — listing, pagination, fetch, decode
+
+Never restate a threshold here. DRIVE_CAP, SIZE_BUDGET and CHAT_FILE_LIMIT
+have one definition and every step imports it.
+```
+
+```python
+import blueprint_core as bc      # Cluster H — pure acquisition decisions
+import corpus_io                 # I/O shell — Drive listing, guarded fetch, decode
+
+SORTED_RE = re.compile(r'_Sorted_Q\d+-Q\d+\.docx$', re.I)
+
+
+def collect_sorted_papers(folder_id, list_fn):
+    """Enumerate the Drive folder, keep only sorted PYQ files, plan transport.
+
+    v2.21 — replaces a name-only listing that captured neither size nor mimeType.
+
+    WHAT THE OLD FILTER MISSED, ALL SILENTLY:
+      * fileSize — carried inline in the listing response and simply thrown away,
+        so no pre-flight partition was possible and a paper above the connector's
+        cap surfaced only when the download was attempted, deep inside the batch
+        loop. Capturing it costs ZERO extra API calls.
+      * a native Google Doc's title has no .docx suffix, so it matched nothing and
+        was neither collected NOR reported — the paper vanished from the count.
+      * legacy .doc was indistinguishable from .docx by suffix alone in the old
+        pattern's intent; python-docx cannot open it, deferring a certain failure.
+      * two files resolving to one paper identity ("X.docx" and "X (1).docx", which
+        a browser creates on every remediation round trip) were counted TWICE.
+    corpus_io.collect_corpus_files handles all four, paginates to exhaustion, and
+    raises DuplicatePaperError rather than choosing between two identities.
+    """
+    papers, rejects = corpus_io.collect_corpus_files(list_fn, folder_id)
+
+    # ── sorted-file filter (unchanged intent, EC-P29) ───────────────────────
+    # The PYQ folder legitimately also holds Row files, the Analysis doc and other
+    # documents. Only PYQSort output may be counted.
+    sorted_papers, non_sorted = [], []
+    for p in papers:
+        (sorted_papers if SORTED_RE.search(p['name']) else non_sorted).append(p)
+
+    for p in non_sorted:
+        print(f"  Skipped non-sorted file: {p['name']}")
+    for r in rejects:
+        print(f"  REJECTED: {r['name']} — {r['reason']}")
+
+    if not sorted_papers:
+        raise SystemExit(
+            "No sorted PYQ files found in Drive folder.\n"
+            "Sorted files must match pattern: *_Sorted_Q1-QN.docx\n"
+            + (f"{len(rejects)} entry(ies) were rejected — see the reasons above; "
+               "one of them may be the corpus." if rejects else ""))
+
+    return sorted_papers, non_sorted, rejects
+
+
+def assert_no_session_duplicates(sorted_papers, session_keyword):
+    """HARD STOP when two sorted files describe the same date + session.
+
+    v2.21 — REPLACES "keep the LARGER file (more likely to have images intact)".
+
+    That rule is now wrong twice over:
+      1. Under the 10 MiB connector cap it selects precisely the copy that CANNOT
+         be fetched, converting a cosmetic duplicate into a blocked paper.
+      2. Phase B's standard is zero tolerance — S5-4a permits not one question
+         missing or extra. A re-sorted paper and the superseded copy it replaced
+         differ in content, so choosing between them silently CHANGES THE COUNTS.
+         Choosing by size chooses by accident.
+    The image-integrity reasoning behind the old tiebreak is also obsolete:
+    PYQSort v1.12 CHECK 10 gates image survival where the file is produced, so a
+    sorted file that lost a figure cannot be delivered in the first place.
+
+    Canonical-identity duplicates ("X.docx" vs "X (1).docx") are caught earlier,
+    at enumeration, by corpus_io.collect_corpus_files. This catches the case
+    canonical identity cannot see: the same paper sorted twice under genuinely
+    different names, e.g. _Sorted_Q1-Q100.docx and _Sorted_Q1-Q99.docx.
+    """
+    # Multi-date files ("_to_") represent unique combined papers — excluded, as before.
+    pattern = re.compile(
+        r'(\d{1,2}-[A-Za-z]{3}-\d{4})_.*?' + re.escape(session_keyword) + r'-(\d+)_Sorted_',
+        re.I)
+    groups = {}
+    for p in sorted_papers:
+        if '_to_' in p['name']:
+            continue
+        m = pattern.search(p['name'])
+        if not m:
+            continue                      # no parsable date+session — nothing to compare
+        groups.setdefault((m.group(1).lower(), m.group(2)), []).append(p)
+
+    clashes = {k: v for k, v in groups.items() if len(v) > 1}
+    if clashes:
+        lines = []
+        for (date, sess), files in sorted(clashes.items()):
+            lines.append(f"  {date} {session_keyword} {sess}:")
+            for f in files:
+                sz = f.get('fileSize')
+                lines.append(f"    - {f['name']}" + (f"  ({sz:,} bytes)" if sz else ""))
+        raise SystemExit(
+            "HARD STOP — two sorted files describe the same paper:\n"
+            + "\n".join(lines)
+            + "\n\nDelete the superseded copy from Drive and re-run. This is NOT resolved "
+              "automatically: the two files differ in content, so counting either one is a "
+              "decision about the numbers, and Phase B tolerates no error at all. Keeping "
+              "the larger file — the pre-v2.21 rule — would also pick the copy least likely "
+              "to fit under the "
+            + f"{bc.DRIVE_CAP:,}-byte Drive download cap.")
+
+
+def plan_transport(sorted_papers):
+    """Split the corpus into the Drive lane and the upload lane BEFORE fetching.
+
+    Predictive, not binding: the runtime fallback in S5-4 is what guarantees
+    correctness. A paper mispredicted here still completes, via upload.
+    """
+    part = bc.partition_by_transport(sorted_papers)
+    if part['upload']:
+        plan = bc.upload_batch_plan(len(part['upload']), BATCH_SIZE_COUNTS)
+        print(f"\n  TRANSPORT PLAN")
+        print(f"    Drive lane  : {len(part['auto'])} paper(s) fetch automatically")
+        print(f"    Upload lane : {len(part['upload'])} paper(s) exceed the "
+              f"{bc.DRIVE_CAP:,}-byte download cap and must be uploaded to chat")
+        print(f"    Chat accepts {bc.CHAT_FILE_LIMIT} files per conversation — "
+              f"{plan['papers_per_chat']} papers across {plan['batches_per_chat']} "
+              f"batches at BATCH_SIZE_COUNTS={BATCH_SIZE_COUNTS}, "
+              f"so {plan['chats_needed']} chat session(s) for the upload lane.")
+        print(f"    Permanent fix: run  PYQCompress  on those papers once and replace "
+              f"them in Drive — they then fetch automatically for Steps 2b, 4 and 5.")
+    return part
+```
+
+```
 FILE FILTERING (prevent non-sorted files from contaminating counts):
-  1. List all .docx files from Drive folder (recursive, per EC-P23).
-  2. Filter: keep ONLY files matching the sorted filename pattern:
-       r'_Sorted_Q\d+-Q\d+\.docx$'
-     Files that do NOT match this pattern are SKIPPED with a warning:
+  1. Enumerate via corpus_io.collect_corpus_files (recursive, paginated, per EC-P23).
+  2. Keep ONLY files matching r'_Sorted_Q\d+-Q\d+\.docx$'.
+     Non-matching .docx files are SKIPPED with a warning:
        "Skipped non-sorted file: [filename]"
      This prevents Row files, the Analysis doc, or other .docx files in the
      same Drive folder from being processed.
-  3. If 0 sorted files found → "No sorted PYQ files found in Drive folder.
+  3. Every REJECTED entry (native Google Doc, shortcut, legacy .doc, no size)
+     is printed with its reason. Nothing is ever dropped silently — a paper that
+     disappears without an error is a year of the corpus that nobody notices.
+  4. If 0 sorted files found → "No sorted PYQ files found in Drive folder.
      Sorted files must match pattern: *_Sorted_Q1-QN.docx"
 
-DUPLICATE DETECTION (prevent inflated counts):
-  After filtering, check for duplicate sorted files (same date + session):
-  1. Separate multi-date files (filename contains "_to_") — these represent
-     unique combined papers and are EXCLUDED from dedup.
-  2. For single-date files, extract date + session from filename using:
-       r'(\d{1,2}-[A-Za-z]{3}-\d{4})_.*?(\w+)-(\d+)_Sorted_'
-       → captures (date, session_keyword, session_number)
-  3. Group single-date files by (date, session_number) pair.
-  4. If any group has >1 file → keep the LARGER file (more likely to have
-     images intact), skip the smaller. If sizes equal, keep alphabetically-
-     first filename. Log:
-       "Duplicate detected: [file1] vs [file2] — keeping [larger]"
-  5. Deduplicated list (single-date survivors + all multi-date files)
-     becomes the input for Task 1 and all subsequent steps.
+DUPLICATE DETECTION (prevent inflated or wrong counts) — v2.21, both HARD STOP:
+  a. CANONICAL IDENTITY — "X.docx" and "X (1).docx", or the same paper in two
+     subfolders. Caught at enumeration by corpus_io.collect_corpus_files, which
+     raises DuplicatePaperError naming both files.
+  b. SAME DATE + SESSION, different filenames — e.g. a paper re-sorted after a
+     correction, leaving _Sorted_Q1-Q100.docx beside _Sorted_Q1-Q99.docx.
+     Caught by assert_no_session_duplicates(), which names both and stops.
+     Multi-date files (filename contains "_to_") are excluded from this check —
+     they represent unique combined papers, as before.
+  Neither is resolved automatically. See EC-P30 for the reasoning.
 ```
 
 ### S5-1a — TASK 1: Pre-Count Confirmation Gate
@@ -3612,18 +4798,16 @@ files, or parsing failures BEFORE counting effort is wasted.
 # This parser MUST use the SAME patterns as Step 5's parse_taxonomy_level().
 # If these diverge, Phase B counts won't match Step 5's Frequency xlsx.
 
-def parse_taxonomy_level(text):
-    """
-    IDENTICAL to Step 5's parse_taxonomy_level() — DO NOT MODIFY independently.
-    Any change here MUST be mirrored in Step 5's Framework_MockTestAnalyse.md.
-    """
-    if re.match(r'Subject:|Domain:', text):
-        return 1, text.split(':', 1)[1].strip()
-    if re.match(r'Topic\s+\d+:', text):
-        return 2, re.sub(r'Topic\s+\d+:\s*', '', text).strip()
-    if re.match(r'Chapter\s+\d+', text):
-        return 2, text.strip()
-    return 3, text.strip()
+# v2.20 — DELEGATED TO THE ENGINE. This function previously carried the instruction
+# "IDENTICAL to Step 5's parse_taxonomy_level() - DO NOT MODIFY independently", and the two
+# copies had ALREADY drifted: Step 5 was expanded in v2.16 (RIGID-4) from 3 heading patterns
+# to 12+ while this copy was never mirrored. Any exam whose sorted headings use Section:,
+# Part:, Area:, Unit N, Module N, Block N or a colon-style Topic had those headings read as
+# LEVEL 1/2 by Step 5 and as SUBTOPICS (level-3 fallthrough) by Step 4 — wrong per-subtopic
+# counts by construction, with only Step 6's BV-0A cross-check downstream of it.
+# EC-P14's remedy ("ensure both use IDENTICAL parser code") is now enforced structurally
+# instead of by a comment asking two files to stay in step.
+parse_taxonomy_level = bc.parse_taxonomy_level
 
 # Option patterns — MUST match Step 5's E-3 OPT_PATTERNS exactly.
 # Capture groups are present for parity; is_option() only checks match/no-match.
@@ -3641,16 +4825,13 @@ def is_option(text):
     """Aligned with Step 5's is_option() — same patterns."""
     return any(re.match(p, text.strip()) for p in OPT_PATTERNS)
 
+# v2.20 — DELEGATED TO THE ENGINE (same drift class as parse_taxonomy_level above).
+# The local copy excluded questions with its own regex r'^Q\.?\s*\d+' while Step 5 used the
+# shared Q_PATTERNS table via detect_question_start(). Those two match DIFFERENT strings
+# (e.g. "Q1 Analysis" matches the local regex but is not a Q_PATTERNS question start), so the
+# two steps disagreed about which paragraphs were headings AT ALL, not merely about level.
 def is_taxonomy_heading(para):
-    """IDENTICAL logic to Step 5's is_taxonomy_heading() — DO NOT MODIFY independently."""
-    text = para.text.strip()
-    if not text: return False
-    if re.match(r'^Q\.?\s*\d+', text): return False
-    if is_option(text): return False
-    # Shift-tag detection: [DD-Mon-YYYY Shift X] — DD may be 1 or 2 digits
-    if re.match(r'\[\d{1,2}-', text): return False
-    has_bold = any(r.bold for r in para.runs if r.text.strip())
-    return has_bold and len(text) < 100
+    return bc.is_taxonomy_heading(para, is_option)
 
 def count_sorted_file(docx_path):
     """
@@ -3711,20 +4892,97 @@ def extract_year_from_sorted_filename(filename):
 ### S5-4 — Batch counting loop
 
 ```
-BATCH_SIZE_COUNTS = 5  # max 5 papers per batch
+BATCH_SIZE_COUNTS = 5  # max 5 papers per batch — UNCHANGED in v2.21
+
+═══════════════════════════════════════════════════════════════════════
+v2.21 — THE DURABILITY UNIT IS THE FILE, NOT THE BATCH (DEFECT C)
+═══════════════════════════════════════════════════════════════════════
+Before v2.21 this loop saved count_progress.json once per BATCH (old item 7).
+Counting mutates the accumulators in memory; the save is the only thing that
+persists them. Any exception inside the loop — a transport failure, a malformed
+document, a context stop — skipped the save entirely, so every file already
+counted in that batch was discarded with NO trace. count_progress.json shows
+them as never processed, and the resume path recounts them from scratch.
+
+At BATCH_SIZE_COUNTS = 5 that is up to FOUR papers of work lost per failure.
+
+WHAT THE CONSEQUENCE ACTUALLY IS (v2.22 correction). v2.21 described this as "a
+silent undercount". That was wrong, and the correction matters because an
+overstated rationale is the kind of thing a future reader checks, disbelieves,
+and then discounts the whole rule over. Counts and _meta.files_processed_list
+are persisted by the SAME save, so a skipped save loses both together: the
+resume path finds those files absent from the list and recounts them, and the
+total comes out right. S5-4a would catch it if it did not.
+The real costs are two:
+  * up to four papers of counting work discarded per failure, and a progress
+    file that reports fewer files done than were actually processed;
+  * a double-count IF the accumulator and the processed-list are ever persisted
+    at different moments — which is precisely what happens the first time
+    someone "optimises" one of the two writes without noticing they are a pair.
+Saving per file makes them atomic, so the second risk cannot be introduced by a
+later edit. That is the durable reason for the fix, and it does not need the
+overstatement.
+
+BATCH_SIZE_COUNTS stays 5. Batching is the user-facing PACING unit and is not
+the durability unit. The batch-level save REMAINS as a redundant flush.
+═══════════════════════════════════════════════════════════════════════
 
 For each batch of sorted PYQ files (up to 5 per batch):
-  1. Read each file → count_sorted_file() → (per-subtopic counts, orphans)
-  2. Track per-file attributed count:
-       per_file_attributed[filename] = sum(counts.values())
-     This is compared against task1_per_file[filename] in Task 2 diagnostic.
-  3. If orphans non-empty for any file → log:
-       "WARNING: [filename] has [N] orphan questions: Q[x] (reason), ..."
-     Accumulate all orphans in all_orphans[(filename, q_num)] = reason
-  4. Extract year from filename
-  5. Accumulate: counts_by_year[(section, topic, subtopic)][year] += count
-  6. Track papers_per_year[year] += 1
-  7. Save count_progress.json after each batch
+
+  For each file in the batch:
+    1. ACQUIRE the file (v2.21 — never call the connector unguarded):
+
+         if paper['source'] == 'gdrive':
+             try:
+                 local_path = corpus_io.fetch_drive_docx(
+                     gdrive_download_file, paper, '/home/claude/pyq_counts')
+             except corpus_io.TransportFallback as exc:
+                 print(f"    ! Drive fetch unavailable — {exc}")
+                 print(f"    → routing to upload lane: {paper['name']}")
+                 needs_upload.append(paper)
+                 continue
+         else:
+             local_path = paper['path']
+
+       EVERY failure — size, permission, network, malformed envelope, unknown —
+       raises TransportFallback and degrades to the upload lane. A transport
+       failure is NEVER fatal to the run. Verified before v2.21: ZERO try/except
+       existed around any Drive call in the entire corpus, so one oversized paper
+       terminated everything.
+       fetch_drive_docx also asserts byte count == reported fileSize and the
+       PK\x03\x04 magic. A payload truncated at a ZIP member boundary still opens
+       as a valid archive while presenting FEWER QUESTIONS — the byte count is
+       the only thing that catches an undercount caused by transport.
+
+    2. Read the file → count_sorted_file() → (per-subtopic counts, orphans)
+    3. Track per-file attributed count:
+         per_file_attributed[filename] = sum(counts.values())
+       This is compared against task1_per_file[filename] in Task 2 diagnostic.
+    4. If orphans non-empty for this file → log:
+         "WARNING: [filename] has [N] orphan questions: Q[x] (reason), ..."
+       Accumulate in all_orphans[(filename, q_num)] = reason
+    5. Extract year from filename
+    6. Accumulate: counts_by_year[(section, topic, subtopic)][year] += count
+    7. Track papers_per_year[year] += 1
+    8. Append filename to _meta.files_processed_list
+    9. SAVE count_progress.json — NOW, inside this loop, for THIS file.
+       Not after the batch. This is the whole of the DEFECT C fix and it makes a
+       partial batch safe to resume.
+
+  After the file loop, if needs_upload is non-empty:
+    Request exactly those papers BY NAME, then match the uploads back by
+    CANONICAL identity via corpus_io.resolve_uploaded_papers — never by exact
+    filename (the browser appends " (1)" whenever the original is already in the
+    operator's Downloads folder, which happens on every remediation round trip)
+    and never by recency (uploads ACCUMULATE across turns, so by batch 3 the
+    directory still holds batches 1 and 2 and they would be silently recounted).
+    Count each matched upload and SAVE after each one, exactly as above.
+    Report unexpected uploads; never process them.
+    Papers still missing are reported and remain pending — not skipped, not
+    counted as done.
+
+  Then save count_progress.json again (redundant batch flush — harmless, and it
+  keeps the batch delivery contract unchanged).
 
 After all files processed:
   If all_orphans is non-empty:
@@ -3737,6 +4995,13 @@ After all files processed:
     HARD STOP — do not proceed until orphans are resolved.
   If all_orphans is empty:
     Run Task 2 accuracy gate (S5-4a).
+
+NOTE ON TASK 1 (S5-1a) — it reads every file too, and takes the identical
+acquisition path. A paper that must come through the upload lane is requested
+ONCE, at Task 1, and the local copy is reused for counting; it is not requested
+again in S5-4. The Task 1 inventory reports which lane each paper took, so the
+operator learns the transport shape of the corpus before any counting begins,
+not at batch 6.
 ```
 
 ### S5-4a — TASK 2: Post-Count Accuracy Gate
@@ -3964,8 +5229,31 @@ Deliver the updated Analysis doc via present_files.
     "2019": 19, "2020": 16, "2021": 8, "2022": 40,
     "2023": 39, "2024": 36, "2025": 46
   },
-  "all_orphans": {}
+  "all_orphans": {},
+  "_transport": {
+    "upload_lane": ["[ExamCode]_10-Mar-2010_Shift-1_Sorted_Q1-Q100.docx"],
+    "rejected": [
+      {"name": "2007 paper", "reason": "native Google Doc — convert to .docx in Drive"}
+    ],
+    "fetch_failures": {
+      "[ExamCode]_10-Mar-2010_Shift-1_Sorted_Q1-Q100.docx":
+        "<the TransportFallback message, verbatim — it names the actual byte
+          count and the cap read from blueprint_core.DRIVE_CAP at run time.
+          Never write a cap literal here: a stale number copied from an example
+          is exactly the drift one definition per constant exists to prevent>"
+    }
+  }
 }
+```
+
+```
+v2.21 — _transport is written by the SAME per-file save as the counts, so a
+resumed session knows which papers Drive could not supply and re-requests only
+those. Without it the resume path re-attempts every oversized paper, fails
+again, and the operator re-uploads files that were already counted.
+_transport is DIAGNOSTIC. It never affects a count and never gates Task 2 —
+a paper counted via the upload lane is indistinguishable from one fetched
+from Drive in counts_by_year, which is the point.
 ```
 
 ### S5-7 — Phase B session management
@@ -4013,6 +5301,29 @@ COMPLETION:
 TARGET: 8-10 batches per session (40-50 papers). Adjust based on
 context usage — counting is lighter than classification, so more
 batches fit per session than Phase 0b.
+
+═══════════════════════════════════════════════════════════════════════
+UPLOAD-LANE ARITHMETIC (v2.21) — STATE IT BEFORE THE RUN, NOT AT BATCH 6
+═══════════════════════════════════════════════════════════════════════
+The Drive lane is limited by CONTEXT (8-10 batches above). The upload lane is
+limited by something else entirely, and it binds much sooner: the platform
+accepts blueprint_core.CHAT_FILE_LIMIT files per conversation.
+
+  bc.upload_batch_plan(n_upload, BATCH_SIZE_COUNTS) returns
+    batches_per_chat = CHAT_FILE_LIMIT // BATCH_SIZE_COUNTS = 20 // 5 = 4
+    papers_per_chat  = 4 x 5 = 20
+    chats_needed     = ceil(n_upload / 20)
+
+So a corpus with 30 oversized papers needs TWO chat sessions for the upload
+lane regardless of how much context is left — a fact the operator can plan
+around only if they are told at S5-1, which is why plan_transport() prints it
+before Task 1 rather than discovering it mid-run.
+
+Never write 4 or 20 as a literal here. Both are derived from the engine, so a
+change to CHAT_FILE_LIMIT or to BATCH_SIZE_COUNTS reaches every step at once.
+The permanent fix for the upload lane is PYQCompress: compress those papers
+once, replace them in Drive, and Steps 2b, 4 and 5 all fetch them normally
+from then on.
 ```
 
 ### S5-8 — Phase B execution model
@@ -4029,15 +5340,19 @@ not manual paragraph-by-paragraph Claude reading in chat.
 PER-SESSION EXECUTION:
 
   CALL 1 — create_file: Write count_pipeline.py containing:
-    1. Drive file listing via Google Drive MCP (list_files)
-    2. File filtering (_Sorted_ pattern) and dedup logic
-    3. Task 1: download each file via Drive MCP (download_file_content),
-       parse with python-docx, count Q-patterns, build inventory table
+    1. Drive enumeration via corpus_io.collect_corpus_files (S5-1) — captures
+       fileSize and mimeType, paginates, screens and reports every reject
+    2. Sorted-file filter + both duplicate HARD STOPs (S5-1), then
+       bc.partition_by_transport + bc.upload_batch_plan
+    3. Task 1: acquire each file via corpus_io.fetch_drive_docx (guarded;
+       TransportFallback -> upload lane), parse with python-docx, count
+       Q-patterns, build inventory table
     4. Heading parser functions (parse_taxonomy_level, is_taxonomy_heading,
        is_option, count_sorted_file — from S5-2, byte-identical)
     5. Batch counting loop (5/batch, accumulate counts_by_year)
     6. Orphan tracking and per-file attributed counts
-    7. Save count_progress.json after each batch
+    7. Save count_progress.json after EVERY FILE (S5-4) — the batch-level save
+       remains only as a redundant flush
     8. Print Task 1 inventory table for user confirmation
 
   CALL 2 — bash_tool: Run count_pipeline.py
@@ -4067,6 +5382,41 @@ processed.
 
 DEPENDENCY: python-docx must be installed (pip install python-docx
 --break-system-packages). Google Drive MCP tools must be connected.
+corpus_io.py and blueprint_core.py must be routed to PYQCount in routes.json.
+
+═══════════════════════════════════════════════════════════════════════
+THE DRIVE RETRIEVAL ENVELOPE (v2.21, DEFECT N) — DOCUMENTED, NOT REDISCOVERED
+═══════════════════════════════════════════════════════════════════════
+The one-line "download via Drive MCP" concealed a three-stage contract that
+every previous execution rediscovered by trial and error, with a different
+improvisation each time. That is non-determinism in the hot path, and it is
+exactly the kind of interpretive gap the framework replaces with a function.
+
+For any real paper the connector's result EXCEEDS CONTEXT and spills to disk:
+
+  1. the tool result becomes a file under /mnt/user-data/tool_results/*.json
+  2. that file is a LIST; element [0]['text'] is itself a JSON STRING
+  3. parsing THAT string yields {id, title, mimeType, content}, where content
+     is base64 — the actual .docx bytes
+
+ONE implementation handles every shape — raw bytes, a spill path, the parsed
+list or dict, or the inner JSON string:
+
+    raw = corpus_io.decode_drive_payload(payload)
+
+and corpus_io.fetch_drive_docx wraps decode with the two assertions that make
+truncation detectable:
+
+    len(raw) == the fileSize the listing reported
+    raw starts with PK\x03\x04
+
+The byte count is not belt-and-braces. A payload truncated at a ZIP member
+boundary still opens as a VALID archive presenting FEWER QUESTIONS, so the
+document parses cleanly, the count comes out low, and nothing anywhere reports
+an error. Under Phase B's zero-tolerance standard that is the worst possible
+failure: a wrong number that looks right.
+
+Never hand-roll this decode in a generated count_pipeline.py.
 ```
 
 ---
@@ -4200,6 +5550,23 @@ RULE 4 — SECTION DETERMINED BY STRUCTURE, NOT CONTENT
   NEVER classify section from question content alone (a maths question in
   the Reasoning section stays in Reasoning — it might be Mathematical Operations).
 
+  OUT-OF-RANGE Q-NUMBERS (v2.18 — marker_mode = false only):
+    exam_config describes the CURRENT exam pattern. A PYQ corpus routinely spans
+    SEVERAL patterns, so a Q-number can fall outside every configured range — a
+    100-question paper from a previous era scanned against a 60-question current
+    config leaves Q.61-Q.100 matching nothing.
+    Such a question is NOT dropped, NOT guessed into the nearest section, and NOT
+    assigned section=None. It takes the OUT_OF_PATTERN sentinel (see
+    Framework_PYQSort v1.9 S2-2, same constant) and is then classified against the
+    FULL taxonomy rather than one section's slice.
+    This is the ONE case where the "not content" half of this rule is relaxed, and
+    only because its premise fails: the rule presupposes the question HAS a
+    structural section, and this one has none. The relaxation is gated on the
+    sentinel, never on a failed match, so a question that does have a section can
+    never reach it. Everything else about RULE 4 is unchanged.
+    Record pattern_era='out_of_pattern' on the classification so Phase B and the
+    batch report can distinguish era-mixing from a classification failure.
+
 RULE 5 — CLOSEST FIT FOR UNCLASSIFIABLE QUESTIONS
   If no subtopic fits perfectly, classify under the closest match.
   No flagging, no halting. Decide and move on.
@@ -4317,6 +5684,43 @@ EC-P9: VARIABLE Q COUNT PER PAPER
   Framework handles any Q count — no hardcoded total.
   Q-range mode: if paper has fewer Qs than expected, later sections may have
   0 questions. This is valid (partial paper).
+
+  PAPER LARGER THAN THE CURRENT PATTERN (v2.18 — the missing mirror of the above):
+  The clause above covers only the SHORTER direction. The LONGER direction —
+  a paper with MORE questions than exam_config.total_questions — was undocumented
+  everywhere in the corpus, and it is the dangerous one: the surplus Q-numbers match
+  no section range at all, whereas a short paper merely leaves ranges empty.
+  This happens whenever an exam's pattern SHRINKS and the corpus retains the older,
+  larger papers (e.g. a 100-question 2005 paper against a 60-question current
+  pattern). It is a normal, expected state — legacy papers are retained precisely
+  because the variety of concepts, phrasings, difficulties and question formats they
+  contain is what makes generated questions good. Only the handling was missing.
+  Resolution: RULE 4's OUT-OF-RANGE branch. The surplus questions take the
+  OUT_OF_PATTERN sentinel (never None), are classified against the full taxonomy so
+  their concepts still enter the corpus, and carry pattern_era='out_of_pattern'.
+  S3-2a's pre-scan gate reports the size difference per paper BEFORE the scan starts.
+  CONSEQUENCE — counts are safe, mix is not. Framework_Blueprint §4-2 consumes r_avg
+  as a PROPORTION against a sec_qs budget taken from exam_config, so a different-size
+  paper can neither inflate nor shrink allocation. Subject/subtopic MIX, however, is
+  inherited from whichever eras the corpus contains; §3 recency weighting dampens but
+  does not remove this. Reported, never silently absorbed.
+  Related: Framework_PYQSort EC-S1b, Framework_Blueprint v1.36 §2 S2-3.
+
+EC-P9b: SAME Q COUNT, DIFFERENT QUESTION TYPES (v2.19)
+  An exam keeps 50 questions but converts Q.41-50 from MCQ to NAT. Counts match, all
+  Q-numbers are in range, so a size-only era test calls every legacy paper 'current' and
+  blends its mix and its axis-3 (mechanism) distribution into today's targets.
+  Resolution: bc.classify_paper_era compares each position's OBSERVED type against
+  exam_config.marking_scheme and returns era='retyped'. Requires marking_scheme to be
+  present and question types to have been detected; with either absent no type comparison
+  is attempted and the size/numbering chain applies unchanged.
+  For ~200 exams this is expected to be the MOST COMMON kind of pattern change.
+
+EC-P9c: MARKER-MODE PATTERN CHANGE (v2.19)
+  marker_mode exams carry no Q-ranges, so era cannot be read from Q-numbers. A retired
+  SUBJECT/module is the signal instead. S3-2a step 3b compares observed module names to
+  exam_config.sections[].name and reports any unknown module rather than letting EC-S2
+  fuzzy matching absorb it into a surviving section.
 
 EC-P10: BILINGUAL QUESTIONS (Hindi + English)
   Preserve non-Latin scripts in sorted output.
@@ -4476,12 +5880,62 @@ EC-P29: NON-SORTED FILE IN DRIVE FOLDER
   Non-matching .docx files are skipped with a warning log.
   If ALL .docx files are non-matching → error: "No sorted files found."
 
-EC-P30: DUPLICATE SORTED FILE IN DRIVE FOLDER
+EC-P30: DUPLICATE SORTED FILE IN DRIVE FOLDER (v2.21 — now a HARD STOP)
   Drive folder contains two sorted files for the same date+session (e.g.,
   paper was re-sorted after a correction and both copies remain).
-  S5-1 dedup logic keeps the larger file. The smaller is skipped with a
-  warning. If sizes are equal, keep alphabetically-first filename.
-  User should clean up duplicates from Drive after Phase B completes.
+  Resolution: HARD STOP naming both files with their sizes (S5-1
+  assert_no_session_duplicates). The operator deletes the superseded copy.
+  BEFORE v2.21 this kept the LARGER file, on the reasoning that it was more
+  likely to have images intact. That rule became wrong in two independent ways:
+    1. it selects by ACCIDENT. The two files differ in content — that is why
+       one replaced the other — so choosing between them changes the counts,
+       and S5-4a tolerates no error at all. Size is not evidence of currency;
+       a superseded file can easily be the larger one.
+    2. under the 10 MiB connector cap it picks precisely the copy least likely
+       to be fetchable, turning a cosmetic duplicate into a blocked paper.
+  The image-integrity reasoning is also obsolete: PYQSort v1.12 CHECK 10 gates
+  image survival where the sorted file is produced, so a file that lost a
+  figure cannot be delivered at all.
+
+EC-P31: PAPER ABOVE THE DRIVE DOWNLOAD CAP (v2.21)
+  A sorted file exceeds blueprint_core.DRIVE_CAP and the connector refuses the
+  download. Detected TWICE, by design: predicted at S5-1 by
+  bc.partition_by_transport from the fileSize the listing already carried, and
+  caught at fetch time by corpus_io.fetch_drive_docx raising TransportFallback.
+  Resolution: the paper is routed to the UPLOAD LANE and requested by name.
+  It is never skipped and never counted as done. NOT a hard stop — a large
+  paper must not stop a 200-paper run.
+  The prediction is deliberately non-binding: if the connector's cap changes,
+  the partition is simply wrong and the runtime fallback still routes correctly.
+  Permanent fix: PYQCompress the paper once and replace it in Drive.
+
+EC-P32: UPLOAD LANE EXCEEDS ONE CHAT (v2.21)
+  More than bc.CHAT_FILE_LIMIT papers need uploading. At BATCH_SIZE_COUNTS = 5
+  that is 4 batches / 20 papers per chat (bc.upload_batch_plan).
+  Resolution: S5-1 prints chats_needed BEFORE Task 1 so the operator can plan.
+  Per-file saves (S5-4) make the session boundary safe: work already counted is
+  already persisted, and _transport.upload_lane tells the resumed session which
+  papers still need supplying.
+
+EC-P33: UNEXPECTED OR MISNAMED UPLOAD (v2.21)
+  The operator uploads a file that was not requested, or the browser renames the
+  requested file to "X (1).docx" because the original was already in Downloads.
+  Resolution: corpus_io.resolve_uploaded_papers matches by CANONICAL identity —
+  never by exact filename, and never by recency, because uploads accumulate
+  across turns and "the newest five files" would silently recount earlier
+  batches. An unrecognised upload is REPORTED and never processed.
+
+EC-P34: TRUNCATED DOWNLOAD (v2.21)
+  A download returns fewer bytes than the listing reported. This is the most
+  dangerous transport failure because it does not look like one: a .docx
+  truncated at a ZIP member boundary still opens as a valid archive, python-docx
+  parses it without complaint, and the paper simply contains fewer questions.
+  The count comes out low and nothing reports an error.
+  Resolution: corpus_io.fetch_drive_docx asserts len(bytes) == fileSize and the
+  PK\x03\x04 magic before the file is used, and raises TransportFallback on
+  mismatch — the paper then takes the upload lane like any other fetch failure.
+  This is why DEFECT A (capturing fileSize) is a correctness fix and not merely
+  a planning convenience: without the reported size there is nothing to compare.
 ```
 
 ---
@@ -4553,9 +6007,12 @@ does NOT create a separate file.
 ────────────────────────────────────────────────────────────────────
 MODE: --approve (Step 2c: PYQApprove)
 ────────────────────────────────────────────────────────────────────
-DELIVER (both mandatory, single present_files call):
+DELIVER (all three mandatory, single present_files call):
   1. [ExamCode]_PYQ_Analysis.docx  (single merged doc, all subjects)
   2. [ExamCode]_exam_config.json   (may be updated with OTS boundaries)
+  3. [ExamCode]_approval_record.json  (v2.17 — S4-0 reconciliation verdict,
+     adjudication ledger, conservation proof. REQUIRED: later PYQApprove runs
+     replay its verdicts per INV-6. Not a report — a load-bearing artifact.)
 
 DO NOT DELIVER:
   ✗ [ExamCode]_scan_progress.json (INPUT — consumed, not forwarded)
@@ -4614,7 +6071,8 @@ expected_scan = {
 # --approve mode:
 expected_approve = {
     f'{exam_code}_PYQ_Analysis.docx',
-    f'{exam_code}_exam_config.json'
+    f'{exam_code}_exam_config.json',
+    f'{exam_code}_approval_record.json'      # v2.17 (S4-0)
 }
 
 # --counts mode (completion):
@@ -4721,7 +6179,7 @@ UNIVERSAL IN THIS SPEC (identical every exam):
   Heading format contract (§6)
   Name consistency contract (§7)
   Universal classification rules 1-7 (§8)
-  All 30 edge cases (§9)
+  All 34 edge cases (§9)
   Progress JSON schemas (schema_version 2.0)
   Batch processing model (3/batch scan, 5/batch counts)
   Task 1 pre-count confirmation gate (S5-1a)
@@ -4800,6 +6258,10 @@ Phase 0a:
 
 Phase 0b:
   ☐ PRE-SCAN GATE: Year-wise paper inventory displayed with per-paper Q counts
+  ☐ PRE-SCAN GATE: Pattern Era column present; era computed from exam_config +
+    observed Q-numbers only (S3-2a step 3b) — never from filename or year
+  ☐ PRE-SCAN GATE: Pattern-era notice printed when the corpus spans >1 era
+    (and suppressed entirely when it does not)
   ☐ PRE-SCAN GATE: User confirmation received before scanning begins
   ☐ Round-robin year sampling applied (newest-first, date-asc within year)
   ☐ Drive file inventory cached in scan_progress.json (no re-listing on resume)
@@ -4879,6 +6341,16 @@ Phase B:
   ☐ TASK 3: Cross-check: header == grand == sum(topics) == sum(subtopics)
   ☐ TASK 3: Sum of all section header totals == Task 1 confirmed total
   ☐ TASK 4: Batch size = 5 papers per batch (BATCH_SIZE_COUNTS = 5)
+  ☐ Enumeration captured fileSize + mimeType for every entry (S5-1)
+  ☐ Every rejected entry printed with its reason — nothing dropped silently
+  ☐ Both duplicate classes clear: canonical identity and date+session (S5-1)
+  ☐ Transport plan printed BEFORE Task 1, including chats_needed for the
+     upload lane (S5-1 plan_transport / S5-7)
+  ☐ Every Drive fetch guarded — TransportFallback routed to the upload lane,
+     never fatal (S5-4)
+  ☐ count_progress.json saved after EVERY FILE, not merely after each batch
+     (S5-4 — DEFECT C; the batch save is a redundant flush only)
+  ☐ Uploads matched by canonical identity, unexpected uploads reported
   ☐ Execution model: Python script (count_pipeline.py / count_finalize.py)
   ☐ Session management: count_progress.json saved with files_processed_list
   ☐ Updated Analysis doc delivered via present_files
@@ -4890,4 +6362,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.16
+# END OF Framework_PYQAnalyse v2.22.1

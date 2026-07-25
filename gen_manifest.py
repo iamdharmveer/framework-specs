@@ -14,7 +14,8 @@ CI usage (see .github/workflows/validate.yml):
 import hashlib, json, os, sys
 
 TRACKED_PY = ["validate_framework_md.py", "explain_audit_gate.py", "explain_engine.py",
-              "blueprint_core.py", "paper_pipeline.py"]
+              "blueprint_core.py", "paper_pipeline.py",
+              "corpus_io.py", "reconcile_taxonomy.py", "syllabus_provenance.py"]
 
 def sha256(p):
     with open(p, "rb") as f:

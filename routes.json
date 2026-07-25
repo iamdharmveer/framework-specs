@@ -5,14 +5,18 @@
  ],
  "PYQDraft": [
   "Framework_PYQAnalyse.md",
+  "syllabus_provenance.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQScan": [
   "Framework_PYQAnalyse.md",
+  "blueprint_core.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQApprove": [
   "Framework_PYQAnalyse.md",
+  "reconcile_taxonomy.py",
+  "syllabus_provenance.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQSort": [
@@ -21,6 +25,8 @@
  ],
  "PYQCount": [
   "Framework_PYQAnalyse.md",
+  "corpus_io.py",
+  "blueprint_core.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQExtract": [

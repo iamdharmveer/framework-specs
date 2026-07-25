@@ -8,14 +8,18 @@
     ],
     "PYQDraft": [
       "Framework_PYQAnalyse.md",
+      "syllabus_provenance.py",
       "Framework_DeliveryFooter.md"
     ],
     "PYQScan": [
       "Framework_PYQAnalyse.md",
+      "blueprint_core.py",
       "Framework_DeliveryFooter.md"
     ],
     "PYQApprove": [
       "Framework_PYQAnalyse.md",
+      "reconcile_taxonomy.py",
+      "syllabus_provenance.py",
       "Framework_DeliveryFooter.md"
     ],
     "PYQSort": [
@@ -24,6 +28,8 @@
     ],
     "PYQCount": [
       "Framework_PYQAnalyse.md",
+      "corpus_io.py",
+      "blueprint_core.py",
       "Framework_DeliveryFooter.md"
     ],
     "PYQExtract": [
@@ -176,11 +182,11 @@
       "bytes": 107223
     },
     "Framework_PYQAnalyse.md": {
-      "sha256": "f9c480edf0553424d8d103b3fb685f403d9681c62057300df16d76c7f689b367",
-      "version_header": "# Framework_PYQAnalyse v2.16 \u2014 Universal PYQ Analysis & Taxonomy Builder",
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.16",
-      "lines": 4893,
-      "bytes": 252125
+      "sha256": "7a512f69378678262b5bee4ffc345aadf8594d0d575a6fcd613598ff1c659823",
+      "version_header": "# Framework_PYQAnalyse v2.22.1 \u2014 Universal PYQ Analysis & Taxonomy Builder",
+      "end_sentinel": "# END OF Framework_PYQAnalyse v2.22.1",
+      "lines": 6365,
+      "bytes": 346834
     },
     "Framework_PYQDeliver.md": {
       "sha256": "43a9b7e6652e2a514e36fbb5a33a99e5bd93338ad0b9e2ff1e6f6e3c92ebe6a9",
@@ -253,11 +259,11 @@
       "bytes": 105810
     },
     "blueprint_core.py": {
-      "sha256": "d5212aa78311a345a2b241407d719696cf9ff35d414ad26126637d4da1c2cb4a",
+      "sha256": "11008560b4d53e484fc7beb9309247efe2428d986309cf19a880a34b32cbf5ee",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 915,
-      "bytes": 47128
+      "lines": 2216,
+      "bytes": 118069
     },
     "paper_pipeline.py": {
       "sha256": "04ee4dc4565c33149d97bc23898d1798df730c425f4f8806d07a26d58605f126",
@@ -265,6 +271,27 @@
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
       "lines": 377,
       "bytes": 19154
+    },
+    "corpus_io.py": {
+      "sha256": "f45a208e9c226d00ce4e0550017f7ae9566102803b9bfca2e870ddf9a09332e6",
+      "version_header": "\"\"\"",
+      "end_sentinel": "          'Run with --self-test.')",
+      "lines": 1284,
+      "bytes": 59348
+    },
+    "reconcile_taxonomy.py": {
+      "sha256": "1443121ac2a2a91f0fdeae8879daaa004affd41f53d377a657a4f643ecf4b2a3",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    }",
+      "lines": 439,
+      "bytes": 21867
+    },
+    "syllabus_provenance.py": {
+      "sha256": "f5bb1df6b0de7f66d824ef32c5d55bc22a0b4615691d6a0a53000666b84cd28d",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    return (not errors), errors, warnings, sorted(unanchorable - anchorable)",
+      "lines": 443,
+      "bytes": 20942
     }
   }
 }
