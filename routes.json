@@ -1,36 +1,46 @@
 {
  "PYQPrepare": [
   "Framework_PYQPrepare.md",
+  "blueprint_core.py",
+  "corpus_io.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQDraft": [
   "Framework_PYQAnalyse.md",
+  "blueprint_core.py",
   "syllabus_provenance.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQScan": [
   "Framework_PYQAnalyse.md",
   "blueprint_core.py",
+  "syllabus_provenance.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQApprove": [
   "Framework_PYQAnalyse.md",
-  "reconcile_taxonomy.py",
+  "blueprint_core.py",
   "syllabus_provenance.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQSort": [
   "Framework_PYQSort.md",
+  "blueprint_core.py",
+  "corpus_io.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQCount": [
   "Framework_PYQAnalyse.md",
-  "corpus_io.py",
   "blueprint_core.py",
+  "syllabus_provenance.py",
+  "corpus_io.py",
   "Framework_DeliveryFooter.md"
  ],
  "PYQExtract": [
   "Framework_MockTestAnalyse.md",
+  "blueprint_core.py",
+  "syllabus_provenance.py",
+  "corpus_io.py",
   "Framework_DeliveryFooter.md"
  ],
  "MockBlueprint": [
@@ -118,6 +128,12 @@
  "PYQDeliver": [
   "Framework_PYQDeliver.md",
   "blueprint_core.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQCompress": [
+  "Framework_PYQCompress.md",
+  "blueprint_core.py",
+  "corpus_io.py",
   "Framework_DeliveryFooter.md"
  ]
 }

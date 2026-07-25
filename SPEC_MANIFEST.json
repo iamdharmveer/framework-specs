@@ -1,0 +1,210 @@
+{
+  "files": {
+    "Framework_Blueprint.md": {
+      "end_sentinel": "# END OF Framework_Blueprint v1.38",
+      "lines": 7312,
+      "sha256": "1fc58ba1be1d0cc5c14069c16205a4a83b98f23e0784af8082c908f4418966bf",
+      "size_bytes": 400411,
+      "version_header": "# Framework_Blueprint v1.38 \u2014 Universal Mock Test Blueprint Generator"
+    },
+    "Framework_DeliveryFooter.md": {
+      "end_sentinel": "```",
+      "lines": 655,
+      "sha256": "4a57509dc73b4d431ef7e2ad9e91afe9ba98c2c027fb265d09a9d8347ba6acfd",
+      "size_bytes": 33314,
+      "version_header": "# Framework_DeliveryFooter v1.6 \u2014 Universal Delivery Footer Contract"
+    },
+    "Framework_MockDeliver.md": {
+      "end_sentinel": "# END OF Framework_MockDeliver v1.9",
+      "lines": 1904,
+      "sha256": "7e05a3713fc5cf50385b6a664d225175a194c222775e985c646829939c1a3a48",
+      "size_bytes": 96160,
+      "version_header": "# Framework_MockDeliver v1.9 \u2014 Universal Mock Test Tagger & Delivery Engine"
+    },
+    "Framework_MockTestAnalyse.md": {
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.29.1",
+      "lines": 8622,
+      "sha256": "b7a0ba0dcfaa28d3c1fe742a4493459da0f20eabb006999b8094ed7dc39593af",
+      "size_bytes": 477935,
+      "version_header": "# Framework_MockTestAnalyse v2.29.1 \u2014 Universal PYQ Pattern Extraction Engine"
+    },
+    "Framework_MockTestCreate.md": {
+      "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "lines": 7538,
+      "sha256": "06f09c9586a7ab65e55bd3348fea84a98564901a0bd1607c79bbffb7e56e163c",
+      "size_bytes": 483438,
+      "version_header": "# Framework_MockTestCreate v5.30"
+    },
+    "Framework_MockTestCreateAudit.md": {
+      "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "lines": 5624,
+      "sha256": "d786fed88b51b7c53f3294bc9bbe66be6ccd925190a7cc68962cc7f3bdc7ca4c",
+      "size_bytes": 362924,
+      "version_header": "# Framework_MockTestCreateAudit v2.9.2"
+    },
+    "Framework_MockTestExplain.md": {
+      "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "lines": 1887,
+      "sha256": "ec36f02c719df808348f8bebdae7929c0c54f06ed673c462d884e3366359d7da",
+      "size_bytes": 150350,
+      "version_header": "# Framework_MockTestExplain v1.20"
+    },
+    "Framework_MockTestExplainAudit.md": {
+      "end_sentinel": "**End of Framework_MockTestExplainAudit.md (v1.16.1)**",
+      "lines": 1047,
+      "sha256": "8def7ddbdaafb94fa7daa364882bb568304130b0e0285800a9e00dbbfd01e10d",
+      "size_bytes": 107922,
+      "version_header": "# Framework_MockTestExplainAudit.md"
+    },
+    "Framework_PYQAnalyse.md": {
+      "end_sentinel": "# END OF Framework_PYQAnalyse v2.22.1",
+      "lines": 6365,
+      "sha256": "7a512f69378678262b5bee4ffc345aadf8594d0d575a6fcd613598ff1c659823",
+      "size_bytes": 346834,
+      "version_header": "# Framework_PYQAnalyse v2.22.1 \u2014 Universal PYQ Analysis & Taxonomy Builder"
+    },
+    "Framework_PYQCompress.md": {
+      "end_sentinel": "# END OF Framework_PYQCompress v1.0",
+      "lines": 641,
+      "sha256": "b936ae04dadefc5e2588330104ea551d89543195cc9be234e29fc645fc6501ef",
+      "size_bytes": 30542,
+      "version_header": "# Framework_PYQCompress v1.0 \u2014 Universal Document Size Remediation"
+    },
+    "Framework_PYQDeliver.md": {
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.5.1)**",
+      "lines": 1368,
+      "sha256": "774efacc9e85fa80a149df368e392e82deed5734af4d72e0bf2c2fda7bbe467f",
+      "size_bytes": 71880,
+      "version_header": "# Framework_PYQDeliver v1.5.1 \u2014 Universal PYQ Portal Tagger & Delivery Engine"
+    },
+    "Framework_PYQExplain.md": {
+      "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
+      "lines": 1359,
+      "sha256": "8bf12a547953a91f25b4b6cf588932261b8e51cf27f961591141d01352b0bfc9",
+      "size_bytes": 91706,
+      "version_header": "# Framework_PYQExplain v1.1 \u2014 Universal PYQ Explanation Generator"
+    },
+    "Framework_PYQExplainAudit.md": {
+      "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.1.1)**",
+      "lines": 1009,
+      "sha256": "9c2a159d6cf853a896dc36e2e21a03c21bcb7436e668d873ee5725146591f924",
+      "size_bytes": 97052,
+      "version_header": "# Framework_PYQExplainAudit v1.1.1 \u2014 Universal PYQ Explanation Auditor"
+    },
+    "Framework_PYQFormat.md": {
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.4.1)**",
+      "lines": 1856,
+      "sha256": "8e04c6a59939c1cc39adc857666f05fed4ffd8f05f1a42cb3bd3eb465cbe3868",
+      "size_bytes": 88432,
+      "version_header": "# Framework_PYQFormat v1.4.1 \u2014 Universal PYQ Student Document Formatter"
+    },
+    "Framework_PYQPrepare.md": {
+      "end_sentinel": "# END OF Framework_PYQPrepare v1.9.1",
+      "lines": 3087,
+      "sha256": "78c930e2d7550cd1a91c896393be79661117892806e07e78133c13449fe03a56",
+      "size_bytes": 140867,
+      "version_header": "# Framework_PYQPrepare v1.9.1 \u2014 Universal PYQ Row File Generator"
+    },
+    "Framework_PYQSort.md": {
+      "end_sentinel": "# END OF Framework_PYQSort v1.12.2",
+      "lines": 2306,
+      "sha256": "b9d4265ee11f25456054f1f75ce078533889795a95e4049e3da54813c0772b14",
+      "size_bytes": 113525,
+      "version_header": "# Framework_PYQSort v1.12.2 \u2014 Universal PYQ Sorter"
+    },
+    "Framework_ScopedBlueprint.md": {
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.7 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
+      "lines": 1404,
+      "sha256": "2a2d9b3ededcfcbcc798f96a9d9dc647a043b232afeca4d0a43469a119d71fa8",
+      "size_bytes": 82494,
+      "version_header": "# Framework_ScopedBlueprint v1.7 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint"
+    },
+    "audit_deep.py": {
+      "lines": 177,
+      "sha256": "831d4fd25efc7898407909d5d74589f1d95a8e5607f6cb0fc51e7fbf705b4c95",
+      "size_bytes": 10089
+    },
+    "audit_specs_ext.py": {
+      "lines": 311,
+      "sha256": "e60c8594110fea798f71fc94933caf28038db396ee53861dc1ef47a24eb9623a",
+      "size_bytes": 15930
+    },
+    "audit_sync.py": {
+      "lines": 154,
+      "sha256": "173da00c665ffd3b344839f834c11e418d5730c303f09c53f90281fb41fef7d6",
+      "size_bytes": 8108
+    },
+    "blueprint_core.py": {
+      "lines": 2216,
+      "sha256": "11008560b4d53e484fc7beb9309247efe2428d986309cf19a880a34b32cbf5ee",
+      "size_bytes": 118069
+    },
+    "claude_Framework_GitHub_Architecture.md": {
+      "end_sentinel": "4. Optional: stamp git commit SHA into .verified for finer per-release audit granularity.",
+      "lines": 52,
+      "sha256": "94bed4f7e24248b1a34cee4110a476708179aa7fc023bf01110d2695d832f4f8",
+      "size_bytes": 3375,
+      "version_header": "# Framework Spec Distribution \u2014 GitHub Architecture (LIVE)"
+    },
+    "claude_Framework_MockTestAnalyse_v2_24_1_VERIFICATION.md": {
+      "end_sentinel": "(Everything else in the framework is unaffected. No overrides file is required to clear the HALT.)",
+      "lines": 44,
+      "sha256": "8cbcdcdde85f21d685e79d7f2cf14ad4b2bfa84ef4d730fb3bfe0393cf492c35",
+      "size_bytes": 3159,
+      "version_header": "# v2.24.1 Fix \u2014 Verification & Audit Record (APPLIED + AUDITED)"
+    },
+    "claude_Framework_Operating_Guide.md": {
+      "end_sentinel": "Setup status (2026-07-10): repo live (main+production @ a59d95e), skill `mock-test-framework` enabled account-wide, `approved_framework` deploy command active.",
+      "lines": 28,
+      "sha256": "456b503367410ade64abf7a6cbbee8e0ec7f35eec902ab40400246eea871e36e",
+      "size_bytes": 1518,
+      "version_header": "# Mock-Test Framework \u2014 Simple Operating Guide"
+    },
+    "corpus_io.py": {
+      "lines": 1284,
+      "sha256": "f45a208e9c226d00ce4e0550017f7ae9566102803b9bfca2e870ddf9a09332e6",
+      "size_bytes": 59348
+    },
+    "explain_audit_gate.py": {
+      "lines": 210,
+      "sha256": "b92522cb379fa6fc2249b3de18c8b4c344966881249d88070b5c2ee0e20d8e1e",
+      "size_bytes": 11008
+    },
+    "explain_engine.py": {
+      "lines": 1937,
+      "sha256": "be358fdf2c771aa55300c70162406398827fb5d682e9faf6054581f6ce9da3a7",
+      "size_bytes": 105810
+    },
+    "manifest_to_taxonomy_xlsx.py": {
+      "lines": 124,
+      "sha256": "a2fd9c118b21abf43d486cec032d0eceb1a97c9ce8ef0a6e8622abce5953f5a0",
+      "size_bytes": 5287
+    },
+    "paper_pipeline.py": {
+      "lines": 377,
+      "sha256": "04ee4dc4565c33149d97bc23898d1798df730c425f4f8806d07a26d58605f126",
+      "size_bytes": 19154
+    },
+    "reconcile_taxonomy.py": {
+      "lines": 439,
+      "sha256": "1443121ac2a2a91f0fdeae8879daaa004affd41f53d377a657a4f643ecf4b2a3",
+      "size_bytes": 21867
+    },
+    "routes.json": {
+      "lines": 139,
+      "sha256": "fdd89f6d82fef30dd0dcb37111537548f23b7d5a4097e2ab93ba425ea84120eb",
+      "size_bytes": 3023
+    },
+    "syllabus_provenance.py": {
+      "lines": 443,
+      "sha256": "f5bb1df6b0de7f66d824ef32c5d55bc22a0b4615691d6a0a53000666b84cd28d",
+      "size_bytes": 20942
+    },
+    "validate_framework_md.py": {
+      "lines": 1255,
+      "sha256": "5ef95b53a642e7b143d58a1c8b7d6bd643a2ce1a1cea0a04da6cbf236b525c7f",
+      "size_bytes": 74206
+    }
+  },
+  "generated_at": "2026-07-25T05:40:31+00:00"
+}

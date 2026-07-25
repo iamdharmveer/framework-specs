@@ -1,5 +1,89 @@
-# Framework_PYQFormat v1.3 — Universal PYQ Student Document Formatter
+# Framework_PYQFormat v1.4.1 — Universal PYQ Student Document Formatter
 # [ExamCode] project | PYQ-3 (PYQFormat) | Exam-agnostic
+#
+# v1.4.1 — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
+#   read v1.3, several versions behind the header, so the last line of the file contradicted
+#   the first. Documentation only — not one line of behaviour changes. It went unnoticed
+#   because BOTH integrity tools were structurally blind to it: validate_framework_md.py
+#   Check C recognised only the '# END OF <name> vN' sentinel form and skipped the
+#   comparison entirely for the '**End of <name>.md (vN)**' form used here, while
+#   audit_specs_ext.py check_z_version reads the header from line 1 only. Check C now
+#   recognises both forms (validate_framework_md.py v3.1), so this cannot drift silently
+#   again.
+# v1.4 — 2026-07-24 — DOCX SERIALIZATION SAFETY. Fixes the P0 defect where a
+#   v1.3 run completed every §8 check, reported success, and delivered a file
+#   Microsoft Word refused to open ("Word found unreadable content in …").
+#
+#   CONFIRMED by forensic analysis of the failing artefact
+#   (IIT_JAM_BIOTECHNOLOGY_15-Feb-2026_PYQ_Formatted.docx) against its input.
+#   The INPUT was schema-valid: 0 errors. The OUTPUT carried 812 reported
+#   schema errors plus undeclared namespaces — ALL introduced by PYQFormat.
+#
+#   Root cause (measured, not inferred):
+#     (a) NAMESPACE LOSS — stdlib xml.etree.ElementTree was used. Measured on
+#         the artefact: the root went from 19 declared prefixes to 7. Fifteen
+#         were lost (cx, cx1, m, o, v, w10, w14, w15, w16se, wne, wp14, wpc,
+#         wpg, wpi, wps) and an invented prefix "ns6" appeared where the
+#         source used "a14". mc:Ignorable survived verbatim as
+#         "w14 w15 w16se wp14" — naming FOUR prefixes that no longer exist.
+#         Word's MCE preprocessor resolves those, fails, and rejects the file.
+#         S13-3 warned "no cleanup_namespaces()" — an lxml-only function —
+#         while never mandating lxml, so the spec's only defence was
+#         VACUOUSLY SATISFIED while the corruption occurred.
+#     (b) SCHEMA ORDER — S13-5/S13-1 listed elements to add with no ordering
+#         requirement, and they were appended in the order written. Measured
+#         on the artefact:
+#             observed pPr  [shd, pBdr, ind, spacing, keepNext, keepLines]
+#             correct  pPr  [keepNext, keepLines, pBdr, shd, spacing, ind]
+#             observed tblPr[tblW, tblLayout, tblBorders, tblCellSpacing]
+#             correct  tblPr[tblW, tblCellSpacing, tblBorders, tblLayout]
+#             observed tcPr [tcW, shd, vAlign, tcMar]
+#             correct  tcPr [tcW, shd, tcMar, vAlign]
+#             observed tcMar[top, bottom, left, right]
+#             correct  tcMar[top, left, bottom, right]
+#             observed pill cell pPr [jc, spacing] / correct [spacing, jc]
+#             observed header1+footer1 pPr [tabs, spacing, pBdr]
+#             correct                      [pBdr, tabs, spacing]
+#         Counts: 244 pBdr, 180 tcMar, 180 spacing, 146 keepNext,
+#         60 tblBorders in document.xml, plus 1 pBdr each in header1.xml and
+#         footer1.xml. The header/footer parts created by S13-6 were defective
+#         too — the fault is NOT confined to the body.
+#     (c) NO VALIDITY GATE. All eight §8 checks are CONTENT-fidelity checks.
+#         A document.xml with undeclared mc:Ignorable prefixes and misordered
+#         properties is still well-formed XML and parses cleanly in both
+#         stdlib ET and lxml — so Q-count, OMML count, drawing count and the
+#         full text-stream check (S8-8) all PASSED on a file Word cannot open.
+#         Verified on the artefact: text stream, all 11 drawings and all
+#         paragraph counts were perfectly intact. §11 item 10 already required
+#         "a valid .docx that opens clean in Microsoft Word" with no machinery
+#         anywhere to verify it.
+#     (d) NESTED DEFECTS ARE MASKED. Repairing the artefact required
+#         reordering 991 elements although only 812 errors were reported: once
+#         a parent is rejected at its own position the validator does not
+#         descend into it, so its children's violations stay hidden. tcMar's
+#         internal [top, bottom, left, right] was invisible behind tcMar's own
+#         misplacement in tcPr. An error count is a LOWER BOUND until it
+#         reaches zero — see S8-9.
+#
+#   Fixes:
+#     1. S13-3 REWRITTEN — lxml is now MANDATORY for editing existing parts;
+#        stdlib ElementTree is FORBIDDEN (it cannot preserve mc:Ignorable
+#        prefixes even when fully registered); cleanup_namespaces() forbidden.
+#     2. NEW S13-7 — OOXML schema ordering discipline: seven authoritative
+#        child-order tables extracted from the ISO-IEC29500-4:2016 XSD, plus
+#        the runnable set_child() insertion function. set_child() inserts at
+#        the schema-correct position and NEVER reorders existing children —
+#        a whole-parent sort corrupts Word-native tcMar (top,left,bottom,
+#        right) and paragraph-mark rPr carrying <w:del>, both verified.
+#        CT_ParaRPr (<w:pPr><w:rPr>) is distinguished from CT_RPr (<w:r><w:rPr>).
+#        Applies to EVERY part written, header1.xml and footer1.xml included.
+#     3. NEW S8-9 — package validity gate (HARD STOP). Runs the OOXML
+#        validator on the delivered file with --original so only NEW errors
+#        block. This is the layer that generalises: it catches Defect (a),
+#        Defect (b), and serialization defects not yet encountered.
+#     4. S13-1 and S13-5 amended to route every property insertion through
+#        set_child().
+#   New architecture decision D11.
 #
 # v1.3 — 2026-07-23 — Page-level header and footer (every page). The exam
 #   header (§3) and IFAS footer (§6) are no longer one-time body paragraphs;
@@ -86,6 +170,18 @@
 #         of the document's evenAndOddHeaders / titlePg settings. No page
 #         numbers. Tagline (D5 constant) is
 #         "IFAS – India's No. 1 Exam Preparation Platform".
+#     D11. SERIALIZATION SAFETY IS MECHANISM + GATE, NOT PROSE (v1.4). Content
+#         fidelity and package validity are INDEPENDENT properties. Every §8
+#         check verifies content; none verified validity, so a structurally
+#         broken file passed all of them and shipped. Therefore PYQFormat
+#         (i) mandates ONE library (lxml) rather than describing a desired
+#         outcome, (ii) supplies runnable code (set_child) rather than an
+#         ordering instruction, and (iii) gates the delivered artefact with a
+#         real OOXML validator (S8-9). Prose stating what must be true is not
+#         a safeguard — across 200 exams each fresh run re-decides anything
+#         left to interpretation. Only a mandated mechanism plus a gate that
+#         inspects the produced file makes the guarantee hold every time,
+#         including for defect modes not yet seen.
 
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
@@ -752,6 +848,97 @@ Any other difference — one character, anywhere — means text was mutated:
 HARD STOP. This check makes the D9 guarantee ("the marker glyph is the
 only text change") machine-verified rather than asserted.
 
+## S8-9 — Package validity gate (v1.4) — HARD STOP
+
+⚠️ **S8-1..S8-8 verify CONTENT FIDELITY. None of them verifies PACKAGE
+VALIDITY.** These are independent properties, and the v1.3 failure lived
+entirely in the second one. A `document.xml` whose `mc:Ignorable` names
+undeclared prefixes is still well-formed XML: it parses cleanly in both stdlib
+ET and lxml, so the Q-count, the OMML and drawing counts, and even S8-8's
+full text-stream comparison all PASS — on a file Word refuses to open. §11
+item 10 requires "a valid .docx that opens clean in Microsoft Word"; S8-9 is
+the check that makes that requirement real instead of asserted.
+
+This gate is the layer that generalises. S13-3 and S13-7 fix two known defect
+classes; S8-9 catches those **and** any serialization defect not yet
+encountered, which is what a permanent guarantee across ~200 exams requires.
+
+Run on the DELIVERED file, after every other check:
+
+```python
+import os
+import subprocess
+
+VALIDATOR = '/mnt/skills/public/docx/scripts/office/validate.py'
+
+
+def gate_s8_9(input_docx, output_docx, input_document_xml, output_document_xml):
+    """S8-9 — package validity. Returns 'validated' or 'degraded'; else raises.
+
+    The two *_document_xml arguments are the raw bytes of word/document.xml
+    from each package, used only by the fallback path.
+    """
+    if os.path.exists(VALIDATOR):
+        result = subprocess.run(
+            ['python3', VALIDATOR, output_docx, '--original', input_docx],
+            capture_output=True, text=True)
+        if result.returncode != 0:
+            print('S8-9 FAIL — output package is not valid OOXML:')
+            print(result.stdout)
+            print(result.stderr)
+            raise SystemExit('S8-9 HARD STOP — do not deliver this file.')
+        return 'validated'
+
+    # Validator absent: fall back to the namespace rules only. This does NOT
+    # cover schema ordering, so the run is UNVERIFIED for package validity —
+    # report it as such in §R7 rather than as a pass.
+    failures = namespace_selfcheck(input_document_xml, output_document_xml)
+    if failures:
+        print('S8-9 FAIL (fallback path) — namespace integrity broken:')
+        for f in failures:
+            print('  ' + f)
+        raise SystemExit('S8-9 HARD STOP — do not deliver this file.')
+    print('S8-9 DEGRADED — validator unavailable; namespace rules pass but '
+          'schema ordering is UNVERIFIED. Report this in §R7.')
+    return 'degraded'
+```
+
+`--original` is REQUIRED. It reports only errors that are **new** relative to
+the input, so pre-existing quirks in a given exam's source document (a
+frequent occurrence across 200 exams with heterogeneous provenance) do not
+block delivery, while anything PYQFormat introduced does.
+
+What it catches, **measured on the failing v1.3 artefact** (input: 0 errors;
+output: 812 reported errors + 4 undeclared namespaces, all introduced by
+PYQFormat):
+
+| Defect | Reported as | Count |
+|---|---|---|
+| Namespace loss / undeclared `mc:Ignorable` prefix | `Namespace 'w14' in Ignorable but not declared` | 4 |
+| `pPr` order — `pBdr` after `ind`/`spacing` | `Element '…pBdr': This element is not expected` | 244 + 2 |
+| `tcPr` order — `tcMar` after `vAlign` | `Element '…tcMar': This element is not expected` | 180 |
+| `pPr` order — `spacing` after `jc` | `Element '…spacing': This element is not expected` | 180 |
+| `pPr` order — `keepNext` after `spacing`/`ind` | `Element '…keepNext': This element is not expected` | 146 |
+| `tblPr` order — `tblBorders` after `tblLayout` | `Element '…tblBorders': This element is not expected` | 60 |
+
+⚠️ **Validate EVERY part, and require ZERO — not "fewer".** The two errors
+above marked `+ 2` were in `header1.xml` and `footer1.xml`, not the body. And
+because a rejected parent is not descended into, a passing-looking count can
+conceal nested faults: repairing this artefact required reordering **991**
+elements although only **812** errors were reported. Re-run the gate after
+every fix until it reports zero; newly surfaced errors are expected.
+
+**Fallback.** If the validator is unavailable in the runtime, run
+`namespace_selfcheck()` (S13-3) on input vs output `document.xml` and treat a
+non-empty result as the same HARD STOP. The fallback covers the namespace
+class only — it does not replace the schema check, and its use must be
+reported in §R7.
+
+**LibreOffice is not a substitute.** A successful `soffice` conversion is
+necessary but NOT sufficient: LibreOffice opens files Word rejects. Confirmed
+on this artefact — it rendered acceptably while Word refused it. Rendering is
+a visual check, not a validity check.
+
 ---
 
 # §9 — Delivery
@@ -789,7 +976,10 @@ Printed in chat after present_files. Brief and skimmable:
 - **§R6 — Footer.** Page footer as rendered (website / tagline / phone),
   confirmed on every page via the S8-3 parts check.
 - **§R7 — Integrity.** Q-count match, OMML count match, image count match,
-  tag absence (S8-7), text-stream integrity (S8-8), spot-check results.
+  tag absence (S8-7), text-stream integrity (S8-8), spot-check results,
+  and **package validity (S8-9)** — report the validator verdict explicitly,
+  plus the input→output namespace prefix delta (expected: none lost). If the
+  S13-3 fallback self-check was used instead of the validator, say so here.
   All must show PASS.
 - **§R8 — Note.** "This is the student-facing document. Review in Microsoft
   Word (OMML renders correctly only in Word). For portal delivery, run PYQ-4
@@ -818,8 +1008,11 @@ PYQ-3 is done when **all** hold:
    removed elements and the S7-6 marker glyphs the ONLY changed characters.
 9. All integrity checks (§8) pass: Q-count, pill-count, header/footer
    parts, content spot-check, OMML count, image count, tag absence,
-   text-stream integrity.
-10. The output is a valid .docx that opens clean in Microsoft Word.
+   text-stream integrity, and package validity (S8-9).
+10. The output is a valid .docx that opens clean in Microsoft Word —
+    machine-verified by S8-9, not assumed. Items 1–9 establish that the
+    CONTENT is intact; only S8-9 establishes that the PACKAGE is valid.
+    A file can satisfy every other item on this list and still fail to open.
 11. Delivered via present_files with the delivery report and footer.
 
 **Hard invariants (never violated):**
@@ -953,6 +1146,23 @@ The pill table is built as a `<w:tbl>` element in the document XML with:
 Cell shading uses `<w:shd w:val="clear" w:fill="[HEX]"/>` — the `clear` val
 is critical (Word renders `solid` as opaque black).
 
+⚠️ **SCHEMA ORDER (v1.4).** `tblPr`, `tcPr` and `tcMar` are `xsd:sequence`
+types — child order is enforced and a violation triggers Word's "unreadable
+content" error. Build every one of them through `set_child()` (S13-7):
+
+- `tblPr`: `tblW` → `tblBorders` → `tblLayout` (NOT `tblW` → `tblLayout` →
+  `tblBorders`, which is the natural writing order and is invalid).
+- `tcPr`: `tcW` → `shd` → `tcMar` → `vAlign`.
+- `tcMar`: `top` → `start` → `left` → `bottom` → `end` → `right`.
+
+Note on `tcMar` naming: **both** `<w:start>/<w:end>` and `<w:left>/<w:right>`
+are valid — the ISO-IEC29500-4:2016 schema declares all six children, and
+`left`/`right` are what Word itself writes. Do NOT "modernise" existing
+`left`/`right` elements to `start`/`end`, and do NOT drop them from the order
+table: an order table missing them relocates them and corrupts a document that
+was valid on input. When creating new cell margins, either pair is acceptable;
+only the sequence matters. The same applies to `<w:tblCellMar>`.
+
 ## S13-2 — Insertion strategy
 
 The document is processed via `unzip → XML edit → zip`:
@@ -977,12 +1187,145 @@ The document is processed via `unzip → XML edit → zip`:
 Processing in REVERSE ORDER (Q.N → Q.1) ensures that inserting elements
 for Q.5 doesn't shift the positions of Q.6-Q.N (which were already processed).
 
-## S13-3 — Namespace preservation
+## S13-3 — Namespace preservation (v1.4 — MANDATORY MECHANISM)
 
-When editing the XML, ALL existing namespace declarations on the root element
-must be preserved exactly. No `cleanup_namespaces()` — this strips xmlns
-declarations that `mc:Ignorable` and drawing content reference, causing Word
-to show "unreadable content" errors (learned from MockDeliver v1.3).
+⚠️ **This section is a hard requirement, not guidance.** The v1.3 defect
+occurred because the previous text warned against `cleanup_namespaces()` — an
+**lxml-only** function — without mandating lxml. The run used stdlib
+`xml.etree.ElementTree`, where that function does not exist, so the warning
+was satisfied while the file was being corrupted.
+
+**RULE 1 — lxml is MANDATORY.** All reading and writing of existing OOXML
+parts (`word/document.xml`, `headerN.xml`, `footerN.xml`,
+`word/_rels/document.xml.rels`, `[Content_Types].xml`) uses `lxml.etree`.
+
+**RULE 2 — `xml.etree.ElementTree` is FORBIDDEN** for editing existing parts.
+It cannot preserve the namespace set even when used carefully. Measured on a
+Word-realistic root carrying 20 prefixes with
+`mc:Ignorable="w14 w15 w16se wp14"`:
+
+| Approach | Prefixes preserved | Lost |
+|---|---|---|
+| stdlib ET, naive | 0 (all rewritten to `ns0`…`ns5`) | **20** |
+| stdlib ET + `register_namespace()` for every prefix | 6 | **14** — incl. `w15`, `w16se`, `wp14` |
+| **lxml, no `cleanup_namespaces()`** | **20** | **0** |
+
+`register_namespace()` is NOT a fix: stdlib ET emits a declaration only for a
+prefix used as an element/attribute *tag* prefix, and drops those referenced
+only inside attribute values — which is exactly what `mc:Ignorable` is.
+
+**RULE 3 — `etree.cleanup_namespaces()` is FORBIDDEN** (the MockDeliver v1.3
+lesson). lxml preserves every declaration on the parsed root as long as this
+is never called.
+
+**RULE 4 — the namespace set is DISCOVERED, never hardcoded.** It varies by
+exam: documents without drawings lack `a`/`a14`/`pic`; older templates carry
+VML (`v`, `o`, `w10`); newer Word versions add `w16cid`, `w16cex`. Any
+hardcoded list fails on the next exam.
+
+**RULE 5 — new parts must declare every prefix they actually use.** `headerN.xml`
+/ `footerN.xml` created by S13-6 must declare each prefix appearing in their
+own content, and — if they carry an `mc:Ignorable` attribute — every token in
+it. They do NOT need the document root's full prefix set; over-declaring is
+harmless but unnecessary. (Verified on a real artefact: header/footer parts
+declaring only `w`, `r`, `m` and carrying no `mc:Ignorable` validate cleanly.)
+Build them with lxml like every other part.
+
+⚠️ **RULE 6 — every part written is in scope, not just `document.xml`.** On the
+failing artefact, `header1.xml` and `footer1.xml` each carried their own schema
+violation. Apply S13-3 and S13-7 to every part the step creates or edits, and
+validate all of them (S8-9).
+
+### Why Word rejects what Python accepts
+
+`mc:Ignorable` (ECMA-376 Part 3, Markup Compatibility) holds a whitespace-
+delimited list of namespace **prefixes** that the MCE processor must resolve.
+An XML parser has no reason to interpret an attribute's *value*, so a file
+whose `mc:Ignorable` names undeclared prefixes is still well-formed XML and
+parses cleanly in both stdlib ET and lxml. Word's MCE preprocessor resolves
+it, fails, and reports unreadable content. This is precisely why the defect is
+invisible to every content check in §8 and why S8-9 exists.
+
+### Mandated read/write pattern
+
+```python
+from lxml import etree
+
+W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+
+
+def w(tag):
+    """Qualify a bare WordprocessingML tag name."""
+    return '{%s}%s' % (W, tag)
+
+
+def ln(el):
+    """Local name of an element, namespace stripped."""
+    t = el.tag
+    return t.split('}')[-1] if isinstance(t, str) and '}' in t else t
+
+
+def parse_part(path):
+    """Parse an existing OOXML part. lxml keeps every root xmlns declaration."""
+    return etree.parse(path)
+
+
+def write_part(tree_or_root, path):
+    """Serialize a part with all namespace declarations intact.
+
+    NEVER call etree.cleanup_namespaces() anywhere in this pipeline.
+    """
+    root = tree_or_root.getroot() if hasattr(tree_or_root, 'getroot') else tree_or_root
+    data = etree.tostring(root, xml_declaration=True, encoding='UTF-8',
+                          standalone=True)
+    data = data.replace(
+        b"<?xml version='1.0' encoding='UTF-8' standalone='yes'?>",
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>')
+    with open(path, 'wb') as fh:
+        fh.write(data)
+```
+
+### In-spec namespace self-check (runs before S8-9)
+
+Reproduces the two rules the external validator enforces, so the pipeline
+fails loudly even if the validator is unavailable:
+
+```python
+import re
+
+
+def namespace_selfcheck(input_xml_bytes, output_xml_bytes):
+    """Return a list of failures; empty list means the namespace set is safe.
+
+    (a) every prefix named in mc:Ignorable must be declared as xmlns:<prefix>
+    (b) the output prefix set must be a superset of the input prefix set
+    """
+    failures = []
+    src = input_xml_bytes.decode('utf-8', 'replace')
+    out = output_xml_bytes.decode('utf-8', 'replace')
+
+    out_prefixes = set(re.findall(r'xmlns:([A-Za-z0-9_.-]+)=', out))
+    in_prefixes = set(re.findall(r'xmlns:([A-Za-z0-9_.-]+)=', src))
+
+    for ig in re.findall(r'mc:Ignorable="([^"]*)"', out):
+        for token in ig.split():
+            if token and token not in out_prefixes:
+                failures.append(
+                    "mc:Ignorable names '%s' but xmlns:%s is not declared"
+                    % (token, token))
+
+    missing = sorted(in_prefixes - out_prefixes)
+    if missing:
+        failures.append('namespace prefixes lost during edit: %s'
+                        % ', '.join(missing))
+
+    if re.search(r'<ns\d+:', out):
+        failures.append('invented ns<N>: prefixes present — stdlib '
+                        'ElementTree was used; S13-3 RULE 2 violated')
+    return failures
+```
+
+Any non-empty result — HARD STOP, do not deliver.
 
 ## S13-4 — Why not python-docx for insertion
 
@@ -997,13 +1340,27 @@ for tag insertion.
 
 Restyling modifies elements IN PLACE — no paragraph is recreated:
 
+⚠️ **v1.4 — every insertion below goes through `set_child()` (S13-7).** The
+element lists here are NOT a writing order. Appending them in the order
+written produces `keepNext`/`keepLines` after `spacing`/`ind`, which violates
+the `CT_PPr` sequence and is independently sufficient to make Word reject the
+document. `set_child()` places each element at its schema-correct position
+regardless of the order the caller inserts in.
+
 - pPr: create it if absent; add/replace `<w:pBdr>` (left bar), `<w:shd>`
   (w:val="clear" — S13-1 warning applies), `<w:ind>`, `<w:spacing>`,
-  `<w:keepNext>`, `<w:keepLines>`. Existing pPr children not listed in
-  S7-5 are preserved.
+  `<w:keepNext>`, `<w:keepLines>` — each via
+  `set_child(pPr, name, PPR_ORDER, attrs)`. Existing pPr children not listed
+  in S7-5 are preserved, in place.
 - rPr on each affected run: add/replace `<w:b>`, `<w:color>`, `<w:sz>`/
-  `<w:szCs>`, `<w:spacing>` (letter-spacing). NEVER add or modify
+  `<w:szCs>`, `<w:spacing>` (letter-spacing) — each via
+  `set_child(rPr, name, RPR_ORDER, attrs)`. NEVER add or modify
   `<w:rFonts>` — font face preservation is a hard invariant (S7-3).
+- ⚠️ **Use the right table.** A run's properties (`<w:r><w:rPr>`) are
+  `CT_RPr` → `RPR_ORDER`. A paragraph-MARK's properties (`<w:pPr><w:rPr>`)
+  are `CT_ParaRPr` → `PARA_RPR_ORDER`, which admits `ins`/`del`/`moveFrom`/
+  `moveTo` ahead of everything else. Using `RPR_ORDER` on a paragraph-mark
+  rPr that carries `<w:del>` relocates it and corrupts the document.
 - CLASS-2 (Correct Answer) paragraphs: iterate runs; style `<w:r>` runs
   containing `<w:t>`; skip `<m:oMath>` children entirely.
 - Marker substitution (S7-6): edit the text of the first `<w:t>` in the
@@ -1039,6 +1396,426 @@ The mechanism the reference documents use, made exam-agnostic:
 
 Header/footer parts contain no OMML and no drawings, so S8-5/S8-6 input==
 output equality is unaffected by construction.
+
+⚠️ **v1.4 — sectPr reference insertion.** `CT_SectPr` is an ordered sequence
+beginning `headerReference`, `footerReference`, `footnotePr`, `endnotePr`,
+`type`, `pgSz`, `pgMar`, … Rule 4's "insert at the head of sectPr" is correct,
+but implement it with `set_child()` semantics rather than a raw `insert(0, …)`,
+so that a sectPr already carrying other leading children stays valid. Because a
+sectPr holds THREE `headerReference` and THREE `footerReference` elements (one
+per `w:type`, D10), these two are in `REPEATABLE` — `set_child()` refuses them
+and `set_child_multi()` (S13-7) must be used:
+
+```python
+set_child_multi(sectPr, 'headerReference', SECTPR_ORDER, [
+    {'type': 'default', 'r:id': hdr_rid},
+    {'type': 'even',    'r:id': hdr_rid},
+    {'type': 'first',   'r:id': hdr_rid},
+])
+set_child_multi(sectPr, 'footerReference', SECTPR_ORDER, [
+    {'type': 'default', 'r:id': ftr_rid},
+    {'type': 'even',    'r:id': ftr_rid},
+    {'type': 'first',   'r:id': ftr_rid},
+])
+```
+
+Note `'r:id'`, not `'id'`: the relationship id lives in the relationships
+namespace, while `w:ins`/`w:del` use `w:id`. `qattr()` (S13-7) resolves the
+prefix explicitly so neither can be written by accident.
+
+## S13-7 — OOXML schema ordering discipline (v1.4)
+
+OOXML composite types are XML Schema `xsd:sequence` — children MUST appear in
+the declared order. This is not a strict-vs-transitional distinction; both
+enforce it. `SubElement()`/`append()` add at the END, which is correct only if
+the caller happens to insert in schema order. Any violation triggers Word's
+"unreadable content" prompt.
+
+### The tables
+
+Extracted programmatically from
+`/mnt/skills/public/docx/scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd` —
+never hand-written, never recalled from memory.
+
+⚠️ **A naive XSD walk produces SHORT tables, and a short table is the exact
+failure mode `set_child()` exists to prevent.** An extractor must resolve BOTH
+`xsd:extension` bases AND `xsd:group` references. Skipping group refs silently
+drops `cellIns`/`cellDel`/`cellMerge` from `CT_TcPr` (they arrive via
+`EG_CellMarkupElements` through `CT_TcPrInner`) and the whole of `CT_RPr` and
+`CT_SectPr`, which are group-composed. To regenerate or re-verify:
+
+```python
+def xsd_order(complex_type_name, xsd_path):
+    """Authoritative child order for an OOXML complexType.
+
+    Resolves xsd:extension bases and xsd:group references — both are required.
+    """
+    XS = '{http://www.w3.org/2001/XMLSchema}'
+    root = etree.parse(xsd_path).getroot()
+    types = dict((c.get('name'), c) for c in root.iter(XS + 'complexType')
+                 if c.get('name'))
+    groups = dict((g.get('name'), g) for g in root.iter(XS + 'group')
+                  if g.get('name'))
+
+    def walk(node, out, seen):
+        for ch in node:
+            if ch.tag == XS + 'element':
+                nm = ch.get('name')
+                if nm and nm not in out:
+                    out.append(nm)
+            elif ch.tag == XS + 'group':
+                ref = ch.get('ref')
+                if ref:
+                    ref = ref.split(':')[-1]
+                    if ref in groups and ref not in seen:
+                        seen.add(ref)
+                        walk(groups[ref], out, seen)
+                else:
+                    walk(ch, out, seen)
+            elif ch.tag in (XS + 'sequence', XS + 'choice', XS + 'all',
+                            XS + 'complexContent', XS + 'extension'):
+                if ch.tag == XS + 'extension':
+                    base = ch.get('base', '').split(':')[-1]
+                    if base in types and base not in seen:
+                        seen.add(base)
+                        walk(types[base], out, seen)
+                walk(ch, out, seen)
+        return out
+
+    return walk(types[complex_type_name], [], set())
+```
+
+Expected lengths, for a fast sanity check after regeneration:
+`CT_PPr` 36 · `CT_RPr` 40 · `CT_ParaRPr` 44 · `CT_TblPr` 18 · `CT_TcPr` 18 ·
+`CT_TcMar` 6 · `CT_SectPr` 22. A shorter result means the walk is incomplete —
+fix the extractor, do NOT ship the table.
+
+```python
+# ---------------------------------------------------------------------------
+# OOXML child-element orders — ISO-IEC29500-4:2016 wml.xsd
+# ---------------------------------------------------------------------------
+
+PPR_ORDER = [
+    'pStyle', 'keepNext', 'keepLines', 'pageBreakBefore', 'framePr',
+    'widowControl', 'numPr', 'suppressLineNumbers', 'pBdr', 'shd', 'tabs',
+    'suppressAutoHyphens', 'kinsoku', 'wordWrap', 'overflowPunct',
+    'topLinePunct', 'autoSpaceDE', 'autoSpaceDN', 'bidi', 'adjustRightInd',
+    'snapToGrid', 'spacing', 'ind', 'contextualSpacing', 'mirrorIndents',
+    'suppressOverlap', 'jc', 'textDirection', 'textAlignment',
+    'textboxTightWrap', 'outlineLvl', 'divId', 'cnfStyle', 'rPr', 'sectPr',
+    'pPrChange',
+]
+
+# CT_RPr — properties of a RUN: <w:r><w:rPr>
+RPR_ORDER = [
+    'rStyle', 'rFonts', 'b', 'bCs', 'i', 'iCs', 'caps', 'smallCaps', 'strike',
+    'dstrike', 'outline', 'shadow', 'emboss', 'imprint', 'noProof',
+    'snapToGrid', 'vanish', 'webHidden', 'color', 'spacing', 'w', 'kern',
+    'position', 'sz', 'szCs', 'highlight', 'u', 'effect', 'bdr', 'shd',
+    'fitText', 'vertAlign', 'rtl', 'cs', 'em', 'lang', 'eastAsianLayout',
+    'specVanish', 'oMath', 'rPrChange',
+]
+
+# CT_ParaRPr — properties of a PARAGRAPH MARK: <w:pPr><w:rPr>
+# Distinct from CT_RPr: four revision children precede everything else.
+PARA_RPR_ORDER = ['ins', 'del', 'moveFrom', 'moveTo'] + RPR_ORDER
+
+TBLPR_ORDER = [
+    'tblStyle', 'tblpPr', 'tblOverlap', 'bidiVisual', 'tblStyleRowBandSize',
+    'tblStyleColBandSize', 'tblW', 'jc', 'tblCellSpacing', 'tblInd',
+    'tblBorders', 'shd', 'tblLayout', 'tblCellMar', 'tblLook', 'tblCaption',
+    'tblDescription', 'tblPrChange',
+]
+
+# CT_TcPr = CT_TcPrBase (14) + EG_CellMarkupElements (cellIns/cellDel/
+# cellMerge, via CT_TcPrInner) + tcPrChange. The three markup elements are
+# easy to miss — they arrive through a group reference, not a direct element
+# declaration — and omitting them would relocate them in any cell that has
+# tracked changes.
+TCPR_ORDER = [
+    'cnfStyle', 'tcW', 'gridSpan', 'hMerge', 'vMerge', 'tcBorders', 'shd',
+    'noWrap', 'tcMar', 'textDirection', 'tcFitText', 'vAlign', 'hideMark',
+    'headers', 'cellIns', 'cellDel', 'cellMerge', 'tcPrChange',
+]
+
+# CT_TcMar and CT_TblCellMar share this order. BOTH naming pairs are valid —
+# start/end AND left/right. All six must stay in the table (see S13-1).
+TCMAR_ORDER = ['top', 'start', 'left', 'bottom', 'end', 'right']
+
+SECTPR_ORDER = [
+    'headerReference', 'footerReference', 'footnotePr', 'endnotePr', 'type',
+    'pgSz', 'pgMar', 'paperSrc', 'pgBorders', 'lnNumType', 'pgNumType',
+    'cols', 'formProt', 'vAlign', 'noEndnote', 'titlePg', 'textDirection',
+    'bidi', 'rtlGutter', 'docGrid', 'printerSettings', 'sectPrChange',
+]
+```
+
+### The insertion function
+
+⚠️ **Do NOT sort the parent's children.** A whole-parent sort relocates every
+element missing from the table, and no hardcoded table can enumerate what a
+real Word document contains (extension-namespace children, revision markers,
+future additions). Two verified corruptions caused by sorting:
+
+| Parent | Valid input | After a whole-parent sort | Validator |
+|---|---|---|---|
+| `tcMar` (Word-native) | `top, left, bottom, right` | `top, bottom, left, right` | **`left`: This element is not expected** |
+| `<w:pPr><w:rPr>` with a deleted paragraph mark | `del, b` | `b, del` | **`del`: This element is not expected** |
+
+`set_child()` inserts at the correct position **relative to elements already
+present** and never moves an existing child:
+
+```python
+# Attribute namespaces. A bare key means the w: namespace; a key written
+# "prefix:name" is resolved through ATTR_NS. This is explicit on purpose:
+# <w:headerReference> needs r:id while <w:ins>/<w:del> need w:id, so no
+# blanket rule for a key called "id" can be correct.
+ATTR_NS = {
+    'w': W,
+    'r': 'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+    'm': 'http://schemas.openxmlformats.org/officeDocument/2006/math',
+    'xml': 'http://www.w3.org/XML/1998/namespace',
+}
+
+# Elements that may legitimately occur MORE THAN ONCE in one parent, per the
+# ISO-IEC29500-4:2016 schema. D10 requires three of each in every sectPr
+# (default / even / first), so set_child's replace-one semantics would destroy
+# two of them — it refuses, and set_child_multi must be used instead.
+REPEATABLE = {'headerReference', 'footerReference'}
+
+
+def qattr(key):
+    """Resolve an attribute key to a Clark-notation qualified name."""
+    if ':' in key:
+        prefix, local = key.split(':', 1)
+        if prefix not in ATTR_NS:
+            raise ValueError('unknown attribute namespace prefix: %s' % prefix)
+        return '{%s}%s' % (ATTR_NS[prefix], local)
+    return '{%s}%s' % (W, key)
+
+
+def _insert_index(parent, order, name):
+    """Index at which `name` belongs, relative to the children already present."""
+    rank = dict((n, i) for i, n in enumerate(order))
+    mine = rank[name]
+    for i, child in enumerate(parent):
+        r = rank.get(ln(child))
+        if r is not None and r > mine:
+            return i
+    return len(parent)
+
+
+def set_child(parent, name, order, attrs=None):
+    """Insert-or-replace <w:name> at its schema-correct position.
+
+    NEVER reorders existing children — unknown/extension elements stay put.
+    Raises on an unknown name so a missing table entry fails loudly rather
+    than corrupting silently, and on a repeatable element so the caller is
+    sent to set_child_multi instead of silently losing siblings.
+    """
+    if name not in order:
+        raise ValueError('%s is not in the supplied schema order table' % name)
+    if name in REPEATABLE:
+        raise ValueError('%s may occur more than once — use set_child_multi() '
+                         'or its siblings will be destroyed' % name)
+    for existing in [c for c in parent if ln(c) == name]:
+        parent.remove(existing)
+    el = etree.Element(w(name))
+    for key, val in (attrs or {}).items():
+        el.set(qattr(key), val)
+    parent.insert(_insert_index(parent, order, name), el)
+    return el
+
+
+def set_child_multi(parent, name, order, attrs_list):
+    """Same placement rule, for elements legitimately repeated in one parent.
+
+    Used for <w:headerReference>/<w:footerReference>, which appear once per
+    w:type (default/even/first). Removes all existing instances of `name`,
+    then inserts the new set together at the schema-correct position.
+
+    Attribute keys follow qattr(): write 'r:id' for the relationship id and
+    'type' for w:type.
+    """
+    if name not in order:
+        raise ValueError('%s is not in the supplied schema order table' % name)
+    if not attrs_list:
+        raise ValueError('set_child_multi(%s) called with an empty attrs_list — '
+                         'this would delete the existing elements and add '
+                         'nothing; pass the replacement set explicitly' % name)
+    for existing in [c for c in parent if ln(c) == name]:
+        parent.remove(existing)
+    idx = _insert_index(parent, order, name)
+    made = []
+    for offset, attrs in enumerate(attrs_list):
+        el = etree.Element(w(name))
+        for key, val in (attrs or {}).items():
+            el.set(qattr(key), val)
+        parent.insert(idx + offset, el)
+        made.append(el)
+    return made
+
+
+def get_or_make(parent, name, order):
+    """Return the existing child `name`, creating it in position if absent."""
+    for child in parent:
+        if ln(child) == name:
+            return child
+    return set_child(parent, name, order)
+```
+
+### When it is required
+
+MANDATORY after/for any insertion into: `pPr` (`PPR_ORDER`), run `rPr`
+(`RPR_ORDER`), paragraph-mark `rPr` (`PARA_RPR_ORDER`), `tblPr`
+(`TBLPR_ORDER`), `tcPr` (`TCPR_ORDER`), `tcMar` / `tblCellMar`
+(`TCMAR_ORDER`), `sectPr` (`SECTPR_ORDER`).
+
+**In EVERY part the step writes** — `word/document.xml`, `word/headerN.xml`,
+`word/footerN.xml`. On the failing artefact the header and footer parts each
+carried their own `pBdr` violation; a body-only discipline would not have
+caught them.
+
+NOT required when only modifying the *attributes* of an element that already
+exists, or when reading.
+
+⚠️ **`set_child()` places elements; it does not know their required
+attributes.** Schema validity needs both. `<w:shd>` requires `w:val` and
+`w:fill`, `<w:sz>` requires `w:val`, `<w:pgMar>` requires all eight of
+top/right/bottom/left/header/footer/gutter, `<w:tblW>` requires `w:w` and
+`w:type`, and each `<w:pBdr>`/`<w:tblBorders>` side element requires
+`w:val`/`w:sz`/`w:space`/`w:color`. Correct order with missing attributes is
+still an invalid document — S8-9 reports these as
+`The attribute '…' is required but missing`.
+
+### ⚠️ Nested defects are masked — an error count is a LOWER BOUND
+
+When a validator rejects an element at its own position it does not descend
+into that element, so its children's violations stay hidden until the outer
+one is fixed. Measured on the failing artefact: **812 errors reported, but 991
+elements actually required reordering.** `tcMar`'s internal
+`[top, bottom, left, right]` was invisible behind `tcMar`'s own misplacement
+inside `tcPr`.
+
+Consequence: **never treat a reduced error count as success.** S8-9 passes only
+at zero. If a fix lowers the count, re-run — new errors surfacing is expected
+behaviour, not a regression.
+
+This is also why the correct remedy for that `tcMar` was to REORDER to
+`[top, left, bottom, right]`, not to rename `left`/`right` to `start`/`end`.
+Renaming would have masked the real fault while leaving `TCMAR_ORDER`
+incomplete for every Word-authored table (S13-1).
+
+### Inline order assertion (cheap, runs before S8-9)
+
+```python
+def assert_schema_order(parent, order, where=''):
+    """Raise if `parent`'s known children are not in schema order.
+
+    Unknown/extension children are ignored — they are not the caller's to
+    order. Use as a cheap inline guard right after building an element, so a
+    fault is caught at its source rather than at the S8-9 gate.
+    """
+    rank = dict((n, i) for i, n in enumerate(order))
+    seen = [rank[ln(c)] for c in parent if ln(c) in rank]
+    for i in range(len(seen) - 1):
+        if seen[i] > seen[i + 1]:
+            names = [ln(c) for c in parent]
+            raise AssertionError('schema order violation in %s%s: %s'
+                                 % (ln(parent), (' (' + where + ')') if where else '',
+                                    names))
+    return True
+```
+
+### Self-test (run before first use on a new exam)
+
+```python
+def selftest_set_child():
+    """Assert every regression case that caused, or would cause, corruption."""
+    def mk(xml):
+        return etree.fromstring(xml.replace('@W@', W))
+
+    R_NS = ATTR_NS['r']
+
+    # 1. Word-native tcMar must survive untouched.
+    tc = mk('<w:tcMar xmlns:w="@W@">'
+            '<w:top w:w="40" w:type="dxa"/><w:left w:w="80" w:type="dxa"/>'
+            '<w:bottom w:w="40" w:type="dxa"/><w:right w:w="80" w:type="dxa"/>'
+            '</w:tcMar>')
+    set_child(tc, 'top', TCMAR_ORDER, {'w': '40', 'type': 'dxa'})
+    assert [ln(c) for c in tc] == ['top', 'left', 'bottom', 'right']
+
+    # 2. A deleted paragraph mark must stay first.
+    rpr = mk('<w:rPr xmlns:w="@W@"><w:del w:id="1"/><w:i/></w:rPr>')
+    for nm in ['b', 'color', 'sz']:
+        set_child(rpr, nm, PARA_RPR_ORDER)
+    assert ln(list(rpr)[0]) == 'del'
+
+    # 3. The S13-5 workload, inserted in deliberately wrong order.
+    ppr = mk('<w:pPr xmlns:w="@W@"><w:jc w:val="both"/></w:pPr>')
+    for nm in ['spacing', 'ind', 'keepNext', 'keepLines', 'shd', 'pBdr']:
+        set_child(ppr, nm, PPR_ORDER)
+    names = [ln(c) for c in ppr]
+    rank = dict((n, i) for i, n in enumerate(PPR_ORDER))
+    assert all(rank[names[i]] < rank[names[i + 1]]
+               for i in range(len(names) - 1)), names
+
+    # 4. Extension-namespace children are never relocated.
+    px = mk('<w:pPr xmlns:w="@W@" xmlns:w14="urn:x"><w14:collapsed/>'
+            '<w:jc w:val="both"/></w:pPr>')
+    set_child(px, 'spacing', PPR_ORDER)
+    assert ln(list(px)[0]) == 'collapsed'
+
+    # 5. All three header/footer references survive, in schema position,
+    #    with the relationship id in the r: namespace (D10).
+    sect = mk('<w:sectPr xmlns:w="@W@"><w:pgSz w:w="11906"/></w:sectPr>')
+    set_child_multi(sect, 'headerReference', SECTPR_ORDER,
+                    [{'type': t, 'r:id': 'rId7'}
+                     for t in ('default', 'even', 'first')])
+    set_child_multi(sect, 'footerReference', SECTPR_ORDER,
+                    [{'type': t, 'r:id': 'rId8'}
+                     for t in ('default', 'even', 'first')])
+    assert [ln(c) for c in sect] == (['headerReference'] * 3
+                                     + ['footerReference'] * 3 + ['pgSz'])
+    assert all(c.get('{%s}id' % R_NS) == 'rId7'
+               for c in sect if ln(c) == 'headerReference')
+
+    # 6. set_child REFUSES repeatable elements rather than collapsing them.
+    try:
+        set_child(sect, 'headerReference', SECTPR_ORDER, {'type': 'default'})
+        raise AssertionError('set_child accepted a repeatable element')
+    except ValueError:
+        pass
+    assert len([c for c in sect if ln(c) == 'headerReference']) == 3
+
+    # 7. set_child_multi refuses an empty replacement set.
+    try:
+        set_child_multi(sect, 'headerReference', SECTPR_ORDER, [])
+        raise AssertionError('set_child_multi accepted an empty attrs_list')
+    except ValueError:
+        pass
+
+    # 8. Unknown element name and unknown attribute prefix both fail loudly.
+    try:
+        set_child(mk('<w:pPr xmlns:w="@W@"/>'), 'nosuch', PPR_ORDER)
+        raise AssertionError('unknown element name accepted')
+    except ValueError:
+        pass
+    try:
+        qattr('zz:id')
+        raise AssertionError('unknown attribute prefix accepted')
+    except ValueError:
+        pass
+
+    # 9. get_or_make returns the existing child, never a duplicate.
+    p2 = mk('<w:pPr xmlns:w="@W@"><w:jc w:val="both"/></w:pPr>')
+    a = get_or_make(p2, 'spacing', PPR_ORDER)
+    a.set(w('before'), '120')
+    b = get_or_make(p2, 'spacing', PPR_ORDER)
+    assert a is b and b.get(w('before')) == '120'
+    assert [ln(c) for c in p2] == ['spacing', 'jc']
+    return True
+```
 
 ---
 
@@ -1076,4 +1853,4 @@ Correct Answer band the Topic pill family — one palette document-wide.
 
 ---
 
-**End of Framework_PYQFormat.md (v1.3)**
+**End of Framework_PYQFormat.md (v1.4.1)**

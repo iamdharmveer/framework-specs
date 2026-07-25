@@ -1,5 +1,141 @@
-# Framework_MockTestAnalyse v2.24.10 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.29.1 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
+#
+# v2.29.1 — 2026-07-25 — E-2 Q_PATTERNS TABLE RECONCILED WITH THE ENGINE. E-2 is the table every
+#         other spec says it aligns to, and it listed five patterns against an engine
+#         implementing two. audit_deep TABLE-PARITY could not detect this — its regex truncated
+#         at the "]" inside r'^Question\s+(\d+)\s*[:.]'. Documentary table, declared and never
+#         read, so behaviour is unchanged; the note added in its place records why the three
+#         raw-source forms must never be restored here (options read "N. text" after Step 1, so
+#         bare-number matches them all).
+# v2.29 — 2026-07-25 — CORPUS TRANSPORT + IMAGE INTEGRITY. Sixteen defects, twelve of them
+#   in this file. Root cause of the reported failure: the Drive connector caps downloads at
+#   10 MiB and 6 of 7 pending papers were above it, but the pipeline had no way to know —
+#   collect_drive_docx_recursive discarded the fileSize the listing already carried, so the
+#   blocker surfaced only at batch 6, and gdrive_download_file was called with no try/except
+#   (verified: ZERO try/except existed around any Drive call in all 31 tracked files).
+#   Worse, save_progress ran AFTER the per-paper loop, so a failure on paper 3 silently
+#   discarded papers 1 and 2 — invisible in the reported incident only because all three
+#   papers in that batch were oversized.
+#   Image integrity was independently broken. extract_and_map_images walked doc.paragraphs,
+#   which in python-docx does NOT descend into tables, so every figure laid out in a table —
+#   the normal arrangement for match-the-following, multi-panel figures and option grids —
+#   was invisible: the question classified TEXT instead of FIGURAL, corrupting the format
+#   distribution that drives Step 7, with no error raised. Proven by construction. Legacy VML
+#   <v:imagedata> images were invisible everywhere (0 occurrences of 'imagedata' in any image
+#   spec), header/footer images were never extracted, pre-Q.1 images were dropped silently,
+#   and NO image-count assertion existed anywhere in this file (PYQFormat S8-6 has had one
+#   for the equivalent risk since v1.1).
+#   Fix: (1) enumeration captures fileSize + mimeType and screens every entry — native Google
+#   Docs, shortcuts and legacy .doc are REJECTED WITH A REASON instead of vanishing silently;
+#   duplicate canonical identity is a HARD STOP. (2) all fetching via corpus_io.fetch_drive_docx;
+#   every failure raises TransportFallback and degrades to the UPLOAD LANE — never a hard stop,
+#   which is what makes this survive a future change to the cap. (3) save_progress after EVERY
+#   paper. (4) extract_and_map_images rewritten to walk body.iter() and match both blip and VML.
+#   (5) gates IMG-1..IMG-6 with a vision liveness probe. (6) image_clarity becomes three-state:
+#   'unclear' now means the FIGURE is illegible, 'vision_unavailable' means the SESSION cannot
+#   see — previously conflated, so a blind session blamed the corpus and inflated QV-9.
+#   (7) new QV-13. (8) the real download envelope documented (context spill + double JSON parse).
+#   BATCH_SIZE and the S8-1 BATCH STOP law are UNCHANGED.
+#
+# v2.28 — 2026-07-23 — detect_question_start + slugify DELEGATED (Cluster G / Cluster D).
+#   Found by MUTATION TESTING, not by any existing check. Re-localising a shared function in
+#   ONE spec produces zero drift signal — cross-spec drift detection needs two DIFFERING
+#   copies, and once a function is correctly delegated everywhere else, only one local copy
+#   can exist. The heading-parser drift fixed in v2.27 could therefore have returned the next
+#   day with every check green. audit_deep.py now enforces a DELEGATION contract (engine-owned
+#   names must not be defined inside a spec, except as a thin forwarding adapter) and a
+#   TABLE-PARITY check (a delegated function is worthless if each spec keeps its own copy of
+#   the table it reads). No behaviour change: both engine forms are byte-identical.
+#
+# v2.27 — 2026-07-23 — SHARED-PARSER DRIFT CLOSED (twin of Framework_PYQAnalyse v2.20).
+#   is_taxonomy_heading / parse_taxonomy_level / extract_year_from_filename all existed in
+#   BOTH this spec and PYQAnalyse Phase B — two steps walking the same sorted .docx — and all
+#   three pairs had drifted despite an explicit "keep IDENTICAL" instruction in the Step-4
+#   copies and EC-P14 documenting the exact failure mode. parse_taxonomy_level: this file
+#   gained 12+ heading patterns in v2.16, Step 4 kept 3. is_taxonomy_heading: different
+#   question-exclusion regexes, so the two steps disagreed on the heading SET. And
+#   extract_year_from_filename: this copy required 20xx on the basename while Step 4's took
+#   any 4 digits anywhere in the path — a pre-2000 paper was invisible here and visible there,
+#   and a digit-bearing folder could supply the year there. All three now delegate to
+#   blueprint_core Cluster G, whose forms are supersets (proven: test_cluster_g.py).
+#
+# v2.26 — 2026-07-23 — MAKE frequency_scope REACHABLE + ROUTE THE ENGINE
+#   (audit follow-up; fixes two defects introduced BY v2.25).
+#   (1) P0 REGRESSION FIXED. v2.25 added three `import blueprint_core` statements to this
+#       spec — the first this file has ever had — but routes.json gave PYQExtract only
+#       [Framework_MockTestAnalyse.md, Framework_DeliveryFooter.md]. The pattern_eras block
+#       is gated on `if progress and exam_config:` with NO scope gate, so it ran on every
+#       properly-configured exam and raised ModuleNotFoundError, aborting Step 5 for ALL
+#       exams — not merely those opting into era scoping. routes.json now routes
+#       blueprint_core.py to PYQExtract (and to the other PYQ triggers that reference it).
+#   (2) P1 FIXED — THE FEATURE WAS UNREACHABLE. `frequency_scope` existed as a function
+#       parameter defaulting to 'all', and no trigger could set it: the Step-5 trigger
+#       grammar had no such flag and the string appeared nowhere outside this file. The
+#       entire v2.25 feature was dead code. New `--frequency-scope all|current-era` flag,
+#       parsed at session start and passed to generate_frequency_xlsx() and
+#       write_subtopic_manifest().
+#   (3) Era classification is now fully engine-backed (bc.classify_paper_era), including the
+#       new 'retyped' era for exams that keep their question count but change question TYPES.
+#   LESSON RECORDED: v2.25 was verified file-by-file with extracted-code harnesses that all
+#   passed because blueprint_core.py happened to sit in the test working directory. No test
+#   asserted that a TRIGGER's route actually supplies the modules its specs import. A routing
+#   test (test_routing.py) now does exactly that for every trigger.
+#
+# v2.25 — 2026-07-23 — ERA-SCOPED FREQUENCY (GAP-2026-07-23-002; completes the
+#   pattern-era work begun in Framework_Blueprint v1.36 / PYQSort v1.9 / PYQAnalyse v2.18).
+#   THE PROBLEM those three did NOT solve. They stopped legacy papers from corrupting
+#   question COUNTS and stopped 38%-of-corpus silent data loss, but the subject/subtopic
+#   MIX stayed era-blended. Recency weighting (Framework_Blueprint §3, last 2 valid years
+#   x2) dampens this and cannot fix it: a real corpus of 21 retired-era years against 6
+#   current-era years still leaves the RETIRED pattern holding 72% of the r_avg weight
+#   (21/29 vs 8/29), so mocks over-serve topics the exam stopped asking and under-serve the
+#   ones it now emphasises.
+#   THE INSIGHT. A PYQ corpus carries two kinds of information needing OPPOSITE treatment:
+#     QUESTION SHAPES (templates, difficulty calibration, phrasing — §14 synthesise_subtopic)
+#       improve with EVERY era. A subtopic seen across 26 years is far better characterised
+#       than one seen twice. This is the entire reason legacy papers are retained.
+#     PROPORTIONS (how many questions a subtopic deserves) can only come from the CURRENT
+#       pattern. A retired pattern's mix is not evidence about today's exam.
+#   (1) NEW `frequency_scope` parameter on generate_frequency_xlsx() and
+#       write_subtopic_manifest(). DEFAULT 'all' — byte-identical to v2.24.10 for every
+#       exam, so nothing changes unless an exam opts in. 'current-era' restricts the
+#       COUNTING VIEW to papers matching the current pattern.
+#   (2) The filter is applied at the counting seam ONLY. bc.filter_progress_to_eras()
+#       returns a COPY, so `progress` is never mutated and §14 pattern/template synthesis,
+#       section_rules.md and the taxonomy keep consuming the FULL corpus. Variety in,
+#       faithful proportions out.
+#   (3) The axis distribution obeys frequency_scope too — it is a MIX quantity. Its two
+#       existing protections are kept (3-most-recent-years windowing; Blueprint v1.36
+#       rescale-to-sec_qs), but neither covers a pattern that changed WITHIN the last 3
+#       years, where the window straddles two patterns and the class proportions blend.
+#       Era-scoping closes that at the source, with a documented fallback to the
+#       full-corpus axis when era-scoping would leave nothing to measure (a blended axis
+#       rescaled to the right size beats status='no_pyq', which would disable the whole
+#       three-axis feature for that section).
+#   (4) NEW manifest['pattern_eras'] — per-paper era, the era counts, and the scope that
+#       was used. Purely additive audit trail; absent on pre-v2.25 manifests and no
+#       consumer is required to read it.
+#   (5) ENGINE: blueprint_core.py Cluster F (classify_paper_era, exam_config_bounds,
+#       paper_key, paper_eras_from_progress, filter_progress_to_eras). classify_paper_era
+#       is the SINGLE SOURCE OF TRUTH shared with Framework_PYQAnalyse S3-2a step 3b, so
+#       the two specs cannot drift on what 'current era' means.
+#   EDGE CASES COVERED (test_era_scope.py, 9,042 assertions): zero current-era papers
+#   (HARD STOP with an actionable message, never a silent divide-by-zero); MIXED-ERA YEARS,
+#   where two shifts of the same year sit in different patterns — filtering is per-PAPER
+#   via (year, shift), never per-year, so this is exact; 'renumbered' papers (right count,
+#   out-of-range numbers); 'smaller' papers (which by construction produce NO out-of-range
+#   questions); missing/empty exam_config (raises rather than classifying against zeroes,
+#   which would mislabel the whole corpus 'larger'); shift=None; unparseable q_num;
+#   fewer than 3 current-era papers (WARN — recency weighting needs 2+ valid years).
+#   LEGACY-ONLY SUBTOPICS behave correctly by construction: a subtopic the current pattern
+#   never asks falls to zero observed questions, so Framework_Blueprint §3-4 CASE 2 makes it
+#   Zero-PYQ and §5 ZP rotation gives it occasional coverage instead of a mix-distorting
+#   quota — while it KEEPS its place in the taxonomy and its full pattern library. Verified:
+#   the legacy-only subtopic key survives the filter with 840 source questions intact.
+#   MEASURED on the reference corpus (2000-2020 @90Q + 2021-2026 @50Q, 27 papers):
+#   coverage_pct 162% -> 100%; counted papers 27 -> 6; questions counted 2,190 -> 300;
+#   full 2,190-question corpus confirmed intact for pattern synthesis (non-mutation test).
 #
 # v2.24.10 — 2026-07-23 — E-9/E-10 CANONICAL COPY MOVED TO blueprint_core.py (annotation
 #   only — ZERO logic change in this spec). score_difficulty (E-9) and determine_strip_mode
@@ -707,6 +843,17 @@
 #   Step 5: PYQExtract PYQ: <<Google Drive Link>>       -- process PYQ from Drive (required)
 #   Step 5: PYQExtract --status                          -- show progress dashboard
 #   Step 5: PYQExtract --synthesise ALL                  -- re-synthesise only
+#   Step 5: PYQExtract ... [--frequency-scope all|current-era]   -- v2.26, default 'all'
+#
+#   --frequency-scope all          DEFAULT. Every paper counts toward the frequency
+#                                  numbers. Identical to pre-v2.25 behaviour.
+#   --frequency-scope current-era  Only papers matching the CURRENT exam pattern feed the
+#                                  Frequency xlsx and the axis distribution. The question-
+#                                  pattern library, section_rules.md and the taxonomy still
+#                                  consume EVERY era. Use when the corpus spans more than
+#                                  one pattern and the subject MIX matters more than sample
+#                                  depth. Requires exam_config; HARD STOPS if no paper in
+#                                  the corpus matches the current pattern.
 #
 #   Trigger matching is case-insensitive.
 #   ExamCode read from exam_config.json in project knowledge (set during Step 2a PYQDraft).
@@ -777,7 +924,7 @@ document and PYQ papers. The only inputs are documents the user already has.
 ### S1-1 — Trigger parsing and ExamCode detection
 
 ```
-Trigger: PYQExtract  PYQ: <<link>>  [--mode]
+Trigger: PYQExtract  PYQ: <<link>>  [--mode]  [--frequency-scope all|current-era]
 Trigger matching is case-insensitive.
 
 ExamCode: alphanumeric + underscore only (e.g. SSC_CGL_TIER1, GATE_CS, IBPS_PO).
@@ -817,6 +964,8 @@ Mode flags:
 mode = None   # set from trigger parsing above; None = auto-mode
 
 import json, os, re, ast, glob
+import blueprint_core as bc      # Cluster H — pure acquisition/image decisions
+import corpus_io                 # I/O shell — Drive fetch, image integrity, governor
 from collections import Counter
 from difflib import SequenceMatcher
 import math
@@ -986,6 +1135,20 @@ def gdrive_download_file(file_id, local_path):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+# v2.26 — parse --frequency-scope. Without this the frequency_scope parameter on
+# generate_frequency_xlsx()/write_subtopic_manifest() was UNREACHABLE: it existed, defaulted
+# to 'all', and no trigger could ever set it. Both callers below must be passed the parsed
+# value together with exam_config.
+frequency_scope = 'all'
+_m_fs = re.search(r'--frequency-scope\s+(all|current-era)', trigger_text or '')
+if _m_fs:
+    frequency_scope = _m_fs.group(1)
+if frequency_scope == 'current-era' and not exam_config:
+    raise SystemExit(
+        "HARD STOP: --frequency-scope current-era requires exam_config.json. Pattern era is "
+        "defined by comparison against the CURRENT pattern; without it no paper's era is "
+        "knowable. Supply exam_config.json or drop the flag.")
+
 # Parse ExamCode and PYQ link from trigger
 # pyq_drive_folder_id = None  if no PYQ parameter given
 # pyq_drive_folder_id = 'ID'  if PYQ: link given and parsed successfully
@@ -1005,7 +1168,8 @@ def extract_folder_id(url):
     m = re.search(r'drive\.google\.com/drive/folders/([A-Za-z0-9_-]+)', url)
     return m.group(1) if m else None
 
-def collect_drive_docx_recursive(folder_id, all_files=None):
+def collect_drive_docx_recursive(folder_id, all_files=None,
+                                 _seen_keys=None, _rejects=None):
     """
     Recursively walk all subfolders under folder_id.
     Collects every .docx file regardless of nesting depth.
@@ -1018,10 +1182,17 @@ def collect_drive_docx_recursive(folder_id, all_files=None):
       flat       : all .docx directly in root folder
       year-based : root/2025/*.docx, root/2024/*.docx, ...
       any nesting: Claude walks the full tree
-    Returns list of {source, id, name} dicts.
+    Returns list of {source, id, name, mimeType, fileSize, paper_key} dicts.
+    Rejected entries (native Google Doc, shortcut, legacy .doc, missing size) are
+    available on collect_drive_docx_recursive.last_rejects and MUST be shown to the
+    user — nothing is ever dropped silently.
     """
     if all_files is None:
         all_files = []
+    if _seen_keys is None:
+        _seen_keys = {}
+    if _rejects is None:
+        _rejects = []
 
     # Paginate through ALL items in folder (page_size=100, follow nextPageToken).
     # Without pagination, folders with >50 files would silently miss files.
@@ -1042,10 +1213,39 @@ def collect_drive_docx_recursive(folder_id, all_files=None):
             mime = item.get('mimeType', '')
             name = item.get('title', '')
             fid  = item.get('id', '')
-            if mime == 'application/vnd.google-apps.folder':
+            size = item.get('fileSize', item.get('size'))
+            try:
+                size = int(size) if size is not None else None
+            except (TypeError, ValueError):
+                size = None
+
+            # v2.29 — screen EVERY entry and capture size. Delegated to Cluster H so the
+            # rules are unit-testable without Drive. The old filter was
+            # `name.endswith(('.docx','.doc'))`, which had two silent failures:
+            #   * a native Google Doc's title carries NO extension, so it was neither
+            #     collected NOR reported — the paper simply vanished from the corpus and
+            #     §1-6 then evaluated an incomplete available_years without knowing it;
+            #   * legacy .doc was ACCEPTED even though python-docx cannot open it,
+            #     deferring a guaranteed failure to mid-batch.
+            verdict, reason = bc.screen_drive_entry(name, mime, size)
+            if verdict == 'folder':
                 subfolders.append((name, fid))
-            elif name.lower().endswith(('.docx', '.doc')):
-                all_files.append({'source': 'gdrive', 'id': fid, 'name': name})
+            elif verdict == 'paper':
+                key = bc.canonical_paper_key(name)
+                if key in _seen_keys:
+                    raise SystemExit(
+                        "HARD STOP — two files resolve to the same paper identity:\n"
+                        f"  identity : {key}\n"
+                        f"  file A   : {_seen_keys[key]}\n"
+                        f"  file B   : {name}\n"
+                        "Remove or rename one in Drive. Leaving both makes this paper's "
+                        "year count TWICE in the §1-6 coverage gate, or drops one at "
+                        "random depending on listing order.")
+                _seen_keys[key] = name
+                all_files.append({'source': 'gdrive', 'id': fid, 'name': name,
+                                  'mimeType': mime, 'fileSize': size, 'paper_key': key})
+            else:
+                _rejects.append({'name': name, 'id': fid, 'reason': reason})
 
         if not page_token:
             break   # no more pages
@@ -1055,8 +1255,11 @@ def collect_drive_docx_recursive(folder_id, all_files=None):
     subfolders.sort(key=lambda x: x[0], reverse=True)
 
     for subfolder_name, subfolder_id in subfolders:
-        collect_drive_docx_recursive(subfolder_id, all_files)
+        collect_drive_docx_recursive(subfolder_id, all_files, _seen_keys, _rejects)
 
+    # v2.29 — rejects are ATTACHED, never discarded. A paper that disappears from the
+    # corpus with no error is a missing year that nobody notices.
+    collect_drive_docx_recursive.last_rejects = _rejects
     return all_files
 
 _needs_pyq_corpus = not (mode == '--status' or (mode or '').startswith('--synthesise'))
@@ -1867,18 +2070,27 @@ Algorithm (pseudocode — full implementation in S3-2 extract_presorted()):
 
 ```python
 Q_PATTERNS = [
-    r'^Q\.\s*(\d+)\s+',           # Q.1  Q.25  Q. 1  (optional space after dot)
+    r'^Q\.\s*(\d+)\s+',            # Q.1  Q.25  Q. 1
     r'^Q(\d+)\.\s+',               # Q1.  Q25.
-    r'^Question\s+(\d+)\s*[:.]',   # Question 1:
-    r'^(\d+)\.\s+(?!\d)',           # 1.   25.   (negative lookahead: not 1.5)
-    r'^\((\d+)\)\s+',              # (1)  (25)
 ]
 
-def detect_question_start(text):
-    for pat in Q_PATTERNS:
-        m = re.match(pat, text.strip())
-        if m: return int(m.group(1))
-    return None
+# DELEGATED to the engine (blueprint_core Cluster G). Four specs parse Q-numbers from the
+# same documents and must agree exactly; a local copy in any one of them is drift waiting to
+# happen. This table mirrors the engine's canonical table EXACTLY and is verified by
+# audit_deep.py TABLE-PARITY.
+#
+# WHY ONLY TWO PATTERNS — DO NOT ADD MORE (2026-07-25).
+# Three further forms exist in RAW exam sources — "Question 1:", bare "1." and "(1)" — and
+# Step 1 detects them via its own SOURCE_Q_PATTERNS. They are deliberately ABSENT here and
+# must never be restored. After Step 1 every document is NORMALISED: questions read "Q.N"
+# and OPTIONS read "N. text". The bare-number pattern therefore matches every option line.
+# Verified by execution on a canonical two-question fixture: the two-pattern table finds 2
+# question starts; the five-pattern table finds 10. A 100-question paper would parse as 500.
+# Until 2026-07-25 these tables carried all five entries while the engine implemented two,
+# and audit_deep TABLE-PARITY could not see it: its extraction regex stopped at the first
+# ']', which occurs inside r'^Question\s+(\d+)\s*[:.]', so it compared a silently truncated
+# two-entry slice against the engine's two and always passed.
+detect_question_start = bc.detect_question_start
 ```
 
 ### E-3 — Option detection
@@ -1912,12 +2124,89 @@ def clean_option_text(text):
 from docx import Document
 import os
 
-def extract_and_map_images(doc, paper_id):
+def extract_and_map_images(doc, paper_id, docx_path=None, expected_size=None):
     """
     BUG-A03 fix: accepts already-opened Document object, not doc_path.
     Caller (S3-1) opens Document once and passes it here.
-    BUG-A21 fix: images before Q.1 (cur_q=None) are skipped.
+
+    v2.29 — DELEGATED to corpus_io (Cluster I) and GATED. Four silent failures were
+    fixed at once; all four shared one property — the image vanished and nothing
+    downstream could tell:
+
+      * TABLE IMAGES (critical). The walk used `doc.paragraphs`, which in python-docx
+        returns ONLY paragraphs that are direct children of the body — paragraphs inside
+        table cells are excluded. Every figure laid out in a table was therefore never
+        visited and never mapped. That is the normal arrangement for match-the-following
+        items, multi-panel figures and option grids. The question then classified TEXT
+        instead of FIGURAL, corrupting the three-axis format distribution that drives
+        Step 7 generation. Proven by construction: a 2-image document mapped 1.
+        corpus_io.map_images_to_questions walks doc.element.body.iter(), which descends
+        into tables.
+      * VML IMAGES. Only <a:blip> was matched. Legacy <v:imagedata> — emitted by older
+        Word, several PDF converters, and pasted OLE/equation objects — was invisible.
+      * HEADER/FOOTER IMAGES. `doc.part.rels` covers only the main document part;
+        headers, footers, footnotes and endnotes are separate parts with their own rels.
+      * PRE-Q.1 IMAGES. Correctly not attributed to any question, but DISCARDED
+        silently, which would now trip IMG-4 for an entirely benign reason. They go to
+        an explicit 'preamble' bucket instead.
+
+    And the gate that makes all of it self-detecting: there was NO image-count assertion
+    anywhere in this file. Framework_PYQFormat has enforced exact input==output image
+    equality (S8-6) since v1.1 for the same class of risk. IMG-4 now asserts
+    mapped + preamble == body references, so any future loss — from any cause, including
+    a bug in the size governor — is a HARD STOP rather than a wrong classification.
+
+    docx_path is required for the gates (they read the package, not the DOM). When it is
+    omitted the legacy DOM-only path still runs, but UNGATED — callers should always
+    pass it.
     """
+    if docx_path:
+        img_dir = f'/home/claude/pyq_images/{paper_id}'
+        extracted = corpus_io.extract_images(docx_path, img_dir)
+        mapping   = corpus_io.map_images_to_questions(docx_path)
+        verdicts, stats = corpus_io.verify_images(
+            docx_path, extracted=extracted, mapping=mapping,
+            expected_size=expected_size, workdir=img_dir)
+
+        if not bc.gates_passed(verdicts):
+            failed = {k: v for k, v in verdicts.items() if not str(v).startswith(('PASS', 'SKIP'))}
+            raise SystemExit(
+                f"HARD STOP — image integrity gate failed for {paper_id}:\n  "
+                + "\n  ".join(f"{k}: {v}" for k, v in failed.items())
+                + "\n\nAn image that is present in the document but missing from the "
+                  "mapping becomes a question classified TEXT instead of FIGURAL, which "
+                  "silently corrupts the format distribution used by Step 7. Resolve the "
+                  "document before continuing; do not process it partially.")
+
+        if stats['preamble']:
+            print(f"    note: {stats['preamble']} image(s) before Q.1 (not question figures)")
+        if stats['header_footer']:
+            print(f"    note: {stats['header_footer']} header/footer image(s) (not question figures)")
+        if stats['vector']:
+            print(f"    note: {stats['vector']} vector part(s) — rasterised before view()")
+
+        imap = []
+        for q_num, parts in mapping.items():
+            if q_num == corpus_io.PREAMBLE:
+                continue
+            for i, base in enumerate(parts):
+                rec = extracted.get(base, {})
+                imap.append({'img_idx': i, 'q_num': q_num,
+                             'position': 'stem' if i == 0 else f'opt{i}',
+                             'path': rec.get('path'), 'kind': rec.get('kind')})
+
+        q_roles = {}
+        for entry in imap:
+            k = entry['q_num']
+            if k not in q_roles:
+                q_roles[k] = {'stem': False, 'opts': False}
+            if entry['position'] == 'stem':
+                q_roles[k]['stem'] = True
+            else:
+                q_roles[k]['opts'] = True
+        return imap, q_roles, {'verdicts': verdicts, 'stats': stats}
+
+    # ── legacy DOM-only path (UNGATED — retained for callers without a path) ──
     DRAW_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
     REL_NS  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
     BLIP_TAG = f'{{{DRAW_NS}}}blip'
@@ -2565,9 +2854,6 @@ def _classify_one_set(opts):
 ### S3-1 — Per-paper pipeline
 
 ```python
-def extract_year_from_filename(path):
-    m = re.search(r'(20\d{2})', os.path.basename(path))
-    return int(m.group(1)) if m else None
 
 def extract_shift_from_filename(path):
     # v2.16 RIGID-1: uses SESSION_RE (dynamic from exam_config.json session_keyword)
@@ -2651,40 +2937,88 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
     return questions, linked_groups
 ```
 
+
+### S3-1c — IMG-6 VISION LIVENESS PROBE (v2.29, mandatory)
+
+```
+WHEN: once at the start of EVERY batch, BEFORE any figural classification.
+
+WHY: figural classification depends on Claude actually seeing the figure. That
+capability can stop working mid-session — vision capacity degrades as a session grows
+long. When it does, every view() returns nothing and every figure looks unreadable.
+Without a probe the pipeline cannot distinguish "this figure is illegible" (a property
+of the IMAGE) from "I cannot see anything" (a property of the SESSION), and records the
+second as the first — blaming the corpus, inflating QV-9, and under-reporting FIGURAL
+patterns while the operator troubleshoots the wrong thing.
+
+Demonstrated: a freshly generated 400x200 control PNG failed to render in a session
+where real figures had rendered correctly earlier. The files were never the problem.
+
+HOW:
+  path, token = corpus_io.make_vision_probe('/home/claude/pyq_probe')
+  # view(path)  -> read the 8-character token back from the image
+  probe_passed = corpus_io.score_vision_probe(<what Claude read>, token)
+
+The token is random and appears NOWHERE in text, so it cannot be inferred from context.
+It can only be obtained by actually seeing the image.
+
+ON PASS: proceed. Classification behaviour is completely unchanged.
+
+ON FAIL: this is NOT an image problem.
+  1. Do NOT classify any figure in this batch.
+  2. Do NOT record image_clarity='unclear' — that value is reserved for a genuinely
+     illegible figure and requires a PASSING probe.
+  3. Record image_clarity='vision_unavailable' for affected questions.
+  4. save_progress() has already run per paper, so state is resumable with no loss.
+  5. STOP and tell the user, in plain terms:
+       "I can no longer read images reliably in this session. Progress is saved.
+        Please start a fresh chat and run:  PYQExtract [ExamCode]  PYQ: <same link>"
+  6. Do NOT continue to the next batch.
+
+COST: one view() call per batch. Tool-call budget rises by 1 per batch.
+```
+
+### S3-1d — QV-13 IMAGE INTEGRITY REPORT (v2.29)
+
+```
+Written into analysis_progress.json per paper so the audit trail survives an Option-B
+session restart:
+
+  image_integrity: {
+    gates       : {IMG-1..IMG-5 verdicts},
+    probe       : 'pass' | 'fail',
+    refs_body   : N,   mapped : N,   preamble : N,   header_footer : N,
+    vector      : N,   unreadable : N,
+    questions_with_images : N
+  }
+
+FLAGS (reported, not silent):
+  * any gate FAIL                      -> HARD STOP (raised at extract time)
+  * preamble > 0                       -> note: images before Q.1, not question figures
+  * vector > 0                         -> note: EMF/WMF present, rasterised before view()
+  * probe == 'fail'                    -> batch halted, session restart required
+  * figural_consistency mismatches     -> see IMG-5b below
+
+IMG-5b — FIGURAL CROSS-CHECK. After classification:
+  corpus_io.figural_consistency(mapping, q_formats, overrides=<INHERENTLY-VISUAL log>)
+catches two faults with one assertion:
+  * a question WITH an image not classified FIGURAL  -> image lost, or classifier missed it
+  * a question classified FIGURAL with NO image      -> misclassification, unless it is an
+    explicitly logged INHERENTLY-VISUAL override
+Both are reported with question numbers. Neither is silently accepted.
+```
+
+
 ### S3-2 — Presorted extraction (the only extraction mode)
 
 ```python
-def is_taxonomy_heading(para):
-    text = para.text.strip()
-    if not text: return False
-    if detect_question_start(text) is not None: return False
-    if is_option(text): return False
-    # BUG-A16 fix: check for date-format shift tag pattern, not just 'Shift' string
-    # v2.16 SYNC: \d{1,2} (not \d{2}) to match single-digit days — aligned with PYQAnalyse.
-    if re.match(r'\[\d{1,2}-', text): return False
-    has_bold = any(r.bold for r in para.runs if r.text.strip())
-    return has_bold and len(text) < 100
-
-def parse_taxonomy_level(text):
-    """
-    v2.16 RIGID-4: expanded from 3 patterns to 12+ to handle diverse exam PYQ heading styles.
-    Level 1 = Section/Subject (top-level grouping)
-    Level 2 = Topic/Chapter (mid-level grouping)
-    Level 3 = Subtopic (default — the leaf level for extraction)
-    Exam-agnostic: covers SSC (Subject:), GATE (Section:), UPSC (Part:),
-    regional exams (Unit:/Module:/Block:), and any numbered heading variant.
-    """
-    # Level 1: top-level section/subject headings
-    if re.match(r'(?:Subject|Domain|Section|Part|Area)\s*:', text, re.IGNORECASE):
-        return 1, text.split(':', 1)[1].strip()
-    # Level 2: mid-level topic/chapter headings (with optional numbering)
-    if re.match(r'(?:Topic|Chapter|Unit|Module|Block)\s+\d+', text, re.IGNORECASE):
-        return 2, re.sub(r'(?:Topic|Chapter|Unit|Module|Block)\s+\d+[:.]\s*',
-                         '', text, flags=re.IGNORECASE).strip() or text.strip()
-    # Level 2: colon-style topic headings without numbering
-    if re.match(r'(?:Topic|Chapter|Unit|Module|Block)\s*:', text, re.IGNORECASE):
-        return 2, text.split(':', 1)[1].strip()
-    return 3, text.strip()
+# v2.27 — DELEGATED TO THE ENGINE (blueprint_core Cluster G). These three functions existed
+# in BOTH this spec and Framework_PYQAnalyse Phase B, which walk the SAME sorted .docx and
+# must agree. Each pair had drifted despite an explicit "keep IDENTICAL" instruction and
+# EC-P14 naming the failure mode. One definition now, so they cannot drift again.
+is_taxonomy_heading      = lambda para: bc.is_taxonomy_heading(para, is_option)
+parse_taxonomy_level     = bc.parse_taxonomy_level
+extract_year_from_filename = bc.extract_year_from_filename
 
 def detect_blank_position(stem):
     m = re.search(r'_{3,}', stem)
@@ -2936,11 +3270,30 @@ def analyse_image_claude(q, image_path):
     #   pair_analogy : two pairs (A:B :: C:?)
     #   single       : one standalone image (count, identify, or find mirror)
 
-    # IMAGE CLARITY:
-    #   clear   : Claude can read the figure confidently
-    #   unclear : image too small, blurry, or corrupted to classify reliably
-    #             When unclear: record image_clarity='unclear', leave other fields blank.
-    #             DO NOT guess. QV-9 tracks unclear rate — flags if >20%.
+    # IMAGE CLARITY (v2.29 — THREE states, not two):
+    #   clear               : Claude can read the figure confidently
+    #   unclear             : THIS FIGURE is too small, blurry or corrupted to classify.
+    #                         Record image_clarity='unclear', leave other fields blank.
+    #                         DO NOT guess. QV-9 tracks the unclear rate — flags if >20%.
+    #   vision_unavailable  : THE SESSION cannot see images at all (IMG-6 probe failed).
+    #
+    # Why the split matters. These are different faults with different remedies, and the
+    # two-state form recorded both as 'unclear' — blaming the corpus for a session
+    # problem. Vision capacity degrades as a session grows long; when it goes, EVERY
+    # figure reads as unreadable. On an image-heavy paper in a late batch that silently
+    # marks every figural question unclear, inflates QV-9 past its 20% threshold, and
+    # lets FIGURAL patterns under-report while the operator troubleshoots the images.
+    # Demonstrated directly: a freshly generated 400x200 control PNG failed to render in
+    # the same session where real figures had rendered earlier — the file was never the
+    # problem.
+    #
+    # RULES:
+    #   * 'unclear' may ONLY be recorded when the IMG-6 probe PASSED for this batch.
+    #     Without a passing probe it is not a permitted value.
+    #   * 'vision_unavailable' HALTS the batch with resumable state and instructs the
+    #     user to start a fresh session. It is NOT counted toward the QV-9 unclear rate.
+    #   * Use bc.image_clarity_state(probe_passed, figure_readable) — never assign the
+    #     string directly.
 
     # RULES:
     # 1. Claude views every qualifying image. No sampling, no skipping.
@@ -4372,25 +4725,8 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
     print(f'Written: {out} ({len(lines)} lines)')
     return out
 
-def slugify(text):
-    """
-    Deterministic slug recipe (v2.4) — exam-agnostic, stable across runs.
-    The SAME input string ALWAYS yields the SAME slug, on every exam, forever.
-    Recipe (fixed, do not change — changing it would break existing ids):
-      1. Lowercase.
-      2. Replace em-dash (—), en-dash (–), slash (/), ampersand (&) with space.
-      3. Replace any non-alphanumeric run with a single underscore.
-      4. Strip leading/trailing underscores; collapse repeated underscores.
-    NOTE: stop-words (the/of/and/...) are NOT stripped here. They are only
-    skipped inside section_prefix() for the prefix. The slug keeps every word.
-    This MUST stay byte-identical to the slugify() in Framework_Blueprint S2-MANIFEST.
-    """
-    import re
-    t = (text or '').lower()
-    t = t.replace('—', ' ').replace('–', ' ').replace('/', ' ').replace('&', ' ')
-    t = re.sub(r'[^a-z0-9]+', '_', t)
-    t = re.sub(r'_+', '_', t).strip('_')
-    return t
+slugify = bc.slugify   # DELEGATED (Cluster D) — one definition corpus-wide
+
 
 # Section-prefix recipe (v2.4): readable, stable, deterministic.
 # Uses the INITIALS of significant section words (skipping and/of/the/...), so
@@ -4747,17 +5083,20 @@ def taxonomy_sync_entries(existing_entries, exam_code):
             try:
                 with open(f, encoding='utf-8') as fp:
                     tax_data = json.load(fp)
-                # taxonomy_draft.json structure: {section: {topic: [subtopic, ...]}}
-                if isinstance(tax_data, dict):
-                    for sec, topics in tax_data.items():
-                        if isinstance(topics, dict):
-                            for top, subs in topics.items():
-                                if isinstance(subs, list):
-                                    for sub in subs:
-                                        tup_key = (slugify(sec), slugify(top), slugify(sub))
-                                        if tup_key not in seen_tuples:
-                                            taxonomy_tuples.append((sec, top, sub))
-                                            seen_tuples.add(tup_key)
+                # v2.17 BUGFIX — the taxonomy lives under ['sections'], not at
+                # top level. Reading the top level made the isinstance guards
+                # skip everything: this PRIMARY source silently yielded ~0
+                # subtopics and fell through to Source 2, losing exactly the
+                # zero-PYQ orphan subtopics it exists to supply. Consistent with
+                # the SSC CGL Tier 2 Mock 1 incident (7 syllabus-only subtopics
+                # first surfacing at Step 6/7). Pre-existing, not v2.17.
+                # CANONICAL READER — do not hand-roll another copy.
+                from syllabus_provenance import read_taxonomy_draft
+                for (sec, top, sub) in read_taxonomy_draft(tax_data):
+                    tup_key = (slugify(sec), slugify(top), slugify(sub))
+                    if tup_key not in seen_tuples:
+                        taxonomy_tuples.append((sec, top, sub))
+                        seen_tuples.add(tup_key)
                 if taxonomy_tuples:
                     sync_log.append(f'  Taxonomy source 1 (PRIMARY): taxonomy_draft.json ({os.path.basename(f)}) — {len(taxonomy_tuples)} subtopics')
                     break
@@ -4988,7 +5327,8 @@ def write_taxonomy_xlsx(manifest, exam_code):
     return out
 
 
-def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None):
+def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
+                            frequency_scope='all', exam_config=None):
     """
     v2.4 — Write [ExamCode]_subtopic_manifest.json: the AUTHORITATIVE id↔name
     registry and the formal cross-step contract artifact.
@@ -5061,18 +5401,62 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None):
         'mandatory_groups': {},   # {group: {members:[ids], min:int}} — >=min members present per mock
         'cadence_windows': {},    # {id: N}  — subtopic must appear >=1 in every N-mock window
         'min_counts': {},         # {id: k}  — subtopic must have >=k Q per mock
-        'axis_distribution': {}   # v2.23 {section: per-section 3-yr format-distribution target}
+        'axis_distribution': {},  # v2.23 {section: per-section 3-yr format-distribution target}
+        'pattern_eras': {}        # v2.25 per-paper era + the scope used (audit trail)
     }
 
     # v2.23 per-section axis distribution (needs the question lists in `progress`).
+    # v2.25 — the axis distribution is a MIX quantity, so it obeys frequency_scope exactly
+    # as the Frequency xlsx does. Two protections already existed and both are kept:
+    #   (a) compute_section_axis_distribution() windows to the 3 most recent distinct years,
+    #       which for most pattern changes is already entirely current-era; and
+    #   (b) bc.derive_axis_schedule() (Framework_Blueprint v1.36) rescales every axis to
+    #       sec_qs, so the SIZE is right even when the measurement era is not.
+    # Neither fixes the residual case where the pattern changed WITHIN the last 3 years:
+    # there the 3-year window straddles two patterns and the class PROPORTIONS are blended.
+    # Era-scoping closes that gap at the source. `progress` is never mutated — the filtered
+    # structure is a counting view (bc.filter_progress_to_eras returns a copy), so §14
+    # pattern synthesis below still sees every era.
     if progress:
+        _axis_progress = progress
+        if frequency_scope == 'current-era' and exam_config:
+            import blueprint_core as bc
+            _eras = bc.paper_eras_from_progress(progress, exam_config)
+            _filtered, _st = bc.filter_progress_to_eras(progress, _eras,
+                                                        keep=('current',))
+            # Never trade a real distribution for an empty one: if era-scoping would leave
+            # nothing to measure, keep the full-corpus axis and say so. A blended axis that
+            # is rescaled to the right size beats no axis at all (status='no_pyq' would
+            # switch the whole three-axis feature off for this section).
+            if _st['kept_questions'] > 0:
+                _axis_progress = _filtered
+            else:
+                print("  NOTE: era-scoped axis skipped — no current-era questions; "
+                      "using full-corpus axis (still rescaled to sec_qs at Step 6).")
         _by_sec = {}
         for e in entries:
             _by_sec.setdefault(e['section'], []).append(e)
         for _sec, _ents in _by_sec.items():
-            _ax = compute_section_axis_distribution(_ents, progress)
+            _ax = compute_section_axis_distribution(_ents, _axis_progress)
             if _ax:
                 manifest['axis_distribution'][_sec] = _ax
+
+    # v2.25 — record every paper's pattern era in the manifest so the decision is auditable
+    # downstream and after the fact. Purely additive: absent on a pre-v2.25 manifest, and no
+    # consumer is required to read it.
+    if progress and exam_config:
+        import blueprint_core as bc
+        try:
+            _pe = bc.paper_eras_from_progress(progress, exam_config)
+            manifest['pattern_eras'] = {
+                'frequency_scope': frequency_scope,
+                'papers': {f'{y}|{sh}': info for (y, sh), info in sorted(
+                    _pe.items(), key=lambda kv: (str(kv[0][0]), str(kv[0][1])))},
+                'era_counts': {e: sum(1 for i in _pe.values() if i['era'] == e)
+                               for e in bc.PATTERN_ERAS},
+            }
+        except ValueError:
+            pass          # exam_config without sections[] — nothing to classify against
 
     seen_ids = {}
     for e in entries:
@@ -6012,16 +6396,29 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
 
         print(f"\n=== Batch {batch_num}: processing {len(batch)} paper(s) ===")
 
+        needs_upload = []          # papers this batch could not be fetched from Drive
+
         for paper_ref in batch:
             paper_id  = make_paper_id(paper_ref['name'])
             print(f"  Processing: {paper_ref['name']}")
 
-            # Fetch file content depending on source
+            # ── Fetch (v2.29) ────────────────────────────────────────────────
+            # NEVER call the connector unguarded. Verified before this version: ZERO
+            # try/except existed around any Drive call in the entire 31-file corpus, so
+            # a paper above the 10 MiB connector cap terminated the whole run.
+            # EVERY failure — size, permission, network, malformed envelope, unknown —
+            # degrades to the UPLOAD LANE. That is what makes this correct even if the
+            # connector's cap changes later: correctness depends on the fallback being
+            # taken, not on the predicted partition being right.
             if paper_ref['source'] == 'gdrive':
-                # Download from Google Drive to temp path, then process
-                local_path = f'/home/claude/pyq_temp/{paper_ref["name"]}'
-                os.makedirs('/home/claude/pyq_temp', exist_ok=True)
-                gdrive_download_file(paper_ref['id'], local_path)  # Drive MCP tool
+                try:
+                    local_path = corpus_io.fetch_drive_docx(
+                        gdrive_download_file, paper_ref, '/home/claude/pyq_temp')
+                except corpus_io.TransportFallback as exc:
+                    print(f"    ! Drive fetch unavailable — {exc}")
+                    print(f"    → routing to upload lane: {paper_ref['name']}")
+                    needs_upload.append(paper_ref)
+                    continue
             else:
                 local_path = paper_ref['path']
 
@@ -6029,7 +6426,53 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
                                time_per_q, marks_per_q, options_count,
                                multi_select, progress)
 
-        # Save and deliver after each batch
+            # ── Persist after EVERY paper (v2.29) ────────────────────────────
+            # The durability unit is the PAPER, not the batch. Previously save_progress
+            # ran only after the inner loop finished, so an exception on paper 3 skipped
+            # it entirely and papers 1 and 2 — already processed in memory — were
+            # discarded with no trace, showing as never-processed in the progress file.
+            # BATCH_SIZE stays 3: batching is the user-facing PACING unit and is
+            # unchanged. This makes a partial batch safe to resume.
+            save_progress(progress, exam_code)
+
+        # ── Upload lane (v2.29) ─────────────────────────────────────────────
+        # Ask for exactly the papers Drive could not supply. Requested BY NAME so the
+        # user never has to guess, and matched back by canonical identity because the
+        # browser appends " (1)" whenever the original is already in their Downloads
+        # folder — which happens on every remediation round trip.
+        if needs_upload:
+            plan = bc.upload_batch_plan(len(needs_upload), BATCH_SIZE)
+            print(f"\n  {len(needs_upload)} paper(s) in this batch exceed the "
+                  f"{bc.DRIVE_CAP:,}-byte Drive download cap and must be uploaded to chat:")
+            for p in needs_upload:
+                sz = p.get('fileSize')
+                print(f"    - {p['name']}" + (f"  ({sz:,} bytes)" if sz else ""))
+            print(f"  Chat accepts {bc.CHAT_FILE_LIMIT} files per conversation "
+                  f"({plan['papers_per_chat']} papers across {plan['batches_per_chat']} "
+                  f"batches at BATCH_SIZE={BATCH_SIZE}).")
+            print(f"  Permanent fix: run  PYQCompress  on these papers once and replace "
+                  f"them in Drive — they then fetch automatically for every future run "
+                  f"of Steps 2b, 4 and 5.")
+            expected = [bc.canonical_paper_key(p['name']) for p in needs_upload]
+            found = corpus_io.resolve_uploaded_papers(expected)
+            for p in needs_upload:
+                key = bc.canonical_paper_key(p['name'])
+                if key not in found['matched']:
+                    continue
+                process_pyq_paper(found['matched'][key], make_paper_id(p['name']),
+                                  exam_code, time_per_q, marks_per_q, options_count,
+                                  multi_select, progress)
+                save_progress(progress, exam_code)        # per-paper, as above
+            if found['unexpected']:
+                print(f"  ! Ignored {len(found['unexpected'])} unexpected upload(s) — "
+                      f"only the papers named above are processed.")
+            still_missing = [p['name'] for p in needs_upload
+                             if bc.canonical_paper_key(p['name']) not in found['matched']]
+            if still_missing:
+                print(f"  Awaiting upload: {', '.join(still_missing)}")
+
+        # Save and deliver after each batch (redundant flush — the per-paper saves above
+        # are the durability guarantee; this keeps the delivery contract unchanged)
         progress_path    = save_progress(progress, exam_code)
         papers_now_done  = len(progress.get('_meta',{}).get('papers_processed',[]))
         papers_remaining = total_all - papers_now_done
@@ -7663,7 +8106,8 @@ DATA_FONT = Font(name='Arial', size=10)
 BOLD_FONT = Font(bold=True, name='Arial', size=10)
 TITLE_FONT = Font(bold=True, name='Arial', size=14)
 
-def generate_frequency_xlsx(progress, exam_code, all_entries=None):
+def generate_frequency_xlsx(progress, exam_code, all_entries=None,
+                            frequency_scope='all', exam_config=None):
     """
     Generate the complete Frequency xlsx from analysis_progress.json.
     Called during synthesis phase after section_rules and manifest are written.
@@ -7675,8 +8119,72 @@ def generate_frequency_xlsx(progress, exam_code, all_entries=None):
     v2.24.6 FIX B: accepts `all_entries` (the same PYQ + Zero-PYQ-scaffold list passed to
     write_subtopic_manifest()) so the workbook is taxonomy-complete and Format-parity-
     guaranteed with the manifest — see aggregate_frequency_data() docstring (§16-1).
+
+    v2.25 ERA-SCOPED FREQUENCY (`frequency_scope`):
+      'all'          — DEFAULT. Every paper counts. Byte-identical to pre-v2.25 behaviour
+                       for every exam, so no existing exam changes unless it opts in.
+      'current-era'  — only papers matching the CURRENT exam pattern contribute to the
+                       frequency numbers.
+
+      WHY THIS SWITCH EXISTS. A PYQ corpus carries two kinds of information that need
+      OPPOSITE treatment. QUESTION SHAPES — the templates, difficulty calibration and
+      phrasing synthesised by §14 synthesise_subtopic() — are more valuable the more eras
+      they span; a subtopic seen across 26 years is far better characterised than one seen
+      twice, and that variety is the whole reason legacy papers are retained. PROPORTIONS
+      — how many questions a subtopic deserves out of today's paper — can only be answered
+      by the current pattern; a retired pattern's subject mix is not evidence about today's
+      exam. Framework_Blueprint §3 recency weighting (last 2 valid years x2) dampens the
+      second problem but cannot solve it: a corpus with 21 retired-era years against 6
+      current-era ones still gives the retired pattern ~72% of the weight.
+
+      WHAT THIS DOES AND DOES NOT TOUCH. The filter is applied HERE ONLY — to the counting
+      view that feeds the Frequency xlsx and the axis distribution. `progress` itself is
+      never mutated (bc.filter_progress_to_eras returns a copy), so §14's pattern/template
+      synthesis, section_rules.md, and the subtopic manifest keep consuming the FULL corpus.
+      Variety in, faithful proportions out.
+
+      CONSEQUENCE FOR LEGACY-ONLY SUBTOPICS. A subtopic the current pattern never asks
+      drops to zero observed questions, so Framework_Blueprint §3-4 CASE 2 classifies it
+      Zero-PYQ and §5 ZP rotation gives it occasional coverage instead of a mix-distorting
+      quota. It remains in the taxonomy and keeps its full pattern library. This is the
+      intended outcome, not data loss.
     """
-    agg = aggregate_frequency_data(progress, all_entries=all_entries)
+    import blueprint_core as bc   # ENGINE — pattern-era classification lives in Cluster F
+
+    counting_progress = progress
+    era_stats = None
+    if frequency_scope == 'current-era':
+        if not exam_config:
+            raise SystemExit(
+                "HARD STOP: frequency_scope='current-era' requires exam_config. "
+                "Pattern era is defined by comparison against the CURRENT pattern, so "
+                "without exam_config every paper's era is unknowable. Supply exam_config "
+                "or use frequency_scope='all'.")
+        eras = bc.paper_eras_from_progress(progress, exam_config)
+        counting_progress, era_stats = bc.filter_progress_to_eras(
+            progress, eras, keep=('current',))
+        if era_stats['kept_papers'] == 0:
+            raise SystemExit(
+                "HARD STOP: frequency_scope='current-era' selected, but NOT ONE paper in "
+                f"the corpus matches the current exam pattern (eras seen: "
+                f"{era_stats['era_counts']}). Frequency cannot be computed from zero "
+                "papers. Either the exam pattern xlsx does not describe the papers you "
+                "have, or no current-pattern paper has been added yet. Use "
+                "frequency_scope='all' until at least one current-era paper exists.")
+        print("ERA-SCOPED FREQUENCY (frequency_scope='current-era')")
+        print(f"  papers by era      : {era_stats['era_counts']}")
+        print(f"  counted / excluded : {era_stats['kept_papers']} / "
+              f"{era_stats['dropped_papers']} papers")
+        print(f"  questions counted  : {era_stats['kept_questions']} "
+              f"(excluded from COUNTS only: {era_stats['dropped_questions']})")
+        print("  Excluded papers still feed the question-pattern library, section_rules.md")
+        print("  and the taxonomy in full — only the PROPORTIONS are current-era.")
+        if era_stats['kept_papers'] < 3:
+            print(f"  WARN: only {era_stats['kept_papers']} current-era paper(s). "
+                  "Recency weighting needs 2+ valid years to discriminate "
+                  "(Framework_Blueprint §3-4 CASE 1); proportions will be thin.")
+
+    agg = aggregate_frequency_data(counting_progress, all_entries=all_entries)
     data = agg['subtopic_data']
     all_years = agg['all_years']
     papers_per_year = agg['papers_per_year']
@@ -8111,4 +8619,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.24.8
+# END OF Framework_MockTestAnalyse v2.29.1

@@ -1,5 +1,24 @@
-# Framework_PYQExplainAudit v1.0 — Universal PYQ Explanation Auditor
+# Framework_PYQExplainAudit v1.1.1 — Universal PYQ Explanation Auditor
 # [ExamCode] project | PYQ-2 (PYQExplainAudit) | Exam-agnostic
+#
+# v1.1.1 — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
+#   read v1.0, several versions behind the header, so the last line of the file contradicted
+#   the first. Documentation only — not one line of behaviour changes. It went unnoticed
+#   because BOTH integrity tools were structurally blind to it: validate_framework_md.py
+#   Check C recognised only the '# END OF <name> vN' sentinel form and skipped the
+#   comparison entirely for the '**End of <name>.md (vN)**' form used here, while
+#   audit_specs_ext.py check_z_version reads the header from line 1 only. Check C now
+#   recognises both forms (validate_framework_md.py v3.1), so this cannot drift silently
+#   again.
+# v1.1 — 2026-07-24 — §10A DIFFICULTY VALIDATION. PYQ-1 v1.1 §7A now assesses
+#   per-question difficulty from its derivation observations and writes
+#   q_to_difficulty into pyq_explain_progress.json. PYQ-2 already re-derives every
+#   answer independently, so it holds a SECOND, independent set of exactly the same
+#   observations at no extra cost. §10A turns that into a validation pass and writes
+#   the validated map to pyq_audit_progress.json — which PYQ-4 reads FIRST (§0
+#   priority order), so the audited values take precedence over PYQ-1's.
+#   Additive: no existing lane, gate, verdict, or rectification behaviour changes,
+#   and difficulty is NEVER a rectification target in the document.
 #
 # v1.0 — 2026-07-22 — Initial release. The independent auditor and rectifier
 #   of PYQ explanation documents produced by PYQ-1 (PYQExplain). Takes the
@@ -141,7 +160,8 @@ It validates the audit ledger (§18) + the on-disk evidence sidecars against CA1
 - Row file — the original PYQ paper (Step 1 PYQPrepare output, Q.1-Q.N continuous, original exam order). Used to reconstruct the question region and to re-seed the rebuild so question regions stay byte-identical. Attached by user OR fetched from Google Drive.
 - `section_rules.md` (Step 5) — labels, markers, language parameters.
 - `subtopic_manifest.json` (Step 5) — subtopic_id ↔ name mapping.
-- `exam_config.json` (Step 2) — exam metadata.
+- `exam_config.json` (Step 2) — exam metadata, including `difficulty_labels`
+  (default Easy/Medium/Hard).
 - `explain_engine.py` — the universal explanation engine (MANDATE A).
 - `explain_audit_gate.py` — the mechanical completion gate.
 
@@ -427,6 +447,67 @@ Correctness in PYQ-2 rests entirely on re-deriving each answer without reference
 **PYQ-1 DERIVATION-CONFIDENCE + PYQ-AMBIGUITY review.** When PYQ-1's progress file flags a question with DERIVATION-CONFIDENCE or PYQ-AMBIGUITY, PYQ-2 gives it EXTRA scrutiny: additional derivation routes, deeper web verification, and explicit recording of whether PYQ-2 agrees or disagrees with PYQ-1's chosen answer. Disagreements are surfaced in the end-of-paper report (§21) with full evidence.
 
 **Official answer key cross-check (D4).** When the user provides an official exam-body answer key alongside the Explanation document, PYQ-2 cross-checks its independently derived answers against the official key AFTER derivation is complete (never before — the official key never anchors the derivation). Discrepancies are recorded in the defect log as `OFFICIAL-KEY-DISAGREE` with the PYQ-2 derivation evidence and flagged in the report for human review. PYQ-2 never auto-overrides its derivation to match the official key — the derivation stands on its own evidence.
+
+---
+
+# §10A — Difficulty validation (v1.1)
+
+PYQ-1 (§7A) assessed each question's difficulty from ITS derivation. PYQ-2 has just
+re-derived the same question independently (§9), so it can assess the same question
+from ITS OWN observations and compare. This is a second opinion from an independent
+derivation, which is the only meaningful check available — the alternative would be
+re-reading PYQ-1's numbers back to itself.
+
+**When.** Per question, after §9 derivation is complete and the per-question deep
+audit (§8) has finished. Never before derivation: the step and concept counts do not
+exist yet.
+
+**How.**
+
+```text
+from blueprint_core import assess_difficulty   # Cluster E2 — PURE, no I/O
+
+pyq2_label = assess_difficulty(
+    question_class        = <PYQ-2's own §6 classification>,
+    deduction_steps       = <steps in PYQ-2's OWN re-derivation>,
+    axiom_concepts        = <distinct principles PYQ-2's OWN derivation required>,
+    speed_hack_exists     = <PYQ-2's independent §10 judgement of whether one SHOULD exist>,
+    derivation_confidence = 'flagged' if PYQ-2's routes initially disagreed else 'full',
+    is_negative           = <PYQ-2's own stem polarity scan>,
+    qtype                 = <resolved question type>,
+    difficulty_labels     = <exam_config.difficulty_labels, default Easy/Medium/Hard>,
+)
+```
+
+PYQ-2 counts from its OWN derivation, never from PYQ-1's block. Reading PYQ-1's step
+count and feeding it back in would make the two assessments agree by construction and
+the check worthless. Use the same §7A S7A-2 counting rules — that shared definition is
+what makes the comparison meaningful rather than a difference of bookkeeping style.
+
+**Reconciliation (the auditor's value stands).**
+
+| Comparison | Action |
+|---|---|
+| PYQ-1 and PYQ-2 agree | Keep the value. Silent. |
+| Adjacent disagreement (one band apart) | PYQ-2's value wins. Record both in §R10. |
+| Extreme disagreement (labels[0] vs labels[2]) | PYQ-2's value wins AND a WARN naming the Q, both labels, and both step/concept counts. Two independent derivations differing that much usually means one of them mis-derived — the difficulty gap is the symptom, and the ANSWER for that question deserves a look. |
+| PYQ-1 has no value for this Q | PYQ-2 supplies one. No WARN (PYQ-1 legitimately omits when difficulty_labels is not a 3-label set). |
+| `assess_difficulty` returns None | Omit the Q from the map entirely; never write None or a guess. |
+
+Difficulty disagreement is NEVER by itself a document defect and NEVER triggers
+rectification. Nothing about the difficulty assessment is written into the paper.
+
+**Output.** PYQ-2 writes the validated `q_to_difficulty` into
+`pyq_audit_progress.json`, in the same shape and under the same string-key
+convention as PYQ-1's:
+
+```json
+{ "q_to_difficulty": { "1": "Easy", "42": "Medium", "54": "Hard" } }
+```
+
+PYQ-4 §0 item 3 reads `pyq_audit_progress.json` ahead of
+`pyq_explain_progress.json`, so where PYQ-2 has run, its validated values are the
+ones that reach the portal. PYQ-4 needs no change to consume them.
 
 ---
 
@@ -741,6 +822,7 @@ The report is the one place PYQ-2 speaks at length in chat, and it carries statu
 - **§R7 — Coverage assertion.** The evidence-completeness statement: every question in every closed batch fully evidenced (§18), backed by the completion gate (CA2/CA4–CA7).
 - **§R8 — Learnings.** The recurring defect classes emitted to the learnings file (§24).
 - **§R9 — PYQ-3 / PYQ-4 handoff.** This output feeds BOTH PYQ-3 (PYQFormat — student-facing visual polish with colored pills) and PYQ-4 (PYQDeliver — portal tagging). Both steps take this Explanation_Complete.docx directly and independently — run either next, in a new chat. State: review IN MICROSOFT WORD.
+- **§R10 — Difficulty validation (§10A, v1.1).** The validated label distribution; every question where PYQ-2's assessment differed from PYQ-1's, with both labels and both step/concept counts; every extreme-disagreement WARN; and any question omitted from the map with its reason. If every question resolved to the SAME label, state it explicitly.
 
 The report asserts, in plain terms, that the audited document is certified clean (the gate printed PASS), or names precisely what prevents certification (the failing CA-assertion + questions).
 
@@ -924,4 +1006,4 @@ Both files ship with the framework repo (GitHub projects get them from the /tmp/
 
 ---
 
-**End of Framework_PYQExplainAudit.md (v1.0)**
+**End of Framework_PYQExplainAudit.md (v1.1.1)**

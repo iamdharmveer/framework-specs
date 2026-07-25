@@ -1,4 +1,4 @@
-# Framework_PYQPrepare v1.7 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v1.9.1 — Universal PYQ Row File Generator
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:
@@ -86,6 +86,81 @@
 #   GATE, NEET, UPSC, CAT, Banking, RRB, state PSC, or any exam.
 #
 # VERSION HISTORY:
+#   v1.9.1 — 2026-07-25 — Q_PATTERNS RENAMED SOURCE_Q_PATTERNS. Step 1 parses RAW dumps, where
+#           "Question 1:", bare "1." and "(1)" are genuine numbering — so the five-entry table
+#           is CORRECT here and wrong everywhere downstream. Naming it SOURCE_* (as
+#           SOURCE_OPT_PATTERNS already is) separates it from the normalised-document contract
+#           Steps 3/4/5 share, and stops it being read as a claim about the delegated detector,
+#           which implements two. The old comment claimed the table was "checked by audit_deep
+#           TABLE-PARITY"; that check could not fire. No behaviour change — the table is
+#           declared, never read, and detect_question_start is bound but never called in this
+#           spec.
+#   v1.9 — 2026-07-25 — VISION LIVENESS GATE + IMAGE DISCOVERY DELEGATED (DEFECTS F, I, J).
+#         Twin of Framework_MockTestAnalyse v2.29 / Framework_PYQSort v1.12 /
+#         Framework_PYQAnalyse v2.21 / corpus_io v1.0.1.
+#         (1) DEFECT F (CRITICAL) — a vision outage sent math to the graphics team.
+#             S1-6 and S1-12 make the placeholder-vs-transcribe decision BY VISION:
+#             "Red placeholders for math content are BANNED. The ONLY legitimate
+#             placeholder for a math question is when the image is physically unreadable
+#             after Claude has viewed it." The fall-through then reads: "If the image is
+#             genuinely unreadable (corrupt, blank, too low resolution) -> red placeholder".
+#             With vision unavailable EVERY image is "genuinely unreadable", so every one
+#             falls through to a placeholder and the spec cannot tell the two apart. This
+#             is not hypothetical: it reproduces the exact defect v1.6 was written to
+#             eliminate, recorded in that changelog — SSC CGL T2 18-Jan-2025 Shift 1,
+#             Q.6/14/15/17/19-22/28-30, eleven math questions (~35% of the Quant section)
+#             delivered as red placeholders instead of transcribed math. In the current
+#             workflow the damage compounds: the graphics team receives placeholders for
+#             equations and tables, draws pictures of them, and those questions become
+#             FIGURAL instead of TEXT for the entire rest of the pipeline.
+#             Vision capability can stop working MID-SESSION as context grows — proven in
+#             session by a freshly generated control PNG that failed to render while real
+#             figures had rendered correctly earlier. The files were never the problem.
+#             Fix: S1-12 now runs a LIVENESS PROBE before classifying any image, and the
+#             outcome is three-valued. PASS -> v1.6 behaviour, completely unchanged.
+#             FAIL -> vision_unavailable: HALT with resumable state and ask for a fresh
+#             session. Assigning a red placeholder under a failed probe is a HARD BUG,
+#             ranking with the existing "unclassified image" hard bug.
+#         (2) DEFECT I (proven by construction, previously unreported in THIS file) —
+#             extract_images() walked doc.paragraphs, which in python-docx returns ONLY
+#             paragraphs that are direct children of the body; paragraphs inside table
+#             cells are excluded entirely. Every image laid out in a table was therefore
+#             never extracted, never viewed and never classified — it did not even reach
+#             the "unclassified image" hard bug, because the walk never saw it. Measured
+#             on a two-image document with one figure in a table: 2 images present, 1
+#             found. Table layout is the NORMAL arrangement for match-the-following items,
+#             multi-panel figures and option grids.
+#         (3) DEFECT J — only <a:blip> and a bare '<w:pict' string test were used, so a
+#             legacy VML <v:imagedata r:id> image could be detected but never resolved to
+#             its part. Verified: 'imagedata' appeared 0 times in this file.
+#             Fix for (2) and (3): image discovery is DELEGATED to corpus_io (Cluster I) —
+#             extract_images walks the package, map_images_to_questions walks
+#             doc.element.body.iter() which descends into tables, and both match
+#             <a:blip r:embed> AND <v:imagedata r:id>. The local copy is DELETED. Two
+#             implementations of one function under one name produce zero drift signal
+#             until they disagree, which is exactly how this file kept a defect that had
+#             already been fixed twice elsewhere.
+#         (4) S1-6 fall-through and S1-7 PREREQUISITE amended: "genuinely unreadable" is
+#             only a permissible verdict when the probe has PASSED in this session.
+#         (5) Probe result recorded in the delivery report (§7) so a placeholder's
+#             provenance is auditable after the fact.
+#         (6) NO GOVERNOR IN STEP 1 — deliberately. Step 1 emits only 300x200 red
+#             placeholder PNGs, so there is nothing to compress and no size risk to
+#             manage. Size governance begins at Step 3 (PYQSort S7-6), the first step to
+#             hold real image bytes. Stated so the omission reads as a decision.
+#         (7) New EC-P22 (vision unavailable) and EC-P23 (image inside a table).
+#         NOT CHANGED: every classification rule and category in S1-12, the OVER-CLASSIFY
+#         AS MATH guidance, S1-13 scanned-source transcription, the red placeholder
+#         specification, the ALL-or-NONE option rule, and the closed deliverable set.
+#         ROUTING: routes.json already routes corpus_io.py to PYQPrepare (v2.21 change).
+#   v1.8 — 2026-07-23 — detect_question_start DELEGATED to blueprint_core (Cluster G).
+#           Four specs parsed Q-numbers from the same documents with four local copies of
+#           one function. They were byte-identical today; nothing would have noticed if one
+#           changed. Mutation testing showed that re-localising shared logic in a SINGLE
+#           spec produces no drift signal at all (cross-spec drift needs two differing
+#           copies), so the corpus could have silently regressed. routes.json now routes
+#           blueprint_core.py to PYQPrepare. audit_deep.py DELEGATION + TABLE-PARITY enforce
+#           this permanently. No behaviour change: the engine form is byte-identical.
 #   v1.7 — 2026-07-14 — SCANNED-SOURCE VISION TRANSCRIPTION (FORMAT C fix).
 #          Root cause: FORMAT C (scanned image-only PDF) was an unconditional
 #          HALT expressed as INTERPRETIVE PROSE, not executable code. That
@@ -485,11 +560,18 @@ Image-rendered math (source has math as embedded image):
        the content and the pipeline writes it as text + OMML
     4. If the image is genuinely unreadable (corrupt, blank, too low
        resolution) → red placeholder + WARN in delivery
+       v1.9: permitted ONLY when the S1-12 vision liveness probe has PASSED
+       in this session. Under a failed probe every image looks unreadable,
+       so this branch would placeholder ALL math — the exact failure the
+       rule below forbids. Probe FAIL → HALT, never placeholder.
 
   Red placeholders for math content are BANNED. The ONLY legitimate
   placeholder for a math question is when the image is physically
   unreadable after Claude has viewed it. "No extractable text" is NOT
   sufficient reason — Claude's vision capability is the fallback.
+  v1.9 corollary: if Claude CANNOT view, the fallback is unavailable and the
+  correct action is to stop, not to guess. A placeholder assigned without a
+  passing probe is indistinguishable from a placeholder assigned to real math.
 
   See S1-12 for the complete image classification and transcription
   protocol, and EC-P20 for the 8-scenario edge case taxonomy.
@@ -504,6 +586,14 @@ placeholder is assigned. Assigning a red placeholder to an
 unclassified image is a HARD BUG. Only images classified as
 VISUAL-IMAGE get red placeholders. Images classified as MATH-IMAGE,
 TEXT-IMAGE, or TABLE-IMAGE get transcribed content instead.
+
+PREREQUISITE (v1.9): the S1-12 vision liveness probe MUST have PASSED in
+this session before ANY red placeholder is assigned. A classification is a
+claim about what an image contains; a session that cannot see is not
+entitled to make one. Probe FAIL → vision_unavailable → HALT with resumable
+state. A red placeholder assigned under a failed probe is a HARD BUG of the
+same rank as an unclassified image, because on the page the two are
+indistinguishable from a placeholder that was genuinely earned.
 
 Non-math visual content (geometric figures, dice patterns, Venn diagrams,
 mirror images, bar charts, map-based questions, pattern grids, embedded
@@ -684,48 +774,133 @@ WHEN THIS PROTOCOL APPLIES:
   JPEG files in ZIP-of-images format). If the source has ZERO embedded
   images, this protocol is skipped entirely.
 
+═══════════════════════════════════════════════════════════════════════
+PHASE A-PROBE — VISION LIVENESS GATE (v1.9, MANDATORY, RUNS FIRST)
+═══════════════════════════════════════════════════════════════════════
+WHY. Every decision in this protocol is made BY VISION. S1-6 states the rule
+plainly — red placeholders for math are BANNED, and the only legitimate
+placeholder for a math question is an image that is physically unreadable
+AFTER Claude has viewed it. But if the session's vision path has stopped
+working, EVERY image is "physically unreadable", every one falls through to a
+red placeholder, and nothing in the protocol can tell the two cases apart.
+
+That is not a theoretical risk. It is the precise defect v1.6 was written to
+eliminate, and the v1.6 changelog records the damage: SSC CGL T2 18-Jan-2025
+Shift 1 — Q.6, Q.14, Q.15, Q.17, Q.19-Q.22, Q.28-Q.30, eleven math questions,
+about 35% of the Quant section, delivered as red placeholders instead of
+transcribed math. Under the current workflow it compounds: the graphics team
+receives placeholders for equations and tables, draws pictures of them, and
+those questions are FIGURAL rather than TEXT for the rest of the pipeline.
+
+Vision can degrade MID-SESSION as context grows. Demonstrated: a freshly
+generated control PNG failed to render in a session where real figures had
+rendered correctly earlier. The files were never the problem.
+
+HOW:
+  path, token = corpus_io.make_vision_probe('/home/claude/pyq_probe')
+  # view(path)  -> read the 8-character token back from the image
+  probe_passed = corpus_io.score_vision_probe(<what Claude read>, token)
+
+The token is random and appears NOWHERE in text, so it cannot be inferred from
+context. It can only be obtained by actually seeing the image.
+
+ON PASS — proceed to Phase A-IMAGE. Behaviour is exactly as v1.6 specified.
+          Nothing below changes when vision is working.
+
+ON FAIL — this is a SESSION fault, not an image fault:
+  1. Do NOT classify any image.
+  2. Do NOT assign a red placeholder to anything. Assigning one under a failed
+     probe is a HARD BUG, ranking with the "unclassified image" hard bug below.
+  3. Record vision_unavailable for the affected images (three-state outcome —
+     see below) via bc.image_clarity_state(probe_passed, figure_readable).
+  4. HALT with resumable state: keep the extracted images and any
+     classifications already made under a PASSING probe.
+  5. Tell the user in plain terms:
+       "I can no longer read images reliably in this session. No placeholders
+        have been assigned. Please start a fresh chat and re-run:
+        PYQPrepare  — the extracted images are preserved."
+  6. Do NOT deliver a Row file built under a failed probe.
+
+THREE-STATE OUTCOME (bc.image_clarity_state) — the two-state form conflated
+two failures with different causes and opposite remedies:
+  clear              the image was read and classified
+  unclear            the FIGURE is genuinely illegible — corrupt, blank, too
+                     low resolution. REQUIRES a passing probe. This is the only
+                     state that may lead to a placeholder for math-like content,
+                     and it is reported in delivery.
+  vision_unavailable the SESSION cannot see. Never a statement about the image.
+                     Halts; never counted as an unreadable figure; never a
+                     placeholder.
+
+COST: one view() call per session, before image classification begins. Add 1 to
+every tool-call budget in this protocol.
+
+RE-PROBE: for a source with many images processed across several turns, re-run
+the probe whenever classification resumes after a context break. A probe result
+is evidence about the session at the moment it was taken, not a permanent fact.
+
+NO GOVERNOR IN STEP 1 (v1.9, stated so the omission reads as a decision).
+Steps 3, 4 and 5 govern document size against the Drive transport cap. Step 1
+does not, and must not: the only images it EMITS are 300x200 red placeholder
+PNGs. There is nothing to compress. Size governance begins at Step 3
+(PYQSort S7-6), the first step to hold real image bytes.
+═══════════════════════════════════════════════════════════════════════
+
 PHASE A — IMAGE EXTRACTION (part of Phase A inspection):
 
   Step 1: Extract all embedded images from the source to numbered files.
 
   FORMAT D (docx):
-    Extract via python-docx relationships:
+    DELEGATED to corpus_io (Cluster I) — v1.9. Do NOT re-implement.
 ```
 
 ```python
-import os
-from docx import Document
+import corpus_io      # routed to PYQPrepare in routes.json
 
-def extract_images(docx_path, output_dir):
+def extract_source_images(docx_path, output_dir):
+    """Extract every embedded image and map each one to its question.
+
+    v1.9 — REPLACES a local extract_images() that walked doc.paragraphs and
+    matched only <a:blip>. That implementation had two silent failures, both of
+    which removed an image from the protocol entirely — it was never extracted,
+    never viewed, never classified, and did not even reach the "unclassified
+    image" HARD BUG below, because the walk never saw it:
+
+      * TABLE IMAGES. In python-docx, doc.paragraphs returns ONLY paragraphs
+        that are direct children of the body; paragraphs inside table cells are
+        excluded. Measured on a two-image document with one figure in a table:
+        2 images present, 1 found. Table layout is the NORMAL arrangement for
+        match-the-following items, multi-panel figures and option grids — and a
+        math table rendered as an image inside a table is exactly the content
+        this protocol exists to rescue.
+      * VML IMAGES. Only <a:blip> was resolved. Legacy <v:imagedata r:id>,
+        emitted by older Word, several PDF converters and pasted OLE/equation
+        objects, was never mapped to its part.
+
+    corpus_io.map_images_to_questions walks doc.element.body.iter(), which
+    descends into tables, and matches BOTH mechanisms. corpus_io.extract_images
+    writes every media part as ORIGINAL BYTES and labels vector parts (EMF/WMF)
+    which must be rasterised before view().
+
+    Returns (extracted, mapping):
+      extracted {basename: {path, bytes, kind, format, size, mode, note}}
+      mapping   {q_num or 'preamble': [media part names in document order]}
     """
-    Extract all embedded images from a docx file.
-    Returns dict mapping paragraph_index → image_filepath.
-    """
-    doc = Document(docx_path)
-    os.makedirs(output_dir, exist_ok=True)
-    image_map = {}  # {para_index: image_path}
-    img_counter = 0
+    extracted = corpus_io.extract_images(docx_path, output_dir)
+    mapping   = corpus_io.map_images_to_questions(docx_path)
+    return extracted, mapping
+```
 
-    for i, para in enumerate(doc.paragraphs):
-        xml = para._element.xml
-        if '<w:drawing' not in xml and '<w:pict' not in xml:
-            continue
-        # Extract image data from relationships
-        for rel in doc.part.rels.values():
-            if "image" in rel.reltype:
-                # Check if this relationship is referenced in this paragraph
-                rel_id = rel.rId
-                if rel_id in xml:
-                    img_data = rel.target_part.blob
-                    ext = os.path.splitext(rel.target_ref)[1] or '.png'
-                    img_path = os.path.join(output_dir, f"img_{img_counter:03d}{ext}")
-                    with open(img_path, 'wb') as f:
-                        f.write(img_data)
-                    image_map[i] = img_path
-                    img_counter += 1
-                    break  # One image per paragraph for mapping
+```
+    ACCOUNTING (v1.9): corpus_io.count_image_refs(docx_path) gives the number of
+    image references the package actually contains. Every one of them must end
+    up either in the mapping or in the 'preamble' bucket. A shortfall means an
+    image exists that this protocol will never classify — investigate before
+    building, because the pipeline's fall-through would silently placeholder it.
 
-    return image_map
+    Vector parts (kind == 'vector') cannot be viewed directly. Rasterise via
+    corpus_io.normalise_for_view() before the view() call, or they will read as
+    unreadable and be misclassified as VISUAL.
 ```
 
 ```
@@ -819,6 +994,19 @@ PHASE A-IMAGE — CLAUDE VISUAL INSPECTION:
     (red placeholder) + add WARN to delivery message. This is the ONLY
     case where math MIGHT get a placeholder — and it's flagged explicitly.
 
+    v1.9 GATE — this verdict REQUIRES A PASSING PROBE (Phase A-PROBE).
+    "Unreadable" is a claim about the IMAGE. With vision unavailable every
+    image looks unreadable, so recording this verdict under a failed probe
+    states something the session is in no position to know — and it is the
+    exact path by which eleven math questions were destroyed in the incident
+    recorded in the v1.6 changelog. Under a failed probe the verdict is
+    vision_unavailable, and the run HALTS instead of placeholdering.
+    Sequence, non-negotiable:
+      probe PASS  → view → genuinely unreadable → VISUAL + WARN   (permitted)
+      probe FAIL  → no view verdict at all      → HALT            (mandatory)
+    Vector parts (EMF/WMF) are NOT unreadable — rasterise them via
+    corpus_io.normalise_for_view() and view the raster.
+
   Step 4: Record all classifications in a structured dict.
 ```
 
@@ -871,6 +1059,17 @@ PIPELINE USAGE:
       # UNCLASSIFIED IMAGE — this is a HARD BUG.
       # Every image MUST be classified. If we reach here, Phase A-IMAGE
       # was incomplete. Treat as VISUAL + WARN.
+      #
+      # v1.9 — TWO WAYS TO REACH HERE, and they need different responses:
+      #   (a) the image was extracted but not classified — the original hard
+      #       bug; the fall-through below applies.
+      #   (b) the image was never extracted at all, because it sat inside a
+      #       table cell and the old doc.paragraphs walk could not see it
+      #       (DEFECT I). Delegating discovery to corpus_io closes that route;
+      #       cross-check the mapping against corpus_io.count_image_refs so a
+      #       shortfall is caught BEFORE the build rather than becoming a
+      #       silent placeholder here.
+      # If the probe FAILED, do not reach this branch at all — HALT.
       add_stem_figure_only(doc, q_num)
       add_placeholder_stem(doc, RED_PNG)
       warnings.append(f"UNCLASSIFIED IMAGE at para {para_idx} — "
@@ -1383,7 +1582,7 @@ Strip the "Comprehension:" label but keep the instruction line and body.
 # These patterns detect question boundaries in the source.
 # After detection, Step 1 RENUMBERS to continuous Q.1 → Q.N.
 
-Q_PATTERNS = [
+SOURCE_Q_PATTERNS = [
     r'^Q\.\s*(\d+)\s+',            # Q.1  Q.25  Q. 1
     r'^Q(\d+)\.\s+',               # Q1.  Q25.
     r'^Question\s+(\d+)\s*[:.]',   # Question 1:
@@ -1391,13 +1590,20 @@ Q_PATTERNS = [
     r'^\((\d+)\)\s+',              # (1)  (25)
 ]
 
-def detect_question_start(text):
-    """Detect if a line starts a new question. Returns source Q-number or None."""
-    for pat in Q_PATTERNS:
-        m = re.match(pat, text.strip())
-        if m:
-            return int(m.group(1))
-    return None
+import blueprint_core as bc   # ENGINE (routed)
+# SOURCE_Q_PATTERNS (renamed 2026-07-25) detects question boundaries in the RAW source,
+# where "Question 1:", bare "1." and "(1)" are all genuine numbering and options are not yet
+# canonical. It is Step 1's own table, deliberately WIDER than the engine's, and it is named
+# SOURCE_* for the same reason SOURCE_OPT_PATTERNS is — to keep it out of the normalised-
+# document contract that Steps 3, 4 and 5 share.
+#
+# The engine detector below is the NORMALISED-document one and implements only "Q.N" / "QN.".
+# It must never be widened to match the table above: after Step 1 renumbers, options read
+# "N. text", so the bare-number pattern would match every option line — a 100-question paper
+# would parse as 500 questions (verified by execution).
+# Step 1 does not currently call detect_question_start; it is bound here so that any future
+# validation of Step 1's OWN normalised output uses the shared detector rather than a copy.
+detect_question_start = bc.detect_question_start
 ```
 
 ### S3-2 — Option detection and normalisation
@@ -2391,6 +2597,18 @@ File badge: "Use locally" — Row files go to Google Drive PYQ folder
 Next step: "Step 2a: PYQDraft — provide Exam Syllabus + Exam Pattern
             to build taxonomy and exam_config.json"
 
+VISION PROBE PROVENANCE (v1.9 — MANDATORY whenever the source had images):
+  The delivery message MUST state the S1-12 probe result and the placeholder
+  count together:
+    "Vision probe: PASS. N image(s) classified — M red placeholder(s)
+     (VISUAL-IMAGE), K transcribed as math/table/text."
+  A placeholder is a permanent, downstream-visible decision: the graphics team
+  draws a figure for it, and the question is FIGURAL from then on. Recording the
+  probe alongside the count makes that decision auditable after the fact —
+  without it, a placeholder assigned by a blind session is indistinguishable
+  from one that was genuinely earned.
+  A Row file is NEVER delivered with probe FAIL. That path halts (S1-12).
+
 FORMAT C1 / C-HYBRID (v1.7 — vision-transcribed):
   Deliver the Row file (still EXACTLY 1 file, closed set) with the
   __vision-unverified suffix. The delivery message MUST carry a prominent
@@ -2586,6 +2804,36 @@ EC-P21: SCANNED-SOURCE SPECIMEN / SAMPLE QUESTION (v1.7)
   out-of-range Q-number leaked into the Row file. Also applies to text
   sources: a specimen block on an instruction page is dropped like any
   other instruction chrome (EC-P2).
+
+EC-P22: VISION UNAVAILABLE DURING IMAGE INSPECTION (v1.9)
+  The S1-12 liveness probe fails: Claude cannot read back the token from a
+  freshly generated control image. This is a property of the SESSION, not of
+  any source image, and it can appear mid-run as context grows.
+  Resolution: record vision_unavailable, assign NO placeholders, HALT with the
+  extracted images preserved, and ask for a fresh session.
+  What makes this a named edge case rather than a footnote: without the probe
+  the failure is INVISIBLE. Every image reads as unreadable, every one takes
+  the "genuinely unreadable" branch, and the run completes successfully with a
+  Row file full of red placeholders where the math used to be. It looks like a
+  bad source. It is not. This is the SSC CGL T2 18-Jan-2025 failure recorded in
+  the v1.6 changelog — eleven math questions, ~35% of the Quant section.
+  Do NOT "work around" a failed probe by classifying from filenames, from
+  surrounding text, or from the extraction order. A classification is a claim
+  about image content and there is no evidence for it.
+
+EC-P23: IMAGE INSIDE A TABLE CELL (v1.9)
+  The source lays a figure out inside a table — the normal arrangement for
+  match-the-following items, multi-panel figures and option grids.
+  Before v1.9 the local extract_images() walked doc.paragraphs, which in
+  python-docx does NOT descend into table cells, so the image was never
+  extracted, never viewed and never classified. It did not even reach the
+  "unclassified image" HARD BUG, because that branch fires on an image the
+  pipeline KNOWS about. Proven: 2 images present, 1 found.
+  Resolution: discovery is delegated to corpus_io.map_images_to_questions,
+  which walks doc.element.body.iter() and descends into tables, and to
+  corpus_io.extract_images, which reads the package directly.
+  Cross-check the count against corpus_io.count_image_refs — a mapping that
+  is short by one is an image that will be silently placeholdered.
 ```
 
 ---
@@ -2613,9 +2861,20 @@ PHASE A — INSPECT (1–3 tool calls):
     For PDF: check page.get_images() via PyMuPDF.
 
   CALL A3 (if images detected): Extract all embedded images
-    bash_tool: python3 -c "... extract_images() from S1-12 ..."
-    → Saves images to /home/claude/work/images/img_000.png, img_001.png, ...
-    → Records paragraph-to-image mapping with surrounding Q-context.
+    bash_tool: python3 -c "... extract_source_images() from S1-12 ..."
+    → corpus_io.extract_images + corpus_io.map_images_to_questions
+    → Saves every media part (including images inside TABLE CELLS, which the
+      pre-v1.9 doc.paragraphs walk could not see) and maps each to its Q-number.
+    → Cross-check the mapping total against corpus_io.count_image_refs.
+
+  CALL A3b (v1.9, MANDATORY before any classification): Vision liveness probe
+    bash_tool: path, token = corpus_io.make_vision_probe(...)
+    view(path) → read the 8-character token back
+    corpus_io.score_vision_probe(<what was read>, token)
+    → PASS: continue to CALL A4 unchanged.
+    → FAIL: HALT. No placeholders, no Row file. Ask for a fresh session.
+      Skipping this call is how eleven math questions became red placeholders
+      in the SSC CGL T2 18-Jan-2025 incident (v1.6 changelog).
 
 PHASE A-IMAGE — IMAGE CLASSIFICATION (1–8 view calls, v1.6):
   Only when embedded images exist. Claude views each extracted image
@@ -2694,6 +2953,14 @@ POST-DELIVERY:
 Step 1's output is consumed by multiple downstream steps. These are the
 contracts that MUST be maintained. Any change to Step 1 output format
 requires updating ALL consuming steps.
+
+MODULE DEPENDENCY (v1.9): image discovery is delegated to corpus_io
+(Cluster I) — the same implementation Steps 3, 4 and 5 use. It must be
+routed to PYQPrepare in routes.json. A local re-implementation of any
+corpus_io function is forbidden: this file carried DEFECT I and DEFECT J
+for exactly as long as it kept its own copy of extract_images, while both
+had already been fixed elsewhere. Two copies produce no drift signal until
+they disagree, and by then the images are already gone.
 
 CONSUMER: Step 2b PYQScan (Framework_PYQAnalyse.md)
   READS: Row file Q.N stems for subtopic classification
@@ -2781,7 +3048,12 @@ PROOF:
 ☐ 1.  Trigger parsed: ExamCode, date, optional session extracted
 ☐ 2.  Source file inspected: format identified, structure understood
 ☐ 3.  Source text extracted: all questions and options captured
-☐ 3a. Embedded images extracted and classified (v1.6 — S1-12)
+☐ 3a. Embedded images extracted via corpus_io — including images inside TABLE
+       CELLS and legacy VML — and every one classified (v1.6/v1.9 — S1-12)
+☐ 3a1. Mapping total cross-checked against corpus_io.count_image_refs — no
+       image reaches the build unclassified (v1.9)
+☐ 3a2. VISION LIVENESS PROBE PASSED before any classification (v1.9 — S1-12
+       Phase A-PROBE). Probe FAIL → HALT, no placeholders, no Row file
 ☐ 3b. Math/table/text images transcribed (v1.6 — zero math placeholders)
 ☐ 4.  Metadata stripped: all 6 categories removed, zero leakage
 ☐ 5.  Strings sanitised: no C0 control characters remain
@@ -2789,7 +3061,10 @@ PROOF:
 ☐ 7.  Options normalised: all converted to canonical "N. text" format
 ☐ 8.  Each option on its own line: no multi-option rows
 ☐ 9.  Math converted to OMML: fractions, roots, superscripts rendered
-☐ 10. Figures handled: red placeholders ONLY for VISUAL-IMAGE classified
+☐ 10. Figures handled: red placeholders ONLY for VISUAL-IMAGE classified,
+       and ONLY under a passing probe (v1.9)
+☐ 10b. Probe result stated in the delivery message alongside the placeholder
+       count, so every placeholder's provenance is auditable (v1.9 — §7)
 ☐ 10a. Scanned source (C1/C-HYBRID): legibility-gated vision transcription
        with mandatory VISION provenance marker (v1.7 — S1-13)
 ☐ 11. DI tables rendered: native Word tables, not images
@@ -2809,4 +3084,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v1.7
+# END OF Framework_PYQPrepare v1.9.1

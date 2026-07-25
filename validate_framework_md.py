@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-validate_framework_md.py — Universal Framework .md Validator
+validate_framework_md.py v3.1 — Universal Framework .md Validator
 Replaces both the old Step-8-specific validator AND the universal validator.
 Runs universal checks on ANY framework .md file, PLUS auto-detects and runs
 extended checks when the file contains patterns that warrant them:
@@ -67,6 +67,36 @@ Checks (each reports PASS/issues):
      Framework_MockTestCreate.md §14 (registry.json Step-7 additions). Only runs when at
      least one relevant schema source file is present in the batch.
 
+  ═══ CORPUS TRANSPORT / DELEGATION (v3.0 — added after the 2026-07-24 incident) ═══
+  V.  UNGUARDED DRIVE FETCH — a Drive download called outside try/ and not routed
+      through corpus_io.fetch_drive_docx. Verified at the time: ZERO try/except existed
+      around any Drive call in the entire corpus, so one oversized paper ended a
+      200-paper run. Per-file, AST-based; silent on files that never fetch.
+  W.  ENUMERATION CAPTURES fileSize — a Drive paper record built with 'source':'gdrive'
+      must also carry 'fileSize'. The listing already contains it; discarding it makes
+      the AUTO/UPLOAD partition impossible, so an unfetchable paper is discovered only
+      mid-run.
+  X.  PER-ITEM DURABILITY — a loop that does per-item work (process_*_paper /
+      count_*_file / scan_*_paper) inside a block that saves progress must save INSIDE
+      the loop. When the save sits after the loop, an exception discards every item
+      already processed in that batch.
+  Y.  IMAGE ACCOUNTING — a spec that extracts or maps images must also reference an
+      image count assertion. A mapped-but-missing image produces a wrong classification,
+      never an error.
+  Z.  DELEGATION CONTRACT — no spec may define a function owned by the shared
+      transport/image engine (corpus_io, blueprint_core Cluster H). Thin forwarding
+      adapters are permitted. Names are read from the engine sources, so the check
+      cannot go stale; generic harness names (check/self_test/main) are excluded.
+
+  ═══ CORPUS-LEVEL (run when the engines / routes sit beside the specs) ═══
+  AA. ROUTES <-> SKILL SYNC — both directions, plus the skill's spec/engine counts.
+      A routed trigger the skill never names is unreachable; a skill trigger with no
+      route runs the step with no spec loaded.
+  AB. THIN-CORE PURITY — blueprint_core.py and paper_pipeline.py may import only the
+      standard library and must perform no file I/O. This invariant was documented as
+      "enforced by validate_framework_md.py" while no such check existed; a PIL import
+      landing in the core is the v2.26 P0 that aborted Step 5 for every exam.
+
 Usage:
   python3 validate_framework_md.py <file.md>
   python3 validate_framework_md.py /mnt/project/*.md   (batch mode — enables Check T)
@@ -81,6 +111,7 @@ PIPELINE = {
     'PYQPrepare': '1', 'PYQDraft': '2a', 'PYQScan': '2b', 'PYQApprove': '2c',
     'PYQSort': '3', 'PYQCount': '4', 'PYQExtract': '5',
     'PYQExplain': 'PYQ-1', 'PYQExplainAudit': 'PYQ-2', 'PYQFormat': 'PYQ-3', 'PYQDeliver': 'PYQ-4',
+    'PYQCompress': 'L2',
     'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6', 'ScopedBlueprint': '6S',
     'MockCreate': '7', 'MockCreateAudit': '8', 'TestCreate': '7', 'TestCreateAudit': '8',
     'MockExplain': '9', 'MockExplainAudit': '10', 'MockDeliver': '11',
@@ -100,6 +131,33 @@ def validate(path, all_texts=None):
     issues = []
     info = []
     def add(cat, msg): issues.append((cat, msg))
+
+    # ── v2.9: SPEC vs DOCUMENTATION-RECORD classification ─────────────────────
+    # This validator's structural checks were written for SPEC files (Framework_*.md):
+    # fenced code, numbered §-sections, an END OF sentinel. The corpus also carries prose
+    # RECORD files (architecture notes, audit/verification records) that live in the same
+    # directory and are passed to the same batch run. Applying spec-structural checks to
+    # prose produces false positives that are impossible to fix without corrupting the
+    # record itself, namely:
+    #   H-XREF   — a record legitimately cites ANOTHER file's section ("Framework_Blueprint
+    #              §7.1"). The check resolves §N only against the LOCAL file's headers, so
+    #              every cross-file citation is reported as an undefined section.
+    #   I-STALE  — a record that DOCUMENTS stale-marker handling must write the words. The
+    #              architecture note's own "Resolved" list contains the sentence
+    #              "PLACEHOLDER identifier false positives (#3/#4)", which is a statement
+    #              that they WERE fixed, flagged as if it were an unfinished stub.
+    # Both were reported for months as "known pre-existing issues" and neither was a defect.
+    # A record is identified STRUCTURALLY, not by filename, so the rule generalises: a file
+    # with no fenced code blocks AND no numbered §-section headers is not a spec. The
+    # filename prefix is accepted as a secondary signal for this corpus's claude_* records.
+    _has_code = '```' in text
+    _has_sections = bool(re.search(r'^#+ §\d+\b', text, re.M))
+    is_record = (not _has_code and not _has_sections) or (
+        fname.startswith('claude_') and not _has_code)
+    if is_record:
+        info.append('classified as a DOCUMENTATION RECORD (no code blocks, no §-sections) — '
+                    'spec-structural checks H-XREF and I-STALE are not applicable and are '
+                    'skipped; every other check still runs.')
 
     # ─────────────────── A: FENCED CODE BLOCKS ───────────────────
     fences = []
@@ -143,20 +201,37 @@ def validate(path, all_texts=None):
             add('B-PYAST', f'python block L{op[0]}-{cl[0]}: {e.msg} (line {e.lineno} of block)')
 
     # ─────────────────── C: VERSION CONSISTENCY ──────────────────
+    # v3.1: versions are matched in FULL, not truncated to two components. The old
+    # r'(\d+\.\d+)' captured '1.16' from 'v1.16.1' on one side and the whole string on
+    # the other, so a patch-level bump could report a mismatch that did not exist —
+    # and, worse, could hide one.
+    _VER = r'(\d+(?:\.\d+)+)'
     header_ver = None
-    m = re.match(r'^#?\s*\S+\s+v(\d+\.\d+)', lines[0])
+    m = re.match(r'^#?\s*\S+\s+v' + _VER, lines[0])
     if not m:  # try "Version: vX.Y" format
         for l in lines[:15]:
-            m2 = re.match(r'^Version:\s*v?(\d+\.\d+)', l)
+            m2 = re.match(r'^Version:\s*v?' + _VER, l)
             if m2: header_ver = m2.group(1); break
     else:
         header_ver = m.group(1)
 
+    # v3.1: BOTH end-sentinel forms are recognised. Two are in live use across the
+    # corpus — '# END OF <name> vN' and '**End of <name>.md (vN)**' — and Check C
+    # previously knew only the first. A file using the second had NO footer detected,
+    # so the header/footer comparison was silently skipped rather than failing: it
+    # printed a header version, no footer version, and reported clean. Four files were
+    # in that state, one of them eight minor versions stale (Framework_MockTestExplain-
+    # Audit.md, header v1.16, sentinel v1.8) and invisible to audit_specs_ext too,
+    # whose check_z_version reads the header from line 1 only and that file's line 1
+    # carries no version. A check that skips silently is worse than no check, because
+    # the clean result is read as evidence.
     footer_ver = None
     for l in reversed(lines):
-        m = re.search(r'END OF \S+ v(\d+\.\d+)', l)
+        m = re.search(r'END OF \S+ v' + _VER, l, re.I)
         if m: footer_ver = m.group(1); break
-        m = re.search(r'^#\s*Version:\s*(\d+\.\d+)', l)
+        m = re.search(r'\*\*End of \S+ \(v' + _VER + r'\)\*\*', l, re.I)
+        if m: footer_ver = m.group(1); break
+        m = re.search(r'^#\s*Version:\s*' + _VER, l)
         if m and footer_ver is None: footer_ver = m.group(1)
     if header_ver and footer_ver and header_ver != footer_ver:
         add('C-VERSION', f'header version v{header_ver} != footer version v{footer_ver}')
@@ -172,7 +247,9 @@ def validate(path, all_texts=None):
     # producing a false "header vX.Y != highest changelog entry vY.Z" report even when the
     # header correctly matched the file's actual latest (undated) entry.
     for l in lines:
-        m = re.match(r'^[#*\s]*v(\d+\.\d+)\s*(?:[—–-]\s*\d{4}|changes:)', l.strip())
+        # v3.1: full version, so a patch-level entry (v1.5.1) is not truncated to v1.5
+        # and then reported as disagreeing with its own header.
+        m = re.match(r'^[#*\s]*v(\d+(?:\.\d+)+)\s*(?:[—–-]\s*\d{4}|changes:)', l.strip())
         if m:
             v = m.group(1)
             if changelog_ver is None or tuple(map(int, v.split('.'))) > tuple(map(int, changelog_ver.split('.'))):
@@ -236,10 +313,13 @@ def validate(path, all_texts=None):
                 add('G-CHECKLIST', f'L{line_num}: "{claimed}-point" but {actual} checks.append() calls')
 
     # ─────────────────── H: CROSS-REFERENCES ─────────────────────
+    # def_sections is ALSO consumed by the summary report below, so it must be computed
+    # unconditionally — only the FLAGGING is gated (v2.9).
     def_sections = set(re.findall(r'^#+ §(\d+)\b', text, re.M))
     ref_sections = set(re.findall(r'§(\d+)\b', text))
-    for s in sorted(int(x) for x in (ref_sections - def_sections) if x.isdigit()):
-        add('H-XREF', f'reference to §{s} but no section §{s} header defined')
+    if not is_record:                      # v2.9: records cite OTHER files' sections
+        for s in sorted(int(x) for x in (ref_sections - def_sections) if x.isdigit()):
+            add('H-XREF', f'reference to §{s} but no section §{s} header defined')
 
     # ─────────────────── I: STALE MARKERS ────────────────────────
     # v2.8: word-boundary matching (not bare substring) — a bare substring search
@@ -250,11 +330,12 @@ def validate(path, all_texts=None):
     # '_' and 'P' — '_' is a word character) while a genuine standalone "PLACEHOLDER",
     # "TODO", "FIXME", or "TBD" — always separated from surrounding text by whitespace,
     # punctuation, or quotes in real usage — is still caught exactly as before.
-    for kw in ('TODO', 'FIXME', 'PLACEHOLDER', 'TBD'):
-        kw_pat = re.compile(r'\b' + re.escape(kw) + r'\b')
-        for i, l in enumerate(lines, 1):
-            if kw_pat.search(l) and not l.strip().startswith('#') and not l.strip().startswith('*'):
-                add('I-STALE', f'L{i}: stale marker "{kw}" found')
+    if not is_record:                      # v2.9: records DOCUMENT these markers by name
+        for kw in ('TODO', 'FIXME', 'PLACEHOLDER', 'TBD'):
+            kw_pat = re.compile(r'\b' + re.escape(kw) + r'\b')
+            for i, l in enumerate(lines, 1):
+                if kw_pat.search(l) and not l.strip().startswith('#') and not l.strip().startswith('*'):
+                    add('I-STALE', f'L{i}: stale marker "{kw}" found')
 
     # ─────────────────── J: SELF-TEST COUNT ──────────────────────
     prose_counts = set(re.findall(r'SELF-TEST:\s*(\d+)/\1\s*PASS', text))
@@ -462,6 +543,159 @@ def validate(path, all_texts=None):
                 add('S2-EXPLAINGATE', f'explanation completion gate wired but {token!r} '
                     '(ledger/evidence) is not mentioned')
 
+    # ═════════════════ V-Z — CORPUS TRANSPORT / DELEGATION (v3.0) ═════════════
+    # Added after the 2026-07-24 Drive-transport incident and the sixteen-defect
+    # register that followed it. Every check below encodes a defect that was found by
+    # hand and would otherwise be found by hand again. They are deliberately NARROW:
+    # a check that fires on correct work trains people to ignore the validator, which
+    # is worse than not having the check.
+    # py_blocks holds (open, close) fence markers; reconstruct the source the same way
+    # Check B does, including its placeholder substitutions, so a block that Check B
+    # accepts is also analysable here.
+    _py_trees = []
+    for _bi, (_op, _cl) in enumerate(py_blocks):
+        _raw = block_lines(_op, _cl)
+        _ind = _op[1]
+        _body = '\n'.join(l[_ind:] if l[:_ind].strip() == '' else l for l in _raw)
+        _probe = re.sub(r'\[ExamCode\]', 'EXAMCODE', _body)
+        _probe = re.sub(r'\[N\]', 'NNN', _probe)
+        _probe = re.sub(r'\[ExamName\]', 'EXAMNAME', _probe)
+        _probe = re.sub(r'<<[^>]+>>', 'PLACEHOLDER_URL', _probe)
+        try:
+            _py_trees.append((_bi, _probe, ast.parse(_probe)))
+        except SyntaxError:
+            continue          # placeholder-bearing block; Check B already reports it
+
+    def _call_name(node):
+        f = node.func
+        if isinstance(f, ast.Name):
+            return f.id
+        if isinstance(f, ast.Attribute):
+            base = getattr(f.value, 'id', '')
+            return f'{base}.{f.attr}' if base else f.attr
+        return ''
+
+    # ── V — UNGUARDED DRIVE FETCH ─────────────────────────────────────────────
+    # DEFECT B. Verified at the time: ZERO try/except existed around any Drive call
+    # in the entire 31-file corpus, so one paper above the connector's size cap
+    # terminated a 200-paper run. A fetch must either sit inside a try/ or be handed
+    # to corpus_io.fetch_drive_docx, which raises TransportFallback for the caller to
+    # route to the upload lane.
+    DRIVE_FETCH = {'gdrive_download_file', 'download_file_content', 'gdrive_get_file',
+                   'drive_download', 'gdrive_read_file'}
+    _v_ran = False
+    for _bi, _blk, _tree in _py_trees:
+        _guarded = set()
+        for _n in ast.walk(_tree):
+            if isinstance(_n, ast.Try):
+                for _sub in ast.walk(_n):
+                    _guarded.add(id(_sub))
+        for _n in ast.walk(_tree):
+            if isinstance(_n, ast.Call) and _call_name(_n) in DRIVE_FETCH:
+                _v_ran = True
+                if id(_n) not in _guarded:
+                    add('V-DRIVEGUARD',
+                        f'{_call_name(_n)}() called unguarded in python block {_bi} '
+                        f'(line {_n.lineno} of the block). Wrap it in try/except, or '
+                        f'route it through corpus_io.fetch_drive_docx so a transport '
+                        f'failure degrades to the upload lane instead of ending the run.')
+    if _v_ran:
+        extended_ran.append('V-DRIVEGUARD')
+
+    # ── W — ENUMERATION CAPTURES fileSize ─────────────────────────────────────
+    # DEFECT A. The Drive listing carries fileSize inline. Discarding it makes the
+    # AUTO/UPLOAD partition impossible, so an unfetchable paper surfaces only when the
+    # download is attempted — in the reported incident, at batch 6 of a clean-looking run.
+    for _bi, _blk, _tree in _py_trees:
+        for _n in ast.walk(_tree):
+            if not isinstance(_n, ast.Dict):
+                continue
+            _keys = [k.value for k in _n.keys
+                     if isinstance(k, ast.Constant) and isinstance(k.value, str)]
+            _is_paper = ('source' in _keys and any(
+                isinstance(v, ast.Constant) and v.value == 'gdrive' for v in _n.values))
+            if not _is_paper:
+                continue
+            extended_ran.append('W-ENUMSIZE')
+            if 'fileSize' not in _keys:
+                add('W-ENUMSIZE',
+                    f'python block {_bi} builds a Drive paper record '
+                    f'{{{", ".join(repr(k) for k in _keys)}}} without fileSize. '
+                    f'Capture it at enumeration — it costs no extra API call and it is '
+                    f'the only thing that lets transport be planned before fetching.')
+
+    # ── X — PER-ITEM DURABILITY ───────────────────────────────────────────────
+    # DEFECT C. The durability unit must be the ITEM, not the batch. When the save runs
+    # only after the inner loop, any exception inside it discards every item already
+    # processed in that batch: the progress file shows them as never done, and the work
+    # is repeated (or, if the accumulator and the processed-list are persisted at
+    # different moments, double-counted on resume).
+    ITEM_WORK = re.compile(r'^(process|scan|count|analyse|analyze)_\w*(paper|file|docx)$')
+    SAVE_FN = re.compile(r'^save_\w*(progress|state)$')
+    for _bi, _blk, _tree in _py_trees:
+        _block_saves = [_n for _n in ast.walk(_tree)
+                        if isinstance(_n, ast.Call) and SAVE_FN.match(_call_name(_n))]
+        if not _block_saves:
+            continue
+        for _n in ast.walk(_tree):
+            if not isinstance(_n, ast.For):
+                continue
+            _inner = list(ast.walk(_n))
+            _does_work = any(isinstance(c, ast.Call) and ITEM_WORK.match(_call_name(c))
+                             for c in _inner)
+            if not _does_work:
+                continue                      # a reporting/printing loop needs no save
+            extended_ran.append('X-DURABILITY')
+            _saves_inside = any(isinstance(c, ast.Call) and SAVE_FN.match(_call_name(c))
+                                for c in _inner)
+            if not _saves_inside:
+                _worker = next(_call_name(c) for c in _inner
+                               if isinstance(c, ast.Call) and ITEM_WORK.match(_call_name(c)))
+                add('X-DURABILITY',
+                    f'python block {_bi}: the loop at block-line {_n.lineno} calls '
+                    f'{_worker}() per item but never saves inside the loop — the only '
+                    f'save is outside it. An exception mid-loop discards every item '
+                    f'already processed. Save immediately after each item; keep any '
+                    f'batch-level save as a redundant flush.')
+
+    # ── Y — IMAGE WORK MUST BE ACCOUNTED FOR ──────────────────────────────────
+    # DEFECT D. Extraction and mapping without a count assertion is how table-embedded
+    # and VML images vanished silently for as long as they did: the question simply
+    # reads as text and no error is raised anywhere.
+    IMG_WORK = ('corpus_io.extract_images', 'corpus_io.map_images_to_questions',
+                'extract_and_map_images', 'extract_source_images')
+    IMG_ACCOUNT = ('count_image_refs', 'verify_images', 'image_gate_verdict',
+                   'gates_passed', 'assert_image_survival')
+    if any(w in text for w in IMG_WORK):
+        extended_ran.append('Y-IMGGATE')
+        if not any(a in text for a in IMG_ACCOUNT):
+            add('Y-IMGGATE',
+                'performs image extraction/mapping but references no image accounting '
+                f'({" / ".join(IMG_ACCOUNT)}). An image that is present in the document '
+                'and absent from the mapping produces a wrong classification, never an '
+                'error — the count assertion is the only thing that can notice.')
+
+    # ── Z — DELEGATION CONTRACT (Cluster H / I / J) ───────────────────────────
+    # A spec may CALL a shared function or write a thin forwarding adapter; it may not
+    # keep its own copy. Two implementations under one name emit ZERO drift signal until
+    # they disagree — which is exactly how Framework_PYQPrepare kept a table-blind
+    # extract_images() long after the same defect had been fixed twice elsewhere.
+    # Scope is deliberately the transport/image/governor clusters only. A generic name
+    # like check() or self_test() colliding by coincidence is not drift.
+    _dir = os.path.dirname(os.path.abspath(path))
+    _guarded_names = _cluster_hij_names(_dir)
+    if _guarded_names:
+        extended_ran.append('Z-DELEGATION')
+        for _name in sorted(_guarded_names):
+            for _m in re.finditer(r'^([ \t]*)def ' + re.escape(_name) + r'\(', text, re.M):
+                _ln = text[:_m.start()].count('\n') + 1
+                if _is_forwarding_adapter(text, _m.end()):
+                    continue                  # thin adapter that delegates — permitted
+                add('Z-DELEGATION',
+                    f'line {_ln}: defines {_name}(), which is owned by the shared '
+                    f'transport/image engine. Call it or write a thin forwarding '
+                    f'adapter; a local copy drifts silently.')
+
     # ─────────────────── REPORT ──────────────────────────────────
     print(f'\n{"="*60}')
     print(f'FILE: {fname}')
@@ -475,7 +709,11 @@ def validate(path, all_texts=None):
         print(f'  Gate counts: {sorted(live_counts.keys())}')
     print(f'  Sections defined: {len(def_sections)}')
     if extended_ran:
-        print(f'  Extended checks: {", ".join(extended_ran)}')
+        _seen_ext = []
+        for _e in extended_ran:
+            if _e not in _seen_ext:
+                _seen_ext.append(_e)
+        print(f'  Extended checks: {", ".join(_seen_ext)}')
     for inf in info:
         print(f'  {inf}')
     print(f'-'*60)
@@ -493,6 +731,202 @@ def validate(path, all_texts=None):
     print(f'-'*60)
     print(f'RESULT: ❌ {len(issues)} ISSUE(S) FOUND.')
     return len(issues)
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK Z SUPPORT — which names the shared engine owns
+# ═══════════════════════════════════════════════════════════════════════
+# Names that collide by coincidence rather than by duplication. A harness helper
+# called check() in a spec is not a re-implementation of blueprint_core.check().
+_Z_GENERIC = {'self_test', 'check', 'main', 'run', 'setup'}
+_Z_CACHE = {}
+
+
+def _cluster_hij_names(directory):
+    """Public names owned by corpus_io (Clusters I/J) and blueprint_core Cluster H.
+
+    Read from the engine sources themselves, never from a hardcoded list, so the check
+    cannot go stale the moment a function is added. Returns an empty set when the
+    engines are not present next to the specs — the check then silently does not run,
+    which is correct: with no engine there is nothing to delegate to.
+    """
+    if directory in _Z_CACHE:
+        return _Z_CACHE[directory]
+    names = set()
+    cio = os.path.join(directory, 'corpus_io.py')
+    if os.path.exists(cio):
+        try:
+            src = open(cio, encoding='utf-8').read()
+            names |= {n.name for n in ast.parse(src).body
+                      if isinstance(n, (ast.FunctionDef, ast.ClassDef))
+                      and not n.name.startswith('_')}
+        except (SyntaxError, OSError):
+            pass
+    bcp = os.path.join(directory, 'blueprint_core.py')
+    if os.path.exists(bcp):
+        try:
+            src = open(bcp, encoding='utf-8').read()
+            marker = src.find('CLUSTER H')
+            if marker != -1:
+                start_line = src[:marker].count('\n') + 1
+                names |= {n.name for n in ast.parse(src).body
+                          if isinstance(n, (ast.FunctionDef, ast.ClassDef))
+                          and not n.name.startswith('_') and n.lineno > start_line}
+        except (SyntaxError, OSError):
+            pass
+    names -= _Z_GENERIC
+    _Z_CACHE[directory] = names
+    return names
+
+
+def _is_forwarding_adapter(text, def_end):
+    """True when a local def exists only to hand the call straight to the engine.
+
+    A thin adapter is legitimate — it keeps a spec's call sites readable without owning
+    any logic. Anything longer is a second implementation. The test is deliberately
+    crude and generous: within the first stretch of the body, a call qualified by a
+    module name (corpus_io.x / bc.x) must appear.
+    """
+    body = text[def_end:def_end + 900]
+    body = body.split('\ndef ')[0]
+    return bool(re.search(r'\b(corpus_io|bc|blueprint_core)\.\w+\s*\(', body))
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AA — ROUTES <-> SKILL SYNC (batch-level, both directions)
+# ═══════════════════════════════════════════════════════════════════════
+def check_aa_routes_skill_sync(directory):
+    """Every routed trigger must be nameable in the skill, and vice versa.
+
+    Two independent failure directions, both silent:
+      * a trigger in routes.json the skill never mentions is unreachable — the operator
+        types it and nothing routes;
+      * a trigger named in the skill with no route loads no spec, so the step runs from
+        memory, which is the one thing the framework exists to prevent.
+    The engine-count claim is checked too: it is prose that goes stale the moment a
+    module is routed, and it is the only place the corpus states how many there are.
+
+    Skips silently when either file is unreachable — the skill normally lives outside
+    the project directory.
+    """
+    issues = []
+    routes_path = os.path.join(directory, 'routes.json')
+    if not os.path.exists(routes_path):
+        return issues
+    try:
+        import json as _json
+        routes = _json.load(open(routes_path, encoding='utf-8'))
+    except Exception as exc:
+        return [('routes.json', 'unreadable: %s' % exc)]
+
+    skill = None
+    for cand in (os.path.join(directory, 'SKILL.md'),
+                 '/mnt/skills/user/mock-test-framework/SKILL.md'):
+        if os.path.exists(cand):
+            try:
+                skill = open(cand, encoding='utf-8').read()
+                break
+            except OSError:
+                pass
+    if skill is None:
+        return issues
+
+    for trig in routes:
+        if not re.search(r'\b' + re.escape(trig) + r'\b', skill):
+            issues.append(('routes.json',
+                           'trigger %r is routed but never named in SKILL.md — '
+                           'it cannot be invoked' % trig))
+    for m in re.finditer(r'\b(PYQ[A-Z]\w+|Mock[A-Z]\w+|Test[A-Z]\w+|ScopedBlueprint)\b', skill):
+        if m.group(1) not in routes:
+            issues.append(('SKILL.md',
+                           'names trigger %r but routes.json has no such entry — the step '
+                           'would run with no spec loaded' % m.group(1)))
+    m = re.search(r'(\d+)\s+framework specs and\s+(\d+)\s+engine scripts', skill)
+    if m:
+        real_engines = len({f for v in routes.values() for f in v if f.endswith('.py')})
+        if int(m.group(2)) != real_engines:
+            issues.append(('SKILL.md', 'claims %s engine scripts; routes.json routes %d'
+                           % (m.group(2), real_engines)))
+        # The spec-count claim is only meaningful when this directory really IS the
+        # corpus. Validating one file in a scratch directory must not report that the
+        # corpus has shrunk — so the count is compared only when every routed spec
+        # resolves here.
+        routed_specs = {f for v in routes.values() for f in v if f.endswith('.md')}
+        is_full_corpus = routed_specs and all(
+            os.path.exists(os.path.join(directory, f)) for f in routed_specs)
+        real_specs = len([f for f in os.listdir(directory)
+                          if f.startswith('Framework_') and f.endswith('.md')])
+        if is_full_corpus and real_specs and int(m.group(1)) != real_specs:
+            issues.append(('SKILL.md', 'claims %s framework specs; the corpus has %d'
+                           % (m.group(1), real_specs)))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AB — THIN-CORE PURITY (batch-level)
+# ═══════════════════════════════════════════════════════════════════════
+# blueprint_core.py and paper_pipeline.py are imported at runtime by Steps 6-11 purely
+# for arithmetic. The invariant was documented as "enforced by validate_framework_md.py"
+# while no such check existed. It matters: a PIL import landing in blueprint_core.py
+# makes it unimportable wherever Pillow is absent — the P0 recorded in
+# Framework_MockTestAnalyse v2.26, where a failed `import blueprint_core` aborted Step 5
+# for EVERY exam. It is also the whole reason corpus_io.py exists as a separate module.
+#
+# The standard-library set is taken from the running interpreter rather than written out
+# here, so the check cannot drift as Python evolves.
+_AB_STDLIB = set(getattr(sys, 'stdlib_module_names', ()) or
+                 ('abc ast collections contextlib copy csv datetime decimal difflib enum '
+                  'fnmatch fractions functools glob hashlib heapq io itertools json '
+                  'logging math os pathlib random re shutil statistics string sys '
+                  'tempfile textwrap time traceback types typing unicodedata urllib '
+                  'uuid warnings zipfile zlib').split())
+
+_AB_IO_CALLS = {'open', 'os.makedirs', 'os.mkdir', 'os.remove', 'os.unlink', 'os.rename',
+                'os.rmdir', 'shutil.copy', 'shutil.copy2', 'shutil.move', 'shutil.rmtree',
+                'os.walk', 'os.listdir'}
+_AB_MODULES = ('blueprint_core.py', 'paper_pipeline.py')
+
+
+def check_ab_thin_core_purity(directory):
+    """The thin core must import only the standard library and touch no files."""
+    issues = []
+    for mod in _AB_MODULES:
+        path = os.path.join(directory, mod)
+        if not os.path.exists(path):
+            continue
+        try:
+            tree = ast.parse(open(path, encoding='utf-8').read())
+        except (SyntaxError, OSError) as exc:
+            issues.append((mod, 'could not be parsed: %s' % exc))
+            continue
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Import):
+                for a in n.names:
+                    root = a.name.split('.')[0]
+                    if root not in _AB_STDLIB:
+                        issues.append((mod, 'line %d: imports %r, which is not in the '
+                                            'standard library. The thin core must stay '
+                                            'importable everywhere — put impure '
+                                            'dependencies in corpus_io.py or '
+                                            'explain_engine.py.' % (n.lineno, root)))
+            elif isinstance(n, ast.ImportFrom) and n.module and n.level == 0:
+                root = n.module.split('.')[0]
+                if root not in _AB_STDLIB:
+                    issues.append((mod, 'line %d: imports from %r, which is not in the '
+                                        'standard library.' % (n.lineno, root)))
+            elif isinstance(n, ast.Call):
+                f = n.func
+                if isinstance(f, ast.Name):
+                    name = f.id
+                elif isinstance(f, ast.Attribute):
+                    name = '%s.%s' % (getattr(f.value, 'id', ''), f.attr)
+                else:
+                    name = ''
+                if name in _AB_IO_CALLS:
+                    issues.append((mod, 'line %d: calls %s() — the thin core performs no '
+                                        'file I/O. Move it to the I/O shell.'
+                                   % (n.lineno, name)))
+    return issues
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # CHECK T — CROSS-FILE TOKEN CONTRACT (batch-level; needs 2+ files)
@@ -776,6 +1210,43 @@ if __name__ == '__main__':
             print(f'RESULT: ❌ {len(u_issues)} JSON field contract issue(s) found.')
         else:
             print('RESULT: ✅ 0 ISSUES — all bare-indexed JSON field reads are documented.')
+    # ── AA / AB — corpus-level, run whenever the engines/routes sit beside the specs.
+    # Both are directory-scoped rather than file-scoped: they check artefacts that are
+    # not .md files at all, and that no single spec owns.
+    _dirs = []
+    for _p in file_list:
+        _d = os.path.dirname(os.path.abspath(_p))
+        if _d not in _dirs:
+            _dirs.append(_d)
+    for _d in _dirs:
+        aa_issues = check_aa_routes_skill_sync(_d)
+        ab_issues = check_ab_thin_core_purity(_d)
+        if os.path.exists(os.path.join(_d, 'routes.json')):
+            print(f'\n{"="*60}')
+            print(f'CORPUS CHECK AA: ROUTES <-> SKILL SYNC ({os.path.basename(_d) or _d})')
+            print('-'*60)
+            if aa_issues:
+                for who, msg in aa_issues:
+                    print(f'  [AA-ROUTESYNC] {who}: {msg}')
+                total += len(aa_issues)
+                print('-'*60)
+                print(f'RESULT: ❌ {len(aa_issues)} routing/skill sync issue(s) found.')
+            else:
+                print('RESULT: ✅ 0 ISSUES — routes.json and SKILL.md agree both ways.')
+        if any(os.path.exists(os.path.join(_d, m)) for m in _AB_MODULES):
+            print(f'\n{"="*60}')
+            print(f'CORPUS CHECK AB: THIN-CORE PURITY ({", ".join(_AB_MODULES)})')
+            print('-'*60)
+            if ab_issues:
+                for who, msg in ab_issues:
+                    print(f'  [AB-THINCORE] {who}: {msg}')
+                total += len(ab_issues)
+                print('-'*60)
+                print(f'RESULT: ❌ {len(ab_issues)} purity violation(s) found.')
+            else:
+                print('RESULT: ✅ 0 ISSUES — thin core imports only the standard library '
+                      'and performs no file I/O.')
+
     print(f'\n{"="*60}')
     if total == 0:
         print(f'GRAND TOTAL: ✅ ALL FILES CLEAN — 0 issues across {n} file(s)')

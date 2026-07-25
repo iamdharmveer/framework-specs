@@ -4,13 +4,22 @@
 **Step 10 — MockExplainAudit**
 **The independent auditor and rectifier of explanation documents produced by Step 9.**
 
-Version: v1.16
+Version: v1.16.1
 Status: Active
 Engine: `explain_engine.py` (shared universal engine; core `--self-test` 62/62, extended reader suite `--self-test-audit` 10/10) + `explain_audit_gate.py` (ledger completion gate; `--self-test` 8/8)
 
 ---
 
 ## VERSION HISTORY
+
+**v1.16.1** — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
+read v1.8, eight minor versions behind the header, so the last line of the file contradicted
+the first. Documentation only — not one line of behaviour changes. It went unnoticed because
+BOTH integrity tools were structurally blind to it: validate_framework_md.py Check C
+recognised only the '# END OF <name> vN' sentinel form and skipped the comparison entirely
+for the '**End of <name>.md (vN)**' form used here, while audit_specs_ext.py check_z_version
+reads the header from line 1 only. Check C now recognises both forms
+(validate_framework_md.py v3.1), so this cannot drift silently again.
 
 **v1.16** — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION (twin of Framework_
 MockTestCreate v5.29, found during the same full line-by-line adversarial re-audit). §2
@@ -1035,4 +1044,4 @@ Both files ship with the framework repo (GitHub projects get them from the /tmp/
 
 ---
 
-**End of Framework_MockTestExplainAudit.md (v1.8)**
+**End of Framework_MockTestExplainAudit.md (v1.16.1)**

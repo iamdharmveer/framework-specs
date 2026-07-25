@@ -1,4 +1,86 @@
-# Framework_Blueprint v1.35 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.38 — Universal Mock Test Blueprint Generator
+#
+# v1.38 — 2026-07-23 — §14 SCHEMA SYNC: PRESENTATION PASSTHROUGHS (cross-step audit finding).
+#   Framework_MockTestCreate §2 R24 resolves font_name / font_size_pt / di_header_color
+#   through exam_config -> section_rules -> blueprint.json -> default. The blueprint tier
+#   was DEAD: §14 declared none of the three and Step 6 wrote none of them, so a reader was
+#   looking for fields its writer never produced. Harmless at runtime (.get() with defaults)
+#   but a genuine writer/reader schema desync, and a silently dead fallback tier reads as a
+#   supported override when it is not. All three are now declared OPTIONAL and passed through
+#   from exam_config when present. PRESENTATION ONLY — no allocation, difficulty, format,
+#   marking or gate consumes them. Omitting all three (the default for every exam that sets
+#   nothing) leaves Step 7 byte-identical to pre-v1.38. Emitting a fabricated default is
+#   explicitly forbidden: it would let the blueprint tier override section_rules and invert
+#   the documented precedence.
+#
+# v1.37 — 2026-07-23 — ERA-AWARE ANALYSIS-DOC/EXCEL COMPARISON (audit follow-up).
+#   Step 4 (PYQCount) has no era scope, so its Analysis-doc counts are always all-era. When
+#   Step 5 runs with --frequency-scope current-era the Excel is current-era only, and §2 S2-3's
+#   mismatch check compared the two directly: on any multi-pattern corpus the gap exceeds 25%
+#   for nearly every subtopic, firing the "request user confirmation" branch per subtopic and
+#   making Step 6 unusable — while reporting a discrepancy that is the INTENDED effect of the
+#   operator's own flag. S2-3 now reads manifest['pattern_eras']['frequency_scope'] and skips
+#   the comparison with a single INFO line when the two sides are measuring different paper
+#   populations by design. Unchanged when scope is 'all' (including every pre-v2.25 manifest,
+#   where the key is absent and 'all' is assumed). Taxonomy authority and Zero-PYQ
+#   classification are both untouched.
+#   NOTE: Framework_ScopedBlueprint S3-1 reads the Excel "exactly as the mock Blueprint S2-3
+#   does" and therefore inherits this fix with no change of its own.
+#
+# v1.36 — 2026-07-23 — PATTERN-ERA NORMALISATION + COVERAGE-GATE SYMMETRY (GAP-2026-07-23-001).
+#   ONE root cause, three symptoms: nothing in the pipeline re-expressed PYQ-measured
+#   per-paper quantities in CURRENT-pattern units. Every exam whose Q-count has changed
+#   (IIT JAM Biotechnology 100 Q -> 60 Q, and the reverse where a pattern grew) silently
+#   fed historical-paper units into current-paper arithmetic.
+#     FIX 1 — ENGINE (blueprint_core.py v2): new bc.rescale_to_total(raw_map, total)
+#       re-expresses a class map in a new paper size, proportions preserved exactly, with a
+#       relative-tolerance NO-OP guard so an already-normalised caller is untouched.
+#       bc.derive_axis_schedule now normalises ALL THREE axes to sec_qs before deriving
+#       anything and RETURNS the normalised maps. This repairs three consumers at once:
+#         (a) axis1/axis3_target_per_mock — previously violated their own §14 "sum == sec_qs"
+#             contract and annihilated minority classes. A 100-Q {TEXT 85, FIGURAL 10,
+#             PASSAGE 5} mix apportioned to a 60-Q section returned {TEXT 75, FIGURAL 0,
+#             PASSAGE 0}: sum 75 (not 60), both minority stimulus formats zeroed.
+#         (b) axis2_window_target — computed as avg x window with NO rescale whatsoever,
+#             so band quotas were wrong by the full pattern-size ratio.
+#         (c) Framework_MockTestCreateAudit's Step-8 B-AXIS1/B-AXIS3 audit, which scales the
+#             returned axis{1,3}_per_paper by the window — it was auditing every produced
+#             paper against historical-size targets, raising findings no correct paper
+#             could ever clear. Returning normalised maps fixes it at source.
+#     FIX 2 — bc.largest_remainder_apportion SUM CONTRACT REPAIRED. Its negative-deficit
+#       trim used a fixed `i > 10 * len(order)` iteration guard; any steeper deficit
+#       exhausted the guard and the function RETURNED EARLY with counts that did not sum
+#       to total, with no error raised. Now pass-based, stopping early only when every key
+#       has reached 0 (unreachable while total > 0), with a closing assertion. The function
+#       deliberately still does NOT rescale — that would turn a caller's bad-percentages
+#       bug into a silent correction; rescale_to_total is the explicit fix.
+#     FIX 3 — §9 S9-12 BV-AXIS: new AXIS-SUM and AXIS-UNIT checks. The §14 "sum == sec_qs"
+#       contract was documented since v1.23 but never verified by any gate, which is why
+#       (a) went undetected. Now enforced for axis{1,3}_target_per_mock and for all three
+#       axis*_per_paper maps.
+#     FIX 4 — §2 S2-3 COVERAGE GATE SYMMETRY. v1.32 FIX E handled corpora LARGER than the
+#       current pattern (>105% -> INFO + per-subtopic check) but its mirror was never added,
+#       so a corpus SMALLER than the current pattern (the exam grew) hit an unconditional
+#       <90% HALT telling the operator to "re-run Step 5 to fix classification gaps" when
+#       there are none to fix — an unresolvable loop. The <90% branch now runs the SAME
+#       per-subtopic discriminator first: uniform shortfall across the taxonomy = pattern-size
+#       change (INFO, proceed); concentrated shortfall = genuine Step-5 loss (HALT, unchanged
+#       message). When no Analysis-doc taxonomy is available to discriminate it still HALTs,
+#       but names both possibilities instead of only the one Step 5 can fix.
+#   ZERO REGRESSION, PROVEN: Framework_ScopedBlueprint §6-2 already normalises to Q and
+#   passes sec_qs=Q, so the tolerance guard makes FIX 1 a pure identity there — verified over
+#   2,000 randomised already-normalised distributions. difficulty_counts is likewise untouched
+#   (its input sums to total_qs by construction). blueprint_core self-test 75/75 (was 57/57;
+#   the two pre-existing axis tests used a PHYSICALLY IMPOSSIBLE fixture whose axis2 summed to
+#   2.55 against axis1/axis3's 25 — compute_section_axis_distribution can never emit that,
+#   since every question gets exactly one class per axis. That impossible fixture is why the
+#   axis2 unit bug survived; it is now realisable). Independent harness test_pattern_era.py:
+#   368,127 assertions across property, differential (vs a from-scratch reference), regression
+#   (pre-v2 algorithm reimplemented to prove the bug existed) and randomised end-to-end layers.
+#   NOTE — what this does NOT fix: r_avg still carries the SUBJECT/subtopic mix of whatever
+#   eras are in the corpus. §3 recency weighting dampens it but cannot remove it. Counts are
+#   safe (§4-2 uses r_avg as a proportion against a sec_qs budget); mix is not. See the
+#   §2 S2-3 PATTERN-ERA NOTE.
 #
 # v1.35 — 2026-07-22 — SECTION↔SUBJECT MAPPING FIX (BUGS 2-4 of 4, GAP-2026-07-22-001).
 #   Ships atomically with Framework_MockTestAnalyse v2.24.9 (BUG 1). All 4 bugs are chained:
@@ -1464,7 +1546,24 @@ Extra subtopics in Excel not in Analysis doc:
   These extra subtopics are NOT added to the blueprint automatically.
 
 Q count mismatch between Analysis doc and Excel:
-  Formula: |doc_count - excel_count| / max(doc_count, excel_count)
+  ERA-SCOPE PRE-CHECK (v1.37 — run BEFORE the formula below):
+    Read manifest['pattern_eras']['frequency_scope'] (absent on pre-v2.25 manifests → 'all').
+    If it is 'current-era', the two sides are measuring DIFFERENT POPULATIONS BY DESIGN:
+    the Analysis docs carry all-era counts from Step 4 (PYQCount has no era scope), while
+    the Excel carries current-era counts only. On a corpus spanning several patterns the
+    gap is routinely >25%, which would fire the confirmation branch below for essentially
+    EVERY subtopic and make the step unusable — while telling the operator nothing, since
+    the discrepancy is the intended effect of the flag they set.
+    SKIP the mismatch comparison entirely and emit ONE INFO line for the whole run:
+      "Analysis-doc vs Excel count comparison skipped — the Excel is era-scoped
+       (frequency_scope='current-era') and the Analysis docs are not, so the two measure
+       different paper populations by design. Taxonomy authority is unchanged: subtopic
+       NAMES still come from the Analysis docs; only the year-wise COUNTS come from the
+       era-scoped Excel."
+    Zero-PYQ classification is unaffected — it is driven by r_avg from the Excel year
+    columns (§3-2), so a subtopic the current pattern never asks correctly falls to
+    r_avg=0 and routes to §5 ZP rotation.
+  Formula (scope == 'all' only): |doc_count - excel_count| / max(doc_count, excel_count)
   If both = 0: no mismatch (skip check).
   If one = 0 and other > 0: treat as 100% mismatch → flag.
   If mismatch > 10%: flag (Analysis doc is authoritative, Excel used for year-wise only).
@@ -1495,15 +1594,77 @@ COVERAGE VALIDATION GATE (v1.26 — mandatory after reading Excel; D6-7 per-pape
          [exam_total_qs] total ([coverage_pct]% coverage). [gap] questions
          were not classified in Step 5. Blueprint weightages may be slightly
          inaccurate. Confirm to proceed."
-      coverage_pct < 90%  → HALT:
-        "Frequency Excel accounts for [excel_per_paper_qs] Qs but exam has
-         [exam_total_qs] total ([coverage_pct]% coverage). [gap] questions
-         were not classified in Step 5. Blueprint CANNOT be generated from
-         incomplete data — topic weightages will be distorted.
-         
-         Action required: Re-run Step 5 (PYQExtract) to fix classification
-         gaps, then re-run Step 6 with the corrected Frequency Excel."
-        Do NOT proceed until user provides corrected Excel or confirms override.
+      coverage_pct < 90%  → RUN THE PATTERN-SIZE DISCRIMINATOR FIRST (v1.36), then
+                            HALT or INFO per its verdict. See UNDER-COVERAGE below.
+
+      UNDER-COVERAGE — coverage_pct < 90% (v1.36 — SYMMETRY FIX for FIX E):
+        v1.32 FIX E added a pattern-size branch for the case where historical papers
+        are LARGER than the current pattern. Its mirror image was never added, so the
+        opposite — equally common — case fell through to an unconditional HALT:
+
+          A historical PYQ corpus SMALLER than the current exam pattern (the exam grew;
+          e.g. 60-Q papers in the corpus vs. exam_config.total_questions=100) yields
+          coverage_pct ≈ 60% and HALTs with "Re-run Step 5 to fix classification gaps."
+          There are no gaps to fix. The data is complete FOR A SMALLER-ERA PAPER, so
+          re-running Step 5 cannot change the number and the operator is sent into an
+          unresolvable loop. Across ~200 exams both directions occur.
+
+        A raw aggregate ratio CANNOT distinguish "Step 5 lost questions" from "the
+        paper was a different size". Discriminate with the SAME per-subtopic check
+        FIX E already uses — it is the only signal that separates the two:
+
+          DISCRIMINATOR (deterministic, exam-agnostic):
+            Where Analysis-doc taxonomy data exists, compute per-subtopic coverage —
+            does every taxonomy subtopic with PYQ history appear in the Excel Master
+            Data with a non-zero count consistent with the Analysis doc?
+              • Per-subtopic coverage COMPLETE (≥95% of subtopics present and
+                consistent) → the shortfall is UNIFORM across the taxonomy, which is
+                the signature of a paper-SIZE difference, not classification loss.
+                Emit INFO (never HALT):
+                  "Historical paper(s) smaller than the current exam pattern
+                   ([excel_per_paper_qs] Qs/paper vs. [exam_total_qs] current) —
+                   coverage_pct=[coverage_pct]% reflects pattern-size change, not
+                   classification loss. Per-subtopic coverage is complete.
+                   Allocation is unaffected: r_avg enters §4-2 as a RELATIVE weight
+                   and the absolute budget is sec_qs, so a smaller-era corpus cannot
+                   shrink this paper. Subject MIX, however, is inherited from the
+                   corpus era — see the pattern-era note below."
+                Proceed.
+              • Per-subtopic coverage ALSO SHORT (specific subtopics missing or
+                under-counted vs. the Analysis doc) → the shortfall is CONCENTRATED,
+                which is the signature of genuine Step-5 classification loss. HALT
+                with the original message below.
+              • Analysis-doc taxonomy data UNAVAILABLE → cannot discriminate. HALT,
+                but the message MUST name both possibilities so the operator is not
+                sent to re-run Step 5 for a problem Step 5 cannot fix.
+
+        HALT message (unchanged, now conditional on the discriminator):
+          "Frequency Excel accounts for [excel_per_paper_qs] Qs but exam has
+           [exam_total_qs] total ([coverage_pct]% coverage). [gap] questions
+           were not classified in Step 5. Blueprint CANNOT be generated from
+           incomplete data — topic weightages will be distorted.
+
+           Action required: Re-run Step 5 (PYQExtract) to fix classification
+           gaps, then re-run Step 6 with the corrected Frequency Excel."
+          Do NOT proceed until user provides corrected Excel or confirms override.
+          When the discriminator could not run (no Analysis-doc taxonomy), append:
+          "If this exam's PAPER SIZE has changed between years, this is expected and
+           Step 5 has nothing to fix — supply the Analysis doc so the per-subtopic
+           discriminator can run, or confirm override."
+
+      PATTERN-ERA NOTE (applies to BOTH the >105% and <90% branches, v1.36):
+        A size mismatch in either direction means part of the corpus was measured on a
+        paper the exam no longer sets. Two consequences, with different severities:
+          • COUNTS — safe. §4-2 uses r_avg only as a proportion; the absolute budget is
+            always sec_qs from exam_config. A 150-Q corpus cannot inflate a 100-Q paper.
+          • MIX and FORMAT — inherited from the corpus era. §3 recency weighting (last
+            2 valid years x2) dampens this but does not remove it: an exam with many
+            old-era years still lets the retired pattern dominate the weighted mean.
+            Axis targets are protected at the engine boundary (bc.rescale_to_total
+            re-expresses every axis in sec_qs units — §7-7), but the SUBJECT/subtopic
+            mix carried by r_avg is not.
+        Neither is a data defect, so neither HALTs. Both are reported so the operator
+        can decide whether to scope the corpus to the current pattern era.
 
       OVER-COVERAGE — coverage_pct > 105% (v1.32 FIX E):
         A historical PYQ paper had MORE questions than the current exam pattern
@@ -3467,6 +3628,29 @@ import blueprint_core as bc   # ENGINE (mandated in S1-2b)
 # two functions the build loop calls DIRECTLY are aliased below; the other two are
 # called INTERNALLY by bc.derive_axis_schedule, so they need no alias here.
 #
+# PATTERN-ERA NORMALISATION (v1.36 — behaviour change, engine-side, exam-agnostic):
+# AXIS_DIST_BY_SECTION holds REAL per-paper class averages measured on the PYQ corpus,
+# i.e. "questions per HISTORICAL paper". This paper is sec_qs questions. Those units
+# coincide only while the exam pattern has kept the same size — an assumption that fails
+# silently on any exam whose Q-count has changed. bc.derive_axis_schedule now calls
+# bc.rescale_to_total on ALL THREE axes before deriving anything, re-expressing them in
+# current-pattern units with proportions preserved exactly.
+#   Fixed by this: (1) axis1/axis3_target_per_mock previously violated their own §14
+#   "sum == sec_qs" contract AND zeroed every minority stimulus/mechanism class (a 100-Q
+#   {TEXT 85, FIGURAL 10, PASSAGE 5} mix apportioned to a 60-Q section returned
+#   {TEXT 75, FIGURAL 0, PASSAGE 0} — sum 75, both minorities annihilated);
+#   (2) axis2_window_target was computed as avg x window with no rescale at all, so band
+#   quotas were off by the full pattern-size ratio; (3) Step 8's B-AXIS1/B-AXIS3 audit
+#   (Framework_MockTestCreateAudit §audit_axis13) scales the RETURNED axis{1,3}_per_paper
+#   by the window, so it audited every produced paper against historical-size targets and
+#   raised findings no correct paper could clear. The builder now RETURNS the normalised
+#   maps, which is what fixes (3) at source.
+# Framework_ScopedBlueprint §6-2 already normalises all three axes to Q and passes
+# sec_qs=Q; rescale_to_total's tolerance guard makes it a pure identity there, so the
+# scoped schedule is bit-for-bit unchanged (proven over 2,000 randomised already-
+# normalised distributions). §9 S9-12 BV-AXIS now ENFORCES both contracts (AXIS-SUM,
+# AXIS-UNIT) rather than merely documenting them.
+#
 # RENAME: the builder's window keyword is papers_per_window (was mocks_per_window) —
 # a mock is a paper. The RETURNED dict still carries the 'mocks_per_window' KEY that
 # Steps 7/8 read (output contract unchanged); only the parameter name changed, so the
@@ -4638,6 +4822,31 @@ def bv_axis(blueprint, sections):
         for cls, tgt in s['axis2_window_target'].items():
             if not isinstance(tgt, int) or tgt < 0:
                 fail(f"BV-AXIS FAIL [{name}]: window target for '{cls}' is not a non-negative int ({tgt!r}).")
+        # AXIS-SUM (v1.36) — enforce the §14 contract that was documented but never checked.
+        # axis1/axis3_target_per_mock are declared "sum == sec_qs". Before v1.36 nothing
+        # verified it, so a corpus measured on a DIFFERENT-SIZE paper than the current exam
+        # pattern (any exam whose Q-count has changed) produced targets that silently summed
+        # to the wrong total and, worse, zeroed every minority stimulus/mechanism class. The
+        # engine now normalises to sec_qs (bc.rescale_to_total) so this can only fire on a
+        # genuine engine regression — which is exactly why it belongs here.
+        sec_qs_bv = next((sc['total_qs'] for sc in sections if sc['name'] == name), None)
+        if sec_qs_bv:
+            for axis_key in ('axis1_target_per_mock', 'axis3_target_per_mock'):
+                tgt_map = s.get(axis_key, {})
+                if tgt_map and sum(tgt_map.values()) != sec_qs_bv:
+                    fail(f"BV-AXIS FAIL (AXIS-SUM) [{name}]: {axis_key} sums to "
+                         f"{sum(tgt_map.values())}, not sec_qs={sec_qs_bv}. The §14 contract "
+                         f"requires equality. Root cause is almost always an axis distribution "
+                         f"still expressed in a PREVIOUS exam pattern's per-paper units — "
+                         f"bc.derive_axis_schedule must rescale it to sec_qs before apportioning.")
+            # The per_paper maps feed Step 8's B-AXIS1/B-AXIS3 audit as (avg x window), so
+            # they must be in current-pattern units too or every window raises false findings.
+            for axis_key in ('axis1_per_paper', 'axis2_per_paper', 'axis3_per_paper'):
+                pp = s.get(axis_key, {})
+                if pp and abs(sum(pp.values()) - sec_qs_bv) > 1e-6:
+                    fail(f"BV-AXIS FAIL (AXIS-UNIT) [{name}]: {axis_key} sums to "
+                         f"{sum(pp.values()):.3f}, not sec_qs={sec_qs_bv}. Step 8 scales these "
+                         f"by the window; wrong units make every axis finding unclearable.")
         # ADVISORY feasibility report (never fails the gate):
         unsat = [g for g, f in s['guarantee_feasibility'].items() if f == 'unsatisfiable']
         zponly= [g for g, f in s['guarantee_feasibility'].items() if f == 'zp_only']
@@ -5744,6 +5953,27 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
 ```
 exam_code           : str  — alphanumeric + underscore (from trigger)
 exam_name           : str  — human-readable exam name (from exam_config or Exam Pattern doc)
+
+PRESENTATION PASSTHROUGHS (v1.38 — OPTIONAL, additive). Step 7 (Framework_MockTestCreate
+§2 R24) resolves its document styling through a four-tier chain:
+      exam_config -> section_rules -> blueprint.json -> hardcoded default
+The blueprint tier read three keys that §14 never declared and Step 6 never wrote, so that
+tier was permanently dead: bp.get('font_name'), bp.get('font_size_pt'),
+bp.get('di_header_color'). No runtime failure (all three are .get() with defaults), but a
+reader expecting fields its writer never produces is a cross-step schema desync, and a
+silently dead fallback tier is worse than no tier — it looks like a supported override.
+Declared here and passed through so writer and reader agree:
+font_name           : str  — OPTIONAL. Copied verbatim from exam_config.font_name when
+                     present; omitted entirely when absent. Step 7 default: "Calibri".
+font_size_pt        : int  — OPTIONAL. Copied from exam_config.font_size_pt when present.
+                     Step 7 default: 11.
+di_header_color     : str  — OPTIONAL. Copied from exam_config.di_header_color when present
+                     (hex, no '#'). Step 7 default: "1F4E79".
+  These are PRESENTATION ONLY. They never influence allocation, difficulty, format, marking
+  or any gate, and no BV check reads them. Omitting all three is fully valid and leaves
+  Step 7's behaviour byte-identical to pre-v1.38. Emit a key ONLY when exam_config carries
+  it — never emit a fabricated default, or the blueprint tier would start overriding
+  section_rules, inverting the documented precedence order.
 blueprint_version   : str  — the blueprint.json SCHEMA version (the subtopic_id + paper_id
                      contract level), NOT the Framework_Blueprint spec-FILE version. Currently
                      "1.35". Step 7 GATES on it: MIN_BLUEPRINT_VERSION = (1, 7) (subtopic_id
@@ -5956,7 +6186,12 @@ Built by Step 1 §7 (S7-7 derive_axis_schedule) from the Step-5 v2.23 manifest
 axis_distribution + per-subtopic axis2_capability. One entry per section. NEVER hardcoded.
 
 status                 : "ok" (PYQ observed) | "no_pyq" (all-Zero-PYQ section — feature inert).
-axis{1,2,3}_per_paper  : 3-year per-paper class averages (the raw target). Consumed by Step 8 audit.
+axis{1,2,3}_per_paper  : 3-year per-paper class averages, NORMALISED to sec_qs (v1.36 — each
+                         axis sums to sec_qs, since each is a complete classification of the
+                         same paper). Consumed by Step 8's B-AXIS1/B-AXIS3 audit as
+                         (avg x window), so current-pattern units are mandatory: the raw
+                         corpus averages are in historical-paper units and differ whenever
+                         the exam's Q-count has changed. Enforced by BV-AXIS (AXIS-UNIT).
 axis2_audit_mode       : per Axis-2 class — "band" | "guarantee" | "float". DIRECT is always float.
 axis2_window_target    : band-mode classes only → per-window (mocks_per_window) integer quota.
                          The Step-7 quota + the Step-8 ±1/±15%-per-window tolerance target.
@@ -6868,12 +7103,18 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
     tax_draft_path = f'/mnt/project/{EXAM}_taxonomy_draft.json'
     if os.path.exists(tax_draft_path):
         import json as _j
+        # v2.17 BUGFIX — this loop iterated the TOP LEVEL of
+        # taxonomy_draft.json, but the taxonomy lives under ['sections'].
+        # With no isinstance guards it raised
+        #   AttributeError: 'str' object has no attribute 'items'
+        # on the first non-dict key (exam_code), crashing Step 6 whenever a
+        # taxonomy_draft.json was present. Pre-existing, not v2.17-introduced.
+        # Use the CANONICAL reader — do not hand-roll a fourth copy.
+        from syllabus_provenance import read_taxonomy_draft
         tax = _j.load(open(tax_draft_path, encoding='utf-8'))
-        for sec, topics in tax.items():
-            for top, subs in topics.items():
-                for sub in subs:
-                    if (sec, top, sub) not in taxonomy_subtopics:
-                        taxonomy_subtopics.append((sec, top, sub))
+        for (sec, top, sub) in read_taxonomy_draft(tax):
+            if (sec, top, sub) not in taxonomy_subtopics:
+                taxonomy_subtopics.append((sec, top, sub))
 
     manifest_missing = []
     for (sec, top, sub) in taxonomy_subtopics:
@@ -7068,4 +7309,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.35
+# END OF Framework_Blueprint v1.38

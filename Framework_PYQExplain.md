@@ -1,5 +1,40 @@
-# Framework_PYQExplain v1.0 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v1.1 — Universal PYQ Explanation Generator
 # [ExamCode] project | PYQ-1 (PYQExplain) | Exam-agnostic
+#
+# v1.1 — 2026-07-24 — §7A PER-QUESTION DIFFICULTY ASSESSMENT (new capability).
+#   PYQ-1 becomes the SINGLE PRODUCER of per-question difficulty for the PYQ
+#   pipeline. It emits `q_to_difficulty` into pyq_explain_progress.json; PYQ-2
+#   validates it; PYQ-4 consumes it as Tier 1 of its §2-3 resolver.
+#
+#   WHY HERE AND NOWHERE ELSE. Difficulty for a PYQ paper is a MEASUREMENT, not a
+#   choice: the exam body already wrote the questions, so the label must follow the
+#   content. Only a step that READS AND SOLVES a question can measure what it
+#   demands — and PYQ-1 is the only step in this pipeline that does. PYQ-4 tags
+#   from a document it never solves, which is why its Tier 2 keyword scorer
+#   (E-9) collapsed an entire IIT JAM Biotechnology paper to one label: 60 of 60
+#   questions "Easy", with E-9's computation axis at its floor for all 60. No
+#   keyword list fixes that, because a keyword list is exam-SPECIFIC and this
+#   framework serves ~200 exams.
+#
+#   NO NEW COGNITIVE WORK. §7A does not analyse anything. Every input it reads is
+#   an observation PYQ-1 has ALREADY made by the time it runs: the §6 class, the
+#   DEDUCTION step count it just built, the AXIOM principle count it just wrote,
+#   whether the §14 SPEED HACK gate passed, whether §7's two methods agreed, the
+#   §10a negative-phrasing scan, and the §5-1 qtype. The assessment is a pure
+#   function of those observations, evaluated by blueprint_core.assess_difficulty.
+#
+#   DETERMINISM CONTRACT. The scoring function is pure and deterministic: identical
+#   observations always yield the identical label. The observations themselves come
+#   from model derivation, so a FRESH PYQ-1 run on the same paper may observe a
+#   different step count and produce a different label. That is bounded and
+#   acceptable because the value is WRITTEN ONCE to the progress JSON and every
+#   downstream reader performs a pure lookup — PYQ-4 §S2-3d's guarantee that "no
+#   model judgment participates in tag resolution at PYQ-4 time" stays literally
+#   true. PYQ-2 (§10A of Framework_PYQExplainAudit.md) is the independent check.
+#
+#   Zero changes to explain_engine.py. Zero changes to the ExplanationBlock model,
+#   the delivered document, or any existing gate. The assessment is metadata only
+#   and is NEVER rendered into the paper.
 #
 # v1.0 — 2026-07-22 — Initial release. Takes one PYQ Row file (Step 1 output,
 #   original exam order, Q.1-Q.N continuous) and produces an explained PYQ paper
@@ -105,7 +140,8 @@
   2. [ExamCode]_section_rules.md — EngineConfig params (CATEGORY C header),
      per-subtopic class patterns (CATEGORY A/B blocks)
   3. [ExamCode]_subtopic_manifest.json — subtopic_id ↔ name mapping
-  4. [ExamCode]_exam_config.json — exam metadata (total_questions, sections, etc.)
+  4. [ExamCode]_exam_config.json — exam metadata (total_questions, sections,
+     difficulty_labels [default Easy/Medium/Hard], etc.)
   5. explain_engine.py — the universal explanation engine; SAME file as TestExplain
      (MANDATORY — MANDATE A)
 
@@ -367,6 +403,12 @@ PYQExplain
       This map is used by PYQ-3 (PYQFormat) for colored pills and PYQ-4
       (PYQDeliver) for portal tagging.
 
+      pyq_explain_progress.json ALSO carries `q_to_difficulty` (v1.1) — the
+      per-question {q: label} map produced by §7A. Written incrementally as each
+      batch completes, alongside q_to_classification, under the same int-key
+      convention. PYQ-2 validates it; PYQ-4 reads it as Tier 1 of its §2-3
+      resolver. See §7A for the contract.
+
   P4  RESOLVE QUESTION TYPES (depends on P2 + P3).
       Using the options_by_q map (P2) AND the subtopic classification (P3):
         - options_by_q[q] == 0 → nat
@@ -517,6 +559,7 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   [ ] DEDUCTION last step binds the answer
   [ ] SPEED HACK present IFF genuinely shorter route found           (§14)
   [ ] WHY WRONG covers exactly the non-selected options (§15)
+  [ ] DIFFICULTY assessed from this question's own derivation      → §7A
   [ ] Applicable learnings routed (§24)
   [ ] block.validate() called immediately after construction
 ```
@@ -625,6 +668,124 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
 
   PINNED: byte-identical to Framework_MockTestCreate.md §S7-NEW-C and
   Framework_MockTestCreateAudit.md's A-NAT-GRADE copy.
+
+# ════════════════════════════════════════════════════════════════════════
+# §7A — PER-QUESTION DIFFICULTY ASSESSMENT (v1.1)
+# ════════════════════════════════════════════════════════════════════════
+#   PYQ-1 is the SINGLE PRODUCER of per-question difficulty for the PYQ pipeline.
+#   This section records what the derivation just revealed. It introduces no new
+#   analysis, re-reads nothing, and never touches the delivered document.
+
+## S7A-1 — Exact position in the per-question flow
+
+  Within a batch (§4-4), for each question:
+
+```text
+   1. Read stem + ALL options                        ← question loaded
+   2. Classify (§6)                                  ← class facet(s) known
+   3. Derive via Method 1 (§7)                       ← reasoning path walked
+   4. Derive via Method 2 (§7)                       ← agreement / DERIVATION-CONFIDENCE known
+   5. Build AXIOM (§8-2)                             ← principle count known
+   6. Build DEDUCTION (§8-3)                         ← step count known
+   7. Test SPEED HACK gate (§14)                     ← alternative route known
+   8. Build WHY WRONG / COMMON PITFALLS (§15)        ← option analysis done
+   9. ★ ASSESS DIFFICULTY (this section)             ← record the observations
+  10. block.validate()                               ← block verified
+```
+
+  Step 9 runs AFTER all derivation and BEFORE block finalisation, so every
+  observation is fresh and first-hand. Running it earlier is a defect: the step
+  count and the speed-hack verdict do not exist yet.
+
+## S7A-2 — The six observations (all already made — do not re-derive)
+
+| Observation | Type | Source | Meaning |
+|---|---|---|---|
+| `question_class` | str or list[str] | §6 | class facet(s), e.g. `C-FACTUAL`, `C-NUMERICAL-INPUT` |
+| `deduction_steps` | int | §8-3 | number of steps in the DEDUCTION just built (engine minimum 2) |
+| `axiom_concepts` | int | §8-2 | distinct principles the AXIOM had to state (1 = single concept) |
+| `speed_hack_exists` | bool | §14 | the two-part gate passed and a SPEED HACK was written |
+| `derivation_confidence` | `'full'` or `'flagged'` | §7 | `'flagged'` iff the two methods initially disagreed |
+| `is_negative` | bool | §10a | NOT / INCORRECT / EXCEPT / FALSE polarity in the stem |
+
+  Plus `qtype` (`mcq` / `msq` / `nat`, from §5-1) and the exam's
+  `difficulty_labels` (from exam_config.json; default `['Easy','Medium','Hard']`).
+
+  COUNTING RULES — fixed, so two instances counting the same block agree:
+  * `deduction_steps` = the number of discrete inferential moves in the DEDUCTION,
+    which is the number of DEDUCTION paragraphs the block carries. Do not count
+    the answer-binding sentence separately when it shares a paragraph with the
+    final move.
+  * `axiom_concepts` = the number of DISTINCT named principles, laws, formulae, or
+    definitions the AXIOM states. Two applications of one principle count once;
+    a principle plus an independent definition it does not follow from count twice.
+
+## S7A-3 — The assessment call
+
+```text
+from blueprint_core import assess_difficulty   # Cluster E2 — PURE, no I/O
+
+label = assess_difficulty(
+    question_class        = <§6 class facet(s)>,
+    deduction_steps       = <§8-3 step count>,
+    axiom_concepts        = <§8-2 principle count>,
+    speed_hack_exists     = <§14 gate verdict>,
+    derivation_confidence = 'flagged' if methods initially disagreed else 'full',
+    is_negative           = <§10a scan result>,
+    qtype                 = <'mcq' | 'msq' | 'nat'>,
+    difficulty_labels     = <exam_config.difficulty_labels, default Easy/Medium/Hard>,
+)
+```
+
+  `assess_difficulty` is a pure function: identical observations always return the
+  identical label, on every run and every model instance. PYQ-1 MUST NOT override,
+  round, smooth, or "balance" its output — there is no target distribution here.
+  A paper legitimately skewed toward recall SHOULD come out skewed.
+
+  It returns `None` when `difficulty_labels` is not an exactly-3-label list (the
+  same contract as `map_difficulty_level`). On `None`: omit that question from
+  `q_to_difficulty` entirely — never write a `None` or a guessed value — and note
+  it once in §R11. PYQ-4 then resolves those questions on its own lower tiers.
+
+## S7A-4 — Recording
+
+  After the batch's questions are assessed, write into
+  `pyq_explain_progress.json` alongside `q_to_classification`:
+
+```json
+{
+  "_meta": { "exam_code": "...", "phase": "pyq_explain", "...": "..." },
+  "q_to_classification": { "1": { "...": "..." } },
+  "options_by_q": { "1": 4, "41": 0 },
+
+  "q_to_difficulty": { "1": "Easy", "42": "Medium", "54": "Hard" }
+}
+```
+
+  * Keys follow the SAME convention as every other per-question map: JSON object
+    keys are strings; readers normalise to int.
+  * Values are members of `difficulty_labels`, nothing else.
+  * Written incrementally per batch, so a resumed run (§4 P8) keeps the labels
+    already produced and never re-assesses a completed batch.
+  * NEVER rendered into the document. This is metadata for PYQ-2 and PYQ-4 only.
+
+## S7A-5 — What this measures, and what it does not
+
+  MEASURES: what solving the question actually required — how many inferential
+  moves, how many distinct principles, whether every option had to be evaluated
+  independently, whether an exact value had to be produced with no options to
+  check against, whether two independent methods agreed.
+
+  DOES NOT MEASURE: student-relative difficulty. A question that is routine for a
+  well-prepared candidate and brutal for an average one receives one label. No
+  step in this pipeline has response data, and none should pretend to.
+
+  EXAM-AGNOSTIC BY CONSTRUCTION: every input is an observation about the act of
+  solving. None of them names an exam, a subject, a topic, or a language, and
+  none of them is a word list. This is the property that makes one function
+  correct for ~200 exams, and it is the property that E-9's keyword axes — where
+  the vocabulary IS the instrument — can never have. Do not add subject-aware or
+  vocabulary-aware terms to this assessment.
 
 # ════════════════════════════════════════════════════════════════════════
 # §8 — SECTION QUALITY STANDARDS (highest-standard contract per section)
@@ -1049,7 +1210,7 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # ════════════════════════════════════════════════════════════════════════
 # §20 — END-OF-PAPER REPORT (after the FINAL batch; MANDATE-0 safe)
 # ════════════════════════════════════════════════════════════════════════
-  §R1 PROVENANCE: paper [date] [session] · spec v1.0 · engine 62/62 · timestamp ·
+  §R1 PROVENANCE: paper [date] [session] · spec v1.1 · engine 62/62 · timestamp ·
       EngineConfig (option count(s), label scheme, language, terminators).
   §R2 VERDICT: SHIP (delivered) / HALTED.
   §R3 COVERAGE: Q_TOTAL/Q_TOTAL explained · question-type split (mcq/msq/nat) ·
@@ -1066,6 +1227,12 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
   §R9 SUBTOPIC CLASSIFICATION MAP: summary of q_to_classification (Q→subtopic
       mapping) for PYQ-3 (PYQFormat pills) and PYQ-4 (PYQDeliver tags).
   §R10 LIMITATIONS (§22).
+  §R11 DIFFICULTY ASSESSMENT (§7A, v1.1): the resolved label distribution across
+       the paper; every Q omitted from q_to_difficulty with its reason; and the
+       count of Qs whose derivation_confidence was 'flagged'. If EVERY question
+       resolved to the SAME label and the paper has more than one question, say so
+       explicitly — a whole paper at one difficulty is a signal worth checking
+       before PYQ-2, not a result to pass along silently.
 
 # ════════════════════════════════════════════════════════════════════════
 # §21 — DEFINITION OF DONE / HARD INVARIANTS
@@ -1149,6 +1316,33 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 
 # ════════════════════════════════════════════════════════════════════════
 # SHARED_RULES_VERSION: 1.0 (2026-07-22)
+#
+# DELIBERATE PYQ-ONLY DIVERGENCE (v1.1, 2026-07-24) — RECORDED, NOT DRIFT.
+#   Two additions in this file are NOT mirrored in Framework_MockTestExplain.md:
+#     * §7A (per-question difficulty assessment) — a NEW section, added between
+#       §7 and §8. No existing §4-§18 rule was modified to accommodate it.
+#     * one line in the §5-3 per-question checklist pointing at §7A.
+#   No RE-* rule and no MANDATE changed, so SHARED_RULES_VERSION is NOT bumped:
+#   bumping it would assert a parity that does not exist, and the counterpart file
+#   carries no sentinel to bump against.
+#
+#   WHY THE MOCK SIDE IS NOT MIRRORED. Difficulty means something structurally
+#   different in the two pipelines. Here it is a MEASUREMENT: the exam body wrote
+#   the questions, so the label must follow the content, and PYQ-1 is the only
+#   step that reads and solves them. In the mock pipeline it is a SPECIFICATION:
+#   Step 6 sets a difficulty_schedule quota, Step 7 assigns each generated question
+#   a band to fill that quota exactly (enforced by G-QINDEX), and Step 11 tags by
+#   registry JOIN — content follows the label. Copying §7A into TestExplain would
+#   have Step 9 measure a value that Step 7 already fixed, with no specified rule
+#   for which wins; that reconciliation is a design decision, not a mirroring
+#   chore. The mock-side treatment is DEFERRED pending that decision.
+#
+#   WHAT A FUTURE SESSION MUST DO. When the mock side is designed, revisit this
+#   note. If it adopts assess_difficulty (blueprint_core Cluster E2), the two
+#   pipelines will share the RUBRIC while keeping different mechanisms, and this
+#   divergence note should be replaced by whatever contract that design defines.
+#   Do NOT resolve it by blindly copying §7A across.
+#
 # Shared with: Framework_MockTestExplain.md
 # Counterpart file: Framework_MockTestExplain.md (mock/test pipeline)
 # If any RE-* rule, MANDATE, or §4-§18 section changes in EITHER file,
@@ -1161,5 +1355,5 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v1.0
+# END OF Framework_PYQExplain v1.1
 # ════════════════════════════════════════════════════════════════════════

@@ -1,5 +1,104 @@
-# Framework_PYQDeliver v1.2.1 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.5.1 — Universal PYQ Portal Tagger & Delivery Engine
 # [ExamCode] project | PYQ-4 (PYQDeliver) | Exam-agnostic
+#
+# v1.5.1 — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
+#   read v1.2.1, several versions behind the header, so the last line of the file
+#   contradicted the first. Documentation only — not one line of behaviour changes. It went
+#   unnoticed because BOTH integrity tools were structurally blind to it:
+#   validate_framework_md.py Check C recognised only the '# END OF <name> vN' sentinel form
+#   and skipped the comparison entirely for the '**End of <name>.md (vN)**' form used here,
+#   while audit_specs_ext.py check_z_version reads the header from line 1 only. Check C now
+#   recognises both forms (validate_framework_md.py v3.1), so this cannot drift silently
+#   again.
+# v1.5 — 2026-07-24 — TIER 1.5 (STRUCTURAL) + PER-QUESTION MARKS. Filed from the
+#   IIT JAM Biotechnology 15-Feb-2026 delivery, which tagged 60 of 60 questions
+#   "Easy" across a paper of 30 MCQ / 10 MSQ / 20 NAT.
+#
+#   MEASURED ROOT CAUSE (reproduced against the shipped engine on all 60 stems):
+#   E-9's C axis scored 1 for 60/60 and its I axis 1 for 59/60. E-9's computation
+#   keywords are gated to strip_mode=='quantitative' (BUG-B08) and E-10 maps every
+#   science subject to 'reasoning', so the only stem-level signal that could lift a
+#   science question is unreachable. Exactly ONE of the 60 stems contained any C-axis
+#   keyword at all. This is not a calibration error to be tuned out: a keyword list is
+#   inherently exam-SPECIFIC, and PYQ-4 serves ~200 exams. Tier 2 cannot be the answer.
+#
+#   THE ANSWER IS TIER 1, WHICH v1.2 ALREADY SPECIFIED (§0 item 7, §2-3a) and which
+#   PYQ-1 v1.1 now supplies via its §7A assessment. PYQ-4 needs NO change to consume
+#   it — that path was correct from the start and is untouched here. What v1.5 adds is
+#   the FLOOR beneath it, for papers with no PYQ-1 derivation pass:
+#
+#   (1) TIER 1.5 — structural_difficulty (§2-3a1), a new PURE function in
+#       blueprint_core.py Cluster E2. Reads the exam body's own marking_scheme:
+#       question_type + position in the marks gradient. Returns None when the scheme
+#       carries no structural signal (uniform marks AND one type — e.g. a 200-question
+#       all-MCQ paper), so such exams fall through to Tier 2 exactly as before.
+#       HONEST SCOPE: Tier 1.5 assigns one label per (marks, type) band. It reports the
+#       exam body's design intent, NOT the difficulty of an individual question, and it
+#       CANNOT separate a hard 2-mark MCQ from an easy one. It exists so that a paper
+#       with no PYQ-1 pass is not degenerate; it is not a substitute for Tier 1.
+#
+#   (2) PER-QUESTION MARKS (§2-3b). v1.4 read one uniform exam_config.marks_default for
+#       every question. Two independent defects: (a) marks_default is declared nowhere
+#       outside this spec and no other step writes it, so the field is absent in practice
+#       and the executing instance was left to improvise a value; (b) even when present,
+#       a single value is wrong for any exam with a marks gradient. §2-3b now resolves
+#       marks per question from exam_config.marking_scheme[] — the SAME field Tier 1.5
+#       reads and the same one Steps 7/9/11 already consume — with marks_default and then
+#       1 as ordered fallbacks. NOTE, recorded because it is counter-intuitive: raising
+#       marks RAISES E-9's Simple threshold (simple = 4 + (marks-1)) while a science
+#       stem's score does not rise with marks, so per-Q marks makes Tier 2 LESS
+#       differentiating, not more. It is applied because it is CORRECT, not because it
+#       helps the symptom; Tier 1/1.5 are what fix the symptom.
+#
+#   TIER CHAIN IS NOW 1 → 1.5 → 2 → 3. tier_counts (§2-3e) and §R3 extended to match.
+#   Backward compatibility: an exam with no marking_scheme, or a uniform-marks
+#   single-type scheme, skips Tier 1.5 entirely and resolves exactly as in v1.4.
+#   E-9/E-10 are NOT modified — no CROSS-FILE SYNC obligation is created by v1.5.
+#
+# v1.4 — 2026-07-24 — PACKAGE VALIDITY GATE (C18). Preventive, adopted from
+#   the PYQFormat v1.3 P0 incident. PYQ-4 has NOT produced a corrupt file;
+#   this closes the blind spot that let PYQ-3 ship one silently.
+#
+#   What that incident established: CONTENT FIDELITY and PACKAGE VALIDITY are
+#   independent properties, and every gate here verifies the first. A
+#   document.xml with undeclared mc:Ignorable prefixes or misordered pPr/tcPr
+#   children is still WELL-FORMED XML — it parses cleanly in lxml and stdlib
+#   ElementTree alike. On the PYQ-3 artefact the text stream, all drawings and
+#   every paragraph count were perfectly intact while Word refused to open the
+#   file. C1 and C12 ("valid ZIP; document.xml parses") are exactly the checks
+#   that gave false comfort there: parsing is not validating. §11 item 11
+#   already required "opens clean in Microsoft Word with no unreadable content
+#   prompt" with no machinery anywhere to verify it — C18 makes that real.
+#
+#   Why PYQ-4 has not hit this (recorded so the margin is not mistaken for
+#   immunity): its ordering surface is tiny. make_tag_para builds exactly
+#   [spacing, jc] — two elements, hardcoded in correct order, guarded by
+#   C16(d). PYQ-3 inserted six pPr children plus tblPr/tcPr/tcMar plus two new
+#   parts, and got five of those orders wrong. The safety here comes from a
+#   small workload, not from a check — so any future widening of PYQ-4's
+#   element workload removes the margin without any gate noticing. C18 is the
+#   check that does not care how large the workload grows.
+#
+#   C18 gates BOTH artifacts (integrity and render-source) with --original, so
+#   only errors NEW relative to the source block delivery. Zero, not "fewer" —
+#   a rejected parent is not descended into, so nested faults stay masked until
+#   the outer one is fixed (on the PYQ-3 artefact, 812 reported errors required
+#   991 element reorders to clear).
+#
+#   SCOPE NOTE (deliberate, not an oversight): S13-3's library mandate remains
+#   inherited by delegation — S13-1 states PYQ-4 reuses MockDeliver's patterns
+#   identically, and MockDeliver mandates lxml explicitly. PYQ-4's own S13-3
+#   text still warns against cleanup_namespaces() without naming a library.
+#   C18 makes that inheritance verifiable at runtime rather than assumed, which
+#   is the property that matters. Promoting the mandate into PYQ-4's own text
+#   is a separate change, not made here.
+#
+# v1.3 — 2026-07-23 — OUT-OF-PATTERN MARKS WARNING (audit follow-up).
+#   §2-3b fell back to exam_config.marks_default (or 1) for any question outside the
+#   current marking_scheme, silently. For a PYQ paper from an earlier pattern that means a
+#   legacy 4-mark question is delivered to students tagged 1 mark with no signal anywhere.
+#   Now counts those questions and WARNs with their Q-range and the fallback value applied.
+#   WARN, not HALT — publishing legacy PYQ papers is legitimate; only the silence was wrong.
 #
 # v1.2.1 — 2026-07-23 — Line-by-line adversarial audit fixes (3):
 #   (1) exam_config.marks_default was read in §2-3b but declared nowhere —
@@ -85,18 +184,28 @@
 #         document. It is internal pipeline metadata; the paper's identity is
 #         already carried by the output filename and the PYQ registry entry.
 #         Same decision as PYQFormat D8 — both PYQ-2 forks remove it.
-#     D11. COMPLEXITY VIA DETERMINISTIC TIER CHAIN (v1.2, supersedes D4).
-#         Per-question Complexity resolves through §2-3's three tiers:
-#         (1) q_to_difficulty from the progress JSON, (2) E-9 3-axis scoring
-#         via blueprint_core.py, (3) difficulty_default. Tiers 2-3 are pure
-#         functions — same document always yields the same tags on every run
-#         and every model instance. Tier 2 puts PYQ papers on the SAME
-#         difficulty scale the blueprint/mock pipeline is calibrated on
-#         (Step 5 runs the identical scorer on the PYQ corpus), so portal
-#         Complexity is comparable across PYQ and mock papers. Known honest
-#         limit: keyword-driven axes under-differentiate pure theory/recall
-#         exams (most stems score 3 → labels[0]); Tier 1 is the designed
-#         upgrade path for those exams and requires no PYQ-4 change.
+#     D11. COMPLEXITY VIA DETERMINISTIC TIER CHAIN (v1.5, supersedes D4).
+#         Per-question Complexity resolves through §2-3's FOUR tiers:
+#         (1) q_to_difficulty from the progress JSON (PYQ-1 §7A assessment),
+#         (1.5) structural_difficulty from exam_config.marking_scheme[],
+#         (2) E-9 3-axis scoring via blueprint_core.py, (3) difficulty_default.
+#         Every tier is a pure function or a pure lookup — the same document
+#         always yields the same tags on every run and every model instance.
+#         v1.5 CORRECTS the v1.2 rationale recorded here. That text claimed
+#         Tier 2 put PYQ papers "on the SAME difficulty scale the blueprint/
+#         mock pipeline is calibrated on". It does not. The mock pipeline does
+#         not measure difficulty at all: Step 6 sets a difficulty_schedule
+#         QUOTA, Step 7 assigns each generated question a band to fill that
+#         quota exactly, and Step 11 tags by registry JOIN. E-9 is nowhere in
+#         the mock tagging path, and Framework_Blueprint.md contains zero
+#         references to PYQ_DIFFICULTY_CALIBRATION. The two pipelines were
+#         never on one scale, so comparability was not a reason to prefer
+#         Tier 2 — and Tier 2's measured behaviour on a non-aptitude exam is
+#         60/60 questions at one label. Tier 1 is not an "upgrade path" for
+#         unusual exams; it is the only tier that measures anything, and it is
+#         the intended resolution for every exam. Tier 1.5 is the floor for
+#         papers with no PYQ-1 pass. Tier 2 is retained solely because it is
+#         always computable, and Tier 3 because a safety net must exist.
 
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
@@ -167,11 +276,38 @@ Violation of this rule is a hard failure regardless of any other outcome.
    The spec prefers the audited version.
 
 2. `exam_config.json` — in project knowledge. Provides `exam_name`, `difficulty_default`
-   (fallback "Medium"), and `difficulty_labels` (fallback ['Easy','Medium','Hard'] —
-   MockDeliver parity — when the field or the whole file is absent/unusable; WARN).
-   OPTIONAL field `marks_default` (v1.2): a positive number giving the exam's
-   uniform per-question marks, used ONLY for E-9 threshold scaling in §2-3b
-   Tier 2. Absent, non-numeric, or non-positive → 1. No other step reads it.
+   (fallback "Medium"), `difficulty_labels` (fallback ['Easy','Medium','Hard'] —
+   MockDeliver parity — when the field or the whole file is absent/unusable; WARN),
+   and `sections` (each with a `q_range`, read for structural question-type resolution
+   in §2-3a1; same field Step 2a writes).
+
+   `marking_scheme[]` (v1.5) — OPTIONAL list of per-range scoring rules, each
+   `{q_range:[lo,hi], question_type, correct_marks, negative_marks}`. This is the
+   SAME field Step 2a writes and Steps 7/9/11 already consume; PYQ-4 does not
+   introduce it and must not invent it. Used for TWO things and nothing else:
+     * Tier 1.5 structural resolution (§2-3a1)
+     * per-question marks for E-9 threshold scaling (§2-3b)
+   Absent, empty, or malformed → Tier 1.5 is skipped for every question and marks
+   fall back as below. NEVER a HARD STOP: legacy projects have no marking_scheme.
+
+   `marks_default` (v1.2, RETAINED as a fallback only) — a positive number giving
+   a uniform per-question marks value. From v1.5 it is consulted ONLY when
+   marking_scheme yields no marks for a question. Absent, non-numeric, or
+   non-positive → 1. No other step reads or writes this field, so in practice it
+   is usually absent; that is expected and silent.
+
+   MARKS RESOLUTION ORDER (v1.5 — fixed, never improvised): for each question q,
+     (a) `correct_marks` of the FIRST marking_scheme entry whose q_range contains q,
+         when that value is a usable positive finite number;
+     (b) else `marks_default` if it is a positive number;
+     (c) else 1.
+   "Usable" excludes non-numeric values, NaN, infinities, zero and negatives — a
+   NaN marks value propagated into E-9's threshold arithmetic makes every
+   comparison false and silently forces the hardest band. Such a value is treated
+   as absent and resolution continues at (b).
+   The executing instance MUST NOT derive marks by any other route (max of all
+   ranges, modal value, most-frequent type, or similar). A uniform value silently
+   substituted for a graded one changes E-9's thresholds for the whole paper.
 
 3. `q_to_classification` map — the per-question {subject, topic, subtopic,
    subtopic_id} mapping. KEY NORMALIZATION (v1.2, applies equally to
@@ -199,7 +335,8 @@ Violation of this rule is a hard failure regardless of any other outcome.
    (`/mnt/project`, direct-upload model) — either location satisfies the
    mandate, so GitHub-connected projects need no per-project engine upload.
    Provides the Cluster E pure functions for Tier-2 Complexity resolution
-   (§2-3): `score_difficulty`, `determine_strip_mode`, `map_difficulty_level`.
+   (§2-3): `score_difficulty`, `determine_strip_mode`, `map_difficulty_level`
+   (Cluster E, Tier 2) and `structural_difficulty` (Cluster E2, Tier 1.5 — v1.5).
    If absent from BOTH locations → HARD STOP:
      "blueprint_core.py not found in the framework clone (/tmp/fw) or the
       project Files (/mnt/project). It is required for per-question Complexity
@@ -265,7 +402,8 @@ Everything is derived from the attachment and project knowledge:
 5a. **blueprint_core.py**: resolve it dual-path — the framework clone
    (`/tmp/fw/blueprint_core.py`) FIRST, else the project Files
    (`/mnt/project/blueprint_core.py`) — and verify it exposes
-   `score_difficulty`, `determine_strip_mode`, `map_difficulty_level`
+   `score_difficulty`, `determine_strip_mode`, `map_difficulty_level`,
+   `structural_difficulty`
    (Cluster E). Absent from both, or missing a function → HARD STOP (§0 item 6).
 
 6. **PYQ registry check**: load `[ExamCode]_pyq_registry.json` if it exists.
@@ -295,7 +433,7 @@ directly — no JOIN needed.
 | 2 | Topic | `q_to_classification[q].topic` | Direct lookup |
 | 3 | Subtopic | `q_to_classification[q].subtopic` | Direct lookup |
 | 4 | Question Type | `options_by_q[q]` | 0 → NAT; answer_cardinality 'multi' → MSQ; else → MCQ |
-| 5 | Complexity | §2-3 three-tier resolver | Tier 1 q_to_difficulty → Tier 2 E-9 scoring → Tier 3 difficulty_default (D11) |
+| 5 | Complexity | §2-3 four-tier resolver | Tier 1 q_to_difficulty → Tier 1.5 structural_difficulty → Tier 2 E-9 scoring → Tier 3 difficulty_default (D11) |
 
 ## S2-2 — Question Type resolution
 
@@ -314,16 +452,30 @@ This is the same resolution PYQ-1 uses at P4 — the types are consistent across
 the pipeline. If answer_cardinality is not available for a subtopic, default to
 'single' (MCQ) — the vast majority of PYQ questions are MCQ.
 
-## S2-3 — Complexity (difficulty) — three-tier deterministic resolver (D11, v1.2)
+## S2-3 — Complexity (difficulty) — four-tier deterministic resolver (D11, v1.5)
 
 Complexity is resolved PER QUESTION through a deterministic tier chain.
 For each question q (first tier that yields a value wins):
 
 ```text
-TIER 1 — q_to_difficulty[q]         (progress JSON, if the map is present)
-TIER 2 — E-9 score_difficulty(stem) (blueprint_core.py — always computable)
-TIER 3 — difficulty_default          (exam_config, fallback "Medium")
+TIER 1   — q_to_difficulty[q]           (progress JSON — PYQ-1 §7A assessment)
+TIER 1.5 — structural_difficulty(q)     (exam_config.marking_scheme[] structure)
+TIER 2   — E-9 score_difficulty(stem)   (blueprint_core.py — always computable)
+TIER 3   — difficulty_default            (exam_config, fallback "Medium")
 ```
+
+WHY THE ORDER IS THIS AND NOT ANOTHER (v1.5 — do not reorder):
+  Tier 1 is the only tier that reflects what SOLVING the question required. It is
+  produced by the one step that reads and solves every question (PYQ-1), so it
+  differentiates two questions that sit in the same marks band and use the same
+  vocabulary. Nothing below it can do that.
+  Tier 1.5 reflects the exam body's design intent for a whole Q-range. It is
+  uniform within a band by construction — a floor, not an assessment.
+  Tier 2 reads stem keywords. Its vocabulary is aptitude-calibrated, so for exams
+  outside that vocabulary it under-differentiates severely (measured: 60/60 at one
+  label on IIT JAM BT). It is retained because it is always computable and because
+  it is the scale Step 5's corpus statistics use — never because it is accurate.
+  Tier 3 is a safety net that should never fire on a normal run.
 
 ### S2-3a — Tier 1: q_to_difficulty (upstream assessment)
 
@@ -333,9 +485,62 @@ If the progress JSON carries a `q_to_difficulty` map (§0 item 7):
 - Value absent for this q, wrong type, or not in `difficulty_labels` →
   WARN once per defect (with q number and offending value) and fall
   through to Tier 2. NEVER trust an unvalidated Tier-1 value.
-- The whole map absent → silent (normal today); all questions use Tier 2.
+- The whole map absent → silent (normal for a paper with no PYQ-1 pass);
+  all questions fall through to Tier 1.5.
 
-### S2-3b — Tier 2: E-9 3-axis scoring (canonical path today)
+### S2-3a1 — Tier 1.5: structural difficulty from marking_scheme (v1.5)
+
+Reached only when Tier 1 yielded nothing for this question.
+
+```python
+from blueprint_core import structural_difficulty   # Cluster E2 (import as in §2-3b)
+
+value = structural_difficulty(q, marking_scheme, difficulty_labels)
+```
+
+`marking_scheme` is the §0 item 2 list, verbatim from exam_config.json.
+`difficulty_labels` is the §0 item 2 value INCLUDING its ['Easy','Medium','Hard']
+fallback — identical treatment to Tier 2.
+
+`structural_difficulty` returns None — meaning FALL THROUGH TO TIER 2 — in every
+one of these cases, and PYQ-4 must treat them all as ordinary, silent fall-through:
+  * marking_scheme absent, empty, or not a list
+  * the scheme carries no structural signal: uniform marks AND a single question
+    type (a 200-question all-MCQ paper has nothing to read)
+  * q falls outside every configured q_range (a legacy-pattern paper)
+  * the question is an MCQ in an exam that mixes types but has uniform marks
+  * `difficulty_labels` is not an exactly-3-label list
+  * the matching entry's `correct_marks` is unusable — non-numeric, NaN, infinite,
+    zero, or negative. Such an entry cannot occupy a position in a marks gradient,
+    so its band is unknowable and Tier 1.5 declines rather than guessing one.
+
+MALFORMED-ENTRY HANDLING (v1.5 — fixed, so two instances behave identically):
+  * An entry that is not a dict is skipped.
+  * `q_range` MUST be a two-element list/tuple of integers. Anything else — a
+    string, a single value, three values, non-numeric members — is skipped. A
+    two-CHARACTER string such as "15" also has length 2 and must NOT be accepted:
+    indexing it per character yields the silently wrong range 1-5.
+  * A reversed `q_range` such as [10, 1] is normalised to [1, 10] and still matches.
+  * Entries with unusable `correct_marks` (as above) are excluded from the marks
+    gradient entirely, so they never create a phantom tier.
+  * q_ranges are scanned in the order given and the FIRST containing range wins.
+    Overlapping ranges are therefore resolved by config order, deterministically.
+  * None of these is a HARD STOP and none is a WARN in itself. exam_config is
+    written upstream; PYQ-4's job here is to be unbreakable, not to validate it.
+    A paper that then resolves degenerately is caught by the §2-3e WARN.
+
+If `value` is not None → record tier=1.5 for this q. Else fall to Tier 2.
+
+WHAT TIER 1.5 IS NOT — state this plainly in any report that surfaces it:
+it assigns ONE label per (marks, question_type) band, so every question in a band
+receives the same Complexity. It encodes the exam body's intent for that band, not
+the demand of the individual question. On a paper where Tier 1.5 resolves every
+question, the Complexity column carries exactly as much information as the marking
+scheme already did. That is a floor worth having instead of a degenerate single
+label — and it is a reason to run PYQ-1 so Tier 1 can supersede it, not a reason
+to consider the paper assessed.
+
+### S2-3b — Tier 2: E-9 3-axis scoring (fallback path)
 
 Import `blueprint_core.py` (Cluster E — the canonical shared copy of Step 5's
 E-9/E-10, under its CROSS-FILE SYNC RULE), resolved dual-path — the framework
@@ -353,17 +558,41 @@ if _engine_src is None:
         "(Step 0) or upload the engine, then re-run.")
 shutil.copy(_engine_src, '/home/claude/blueprint_core.py')
 sys.path.insert(0, '/home/claude')
-from blueprint_core import score_difficulty, determine_strip_mode, map_difficulty_level
+from blueprint_core import (score_difficulty, determine_strip_mode,
+                            map_difficulty_level, structural_difficulty)
 ```
 
 ```text
 strip_mode = determine_strip_mode(subject, topic, subtopic)
                with subject/topic/subtopic from q_to_classification[q]
 is_msq     = (resolved Question Type for q == 'MSQ')   # §2-2, already computed
-marks      = exam_config.marks_default if it is a positive number, else 1
-               (the PYQ pipeline does not track per-question marks — a
-                uniform value is a documented, deterministic simplification;
-                for uniform-marks exams it is also exactly correct)
+marks      = PER-QUESTION, resolved by the §0 item 2 MARKS RESOLUTION ORDER:
+             (a) correct_marks of the marking_scheme entry whose q_range contains q;
+             (b) else marks_default if it is a positive number;
+             (c) else 1.
+             (v1.5 — was a single uniform exam_config.marks_default for the whole
+              paper. Never derive marks by any other route; see §0 item 2.)
+
+           OUT-OF-PATTERN MARKS WARNING (v1.3 — MANDATORY, never silent):
+           exam_config describes the CURRENT pattern. A PYQ paper from a previous era can
+           carry Q-numbers beyond every configured range, and those questions may have been
+           worth something quite different — a 4-mark legacy question silently delivered to
+           students as 1 mark is a real scoring error, not a rounding detail.
+           Before writing the tagged output, count the questions whose Q-number falls
+           outside every exam_config.sections[].q_range (equivalently: those Framework_
+           PYQSort v1.10 tagged with bc.OUT_OF_PATTERN). If that count is > 0, WARN:
+             "N question(s) in this paper fall outside the current exam pattern's
+              Q-number ranges (Q.x-Q.y). exam_config declares no marks for them, so each
+              is being tagged [marks] mark(s) by fallback. If this paper is from an earlier
+              pattern with different marks, correct them before publishing."
+           This is a WARN, not a HALT: delivering a legacy PYQ paper is legitimate and
+           common. Only the silence was wrong.
+               (v1.5 SUPERSEDES the v1.2-v1.4 note that "the PYQ pipeline does not
+                track per-question marks". It does: exam_config.marking_scheme[]
+                carries correct_marks per q_range and Steps 7/9/11 already read it.
+                The uniform value was a simplification, not a data limitation, and
+                it is withdrawn. For a genuinely uniform-marks exam the resolved
+                per-question value equals the old one, so nothing changes there.)
 result     = score_difficulty({'stem': stem_text, 'is_msq': is_msq},
                               marks=marks, strip_mode=strip_mode)
 value      = map_difficulty_level(result['level'], difficulty_labels)
@@ -407,8 +636,46 @@ tag resolution at PYQ-4 time.
 
 ### S2-3e — Provenance accounting
 
-Track `tier_counts = {1: n1, 2: n2, 3: n3}` and the per-label distribution
-of resolved values. Both are reported in §R3 and both feed gate C10.
+Track `tier_counts = {1: n1, 1.5: n15, 2: n2, 3: n3}` (v1.5 — four tiers) and the
+per-label distribution of resolved values. Both are reported in §R3 and both feed
+gate C10.
+
+DEGENERATE-DISTRIBUTION WARN (v1.5 — MANDATORY, never silent). After resolution,
+if EVERY question in the paper resolved to the SAME Complexity value and the paper
+has more than one question, WARN:
+
+  "All N questions resolved to Complexity '<value>'. A whole paper at one
+   difficulty is almost always a resolution defect, not a property of the paper.
+   Dominant tier: <tier>. If that tier is 2, the exam's stems are outside E-9's
+   aptitude vocabulary and per-question difficulty was never actually measured —
+   run PYQExplain (PYQ-1) so Tier 1 can supply assessed values, then re-run PYQ-4."
+
+This is the check that would have surfaced the IIT JAM Biotechnology 60/60 "Easy"
+delivery at the moment it was produced instead of after publication. It is a WARN,
+not a HALT: a genuinely uniform paper is possible, and the operator decides.
+
+MIXED-PROVENANCE WARN (v1.5 — MANDATORY, never silent). The degenerate check above
+only fires when the WHOLE paper lands on one label, and that misses a real case.
+An exam that mixes question types but has UNIFORM marks — MCQ and NAT both at the
+same marks, the shape used by several major entrance exams — resolves its NAT/MSQ
+questions at Tier 1.5 and drops every MCQ to Tier 2. The resulting distribution is
+NOT uniform, so the degenerate WARN stays quiet, and the paper ships with a
+Complexity column whose values came from two different instruments: one reading
+the marking structure, the other reading stem keywords. Those are not the same
+scale and must not be compared as though they were.
+
+Therefore: if Tier 2 resolved at least one question AND Tiers 1/1.5 together
+resolved at least one other, WARN:
+
+  "Complexity on this paper has MIXED PROVENANCE: N question(s) were resolved by
+   tier(s) <list> and M question(s) fell to Tier 2 (E-9 keyword scoring). These
+   are different instruments on different scales — a 'Medium' from the marking
+   structure and an 'Easy' from stem keywords are not comparable, and the Tier-2
+   questions were not measured at all unless this exam's stems use aptitude
+   vocabulary. Run PYQExplain (PYQ-1) so Tier 1 resolves the whole paper on one
+   instrument, then re-run PYQ-4."
+
+Both WARNs can fire together, and both are reported in §R3.
 
 ## S2-4 — Tag field order (fixed — portal contract)
 
@@ -681,7 +948,97 @@ pPr order: spacing before jc.
 
 **C17** NAT Correct-Answer portal charset: every NAT question's rendered value
 matches `0123456789.-` exactly. Scoped by question_type (not pattern-matched).
-Any violation → HARD STOP (last gate in the pipeline).
+Any violation → HARD STOP (last CONTENT gate in the pipeline; C18 follows as
+the package gate).
+
+**Package validity:**
+
+**C18** OOXML package validity on BOTH artifacts — HARD STOP.
+
+⚠️ **C1–C17 verify CONTENT FIDELITY. None of them verifies PACKAGE VALIDITY.**
+These are independent properties. C1 and C12 check that `document.xml` *parses*
+— which a corrupt file does: undeclared `mc:Ignorable` prefixes and misordered
+`pPr`/`tcPr` children leave the XML well-formed, so lxml and stdlib
+ElementTree both read it happily. This is precisely what let PYQ-3 pass every
+gate it had and deliver a file Word would not open, with its text stream,
+drawings and paragraph counts all perfectly intact.
+
+C18 runs last, after C17, on the artifacts as they will be delivered:
+
+```python
+import os
+import subprocess
+
+VALIDATOR = '/mnt/skills/public/docx/scripts/office/validate.py'
+
+
+def gate_c18(source_docx, integrity_docx, render_source_docx):
+    """C18 — OOXML package validity on both artifacts.
+
+    Returns 'validated' or 'degraded'; raises SystemExit on failure.
+
+    --original is REQUIRED: it reports only errors NEW relative to the source,
+    so pre-existing quirks in a given exam's PYQ-2 output (frequent across ~200
+    exams with heterogeneous provenance) do not block delivery, while anything
+    PYQ-4 introduced does.
+    """
+    if not os.path.exists(VALIDATOR):
+        # Validator absent. C16(a)/(b) remain in force as the namespace check,
+        # but schema ordering is UNVERIFIED — report package validity as
+        # UNVERIFIED in §R5, never as PASS.
+        print('C18 DEGRADED — validator unavailable. Namespace integrity still '
+              'covered by C16(a)/(b); schema ordering is UNVERIFIED. '
+              'Report as UNVERIFIED in §R5.')
+        return 'degraded'
+
+    failures = []
+    for label, path in (('integrity', integrity_docx),
+                        ('render-source', render_source_docx)):
+        result = subprocess.run(
+            ['python3', VALIDATOR, path, '--original', source_docx],
+            capture_output=True, text=True)
+        if result.returncode != 0:
+            failures.append('C18 FAIL [%s artifact] %s\n%s'
+                            % (label, path, result.stdout + result.stderr))
+    if failures:
+        for f in failures:
+            print(f)
+        raise SystemExit('C18 HARD STOP — package is not valid OOXML. '
+                         'Do not deliver.')
+    return 'validated'
+```
+
+**Both artifacts, not just the delivered one.** The render-source is what ships
+(`_PYQ_Final.docx`) so its validity is non-negotiable. But the integrity
+artifact is what C1–C10 are evaluated against — if it is structurally broken,
+those ten gates are being run on a damaged document and their PASS means less
+than it appears. A fault in either indicates the pipeline is wrong.
+
+**Zero, not "fewer".** When a validator rejects an element at its own position
+it does not descend into it, so that element's children's violations stay
+hidden until the outer one is fixed. Measured on the PYQ-3 artefact: **812
+errors reported, 991 elements actually requiring reorder.** An error count is a
+LOWER BOUND until it reaches zero. If a fix lowers the count, re-run — newly
+surfaced errors are expected behaviour, not a regression.
+
+**Relationship to C16.** C16 is not superseded and must stay: it runs earlier,
+is self-contained, and states the namespace invariant in PYQ-4's own terms.
+But its coverage is narrower than it looks — C16(d) checks `pPr` order only for
+the tag blocks this spec builds, and only that `spacing` precedes `jc`. Any
+other misordering, in any other element, in any part, passes C16 untouched.
+C18 is the general case.
+
+**Fallback.** If the validator is unavailable in the runtime, C16(a)/(b) remain
+in force as the namespace check and C18 degrades to that — report the
+degradation explicitly in §R5. The fallback does NOT cover schema ordering;
+treat a C18-degraded run as unverified for package validity rather than as a
+pass.
+
+**LibreOffice is not a substitute.** A successful `soffice` conversion is
+necessary but not sufficient — it opens files Word rejects, confirmed on the
+PYQ-3 artefact, which rendered acceptably while Word refused it. PYQ-4 performs
+no `soffice` conversion in any case (§11 hard invariant); this is noted so the
+absence of a rendering step is not mistaken for a missing validity check.
 
 ---
 
@@ -730,7 +1087,7 @@ updated version.
 
 PYQ-4 delivers in a single response:
 
-1. All gates (§7 C1-C17) pass.
+1. All gates (§7 C1-C18) pass, C18 (package validity) included.
 2. PYQ registry updated (§8).
 3. Present `[ExamCode]_[date]_[session]_PYQ_Final.docx` via present_files.
 4. Upload to Google Drive (if Drive access is available; otherwise instruct the
@@ -754,13 +1111,23 @@ Printed in chat after present_files:
 - **§R2 — Tag summary.** Total tag blocks inserted. Subject/Topic/Subtopic distribution.
   Date/session tag paragraphs removed (`tags_removed`, §4A); any safety-gate
   skips (`tags_skipped`) listed with position and reason.
-- **§R3 — Complexity.** Tier provenance counts (Tier 1 / Tier 2 / Tier 3, §2-3e)
-  and the per-label distribution of resolved Complexity values. Any Tier-1
-  validation WARNs and any Tier-3 fallbacks listed with q number and reason.
-  On a normal run today: Tier 2 = Q_TOTAL, Tiers 1/3 = 0.
+- **§R3 — Complexity.** Tier provenance counts (Tier 1 / Tier 1.5 / Tier 2 /
+  Tier 3, §2-3e) and the per-label distribution of resolved Complexity values.
+  Any Tier-1 validation WARNs and any Tier-3 fallbacks listed with q number and
+  reason. Both §2-3e WARNs — degenerate-distribution and mixed-provenance — are
+  reported here when they fire, with the Q-numbers that fell to Tier 2.
+  When Tier 1.5 resolved any question, state plainly that those values are the
+  exam body's per-band design intent and are uniform within a band (§2-3a1).
+  EXPECTED on a paper WITH a PYQ-1 pass: Tier 1 = Q_TOTAL, all others 0.
+  EXPECTED on a paper WITHOUT one: Tier 1.5 and/or Tier 2 carry the paper, and
+  the report should say so rather than presenting the column as assessed.
 - **§R4 — Render transforms.** OMML linearized count, safe-font resolutions, underline recolor count.
   Any unresolved non-ASCII codepoints listed.
-- **§R5 — Gate results.** C1-C17 all PASS (or list failures).
+- **§R5 — Gate results.** C1-C18 all PASS (or list failures). Report C18
+  explicitly for BOTH artifacts (integrity and render-source) — state the
+  validator verdict, not merely "passed". If the validator was unavailable and
+  C18 degraded to the C16(a)/(b) namespace fallback, say so here and mark
+  package validity UNVERIFIED rather than PASS.
 - **§R6 — PYQ registry.** Papers delivered to date, total questions, corpus progress.
 - **§R7 — Note.** "This is the portal-ready document. Open in Microsoft Word to
   verify. For student download, run PYQ-3 (PYQFormat) separately in a new chat —
@@ -784,10 +1151,15 @@ PYQ-4 is done when **all** hold:
    (0 in the normal case), verified by gate C4.
 6. Integrity artifact passes C1-C10.
 7. Render-source artifact passes C11-C17.
+7a. BOTH artifacts pass C18 (package validity) against the source.
 8. No residual OMML in render-source. All non-ASCII safe-fonted.
 9. PYQ registry updated with this paper.
 10. Delivered via present_files with the delivery report and footer.
-11. Opens clean in Microsoft Word with no "unreadable content" prompt.
+11. Opens clean in Microsoft Word with no "unreadable content" prompt —
+    machine-verified by C18 on both artifacts, not assumed. Items 1-10
+    establish that the CONTENT is correct; only C18 establishes that the
+    PACKAGE is valid. A file can satisfy every other item on this list and
+    still fail to open.
 
 **Hard invariants (never violated):**
 
@@ -800,6 +1172,8 @@ PYQ-4 is done when **all** hold:
 - No `cleanup_namespaces()` — ever (MockDeliver v1.3 lesson).
 - `word/webSettings.xml` is never stripped (MockDeliver v1.3 lesson).
 - Tag pPr: `<w:spacing>` before `<w:jc>` (OOXML schema order).
+- Both artifacts are schema-valid OOXML packages, proven by C18 against the
+  source with `--original`. Parsing without error is NOT validity.
 - Tag paragraphs built from scratch, never cloned from body paragraphs.
 - No exam-specific value hardcoded (exam-agnostic guarantee).
 
@@ -855,7 +1229,7 @@ PYQ-4 is done when **all** hold:
     An inline date label inside a stem/explanation is NEVER at risk — the
     anchored regex only matches full paragraphs.
 
-16. **blueprint_core.py missing or lacking Cluster E functions** → HARD STOP
+16. **blueprint_core.py missing or lacking Cluster E / E2 functions** → HARD STOP
     (§0 item 6 / §1 step 5a). Absent from BOTH the framework clone (/tmp/fw)
     and the project Files (/mnt/project): the operator reloads the framework
     (Step 0) or uploads the current blueprint_core.py, then re-runs.
@@ -870,12 +1244,42 @@ PYQ-4 is done when **all** hold:
     WARNed, difficulty_default used (must itself be in the label set or
     C10 HARD STOPs). Deterministic; never guesses an ordinal mapping.
 
-19. **Theory/recall-heavy exam** (stems with no computation keywords,
-    numbers, or indirection patterns) → most questions legitimately score
-    C+I+V=3 → labels[0]; negative-phrasing and MSQ terms still
-    differentiate. This is a documented signal limit of keyword axes, not
-    a bug — the §R3 distribution makes it visible, and Tier 1 (PYQ-1
-    assessment) is the designed upgrade path requiring no PYQ-4 change.
+19. **Exam whose stems are outside E-9's aptitude vocabulary** — science,
+    engineering, medical, humanities, and every theory/recall paper — reaching
+    Tier 2. v1.5 RECLASSIFIES this from "documented signal limit" to DEFECT
+    SURFACE. Measured on IIT JAM Biotechnology 15-Feb-2026 (60 Q, 30 MCQ /
+    10 MSQ / 20 NAT): E-9 scored C=1 for 60/60 and I=1 for 59/60, and the
+    delivered paper carried one label for every question. Calling that a
+    legitimate score was wrong — the negative-phrasing and MSQ terms do not
+    rescue it, because they move a question by one point on an axis sum that
+    never left its floor. Correct handling, in order:
+      (a) run PYQExplain (PYQ-1) so Tier 1 supplies assessed values — this is
+          the resolution, not a workaround, and it needs no PYQ-4 change;
+      (b) failing that, Tier 1.5 (§2-3a1) resolves any exam whose marking_scheme
+          has a marks gradient or a type mix, which covers most competitive
+          exams that field MSQ/NAT alongside MCQ;
+      (c) if the paper still resolves entirely on Tier 2, the §2-3e
+          degenerate-distribution WARN fires and the §R3 report must state that
+          per-question difficulty was not measured.
+    Do NOT attempt to fix this by extending E-9's keyword sets or adding a
+    strip_mode. Beyond the CROSS-FILE SYNC cost, `strip_variables` in
+    Framework_MockTestAnalyse.md branches on a closed set of five modes with no
+    else-branch: a sixth mode makes it a no-op passthrough, so Step 5's template
+    skeletons silently become verbatim stems and its whole pattern layer
+    collapses. A vocabulary list is also exam-SPECIFIC by nature and PYQ-4
+    serves ~200 exams.
+
+20. **exam_config.marking_scheme absent or uniform** (legacy project, or an
+    exam like a 200-question all-MCQ paper at one mark) → structural_difficulty
+    returns None for every question, Tier 1.5 contributes nothing, and
+    resolution proceeds to Tier 2 exactly as in v1.4. Silent and expected —
+    NOT a WARN in itself. If the paper then resolves degenerately, the §2-3e
+    WARN is what fires, naming Tier 2 as the dominant tier.
+
+21. **marking_scheme q_ranges do not cover every question** (legacy-pattern
+    paper) → uncovered questions get Tier 1.5 = None and marks fall back per
+    the §0 item 2 order; the existing v1.3 OUT-OF-PATTERN MARKS WARNING already
+    reports them by Q-range and must still fire.
 
 ---
 
@@ -914,12 +1318,16 @@ of E-9 and is FORBIDDEN (anti-drift principle).
 |---|---|---|
 | Tag data source | registry.json + blueprint.json JOIN | q_to_classification direct lookup |
 | Question Type | marking_scheme (position-based) or subtopic (subtopic-based) | options_by_q (structure-based) |
-| Complexity | Per-Q from registry.difficulty | Per-Q three-tier resolver: q_to_difficulty → E-9 scoring (blueprint_core Cluster E) → difficulty_default (§2-3, D11) |
+| Complexity | Per-Q from registry.difficulty | Per-Q four-tier resolver: q_to_difficulty (PYQ-1 §7A) → structural_difficulty (Cluster E2) → E-9 scoring (Cluster E) → difficulty_default (§2-3, D11) |
 | Paper identity | pp.paper\_slug() via paper\_pipeline.py | Parsed from attached filename |
 | Blueprint | Required | Not required (does not exist for PYQ) |
 | Registry | Required | Not required (does not exist for PYQ) |
 | PYQ registry | N/A | Maintained by PYQ-4 (§8) |
 | Trigger | TestDeliver P[N] / MockDeliver M[N] | PYQDeliver (no arguments needed) |
+| Package validity | C16(a)–(d) only | C16 **plus** C18 `gate_c18()` — full OOXML schema validation of BOTH artifacts against the source (§7, v1.4) |
+
+`gate_c18()` is PYQ-4-specific and is NOT among the MockDeliver patterns reused
+in S13-1 — MockDeliver has no equivalent. It is defined in full in §7 (C18).
 
 ## S13-3 — Namespace preservation (MockDeliver v1.3 lessons)
 
@@ -957,4 +1365,4 @@ RENDER-SAFE FONT STACK:
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.2.1)**
+**End of Framework_PYQDeliver.md (v1.5.1)**

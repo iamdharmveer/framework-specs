@@ -1,4 +1,4 @@
-# Framework_PYQSort v1.8 — Universal PYQ Sorter
+# Framework_PYQSort v1.12.2 — Universal PYQ Sorter
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
 #
 # PURPOSE:
@@ -37,6 +37,10 @@
 #   One Sorted PYQ .docx file — delivered via present_files.
 #   (1 file, nothing else. Deliverable set is CLOSED — see §9 delivery contract.)
 #   User downloads → uploads to Google Drive PYQ folder.
+#   v1.12: the output is SIZE-GOVERNED to blueprint_core.SIZE_BUDGET (9 MiB, a 10%
+#   margin under the 10 MiB Drive connector download cap) and its image count is
+#   GATED against the Row file. The Sorted file is what Steps 4 and 5 fetch back out
+#   of Drive, so an ungoverned Sorted file is the thing that blocks them — see S7-6.
 #
 #   DO NOT DELIVER:
 #     ✗ sort_pipeline.py (execution script — stays in /home/claude/)
@@ -80,6 +84,131 @@
 #   to Step 1 as the fix location — not a PYQSort bug.
 #
 # VERSION HISTORY:
+#   v1.12.2 — 2026-07-25 — Q_PATTERNS TABLE RECONCILED WITH THE ENGINE. The local table listed
+#           five patterns while the delegated bc.detect_question_start implements two, and the
+#           audit_deep TABLE-PARITY check this spec cited as its guarantee could not see the
+#           difference: its extraction regex stopped at the first "]", which sits inside
+#           r'^Question\s+(\d+)\s*[:.]'. The table is documentary — declared, never read — so
+#           behaviour is unchanged; what changes is that the documentation no longer invites a
+#           catastrophic "fix". Widening the engine to five patterns would make every option
+#           line match: a 100-question paper parses as 500 (verified).
+#   v1.12.1 — 2026-07-25 — MINIMUM COMPANION VERSION CORRECTED. The v1.12 entry named
+#           "corpus_io v1.0" as its twin. That is wrong in a way that matters: S7-6 calls
+#           assert_docx_parity with allow_resample=False for tier T1, and in corpus_io v1.0
+#           that raises a FALSE IntegrityError whenever the governor renames a media part —
+#           which is the ordinary path for a photographic PNG, since the jpeg route rewrites
+#           image1.png as image1.jpeg. Proven by execution: identical 1400x1000 dimensions
+#           before and after, corpus_io v1.0 HARD STOPs, corpus_io v1.0.1 passes. Pairing
+#           v1.12 with corpus_io v1.0 therefore gives a governor that fails closed on exactly
+#           the papers it exists to shrink. The minimum companion is corpus_io v1.0.1, whose
+#           parity fix was found while verifying this very spec. Documentation only — not one
+#           line of behaviour changes here.
+#   v1.12 — 2026-07-25 — IMAGE SURVIVAL GATE + SIZE GOVERNOR ON WRITE (DEFECT J, DEFECT M).
+#           Twin of Framework_MockTestAnalyse v2.29 / corpus_io v1.0.1 (see v1.12.1 — the
+#           original entry said v1.0, which is the one release this spec does NOT work with).
+#           Step 3 is where images
+#           are RE-EMBEDDED — the riskiest image operation in the PYQ pipeline, and the one
+#           §13 has warned about since v1.0 in its own words: "images silently vanish. No
+#           error, just empty space." Verified by grep across all 31 tracked files: NO
+#           image-count check of any kind existed in this file. Framework_PYQFormat has
+#           enforced exact input==output image equality (S8-6) since v1.1 for the same class
+#           of risk; the step that actually performs the risky operation had nothing.
+#           (1) DEFECT J — re_embed_images() matched only <a:blip r:embed> (DrawingML).
+#               Legacy VML <v:imagedata r:id> — emitted by older Word, several PDF converters
+#               and pasted OLE/equation objects — was never re-pointed, so exactly the
+#               failure the §13 warning describes occurred for every VML image, silently.
+#               Verified: 'imagedata' appeared 0 times in this file, in
+#               Framework_MockTestAnalyse.md and in Framework_PYQPrepare.md. S7-1 now
+#               re-points BOTH mechanisms.
+#           (2) DEFECT M — NEW S7-7 image survival gate, modelled on PYQFormat S8-6 with the
+#               same exact-equality discipline (not a tolerance) and surfaced as CHECK 10.
+#               Body image references in the delivered file MUST equal the `intended` count
+#               from the S7-5 census. Mismatch is a HARD STOP naming the missing media parts.
+#           (3) NEW S7-5 pre-flight + input image census. The pre-flight runs on the PATH
+#               before python-docx opens the Row file, because a relationship pointing at a
+#               missing media part makes python-docx raise a bare zipfile KeyError while
+#               CONSTRUCTING the Document — any check placed after Document(path) is
+#               unreachable, and the operator gets a library traceback instead of a sentence
+#               naming the defect and the step that owns it. Found by adversarial test, not
+#               by reading. The census then establishes the expected count before any work,
+#               partitions every body child into CARRIED (a question's stem or body element)
+#               and NOT CARRIED, and REPORTS the not-carried ones with their count and text
+#               prefix. Images before Q.1, or inside a date-label paragraph the emitter
+#               rebuilds from scratch, are correctly not carried — but dropping them SILENTLY
+#               would either hide a real loss or trip the new gate for a benign reason. The
+#               expected count is derived from the parse, not from a Q-number regex, so it
+#               cannot disagree with what the emitter actually carries.
+#           (4) NEW S7-6 size governor on write. Step 3 is the first step to hold real image
+#               bytes, and its output is what Steps 4 and 5 fetch back OUT of Drive through a
+#               connector that refuses downloads above 10 MiB. An ungoverned Sorted file is
+#               therefore the thing that blocks Step 4/5 later, three-quarters of the way
+#               through a batch run (the reported 2026-07-24 incident: 6 of 7 pending papers
+#               above the cap, discovered at batch 6). The governor runs on write, under
+#               corpus_io.assert_docx_parity — 17 invariants including the text SHA256, the
+#               OMML count and per-image pixel dimensions, because a governor that quietly
+#               dropped a figure would still produce a smaller file that opens cleanly in Word.
+#           (5) Ladder floor exceeded (still over budget at T4) → DELIVER + WARN + FLAG, never
+#               HALT. A legitimately huge paper must not block its own delivery; the operator
+#               is told the file will need the upload lane at Step 4/5.
+#           (6) Counting is DELEGATED to corpus_io.count_image_refs (Cluster I) — blip AND
+#               VML, every story part, never doc.inline_shapes (which sees only inline body
+#               drawings and so under-counts silently). A local re-implementation here is
+#               forbidden: a count that can run low is worse than no count, because it makes
+#               a broken document look verified.
+#           (7) §9 write path made explicit for the first time: save → census → govern →
+#               parity → CHECK 1..10 → copy to FINAL_OUT. Still 4 tool calls.
+#           (8) EC-S16..EC-S19 (VML images · governor floor · non-carried images · dangling
+#               relationship in the Row file).
+#           ROUTING: routes.json must route corpus_io.py to PYQSort. NOT OPTIONAL — this spec
+#           imports it.
+#   v1.11 — 2026-07-23 — detect_question_start DELEGATED to blueprint_core (Cluster G).
+#           Twin of Framework_PYQPrepare v1.8 / MockTestAnalyse v2.28. No behaviour change —
+#           the engine form is byte-identical to the copy removed here.
+#   v1.10 — 2026-07-23 — ANTI-DRIFT: OUT_OF_PATTERN now comes from the ENGINE
+#           (blueprint_core.OUT_OF_PATTERN) instead of being declared locally. v1.9 declared
+#           the literal here while Framework_PYQAnalyse RULE 4 referenced it by name under a
+#           DIFFERENT trigger, with no shared definition and no route carrying one — two
+#           independent copies of a single literal, which is precisely the drift the
+#           framework's anti-drift principle forbids. routes.json now routes blueprint_core.py
+#           to PYQSort (and to PYQDraft/PYQScan/PYQApprove/PYQCount/PYQExtract for the same
+#           reason). No behavioural change: the value is identical.
+#   v1.9 — 2026-07-23 — OUT-OF-PATTERN QUESTIONS NO LONGER SILENTLY LOST
+#           (GAP-2026-07-23-001, PYQ-side twin of Framework_Blueprint v1.36).
+#           ROOT CAUSE: exam_config describes the CURRENT exam pattern, but a PYQ corpus
+#           routinely spans several patterns. get_section_by_q_range() returned None for any
+#           Q-number outside every configured section range; the None was written straight
+#           into the question record at S3-2, and a corpus-wide grep confirms NO guard for it
+#           existed anywhere. Those questions then failed every (section, topic, subtopic)
+#           lookup. On a 100-question legacy paper sorted against a 60-question current
+#           config that is a silent 40% data loss on one file, with no operator-visible
+#           signal of any kind. This is the same unstated assumption — "PYQ structure equals
+#           current structure" — that produced the Blueprint axis-unit and coverage-gate
+#           defects fixed in Framework_Blueprint v1.36.
+#           (1) S2-2 get_section_by_q_range(): returns the OUT_OF_PATTERN module constant
+#               instead of None. NEVER returns None. The sentinel is a fixed literal, not an
+#               exam-derived string, so it cannot collide with any exam's section names.
+#           (2) S3-2 extract_questions(): every question record gains pattern_era, valued
+#               'current' or 'out_of_pattern'. Structural provenance only — never a content
+#               judgement.
+#           (3) S4-3 classify_question(): OUT_OF_PATTERN questions are classified against the
+#               FULL taxonomy instead of one section's slice. This is a NARROW, SENTINEL-GATED
+#               exception to RULE 4 ("section from structure, not content"): RULE 4 exists so a
+#               maths question sitting in the Reasoning section stays in Reasoning, which
+#               presupposes a structural section EXISTS. These have none, so RULE 4 has nothing
+#               to say and applying it anyway yields an empty candidate list — exactly how the
+#               questions were lost. The exception is gated on the sentinel, never on a failed
+#               match, so a question that HAS a real section can never fall through to it.
+#           (4) NEW report_pattern_era(): prints observed vs configured Q-count, the
+#               out-of-pattern count and Q-range, and the mix consequence. Reports only —
+#               never mutates, never decides, never halts. Silent when the paper matches the
+#               current pattern exactly, so the 200-exam common case is unchanged.
+#           (5) EC-S1b: the mirror of EC-S1 (papers LARGER than the current pattern).
+#           WHAT THIS DELIBERATELY DOES NOT DO: it does not exclude out-of-pattern questions
+#           from frequency. Counts are already safe (Framework_Blueprint §4-2 uses r_avg as a
+#           PROPORTION against a sec_qs budget, so a different-size paper cannot inflate or
+#           shrink allocation), but subject/subtopic MIX is still inherited from whichever
+#           eras the corpus contains. Era-scoped frequency requires era-tagging through the
+#           Step-5 manifest and Frequency xlsx and is a separate change.
 #   v1.8 — 2026-07-07 — OPTIONAL SESSION IN DATE LABELS (Step 1 sync).
 #           Framework_PYQPrepare v1.0 allows session to be omitted from date labels.
 #           (1) build_date_label_re(): session_keyword+number now optional in regex.
@@ -202,9 +331,19 @@ Parse:
 ### S1-2 — Load taxonomy from Analysis docs
 
 ```python
-import json, os, re, copy, glob
+import json, os, re, copy, glob, shutil
 from collections import Counter
 from docx import Document
+
+# ── MODULES (both routed to PYQSort in routes.json) ──────────────────────────
+#   blueprint_core  ENGINE    — pure decisions, standard library only (Clusters G, H)
+#   corpus_io       I/O SHELL — image integrity + size governor (Clusters I, J)
+# The split is deliberate: Steps 6-11 import blueprint_core purely for allocation
+# arithmetic, so putting PIL or python-docx in it would make the allocation core
+# unimportable wherever those packages are absent — the P0 recorded in
+# Framework_MockTestAnalyse v2.26, where a failed `import blueprint_core` aborted
+# Step 5 for EVERY exam. corpus_io is the one home for impure corpus plumbing.
+import corpus_io                 # v1.12 — S7-5 census, S7-6 governor, S7-7 survival gate
 
 def load_exam_config():
     """
@@ -381,16 +520,39 @@ def detect_section_mode(doc, exam_config):
 ### S2-2 — Q-range section assignment
 
 ```python
+# SENTINEL — the section label used when a Q-number falls outside every configured section
+# range. v1.10: imported from the ENGINE instead of being re-declared here. Framework_PYQAnalyse
+# routes questions to the same sentinel under a DIFFERENT trigger, so two spec-local copies of
+# one literal was a drift waiting to happen. One definition, both importers.
+import blueprint_core as bc          # ENGINE (routed for PYQSort in routes.json)
+OUT_OF_PATTERN = bc.OUT_OF_PATTERN
+
+
 def get_section_by_q_range(q_num, exam_config):
     """
     Determine section from Q-number using exam_config section boundaries.
-    Returns section name or None if out of range.
+    Returns a section name, or OUT_OF_PATTERN if the Q-number is outside every range.
+
+    v1.9 — NEVER RETURNS None (was: returned None, silently).
+      WHY THIS CHANGED. exam_config describes the CURRENT exam pattern. A PYQ paper from a
+      previous pattern era can carry Q-numbers beyond it — e.g. a 100-question legacy paper
+      sorted against a 60-question current config leaves Q.61-Q.100 matching no section.
+      The old None return was stored straight into the question record with no guard
+      anywhere in the corpus, so those questions silently failed every downstream
+      (section, topic, subtopic) lookup: a 40% data loss on that paper, invisible to the
+      operator. This is the same defect class as the Blueprint coverage gate's asymmetry
+      (Framework_Blueprint v1.36 §2 S2-3) — the pipeline assumed PYQ structure always
+      matches current structure.
+      An explicit sentinel keeps the questions ADDRESSABLE rather than dropping them: they
+      still reach taxonomy discovery (the whole reason legacy papers are retained is the
+      variety of concepts and question shapes they expose), while never being mistaken for
+      a real section of the current pattern.
     """
     for sec in exam_config['sections']:
         q_start, q_end = sec['q_range']
         if q_start <= q_num <= q_end:
             return sec['name']
-    return None
+    return OUT_OF_PATTERN
 ```
 
 ### S2-3 — Marker section assignment
@@ -414,18 +576,27 @@ def parse_module_separator(text):
 ```python
 # Q-number detection patterns — ALIGNED WITH Step 5 E-2 (MUST stay in sync)
 Q_PATTERNS = [
-    r'^Q\.\s*(\d+)\s+',            # Q.1  Q.25  Q. 1  (one or more trailing space)
-    r'^Q(\d+)\.\s+',               # Q1.  Q25.  (one or more trailing space)
-    r'^Question\s+(\d+)\s*[:.]',   # Question 1:
-    r'^(\d+)\.\s+(?!\d)',           # 1.   25.   (negative lookahead: not 1.5)
-    r'^\((\d+)\)\s+',              # (1)  (25)
+    r'^Q\.\s*(\d+)\s+',            # Q.1  Q.25  Q. 1
+    r'^Q(\d+)\.\s+',               # Q1.  Q25.
 ]
 
-def detect_question_start(text):
-    for pat in Q_PATTERNS:
-        m = re.match(pat, text.strip())
-        if m: return int(m.group(1))
-    return None
+# DELEGATED to the engine (blueprint_core Cluster G). Four specs parse Q-numbers from the
+# same documents and must agree exactly; a local copy in any one of them is drift waiting to
+# happen. This table mirrors the engine's canonical table EXACTLY and is verified by
+# audit_deep.py TABLE-PARITY.
+#
+# WHY ONLY TWO PATTERNS — DO NOT ADD MORE (2026-07-25).
+# Three further forms exist in RAW exam sources — "Question 1:", bare "1." and "(1)" — and
+# Step 1 detects them via its own SOURCE_Q_PATTERNS. They are deliberately ABSENT here and
+# must never be restored. After Step 1 every document is NORMALISED: questions read "Q.N"
+# and OPTIONS read "N. text". The bare-number pattern therefore matches every option line.
+# Verified by execution on a canonical two-question fixture: the two-pattern table finds 2
+# question starts; the five-pattern table finds 10. A 100-question paper would parse as 500.
+# Until 2026-07-25 these tables carried all five entries while the engine implemented two,
+# and audit_deep TABLE-PARITY could not see it: its extraction regex stopped at the first
+# ']', which occurs inside r'^Question\s+(\d+)\s*[:.]', so it compared a silently truncated
+# two-entry slice against the engine's two and always passed.
+detect_question_start = bc.detect_question_start
 
 # ═══════════════════════════════════════════════════════════════════
 # DATE LABEL DETECTION — CONFIGURABLE SESSION KEYWORD
@@ -561,6 +732,12 @@ def extract_questions(doc, section_mode, exam_config, date_label_re):
                 current_q = {
                     'q_num': q_num,
                     'section': section,
+                    # v1.9 — structural provenance, NOT a content judgement. 'out_of_pattern'
+                    # means this Q-number lies beyond every range in the current exam_config,
+                    # i.e. the paper predates (or postdates) the current pattern. Carried so
+                    # the operator can see era mixing instead of inferring it from a silent gap.
+                    'pattern_era': ('out_of_pattern' if section == OUT_OF_PATTERN
+                                    else 'current'),
                     'date_label': current_date_label or '',
                     'date_parsed': parse_date_label(current_date_label, date_label_re) if current_date_label else None,
                     'stem_elem': child,
@@ -592,7 +769,57 @@ def extract_questions(doc, section_mode, exam_config, date_label_re):
         current_q['has_options'] = _count_options_in_body(current_q['body_elems']) > 0
         questions.append(current_q)
 
+    report_pattern_era(questions, exam_config, section_mode)
     return questions
+
+
+def report_pattern_era(questions, exam_config, section_mode):
+    """v1.9 — Surface pattern-era mixing to the operator. NEVER silent.
+
+    A PYQ corpus routinely spans more than one exam pattern. That is DESIRABLE for taxonomy
+    and question-variety purposes — the reason legacy papers are kept is precisely that they
+    expose concepts, phrasings, difficulties and formats the current-era papers do not.
+    What is NOT acceptable is the pipeline discovering the mismatch and saying nothing.
+
+    Before v1.9 every Q-number beyond the configured ranges got section=None, was stored
+    unguarded, and then failed every downstream (section, topic, subtopic) lookup. On a
+    100-question legacy paper sorted against a 60-question current config that is a silent
+    40% data loss on a single file, with no line of output to indicate it happened.
+
+    This function does not decide anything and never mutates. It reports, so the operator
+    holds the corpus-scope decision. Exam-agnostic: reads only exam_config and the observed
+    Q-numbers, and hardcodes no exam, section, count or year.
+    """
+    if section_mode == 'marker':
+        return                      # marker mode carries its own structure; ranges unused
+    total_cfg = sum(s['q_count'] for s in exam_config['sections'])
+    oop = [q for q in questions if q.get('pattern_era') == 'out_of_pattern']
+    observed = len(questions)
+    if not oop and observed == total_cfg:
+        return                      # paper matches the current pattern exactly — nothing to say
+
+    print("PATTERN-ERA REPORT")
+    print(f"  Questions in this paper        : {observed}")
+    print(f"  Questions in current exam_config: {total_cfg}")
+    if observed != total_cfg:
+        direction = 'LARGER' if observed > total_cfg else 'SMALLER'
+        print(f"  -> This paper is {direction} than the current pattern "
+              f"({observed} vs {total_cfg}).")
+    if oop:
+        nums = sorted(q['q_num'] for q in oop)
+        rng = f"Q.{nums[0]}-Q.{nums[-1]}" if len(nums) > 1 else f"Q.{nums[0]}"
+        print(f"  Out-of-pattern questions      : {len(oop)} ({rng})")
+        print(f"  These fall outside every section range in exam_config. They are NOT")
+        print(f"  dropped: each is classified against the FULL taxonomy so its concept")
+        print(f"  still reaches the corpus. They carry pattern_era='out_of_pattern'.")
+    print("  CONSEQUENCES — counts are safe, MIX is not:")
+    print("    Allocation cannot be inflated or shrunk by a different-size paper "
+          "(Framework_Blueprint §4-2 uses r_avg as a PROPORTION against a sec_qs budget).")
+    print("    Subject/subtopic MIX and format mix are inherited from whichever eras the")
+    print("    corpus contains. Recency weighting (§3, last 2 valid years x2) dampens this")
+    print("    but does not remove it when old-era years outnumber current-era ones.")
+    print("  DECIDE: keep the full corpus (maximum question variety, era-blended mix), or")
+    print("  restrict the corpus to current-pattern papers (faithful mix, less variety).")
 
 def _count_options_in_body(body_elems):
     """Count option paragraphs in a question's body elements."""
@@ -748,13 +975,31 @@ def classify_question(stem_text, section, taxonomy, options_text=''):
     3. Apply Rules 1-6 for disambiguation
     4. If no match → closest fit (Rule 5)
     """
-    section_taxonomy = taxonomy.get(section, {}).get('topics', {})
+    # v1.9 — OUT-OF-PATTERN QUESTIONS (narrow, explicit exception to RULE 4).
+    # RULE 4 ("section from structure, not content") exists so that a maths question sitting
+    # in the Reasoning section STAYS in Reasoning. That rationale presupposes the question
+    # HAS a structural section. A question from a previous pattern era whose Q-number lies
+    # beyond every configured range has none, so RULE 4 has nothing to say about it and
+    # applying it anyway yields an empty candidate list — which is how these questions were
+    # silently lost before v1.9.
+    # For these, and ONLY these, classify against the FULL taxonomy (every section's topics).
+    # The taxonomy is exam-wide and era-independent, so a genuine exam question always has a
+    # home in it. This exception must not widen: it is gated on the sentinel, never on a
+    # failed match, so a question that has a real section can never fall through to it.
+    if section == OUT_OF_PATTERN:
+        candidates = []
+        for sec_name, sec_data in taxonomy.items():
+            for topic, topic_data in sec_data.get('topics', {}).items():
+                for subtopic in topic_data['subtopics']:
+                    candidates.append((topic, subtopic))
+    else:
+        section_taxonomy = taxonomy.get(section, {}).get('topics', {})
 
-    # Build a flat list of (topic, subtopic) candidates
-    candidates = []
-    for topic, topic_data in section_taxonomy.items():
-        for subtopic in topic_data['subtopics']:
-            candidates.append((topic, subtopic))
+        # Build a flat list of (topic, subtopic) candidates
+        candidates = []
+        for topic, topic_data in section_taxonomy.items():
+            for subtopic in topic_data['subtopics']:
+                candidates.append((topic, subtopic))
 
     # Claude classifies the question against these candidates
     # using stem analysis + Rules 1-6
@@ -1129,19 +1374,55 @@ def re_embed_images(elem, src_doc, out_doc):
     """
     Re-embed all images in an element with fresh relationship IDs.
     Without this, images silently vanish in the output document.
+
+    v1.12 — DEFECT J: BOTH image mechanisms are now re-pointed.
+
+      <a:blip r:embed>    DrawingML. Covers inline drawings AND floating ones
+                          (<wp:anchor>), because both carry a blip.
+      <v:imagedata r:id>  Legacy VML. Emitted by older Word versions, by several
+                          PDF converters, and by pasted OLE / equation objects.
+
+    Until v1.12 only the first was handled. A VML image's relationship was never
+    re-pointed in the output document, which is precisely the failure the §13
+    warning describes — "images silently vanish. No error, just empty space." No
+    exception, no log line, and the question then reads as TEXT for the rest of the
+    pipeline. Verified: the string 'imagedata' appeared 0 times in this file.
+
+    elem.iter() descends into tables, so images inside table cells — the normal
+    layout for match-the-following items, multi-panel figures and option grids —
+    are re-embedded like any other. (This is the same trap that produced DEFECT I
+    in Framework_MockTestAnalyse, where the walk used doc.paragraphs, which in
+    python-docx does NOT descend into tables. This function was already correct;
+    do not "simplify" it to a paragraph walk.)
+
+    S7-7 is what makes any future regression here self-detecting rather than silent.
     """
     DRAW_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
     REL_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    VML_NS = 'urn:schemas-microsoft-com:vml'
 
-    for blip in elem.iter(f'{{{DRAW_NS}}}blip'):
-        old_rid = blip.get(f'{{{REL_NS}}}embed')
+    def _repoint(node, attr):
+        old_rid = node.get(attr)
         if old_rid and old_rid in src_doc.part.rels:
             src_rel = src_doc.part.rels[old_rid]
             new_rid = out_doc.part.relate_to(
                 src_rel.target_part, src_rel.reltype
             )
-            blip.set(f'{{{REL_NS}}}embed', new_rid)
+            node.set(attr, new_rid)
+
+    for blip in elem.iter(f'{{{DRAW_NS}}}blip'):
+        _repoint(blip, f'{{{REL_NS}}}embed')
+
+    for imagedata in elem.iter(f'{{{VML_NS}}}imagedata'):
+        _repoint(imagedata, f'{{{REL_NS}}}id')
 ```
+
+The attribute names differ between the two mechanisms — `r:embed` on `<a:blip>`,
+`r:id` on `<v:imagedata>` — which is why the re-point is factored into a helper
+rather than duplicated. Both are matched here exactly as `corpus_io.count_image_refs`
+matches them, so the S7-7 gate counts precisely what this function is responsible
+for carrying. If the two ever diverge, the gate fails closed (HARD STOP) rather
+than passing on a document with a missing figure.
 
 ### S7-2 — Orphan option auto-repair
 
@@ -1198,13 +1479,353 @@ After sorting, sub-questions from the same passage remain consecutive
 (same date+session → same sort key cluster).
 ```
 
----
-
-## §8 — VALIDATION (9 checks — iterate until ALL PASSED)
+### S7-5 — Input image census (v1.12)
 
 ```
-Every Sorted file must pass all 9 checks before delivery.
+WHY THIS EXISTS. Step 3 re-embeds every image with a fresh relationship ID —
+the single riskiest image operation in the PYQ pipeline. §13 has warned since
+v1.0 that a failure here means "images silently vanish. No error, just empty
+space." Until v1.12 there was no detector at the point where that happens:
+verified by grep, this file contained no image-count check of any kind, while
+Framework_PYQFormat has enforced exact input==output equality (S8-6) since v1.1
+for the same class of risk.
+
+The census runs AFTER extract_questions() and BEFORE emit_sorted(). It fixes the
+number the output must contain, and it does so from the PARSE — the actual list
+of elements the emitter will carry — not from a Q-number regex applied to the
+document a second time. A second, independent walk could disagree with the first
+and would then either invent a loss or conceal one.
+```
+
+```python
+def count_elem_image_refs(elem):
+    """Count image references inside ONE already-parsed body element.
+
+    Package-level counting is corpus_io.count_image_refs (Cluster I) and MUST NOT be
+    re-implemented anywhere. This helper answers a different question: how many
+    references live inside a single lxml element the parser is holding in memory —
+    a DOM-level operation on an object corpus_io never sees, since corpus_io works on
+    packages and paths.
+
+    It matches the SAME two mechanisms as corpus_io.count_image_refs, deliberately:
+      <a:blip r:embed>    DrawingML — inline and floating (<wp:anchor>)
+      <v:imagedata r:id>  legacy VML
+    If the two ever diverged, S7-7 would report a loss that never happened, or —
+    far worse — pass a document that really had lost a figure.
+
+    elem.iter() descends into tables. doc.inline_shapes is NEVER used anywhere in
+    this spec: it sees only inline body drawings, so it cannot see anchored figures,
+    VML objects or anything inside a table cell. A count that can silently run low is
+    worse than no count at all, because it makes a broken document look verified.
+    """
+    A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+    R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    V_NS = 'urn:schemas-microsoft-com:vml'
+    n = 0
+    for blip in elem.iter(f'{{{A_NS}}}blip'):
+        if blip.get(f'{{{R_NS}}}embed'):
+            n += 1
+    for imagedata in elem.iter(f'{{{V_NS}}}imagedata'):
+        if imagedata.get(f'{{{R_NS}}}id'):
+            n += 1
+    return n
+
+
+def assert_row_file_images_readable(input_path):
+    """PRE-FLIGHT — runs on the PATH, BEFORE python-docx opens the Row file.
+
+    ORDER IS LOAD-BEARING, and this was found the hard way. If a relationship points at
+    a media part that is not in the package, python-docx raises a bare
+
+        KeyError: "There is no item named 'word/media/image1.png' in the archive"
+
+    from inside zipfile while CONSTRUCTING the Document — so any check placed after
+    Document(path) can never run, and the operator gets an opaque traceback from a
+    library instead of a sentence naming the defect and the step that owns it.
+    Checking the package first is the only position where the named diagnostic is
+    reachable.
+
+    Both faults are invisible without a check: Word renders empty space and
+    python-docx raises nothing at the point of use.
+    """
+    _, _, unresolved = corpus_io.count_image_refs(input_path)
+    if unresolved:
+        raise SystemExit(
+            "HARD STOP: the Row file references image(s) that no relationship resolves:\n  "
+            + "\n  ".join(f'{part} -> {rid}' for part, rid in unresolved[:5])
+            + "\n\nThese images cannot be re-embedded because there is nothing to point at. "
+              "This is a Step 1 (PYQ Prepare) packaging defect, not a PYQSort bug — rebuild "
+              "the Row file and re-upload. Sorting it anyway would deliver a document with "
+              "blank space where the figures belong.")
+
+    dangling = corpus_io.dangling_media_targets(input_path)
+    if dangling:
+        raise SystemExit(
+            f"HARD STOP: the Row file has {len(dangling)} relationship(s) pointing at a "
+            f"media part that does not exist in the package: {dangling[:5]}\n"
+            "python-docx cannot even open this file — it raises a bare KeyError from "
+            "zipfile. Fix in Step 1 (PYQ Prepare) and re-upload.")
+
+
+def image_census(input_path, src_doc, questions):
+    """Establish what the sorted output MUST contain, before anything is emitted.
+
+    Partitions every child of the Row file's body into exactly two buckets:
+      CARRIED      — it is some question's stem_elem or one of its body_elems, so
+                     emit_sorted() will deep-copy it into the output
+      NOT CARRIED  — everything else: content before Q.1, the date-label paragraphs
+                     the emitter rebuilds from scratch, module separators
+    Images in the second bucket are correctly not carried. Dropping them SILENTLY is
+    not correct: it would either hide a genuine loss or trip S7-7 for an entirely
+    benign reason. They are reported with their reference count and text prefix.
+    (Same discipline as the 'preamble' bucket in corpus_io.map_images_to_questions;
+    the equivalent silent drop was DEFECT L in Framework_MockTestAnalyse.)
+
+    PRECONDITION: assert_row_file_images_readable(input_path) has already passed, so
+    every reference resolves. The accounting identity below depends on it.
+    """
+    total_refs, in_parts, unresolved = corpus_io.count_image_refs(input_path)
+    body_refs, _, _ = corpus_io.count_image_refs(input_path, body_only=True)
+
+    if unresolved:                      # defence in depth — pre-flight should have caught it
+        raise SystemExit(
+            "HARD STOP: unresolved image reference(s) reached the census: "
+            f"{unresolved[:5]}\nassert_row_file_images_readable() was not run first.")
+
+    carried_ids = set()
+    for q in questions:
+        carried_ids.add(id(q['stem_elem']))
+        for elem in q['body_elems']:
+            carried_ids.add(id(elem))
+
+    NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    intended = 0
+    not_carried = []
+    for child in src_doc.element.body:
+        n = count_elem_image_refs(child)
+        if not n:
+            continue
+        if id(child) in carried_ids:
+            intended += n
+        else:
+            txt = ''.join(t.text or '' for t in child.iter(f'{{{NS}}}t')).strip()
+            not_carried.append({'refs': n, 'text': txt[:60] or '<no text>'})
+
+    accounted = intended + sum(x['refs'] for x in not_carried)
+    if accounted != body_refs:
+        raise SystemExit(
+            "HARD STOP: image accounting does not close.\n"
+            f"  body references (package) : {body_refs}\n"
+            f"  carried by the parse      : {intended}\n"
+            f"  not carried               : {accounted - intended}\n"
+            "Every image in the document body must fall into exactly one of those two "
+            "buckets. A shortfall means the parser is holding elements that are not "
+            "children of the body, or an image lives in a container this walk does not "
+            "reach — either way the expected count would be wrong and S7-7 would be "
+            "checking against a fiction. Do not proceed.")
+
+    census = {
+        'total_refs': total_refs,
+        'body_refs': body_refs,
+        'header_footer_refs': total_refs - body_refs,
+        'intended': intended,
+        'not_carried': not_carried,
+        'media_parts': len(in_parts),
+    }
+    report_image_census(census)
+    return census
+
+
+def report_image_census(census):
+    """Print the census. NEVER silent about an image that will not be carried."""
+    if not census['total_refs']:
+        return                      # text-only paper — nothing to say
+    print(f"  images: {census['body_refs']} body reference(s) across "
+          f"{census['media_parts']} media part(s) — {census['intended']} will be carried "
+          f"into the sorted output")
+    if census['header_footer_refs']:
+        print(f"  note: {census['header_footer_refs']} header/footer/footnote image(s) in "
+              "the Row file. These are page furniture, not question figures; the sorted "
+              "document is built fresh and does not carry them.")
+    for item in census['not_carried']:
+        print(f"  WARN: {item['refs']} image reference(s) NOT carried — the element belongs "
+              f"to no question: \"{item['text']}\"")
+```
+
+### S7-6 — Size governor on write (v1.12)
+
+```
+WHY STEP 3 GOVERNS SIZE. Step 3 is the first step in the pipeline to hold real
+image bytes: Step 1 emits only 300×200 red placeholder PNGs, and Step 2b works
+from text. The Sorted file it produces is uploaded to the Drive PYQ folder and is
+then FETCHED BACK by Step 4 (PYQCount) and Step 5 (PYQExtract) through a
+connector that refuses any download above 10 MiB. An ungoverned Sorted file is
+therefore the thing that blocks Steps 4 and 5 later — and it blocks them
+mid-batch, which is exactly the 2026-07-24 incident: 6 of 7 pending papers above
+the cap, discovered at batch 6 of a run.
+
+Governing here is Layer 1 PREVENTION. The upload lane in Steps 4/5 and the
+PYQCompress trigger are Layer 2 remediation for files that already exist.
+
+CONSTANTS ARE THE ENGINE'S, NOT THIS SPEC'S:
+  blueprint_core.DRIVE_CAP    10,485,760  connector refuses above this (measured)
+  blueprint_core.SIZE_BUDGET   9,437,184  governor target — 10% margin under the cap
+  blueprint_core.TIER_LADDER   T1..T4     deterministic; T4 is the floor
+Never restate a threshold in this file. One definition, every importer.
+
+FLOOR EXCEEDED IS NOT A HALT. If the ladder reaches T4 (q80 / 200 DPI at display
+size) and the file is still over budget, the file is DELIVERED with a WARN and a
+flag. Going below the floor would damage the figures, and a legitimately huge
+paper must not block its own delivery. The consequence is stated to the operator,
+not hidden: Steps 4/5 will fall back to the upload lane for that paper.
+```
+
+```python
+def write_sorted_document(out_doc, raw_out, out_file, census):
+    """Save, size-govern, and prove nothing was lost. Returns the write report.
+
+    ORDER IS LOAD-BEARING — govern FIRST, gate SECOND (S7-7). The gate has to run on
+    the bytes that are actually delivered, so that governor-induced loss is inside its
+    scope rather than outside it.
+    """
+    out_doc.save(raw_out)
+    raw_size = os.path.getsize(raw_out)
+
+    ok, report, log = corpus_io.optimize_docx(raw_out, out_file, budget=bc.SIZE_BUDGET)
+
+    if report['tier'] == 'T0':
+        # optimize_docx returns WITHOUT writing dst when the source is already under
+        # budget — nothing was re-encoded, so there is no destination file to deliver.
+        # Materialising it is the caller's job. Missing this detail is a
+        # FileNotFoundError at present_files on the ORDINARY path (most papers are
+        # already small), which is why it is spelled out rather than left to the reader.
+        shutil.copy2(raw_out, out_file)
+        parity = 'SKIP — already under budget, bytes untouched'
+    else:
+        # 17 invariants (verified by execution against corpus_io.docx_invariants, not
+        # quoted from the change plan, which says 19) including the extracted-text SHA256,
+        # the OMML equation count and per-image pixel dimensions. Byte size and "it opens
+        # in Word" are NOT evidence of correctness: a governor that quietly dropped a
+        # figure produces a smaller file that opens perfectly. allow_resample is True only
+        # for the tiers that downscale by design (T2..T4); T1 re-encodes quality only and
+        # must preserve every pixel dimension.
+        corpus_io.assert_docx_parity(
+            raw_out, out_file,
+            allow_resample=report['tier'] not in ('T0', 'T1'))
+        parity = 'PASS'
+
+    final_size = os.path.getsize(out_file)
+    print(f"  size: {raw_size:,} -> {final_size:,} bytes "
+          f"(tier {report['tier']}, budget {bc.SIZE_BUDGET:,}) — parity {parity}")
+    for base, before, after, how in log:
+        if after != before:
+            print(f"    {base}: {before:,} -> {after:,} ({how})")
+
+    over_cap = final_size > bc.DRIVE_CAP
+    over_budget = final_size > bc.SIZE_BUDGET
+
+    if over_cap:
+        print(f"  ⚠️  WARN: sorted file is {final_size:,} bytes, above the "
+              f"{bc.DRIVE_CAP:,}-byte Drive download cap. The governor reached its floor "
+              f"(tier {report['tier']}) and stopped — going lower would damage the "
+              "figures. DELIVERED ANYWAY: a legitimately large paper must not block its "
+              "own delivery.\n"
+              "      Consequence: Step 4 (PYQCount) and Step 5 (PYQExtract) cannot FETCH "
+              "this paper from Drive — corpus_io.fetch_drive_docx will raise "
+              "TransportFallback and it will be requested by chat upload instead. Nothing "
+              "is lost; that run simply takes the upload lane for this file.")
+    elif over_budget:
+        print(f"  WARN: sorted file is {final_size:,} bytes — under the "
+              f"{bc.DRIVE_CAP:,}-byte cap, so Drive fetch still works, but above the "
+              f"{bc.SIZE_BUDGET:,}-byte budget, so the 10% safety margin is gone.")
+
+    return {'raw_bytes': raw_size, 'final_bytes': final_size, 'tier': report['tier'],
+            'parity': parity, 'under_budget': not over_budget,
+            'fetchable_from_drive': not over_cap, 'floor_exceeded': not ok}
+```
+
+### S7-7 — Image survival gate (v1.12) — HARD STOP
+
+```
+DEFECT M. Modelled on Framework_PYQFormat S8-6, with the same discipline: EXACT
+input==output equality, never a tolerance. Surfaced to the operator as CHECK 10.
+
+Runs LAST, on the delivered file, AFTER the governor (S7-6) — so it covers loss
+from re-embedding, loss from the emit loop, and loss caused by the governor
+itself, in one assertion. corpus_io.assert_docx_parity already checks the
+governor's own work; per the anti-drift principle the pipeline asserts the
+end-to-end property independently rather than trusting a module's self-report.
+
+The expected value is census['intended'] from S7-5 — the images belonging to
+questions that the emitter carried. Images legitimately not carried were already
+reported by the census and are NOT folded into the expectation, so a benign drop
+can never be mistaken for survival and a real loss can never hide behind one.
+```
+
+```python
+def assert_image_survival(input_path, out_file, census):
+    """CHECK 10 — the delivered file must carry every image its questions had.
+
+    A shortfall here is the failure this spec has warned about since v1.0 and never
+    detected: the document opens cleanly, the text is complete, the question reads
+    normally — and a figure is simply gone. Downstream, Step 5 then classifies that
+    question TEXT instead of FIGURAL and the format distribution that drives Step 7
+    generation is quietly wrong. There is no later gate that would notice.
+    """
+    out_body, out_parts, unresolved = corpus_io.count_image_refs(out_file, body_only=True)
+
+    if unresolved:
+        raise SystemExit(
+            "HARD STOP — IMAGE SURVIVAL (CHECK 10 / S7-7): the sorted output has "
+            f"{len(unresolved)} image reference(s) that resolve to no relationship: "
+            f"{unresolved[:5]}\n"
+            "re_embed_images() did not re-point them. Word renders these as empty space.")
+
+    dangling = corpus_io.dangling_media_targets(out_file)
+    if dangling:
+        raise SystemExit(
+            "HARD STOP — IMAGE SURVIVAL (CHECK 10 / S7-7): the sorted output has "
+            f"{len(dangling)} relationship(s) pointing at a media part that is not in the "
+            f"package: {dangling[:5]}")
+
+    if out_body != census['intended']:
+        in_parts = corpus_io.count_image_refs(input_path, body_only=True)[1]
+
+        def _stem(p):
+            # The governor may rename a part (.png -> .jpeg) when it re-encodes, so parts
+            # are compared by name without extension. Comparing full targets would report
+            # every re-encoded image as missing.
+            return os.path.splitext(os.path.basename(p))[0]
+
+        missing = sorted({_stem(p) for p in in_parts} - {_stem(p) for p in out_parts})
+        raise SystemExit(
+            "HARD STOP — IMAGE SURVIVAL (CHECK 10 / S7-7).\n"
+            f"  expected {census['intended']} body image reference(s), found {out_body}\n"
+            + (f"  media part(s) in the Row file but absent from the output: {missing[:5]}\n"
+               if missing else "")
+            + "  Usual causes, in order of likelihood:\n"
+              "    1. an image mechanism re_embed_images() does not re-point (S7-1 handles\n"
+              "       <a:blip r:embed> and <v:imagedata r:id> — a third would need adding\n"
+              "       there AND in corpus_io.count_image_refs, never in only one)\n"
+              "    2. an element dropped from body_elems by the parser (S3-2)\n"
+              "    3. the governor lost a part — impossible without assert_docx_parity\n"
+              "       also failing, so check that it actually ran (S7-6)\n"
+              "  Do not deliver. A missing figure is invisible downstream: the question\n"
+              "  simply reads as text and Step 5 classifies it TEXT instead of FIGURAL.")
+
+    print(f"  CHECK 10 image survival: PASS "
+          f"({out_body}/{census['intended']} body image reference(s) carried)")
+    return out_body
+```
+
+---
+
+## §8 — VALIDATION (10 checks — iterate until ALL PASSED)
+
+```
+Every Sorted file must pass all 10 checks before delivery.
 session_keyword is read from exam_config.json for Check 3.
+CHECK 10 (v1.12) runs on the FINAL, size-governed file — see the §9 write path.
 
 CHECK 1 — BODY FONT & TIER SIZES
   All body runs effectively Arial 11pt (with font-inheritance and non-Latin fallback).
@@ -1258,6 +1879,22 @@ CHECK 8 — SORT ORDER
 CHECK 9 — NO METADATA LEAKAGE
   No paragraphs matching Answer:, Explanation:, Solution:, Question ID,
   Chosen Option, Correct Answer, Section:, === (module separators).
+
+CHECK 10 — IMAGE SURVIVAL (v1.12)
+  Body image references in the delivered file == census['intended'] from S7-5.
+  EXACT equality, never a tolerance — the same discipline as PYQFormat S8-6.
+  Mismatch → HARD STOP naming the missing media parts (S7-7).
+  Also HARD STOP on any unresolved rId or dangling media relationship in the
+  output: both render as empty space rather than raising anything.
+  Counting is delegated to corpus_io.count_image_refs — <a:blip r:embed> AND
+  <v:imagedata r:id>, across every story part. doc.inline_shapes is NEVER used:
+  it cannot see anchored, VML, table-cell or header images, so it under-counts
+  silently and would make a broken document look verified.
+  Runs on the FINAL file, AFTER the S7-6 governor, so governor-induced loss is
+  inside its scope. Images legitimately not carried (before Q.1, or inside a
+  date-label paragraph the emitter rebuilds) were reported by the S7-5 census
+  and are NOT folded into the expected count.
+  This is the only check that runs on the package rather than the DOM.
 ```
 
 ---
@@ -1270,17 +1907,38 @@ SINGLE SCRIPT, 4 TOOL CALLS, NO "CONTINUE":
   CALL 1 — create_file: Write complete sort_pipeline.py containing:
     1. Taxonomy dictionary (loaded from Analysis docs)
     2. CLASSIF dictionary (from pre-build classification table)
-    3. Parser (Row file → question blocks)
-    4. Sorter (8-field sort key)
-    5. Emitter (headings + questions via insert_para)
-    6. Validator (all 9 checks)
-    7. Delivery (shutil.copy2 to /mnt/user-data/outputs/)
+    3. Parser (Row file → question blocks), preceded by the S7-5 pre-flight
+    4. Image census (S7-5) — runs after the parse, before the emit
+    5. Sorter (8-field sort key)
+    6. Emitter (headings + questions via insert_para)
+    7. Write path: save → size governor (S7-6) → parity assert
+    8. Validator (all 10 checks, CHECK 10 = image survival S7-7)
+    9. Delivery (shutil.copy2 to /mnt/user-data/outputs/)
 
   CALL 2 — bash_tool: Run sort_pipeline.py
-    → Parse + classify + sort + emit + validate + deliver
+    → Parse + census + classify + sort + emit + govern + validate + deliver
 
   CALL 3 — bash_tool: Verify output
-    → Q-count, heading counts, date-label count
+    → Q-count, heading counts, date-label count, image count vs census
+
+WRITE PATH (v1.12 — ORDER IS LOAD-BEARING):
+
+  assert_row_file_images_readable(INPUT_DOC)      # S7-5 PRE-FLIGHT — before Document()
+  src_doc   = Document(INPUT_DOC)
+  questions = extract_questions(src_doc, ...)      # S3-2
+  census    = image_census(INPUT_DOC, src_doc, questions)   # S7-5, fixes the expectation
+  emit_sorted(out_doc, sorted_questions, ...)      # S6-4
+  write     = write_sorted_document(out_doc, RAW_OUT, OUT_FILE, census)  # S7-6 govern+parity
+  run CHECK 1..9 on OUT_FILE
+  assert_image_survival(INPUT_DOC, OUT_FILE, census)        # S7-7 = CHECK 10
+  shutil.copy2(OUT_FILE, FINAL_OUT)
+  present_files(FINAL_OUT)
+
+  The governor runs BEFORE validation so that every check — including CHECK 10 —
+  runs on the bytes actually delivered. Validating the pre-governor file and then
+  shipping a different one would leave the governor's own work unverified by
+  anything except its internal parity assert.
+  This adds NO tool calls: the governor is a function call inside CALL 2.
 
   CALL 4 — present_files: Deliver sorted .docx
 
@@ -1298,7 +1956,8 @@ DELIVERABLE SET CONTRACT (CLOSED):
   PRE-DELIVERY CHECK: Before calling present_files, verify:
     1. Exactly 1 file path in the argument list
     2. File is the FINAL_OUT path (/mnt/user-data/outputs/...)
-    3. All 9 validation checks PASSED on this file
+    3. All 10 validation checks PASSED on this file
+    4. FINAL_OUT is a copy of the GOVERNED file (OUT_FILE), never of RAW_OUT
 
 If script fails: fix and re-run within the 4-call budget.
 If validation fails: iterate until PASSED, then deliver.
@@ -1310,8 +1969,12 @@ MANDATORY CLASSIF CROSS-CHECK:
 
 INPUT/OUTPUT PATHS:
   INPUT_DOC  = "/mnt/user-data/uploads/<Row-filename>.docx"
-  OUT_FILE   = "/home/claude/work/<Sorted-filename>.docx"
+  RAW_OUT    = "/home/claude/work/<Sorted-filename>.raw.docx"   (v1.12 — pre-governor)
+  OUT_FILE   = "/home/claude/work/<Sorted-filename>.docx"       (governed + validated)
   FINAL_OUT  = "/mnt/user-data/outputs/<Sorted-filename>.docx"
+
+  RAW_OUT is what out_doc.save() writes and is the LEFT side of the parity assert.
+  It is a working file: never validated, never delivered, never copied to outputs.
 ```
 
 ---
@@ -1323,6 +1986,25 @@ EC-S1: ROW FILE WITH FEWER QUESTIONS THAN EXPECTED
   Some papers may have <100 questions (partial paper, missing section).
   Process whatever is present. Q-count validation targets the actual count,
   not the expected count from exam_config.
+
+EC-S1b: ROW FILE WITH MORE QUESTIONS THAN THE CURRENT PATTERN (v1.9)
+  The mirror of EC-S1, and the more dangerous direction because the surplus
+  questions have no configured home. A previous-era paper can exceed the current
+  exam_config total — e.g. a 100-question legacy paper against a 60-question
+  current pattern leaves Q.61-Q.100 outside every section range.
+  Before v1.9 get_section_by_q_range returned None for these, the None was stored
+  unguarded, and the questions silently failed every downstream taxonomy lookup:
+  a 40% data loss on that file with no operator-visible signal.
+  Resolution: they receive the OUT_OF_PATTERN sentinel (never None), are classified
+  against the FULL taxonomy rather than a single section's slice (the narrow, gated
+  exception to RULE 4 in §4 — RULE 4 presupposes a structural section exists, and
+  these have none), carry pattern_era='out_of_pattern', and are reported by
+  report_pattern_era() with their Q-range and the mix consequence.
+  This is NOT an error condition. A corpus spanning several exam patterns is the
+  normal, intended state — the variety of question types and concepts in old papers
+  is the reason they are retained. Only the SILENCE was the defect.
+  See also: Framework_PYQAnalyse EC-P9 (same case at scan time) and
+  Framework_Blueprint v1.36 §2 S2-3 (same case at allocation time).
 
 EC-S2: MODULE SEPARATOR NOT MATCHING SECTION NAME
   Marker mode: === Subject === text might not exactly match Analysis doc section name.
@@ -1396,6 +2078,51 @@ EC-S15: SINGLE-SESSION EXAMS
   parse_date_label() defaults session to 1. Sort key field 7 becomes
   a no-op tiebreak. This is correct by design — no special handling
   needed in PYQSort.
+
+EC-S16: LEGACY VML IMAGES (v1.12)
+  Older Word versions, several PDF converters, and pasted OLE / equation objects
+  emit <v:pict><v:imagedata r:id="..."> instead of DrawingML <a:blip r:embed>.
+  Before v1.12 re_embed_images() matched only the blip form, so a VML image's
+  relationship was never re-pointed and the image vanished from the output with
+  no error — exactly the failure §13 warns about. S7-1 now re-points both, and
+  S7-5/S7-7 count both, so the same class of miss is a HARD STOP rather than an
+  empty rectangle. A Row file may contain both mechanisms at once; this is normal
+  and needs no operator action.
+
+EC-S17: SORTED OUTPUT STILL OVER BUDGET AT THE LADDER FLOOR (v1.12)
+  An image-dense paper can exceed blueprint_core.SIZE_BUDGET even after the
+  governor reaches tier T4 (q80 / 200 DPI at display size). T4 is the FLOOR —
+  encoding below it damages the figures the whole pipeline exists to preserve.
+  Resolution: DELIVER + WARN + FLAG. Never HALT. The file is valid and complete;
+  it is only awkward to transport. The WARN states the consequence explicitly —
+  Steps 4/5 cannot fetch it from Drive and will request it by chat upload
+  (corpus_io.fetch_drive_docx raises TransportFallback, which is a routing signal,
+  not an error). Blocking delivery here would trade a transport inconvenience for
+  actual data loss.
+
+EC-S18: IMAGES THAT BELONG TO NO QUESTION (v1.12)
+  A Row file may carry a logo, a paper-header graphic, or an instruction figure
+  before Q.1, or an image in a header/footer part. These are page furniture, not
+  question figures, and the sorted document — built fresh — does not carry them.
+  That is correct. What is NOT acceptable is dropping them silently: it would
+  either mask a real loss or fail S7-7 for a benign reason. S7-5 partitions them
+  into the not-carried bucket and REPORTS each one with its reference count and
+  text prefix, and excludes them from census['intended'].
+  If the operator recognises a genuine question figure in that report, the fix is
+  in Step 1 (PYQ Prepare) — the image is sitting above the Q.N line that owns it.
+
+EC-S19: UNRESOLVED OR DANGLING IMAGE RELATIONSHIP IN THE ROW FILE (v1.12)
+  An rId with no matching relationship, or a relationship whose media part is not
+  in the package. Both are Step 1 packaging defects and both are invisible without
+  a check: Word renders empty space and python-docx raises nothing.
+  Resolution: HARD STOP at the S7-5 PRE-FLIGHT, on the PATH, before python-docx is
+  allowed to open the file — naming the offending part and rId and pointing at Step 1
+  as the fix location.
+  The position is not cosmetic. A missing media part makes python-docx raise a bare
+  KeyError from zipfile while CONSTRUCTING the Document, so a check placed after
+  Document(path) can never run and the operator sees a library traceback instead of a
+  sentence naming the defect. Verified by construction.
+  Sorting it anyway would deliver a document that looks complete and is not.
 ```
 
 ---
@@ -1416,12 +2143,15 @@ UNIVERSAL IN THIS SPEC (identical every exam):
   Heading format (Step 5 E-1 contract)
   Page size selection (from exam_config, default A4)
   All OOXML helpers (insert_para, make_heading_para, make_date_label_para, etc.)
-  Image re-embedding
+  Image re-embedding (DrawingML blip AND legacy VML imagedata)
+  Input image census and the not-carried report (S7-5)
+  Size governor on write + parity assert (S7-6) — thresholds from the engine
+  Image survival gate (S7-7 / CHECK 10)
   Orphan option repair (using 5-pattern is_option)
   Non-Latin script preservation
-  9-check validator (with configurable session_keyword and NAT-awareness)
+  10-check validator (with configurable session_keyword and NAT-awareness)
   4-call execution model
-  All 15 edge cases
+  All 20 edge cases (EC-S1 … EC-S19, plus EC-S1b)
 
 EXAM-SPECIFIC (loaded at runtime from project files):
   Taxonomy (from Analysis docs)
@@ -1467,21 +2197,32 @@ STEP 1 FORMAT CONTRACT (prerequisite):
 ☐ 7.  OMML rendered for all math-containing stems
 ☐ 8.  Pre-build classification table completed for all questions
 ☐ 9.  CLASSIF dictionary matches pre-build table exactly
-☐ 10. sort_pipeline.py written with all 7 components
+☐ 10. sort_pipeline.py written with all 9 components
 ☐ 11. Script executed successfully
-☐ 12. All 9 validation checks PASSED
+☐ 12. All 10 validation checks PASSED
 ☐ 13. Output Q-count == Input Q-count
 ☐ 14. All headings present in taxonomy (Check 7)
 ☐ 15. Sort order verified (Check 8)
 ☐ 16. No metadata leakage (Check 9)
-☐ 17. Sorted .docx delivered via present_files
-☐ 18. Deliverable set closed: EXACTLY 1 file in present_files call
-       (no scripts, no intermediates, no input files)
+☐ 17. S7-5 pre-flight run BEFORE Document() opened; census run BEFORE the emit,
+       and every not-carried image reported
+☐ 18. Size governor run on write; parity asserted or legitimately SKIPped (S7-6)
+☐ 19. Image survival gate PASSED on the FINAL governed file (S7-7 / Check 10)
+☐ 20. If the governor floor was exceeded: file DELIVERED, WARN shown, upload-lane
+       consequence stated to the operator — never halted (EC-S17)
+☐ 21. Sorted .docx delivered via present_files
+☐ 22. Deliverable set closed: EXACTLY 1 file in present_files call
+       (no scripts, no intermediates, no input files, no RAW_OUT)
 
 POST-DELIVERY:
   User downloads sorted .docx → uploads to Google Drive PYQ folder.
   After ALL papers sorted: run Step 4 PYQCount PYQ: <<Drive link>> to fill
   PYQ counts into Analysis docs.
+  v1.12 — if S7-6 flagged the file as above the Drive download cap, say so in the
+  handover as well as in the run output. The file still belongs in the Drive folder
+  (that is where the corpus lives and where enumeration finds it); Steps 4/5 will
+  simply request that one paper by chat upload instead of fetching it. An operator
+  who is told this once does not spend a batch run diagnosing it.
 
 POST-DELIVERY FOOTER (MANDATORY after present_files):
   Render the standardized visual delivery footer as the LAST element in the response.
@@ -1507,9 +2248,36 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
    Raw integers (12240, 15840) are DXA values, not EMU. They produce
    a corrupt document with hundreds of micro-pages.
 
-⚠️ ALWAYS re-embed images with fresh rIds
+⚠️ ALWAYS re-embed images with fresh rIds — BOTH mechanisms
    Without re_embed_images(), images silently vanish. No error, just empty
    space where the image should be.
+   v1.12: this applies to <a:blip r:embed> (DrawingML) AND <v:imagedata r:id>
+   (legacy VML). Handling only the first is what DEFECT J was: every VML image
+   produced exactly the failure this warning describes, for years, silently.
+   If a third mechanism is ever found, it must be added to S7-1 AND to
+   corpus_io.count_image_refs in the same change — never to only one, or the
+   gate will certify a document it can no longer see all of.
+
+⚠️ NEVER count images with doc.inline_shapes
+   It sees only inline body drawings. Anchored figures, VML objects, images
+   inside table cells and header/footer images are all invisible to it, so it
+   under-counts SILENTLY. A count that can run low is worse than no count at
+   all — it makes a broken document look verified. Count via
+   corpus_io.count_image_refs, which reads the package XML.
+
+⚠️ NEVER re-implement a corpus_io function in this spec
+   Image counting, extraction, mapping, the governor and the parity assert live
+   in corpus_io (Clusters I/J); the thresholds and the tier ladder live in
+   blueprint_core (Cluster H). Steps 1, 3, 4, 5 and PYQCompress all consume
+   them. A local copy produces ZERO drift signal until the two copies disagree,
+   which is precisely the failure that required MockTestAnalyse v2.27 and
+   PYQAnalyse v2.20. Call it, or write a thin forwarding adapter — nothing else.
+
+⚠️ NEVER deliver RAW_OUT, and never validate the pre-governor file
+   RAW_OUT is the left side of the parity assert and nothing else. Checks 1-10
+   run on the governed OUT_FILE, which is what FINAL_OUT is copied from. Shipping
+   bytes that were never validated is the whole class of bug S7-6/S7-7 exist to
+   close.
 
 ⚠️ NEVER set explicit LEFT alignment on headings
    Leave alignment as None (unset). Explicit LEFT adds a <w:jc> element
@@ -1535,4 +2303,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.8
+# END OF Framework_PYQSort v1.12.2
