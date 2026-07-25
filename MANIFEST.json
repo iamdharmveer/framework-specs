@@ -23,6 +23,7 @@
     "PYQApprove": [
       "Framework_PYQAnalyse.md",
       "blueprint_core.py",
+      "reconcile_taxonomy.py",
       "syllabus_provenance.py",
       "Framework_DeliveryFooter.md"
     ],
@@ -149,11 +150,11 @@
       "bytes": 400411
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "4a57509dc73b4d431ef7e2ad9e91afe9ba98c2c027fb265d09a9d8347ba6acfd",
-      "version_header": "# Framework_DeliveryFooter v1.6 \u2014 Universal Delivery Footer Contract",
+      "sha256": "8df8e79da6bae713fd2e836d978824ab834824f559825ce5fc31a406c0dbbb2d",
+      "version_header": "# Framework_DeliveryFooter v1.7 \u2014 Universal Delivery Footer Contract",
       "end_sentinel": "```",
-      "lines": 655,
-      "bytes": 33314
+      "lines": 667,
+      "bytes": 34123
     },
     "Framework_MockDeliver.md": {
       "sha256": "7e05a3713fc5cf50385b6a664d225175a194c222775e985c646829939c1a3a48",
@@ -198,11 +199,11 @@
       "bytes": 107922
     },
     "Framework_PYQAnalyse.md": {
-      "sha256": "7a512f69378678262b5bee4ffc345aadf8594d0d575a6fcd613598ff1c659823",
-      "version_header": "# Framework_PYQAnalyse v2.22.1 \u2014 Universal PYQ Analysis & Taxonomy Builder",
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.22.1",
-      "lines": 6365,
-      "bytes": 346834
+      "sha256": "14932f38a86ff82e6a83db0e58717687d92c6aa1a9f2caa8dbc95e42c1e8b149",
+      "version_header": "# Framework_PYQAnalyse v2.23 \u2014 Universal PYQ Analysis & Taxonomy Builder",
+      "end_sentinel": "# END OF Framework_PYQAnalyse v2.23",
+      "lines": 6611,
+      "bytes": 364485
     },
     "Framework_PYQCompress.md": {
       "sha256": "136b75fec7d25b1342e56f5c210ae6ec6f20034489f6a8d4e70162f9236a5ab1",
@@ -247,11 +248,11 @@
       "bytes": 140867
     },
     "Framework_PYQSort.md": {
-      "sha256": "b9d4265ee11f25456054f1f75ce078533889795a95e4049e3da54813c0772b14",
-      "version_header": "# Framework_PYQSort v1.12.2 \u2014 Universal PYQ Sorter",
-      "end_sentinel": "# END OF Framework_PYQSort v1.12.2",
-      "lines": 2306,
-      "bytes": 113525
+      "sha256": "85a82916b9d5a749f3277a56b7da2c62c6548f5692ad9623e021aa326aec434f",
+      "version_header": "# Framework_PYQSort v1.13 \u2014 Universal PYQ Sorter",
+      "end_sentinel": "# END OF Framework_PYQSort v1.13",
+      "lines": 2374,
+      "bytes": 117513
     },
     "Framework_ScopedBlueprint.md": {
       "sha256": "2a2d9b3ededcfcbcc798f96a9d9dc647a043b232afeca4d0a43469a119d71fa8",
@@ -261,11 +262,11 @@
       "bytes": 82494
     },
     "validate_framework_md.py": {
-      "sha256": "5ef95b53a642e7b143d58a1c8b7d6bd643a2ce1a1cea0a04da6cbf236b525c7f",
+      "sha256": "505cef6226afb8c9572ab0479572fef4d628d5c4656e3bef49b2363ce5296a14",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 1255,
-      "bytes": 74206
+      "lines": 1434,
+      "bytes": 83945
     },
     "explain_audit_gate.py": {
       "sha256": "b92522cb379fa6fc2249b3de18c8b4c344966881249d88070b5c2ee0e20d8e1e",
@@ -303,11 +304,11 @@
       "bytes": 67109
     },
     "reconcile_taxonomy.py": {
-      "sha256": "1443121ac2a2a91f0fdeae8879daaa004affd41f53d377a657a4f643ecf4b2a3",
+      "sha256": "1604f1ceac3a550055dca70a2dfa7fed497a3b2a08482dd589be2fd7c7cd0fb2",
       "version_header": "\"\"\"",
-      "end_sentinel": "    }",
-      "lines": 439,
-      "bytes": 21867
+      "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
+      "lines": 1075,
+      "bytes": 57662
     },
     "syllabus_provenance.py": {
       "sha256": "f5bb1df6b0de7f66d824ef32c5d55bc22a0b4615691d6a0a53000666b84cd28d",

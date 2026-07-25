@@ -1,5 +1,55 @@
-# Framework_PYQAnalyse v2.22.1 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.23 — Universal PYQ Analysis & Taxonomy Builder
 #
+# v2.23 — 2026-07-25 — S4-0 CHECK-COMPLETENESS ARCHITECTURE (GAP-2026-07-25-001).
+#         reconcile() returned from INSIDE C4's style-aware branch, so C5 (near-duplicate),
+#         C6 (over-aggregation) and C7 (anchoring) never ran for ANY exam carrying a
+#         syllabus_style record — i.e. every PYQDraft >= v2.17 exam, which is the default
+#         path, not an edge case. The record then reported CLEAN with an empty anchoring
+#         block and AUTO-LOCKED the taxonomy. A missing finding is worse than a crash: it
+#         is indistinguishable from a passing check.
+#         (1) TIER 0 table: C7 DOCUMENTED for the first time (its four classes were emitted
+#             by the engine and REQUIRED by the S4-4 gate template while appearing in no
+#             spec at all); C4's two mutually exclusive forms and their real thresholds
+#             stated; list declared EXHAUSTIVE, CLOSED and INDEPENDENT; single-exit engine
+#             contract stated.
+#         (2) INV-7 CHECK_COMPLETENESS, INV-8 CHECK_MEASURED, INV-9 NO_DERIVATION_AT_S4_0
+#             added. INV-8 exists because execution attestation alone is NOT sufficient —
+#             C4 matched subjects with raw `==` while every other comparison normalized, so
+#             a subject differing only in case or spacing passed C1 and then silently zeroed
+#             C4's measurement domain. The check "ran" and measured nothing.
+#         (3) INV-9: ADD_SECTION / ADD_SUBTOPIC (safe defaults for SUBJECT_MISSING and
+#             ITEM_UNMAPPED — the data-loss class) were never materialised AND never held
+#             the run, so a syllabus subject could be dropped while the taxonomy auto-locked
+#             CLEAN_ADJUDICATED. They now HOLD for PYQDraft re-derivation.
+#         (4) EXECUTION block: verdicts, final_taxonomy and quarantined_paths DEFINED; the
+#             missing MATERIALISE step specified; ROUTING directive added.
+#         (5) R1 mode B: check list corrected to C3 + C5 + INV-5. C4 is provenance-DEPENDENT
+#             (both forms divide by a syllabus-derived base), so with no provenance the
+#             divisor collapses to 1 and every DEGRADED run would be falsely HELD.
+#             locked_taxonomy is now REQUIRED.
+#         (6) C6 made SCALE-RELATIVE (items-per-topic density). The absolute rule encoded one
+#             exam's scale and false-fired on legitimately small exams; because its safe
+#             default is RE_DERIVE, a false fire is a hard block.
+#         (7) S4-4 Branch A: ratio line is now FORM-AWARE; checks executed/skipped printed.
+#         (8) S4-1 SUBJECT ORDERING: alphabetical fallback replaced by taxonomy order —
+#             sections[] are OTS labels (S2-2a SECTION != SUBJECT), so the intersection is
+#             empty for every non-marker_mode exam and the "rare" fallback was the norm.
+#         (9) §12 Phase 0c: "EXACTLY 2 files" -> 3; stale benchmark-count line replaced;
+#             INV-7/8/9 gate items added.
+#        (11) INV-10 RESOLVABLE_TARGET added. materialise() matched destructive verdicts
+#             against the finding's `item`, which is a path only for PATH_EXTRA — and
+#             PATH_EXTRA is resolved at Tier 1 and never reaches a destructive verdict.
+#             Every destructively-adjudicable class carries a description, subject name or
+#             raw syllabus text, so DROP/SUPPRESS/MERGE_INTO removed nothing while the
+#             record asserted the path was dropped. The taxonomy was never harmed; the
+#             RECORD lied. Unresolvable destructive actions now block and HOLD.
+#        (10) S4-4 Branch A: PRIOR DECISIONS line added. INV-6 replay was already
+#             recorded in the JSON (prior_record_attested, engine_version) but printed
+#             nowhere, so a verdict reused from an older engine was invisible to the
+#             operator, whose only interface to a run is the gate text. Same shape as
+#             the write-only approval_record this release closes at PYQSort S1-0.
+#         Enforced statically by validate_framework_md.py Checks AC (aggregator single-exit),
+#         AD (emitted finding-class documented) and AE (normalization conformance).
 # v2.22.1 — 2026-07-25 — PRE-SCAN GATE Q_PATTERNS CORRECTED. The inline copy in the Step 2b
 #         confirmation gate listed five patterns "from Step 5 E-2" and was used to COUNT
 #         questions per file. Counting a normalised Row file with the bare-number pattern counts
@@ -4201,7 +4251,14 @@ EXECUTION
   Run AFTER the Analysis doc is generated (S4-1/S4-2), BEFORE the gate (S4-4).
 
     from reconcile_taxonomy import (reconcile, apply_tier1, adjudicate,
-                                    conservation_check, build_approval_record)
+                                    materialise, conservation_check,
+                                    build_approval_record, CheckLedger,
+                                    EXPECTED_CHECKS)
+
+    # mode: "FULL" for R1 modes A and C, "DEGRADED" for R1 mode B.
+    ledger = CheckLedger()      # INV-7/INV-8 attestation sink — MANDATORY.
+                                # Omitting it does not produce a lenient run; it
+                                # produces a HELD one. That is deliberate.
 
     findings          = reconcile(syllabus_items, scan_taxonomy, classifications,
                                   exam_config, syllabus_subjects=syllabus_subjects,
@@ -4209,13 +4266,51 @@ EXECUTION
                                   unanchorable_subjects=unanchorable_subjects,
                                   declared_deviations=declared_deviations,
                                   name_canonicalizations=name_canonicalizations,
-                                  syllabus_style=syllabus_style)
+                                  syllabus_style=syllabus_style,
+                                  mode=mode, locked_taxonomy=locked_taxonomy,
+                                  ledger=ledger)
+
     resolved, escalated = apply_tier1(findings)
+
+    # verdicts: {finding_id: {action, confidence, syllabus_present,
+    #                         syllabus_quote, rationale}} — authored by the STEP
+    #   for Tier 2 findings ONLY, from the syllabus text. An absent verdict is
+    #   LEGITIMATE and NOT an error: enforce_invariants() applies the class's
+    #   SAFE_DEFAULT. Passing {} is the correct, data-preserving baseline. The
+    #   operator is NEVER consulted — Tier 2 is not routed to a human.
     adjudications     = adjudicate(escalated, verdicts, prior_record)
+
+    # MATERIALISE — the ONLY step permitted to change the taxonomy, and it may
+    # apply ONLY adjudicated actions. Start from scan_taxonomy:
+    #   RETAIN / RETAIN_BOTH / NOTE  -> keep (no mutation)
+    #   QUARANTINE                   -> path STAYS LIVE in the taxonomy (D2,
+    #                                   v2.17: a review flag, not a deletion)
+    #                                   and its path string joins quarantined_paths
+    #   DROP / SUPPRESS / MERGE_INTO -> remove the path (reachable only when every
+    #                                   hard invariant permitted it). The target MUST
+    #                                   resolve to a live taxonomy path; if it does
+    #                                   not, the action is returned in `blocked` and
+    #                                   the run is HELD (INV-10). It is never applied
+    #                                   partially and never silently skipped.
+    #   RE_DERIVE                    -> no mutation; the run is HELD
+    #   ADD_SECTION / ADD_SUBTOPIC   -> no mutation; returned in `blocked`, which
+    #                                   HOLDS the run (INV-9). S4-0 must not
+    #                                   invent taxonomy structure.
+    # With no Tier 2 actions, final_taxonomy is scan_taxonomy unchanged.
+    final_taxonomy, quarantined_paths, blocked = materialise(
+                                  scan_taxonomy, resolved, adjudications)
+
     conservation      = conservation_check(classifications, final_taxonomy,
                                            quarantined_paths)
     record            = build_approval_record(exam_code, findings, resolved,
-                                              adjudications, conservation)
+                                              adjudications, conservation,
+                                              mode=mode, ledger=ledger,
+                                              blocked=blocked,
+                                              prior_record=prior_record)
+
+ROUTING: routes.json MUST route reconcile_taxonomy.py to PYQApprove. NOT OPTIONAL.
+         S4-0 cannot execute without it, and an unrouted mandatory engine is the
+         same silent failure class as an unrouted spec. Enforced by Check AA.
 
 INPUTS
   syllabus_subjects  taxonomy_draft.json['syllabus_subjects']   (S2-4, v2.17)
@@ -4259,14 +4354,28 @@ Determine mode BEFORE running S4-0:
   B) LEGACY EXAM — [ExamCode]_PYQ_Analysis.docx already exists AND no
      [ExamCode]_approval_record.json. Taxonomy is LOCKED under v2.16 rules.
      -> DEGRADED MODE. Do NOT hard stop. Do NOT re-derive. Do NOT auto-lock.
-        Run ONLY the checks that need no provenance record:
-          C3 PATH_EXTRA (vs the locked Analysis doc taxonomy)
-          C4 ratio, C5 near-duplicate, INV-5 conservation
-        Emit approval_record.json with mode="DEGRADED" and the checks that
-        were SKIPPED explicitly named (C1, C2, C6 — cannot run without
-        provenance). Then fall through to the v2.16 human gate text.
-        A degraded record MUST NOT report status CLEAN — CLEAN asserts a
-        full reconciliation that did not occur. Use status="DEGRADED".
+        Call reconcile(..., mode="DEGRADED", locked_taxonomy=<taxonomy parsed
+        from the locked Analysis doc>).
+
+        locked_taxonomy is REQUIRED. Without it C3 has no reference and reports
+        EVERY taxonomy path as PATH_EXTRA. reconcile() raises ValueError rather
+        than run a check against an absent reference.
+
+        RUNS  : C3 (scan taxonomy vs the LOCKED doc taxonomy), C5, INV-5.
+        SKIPS : C1, C2, C6, C7 — all require the S2-3e provenance record.
+                C4 — ALSO provenance-dependent, contrary to the pre-v2.23
+                wording that listed it as runnable here. BOTH C4 forms divide by
+                a syllabus-derived base (entries / atomic concepts / item count).
+                With no provenance the divisor collapses to max(0,1) = 1 and
+                "ratio" degenerates to the raw subtopic count, so every real
+                exam trips RATIO_HARDSTOP and every DEGRADED run would be
+                falsely HELD. A check guaranteed to fire is not a check.
+
+        Emit approval_record.json with mode="DEGRADED", status="DEGRADED", and
+        checks.declared_skipped = [C1, C2, C4, C6, C7]. Then fall through to the
+        v2.16 human gate text. A degraded record MUST NOT report status CLEAN —
+        CLEAN asserts a full reconciliation that did not occur. A DEGRADED run
+        can never reach S4-4 Branch A and never auto-locks.
 
   C) RE-RUN — [ExamCode]_approval_record.json exists.
      -> FULL MODE with INV-6 replay of all stored verdicts.
@@ -4285,10 +4394,54 @@ TIER 0 — DETERMINISTIC RECONCILIATION (no judgment, no human)
   C2 ITEM_UNMAPPED      syllabus item with empty mapped_paths          -> Tier 2
                         (the data-loss class — MPPSC Botany defect)
   C3 PATH_EXTRA         taxonomy path claimed by no syllabus item      -> Tier 1
-  C4 RATIO_WARN  >= 2.0x  informational                                -> Tier 0
-     RATIO_HARDSTOP >= 3.0x                                            -> Tier 2
+                        (DEGRADED mode: path absent from the LOCKED doc)
+  C4 RATIO_WARN / RATIO_HARDSTOP — taxonomy inflation. TWO MUTUALLY
+     EXCLUSIVE FORMS; exactly one runs per FULL-mode call:
+       STYLE_AWARE (default whenever syllabus_style is present and
+         syllabus_provenance is importable) — measured PER SUBJECT:
+           ENUMERATED  2.0x warn / 3.0x hard stop   (basis = entries)
+           PROSE       0.85x warn / 1.0x hard stop  (basis = atomic concepts)
+         Subjects are matched to taxonomy sections via normalize_label().
+       LEGACY (only when no usable syllabus_style) — whole corpus,
+         subtopics / syllabus items, 2.0x warn / 3.0x hard stop.
+     The form actually used is RECORDED in approval_record.checks.c4_form,
+     and approval_record.thresholds reports the thresholds ACTUALLY applied.
+     RATIO_WARN -> Tier 0 (informational). RATIO_HARDSTOP -> Tier 2.
   C5 NEAR_DUPLICATE     >75% name similarity within the same Topic     -> Tier 2
-  C6 TOPIC_OVER_AGGREGATION  <=4 topics for >=10 syllabus items        -> Tier 2
+  C6 TOPIC_OVER_AGGREGATION  syllabus crushed into too few topics      -> Tier 2
+     Measured as DENSITY, not as absolute counts: fires when a subject has
+     >= 10 syllabus items AND >= 5.0 items per topic. The pre-v1.1 absolute
+     rule ("<=4 topics AND >=10 items") encoded ONE exam's scale and false-
+     fired on legitimately small exams — 1 subject / 3 topics / 12 items was
+     held as over-aggregated. Because the safe default for this class is
+     RE_DERIVE, a false fire is a HARD BLOCK, so the measure must be
+     scale-free across a fleet of ~200 exams of differing syllabus sizes.
+     S2-3 states the target shape — "the syllabus items ARE the Topics" —
+     so items-per-topic is the direct measure of departure from it.
+  C7 ANCHORING COVERAGE (informational, Tier 0 — never blocks):
+       UNANCHORABLE_SUBJECT  subject whose syllabus supplied no grouping
+       DECLARED_DEVIATION    item that deliberately left its syllabus group
+       ANCHOR_MAP_UNUSED     group_topic_map supplied but never applied
+       NAME_CANONICALIZED    destination spelling snapped to the taxonomy (§7)
+     C7 is what makes the S4-4 Branch A anchoring lines producible. Without
+     it the gate prints zeros for state the S2-4 record explicitly declares.
+
+  THIS LIST IS EXHAUSTIVE AND CLOSED. The checks are INDEPENDENT: no check may
+  be skipped, short-circuited, or made conditional as a side effect of the
+  branch another check takes. C4 choosing between its two forms MUST NOT
+  affect C1, C2, C3, C5, C6 or C7. In FULL mode all seven run on every call.
+  The engine records which ones completed AND the size of the measurement
+  domain each one actually iterated over; build_approval_record() HOLDS the
+  run when it cannot prove completion (INV-7) or when a check ran over an
+  empty domain despite non-empty inputs (INV-8).
+
+    ENGINE CONTRACT — SINGLE EXIT. reconcile() returns in exactly one place.
+    An early return inside any check's branch is a SPEC VIOLATION.
+    GAP-2026-07-25-001: a `return` inside C4's style-aware branch silently
+    disabled C5, C6 and C7 for every v2.17+ exam and produced a CLEAN record
+    that auto-locked the taxonomy. Mutual exclusion between two forms of one
+    check is expressed as if/else, never as function termination.
+    Enforced statically by validate_framework_md.py Check AC.
 
   All comparison is via normalize_label(): NFKC, unicode-dash folding,
   '&'->'and', punctuation strip, whitespace collapse, casefold. This prevents
@@ -4331,6 +4484,59 @@ TIER 2 — EVIDENCE-BOUND ADJUDICATION (never routed to the operator)
     INV-6 REPLAY_DETERMINISM           a finding already adjudicated in
                                        approval_record.json is REPLAYED verbatim,
                                        never re-decided
+
+  THREE ATTESTATION INVARIANTS (v2.23 — GAP-2026-07-25-001). The six above
+  constrain what a verdict may DO. These constrain what a RECORD may CLAIM:
+
+    INV-7 CHECK_COMPLETENESS   a status other than HELD asserts that every check
+                               expected for the run's mode executed. reconcile()
+                               records completions; build_approval_record()
+                               rewrites the status to HELD and NAMES the missing
+                               check IDs when it cannot prove completion.
+                               "Did not run" and "ran and found nothing" must
+                               never be representable by the same record.
+                               FAIL-SAFE: a caller that passes no attestation
+                               sink gets every check marked missing -> HELD.
+                               Unknown is never CLEAN.
+
+    INV-8 CHECK_MEASURED       execution alone is not proof. A check that ran
+                               over an EMPTY measurement domain while its inputs
+                               were NON-EMPTY is VACUOUS, and a vacuous check is
+                               indistinguishable from a passing one in its
+                               output — so it must be indistinguishable from a
+                               FAILING one in its status. Each check attests the
+                               size of the domain it iterated over. Vacuous ->
+                               HELD, naming the check.
+                               (The class this closes: C4's style-aware form
+                               matched subjects with raw `==` while every other
+                               comparison normalized, so a subject differing only
+                               in case or spacing passed C1 and then silently
+                               zeroed C4. The check "ran". It measured nothing.)
+                               Enforced statically by Check AE.
+
+    INV-9 NO_DERIVATION_AT_S4_0  S4-0 RECONCILES; it must never DERIVE. The safe
+                               defaults ADD_SECTION (SUBJECT_MISSING) and
+                               ADD_SUBTOPIC (ITEM_UNMAPPED) would require S4-0 to
+                               INVENT taxonomy structure. They are therefore
+                               UNMATERIALISABLE: materialise() records them and
+                               the run is HELD for PYQDraft re-derivation.
+                               Pre-v1.1 they were neither applied nor held, so a
+                               syllabus subject and an unmapped item could both be
+                               dropped while the taxonomy auto-locked CLEAN_ADJUDICATED
+                               — silent data loss in the exact class C2 exists to catch.
+
+    INV-10 RESOLVABLE_TARGET   a destructive verdict (DROP / SUPPRESS / MERGE_INTO)
+                               must name a LIVE taxonomy path. If materialise()
+                               cannot resolve it to one, the action is BLOCKED and
+                               the run is HELD — never silently discarded.
+                               The taxonomy is unharmed by a no-op removal, but the
+                               RECORD would assert a removal that never happened,
+                               and a record that misstates what occurred is the same
+                               failure class as a check that never ran.
+                               (Only PATH_EXTRA carries a path as its `item`, and
+                               PATH_EXTRA is resolved at Tier 1 and never reaches a
+                               destructive verdict — so every destructively-adjudicable
+                               class needs this guard, not a hypothetical few.)
 
   INV-6 is the determinism guarantee. Finding IDs are content fingerprints
   (sha256 of class + normalized identity), so the same finding yields the same
@@ -4409,10 +4615,19 @@ PAGE BREAKS. Internal format per subject matches the IFAS reference:
   NOTE: All PYQ Count values are "—" (em-dash) at this stage.
         Phase B (--counts) fills them with actual numbers.
 
-SUBJECT ORDERING: subjects appear in the order defined by the exam pattern's
-  section list (exam_config.sections[]). If the taxonomy has subjects not in
-  the exam pattern (rare), they appear after all patterned sections in
-  alphabetical order.
+SUBJECT ORDERING (v2.23 — corrected):
+  1. If any taxonomy subject name matches an exam_config.sections[].name
+     (marker_mode exams, where section labels ARE subject names), those
+     subjects lead, in section order.
+  2. ALL remaining subjects follow in TAXONOMY ORDER — the key order of
+     scan_progress.json['taxonomy'], which preserves the syllabus's own
+     order as recorded at S2-1.
+  Alphabetical ordering is NOT used.
+  Rationale: S2-2a's SECTION != SUBJECT rule defines sections[].name as an OTS
+  display label, not a subject. For every non-marker_mode exam the intersection
+  in step 1 is therefore EMPTY, so the pre-v2.23 "rare" alphabetical fallback
+  was in fact the normal path for almost the whole fleet — discarding the
+  syllabus order that S2-1 went to the trouble of preserving.
 ```
 
 ### S4-2 — Analysis doc generation script
@@ -4479,8 +4694,33 @@ Print:
      Syllabus subjects   : [K] / [K] present as sections
      Syllabus items      : [N] / [N] mapped to taxonomy paths
      Scan-discovered     : [R] retained (PYQ-evidenced), [Q] quarantined (<3 PYQs)
-     Taxonomy ratio      : [S]/[N] = [ratio]x   (limit [RATIO_HARDSTOP]x)
+     Taxonomy ratio      : printed in the form the run ACTUALLY used —
+                             STYLE_AWARE -> one line per subject:
+                               [Subject]: [S] subtopics / [basis] = [ratio]x
+                               (limit [warn]x warn / [stop]x stop, [STYLE])
+                             LEGACY -> [S]/[N] = [ratio]x (limit [RATIO_HARDSTOP]x)
+                           Read the form and the limits from
+                           approval_record.thresholds — never assume 2.0/3.0.
+                           A style-aware run judges PROSE subjects at 0.85/1.0,
+                           and printing a whole-corpus ratio for a per-subject
+                           run reports a number the verdict was not derived from.
      Near-duplicates     : [D] pair(s)
+     Checks executed     : [C1..C7 list]   (C4 form: [STYLE_AWARE|LEGACY])
+     Checks skipped      : [none | list, with the reason]
+     Prior decisions     : [none | [N] replayed verbatim from the existing
+                           approval_record (INV-6), recorded by [engine_version]]
+                           SAY SO ON THIS LINE when prior_record_attested is
+                           false, or when the recording engine differs from the
+                           one that just ran — e.g.
+                             "2 replayed (recorded by reconcile_taxonomy.py v1.1)"
+                             "1 replayed (PRIOR RECORD UNATTESTED — pre-1.1 schema)"
+                           Reuse is CORRECT: INV-6 exists so two sessions cannot
+                           reach different verdicts on the same finding. But reuse
+                           must be VISIBLE. The record carries this state already;
+                           a flag that lives only in the JSON is read by nobody,
+                           because the gate text is the operator's only interface
+                           to what a run actually did. Stating it here is what
+                           makes an old decision reviewable instead of invisible.
      Question conservation: [T] classified, 0 orphaned
      Topic anchoring     : [P] subject(s) anchored, [U] unanchorable (flat syllabus)
      Declared deviations : [V] recorded
@@ -6304,8 +6544,14 @@ Phase 0c:
   ☐ Format matches IFAS reference (tables, headings, footer)
   ☐ All names .strip()-ed (no trailing whitespace)
   ☐ exam_config.json included in delivery
-  ☐ Approval gate message printed with benchmark count
-  ☐ Deliverable set closed: EXACTLY 2 files delivered (S10-1 --approve)
+  ☐ S4-4 verdict printed from a COMPLETED S4-0 record (Branch A / B / C)
+  ☐ Deliverable set closed: EXACTLY 3 files delivered (S10-1 --approve)
+  ☐ S4-0 ran BEFORE S4-4 and its approval_record.json exists
+  ☐ approval_record.checks.missing is empty  (INV-7)
+  ☐ approval_record.checks.vacuous is empty  (INV-8)
+  ☐ approval_record.unmaterialisable is empty (INV-9 / INV-10)
+  ☐ approval_record.mode matches the R1 mode actually taken
+  ☐ Every C7 anchoring line in the gate matches taxonomy_draft.json
   ☐ Pre-delivery checklist (S10-2) passed
   ☐ No unauthorized files in present_files call
 
@@ -6362,4 +6608,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.22.1
+# END OF Framework_PYQAnalyse v2.23

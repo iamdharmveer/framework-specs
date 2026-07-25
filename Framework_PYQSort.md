@@ -1,4 +1,4 @@
-# Framework_PYQSort v1.12.2 — Universal PYQ Sorter
+# Framework_PYQSort v1.13 — Universal PYQ Sorter
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
 #
 # PURPOSE:
@@ -84,6 +84,14 @@
 #   to Step 1 as the fix location — not a PYQSort bug.
 #
 # VERSION HISTORY:
+#   v1.13 — 2026-07-25 — S1-0 TAXONOMY LOCK VERIFICATION added (GAP-2026-07-25-001,
+#          Layer 4). approval_record.json was produced at Step 2c and read by NOTHING —
+#          the string did not appear in this spec or in any other downstream spec. A lock
+#          nothing verifies is a receipt, and it is why a silent S4-0 check-skip could
+#          travel five steps undetected. PYQSort now HARD STOPS when the record is absent,
+#          when status is not CLEAN/CLEAN_ADJUDICATED, or when the record cannot prove its
+#          checks ran (pre-1.1 schema, or non-empty checks.missing / checks.vacuous /
+#          unmaterialisable). Re-running PYQApprove is RECONCILIATION, never re-derivation.
 #   v1.12.2 — 2026-07-25 — Q_PATTERNS TABLE RECONCILED WITH THE ENGINE. The local table listed
 #           five patterns while the delegated bc.detect_question_start implements two, and the
 #           audit_deep TABLE-PARITY check this spec cited as its guarantee could not see the
@@ -311,6 +319,66 @@
 ---
 
 ## §1 — SESSION START
+
+### S1-0 — TAXONOMY LOCK VERIFICATION (v1.13 — MANDATORY, runs FIRST)
+
+```
+PYQSort and everything after it (PYQCount -> PYQExtract -> MockBlueprint ->
+MockCreate) are built on ONE assumption: the taxonomy is LOCKED and the lock was
+EARNED. That assumption was never verified anywhere.
+
+Before v1.13, [ExamCode]_approval_record.json was produced at Step 2c, uploaded to
+project Files, and then read by NOTHING. The string "approval_record" did not appear
+in this spec, in Framework_Blueprint.md, in Framework_PYQDeliver.md, or in
+Framework_DeliveryFooter.md. A lock that nothing verifies is not a lock — it is a
+receipt. GAP-2026-07-25-001 travelled from Step 2c through five downstream steps
+with zero detection points precisely because no such point existed.
+
+  approval = glob('*_approval_record.json') in project Files
+
+  HARD STOP — "no record" (the lock was never established):
+    If no approval_record.json is present:
+      "Taxonomy lock not verified — [ExamCode]_approval_record.json is missing
+       from project Files.
+       PYQSort classifies every question against a taxonomy that Step 2c is
+       responsible for reconciling and locking. Without that record there is no
+       evidence the reconciliation ran at all.
+       NEXT ACTION: run PYQApprove and upload all 3 deliverables."
+      DO NOT sort. DO NOT proceed on the Analysis doc alone — the doc shows what
+      the taxonomy IS, never whether it was checked.
+
+  HARD STOP — "status" (the lock was refused):
+    If record['status'] not in ('CLEAN', 'CLEAN_ADJUDICATED'):
+      HELD     -> a construction defect was found and the taxonomy was NOT locked.
+      DEGRADED -> a mode-B run; it never locks and never reaches Branch A.
+      "Taxonomy is not locked — approval_record status is [status].
+       NEXT ACTION: resolve the S4-0 findings, then re-run PYQApprove."
+
+  HARD STOP — "unattested" (the lock cannot be shown to have been earned):
+    If record.get('schema_version') is absent or < '1.1'
+       OR record['checks']['missing'] is non-empty      (INV-7)
+       OR record['checks']['vacuous'] is non-empty      (INV-8)
+       OR record.get('unmaterialisable')                (INV-9):
+      "Taxonomy lock cannot be verified — the approval record does not prove its
+       checks ran.
+         schema        : [schema_version or 'pre-1.1 (no attestation)']
+         missing       : [checks.missing]
+         vacuous       : [checks.vacuous]
+         unmaterialisable: [unmaterialisable]
+       A pre-1.1 record proves nothing about which checks executed: under the
+       engine that produced it, C5/C6/C7 could be skipped entirely and the record
+       would still read CLEAN.
+       NEXT ACTION: re-run PYQApprove with reconcile_taxonomy.py >= v1.1. This is
+       RECONCILIATION, not re-derivation — it reads taxonomy_draft.json and writes
+       only approval_record.json, and CANNOT change a locked taxonomy.
+       Do NOT re-run PYQDraft."
+
+  PROCEED only when: record exists, status is CLEAN or CLEAN_ADJUDICATED, schema
+  >= 1.1, and missing / vacuous / unmaterialisable are all empty.
+
+  Print one line on success, so the verification is visible rather than assumed:
+    "Taxonomy lock verified: [status], checks C1-C7 executed, engine [engine_version]."
+```
 
 ### S1-1 — Trigger parsing
 
@@ -2303,4 +2371,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.12.2
+# END OF Framework_PYQSort v1.13

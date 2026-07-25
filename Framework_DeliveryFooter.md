@@ -1,4 +1,4 @@
-# Framework_DeliveryFooter v1.6 — Universal Delivery Footer Contract
+# Framework_DeliveryFooter v1.7 — Universal Delivery Footer Contract
 # MockTestFramework | Cross-step | Exam-agnostic
 #
 # PURPOSE:
@@ -88,6 +88,11 @@
 #              (per PYQAnalyse handoff: "KEEP LOCALLY").
 #          (9) §5: added session-break edge case (F1 variant for forced context-limit breaks).
 #          (10) §6 reference table: synced with §3 fixes.
+#   v1.7 — 2026-07-25 — Step 2c registry: [ExamCode]_approval_record.json ADDED.
+#          Mandated by PYQAnalyse S4-3/S10-1 since v2.17 and required at PYQSort entry
+#          since v2.23, but absent from this registry — the word "approval_record"
+#          did not appear anywhere in this spec. A deliverable missing from the
+#          delivery contract is a deliverable that eventually stops being delivered.
 #   v1.0 — 2026-07-07 — Initial release. Two footer types defined.
 #          Per-step deliverable registry with action badges.
 #          Decision logic for mid-step vs step-complete.
@@ -300,6 +305,13 @@ FOOTER TYPE: F2 (step-complete) — always
 DELIVERABLES:
   [ExamCode]_PYQ_Analysis.docx       → Upload to Project Files
   [ExamCode]_exam_config.json        → Replace in Project Files
+  [ExamCode]_approval_record.json    → Upload to Project Files
+
+  approval_record.json is NOT a report — it is the taxonomy LOCK and a
+  load-bearing artifact. Later PYQApprove runs replay its verdicts (INV-6),
+  and PYQSort refuses to run without it (Framework_PYQSort S0-0). Omitting it
+  from this registry is what allowed it to go undelivered from PYQAnalyse
+  v2.17 to v2.22.1.
 
 NEXT STEP  : Step 3: PYQSort
 

@@ -101,7 +101,7 @@ Usage:
   python3 validate_framework_md.py <file.md>
   python3 validate_framework_md.py /mnt/project/*.md   (batch mode — enables Check T)
 """
-import re, ast, sys, os
+import re, ast, sys, os, glob
 from collections import Counter
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -929,6 +929,159 @@ def check_ab_thin_core_purity(directory):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# CHECK AC — AGGREGATOR SINGLE-EXIT           (GAP-2026-07-25-001, D-1)
+# ═══════════════════════════════════════════════════════════════════════
+# A function that accumulates into ONE local list and returns it is an
+# AGGREGATOR. A `return` positioned after accumulation has begun silently
+# discards every later accumulation on that path. This is not a style rule:
+# reconcile() v1.0 expressed "don't also run the other form of C4" as `return`,
+# which terminated the function and disabled three unrelated checks (C5, C6, C7)
+# for every current-generation exam, producing a CLEAN record that auto-locked
+# the taxonomy.
+#
+# A name-presence check CANNOT catch this — every finding-class literal was
+# present in the engine. The code was unreachable. So this check targets
+# REACHABILITY, not vocabulary.
+#
+# Guard clauses that precede ALL accumulation are the correct idiom and are
+# immune (e.g. `if not os.path.exists(p): return issues`).
+def check_ac_aggregator_single_exit(directory):
+    issues = []
+    for path in sorted(glob.glob(os.path.join(directory, '*.py'))):
+        mod = os.path.basename(path)
+        try:
+            tree = ast.parse(open(path, encoding='utf-8').read())
+        except (SyntaxError, OSError) as exc:
+            issues.append((mod, 'could not be parsed: %s' % exc))
+            continue
+        for fn in [n for n in ast.walk(tree)
+                   if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+            acc = {}
+            for n in ast.walk(fn):
+                if (isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+                        and n.func.attr in ('append', 'extend')
+                        and isinstance(n.func.value, ast.Name)):
+                    acc.setdefault(n.func.value.id, []).append(n.lineno)
+            rets = [n for n in ast.walk(fn) if isinstance(n, ast.Return)]
+            for name, lines in acc.items():
+                if len(lines) < 3:
+                    continue
+                if not any(isinstance(r.value, ast.Name) and r.value.id == name
+                           for r in rets):
+                    continue
+                first, last = min(lines), max(lines)
+                early = sorted(r.lineno for r in rets if first < r.lineno < last)
+                if early:
+                    issues.append((mod,
+                        '%s() @L%d accumulates into %r at %d sites (last @L%d) but '
+                        'returns early at L%s — every accumulation after that line is '
+                        'unreachable on that path. If the intent was to skip a sibling '
+                        'branch, use if/else; a function that aggregates must have a '
+                        'SINGLE EXIT.' % (fn.name, fn.lineno, name, len(lines), last, early)))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AD — EMITTED FINDING-CLASS IS DOCUMENTED        (D-6)
+# ═══════════════════════════════════════════════════════════════════════
+# An engine may not emit a finding class that no spec documents. C7's four
+# classes (UNANCHORABLE_SUBJECT, DECLARED_DEVIATION, ANCHOR_MAP_UNUSED,
+# NAME_CANONICALIZED) appeared in no spec at all, while the S4-4 gate template
+# REQUIRED four lines built from them. An undocumented check is one no reader
+# can notice is missing — a direct contributor to D-1's invisibility.
+def check_ad_emitted_class_documented(directory):
+    issues = []
+    specs = {}
+    for p in sorted(glob.glob(os.path.join(directory, 'Framework_*.md'))):
+        try:
+            specs[os.path.basename(p)] = open(p, encoding='utf-8').read()
+        except OSError:
+            pass
+    if not specs:
+        return issues
+    for path in sorted(glob.glob(os.path.join(directory, '*.py'))):
+        mod = os.path.basename(path)
+        try:
+            tree = ast.parse(open(path, encoding='utf-8').read())
+        except (SyntaxError, OSError):
+            continue
+        emitted = set()
+        for n in ast.walk(tree):
+            if isinstance(n, ast.Dict):
+                for k, v in zip(n.keys, n.values):
+                    if (isinstance(k, ast.Constant) and k.value == 'class'
+                            and isinstance(v, ast.Constant)
+                            and isinstance(v.value, str) and v.value.isupper()):
+                        emitted.add(v.value)
+        for cls in sorted(emitted):
+            if not any(cls in text for text in specs.values()):
+                issues.append((mod,
+                    'emits finding class %r which appears in NO Framework_*.md. '
+                    'A check the specs do not document is a check no reader can '
+                    'notice is missing.' % cls))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AE — NORMALIZATION CONFORMANCE                  (N-1)
+# ═══════════════════════════════════════════════════════════════════════
+# A module that defines normalize_label() has declared that names are compared
+# in canonical form. A raw `==` between a subscripted value and a loop/local
+# variable in such a module is a latent silent no-op: the two sides are usually
+# sourced from DIFFERENT pipeline stages (syllabus vs scan), and a difference of
+# case, spacing or dash form makes the comparison never match — zeroing the
+# check's measurement domain while the check still reports "ran".
+#
+# Calibration: comparisons against an ALL_CAPS module constant (version and
+# schema identity, which must be exact) and comparisons inside self-test
+# functions are excluded — both were measured false positives.
+def check_ae_normalization_conformance(directory):
+    issues = []
+    for path in sorted(glob.glob(os.path.join(directory, '*.py'))):
+        mod = os.path.basename(path)
+        try:
+            src = open(path, encoding='utf-8').read()
+        except OSError:
+            continue
+        if 'def normalize_label' not in src:
+            continue
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            continue
+        skip = set()
+        for fn in [n for n in ast.walk(tree)
+                   if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]:
+            if fn.name.startswith('_self_test') or fn.name.startswith('test'):
+                for n in ast.walk(fn):
+                    skip.add(id(n))
+        for n in ast.walk(tree):
+            if id(n) in skip:
+                continue
+            if not (isinstance(n, ast.Compare) and len(n.ops) == 1
+                    and isinstance(n.ops[0], (ast.Eq, ast.NotEq))):
+                continue
+            seg = ast.get_source_segment(src, n) or ''
+            if 'normalize_label' in seg:
+                continue
+            pair = (n.left, n.comparators[0])
+            for a, b in (pair, pair[::-1]):
+                if isinstance(a, ast.Subscript) and isinstance(b, ast.Name):
+                    if b.id.isupper():
+                        continue        # module constant — exact by design
+                    issues.append((mod,
+                        'line %d: raw equality `%s` in a module that defines '
+                        'normalize_label(). If these operands come from different '
+                        'pipeline stages, cosmetic variance makes this silently '
+                        'never match and the surrounding check measures nothing. '
+                        'Compare normalize_label() forms, or add an explicit '
+                        'comment stating why byte-identity is required.'
+                        % (n.lineno, seg)))
+                    break
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # CHECK T — CROSS-FILE TOKEN CONTRACT (batch-level; needs 2+ files)
 # ═══════════════════════════════════════════════════════════════════════
 # Registry of known producer functions and the literal on-disk marker tokens they emit.
@@ -1246,6 +1399,32 @@ if __name__ == '__main__':
             else:
                 print('RESULT: ✅ 0 ISSUES — thin core imports only the standard library '
                       'and performs no file I/O.')
+
+        _py = glob.glob(os.path.join(_d, '*.py'))
+        if _py:
+            for _code, _label, _fn, _clean in (
+                ('AC', 'AGGREGATOR SINGLE-EXIT',
+                 check_ac_aggregator_single_exit,
+                 'every aggregator has a single exit.'),
+                ('AD', 'EMITTED FINDING-CLASS DOCUMENTED',
+                 check_ad_emitted_class_documented,
+                 'every emitted finding class is documented in a spec.'),
+                ('AE', 'NORMALIZATION CONFORMANCE',
+                 check_ae_normalization_conformance,
+                 'all name comparisons go through normalize_label().'),
+            ):
+                _iss = _fn(_d)
+                print(f'\n{"="*60}')
+                print(f'CORPUS CHECK {_code}: {_label} ({len(_py)} .py file(s))')
+                print('-'*60)
+                if _iss:
+                    for who, msg in _iss:
+                        print(f'  [{_code}] {who}: {msg}')
+                    total += len(_iss)
+                    print('-'*60)
+                    print(f'RESULT: ❌ {len(_iss)} issue(s) found.')
+                else:
+                    print(f'RESULT: ✅ 0 ISSUES — {_clean}')
 
     print(f'\n{"="*60}')
     if total == 0:
