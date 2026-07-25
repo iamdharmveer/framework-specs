@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.07.25
+- NEW audit_sync.py — cross-step synchronisation auditor (engine-API, trigger/route/SKILL
+  parity, version xrefs, filename chain, blueprint.json schema). Untracked dev tool.
+- PYQAnalyse v2.16 -> v2.22.1 + 3 NEW engines: corpus_io.py (Drive acquisition / image
+  integrity / size governor), reconcile_taxonomy.py (S4-0), syllabus_provenance.py (S2-3e);
+  blueprint_core.py +Clusters F-J (pattern-era, taxonomy parse, acquisition, image-gate,
+  size governor; self-test 57 -> 164). Tracked set 21 -> 24.
+- Corpus-transport migration wave: NEW spec PYQCompress v1.0 (Layer-2 doc size remediation;
+  new trigger, tracked set -> 25); Blueprint v1.35 -> v1.38, MockTestAnalyse v2.24.10 ->
+  v2.29.1, MockTestExplainAudit -> v1.16.1, PYQPrepare -> v1.9.1, PYQSort -> v1.12.2,
+  PYQExplain -> v1.1, PYQExplainAudit -> v1.1.1, PYQFormat -> v1.4.1, PYQDeliver -> v1.5.1
+  (delegate engine-owned functions to blueprint_core/corpus_io; remove local copies).
+  validate_framework_md.py +5 checks (V-DRIVEGUARD/W-ENUMSIZE/X-DURABILITY/Y-IMGGATE/
+  Z-DELEGATION). NEW audit_deep.py (deep drift/delegation/table-parity auditor).
+- PYQCompress v1.0 -> v1.1 + corpus_io v1.0.1 -> v1.0.3 (v1.0.2 media-stem-collision fix
+  [silent figure loss]; v1.0.3 optimize_docx always= param). Shipped as an atomic pair.
+
 ## 2026.07.23.1
 - blueprint_core.py +Cluster E — score_difficulty / determine_strip_mode /
   map_difficulty_level, the canonical shared difficulty scorer for Step 5 and PYQ-4.
