@@ -1,4 +1,4 @@
-# Framework_PYQAnalyse v2.28 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.29 — Universal PYQ Analysis & Taxonomy Builder
 #
 # MINIMUM COMPANION VERSIONS (v2.28):
 #   corpus_io.py          >= v1.4   — load_taxonomy() IS Task 2.5's loader and gate;
@@ -18,6 +18,14 @@
 #                           and is_taxonomy_heading(para, is_option, next_text).
 #                           S5-2 PASSES next_text; on an older engine that raises
 #                           TypeError rather than silently miscounting.
+#
+# v2.29 — 2026-07-26 — is_option DELEGATED (audit_deep [XSPEC-DRIFT]).
+#   This file defined its own is_option() with a docstring claiming alignment with
+#   Step 5. No executable call site was found for it here, so the copy could not
+#   misbehave — but it was drift bait, and it went stale the moment MockTestAnalyse
+#   v2.34/v2.35 added the image-option path. Delegated to corpus_io >= v1.6 rather
+#   than deleted, so a future call site in this spec inherits the correct predicate
+#   instead of silently reintroducing the text-only one.
 #
 # v2.28 — 2026-07-26 — GAP-2026-07-26-001: A MULTI-PARAGRAPH STEM IS NOT A HEADING.
 #          PYQSort EC-S8 defines a stem continuation as "bold + not-date + not-option
@@ -5258,17 +5266,15 @@ parse_taxonomy_level = bc.parse_taxonomy_level
 # Capture groups are present for parity; is_option() only checks match/no-match.
 # The (.+) suffix is critical: it requires actual option text after the label,
 # preventing bare labels like "1. " from being treated as options.
-OPT_PATTERNS = [
-    r'^([1-5])\.\s+(.+)',           # 1. 2. 3. 4. 5.  (up to 5 options)
-    r'^([A-Ea-e])\.\s+(.+)',        # A. B. C. D. E.
-    r'^\(([1-5])\)\s+(.+)',         # (1) (2) (3) (4) (5)
-    r'^\(([A-Ea-e])\)\s+(.+)',      # (A) (B) (C) (D) (E) / (a)(b)(c)(d)(e)
-    r'^([A-Ea-e])\)\s+(.+)',        # A) B) C) D) E) / a) b) c) d) e)
-]
-
-def is_option(text):
-    """Aligned with Step 5's is_option() — same patterns."""
-    return any(re.match(p, text.strip()) for p in OPT_PATTERNS)
+# ── OPTION PREDICATE — DELEGATED (v2.29, audit_deep [XSPEC-DRIFT]) ────────────
+# This file defined its own is_option() with a docstring claiming alignment with
+# Step 5. No executable call site was found for it here, so the copy was pure drift
+# bait: it could not misbehave, but it WOULD have gone stale unnoticed — and did,
+# the moment MockTestAnalyse v2.34/v2.35 added the image-option path.
+# Delegated rather than deleted so that any future call site in this spec inherits
+# the correct behaviour instead of silently reintroducing the text-only predicate.
+OPT_PATTERNS = corpus_io.OPT_PATTERNS
+is_option    = corpus_io.is_option
 
 # v2.20 — DELEGATED TO THE ENGINE (same drift class as parse_taxonomy_level above).
 # The local copy excluded questions with its own regex r'^Q\.?\s*\d+' while Step 5 used the
@@ -6979,4 +6985,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.28
+# END OF Framework_PYQAnalyse v2.29

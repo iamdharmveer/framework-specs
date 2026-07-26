@@ -1,4 +1,4 @@
-# Framework_PYQSort v1.16 — Universal PYQ Sorter
+# Framework_PYQSort v1.17 — Universal PYQ Sorter
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS (v1.14):
@@ -104,6 +104,19 @@
 #   to Step 1 as the fix location — not a PYQSort bug.
 #
 # VERSION HISTORY:
+#   v1.17 — 2026-07-26 — is_option DELEGATED; IMAGE OPTIONS NO LONGER UNDERCOUNTED
+#            (audit_deep [XSPEC-DRIFT]). This file carried its own is_option() whose
+#            docstring claimed "Aligned with Step 5's is_option() — same 5 patterns."
+#            MockTestAnalyse v2.34/v2.35 added the image-option path and this copy was
+#            left behind, so the claim became false and the same defect stayed live
+#            HERE. It was not cosmetic: _count_options_in_body() and the option
+#            re-indent pass both use the predicate, so an IMAGE OPTION — a bare "1."
+#            whose content is a picture — was neither counted nor indented. Measured
+#            on IIT_JAM_BIOTECHNOLOGY 2022: 156 options counted against 160 actual.
+#            corpus_io >= v1.6 now owns OPT_PATTERNS / BARE_OPT_PATTERNS /
+#            para_has_image / is_option; this spec delegates. BOTH call sites now pass
+#            the paragraph element — delegating without passing it compiles cleanly
+#            and keeps the undercount, which is the trap in this fix.
 #   v1.16 — 2026-07-26 — THE TAXONOMY IS LOADED ONCE, FROM JSON WHERE AVAILABLE.
 #          reconcile_taxonomy >= v1.3 records the approved taxonomy inside
 #          approval_record.json — a file the platform stores byte-for-byte — beside
@@ -851,17 +864,17 @@ def parse_date_label(text, date_label_re):
 # Option detection — ALIGNED WITH Step 5 E-3 / PYQAnalyse (MUST stay in sync)
 # The (.+) suffix requires actual option text after the label, preventing bare
 # labels like "1. " from being treated as options.
-OPT_PATTERNS = [
-    r'^([1-5])\.\s+(.+)',           # 1. 2. 3. 4. 5.  (up to 5 options)
-    r'^([A-Ea-e])\.\s+(.+)',        # A. B. C. D. E.
-    r'^\(([1-5])\)\s+(.+)',         # (1) (2) (3) (4) (5)
-    r'^\(([A-Ea-e])\)\s+(.+)',      # (A) (B) (C) (D) (E) / (a)(b)(c)(d)(e)
-    r'^([A-Ea-e])\)\s+(.+)',        # A) B) C) D) E) / a) b) c) d) e)
-]
-
-def is_option(text):
-    """Aligned with Step 5's is_option() — same 5 patterns."""
-    return any(re.match(p, text.strip()) for p in OPT_PATTERNS)
+# ── OPTION PREDICATE — DELEGATED (v1.17, audit_deep [XSPEC-DRIFT]) ────────────
+# This file previously defined its own is_option() with the docstring "Aligned with
+# Step 5's is_option() — same 5 patterns." That claim became FALSE when
+# MockTestAnalyse v2.34/v2.35 added the image-option path, and the consequence was
+# real here: _count_options_in_body() and the option re-indent pass both use this
+# predicate, so an image option ("1." with a picture and no text) was NOT COUNTED and
+# NOT INDENTED. Measured on IIT_JAM_BIOTECHNOLOGY 2022: 156 counted vs 160 actual.
+# corpus_io >= v1.6 owns the single definition. Both call sites below pass the
+# paragraph element — delegating WITHOUT passing it compiles but keeps the undercount.
+OPT_PATTERNS = corpus_io.OPT_PATTERNS
+is_option    = corpus_io.is_option
 ```
 
 ### S3-2 — Full extraction algorithm
@@ -1028,7 +1041,8 @@ def _count_options_in_body(body_elems):
         if tag != 'p':
             continue
         text = ''.join(t.text for t in elem.iter(f'{{{NS}}}t') if t.text)
-        if is_option(text.strip()):
+        # elem is passed so an IMAGE OPTION (bare "1." + picture) is counted.
+        if is_option(text.strip(), elem):
             count += 1
     return count
 ```
@@ -1630,7 +1644,7 @@ def repair_orphan_options(body_elems):
     At emit time: if an option paragraph has no indent, force Pt(18) left indent.
     Accepts 4 forms: (a) Pt(18) indent, (b) table cell, (c) inline drawing,
     (d) OMML formula.
-    Uses is_option() (5-pattern, aligned with Step 5) for detection.
+    Uses corpus_io.is_option() — THE shared predicate. Image options included.
     """
     NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
     for elem in body_elems:
@@ -1638,7 +1652,8 @@ def repair_orphan_options(body_elems):
         if tag != 'p':
             continue
         text = ''.join(t.text for t in elem.iter(f'{{{NS}}}t') if t.text)
-        if not is_option(text.strip()):
+        # elem is passed so an IMAGE OPTION is indented like any other option.
+        if not is_option(text.strip(), elem):
             continue
         # Check if already indented
         pPr = elem.find(f'{{{NS}}}pPr')
@@ -2056,7 +2071,7 @@ CHECK 4 — OPTIONS INDENTED (NAT-aware)
   For NAT questions (has_options=False):
     0 option paragraphs expected — exempted from this check.
   mcq_count = total Q-count − nat_count.
-  Uses is_option() with all 5 OPT_PATTERNS for detection.
+  Uses corpus_io.is_option() — THE shared predicate. Image options included.
   Accept: (a) Pt(18) indent, (b) table cell, (c) inline drawing, (d) OMML formula.
 
 CHECK 5 — SEQUENTIAL NUMBERING
@@ -2563,4 +2578,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.16
+# END OF Framework_PYQSort v1.17

@@ -174,11 +174,11 @@
       "bytes": 96160
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "dedc296877b65daecc5432490a3805c6155e5f2847e3e45c4e589a52c8221d5a",
-      "version_header": "# Framework_MockTestAnalyse v2.33 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.33",
-      "lines": 8616,
-      "bytes": 481527
+      "sha256": "7663ed1c1680838b963ba3967ba8c33a8fb8a2bbb7423442f7e147e5065bd794",
+      "version_header": "# Framework_MockTestAnalyse v2.36 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.36",
+      "lines": 8747,
+      "bytes": 493252
     },
     "Framework_MockTestCreate.md": {
       "sha256": "06f09c9586a7ab65e55bd3348fea84a98564901a0bd1607c79bbffb7e56e163c",
@@ -209,11 +209,11 @@
       "bytes": 107922
     },
     "Framework_PYQAnalyse.md": {
-      "sha256": "c2d4242c05be413c53b521e8dc224b207d13620f8bdc32aecd3794398b3d180b",
-      "version_header": "# Framework_PYQAnalyse v2.28 \u2014 Universal PYQ Analysis & Taxonomy Builder",
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.28",
-      "lines": 6982,
-      "bytes": 390836
+      "sha256": "225dfe2ce6c6acc5c201eabe12d2468ff8df758db0fd8f77a648d353b5c00dcb",
+      "version_header": "# Framework_PYQAnalyse v2.29 \u2014 Universal PYQ Analysis & Taxonomy Builder",
+      "end_sentinel": "# END OF Framework_PYQAnalyse v2.29",
+      "lines": 6988,
+      "bytes": 391559
     },
     "Framework_PYQCompress.md": {
       "sha256": "136b75fec7d25b1342e56f5c210ae6ec6f20034489f6a8d4e70162f9236a5ab1",
@@ -251,18 +251,18 @@
       "bytes": 88432
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "78c930e2d7550cd1a91c896393be79661117892806e07e78133c13449fe03a56",
-      "version_header": "# Framework_PYQPrepare v1.9.1 \u2014 Universal PYQ Row File Generator",
-      "end_sentinel": "# END OF Framework_PYQPrepare v1.9.1",
-      "lines": 3087,
-      "bytes": 140867
+      "sha256": "203253f443f1e8e6edc416bb1c6202408d3cd972017d46e8893730b26c3153a6",
+      "version_header": "# Framework_PYQPrepare v1.10 \u2014 Universal PYQ Row File Generator",
+      "end_sentinel": "# END OF Framework_PYQPrepare v1.10",
+      "lines": 3120,
+      "bytes": 143324
     },
     "Framework_PYQSort.md": {
-      "sha256": "72a4c991edeb6615cd2fb6242b2cec7347e88a9a89eceebabe15b6b923a43344",
-      "version_header": "# Framework_PYQSort v1.16 \u2014 Universal PYQ Sorter",
-      "end_sentinel": "# END OF Framework_PYQSort v1.16",
-      "lines": 2566,
-      "bytes": 133021
+      "sha256": "902b570c9c731cb8453192e4a31f538f9adeda0870945a393e0610059fcd14f9",
+      "version_header": "# Framework_PYQSort v1.17 \u2014 Universal PYQ Sorter",
+      "end_sentinel": "# END OF Framework_PYQSort v1.17",
+      "lines": 2581,
+      "bytes": 134655
     },
     "Framework_ScopedBlueprint.md": {
       "sha256": "2a2d9b3ededcfcbcc798f96a9d9dc647a043b232afeca4d0a43469a119d71fa8",
@@ -293,11 +293,11 @@
       "bytes": 105810
     },
     "blueprint_core.py": {
-      "sha256": "04356100f72254a6d2c26bc7270f76b4a343b3ecf34b38d04bc46bcb81ce206c",
+      "sha256": "55bcb13354c3e3112a7fb14bfda36a1791a9fa09b17e99f5ff8b2bcec2e303ad",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 2384,
-      "bytes": 127767
+      "lines": 2433,
+      "bytes": 129919
     },
     "paper_pipeline.py": {
       "sha256": "04ee4dc4565c33149d97bc23898d1798df730c425f4f8806d07a26d58605f126",
@@ -307,11 +307,11 @@
       "bytes": 19154
     },
     "corpus_io.py": {
-      "sha256": "dcdc97268d846c610f3d652699e9267ac4d75ef74ef864ebf1e6e35c200c178a",
+      "sha256": "ce447f8d1d2d3655e67bb1be9c61106c51a0277a22f9287a26a76b6a56133569",
       "version_header": "\"\"\"",
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 3157,
-      "bytes": 160355
+      "lines": 3322,
+      "bytes": 168290
     },
     "reconcile_taxonomy.py": {
       "sha256": "474d654ffb98c19c3e587cba48d9c64cafa471d6e0fc2af1e6f02a9a8aee0530",

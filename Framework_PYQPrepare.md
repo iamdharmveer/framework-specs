@@ -1,4 +1,4 @@
-# Framework_PYQPrepare v1.9.1 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v1.10 — Universal PYQ Row File Generator
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:
@@ -86,6 +86,21 @@
 #   GATE, NEET, UPSC, CAT, Banking, RRB, state PSC, or any exam.
 #
 # VERSION HISTORY:
+#   v1.10 — 2026-07-26 — IMG-6 PROBE PROTOCOL HARDENED (GAP-2026-07-26-002 PART A).
+#            The v1.6 protocol was single-attempt, single-token, and required no record
+#            of what was read, while corpus_io.score_vision_probe() returned False for an
+#            empty string — so "I did not look" was indistinguishable from a genuinely
+#            blind session and produced a false, session-terminating halt in Step 5 on
+#            its first production use. Now: 3 attempts, 3 DISTINCT tokens, and the
+#            observation is MANDATORY (score_vision_probe RAISES ProbeObservationMissing
+#            on an empty read, which is retried, never scored as a failure). Adds the
+#            self-check that a legible file which rendered is evidence FOR working
+#            vision, never against it — the inverted inference that caused the incident.
+#            Step 1 STILL STOPS on a genuine 3-attempt failure, unlike Step 5 which now
+#            records vision_unavailable and continues: Step 1 DELIVERS a Row file that
+#            every downstream step consumes, and a placeholder baked in under a blind
+#            probe is permanent. The halt here protects the ARTEFACT, not the session.
+#            Requires corpus_io.py with ProbeObservationMissing.
 #   v1.9.1 — 2026-07-25 — Q_PATTERNS RENAMED SOURCE_Q_PATTERNS. Step 1 parses RAW dumps, where
 #           "Question 1:", bare "1." and "(1)" are genuine numbering — so the five-entry table
 #           is CORRECT here and wrong everywhere downstream. Naming it SOURCE_* (as
@@ -796,18 +811,36 @@ Vision can degrade MID-SESSION as context grows. Demonstrated: a freshly
 generated control PNG failed to render in a session where real figures had
 rendered correctly earlier. The files were never the problem.
 
-HOW:
-  path, token = corpus_io.make_vision_probe('/home/claude/pyq_probe')
-  # view(path)  -> read the 8-character token back from the image
-  probe_passed = corpus_io.score_vision_probe(<what Claude read>, token)
+HOW (v1.10 — 3 attempts, 3 distinct tokens, observation MANDATORY):
 
-The token is random and appears NOWHERE in text, so it cannot be inferred from
-context. It can only be obtained by actually seeing the image.
+  probe_passed = run_img6_probe(read_probe)      # see Framework_MockTestAnalyse S3-1c
+
+  where read_probe(path) -> str returns, VERBATIM, the characters read from the
+  image. Each attempt mints a FRESH random token appearing NOWHERE in text, so it
+  can only be obtained by actually seeing the image; three independent 8-character
+  tokens cannot be guessed (~2e-37).
+
+  An EMPTY return means "I did not look", NOT "I could not read it".
+  corpus_io.score_vision_probe() RAISES ProbeObservationMissing for that case
+  instead of returning False. It is retried, never counted as a failure.
+
+MANDATORY SELF-CHECK BEFORE REPORTING A FAILED READ:
+  * Did a picture appear at all? If it rendered and the characters were simply
+    not attended to, that is NOT a probe failure. Look again.
+  * If a pixel/variance check shows the file contains legible glyphs, that is
+    evidence FOR working vision, NEVER against it. A legible file that rendered
+    is exactly what a WORKING vision path looks like. This inversion caused a
+    false production halt (GAP-2026-07-26-002 PART A). Do not repeat it.
 
 ON PASS — proceed to Phase A-IMAGE. Behaviour is exactly as v1.6 specified.
           Nothing below changes when vision is working.
 
-ON FAIL — this is a SESSION fault, not an image fault:
+ON FAIL (all 3 attempts, each with a recorded observation) — this is a SESSION
+fault, not an image fault. Step 1 DOES still stop here, unlike Step 5: Step 5
+records vision_unavailable and continues because it only reads patterns, whereas
+Step 1 DELIVERS a Row file that every downstream step consumes, and a placeholder
+baked in under a blind probe is permanent. The rule below protects the ARTEFACT,
+not the session.
   1. Do NOT classify any image.
   2. Do NOT assign a red placeholder to anything. Assigning one under a failed
      probe is a HARD BUG, ranking with the "unclassified image" hard bug below.
@@ -3084,4 +3117,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v1.9.1
+# END OF Framework_PYQPrepare v1.10

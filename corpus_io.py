@@ -1,6 +1,48 @@
 """
-corpus_io.py v1.4 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.6 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance and the Analysis doc.
+
+v1.6 — 2026-07-26 — is_option() BECOMES THE SINGLE SHARED OPTION PREDICATE
+    (audit_deep [XSPEC-DRIFT]).
+
+    It was defined three times — MockTestAnalyse, PYQSort, PYQAnalyse — each claiming
+    in its docstring to be aligned with the others. v2.34/v2.35 gave Step 5 the
+    image-option path; the siblings kept the text-only form and the alignment claim
+    silently became false.
+
+    Not cosmetic: PYQSort USES its copy to count options (_count_options_in_body), so
+    for an image option ("1." with a picture, no text) the predicate returned False
+    and the option was UNDERCOUNTED — the identical defect class the wave had just
+    fixed in Step 5, left live in Step 1.
+
+    OPT_PATTERNS, BARE_OPT_PATTERNS, para_has_image(), is_option() and
+    clean_option_text() now live here; all three specs delegate. para_has_image()
+    accepts a python-docx Paragraph OR a raw <w:p> element, because Step 5 passes the
+    first and Steps 1/3 pass the second — a delegation that assumed one form would
+    silently reinstate the undercount on the other.
+
+v1.5 — 2026-07-26 — score_vision_probe() REFUSES TO SCORE A NON-OBSERVATION
+    (GAP-2026-07-26-002 PART A).
+
+    It returned False for an empty string, collapsing two categorically different
+    states into one session-terminating value:
+
+        ''  / None / whitespace  ->  "I did not look"           -> procedural error
+        'ABC12345' (wrong)       ->  "I looked, could not read" -> session verdict
+
+    Returning False for the first made a careless non-observation indistinguishable
+    from a genuinely blind session. IMG-6 then halted a production Step-5 run at
+    batch 1 having processed nothing, on a probe image that had rendered correctly
+    and was legible — the token was recovered from it on review.
+
+    Now raises ProbeObservationMissing (new, a CorpusError subclass) for the empty
+    case. A scorer can only compare an observation that exists; it is not an oracle
+    for whether one was made. Callers retry rather than treating it as a failure.
+
+    BREAKING for any caller that relied on False-on-empty. Verified: there were no
+    executable callers — every reference was in spec prose — so nothing else moved.
+    Framework_MockTestAnalyse >= v2.34 and Framework_PYQPrepare >= v1.10 depend on
+    this behaviour; an older engine silently re-opens the false-halt path.
 
 v1.4 — 2026-07-26 — THE TAXONOMY COMES FROM JSON, NOT FROM A WORD DOCUMENT.
     GAP-2026-07-25-003, resolved at the cause rather than at the symptom.
@@ -266,6 +308,16 @@ class VisionUnavailable(CorpusError):
     NOT the same as an unreadable image and must never be recorded as one. An unreadable
     image is a property of the IMAGE; this is a property of the SESSION. The remedy is a
     fresh session, not a downgraded classification.
+    """
+
+
+class ProbeObservationMissing(CorpusError):
+    """A probe was scored without an observation being supplied.
+
+    NOT a probe failure. It means the image was not read. The two states must never
+    collapse: 'I did not look' is a procedural error, 'I looked and could not read it'
+    is a session verdict. Returning False for the first laundered a careless
+    non-observation into a user-facing halt (GAP-2026-07-26-002 PART A).
     """
 
 
@@ -883,10 +935,111 @@ def make_vision_probe(outdir, token=None):
 
 
 def score_vision_probe(reported, token):
-    """Compare what the caller read back against the true token. Case/space tolerant."""
-    if not reported:
-        return False
+    """Compare what the caller read back against the true token. Case/space tolerant.
+
+    Raises ProbeObservationMissing when `reported` is empty. A scorer can only compare
+    an observation that exists; it is not an oracle for whether one was made.
+
+    GAP-2026-07-26-002 PART A. This previously returned False for an empty string,
+    collapsing two categorically different states into one session-terminating value:
+      ''  / None / whitespace -> "I did not look"            -> procedural error
+      'ABC12345' (wrong)      -> "I looked, could not read"  -> session verdict
+    Returning False for the first made a careless non-observation indistinguishable
+    from a genuine blind session, and cost a production run.
+    """
+    if reported is None or not str(reported).strip():
+        raise ProbeObservationMissing(
+            "score_vision_probe() received no observation, so no verdict can be "
+            "derived. This is NOT a probe failure — it means the image was not read. "
+            "Look at the probe image again and record the characters you see. If the "
+            "image renders at all, vision is working.")
     return re.sub(r'\s+', '', str(reported)).upper().endswith(str(token).upper())
+
+
+# ── SHARED OPTION PREDICATE (Cluster I) ─────────────────────────────────────────
+# GAP-2026-07-26-002 follow-up, audit_deep [XSPEC-DRIFT]. is_option() was defined
+# THREE times — Framework_MockTestAnalyse (Step 5), Framework_PYQSort (Step 1) and
+# Framework_PYQAnalyse (Step 4) — each carrying a docstring claiming alignment with
+# the others. Step 5 then gained the image-option path and the other two did not,
+# so the alignment claim became false and the SAME defect the wave fixed in Step 5
+# stayed live in Step 1: PYQSort counts options with this predicate, so an image
+# option was silently UNDERCOUNTED.
+#
+# One definition here; all three steps delegate. Drift is now impossible by
+# construction rather than by comment.
+
+OPT_PATTERNS = [
+    r'^([1-5])\.\s+(.+)',           # 1. 2. 3. 4. 5.  (up to 5 options)
+    r'^([A-Ea-e])\.\s+(.+)',        # A. B. C. D. E.
+    r'^\(([1-5])\)\s+(.+)',         # (1) (2) (3) (4) (5)
+    r'^\(([A-Ea-e])\)\s+(.+)',      # (A) (B) (C) (D) (E) / (a)(b)(c)(d)(e)
+    r'^([A-Ea-e])\)\s+(.+)',        # A) B) C) D) E) / a) b) c) d) e)
+]
+
+# A marker with NO text after it. Every OPT_PATTERNS entry requires \s+(.+), so an
+# IMAGE OPTION — the paragraph is literally "1." and the picture follows — matched
+# none of them.
+BARE_OPT_PATTERNS = [
+    r'^\(?([1-5])\)?\.?\s*$',       # 1.  1)  (1)  1
+    r'^\(?([A-Ea-e])\)?\.?\s*$',    # A.  A)  (A)  A
+]
+
+BLIP_TAG          = f'{{{A_NS}}}blip'
+VML_IMAGEDATA_TAG = f'{{{V_NS}}}imagedata'
+
+
+def para_has_image(para):
+    """True when this paragraph carries an embedded image (DrawingML blip or VML).
+
+    Accepts EITHER form the corpus actually passes:
+      * a python-docx Paragraph  — Step 5 walks doc.paragraphs and has `._p`
+      * a raw <w:p> lxml element — Steps 1/3 walk body_elems and ARE the element
+
+    That difference is not cosmetic. A delegation that assumed one form would raise
+    AttributeError on the other, or — worse — silently return False and reinstate the
+    exact undercount this function exists to prevent.
+    """
+    if para is None:
+        return False
+    el = getattr(para, '_p', para)          # Paragraph -> element; element -> itself
+    it = getattr(el, 'iter', None)
+    if it is None:
+        return False
+    for e in it():
+        if getattr(e, 'tag', None) in (BLIP_TAG, VML_IMAGEDATA_TAG):
+            return True
+    return False
+
+
+def is_option(text, para=None):
+    """THE option-line predicate. Every step delegates to this; nobody re-implements it.
+
+    Pass `para` wherever the paragraph is available so an image-only option is
+    recognised. Without it the behaviour is byte-identical to the historic text-only
+    predicate, so delegating is safe even at a call site that has no paragraph — but
+    a call site that HAS one and does not pass it keeps the undercount.
+    """
+    t = (text or '').strip()
+    if any(re.match(p, t) for p in OPT_PATTERNS):
+        return True
+    if para is not None and para_has_image(para):
+        return any(re.match(p, t) for p in BARE_OPT_PATTERNS)
+    return False
+
+
+def clean_option_text(text):
+    """Option text with its marker stripped. '' for a bare marker — the option content
+    IS the image, and an all-empty option set is what resolves option_format to
+    'image_only' downstream."""
+    t = (text or '').strip()
+    for p in OPT_PATTERNS:
+        m = re.match(p, t)
+        if m:
+            return m.group(2).strip()
+    for p in BARE_OPT_PATTERNS:
+        if re.match(p, t):
+            return ''
+    return t
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3049,8 +3202,20 @@ def self_test():
     check('io_probe_scores_prefixed', score_vision_probe('PROBE ABC12345', 'ABC12345'))
     check('io_probe_lowercase', score_vision_probe('probe abc12345', 'ABC12345'))
     check('io_probe_rejects_wrong', not score_vision_probe('ZZZZZZZZ', 'ABC12345'))
-    check('io_probe_rejects_empty', not score_vision_probe('', 'ABC12345'))
-    check('io_probe_rejects_none', not score_vision_probe(None, 'ABC12345'))
+    # GAP-2026-07-26-002 PART A: a non-observation is NOT a probe failure. Scoring one
+    # must RAISE, never return False — returning False is what laundered "I did not
+    # look" into a session-terminating verdict.
+    def _raises(v):
+        try:
+            score_vision_probe(v, 'ABC12345')
+            return False
+        except ProbeObservationMissing:
+            return True
+    check('io_probe_empty_raises', _raises(''))
+    check('io_probe_none_raises', _raises(None))
+    check('io_probe_whitespace_raises', _raises('   '))
+    check('io_probe_wrong_still_returns_false',
+          not score_vision_probe('ZZZZZZZZ', 'ABC12345'))
 
     # ── figural cross-check ──────────────────────────────────────────────────
     mp = {1: ['i1.png'], 5: ['i2.png'], PREAMBLE: ['i0.png']}

@@ -1,5 +1,14 @@
-# Framework_MockTestAnalyse v2.33 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.36 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
+#
+# MINIMUM COMPANION VERSIONS (v2.34):
+#   corpus_io.py          — MUST carry ProbeObservationMissing and the
+#                           score_vision_probe() that RAISES on an empty observation.
+#                           An older engine returns False instead, which re-opens the
+#                           false-halt path PART A closed (GAP-2026-07-26-002).
+#   blueprint_core.py     — MUST carry derive_image_roles() / IMAGE_ROLES. E-4 delegates
+#                           role derivation to it; an older engine raises AttributeError
+#                           at the first paper rather than silently mis-classifying.
 #
 # MINIMUM COMPANION VERSIONS (v2.33):
 #   corpus_io.py          >= v1.4   — both readers go through load_taxonomy(),
@@ -85,6 +94,79 @@
 #         Both now delegate to corpus_io Cluster K, THE reader/writer/verifier for this artefact,
 #         which additionally HARD STOPS when a parse disagrees with the totals the document
 #         declares about itself. Signatures and failure contracts unchanged.
+# v2.36 — 2026-07-26 — is_option DELEGATED (audit_deep [XSPEC-DRIFT]).
+#   v2.34/v2.35 made is_option() image-option-aware HERE and nowhere else. The
+#   predicate is defined in three specs, each claiming alignment with the others in
+#   its docstring, so those claims silently became false. Not cosmetic: PYQSort USES
+#   its copy to count options, so the identical defect this wave fixed in Step 5 was
+#   left live in Step 1 — measured on IIT_JAM_BIOTECHNOLOGY 2022, 156 options counted
+#   against 160 actual. OPT_PATTERNS, BARE_OPT_PATTERNS, para_has_image, is_option and
+#   clean_option_text now live in corpus_io >= v1.6 and all three specs delegate.
+#   Drift is impossible by construction rather than asserted by comment.
+#
+# v2.35 — 2026-07-26 — THREE DEAD ENGINE FUNCTIONS WIRED (audit_callgraph C4).
+#   The v2.34 auditor reported them; this closes them. All three had existed for
+#   versions, were documented in prose, and were called by nothing.
+#   * corpus_io.figural_consistency — IMG-5b. Written to catch exactly the DEFECT-3
+#     class of fault and never reachable, so the two defects masked each other. Now
+#     executable in S3-1d and called from process_pyq_paper after tag_axes(). WARN,
+#     not HARD STOP: IMG-4 already stops on real image loss, and an INHERENTLY-VISUAL
+#     override is legitimately figural without an embedded figure.
+#   * corpus_io.normalise_for_view — every figure went to view() un-normalised.
+#     corpus_io's own docstring records that every figure measured in this corpus is
+#     a CMYK JPEG, "not a safe input to a vision call", and PYQPrepare has instructed
+#     callers to normalise since v1.6 — but no spec ever did. A CMYK or oversized
+#     figure therefore read as unclear for a reason that had nothing to do with the
+#     figure, inflating exactly the QV-9 rate v2.29 set out to make trustworthy.
+#     Now called before analyse_image_claude(); PIL absence degrades to the original.
+#   * corpus_io.parse_drive_folder_id — S1 carried its own inline copy of the Drive
+#     URL regex. The engine version additionally accepts a bare folder id and the
+#     /u/N/ account-scoped URL the inline copy silently failed on. Delegated.
+#
+# v2.34 — 2026-07-26 — E-4 IMAGE PATH WIRED, IMG-6 MADE REAL, IMAGE OPTIONS RECOGNISED.
+#   GAP-2026-07-26-002. v2.29 built a correct image-integrity subsystem and connected
+#   almost none of it. Verified by EXECUTION against the full 22-paper
+#   IIT_JAM_BIOTECHNOLOGY corpus, not by inspection.
+#   DEFECT-1. extract_and_map_images(docx_path=None) had exactly ONE call site in the
+#     whole framework and it never passed docx_path, so `if docx_path:` was always False
+#     and every Step-5 run on every exam took the branch this file labelled UNGATED. The
+#     docstring stated a requirement nothing satisfied. Legacy branch DELETED; docx_path
+#     is now a required positional.
+#   DEFECT-2. The two branches returned arity 3 in DIFFERENT orders — (img_map, imap,
+#     q_roles) vs (imap, q_roles, report). Equal arity means no interpreter error: the
+#     unpack silently mis-bound and q_roles became the report dict, so every
+#     .get(num,{}).get('role') returned 'none'. ONE return shape now.
+#   DEFECT-3. The gated branch never derived 'role'. Delegated to
+#     bc.derive_image_roles() — one rule, one owner, per the audit_deep DELEGATION
+#     contract. A second inline copy is the drift pattern v2.27/v2.28 removed elsewhere.
+#   DEFECT-4. probe_passed reached nothing and bc.image_clarity_state() was never called
+#     from any executable block, so 'vision_unavailable' was unreachable and QV-9 could
+#     never fire. run_batch_loop() now runs the probe per batch and threads the result.
+#   DEFECT-5. expected_size was captured by enumeration and threaded nowhere, so IMG-1
+#     SKIPped on every paper — the only check that catches a ZIP truncated at a member
+#     boundary. Verified: IMG-1 SKIP -> PASS on all 22 papers.
+#   PART A. IMG-6 was PROSE in no executable block, single-attempt, single-token, with no
+#     requirement to record what was read — and score_vision_probe() returned False for an
+#     empty string, making "I did not look" indistinguishable from a blind session. It
+#     produced a false session-terminating halt on its first production use. Now a
+#     function (run_img6_probe), 3 attempts with 3 distinct tokens, and it NEVER HALTS.
+#   B-6. THE DEFECT THAT WAS ACTUALLY CORRUPTING DATA. OPT_PATTERNS all require text
+#     after the marker, but an IMAGE OPTION has none — the paragraph is "1." and the
+#     picture follows. is_option() returned False, cur_opt never advanced, every image
+#     tagged 'stem', role 'stem_only' not 'stem_and_options', options == [], and
+#     classify_axis3() returned NAT. Measured: 52 image-option MCQs across 20 of 22
+#     papers with the WRONG ANSWER MECHANISM — 3.0% of 1,719 questions feeding Axis-3,
+#     Step 6 allocation and Step 7 generation. BARE_OPT_PATTERNS + para_has_image() fix
+#     it, keyed on structure only — no exam, subject or option string anywhere.
+#   MEASURED, NOT ASSUMED. The 22-paper corpus contains ZERO table images, ZERO VML and
+#     ZERO header/footer images: Step 1 normalisation removes them, so legacy and gated
+#     map the identical 329 images. The table-image blindness v2.29 targeted is real code
+#     but had NO effect on this corpus. The real damage was role assignment.
+#   META-LESSON. Harness verification proves a function correct in isolation while the
+#     production call site never reaches it. Every future fix must answer: WHAT IS THE
+#     CALL SITE, AND DOES IT REACH THIS CODE ON A REAL RUN? audit_callgraph.py C1-C5 now
+#     enforces this mechanically.
+#
 # v2.29.1 — 2026-07-25 — E-2 Q_PATTERNS TABLE RECONCILED WITH THE ENGINE. E-2 is the table every
 #         other spec says it aligns to, and it listed five patterns against an engine
 #         implementing two. audit_deep TABLE-PARITY could not detect this — its regex truncated
@@ -1018,8 +1100,11 @@ PYQ parameter (REQUIRED for paper-processing modes — v2.24.8, standardized wit
 Step 4/Step 2b; not needed for --status or --synthesise, which don't read the
 PYQ corpus):
   Format : PYQ: <<Google Drive folder URL>>
-  Parsing: extract folder ID from URL using regex:
-             r'drive\.google\.com/drive/folders/([A-Za-z0-9_-]+)'
+  Parsing: pyq_drive_folder_id = corpus_io.parse_drive_folder_id(<the PYQ value>)
+           THE parser. Do NOT re-implement the regex here — a local copy is the
+           drift pattern v2.27/v2.28 removed elsewhere, and the engine version also
+           accepts a bare folder id and the /u/N/ account-scoped URL form, which the
+           inline regex silently failed on. Returns None when the value is neither.
   Example: PYQ: https://drive.google.com/drive/folders/[YOUR_FOLDER_ID]
              → pyq_drive_folder_id = '[YOUR_FOLDER_ID]'
 
@@ -1247,10 +1332,13 @@ analysis_doc_paths = []
 
 # ── GOOGLE DRIVE PATH (when PYQ: link provided in trigger) ────────────────
 
-def extract_folder_id(url):
-    """Extract folder ID from any Google Drive folder URL."""
-    m = re.search(r'drive\.google\.com/drive/folders/([A-Za-z0-9_-]+)', url)
-    return m.group(1) if m else None
+# v2.35: DELEGATED (audit_callgraph C4). This was a local reimplementation of the
+# Drive-URL regex that corpus_io already owns. Two copies of one rule is the drift
+# pattern v2.27/v2.28 removed for detect_question_start and slugify. The engine
+# version is also strictly more capable: it accepts a BARE folder id and the
+# /u/N/ account-scoped URL form, both of which this local copy returned None for —
+# a user pasting either got "no PYQ folder" with no explanation.
+extract_folder_id = corpus_io.parse_drive_folder_id
 
 def collect_drive_docx_recursive(folder_id, all_files=None,
                                  _seen_keys=None, _rejects=None):
@@ -2186,22 +2274,18 @@ detect_question_start = bc.detect_question_start
 ### E-3 — Option detection
 
 ```python
-OPT_PATTERNS = [
-    r'^([1-5])\.\s+(.+)',           # 1. 2. 3. 4. 5.  (up to 5 options)
-    r'^([A-Ea-e])\.\s+(.+)',        # A. B. C. D. E.
-    r'^\(([1-5])\)\s+(.+)',        # (1) (2) (3) (4) (5)
-    r'^\(([A-Ea-e])\)\s+(.+)',     # (A) (B) (C) (D) (E)  / (a)(b)(c)(d)(e)
-    r'^([A-Ea-e])\)\s+(.+)',        # A) B) C) D) E)  / a) b) c) d) e)
-]
-
-def is_option(text):
-    return any(re.match(p, text.strip()) for p in OPT_PATTERNS)
-
-def clean_option_text(text):
-    for p in OPT_PATTERNS:
-        m = re.match(p, text.strip())
-        if m: return m.group(2).strip()
-    return text.strip()
+# ── OPTION PREDICATE — DELEGATED (v2.36, audit_deep [XSPEC-DRIFT]) ────────────
+# is_option() was defined in THREE specs (here, PYQSort, PYQAnalyse), each with a
+# docstring claiming alignment with the others. v2.34/v2.35 added the image-option
+# path HERE only, so those claims became false and PYQSort — which uses the predicate
+# to COUNT options — kept undercounting image options. Measured on
+# IIT_JAM_BIOTECHNOLOGY 2022: 156 options counted, 160 actual.
+# corpus_io now owns the single definition. Do NOT re-localise any of these names.
+OPT_PATTERNS      = corpus_io.OPT_PATTERNS
+BARE_OPT_PATTERNS = corpus_io.BARE_OPT_PATTERNS
+para_has_image    = corpus_io.para_has_image
+is_option         = corpus_io.is_option
+clean_option_text = corpus_io.clean_option_text
 
 # After collecting options per Q: options = options[:options_count]
 # If still < options_count: try E-5 OMML and E-4 image check.
@@ -2214,152 +2298,77 @@ def clean_option_text(text):
 from docx import Document
 import os
 
-def extract_and_map_images(doc, paper_id, docx_path=None, expected_size=None):
+def extract_and_map_images(doc, paper_id, docx_path, expected_size=None):
     """
     BUG-A03 fix: accepts already-opened Document object, not doc_path.
     Caller (S3-1) opens Document once and passes it here.
 
-    v2.29 — DELEGATED to corpus_io (Cluster I) and GATED. Four silent failures were
-    fixed at once; all four shared one property — the image vanished and nothing
-    downstream could tell:
+    v2.34 — SINGLE GATED PATH. The legacy DOM-only branch is DELETED and docx_path is
+    now a REQUIRED POSITIONAL. GAP-2026-07-26-002 DEFECT-1/2/3/5:
 
-      * TABLE IMAGES (critical). The walk used `doc.paragraphs`, which in python-docx
-        returns ONLY paragraphs that are direct children of the body — paragraphs inside
-        table cells are excluded. Every figure laid out in a table was therefore never
-        visited and never mapped. That is the normal arrangement for match-the-following
-        items, multi-panel figures and option grids. The question then classified TEXT
-        instead of FIGURAL, corrupting the three-axis format distribution that drives
-        Step 7 generation. Proven by construction: a 2-image document mapped 1.
-        corpus_io.map_images_to_questions walks doc.element.body.iter(), which descends
-        into tables.
-      * VML IMAGES. Only <a:blip> was matched. Legacy <v:imagedata> — emitted by older
-        Word, several PDF converters, and pasted OLE/equation objects — was invisible.
-      * HEADER/FOOTER IMAGES. `doc.part.rels` covers only the main document part;
-        headers, footers, footnotes and endnotes are separate parts with their own rels.
-      * PRE-Q.1 IMAGES. Correctly not attributed to any question, but DISCARDED
-        silently, which would now trip IMG-4 for an entirely benign reason. They go to
-        an explicit 'preamble' bucket instead.
+      * DEFECT-1. docx_path was optional and the ONLY call site in the entire framework
+        (S3-1) never passed it, so `if docx_path:` was always False and every Step-5 run
+        on every exam silently took the branch this file itself labelled UNGATED. The
+        docstring documented a requirement nothing satisfied. A fallback that no caller
+        ever avoids is not a safety net — it IS the default path.
+      * DEFECT-2. The two branches returned THREE values each in DIFFERENT orders with
+        DIFFERENT meanings — (img_map, imap, q_roles) vs (imap, q_roles, report). Equal
+        arity means the interpreter raises nothing; the unpack simply mis-binds and
+        q_roles becomes the report dict, so every .get(num,{}).get('role') returns the
+        'none' default. There is now ONE return shape: (image_map, q_roles, report).
+      * DEFECT-3. The gated branch built {'stem','opts'} but never derived 'role', the
+        documented contract read by S3-1 (image_role) and S4-1 (get_vision_candidates).
+        Role derivation is DELEGATED to bc.derive_image_roles() so one rule exists in
+        one place — the same contract audit_deep.py enforces for detect_question_start.
+      * DEFECT-5. expected_size was captured by enumeration and threaded nowhere, so
+        IMG-1 evaluated against None and SKIPped on every paper, permanently. It is the
+        only check that catches a payload truncated at a ZIP member boundary.
 
-    And the gate that makes all of it self-detecting: there was NO image-count assertion
-    anywhere in this file. Framework_PYQFormat has enforced exact input==output image
-    equality (S8-6) since v1.1 for the same class of risk. IMG-4 now asserts
-    mapped + preamble == body references, so any future loss — from any cause, including
-    a bug in the size governor — is a HARD STOP rather than a wrong classification.
+    Measured on the 22-paper IIT_JAM_BIOTECHNOLOGY corpus: this path maps the identical
+    329 images the legacy walk did (that corpus carries no table/VML/header images —
+    Step 1 normalisation removes them), but assigns the CORRECT role to the image-option
+    questions the legacy walk mis-typed as stem_only. All 22 papers PASS IMG-1..IMG-5;
+    zero hard stops.
 
-    docx_path is required for the gates (they read the package, not the DOM). When it is
-    omitted the legacy DOM-only path still runs, but UNGATED — callers should always
-    pass it.
+    docx_path is required: the gates read the PACKAGE, not the DOM.
     """
-    if docx_path:
-        img_dir = f'/home/claude/pyq_images/{paper_id}'
-        extracted = corpus_io.extract_images(docx_path, img_dir)
-        mapping   = corpus_io.map_images_to_questions(docx_path)
-        verdicts, stats = corpus_io.verify_images(
-            docx_path, extracted=extracted, mapping=mapping,
-            expected_size=expected_size, workdir=img_dir)
+    img_dir = f'/home/claude/pyq_images/{paper_id}'
+    extracted = corpus_io.extract_images(docx_path, img_dir)
+    mapping   = corpus_io.map_images_to_questions(docx_path)
+    verdicts, stats = corpus_io.verify_images(
+        docx_path, extracted=extracted, mapping=mapping,
+        expected_size=expected_size, workdir=img_dir)
 
-        if not bc.gates_passed(verdicts):
-            failed = {k: v for k, v in verdicts.items() if not str(v).startswith(('PASS', 'SKIP'))}
-            raise SystemExit(
-                f"HARD STOP — image integrity gate failed for {paper_id}:\n  "
-                + "\n  ".join(f"{k}: {v}" for k, v in failed.items())
-                + "\n\nAn image that is present in the document but missing from the "
-                  "mapping becomes a question classified TEXT instead of FIGURAL, which "
-                  "silently corrupts the format distribution used by Step 7. Resolve the "
-                  "document before continuing; do not process it partially.")
+    if not bc.gates_passed(verdicts):
+        failed = {k: v for k, v in verdicts.items() if not str(v).startswith(('PASS', 'SKIP'))}
+        raise SystemExit(
+            f"HARD STOP — image integrity gate failed for {paper_id}:\n  "
+            + "\n  ".join(f"{k}: {v}" for k, v in failed.items())
+            + "\n\nAn image that is present in the document but missing from the "
+              "mapping becomes a question classified TEXT instead of FIGURAL, which "
+              "silently corrupts the format distribution used by Step 7. Resolve the "
+              "document before continuing; do not process it partially.")
 
-        if stats['preamble']:
-            print(f"    note: {stats['preamble']} image(s) before Q.1 (not question figures)")
-        if stats['header_footer']:
-            print(f"    note: {stats['header_footer']} header/footer image(s) (not question figures)")
-        if stats['vector']:
-            print(f"    note: {stats['vector']} vector part(s) — rasterised before view()")
+    if stats['preamble']:
+        print(f"    note: {stats['preamble']} image(s) before Q.1 (not question figures)")
+    if stats['header_footer']:
+        print(f"    note: {stats['header_footer']} header/footer image(s) (not question figures)")
+    if stats['vector']:
+        print(f"    note: {stats['vector']} vector part(s) — rasterised before view()")
 
-        imap = []
-        for q_num, parts in mapping.items():
-            if q_num == corpus_io.PREAMBLE:
-                continue
-            for i, base in enumerate(parts):
-                rec = extracted.get(base, {})
-                imap.append({'img_idx': i, 'q_num': q_num,
-                             'position': 'stem' if i == 0 else f'opt{i}',
-                             'path': rec.get('path'), 'kind': rec.get('kind')})
+    image_map = []
+    for q_num, parts in mapping.items():
+        if q_num == corpus_io.PREAMBLE:
+            continue
+        for i, base in enumerate(parts):
+            rec = extracted.get(base, {})
+            image_map.append({'img_idx': i, 'q_num': q_num,
+                              'position': 'stem' if i == 0 else f'opt{i}',
+                              'path': rec.get('path'), 'kind': rec.get('kind')})
 
-        q_roles = {}
-        for entry in imap:
-            k = entry['q_num']
-            if k not in q_roles:
-                q_roles[k] = {'stem': False, 'opts': False}
-            if entry['position'] == 'stem':
-                q_roles[k]['stem'] = True
-            else:
-                q_roles[k]['opts'] = True
-        return imap, q_roles, {'verdicts': verdicts, 'stats': stats}
-
-    # ── legacy DOM-only path (UNGATED — retained for callers without a path) ──
-    DRAW_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
-    REL_NS  = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
-    BLIP_TAG = f'{{{DRAW_NS}}}blip'
-
-    os.makedirs('/home/claude/pyq_images', exist_ok=True)
-
-    # Step 1: Extract all embedded images by relationship ID
-    # Map content-type to clean file extension (avoids 'vnd.ms-wmf' style invalid extensions)
-    CTYPE_EXT = {
-        'jpeg':'jpg','jpg':'jpg','png':'png','gif':'gif',
-        'bmp':'bmp','tiff':'tif','webp':'webp',
-        'vnd.ms-wmf':'wmf','x-wmf':'wmf','wmf':'wmf',
-        'vnd.ms-emf':'emf','x-emf':'emf','emf':'emf',
-    }
-    img_map = {}   # rId -> (index, file_path)
-    idx = 0
-    for rel in doc.part.rels.values():
-        if "image" in rel.reltype:
-            raw_ext = rel.target_part.content_type.split('/')[-1].lower()
-            ext     = CTYPE_EXT.get(raw_ext, raw_ext)   # clean extension
-            path    = f'/home/claude/pyq_images/{paper_id}_img{idx:03d}.{ext}'
-            with open(path, 'wb') as img_f: img_f.write(rel.target_part.blob)
-            img_map[rel.rId] = (idx, path)
-            idx += 1
-
-    # Step 2: Walk paragraphs tracking Q context
-    cur_q   = None   # None until first Q detected -- images before Q.1 skipped
-    cur_opt = 0
-    imap    = []
-
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        q_n  = detect_question_start(text)
-        if q_n is not None:
-            cur_q = q_n; cur_opt = 0
-        elif is_option(text):
-            cur_opt += 1
-
-        for elem in para._p.iter():
-            if elem.tag == BLIP_TAG:
-                rId = elem.get(f'{{{REL_NS}}}embed')
-                # BUG-A21 fix: only map images when inside a question (cur_q not None)
-                if rId in img_map and cur_q is not None:
-                    i, path = img_map[rId]
-                    pos = 'stem' if cur_opt == 0 else f'opt{cur_opt}'
-                    imap.append({'img_idx': i, 'q_num': cur_q,
-                                 'position': pos, 'path': path})
-
-    # Step 3: Classify image role per Q
-    q_roles = {}
-    for entry in imap:
-        k = entry['q_num']
-        if k not in q_roles: q_roles[k] = {'stem': False, 'opts': False}
-        if entry['position'] == 'stem': q_roles[k]['stem'] = True
-        else:                           q_roles[k]['opts'] = True
-
-    for qnum, r in q_roles.items():
-        if r['stem'] and r['opts']: r['role'] = 'stem_and_options'
-        elif r['stem']:              r['role'] = 'stem_only'
-        elif r['opts']:              r['role'] = 'options_only'
-        else:                        r['role'] = 'none'
-
-    return img_map, imap, q_roles
+    # DEFECT-3: ONE role rule, owned by the engine. Never re-implement inline.
+    q_roles = bc.derive_image_roles(image_map)
+    return image_map, q_roles, {'verdicts': verdicts, 'stats': stats}
 ```
 
 IMAGE ROLES:
@@ -2850,19 +2859,33 @@ def extract_shift_from_filename(path):
 
 def process_pyq_paper(docx_path, paper_id, exam_code,
                       time_per_q, marks_per_q, options_count, multi_select,
-                      progress):
+                      progress, expected_size=None, probe_passed=True):
     """
     All parameters auto-detected in S1-3, passed directly — no cfg dict.
     taxonomy not needed: presorted papers carry their own taxonomy headings.
     extract_presorted() is the only extraction path.
+
+    v2.34 (GAP-2026-07-26-002):
+      expected_size — DEFECT-5. The byte size Drive enumeration already captured, from
+        paper_ref['fileSize']. Threaded to IMG-1, which SKIPped on every paper before
+        this because nothing connected the two. None is still accepted (the upload lane
+        may not know it) and IMG-1 then SKIPs for a legitimate reason.
+      probe_passed — DEFECT-4. The IMG-6 result for THIS batch, from run_batch_loop().
+        Feeds bc.image_clarity_state() so 'vision_unavailable' is reachable and
+        'unclear' can only ever be recorded behind a PASSING probe. Defaults True so a
+        direct caller that has already established vision need not thread it.
     """
     from docx import Document
     doc   = Document(docx_path)   # opened ONCE; passed to all sub-functions
     year  = extract_year_from_filename(docx_path)
     shift = extract_shift_from_filename(docx_path)
 
-    # E-4: extract images (pass already-opened doc)
-    img_map, image_map, q_roles = extract_and_map_images(doc, paper_id)
+    # E-4: extract images. docx_path and expected_size are REQUIRED — without them the
+    # v2.29 gates cannot run. Unpack order matches the single return shape
+    # (image_map, q_roles, report); the old three-way unpack mis-bound silently because
+    # both branches returned arity 3 in different orders (GAP-2026-07-26-002 DEFECT-2).
+    image_map, q_roles, img_report = extract_and_map_images(
+        doc, paper_id, docx_path, expected_size=expected_size)
 
     # Always presorted — single extraction path
     questions = extract_presorted(doc, year, shift, paper_id, q_roles,
@@ -2890,18 +2913,38 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
         # Step 8 re-tags GENERATED questions with the SAME AXIS CLASSIFIER v1.0 functions.
         tag_axes(q)
 
+    # IMG-5b: cross-check image presence against Axis-1 now that tag_axes() has run.
+    img5b = run_img5b({e['q_num']: [e['path']] for e in image_map}, questions,
+                      overrides=tuple(progress.get('_meta', {}).get('inherently_visual', ())))
+
     # §4: Claude runs vision analysis automatically on all qualifying figural questions.
     # No user involvement. Claude views each image file directly using the view tool.
     vision_candidates = get_vision_candidates(questions, q_roles, image_map)
     n_vision = 0
     for q, img_path in vision_candidates:
-        vision_result = analyse_image_claude(q, img_path)   # Claude views img_path
+        # v2.35: normalise BEFORE view(). corpus_io's own docstring records why —
+        # "Every figure measured in this corpus is a CMYK JPEG, which is not a safe
+        # input to a vision call." PYQPrepare has said to do this since v1.6 but no
+        # spec ever called it, so every figure went to view() un-normalised and a
+        # CMYK/oversized figure read as unclear for a reason that had nothing to do
+        # with the figure (GAP-2026-07-26-002 follow-up, audit_callgraph C4).
+        view_path = img_path + '.view.png'
+        try:
+            corpus_io.normalise_for_view(img_path, view_path)
+        except corpus_io.DependencyMissing:
+            view_path = img_path            # PIL absent: view the original, unchanged
+        vision_result = analyse_image_claude(q, view_path)   # Claude views view_path
         q.update({
             'object_type'   : vision_result.get('object_type'),
             'transformation': vision_result.get('transformation_type'),
             'arrangement'   : vision_result.get('arrangement'),
             'complexity'    : vision_result.get('complexity'),
-            'image_clarity' : vision_result.get('image_clarity', 'clear'),
+            # DEFECT-4: NEVER assign a literal here. 'unclear' is only meaningful behind
+            # a PASSING probe; without probe_passed the three-state distinction v2.29
+            # shipped was unreachable and QV-9 could never fire.
+            'image_clarity' : bc.image_clarity_state(
+                                  probe_passed,
+                                  vision_result.get('figure_readable', True)),
         })
         n_vision += 1
 
@@ -2926,45 +2969,75 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
 ```
 
 
-### S3-1c — IMG-6 VISION LIVENESS PROBE (v2.29, mandatory)
+### S3-1c — IMG-6 VISION LIVENESS PROBE (v2.34, mandatory)
 
-```
 WHEN: once at the start of EVERY batch, BEFORE any figural classification.
 
 WHY: figural classification depends on Claude actually seeing the figure. That
-capability can stop working mid-session — vision capacity degrades as a session grows
-long. When it does, every view() returns nothing and every figure looks unreadable.
-Without a probe the pipeline cannot distinguish "this figure is illegible" (a property
-of the IMAGE) from "I cannot see anything" (a property of the SESSION), and records the
-second as the first — blaming the corpus, inflating QV-9, and under-reporting FIGURAL
-patterns while the operator troubleshoots the wrong thing.
+capability can stop working mid-session. Without a probe the pipeline cannot
+distinguish "this figure is illegible" (a property of the IMAGE) from "I cannot see
+anything" (a property of the SESSION), and records the second as the first — blaming
+the corpus, inflating QV-9, and under-reporting FIGURAL patterns while the operator
+troubleshoots the wrong thing.
 
-Demonstrated: a freshly generated 400x200 control PNG failed to render in a session
-where real figures had rendered correctly earlier. The files were never the problem.
+v2.34 (GAP-2026-07-26-002 PART A). The v2.29 protocol was PROSE wired into no
+executable block, single-attempt, single-token, with no requirement to record what was
+read — and corpus_io.score_vision_probe() returned False for an empty string. A
+non-observation was therefore indistinguishable from a genuine blind session, and
+produced a false, session-terminating halt on essentially its first production use.
+Three changes: the protocol is now a FUNCTION, it retries with THREE DISTINCT tokens,
+and it NEVER HALTS — a failed probe records 'vision_unavailable' and processing
+continues, because the three-state image_clarity value exists precisely so those
+questions can be re-run later without discarding the rest of the batch.
 
-HOW:
-  path, token = corpus_io.make_vision_probe('/home/claude/pyq_probe')
-  # view(path)  -> read the 8-character token back from the image
-  probe_passed = corpus_io.score_vision_probe(<what Claude read>, token)
+```python
+def run_img6_probe(read_probe, attempts=3):
+    """IMG-6 liveness probe. Returns True (vision confirmed) or False. NEVER halts.
 
-The token is random and appears NOWHERE in text, so it cannot be inferred from context.
-It can only be obtained by actually seeing the image.
+    read_probe(path) -> str : MUST return, verbatim, the characters read from the
+    image at `path`. This is the ONE step that cannot be executed by code — Claude
+    calls view(path) and reports what it sees. Everything else here is deterministic
+    and unit-tested.
 
-ON PASS: proceed. Classification behaviour is completely unchanged.
-
-ON FAIL: this is NOT an image problem.
-  1. Do NOT classify any figure in this batch.
-  2. Do NOT record image_clarity='unclear' — that value is reserved for a genuinely
-     illegible figure and requires a PASSING probe.
-  3. Record image_clarity='vision_unavailable' for affected questions.
-  4. save_progress() has already run per paper, so state is resumable with no loss.
-  5. STOP and tell the user, in plain terms:
-       "I can no longer read images reliably in this session. Progress is saved.
-        Please start a fresh chat and run:  PYQExtract [ExamCode]  PYQ: <same link>"
-  6. Do NOT continue to the next batch.
-
-COST: one view() call per batch. Tool-call budget rises by 1 per batch.
+    An EMPTY return means "I did not look", NOT "I could not read it".
+    score_vision_probe() raises ProbeObservationMissing for that case; it is retried,
+    never counted as a probe failure. Each attempt mints a FRESH random token: three
+    independent 8-character tokens cannot be guessed (~2e-37), so a genuinely blind
+    session fails all three while a transient miss recovers.
+    """
+    for n in range(1, attempts + 1):
+        path, token = corpus_io.make_vision_probe('/home/claude/pyq_probe')
+        try:
+            observation = read_probe(path)
+            print(f'    PROBE ATTEMPT {n} READ: "{observation}"')
+            if corpus_io.score_vision_probe(observation, token):
+                return True
+            print(f"    IMG-6 attempt {n}: read did not match token — retrying")
+        except corpus_io.ProbeObservationMissing:
+            print(f"    IMG-6 attempt {n}: NO OBSERVATION RECORDED — this is not a "
+                  f"probe failure. The image was not read. Retrying.")
+        except corpus_io.DependencyMissing as exc:
+            print(f"    IMG-6 SKIPPED — {exc}")
+            return True
+    return False
 ```
+
+MANDATORY SELF-CHECK BEFORE REPORTING A FAILED READ:
+  * Did a picture appear at all? If it rendered and the characters were simply not
+    attended to, that is NOT a probe failure. Look again.
+  * If a pixel/variance check shows the file contains legible glyphs, that is evidence
+    FOR working vision, NEVER against it. A legible file that rendered is exactly what
+    a WORKING vision path looks like. This inversion caused a false production halt
+    (GAP-2026-07-26-002). Do not repeat it.
+
+ON FAIL (3 attempts, 3 distinct tokens, each with a printed observation):
+  Do NOT halt. Do NOT stop the batch. probe_passed=False flows to
+  process_pyq_paper(), every figural question in the batch records
+  image_clarity='vision_unavailable' via bc.image_clarity_state(), and QV-9 excludes
+  them rather than counting them as unclear. Tell the user which papers were affected
+  and that a fresh session can re-run those questions alone.
+
+COST: up to 3 view() calls per batch; 1 in the normal case.
 
 ### S3-1d — QV-13 IMAGE INTEGRITY REPORT (v2.29)
 
@@ -2996,6 +3069,35 @@ catches two faults with one assertion:
 Both are reported with question numbers. Neither is silently accepted.
 ```
 
+#### IMG-5b — FIGURAL CROSS-CHECK (executable, v2.35)
+
+```python
+def run_img5b(mapping, questions, overrides=()):
+    """Gate IMG-5b — cross-check image presence against Axis-1 classification.
+
+    v2.35 (audit_callgraph C4). corpus_io.figural_consistency() has existed since
+    v2.29 and was called from NOWHERE — it appeared only in the prose bullet above,
+    so the gate written to catch exactly the DEFECT-3 class of fault never ran. Two
+    defects were masking each other: IMG-5b would have detected the missing
+    q_roles['role'], but IMG-5b itself was unreachable.
+
+    WARN, not HARD STOP: a mismatch can be legitimate (an INHERENTLY-VISUAL override
+    is visual without carrying an embedded figure), and IMG-4 already hard-stops on
+    actual image loss. This gate reports classification disagreement.
+    """
+    q_formats = {q['num']: q.get('format') or q.get('axis1') for q in questions}
+    fc = corpus_io.figural_consistency(mapping, q_formats, overrides=overrides)
+    if fc['image_not_figural']:
+        print(f"    ! IMG-5b WARN — question(s) carry an image but are not FIGURAL: "
+              f"{fc['image_not_figural'][:10]}")
+        print(f"      An image present in the document but absent from the format "
+              f"distribution is the silent corruption IMG-4 cannot see.")
+    if fc['figural_no_image']:
+        print(f"    ! IMG-5b WARN — question(s) classified FIGURAL with no image: "
+              f"{fc['figural_no_image'][:10]}")
+        print(f"      Expected only for logged INHERENTLY-VISUAL overrides.")
+    return fc
+```
 
 ### S3-2 — Presorted extraction (the only extraction mode)
 
@@ -3115,7 +3217,7 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
             # every option after this point is silently discarded.
             if detect_question_start(nt) is not None or is_taxonomy_heading(paras[i], nxt[i]):
                 break
-            if is_option(nt):
+            if is_option(nt, paras[i]):
                 options.append(clean_option_text(nt))
                 options_raw.append(nt)   # v2.15: preserve raw line for label detection
             else:
@@ -6355,7 +6457,7 @@ def deliver_batch_summary(batch, progress, batch_num, papers_done, total_all, ex
 def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
                    options_count, multi_select, progress,
                    coverage_mode='mandatory_5yr', recent_5_years=None,
-                   available_years=None):
+                   available_years=None, read_probe=None):
     """
     Core loop: process papers in batches of BATCH_SIZE (always 3 — non-negotiable).
     pyq_doc_paths: list of dicts — {source: 'gdrive'|'local', id/path, name}
@@ -6364,6 +6466,16 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
     coverage_mode, recent_5_years, available_years: passed from §1-6 check.
     ★ NEVER process more than BATCH_SIZE papers without pausing for user confirmation.
     """
+    import os
+
+    # v2.34: read_probe(path) -> str is the IMG-6 observation reader (S3-1c). Claude
+    # calls view(path) and returns verbatim what it sees. It is a PARAMETER so the loop
+    # stays unit-testable with a fake reader; the default records no observation, which
+    # score_vision_probe() reports as "not read" rather than silently scoring False.
+    if read_probe is None:
+        def read_probe(path):
+            return ''
+
     done_ids = set(progress.get('_meta', {}).get('papers_processed', []))
 
     # Sort ALL papers recency-first, then filter out already-done ones
@@ -6389,6 +6501,18 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
         batch_num = (total_done // BATCH_SIZE) + (batch_start // BATCH_SIZE) + 1
 
         print(f"\n=== Batch {batch_num}: processing {len(batch)} paper(s) ===")
+
+        # ── IMG-6 liveness probe, once per batch, BEFORE any figural classification.
+        # v2.34: this call is what makes S3-1c real. Before it, the protocol was prose
+        # wired into no executable block, so it ran only if a reader happened to follow
+        # it by hand (GAP-2026-07-26-002 DEFECT-4). A FAIL no longer halts.
+        probe_passed = run_img6_probe(read_probe)
+        if not probe_passed:
+            print("    ! IMG-6 FAILED after 3 attempts with 3 distinct tokens.")
+            print("      Vision is unavailable in this session. Processing CONTINUES;")
+            print("      figural questions in this batch record 'vision_unavailable'")
+            print("      and are excluded from QV-9 rather than counted as unclear.")
+            print("      Re-run these papers in a fresh session to populate figural data.")
 
         needs_upload = []          # papers this batch could not be fetched from Drive
 
@@ -6418,7 +6542,9 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
 
             process_pyq_paper(local_path, paper_id, exam_code,
                                time_per_q, marks_per_q, options_count,
-                               multi_select, progress)
+                               multi_select, progress,
+                               expected_size=paper_ref.get('fileSize'),
+                               probe_passed=probe_passed)
 
             # ── Persist after EVERY paper (v2.29) ────────────────────────────
             # The durability unit is the PAPER, not the batch. Previously save_progress
@@ -6453,9 +6579,14 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
                 key = bc.canonical_paper_key(p['name'])
                 if key not in found['matched']:
                     continue
-                process_pyq_paper(found['matched'][key], make_paper_id(p['name']),
+                # Upload lane: the Drive-reported fileSize describes the Drive copy,
+                # not the uploaded one, so IMG-1 measures the file actually on disk.
+                _up = found['matched'][key]
+                process_pyq_paper(_up, make_paper_id(p['name']),
                                   exam_code, time_per_q, marks_per_q, options_count,
-                                  multi_select, progress)
+                                  multi_select, progress,
+                                  expected_size=os.path.getsize(_up),
+                                  probe_passed=probe_passed)
                 save_progress(progress, exam_code)        # per-paper, as above
             if found['unexpected']:
                 print(f"  ! Ignored {len(found['unexpected'])} unexpected upload(s) — "
@@ -8613,4 +8744,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.33
+# END OF Framework_MockTestAnalyse v2.36

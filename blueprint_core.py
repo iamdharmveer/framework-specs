@@ -93,6 +93,8 @@ __all__ = [
     "image_gate_verdict",
     "gates_passed",
     "image_clarity_state",
+    "derive_image_roles",
+    "IMAGE_ROLES",
 ]
 
 
@@ -1749,6 +1751,44 @@ def gates_passed(verdicts):
     return all(str(x).startswith(('PASS', 'SKIP')) for x in verdicts.values())
 
 
+IMAGE_ROLES = ('stem_and_options', 'stem_only', 'options_only', 'none')
+
+
+def derive_image_roles(imap):
+    """THE image-role resolver. Both Step 5 and Step 1 call this; nobody re-implements it.
+
+    imap is the mapping list produced by the E-4 extractor: a list of dicts each
+    carrying 'q_num' and 'position', where position is 'stem' or 'optN'. Returns
+    {q_num: {'stem': bool, 'opts': bool, 'role': str}} with role drawn from
+    IMAGE_ROLES.
+
+    GAP-2026-07-26-002 DEFECT-3. This loop previously existed only inside the legacy
+    DOM branch of extract_and_map_images(). The gated branch built the same dict but
+    never derived 'role', so every consumer of q_roles[...]['role'] fell through to
+    its 'none' default and every figural question classified TEXT. The rule is now
+    owned in ONE place so a second copy cannot drift from it -- the same DELEGATION
+    contract audit_deep.py already enforces for detect_question_start and slugify.
+    """
+    roles = {}
+    for entry in imap or ():
+        k = entry['q_num']
+        r = roles.setdefault(k, {'stem': False, 'opts': False})
+        if entry.get('position') == 'stem':
+            r['stem'] = True
+        else:
+            r['opts'] = True
+    for r in roles.values():
+        if r['stem'] and r['opts']:
+            r['role'] = 'stem_and_options'
+        elif r['stem']:
+            r['role'] = 'stem_only'
+        elif r['opts']:
+            r['role'] = 'options_only'
+        else:
+            r['role'] = 'none'
+    return roles
+
+
 def image_clarity_state(probe_passed, figure_readable):
     """Resolve the three-state image_clarity value.
 
@@ -2311,6 +2351,15 @@ def self_test():
     check('h_gate_not_passed', not gates_passed(image_gate_verdict(99, 100, 0, [], 1, 0, 1, [])))
 
     # three-state clarity — 'unclear' is meaningless without a live probe
+    _im = [{'q_num': 1, 'position': 'stem'}, {'q_num': 2, 'position': 'opt1'},
+           {'q_num': 3, 'position': 'stem'}, {'q_num': 3, 'position': 'opt1'}]
+    _r = derive_image_roles(_im)
+    check('h_roles_stem_only', _r[1]['role'] == 'stem_only')
+    check('h_roles_options_only', _r[2]['role'] == 'options_only')
+    check('h_roles_stem_and_options', _r[3]['role'] == 'stem_and_options')
+    check('h_roles_all_valid', all(v['role'] in IMAGE_ROLES for v in _r.values()))
+    check('h_roles_empty', derive_image_roles([]) == {})
+    check('h_roles_none_safe', derive_image_roles(None) == {})
     check('h_clarity_clear', image_clarity_state(True, True) == 'clear')
     check('h_clarity_unclear', image_clarity_state(True, False) == 'unclear')
     check('h_clarity_blind', image_clarity_state(False, False) == 'vision_unavailable')
