@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026.07.26
+- GAP-2026-07-25-003 (taxonomy read consolidated to ONE reader + lock gate reaches every
+  consumer): the last hand-written and prose readers of the approved taxonomy are removed.
+  Every step now loads through `corpus_io.load_taxonomy()` and asserts identity through
+  `corpus_io.assert_taxonomy_lock()` — one implementation, called everywhere, instead of the
+  four-plus transcriptions that produced GAP-2026-07-25-002. The read and the lock assertion,
+  previously two calls (and in some steps two independent reads of the same artefact), collapse
+  to a single call at each site.
+- Preferred source moves from the Analysis Word document to `approval_record.json`: where the
+  record carries the taxonomy (reconcile_taxonomy >= v1.3) the consuming steps parse no Word
+  document at all; pre-1.3 records fall back to the doc, fully gated, and need no re-run.
+- Specs: Framework_Blueprint v1.39 -> v1.41 (S2-2 asserts the lock, then loads through
+  load_taxonomy — Step 6 was the worst place for a silently-wrong taxonomy); Framework_MockTestAnalyse
+  v2.30 -> v2.32 (both Step-5 readers gated then load through load_taxonomy; a second latent
+  defect in `_extract_taxonomy_tuples_from_*` fixed while wiring the gate); Framework_PYQAnalyse
+  v2.24 -> v2.27 (Task 2.5 was the last hand-parser — read/write through Cluster K, lock delegated
+  to the shared gate, then load through load_taxonomy); Framework_PYQSort v1.14 -> v1.16 (taxonomy
+  loaded once from JSON where available; S1-0b/S1-2 collapse to one call; ingest form surfaced,
+  EC-S20/S21 recorded).
+- Engines: reconcile_taxonomy.py (self-test 69/69) records the approved taxonomy inside
+  approval_record.json beside its validating fingerprint; corpus_io.py -> v1.4 (self-test 226/226)
+  owns `load_taxonomy()` + `assert_taxonomy_lock()` as the single reader/gate. MANIFEST.json +
+  SPEC_MANIFEST.json regenerated; bootstrap 25/25, validator 0 issues across 17 files.
+
 ## 2026.07.25.2
 - GAP-2026-07-25-002 (Analysis-doc reader delegation): MockTestAnalyse v2.29.1 -> v2.30
   delegates both Analysis-doc readers (score_difficulty / determine_strip_mode) to
