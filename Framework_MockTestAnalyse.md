@@ -1,9 +1,42 @@
-# Framework_MockTestAnalyse v2.30 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.32 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS (v2.30):
-#   corpus_io.py          >= v1.1   — both Analysis-doc readers delegate to Cluster K
+#   corpus_io.py          >= v1.4   — both readers go through load_taxonomy(),
+#                                     and both assert assert_taxonomy_lock(). v1.2 adds
+#                                     INGEST FORMS (the doc is stored in project Files as
+#                                     extracted TEXT); v1.3 adds the lock gate itself.
 #   blueprint_core.py     — Cluster E/G delegation (score_difficulty, determine_strip_mode)
+#
+# v2.32 — 2026-07-26 — BOTH READERS LOAD THROUGH load_taxonomy(). The read and the
+#         identity assertion collapse into one call at both sites, and the taxonomy
+#         comes from approval_record.json where the record carries it
+#         (reconcile_taxonomy >= v1.3) rather than from a Word document — on that
+#         path Step 5 parses nothing. Pre-1.3 records fall back to the doc, fully
+#         gated, and need no re-run. `path=` is still passed at both sites: it is
+#         used only on the fallback path and ignored on the record path.
+#         MINIMUM COMPANION: corpus_io.py >= v1.4.
+#
+# v2.31 — 2026-07-26 — THE TAXONOMY LOCK GATE REACHES STEP 5 (GAP-2026-07-25-003
+#         follow-up). v2.30 made both readers correct; neither checked that the doc
+#         they read was the doc PYQApprove APPROVED. Framework_PYQSort S1-0b made
+#         that claim from v1.14 and nothing else did, so a superseded or mis-parsed
+#         Analysis doc that HALTS LOUDLY at Step 3 was accepted here without a word.
+#         Step 5 mints the subtopic_ids that Steps 6-11 match on, so the failure is
+#         not a degraded run: it silently renames the vocabulary of the pipeline.
+#         Both call sites now call corpus_io.assert_taxonomy_lock() — THE gate, one
+#         implementation in corpus_io, not a fifth copy of S1-0b's logic.
+#         SECOND DEFECT, found while wiring the first: the fault could not have
+#         surfaced even if the gate had existed. _extract_taxonomy_tuples_from_
+#         analysis_doc() ended `except Exception: return []`, and its caller wrapped
+#         the call in `except Exception -> sync_log WARN`. Three situations were
+#         therefore indistinguishable — "absent by design", "unreadable", "not the
+#         approved taxonomy" — and only the first is benign. A fault had to survive
+#         TWO independent downgrades to be seen. Absence is still tolerated and
+#         still returns []; everything else is now raised. This is the same defect
+#         class as v2.30's own (`both except branches swallow silently`), one layer
+#         up, which is why it outlived the fix.
+#         MINIMUM COMPANION: corpus_io.py >= v1.3.
 #
 # v2.30 — 2026-07-25 — BOTH ANALYSIS-DOC READERS DELEGATED (GAP-2026-07-25-002).
 #         extract_taxonomy_from_analysis_doc() and _extract_taxonomy_tuples_from_analysis_doc()
@@ -1908,11 +1941,16 @@ def extract_taxonomy_from_analysis_doc(doc_path, taxonomy):
 
     corpus_io Cluster K is now THE reader for this artefact. Signature and
     in-place-mutation contract are unchanged, so callers are untouched.
+
+    v2.31 — THE LOCK GATE. Reading the doc proved it agreed with ITSELF and never
+    that it was the doc PYQApprove APPROVED. Step 5 mints the subtopic_ids every
+    later step matches on, so a superseded Analysis doc here does not degrade the
+    run — it silently renames the vocabulary of the whole pipeline.
     """
     import corpus_io
     actual_path = doc_path['path'] if isinstance(doc_path, dict) else doc_path
     try:
-        doc = corpus_io.read_analysis_doc(actual_path)
+        doc = corpus_io.load_taxonomy(path=actual_path, step='PYQExtract')
     except corpus_io.AnalysisDocError as ex:
         raise RuntimeError(str(ex))
     for section, topic, subtopic in doc['triples']:
@@ -5026,8 +5064,8 @@ def taxonomy_sync_entries(existing_entries, exam_code):
                 sync_log.append(f'  WARN: taxonomy_draft.json unreadable: {ex}')
 
     # Source 2 (ADDITIONAL): approved Analysis doc — safety net for when
-    # taxonomy_draft is absent. Uses python-docx heading detection (same
-    # approach as extract_taxonomy_from_analysis_doc) to parse the .docx.
+    # taxonomy_draft is absent. Read through corpus_io Cluster K (v2.30) and
+    # asserted against the approval record's taxonomy_fingerprint (v2.31).
     analysis_added = 0
     for search_dir in ['/mnt/project/', '/mnt/user-data/uploads/']:
         for f in glob.glob(os.path.join(search_dir, '*.docx')):
@@ -5045,6 +5083,13 @@ def taxonomy_sync_entries(existing_entries, exam_code):
                         sync_log.append(
                             f'  Taxonomy source 2 (ADDITIONAL): Analysis doc ({os.path.basename(f)}) — '
                             f'{analysis_added} new subtopics added beyond taxonomy_draft')
+                except corpus_io.AnalysisDocError:
+                    # v2.31 — NEVER a WARN. An unreadable or unapproved Analysis doc
+                    # is not a source that happened to contribute nothing; it is the
+                    # wrong taxonomy, and every id minted from it is wrong. The old
+                    # code caught this here AND inside the extractor, so the fault
+                    # had to survive two independent downgrades to be seen at all.
+                    raise
                 except Exception as ex:
                     sync_log.append(f'  WARN: Analysis doc {os.path.basename(f)} unreadable: {ex}')
 
@@ -5123,16 +5168,25 @@ def _extract_taxonomy_tuples_from_analysis_doc(docx_path):
     silently — that emptiness was indistinguishable from "the doc had nothing to
     add". Measured on the first exam's live doc: 0 tuples against a truth of 131.
 
-    Returns [] on failure, unchanged: this is an ADDITIONAL source and the caller
-    logs a WARN and falls through to the others. The Cluster K reader's own hard
-    stops are converted to that WARN here rather than aborting extraction, because
-    Step 5 must still run when the Analysis doc is absent by design.
+    Returns [] when the doc is ABSENT, which is a supported configuration: this is
+    an ADDITIONAL source and Step 5 must still run without it.
+
+    v2.31 — WHAT IT NO LONGER SWALLOWS. The old body was `except Exception: return
+    []`, which made three different situations indistinguishable: "no Analysis doc,
+    by design", "the Analysis doc is unreadable", and "the Analysis doc is not the
+    approved one". Only the first is benign. The other two returned [] and the
+    caller logged a WARN, so the safety net that mints ids for zero-PYQ subtopics
+    quietly contributed nothing — exactly the shape of the v2.30 defect, one layer
+    up. Absence is still tolerated; a doc that is PRESENT and wrong is now loud.
     """
+    import corpus_io
     try:
-        import corpus_io
-        return list(corpus_io.read_analysis_doc(docx_path)['triples'])
-    except Exception:
-        return []
+        doc = corpus_io.load_taxonomy(path=docx_path, step='PYQExtract')
+    except corpus_io.AnalysisDocError as ex:
+        if 'no Analysis doc found' in str(ex):
+            return []                      # absent by design — the only benign case
+        raise                              # present but unreadable — never a WARN
+    return list(doc['triples'])
 
 
 def write_taxonomy_xlsx(manifest, exam_code):
@@ -8514,4 +8568,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.30
+# END OF Framework_MockTestAnalyse v2.32

@@ -1,5 +1,35 @@
 """
-reconcile_taxonomy.py v1.2 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+reconcile_taxonomy.py v1.3 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+
+v1.3 — 2026-07-26 — THE RECORD CARRIES THE TAXONOMY, NOT JUST ITS HASH.
+    SCHEMA_VERSION 1.2 -> 1.3. GAP-2026-07-25-003 follow-up, and the change that ends
+    the defect class rather than handling it.
+
+    v1.2 made the record prove WHAT was locked. It proved it with a fingerprint —
+    which establishes identity and cannot restore content. So Steps 3, 4, 5 and 6
+    still had to recover the taxonomy by PARSING A WORD DOCUMENT, and when the
+    platform's storage of that document turned out to be extracted text rather than
+    an OOXML package, all four steps failed on every exam simultaneously.
+
+    build_approval_record() has always received final_taxonomy in exactly the
+    {section: {topic: [subtopic]}} shape those steps need, and discarded it. It now
+    records it under "taxonomy": {"sections": ...}. Three consequences:
+      • the record is SELF-SUFFICIENT — the taxonomy and the fingerprint that
+        validates it live in one file, so a consumer needs no second artefact and no
+        new trust;
+      • that file is JSON, which the platform stores BYTE-FOR-BYTE (measured: .py,
+        .json and .md pass through unchanged; .docx becomes Markdown text and .pdf
+        becomes a Zip page-bundle, both under their original names);
+      • display names come from JSON rather than from a text-extraction round trip,
+        so they are exact rather than merely slug-equivalent — which matters, because
+        the fingerprint is slug-normalised BY DESIGN and cannot detect a display-byte
+        change on its own.
+    Order is preserved throughout: subject order sets subject_order and topic order
+    sets topic_idx, which is positional.
+
+    Additive and backward-compatible. Older records simply lack the key, and the
+    reader falls back to the Analysis doc for them, so no exam approved before this
+    version needs re-running.
 
 v1.2 — 2026-07-25 — TAXONOMY ATTESTATION (GAP-2026-07-25-002). SCHEMA_VERSION 1.1 -> 1.2.
     build_approval_record() gains final_taxonomy= and, when given one, records
@@ -88,8 +118,8 @@ import json, re, hashlib, unicodedata
 from blueprint_core import taxonomy_fingerprint   # v1.2 — THE canonical fingerprint
 from difflib import SequenceMatcher
 
-ENGINE_VERSION = "reconcile_taxonomy.py v1.2"
-SCHEMA_VERSION = "1.2"
+ENGINE_VERSION = "reconcile_taxonomy.py v1.3"
+SCHEMA_VERSION = "1.3"
 
 MIN_PATTERN_SIZE = 3      # MUST match S3-6 refinement threshold
 RATIO_WARN       = 2.0    # S2-3 guardrail (LEGACY C4 form only)
@@ -910,6 +940,33 @@ def build_approval_record(exam_code, findings, resolved, adjudications, conserva
             "subjects": len(final_taxonomy),
             "topics": sum(len(t) for t in final_taxonomy.values()),
             "subtopics": len(_triples)}
+        # v1.3 — THE APPROVED TAXONOMY ITSELF, not merely its hash.
+        #
+        # This function has always RECEIVED final_taxonomy in exactly the shape four
+        # downstream steps need, derived a fingerprint from it, and then thrown it
+        # away — leaving Steps 3, 4, 5 and 6 to reconstruct the same structure by
+        # parsing a Word document. That reconstruction is what GAP-2026-07-25-003
+        # severed on every exam at once, because the platform stores an uploaded
+        # .docx in project knowledge as extracted TEXT under its .docx name.
+        #
+        # A hash proves identity and cannot restore content. Persisting the taxonomy
+        # makes the record self-sufficient: JSON is byte-preserved by the platform
+        # (unlike .docx and .pdf), the fingerprint recorded beside it validates it
+        # with no new trust, and syllabus_provenance.read_taxonomy_draft() already
+        # reads this exact {"sections": {sec: {top: [sub]}}} shape. The Analysis doc
+        # becomes what it should always have been: a HUMAN deliverable.
+        #
+        # ORDER IS LOAD-BEARING and is preserved. Subject order sets subject_order
+        # and within-subject topic order sets topic_idx, which is POSITIONAL. dicts
+        # and json.dump both preserve insertion order, so the order written here is
+        # the order every consumer sees.
+        #
+        # Emitted only when final_taxonomy is supplied — the same fail-safe rule as
+        # the fingerprint above. An absent key means "this record was built by a
+        # caller that does not pass final_taxonomy", never "the taxonomy is empty".
+        _record["taxonomy"] = {
+            "sections": {sec: {top: list(subs) for top, subs in tops.items()}
+                         for sec, tops in final_taxonomy.items()}}
     return _record
 
 
@@ -1097,7 +1154,43 @@ def _self_test():
     # ---- T13: schema / stamping ----
     rec = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
                                 ledger=_full_ledger())
-    ck("T13a schema 1.2", rec["schema_version"] == "1.2")
+    ck("T13a schema 1.3", rec["schema_version"] == "1.3")
+
+    # ---- T13-TAX: the record CARRIES the taxonomy (v1.3, GAP-2026-07-25-003) ----
+    # A fingerprint establishes identity and cannot restore content. Until v1.3 four
+    # steps recovered this structure by parsing a Word document, which is what broke
+    # on every exam at once when the platform stored that document as text.
+    _tx = {"General Biology": {"Cell Biology": ["Membrane", "Nucleus"],
+                               "Genetics": ["Linkage"]},
+           "Physics": {"Mechanics": ["Kinematics"]}}
+    _rt = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
+                                ledger=_full_ledger(), final_taxonomy=_tx)
+    ck("T13-TAX taxonomy is recorded", "taxonomy" in _rt)
+    ck("T13-TAX recorded under 'sections', the read_taxonomy_draft shape",
+       set(_rt["taxonomy"]) == {"sections"})
+    ck("T13-TAX round-trips through JSON unchanged",
+       json.loads(json.dumps(_rt["taxonomy"]))["sections"] == _tx)
+    ck("T13-TAX subject ORDER preserved (drives subject_order)",
+       list(json.loads(json.dumps(_rt["taxonomy"]))["sections"])
+       == ["General Biology", "Physics"])
+    ck("T13-TAX topic ORDER preserved within a subject (drives positional topic_idx)",
+       list(json.loads(json.dumps(_rt["taxonomy"]))["sections"]["General Biology"])
+       == ["Cell Biology", "Genetics"])
+    ck("T13-TAX subtopic ORDER preserved",
+       _rt["taxonomy"]["sections"]["General Biology"]["Cell Biology"]
+       == ["Membrane", "Nucleus"])
+    ck("T13-TAX counts agree with the recorded taxonomy",
+       _rt["taxonomy_counts"] == {"subjects": 2, "topics": 3, "subtopics": 4})
+    _rtt = [(a, b, c) for a, t in _rt["taxonomy"]["sections"].items()
+            for b, xs in t.items() for c in xs]
+    ck("T13-TAX the recorded fingerprint validates the recorded taxonomy",
+       taxonomy_fingerprint(_rtt) == _rt["taxonomy_fingerprint"])
+    ck("T13-TAX taxonomy is OMITTED when no final_taxonomy is supplied",
+       "taxonomy" not in build_approval_record("X", [], [], [], {"pass": True},
+                                               mode="FULL", ledger=_full_ledger()))
+    ck("T13-TAX the writer does not alias the caller's dict",
+       (_tx["Physics"]["Mechanics"].append("SCRIBBLE") or True)
+       and _rt["taxonomy"]["sections"]["Physics"]["Mechanics"] == ["Kinematics"])
 
     # ---- T13-FP: taxonomy attestation (v1.2, GAP-2026-07-25-002) ----
     # A record that does not name the taxonomy it locked cannot be matched against

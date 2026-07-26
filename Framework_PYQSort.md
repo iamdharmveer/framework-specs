@@ -1,8 +1,15 @@
-# Framework_PYQSort v1.14 — Universal PYQ Sorter
+# Framework_PYQSort v1.16 — Universal PYQ Sorter
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS (v1.14):
-#   corpus_io.py          >= v1.1   — Cluster K read_analysis_doc() is S1-2's ONLY
+#   corpus_io.py          >= v1.4   — load_taxonomy() is S1-0b/S1-2's ONLY entry
+#                                     point: source selection, read and identity
+#                                     assertion in one call
+#   (superseded note) v1.3  — Cluster K read_analysis_doc() is S1-2's ONLY
+#                                     reader, assert_taxonomy_lock() is S1-0b's ONLY
+#                                     comparison, and v1.2 INGEST FORMS are what make
+#                                     the project-Files copy readable at all
+#   (superseded note) v1.1  — Cluster K read_analysis_doc() is S1-2's ONLY
 #                                     reader. Under v1.0.x this spec does not run.
 #   reconcile_taxonomy.py >= v1.2   — S1-0b compares taxonomy_fingerprint, which the
 #                                     record only carries from schema 1.2 onward. An
@@ -35,6 +42,11 @@
 #   1. Step 1 must have produced the Row file from raw exam dump.
 #   2. Step 2c PYQApprove must have produced approved Analysis docs + exam_config.json.
 #   3. Both Analysis docs and exam_config.json must be in [ExamCode] project Files.
+#      Project knowledge stores the .docx as extracted TEXT under its .docx name.
+#      That is SUPPORTED and EXPECTED — corpus_io >= v1.2 reads either form and
+#      reports which one at S1-3. No operator action, and do NOT attach the
+#      Analysis doc to chat as well: the project copy wins and the attachment is
+#      silently ignored (EC-S20).
 #
 # INPUTS:
 #   1. One Row file (.docx) — uploaded to chat
@@ -92,6 +104,41 @@
 #   to Step 1 as the fix location — not a PYQSort bug.
 #
 # VERSION HISTORY:
+#   v1.16 — 2026-07-26 — THE TAXONOMY IS LOADED ONCE, FROM JSON WHERE AVAILABLE.
+#          reconcile_taxonomy >= v1.3 records the approved taxonomy inside
+#          approval_record.json — a file the platform stores byte-for-byte — beside
+#          the fingerprint that validates it. corpus_io.load_taxonomy() prefers that
+#          and falls back to the Analysis doc for pre-1.3 records, so on the
+#          preferred path this step reads no Word document at all and EC-S20 cannot
+#          arise. Exams approved earlier are unaffected and need no re-run.
+#          S1-0b and S1-2 collapse to ONE call. The pair they replace — a read
+#          followed by a separate lock assertion — was written in both sections,
+#          which meant the artefact was read TWICE in one step and the two reads
+#          could disagree. S1-0b makes the call because it is the first consumer;
+#          S1-2 reuses the object and hard stops if it is missing.
+#          S1-3 reports source alongside ingest form. EC-S21 records the new path
+#          and, explicitly, that a pre-1.3 record is NOT a fault. DoD 23 updated.
+#   v1.15 — 2026-07-26 — INGEST FORMS SURFACED + S1-0b DELEGATED (GAP-2026-07-25-003).
+#          Documentation and delegation only; no behaviour in this spec changes that
+#          corpus_io >= v1.3 does not already provide.
+#          (a) EC-S20 records what the runtime actually receives: the Analysis doc is
+#              stored in project Files as extracted TEXT under its .docx name, and
+#              that is the PRIMARY form at Steps 3-6, not a degraded one. It also
+#              records the two things that are NOT tolerated — a '|' in any taxonomy
+#              name, which the text form splits into a silently truncated name whose
+#              declared totals still agree, and an unrecognised extraction grammar.
+#          (b) S1-3 REPORTS the ingest form. Same discipline as S1-0's one line on
+#              success: when the platform's grammar eventually changes, this line is
+#              the first evidence of it.
+#          (c) S1-0b no longer writes the fingerprint comparison itself. It was the
+#              first place to make that claim and, for one release, the only one;
+#              Steps 4, 5 and 6 now make it too, so the rule lives once in
+#              corpus_io.assert_taxonomy_lock() and every step calls it. Four
+#              transcriptions of one comparison is how GAP-2026-07-25-002's four
+#              readers happened. The claim, the messages and the operator actions are
+#              unchanged — only their location is.
+#          (d) §13 gains the rule the whole gap reduces to: NEVER infer a container
+#              format from a file extension.
 #   v1.14 — 2026-07-25 — ANALYSIS-DOC READER DELEGATED + S1-0b CONTENT CROSS-CHECK
 #          (GAP-2026-07-25-002). S1-2 carried its own reader and it was wrong twice over.
 #          DEFECT A (loud): the discovery glob '*_PYQ_Analysis_*.docx' required a trailing
@@ -424,31 +471,63 @@ and GAP-2026-07-25-002 Defect B satisfied the first while violating the second:
 the record read CLEAN, every attestation passed, and the reader had flattened six
 subjects into one.
 
-  fp_locked = approval_record['taxonomy_fingerprint']    (reconcile_taxonomy >= v1.2)
-  fp_loaded = corpus_io.read_analysis_doc()['fingerprint']
+v1.15 — THE COMPARISON IS NO LONGER WRITTEN HERE. S1-0b was the first place to make
+this claim and, for one release, the only one. It is now made at Steps 4, 5 and 6 as
+well, so the rule lives in corpus_io as assert_taxonomy_lock() and every step calls
+it. Four transcriptions of one comparison is how the four Analysis-doc readers of
+GAP-2026-07-25-002 happened; the fix for that was deletion, and so is this one. The
+claim, the message and the operator action are unchanged — only their location is.
+```
 
-  HARD STOP — "no fingerprint":
-    If the record carries no 'taxonomy_fingerprint' key:
-      "Taxonomy lock cannot be matched to the Analysis doc — the approval record
-       predates the fingerprint contract (reconcile_taxonomy.py v1.2).
-       NEXT ACTION: re-run PYQApprove. This is RECONCILIATION, not re-derivation:
-       it reads taxonomy_draft.json and rewrites only approval_record.json, and
-       CANNOT change a locked taxonomy. Do NOT re-run PYQDraft."
-      DO NOT sort.
+```python
+import corpus_io
 
-  HARD STOP — "mismatch":
-    If fp_locked != fp_loaded:
-      "The Analysis doc in project Files is NOT the taxonomy that was locked.
-         locked : [fp_locked]
-         loaded : [fp_loaded]
-         subjects  locked [K] / loaded [K']
-         subtopics locked [N] / loaded [N']
-       Either the Analysis doc was edited after PYQApprove, or a different exam's
-       doc is in this project.
-       NEXT ACTION: restore the Analysis doc PYQApprove delivered, or re-run
-       PYQApprove if the taxonomy genuinely changed — and re-sort every paper
-       already sorted under the old taxonomy."
-      DO NOT sort.
+# ONE call. It selects the taxonomy source, verifies identity, and returns the
+# shape S1-2 has always returned. S1-2 reuses this object; it does NOT load again.
+ANALYSIS_DOC = corpus_io.load_taxonomy(record=approval_record, step='PYQSort')
+```
+
+```
+  v1.16 — WHERE THE TAXONOMY COMES FROM. load_taxonomy() prefers the approval
+  record's own "taxonomy" key (reconcile_taxonomy >= v1.3, schema >= 1.3) and falls
+  back to the Analysis doc for records written before that. The record is JSON,
+  which the platform stores byte-for-byte, so on the preferred path no Word document
+  is read at all and no extraction grammar is involved. The record VALIDATES ITSELF
+  — the fingerprint it carries was computed from the taxonomy it carries — so the
+  identity claim below is made on either path, from one implementation.
+    source='approval_record' -> ingest_form='json'  (preferred; nothing to parse)
+    source='analysis_doc'    -> ingest_form='text' | 'ooxml'  (pre-1.3 records)
+  Exams approved before schema 1.3 keep working unchanged and need no re-run. When
+  one IS re-run through PYQApprove — reconciliation only — it moves to the preferred
+  path automatically.
+
+  load_taxonomy() HARD STOPS on exactly two identity conditions, both of which used
+  to be spelled out here:
+
+    "no fingerprint" — the record carries no 'taxonomy_fingerprint' key, i.e. it
+      predates the contract (reconcile_taxonomy.py v1.2). The message names the
+      re-run as RECONCILIATION, not re-derivation: it reads taxonomy_draft.json and
+      rewrites only approval_record.json, and CANNOT change a locked taxonomy. Do
+      NOT re-run PYQDraft.
+
+    "mismatch" — fp_locked != doc['fingerprint']. Either the Analysis doc was edited
+      after PYQApprove, or a different exam's doc is in this project. The message
+      names both the restore path and, if the taxonomy genuinely changed, the
+      requirement to re-sort every paper already sorted under the old one.
+
+  Either way: DO NOT sort.
+
+  It additionally HARD STOPS when a record that CARRIES a taxonomy does not agree
+  with itself — the fingerprint it records is not the fingerprint of the taxonomy it
+  records, or the declared taxonomy_counts do not match what the taxonomy assembles
+  to, or a name is repeated. A repeated name matters more than it looks: it would
+  collapse on assembly and the fingerprint would NOT notice, because it is computed
+  over the same duplicated triples and therefore agrees with itself.
+
+  `record=` is passed because S1-0 has already loaded and attested the record.
+  Omitting it would make load_taxonomy() discover the record a second time — a second
+  read of a file this step has already validated, and one more place for the two
+  reads to disagree. Steps 4-6 omit it because they have no equivalent of S1-0.
 
   The fingerprint is computed over slugify()-normalised triples
   (blueprint_core.taxonomy_fingerprint), so it is invariant to exactly the cosmetic
@@ -562,13 +641,17 @@ def load_taxonomy_from_analysis_docs():
     §S6-2 has always specified ("position of topic within its section's Analysis
     doc"). The old code derived it from the printed "Topic N:" label, which
     restarts at 1 for every subject in a merged doc.
+
+    v1.16 — S1-0b ALREADY LOADED IT. corpus_io.load_taxonomy() performs the source
+    selection, the read and the identity assertion in one call, and S1-0b makes that
+    call because it is the first consumer. Loading again here would read the same
+    artefact twice in one step and give the two reads a chance to disagree.
     """
-    try:
-        doc = corpus_io.read_analysis_doc()
-    except corpus_io.AnalysisDocError as ex:
-        raise SystemExit(str(ex))
-    ANALYSIS_DOC = doc                      # kept for S1-0b and S1-3
-    return doc['taxonomy'], doc['triples']
+    if ANALYSIS_DOC is None:                # only when S1-0b was somehow skipped
+        raise SystemExit(
+            "HARD STOP: S1-2 reached with no taxonomy loaded. S1-0b is MANDATORY and "
+            "runs first — it is what loads and verifies the taxonomy.")
+    return ANALYSIS_DOC['taxonomy'], ANALYSIS_DOC['triples']
 ```
 
 ### S1-3 — File inventory
@@ -579,7 +662,9 @@ List ALL received files:
    • [filename].docx  (Row file, [size])
 
    Project knowledge loaded:
-   • [N] Analysis docs ([total] subtopics across [M] subjects)
+   • Taxonomy: [total] subtopics across [M] subjects
+     source: [approval_record / analysis_doc]   <- v1.16, from doc['source']
+     ingest form: [json / text / ooxml]         <- v1.15, from doc['ingest_form']
    • exam_config.json ([ExamCode], [total_questions] questions, [sections] sections)
 
    Section detection mode: [marker_mode / Q-range]
@@ -588,6 +673,14 @@ List ALL received files:
    Level: [level] (from exam_config, if present)
    Medium: [medium] (from exam_config, if present)
    Marking ranges: [N] range(s) (from exam_config, if present)"
+
+REPORT the source and the ingest form; never warn about either and never ask the
+operator to act on them. source='approval_record' with ingest_form='json' is the
+preferred state; source='analysis_doc' with ingest_form='text' is NORMAL for any
+exam approved before reconcile_taxonomy v1.3 — see EC-S20 and EC-S21. It is printed for the same reason
+S1-0 prints its one line on success: a verification nobody can see is a
+verification nobody can trust, and when the platform's extraction grammar
+eventually changes this line is the first evidence of it.
 
 If Row file missing → "Upload 1 Row file (.docx) and re-trigger PYQSort."
 If Analysis docs missing → HARD STOP (see S1-2).
@@ -2228,6 +2321,56 @@ EC-S19: UNRESOLVED OR DANGLING IMAGE RELATIONSHIP IN THE ROW FILE (v1.12)
   Document(path) can never run and the operator sees a library traceback instead of a
   sentence naming the defect. Verified by construction.
   Sorting it anyway would deliver a document that looks complete and is not.
+
+EC-S20: ANALYSIS DOC READ AS PLATFORM-EXTRACTED TEXT (v1.15 / GAP-2026-07-25-003)
+  The Analysis doc lives in the project's Files section, uploaded once after
+  PYQApprove (Step 2c). The Claude Projects platform stores an uploaded .docx there
+  as extracted Markdown TEXT, KEEPING the original filename and .docx extension.
+  Measured on the first real exam: the chat attachment is a 40,882-byte OOXML
+  package; the same file in project Files is 12,911 bytes of Markdown.
+  This text form is therefore the PRIMARY and NORMAL runtime input at Steps 3, 4, 5
+  and 6 — not a fallback and not a degraded mode.
+  Resolution: corpus_io >= v1.2 detects the ingest form by CONTENT (never by
+  extension — the .pdf in the same project is a Zip page-bundle under its .pdf name,
+  so the extension is not evidence of the container) and scans the text form with
+  _scan_text(), which emits the identical structure as the OOXML scanner.
+  verify_analysis_doc() still asserts all three self-declarations, and S1-0b still
+  asserts the fingerprint against the lock — the text form is admitted THROUGH both
+  gates, never around them.
+  NO OPERATOR ACTION. Do NOT attach the Analysis doc to chat: discover_analysis_doc()
+  de-duplicates by name and the project copy wins, so an attachment under the
+  canonical name is silently ignored and one under a different name raises "2
+  Analysis docs found". Do not warn about the ingest form; report it in the S1-3
+  inventory and continue.
+  ONLY an UNRECOGNISED form halts, and it halts loudly and by name — never with a
+  library traceback and never as a best-effort parse.
+  TWO THINGS THAT ARE NOT TOLERATED, both of which would otherwise be silent:
+    • a '|' anywhere in a subject, topic or subtopic name. In the text form '|' is
+      the cell separator, so the name is split, the remainder is swallowed as the
+      count column, and the declared totals STILL AGREE — D1, D2 and D3 all pass on
+      a truncated name. corpus_io hard stops on any table whose rows differ in cell
+      count, and write_analysis_doc() refuses to emit such a name at Step 2c.
+    • an extraction grammar this version does not recognise. The parse yields no
+      subject heading and the reader stops naming the grammar change explicitly.
+      Report it as a GAP-2026-07-25-003 follow-up; do NOT work around it.
+
+EC-S21: TAXONOMY SOURCED FROM THE APPROVAL RECORD (v1.16)
+  reconcile_taxonomy >= v1.3 records the approved taxonomy INSIDE
+  [ExamCode]_approval_record.json, beside the fingerprint that validates it. That
+  file is JSON, which the platform stores byte-for-byte, so on this path no Word
+  document is read and no extraction grammar is involved at all — EC-S20 simply
+  cannot arise. Display names are exact rather than merely slug-equivalent, which
+  the fingerprint alone could never guarantee.
+  load_taxonomy() prefers it automatically. Nothing to configure.
+  PRE-1.3 RECORDS ARE NOT A FAULT. Every exam approved before this carries a
+  fingerprint and no taxonomy; those take the Analysis-doc path, fully gated, and
+  need no re-run. S1-3 reports which path was taken. An exam moves to the preferred
+  path the next time it goes through PYQApprove, which is RECONCILIATION — it reads
+  taxonomy_draft.json, rewrites only the record, and cannot change a locked taxonomy.
+  WHAT STILL HALTS: a record that carries a taxonomy and does not agree with itself.
+  Fingerprint vs taxonomy, declared counts vs assembled counts, or a repeated name —
+  the last of which the fingerprint cannot catch, since it is computed over the same
+  duplicated triples and so agrees with itself. Never half-believed; always named.
 ```
 
 ---
@@ -2318,6 +2461,10 @@ STEP 1 FORMAT CONTRACT (prerequisite):
 ☐ 21. Sorted .docx delivered via present_files
 ☐ 22. Deliverable set closed: EXACTLY 1 file in present_files call
        (no scripts, no intermediates, no input files, no RAW_OUT)
+☐ 23. Taxonomy SOURCE and ingest form identified and REPORTED in the S1-3
+       inventory, and the taxonomy loaded through corpus_io.load_taxonomy() —
+       never by prose, never by a bare Document(path) open, never loaded twice
+       in one step (EC-S20, EC-S21)
 
 POST-DELIVERY:
   User downloads sorted .docx → uploads to Google Drive PYQ folder.
@@ -2340,6 +2487,14 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 ## §13 — CRITICAL WARNINGS
 
 ```
+⚠️ NEVER infer a container format from a file extension.
+   A file named .docx in /mnt/project/ is extracted TEXT, not an OOXML package;
+   a file named .pdf there is a Zip page-bundle. The platform preserves the NAME
+   through every transform, so the name is evidence of nothing. Detect from
+   CONTENT. This is what made GAP-2026-07-25-003 a P0 across every exam, and it is
+   why the "no file found" diagnostic that anticipated it could never fire: the
+   file was never missing, only transformed.
+
 ⚠️ NEVER use body.append() — ALWAYS use insert_para()
    body.append() places content after <w:sectPr>, making it invisible.
    This is the #1 most dangerous bug. Every element (headings, date labels,
@@ -2408,4 +2563,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.14
+# END OF Framework_PYQSort v1.16

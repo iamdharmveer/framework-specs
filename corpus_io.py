@@ -1,6 +1,120 @@
 """
-corpus_io.py v1.1 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.4 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance and the Analysis doc.
+
+v1.4 — 2026-07-26 — THE TAXONOMY COMES FROM JSON, NOT FROM A WORD DOCUMENT.
+    GAP-2026-07-25-003, resolved at the cause rather than at the symptom.
+    v1.2 taught the reader both ingest forms and works. It works by matching an
+    undocumented, unversioned extraction grammar the framework does not control,
+    observed from one sample — so the next change to that grammar stops all ~200
+    exams at once. Loudly, but at once. That is a mitigation, not a resolution.
+    reconcile_taxonomy v1.3 now persists the approved taxonomy INSIDE
+    approval_record.json, which it has always held in the right shape and thrown
+    away. New load_taxonomy() prefers it and falls back to the Analysis doc for
+    records that predate schema 1.3, so no already-approved exam needs re-running.
+    The record VALIDATES ITSELF: the fingerprint recorded beside the taxonomy was
+    computed from it at Step 2c, so nothing new is trusted, and a record whose two
+    halves disagree hard stops rather than being half-believed.
+    _assemble() is extracted so the record path and the document path build the ONE
+    return shape from one implementation — two constructions of one shape is how
+    GAP-2026-07-25-002's four readers happened.
+    Also stopped: silent de-duplication. A name repeated in the recorded taxonomy
+    would collapse on assembly and the fingerprint would NOT notice, because it is
+    computed over the same duplicated triples and therefore agrees with itself.
+
+v1.3 — 2026-07-26 — THE TAXONOMY LOCK GATE, ONCE (GAP-2026-07-25-003 follow-up).
+    read_analysis_doc() asserts the doc agrees with ITSELF; nothing in Cluster K
+    asserted it is the doc PYQApprove LOCKED. Framework_PYQSort S1-0b made that
+    second claim and NOTHING else did — Steps 5 and 6 read the taxonomy and
+    allocated against it with no identity check at all. At Step 5 it was worse than
+    absent: the reader's hard stops were caught and downgraded to a log line TWICE,
+    once in _extract_taxonomy_tuples_from_analysis_doc and again in its caller, so a
+    superseded or mis-parsed doc that halts loudly at Step 3 was accepted three steps
+    later without a word. Every subtopic_id minted from it would be wrong, and ids
+    are what Steps 6-11 match on.
+    Adds discover_approval_record(), read_approval_record() and
+    assert_taxonomy_lock(doc, ...). The gate lives here ONCE rather than being
+    written a fifth time in a fifth spec — the same anti-drift rule that produced
+    Cluster K, now covering the lock as well as the reader.
+    SCOPE IS NARROW ON PURPOSE: this asserts IDENTITY only. Whether the lock was
+    EARNED — status, schema attestation, checks.missing/vacuous — is PYQSort S1-0's
+    claim, made once at Step 3 against the same record, and is not duplicated. One
+    function, one claim.
+
+v1.2.1 — 2026-07-26 — UNKNOWN-FORM DIAGNOSTIC COULD RAISE THE FAULT IT DIAGNOSED.
+    read_analysis_doc()'s INGEST_UNKNOWN branch formatted its message with
+    os.path.getsize(path). _ingest_form() returns UNKNOWN for an unreadable path
+    BECAUSE getsize() raised there, so the diagnostic re-raised it uncaught and the
+    operator received exactly the library traceback v1.2 was written to replace —
+    on the one input where the named stop matters most. Reproducible with any
+    unreadable or vanished path; found by re-running the delivered spec end to end
+    rather than by review. The size is diagnostic and is now reported as
+    "unreadable (<Error>: <detail>)" when it cannot be taken.
+
+v1.2 — 2026-07-26 — CLUSTER K: INGEST FORMS (GAP-2026-07-25-003). The Analysis doc
+    is uploaded to the project's Files section after Step 2c and read from there at
+    Steps 3, 4, 5 and 6. The platform stores an uploaded .docx in project knowledge
+    as EXTRACTED MARKDOWN TEXT while PRESERVING the .docx filename, so the text form
+    is the ONLY form the runtime ever receives for this artefact — yet read_analysis_doc()
+    opened it with python-docx and hard stopped with PackageNotFoundError on every
+    project, severing the pipeline at Step 3. Measured: chat attachment = 40,882-byte
+    OOXML package; the same file in project Files = 12,911 bytes of Markdown text.
+    v1.1 anticipated this, but put the diagnostic on discover_analysis_doc()'s "no file
+    found" branch, which the preserved filename makes unreachable: discovery SUCCEEDS
+    and hands _scan() a text file.
+
+    This is a REGRESSION BOUNDARY, not a latent bug. Before v1.1 the artefact was read
+    by prose in Framework_Blueprint S2-2 ("instruct Claude to extract the structure
+    itself"), which works on the text form by construction. v1.1 replaced prose with
+    python-docx and thereby traded a working non-deterministic read for a deterministic
+    broken one. The answer is NOT to restore prose — of the four pre-v1.1 readers only
+    Blueprint's worked at all; MockTestAnalyse's two returned 0 subtopics against a
+    truth of 131 on every exam, silently. ONE reader stands; it learns the second form.
+
+    Four changes, in the order they matter:
+      (a) INGEST FORMS. The container is classified from CONTENT, never from the
+          extension — the .pdf in the same project is a Zip page-bundle under its .pdf
+          name, so the extension is not evidence of the container. _scan() is renamed
+          _scan_ooxml() (body untouched, still used by write_analysis_doc()'s output and
+          the round-trip self-test) and _scan_text() joins it, emitting the IDENTICAL
+          (subjects, order, declared, anomalies) 4-tuple. verify_analysis_doc(),
+          taxonomy_fingerprint(), the return shape and every downstream consumer are
+          therefore untouched, and the text form is admitted THROUGH both existing gates
+          rather than around them. An unrecognised form is a named hard stop, never a
+          best-effort parse, and verify=False is refused on a non-OOXML form.
+      (b) RAGGED-ROW HARD STOP (the defect the ingest-form fix would otherwise have
+          introduced). A markdown table is rectangular. A '|' inside a taxonomy name
+          splits one row wider than its neighbours, and the surplus cell is swallowed
+          as the count column: 'Transverse | Longitudinal' parsed as 'Transverse', with
+          'Longitudinal' discarded and the SUBTOPIC COUNT UNCHANGED — so D1, D2 and D3
+          all agree and verify_analysis_doc() returns clean. Reproduced by execution.
+          That matters beyond Step 3: the fingerprint cross-check against the approval
+          record exists ONLY in Framework_PYQSort S1-0b, so at Steps 5 and 6 the mis-parse
+          has no gate at all and is silent end to end. Non-uniform cell width across a
+          table's rows is now a hard stop naming the row, and write_analysis_doc() refuses
+          to emit a name containing '|' — the character is unrepresentable in this ingest
+          form, so it is rejected where it originates rather than where it corrupts.
+      (c) GRAMMAR TOLERANCE, bounded. Bold is stripped whether the extractor emits ** or
+          a full-line __wrap__, backslash escapes on markdown punctuation are removed, and
+          cells split only on UNESCAPED pipes. Measured against a second, independent
+          docx->markdown extractor on the same live document, which emits __bold__,
+          escapes ('IIT\\_JAM\\_BIOTECHNOLOGY', 'Subtopic\\-wise') and flattens tables
+          entirely. The first two are now handled; the third is not, and is not guessed
+          at — it produces the loud "extraction grammar may have changed" stop. This is
+          tolerance of variants that have been OBSERVED, not speculation about grammars
+          that have not.
+      (d) The stale hint at the tail of discover_analysis_doc() is corrected. After this
+          change the text form is READ, not diagnosed.
+
+    KNOWN RESIDUAL, recorded rather than hidden: this module now depends on an
+    undocumented, unversioned, platform-controlled extraction grammar. It fails LOUDLY
+    when that grammar changes, but it fails for every exam at once. The durable
+    resolution is to stop recovering machine state from a rendered document at all:
+    reconcile_taxonomy.build_approval_record() already receives final_taxonomy in the
+    exact {section: {topic: [subtopic]}} shape, derives the fingerprint from it and then
+    DISCARDS it, and syllabus_provenance.read_taxonomy_draft() already reads that shape
+    from JSON, which the platform stores byte-for-byte. Persisting the approved taxonomy
+    into the record makes this whole class of defect unreachable. Tracked separately.
 
 v1.1 — 2026-07-25 — CLUSTER K: THE Analysis-doc reader, writer and verifier
     (GAP-2026-07-25-002). The Step-2c Analysis doc previously had FOUR readers
@@ -1272,15 +1386,142 @@ def discover_analysis_doc(search_dirs=ANALYSIS_SEARCH_DIRS):
             "in PYQAnalyse v2.6.\n"
             "Re-run PYQApprove and upload the doc it delivers."
             % (nonconforming[0], ANALYSIS_DOC_SUFFIX))
+    # v1.2 (GAP-2026-07-25-003): the extracted-text advice that used to sit here was
+    # both unreachable — the platform preserves the filename, so the file is never
+    # MISSING, only transformed — and, after this version, wrong: the text form is
+    # READ, not diagnosed. No logic change; message only.
     raise AnalysisDocError(
         "HARD STOP: no Analysis doc found in %s.\n"
         "Expected [ExamCode]%s from PYQApprove (Step 2c).\n"
-        "If the file IS in project Files, project knowledge may have stored it as "
-        "extracted text rather than as the .docx package — attach the downloaded "
-        ".docx to this chat as well." % (' or '.join(search_dirs), ANALYSIS_DOC_SUFFIX))
+        "NEXT ACTION: upload the Analysis doc PYQApprove delivered to this project's "
+        "Files section." % (' or '.join(search_dirs), ANALYSIS_DOC_SUFFIX))
 
 
-def _scan(doc_path):
+# ══════════════════════════════════════════════════════════════════════════════
+# INGEST FORMS (GAP-2026-07-25-003)
+# ══════════════════════════════════════════════════════════════════════════════
+# The Claude Projects platform applies a per-format transform to files uploaded to
+# project knowledge and PRESERVES THE ORIGINAL FILENAME AND EXTENSION. A file named
+# .docx in /mnt/project/ is therefore NOT an OOXML package: the platform stores
+# EXTRACTED MARKDOWN TEXT. Confirmed independently by the .pdf in the same project,
+# which is stored as a Zip page-bundle under its .pdf name; .xlsx and .json are
+# byte-preserved, and so is anything attached to CHAT rather than uploaded to Files.
+#
+# The Analysis doc is uploaded to project Files after Step 2c and read from there at
+# Steps 3, 4, 5 and 6, so INGEST_TEXT is the PRIMARY RUNTIME FORM for this artefact —
+# not a fallback, not a degraded mode, and nothing to warn about. INGEST_OOXML is
+# retained because write_analysis_doc() emits it and the round-trip self-test reads
+# back what it writes.
+#
+# Consequence: the container MUST be detected from CONTENT. Inference from the
+# extension is wrong on exactly the input the runtime actually receives.
+
+INGEST_OOXML   = 'ooxml'      # genuine .docx package (writer output, self-test, chat)
+INGEST_TEXT    = 'text'       # platform-extracted text (project Files) — PRIMARY
+INGEST_UNKNOWN = 'unknown'    # neither — hard stop, never guess
+
+
+def _ingest_form(path):
+    """Classify the container of the Analysis doc by CONTENT.
+
+    Returns INGEST_OOXML / INGEST_TEXT / INGEST_UNKNOWN. Never raises: the caller
+    turns UNKNOWN into a named hard stop carrying an operator action.
+
+    A truncated .docx and a non-Word Zip both fail the word/document.xml test. Both
+    are genuinely unreadable, so both become UNKNOWN and receive a named stop instead
+    of a library traceback — the same discipline as PYQSort S7-5's pre-flight, which
+    inspects the package on the path before the library is allowed to raise.
+    """
+    import zipfile
+    try:
+        if os.path.getsize(path) == 0:
+            return INGEST_UNKNOWN
+        with open(path, 'rb') as fh:
+            magic = fh.read(4)
+        if magic[:2] == b'PK':
+            try:
+                with zipfile.ZipFile(path) as z:
+                    names = set(z.namelist())
+            except Exception:
+                return INGEST_UNKNOWN
+            return INGEST_OOXML if 'word/document.xml' in names else INGEST_UNKNOWN
+        with open(path, 'rb') as fh:
+            raw = fh.read()
+        try:
+            raw.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            return INGEST_UNKNOWN
+        return INGEST_TEXT
+    except OSError:
+        return INGEST_UNKNOWN
+
+
+# ── markdown surface -> plain text ────────────────────────────────────────────
+# Bounded tolerance: every variant handled here has been OBSERVED in a real
+# docx->markdown extractor run against a real Analysis doc. Nothing is anticipated.
+_MD_STAR  = re.compile(r'\*\*')                  # ** bold, incl. run-split ****
+_MD_WRAP  = re.compile(r'^__(.+)__$', re.S)      # __bold__ as a WHOLE-LINE wrap only
+_MD_SEP   = re.compile(r'^[\s|:\-]+$')           # markdown table separator row
+_MD_ESC   = re.compile(r'\\([\\`*_{}\[\]()#+\-.!|~>])')
+_MD_PIPE  = re.compile(r'(?<!\\)\|')             # cell split on UNESCAPED pipes only
+
+
+def _md_plain(s):
+    """Markdown inline markup -> the plain text the document author wrote.
+
+    __ is unwrapped ONLY as a whole-line wrap, never stripped globally: a taxonomy
+    name may legitimately contain underscores ('p_1 and p_2'), and a global strip
+    would silently rewrite it. Escapes are removed only before markdown punctuation,
+    so a backslash that is part of a name survives unless it precedes one of those.
+    """
+    s = _MD_STAR.sub('', s).strip()
+    m = _MD_WRAP.match(s)
+    if m:
+        s = m.group(1).strip()
+    return _MD_ESC.sub(r'\1', s).strip()
+
+
+def _md_cells(line):
+    """Cells of one pipe-table row. Splits on UNESCAPED pipes, then unescapes each
+    cell — so an extractor that escapes '\\|' inside a name keeps the name intact."""
+    s = line.strip()
+    if s.startswith('|'):
+        s = s[1:]
+    if s.endswith('|') and not s.endswith('\\|'):
+        s = s[:-1]
+    return [_md_plain(c) for c in _MD_PIPE.split(s)]
+
+
+def _assert_rectangular(rows, doc_name, line_no):
+    """A markdown table is RECTANGULAR. HARD STOP when it is not.
+
+    GAP-2026-07-25-003. A '|' inside a taxonomy name splits one row wider than its
+    neighbours, and the surplus cell is swallowed as the count column: the name is
+    truncated, the remainder is discarded, and the SUBTOPIC COUNT IS UNCHANGED — so
+    D1, D2 and D3 all still agree and verify_analysis_doc() returns clean. Nothing
+    downstream catches it either: the fingerprint cross-check against the approval
+    record lives only in Framework_PYQSort S1-0b, so at Steps 5 and 6 there is no gate
+    at all. Reproduced by execution, which is why this is a stop and not an anomaly.
+    """
+    widths = {len(r) for r in rows if r}
+    if len(widths) <= 1:
+        return
+    bad = next(r for r in rows if len(r) == max(widths))
+    raise AnalysisDocError(
+        "HARD STOP: %s contains a table whose rows do not all have the same number "
+        "of cells (widths %s), near line %d.\n"
+        "  offending row: %s\n"
+        "Most common cause: a subject, topic or subtopic name contains a '|' "
+        "character. In the extracted-text ingest form a '|' is a cell separator, so "
+        "the name is split and everything after the '|' is silently discarded while "
+        "the declared counts still agree — which is why this is stopped here rather "
+        "than left to a later check that cannot see it.\n"
+        "NEXT ACTION: remove '|' from the taxonomy name(s) and re-run PYQApprove "
+        "(Step 2c) to regenerate the Analysis doc."
+        % (doc_name, sorted(widths), line_no, ' | '.join(bad[:6])))
+
+
+def _scan_ooxml(doc_path):
     """Single pass over the body. Returns (subjects, order, declared, anomalies).
 
     ONE pass over doc.element.body, never doc.paragraphs, so paragraphs and tables
@@ -1380,6 +1621,113 @@ def _scan(doc_path):
     return subjects, order, declared, anomalies
 
 
+def _scan_text(doc_path):
+    """Scan the PLATFORM-EXTRACTED TEXT form — the primary runtime ingest form.
+
+    Emits the IDENTICAL 4-tuple as _scan_ooxml(), so verify_analysis_doc(),
+    taxonomy_fingerprint(), read_analysis_doc()'s return shape and every downstream
+    consumer are untouched. Heading recognition is delegated to
+    blueprint_core.parse_taxonomy_level(); the declaration regexes and the skip-cell
+    set are the SAME module-level objects the OOXML scanner uses. There is no second
+    structural convention anywhere in this module.
+    """
+    doc_name = os.path.basename(doc_path)
+    with open(doc_path, encoding='utf-8-sig') as fh:
+        text = fh.read()
+    lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+
+    subjects, order, declared, anomalies = {}, [], [], []
+    cur_s = cur_t = None
+    blk = None
+    i = 0
+    while i < len(lines):
+        raw = lines[i]
+
+        if raw.lstrip().startswith('|'):                       # ── table block ──
+            start = i + 1
+            rows = []
+            while i < len(lines) and lines[i].lstrip().startswith('|'):
+                if not _MD_SEP.match(lines[i]):
+                    rows.append(_md_cells(lines[i]))
+                i += 1
+            _assert_rectangular(rows, doc_name, start)
+            data = [r for r in rows if r and r[0].strip()]
+            is_master = bool(data) and any(
+                bc.parse_taxonomy_level(r[0])[0] == 2 for r in data)
+
+            if is_master:
+                # MASTER SUMMARY TABLE — a declaration, never data.
+                if blk is None:
+                    anomalies.append("a master summary table appears before any "
+                                     "subject heading")
+                    continue
+                blk['master_seen'] = True
+                for r in data:
+                    lvl, tname = bc.parse_taxonomy_level(r[0])
+                    if lvl == 2 and len(r) >= 2 and r[1].strip().isdigit():
+                        blk['d2'].append((tname, int(r[1].strip())))
+                    elif _GRAND_RE.match(r[0].strip()) and len(r) >= 2 \
+                            and r[1].strip().isdigit():
+                        blk['d2_grand'] = int(r[1].strip())
+                continue
+
+            if cur_s is None or cur_t is None:
+                anomalies.append("a subtopic table at line %d belongs to no topic — "
+                                 "the heading above it was not recognised" % start)
+                continue
+
+            bucket = subjects[cur_s][cur_t]
+            for r in rows:
+                if len(r) < 2:
+                    continue
+                name = r[0].strip()
+                if name.lower() in _SKIP_CELLS:
+                    continue
+                if bc.parse_taxonomy_level(name)[0] == 2:
+                    continue                      # a stray topic row inside a data table
+                if name not in bucket:
+                    bucket[name] = len(bucket)
+            continue
+
+        text_line = _md_plain(raw)                             # ── paragraph ──
+        i += 1
+        if not text_line:
+            continue
+        level, name = bc.parse_taxonomy_level(text_line)
+
+        if level == 1:
+            cur_s, cur_t = name, None
+            if cur_s not in subjects:
+                subjects[cur_s] = {}
+                order.append(cur_s)
+            blk = {'subject': cur_s, 'd1': None, 'd2': [], 'd2_grand': None,
+                   'd3': [], 'master_seen': False}
+            declared.append(blk)
+            continue
+
+        if level == 2:
+            if cur_s is None:
+                anomalies.append("topic heading %r appears before any subject "
+                                 "heading" % text_line[:60])
+                continue
+            cur_t = name
+            subjects[cur_s].setdefault(cur_t, {})
+            continue
+
+        # level 3 => decorative paragraph; never data, but may carry a DECLARATION.
+        if blk is None:
+            continue
+        m = _D1_RE.search(text_line)
+        if m and blk['d1'] is None and not blk['master_seen']:
+            blk['d1'] = (int(m.group(1)), int(m.group(2)))
+            continue
+        m = _D3_RE.search(text_line)
+        if m and cur_t is not None:
+            blk['d3'].append((cur_t, int(m.group(1))))
+
+    return subjects, order, declared, anomalies
+
+
 def verify_analysis_doc(subjects, order, declared, anomalies, doc_name='Analysis doc'):
     """Assert the PARSE against the document's OWN declarations. Returns a list of
     plain-English failures; empty means the doc and the parse agree.
@@ -1462,6 +1810,173 @@ def verify_analysis_doc(subjects, order, declared, anomalies, doc_name='Analysis
     return fails
 
 
+def _assemble(order, subjects, path, exam_code, ingest_form, source):
+    """Build THE return shape from (order, {subject: {topic: {name: idx}}}).
+
+    v1.4 — extracted so the Analysis-doc path and the approval-record path cannot
+    drift. Two constructions of one shape is how GAP-2026-07-25-002's four readers
+    happened; there is exactly one here, and both callers go through it.
+
+    topic_idx is POSITIONAL WITHIN THE SUBJECT — never derived from a printed
+    "Topic N:" label, which restarts at 1 for every subject in a merged doc.
+    """
+    taxonomy, triples = {}, []
+    for subject in order:
+        topics_out = {}
+        for t_i, (topic, subs) in enumerate(subjects[subject].items()):
+            topics_out[topic] = {
+                'topic_idx': t_i,
+                'subtopics': {n: {'subtopic_idx': i} for n, i in subs.items()}}
+            for n in subs:
+                triples.append((subject, topic, n))
+        taxonomy[subject] = {'subject_order': len(taxonomy), 'topics': topics_out}
+    return {
+        'path': path,
+        'ingest_form': ingest_form,
+        'source': source,           # 'analysis_doc' | 'approval_record'
+        'exam_code': exam_code,
+        'subjects': list(order),
+        'taxonomy': taxonomy,
+        'triples': triples,
+        'counts': {'subjects': len(order),
+                   'topics': sum(len(v['topics']) for v in taxonomy.values()),
+                   'subtopics': len(triples)},
+        'fingerprint': bc.taxonomy_fingerprint(triples),
+    }
+
+
+def load_taxonomy(exam_code=None, search_dirs=ANALYSIS_SEARCH_DIRS, step=None,
+                  record=None, path=None):
+    """THE taxonomy entry point for Steps 3-6. Returns the shape read_analysis_doc()
+    returns, plus 'source'.
+
+    SOURCE PRIORITY
+      1. the approval record's "taxonomy" key   (schema >= 1.3)  -> source='approval_record'
+      2. the Analysis doc                       (older records)  -> source='analysis_doc'
+
+    WHY THE RECORD COMES FIRST. Every step from PYQSort onward needs a taxonomy, and
+    until reconcile_taxonomy v1.3 the only place to get one was by PARSING A WORD
+    DOCUMENT. That is what GAP-2026-07-25-003 severed on every exam at once: the
+    platform stores an uploaded .docx in project knowledge as extracted Markdown
+    text under its .docx name, and Cluster K opened it with python-docx. v1.2 taught
+    the reader both ingest forms, which works — but it works by matching an
+    undocumented, unversioned grammar the framework does not control, so the next
+    change to that grammar stops all ~200 exams simultaneously, loudly.
+
+    The record does not have that property. It is JSON, which the platform stores
+    BYTE-FOR-BYTE, and it already carries the fingerprint that validates its own
+    taxonomy, so nothing new is trusted. Reading it is not a workaround for the
+    document; it is the removal of a dependency that should never have existed.
+    The Analysis doc reverts to what it always should have been: a HUMAN deliverable.
+
+    The fallback is not a courtesy. Every exam approved before schema 1.3 has a
+    record with a fingerprint and no taxonomy, and those projects must keep working
+    without being re-approved. They take path 2, which is fully gated by
+    assert_taxonomy_lock() exactly as before.
+
+    DISPLAY NAMES. The fingerprint is slug-normalised BY DESIGN, so it proves
+    identity and cannot detect a display-byte change. On path 1 the names come
+    straight from JSON and no such change is possible. On path 2 they survive a text
+    extraction, and PYQAnalyse Task 2.5 remains the byte-identity check.
+    """
+    if record is None:
+        record = read_approval_record(exam_code, search_dirs)
+    rec_name = os.path.basename(record.get('_path', 'approval record'))
+    where = (' at %s' % step) if step else ''
+    tax = record.get('taxonomy')
+
+    if tax is None:
+        # ── path 2: pre-1.3 record. The doc is the only carrier of the content. ──
+        doc = read_analysis_doc(path, search_dirs)
+        assert_taxonomy_lock(doc, record=record, step=step)
+        return doc
+
+    # ── path 1: the record carries the taxonomy ──────────────────────────────────
+    sections = tax.get('sections') if isinstance(tax, dict) else None
+    if not isinstance(sections, dict) or not sections:
+        raise AnalysisDocError(
+            "HARD STOP%s: %s carries a 'taxonomy' key that is not a populated "
+            "{'sections': {subject: {topic: [subtopic]}}} object.\n"
+            "A record that carries a BROKEN taxonomy is worse than one that carries "
+            "none: the absent case has a defined fallback and this one does not.\n"
+            "NEXT ACTION: re-run PYQApprove with reconcile_taxonomy.py >= v1.3. That "
+            "is RECONCILIATION, not re-derivation — it cannot change a locked "
+            "taxonomy. Do NOT re-run PYQDraft." % (where, rec_name))
+
+    order, subjects, dupes = [], {}, []
+    for subject, topics in sections.items():
+        if not isinstance(topics, dict) or not topics:
+            raise AnalysisDocError(
+                "HARD STOP%s: %s declares subject %r with no topics. An empty "
+                "subject cannot be sorted or allocated against.\n"
+                "NEXT ACTION: re-run PYQApprove." % (where, rec_name, subject))
+        if subject in subjects:
+            dupes.append('subject %r' % subject)
+            continue
+        subjects[subject] = {}
+        order.append(subject)
+        for topic, subs in topics.items():
+            if not isinstance(subs, list) or not subs:
+                raise AnalysisDocError(
+                    "HARD STOP%s: %s declares topic %r under %r with no subtopics.\n"
+                    "NEXT ACTION: re-run PYQApprove."
+                    % (where, rec_name, topic, subject))
+            bucket = subjects[subject].setdefault(topic, {})
+            for name in subs:
+                if name in bucket:
+                    dupes.append('%r under %r / %r' % (name, subject, topic))
+                    continue
+                bucket[name] = len(bucket)
+
+    if dupes:
+        # Silent de-duplication would make the assembled taxonomy disagree with the
+        # counts the record declares, and the fingerprint would NOT catch it — it is
+        # computed over the same duplicated triples, so it agrees with itself.
+        raise AnalysisDocError(
+            "HARD STOP%s: %s declares the same name more than once:\n  %s\n"
+            "NEXT ACTION: re-run PYQApprove."
+            % (where, rec_name, '\n  '.join(dupes[:8])))
+
+    out = _assemble(order, subjects, path=record.get('_path'),
+                    exam_code=record.get('exam_code', exam_code),
+                    ingest_form='json', source='approval_record')
+
+    # SELF-VALIDATION. The record proves its own content: the fingerprint recorded
+    # beside the taxonomy was computed FROM it at Step 2c. A disagreement means the
+    # record was hand-edited or written by two different engines, and the taxonomy
+    # half cannot be trusted just because the hash half looks well-formed.
+    fp_locked = record.get('taxonomy_fingerprint')
+    if not fp_locked:
+        raise AnalysisDocError(
+            "HARD STOP%s: %s carries a taxonomy but no taxonomy_fingerprint, so the "
+            "taxonomy cannot validate itself.\n"
+            "NEXT ACTION: re-run PYQApprove with reconcile_taxonomy.py >= v1.3."
+            % (where, rec_name))
+    if fp_locked != out['fingerprint']:
+        raise AnalysisDocError(
+            "HARD STOP%s: %s does not agree with itself — the fingerprint it records "
+            "is not the fingerprint of the taxonomy it records.\n"
+            "  recorded fingerprint : %s\n"
+            "  taxonomy computes to : %s\n"
+            "  counts declared      : %s\n"
+            "  counts assembled     : %s\n"
+            "The record was edited by hand, or written by two engines that disagree. "
+            "Neither half can be trusted.\n"
+            "NEXT ACTION: re-run PYQApprove. RECONCILIATION only — it cannot change "
+            "a locked taxonomy."
+            % (where, rec_name, fp_locked, out['fingerprint'],
+               record.get('taxonomy_counts'), out['counts']))
+
+    declared = record.get('taxonomy_counts')
+    if declared and declared != out['counts']:
+        raise AnalysisDocError(
+            "HARD STOP%s: %s declares taxonomy_counts %s but the taxonomy it carries "
+            "assembles to %s.\n"
+            "NEXT ACTION: re-run PYQApprove."
+            % (where, rec_name, declared, out['counts']))
+    return out
+
+
 def read_analysis_doc(path=None, search_dirs=ANALYSIS_SEARCH_DIRS, verify=True):
     """THE Analysis-doc reader. Returns a dict:
 
@@ -1482,23 +1997,63 @@ def read_analysis_doc(path=None, search_dirs=ANALYSIS_SEARCH_DIRS, verify=True):
         path = discover_analysis_doc(search_dirs)
     base = os.path.basename(path)
 
+    form = _ingest_form(path)
+
+    if form == INGEST_UNKNOWN:
+        # The size is DIAGNOSTIC, and formatting a diagnostic must never raise the
+        # fault it is diagnosing. _ingest_form() returns UNKNOWN for an unreadable
+        # path precisely BECAUSE os.path.getsize() raised there, so calling it again
+        # here re-raises it uncaught and the operator gets the library traceback this
+        # whole cluster exists to replace. Found by re-running the delivered spec
+        # against a path that had gone away mid-session.
+        try:
+            size_txt = '%d bytes' % os.path.getsize(path)
+        except OSError as _ex:
+            size_txt = 'unreadable (%s: %s)' % (type(_ex).__name__, _ex)
+        raise AnalysisDocError(
+            "HARD STOP: %s is neither a readable .docx package nor readable "
+            "extracted text.\n"
+            "  size: %s\n"
+            "This is not a recognised ingest form for the Analysis doc. Likely "
+            "causes: a truncated or failed upload, a file saved under the wrong name, "
+            "or a platform transform this framework version does not know about.\n"
+            "NEXT ACTION: re-upload the Analysis doc that PYQApprove (Step 2c) "
+            "delivered to the project's Files section. If it opens correctly in Word, "
+            "report this as a NEW ingest form (GAP-2026-07-25-003 follow-up) — do NOT "
+            "work around it." % (base, size_txt))
+
+    if form == INGEST_TEXT and not verify:
+        # Admitted THROUGH the invariants, never around them. The text form carries no
+        # container-level integrity of its own, so the three self-declarations are the
+        # only thing standing between a mis-parse and a silently mis-sorted corpus.
+        verify = True
+
     try:
-        subjects, order, declared, anomalies = _scan(path)
+        if form == INGEST_OOXML:
+            subjects, order, declared, anomalies = _scan_ooxml(path)
+        else:
+            subjects, order, declared, anomalies = _scan_text(path)
     except AnalysisDocError:
         raise
     except Exception as ex:
         raise AnalysisDocError(
-            "HARD STOP: %s could not be opened as a .docx package (%s: %s).\n"
-            "Most common cause: project knowledge stored the Word document as "
-            "extracted TEXT rather than as the original binary. Attach the "
-            "downloaded .docx to this chat and re-run." % (base, type(ex).__name__, ex))
+            "HARD STOP: %s could not be read as %s (%s: %s).\n"
+            "NEXT ACTION: re-upload the Analysis doc PYQApprove (Step 2c) delivered "
+            "to the project's Files section."
+            % (base, 'a .docx package' if form == INGEST_OOXML
+               else 'platform-extracted text', type(ex).__name__, ex))
 
     if not order:
         raise AnalysisDocError(
             "HARD STOP: %s contains no subject heading.\n"
+            "  ingest form: %s\n"
             "Expected a paragraph of the form 'Subject: <name>' (or Domain:/Section:/"
             "Part:/Area:) for each subject. Either this is not a PYQApprove Analysis "
-            "doc, or the PYQAnalyse §6 HEADING FORMAT CONTRACT was violated." % base)
+            "doc, or the PYQAnalyse §6 HEADING FORMAT CONTRACT was violated%s."
+            % (base, form,
+               ", or the platform's text-extraction grammar has changed and "
+               "_scan_text() must be updated — do NOT work around it, report it as a "
+               "GAP-2026-07-25-003 follow-up" if form == INGEST_TEXT else ""))
 
     if verify:
         fails = verify_analysis_doc(subjects, order, declared, anomalies, base)
@@ -1511,29 +2066,146 @@ def read_analysis_doc(path=None, search_dirs=ANALYSIS_SEARCH_DIRS, verify=True):
                 % (base, '\n  '.join(fails[:12]) +
                    ('\n  ... and %d more' % (len(fails) - 12) if len(fails) > 12 else '')))
 
-    taxonomy, triples = {}, []
-    for subject in order:
-        topics_out = {}
-        for t_i, (topic, subs) in enumerate(subjects[subject].items()):
-            topics_out[topic] = {
-                'topic_idx': t_i,
-                'subtopics': {n: {'subtopic_idx': i} for n, i in subs.items()}}
-            for n in subs:
-                triples.append((subject, topic, n))
-        taxonomy[subject] = {'subject_order': len(taxonomy), 'topics': topics_out}
-
     exam_code = base[:-len(ANALYSIS_DOC_SUFFIX)] if base.endswith(ANALYSIS_DOC_SUFFIX) else None
-    return {
-        'path': path,
-        'exam_code': exam_code,
-        'subjects': list(order),
-        'taxonomy': taxonomy,
-        'triples': triples,
-        'counts': {'subjects': len(order),
-                   'topics': sum(len(v['topics']) for v in taxonomy.values()),
-                   'subtopics': len(triples)},
-        'fingerprint': bc.taxonomy_fingerprint(triples),
-    }
+    return _assemble(order, subjects, path=path, exam_code=exam_code, ingest_form=form,
+                     source='analysis_doc')
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE TAXONOMY LOCK GATE — one implementation, every step
+# ══════════════════════════════════════════════════════════════════════════════
+# read_analysis_doc() asserts the document agrees with ITSELF. It cannot assert
+# that the document is the one PYQApprove LOCKED. Those are different claims, and
+# GAP-2026-07-25-002 Defect B satisfied the first while violating the second.
+#
+# Framework_PYQSort S1-0b made the second claim from v1.14 — and NOTHING else did.
+# Steps 5 and 6 read the taxonomy and allocated against it with no identity check at
+# all, so a superseded or mis-parsed Analysis doc that halted loudly at Step 3 was
+# accepted silently three steps later. Worse at Step 5, where the reader's hard stops
+# were caught and downgraded to a log line twice over: once in the extractor and
+# again in its caller.
+#
+# The gate therefore lives HERE, once, rather than being written a fifth time in a
+# fifth spec. This is the same anti-drift rule that produced Cluster K: one reader,
+# one writer, one verifier — and now one lock gate.
+#
+# SCOPE, deliberately narrow: this asserts IDENTITY only. Whether the lock was
+# EARNED — status, schema attestation, checks.missing / checks.vacuous — is
+# Framework_PYQSort S1-0's claim, made once at Step 3 against the same record, and
+# it is not duplicated here. One function, one claim.
+
+APPROVAL_RECORD_SUFFIX = '_approval_record.json'
+
+
+def discover_approval_record(exam_code=None, search_dirs=ANALYSIS_SEARCH_DIRS):
+    """Locate the ONE approval record. Returns a path; raises AnalysisDocError.
+
+    Same de-duplication rule as discover_analysis_doc(): a name seen in an earlier
+    search dir wins, so the project's copy beats a chat attachment of the same name.
+    """
+    want = ('%s%s' % (exam_code, APPROVAL_RECORD_SUFFIX)).lower() if exam_code else None
+    seen, found = set(), []
+    for d in search_dirs:
+        if not os.path.isdir(d):
+            continue
+        for name in sorted(os.listdir(d)):
+            if name.startswith('~$') or name.startswith('.'):
+                continue
+            low = name.lower()
+            if not low.endswith(APPROVAL_RECORD_SUFFIX.lower()):
+                continue
+            if want and low != want:
+                continue
+            if name in seen:
+                continue
+            seen.add(name)
+            found.append(os.path.join(d, name))
+    if len(found) > 1:
+        raise AnalysisDocError(
+            "HARD STOP: %d approval records found — exactly one is expected.\n"
+            "  %s\n"
+            "One project holds one exam. Remove the ones that do not belong to this "
+            "exam and re-run."
+            % (len(found), '\n  '.join(os.path.basename(p) for p in found)))
+    if found:
+        return found[0]
+    raise AnalysisDocError(
+        "HARD STOP: no approval record found in %s.\n"
+        "Expected %s from PYQApprove (Step 2c).\n"
+        "The Analysis doc shows what the taxonomy IS; only the approval record shows "
+        "that it was the one APPROVED. Allocating against an unverified taxonomy is "
+        "how a mis-parse travels to delivery.\n"
+        "NEXT ACTION: upload the approval record PYQApprove delivered to this "
+        "project's Files section."
+        % (' or '.join(search_dirs),
+           ('%s%s' % (exam_code, APPROVAL_RECORD_SUFFIX)) if exam_code
+           else '[ExamCode]' + APPROVAL_RECORD_SUFFIX))
+
+
+def read_approval_record(exam_code=None, search_dirs=ANALYSIS_SEARCH_DIRS, path=None):
+    """Load the approval record as a dict. Raises AnalysisDocError on any fault."""
+    if path is None:
+        path = discover_approval_record(exam_code, search_dirs)
+    try:
+        with open(path, encoding='utf-8-sig') as fh:
+            rec = json.load(fh)
+    except Exception as ex:
+        raise AnalysisDocError(
+            "HARD STOP: %s could not be read as JSON (%s: %s).\n"
+            "NEXT ACTION: re-upload the approval record PYQApprove (Step 2c) "
+            "delivered." % (os.path.basename(path), type(ex).__name__, ex))
+    if not isinstance(rec, dict):
+        raise AnalysisDocError(
+            "HARD STOP: %s does not contain a JSON object.\n"
+            "NEXT ACTION: re-run PYQApprove." % os.path.basename(path))
+    rec['_path'] = path
+    return rec
+
+
+def assert_taxonomy_lock(doc, record=None, search_dirs=ANALYSIS_SEARCH_DIRS, step=None):
+    """THE identity gate: is this the taxonomy that was APPROVED?
+
+    `doc`    : the dict read_analysis_doc() returned.
+    `record` : an already-loaded approval record, or None to discover one using
+               doc['exam_code'].
+    `step`   : caller name for the message ('PYQExtract', 'MockBlueprint', ...).
+
+    Returns the record on success. Raises AnalysisDocError otherwise — callers must
+    NOT downgrade this to a warning. A taxonomy that fails this check is not a
+    degraded input; it is the wrong input, and every id minted from it is wrong.
+    """
+    where = (' at %s' % step) if step else ''
+    if record is None:
+        record = read_approval_record(doc.get('exam_code'), search_dirs)
+
+    fp_locked = record.get('taxonomy_fingerprint')
+    if not fp_locked:
+        raise AnalysisDocError(
+            "HARD STOP%s: the approval record carries no taxonomy_fingerprint, so "
+            "the Analysis doc cannot be shown to be the approved one.\n"
+            "  record: %s\n"
+            "NEXT ACTION: re-run PYQApprove with reconcile_taxonomy.py >= v1.2. That "
+            "is RECONCILIATION, not re-derivation — it reads the draft and rewrites "
+            "only the record, and CANNOT change a locked taxonomy. Do NOT re-run "
+            "PYQDraft." % (where, os.path.basename(record.get('_path', '?'))))
+
+    if fp_locked != doc['fingerprint']:
+        raise AnalysisDocError(
+            "HARD STOP%s: the Analysis doc is NOT the taxonomy that was approved.\n"
+            "  doc    : %s\n"
+            "  locked : %s\n"
+            "  loaded : %s\n"
+            "  counts : %s\n"
+            "The fingerprint is taken over slugified triples, so it is already "
+            "invariant to case, spacing and dash variants — this is a real "
+            "difference in the taxonomy itself, not a cosmetic one.\n"
+            "NEXT ACTION: restore the Analysis doc PYQApprove (Step 2c) delivered, "
+            "or re-run PYQApprove if the taxonomy genuinely changed. If it changed, "
+            "every step from PYQSort onward must be re-run — ids minted from one "
+            "taxonomy do not resolve against another."
+            % (where, os.path.basename(doc.get('path', '?')), fp_locked,
+               doc['fingerprint'], doc.get('counts')))
+    return record
 
 
 def write_analysis_doc(taxonomy, exam_code, subject_order=None, out_dir='/mnt/user-data/outputs',
@@ -1569,6 +2241,28 @@ def write_analysis_doc(taxonomy, exam_code, subject_order=None, out_dir='/mnt/us
             "headings in the sorted files.\n  %s"
             % (len(over), bc.MAX_HEADING_LEN,
                '\n  '.join('%s (%d chars): %r' % (l, len(v), v) for l, v in over[:5])))
+
+    # GAP-2026-07-25-003. '|' is a CELL SEPARATOR in the extracted-text ingest form,
+    # which is the form every runtime read of this document receives. A name carrying
+    # one is split on read, the remainder is discarded, and the declared counts still
+    # agree — so the corruption is invisible to all three self-declarations. Rejected
+    # where it ORIGINATES rather than where it corrupts: this document is unwritable,
+    # not merely unreadable.
+    piped = [(lbl, v) for s in taxonomy
+             for lbl, v in ([('subject', s)] +
+                            [('topic', t) for t in taxonomy[s]] +
+                            [('subtopic', x) for t in taxonomy[s] for x in taxonomy[s][t]])
+             if '|' in v]
+    if piped:
+        raise AnalysisDocError(
+            "HARD STOP: %d taxonomy name(s) contain a '|' character, which cannot be "
+            "written to the Analysis doc.\n  %s\n"
+            "'|' is the cell separator in the form the platform stores this document "
+            "in, so such a name is silently truncated on every downstream read while "
+            "the declared totals continue to agree.\n"
+            "NEXT ACTION: rename the taxonomy entries (an en-dash, a slash or a comma "
+            "all read naturally) and re-run."
+            % (len(piped), '\n  '.join('%s: %r' % (l, v) for l, v in piped[:5])))
 
     doc = Document()
 
@@ -1854,6 +2548,336 @@ def _ck_selftest(check, tmp):
           a['fingerprint'] != b['fingerprint'])
     check('K fingerprint is stable across reads',
           a['fingerprint'] == read_analysis_doc(a['path'])['fingerprint'])
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # INGEST FORMS (GAP-2026-07-25-003)
+    # ══════════════════════════════════════════════════════════════════════════
+    def _render_md(tax, exam_code, bold='**', escape=False):
+        """Emit the platform's OBSERVED docx->markdown grammar for a taxonomy.
+
+        DELIBERATE CAVEAT: this helper is framework-written, so every test built on
+        it is STRUCTURAL — it proves _scan_text() is the inverse of the grammar we
+        believe the platform emits, never that the platform emits it. The live
+        fixture is the only field evidence and must never be replaced by this.
+        """
+        esc = (lambda s: re.sub(r'([\\`*_{}\[\]()#+\-.!|])', r'\\\1', s)) if escape \
+            else (lambda s: s)
+        b = lambda s: '%s%s%s' % (bold, s, bold)
+        out = []
+        for subject in tax:
+            topics = tax[subject]
+            n_sub = sum(len(v) for v in topics.values())
+            out += [b('%s — %s' % (exam_code, subject)), '',
+                    b('Subject: %s' % subject), '',
+                    b('PYQ Topic %s&%s Subtopic-wise Count' % (bold + bold, bold + bold))
+                    if bold == '**' else b('PYQ Topic & Subtopic-wise Count'), '',
+                    b('Total: — Questions  |  %d Topics  |  %d Subtopics'
+                      % (len(topics), n_sub)), '',
+                    '| Topic | Total Subtopics | Total PYQs |', '| --- | --- | --- |']
+            for t_i, (topic, subs) in enumerate(topics.items(), 1):
+                out.append('| %s | %d | — |' % (esc('Topic %d: %s' % (t_i, topic)), len(subs)))
+            out += ['| GRAND TOTAL | %d | — |' % n_sub, '']
+            for t_i, (topic, subs) in enumerate(topics.items(), 1):
+                out += [b('Topic %d: %s' % (t_i, topic)), '',
+                        b('Total PYQs: —  |  Subtopics: %d' % len(subs)), '',
+                        '| Subtopic | PYQ Count |', '| --- | --- |']
+                for x in subs:
+                    out.append('| %s | — |' % esc(x))
+                out += ['| TOTAL | — |', '']
+            out += [b('IFAS Edutech  —  %s %s PYQ Analysis' % (exam_code, subject)), '']
+        return '\n'.join(out) + '\n'
+
+    ing = os.path.join(tmp, 'ingest'); os.makedirs(ing, exist_ok=True)
+
+    def _write_text(name, body):
+        p = os.path.join(ing, name)
+        with open(p, 'w', encoding='utf-8') as fh:
+            fh.write(body)
+        return p
+
+    def _stops(fn, sub):
+        try:
+            fn()
+            return False
+        except AnalysisDocError as ex:
+            return sub in str(ex)
+
+    # ── T3 form classification: content, never extension ───────────────────────
+    _t3tax = {'Physics': {'Mechanics': ['Kinematics', 'Newton Laws']}}
+    ok_docx = write_analysis_doc(_t3tax, 'T3', out_dir=ing)
+    txt_doc = _write_text('T3TEXT' + ANALYSIS_DOC_SUFFIX, _render_md(_t3tax, 'T3'))
+    empty = os.path.join(ing, 'empty.docx'); open(empty, 'wb').close()
+    trunc = os.path.join(ing, 'trunc.docx')
+    with open(ok_docx, 'rb') as _f, open(trunc, 'wb') as _g:
+        _g.write(_f.read(400))
+    notword = os.path.join(ing, 'notword.docx')
+    import zipfile as _zf
+    with _zf.ZipFile(notword, 'w') as _z:
+        _z.writestr('xl/workbook.xml', '<x/>')
+    utf16 = os.path.join(ing, 'utf16.docx')
+    with open(utf16, 'wb') as _f:
+        _f.write('Subject: X'.encode('utf-16'))
+    check('K T3 ingest form: real .docx -> ooxml', _ingest_form(ok_docx) == INGEST_OOXML)
+    check('K T3 ingest form: extracted text -> text', _ingest_form(txt_doc) == INGEST_TEXT)
+    check('K T3 ingest form: zero bytes -> unknown', _ingest_form(empty) == INGEST_UNKNOWN)
+    check('K T3 ingest form: truncated zip -> unknown', _ingest_form(trunc) == INGEST_UNKNOWN)
+    check('K T3 ingest form: non-Word zip -> unknown', _ingest_form(notword) == INGEST_UNKNOWN)
+    check('K T3 ingest form: UTF-16 binary -> unknown', _ingest_form(utf16) == INGEST_UNKNOWN)
+
+    # ── T4/T5 round trip THROUGH the text form, for every generated shape ──────
+    for label, tax in _ck_shapes():
+        tp = _write_text('rt_%s.docx' % re.sub(r'[^a-z0-9]+', '_', label.lower()),
+                         _render_md(tax, 'EXAM'))
+        try:
+            got = read_analysis_doc(tp)
+        except Exception as ex:
+            for suffix in ('text round-trip', 'text counts', 'text fingerprint parity'):
+                check('K %s: %s [%s]' % (suffix, label, type(ex).__name__), False)
+            continue
+        rebuilt = {s: {t: list(v['subtopics']) for t, v in d2['topics'].items()}
+                   for s, d2 in got['taxonomy'].items()}
+        check('K text round-trip: ' + label, rebuilt == tax)
+        n = sum(len(x) for t in tax.values() for x in t.values())
+        check('K text counts: ' + label,
+              got['counts'] == {'subjects': len(tax),
+                                'topics': sum(len(t) for t in tax.values()),
+                                'subtopics': n})
+        d = os.path.join(tmp, 'x_' + re.sub(r'[^a-z0-9]+', '_', label.lower()))
+        os.makedirs(d, exist_ok=True)
+        # T2 cross-form identity: the two ingest forms of ONE taxonomy agree exactly
+        check('K text fingerprint parity: ' + label,
+              got['fingerprint'] ==
+              read_analysis_doc(write_analysis_doc(tax, 'EXAM', out_dir=d))['fingerprint'])
+
+    # ── grammar variants OBSERVED in a second real extractor ───────────────────
+    check('K text grammar: __bold__ whole-line wrap',
+          read_analysis_doc(_write_text('UND' + ANALYSIS_DOC_SUFFIX,
+                                        _render_md(_t3tax, 'UND', bold='__')))['triples']
+          == [('Physics', 'Mechanics', 'Kinematics'), ('Physics', 'Mechanics', 'Newton Laws')])
+    _esc_tax = {'Maths': {'Series': ['p_1 and p_2 tests', 'Big-O [worst case]']}}
+    check('K text grammar: backslash-escaped cells unescape exactly',
+          read_analysis_doc(_write_text('ESC' + ANALYSIS_DOC_SUFFIX,
+                                        _render_md(_esc_tax, 'ESC', escape=True)))['triples']
+          == [('Maths', 'Series', 'p_1 and p_2 tests'),
+              ('Maths', 'Series', 'Big-O [worst case]')])
+    check('K text grammar: underscores inside a name are NEVER stripped',
+          _md_plain('p_1 and p__2') == 'p_1 and p__2')
+
+    # ── the ragged-row stop: a '|' in a name must never parse silently ─────────
+    _pipe_md = _render_md({'Physics': {'Waves': ['Transverse', 'Standing']}}, 'PIPE')
+    _pipe_md = _pipe_md.replace('| Transverse | — |', '| Transverse | Longitudinal | — |')
+    pipe_doc = _write_text('PIPE' + ANALYSIS_DOC_SUFFIX, _pipe_md)
+    check('K ragged row (| in a name) HARD STOPS rather than truncating',
+          _stops(lambda: read_analysis_doc(pipe_doc), 'same number of cells'))
+    check('K ragged row names the likely cause',
+          _stops(lambda: read_analysis_doc(pipe_doc), "contains a '|' character"))
+    check('K writer REFUSES to emit a name containing a pipe',
+          _stops(lambda: write_analysis_doc({'S': {'T': ['a | b']}}, 'PIPE', out_dir=ing),
+                 "cannot be written"))
+    check('K writer accepts an escaped-pipe-free taxonomy unchanged',
+          bool(write_analysis_doc({'S': {'T': ['a / b']}}, 'OKP', out_dir=ing)))
+
+    # ── T6 corruption of the text form fires, per subject, every time ──────────
+    _base_md = _render_md({'A': {'T1': ['x', 'y']}, 'B': {'T2': ['p', 'q']}}, 'C')
+    for tag, mutated in (
+            ('subject heading deleted', _base_md.replace('**Subject: B**\n', '')),
+            ('a data row deleted', _base_md.replace('| y | — |\n', '')),
+            ('a D1 count corrupted', _base_md.replace('2 Subtopics', '9 Subtopics', 1)),
+            ('every table deleted',
+             '\n'.join(l for l in _base_md.split('\n') if not l.lstrip().startswith('|')))):
+        mp = _write_text('C%s.docx' % re.sub(r'\W+', '', tag), mutated)
+        check('K T6 text corruption fires: ' + tag,
+              _stops(lambda p=mp: read_analysis_doc(p), 'HARD STOP'))
+
+    # ── T7 verify=False is REFUSED on the text form (never on OOXML) ───────────
+    _bad = _write_text('T7' + ANALYSIS_DOC_SUFFIX,
+                       _base_md.replace('2 Subtopics', '9 Subtopics', 1))
+    check('K T7 verify=False is refused on a text-form doc',
+          _stops(lambda: read_analysis_doc(_bad, verify=False), 'does not agree with itself'))
+
+    # ── T8 unknown form: named, sized, and never a library traceback ───────────
+    for nm, p in (('zero bytes', empty), ('truncated zip', trunc),
+                  ('non-Word zip', notword), ('UTF-16 binary', utf16)):
+        check('K T8 unknown form is named: ' + nm,
+              _stops(lambda p=p: read_analysis_doc(p), 'not a recognised ingest form'))
+    check('K T8 unknown form never surfaces PackageNotFoundError',
+          not _stops(lambda: read_analysis_doc(trunc), 'PackageNotFoundError'))
+    check('K T8 a vanished/unreadable path still gets the NAMED stop, not a traceback',
+          _stops(lambda: read_analysis_doc(os.path.join(ing, 'gone_PYQ_Analysis.docx')),
+                 'not a recognised ingest form'))
+    check('K T8 the unreadable path reports why the size is missing',
+          _stops(lambda: read_analysis_doc(os.path.join(ing, 'gone_PYQ_Analysis.docx')),
+                 'unreadable ('))
+    check('K T8 a DIRECTORY given as the path gets the named stop too',
+          _stops(lambda: read_analysis_doc(ing), 'not a recognised ingest form'))
+
+    # ── T9 downstream shape is unchanged, plus the additive ingest_form key ────
+    _t9 = read_analysis_doc(txt_doc)
+    check('K T9 return shape unchanged by the text path',
+          set(_t9) >= {'path', 'exam_code', 'subjects', 'taxonomy', 'triples',
+                       'counts', 'fingerprint'})
+    check('K T9 ingest_form reported as text', _t9['ingest_form'] == INGEST_TEXT)
+    check('K T9 ingest_form reported as ooxml',
+          read_analysis_doc(ok_docx)['ingest_form'] == INGEST_OOXML)
+    check('K T9 topic_idx positional on the text path',
+          all(sorted(v['topic_idx'] for v in d2['topics'].values())
+              == list(range(len(d2['topics']))) for d2 in _t9['taxonomy'].values()))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # THE TAXONOMY LOCK GATE
+    # ══════════════════════════════════════════════════════════════════════════
+    lk = os.path.join(tmp, 'lock'); os.makedirs(lk, exist_ok=True)
+    _lt = {'Physics': {'Mechanics': ['Kinematics', 'Newton Laws']},
+           'Chemistry': {'Bonding': ['Ionic', 'Covalent']}}
+    _lp = write_analysis_doc(_lt, 'LOCKEXAM', out_dir=lk)
+    _ld = read_analysis_doc(_lp)
+
+    def _rec(fp, name='LOCKEXAM' + APPROVAL_RECORD_SUFFIX):
+        body = {'exam_code': 'LOCKEXAM', 'status': 'CLEAN'}
+        if fp is not None:
+            body['taxonomy_fingerprint'] = fp
+        with open(os.path.join(lk, name), 'w', encoding='utf-8') as fh:
+            json.dump(body, fh)
+
+    _rec(_ld['fingerprint'])
+    check('K LOCK matching fingerprint passes',
+          assert_taxonomy_lock(_ld, search_dirs=(lk,))['exam_code'] == 'LOCKEXAM')
+
+    _rec('v1:9:9:' + 'f' * 64)
+    check('K LOCK mismatched fingerprint HARD STOPS',
+          _stops(lambda: assert_taxonomy_lock(_ld, search_dirs=(lk,)),
+                 'NOT the taxonomy that was approved'))
+    check('K LOCK names the step it fired at',
+          _stops(lambda: assert_taxonomy_lock(_ld, search_dirs=(lk,), step='PYQExtract'),
+                 'HARD STOP at PYQExtract'))
+
+    _rec(None)
+    check('K LOCK absent fingerprint HARD STOPS with the re-run action',
+          _stops(lambda: assert_taxonomy_lock(_ld, search_dirs=(lk,)),
+                 'no taxonomy_fingerprint'))
+
+    os.remove(os.path.join(lk, 'LOCKEXAM' + APPROVAL_RECORD_SUFFIX))
+    check('K LOCK missing record HARD STOPS rather than passing',
+          _stops(lambda: assert_taxonomy_lock(_ld, search_dirs=(lk,)),
+                 'no approval record found'))
+
+    _rec(_ld['fingerprint'])
+    _rec(_ld['fingerprint'], 'OTHEREXAM' + APPROVAL_RECORD_SUFFIX)
+    check('K LOCK exam_code selects the right record when two are present',
+          assert_taxonomy_lock(_ld, search_dirs=(lk,))['exam_code'] == 'LOCKEXAM')
+    check('K LOCK ambiguous record set (no exam_code) HARD STOPS',
+          _stops(lambda: discover_approval_record(search_dirs=(lk,)),
+                 'exactly one is expected'))
+
+    with open(os.path.join(lk, 'BADEXAM' + APPROVAL_RECORD_SUFFIX), 'w') as fh:
+        fh.write('{not json')
+    check('K LOCK malformed record HARD STOPS by name',
+          _stops(lambda: read_approval_record('BADEXAM', search_dirs=(lk,)),
+                 'could not be read as JSON'))
+
+    # the gate must survive the TEXT ingest form identically
+    _ltxt = os.path.join(lk, 'LOCKEXAM' + ANALYSIS_DOC_SUFFIX)
+    with open(_ltxt, 'w', encoding='utf-8') as fh:
+        fh.write(_render_md(_lt, 'LOCKEXAM'))
+    check('K LOCK holds across ingest forms (text doc, same record)',
+          assert_taxonomy_lock(read_analysis_doc(_ltxt),
+                               search_dirs=(lk,))['exam_code'] == 'LOCKEXAM')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # load_taxonomy() — record first, document as fallback (v1.4)
+    # ══════════════════════════════════════════════════════════════════════════
+    jd = os.path.join(tmp, 'json'); os.makedirs(jd, exist_ok=True)
+    _jt = {'General Biology': {'Cell Biology': ['Membrane', 'Nucleus'],
+                               'Genetics': ['Linkage']},
+           'Physics': {'Mechanics': ['Kinematics']}}
+    _jdoc = read_analysis_doc(write_analysis_doc(_jt, 'JX', out_dir=jd))
+
+    def _jrec(**over):
+        body = {'exam_code': 'JX', 'schema_version': '1.3', 'status': 'CLEAN',
+                'taxonomy_fingerprint': _jdoc['fingerprint'],
+                'taxonomy_counts': dict(_jdoc['counts']),
+                'taxonomy': {'sections': {s: {t: list(x) for t, x in v.items()}
+                                          for s, v in _jt.items()}}}
+        body.update(over)
+        with open(os.path.join(jd, 'JX' + APPROVAL_RECORD_SUFFIX), 'w',
+                  encoding='utf-8') as fh:
+            json.dump(body, fh)
+
+    _jrec()
+    _lt = load_taxonomy('JX', search_dirs=(jd,))
+    check('K JSON source is the approval record', _lt['source'] == 'approval_record')
+    check('K JSON ingest_form is json', _lt['ingest_form'] == 'json')
+    check('K JSON triples identical to the document path',
+          _lt['triples'] == _jdoc['triples'])
+    check('K JSON taxonomy identical to the document path',
+          _lt['taxonomy'] == _jdoc['taxonomy'])
+    check('K JSON fingerprint identical to the document path',
+          _lt['fingerprint'] == _jdoc['fingerprint'])
+    check('K JSON subject order preserved', _lt['subjects'] == list(_jt))
+    check('K JSON topic_idx positional and contiguous',
+          all(sorted(v['topic_idx'] for v in d2['topics'].values())
+              == list(range(len(d2['topics']))) for d2 in _lt['taxonomy'].values()))
+
+    # the record must be believed only when it agrees with ITSELF
+    _jrec(taxonomy_fingerprint='v1:9:9:' + 'f' * 64)
+    check('K JSON record whose halves disagree HARD STOPS',
+          _stops(lambda: load_taxonomy('JX', search_dirs=(jd,)),
+                 'does not agree with itself'))
+    _jrec(taxonomy_counts={'subjects': 9, 'topics': 9, 'subtopics': 9})
+    check('K JSON declared counts vs assembled counts HARD STOPS',
+          _stops(lambda: load_taxonomy('JX', search_dirs=(jd,)),
+                 'assembles to'))
+    _jrec(taxonomy={'sections': {}})
+    check('K JSON empty sections HARD STOPS',
+          _stops(lambda: load_taxonomy('JX', search_dirs=(jd,)),
+                 'not a populated'))
+    _jrec(taxonomy={'sections': {'S': {'T': []}}})
+    check('K JSON topic with no subtopics HARD STOPS',
+          _stops(lambda: load_taxonomy('JX', search_dirs=(jd,)), 'no subtopics'))
+    _jrec(taxonomy={'sections': {'S': {}}})
+    check('K JSON subject with no topics HARD STOPS',
+          _stops(lambda: load_taxonomy('JX', search_dirs=(jd,)), 'no topics'))
+    _jrec(taxonomy={'sections': {'S': {'T': ['a', 'a']}}})
+    check('K JSON duplicate name HARD STOPS instead of collapsing silently',
+          _stops(lambda: load_taxonomy('JX', search_dirs=(jd,)),
+                 'more than once'))
+    _jrec(taxonomy_fingerprint=None)
+    check('K JSON taxonomy without a fingerprint HARD STOPS',
+          _stops(lambda: load_taxonomy('JX', search_dirs=(jd,)),
+                 'cannot validate itself'))
+
+    # ── the pre-1.3 fallback: record has a fingerprint and NO taxonomy ──────────
+    _jrec(taxonomy=None)
+    _fb = load_taxonomy('JX', search_dirs=(jd,))
+    check('K pre-1.3 record falls back to the Analysis doc',
+          _fb['source'] == 'analysis_doc')
+    check('K fallback yields the IDENTICAL taxonomy',
+          _fb['triples'] == _jdoc['triples'] and
+          _fb['fingerprint'] == _jdoc['fingerprint'])
+    check('K fallback is still lock-gated',
+          _stops(lambda: (_jrec(taxonomy=None,
+                                taxonomy_fingerprint='v1:9:9:' + 'f' * 64),
+                          load_taxonomy('JX', search_dirs=(jd,)))[1],
+                 'NOT the taxonomy that was approved'))
+
+    # ── and it works when the doc is in the TEXT ingest form ───────────────────
+    with open(os.path.join(jd, 'JX' + ANALYSIS_DOC_SUFFIX), 'w',
+              encoding='utf-8') as fh:
+        fh.write(_render_md(_jt, 'JX'))
+    _jrec(taxonomy=None)
+    _fbt = load_taxonomy('JX', search_dirs=(jd,))
+    check('K fallback works on the TEXT ingest form too',
+          _fbt['ingest_form'] == 'text' and _fbt['fingerprint'] == _jdoc['fingerprint'])
+
+    # ── and the record path needs NO document at all ───────────────────────────
+    nd = os.path.join(tmp, 'norec'); os.makedirs(nd, exist_ok=True)
+    with open(os.path.join(nd, 'JX' + APPROVAL_RECORD_SUFFIX), 'w',
+              encoding='utf-8') as fh:
+        json.dump({'exam_code': 'JX', 'schema_version': '1.3',
+                   'taxonomy_fingerprint': _jdoc['fingerprint'],
+                   'taxonomy': {'sections': _jt}}, fh)
+    check('K JSON path needs no Analysis doc on disk at all',
+          load_taxonomy('JX', search_dirs=(nd,))['fingerprint'] == _jdoc['fingerprint'])
 
     # ── the live fixture: the one shape that is field evidence, not generated ───
     fx = None

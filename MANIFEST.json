@@ -153,11 +153,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "82934153a574d207eebaa55bb1cf89d9effb3ce7ebb767f51b8ef76e91a1e0f6",
-      "version_header": "# Framework_Blueprint v1.39 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.39",
-      "lines": 7352,
-      "bytes": 403141
+      "sha256": "aa1e3476b03cae7e5fce23ffd989636184e495666e2d30537feec1459c407e5c",
+      "version_header": "# Framework_Blueprint v1.41 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.41",
+      "lines": 7398,
+      "bytes": 406372
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "8df8e79da6bae713fd2e836d978824ab834824f559825ce5fc31a406c0dbbb2d",
@@ -174,11 +174,11 @@
       "bytes": 96160
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "4a8456410bf03d9dbe9445f09112cf785c03a458cb50e80766b3181519f521ac",
-      "version_header": "# Framework_MockTestAnalyse v2.30 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.30",
-      "lines": 8517,
-      "bytes": 474093
+      "sha256": "fc6b7200fd8cea089e8e1722cf0911cb0a4aa2537622ef8abccaf4aa0e34c8f9",
+      "version_header": "# Framework_MockTestAnalyse v2.32 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.32",
+      "lines": 8571,
+      "bytes": 478064
     },
     "Framework_MockTestCreate.md": {
       "sha256": "06f09c9586a7ab65e55bd3348fea84a98564901a0bd1607c79bbffb7e56e163c",
@@ -209,11 +209,11 @@
       "bytes": 107922
     },
     "Framework_PYQAnalyse.md": {
-      "sha256": "f6393f900b14f544972c280229e20b7dcd92e7fef60db9379bc830484e8fc770",
-      "version_header": "# Framework_PYQAnalyse v2.24 \u2014 Universal PYQ Analysis & Taxonomy Builder",
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.24",
-      "lines": 6728,
-      "bytes": 372906
+      "sha256": "5f753c900565a27a89b33aac481364a3370b5158d5df01233780deca9fe31a6f",
+      "version_header": "# Framework_PYQAnalyse v2.27 \u2014 Universal PYQ Analysis & Taxonomy Builder",
+      "end_sentinel": "# END OF Framework_PYQAnalyse v2.27",
+      "lines": 6877,
+      "bytes": 383170
     },
     "Framework_PYQCompress.md": {
       "sha256": "136b75fec7d25b1342e56f5c210ae6ec6f20034489f6a8d4e70162f9236a5ab1",
@@ -258,11 +258,11 @@
       "bytes": 140867
     },
     "Framework_PYQSort.md": {
-      "sha256": "83fa828a5e5769c39abc410bc2435c9b6452fbf3dc251bffdce7cb347493abaf",
-      "version_header": "# Framework_PYQSort v1.14 \u2014 Universal PYQ Sorter",
-      "end_sentinel": "# END OF Framework_PYQSort v1.14",
-      "lines": 2411,
-      "bytes": 121727
+      "sha256": "72a4c991edeb6615cd2fb6242b2cec7347e88a9a89eceebabe15b6b923a43344",
+      "version_header": "# Framework_PYQSort v1.16 \u2014 Universal PYQ Sorter",
+      "end_sentinel": "# END OF Framework_PYQSort v1.16",
+      "lines": 2566,
+      "bytes": 133021
     },
     "Framework_ScopedBlueprint.md": {
       "sha256": "2a2d9b3ededcfcbcc798f96a9d9dc647a043b232afeca4d0a43469a119d71fa8",
@@ -307,18 +307,18 @@
       "bytes": 19154
     },
     "corpus_io.py": {
-      "sha256": "2c5fc8920b1ee38b415bab8481e1b477d26d35e0e7b5717cee50037f9a6ca639",
+      "sha256": "dcdc97268d846c610f3d652699e9267ac4d75ef74ef864ebf1e6e35c200c178a",
       "version_header": "\"\"\"",
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 2133,
-      "bytes": 102549
+      "lines": 3157,
+      "bytes": 160355
     },
     "reconcile_taxonomy.py": {
-      "sha256": "55ab3e40fe7c616574f35f7480cc37b17bc54cc211329df224788fd43e3b085d",
+      "sha256": "474d654ffb98c19c3e587cba48d9c64cafa471d6e0fc2af1e6f02a9a8aee0530",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
-      "lines": 1155,
-      "bytes": 62935
+      "lines": 1248,
+      "bytes": 68963
     },
     "syllabus_provenance.py": {
       "sha256": "f5bb1df6b0de7f66d824ef32c5d55bc22a0b4615691d6a0a53000666b84cd28d",

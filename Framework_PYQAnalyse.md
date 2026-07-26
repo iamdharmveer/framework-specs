@@ -1,11 +1,65 @@
-# Framework_PYQAnalyse v2.24 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.27 — Universal PYQ Analysis & Taxonomy Builder
 #
-# MINIMUM COMPANION VERSIONS (v2.24):
-#   corpus_io.py          >= v1.1   — Cluster K write_analysis_doc() IS S4-2. Under
-#                                     v1.0.x PYQApprove cannot produce the Analysis doc.
-#   reconcile_taxonomy.py >= v1.2   — S4-0 passes final_taxonomy=; older builds accept
+# MINIMUM COMPANION VERSIONS (v2.27):
+#   corpus_io.py          >= v1.4   — load_taxonomy() IS Task 2.5's loader and gate;
+#                                     Cluster K write_analysis_doc() IS S4-2,
+#                                     read_analysis_doc() IS Task 2.5's reader and
+#                                     assert_taxonomy_lock() IS its identity gate, and
+#                                     read_analysis_doc() IS Task 2.5's reader. v1.2
+#                                     adds INGEST FORMS: the Analysis doc is stored in
+#                                     project Files as extracted TEXT, so under v1.1
+#                                     Phase B cannot read it at all (GAP-2026-07-25-003).
+#   reconcile_taxonomy.py >= v1.3   — S4-0 passes final_taxonomy=, and v1.3 RECORDS it
+#                                     so Steps 3-6 need no Word document at all; older
+#                                     builds accept
 #                                     no such argument and raise TypeError.
 #   blueprint_core.py     — MAX_HEADING_LEN for the S4-0 name gate
+#
+# v2.27 — 2026-07-26 — TASK 2.5 LOADS THROUGH load_taxonomy(). The read and the
+#          identity assertion were two calls; they are now one, and the taxonomy is
+#          taken from approval_record.json where the record carries it
+#          (reconcile_taxonomy >= v1.3) rather than from a Word document. Pre-1.3
+#          records fall back to the doc, fully gated, and need no re-run.
+#          Companion rises to corpus_io.py >= v1.4.
+#
+# v2.26 — 2026-07-26 — TASK 2.5's LOCK CHECK DELEGATED TO THE SHARED GATE.
+#          v2.25 gave Step 4 a fingerprint identity gate by writing the comparison
+#          into the spec. Steps 5 and 6 then needed the same claim, so it now lives
+#          once in corpus_io.assert_taxonomy_lock() and Task 2.5 calls it like
+#          everyone else. No behaviour change: same two hard stops, same messages,
+#          same operator actions — one implementation instead of four. Companion
+#          requirement rises to corpus_io.py >= v1.3.
+#
+# v2.25 — 2026-07-26 — PHASE B READS AND WRITES THROUGH CLUSTER K (GAP-2026-07-25-003).
+#          Step 4 was the LAST hand-parser of the Analysis doc. GAP-2026-07-25-002
+#          consolidated four independent readers into corpus_io Cluster K, but the fifth
+#          reader was PROSE — S5-4b Task 2.5 instructed Claude to extract section names
+#          from a header line, topic names from master-summary cells and subtopic names
+#          from per-topic cells, by hand. Prose is invisible to validate_framework_md
+#          CHECK AG, which only inspects ```python blocks, so the consolidation could not
+#          see it and it survived. Two consequences, both now fixed:
+#            (1) Step 4 fails on GAP-2026-07-25-003 at its OWN call site. The Cluster K
+#                ingest-form fix does not reach a reader that never called Cluster K, so
+#                Phase B would have halted one step after PYQSort started working.
+#            (2) Task 2.5's whole purpose is BYTE-IDENTICAL name agreement between the
+#                Analysis doc and count_sorted_file(). Two hand-written extractions of the
+#                same names is precisely how they drift. Both sides now derive names from
+#                blueprint_core.parse_taxonomy_level() through one reader.
+#          S5-5 Task 3 changes shape for the same reason. It described EDITING the doc in
+#          place — replacing "—" cells and re-totalling. That is impossible now: the
+#          runtime receives extracted text, which has no cells to edit, and /mnt/project/
+#          is read-only. Task 3 becomes PARSE -> MERGE COUNTS -> REGENERATE through
+#          write_analysis_doc(counts=), which the module has accepted since v1.1. This is
+#          strictly stronger than the old rule: the writer computes the subtopic cell, the
+#          per-topic TOTAL, the master-summary Total PYQs, the GRAND TOTAL and the header
+#          total from ONE counts map, so the four levels cannot disagree by construction
+#          rather than by checking. Verified end to end on the first real exam: 6/26/131,
+#          all four levels equal, zero cells left as "—", fingerprint unchanged.
+#          NEW GATE — Task 2.5 now asserts the Analysis doc against the approval record's
+#          taxonomy_fingerprint before using it, the same cross-check PYQSort S1-0b makes.
+#          Step 4 had NO identity gate: it verified that the doc agreed with ITSELF and
+#          never that it was the doc that was APPROVED, so a superseded Analysis doc left
+#          in project Files would have been counted into silently.
 #
 # v2.24 — 2026-07-25 — S4-2 DE-STUBBED + TAXONOMY ATTESTED + NAME-LENGTH GATE
 #         (GAP-2026-07-25-002). Three changes, one theme: this step produces the artefact
@@ -5437,46 +5491,71 @@ Prevents silent count loss from name mismatches.
 
 After Task 2 passes, but BEFORE S5-5 (doc writing):
 
-  1. Load the APPROVED Analysis doc from project knowledge.
-  2. Extract the complete taxonomy: every (section, topic, subtopic) triple
-     from the Analysis doc.
+  1. LOAD THE TAXONOMY THROUGH THE ONE READER. Never by hand.
 
-     EXTRACTION METHOD (must produce names matching parse_taxonomy_level output):
+     v2.25 (GAP-2026-07-25-003) — THE ANALYSIS DOC IS READ BY corpus_io, NOT BY PROSE.
+```
 
-       SECTION NAME: from the doc header line "[ExamCode] — [Section Name]".
-         Extract: strip "[ExamCode] — " prefix → section name.
-         This MUST match what parse_taxonomy_level() returns for
-         "Subject: [Section Name]" → text.split(':', 1)[1].strip().
+```python
+import corpus_io                        # ENGINE (routed to PYQCount)
 
-       TOPIC NAME: from master summary table cells "Topic N: [Name]".
-         Extract: apply parse_taxonomy_level() or equivalent strip:
-         re.sub(r'Topic\s+\d+:\s*', '', cell_text).strip() → topic name.
-         This MUST match what parse_taxonomy_level() returns for
-         "Topic N: [Name]" headings in sorted files.
+# v2.27 — ONE call: it selects the taxonomy source, reads it, and asserts identity
+# against the approval record. Prefers the record's own "taxonomy" key
+# (reconcile_taxonomy >= v1.3) and falls back to the Analysis doc for pre-1.3
+# records, so exams approved earlier keep working and need no re-run.
+doc = corpus_io.load_taxonomy(step='PYQCount')
+taxonomy_triples = set(doc['triples'])   # (section, topic, subtopic), names already
+                                         # normalised by parse_taxonomy_level()
 
-       SUBTOPIC NAME: from per-topic table cells (raw subtopic text).
-         Extract: cell_text.strip() → subtopic name.
-         Skip rows where cell text is "TOTAL" or "Subtopic" (header row).
-         This MUST match what parse_taxonomy_level() returns for bare
-         subtopic headings in sorted files (default → level 3, text.strip()).
+# ── IDENTITY GATE (v2.25) — the doc must be the one that was APPROVED ─────────
+# Cluster K asserts the doc agrees with ITSELF (its three self-declarations). It
+# cannot assert that this is the taxonomy PYQApprove LOCKED. Those are different
+# claims, and until v2.25 Step 4 made only the first — so a superseded Analysis
+# doc left in project Files would have been counted into, silently, and every
+# downstream step would have inherited the wrong vocabulary. Same cross-check as
+# Framework_PYQSort S1-0b, same failure text.
+# v2.27 — the identity assertion happens INSIDE load_taxonomy() above; there is no
+# separate gate call and no separate read. It discovers
+# [ExamCode]_approval_record.json, hard stops when the record carries no
+# taxonomy_fingerprint (re-run PYQApprove — RECONCILIATION, not re-derivation), hard
+# stops when the fingerprint differs from the loaded taxonomy's, and — when the
+# record carries a taxonomy — hard stops when the record does not agree with itself.
+record = corpus_io.read_approval_record(doc['exam_code'])
 
-     The key invariant: for every triple, the extracted string must be
-     BYTE-IDENTICAL to what count_sorted_file() produces via
-     parse_taxonomy_level(). If the Analysis doc has "Analogy" and the
-     sorted file heading says "Analogy " (trailing space), Task 2.5
-     catches it as a phantom triple.
+print("Taxonomy identity verified: fingerprint matches the approval record.")
+print("Taxonomy source: %s (%s)" % (doc['source'], doc['ingest_form']))
+```
 
-  3. Build two sets:
+```
+     WHY THIS REPLACED THE OLD EXTRACTION METHOD. Task 2.5's entire purpose is
+     BYTE-IDENTICAL agreement between the names in the Analysis doc and the names
+     count_sorted_file() produces. The old text described extracting section names
+     from the "[ExamCode] — [Section]" header line, topic names by stripping
+     "Topic N: " with a local regex, and subtopic names from raw cells — a SECOND
+     hand-written implementation of parse_taxonomy_level(). Two implementations of
+     one rule is exactly how the names drift, and drift is the failure this gate
+     exists to catch. Both sides now come from ONE reader delegating to ONE
+     heading parser, so the invariant holds by construction.
+
+     It is also what makes Step 4 work at all. The Analysis doc lives in the
+     project's Files section, where the platform stores it as extracted TEXT under
+     its .docx name. corpus_io v1.2 detects the ingest form from CONTENT and scans
+     either form to the identical structure; a hand parser, or a bare
+     Document(path) open, sees a text file and fails (GAP-2026-07-25-003).
+     NO OPERATOR ACTION — do not attach the Analysis doc to chat. Report the
+     ingest form in the inventory; never warn about it.
+
+  2. Build two sets:
        counted_triples  = set of all (section, topic, subtopic) from counting
-       taxonomy_triples = set of all (section, topic, subtopic) from the Analysis doc
+       taxonomy_triples = doc['triples'] (loaded above)
 
-  4. Compute:
+  3. Compute:
        phantom_triples = counted_triples - taxonomy_triples
          (counted in sorted files but NOT in the Analysis doc)
        uncounted_subtopics = taxonomy_triples - counted_triples
          (in the Analysis doc but have zero counted questions)
 
-  5. PHANTOM TRIPLE CHECK:
+  4. PHANTOM TRIPLE CHECK:
      IF phantom_triples is non-empty:
        Print "TASK 2.5 FAILED — [N] phantom triples found.
               These subtopics were counted in sorted PYQ files but do NOT
@@ -5493,7 +5572,7 @@ After Task 2 passes, but BEFORE S5-5 (doc writing):
          Option B: update the Analysis doc taxonomy (if doc has the typo)
        Either way, the names MUST match exactly before counts are written.
 
-  6. UNCOUNTED SUBTOPICS (informational, not a stop):
+  5. UNCOUNTED SUBTOPICS (informational, not a stop):
      IF uncounted_subtopics is non-empty:
        Print "INFO: [N] subtopics in the Analysis doc have 0 PYQ counts.
               These will be written as '0' in the doc (not left as '—')."
@@ -5506,7 +5585,7 @@ some subtopics get inflated counts and others get 0, and the error is
 invisible until Step 6's BV-0A (too late).
 ```
 
-### S5-5 — TASK 3: Update the Analysis doc with counts (doc-writing accuracy guarantee)
+### S5-5 — TASK 3: Regenerate the Analysis doc with counts (arithmetic guarantee)
 
 ```
 ═══════════════════════════════════════════════════════════════════════
@@ -5514,51 +5593,113 @@ MANDATORY — every number in the Analysis doc must be arithmetically
 perfect at ALL 4 levels. Not even 1 question mismatch tolerated.
 ═══════════════════════════════════════════════════════════════════════
 
-Read the APPROVED Analysis doc (from project knowledge).
-For each subject section in the doc:
+v2.25 (GAP-2026-07-25-003) — PARSE -> MERGE -> REGENERATE, never edit in place.
 
-  LEVEL 1 — SUBTOPIC CELLS:
-    Replace every "—" PYQ Count cell with the exact count from the
-    Task 2-verified aggregated data for that (section, topic, subtopic).
-    ZERO-COUNT RULE: if a subtopic has 0 PYQs (present in Analysis doc
-    taxonomy but absent from counted triples — per Task 2.5 uncounted
-    list), write "0" explicitly. No subtopic cell may remain "—" after
-    Phase B. "—" means "not yet counted"; "0" means "counted, none found".
-    This distinction matters for Step 6 (Blueprint) zero-PYQ handling.
+This task used to say "replace every '—' PYQ Count cell" and re-total upward.
+That is not performable any more, for two independent reasons:
+  • the runtime receives the Analysis doc as platform-extracted TEXT, which has
+    no cells to edit — there is no OOXML package on the path at all;
+  • /mnt/project/ is READ-ONLY, so even the OOXML form could not be edited where
+    it sits.
+The doc is therefore rebuilt from the taxonomy Task 2.5 already loaded plus the
+Task-2 verified counts, through corpus_io.write_analysis_doc(counts=), which has
+accepted a counts map since v1.1.
 
-  LEVEL 2 — PER-TOPIC TOTAL ROWS:
-    Each topic's TOTAL row = computed sum of all its subtopic counts.
-    NOT a hardcoded number — always SUM(subtopic cells in that topic).
-    Verify: TOTAL row == sum of subtopic cells above it.
+This is STRICTLY STRONGER than the rule it replaces. The writer derives the
+subtopic cell, the per-topic TOTAL row, the master-summary "Total PYQs" cell, the
+GRAND TOTAL and the header total from ONE counts map in one pass. The four levels
+therefore cannot disagree BY CONSTRUCTION, where before they agreed only if every
+hand edit and every re-total was performed correctly on every subject. The
+cross-check below no longer hunts for arithmetic drift inside the document; it
+asserts the one thing construction cannot guarantee — that the map itself totals
+to what Task 1 confirmed.
+```
 
-  LEVEL 3 — MASTER SUMMARY TABLE:
-    Each topic's "Total PYQs" cell in the master summary table =
-    that topic's TOTAL row from Level 2.
-    GRAND TOTAL row = sum of all topic "Total PYQs" cells.
-    Verify: GRAND TOTAL == sum of all topic totals.
+```python
+# ── TASK 3 — runs only after Task 2.5 passes, in the same script ──────────────
+# `doc` and `counted` come from Task 2.5. Nothing is re-read and nothing is re-parsed.
 
-  LEVEL 4 — HEADER LINE:
-    "Total: — Questions" updated to the section's actual total.
-    Verify: header total == GRAND TOTAL from Level 3.
+if not counted:
+    raise SystemExit(
+        "HARD STOP: the counts map is empty. write_analysis_doc() treats an empty "
+        "map as 'no counts supplied' and would emit an em-dash in every cell, "
+        "silently producing a Phase-A document under a Phase-B filename.\n"
+        "NEXT ACTION: confirm count_progress.json loaded and that Task 2 passed.")
 
-  CROSS-CHECK (must ALL be equal):
-    header_total == grand_total == sum(topic_totals) == sum(all_subtopic_counts)
-    If ANY level doesn't add up → fix before saving.
+# ZERO-COUNT RULE, satisfied by construction: the writer emits
+# counts.get(triple, 0), so a taxonomy subtopic with no counted questions receives
+# an explicit 0 and never an em-dash. "—" means "not yet counted"; "0" means
+# "counted, none found", and Step 6 depends on the distinction (EC-P17).
+for triple in taxonomy_triples:
+    counted.setdefault(triple, 0)
 
-  Save updated .docx only after cross-check passes for ALL sections.
+# Cluster K's reader returns the RICH taxonomy shape; the writer takes the plain
+# one. Convert order-preservingly — subject order and within-subject topic order
+# are load-bearing (topic_idx is positional).
+tax = {s: {t: list(v['subtopics']) for t, v in d['topics'].items()}
+       for s, d in doc['taxonomy'].items()}
 
-After ALL subject sections updated:
-  Verify: sum of all section header totals == Task 1 confirmed total.
-  If mismatch → fix before delivering.
+out_path = corpus_io.write_analysis_doc(
+    tax, doc['exam_code'],
+    subject_order=doc['subjects'],
+    out_dir='/mnt/user-data/outputs',
+    counts=counted)
+
+# ── CROSS-CHECK — the one thing construction cannot assert ────────────────────
+if sum(counted.values()) != confirmed_total:          # confirmed_total from Task 1
+    raise SystemExit(
+        "HARD STOP: Σ counts = %d but Task 1 confirmed %d. The regenerated doc "
+        "would report a total the corpus does not support. Do NOT deliver."
+        % (sum(counted.values()), confirmed_total))
+
+# ── STRUCTURAL VERIFICATION — read the artefact back, never trust the write ───
+back = corpus_io.read_analysis_doc(out_path)
+if back['fingerprint'] != doc['fingerprint']:
+    raise SystemExit(
+        "HARD STOP: regeneration changed the taxonomy. The Analysis doc must carry "
+        "the SAME taxonomy after Phase B as before it — Phase B writes counts, "
+        "never structure.\n"
+        "  before : %s\n"
+        "  after  : %s" % (doc['fingerprint'], back['fingerprint']))
+
+print("Task 3 OK — %d subtopics, sum = %d, fingerprint unchanged, ingest form in: %s"
+      % (len(taxonomy_triples), sum(counted.values()), doc['ingest_form']))
+```
+
+```
+THE FOUR LEVELS, and where each is now guaranteed:
+
+  LEVEL 1 — SUBTOPIC CELLS       counts.get((section, topic, subtopic), 0)
+  LEVEL 2 — PER-TOPIC TOTAL ROW  Σ over that topic's subtopics
+  LEVEL 3 — MASTER SUMMARY       per-topic Σ, and GRAND TOTAL = Σ over the subject
+  LEVEL 4 — HEADER "Total:"      Σ over the subject
+All five figures are computed from `counted` inside write_analysis_doc(), in one
+pass, from the same expression. There is no path by which they can disagree.
+Verified on the first real exam: 6 subjects / 26 topics / 131 subtopics, header
+totals == GRAND TOTALs == Σ counted, zero cells left as "—".
+
+WHAT STILL REQUIRES A CHECK, and is checked above:
+  • Σ counted == Task 1's confirmed total          — the map vs the corpus
+  • fingerprint unchanged across regeneration      — counts written, not structure
+  • counts map non-empty                           — an empty map is silently Phase A
+
+WHAT THE READER CANNOT CHECK (recorded, not hidden): read_analysis_doc() returns
+the taxonomy and its structural counts, never the per-subtopic PYQ counts — it
+does not read the count column. So the regenerated NUMBERS cannot be re-verified
+through Cluster K. They do not need to be, because they were never transcribed:
+they are written from the same map this task asserts against Task 1. Do NOT add a
+hand parser to re-read them; that is the fifth reader this version removed.
 
 COUNTS MODE DELIVERY (S10-1 closed set):
   Deliver via present_files: EXACTLY 1 file.
-    1. [ExamCode]_PYQ_Analysis.docx  (UPDATED with PYQ counts)
+    1. [ExamCode]_PYQ_Analysis.docx  (REGENERATED, with PYQ counts)
   No other files. count_progress.json is INTERNAL — do NOT deliver
   at completion. (It IS delivered at session breaks for resume only.)
   Run S10-2 pre-delivery checklist before present_files.
 
-Deliver the updated Analysis doc via present_files.
+  The operator uploads it to the project's Files section, replacing the Phase-A
+  copy. The platform will store it as extracted text under the same .docx name;
+  that is expected and supported (GAP-2026-07-25-003). No operator action.
 ```
 
 ### S5-6 — Count progress JSON schema
@@ -5723,11 +5864,19 @@ PER-SESSION EXECUTION:
     CALL 1 — create_file: Write count_finalize.py containing:
       1. Load count_progress.json
       2. Task 2: compute grand total, display breakdown, compare
-      3. Task 2.5: load Analysis doc, extract taxonomy, cross-check
-      4. Task 3: update Analysis doc with counts (all 4 levels + cross-check)
-      5. Save updated .docx file to /mnt/user-data/outputs/
+      3. Task 2.5 (S5-4b): corpus_io.load_taxonomy() — ONE call that selects the
+         taxonomy source, reads it and asserts identity against
+         approval_record.json. Never a hand parser, never a bare Document(path)
+         open, and never a separate gate call. Then the phantom / uncounted set
+         comparison
+      4. Task 3 (S5-5): merge counts onto the loaded taxonomy and REGENERATE via
+         corpus_io.write_analysis_doc(..., counts=), then read the result back and
+         assert the fingerprint is unchanged. Do NOT edit the doc in place — the
+         runtime receives extracted text and /mnt/project/ is read-only
+      5. The regenerated .docx is written to /mnt/user-data/outputs/ by
+         write_analysis_doc()'s own out_dir; nothing else saves it
     CALL 2 — bash_tool: Run count_finalize.py
-    CALL 3 — present_files: Deliver the updated Analysis doc
+    CALL 3 — present_files: Deliver the regenerated Analysis doc
              (EXACTLY 1 file — S10-1 --counts closed set.
               count_progress.json is NOT delivered at completion.
               Run S10-2 pre-delivery checklist before present_files.)
@@ -6725,4 +6874,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.24
+# END OF Framework_PYQAnalyse v2.27

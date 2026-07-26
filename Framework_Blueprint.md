@@ -1,9 +1,32 @@
-# Framework_Blueprint v1.39 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.41 — Universal Mock Test Blueprint Generator
 #
-# MINIMUM COMPANION VERSIONS (v1.39):
-#   corpus_io.py          >= v1.1   — S2-2 reads the Analysis doc through Cluster K
+# MINIMUM COMPANION VERSIONS (v1.41):
+#   corpus_io.py          >= v1.4   — S2-2 loads via load_taxonomy()
+#                                     and asserts assert_taxonomy_lock(). v1.2 adds
+#                                     INGEST FORMS; v1.3 adds the lock gate.
 #   blueprint_core.py     — allocation core (Clusters A-C)
 #   paper_pipeline.py     — naming / numbering / registry plumbing
+#
+# v1.41 — 2026-07-26 — S2-2 LOADS THROUGH load_taxonomy(). Read and gate collapse to
+#         one call, and the taxonomy comes from approval_record.json where the record
+#         carries it rather than from a Word document. Step 6 is the worst place for a
+#         wrong taxonomy — the blueprint built from one is internally consistent,
+#         passes every BV check and is indistinguishable from a correct one at Steps
+#         7-11 — so removing the parse step here removes the largest remaining way to
+#         get one. Pre-1.3 records fall back to the doc, gated, and need no re-run.
+#         MINIMUM COMPANION: corpus_io.py >= v1.4.
+#
+# v1.40 — 2026-07-26 — S2-2 ASSERTS THE TAXONOMY LOCK (GAP-2026-07-25-003 follow-up).
+#         v1.39 stopped Step 6 hand-parsing the Analysis doc. It did not make Step 6
+#         check that the doc it now reads correctly is the doc PYQApprove APPROVED.
+#         Framework_PYQSort S1-0b made that claim from v1.14 and nothing else did, so
+#         a superseded Analysis doc that HALTS LOUDLY at Step 3 was allocated against
+#         here silently. That is the worst place for it: the blueprint built from a
+#         wrong taxonomy is internally consistent, passes every BV check, and is
+#         indistinguishable from a correct one at Steps 7-11. S2-2 now calls
+#         corpus_io.assert_taxonomy_lock() — THE gate, one implementation in
+#         corpus_io, never a fourth transcription of S1-0b.
+#         MINIMUM COMPANION: corpus_io.py >= v1.3.
 #
 # v1.39 — 2026-07-25 — S2-2 ANALYSIS-DOC READING DELEGATED (GAP-2026-07-25-002).
 #   S2-2 described four "accepted arrangements" and told Claude to extract the
@@ -1418,8 +1441,31 @@ def subtopic_in_section(sid, section_name):
 v1.39 (GAP-2026-07-25-002) — THE ANALYSIS DOC IS READ BY corpus_io, NOT BY PROSE.
 
   import corpus_io                                 # ENGINE (routed to MockBlueprint)
-  taxonomy = corpus_io.read_analysis_doc()          # Cluster K — THE reader
-  # -> {'taxonomy','triples','subjects','counts','fingerprint', ...}
+  taxonomy = corpus_io.load_taxonomy(step='MockBlueprint')   # v1.41 — ONE call
+  # -> {'taxonomy','triples','subjects','counts','fingerprint','ingest_form','source'}
+  #
+  # v1.41 — source selection, read and identity assertion in one call. The taxonomy
+  # is taken from approval_record.json where the record carries it
+  # (reconcile_taxonomy >= v1.3, schema >= 1.3) — JSON the platform stores
+  # byte-for-byte — and from the Analysis doc otherwise. On the preferred path Step 6
+  # parses no Word document at all. Exams approved before schema 1.3 fall back, fully
+  # gated, and need no re-run.
+
+  v1.40 (GAP-2026-07-25-003 follow-up) — THE LOCK GATE. Reading the doc proves it
+  agrees with ITSELF. It does not prove it is the doc PYQApprove APPROVED, and those
+  are different claims — GAP-2026-07-25-002 Defect B satisfied the first while
+  violating the second. Framework_PYQSort S1-0b made the second claim from v1.14 and
+  NOTHING else did, so a superseded Analysis doc that halts loudly at Step 3 was
+  allocated against here without a word. The whole blueprint rests on this taxonomy;
+  an unverified one produces an internally consistent blueprint over the wrong
+  subtopics, which no later gate can distinguish from a correct one.
+  assert_taxonomy_lock() is THE gate, implemented once in corpus_io — not a copy of
+  S1-0b's logic re-written in a fourth spec.
+
+  v1.39 note on the ingest form: the Analysis doc lives in the project's Files
+  section, where the platform stores it as extracted TEXT under its .docx name.
+  corpus_io >= v1.2 detects the form from CONTENT and scans either to the identical
+  structure, so this step needs no operator action and must not warn about it.
 
   This section used to describe four "accepted arrangements" and instruct Claude to
   extract the structure itself. That is spec-as-prose for a machine-readable
@@ -7349,4 +7395,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.39
+# END OF Framework_Blueprint v1.41
