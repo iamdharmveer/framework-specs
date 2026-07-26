@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.9 \u2014 Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.32",
-      "lines": 8571,
-      "sha256": "fc6b7200fd8cea089e8e1722cf0911cb0a4aa2537622ef8abccaf4aa0e34c8f9",
-      "size_bytes": 478064,
-      "version_header": "# Framework_MockTestAnalyse v2.32 \u2014 Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.33",
+      "lines": 8616,
+      "sha256": "dedc296877b65daecc5432490a3805c6155e5f2847e3e45c4e589a52c8221d5a",
+      "size_bytes": 481527,
+      "version_header": "# Framework_MockTestAnalyse v2.33 \u2014 Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
@@ -57,11 +57,11 @@
       "version_header": "# Framework_MockTestExplainAudit.md"
     },
     "Framework_PYQAnalyse.md": {
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.27",
-      "lines": 6877,
-      "sha256": "5f753c900565a27a89b33aac481364a3370b5158d5df01233780deca9fe31a6f",
-      "size_bytes": 383170,
-      "version_header": "# Framework_PYQAnalyse v2.27 \u2014 Universal PYQ Analysis & Taxonomy Builder"
+      "end_sentinel": "# END OF Framework_PYQAnalyse v2.28",
+      "lines": 6982,
+      "sha256": "c2d4242c05be413c53b521e8dc224b207d13620f8bdc32aecd3794398b3d180b",
+      "size_bytes": 390836,
+      "version_header": "# Framework_PYQAnalyse v2.28 \u2014 Universal PYQ Analysis & Taxonomy Builder"
     },
     "Framework_PYQCompress.md": {
       "end_sentinel": "# END OF Framework_PYQCompress v1.1",
@@ -135,9 +135,9 @@
       "size_bytes": 8108
     },
     "blueprint_core.py": {
-      "lines": 2259,
-      "sha256": "0c54c220d0774a85fb87dee37c0db4bf3bd5d962b3d70b8780566513c0467c53",
-      "size_bytes": 120558
+      "lines": 2384,
+      "sha256": "04356100f72254a6d2c26bc7270f76b4a343b3ecf34b38d04bc46bcb81ce206c",
+      "size_bytes": 127767
     },
     "claude_Framework_GitHub_Architecture.md": {
       "end_sentinel": "4. Optional: stamp git commit SHA into .verified for finer per-release audit granularity.",
@@ -206,5 +206,5 @@
       "size_bytes": 94987
     }
   },
-  "generated_at": "2026-07-26T04:36:23+00:00"
+  "generated_at": "2026-07-26T08:17:08+00:00"
 }

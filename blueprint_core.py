@@ -1363,6 +1363,31 @@ Q_PATTERNS = [r'^Q\.\s*(\d+)\s+', r'^Q(\d+)\.\s+']
 # while 300 still cannot be reached by anything but a stem pasted into a heading.
 MAX_HEADING_LEN = 300
 
+# GAP-2026-07-26-001. THE single definition of the date/shift label pattern. It was
+# previously an inline literal in is_taxonomy_heading() here, in Framework_MockTestAnalyse
+# S3-2's outer loop and in Framework_PYQAnalyse S5-2 — three copies of one rule, the exact
+# drift class this module exists to end. Matches BOTH forms PYQSort CHECK 3 accepts:
+# "[02-May-2010]" (no session) and "[12-Sep-2025 Shift 1]" (with session).
+DATE_TAG_RE = re.compile(r'^\[\d{1,2}-')
+
+
+def next_nonempty_texts(paras):
+    """For each index i, the text of the next NON-EMPTY paragraph after i ('' at the end).
+
+    GAP-2026-07-26-001. Single pass, O(n). Lives in the engine so the two sorted-PYQ
+    walkers (PYQAnalyse S5-2 count_sorted_file, MockTestAnalyse S3-2 extract_presorted)
+    cannot each write their own lookahead and drift apart — the failure class that
+    produced this gap in the first place.
+    """
+    out = [''] * len(paras)
+    nxt = ''
+    for i in range(len(paras) - 1, -1, -1):
+        out[i] = nxt
+        t = (paras[i].text or '').strip()
+        if t:
+            nxt = t
+    return out
+
 
 def detect_question_start(text):
     """Return the source Q-number if this line starts a question, else None."""
@@ -1400,9 +1425,48 @@ def parse_taxonomy_level(text):
     return 3, text.strip()
 
 
-def is_taxonomy_heading(para, is_option_fn):
+def is_taxonomy_heading(para, is_option_fn, next_text=None):
     r"""True when a python-docx paragraph is a taxonomy heading rather than a question,
-    an option or a date/shift tag. THE canonical implementation.
+    an option, a STEM CONTINUATION or a date/shift tag. THE canonical implementation.
+
+    ``next_text`` is the text of the NEXT NON-EMPTY paragraph (from next_nonempty_texts()),
+    or None when the caller is not walking a sorted-PYQ document.
+
+    == GAP-2026-07-26-001 ==================================================
+    A LEVEL-3 heading is BARE TEXT by contract (PYQSort S6-2: "<Subtopic Name>", no
+    prefix), so bold was the only positive signal it had. But PYQSort EC-S8 emits
+    multi-paragraph question stems and defines a continuation line as "bold + not-date +
+    not-option + not-next-Q" — character for character the predicate below. Two different
+    objects, one predicate, written on opposite sides of the same repository and never
+    compared. Every stem continuation shorter than MAX_HEADING_LEN was a heading.
+
+    Measured on the IIT_JAM_BIOTECHNOLOGY 22-paper corpus (1719 questions): 20 spurious
+    headings across 10 papers; 128 counted triples against 126 real ones; 2 phantom
+    triples that HARD STOPPED Step 4 Task 2.5; and — the dangerous half — 16 questions
+    truncated mid-body at Step 5 with 28 option lines silently discarded. The question
+    total and the orphan count were CORRECT throughout, which is why only Task 2.5
+    caught it.
+
+    Raising MAX_HEADING_LEN 100 -> 300 (GAP-2026-07-25-002) widened this. That is not an
+    argument to revert it: a length bound was only ever an ACCIDENTAL stem/heading
+    discriminator, and an accidental discriminator stops working the moment the constant
+    is tuned for its real purpose.
+
+    THE DISCRIMINATOR IS POSITIONAL, and it is the only one the document carries.
+    PYQSort S6-2 emits the date label "immediately above Q.N stem — zero paragraphs
+    between"; CHECK 3 HARD FAILS if date-label count != Q-count or the position slips;
+    EC-S10 raises when a Q.N has no date label. So in any sorted file PYQSort was willing
+    to emit — for ANY exam; this is exam-agnostic and names no exam, section or subtopic
+    — a genuine bare subtopic heading is ALWAYS followed by a date label, and a stem
+    continuation NEVER is.
+
+    Levels 1 and 2 are exempt: they carry an explicit prefix (Subject:/Topic N:/...) and
+    are self-identifying, so they need no positional evidence.
+
+    next_text=None reproduces the pre-fix behaviour exactly, so callers holding a single
+    paragraph in isolation (corpus_io's self-test) keep working unchanged. Every
+    sorted-PYQ walker MUST pass it.
+    ========================================================================
 
     ``is_option_fn`` is injected because option-shape detection is exam-format logic that
     lives in the calling spec; everything else here is shared.
@@ -1421,10 +1485,17 @@ def is_taxonomy_heading(para, is_option_fn):
     if is_option_fn(text):
         return False
     # date/shift tag, e.g. [7-May-2025 Shift 1] — DD may be 1 or 2 digits
-    if re.match(r'\[\d{1,2}-', text):
+    if DATE_TAG_RE.match(text):
         return False
     has_bold = any(r.bold for r in para.runs if r.text.strip())
-    return has_bold and len(text) < MAX_HEADING_LEN
+    if not (has_bold and len(text) < MAX_HEADING_LEN):
+        return False
+    if next_text is None:                          # caller cannot supply position
+        return True
+    if parse_taxonomy_level(text)[0] in (1, 2):    # prefixed -> self-identifying
+        return True
+    # GAP-2026-07-26-001: a bare level-3 heading must lead into a date label.
+    return bool(DATE_TAG_RE.match(next_text.strip()))
 
 
 def taxonomy_fingerprint(triples):
@@ -2245,6 +2316,60 @@ def self_test():
     check('h_clarity_blind', image_clarity_state(False, False) == 'vision_unavailable')
     check('h_clarity_blind_even_if_readable',
           image_clarity_state(False, True) == 'vision_unavailable')
+
+    # -- GAP-2026-07-26-001: stem continuation must never be a level-3 heading --
+    # The g_stem_* assertions FAIL on the pre-fix engine. That is the point: CLAUDE.md
+    # requires a self-test to contain a fixture that fails on the defect it was written
+    # for. Every case below is lifted from a REAL paragraph in the reproduction corpus.
+    class _R2:
+        def __init__(s, t, b): s.text, s.bold = t, b
+    class _P2:
+        def __init__(s, t, b=True): s.text, s.runs = t, [_R2(t, b)]
+    _no_opt = lambda t: False
+    _cont = _P2('Which one of the following options gives the correct enzyme-vitamin matches?')
+    _sub  = _P2('Enzyme Kinetics, Catalysis and Inhibition')
+
+    # the defect: continuation followed by an OPTION            (real: 2010 p86)
+    check('g_stem_cont_before_option',
+          not is_taxonomy_heading(_cont, _no_opt, '1. EnzP and Vit B3, EnzQ and Vit B2'))
+    # continuation followed by ANOTHER stem paragraph            (real: 2010 p85)
+    check('g_stem_cont_before_stem',
+          not is_taxonomy_heading(_cont, _no_opt, 'The dotted lines denote'))
+    # continuation followed by the next GENUINE heading          (real: 2016 p98)
+    check('g_stem_cont_before_heading',
+          not is_taxonomy_heading(_cont, _no_opt, 'Population Genetics'))
+    # NAT ask-line before a Topic heading            (real: 2019 p85, 2024 p345)
+    check('g_stem_nat_ask_line',
+          not is_taxonomy_heading(_P2('Calculate the recombination frequency.'),
+                                  _no_opt, 'Topic 4: Molecular Biology'))
+    # bare option label whose content is an image          (real: 2026 p334-337)
+    check('g_stem_bare_option_label',
+          not is_taxonomy_heading(_P2('1.'), _no_opt, '2.'))
+    # last paragraph in the file — a genuine subtopic is never last (real: 2020 p426)
+    check('g_stem_last_para', not is_taxonomy_heading(_cont, _no_opt, ''))
+    # genuine subtopic headings still pass — BOTH date-label forms (CHECK 3)
+    check('g_head_date_no_session', is_taxonomy_heading(_sub, _no_opt, '[02-May-2010]'))
+    check('g_head_date_with_session',
+          is_taxonomy_heading(_sub, _no_opt, '[12-Sep-2025 Shift 1]'))
+    # prefixed levels are position-independent
+    check('g_head_l1_position_free',
+          is_taxonomy_heading(_P2('Subject: General Biology'), _no_opt, 'Q.1 Anything'))
+    check('g_head_l2_position_free',
+          is_taxonomy_heading(_P2('Topic 3: Genetics'), _no_opt, 'DNA Replication'))
+    # backward compatibility: next_text=None reproduces pre-fix behaviour exactly
+    check('g_head_next_none_compat', is_taxonomy_heading(_cont, _no_opt, None))
+    # the MAX_HEADING_LEN bound is untouched
+    check('g_head_maxlen_untouched',
+          not is_taxonomy_heading(_P2('n' * MAX_HEADING_LEN), _no_opt, '[02-May-2010]'))
+    # non-bold text is still never a heading
+    check('g_head_requires_bold',
+          not is_taxonomy_heading(_P2('Enzyme Kinetics', False), _no_opt, '[02-May-2010]'))
+    # next_nonempty_texts contract
+    class _P3:
+        def __init__(s, t): s.text = t
+    check('g_next_nonempty',
+          next_nonempty_texts([_P3('A'), _P3(''), _P3('   '), _P3('B'), _P3('C'), _P3('')])
+          == ['B', 'B', 'B', 'C', '', ''])
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

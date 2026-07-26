@@ -1,6 +1,6 @@
-# Framework_PYQAnalyse v2.27 — Universal PYQ Analysis & Taxonomy Builder
+# Framework_PYQAnalyse v2.28 — Universal PYQ Analysis & Taxonomy Builder
 #
-# MINIMUM COMPANION VERSIONS (v2.27):
+# MINIMUM COMPANION VERSIONS (v2.28):
 #   corpus_io.py          >= v1.4   — load_taxonomy() IS Task 2.5's loader and gate;
 #                                     Cluster K write_analysis_doc() IS S4-2,
 #                                     read_analysis_doc() IS Task 2.5's reader and
@@ -13,7 +13,41 @@
 #                                     so Steps 3-6 need no Word document at all; older
 #                                     builds accept
 #                                     no such argument and raise TypeError.
-#   blueprint_core.py     — MAX_HEADING_LEN for the S4-0 name gate
+#   blueprint_core.py     — MAX_HEADING_LEN for the S4-0 name gate; and the
+#                           GAP-2026-07-26-001 build carrying next_nonempty_texts()
+#                           and is_taxonomy_heading(para, is_option, next_text).
+#                           S5-2 PASSES next_text; on an older engine that raises
+#                           TypeError rather than silently miscounting.
+#
+# v2.28 — 2026-07-26 — GAP-2026-07-26-001: A MULTI-PARAGRAPH STEM IS NOT A HEADING.
+#          PYQSort EC-S8 defines a stem continuation as "bold + not-date + not-option
+#          + not-next-Q". blueprint_core.is_taxonomy_heading() defined a taxonomy
+#          heading as the same four conditions. Two different objects, one predicate,
+#          on opposite sides of the same repository, never compared. Level 3 is the
+#          only taxonomy level with no textual prefix, so bold was its only positive
+#          signal — and the moment the producer began emitting bold body text the two
+#          classes became the same object.
+#          MEASURED, IIT_JAM_BIOTECHNOLOGY, 22 papers / 1719 questions: 20 spurious
+#          headings across 10 papers; 128 counted triples against 126 real ones; 2
+#          phantom triples; Task 2.5 HARD STOP. The question total and the orphan
+#          count were both CORRECT throughout (1719 / 0) — nothing was lost, only
+#          mis-filed — which is why Task 2.5 was the only gate that could catch it.
+#          FIX (S5-2): count_sorted_file() builds bc.next_nonempty_texts() once per
+#          document and passes next_text. A bare level-3 heading is genuine only when
+#          the next non-empty paragraph is a DATE LABEL — guaranteed exam-agnostically
+#          by PYQSort S6-2, CHECK 3 and EC-S10. Levels 1 and 2 are exempt (prefixed,
+#          self-identifying). Verified on the full corpus: 1244/1244 genuine headings
+#          preserved, all 20 spurious ones rejected, 1719 questions and 0 orphans
+#          unchanged, triples 128 -> 126, phantoms 2 -> 0.
+#          ALSO §6: added the QUESTION (multi-paragraph) class. Its absence WAS the
+#          defect — §6 described a question as a single paragraph while EC-S8 emitted
+#          several, and everything downstream inherited the wrong one.
+#          ALSO S5-4b: Task 2.5 now TRIAGES phantoms into misread-stem vs genuine
+#          name-mismatch. It previously asserted one cause and offered only the
+#          name-mismatch remedies; against a misread stem "re-sort" is a no-op that
+#          reproduces the file byte for byte, and "update the Analysis doc" writes a
+#          question stem into the locked taxonomy — the exact defect D6-1 blocks.
+#          The operator had no valid exit and the run halted permanently.
 #
 # v2.27 — 2026-07-26 — TASK 2.5 LOADS THROUGH load_taxonomy(). The read and the
 #          identity assertion were two calls; they are now one, and the taxonomy is
@@ -5241,9 +5275,19 @@ def is_option(text):
 # shared Q_PATTERNS table via detect_question_start(). Those two match DIFFERENT strings
 # (e.g. "Q1 Analysis" matches the local regex but is not a Q_PATTERNS question start), so the
 # two steps disagreed about which paragraphs were headings AT ALL, not merely about level.
-def is_taxonomy_heading(para):
-    return bc.is_taxonomy_heading(para, is_option)
+def is_taxonomy_heading(para, next_text=None):
+    return bc.is_taxonomy_heading(para, is_option, next_text)
 
+# GAP-2026-07-26-001 — PASSING next_text IS MANDATORY HERE.
+# A LEVEL-3 heading is bare text by contract (PYQSort S6-2), so bold was its only
+# positive signal — and PYQSort EC-S8 emits multi-paragraph stems whose continuation
+# lines are ALSO bold, not dates, not options and not question starts. Without the
+# positional argument every such line became a subtopic, and every question after it
+# was counted under a question stem. Measured on IIT_JAM_BIOTECHNOLOGY (22 papers,
+# 1719 questions): 20 spurious headings, 128 counted triples against 126 real ones,
+# 2 phantom triples, Task 2.5 HARD STOP with no valid remedy — re-sorting reproduces
+# the file byte for byte, and amending the taxonomy would have written a question
+# stem into the LOCKED taxonomy, which D6-1 exists to prevent. See S5-4b step 4a.
 def count_sorted_file(docx_path):
     """
     Walk a sorted PYQ .docx, count questions per (section, topic, subtopic).
@@ -5257,10 +5301,12 @@ def count_sorted_file(docx_path):
     orphans = []
     cur_sec = cur_top = cur_sub = ''
 
-    for para in doc.paragraphs:
+    paras = doc.paragraphs
+    nxt   = bc.next_nonempty_texts(paras)          # GAP-2026-07-26-001
+    for i, para in enumerate(paras):
         text = para.text.strip()
         if not text: continue
-        if is_taxonomy_heading(para):
+        if is_taxonomy_heading(para, nxt[i]):
             lv, content = parse_taxonomy_level(text)
             # CRITICAL — reset child pointers when parent changes.
             # Matches Step 5 E-1: current_path[:level-1] + [content]
@@ -5559,18 +5605,49 @@ print("Taxonomy source: %s (%s)" % (doc['source'], doc['ingest_form']))
      IF phantom_triples is non-empty:
        Print "TASK 2.5 FAILED — [N] phantom triples found.
               These subtopics were counted in sorted PYQ files but do NOT
-              exist in the Analysis doc. Likely cause: name mismatch
-              (trailing space, dash variant, case difference).
+              exist in the Analysis doc.
 
               Phantom triples:"
        For each phantom: print (section, topic, subtopic) with count.
-       Also print the CLOSEST MATCH from taxonomy_triples (fuzzy match)
-       to help diagnose the mismatch.
+       Also print the CLOSEST MATCH from taxonomy_triples (fuzzy match).
 
-       HARD STOP — do not proceed to S5-5. Fix the name mismatch:
-         Option A: re-sort the affected papers (PYQSort used wrong name)
-         Option B: update the Analysis doc taxonomy (if doc has the typo)
-       Either way, the names MUST match exactly before counts are written.
+     4a. TRIAGE FIRST — THERE ARE TWO CAUSES AND THEY NEED OPPOSITE FIXES.
+         Run question_shape_verdict() (§S3 D6-1) on each phantom SUBTOPIC name and
+         check whether the phantom text reads as prose lifted from a question.
+
+         CAUSE 1 — MISREAD QUESTION STEM (GAP-2026-07-26-001).
+           Signals: verdict is HARD or WARN; the name ends in '?', begins with an
+           interrogative, is a bare option label ("1."), or reads as a sentence
+           fragment; and NO close fuzzy match exists in the taxonomy.
+           This is NOT a name mismatch. A bold stem-continuation paragraph was read
+           as a subtopic heading. The sorted file is CORRECT; the parser was wrong.
+           FIX: confirm count_sorted_file() (§S5-2) calls is_taxonomy_heading() WITH
+           next_text, and that blueprint_core.py carries the GAP-2026-07-26-001
+           positional gate (it exposes next_nonempty_texts()). Re-run PYQCount.
+           DO NOT re-sort — PYQSort reproduces the identical file, so this is a
+             no-op and the run halts again in exactly the same place.
+           DO NOT add the phantom to the Analysis doc — that writes a question stem
+             into the LOCKED taxonomy, precisely the defect D6-1 exists to block.
+             Step 6 would then allocate it and Step 7 would be asked to generate
+             questions FOR a question.
+
+         CAUSE 2 — GENUINE NAME MISMATCH.
+           Signals: verdict is OK; a close fuzzy match EXISTS in the taxonomy,
+           differing only by trailing space, dash variant or case.
+           FIX, either:
+             Option A: re-sort the affected papers (PYQSort used the wrong name)
+             Option B: correct the Analysis doc taxonomy (the doc carries the typo)
+           The names MUST match exactly before counts are written.
+
+       HARD STOP — do not proceed to S5-5 until the cause is identified and fixed.
+
+     WHY THE TRIAGE EXISTS. Until GAP-2026-07-26-001 this gate asserted a single
+     cause — "likely a name mismatch" — and offered only the two Cause-2 remedies.
+     Against a misread stem, Option A is a no-op that reproduces the file byte for
+     byte and Option B is destructive. An operator following the message as written
+     had no valid exit, and the run halted permanently. A gate that DETECTS correctly
+     but MISDIAGNOSES is worse than one that never fires: it spends the operator's
+     trust, and then it spends their taxonomy.
 
   5. UNCOUNTED SUBTOPICS (informational, not a stop):
      IF uncounted_subtopics is non-empty:
@@ -5969,9 +6046,37 @@ DATE LABEL:
   Styling:     11pt, Bold, Navy #003366, Right-aligned
   NOT a heading → skipped by is_taxonomy_heading() via shift-tag detection
 
-QUESTION:
+QUESTION (first paragraph):
   Text format: "Q.<N>  <stem text>"
   NOT a heading → skipped by is_taxonomy_heading() via Q-pattern detection
+
+QUESTION (second and subsequent paragraphs — STEM CONTINUATION):
+  GAP-2026-07-26-001. This entry did not exist, and its absence WAS the defect.
+  §6 described a question as a SINGLE paragraph while PYQSort EC-S8 explicitly emits
+  multi-paragraph stems — two specs in one repository disagreeing about whether a
+  question can span paragraphs. Everything downstream inherited the wrong one.
+
+  Text format: free text — a Statement I/II block, a line following a figure, scheme
+               or table, a NAT ask-line, or a bare option label ("1.") whose content
+               is an image. PYQSort EC-S8 emits these BOLD, by design.
+  Detection (EC-S8): bold + not-date + not-option + not-next-Q.
+  WARNING: that is CHARACTER FOR CHARACTER the level-3 heading predicate. A stem
+    continuation is therefore INDISTINGUISHABLE from a subtopic heading on styling
+    alone. Bold is not an identity; it is a style attribute shared by both classes.
+
+  DISCRIMINATOR — POSITIONAL, and the only one the document carries:
+    A genuine BARE (level-3) heading is ALWAYS followed, as the next non-empty
+    paragraph, by a DATE LABEL. A stem continuation NEVER is — it is followed by
+    another stem paragraph, an option, the next structural heading, or end-of-file.
+  GUARANTEED BY (exam-agnostic; names no exam, section or subtopic):
+    PYQSort S6-2    — date label "always emitted immediately above Q.N stem, zero
+                      paragraphs between"
+    PYQSort CHECK 3 — HARD FAIL if date-label count != Q-count, or the position slips
+    PYQSort EC-S10  — ValueError when a Q.N has no preceding date label
+  ENFORCED BY: blueprint_core.is_taxonomy_heading(para, is_option, next_text), with
+    next_text from blueprint_core.next_nonempty_texts(). Levels 1 and 2 are exempt —
+    they carry an explicit prefix and are self-identifying.
+  NOT a heading → skipped by is_taxonomy_heading() via the positional gate.
 ```
 
 ---
@@ -6874,4 +6979,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQAnalyse v2.27
+# END OF Framework_PYQAnalyse v2.28

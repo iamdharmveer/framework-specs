@@ -1,12 +1,43 @@
-# Framework_MockTestAnalyse v2.32 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.33 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
-# MINIMUM COMPANION VERSIONS (v2.30):
+# MINIMUM COMPANION VERSIONS (v2.33):
 #   corpus_io.py          >= v1.4   — both readers go through load_taxonomy(),
 #                                     and both assert assert_taxonomy_lock(). v1.2 adds
 #                                     INGEST FORMS (the doc is stored in project Files as
 #                                     extracted TEXT); v1.3 adds the lock gate itself.
-#   blueprint_core.py     — Cluster E/G delegation (score_difficulty, determine_strip_mode)
+#   blueprint_core.py     — Cluster E/G delegation (score_difficulty, determine_strip_mode);
+#                           and the GAP-2026-07-26-001 build carrying
+#                           next_nonempty_texts() and is_taxonomy_heading(para,
+#                           is_option, next_text). S3-2 PASSES next_text at BOTH
+#                           loops; an older engine raises TypeError rather than
+#                           silently truncating stems.
+#
+# v2.33 — 2026-07-26 — GAP-2026-07-26-001: THE STEM NO LONGER ENDS ITSELF.
+#         PYQSort EC-S8 emits multi-paragraph stems whose continuation lines are bold,
+#         not dates, not options and not question starts — character for character the
+#         level-3 heading predicate. extract_presorted()'s INNER loop breaks on a
+#         heading, so a question's own continuation line terminated the question
+#         mid-body: the stem was truncated at the figure, and every option after that
+#         point was orphaned, because the outer loop then treated the remaining stem
+#         lines as headings and skipped the option paragraphs as neither headings nor
+#         question starts.
+#         THIS WAS THE DANGEROUS HALF. Step 4's phantom gate stops the run; nothing
+#         here stopped anything. The question count stays right, so QV parity holds and
+#         every gate passes — the options simply never existed as far as the extractor
+#         was concerned. The corruption flowed into section_rules.md, the manifest and
+#         the Frequency xlsx, and from there into Step 6 allocation and Step 7
+#         generation.
+#         MEASURED, IIT_JAM_BIOTECHNOLOGY, 22 papers: 16 questions truncated, 28 option
+#         lines silently discarded, 10 of 22 papers affected. Rows showing zero options
+#         lost are NAT or image-option questions whose stems were truncated anyway,
+#         corrupting full_stem, is_neg, detect_blank_position(), MSQ detection and
+#         FIGURAL classification.
+#         FIX (S3-2, and the E-1 pseudocode that describes it): build
+#         bc.next_nonempty_texts() once per document and pass next_text at BOTH the
+#         outer heading loop and the inner break. A bare level-3 heading is genuine
+#         only when the next non-empty paragraph is a DATE LABEL — guaranteed
+#         exam-agnostically by PYQSort S6-2, CHECK 3 and EC-S10.
 #
 # v2.32 — 2026-07-26 — BOTH READERS LOAD THROUGH load_taxonomy(). The read and the
 #         identity assertion collapse into one call at both sites, and the taxonomy
@@ -2108,10 +2139,11 @@ Helpers:
 Algorithm (pseudocode — full implementation in S3-2 extract_presorted()):
   current_path  = []    # [section, topic, subtopic]
   current_shift = 'S1'
-  for paragraph in doc.paragraphs:
+  nxt = bc.next_nonempty_texts(doc.paragraphs)   # GAP-2026-07-26-001
+  for i, paragraph in enumerate(doc.paragraphs):
       text = paragraph.text.strip()
       if not text: continue
-      if is_taxonomy_heading(paragraph):
+      if is_taxonomy_heading(paragraph, nxt[i]):
           level, content = parse_taxonomy_level(text)
           current_path = current_path[:level-1] + [content]
       elif is_shift_tag(text):
@@ -2972,7 +3004,16 @@ Both are reported with question numbers. Neither is silently accepted.
 # in BOTH this spec and Framework_PYQAnalyse Phase B, which walk the SAME sorted .docx and
 # must agree. Each pair had drifted despite an explicit "keep IDENTICAL" instruction and
 # EC-P14 naming the failure mode. One definition now, so they cannot drift again.
-is_taxonomy_heading      = lambda para: bc.is_taxonomy_heading(para, is_option)
+# GAP-2026-07-26-001 — next_text IS MANDATORY for sorted-PYQ walks.
+# PYQSort EC-S8 emits multi-paragraph stems whose continuation lines are bold, not
+# dates, not options and not question starts — character for character the heading
+# predicate. In extract_presorted() below this is the DANGEROUS half of the defect:
+# the inner loop breaks on a heading, so a continuation line terminated its own
+# question mid-body, truncating the stem and orphaning every option after it, with
+# no error raised anywhere. Measured on IIT_JAM_BIOTECHNOLOGY (22 papers): 16
+# questions truncated, 28 option lines silently discarded, 10 papers affected.
+# Step 4's phantom gate stops the run; nothing here stopped anything.
+is_taxonomy_heading      = lambda para, next_text=None: bc.is_taxonomy_heading(para, is_option, next_text)
 parse_taxonomy_level     = bc.parse_taxonomy_level
 extract_year_from_filename = bc.extract_year_from_filename
 
@@ -3038,13 +3079,14 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
     questions = []
     cur_sec = cur_top = cur_sub = ''
     paras   = doc.paragraphs
+    nxt     = bc.next_nonempty_texts(paras)        # GAP-2026-07-26-001
     i = 0
 
     while i < len(paras):
         para = paras[i]; text = para.text.strip()
         if not text: i += 1; continue
 
-        if is_taxonomy_heading(para):
+        if is_taxonomy_heading(para, nxt[i]):      # GAP-2026-07-26-001
             lv, content = parse_taxonomy_level(text)
             if lv == 1: cur_sec = content
             elif lv == 2: cur_top = content
@@ -3068,7 +3110,10 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         while i < len(paras):
             nt = paras[i].text.strip()
             if not nt: i += 1; continue
-            if detect_question_start(nt) is not None or is_taxonomy_heading(paras[i]):
+            # GAP-2026-07-26-001: nxt[i] is what stops a bold STEM CONTINUATION from
+            # terminating its own question here. Without it the stem is truncated and
+            # every option after this point is silently discarded.
+            if detect_question_start(nt) is not None or is_taxonomy_heading(paras[i], nxt[i]):
                 break
             if is_option(nt):
                 options.append(clean_option_text(nt))
@@ -8568,4 +8613,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.32
+# END OF Framework_MockTestAnalyse v2.33

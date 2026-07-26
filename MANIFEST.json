@@ -174,11 +174,11 @@
       "bytes": 96160
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "fc6b7200fd8cea089e8e1722cf0911cb0a4aa2537622ef8abccaf4aa0e34c8f9",
-      "version_header": "# Framework_MockTestAnalyse v2.32 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.32",
-      "lines": 8571,
-      "bytes": 478064
+      "sha256": "dedc296877b65daecc5432490a3805c6155e5f2847e3e45c4e589a52c8221d5a",
+      "version_header": "# Framework_MockTestAnalyse v2.33 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.33",
+      "lines": 8616,
+      "bytes": 481527
     },
     "Framework_MockTestCreate.md": {
       "sha256": "06f09c9586a7ab65e55bd3348fea84a98564901a0bd1607c79bbffb7e56e163c",
@@ -209,11 +209,11 @@
       "bytes": 107922
     },
     "Framework_PYQAnalyse.md": {
-      "sha256": "5f753c900565a27a89b33aac481364a3370b5158d5df01233780deca9fe31a6f",
-      "version_header": "# Framework_PYQAnalyse v2.27 \u2014 Universal PYQ Analysis & Taxonomy Builder",
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.27",
-      "lines": 6877,
-      "bytes": 383170
+      "sha256": "c2d4242c05be413c53b521e8dc224b207d13620f8bdc32aecd3794398b3d180b",
+      "version_header": "# Framework_PYQAnalyse v2.28 \u2014 Universal PYQ Analysis & Taxonomy Builder",
+      "end_sentinel": "# END OF Framework_PYQAnalyse v2.28",
+      "lines": 6982,
+      "bytes": 390836
     },
     "Framework_PYQCompress.md": {
       "sha256": "136b75fec7d25b1342e56f5c210ae6ec6f20034489f6a8d4e70162f9236a5ab1",
@@ -293,11 +293,11 @@
       "bytes": 105810
     },
     "blueprint_core.py": {
-      "sha256": "0c54c220d0774a85fb87dee37c0db4bf3bd5d962b3d70b8780566513c0467c53",
+      "sha256": "04356100f72254a6d2c26bc7270f76b4a343b3ecf34b38d04bc46bcb81ce206c",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 2259,
-      "bytes": 120558
+      "lines": 2384,
+      "bytes": 127767
     },
     "paper_pipeline.py": {
       "sha256": "04ee4dc4565c33149d97bc23898d1798df730c425f4f8806d07a26d58605f126",
