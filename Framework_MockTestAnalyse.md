@@ -1,11 +1,27 @@
-# Framework_MockTestAnalyse v2.36 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.38 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
-# MINIMUM COMPANION VERSIONS (v2.34):
-#   corpus_io.py          — MUST carry ProbeObservationMissing and the
-#                           score_vision_probe() that RAISES on an empty observation.
-#                           An older engine returns False instead, which re-opens the
-#                           false-halt path PART A closed (GAP-2026-07-26-002).
+# MINIMUM COMPANION VERSIONS (v2.37):
+#   corpus_io.py          >= v1.7  — MUST carry Cluster V: build_vision_queue(),
+#                           load_vision_queue(), load_vision_observations(),
+#                           write_vision_observations(). Without them S4-2a/S4-2c
+#                           reference functions that do not exist and Phase A cannot
+#                           emit a queue at all.
+#   blueprint_core.py     — MUST carry Cluster V: vision_tag_map(),
+#                           merge_vision_observations(), vision_profile(). An older
+#                           engine raises AttributeError at the first batch boundary
+#                           rather than silently producing an empty profile — which is
+#                           the correct direction to fail for a MISSING DEPENDENCY
+#                           (loud, immediate, at import-adjacent time), as distinct
+#                           from a vision GAP, which never halts.
+#
+# MINIMUM COMPANION VERSIONS (v2.34) — SUPERSEDED by the v2.37 block above:
+#   corpus_io.py          — the ProbeObservationMissing / score_vision_probe
+#                           requirement is RETIRED. corpus_io v1.8 deletes that whole
+#                           family: PHASE B observes REAL figures, so liveness arrives
+#                           free as a by-product and a separate probe would be a second
+#                           mechanism answering one question. Kept here as history —
+#                           the reasoning behind it produced the three-phase design.
 #   blueprint_core.py     — MUST carry derive_image_roles() / IMAGE_ROLES. E-4 delegates
 #                           role derivation to it; an older engine raises AttributeError
 #                           at the first paper rather than silently mis-classifying.
@@ -94,6 +110,83 @@
 #         Both now delegate to corpus_io Cluster K, THE reader/writer/verifier for this artefact,
 #         which additionally HARD STOPS when a parse disagrees with the totals the document
 #         declares about itself. Signatures and failure contracts unchanged.
+# v2.38 — 2026-07-26 — COMPANION REQUIREMENT UPDATED: VISION-PROBE FAMILY RETIRED.
+#     corpus_io v1.8 deletes normalise_for_view(), make_vision_probe(),
+#     score_vision_probe(), ProbeObservationMissing and VisionUnavailable. Once v2.37
+#     removed the last spec call site, audit_callgraph C4 correctly reported the first
+#     three as public-but-unreached; leaving them would have made C4 report findings
+#     forever, and "a check that can be shipped past is decoration" (CLAUDE.md).
+#     Nothing in this spec's behaviour changes — liveness already came from Phase C
+#     observation coverage (S3-1c) and normalisation already happened inside
+#     build_vision_queue. This release only removes the dead API and the stale
+#     companion-version requirement that still demanded it.
+#
+# v2.37 — 2026-07-26 — EXECUTION-BOUNDARY LAW: VISION BECOMES REACHABLE
+#     (GAP-2026-07-26-003). The corpus never wrote down that a TOOL CALL cannot
+#     happen inside a running python process. Drive was worked around by accident of
+#     necessity; vision never was, and nothing could tell the two apart.
+#
+#     MEASURED ON THE REFERENCE RUN (IIT_JAM_BIOTECHNOLOGY, 22 papers, 1719 Qs):
+#       * object_type / transformation / arrangement / complexity present on 0 of 1719
+#         questions — the keys were never written at ALL, not written as None.
+#       * 153/153 figural questions recorded image_clarity='vision_unavailable'.
+#       * 45/45 FIGURAL subtopics shipped object_types.dominant: [].
+#       * QV-9 returned PASS. The footer rendered green.
+#
+#     ROOT CAUSE. `vision_result = analyse_image_claude(q, view_path)` was followed by
+#     `vision_result.get(...)`. analyse_image_claude() was a `pass` stub returning None,
+#     so the block RAISED AttributeError if executed literally. Every production run
+#     therefore executed some SUBSTITUTED body, non-deterministically, and the
+#     substitution that shipped wrote image_clarity and nothing else.
+#
+#     THE LAW (now also in CLAUDE.md). Every operation is DETERMINISTIC, CLASS J
+#     (judgment over in-context data) or CLASS T (needs a tool call). A CLASS T
+#     operation MUST NOT be called from inside a python block and MUST NOT be modelled
+#     as a python function, callback or parameter. CLASS T uses MATERIALISE-THEN-INJECT.
+#
+#     CHANGES:
+#       * S3-1     in-loop vision block DELETED; emits a PHASE A queue instead. It no
+#                  longer writes image_clarity — Phase C is the single writer.
+#       * S4-1     get_vision_candidates returns ALL of a question's stem images, so a
+#                  panel series is judged as a series (EC-V6).
+#       * S4-2     analyse_image_claude() DELETED. Replaced by the three-phase contract.
+#       * S4-2a    PHASE A — corpus_io.build_vision_queue(): normalise, compose, tile.
+#       * S4-2b    PHASE B — PROSE PROTOCOL IN A PLAIN FENCE, never ```python. Turning
+#                  this into a function is precisely how the defect returns.
+#       * S4-2c    PHASE C — apply_vision_observations(): the ONLY writer of the five
+#                  vision fields. Never raises, never halts.
+#       * S3-1c    run_img6_probe(read_probe) DELETED. Its callback could not make a
+#                  tool call, so it defaulted to returning '' and reported EVERY session
+#                  blind. Liveness is now DERIVED from Phase C — one rule, zero cost.
+#       * DRIVE    gdrive_search/gdrive_download_file tagged CLASS: T. fetch_drive_docx
+#                  now receives an INJECTED resolver over already-materialised payloads
+#                  instead of the stub itself. Executed literally the old form routed
+#                  ALL 22 reference papers to the upload lane on EVERY run.
+#       * S3-2     'q_num' stamped beside 'num' at the one emission point. Three readers
+#                  wanted q_num and got None, silently (PART 9): era classification ran
+#                  on a question count of zero and S-SECMAP gave every section every
+#                  subject. EC-V15 also needs it — 153 figural Qs carry only 62 distinct
+#                  q_num values, so a bare q_num mis-attributes 91 of them.
+#       * S4-4     aggregate_figural DELEGATES to bc.vision_profile(). The local top-3
+#                  named a dominant type from any sample size and even from a FLAT
+#                  distribution (six figures, six types -> "dominant" = the alphabetical
+#                  first three). EC-V20 / EC-V26.
+#       * §5       section_rules serialiser: arrangement_types, complexity_dist,
+#                  object_types.avoid, images_analysed, images_unclear were BUILT and
+#                  then DROPPED at the artefact boundary. All now written, plus
+#                  vision_status — in the reference run 'vision_unavailable' appeared
+#                  153x in progress.json and 0x in section_rules.md, so a consumer could
+#                  not tell "no figures" from "vision failed".
+#       * QV-14    NEW, FAIL severity. QV-9 cannot see this failure: it needs
+#                  images_analysed + images_unclear > 0 and both are zero when nothing
+#                  was observed. Denominator excludes EC-V13/EC-V14; an exam with no
+#                  figural content PASSes vacuously (EC-V1).
+#
+#     NOTHING IN THIS RELEASE HALTS. A missing observations file, malformed JSON, an
+#     absent Pillow, an unopenable vector part, or a Phase B that never ran all degrade
+#     with a recorded reason and the run COMPLETES. The defect being fixed was SILENCE;
+#     the remedy for silence is visibility (QV-14 + vision_status), never a halt.
+#
 # v2.36 — 2026-07-26 — is_option DELEGATED (audit_deep [XSPEC-DRIFT]).
 #   v2.34/v2.35 made is_option() image-option-aware HERE and nowhere else. The
 #   predicate is defined in three specs, each claiming alignment with the others in
@@ -1279,28 +1372,66 @@ def build_session_re(keyword):
 
 SESSION_RE = build_session_re(session_keyword)
 # ─────────────────────────────────────────────────────────────────────────────
-# ── GOOGLE DRIVE MCP WRAPPER FUNCTIONS ───────────────────────────────────────
-# These functions call the Google Drive MCP tools (already connected via settings).
-# They are pseudocode wrappers — Claude calls the actual MCP tools at runtime.
+# ── GOOGLE DRIVE — CLASS T TRANSPORT ─────────────────────────────────────────
+#
+# v2.37 (GAP-2026-07-26-003). These were `pass`-bodied stubs, and line ~6533 passed
+# gdrive_download_file DIRECTLY into corpus_io.fetch_drive_docx as its download_fn.
+# Executed literally that returns None, decode_drive_payload raises TransportFallback,
+# and EVERY paper routes to the upload lane on EVERY run — measured: all 22 papers of
+# the reference corpus are under the 10 MiB cap, so none is rejected early and all 22
+# would be demanded as manual uploads.
+#
+# Drive appeared to "work" only because that failure is LOUD: a run with no papers
+# produces no output, so the operator or the model is forced to substitute real MCP
+# calls out of band. Vision's identical defect was SILENT, so nothing forced anything.
+# THE VARIABLE WAS NEVER THE PATTERN — IT WAS THE OBSERVABILITY OF THE FAILURE.
+# Both are CLASS T; both now state their contract explicitly.
+#
+# CLASS: T — these are NOT python functions. They are the NAME of a tool call the
+# model performs IN ITS OWN TURN, before run_batch_loop() starts. The model calls the
+# Google Drive MCP tool, and the result — which for any file of consequence is spilled
+# to a JSON file on disk rather than returned inline — is INJECTED into python as a
+# resolver. corpus_io.decode_drive_payload() already accepts a spill-file PATH exactly
+# for this reason; that is the materialise-then-inject bridge, and it is the same
+# bridge S4-2 uses for vision.
 
 def gdrive_search(query, page_size=100, page_token=None):
+    """CLASS: T — Google Drive MCP 'search_files'. NOT executable python.
+
+    The model calls Google Drive:search_files(query=..., pageSize=..., pageToken=...)
+    in its own turn and materialises the listing before any python runs.
+    query format: "parentId = 'FOLDER_ID'". Returns [{id, title, mimeType, fileSize}].
     """
-    Call: Google Drive MCP 'search_files' tool with query string.
-    Returns list of {id, title, mimeType} dicts.
-    query format: "parentId = 'FOLDER_ID'"
-    Claude calls this via the connected Google Drive MCP connector.
-    """
-    pass  # Claude calls Google Drive:search_files(query=query, pageSize=page_size, pageToken=page_token)
+    pass  # CLASS: T — performed by the model between turns, never from python
+
 
 def gdrive_download_file(file_id, local_path):
-    """
-    Call: Google Drive MCP 'download_file_content' tool.
-    Downloads file bytes to local_path for docx processing.
-    Claude calls: Google Drive:download_file_content(fileId=file_id)
-    Then writes binary content to local_path.
-    """
-    pass  # Claude calls Google Drive:download_file_content(fileId=file_id)
+    """CLASS: T — Google Drive MCP 'download_file_content'. NOT executable python.
 
+    The model calls Google Drive:download_file_content(fileId=file_id) in its own
+    turn. For any file of consequence the result EXCEEDS the context limit and is
+    spilled to a JSON file on disk, so what reaches python is a PATH, not bytes.
+    """
+    pass  # CLASS: T — performed by the model between turns, never from python
+
+
+# ── THE BRIDGE (this IS the pattern every CLASS T operation must follow) ──────
+#
+# PHASE A (model, before python):
+#     For each paper to fetch, call Google Drive:download_file_content(fileId=...).
+#     Note where each result landed — inline payload or spill-file path.
+#
+# PHASE B (python): pass a RESOLVER that returns the already-materialised payload.
+#     A resolver is a plain dict lookup over results that ALREADY EXIST. It performs
+#     no tool call, so it is ordinary reachable python:
+#
+#         drive_payloads = {file_id: payload_or_spill_path, ...}   # from Phase A
+#         resolver = lambda fid: drive_payloads[fid]
+#         local_path = corpus_io.fetch_drive_docx(resolver, paper_ref, dest_dir)
+#
+#     NEVER pass gdrive_download_file itself. It is a CLASS T marker, not a callable;
+#     passing it is precisely the defect this section documents, and audit_callgraph
+#     C6 fails the build if any call site consumes a CLASS T stub's return value.
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -2859,7 +2990,7 @@ def extract_shift_from_filename(path):
 
 def process_pyq_paper(docx_path, paper_id, exam_code,
                       time_per_q, marks_per_q, options_count, multi_select,
-                      progress, expected_size=None, probe_passed=True):
+                      progress, expected_size=None):
     """
     All parameters auto-detected in S1-3, passed directly — no cfg dict.
     taxonomy not needed: presorted papers carry their own taxonomy headings.
@@ -2870,10 +3001,11 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
         paper_ref['fileSize']. Threaded to IMG-1, which SKIPped on every paper before
         this because nothing connected the two. None is still accepted (the upload lane
         may not know it) and IMG-1 then SKIPs for a legitimate reason.
-      probe_passed — DEFECT-4. The IMG-6 result for THIS batch, from run_batch_loop().
-        Feeds bc.image_clarity_state() so 'vision_unavailable' is reachable and
-        'unclear' can only ever be recorded behind a PASSING probe. Defaults True so a
-        direct caller that has already established vision need not thread it.
+    v2.37 (GAP-2026-07-26-003):
+      probe_passed is GONE. Its only consumer was the in-loop vision block, which
+        could not execute (see S3-1 / S4-2). This function now runs PHASE A only —
+        it queues figural work and writes NO vision field. image_clarity has exactly
+        one writer, apply_vision_observations() (S4-2c).
     """
     from docx import Document
     doc   = Document(docx_path)   # opened ONCE; passed to all sub-functions
@@ -2917,36 +3049,39 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
     img5b = run_img5b({e['q_num']: [e['path']] for e in image_map}, questions,
                       overrides=tuple(progress.get('_meta', {}).get('inherently_visual', ())))
 
-    # §4: Claude runs vision analysis automatically on all qualifying figural questions.
-    # No user involvement. Claude views each image file directly using the view tool.
+    # §4: PHASE A. Claude CANNOT view an image from inside this python process — a
+    # view() is a TOOL CALL and a tool call can only happen BETWEEN model turns. This
+    # loop therefore QUEUES the work and writes contact sheets to disk; Phase B (S4-2b)
+    # performs the views at the batch boundary the run already stops at; Phase C
+    # (S4-2c) folds the observations back in. See EXECUTION-BOUNDARY LAW.
+    #
+    # GAP-2026-07-26-003. What stood here was `vision_result = analyse_image_claude(...)`
+    # followed by `vision_result.get(...)`. analyse_image_claude() was a `pass` stub, so
+    # the call returned None and the next line raised AttributeError — meaning the block
+    # could not run AS WRITTEN at all. Every production run therefore executed some
+    # SUBSTITUTED body, and the substitution that shipped wrote image_clarity only.
+    # Measured on IIT_JAM_BIOTECHNOLOGY: object_type/transformation/arrangement/
+    # complexity present on 0 of 1719 questions; 153/153 figural = vision_unavailable;
+    # 45/45 FIGURAL subtopics shipped an empty profile; QV-9 returned PASS.
+    #
+    # NOTHING HERE HALTS. image_clarity is NOT written in this loop — Phase C is its
+    # only writer (one writer, no drift). Until Phase C runs the field is simply absent.
     vision_candidates = get_vision_candidates(questions, q_roles, image_map)
-    n_vision = 0
-    for q, img_path in vision_candidates:
-        # v2.35: normalise BEFORE view(). corpus_io's own docstring records why —
-        # "Every figure measured in this corpus is a CMYK JPEG, which is not a safe
-        # input to a vision call." PYQPrepare has said to do this since v1.6 but no
-        # spec ever called it, so every figure went to view() un-normalised and a
-        # CMYK/oversized figure read as unclear for a reason that had nothing to do
-        # with the figure (GAP-2026-07-26-002 follow-up, audit_callgraph C4).
-        view_path = img_path + '.view.png'
-        try:
-            corpus_io.normalise_for_view(img_path, view_path)
-        except corpus_io.DependencyMissing:
-            view_path = img_path            # PIL absent: view the original, unchanged
-        vision_result = analyse_image_claude(q, view_path)   # Claude views view_path
-        q.update({
-            'object_type'   : vision_result.get('object_type'),
-            'transformation': vision_result.get('transformation_type'),
-            'arrangement'   : vision_result.get('arrangement'),
-            'complexity'    : vision_result.get('complexity'),
-            # DEFECT-4: NEVER assign a literal here. 'unclear' is only meaningful behind
-            # a PASSING probe; without probe_passed the three-state distinction v2.29
-            # shipped was unreachable and QV-9 could never fire.
-            'image_clarity' : bc.image_clarity_state(
-                                  probe_passed,
-                                  vision_result.get('figure_readable', True)),
-        })
-        n_vision += 1
+    vision_queue = corpus_io.build_vision_queue(
+        [{'paper_id': paper_id, 'q_num': q['num'],
+          'srcs': [p for p in srcs if p],
+          'subtopic': q.get('subtopic'), 'image_role': q.get('image_role')}
+         for q, srcs in vision_candidates],
+        VISION_WORKDIR, per_sheet=VISION_PER_SHEET)
+    n_vision = len(vision_queue['items'])
+    if n_vision:
+        print(f"    PHASE A: {n_vision} figural question(s) queued across "
+              f"{vision_queue['stats']['sheets']} contact sheet(s) in {VISION_WORKDIR}")
+        if vision_queue['stats']['unrenderable']:
+            print(f"    note: {vision_queue['stats']['unrenderable']} figure(s) could not "
+                  f"be rasterised (vector/corrupt) — queued and reported, never dropped")
+        if vision_queue['degraded']:
+            print("    note: Pillow absent — degraded to one view() per figure (EC-V9)")
 
     for q in questions:
         key = (q.get('section','?'), q.get('topic','?'), q.get('subtopic','?'))
@@ -2990,54 +3125,47 @@ and it NEVER HALTS — a failed probe records 'vision_unavailable' and processin
 continues, because the three-state image_clarity value exists precisely so those
 questions can be re-run later without discarding the rest of the batch.
 
+DELETED IN v2.37 (GAP-2026-07-26-003). `run_img6_probe(read_probe)` took a CALLBACK
+that was supposed to perform a `view()`. A callback cannot perform a tool call from
+inside a running python process, so the parameter defaulted to a function returning
+`''`, `score_vision_probe` raised ProbeObservationMissing on all three attempts, and
+the probe returned False on EVERY run of EVERY exam. That False then marked all 153
+figural questions in the reference corpus `vision_unavailable` — a "session is blind"
+verdict produced by a session whose vision was fine.
+
+**The probe is no longer needed, and a separate probe would now be a SECOND rule that
+can drift from the first.** Phase B observes real figures. If ANY observation comes
+back, vision demonstrably works; if NONE does, it demonstrably does not. Liveness is
+therefore DERIVED from the merge, not measured separately:
+
 ```python
-def run_img6_probe(read_probe, attempts=3):
-    """IMG-6 liveness probe. Returns True (vision confirmed) or False. NEVER halts.
+def vision_liveness(stats):
+    """Session vision verdict, derived from Phase-C merge stats. Never raises.
 
-    read_probe(path) -> str : MUST return, verbatim, the characters read from the
-    image at `path`. This is the ONE step that cannot be executed by code — Claude
-    calls view(path) and reports what it sees. Everything else here is deterministic
-    and unit-tested.
-
-    An EMPTY return means "I did not look", NOT "I could not read it".
-    score_vision_probe() raises ProbeObservationMissing for that case; it is retried,
-    never counted as a probe failure. Each attempt mints a FRESH random token: three
-    independent 8-character tokens cannot be guessed (~2e-37), so a genuinely blind
-    session fails all three while a transient miss recovers.
+    'not_applicable' — nothing was queued (a text-only exam is not a failure)
+    'unavailable'    — figures were queued and NOTHING came back
+    'partial'        — some cells observed, some omitted (procedural, re-runnable)
+    'observed'       — every queued figure observed
     """
-    for n in range(1, attempts + 1):
-        path, token = corpus_io.make_vision_probe('/home/claude/pyq_probe')
-        try:
-            observation = read_probe(path)
-            print(f'    PROBE ATTEMPT {n} READ: "{observation}"')
-            if corpus_io.score_vision_probe(observation, token):
-                return True
-            print(f"    IMG-6 attempt {n}: read did not match token — retrying")
-        except corpus_io.ProbeObservationMissing:
-            print(f"    IMG-6 attempt {n}: NO OBSERVATION RECORDED — this is not a "
-                  f"probe failure. The image was not read. Retrying.")
-        except corpus_io.DependencyMissing as exc:
-            print(f"    IMG-6 SKIPPED — {exc}")
-            return True
-    return False
+    return stats.get('vision_status', 'not_applicable')
 ```
 
-MANDATORY SELF-CHECK BEFORE REPORTING A FAILED READ:
-  * Did a picture appear at all? If it rendered and the characters were simply not
-    attended to, that is NOT a probe failure. Look again.
-  * If a pixel/variance check shows the file contains legible glyphs, that is evidence
-    FOR working vision, NEVER against it. A legible file that rendered is exactly what
-    a WORKING vision path looks like. This inversion caused a false production halt
-    (GAP-2026-07-26-002). Do not repeat it.
+`corpus_io.make_vision_probe()` / `score_vision_probe()` / `normalise_for_view()` are
+DELETED in corpus_io v1.8, together with ProbeObservationMissing and VisionUnavailable.
+Once no spec path called them, audit_callgraph C4 correctly reported them as
+public-but-unreached, and leaving them would have made C4 report findings forever —
+"a check that can be shipped past is decoration". Liveness now comes from observation
+coverage, and normalisation lives inside build_vision_queue, so the empty-callback
+failure mode is structurally impossible rather than merely documented against.
 
-ON FAIL (3 attempts, 3 distinct tokens, each with a printed observation):
-  Do NOT halt. Do NOT stop the batch. probe_passed=False flows to
-  process_pyq_paper(), every figural question in the batch records
-  image_clarity='vision_unavailable' via bc.image_clarity_state(), and QV-9 excludes
-  them rather than counting them as unclear. Tell the user which papers were affected
-  and that a fresh session can re-run those questions alone.
+ON `unavailable`:
+  Do NOT halt. Do NOT stop the batch. Every figural question records
+  image_clarity='vision_unavailable', QV-9 excludes them, **QV-14 FAILs**, and the
+  step footer renders F1 amber instead of F2 green. Tell the user which papers were
+  affected and that a fresh session can re-run PHASE B ALONE — the queue and the
+  contact sheets are already on disk, so Phases A and C need not repeat (EC-V3).
 
-COST: up to 3 view() calls per batch; 1 in the normal case.
+COST: 0 extra view() calls. Liveness comes free with the work.
 
 ### S3-1d — QV-13 IMAGE INTEGRITY REPORT (v2.29)
 
@@ -3254,6 +3382,20 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
 
         questions.append({
             'num'         : q_num,
+            # v2.37 (GAP-2026-07-26-003 PART 9). BOTH keys are stamped at the ONE
+            # emission point. This dict was emitted with 'num' only, while
+            # blueprint_core.paper_eras_from_progress() reads q.get('q_num') and the
+            # S-SECMAP block reads _q['q_num'] behind a "'q_num' not in _q: continue"
+            # guard. The era classifier therefore collected None for every question,
+            # filtered to an empty list and labelled all 22 reference papers on a
+            # question count of ZERO; S-SECMAP's Stage-1 observation was empty, so
+            # every subject fell through to the Stage-3 fallback and every section
+            # received every subject. Both failures were SILENT.
+            # EC-V15 also depends on this: the vision queue is keyed (paper_id, q_num),
+            # and a bare q_num collides across papers — measured on the reference
+            # corpus, 153 figural questions carry only 62 distinct q_num values, so
+            # keying on q_num alone would have mis-attributed 91 of them.
+            'q_num'       : q_num,
             'stem'        : clean_stem,
             'stem_raw'    : full_stem,
             'options'     : options,
@@ -3286,12 +3428,18 @@ After E-4 maps images to questions, identify which questions need vision:
 ```python
 def get_vision_candidates(questions, q_roles, imap):
     """
-    Returns list of (q, image_path) pairs requiring vision analysis.
+    Returns list of (q, [image_path, ...]) pairs requiring vision analysis.
     Only questions where the image is in the stem (or stem+options).
     options_only: E-11 classifies those from text patterns, no vision needed.
     Text-extractable subtopics (dice, cube, counting shapes etc.): values
     already present in stem text — vision adds nothing for these.
     imap: image mapping list from extract_and_map_images() — passed explicitly.
+
+    EC-V6 (GAP-2026-07-26-003). ALL of a question's stem images are returned, not
+    just the first. A 4-panel series is ONE question whose rule can only be read
+    across the panels; handing the queue panel 1 alone and asking for the
+    transformation guaranteed either a wrong answer or an unreadable verdict. The
+    panels are composed into a single cell so they are judged together (S4-2a).
     """
     candidates = []
     # SKIP_TEXT_EXTRACTABLE: subtopics where the image contains countable/readable
@@ -3311,117 +3459,180 @@ def get_vision_candidates(questions, q_roles, imap):
         if any(kw in sub_lower for kw in SKIP_KEYWORDS):
             continue   # stem already has the values; vision not needed
 
-        # Get the path(s) of stem images for this Q (imap passed from E-4)
+        # Get the path(s) of stem images for this Q (imap passed from E-4), in
+        # document order — the series order IS the question's meaning.
         stem_imgs = [entry for entry in imap
                      if entry['q_num'] == q['num']
                      and entry['position'] == 'stem']
-        if stem_imgs:
-            candidates.append((q, stem_imgs[0]['path']))   # use first stem image
+        paths = [e['path'] for e in stem_imgs if e.get('path')]
+        if paths:
+            candidates.append((q, paths))
 
     return candidates
 ```
 
-### S4-2 — Automated vision analysis (Claude uses view tool directly)
+### S4-2 — Vision analysis: the THREE-PHASE contract (v2.37)
+
+`analyse_image_claude()` USED TO LIVE HERE and has been DELETED. It was a
+`pass`-bodied function that a python loop called and whose return value the same
+loop immediately consumed. That is not a bug in one function — it is a category
+error, and the corpus now has a rule for it:
+
+> **EXECUTION-BOUNDARY LAW.** Every operation is DETERMINISTIC (python may run it),
+> CLASS J (model judgment over data already in context), or CLASS T (requires a
+> TOOL CALL — `view`, MCP, fetch). **A CLASS T operation MUST NOT be called from
+> inside a python execution block and MUST NOT be modelled as a python function,
+> callback or parameter.** A tool call can only occur BETWEEN model turns; python
+> that "calls" a tool is unreachable code returning a default forever, silently.
+> CLASS T uses MATERIALISE-THEN-INJECT: Phase A python prepares a work queue on
+> disk, Phase B the model performs the tool calls in its own turn and writes the
+> results to disk, Phase C python consumes them.
+
+Viewing a figure is CLASS T. The three phases:
+
+| Phase | Runs as | Owner | Output |
+| :-- | :-- | :-- | :-- |
+| **A** S4-2a | python | `corpus_io.build_vision_queue()` | `vision_queue.json` + contact sheets |
+| **B** S4-2b | **model, in-turn** | the prose protocol below | `vision_observations.json` |
+| **C** S4-2c | python | `bc.merge_vision_observations()` | the five vision fields |
+
+**NO PHASE HALTS.** If Phase B never runs, Phase C still runs, every figural
+question records `image_clarity='vision_unavailable'`, `vision_status` says
+`unavailable`, QV-14 reports FAIL and the footer renders amber. The run COMPLETES.
+The defect this replaces was silent, and the remedy for silence is visibility — not
+a halt.
+
+### S4-2a — PHASE A (python): queue the work
+
+Called from `process_pyq_paper()` (§3 S3-1). Pure python: normalise → compose →
+tile → write. It never views anything.
 
 ```python
-def analyse_image_claude(q, image_path):
-    """
-    Claude views the image file directly using the view tool.
-    No user input. All classification done by Claude's vision capability.
-    Returns: dict with object_type, transformation_type, complexity, arrangement,
-             image_clarity fields populated.
-    """
-
-    # Claude executes: view(image_path)
-    # Then reads and classifies what it sees using the taxonomy below.
-
-    # OBJECT TYPE — what kind of object appears in the figure:
-    #   geometric_shape  : circles, triangles, squares, pentagons, stars etc.
-    #   letter_character : uppercase/lowercase English or Hindi letters
-    #   digit            : numerals used as visual elements
-    #   arrow            : directional arrows, pointers
-    #   clock_face       : analog clock with hands
-    #   tool_object      : scissors, keys, locks, cups, chairs, everyday objects
-    #   natural_object   : trees, leaves, animals, mountains
-    #   symbolic         : flags, currency symbols, abstract symbols
-    #   compound_figure  : two or more different object types combined
-    #   pattern_matrix   : grid/matrix of symbols (3×3 etc.)
-    #   other            : none of the above
-
-    # TRANSFORMATION TYPE — what operation connects elements (for series/analogy):
-    #   mirror_horizontal : reflected left-right
-    #   mirror_vertical   : reflected top-bottom
-    #   rotation_90cw     : rotated 90° clockwise
-    #   rotation_90ccw    : rotated 90° counter-clockwise
-    #   rotation_180      : rotated 180°
-    #   element_added     : one or more elements added to the figure
-    #   element_removed   : one or more elements removed
-    #   shading_changed   : fill/shading pattern changed
-    #   size_changed      : figure scaled up or down
-    #   complex_compound  : multiple transformations combined
-    #   other             : pattern present but doesn't fit above types
-    #   N/A               : single image (no transformation — single object question)
-
-    # COMPLEXITY:
-    #   Simple : single unambiguous object, one clear transformation, obvious axis
-    #   Medium : compound figure OR multiple elements with one transformation
-    #   Hard   : multi-element figure with complex/ambiguous transformation
-
-    # ARRANGEMENT — how images are laid out across the question:
-    #   row_series   : images in a horizontal sequence (A, B, C, D, ?)
-    #   matrix       : images in a grid (3×3 matrix pattern)
-    #   pair_analogy : two pairs (A:B :: C:?)
-    #   single       : one standalone image (count, identify, or find mirror)
-
-    # IMAGE CLARITY (v2.29 — THREE states, not two):
-    #   clear               : Claude can read the figure confidently
-    #   unclear             : THIS FIGURE is too small, blurry or corrupted to classify.
-    #                         Record image_clarity='unclear', leave other fields blank.
-    #                         DO NOT guess. QV-9 tracks the unclear rate — flags if >20%.
-    #   vision_unavailable  : THE SESSION cannot see images at all (IMG-6 probe failed).
-    #
-    # Why the split matters. These are different faults with different remedies, and the
-    # two-state form recorded both as 'unclear' — blaming the corpus for a session
-    # problem. Vision capacity degrades as a session grows long; when it goes, EVERY
-    # figure reads as unreadable. On an image-heavy paper in a late batch that silently
-    # marks every figural question unclear, inflates QV-9 past its 20% threshold, and
-    # lets FIGURAL patterns under-report while the operator troubleshoots the images.
-    # Demonstrated directly: a freshly generated 400x200 control PNG failed to render in
-    # the same session where real figures had rendered earlier — the file was never the
-    # problem.
-    #
-    # RULES:
-    #   * 'unclear' may ONLY be recorded when the IMG-6 probe PASSED for this batch.
-    #     Without a passing probe it is not a permitted value.
-    #   * 'vision_unavailable' HALTS the batch with resumable state and instructs the
-    #     user to start a fresh session. It is NOT counted toward the QV-9 unclear rate.
-    #   * Use bc.image_clarity_state(probe_passed, figure_readable) — never assign the
-    #     string directly.
-
-    # RULES:
-    # 1. Claude views every qualifying image. No sampling, no skipping.
-    # 2. Record what IS there, not what might be there.
-    # 3. For series questions: transformation_type describes the rule across the series.
-    # 4. For analogy questions: transformation_type describes A→B operation.
-    # 5. For single-image questions (mirror/identify): transformation_type = 'N/A'.
-    # 6. Multiple images in one question (e.g., 6-image row_series):
-    #    analyse the series as a whole; record one set of fields for the question.
-
-    pass  # Claude fills this by actually viewing image_path and reasoning about it
+# Where the queue and its sheets live. One directory per run, NOT per paper: a
+# batch's sheets are viewed together in Phase B, and EC-V15 keys every item by
+# (paper_id, q_num) so one shared queue cannot confuse two papers.
+VISION_WORKDIR   = '/home/claude/pyq_vision'
+VISION_PER_SHEET = 6      # 153 figures -> 26 view() calls instead of 153.
+                          # A parameter, not a constant of nature: re-tile freely.
 ```
+
+Contract (all enforced by `corpus_io.self_test()`):
+
+- every queued item appears on **exactly one** sheet, and that sheet exists
+- tags are stable across re-tiling and across adding papers (EC-V11/V12)
+- a question's panels share one cell (EC-V6)
+- an unopenable vector/corrupt part is queued and flagged, never dropped (EC-V8)
+- Pillow absent degrades to one view per figure, never a silent skip (EC-V9)
+- two records for one `(paper_id, q_num)` collapse to one tagged cell (EC-V27)
+
+### S4-2b — PHASE B (MODEL, IN-TURN): view the sheets
+
+> **This block is PROSE ON PURPOSE. Its fence is deliberately UNLABELLED and must
+> never be changed to a python fence.** The moment it becomes a function, it becomes unreachable again and
+> this entire defect returns. If a future editor feels the urge to "implement" this
+> section, that urge is the bug.
+
+```
+FOR EACH sheet listed in vision_queue.json['sheets']:
+
+  1. view(<VISION_WORKDIR>/<sheet>)
+
+  2. The sheet is a grid of cells. Every cell carries a BLACK LABEL BAR at its top
+     showing that cell's TAG (e.g. "2B73-14"). Read the tag from the bar, not from
+     position — a re-tile changes position and never changes the tag.
+
+  3. For EVERY cell on the sheet, record ONE object:
+
+       {"tag": "<tag exactly as printed>",
+        "figure_readable": true|false,
+        "object_type": "...",            # what KIND of object the figure shows
+        "transformation_type": "...",    # rule across a series; "N/A" if single
+        "arrangement": "...",            # row_series | matrix | pair_analogy | single
+        "complexity": "Simple|Medium|Hard"}
+
+     * figure_readable=false when THIS FIGURE is too small/blurry/corrupted to
+       classify. Record it and leave the other fields out. DO NOT GUESS — a guess
+       is worse than a recorded gap, because a gap is visible and a guess is not.
+     * A cell labelled [UNRENDERABLE] carries no image: record figure_readable=false.
+     * object_type is drawn from what the corpus actually contains. It is NOT a
+       closed list and NOT exam-specific — name what is there, in lower_snake_case,
+       and use the SAME name for the same kind of thing across sheets.
+
+  4. Write every observation to <VISION_WORKDIR>/vision_observations.json via
+     corpus_io.write_vision_observations(), as {"observations": [ ... ]}.
+
+OMITTING A CELL IS A PROCEDURAL ERROR, NOT A SESSION VERDICT. Phase C counts an
+omitted cell as unobserved and QV-14 reports the true ratio. Re-running Phase B is
+idempotent and safe (EC-V4/EC-V12) — observations are matched by tag, so a second
+pass simply fills the gaps. Phases A and C need not repeat (EC-V3).
+
+IF THE SHEETS DO NOT RENDER AT ALL, vision is unavailable in this session. DO NOT
+HALT and DO NOT invent observations. Write an empty observations list, let Phase C
+mark every figure vision_unavailable, and let QV-14 report it. The remedy is a
+fresh session re-running PHASE B ONLY — the queue and sheets are already on disk.
+```
+
+### S4-2c — PHASE C (python): merge observations back
+
+```python
+def apply_vision_observations(progress, workdir=VISION_WORKDIR):
+    """Fold Phase-B observations onto the questions. THE ONLY WRITER of image_clarity.
+
+    Returns the merge stats dict. NEVER raises, NEVER halts: a missing or malformed
+    observations file is the ordinary 'Phase B has not run' state and must flow
+    through as zero observations so the run completes and QV-14 reports the gap.
+
+    Idempotent (EC-V12): running it twice on the same inputs yields the same fields.
+    """
+    queue, why = corpus_io.load_vision_queue(workdir)
+    if queue is None:
+        print(f"    PHASE C: {why} — no figural vision data this run")
+        return {'queued': 0, 'observed': 0, 'missing': 0, 'unreadable': 0,
+                'unknown': [], 'duplicate': [], 'vision_status': 'not_applicable'}
+
+    observations, why = corpus_io.load_vision_observations(workdir)
+    if why:
+        print(f"    PHASE C: {why}")
+
+    by_key, stats = bc.merge_vision_observations(queue['items'], observations)
+
+    # Stamp the fields onto the live question dicts, keyed (paper_id, q_num) — EC-V15.
+    for key, entries in progress.items():
+        if not isinstance(key, tuple):
+            continue
+        for q in entries:
+            rec = by_key.get((str(q.get('paper_id')), q.get('q_num')))
+            if rec:
+                q.update({'object_type'   : rec['object_type'],
+                          'transformation': rec['transformation_type'],
+                          'arrangement'   : rec['arrangement'],
+                          'complexity'    : rec['complexity'],
+                          'image_clarity' : rec['image_clarity']})
+
+    print(f"    PHASE C: {stats['observed']}/{stats['queued']} figure(s) observed "
+          f"({stats['vision_status']})"
+          + (f", {stats['unreadable']} illegible" if stats['unreadable'] else '')
+          + (f", {len(stats['unknown'])} unknown tag(s) ignored" if stats['unknown'] else ''))
+    return stats
+```
+
 
 ### S4-3 — Integration into paper processing pipeline
 
-Vision analysis runs automatically inside `process_pyq_paper()` (§3 S3-1),
-immediately after extraction and before accumulation into progress.
-The complete implementation is in S3-1 — this section is reference only.
+Vision is NOT an inline step inside `process_pyq_paper()` and cannot be one — see
+S4-2. What runs per paper is PHASE A only.
 
 Key points:
 - `get_vision_candidates(questions, q_roles, image_map)` filters to qualifying Qs
-- `analyse_image_claude(q, img_path)` — Claude views each image using the view tool
-- Vision fields merged into each question dict before progress accumulation
-- No separate vision pass. No user prompts. No waiting between images.
-- Claude views every qualifying image inline as part of processing each paper.
+  and returns ALL of each question's stem images (EC-V6)
+- `corpus_io.build_vision_queue(...)` (Phase A) writes contact sheets + the queue.
+  It views nothing and populates no vision field.
+- **PHASE B runs at the batch boundary** the run already stops at under the S8-1
+  BATCH STOP law. Nothing new interrupts a run and no halt is introduced.
+- `apply_vision_observations(progress)` (Phase C, S4-2c) is the ONLY writer of
+  `object_type`, `transformation`, `arrangement`, `complexity` and `image_clarity`.
+- Until Phase C runs those fields are ABSENT, not `None` and not guessed.
+- Re-running Phase B is idempotent; Phases A and C need not repeat (EC-V3/EC-V4).
 
 ### S4-4 — Aggregate per subtopic (unchanged logic, fully automated)
 
@@ -3429,52 +3640,48 @@ Key points:
 def aggregate_figural(questions_for_subtopic, q_roles=None):
     """
     Called during synthesis (§5) for FIGURAL subtopics.
-    Vision fields (object_type, transformation, arrangement, complexity,
-    image_clarity) were populated automatically during S4-3 paper processing.
-    This function aggregates across all observed questions for the subtopic.
-    image_role derived from q['image_role'] stored in each question dict (not q_roles,
-    which is not persisted in progress.json across sessions).
-    q_roles parameter retained for backward compatibility but is unused.
+
+    v2.37 (GAP-2026-07-26-003). The aggregation itself is DELEGATED to
+    bc.vision_profile(). It used to be re-implemented here as a plain top-3 over
+    object_type, which had two defects:
+
+      * it named a dominant type from ANY number of observations. Two figures cannot
+        support a claim about what a subtopic "typically" looks like, and Step 7
+        generates against that claim (EC-V20).
+      * it named a dominant type even when the distribution was FLAT. Six figures of
+        six DIFFERENT types produced a "dominant" list of the alphabetically-first
+        three — handing the generator a fixation the evidence did not support. Caught
+        by end-to-end test, not by inspection (EC-V26).
+
+    One aggregation rule, in the engine, unit-tested. Never re-implement it here.
+
+    image_role stays local: it is derived from q['image_role'] (stored per question in
+    S3-1) rather than from q_roles, which is NOT persisted in progress.json across
+    sessions. q_roles is retained for backward compatibility and is unused.
     """
-    obj_types    = []
-    transforms   = []
-    arrangements = []
-    complexities = []
-    n_unclear    = 0
-
-    for q in questions_for_subtopic:
-        if q.get('image_clarity') == 'unclear':
-            n_unclear += 1
-            continue
-        if q.get('object_type'):    obj_types.append(q['object_type'])
-        if q.get('transformation'): transforms.append(q['transformation'])
-        if q.get('arrangement'):    arrangements.append(q['arrangement'])
-        if q.get('complexity'):     complexities.append(q['complexity'])
-
-    def top(lst, n=3):
-        return [x for x, _ in Counter(lst).most_common(n)]
+    from collections import Counter
 
     # Dominant image_role from q['image_role'] stored in each question dict during S3-1.
-    # q_roles dict is NOT persisted in progress.json — using stored field avoids the loss.
     roles = [q.get('image_role', 'none') for q in questions_for_subtopic
              if q.get('image_role', 'none') != 'none']
     dominant_role = Counter(roles).most_common(1)[0][0] if roles else 'stem_only'
 
-    return {
-        'image_role'          : dominant_role,
-        'object_types'        : {
-            'dominant': top(obj_types, 3),
-            'observed': list(set(obj_types)),
-            'avoid'   : [],
-        },
-        'transformation_types': list(set(t for t in transforms if t != 'N/A')),
-        'arrangement_types'   : list(set(arrangements)),
-        'complexity_dist'     : ({k: round(v / len(complexities) * 100)
-                                   for k, v in Counter(complexities).items()}
-                                  if complexities else {}),
-        'images_analysed'     : len(obj_types),
-        'images_unclear'      : n_unclear,
-    }
+    # Only questions that actually carry a figure enter the vision denominator.
+    # EC-V13/EC-V14: a zero-PYQ inferred FIGURAL subtopic and an INHERENTLY-VISUAL
+    # keyword override are legitimately FIGURAL with no embedded figure, so they
+    # contribute no records and are excluded from QV-14 by construction.
+    figural = [q for q in questions_for_subtopic
+               if q.get('image_role', 'none') != 'none']
+
+    prof = bc.vision_profile([
+        {'image_clarity'      : q.get('image_clarity', 'vision_unavailable'),
+         'object_type'        : q.get('object_type'),
+         'transformation_type': q.get('transformation'),
+         'arrangement'        : q.get('arrangement'),
+         'complexity'         : q.get('complexity')}
+        for q in figural])
+    prof['image_role'] = dominant_role
+    return prof
 ```
 
 ---
@@ -5979,12 +6186,34 @@ def format_entry(e):
         lines += cp_lines
     if e.get('PYQ_IMAGE_ANALYSIS'):
         ia = e['PYQ_IMAGE_ANALYSIS']
+        # v2.37 (GAP-2026-07-26-003 D3/D4). This emitter used to write FOUR fields.
+        # aggregate_figural built NINE, so arrangement_types, complexity_dist,
+        # object_types.avoid, images_analysed and images_unclear were computed and then
+        # DROPPED at the artefact boundary — Step 7 could never have seen complexity or
+        # arrangement even with vision working perfectly.
+        #
+        # vision_status is the D3 fix. In the reference run 'vision_unavailable'
+        # appeared 153 times in progress.json and ZERO times in section_rules.md, so a
+        # consumer reading `dominant: []` had no way to tell "this exam has no figures"
+        # from "vision failed and this profile is empty". The artefact now carries its
+        # own provenance.
+        _ot = ia.get('object_types', {})
         lines += ['PYQ_IMAGE_ANALYSIS:',
                   f'  image_role: {ia.get("image_role","stem_only")}',
+                  f'  vision_status: {ia.get("vision_status","not_applicable")}',
                   '  object_types:',
-                  f'    dominant: {ia.get("object_types",{}).get("dominant",[])}',
-                  f'    observed: {ia.get("object_types",{}).get("observed",[])}',
-                  f'  transformation_types: {ia.get("transformation_types",[])}', '']
+                  f'    dominant: {_ot.get("dominant",[])}',
+                  f'    observed: {_ot.get("observed",[])}',
+                  f'    avoid: {_ot.get("avoid",[])}',
+                  f'  transformation_types: {ia.get("transformation_types",[])}',
+                  f'  arrangement_types: {ia.get("arrangement_types",[])}',
+                  f'  complexity_dist: {ia.get("complexity_dist",{})}',
+                  f'  images_analysed: {ia.get("images_analysed",0)}',
+                  f'  images_unclear: {ia.get("images_unclear",0)}',
+                  f'  images_unobserved: {ia.get("images_unobserved",0)}']
+        if ia.get('dominant_suppressed'):
+            lines += [f'  dominant_suppressed: "{ia["dominant_suppressed"]}"']
+        lines += ['']
     # BUG-C05 fix (v2.3): paragraph_count and topic_domains now written
     if e.get('PYQ_PASSAGE_STRUCTURE'):
         ps = e['PYQ_PASSAGE_STRUCTURE']
@@ -6186,6 +6415,56 @@ def run_qv(entries, taxonomy, progress):
     # be masked by an identity failure.
     results['QV-13a'] = (('WARN', f'{len(bad_shape)} long/question-shaped names: {bad_shape[:3]}')
                          if bad_shape else ('PASS', 'OK'))
+
+    # ── QV-14 — VISION COVERAGE (v2.37, GAP-2026-07-26-003) ─────────────────
+    # FAIL, not WARN. The reference run scored QV-9 PASS with 153/153 figural
+    # questions unobserved and 45/45 FIGURAL subtopics shipping an empty profile,
+    # because QV-9 computes images_analysed + images_unclear and BOTH are zero when
+    # nothing was observed — so its `if tot > 0` branch never fires. A WARN would not
+    # have stopped that run either. This is the check that makes the failure impossible
+    # to ship silently.
+    #
+    # QV-14 DOES NOT HALT. It reports. Framework_DeliveryFooter renders F1 amber on any
+    # FAIL, and the operator re-runs PHASE B ONLY.
+    #
+    # DENOMINATOR. Only questions that actually carry a figure. EC-V13 (zero-PYQ
+    # inferred FIGURAL subtopic) and EC-V14 (INHERENTLY-VISUAL keyword override) are
+    # legitimately FIGURAL with no embedded figure; they contribute no queue item by
+    # construction and are excluded here for the same reason. EC-V1: an exam with no
+    # figural content at all has an empty denominator and PASSes vacuously — a
+    # text-only exam must never fail this check.
+    fig_qs = [q for k, v in progress.items() if isinstance(k, tuple) for q in v
+              if q.get('image_role', 'none') != 'none']
+    if not fig_qs:
+        results['QV-14'] = ('PASS', 'no figural questions in this corpus — '
+                                    'vision not applicable (EC-V1)')
+    else:
+        unobs = sum(1 for q in fig_qs if q.get('image_clarity') == 'vision_unavailable')
+        noty = sum(1 for q in fig_qs if not q.get('object_type')
+                   and q.get('image_clarity') == 'clear')
+        seen = len(fig_qs) - unobs
+        if unobs == len(fig_qs):
+            results['QV-14'] = ('FAIL',
+                f'0/{len(fig_qs)} figures observed — PHASE B did not run. '
+                f'PYQ_IMAGE_ANALYSIS is empty for every FIGURAL subtopic and Step 7 '
+                f'has no object-type, transformation, arrangement or complexity '
+                f'guidance. The run is COMPLETE and resumable: re-run PHASE B ONLY '
+                f'(S4-2b) against the queue already on disk, then re-run synthesis.')
+        elif unobs / len(fig_qs) > 0.50:
+            results['QV-14'] = ('FAIL',
+                f'only {seen}/{len(fig_qs)} figures observed ({unobs} unobserved) — '
+                f'more than half the figural corpus is missing. Re-run PHASE B; it is '
+                f'idempotent and fills only the gaps.')
+        elif unobs:
+            results['QV-14'] = ('WARN',
+                f'{seen}/{len(fig_qs)} figures observed, {unobs} unobserved — '
+                f're-running PHASE B is idempotent and fills only the gaps.')
+        elif noty:
+            results['QV-14'] = ('WARN',
+                f'{seen}/{len(fig_qs)} observed but {noty} carry no object_type — '
+                f'check the Phase B protocol was followed for every labelled cell.')
+        else:
+            results['QV-14'] = ('PASS', f'{seen}/{len(fig_qs)} figures observed')
 
     return results
 
@@ -6457,7 +6736,7 @@ def deliver_batch_summary(batch, progress, batch_num, papers_done, total_all, ex
 def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
                    options_count, multi_select, progress,
                    coverage_mode='mandatory_5yr', recent_5_years=None,
-                   available_years=None, read_probe=None):
+                   available_years=None, drive_payloads=None):
     """
     Core loop: process papers in batches of BATCH_SIZE (always 3 — non-negotiable).
     pyq_doc_paths: list of dicts — {source: 'gdrive'|'local', id/path, name}
@@ -6468,13 +6747,23 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
     """
     import os
 
-    # v2.34: read_probe(path) -> str is the IMG-6 observation reader (S3-1c). Claude
-    # calls view(path) and returns verbatim what it sees. It is a PARAMETER so the loop
-    # stays unit-testable with a fake reader; the default records no observation, which
-    # score_vision_probe() reports as "not read" rather than silently scoring False.
-    if read_probe is None:
-        def read_probe(path):
-            return ''
+    # v2.37 CLASS T BRIDGE. drive_payloads is {file_id: payload_or_spill_path},
+    # materialised by the MODEL before this function is called (see the GOOGLE DRIVE
+    # section). The resolver performs NO tool call — it looks up a result that already
+    # exists, so it is ordinary reachable python.
+    #
+    # A missing entry raises TransportFallback, which corpus_io already routes to the
+    # UPLOAD LANE. That is the correct degradation and it is LOUD: the operator is
+    # asked for the paper by name. Nothing halts.
+    drive_payloads = drive_payloads or {}
+
+    def drive_resolver(file_id):
+        if file_id not in drive_payloads:
+            raise corpus_io.TransportFallback(
+                f'no materialised Drive payload for {file_id} — the model must call '
+                f'Google Drive:download_file_content in its own turn BEFORE '
+                f'run_batch_loop() and pass the results in as drive_payloads')
+        return drive_payloads[file_id]
 
     done_ids = set(progress.get('_meta', {}).get('papers_processed', []))
 
@@ -6502,17 +6791,12 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
 
         print(f"\n=== Batch {batch_num}: processing {len(batch)} paper(s) ===")
 
-        # ── IMG-6 liveness probe, once per batch, BEFORE any figural classification.
-        # v2.34: this call is what makes S3-1c real. Before it, the protocol was prose
-        # wired into no executable block, so it ran only if a reader happened to follow
-        # it by hand (GAP-2026-07-26-002 DEFECT-4). A FAIL no longer halts.
-        probe_passed = run_img6_probe(read_probe)
-        if not probe_passed:
-            print("    ! IMG-6 FAILED after 3 attempts with 3 distinct tokens.")
-            print("      Vision is unavailable in this session. Processing CONTINUES;")
-            print("      figural questions in this batch record 'vision_unavailable'")
-            print("      and are excluded from QV-9 rather than counted as unclear.")
-            print("      Re-run these papers in a fresh session to populate figural data.")
+        # v2.37: the IMG-6 callback probe is GONE (S3-1c). It could not work: a
+        # callback cannot make a tool call from inside python, so it defaulted to
+        # returning '' and reported EVERY session blind. Liveness is now DERIVED from
+        # Phase C, which costs nothing extra and cannot drift from the thing it
+        # measures. Phase A runs per paper below; Phase B + C run at the batch
+        # boundary this loop already stops at, so no new interruption is introduced.
 
         needs_upload = []          # papers this batch could not be fetched from Drive
 
@@ -6531,7 +6815,7 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
             if paper_ref['source'] == 'gdrive':
                 try:
                     local_path = corpus_io.fetch_drive_docx(
-                        gdrive_download_file, paper_ref, '/home/claude/pyq_temp')
+                        drive_resolver, paper_ref, '/home/claude/pyq_temp')
                 except corpus_io.TransportFallback as exc:
                     print(f"    ! Drive fetch unavailable — {exc}")
                     print(f"    → routing to upload lane: {paper_ref['name']}")
@@ -6543,8 +6827,7 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
             process_pyq_paper(local_path, paper_id, exam_code,
                                time_per_q, marks_per_q, options_count,
                                multi_select, progress,
-                               expected_size=paper_ref.get('fileSize'),
-                               probe_passed=probe_passed)
+                               expected_size=paper_ref.get('fileSize'),)
 
             # ── Persist after EVERY paper (v2.29) ────────────────────────────
             # The durability unit is the PAPER, not the batch. Previously save_progress
@@ -6585,8 +6868,7 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
                 process_pyq_paper(_up, make_paper_id(p['name']),
                                   exam_code, time_per_q, marks_per_q, options_count,
                                   multi_select, progress,
-                                  expected_size=os.path.getsize(_up),
-                                  probe_passed=probe_passed)
+                                  expected_size=os.path.getsize(_up),)
                 save_progress(progress, exam_code)        # per-paper, as above
             if found['unexpected']:
                 print(f"  ! Ignored {len(found['unexpected'])} unexpected upload(s) — "
@@ -6595,6 +6877,32 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
                              if bc.canonical_paper_key(p['name']) not in found['matched']]
             if still_missing:
                 print(f"  Awaiting upload: {', '.join(still_missing)}")
+
+        # ══ PHASE B + PHASE C — the batch boundary (v2.37, GAP-2026-07-26-003) ══
+        # This is where the CLASS T work happens, and it happens HERE because the run
+        # already stops here under the BATCH STOP law below. No new interruption is
+        # introduced and nothing halts.
+        #
+        # PHASE B is performed BY THE MODEL, IN THIS TURN, following the prose protocol
+        # in S4-2b: view() each contact sheet in VISION_WORKDIR, record one observation
+        # per labelled cell, and write them with corpus_io.write_vision_observations().
+        # It is NOT a function call and must never be written as one.
+        #
+        # PHASE C then folds whatever came back onto the questions. If Phase B was
+        # skipped, produced nothing, or produced a malformed file, this still runs, the
+        # figures record 'vision_unavailable', QV-14 FAILs and the footer goes amber.
+        # The run COMPLETES either way.
+        vision_stats = apply_vision_observations(progress)
+        progress.setdefault('_meta', {})['vision'] = vision_stats
+        if vision_stats['vision_status'] == 'unavailable' and vision_stats['queued']:
+            print(f"    ! VISION UNAVAILABLE — {vision_stats['queued']} figure(s) queued, "
+                  f"0 observed. Processing CONTINUES and the run will complete.")
+            print(f"      QV-14 will FAIL and the step footer will render amber.")
+            print(f"      Remedy: a fresh session re-running PHASE B ONLY — the queue "
+                  f"and sheets are already on disk at {VISION_WORKDIR}.")
+        elif vision_stats['vision_status'] == 'partial':
+            print(f"    ! {vision_stats['missing']} queued figure(s) were not observed. "
+                  f"Re-running Phase B is idempotent and fills only the gaps.")
 
         # Save and deliver after each batch (redundant flush — the per-paper saves above
         # are the durability guarantee; this keeps the delivery contract unchanged)
@@ -8744,4 +9052,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.36
+# END OF Framework_MockTestAnalyse v2.38

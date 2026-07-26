@@ -1,5 +1,19 @@
-# Framework_MockTestCreateAudit v2.9.2
+# Framework_MockTestCreateAudit v2.10
 #
+# v2.10 — 2026-07-26 — NEW GATE A-FIGPROFILE (GAP-2026-07-26-003 D2).
+#   Step 5 measures what a subtopic's real figures CONTAIN; Step 7 v5.31 now generates
+#   against that profile. Nothing checked that it did. A-FIGPROFILE closes the loop.
+#   It delegates the verdict to bc.check_figural_conformance(), the SAME function the
+#   generator binds to, so the generator and its auditor share one rule and cannot
+#   drift — the delegation contract audit_deep already enforces elsewhere.
+#   AUDITS RECORDED INTENT, NOT PIXELS. Confirming a rendered PNG really depicts a
+#   micrograph requires a view(), which is CLASS T and cannot run inside an audit's
+#   python (see the EXECUTION-BOUNDARY LAW). Auditing the object_type Step 7 recorded
+#   is deterministic, free, and catches the failure that matters: Step 7 ignoring the
+#   profile. Whether a render matches its own label stays with the existing image-count
+#   and composite gates.
+#   SKIPs on an unconstrained profile — absent, empty, or vision_status='unavailable' —
+#   which is what keeps ~200 pre-v2.37 exams passing untouched (EC-V18).
 # v2.9.2 — 2026-07-22 — POSITION-BASED QUESTION TYPE IN AUDIT (GAP-2026-07-22-001 §6 FIX).
 #   For question-type sections (IIT JAM: Section A=MCQ, B=MSQ, C=NAT), per-subtopic
 #   answer_cardinality/answer_type is unreliable — multi_ids/nat_ids from subtopic_list
@@ -1775,6 +1789,7 @@
 
   FIGURAL DECOMPOSITION
   | A-FIGCOMP  | v2.4 image_role-aware: each figural Q is structured per its image_role variant. stem_and_options (default): problem image(s) + 1 image/option, single-column, 1 per line, bound 1:1 to labels; no composite panel; no "Figure k" dummy-text option. stem_only (v2.4): ≥1 problem image + TEXT options — option-image arm SKIPPED. options_only (v2.4): ≥n option images, no problem image required. FIGURAL-NAT (answer_type=='numerical', options_by_q==0): treated as stem_only — problem image(s) only with ZERO option images. All variants: single-column/no-composite/300-DPI/named-image discipline checked. image_role read from section_rules PYQ_IMAGE_ANALYSIS per subtopic_id | registry figural_manifests + section_rules PYQ_IMAGE_ANALYSIS + figural stem cues + registry options_by_q | R-FIGURAL | CP/RG |
+  | A-FIGPROFILE | v2.10 (GAP-2026-07-26-003 D2): each FIGURAL subtopic's GENERATED figure types conform to the profile Step 5 measured. Reads section_rules PYQ_IMAGE_ANALYSIS via bc.figural_generation_profile(), reads the object_type Step 7 recorded per question in batch_state.figural_qs[n].object_type, and delegates the verdict to bc.check_figural_conformance() — the SAME function Step 7 generates against, so generator and auditor cannot drift. FAIL when a generated type appears in neither the dominant nor the observed list, or when dominant-mode coverage falls below the 55% floor (target 70%). SKIP when the profile is unconstrained — absent, empty, or vision_status='unavailable'. AUDITS RECORDED INTENT, NOT PIXELS: confirming a render actually depicts a micrograph needs a view(), a CLASS T operation that cannot run inside an audit's python; intent is deterministic and catches the real failure, which is Step 7 ignoring the profile. EC-V18: SKIP keeps ~200 pre-v2.37 exams passing untouched. | section_rules PYQ_IMAGE_ANALYSIS + batch_state figural_qs[].object_type | R-FIGURAL | CP/RG |
 
   STEM↔OPTION COHERENCE (machine layer; semantic layer in §6)
   | A-OPTREF   | a stem that references a terminal/escape option ("no error→last option", "None of these", "All of the above", "Both…and…", "Neither…nor…") actually CONTAINS that option, at the named position; a "pick-the-segment" layout does not carry a "no error" escape without a real "No error" option | section_rules none_of_above_permitted (S3-12) + wrong_option_structure/fixed_set (S3-13) | R-OPTREF | RG |
@@ -3728,6 +3743,13 @@ def load_sources(args):
     src['cloze_linked']   = set(rc.get('cloze_linked', []))   if rc else set()
     fig = next((x for x in reg.get('figural_manifests', []) if x.get('mock') == N), None)
     src['figural_qs'] = set(int(q) for q in fig.get('figural_qs', [])) if fig else set()
+    # v2.10 (GAP-2026-07-26-003 D2): A-FIGPROFILE needs the object_type Step 7 v5.31
+    # recorded per figural question, plus that question's subtopic_id. Both travel in
+    # the registry figural_manifest, which Step 8 DOES receive — unlike the answer_key
+    # sidecar (S0-1), so no concept_map is required. A pre-v5.31 registry simply has
+    # neither key and the gate goes dormant.
+    src['figural_object_types'] = (fig.get('object_types') or {}) if fig else {}
+    src['figural_subtopics'] = (fig.get('subtopic_ids') or {}) if fig else {}
     # v2.4: section_rules full text for image_role lookups in gate_images
     src['section_rules_text'] = rt   # already loaded at src['rules_txt']
     # v2.4: concept_map — Step 8 does NOT receive the answer_key sidecar (S0-1),
@@ -4636,6 +4658,55 @@ def gate_images(blocks, src, media_map):
               'VIEW + fix in Part B: ' + ' '.join(sorted(set(composite))[:12]))
     else:
         _ok('A-FIGCOMP', 'figural blocks pass image_role-aware check (v2.4).')
+
+    # ── A-FIGPROFILE (v2.10, GAP-2026-07-26-003 D2) ──────────────────────────
+    # Did generation honour the figure profile Step 5 measured? The verdict is
+    # DELEGATED to bc.check_figural_conformance(), the same function Step 7 v5.31
+    # generates against, so the generator and its auditor cannot drift apart.
+    #
+    # AUDITS RECORDED INTENT, NOT PIXELS. Confirming a render truly depicts a
+    # micrograph needs a view(), which is CLASS T and cannot run inside this python
+    # (EXECUTION-BOUNDARY LAW). Intent is deterministic and catches the failure that
+    # matters: Step 7 ignoring the profile.
+    #
+    # SOURCES, both of which Step 8 actually receives (S0-1):
+    #   registry figural_manifests[mock].object_types  {qnum: type, ...}  (v5.31+)
+    #   section_rules TEXT -> bc.parse_image_analysis_blocks()
+    # Step 8 does NOT receive the answer_key sidecar, so no concept_map is used here;
+    # subtopic_id travels with each figural_qs record instead.
+    _fig_types = src.get('figural_object_types') or {}
+    _fig_subs = src.get('figural_subtopics') or {}
+    if not _fig_types:
+        # Pre-v5.31 registry, or a mock with no figural questions. Dormant, exactly
+        # like the concept_map-dependent gates above — never a FAIL for a missing
+        # optional input (EC-V18).
+        _ok('A-FIGPROFILE',
+            'registry carries no per-question object_types (pre-v5.31 mock) — dormant.')
+    else:
+        _sr_blocks = bc.parse_image_analysis_blocks(src.get('section_rules_text', ''))
+        _by_sub = {}
+        for _qn, _ty in _fig_types.items():
+            _sid = _fig_subs.get(str(_qn))
+            if _sid:
+                _by_sub.setdefault(_sid, []).append(_ty)
+        _fig_bad, _fig_ok, _fig_skip = [], 0, 0
+        for _sid, _gen_types in sorted(_by_sub.items()):
+            _prof = bc.figural_generation_profile(_sr_blocks.get(_sid))
+            _verdict, _detail = bc.check_figural_conformance(_gen_types, _prof)
+            if _verdict == 'FAIL':
+                _fig_bad.append(f'{_sid}: {_detail}')
+            elif _verdict == 'PASS':
+                _fig_ok += 1
+            else:
+                _fig_skip += 1
+        if _fig_bad:
+            _fail('A-FIGPROFILE',
+                  'generated figure types do not match the measured PYQ profile — '
+                  + ' | '.join(_fig_bad[:4]))
+        else:
+            _ok('A-FIGPROFILE',
+                f'{_fig_ok} subtopic(s) conform to the measured figure profile; '
+                f'{_fig_skip} skipped (no usable profile — EC-V18).')
     # v2.4: A-FIGTEXT-PROSE — figure-reference text in zero-image blocks
     if figtext_prose:
         _fail('A-FIGTEXT-PROSE',
@@ -5364,7 +5435,8 @@ def self_test():
 
     # 28. empty document does not crash any gate
     def b_empty(d):
-        pass
+        pass  # CLASS: J — inert test fixture: builds an empty doc for the self-test.
+              # No tool call and no model agency at all; tagged so C6 has a verdict.
     p = _mini_doc(tmp, b_empty); _reset()
     try:
         mm = gate_zip(p); doc = Document(p); _t, bl = parse_blocks(doc)
@@ -5620,5 +5692,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.9.2
+# END OF Framework_MockTestCreateAudit v2.10
 # ════════════════════════════════════════════════════════════════════════

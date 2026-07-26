@@ -1,4 +1,4 @@
-# Framework_PYQPrepare v1.10 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v1.12 — Universal PYQ Row File Generator
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:
@@ -86,6 +86,41 @@
 #   GATE, NEET, UPSC, CAT, Banking, RRB, state PSC, or any exam.
 #
 # VERSION HISTORY:
+#   v1.12 — 2026-07-26 — CALL A3b REWIRED TO PHASE A/B/C; PROBE FAMILY RETIRED.
+#     v1.11 replaced the S1-12 protocol but CALL A3b in the tool-call ledger still
+#     instructed corpus_io.make_vision_probe() / score_vision_probe(), and two vector
+#     branches still instructed corpus_io.normalise_for_view(). corpus_io v1.8 deletes
+#     all three, so those were live instructions to call functions that no longer
+#     exist. CALL A3b now runs build_vision_queue (Phase A) -> view the sheets
+#     (Phase B, prose) -> merge_vision_observations (Phase C), and the vector branches
+#     defer to Phase A, which normalises internally and marks anything it cannot
+#     rasterise [UNRENDERABLE] rather than dropping it (EC-V8).
+#
+#   v1.11 — 2026-07-26 — S1-12 VISION BECOMES REACHABLE; THE HALT IS REPLACED
+#     (GAP-2026-07-26-003). PHASE A-PROBE called run_img6_probe(read_probe),
+#     imported from Framework_MockTestAnalyse S3-1c. That probe took a CALLBACK
+#     expected to perform a view(). A callback cannot make a tool call from inside
+#     a running python process — a tool call happens only BETWEEN model turns — so
+#     the parameter defaulted to returning '', score_vision_probe raised
+#     ProbeObservationMissing on all three attempts, and the probe reported EVERY
+#     session blind, on EVERY exam. Step 1 inherited the defect by importing it.
+#
+#     Replaced by the same three-phase bridge Step 5 now uses (S4-2a/b/c). There is
+#     no separate probe: the extracted images ARE the probe. Liveness is derived
+#     from whether observations came back, at zero extra cost.
+#
+#     THE HALT IS GONE AND THE ARTEFACT IS STILL PROTECTED. The old design
+#     conflated two things: "never bake a red placeholder under blind vision"
+#     (correct, permanent, preserved absolutely) and "therefore stop the run"
+#     (unnecessary). An image LEFT IN PLACE is safe and reversible; a placeholder
+#     cannot be un-baked. Step 1 now COMPLETES, delivers the Row file with
+#     unobserved images untouched, states the count, and renders F1 amber.
+#
+#     The placeholder gate is now PER IMAGE rather than per session, which is
+#     strictly STRONGER: a session whose vision worked for 40 images and lapsed
+#     for 3 may placeholder none of those 3. Previously one passing probe licensed
+#     placeholders for every image in the session.
+#
 #   v1.10 — 2026-07-26 — IMG-6 PROBE PROTOCOL HARDENED (GAP-2026-07-26-002 PART A).
 #            The v1.6 protocol was single-attempt, single-token, and required no record
 #            of what was read, while corpus_io.score_vision_probe() returned False for an
@@ -101,6 +136,9 @@
 #            every downstream step consumes, and a placeholder baked in under a blind
 #            probe is permanent. The halt here protects the ARTEFACT, not the session.
 #            Requires corpus_io.py with ProbeObservationMissing.
+#            [SUPERSEDED v1.11 — corpus_io v1.8 deletes that family; liveness is
+#            derived from Phase B observation coverage, and the halt is replaced by
+#            complete-and-report.]
 #   v1.9.1 — 2026-07-25 — Q_PATTERNS RENAMED SOURCE_Q_PATTERNS. Step 1 parses RAW dumps, where
 #           "Question 1:", bare "1." and "(1)" are genuine numbering — so the five-entry table
 #           is CORRECT here and wrong everywhere downstream. Naming it SOURCE_* (as
@@ -136,6 +174,9 @@
 #             FAIL -> vision_unavailable: HALT with resumable state and ask for a fresh
 #             session. Assigning a red placeholder under a failed probe is a HARD BUG,
 #             ranking with the existing "unclassified image" hard bug.
+#             [SUPERSEDED BY v1.11 — the probe could never pass (its callback could not
+#             make a tool call) and the HALT is replaced by complete-and-report. The
+#             placeholder prohibition is UNCHANGED and is now enforced per IMAGE.]
 #         (2) DEFECT I (proven by construction, previously unreported in THIS file) —
 #             extract_images() walked doc.paragraphs, which in python-docx returns ONLY
 #             paragraphs that are direct children of the body; paragraphs inside table
@@ -575,10 +616,11 @@ Image-rendered math (source has math as embedded image):
        the content and the pipeline writes it as text + OMML
     4. If the image is genuinely unreadable (corrupt, blank, too low
        resolution) → red placeholder + WARN in delivery
-       v1.9: permitted ONLY when the S1-12 vision liveness probe has PASSED
-       in this session. Under a failed probe every image looks unreadable,
-       so this branch would placeholder ALL math — the exact failure the
-       rule below forbids. Probe FAIL → HALT, never placeholder.
+       v1.11: permitted ONLY when THIS IMAGE'S cell was OBSERVED in Phase B.
+       With vision unavailable every image looks unreadable, so this branch
+       would placeholder ALL math — the exact failure the rule below forbids.
+       image_clarity=='vision_unavailable' → leave the image untouched and
+       complete the run, never placeholder. The run does NOT halt.
 
   Red placeholders for math content are BANNED. The ONLY legitimate
   placeholder for a math question is when the image is physically
@@ -602,12 +644,18 @@ unclassified image is a HARD BUG. Only images classified as
 VISUAL-IMAGE get red placeholders. Images classified as MATH-IMAGE,
 TEXT-IMAGE, or TABLE-IMAGE get transcribed content instead.
 
-PREREQUISITE (v1.9): the S1-12 vision liveness probe MUST have PASSED in
-this session before ANY red placeholder is assigned. A classification is a
-claim about what an image contains; a session that cannot see is not
-entitled to make one. Probe FAIL → vision_unavailable → HALT with resumable
-state. A red placeholder assigned under a failed probe is a HARD BUG of the
-same rank as an unclassified image, because on the page the two are
+PREREQUISITE (v1.11): THIS IMAGE'S CELL must have been OBSERVED in Phase B
+(S1-12) before a red placeholder may be assigned to it. A classification is a
+claim about what an image contains; a session that did not look at it is not
+entitled to make one. The gate is now PER IMAGE rather than per session,
+which is strictly stronger: a session whose vision worked for 40 images and
+lapsed for 3 may placeholder none of those 3.
+  image_clarity == 'unclear'            -> placeholder PERMITTED (earned)
+  image_clarity == 'vision_unavailable' -> placeholder FORBIDDEN; leave the
+                                           image untouched, complete the run,
+                                           report it, render F1 amber.
+A red placeholder assigned to an unobserved image is a HARD BUG of the same
+rank as an unclassified image, because on the page the two are
 indistinguishable from a placeholder that was genuinely earned.
 
 Non-math visual content (geometric figures, dice patterns, Venn diagrams,
@@ -811,66 +859,87 @@ Vision can degrade MID-SESSION as context grows. Demonstrated: a freshly
 generated control PNG failed to render in a session where real figures had
 rendered correctly earlier. The files were never the problem.
 
-HOW (v1.10 — 3 attempts, 3 distinct tokens, observation MANDATORY):
+HOW (v1.11 — THREE-PHASE, GAP-2026-07-26-003):
 
-  probe_passed = run_img6_probe(read_probe)      # see Framework_MockTestAnalyse S3-1c
+  run_img6_probe(read_probe) IS GONE. It took a CALLBACK that was supposed to
+  perform a view(). A callback cannot make a tool call from inside a running python
+  process — a tool call happens only BETWEEN model turns — so the parameter
+  defaulted to a function returning '', score_vision_probe raised
+  ProbeObservationMissing on all three attempts, and the probe reported EVERY
+  session blind. Step 1 INHERITED that defect from Step 5 by importing it.
 
-  where read_probe(path) -> str returns, VERBATIM, the characters read from the
-  image. Each attempt mints a FRESH random token appearing NOWHERE in text, so it
-  can only be obtained by actually seeing the image; three independent 8-character
-  tokens cannot be guessed (~2e-37).
+  Step 1 now uses the SAME three-phase bridge as Framework_MockTestAnalyse S4-2,
+  against the images this step has already extracted. There is no separate probe:
+  the images ARE the probe. If any of them comes back observed, vision works.
 
-  An EMPTY return means "I did not look", NOT "I could not read it".
-  corpus_io.score_vision_probe() RAISES ProbeObservationMissing for that case
-  instead of returning False. It is retried, never counted as a failure.
+    PHASE A (python)  corpus_io.build_vision_queue(items, VISION_WORKDIR)
+                      — items are the extracted images, keyed (source_id, img_idx).
+    PHASE B (model)   view() each contact sheet; record one observation per
+                      labelled cell. THIS IS PROSE, NEVER A PYTHON FUNCTION.
+                      Protocol verbatim as Framework_MockTestAnalyse S4-2b, except
+                      that what is recorded is the CLASSIFICATION this protocol
+                      needs (math / table / text / figure) plus figure_readable.
+    PHASE C (python)  bc.merge_vision_observations(queue['items'], observations)
+                      — the only writer of image_clarity.
 
-MANDATORY SELF-CHECK BEFORE REPORTING A FAILED READ:
-  * Did a picture appear at all? If it rendered and the characters were simply
-    not attended to, that is NOT a probe failure. Look again.
-  * If a pixel/variance check shows the file contains legible glyphs, that is
-    evidence FOR working vision, NEVER against it. A legible file that rendered
-    is exactly what a WORKING vision path looks like. This inversion caused a
-    false production halt (GAP-2026-07-26-002 PART A). Do not repeat it.
-
-ON PASS — proceed to Phase A-IMAGE. Behaviour is exactly as v1.6 specified.
+ON `observed` — proceed to Phase A-IMAGE. Behaviour is exactly as v1.6 specified.
           Nothing below changes when vision is working.
 
-ON FAIL (all 3 attempts, each with a recorded observation) — this is a SESSION
-fault, not an image fault. Step 1 DOES still stop here, unlike Step 5: Step 5
-records vision_unavailable and continues because it only reads patterns, whereas
-Step 1 DELIVERS a Row file that every downstream step consumes, and a placeholder
-baked in under a blind probe is permanent. The rule below protects the ARTEFACT,
-not the session.
-  1. Do NOT classify any image.
-  2. Do NOT assign a red placeholder to anything. Assigning one under a failed
-     probe is a HARD BUG, ranking with the "unclassified image" hard bug below.
-  3. Record vision_unavailable for the affected images (three-state outcome —
-     see below) via bc.image_clarity_state(probe_passed, figure_readable).
-  4. HALT with resumable state: keep the extracted images and any
-     classifications already made under a PASSING probe.
-  5. Tell the user in plain terms:
-       "I can no longer read images reliably in this session. No placeholders
-        have been assigned. Please start a fresh chat and re-run:
-        PYQPrepare  — the extracted images are preserved."
-  6. Do NOT deliver a Row file built under a failed probe.
+ON `unavailable` or `partial` — v1.11 REPLACES THE HALT.
 
-THREE-STATE OUTCOME (bc.image_clarity_state) — the two-state form conflated
-two failures with different causes and opposite remedies:
-  clear              the image was read and classified
-  unclear            the FIGURE is genuinely illegible — corrupt, blank, too
-                     low resolution. REQUIRES a passing probe. This is the only
-                     state that may lead to a placeholder for math-like content,
-                     and it is reported in delivery.
-  vision_unavailable the SESSION cannot see. Never a statement about the image.
-                     Halts; never counted as an unreadable figure; never a
-                     placeholder.
+  The halt was protecting the right thing for the wrong reason. What must never
+  happen is a red placeholder assigned to an image nobody looked at: that is
+  permanent, it converts a math question into a FIGURAL one for the rest of the
+  pipeline, and no later step can undo it. What does NOT need to happen is
+  stopping the run — an image LEFT IN PLACE is safe, reversible and costs nothing.
 
-COST: one view() call per session, before image classification begins. Add 1 to
-every tool-call budget in this protocol.
+  So Step 1 COMPLETES and DELIVERS, under these rules:
 
-RE-PROBE: for a source with many images processed across several turns, re-run
-the probe whenever classification resumes after a context break. A probe result
-is evidence about the session at the moment it was taken, not a permanent fact.
+  1. Do NOT classify any unobserved image.
+  2. Do NOT assign a red placeholder to ANY unobserved image. Assigning one under
+     an unobserved cell is a HARD BUG, ranking with the "unclassified image" hard
+     bug below. This rule is UNCHANGED and is the whole point.
+  3. LEAVE the unobserved image exactly as it is, in place, untouched. An image
+     that is still an image can be transcribed later; a placeholder cannot be
+     un-baked. This is what makes completing the run safe.
+  4. Record image_clarity='vision_unavailable' for those images via
+     bc.merge_vision_observations() (Phase C is the only writer).
+  5. DELIVER the Row file, and state plainly in the delivery footer which images
+     are pending. The footer renders F1 AMBER, never F2 green, because a FAIL or
+     an unobserved-image count is present (Framework_DeliveryFooter §5).
+  6. Tell the user in plain terms:
+       "N image(s) could not be read in this session. NO placeholders were
+        assigned and those images are preserved untouched in the Row file.
+        The contact sheets are already on disk at <VISION_WORKDIR>.
+        To complete them, re-run PHASE B ONLY in a fresh chat — Phases A and C
+        need not repeat, and re-running Phase B is idempotent."
+
+  NOTHING HALTS, AND THE ARTEFACT IS STILL PROTECTED. The two goals were never in
+  conflict; the old design conflated "do not corrupt the Row file" with "do not
+  finish the run".
+
+COST: ceil(N_images / 6) view() calls per session instead of N_images + 1. The
+liveness check itself is free — it is derived from whether observations came back.
+
+THREE-STATE OUTCOME (bc.merge_vision_observations / bc.image_clarity_state) — the
+two-state form conflated two failures with different causes and opposite remedies:
+  clear              the image was read and classified.
+  unclear            the FIGURE is genuinely illegible — corrupt, blank, too low
+                     resolution. Requires that the cell WAS observed. This is the
+                     only state that may lead to a placeholder for math-like
+                     content, and it is reported in delivery.
+  vision_unavailable the cell was NOT observed. Never a statement about the image.
+                     Never a placeholder. The image is left untouched and the run
+                     completes; QV-style reporting and an amber footer carry it.
+
+The distinction is load-bearing here in a way it is not in Step 5: 'unclear' MAY
+become a placeholder, and 'vision_unavailable' MUST NOT. Collapsing them is how
+eleven SSC CGL math questions became red placeholders.
+
+RESUMING: re-run PHASE B whenever classification resumes after a context break.
+An observation is evidence about the session at the moment it was made, not a
+permanent fact — and because merges are keyed by tag, a second Phase B pass fills
+only the gaps and cannot corrupt work already done (idempotent, EC-V4/EC-V12).
 
 NO GOVERNOR IN STEP 1 (v1.9, stated so the omission reads as a decision).
 Steps 3, 4 and 5 govern document size against the Drive transport cap. Step 1
@@ -931,9 +1000,11 @@ def extract_source_images(docx_path, output_dir):
     image exists that this protocol will never classify — investigate before
     building, because the pipeline's fall-through would silently placeholder it.
 
-    Vector parts (kind == 'vector') cannot be viewed directly. Rasterise via
-    corpus_io.normalise_for_view() before the view() call, or they will read as
-    unreadable and be misclassified as VISUAL.
+    Vector parts (kind == 'vector') cannot be viewed directly. PHASE A handles this:
+    corpus_io.build_vision_queue() normalises every source internally (CMYK -> RGB,
+    bounded, PNG) before tiling, and a part it cannot rasterise is queued and labelled
+    [UNRENDERABLE] rather than dropped (EC-V8). Never view a raw source directly, or a
+    vector/CMYK part reads as unreadable and is misclassified as VISUAL.
 ```
 
 ```
@@ -1027,18 +1098,20 @@ PHASE A-IMAGE — CLAUDE VISUAL INSPECTION:
     (red placeholder) + add WARN to delivery message. This is the ONLY
     case where math MIGHT get a placeholder — and it's flagged explicitly.
 
-    v1.9 GATE — this verdict REQUIRES A PASSING PROBE (Phase A-PROBE).
+    v1.11 GATE — this verdict REQUIRES THAT THIS IMAGE'S CELL WAS OBSERVED.
     "Unreadable" is a claim about the IMAGE. With vision unavailable every
-    image looks unreadable, so recording this verdict under a failed probe
+    image looks unreadable, so recording this verdict for an unobserved cell
     states something the session is in no position to know — and it is the
     exact path by which eleven math questions were destroyed in the incident
-    recorded in the v1.6 changelog. Under a failed probe the verdict is
-    vision_unavailable, and the run HALTS instead of placeholdering.
+    recorded in the v1.6 changelog. For an unobserved cell the verdict is
+    vision_unavailable, the image is LEFT UNTOUCHED, and the run COMPLETES.
     Sequence, non-negotiable:
-      probe PASS  → view → genuinely unreadable → VISUAL + WARN   (permitted)
-      probe FAIL  → no view verdict at all      → HALT            (mandatory)
-    Vector parts (EMF/WMF) are NOT unreadable — rasterise them via
-    corpus_io.normalise_for_view() and view the raster.
+      observed   → viewed → genuinely unreadable → VISUAL + WARN  (permitted)
+      unobserved → no view verdict at all        → leave in place (mandatory)
+                                                   report + F1 amber; NO halt
+    Vector parts (EMF/WMF) are NOT unreadable — PHASE A rasterises what it can and
+    marks the rest [UNRENDERABLE] on the sheet (EC-V8); judge the sheet cell, never
+    the raw source file.
 
   Step 4: Record all classifications in a structured dict.
 ```
@@ -1102,7 +1175,9 @@ PIPELINE USAGE:
       #       cross-check the mapping against corpus_io.count_image_refs so a
       #       shortfall is caught BEFORE the build rather than becoming a
       #       silent placeholder here.
-      # If the probe FAILED, do not reach this branch at all — HALT.
+      # v1.11: if THIS image's cell was not observed, do NOT reach this branch.
+      # An unobserved image is left exactly as it is — never placeholdered —
+      # and the run completes with the gap reported (S1-12).
       add_stem_figure_only(doc, q_num)
       add_placeholder_stem(doc, RED_PNG)
       warnings.append(f"UNCLASSIFIED IMAGE at para {para_idx} — "
@@ -2640,7 +2715,11 @@ VISION PROBE PROVENANCE (v1.9 — MANDATORY whenever the source had images):
   probe alongside the count makes that decision auditable after the fact —
   without it, a placeholder assigned by a blind session is indistinguishable
   from one that was genuinely earned.
-  A Row file is NEVER delivered with probe FAIL. That path halts (S1-12).
+  v1.11: a Row file IS delivered when some cells were unobserved — with those
+  images LEFT UNTOUCHED, never placeholdered, the count stated, and the footer
+  rendered F1 amber. Delivering the file is safe; placeholdering is what is not.
+  Recording per-image observation state alongside the count is what keeps that
+  distinction auditable after the fact (S1-12).
 
 FORMAT C1 / C-HYBRID (v1.7 — vision-transcribed):
   Deliver the Row file (still EXACTLY 1 file, closed set) with the
@@ -2850,9 +2929,11 @@ EC-P22: VISION UNAVAILABLE DURING IMAGE INSPECTION (v1.9)
   Row file full of red placeholders where the math used to be. It looks like a
   bad source. It is not. This is the SSC CGL T2 18-Jan-2025 failure recorded in
   the v1.6 changelog — eleven math questions, ~35% of the Quant section.
-  Do NOT "work around" a failed probe by classifying from filenames, from
+  Do NOT "work around" an unobserved cell by classifying from filenames, from
   surrounding text, or from the extraction order. A classification is a claim
-  about image content and there is no evidence for it.
+  about image content and there is no evidence for it. Leave the image in place
+  and report it; that costs one re-run of Phase B, whereas a wrong placeholder
+  costs the question permanently.
 
 EC-P23: IMAGE INSIDE A TABLE CELL (v1.9)
   The source lays a figure out inside a table — the normal arrangement for
@@ -2900,14 +2981,22 @@ PHASE A — INSPECT (1–3 tool calls):
       pre-v1.9 doc.paragraphs walk could not see) and maps each to its Q-number.
     → Cross-check the mapping total against corpus_io.count_image_refs.
 
-  CALL A3b (v1.9, MANDATORY before any classification): Vision liveness probe
-    bash_tool: path, token = corpus_io.make_vision_probe(...)
-    view(path) → read the 8-character token back
-    corpus_io.score_vision_probe(<what was read>, token)
-    → PASS: continue to CALL A4 unchanged.
-    → FAIL: HALT. No placeholders, no Row file. Ask for a fresh session.
-      Skipping this call is how eleven math questions became red placeholders
-      in the SSC CGL T2 18-Jan-2025 incident (v1.6 changelog).
+  CALL A3b (v1.11, MANDATORY before any classification): PHASE A + PHASE B
+    bash_tool: queue = corpus_io.build_vision_queue(items, VISION_WORKDIR)
+      where items = [{'paper_id','q_num','srcs':[extracted image paths]}, ...]
+    THEN, IN THIS TURN (PHASE B — prose protocol, S1-12; never a python call):
+      view(<VISION_WORKDIR>/<sheet>) for each sheet in queue['sheets']
+      record ONE observation per labelled cell, then
+      corpus_io.write_vision_observations(VISION_WORKDIR, observations)
+    bash_tool: bc.merge_vision_observations(queue['items'], observations)  (PHASE C)
+    → OBSERVED cells: classify exactly as v1.6 specified.
+    → UNOBSERVED cells: leave the image untouched, assign NO placeholder, complete
+      the run, state the count, render F1 amber. NO HALT.
+    The separate token probe is GONE (corpus_io v1.8): Phase B looks at the REAL
+    figures, so liveness arrives free — any observation returned proves vision works.
+    Skipping Phase B is how eleven math questions became red placeholders in the
+    SSC CGL T2 18-Jan-2025 incident (v1.6 changelog); the difference now is that
+    skipping it is VISIBLE (amber footer + stated count) rather than silent.
 
 PHASE A-IMAGE — IMAGE CLASSIFICATION (1–8 view calls, v1.6):
   Only when embedded images exist. Claude views each extracted image
@@ -3085,8 +3174,9 @@ PROOF:
        CELLS and legacy VML — and every one classified (v1.6/v1.9 — S1-12)
 ☐ 3a1. Mapping total cross-checked against corpus_io.count_image_refs — no
        image reaches the build unclassified (v1.9)
-☐ 3a2. VISION LIVENESS PROBE PASSED before any classification (v1.9 — S1-12
-       Phase A-PROBE). Probe FAIL → HALT, no placeholders, no Row file
+☐ 3a2. Every image that received a CLASSIFICATION had its cell OBSERVED in
+       Phase B (v1.11 — S1-12). Unobserved ⇒ image left untouched, no
+       placeholder, run completes, count stated, footer F1 amber
 ☐ 3b. Math/table/text images transcribed (v1.6 — zero math placeholders)
 ☐ 4.  Metadata stripped: all 6 categories removed, zero leakage
 ☐ 5.  Strings sanitised: no C0 control characters remain
@@ -3117,4 +3207,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v1.10
+# END OF Framework_PYQPrepare v1.12

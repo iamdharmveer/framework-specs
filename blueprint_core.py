@@ -1803,6 +1803,511 @@ def image_clarity_state(probe_passed, figure_readable):
     return 'clear' if figure_readable else 'unclear'
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLUSTER V — VISION MERGE / PROFILE  (GAP-2026-07-26-003)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# EXECUTION-BOUNDARY LAW. Viewing an image is a CLASS T operation: it requires a
+# tool call, and a tool call can only happen BETWEEN model turns. A python process
+# launched from bash runs to completion — it cannot suspend mid-loop, emit a tool
+# call, receive the result and resume. Every "vision function" the corpus has ever
+# written as python was therefore unreachable code returning a default forever.
+#
+# The three phases, and what lives where:
+#
+#   PHASE A (python, corpus_io.build_vision_queue)  normalise -> tile -> queue
+#   PHASE B (model, prose protocol)                 view() each sheet -> observations
+#   PHASE C (python, THIS MODULE)                   merge observations -> fields
+#
+# NOTHING HERE EVER RAISES AND NOTHING HERE EVER HALTS. A run with zero
+# observations produces the same shaped output as a fully observed run; the
+# difference is recorded in stats and surfaced by QV-14, not thrown. That is
+# deliberate: the defect this cluster exists to fix was a SILENT failure, and the
+# remedy for silence is visibility, not a halt.
+
+VISION_FIELDS = ('object_type', 'transformation_type', 'arrangement', 'complexity')
+
+# vision_status, queue level. Distinguishes the four outcomes a consumer must tell
+# apart. 'not_applicable' is NOT a failure — a text-only exam is a legitimate zero.
+VISION_STATUS = ('not_applicable', 'unavailable', 'partial', 'observed')
+
+_FNV_OFF = 0xcbf29ce484222325
+_FNV_PRIME = 0x100000001b3
+
+
+def _fnv1a(s):
+    """Deterministic 64-bit FNV-1a. Pure python so the thin core stays stdlib-only.
+
+    Used only to derive a SHORT, STABLE tag from a paper_id. Not a security hash.
+    """
+    h = _FNV_OFF
+    for b in str(s).encode('utf-8'):
+        h = ((h ^ b) * _FNV_PRIME) & 0xFFFFFFFFFFFFFFFF
+    return h
+
+
+def vision_tag_map(keys, width=4):
+    """Map ``(paper_id, q_num)`` keys to short, stable, collision-free tags.
+
+    The tag is what a human writes on a contact sheet and reads back in Phase B, so
+    it must be short. It must ALSO be stable across runs, or a resumed run cannot
+    match yesterday's observations (EC-V11/EC-V12).
+
+    A sequential index would be shorter but is NOT stable: adding one paper shifts
+    every later index and silently re-points existing observations at the wrong
+    question. The tag is therefore derived from paper_id alone, so a key's tag never
+    depends on which OTHER keys are in the queue.
+
+    Collisions are resolved by widening the paper hash for the WHOLE queue — one
+    deterministic width per queue, recorded in the queue file so Phase C can tell
+    which generation an observations file belongs to. EC-V15: the key is
+    (paper_id, q_num); a bare q_num collides across papers by construction.
+    """
+    keys = list(keys)
+    papers = sorted({str(p) for p, _ in keys})
+    for w in range(max(2, int(width)), 17):
+        codes, seen, clash = {}, set(), False
+        for p in papers:
+            c = format(_fnv1a(p), 'x').upper()[:w]
+            if c in seen:
+                clash = True
+                break
+            seen.add(c)
+            codes[p] = c
+        if not clash:
+            return ({k: f'{codes[str(k[0])]}-{k[1]}' for k in keys}, w)
+    # Unreachable in practice (16 hex chars = the full 64-bit space). Degrade to a
+    # full-width code rather than raise: this module never halts.
+    codes = {p: format(_fnv1a(p), 'x').upper() for p in papers}
+    return ({k: f'{codes[str(k[0])]}-{k[1]}' for k in keys}, 16)
+
+
+def _norm_tag(t):
+    """Tags compare case-insensitively and ignore whitespace/en-dashes.
+
+    Phase B is transcription by a model reading a label off an image. Requiring
+    byte-exact echo would turn a cosmetic transcription difference into data loss,
+    which is the failure mode this whole cluster exists to remove.
+    """
+    if t is None:
+        return ''
+    s = re.sub(r'\s+', '', str(t)).upper()
+    return s.replace('\u2013', '-').replace('\u2014', '-').replace('_', '-')
+
+
+def _as_key(rec):
+    """Best-effort (paper_id, q_num) from an observation. Returns None if absent."""
+    p = rec.get('paper_id')
+    q = rec.get('q_num', rec.get('num'))
+    if p is None or q is None:
+        return None
+    try:
+        return (str(p), int(q))
+    except (TypeError, ValueError):
+        return None
+
+
+def merge_vision_observations(queue_items, observations):
+    """PHASE C. Fold Phase-B observations back onto queue items. NEVER raises.
+
+    queue_items  : [{'tag','paper_id','q_num', ...}]  from the queue file
+    observations : [{'tag' and/or 'paper_id'+'q_num', 'figure_readable', <fields>}]
+
+    Returns (by_key, stats):
+      by_key {(paper_id,q_num): {<VISION_FIELDS>, 'image_clarity'}}
+      stats  {'queued','observed','missing','unreadable','unknown','duplicate',
+              'vision_status'}
+
+    MATCHING is by tag first, then by (paper_id, q_num). The fallback is what makes
+    an observations file survive a queue rebuilt at a different tag width — without
+    it, a widened queue would silently discard every prior observation (EC-V11).
+
+    image_clarity is derived through image_clarity_state() with probe_passed set to
+    "this item was actually observed". An observation existing IS the proof that the
+    vision path worked for that item, so no separate probe rule is needed here. One
+    rule, one place — a second rule would drift from the first (anti-drift).
+
+    EC-V4  partial observation      -> present items filled, absent items reported
+    EC-V5  observation not in queue -> counted in stats['unknown'], never a crash
+    EC-V12 re-run                   -> identical inputs give identical outputs
+    """
+    items = list(queue_items or [])
+    by_tag, by_key_idx = {}, {}
+    for it in items:
+        k = _as_key(it)
+        if k is None:
+            continue
+        by_tag[_norm_tag(it.get('tag'))] = k
+        by_key_idx[k] = it
+
+    seen, unknown, duplicate = {}, [], []
+    for ob in (observations or []):
+        if not isinstance(ob, dict):
+            continue
+        k = by_tag.get(_norm_tag(ob.get('tag')))
+        if k is None:
+            k2 = _as_key(ob)
+            k = k2 if k2 in by_key_idx else None
+        if k is None:
+            unknown.append(ob.get('tag'))
+            continue
+        if k in seen:
+            duplicate.append(ob.get('tag'))
+        seen[k] = ob                      # last write wins, deterministically
+
+    by_key, unreadable = {}, 0
+    for it in items:
+        k = _as_key(it)
+        if k is None:
+            continue
+        ob = seen.get(k)
+        observed = ob is not None
+        readable = bool(ob.get('figure_readable', True)) if observed else False
+        if observed and not readable:
+            unreadable += 1
+        rec = {f: (ob.get(f) if observed else None) for f in VISION_FIELDS}
+        # An observed-but-illegible figure carries no field values: EC-V2 says record
+        # the illegibility, never a guess.
+        if observed and not readable:
+            rec = {f: None for f in VISION_FIELDS}
+        rec['image_clarity'] = image_clarity_state(observed, readable)
+        by_key[k] = rec
+
+    queued = len(by_key)
+    observed_n = sum(1 for k in by_key if k in seen)
+    missing = queued - observed_n
+    if queued == 0:
+        status = 'not_applicable'
+    elif observed_n == 0:
+        status = 'unavailable'
+    elif missing == 0:
+        status = 'observed'
+    else:
+        status = 'partial'
+    # Tags are coerced to str before sorting. An observations file is model-written
+    # JSON, so a tag can arrive as an int (123) beside a str ('A1B2-7'); sorted()
+    # raises TypeError comparing the two, and a diagnostic field must never be the
+    # thing that brings the merge down. Found by property fuzzing, not by example.
+    def _tags_out(seq):
+        return sorted({str(t) for t in seq if t not in (None, '')})
+
+    return by_key, {
+        'queued': queued, 'observed': observed_n, 'missing': missing,
+        'unreadable': unreadable, 'unknown': _tags_out(unknown),
+        'duplicate': _tags_out(duplicate), 'vision_status': status,
+    }
+
+
+MIN_DOMINANT_OBSERVATIONS = 5
+MIN_DOMINANT_COUNT = 2
+MIN_DOMINANT_SHARE = 0.20
+
+
+def vision_profile(records, min_dominant=MIN_DOMINANT_OBSERVATIONS, top_n=3,
+                   min_count=MIN_DOMINANT_COUNT, min_share=MIN_DOMINANT_SHARE):
+    """Aggregate merged vision records for ONE subtopic into PYQ_IMAGE_ANALYSIS.
+
+    records: the merged dicts for this subtopic's figural questions.
+
+    EC-V20. 'dominant' is a claim about what this subtopic's figures TYPICALLY look
+    like, and Step 7 generates against it. Two observations cannot support that claim
+    — declaring a dominant type from n=2 hands the generator noise with the authority
+    of measurement. Below min_dominant, 'observed' is still published (it is a plain
+    record of what was seen) and 'dominant' is withheld, with the reason stated in
+    'dominant_suppressed' so a reader is never left guessing why it is empty.
+
+    EC-V21. observed_n / queued_n travel with the profile, so a consumer can tell a
+    complete profile from one built on a third of the subtopic's papers.
+
+    EC-V26 (FLAT DISTRIBUTION). Having enough observations is necessary but not
+    sufficient. Six figures of six DIFFERENT types is a well-observed subtopic with no
+    dominant type at all — yet a plain top-N would name the alphabetically-first three
+    and hand Step 7 a fixation the evidence does not support. A type must therefore
+    RECUR (>= min_count) and hold a real share (>= min_share) before it is named.
+    When nothing qualifies, 'dominant' is empty and 'observed' carries the variety,
+    which is the honest instruction: generate across the range, do not fixate.
+    """
+    recs = [r for r in (records or []) if isinstance(r, dict)]
+    clear = [r for r in recs if r.get('image_clarity') == 'clear']
+    unclear = sum(1 for r in recs if r.get('image_clarity') == 'unclear')
+    unobserved = sum(1 for r in recs if r.get('image_clarity') == 'vision_unavailable')
+
+    def _vals(field):
+        return [r.get(field) for r in clear if r.get(field)]
+
+    objs = _vals('object_type')
+    transforms = [t for t in _vals('transformation_type') if t != 'N/A']
+    arrangements = _vals('arrangement')
+    complexities = _vals('complexity')
+
+    counts = {}
+    for o in objs:
+        counts[o] = counts.get(o, 0) + 1
+    ranked = [o for o, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+
+    enough = len(clear) >= int(min_dominant)
+    n_obj = len(objs)
+    qualified = [o for o in ranked
+                 if counts[o] >= int(min_count)
+                 and n_obj and (counts[o] / float(n_obj)) >= float(min_share)]
+    dominant = qualified[:top_n] if enough else []
+    prof = {
+        'object_types': {
+            'dominant': dominant,
+            'observed': sorted(set(objs)),
+            'avoid': [],
+        },
+        'transformation_types': sorted(set(transforms)),
+        'arrangement_types': sorted(set(arrangements)),
+        'complexity_dist': ({k: round(v / len(complexities) * 100)
+                             for k, v in sorted(
+                                 {c: complexities.count(c)
+                                  for c in set(complexities)}.items())}
+                            if complexities else {}),
+        'images_analysed': len(clear),
+        'images_unclear': unclear,
+        'images_unobserved': unobserved,
+        'observed_n': len(clear),
+        'queued_n': len(recs),
+    }
+    if not enough:
+        prof['dominant_suppressed'] = (
+            f'{len(clear)} clear observation(s) — below the {int(min_dominant)} '
+            f'needed to name a dominant type; "observed" is reported instead')
+    elif not dominant:
+        prof['dominant_suppressed'] = (
+            f'{len(set(objs))} distinct type(s) across {n_obj} observation(s) with no '
+            f'type reaching {int(min_count)} occurrences and {int(min_share * 100)}% '
+            f'share — the distribution is flat, so no type is dominant; generate '
+            f'across "observed" rather than fixating')
+    if len(recs) == 0:
+        prof['vision_status'] = 'not_applicable'
+    elif len(clear) == 0:
+        prof['vision_status'] = 'unavailable'
+    elif unobserved == 0:
+        prof['vision_status'] = 'observed'
+    else:
+        prof['vision_status'] = 'partial'
+    return prof
+
+
+GENERATION_MODES = ('unconstrained', 'observed', 'dominant')
+
+
+def figural_generation_profile(pyq_image_analysis):
+    """CONSUMER SIDE. Resolve a section_rules PYQ_IMAGE_ANALYSIS block into a
+    figure-generation constraint for Step 7. NEVER raises.
+
+    Step 5 has measured what the real figures in a subtopic CONTAIN since v2.29 and
+    wrote object_types / transformation_types / complexity_dist into section_rules.
+    Until now NOTHING READ THEM: Framework_MockTestCreate consumed only image_role,
+    so the semantic half of the measurement was written and never used — a captured
+    value with no consumer, the exact defect shape audit_callgraph C5 exists to catch,
+    invisible to C5 only because these fields are serialised as prose rather than held
+    as dict keys.
+
+    Returns {'mode', 'dominant', 'observed', 'transformation_types',
+             'arrangement_types', 'complexity_dist', 'reason'}.
+
+      'dominant'      — a recurring type profile exists; bind generation to it 70/30.
+      'observed'      — figures were seen but no type dominates (flat, or thin
+                        evidence). Generate ACROSS the observed variety; do not
+                        fixate. Naming a dominant here would be noise with the
+                        authority of measurement.
+      'unconstrained' — no usable profile. Generate on subtopic semantics alone,
+                        exactly as before this function existed.
+
+    EC-V18 LEGACY TOLERANCE, NON-NEGOTIABLE. Roughly 200 exams hold section_rules
+    written before the vision fix, carrying object_types: [] and no vision_status.
+    Every one must keep working untouched, so absent / empty / malformed input all
+    resolve to 'unconstrained' rather than raising or blocking.
+
+    A vision_status of 'unavailable' is treated as 'unconstrained' EVEN IF stale
+    object_types are present: that status means Step 5 queued figures and observed
+    none, so the emptiness is a MEASUREMENT GAP, not evidence about the subtopic.
+    Generating against it would be generating against a fact nobody established.
+    Reporting the gap is QV-14's job, not this function's.
+    """
+    out = {'mode': 'unconstrained', 'dominant': [], 'observed': [],
+           'transformation_types': [], 'arrangement_types': [],
+           'complexity_dist': {}, 'reason': ''}
+    if not isinstance(pyq_image_analysis, dict) or not pyq_image_analysis:
+        out['reason'] = 'no PYQ_IMAGE_ANALYSIS block (pre-v2.37 artefact) — EC-V18'
+        return out
+
+    status = pyq_image_analysis.get('vision_status')
+    if status in ('unavailable', 'not_applicable'):
+        out['reason'] = (f"vision_status={status!r} — the profile is a measurement "
+                         f"gap, not a finding about this subtopic")
+        return out
+
+    ot = pyq_image_analysis.get('object_types')
+    ot = ot if isinstance(ot, dict) else {}
+
+    def _clean(seq):
+        return [str(x) for x in seq if x] if isinstance(seq, (list, tuple)) else []
+
+    dominant = _clean(ot.get('dominant'))
+    observed = _clean(ot.get('observed'))
+    out['dominant'] = dominant
+    out['observed'] = sorted(set(observed) | set(dominant))
+    out['transformation_types'] = _clean(pyq_image_analysis.get('transformation_types'))
+    out['arrangement_types'] = _clean(pyq_image_analysis.get('arrangement_types'))
+    cd = pyq_image_analysis.get('complexity_dist')
+    out['complexity_dist'] = cd if isinstance(cd, dict) else {}
+
+    if dominant:
+        out['mode'] = 'dominant'
+        out['reason'] = (f'{len(dominant)} recurring type(s) over '
+                         f'{len(out["observed"])} observed — bind 70/30')
+    elif out['observed']:
+        out['mode'] = 'observed'
+        out['reason'] = (pyq_image_analysis.get('dominant_suppressed')
+                         or f'{len(out["observed"])} type(s) observed, none dominant '
+                            f'— generate across the range')
+    else:
+        out['reason'] = 'PYQ_IMAGE_ANALYSIS present but object_types empty — EC-V18'
+    return out
+
+
+DOMINANT_SHARE_TARGET = 0.70
+DOMINANT_SHARE_FLOOR = 0.55
+
+
+def check_figural_conformance(generated_types, profile,
+                              floor=DOMINANT_SHARE_FLOOR):
+    """Did generation honour the figure profile? ONE rule, shared by Steps 7 and 8.
+
+    generated_types: the object_type Step 7 RECORDED for each figural question it
+    generated in this subtopic (from batch_state.figural_qs[n].object_type).
+
+    Returns (verdict, detail) where verdict is 'PASS' | 'FAIL' | 'SKIP'.
+
+    WHY INTENT, NOT PIXELS. Verifying that a rendered PNG actually depicts a
+    micrograph would require viewing it — a CLASS T operation, which cannot run
+    inside an audit's python. Auditing the RECORDED INTENT is deterministic, free,
+    and catches the failure that actually matters: Step 7 ignoring the profile.
+    Whether the render matches its own label is a different question, already
+    covered by the image-count and composite gates.
+
+    'dominant' mode allows a FLOOR rather than the exact 70/30 target. A subtopic
+    with three generated figures cannot hit 70% precisely, and failing a run for
+    arithmetic it cannot satisfy is how a gate gets disabled.
+
+    NEVER raises. An unconstrained profile SKIPs, which is what keeps ~200 legacy
+    exams passing (EC-V18).
+    """
+    types = [str(t) for t in (generated_types or []) if t]
+    mode = (profile or {}).get('mode', 'unconstrained')
+    if mode == 'unconstrained' or not types:
+        return ('SKIP', 'no figure profile for this subtopic (EC-V18)'
+                if mode == 'unconstrained' else 'no generated figural questions')
+
+    observed = set((profile or {}).get('observed') or [])
+    stray = sorted({t for t in types if t not in observed})
+    if stray:
+        return ('FAIL',
+                f'generated figure type(s) {stray} appear in neither the dominant '
+                f'nor the observed profile for this subtopic — the real PYQs show '
+                f'{sorted(observed)}. A figure type the exam has never used cannot '
+                f'match it in content.')
+
+    if mode == 'observed':
+        return ('PASS', f'{len(types)} figure(s) drawn from the observed range '
+                        f'{sorted(observed)}; no dominant type to bind to')
+
+    dominant = set((profile or {}).get('dominant') or [])
+    hit = sum(1 for t in types if t in dominant)
+    share = hit / float(len(types))
+    if share < float(floor):
+        return ('FAIL',
+                f'only {hit}/{len(types)} ({share:.0%}) generated figures use a '
+                f'dominant type {sorted(dominant)}; target is '
+                f'{int(DOMINANT_SHARE_TARGET * 100)}%, floor '
+                f'{int(float(floor) * 100)}%. The mock under-represents what this '
+                f'subtopic actually looks like.')
+    return ('PASS', f'{hit}/{len(types)} ({share:.0%}) use a dominant type '
+                    f'(floor {int(float(floor) * 100)}%)')
+
+
+def parse_image_analysis_blocks(section_rules_text):
+    """Parse ``{subtopic_id: PYQ_IMAGE_ANALYSIS dict}`` out of section_rules text.
+
+    Pure string work, so it belongs in the thin core: Step 8 receives section_rules
+    as TEXT (it does not receive the answer-key sidecar, S0-1), and both Step 7 and
+    Step 8 must read the same block the same way or their verdicts diverge.
+
+    Tolerant by construction. A block written before v2.37 carries only four fields;
+    one written after carries eleven. Missing keys are simply absent from the dict,
+    and figural_generation_profile() resolves an incomplete dict to 'unconstrained'
+    (EC-V18). NEVER raises — a malformed artefact yields {} and the gate goes dormant
+    rather than failing a run for a parsing problem.
+    """
+    out = {}
+    if not isinstance(section_rules_text, str) or not section_rules_text:
+        return out
+
+    def _lit(raw, default):
+        raw = (raw or '').strip()
+        if not raw:
+            return default
+        try:
+            import ast as _ast
+            return _ast.literal_eval(raw)
+        except Exception:
+            return default
+
+    # Blocks are delimited by the subtopic header; subtopic_id appears inside.
+    for chunk in re.split(r'^---\s*Subtopic:', section_rules_text, flags=re.M)[1:]:
+        m = re.search(r'^\s*subtopic_id:\s*(\S+)', chunk, re.M)
+        if not m:
+            continue
+        sid = m.group(1).strip()
+        blk = re.search(r'^PYQ_IMAGE_ANALYSIS:\s*\n(.*?)(?=^\S|\Z)', chunk,
+                        re.M | re.S)
+        if not blk:
+            continue
+        body = blk.group(1)
+
+        def _s(key):
+            mm = re.search(rf'^\s*{key}:\s*(.+)$', body, re.M)
+            return mm.group(1).strip() if mm else None
+
+        rec = {}
+        for key in ('image_role', 'vision_status'):
+            v = _s(key)
+            if v is not None:
+                rec[key] = v
+        dom = re.search(r'^\s*dominant:\s*(\[.*?\])\s*$', body, re.M)
+        obs = re.search(r'^\s*observed:\s*(\[.*?\])\s*$', body, re.M)
+        avo = re.search(r'^\s*avoid:\s*(\[.*?\])\s*$', body, re.M)
+        if dom or obs or avo:
+            rec['object_types'] = {
+                'dominant': _lit(dom.group(1) if dom else None, []),
+                'observed': _lit(obs.group(1) if obs else None, []),
+                'avoid': _lit(avo.group(1) if avo else None, []),
+            }
+        for key in ('transformation_types', 'arrangement_types'):
+            v = _s(key)
+            if v is not None:
+                rec[key] = _lit(v, [])
+        v = _s('complexity_dist')
+        if v is not None:
+            rec['complexity_dist'] = _lit(v, {})
+        for key in ('images_analysed', 'images_unclear', 'images_unobserved'):
+            v = _s(key)
+            if v is not None:
+                try:
+                    rec[key] = int(v)
+                except (TypeError, ValueError):
+                    pass
+        v = _s('dominant_suppressed')
+        if v is not None:
+            rec['dominant_suppressed'] = v.strip('"')
+        out[sid] = rec
+    return out
+
+
 def self_test():
     passed = 0
     total = 0
@@ -2419,6 +2924,294 @@ def self_test():
     check('g_next_nonempty',
           next_nonempty_texts([_P3('A'), _P3(''), _P3('   '), _P3('B'), _P3('C'), _P3('')])
           == ['B', 'B', 'B', 'C', '', ''])
+
+    # ── CLUSTER V — VISION MERGE / PROFILE (GAP-2026-07-26-003) ─────────────
+    _keys = [('PAPER_A', 1), ('PAPER_A', 17), ('PAPER_B', 1)]
+    _tags, _w = vision_tag_map(_keys)
+    check('v_tag_unique', len(set(_tags.values())) == 3)
+    check('v_tag_key_is_pair', _tags[('PAPER_A', 1)] != _tags[('PAPER_B', 1)])
+    check('v_tag_deterministic', vision_tag_map(_keys)[0] == _tags)
+    # EC-V11/V12: a tag must NOT depend on which other keys are queued.
+    check('v_tag_stable_on_growth',
+          vision_tag_map(_keys + [('PAPER_C', 9)])[0][('PAPER_A', 17)]
+          == _tags[('PAPER_A', 17)])
+    check('v_tag_width_reported', isinstance(_w, int) and _w >= 2)
+
+    def _q(k, t):
+        return {'tag': t, 'paper_id': k[0], 'q_num': k[1]}
+    _queue = [_q(k, _tags[k]) for k in _keys]
+
+    # EC-V1 — text-only exam: empty queue is not_applicable, never a failure.
+    _bk, _st = merge_vision_observations([], [])
+    check('v_ec1_empty_queue', _st['vision_status'] == 'not_applicable'
+          and _st['queued'] == 0 and _bk == {})
+
+    # EC-V3 — Phase B never ran: every item vision_unavailable, no raise, no halt.
+    _bk, _st = merge_vision_observations(_queue, [])
+    check('v_ec3_no_observations',
+          _st['vision_status'] == 'unavailable' and _st['missing'] == 3
+          and all(v['image_clarity'] == 'vision_unavailable' for v in _bk.values()))
+
+    # full observation
+    _obs = [{'tag': _tags[k], 'figure_readable': True, 'object_type': 'micrograph',
+             'transformation_type': 'N/A', 'arrangement': 'single',
+             'complexity': 'Simple'} for k in _keys]
+    _bk, _st = merge_vision_observations(_queue, _obs)
+    check('v_full_observed', _st['vision_status'] == 'observed'
+          and _st['observed'] == 3 and _st['missing'] == 0)
+    check('v_fields_populated',
+          _bk[('PAPER_A', 1)]['object_type'] == 'micrograph'
+          and _bk[('PAPER_A', 1)]['image_clarity'] == 'clear')
+
+    # EC-V12 — idempotent: identical inputs, identical outputs.
+    check('v_ec12_idempotent', merge_vision_observations(_queue, _obs)[0] == _bk)
+
+    # EC-V4 — partial: present filled, absent reported, ratio true.
+    _bk, _st = merge_vision_observations(_queue, _obs[:2])
+    check('v_ec4_partial', _st['vision_status'] == 'partial'
+          and _st['observed'] == 2 and _st['missing'] == 1)
+    check('v_ec4_missing_marked',
+          _bk[('PAPER_B', 1)]['image_clarity'] == 'vision_unavailable')
+
+    # EC-V2 — illegible figure is 'unclear', NOT 'vision_unavailable', and carries
+    # no guessed field values.
+    _bk, _st = merge_vision_observations(
+        _queue, [{'tag': _tags[_keys[0]], 'figure_readable': False,
+                  'object_type': 'guess'}])
+    check('v_ec2_unclear_distinct',
+          _bk[_keys[0]]['image_clarity'] == 'unclear' and _st['unreadable'] == 1)
+    check('v_ec2_no_guess', _bk[_keys[0]]['object_type'] is None)
+
+    # EC-V5 — observation for a tag not in the queue: counted, ignored, no crash.
+    _bk, _st = merge_vision_observations(
+        _queue, [{'tag': 'ZZZZ-99', 'figure_readable': True}])
+    check('v_ec5_unknown_tag', _st['unknown'] == ['ZZZZ-99'] and _st['observed'] == 0)
+
+    # tag transcription tolerance + (paper_id,q_num) fallback across tag widths
+    _bk, _st = merge_vision_observations(
+        _queue, [{'tag': ' ' + _tags[_keys[0]].lower().replace('-', '\u2013'),
+                  'figure_readable': True, 'object_type': 'gel'}])
+    check('v_tag_transcription_tolerant', _bk[_keys[0]]['object_type'] == 'gel')
+    _bk, _st = merge_vision_observations(
+        _queue, [{'paper_id': 'PAPER_A', 'q_num': 17, 'figure_readable': True,
+                  'object_type': 'plot'}])
+    check('v_key_fallback_match', _bk[('PAPER_A', 17)]['object_type'] == 'plot')
+
+    # duplicate observations: last wins, recorded, never a crash
+    _bk, _st = merge_vision_observations(
+        _queue, [{'tag': _tags[_keys[0]], 'figure_readable': True, 'object_type': 'a'},
+                 {'tag': _tags[_keys[0]], 'figure_readable': True, 'object_type': 'b'}])
+    check('v_duplicate_last_wins',
+          _bk[_keys[0]]['object_type'] == 'b' and len(_st['duplicate']) == 1)
+
+    # malformed observation entries must not crash the merge
+    _bk, _st = merge_vision_observations(_queue, [None, 'junk', 42, {}])
+    check('v_malformed_tolerated', _st['queued'] == 3 and _st['observed'] == 0)
+
+    # EC-V20 — dominant withheld below threshold; observed still published.
+    _thin = [{'image_clarity': 'clear', 'object_type': 'micrograph'},
+             {'image_clarity': 'clear', 'object_type': 'micrograph'}]
+    _p = vision_profile(_thin, min_dominant=5)
+    check('v_ec20_dominant_withheld', _p['object_types']['dominant'] == [])
+    check('v_ec20_observed_published',
+          _p['object_types']['observed'] == ['micrograph'])
+    check('v_ec20_reason_given', 'dominant_suppressed' in _p)
+
+    _thick = [{'image_clarity': 'clear', 'object_type': 'micrograph',
+               'complexity': 'Simple', 'transformation_type': 'N/A',
+               'arrangement': 'single'} for _ in range(4)] + \
+             [{'image_clarity': 'clear', 'object_type': 'gel',
+               'complexity': 'Hard', 'transformation_type': 'rotation_90cw',
+               'arrangement': 'row_series'}]
+    _p = vision_profile(_thick, min_dominant=5)
+    # 'gel' occurs once: it holds 20% share but does not RECUR, so EC-V26 keeps it
+    # out of dominant while 'observed' still records that it was seen.
+    check('v_ec20_dominant_named', _p['object_types']['dominant'] == ['micrograph'])
+    check('v_ec20_singleton_still_observed',
+          _p['object_types']['observed'] == ['gel', 'micrograph'])
+    check('v_profile_no_na_transform', _p['transformation_types'] == ['rotation_90cw'])
+    check('v_profile_complexity_pct',
+          _p['complexity_dist'] == {'Hard': 20, 'Simple': 80})
+    check('v_profile_counts',
+          _p['images_analysed'] == 5 and _p['images_unclear'] == 0
+          and _p['vision_status'] == 'observed')
+
+    # EC-V26 — well-observed but FLAT: six distinct types, none dominant.
+    _flat = [{'image_clarity': 'clear', 'object_type': t} for t in
+             ('gel', 'curve', 'cell', 'pedigree', 'bar', 'helix')]
+    _p = vision_profile(_flat, min_dominant=5)
+    check('v_ec26_flat_no_dominant', _p['object_types']['dominant'] == [])
+    check('v_ec26_flat_variety_kept', len(_p['object_types']['observed']) == 6)
+    check('v_ec26_flat_reason', 'flat' in _p.get('dominant_suppressed', ''))
+    # a genuine majority still surfaces
+    _peak = [{'image_clarity': 'clear', 'object_type': 'gel'} for _ in range(4)] + \
+            [{'image_clarity': 'clear', 'object_type': 'curve'},
+             {'image_clarity': 'clear', 'object_type': 'bar'}]
+    check('v_ec26_peak_named',
+          vision_profile(_peak, min_dominant=5)['object_types']['dominant'] == ['gel'])
+    # a singleton never enters dominant even alongside a real peak
+    check('v_ec26_singleton_excluded',
+          'bar' not in vision_profile(_peak, min_dominant=5)['object_types']['dominant'])
+
+    # EC-V21 — provenance travels with the profile
+    _mixed = [{'image_clarity': 'clear', 'object_type': 'x'},
+              {'image_clarity': 'vision_unavailable'},
+              {'image_clarity': 'unclear'}]
+    _p = vision_profile(_mixed, min_dominant=1)
+    check('v_ec21_provenance',
+          _p['queued_n'] == 3 and _p['observed_n'] == 1
+          and _p['images_unobserved'] == 1 and _p['images_unclear'] == 1)
+    check('v_ec21_status_partial', _p['vision_status'] == 'partial')
+    check('v_profile_empty_safe',
+          vision_profile([])['vision_status'] == 'not_applicable')
+    check('v_profile_none_safe', vision_profile(None)['object_types']['dominant'] == [])
+
+    # ── EC-V18 — CONSUMER SIDE / LEGACY TOLERANCE ──────────────────────────
+    _P = figural_generation_profile
+    # every pre-v2.37 artefact shape must resolve to 'unconstrained', never raise
+    for _label, _inp in (('none', None), ('empty', {}), ('str', 'junk'), ('list', []),
+                         ('legacy_empty', {'image_role': 'stem_only',
+                                           'object_types': {'dominant': [],
+                                                            'observed': []},
+                                           'transformation_types': []}),
+                         ('malformed_ot', {'object_types': 'nope'}),
+                         ('none_ot', {'object_types': {'dominant': None,
+                                                       'observed': None}})):
+        check(f'v_ec18_legacy_{_label}', _P(_inp)['mode'] == 'unconstrained')
+    check('v_ec18_reason_given', bool(_P({})['reason']))
+
+    # a measurement GAP must not become a constraint, even with stale types present
+    check('v_ec18_unavailable_unconstrained',
+          _P({'vision_status': 'unavailable',
+              'object_types': {'dominant': ['stale'], 'observed': ['stale']}})['mode']
+          == 'unconstrained')
+    check('v_ec18_not_applicable_unconstrained',
+          _P({'vision_status': 'not_applicable'})['mode'] == 'unconstrained')
+
+    # a real profile binds
+    _real = {'vision_status': 'observed',
+             'object_types': {'dominant': ['micrograph'],
+                              'observed': ['micrograph', 'gel']},
+             'transformation_types': ['rotation_90cw'],
+             'arrangement_types': ['single'],
+             'complexity_dist': {'Simple': 80, 'Hard': 20}}
+    _p = _P(_real)
+    check('v_ec18_dominant_mode', _p['mode'] == 'dominant')
+    check('v_ec18_observed_superset',
+          _p['observed'] == ['gel', 'micrograph'])
+    check('v_ec18_carries_transform', _p['transformation_types'] == ['rotation_90cw'])
+    check('v_ec18_carries_complexity', _p['complexity_dist'] == {'Simple': 80, 'Hard': 20})
+
+    # flat / thin evidence -> generate across the range, never fixate
+    _flatp = _P({'vision_status': 'observed',
+                 'object_types': {'dominant': [], 'observed': ['a', 'b', 'c']},
+                 'dominant_suppressed': 'flat distribution'})
+    check('v_ec18_observed_mode', _flatp['mode'] == 'observed')
+    check('v_ec18_observed_range', _flatp['observed'] == ['a', 'b', 'c'])
+    check('v_ec18_reason_propagated', _flatp['reason'] == 'flat distribution')
+    # dominant is always a subset of observed, whatever the input says
+    check('v_ec18_dominant_subset',
+          set(_P({'object_types': {'dominant': ['x'], 'observed': []}})['dominant'])
+          <= set(_P({'object_types': {'dominant': ['x'], 'observed': []}})['observed']))
+    check('v_ec18_modes_valid',
+          all(_P(i)['mode'] in GENERATION_MODES
+              for i in (None, {}, _real, {'object_types': {'observed': ['q']}})))
+
+    # ── STEP 8 CONFORMANCE GATE (shared rule) ──────────────────────────────
+    _C = check_figural_conformance
+    _dom = _P({'vision_status': 'observed',
+               'object_types': {'dominant': ['micrograph'],
+                                'observed': ['micrograph', 'gel']}})
+    check('v_conf_pass_dominant',
+          _C(['micrograph'] * 7 + ['gel'] * 3, _dom)[0] == 'PASS')
+    check('v_conf_fail_under_floor',
+          _C(['gel'] * 7 + ['micrograph'] * 3, _dom)[0] == 'FAIL')
+    check('v_conf_fail_stray_type',
+          _C(['micrograph', 'bar_chart'], _dom)[0] == 'FAIL')
+    check('v_conf_stray_named',
+          'bar_chart' in _C(['micrograph', 'bar_chart'], _dom)[1])
+    # legacy / empty -> SKIP, never FAIL (EC-V18: ~200 exams depend on this)
+    check('v_conf_skip_unconstrained', _C(['anything'], _P({}))[0] == 'SKIP')
+    check('v_conf_skip_no_types', _C([], _dom)[0] == 'SKIP')
+    check('v_conf_skip_none', _C(None, None)[0] == 'SKIP')
+    # observed mode: any observed type passes, a stray still fails
+    _obs = _P({'vision_status': 'observed',
+               'object_types': {'dominant': [], 'observed': ['a', 'b', 'c']}})
+    check('v_conf_observed_pass', _C(['a', 'b', 'c', 'a'], _obs)[0] == 'PASS')
+    check('v_conf_observed_stray', _C(['a', 'z'], _obs)[0] == 'FAIL')
+    # small-N tolerance: 2 of 3 dominant = 67% >= 55% floor
+    check('v_conf_small_n_tolerated',
+          _C(['micrograph', 'micrograph', 'gel'], _dom)[0] == 'PASS')
+    check('v_conf_never_raises',
+          all(_C(g, p)[0] in ('PASS', 'FAIL', 'SKIP')
+              for g in (None, [], ['x'], [None, ''])
+              for p in (None, {}, _dom, _obs, {'mode': 'dominant'})))
+
+    # ── section_rules PYQ_IMAGE_ANALYSIS PARSER ────────────────────────────
+    _legacy_sr = """--- Subtopic: Chromatography ---
+subtopic_id: bt.tech.chromatography
+format: FIGURAL
+PYQ_IMAGE_ANALYSIS:
+  image_role: stem_only
+  object_types:
+    dominant: []
+    observed: []
+  transformation_types: []
+  images_analysed: 0
+  images_unclear: 0
+
+--- Subtopic: Gel Electrophoresis ---
+subtopic_id: bt.tech.gel
+format: FIGURAL
+PYQ_IMAGE_ANALYSIS:
+  image_role: stem_and_options
+  vision_status: observed
+  object_types:
+    dominant: ['gel_band_pattern']
+    observed: ['gel_band_pattern', 'plot_curve']
+    avoid: []
+  transformation_types: ['N/A']
+  arrangement_types: ['single']
+  complexity_dist: {'Simple': 60, 'Medium': 40}
+  images_analysed: 9
+  images_unclear: 1
+  images_unobserved: 0
+"""
+    _pb = parse_image_analysis_blocks(_legacy_sr)
+    check('v_parse_two_blocks', set(_pb) == {'bt.tech.chromatography', 'bt.tech.gel'})
+    check('v_parse_legacy_shape',
+          _pb['bt.tech.chromatography']['object_types']['dominant'] == []
+          and 'vision_status' not in _pb['bt.tech.chromatography'])
+    check('v_parse_legacy_unconstrained',
+          figural_generation_profile(_pb['bt.tech.chromatography'])['mode']
+          == 'unconstrained')
+    check('v_parse_v237_shape',
+          _pb['bt.tech.gel']['object_types']['dominant'] == ['gel_band_pattern']
+          and _pb['bt.tech.gel']['vision_status'] == 'observed')
+    check('v_parse_complexity',
+          _pb['bt.tech.gel']['complexity_dist'] == {'Simple': 60, 'Medium': 40})
+    check('v_parse_counts',
+          _pb['bt.tech.gel']['images_analysed'] == 9
+          and _pb['bt.tech.gel']['images_unclear'] == 1)
+    check('v_parse_v237_binds',
+          figural_generation_profile(_pb['bt.tech.gel'])['mode'] == 'dominant')
+    # malformed / absent input must yield {} and never raise
+    for _bad in (None, '', 'garbage', 123, [],
+                 '--- Subtopic: X ---\nno_id_here\n',
+                 '--- Subtopic: X ---\nsubtopic_id: y\n(no image block)\n'):
+        check(f'v_parse_safe_{type(_bad).__name__}_{str(_bad)[:8]}',
+              parse_image_analysis_blocks(_bad) in ({}, {'y': {}}) or
+              isinstance(parse_image_analysis_blocks(_bad), dict))
+    # A corrupt literal does not match the value pattern at all, so the key is simply
+    # ABSENT — which resolves to 'unconstrained'. That is the safe outcome: a parsing
+    # problem must never become a generation constraint or a failed run.
+    _corrupt = parse_image_analysis_blocks(
+        '--- Subtopic: X ---\nsubtopic_id: y\nPYQ_IMAGE_ANALYSIS:\n'
+        '  object_types:\n    dominant: [not-a-literal\n')
+    check('v_parse_corrupt_key_absent',
+          'object_types' not in _corrupt.get('y', {}))
+    check('v_parse_corrupt_unconstrained',
+          figural_generation_profile(_corrupt.get('y', {}))['mode'] == 'unconstrained')
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

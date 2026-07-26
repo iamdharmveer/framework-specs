@@ -1,4 +1,38 @@
-# Framework_MockTestCreate v5.30
+# Framework_MockTestCreate v5.31
+#
+# v5.31 — 2026-07-26 — STEP 7 FINALLY READS THE FIGURE PROFILE (GAP-2026-07-26-003 D2).
+#   Step 5 has measured what a subtopic's real figures CONTAIN since v2.29 —
+#   object_types, transformation_types, arrangement_types, complexity_dist — and wrote
+#   them into section_rules. THIS FILE NEVER READ THEM. Before v5.31 the string
+#   "object_types" appeared ZERO times here; the only field consumed from
+#   PYQ_IMAGE_ANALYSIS was image_role, which drives image COUNT and layout, not
+#   content. So the semantic half of the measurement was written and read by nothing,
+#   and a generated figure could be a bar chart in a subtopic whose every PYQ is a
+#   micrograph with no gate noticing.
+#
+#   Consequence for the vision fix: repairing Step 5 alone would have changed NOTHING
+#   in the delivered mocks — it would have populated fields nobody reads. This is the
+#   change that turns the measurement into exam fidelity.
+#
+#   S4-7 FORMAT DISPATCH now calls bc.figural_generation_profile() before generating a
+#   FIGURAL question and binds generation to the result:
+#     mode 'dominant'      70% of figures use a dominant type, 30% the wider observed
+#                          set; a type in NEITHER list is never introduced.
+#     mode 'observed'      no type recurs enough to be dominant (flat or thin
+#                          evidence) — generate ACROSS the observed range, do not
+#                          fixate. Naming a dominant from n=2, or from six figures of
+#                          six different types, is noise with the authority of
+#                          measurement.
+#     mode 'unconstrained' no usable profile — behaviour is EXACTLY as v5.30.
+#
+#   EC-V18 LEGACY TOLERANCE IS NON-NEGOTIABLE. ~200 exams hold section_rules written
+#   before the fix, carrying object_types: [] and no vision_status; all 44 real blocks
+#   in the reference corpus were verified to resolve to 'unconstrained'. Absent, empty
+#   and malformed blocks all degrade to 'unconstrained' and NEVER raise or block.
+#   vision_status == 'unavailable' is also 'unconstrained' even when stale types are
+#   present: that status means Step 5 queued figures and observed none, so the
+#   emptiness is a MEASUREMENT GAP, not a finding about the subtopic. Step 5's QV-14
+#   reports the gap; Step 7 does not generate against it.
 #
 # v5.30 — 2026-07-22 — POSITION-BASED QUESTION TYPE DISPATCH (GAP-2026-07-22-001 §6 FIX).
 #   For question-type sections (e.g. IIT JAM: Section A=MCQ, Section B=MSQ, Section C=NAT),
@@ -3042,6 +3076,46 @@
              IF format == FIGURAL:
                Read image_role from section_rules PYQ_IMAGE_ANALYSIS
                (default 'stem_and_options' if PYQ_IMAGE_ANALYSIS absent).
+
+               ── FIGURE CONTENT PROFILE (v5.31, GAP-2026-07-26-003) ──────────
+               Before generating, read the SEMANTIC half of PYQ_IMAGE_ANALYSIS —
+               object_types, transformation_types, arrangement_types,
+               complexity_dist — via bc.figural_generation_profile(). Until v5.31
+               Step 7 read ONLY image_role, so Step 5 measured what the real
+               figures CONTAIN and no step ever looked: the fields were written
+               into section_rules and read by nothing. A generated figure could
+               be a bar chart where every PYQ in that subtopic is a micrograph,
+               and no gate would notice.
+
+               profile = bc.figural_generation_profile(pyq_image_analysis)
+
+               profile['mode'] decides how hard the constraint binds:
+                 'dominant'  → 70% of generated figures use a type from
+                               profile['dominant']; the remaining 30% draw from
+                               profile['observed']. Never introduce a type that
+                               appears in NEITHER list.
+                 'observed'  → no type recurs often enough to be called dominant
+                               (flat distribution, or too few observations).
+                               Generate ACROSS profile['observed']; do not
+                               fixate on any one type.
+                 'unconstrained' → the profile is empty. Generate as before
+                               v5.31, using subtopic semantics alone.
+
+               EC-V18 — LEGACY TOLERANCE, NON-NEGOTIABLE. Roughly 200 exams hold
+               section_rules written before v2.37 whose object_types are empty,
+               and every one of them must keep working untouched. An absent or
+               empty PYQ_IMAGE_ANALYSIS, an absent vision_status, and a
+               vision_status of 'unavailable' ALL resolve to 'unconstrained'.
+               This branch NEVER raises and NEVER blocks generation.
+
+               vision_status == 'unavailable' deserves its own note: it means
+               Step 5 queued figures and observed none, so an empty object_types
+               there is a MEASUREMENT GAP, not evidence that the subtopic has no
+               typical figure. Treating it as a constraint would generate against
+               a fact nobody established. It is therefore 'unconstrained', and
+               Step 5's QV-14 is what reports the gap.
+               ────────────────────────────────────────────────────────────────
+
                IF image_role in ('stem_and_options', 'options_only'):
                  → Generate images via matplotlib (S7-NEW-B OPTION A):
                    stem_and_options: problem image(s) + option images
@@ -3056,6 +3130,12 @@
                  → Default to add_figural_question() (safest — forces all images)
                  → Log: "image_role unknown for [subtopic_id], defaulting to full"
                → Mark figural_qs[str(qnum)].rendered = true in batch_state
+               → Record figural_qs[str(qnum)].object_type = the type this figure was
+                 generated AS, drawn from profile['dominant'] / profile['observed']
+                 (omit when mode == 'unconstrained'). Step 8 A-FIGPROFILE audits this
+                 recorded intent against the same profile via the SAME engine function,
+                 bc.check_figural_conformance — one rule, so the generator and its
+                 auditor cannot drift apart.
                → Verify via view tool (9-item visual checklist, §10-S10-7)
                Text stem with add_question_stem() alone is BANNED for format=FIGURAL.
              IF stem_format_variant == 'match_the_following' (any TEXT/PASSAGE format):
@@ -6522,7 +6602,22 @@
           "figural_qs": list(fig['questions'].keys()),
           "image_hashes": [
               h for q in fig['questions'].values() for h in q.get('image_hashes', [])
-          ]
+          ],
+          # v5.31 (GAP-2026-07-26-003 D2): the object_type each figure was generated
+          # AS, plus its subtopic_id, so Step 8 A-FIGPROFILE can audit conformance
+          # against the profile Step 5 measured. These live in the REGISTRY because
+          # Step 8 receives it; the answer_key sidecar carrying concept_map is NOT
+          # delivered (S0-1), so subtopic_id must travel here or the gate is blind.
+          # Omitted per question when the profile mode was 'unconstrained' — an
+          # absent entry makes the gate dormant rather than wrong.
+          "object_types": {
+              str(q): v['object_type'] for q, v in fig['questions'].items()
+              if v.get('object_type')
+          },
+          "subtopic_ids": {
+              str(q): v['subtopic_id'] for q, v in fig['questions'].items()
+              if v.get('subtopic_id')
+          }
       })
 
   # Question metadata index (v5.2 — Contract_QuestionMetadataIndex v1.0): build ONE mock object
@@ -7455,7 +7550,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.30
+# END OF Framework_MockTestCreate v5.31
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below

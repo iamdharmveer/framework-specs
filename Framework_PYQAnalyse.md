@@ -3925,7 +3925,7 @@ def scan_paper(paper_ref, taxonomy, exam_config):
     Pattern metadata (RULE 7) is MANDATORY — every classification must include
     the 4 metadata fields. These enable the refinement pass (§3-6).
     """
-    pass  # Claude classifies each Q at runtime using §8 rules + RULE 7
+    pass  # CLASS: J — Judgment over the paper text already in context: the model reads the stem and names a subtopic. No tool call, so it degrades gracefully — the model treats the spec as a reasoning task and produces the value directly.
 
 def add_to_taxonomy(taxonomy, discovery):
     """
@@ -4262,7 +4262,7 @@ def assign_to_refined_subtopic(classification, new_subtopics):
     Claude performs this mapping using domain knowledge.
     Returns: the best-fit new subtopic name (str).
     """
-    pass  # Claude maps at runtime using metadata + subtopic name semantics
+    pass  # CLASS: J — Judgment over data already in context: maps a question to a refined subtopic. No tool call required.
 ```
 
 ### S3-7 — Session management for large corpora

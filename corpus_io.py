@@ -1,6 +1,61 @@
 """
-corpus_io.py v1.6 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.8 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance and the Analysis doc.
+
+v1.8 — 2026-07-26 — VISION-PROBE FAMILY RETIRED (GAP-2026-07-26-003 follow-up).
+
+    Deleted: normalise_for_view(), make_vision_probe(), score_vision_probe(), and the
+    exception classes ProbeObservationMissing and VisionUnavailable.
+
+    WHY. Cluster V's three-phase bridge subsumes all of them:
+      * normalise_for_view was a public wrapper over the same normalisation
+        build_vision_queue now performs internally via _open_rgb. Two spellings of one
+        rule is the drift the DELEGATION contract exists to prevent.
+      * make_vision_probe / score_vision_probe answered "can this session see?" by
+        minting a token image. PHASE B looks at REAL figures, so the answer now arrives
+        free as a by-product of the work: any observation returned proves vision works,
+        none returned proves it does not. A separate probe would be a SECOND mechanism
+        answering one question, free to disagree with the first.
+      * ProbeObservationMissing had no remaining raiser once score_vision_probe went;
+        VisionUnavailable was raised nowhere even before this release.
+
+    audit_callgraph C4 flagged the first three as public-but-unreached. Left in place
+    they would report 2 findings forever, and a check that always shows findings gets
+    skimmed and then ignored — "a check that can be shipped past is decoration"
+    (CLAUDE.md). Retiring them returns C4 to zero so the next real finding is visible.
+
+    The v1.5 entry below is HISTORY and stays: it records why the empty-string verdict
+    was wrong, which is the reasoning that produced the three-phase design.
+
+v1.7 — 2026-07-26 — CLUSTER V: VISION PHASE A / OBSERVATION I/O
+    (GAP-2026-07-26-003).
+
+    Viewing an image is a CLASS T operation — it needs a TOOL CALL, and a tool call
+    can only happen BETWEEN model turns. A python process launched from bash cannot
+    suspend mid-loop to make one. Every "vision function" the corpus wrote as python
+    was therefore unreachable code returning a default forever, on every run, in
+    silence. Measured on IIT_JAM_BIOTECHNOLOGY: 153/153 figural questions recorded
+    vision_unavailable, 45/45 FIGURAL subtopics shipped an empty object-type profile,
+    and QV-9 returned PASS on the result.
+
+    Adds the DETERMINISTIC half of the materialise-then-inject bridge:
+      build_vision_queue()        PHASE A — normalise -> compose -> tile -> queue.json
+      load_vision_queue()         reader, tolerant
+      load_vision_observations()  PHASE B -> C boundary, tolerant
+      write_vision_observations() one spelling of the observations file
+
+    NOTHING IN CLUSTER V RAISES FOR A VISION REASON. An unopenable figure, a missing
+    observations file and an absent Pillow all degrade with a recorded reason, and the
+    run completes. The defect being fixed was SILENCE, and the remedy for silence is
+    visibility (QV-14 + vision_status), never a halt.
+
+    Two defects were found by property fuzzing rather than by example, and both are
+    now locked by self-tests:
+      * EC-V27 — two items sharing (paper_id, q_num) printed the SAME tag on two
+        cells, making a Phase-B observation unattributable. Items are now merged by
+        key with their sources unioned.
+      * mixed-type tags in a model-written observations file raised TypeError inside
+        sorted() (blueprint_core side).
 
 v1.6 — 2026-07-26 — is_option() BECOMES THE SINGLE SHARED OPTION PREDICATE
     (audit_deep [XSPEC-DRIFT]).
@@ -300,25 +355,6 @@ class DuplicatePaperError(EnumerationError):
 
 class IntegrityError(CorpusError):
     """A document failed a structural or image-integrity gate — HARD STOP."""
-
-
-class VisionUnavailable(CorpusError):
-    """The vision liveness probe failed.
-
-    NOT the same as an unreadable image and must never be recorded as one. An unreadable
-    image is a property of the IMAGE; this is a property of the SESSION. The remedy is a
-    fresh session, not a downgraded classification.
-    """
-
-
-class ProbeObservationMissing(CorpusError):
-    """A probe was scored without an observation being supplied.
-
-    NOT a probe failure. It means the image was not read. The two states must never
-    collapse: 'I did not look' is a procedural error, 'I looked and could not read it'
-    is a session verdict. Returning False for the first laundered a careless
-    non-observation into a user-facing halt (GAP-2026-07-26-002 PART A).
-    """
 
 
 class DependencyMissing(CorpusError):
@@ -889,71 +925,255 @@ def figural_consistency(mapping, q_formats, figural_value='FIGURAL', overrides=(
             'figural_no_image': figural_no_image}
 
 
-def normalise_for_view(src, dest, max_edge=1600):
-    """Prepare an extracted figure for view(): raster, RGB, bounded, PNG.
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLUSTER V — VISION PHASE A / OBSERVATION I/O  (GAP-2026-07-26-003)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Viewing an image is a CLASS T operation — it needs a tool call, and a tool call can
+# only happen BETWEEN model turns. A python process cannot suspend mid-loop to make
+# one. Everything here is the DETERMINISTIC half of the bridge:
+#
+#   PHASE A (here)                 normalise -> compose -> tile -> queue.json
+#   PHASE B (model, prose)         view() each sheet -> observations.json
+#   PHASE C (blueprint_core)       merge observations -> fields
+#
+# NOTHING HERE RAISES ON A VISION PROBLEM. An unopenable figure, a missing
+# observations file and an absent Pillow all DEGRADE with a recorded reason. The
+# defect this cluster fixes was silence; the remedy is visibility, not a halt.
 
-    Every figure measured in this corpus is a CMYK JPEG, which is not a safe input to a
-    vision call. Normalising here means no caller has to remember to do it.
+VISION_QUEUE_NAME = 'vision_queue.json'
+VISION_OBS_NAME = 'vision_observations.json'
+VISION_SHEET_FMT = 'vision_sheet_{:03d}.png'
+
+
+def _open_rgb(src, max_edge=1600):
+    """Open one figure as bounded RGB, or return None. EC-V7 (CMYK) / EC-V8 (vector).
+
+    Returns None rather than raising: a figure that cannot be rendered must still
+    appear in the queue as an unobserved item, not vanish from the denominator.
     """
     Image = _need('PIL')
-    im = Image.open(src)
-    im.load()
+    try:
+        im = Image.open(src)
+        im.load()
+    except Exception:
+        return None
     if im.mode not in ('RGB', 'L'):
-        im = im.convert('RGB')
+        try:
+            im = im.convert('RGB')
+        except Exception:
+            return None
     if max(im.size) > max_edge:
         r = max_edge / float(max(im.size))
         im = im.resize((max(1, int(im.size[0] * r)), max(1, int(im.size[1] * r))),
                        Image.LANCZOS)
-    os.makedirs(os.path.dirname(os.path.abspath(dest)) or '.', exist_ok=True)
-    im.save(dest, 'PNG', optimize=True)
-    return dest
+    return im
 
 
-def make_vision_probe(outdir, token=None):
-    """Write a liveness-probe image and return (path, token).
+def _font(size):
+    from PIL import ImageFont
+    for loader in (
+            lambda: ImageFont.truetype(
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size),
+            lambda: ImageFont.load_default(size=size),
+            lambda: ImageFont.load_default()):
+        try:
+            return loader()
+        except Exception:
+            continue
+    return None
 
-    The caller views the image and must read the token back. A match proves the vision
-    path is live for this session; a miss means vision is UNAVAILABLE — a property of
-    the session, not of any figure.
 
-    The token is random and appears nowhere in text, so it cannot be inferred from
-    context; it can only be obtained by actually seeing the image.
+def _compose_cell(srcs, box, max_edge):
+    """Compose ONE question's figures into one cell, side by side.
+
+    EC-V6. A 4-panel series is ONE question and must be judged as a whole, so its
+    panels share a cell rather than being scattered across the sheet where their
+    sequence would be lost.
+
+    Returns (image, ok). ok is False when nothing could be rendered.
     """
     Image = _need('PIL')
-    from PIL import ImageDraw
-    import random
-    import string
-    token = token or ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    os.makedirs(outdir, exist_ok=True)
-    path = os.path.join(outdir, 'vision_probe.png')
-    im = Image.new('RGB', (560, 180), (255, 255, 255))
-    d = ImageDraw.Draw(im)
-    d.rectangle([10, 10, 550, 170], outline=(0, 0, 0), width=5)
-    d.text((150, 85), f'PROBE {token}', fill=(0, 0, 0))
-    im.save(path, 'PNG')
-    return path, token
+    w, h = box
+    canvas = Image.new('RGB', (w, h), (255, 255, 255))
+    ims = [im for im in (_open_rgb(s, max_edge) for s in srcs) if im is not None]
+    if not ims:
+        return canvas, False
+    gap = 6
+    tot_w = sum(i.size[0] for i in ims) + gap * (len(ims) - 1)
+    tot_h = max(i.size[1] for i in ims)
+    scale = min(w / float(tot_w), h / float(tot_h), 1.0)
+    if scale <= 0:
+        return canvas, False
+    x = int((w - tot_w * scale) / 2)
+    for im in ims:
+        nw = max(1, int(im.size[0] * scale))
+        nh = max(1, int(im.size[1] * scale))
+        canvas.paste(im.resize((nw, nh), Image.LANCZOS),
+                     (x, int((h - nh) / 2)))
+        x += nw + gap
+    return canvas, True
 
 
-def score_vision_probe(reported, token):
-    """Compare what the caller read back against the true token. Case/space tolerant.
+def build_vision_queue(items, workdir, per_sheet=6, max_edge=1600,
+                       cell=520, label_h=30, cols=3):
+    """PHASE A. Turn figural questions into contact sheets plus a work queue.
 
-    Raises ProbeObservationMissing when `reported` is empty. A scorer can only compare
-    an observation that exists; it is not an oracle for whether one was made.
+    items: [{'paper_id', 'q_num', 'srcs':[path,...], 'subtopic'?, 'image_role'?}]
 
-    GAP-2026-07-26-002 PART A. This previously returned False for an empty string,
-    collapsing two categorically different states into one session-terminating value:
-      ''  / None / whitespace -> "I did not look"            -> procedural error
-      'ABC12345' (wrong)      -> "I looked, could not read"  -> session verdict
-    Returning False for the first made a careless non-observation indistinguishable
-    from a genuine blind session, and cost a production run.
+    Writes ``vision_queue.json`` and ``vision_sheet_NNN.png`` into workdir and returns
+    the queue dict. Never raises for a vision reason.
+
+    WHY TILE. One view() per figure does not scale: this corpus has 153 figures across
+    22 papers, and a 200-exam fleet has tens of thousands. At per_sheet=6 that is 26
+    view() calls instead of 153. per_sheet is a parameter so a sheet that renders badly
+    can be re-tiled without touching the caller (EC-V10).
+
+    EC-V1  no figural content -> empty queue, no sheets, valid output
+    EC-V6  multi-image question -> ONE item, panels composed side by side
+    EC-V8  unrenderable (vector/corrupt) -> queued, flagged, counted; never dropped
+    EC-V9  Pillow absent -> degraded mode, one item per sheet, original file viewed
+    EC-V15 key is (paper_id, q_num), never a bare q_num
     """
-    if reported is None or not str(reported).strip():
-        raise ProbeObservationMissing(
-            "score_vision_probe() received no observation, so no verdict can be "
-            "derived. This is NOT a probe failure — it means the image was not read. "
-            "Look at the probe image again and record the characters you see. If the "
-            "image renders at all, vision is working.")
-    return re.sub(r'\s+', '', str(reported)).upper().endswith(str(token).upper())
+    os.makedirs(workdir, exist_ok=True)
+    # EC-V27. Collapse repeats of the SAME (paper_id, q_num) into one item, unioning
+    # their sources. A key maps to exactly one tag, so two items sharing a key would
+    # print the SAME label on two cells — and a Phase-B observation against that label
+    # could not be attributed to either. One question, one tag, one cell (EC-V6).
+    merged = {}
+    for it in (items or []):
+        if not isinstance(it, dict):
+            continue
+        try:
+            key = (str(it['paper_id']), int(it['q_num']))
+        except (KeyError, TypeError, ValueError):
+            continue
+        srcs = [s for s in (it.get('srcs') or []) if s]
+        if key in merged:
+            prev_srcs, prev_it = merged[key]
+            for s in srcs:
+                if s not in prev_srcs:
+                    prev_srcs.append(s)
+            for f in ('subtopic', 'image_role'):
+                if prev_it.get(f) is None and it.get(f) is not None:
+                    prev_it[f] = it[f]
+        else:
+            merged[key] = (list(srcs), dict(it))
+    # Deterministic order: the queue must be reproducible byte for byte (EC-V12).
+    rows = sorted(((k, v[0], v[1]) for k, v in merged.items()),
+                  key=lambda r: (r[0][0], r[0][1]))
+
+    tag_map, tag_width = bc.vision_tag_map([r[0] for r in rows])
+    stats = {'queued': len(rows), 'sheets': 0, 'unrenderable': 0, 'degraded': False}
+
+    degraded = False
+    try:
+        _need('PIL')
+    except DependencyMissing:
+        degraded = True
+        stats['degraded'] = True
+
+    queue_items, sheets = [], []
+    if degraded:
+        # EC-V9. One view() per figure against the ORIGINAL file. Slower, never silent.
+        for i, (key, srcs, it) in enumerate(rows):
+            queue_items.append({
+                'tag': tag_map[key], 'paper_id': key[0], 'q_num': key[1],
+                'subtopic': it.get('subtopic'), 'image_role': it.get('image_role'),
+                'sheet': srcs[0] if srcs else None, 'cell': 0,
+                'renderable': bool(srcs), 'srcs': srcs})
+            if not srcs:
+                stats['unrenderable'] += 1
+    else:
+        Image = _need('PIL')
+        from PIL import ImageDraw
+        n_cols = max(1, min(int(cols), int(per_sheet)))
+        n_rows = max(1, -(-int(per_sheet) // n_cols))
+        cw, ch = int(cell), int(cell) + int(label_h)
+        font = _font(20)
+        for start in range(0, len(rows), int(per_sheet)):
+            chunk = rows[start:start + int(per_sheet)]
+            idx = len(sheets) + 1
+            name = VISION_SHEET_FMT.format(idx)
+            sheet = Image.new('RGB', (n_cols * cw, n_rows * ch), (245, 245, 245))
+            d = ImageDraw.Draw(sheet)
+            for j, (key, srcs, it) in enumerate(chunk):
+                cx, cy = (j % n_cols) * cw, (j // n_cols) * ch
+                img, ok = _compose_cell(srcs, (cw - 8, ch - label_h - 8), max_edge)
+                if not ok:
+                    stats['unrenderable'] += 1
+                sheet.paste(img, (cx + 4, cy + label_h + 4))
+                d.rectangle([cx + 2, cy + 2, cx + cw - 2, cy + ch - 2],
+                            outline=(0, 0, 0), width=2)
+                label = tag_map[key] + ('' if ok else '  [UNRENDERABLE]')
+                d.rectangle([cx + 2, cy + 2, cx + cw - 2, cy + label_h],
+                            fill=(0, 0, 0))
+                d.text((cx + 10, cy + 6), label, fill=(255, 255, 255), font=font)
+                queue_items.append({
+                    'tag': tag_map[key], 'paper_id': key[0], 'q_num': key[1],
+                    'subtopic': it.get('subtopic'), 'image_role': it.get('image_role'),
+                    'sheet': name, 'cell': j, 'renderable': ok, 'srcs': srcs})
+            path = os.path.join(workdir, name)
+            sheet.save(path, 'PNG', optimize=True)
+            sheets.append(name)
+        stats['sheets'] = len(sheets)
+
+    queue = {'version': 1, 'tag_width': tag_width, 'per_sheet': int(per_sheet),
+             'degraded': degraded, 'sheets': sheets, 'items': queue_items,
+             'stats': stats}
+    with open(os.path.join(workdir, VISION_QUEUE_NAME), 'w', encoding='utf-8') as f:
+        json.dump(queue, f, indent=2, sort_keys=True)
+    return queue
+
+
+def load_vision_queue(workdir):
+    """Read back a queue. Returns (queue_dict, reason). Never raises."""
+    path = os.path.join(workdir, VISION_QUEUE_NAME)
+    if not os.path.exists(path):
+        return None, 'no queue file — Phase A has not run for this batch'
+    try:
+        with open(path, encoding='utf-8') as f:
+            q = json.load(f)
+    except Exception as exc:
+        return None, f'queue file unreadable ({exc})'
+    if not isinstance(q, dict) or not isinstance(q.get('items'), list):
+        return None, 'queue file has no items list'
+    return q, ''
+
+
+def load_vision_observations(workdir, path=None):
+    """PHASE B -> C boundary. Read observations. Returns (list, reason). Never raises.
+
+    A missing or malformed file is NOT an error condition here — it is the ordinary
+    'Phase B has not run yet' state, and it must flow through to Phase C as zero
+    observations so the run completes and QV-14 reports the gap. Raising here would
+    reintroduce the halt this design exists to avoid.
+
+    Accepts a bare list, or a dict carrying 'observations'.
+    """
+    p = path or os.path.join(workdir, VISION_OBS_NAME)
+    if not os.path.exists(p):
+        return [], 'no observations file — Phase B has not run'
+    try:
+        with open(p, encoding='utf-8') as f:
+            data = json.load(f)
+    except Exception as exc:
+        return [], f'observations file unreadable ({exc}) — treated as zero observations'
+    if isinstance(data, dict):
+        data = data.get('observations', [])
+    if not isinstance(data, list):
+        return [], 'observations file is neither a list nor {"observations": [...]}'
+    return [d for d in data if isinstance(d, dict)], ''
+
+
+def write_vision_observations(workdir, observations, path=None):
+    """Write the Phase-B result. Provided so the protocol has ONE spelling of the file."""
+    p = path or os.path.join(workdir, VISION_OBS_NAME)
+    os.makedirs(os.path.dirname(os.path.abspath(p)) or '.', exist_ok=True)
+    with open(p, 'w', encoding='utf-8') as f:
+        json.dump({'observations': list(observations or [])}, f,
+                  indent=2, sort_keys=True)
+    return p
 
 
 # ── SHARED OPTION PREDICATE (Cluster I) ─────────────────────────────────────────
@@ -3197,26 +3417,6 @@ def self_test():
     check('io_upload_missing_dir_safe',
           resolve_uploaded_papers(['k'], '/tmp/does_not_exist')['missing'] == ['k'])
 
-    # ── vision probe ─────────────────────────────────────────────────────────
-    check('io_probe_scores_exact', score_vision_probe('ABC12345', 'ABC12345'))
-    check('io_probe_scores_prefixed', score_vision_probe('PROBE ABC12345', 'ABC12345'))
-    check('io_probe_lowercase', score_vision_probe('probe abc12345', 'ABC12345'))
-    check('io_probe_rejects_wrong', not score_vision_probe('ZZZZZZZZ', 'ABC12345'))
-    # GAP-2026-07-26-002 PART A: a non-observation is NOT a probe failure. Scoring one
-    # must RAISE, never return False — returning False is what laundered "I did not
-    # look" into a session-terminating verdict.
-    def _raises(v):
-        try:
-            score_vision_probe(v, 'ABC12345')
-            return False
-        except ProbeObservationMissing:
-            return True
-    check('io_probe_empty_raises', _raises(''))
-    check('io_probe_none_raises', _raises(None))
-    check('io_probe_whitespace_raises', _raises('   '))
-    check('io_probe_wrong_still_returns_false',
-          not score_vision_probe('ZZZZZZZZ', 'ABC12345'))
-
     # ── figural cross-check ──────────────────────────────────────────────────
     mp = {1: ['i1.png'], 5: ['i2.png'], PREAMBLE: ['i0.png']}
     fc = figural_consistency(mp, {1: 'FIGURAL', 5: 'TEXT', 9: 'FIGURAL'})
@@ -3307,6 +3507,142 @@ def self_test():
     import tempfile as _tf
     with _tf.TemporaryDirectory() as _tmp:
         _ck_selftest(check, _tmp)
+
+    # ── CLUSTER V — VISION PHASE A / OBSERVATION I/O ────────────────────────
+    with _tf.TemporaryDirectory() as _vtmp:
+        # EC-V1 — a text-only exam produces a valid empty queue, not a failure.
+        _q0 = build_vision_queue([], _vtmp)
+        check('v_ec1_empty_build',
+              _q0['items'] == [] and _q0['sheets'] == [] and _q0['stats']['queued'] == 0)
+        check('v_queue_file_written',
+              os.path.exists(os.path.join(_vtmp, VISION_QUEUE_NAME)))
+
+        try:
+            _Img = _need('PIL')
+        except DependencyMissing:
+            _Img = None
+
+        if _Img is not None:
+            def _mk(p, size=(120, 90), colour=(200, 30, 30)):
+                _Img.new('RGB', size, colour).save(p, 'PNG')
+                return p
+            _src = [_mk(os.path.join(_vtmp, f'f{i}.png')) for i in range(14)]
+            # EC-V15 — the SAME q_num in two different papers must stay distinct.
+            _items = ([{'paper_id': 'P_A', 'q_num': i + 1, 'srcs': [_src[i]],
+                        'subtopic': 'S1'} for i in range(7)] +
+                      [{'paper_id': 'P_B', 'q_num': i + 1, 'srcs': [_src[7 + i]],
+                        'subtopic': 'S2'} for i in range(7)])
+            _q = build_vision_queue(_items, _vtmp, per_sheet=6)
+            check('v_ec15_distinct_keys', len(_q['items']) == 14)
+            check('v_ec15_distinct_tags',
+                  len({i['tag'] for i in _q['items']}) == 14)
+
+            # EC-V10 — THE fixture the design turns on: every queued item appears on
+            # exactly one sheet, and every sheet named in an item actually exists.
+            _seen = {}
+            for _it in _q['items']:
+                _seen.setdefault((_it['paper_id'], _it['q_num']), []).append(_it['sheet'])
+            check('v_ec10_each_item_once',
+                  len(_seen) == 14 and all(len(v) == 1 for v in _seen.values()))
+            check('v_ec10_sheets_exist',
+                  all(os.path.exists(os.path.join(_vtmp, s)) for s in _q['sheets']))
+            check('v_ec10_sheet_count', _q['stats']['sheets'] == 3)   # 14 @ 6 -> 3
+            check('v_ec10_cells_within_per_sheet',
+                  all(0 <= i['cell'] < 6 for i in _q['items']))
+
+            # EC-V10 — re-tiling at a different per_sheet keeps the invariant.
+            _q2 = build_vision_queue(_items, _vtmp, per_sheet=4)
+            check('v_ec10_retile', _q2['stats']['sheets'] == 4
+                  and len(_q2['items']) == 14)
+            # tags are stable across a re-tile: observations survive re-tiling
+            check('v_tag_stable_across_retile',
+                  {i['tag'] for i in _q['items']} == {i['tag'] for i in _q2['items']})
+
+            # EC-V6 — a 3-panel question is ONE queue item.
+            _q3 = build_vision_queue(
+                [{'paper_id': 'P_C', 'q_num': 5, 'srcs': _src[:3]}], _vtmp)
+            check('v_ec6_multi_image_one_item',
+                  len(_q3['items']) == 1 and _q3['items'][0]['renderable'])
+
+            # EC-V8 — an unopenable part is queued and flagged, never dropped.
+            _bad = os.path.join(_vtmp, 'broken.emf')
+            with open(_bad, 'wb') as _f:
+                _f.write(b'not an image')
+            _q4 = build_vision_queue(
+                [{'paper_id': 'P_D', 'q_num': 1, 'srcs': [_bad]}], _vtmp)
+            check('v_ec8_unrenderable_queued', len(_q4['items']) == 1)
+            check('v_ec8_unrenderable_flagged',
+                  _q4['items'][0]['renderable'] is False
+                  and _q4['stats']['unrenderable'] == 1)
+
+            # EC-V27 — the same (paper_id,q_num) twice collapses to ONE item with
+            # both sources; two cells sharing a tag would make a Phase-B observation
+            # unattributable. Found by property fuzzing.
+            _q4b = build_vision_queue(
+                [{'paper_id': 'P_E', 'q_num': 3, 'srcs': [_src[0]], 'subtopic': None},
+                 {'paper_id': 'P_E', 'q_num': 3, 'srcs': [_src[1]], 'subtopic': 'S9'}],
+                _vtmp)
+            check('v_ec27_dedup_one_item', len(_q4b['items']) == 1)
+            check('v_ec27_dedup_srcs_unioned',
+                  len(_q4b['items'][0]['srcs']) == 2)
+            check('v_ec27_dedup_meta_filled',
+                  _q4b['items'][0]['subtopic'] == 'S9')
+            check('v_ec27_tags_unique',
+                  len({i['tag'] for i in _q4b['items']}) == len(_q4b['items']))
+
+            # malformed item dicts are skipped without crashing the build
+            _q5 = build_vision_queue(
+                [{'no_paper': 1}, {'paper_id': 'X', 'q_num': 'NaN'},
+                 {'paper_id': 'X', 'q_num': 2, 'srcs': [_src[0]]}], _vtmp)
+            check('v_malformed_items_tolerated', len(_q5['items']) == 1)
+
+            # ── END-TO-END: A -> B -> C -> profile ───────────────────────────
+            _qe = build_vision_queue(_items[:6], _vtmp, per_sheet=6)
+            _obs = [{'tag': i['tag'], 'figure_readable': True,
+                     'object_type': 'micrograph', 'transformation_type': 'N/A',
+                     'arrangement': 'single', 'complexity': 'Simple'}
+                    for i in _qe['items']]
+            write_vision_observations(_vtmp, _obs)
+            _read, _why = load_vision_observations(_vtmp)
+            check('v_obs_roundtrip', len(_read) == 6 and _why == '')
+            _bk, _st = bc.merge_vision_observations(_qe['items'], _read)
+            check('v_e2e_all_observed',
+                  _st['vision_status'] == 'observed' and _st['missing'] == 0)
+            _prof = bc.vision_profile(list(_bk.values()), min_dominant=5)
+            check('v_e2e_profile_dominant',
+                  _prof['object_types']['dominant'] == ['micrograph'])
+            check('v_e2e_profile_status', _prof['vision_status'] == 'observed')
+
+            # NEGATIVE TEST — Phase B skipped. Must NOT halt, must report.
+            os.remove(os.path.join(_vtmp, VISION_OBS_NAME))
+            _none, _why2 = load_vision_observations(_vtmp)
+            check('v_neg_no_obs_file', _none == [] and 'Phase B' in _why2)
+            _bk2, _st2 = bc.merge_vision_observations(_qe['items'], _none)
+            check('v_neg_status_unavailable',
+                  _st2['vision_status'] == 'unavailable' and _st2['observed'] == 0)
+            _prof2 = bc.vision_profile(list(_bk2.values()))
+            check('v_neg_profile_empty_but_shaped',
+                  _prof2['object_types']['dominant'] == []
+                  and _prof2['vision_status'] == 'unavailable'
+                  and _prof2['images_unobserved'] == 6)
+
+            # queue round-trip
+            _lq, _lwhy = load_vision_queue(_vtmp)
+            check('v_queue_roundtrip', _lq is not None and _lwhy == '')
+
+        # malformed / missing observation files never raise
+        _badobs = os.path.join(_vtmp, 'bad_obs.json')
+        with open(_badobs, 'w', encoding='utf-8') as _f:
+            _f.write('{not json')
+        check('v_obs_malformed_safe',
+              load_vision_observations(_vtmp, path=_badobs)[0] == []
+              and 'unreadable' in load_vision_observations(_vtmp, path=_badobs)[1])
+        with open(_badobs, 'w', encoding='utf-8') as _f:
+            _f.write('"a string"')
+        check('v_obs_wrong_shape_safe',
+              load_vision_observations(_vtmp, path=_badobs)[0] == [])
+        check('v_queue_missing_safe',
+              load_vision_queue(os.path.join(_vtmp, 'nope'))[0] is None)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

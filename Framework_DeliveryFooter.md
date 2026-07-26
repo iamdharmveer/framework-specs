@@ -1,4 +1,4 @@
-# Framework_DeliveryFooter v1.7 — Universal Delivery Footer Contract
+# Framework_DeliveryFooter v1.8 — Universal Delivery Footer Contract
 # MockTestFramework | Cross-step | Exam-agnostic
 #
 # PURPOSE:
@@ -88,6 +88,20 @@
 #              (per PYQAnalyse handoff: "KEEP LOCALLY").
 #          (9) §5: added session-break edge case (F1 variant for forced context-limit breaks).
 #          (10) §6 reference table: synced with §3 fixes.
+#   v1.8 — 2026-07-26 — §5 QUALITY GATE: A FAILING CHECK FORCES AMBER
+#          (GAP-2026-07-26-003). A step could report a FAIL and still render the
+#          GREEN "Step Complete" footer, because §5 asked only whether the WORK was
+#          finished, never whether the RESULT was sound. That is what shipped the
+#          reference run: Step 5 finished all 22 papers with 153/153 figural
+#          questions unobserved and 45/45 FIGURAL subtopics carrying an empty
+#          object-type profile — and rendered F2 green.
+#          New Q0 runs BEFORE Q1: any FAIL from the step's own checks (Step 5
+#          QV-1..QV-14, Step 8 audit gates, Step 1 unobserved-image count) renders
+#          F1 AMBER with the failing check and its remedy named.
+#          WARN does NOT force amber — if it did, every run would turn amber and
+#          the signal would be lost again.
+#          THIS IS NOT A HALT: the step completes, every file is delivered, and the
+#          operator may proceed. Amber REPORTS; it does not block.
 #   v1.7 — 2026-07-25 — Step 2c registry: [ExamCode]_approval_record.json ADDED.
 #          Mandated by PYQAnalyse S4-3/S10-1 since v2.17 and required at PYQSort entry
 #          since v2.23, but absent from this registry — the word "approval_record"
@@ -606,6 +620,29 @@ BATCH BAR (F1 only): exactly 12 cells.
 ```
 After every present_files call, Claude evaluates:
 
+  Q0: Did this step's own quality checks report any FAIL?
+      (v1.8, GAP-2026-07-26-003. Step 5 run_qv QV-1..QV-14, Step 8 audit gates,
+       or an unobserved-image count from Step 1 S1-12.)
+
+      YES → Render F1 (AMBER), even when every batch is finished, and name the
+            failing check and its remedy in the footer body.
+            DO NOT render F2. Then END response.
+
+      NO  → continue to Q1.
+
+      WHY THIS EXISTS. A step could previously report a FAIL and still render
+      "Step Complete" in green. That is exactly what shipped the reference run:
+      153/153 figural questions unobserved, 45/45 FIGURAL subtopics with an empty
+      object-type profile, QV-9 PASS, and a green F2 footer. Green is a claim
+      that the artefact is fit to hand downstream; a FAIL means it is not.
+
+      THIS IS NOT A HALT. The step still COMPLETES, still delivers every file, and
+      the operator may still proceed. Amber reports; it does not block. The whole
+      point of the fix is that a failure is VISIBLE, not that work stops.
+
+      A WARN does NOT force amber — WARN is advisory and the distinction has to
+      stay meaningful, or every run turns amber and the signal is lost again.
+
   Q1: Is this step's work FULLY complete?
       (All batches done, all parts done, final synthesis done if applicable)
 
@@ -624,6 +661,14 @@ After every present_files call, Claude evaluates:
       — Claude is forced to stop mid-work. Footer uses F1 (AMBER) with the
       session-break callout variant (see §4-2). Files delivered are
       session-persistence files (e.g., count_progress.json).
+
+  EDGE CASE — Step complete but a check FAILED (v1.8):
+      F1 AMBER with the QUALITY-GATE callout variant. Wording states the step is
+      complete, names the failing check, and gives the remedy. For a vision gap
+      the remedy is always: re-run PHASE B ONLY — the queue and contact sheets are
+      already on disk, Phases A and C need not repeat, and Phase B is idempotent.
+      NEVER phrase this as "the step failed"; the step ran, the artefact is
+      incomplete, and both facts belong in the footer.
 
   NEVER render both footers in the same response.
   NEVER omit the footer after a present_files call.

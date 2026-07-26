@@ -105,6 +105,57 @@ Stamp a clean version + changelog over everything shipped since the last seal.
 `seal_release` is the ONLY thing that bumps `VERSION` (satisfies "bump only when asked").
 
 ## Standing guardrails
+- **EXECUTION-BOUNDARY LAW — a tool call cannot happen inside a running Python process.**
+  Every operation in a spec is exactly one of:
+
+  | Class | Definition | May Python execute it? |
+  | :-- | :-- | :-- |
+  | **DETERMINISTIC** | parsing, regex, counting, file I/O, arithmetic | yes |
+  | **CLASS J** | model judgment over data ALREADY in context | yes, as a reasoning step |
+  | **CLASS T** | requires a TOOL CALL — `view`, MCP connector, web fetch | **no** |
+
+  A CLASS T operation **MUST NOT** be called from inside a Python execution block, and
+  **MUST NOT** be modelled as a Python function, callback, or parameter. A tool call can
+  only occur BETWEEN model turns; a Python process launched from bash runs to completion
+  and cannot suspend mid-loop, emit a tool call, receive the result, and resume. Python
+  that "calls" a tool is unreachable code returning a default forever, on every run.
+
+  CLASS T uses **MATERIALISE-THEN-INJECT**:
+
+      PHASE A (python)  prepare inputs, emit a WORK QUEUE to disk
+      PHASE B (model)   perform the tool calls IN-TURN, write results to disk
+      PHASE C (python)  consume the results and continue deterministically
+
+  Phase B is **prose in a plain, unlabelled fence — never a ```python block**. The urge
+  to "implement" a Phase B section is the bug, not the fix.
+
+  Every model-agency stub carries `# CLASS: J` or `# CLASS: T`. Enforced by
+  `audit_callgraph.py` check **C6**, which scans EVERY fence rather than only
+  python-labelled ones — the two Drive stubs that carried this defect for months lived
+  in an unlabelled prose fence and were invisible to every static tool in the corpus.
+
+  **A CLASS T failure must be LOUD, and must NOT halt.** These are separate properties
+  and the corpus conflated them. Drive and vision had the IDENTICAL defect; Drive was
+  worked around for months and vision was not, purely because a Drive failure blocks
+  visibly (no papers, no output) while a vision failure leaves an empty field. The
+  variable was never the pattern — it was the OBSERVABILITY of the failure. So Phase C
+  must never raise, never halt, and always complete; the gap is reported by a FAIL-severity
+  check and an amber footer. Silence is the defect; a halt is not the remedy.
+
+  (GAP-2026-07-26-003: `analyse_image_claude()` was a `pass` stub whose return value the
+  calling loop immediately consumed — it raised `AttributeError` if executed literally, so
+  every production run silently executed some SUBSTITUTED body. Measured on a 22-paper
+  corpus: the four vision fields present on **0 of 1719** questions, 153/153 figural
+  questions `vision_unavailable`, 45/45 FIGURAL subtopics shipping an empty profile,
+  QV-9 PASS, and a green "Step Complete" footer.)
+- **A measurement with no consumer is not a feature.** If a step computes a value, some
+  step must READ it, and that reader must be named in the same commit. Step 5 measured
+  object types, transformations, arrangements and complexity for every figure from v2.29
+  onward; Step 7 read only `image_role`, so the semantic half was written and consumed by
+  nothing for six minor versions. Check C5 exists for exactly this shape and could not see
+  it, because the fields were serialised into `section_rules.md` as prose rather than held
+  as dict keys — so C5's "written but never read" test never applied. When a value crosses
+  an artefact boundary as TEXT, C5 is blind and the reader must be verified by hand.
 - **A deliverable RENAME or CARDINALITY change is a cross-step contract change, never a
   docs-only edit.** Changing any `[ExamCode]_<n>.<ext>` — its name, or how many of them
   there are — requires, in the SAME commit:

@@ -17,6 +17,14 @@ defects, all silent, all passing every existing gate:
     figural_consistency were called from NO executable spec block.  -> C4
   * expected_size was captured by enumeration and read by nothing.  -> C5
 
+GAP-2026-07-26-003 adds C6. analyse_image_claude() was a pass-bodied stub that a
+python loop CALLED and whose return value the same loop immediately consumed. A tool
+call cannot happen inside a running python process, so the call was unreachable on
+every run of every exam — and because the return was consumed, the literal code raised
+AttributeError, meaning production runs executed some SUBSTITUTED body instead. C1-C5
+are all WIRING checks and none of them can see a stub body at all; before C6 this file
+contained zero occurrences of ast.Pass.                             -> C6
+
 audit_deep.py enforces DELEGATION and TABLE-PARITY. validate_framework_md.py
 reports AST-cleanliness. test_routing.py asserts a trigger's route supplies the
 modules its specs import. NONE of them assert that a spec's own call sites are
@@ -284,6 +292,126 @@ def c4_dead_engine(engine_funcs, corpus_exe, findings):
             f"(DEFECT-4).")
 
 
+def any_python_blocks(path):
+    """Yield (start_line, source) for EVERY fenced block that PARSES as python.
+
+    C6 exists because the two Google Drive CLASS T stubs sat inside an UNLABELLED
+    13.5 KB fence, so python_blocks() — which keys on the ```python marker — could not
+    see them, and neither could validate_framework_md's AST checks nor audit_deep. A
+    stub invisible to every static tool in the corpus is exactly the stub that survives
+    for months.
+
+    Labelled or not, a fence whose contents compile as python is treated as code here.
+    Fences that do not compile (prose, JSON, shell) are skipped — which is also why a
+    Phase B protocol must stay prose: it cannot compile, so it can never be mistaken
+    for a call site.
+    """
+    out, cur, start = [], None, 0
+    for i, line in enumerate(open(path, encoding='utf8').read().split('\n'), 1):
+        s = line.strip()
+        if s.startswith('```'):
+            if cur is None:
+                cur, start = [], i
+            else:
+                src = '\n'.join(cur)
+                try:
+                    ast.parse(src)
+                    out.append((start, src))
+                except SyntaxError:
+                    pass
+                cur = None
+            continue
+        if cur is not None:
+            cur.append(line)
+    return out
+
+
+def c6_model_agency_stubs(path, findings):
+    """C6 — MODEL-AGENCY STUB CONSUMPTION (EXECUTION-BOUNDARY LAW).
+
+    For every FunctionDef whose body is exactly [Pass] (docstring ignored):
+      1. FAIL if it carries no `# CLASS: J` or `# CLASS: T` tag.
+      2. If CLASS T: FAIL if any call site consumes it — assigned, or passed as an
+         argument so python will call it. A CLASS T name may appear as documentation
+         only.
+      3. CLASS J carries no consumption restriction. Judgment over data already in
+         context degrades gracefully: the model reads the spec as a reasoning task and
+         produces the value. That is a real property, not luck, and it is why CLASS J
+         stubs have always worked while CLASS T stubs never have.
+
+    This would have caught analyse_image_claude() on the day it was written.
+    """
+    text = open(path, encoding='utf8').read()
+    lines = text.split('\n')
+    stubs = {}
+    for start, block in any_python_blocks(path):
+        try:
+            tree = ast.parse(block)
+        except SyntaxError:
+            continue
+        blines = block.split('\n')
+        for n in ast.walk(tree):
+            if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            body = [b for b in n.body
+                    if not (isinstance(b, ast.Expr)
+                            and isinstance(b.value, ast.Constant)
+                            and isinstance(b.value.value, str))]
+            if len(body) != 1 or not isinstance(body[0], ast.Pass):
+                continue
+            # The tag may sit on the pass line, inside the docstring, or in the
+            # comment block immediately above the def.
+            window = '\n'.join(blines[max(0, n.lineno - 8):n.end_lineno])
+            head = '\n'.join(lines[max(0, start - 30):start + n.end_lineno])
+            tag = None
+            for hay in (window, head):
+                m = re.search(r'CLASS:\s*([JT])\b', hay)
+                if m:
+                    tag = m.group(1)
+                    break
+            stubs[n.name] = (tag, start + n.lineno - 1)
+
+    for name, (tag, ln) in sorted(stubs.items()):
+        if tag is None:
+            findings.append(
+                f"[C6] {os.path.basename(path)}:{ln}: {name}() is a pass-bodied "
+                f"model-agency stub with no '# CLASS: J' or '# CLASS: T' tag. The "
+                f"EXECUTION-BOUNDARY LAW requires every such stub to declare which it "
+                f"is — a CLASS T stub cannot be called from python at all, and an "
+                f"untagged stub hides that from every reader and every check.")
+
+    class_t = {n for n, (tag, _) in stubs.items() if tag == 'T'}
+    if not class_t:
+        return
+    for start, block in any_python_blocks(path):
+        try:
+            tree = ast.parse(block)
+        except SyntaxError:
+            continue
+        for n in ast.walk(tree):
+            hit = None
+            if isinstance(n, ast.Assign) and isinstance(n.value, ast.Call):
+                f = n.value.func
+                nm = getattr(f, 'id', getattr(f, 'attr', None))
+                if nm in class_t:
+                    hit = (nm, 'its return value is assigned')
+            elif isinstance(n, ast.Call):
+                for a in list(n.args) + [k.value for k in n.keywords]:
+                    if isinstance(a, ast.Name) and a.id in class_t:
+                        hit = (a.id, 'it is passed as an argument, so python will '
+                                     'call it')
+                        break
+            if hit:
+                findings.append(
+                    f"[C6] {os.path.basename(path)}:{start}: {hit[0]}() is CLASS T — "
+                    f"it requires a TOOL CALL, which cannot happen inside a running "
+                    f"python process — but {hit[1]}. That is unreachable code "
+                    f"returning a default forever, silently, on every run. Use "
+                    f"MATERIALISE-THEN-INJECT: the model performs the tool call in its "
+                    f"own turn and python receives the materialised result through an "
+                    f"injected resolver.")
+
+
 def c5_dangling_value(path, corpus_exe, findings):
     """A value captured into a dict literal that no consumer reads."""
     for _, code in python_blocks(path):
@@ -369,6 +497,7 @@ def main(argv):
         c1_required_arg(s, funcs, findings)
         c2_return_shape(s, funcs, findings)
         c3_branch_parity(s, funcs, findings)
+        c6_model_agency_stubs(s, findings)
     if corpus_wide:
         imported = set()
         for sp in all_specs:
