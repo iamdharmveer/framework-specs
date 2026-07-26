@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026.07.26.3
+- GAP-2026-07-26-003 (EXECUTION-BOUNDARY LAW — a tool call cannot happen inside a running
+  Python process). analyse_image_claude() and the vision-probe family were pass-bodied CLASS T
+  stubs that a Python loop called and consumed, so vision was unreachable on every run of every
+  exam and the literal code raised AttributeError — production silently executed a substituted
+  body. Measured on IIT_JAM_BIOTECHNOLOGY (22 papers / 1719 Qs): the four vision fields present
+  on 0 of 1719 questions, 153/153 figural questions vision_unavailable, 45/45 FIGURAL subtopics
+  shipping an empty object-type profile — with QV-9 PASS and a green Step-Complete footer.
+- Fix — vision made reachable via MATERIALISE-THEN-INJECT (Phase A python emits a work queue,
+  Phase B the model performs the view() tool calls in-turn as prose, Phase C python consumes the
+  results): MockTestAnalyse v2.36 -> v2.38 (vision reachable, then probe family retired),
+  PYQPrepare v1.10 -> v1.12 (S1-12 reachable, callback halt replaced), corpus_io v1.6 -> v1.8
+  (Cluster V vision Phase A / observation I/O, then probe family deleted). A CLASS T failure is
+  now LOUD but does NOT halt.
+- GAP-2026-07-26-003 D2 (a measurement with no consumer is not a feature): Step 5 had measured
+  each subtopic's real figure profile since v2.29, but Step 7 read only image_role — the semantic
+  half was written and consumed by nothing for six minor versions. MockTestCreate v5.30 -> v5.31
+  now reads the figure profile; MockTestCreateAudit v2.9.2 -> v2.10 adds gate A-FIGPROFILE.
+- DeliveryFooter v1.7 -> v1.8: new §5 Q0 quality gate — any FAIL from a step's own checks forces
+  an AMBER footer with the failing check and remedy named, instead of a green Step-Complete. WARN
+  does not force amber. Reports, does not halt.
+- Tooling / protocol: audit_callgraph gains C6 (model-agency-stub / EXECUTION-BOUNDARY LAW, scans
+  every fence not just python-labelled ones); PYQAnalyse tagged its two judgment stubs # CLASS: J;
+  CLAUDE.md adds the EXECUTION-BOUNDARY LAW and measurement-consumer guardrails. blueprint_core
+  self-test 266/266, corpus_io 249/249; bootstrap 25/25, validator 0 issues, audit_deep 0,
+  audit_callgraph 0.
+
 ## 2026.07.26.2
 - GAP-2026-07-26-002 closed (image-option integrity + intra-spec wiring). Three parts:
 - (1) is_option consolidated to ONE engine predicate (audit_deep [XSPEC-DRIFT]). v2.34/v2.35
