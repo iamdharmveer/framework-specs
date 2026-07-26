@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026.07.26.1
+- GAP-2026-07-26-001 (a multi-paragraph stem is not a heading): PYQSort EC-S8 emits stems
+  whose continuation lines are bold, not-date, not-option, not-next-question — character for
+  character the level-3 taxonomy-heading predicate in `blueprint_core.is_taxonomy_heading()`.
+  Level 3 is the only taxonomy level with no textual prefix, so boldness was its sole positive
+  signal; the moment the producer emitted bold body text, a stem continuation and a subtopic
+  heading became the same object. Two classes, one predicate, on opposite sides of the repo,
+  never compared.
+- Fix: `is_taxonomy_heading()` now takes the next paragraph's text (`is_taxonomy_heading(para,
+  is_option, next_text)`) so a line followed by more stem body is no longer classified as a
+  heading; MockTestAnalyse S3-2 passes `next_text` at both extraction loops — an older engine
+  raises `TypeError` rather than silently truncating stems.
+- Impact this closed was the silent half: Step 4's phantom-triple gate HARD STOPs loudly, but
+  the extractor half kept question counts right (QV parity held, every gate passed) while
+  truncating stems at the figure and orphaning every option after it — corruption that flowed
+  into section_rules.md, the manifest, the Frequency xlsx, and on into Step 6 allocation and
+  Step 7 generation. Measured on IIT_JAM_BIOTECHNOLOGY (22 papers / 1719 questions): 20
+  spurious headings across 10 papers, 128 counted triples vs 126 real, 2 phantom triples.
+- Specs: Framework_MockTestAnalyse v2.32 -> v2.33, Framework_PYQAnalyse v2.27 -> v2.28.
+  Engine: blueprint_core.py (self-test 178/178) — heading predicate gains the `next_text`
+  parameter. MANIFEST.json + SPEC_MANIFEST.json regenerated; bootstrap 25/25, validator 0
+  issues across 17 files.
+
 ## 2026.07.26
 - GAP-2026-07-25-003 (taxonomy read consolidated to ONE reader + lock gate reaches every
   consumer): the last hand-written and prose readers of the approved taxonomy are removed.
