@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026.07.26.2
+- GAP-2026-07-26-002 closed (image-option integrity + intra-spec wiring). Three parts:
+- (1) is_option consolidated to ONE engine predicate (audit_deep [XSPEC-DRIFT]). v2.34/v2.35
+  made is_option() image-option-aware in MockTestAnalyse only; the same-named copies in PYQSort
+  and PYQAnalyse kept the text-only form while their docstrings still claimed alignment. Not
+  cosmetic: PYQSort USES its copy to count options, so the defect fixed in Step 5 was live in
+  Step 1 — measured on IIT_JAM_BIOTECHNOLOGY 2022, 156 options counted against 160 actual. Fix:
+  corpus_io v1.5 -> v1.6 now owns is_option + BARE_OPT_PATTERNS + para_has_image as the single
+  shared predicate; MockTestAnalyse v2.35 -> v2.36, PYQAnalyse v2.28 -> v2.29, PYQSort v1.16 ->
+  v1.17 all delegate (is_option = corpus_io.is_option), and PYQSort passes the paragraph element
+  at both call sites so image options are actually counted.
+- (2) IMG-6 probe protocol hardened (PYQPrepare v1.9.1 -> v1.10). The v1.6 protocol was
+  single-attempt/single-token and recorded nothing, while score_vision_probe() returned False on
+  an empty string — so "I did not look" was indistinguishable from a blind session and produced a
+  false session-terminating halt in Step 5 on first production use. Now 3 attempts, 3 distinct
+  tokens, observation mandatory.
+- (3) New auditor audit_callgraph.py (intra-spec call-graph): asserts every documented-required
+  parameter is supplied at each call site, every multi-return function has one shape, and every
+  public engine function is reached from executable spec code (not prose). Now tracked in
+  SPEC_MANIFEST (33 -> 34 files). blueprint_core self-test 184/184; corpus_io 228/228.
+- Follow-ups (recorded): add an is_option self-test fixture to corpus_io (bare-marker + OPT_PATTERNS
+  cases); update audit_specs_ext's stale V-SYNC that false-fires on the delegation adapters.
+
 ## 2026.07.26.1
 - GAP-2026-07-26-001 (a multi-paragraph stem is not a heading): PYQSort EC-S8 emits stems
   whose continuation lines are bold, not-date, not-option, not-next-question — character for
