@@ -1,7 +1,27 @@
-# Framework_MockTestAnalyse v2.38 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.39 — Universal PYQ Pattern Extraction Engine
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
-# MINIMUM COMPANION VERSIONS (v2.37):
+# MINIMUM COMPANION VERSIONS (v2.39):
+#   corpus_io.py          >= v1.9  — MUST carry (a) an IDEMPOTENT build_vision_queue()
+#                           that unions with the on-disk queue, and (b) Cluster Q:
+#                           parse_original_q_num(), stamp_original_q_num(),
+#                           question_type_for_position().
+#                           v1.9 is a HARD floor, not a preference. This spec hoists the
+#                           Phase A call to the batch boundary; against a v1.8 engine the
+#                           hoist still loses every prior SESSION's sheets, because
+#                           overwrite-on-write is the engine-side half of the same defect.
+#                           Cluster Q absent => AttributeError at the first question,
+#                           which is the correct direction to fail for a MISSING
+#                           DEPENDENCY (loud, immediate) as against a positional-typing
+#                           GAP, which degrades to v2.38 behaviour and never halts.
+#   Framework_PYQSort.md  >= v1.18 — writes the original exam position into the date
+#                           label. NOT a hard floor: a pre-v1.18 sorted file parses
+#                           unchanged and yields positional_type=None, so MSQ detection
+#                           falls back to v2.5 instruction-phrase behaviour exactly. No
+#                           exam is forced to re-sort; each gains positional typing when
+#                           its papers are next sorted.
+#
+# MINIMUM COMPANION VERSIONS (v2.37) — SUPERSEDED by the v2.39 block above:
 #   corpus_io.py          >= v1.7  — MUST carry Cluster V: build_vision_queue(),
 #                           load_vision_queue(), load_vision_observations(),
 #                           write_vision_observations(). Without them S4-2a/S4-2c
@@ -110,6 +130,102 @@
 #         Both now delegate to corpus_io Cluster K, THE reader/writer/verifier for this artefact,
 #         which additionally HARD STOPS when a parse disagrees with the totals the document
 #         declares about itself. Signatures and failure contracts unchanged.
+# v2.39 — 2026-07-27 — GAP-2026-07-27: SIX DEFECTS FOUND BY SIX SESSIONS ON ONE CORPUS.
+#     Six independent sessions ran Step 5 on IIT_JAM_BIOTECHNOLOGY (22 papers, 1,719 Qs).
+#     FIVE rediscovered the same vision defect and each invented a DIFFERENT workaround;
+#     the one session that executed these python fences VERBATIM found a P0 no other
+#     session hit. Every earlier session had paraphrased the spec into hand-written
+#     modules and, in paraphrasing, silently repaired a bug present here as written.
+#     The lesson generalises past these six fixes: THIS SPEC WAS LESS CORRECT THAN ANY
+#     IMPLEMENTATION OF IT THAT HAD EVER SHIPPED, and its defects were invisible in
+#     exact proportion to how competently it was reimplemented.
+#
+#     A — TAXONOMY SOURCE-2 CONCATENATED INSTEAD OF MERGING (P0). The Source-2 append
+#         was unguarded while Source 1 was guarded, so the stated contract — "merged,
+#         Analysis docs win for names" — held in NEITHER half. MEASURED: 260 subtopic
+#         blocks for 134 distinct ids; 126 emitted TWICE (the 8 singletons are zero-PYQ
+#         scaffolds, which enter through the guarded path). mint_subtopic_ids() could
+#         not recover: its `_2` disambiguator fires only when the KEY differs, and these
+#         keys were identical, so both copies took one id and QV-13 refused the run.
+#         The 126 duplicate blocks were verified BYTE-IDENTICAL — a delivery blocker,
+#         not content corruption.
+#         FIXED: real merge; renames carried into progress keys by apply_taxonomy_renames()
+#         (the lookup key includes topic, so a rename not propagated would silently
+#         orphan every question under it); _dedupe_analysis_docs() by realpath + SHA-256,
+#         applied at BOTH call sites — the S1-4 one was never reported and inflated the
+#         subtopic count shown to the operator; RuntimeError from the v2.31 lock gate no
+#         longer swallowed by `except Exception: pass` (the gate was armed and disarmed
+#         six lines apart); new QV-13b HARD STOP pre-mint, so the failure is attributed
+#         to the MERGE rather than surfacing as an opaque id collision — which is what
+#         sent six sessions to inspect the one function behaving correctly.
+#
+#     B — build_vision_queue() OVERWROTE, AND WAS CALLED PER PAPER (P0). It writes
+#         vision_queue.json and vision_sheet_NNN.png, both FIXED names, and never read
+#         an existing queue; the sole call site sat inside process_pyq_paper(), writing
+#         into a workdir S4-2a defines as one-per-RUN. Only a batch's LAST paper reached
+#         Phase B. MEASURED: 153 figural questions across 22 papers, _meta.vision
+#         recorded queued=8; batch 7 queued 24 and 3 survived. The stated Phase A
+#         invariant was violated in the OPPOSITE direction — sheets existed that no
+#         queue referenced.
+#         FIXED, both halves: the call is HOISTED to the batch boundary (candidates
+#         accumulate in a run-level list; a missing accumulator RAISES rather than
+#         silently dropping figures), and corpus_io v1.9 makes the write IDEMPOTENT by
+#         unioning with the on-disk queue. Hoisting alone still loses prior sessions;
+#         idempotence alone still loses papers 1..N-1 within a batch.
+#
+#     D — XLSX-F9 COMPARED A CORPUS TOTAL TO A PER-PAPER DENOMINATOR (P1).
+#         exam_total_all is one paper's size (60); mapped_total is the corpus sum
+#         (1,719). The gate fired on EVERY multi-paper corpus ever run, and printed
+#         `60 - 1719` as a count of unclassified questions: "-1659 questions were not
+#         classified to any subtopic." Not merely wrong — INVERTED. A gate that cannot
+#         fire correctly trains operators to ignore gates.
+#         FIXED: denominator is papers_processed x total_questions, taken from
+#         counting_progress so --frequency-scope current-era counts only its own papers;
+#         a negative shortfall is guarded and reported as a SURPLUS, which is legitimately
+#         reachable on an era-mixed corpus.
+#
+#     E — MSQ UNDER-DETECTION ORIGINATES IN STEP 3 (P2). MEASURED: 24 MSQ across 1,719
+#         questions against a marking scheme reserving Q31-40 (~10/paper). Not a weak
+#         regex — CROSS-STEP INFORMATION DESTRUCTION: PYQSort renumbers into taxonomy
+#         order, so the positions identifying the MSQ band are gone before Step 5 reads
+#         the paper. Step 5 cannot recover what Step 3 discarded.
+#         FIXED at the source: PYQSort v1.18 stamps the original position into the date
+#         label (OPTIONAL field — pre-v1.18 files parse unchanged, no re-sort forced);
+#         this spec retains the label instead of skipping it and gains a positional
+#         branch. The EC-A option-shape guard keeps HIGHEST precedence, so a paper that
+#         deviates from its own declared scheme is not mis-typed. Codec lives in
+#         corpus_io Cluster Q — one writer, one reader, one definition — because a
+#         format defined in two specs is exactly the drift v2.36 had to unwind.
+#         Also persists original_q_num + question_type, arming classify_paper_era()'s
+#         type-corroboration branch (GAP-X residual: type_checked was False on all 22
+#         reference papers, so era rested on question COUNT alone).
+#
+#     F — NAT SATURATED AXIS-2 FILL_BLANK (P2). Ladder rule 5 fired on the answer-entry
+#         blank every NAT question carries. MEASURED: 218 of 261 NAT (83.5%) against 37
+#         of 1,434 MCQ (2.6%) — 32x enrichment tracking the ANSWER MECHANISM, not the
+#         question form. Control: across 300 legacy-era questions, which carry almost no
+#         NAT, FILL_BLANK moved by exactly 1. The axes are orthogonal so nothing was
+#         corrupted, but Section C's Axis-2 profile read ~100% cloze and Step 7 rendering
+#         that literally emits NAT stems as fill-in-the-blank.
+#         FIXED: rule 5 gated on the question having options. Verified against the live
+#         corpus: 255 -> 37, all 218 reclassified are NAT, zero MCQ/MSQ touched.
+#
+#     H — RESUME PRECEDENCE SILENTLY DISCARDED A BATCH (P3 -> P1 on operator evidence).
+#         load_progress() returned the FIRST existing path with /mnt/project/ first and
+#         the live session's outputs LAST, so a mid-run reload reverted to stale state.
+#         The documented workflow — download the output, re-upload to project knowledge —
+#         makes stale-project-copy the NORMAL state, not an edge case; one session lost a
+#         completed 3-paper batch this way.
+#         FIXED: directory order cannot express the rule, because which copy is freshest
+#         depends on cold-start vs mid-run and this function cannot know which. It no
+#         longer guesses: it reads every candidate and takes the most advanced by
+#         papers_processed — correct in BOTH cases, no mode flag — and REPORTS divergence.
+#
+#     NOT FIXED HERE, TRACKED: GAP-C (Phase B degradation has no cross-session
+#     persistence contract — the queue lives in an ephemeral workdir, so six sessions of
+#     observation produced a 46%-complete figural record) and GAP-G (no defined delivery
+#     behaviour when the closed six-file set is written but DoD reports FAIL).
+#
 # v2.38 — 2026-07-26 — COMPANION REQUIREMENT UPDATED: VISION-PROBE FAMILY RETIRED.
 #     corpus_io v1.8 deletes normalise_for_view(), make_vision_probe(),
 #     score_vision_probe(), ProbeObservationMissing and VisionUnavailable. Once v2.37
@@ -2171,7 +2287,7 @@ CROSS-STEP SUBTOPIC NAME RULE (applies to Step 5 and Step 6 both):
 ```
 
 ```python
-def extract_taxonomy_from_analysis_doc(doc_path, taxonomy):
+def extract_taxonomy_from_analysis_doc(doc_path, taxonomy, renames=None):
     """Populate taxonomy {section: [{'topic','subtopic'}]} from the Analysis doc.
 
     v2.30 (GAP-2026-07-25-002) — DELEGATED. The previous implementation returned
@@ -2196,6 +2312,32 @@ def extract_taxonomy_from_analysis_doc(doc_path, taxonomy):
     that it was the doc PYQApprove APPROVED. Step 5 mints the subtopic_ids every
     later step matches on, so a superseded Analysis doc here does not degrade the
     run — it silently renames the vocabulary of the whole pipeline.
+
+    v2.39 — THE MERGE IS NOW A MERGE (GAP-2026-07-27-A). What stood here was a bare
+    .append() into a bucket that Source 1 had already filled, so the stated contract
+    — "merged, Analysis docs win for names" — held in NEITHER half: it concatenated
+    rather than merged, and it never won a name because it never replaced anything.
+    Measured on IIT_JAM_BIOTECHNOLOGY: section_rules.md carried 260 subtopic blocks
+    for 134 distinct ids; 126 ids were emitted TWICE (the 8 singletons are zero-PYQ
+    scaffolds, which enter through the guarded path). mint_subtopic_ids() cannot
+    recover, because its `_2` disambiguator fires only when the KEY differs:
+        while sid in seen and seen[sid] != key:   # identical key -> never entered
+    so both copies took the same id and QV-13 correctly refused the run.
+
+    The 126 duplicate blocks were verified byte-identical, so no downstream artefact
+    carried WRONG data — but the step could not pass its own DoD, and section_rules.md
+    shipped at twice its true size.
+
+    RENAME CONTRACT (decision (a), 2026-07-27). The doc wins the topic name, AND the
+    rename is propagated to the progress keys by the caller. This is not optional
+    bookkeeping: run_synthesise looks questions up with
+        key = (section, e['topic'], e['subtopic'])
+    so a topic renamed HERE and not re-keyed THERE turns every PYQ-evidenced subtopic
+    whose topic the doc spells differently into a silent zero-PYQ scaffold — all its
+    evidence dropped, no error raised. That would convert a loud, correctly-detected
+    QV-13 failure into exactly the silent data loss this gap wave exists to remove.
+    Renames are therefore RECORDED here and APPLIED to progress by the caller, in the
+    same pass, via apply_taxonomy_renames().
     """
     import corpus_io
     actual_path = doc_path['path'] if isinstance(doc_path, dict) else doc_path
@@ -2204,11 +2346,86 @@ def extract_taxonomy_from_analysis_doc(doc_path, taxonomy):
     except corpus_io.AnalysisDocError as ex:
         raise RuntimeError(str(ex))
     for section, topic, subtopic in doc['triples']:
-        taxonomy.setdefault(section, []).append({'topic': topic, 'subtopic': subtopic})
+        bucket = taxonomy.setdefault(section, [])
+        hit = next((e for e in bucket if e['subtopic'] == subtopic), None)
+        if hit is None:
+            bucket.append({'topic': topic, 'subtopic': subtopic})
+        elif hit['topic'] != topic:
+            # Doc wins the name. Record so the caller can re-key progress.
+            if renames is not None:
+                renames.append((section, hit['topic'], topic, subtopic))
+            hit['topic'] = topic
+
+
+def apply_taxonomy_renames(progress, renames):
+    """Re-key progress so a topic rename accepted from the Analysis doc keeps its data.
+
+    v2.39 (GAP-2026-07-27-A, decision (a)). extract_taxonomy_from_analysis_doc lets the
+    Analysis doc win the topic name. The progress dict is keyed by the OLD name, and
+    run_synthesise's lookup key includes topic — so without this pass the rename
+    silently orphans every question under the renamed topic.
+
+    Merges rather than clobbers when both keys exist (two source topics collapsing onto
+    one doc topic is legitimate), and is a no-op when renames is empty, which is the
+    overwhelmingly common case.
+
+    Returns a log of what moved, for the audit trail.
+    """
+    log = []
+    for section, old_topic, new_topic, subtopic in (renames or []):
+        old_key = (section, old_topic, subtopic)
+        new_key = (section, new_topic, subtopic)
+        if old_key == new_key or old_key not in progress:
+            continue
+        moved = progress.pop(old_key)
+        if new_key in progress:
+            progress[new_key].extend(moved)
+            log.append(f"  RENAME+MERGE: {old_key} -> {new_key} ({len(moved)} Qs merged)")
+        else:
+            progress[new_key] = moved
+            log.append(f"  RENAME: {old_key} -> {new_key} ({len(moved)} Qs carried)")
+    return log
+
+
+def _dedupe_analysis_docs(paths):
+    """Collapse the SAME Analysis doc reached by two routes into one entry.
+
+    v2.39 (GAP-2026-07-27-A, edge cases 1 and 2). The synthesis glob searches BOTH
+    /mnt/project/ and /mnt/user-data/uploads/, and the documented operator workflow is
+    "download the output, re-upload it to project knowledge" — so the same doc routinely
+    sits in both, which multiplies every overlapping subtopic a THIRD time. A superseded
+    copy saved as "..._PYQ_Analysis (1).docx" multiplies it again.
+
+    Identity is realpath first (same file, two routes), then SHA-256 of content (two
+    routes, two inodes, same bytes). Distinct content is NOT collapsed here — two
+    genuinely different Analysis docs are an operator error that the v2.31 lock gate
+    must adjudicate, not something this function may silently pick a winner for.
+    """
+    import hashlib
+    seen_real, seen_hash, keep = set(), set(), []
+    for p in sorted(paths):
+        try:
+            rp = os.path.realpath(p)
+            if rp in seen_real:
+                continue
+            with open(p, 'rb') as fh:
+                h = hashlib.sha256(fh.read()).hexdigest()
+            if h in seen_hash:
+                continue
+            seen_real.add(rp); seen_hash.add(h); keep.append(p)
+        except OSError:
+            continue
+    return keep
 
 taxonomy = {}
 if analysis_docs_present:
-    for doc_path in analysis_doc_paths:
+    # v2.39 (GAP-2026-07-27-A). SECOND call site of the same defect. The gap report
+    # cited only run_synthesise; this one multiplies identically and prints the result
+    # to the operator as the verified subtopic count in the S1-5 summary — so before
+    # v2.39 the number the operator was asked to trust was itself inflated.
+    # _dedupe_analysis_docs collapses the same doc reached by two routes; the merge
+    # inside extract_taxonomy_from_analysis_doc collapses the rest.
+    for doc_path in _dedupe_analysis_docs(analysis_doc_paths):
         extract_taxonomy_from_analysis_doc(doc_path, taxonomy)
     total = sum(len(v) for v in taxonomy.values())
     print(f"Taxonomy: {total} subtopics, {len(taxonomy)} sections")
@@ -2990,7 +3207,7 @@ def extract_shift_from_filename(path):
 
 def process_pyq_paper(docx_path, paper_id, exam_code,
                       time_per_q, marks_per_q, options_count, multi_select,
-                      progress, expected_size=None):
+                      progress, expected_size=None, vision_pending=None):
     """
     All parameters auto-detected in S1-3, passed directly — no cfg dict.
     taxonomy not needed: presorted papers carry their own taxonomy headings.
@@ -3020,8 +3237,14 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
         doc, paper_id, docx_path, expected_size=expected_size)
 
     # Always presorted — single extraction path
+    # v2.39 (GAP-2026-07-27-E): marking_scheme comes from exam_config via _meta and maps
+    # an original exam position to a declared question_type. Exam-agnostic — the bands
+    # are read at runtime and nothing about any exam is hardcoded. Absent scheme => the
+    # positional branch is inert and detection is exactly v2.38.
+    _mscheme = (progress.get('_meta', {}) or {}).get('marking_scheme') or []
     questions = extract_presorted(doc, year, shift, paper_id, q_roles,
-                                  options_count, multi_select)
+                                  options_count, multi_select,
+                                  marking_scheme=_mscheme)
 
     linked_groups = detect_linked_groups(questions)
     link_map = {qn: g['group_id'] for g in linked_groups for qn in g['q_numbers']}
@@ -3066,22 +3289,45 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
     #
     # NOTHING HERE HALTS. image_clarity is NOT written in this loop — Phase C is its
     # only writer (one writer, no drift). Until Phase C runs the field is simply absent.
+    # v2.39 (GAP-2026-07-27-B) — THIS FUNCTION NO LONGER BUILDS THE QUEUE.
+    #
+    # build_vision_queue() WRITES vision_queue.json and vision_sheet_NNN.png into
+    # VISION_WORKDIR, which S4-2a defines as one directory per RUN, not per paper. It
+    # never read an existing queue, and both filenames are fixed constants
+    # (VISION_QUEUE_NAME, VISION_SHEET_FMT) — so calling it once per paper meant paper N
+    # OVERWROTE the queue and sheets of papers 1..N-1. Only the last paper of a batch
+    # ever survived into Phase B.
+    #
+    # MEASURED on IIT_JAM_BIOTECHNOLOGY: 153 figural questions across 22 papers, but
+    # _meta.vision recorded queued=8 — the final paper's count alone. Batch 7 queued
+    # 11 + 10 + 3 = 24 and 3 survived. Five separate sessions hit this and each invented
+    # a DIFFERENT workaround (run-level vision_records.json, vision_items.json rebuilt
+    # over a union, carry-forward from disk, two independent hoists); no two agreed, and
+    # divergent tag assignment between them would orphan observations silently.
+    #
+    # The stated Phase A invariant — "every queued item appears on exactly one sheet,
+    # and that sheet exists" — was violated in the OPPOSITE direction: sheets existed
+    # that no queue referenced.
+    #
+    # Candidates are accumulated here and the queue is built ONCE, at the batch
+    # boundary, in run_batch_loop() immediately before Phase B.
     vision_candidates = get_vision_candidates(questions, q_roles, image_map)
-    vision_queue = corpus_io.build_vision_queue(
-        [{'paper_id': paper_id, 'q_num': q['num'],
-          'srcs': [p for p in srcs if p],
-          'subtopic': q.get('subtopic'), 'image_role': q.get('image_role')}
-         for q, srcs in vision_candidates],
-        VISION_WORKDIR, per_sheet=VISION_PER_SHEET)
-    n_vision = len(vision_queue['items'])
-    if n_vision:
-        print(f"    PHASE A: {n_vision} figural question(s) queued across "
-              f"{vision_queue['stats']['sheets']} contact sheet(s) in {VISION_WORKDIR}")
-        if vision_queue['stats']['unrenderable']:
-            print(f"    note: {vision_queue['stats']['unrenderable']} figure(s) could not "
-                  f"be rasterised (vector/corrupt) — queued and reported, never dropped")
-        if vision_queue['degraded']:
-            print("    note: Pillow absent — degraded to one view() per figure (EC-V9)")
+    if vision_pending is None:
+        # A caller that forgets the accumulator would silently drop every figure in the
+        # paper — the exact failure mode this fix exists to remove. Fail loudly instead.
+        raise RuntimeError(
+            "process_pyq_paper: vision_pending accumulator not supplied. Phase A "
+            "candidates must be collected at the RUN level and passed to "
+            "corpus_io.build_vision_queue() ONCE, at the batch boundary (v2.39 "
+            "GAP-2026-07-27-B). Pass vision_pending=<list> from run_batch_loop().")
+    vision_pending.extend(
+        {'paper_id': paper_id, 'q_num': q['num'],
+         'srcs': [p for p in srcs if p],
+         'subtopic': q.get('subtopic'), 'image_role': q.get('image_role')}
+        for q, srcs in vision_candidates)
+    if vision_candidates:
+        print(f"    PHASE A: {len(vision_candidates)} figural question(s) accumulated "
+              f"for this paper ({len(vision_pending)} pending in this batch)")
 
     for q in questions:
         key = (q.get('section','?'), q.get('topic','?'), q.get('subtopic','?'))
@@ -3276,13 +3522,38 @@ def _is_statement_combination(options):
     combo = sum(1 for o in opts if _COMBO_OPT_RE.match(o.strip()))
     return combo >= max(2, len(opts) - 1)   # most/all options are combo-labels
 
-def detect_is_msq(full_stem, options):
-    """v2.5 contract detector. Caller already gated on multi_select=True."""
-    if not _MSQ_INSTR_RE.search(full_stem or ''):
+def detect_is_msq(full_stem, options, positional_type=None):
+    """v2.5 contract detector. Caller already gated on multi_select=True.
+
+    v2.39 (GAP-2026-07-27-E) — POSITIONAL BRANCH ADDED.
+
+    The instruction-phrase test alone measured 24 MSQ across 1,719 questions on an exam
+    whose marking scheme reserves Q31-40 for MSQ (~10/paper, so ~120 in the current era
+    alone). The cause is cross-step information destruction, not a weak regex: PYQSort
+    renumbers questions into taxonomy order, so by the time Step 5 reads the paper the
+    exam positions that identify the MSQ band no longer exist. Step 5 could not recover
+    what Step 3 had discarded.
+
+    PYQSort v1.18 now stamps the original position into the date label, so the band is
+    knowable again. positional_type is the question_type whose marking_scheme q_range
+    covers that position — exam-agnostic, read from exam_config at runtime, no hardcoded
+    ranges anywhere.
+
+    PRECEDENCE. The EC-A guard still wins: a statement-combination MCQ is NEVER MSQ,
+    however it is banded, because its option SHAPE is forgery-resistant evidence about
+    the answer mechanism and a band is only evidence about where the question sat. A
+    paper that deviates from its own declared scheme is thereby not mis-typed.
+
+    positional_type is None for a pre-v1.18 sorted file, an absent marking_scheme, or a
+    position no band covers. All three mean "no positional evidence" and fall back to
+    v2.5 behaviour exactly — so no exam changes until its papers are re-sorted.
+    """
+    if _is_statement_combination(options):   # EC-A guard — highest precedence
         return False
-    if _is_statement_combination(options):   # EC-A guard
-        return False
-    return True
+    if _MSQ_INSTR_RE.search(full_stem or ''):
+        return True
+    return positional_type == 'MSQ'
+
 
 def _detect_option_label_style(raw_option_lines):
     """
@@ -3305,9 +3576,11 @@ def _detect_option_label_style(raw_option_lines):
     return 'unknown'
 
 
-def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_select):
+def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_select,
+                      marking_scheme=None):
     questions = []
     cur_sec = cur_top = cur_sub = ''
+    cur_date_label = None          # v2.39 — carries the stamped original position
     paras   = doc.paragraphs
     nxt     = bc.next_nonempty_texts(paras)        # GAP-2026-07-26-001
     i = 0
@@ -3324,7 +3597,11 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
             i += 1; continue
 
         # BUG-A16 fix: case-insensitive shift tag check via pattern
+        # v2.39 (GAP-2026-07-27-E): the label is RETAINED, not merely skipped. PYQSort
+        # v1.18 stamps the original exam position into it, which is the only surviving
+        # evidence of the MSQ band after Step 3's renumbering.
         if re.match(r'\[\d{1,2}-', text):
+            cur_date_label = text
             i += 1; continue
 
         q_num = detect_question_start(text)
@@ -3372,7 +3649,13 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         #     "X and Y"/none-of/all-of) ⇒ MSQ.
         # A statement-combination MCQ (most options are combo-labels) is NEVER MSQ even
         # when its stem says "are correct". Validated empirically (both directions).
-        is_msq = bool(multi_select) and detect_is_msq(full_stem, options)
+        # v2.39 (GAP-2026-07-27-E): resolve the exam position stamped by PYQSort v1.18
+        # into a declared question_type. Both helpers live in corpus_io Cluster Q — the
+        # same engine PYQSort delegates its stamp to — so writer and reader cannot drift.
+        _orig_q = corpus_io.parse_original_q_num(cur_date_label)
+        _pos_ty = corpus_io.question_type_for_position(_orig_q, marking_scheme)
+        is_msq = bool(multi_select) and detect_is_msq(full_stem, options,
+                                                      positional_type=_pos_ty)
 
         # BUG-D07 fix (v2.15): detect option label style per question
         # from the RAW option lines (before clean_option_text strips the label).
@@ -3396,6 +3679,16 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
             # corpus, 153 figural questions carry only 62 distinct q_num values, so
             # keying on q_num alone would have mis-attributed 91 of them.
             'q_num'       : q_num,
+            # v2.39 (GAP-2026-07-27-E + GAP-X residual). The ORIGINAL exam position and
+            # the type declared for its band are persisted, not just consumed. Two
+            # reasons: classify_paper_era()'s type-corroboration branch was inert
+            # because question_type never reached the persisted dict (measured:
+            # type_checked False on all 22 reference papers, so era rested on question
+            # COUNT alone); and a re-synthesis from progress.json alone can now redo
+            # positional typing without re-reading any docx. None means "unknown" — a
+            # pre-v1.18 sorted file, or a position no band covers — never "position 0".
+            'original_q_num': _orig_q,
+            'question_type' : _pos_ty,
             'stem'        : clean_stem,
             'stem_raw'    : full_stem,
             'options'     : options,
@@ -3897,7 +4190,25 @@ def classify_axis2(q):
         or _opts_are_combination_labels(opts)):
         return 'STATEMENT'
     # 5 — FILL_BLANK / CLOZE (EC-11): a blank to complete.
-    if q.get('blank_pos', 'none') not in ('none', None) or re.search(r'_{3,}|\bfill in the blank', s):
+    #
+    # v2.39 (GAP-2026-07-27-F). Gated on the question HAVING OPTIONS. Every NAT question
+    # carries an answer-entry blank as a artefact of the current-era answer line, and
+    # detect_blank_position() cannot tell that blank from a cloze gap in the stem.
+    #
+    # MEASURED (IIT_JAM_BIOTECHNOLOGY, 1719 Qs): FILL_BLANK fired on 218 of 261 NAT
+    # questions (83.5%) against 37 of 1434 MCQ (2.6%) — a 32x enrichment that tracks the
+    # answer mechanism, not the question form. The decisive control is batch 7: across
+    # 300 legacy-era questions, which carry almost no NAT, FILL_BLANK moved by exactly 1.
+    #
+    # The axes are orthogonal so nothing downstream is corrupted TODAY, but the NAT
+    # section's Axis-2 profile reads as ~100% cloze, and Step 7 rendering that literally
+    # emits NAT stems as fill-in-the-blank.
+    #
+    # A NAT question with a genuine cloze stem is real but rare, and is not recoverable
+    # from the artefact — it is deliberately classified by its residual form instead of
+    # being asserted on evidence that cannot distinguish the two.
+    if (opts and (q.get('blank_pos', 'none') not in ('none', None)
+                  or re.search(r'_{3,}|\bfill in the blank', s))):
         return 'FILL_BLANK'
     # 6 — ODD_ONE_OUT: genuine "which does not belong" classification (narrowed — mere
     #     negative phrasing is is_negative, handled orthogonally, not this class).
@@ -6800,6 +7111,12 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
 
         needs_upload = []          # papers this batch could not be fetched from Drive
 
+        # v2.39 (GAP-2026-07-27-B). Phase A candidates accumulate ACROSS the batch and
+        # the queue is built ONCE, below, immediately before Phase B. Building it
+        # per paper overwrote vision_queue.json and vision_sheet_NNN.png — both fixed
+        # filenames — so only the batch's last paper ever reached Phase B.
+        vision_pending = []
+
         for paper_ref in batch:
             paper_id  = make_paper_id(paper_ref['name'])
             print(f"  Processing: {paper_ref['name']}")
@@ -6827,7 +7144,8 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
             process_pyq_paper(local_path, paper_id, exam_code,
                                time_per_q, marks_per_q, options_count,
                                multi_select, progress,
-                               expected_size=paper_ref.get('fileSize'),)
+                               expected_size=paper_ref.get('fileSize'),
+                               vision_pending=vision_pending,)
 
             # ── Persist after EVERY paper (v2.29) ────────────────────────────
             # The durability unit is the PAPER, not the batch. Previously save_progress
@@ -6868,7 +7186,8 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
                 process_pyq_paper(_up, make_paper_id(p['name']),
                                   exam_code, time_per_q, marks_per_q, options_count,
                                   multi_select, progress,
-                                  expected_size=os.path.getsize(_up),)
+                                  expected_size=os.path.getsize(_up),
+                                  vision_pending=vision_pending,)
                 save_progress(progress, exam_code)        # per-paper, as above
             if found['unexpected']:
                 print(f"  ! Ignored {len(found['unexpected'])} unexpected upload(s) — "
@@ -6892,6 +7211,40 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
         # skipped, produced nothing, or produced a malformed file, this still runs, the
         # figures record 'vision_unavailable', QV-14 FAILs and the footer goes amber.
         # The run COMPLETES either way.
+        #
+        # ── PHASE A, ONCE PER BATCH (v2.39, GAP-2026-07-27-B) ───────────────────
+        # build_vision_queue() is idempotent as of corpus_io v1.9: it unions the items
+        # passed here with any queue already on disk, keyed by (paper_id, q_num), so a
+        # RESUMED session does not orphan the sheets a prior session already wrote.
+        # Both halves of the fix are required — hoisting alone still loses prior
+        # sessions, and idempotence alone still loses papers 1..N-1 within one batch.
+        vision_queue = corpus_io.build_vision_queue(
+            vision_pending, VISION_WORKDIR, per_sheet=VISION_PER_SHEET)
+        n_vision = len(vision_queue['items'])
+        if n_vision:
+            print(f"    PHASE A: {n_vision} figural question(s) queued across "
+                  f"{vision_queue['stats']['sheets']} contact sheet(s) in {VISION_WORKDIR}")
+            print(f"      ({len(vision_pending)} accumulated this batch; the queue is a "
+                  f"union with any items already on disk)")
+            if vision_queue['stats']['unrenderable']:
+                print(f"    note: {vision_queue['stats']['unrenderable']} figure(s) could not "
+                      f"be rasterised (vector/corrupt) — queued and reported, never dropped")
+            if vision_queue['degraded']:
+                print("    note: Pillow absent — degraded to one view() per figure (EC-V9)")
+            if vision_queue['stats'].get('tag_generation_changed'):
+                # EC-V12. A paper_id hash collision widened the tag code for the WHOLE
+                # queue, so every tag changed and any observation written under the
+                # previous generation can no longer be matched by Phase C. Loud, because
+                # the alternative is Phase C reporting already-viewed figures as simply
+                # unobserved and the operator re-viewing sheets that were already done.
+                print(f"    ! TAG GENERATION CHANGED "
+                      f"(width {vision_queue['stats'].get('prior_tag_width')} -> "
+                      f"{vision_queue['tag_width']}). A paper_id hash collision forced "
+                      f"a re-tag of the whole queue.")
+                print(f"      Observations recorded under the previous generation cannot "
+                      f"be matched and will report as unobserved. Re-run PHASE B over "
+                      f"every sheet in {VISION_WORKDIR}; QV-14 reports the true coverage.")
+
         vision_stats = apply_vision_observations(progress)
         progress.setdefault('_meta', {})['vision'] = vision_stats
         if vision_stats['vision_status'] == 'unavailable' and vision_stats['queued']:
@@ -7101,14 +7454,41 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
 
     # Source 2: Analysis docs (if present in project/uploads — adds absent subtopics
     # that have no PYQ data, ensuring QV-1 can detect missing coverage correctly)
+    #
+    # v2.39 (GAP-2026-07-27-A). Three defects lived in these six lines:
+    #   1. the append was unguarded  -> 126 of 134 ids emitted twice, QV-13 FAIL;
+    #   2. the glob spans BOTH directories, and the documented operator workflow puts
+    #      the same doc in both -> a THIRD copy of every overlapping subtopic;
+    #   3. `except Exception: pass` swallowed the RuntimeError that the v2.31 lock gate
+    #      raises for a SUPERSEDED Analysis doc. The gate was armed at line ~2200 and
+    #      disarmed six lines later, so the one failure it exists to prevent — silently
+    #      renaming the vocabulary of the whole pipeline — passed through unreported.
+    renames = []
+    _cand = []
     for search_dir in ['/mnt/project/', '/mnt/user-data/uploads/']:
         for f in glob.glob(os.path.join(search_dir, '*.docx')):
             bn = os.path.basename(f).lower()
             if 'analysis' in bn or 'analyse' in bn:
-                try:
-                    extract_taxonomy_from_analysis_doc(f, taxonomy)
-                except Exception:
-                    pass  # Analysis doc read failure is non-fatal during synthesis
+                _cand.append(f)
+    for f in _dedupe_analysis_docs(_cand):
+        try:
+            extract_taxonomy_from_analysis_doc(f, taxonomy, renames=renames)
+        except RuntimeError:
+            # v2.31 LOCK GATE — this doc is not the one PYQApprove approved.
+            # MUST NOT be swallowed: Step 5 mints the subtopic_ids every later step
+            # matches on, so proceeding renames the pipeline's vocabulary silently.
+            raise
+        except Exception as ex:
+            # Any OTHER read failure stays non-fatal, as before — but is now VISIBLE.
+            print(f"  WARN: Analysis doc unreadable, skipped: {os.path.basename(f)} — {ex}")
+
+    # v2.39 decision (a): the doc won the topic name above; carry the rename into the
+    # progress keys BEFORE the synthesis loop, whose lookup key includes topic. Without
+    # this, a renamed topic orphans every question under it — silently.
+    for line in apply_taxonomy_renames(progress, renames):
+        print(line)
+    if renames:
+        print(f"Taxonomy renames applied from Analysis doc: {len(renames)}")
 
     # Synthesise every subtopic
     all_entries = []
@@ -7163,6 +7543,32 @@ def run_synthesise(exam_code, progress, coverage_mode='mandatory_5yr',
     # longer reach Step 6 as a silent, two-steps-later HALT.
     _stamp_meta = {'section_prefix_overrides':
                    (progress.get('_meta', {}) or {}).get('section_prefix_overrides', {})}
+    # ── QV-13b (v2.39, GAP-2026-07-27-A) — DUPLICATE TAXONOMY KEY, PRE-MINT ─────
+    # Runs BEFORE minting, deliberately. After minting, a duplicated (section, topic,
+    # subtopic) surfaces as an opaque subtopic_id collision in QV-13, which sent six
+    # sessions looking at mint_subtopic_ids() — the one function that was behaving
+    # correctly. Attributing the failure to the MERGE, at the point the merge is still
+    # visible, is the difference between a six-line fix and a six-session hunt.
+    # HARD STOP: every id minted downstream keys the whole pipeline, and a duplicate
+    # key means two entries are competing to define one subtopic.
+    _keys = [(e['section'], e['topic'], e['subtopic']) for e in all_entries]
+    if len(_keys) != len(set(_keys)):
+        import collections as _c
+        _dupes = [k for k, n in _c.Counter(_keys).items() if n > 1]
+        print(f"\n★ QV-13b HARD STOP: {len(_dupes)} duplicate (section, topic, subtopic) "
+              f"key(s) in the entry set, {len(_keys)} entries for {len(set(_keys))} "
+              f"distinct subtopics.")
+        print("  CAUSE: the taxonomy was CONCATENATED rather than MERGED — Source 1 "
+              "(progress keys) and Source 2 (Analysis doc) each contributed the same "
+              "subtopic, or one Analysis doc was read twice from two directories.")
+        for k in _dupes[:5]:
+            print(f"    {k}")
+        if len(_dupes) > 5:
+            print(f"    ... and {len(_dupes) - 5} more")
+        print("  This is NOT a mint_subtopic_ids() fault. Do not renumber ids to "
+              "work around it.")
+        raise SystemExit("QV-13b: duplicate taxonomy keys — synthesis aborted before minting.")
+
     mint_subtopic_ids(all_entries, _stamp_meta)                    # ids first (merges join on them)
     all_entries = apply_subtopic_merges(all_entries, exam_code)    # D7 (no-op if none declared)
     stamp_mechanic_axes(all_entries, exam_code, _stamp_meta)
@@ -7451,20 +7857,58 @@ def save_progress(progress, exam_code):
     return path
 
 def load_progress(exam_code):
-    """Load progress from project knowledge or outputs dir."""
+    """Load progress, preferring the MOST ADVANCED copy rather than the first found.
+
+    v2.39 (GAP-2026-07-27-H, raised P3 -> P1 on operator evidence).
+
+    The old order returned the FIRST existing path, with /mnt/project/ first and
+    /mnt/user-data/outputs/ — where the live session writes — LAST. Within a run the
+    current state is in outputs while a stale copy sits in project knowledge, so any
+    mid-run reload silently reverted to the stale one. This is not an edge case: the
+    documented operator workflow is "download the output, re-upload it to project
+    knowledge", which makes stale-project-copy the NORMAL state between sessions. One
+    session lost a completed 3-paper batch this way and had to reprocess it.
+
+    Ordering by directory cannot express the real rule, because which directory is
+    freshest depends on whether this is a cold start or a mid-run reload — something
+    this function cannot know. So it does not guess: it reads every candidate and takes
+    the one that has processed the most papers, which is correct in BOTH cases and needs
+    no mode flag. Divergence is reported, never silent.
+
+    Ties break toward the earlier path (project knowledge), preserving pre-v2.39
+    behaviour when the copies are equally advanced.
+    """
+    candidates = []
     for search_path in [
         f'/mnt/project/{exam_code}_analysis_progress.json',
         f'/mnt/user-data/uploads/{exam_code}_analysis_progress.json',
-        f'/mnt/user-data/outputs/{exam_code}_analysis_progress.json',  # local session fallback
+        f'/mnt/user-data/outputs/{exam_code}_analysis_progress.json',  # live session state
     ]:
-        if os.path.exists(search_path):
+        if not os.path.exists(search_path):
+            continue
+        try:
             with open(search_path, encoding='utf-8') as f: raw = json.load(f)
-            progress = {}
-            for k, v in raw.items():
-                try:    key = ast.literal_eval(k)
-                except: key = k
-                progress[key] = v
-            return progress
+        except Exception as ex:
+            print(f"  WARN: progress file unreadable, skipped: {search_path} — {ex}")
+            continue
+        progress = {}
+        for k, v in raw.items():
+            try:    key = ast.literal_eval(k)
+            except: key = k
+            progress[key] = v
+        n_done = len((progress.get('_meta', {}) or {}).get('papers_processed', []))
+        candidates.append((n_done, search_path, progress))
+
+    if candidates:
+        best = max(candidates, key=lambda c: c[0])       # max() keeps the FIRST maximum
+        if len({c[0] for c in candidates}) > 1:
+            print("  ! Divergent progress files found — taking the most advanced:")
+            for n_done, path, _ in candidates:
+                mark = '  <= USING' if path == best[1] else ''
+                print(f"      {n_done:3d} paper(s)  {path}{mark}")
+            print("    (v2.39: selection is by papers_processed, not directory order. "
+                  "Delete or refresh the stale copy to silence this.)")
+        return best[2]
     return {'_meta': {'papers_processed': [], 'total_questions': 0,
                        'years_processed': [], 'exam_code': exam_code},
             '_linked_groups': {}}
@@ -8699,12 +9143,39 @@ def generate_frequency_xlsx(progress, exam_code, all_entries=None,
                    capture_output=True)
 
     # v2.17 FIX-2: Coverage validation (XLSX-F9)
+    #
+    # v2.39 (GAP-2026-07-27-D) — THE DENOMINATOR WAS PER-PAPER.
+    # exam_total_all is cfg['total_questions'], i.e. the size of ONE paper (60 for
+    # IIT_JAM_BIOTECHNOLOGY). mapped_total is the CORPUS sum (1719). The ratio therefore
+    # exceeded 0.05 on every multi-paper corpus that has ever run, and the message
+    # printed `60 - 1719` as a count of unclassified questions:
+    #     "⚠ COVERAGE WARNING (XLSX-F9): ... 1719 Qs but exam has 60 total (2865% mapped).
+    #      -1659 questions were not classified to any subtopic."
+    # Not merely wrong — INVERTED. A gate that cannot fire correctly trains operators to
+    # ignore gates, and this one had been crying wolf since v2.17.
+    #
+    # The honest expectation is one paper's worth of questions per paper actually
+    # counted. Under frequency_scope='current-era' only the current-era papers feed
+    # `data`, so the denominator must count those papers and no others — hence
+    # counting_progress, not progress.
     mapped_total = sum(e['total'] for e in data.values())
-    if exam_total_all > 0 and abs(mapped_total - exam_total_all) / exam_total_all > 0.05:
-        pct_mapped = round(mapped_total / exam_total_all * 100, 1)
+    _n_papers = len((counting_progress.get('_meta', {}) or {}).get('papers_processed', []))
+    expected_total = exam_total_all * _n_papers if (exam_total_all > 0 and _n_papers) else 0
+    if expected_total > 0 and abs(mapped_total - expected_total) / expected_total > 0.05:
+        pct_mapped = round(mapped_total / expected_total * 100, 1)
+        shortfall  = expected_total - mapped_total
         print(f"\n  ⚠ COVERAGE WARNING (XLSX-F9): Frequency xlsx accounts for {mapped_total} Qs "
-              f"but exam has {exam_total_all} total ({pct_mapped}% mapped).")
-        print(f"    {exam_total_all - mapped_total} questions were not classified to any subtopic.")
+              f"but {_n_papers} paper(s) x {exam_total_all} Qs/paper = {expected_total} "
+              f"expected ({pct_mapped}% mapped).")
+        if shortfall > 0:
+            print(f"    {shortfall} question(s) were not classified to any subtopic.")
+        else:
+            # Guarded: a negative shortfall is a SURPLUS and must never be printed as
+            # "not classified". Legitimately reachable — legacy papers in an era-mixed
+            # corpus can carry more questions than the current pattern declares.
+            print(f"    {-shortfall} question(s) MORE than expected were classified — "
+                  f"papers in this corpus differ in size from the current exam pattern "
+                  f"(legacy era), or a paper was counted twice.")
         print(f"    Downstream blueprint will be inaccurate. Review PYQ classification.")
 
     return path
@@ -9052,4 +9523,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.38
+# END OF Framework_MockTestAnalyse v2.39

@@ -1,4 +1,4 @@
-# Framework_PYQPrepare v1.12 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v1.13 — Universal PYQ Row File Generator
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:
@@ -86,6 +86,21 @@
 #   GATE, NEET, UPSC, CAT, Banking, RRB, state PSC, or any exam.
 #
 # VERSION HISTORY:
+#   v1.13 — 2026-07-27 — VISION_WORKDIR DEFINED, DISTINCT, AND fresh (GAP-2026-07-27-B follow-up).
+#           This spec used VISION_WORKDIR at three call sites without defining it, so
+#           Step 1 silently inherited Step 5's /home/claude/pyq_vision. corpus_io
+#           <= v1.8 overwrote the workdir on every build, which HID the sharing; the
+#           v1.9 idempotent union (correct for Step 5's batch-spanning workdir)
+#           surfaced it — a second PYQPrepare run in the same session saw the first
+#           paper's cells carried into its queue (measured: queued=3 for a 1-image
+#           paper), re-viewed them in Phase B, counted them unobserved in Phase C,
+#           and delivered an amber footer with wrong counts. Now: VISION_WORKDIR is
+#           declared HERE as /home/claude/pyq_vision_prep, and both call sites pass
+#           fresh=True (corpus_io >= v1.10), which clears queue + sheets +
+#           observations before building. Step 1's Phase A->B->C completes inside one
+#           trigger, so prior workdir contents are never resume state for this step.
+#           An undefined constant in a spec is itself the defect: the executing model
+#           must guess or borrow, and both guesses were wrong here.
 #   v1.12 — 2026-07-26 — CALL A3b REWIRED TO PHASE A/B/C; PROBE FAMILY RETIRED.
 #     v1.11 replaced the S1-12 protocol but CALL A3b in the tool-call ledger still
 #     instructed corpus_io.make_vision_probe() / score_vision_probe(), and two vector
@@ -872,8 +887,25 @@ HOW (v1.11 — THREE-PHASE, GAP-2026-07-26-003):
   against the images this step has already extracted. There is no separate probe:
   the images ARE the probe. If any of them comes back observed, vision works.
 
-    PHASE A (python)  corpus_io.build_vision_queue(items, VISION_WORKDIR)
+    PHASE A (python)  corpus_io.build_vision_queue(items, VISION_WORKDIR, fresh=True)
                       — items are the extracted images, keyed (source_id, img_idx).
+
+                      VISION_WORKDIR = '/home/claude/pyq_vision_prep'   (v1.13)
+
+                      DEFINED HERE, and DISTINCT from Step 5's /home/claude/pyq_vision.
+                      Before v1.13 this spec used the name without defining it, so
+                      every session inherited Step 5's directory — invisible under
+                      corpus_io <= v1.8, whose builder overwrote the workdir, but the
+                      v1.9 union made the queue ACCUMULATE across runs and steps:
+                      a second PYQPrepare run saw the first paper's cells re-queued
+                      (measured: queued=3 for a 1-image paper), Phase B re-viewed
+                      them, Phase C counted them unobserved, and the footer went
+                      amber with wrong counts. fresh=True (corpus_io >= v1.10)
+                      restores per-run semantics EXPLICITLY: Step 1 completes
+                      Phase A->B->C inside one trigger, so a prior queue is never
+                      resume state here — it is contamination. Step 5 keeps the
+                      union; its workdir spans a batch and resumed sessions must
+                      not orphan prior sheets.
     PHASE B (model)   view() each contact sheet; record one observation per
                       labelled cell. THIS IS PROSE, NEVER A PYTHON FUNCTION.
                       Protocol verbatim as Framework_MockTestAnalyse S4-2b, except
@@ -2982,7 +3014,9 @@ PHASE A — INSPECT (1–3 tool calls):
     → Cross-check the mapping total against corpus_io.count_image_refs.
 
   CALL A3b (v1.11, MANDATORY before any classification): PHASE A + PHASE B
-    bash_tool: queue = corpus_io.build_vision_queue(items, VISION_WORKDIR)
+    bash_tool: queue = corpus_io.build_vision_queue(items, VISION_WORKDIR, fresh=True)
+      # VISION_WORKDIR = '/home/claude/pyq_vision_prep' — Step 1's own, NOT Step 5's
+      # (v1.13; fresh=True needs corpus_io >= v1.10 — per-run scope, see S1-12)
       where items = [{'paper_id','q_num','srcs':[extracted image paths]}, ...]
     THEN, IN THIS TURN (PHASE B — prose protocol, S1-12; never a python call):
       view(<VISION_WORKDIR>/<sheet>) for each sheet in queue['sheets']
@@ -3207,4 +3241,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v1.12
+# END OF Framework_PYQPrepare v1.13

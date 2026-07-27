@@ -1,4 +1,4 @@
-# Framework_PYQSort v1.17 — Universal PYQ Sorter
+# Framework_PYQSort v1.18 — Universal PYQ Sorter
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS (v1.14):
@@ -104,6 +104,39 @@
 #   to Step 1 as the fix location — not a PYQSort bug.
 #
 # VERSION HISTORY:
+#   v1.18 — 2026-07-27 — THE ORIGINAL EXAM POSITION SURVIVES SORTING (GAP-2026-07-27-E).
+#           Step 3 renumbers questions into TAXONOMY order. That is correct and stays —
+#           but it destroyed the EXAM position, and nothing downstream could recover it.
+#           Step 5's MSQ detector had only the instruction phrase left to work from and
+#           measured 24 MSQ across 1,719 questions on an exam whose marking scheme
+#           reserves Q31-40 for MSQ (~10/paper, so ~120 in the current era alone).
+#           Section B was therefore under-represented corpus-wide, Step 6 under-allocated
+#           it and Step 7 under-produced MSQ — surfacing two steps later as unexplained
+#           Section B feasibility pressure in MockBlueprint.
+#
+#           This is the class of defect that CANNOT be fixed where it is observed. The
+#           information does not exist by the time Step 5 runs, so Step 5 had nothing to
+#           be smarter about. The fix belongs at the point of destruction.
+#
+#           CHANGE: the date label — rebuilt on every emit, never cloned, and already
+#           parsed by Step 5 — now carries a trailing " Q<N>" holding the original
+#           position. No new artefact, no new parser, no schema migration.
+#             * build_date_label_re(): the Q-part is OPTIONAL, so every sorted file
+#               produced before v1.18 still parses BYTE-IDENTICALLY. No exam is forced
+#               to re-sort; each gains positional typing when next sorted.
+#             * parse_original_q_num(): new. Kept SEPARATE from parse_date_label(),
+#               whose 4-tuple return is the sort key and is consumed positionally in
+#               several places — widening it would be a silent breaking change.
+#             * stamp_original_q_num(): new, IDEMPOTENT, so a re-emit cannot produce
+#               "[... Q37 Q37]".
+#             * Both DELEGATE to corpus_io Cluster Q (>= v1.9). Step 3 WRITES this stamp
+#               and Step 5 READS it — precisely the two-spec shape that produced the
+#               is_option drift v1.17 had to unwind, where each file's docstring asserted
+#               alignment with the other and both were wrong. One definition in the
+#               engine; drift impossible by construction, not asserted by comment.
+#           A None result means UNKNOWN — a pre-v1.18 file, or a position no band
+#           covers — and callers must never read it as position 0.
+#
 #   v1.17 — 2026-07-26 — is_option DELEGATED; IMAGE OPTIONS NO LONGER UNDERCOUNTED
 #            (audit_deep [XSPEC-DRIFT]). This file carried its own is_option() whose
 #            docstring claimed "Aligned with Step 5's is_option() — same 5 patterns."
@@ -835,12 +868,38 @@ def build_date_label_re(session_keyword):
     Build date label regex dynamically from exam_config session_keyword.
     Session part is OPTIONAL — matches both [DD-Mon-YYYY] and
     [DD-Mon-YYYY <keyword> N] formats.
+
+    v1.18 (GAP-2026-07-27-E) — the label now optionally carries the ORIGINAL question
+    number as a trailing " Q<N>". The group is OPTIONAL, so every sorted file produced
+    before v1.18 still parses byte-identically and no re-sort is forced.
+
+    WHY HERE. Step 3 renumbers questions into taxonomy order, which DESTROYS the exam
+    position. Step 5's MSQ detector then has only the instruction phrase to go on, and
+    measured 24 MSQ across 1,719 questions on an exam whose marking scheme reserves
+    Q31-40 for MSQ (~10/paper, so ~120 in the current era alone). Step 5 cannot recover
+    what Step 3 discarded — so Step 3 must stop discarding it. The date label is the
+    right carrier because it is rebuilt (never cloned) on every emit and Step 5 already
+    parses it, so no new artefact and no new parser are introduced.
     """
     return re.compile(
         r'^\[(\d{1,2})-([A-Za-z]{3})-(\d{4})'
         r'(?:\s+' + re.escape(session_keyword) + r'\s+(\d+))?'
+        r'(?:\s+Q(\d+))?'
         r'\]$'
     )
+
+
+# ── ORIGINAL EXAM POSITION — DELEGATED (v1.18, Cluster Q) ────────────────────
+# GAP-2026-07-27-E. Step 3 WRITES this stamp and Step 5 READS it. A format defined in
+# two specs is exactly the shape that produced the is_option drift v1.17 had to unwind:
+# each file's docstring asserted alignment with the other, and both claims were false.
+# corpus_io >= v1.9 owns the single definition; both specs bind to it by assignment, so
+# a divergence is not merely discouraged, it is unrepresentable.
+#
+# The stamped field is OPTIONAL. A label written before v1.18 parses to None, which
+# means UNKNOWN and must never be read as position 0. No exam is forced to re-sort.
+parse_original_q_num = corpus_io.parse_original_q_num
+stamp_original_q_num = corpus_io.stamp_original_q_num   # v1.18 — DELEGATED (Cluster Q)
 
 MONTH_MAP = {
     'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
@@ -1545,7 +1604,13 @@ def emit_sorted(out_doc, sorted_questions, taxonomy, src_doc, exam_config):
         new_q_num += 1
 
         # Step A — Date label (MANDATORY, always first)
-        dl = make_date_label_para(q['date_label'])
+        # v1.18 (GAP-2026-07-27-E): carries the ORIGINAL exam position. new_q_num above
+        # is the TAXONOMY position; q['q_num'] is where the question actually sat in the
+        # paper. Sorting destroys the latter, and Step 5 needs it to recognise a
+        # section-banded question type (MSQ at Q31-40) that carries no instruction
+        # phrase of its own. Stamping is idempotent and the field is optional, so
+        # pre-v1.18 sorted files remain valid and no re-sort is forced.
+        dl = make_date_label_para(stamp_original_q_num(q['date_label'], q.get('q_num')))
         insert_para(out_doc, dl)
 
         # Step B — Cloned stem (renumbered Q.N)
@@ -2578,4 +2643,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.17
+# END OF Framework_PYQSort v1.18

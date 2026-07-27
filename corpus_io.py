@@ -1,6 +1,47 @@
 """
-corpus_io.py v1.8 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.10 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance and the Analysis doc.
+
+v1.10 — 2026-07-27 — `fresh=` PARAMETER: RUN-SCOPED CALLERS OPT OUT OF THE UNION.
+
+    Found while verifying the v1.9 union against its CALLERS, prompted by the
+    self-test regression review. Step 1 (PYQPrepare) shares the same fixed
+    VISION_WORKDIR as Step 5 but wants per-run semantics: it processes ONE source
+    per trigger and completes Phase A->B->C inside that trigger, so anything already
+    in the workdir is contamination from a previous paper or a previous step.
+    v1.8's overwrite masked the sharing; the v1.9 union surfaced it (measured: a
+    second PYQPrepare run saw queued=3 where it queued 1 — Phase B re-views the
+    prior paper's cells, Phase C counts them unobserved, footer goes amber with
+    wrong counts). fresh=True clears queue + sheets + observations before building.
+    Default False preserves v1.9 union semantics for Step 5. Also bumps the version
+    line so the three byte-distinct states that briefly all claimed v1.9 are
+    unambiguous: v1.9 = union, v1.9+isolated self-tests = superseded, v1.10 = this.
+
+v1.9 — 2026-07-27 — build_vision_queue() IS NOW IDEMPOTENT (GAP-2026-07-27-B).
+
+    It wrote vision_queue.json and vision_sheet_NNN.png — both FIXED names — and never
+    read what was already in the workdir. Any caller invoking it twice against one
+    workdir destroyed the first call's work. Framework_MockTestAnalyse <= v2.38 called
+    it once per PAPER into a workdir its own spec defines as one-per-RUN, so within a
+    3-paper batch only the LAST paper reached Phase B.
+
+    MEASURED (IIT_JAM_BIOTECHNOLOGY, 22 papers): 153 figural questions; _meta.vision
+    recorded queued=8. Batch 7 queued 24 and 3 survived. Five separate sessions hit
+    this and each invented a different workaround; none converged.
+
+    It now unions the submitted items with any queue already on disk, keyed by
+    (paper_id, q_num), before tiling. Safe by construction — bc.vision_tag_map derives
+    a tag from paper_id alone, so re-tiling a superset leaves prior tags intact
+    (EC-V11/V12). A hash-width widening is the one case that re-tags everything; it is
+    now detected and reported via stats['tag_generation_changed'] rather than silently
+    orphaning the previous generation's observations.
+
+    stats gains carried_in / submitted / tag_generation_changed so a caller can
+    distinguish a fresh queue from a resumed one without diffing files.
+
+    This is HALF the fix. The caller must ALSO stop calling it per paper — see
+    Framework_MockTestAnalyse v2.39. Hoisting alone still loses prior sessions;
+    idempotence alone still loses papers 1..N-1 within a batch.
 
 v1.8 — 2026-07-26 — VISION-PROBE FAMILY RETIRED (GAP-2026-07-26-003 follow-up).
 
@@ -1015,8 +1056,61 @@ def _compose_cell(srcs, box, max_edge):
     return canvas, True
 
 
+# ── CLUSTER Q — ORIGINAL QUESTION POSITION IN THE DATE LABEL (v1.9) ──────────
+# GAP-2026-07-27-E. Step 3 (PYQSort) renumbers questions into taxonomy order, which
+# destroys the exam position. Step 5 (MockTestAnalyse) needs that position back to
+# recognise a section-banded question type — an MSQ block at Q31-40 that carries no
+# multi-select instruction phrase of its own. Measured on IIT_JAM_BIOTECHNOLOGY: 24 MSQ
+# detected across 1,719 questions against a marking scheme reserving ~10/paper.
+#
+# ONE WRITER, ONE READER, ONE DEFINITION. The stamp is produced by Step 3 and consumed
+# by Step 5, which is exactly the shape that produced the is_option drift v2.36 had to
+# unwind: two specs each claiming in a docstring to match the other, and silently
+# diverging. Both specs delegate here so the format cannot drift by construction.
+#
+# The field is OPTIONAL. A label written before v1.18 has no Q-part and parses to None,
+# which callers MUST treat as "unknown" and never as position 0. No re-sort is forced.
+ORIG_QNUM_RE = re.compile(r'\sQ(\d+)\]$')
+
+
+def parse_original_q_num(date_label):
+    """Return the original exam question number stamped in a date label, or None."""
+    m = ORIG_QNUM_RE.search((date_label or '').strip())
+    return int(m.group(1)) if m else None
+
+
+def stamp_original_q_num(date_label, original_q_num):
+    """Insert ' Q<N>' before a date label's closing bracket. Idempotent."""
+    if original_q_num is None:
+        return date_label
+    lbl = (date_label or '').strip()
+    if not lbl.endswith(']') or ORIG_QNUM_RE.search(lbl):
+        return date_label if not lbl.endswith(']') else lbl
+    return lbl[:-1] + f' Q{int(original_q_num)}]'
+
+
+def question_type_for_position(original_q_num, marking_scheme):
+    """Return the question_type whose q_range covers this position, or None.
+
+    Exam-agnostic: the bands come from exam_config's marking_scheme at runtime. Returns
+    None for an unknown position, an absent/empty scheme, or a position no band covers —
+    every one of which means "no positional evidence", never "not this type".
+    """
+    if original_q_num is None or not marking_scheme:
+        return None
+    for band in marking_scheme:
+        rng = (band or {}).get('q_range') or []
+        if len(rng) == 2:
+            try:
+                if int(rng[0]) <= int(original_q_num) <= int(rng[1]):
+                    return band.get('question_type')
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
 def build_vision_queue(items, workdir, per_sheet=6, max_edge=1600,
-                       cell=520, label_h=30, cols=3):
+                       cell=520, label_h=30, cols=3, fresh=False):
     """PHASE A. Turn figural questions into contact sheets plus a work queue.
 
     items: [{'paper_id', 'q_num', 'srcs':[path,...], 'subtopic'?, 'image_role'?}]
@@ -1036,12 +1130,71 @@ def build_vision_queue(items, workdir, per_sheet=6, max_edge=1600,
     EC-V15 key is (paper_id, q_num), never a bare q_num
     """
     os.makedirs(workdir, exist_ok=True)
+
+    # ── v1.10 `fresh` — RUN-SCOPED CALLERS OPT OUT OF THE UNION ─────────────────
+    # The v1.9 union is correct for Step 5, whose workdir is one-per-RUN spanning a
+    # whole batch, and whose resumed sessions must not orphan prior sheets. It is
+    # WRONG for Step 1 (PYQPrepare), which processes ONE source per trigger and runs
+    # Phase A -> B -> C within that same trigger: anything already in the workdir is
+    # contamination from a previous paper or a previous step. Under v1.8's overwrite
+    # this sharing was invisible; the union surfaced it — measured: a second
+    # PYQPrepare run saw queued=3 where it queued 1, so Phase B re-views the prior
+    # paper's cells and Phase C counts them unobserved (amber footer, wrong counts).
+    # fresh=True removes the prior queue, sheets AND observations before building,
+    # restoring per-run semantics EXPLICITLY at the call site rather than by accident
+    # of write mode. Default False preserves union semantics for every other caller.
+    if fresh:
+        import glob as _glob
+        for _stale in ([os.path.join(workdir, VISION_QUEUE_NAME),
+                        os.path.join(workdir, VISION_OBS_NAME)]
+                       + _glob.glob(os.path.join(workdir, VISION_SHEET_FMT.format(0)
+                                                 .replace('000', '*')))):
+            try:
+                os.remove(_stale)
+            except OSError:
+                pass
+
+    # ── v1.9 IDEMPOTENT UNION (GAP-2026-07-27-B) ────────────────────────────────
+    # This function WRITES vision_queue.json and vision_sheet_NNN.png, both fixed
+    # names, and never read what was already there. Callers that invoked it more than
+    # once per workdir therefore destroyed every earlier call's work. Measured on
+    # IIT_JAM_BIOTECHNOLOGY: 153 figural questions across 22 papers, of which the
+    # run-level record retained 8 — the last paper's alone.
+    #
+    # The caller-side fix (hoist to the batch boundary) is necessary but not
+    # sufficient: a RESUMED session starts a new batch against a workdir that may
+    # already hold sheets, and would orphan them the same way. Unioning here closes
+    # that half. Both halves ship together.
+    #
+    # Safe by construction: bc.vision_tag_map derives a tag from paper_id alone, so a
+    # key's tag does not depend on which OTHER keys are present, and re-tiling a
+    # superset leaves every prior tag intact. The one exception is a hash-width
+    # widening, which re-tags the WHOLE queue — detected and reported below.
+    prior_items, prior_width = [], None
+    _qpath = os.path.join(workdir, VISION_QUEUE_NAME)
+    if os.path.exists(_qpath):
+        try:
+            with open(_qpath, encoding='utf-8') as _f:
+                _prior = json.load(_f)
+            prior_width = _prior.get('tag_width')
+            for _pit in (_prior.get('items') or []):
+                prior_items.append({'paper_id': _pit.get('paper_id'),
+                                    'q_num': _pit.get('q_num'),
+                                    'srcs': list(_pit.get('srcs') or []),
+                                    'subtopic': _pit.get('subtopic'),
+                                    'image_role': _pit.get('image_role')})
+        except Exception:
+            # An unreadable prior queue must not stop Phase A. Rebuild from the
+            # incoming items alone; the sheets are regenerated either way.
+            prior_items, prior_width = [], None
+
     # EC-V27. Collapse repeats of the SAME (paper_id, q_num) into one item, unioning
     # their sources. A key maps to exactly one tag, so two items sharing a key would
     # print the SAME label on two cells — and a Phase-B observation against that label
     # could not be attributed to either. One question, one tag, one cell (EC-V6).
+    # Prior items are seeded FIRST so a re-run is stable; incoming items fill gaps.
     merged = {}
-    for it in (items or []):
+    for it in (prior_items + list(items or [])):
         if not isinstance(it, dict):
             continue
         try:
@@ -1063,8 +1216,27 @@ def build_vision_queue(items, workdir, per_sheet=6, max_edge=1600,
     rows = sorted(((k, v[0], v[1]) for k, v in merged.items()),
                   key=lambda r: (r[0][0], r[0][1]))
 
-    tag_map, tag_width = bc.vision_tag_map([r[0] for r in rows])
-    stats = {'queued': len(rows), 'sheets': 0, 'unrenderable': 0, 'degraded': False}
+    # v1.9. Pass the prior width as a FLOOR. vision_tag_map widens on collision but
+    # would otherwise also NARROW when the key set shrinks, re-tagging every surviving
+    # question for no reason. Under the union the paper set grows and shrinks across
+    # batches and resumed sessions, so pinning the floor removes the spurious half of
+    # the re-tag risk entirely. A genuine widening remains possible — 4 hex chars is
+    # ~65k codes, so a collision appears in a few percent of large corpora — and is
+    # reported rather than absorbed.
+    tag_map, tag_width = bc.vision_tag_map([r[0] for r in rows],
+                                           width=(prior_width or 4))
+    stats = {'queued': len(rows), 'sheets': 0, 'unrenderable': 0, 'degraded': False,
+             # v1.9 — union provenance, so a caller can tell a fresh queue from a
+             # resumed one without diffing files.
+             'carried_in': len(prior_items), 'submitted': len(items or []),
+             'tag_generation_changed': False}
+    if prior_width is not None and prior_width != tag_width:
+        # EC-V12. A paper_id hash collision widened the code for the WHOLE queue, so
+        # every tag changed and observations written under the previous generation can
+        # no longer be matched. Never silent: Phase C would otherwise report them as
+        # simply unobserved and the operator would re-view sheets that were already done.
+        stats['tag_generation_changed'] = True
+        stats['prior_tag_width'] = prior_width
 
     degraded = False
     try:
@@ -3558,9 +3730,19 @@ def self_test():
             check('v_tag_stable_across_retile',
                   {i['tag'] for i in _q['items']} == {i['tag'] for i in _q2['items']})
 
+            # v1.9 — build_vision_queue() now UNIONS with the queue already in the
+            # workdir (GAP-2026-07-27-B), so each single-build assertion below gets its
+            # OWN sub-workdir. Sharing one directory would make every later assertion
+            # see the accumulated set. The union itself is asserted explicitly further
+            # down; these cases are about ONE build in isolation.
+            def _iso(name):
+                _d = os.path.join(_vtmp, '_iso_' + name)
+                os.makedirs(_d, exist_ok=True)
+                return _d
+
             # EC-V6 — a 3-panel question is ONE queue item.
             _q3 = build_vision_queue(
-                [{'paper_id': 'P_C', 'q_num': 5, 'srcs': _src[:3]}], _vtmp)
+                [{'paper_id': 'P_C', 'q_num': 5, 'srcs': _src[:3]}], _iso('ec6'))
             check('v_ec6_multi_image_one_item',
                   len(_q3['items']) == 1 and _q3['items'][0]['renderable'])
 
@@ -3569,7 +3751,7 @@ def self_test():
             with open(_bad, 'wb') as _f:
                 _f.write(b'not an image')
             _q4 = build_vision_queue(
-                [{'paper_id': 'P_D', 'q_num': 1, 'srcs': [_bad]}], _vtmp)
+                [{'paper_id': 'P_D', 'q_num': 1, 'srcs': [_bad]}], _iso('ec8'))
             check('v_ec8_unrenderable_queued', len(_q4['items']) == 1)
             check('v_ec8_unrenderable_flagged',
                   _q4['items'][0]['renderable'] is False
@@ -3581,7 +3763,7 @@ def self_test():
             _q4b = build_vision_queue(
                 [{'paper_id': 'P_E', 'q_num': 3, 'srcs': [_src[0]], 'subtopic': None},
                  {'paper_id': 'P_E', 'q_num': 3, 'srcs': [_src[1]], 'subtopic': 'S9'}],
-                _vtmp)
+                _iso('ec27'))
             check('v_ec27_dedup_one_item', len(_q4b['items']) == 1)
             check('v_ec27_dedup_srcs_unioned',
                   len(_q4b['items'][0]['srcs']) == 2)
@@ -3593,17 +3775,18 @@ def self_test():
             # malformed item dicts are skipped without crashing the build
             _q5 = build_vision_queue(
                 [{'no_paper': 1}, {'paper_id': 'X', 'q_num': 'NaN'},
-                 {'paper_id': 'X', 'q_num': 2, 'srcs': [_src[0]]}], _vtmp)
+                 {'paper_id': 'X', 'q_num': 2, 'srcs': [_src[0]]}], _iso('malformed'))
             check('v_malformed_items_tolerated', len(_q5['items']) == 1)
 
             # ── END-TO-END: A -> B -> C -> profile ───────────────────────────
-            _qe = build_vision_queue(_items[:6], _vtmp, per_sheet=6)
+            _e2e = _iso('e2e')
+            _qe = build_vision_queue(_items[:6], _e2e, per_sheet=6)
             _obs = [{'tag': i['tag'], 'figure_readable': True,
                      'object_type': 'micrograph', 'transformation_type': 'N/A',
                      'arrangement': 'single', 'complexity': 'Simple'}
                     for i in _qe['items']]
-            write_vision_observations(_vtmp, _obs)
-            _read, _why = load_vision_observations(_vtmp)
+            write_vision_observations(_e2e, _obs)
+            _read, _why = load_vision_observations(_e2e)
             check('v_obs_roundtrip', len(_read) == 6 and _why == '')
             _bk, _st = bc.merge_vision_observations(_qe['items'], _read)
             check('v_e2e_all_observed',
@@ -3614,8 +3797,11 @@ def self_test():
             check('v_e2e_profile_status', _prof['vision_status'] == 'observed')
 
             # NEGATIVE TEST — Phase B skipped. Must NOT halt, must report.
-            os.remove(os.path.join(_vtmp, VISION_OBS_NAME))
-            _none, _why2 = load_vision_observations(_vtmp)
+            # v1.9: reads the SAME isolated dir the e2e block wrote to, so removing the
+            # observations file leaves that queue's 6 items unobserved rather than
+            # deleting a file the shared workdir never had.
+            os.remove(os.path.join(_e2e, VISION_OBS_NAME))
+            _none, _why2 = load_vision_observations(_e2e)
             check('v_neg_no_obs_file', _none == [] and 'Phase B' in _why2)
             _bk2, _st2 = bc.merge_vision_observations(_qe['items'], _none)
             check('v_neg_status_unavailable',
@@ -3626,8 +3812,115 @@ def self_test():
                   and _prof2['vision_status'] == 'unavailable'
                   and _prof2['images_unobserved'] == 6)
 
+            # ── v1.9 IDEMPOTENT UNION (GAP-2026-07-27-B) ─────────────────────
+            # The defect: build_vision_queue() wrote fixed filenames and never read
+            # what was there, so a caller invoking it once per PAPER destroyed every
+            # earlier paper's queue and sheets. Measured on IIT_JAM_BIOTECHNOLOGY:
+            # 153 figural questions across 22 papers, _meta.vision recorded queued=8.
+            _u = _iso('union')
+            _u1 = build_vision_queue(
+                [{'paper_id': 'PAPER_ALPHA', 'q_num': n, 'srcs': [_src[0]]}
+                 for n in (1, 2, 3)], _u)
+            _u2 = build_vision_queue(
+                [{'paper_id': 'PAPER_BETA', 'q_num': n, 'srcs': [_src[0]]}
+                 for n in (7, 8)], _u)
+            check('v_union_accumulates', _u2['stats']['queued'] == 5)
+            check('v_union_carried_in', _u2['stats']['carried_in'] == 3)
+            check('v_union_submitted', _u2['stats']['submitted'] == 2)
+            # Prior tags MUST survive, or Phase B observations already recorded against
+            # them silently orphan (EC-V11/V12).
+            # The invariant is CONDITIONAL, deliberately: a paper_id hash collision may
+            # legitimately widen the code and re-tag the whole queue (EC-V12). What must
+            # never happen is a re-tag that is not REPORTED — a silent one orphans every
+            # Phase B observation already recorded. Asserting unconditional tag survival
+            # would encode a hash outcome rather than the contract.
+            check('v_union_prior_tags_survive_or_reported',
+                  _u2['stats']['tag_generation_changed']
+                  or {i['tag'] for i in _u1['items']} <= {i['tag'] for i in _u2['items']})
+            # Realistic paper_ids (long and varied, as make_paper_id emits) do not
+            # collide: verified across the 22 real ids of the reference corpus, width
+            # stayed 4 with zero generation changes over an incremental 22-paper build.
+            check('v_union_no_generation_change',
+                  _u2['stats']['tag_generation_changed'] is False)
+            # Re-submitting the same items is a no-op, so a resumed session that replays
+            # a batch cannot inflate the queue.
+            _u3 = build_vision_queue(
+                [{'paper_id': 'PAPER_ALPHA', 'q_num': n, 'srcs': [_src[0]]}
+                 for n in (1, 2, 3)], _u)
+            check('v_union_resubmit_idempotent', _u3['stats']['queued'] == 5)
+            check('v_union_empty_submit_preserves',
+                  build_vision_queue([], _u)['stats']['queued'] == 5)
+            # The width floor stops a SHRINKING key set from re-tagging survivors.
+            _w = _iso('width')
+            _wide = build_vision_queue(
+                [{'paper_id': 'P1', 'q_num': 1, 'srcs': [_src[0]]},
+                 {'paper_id': 'P2', 'q_num': 1, 'srcs': [_src[0]]}], _w)
+            _narrow = build_vision_queue(
+                [{'paper_id': 'P1', 'q_num': 1, 'srcs': [_src[0]]}], _w)
+            check('v_union_width_floor_holds',
+                  _narrow['tag_width'] == _wide['tag_width'])
+            check('v_union_width_floor_no_retag',
+                  {i['tag'] for i in _wide['items'] if i['paper_id'] == 'P1'}
+                  == {i['tag'] for i in _narrow['items'] if i['paper_id'] == 'P1'})
+
+            # ── v1.10 `fresh` — RUN-SCOPED OPT-OUT OF THE UNION ──────────────
+            _fr = _iso('fresh')
+            build_vision_queue(
+                [{'paper_id': 'PAPER_ALPHA', 'q_num': n, 'srcs': [_src[0]]}
+                 for n in (1, 2)], _fr)
+            _f2 = build_vision_queue(
+                [{'paper_id': 'PAPER_BETA', 'q_num': 3, 'srcs': [_src[0]]}],
+                _fr, fresh=True)
+            check('v_fresh_ignores_prior', _f2['stats']['queued'] == 1
+                  and _f2['stats']['carried_in'] == 0)
+            # observations from the discarded generation must not survive a fresh
+            # build — Step 1's Phase C would otherwise merge a prior paper's
+            # observations into this paper's queue.
+            write_vision_observations(_fr, [{'tag': _f2['items'][0]['tag'],
+                                             'figure_readable': True}])
+            _f3 = build_vision_queue(
+                [{'paper_id': 'PAPER_GAMMA', 'q_num': 1, 'srcs': [_src[0]]}],
+                _fr, fresh=True)
+            check('v_fresh_clears_observations',
+                  load_vision_observations(_fr)[0] == [])
+            # default remains the union: the very next call without fresh carries.
+            _f4 = build_vision_queue(
+                [{'paper_id': 'PAPER_DELTA', 'q_num': 1, 'srcs': [_src[0]]}], _fr)
+            check('v_fresh_default_still_unions', _f4['stats']['queued'] == 2)
+
+            # ── v1.9 CLUSTER Q — ORIGINAL POSITION CODEC (GAP-2026-07-27-E) ──
+            check('q_stamp_basic',
+                  stamp_original_q_num('[15-Feb-2026 Shift 1]', 37)
+                  == '[15-Feb-2026 Shift 1 Q37]')
+            check('q_roundtrip',
+                  parse_original_q_num(stamp_original_q_num('[15-Feb-2026]', 5)) == 5)
+            check('q_stamp_idempotent',
+                  stamp_original_q_num('[15-Feb-2026 Q9]', 12) == '[15-Feb-2026 Q9]')
+            check('q_none_num_noop',
+                  stamp_original_q_num('[15-Feb-2026]', None) == '[15-Feb-2026]')
+            # A pre-v1.18 label MUST read as UNKNOWN, never as position 0.
+            check('q_pre_v118_label_none',
+                  parse_original_q_num('[15-Feb-2026 Shift 1]') is None)
+            check('q_empty_none', parse_original_q_num('') is None
+                  and parse_original_q_num(None) is None)
+            check('q_non_label_untouched',
+                  stamp_original_q_num('not a label', 3) == 'not a label')
+            _ms = [{'q_range': [1, 30], 'question_type': 'MCQ'},
+                   {'q_range': [31, 40], 'question_type': 'MSQ'},
+                   {'q_range': [41, 60], 'question_type': 'NAT'}]
+            check('q_band_msq', question_type_for_position(37, _ms) == 'MSQ')
+            check('q_band_edges', question_type_for_position(31, _ms) == 'MSQ'
+                  and question_type_for_position(40, _ms) == 'MSQ'
+                  and question_type_for_position(41, _ms) == 'NAT')
+            check('q_band_uncovered_none', question_type_for_position(99, _ms) is None)
+            check('q_band_no_scheme_none',
+                  question_type_for_position(37, []) is None
+                  and question_type_for_position(None, _ms) is None)
+            check('q_band_malformed_skipped',
+                  question_type_for_position(37, [{'q_range': ['x', 'y']}] + _ms) == 'MSQ')
+
             # queue round-trip
-            _lq, _lwhy = load_vision_queue(_vtmp)
+            _lq, _lwhy = load_vision_queue(_e2e)
             check('v_queue_roundtrip', _lq is not None and _lwhy == '')
 
         # malformed / missing observation files never raise
