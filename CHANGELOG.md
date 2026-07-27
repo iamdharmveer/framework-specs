@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026.07.27
+- GAP-2026-07-27 (six defects found by six sessions on one corpus — IIT_JAM_BIOTECHNOLOGY,
+  22 papers / 1,719 Qs; five sessions rediscovered the same vision defect and each invented a
+  different workaround, while the one session that executed the python fences VERBATIM found a
+  P0 no paraphrasing session hit). MockTestAnalyse v2.38 -> v2.39 carries the fixes, including:
+  A — taxonomy Source-2 concatenated instead of merging (P0); B — build_vision_queue()
+  overwrote its fixed-name outputs and was called per paper (P0), so a 22-paper run retained
+  only the last paper's queue; D — XLSX-F9 compared a corpus total to a per-paper denominator
+  (P1); E — MSQ under-detection originating in Step 3 (P2).
+- GAP-2026-07-27-B (the B fix, both halves): corpus_io v1.8 -> v1.10 — build_vision_queue()
+  is now IDEMPOTENT: it reads the existing vision_queue.json and unions prior items with the
+  incoming batch, so re-runs and resumed sessions no longer destroy earlier papers' work;
+  tag_width is pinned as a floor so surviving tags stay stable, and a genuine hash-collision
+  re-tag is reported (tag_generation_changed), never silent. v1.10 adds `fresh=` so run-scoped
+  callers (Step 1) can opt out of the union. Release-gate note: the first upload of this wave
+  (v1.9) FAILED its own self-test 240/249 — the union broke nine CLUSTER V fixtures sharing
+  one workdir — and was STOPPED at the gate; v1.10 isolates each fixture in its own workdir
+  and adds positive union coverage. Self-test 273/273.
+- PYQPrepare v1.12 -> v1.13 (caller-side half): VISION_WORKDIR was used at three call sites
+  without being defined, so Step 1 silently inherited Step 5's workdir — hidden while
+  corpus_io overwrote, surfaced by the union. Now defined, distinct per step, and fresh.
+- GAP-2026-07-27-E: PYQSort v1.17 -> v1.18 — the ORIGINAL exam position now survives sorting.
+  Step 3's taxonomy renumbering destroyed the exam position; Step 5's MSQ detector had only the
+  instruction phrase left and measured 24 MSQ across 1,719 questions on an exam whose scheme
+  reserves Q31-40 for MSQ (~120 expected), under-representing Section B corpus-wide.
+- MANIFEST.json + SPEC_MANIFEST.json regenerated; bootstrap 25/25, validator 0 issues,
+  audit_deep 0, audit_callgraph (incl. C6) 0; blueprint_core 266/266, corpus_io 273/273.
+
 ## 2026.07.26.3
 - GAP-2026-07-26-003 (EXECUTION-BOUNDARY LAW — a tool call cannot happen inside a running
   Python process). analyse_image_claude() and the vision-probe family were pass-bodied CLASS T
