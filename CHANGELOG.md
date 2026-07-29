@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026.07.29
+- GAP-2026-07-29-TBL (table STRUCTURE survives the pipeline, both halves). The corpus could
+  say what a table CONTAINS but never what a table IS: Step 1 S4-3 wrote cell.text into a
+  rectangular add_table() and Step 7 S8-4 modelled a DI table as (headers, rows) — so a grouped
+  header (a cell spanning four columns over a label spanning two rows) had exactly one
+  representable form: squared into a grid and padded with empty strings. Measured on
+  SSC_CGL_Tier1 09-Sep-2024 Shift 1: Q.52 and Q.61 each lost a 4-column header span and a
+  2-row label span and gained 4 stray empty cells; the delivered Row file carried 0 gridSpan
+  and 0 vMerge elements and passed 16/16 checks with a green footer, because no check had ever
+  compared a built table with its source. Second defect, same family: one-table-PER-OPTION
+  emission — adjacent w:tbl siblings are FUSED by every Word engine (19 tables written came
+  back as 7 from a round-trip).
+- corpus_io — new Cluster I (table structure): _table_rows rewritten to walk w:tr/w:tc with
+  vMerge/gridSpan so a merged header is one anchor cell, never a repeat (flat-table output
+  unchanged); new read_table_spec() + TableSpec builder as the ONE table model both steps use;
+  legacy {'headers','rows'} DI payload accepted forever (no registry migration); font_name
+  parameterised (Row-file contract stays Arial, Step 7 passes its FONT_NAME). Self-test 273/273.
+- Specs: PYQPrepare v1.13 -> v1.14 (DI table structure, block composition, cell content —
+  part 1); MockTestCreate v5.31 -> v5.32 (S8-4 rebuilt on Cluster I — part 2; two flat builders
+  under one concept emit no drift signal until they disagree, so the model now lives once in
+  the engine). routes.json: corpus_io.py routed to the Create steps. MANIFEST.json +
+  SPEC_MANIFEST.json updated; bootstrap 25/25, validator 0 issues, audit_deep 0,
+  audit_callgraph 0.
+- Follow-ups (recorded, owner-accepted): Cluster I self-test fixture (a gridSpan/vMerge table
+  that FAILS on the old row.cells implementation + flat-table byte-identity check) and a
+  corpus_io version bump/changelog for the Cluster I addition; is_option fixture still open.
+
 ## 2026.07.27
 - GAP-2026-07-27 (six defects found by six sessions on one corpus — IIT_JAM_BIOTECHNOLOGY,
   22 papers / 1,719 Qs; five sessions rediscovered the same vision defect and each invented a
