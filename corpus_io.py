@@ -1,6 +1,37 @@
 """
-corpus_io.py v1.10 — I/O shell for PYQ corpus acquisition, image integrity,
-                    document size governance and the Analysis doc.
+corpus_io.py v1.11 — I/O shell for PYQ corpus acquisition, image integrity,
+                    document size governance, tables and the Analysis doc.
+
+v1.11 — 2026-07-29 — CLUSTER I RECORDED + ITS MISSING FIXTURES (debt closure).
+
+    Closes the three follow-ups recorded in the 2026.07.29 deployment audit:
+
+    (1) THIS ENTRY. The ~300-line Cluster I table-structure addition
+        (GAP-2026-07-29-TBL: _table_rows rewritten as a raw w:tr/w:tc walk that
+        inspects vMerge/gridSpan, read_table_spec(), the TableSpec model,
+        normalise_table_spec/place_cells/table_spec_spans, build_di_table with a
+        font_name param, adjacent_table_pairs, legacy {'headers','rows'} DI
+        payload accepted for ever) shipped with the header still claiming v1.10
+        — the third un-bumped occurrence of an addition landing without its
+        version line. Bumped and recorded here.
+
+    (2) CLUSTER I SELF-TEST FIXTURE. A gridSpan-4 header + vMerge-2 label table
+        whose anchor-once expectations the old row.cells implementation CANNOT
+        produce (row.cells repeats the anchor across every covered grid
+        position), plus: a flat-table byte-identity check pinning the legacy
+        list[list[str]] output, the spans round-trip through
+        read_table_spec/table_spec_spans, the legacy DI payload shape, and a
+        full build_di_table -> raw-XML read-back round trip asserting spans
+        survive with zero stray empty cells. Reverting _table_rows to row.cells
+        now breaks this suite instead of passing green — the exact revert that
+        would have sailed through the previous 273/273.
+
+    (3) is_option FIXTURE (open since 2026.07.26.2): OPT_PATTERNS text markers,
+        the six-and-beyond / prose rejections, bare-marker + image-option (blip)
+        recognition, imageless bare-marker rejection, Paragraph-vs-element
+        duality of para_has_image, and clean_option_text marker stripping.
+
+    Self-test 273 -> 303. No behaviour change to any shipped function.
 
 v1.10 — 2026-07-27 — `fresh=` PARAMETER: RUN-SCOPED CALLERS OPT OUT OF THE UNION.
 
@@ -4235,6 +4266,124 @@ def self_test():
               load_vision_observations(_vtmp, path=_badobs)[0] == [])
         check('v_queue_missing_safe',
               load_vision_queue(os.path.join(_vtmp, 'nope'))[0] is None)
+
+    # ── CLUSTER I — TABLE STRUCTURE FIXTURE (GAP-2026-07-29-TBL, v1.11) ──────
+    # THE fixture the 2026.07.29 deployment shipped without. The old row.cells
+    # implementation returns one entry per GRID COLUMN and substitutes the
+    # ANCHOR for every covered position, so on this table it yields
+    #   [['Region','Printers','Printers','Printers','Printers'],
+    #    ['Region','Laser','Inkjet','Dot','3D'], ...]
+    # and the anchor-once expectations below FAIL. A revert of _table_rows to
+    # row.cells therefore breaks this suite instead of passing green.
+    import xml.etree.ElementTree as _ET
+    _W_ = '{%s}' % _NS_W  # noqa: F841 — kept for symmetry with the parser
+    _tbl_merged = _ET.fromstring(
+        ('<w:tbl xmlns:w="%s">'
+         ' <w:tr>'
+         '  <w:tc><w:tcPr><w:vMerge w:val="restart"/></w:tcPr>'
+         '   <w:p><w:r><w:t>Region</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:tcPr><w:gridSpan w:val="4"/></w:tcPr>'
+         '   <w:p><w:r><w:t>Print</w:t></w:r><w:r><w:t>ers</w:t></w:r></w:p></w:tc>'
+         ' </w:tr>'
+         ' <w:tr>'
+         '  <w:tc><w:tcPr><w:vMerge/></w:tcPr><w:p/></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>Laser</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>Inkjet</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>Dot</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>3D</w:t></w:r></w:p></w:tc>'
+         ' </w:tr>'
+         ' <w:tr>'
+         '  <w:tc><w:p><w:r><w:t>North</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>5</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>6</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>7</w:t></w:r></w:p></w:tc>'
+         '  <w:tc><w:p><w:r><w:t>8</w:t></w:r></w:p></w:tc>'
+         ' </w:tr>'
+         '</w:tbl>') % _NS_W)
+    _rows = _table_rows(_tbl_merged, None)
+    # anchor once, never a repeat — this is exactly what row.cells cannot do
+    check('tbl_anchor_once_gridspan_header', _rows[0] == ['Region', 'Printers'])
+    check('tbl_anchor_once_vmerge_label', _rows[1] == ['Laser', 'Inkjet', 'Dot', '3D'])
+    check('tbl_plain_body_row', _rows[2] == ['North', '5', '6', '7', '8'])
+    check('tbl_no_padding_cells', all('' not in r for r in _rows))
+    # geometry survives the read-back: cs=4 header span + rs=2 label span
+    _spec = read_table_spec(_tbl_merged)
+    check('tbl_spec_spans_read_back',
+          table_spec_spans(_spec) == [(0, 0, 2, 1), (0, 1, 1, 4)])
+    check('tbl_spec_geometry_clean',
+          place_cells(normalise_table_spec(_spec)['grid'])[3] == [])
+    # flat-table BYTE-IDENTITY: output on a spanless table is pinned to the exact
+    # serialised bytes the legacy implementation produced
+    _tbl_flat = _ET.fromstring(
+        ('<w:tbl xmlns:w="%s">'
+         '<w:tr><w:tc><w:p><w:r><w:t>a</w:t></w:r></w:p></w:tc>'
+         '<w:tc><w:p><w:r><w:t>b</w:t></w:r></w:p></w:tc></w:tr>'
+         '<w:tr><w:tc><w:p><w:r><w:t>c</w:t></w:r></w:p></w:tc>'
+         '<w:tc><w:p><w:r><w:t>d</w:t></w:r></w:p></w:tc></w:tr>'
+         '</w:tbl>') % _NS_W)
+    check('tbl_flat_byte_identity',
+          json.dumps(_table_rows(_tbl_flat, None)) == json.dumps([['a', 'b'], ['c', 'd']]))
+    # legacy {'headers','rows'} DI payload — accepted for ever, never migrated
+    _leg = normalise_table_spec({'headers': ['X', 'Y'], 'rows': [['1', '2']]})
+    check('tbl_legacy_di_payload',
+          _leg['grid'][0][0]['t'] == 'X' and _leg.get('header_rows') == 1)
+    check('tbl_legacy_flat_no_spans', table_spec_spans(_leg) == [])
+    # full builder round trip: build_di_table -> raw-XML read-back. Spans must
+    # survive and NO stray empty cell may appear (the Q.52/Q.61 defect shape).
+    try:
+        import docx as _dxT
+        _dT = _dxT.Document()
+        _built = build_di_table(_dT, {'grid': [
+            [{'t': 'Region', 'rs': 2}, {'t': 'Printers', 'cs': 4}],
+            [{'t': 'Laser'}, {'t': 'Inkjet'}, {'t': 'Dot'}, {'t': '3D'}],
+            [{'t': 'North'}, {'t': '5'}, {'t': '6'}, {'t': '7'}, {'t': '8'}]],
+            'header_rows': 1})
+        _rt_rows = _table_rows(_built._tbl, None)
+        check('tbl_build_roundtrip_values',
+              _rt_rows == [['Region', 'Printers'],
+                           ['Laser', 'Inkjet', 'Dot', '3D'],
+                           ['North', '5', '6', '7', '8']])
+        check('tbl_build_roundtrip_spans',
+              table_spec_spans(read_table_spec(_built._tbl)) == [(0, 0, 2, 1), (0, 1, 1, 4)])
+        check('tbl_build_no_stray_empty',
+              sum(r.count('') for r in _rt_rows) == 0)
+    except ImportError:
+        pass                                # python-docx absent — parse-side already covered
+
+    # ── is_option / para_has_image FIXTURE (follow-up open since 2026.07.26.2) ─
+    # bare-marker + OPT_PATTERNS cases, image-option path, Paragraph-vs-element
+    # duality, clean_option_text stripping. The single shared predicate every
+    # step delegates to finally has its own regression net.
+    check('opt_num_dot', is_option('1. speed of light'))
+    check('opt_alpha_dot', is_option('B. mitochondria'))
+    check('opt_paren_num', is_option('(3) 42'))
+    check('opt_paren_alpha_lower', is_option('(c) all of the above'))
+    check('opt_half_paren', is_option('d) none of these'))
+    check('opt_beyond_range_rejected', not is_option('6. beyond the option range'))
+    check('opt_prose_rejected', not is_option('Consider the following statements'))
+    check('opt_bare_no_para_rejected', not is_option('1.'))
+    _p_img = _ET.fromstring(
+        '<w:p xmlns:w="%s" xmlns:a="%s"><w:r><w:drawing><a:blip/></w:drawing></w:r></w:p>'
+        % (_NS_W, A_NS))
+    _p_txt = _ET.fromstring(
+        '<w:p xmlns:w="%s"><w:r><w:t>1.</w:t></w:r></w:p>' % _NS_W)
+    check('opt_bare_with_image', is_option('1.', para=_p_img))
+    check('opt_bare_alpha_with_image', is_option('(D)', para=_p_img))
+    check('opt_bare_imageless_rejected', not is_option('1.', para=_p_txt))
+    check('opt_text_option_para_irrelevant', is_option('2. tundra', para=_p_txt))
+
+    class _FakeParagraph:                   # python-docx Paragraph form (has ._p)
+        pass
+    _fp = _FakeParagraph()
+    _fp._p = _p_img
+    check('opt_paragraph_form_accepted', is_option('A)', para=_fp))
+    check('opt_para_none_safe', not para_has_image(None))
+    check('opt_para_junk_safe', not para_has_image('not a paragraph'))
+    check('opt_clean_marker_stripped',
+          clean_option_text('(c) all of the above') == 'all of the above')
+    check('opt_clean_bare_empty', clean_option_text('B.') == '')
+    check('opt_clean_plain_untouched',
+          clean_option_text('not an option') == 'not an option')
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

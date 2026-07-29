@@ -309,11 +309,11 @@
       "bytes": 19154
     },
     "corpus_io.py": {
-      "sha256": "f37b6f22fd08b44e25943ff8e2356ef08e6b586145fb50c8e4fa0eaecd5b212f",
+      "sha256": "5112ff0ccea1cc20efaaef9523d9c802e73957185052ce983d6cc43dd95fb94a",
       "version_header": "\"\"\"",
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 4250,
-      "bytes": 216684
+      "lines": 4399,
+      "bytes": 225226
     },
     "reconcile_taxonomy.py": {
       "sha256": "474d654ffb98c19c3e587cba48d9c64cafa471d6e0fc2af1e6f02a9a8aee0530",

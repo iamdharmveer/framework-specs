@@ -10,6 +10,9 @@ derived from a real defect that reached a delivered spec:
              RULE binding an artifact (function / regex) to a copy in another
              file, verify the copies are byte-identical NOW. A sync rule that is
              only prose is a promise; this makes it enforceable.
+             EXEMPTION (2026-07-29): a DELEGATION ADAPTER — a copy whose whole
+             body calls or aliases the canonical copy — is skipped: its parity
+             holds by construction, and byte-comparing it false-fires.
              (Motivating risk: E-9/E-10 in MockTestAnalyse vs blueprint_core
              Cluster E; DATE_TAG_RE in PYQFormat §4 vs PYQDeliver §4A.)
 
@@ -92,6 +95,25 @@ def _extract_named_assigns(text):
     return out
 
 
+def _is_delegation_adapter(body, art):
+    """True when this copy's entire job is to CALL the canonical copy.
+
+    2026-07-29 (follow-up recorded 2026.07.26.2): after GAP-2026-07-25-002 and
+    GAP-2026-07-26-002 the spec-side copies of shared functions became thin
+    adapters — `return bc.score_difficulty(...)`, `is_option = corpus_io.is_option`.
+    Their bodies legitimately DIFFER from the engine's canonical body: parity is
+    satisfied BY CONSTRUCTION (there is only one implementation to diverge from),
+    not by byte identity. Comparing bytes here false-fired on every adapter
+    (measured: determine_strip_mode + score_difficulty in MockTestAnalyse).
+    An adapter is recognised and skipped, never byte-compared.
+    """
+    if not body:
+        return False
+    pat_call = r'\breturn\s+[A-Za-z_][\w.]*\.' + re.escape(art) + r'\s*\('
+    pat_alias = r'^\s*' + re.escape(art) + r'\s*=\s*[A-Za-z_][\w.]*\.' + re.escape(art) + r'\s*$'
+    return bool(re.search(pat_call, body) or re.search(pat_alias, body, re.M))
+
+
 def check_v_sync(texts):
     """texts: {path: content}. Find sync-rule declarations and verify parity."""
     # A sync rule names peer files. Collect (declaring_file, peer_basename, artifacts)
@@ -118,6 +140,8 @@ def check_v_sync(texts):
                     a_peer = pd.get(art, pa.get(art))
                     if a_here is None or a_peer is None:
                         continue  # artifact not present in both — not a parity claim
+                    if _is_delegation_adapter(a_here, art) or _is_delegation_adapter(a_peer, art):
+                        continue  # delegation adapter — parity by construction, not by bytes
                     if a_here.strip() != a_peer.strip():
                         add('V-SYNC', path,
                             f'{art} DIVERGED from copy in {peer} '
