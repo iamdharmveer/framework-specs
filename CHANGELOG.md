@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026.07.29.1
+- Debt closure — the three follow-ups recorded in the 2026.07.29 seal are closed, and no
+  open debts remain.
+- corpus_io v1.10 -> v1.11: (1) the ~300-line Cluster I table-structure addition is now
+  RECORDED in its own changelog entry (third un-bumped occurrence, fixed); (2) Cluster I
+  gains its missing fixtures — a gridSpan/vMerge table driven through _table_rows and
+  read_table_spec (a fixture the old row.cells implementation fails) plus a flat-table
+  identity check; (3) the long-open is_option/para_has_image fixtures land (bare-marker
+  image options + OPT_PATTERNS cases, open since 2026.07.26.2). Self-test 273 -> 303.
+- audit_specs_ext: V-SYNC now recognises a DELEGATION ADAPTER (a copy whose whole body
+  calls or aliases the canonical engine copy) and skips it — parity holds by construction,
+  and byte-comparing it false-fired on every adapter since the GAP-2026-07-25-002
+  consolidation. Peer-window made bidirectional (a forward-only window silently compared
+  nothing; verified by targeted mutation). First fully clean audit_specs_ext run across the
+  corpus + engines: 0 issues across 19 files.
+- All checkers green simultaneously: bootstrap 25/25, validator 0 issues, audit_deep 0,
+  audit_callgraph 0, audit_specs_ext 0; blueprint_core 266/266, corpus_io 303/303.
+  MANIFEST.json + SPEC_MANIFEST.json updated.
+
 ## 2026.07.29
 - GAP-2026-07-29-TBL (table STRUCTURE survives the pipeline, both halves). The corpus could
   say what a table CONTAINS but never what a table IS: Step 1 S4-3 wrote cell.text into a
