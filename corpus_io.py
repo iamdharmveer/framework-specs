@@ -1876,8 +1876,85 @@ def _para_text(child):
 
 
 def _table_rows(child, doc):
-    from docx.table import Table as _DocxTable
-    return [[c.text.strip() for c in row.cells] for row in _DocxTable(child, doc).rows]
+    """Logical rows of a w:tbl — ONE entry per ANCHOR cell, never a repeat.
+
+    GAP-2026-07-29-TBL. This used to read row.cells, which returns one entry per
+    GRID COLUMN and repeats the anchor for every covered position: a 4-column
+    merged header came back as ['Printers','Printers','Printers','Printers'] and a
+    vertically merged label reappeared in every row it spanned. Harmless while the
+    corpus contained only flat tables — and a data-corruption bug the moment Step 1
+    started emitting the merges it always should have. Verified on python-docx
+    1.2.0.
+
+    A distinct-tc dedupe is NOT sufficient: row.cells substitutes the ANCHOR object
+    for a vMerge continuation, so the anchor's text is returned again in the
+    continuation row. Only a raw <w:tr>/<w:tc> walk that inspects w:vMerge can tell
+    a continuation from a genuinely repeated value.
+
+    Contract is UNCHANGED — list[list[str]] — and output on a flat table is
+    byte-identical to the previous implementation.
+    """
+    W = '{%s}' % _NS_W
+    rows = []
+    for tr in child.findall(W + 'tr'):
+        row = []
+        for tc in tr.findall(W + 'tc'):
+            tcPr = tc.find(W + 'tcPr')
+            if tcPr is not None:
+                v = tcPr.find(W + 'vMerge')
+                if v is not None and (v.get(W + 'val') or 'continue') == 'continue':
+                    continue                     # covered position, not an anchor
+            row.append(''.join(t.text or '' for t in tc.iter(W + 't')).strip())
+        rows.append(row)
+    return rows
+
+
+def read_table_spec(child, doc=None):
+    """Read a w:tbl back into a TableSpec, spans included (GAP-2026-07-29-TBL).
+
+    For consumers that need GEOMETRY, not just values — CHECK 17, Step 7 reuse of a
+    PYQ table, and any future step that must rebuild a table it did not write.
+    _table_rows deliberately stays value-only so its single legacy caller is
+    untouched.
+    """
+    W = '{%s}' % _NS_W
+    tr_list = child.findall(W + 'tr')
+    grid, pending = [], {}
+    for ri, tr in enumerate(tr_list):
+        row, ci = [], 0
+        for tc in tr.findall(W + 'tc'):
+            tcPr = tc.find(W + 'tcPr')
+            cs, vm = 1, None
+            if tcPr is not None:
+                g = tcPr.find(W + 'gridSpan')
+                if g is not None:
+                    try:
+                        cs = int(g.get(W + 'val') or 1)
+                    except (TypeError, ValueError):
+                        cs = 1
+                v = tcPr.find(W + 'vMerge')
+                if v is not None:
+                    vm = v.get(W + 'val') or 'continue'
+            if vm == 'continue':
+                for key in pending:
+                    if key[1] == ci:
+                        pending[key]['rs'] += 1
+                        break
+                ci += cs
+                continue
+            cell = {'t': ''.join(t.text or '' for t in tc.iter(W + 't')).strip()}
+            if cs > 1:
+                cell['cs'] = cs
+            if vm == 'restart':
+                cell['rs'] = 1
+                pending[(ri, ci)] = cell
+            row.append(cell)
+            ci += cs
+        grid.append(row)
+    for cell in list(pending.values()):
+        if cell.get('rs', 1) <= 1:
+            cell.pop('rs', None)
+    return {'grid': grid, 'header_rows': 1}
 
 
 def discover_analysis_doc(search_dirs=ANALYSIS_SEARCH_DIRS):
@@ -3437,6 +3514,228 @@ def _ck_selftest(check, tmp):
               live['counts'] == {'subjects': 6, 'topics': 26, 'subtopics': 131})
         check('K live fixture: 6 distinct subjects across the triples',
               len({t[0] for t in live['triples']}) == 6)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLUSTER I — TABLE STRUCTURE  (GAP-2026-07-29-TBL)
+# ═══════════════════════════════════════════════════════════════════════════════
+# WHY THIS LIVES HERE AND NOT IN A SPEC. Two builders existed for one concept —
+# Framework_PYQPrepare S4-3 build_di_table(rows_data) and Framework_MockTestCreate
+# S8-4 build_di_table_styled(headers, rows) — and BOTH modelled a table as a
+# rectangle of strings. Neither could express a merged cell, so a grouped header
+# ("Printers" spanning L/M/N/O above "Days" spanning two rows) had exactly one
+# representable form: squared into a grid and padded with empty strings. Measured
+# on SSC_CGL_Tier1 09-Sep-2024 Shift 1 — Q.52 and Q.61 each lost a 4-column span
+# and a 2-row span and gained 4 stray empty cells; the delivered file carried
+# 0 gridSpan and 0 vMerge elements and passed 16/16 checks. One model, one owner,
+# one implementation: Step 1 writes it, Step 7 rebuilds it, Steps 3/4/5 read it.
+#
+# THE DATA MODEL (TableSpec)
+#   spec = {
+#     'grid'        : [[Cell, ...], ...],   # REQUIRED, row-major, ANCHOR CELLS ONLY
+#     'header_rows' : int,                  # OPTIONAL, default 1
+#     'col_widths'  : [float, ...] | None,  # OPTIONAL, relative weights
+#     'align'       : 'left'|'center'|'right',   # OPTIONAL, default 'center'
+#     'note'        : str | None,           # OPTIONAL, footnote rendered below
+#   }
+#   Cell = str                              # == {'t': str, 'cs': 1, 'rs': 1}
+#        | {'t': str, 'cs': int, 'rs': int, 'align': str|None, 'bold': bool}
+#
+# THE ONE RULE THAT REMOVES THE AMBIGUITY: a row declares only the cells that
+# START in it. A position covered by a span from above or from the left is NOT
+# declared. Padding a row with '' to square the grid is BANNED — under this model
+# it cannot occur, which is what makes a genuinely blank cell ({'t': ''}, e.g. the
+# classic empty top-left corner) distinguishable from padding STRUCTURALLY rather
+# than by heuristic.
+
+TABLE_ALIGNMENTS = ('left', 'center', 'right')
+
+
+def normalise_table_spec(spec):
+    """Accept a legacy list-of-lists OR a TableSpec dict. Return a TableSpec dict.
+
+    The legacy shape stays valid for ever: every pre-GAP-2026-07-29-TBL call site
+    keeps working unchanged, and a flat table has no spans to lose.
+    """
+    if isinstance(spec, (list, tuple)):
+        spec = {'grid': list(spec)}
+    elif isinstance(spec, dict) and 'grid' not in spec and 'headers' in spec:
+        # Framework_MockTestCreate S8-4 legacy DI payload {'headers': [...],
+        # 'rows': [[...]]}. One header row, no spans — accepted for ever so no
+        # registry.json / blueprint payload has to be migrated.
+        spec = {'grid': [list(spec['headers'])] + [list(r) for r in (spec.get('rows') or [])],
+                'header_rows': 1}
+    if not isinstance(spec, dict) or 'grid' not in spec:
+        raise ValueError('TableSpec must be a dict with a "grid" key, a '
+                         '{"headers","rows"} payload, or a list of rows')
+    grid = []
+    for row in spec['grid']:
+        out = []
+        for c in row:
+            out.append(dict(c) if isinstance(c, dict) else {'t': '' if c is None else str(c)})
+        grid.append(out)
+    out_spec = dict(spec)
+    out_spec['grid'] = grid
+    return out_spec
+
+
+def place_cells(grid):
+    """HTML-table occupancy placement. Deterministic; no heuristics, no guessing.
+
+    Returns (placements, width, nrows, errors) where placements is
+    [(row, col, rowspan, colspan, cell), ...] in declaration order.
+
+    A 'hole' means the transcription UNDER-declares a row; an 'overlap' means it
+    OVER-declares. Both are transcription errors, and both are REPORTED rather
+    than silently normalised — silent normalisation is the defect this whole
+    cluster exists to end.
+    """
+    occ, placements, errors = {}, [], []
+    for r, row in enumerate(grid):
+        c = 0
+        for cell in row:
+            try:
+                cs = int(cell.get('cs', 1))
+                rs = int(cell.get('rs', 1))
+            except (TypeError, ValueError):
+                cs = rs = 1
+                errors.append('row %d: non-integer cs/rs, coerced to 1' % r)
+            if cs < 1 or rs < 1:
+                errors.append('row %d: cs=%s rs=%s, both must be >= 1' % (r, cs, rs))
+                cs, rs = max(cs, 1), max(rs, 1)
+            while (r, c) in occ:
+                c += 1
+            for rr in range(r, r + rs):
+                for cc in range(c, c + cs):
+                    if (rr, cc) in occ:
+                        errors.append('overlapping span at (%d,%d)' % (rr, cc))
+                    occ[(rr, cc)] = True
+            placements.append((r, c, rs, cs, cell))
+            c += cs
+    width = max((cc for (_rr, cc) in occ), default=-1) + 1
+    nrows = len(grid)
+    for r in range(nrows):
+        for c in range(width):
+            if (r, c) not in occ:
+                errors.append('hole at (%d,%d) — row %d under-declares its cells' % (r, c, r))
+    return placements, width, nrows, errors
+
+
+def table_spec_spans(spec):
+    """Declared spans as a sorted (row, col, rowspan, colspan) list. CHECK 17 input."""
+    placements, _w, _n, _e = place_cells(normalise_table_spec(spec)['grid'])
+    return sorted((r, c, rs, cs) for (r, c, rs, cs, _cell) in placements if rs > 1 or cs > 1)
+
+
+def build_di_table(doc, spec, font_pt=9, default_align='center', render=None,
+                   style='Table Grid', avail_emu=5734050, font_name='Arial'):
+    """Build a native Word table from a TableSpec (or a legacy list of lists).
+
+    ORDERING IS LOAD-BEARING AND IS THE EASIEST THING TO GET WRONG:
+      1. write text into ANCHOR cells
+      2. THEN merge
+      3. THEN set per-column widths
+    cell.merge() CONCATENATES the text of both cells ('A' + 'B' -> 'A\\nB',
+    verified on python-docx 1.2.0), so text must never be written into a covered
+    position and merging must never precede text placement.
+
+    render : optional callable(paragraph, text, bold=bool). When supplied, cell
+             text is emitted through the caller's own renderer, so OMML math and
+             {{u}} underline markers work INSIDE table cells exactly as they do in
+             stems and options (Framework_PYQPrepare S1-6 / S1-11). When omitted,
+             plain text is written.
+    avail_emu : usable text width. Default 6.27in (A4 minus 1in margins) in EMU.
+    font_name : cell font family. Default 'Arial' = the Row-file contract (S1-1).
+                Step 7 passes its configurable FONT_NAME.
+    """
+    from docx.shared import Pt, Emu
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    amap = {'left': WD_ALIGN_PARAGRAPH.LEFT,
+            'center': WD_ALIGN_PARAGRAPH.CENTER,
+            'right': WD_ALIGN_PARAGRAPH.RIGHT}
+
+    spec = normalise_table_spec(spec)
+    placements, width, nrows, errors = place_cells(spec['grid'])
+    if errors:
+        raise ValueError('TableSpec geometry invalid: ' + '; '.join(errors[:5]))
+
+    tbl = doc.add_table(rows=nrows, cols=width, style=style)
+    tbl.alignment = WD_TABLE_ALIGNMENT.CENTER
+    tbl.autofit = False
+    table_align = spec.get('align') or default_align
+    if table_align not in TABLE_ALIGNMENTS:
+        table_align = 'center'
+    header_rows = int(spec.get('header_rows', 1) or 0)
+
+    # 1 — text into anchors only
+    for (r, c, _rs, _cs, cell) in placements:
+        tc = tbl.cell(r, c)
+        tc.text = ''
+        para = tc.paragraphs[0]
+        para.paragraph_format.space_before = Pt(0)
+        para.paragraph_format.space_after = Pt(0)
+        cell_align = cell.get('align') or table_align
+        para.alignment = amap.get(cell_align, amap['center'])
+        bold = bool(cell.get('bold', False))
+        text = cell.get('t', '')
+        if render is not None:
+            render(para, text, bold=bold)
+        elif text:
+            para.add_run(text).bold = bold
+        for run in para.runs:
+            run.font.name = font_name
+            run.font.size = Pt(font_pt)
+
+    # 2 — merges, only after every anchor already holds its text
+    for (r, c, rs, cs, _cell) in placements:
+        if rs > 1 or cs > 1:
+            tbl.cell(r, c).merge(tbl.cell(r + rs - 1, c + cs - 1))
+
+    # 3 — per-cell column widths. tblGrid alone is advisory and several renderers
+    #     ignore it, so the width must be stamped on every cell of the column.
+    weights = spec.get('col_widths') or [1.0] * width
+    if len(weights) != width:
+        weights = [1.0] * width
+    total = float(sum(weights)) or 1.0
+    for ci in range(width):
+        w = Emu(int(avail_emu * (weights[ci] / total)))
+        for ri in range(nrows):
+            tbl.cell(ri, ci).width = w
+
+    if spec.get('note'):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(0)
+        run = p.add_run(str(spec['note']))
+        run.font.name = font_name
+        run.font.size = Pt(font_pt)
+        run.italic = True
+    _ = header_rows          # reserved for header styling by callers that want it
+    return tbl
+
+
+def adjacent_table_pairs(doc):
+    """Count pairs of adjacent block-level <w:tbl> siblings. CHECK 18 input.
+
+    Two consecutive w:tbl siblings with no w:p between them are FUSED into one
+    table by every Word engine. This is an OOXML block rule, not a renderer quirk,
+    and it is invisible in the emitted file: python-docx reports N tables where
+    Word shows one. Measured: a Row file written with 19 tables came back from a
+    Word-engine round-trip with 7.
+    """
+    kinds = []
+    for child in doc.element.body.iterchildren():
+        tag = child.tag.split('}')[-1]
+        if tag in ('p', 'tbl'):
+            kinds.append(tag)
+    pairs, run = 0, 0
+    for k in kinds:
+        run = run + 1 if k == 'tbl' else 0
+        if run >= 2:
+            pairs += 1
+    return pairs
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

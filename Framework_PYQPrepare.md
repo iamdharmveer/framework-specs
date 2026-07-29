@@ -1,4 +1,4 @@
-# Framework_PYQPrepare v1.13 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v1.14 — Universal PYQ Row File Generator
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:
@@ -86,6 +86,56 @@
 #   GATE, NEET, UPSC, CAT, Banking, RRB, state PSC, or any exam.
 #
 # VERSION HISTORY:
+#   v1.14 — 2026-07-29 — DI TABLE STRUCTURE, BLOCK COMPOSITION AND CELL CONTENT
+#           (GAP-2026-07-29-TBL). This spec could say what a table CONTAINS and never
+#           what a table IS. S1-12 CATEGORY 2 transcribed "a list of rows" and S4-3
+#           wrote cell.text into a rectangular add_table(), so a grouped header had
+#           exactly one representable form: squared into a grid and padded with empty
+#           strings. Measured on SSC_CGL_Tier1 09-Sep-2024 Shift 1 — Q.52 and Q.61 each
+#           lost a 4-column header span and a 2-row label span and gained 4 stray empty
+#           cells, while Q.74 passed because ITS header is flat. That is why the gap
+#           survived to v1.13: the worked example in S1-12 and in EC-P20b is flat too,
+#           so a model that cannot express a span was never once exercised against one.
+#           The delivered Row file carried 0 gridSpan and 0 vMerge elements and passed
+#           16/16 checks with a green F2 footer, because no check in this framework has
+#           ever compared a built table with its source.
+#           SECOND DEFECT, SAME FAMILY: S1-7 and S4-2 emitted one table PER OPTION, and
+#           two adjacent w:tbl siblings are FUSED into a single table by every Word
+#           engine. Measured: 19 tables as written came back from a Word-engine
+#           round-trip as 7. It is invisible in the emitted file — python-docx reports
+#           19 — which is why it went unnoticed for the life of the spec.
+#           Fix: (1) new S1-8a TABLE STRUCTURE CONTRACT — the TableSpec model, anchor
+#           cells with cs/rs, padding BANNED; a blank cell is now distinguishable from
+#           padding STRUCTURALLY rather than by heuristic.
+#           (2) S4-3 build_di_table DELEGATED to corpus_io (Cluster I) — HTML-style
+#           occupancy placement, cell.merge() strictly AFTER text placement (merge
+#           CONCATENATES: 'A'+'B' -> 'A\nB'), per-cell column widths, centred default.
+#           Two builders modelled one concept and both were flat; one model, one owner.
+#           (3) S1-6 and S1-11 scope EXTENDED to table cells — cells now render through
+#           render_text_with_math, so a fraction, a superscript or an underlined term
+#           inside a DI table is no longer silently flattened. That is the v1.3-v1.6
+#           math defect, relocated into tables and unaddressed until now.
+#           (4) new S1-8b BLOCK COMPOSITION — no two adjacent block tables; a figure-
+#           option SET is ONE table with one row per option, which is also the better
+#           match for the ALL-or-NONE rule in S1-7.
+#           (5) new S2-2 CALL A2b — text-layer tables are DETECTED and transcribed
+#           instead of being parsed as stem prose. S1-12 fires only on embedded images,
+#           so a vector-drawn DI table in a FORMAT A source never entered the table
+#           protocol at all.
+#           (6) new CHECK 17 (geometry equality, declared vs built), CHECK 17b (padding
+#           signature, legacy path only), CHECK 18 (no adjacent block tables).
+#           16 -> 18 checks.
+#           (7) new EC-P24 (table structure, 8 sub-scenarios) and EC-P25 (adjacent
+#           block tables). EC-P14 and EC-P20b rewritten; "preserve source data exactly"
+#           governed VALUES and was silently read as covering STRUCTURE.
+#           (8) an unrepresentable structure is REPORTED, never silently normalised —
+#           the EC-V8 / EC-P22 principle extended from images to tables.
+#           REQUIRES corpus_io with Cluster I table structure (normalise_table_spec,
+#           place_cells, build_di_table, read_table_spec, adjacent_table_pairs) AND the
+#           anchor-only _table_rows. Shipping the writer without the reader turns lost
+#           geometry into DUPLICATED header text in every consumer: python-docx
+#           row.cells returns one entry per GRID COLUMN and repeats the anchor for every
+#           covered position. The two halves ship together.
 #   v1.13 — 2026-07-27 — VISION_WORKDIR DEFINED, DISTINCT, AND fresh (GAP-2026-07-27-B follow-up).
 #           This spec used VISION_WORKDIR at three call sites without defining it, so
 #           Step 1 silently inherited Step 5's /home/claude/pyq_vision. corpus_io
@@ -556,8 +606,16 @@ CROSS-STEP CONTRACT:
 ### S1-6 — Math rendering (OMML — mandatory)
 
 ```
-All mathematical content in stems AND options MUST be rendered using
-OMML (Office MathML) or Unicode math symbols. No red-box substitution for math.
+All mathematical content in stems, options AND TABLE CELLS MUST be rendered
+using OMML (Office MathML) or Unicode math symbols. No red-box substitution
+for math.
+
+v1.14 — TABLE CELLS ARE IN SCOPE. Before v1.14 this clause said "stems AND
+options" and S1-8 said nothing about math at all, so the intersection was
+governed by neither: S4-3 wrote cell.text directly and a fraction, a
+superscript or a ₹ figure inside a DI table was silently flattened to plain
+text. That is the v1.3-v1.6 math defect relocated into tables. Cell content
+now goes through render_text_with_math() like every other string (S1-8a).
 
 OMML required for:
   Fractions     : 7/12, 1/4, x/2 → <m:f> fraction element
@@ -702,8 +760,16 @@ Placement rules:
   FIGURE OPTIONS (any option is blank / image-only):
     Detection: option line matches ^\s*[1-5]\.\s*$ (empty after number)
     When ANY option is blank: ALL options get red placeholders
-    Render as: 2-column borderless table per option (label | image)
+    Render as: ONE 2-column borderless table for the WHOLE option set —
+      one ROW per option (label | image). NOT one table per option.
     Keep the text stem above the option placeholder table
+
+    v1.14 (GAP-2026-07-29-TBL): "one table per option" emitted four adjacent
+    w:tbl siblings, and two adjacent block tables are FUSED into a single table
+    by every Word engine (S1-8b). Measured: a Row file written with 19 tables
+    came back from a Word-engine round-trip with 7. One table for the set is
+    fusion-proof AND the better match for the ALL-or-NONE rule above — the set
+    is one unit, so it is one element.
 
   TEXT OPTIONS with figure stem:
     Keep options as plain text. Only stem gets placeholder.
@@ -721,11 +787,125 @@ delivery. Step 1 only positions placeholders correctly.
 Every data interpretation table, frequency table, statistics table, or
 any structured tabular data in the source → NATIVE WORD TABLE.
 
-Render using doc.add_table() with 'Table Grid' style.
-Preserve source data exactly. Font size in table cells may differ from
-body font (typically 9pt) — this is acceptable.
+STRUCTURE (mandatory, v1.14): the built table MUST reproduce the source's
+CELL GEOMETRY — horizontally merged (colspan) and vertically merged (rowspan)
+cells, at every header tier and in the body. A merged cell in the source MUST
+be a merged cell in the output. Squaring a merged table into a rectangle padded
+with empty cells is a HARD BUG of the same rank as placeholdering readable
+math: the values survive, the meaning does not, and no downstream step can
+reconstruct what was discarded.
+  "Preserve source data exactly" (below) governs VALUES. It was silently read
+  as covering STRUCTURE for thirteen versions, which is how a two-tier header
+  came out flat with four stray empty cells and passed 16/16 checks.
+
+DATA MODEL: tables are transcribed and carried as a TableSpec (S1-8a).
+ANCHOR CELLS ONLY — padding a row with '' to square the grid is BANNED.
+
+CONTENT: cell text renders through render_text_with_math() exactly as stems and
+options do (S1-6, S1-11) — OMML math and {{u}} underline markers are honoured
+INSIDE cells.
+
+PRESENTATION: 'Table Grid' style. Preserve source data exactly. Font size in
+table cells may differ from body font (typically 9pt) — this is acceptable.
+Cells are CENTRE-aligned by default; per-table and per-cell overrides are
+permitted. Column widths follow TableSpec.col_widths when present, else equal
+distribution. Width MUST be stamped on EVERY CELL of a column — tblGrid alone
+is advisory and several renderers ignore it.
+
+BLOCK COMPOSITION: see S1-8b.
 
 Never render tables as images or placeholders.
+```
+
+### S1-8a — Table structure contract (v1.14 — TableSpec)
+
+```
+The TableSpec is the ONE model for tabular data across the pipeline. Step 1
+writes it, Step 7 rebuilds from it, Steps 3/4/5 read it back. It is OWNED BY
+corpus_io (Cluster I) and is never re-implemented in a spec — two builders
+modelled one concept before v1.14 (S4-3 here, S8-4 in Framework_MockTestCreate)
+and BOTH were flat, which is exactly the drift the delegation rule exists to
+prevent.
+
+  TableSpec := {
+    'grid'        : [[Cell, ...], ...],   # REQUIRED, row-major, ANCHOR CELLS ONLY
+    'header_rows' : int,                  # OPTIONAL, default 1
+    'col_widths'  : [float, ...] | None,  # OPTIONAL, relative weights
+    'align'       : 'left'|'center'|'right',   # OPTIONAL, default 'center'
+    'note'        : str | None,           # OPTIONAL, footnote rendered below
+  }
+
+  Cell := str                             # == {'t': str, 'cs': 1, 'rs': 1}
+        | {'t': str, 'cs': int, 'rs': int, 'align': str|None, 'bold': bool}
+
+THE RULE THAT REMOVES THE AMBIGUITY — ANCHOR CELLS ONLY. A row declares only
+the cells that START in it. A position covered by a span from above or from the
+left is NOT declared. Padding is therefore impossible to express, and a
+genuinely blank cell ({'t': ''} — the classic empty top-left corner) is
+distinguishable from padding STRUCTURALLY rather than by heuristic.
+
+GRID WIDTH IS COMPUTED, NEVER DECLARED, by corpus_io.place_cells(), which runs
+the standard HTML occupancy algorithm. A row that under-declares produces a
+'hole'; a row that over-declares produces an 'overlap'. Both are TRANSCRIPTION
+ERRORS and both are REPORTED (ValueError) — never silently normalised. Silent
+normalisation is the defect this contract exists to end.
+
+BACK-COMPATIBILITY: a bare list of lists of strings is a valid 'grid'. Every
+pre-v1.14 call site keeps working unchanged; a flat table has no spans to lose.
+
+WORKED EXAMPLE — a two-tier header, as the source renders it:
+
+  {'grid': [
+     [{'t': 'Days', 'rs': 2},  {'t': 'Printers', 'cs': 4}],
+     [{'t': 'L'}, {'t': 'M'}, {'t': 'N'}, {'t': 'O'}],
+     ['Friday',   '10,230', '9580',  '7560', '9600'],
+     ['Saturday', '8540',   '11,230','6580', '7890'],
+     ['Sunday',   '9235',   '8264',  '7546', '10,325'],
+   ],
+   'header_rows': 2,
+   'col_widths': [2.0, 1.0, 1.0, 1.0, 1.0]}
+
+  Row 0 has TWO entries because the source shows two cells. Row 1 has FOUR,
+  because its first position is covered by the 'Days' rowspan. That is the whole
+  model.
+
+UNREPRESENTABLE STRUCTURE IS REPORTED, NEVER NORMALISED. A diagonally split
+corner cell, a nested table, a rotated header, or meaning carried by shading
+alone cannot be expressed here. Transcribe the closest faithful structure, set
+spec['note'] or record a transcription warning naming the question, and surface
+it in the delivery report. This is EC-V8 ("queued, flagged, counted; never
+dropped") and EC-P22 ("leave it and report it") extended from images to tables:
+once the source is out of view, a silent normalisation is indistinguishable
+from a faithful transcription.
+```
+
+### S1-8b — Block composition (v1.14 — adjacent tables fuse)
+
+```
+Two consecutive <w:tbl> siblings with NO <w:p> between them are rendered as a
+SINGLE table by every Word engine. This is an OOXML block rule, not a renderer
+quirk, and it is INVISIBLE in the emitted file: python-docx reports N tables
+where Word shows one. Measured on the SSC_CGL_Tier1 09-Sep-2024 Shift 1 Row
+file — 19 tables as written, 7 after a Word-engine round-trip, four clusters of
+four option-placeholder tables fused into four 4-row tables.
+
+RULE B1: no two block-level tables may be emitted as adjacent siblings. A
+builder that appends a table MUST guarantee that the preceding body sibling is
+a paragraph.
+
+RULE B2 (preferred): a figure-option SET is ONE table with one row per option
+(S1-7), not one table per option.
+
+RULE B3 (fallback where B2 is impractical, e.g. two DI tables in one question):
+emit an empty separator paragraph (space_before = space_after = 0) between them.
+
+RULE B4: a question block that ENDS with a table must still be followed by the
+S1-2 block-4 blank paragraph before the next date label. This is already true of
+the block contract and must not regress — it is what keeps a trailing DI table
+from fusing with the pill table Framework_PYQFormat S5-1 inserts before the next
+Q-stem.
+
+CHECK 18 enforces B1 mechanically.
 ```
 
 ### S1-9 — Passage handling (comprehension / cloze / DI / case study)
@@ -828,6 +1008,9 @@ SCOPE:
   inline styles (italic, color, strikethrough) are stripped — they are
   decorative in exam papers, not semantically significant.
   Exception: bold is always applied to the entire stem (not per-word).
+  v1.14: this applies INSIDE TABLE CELLS as well. Cell text renders through
+  render_text_with_math(), so {{u}} markers in a cell become a Word underline
+  run exactly as they do in a stem (S1-8, S1-8a).
 
 CROSS-STEP:
   PYQSort (Step 3) must preserve underline runs during re-sorting.
@@ -1082,8 +1265,15 @@ PHASE A-IMAGE — CLAUDE VISUAL INSPECTION:
   CATEGORY 2 — TABLE-IMAGE:
     Content: Tabular data — frequency tables, DI data tables, statistics
     tables, comparison tables rendered as images.
-    Action: Claude transcribes the table data as a list of rows.
-    Pipeline builds a native Word table using build_di_table().
+    Action: Claude transcribes the table into a TableSpec (S1-8a) —
+    ANCHOR CELLS ONLY, WITH cs/rs SPANS. Pipeline builds a native Word
+    table using build_di_table() (S4-3 → corpus_io Cluster I).
+      v1.14: this said "transcribes the table data as a list of rows". A list
+      of rows has no vocabulary for a span, so the geometry of a grouped header
+      was destroyed AT THE MOMENT OF OBSERVATION, before any builder was
+      reached, and the only way to keep the grid rectangular was to pad with
+      empty strings. TRANSCRIBE THE SPANS: if the source shows one cell
+      covering four columns, that is ONE Cell with 'cs': 4, not four cells.
     Examples:
       - Class interval frequency table
       - Year-wise revenue/production data
@@ -1161,11 +1351,25 @@ IMAGE_CLASSIFICATIONS = {
     37: ("MATH", "If the ratio of the cost price to selling price is 5:7, "
          "and the discount offered is 20%, then the ratio of cost price "
          "to the marked price is:"),
-    # Q.14 — table image
+    # Q.14 — table image, FLAT header (a bare list of lists is a valid grid)
     86: ("TABLE", [
         ["Class Interval", "0-10", "10-20", "20-30", "30-40", "40-50"],
         ["Frequency", "5", "8", "15", "12", "10"],
     ]),
+    # Q.15 — table image, TWO-TIER header (v1.14). The worked example above is
+    # flat, and a flat example is why a model that could not express a span was
+    # never exercised against one. This is the shape that broke: 'Days' covers
+    # two rows, 'Printers' covers four columns, and row 1 declares FOUR cells
+    # because its first position is already covered.
+    91: ("TABLE", {
+        'grid': [
+            [{'t': 'Days', 'rs': 2}, {'t': 'Printers', 'cs': 4}],
+            [{'t': 'L'}, {'t': 'M'}, {'t': 'N'}, {'t': 'O'}],
+            ['Friday', '10,230', '9580', '7560', '9600'],
+        ],
+        'header_rows': 2,
+        'col_widths': [2.0, 1.0, 1.0, 1.0, 1.0],
+    }),
     # Q.33 — geometric figure (genuine visual)
     209: ("VISUAL", None),
     # Q.36 — mirror image figure
@@ -1186,7 +1390,9 @@ PIPELINE USAGE:
           # Write transcribed text as stem (with OMML rendering)
           add_stem(doc, q_num, content)
       elif cat == "TABLE":
-          # Write as native Word table
+          # Write as native Word table. `content` is a TableSpec (S1-8a) — or a
+          # bare list of lists for a flat table, which normalise_table_spec()
+          # accepts unchanged.
           add_stem(doc, q_num, "")  # Q.N header
           build_di_table(doc, content)
       elif cat == "VISUAL":
@@ -1360,7 +1566,10 @@ MANDATORY ORDERED STEPS (C1 / C-HYBRID image pages):
        TEXT   -> transcribe verbatim (S1-11: underline preserved via {{u}};
                  italic dropped as decorative)
        MATH   -> transcribe for OMML (S1-6 tiers / S3-4 helpers)
-       TABLE  -> transcribe rows -> native Word table (S1-8)
+       TABLE  -> transcribe into a TableSpec, SPANS INCLUDED (S1-8a)
+                 -> native Word table (S1-8). A scanned two-tier header is
+                 a two-tier header; page rasterisation changes the
+                 acquisition path, never the structure contract.
        VISUAL -> red placeholder for THAT region only (S1-7)
 
   5. CROSS-PAGE CONCATENATION (extends EC-P1). Build ONE continuous question
@@ -1543,6 +1752,26 @@ CALL 3 (if needed): Deeper inspection
   ZIP:  bash_tool: unzip <file> -d /home/claude/work/source && cat *.txt
   PDF:  Check for images, page count, section headers
   DOCX: Check paragraph structure, formatting
+
+CALL A2b — TEXT-LAYER TABLE DETECTION (v1.14, FORMAT A / FORMAT C-HYBRID text
+pages, and FORMAT D):
+  S1-12 fires only on EMBEDDED IMAGES. A DI table drawn as vector rules plus a
+  real text layer therefore never entered the table protocol at all: its cell
+  text was consumed by the ordinary line parser and appended into the stem as
+  running prose. S1-8 has always said "any structured tabular data in the
+  source → NATIVE WORD TABLE" while no clause anywhere said how such data is
+  DETECTED outside the image path.
+    1. Run a table finder over every text page (e.g. pdfplumber
+       page.find_tables(); python-docx doc.tables for FORMAT D).
+    2. DISCARD page furniture: the exam-header block (CATEGORY 2 metadata) and
+       the question-block separator rules, both of which present as low-row-count
+       grids spanning the full text width. On the reference corpus this filter
+       discards exactly one header table and three separator false positives, so
+       it is exercised by real data.
+    3. A surviving candidate overlapping a question's y-range IS a DI table:
+       transcribe it into a TableSpec (S1-8a) and render per S1-8. Do NOT let
+       its text reach the stem parser.
+  The acquisition mechanism differs from S1-12; the structure contract does not.
 
 CALL 3/4 — IMAGE EXTRACTION (v1.6 — mandatory when images detected):
   If CALL 2/3 reveals embedded images (drawings, blips, inline shapes):
@@ -2283,12 +2512,20 @@ def add_placeholder_stem(doc, red_png_path):
     r.add_picture(red_png_path, width=Inches(3.0))
     return p
 
-def add_placeholder_opt(doc, opt_num, red_png_path):
+def add_placeholder_opt_set(doc, n_options, red_png_path):
     """
-    Add red placeholder for one figure option.
-    Creates a 1-row, 2-column borderless table: [label | image].
+    Add red placeholders for a WHOLE figure-option set (v1.14, S1-8b RULE B2).
+
+    ONE borderless table, one ROW per option: [label | image].
+
+    Replaces add_placeholder_opt(), which built one table PER OPTION and so
+    emitted four adjacent w:tbl siblings. Two adjacent block tables are FUSED
+    into a single table by every Word engine (S1-8b), so the four option blocks
+    silently became one — invisible in the emitted file, visible the moment Word
+    opened it. Measured: 19 tables written, 7 after a Word-engine round-trip.
+    One table for the set is fusion-proof and matches the ALL-or-NONE rule.
     """
-    tbl = doc.add_table(rows=1, cols=2)
+    tbl = doc.add_table(rows=n_options, cols=2)
     tbl.autofit = False
     # Remove borders
     tbl_pr = tbl._tbl.tblPr
@@ -2301,38 +2538,62 @@ def add_placeholder_opt(doc, opt_num, red_png_path):
         e.set(qn('w:color'), 'auto')
         borders.append(e)
     tbl_pr.append(borders)
-    # Label cell
-    cell_label = tbl.cell(0, 0)
-    cell_label.text = f"{opt_num}."
-    for r in cell_label.paragraphs[0].runs:
-        set_font(r)
-    # Image cell
-    cell_img = tbl.cell(0, 1)
-    p = cell_img.paragraphs[0]
-    r = p.add_run()
-    r.add_picture(red_png_path, width=Inches(2.5))
+    for i in range(n_options):
+        # Label cell
+        cell_label = tbl.cell(i, 0)
+        cell_label.text = f"{i + 1}."
+        for r in cell_label.paragraphs[0].runs:
+            set_font(r)
+        # Image cell
+        cell_img = tbl.cell(i, 1)
+        p = cell_img.paragraphs[0]
+        r = p.add_run()
+        r.add_picture(red_png_path, width=Inches(2.5))
     return tbl
 ```
 
-### S4-3 — DI table builder
+### S4-3 — DI table builder (v1.14 — DELEGATED to corpus_io Cluster I)
+
+```
+The implementation is OWNED BY corpus_io and is NOT restated here. Two builders
+modelled one concept before v1.14 — this one and build_di_table_styled() in
+Framework_MockTestCreate S8-4 — and BOTH modelled a table as a rectangle of
+strings, so neither could express a merged cell. Two implementations under one
+concept emit zero drift signal until they disagree, which is precisely how a
+grouped header stayed unrepresentable through thirteen versions of this spec.
+
+corpus_io provides:
+  normalise_table_spec(spec)   legacy list-of-lists OR TableSpec -> TableSpec
+  place_cells(grid)            HTML occupancy placement -> (placements, width,
+                               nrows, errors); 'hole' / 'overlap' are reported
+  build_di_table(doc, spec, font_pt=9, default_align='center', render=None)
+  read_table_spec(tbl, doc)    a built table -> TableSpec, spans included
+  table_spec_spans(spec)       a TableSpec -> its spans (CHECK 17, both sides)
+  adjacent_table_pairs(doc)    fused-block counter    (CHECK 18 input)
+
+ORDERING INSIDE THE BUILDER IS LOAD-BEARING and is the easiest thing to get
+wrong on a re-implementation:
+  1. write text into ANCHOR cells
+  2. THEN merge
+  3. THEN stamp per-cell column widths
+cell.merge() CONCATENATES the text of both cells ('A' + 'B' -> 'A\nB', verified
+on python-docx 1.2.0), so text must never be written into a covered position and
+merging must never precede text placement.
+
+Pass render=render_text_with_math so cell content gets the SAME OMML and {{u}}
+underline treatment as stems and options (S1-6, S1-11).
+```
 
 ```python
-def build_di_table(doc, rows_data):
+import corpus_io      # routed to PYQPrepare in routes.json
+
+def build_di_table(doc, spec, font_pt=9):
+    """Thin forwarding adapter — implementation owned by corpus_io (Cluster I).
+
+    spec: a TableSpec (S1-8a) or a legacy list of lists.
     """
-    Build a native Word table from extracted tabular data.
-    rows_data: list of lists, e.g. [['Year', '2020', '2021'], ['Revenue', '100', '200']]
-    """
-    if not rows_data:
-        return None
-    n_rows = len(rows_data)
-    n_cols = max(len(row) for row in rows_data)
-    tbl = doc.add_table(rows=n_rows, cols=n_cols, style='Table Grid')
-    for ri, row in enumerate(rows_data):
-        for ci, cell_text in enumerate(row):
-            if ci < n_cols:
-                cell = tbl.cell(ri, ci)
-                cell.text = str(cell_text)
-    return tbl
+    return corpus_io.build_di_table(doc, spec, font_pt=font_pt,
+                                    render=render_text_with_math)
 ```
 
 ---
@@ -2449,14 +2710,49 @@ CHECK 16 — Q-COUNT vs STATED-TOTAL (v1.7)
   and that number is passed as stated_total, compare it to the built
   Q-count. WARN on mismatch (dropped, duplicated, or specimen questions).
   Skipped silently when stated_total is not available.
+
+CHECK 17 — TABLE GEOMETRY FIDELITY (v1.14)
+  For every transcribed table, compare the spans DECLARED in its TableSpec
+  against the spans actually BUILT in the document:
+    table_spec_spans(spec)  vs  table_spec_spans(read_table_spec(tbl))
+  The built table is read BACK into a TableSpec and both sides are then measured
+  by the SAME placement function, so this is a round-trip EQUALITY
+  test, not an estimate, and it cannot false-positive on a legitimately blank
+  cell — a blank cell is declared {'t': ''} and occupies exactly one grid
+  position. WARN on any difference, naming the question.
+  This is the check whose absence let a two-tier header ship flat under a
+  green footer: CHECK 13 asserts only that a TABLE-classified image produced
+  TRANSCRIBED CONTENT rather than a red box, and says nothing about shape.
+  Requires table_specs {q_num: TableSpec} to be passed in. Skipped silently
+  when it is not available (legacy flat path) — CHECK 17b then applies.
+
+CHECK 17b — PADDING SIGNATURE (v1.14, advisory, legacy path only)
+  When no TableSpec is available: WARN if a HEADER row contains TWO OR MORE
+  trailing empty cells while the table declares NO spans anywhere. That is the
+  padding signature and cannot arise from the S1-8a anchor-only model; it
+  exists to catch legacy artefacts and third-party inputs.
+  A SINGLE empty cell is NEVER flagged — a blank top-left corner is a
+  legitimate and common table shape.
+
+CHECK 18 — NO FUSED BLOCKS (v1.14)
+  corpus_io.adjacent_table_pairs(doc) must be 0. Two adjacent block-level
+  <w:tbl> siblings are FUSED into one table by every Word engine (S1-8b),
+  and the fusion is INVISIBLE in the emitted file — python-docx reports N
+  tables where Word shows one. WARN with the pair count.
+  Cheap, no false positives, and it belongs in the shared validation layer:
+  every step that inserts or copies a table inherits the hazard.
 ```
 
 ### S5-2 — Validation implementation
 
 ```python
-def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total=None):
+def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total=None,
+                      table_specs=None):
     """
-    Run all 16 validation checks. Return (pass_count, warn_count, messages).
+    Run all 18 validation checks. Return (pass_count, warn_count, messages).
+
+    table_specs: {q_num: TableSpec} as transcribed in Phase B (S1-12 / S1-8a).
+    Optional — when absent, CHECK 17 is skipped and CHECK 17b applies instead.
     """
     from docx import Document
     import re
@@ -2686,11 +2982,59 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     else:
         print("CHECK 16: stated_total not provided — skipped")
 
+    # CHECK 17 — table geometry fidelity (v1.14)
+    import corpus_io
+    di_tables = [t for t in doc.tables if len(t.columns) > 2]
+    if table_specs:
+        for (qn_, spec), tbl in zip(sorted(table_specs.items()), di_tables):
+            want = corpus_io.table_spec_spans(spec)
+            got = corpus_io.table_spec_spans(corpus_io.read_table_spec(tbl._tbl))
+            if want != got:
+                warnings.append(
+                    f"CHECK 17 WARN: Q.{qn_} table spans differ — "
+                    f"declared {want}, built {got}")
+        if not any(w.startswith('CHECK 17 WARN') for w in warnings):
+            print(f"CHECK 17: {len(di_tables)} table(s), geometry matches transcription OK")
+    else:
+        print("CHECK 17: no table_specs supplied — skipped (CHECK 17b applies)")
+
+    # CHECK 17b — padding signature (advisory, legacy path only)
+    pad_hits = 0
+    if not table_specs:
+        for tbl in di_tables:
+            x = tbl._tbl.xml
+            if 'w:gridSpan' in x or 'w:vMerge' in x:
+                continue
+            head = [c.text.strip() for c in tbl.rows[0].cells]
+            trailing = 0
+            for cell_text in reversed(head):
+                if cell_text:
+                    break
+                trailing += 1
+            if len(head) > 2 and trailing >= 2:
+                pad_hits += 1
+    if pad_hits:
+        warnings.append(
+            f"CHECK 17b WARN: {pad_hits} table(s) show the padding signature "
+            f"(>=2 trailing empty header cells, no spans) — a merged header was "
+            f"probably squared into a grid (S1-8a)")
+    else:
+        print("CHECK 17b: No padding signature OK")
+
+    # CHECK 18 — no fused blocks (v1.14)
+    pairs = corpus_io.adjacent_table_pairs(doc)
+    if pairs:
+        warnings.append(
+            f"CHECK 18 WARN: {pairs} pair(s) of adjacent block tables — Word will "
+            f"fuse them into one table (S1-8b RULE B1)")
+    else:
+        print("CHECK 18: No adjacent block tables OK")
+
     # Summary
-    pass_count = 16 - len(warnings)
+    pass_count = 18 - len(warnings)
     for w in warnings:
         print(f"  ⚠️ {w}")
-    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/16 checks passed, {len(warnings)} warnings")
+    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/18 checks passed, {len(warnings)} warnings")
 
     return pass_count, len(warnings), warnings
 ```
@@ -2848,7 +3192,12 @@ EC-P13: BILINGUAL PAPERS
 
 EC-P14: DI TABLES
   Data interpretation tables → native Word tables. Never render as
-  images or placeholders. Preserve source data exactly.
+  images or placeholders. Preserve source data exactly — and, from v1.14,
+  preserve source STRUCTURE exactly: merged header and body cells are
+  reproduced as merged cells (S1-8, S1-8a). "Preserve source data exactly"
+  governs VALUES; for thirteen versions it was silently read as covering
+  geometry too, which is how a grouped header shipped flat with four stray
+  empty cells and every value correct. See EC-P24.
 
 EC-P15: EMPTY/CORRUPT QUESTIONS
   If a question has no stem text AND no image (completely empty), include
@@ -2893,8 +3242,12 @@ EC-P20: MATH-AS-IMAGE (v1.6)
 
   EC-P20b: FULL STEM AS TABLE IMAGE
     Question stem is an image of a data table.
-    Claude views → TABLE-IMAGE → transcribe rows.
-    Pipeline writes: add_stem(doc, N, ""), then build_di_table().
+    Claude views → TABLE-IMAGE → transcribe into a TableSpec, SPANS INCLUDED
+    (S1-8a). Pipeline writes: add_stem(doc, N, ""), then build_di_table().
+    If the image also carries the intro sentence and/or the question sentence
+    (common in response-sheet exports), the intro becomes the Q.N stem, the
+    table follows, and the question sentence follows the table as a plain
+    paragraph — Q.N-FIRST is unaffected.
 
   EC-P20c: OPTIONS AS MATH IMAGES
     Option lines are blank (image-only) but images contain math text.
@@ -2980,6 +3333,54 @@ EC-P23: IMAGE INSIDE A TABLE CELL (v1.9)
   corpus_io.extract_images, which reads the package directly.
   Cross-check the count against corpus_io.count_image_refs — a mapping that
   is short by one is an image that will be silently placeholdered.
+
+EC-P24: MERGED / GROUPED TABLE STRUCTURE (v1.14)
+  The source table has cells that span columns or rows — the NORM for DI sets
+  in SSC, banking and railway papers. Eight sub-scenarios:
+
+  EC-P24a: HEADER CELL SPANNING N COLUMNS ("Printers" over L/M/N/O)
+    -> ONE Cell with 'cs': N. Not N cells, and never N-1 padded blanks.
+
+  EC-P24b: LABEL CELL SPANNING N ROWS ("Days" beside a two-tier header)
+    -> ONE Cell with 'rs': N in the row where it STARTS. The covered rows do
+       not declare it.
+
+  EC-P24c: BOTH IN ONE TABLE (the reported case)
+    -> both, independently. Row 0 declares two cells; row 1 declares four.
+
+  EC-P24d: THREE-OR-MORE-TIER HEADER
+    -> full nesting; header_rows = number of tiers.
+
+  EC-P24e: MERGE IN THE BODY (a category label spanning several data rows)
+    -> identical treatment; 'rs' is not a header-only property.
+
+  EC-P24f: GENUINELY BLANK CELL vs PADDING
+    -> a blank cell is {'t': ''} and occupies one grid position. Padding cannot
+       be expressed at all (S1-8a anchor-only rule), so the two can never be
+       confused. A blank TOP-LEFT CORNER is legitimate and common and is NEVER
+       flagged by CHECK 17b.
+
+  EC-P24g: RAGGED OR OVERLAPPING DECLARATION
+    -> place_cells() reports 'hole at (r,c)' or 'overlapping span at (r,c)' and
+       build_di_table raises. FIX THE TRANSCRIPTION. Never auto-pad: auto-padding
+       is the original defect wearing a different hat.
+
+  EC-P24h: UNREPRESENTABLE STRUCTURE (diagonal split corner, nested table,
+    rotated header, meaning carried by shading alone)
+    -> transcribe the closest faithful structure, set spec['note'] or record a
+       transcription warning naming the question, and surface it in the delivery
+       report. NEVER normalise silently (S1-8a).
+
+EC-P25: ADJACENT BLOCK TABLES (v1.14)
+  A question emits two or more block-level tables with nothing between them —
+  a figure-option set built one-table-per-option, or two DI tables in one
+  question. Every Word engine FUSES adjacent w:tbl siblings into a single
+  table, and the emitted file gives no sign of it: python-docx counts N, Word
+  shows one. Measured: 19 tables written, 7 after a Word-engine round-trip.
+  Resolution: S1-8b — one table for an option SET (B2), or a separator
+  paragraph (B3). CHECK 18 enforces it. Because the defect is only observable
+  through a rendering engine, a round-trip belongs in CI; static inspection of
+  the .docx will never see it.
 ```
 
 ---
@@ -3072,9 +3473,10 @@ PHASE B — BUILD (3–4 tool calls):
       - OMML converter (fractions, roots, superscripts)
       - Image-aware figure detector (v1.6 — checks classification
         before placeholder; transcribes MATH/TABLE/TEXT images)
-      - DI table builder
+      - DI table builder (v1.14 — TableSpec + corpus_io.build_di_table;
+        spans preserved, cells rendered through render_text_with_math)
       - Document builder (date labels, stems, options, blanks)
-      - Validator (13 checks)
+      - Validator (18 checks)
       - File saver + copier
 
   CALL B2: Run pipeline
@@ -3117,6 +3519,37 @@ corpus_io function is forbidden: this file carried DEFECT I and DEFECT J
 for exactly as long as it kept its own copy of extract_images, while both
 had already been fixed elsewhere. Two copies produce no drift signal until
 they disagree, and by then the images are already gone.
+
+MODULE DEPENDENCY (v1.14): TABLE STRUCTURE is delegated to corpus_io
+(Cluster I) for the same reason and after the same kind of failure —
+normalise_table_spec, place_cells, build_di_table, read_table_spec,
+table_spec_spans, read_table_spans, adjacent_table_pairs. This spec keeps only
+a thin forwarding adapter (S4-3). Framework_MockTestCreate S8-4 currently holds
+the SECOND flat implementation (build_di_table_styled(doc, headers, rows),
+single header row) and must adopt the same model before a mock paper can
+reproduce a two-tier DI header — until it does, a structure Step 1 preserves is
+lost at Step 7. Tracked as the second half of GAP-2026-07-29-TBL; it also needs
+corpus_io added to the MockCreate/TestCreate routes in routes.json.
+
+TABLE CONTRACT (v1.14): Row files may now contain merged cells. Consumers that
+read tables MUST use corpus_io._table_rows (anchor cells, no repeats) or
+corpus_io.read_table_spec (full geometry). Reading python-docx row.cells
+directly returns one entry per GRID COLUMN and repeats the anchor for every
+covered position, so a 4-column merged header reads as four identical strings
+and a vertically merged label reappears in every row it spans.
+  CONSUMER STATUS AT v1.14:
+    Step 3 PYQSort        — SAFE, no change. Question bodies are carried as
+                            body_elems [<w:p> or <w:tbl>] and DEEP-COPIED, so
+                            merges survive byte-identically.
+    Step 4 / Step 2c      — SAFE. corpus_io._table_rows is the only reader and
+                            is anchor-only from v1.14; output on a flat table is
+                            byte-identical to before.
+    Step 8 PYQFormat      — SAFE. TCPR_ORDER already lists gridSpan/hMerge/vMerge,
+                            so merged cells survive its XML normalisation.
+    Step 5 PYQExtract     — table-blind by design (no w:tbl handling at all);
+                            unaffected either way. Documented so the silence
+                            reads as a decision rather than an omission.
+    Step 7 MockCreate     — NOT YET COMPLIANT. See MODULE DEPENDENCY (v1.14).
 
 CONSUMER: Step 2b PYQScan (Framework_PYQAnalyse.md)
   READS: Row file Q.N stems for subtopic classification
@@ -3170,7 +3603,8 @@ UNIVERSAL IN THIS SPEC (identical every exam):
   Document builder functions (§4)
   Validation checks (§5)
   Delivery contract (§7)
-  All edge cases (§8, 21 total — EC-P1 through EC-P21)
+  All edge cases (§8, 25 total — EC-P1 through EC-P25)
+  Table structure contract (§1 S1-8a) and block composition (§1 S1-8b)
 
 EXAM-SPECIFIC (from trigger + source content at runtime):
   ExamCode (from trigger)
@@ -3225,11 +3659,19 @@ PROOF:
 ☐ 10a. Scanned source (C1/C-HYBRID): legibility-gated vision transcription
        with mandatory VISION provenance marker (v1.7 — S1-13)
 ☐ 11. DI tables rendered: native Word tables, not images
+☐ 11a. Table STRUCTURE preserved: every merged cell in the source is a merged
+       cell in the output; no padded empty cells (v1.14 — S1-8, S1-8a)
+☐ 11b. Table cells rendered through render_text_with_math: OMML math and
+       {{u}} underlines work inside cells (v1.14 — S1-6, S1-11)
+☐ 11c. No two adjacent block-level tables anywhere in the document; figure-option
+       sets are ONE table with one row per option (v1.14 — S1-8b, CHECK 18)
+☐ 11d. Text-layer tables detected and built as tables, not parsed as stem prose
+       (v1.14 — S2-2 CALL A2b)
 ☐ 12. Passages repeated: every sub-question has passage, Q.N-FIRST layout
 ☐ 13. Date labels present: one per question, correct format and style
 ☐ 14. Answer markers stripped: no ✓/✗, no correct answer indicators
 ☐ 15. Document formatting: Arial 11pt, A4, 1" margins, proper spacing
-☐ 16. Validation run: all 16 checks executed, results logged
+☐ 16. Validation run: all 18 checks executed, results logged
 ☐ 17. Row file delivered via present_files (1 file, closed set)
 ☐ 18. Delivery footer rendered per Framework_DeliveryFooter.md
 
@@ -3241,4 +3683,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v1.13
+# END OF Framework_PYQPrepare v1.14

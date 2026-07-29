@@ -1,4 +1,34 @@
-# Framework_MockTestCreate v5.31
+# Framework_MockTestCreate v5.32
+#
+# v5.32 — 2026-07-29 — DI TABLE STRUCTURE (GAP-2026-07-29-TBL, part 2 of 2).
+#   S8-4 modelled a DI table as build_di_table_styled(doc, headers, rows) — ONE header
+#   row and a rectangle of strings. A grouped header (a cell spanning four columns over
+#   a label cell spanning two rows) was therefore not expressible at Step 7, so a mock
+#   modelled on a PYQ whose DI table carries one could not reproduce it, no matter how
+#   faithfully Step 1 preserved it. Framework_PYQPrepare S4-3 held the SECOND flat
+#   implementation of the same concept; part 1 of this gap fixed that one and moved the
+#   model into corpus_io Cluster I. Two builders under one concept emit no drift signal
+#   until they disagree, which is why both stayed flat for the life of both specs.
+#   Fix: (1) build_di_table_styled becomes a STYLING WRAPPER over
+#   corpus_io.build_di_table — geometry, spans and cell text from the shared engine,
+#   then this step's own presentation applied on top: navy header fill, white bold
+#   header text, per-cell borders, numeric-centre / text-left data alignment,
+#   FONT_NAME / FONT_SIZE_PT. Visual output for a flat table is UNCHANGED with ONE
+#   stated exception: a HEADER run's font.name was never set before and inherited the
+#   document default; it is now pinned to FONT_NAME like every other cell. Verified
+#   cell-by-cell against the v5.31 builder — text, alignment, bold, colour, size,
+#   fill and borders are identical on flat input.
+#   (2) header styling now covers EVERY header tier (spec['header_rows']) and shades
+#   merged anchors correctly, instead of looping over row 0's cells.
+#   (3) the linked-group 'table' payload accepts a full TableSpec as well as the legacy
+#   {'headers','rows'} form; corpus_io.normalise_table_spec converts the legacy shape,
+#   so no registry.json or blueprint payload needs migrating.
+#   (4) routes.json — corpus_io.py added to MockCreate and TestCreate (CHECK AH: an
+#   engine a spec imports must be routed to its triggers).
+#   A malformed table can no longer be written at all: corpus_io.place_cells RAISES on
+#   a hole or an overlapping span rather than padding the row, so an under-declared
+#   header fails at generation instead of shipping as a silently squared grid.
+#   REQUIRES corpus_io with Cluster I table structure (GAP-2026-07-29-TBL part 1).
 #
 # v5.31 — 2026-07-26 — STEP 7 FINALLY READS THE FIGURE PROFILE (GAP-2026-07-26-003 D2).
 #   Step 5 has measured what a subtopic's real figures CONTAIN since v2.29 —
@@ -4808,67 +4838,113 @@
   DETECTION: before delivery, check docx for any paragraph containing
     "|" pipe characters within a non-table paragraph → C-TABLE gate FAIL.
 
+  STRUCTURE (v5.32, GAP-2026-07-29-TBL): a DI table's GEOMETRY is part of its
+  content. When the modelled PYQ carries a grouped header — one cell spanning
+  several columns above a label cell spanning several rows — the generated table
+  MUST carry the same spans. Squaring it into a rectangle padded with empty cells
+  is BANNED: the values survive, the meaning does not.
+  The geometry model is the TableSpec owned by corpus_io Cluster I
+  (Framework_PYQPrepare S1-8a): ANCHOR CELLS ONLY, with 'cs' / 'rs' spans, and
+  padding is not expressible. Authoring a two-tier header is therefore three
+  keystrokes, not a workaround:
+      {'grid': [[{'t': 'Days', 'rs': 2}, {'t': 'Printers', 'cs': 4}],
+                [{'t': 'L'}, {'t': 'M'}, {'t': 'N'}, {'t': 'O'}],
+                ['Friday', '10,230', '9580', '7560', '9600']],
+       'header_rows': 2}
+  corpus_io.place_cells() RAISES on a hole or an overlapping span, so a
+  malformed table fails at generation rather than shipping as a squared grid.
+
   PYTHON-DOCX IMPLEMENTATION (mandatory for DI):
+  v5.32 — GEOMETRY IS DELEGATED, PRESENTATION STAYS HERE. corpus_io.build_di_table
+  places cells (spans included), writes text and stamps column widths; this function
+  adds Step 7's own look. The previous local implementation owned BOTH and could
+  express neither a colspan nor a rowspan.
+
   ```python
-  def build_di_table_styled(doc, headers, rows):
+  import corpus_io      # routed to MockCreate / TestCreate in routes.json
+
+  def build_di_table_styled(doc, spec, rows=None):
       """
-      DI table: dark navy header row, bordered cells.
+      DI table: dark navy header row(s), bordered cells, span-aware.
+
+      spec: a TableSpec (Framework_PYQPrepare S1-8a) — ANCHOR CELLS ONLY, with
+            'cs' / 'rs' — or, for backward compatibility, the legacy positional
+            call build_di_table_styled(doc, headers, rows).
       DO NOT use npm docx package for DI — cannot produce styled Word tables.
       """
       from docx.shared import Pt, RGBColor
       from docx.oxml import parse_xml
+      from docx.oxml.ns import qn
       from docx.enum.text import WD_ALIGN_PARAGRAPH
 
       NAVY = DI_HEADER_COLOR  # v5.6: configurable (default "1F4E79")
+      W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
       BORDER = (
-          '<w:tcBorders xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+          f'<w:tcBorders xmlns:w="{W}">'
           '<w:top    w:val="single" w:sz="6" w:color="000000"/>'
           '<w:left   w:val="single" w:sz="6" w:color="000000"/>'
           '<w:bottom w:val="single" w:sz="6" w:color="000000"/>'
           '<w:right  w:val="single" w:sz="6" w:color="000000"/>'
           '</w:tcBorders>'
       )
-      table = doc.add_table(rows=1 + len(rows), cols=len(headers))
-      # Header row: dark navy background, white bold text, centred
-      for ci, h in enumerate(headers):
-          cell = table.rows[0].cells[ci]
-          cell.text = h
-          run = cell.paragraphs[0].runs[0]
-          run.bold = True
-          run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-          run.font.size = Pt(FONT_SIZE_PT)
-          cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-          # Apply navy shading
-          from docx.oxml.ns import qn
-          shading = parse_xml(
-              f'<w:shd xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
-              f' w:val="clear" w:color="auto" w:fill="{NAVY}"/>')
-          cell._tc.get_or_add_tcPr().append(shading)
-      # Data rows
-      for ri, row_data in enumerate(rows):
-          for ci, val in enumerate(row_data):
-              cell = table.rows[ri+1].cells[ci]
-              cell.text = str(val)
-              run = cell.paragraphs[0].runs[0] if cell.paragraphs[0].runs else \
-                    cell.paragraphs[0].add_run(str(val))
-              run.font.size = Pt(FONT_SIZE_PT)
-              run.font.name = FONT_NAME
-              # Centre-align numeric; left-align text:
-              try:
-                  float(str(val).replace(',',''))
-                  cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
-              except ValueError:
-                  cell.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.LEFT
-      # Apply borders to all cells:
-      for row in table.rows:
+      if rows is not None:                      # legacy positional form
+          spec = {'headers': spec, 'rows': rows}
+      spec = corpus_io.normalise_table_spec(spec)
+      header_rows = int(spec.get('header_rows', 1))
+
+      # Data cells keep the v2.0 rule: numeric centred, text left. Header cells are
+      # centred. Resolved BEFORE the build so the shared builder applies it.
+      for ri, row in enumerate(spec['grid']):
+          for cell in row:
+              if cell.get('align'):
+                  continue
+              if ri < header_rows:
+                  cell['align'] = 'center'
+                  cell['bold'] = True
+              else:
+                  try:
+                      float(str(cell.get('t', '')).replace(',', ''))
+                      cell['align'] = 'center'
+                  except ValueError:
+                      cell['align'] = 'left'
+
+      table = corpus_io.build_di_table(doc, spec, font_pt=FONT_SIZE_PT,
+                                       default_align='center', font_name=FONT_NAME)
+
+      # Header fill + white bold text, EVERY tier, merged anchors included. The
+      # pre-v5.32 loop walked table.rows[0].cells, which under a merge returns one
+      # entry per GRID COLUMN and repeats the anchor — it would have shaded the same
+      # cell four times and never touched tier 2.
+      # A raw <w:tr>/<w:tc> walk visits every cell EXACTLY ONCE: a horizontally
+      # merged cell exists only as its anchor, and a vertically merged one has a
+      # continuation tc that must be shaded too. Do NOT dedupe on id(tc) — lxml
+      # creates a fresh proxy per findall() and Python reuses ids after GC, which
+      # silently skips real cells.
+      for tr in table._tbl.findall('{%s}tr' % W)[:header_rows]:
+          for tc in tr.findall('{%s}tc' % W):
+              tc.get_or_add_tcPr().append(parse_xml(
+                  f'<w:shd xmlns:w="{W}" w:val="clear" w:color="auto" w:fill="{NAVY}"/>'))
+      for ri, row in enumerate(table.rows):
+          if ri >= header_rows:
+              break
           for cell in row.cells:
-              cell._tc.get_or_add_tcPr().append(parse_xml(BORDER))
+              for para in cell.paragraphs:
+                  para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                  for run in para.runs:
+                      run.bold = True
+                      run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+                      run.font.size = Pt(FONT_SIZE_PT)
+
+      # Borders on every cell (the raw walk visits each tc exactly once).
+      for tr in table._tbl.findall('{%s}tr' % W):
+          for tc in tr.findall('{%s}tc' % W):
+              tc.get_or_add_tcPr().append(parse_xml(BORDER))
       return table
   ```
 
   Table structure in document:
     (1) Intro paragraph (bold): "Study the following table and answer the question."
-    (2) build_di_table_styled(doc, headers, rows)
+    (2) build_di_table_styled(doc, spec)   # TableSpec, or legacy (headers, rows)
     (3) Question paragraph (bold): "Which of the following is correct?"
     (4) Options 1./2./3./4. (configured font, configured size, normal weight)
     (5) Blank separator paragraph
@@ -4954,8 +5030,8 @@
          - PASSAGE / CLOZE → the complete passage paragraph(s) (identical text in
            every member; for Cloze, the SAME numbered-blank paragraph each time).
          - DI TABLE → a fresh Word-table object built by build_di_table_styled()
-           (§8-S8-4) — re-emit the table in each member; never reference "the
-           table above".
+           (§8-S8-4) — re-emit the table in each member, WITH ITS SPANS (v5.32);
+           never reference "the table above".
          - DI CHART → the same chart image (re-insert the image part per member;
            image-reuse ban R3 does NOT apply within a single linked group —
            see SC-6).
@@ -5477,7 +5553,9 @@
         'context'        : str,                 # shared instruction (singular Q)
         'passage_text'   : str | None,          # passage / cloze paragraph(s)
         'passage_bold'   : bool,                # True to match reference layout
-        'table'          : {'headers': [...], 'rows': [[...]]} | None,
+        'table'          : TableSpec | {'headers': [...], 'rows': [[...]]} | None,
+                           # v5.32: TableSpec (S1-8a) carries spans; the legacy
+                           # {'headers','rows'} form still works unchanged.
         'chart_image'    : bytes | None,        # PNG, 300 DPI
         'ask'            : str,                  # this member's specific question
       }
@@ -5493,8 +5571,7 @@
           rr.bold = bool(group.get('passage_bold', False))
           rr.font.name = FONT_NAME; rr.font.size = Pt(FONT_SIZE_PT)
       elif group['mode'] == 'di_table' and group.get('table'):
-          build_di_table_styled(doc, group['table']['headers'],
-                                     group['table']['rows'])   # §8-S8-4
+          build_di_table_styled(doc, group['table'])          # §8-S8-4 (v5.32)
       elif group['mode'] == 'di_chart' and group.get('chart_image'):
           insert_chart_image(doc, group['chart_image'])        # §8-S8-5
       elif group['mode'] == 'puzzle' and group.get('passage_text'):
@@ -7550,7 +7627,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.31
+# END OF Framework_MockTestCreate v5.32
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below

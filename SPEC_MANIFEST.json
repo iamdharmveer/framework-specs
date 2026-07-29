@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 7633,
-      "sha256": "a4962ee3ba33403926be9b172c79b1545e28479fb1a381cb1ce4adbcd0e0e470",
-      "size_bytes": 489836,
-      "version_header": "# Framework_MockTestCreate v5.31"
+      "lines": 7710,
+      "sha256": "78eaff879c7b31ce10088b4fb0a9de8f481c86abf786bbb27663c1ff022810d4",
+      "size_bytes": 494965,
+      "version_header": "# Framework_MockTestCreate v5.32"
     },
     "Framework_MockTestCreateAudit.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
@@ -99,11 +99,11 @@
       "version_header": "# Framework_PYQFormat v1.4.1 \u2014 Universal PYQ Student Document Formatter"
     },
     "Framework_PYQPrepare.md": {
-      "end_sentinel": "# END OF Framework_PYQPrepare v1.13",
-      "lines": 3244,
-      "sha256": "1fa5028ab03493cd6747663bd2146faf4103e4958bd675a5c5b5a0e8d7eed158",
-      "size_bytes": 152526,
-      "version_header": "# Framework_PYQPrepare v1.13 \u2014 Universal PYQ Row File Generator"
+      "end_sentinel": "# END OF Framework_PYQPrepare v1.14",
+      "lines": 3686,
+      "sha256": "742a1be30e986483d7daccaead490ed94b14a0eb1b0b9ebbfae9cde12519e6e9",
+      "size_bytes": 178512,
+      "version_header": "# Framework_PYQPrepare v1.14 \u2014 Universal PYQ Row File Generator"
     },
     "Framework_PYQSort.md": {
       "end_sentinel": "# END OF Framework_PYQSort v1.18",
@@ -166,9 +166,9 @@
       "version_header": "# Mock-Test Framework \u2014 Simple Operating Guide"
     },
     "corpus_io.py": {
-      "lines": 3951,
-      "sha256": "6e0b28af40724a3e256f39ec0ca84f824d4a2b58ca46c1d7a54e1ab10b51b2f9",
-      "size_bytes": 203238
+      "lines": 4250,
+      "sha256": "f37b6f22fd08b44e25943ff8e2356ef08e6b586145fb50c8e4fa0eaecd5b212f",
+      "size_bytes": 216684
     },
     "explain_audit_gate.py": {
       "lines": 210,
@@ -196,9 +196,9 @@
       "size_bytes": 68963
     },
     "routes.json": {
-      "lines": 150,
-      "sha256": "a9fee10760418bd957a1ad3871c70c02efff596cddfdd01d97371c3cc93fcd49",
-      "size_bytes": 3277
+      "lines": 152,
+      "sha256": "fdd80f70f36121aea848f58615968c14cf835b190d903ff905005622307b3343",
+      "size_bytes": 3313
     },
     "syllabus_provenance.py": {
       "lines": 443,
@@ -211,5 +211,5 @@
       "size_bytes": 94987
     }
   },
-  "generated_at": "2026-07-27T09:43:53+00:00"
+  "generated_at": "2026-07-29T00:00:00+00:00"
 }
