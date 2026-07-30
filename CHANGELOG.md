@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026.07.29.3
+- figural_core: RUNTIME DEPENDENCIES DECLARED, CHECKED AND NEVER FATAL IN AN AUDIT. Closes the
+  hard-dependency note recorded in 2026.07.29.2. Step 0 installs python-docx and nothing else,
+  and no spec declared a dependency list before v5.33, so the engine's extra needs would have
+  been discovered as a traceback in a live exam session.
+- Split by role, following "Silence is the defect; a halt is not the remedy": RENDER (Create)
+  genuinely requires matplotlib, so render_figure() now raises FiguralError G-FIGDEP carrying
+  the pip command instead of a bare ImportError from three frames down; AUDIT degrades every
+  gate to DORMANT-but-reported, routed to AMBER by triage(). A gate that raises is worse than a
+  gate that is absent, because it takes the whole audit down — and an audit that dies takes
+  ~200 projects with it.
+- New surface: DEPENDENCIES (matplotlib, PIL, numpy, scipy, fontTools with each one's role),
+  PIP_INSTALL, and preflight() so a missing package is a stated precondition rather than a
+  traceback. Guards IMPORT the module and catch failure rather than asking find_spec whether it
+  is on the path — a package can be installed and still fail to load (numpy without BLAS,
+  Pillow without its shared libs), and presence-checking leaves exactly the traceback the guard
+  exists to prevent. dominant_hues()/coloured_fraction() now return None (not []) when pixel
+  tooling is unavailable, so a caller can tell "no hues found" from "could not look".
+- Self-test 56 -> 79. The absence fixtures block imports through sys.meta_path rather than a
+  builtins.__import__ hook: an earlier version patched __import__ only, so nothing was ever
+  blocked and all six cases passed against unguarded code — a test that proved nothing.
+- Framework_MockTestCreate v5.33 documents the dependency surface (docs-only; version unchanged
+  as behaviour is unaltered). MANIFEST.json + SPEC_MANIFEST.json regenerated.
+- bootstrap 26/26, validator 0 issues, audit_deep 0, audit_callgraph 0, audit_specs_ext 0
+  across 20 files; blueprint_core 266/266, corpus_io 303/303, figural_core 79/79.
+
 ## 2026.07.29.2
 - GAP-2026-07-29-FIG-R2 + VERIFY-2026-07-29-FIG-R2 (figure colour, label legibility and
   placement scale). Measured across 208 delivered drawings in four exhibits: 0 of 55 IIT JAM
