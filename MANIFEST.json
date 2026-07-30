@@ -68,23 +68,27 @@
     ],
     "MockCreate": [
       "Framework_MockTestCreate.md",
+      "figural_core.py",
       "paper_pipeline.py",
       "corpus_io.py",
       "Framework_DeliveryFooter.md"
     ],
     "TestCreate": [
       "Framework_MockTestCreate.md",
+      "figural_core.py",
       "paper_pipeline.py",
       "corpus_io.py",
       "Framework_DeliveryFooter.md"
     ],
     "MockCreateAudit": [
       "Framework_MockTestCreateAudit.md",
+      "figural_core.py",
       "paper_pipeline.py",
       "Framework_DeliveryFooter.md"
     ],
     "TestCreateAudit": [
       "Framework_MockTestCreateAudit.md",
+      "figural_core.py",
       "paper_pipeline.py",
       "Framework_DeliveryFooter.md"
     ],
@@ -183,18 +187,18 @@
       "bytes": 544291
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "78eaff879c7b31ce10088b4fb0a9de8f481c86abf786bbb27663c1ff022810d4",
-      "version_header": "# Framework_MockTestCreate v5.32",
+      "sha256": "c941604053dba7dc829aaa63a941fdefb5367e89cd7772a8b5227badf6aaee5b",
+      "version_header": "# Framework_MockTestCreate v5.33",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 7710,
-      "bytes": 494965
+      "lines": 8075,
+      "bytes": 518498
     },
     "Framework_MockTestCreateAudit.md": {
-      "sha256": "e8c61af6991f8580efb54df2bd4fb4c73eb58e6538fd6b345cd5af1e5f267a06",
-      "version_header": "# Framework_MockTestCreateAudit v2.10",
+      "sha256": "ba1d38ef1e9610e0e808523426871217f8752b487ae44c81c77ae41506ec3001",
+      "version_header": "# Framework_MockTestCreateAudit v2.11",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 5696,
-      "bytes": 368465
+      "lines": 5861,
+      "bytes": 381283
     },
     "Framework_MockTestExplain.md": {
       "sha256": "ec36f02c719df808348f8bebdae7929c0c54f06ed673c462d884e3366359d7da",
@@ -328,6 +332,13 @@
       "end_sentinel": "    return (not errors), errors, warnings, sorted(unanchorable - anchorable)",
       "lines": 443,
       "bytes": 20942
+    },
+    "figural_core.py": {
+      "sha256": "a85916953a540d475b1d53c5e37068a27816d44f0921ad2956d89b6a5565adbd",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    print(\"figural_core.py \u2014 shared figure renderer + gates. Run with --self-test.\")",
+      "lines": 1020,
+      "bytes": 44486
     }
   }
 }

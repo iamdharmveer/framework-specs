@@ -65,23 +65,27 @@
  ],
  "MockCreate": [
   "Framework_MockTestCreate.md",
+  "figural_core.py",
   "paper_pipeline.py",
   "corpus_io.py",
   "Framework_DeliveryFooter.md"
  ],
  "TestCreate": [
   "Framework_MockTestCreate.md",
+  "figural_core.py",
   "paper_pipeline.py",
   "corpus_io.py",
   "Framework_DeliveryFooter.md"
  ],
  "MockCreateAudit": [
   "Framework_MockTestCreateAudit.md",
+  "figural_core.py",
   "paper_pipeline.py",
   "Framework_DeliveryFooter.md"
  ],
  "TestCreateAudit": [
   "Framework_MockTestCreateAudit.md",
+  "figural_core.py",
   "paper_pipeline.py",
   "Framework_DeliveryFooter.md"
  ],

@@ -1,4 +1,47 @@
-# Framework_MockTestCreate v5.32
+# Framework_MockTestCreate v5.33
+#
+# v5.33 — 2026-07-29 — FIGURE COLOUR, LABEL LEGIBILITY AND PLACEMENT SCALE
+#   (GAP-2026-07-29-FIG-R2 + VERIFY-2026-07-29-FIG-R2).
+#   Measured across 208 delivered drawings in four exhibits: 0 of 55 IIT JAM figures
+#   contained a single coloured pixel; placement scale was 0.500 EXACTLY on 24 of 24
+#   option canvases; on-page labels ran to a median of 6.7 pt; 0 of 208 drawings
+#   carried alt text. The three GATE papers, believed correct, measured 115 of 153
+#   figures below a 9 pt floor — they were not a working reference, only a quieter
+#   failure, and their colour came from session code that bypassed this spec entirely
+#   (three distinct document-assembly paths across four exhibits).
+#   FOUR root causes, not one:
+#     RC-1 S10-7 Q7 MANDATED "solid black". The monochrome output was CONFORMANT.
+#          The implementation was faithful; this spec was the defect.
+#     RC-2 FIG_NATIVE_HEADROOM=2.0 supersampled the canvas and was never compensated
+#          in the font size, while placement width came from a CONFIGURATION constant
+#          rather than the saved artefact. p_page = p_native x S, and the spec
+#          controlled neither S nor p_page. A 10 pt label landed at 5 pt.
+#     RC-3 Nothing required colour to be redundant with a second visual channel, so
+#          greyscale printing and colour-blind readers were served by luck.
+#     RC-4 (found by VERIFY, absent from the gap) render_figural_image() sets
+#          ax.axis("off") in BOTH branches, and the corpus contained no set_xlabel,
+#          no set_ylabel, no legend, no rcParams and no fontsize anywhere. It is an
+#          abstract-geometry GLYPH renderer and was being used for scientific data
+#          figures, which it structurally cannot label. S8-5, the section that would
+#          hold the data-figure path, was an empty title; insert_chart_image(), the
+#          function that would call it, was referenced and never defined.
+#   Fix: (1) new engine figural_core.py — the data-figure renderer the framework never
+#   had, beside (not replacing) the geometry-glyph path. (2) S10-6A FIGURE CLASS
+#   taxonomy; class is declared, never defaulted. (3) S10-7 Q2/Q3/Q7 rewritten, Q7b and
+#   Q9 added. (4) S10-8 places from the FigureSpec and stamps alt text. (5) S8-5 filled.
+#   DISPLAY WIDTH IS A LAYOUT DECISION AND STAYS FIXED; the render is solved to fit it.
+#   The inverse rule (place every figure at its native size) was measured and REJECTED:
+#   it inflates figure area 1.84x and makes a four-option MCQ need 10.4 in of option
+#   stack against a ~9.0 in page text height, orphaning options from their stem.
+#   FIG_NATIVE_HEADROOM is retired to 1.0 and bbox_inches="tight" is banned on this
+#   path; constrained_layout gives the same margins with a deterministic size, so
+#   S == 1.0 by construction rather than by luck.
+#   G-FIGLABEL is ARITHMETIC over recorded render-time font metrics, NOT pixel
+#   connected components: verified counter-example — three renders at an identical
+#   10 pt request and identical saved width, and the one whose axis titles carried
+#   "µmol photons m⁻² s⁻¹" and "Net CO₂ assimilation" measured 8.5 pt while
+#   short-label renders measured above the floor. A pixel gate is biased against
+#   exactly the scientific notation Q9.4 mandates.
 #
 # v5.32 — 2026-07-29 — DI TABLE STRUCTURE (GAP-2026-07-29-TBL, part 2 of 2).
 #   S8-4 modelled a DI table as build_di_table_styled(doc, headers, rows) — ONE header
@@ -550,6 +593,9 @@
 #                 view-tool verification. Constants: FIGURAL_DPI=300,
 #                 FIG_OPT_DISPLAY_IN=1.3, FIG_PROBLEM_DISPLAY_IN=2.3,
 #                 FIG_NATIVE_HEADROOM=2.0, FIG_MIN_STROKE_PT=1.4.
+#                 [SUPERSEDED v5.33 — historical record of what v4.0 shipped.
+#                  Live constants are in S10-7: FIG_PROBLEM_DISPLAY_IN=4.0 and
+#                  FIG_NATIVE_HEADROOM=1.0 (retired). Do not read this as rule.]
 #             (2) §10-S10-8 FIGURAL PLACEMENT (now executable) — add_figural_question():
 #                 ONE image per visual unit (problem figure[s] separate; EACH option
 #                 a separate image); options stacked SINGLE-COLUMN, one per line,
@@ -4949,7 +4995,76 @@
     (4) Options 1./2./3./4. (configured font, configured size, normal weight)
     (5) Blank separator paragraph
 
-## S8-5 — DI chart generator (unchanged from v1.0)
+## S8-5 — DI chart generator (v5.33 — was an EMPTY TITLE from v1.0 to v5.32)
+
+  D-8. This section carried a heading and no body for the life of the spec,
+  while S8-5 was the documented home of the DI chart path and line 5576 called
+  `insert_chart_image()` — a function defined nowhere in the corpus (D-7).
+  A DI chart is a `data_series` or `data_single` figure under S10-6A and renders
+  through `figural_core`, exactly like any other data figure.
+
+  ```python
+  import figural_core as fc
+
+  def build_di_chart(doc, qnum, chart, *, role="stim"):
+      """
+      chart : {'kind': 'line'|'bar'|'scatter'|'pie',
+               'series': [{'label':..., 'x':[...], 'y':[...]}, ...],
+               'axes'  : {'x': {'title':..., 'units':...},
+                          'y': {'title':..., 'units':...}}}
+      Returns the FigureSpec, having emitted the image into `doc`.
+      """
+      n = len(chart["series"])
+      cls = "data_series" if n >= 2 else "data_single"
+      spec = fc.make_figure_spec(qnum, cls, fc.FIG_PROBLEM_DISPLAY_IN,
+                                 series=fc.series_defaults(n),
+                                 axes=chart.get("axes", {}),
+                                 key_mode="legend" if n >= 2 else "none",
+                                 role=role)
+      for s, src in zip(spec["series"], chart["series"]):
+          s["label"] = src["label"]
+
+      def draw(ax, series, palette):
+          for s, src in zip(series, chart["series"]):
+              if chart["kind"] == "bar":
+                  ax.bar(src["x"], src["y"], color=s["colour"],
+                         edgecolor="black", linewidth=0.8, label=s["label"])
+              elif chart["kind"] == "scatter":
+                  ax.scatter(src["x"], src["y"], color=s["colour"],
+                             marker=s["marker"], label=s["label"])
+              elif chart["kind"] == "pie":
+                  # Q7b.4 — direct on-mark labels; a legend alone is prohibited.
+                  ax.pie(src["y"], labels=src["x"], colors=palette[:len(src["y"])],
+                         wedgeprops={"edgecolor": "black", "linewidth": 0.8})
+              else:
+                  ax.plot(src["x"], src["y"], color=s["colour"],
+                          linestyle=s["linestyle"], marker=s["marker"],
+                          label=s["label"])
+          if chart["kind"] != "pie":
+              ax.set_xlabel(_axis_label(chart, "x"))     # Q9.2 — title + units
+              ax.set_ylabel(_axis_label(chart, "y"))
+              if len(series) >= 2:
+                  ax.legend()
+
+      png = f"q{qnum}_{role}.png"                        # Q8 canonical name
+      fc.render_figure(draw, png, spec)
+      fc.write_spec_sidecar(spec, png)
+      insert_chart_image(doc, png, spec)
+      return spec
+
+  def _axis_label(chart, k):
+      a = (chart.get("axes") or {}).get(k) or {}
+      t, u = a.get("title", ""), a.get("units")
+      return f"{t} ({u})" if t and u else t
+
+  def insert_chart_image(doc, png_path, spec):
+      """D-7: referenced at S10-6 since v1.0, defined nowhere until v5.33.
+      Placement and alt text go through the ONE S10-8 path so the chart route
+      cannot drift from the figural route — the drift between two uncontracted
+      figure paths is what this gap was."""
+      with open(png_path, "rb") as fh:
+          _add_image_para(doc, fh.read(), spec["placed_in"], spec=spec)
+  ```
 
 ## S8-6 — FIGURAL generator (v4.0 — decomposed; see S7-NEW-B + §10-S10-7/S10-8)
 
@@ -5606,33 +5721,93 @@
 
 ## S10-5, S10-6, S10-9, S10-10 — (unchanged from v1.0 — see v1.0 for full spec)
 
-## S10-7 — FIGURAL IMAGE-QUALITY CONTRACT (v4.0 — was a v1.0 stub)
+## S10-6A — FIGURE CLASS TAXONOMY (v5.33 — new, GAP-2026-07-29-FIG-R2 §7.1)
+
+  Every figure MUST declare exactly ONE class before it is drawn. Class selects
+  the renderer, the palette policy, the sizing profile and which gates apply.
+
+  | Class | Description | Renderer | Palette | Colour gate |
+  | :--- | :--- | :--- | :--- | :--- |
+  | `data_series` | ≥2 comparable series (line, scatter, grouped bar) | figural_core | Okabe-Ito, ≥2 hues | REQUIRED |
+  | `data_single` | one series (single curve, single bar set) | figural_core | 1 accent hue permitted | not required |
+  | `schematic` | pathway, apparatus, circuit, pedigree, structure | figural_core | ≥1 accent for the item under interrogation | not required |
+  | `reasoning_glyph` | matrix / series / odd-one-out / figure-completion | S10-7 glyph path | MONOCHROME, mandatory | must be monochrome |
+  | `option_canvas` | one MCQ option | inherits the parent question's class | inherits | inherits |
+
+  CLASS INFERENCE PRECEDENCE: (1) declared in the FigureSpec, (2) measured from
+  the draw call (series count), (3) keyword match on the stem. Declared always
+  wins. If inference yields no class that is a HARD failure — NEVER a default.
+  A defaulted class is how a scientific data figure ended up on the geometry
+  path in the first place.
+
+  `reasoning_glyph` MUST remain monochrome. Colour in an abstract-reasoning item
+  can leak the answer: if the correct option carries any distinct colour
+  treatment the item is void. The single permitted exception is a designated
+  accent for a MISSING-ELEMENT marker (the "?" cell), which is identical across
+  all options and therefore leaks nothing.
+
+  TWO RENDERERS, ONE CONTRACT. `render_figural_image()` below is a geometry-glyph
+  renderer — equal aspect, axes off, uniform square canvas. It is correct for
+  `reasoning_glyph` and `option_canvas` and MUST NOT be used for the three data
+  classes: it has no axis, tick, legend or font API and structurally cannot
+  label a scientific figure. Those classes route to
+  `figural_core.render_figure()`. Both obey S10-7 Q1–Q9 and S10-8.
+
+## S10-7 — FIGURAL IMAGE-QUALITY CONTRACT (v5.33 — colour, labels, scale)
 
   Every figural raster must be reference-grade and online-renderable. This
   section is the executable home that S7-NEW-B Option A / S8-6 reference. The bar
   is PERFECT line-art quality: crisp at display size, uniform across options, no
-  question chrome inside the pixels.
+  question chrome inside the pixels — AND, from v5.33, legible at the size it is
+  actually printed and readable in greyscale and to a colour-blind reader.
 
-  FRAMEWORK CONSTANTS (do NOT read these from section_rules — they are universal):
+  FRAMEWORK CONSTANTS (do NOT read these from section_rules — they are universal;
+  they are DEFINED in figural_core.py and mirrored here for reference only):
   ```python
-  FIGURAL_DPI          = 300    # savefig dpi — minimum, never below
-  FIG_PROBLEM_DISPLAY_IN = 2.3  # on-page width of the problem/series figure
-  FIG_OPT_DISPLAY_IN   = 1.3    # on-page side of EACH option (uniform square)
-  FIG_NATIVE_HEADROOM  = 2.0    # render native px ≥ headroom × (display_in × DPI)
-  FIG_MIN_STROKE_PT    = 1.4    # minimum line width so strokes survive downscale
+  FIGURAL_DPI            = 300  # savefig dpi — minimum, never below
+  FIG_COLUMN_IN          = 6.0  # usable text column, A4/Letter at 1in margins
+  FIG_PROBLEM_DISPLAY_IN = 4.0  # on-page width of the problem/series figure
+                                # (was 2.3 — too narrow to carry a labelled axis)
+  FIG_OPT_DISPLAY_IN     = 1.3  # on-page side of EACH option (uniform square)
+  FIG_NATIVE_HEADROOM    = 1.0  # RETIRED. Was 2.0 and was the whole of RC-2.
+                                # MUST stay 1.0 and MUST NOT appear in placement
+                                # arithmetic. At 300 dpi the supersample bought
+                                # nothing and halved every label.
+  FIG_MIN_STROKE_PT      = 1.4  # minimum line width
   ```
 
   QUALITY RULES (all mandatory — each is checked at view-tool verification):
     Q1. VECTOR-FIRST. Build every figure from geometry (matplotlib Rectangle /
         Circle / Polygon / Line, or an SVG path), then rasterise. NEVER screenshot,
         NEVER upscale a small bitmap, NEVER trace by hand in text.
-    Q2. LOSSLESS PNG ONLY. Save as PNG (RGBA). JPEG is BANNED for line art (ringing
-        artefacts on edges). Background: transparent RGBA (preferred) or pure
-        white — pick ONE and use it for every figure in the mock.
-    Q3. 300 DPI + HEADROOM. Render native pixels ≥ FIG_NATIVE_HEADROOM × the
-        display pixel size, so the on-page downscale stays sharp. For a 1.3in
-        option that is ≥ 1.3 × 300 × 2.0 = 780 px native; render the option figure
-        large enough (figsize) that dpi=300 produces ≥ ~450 px and prefer ~600+.
+    Q2. LOSSLESS PNG ONLY. Save as PNG. JPEG is BANNED for line art (ringing
+        artefacts on edges). Background MUST be OPAQUE WHITE
+        (facecolor="white", transparent=False) for every figure in every mock.
+        v5.33: transparent RGBA is no longer permitted, and is no longer the
+        stated preference. Transparent backgrounds render as invisible or
+        near-invisible text in dark-mode and shaded-background viewers, and the
+        alpha channel measured constant-255 on all 208 delivered drawings
+        anyway — it was pure overhead. Prefer RGB over RGBA when alpha is
+        constant.
+    Q3. 300 DPI, NO HEADROOM, DETERMINISTIC CANVAS. Save at FIGURAL_DPI with
+        figsize == the display size in inches, so
+            saved_px == display_in × FIGURAL_DPI    (exactly)
+        and the placement scale S is 1.0 by construction.
+        v5.33 supersedes the old headroom rule, which said "render native pixels
+        ≥ FIG_NATIVE_HEADROOM × the display pixel size" and then, in the same
+        rule, gave two incompatible floors for the same 1.3 in option (780 px,
+        then "≥ ~450 px and prefer ~600+"). The headroom was applied to the
+        canvas and never compensated in the font size, so every label was
+        printed at 1/headroom of its requested size — measured S = 0.500 exactly
+        on 24 of 24 option canvases. At 300 dpi the supersample bought nothing
+        that 300 dpi does not already provide, and Word's downsampling filter is
+        unspecified. There is now ONE floor: 300 dpi at display size.
+        `bbox_inches="tight"` is BANNED on every figure path. Tight trimming
+        makes the saved width a function of the figure's own CONTENT — label
+        length, legend overflow — so S becomes an uncontrolled variable: 27
+        distinct canvas sizes across 31 delivered problem figures, S wandering
+        0.495–0.666. Use `constrained_layout=True`, which gives the same good
+        margins with a size that is known before the file is written.
     Q4. UNIFORM OPTION CANVAS. All N option images of a question share ONE square
         canvas size. Do NOT tight-crop options (tight crop yields non-uniform
         sizes). Fix the axes to [0,1]×[0,1], equal aspect, axis off, draw an
@@ -5645,9 +5820,58 @@
     Q6. REAL REFERENCE GEOMETRY. A mirror line, fold line, number line, or axis is
         DRAWN as an actual line/curve. Never represent a line by two floating
         letters (the M1 "MN" defect).
-    Q7. CONSISTENT STROKE + FILL. Solid black on the chosen background, line width
-        ≥ FIG_MIN_STROKE_PT, antialiasing ON, same stroke weight across a
-        question's option set so the four options read as a matched set.
+    Q7. CONSISTENT STROKE + FILL. Line width ≥ FIG_MIN_STROKE_PT, antialiasing
+        ON, and the SAME STROKE WEIGHT AND STYLE BUDGET across a question's
+        option set so the options read as a matched set. A stroke or size
+        difference between options is an answer cue; this clause is a
+        correctness safeguard, not a cosmetic one, and must survive any future
+        edit to this rule.
+        v5.33: the words "solid black" are REMOVED. They were the whole of RC-1
+        — the monochrome output measured across 55 delivered figures was
+        CONFORMANT to this rule as previously written. Colour policy is now Q7b
+        and is selected by the S10-6A class. `reasoning_glyph` and its option
+        canvases remain monochrome under Q7b.7.
+    Q7b. COLOUR AND REDUNDANT ENCODING (v5.33 — new).
+        1. Palette MUST be Okabe-Ito unless overridden by
+           `exam_config.figure_palette`:
+           #0072B2 #D55E00 #009E73 #CC79A7 #E69F00 #56B4E9 #F0E442 #000000
+           (colour-blind safe across deuteranopia/protanopia/tritanopia, print
+           safe, 8 hues). Defined once in figural_core.OKABE_ITO.
+        2. COLOUR MUST NEVER BE THE SOLE CARRIER OF MEANING. Every series MUST
+           differ from every other series in at least ONE additional channel:
+           line style, marker shape, or hatch pattern. This is what makes a
+           figure survive greyscale printing and a colour-blind reader even if
+           the palette is overridden. Gate G-FIGSERIES.
+        3. Any two DECLARED series colours MUST remain separable after a
+           deuteranope transform (≥ DEUT_MIN_SEP summed channel units).
+           v5.33 NOTE — there is deliberately NO LUMINANCE CLAUSE. GAP-R2 §7.3.3
+           demanded ≥20/255 luminance separation while §7.3.1 mandated
+           Okabe-Ito, and the two are mutually unsatisfiable: over the 10 pairs
+           of the first five Okabe-Ito hues the deuteranope clause passes 10/10
+           and the luminance clause fails 3/10 (blue/bluish-green 18.6,
+           vermillion/bluish-green 13.0, purple/orange 11.0). Okabe-Ito is
+           CVD-safe by design; it was never greyscale-LUMINANCE-safe, and no
+           8-hue palette can be both. GREYSCALE SURVIVAL IS DELIVERED BY Q7b.2
+           REDUNDANT ENCODING, gated by G-FIGSERIES — not by a luminance
+           threshold. Gating it twice made the check fire 569 times across 144
+           conformant figures.
+           The gate reads the DECLARED colours, never extracted pixels.
+           Quantised onto a 32-step cube the mandated blue and bluish-green
+           separate by 57 instead of their true 60.6 and the check fired on its
+           own palette; that is measurement error reported as a defect. Gating
+           the declaration is exact and reproducible, which also settles the
+           method-sensitivity problem (the same exhibits measured two ways gave
+           48 % and 70 % collapse). Whether the RENDER honoured the declaration
+           is a separate question answered by G-FIGCOLOUR's hue COUNT.
+        4. Pie, donut and area charts MUST label segments DIRECTLY ON THE MARK.
+           A legend as the sole key is prohibited for these types.
+        5. #F0E442 (yellow) MUST carry a dark edge when used as a fill.
+        6. Colour MUST NOT correlate with correctness in an option set. All
+           options in a set MUST use an identical style budget. (The delivered
+           uniform 780×780 option canvases were CORRECT on this point and the
+           property must be preserved.)
+        7. Class `reasoning_glyph` MUST be monochrome apart from a declared
+           missing-element accent. Gate G-FIGMONO.
     Q8. GEOMETRY ONLY + CANONICAL NAME (v4.3, R-MATH-OMML). The figural raster
         path renders GEOMETRIC FIGURES ONLY — never an algebraic/symbolic
         expression (those are OMML, §10-S10-4). Every emitted image MUST be named
@@ -5660,8 +5884,96 @@
         expression) is an UNAUTHORISED raster and fails gate G-MATH-RASTER.
         render_figural_image() calls assert_not_math() on the figure's name/label
         and HARD-STOPS if handed a math expression.
+    Q8b. SEVERITY — NO COLOUR CONDITION MAY EVER HALT A RUN (v5.33, owner
+        directive). This is not a concession to convenience; it is this
+        framework's own doctrine, stated in CLAUDE.md: "A CLASS T failure must
+        be LOUD, and must NOT halt. These are separate properties and the corpus
+        conflated them... Silence is the defect; a halt is not the remedy." A
+        grey figure is a DEGRADED paper, never a void one. Three modes, defined
+        in figural_core.SEVERITY:
+          AMBER      — report at FAIL severity, force the amber delivery footer
+                       (Framework_DeliveryFooter §5), ALWAYS complete. Every
+                       colour and accessibility condition lives here:
+                       G-FIGCOLOUR, G-FIGCVD, G-FIGSERIES, G-FIGGLYPH,
+                       G-FIGALT, W-FIGLABELPX.
+          VOID_ITEM  — the rendering leaks an ANSWER CUE, so this QUESTION is
+                       invalid: G-FIGMONO (colour in a reasoning glyph),
+                       G-FIGOPTUNIF (option canvases not uniform). Drop or
+                       regenerate the single question. The paper continues.
+                       Never halts the run.
+          BLOCKING   — reserved for RENDERER-CONTRACT REGRESSION on v5.33+
+                       output only: G-FIGSCALE, G-FIGLABEL, G-FIGDPI,
+                       G-FIGDEGEN. These are safe to block ONLY because they are
+                       unfireable by construction — verified 0 firings across
+                       144 figures spanning 1.3–7.5 in, 2–8 series and four
+                       label sets including full scientific notation. A firing
+                       means someone reintroduced headroom or a tight bbox.
+        EC-V18 LEGACY TOLERANCE, NON-NEGOTIABLE: output with no FigureSpec
+        sidecar predates v5.33. Every BLOCKING gate downgrades to AMBER for it,
+        so roughly 200 existing exams keep auditing and delivering untouched
+        while still reporting the defect loudly. figural_core.triage() NEVER
+        raises and NEVER halts.
+    Q9. LABEL CONTRACT (v5.33 — new). The property the owner actually
+        complained about, and the one no rule previously covered.
+        1. ON-PAGE LABEL FLOORS, AT DISPLAY SIZE — not on the native canvas:
+             data_series / data_single / schematic : 9 pt
+             reasoning_glyph / option_canvas       : 8 pt
+             target for all classes                : 10 pt
+           axis titles ≥ tick labels. A floor declared on the native canvas is
+           NOT this rule and does not satisfy it: under the pre-v5.33 contract a
+           canvas-side floor was still halved at placement.
+        2. Every axis MUST carry a title, including UNITS where the quantity is
+           dimensional.
+        3. Every series MUST be identified either by a direct label adjacent to
+           the mark, or by a legend — and where a legend is the SOLE key, Q7b.2
+           applies with no exception.
+        4. The figure font MUST cover the exam's glyph set, at minimum:
+           `µ ⁻² ₂ Å ° α β θ × ⇌ ≥ ≤ ‰ Δ λ`. A missing glyph renders as a tofu
+           box and is a HARD failure. Gate G-FIGGLYPH.
+        5. Every drawing MUST carry `wp:docPr/@descr` alt text naming the
+           question number, the figure class and the quantities plotted.
+           Measured 0 of 208 on the delivered exhibits. Emitted by S10-8 from
+           `figural_core.alt_text()`. Gate A-FIGALT (AMBER — never halts).
+        6. HOW THIS IS GATED. G-FIGLABEL is ARITHMETIC over the font sizes
+           ACTUALLY USED at render time, recorded into the FigureSpec sidecar,
+           multiplied by the recorded placement scale. It MUST NOT be gated on
+           pixel connected components. Verified counter-example: three renders
+           at an identical 10 pt request, identical 1304 px saved width and
+           identical scale — the one whose axis titles carried
+           "µmol photons m⁻² s⁻¹" and "Net CO₂ assimilation" measured 8.5 pt
+           while short-label renders measured above the floor. Superscripts and
+           subscripts are small connected components that drag the median down,
+           so a pixel gate is biased against exactly the notation Q9.4
+           mandates, and would fail conformant chemistry, biology and physics
+           papers hardest. The pixel statistic is retained as a WARN-level
+           cross-check only (`figural_core.g_figlabel_pixels`).
 
-  RENDER HELPER (returns lossless PNG bytes; one call per visual unit):
+  RENDER HELPER — WHICH ONE (v5.33).
+    Classes `data_series`, `data_single`, `schematic` route to
+    `figural_core.render_figure()`. Classes `reasoning_glyph` and
+    `option_canvas` (when the parent is a reasoning glyph) use
+    `render_figural_image()` below.
+    ```python
+    import figural_core as fc
+
+    spec = fc.make_figure_spec(qnum, "data_series", fc.FIG_PROBLEM_DISPLAY_IN,
+                               series=fc.series_defaults(2),
+                               axes={"x": {"title": ..., "units": ...},
+                                     "y": {"title": ..., "units": ...}},
+                               key_mode="legend")
+    fc.render_figure(draw_fn, png_path, spec)   # MUTATES spec with png_px,
+                                                # png_dpi, placed_in,
+                                                # placement_scale, font_pt_native
+    fc.write_spec_sidecar(spec, png_path)       # the audit reads this
+    ```
+    `render_figure()` reads the saved artefact back and records what actually
+    happened. The audit then verifies the figure WITHOUT looking at it: colour
+    presence, hue count, luminance and deuteranope separation, placement scale,
+    on-page label size, DPI metadata and alt text are all deterministic
+    arithmetic over the PNG and its sidecar. Only "does this render actually
+    DEPICT a micrograph" needs eyes, and that alone remains CLASS T.
+
+  GEOMETRY-GLYPH HELPER (returns lossless PNG bytes; one call per visual unit):
   ```python
   import io
   import matplotlib
@@ -5683,8 +5995,13 @@
       assert_not_math(name)
       transparent = (bg == "transparent")
       if kind == "option":
-          # square figsize chosen for headroom: side_in*DPI*headroom px native.
-          side_in = max(FIG_OPT_DISPLAY_IN * FIG_NATIVE_HEADROOM, 2.0)
+          # v5.33: figsize == the display size, EXACTLY. The old line was
+          #   side_in = max(FIG_OPT_DISPLAY_IN * FIG_NATIVE_HEADROOM, 2.0)
+          # which, with headroom retired to 1.0, resolves to max(1.3, 2.0) = 2.0in
+          # while placement is still 1.3in — S = 0.65 and gate A-FIGSCALE fires
+          # BLOCKING on every option canvas. The 2.0 floor was a residue of the
+          # old Q3, which gave two incompatible pixel floors in one rule.
+          side_in = FIG_OPT_DISPLAY_IN
           fig, ax = plt.subplots(figsize=(side_in, side_in))
           ax.set_xlim(0, 1); ax.set_ylim(0, 1)
           ax.set_aspect("equal"); ax.axis("off")
@@ -5693,18 +6010,26 @@
                                   lw=FIG_MIN_STROKE_PT, edgecolor="black"))
           draw_fn(ax)
           buf = io.BytesIO()
-          plt.savefig(buf, format="png", dpi=FIGURAL_DPI, transparent=transparent,
-                      bbox_inches=None, pad_inches=0,
-                      facecolor=("none" if transparent else "white"))
+          # v5.33 Q2: opaque white, always. `transparent` is retained in the
+          # signature for call compatibility and deliberately ignored.
+          plt.savefig(buf, format="png", dpi=FIGURAL_DPI, transparent=False,
+                      bbox_inches=None, pad_inches=0, facecolor="white")
       else:  # problem / series unit
-          fig, ax = plt.subplots(figsize=(FIG_PROBLEM_DISPLAY_IN * FIG_NATIVE_HEADROOM,
-                                          FIG_PROBLEM_DISPLAY_IN * FIG_NATIVE_HEADROOM * 0.8))
+          # v5.33: figsize == the display size and bbox_inches=None, so
+          # saved_px == display_in x FIGURAL_DPI exactly and S == 1.0.
+          # This branch previously multiplied by FIG_NATIVE_HEADROOM and saved
+          # with bbox_inches="tight" — the two halves of RC-2 in three lines.
+          # Tight trimming made the saved width a function of the drawing's own
+          # content, which is why 31 delivered problem figures produced 27
+          # distinct canvas sizes and S wandered 0.495-0.666.
+          fig, ax = plt.subplots(figsize=(FIG_PROBLEM_DISPLAY_IN,
+                                          FIG_PROBLEM_DISPLAY_IN * 0.8))
           ax.set_aspect("equal"); ax.axis("off")
           draw_fn(ax)
           buf = io.BytesIO()
-          plt.savefig(buf, format="png", dpi=FIGURAL_DPI, transparent=transparent,
-                      bbox_inches="tight", pad_inches=0.04,
-                      facecolor=("none" if transparent else "white"))
+          plt.savefig(buf, format="png", dpi=FIGURAL_DPI, transparent=False,
+                      bbox_inches=None, pad_inches=0,
+                      facecolor="white")
       plt.close(fig)
       buf.seek(0)
       return buf.read()
@@ -5727,13 +6052,45 @@
 
   ```python
   from docx.shared import Inches, Pt
+  import figural_core                     # v5.33 — alt_text() (S10-7 Q9.5)
 
-  def _add_image_para(doc, png_bytes, width_in):
-      """Add a paragraph that holds EXACTLY ONE inline image (single-column)."""
+  def _add_image_para(doc, png_bytes, width_in, spec=None):
+      """Add a paragraph that holds EXACTLY ONE inline image (single-column).
+
+      v5.33: width_in MUST come from the FigureSpec that rendered this PNG
+      (spec['placed_in']), never from a bare configuration constant. Under
+      v5.32 this function was called as _add_image_para(doc, pb,
+      FIG_PROBLEM_DISPLAY_IN) — a fixed 2.3 in against a canvas that had been
+      supersampled to 2x — which is what produced S = 0.500 on 24 of 24 option
+      canvases. The width and the canvas MUST come from the same record.
+
+      NOTE the direction of the fix. Display width stays a LAYOUT decision;
+      Q3 makes the render match it. Deriving the width from the artefact
+      instead (D := min(native, column)) was measured and REJECTED: it inflates
+      figure area 1.84x and gives a four-option MCQ a 10.4 in option stack
+      against a ~9.0 in page text height, breaking every such question across a
+      page boundary with its options orphaned from the stem.
+      """
+      if spec is not None:
+          width_in = spec["placed_in"]
       p = doc.add_paragraph()
       run = p.add_run()
       run.add_picture(io.BytesIO(png_bytes), width=Inches(width_in))
+      if spec is not None:
+          _set_last_drawing_alt(doc, figural_core.alt_text(spec))   # Q9.5
       return p
+
+  def _set_last_drawing_alt(doc, descr):
+      """Stamp wp:docPr/@descr on the most-recently added inline drawing (Q9.5).
+      Measured 0 of 208 delivered drawings carried alt text."""
+      from docx.oxml.ns import qn
+      last = None
+      for d in doc.element.body.iter(qn('w:drawing')):
+          last = d
+      if last is None:
+          raise AssertionError("no inline drawing to describe")
+      for dp in last.iter(qn('wp:docPr')):
+          dp.set('descr', descr)
 
   def _name_last_drawing(doc, name):
       """Stamp the canonical figural name (S10-7 Q8) onto the most-recently added
@@ -5752,7 +6109,8 @@
           cp.set('name', name)
 
   def add_figural_question(doc, qnum, stem, problem_pngs, option_pngs,
-                           problem_label="Problem Figure:"):
+                           problem_label="Problem Figure:",
+                           problem_specs=None, option_specs=None):
       """
       qnum         : int
       stem         : str   — the question instruction (DOCUMENT text, Q.N-first)
@@ -5778,7 +6136,8 @@
           lab = doc.add_paragraph(); r = lab.add_run(problem_label)
           r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
           for k, pb in enumerate(problem_pngs, 1):
-              _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN)
+              _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN,
+                              spec=problem_specs[k - 1] if problem_specs else None)
               nm = f"q{qnum}_problem.png" if len(problem_pngs) == 1 \
                    else f"q{qnum}_problem_{k}.png"
               _name_last_drawing(doc, nm)           # canonical name (S10-7 Q8)
@@ -5788,7 +6147,8 @@
           lp = doc.add_paragraph()                  # the "i." label line
           lr = lp.add_run(f"{_option_label(i)}.")     # option label (configured format)
           lr.bold = False; lr.font.name = FONT_NAME; lr.font.size = Pt(FONT_SIZE_PT)
-          _add_image_para(doc, opt_png, FIG_OPT_DISPLAY_IN)   # its own image line
+          _add_image_para(doc, opt_png, FIG_OPT_DISPLAY_IN,
+                          spec=option_specs[i - 1] if option_specs else None)
           _name_last_drawing(doc, f"q{qnum}_opt{i}.png")      # canonical name (Q8)
 
       add_blank_separator(doc)                       # R13
@@ -5950,7 +6310,8 @@
   Q numbers in docx must exactly equal keys in answer_key.json.
 
 # ════════════════════════════════════════════════════════════════════════
-# §12 — GUARD SCRIPT (all 68 gates — 39 v1.0 baseline + 29 added since v1.0)
+# §12 — GUARD SCRIPT (all 80 gates — 39 v1.0 baseline + 29 added since v1.0
+#        + 12 FIGURE CONFORMANCE added in v5.33 / Audit v2.11)
 # ════════════════════════════════════════════════════════════════════════
 
 ## S12-0 — Zero-Warning Policy (unchanged)
@@ -6572,7 +6933,7 @@
 
 ## S13-1 — Final Assembly trigger (unchanged)
 
-## S13-2 — Complete gate sweep (all 68 gates)
+## S13-2 — Complete gate sweep (all 80 gates)
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -7079,13 +7440,16 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   □ Final batch auto-ran Final Assembly in same response (S4-9)  **
   □ Every batch: Layer 1 STOP executed (separate response per batch)  *
   □ Every batch: Manual gate checklist (S4-11) completed if no audit.py  *
-  □ Final Assembly gate check passed (68 gates)  *
+  □ Final Assembly gate check passed (80 gates)  *
   □ (Issue 2b) group-presence (G-GROUPMANDATE) + min-count (G-MINCOUNT) verified for
     this mock; cadence left to Step 1 (cross-mock, not gated in Step 7)  *
   □ Audit STDOUT appended to every batch reply
 
   CONTENT QUALITY:
-  □ All 68 gates: PASS or NON-FIX-WARN  *
+  □ All 80 gates: PASS or NON-FIX-WARN  *
+    (the 12 v5.33 FIGURE CONFORMANCE gates report AMBER / VOID_ITEM / BLOCKING
+     per S10-7 Q8b; NO colour condition may halt a run, and EC-V18 downgrades
+     every BLOCKING gate to AMBER for output with no FigureSpec sidecar)  *
   □ Each subtopic has EXACTLY its blueprint q_count (RULE A, G-ALLOC-SUBTOPIC) — DOUBT-3  ***
   □ No scenario_key repeats anywhere in the mock (RULE B, G-CONCEPTDUP) — DOUBT-3  ***
   □ Subtopics with N>1 use N distinct scenarios; extra concepts invented as needed  ***
@@ -7178,7 +7542,8 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 ## S17-2 — Step 8 handoff (unchanged from v1.0)
 
 # ════════════════════════════════════════════════════════════════════════
-# §18 — AUDIT GATE GLOSSARY (68 gates total — 39 v1.0 baseline + 29 tabled below)
+# §18 — AUDIT GATE GLOSSARY (80 gates total — 39 v1.0 baseline + 29 tabled below
+#        + 12 FIGURE CONFORMANCE catalogued in Framework_MockTestCreateAudit v2.11)
 # ════════════════════════════════════════════════════════════════════════
 
   v2.0 adds 6 new gates to the 39 from v1.0:
@@ -7627,7 +7992,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.32
+# END OF Framework_MockTestCreate v5.33
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale lives in the VERSION HISTORY block at the top of this
 #  file, which is authoritative and current through v4.9. The v1.0→v3.9 summary below
@@ -7656,7 +8021,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #              render-consistency + verify_presentation_match; G-FORMATDUP selects
 #              by class (missing-key now caught); RULE C requires distinct visible
 #              stem_format. No new gate/rule — pure closure.
-# Total guard gates: 68 (see the §12 catalogue + §17 DoD, current through v5.19; the
+# Total guard gates: 80 (see the §12 catalogue + §17 DoD, current through v5.33; the
 #   per-batch/Final-Assembly gate set — MSQ gates dormant unless multi_present, NAT gates
 #   dormant unless nat_present; G-GROUPMANDATE/G-MINCOUNT dormant unless their manifest
 #   structure is non-empty; G-PREQ1 dormant only if EXAM_STRUCTURE declares paper_header_block)

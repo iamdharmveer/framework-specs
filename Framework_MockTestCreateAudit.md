@@ -1,4 +1,53 @@
-# Framework_MockTestCreateAudit v2.10
+# Framework_MockTestCreateAudit v2.11
+#
+# v2.11 — 2026-07-29 — FIGURE CONFORMANCE GATES (GAP-2026-07-29-FIG-R2 +
+#   VERIFY-2026-07-29-FIG-R2). TWELVE new Part-A gates, all DETERMINISTIC
+#   arithmetic over the saved PNG and its FigureSpec sidecar.
+#   WHY NO GATE SAW THIS. The reason is written in this spec's own v2.10 entry:
+#   A-FIGPROFILE "AUDITS RECORDED INTENT, NOT PIXELS", because confirming a render
+#   depicts a micrograph needs a view() — a CLASS T operation that cannot run
+#   inside an audit's python. That is TRUE OF SEMANTICS AND FALSE OF EVERYTHING
+#   ELSE. It was generalised from the one figure property that genuinely needs
+#   eyes to every figure property. Colour presence, declared-hue separation,
+#   placement scale, on-page label size, DPI metadata, plot-area degeneracy and
+#   alt text are all cheap arithmetic; the entire gap was measured with them with
+#   no vision available for most of the investigation. A-FIGPROFILE keeps its
+#   intent-only scope and is unchanged.
+#   SEVERITY — THREE MODES, AND NO COLOUR CONDITION MAY EVER HALT A RUN. This is
+#   an owner directive and also this framework's own doctrine, CLAUDE.md: "A
+#   CLASS T failure must be LOUD, and must NOT halt. These are separate
+#   properties and the corpus conflated them... Silence is the defect; a halt is
+#   not the remedy." A grey figure is a DEGRADED paper, never a void one.
+#     AMBER      A-FIGCOLOUR, A-FIGCVD, A-FIGSERIES, A-FIGGLYPH, A-FIGALT,
+#                A-FIGLABELPX. FAIL severity, forces the amber delivery footer
+#                (Framework_DeliveryFooter §5), ALWAYS completes.
+#     VOID_ITEM  A-FIGMONO, A-FIGOPTUNIF. The render leaks an ANSWER CUE, so that
+#                QUESTION is invalid — drop or regenerate the single item. The
+#                paper continues. Never halts the run.
+#     BLOCKING   A-FIGSCALE, A-FIGLABEL, A-FIGDPI, A-FIGDEGEN. Renderer-contract
+#                regression on Step 7 v5.33+ output ONLY. Safe to block solely
+#                because they are unfireable by construction: verified 0 firings
+#                across 144 conformant figures spanning display widths 1.3–7.5in,
+#                2–8 series and four label sets including full scientific
+#                notation. A firing means headroom or a tight bbox came back.
+#   EC-V18 LEGACY TOLERANCE, NON-NEGOTIABLE. Output carrying NO FigureSpec
+#   sidecar predates Step 7 v5.33, so every BLOCKING gate downgrades to AMBER for
+#   it. Roughly 200 existing exams keep auditing AND DELIVERING untouched while
+#   the defect is reported loudly on every one. fc.triage() never raises and
+#   never halts; the audit completes on every path.
+#   A-FIGLABEL IS ARITHMETIC, NOT PIXELS, and that distinction is load-bearing.
+#   Three renders at an identical 10pt request and identical saved width measured
+#   8.5pt when the axis titles carried "µmol photons m⁻² s⁻¹" and above the floor
+#   with short labels: superscripts and subscripts are small connected components
+#   that drag a pixel median down. A pixel gate is biased against exactly the
+#   notation S10-7 Q9.4 mandates and would fail chemistry, biology and physics
+#   papers hardest. A-FIGLABELPX retains that statistic as an ADVISORY only.
+#   A-FIGCVD reads the DECLARED series colours, never extracted pixels: quantised
+#   onto a 32-step cube the mandated Okabe-Ito blue and bluish-green separate by
+#   57 against a true 60.6, and the check fired on its own palette — measurement
+#   error reported as a defect. There is deliberately NO luminance clause;
+#   greyscale survival is delivered by redundant encoding and gated by
+#   A-FIGSERIES. Gate ids map from figural_core via fc.AUDIT_GATE_ID.
 #
 # v2.10 — 2026-07-26 — NEW GATE A-FIGPROFILE (GAP-2026-07-26-003 D2).
 #   Step 5 measures what a subtopic's real figures CONTAIN; Step 7 v5.31 now generates
@@ -1790,6 +1839,34 @@
   FIGURAL DECOMPOSITION
   | A-FIGCOMP  | v2.4 image_role-aware: each figural Q is structured per its image_role variant. stem_and_options (default): problem image(s) + 1 image/option, single-column, 1 per line, bound 1:1 to labels; no composite panel; no "Figure k" dummy-text option. stem_only (v2.4): ≥1 problem image + TEXT options — option-image arm SKIPPED. options_only (v2.4): ≥n option images, no problem image required. FIGURAL-NAT (answer_type=='numerical', options_by_q==0): treated as stem_only — problem image(s) only with ZERO option images. All variants: single-column/no-composite/300-DPI/named-image discipline checked. image_role read from section_rules PYQ_IMAGE_ANALYSIS per subtopic_id | registry figural_manifests + section_rules PYQ_IMAGE_ANALYSIS + figural stem cues + registry options_by_q | R-FIGURAL | CP/RG |
   | A-FIGPROFILE | v2.10 (GAP-2026-07-26-003 D2): each FIGURAL subtopic's GENERATED figure types conform to the profile Step 5 measured. Reads section_rules PYQ_IMAGE_ANALYSIS via bc.figural_generation_profile(), reads the object_type Step 7 recorded per question in batch_state.figural_qs[n].object_type, and delegates the verdict to bc.check_figural_conformance() — the SAME function Step 7 generates against, so generator and auditor cannot drift. FAIL when a generated type appears in neither the dominant nor the observed list, or when dominant-mode coverage falls below the 55% floor (target 70%). SKIP when the profile is unconstrained — absent, empty, or vision_status='unavailable'. AUDITS RECORDED INTENT, NOT PIXELS: confirming a render actually depicts a micrograph needs a view(), a CLASS T operation that cannot run inside an audit's python; intent is deterministic and catches the real failure, which is Step 7 ignoring the profile. EC-V18: SKIP keeps ~200 pre-v2.37 exams passing untouched. | section_rules PYQ_IMAGE_ANALYSIS + batch_state figural_qs[].object_type | R-FIGURAL | CP/RG |
+
+  FIGURE CONFORMANCE (v2.11, GAP-2026-07-29-FIG-R2). Twelve gates, all arithmetic
+            over the saved PNG and its FigureSpec sidecar — NOT vision.
+            A-FIGPROFILE above audits recorded INTENT and rightly declines pixels,
+            because "does this depict a micrograph" needs a view() (CLASS T). That
+            one true fact had been generalised to every figure property; these
+            need only arithmetic, which is how the whole gap was measured with no
+            vision available. Severity: NO COLOUR CONDITION MAY EVER HALT A RUN
+            (owner directive; CLAUDE.md "a halt is not the remedy"). AMBER = FAIL
+            severity + amber delivery footer, always completes. VOID_ITEM = the
+            QUESTION is invalid because the render leaks an answer cue; drop or
+            regenerate that item and the paper continues. BLOCKING =
+            renderer-contract regression on Step 7 v5.33+ output only. EC-V18:
+            output with NO sidecar predates v5.33, so every BLOCKING gate
+            downgrades to AMBER — ~200 existing exams keep auditing and delivering
+            untouched while still reporting the defect loudly.
+  | A-FIGCOLOUR | class data_series carries >=2 declared hues AND >=0.5% coloured pixels. Measured 0 of 55 delivered IIT JAM figures coloured, 256/256 distinct RGB (a pure grey ramp), because S10-7 Q7 MANDATED "solid black" — the output was CONFORMANT and the spec was the defect | FigureSpec sidecar + PNG pixels | R-FIGURAL / S10-7 Q7b.1 | AMBER |
+  | A-FIGCVD | every pair of DECLARED series colours stays separable under a deuteranope transform. Reads the declaration, never extracted pixels. No luminance clause: Okabe-Ito is CVD-safe by design and was never greyscale-luminance-safe (deuteranope 10/10 pass, luminance 3/10 fail), so greyscale survival is gated by A-FIGSERIES instead | FigureSpec sidecar | S10-7 Q7b.3 | AMBER |
+  | A-FIGSERIES | every declared series differs from every other in >=1 NON-COLOUR channel (linestyle, marker or hatch). This is what makes a figure survive a greyscale printer and a colour-blind reader even if the palette is overridden | FigureSpec sidecar | S10-7 Q7b.2 | AMBER |
+  | A-FIGGLYPH | the figure font covers the exam glyph set; a missing glyph renders as a tofu box | FigureSpec sidecar + font cmap | S10-7 Q9.4 | AMBER |
+  | A-FIGALT | wp:docPr/@descr alt text present and non-empty. Measured 0 of 208 delivered drawings | docx drawing XML | S10-7 Q9.5 | AMBER |
+  | A-FIGLABELPX | ADVISORY pixel cross-check on on-page label size. Never authoritative: identical 10pt requests at identical saved width measured 8.5pt when axis titles carried scientific notation and above the floor with short labels, because superscripts and subscripts are small connected components that drag the median down. A-FIGLABEL is the authoritative check | PNG pixels | S10-7 Q9.6 | AMBER |
+  | A-FIGMONO | class reasoning_glyph is monochrome apart from a declared missing-element accent. Colour in an abstract-reasoning item can reveal WHICH option is correct — that is not an ugly question, it is a wrong one | FigureSpec sidecar + PNG pixels | S10-7 Q7b.7 | VOID_ITEM |
+  | A-FIGOPTUNIF | all option canvases in a set share pixel size and placed width. A size difference between options is an answer cue. The delivered uniform 780x780 option canvases were CORRECT on this point and the property is preserved | FigureSpec sidecar + PNG sizes | S10-7 Q7b.6 | VOID_ITEM |
+  | A-FIGSCALE | placement scale S == 1.0, or exactly the column cap when capped. Measured S = 0.500 EXACTLY on 24 of 24 delivered option canvases: FIG_NATIVE_HEADROOM=2.0 supersampled the canvas while placement took its width from a CONFIGURATION constant, so p_page = p_native x S and the spec controlled neither | FigureSpec sidecar + PNG header | S10-7 Q3 / S10-8 | BLOCKING |
+  | A-FIGLABEL | smallest on-page label >= the class floor (9pt data/schematic, 8pt glyph/option). ARITHMETIC over the font sizes actually used at render time x the recorded scale, never pixel components. Measured median 6.7pt as delivered | FigureSpec sidecar | S10-7 Q9.1 | BLOCKING |
+  | A-FIGDPI | PNG carries DPI metadata; without it native size is undefined and S cannot be computed. Never assume 300 | PNG header | S10-7 Q3 | BLOCKING |
+  | A-FIGDEGEN | the drawn area is >=18% of the canvas. Catches the one failure arithmetic cannot otherwise see: below ~3in a labelled axis does not fit, constrained_layout collapses the plot area to zero, and the degenerate figure passes every size and font gate because the PNG is the requested pixel size and the fonts were the requested points | PNG pixels | S10-7 Q3 / FIG_MIN_DATA_DISPLAY_IN | BLOCKING |
 
   STEM↔OPTION COHERENCE (machine layer; semantic layer in §6)
   | A-OPTREF   | a stem that references a terminal/escape option ("no error→last option", "None of these", "All of the above", "Both…and…", "Neither…nor…") actually CONTAINS that option, at the named position; a "pick-the-segment" layout does not carry a "no error" escape without a real "No error" option | section_rules none_of_above_permitted (S3-12) + wrong_option_structure/fixed_set (S3-13) | R-OPTREF | RG |
@@ -4716,6 +4793,94 @@ def gate_images(blocks, src, media_map):
     else:
         _ok('A-FIGTEXT-PROSE', 'no figure-reference prose in zero-image blocks.')
 
+    # ── v2.11 FIGURE CONFORMANCE — 12 gates (GAP-2026-07-29-FIG-R2) ──────────
+    # Every check below is DETERMINISTIC arithmetic over the saved PNG and its
+    # FigureSpec sidecar, and is therefore legal inside this python block. This
+    # is the correction to the reasoning that let the defect ship: A-FIGPROFILE
+    # rightly declines pixels because "does this depict a micrograph" needs a
+    # view() (CLASS T), and that one true fact was generalised to every figure
+    # property. None of these twelve needs eyes.
+    #
+    # SEVERITY. No colour condition may EVER halt a run (owner directive; and
+    # CLAUDE.md: "A CLASS T failure must be LOUD, and must NOT halt... Silence is
+    # the defect; a halt is not the remedy"). fc.triage() sorts findings into
+    # AMBER / VOID_ITEM / BLOCKING, applies EC-V18 legacy tolerance, and NEVER
+    # raises. A grey figure is a DEGRADED paper, never a void one.
+    try:
+        import figural_core as fc
+    except ImportError:
+        fc = None
+    if fc is None:
+        # Dormant, not silent. An absent engine is itself reportable.
+        _warn('A-FIGSCALE', 'figural_core.py unavailable — the 12 figure '
+                            'conformance gates could not run.')
+    else:
+        _fig_specs = src.get('figure_specs') or {}
+        _amber, _void, _block = [], [], []
+        _seen, _legacy_n = 0, 0
+        for _blk in blocks:
+            for _img in (getattr(_blk, 'images', None) or []):
+                _png = _img.get('path')
+                if not _png:
+                    continue
+                _seen += 1
+                _spec = _fig_specs.get(_img.get('name') or '') or {}
+                if fc.is_legacy(_spec):
+                    _legacy_n += 1
+                _hard, _warns = fc.audit_figure(_spec, _png,
+                                                descr=_img.get('descr'))
+                _t = fc.triage(_hard + _warns, _spec)
+                _amber += _t['AMBER']
+                _void += _t['VOID_ITEM']
+                _block += _t['BLOCKING']
+
+        # Emit one verdict per gate id, mapped engine G-*/W-* -> catalogue A-*.
+        _by_gate = {}
+        for _sev, _findings in (('BLOCKING', _block), ('VOID_ITEM', _void),
+                                ('AMBER', _amber)):
+            for _f in _findings:
+                _by_gate.setdefault(fc.audit_gate_id(_f), (_sev, []))[1].append(_f)
+
+        # Each gate is emitted by an EXPLICIT call with a LITERAL id. Check
+        # M-GATE discovers emitted gates statically, so a loop over a variable
+        # gate id is invisible to it and the catalogue would read as unemitted.
+        def _fig_verdict(gid, bucket):
+            if gid not in bucket:
+                _ok(gid, f'{_seen} figure(s) conform.')
+                return
+            _sev, _msgs = bucket[gid]
+            _detail = ' | '.join(_msgs[:3])
+            if _sev == 'BLOCKING':
+                _fail(gid, f'RENDERER-CONTRACT REGRESSION on v5.33+ output — '
+                           f'{len(_msgs)} figure(s): {_detail}')
+            elif _sev == 'VOID_ITEM':
+                _fail(gid, f'ANSWER-CUE LEAK — {len(_msgs)} item(s) VOID; drop or '
+                           f'regenerate those questions, the paper continues: '
+                           f'{_detail}')
+            else:
+                # AMBER: FAIL severity forces the amber delivery footer
+                # (Framework_DeliveryFooter §5) and NEVER halts the run.
+                _fail(gid, f'DEGRADED, NOT VOID — delivery continues under an '
+                           f'amber footer; {len(_msgs)} figure(s): {_detail}')
+
+        _fig_verdict('A-FIGSCALE', _by_gate)
+        _fig_verdict('A-FIGLABEL', _by_gate)
+        _fig_verdict('A-FIGDPI', _by_gate)
+        _fig_verdict('A-FIGDEGEN', _by_gate)
+        _fig_verdict('A-FIGMONO', _by_gate)
+        _fig_verdict('A-FIGOPTUNIF', _by_gate)
+        _fig_verdict('A-FIGCOLOUR', _by_gate)
+        _fig_verdict('A-FIGCVD', _by_gate)
+        _fig_verdict('A-FIGSERIES', _by_gate)
+        _fig_verdict('A-FIGGLYPH', _by_gate)
+        _fig_verdict('A-FIGALT', _by_gate)
+        _fig_verdict('A-FIGLABELPX', _by_gate)
+
+        if _legacy_n:
+            _ok('A-FIGDPI', f'EC-V18: {_legacy_n} of {_seen} drawing(s) carry no '
+                            f'FigureSpec sidecar (pre-v5.33) — BLOCKING gates '
+                            f'downgraded to AMBER; audit completes.')
+
 
 def gate_optref(blocks, src):
     """A-OPTREF (machine half): if a stem references a terminal/escape option,
@@ -5692,5 +5857,5 @@ if __name__ == '__main__':
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.10
+# END OF Framework_MockTestCreateAudit v2.11
 # ════════════════════════════════════════════════════════════════════════
