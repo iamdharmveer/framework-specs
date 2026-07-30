@@ -5761,6 +5761,24 @@
   question chrome inside the pixels — AND, from v5.33, legible at the size it is
   actually printed and readable in greyscale and to a colour-blind reader.
 
+  RUNTIME DEPENDENCIES (v5.33). This section needs more than Step 0's
+  python-docx. figural_core.DEPENDENCIES declares the surface and
+  figural_core.preflight() reports it; both are checked, never assumed.
+    matplotlib  REQUIRED to render. render_figure() raises FiguralError
+                G-FIGDEP carrying the pip command, not a bare ImportError from
+                three frames down.
+    pillow      required for the pixel gates (PNG size, DPI, colour presence)
+    numpy       required for the pixel gates
+    scipy       optional — advisory label estimate only
+    fonttools   optional — tofu detection only
+  ABSENCE NEVER HALTS AN AUDIT. Every gate degrades to DORMANT-but-reported and
+  routes to AMBER: a gate that raises is worse than a gate that is absent,
+  because it takes the whole audit down, and an audit that dies takes ~200
+  projects with it. Guards import the module and catch failure rather than
+  asking whether it is on the path — a package can be installed and still fail
+  to load, and presence-checking leaves exactly the traceback the guard exists
+  to prevent.
+
   FRAMEWORK CONSTANTS (do NOT read these from section_rules — they are universal;
   they are DEFINED in figural_core.py and mirrored here for reference only):
   ```python

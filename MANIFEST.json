@@ -187,11 +187,11 @@
       "bytes": 544291
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "c941604053dba7dc829aaa63a941fdefb5367e89cd7772a8b5227badf6aaee5b",
+      "sha256": "fe7cac3bd65ebf615125abe2530ed4fe57aa11553b144fdfcd73346879c6d12e",
       "version_header": "# Framework_MockTestCreate v5.33",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8075,
-      "bytes": 518498
+      "lines": 8093,
+      "bytes": 519602
     },
     "Framework_MockTestCreateAudit.md": {
       "sha256": "ba1d38ef1e9610e0e808523426871217f8752b487ae44c81c77ae41506ec3001",
@@ -334,11 +334,11 @@
       "bytes": 20942
     },
     "figural_core.py": {
-      "sha256": "a85916953a540d475b1d53c5e37068a27816d44f0921ad2956d89b6a5565adbd",
+      "sha256": "e9062b054b087becfbbfb38ced35fa6e8c59eb2248319deadc30c7a5b41dbb9d",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"figural_core.py \u2014 shared figure renderer + gates. Run with --self-test.\")",
-      "lines": 1020,
-      "bytes": 44486
+      "lines": 1172,
+      "bytes": 51906
     }
   }
 }

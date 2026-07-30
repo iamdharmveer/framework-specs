@@ -75,6 +75,70 @@ import json
 import math
 import os
 
+# =============================================================================
+# RUNTIME DEPENDENCIES — declared, checked, and never fatal in an audit
+# =============================================================================
+# Step 0 installs python-docx and nothing else, and no spec declared a
+# dependency list before v5.33. This engine needs more, so absence must be
+# HANDLED rather than discovered as a traceback in a live exam session.
+#
+# The rule follows CLAUDE.md ("Silence is the defect; a halt is not the
+# remedy") and splits by role:
+#   RENDER  (Create) matplotlib is genuinely required. Without it a figure
+#           cannot be drawn, so render_figure() raises a FiguralError carrying
+#           the pip command instead of a bare ImportError from three frames
+#           down.
+#   AUDIT   every gate DEGRADES TO DORMANT-BUT-REPORTED. A gate that raises is
+#           worse than a gate that is absent, because it takes the whole audit
+#           down with it — and an audit that dies takes ~200 projects with it.
+#           A dormant gate emits an AMBER finding naming the missing package.
+DEPENDENCIES = {
+    "matplotlib": "render figures (Create only)",
+    "PIL":        "read PNG size and DPI (Pillow)",
+    "numpy":      "pixel arithmetic for colour and degeneracy gates",
+    "scipy":      "advisory pixel label estimate only",
+    "fontTools":  "glyph coverage / tofu detection only",
+}
+PIP_INSTALL = "pip install matplotlib pillow numpy scipy fonttools --break-system-packages"
+
+
+def _try_import(name):
+    """Return the module, or None if it cannot be imported. Never raises.
+
+    ACTUALLY IMPORTS IT rather than asking importlib.util.find_spec whether it
+    is installed. find_spec answers "is it on the path", and the failure that
+    matters is "does importing it work" — a package can be installed and still
+    fail to load (numpy built against a missing BLAS, Pillow without its
+    shared libs). Guarding on presence rather than on success leaves exactly
+    the traceback this block exists to prevent.
+    """
+    import importlib
+    try:
+        return importlib.import_module(name)
+    except Exception:                                          # noqa: BLE001
+        return None
+
+
+def _have(mod):
+    """True if `mod` imports cleanly. Never raises."""
+    return _try_import(mod) is not None
+
+
+def preflight():
+    """Report which capabilities are available. Never raises, never halts.
+
+    Call at the top of Step TestCreate/MockCreate and of their audits so a
+    missing package is a stated precondition rather than a traceback.
+    """
+    have = {m: _have(m) for m in DEPENDENCIES}
+    return {
+        "available": have,
+        "can_render": have["matplotlib"],
+        "can_gate_pixels": have["PIL"] and have["numpy"],
+        "missing": sorted(m for m, ok in have.items() if not ok),
+        "pip": PIP_INSTALL,
+    }
+
 # --- palette -----------------------------------------------------------------
 # Okabe-Ito. Colour-blind safe (deuteranopia/protanopia/tritanopia), print safe.
 OKABE_ITO = [
@@ -238,6 +302,12 @@ def triage(findings, spec=None):
     for f in findings:
         gid = f.split(":")[0].strip()
         sev = severity_of(gid)
+        # A gate that could not RUN is not a failed artefact. Report it loudly
+        # and never halt on it: a missing package is an environment defect, and
+        # blocking every paper over one would be the halt-as-remedy mistake.
+        if "DORMANT" in f:
+            out["AMBER"].append(f)
+            continue
         if sev == "BLOCKING" and legacy:
             sev = "AMBER"          # EC-V18
         if gid in NEVER_BLOCKING_ON_COLOUR and sev == "BLOCKING":
@@ -377,6 +447,11 @@ def render_figure(draw_fn, out_path, spec):
     The caller MUST place the PNG at exactly spec['display_in'] inches
     (capped to FIG_COLUMN_IN). S10-8 does this; nothing else may.
     """
+    if not _have("matplotlib"):
+        raise FiguralError(
+            "G-FIGDEP: matplotlib is required to render a figure and is not "
+            "installed. Step 0 installs python-docx only. Run:\n  "
+            + PIP_INSTALL)
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -473,9 +548,14 @@ def _deuteranope(c):
 
 
 def dominant_hues(png_path):
-    """Normative hue extraction. Returns a list of quantised RGB tuples."""
-    import numpy as np
-    from PIL import Image
+    """Normative hue extraction. Returns a list of quantised RGB tuples.
+    Returns None (not []) when pixel tooling is unavailable, so callers can
+    tell "no hues found" apart from "could not look"."""
+    np = _try_import("numpy")
+    _pil = _try_import("PIL.Image")
+    if np is None or _pil is None:
+        return None
+    Image = _pil
     a = np.array(Image.open(png_path).convert("RGB")).reshape(-1, 3).astype(int)
     sat = a.max(1) - a.min(1)
     sel = a[sat > CVD_SAT_MIN]
@@ -488,9 +568,12 @@ def dominant_hues(png_path):
 
 
 def coloured_fraction(png_path):
-    """Fraction of visible pixels carrying any chroma."""
-    import numpy as np
-    from PIL import Image
+    """Fraction of visible pixels carrying any chroma. None if unavailable."""
+    np = _try_import("numpy")
+    _pil = _try_import("PIL.Image")
+    if np is None or _pil is None:
+        return None
+    Image = _pil
     a = np.array(Image.open(png_path).convert("RGBA"))
     vis = a[..., 3] > 16
     rgb = a[..., :3].astype(int)
@@ -505,11 +588,11 @@ def g_figdegen(spec, png_path):
     """Catches the one failure arithmetic cannot see: a figure whose plot area
     collapsed, so the PNG is the right size and the fonts the right points but
     there is nothing legible inside."""
-    try:
-        import numpy as np
-        from PIL import Image
-    except ImportError:
-        return []
+    np = _try_import("numpy")
+    Image = _try_import("PIL.Image")
+    if np is None or Image is None:
+        return ["G-FIGDEGEN: DORMANT — numpy/Pillow unavailable, plot-area "
+                "collapse unverifiable. " + PIP_INSTALL]
     a = np.array(Image.open(png_path).convert("L"))
     ink = (a < 160)
     rows = np.where(ink.any(1))[0]
@@ -524,7 +607,10 @@ def g_figdegen(spec, png_path):
 
 
 def g_figdpi(spec, png_path):
-    from PIL import Image
+    Image = _try_import("PIL.Image")
+    if Image is None:
+        return ["G-FIGDPI: DORMANT — Pillow unavailable, DPI unverifiable. "
+                + PIP_INSTALL]
     d = Image.open(png_path).info.get("dpi")
     if not d or not d[0]:
         return ["G-FIGDPI: PNG carries no DPI metadata; native size is undefined. "
@@ -564,12 +650,12 @@ def g_figlabel(spec):
 
 def g_figlabel_pixels(spec, png_path):
     """WARN only. Biased against superscripts/subscripts — see docstring."""
-    try:
-        import numpy as np
-        from PIL import Image
-        from scipy import ndimage
-    except ImportError:
-        return []
+    np = _try_import("numpy")
+    Image = _try_import("PIL.Image")
+    _sp = _try_import("scipy.ndimage")
+    if np is None or Image is None or _sp is None:
+        return []          # advisory only — dormancy here is not worth a finding
+    ndimage = _sp
     a = np.array(Image.open(png_path).convert("RGBA"))
     vis = a[..., 3] > 16
     rgb = a[..., :3].astype(int)
@@ -598,6 +684,9 @@ def g_figcolour(spec, png_path):
         return []
     frac = coloured_fraction(png_path)
     hues = dominant_hues(png_path)
+    if frac is None or hues is None:
+        return ["G-FIGCOLOUR: DORMANT — numpy/Pillow unavailable, colour "
+                "presence unverifiable. " + PIP_INSTALL]
     out = []
     if frac < 0.005:
         out.append(f"G-FIGCOLOUR: {frac:.3%} coloured pixels (need >=0.5%) on a "
@@ -616,6 +705,9 @@ def g_figmono(spec, png_path):
     allowed = {s.get("colour", "").lower() for s in (spec.get("series") or [])
                if s.get("accent_marker")}
     frac = coloured_fraction(png_path)
+    if frac is None:
+        return ["G-FIGMONO: DORMANT — numpy/Pillow unavailable, monochrome "
+                "contract unverifiable. " + PIP_INSTALL]
     if frac > 0.02 and not allowed:
         return [f"G-FIGMONO: {frac:.2%} coloured pixels in a reasoning_glyph. "
                 f"Colour may leak the answer; only a declared missing-element "
@@ -699,7 +791,10 @@ def g_figalt(descr):
 
 def g_figoptunif(specs, png_paths):
     """All option canvases in a set share size and style budget."""
-    from PIL import Image
+    Image = _try_import("PIL.Image")
+    if Image is None:
+        return ["G-FIGOPTUNIF: DORMANT — Pillow unavailable, canvas sizes "
+                "unverifiable. " + PIP_INSTALL]
     sizes = {Image.open(p).size for p in png_paths}
     out = []
     if len(sizes) != 1:
@@ -714,11 +809,12 @@ def g_figoptunif(specs, png_paths):
 
 def g_figglyph(spec, png_path=None):
     """Tofu detection. Any glyph the figure font cannot render is a HARD fail."""
-    try:
-        from matplotlib.font_manager import findfont, FontProperties
-        from fontTools.ttLib import TTFont
-    except ImportError:
-        return []
+    _fm = _try_import("matplotlib.font_manager")
+    _ft = _try_import("fontTools.ttLib")
+    if _fm is None or _ft is None:
+        return []          # tofu detection is best-effort; absence is not a defect
+    findfont, FontProperties = _fm.findfont, _fm.FontProperties
+    TTFont = _ft.TTFont
     texts = []
     for k in ("x", "y"):
         a = (spec.get("axes") or {}).get(k) or {}
@@ -917,6 +1013,62 @@ def self_test():
     _regressed = dict(spec); _regressed["placement_scale"] = 0.5
     check("v533_regression_is_blocking",
           triage(g_figscale(_regressed), _regressed)["BLOCKING"] != [])
+
+    # ---- DEPENDENCY ABSENCE MUST NEVER RAISE IN AN AUDIT --------------------
+    # Step 0 installs python-docx only. Every gate must survive a missing
+    # package, because an audit that dies takes ~200 projects with it.
+    # Blocks importlib.import_module too, which a builtins.__import__ hook does
+    # NOT: import_module drives the import system directly. An earlier version
+    # of this fixture patched __import__ only, so nothing was ever blocked and
+    # all six cases passed against unguarded code — a test that proves nothing.
+    import sys as _sys
+
+    class _Blocker:
+        def __init__(self, names):
+            self.names = tuple(names)
+
+        def find_module(self, fullname, path=None):
+            return self.find_spec(fullname, path)
+
+        def find_spec(self, fullname, path=None, target=None):
+            if fullname.split(".")[0] in self.names:
+                raise ImportError(f"blocked {fullname}")
+            return None
+
+    for _blocked in (("numpy",), ("PIL",), ("scipy",), ("fontTools",),
+                     ("numpy", "PIL"), ("numpy", "PIL", "scipy", "fontTools")):
+        _evicted = {k: v for k, v in _sys.modules.items()
+                    if k.split(".")[0] in _blocked}
+        for k in _evicted:
+            del _sys.modules[k]
+        _bl = _Blocker(_blocked)
+        _sys.meta_path.insert(0, _bl)
+        try:
+            _h, _w = audit_figure(spec, png, descr="x")
+            _ok_run, _t = True, triage(_h + _w, spec)
+        except Exception:                                      # noqa: BLE001
+            _ok_run, _t = False, None
+        finally:
+            _sys.meta_path.remove(_bl)
+            _sys.modules.update(_evicted)
+        _tag = "_".join(_blocked)
+        check(f"audit_survives_missing_{_tag}", _ok_run)
+        check(f"missing_{_tag}_never_blocks",
+              _ok_run and _t["BLOCKING"] == [])
+        check(f"missing_{_tag}_is_reported_not_silent",
+              _ok_run and (len(_t["AMBER"]) > 0
+                           or _blocked in (("scipy",), ("fontTools",))))
+
+    check("preflight_never_raises", isinstance(preflight(), dict))
+    check("preflight_names_missing_packages",
+          "missing" in preflight() and "pip" in preflight())
+    check("dependencies_are_declared", set(DEPENDENCIES) >= {
+        "matplotlib", "PIL", "numpy", "scipy", "fontTools"})
+    check("dormant_findings_route_to_amber",
+          triage(["G-FIGDPI: DORMANT — Pillow unavailable"], spec)["AMBER"] != [])
+    check("dormant_findings_never_block",
+          triage(["G-FIGDPI: DORMANT — x", "G-FIGSCALE: DORMANT — y"],
+                 spec)["BLOCKING"] == [])
 
     # ---- EC-V18: a gate must NEVER raise on legacy output (no sidecar) ------
     # An earlier draft indexed spec["class"] and raised KeyError on the first

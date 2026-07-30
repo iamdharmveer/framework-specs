@@ -30,9 +30,9 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8076,
-      "sha256": "c941604053dba7dc829aaa63a941fdefb5367e89cd7772a8b5227badf6aaee5b",
-      "size_bytes": 518498,
+      "lines": 8094,
+      "sha256": "fe7cac3bd65ebf615125abe2530ed4fe57aa11553b144fdfcd73346879c6d12e",
+      "size_bytes": 519602,
       "version_header": "# Framework_MockTestCreate v5.33"
     },
     "Framework_MockTestCreateAudit.md": {
@@ -181,9 +181,9 @@
       "size_bytes": 105810
     },
     "figural_core.py": {
-      "lines": 1021,
-      "sha256": "a85916953a540d475b1d53c5e37068a27816d44f0921ad2956d89b6a5565adbd",
-      "size_bytes": 44486
+      "lines": 1173,
+      "sha256": "e9062b054b087becfbbfb38ced35fa6e8c59eb2248319deadc30c7a5b41dbb9d",
+      "size_bytes": 51906
     },
     "manifest_to_taxonomy_xlsx.py": {
       "lines": 125,
@@ -216,5 +216,5 @@
       "size_bytes": 94987
     }
   },
-  "generated_at": "2026-07-30T06:51:51+00:00"
+  "generated_at": "2026-07-30T10:15:59+00:00"
 }
