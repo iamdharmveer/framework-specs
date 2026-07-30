@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026.07.29.2
+- GAP-2026-07-29-FIG-R2 + VERIFY-2026-07-29-FIG-R2 (figure colour, label legibility and
+  placement scale). Measured across 208 delivered drawings in four exhibits: 0 of 55 IIT JAM
+  figures contained a single coloured pixel; placement scale was 0.500 EXACTLY on 24 of 24
+  option canvases; on-page labels ran to a median of 6.7 pt; 0 of 208 drawings carried alt
+  text. The three GATE papers believed correct measured 115 of 153 figures below a 9 pt floor —
+  not a working reference, only a quieter failure. Four root causes, not one, including RC-1
+  (S10-7 Q7 MANDATED "solid black", so the monochrome output was CONFORMANT) and RC-4 (the
+  corpus had exactly ONE figure helper, an abstract-geometry GLYPH renderer with no set_xlabel,
+  no legend, no rcParams anywhere, being used to draw scientific data figures it structurally
+  cannot label).
+- NEW ENGINE (the 9th): figural_core.py — shared figure renderer + 12 conformance gates.
+  The scale contract is now S == 1.0 BY CONSTRUCTION rather than by luck: display width is a
+  LAYOUT decision, the render is solved to fit it, FIG_NATIVE_HEADROOM is retired to 1.0 (it
+  was the sole source of the halving) and bbox_inches="tight" is banned (it made saved width a
+  function of the figure's own content, so S wandered 0.495..0.666 across 27 canvas sizes).
+  Okabe-Ito palette with REDUNDANT encoding (colour is never the sole carrier of meaning),
+  pinned/normative CVD arithmetic, and a FigureSpec sidecar that makes a figure auditable
+  without vision. Self-test 56/56 with day-one fixtures D1/D2/D5 that fail on the shipped
+  defects. Tracked by gen_manifest (bootstrap 25 -> 26) and routed to the four
+  Create/CreateAudit triggers.
+- Severity model encodes the framework's own doctrine: no image-COLOUR condition may ever halt
+  a run (AMBER — report loudly, force the amber footer, always complete); an answer-cue leak
+  voids the ITEM not the run (VOID_ITEM); BLOCKING is reserved for renderer-contract
+  REGRESSION on v5.33+ output, with EC-V18 downgrading it to AMBER for legacy output that has
+  no sidecar, so all ~200 existing exams keep auditing. A gate that throws is worse than a gate
+  that is absent — every gate tolerates a partial or empty spec and never raises.
+- Specs: MockTestCreate v5.32 -> v5.33 (renders through the engine); MockTestCreateAudit
+  v2.10 -> v2.11 (twelve new deterministic Part-A gates, correcting v2.10's over-generalisation
+  that "auditing recorded intent, not pixels" applies to every figure property — it is true of
+  SEMANTICS and false of colour presence, hue separation, scale and label size).
+- HARD DEPENDENCY: figural_core's render path imports matplotlib UNGUARDED, so the four
+  Create/CreateAudit triggers now require it at runtime (scipy and fontTools are used too but
+  degrade gracefully). Confirm it is present in exam sessions.
+- bootstrap 26/26, validator 0 issues, audit_deep 0, audit_callgraph 0, audit_specs_ext 0
+  across 20 files; blueprint_core 266/266, corpus_io 303/303, figural_core 56/56.
+  MANIFEST.json + SPEC_MANIFEST.json regenerated (35 files).
+
 ## 2026.07.29.1
 - Debt closure — the three follow-ups recorded in the 2026.07.29 seal are closed, and no
   open debts remain.
