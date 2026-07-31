@@ -1,4 +1,10 @@
-# Framework_PYQCore v1.0.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.0.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.0.2 — 2026-07-31 — HOST-NOTE HEADER DISAMBIGUATED (sync audit, ownership check).
+#   The scaffolding header '## §2-HOSTED — ...' matched the '^## §N' section-header
+#   pattern, so a tool locating §2 by header could resolve to this file's host note
+#   instead of Framework_PYQDraft.md, which owns §2. Renamed to 'HOSTED SECTION S2-3
+#   (from §2 ...)' so §-ownership is unique per file: §2 -> Draft; hosted S2-3 content
+#   here, unchanged and still byte-identical to v2.29. Scaffolding-only; zero rule change.
 # v1.0.1 — 2026-07-31 — ERA-SYNC SOURCING LINE (audit_sync). The split placed S2-3's
 #   prose mentions of OUT_OF_PATTERN in this file while the executable bc.OUT_OF_PATTERN
 #   call sites landed in Framework_PYQScan.md; audit_sync's per-file rule (any spec naming
@@ -128,7 +134,7 @@ For --counts mode:
 
 ---
 
-## §2-HOSTED — S2-3 (Draft taxonomy generation) — hosted here per §11
+## HOSTED SECTION S2-3 (from §2 — Draft taxonomy generation) — hosted here per §11
 # Executed by PYQDraft (Step 2a) as part of §2, AND by PYQScan S3-6 Refinement
 # (Domain Check, per-entry decision tree, 6 Pattern Dimensions Appendix).
 # ID, content and internal numbering unchanged from Framework_PYQAnalyse v2.29 §2.
@@ -1616,4 +1622,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.0.1
+# END OF Framework_PYQCore v1.0.2

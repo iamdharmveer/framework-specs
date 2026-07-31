@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.07.31.2",
+  "framework_version": "2026.07.31.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -240,11 +240,11 @@
       "bytes": 33083
     },
     "Framework_PYQCore.md": {
-      "sha256": "82152f3617d0532bf3cc8b311f7bf2c672228da12b5496e1c54cec13a45da269",
-      "version_header": "# Framework_PYQCore v1.0.1 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
-      "end_sentinel": "# END OF Framework_PYQCore v1.0.1",
-      "lines": 1619,
-      "bytes": 88775
+      "sha256": "8bb515a6b6d628c014e9b33ce96a0d36e423e61f7b58a2562d98ef794638ffc8",
+      "version_header": "# Framework_PYQCore v1.0.2 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.0.2",
+      "lines": 1625,
+      "bytes": 89318
     },
     "Framework_PYQCount.md": {
       "sha256": "69cab9c7bd96e72277aade2a82752bf0cee54beffeffc0406316b427ebff09f9",

@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.07.31.3
+- Framework_PYQCore v1.0.2: post-deployment deep sync audit found one ownership ambiguity —
+  the scaffolding host-note header '## §2-HOSTED — ...' matched the '^## §N' section-header
+  pattern, making §2 resolve to two files (Draft owns §2; Core hosts S2-3). Header renamed to
+  'HOSTED SECTION S2-3 (from §2 ...)'; §-ownership now unique per file. Scaffolding-only,
+  hosted v2.29 content re-verified byte-identical. SPEC_MANIFEST.json: Core entry updated in
+  place, 40-file wide baseline preserved. MANIFEST.json regenerated.
+- Sync audit result at seal (production 2026.07.31.2 + this fix): bootstrap 31/31; validator
+  0 repo issues (sole finding is the environment-side stale installed skill, already tracked);
+  check_triggers 24 consistent; audit_sync clear of ERA-SYNC; audit_deep 0; audit_callgraph 0;
+  audit_specs_ext 0 across 39 files (full invocation with engines — specs-only invocation
+  emits 4 [V-SCOPE] scope warnings by design, not findings). Independent cross-step audit:
+  9/9 v2.29 slices byte-identical each in exactly one file; §1-§12 single-owner; 12/12
+  artifact producer/consumer placements correct; 4/4 pipeline handoffs in the right files;
+  S2-3 single-sourced; companion minimums single-sourced; stub unrouted; 4/4 routes correct.
+
 ## 2026.07.31.2
 - Seals commit 3bbc36c (Framework_PYQCore v1.0.1 — the ERA-SYNC engine-sourcing line), which
   landed after VERSION had already been stamped 2026.07.31.1. Its substance is described in
