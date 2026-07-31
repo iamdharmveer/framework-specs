@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026.07.31.4
+- bootstrap.py advisory REWORDED (context-cost defect, found during the corpus_io.py length
+  analysis): `--trigger` printed one line — "Entry-point spec(s) ... read IN FULL:" — listing
+  the WHOLE route, engines included. Followed literally, a PYQCount session would read 2,641
+  spec lines PLUS 9,316 engine lines (corpus_io 4,399 + blueprint_core 3,226 +
+  reconcile_taxonomy 1,248 + syllabus_provenance 443) into context; engines are executed, not
+  read, so all 9,316 of those lines were dead weight. The advisory now prints two lists:
+  .md specs "READ IN FULL" and .py engines "EXECUTE via import; do NOT read into context".
+  Verification contract untouched (same checks, same exit codes, same .verified token);
+  nothing machine-parses the advisory line (verified by corpus grep). Matching one-line
+  clarification in mocktestframework_SKILL.md rule 2 and in the installed-skill SKILL.md
+  shipped alongside.
+- corpus_io.py itself: analysed and deliberately UNCHANGED. Its 4,399 lines cost sessions
+  nothing (engines are executed, never required reading); it is the consolidation artifact
+  for previously-drifting copies (Cluster K readers, is_option), so splitting it would
+  reopen that defect class; its docstrings/comments are consumed by audit_callgraph
+  (parameter contracts), audit_specs_ext V-SYNC (sync rules) and encode GAP-numbered defect
+  history, so trimming them risks three auditors for zero runtime gain. Health verified: no
+  dead public functions (5 external-orphan suspects each have 2-5 internal call sites),
+  no layering violation (blueprint_core imports stdlib only), callgraph 0 findings.
+- LATENT COUNT DEFECT FIXED (both SKILL copies): release 2026.07.31.2 set the skill's
+  engine count to 9 (tracked scripts), but CHECK AA and audit_sync count engines ROUTED
+  in routes.json = 8 — validate_framework_md.py is tracked but deliberately never routed
+  (it is the CI validator). Any SKILL.md claiming 9 placed where AA reads it fires
+  'claims 9 engine scripts; routes.json routes 8'. Both copies now state 8 with the 9th
+  script explicitly accounted in the same sentence, so the count matches the checkers'
+  definition while preserving the .2 entry's fact.
+- MANIFEST.json regenerated for the VERSION stamp (bootstrap.py and skill files are not
+  hash-tracked; specs and engines all unchanged — 31 hashes identical to 2026.07.31.3).
+
 ## 2026.07.31.3
 - Framework_PYQCore v1.0.2: post-deployment deep sync audit found one ownership ambiguity —
   the scaffolding host-note header '## §2-HOSTED — ...' matched the '^## §N' section-header
