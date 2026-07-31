@@ -1,4 +1,8 @@
-# Framework_PYQExplain v1.1 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v1.1.1 — Universal PYQ Explanation Generator
+# v1.1.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
+#   29 lines of version history and superseded companion blocks moved
+#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQExplain'. The current companion block, the
+#   v1.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | PYQ-1 (PYQExplain) | Exam-agnostic
 #
 # v1.1 — 2026-07-24 — §7A PER-QUESTION DIFFICULTY ASSESSMENT (new capability).
@@ -35,35 +39,6 @@
 #   Zero changes to explain_engine.py. Zero changes to the ExplanationBlock model,
 #   the delivered document, or any existing gate. The assessment is metadata only
 #   and is NEVER rendered into the paper.
-#
-# v1.0 — 2026-07-22 — Initial release. Takes one PYQ Row file (Step 1 output,
-#   original exam order, Q.1-Q.N continuous) and produces an explained PYQ paper
-#   with a validated ExplanationBlock interleaved after each question. Uses the
-#   SAME explain_engine.py as TestExplain (Steps 9/10) — shared engine, separate
-#   spec. Zero modifications to any existing pipeline file.
-#
-#   Architecture decisions locked with the framework owner:
-#     D1. SOURCE IS THE ROW FILE. The Step-1 PYQPrepare output (Google Drive) is
-#         the source document — already in original exam order (Q.1-Q.N continuous).
-#         NOT the Sorted file (which destroys exam order).
-#     D2. NO BLUEPRINT. PYQ papers have no blueprint.json — this spec builds a
-#         lightweight PYQ metadata object internally from section_rules.md +
-#         subtopic_manifest.json + exam_config.json (all from prior Steps 2-5,
-#         already in the project).
-#     D3. NO REGISTRY. PYQ papers have no registry.json — options_by_q is derived
-#         from the Row file itself (count option paragraphs per question; 0 = NAT).
-#     D4. INDEPENDENT DERIVATION. Every answer derived from first principles
-#         (same RE-1/RE-6 contract as TestExplain). Official answer keys, if they
-#         exist, are ignored — the PYQ explanation is a derive-independently product.
-#     D5. ONE PAPER AT A TIME. Each trigger processes one Row file. No batching
-#         across papers.
-#     D6. FORK ARCHITECTURE. PYQExplain output feeds BOTH PYQExplainAudit (PYQ-2)
-#         AND is the upstream source for PYQFormat (PYQ-3) and PYQDeliver (PYQ-4).
-#         PYQ-3 and PYQ-4 are INDEPENDENT of each other (both take PYQ-2 output).
-#     D7. ENGINE-BUILT, NEVER FORKED. explain_engine.py is IMPORTED and used
-#         exactly as TestExplain uses it (same EngineConfig, ExplanationBlock,
-#         build_interleaved_docx, verify_fidelity/structure/explanations). Zero
-#         engine modifications — the engine stays a single canonical copy.
 #
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
@@ -1355,5 +1330,5 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v1.1
+# END OF Framework_PYQExplain v1.1.1
 # ════════════════════════════════════════════════════════════════════════

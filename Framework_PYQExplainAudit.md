@@ -1,4 +1,8 @@
-# Framework_PYQExplainAudit v1.1.1 — Universal PYQ Explanation Auditor
+# Framework_PYQExplainAudit v1.1.2 — Universal PYQ Explanation Auditor
+# v1.1.2 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
+#   53 lines of version history and superseded companion blocks moved
+#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQExplainAudit'. The current companion block, the
+#   v1.1.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | PYQ-2 (PYQExplainAudit) | Exam-agnostic
 #
 # v1.1.1 — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
@@ -10,59 +14,6 @@
 #   audit_specs_ext.py check_z_version reads the header from line 1 only. Check C now
 #   recognises both forms (validate_framework_md.py v3.1), so this cannot drift silently
 #   again.
-# v1.1 — 2026-07-24 — §10A DIFFICULTY VALIDATION. PYQ-1 v1.1 §7A now assesses
-#   per-question difficulty from its derivation observations and writes
-#   q_to_difficulty into pyq_explain_progress.json. PYQ-2 already re-derives every
-#   answer independently, so it holds a SECOND, independent set of exactly the same
-#   observations at no extra cost. §10A turns that into a validation pass and writes
-#   the validated map to pyq_audit_progress.json — which PYQ-4 reads FIRST (§0
-#   priority order), so the audited values take precedence over PYQ-1's.
-#   Additive: no existing lane, gate, verdict, or rectification behaviour changes,
-#   and difficulty is NEVER a rectification target in the document.
-#
-# v1.0 — 2026-07-22 — Initial release. The independent auditor and rectifier
-#   of PYQ explanation documents produced by PYQ-1 (PYQExplain). Takes the
-#   PYQ-1 output ([ExamCode]_[date]_[session]_PYQ_Explanation.docx) and the
-#   original Row file, re-derives every answer, deep-audits every explanation
-#   across three lanes (correctness, sufficiency, proportion), rectifies
-#   defects, and delivers [ExamCode]_[date]_[session]_PYQ_Explanation_Complete.docx
-#   only after the mechanical completion gate (explain_audit_gate.py CA1-CA7)
-#   prints PASS.
-#
-#   Uses the SAME explain_engine.py + explain_audit_gate.py as MockExplainAudit
-#   (Step 10). Shared engines, separate spec. Zero modifications to any existing
-#   pipeline file.
-#
-#   Architecture decisions locked with the framework owner:
-#     D1. NO INHERITED KEY. PYQ-1 publishes no answer-key sidecar (PYQ-1 D4).
-#         PYQ-2 re-derives every answer independently and writes its own
-#         [ExamCode]_[date]_[session]_pyq_audit_answer_keys.json.
-#     D2. THE READER LIVES IN THE ENGINE. parse_solution_blocks is an engine
-#         function driven by the same EngineConfig PYQ-1 wrote with — the exact
-#         inverse of the writer. No hand-parsing.
-#     D3. LEARNINGS LOOP IS EMIT-NOW. PYQ-2 emits
-#         [ExamCode]_PYQ_EXPLAIN_AUDIT_LEARNINGS_v1.md; PYQ-1 consumes it at
-#         its P1 (PYQ-1 §24).
-#     D4. INDEPENDENT DERIVATION. Official exam-body answer keys are IGNORED.
-#         PYQ-2 derives every answer from scratch (same contract as PYQ-1 D4).
-#         When official keys exist and the user provides them, PYQ-2 cross-
-#         checks derived answers against the official key and FLAGS discrepancies
-#         for human review — never auto-overrides the derivation.
-#     D5. OUTPUT FILENAME. The audited document is
-#         [ExamCode]_[date]_[session]_PYQ_Explanation_Complete.docx. The input
-#         is never modified in place.
-#     D6. PER-BATCH RECTIFICATION. Fix in the same batch that finds the defect.
-#     D7. FORK OUTPUT. PYQ-2's output feeds BOTH PYQ-3 (PYQFormat) and PYQ-4
-#         (PYQDeliver) independently. PYQ-3 and PYQ-4 are independent of each
-#         other — both take this output directly.
-#     D8. PYQ DEFECT HANDLING. PYQ papers are exam-body publications — defects
-#         are FACTS, not fixable pipeline bugs. PYQ-2 notes them — there is
-#         no upstream step to fix the paper (contrast with mock pipeline
-#         where MockExplainAudit sends paper defects back for repair).
-#     D9. ENGINE-BUILT, NEVER FORKED. explain_engine.py + explain_audit_gate.py
-#         are IMPORTED and used exactly as MockExplainAudit uses them. Zero
-#         engine modifications.
-#
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
 # ════════════════════════════════════════════════════════════════════════
@@ -1006,4 +957,4 @@ Both files ship with the framework repo (GitHub projects get them from the /tmp/
 
 ---
 
-**End of Framework_PYQExplainAudit.md (v1.1.1)**
+**End of Framework_PYQExplainAudit.md (v1.1.2)**

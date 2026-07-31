@@ -88,6 +88,21 @@ for f, t in TXT.items():
             if newer:
                 rec('VERSION-XREF', f"{f}: references {name} v{ver} but current is v{cur}")
 
+# ── 2b. RELEASE SYNC: VERSION file vs CHANGELOG top entry (added after the
+#        2026.07.31.4 partial deployment, where CHANGELOG.md missed the release
+#        entry while VERSION/MANIFEST shipped — no checker caught it) ──────────
+try:
+    _ver = open('VERSION', encoding='utf-8').read().strip()
+    _top = None
+    for _l in open('CHANGELOG.md', encoding='utf-8'):
+        _m = re.match(r'^## (\S+)', _l)
+        if _m: _top = _m.group(1); break
+    if _ver and _top and _ver != _top:
+        rec('REL-SYNC', f"VERSION is {_ver} but CHANGELOG top entry is {_top} — "
+                        f"partial deployment or unrecorded release")
+except OSError:
+    rec('INFO', 'VERSION or CHANGELOG.md unreadable — release sync not checked')
+
 # ── 3. TRIGGER SYNC: routes.json vs SKILL.md vs specs ───────────────────────
 skill = skill_txt
 if skill:

@@ -1,4 +1,8 @@
-# Framework_DeliveryFooter v1.8 — Universal Delivery Footer Contract
+# Framework_DeliveryFooter v1.8.1 — Universal Delivery Footer Contract
+# v1.8.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
+#   79 lines of version history and superseded companion blocks moved
+#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_DeliveryFooter'. The current companion block, the
+#   v1.8 entry, and all structural notes remain in-file. Body byte-untouched.
 # MockTestFramework | Cross-step | Exam-agnostic
 #
 # PURPOSE:
@@ -18,76 +22,6 @@
 #   "Follow Framework_DeliveryFooter.md for post-delivery footer rendering."
 #
 # VERSION HISTORY:
-#   v1.6 — 2026-07-12 — DELIVERABLE FILENAME RENAME (owner decision; docs-only, zero logic).
-#          Per-step registry (§3) + LOCAL_ONLY badge globs (§2) updated to the new
-#          deliverable names: Step 7 Complete→Create, Step 8 Complete→Create_Complete,
-#          Step 9 Solutions→Explanation, Step 10 Solutions_Audited→Explanation_Complete,
-#          Step 11 Tagged→Final. The single Mock*_Complete.docx glob is SPLIT into two
-#          distinct patterns (Mock*_Create.docx + Mock*_Create_Complete.docx) since Step 7
-#          and Step 8 outputs are now distinct files. Glob cross-match + badge logic
-#          re-tested: each delivered file matches exactly one pattern. The v1.2 changelog
-#          entries below are preserved as history and intentionally keep the old names.
-#   v1.5 — 2026-07-09 — RENDERING CONTRACT REBUILT (widget dependency removed).
-#          ROOT CAUSE of the intermittent footer failures seen across the pipeline:
-#          §4 mandated rendering via the LOCAL show_widget / visualizer MCP server.
-#          Whenever that local server was down, not loaded, timed out, or simply
-#          unreachable (a teammate on a different machine, mobile, web, or a
-#          scheduled run), the footer silently degraded to improvised text — an
-#          ASCII banner one time, bullets another, a monospace block a third — which
-#          reads as "broken." Same spec, different result per run = an external
-#          dependency, not a logic bug. Proof: identical steps rendered clean in some
-#          sessions and broke in others; one session even printed "the local
-#          visualizer MCP server timed out."
-#          FIX: §4 is now a PURE-MARKDOWN contract requiring ZERO external tools.
-#          It renders byte-identical on every surface and every team member's machine.
-#          (1) §4 fully rewritten: Markdown templates replace all HTML/widget structure.
-#          (2) State COLOR THEME via Unicode emoji bands — GREEN (complete) /
-#              AMBER (in progress) — renders identically everywhere (no CSS).
-#          (3) §4-0 rules: canonical Markdown is MANDATORY; show_widget/visualizer is
-#              FORBIDDEN; improvised fallbacks (ASCII banners, monospace footers,
-#              ad-hoc lists) are FORBIDDEN. The template is the only permitted output.
-#          (4) §4-4 added: deterministic progress bars (no guessing at position).
-#          (5) §1 VISUAL IDENTITY blocks are SUPERSEDED by §4 (pointer note added at
-#              the top of §1). §1 WHEN-TO-SHOW and CRITICAL RULES logic unchanged.
-#          (6) Badge WORDING unchanged (§2). Optional scan icons added: 📤 Upload /
-#              🔁 Replace / 📁 Use locally.
-#   v1.4 — 2026-07-07 — STEP 1 REGISTRY ADDITION.
-#          Framework_PYQPrepare v1.0 now exists — Step 1 is no longer manual/external.
-#          (1) Replaced NOTE ON STEP 1 exclusion block with full Step 1 registry entry
-#              (Row file, F2 step-complete, "Use locally" badge, next = Step 2a).
-#          (2) Added Row file pattern to LOCAL_ONLY in §2 badge logic.
-#          (3) Added "After Step 1 → Step 2a" to §6 next-step reference table.
-#   v1.3 — 2026-07-07 — AUTOMATED CROSS-CHECK (1 context-dependent badge bug fixed).
-#          Custom Python audit script tested all 39 file×context combinations against
-#          LOCAL_ONLY patterns. Found 1 conflict: analysis_progress.json was in LOCAL_ONLY
-#          but Step 5 mid-step delivery needs Upload/Replace (for session resume). The
-#          file has DUAL behavior: mid-step=project Files, final=local. Moved to a new
-#          CONTEXT-DEPENDENT section in the pseudocode with explicit documentation.
-#   v1.2 — 2026-07-07 — DEEP SOURCE-SPEC CROSS-CHECK (5 filename/deliverable bugs fixed).
-#          Every step's deliverables verified line-by-line against its source spec.
-#          (1) Step 7 per-batch filename: Mock[N]_Batch[B].docx → Mock[N]_Q1to[K].docx
-#              (cumulative whole-paper, per Framework_MockTestCreate S4-10).
-#          (2) Step 8 filename: Mock[N]_Rectified.docx → Mock[N]_Complete.docx
-#              (same filename as Step 7 — replaces input, per MockTestCreateAudit S0-2).
-#          (3) Step 8 missing conditional deliverable: Mock[N]_audit_changelog.md added
-#              (delivered ONLY when ≥1 question regenerated, per S0-2).
-#          (4) Step 9 per-batch: Mock[N]_Solutions_Batch[B].docx removed — spec delivers
-#              the SAME Mock[N]_Solutions.docx each batch (whole-paper incremental, per
-#              MockTestExplain S19-2 + RE-8). Mid-step and final = same file.
-#          (5) §2 LOCAL_ONLY: fixed patterns to match actual filenames — removed
-#              Rectified/Solutions_Batch (don't exist), added Q1to*/audit_changelog.
-#   v1.1 — 2026-07-07 — EXHAUSTIVE AUDIT (12 bugs fixed).
-#          (1) Step 6 B3: added mock_test_audit.py as 6th deliverable (Blueprint v1.20).
-#          (2) Step 2b/5 first-batch badge: fixed "Replace" → dynamic Upload/Replace.
-#          (3) Step 4: added count_progress.json session-break interim deliverable.
-#          (4) Step 2c NEXT STEP: removed wrong "parallel" claim (Step 4 depends on Step 3).
-#          (5) Step 3 NEXT STEP: removed nonsensical "(if not already done)" qualifier.
-#          (6) §2 LOCAL_ONLY: added all mock paper file patterns.
-#          (7) Step 1 PYQPrepare: added exclusion note.
-#          (8) Step 5 final: analysis_progress.json + analysis_summary.md → Use locally
-#              (per PYQAnalyse handoff: "KEEP LOCALLY").
-#          (9) §5: added session-break edge case (F1 variant for forced context-limit breaks).
-#          (10) §6 reference table: synced with §3 fixes.
 #   v1.8 — 2026-07-26 — §5 QUALITY GATE: A FAILING CHECK FORCES AMBER
 #          (GAP-2026-07-26-003). A step could report a FAIL and still render the
 #          GREEN "Step Complete" footer, because §5 asked only whether the WORK was
@@ -102,15 +36,6 @@
 #          the signal would be lost again.
 #          THIS IS NOT A HALT: the step completes, every file is delivered, and the
 #          operator may proceed. Amber REPORTS; it does not block.
-#   v1.7 — 2026-07-25 — Step 2c registry: [ExamCode]_approval_record.json ADDED.
-#          Mandated by PYQAnalyse S4-3/S10-1 since v2.17 and required at PYQSort entry
-#          since v2.23, but absent from this registry — the word "approval_record"
-#          did not appear anywhere in this spec. A deliverable missing from the
-#          delivery contract is a deliverable that eventually stops being delivered.
-#   v1.0 — 2026-07-07 — Initial release. Two footer types defined.
-#          Per-step deliverable registry with action badges.
-#          Decision logic for mid-step vs step-complete.
-
 ---
 
 ## §1 — FOOTER TYPES

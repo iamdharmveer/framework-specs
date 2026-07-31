@@ -1,4 +1,8 @@
-# Framework_PYQFormat v1.4.1 — Universal PYQ Student Document Formatter
+# Framework_PYQFormat v1.4.2 — Universal PYQ Student Document Formatter
+# v1.4.2 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
+#   173 lines of version history and superseded companion blocks moved
+#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQFormat'. The current companion block, the
+#   v1.4.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | PYQ-3 (PYQFormat) | Exam-agnostic
 #
 # v1.4.1 — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
@@ -10,179 +14,6 @@
 #   audit_specs_ext.py check_z_version reads the header from line 1 only. Check C now
 #   recognises both forms (validate_framework_md.py v3.1), so this cannot drift silently
 #   again.
-# v1.4 — 2026-07-24 — DOCX SERIALIZATION SAFETY. Fixes the P0 defect where a
-#   v1.3 run completed every §8 check, reported success, and delivered a file
-#   Microsoft Word refused to open ("Word found unreadable content in …").
-#
-#   CONFIRMED by forensic analysis of the failing artefact
-#   (IIT_JAM_BIOTECHNOLOGY_15-Feb-2026_PYQ_Formatted.docx) against its input.
-#   The INPUT was schema-valid: 0 errors. The OUTPUT carried 812 reported
-#   schema errors plus undeclared namespaces — ALL introduced by PYQFormat.
-#
-#   Root cause (measured, not inferred):
-#     (a) NAMESPACE LOSS — stdlib xml.etree.ElementTree was used. Measured on
-#         the artefact: the root went from 19 declared prefixes to 7. Fifteen
-#         were lost (cx, cx1, m, o, v, w10, w14, w15, w16se, wne, wp14, wpc,
-#         wpg, wpi, wps) and an invented prefix "ns6" appeared where the
-#         source used "a14". mc:Ignorable survived verbatim as
-#         "w14 w15 w16se wp14" — naming FOUR prefixes that no longer exist.
-#         Word's MCE preprocessor resolves those, fails, and rejects the file.
-#         S13-3 warned "no cleanup_namespaces()" — an lxml-only function —
-#         while never mandating lxml, so the spec's only defence was
-#         VACUOUSLY SATISFIED while the corruption occurred.
-#     (b) SCHEMA ORDER — S13-5/S13-1 listed elements to add with no ordering
-#         requirement, and they were appended in the order written. Measured
-#         on the artefact:
-#             observed pPr  [shd, pBdr, ind, spacing, keepNext, keepLines]
-#             correct  pPr  [keepNext, keepLines, pBdr, shd, spacing, ind]
-#             observed tblPr[tblW, tblLayout, tblBorders, tblCellSpacing]
-#             correct  tblPr[tblW, tblCellSpacing, tblBorders, tblLayout]
-#             observed tcPr [tcW, shd, vAlign, tcMar]
-#             correct  tcPr [tcW, shd, tcMar, vAlign]
-#             observed tcMar[top, bottom, left, right]
-#             correct  tcMar[top, left, bottom, right]
-#             observed pill cell pPr [jc, spacing] / correct [spacing, jc]
-#             observed header1+footer1 pPr [tabs, spacing, pBdr]
-#             correct                      [pBdr, tabs, spacing]
-#         Counts: 244 pBdr, 180 tcMar, 180 spacing, 146 keepNext,
-#         60 tblBorders in document.xml, plus 1 pBdr each in header1.xml and
-#         footer1.xml. The header/footer parts created by S13-6 were defective
-#         too — the fault is NOT confined to the body.
-#     (c) NO VALIDITY GATE. All eight §8 checks are CONTENT-fidelity checks.
-#         A document.xml with undeclared mc:Ignorable prefixes and misordered
-#         properties is still well-formed XML and parses cleanly in both
-#         stdlib ET and lxml — so Q-count, OMML count, drawing count and the
-#         full text-stream check (S8-8) all PASSED on a file Word cannot open.
-#         Verified on the artefact: text stream, all 11 drawings and all
-#         paragraph counts were perfectly intact. §11 item 10 already required
-#         "a valid .docx that opens clean in Microsoft Word" with no machinery
-#         anywhere to verify it.
-#     (d) NESTED DEFECTS ARE MASKED. Repairing the artefact required
-#         reordering 991 elements although only 812 errors were reported: once
-#         a parent is rejected at its own position the validator does not
-#         descend into it, so its children's violations stay hidden. tcMar's
-#         internal [top, bottom, left, right] was invisible behind tcMar's own
-#         misplacement in tcPr. An error count is a LOWER BOUND until it
-#         reaches zero — see S8-9.
-#
-#   Fixes:
-#     1. S13-3 REWRITTEN — lxml is now MANDATORY for editing existing parts;
-#        stdlib ElementTree is FORBIDDEN (it cannot preserve mc:Ignorable
-#        prefixes even when fully registered); cleanup_namespaces() forbidden.
-#     2. NEW S13-7 — OOXML schema ordering discipline: seven authoritative
-#        child-order tables extracted from the ISO-IEC29500-4:2016 XSD, plus
-#        the runnable set_child() insertion function. set_child() inserts at
-#        the schema-correct position and NEVER reorders existing children —
-#        a whole-parent sort corrupts Word-native tcMar (top,left,bottom,
-#        right) and paragraph-mark rPr carrying <w:del>, both verified.
-#        CT_ParaRPr (<w:pPr><w:rPr>) is distinguished from CT_RPr (<w:r><w:rPr>).
-#        Applies to EVERY part written, header1.xml and footer1.xml included.
-#     3. NEW S8-9 — package validity gate (HARD STOP). Runs the OOXML
-#        validator on the delivered file with --original so only NEW errors
-#        block. This is the layer that generalises: it catches Defect (a),
-#        Defect (b), and serialization defects not yet encountered.
-#     4. S13-1 and S13-5 amended to route every property insertion through
-#        set_child().
-#   New architecture decision D11.
-#
-# v1.3 — 2026-07-23 — Page-level header and footer (every page). The exam
-#   header (§3) and IFAS footer (§6) are no longer one-time body paragraphs;
-#   they are real Word page header/footer PARTS (header1.xml / footer1.xml
-#   wired via sectPr references) that repeat automatically on every page.
-#   Header layout: exam name LEFT, date · session CENTER, IFAS RIGHT.
-#   Footer layout: website LEFT, tagline CENTER, phone RIGHT. Tagline (D5)
-#   changed to "IFAS – India's No. 1 Exam Preparation Platform". No page
-#   numbers; first page identical to all others. Body insertions are now
-#   pills ONLY, simplifying S8-3/S8-8. New decision D10; new S13-6
-#   part-wiring mechanics.
-#
-# v1.2 — 2026-07-23 — Explanation tag restyle (§7-4..§7-6). The explanation
-#   tag headers (AXIOM, DEDUCTION, SPEED HACK, WHY WRONG?, COMMON PITFALLS),
-#   the Correct Answer line, and the Option/pitfall sub-heads are restyled
-#   into colored tint bands with 3pt left accent bars, per-tag colors from
-#   the document-wide design palette (Appendix A). Marker glyphs upgraded
-#   in tag headers only: ⬛→📘 (AXIOM), ⬛→🧮 (DEDUCTION), ❌→⚠️ (COMMON
-#   PITFALLS); ⚡ and ❌ WHY WRONG? unchanged. The glyph substitution is the
-#   ONLY text change PYQFormat ever performs (D9) — verified by a new
-#   full-document text-stream integrity check (S8-8). Delivery report gains
-#   §R6 (Tag styling). New architecture decision D9.
-#
-# v1.1 — 2026-07-23 — Date/Session tag removal (§4). The per-question
-#   date/session tag paragraph (PYQSort date_label, e.g. "[12-Sep-2025 Shift 1]"
-#   or "[02-Feb-2025]") that rides through PYQExplain/PYQExplainAudit above
-#   each question is now REMOVED from the student-facing document. This is the
-#   ONLY sanctioned deletion — the zero-mutation rule is amended accordingly.
-#   Removal uses a keyword-agnostic anchored regex (works even when
-#   exam_config.json is absent), verifies each removed paragraph is media-free
-#   (no OMML, no drawings), and a new integrity check (S8-7) confirms zero tag
-#   paragraphs remain in the output. Delivery report gains §R4 (Tags removed).
-#   New architecture decision D8.
-#
-# v1.0 — 2026-07-22 — Initial release. Takes the audited PYQ explanation
-#   document from PYQ-2 (PYQExplainAudit) and transforms it into a beautiful,
-#   student-facing Word document: page header/footer on every page, per-
-#   question colored Subject/Topic/Subtopic pills, and visual polish.
-#   ZERO content changes — every question, option, explanation sentence, and
-#   OMML fraction is byte-identical to the input. This is purely a VISUAL
-#   transformation step.
-#
-#   Architecture decisions locked with the framework owner:
-#     D1. ZERO CONTENT CHANGES. Not one character of any question, option,
-#         explanation, or answer is modified. PYQFormat adds visual elements
-#         AROUND the certified content — never inside it.
-#     D2. FORK INPUT. PYQ-3 takes PYQ-2 output directly
-#         ([ExamCode]_[date]_[session]_PYQ_Explanation_Complete.docx).
-#         PYQ-3 and PYQ-4 are INDEPENDENT — neither depends on the other.
-#     D3. COLORED PILLS (Option C). Per-question Subject/Topic/Subtopic
-#         displayed as three colored pill cells (1-row, 3-cell table) inserted
-#         BEFORE each Q stem. Subject = blue tint, Topic = green tint,
-#         Subtopic = amber/orange tint. Pills are inserted HERE (PYQFormat),
-#         NOT in PYQExplain/PYQExplainAudit — keeping the explanation doc
-#         clean for engine verification.
-#     D4. PILL DATA SOURCE. The q_to_classification map built by PYQ-1 at P3
-#         (stored in pyq_explain_progress.json or pyq_audit_progress.json)
-#         provides {subject, topic, subtopic, subtopic_id} per question.
-#     D5. IFAS BRANDING HARDCODED. Same branding across all exams — no
-#         per-exam customization needed.
-#     D6. EXAM HEADER FROM CONFIG. Exam name from exam_config.json; date and
-#         session from the trigger/filename.
-#     D7. STUDENT-FACING OUTPUT. This file is the final download artifact
-#         students receive. It must look professional and beautiful.
-#     D8. DATE/SESSION TAGS REMOVED (v1.1). The per-question date/session tag
-#         paragraphs (PYQSort date_label lines) are internal pipeline metadata,
-#         not student content. PYQFormat removes them. The paper's date and
-#         session already appear ONCE in the exam header (§3) — repeating them
-#         above every question adds noise. This is the ONLY deletion PYQFormat
-#         ever performs.
-#     D9. EXPLANATION TAG RESTYLE (v1.2). The engine (explain_engine.py)
-#         deliberately writes plain headers (black text, no shading) so the
-#         explanation document stays clean for engine/audit verification —
-#         same rationale as D3. PYQFormat restyles them for students: tint
-#         band + accent bar per tag, one palette shared with the pills.
-#         Marker glyph substitution (⬛→📘/🧮, ❌→⚠️ on COMMON PITFALLS) is
-#         the ONLY text change in the whole spec, allowed in exact-match tag
-#         header paragraphs only, and verified by S8-8.
-#     D10. PAGE-LEVEL HEADER/FOOTER (v1.3). The exam header and IFAS footer
-#         are Word page header/footer parts, not body paragraphs — Word
-#         repeats them on every page automatically, surviving any reflow.
-#         References are registered for default, even, AND first page types
-#         pointing to the same parts, so every page is identical regardless
-#         of the document's evenAndOddHeaders / titlePg settings. No page
-#         numbers. Tagline (D5 constant) is
-#         "IFAS – India's No. 1 Exam Preparation Platform".
-#     D11. SERIALIZATION SAFETY IS MECHANISM + GATE, NOT PROSE (v1.4). Content
-#         fidelity and package validity are INDEPENDENT properties. Every §8
-#         check verifies content; none verified validity, so a structurally
-#         broken file passed all of them and shipped. Therefore PYQFormat
-#         (i) mandates ONE library (lxml) rather than describing a desired
-#         outcome, (ii) supplies runnable code (set_child) rather than an
-#         ordering instruction, and (iii) gates the delivered artefact with a
-#         real OOXML validator (S8-9). Prose stating what must be true is not
-#         a safeguard — across 200 exams each fresh run re-decides anything
-#         left to interpretation. Only a mandated mechanism plus a gate that
-#         inspects the produced file makes the guarantee hold every time,
-#         including for defect modes not yet seen.
-
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
 # ════════════════════════════════════════════════════════════════════════
@@ -1853,4 +1684,4 @@ Correct Answer band the Topic pill family — one palette document-wide.
 
 ---
 
-**End of Framework_PYQFormat.md (v1.4.1)**
+**End of Framework_PYQFormat.md (v1.4.2)**

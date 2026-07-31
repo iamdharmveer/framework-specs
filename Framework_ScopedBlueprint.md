@@ -1,4 +1,8 @@
-# Framework_ScopedBlueprint v1.7 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# Framework_ScopedBlueprint v1.7.1 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# v1.7.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
+#   105 lines of version history and superseded companion blocks moved
+#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_ScopedBlueprint'. The current companion block, the
+#   v1.7 entry, and all structural notes remain in-file. Body byte-untouched.
 #
 # v1.7 — 2026-07-21 — HARDENING PASS on v1.6 (line-by-line adversarial re-audit, 2 passes,
 #   found and fixed 3 real issues before any downstream reliance):
@@ -23,111 +27,6 @@
 #   100:0:0, N=1, non-divisible Q rounding, N=200 uniformity, plus a Branch-A ramp regression
 #   and single-level-envelope degenerate case) — all assertions held, zero errors. Full
 #   before/after SHA256 diff of all 21 OTHER tracked files in the corpus confirmed untouched.
-#
-# v1.6 — 2026-07-21 — FEATURE: fixed-uniform difficulty override (--difficulty S:M:H). §5 gains
-#   a second mode alongside the default/`progressive` envelope-bounded ramp: an explicit S:M:H
-#   ratio (same parse/validate rules as the mock's S7-2 — colon or space-separated, whole numbers,
-#   sum=100) makes EVERY paper in the series identical, no ramp, and DELIBERATELY BYPASSES the
-#   scope envelope (§5 S5-2) — a requested level is honoured even with zero observed PYQ for that
-#   scope, per explicit user instruction. This is a FULL OVERRIDE, not envelope-masked: unlike the
-#   ramp's silent masking, override mode does not renormalise or substitute — it runs exactly the
-#   ratio given. No confirmation echo (mirrors the mock's behaviour on a valid ratio) and no schema
-#   addition — blueprint.json's difficulty_schedule[] is written identically to the ramp path, so
-#   nothing downstream (Step 7 G-QINDEX, MockTestCreateAudit, MockTestAnalyse) needs to change; all
-#   of them already consume difficulty_schedule[N] as a flat per-paper count with zero envelope-
-#   awareness. §5 S5-1/S5-2/S5-3 (envelope + ramp) are UNCHANGED and remain the default when
-#   --difficulty is omitted or 'progressive'. §10 DoD item 6 and the EXAM-AGNOSTIC GUARANTEE
-#   paragraph updated to state the invariant conditionally (mode-dependent) instead of absolutely.
-#
-# v1.5 — 2026-07-15 — FEATURE: qualified subtopic scope "Subject::Topic::SubTopic" (§2 S2-1,
-#   additive). The subtopic level now accepts three forms — (1) exact subtopic_id, (2) NEW
-#   "Subject::Topic::SubTopic" (narrows by section+topic, then matches display_name WITHIN that
-#   topic — so a name only has to be unique within its topic, not globally), (3) bare display
-#   name if globally unique — all resolving to a single subtopic_id before anything else runs.
-#   Zero downstream impact (resolution happens pre-emit). Clear HARD STOPs on wrong part-count,
-#   no-match (lists sub-topics under the topic), or intra-topic name collision (lists the ids).
-#   Proven by blueprint_scoped_scope_test.py + an e2e qualified-scope run.
-#
-# v1.4 — 2026-07-15 — CRITICAL FIX #3: emit subtopic_list answer_type + answer_cardinality (nested
-#   consumer-contract audit). Step 11's tag JOIN reads subtopic_list[].answer_type /
-#   .answer_cardinality (the mock emits them) to tag question type; §8-1 omitted both, so Step 11
-#   defaulted every scoped question to MCQ-single — mis-tagging NAT/MSQ subtopics. Fix: §1-3 parses
-#   both from section_rules via the new pure engine bc.parse_section_rules_field, and §8-1 emits them
-#   per subtopic. Found by diffing NESTED field reads (subtopic_list/section/allocation) against §8
-#   emits. Locked by e2e (8/8: NAT/MSQ values survive to subtopic_list). Engine: +parse_section_rules_field
-#   (self-test 33/33).
-#
-# v1.3 — 2026-07-15 — CRITICAL FIX #2: emit batch_size_qs (consumer-contract audit). Steps 7/8 read
-#   the axis-2 WINDOW size as bp.get('batch_size_qs', 10); §6 built axis_schedule for a window of
-#   batch_size papers, but §8 never emitted batch_size_qs → a non-default --batch_size silently fell
-#   back to 10 and mis-audited the axis-2 window. Fix: §8 emits 'batch_size_qs': batch_size. Found by
-#   diffing every blueprint field Steps 7-11 READ against what §8 EMITS (the integration seam the
-#   in-isolation e2e can't see). Locked by a non-default-batch_size assertion in the e2e (8/8).
-#
-# v1.2 — 2026-07-15 — CRITICAL FIX: blueprint_version emitted the SCHEMA version, not SCOPED_VERSION.
-#   §8 had emitted 'blueprint_version': SCOPED_VERSION ('1.0'); Step 7 gates blueprint_version against
-#   MIN_BLUEPRINT_VERSION=(1,7) → _ver_tuple('1.0')=(1,0) < (1,7) HARD-STOPPED every scoped generation.
-#   Fix: emit BLUEPRINT_SCHEMA_VERSION='1.35' (the shared blueprint.json schema version the mock also emits;
-#   passes the floor); SCOPED_VERSION is preserved as scope.scoped_spec_version. The scoped e2e never
-#   caught it (it runs the blueprint, not Step 7's gate) — now locked by an emitted-version floor
-#   assertion in blueprint_scoped_emit_test.py (6/6) + blueprint_scoped_e2e_test.py (7/7).
-#
-# v1.1 — 2026-07-15 — REGISTRY SCHEMA SYNC (seed only; zero logic). The §8-7 fresh-registry seed now
-#   includes semantic_usage=[] and exhausted_subtopics={} to MATCH the shared schema written by the
-#   generation layer (MockCreate v5.22 B) and the mock Blueprint v1.30 seed. Additive; byte-schema-
-#   identical to what Step 7 would self-heal. No allocation/emit/behaviour change.
-#
-# v1.0 — 2026-07-15 — RELEASE. Feature-complete (§1–§10) and adversarially verified. Two full
-#   QA passes (end-to-end trace + line-by-line) found and fixed 11 bugs; 0 remain. Verified by:
-#   validate_framework_md.py (0 issues, all AST clean); blueprint_scoped_e2e_test.py 7/7 (EXECUTES
-#   the assembled spec against mock inputs — fresh/subject/topic/subtopic runs, duplicate-display-
-#   name survival, resumption, old-registry migration, batch_size default, axis-schedule keys, and
-#   a static scan asserting NO undefined name in any branch); section harnesses alloc 7/7,
-#   difficulty 10/10, format 6/6, emit 5/5, resume 7/7; engine self-test 30/30, core_test 20/20,
-#   qa_pass2 6/6; pyflakes-clean embedded Python; every bc.* reference resolves to the engine.
-#   Blueprint math is the shared engine blueprint_core.py (identical to Framework_Blueprint v1.28).
-#   Remaining (separate deliverables, NOT this spec): the generation layer (Step-7 analog) — shared
-#   sharded registry, mock_n→paper_id generalisation of Steps 7–11, (item × angle)/spacing-8
-#   uniqueness — governed by the §9 registry contract.
-#
-# v0.1-qa — 2026-07-15 — ADVERSARIAL QA REMEDIATION (end-to-end, two-pass). The per-section
-#   harnesses proved every ALGORITHM but supplied inputs as fixtures, so the spec's own
-#   data-loading glue and cross-section keying were never exercised. End-to-end tracing found
-#   and fixed 8 bugs: (1-4) exam_config / section_rules / excel / flag were USED but never
-#   loaded/defined -> added the loads in §1-3 (section_rules via the new pure engine parser
-#   bc.parse_section_rules_difficulty) + the flag helper; (5) DISPLAY-NAME KEYING collapsed
-#   subtopics that share a display name within a scope -> re-keyed r_avg/allocation/emit to
-#   subtopic_id end-to-end (Excel keyed by the taxonomy triple); (6) paper_start was used in
-#   §8 but defined in §9 (after) -> relocated the registry load/gates to §1-4 and the resume
-#   offset to §2-4, so paper_id numbering resumes correctly (no collisions); (7) registry load
-#   misplaced -> §1-4; (8) engine mandate hardened to always import the freshly-copied engine.
-#   Now proven by blueprint_scoped_e2e_test.py (6/6: EXECUTES the assembled spec against mock
-#   inputs — fresh/subject/topic/subtopic runs, duplicate-display-name survival, resumption,
-#   old-registry migration, AND a static scan asserting NO undefined name in any branch) plus
-#   the five section harnesses (alloc 7/7, difficulty 10/10, format 6/6, emit 5/5, resume 7/7).
-#   Engine: bc.parse_section_rules_difficulty added (self-test 30/30, core_test 20/20).
-#
-# v0.1 — 2026-07-15 — INITIAL DRAFT. Built: §1 (session start, engine mandate, trigger,
-#   manifest load), §2 (scope selection + synthetic section), §3 (frequency), §4 (scoped
-#   allocation: per-batch independent allocation, coverage floor, Zero-PYQ floor, EC-11
-#   gate), §5 (difficulty: batch-local envelope-bounded ramp + cascade), §6 (format: hybrid
-#   per-scope three-axis signature — SUBJECT scope uses the precomputed subject distribution;
-#   TOPIC/SUBTOPIC rescope axis-2 from in-scope observed_axis2 and inherit axis-1/3 from the
-#   subject; ALL THREE axes renormalised to Q; zero-PYQ topic→subject→default cascade;
-#   section-relabel so the engine's pool-caps/feasibility filter matches in-scope ids).
-#   NOTE: bc.largest_remainder_apportion assumes its input sums to ~target (true for the mock,
-#   where real per-paper counts ≈ sec_qs); §6 normalises all three axes to Q so the internal
-#   apportionment deficit stays ~0 (a real-per-paper input summing >> Q would trip the
-#   apportioner's iteration guard and truncate — avoided by normalising, NOT an engine change).
-#   Proven: §4 blueprint_scoped_alloc_test.py 7/7; §5 blueprint_scoped_difficulty_test.py
-#   10/10; §6 blueprint_scoped_format_test.py 6/6; §7+§8 blueprint_scoped_emit_test.py
-#   5/5 (marking tier selection + full blueprint.json schema completeness). Built §7 (marking:
-#   modal tier for multi-tier subjects) + §8 (emit: complete blueprint.json in the exact shape
-#   Steps 7-11 read, single-section, per-paper paper_id). §9 (resumption: shared-registry
-#   load/seed, exam_code + taxonomy-drift + completeness HARD-STOP gates, auto-migration of old
-#   mock-only registries [snapshot→migrate→verify→idempotent], per-scope paper_id counter resume,
-#   append-only tier-agnostic, + the generation-layer registry CONTRACT) — blueprint_scoped_resume_test.py
-#   7/7. ALL §1-§9 BUILT (feature-complete draft). Pending: full adversarial QA, then v0.1 → v1.0.
 #
 # ═══════════════════════════════════════════════════════════════════════════
 # WHAT THIS IS (and is NOT)
@@ -1401,4 +1300,4 @@ strict-global uniqueness holds across all tiers:
          override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
 ```
 
-# END OF Framework_ScopedBlueprint v1.7 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
+# END OF Framework_ScopedBlueprint v1.7.1 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)

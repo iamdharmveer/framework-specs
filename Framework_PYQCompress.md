@@ -1,4 +1,8 @@
-# Framework_PYQCompress v1.1 — Universal Document Size Remediation
+# Framework_PYQCompress v1.1.1 — Universal Document Size Remediation
+# v1.1.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
+#   9 lines of version history and superseded companion blocks moved
+#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQCompress'. The current companion block, the
+#   v1.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | Layer 2 remediation | Exam-agnostic | Document-class-agnostic
 #
 # PURPOSE:
@@ -75,15 +79,6 @@
 #          an eligibility test. New EC-C1b covers the file that cannot be improved:
 #          corpus_io restores the original bytes and it is reported but not delivered,
 #          which stops CHECK 5 from hard-stopping the run on an already-optimal document.
-#   v1.0 — 2026-07-25 — Initial release. Layer 2 of the corpus-transport response
-#          (Framework_MockTestAnalyse v2.29 · Framework_PYQSort v1.12 ·
-#          Framework_PYQAnalyse v2.22 · Framework_PYQPrepare v1.9 · corpus_io v1.0.1).
-#          Upload → census → governor → parity assert → survival gate → deliver.
-#          Filename preservation is a HARD RULE (§2) because a renamed copy alongside
-#          the original is counted as a second paper by every enumeration in the
-#          pipeline — a silent year-level double count, which is a worse outcome than
-#          the transport problem being solved.
-
 ---
 
 ## §1 — SESSION START
@@ -671,4 +666,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQCompress v1.1
+# END OF Framework_PYQCompress v1.1.1
