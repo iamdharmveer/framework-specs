@@ -52,6 +52,7 @@
   "blueprint_core.py",
   "syllabus_provenance.py",
   "corpus_io.py",
+  "frequency_xlsx.py",
   "Framework_DeliveryFooter.md"
  ],
  "MockBlueprint": [

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.07.31.7
+- §16 FREQUENCY-XLSX IMPLEMENTATION EXTRACTED: 664 lines of workbook code (aggregation,
+  derived metrics, generation, and the 5 sheet writers) moved byte-identically from
+  Framework_MockTestAnalyse.md §16-1/§16-2/§16-4..§16-8 to the new hash-tracked engine
+  frequency_xlsx.py. The spec keeps §16's contract — sheet specifications (§16-3), the
+  9-item validation checklist (§16-9), the EC-F* frequency edge cases (§16-10) — and each
+  extracted subsection now names the engine functions it governs. The synthesis call site
+  uses `import frequency_xlsx as fx`. Session read: PYQExtract 9,012 -> 8,389 lines.
+  gen_manifest TRACKED_PY += frequency_xlsx.py; routes.json routes it to PYQExtract
+  (CHECK AH). Zero behavioural change; spec and engine parse and import clean.
+- Both SKILL copies: routed-engine count 8 -> 9 (frequency_xlsx.py is routed); the two
+  tracked-but-unrouted scripts (validate_framework_md.py, audit_canonical.py) named explicitly
+  so CHECK AA / audit_sync stay green.
+
 ## 2026.07.31.6
 - CANONICAL AUDITOR EXTRACTED: the 2,194-line fenced mock_test_audit.py source moved
   byte-identically from Framework_MockTestCreateAudit.md Appendix A to the new hash-tracked

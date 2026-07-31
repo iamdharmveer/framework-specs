@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.07.31.6",
+  "framework_version": "2026.07.31.7",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -55,6 +55,7 @@
       "blueprint_core.py",
       "syllabus_provenance.py",
       "corpus_io.py",
+      "frequency_xlsx.py",
       "Framework_DeliveryFooter.md"
     ],
     "MockBlueprint": [
@@ -184,11 +185,11 @@
       "bytes": 82863
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "6b8f835e1ab37e29a378c1c6d77812a14d1ace9bc7c0df81a2b59e6e493291d0",
-      "version_header": "# Framework_MockTestAnalyse v2.39.1 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.39.1",
-      "lines": 8373,
-      "bytes": 458151
+      "sha256": "55c60d1e7706e830a8d1c19ab3a5f8a8f8b87f6bfe8d47b2cc812dde134f3901",
+      "version_header": "# Framework_MockTestAnalyse v2.39.2 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.39.2",
+      "lines": 7752,
+      "bytes": 426897
     },
     "Framework_MockTestCreate.md": {
       "sha256": "8e9e85a6c51336e402aa80e6d6f263e03e85690e1e8d9ccf1c77e4ff6db1b9f5",
@@ -385,6 +386,13 @@
       "end_sentinel": "    main()",
       "lines": 2194,
       "bytes": 109735
+    },
+    "frequency_xlsx.py": {
+      "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "        ws.column_dimensions[get_column_letter(ci)].width = 13",
+      "lines": 695,
+      "bytes": 35405
     }
   }
 }
