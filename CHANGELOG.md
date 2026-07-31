@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026.07.31.2
+- Seals commit 3bbc36c (Framework_PYQCore v1.0.1 — the ERA-SYNC engine-sourcing line), which
+  landed after VERSION had already been stamped 2026.07.31.1. Its substance is described in
+  the 2026.07.31.1 entry below; this block exists so the version history and the shipped
+  commits stay in step, and to CORRECT three claims in that entry which do not match what
+  actually went live:
+  - SKILL.md engine count shipped as **9**, not "7→8". figural_core.py became the 9th engine
+    in release 2026.07.29.2 and was missing from the count; the uploaded file still said 8.
+  - CLAUDE.md was not merely "generalised": the stale bootstrap figure is now stated
+    explicitly as **31/31 — 22 Framework_*.md + 9 engines** (was 25/25 — 17 + 8), and the
+    SPEC_MANIFEST baseline as **40 files** (was 33).
+  - SPEC_MANIFEST.json shipped at **40 files (22 specs + 18 engines/auditors/tooling)**, not
+    the 22-file specs-only form the generator emitted. Narrowing it would have dropped the
+    second integrity baseline for all 9 engines, the 4 audit scripts and routes.json, which
+    contradicts CLAUDE.md's definition of it as "the wider workbench baseline — including the
+    audit and tooling scripts".
+- Release-manager note: the split was deployed via `main` → `main:production` fast-forward.
+  DEPLOY_INSTRUCTIONS.md §D directed `git checkout production` + `git push origin production`,
+  which the standing guardrail forbids; the instruction was not followed.
+- Verification at seal: bootstrap 31/31, validate_framework_md 0 issues across 22 files,
+  check_triggers consistent (24), audit_deep 0, audit_callgraph 0, audit_specs_ext 0 across
+  25 files, audit_sync clear of [ERA-SYNC]. MANIFEST.json regenerated independently and found
+  byte-identical to the one shipped with the split — 31 file hashes and 24 routes agreeing
+  across two separate generations.
+- Still open (owner action): the installed project skill at
+  /mnt/skills/user/mock-test-framework/SKILL.md must be replaced with the repo copy, or
+  audit_sync/CHECK AA keeps reporting the stale 17-spec claim.
+
 ## 2026.07.31.1
 - Framework_PYQAnalyse v2.29 SPLIT into 5 files with ZERO rule/functionality change
   (owner request: per-step context load; the 6,988-line monolith destabilised chat sessions).
