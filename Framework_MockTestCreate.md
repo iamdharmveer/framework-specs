@@ -67,7 +67,7 @@
 #     check (v2.6). It must print "SELF-TEST: N/N PASS" with N >= AUTH_GATE_FLOOR (35) AND
 #     be fixture-based (builds docx fixtures; asserts each gate CATCHES a planted defect and
 #     PASSES a clean one). The canonical auditor (Framework_MockTestCreateAudit.md Appendix
-#     A) self-tests 43/43. Request a corrected script if it prints N/M with N≠M, N < 35, is a
+#     A) self-tests 51/51. Request a corrected script if it prints N/M with N≠M, N < 35, is a
 #     CONSTANT-PRINT stub (no fixtures), exits non-zero, or errors. (The old "24/24"/"13/13"
 #     literals and the accept-ANY-N/N rule are superseded — see GATE-COUNT CONTRACT below.)
 #     PURPOSE: Self-check before Q1 to verify the script works.
@@ -101,7 +101,7 @@
 # Framework_MockTestCreateAudit.md Appendix A (v2.6+): the AUTHORITATIVE A-* gate set that
 # gates Step-8 delivery, carrying the --audit-state COMPLETION GATE (S5-1A, C1-C7) and a
 # FIXTURE-BASED self-test (SELF-TEST: N/N, N >= AUTH_GATE_FLOOR = 35; the canonical build
-# self-tests 43/43). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
+# self-tests 51/51). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
 # it. The old two-auditor / 13-vs-66 split is RETIRED — it enabled the hollow-stub false-clean.
 # RULE (v2.6 — kills BOTH count-drift AND the hollow stub): a caller runs `--self-test` and
 #   accepts "SELF-TEST: N/N PASS" ONLY WHEN the self-test is FIXTURE-BASED (builds docx
@@ -6656,13 +6656,13 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # CANONICAL AUDITOR — SINGLE SOURCE OF TRUTH (v5.17)
 # ────────────────────────────────────────────────────────────────────────
 #   The Step-8 auditor is NO LONGER a separate "minimum-viable" script embedded here.
-#   The ONE canonical, exam-agnostic auditor is defined VERBATIM in
-#       Framework_MockTestCreateAudit.md   Appendix A   (v2.6+)
+#   The ONE canonical, exam-agnostic auditor is the repo engine file
+#       audit_canonical.py   (hash-tracked; formerly CreateAudit Appendix A)
 #   and it is the ONLY auditor the pipeline generates or runs. It carries the full A-*
 #   gate catalogue, the --audit-state COMPLETION GATE (S5-1A, C1-C7 + on-disk evidence
 #   checks), and a FIXTURE-BASED self-test (builds tiny docx fixtures; asserts each gate
 #   CATCHES a planted defect and PASSES a clean one; SELF-TEST: N/N with N >= 35 — the
-#   canonical build self-tests 43/43).
+#   canonical build self-tests 51/51).
 #
 #   RETIRED (do NOT generate, copy, or use): the old 13-gate "minimum-viable" embedded
 #   script whose self_test() was a CONSTANT print ("SELF-TEST: 13/13 PASS") that executed
@@ -6672,8 +6672,10 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   again. MVP_GATE_COUNT and the 13-vs-66 two-build split no longer exist.
 #
 #   HOW THE SCRIPT IS BORN (Step 6 B3 — Framework_Blueprint.md §13-7A):
-#     B3 writes [ExamCode]_mock_test_audit.py by copying, VERBATIM, the fenced python
-#     block in Framework_MockTestCreateAudit.md Appendix A. No exam-specific edits are
+#     B3 writes [ExamCode]_mock_test_audit.py by copying, VERBATIM, the repo engine
+#     file audit_canonical.py (hash-tracked + bootstrap-verified; the single source of
+#     truth since CreateAudit v2.11.2 — formerly the fenced python block in
+#     Framework_MockTestCreateAudit.md Appendix A). No exam-specific edits are
 #     needed — the script parameterises itself from blueprint.json / section_rules.md /
 #     subtopic_manifest.json / registry.json at runtime. B3 then VALIDATES:
 #         python3 [ExamCode]_mock_test_audit.py --self-test

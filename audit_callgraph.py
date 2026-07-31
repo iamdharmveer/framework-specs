@@ -72,7 +72,8 @@ FIXTURE_HINT = re.compile(r'^(fake|good|bad|boom|dup|wrong|drop|make_bad|_)', re
 # ─────────────────────────────────────────────────────────────────────────────
 
 def python_blocks(path):
-    """Yield (start_line, source) for every ```python fenced block in a spec."""
+    """Yield (start_line, source) for every ```python fenced block in a spec.
+"""
     out, cur, start = [], None, 0
     for i, line in enumerate(open(path, encoding='utf8').read().split('\n'), 1):
         s = line.strip()
@@ -278,6 +279,12 @@ def c4_dead_engine(engine_funcs, corpus_exe, findings):
     go through the alias. Prose cannot produce this form, so DEFECT-4 detection is
     unaffected.
     """
+    # 2026.07.31.6: audit_canonical.py (the auditor extracted from CreateAudit
+    # Appendix A) stays a C4 call-site source — its engine calls were spec-embedded
+    # before extraction and remain runtime-reachable (Blueprint 13-7A copies+runs it).
+    import os as _os
+    if _os.path.exists('audit_canonical.py'):
+        corpus_exe = corpus_exe + '\n' + open('audit_canonical.py', encoding='utf-8').read()
     for name, src in sorted(engine_funcs.items()):
         if re.search(r'\b' + re.escape(name) + r'\s*\(', corpus_exe):
             continue

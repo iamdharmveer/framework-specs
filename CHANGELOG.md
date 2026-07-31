@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.07.31.6
+- CANONICAL AUDITOR EXTRACTED: the 2,194-line fenced mock_test_audit.py source moved
+  byte-identically from Framework_MockTestCreateAudit.md Appendix A to the new hash-tracked
+  engine file audit_canonical.py (self-test 51/51 verified post-extraction). Appendix A keeps
+  the full contract + pointer; Blueprint §13-7A now copies the engine file, ending the
+  mid-session cross-spec read of CreateAudit during MockBlueprint Step 8A. Sessions:
+  Mock/TestCreateAudit 5,920 -> 3,737 lines (-37%). gen_manifest TRACKED_PY += audit_canonical.py
+  (32 files verified). §21 regression lock, MANDATE A, and P1 apply to the engine file unchanged.
+- audit_callgraph.py: audit_canonical.py added as a call-site source — its blueprint_core
+  calls (check_figural_conformance, parse_image_analysis_blocks) were spec-embedded call
+  sites before extraction and remain runtime-reachable; without this, C4 false-fired on both.
+
 ## 2026.07.31.5
 - HEADER-CHANGELOG RELOCATION, 15 specs, 5,690 lines of history moved verbatim to the
   ARCHIVE sections at the bottom of this file (per-file blocks). Kept in every file:

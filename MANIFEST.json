@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.07.31.5",
+  "framework_version": "2026.07.31.6",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -163,11 +163,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "01b4d194a7bc0789a7823766e338d8fe96f88c586b8b864f3011db38861fb9cb",
-      "version_header": "# Framework_Blueprint v1.41.1 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.41.1",
-      "lines": 6590,
-      "bytes": 343569
+      "sha256": "0508113a2c3a7797aa6fe4bc35f03148489a0eb4c07f7be977c256b8322b1fdb",
+      "version_header": "# Framework_Blueprint v1.41.2 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.41.2",
+      "lines": 6597,
+      "bytes": 344005
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "29258a5091ddf0ae29d1d581b04835d843f4e3562734f1b7d7f32d1978789dd3",
@@ -191,18 +191,18 @@
       "bytes": 458151
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "b6116c147ab78b0d4e2d1e317d06260070c679f20b822565aef323e144528ef4",
+      "sha256": "8e9e85a6c51336e402aa80e6d6f263e03e85690e1e8d9ccf1c77e4ff6db1b9f5",
       "version_header": "# Framework_MockTestCreate v5.33.1",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 6830,
-      "bytes": 417236
+      "lines": 6832,
+      "bytes": 417405
     },
     "Framework_MockTestCreateAudit.md": {
-      "sha256": "f301be31484113348332941b48a472bfda893813acd9b3ded84fcc8e8afe243c",
-      "version_header": "# Framework_MockTestCreateAudit v2.11.1",
+      "sha256": "9f390036b50652065df070b09645805767f95e78ab855bcbc241f24857bf6e2e",
+      "version_header": "# Framework_MockTestCreateAudit v2.11.2",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 5281,
-      "bytes": 333790
+      "lines": 3100,
+      "bytes": 225000
     },
     "Framework_MockTestExplain.md": {
       "sha256": "35ee0af595836ad13bb1aced39778954597a98b4b0a2fcb4bacaea10143aa40e",
@@ -378,6 +378,13 @@
       "end_sentinel": "    print(\"figural_core.py \u2014 shared figure renderer + gates. Run with --self-test.\")",
       "lines": 1172,
       "bytes": 51906
+    },
+    "audit_canonical.py": {
+      "sha256": "577c0b7fc6697e56be41e588656c9d56fe6e182ff20825133b6c67a4c30f1457",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    main()",
+      "lines": 2194,
+      "bytes": 109735
     }
   }
 }

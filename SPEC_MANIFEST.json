@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.41.1",
-      "lines": 6591,
-      "sha256": "01b4d194a7bc0789a7823766e338d8fe96f88c586b8b864f3011db38861fb9cb",
-      "size_bytes": 343569,
-      "version_header": "# Framework_Blueprint v1.41.1 \u2014 Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.41.2",
+      "lines": 6598,
+      "sha256": "0508113a2c3a7797aa6fe4bc35f03148489a0eb4c07f7be977c256b8322b1fdb",
+      "size_bytes": 344005,
+      "version_header": "# Framework_Blueprint v1.41.2 \u2014 Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -30,17 +30,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 6831,
-      "sha256": "b6116c147ab78b0d4e2d1e317d06260070c679f20b822565aef323e144528ef4",
-      "size_bytes": 417236,
+      "lines": 6833,
+      "sha256": "8e9e85a6c51336e402aa80e6d6f263e03e85690e1e8d9ccf1c77e4ff6db1b9f5",
+      "size_bytes": 417405,
       "version_header": "# Framework_MockTestCreate v5.33.1"
     },
     "Framework_MockTestCreateAudit.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 5282,
-      "sha256": "f301be31484113348332941b48a472bfda893813acd9b3ded84fcc8e8afe243c",
-      "size_bytes": 333790,
-      "version_header": "# Framework_MockTestCreateAudit v2.11.1"
+      "lines": 3101,
+      "sha256": "9f390036b50652065df070b09645805767f95e78ab855bcbc241f24857bf6e2e",
+      "size_bytes": 225000,
+      "version_header": "# Framework_MockTestCreateAudit v2.11.2"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
@@ -155,9 +155,14 @@
       "version_header": "# Framework_ScopedBlueprint v1.7.1 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint"
     },
     "audit_callgraph.py": {
-      "lines": 526,
-      "sha256": "0e7484b4eb876545021dd666334799bab56bc4a5d0dd99d9fb22fb24391211eb",
-      "size_bytes": 24597
+      "lines": 533,
+      "sha256": "aa349386e63f86e13b49f437278370567f513a02b0387b150870f16cb282133e",
+      "size_bytes": 25010
+    },
+    "audit_canonical.py": {
+      "lines": 2195,
+      "sha256": "577c0b7fc6697e56be41e588656c9d56fe6e182ff20825133b6c67a4c30f1457",
+      "size_bytes": 109735
     },
     "audit_deep.py": {
       "lines": 178,

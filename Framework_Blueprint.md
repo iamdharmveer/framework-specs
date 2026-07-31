@@ -1,4 +1,7 @@
-# Framework_Blueprint v1.41.1 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.41.2 — Universal Mock Test Blueprint Generator
+# v1.41.2 — 2026-07-31 — §13-7A COPY SOURCE now audit_canonical.py (repo engine); the
+#   canonical auditor no longer requires opening Framework_MockTestCreateAudit.md
+#   mid-session. Behaviour identical (byte-identical script).
 # v1.41.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   825 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_Blueprint'. The current companion block, the
@@ -3482,13 +3485,16 @@ Step 8A Generate [ExamCode]_mock_test_audit.py (ref §13-7A):
             If an existing script PASSES the fixture-based self-test (same canonical
               version) → replacing with a fresh copy is safe; confirm.
             If not found → proceed silently.
-          Write the CANONICAL v2.6 auditor by copying, VERBATIM, the fenced python
-          block in Framework_MockTestCreateAudit.md Appendix A (SINGLE SOURCE OF
-          TRUTH — §13-7A). No exam-specific edits (it self-parameterises at runtime).
+          Write the CANONICAL auditor by copying, VERBATIM, the repo engine file
+          audit_canonical.py (SINGLE SOURCE OF TRUTH since CreateAudit v2.11.2;
+          hash-tracked + bootstrap-verified; formerly the fenced block in
+          Framework_MockTestCreateAudit.md Appendix A). Simply:
+          `cp /tmp/fw/audit_canonical.py [ExamCode]_mock_test_audit.py`
+          No exam-specific edits (it self-parameterises at runtime).
           VALIDATE: python3 [ExamCode]_mock_test_audit.py --self-test
             → MUST print "SELF-TEST: N/N PASS" with N >= 35 AND be FIXTURE-BASED
               (builds docx fixtures; asserts each gate catches + passes; canonical
-              build prints 43/43). A constant-print "N/N PASS" is REJECTED.
+              build prints 51/51). A constant-print "N/N PASS" is REJECTED.
             If output differs or is not fixture-based → HALT. Regenerate and retry.
 
         present_files with all 6 output files (ref §11 S11-3):
@@ -5024,8 +5030,8 @@ Lifecycle: Appended by Step 10 as audit patterns accumulate. Never fully replace
 Purpose  : Automated gate-check script for mock test papers.
            Step 7 (MockCreate) uses it OPTIONALLY for per-batch self-audit.
            Step 8 (MockCreateAudit) requires it MANDATORILY (HARD STOP without it).
-Content  : The CANONICAL v2.6 auditor, copied VERBATIM from the fenced python block
-           in Framework_MockTestCreateAudit.md Appendix A (SINGLE SOURCE OF TRUTH).
+Content  : The CANONICAL v2.6 auditor, copied VERBATIM from audit_canonical.py
+           (SINGLE SOURCE OF TRUTH).
            Full A-* gate catalogue + the --audit-state COMPLETION GATE (S5-1A, C1-C7)
            + a FIXTURE-BASED self-test (see AUDIT_SCRIPT_TEMPLATE below).
            The script reads blueprint.json and registry.json at RUNTIME — it does
@@ -5047,7 +5053,7 @@ COLLISION HANDLING (EC-D1, EC-D3):
 
 UPGRADE PATH — RETIRED (v1.27):
   There is no longer a "minimum viable vs full" split. Step 6 generates the ONE
-  canonical v2.6 auditor (Framework_MockTestCreateAudit.md Appendix A). The old
+  canonical v2.6 auditor (audit_canonical.py). The old
   13-gate MVP — whose self_test() was a CONSTANT print that executed no gate — is
   RETIRED; it enabled a false-clean Step-8 run (root cause:
   Framework_MockTestCreateAudit.md v2.6). Do NOT generate or accept it. Re-running
@@ -5076,23 +5082,24 @@ This section is the CANONICAL REFERENCE for how the audit script is generated.
 
 SINGLE SOURCE OF TRUTH (v1.27):
   The canonical, exam-agnostic auditor lives in ONE place:
-      Framework_MockTestCreateAudit.md   Appendix A   (v2.6+).
+      audit_canonical.py   (repo engine, hash-tracked + bootstrap-verified).
   It is the ONLY script Step 6 generates and the ONLY script Step 8 runs. It carries
   the full A-* gate catalogue, the --audit-state COMPLETION GATE (S5-1A, C1-C7 + on-
   disk evidence checks), and a FIXTURE-BASED self-test. The old MVP embedded in
-  Framework_MockTestCreate.md Appendix A is RETIRED; that file now POINTS here.
+  Framework_MockTestCreate.md Appendix A is RETIRED; that file now POINTS to
+  audit_canonical.py, as does Framework_MockTestCreateAudit.md Appendix A.
   Keeping ONE copy prevents the 13/35/66 drift that enabled the false-clean.
 
-CANONICAL_AUDITOR_SOURCE = Framework_MockTestCreateAudit.md, Appendix A (fenced python)
+CANONICAL_AUDITOR_SOURCE = audit_canonical.py (repo engine, hash-tracked; formerly CreateAudit Appendix A fenced python)
 SELF_TEST_CONTRACT       = fixture-based, "SELF-TEST: N/N PASS", N >= AUTH_GATE_FLOOR (35)
 
 At B3, Claude:
-  1. Copies, VERBATIM, the fenced python block from Framework_MockTestCreateAudit.md
-     Appendix A into [ExamCode]_mock_test_audit.py. No exam-specific substitution is
+  1. Copies, VERBATIM, the repo engine file audit_canonical.py to
+     [ExamCode]_mock_test_audit.py (cp /tmp/fw/audit_canonical.py). No exam-specific substitution is
      needed (the script self-parameterises from blueprint/rules/manifest/registry).
   2. Runs: python3 [ExamCode]_mock_test_audit.py --self-test
      → MUST print "SELF-TEST: N/N PASS" with N >= 35 AND be fixture-based (canonical
-       build prints 43/43). A constant-print "N/N PASS" is REJECTED.
+       build prints 51/51). A constant-print "N/N PASS" is REJECTED.
      If output differs or is not fixture-based → HALT. Do not deliver. Regenerate.
   3. Includes in B3 present_files call alongside other 5 files.
 ```
@@ -6232,8 +6239,8 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
        [ExamCode]_section_rules.md is ready for upload to [ExamCode] project.
        Step 2 MUST NOT start until BOTH Step 0 AND Step 1 are complete.
 ☐ 25. [ExamCode]_mock_test_audit.py generated per §13-7A rules (the canonical v2.6
-       auditor, verbatim from Framework_MockTestCreateAudit.md Appendix A); --self-test
-       passed FIXTURE-BASED with N >= 35 (43/43); included in B3 present_files delivery.
+       auditor, verbatim from audit_canonical.py); --self-test
+       passed FIXTURE-BASED with N >= 35 (51/51); included in B3 present_files delivery.
        Collision check completed if prior script existed (EC-D1/D3).
 ```
 
@@ -6587,4 +6594,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.41.1
+# END OF Framework_Blueprint v1.41.2
