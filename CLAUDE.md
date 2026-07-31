@@ -12,7 +12,7 @@ repo root before running the gate.
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **25/25** — 17 `Framework_*.md` + 8 engines. The count grows when a new spec/engine is added.)
+   **31/31** — 22 `Framework_*.md` + 9 engines. The count grows when a new spec/engine is added.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
    This includes the CORPUS-level checks (AA routes/skill sync, AB thin-core purity,
    AC aggregator single-exit, AD emitted-class documented, AE normalization conformance).
@@ -20,8 +20,8 @@ repo root before running the gate.
    checks (T, U, AF deliverable-filename contract, AG shared-artefact readers) are part
    of it too.
 
-(`MANIFEST.json`/`bootstrap.py` track the 25 files a session clones. `SPEC_MANIFEST.json`/
-`spec_manifest.py check` is the separate, wider workbench baseline — currently 33 files,
+(`MANIFEST.json`/`bootstrap.py` track the framework files a session clones (count = MANIFEST.json "files"). `SPEC_MANIFEST.json`/
+`spec_manifest.py check` is the separate, wider workbench baseline — currently 40 files,
 including the audit and tooling scripts. Both must be clean.)
 
 If any step fails: **STOP, show the error in plain words, push nothing.**

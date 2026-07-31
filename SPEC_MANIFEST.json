@@ -57,11 +57,18 @@
       "version_header": "# Framework_MockTestExplainAudit.md"
     },
     "Framework_PYQAnalyse.md": {
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.29",
-      "lines": 6989,
-      "sha256": "c4c68d2bf9c964bb8f74c282d846b0756ec551c8ec63f167b26fe9fcf841815b",
-      "size_bytes": 391780,
-      "version_header": "# Framework_PYQAnalyse v2.29 \u2014 Universal PYQ Analysis & Taxonomy Builder"
+      "end_sentinel": "# END OF Framework_PYQAnalyse v3.0",
+      "lines": 27,
+      "sha256": "4e4d8eda31b58ecc545c4767f47d3faf5a06e99e1ebdd0183a75debfac865b18",
+      "size_bytes": 1528,
+      "version_header": "# Framework_PYQAnalyse v3.0 \u2014 SPLIT STUB (superseded by 5-file architecture)"
+    },
+    "Framework_PYQApprove.md": {
+      "end_sentinel": "# END OF Framework_PYQApprove v1.0",
+      "lines": 660,
+      "sha256": "717c3ed2fdea4b5a0a2792fc18188480b97c4e883c8c3af5d34783179b29af11",
+      "size_bytes": 39993,
+      "version_header": "# Framework_PYQApprove v1.0 \u2014 PYQ Step 2c \u2014 Analysis Doc Generation & Approval (\u00a74)"
     },
     "Framework_PYQCompress.md": {
       "end_sentinel": "# END OF Framework_PYQCompress v1.1",
@@ -70,12 +77,33 @@
       "size_bytes": 33083,
       "version_header": "# Framework_PYQCompress v1.1 \u2014 Universal Document Size Remediation"
     },
+    "Framework_PYQCore.md": {
+      "end_sentinel": "# END OF Framework_PYQCore v1.0",
+      "lines": 1610,
+      "sha256": "63cca391fe9d3cef6668e5370c2fe06cbc1c1b95790cc70494ddb924097c59ab",
+      "size_bytes": 87955,
+      "version_header": "# Framework_PYQCore v1.0 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)"
+    },
+    "Framework_PYQCount.md": {
+      "end_sentinel": "# END OF Framework_PYQCount v1.0",
+      "lines": 1022,
+      "sha256": "69cab9c7bd96e72277aade2a82752bf0cee54beffeffc0406316b427ebff09f9",
+      "size_bytes": 54098,
+      "version_header": "# Framework_PYQCount v1.0 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)"
+    },
     "Framework_PYQDeliver.md": {
       "end_sentinel": "**End of Framework_PYQDeliver.md (v1.5.1)**",
       "lines": 1369,
       "sha256": "774efacc9e85fa80a149df368e392e82deed5734af4d72e0bf2c2fda7bbe467f",
       "size_bytes": 71880,
       "version_header": "# Framework_PYQDeliver v1.5.1 \u2014 Universal PYQ Portal Tagger & Delivery Engine"
+    },
+    "Framework_PYQDraft.md": {
+      "end_sentinel": "# END OF Framework_PYQDraft v1.0",
+      "lines": 948,
+      "sha256": "b0b87b0ebd7b10e87604560c50e4c47cb3f9654b1adf5f94eb0d1e35dfd011f5",
+      "size_bytes": 45903,
+      "version_header": "# Framework_PYQDraft v1.0 \u2014 PYQ Step 2a \u2014 Taxonomy Building from Syllabus (\u00a72)"
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
@@ -104,6 +132,13 @@
       "sha256": "742a1be30e986483d7daccaead490ed94b14a0eb1b0b9ebbfae9cde12519e6e9",
       "size_bytes": 178512,
       "version_header": "# Framework_PYQPrepare v1.14 \u2014 Universal PYQ Row File Generator"
+    },
+    "Framework_PYQScan.md": {
+      "end_sentinel": "# END OF Framework_PYQScan v1.0",
+      "lines": 1681,
+      "sha256": "15365d4ca73d745a4e1bc4712dbfef2a851cc38cfcfd569b11cf83538415bd17",
+      "size_bytes": 82295,
+      "version_header": "# Framework_PYQScan v1.0 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)"
     },
     "Framework_PYQSort.md": {
       "end_sentinel": "# END OF Framework_PYQSort v1.18",
@@ -201,9 +236,9 @@
       "size_bytes": 68963
     },
     "routes.json": {
-      "lines": 156,
-      "sha256": "d9e5394f3a4cd900fa77299fc77140dd24080b58d6cf2d40db023930d1d194af",
-      "size_bytes": 3397
+      "lines": 160,
+      "sha256": "dd68306e393342ee48c954bcd25554b4b0e69d8e41ad13a53b6df5a45fb541cf",
+      "size_bytes": 3494
     },
     "syllabus_provenance.py": {
       "lines": 444,
@@ -216,5 +251,5 @@
       "size_bytes": 94987
     }
   },
-  "generated_at": "2026-07-30T10:15:59+00:00"
+  "generated_at": "2026-07-31T06:24:48+00:00"
 }

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.07.29.3",
+  "framework_version": "2026.07.31.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -9,7 +9,8 @@
       "Framework_DeliveryFooter.md"
     ],
     "PYQDraft": [
-      "Framework_PYQAnalyse.md",
+      "Framework_PYQDraft.md",
+      "Framework_PYQCore.md",
       "blueprint_core.py",
       "syllabus_provenance.py",
       "corpus_io.py",
@@ -17,7 +18,8 @@
       "Framework_DeliveryFooter.md"
     ],
     "PYQScan": [
-      "Framework_PYQAnalyse.md",
+      "Framework_PYQScan.md",
+      "Framework_PYQCore.md",
       "blueprint_core.py",
       "syllabus_provenance.py",
       "corpus_io.py",
@@ -25,7 +27,8 @@
       "Framework_DeliveryFooter.md"
     ],
     "PYQApprove": [
-      "Framework_PYQAnalyse.md",
+      "Framework_PYQApprove.md",
+      "Framework_PYQCore.md",
       "blueprint_core.py",
       "reconcile_taxonomy.py",
       "syllabus_provenance.py",
@@ -39,7 +42,8 @@
       "Framework_DeliveryFooter.md"
     ],
     "PYQCount": [
-      "Framework_PYQAnalyse.md",
+      "Framework_PYQCount.md",
+      "Framework_PYQCore.md",
       "blueprint_core.py",
       "syllabus_provenance.py",
       "corpus_io.py",
@@ -215,11 +219,18 @@
       "bytes": 107922
     },
     "Framework_PYQAnalyse.md": {
-      "sha256": "c4c68d2bf9c964bb8f74c282d846b0756ec551c8ec63f167b26fe9fcf841815b",
-      "version_header": "# Framework_PYQAnalyse v2.29 \u2014 Universal PYQ Analysis & Taxonomy Builder",
-      "end_sentinel": "# END OF Framework_PYQAnalyse v2.29",
-      "lines": 6988,
-      "bytes": 391780
+      "sha256": "4e4d8eda31b58ecc545c4767f47d3faf5a06e99e1ebdd0183a75debfac865b18",
+      "version_header": "# Framework_PYQAnalyse v3.0 \u2014 SPLIT STUB (superseded by 5-file architecture)",
+      "end_sentinel": "# END OF Framework_PYQAnalyse v3.0",
+      "lines": 26,
+      "bytes": 1528
+    },
+    "Framework_PYQApprove.md": {
+      "sha256": "717c3ed2fdea4b5a0a2792fc18188480b97c4e883c8c3af5d34783179b29af11",
+      "version_header": "# Framework_PYQApprove v1.0 \u2014 PYQ Step 2c \u2014 Analysis Doc Generation & Approval (\u00a74)",
+      "end_sentinel": "# END OF Framework_PYQApprove v1.0",
+      "lines": 659,
+      "bytes": 39993
     },
     "Framework_PYQCompress.md": {
       "sha256": "136b75fec7d25b1342e56f5c210ae6ec6f20034489f6a8d4e70162f9236a5ab1",
@@ -228,12 +239,33 @@
       "lines": 674,
       "bytes": 33083
     },
+    "Framework_PYQCore.md": {
+      "sha256": "63cca391fe9d3cef6668e5370c2fe06cbc1c1b95790cc70494ddb924097c59ab",
+      "version_header": "# Framework_PYQCore v1.0 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.0",
+      "lines": 1609,
+      "bytes": 87955
+    },
+    "Framework_PYQCount.md": {
+      "sha256": "69cab9c7bd96e72277aade2a82752bf0cee54beffeffc0406316b427ebff09f9",
+      "version_header": "# Framework_PYQCount v1.0 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
+      "end_sentinel": "# END OF Framework_PYQCount v1.0",
+      "lines": 1021,
+      "bytes": 54098
+    },
     "Framework_PYQDeliver.md": {
       "sha256": "774efacc9e85fa80a149df368e392e82deed5734af4d72e0bf2c2fda7bbe467f",
       "version_header": "# Framework_PYQDeliver v1.5.1 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
       "end_sentinel": "**End of Framework_PYQDeliver.md (v1.5.1)**",
       "lines": 1368,
       "bytes": 71880
+    },
+    "Framework_PYQDraft.md": {
+      "sha256": "b0b87b0ebd7b10e87604560c50e4c47cb3f9654b1adf5f94eb0d1e35dfd011f5",
+      "version_header": "# Framework_PYQDraft v1.0 \u2014 PYQ Step 2a \u2014 Taxonomy Building from Syllabus (\u00a72)",
+      "end_sentinel": "# END OF Framework_PYQDraft v1.0",
+      "lines": 947,
+      "bytes": 45903
     },
     "Framework_PYQExplain.md": {
       "sha256": "8bf12a547953a91f25b4b6cf588932261b8e51cf27f961591141d01352b0bfc9",
@@ -262,6 +294,13 @@
       "end_sentinel": "# END OF Framework_PYQPrepare v1.14",
       "lines": 3686,
       "bytes": 178512
+    },
+    "Framework_PYQScan.md": {
+      "sha256": "15365d4ca73d745a4e1bc4712dbfef2a851cc38cfcfd569b11cf83538415bd17",
+      "version_header": "# Framework_PYQScan v1.0 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
+      "end_sentinel": "# END OF Framework_PYQScan v1.0",
+      "lines": 1680,
+      "bytes": 82295
     },
     "Framework_PYQSort.md": {
       "sha256": "db72c1170817b378ddef5ce3b2ccfbd6959868154cb4f0968210e554809f52db",

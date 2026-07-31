@@ -5,7 +5,7 @@ description: Central source of truth for the exam mock-test framework. Use this 
 
 # Mock Test Framework — Source of Truth
 
-The 17 framework specs and 7 engine scripts live ONLY in the central GitHub repo below,
+The 22 framework specs and 9 engine scripts live ONLY in the central GitHub repo below,
 never in project knowledge. NEVER work from memory or from any Framework_*.md that may
 appear in project knowledge. Always pull and verify the latest specs first.
 
@@ -27,13 +27,23 @@ if [ ! -d "$FW/.git" ]; then
 fi
 cd "$FW" && python3 bootstrap.py \
   || { echo "HARD STOP: framework verification failed. DO NOT proceed."; exit 1; }
+# Figure rendering + conformance gates (Framework v5.33 / Audit v2.11).
+# matplotlib is REQUIRED to render a figure; pillow and numpy are required for
+# the pixel gates; scipy and fonttools are optional. Absence never halts an
+# audit — every gate degrades to DORMANT-but-reported — but a Create step
+# CANNOT draw a figure without matplotlib, so install it here rather than
+# discover it as a traceback mid-paper.
+pip install matplotlib pillow numpy scipy fonttools --break-system-packages -q 2>/dev/null \
+  || echo "WARN: figure dependencies incomplete — run figural_core.preflight() and expect DORMANT figure gates."
+python3 -c "import figural_core as fc, json; print('FIGURE PREFLIGHT:', json.dumps(fc.preflight()['available']))" 2>/dev/null || true
 ```
 
 ## RULES
 
 1. If Step 0 prints "HARD STOP" or exits non-zero, STOP — generate nothing.
 2. After it succeeds, open the spec in /tmp/fw that matches the step the user asked for
-   (e.g. "MockDeliver M1" -> Framework_MockDeliver.md) and READ IT IN FULL — every line to
+   (e.g. "MockDeliver M1" -> Framework_MockDeliver.md; PYQDraft/PYQScan/PYQApprove/PYQCount each load their step file PLUS Framework_PYQCore.md — run
+   `python3 bootstrap.py --trigger <Step>` to print the exact entry file list) and READ IT IN FULL — every line to
    its "# END OF ..." sentinel. Some specs are thousands of lines (Blueprint ~6400) — read
    all pages, never a partial.
 3. Read blueprint.json / registry.json / per-exam files from /mnt/project (the project's

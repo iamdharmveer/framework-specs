@@ -6,7 +6,8 @@
   "Framework_DeliveryFooter.md"
  ],
  "PYQDraft": [
-  "Framework_PYQAnalyse.md",
+  "Framework_PYQDraft.md",
+  "Framework_PYQCore.md",
   "blueprint_core.py",
   "syllabus_provenance.py",
   "corpus_io.py",
@@ -14,7 +15,8 @@
   "Framework_DeliveryFooter.md"
  ],
  "PYQScan": [
-  "Framework_PYQAnalyse.md",
+  "Framework_PYQScan.md",
+  "Framework_PYQCore.md",
   "blueprint_core.py",
   "syllabus_provenance.py",
   "corpus_io.py",
@@ -22,7 +24,8 @@
   "Framework_DeliveryFooter.md"
  ],
  "PYQApprove": [
-  "Framework_PYQAnalyse.md",
+  "Framework_PYQApprove.md",
+  "Framework_PYQCore.md",
   "blueprint_core.py",
   "reconcile_taxonomy.py",
   "syllabus_provenance.py",
@@ -36,7 +39,8 @@
   "Framework_DeliveryFooter.md"
  ],
  "PYQCount": [
-  "Framework_PYQAnalyse.md",
+  "Framework_PYQCount.md",
+  "Framework_PYQCore.md",
   "blueprint_core.py",
   "syllabus_provenance.py",
   "corpus_io.py",
