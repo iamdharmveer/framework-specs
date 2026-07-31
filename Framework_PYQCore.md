@@ -1,4 +1,10 @@
-# Framework_PYQCore v1.0 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.0.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.0.1 — 2026-07-31 — ERA-SYNC SOURCING LINE (audit_sync). The split placed S2-3's
+#   prose mentions of OUT_OF_PATTERN in this file while the executable bc.OUT_OF_PATTERN
+#   call sites landed in Framework_PYQScan.md; audit_sync's per-file rule (any spec naming
+#   OUT_OF_PATTERN must source it from the engine) then fired on this file. Added an
+#   engine-sourcing comment to the S2-3 host note — scaffolding only, the hosted v2.29
+#   content remains byte-identical. Zero rule/functionality change.
 # v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
 #   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
 #   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
@@ -126,6 +132,10 @@ For --counts mode:
 # Executed by PYQDraft (Step 2a) as part of §2, AND by PYQScan S3-6 Refinement
 # (Domain Check, per-entry decision tree, 6 Pattern Dimensions Appendix).
 # ID, content and internal numbering unchanged from Framework_PYQAnalyse v2.29 §2.
+# ENGINE SOURCING: the OUT_OF_PATTERN sentinel named in this hosted section IS the
+# engine literal bc.OUT_OF_PATTERN (blueprint_core Cluster F — PATTERN ERA; same
+# constant as Framework_PYQSort v1.9 S2-2). Executable call sites live in
+# Framework_PYQScan.md S3-2a/S3-3b (RULE 4 OUT-OF-RANGE branch).
 
 ### S2-3 — Draft taxonomy generation
 
@@ -1606,4 +1616,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.0
+# END OF Framework_PYQCore v1.0.1

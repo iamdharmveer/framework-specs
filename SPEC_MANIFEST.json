@@ -78,11 +78,11 @@
       "version_header": "# Framework_PYQCompress v1.1 \u2014 Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
-      "end_sentinel": "# END OF Framework_PYQCore v1.0",
-      "lines": 1610,
-      "sha256": "63cca391fe9d3cef6668e5370c2fe06cbc1c1b95790cc70494ddb924097c59ab",
-      "size_bytes": 87955,
-      "version_header": "# Framework_PYQCore v1.0 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)"
+      "end_sentinel": "# END OF Framework_PYQCore v1.0.1",
+      "lines": 1620,
+      "sha256": "82152f3617d0532bf3cc8b311f7bf2c672228da12b5496e1c54cec13a45da269",
+      "size_bytes": 88775,
+      "version_header": "# Framework_PYQCore v1.0.1 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)"
     },
     "Framework_PYQCount.md": {
       "end_sentinel": "# END OF Framework_PYQCount v1.0",
@@ -251,5 +251,5 @@
       "size_bytes": 94987
     }
   },
-  "generated_at": "2026-07-31T06:24:48+00:00"
+  "generated_at": "2026-07-31T06:33:30+00:00"
 }

@@ -19,6 +19,11 @@
   ARCHIVE section at the bottom of this CHANGELOG. A token sweep verified every technical
   identifier in the deleted history is either present in the split body or was already
   history-only in the v2.29 body (nothing lost).
+- Framework_PYQCore.md v1.0.1: audit_sync [ERA-SYNC] fired post-split because S2-3's
+  prose mentions of OUT_OF_PATTERN landed in Core while the executable bc.OUT_OF_PATTERN
+  call sites landed in Framework_PYQScan.md. Added an engine-sourcing comment to the
+  S2-3 host note (scaffolding only; hosted v2.29 content remains byte-identical).
+  All four audit scripts now report 0 findings.
 - Housekeeping: mocktestframework_SKILL.md spec count 17→22 (and engine count 7→8, matching
   routes.json); CLAUDE.md stale "25 files" phrasing generalised; SPEC_MANIFEST.json and
   MANIFEST.json regenerated. Verified: bootstrap 31/31, validate_framework_md 0 issues
