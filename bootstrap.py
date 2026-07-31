@@ -12,9 +12,13 @@ Contract:
   - Exit 1 (HARD STOP)          -> on ANY failure. Caller MUST NOT proceed
                                    from memory / project knowledge.
 
---trigger is optional and advisory: if given and known, the gate prints which
-spec(s) are that step's entry point to read IN FULL. Verification always covers
-all files regardless of trigger.
+--trigger is optional and advisory: if given and known, the gate prints the
+step's entry files SPLIT BY ROLE — .md specs are to be READ IN FULL; .py engines
+are to be EXECUTED via `import` inside the spec's code blocks and must NOT be
+read into context (an engine can be thousands of lines; reading it wastes the
+session's context for zero benefit — the split exists because a route lists
+BOTH kinds and the old single-line advisory said "read IN FULL" for all of
+them). Verification always covers all files regardless of trigger.
 
 Usage:
     python3 bootstrap.py                     # verify whole framework
@@ -84,11 +88,17 @@ def main():
     if args.trigger:
         entry = routes.get(args.trigger)
         if entry:
-            print(f"Entry-point spec(s) for '{args.trigger}' — read IN FULL: {entry}")
+            specs = [f for f in entry if f.endswith(".md")]
+            engines = [f for f in entry if f.endswith(".py")]
+            print(f"Entry-point spec(s) for '{args.trigger}' — READ IN FULL: {specs}")
+            if engines:
+                print(f"Routed engine(s) for '{args.trigger}' — EXECUTE via `import` inside the "
+                      f"spec's code blocks; do NOT read these into context: {engines}")
         else:
             print(f"[note] trigger '{args.trigger}' not in advisory routes; "
                   f"read the spec whose header matches your step. All files are verified & present.")
-    print(".verified written. Read the needed spec(s) in full, then execute the step.")
+    print(".verified written. Read the needed spec(s) (.md) in full; engines (.py) are "
+          "executed, not read.")
 
 if __name__ == "__main__":
     main()

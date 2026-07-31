@@ -5,7 +5,9 @@ description: Central source of truth for the exam mock-test framework. Use this 
 
 # Mock Test Framework — Source of Truth
 
-The 22 framework specs and 9 engine scripts live ONLY in the central GitHub repo below,
+The 22 framework specs and 8 engine scripts live ONLY in the central GitHub repo below
+(8 = engines routed to triggers; a 9th tracked script, validate_framework_md.py, is the
+CI validator and is deliberately never routed),
 never in project knowledge. NEVER work from memory or from any Framework_*.md that may
 appear in project knowledge. Always pull and verify the latest specs first.
 
@@ -43,7 +45,7 @@ python3 -c "import figural_core as fc, json; print('FIGURE PREFLIGHT:', json.dum
 1. If Step 0 prints "HARD STOP" or exits non-zero, STOP — generate nothing.
 2. After it succeeds, open the spec in /tmp/fw that matches the step the user asked for
    (e.g. "MockDeliver M1" -> Framework_MockDeliver.md; PYQDraft/PYQScan/PYQApprove/PYQCount each load their step file PLUS Framework_PYQCore.md — run
-   `python3 bootstrap.py --trigger <Step>` to print the exact entry file list) and READ IT IN FULL — every line to
+   `python3 bootstrap.py --trigger <Step>` to print the entry files split by role) and READ IT IN FULL — the read-in-full rule applies to .md SPEC files ONLY; .py ENGINE files in the route are EXECUTED via `import` inside the spec's code blocks and must NOT be read into context — every line to
    its "# END OF ..." sentinel. Some specs are thousands of lines (Blueprint ~6400) — read
    all pages, never a partial.
 3. Read blueprint.json / registry.json / per-exam files from /mnt/project (the project's
