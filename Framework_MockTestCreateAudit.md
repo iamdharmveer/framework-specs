@@ -1,4 +1,31 @@
-# Framework_MockTestCreateAudit v2.18
+# Framework_MockTestCreateAudit v2.19
+# v2.19 — 2026-08-01 — THE DOSSIER WAS DELIVERED, STAGED, AND NEVER READ.
+#   GAP-2026-08-01-FLAG-NOT-INVOKED. v2.17 declared the Tier-A dossier as a
+#   delivered input (S0-1 item 7b) and audit_canonical.py grew a --dossier flag to
+#   consume it. NO DOCUMENTED INVOCATION PASSED THE FLAG. S5-1 and the Phase-3
+#   command both omitted it, and P0 never staged the file at all. Step 7 would write
+#   the dossier, the author would upload it, and the auditor would ignore it — every
+#   benefit silently lost while every gate reported clean: A-NAT-GRADE dormant,
+#   image_role defaulted, A-FIGCOMP reporting 27 findings where 7 are real.
+#
+#   THIS IS THE EXACT DEFECT THE DOSSIER EXISTS TO REPAIR, ONE LAYER UP. The original
+#   finding was: Step 7 writes concept_map, audit_canonical.py has a --key consumer,
+#   and nothing connects them. v2.17 fixed that and immediately recreated it — spec
+#   declares the input, engine exposes the flag, no invocation wires them. Two
+#   further releases shipped on top before the disconnect was noticed, and it was
+#   noticed only because someone asked what "--dossier" meant.
+#
+#   THE FIX: P0 stages the dossier when present (and prints which branch it took);
+#   S5-1 and the Phase-3 invocation both pass --dossier when P0 staged one; and
+#   validate_framework_md CHECK AM now fails the build whenever a spec declares an
+#   input, an engine exposes a flag for it, and no documented invocation passes it.
+#   A wiring instruction written only in prose is not wiring — this corpus has now
+#   proved that three times, and the third time it cost two releases.
+#
+#   OPERATOR SIGNAL: A-DOSSIER prints its consumed/not-consumed verdict on EVERY
+#   run. If it says "no Tier-A dossier consumed" while the file exists in
+#   /home/claude, the invocation is wrong. Fix it and re-run.
+#
 # v2.18 — 2026-08-01 — D1 (MANDATE 0 MADE IMPLEMENTABLE) + D3 (ENGINE API CONTRACT)
 #   + D8 (EC-V18 PRE-FLIGHT NOTICE). Three defects CERTAIN to recur on the next run.
 #   No gate semantics change; nothing about coverage changes.
@@ -1252,6 +1279,20 @@
       dst = os.path.join(WORK, name)
       shutil.copy(src, dst)
       paths[kind] = dst
+  # v2.19 — OPTIONAL Tier-A dossier (S0-1 item 7b). Absent on every pre-v5.35 mock,
+  # so it is staged if present and never required. Without this staging step the
+  # file would sit in uploads and never reach the auditor.
+  _dos_name = f'{EXAM}_M{N}_audit_dossier.json'
+  _dos_src = _find(_dos_name)
+  if _dos_src:
+      shutil.copy(_dos_src, os.path.join(WORK, _dos_name))
+      paths['dossier'] = os.path.join(WORK, _dos_name)
+      print(f"P0: Tier-A dossier staged ({_dos_name}) — will be passed to Part A "
+            f"via --dossier (S5-1).")
+  else:
+      paths['dossier'] = None
+      print(f"P0: no Tier-A dossier found ({_dos_name}) — legacy behaviour; "
+            f"subtopic/qtype/image_role are re-derived or defaulted (A-DOSSIER WARN).")
   if missing:
       raise SystemExit(
           "HARD STOP (P0): missing required input(s): " + ", ".join(missing) +
@@ -2021,8 +2062,20 @@
       --manifest  /home/claude/[ExamCode]_subtopic_manifest.json \
       --registry  /home/claude/[ExamCode]_registry.json \
       --mockN     [N] \
+      --dossier   /home/claude/[ExamCode]_M[N]_audit_dossier.json \
       --final
   ```
+  v2.19 — --dossier IS MANDATORY WHEN paths['dossier'] IS NOT None, and OMITTED
+  when it is None. Step 7 v5.35+ delivers the Tier-A dossier and P0 stages it; if
+  this flag is not passed, the auditor NEVER READS IT and every benefit is silently
+  lost — A-NAT-GRADE stays dormant, image_role defaults, and A-FIGCOMP over-reports
+  (27 findings instead of 7 on the reference paper). That was the state between
+  v2.17 and v2.19: the flag existed on the script, the file was delivered, and no
+  documented invocation passed it — the SAME producer/consumer disconnect the
+  dossier itself was created to repair, reintroduced one layer up. A-DOSSIER prints
+  the consumed/not-consumed verdict on EVERY run precisely so this cannot recur
+  silently: if it says "no Tier-A dossier consumed" while the file exists in
+  /home/claude, the invocation is wrong — fix it and re-run.
   v5.28: [paper_slug] is pp.paper_slug(paper_id) — "Mock[N]" zero-padded for a mock,
   else the scoped slug; the --blueprint path is whichever [ExamCode]*_blueprint.json
   file P0's pp.pick_blueprint actually selected (paths['blueprint']) — not necessarily
@@ -2046,7 +2099,11 @@
     python3 .../[ExamCode]_mock_test_audit.py \
         /home/claude/[ExamCode]_[paper_slug]_Create.docx \
         --blueprint ... --rules ... --manifest ... --registry ... --mockN N \
+        --dossier /home/claude/[ExamCode]_M[N]_audit_dossier.json \
         --final --audit-state /home/claude/[ExamCode]_M[N]_audit_state.json
+    (--dossier included whenever P0 staged one; omitted otherwise. The Phase-3 run
+     is the one that CERTIFIES, so a dossier consumed in Phase 1 and dropped here
+     would certify against different facts than were audited.)
 
   With --audit-state, run_audit performs Part A, then ADDS these assertions (ALL
   HARD; exit != 0 on any failure). K and total_questions come from the paper/state
@@ -4329,5 +4386,5 @@ Replace for registry.json), and next-step reference.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.18
+# END OF Framework_MockTestCreateAudit v2.19
 # ════════════════════════════════════════════════════════════════════════

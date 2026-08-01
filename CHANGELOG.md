@@ -1,6 +1,54 @@
 # Changelog
 
-## 2026.08.01.9
+## 2026.08.01.10
+GAP-2026-08-01-FLAG-NOT-INVOKED — **THE DOSSIER WAS DELIVERED, STAGED, AND NEVER
+READ.** A regression introduced by 2026.08.01.7 and shipped through two further
+releases.
+
+**What broke.** v2.17 declared the Tier-A dossier as a delivered input (S0-1 item
+7b) and `audit_canonical.py` grew a `--dossier` flag to consume it. **No documented
+invocation passed the flag.** S5-1 and the Phase-3 command both omitted it, and P0
+never staged the file at all. Step 7 would write the dossier, the author would
+upload it, and the auditor would ignore it — every benefit silently lost while every
+gate reported clean: `A-NAT-GRADE` dormant, `image_role` defaulted, `A-FIGCOMP`
+reporting 27 findings where 7 are real.
+
+**This is the exact defect the dossier exists to repair, one layer up.** The original
+finding was: Step 7 writes `concept_map`, `audit_canonical.py` has a `--key`
+consumer, and nothing connects them. v2.17 fixed that and immediately recreated it —
+spec declares the input, engine exposes the flag, no invocation wires them.
+
+**Why nothing caught it.** Every auditor passed, twice, across three releases. The
+wiring existed only as an assumption. It surfaced because the paper's author asked,
+in plain language, what `--dossier` meant.
+
+**The fix.**
+
+- **P0 stages the dossier** when present, and prints which branch it took — so the
+  operator sees "staged" or "not found" rather than inferring.
+- **S5-1 and the Phase-3 invocation both pass `--dossier`** when P0 staged one. The
+  Phase-3 run is the one that CERTIFIES; a dossier consumed in Phase 1 and dropped
+  there would certify against different facts than were audited.
+- **New `validate_framework_md.py` CORPUS CHECK AM — CLI FLAG INVOCATION PARITY.**
+  Fails the build whenever a spec declares an input, an engine exposes a flag for
+  it, and no documented invocation passes it. Also fails the inverse: a flag with no
+  declared input is either dead code or an undocumented dependency.
+
+**Verified:** AM reports 0 issues on the corrected corpus, and flags the defect when
+the `--dossier` lines are stripped from the invocations.
+
+**Operator signal:** `A-DOSSIER` prints its consumed/not-consumed verdict on every
+run. If it says "no Tier-A dossier consumed" while the file exists in
+`/home/claude`, the invocation is wrong.
+
+**The lesson, stated plainly because it has now cost three releases:** a wiring
+instruction written only in prose is not wiring. Checks AL and AM exist because
+single-file auditors cannot see contracts that span a step boundary.
+
+**Files:** `Framework_MockTestCreateAudit.md` v2.18 -> **v2.19**;
+`validate_framework_md.py` (CHECK AM); `CHANGELOG.md`; `VERSION`; `MANIFEST.json`.
+
+ 2026.08.01.9
 GAP-2026-08-01-DELIVERY-SET-DRIFT — **STEP 7 HARD-STOPPED AT PRE-DELIVERY ON EVERY
 EXAM.** A regression introduced by 2026.08.01.7, caught before any run.
 

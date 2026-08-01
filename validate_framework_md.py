@@ -1146,6 +1146,67 @@ def check_al_delivery_set(directory):
     return issues
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CHECK AM — CLI FLAG INVOCATION PARITY (spec <-> engine)
+# ─────────────────────────────────────────────────────────────────────────────
+# MOTIVATING DEFECT — the --dossier disconnect. Framework_MockTestCreateAudit v2.17
+# declared the Tier-A dossier as a delivered input and audit_canonical.py grew a
+# --dossier flag to read it. NO DOCUMENTED INVOCATION PASSED THE FLAG. Step 7 would
+# write the file, Step 8 would stage it, and the auditor would ignore it — every
+# benefit silently lost while every gate reported clean. Two further releases
+# shipped on top before a plain question surfaced it.
+#
+# That is the EXACT defect the dossier was built to repair (producer written,
+# consumer written, nobody wiring them), reintroduced one layer up. The lesson this
+# corpus keeps re-learning: a wiring instruction written only in prose is not
+# wiring. So the parity is now machine-checked.
+#
+# THE RULE: if a spec DECLARES an input and the engine EXPOSES a flag for it, at
+# least one documented invocation in that spec MUST pass the flag.
+_AM_CONTRACTS = [
+    # (spec file, engine file, flag, the input the flag consumes)
+    ('Framework_MockTestCreateAudit.md', 'audit_canonical.py',
+     '--dossier', 'audit_dossier.json'),
+]
+
+
+def check_am_flag_invocation_parity(directory):
+    issues = []
+    for spec, engine, flag, input_name in _AM_CONTRACTS:
+        sp = os.path.join(directory, spec)
+        ep = os.path.join(directory, engine)
+        if not (os.path.exists(sp) and os.path.exists(ep)):
+            continue
+        try:
+            spec_txt = open(sp, encoding='utf-8').read()
+            eng_txt = open(ep, encoding='utf-8').read()
+        except OSError:
+            continue
+        engine_has = ("'%s'" % flag) in eng_txt or ('"%s"' % flag) in eng_txt
+        if not engine_has:
+            continue                                  # flag retired; nothing to check
+        # An INVOCATION line is one that passes the flag with a value, inside a
+        # command block — not a prose mention of the flag's name.
+        invoked = any(
+            flag in ln and (ln.lstrip().startswith(flag)
+                            or ' %s ' % flag in ln or ' %s\t' % flag in ln)
+            and ('/home/claude' in ln or '...' in ln or '/' in ln.split(flag, 1)[1][:40])
+            for ln in spec_txt.splitlines())
+        if not invoked:
+            issues.append((spec,
+                '%s declares %s and %s exposes %s, but NO documented invocation '
+                'passes the flag. The input would be delivered, staged, and then '
+                'IGNORED — silently, with every gate reporting clean. A wiring '
+                'instruction written only in prose is not wiring.'
+                % (spec, input_name, engine, flag)))
+        if input_name not in spec_txt:
+            issues.append((spec,
+                'engine exposes %s but %s never declares %s as an input. A flag '
+                'with no declared input is either dead code or an undocumented '
+                'dependency; neither may ship.' % (flag, spec, input_name)))
+    return issues
+
+
 def check_ak_b3_cardinality(directory):
     issues = []
     # Sites that talk about the Step-6 B3 delivery specifically. Step 5's own
@@ -1867,6 +1928,9 @@ if __name__ == '__main__':
                 ('AL', 'STEP-7 DELIVERY-SET CONTRACT',
                  check_al_delivery_set,
                  'the delivery set is DERIVED, and every site agrees on it.'),
+                ('AM', 'CLI FLAG INVOCATION PARITY',
+                 check_am_flag_invocation_parity,
+                 'every engine flag for a declared input is actually passed.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')
