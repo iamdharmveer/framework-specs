@@ -1,4 +1,7 @@
-# Framework_DeliveryFooter v1.9.1 — Universal Delivery Footer Contract
+# Framework_DeliveryFooter v1.10
+# v1.10 — 2026-08-01 — §5 Q0b: CERTIFIED-DEGRADED (VISION) forces F1 AMBER.
+#   A paper certified under a MEASURED vision outage (RA-4 v2.16) delivers, but must
+#   never render green: some figures were machine-checked and never eyeballed. — Universal Delivery Footer Contract
 # v1.9.1 — 2026-08-01 — B3 STAYS AT 6 FILES; ENGINES COME FROM THE CLONE
 #   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, post-deploy correction). v1.9 briefly
 #   raised B3 to 8 by shipping blueprint_core.py + figural_core.py per exam. That was
@@ -577,7 +580,22 @@ After every present_files call, Claude evaluates:
             failing check and its remedy in the footer body.
             DO NOT render F2. Then END response.
 
-      NO  → continue to Q1.
+      NO  → Q0b (v1.10, Framework_MockTestCreateAudit v2.16 / D2): did Step 8 print
+            COMPLETION-GATE: DEGRADED (vision)?
+
+            YES → Render F1 (AMBER). The paper IS certified and IS delivered, but a
+                  measured vision outage meant some figures were machine-checked and
+                  never eyeballed. Name it exactly:
+                  "CERTIFIED-DEGRADED (VISION) — <v> of <i> image artefact(s) were not
+                   viewed (P3.5 probe FAILED). Figure arithmetic, tables and OMML were
+                   fully checked; legibility and figure/stem match were NOT visually
+                   confirmed. Remedy: re-run Step 8 on a session with a working view
+                   tool." Then END response.
+                  A degraded certificate must NEVER render green — green is a claim
+                  that the artefact is fit to hand downstream, and a partially
+                  un-eyeballed paper is fit to SHIP but not fit to be called clean.
+
+            NO  → continue to Q1.
 
       WHY THIS EXISTS. A step could previously report a FAIL and still render
       "Step Complete" in green. That is exactly what shipped the reference run:

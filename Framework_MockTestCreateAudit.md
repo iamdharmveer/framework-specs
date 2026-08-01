@@ -1,4 +1,52 @@
-# Framework_MockTestCreateAudit v2.15
+# Framework_MockTestCreateAudit v2.16
+# v2.16 — 2026-08-01 — D2 + D4: VISION IS A DECLARED, PROBED, DEGRADABLE DEPENDENCY
+#   (SESSION-EXHAUSTION programme, release 3 of 4+). THIS IS THE DEFECT THAT ACTUALLY
+#   HALTED A REAL AUDIT. Coverage is unchanged for every healthy run.
+#
+#   WHAT HAPPENED. On a live 60-Q paper the view() path failed mid-session. 43 images
+#   across 27 figural questions became un-stampable; S5-1A C6/C7 could therefore never
+#   pass; MANDATE D forbade delivery; and the spec defined NO state for "vision
+#   unavailable". The audit was permanently STUCK — not degraded, not reported, stuck.
+#   16 of 60 questions had been fully certified over two days and none of it could ship.
+#
+#   WHY THAT WAS WRONG BY THIS FRAMEWORK'S OWN DOCTRINE. §5 states "NO DEPENDENCY
+#   CONDITION MAY EVER HALT A RUN", and CLAUDE.md states "Silence is the defect; a halt
+#   is not the remedy." Graceful degradation was granted to blueprint_core, to
+#   figural_core, to all twelve figure gates and to every colour condition — and denied
+#   to the one dependency whose absence is fatal. RA-4 was doing TWO jobs with one rule:
+#   blocking a LAZY OPERATOR (right) and blocking an ENVIRONMENT OUTAGE (wrong).
+#
+#   D2 — A THIRD STAMP STATE, AND IT IS UNFAKEABLE. 'view-unavailable' joins
+#   'rendered-and-viewed' and (absent). The obvious danger is that "I could not see it"
+#   is exactly what a lazy operator would claim, so the state is NEVER assertable by
+#   choice: C6 admits it only when session_log.vision_probe carries a FAILED record for
+#   that batch AND the montage exists at >= EVIDENCE_MIN_BYTES. C6 also FAILS when
+#   vision has RECOVERED and the stamps were not upgraded — a paper that COULD have
+#   been fully audited must not certify degraded. A degraded run prints
+#   COMPLETION-GATE: DEGRADED (vision), exits 0, and ships under an F1 AMBER footer
+#   with a §R13 limitation. Identical treatment to EC-V18 legacy figures, which ~200
+#   exams already deliver under: machine-checked but not eyeballed, disclosed loudly,
+#   and strictly better than no paper at all.
+#
+#   D4 — P3.5 VISION PROBE. Vision was ambient; now it is declared. The probe renders
+#   three RANDOM glyphs and stores only a SALTED SHA-256 of them, so reading the
+#   sidecar reveals nothing and reporting the glyphs requires actually seeing the card.
+#   That is what turns vision from an operator claim into a MEASURED fact — the whole
+#   D2 safety argument rests on it. It runs at pre-flight AND at the start of every
+#   Phase-2 batch, because the incident had Batch 1 healthy and Batch 2 not: a
+#   start-of-session probe alone would have missed it. A probe RENDER failure is an
+#   ENVIRONMENT WARN and explicitly NOT a vision verdict (E4.5).
+#
+#   NOT TOUCHED: tables/matrices/charts/OMML are arithmetic, not vision (E2.7), and
+#   remain fully authoritative. A missing or trivial montage is still un-audited and
+#   still blocks (E2.5/E2.6). A key that cannot be derived without sight is a VOID_ITEM
+#   (E2.8), never silently keyed. RA-3, RA-15a, MANDATE B and every healthy-run verdict
+#   are byte-identical to v2.15.
+#
+#   Self-test 89 -> 97. Six guarantees mutation-verified. NO FIXTURE HAD EVER SIMULATED
+#   A VISION OUTAGE — the fifth appearance of the hollow-branch class (v2.10 bc binding,
+#   v2.12 A-FIGPROFILE, v2.13 Block.images, v2.15 unknown-schema, now this).
+#
 # v2.15 — 2026-08-01 — C1: AN AUDIT CAN NOW SURVIVE A SESSION BOUNDARY
 #   (SESSION-EXHAUSTION programme, release 2 of 4). Coverage UNCHANGED.
 #
@@ -621,13 +669,54 @@
   RA-3  : AUDIT EVERYTHING, SAMPLE NOTHING. Every question, every option, every
           image, every table cell, every OMML node is checked. Zero sampling.
           "Spot-check N random Qs" is FORBIDDEN for any content-correctness check.
-  RA-4  : RENDER-OR-RECOMPUTE OR IT DOESN'T COUNT. A visual/structured check is
-          valid only if the artefact was rendered and VIEWED (images/charts) or
-          parsed and ARITHMETICALLY RECOMPUTED (tables/matrices/OMML). A check
-          asserted from filename, alt-text, p.text, or "looks present" is void
-          and the item is treated as un-audited (§7, §18 invariants). v2.6: the
-          VIEW/RECOMPUTE must leave a durable evidence artefact on disk (§9-1) that
-          S5-1A verifies — an un-backed stamp is treated as un-audited.
+  RA-4  : RENDER-OR-RECOMPUTE OR IT DOESN'T COUNT — WITH ONE DECLARED, MEASURED
+          ENVIRONMENT STATE (v2.16 / D2). A visual/structured check is valid only if
+          the artefact was rendered and VIEWED (images/charts) or parsed and
+          ARITHMETICALLY RECOMPUTED (tables/matrices/OMML). A check asserted from
+          filename, alt-text, p.text, or "looks present" is void and the item is
+          treated as un-audited (§7, §18 invariants). The VIEW/RECOMPUTE must leave a
+          durable evidence artefact on disk (§9-1) that S5-1A verifies — an un-backed
+          stamp is treated as un-audited.
+          WHY v2.16 EXISTS. Until now RA-4 did TWO jobs with one rule: it blocked a
+          LAZY OPERATOR from skipping a view (correct, and unchanged) and it also
+          blocked an ENVIRONMENT OUTAGE from degrading (wrong). When the view path
+          failed mid-session on a real 60-Q paper, 43 images across 27 figural
+          questions became un-stampable, C6/C7 could never pass, MANDATE D forbade
+          delivery, and there was NO defined state for "vision unavailable": the audit
+          was permanently STUCK, not degraded. That contradicts this framework's own
+          doctrine — §5's "NO DEPENDENCY CONDITION MAY EVER HALT A RUN" and CLAUDE.md's
+          "Silence is the defect; a halt is not the remedy." Degradation was granted to
+          blueprint_core, to figural_core, to all twelve figure gates and to every
+          colour condition, and denied to the one dependency whose absence is fatal.
+          THREE STAMP STATES, and only three:
+            • 'rendered-and-viewed' — montage saved AND actually viewed. Certifies
+              normally. This remains the ONLY clean state.
+            • 'view-unavailable'    — montage saved and >= EVIDENCE_MIN_BYTES, AND a
+              P3.5 probe MEASURED the outage for that batch. NEVER assertable by
+              choice (see below). Certifies DEGRADED.
+            • (absent)              — un-audited. Blocks exactly as before.
+          THE STAMP IS UNFAKEABLE, WHICH IS THE WHOLE SAFETY ARGUMENT. "I could not
+          see it" is precisely what a lazy operator would claim, so it may never be an
+          operator's word. S5-1A C6 admits 'view-unavailable' ONLY when
+          session_log.vision_probe carries a FAILED record — a MEASURED fact produced
+          by P3.5, whose expected glyphs are stored as a salted SHA-256 so that
+          reporting them requires actually seeing the card. C6 additionally FAILS if
+          vision has since RECOVERED and the stamps were not upgraded (E2.3): a paper
+          that COULD have been fully audited must not certify degraded.
+          DELIVERY CONSEQUENCE. A degraded run prints
+          `COMPLETION-GATE: DEGRADED (vision) — ...`, exits 0, certifies as
+          CERTIFIED-DEGRADED (VISION), forces the F1 AMBER footer and writes a §R13
+          limitation. Delivery is NOT blocked. This is the identical treatment EC-V18
+          legacy figures already receive across ~200 exams: a paper whose figures were
+          machine-checked but not eyeballed is in the same epistemic class, and is
+          demonstrably better than the current outcome, which is NO PAPER AT ALL.
+          WHAT DOES NOT DEGRADE. Tables, matrices, charts-as-data and OMML are
+          ARITHMETIC, not vision (E2.7) — unaffected by an outage and still fully
+          authoritative. A missing or trivial montage is NOT a vision condition
+          (E2.5/E2.6): the item is un-audited and blocks. A question whose key cannot
+          be derived without sight (E2.8) is a VOID_ITEM — status
+          'regenerated-required', listed in §R13 and the dashboard as KEY NOT
+          DERIVABLE. It MUST NOT be silently keyed.
   RA-5  : RECTIFY, DON'T JUST REPORT. Every defect found is FIXED in the same
           session (§8): mechanical defects in place; content defects by
           regenerating that one question under Step 7's contracts; then re-audited.
@@ -1210,6 +1299,44 @@
   NOT re-initialise the ledger — both are reloaded (RA-18). Phase 2 resumes at the
   first batch not in batches_done; already-reviewed questions are NOT re-reviewed;
   the whole-paper Part A still runs for each resumed batch (RA-7).
+
+## P3.5 — VISION PROBE (v2.16 / D4) — MANDATORY, NEVER A HARD STOP
+
+  WHY. Pre-flight validated engines, JSON integrity, ZIP/rId, encoding, block count,
+  sequence, monotonicity and ran a 97-fixture self-test — and then the audit failed on
+  a dependency NEVER CHECKED AT ALL. §3 treated vision as ambient despite RA-4 making
+  it load-bearing for C6/C7 and therefore for delivery. This converts a two-day
+  discovery into a one-minute fact, and it is the cheapest change in this release.
+
+  ```bash
+  # 1) render the probe card (3 random glyphs; expected value stored ONLY as a
+  #    salted sha256, so the sidecar reveals nothing)
+  python3 /home/claude/[ExamCode]_mock_test_audit.py /home/claude/[paper].docx \
+      --vision-probe /home/claude/[ExamCode]_M[N]_evidence --batch [b]
+  # 2) VIEW evidence/montages/_probe.png, then report what you actually saw
+  python3 /home/claude/[ExamCode]_mock_test_audit.py /home/claude/[paper].docx \
+      --vision-probe-verify /home/claude/[ExamCode]_M[N]_evidence \
+      --glyphs [what you saw] --batch [b] \
+      --audit-state /home/claude/[ExamCode]_M[N]_audit_state.json
+  ```
+
+  • `VISION-PROBE: OK`        → normal operation for this batch.
+  • `P3.5 VISION PROBE FAILED` → §7 Layer-B viewing is unavailable. The audit RUNS and
+    DELIVERS; every figural item audited under this outage carries 'view-unavailable'
+    and the paper certifies CERTIFIED-DEGRADED (VISION) with an F1 AMBER footer.
+    **NOT a hard stop.**
+  • `P3.5-RENDER-FAIL`         → ENVIRONMENT WARN only (E4.5). Inferring an outage from
+    "we could not draw the test card" would degrade a healthy run. NEVER a vision
+    verdict.
+
+  RUN IT AT PRE-FLIGHT **AND AT THE START OF EVERY PHASE-2 BATCH**, recording the
+  result per batch. A mid-run transition in EITHER direction is expected and must be
+  captured — the incident that motivated this release had Batch 1 healthy and Batch 2
+  not, so a start-of-session probe alone would have missed it. Two failed attempts on
+  distinct paths constitute FAILED for that batch; no flapping (E4.3). If vision
+  RECOVERS, every prior 'view-unavailable' MUST be re-attempted and upgraded before
+  Phase 3 — C6 FAILS otherwise (E2.3). A paper with zero images still runs the probe
+  and records the result, but it is non-blocking and not reported in §R13 (E4.4).
 
 ## P1 — Audit-script self-test (MANDATE A) — HARDENED (v2.6)
 
@@ -2683,6 +2810,12 @@
   OR whose named evidence file is missing/trivial = an un-audited visual/structured item
   = SHIP is BLOCKED (RA-4 / RA-19 / §18 / S5-1A C6/C7). There is NO sampling and NO
   "[not-viewed]" exemption.
+  v2.16 (D2) — THE ONE EXCEPTION, AND IT IS MEASURED, NOT CLAIMED. An image artefact
+  may carry 'view-unavailable' when, and only when, a P3.5 probe FAILED for that batch
+  AND its montage exists at >= EVIDENCE_MIN_BYTES. Such a paper certifies DEGRADED —
+  never clean — exits 0, and ships under an F1 AMBER footer with a §R13 limitation.
+  Absent a failed probe, or with a missing/trivial montage, the sentence above stands
+  unchanged and SHIP is BLOCKED. Vision degradation is never an operator's word.
 
 # ════════════════════════════════════════════════════════════════════════
 # §8 — RECTIFICATION ENGINE (fix in place; regenerate under Step-7 contracts)
@@ -3545,6 +3678,10 @@ Replace for registry.json), and next-step reference.
   | Mandatory subtopic missing | RG — regenerate one question into the mandatory subtopic. |
   | Alternation-group members co-occur | RG — replace one with its alternation partner / a different subtopic. |
   | A batch fix opens a global defect | Resolve in the same batch via the §8-3 loop before ending (RA-7). |
+  | **`view()` fails / vision path unavailable** | NOT a halt (v2.16/D2). Run P3.5 (`--vision-probe` then `--vision-probe-verify`). On FAILED, continue the audit and stamp those items `view-unavailable`: the paper certifies CERTIFIED-DEGRADED (VISION), exits 0, ships with an F1 AMBER footer and a §R13 limitation. Tables/OMML/charts are arithmetic and unaffected. A question whose key needs sight is a VOID_ITEM — KEY NOT DERIVABLE, never silently keyed. |
+  | **`C6 FAIL: view-unavailable claimed with NO FAILED vision probe`** | The stamp is not admissible. Vision degradation is a MEASURED fact, not a claim — run P3.5 and record its result, or view the images. This gate exists precisely so "I couldn't see it" cannot become a way to skip work. |
+  | **`C6 FAIL: vision has RECOVERED but view-unavailable stamps were not upgraded`** | The view tool came back. Re-attempt every degraded item and upgrade its stamp before Phase 3. A paper that CAN be fully audited must not certify degraded. |
+  | **`P3.5-RENDER-FAIL`** | Environment WARN only (PIL unavailable). NOT a vision verdict — do not infer an outage, and do not degrade any stamp on this basis. |
   | **Session exhausted mid-Phase-2** | Upload the last `[ExamCode]_M[N]_audit_checkpoint.zip` and re-run with `resume` (v2.15/C1). P0.5C verifies and rehydrates it; the audit continues at the first unfinished batch with its evidence intact. WITHOUT a checkpoint the audit CANNOT be resumed — /home/claude does not survive a session boundary and S5-1A C5/C6 assert the evidence files exist — so it restarts at Phase 1. Never fabricate a ledger to satisfy the gate. |
   | **`CHECKPOINT: REFUSED — ...`** | Restore is all-or-nothing and wrote nothing. Read the reason: unknown schema (bundle from a different framework build), integrity failure (a member's sha256 changed), or an identity mismatch (exam_code / mock / paper MD5 disagree with the paper in hand). The paper-MD5 case is the critical one — restoring onto a different document would certify an audit nobody performed on it. Upload the correct bundle or re-run from Phase 1. Never hand-edit a checkpoint. |
   | **Checkpoint zip appears in /mnt/user-data/outputs at delivery** | Expected mid-audit (MANDATE D carve-out) and cleared automatically by S14-2 before the ONE certification present_files. If it ever survives into the delivered set, S14-2 check 7 fails — fix, do not ship. |
@@ -3560,7 +3697,8 @@ Replace for registry.json), and next-step reference.
   3.  Part B: every question reviewed (zero sampling); zero open content defect.
       (mechanically asserted by S5-1A C2+C3; not self-attested)
   4.  §7: every image rendered-and-viewed; every table/matrix/chart/OMML recomputed;
-      zero un-audited visual/structured item (no "[not-viewed]"); all stamped AND their
+      zero un-audited visual/structured item (no "[not-viewed]"); a MEASURED-outage
+      'view-unavailable' stamp (RA-4 v2.16) satisfies this as DEGRADED, not clean; all stamped AND their
       evidence files present (RA-4/RA-19). (mechanically asserted by S5-1A C6+C7)
   5.  B-UNIQUE verified for EVERY question (exactly one defensible answer).
       (mechanically asserted by S5-1A C4)
@@ -3599,6 +3737,16 @@ Replace for registry.json), and next-step reference.
   • Figural transformation correctness and answer uniqueness rest on reviewer reasoning
     over the VIEWED image (no machine proof) — but viewing is mandatory, un-sampled, and
     evidence-backed (the montage that was viewed is saved and its presence is gated).
+  • CERTIFIED-DEGRADED (VISION) IS A REAL, DISCLOSED WEAKNESS (v2.16/D2). Under a
+    measured vision outage the twelve figure gates still run (they are arithmetic over
+    the PNG), tables and OMML are still recomputed, and every question is still solved
+    — but no human or model EYE confirmed the affected figures. Legibility, mislabelled
+    axes and figure/stem mismatch are exactly what viewing catches and arithmetic does
+    not. Such a paper certifies, ships, and says so loudly: DEGRADED on the completion
+    line, F1 AMBER on the footer, a §R13 limitation naming the count. Re-run on a
+    session with a working view tool for full coverage. This is a deliberate choice of
+    a disclosed partial audit over no paper at all — the same trade EC-V18 already
+    makes for ~200 legacy exams.
   • RESUMING ACROSS A SESSION REQUIRES THE CHECKPOINT (v2.15/C1). Step 8's state
     lives in /home/claude, which does not survive a session boundary. The
     checkpoint makes a multi-session audit possible, but it is an ARTEFACT THE
@@ -3717,7 +3865,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.13 build prints 89/89 — see tests 16-20).
+#     v2.12; the v2.13 build prints 97/97 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -3772,6 +3920,13 @@ Replace for registry.json), and next-step reference.
 #        the call sites, bound nowhere. Test 15 (Context-2) proves the file runs
 #        ALONE; this proves its entry point actually invokes what it added.
 #        (fixture 63)
+#    24. VISION DEGRADATION (v2.16/D2+D4): a MEASURED outage certifies DEGRADED at
+#        exit 0; the SAME stamp with no failed probe FAILS; a RECOVERED probe with
+#        un-upgraded stamps FAILS; a trivial montage still blocks; a MIXED ledger is
+#        legal; a healthy run is byte-identical to v2.15; the probe sidecar leaks no
+#        glyph; and a render failure is never a vision verdict. NO FIXTURE HAD EVER
+#        SIMULATED A VISION OUTAGE before v2.16 — the fifth hollow branch this corpus
+#        has found. (fixtures 78-85)
 #    23. CHECKPOINT ROUND TRIP (v2.15/C1): build a checkpoint, DESTROY the source
 #        directory (the session boundary), restore into a fresh one, and run the
 #        REAL completion gate -> MUST certify. This is the fixture the release
@@ -3818,7 +3973,7 @@ Replace for registry.json), and next-step reference.
 #   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
-#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (89/89) all pass, and
+#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (97/97) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -3849,7 +4004,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 89/89 PASS  (exit 0) on the v2.13 canonical
+#     • `--self-test`  → SELF-TEST: 97/97 PASS  (exit 0) on the v2.13 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -3917,10 +4072,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 89/89). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 97/97). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.15
+# END OF Framework_MockTestCreateAudit v2.16
 # ════════════════════════════════════════════════════════════════════════

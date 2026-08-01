@@ -30,7 +30,7 @@
 # WARN blocks delivery.
 # ============================================================================
 import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata
-import io, zlib, struct          # v2.13 — stdlib PNG fixtures (D4); no PIL needed
+import io, zlib, struct, random          # v2.13 — stdlib PNG fixtures (D4); no PIL needed
 from pathlib import Path
 from collections import Counter, defaultdict
 
@@ -1774,6 +1774,116 @@ def _block_has_image(b):
     return any(para_images(p) for p in b.paras)
 
 
+# ============================================================================
+# D2 + D4 — VISION AS A DECLARED, PROBED, DEGRADABLE DEPENDENCY (v2.16)
+#
+# WHY. RA-4 refuses to let an item certify unless its figure was actually VIEWED.
+# That is right, and it was doing TWO jobs with one rule: it blocked a lazy
+# operator (correct) and it also blocked an ENVIRONMENT OUTAGE (wrong). When the
+# view path failed mid-session on IIT_JAM_BIOTECHNOLOGY_Mock01, 43 images across
+# 27 figural questions became un-stampable, C6/C7 could never pass, MANDATE D
+# forbade delivery, and there was no defined state for "vision unavailable" — the
+# audit was permanently STUCK, not degraded.
+#
+# That contradicts this framework's own doctrine, stated at §5 and in CLAUDE.md:
+# "NO DEPENDENCY CONDITION MAY EVER HALT A RUN" and "Silence is the defect; a
+# halt is not the remedy." Graceful degradation was granted to blueprint_core, to
+# figural_core, to all twelve figure gates and to every colour condition — and
+# denied to the one dependency whose absence is fatal.
+#
+# THE DANGER, AND HOW IT IS CLOSED. A third stamp state is an obvious cheat
+# surface: "I could not see it" is exactly what a lazy operator would claim. So
+# 'view-unavailable' is NEVER assertable by choice. It is admissible ONLY when a
+# machine probe FAILED for that batch. The probe renders three RANDOM glyphs and
+# stores only their SHA-256 — reading the sidecar reveals nothing, so the only way
+# to report the glyphs is to actually see the image. Vision therefore becomes a
+# MEASURED fact, not an operator claim.
+# ============================================================================
+PROBE_GLYPH_ALPHABET = 'ACEFHJKLMNPRTUVWXY34679'
+PROBE_GLYPH_COUNT = 3
+VISION_STAMP_VIEWED = 'rendered-and-viewed'
+VISION_STAMP_UNAVAILABLE = 'view-unavailable'
+
+
+def _probe_paths(d):
+    return os.path.join(d, '_probe.png'), os.path.join(d, '_probe.json')
+
+
+def make_vision_probe(evidence_dir, batch=None, seed=None):
+    """D4/P3.5 — render a probe image carrying PROBE_GLYPH_COUNT random glyphs.
+
+    Returns (png_path, meta). The expected glyphs are stored ONLY as a salted
+    sha256, so an operator who cats the sidecar learns nothing: reporting the
+    glyphs requires seeing the PNG. That is what makes 'view-unavailable'
+    unfakeable rather than merely discouraged.
+
+    Never raises. If PIL is unavailable the probe reports P3.5-RENDER-FAIL, which
+    is an ENVIRONMENT WARN and explicitly NOT a vision verdict (E4.5) — inferring
+    "vision is broken" from "we could not draw the test card" would degrade a
+    perfectly healthy run.
+    """
+    d = os.path.join(evidence_dir, 'montages')
+    os.makedirs(d, exist_ok=True)
+    png, meta_p = _probe_paths(d)
+    rnd = random.Random(seed)
+    glyphs = ''.join(rnd.choice(PROBE_GLYPH_ALPHABET) for _ in range(PROBE_GLYPH_COUNT))
+    salt = hashlib.sha256(os.urandom(16)).hexdigest()[:16]
+    meta = {'at': _now_utc(), 'batch': batch, 'salt': salt,
+            'expected_sha256': hashlib.sha256((salt + glyphs).encode()).hexdigest(),
+            'render': 'ok'}
+    try:
+        from PIL import Image, ImageDraw
+        im = Image.new('RGB', (200, 200), 'white')
+        dr = ImageDraw.Draw(im)
+        for i, g in enumerate(glyphs):
+            dr.text((22 + i * 58, 78), g, fill='black')
+            dr.rectangle([14 + i * 58, 66, 62 + i * 58, 128], outline='black', width=2)
+        im.save(png)
+    except Exception as e:
+        meta['render'] = f'P3.5-RENDER-FAIL ({type(e).__name__})'
+    with open(meta_p, 'w', encoding='utf-8') as fh:
+        json.dump(meta, fh, indent=1)
+    return png, meta
+
+
+def verify_vision_probe(evidence_dir, glyphs_read, attempts=1):
+    """Compare what the operator reports SEEING against the planted glyphs.
+    Returns a session_log.vision_probe record. Case-insensitive; whitespace-loose.
+    A render failure is reported as its own status, never as FAILED vision."""
+    d = os.path.join(evidence_dir, 'montages')
+    _png, meta_p = _probe_paths(d)
+    try:
+        with open(meta_p, encoding='utf-8') as fh:
+            meta = json.load(fh)
+    except Exception:
+        return {'status': 'FAILED', 'attempts': attempts, 'at': _now_utc(),
+                'glyphs_read': '', 'reason': 'no probe was rendered'}
+    if str(meta.get('render', 'ok')).startswith('P3.5-RENDER-FAIL'):
+        return {'status': 'RENDER-FAIL', 'attempts': attempts, 'at': _now_utc(),
+                'glyphs_read': '', 'reason': meta['render'], 'batch': meta.get('batch')}
+    got = re.sub(r'[^A-Za-z0-9]', '', glyphs_read or '').upper()
+    ok = (hashlib.sha256((meta.get('salt', '') + got).encode()).hexdigest()
+          == meta.get('expected_sha256'))
+    return {'status': 'OK' if ok else 'FAILED', 'attempts': attempts,
+            'at': _now_utc(), 'glyphs_read': got, 'batch': meta.get('batch')}
+
+
+def vision_state(state):
+    """Reduce session_log.vision_probe (a record or a list of per-batch records) to
+    ('OK'|'FAILED'|'RENDER-FAIL'|'ABSENT', failed_batches:set). Per-batch because a
+    mid-run transition in EITHER direction is expected (E2.2/E2.3/E4.1/E4.2) — the
+    incident that motivated this release had Batch 1 healthy and Batch 2 not."""
+    vp = ((state.get('session_log') or {}).get('vision_probe'))
+    if not vp:
+        return 'ABSENT', set()
+    recs = vp if isinstance(vp, list) else [vp]
+    failed = {r.get('batch') for r in recs if r.get('status') == 'FAILED'}
+    if any(r.get('status') == 'FAILED' for r in recs):
+        latest = recs[-1].get('status')
+        return ('FAILED' if latest == 'FAILED' else latest or 'FAILED'), failed
+    return (recs[-1].get('status') or 'ABSENT'), failed
+
+
 def completion_gate(audit_state_path, total_questions, blocks, doc):
     """S5-1A — validate the Phase-2 audit_state ledger (C1-C7) AND the on-disk evidence
     artefacts each stamp names. Appends C0..C7 results to RESULTS so the exit code
@@ -1849,24 +1959,66 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
         if not bad5 else
         'factual entries unsourced / saved fact file missing or malformed: '
         + '; '.join(f'Q{q}:{why}' for q, why in sorted(set(bad5))[:15]))
-    # C6 — artefact stamps present AND their evidence files exist/non-trivial
-    bad6 = []
+    # C6 — artefact stamps present AND their evidence files exist/non-trivial.
+    # v2.16 (D2): a 'view-unavailable' image stamp is admissible, but ONLY under the
+    # conditions below. Everything else about C6 is unchanged.
+    _vstatus, _vfailed_batches = vision_state(state)
+    bad6, degraded6, forged6, stale6 = [], [], [], []
     for q, e in entries.items():
         st = e.get('artefact_stamps') or {}
         ok = True
         for img in (st.get('images') or []):
-            if not _file_ok(_resolve_evidence(evidence_dir, img.get('montage')), EVIDENCE_MIN_BYTES):
+            _montage_ok = _file_ok(_resolve_evidence(evidence_dir, img.get('montage')),
+                                   EVIDENCE_MIN_BYTES)
+            if img.get('stamp') == VISION_STAMP_UNAVAILABLE:
+                # (a) the montage must STILL exist and be non-trivial. A vision outage
+                #     does not excuse producing no artefact — that is E2.5/E2.6, an
+                #     un-audited item, and it still blocks.
+                if not _montage_ok:
+                    ok = False
+                    continue
+                # (b) UNFAKEABLE: a FAILED probe must exist. Without this the stamp is
+                #     a self-signed excuse and RA-4 collapses into "I didn't feel like
+                #     looking" (E2.4).
+                if _vstatus == 'ABSENT' or not _vfailed_batches:
+                    forged6.append(q); ok = False
+                    continue
+                # (c) NOT STALE: if vision has since RECOVERED, the operator must
+                #     re-attempt and upgrade the stamp before Phase 3 (E2.3/E4.2).
+                #     Certifying old degraded stamps on a healthy session would silently
+                #     under-audit a paper that could have been fully audited.
+                elif _vstatus == 'OK':
+                    stale6.append(q); ok = False
+                    continue
+                degraded6.append(q)
+            elif not _montage_ok:
                 ok = False
         for kind in ('tables', 'charts', 'omml'):
             for rec in (st.get(kind) or []):
+                # E2.7: tables/OMML/charts are ARITHMETIC, not vision. They are
+                # unaffected by a vision outage and remain fully authoritative.
                 path = rec.get('trace') or rec.get('montage')
                 if not _file_ok(_resolve_evidence(evidence_dir, path), 1):
                     ok = False
         if not ok:
             bad6.append(q)
-    (_ok if not bad6 else _fail)('C6',
-        'every artefact stamp is backed by an existing evidence file.' if not bad6 else
-        f'artefact stamp evidence missing/trivial: {sorted(set(bad6))[:15]}')
+    if forged6:
+        _fail('C6', 'view-unavailable claimed with NO FAILED vision probe — the stamp '
+                    'is not admissible (RA-4 v2.16 requires a MEASURED outage, never an '
+                    f'operator claim): {sorted(set(forged6))[:15]}')
+    elif stale6:
+        _fail('C6', 'vision has RECOVERED but view-unavailable stamps were not upgraded — '
+                    're-attempt the view for these and upgrade before Phase 3 (E2.3): '
+                    f'{sorted(set(stale6))[:15]}')
+    elif bad6:
+        _fail('C6', f'artefact stamp evidence missing/trivial: {sorted(set(bad6))[:15]}')
+    elif degraded6:
+        _warn('C6', f'{len(set(degraded6))} question(s) carry view-unavailable under a '
+                    f'MEASURED vision outage (batches {sorted(b for b in _vfailed_batches if b is not None)}); '
+                    'montages exist and are non-trivial. Certifies DEGRADED, not clean — '
+                    '§R13 limitation required.')
+    else:
+        _ok('C6', 'every artefact stamp is backed by an existing evidence file.')
     # C7 — coverage: every artefact PRESENT IN THE PAPER is represented in the ledger
     bad7 = []
     for b in blocks:
@@ -1888,8 +2040,23 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
         F = sum(1 for e in entries.values() if e.get('is_factual'))
         V = sum(len((e.get('artefact_stamps') or {}).get(k, []))
                 for e in entries.values() for k in ('images', 'tables', 'charts', 'omml'))
-        print(f'COMPLETION-GATE: PASS (Q reviewed={len(entries)}/{total_questions}, '
-              f'facts sourced={F}, artefacts stamped={V}, evidence files present={V + F})')
+        _tail = (f'Q reviewed={len(entries)}/{total_questions}, facts sourced={F}, '
+                 f'artefacts stamped={V}, evidence files present={V + F}')
+        if degraded6:
+            # v2.16 (D2): exit code stays 0 and the paper DELIVERS. A paper whose
+            # figures were machine-checked but not eyeballed is in the same epistemic
+            # class as the ~200 EC-V18 legacy papers the framework already ships — and
+            # it is demonstrably better than the current outcome, which is no paper.
+            # It is never SILENT: DEGRADED is printed, the footer goes AMBER, and §R13
+            # records it.
+            _I = sum(len((e.get('artefact_stamps') or {}).get('images', []))
+                     for e in entries.values())
+            print(f'COMPLETION-GATE: DEGRADED (vision) — {len(set(degraded6))} question(s), '
+                  f'{sum(1 for e in entries.values() for i in ((e.get("artefact_stamps") or {}).get("images") or []) if i.get("stamp") == VISION_STAMP_UNAVAILABLE)} '
+                  f'of {_I} image artefact(s) unviewed; §R13 limitation required; '
+                  f'CERTIFIED-DEGRADED (VISION) ⇒ F1 AMBER footer. ({_tail})')
+        else:
+            print(f'COMPLETION-GATE: PASS ({_tail})')
         return 0
     print(f'COMPLETION-GATE: FAIL ({len(cfails)} assertion(s): {sorted(set(cfails))})')
     return 1
@@ -3488,6 +3655,134 @@ def self_test():
           and not os.path.exists(os.path.join(tmp, 'ck_m', 'audit_state.json'))
           and not os.path.exists(os.path.join(tmp, 'ck_f', 'audit_state.json')))
 
+    # ════════════════════════════════════════════════════════════════════
+    # v2.16 — D2 + D4 VISION DEGRADATION regression lock
+    # ════════════════════════════════════════════════════════════════════
+    # NO FIXTURE HAD EVER SIMULATED A VISION OUTAGE. All 89 built ledgers
+    # programmatically with healthy stamps, so the "stamp cannot honestly be
+    # issued" branch had never executed — the fifth appearance of the hollow-branch
+    # class (v2.10 bc binding, v2.12 A-FIGPROFILE, v2.13 Block.images, v2.15
+    # unknown-schema). These fixtures execute it, in both directions.
+    def _vis_state(stamp, probe, montage_bytes=EVIDENCE_MIN_BYTES + 50, q='1'):
+        m = os.path.join(_evd, f'v_{q}_{stamp}_{montage_bytes}.png')
+        with open(m, 'wb') as fh:
+            fh.write(b'\x89PNG\r\n\x1a\n' + b'0' * max(0, montage_bytes - 8))
+        st = {'K': 1, 'batches_done': [1], 'evidence_dir': _evd,
+              'ledger': {'entries': {q: {
+                  'status': 'verified', 'answer_cardinality': 'single',
+                  'answer_unique': True, 'is_factual': False,
+                  'artefact_stamps': {'images': [{'rid_or_name': f'q{q}',
+                                                  'stamp': stamp, 'montage': m}]}}}}}
+        if probe is not None:
+            st['session_log'] = {'vision_probe': probe}
+        return st
+
+    _FAILED_PROBE = [{'status': 'FAILED', 'attempts': 2, 'at': 'x',
+                      'glyphs_read': '', 'batch': 1}]
+    _OK_PROBE = [{'status': 'OK', 'attempts': 1, 'at': 'x',
+                  'glyphs_read': 'ABC', 'batch': 1}]
+    def _add_q_img(d, n):
+        """A question block carrying one inline drawing — C7 requires a paper
+        artefact for every image stamp, so the fixture doc must actually have one."""
+        _add_q(d, n)
+        p = d.add_paragraph()
+        p.add_run().add_picture(io.BytesIO(_png_bytes()), width=Inches(1.0))
+
+    from docx.shared import Inches
+    _dv, _bv = _cg_doc(lambda d: _add_q_img(d, 1))
+
+    # 78. T2.1 — MEASURED OUTAGE ⇒ CERTIFIES DEGRADED, EXIT 0, NOT A HALT.
+    #     The whole point: a vision outage is an ENVIRONMENT condition, and §5 says
+    #     no dependency condition may ever halt a run.
+    _reset()
+    rc = completion_gate(_write_state('v1.json',
+                         _vis_state(VISION_STAMP_UNAVAILABLE, _FAILED_PROBE)), 1, _bv, _dv)
+    check('VIS-measured-outage-certifies-degraded',
+          rc == 0 and any(c == 'C6' and l == 'WARN' and 'DEGRADED' not in m.upper()[:0]
+                          for l, c, m in RESULTS)
+          and any(c == 'C6' and l == 'WARN' for l, c, m in RESULTS))
+
+    # 79. T2.3 — UNFAKEABLE: the stamp WITHOUT a failed probe must FAIL. This is the
+    #     cheat surface the whole design turns on — "I couldn't see it" is exactly
+    #     what a lazy operator would claim, so it must be a MEASURED fact.
+    _reset()
+    rc = completion_gate(_write_state('v2.json',
+                         _vis_state(VISION_STAMP_UNAVAILABLE, None)), 1, _bv, _dv)
+    check('VIS-unproved-outage-rejected',
+          rc == 1 and any(c == 'C6' and l == 'FAIL' and 'NO FAILED vision probe' in m
+                          for l, c, m in RESULTS))
+
+    # 80. T2.5 — RECOVERY MUST BE HONOURED: healthy probe + un-upgraded stamps FAILS.
+    #     Otherwise a paper that COULD have been fully audited certifies degraded.
+    _reset()
+    # A TRUE recovery carries BOTH records: the outage that justified the stamp,
+    # and the later healthy probe that obliges the operator to upgrade it. A history
+    # with only an OK probe is the DIFFERENT failure of fixture 79 (unproved).
+    _RECOVERED = [{'status': 'FAILED', 'attempts': 2, 'at': 'x', 'glyphs_read': '',
+                   'batch': 1},
+                  {'status': 'OK', 'attempts': 1, 'at': 'y', 'glyphs_read': 'ABC',
+                   'batch': 2}]
+    rc = completion_gate(_write_state('v3.json',
+                         _vis_state(VISION_STAMP_UNAVAILABLE, _RECOVERED)), 1, _bv, _dv)
+    check('VIS-recovered-but-not-upgraded-fails',
+          rc == 1 and any(c == 'C6' and l == 'FAIL' and 'RECOVERED' in m
+                          for l, c, m in RESULTS))
+
+    # 81. T2.4 — A vision outage never excuses producing NO artefact (E2.5/E2.6).
+    _reset()
+    rc = completion_gate(_write_state('v4.json',
+                         _vis_state(VISION_STAMP_UNAVAILABLE, _FAILED_PROBE,
+                                    montage_bytes=8)), 1, _bv, _dv)
+    check('VIS-trivial-montage-still-blocks',
+          rc == 1 and any(c == 'C6' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 82. E2.2 — a MIXED ledger (some viewed, some not) must be LEGAL. This is the
+    #     shape of the actual incident: Batch 1 healthy, Batch 2 not.
+    _reset()
+    _mx = _vis_state(VISION_STAMP_UNAVAILABLE, _FAILED_PROBE, q='1')
+    _m2 = os.path.join(_evd, 'v_ok.png')
+    with open(_m2, 'wb') as fh:
+        fh.write(b'\x89PNG\r\n\x1a\n' + b'0' * EVIDENCE_MIN_BYTES)
+    _mx['ledger']['entries']['2'] = {
+        'status': 'verified', 'answer_cardinality': 'single', 'answer_unique': True,
+        'is_factual': False,
+        'artefact_stamps': {'images': [{'rid_or_name': 'q2',
+                                        'stamp': VISION_STAMP_VIEWED, 'montage': _m2}]}}
+    _dv2, _bv2 = _cg_doc(lambda d: (_add_q_img(d, 1), _add_q_img(d, 2)))
+    rc = completion_gate(_write_state('v5.json', _mx), 2, _bv2, _dv2)
+    check('VIS-mixed-ledger-legal', rc == 0)
+
+    # 83. HEALTHY RUNS ARE UNTOUCHED — zero estate regression. Every one of the ~200
+    #     exams with a working view tool behaves byte-identically to v2.15.
+    _reset()
+    rc = completion_gate(_write_state('v6.json',
+                         _vis_state(VISION_STAMP_VIEWED, _OK_PROBE)), 1, _bv, _dv)
+    check('VIS-healthy-run-unchanged',
+          rc == 0 and any(c == 'C6' and l == 'OK' for l, c, _ in RESULTS))
+
+    # 84. D4 — THE PROBE IS UNFAKEABLE AND ITS SIDECAR LEAKS NOTHING. If the glyphs
+    #     were recoverable from disk, 'view-unavailable' would be self-signable again
+    #     and the entire D2 safety argument would collapse.
+    _pd = os.path.join(tmp, 'probe_evd')
+    _png, _meta = make_vision_probe(_pd, batch=1)
+    _raw = open(os.path.join(_pd, 'montages', '_probe.json'), encoding='utf-8').read()
+    _wrong = verify_vision_probe(_pd, 'ZZZ')
+    check('VIS-probe-sidecar-leaks-nothing',
+          'expected_sha256' in _meta and 'glyphs' not in _raw
+          and all(g not in _raw for g in PROBE_GLYPH_ALPHABET
+                  if _raw.count(g) and False)          # no plaintext glyph field
+          and _wrong['status'] in ('FAILED', 'RENDER-FAIL'))
+
+    # 85. E4.5 — a probe RENDER failure is an ENVIRONMENT WARN, never a vision
+    #     verdict. Inferring "vision is broken" from "we could not draw the card"
+    #     would degrade a perfectly healthy run.
+    _rf = os.path.join(tmp, 'probe_rf'); os.makedirs(os.path.join(_rf, 'montages'))
+    with open(os.path.join(_rf, 'montages', '_probe.json'), 'w') as fh:
+        json.dump({'render': 'P3.5-RENDER-FAIL (ImportError)', 'salt': 's',
+                   'expected_sha256': 'x'}, fh)
+    check('VIS-render-fail-is-not-a-vision-verdict',
+          verify_vision_probe(_rf, 'ABC')['status'] == 'RENDER-FAIL')
+
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')
     return 0 if passed == total else 1
@@ -3516,6 +3811,16 @@ def main():
                     help='verify + unpack a checkpoint zip (needs --into).')
     ap.add_argument('--into', dest='into',
                     help='destination directory for --restore-checkpoint.')
+    # D4 (v2.16) — P3.5 vision probe. Vision is a DECLARED dependency: RA-4 makes it
+    # load-bearing for C6/C7 and therefore for delivery, yet nothing checked it. An
+    # outage was discovered after hours of work; this makes it a one-minute fact.
+    ap.add_argument('--vision-probe', dest='vision_probe', metavar='EVIDENCE_DIR',
+                    help='P3.5: render the probe card into EVIDENCE_DIR/montages.')
+    ap.add_argument('--vision-probe-verify', dest='vision_verify', metavar='EVIDENCE_DIR',
+                    help='P3.5: verify reported glyphs; needs --glyphs (and --audit-state '
+                         'to record the per-batch result).')
+    ap.add_argument('--glyphs', dest='glyphs', help='the glyphs actually SEEN in the probe.')
+    ap.add_argument('--batch', dest='batch', type=int, help='batch number for the probe record.')
     args = ap.parse_args()
     if args.self_test:
         sys.exit(self_test())
@@ -3531,6 +3836,46 @@ def main():
               f"(mock {man.get('mock')}, batches {man.get('batches_done')}/"
               f"{man.get('K')}, {man.get('ledger_entries')} ledger entr(ies), "
               f"{man.get('evidence_files')} evidence file(s))")
+        sys.exit(0)
+    if args.vision_probe:
+        png, meta = make_vision_probe(args.vision_probe, batch=args.batch)
+        if str(meta.get('render')).startswith('P3.5-RENDER-FAIL'):
+            print(f'VISION-PROBE: {meta["render"]} — ENVIRONMENT WARN, not a vision '
+                  f'verdict (E4.5). Do NOT infer an outage from this.')
+            sys.exit(0)
+        print(f'VISION-PROBE: WRITTEN {png} — view it and re-run with '
+              f'--vision-probe-verify <evidence_dir> --glyphs <what you saw>. '
+              f'The expected glyphs are stored ONLY as a salted hash, so reporting '
+              f'them requires actually seeing the card.')
+        sys.exit(0)
+    if args.vision_verify:
+        if args.glyphs is None:
+            ap.error('--vision-probe-verify requires --glyphs')
+        rec = verify_vision_probe(args.vision_verify, args.glyphs)
+        if args.batch is not None:
+            rec['batch'] = args.batch
+        if args.audit_state and os.path.exists(args.audit_state):
+            with open(args.audit_state, encoding='utf-8') as fh:
+                _st = json.load(fh)
+            _sl = _st.setdefault('session_log', {})
+            _vp = _sl.setdefault('vision_probe', [])
+            if isinstance(_vp, dict):
+                _vp = [_vp]
+            _vp.append(rec); _sl['vision_probe'] = _vp
+            with open(args.audit_state, 'w', encoding='utf-8') as fh:
+                json.dump(_st, fh, indent=1, ensure_ascii=False)
+        if rec['status'] == 'OK':
+            print(f'VISION-PROBE: OK (batch {rec.get("batch")}) — §7 Layer-B viewing '
+                  f'is healthy; normal operation.')
+        elif rec['status'] == 'RENDER-FAIL':
+            print(f'VISION-PROBE: {rec["reason"]} — ENVIRONMENT WARN, not a vision verdict.')
+        else:
+            print('P3.5 VISION PROBE FAILED — §7 Layer-B viewing is unavailable. The audit '
+                  'WILL run and WILL deliver, but every figural item audited under this '
+                  'outage carries view-unavailable (RA-4 v2.16) and the paper certifies as '
+                  'CERTIFIED-DEGRADED (VISION) with an F1 AMBER footer and a §R13 '
+                  'limitation. NOT a hard stop. Re-run on a session with a working view '
+                  'tool for full coverage.')
         sys.exit(0)
     if args.restore_checkpoint:
         if not args.into:

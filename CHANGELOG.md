@@ -1,5 +1,70 @@
 # Changelog
 
+## 2026.08.01.6
+D2 + D4 — VISION IS A DECLARED, PROBED, DEGRADABLE DEPENDENCY. Release 3 of the
+session-exhaustion programme. **This is the defect that actually halted a real
+audit.** Coverage is unchanged for every healthy run.
+
+**What happened.** On a live 60-question paper the `view()` path failed
+mid-session. 43 images across 27 figural questions became un-stampable, so S5-1A
+C6/C7 could never pass, MANDATE D forbade delivery, and the spec defined NO state
+for "vision unavailable". The audit was permanently STUCK — not degraded, not
+reported, stuck. 16 of 60 questions had been fully certified over two days and
+none of it could ship.
+
+**Why that was wrong by this framework's own doctrine.** §5 says "NO DEPENDENCY
+CONDITION MAY EVER HALT A RUN"; CLAUDE.md says "Silence is the defect; a halt is
+not the remedy." Degradation was granted to `blueprint_core`, to `figural_core`,
+to all twelve figure gates and to every colour condition — and denied to the one
+dependency whose absence is fatal. RA-4 was doing two jobs with one rule: blocking
+a LAZY OPERATOR (right) and blocking an ENVIRONMENT OUTAGE (wrong).
+
+**D2 — a third stamp state, and it is unfakeable.** `'view-unavailable'` joins
+`'rendered-and-viewed'` and (absent). The obvious danger is that "I could not see
+it" is exactly what a lazy operator would claim, so the state is **never assertable
+by choice**: C6 admits it only when `session_log.vision_probe` carries a FAILED
+record for that batch AND the montage exists at >= `EVIDENCE_MIN_BYTES`. C6 also
+FAILS when vision has RECOVERED and the stamps were not upgraded — a paper that
+COULD have been fully audited must not certify degraded. A degraded run prints
+`COMPLETION-GATE: DEGRADED (vision)`, exits 0, and ships under an F1 AMBER footer
+with a §R13 limitation. Identical treatment to EC-V18 legacy figures, which ~200
+exams already deliver under.
+
+**D4 — P3.5 vision probe.** Vision was ambient; now it is declared. The probe
+renders three RANDOM glyphs and stores only a SALTED SHA-256 of them, so reading
+the sidecar reveals nothing and reporting the glyphs requires actually seeing the
+card. **That is what turns vision from an operator claim into a MEASURED fact —
+the whole D2 safety argument rests on it.** It runs at pre-flight AND at the start
+of every Phase-2 batch, because the incident had Batch 1 healthy and Batch 2 not:
+a start-of-session probe alone would have missed it. A probe RENDER failure is an
+ENVIRONMENT WARN and explicitly NOT a vision verdict.
+
+**Not touched.** Tables, matrices, charts and OMML are arithmetic, not vision —
+unaffected and still fully authoritative. A missing or trivial montage is still
+un-audited and still blocks. A key that cannot be derived without sight is a
+VOID_ITEM (KEY NOT DERIVABLE), never silently keyed. RA-3, RA-15a, MANDATE B and
+every healthy-run verdict are byte-identical to v2.15.
+
+**Regression lock: 89/89 -> 97/97, six guarantees mutation-verified.** Fixtures
+78-85: a measured outage certifies DEGRADED at exit 0; the same stamp with no
+failed probe FAILS; a RECOVERED probe with un-upgraded stamps FAILS; a trivial
+montage still blocks; a MIXED ledger is legal; a healthy run is unchanged; the
+probe sidecar leaks no glyph; a render failure is never a vision verdict.
+**NO FIXTURE HAD EVER SIMULATED A VISION OUTAGE** — the fifth appearance of the
+hollow-branch class (v2.10 `bc` binding, v2.12 A-FIGPROFILE, v2.13 `Block.images`,
+v2.15 unknown-schema, now this).
+
+**Files:** `audit_canonical.py`; `Framework_MockTestCreateAudit.md` v2.15 ->
+**v2.16**; `Framework_DeliveryFooter.md` v1.9.1 -> **v1.10** (§5 Q0b);
+`Framework_Blueprint.md` v1.42.4 -> **v1.42.5** and `Framework_MockTestCreate.md`
+v5.34.2 -> **v5.34.3** (count refresh only); `CHANGELOG.md`; `VERSION`;
+`MANIFEST.json`.
+
+**Next in the programme:** the Step-7 -> Step-8 dossier (repairs a channel Step 7's
+own spec says should exist — "The audit gates read it directly instead of
+re-deriving" — but which S0-1 severs), then D7-corrected silent-truncation removal,
+then the sealed key channel.
+
 ## 2026.08.01.5
 C1 — AN AUDIT CAN NOW SURVIVE A SESSION BOUNDARY. Release 2 of the 4-part
 session-exhaustion programme. **Audit coverage is UNCHANGED.**
