@@ -1,4 +1,50 @@
-# Framework_MockTestCreateAudit v2.14
+# Framework_MockTestCreateAudit v2.15
+# v2.15 — 2026-08-01 — C1: AN AUDIT CAN NOW SURVIVE A SESSION BOUNDARY
+#   (SESSION-EXHAUSTION programme, release 2 of 4). Coverage UNCHANGED.
+#
+#   THE DEFECT, AND WHY IT WAS THE REAL ONE. RA-18 declared Step 8 "resume-safe"
+#   and stored every piece of cross-batch state — ledger, batch plan, WIP docx and
+#   the ENTIRE evidence tree — under /home/claude. That directory does not survive
+#   a session boundary. So resume worked inside one session and not at all across
+#   one, and the failure mode was fatal rather than degraded: S5-1A C5/C6 assert
+#   that every stamped evidence file EXISTS, so once the montages and saved fact
+#   records were gone, a perfectly remembered ledger could NEVER certify. A
+#   session that exhausted mid-Phase-2 therefore lost the whole audit, and the
+#   retry exhausted the same way. That LOOP — not any individual gate — is why
+#   this step kept failing on paper after paper. B3 (v2.14) made exhaustion much
+#   less likely; C1 makes it survivable, which is the difference between a step
+#   that usually works and one that cannot lose your work.
+#
+#   THE FIX. At the end of Phase 1 and of every Phase-2 batch, Step 8 writes
+#   [ExamCode]_M[N]_audit_checkpoint.zip — audit_state.json + the WHOLE evidence
+#   tree + the WIP docx — to the SAME filename each time, so there is exactly one
+#   current bundle. On `resume`, P0.5C verifies and rehydrates the uploaded
+#   bundle before any batch runs, rebasing evidence_dir AND every recorded
+#   evidence path in the ledger (the previous container's absolute paths are
+#   gone, and C5/C6 resolve through them). Neither build nor restore is prose:
+#   both are commands in audit_canonical.py (--make-checkpoint /
+#   --restore-checkpoint), per §21's rule that only code certifies.
+#
+#   BINDING IS THE SAFETY ARGUMENT. Restore REFUSES on an unknown schema, an
+#   absent/unparseable manifest, ANY member whose sha256 differs, or an
+#   exam_code / mock / paper-MD5 disagreeing with the paper in hand — and writes
+#   NOTHING when it refuses, because a half-unpacked checkpoint is the worst
+#   outcome of all: it looks resumable. The paper binding matters most: a
+#   checkpoint restored onto a DIFFERENT document would let Step 8 certify an
+#   audit nobody performed on it, which is strictly worse than losing the audit.
+#
+#   MANDATE D GAINS ONE EXPLICIT CARVE-OUT. The checkpoint is handed to the author
+#   before certification and that is not a breach: MANDATE D forbids shipping an
+#   uncertified PAPER, and the checkpoint is not a product but opaque resume state
+#   containing no certified artefact. The certification delivery remains exactly
+#   ONE present_files of the closed set, and S14-2 now CLEARS any checkpoint from
+#   outputs and asserts (check 7) that none survives into the delivered set.
+#
+#   Self-test 78 -> 88. Seven guarantees mutation-verified. The unknown-schema
+#   guard was found UNCOVERED by mutation testing — it could be deleted with every
+#   other fixture still green, the same hollow-branch class this corpus has now
+#   rediscovered three times; fixture 76b closes it.
+#
 # v2.14 — 2026-08-01 — B3: FACT VERIFICATION KEEPS ITS EVIDENCE, NOT ITS TRANSCRIPT
 #   (SESSION-EXHAUSTION programme, release 1 of 4). Coverage is UNCHANGED. What
 #   changes is where the raw search result lives.
@@ -471,6 +517,19 @@
 # MANDATE D — DELIVER ONCE, ONLY WHEN CERTIFIED CLEAN (HARD STOP)
 # ════════════════════════════════════════════════════════════════════════
 #   present_files is FORBIDDEN until the WHOLE paper is certified clean at Phase 3.
+#   ONE EXPLICIT CARVE-OUT (v2.15/C1) — THE CHECKPOINT IS NOT A DELIVERY. The
+#   per-batch [ExamCode]_M[N]_audit_checkpoint.zip (S4-7 / RA-18) IS handed to the
+#   author before certification, and that does NOT breach this mandate. What
+#   MANDATE D forbids is shipping a PAPER that is not certified — mid-audit the
+#   docx is deliberately inconsistent and must never be presented as a product.
+#   The checkpoint is not a product: it is opaque resume state, it is explicitly
+#   headed as such, it contains no certified artefact, and its only use is being
+#   handed back on `resume`. Without it MANDATE D's own promise is unkeepable,
+#   because an exhausted session destroys the evidence that certification depends
+#   on. The CERTIFICATION delivery remains exactly ONE present_files call of the
+#   closed set at Phase 3 (§14), and S14-2 check 6 still requires /mnt/user-data/
+#   outputs to hold EXACTLY that set — so the checkpoint MUST be cleared from
+#   outputs before the final delivery (S14-2 check 7).
 #   v2.6 — "certified clean" is now a COMMAND RESULT, not a self-judgment: the
 #   Phase-3 COMPLETION GATE (S5-1A) must print "COMPLETION-GATE: PASS" (final Part A
 #   exit 0 + zero fixable WARN + the C1–C7 ledger/evidence assertions all pass +
@@ -701,11 +760,34 @@
   RA-17 : REGISTRY RE-SYNC FROM THE FIXED FILE ONLY. The output registry is rebuilt
           from the FINAL rectified docx (§13), never from the input registry's stale
           mock-N entries and never from generation memory.
-  RA-18 : RESUME-SAFE. All cross-batch state (audit ledger, batch plan, the WIP
-          docx, the derived key, the evidence dir) persists in
+  RA-18 : RESUME-SAFE — WITHIN A SESSION *AND* ACROSS ONE (v2.15/C1). All
+          cross-batch state (audit ledger, batch plan, the WIP docx, the derived
+          key, the evidence dir) persists in
           /home/claude/[ExamCode]_M[N]_audit_state.* so a "continue" after any gap
           resumes exactly, re-reviewing nothing and forgetting nothing (RA-3 still
           holds across resume).
+          /home/claude DOES NOT SURVIVE A SESSION BOUNDARY. Until v2.15 that made
+          "resume-safe" true only inside one session, and the failure was fatal
+          rather than degraded: S5-1A C5/C6 assert that every stamped evidence
+          file EXISTS, so once the montages and saved fact records were gone a
+          perfectly remembered ledger could never certify. A session that
+          exhausted mid-Phase-2 lost the entire audit, and the retry exhausted the
+          same way — a loop, not a one-off.
+          THEREFORE: at the end of every Phase-2 batch, Step 8 writes
+          [ExamCode]_M[N]_audit_checkpoint.zip — audit_state.json + the WHOLE
+          evidence tree + the WIP docx, with a manifest carrying the identity
+          triple (exam_code, mock, paper MD5) and a sha256 for every member — and
+          hands it to the author (S4-7). On `resume` the uploaded checkpoint is
+          verified and rehydrated at P0.5C before any batch runs. Neither the build
+          nor the restore is prose: both are commands in audit_canonical.py, and
+          restore REFUSES on a schema it does not know, on any member whose hash
+          differs, or on an exam_code / mock / paper-MD5 that disagrees with the
+          paper in hand. Restoring a checkpoint onto the WRONG paper would certify
+          an audit nobody performed on it — strictly worse than losing the audit —
+          so those bindings are HARD and are checked before a single byte is
+          written to disk. A refused restore leaves NOTHING behind: a
+          half-unpacked checkpoint is the worst outcome of all, because it looks
+          resumable.
   RA-19 : PROVENANCE STAMPS. Every certified item carries a stamp in the ledger
           ('machine' | 'recomputed' | 'rendered-and-viewed' | 'web-verified+source'
           | 'reviewer-verified') AND, for every visual/structured/factual item, the
@@ -1090,6 +1172,45 @@
                        "blueprint/registry data.")
   ```
 
+## P0.5C — CHECKPOINT REHYDRATION (v2.15 / C1) — `resume` ONLY
+
+  Runs on a `resume` trigger, AFTER P0/P0.5 (the auditor must self-test before it
+  is trusted to verify a bundle) and BEFORE P1..P9. Skipped entirely on a fresh
+  run — P6..P9 then build the state from scratch exactly as before.
+
+  ```python
+  import glob, subprocess, os
+  RESTORE = os.path.join(WORK, f'{EXAM}_M{N}_restored')
+  _cks = sorted(glob.glob(os.path.join(UPL, f'{EXAM}_M{N}_audit_checkpoint.zip'))) or \
+         sorted(glob.glob(os.path.join(UPL, '*_audit_checkpoint.zip')))
+  if not _cks:
+      print("RESUME: no checkpoint uploaded. /home/claude does not survive a session "
+            "boundary, so there is no state to resume from — restarting at Phase 1. "
+            "NEVER reconstruct a ledger from memory to satisfy S5-1A (§19).")
+      RESUMED = False
+  else:
+      r = subprocess.run(['python3', paths['audit_py'], paths['docx'],
+                          '--mockN', str(N),
+                          '--restore-checkpoint', _cks[-1], '--into', RESTORE],
+                         capture_output=True, text=True)
+      print(r.stdout.strip() or r.stderr.strip())
+      if r.returncode != 0:
+          raise SystemExit(
+              "HARD STOP (P0.5C): checkpoint REFUSED — see the reason above. Do NOT "
+              "improvise a partial resume: restore is all-or-nothing precisely so a "
+              "half-restored state can never be mistaken for a complete one. Either "
+              "upload the correct checkpoint for THIS paper, or re-run without "
+              "`resume` to audit from Phase 1.")
+      RESUMED = True
+      audit_state_path = os.path.join(RESTORE, 'audit_state.json')
+  ```
+  On success the ledger, the batch plan, batches_done and the whole evidence tree
+  are back, with every recorded evidence path rebased to the restored directory.
+  P8 does NOT recompute the batch plan (it is in the restored state) and P9 does
+  NOT re-initialise the ledger — both are reloaded (RA-18). Phase 2 resumes at the
+  first batch not in batches_done; already-reviewed questions are NOT re-reviewed;
+  the whole-paper Part A still runs for each resumed batch (RA-7).
+
 ## P1 — Audit-script self-test (MANDATE A) — HARDENED (v2.6)
 
   ```
@@ -1417,7 +1538,9 @@
        orphan). Resolve it before the batch ends.
     STEP E — Persist audit_state (ledger, defects, regenerations, stamps, evidence
        paths, WIP docx) to /home/claude (RA-18). Append b to batches_done. Stage
-       NOTHING to outputs.
+       NOTHING to outputs EXCEPT the S4-7 checkpoint, which is not a delivery
+       (MANDATE D carve-out) and is written AFTER batches_done is appended so the
+       bundle always reflects completed work only.
     STEP F — Print the batch report (§15): whole-paper Part A status; this batch's
        findings by Q-number + code; running totals (reviewed / fixed / regenerated).
     STEP G — If b < K: INTERACTIVE — print "Type 'continue' to begin Batch [b+1] of
@@ -1492,6 +1615,54 @@
   reducing the batch size changes K (more, smaller batches); it NEVER reduces
   coverage — every question is still audited (RA-15a) and S5-1A still asserts
   batches_done == K.
+
+## S4-7 — THE CROSS-SESSION CHECKPOINT (v2.15 / C1 — RA-18)
+
+  WHEN: at the end of every Phase-2 batch (STEP E), in BOTH modes. Overwrite the
+  SAME filename each time, so there is only ever ONE current checkpoint and no
+  ambiguity about which to hand back. Also written at the end of Phase 1, so a
+  session that dies before Batch 1 does not lose the pre-flight + CP-fix work.
+
+  BUILD (never hand-rolled — the manifest and hashes are the safety argument):
+  ```bash
+  python3 /home/claude/[ExamCode]_mock_test_audit.py \
+      /home/claude/[ExamCode]_[paper_slug]_Create.docx \
+      --mockN [N] \
+      --audit-state /home/claude/[ExamCode]_M[N]_audit_state.json \
+      --make-checkpoint /mnt/user-data/outputs/[ExamCode]_M[N]_audit_checkpoint.zip
+  ```
+  Prints `CHECKPOINT: WRITTEN ... (mock N, batches [..]/K, E ledger entr(ies),
+  F evidence file(s))`. Present it with a one-line instruction: "resume state —
+  keep this; upload it if this session ends before delivery. It is not the paper."
+  It carries audit_state.json, the WHOLE evidence tree (montages / facts /
+  recompute) and the WIP docx.
+
+  RESTORE (P0.5C, on a `resume` trigger — BEFORE any batch runs):
+  ```bash
+  python3 /home/claude/[ExamCode]_mock_test_audit.py \
+      /home/claude/[ExamCode]_[paper_slug]_Create.docx \
+      --mockN [N] \
+      --restore-checkpoint /mnt/user-data/uploads/[ExamCode]_M[N]_audit_checkpoint.zip \
+      --into /home/claude/[ExamCode]_M[N]_restored
+  ```
+  Prints `CHECKPOINT: RESTORED ...` and exits 0, or `CHECKPOINT: REFUSED — <why>`
+  and exits 1. On success, audit_state.json is at <into>/audit_state.json with its
+  evidence_dir REBASED to <into>/evidence and every recorded evidence path in the
+  ledger rewritten to match — the old session's absolute paths no longer exist,
+  and S5-1A resolves every C5/C6 stamp through them. Resume then proceeds at the
+  first batch not in batches_done (RA-18): nothing already reviewed is re-reviewed.
+
+  REFUSAL IS HARD AND TOTAL. Restore refuses — writing NOTHING — on an unknown
+  schema, an absent/unparseable manifest, ANY member whose sha256 differs, or an
+  exam_code / mock / paper-MD5 that disagrees with the paper in hand. The paper
+  binding is the important one: a checkpoint restored onto a DIFFERENT document
+  would let Step 8 certify an audit nobody performed on it, which is strictly
+  worse than losing the audit. On REFUSED, do not improvise: report the reason and
+  re-run from Phase 1. A partially-restored state is never accepted.
+
+  IF NO CHECKPOINT IS AVAILABLE on a `resume`, say so plainly and restart from
+  Phase 1. NEVER reconstruct a ledger from memory to satisfy S5-1A — that is
+  precisely the false-clean the completion gate exists to prevent (§19 residual).
 
 # ════════════════════════════════════════════════════════════════════════
 # §5 — PART A: MACHINE GATES (whole-paper; run by the universal audit.py)
@@ -3103,6 +3274,8 @@
   docx_name = f'{EXAM}_{paper_slug}_Create_Complete.docx'; reg_name = f'{EXAM}_registry.json'  # C3
   cl_name   = f'{EXAM}_Mock{N}_audit_changelog.md'
   expected  = {docx_name, reg_name} | ({cl_name} if regens else set())
+  for _ck in [f for f in os.listdir(out) if f.endswith('_audit_checkpoint.zip')]:
+      os.remove(os.path.join(out, _ck))   # v2.15: resume state, never a deliverable
   present   = set(os.listdir(out))
   BANNED    = ('answer', 'key', 'ledger', 'audit_state', 'blockindex', 'montage', 'evidence')
   # the change-log legitimately contains 'audit' + Q content; exempt it from the
@@ -3116,6 +3289,11 @@
     ('4 completion gate passed',        bool(globals().get('COMPLETION_GATE_PASS'))),
     ('5 no internal sidecar leaked',    not leaked),
     ('6 outputs == exactly expected set', present == expected),
+    # v2.15 (C1): the per-batch checkpoint is staged in outputs by design
+    # (MANDATE D carve-out) and is NOT a deliverable. Clear it BEFORE this check
+    # so the certification delivery is exactly the closed set.
+    ('7 no checkpoint left in outputs', not any(
+        f.endswith('_audit_checkpoint.zip') for f in present)),
   ]
   fails = [n for n, ok in checks if not ok]
   if fails:
@@ -3367,6 +3545,9 @@ Replace for registry.json), and next-step reference.
   | Mandatory subtopic missing | RG — regenerate one question into the mandatory subtopic. |
   | Alternation-group members co-occur | RG — replace one with its alternation partner / a different subtopic. |
   | A batch fix opens a global defect | Resolve in the same batch via the §8-3 loop before ending (RA-7). |
+  | **Session exhausted mid-Phase-2** | Upload the last `[ExamCode]_M[N]_audit_checkpoint.zip` and re-run with `resume` (v2.15/C1). P0.5C verifies and rehydrates it; the audit continues at the first unfinished batch with its evidence intact. WITHOUT a checkpoint the audit CANNOT be resumed — /home/claude does not survive a session boundary and S5-1A C5/C6 assert the evidence files exist — so it restarts at Phase 1. Never fabricate a ledger to satisfy the gate. |
+  | **`CHECKPOINT: REFUSED — ...`** | Restore is all-or-nothing and wrote nothing. Read the reason: unknown schema (bundle from a different framework build), integrity failure (a member's sha256 changed), or an identity mismatch (exam_code / mock / paper MD5 disagree with the paper in hand). The paper-MD5 case is the critical one — restoring onto a different document would certify an audit nobody performed on it. Upload the correct bundle or re-run from Phase 1. Never hand-edit a checkpoint. |
+  | **Checkpoint zip appears in /mnt/user-data/outputs at delivery** | Expected mid-audit (MANDATE D carve-out) and cleared automatically by S14-2 before the ONE certification present_files. If it ever survives into the delivered set, S14-2 check 7 fails — fix, do not ship. |
   | Resume after a gap | `... M[N] resume` — reload audit_state; resume at first not-done batch; evidence dir persists (RA-18). |
   | Re-audit of an already-audited mock | Legal — `--mockN N` self-excludes; idempotent (a clean, evidence-complete ledger yields zero fixes and passes S5-1A). |
 
@@ -3418,6 +3599,14 @@ Replace for registry.json), and next-step reference.
   • Figural transformation correctness and answer uniqueness rest on reviewer reasoning
     over the VIEWED image (no machine proof) — but viewing is mandatory, un-sampled, and
     evidence-backed (the montage that was viewed is saved and its presence is gated).
+  • RESUMING ACROSS A SESSION REQUIRES THE CHECKPOINT (v2.15/C1). Step 8's state
+    lives in /home/claude, which does not survive a session boundary. The
+    checkpoint makes a multi-session audit possible, but it is an ARTEFACT THE
+    AUTHOR MUST KEEP: if it is not uploaded on `resume`, the audit genuinely
+    restarts at Phase 1, because the evidence S5-1A certifies against no longer
+    exists in any form. This is disclosed rather than papered over — the
+    alternative (accepting a ledger without its evidence) is exactly the
+    false-clean the completion gate exists to prevent.
   • FACT EVIDENCE IS ON DISK, NOT IN THE TRANSCRIPT (v2.14/B3). The reasoning
     stream carries one verdict line per verification; the raw query/URL/time/
     snippet lives in evidence/facts/ and is what C5 certifies against. A reader
@@ -3528,7 +3717,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.13 build prints 78/78 — see tests 16-20).
+#     v2.12; the v2.13 build prints 89/89 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -3583,6 +3772,16 @@ Replace for registry.json), and next-step reference.
 #        the call sites, bound nowhere. Test 15 (Context-2) proves the file runs
 #        ALONE; this proves its entry point actually invokes what it added.
 #        (fixture 63)
+#    23. CHECKPOINT ROUND TRIP (v2.15/C1): build a checkpoint, DESTROY the source
+#        directory (the session boundary), restore into a fresh one, and run the
+#        REAL completion gate -> MUST certify. This is the fixture the release
+#        exists for; before C1 it was impossible. Plus: nested evidence paths
+#        rebase; a tampered member, a wrong paper MD5, a wrong mock/exam, a
+#        non-checkpoint archive and an UNKNOWN SCHEMA are each REFUSED, and every
+#        refusal leaves NOTHING on disk. The unknown-schema case was found by
+#        mutation testing — the guard could be deleted with every other fixture
+#        still green, which is exactly the hollow-branch class this corpus keeps
+#        rediscovering. (fixtures 70-77)
 #    22. FACT-RECORD SHAPE (v2.14/B3): a saved fact that is a 1-byte stub, is
 #        unparseable, or blanks any of query/url/retrieved_at/snippet MUST fail
 #        C5; a well-formed record MUST pass; a record LIST and a file shared by
@@ -3619,7 +3818,7 @@ Replace for registry.json), and next-step reference.
 #   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
-#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (78/78) all pass, and
+#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (89/89) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -3650,7 +3849,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 78/78 PASS  (exit 0) on the v2.13 canonical
+#     • `--self-test`  → SELF-TEST: 89/89 PASS  (exit 0) on the v2.13 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -3718,10 +3917,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 78/78). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 89/89). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.14
+# END OF Framework_MockTestCreateAudit v2.15
 # ════════════════════════════════════════════════════════════════════════

@@ -1711,6 +1711,15 @@ def _resolve_evidence(evidence_dir, stored):
     for c in cands:
         if c and os.path.exists(c):
             return c
+    # v2.15 (C1) — last resort: the stored path may be an ABSOLUTE path from a
+    # previous session's container (checkpoint restore rebases these, but a
+    # hand-edited or partially-rebased state must still resolve rather than
+    # silently fail C5/C6). Search the evidence tree by basename.
+    base = os.path.basename(stored.replace('\\', '/'))
+    if base and evidence_dir and os.path.isdir(evidence_dir):
+        for root, _dirs, files in os.walk(evidence_dir):
+            if base in files:
+                return os.path.join(root, base)
     return None
 
 
@@ -1930,6 +1939,243 @@ def _safe_gate(_name, _fn, *a, **kw):
             except Exception:
                 pass
         return None
+
+
+# ============================================================================
+# C1 — CROSS-SESSION CHECKPOINT (v2.15)
+#
+# WHY THIS EXISTS. RA-18 called Step 8 "resume-safe" and stored every piece of
+# cross-batch state — the ledger, the batch plan, the WIP docx and the ENTIRE
+# evidence tree — under /home/claude. That directory does not survive a session
+# boundary. So resume worked inside one session and not at all across one, and
+# the failure was silent-then-fatal: a session that exhausted mid-Phase-2 lost
+# the audit outright, because S5-1A C5/C6 assert that every stamped evidence file
+# EXISTS. A perfectly remembered ledger cannot certify against montages and saved
+# fact records that no longer exist. The retry then exhausted the same way. That
+# loop — not any single gate — is what made this step keep failing.
+#
+# The checkpoint is a PORTABLE, HASH-MANIFESTED bundle the author downloads and
+# re-uploads, so an audit may legitimately span sessions and still certify.
+#
+# BINDING IS THE WHOLE SAFETY ARGUMENT. A checkpoint restored onto the WRONG
+# paper would certify an audit of a document nobody audited — strictly worse than
+# losing the audit. Restore therefore refuses unless the bundle's recorded
+# exam_code, mock number AND paper MD5 all match the paper in hand, and unless
+# every member's sha256 matches the manifest. Prose describes; only code
+# certifies (§21).
+# ============================================================================
+CHECKPOINT_SCHEMA = 1
+CHECKPOINT_MANIFEST = 'checkpoint_manifest.json'
+
+
+class CheckpointError(Exception):
+    """Refusal to build or restore. Always names WHY, never fact/question content."""
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for chunk in iter(lambda: fh.read(65536), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _md5_file(path):
+    h = hashlib.md5()
+    with open(path, 'rb') as fh:
+        for chunk in iter(lambda: fh.read(65536), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _now_utc():
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def make_checkpoint(state_path, out_zip, docx_path=None, exam=None, mockN=None):
+    """Bundle audit_state.json + the evidence tree + the WIP docx into out_zip.
+
+    The bundle is self-describing: checkpoint_manifest.json records the schema,
+    the identity triple (exam_code, mock, paper_md5), progress counters, and a
+    sha256 for EVERY member. Returns the manifest dict.
+    """
+    if not os.path.exists(state_path):
+        raise CheckpointError(f'audit_state not found: {state_path}')
+    try:
+        with open(state_path, encoding='utf-8') as fh:
+            st = json.load(fh)
+    except Exception as e:
+        raise CheckpointError(f'audit_state unparseable ({type(e).__name__})')
+
+    # v2.15 — THE PAPER IS MANDATORY, NOT OPTIONAL. paper_md5 is the strongest of
+    # the three identity bindings, and a bundle built without the docx would carry
+    # paper_md5=None, which makes restore's MD5 check vacuous — a checkpoint that
+    # could then be restored onto ANY document. Caught in end-to-end testing when a
+    # shell quoting slip left the docx absent and the checkpoint was written anyway,
+    # cheerfully, with no binding at all. Refuse instead: a checkpoint whose safety
+    # argument is missing is worse than no checkpoint, because it looks like one.
+    if not docx_path or not os.path.exists(docx_path):
+        raise CheckpointError(
+            'the paper (.docx) is REQUIRED to build a checkpoint — it supplies the '
+            'paper_md5 binding that stops the bundle being restored onto a different '
+            'document. Pass the Create.docx being audited.')
+    members = [('audit_state.json', state_path),
+               ('paper/' + os.path.basename(docx_path), docx_path)]
+    evd = st.get('evidence_dir')
+    if evd and os.path.isdir(evd):
+        for root, _dirs, files in os.walk(evd):
+            for f in sorted(files):
+                ap = os.path.join(root, f)
+                arc = 'evidence/' + os.path.relpath(ap, evd).replace(os.sep, '/')
+                members.append((arc, ap))
+
+    man = {
+        'schema': CHECKPOINT_SCHEMA,
+        'created_utc': _now_utc(),
+        'exam_code': exam or st.get('exam_code'),
+        'mock': st.get('mock', mockN),
+        'paper_id': st.get('paper_id'),
+        'paper_md5': _md5_file(docx_path),
+        'paper_name': os.path.basename(docx_path),
+        'K': st.get('K'),
+        'batches_done': sorted(st.get('batches_done') or []),
+        'ledger_entries': len(((st.get('ledger') or {}).get('entries')) or {}),
+        'evidence_files': sum(1 for a, _ in members if a.startswith('evidence/')),
+        'files': {arc: _sha256_file(ap) for arc, ap in members},
+    }
+    with zipfile.ZipFile(out_zip, 'w', zipfile.ZIP_DEFLATED) as z:
+        for arc, ap in members:
+            z.write(ap, arc)
+        z.writestr(CHECKPOINT_MANIFEST,
+                   json.dumps(man, indent=1, ensure_ascii=False))
+    return man
+
+
+_EVIDENCE_PATH_KEYS = ('saved', 'montage', 'trace')
+
+
+def _rebase_evidence_paths(obj, old_evd, new_evd):
+    """Rewrite every recorded evidence path in a restored audit_state so it points
+    into the NEW evidence directory. Returns how many were rewritten.
+
+    The ledger stores absolute paths from the session that wrote them
+    (evidence/facts/q1_x.json, evidence/montages/q7_montage.png, ...). After a
+    session boundary those directories do not exist, and S5-1A C5/C6 assert that
+    each named file EXISTS — so without this every restored audit would fail
+    certification while the files sat right there, correctly restored. Rebasing is
+    done EXPLICITLY here rather than left to the resolver's fallback so the state
+    on disk is truthful and a human reading it sees real paths.
+    """
+    n = 0
+    if isinstance(obj, dict):
+        for k, v in list(obj.items()):
+            if k in _EVIDENCE_PATH_KEYS and isinstance(v, str) and v.strip():
+                rel = None
+                norm = v.replace('\\', '/')
+                if old_evd:
+                    oe = old_evd.replace('\\', '/').rstrip('/')
+                    if norm == oe or norm.startswith(oe + '/'):
+                        rel = norm[len(oe):].lstrip('/')
+                if rel is None:
+                    parts = norm.split('/')
+                    if 'evidence' in parts:
+                        rel = '/'.join(parts[parts.index('evidence') + 1:])
+                if rel:
+                    obj[k] = os.path.join(new_evd, *rel.split('/'))
+                    n += 1
+            else:
+                n += _rebase_evidence_paths(v, old_evd, new_evd)
+    elif isinstance(obj, list):
+        for v in obj:
+            n += _rebase_evidence_paths(v, old_evd, new_evd)
+    return n
+
+
+def restore_checkpoint(zip_path, into_dir, docx_path=None, exam=None, mockN=None):
+    """Verify and unpack a checkpoint. Returns (manifest, state_path, evidence_dir).
+
+    HARD refusals — every one of these would otherwise let Step 8 certify an audit
+    that was never performed on the paper in hand:
+      * absent/unparseable manifest, or a schema this build does not know;
+      * ANY member whose sha256 differs from the manifest (tamper/truncation);
+      * exam_code, mock or paper MD5 disagreeing with the paper being audited.
+    On success the restored audit_state.evidence_dir is REWRITTEN to the new
+    location — the recorded path is from the previous session's container and no
+    longer exists, and S5-1A resolves every stamp through it.
+    """
+    if not os.path.exists(zip_path):
+        raise CheckpointError(f'checkpoint not found: {zip_path}')
+    try:
+        z = zipfile.ZipFile(zip_path)
+    except Exception as e:
+        raise CheckpointError(f'checkpoint is not a readable archive ({type(e).__name__})')
+    with z:
+        names = set(z.namelist())
+        if CHECKPOINT_MANIFEST not in names:
+            raise CheckpointError('checkpoint_manifest.json missing — not a Step-8 checkpoint.')
+        try:
+            man = json.loads(z.read(CHECKPOINT_MANIFEST).decode('utf-8'))
+        except Exception as e:
+            raise CheckpointError(f'checkpoint manifest unparseable ({type(e).__name__})')
+        if man.get('schema') != CHECKPOINT_SCHEMA:
+            raise CheckpointError(
+                f'checkpoint schema {man.get("schema")!r} != {CHECKPOINT_SCHEMA} — '
+                f'built by a different framework version; re-run the audit.')
+        # identity binding, BEFORE anything is written to disk
+        if exam and man.get('exam_code') and man['exam_code'] != exam:
+            raise CheckpointError(
+                f'checkpoint is for exam_code {man["exam_code"]!r}, not {exam!r}.')
+        if mockN is not None and man.get('mock') is not None and int(man['mock']) != int(mockN):
+            raise CheckpointError(
+                f'checkpoint is for mock {man["mock"]}, not mock {mockN}.')
+        if not man.get('paper_md5'):
+            raise CheckpointError(
+                'checkpoint carries no paper_md5 binding — it cannot be proven to '
+                'belong to this paper. Re-run the audit rather than resuming from an '
+                'unbindable bundle.')
+        if docx_path:
+            live = _md5_file(docx_path)
+            if live != man['paper_md5']:
+                raise CheckpointError(
+                    'checkpoint paper MD5 does not match the docx being audited — the '
+                    'paper changed, or this checkpoint belongs to another paper. '
+                    'Re-run the audit from Phase 1 rather than resuming onto a '
+                    'different document.')
+        # integrity: every declared member present and hash-exact
+        bad = []
+        for arc, want in (man.get('files') or {}).items():
+            if arc not in names:
+                bad.append(f'{arc}:absent'); continue
+            got = hashlib.sha256(z.read(arc)).hexdigest()
+            if got != want:
+                bad.append(f'{arc}:hash')
+        if bad:
+            raise CheckpointError('checkpoint integrity failure (' + str(len(bad))
+                                  + ' member(s)): ' + ', '.join(sorted(bad)[:8]))
+        os.makedirs(into_dir, exist_ok=True)
+        for arc in (man.get('files') or {}):
+            dst = os.path.join(into_dir, *arc.split('/'))
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            with open(dst, 'wb') as fh:
+                fh.write(z.read(arc))
+
+    state_path = os.path.join(into_dir, 'audit_state.json')
+    evidence_dir = os.path.join(into_dir, 'evidence')
+    with open(state_path, encoding='utf-8') as fh:
+        st = json.load(fh)
+    _old_evd = st.get('evidence_dir')
+    _rebased = _rebase_evidence_paths(st.get('ledger'), _old_evd, evidence_dir)
+    st['evidence_dir'] = evidence_dir          # last session's path is gone
+    st.setdefault('session_log', {})
+    if isinstance(st['session_log'], dict):
+        st['session_log'].setdefault('checkpoints_restored', []).append(
+            {'from': os.path.basename(zip_path), 'at': _now_utc(),
+             'batches_done': man.get('batches_done'),
+             'evidence_paths_rebased': _rebased})
+    with open(state_path, 'w', encoding='utf-8') as fh:
+        json.dump(st, fh, indent=1, ensure_ascii=False)
+    return man, state_path, evidence_dir
 
 
 def run_audit(args):
@@ -3054,6 +3300,194 @@ def self_test():
           not any(c == 'C5' and l == 'FAIL' for l, c, _ in RESULTS)
           and any(c == 'C5' and 'cache reuse' in m for _, c, m in RESULTS))
 
+    # ════════════════════════════════════════════════════════════════════
+    # v2.15 — C1 CROSS-SESSION CHECKPOINT regression lock
+    # ════════════════════════════════════════════════════════════════════
+    # RA-18 claimed "resume-safe" while storing the ledger AND the evidence tree
+    # under /home/claude, which does not survive a session boundary. Resume
+    # therefore worked inside one session and not across one, and the failure was
+    # fatal rather than degraded: C5/C6 assert that every stamped evidence file
+    # EXISTS, so a perfectly remembered ledger could not certify once the files
+    # were gone. Fixture 71 is the one that matters — it proves a checkpoint
+    # taken in one container and restored into another still CERTIFIES.
+    _ckdir = os.path.join(tmp, 'ck'); os.makedirs(_ckdir, exist_ok=True)
+    _ck_evd = os.path.join(_ckdir, 'evidence'); os.makedirs(_ck_evd, exist_ok=True)
+    os.makedirs(os.path.join(_ck_evd, 'facts'), exist_ok=True)
+    _ck_fact = os.path.join(_ck_evd, 'facts', 'q1_abc.json')
+    with open(_ck_fact, 'w', encoding='utf-8') as fh:
+        json.dump(_GOODREC, fh)
+    _ck_paper = _mini_doc(tmp, lambda d: _add_q(d, 1))
+    _ck_state = os.path.join(_ckdir, 'audit_state.json')
+    _ck_st = {'mock': 1, 'exam_code': 'EX', 'paper_id': 'MOCK:M01', 'K': 1,
+              'batches_done': [1], 'evidence_dir': _ck_evd,
+              'ledger': {'entries': {'1': {'status': 'verified',
+                          'answer_cardinality': 'single', 'answer_unique': True,
+                          'is_factual': True,
+                          'fact_sources': [{'url': 'u', 'date': 'd', 'saved': _ck_fact}],
+                          'artefact_stamps': {}}}}}
+    with open(_ck_state, 'w', encoding='utf-8') as fh:
+        json.dump(_ck_st, fh)
+    _ck_zip = os.path.join(tmp, 'ck.zip')
+    _man = make_checkpoint(_ck_state, _ck_zip, docx_path=_ck_paper,
+                           exam='EX', mockN=1)
+
+    # 70. BUNDLE IS COMPLETE AND SELF-DESCRIBING — state + evidence + paper, an
+    #     identity triple, and a sha256 for every member.
+    check('CK-bundle-complete',
+          _man['schema'] == CHECKPOINT_SCHEMA and _man['exam_code'] == 'EX'
+          and _man['mock'] == 1 and _man['ledger_entries'] == 1
+          and _man['evidence_files'] == 1 and _man['paper_md5']
+          and 'audit_state.json' in _man['files']
+          and any(a.startswith('evidence/') for a in _man['files'])
+          and any(a.startswith('paper/') for a in _man['files']))
+
+    # 71. ROUND TRIP THEN CERTIFY — THE FIXTURE THIS RELEASE EXISTS FOR.
+    #     Simulate the session boundary by DESTROYING the original directory, then
+    #     restore into a fresh one and run the real completion gate. Before C1 this
+    #     was impossible: the evidence was gone and C5 failed for ever.
+    import shutil as _sh71
+    _sh71.rmtree(_ckdir)
+    _newdir = os.path.join(tmp, 'ck_restored')
+    _man2, _stp2, _evd2 = restore_checkpoint(_ck_zip, _newdir,
+                                             docx_path=_ck_paper, exam='EX', mockN=1)
+    _reset()
+    _dck = Document(_ck_paper); _t, _bck = parse_blocks(_dck)
+    rc = completion_gate(_stp2, 1, _bck, _dck)
+    check('CK-restore-then-certify',
+          rc == 0 and not any(l == 'FAIL' for l, _, _ in RESULTS)
+          and os.path.exists(os.path.join(_evd2, 'facts', 'q1_abc.json')))
+
+    # 72. EVIDENCE_DIR IS REWRITTEN — the recorded path belongs to the previous
+    #     session's container. If restore did not rewrite it, every C5/C6 stamp
+    #     would resolve to a directory that no longer exists.
+    with open(_stp2, encoding='utf-8') as fh:
+        _rst = json.load(fh)
+    check('CK-evidence-dir-rebased',
+          _rst['evidence_dir'] == _evd2 and os.path.isdir(_rst['evidence_dir'])
+          and _rst['session_log']['checkpoints_restored'][0]['batches_done'] == [1])
+
+    # 72b. NESTED EVIDENCE PATHS REBASE — a montage in evidence/montages/ must
+    #      resolve after restore, not merely a file sitting at the evidence root.
+    #      Verified explicitly because the resolver's basename fallback would mask
+    #      a broken rebase on a flat tree and hide it until a real paper.
+    check('CK-nested-paths-rebased',
+          _rst['ledger']['entries']['1']['fact_sources'][0]['saved']
+              == os.path.join(_evd2, 'facts', 'q1_abc.json')
+          and _rst['session_log']['checkpoints_restored'][0]['evidence_paths_rebased'] == 1)
+
+    # 73. TAMPER / TRUNCATION IS REFUSED — a member whose bytes changed since the
+    #     manifest was written must never be restored.
+    _bad_zip = os.path.join(tmp, 'ck_tampered.zip')
+    with zipfile.ZipFile(_ck_zip) as zin, \
+         zipfile.ZipFile(_bad_zip, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for i in zin.infolist():
+            data = zin.read(i.filename)
+            if i.filename.startswith('evidence/'):
+                data = data + b' '          # one byte; hash must catch it
+            zout.writestr(i, data)
+    try:
+        restore_checkpoint(_bad_zip, os.path.join(tmp, 'ck_t'), docx_path=_ck_paper)
+        _t73 = False
+    except CheckpointError as e:
+        _t73 = 'integrity' in str(e)
+    check('CK-tamper-refused', _t73)
+
+    # 74. WRONG PAPER IS REFUSED — restoring onto a different document would
+    #     certify an audit nobody performed on it. Strictly worse than losing the
+    #     audit, so this binding is HARD.
+    _other = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+    try:
+        restore_checkpoint(_ck_zip, os.path.join(tmp, 'ck_w'), docx_path=_other)
+        _t74 = False
+    except CheckpointError as e:
+        _t74 = 'MD5' in str(e)
+    check('CK-wrong-paper-refused', _t74)
+
+    # 75. WRONG MOCK / WRONG EXAM ARE REFUSED — the other two thirds of the
+    #     identity triple, checked BEFORE anything is written to disk.
+    _t75a = _t75b = False
+    try:
+        restore_checkpoint(_ck_zip, os.path.join(tmp, 'ck_m'), mockN=2)
+    except CheckpointError as e:
+        _t75a = 'mock' in str(e)
+    try:
+        restore_checkpoint(_ck_zip, os.path.join(tmp, 'ck_e'), exam='OTHER')
+    except CheckpointError as e:
+        _t75b = 'exam_code' in str(e)
+    check('CK-wrong-identity-refused', _t75a and _t75b)
+
+    # 76. A NON-CHECKPOINT ARCHIVE IS REFUSED, not half-unpacked.
+    _plain = os.path.join(tmp, 'plain.zip')
+    with zipfile.ZipFile(_plain, 'w') as z:
+        z.writestr('hello.txt', 'hi')
+    try:
+        restore_checkpoint(_plain, os.path.join(tmp, 'ck_p'))
+        _t76 = False
+    except CheckpointError as e:
+        _t76 = 'manifest' in str(e)
+    check('CK-not-a-checkpoint-refused',
+          _t76 and not os.path.exists(os.path.join(tmp, 'ck_p', 'audit_state.json')))
+
+    # 75b. AN UNBINDABLE BUNDLE IS REFUSED AT BOTH ENDS — building without the
+    #      paper is refused outright (paper_md5 is the strongest binding, and a
+    #      None there makes restore's check vacuous), and a manifest that somehow
+    #      lacks it is refused on restore. Found in end-to-end testing, not by
+    #      inspection: a shell quoting slip left the docx absent and the checkpoint
+    #      was written anyway, with no binding at all.
+    try:
+        make_checkpoint(_stp2, os.path.join(tmp, 'ck_nopaper.zip'), docx_path=None)
+        _t75c = False
+    except CheckpointError as e:
+        _t75c = 'REQUIRED' in str(e)
+    _nb = os.path.join(tmp, 'ck_nobind.zip')
+    with zipfile.ZipFile(_ck_zip) as zin, \
+         zipfile.ZipFile(_nb, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for i in zin.infolist():
+            data = zin.read(i.filename)
+            if i.filename == CHECKPOINT_MANIFEST:
+                _m = json.loads(data.decode('utf-8')); _m['paper_md5'] = None
+                data = json.dumps(_m).encode('utf-8')
+            zout.writestr(i, data)
+    try:
+        restore_checkpoint(_nb, os.path.join(tmp, 'ck_nb'), docx_path=_ck_paper)
+        _t75d = False
+    except CheckpointError as e:
+        _t75d = 'paper_md5' in str(e)
+    check('CK-unbindable-refused',
+          _t75c and _t75d
+          and not os.path.exists(os.path.join(tmp, 'ck_nb', 'audit_state.json')))
+
+    # 76b. UNKNOWN SCHEMA IS REFUSED — a checkpoint written by a different
+    #      framework build may carry fields this one misreads. Refusing is the
+    #      only safe answer: half-understanding a resume state is how an audit
+    #      certifies work it never did. (Uncovered until mutation testing showed
+    #      the schema guard could be deleted with every other fixture still green.)
+    _fut = os.path.join(tmp, 'ck_future.zip')
+    with zipfile.ZipFile(_ck_zip) as zin, \
+         zipfile.ZipFile(_fut, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for i in zin.infolist():
+            data = zin.read(i.filename)
+            if i.filename == CHECKPOINT_MANIFEST:
+                _m = json.loads(data.decode('utf-8'))
+                _m['schema'] = CHECKPOINT_SCHEMA + 1
+                data = json.dumps(_m).encode('utf-8')
+            zout.writestr(i, data)
+    try:
+        restore_checkpoint(_fut, os.path.join(tmp, 'ck_f'), docx_path=_ck_paper)
+        _t76b = False
+    except CheckpointError as e:
+        _t76b = 'schema' in str(e)
+    check('CK-unknown-schema-refused',
+          _t76b and not os.path.exists(os.path.join(tmp, 'ck_f', 'audit_state.json')))
+
+    # 77. REFUSAL IS TOTAL — a rejected restore must leave NO partial state behind.
+    #     A half-unpacked checkpoint is the worst outcome of all: it looks resumable.
+    check('CK-refusal-leaves-nothing',
+          not os.path.exists(os.path.join(tmp, 'ck_t', 'audit_state.json'))
+          and not os.path.exists(os.path.join(tmp, 'ck_w', 'audit_state.json'))
+          and not os.path.exists(os.path.join(tmp, 'ck_m', 'audit_state.json'))
+          and not os.path.exists(os.path.join(tmp, 'ck_f', 'audit_state.json')))
+
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')
     return 0 if passed == total else 1
@@ -3072,9 +3506,45 @@ def main():
     ap.add_argument('--key', dest='key',
                     help='optional answer_key.json (concept_map) — normally NOT delivered (S0-1).')
     ap.add_argument('--self-test', action='store_true', dest='self_test')
+    # C1 (v2.15) — cross-session checkpoint. /home/claude does not survive a
+    # session boundary, so an audit that spans sessions must carry its ledger AND
+    # its evidence with it or S5-1A C5/C6 can never certify.
+    ap.add_argument('--make-checkpoint', dest='make_checkpoint',
+                    help='write a portable checkpoint zip (needs --audit-state; '
+                         'pass the docx to bind the bundle to this paper).')
+    ap.add_argument('--restore-checkpoint', dest='restore_checkpoint',
+                    help='verify + unpack a checkpoint zip (needs --into).')
+    ap.add_argument('--into', dest='into',
+                    help='destination directory for --restore-checkpoint.')
     args = ap.parse_args()
     if args.self_test:
         sys.exit(self_test())
+    if args.make_checkpoint:
+        if not args.audit_state:
+            ap.error('--make-checkpoint requires --audit-state')
+        try:
+            man = make_checkpoint(args.audit_state, args.make_checkpoint,
+                                  docx_path=args.docx, mockN=args.mockN)
+        except CheckpointError as e:
+            print(f'CHECKPOINT: REFUSED — {e}'); sys.exit(1)
+        print(f"CHECKPOINT: WRITTEN {os.path.basename(args.make_checkpoint)} "
+              f"(mock {man.get('mock')}, batches {man.get('batches_done')}/"
+              f"{man.get('K')}, {man.get('ledger_entries')} ledger entr(ies), "
+              f"{man.get('evidence_files')} evidence file(s))")
+        sys.exit(0)
+    if args.restore_checkpoint:
+        if not args.into:
+            ap.error('--restore-checkpoint requires --into')
+        try:
+            man, stp, evd = restore_checkpoint(args.restore_checkpoint, args.into,
+                                               docx_path=args.docx, mockN=args.mockN)
+        except CheckpointError as e:
+            print(f'CHECKPOINT: REFUSED — {e}'); sys.exit(1)
+        print(f"CHECKPOINT: RESTORED (mock {man.get('mock')}, batches "
+              f"{man.get('batches_done')}/{man.get('K')}, "
+              f"{man.get('ledger_entries')} ledger entr(ies), "
+              f"{man.get('evidence_files')} evidence file(s)) -> {stp}")
+        sys.exit(0)
     if not args.docx:
         ap.error('docx path required (or use --self-test)')
     sys.exit(run_audit(args))

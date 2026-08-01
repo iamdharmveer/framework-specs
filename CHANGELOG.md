@@ -1,5 +1,87 @@
 # Changelog
 
+## 2026.08.01.5
+C1 — AN AUDIT CAN NOW SURVIVE A SESSION BOUNDARY. Release 2 of the 4-part
+session-exhaustion programme. **Audit coverage is UNCHANGED.**
+
+**The defect, and why it was the real one.** RA-18 declared Step 8 "resume-safe"
+and stored every piece of cross-batch state — ledger, batch plan, WIP docx and the
+ENTIRE evidence tree — under `/home/claude`. That directory does not survive a
+session boundary. So resume worked inside one session and not at all across one,
+and the failure was fatal rather than degraded: S5-1A C5/C6 assert that every
+stamped evidence file EXISTS, so once the montages and saved fact records were
+gone, a perfectly remembered ledger could NEVER certify. A session that exhausted
+mid-Phase-2 lost the whole audit, and the retry exhausted the same way. **That
+loop — not any individual gate — is why this step kept failing paper after paper.**
+2026.08.01.4 (B3) made exhaustion much less likely; C1 makes it survivable, which
+is the difference between a step that usually works and one that cannot lose your
+work.
+
+**The fix.** At the end of Phase 1 and of every Phase-2 batch, Step 8 writes
+`[ExamCode]_M[N]_audit_checkpoint.zip` — `audit_state.json` + the WHOLE evidence
+tree + the WIP docx — to the SAME filename each time, so there is exactly one
+current bundle to keep track of. On `resume`, new pre-flight step **P0.5C**
+verifies and rehydrates the uploaded bundle before any batch runs, rebasing
+`evidence_dir` AND every recorded evidence path in the ledger (the previous
+container's absolute paths are gone, and C5/C6 resolve through them). Neither
+build nor restore is prose: both are commands in `audit_canonical.py`
+(`--make-checkpoint` / `--restore-checkpoint`), per §21's rule that only code
+certifies.
+
+**Binding is the whole safety argument.** Restore REFUSES — writing NOTHING — on
+an unknown schema, an absent/unparseable manifest, ANY member whose sha256
+differs, or an `exam_code` / `mock` / `paper_md5` disagreeing with the paper in
+hand. A refusal leaves nothing on disk because a half-unpacked checkpoint is the
+worst outcome of all: it looks resumable. The paper binding matters most — a
+checkpoint restored onto a DIFFERENT document would let Step 8 certify an audit
+nobody performed on it, which is strictly worse than losing the audit. Building
+without the paper is likewise refused: a bundle with `paper_md5: null` makes the
+restore check vacuous.
+
+**MANDATE D gains one explicit carve-out.** The checkpoint is handed to the author
+before certification and that is not a breach: MANDATE D forbids shipping an
+uncertified PAPER, and the checkpoint is not a product but opaque resume state
+containing no certified artefact. The certification delivery remains exactly ONE
+`present_files` of the closed set; S14-2 now CLEARS any checkpoint from outputs and
+asserts (check 7) that none survives into the delivered set.
+
+**Two defects found by RUNNING it, not by reading it** — the pattern that has
+caught every real bug in this programme:
+
+- **Evidence paths were not rebased.** The restored ledger still pointed at the
+  dead session's absolute paths, so C5 failed with the files sitting correctly
+  restored two directories away. `_rebase_evidence_paths()` now rewrites every
+  `saved`/`montage`/`trace` explicitly, and `_resolve_evidence()` gained a
+  basename fallback as a safety net.
+- **The paper binding was optional.** A shell quoting slip left the docx absent
+  during end-to-end testing and the checkpoint was written anyway, cheerfully,
+  with `paper_md5: null` and therefore no binding at all. Now refused at both
+  ends.
+
+**Regression lock: 78/78 -> 89/89, eight guarantees mutation-verified.** Fixtures
+70-77 cover: bundle completeness; **round-trip-then-certify — the source directory
+is DESTROYED, the bundle restored into a fresh one, and the REAL completion gate
+run, which must PASS**; nested-path rebasing; and refusal of a tampered member, a
+wrong paper MD5, a wrong mock/exam, an unbindable bundle, a non-checkpoint
+archive, and an UNKNOWN SCHEMA — each leaving nothing on disk. The unknown-schema
+guard was found UNCOVERED by mutation testing: it could be deleted with every
+other fixture still green, the same hollow-branch class this corpus has now
+rediscovered three times. §21 gains test 23.
+
+**Proven end to end on a real delivered paper.** A 60-question IIT JAM
+Biotechnology audit with 104 evidence files and batches 1-3 of 6 complete was
+checkpointed, its container destroyed, restored in a fresh one, and certified:
+`COMPLETION-GATE: PASS (Q reviewed=60/60, facts sourced=60, artefacts stamped=44,
+evidence files present=104)`. Bundle size 1.5 MB.
+
+**Files:** `audit_canonical.py`; `Framework_MockTestCreateAudit.md` v2.14 ->
+**v2.15**; `Framework_Blueprint.md` v1.42.3 -> **v1.42.4** and
+`Framework_MockTestCreate.md` v5.34.1 -> **v5.34.2** (self-test count refresh
+only); `CHANGELOG.md`; `VERSION`; `MANIFEST.json`.
+
+**Remaining programme:** A1-A4 overhead cleanup (~27k), then B1 phase-scoped spec
+split (~40k).
+
 ## 2026.08.01.4
 B3 — FACT VERIFICATION KEEPS ITS EVIDENCE, NOT ITS TRANSCRIPT. Release 1 of the
 4-part session-exhaustion programme. **Audit coverage is UNCHANGED**; what changes
