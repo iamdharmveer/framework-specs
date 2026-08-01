@@ -1,4 +1,42 @@
-# Framework_MockTestCreateAudit v2.16
+# Framework_MockTestCreateAudit v2.17
+# v2.17 — 2026-08-01 — D7 (NO SILENT TRUNCATION) + TIER A (THE STEP-7 DOSSIER)
+#   (SESSION-EXHAUSTION programme, release 4). Two changes to the SAME gate surface,
+#   shipped together on purpose: fixing truncation alone would have raised
+#   A-FIGCOMP from 12 visible findings to 27 — more honest but more alarming — when
+#   the true cause was a missing image_role that Tier A supplies. Together the
+#   diagnostics become honest AND correct: 27 -> 7 on the reference paper.
+#
+#   D7 — Gates printed `' '.join(sorted(set(x))[:12])`. On a real 60-Q paper
+#   A-FIGCOMP had 27 findings and printed 12; the other 15 vanished with no trace,
+#   in lexicographic order (Q3 after Q28). A reviewer reasonably concluded the gate
+#   was non-deterministic and filed it as unreproducible. It was under-reporting, in
+#   numeric-blind order. 41 truncation sites are now rendered by _flist(), which
+#   sorts numerically and always states the total and any suppression.
+#
+#   TIER A. Step 7 already records every fact Step 8 was re-deriving, and
+#   Framework_MockTestCreate.md says of concept_map: "The audit gates read it
+#   directly instead of re-deriving." audit_canonical.py has carried the consumer
+#   path since v2.4. S0-1 simply never delivered the sidecar — producer written,
+#   consumer written, pipeline never connected. Measured: 0 of 60 concept_map
+#   entries reached Step 8; A-NAT-GRADE dormant on ~200 exams; image_role defaulted
+#   everywhere. The dossier repairs that channel under one line — HAND OVER FACTS,
+#   NEVER JUDGMENTS — with judgment keys refused at load, identity bound to the
+#   paper MD5, every fact cross-checked against the SHIPPED PAPER by A-DOSSIER, and
+#   NO GATE PASSING ON DOSSIER EVIDENCE ALONE.
+#
+#   TWO DEFECTS IN THIS RELEASE'S OWN FIRST CUT, both found by RUNNING it:
+#     • gate_dossier read `b.opts` — a field that DOES NOT EXIST on Block. getattr()
+#       returned None, every mcq cross-check compared 0 against OPTIONS_COUNT, and
+#       27 false failures were reported. Identical class to Block.images
+#       '# reserved' (v2.13). block_option_count() now counts from the document.
+#     • A-NAT-GRADE's dormancy test read `not concept_map`. The moment Tier A
+#       populated it, the gate woke with no answers and FAILED every NAT question.
+#       It now tests `not answers`, which is the honest condition, and goes live
+#       only with the sealed key channel.
+#
+#   Self-test 97 -> 105. Eight guarantees mutation-verified; the A-NAT-GRADE
+#   regression was found UNCOVERED by mutation testing and fixture 93 closes it.
+#
 # v2.16 — 2026-08-01 — D2 + D4: VISION IS A DECLARED, PROBED, DEGRADABLE DEPENDENCY
 #   (SESSION-EXHAUSTION programme, release 3 of 4+). THIS IS THE DEFECT THAT ACTUALLY
 #   HALTED A REAL AUDIT. Coverage is unchanged for every healthy run.
@@ -453,6 +491,32 @@
   sound paper (EC-V18). But it is never silent either: the WARN is a S5-4
   zero-warning blocker until the engine is uploaded or the skip is documented.
 
+  7b. [ExamCode]_M[N]_audit_dossier.json  — TIER-A FACT DOSSIER (v2.17). OPTIONAL;
+       absent on every pre-v5.35 paper and the audit then behaves exactly as before.
+       Carries, per question, the FACTS Step 7 recorded: subtopic_id, qtype,
+       image_role, difficulty, stem_precision, nat_grading_type/value, ca_range and
+       the MSQ/NAT in-stem flags — plus an identity binding (exam_code, mock,
+       paper_md5) and a schema.
+       WHY IT EXISTS. Framework_MockTestCreate.md already says of concept_map "The
+       audit gates read it directly instead of re-deriving", and audit_canonical.py
+       has carried the consumer path since v2.4 — but nothing ever delivered it.
+       Measured on a real 60-Q paper: 0 of 60 concept_map entries reached Step 8,
+       A-NAT-GRADE printed "dormant" on all ~200 exams, image_role defaulted for
+       every question, and A-FIGCOMP false-flagged 27 of 33 figural blocks (7 with
+       the dossier). This is a REPAIR of a designed channel, not a new privilege.
+       THE LINE: HAND OVER FACTS STEP 7 RECORDED; NEVER HAND OVER JUDGMENTS STEP 7
+       REACHED. A fact is checkable against the artefact or the world; a judgment is
+       what Step 8 exists to form. load_dossier() REFUSES any file carrying answers,
+       answer_verified, derived_answer or any other judgment key, and refuses an
+       identity mismatch — a dossier describing a different document would let Step 8
+       audit against facts about another paper.
+       AND THE RULE THAT KEEPS IT HONEST: **NO GATE MAY PASS ON DOSSIER EVIDENCE
+       ALONE.** The dossier may make a check cheaper or make a mismatch visible; it
+       may never be the thing that certifies. A-DOSSIER cross-checks every fact
+       against the SHIPPED PAPER and the registry, and a disagreement is a FAIL —
+       never a silent overwrite in either direction — because it means Step 7
+       RECORDED something other than what it SHIPPED.
+
   NOT DELIVERED (Step 8 must do without these — by design, S13-6):
     ✗ [ExamCode]_M[N]_answer_key.json     — the answers + per-Q concept_map.
        CONSEQUENCE: Step 8 has NO answer key and NO concept_map. It re-derives
@@ -661,11 +725,29 @@
           whether the Phase-3 completion gate must pass. When a preference appears
           to conflict with a HARD rule, the HARD rule wins and the preference is
           applied only to pacing/reporting.
-  RA-1  : INDEPENDENCE. Never trust a Step-7 self-report. Re-derive every fact
-          certified (answers, classifications, counts) from the paper + the
-          Step-0/1 source files. The absence of the answer-key sidecar is by
-          design (S0-1); solve every question yourself (§11).
+  RA-1  : INDEPENDENCE — OVER JUDGMENTS, NOT OVER FACTS (v2.17). Never trust a
+          Step-7 self-report for anything Step 8 certifies. Solve every question
+          yourself (§11); the answer-key sidecar is still withheld (S0-1).
+          WHAT INDEPENDENCE IS NOT. It was read as "Step 8 must see nothing", which
+          left Step 8 re-deriving facts Step 7 had already written down and Step 7's
+          own spec said Step 8 should read. That is not independence, it is
+          amnesia — and it cost a gate (A-NAT-GRADE, dormant estate-wide) and
+          produced false findings (A-FIGCOMP, 27 of 33 figural blocks).
+          THE TIER-A DOSSIER (S0-1 item 7b) carries FACTS only — subtopic_id, qtype,
+          image_role, the NAT grading transform. Each is CHECKED against the shipped
+          paper by A-DOSSIER before it is used, and a disagreement is a finding.
+          Independence over JUDGMENTS is untouched and absolute: the answer, "the
+          options are unambiguous", "the figure is legible" are all still Step 8's
+          to form from the artefact. NO GATE MAY PASS ON DOSSIER EVIDENCE ALONE.
   RA-2  : NO CONTENT IN CHAT. = MANDATE 0.
+  RA-3a : REPORT EVERYTHING, TRUNCATE NOTHING SILENTLY (v2.17 / D7). A findings
+          list is rendered by _flist(): it sorts Q-numbers NUMERICALLY and, when it
+          shows a head, states "[+N MORE NOT SHOWN; T TOTAL]". Gates previously
+          printed `sorted(set(x))[:12]`, so A-FIGCOMP with 27 findings showed 12 and
+          15 vanished without trace — in lexicographic order (Q3 after Q28), which
+          read as non-determinism and was filed as an unreproducible gate. It was
+          neither: it was under-reporting, in numeric-blind order. A finding that
+          exists and is not shown is the same false-clean class as a vacuous pass.
   RA-3  : AUDIT EVERYTHING, SAMPLE NOTHING. Every question, every option, every
           image, every table cell, every OMML node is checked. Zero sampling.
           "Spot-check N random Qs" is FORBIDDEN for any content-correctness check.
@@ -3865,7 +3947,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.13 build prints 97/97 — see tests 16-20).
+#     v2.12; the v2.13 build prints 105/105 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -3973,7 +4055,7 @@ Replace for registry.json), and next-step reference.
 #   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
-#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (97/97) all pass, and
+#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (105/105) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4004,7 +4086,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 97/97 PASS  (exit 0) on the v2.13 canonical
+#     • `--self-test`  → SELF-TEST: 105/105 PASS  (exit 0) on the v2.13 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4072,10 +4154,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 97/97). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 105/105). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.16
+# END OF Framework_MockTestCreateAudit v2.17
 # ════════════════════════════════════════════════════════════════════════

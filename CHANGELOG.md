@@ -1,5 +1,80 @@
 # Changelog
 
+## 2026.08.01.7
+D7 (NO SILENT TRUNCATION) + TIER A (THE STEP-7 DOSSIER). Release 4 of the
+session-exhaustion programme. Shipped together on purpose: fixing truncation alone
+would have raised A-FIGCOMP from 12 visible findings to 27 — more honest but more
+alarming — when the true cause was a missing `image_role` that Tier A supplies.
+Together the diagnostics become honest AND correct: **27 -> 7** on the reference
+paper.
+
+**D7 — a findings list may never truncate silently.** Gates printed
+`' '.join(sorted(set(x))[:12])`. On a real 60-question paper A-FIGCOMP had 27
+findings and printed 12; the other 15 vanished with no trace, in LEXICOGRAPHIC
+order (Q3 after Q28). A reviewer reasonably concluded the gate was
+non-deterministic and filed it as unreproducible. It was neither — it was
+under-reporting, in numeric-blind order. All 41 truncation sites now render through
+`_flist()`, which sorts Q-numbers numerically and always states
+`[+N MORE NOT SHOWN; T TOTAL]`. New rule RA-3a: a finding that exists and is not
+shown is the same false-clean class as a vacuous pass.
+
+**Tier A — repairing a channel that was designed and then severed.** Step 7 already
+records every fact Step 8 was re-deriving, and `Framework_MockTestCreate.md` says of
+`concept_map`: *"The audit gates read it directly instead of re-deriving."*
+`audit_canonical.py` has carried the consumer path since v2.4. S0-1 simply never
+delivered the sidecar — producer written, consumer written, pipeline never
+connected. Measured on the reference paper: **0 of 60** `concept_map` entries
+reached Step 8, `A-NAT-GRADE` printed "dormant" on all ~200 exams, and `image_role`
+defaulted for every question.
+
+`[ExamCode]_M[N]_audit_dossier.json` (Step 7 v5.35 S13-4b, Step 8 S0-1 item 7b)
+carries per-question `subtopic_id`, `qtype`, `image_role`, `difficulty`,
+`stem_precision`, `nat_grading_type/value`, `ca_range` and the MSQ/NAT in-stem
+flags. Under one line:
+
+> **HAND OVER FACTS STEP 7 RECORDED. NEVER HAND OVER JUDGMENTS STEP 7 REACHED.**
+
+`load_dossier()` REFUSES any file carrying `answers` / `answer_verified` /
+`derived_answer`, refuses an unknown schema, and refuses an `exam_code` / `mock` /
+**paper-MD5** mismatch — a dossier describing a different document would let Step 8
+audit against facts about another paper. New gate **A-DOSSIER** cross-checks every
+fact against the SHIPPED PAPER and the registry; a disagreement is a **FAIL**, never
+a silent overwrite in either direction, because it means Step 7 RECORDED something
+other than what it SHIPPED. And the rule that keeps the whole thing honest:
+**NO GATE MAY PASS ON DOSSIER EVIDENCE ALONE** — the dossier may make a check
+cheaper or make a mismatch visible; it may never be the thing that certifies.
+RA-1 is amended accordingly: independence over JUDGMENTS is absolute and untouched;
+independence over FACTS was amnesia, and it cost a gate.
+
+**Two defects in this release's own first cut, both found by RUNNING it:**
+
+- `gate_dossier` read `b.opts` — **a field that does not exist on `Block`**.
+  `getattr()` returned `None`, every mcq cross-check compared 0 against
+  OPTIONS_COUNT, and 27 false failures were reported on the reference paper.
+  Identical class to `Block.images '# reserved'` (v2.13). `block_option_count()`
+  now counts from the document.
+- `A-NAT-GRADE`'s dormancy test read `not concept_map`. The moment Tier A populated
+  it, the gate woke with no answers and FAILED every NAT question — a correct
+  "dormant" turned into a false FAIL. It now tests `not answers`, the honest
+  condition, and goes live only with the sealed key channel (Tier B).
+
+**Regression lock: 97/97 -> 105/105, eight guarantees mutation-verified.** Fixtures
+86-93 cover suppression/total reporting, numeric ordering, dossier adoption,
+disagreement-as-finding, judgment-key refusal, identity binding, absent-safety,
+document-counted options, and A-NAT-GRADE dormancy. The A-NAT-GRADE regression was
+found UNCOVERED by mutation testing — every other fixture stayed green with the fix
+deleted — and fixture 93 closes it.
+
+**Absent-safe across the estate.** No dossier ⇒ A-DOSSIER prints a NAMED reason and
+the audit behaves exactly as v2.16. ~200 legacy papers are unaffected.
+
+**Files:** `audit_canonical.py`; `Framework_MockTestCreateAudit.md` v2.16 ->
+**v2.17**; `Framework_MockTestCreate.md` v5.34.3 -> **v5.35**;
+`Framework_Blueprint.md` v1.42.5 -> **v1.42.6** (count refresh); `CHANGELOG.md`;
+`VERSION`; `MANIFEST.json`.
+
+**Remaining:** Tier B (sealed key), then D1/D8/D3, then scope profiles and D6.
+
 ## 2026.08.01.6
 D2 + D4 — VISION IS A DECLARED, PROBED, DEGRADABLE DEPENDENCY. Release 3 of the
 session-exhaustion programme. **This is the defect that actually halted a real

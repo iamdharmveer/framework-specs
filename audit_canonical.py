@@ -235,6 +235,49 @@ def resolve_figure_spec(img, specs):
     return {}
 
 
+# ============================================================================
+# D7 — A FINDINGS LIST MAY NEVER TRUNCATE SILENTLY (v2.17)
+#
+# WHY. Gates printed `_flist(x)`. On a real 60-Q paper
+# A-FIGCOMP had 27 findings and printed 12 — 15 vanished with no trace. Worse,
+# `sorted()` is LEXICOGRAPHIC on 'Q1'/'Q10'/'Q3', so the printed set looked
+# arbitrary (Q3 after Q28) and a reviewer reasonably concluded the gate was
+# non-deterministic and filed it as unreproducible. It was neither: it was
+# under-reporting, in numeric-blind order.
+#
+# A finding that exists and is not shown is the same false-clean this corpus has
+# now hit six times. Every list therefore states its TOTAL, marks suppression
+# explicitly, and sorts Q-numbers as NUMBERS.
+# ============================================================================
+FINDING_LIST_CAP = 12
+
+
+def _qsort_key(x):
+    """Numeric-aware sort so Q3 precedes Q10 and a truncated head is the LOWEST
+    Q-numbers, not a lexicographic accident."""
+    t = str(x)
+    m = re.search(r'\d+', t)
+    return (0, int(m.group()), t) if m else (1, 0, t)
+
+
+def _flist(items, cap=FINDING_LIST_CAP, sep=' '):
+    """Render a findings list. NEVER silently truncates: suppression is named and
+    the total is always printed, so a reader can tell 'this is all of them' from
+    'this is the first twelve of twenty-seven'."""
+    if isinstance(items, str):
+        items = [items]
+    u = sorted({str(i) for i in items}, key=_qsort_key)
+    head = sep.join(u[:cap])
+    if len(u) > cap:
+        return f'{head}{sep}... [+{len(u) - cap} MORE NOT SHOWN; {len(u)} TOTAL]'
+    return head
+
+
+def _fcount(items):
+    """The honest count for a message prefix."""
+    return len({str(i) for i in (items or [])})
+
+
 def parse_blocks(doc):
     """Split the document body into per-question blocks. Items before the first
     Q.<n> are the title/instruction block (returned separately)."""
@@ -313,6 +356,22 @@ def load_sources(args):
     # back to default image_role='stem_and_options' per subtopic).
     src['concept_map'] = {}
     src['answers'] = {}
+    # v2.17 TIER A — the dossier feeds the SAME consumer path --key has fed since
+    # v2.4. Nothing downstream changes shape; what changes is that the path is
+    # finally supplied in normal operation instead of being permanently empty.
+    src['dossier'] = None
+    src['dossier_why'] = 'not supplied'
+    if getattr(args, 'dossier', None):
+        try:
+            _qs, _man = load_dossier(args.dossier, docx_path=args.docx,
+                                     mockN=getattr(args, 'mockN', None))
+            src['dossier'] = _qs
+            src['dossier_manifest'] = _man
+            # Adopt Tier-A facts. answers stays EMPTY: the dossier carries no
+            # judgment, and A-DOSSIER cross-checks every fact against the paper.
+            src['concept_map'] = {q: dict(e) for q, e in _qs.items()}
+        except DossierError as e:
+            src['dossier_why'] = str(e)
     if getattr(args, 'key', None) and Path(args.key).exists():
         _key_data = json.load(open(args.key, encoding='utf-8'))
         src['concept_map'] = _key_data.get('concept_map', {})
@@ -556,7 +615,7 @@ def gate_structure(blocks, src):
             _ok('A-SEQ', f'Q-numbers complete 1..{tq}.')
         else:
             miss = sorted(expected - got); extra = sorted(got - expected)
-            _fail('A-SEQ', f'missing={miss[:10]} extra={extra[:10]}.')
+            _fail('A-SEQ', f'missing={_flist(miss)} extra={_flist(extra)}.')
     else:
         _warn('A-COUNT', 'blueprint.total_questions absent; count check skipped.')
     if nums == sorted(nums) and len(nums) == len(set(nums)):
@@ -644,13 +703,13 @@ def gate_options(blocks, src):
         if len(nonempty) == oc and len(set(nonempty)) != oc:
             bad_uni.append(f'Q{b.qnum}')
     (_ok if not bad_n else _fail)('A-OPTN',
-        f'every Q has {oc} options.' if not bad_n else 'wrong count: ' + ' '.join(bad_n[:15]))
+        f'every Q has {oc} options.' if not bad_n else 'wrong count: ' + _flist(bad_n))
     (_ok if not bad_lab else _fail)('A-OPTLABEL',
-        'labels match format.' if not bad_lab else 'bad label family: ' + ' '.join(bad_lab[:15]))
+        'labels match format.' if not bad_lab else 'bad label family: ' + _flist(bad_lab))
     (_ok if not bad_ord else _fail)('A-OPTORDER',
-        'options in order.' if not bad_ord else 'out of order: ' + ' '.join(bad_ord[:15]))
+        'options in order.' if not bad_ord else 'out of order: ' + _flist(bad_ord))
     (_ok if not bad_uni else _fail)('A-OPTUNIQUE',
-        'options distinct within Q.' if not bad_uni else 'dup options: ' + ' '.join(bad_uni[:15]))
+        'options distinct within Q.' if not bad_uni else 'dup options: ' + _flist(bad_uni))
 
 
 def gate_qnfirst(blocks):
@@ -677,7 +736,7 @@ def gate_qnfirst(blocks):
                     viol.append(f'Q{blocks[k+1].qnum}'); break
     (_ok if not viol else _fail)('A-QNFIRST',
         'every block opens with Q.<n> (no orphaned lead-in).' if not viol else
-        'stimulus orphaned before Q.<n>: ' + ' '.join(sorted(set(viol))[:15]))
+        'stimulus orphaned before Q.<n>: ' + _flist(viol))
 
 
 def gate_blanksep(doc, blocks):
@@ -703,7 +762,7 @@ def gate_font(doc, src):
             if nm not in (None, fam):
                 bad.add(nm)
     (_ok if not bad else _fail)('A-FONT',
-        f'all runs {fam}.' if not bad else f'non-{fam} fonts present: {sorted(bad)[:6]}')
+        f'all runs {fam}.' if not bad else f'non-{fam} fonts present: {_flist(bad)}')
 
 
 def gate_sechdr(blocks, doc, src):
@@ -733,7 +792,7 @@ def gate_sechdr(blocks, doc, src):
         if (pat.match(t) and len(t) < 60) or (t.lower() in sec_names):
             hits.append(t[:40])
     (_ok if not hits else _fail)('A-SECHDR',
-        'no body section headers.' if not hits else 'section-header text in body: ' + ' | '.join(hits[:10]))
+        'no body section headers.' if not hits else 'section-header text in body: ' + _flist(hits, sep=' | '))
 
 
 def gate_anskey(doc):
@@ -803,7 +862,7 @@ def gate_nat(blocks, src):
                 bad_opt.append(f'Q{b.qnum}:{len(_label_paras(b))}')
         (_ok if not bad_opt else _fail)('A-NAT-NOOPT',
             'every numerical Q renders zero options.' if not bad_opt
-            else 'numerical Q carries options: ' + ' '.join(bad_opt[:15]))
+            else 'numerical Q carries options: ' + _flist(bad_opt))
     else:
         _ok('A-NAT-NOOPT', 'no numerical subtopics in this mock (dormant).')
     # v2.8 — A-NAT-GRADE (machine, NUMERICAL only): self-consistency backstop for the
@@ -857,6 +916,14 @@ def gate_nat(blocks, src):
         return ('decimal', _fmt_portal_number(value, precision=None))
     if not nat_present:
         _ok('A-NAT-GRADE', 'no numerical subtopics in this mock (dormant).')
+    elif not src.get('answers'):
+        # v2.17: was `not concept_map`. The check re-runs derive_nat_grading() over
+        # the KEYED VALUE, so it needs answers — a Tier-A dossier (facts only) is
+        # not enough. Conflating the two made the gate FAIL on every NAT question
+        # the moment the dossier landed. It becomes live with the sealed key
+        # channel (Tier B), not before.
+        _ok('A-NAT-GRADE', 'answer values not available (Tier-A dossier carries no '
+                           'answers; supply --key) — dormant.')
     elif not src.get('concept_map'):
         # Step 8 does not receive the answer_key sidecar by default (S0-1) — this
         # self-consistency backstop is only checkable when --key is supplied,
@@ -892,7 +959,7 @@ def gate_nat(blocks, src):
                                   f're-derived ({re_type!r},{re_val!r})')
         (_ok if not bad_grade else _fail)('A-NAT-GRADE',
             'every NAT grading value is self-consistent and charset-pure.' if not bad_grade
-            else 'grading value defect(s): ' + ' | '.join(bad_grade[:15]))
+            else 'grading value defect(s): ' + _flist(bad_grade, sep=' | '))
     # A-NAT-INSTR: per-section EXPECTED NAT count (re-derived from blueprint allocations,
     # src['expected_nat_by_section']) vs OBSERVED count of Q blocks whose stem carries a
     # numerical-entry instruction phrase. Mismatch ⇒ a NAT Q missing its instruction (or a
@@ -949,9 +1016,9 @@ def gate_stimorphan(blocks, src):
                 orphan.append(f'Q{b.qnum}')
     (_ok if not orphan else _fail)('A-STIMORPHAN',
         'linked members carry their stimulus.' if not orphan else
-        'orphaned stimulus (no embedded table/image/passage): ' + ' '.join(orphan[:12]))
+        'orphaned stimulus (no embedded table/image/passage): ' + _flist(orphan))
     if crossref:
-        _fail('A-STIMORPHAN-XREF', 'cross-question reference in stem: ' + ' '.join(crossref[:12]))
+        _fail('A-STIMORPHAN-XREF', 'cross-question reference in stem: ' + _flist(crossref))
     else:
         _ok('A-STIMORPHAN-XREF', 'no "Q.x and Q.y" cross-references.')
 
@@ -1041,7 +1108,7 @@ def gate_match_table(blocks, src):
     (_ok if not missing else _fail)('A-MATCH-TABLE',
         'every MATCH question renders its List columns as a real table.' if not missing else
         'MATCH question(s) rendered without a <w:tbl> grid (S7-3 defect — rebuild the List '
-        'body as a real table, never text/space columns): ' + ' '.join(missing[:15]))
+        'body as a real table, never text/space columns): ' + _flist(missing))
 
 
 def gate_underline(blocks):
@@ -1065,9 +1132,9 @@ def gate_underline(blocks):
                 missing.append(f'Q{b.qnum}')
     (_ok if not missing else _fail)('A-UNDERLINE',
         'underline-class Qs use real <w:u>.' if not missing else
-        'no real underline run: ' + ' '.join(missing[:12]))
+        'no real underline run: ' + _flist(missing))
     if fake:
-        _fail('A-UNDERLINE-FAKE', '"(underlined: X)" annotation present: ' + ' '.join(fake[:12]))
+        _fail('A-UNDERLINE-FAKE', '"(underlined: X)" annotation present: ' + _flist(fake))
     else:
         _ok('A-UNDERLINE-FAKE', 'no faked-underline annotations.')
 
@@ -1092,7 +1159,7 @@ def gate_omml(doc, src, final):
         f'{n_omath} oMath; all fractions well-formed.' if not nfrac_bad else
         f'{len(nfrac_bad)} fraction(s) with empty num/den.')
     if yearfrac:
-        _warn('A-OMML-YEAR', f'year-range rendered as stacked fraction: {yearfrac[:6]}')
+        _warn('A-OMML-YEAR', f'year-range rendered as stacked fraction: {_flist(yearfrac)}')
     if final and src['omml_required_present'] and n_omath == 0:
         _warn('A-OMML-FLOOR',
               'OMML_required subtopic(s) declared but ZERO <m:oMath> in paper — '
@@ -1111,10 +1178,10 @@ def gate_frac_ascii(blocks, src):
         if omml_ctx and SLASH_FRAC.search(stem):
             slash.append(f'Q{b.qnum}')
     (_ok if not caret else _fail)('A-FRAC',
-        'no ASCII caret exponents.' if not caret else 'ASCII "^" exponent: ' + ' '.join(caret[:12]))
+        'no ASCII caret exponents.' if not caret else 'ASCII "^" exponent: ' + _flist(caret))
     if slash:
         _warn('A-FRAC-SLASH', 'slash fraction in math-context stem (view in Part B): '
-              + ' '.join(slash[:12]))
+              + _flist(slash))
 
 
 def gate_images(blocks, src, media_map):
@@ -1196,21 +1263,21 @@ def gate_images(blocks, src, media_map):
                     composite.append(f'Q{b.qnum}')
     (_ok if not math_raster else _fail)('A-MATHRASTER',
         'no math-token raster names.' if not math_raster else
-        'image named like a math raster: ' + ' '.join(sorted(set(math_raster))[:12]))
+        'image named like a math raster: ' + _flist(math_raster))
     if warn_view:
         _warn('A-MATHRASTER-VIEW',
               f'{len(set(warn_view))} block(s) have non-canonically-named images — '
               'VIEW in Part B (§7) to confirm figure vs math raster: '
-              + ' '.join(sorted(set(warn_view))[:12]))
+              + _flist(warn_view))
     if multi_per_line:
         _fail('A-FIGCOMP-LINE', 'multiple images on one line (option-per-line broken): '
-              + ' '.join(sorted(set(multi_per_line))[:12]))
+              + _flist(multi_per_line))
     else:
         _ok('A-FIGCOMP-LINE', 'at most one image per line.')
     if composite:
         _warn('A-FIGCOMP',
               'figural block image-count mismatch (per image_role) — '
-              'VIEW + fix in Part B: ' + ' '.join(sorted(set(composite))[:12]))
+              'VIEW + fix in Part B: ' + _flist(composite))
     else:
         _ok('A-FIGCOMP', 'figural blocks pass image_role-aware check (v2.4).')
 
@@ -1313,7 +1380,7 @@ def gate_images(blocks, src, media_map):
                 if _fig_bad:
                     _fail('A-FIGPROFILE',
                           'generated figure types do not match the measured PYQ profile — '
-                          + ' | '.join(_fig_bad[:4]))
+                          + _flist(_fig_bad, sep=' | '))
                 elif not _by_sub:
                     # 0/0 is NOT evidence of conformance (edge case 6). The registry
                     # carried object_types but no usable subtopic_ids, so nothing was
@@ -1332,7 +1399,7 @@ def gate_images(blocks, src, media_map):
         _fail('A-FIGTEXT-PROSE',
               'Q-block references a figure but contains 0 images — '
               'render the figure or replace the subtopic (S7-NEW-B): '
-              + ' '.join(sorted(set(figtext_prose))[:12]))
+              + _flist(figtext_prose))
     else:
         _ok('A-FIGTEXT-PROSE', 'no figure-reference prose in zero-image blocks.')
 
@@ -1460,7 +1527,7 @@ def gate_images(blocks, src, media_map):
                              + (f' ({_legacy_n} legacy, EC-V18).' if _legacy_n else '.'))
                 return
             _sev, _msgs, _legs = bucket[gid]
-            _detail = ' | '.join(_msgs[:3])
+            _detail = _flist(_msgs, sep=' | ')
             # v2.13: a MIXED paper (some figures carry a sidecar, some do not)
             # must not report one number for two different populations — the
             # operator acts on this line, and "56 figure(s)" when one regressed
@@ -1562,7 +1629,7 @@ def gate_optref(blocks, src):
                 break
     (_ok if not miss else _fail)('A-OPTREF',
         'escape-option references are satisfied.' if not miss else
-        'stem references an absent escape/terminal option: ' + ' '.join(sorted(set(miss))[:12]))
+        'stem references an absent escape/terminal option: ' + _flist(miss))
 
 
 def gate_encoding_script(doc, src):
@@ -1634,7 +1701,7 @@ def gate_dup(blocks, src):
                         break
     (_ok if not exact and not near else _fail)('A-DUP',
         'no cross-mock stem duplication.' if not exact and not near else
-        f'exact={sorted(set(exact))[:8]} near={sorted(set(near))[:8]} (vs prior mocks).')
+        f'exact={_flist(exact)} near={_flist(near)} (vs prior mocks).')
 
 
 def gate_header(doc, blocks, src):
@@ -1654,6 +1721,158 @@ def gate_header(doc, blocks, src):
                           'pre-Q.1 title/info/scoring/cover block (CP-HEADER-STRIP) — the '
                           'paper is questions-only (R8b/G-PREQ1); marks/time/negative/'
                           'options/total are metadata, never printed.')
+
+
+# ============================================================================
+# TIER A — THE STEP-7 -> STEP-8 DOSSIER (v2.17)
+#
+# WHY THIS IS A REPAIR, NOT A FEATURE. Step 7 already records every fact below,
+# and Framework_MockTestCreate.md says of concept_map: "The audit gates read it
+# directly instead of re-deriving." audit_canonical.py has carried a --key
+# consumer path since v2.4. But S0-1 never delivered the sidecar, so the producer
+# wrote it, the consumer could read it, and the pipeline never connected them.
+# Measured consequence on a real 60-Q paper: 0 of 60 concept_map entries reached
+# Step 8; A-NAT-GRADE printed "dormant" on all ~200 exams; image_role defaulted
+# for every question, false-flagging 27 of 33 figural blocks in A-FIGCOMP.
+#
+# THE LINE THAT KEEPS THIS HONEST:
+#   HAND OVER FACTS STEP 7 RECORDED. NEVER HAND OVER JUDGMENTS STEP 7 REACHED.
+# A fact is checkable against the artefact or the world (subtopic_id, qtype,
+# image_role, the NAT grading transform). A judgment is the thing Step 8 exists to
+# form (the answer, "this is unambiguous", "this figure is legible"). Tier A
+# carries only facts; answers and answer_verified are REFUSED at load.
+#
+#   NO GATE MAY PASS ON DOSSIER EVIDENCE ALONE.
+# The dossier can make a check cheaper or make a mismatch visible. It may never be
+# the thing that certifies. Every consumer still grounds out in the paper — which
+# is exactly why a dossier/paper disagreement is a FINDING, never a silent
+# overwrite: it means Step 7's record disagrees with what Step 7 shipped.
+# ============================================================================
+DOSSIER_SCHEMA = 1
+DOSSIER_FORBIDDEN = ('answers', 'answer_key', 'answer_verified', 'concept_text',
+                     'derived_answer', 'correct_option')
+DOSSIER_FACT_KEYS = ('subtopic_id', 'qtype', 'image_role', 'difficulty',
+                     'stem_precision', 'nat_grading_type', 'nat_grading_value',
+                     'ca_range', 'msq_instr_in_stem', 'nat_instr_in_stem')
+
+
+class DossierError(Exception):
+    """Refusal to accept a dossier. Names the reason; never fact content."""
+
+
+def load_dossier(path, docx_path=None, exam=None, mockN=None):
+    """Verify and load the Tier-A dossier. Returns (questions_dict, manifest).
+
+    REFUSES — and the caller then runs exactly as it did before the dossier
+    existed, which is the safe default — on: unknown schema, unparseable file,
+    an identity mismatch (exam_code / mock / paper MD5), or ANY forbidden
+    judgment key. The paper binding is the important one: a dossier from a
+    different document would let Step 8 audit against facts describing another
+    paper.
+    """
+    if not path or not os.path.exists(path):
+        raise DossierError('not supplied')
+    try:
+        with open(path, encoding='utf-8') as fh:
+            d = json.load(fh)
+    except Exception as e:
+        raise DossierError(f'unparseable ({type(e).__name__})')
+    if d.get('schema') != DOSSIER_SCHEMA:
+        raise DossierError(f'schema {d.get("schema")!r} != {DOSSIER_SCHEMA}')
+    for k in DOSSIER_FORBIDDEN:
+        if k in d:
+            raise DossierError(
+                f'carries a JUDGMENT key ({k!r}) — Tier A transports FACTS only. '
+                f'Answers reach Step 8 through the sealed channel, never here.')
+    if exam and d.get('exam_code') and d['exam_code'] != exam:
+        raise DossierError(f'built for exam {d["exam_code"]!r}, not {exam!r}')
+    if mockN is not None and d.get('mock') is not None and int(d['mock']) != int(mockN):
+        raise DossierError(f'built for mock {d["mock"]}, not mock {mockN}')
+    if not d.get('paper_md5'):
+        raise DossierError('carries no paper_md5 binding — cannot be proven to '
+                           'describe this paper')
+    if docx_path and os.path.exists(docx_path) and _md5_file(docx_path) != d['paper_md5']:
+        raise DossierError('paper MD5 mismatch — this dossier describes a DIFFERENT '
+                           'document than the one being audited')
+    qs = d.get('questions') or {}
+    if not isinstance(qs, dict) or not qs:
+        raise DossierError('no questions recorded')
+    for q, e in qs.items():
+        if not isinstance(e, dict):
+            raise DossierError(f'Q{q}: entry is not an object')
+        for k in DOSSIER_FORBIDDEN:
+            if k in e:
+                raise DossierError(f'Q{q}: carries a JUDGMENT key ({k!r})')
+    return qs, d
+
+
+def block_option_count(b):
+    """Options actually RENDERED in this block, counted with the same OPT_RE the
+    option gates use.
+
+    v2.17: written because the first cut of gate_dossier read `b.opts`, which DOES
+    NOT EXIST on Block — getattr() returned None, n_opt was 0 for every question,
+    and the qtype cross-check reported 27 false failures. That is precisely the
+    Block.images '# reserved' defect class, reintroduced by this release's own
+    author and caught only by running the gate against a real paper. A field that
+    is never populated is indistinguishable from a field that is empty; assume
+    nothing, count from the document.
+    """
+    n = 0
+    for p in b.paras:
+        if OPT_RE.match(para_text(p)):
+            n += 1
+    return n
+
+
+def gate_dossier(blocks, src, dossier, why=None):
+    """A-DOSSIER — cross-check every Tier-A fact against the SHIPPED PAPER.
+
+    This gate never certifies anything on its own; it establishes whether the
+    dossier may be TRUSTED as a shortcut. A disagreement means Step 7's record and
+    Step 7's output disagree, which is a real defect in one of them and is reported
+    as such rather than quietly resolved in either direction.
+    """
+    if not dossier:
+        _warn('A-DOSSIER', f'no Tier-A dossier consumed ({why or "not supplied"}) — '
+                           'subtopic/qtype/image_role are re-derived or defaulted, '
+                           'A-NAT-GRADE is dormant, and A-FIGCOMP may over-report. '
+                           'Legacy behaviour; not a paper defect.')
+        return
+    oc = src.get('options_count') or 0
+    paper_qs = {str(b.qnum) for b in blocks}
+    dos_qs = set(dossier)
+    bad = []
+    if paper_qs != dos_qs:
+        for q in sorted(paper_qs - dos_qs, key=_qsort_key):
+            bad.append(f'Q{q}:absent-from-dossier')
+        for q in sorted(dos_qs - paper_qs, key=_qsort_key):
+            bad.append(f'Q{q}:not-in-paper')
+    figsub = src.get('figural_subtopics') or {}
+    for b in blocks:
+        e = dossier.get(str(b.qnum))
+        if not e:
+            continue
+        n_opt = block_option_count(b)
+        qt = (e.get('qtype') or '').lower()
+        # qtype is checkable against the rendered structure
+        if qt == 'nat' and n_opt:
+            bad.append(f'Q{b.qnum}:qtype-nat-but-{n_opt}-options')
+        elif qt in ('mcq', 'msq') and oc and n_opt != oc:
+            bad.append(f'Q{b.qnum}:qtype-{qt}-but-{n_opt}!={oc}-options')
+        # subtopic_id is checkable against the registry Step 8 already receives
+        rs = figsub.get(str(b.qnum))
+        if rs and e.get('subtopic_id') and e['subtopic_id'] != rs:
+            bad.append(f'Q{b.qnum}:subtopic-disagrees-with-registry')
+    if bad:
+        _fail('A-DOSSIER', f'{_fcount(bad)} Tier-A fact(s) disagree with the shipped '
+                           f'paper or the registry — Step 7 RECORDED something other '
+                           f'than what it SHIPPED. Resolve before trusting the dossier: '
+                           + _flist(bad))
+    else:
+        _ok('A-DOSSIER', f'Tier-A dossier consistent with the paper for '
+                         f'{len(dos_qs)} question(s); facts adopted as a shortcut, '
+                         f'never as certification (no gate passes on dossier alone).')
 
 
 def gate_zip(docx_path):
@@ -1688,7 +1907,7 @@ def gate_zip(docx_path):
                 bad.append(rid)
             media_map[rid] = tgt.split('/')[-1]
         (_ok if not bad else _fail)('A-ZIP',
-            'all rIds resolve to parts.' if not bad else f'unresolved rIds: {bad[:8]}')
+            'all rIds resolve to parts.' if not bad else f'unresolved rIds: {_flist(bad)}')
         return media_map
 
 
@@ -1916,13 +2135,13 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
     if total_questions and got == want:
         _ok('C2', f'all {total_questions} questions have a ledger entry.')
     else:
-        miss = sorted(want - got)[:15]; extra = sorted(got - want)[:15]
+        miss = sorted(want - got); extra = sorted(got - want)
         _fail('C2', f'ledger != 1..{total_questions}: missing={miss} extra={extra}.')
     # C3 — every entry closed
     bad3 = [q for q, e in entries.items() if e.get('status') not in ('verified', 'regenerated')]
     (_ok if not bad3 else _fail)('C3',
         'all entries verified/regenerated.' if not bad3 else
-        f'entries not closed (pending/absent): {sorted(bad3)[:15]}')
+        f'entries not closed (pending/absent): {_flist(bad3)}')
     # C4 — uniqueness / set ran
     bad4 = []
     for q, e in entries.items():
@@ -1934,7 +2153,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
                 bad4.append(q)
     (_ok if not bad4 else _fail)('C4',
         'B-UNIQUE/A-MSQ-KEY ran for every Q.' if not bad4 else
-        f'uniqueness/set not verified: {sorted(bad4)[:15]}')
+        f'uniqueness/set not verified: {_flist(bad4)}')
     # C5 — factual entries sourced AND the saved evidence file exists, parses, and
     # carries the RA-11 record fields (v2.14/B3: shape, not just existence).
     bad5 = []
@@ -1958,7 +2177,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
         f'every factual entry has a saved, well-formed sourced fact.{_dedup}'
         if not bad5 else
         'factual entries unsourced / saved fact file missing or malformed: '
-        + '; '.join(f'Q{q}:{why}' for q, why in sorted(set(bad5))[:15]))
+        + _flist([f'Q{q}:{why}' for q, why in set(bad5)], sep='; '))
     # C6 — artefact stamps present AND their evidence files exist/non-trivial.
     # v2.16 (D2): a 'view-unavailable' image stamp is admissible, but ONLY under the
     # conditions below. Everything else about C6 is unchanged.
@@ -2005,13 +2224,13 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
     if forged6:
         _fail('C6', 'view-unavailable claimed with NO FAILED vision probe — the stamp '
                     'is not admissible (RA-4 v2.16 requires a MEASURED outage, never an '
-                    f'operator claim): {sorted(set(forged6))[:15]}')
+                    f'operator claim): {_flist(forged6)}')
     elif stale6:
         _fail('C6', 'vision has RECOVERED but view-unavailable stamps were not upgraded — '
                     're-attempt the view for these and upgrade before Phase 3 (E2.3): '
-                    f'{sorted(set(stale6))[:15]}')
+                    f'{_flist(stale6)}')
     elif bad6:
-        _fail('C6', f'artefact stamp evidence missing/trivial: {sorted(set(bad6))[:15]}')
+        _fail('C6', f'artefact stamp evidence missing/trivial: {_flist(bad6)}')
     elif degraded6:
         _warn('C6', f'{len(set(degraded6))} question(s) carry view-unavailable under a '
                     f'MEASURED vision outage (batches {sorted(b for b in _vfailed_batches if b is not None)}); '
@@ -2032,7 +2251,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
             bad7.append(f'Q{b.qnum}:omml'); continue
     (_ok if not bad7 else _fail)('C7',
         'every paper artefact is covered by a ledger stamp.' if not bad7 else
-        f'paper artefact not audited (no ledger stamp): {sorted(set(bad7))[:15]}')
+        f'paper artefact not audited (no ledger stamp): {_flist(bad7)}')
 
     cfails = [c for lvl, c, _ in RESULTS if lvl == 'FAIL' and (c == 'C0' or c.startswith('C'))
               and c[1:].isdigit()]
@@ -2319,7 +2538,7 @@ def restore_checkpoint(zip_path, into_dir, docx_path=None, exam=None, mockN=None
                 bad.append(f'{arc}:hash')
         if bad:
             raise CheckpointError('checkpoint integrity failure (' + str(len(bad))
-                                  + ' member(s)): ' + ', '.join(sorted(bad)[:8]))
+                                  + ' member(s)): ' + _flist(bad, cap=8, sep=', '))
         os.makedirs(into_dir, exist_ok=True)
         for arc in (man.get('files') or {}):
             dst = os.path.join(into_dir, *arc.split('/'))
@@ -2367,6 +2586,8 @@ def run_audit(args):
     # _fig_verdict rather than a missing gate line or a silent pass.
     _safe_gate('A-MEDIA', attach_block_images, blocks, media_map,
                extract_media(args.docx, media_map))
+    _safe_gate('A-DOSSIER', gate_dossier, blocks, src, src.get('dossier'),
+               src.get('dossier_why'))
     _safe_gate('A-STRUCTURE', gate_structure, blocks, src)
     _safe_gate('A-SECCOUNT', gate_seccount, blocks, src)
     _safe_gate('A-OPTIONS', gate_options, blocks, src)
@@ -3698,8 +3919,7 @@ def self_test():
     rc = completion_gate(_write_state('v1.json',
                          _vis_state(VISION_STAMP_UNAVAILABLE, _FAILED_PROBE)), 1, _bv, _dv)
     check('VIS-measured-outage-certifies-degraded',
-          rc == 0 and any(c == 'C6' and l == 'WARN' and 'DEGRADED' not in m.upper()[:0]
-                          for l, c, m in RESULTS)
+          rc == 0 and any(c == 'C6' and l == 'WARN' for l, c, m in RESULTS)
           and any(c == 'C6' and l == 'WARN' for l, c, m in RESULTS))
 
     # 79. T2.3 — UNFAKEABLE: the stamp WITHOUT a failed probe must FAIL. This is the
@@ -3783,6 +4003,123 @@ def self_test():
     check('VIS-render-fail-is-not-a-vision-verdict',
           verify_vision_probe(_rf, 'ABC')['status'] == 'RENDER-FAIL')
 
+    # ════════════════════════════════════════════════════════════════════
+    # v2.17 — D7 (no silent truncation) + TIER A (dossier) regression lock
+    # ════════════════════════════════════════════════════════════════════
+    # 86. D7 — A LIST NEVER TRUNCATES SILENTLY, AND SORTS NUMERICALLY.
+    #     A-FIGCOMP had 27 findings and printed 12 with no trace of the other 15,
+    #     in lexicographic order (Q3 after Q28), which read as non-determinism and
+    #     was filed as an unreproducible gate. It was under-reporting.
+    _many = [f'Q{n}' for n in range(1, 28)]
+    _r86 = _flist(_many)
+    check('FLIST-states-suppression-and-total',
+          '27 TOTAL' in _r86 and '+15 MORE NOT SHOWN' in _r86
+          and _r86.startswith('Q1 Q2 Q3 ')
+          and _flist(['Q10', 'Q3', 'Q28']) == 'Q3 Q10 Q28'
+          and _flist(['Q1', 'Q2']) == 'Q1 Q2')          # short list: no noise
+
+    # 87. TIER A — a consistent dossier is adopted; A-DOSSIER passes and says
+    #     explicitly that adoption is NOT certification.
+    _dpaper = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+
+    def _dos(qs, **kw):
+        d = {'schema': DOSSIER_SCHEMA, 'exam_code': 'EX', 'mock': 1,
+             'paper_md5': _md5_file(_dpaper), 'questions': qs}
+        d.update(kw)
+        _dos.n = getattr(_dos, 'n', 0) + 1
+        pth = os.path.join(tmp, f'dos_{_dos.n}.json')
+        with open(pth, 'w') as fh:
+            json.dump(d, fh)
+        return pth
+    _ddoc = Document(_dpaper); _t, _dblocks = parse_blocks(_ddoc)
+    # _add_q renders four options, so the CONSISTENT dossier says mcq/4 and the
+    # DISAGREEMENT case claims nat (which must be option-free).
+    _dsrc = _src_stub(tq=2); _dsrc['options_count'] = 4
+    _good_qs = {'1': {'subtopic_id': 's.a', 'qtype': 'mcq', 'image_role': 'none'},
+                '2': {'subtopic_id': 's.b', 'qtype': 'mcq', 'image_role': 'none'}}
+    _reset(); gate_dossier(_dblocks, _dsrc, _good_qs)
+    check('DOSSIER-consistent-adopted',
+          any(c == 'A-DOSSIER' and l == 'OK' and 'never as certification' in m
+              for l, c, m in RESULTS))
+
+    # 88. A DISAGREEMENT IS A FINDING, NEVER A SILENT OVERWRITE. If Step 7's record
+    #     and Step 7's output disagree, one of them is wrong and Step 8 must say so
+    #     rather than quietly preferring either.
+    _reset()
+    gate_dossier(_dblocks, _dsrc,
+                 {'1': {'qtype': 'nat'}, '2': {'qtype': 'nat'}})
+    check('DOSSIER-disagreement-is-a-finding',
+          any(c == 'A-DOSSIER' and l == 'FAIL' and 'RECORDED something other' in m
+              for l, c, m in RESULTS))
+
+    # 89. JUDGMENTS ARE REFUSED AT THE DOOR. Tier A transports FACTS. If an answer
+    #     could ride along, RA-1 independence would be lost silently on 200 exams.
+    for _k in ('answers', 'answer_verified', 'derived_answer'):
+        try:
+            load_dossier(_dos(_good_qs, **{_k: {'1': 2}}), docx_path=_dpaper)
+            _ok89 = False; break
+        except DossierError as e:
+            _ok89 = 'JUDGMENT key' in str(e)
+    check('DOSSIER-judgment-keys-refused', _ok89)
+
+    # 90. IDENTITY BINDING — a dossier describing a DIFFERENT paper must be refused,
+    #     or Step 8 audits against facts about another document.
+    # _mini_doc reuses ONE filename, so re-calling it would overwrite _dpaper and
+    # the "different paper" would be byte-identical — the binding test would then
+    # pass vacuously while proving nothing. Build a genuinely distinct file.
+    # (load_dossier only MD5s this path; it does not parse it.)
+    _other_paper = os.path.join(tmp, 'other_paper.docx')
+    with open(_dpaper, 'rb') as _f, open(_other_paper, 'wb') as _g:
+        _g.write(_f.read() + b'\x00')
+    _t90 = _t90b = _t90c = False
+    try:
+        load_dossier(_dos(_good_qs), docx_path=_other_paper)
+    except DossierError as e:
+        _t90 = 'MD5' in str(e)
+    try:
+        load_dossier(_dos(_good_qs), docx_path=_dpaper, mockN=2)
+    except DossierError as e:
+        _t90b = 'mock' in str(e)
+    try:
+        load_dossier(_dos(_good_qs, schema=99), docx_path=_dpaper)
+    except DossierError as e:
+        _t90c = 'schema' in str(e)
+    check('DOSSIER-identity-bound', _t90 and _t90b and _t90c)
+
+    # 91. ABSENT-SAFE — no dossier means legacy behaviour and a NAMED reason, never
+    #     a silent degradation. ~200 existing exams run exactly as before.
+    _reset(); gate_dossier(_dblocks, _dsrc, None, 'not supplied')
+    check('DOSSIER-absent-is-legacy-not-silent',
+          any(c == 'A-DOSSIER' and l == 'WARN' and 'Legacy behaviour' in m
+              for l, c, m in RESULTS))
+
+    # 92. OPTIONS ARE COUNTED FROM THE DOCUMENT. The first cut read `b.opts`, a
+    #     field that DOES NOT EXIST on Block; getattr() returned None and every
+    #     mcq cross-check compared 0 against OPTIONS_COUNT, producing 27 false
+    #     failures on a real paper. Same class as Block.images '# reserved'.
+    _optdoc = _mini_doc(tmp, lambda d: _add_q(d, 1))
+    _od = Document(_optdoc); _t, _ob = parse_blocks(_od)
+    check('DOSSIER-options-counted-from-document',
+          not hasattr(_ob[0], 'opts')
+          and block_option_count(_ob[0]) == sum(
+              1 for p in _ob[0].paras if OPT_RE.match(para_text(p))))
+
+    # 93. A FACTS-ONLY DOSSIER MUST NOT WAKE AN ANSWER-DEPENDENT GATE.
+    #     A-NAT-GRADE re-runs derive_nat_grading() over the KEYED VALUE, so it needs
+    #     ANSWERS. Its dormancy test read `not concept_map`, so the moment Tier A
+    #     populated concept_map the gate woke with no answers and FAILED every NAT
+    #     question on a real paper — a correct "dormant" turned into a false FAIL.
+    #     Caught by running it, not by inspection. Mutation-verified.
+    _nsrc = _src_stub(tq=2)
+    _nsrc.update({'nat_present': True, 'options_count': 4,
+                  'concept_map': {'1': {'subtopic_id': 's.a', 'qtype': 'nat'}},
+                  'answers': {}})
+    _reset(); _safe_gate('A-NAT-GRADE', gate_nat, _dblocks, _nsrc)
+    check('NATGRADE-dormant-without-answers',
+          any(c == 'A-NAT-GRADE' and l == 'OK' and 'answer values not available' in m
+              for l, c, m in RESULTS)
+          and not any(c == 'A-NAT-GRADE' and l == 'FAIL' for l, c, _ in RESULTS))
+
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')
     return 0 if passed == total else 1
@@ -3819,6 +4156,9 @@ def main():
     ap.add_argument('--vision-probe-verify', dest='vision_verify', metavar='EVIDENCE_DIR',
                     help='P3.5: verify reported glyphs; needs --glyphs (and --audit-state '
                          'to record the per-batch result).')
+    ap.add_argument('--dossier', dest='dossier',
+                    help='Tier-A Step-7 fact dossier ([ExamCode]_M[N]_audit_dossier.json). '
+                         'Facts only; refused if it carries answers or any judgment key.')
     ap.add_argument('--glyphs', dest='glyphs', help='the glyphs actually SEEN in the probe.')
     ap.add_argument('--batch', dest='batch', type=int, help='batch number for the probe record.')
     args = ap.parse_args()

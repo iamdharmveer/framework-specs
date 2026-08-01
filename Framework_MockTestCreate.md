@@ -1,7 +1,9 @@
-# Framework_MockTestCreate v5.34.3
-# v5.34.3 — 2026-08-01 — self-test count refresh only (89/89 -> 97/97, D2+D4).
-# v5.34.2 — 2026-08-01 — self-test count refresh only (78/78 -> 97/97, C1).
-# v5.34.1 — 2026-08-01 — self-test count refresh only (73/73 -> 97/97, B3).
+# Framework_MockTestCreate v5.35
+# v5.35 — 2026-08-01 — TIER A: emit [ExamCode]_M[N]_audit_dossier.json for
+#   Step 8 (S13-4b). Facts only, never judgments; MD5-bound to the paper.
+# v5.34.3 — 2026-08-01 — self-test count refresh only (89/89 -> 105/105, D2+D4).
+# v5.34.2 — 2026-08-01 — self-test count refresh only (78/78 -> 105/105, C1).
+# v5.34.1 — 2026-08-01 — self-test count refresh only (73/73 -> 105/105, B3).
 # v5.34 — 2026-08-01 — FIGURESPEC TRANSPORT TO STEP 8
 #   (GAP-2026-08-01-FIGSPEC-TRANSPORT D2). One additive field at S13-4; zero
 #   change to any render, any question, any gate, any deliverable.
@@ -100,7 +102,7 @@
 #     check (v2.6). It must print "SELF-TEST: N/N PASS" with N >= AUTH_GATE_FLOOR (35) AND
 #     be fixture-based (builds docx fixtures; asserts each gate CATCHES a planted defect and
 #     PASSES a clean one). The canonical auditor (Framework_MockTestCreateAudit.md Appendix
-#     A) self-tests 97/97. Request a corrected script if it prints N/M with N≠M, N < 35, is a
+#     A) self-tests 105/105. Request a corrected script if it prints N/M with N≠M, N < 35, is a
 #     CONSTANT-PRINT stub (no fixtures), exits non-zero, or errors. (The old "24/24"/"13/13"
 #     literals and the accept-ANY-N/N rule are superseded — see GATE-COUNT CONTRACT below.)
 #     PURPOSE: Self-check before Q1 to verify the script works.
@@ -134,7 +136,7 @@
 # Framework_MockTestCreateAudit.md Appendix A (v2.6+): the AUTHORITATIVE A-* gate set that
 # gates Step-8 delivery, carrying the --audit-state COMPLETION GATE (S5-1A, C1-C7) and a
 # FIXTURE-BASED self-test (SELF-TEST: N/N, N >= AUTH_GATE_FLOOR = 35; the canonical build
-# self-tests 97/97). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
+# self-tests 105/105). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
 # it. The old two-auditor / 13-vs-66 split is RETIRED — it enabled the hollow-stub false-clean.
 # RULE (v2.6 — kills BOTH count-drift AND the hollow stub): a caller runs `--self-test` and
 #   accepts "SELF-TEST: N/N PASS" ONLY WHEN the self-test is FIXTURE-BASED (builds docx
@@ -5875,6 +5877,9 @@
           # legacy — i.e. exactly the pre-v5.34 behaviour, never a wrong verdict.
           # NOT delivered as a file and NOT written to the docx; it travels only
           # inside the registry that Step 8 already receives.
+          # v5.35 (TIER A): nothing here — the dossier is its own delivered
+          # sidecar (S13-4b), not a registry field, because Steps 9/10 also read
+          # the registry and audit-only facts do not belong in series state.
           "figure_specs": {
               os.path.basename(_fs)[:-len('.figspec.json')] + '.png':
                   json.load(open(_fs, encoding='utf-8'))
@@ -6066,6 +6071,53 @@
   QINDEX_OK = True
   print(f"G-QINDEX: question_index certified for mock {N} — OK.")
   ```
+
+
+## S13-4b — TIER-A AUDIT DOSSIER (v5.35) — DELIVERED TO STEP 8
+
+  WHY. Step 7 already records every fact below. §S7-NEW-A even states of concept_map:
+  "The audit gates read it directly instead of re-deriving." But S0-1 never delivered
+  it, so Step 8 re-derived what Step 7 had written down — and two gates paid for it:
+  A-NAT-GRADE ran dormant on ~200 exams, and image_role defaulted for every question,
+  false-flagging 27 of 33 figural blocks on the reference paper (7 with the dossier).
+
+  THE LINE, AND IT IS NOT NEGOTIABLE:
+    HAND OVER FACTS STEP 7 RECORDED. NEVER HAND OVER JUDGMENTS STEP 7 REACHED.
+  Facts are checkable against the artefact or the world. Judgments — the answer,
+  answer_verified, "these options are unambiguous" — are what Step 8 exists to form,
+  and they NEVER travel here. Step 8's load_dossier() REFUSES the file outright if it
+  carries answers/answer_verified/derived_answer, so a leak cannot pass unnoticed.
+
+  ```python
+  import os, json, hashlib
+  _ak = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
+  _cm = _ak.get('concept_map', {})
+  _docx = f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Create.docx'
+  _FACTS = ('subtopic_id', 'qtype', 'image_role', 'difficulty', 'stem_precision',
+            'nat_grading_type', 'nat_grading_value', 'ca_range',
+            'msq_instr_in_stem', 'nat_instr_in_stem')
+  dossier = {
+      'schema': 1,
+      'exam_code': EXAM,
+      'mock': N,
+      # The binding. Without it a dossier could be restored onto ANOTHER paper and
+      # Step 8 would audit against facts describing a different document.
+      'paper_md5': hashlib.md5(open(_docx, 'rb').read()).hexdigest(),
+      'created_utc': __import__('datetime').datetime.now(
+          __import__('datetime').timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+      'questions': {str(q): {k: e.get(k) for k in _FACTS if k in e}
+                    for q, e in _cm.items()},
+  }
+  # Belt and braces: never emit a judgment even by accident.
+  assert not ({'answers', 'answer_verified', 'derived_answer'} & set(dossier)), \
+      'TIER A carries FACTS only'
+  _out = f'/mnt/user-data/outputs/{EXAM}_M{N}_audit_dossier.json'
+  json.dump(dossier, open(_out, 'w', encoding='utf-8'), indent=1, ensure_ascii=False)
+  ```
+
+  DELIVERED alongside the paper and the registry. It is INERT for every consumer
+  other than Step 8, and absent-safe: a pre-v5.35 paper simply has none, and Step 8
+  then behaves exactly as it did before v2.17.
 
 ## S13-5 — Registry integrity check (unchanged)
 
@@ -6731,7 +6783,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   gate catalogue, the --audit-state COMPLETION GATE (S5-1A, C1-C7 + on-disk evidence
 #   checks), and a FIXTURE-BASED self-test (builds tiny docx fixtures; asserts each gate
 #   CATCHES a planted defect and PASSES a clean one; SELF-TEST: N/N with N >= 35 — the
-#   canonical build self-tests 97/97).
+#   canonical build self-tests 105/105).
 #
 #   RETIRED (do NOT generate, copy, or use): the old 13-gate "minimum-viable" embedded
 #   script whose self_test() was a CONSTANT print ("SELF-TEST: 13/13 PASS") that executed
@@ -6818,7 +6870,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.34.3
+# END OF Framework_MockTestCreate v5.35
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
