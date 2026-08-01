@@ -1,4 +1,34 @@
-# Framework_MockTestCreate v5.33.1
+# Framework_MockTestCreate v5.34
+# v5.34 — 2026-08-01 — FIGURESPEC TRANSPORT TO STEP 8
+#   (GAP-2026-08-01-FIGSPEC-TRANSPORT D2). One additive field at S13-4; zero
+#   change to any render, any question, any gate, any deliverable.
+#
+#   WHAT WAS WRONG. v5.33 renders every figure through figural_core, and
+#   render_figure() MUTATES the FigureSpec with what actually happened —
+#   png_px, png_dpi, placed_in, placement_scale, font_pt_native — after reading
+#   the saved artefact back. write_spec_sidecar() then drops that record beside
+#   the PNG as q{N}_*.figspec.json. Step 8's twelve v2.11 figure-conformance
+#   gates are arithmetic over the PNG AND ITS SIDECAR.
+#
+#   But the sidecars live in THIS session's working directory, which is internal
+#   and is never delivered (S0-1 / R-DELIVER lists the closed set: the docx and
+#   the registry). So Step 8 saw spec == {} on every figure, fc.is_legacy() read
+#   every v5.33 render as pre-v5.33 output, and EC-V18 leniency was applied to
+#   papers that were not legacy at all. The gates could not fail on a real
+#   regression because they never had the record to compare against.
+#
+#   THE FIX. S13-4 writes the sidecars into
+#   registry.figural_manifests[].figure_specs, keyed by the canonical PNG name
+#   S10-8 already stamps on each drawing (_name_last_drawing ->
+#   "q{N}_problem.png" / "q{N}_opt{i}.png"), which is the same base
+#   write_spec_sidecar() names the sidecar after. The registry is the sanctioned
+#   channel for precisely this: it is the one artefact Step 8 receives, and it
+#   is the precedent object_types/subtopic_ids set at v5.31 for the identical
+#   reason. Absent-safe both ways — a session that rendered no figural_core
+#   figure writes no sidecar, the field is {}, and Step 8 reads legacy, i.e.
+#   exactly the pre-v5.34 behaviour. Nothing is written to the docx and nothing
+#   new is delivered; B3/R-DELIVER cardinality is untouched.
+#
 # v5.33.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   1267 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_MockTestCreate'. The current companion block, the
@@ -67,7 +97,7 @@
 #     check (v2.6). It must print "SELF-TEST: N/N PASS" with N >= AUTH_GATE_FLOOR (35) AND
 #     be fixture-based (builds docx fixtures; asserts each gate CATCHES a planted defect and
 #     PASSES a clean one). The canonical auditor (Framework_MockTestCreateAudit.md Appendix
-#     A) self-tests 51/51. Request a corrected script if it prints N/M with N≠M, N < 35, is a
+#     A) self-tests 73/73. Request a corrected script if it prints N/M with N≠M, N < 35, is a
 #     CONSTANT-PRINT stub (no fixtures), exits non-zero, or errors. (The old "24/24"/"13/13"
 #     literals and the accept-ANY-N/N rule are superseded — see GATE-COUNT CONTRACT below.)
 #     PURPOSE: Self-check before Q1 to verify the script works.
@@ -101,7 +131,7 @@
 # Framework_MockTestCreateAudit.md Appendix A (v2.6+): the AUTHORITATIVE A-* gate set that
 # gates Step-8 delivery, carrying the --audit-state COMPLETION GATE (S5-1A, C1-C7) and a
 # FIXTURE-BASED self-test (SELF-TEST: N/N, N >= AUTH_GATE_FLOOR = 35; the canonical build
-# self-tests 51/51). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
+# self-tests 73/73). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
 # it. The old two-auditor / 13-vs-66 split is RETIRED — it enabled the hollow-stub false-clean.
 # RULE (v2.6 — kills BOTH count-drift AND the hollow stub): a caller runs `--self-test` and
 #   accepts "SELF-TEST: N/N PASS" ONLY WHEN the self-test is FIXTURE-BASED (builds docx
@@ -5746,6 +5776,11 @@
 
   THEN commit pending_registry to registry:
   ```python
+  # v5.34: bind EXPLICITLY rather than relying on a session-level import. The
+  # whole GAP-2026-08-01 family began with a name that was read at three call
+  # sites and bound at none, so a new read (glob, below) states its import here.
+  import os, json, glob
+
   # Load registry from working dir (not /mnt/project/):
   registry = json.load(open(f'/home/claude/{EXAM}_registry.json'))
 
@@ -5810,6 +5845,37 @@
           "subtopic_ids": {
               str(q): v['subtopic_id'] for q, v in fig['questions'].items()
               if v.get('subtopic_id')
+          },
+          # v5.34 (GAP-2026-08-01-FIGSPEC-TRANSPORT D2): the FigureSpec records
+          # themselves, keyed by the CANONICAL PNG name S10-8 stamps on the
+          # drawing (_name_last_drawing -> "q{N}_problem.png"/"q{N}_opt{i}.png"),
+          # which is the same base write_spec_sidecar() names the sidecar after.
+          #
+          # WHY THIS IS REQUIRED. The twelve v2.11 figure-conformance gates
+          # (A-FIGSCALE / A-FIGLABEL / A-FIGDPI / A-FIGDEGEN / A-FIGMONO /
+          # A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGCVD / A-FIGSERIES / A-FIGGLYPH /
+          # A-FIGALT / A-FIGLABELPX) are arithmetic over the saved PNG AND ITS
+          # SIDECAR. render_figure() mutates the spec with png_px, png_dpi,
+          # placed_in, placement_scale and font_pt_native — the record of what
+          # actually happened — and write_spec_sidecar() drops it beside the PNG
+          # in THIS session's working directory. That directory is internal and
+          # is never delivered (S0-1 / R-DELIVER), so before v5.34 Step 8 saw
+          # spec == {} on every figure, fc.is_legacy() read every v5.33+ render
+          # as pre-v5.33 output, and EC-V18 downgraded every BLOCKING verdict on
+          # a paper that was not in fact legacy. The registry is the sanctioned
+          # channel for exactly this — the precedent object_types/subtopic_ids
+          # set at v5.31, and for the identical reason: Step 8 receives the
+          # registry and receives no sidecar.
+          #
+          # ABSENT-SAFE BOTH WAYS: a session that rendered no figure through
+          # figural_core writes no sidecar and this is {}, which Step 8 reads as
+          # legacy — i.e. exactly the pre-v5.34 behaviour, never a wrong verdict.
+          # NOT delivered as a file and NOT written to the docx; it travels only
+          # inside the registry that Step 8 already receives.
+          "figure_specs": {
+              os.path.basename(_fs)[:-len('.figspec.json')] + '.png':
+                  json.load(open(_fs, encoding='utf-8'))
+              for _fs in sorted(glob.glob('/home/claude/*.figspec.json'))
           }
       })
 
@@ -6662,7 +6728,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   gate catalogue, the --audit-state COMPLETION GATE (S5-1A, C1-C7 + on-disk evidence
 #   checks), and a FIXTURE-BASED self-test (builds tiny docx fixtures; asserts each gate
 #   CATCHES a planted defect and PASSES a clean one; SELF-TEST: N/N with N >= 35 — the
-#   canonical build self-tests 51/51).
+#   canonical build self-tests 73/73).
 #
 #   RETIRED (do NOT generate, copy, or use): the old 13-gate "minimum-viable" embedded
 #   script whose self_test() was a CONSTANT print ("SELF-TEST: 13/13 PASS") that executed
@@ -6749,7 +6815,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.33.1
+# END OF Framework_MockTestCreate v5.34
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

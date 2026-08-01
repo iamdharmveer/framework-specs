@@ -1,4 +1,82 @@
-# Framework_MockTestCreateAudit v2.12.1
+# Framework_MockTestCreateAudit v2.13
+# v2.13 — 2026-08-01 — THE TWELVE FIGURE GATES ACTUALLY EVALUATE FIGURES
+#   (GAP-2026-08-01-FIGSPEC-TRANSPORT, D1-D6). v2.12 rescued these gates from a
+#   permanent halt and left them VACUOUS. On every paper, in every exam, from
+#   v2.11 through v2.12.1, all twelve printed "0 figure(s) conform."
+#
+#   WHAT WAS WRONG. TWO independent breaks, either one sufficient:
+#     D1 — `Block.images` was declared `# reserved` at v1.0 and appended to
+#          NOWHERE in the 2,484-line auditor. The twelve gates iterate
+#          `blk.images`, so `_seen` was 0 on every run and every gate passed
+#          vacuously. A paper with 57 drawings was audited as though it had none.
+#     D2 — `src['figure_specs']` was READ at the gate site and WRITTEN nowhere,
+#          and structurally could not be written: `write_spec_sidecar()` drops
+#          `q{N}_*.figspec.json` beside each PNG in the STEP-7 session's working
+#          directory, which is internal and never delivered (S0-1). There was no
+#          transport channel at all, so even genuine v5.33+ output would read as
+#          legacy for ever and EC-V18 would downgrade every BLOCKING verdict.
+#
+#   WHY NO GATE SAW IT. No fixture had ever put an IMAGE IN A BLOCK. All 61
+#   self-tests ran on image-free documents, so `Block.images` being empty was
+#   indistinguishable from correct behaviour and 61/61 PASS again coexisted with
+#   zero real coverage. This is the SAME hollow-branch class as v2.12's own
+#   defect — v2.12 closed it for A-FIGPROFILE and left it open one gate-family
+#   over. It also contradicted this file's own doctrine: v2.12 wrote "0/0 is NOT
+#   evidence of conformance (edge case 6)" for A-FIGPROFILE while twelve gates
+#   printed OK on zero evaluated figures.
+#
+#   SIX CHANGES:
+#   1. D1 — `attach_block_images()` populates `Block.images` before any gate
+#      runs, fed by `extract_media()` (media parts out of the ZIP onto disk,
+#      never raises) and `para_images_ext()` (walks each <w:drawing> as a UNIT,
+#      so a drawing's alt text cannot be attributed to its neighbour — A-FIGALT
+#      reads @descr). Table-cell paragraphs are included: a DI chart or a
+#      figure/option fusion table puts drawings in cells, and a block-level
+#      paragraph scan misses every one. `para_images()` is byte-unchanged.
+#   2. D2 — TRANSPORT. Step 7 v5.34 carries the FigureSpec records into
+#      `registry.figural_manifests[].figure_specs`, keyed by the canonical PNG
+#      name S10-8 already stamps on the drawing. The registry is the sanctioned
+#      channel — the precedent object_types/subtopic_ids set at v5.31, and for
+#      the identical reason: Step 8 receives the registry and receives no
+#      sidecar. `resolve_figure_spec()` resolves by docPr name, then the
+#      extension-stripped form, then the media part name (so a CP-IMGNAME rename
+#      still resolves). Unresolved returns {} => legacy => EC-V18, which is the
+#      correct degradation and never a fabricated verdict.
+#   3. D3 — 0 EVALUATED IS NOT EVIDENCE. Drawings present but unreadable => WARN
+#      "conformance NOT ESTABLISHED"; no drawings at all => OK "dormant"; never
+#      a vacuous "conform". Edge case 6, applied where it was missing. The
+#      duplicate SECOND A-FIGDPI line the old EC-V18 note emitted is folded into
+#      each gate's single verdict — it was unreachable while _seen was 0 and
+#      would have broken v2.12's roster-count integrity signal the moment
+#      figures were actually evaluated.
+#   4. EC-V18 IS A DELIVERY TOLERANCE, NOT ONLY A SEVERITY RELABEL — see below.
+#   5. D4 — TWELVE NEW FIXTURES (61 -> 73), every one mutation-verified to fail
+#      on the specific break it locks. Includes fixture 63, which runs the REAL
+#      `run_audit()` end to end: fixtures that call `attach_block_images()`
+#      directly all still pass if the CALL is deleted, which is precisely the
+#      v2.10 shape (written at the call sites, bound nowhere).
+#   6. D6 — the §13 re-sync CARRIES FORWARD the figural manifest's audit
+#      metadata instead of discarding it (see S13-2).
+#
+#   EC-V18 IS A DELIVERY TOLERANCE. Making the gates non-vacuous surfaced a
+#   conflict between two clauses that could not collide while _seen was always
+#   0: AMBER is defined as FAIL severity, and EC-V18 is defined as
+#   NON-NEGOTIABLE that ~200 existing exams "keep auditing AND DELIVERING
+#   untouched". A _fail() exits non-zero and MANDATE D requires exit 0 to
+#   certify, so emitting FAIL for a LEGACY-ONLY finding would have converted a
+#   coverage fix into an estate-wide delivery outage the moment it landed — the
+#   same trap AUTH_GATE_FLOOR exists to avoid. Resolution, in EC-V18's
+#   direction because EC-V18 is the clause that speaks to delivery:
+#     • every finding on a figure with NO sidecar (pre-v5.33) => WARN, LOUD,
+#       amber footer applies, recorded as a §R13 limitation, delivery NOT
+#       blocked. Step 8 cannot retro-fit a sidecar onto an already-rendered
+#       paper, which is exactly the "genuinely-not-fixable diagnostic" S5-4
+#       already admits as an ACCEPTED WARN.
+#     • any finding on a figure that DOES carry a sidecar (v5.33+/v5.34 output)
+#       => FAIL exactly as before. A renderer-contract regression on output that
+#       was supposed to conform is fixable, and it blocks certification.
+#   Nothing becomes silent, nothing halts, and no existing exam stops shipping.
+#
 # v2.12.1 — 2026-08-01 — ENGINES COME FROM THE VERIFIED CLONE, NOT FROM THE PROJECT
 #   (post-deploy correction to v2.12). v2.12 fixed the NameError but chose the wrong
 #   DISTRIBUTION remedy: it added both engines to the Step-6 B3 output set, which
@@ -248,6 +326,15 @@
     ✗ fig_manifest.json / batch_state.json / progress.json — internal Step-7 sidecars.
        The figural and RC/cloze maps Step 8 needs are embedded in registry.json
        (figural_manifests[], rc_manifests[]) and re-extracted at S3-PRE (§3).
+    ✗ q{N}_*.figspec.json — the per-figure FigureSpec sidecars figural_core writes
+       beside each PNG in the Step-7 working directory. Also internal, also never
+       delivered. v2.13: their CONTENT nonetheless reaches Step 8, because Step 7
+       v5.34 copies it into registry.figural_manifests[].figure_specs — the same
+       registry-as-channel pattern object_types/subtopic_ids use (v5.31). This is
+       what the twelve v2.11 figure-conformance gates audit against; a manifest
+       with no figure_specs key (any pre-v5.34 paper) makes every figure read as
+       legacy, and EC-V18 then applies — the correct degradation, never a wrong
+       verdict, and never a halt.
 
 ## S0-2 — OUTPUTS (what Step 8 delivers)
 
@@ -1056,6 +1143,12 @@
   # Figural map for this mock (drives A-FIGCOMP + §7 image audit coverage):
   fig_entry = next((m for m in registry.get('figural_manifests', []) if m.get('mock') == N), None)
   figural_qs = set(int(q) for q in fig_entry['figural_qs']) if fig_entry else set()
+  # v2.13 (GAP-2026-08-01-FIGSPEC-TRANSPORT D2): the FigureSpec records Step 7 v5.34
+  # carried into the registry, keyed by canonical PNG name ("q7_problem.png"). These
+  # are the twelve figure-conformance gates' only non-pixel input. Absent on every
+  # pre-v5.34 paper -> {} -> every figure reads legacy -> EC-V18 (audit completes,
+  # reports loudly, delivery not blocked). NEVER hardcode a substitute (RA-9).
+  figure_specs = (fig_entry.get('figure_specs') or {}) if fig_entry else {}
   # NOTE: registry image_hashes for the mock may be EMPTY (observed in the wild);
   #   §7/§10 therefore HASH word/media/ directly rather than trusting registry hashes.
 
@@ -1499,6 +1592,22 @@
             output with NO sidecar predates v5.33, so every BLOCKING gate
             downgrades to AMBER — ~200 existing exams keep auditing and delivering
             untouched while still reporting the defect loudly.
+            v2.13 — TWO RULES MADE EXPLICIT, both previously unreachable because
+            the gates evaluated nothing (Block.images was never populated):
+              • COVERAGE. Each gate reports the NUMBER of figures it evaluated.
+                Drawings present but unreadable => WARN "conformance NOT
+                ESTABLISHED"; a paper with no drawings => OK "dormant". A gate
+                NEVER prints a conformance verdict over zero figures — the same
+                0/0-is-not-evidence rule A-FIGPROFILE already carries.
+              • EC-V18 IS A DELIVERY TOLERANCE. A finding on a figure with NO
+                sidecar is a WARN (loud, amber footer, §R13 limitation, delivery
+                NOT blocked): Step 8 cannot retro-fit a sidecar onto an
+                already-rendered paper, so it is an S5-4 ACCEPTED WARN. A finding
+                on a figure that DOES carry a sidecar is a FAIL and blocks
+                certification, exactly as before. Without this split, the moment
+                the gates stopped being vacuous every legacy exam would have
+                exited non-zero and MANDATE D would have refused to certify it —
+                a coverage fix turned into an estate-wide outage.
   | A-FIGCOLOUR | class data_series carries >=2 declared hues AND >=0.5% coloured pixels. Measured 0 of 55 delivered IIT JAM figures coloured, 256/256 distinct RGB (a pure grey ramp), because S10-7 Q7 MANDATED "solid black" — the output was CONFORMANT and the spec was the defect | FigureSpec sidecar + PNG pixels | R-FIGURAL / S10-7 Q7b.1 | AMBER |
   | A-FIGCVD | every pair of DECLARED series colours stays separable under a deuteranope transform. Reads the declaration, never extracted pixels. No luminance clause: Okabe-Ito is CVD-safe by design and was never greyscale-luminance-safe (deuteranope 10/10 pass, luminance 3/10 fail), so greyscale survival is gated by A-FIGSERIES instead | FigureSpec sidecar | S10-7 Q7b.3 | AMBER |
   | A-FIGSERIES | every declared series differs from every other in >=1 NON-COLOUR channel (linestyle, marker or hatch). This is what makes a figure survive a greyscale printer and a colour-blind reader even if the palette is overridden | FigureSpec sidecar | S10-7 Q7b.2 | AMBER |
@@ -2632,11 +2741,34 @@
       reg['rc_manifests'].append({'mock': N,
           'passage_linked': sorted(passage_linked_fixed),
           'cloze_linked':   sorted(cloze_linked_fixed)})
+  # v2.13 (GAP-2026-08-01-FIGSPEC-TRANSPORT D6) — CARRY FORWARD, DO NOT DROP.
+  # The rebuild used to construct a FRESH dict holding only {mock, figural_qs,
+  # image_hashes}, silently discarding every other key Step 7 put in the mock-N
+  # manifest: object_types and subtopic_ids (v5.31 — A-FIGPROFILE's ONLY inputs),
+  # figure_specs (v5.34 — the twelve figure gates' only inputs), paper_id and
+  # visual_verified. The effect was invisible on the audited run and appeared on
+  # the NEXT one: a re-audit, or Step 9/10 reading the re-synced registry, found
+  # A-FIGPROFILE dormant and every figure legacy on a paper that was neither.
+  # Step 8 re-derives what it OBSERVES in the fixed docx (figural_qs, image
+  # hashes) and PRESERVES what only Step 7 can know (how each figure was
+  # generated) — the same split §13-2b already applies to subtopic_id vs
+  # difficulty. RA-17 is unaffected: nothing stale is carried, because these
+  # fields describe the RENDER, and a Step-8 re-render updates them via §8-4.
+  _prev_fig = next((m for m in reg.get('figural_manifests', [])
+                    if m.get('mock') == N), {})
   reg['figural_manifests'] = [m for m in reg.get('figural_manifests', []) if m.get('mock') != N]
   if figural_present_in_fixed:
-      reg['figural_manifests'].append({'mock': N,
+      _fm = dict(_prev_fig)                      # keep object_types/subtopic_ids/
+      _fm.update({'mock': N,                     #   figure_specs/paper_id/...
           'figural_qs':  sorted(figural_qs_fixed, key=int),
           'image_hashes': image_hashes_fixed})    # hashed from word/media of the FIXED file
+      # A regenerated/re-rendered figure invalidates the spec Step 7 recorded for
+      # it: drop ONLY those keys, never the whole map (S8-4 re-render path).
+      if _fm.get('figure_specs'):
+          _rekeys = {f'q{r["q"]}_' for r in audit_state.get('regenerations', [])}
+          _fm['figure_specs'] = {k: v for k, v in _fm['figure_specs'].items()
+                                 if not any(k.startswith(p) for p in _rekeys)}
+      reg['figural_manifests'].append(_fm)
 
   # 2b) question_index re-sync BY KEY (v1.6 — Contract_QuestionMetadataIndex v1.0).
   #     subtopic_id : the CERTIFIED value is Step 8's INDEPENDENT re-derivation (the §9 audit
@@ -3063,6 +3195,10 @@ Replace for registry.json), and next-step reference.
   | **`A-GATEERROR` appears in the Part-A report** | A gate CRASHED, so the paper is NOT audited for it. This is a framework defect, never a paper defect — do not attempt to "fix" the paper. The run completed and every other gate is valid. Capture the named gate + the STDERR traceback, file a gap report, and treat certification as BLOCKED (exit is non-zero by design) until the framework is repaired. |
   | **`A-FIGPROFILE` WARNs "NOT CHECKED" / `A-FIG*` WARN "NOT RUN"** | The named ENGINE is missing, truncated, or stale — an environment condition, NOT a paper defect. The audit is valid but has REDUCED COVERAGE. Upload `blueprint_core.py` / `figural_core.py` under their BARE names (Step 6 B3 delivers both) and re-run to obtain full coverage. If unobtainable, document the skip under S5-4 and record it as a §19 limitation. NEVER certify while pretending the gate ran. |
   | Part-A prints FEWER gate lines than a full roster | Treat as INCOMPLETE COVERAGE, not as a pass. From v2.12 the roster is INVARIANT — every gate prints a line in every environment — so a short roster means the auditor copy predates v2.12. Refresh it (policy (b)). |
+  | **`A-FIG*` gates print "0 figure(s)" on a paper that HAS drawings** | The auditor copy PREDATES v2.13 — `Block.images` was never populated, so all twelve gates passed vacuously. NOT a paper property and NOT a pass: the paper was never audited for figure conformance. Refresh the copy (§21 path (A) or (B)) and re-run. |
+  | **`A-FIG*` WARN "conformance NOT ESTABLISHED"** | Drawings are declared in the docx but none could be read out of the ZIP. A COVERAGE gap, never a pass — check A-ZIP first (a dangling rId is a hard stop in its own right), then re-run. Never certify past it. |
+  | **`A-FIG*` WARN "EC-V18 legacy ... delivery NOT blocked"** | The paper predates Step 7 v5.34, so its figures carry no FigureSpec sidecar and the gate has no record to check against. LOUD but not fixable at Step 8 — an S5-4 ACCEPTED WARN: record it under §R13, the amber footer applies, and the paper still certifies and ships. To obtain full figure coverage, regenerate the paper on Step 7 v5.34+. |
+  | **`A-FIG*` FAIL "RENDERER-CONTRACT REGRESSION"** | The figure DOES carry a sidecar, so this is v5.34+ output that regressed — a real, fixable defect. Re-render under S10-7/S10-8, RE-VIEW (§7), and re-run; certification is blocked until clean. |
   | *.json input fails to parse / missing required keys (truncated/corrupt) | HARD STOP (P0.5 / A-INTEGRITY) — re-upload intact; never audit against a truncated blueprint/registry. |
   | section_rules empty or missing EXAM_STRUCTURE header | HARD STOP (P0.5 / A-INTEGRITY) — re-upload intact. |
   | Phase 2 skipped / spot-checked instead of batched | IMPOSSIBLE to certify — completion gate (S5-1A) fails C1/C2; MANDATE B / MANDATE D block delivery. |
@@ -3144,6 +3280,16 @@ Replace for registry.json), and next-step reference.
   • Figural transformation correctness and answer uniqueness rest on reviewer reasoning
     over the VIEWED image (no machine proof) — but viewing is mandatory, un-sampled, and
     evidence-backed (the montage that was viewed is saved and its presence is gated).
+  • FIGURE CONFORMANCE ON PRE-v5.34 PAPERS (v2.13). The twelve figure-conformance
+    gates are arithmetic over the saved PNG AND its FigureSpec sidecar. A paper
+    generated before Step 7 v5.34 carries no sidecar in its registry, so the
+    sidecar-dependent half of each gate (placement scale, on-page label size,
+    declared hues, series redundancy, glyph coverage) cannot be evaluated for it
+    and is reported as an EC-V18 legacy WARN rather than a verdict. The
+    PIXEL-only half (DPI metadata, plot-area degeneracy, coloured fraction, alt
+    text) still runs on every paper. Full figure coverage requires regeneration
+    on Step 7 v5.34+; until then the shortfall is disclosed here on every run and
+    is never presented as a pass.
   • Web-verified facts are correct as of the audit timestamp; later real-world changes
     are outside Step 8's window.
   • Step 8 cannot prove a distractor is wrong in EVERY conceivable context — it proves
@@ -3235,7 +3381,8 @@ Replace for registry.json), and next-step reference.
 #
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
-#     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61).
+#     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
+#     v2.12; the v2.13 build prints 73/73 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -3268,6 +3415,36 @@ Replace for registry.json), and next-step reference.
 #        protect Context 2. Every other test can pass and this failure mode can
 #        still recur.
 #
+#    16. IMAGES-IN-A-BLOCK: build a docx with real inline drawings and assert
+#        Block.images is populated with name/rid/descr/path. NO FIXTURE HAD EVER
+#        PUT AN IMAGE IN A BLOCK — that absence is the entire D1 root cause, the
+#        exact analogue of test 8's missing object_types registry. (fixtures
+#        53-55: attachment, per-drawing alt-text attribution, table-cell images)
+#    17. NON-VACUOUS FIGURE GATES: with figures present, every one of the twelve
+#        must report a NON-ZERO evaluated count, and a zero-image paper must say
+#        "dormant" rather than "conform". (fixtures 56, 58, 59)
+#    18. FIGURE-GATE ROSTER INVARIANCE: exactly ONE line per figure gate, with
+#        and without figures — locks out the duplicate second A-FIGDPI line and
+#        keeps the v2.12 gate-count integrity signal usable. (fixture 57)
+#    19. SEVERITY SPLIT: an identical finding must FAIL on a figure carrying a
+#        sidecar and WARN on one that does not (EC-V18 delivery tolerance). A
+#        build that FAILs the legacy case takes every pre-v5.34 exam out of
+#        certification. (fixtures 60-62, incl. spec-transport key resolution)
+#    20. END-TO-END WIRING: run the REAL run_audit() on an image-bearing docx and
+#        assert the gates evaluated figures. Fixtures that call the helper
+#        directly ALL still pass when the call inside run_audit is deleted —
+#        mutation-verified — which is the v2.10 defect shape exactly: written at
+#        the call sites, bound nowhere. Test 15 (Context-2) proves the file runs
+#        ALONE; this proves its entry point actually invokes what it added.
+#        (fixture 63)
+#    21. PER-FIGURE FAULT ISOLATION: make figural_core raise on one figure and
+#        assert NO A-GATEERROR, all twelve gate lines still printed, and a
+#        coverage WARN. Found empirically, not by inspection: one partially
+#        recorded FigureSpec raised out of g_figlabel(), _safe_gate turned it
+#        into A-GATEERROR, and the whole A-IMAGES gate died — roster 47 -> 36.
+#        The spec now arrives from the REGISTRY, so a per-item L3 guard is
+#        mandatory exactly as v2.12 required one for blueprint_core. (fixture 64)
+#
 #   ── OPERATOR ACTION: REFRESHING THE ~200 DEPLOYED COPIES (v2.12) ──────────────
 #   Fixing the repo does NOT fix the estate. Every exam project's
 #   [ExamCode]_mock_test_audit.py is a COPY taken at Step 6 B3. Two sanctioned
@@ -3289,7 +3466,8 @@ Replace for registry.json), and next-step reference.
 #   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
-#   v2.11 copy (51/51) and a v2.12 copy (61/61) both pass, and the estate migrates
+#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (73/73) all pass, and
+#   the estate migrates
 #   exam by exam with zero downtime.
 #
 #   THE UNIFYING PRINCIPLE (why this closes the chain across all 200 exams): every
@@ -3319,7 +3497,8 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 51/51 PASS  (exit 0). The 35 v2.5 tests cover every
+#     • `--self-test`  → SELF-TEST: 73/73 PASS  (exit 0) on the v2.13 canonical
+#       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
 #       Greek-math text that must NOT trip A-SCRIPT; a Devanagari word that MUST trip
@@ -3386,10 +3565,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 51/51). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 73/73). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.12.1
+# END OF Framework_MockTestCreateAudit v2.13
 # ════════════════════════════════════════════════════════════════════════

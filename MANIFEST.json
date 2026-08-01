@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.01.2",
+  "framework_version": "2026.08.01.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -168,11 +168,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "0be6a5579d7bfaf0175da0e4f99b4dfbbedbf075e625fd0166ed74fc62fcb6c3",
-      "version_header": "# Framework_Blueprint v1.42.1 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.42.1",
-      "lines": 6676,
-      "bytes": 349691
+      "sha256": "babc4245bf4f075f7363e40de8829424d22b7506c70a6fb75dfc5b609714cda2",
+      "version_header": "# Framework_Blueprint v1.42.2 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.42.2",
+      "lines": 6686,
+      "bytes": 350449
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "c58db4dc075b8531805cd38f68163e8491035af1b67c2ad06fa7e9f2dcd7bd96",
@@ -196,18 +196,18 @@
       "bytes": 426897
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "8e9e85a6c51336e402aa80e6d6f263e03e85690e1e8d9ccf1c77e4ff6db1b9f5",
-      "version_header": "# Framework_MockTestCreate v5.33.1",
+      "sha256": "d66dde680dda4c0bb4219cb519b2e7b3a460aff3dbed37607160d7d771754cb4",
+      "version_header": "# Framework_MockTestCreate v5.34",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 6832,
-      "bytes": 417405
+      "lines": 6898,
+      "bytes": 421690
     },
     "Framework_MockTestCreateAudit.md": {
-      "sha256": "25d6b2dfa41bb6538a69f072384321a2f7eebe39c53fbf73788083370eb2b774",
-      "version_header": "# Framework_MockTestCreateAudit v2.12.1",
+      "sha256": "bc968b7687111ceb105de7b1615eabcfe0e6b46d390d60ec51a18d65d9099bc6",
+      "version_header": "# Framework_MockTestCreateAudit v2.13",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 3395,
-      "bytes": 247394
+      "lines": 3574,
+      "bytes": 261367
     },
     "Framework_MockTestExplain.md": {
       "sha256": "35ee0af595836ad13bb1aced39778954597a98b4b0a2fcb4bacaea10143aa40e",
@@ -385,11 +385,11 @@
       "bytes": 51906
     },
     "audit_canonical.py": {
-      "sha256": "98603ce8db55d4a2c6eb9aae3ac0bfc3db0dbe52a73d462625f17c913110891a",
+      "sha256": "bea381f7b6a23aa0f2d8031ad6a94d6d0950525707ac59e53afe3f152ececff8",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 2484,
-      "bytes": 126060
+      "lines": 2955,
+      "bytes": 152158
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",

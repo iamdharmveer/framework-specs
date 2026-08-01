@@ -30,6 +30,7 @@
 # WARN blocks delivery.
 # ============================================================================
 import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata
+import io, zlib, struct          # v2.13 — stdlib PNG fixtures (D4); no PIL needed
 from pathlib import Path
 from collections import Counter, defaultdict
 
@@ -68,7 +69,15 @@ class Block:
         self.items = []       # ordered ('p',Paragraph) / ('t',Table)
         self.paras = []       # Paragraph objects in this block
         self.tables = []      # Table objects in this block
-        self.images = []      # reserved
+        # v2.13 (GAP-2026-08-01-FIGSPEC-TRANSPORT D1): POPULATED by
+        # attach_block_images() — one dict per inline image in this block, in
+        # document order:
+        #   {'name': docPr/@name, 'rid': r:embed, 'descr': docPr/@descr,
+        #    'part': media part basename, 'path': extracted PNG path|None}
+        # It was declared '# reserved' from v1.0 and never appended to anywhere,
+        # so the twelve v2.11 figure-conformance gates iterated an always-empty
+        # list and printed "0 figure(s) conform." on every paper in every exam.
+        self.images = []
 
 
 def iter_block_items(doc):
@@ -102,6 +111,128 @@ def para_images(p):
         nm = names[i].get('name') if i < len(names) else None
         imgs.append((nm, emb))
     return imgs
+
+
+def para_images_ext(p):
+    """v2.13 — the STRUCTURED form of para_images(): one dict per inline image,
+    carrying its docPr name, its r:embed rid and its docPr alt text (@descr).
+
+    Walks each <w:drawing> as a UNIT and reads that drawing's own docPr + blip,
+    rather than zipping two flat document-order lists as para_images() does. The
+    zip is correct while every drawing has exactly one docPr and one blip, but a
+    paragraph mixing an inline drawing with an anchored one, or a blip carrying
+    a <a:blip r:link> alternate, misaligns it. A-FIGALT reads @descr, so a
+    misalignment here would attribute one figure's alt text to another.
+
+    para_images() is left BYTE-UNCHANGED: it is read at six call sites that need
+    only presence/naming, and its behaviour is fixture-locked.
+    """
+    out = []
+    for dr in p._element.findall(f'.//{W_("drawing")}'):
+        nm = dr.find(f'.//{{{WP}}}docPr')
+        bl = dr.find(f'.//{{{A}}}blip')
+        if bl is None:
+            continue
+        out.append({'name': (nm.get('name') if nm is not None else None) or '',
+                    'descr': (nm.get('descr') if nm is not None else None) or '',
+                    'rid': bl.get(qn('r:embed'))})
+    return out
+
+
+def block_image_paras(b):
+    """Every paragraph of a block that can carry an inline image, INCLUDING the
+    paragraphs inside its tables. Figural options are placed one-per-paragraph
+    (S10-8), but a DI chart or a figure/option fusion table puts drawings inside
+    table cells, and a block-level paras scan would miss those entirely."""
+    seen = set()
+    for p in b.paras:
+        if id(p._element) not in seen:
+            seen.add(id(p._element)); yield p
+    for t in b.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    if id(p._element) not in seen:
+                        seen.add(id(p._element)); yield p
+
+
+def extract_media(docx_path, media_map):
+    """v2.13 — extract every referenced media part to a temp dir and return
+    {rid: absolute path}. The twelve figure-conformance gates are arithmetic
+    over the saved PNG, so they need a real file on disk; a docx part is a ZIP
+    member and PIL cannot open it in place.
+
+    NEVER raises (RA-9 / CLAUDE.md): an unreadable archive degrades to an empty
+    map, which the caller reports as a coverage WARN. A figure gate must never
+    be the reason a run dies — that is the exact defect class v2.12 closed.
+    """
+    paths = {}
+    try:
+        d = tempfile.mkdtemp(prefix='auditmedia_')
+        with zipfile.ZipFile(docx_path) as z:
+            names = set(z.namelist())
+            for rid, base in media_map.items():
+                for cand in (f'word/media/{base}', f'media/{base}'):
+                    if cand in names:
+                        dst = os.path.join(d, f'{rid}_{base}')
+                        with open(dst, 'wb') as fh:
+                            fh.write(z.read(cand))
+                        paths[rid] = dst
+                        break
+    except Exception:
+        return paths
+    return paths
+
+
+def attach_block_images(blocks, media_map, media_paths):
+    """v2.13 (D1) — fill Block.images. Returns (declared, resolved): how many
+    inline images the paper physically carries, and how many of those have a
+    usable PNG on disk. The two are reported separately because 'no figures'
+    and 'figures I could not open' are opposite facts, and printing OK for the
+    second is the vacuous-pass defect this release exists to close."""
+    declared = resolved = 0
+    for b in blocks:
+        for p in block_image_paras(b):
+            for im in para_images_ext(p):
+                rid = im.get('rid')
+                pth = media_paths.get(rid)
+                declared += 1
+                if pth:
+                    resolved += 1
+                b.images.append({'name': im.get('name') or '',
+                                 'rid': rid,
+                                 'descr': im.get('descr') or '',
+                                 'part': media_map.get(rid, ''),
+                                 'path': pth})
+    return declared, resolved
+
+
+def resolve_figure_spec(img, specs):
+    """v2.13 (D2) — find this image's FigureSpec in the registry-borne map.
+
+    Step 7 stamps every drawing with its canonical name at S10-8
+    (_name_last_drawing -> 'q{N}_problem.png' / 'q{N}_opt{i}.png'), and
+    write_spec_sidecar() names the sidecar after the same PNG, so the docPr name
+    IS the key. Fall back to the extension-stripped form and to the media part
+    name so a re-emitted or renamed drawing (CP-IMGNAME) still resolves.
+
+    An unresolved lookup returns {} — which fc.is_legacy() reads as pre-v5.33
+    output and EC-V18 then treats leniently. That is the CORRECT default: an
+    absent spec must degrade, never fabricate a verdict.
+    """
+    if not specs:
+        return {}
+    for k in (img.get('name'), img.get('part')):
+        if not k:
+            continue
+        if k in specs:
+            return specs[k] or {}
+        stem = os.path.splitext(k)[0]
+        if stem in specs:
+            return specs[stem] or {}
+        if (stem + '.png') in specs:
+            return specs[stem + '.png'] or {}
+    return {}
 
 
 def parse_blocks(doc):
@@ -165,6 +296,15 @@ def load_sources(args):
     # neither key and the gate goes dormant.
     src['figural_object_types'] = (fig.get('object_types') or {}) if fig else {}
     src['figural_subtopics'] = (fig.get('subtopic_ids') or {}) if fig else {}
+    # v2.13 (GAP-2026-08-01-FIGSPEC-TRANSPORT D2): the FigureSpec sidecars, keyed
+    # by canonical PNG name. figural_core.write_spec_sidecar() drops these beside
+    # each PNG in the STEP-7 session's working dir; that dir is internal and is
+    # never delivered (S0-1), so without a transport channel Step 8 saw spec=={}
+    # on every figure and EC-V18 downgraded every BLOCKING verdict on output that
+    # was not, in fact, legacy. The registry is the sanctioned channel — exactly
+    # the precedent object_types/subtopic_ids set at v5.31. Absent key => {} =>
+    # every figure reads as legacy, which is the correct pre-v5.34 behaviour.
+    src['figure_specs'] = (fig.get('figure_specs') or {}) if fig else {}
     # v2.4: section_rules full text for image_role lookups in gate_images
     src['section_rules_text'] = rt   # already loaded at src['rules_txt']
     # v2.4: concept_map — Step 8 does NOT receive the answer_key sidecar (S0-1),
@@ -1239,50 +1379,131 @@ def gate_images(blocks, src, media_map):
         _fig_specs = src.get('figure_specs') or {}
         _amber, _void, _block = [], [], []
         _seen, _legacy_n = 0, 0
+        _declared, _unusable = 0, 0
         for _blk in blocks:
             for _img in (getattr(_blk, 'images', None) or []):
+                _declared += 1
                 _png = _img.get('path')
                 if not _png:
                     continue
+                _spec = resolve_figure_spec(_img, _fig_specs)
+                # ── v2.13: PER-FIGURE L3 GUARD (the three-layer pattern v2.12
+                # established for blueprint_core, applied to figural_core's
+                # PER-ITEM calls). The spec now arrives from the REGISTRY, i.e.
+                # from outside this process, and a partially-recorded one raises:
+                # render_figure() mutates font_pt_native/png_px/placement_scale
+                # only after it reads the artefact back, so a render that died
+                # mid-way leaves a spec whose shape the gates index into. Caught
+                # empirically — one such figure raised TypeError out of
+                # g_figlabel(), _safe_gate() converted it to A-GATEERROR, and the
+                # WHOLE A-IMAGES gate died: TWELVE gate lines vanished and the
+                # roster fell from 47 to 36, breaking the §R15 invariance v2.12
+                # had just restored. One bad figure must never cost eleven other
+                # gates their verdict. Skipped figures are counted and REPORTED,
+                # never silently dropped.
+                try:
+                    _hard, _warns = fc.audit_figure(_spec, _png,
+                                                    descr=_img.get('descr'))
+                    _t = fc.triage(_hard + _warns, _spec)
+                    _leg = bool(fc.is_legacy(_spec))
+                except Exception:
+                    _unusable += 1
+                    continue
                 _seen += 1
-                _spec = _fig_specs.get(_img.get('name') or '') or {}
-                if fc.is_legacy(_spec):
+                if _leg:
                     _legacy_n += 1
-                _hard, _warns = fc.audit_figure(_spec, _png,
-                                                descr=_img.get('descr'))
-                _t = fc.triage(_hard + _warns, _spec)
-                _amber += _t['AMBER']
-                _void += _t['VOID_ITEM']
-                _block += _t['BLOCKING']
+                # v2.13: carry (finding, legacy?) so a gate can distinguish
+                # "this v5.33+ render regressed" from "this pre-v5.33 render has
+                # no sidecar to check against" — see _fig_verdict.
+                _amber += [(_f, _leg) for _f in _t['AMBER']]
+                _void += [(_f, _leg) for _f in _t['VOID_ITEM']]
+                _block += [(_f, _leg) for _f in _t['BLOCKING']]
 
         # Emit one verdict per gate id, mapped engine G-*/W-* -> catalogue A-*.
         _by_gate = {}
         for _sev, _findings in (('BLOCKING', _block), ('VOID_ITEM', _void),
                                 ('AMBER', _amber)):
-            for _f in _findings:
-                _by_gate.setdefault(fc.audit_gate_id(_f), (_sev, []))[1].append(_f)
+            for _f, _leg in _findings:
+                _e = _by_gate.setdefault(fc.audit_gate_id(_f), (_sev, [], []))
+                _e[1].append(_f)
+                _e[2].append(_leg)
 
         # Each gate is emitted by an EXPLICIT call with a LITERAL id. Check
         # M-GATE discovers emitted gates statically, so a loop over a variable
         # gate id is invisible to it and the catalogue would read as unemitted.
+        # v2.13: coverage suffix — an incomplete sweep is stated on EVERY gate's
+        # own line, so no verdict can be read as fuller coverage than it had.
+        _cov = (f' [coverage: {_seen}/{_declared} evaluated; {_unusable} skipped — '
+                f'unusable FigureSpec]') if _unusable else ''
+
         def _fig_verdict(gid, bucket):
             if gid not in bucket:
-                _ok(gid, f'{_seen} figure(s) conform.')
+                # ── v2.13 (D3): 0 EVALUATED IS NOT EVIDENCE OF CONFORMANCE ──
+                # This gate family printed "0 figure(s) conform." on EVERY paper
+                # in EVERY exam from v2.11 to v2.12.1, because Block.images was
+                # never populated. Zero-of-zero is the same false-clean the v2.12
+                # A-FIGPROFILE edge case 6 already rejects; the rule is applied
+                # here too, and for the same reason.
+                if not _declared:
+                    _ok(gid, 'no inline drawings in the paper; dormant.')
+                elif not _seen:
+                    _warn(gid, f'{_declared} inline drawing(s) present but 0 could be '
+                               f'evaluated — conformance NOT ESTABLISHED (coverage gap, '
+                               f'not a pass). Check A-ZIP and the registry '
+                               f'figure_specs, then re-run.')
+                elif _unusable:
+                    _warn(gid, f'{_seen} figure(s) conform, but coverage is INCOMPLETE'
+                               + _cov + ' — not a full pass; re-render those figures '
+                               f'(Step 7 v5.34+) for full coverage.')
+                else:
+                    _ok(gid, f'{_seen} figure(s) conform'
+                             + (f' ({_legacy_n} legacy, EC-V18).' if _legacy_n else '.'))
                 return
-            _sev, _msgs = bucket[gid]
+            _sev, _msgs, _legs = bucket[gid]
             _detail = ' | '.join(_msgs[:3])
+            # v2.13: a MIXED paper (some figures carry a sidecar, some do not)
+            # must not report one number for two different populations — the
+            # operator acts on this line, and "56 figure(s)" when one regressed
+            # and 55 are merely old sends them to the wrong repair.
+            _nl = sum(1 for _x in _legs if not _x)
+            _lg = len(_legs) - _nl
+            _mix = (f' (+{_lg} pre-v5.33 figure(s) reported under EC-V18, not '
+                    f'blocking)') if _lg else ''
+            # ── v2.13 (D3): EC-V18 IS A DELIVERY TOLERANCE, NOT ONLY A SEVERITY
+            # RELABEL. The spec's EC-V18 clause is explicit and non-negotiable:
+            # output with no FigureSpec sidecar predates Step 7 v5.33, so roughly
+            # 200 existing exams "keep auditing AND DELIVERING untouched while the
+            # defect is reported loudly on every one." A _fail() here exits
+            # non-zero, and MANDATE D requires exit 0 to certify — so emitting
+            # FAIL for a legacy-only finding would have converted this coverage
+            # fix into an estate-wide delivery outage the moment the gates stopped
+            # being vacuous. A legacy figure cannot be repaired at Step 8 (Step 8
+            # cannot retro-fit a sidecar onto an already-rendered paper), which is
+            # precisely the "genuinely-not-fixable diagnostic" S5-4 admits as an
+            # ACCEPTED WARN. It stays LOUD, it forces the amber footer, it is
+            # recorded as a §R13 limitation — it simply does not block a paper
+            # whose only sin is being older than the contract.
+            if all(_legs):
+                _warn(gid, f'DEGRADED, NOT VOID — {len(_msgs)} pre-v5.33 figure(s) carry '
+                           f'no FigureSpec sidecar (EC-V18 legacy): reported, amber '
+                           f'footer applies, delivery NOT blocked; record as a §R13 '
+                           f'limitation. Re-run Step 7 v5.34+ for full coverage.'
+                           + _cov + f' {_detail}')
+                return
             if _sev == 'BLOCKING':
                 _fail(gid, f'RENDERER-CONTRACT REGRESSION on v5.33+ output — '
-                           f'{len(_msgs)} figure(s): {_detail}')
+                           f'{_nl} figure(s) carrying a FigureSpec' + _mix
+                           + ':' + _cov + f' {_detail}')
             elif _sev == 'VOID_ITEM':
                 _fail(gid, f'ANSWER-CUE LEAK — {len(_msgs)} item(s) VOID; drop or '
-                           f'regenerate those questions, the paper continues: '
-                           f'{_detail}')
+                           f'regenerate those questions, the paper continues:'
+                           + _cov + f' {_detail}')
             else:
                 # AMBER: FAIL severity forces the amber delivery footer
                 # (Framework_DeliveryFooter §5) and NEVER halts the run.
                 _fail(gid, f'DEGRADED, NOT VOID — delivery continues under an '
-                           f'amber footer; {len(_msgs)} figure(s): {_detail}')
+                           f'amber footer; {_nl} figure(s) carrying a FigureSpec'
+                           + _mix + ':' + _cov + f' {_detail}')
 
         _fig_verdict('A-FIGSCALE', _by_gate)
         _fig_verdict('A-FIGLABEL', _by_gate)
@@ -1297,10 +1518,12 @@ def gate_images(blocks, src, media_map):
         _fig_verdict('A-FIGALT', _by_gate)
         _fig_verdict('A-FIGLABELPX', _by_gate)
 
-        if _legacy_n:
-            _ok('A-FIGDPI', f'EC-V18: {_legacy_n} of {_seen} drawing(s) carry no '
-                            f'FigureSpec sidecar (pre-v5.33) — BLOCKING gates '
-                            f'downgraded to AMBER; audit completes.')
+        # v2.13: the EC-V18 legacy count was previously emitted as a SECOND
+        # A-FIGDPI line, which breaks the v2.12 roster rule ("EVERY gate prints
+        # EXACTLY ONE line on EVERY run") and would have made the gate count
+        # stop being a usable integrity signal the moment _seen became non-zero.
+        # It was unreachable while Block.images was empty; now that figures are
+        # actually evaluated it is folded into each gate's own single verdict.
 
 
 def gate_optref(blocks, src):
@@ -1679,6 +1902,12 @@ def run_audit(args):
               f'cannot open/parse the paper ({type(_e).__name__}: {_e}) — the audit '
               f'surface is unreadable. Re-upload an intact docx (P0.5).')
         return print_results()
+    # v2.13 (D1) — bind every inline drawing to its extracted PNG BEFORE the
+    # gates run. Guarded and non-fatal by construction: extract_media() never
+    # raises, and a resolution shortfall becomes a coverage WARN inside
+    # _fig_verdict rather than a missing gate line or a silent pass.
+    _safe_gate('A-MEDIA', attach_block_images, blocks, media_map,
+               extract_media(args.docx, media_map))
     _safe_gate('A-STRUCTURE', gate_structure, blocks, src)
     _safe_gate('A-SECCOUNT', gate_seccount, blocks, src)
     _safe_gate('A-OPTIONS', gate_options, blocks, src)
@@ -2453,6 +2682,248 @@ def self_test():
     except Exception:
         _und = {'<scan-failed>': []}
     check('NO-UNDEFINED-NAMES', not _und)
+
+    # ════════════════════════════════════════════════════════════════════
+    # v2.13 — GAP-2026-08-01-FIGSPEC-TRANSPORT regression lock (D4)
+    # ════════════════════════════════════════════════════════════════════
+    # WHY THESE EXIST. v2.12 closed the HALT and left the twelve gates it
+    # rescued VACUOUS: Block.images was declared '# reserved' and appended to
+    # nowhere, so every gate iterated an empty list and printed "0 figure(s)
+    # conform." on every paper in every exam. 61/61 PASS again coexisted with
+    # zero real coverage — the same hollow-branch class as the halt itself, one
+    # gate-family over. NO fixture had ever put an image in a block. These do.
+    #
+    # figural_core is STUBBED (the pattern v2.12 used for blueprint_core) so the
+    # severity-routing fixtures assert THIS file's logic and hold identically on
+    # a machine with no matplotlib/PIL — the environment ~200 exams may present.
+
+    def _png_bytes(w=8, h=8):
+        """A minimal, valid RGB PNG. stdlib only — the self-test must never
+        require matplotlib or PIL to prove that images are attached."""
+        raw = b''.join(b'\x00' + b'\xff\x00\x00' * w for _ in range(h))
+        def _ck(t, d):
+            c = t + d
+            return (struct.pack('>I', len(d)) + c
+                    + struct.pack('>I', zlib.crc32(c) & 0xffffffff))
+        return (b'\x89PNG\r\n\x1a\n'
+                + _ck(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+                + _ck(b'IDAT', zlib.compress(raw))
+                + _ck(b'IEND', b''))
+
+    def _img_doc(names, in_table=False):
+        """A 1-question docx carrying len(names) inline drawings, each stamped
+        with its canonical docPr name + its OWN alt text (S10-8 does exactly
+        this via _name_last_drawing). in_table places them in a table cell."""
+        from docx import Document as D
+        from docx.shared import Inches
+        d = D()
+        d.add_paragraph('Q.1  Study the figure.')
+        holder = d.add_table(rows=1, cols=1).rows[0].cells[0] if in_table else d
+        for nm in names:
+            p = holder.add_paragraph()
+            p.add_run().add_picture(io.BytesIO(_png_bytes()), width=Inches(1.0))
+        d.add_paragraph('')
+        pth = os.path.join(tmp, 'img.docx')
+        d.save(pth)
+        # stamp canonical name + per-drawing descr, in document order
+        import shutil as _sh
+        tmpd = tempfile.mkdtemp(); out = os.path.join(tmpd, 'stamped.docx')
+        with zipfile.ZipFile(pth) as zin:
+            items = zin.infolist()
+            xml = zin.read('word/document.xml').decode('utf-8')
+            it = iter(names)
+            _cnt = [0]
+            def _sub(mo):
+                nm = next(it, 'x.png'); _cnt[0] += 1
+                close = '/>' if mo.group(0).rstrip().endswith('/>') else '>'
+                return (f'<wp:docPr id="{_cnt[0]}" name="{nm}" '
+                        f'descr="alt for {nm}"{close}')
+            xml = re.sub(r'<wp:docPr\b[^>]*>', _sub, xml)
+            with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zo:
+                for i in items:
+                    zo.writestr(i, xml.encode('utf-8')
+                                if i.filename == 'word/document.xml'
+                                else zin.read(i.filename))
+        return out
+
+    def _attach(docx_path):
+        _reset()
+        mm = gate_zip(docx_path)
+        doc = Document(docx_path); _t, blks = parse_blocks(doc)
+        dec, res = attach_block_images(blks, mm, extract_media(docx_path, mm))
+        return blks, dec, res
+
+    class _StubFC:
+        """figural_core stand-in. LEGACY / FINDINGS are set per fixture."""
+        LEGACY = True
+        FINDINGS = []
+        @staticmethod
+        def is_legacy(spec): return _StubFC.LEGACY
+        @staticmethod
+        def audit_figure(spec, png, descr=None): return (list(_StubFC.FINDINGS), [])
+        @staticmethod
+        def audit_gate_id(f): return f.split(':')[0].strip()
+        @staticmethod
+        def triage(findings, spec=None):
+            sev = 'AMBER' if _StubFC.LEGACY else 'BLOCKING'
+            return {'BLOCKING': findings if sev == 'BLOCKING' else [],
+                    'VOID_ITEM': [], 'AMBER': findings if sev == 'AMBER' else []}
+
+    _saved_fc = sys.modules.get('figural_core')
+
+    def _run_figgates(blks, specs=None, legacy=True, findings=()):
+        _StubFC.LEGACY = legacy; _StubFC.FINDINGS = list(findings)
+        sys.modules['figural_core'] = _StubFC
+        s = _src_stub(tq=1)
+        s['figure_specs'] = specs or {}
+        _reset()
+        _safe_gate('A-IMAGES', gate_images, blks, s, {})
+        return [(l, c, m) for l, c, m in RESULTS if c.startswith('A-FIG')
+                or c == 'A-GATEERROR']
+
+    _FIGGATES = ('A-FIGSCALE', 'A-FIGLABEL', 'A-FIGDPI', 'A-FIGDEGEN',
+                 'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGCVD',
+                 'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX')
+
+    # 53. BLOCK.IMAGES IS POPULATED — the fixture whose absence WAS the defect.
+    #     Nothing in this suite had ever asserted that a block carries an image.
+    _b53, _d53, _r53 = _attach(_img_doc(['q1_problem.png', 'q1_opt1.png']))
+    check('IMAGES-attached-to-block',
+          _d53 == 2 and _r53 == 2 and len(_b53[0].images) == 2
+          and all(i.get('path') and os.path.exists(i['path']) for i in _b53[0].images))
+
+    # 54. NAME + PER-DRAWING ALT TEXT — A-FIGALT reads @descr, so a drawing must
+    #     carry ITS OWN, not the neighbouring drawing's (para_images_ext walks
+    #     each <w:drawing> as a unit rather than zipping two flat lists).
+    check('IMAGES-name-and-descr-per-drawing',
+          [i['name'] for i in _b53[0].images] == ['q1_problem.png', 'q1_opt1.png']
+          and _b53[0].images[0]['descr'] == 'alt for q1_problem.png'
+          and _b53[0].images[1]['descr'] == 'alt for q1_opt1.png')
+
+    # 55. TABLE-EMBEDDED DRAWINGS COUNTED — a DI chart or a figure/option fusion
+    #     table puts images in cells; a block-level paras scan misses them all.
+    _b55, _d55, _r55 = _attach(_img_doc(['q1_stim.png'], in_table=True))
+    check('IMAGES-inside-tables-counted', _d55 == 1 and _r55 == 1)
+
+    # 56. THE VACUOUS-PASS CATCH. With figures present the gates must report a
+    #     NON-ZERO evaluated count. On v2.11-v2.12.1 every one of these printed
+    #     "0 figure(s) conform." and this fixture fails on that build.
+    r = _run_figgates(_b53)
+    check('FIGGATES-not-vacuous',
+          all(any(c == g and '0 figure(s)' not in m for l, c, m in r)
+              for g in _FIGGATES))
+
+    # 57. ROSTER INVARIANCE (§R15) — exactly ONE line per figure gate, with and
+    #     without figures. Also locks out the duplicate second A-FIGDPI line the
+    #     old EC-V18 note emitted, which would have broken the count signal.
+    _b57, _, _ = _attach(_mini_doc(tmp, lambda d: _add_q(d, 1)))
+    r0 = _run_figgates(_b57)
+    check('FIGGATES-roster-invariant',
+          all(sum(1 for _, c, _ in r if c == g) == 1 for g in _FIGGATES)
+          and all(sum(1 for _, c, _ in r0 if c == g) == 1 for g in _FIGGATES))
+
+    # 58. ZERO-IMAGE PAPER IS DORMANT, NOT "CONFORMANT" — a paper with no
+    #     drawings must say so, never claim a conformance it never tested.
+    check('FIGGATES-zero-image-dormant',
+          all(any(c == g and l == 'OK' and 'dormant' in m for l, c, m in r0)
+              for g in _FIGGATES))
+
+    # 59. DECLARED-BUT-UNREADABLE ⇒ COVERAGE WARN (D3, edge case 6 applied here):
+    #     drawings present but none openable is a coverage GAP, never a pass.
+    _b59 = [Block(1)]
+    _b59[0].images = [{'name': 'q1_problem.png', 'rid': 'rId9',
+                       'part': 'image1.png', 'descr': '', 'path': None}]
+    r = _run_figgates(_b59)
+    check('FIGGATES-declared-unreadable-warns',
+          all(any(c == g and l == 'WARN' and 'NOT ESTABLISHED' in m
+                  for l, c, m in r) for g in _FIGGATES))
+
+    # 60. SPEC TRANSPORT RESOLVES (D2) — registry-borne figure_specs keyed by the
+    #     canonical docPr name, with extension-stripped and media-part fallbacks.
+    _spec = {'class': 'data_series', 'placement_scale': 1.0}
+    check('FIGSPEC-transport-resolves',
+          resolve_figure_spec({'name': 'q1_problem.png', 'part': 'image1.png'},
+                              {'q1_problem.png': _spec}) is _spec
+          and resolve_figure_spec({'name': 'q1_problem.png', 'part': ''},
+                                  {'q1_problem': _spec}) is _spec
+          and resolve_figure_spec({'name': '', 'part': 'image1.png'},
+                                  {'image1.png': _spec}) is _spec
+          and resolve_figure_spec({'name': 'Picture 1', 'part': 'image9.png'},
+                                  {'q1_problem.png': _spec}) == {})
+
+    # 61. NON-LEGACY DEFECT BLOCKS CERTIFICATION — a v5.33+ render that carries a
+    #     sidecar and still regresses is a real FAIL; exit is non-zero (MANDATE D).
+    r = _run_figgates(_b53, specs={'q1_problem.png': _spec, 'q1_opt1.png': _spec},
+                      legacy=False, findings=['A-FIGSCALE: scale 0.5 != 1.0'])
+    check('FIGGATES-nonlegacy-defect-fails',
+          any(c == 'A-FIGSCALE' and l == 'FAIL' and 'REGRESSION' in m for l, c, m in r))
+
+    # 62. EC-V18 IS A DELIVERY TOLERANCE — the SAME finding on a pre-v5.33 figure
+    #     with no sidecar must stay LOUD but must NOT block: the spec's EC-V18 is
+    #     non-negotiable that ~200 existing exams "keep auditing AND DELIVERING
+    #     untouched". A FAIL here exits non-zero and MANDATE D then refuses to
+    #     certify — turning a coverage fix into an estate-wide outage.
+    r = _run_figgates(_b53, legacy=True, findings=['A-FIGSCALE: scale 0.5 != 1.0'])
+    check('FIGGATES-legacy-degrades-without-blocking',
+          any(c == 'A-FIGSCALE' and l == 'WARN' and 'EC-V18' in m for l, c, m in r)
+          and not any(c == 'A-FIGSCALE' and l == 'FAIL' for l, c, _ in r))
+
+    # 63. END-TO-END WIRING THROUGH run_audit — THE M1 FIXTURE.
+    #     Fixtures 53-62 call attach_block_images() directly, so every one of
+    #     them still passes if the CALL inside run_audit is deleted. That is the
+    #     precise shape of the v2.10 defect this whole gap family descends from:
+    #     the delegation was written at the call sites and never bound, and no
+    #     fixture exercised the real entry point. Mutation-verified: removing the
+    #     run_audit call fails THIS check and only this check.
+    _StubFC.LEGACY = True; _StubFC.FINDINGS = []
+    sys.modules['figural_core'] = _StubFC
+    _e2e = _img_doc(['q1_problem.png', 'q1_opt1.png'])
+    _args63 = argparse.Namespace(docx=_e2e, blueprint=None, rules=None,
+                                 manifest=None, registry=None, mockN=1,
+                                 final=False, audit_state=None, key=None,
+                                 self_test=True)
+    _so = sys.stdout
+    try:
+        sys.stdout = io.StringIO()
+        run_audit(_args63)
+        _r63 = list(RESULTS)
+    finally:
+        sys.stdout = _so
+    check('FIGGATES-wired-into-run-audit',
+          all(any(c == g and '0 figure(s)' not in m and 'NOT ESTABLISHED' not in m
+                  and 'dormant' not in m for l, c, m in _r63) for g in _FIGGATES))
+
+    # 64. PER-FIGURE FAULT ISOLATION — ONE BAD SPEC MUST NOT COST ELEVEN GATES
+    #     THEIR VERDICT. Found empirically while testing D2 against a real paper:
+    #     a partially-recorded FigureSpec (render_figure() fills png_px /
+    #     font_pt_native / placement_scale only AFTER it reads the artefact back,
+    #     so a render that died mid-way leaves a shape the gates index into)
+    #     raised TypeError out of g_figlabel(); _safe_gate turned it into
+    #     A-GATEERROR and the WHOLE A-IMAGES gate died — twelve gate lines gone,
+    #     roster 47 -> 36, the §R15 invariance v2.12 had just restored broken by
+    #     one figure. The spec now arrives from the REGISTRY, i.e. from outside
+    #     this process, so a per-item L3 guard is mandatory, exactly as v2.12
+    #     required one for blueprint_core's call sites.
+    class _RaisingFC(_StubFC):
+        @staticmethod
+        def audit_figure(spec, png, descr=None):
+            raise TypeError('list indices must be integers or slices, not str')
+    _StubFC.LEGACY = True; _StubFC.FINDINGS = []
+    sys.modules['figural_core'] = _RaisingFC
+    _s64 = _src_stub(tq=1); _s64['figure_specs'] = {}
+    _reset()
+    _safe_gate('A-IMAGES', gate_images, _b53, _s64, {})
+    _r64 = [(l, c, m) for l, c, m in RESULTS if c.startswith('A-FIG') or c == 'A-GATEERROR']
+    check('FIGGATES-per-figure-fault-isolation',
+          not any(c == 'A-GATEERROR' for _, c, _ in _r64)
+          and all(sum(1 for _, c, _ in _r64 if c == g) == 1 for g in _FIGGATES)
+          and all(any(c == g and l == 'WARN' and 'NOT ESTABLISHED' in m
+                      for l, c, m in _r64) for g in _FIGGATES))
+
+    if _saved_fc is not None:
+        sys.modules['figural_core'] = _saved_fc
+    else:
+        sys.modules.pop('figural_core', None)
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')
