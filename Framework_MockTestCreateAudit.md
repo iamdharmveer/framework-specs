@@ -1,4 +1,48 @@
-# Framework_MockTestCreateAudit v2.13
+# Framework_MockTestCreateAudit v2.14
+# v2.14 — 2026-08-01 — B3: FACT VERIFICATION KEEPS ITS EVIDENCE, NOT ITS TRANSCRIPT
+#   (SESSION-EXHAUSTION programme, release 1 of 4). Coverage is UNCHANGED. What
+#   changes is where the raw search result lives.
+#
+#   THE PROBLEM, MEASURED. Step 8 was exhausting its session before Phase 3 on
+#   ordinary papers, which is worse than it sounds: the evidence dir lives in
+#   /home/claude and does NOT survive a session boundary, so an exhausted run
+#   loses the whole audit and the retry exhausts the same way. On a 60-question
+#   science paper the load is:
+#     spec reads .............................. ~82k tokens
+#     Part A STDOUT x 9 runs .................. ~11k
+#     33 per-question montages ................ ~46k
+#     B-FACT ................................. ~400k+
+#   B-FACT dominates everything else combined. §6 S6-3 requires the keyed fact AND
+#   every option to be web-verified; on ~25 C-FACTUAL questions that is ~125
+#   searches, and retaining each full result set is what actually ends the session.
+#
+#   THE FIX (RA-11 a/b/c). (a) SAVE-THEN-SHED — the raw result goes to
+#   evidence/facts/ and ONE verdict line ("q17 · VERIFIED · <domain> · <date>")
+#   is carried forward. (b) CACHE BY CONCEPT — ledger.fact_cache is consulted
+#   before any search, so a claim shared by several questions is verified once and
+#   reused by path. (c) GROUP THE OPTIONS — where the options are same-domain, one
+#   query may settle the set and the saved file holds a LIST of per-option records;
+#   per-option queries remain wherever the grouped result leaves an option open.
+#   S6-2 now carries the canonical save_fact()/fact_line() writers so the record
+#   shape cannot drift from what the gate asserts.
+#
+#   AND THE GATE MOVES WITH IT — this is the part that makes B3 safe. C5 checked
+#   only that the saved file EXISTED and was >= 1 byte. That was tolerable while
+#   the full result ALSO sat in the reasoning stream, because the evidence was
+#   duplicated. It is not tolerable once the file is the ONLY copy: without a
+#   shape check the discipline degrades silently from "save the result" to "touch
+#   a file", and C5 would certify an audit whose evidence no longer exists
+#   anywhere. C5 now requires the file to PARSE and to carry a non-blank query +
+#   url + retrieved_at + snippet in every record — exactly the four fields RA-11
+#   has mandated since v2.6 and that no gate had ever checked. It also accepts one
+#   file referenced by many questions and REPORTS the reuse, so the cache reads as
+#   reuse and never as a coverage shortfall.
+#
+#   WHAT B3 DOES NOT TOUCH: which facts are checked (all of them), that the check
+#   is LIVE, that it is per-option, that it is evidence-backed, or any of RA-0 /
+#   RA-3 / RA-15a / MANDATE B. No preference may waive coverage and none is
+#   waived here. Self-test 73 -> 78; all five new behaviours mutation-verified.
+#
 # v2.13 — 2026-08-01 — THE TWELVE FIGURE GATES ACTUALLY EVALUATE FIGURES
 #   (GAP-2026-08-01-FIGSPEC-TRANSPORT, D1-D6). v2.12 rescued these gates from a
 #   permanent halt and left them VACUOUS. On every paper, in every exam, from
@@ -552,13 +596,43 @@
           as corruption; it is flagged ONLY when language == 'english' (then it is
           copy-paste corruption). U+FFFD replacement characters are ALWAYS a defect
           regardless of language.
-  RA-11 : LIVE FACT-CHECK. Every current-affairs and static-GA fact, and every
-          factual option, is web-verified at audit time (§6 B-FACT). Never certify
-          a fact from model memory. A fact that cannot be sourced, or is wrong, is
-          a defect → regenerate. v2.6: the verification MUST save its raw result
-          (query + URL + retrieval-time + snippet) to the evidence dir and the
-          ledger entry's fact_sources[] MUST name that saved file — S5-1A C5 fails
-          if the file is absent (a bare URL string is not sufficient).
+  RA-11 : LIVE FACT-CHECK, EVIDENCE ON DISK, ONE LINE IN CONTEXT (v2.14/B3).
+          Every current-affairs and static-GA fact, and every factual option, is
+          web-verified at audit time (§6 B-FACT). Never certify a fact from model
+          memory. A fact that cannot be sourced, or is wrong, is a defect →
+          regenerate. The verification MUST save its raw result (query + URL +
+          retrieval-time + snippet) to the evidence dir and the ledger entry's
+          fact_sources[] MUST name that saved file — S5-1A C5 fails if the file is
+          absent, unparseable, or missing any of those four fields (a bare URL
+          string is not sufficient, and neither is a touched stub).
+          CONTEXT DISCIPLINE (B3 — the reason Step 8 exhausted sessions). The raw
+          search result goes to DISK, not into the reasoning stream. After each
+          verification, carry forward ONE line — "q17 · VERIFIED · <domain> ·
+          <retrieval-date>" or "q17 · UNSOURCED → RG" — and nothing else. Measured:
+          on a 60-question science paper the C-FACTUAL fan-out (keyed fact + every
+          option, ~25 questions) is ~125 searches; retaining full result sets costs
+          upwards of 400k tokens and alone exhausts the session before Phase 3,
+          which then loses the whole audit (the evidence dir does not survive a
+          session boundary — see RA-18).
+          THREE RULES, none of which reduces coverage:
+            (a) SAVE-THEN-SHED. Write the full result to evidence/facts/ and keep
+                only the verdict line. The saved file is the audit's evidence and
+                C5 verifies its shape; context is not a second copy of it.
+            (b) CACHE BY CONCEPT. Maintain ledger.fact_cache keyed by the
+                normalised fact concept. A concept already verified in this mock
+                is NOT searched again — the later question REUSES the saved file
+                by path. C5 accepts one file referenced by many questions and
+                reports the reuse. Re-searching a settled concept is redundant
+                work, not extra rigour.
+            (c) GROUP THE OPTIONS. Where a question's options are same-domain
+                claims, ONE well-formed query may adjudicate the whole option set;
+                record every option's verdict in the one saved record (the file
+                may hold a LIST). Split into per-option queries only where the
+                grouped result does not settle an option. Every option is still
+                verified — what changes is how many result sets are retained.
+          WHAT B3 DOES NOT TOUCH: which facts are checked (all of them), that the
+          check is LIVE, that it is per-option, or that it is evidence-backed.
+          Coverage is identical; only the context footprint changes.
   RA-12 : DEFENSIBLE-ANSWER CONTRACT (mirrors Step 7 R-ANSWER; parameterised by the
           subtopic's answer_cardinality, re-derived from blueprint subtopic_list — default
           'single'). SINGLE: every question has exactly one defensible correct option
@@ -1241,7 +1315,7 @@
     {mock:N, K:<from P8>, plan:[...], batches_done:[],
      evidence_dir: "/home/claude/[ExamCode]_M[N]_evidence",
      ledger:{entries:{}, scenarios:[], presentations:[], facts:[], vocab:[],
-             images:[], derived_key:{}},
+             images:[], derived_key:{}, fact_cache:{}},   # v2.14 B3 (RA-11 b)
      defects:[], regenerations:[], stamps:{},
      session_log:{inputs_repaired:[]}}
   And create the evidence directory with subfolders (RA-19 / §7 / S5-1A):
@@ -1499,8 +1573,13 @@
     C4  single-mode entry ⇒ answer_unique == True             (B-UNIQUE ran)
         multi-mode  entry ⇒ answer_set_verified == True       (A-MSQ-KEY ran)
     C5  factual entry (GA/CA section OR factual-option flag) ⇒ len(fact_sources) >= 1
-        AND every fact_source names a SAVED file under evidence/facts/ that EXISTS
-        and is non-empty                                     (B-FACT / RA-11)
+        AND every fact_source names a SAVED file under evidence/facts/ that EXISTS,
+        PARSES as JSON, and carries a non-blank query + url + retrieved_at + snippet
+        in every record (v2.14/B3 — shape, not merely existence: once the raw result
+        lives ONLY on disk, a touched stub would erase the evidence while still
+        certifying). One file MAY be referenced by several questions — that is the
+        RA-11 (b) concept cache, and the gate reports the reuse rather than
+        penalising it                                        (B-FACT / RA-11)
     C6  figural entry ⇒ 'image' stamp present AND the montage file it names EXISTS
         under evidence/montages/ and is >= EVIDENCE_MIN_BYTES (a real raster, not a
         0-byte touch); table/chart/omml entry ⇒ 'recompute' stamp present AND the
@@ -2014,12 +2093,58 @@
      the stem references is not only PRESENT (machine) but CORRECT in meaning and
      position, and the instruction template matches the option structure. Escape tokens
      are read from section_rules (RA-9), never hardcoded.
-  B-FACT (RA-11 — LIVE, EVIDENCE-SAVED): every current-affairs / static-GA fact and every
-     factual option is web-verified at audit time. The search query necessarily contains
-     the fact (permitted to the search tool only — MANDATE 0). v2.6: SAVE the raw result
-     (query + URL + retrieval-time + snippet) to evidence/facts/q{n}_*.json and record its
-     path in ledger.entries[q].fact_sources[]. S5-1A C5 verifies the file exists — a bare
-     URL string no longer certifies. Never certify a fact from memory.
+  B-FACT (RA-11 — LIVE, EVIDENCE-SAVED, CONTEXT-DISCIPLINED): every current-affairs /
+     static-GA fact and every factual option is web-verified at audit time. The search
+     query necessarily contains the fact (permitted to the search tool only — MANDATE 0).
+     SAVE the raw result (query + URL + retrieval-time + snippet) to
+     evidence/facts/q{n}_*.json and record its path in ledger.entries[q].fact_sources[].
+     S5-1A C5 verifies the file exists, parses, and carries all four fields — a bare URL
+     string does not certify, and neither does a touched stub. Never certify from memory.
+     v2.14 (B3): the raw result goes to DISK and ONE verdict line is carried forward
+     (RA-11 a/b/c). Consult ledger.fact_cache BEFORE searching: a concept already
+     verified in this mock is reused by path, never re-searched. Where the options are
+     same-domain claims, one grouped query may settle the set and the saved file holds a
+     LIST of per-option records. Use this writer so the record shape cannot drift from
+     what C5 asserts:
+
+     ```python
+     import json, os, re, hashlib
+     from datetime import datetime, timezone
+
+     def _concept_key(text):
+         """Normalised cache key. Case/punctuation/whitespace-insensitive so the same
+         claim asked two ways hits once. MANDATE 0: the key stays in /home/claude."""
+         return hashlib.md5(re.sub(r'[^a-z0-9 ]+', '',
+                                   (text or '').lower()).strip().encode()).hexdigest()[:16]
+
+     def save_fact(evidence_dir, q, records, cache, concept):
+         """Write ONE fact-evidence file and return (path, reused).
+         records : [{query, url, retrieved_at, snippet}, ...] — one per claim settled
+                   (the keyed fact and/or each option). EVERY field is mandatory and
+                   must be non-blank; S5-1A C5 fails the audit otherwise.
+         cache   : ledger.fact_cache — {concept_key: saved_path}. A hit returns the
+                   EXISTING path and performs no search (RA-11 b)."""
+         k = _concept_key(concept)
+         if k in cache and os.path.exists(cache[k]):
+             return cache[k], True                      # reuse; C5 accepts sharing
+         d = os.path.join(evidence_dir, 'facts')
+         os.makedirs(d, exist_ok=True)
+         p = os.path.join(d, f'q{q}_{k}.json')
+         for r in records:                              # fail LOUDLY here, not at C5
+             miss = [f for f in ('query', 'url', 'retrieved_at', 'snippet')
+                     if not str(r.get(f) or '').strip()]
+             assert not miss, f'B-FACT record for q{q} missing/blank: {miss}'
+         with open(p, 'w', encoding='utf-8') as fh:
+             json.dump(records, fh, ensure_ascii=False, indent=1)
+         cache[k] = p
+         return p, False
+
+     def fact_line(q, ok, url, retrieved_at):
+         """The ONLY thing that enters the reasoning stream (RA-11 a). MANDATE-0 safe:
+         Q-number, verdict, domain, date — never the fact itself."""
+         dom = re.sub(r'^https?://([^/]+).*$', r'\1', url or '')
+         return f"q{q} · {'VERIFIED' if ok else 'UNSOURCED → RG'} · {dom} · {retrieved_at}"
+     ```
   B-LEAK (inter-question): a question's correct numeric/fact answer does not appear as a
      GIVEN quantity/fact in another question's stem in the same mock (cross-question
      leakage). Checked mock-wide at Phase 3 using the ledger's recorded answers. v1.2:
@@ -2047,11 +2172,18 @@
         singleton option exists (not only combined options) — read the permitted set
         from section_rules.
 
-  C-FACTUAL (RA-11 — live web-verification, never memory):
-    [ ] Web-verify the KEYED fact with a citable, current source; SAVE URL+date+snippet
-        to evidence/facts/ and record the path in the ledger (never in chat — MANDATE 0).
+  C-FACTUAL (RA-11 — live web-verification, never memory; B3 context discipline):
+    [ ] Check ledger.fact_cache FIRST (RA-11 b). A concept already verified in this mock
+        is REUSED by path — do not search it again. Record the reuse; C5 accepts one
+        saved file referenced by several questions.
+    [ ] Web-verify the KEYED fact with a citable, current source; SAVE query+URL+
+        retrieval-time+snippet via save_fact() and record the path in the ledger (never
+        in chat — MANDATE 0). Carry forward fact_line() ONLY (RA-11 a).
     [ ] Web-verify EVERY option is a real, same-domain fact; a distractor must be a
-        genuine adjacent fact, not an invented one (each saved likewise).
+        genuine adjacent fact, not an invented one. Where the options are same-domain,
+        ONE grouped query may settle the set and the saved file holds a LIST of
+        per-option records (RA-11 c); split per-option only where the grouped result
+        leaves an option unsettled. Every option is still verified.
     [ ] Currency: a fact that has changed since section_rules' analysis window is
         treated as current-affairs and re-verified; a stale "current" fact → defect.
     [ ] A fact that cannot be sourced → defect → regenerate with a sourceable fact.
@@ -2556,6 +2688,12 @@
                                                      # only when every applicable check ran
   }
   Plus rollups: scenarios[], presentations[], vocab_targets[], facts[], image_hashes[].
+  v2.14 (B3): ledger.fact_cache = {concept_key: saved_path} — the mock-wide
+  concept->evidence map RA-11 (b) consults BEFORE any search, so a claim shared by
+  several questions is verified ONCE and reused by path. It is INTERNAL (never
+  delivered, never printed) and is rebuilt on resume with the rest of the ledger.
+  S5-1A C5 reports how many distinct source files back how many references, so cache
+  reuse is visible as reuse and can never be mistaken for a coverage shortfall.
 
 ## S9-2 — How the ledger is used
 
@@ -3280,6 +3418,14 @@ Replace for registry.json), and next-step reference.
   • Figural transformation correctness and answer uniqueness rest on reviewer reasoning
     over the VIEWED image (no machine proof) — but viewing is mandatory, un-sampled, and
     evidence-backed (the montage that was viewed is saved and its presence is gated).
+  • FACT EVIDENCE IS ON DISK, NOT IN THE TRANSCRIPT (v2.14/B3). The reasoning
+    stream carries one verdict line per verification; the raw query/URL/time/
+    snippet lives in evidence/facts/ and is what C5 certifies against. A reader
+    auditing the audit must open those files — the chat transcript is deliberately
+    not a second copy of them, because retaining it is what exhausted the session
+    and, with it, the evidence dir. The concept cache means a claim shared by
+    several questions is verified ONCE; C5 reports distinct-files-per-reference so
+    that reuse is visible and distinguishable from a shortfall.
   • FIGURE CONFORMANCE ON PRE-v5.34 PAPERS (v2.13). The twelve figure-conformance
     gates are arithmetic over the saved PNG AND its FigureSpec sidecar. A paper
     generated before Step 7 v5.34 carries no sidecar in its registry, so the
@@ -3382,7 +3528,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.13 build prints 73/73 — see tests 16-20).
+#     v2.12; the v2.13 build prints 78/78 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -3437,6 +3583,13 @@ Replace for registry.json), and next-step reference.
 #        the call sites, bound nowhere. Test 15 (Context-2) proves the file runs
 #        ALONE; this proves its entry point actually invokes what it added.
 #        (fixture 63)
+#    22. FACT-RECORD SHAPE (v2.14/B3): a saved fact that is a 1-byte stub, is
+#        unparseable, or blanks any of query/url/retrieved_at/snippet MUST fail
+#        C5; a well-formed record MUST pass; a record LIST and a file shared by
+#        two questions MUST pass and be REPORTED as cache reuse. The stub case is
+#        the file that CERTIFIED before v2.14 — once the raw result lives only on
+#        disk, accepting it would erase the evidence while still certifying.
+#        (fixtures 65-69)
 #    21. PER-FIGURE FAULT ISOLATION: make figural_core raise on one figure and
 #        assert NO A-GATEERROR, all twelve gate lines still printed, and a
 #        coverage WARN. Found empirically, not by inspection: one partially
@@ -3466,7 +3619,7 @@ Replace for registry.json), and next-step reference.
 #   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
-#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (73/73) all pass, and
+#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (78/78) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -3497,7 +3650,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 73/73 PASS  (exit 0) on the v2.13 canonical
+#     • `--self-test`  → SELF-TEST: 78/78 PASS  (exit 0) on the v2.13 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -3565,10 +3718,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 73/73). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 78/78). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.13
+# END OF Framework_MockTestCreateAudit v2.14
 # ════════════════════════════════════════════════════════════════════════

@@ -1,13 +1,19 @@
-# Framework_Blueprint v1.42.2 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.42.3 — Universal Mock Test Blueprint Generator
+# v1.42.3 — 2026-08-01 — SELF-TEST COUNT REFRESH ONLY (documentation; zero rule
+#   change). audit_canonical.py gained five C5 fact-record fixtures at
+#   Framework_MockTestCreateAudit v2.14 (B3), so every §13-7A site stating the
+#   expected fixture-based count moves 73/73 -> 78/78. AUTH_GATE_FLOOR stays at
+#   35 — the floor gates DEPLOYED copies, and raising it would HARD STOP every
+#   un-refreshed exam.
 # v1.42.2 — 2026-08-01 — SELF-TEST COUNT REFRESH ONLY (documentation; zero rule
 #   change). The canonical auditor B3 ships (audit_canonical.py) gained eleven
 #   fixtures at Framework_MockTestCreateAudit v2.13
 #   (GAP-2026-08-01-FIGSPEC-TRANSPORT), so every §13-7A site that states the
-#   expected fixture-based count moves 61/61 -> 73/73. AUTH_GATE_FLOOR is
+#   expected fixture-based count moves 61/61 -> 78/78. AUTH_GATE_FLOOR is
 #   UNCHANGED at 35 and is deliberately NOT raised: the floor gates the deployed
 #   copies, and raising it above their printed count would HARD STOP every
 #   un-refreshed exam. A v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13
-#   copy (73/73) all pass the floor, so the estate migrates exam by exam with
+#   copy (78/78) all pass the floor, so the estate migrates exam by exam with
 #   zero downtime. B3 cardinality (6) and every generation rule are untouched.
 # v1.42.1 — 2026-08-01 — B3 STAYS AT 6 OUTPUTS; NO ENGINE PROVISIONING
 #   (post-deploy correction). v1.42 raised B3 to 8 by shipping blueprint_core.py +
@@ -3521,7 +3527,7 @@ Step 8A Generate [ExamCode]_mock_test_audit.py (ref §13-7A):
           VALIDATE: python3 [ExamCode]_mock_test_audit.py --self-test
             → MUST print "SELF-TEST: N/N PASS" with N >= 35 AND be FIXTURE-BASED
               (builds docx fixtures; asserts each gate catches + passes; the v2.12
-              canonical build prints 73/73). A constant-print "N/N PASS" is REJECTED.
+              canonical build prints 78/78). A constant-print "N/N PASS" is REJECTED.
             If output differs or is not fixture-based → HALT. Regenerate and retry.
 
 Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
@@ -3548,7 +3554,7 @@ Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
           ☐ [ExamCode]_ExplainAuditLearnings.md   exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_mock_test_audit.py          exists at /mnt/user-data/outputs/
           ☐ mock_test_audit.py --self-test passed FIXTURE-BASED, N/N with
-            N >= AUTH_GATE_FLOOR (35); the v2.13 canonical build prints 73/73.
+            N >= AUTH_GATE_FLOOR (35); the v2.13 canonical build prints 78/78.
             (This line previously read "13/13 PASS" — a stale reference to the
              RETIRED hollow MVP, corrected at v2.12.)
           ☐ BV-7 passed for all N_mocks (§9-7)
@@ -4660,7 +4666,7 @@ PART B — present_files with all 6 output files (MANDATORY — in this exact or
     ☐ registry.json has correct exam_code and empty arrays
     ☐ Both .md files contain header line only (# [ExamCode] ... Learnings)
     ☐ mock_test_audit.py --self-test passed, FIXTURE-BASED, N/N with
-      N >= AUTH_GATE_FLOOR (35); the v2.13 canonical build prints 73/73.
+      N >= AUTH_GATE_FLOOR (35); the v2.13 canonical build prints 78/78.
       A constant-print "N/N PASS" is REJECTED (it is the retired hollow-MVP
       signature — see Framework_MockTestCreateAudit.md P1).
     ☐ BV-7 and BV-8 both passed
@@ -5165,7 +5171,7 @@ At B3, Claude:
      (identical bytes from the same hash-tracked repo).
   3. Runs: python3 [ExamCode]_mock_test_audit.py --self-test
      → MUST print "SELF-TEST: N/N PASS" with N >= AUTH_GATE_FLOOR (35) AND be
-       fixture-based (the v2.13 canonical build prints 73/73; a v2.11 copy prints
+       fixture-based (the v2.13 canonical build prints 78/78; a v2.11 copy prints
        51/51 and remains valid — the floor stays at 35 precisely so the estate can
        migrate exam by exam without an outage). A constant-print "N/N PASS" is
        REJECTED. If output differs or is not fixture-based → HALT. Do not deliver.
@@ -6325,7 +6331,7 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 ☐ 25. [ExamCode]_mock_test_audit.py generated per §13-7A rules (the canonical
        auditor, verbatim from audit_canonical.py); --self-test
        passed FIXTURE-BASED with N >= AUTH_GATE_FLOOR (35); the v2.12 build prints
-       73/73; included in B3 present_files delivery.
+       78/78; included in B3 present_files delivery.
        Collision check completed if prior script existed (EC-D1/D3).
 ☐ 26. NO engine provisioning performed: blueprint_core.py and figural_core.py were
        NOT delivered in B3 and NOT uploaded to the exam project (v2.12.1). Step 8
@@ -6683,4 +6689,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.42.2
+# END OF Framework_Blueprint v1.42.3

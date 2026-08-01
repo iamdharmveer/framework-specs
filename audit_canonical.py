@@ -1718,6 +1718,42 @@ def _file_ok(path, min_bytes):
     return bool(path) and os.path.exists(path) and os.path.getsize(path) >= min_bytes
 
 
+# v2.14 (B3 — FACT CONTEXT DISCIPLINE). RA-11 has always required the saved fact
+# to carry query + URL + retrieval-time + snippet. C5 only ever checked that the
+# file EXISTED and was >= 1 byte, so a one-character stub certified. That gap did
+# not matter while the full search result also sat in the reasoning stream — the
+# evidence was duplicated. It matters now: B3 moves the raw result OUT of context
+# and onto disk, which makes the saved file the ONLY copy. If the gate does not
+# verify its shape, the discipline degrades from "save it" to "touch a file", and
+# C5 would certify an audit whose evidence no longer exists in any form.
+FACT_REQUIRED_FIELDS = ('query', 'url', 'retrieved_at', 'snippet')
+
+
+def _fact_record_ok(path):
+    """Validate one saved fact-evidence file. Accepts a single record object or a
+    LIST of them (one file may hold the key fact plus its options, and one file may
+    be SHARED by several questions that turn on the same concept — the B3 cache).
+    Returns (ok, reason). The reason names FIELDS only, never fact content
+    (MANDATE 0)."""
+    if not path or not os.path.exists(path):
+        return False, 'missing'
+    try:
+        with open(path, encoding='utf-8') as fh:
+            obj = json.load(fh)
+    except Exception as e:
+        return False, f'unparseable ({type(e).__name__})'
+    recs = obj if isinstance(obj, list) else [obj]
+    if not recs:
+        return False, 'no records'
+    for r in recs:
+        if not isinstance(r, dict):
+            return False, 'record is not an object'
+        miss = [k for k in FACT_REQUIRED_FIELDS if not str(r.get(k) or '').strip()]
+        if miss:
+            return False, 'missing/blank ' + ','.join(miss)
+    return True, ''
+
+
 def _block_has_omml(b):
     for p in b.paras:
         for _ in p._element.iter(M_('oMath')):
@@ -1780,20 +1816,30 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
     (_ok if not bad4 else _fail)('C4',
         'B-UNIQUE/A-MSQ-KEY ran for every Q.' if not bad4 else
         f'uniqueness/set not verified: {sorted(bad4)[:15]}')
-    # C5 — factual entries sourced AND the saved evidence file exists/non-empty
+    # C5 — factual entries sourced AND the saved evidence file exists, parses, and
+    # carries the RA-11 record fields (v2.14/B3: shape, not just existence).
     bad5 = []
+    _fact_files, _fact_refs = set(), 0
     for q, e in entries.items():
         if e.get('is_factual'):
             fs = e.get('fact_sources') or []
             if not fs:
-                bad5.append(q); continue
+                bad5.append((q, 'no fact_sources')); continue
             for rec in fs:
                 saved = rec.get('saved') if isinstance(rec, dict) else None
-                if not _file_ok(_resolve_evidence(evidence_dir, saved), 1):
-                    bad5.append(q); break
+                _fact_refs += 1
+                _p = _resolve_evidence(evidence_dir, saved)
+                ok, why = _fact_record_ok(_p)
+                if not ok:
+                    bad5.append((q, why)); break
+                _fact_files.add(os.path.realpath(_p))
+    _dedup = (f' ({len(_fact_files)} distinct source file(s) for {_fact_refs} '
+              f'reference(s) — B3 cache reuse)') if _fact_refs else ''
     (_ok if not bad5 else _fail)('C5',
-        'every factual entry has a saved, sourced fact.' if not bad5 else
-        f'factual entries unsourced / saved file missing: {sorted(set(bad5))[:15]}')
+        f'every factual entry has a saved, well-formed sourced fact.{_dedup}'
+        if not bad5 else
+        'factual entries unsourced / saved fact file missing or malformed: '
+        + '; '.join(f'Q{q}:{why}' for q, why in sorted(set(bad5))[:15]))
     # C6 — artefact stamps present AND their evidence files exist/non-trivial
     bad6 = []
     for q, e in entries.items():
@@ -2924,6 +2970,89 @@ def self_test():
         sys.modules['figural_core'] = _saved_fc
     else:
         sys.modules.pop('figural_core', None)
+
+    # ════════════════════════════════════════════════════════════════════
+    # v2.14 — B3 FACT CONTEXT DISCIPLINE regression lock
+    # ════════════════════════════════════════════════════════════════════
+    # B3 moves the raw search result OUT of the reasoning stream and onto disk,
+    # so the saved file becomes the ONLY copy of the evidence. C5 previously
+    # accepted any file >= 1 byte, which was tolerable while the result was also
+    # duplicated in context and is NOT tolerable now: without a shape check the
+    # discipline silently degrades from "save the result" to "touch a file".
+    def _fact_state(name, recs, q='1', extra=None):
+        pth = os.path.join(_evd, name)
+        with open(pth, 'w', encoding='utf-8') as fh:
+            if isinstance(recs, str):
+                fh.write(recs)
+            else:
+                json.dump(recs, fh)
+        srcs = [{'url': 'u', 'date': 'd', 'saved': pth}]
+        ent = {'status': 'verified', 'answer_cardinality': 'single',
+               'answer_unique': True, 'is_factual': True,
+               'fact_sources': srcs, 'artefact_stamps': {}}
+        led = {q: ent}
+        if extra:
+            led.update(extra)
+        return {'K': 1, 'batches_done': [1], 'evidence_dir': _evd,
+                'ledger': {'entries': led}}, pth
+
+    _GOODREC = {'query': 'q', 'url': 'https://example.org/a',
+                'retrieved_at': '2026-08-01T00:00:00Z', 'snippet': 's'}
+
+    # 65. WELL-FORMED RECORD → C5 PASS (the positive control).
+    _reset()
+    stA, _ = _fact_state('f_ok.json', _GOODREC)
+    rc = completion_gate(_write_state('stA.json', stA), 1, bcg, dcg)
+    check('CG-fact-record-wellformed-passes',
+          not any(c == 'C5' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 66. ONE-BYTE STUB → C5 FAIL. This is the exact file that CERTIFIED before
+    #     v2.14 and that B3 makes dangerous.
+    _reset()
+    stB, _ = _fact_state('f_stub.json', 'x')
+    rc = completion_gate(_write_state('stB.json', stB), 1, bcg, dcg)
+    check('CG-fact-stub-file-fails',
+          rc == 1 and any(c == 'C5' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 67. MISSING A MANDATED FIELD → C5 FAIL, naming the FIELD (never the fact —
+    #     MANDATE 0). RA-11 requires query + URL + retrieval-time + snippet.
+    _reset()
+    _partial = dict(_GOODREC); _partial.pop('retrieved_at')
+    stC, _ = _fact_state('f_partial.json', _partial)
+    rc = completion_gate(_write_state('stC.json', stC), 1, bcg, dcg)
+    check('CG-fact-missing-field-fails',
+          rc == 1 and any(c == 'C5' and l == 'FAIL' and 'retrieved_at' in m
+                          for l, c, m in RESULTS))
+
+    # 68. BLANK FIELD IS NOT A FIELD — an empty url must fail exactly like an
+    #     absent one, or "save the record" becomes "save the keys".
+    _reset()
+    _blank = dict(_GOODREC); _blank['url'] = '   '
+    stD, _ = _fact_state('f_blank.json', _blank)
+    rc = completion_gate(_write_state('stD.json', stD), 1, bcg, dcg)
+    check('CG-fact-blank-field-fails',
+          rc == 1 and any(c == 'C5' and l == 'FAIL' and 'url' in m
+                          for l, c, m in RESULTS))
+
+    # 69. CACHE REUSE IS LEGITIMATE — B3 dedupes a concept shared by several
+    #     questions to ONE search. A record LIST, and one file referenced by two
+    #     questions, must both certify; the gate reports the reuse rather than
+    #     treating it as a shortfall.
+    _reset()
+    dcg2, bcg2 = _cg_doc(lambda d: (_add_q(d, 1), _add_q(d, 2)))
+    _shared = os.path.join(_evd, 'f_shared.json')
+    with open(_shared, 'w', encoding='utf-8') as fh:
+        json.dump([_GOODREC, dict(_GOODREC, query='q2')], fh)
+    _ent = {'status': 'verified', 'answer_cardinality': 'single',
+            'answer_unique': True, 'is_factual': True,
+            'fact_sources': [{'url': 'u', 'date': 'd', 'saved': _shared}],
+            'artefact_stamps': {}}
+    stE = {'K': 1, 'batches_done': [1], 'evidence_dir': _evd,
+           'ledger': {'entries': {'1': dict(_ent), '2': dict(_ent)}}}
+    rc = completion_gate(_write_state('stE.json', stE), 2, bcg2, dcg2)
+    check('CG-fact-cache-reuse-passes',
+          not any(c == 'C5' and l == 'FAIL' for l, c, _ in RESULTS)
+          and any(c == 'C5' and 'cache reuse' in m for _, c, m in RESULTS))
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')

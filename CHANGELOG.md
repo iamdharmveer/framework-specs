@@ -1,5 +1,79 @@
 # Changelog
 
+## 2026.08.01.4
+B3 — FACT VERIFICATION KEEPS ITS EVIDENCE, NOT ITS TRANSCRIPT. Release 1 of the
+4-part session-exhaustion programme. **Audit coverage is UNCHANGED**; what changes
+is where the raw search result lives.
+
+**The problem, measured.** Step 8 was exhausting its session before Phase 3 on
+ordinary papers — and that is worse than it sounds, because the evidence directory
+lives in `/home/claude` and does NOT survive a session boundary. An exhausted run
+therefore loses the whole audit, and the retry exhausts the same way. Measured load
+on a 60-question science paper (60 Q, 33 figural, 57 drawings):
+
+| Item | Est. tokens |
+|---|---|
+| spec reads (`…CreateAudit.md` 72.6k + `…DeliveryFooter.md` 9.1k) | ~82,000 |
+| Part A STDOUT x 9 runs (2 + K6 + 1) | ~11,200 |
+| 33 per-question montages | ~46,000 |
+| **B-FACT** | **~400,000+** |
+
+B-FACT dominates everything else combined. §6 S6-3 requires the keyed fact AND
+every option to be web-verified; on ~25 C-FACTUAL questions that is ~125 searches,
+and retaining each full result set is what actually ends the session.
+
+**The fix — RA-11 (a)(b)(c).**
+
+- **(a) SAVE-THEN-SHED.** The raw result goes to `evidence/facts/`; ONE verdict line
+  (`q17 · VERIFIED · <domain> · <date>`) is carried forward. Context stops being a
+  second copy of the evidence.
+- **(b) CACHE BY CONCEPT.** `ledger.fact_cache` is consulted BEFORE any search, so a
+  claim shared by several questions is verified once and reused by path.
+  Re-searching a settled concept is redundant work, not extra rigour.
+- **(c) GROUP THE OPTIONS.** Where the options are same-domain claims, one query may
+  settle the set and the saved file holds a LIST of per-option records; per-option
+  queries remain wherever the grouped result leaves an option unsettled. Every
+  option is still verified.
+
+S6-2 now carries the canonical `save_fact()` / `_concept_key()` / `fact_line()`
+writers, so the record shape cannot drift from what the gate asserts, and a
+malformed record fails LOUDLY at write time rather than silently at C5.
+
+**And the gate moves with it — this is what makes B3 safe.** C5 checked only that
+the saved file EXISTED and was >= 1 byte. That was tolerable while the full result
+ALSO sat in the reasoning stream, because the evidence was duplicated. It is not
+tolerable once the file is the ONLY copy: without a shape check the discipline
+degrades silently from "save the result" to "touch a file", and C5 would certify an
+audit whose evidence no longer exists anywhere. **C5 now requires the file to PARSE
+and to carry a non-blank `query` + `url` + `retrieved_at` + `snippet` in every
+record** — exactly the four fields RA-11 has mandated since v2.6 and that no gate
+had ever checked. It also accepts one file referenced by many questions and REPORTS
+the reuse (`N distinct source file(s) for M reference(s)`), so the cache reads as
+reuse and can never be mistaken for a coverage shortfall. FAIL messages name FIELDS
+and Q-numbers only, never fact content (MANDATE 0).
+
+**What B3 does not touch:** which facts are checked (all of them), that the check is
+LIVE, that it is per-option, that it is evidence-backed, or any of RA-0 / RA-3 /
+RA-15a / MANDATE B. No preference may waive coverage and none is waived here.
+
+**Regression lock: 73/73 -> 78/78, all five new behaviours mutation-verified.**
+Fixtures 65-69: a well-formed record passes; a 1-byte stub FAILS (this is the file
+that CERTIFIED before v2.14); a record missing `retrieved_at` FAILS naming the
+field; a blank `url` FAILS exactly like an absent one; a record LIST and a file
+shared by two questions both PASS and are reported as cache reuse. Five mutations
+run — existence-only C5, presence-instead-of-blank check, list-form rejection,
+dedup-reporting removal, unparseable-JSON swallow — each kills exactly its intended
+fixture. §21 gains test 22.
+
+**Files:** `audit_canonical.py`; `Framework_MockTestCreateAudit.md` v2.13 ->
+**v2.14**; `Framework_Blueprint.md` v1.42.2 -> **v1.42.3** and
+`Framework_MockTestCreate.md` v5.34 -> **v5.34.1** (self-test count refresh only);
+`CHANGELOG.md`; `VERSION`; `MANIFEST.json`.
+
+**Projected effect:** ~400k -> ~60k on the B-FACT line. Remaining programme: C1
+cross-session checkpoint (the fix for losing an audit at a session boundary), then
+A1-A4 overhead cleanup, then B1 phase-scoped spec split.
+
 ## 2026.08.01.3
 GAP-2026-08-01-FIGSPEC-TRANSPORT — the twelve Step-8 figure-conformance gates
 ACTUALLY EVALUATE FIGURES. Discovered while verifying the 2026.08.01.1/.2 halt
