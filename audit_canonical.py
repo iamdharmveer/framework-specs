@@ -1098,30 +1098,95 @@ def gate_images(blocks, src, media_map):
         _ok('A-FIGPROFILE',
             'registry carries no per-question object_types (pre-v5.31 mock) — dormant.')
     else:
-        _sr_blocks = bc.parse_image_analysis_blocks(src.get('section_rules_text', ''))
-        _by_sub = {}
-        for _qn, _ty in _fig_types.items():
-            _sid = _fig_subs.get(str(_qn))
-            if _sid:
-                _by_sub.setdefault(_sid, []).append(_ty)
-        _fig_bad, _fig_ok, _fig_skip = [], 0, 0
-        for _sid, _gen_types in sorted(_by_sub.items()):
-            _prof = bc.figural_generation_profile(_sr_blocks.get(_sid))
-            _verdict, _detail = bc.check_figural_conformance(_gen_types, _prof)
-            if _verdict == 'FAIL':
-                _fig_bad.append(f'{_sid}: {_detail}')
-            elif _verdict == 'PASS':
-                _fig_ok += 1
-            else:
-                _fig_skip += 1
-        if _fig_bad:
-            _fail('A-FIGPROFILE',
-                  'generated figure types do not match the measured PYQ profile — '
-                  + ' | '.join(_fig_bad[:4]))
+        # ── FIX GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING (D1/D2) — v2.12 ──────
+        # BIND THE ENGINE. Until v2.12 `bc` was READ at three sites and BOUND at
+        # none: the v2.10 delegation was written into the comments and the call
+        # sites, but the import was never added. Any registry carrying
+        # object_types (Step 7 v5.31+) raised NameError out of gate_images() and
+        # killed the whole run before a single gate line printed.
+        #
+        # THREE-LAYER GUARD (each layer closes a distinct crash path; an import
+        # guard alone is NOT sufficient — measured, not assumed):
+        #   L1 IMPORT     except Exception, NOT except ImportError. A truncated
+        #                 engine (project-knowledge size caps — blueprint_core.py
+        #                 is ~168 KB, exactly the range P0.5 exists for) raises
+        #                 SyntaxError, which ImportError does not catch.
+        #   L2 CAPABILITY hasattr() on all three delegated functions. A stale
+        #                 engine imports cleanly and then raises AttributeError at
+        #                 the call site — a crash the import guard never sees.
+        #   L3 CALL SITE  the delegated calls run inside try/except Exception, so
+        #                 a raise INSIDE the engine degrades to a reported skip
+        #                 instead of aborting the audit.
+        #
+        # SEVERITY IS _warn, DELIBERATELY:
+        #   not _ok   — the gate DID NOT RUN; reporting it green is the silent-pass
+        #               failure the v1.8 DeliveryFooter quality gate exists to kill.
+        #   not _fail — a missing/broken ENGINE is an environment condition, not a
+        #               paper defect, and must never block delivery of a sound
+        #               paper (EC-V18 tolerance; owner directive: no dependency
+        #               condition may halt a run).
+        _BC_FNS = ('parse_image_analysis_blocks',
+                   'figural_generation_profile',
+                   'check_figural_conformance')
+        try:
+            import blueprint_core as bc          # L1
+        except Exception as _e:
+            bc = None
+            _bc_why = f'{type(_e).__name__}: {_e}'
         else:
-            _ok('A-FIGPROFILE',
-                f'{_fig_ok} subtopic(s) conform to the measured figure profile; '
-                f'{_fig_skip} skipped (no usable profile — EC-V18).')
+            _bc_missing = [_f for _f in _BC_FNS if not hasattr(bc, _f)]   # L2
+            if _bc_missing:
+                _bc_why = ('stale engine — missing ' + ', '.join(_bc_missing))
+                bc = None
+            else:
+                _bc_why = ''
+        if bc is None:
+            _warn('A-FIGPROFILE',
+                  'blueprint_core engine unavailable — figure-profile conformance '
+                  f'NOT CHECKED (dependency degraded: {_bc_why}). Logged skip; '
+                  'audit continues (RA-9).')
+        else:
+            try:                                                          # L3
+                _sr_blocks = bc.parse_image_analysis_blocks(
+                    src.get('section_rules_text', '') or '')
+                _by_sub = {}
+                for _qn, _ty in _fig_types.items():
+                    _sid = _fig_subs.get(str(_qn))
+                    if _sid:
+                        _by_sub.setdefault(_sid, []).append(_ty)
+                _fig_bad, _fig_ok, _fig_skip = [], 0, 0
+                for _sid, _gen_types in sorted(_by_sub.items()):
+                    _prof = bc.figural_generation_profile(_sr_blocks.get(_sid))
+                    _verdict, _detail = bc.check_figural_conformance(_gen_types, _prof)
+                    if _verdict == 'FAIL':
+                        _fig_bad.append(f'{_sid}: {_detail}')
+                    elif _verdict == 'PASS':
+                        _fig_ok += 1
+                    else:
+                        _fig_skip += 1
+            except Exception as _e:
+                _warn('A-FIGPROFILE',
+                      'blueprint_core raised during conformance evaluation — '
+                      f'figure-profile conformance NOT CHECKED ({type(_e).__name__}: '
+                      f'{_e}). Logged skip; audit continues (RA-9).')
+            else:
+                if _fig_bad:
+                    _fail('A-FIGPROFILE',
+                          'generated figure types do not match the measured PYQ profile — '
+                          + ' | '.join(_fig_bad[:4]))
+                elif not _by_sub:
+                    # 0/0 is NOT evidence of conformance (edge case 6). The registry
+                    # carried object_types but no usable subtopic_ids, so nothing was
+                    # actually judged. Reporting _ok here would claim coverage the
+                    # gate never had.
+                    _warn('A-FIGPROFILE',
+                          'registry carries object_types but no usable subtopic_ids — '
+                          '0 subtopic(s) evaluated; conformance NOT ESTABLISHED '
+                          '(manifest incomplete).')
+                else:
+                    _ok('A-FIGPROFILE',
+                        f'{_fig_ok} subtopic(s) conform to the measured figure profile; '
+                        f'{_fig_skip} skipped (no usable profile — EC-V18).')
     # v2.4: A-FIGTEXT-PROSE — figure-reference text in zero-image blocks
     if figtext_prose:
         _fail('A-FIGTEXT-PROSE',
@@ -1144,14 +1209,32 @@ def gate_images(blocks, src, media_map):
     # the defect; a halt is not the remedy"). fc.triage() sorts findings into
     # AMBER / VOID_ITEM / BLOCKING, applies EC-V18 legacy tolerance, and NEVER
     # raises. A grey figure is a DEGRADED paper, never a void one.
+    # ── FIX GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING (D3) — v2.12 ────────────
+    # except Exception, not except ImportError: a TRUNCATED figural_core.py
+    # raises SyntaxError and the old guard let it kill the run — the same crash
+    # path D1 produced, one engine over.
     try:
         import figural_core as fc
-    except ImportError:
+    except Exception as _e:
         fc = None
+        _fc_why = f'{type(_e).__name__}: {_e}'
+    else:
+        _fc_why = ''
     if fc is None:
-        # Dormant, not silent. An absent engine is itself reportable.
-        _warn('A-FIGSCALE', 'figural_core.py unavailable — the 12 figure '
-                            'conformance gates could not run.')
+        # LOUD DEGRADATION, ONE LINE PER GATE (D3). Until v2.12 a single
+        # self-naming A-FIGSCALE WARN stood in for all twelve, so ELEVEN gates —
+        # including A-FIGMONO (VOID_ITEM, an answer-cue leak) and A-FIGDEGEN
+        # (BLOCKING) — vanished from STDOUT with no line at all. A reader could
+        # not tell they had not been evaluated. That is precisely the silence
+        # CLAUDE.md forbids: "Silence is the defect; a halt is not the remedy."
+        # Emitting all twelve also makes the printed gate roster INVARIANT
+        # regardless of environment, which restores §R15 reproducibility and
+        # makes the gate count itself a usable integrity signal.
+        for _g in ('A-FIGSCALE', 'A-FIGLABEL', 'A-FIGDPI', 'A-FIGDEGEN',
+                   'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGCVD',
+                   'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX'):
+            _warn(_g, 'figural_core engine unavailable — gate NOT RUN '
+                      f'(dependency degraded: {_fc_why}).')
     else:
         _fig_specs = src.get('figure_specs') or {}
         _amber, _void, _block = [], [], []
@@ -1537,33 +1620,85 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
 # ============================================================================
 # RUNNER
 # ============================================================================
+def _safe_gate(_name, _fn, *a, **kw):
+    """v2.12 — GATE FAULT ISOLATION (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, P6).
+
+    THE STRUCTURAL LESSON OF THIS GAP. The `bc` NameError was one defect, but the
+    reason it produced a PERMANENT HALT WITH ZERO OUTPUT is that run_audit called
+    21 gates in bare sequence with no isolation, and print_results() runs only
+    after the last one. A single raise anywhere therefore destroyed the entire
+    report — including the 30+ gates that had already passed and the completion
+    gate that certifies Phase 3.
+
+    Binding `bc` fixes THIS defect. Isolation fixes the DEFECT CLASS: from v2.12
+    no gate, present or future, can abort the run. An unexpected raise becomes a
+    LOUD, NAMED, non-recoverable FAIL line and the remaining gates still execute.
+
+    SEVERITY IS _fail, NOT _warn — deliberately, and this is the one place where
+    the "never halt" directive must not be read as "never block". A gate that
+    crashed DID NOT AUDIT THE PAPER. Reporting it as a warning would let an
+    unaudited paper reach certification, which is the false-clean outcome the
+    whole v2.6 hardening exists to prevent. FAIL yields exit 1, so the paper
+    cannot be certified — while the run still COMPLETES and prints everything.
+    That is exactly CLAUDE.md's rule: "A CLASS T failure must be LOUD, and must
+    NOT halt... Silence is the defect; a halt is not the remedy."
+    """
+    try:
+        return _fn(*a, **kw)
+    except Exception as _e:
+        import traceback as _tb
+        _fail('A-GATEERROR',
+              f'gate {_name} raised {type(_e).__name__}: {_e} — this gate DID NOT '
+              f'RUN and the paper is NOT audited for it. Framework defect: capture '
+              f'this line and file a gap report (§17). Remaining gates still ran.')
+        # The traceback goes to STDERR (never STDOUT — the report must stay
+        # machine-parseable) so a maintainer can diagnose the framework defect.
+        # Suppressed under --self-test, where fixture 50 raises on purpose.
+        if not any(a == '--self-test' for a in sys.argv):
+            try:
+                print(f'--- A-GATEERROR traceback ({_name}) ---', file=sys.stderr)
+                _tb.print_exc()
+            except Exception:
+                pass
+        return None
+
+
 def run_audit(args):
     _reset()
     src = load_sources(args)
     src['_mockN'] = args.mockN
-    media_map = gate_zip(args.docx)
-    doc = Document(args.docx)
-    _title, blocks = parse_blocks(doc)
-    gate_structure(blocks, src)
-    gate_seccount(blocks, src)
-    gate_options(blocks, src)
-    gate_qnfirst(blocks)
-    gate_msq_instr(blocks, src)            # v1.2 — MULTI only; dormant otherwise
-    gate_nat(blocks, src)                  # v1.4 — NUMERICAL only; dormant otherwise
-    gate_blanksep(doc, blocks)
-    gate_font(doc, src)
-    gate_sechdr(blocks, doc, src)
-    gate_anskey(doc)
-    gate_stimorphan(blocks, src)
-    gate_match_table(blocks, src)          # v2.7.1 — MATCH must render a real table
-    gate_underline(blocks)
-    gate_omml(doc, src, args.final)
-    gate_frac_ascii(blocks, src)
-    gate_images(blocks, src, media_map)
-    gate_optref(blocks, src)
-    gate_encoding_script(doc, src)
-    gate_dup(blocks, src)
-    gate_header(doc, blocks, src)
+    media_map = _safe_gate('gate_zip', gate_zip, args.docx) or {}
+    # The docx itself is the audit SURFACE, not a gate: if it cannot be opened
+    # there is genuinely nothing to audit. Still report it as a gate line and a
+    # complete roster rather than a raw traceback (v2.12).
+    try:
+        doc = Document(args.docx)
+        _title, blocks = parse_blocks(doc)
+    except Exception as _e:
+        _fail('A-DOCXOPEN',
+              f'cannot open/parse the paper ({type(_e).__name__}: {_e}) — the audit '
+              f'surface is unreadable. Re-upload an intact docx (P0.5).')
+        return print_results()
+    _safe_gate('A-STRUCTURE', gate_structure, blocks, src)
+    _safe_gate('A-SECCOUNT', gate_seccount, blocks, src)
+    _safe_gate('A-OPTIONS', gate_options, blocks, src)
+    _safe_gate('A-QNFIRST', gate_qnfirst, blocks)
+    _safe_gate('A-MSQ-INSTR', gate_msq_instr, blocks, src)   # v1.2 — MULTI only; dormant otherwise
+    _safe_gate('A-NAT', gate_nat, blocks, src)               # v1.4 — NUMERICAL only; dormant otherwise
+    _safe_gate('A-BLANKSEP', gate_blanksep, doc, blocks)
+    _safe_gate('A-FONT', gate_font, doc, src)
+    _safe_gate('A-SECHDR', gate_sechdr, blocks, doc, src)
+    _safe_gate('A-ANSKEY', gate_anskey, doc)
+    _safe_gate('A-STIMORPHAN', gate_stimorphan, blocks, src)
+    _safe_gate('A-MATCHTABLE', gate_match_table, blocks, src)  # v2.7.1 — MATCH must render a real table
+    _safe_gate('A-UNDERLINE', gate_underline, blocks)
+    _safe_gate('A-OMML', gate_omml, doc, src, args.final)
+    _safe_gate('A-FRACASCII', gate_frac_ascii, blocks, src)
+    _safe_gate('A-IMAGES', gate_images, blocks, src, media_map)
+    _safe_gate('A-OPTREF', gate_optref, blocks, src)
+    _safe_gate('A-ENCODING', gate_encoding_script, doc, src)
+    _safe_gate('A-DUP', gate_dup, blocks, src)
+    _safe_gate('A-HEADER', gate_header, doc, blocks, src)
     rc = print_results()
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
     if getattr(args, 'audit_state', None):
@@ -2163,6 +2298,161 @@ def self_test():
                                             'trace': _trace}]}}}}}
     rc = completion_gate(_write_state('st42.json', st42), 1, btbl, dtbl)
     check('CG-evidence-backed-pass', rc == 0 and not any(l == 'FAIL' for l, c, _ in RESULTS))
+
+    # ════════════════════════════════════════════════════════════════════
+    # v2.12 — GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING regression lock (D4)
+    # ════════════════════════════════════════════════════════════════════
+    # WHY THESE EXIST. Until v2.12 this suite returned 51/51 PASS on a file that
+    # could not survive a real run, because NO fixture ever built a registry
+    # carrying figural_manifests[].object_types. Every fixture took A-FIGPROFILE's
+    # DORMANT branch, so the unbound `bc` at the primary branch was never
+    # executed. The v2.6 hardening caught hollow FILES; it did not catch a hollow
+    # BRANCH. These fixtures execute the primary branch in every environment the
+    # estate actually presents, which is the only thing that would have caught it.
+    import importlib as _il
+
+    def _figsrc(obj_types, sub_ids, rules=''):
+        s = _src_stub(tq=2)
+        s['figural_object_types'] = obj_types
+        s['figural_subtopics'] = sub_ids
+        s['section_rules_text'] = rules
+        s['figural_qs'] = {1, 2}
+        return s
+
+    def _run_figprofile(src_d):
+        """Run ONLY the A-FIGPROFILE path via gate_images on a 2-Q fixture."""
+        p = _mini_doc(tmp, lambda d: (_add_q(d, 1), _add_q(d, 2)))
+        _reset()
+        doc = Document(p); _t, blks = parse_blocks(doc)
+        _safe_gate('A-IMAGES', gate_images, blks, src_d, {})
+        return [(l, c, m) for l, c, m in RESULTS if c in ('A-FIGPROFILE', 'A-GATEERROR')]
+
+    class _StubBC:
+        """A complete, conforming stand-in for blueprint_core."""
+        @staticmethod
+        def parse_image_analysis_blocks(t): return {'s.a': {'dominant_object_type': 'x'}}
+        @staticmethod
+        def figural_generation_profile(p): return {'dominant_object_type': 'x'}
+        @staticmethod
+        def check_figural_conformance(g, p): return ('PASS', '')
+
+    _saved_bc = sys.modules.get('blueprint_core')
+
+    def _with_bc(mod):
+        if mod is None:
+            sys.modules.pop('blueprint_core', None)
+            sys.modules['blueprint_core'] = None   # forces ImportError on import
+        else:
+            sys.modules['blueprint_core'] = mod
+
+    _OT = {'1': 'cycle_diagram', '2': 'cycle_diagram'}
+    _SI = {'1': 's.a', '2': 's.a'}
+
+    # 43. NON-DORMANT-BRANCH COVERAGE — the fixture that would have caught D1.
+    #     object_types present + engine importable → the primary branch EXECUTES
+    #     and must produce a real verdict, never a NameError.
+    _with_bc(_StubBC)
+    r = _run_figprofile(_figsrc(_OT, _SI))
+    check('FIGPROFILE-primary-branch-runs',
+          any(c == 'A-FIGPROFILE' and l == 'OK' for l, c, _ in r)
+          and not any(c == 'A-GATEERROR' for _, c, _ in r))
+
+    # 44. CATCH PATH — a non-conforming subtopic must FAIL, naming it.
+    class _FailBC(_StubBC):
+        @staticmethod
+        def check_figural_conformance(g, p): return ('FAIL', 'type mismatch')
+    _with_bc(_FailBC)
+    r = _run_figprofile(_figsrc(_OT, _SI))
+    check('FIGPROFILE-catches-nonconformance',
+          any(c == 'A-FIGPROFILE' and l == 'FAIL' for l, c, _ in r))
+
+    # 45. MISSING-ENGINE DEGRADATION — must WARN "NOT CHECKED", never raise.
+    _with_bc(None)
+    r = _run_figprofile(_figsrc(_OT, _SI))
+    check('FIGPROFILE-missing-engine-warns',
+          any(c == 'A-FIGPROFILE' and l == 'WARN' and 'NOT CHECKED' in m for l, c, m in r)
+          and not any(c == 'A-GATEERROR' for _, c, _ in r))
+
+    # 46. STALE-ENGINE — imports fine, lacks a delegated function. The capability
+    #     check (L2) must catch it; an import guard alone would let the call site
+    #     raise AttributeError and abort the run.
+    class _StaleBC:
+        @staticmethod
+        def parse_image_analysis_blocks(t): return {}
+        @staticmethod
+        def figural_generation_profile(p): return None
+    _with_bc(_StaleBC)
+    r = _run_figprofile(_figsrc(_OT, _SI))
+    check('FIGPROFILE-stale-engine-warns',
+          any(c == 'A-FIGPROFILE' and l == 'WARN' and 'stale engine' in m for l, c, m in r)
+          and not any(c == 'A-GATEERROR' for _, c, _ in r))
+
+    # 47. ENGINE RAISES AT THE CALL SITE — L3 must convert it to a logged skip.
+    class _BoomBC(_StubBC):
+        @staticmethod
+        def parse_image_analysis_blocks(t): raise RuntimeError('boom')
+    _with_bc(_BoomBC)
+    r = _run_figprofile(_figsrc(_OT, _SI))
+    check('FIGPROFILE-engine-raise-warns',
+          any(c == 'A-FIGPROFILE' and l == 'WARN' for l, c, _ in r)
+          and not any(c == 'A-GATEERROR' for _, c, _ in r))
+
+    # 48. 0/0 IS NOT EVIDENCE — object_types present but no usable subtopic_ids
+    #     must WARN, not claim conformance it never tested (edge case 6).
+    _with_bc(_StubBC)
+    r = _run_figprofile(_figsrc(_OT, {}))
+    check('FIGPROFILE-zero-of-zero-warns',
+          any(c == 'A-FIGPROFILE' and l == 'WARN' and 'NOT ESTABLISHED' in m for l, c, m in r))
+
+    # 49. LEGACY PATH UNCHANGED — no object_types → dormant _ok. ~200 exams on
+    #     pre-v5.31 output must keep passing exactly as before (EC-V18).
+    _with_bc(None)
+    r = _run_figprofile(_figsrc({}, {}))
+    check('FIGPROFILE-legacy-dormant-ok',
+          any(c == 'A-FIGPROFILE' and l == 'OK' and 'dormant' in m for l, c, m in r))
+
+    # restore the real module state
+    if _saved_bc is not None:
+        sys.modules['blueprint_core'] = _saved_bc
+    else:
+        sys.modules.pop('blueprint_core', None)
+
+    # 50. GATE FAULT ISOLATION (P6) — an exploding gate must become a LOUD, NAMED
+    #     FAIL while the run continues. This is the fixture that makes the entire
+    #     "permanent halt" failure mode impossible for any future gate.
+    _reset()
+    def _boom(*a, **k): raise ValueError('synthetic')
+    _safe_gate('A-SYNTHETIC', _boom)
+    check('GATEERROR-isolates-and-names',
+          any(c == 'A-GATEERROR' and l == 'FAIL' and 'A-SYNTHETIC' in m for l, c, m in RESULTS))
+
+    # 51. FAULT ISOLATION DOES NOT MASK — a crashed gate is FAIL severity, so the
+    #     run exits non-zero and the paper CANNOT be certified clean. Degradation
+    #     must never be quietly survivable.
+    check('GATEERROR-blocks-certification',
+          any(l == 'FAIL' for l, _, _ in RESULTS))
+
+    # 52. UNDEFINED-NAME SCAN (test 10) — self-hosted. Scans THIS file for any
+    #     Load-context name never bound anywhere. This is the generalised guard:
+    #     it catches the next `bc`-class defect automatically, in any gate.
+    _und = {}
+    try:
+        import builtins as _bi, ast
+        _tree = ast.parse(open(__file__, encoding='utf-8').read())
+        _bnd = set(dir(_bi)) | {'__file__', '__name__', '__doc__', '__builtins__'}
+        for _n in ast.walk(_tree):
+            if isinstance(_n, ast.alias): _bnd.add(_n.asname or _n.name.split('.')[0])
+            elif isinstance(_n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)): _bnd.add(_n.name)
+            elif isinstance(_n, ast.Name) and isinstance(_n.ctx, (ast.Store, ast.Del)): _bnd.add(_n.id)
+            elif isinstance(_n, ast.arg): _bnd.add(_n.arg)
+            elif isinstance(_n, ast.ExceptHandler) and _n.name: _bnd.add(_n.name)
+            elif isinstance(_n, (ast.Global, ast.Nonlocal)): _bnd |= set(_n.names)
+        for _n in ast.walk(_tree):
+            if isinstance(_n, ast.Name) and isinstance(_n.ctx, ast.Load) and _n.id not in _bnd:
+                _und.setdefault(_n.id, []).append(_n.lineno)
+    except Exception:
+        _und = {'<scan-failed>': []}
+    check('NO-UNDEFINED-NAMES', not _und)
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')

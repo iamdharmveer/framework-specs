@@ -1,5 +1,113 @@
 # Changelog
 
+## 2026.08.01.1
+GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING — Step 8 (Mock/TestCreateAudit) HALTED
+PERMANENTLY with ZERO gate output on any exam whose paper came from Step 7 v5.31+.
+Reproduced deterministically on a pristine clone of 4ddfc0c; fix verified by
+mutation test (the two new CI checks fire on the unfixed tree and are silent on
+the fixed one).
+
+- **D1 — `bc` referenced but never imported (BLOCKING).** `audit_canonical.py`
+  gate `A-FIGPROFILE` READ `bc` at lines 1101/1109/1110 and BOUND it at none. The
+  v2.10 change deliberately delegated the conformance verdict to `blueprint_core`
+  so the generator and its auditor could not drift — and wrote that delegation
+  into the COMMENTS and the CALL SITES, but never added the import. Any registry
+  carrying `object_types` raised NameError out of `gate_images()` -> `run_audit()`
+  -> `main()`. Because `print_results()` runs only AFTER the last gate, the process
+  died before a single line printed: not a failed gate, a failed RUN, blocking
+  Phase 1, Phase 2 and the Phase-3 completion gate together. An AST scan confirms
+  `bc` was the ONLY unbound name in all 2,194 lines. Now bound with a THREE-LAYER
+  guard, because an import guard alone is insufficient — measured, not assumed:
+  L1 import (`except Exception`, since a TRUNCATED engine raises SyntaxError and
+  `except ImportError` misses it — `blueprint_core.py` is ~168 KB, squarely inside
+  the project-knowledge truncation range P0.5 exists for); L2 capability (`hasattr`
+  on all three delegated functions, since a STALE engine imports cleanly then
+  raises AttributeError at the call site); L3 call site (`try/except`, so a raise
+  INSIDE the engine degrades to a reported skip). WARN, not `_ok` (the gate did not
+  run; green would be the silent-pass failure the v1.8 quality gate exists to kill)
+  and not `_fail` (a missing engine is an ENVIRONMENT condition, not a paper defect
+  — EC-V18).
+- **P6 — GATE FAULT ISOLATION (`_safe_gate`). The structural fix.** `run_audit`
+  called 21 gates in bare sequence, so ANY raise in ANY gate destroyed the entire
+  report — including the 30+ gates that had already passed. Binding `bc` fixes THIS
+  defect; isolation fixes the DEFECT CLASS. From now on no gate, present or future,
+  can abort the run: an unexpected raise becomes a LOUD, NAMED `A-GATEERROR` and
+  the remaining gates still execute. Severity is FAIL, not WARN — a gate that
+  crashed DID NOT AUDIT THE PAPER, so exit is non-zero and certification is blocked
+  while the run still COMPLETES. Exactly CLAUDE.md's rule: a CLASS T failure must be
+  LOUD and must NOT halt; silence is the defect, a halt is not the remedy.
+- **D2/D3 — neither engine was ever distributed (BLOCKING).** `blueprint_core.py`
+  and `figural_core.py` were absent from the Step-6 B3 output set, absent from
+  project knowledge, and named as a Step-8 input nowhere in
+  `Framework_MockTestCreateAudit.md` (zero occurrences). Fixing D1 alone would have
+  converted a loud crash into a quiet no-op. B3 now ships both VERBATIM under their
+  BARE names (6 -> 8 outputs); an `[ExamCode]_` prefix breaks `import blueprint_core`
+  and silently disables the gates.
+- **D3 — eleven figure gates went dark with no output line.** A single self-naming
+  `A-FIGSCALE` WARN stood in for all twelve, so `A-FIGALT`, `A-FIGCOLOUR`,
+  `A-FIGCVD`, `A-FIGDEGEN` (BLOCKING), `A-FIGDPI`, `A-FIGGLYPH`, `A-FIGLABEL`,
+  `A-FIGLABELPX`, `A-FIGMONO` (VOID_ITEM — an answer-cue leak), `A-FIGOPTUNIF` and
+  `A-FIGSERIES` vanished from STDOUT entirely; a reader could not tell they had not
+  been evaluated. Each now emits its own line. The printed roster is INVARIANT
+  across every environment, which restores §R15 reproducibility and makes the gate
+  COUNT itself a usable integrity signal. `figural_core`'s guard also widened to
+  `except Exception` — a truncated copy raised SyntaxError and killed the run the
+  same way D1 did, one engine over.
+- **D4 — the 51-fixture self-test could not see any of it.** No fixture ever built
+  a registry carrying `figural_manifests[].object_types`, so every fixture took
+  A-FIGPROFILE's DORMANT branch and the unbound name was never executed: 51/51 PASS
+  on a build that could not survive one real paper. v2.6 hardened the self-test
+  against a hollow FILE; this was a hollow BRANCH — the same miss one layer down.
+  Ten new fixtures (51 -> 61) execute the PRIMARY branch in every environment the
+  estate presents: engine present/absent/truncated/stale/raising, 0-of-0, legacy
+  dormant, plus gate-fault isolation and a SELF-HOSTED undefined-name scan that
+  runs on every self-test in every exam project.
+- **0-of-0 is no longer reported as conformance.** `object_types` present with no
+  usable `subtopic_ids` now WARNs rather than claiming `_ok` for coverage it never
+  had.
+- **D5/D7 — `routes.json` declared the wrong dependency set.** `blueprint_core.py`
+  was routed to NEITHER `Mock/TestCreateAudit` (D5) NOR `Mock/TestCreate` (D7 — new,
+  not in the gap report: `corpus_io.py` imports it, the identical hole on the
+  GENERATOR side). `bootstrap.py --trigger TestCreateAudit` was therefore actively
+  telling operators the engine was not needed — the machine-readable root cause.
+  All four triggers corrected; full declared-vs-actual parity now clean repo-wide.
+- **D6 — no spec handling for "audit.py raises on the real paper."** §17 covered
+  `--self-test` failure modes exhaustively but not a traceback on the audit run
+  itself, and §12-1 enumerates only CERTIFIED CLEAN or HARD STOP — a Part-A crash is
+  neither. P0.5 policy (b) permitted regenerating a *corrupt* script, but this file
+  was not corrupt (it ast-parsed, passed 51/51, and was byte-identical to its
+  source), so regenerating reproduced the identical defect. Four new §17 rows now
+  name this case, `A-GATEERROR`, engine-skip WARNs, and short rosters.
+- **Estate refresh (~200 deployed copies).** Fixing the repo does not fix them —
+  each project's `[ExamCode]_mock_test_audit.py` is a COPY taken at B3. §21 now
+  sanctions BOTH paths: (A) per-exam Step 6 B3 regeneration (permanent, idempotent),
+  and (B) in-session sanctioned repair under P0.5 policy (b), a byte-exact restore
+  from a hash-tracked source, so any Step-8 run meeting a pre-v2.12 copy completes
+  immediately. Until (A) reaches an exam, (B) keeps it running.
+- **AUTH_GATE_FLOOR STAYS AT 35** — deliberately NOT raised to 61. The floor gates
+  the DEPLOYED copies; raising it above their printed count would HARD STOP every
+  un-refreshed exam and convert a coverage improvement into an estate-wide outage.
+  At 35 a v2.11 copy (51/51) and a v2.12 copy (61/61) both pass, and the estate
+  migrates exam by exam with zero downtime.
+- **Two new CI checks in `validate_framework_md.py`, both mutation-tested.**
+  CHECK AI (ENGINE <-> ENGINE DEPENDENCY PARITY) — every engine an engine imports
+  must be routed alongside it; catches D5/D7 automatically for all future
+  delegations, on both the generator and auditor sides. CHECK AJ (UNDEFINED-NAME
+  SCAN) — no engine may read a name it never binds; catches the next `bc`-class
+  defect in one pass without anyone having to anticipate which gate will have it.
+  Verified against the unfixed tree: AJ names `bc` at 1101/1109/1110, AI names both
+  Create triggers. Silent on the fixed tree.
+- **Corrected false in-spec claim.** `Framework_MockTestCreateAudit.md:3069` still
+  read *"Dependency-light: python-docx + Python stdlib only."* — false since v2.10.
+  A maintainer reading it had an explicit in-spec assurance that no repo engine was
+  needed, which is how the delegation shipped without its import.
+- **Stale MVP artefact removed.** The Blueprint B3 checklist still asserted
+  `--self-test passed (13/13 PASS)`, a leftover from the RETIRED hollow MVP; it now
+  asserts a FIXTURE-BASED N/N with N >= AUTH_GATE_FLOOR.
+- Versions: `Framework_MockTestCreateAudit.md` v2.11.2 -> **v2.12**;
+  `Framework_Blueprint.md` v1.41.2 -> **v1.42**; `Framework_DeliveryFooter.md`
+  v1.8.1 -> **v1.9**. `audit_canonical.py` self-test 51/51 -> **61/61**.
+
 ## 2026.07.31.7
 - §16 FREQUENCY-XLSX IMPLEMENTATION EXTRACTED: 664 lines of workbook code (aggregation,
   derived metrics, generation, and the 5 sheet writers) moved byte-identically from

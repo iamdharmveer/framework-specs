@@ -1,4 +1,55 @@
-# Framework_MockTestCreateAudit v2.11.2
+# Framework_MockTestCreateAudit v2.12
+# v2.12 — 2026-08-01 — ENGINE BINDING + GATE FAULT ISOLATION
+#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, D1-D7). Step 8 HALTED PERMANENTLY
+#   with ZERO gate output on any exam whose paper came from Step 7 v5.31+.
+#
+#   WHAT WAS WRONG. v2.10 delegated the A-FIGPROFILE verdict to blueprint_core so
+#   the generator and its auditor could not drift. The delegation was written into
+#   the COMMENTS and the CALL SITES; the IMPORT was never added. `bc` was read at
+#   three sites and bound at none. Any registry carrying object_types raised
+#   NameError out of gate_images() -> run_audit() -> main(), and because
+#   print_results() runs only AFTER the last gate, the process died before a
+#   single line printed. Not a failed gate — a failed RUN, blocking all three
+#   phases and the completion gate with it.
+#
+#   WHY NO GATE SAW IT. No self-test fixture ever built a registry carrying
+#   object_types, so every one of the 51 fixtures took A-FIGPROFILE's DORMANT
+#   branch and the unbound name was never executed. The file returned 51/51 PASS
+#   on a build that could not survive one real paper. v2.6 hardened the self-test
+#   against a hollow FILE; this was a hollow BRANCH — the same miss one layer down.
+#
+#   FIVE CHANGES:
+#   1. BIND blueprint_core with a THREE-LAYER guard. An import guard alone is NOT
+#      sufficient, measured: `except ImportError` misses the SyntaxError a
+#      TRUNCATED engine raises (blueprint_core.py is ~168 KB — squarely in the
+#      project-knowledge truncation range P0.5 exists for), and a STALE engine
+#      imports cleanly then raises AttributeError at the call site. L1 import
+#      (except Exception) + L2 capability (hasattr on all three delegated fns) +
+#      L3 call site (try/except) close all three paths to a reported skip.
+#   2. GATE FAULT ISOLATION (_safe_gate). THE STRUCTURAL FIX. run_audit called 21
+#      gates in bare sequence, so ANY raise in ANY gate destroyed the whole report.
+#      From v2.12 no gate can abort the run: an unexpected raise becomes a LOUD,
+#      NAMED A-GATEERROR FAIL and the remaining gates still execute. FAIL, not
+#      WARN — a gate that crashed DID NOT AUDIT THE PAPER, so exit is non-zero and
+#      certification is blocked, while the run still COMPLETES. This is the whole
+#      "permanent halt" failure mode closed as a CLASS, for every future gate.
+#   3. ALL 12 FIGURE GATES REPORT THEMSELVES. A single self-naming A-FIGSCALE WARN
+#      stood in for twelve, so ELEVEN gates — including A-FIGMONO (VOID_ITEM, an
+#      answer-cue leak) and A-FIGDEGEN (BLOCKING) — vanished from STDOUT with no
+#      line at all. That is the silence CLAUDE.md forbids. The printed roster is
+#      now INVARIANT regardless of environment, restoring §R15 reproducibility and
+#      making the gate count itself a usable integrity signal.
+#   4. BOTH ENGINES ARE NOW DECLARED AND DISTRIBUTED. routes.json routes
+#      blueprint_core.py to Mock/TestCreateAudit AND to Mock/TestCreate (corpus_io
+#      imports it — the same undeclared-dependency hole on the generator side).
+#      Step 6 B3 ships both engines under BARE names (8 outputs, was 6).
+#   5. TEN NEW FIXTURES (51 -> 61) executing A-FIGPROFILE's PRIMARY branch in every
+#      environment the estate presents, plus a self-hosted UNDEFINED-NAME scan that
+#      catches the next `bc`-class defect automatically in any gate.
+#
+#   AUTH_GATE_FLOOR STAYS AT 35 — deliberately. Raising it above 51 would HARD STOP
+#   every deployed copy until each is refreshed; at 35 old and new copies coexist.
+#
 # v2.11.2 — 2026-07-31 — APPENDIX A SCRIPT EXTRACTED to audit_canonical.py (repo
 #   engine, hash-tracked). The 2,194-line fenced canonical auditor moved byte-identically;
 #   Appendix A retains the full contract + a pointer. Blueprint §13-7A copies the engine
@@ -131,6 +182,22 @@
     4. [ExamCode]_blueprint.json          — allocations, sections, difficulty schedule
     5. [ExamCode]_subtopic_manifest.json  — subtopic_id ↔ name + mandate/alternation data
     6. [ExamCode]_mock_test_audit.py      — Part-A machine-gate script (MANDATORY — MANDATE A)
+    7. blueprint_core.py                  — repo engine, BARE name (v2.12). A-FIGPROFILE
+                                            delegates its verdict to it (the SAME function
+                                            Step 7 v5.31+ generates against, so generator
+                                            and auditor cannot drift).
+    8. figural_core.py                    — repo engine, BARE name (v2.12). Powers the 12
+                                            figure-conformance gates (v2.11).
+
+  BARE NAMES ARE MANDATORY for 7 and 8. They are imported as Python modules; an
+  [ExamCode]_ prefix breaks `import blueprint_core` and silently disables the gates.
+
+  ENGINE ABSENCE IS NOT A HARD STOP (v2.12). Both are lazily imported and guarded.
+  If either is missing, truncated, or stale, its gates report an explicit WARN
+  ("NOT CHECKED" / "NOT RUN") and the audit COMPLETES. A missing engine is an
+  ENVIRONMENT condition, not a paper defect, and must never block delivery of a
+  sound paper (EC-V18). But it is never silent either: the WARN is a S5-4
+  zero-warning blocker until the engine is uploaded or the skip is documented.
 
   NOT DELIVERED (Step 8 must do without these — by design, S13-6):
     ✗ [ExamCode]_M[N]_answer_key.json     — the answers + per-Q concept_map.
@@ -655,7 +722,34 @@
           ". Upload them to the [" + EXAM + "] project / chat, then re-run. "
           "(If only the audit script is missing, see MANDATE A — it is auto-generated "
           "by Step 6 v1.20+. Verify Step 6 outputs were uploaded.)")
+
+  # ── v2.12 (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3) ──────────────────
+  # ENGINES. GATE-SCOPED, NOT AUDIT-SCOPED — a WARN, never a HARD STOP. They are
+  # copied under BARE names because they are imported as Python modules; an
+  # [ExamCode]_ prefix would break `import blueprint_core` and silently disable
+  # the gates that depend on it.
+  ENGINES = ['blueprint_core.py', 'figural_core.py']   # BARE names — do NOT prefix
+  engines_missing = []
+  for eng in ENGINES:
+      src = _find(eng)
+      if src is None:
+          engines_missing.append(eng); continue
+      shutil.copy(src, os.path.join(WORK, eng))
+  if engines_missing:
+      print("WARN (P0): repo engine(s) not found in project knowledge or uploads: "
+            + ", ".join(engines_missing) + ". The audit WILL still run and WILL "
+            "complete — the dependent gates report an explicit WARN skip rather "
+            "than running. Affected: blueprint_core -> A-FIGPROFILE; figural_core "
+            "-> the 12 A-FIG* conformance gates. Upload them (Step 6 B3 delivers "
+            "both; bare names) and re-run to obtain FULL gate coverage. Record "
+            "this in session_log and §R13/§19 as reduced coverage.")
   ```
+
+  RUN DIRECTORY IS NORMATIVE (v2.12). The auditor MUST be executed with
+  /home/claude as the current working directory, so that sys.path[0] resolves the
+  engines copied above. Running it from elsewhere silently loses them, which is
+  how two audits of the same paper could previously print different gate counts —
+  a §R15 reproducibility break.
 
 ## P0.5 — INPUT INTEGRITY (corruption / truncation) — HARD STOP unless repairable
 
@@ -707,13 +801,40 @@
       integrity_fail.append(f"{os.path.basename(paths['audit_py'])}: ast.parse "
                             f"SyntaxError line {e.lineno} (truncated/corrupt script)")
 
+  # v2.12 — ENGINE INTEGRITY. Separate list: a truncated ENGINE is NOT an
+  # audit-scoped blocker. blueprint_core.py is ~168 KB — squarely inside the range
+  # where project-knowledge size caps have been observed to truncate files, which
+  # is the exact failure mode P0.5 exists for. A truncated engine raises
+  # SyntaxError on import; the v2.12 guards catch it and report a skip, so the
+  # audit still completes. Report it, repair it if you can, never halt for it.
+  engine_degraded = []
+  for eng in ENGINES:
+      ep = os.path.join(WORK, eng)
+      if not os.path.exists(ep):
+          continue                      # already WARNed at P0
+      try:
+          ast.parse(open(ep, encoding='utf-8').read())
+      except SyntaxError as e:
+          engine_degraded.append(f"{eng}: ast.parse SyntaxError line {e.lineno} "
+                                 f"(truncated — re-upload from the repo)")
+  if engine_degraded:
+      print("WARN (P0.5 / A-INTEGRITY-ENGINE): " + "; ".join(engine_degraded) +
+            ". SANCTIONED REPAIR policy (b) applies: engines are reconstructible "
+            "VERBATIM from the framework repo, so re-copying an intact engine is "
+            "always safe. Log to session_log.inputs_repaired[] and disclose in "
+            "§R13. If it cannot be repaired, the dependent gates report a WARN "
+            "skip and the audit still completes with reduced coverage.")
+
   if integrity_fail:
       # POLICY (a) DEFAULT → HARD STOP (code A-INTEGRITY). A truncated blueprint/registry
       # silently breaks allocation checks (§6-4) and the re-sync (§13) — auditing against
       # it is auditing against sand.
-      # POLICY (b) SANCTIONED REPAIR is permitted ONLY for [ExamCode]_mock_test_audit.py
-      # (regenerate from Appendix A / Step 6 B3 — §21) and ONLY when the repaired script
-      # then passes the hardened self-test (P1). Log it to
+      # POLICY (b) SANCTIONED REPAIR is permitted for [ExamCode]_mock_test_audit.py
+      # (regenerate from audit_canonical.py / Step 6 B3 — §21) and, from v2.12, for
+      # ANY REPO ENGINE copied into the project (blueprint_core.py, figural_core.py)
+      # — all are reconstructible VERBATIM from the hash-tracked repo, so a repair
+      # is a byte-exact restore and never a guess. Permitted ONLY when the repaired
+      # script then passes the hardened self-test (P1). Log it to
       # session_log.inputs_repaired[] and disclose in §R13. NEVER silently repair
       # blueprint/registry DATA — its content is not reconstructible and a guess corrupts
       # every downstream gate. (If only mock N's own slice of a large blueprint is intact
@@ -1139,6 +1260,28 @@
 #   zero fixable WARN is required to certify (MANDATE D). At Phase 3 the SAME script
 #   ALSO runs the COMPLETION GATE (S5-1A) via --audit-state — the mechanical
 #   enforcement of the Claude-driven Part B / §7 half.
+#
+#   ── GATE ROSTER COMPLETENESS (v2.12 — a HARD reading rule) ──────────────────
+#   EVERY gate prints EXACTLY ONE line on EVERY run, in EVERY environment. There
+#   is no environment in which a gate legitimately produces no output. A gate that
+#   could not run says so, by name, as a WARN. Read the roster accordingly:
+#     • WARN "NOT CHECKED" / "NOT RUN" = the gate DID NOT EVALUATE the paper. It is
+#       NOT a pass. Certifying past it certifies coverage you do not have.
+#     • A-GATEERROR = a gate CRASHED. FRAMEWORK defect, never a paper defect. The
+#       run still completed and every other gate remains valid, but exit is
+#       non-zero and certification is blocked until the framework is repaired.
+#     • A SHORT ROSTER = the auditor copy predates v2.12 (before which eleven of
+#       the twelve figure gates went dark with no line at all, and any gate raise
+#       killed the run before ANY line printed). Refresh it — §21 path (A) or (B).
+#   Because the roster is invariant, THE GATE COUNT ITSELF IS AN INTEGRITY SIGNAL:
+#   two audits of the same paper must print the same number of lines. This is the
+#   §R15 reproducibility guarantee, restored at v2.12.
+#
+#   NO DEPENDENCY CONDITION MAY EVER HALT A RUN. A missing, truncated, or stale
+#   engine is an ENVIRONMENT condition, not a paper defect; it degrades to a
+#   reported skip and the paper still completes and delivers. This is the same
+#   principle already binding on colour (AMBER never halts): the remedy for a
+#   defect is LOUDNESS, never silence, and never a halt.
 
 ## S5-1 — Invocation
 
@@ -1299,7 +1442,9 @@
   | A-ZIP      | document.xml present; every image rId resolves to an existing part | —                          | (structural) | HALT |
   | A-ENCODING | no U+FFFD replacement characters                        | —                                  | (structural) | RG  |
   | A-SCRIPT   | non-ASCII regional script present ONLY if language permits it (else copy-paste corruption) | section_rules language (RA-10) | (structural) | RG |
-  | A-INTEGRITY| (P0.5 pre-flight) every JSON input parses + carries its required top-level keys; audit.py ast-parses + passes the hardened self-test; section_rules non-empty with EXAM_STRUCTURE header | (structural) | HALT (repair audit.py only) |
+  | A-INTEGRITY| (P0.5 pre-flight) every JSON input parses + carries its required top-level keys; audit.py ast-parses + passes the hardened self-test; section_rules non-empty with EXAM_STRUCTURE header | (structural) | HALT (repair audit.py / engines only) |
+  | A-GATEERROR| (v2.12) a gate raised an unexpected exception. The gate DID NOT audit the paper; every other gate still ran and the report is complete. FRAMEWORK defect — never fix the paper for this | (structural) | FAIL — blocks certification; file a gap report |
+  | A-FIGPROFILE| generated figure object_types conform to the PYQ profile Step 5 measured; verdict DELEGATED to blueprint_core (the same function Step 7 generates against, so generator and auditor cannot drift). Dormant on pre-v5.31 registries; WARN "NOT CHECKED" if the engine is absent/truncated/stale | RG | FAIL / WARN |
 
   CROSS-MOCK DEDUP
   | A-DUP      | no stem in mock N exact-matches OR near-matches (Jaccard ≥ J_FAIL) a stem from a PRIOR mock in registry.stem_texts (self-excluding mock N via --mockN); image MD5/pHash not reused from a prior mock | registry stem_texts/question_hashes/image_phashes/content_tracking | R2/R3 | RG |
@@ -2837,6 +2982,10 @@ Replace for registry.json), and next-step reference.
   | audit.py missing | HARD STOP (MANDATE A) — auto-generated by Step 6 v1.20+; verify Step 6 outputs uploaded. Fallback: copy from Framework_MockTestCreate.md Appendix A (must be the v2.6 canonical auditor — §21). |
   | audit.py self-test not a fixture-based N/N (N>=AUTH_GATE_FLOOR) | HARD STOP (P1 hardened) — a constant-print PASS is REJECTED; regenerate the canonical auditor. |
   | audit.py truncated but --self-test prints PASS | HARD STOP (P0.5 ast.parse + P1 hardened) — hollow/constant self-test rejected; regenerate from Appendix A / Step 6 B3. |
+  | **audit.py raises a traceback on the REAL paper (not --self-test)** | **FRAMEWORK DEFECT, not an input defect — v2.12.** Do NOT regenerate from the exam's own copy: it reproduces the identical defect (the file is not corrupt — it ast-parses, passes the self-test, and is byte-identical to its source). From v2.12 this should be IMPOSSIBLE: `_safe_gate()` converts any gate raise into a named `A-GATEERROR` FAIL and the run completes. If a traceback still escapes, the auditor copy PREDATES v2.12. SANCTIONED REPAIR policy (b): replace `[ExamCode]_mock_test_audit.py` with the current `audit_canonical.py` from the repo, re-run P0.5+P1, log to `session_log.inputs_repaired[]`, disclose in §R13, and file a gap report against the repo. |
+  | **`A-GATEERROR` appears in the Part-A report** | A gate CRASHED, so the paper is NOT audited for it. This is a framework defect, never a paper defect — do not attempt to "fix" the paper. The run completed and every other gate is valid. Capture the named gate + the STDERR traceback, file a gap report, and treat certification as BLOCKED (exit is non-zero by design) until the framework is repaired. |
+  | **`A-FIGPROFILE` WARNs "NOT CHECKED" / `A-FIG*` WARN "NOT RUN"** | The named ENGINE is missing, truncated, or stale — an environment condition, NOT a paper defect. The audit is valid but has REDUCED COVERAGE. Upload `blueprint_core.py` / `figural_core.py` under their BARE names (Step 6 B3 delivers both) and re-run to obtain full coverage. If unobtainable, document the skip under S5-4 and record it as a §19 limitation. NEVER certify while pretending the gate ran. |
+  | Part-A prints FEWER gate lines than a full roster | Treat as INCOMPLETE COVERAGE, not as a pass. From v2.12 the roster is INVARIANT — every gate prints a line in every environment — so a short roster means the auditor copy predates v2.12. Refresh it (policy (b)). |
   | *.json input fails to parse / missing required keys (truncated/corrupt) | HARD STOP (P0.5 / A-INTEGRITY) — re-upload intact; never audit against a truncated blueprint/registry. |
   | section_rules empty or missing EXAM_STRUCTURE header | HARD STOP (P0.5 / A-INTEGRITY) — re-upload intact. |
   | Phase 2 skipped / spot-checked instead of batched | IMPOSSIBLE to certify — completion gate (S5-1A) fails C1/C2; MANDATE B / MANDATE D block delivery. |
@@ -3007,6 +3156,65 @@ Replace for registry.json), and next-step reference.
 #        hard-stop pattern against the actual producer output, across all files in a
 #        batch run — not just this one instance.
 #
+#     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
+#     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
+#     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61).
+#     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
+#        object_types + subtopic_ids, with blueprint_core importable → the run MUST
+#        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
+#        ROOT CAUSE WAS THAT NO FIXTURE DID THIS. (fixtures 43, 44)
+#     9. MISSING-ENGINE DEGRADATION: same fixture, blueprint_core NOT importable →
+#        MUST NOT raise, MUST exit 0, MUST print A-FIGPROFILE WARN "NOT CHECKED".
+#        (fixture 45)
+#    10. UNDEFINED-NAME SCAN: AST-scan the file for any Load-context name never
+#        bound at any scope, builtins whitelisted → ZERO results. Self-hosted as
+#        fixture 52, so it runs on EVERY self-test in EVERY exam project, not only
+#        in CI. This is the GENERALISED guard: it catches the next `bc`-class
+#        defect automatically, in any gate, without anyone remembering to look.
+#    11. DECLARED-VS-ACTUAL DEPENDENCY PARITY: for each routed .py, every repo
+#        module it imports MUST appear in that trigger's routes.json entry.
+#        (validate_framework_md.py — catches D5/D7 automatically for all future
+#        delegations, on BOTH the generator and auditor sides.)
+#    12. TRUNCATED-ENGINE: blueprint_core truncated mid-function → WARN, no
+#        traceback. Proves the guard catches SyntaxError, not merely ImportError —
+#        `except ImportError` alone FAILS this test. (fixture 45 pattern / P0.5)
+#    13. STALE-ENGINE: an engine missing one delegated function → WARN, no
+#        traceback. Proves the L2 capability check is present; an import guard
+#        alone lets AttributeError escape at the call site. (fixture 46)
+#    14. GATE-ROSTER INVARIANCE: run with and without the engines → IDENTICAL COUNT
+#        of printed gate lines; only severities differ. Restores §R15.
+#    15. CONTEXT-2 SIMULATION: copy audit_canonical.py ALONE into an empty dir with
+#        only the data files and run it. THIS IS THE TEST WHOSE ABSENCE PRODUCED THE
+#        WHOLE DEFECT CLASS. The developer environment is Context 1 (all 33 repo
+#        files importable); every one of the ~200 exams runs Context 2 (the script
+#        alone beside 5 data files). A CI job that never simulates Context 2 cannot
+#        protect Context 2. Every other test can pass and this failure mode can
+#        still recur.
+#
+#   ── OPERATOR ACTION: REFRESHING THE ~200 DEPLOYED COPIES (v2.12) ──────────────
+#   Fixing the repo does NOT fix the estate. Every exam project's
+#   [ExamCode]_mock_test_audit.py is a COPY taken at Step 6 B3. Two sanctioned
+#   paths, both safe; use either or both:
+#     (A) PER-EXAM REGENERATION (preferred, permanent). Re-run Step 6 B3 for the
+#         exam. It re-copies the corrected audit_canonical.py and now also ships
+#         blueprint_core.py + figural_core.py. §13-7A collision handling makes this
+#         idempotent and safe to repeat.
+#     (B) IN-SESSION REPAIR (immediate, per-run). If a Step-8 run meets an auditor
+#         copy that predates v2.12 — diagnosed by a traceback on the real paper, or
+#         by a short gate roster — Step 8 is AUTHORISED under P0.5 sanctioned-repair
+#         policy (b) to replace that copy with the current repo audit_canonical.py,
+#         re-run P0.5 + P1, log to session_log.inputs_repaired[], and disclose in
+#         §R13. This is a byte-exact restore from a hash-tracked source, never a
+#         guess, so it carries none of the risk that bars repairing DATA files.
+#   Until an exam is refreshed by (A), path (B) makes every Step-8 run complete.
+#   Neither path changes any paper, any answer, or any registry content.
+#
+#   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
+#   copies; raising it above their printed count would HARD STOP every un-refreshed
+#   exam and convert a coverage improvement into an estate-wide outage. At 35, a
+#   v2.11 copy (51/51) and a v2.12 copy (61/61) both pass, and the estate migrates
+#   exam by exam with zero downtime.
+#
 #   THE UNIFYING PRINCIPLE (why this closes the chain across all 200 exams): every
 #   certification claim is the EXIT CODE OF A COMMAND, never a sentence the model writes
 #   about itself. Where a check is Claude-driven (semantic, visual, factual), it deposits
@@ -3066,7 +3274,17 @@ Replace for registry.json), and next-step reference.
 #       — handled by the view-backed two-tier A-MATHRASTER, S5-3). With
 #       --final --audit-state on a certified run → COMPLETION-GATE: PASS.
 #
-#   Dependency-light: python-docx + Python stdlib only. Exit 0 iff no FAIL AND (when
+#   Dependencies (CORRECTED v2.12 — the previous "python-docx + Python stdlib only"
+#   claim became false at v2.10 and was never updated; a maintainer reading it had an
+#   explicit in-spec assurance that no repo engine was needed, which is how the
+#   A-FIGPROFILE delegation shipped without its import):
+#     python-docx + Python stdlib, PLUS two repo engines —
+#       blueprint_core.py  -> A-FIGPROFILE (figure-profile conformance)
+#       figural_core.py    -> the 12 A-FIG* figure-conformance gates (v2.11)
+#     Both are LAZILY imported and TRIPLE-GUARDED (import / capability / call site).
+#     If either is absent, truncated, or stale, its gates report an explicit WARN
+#     skip and the audit STILL COMPLETES. No engine condition can halt a run.
+#   Exit 0 iff no FAIL AND (when
 #   --audit-state is given) COMPLETION-GATE: PASS; WARNs are surfaced for Part-B / §7
 #   reviewer adjudication (the Step-8 certification gate, §12-2, decides whether a
 #   fixable WARN blocks delivery).
@@ -3096,5 +3314,5 @@ Replace for registry.json), and next-step reference.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.11.2
+# END OF Framework_MockTestCreateAudit v2.12
 # ════════════════════════════════════════════════════════════════════════

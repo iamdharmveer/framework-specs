@@ -1,4 +1,13 @@
-# Framework_Blueprint v1.41.2 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.42 — Universal Mock Test Blueprint Generator
+# v1.42 — 2026-08-01 — B3 SHIPS THE RUNTIME ENGINES (8 outputs, was 6)
+#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3). Step 8's auditor delegates
+#   A-FIGPROFILE to blueprint_core and the 12 A-FIG* gates to figural_core, but
+#   NEITHER engine was ever copied into an exam project — not in the B3 output set,
+#   not in project knowledge, not named as a Step-8 input anywhere. B3 now copies
+#   both VERBATIM under their BARE names (a [ExamCode]_ prefix breaks the module
+#   import and silently disables the gates). Also corrected here: the B3 checklist
+#   still asserted "--self-test passed (13/13 PASS)", a stale reference to the
+#   RETIRED hollow MVP; it now asserts a FIXTURE-BASED N/N with N >= 35.
 # v1.41.2 — 2026-07-31 — §13-7A COPY SOURCE now audit_canonical.py (repo engine); the
 #   canonical auditor no longer requires opening Framework_MockTestCreateAudit.md
 #   mid-session. Behaviour identical (byte-identical script).
@@ -3493,13 +3502,21 @@ Step 8A Generate [ExamCode]_mock_test_audit.py (ref §13-7A):
           No exam-specific edits (it self-parameterises at runtime).
           VALIDATE: python3 [ExamCode]_mock_test_audit.py --self-test
             → MUST print "SELF-TEST: N/N PASS" with N >= 35 AND be FIXTURE-BASED
-              (builds docx fixtures; asserts each gate catches + passes; canonical
-              build prints 51/51). A constant-print "N/N PASS" is REJECTED.
+              (builds docx fixtures; asserts each gate catches + passes; the v2.12
+              canonical build prints 61/61). A constant-print "N/N PASS" is REJECTED.
             If output differs or is not fixture-based → HALT. Regenerate and retry.
 
-        present_files with all 6 output files (ref §11 S11-3):
+Step 8B Copy the two RUNTIME ENGINES the auditor depends on (v2.12 —
+        GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING). Under BARE names:
+          `cp /tmp/fw/blueprint_core.py  blueprint_core.py`   # A-FIGPROFILE
+          `cp /tmp/fw/figural_core.py    figural_core.py`     # the 12 A-FIG* gates
+        Do NOT add an [ExamCode]_ prefix — they are imported as Python modules and
+        a prefix breaks the import, silently reducing Step-8 coverage.
+
+        present_files with all 8 output files (ref §11 S11-3):
           Order: blueprint.xlsx, blueprint.json, registry.json,
-                 ExplainLearnings.md, ExplainAuditLearnings.md, mock_test_audit.py
+                 ExplainLearnings.md, ExplainAuditLearnings.md, mock_test_audit.py,
+                 blueprint_core.py, figural_core.py
 
         CHECKLIST before calling present_files:
           ☐ §15-CHECKLIST items XLSX-1 through XLSX-5 all passed
@@ -3509,7 +3526,12 @@ Step 8A Generate [ExamCode]_mock_test_audit.py (ref §13-7A):
           ☐ [ExamCode]_ExplainLearnings.md        exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_ExplainAuditLearnings.md   exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_mock_test_audit.py          exists at /mnt/user-data/outputs/
-          ☐ mock_test_audit.py --self-test passed (13/13 PASS)
+          ☐ blueprint_core.py  exists at /mnt/user-data/outputs/ (BARE name — v2.12)
+          ☐ figural_core.py    exists at /mnt/user-data/outputs/ (BARE name — v2.12)
+          ☐ mock_test_audit.py --self-test passed FIXTURE-BASED, N/N with
+            N >= AUTH_GATE_FLOOR (35); the v2.12 canonical build prints 61/61.
+            (This line previously read "13/13 PASS" — a stale reference to the
+             RETIRED hollow MVP, corrected at v2.12.)
           ☐ BV-7 passed for all N_mocks (§9-7)
           ☐ BV-8 passed for all ZP subtopics (§9-8)
           ☐ len(blueprint['mocks']) == N_mocks
@@ -5097,26 +5119,50 @@ At B3, Claude:
   1. Copies, VERBATIM, the repo engine file audit_canonical.py to
      [ExamCode]_mock_test_audit.py (cp /tmp/fw/audit_canonical.py). No exam-specific substitution is
      needed (the script self-parameterises from blueprint/rules/manifest/registry).
-  2. Runs: python3 [ExamCode]_mock_test_audit.py --self-test
-     → MUST print "SELF-TEST: N/N PASS" with N >= 35 AND be fixture-based (canonical
-       build prints 51/51). A constant-print "N/N PASS" is REJECTED.
-     If output differs or is not fixture-based → HALT. Do not deliver. Regenerate.
-  3. Includes in B3 present_files call alongside other 5 files.
+  2. Copies, VERBATIM and under their BARE names, the two repo engines the auditor
+     depends on at runtime (v2.12 — GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING):
+         cp /tmp/fw/blueprint_core.py  blueprint_core.py    # A-FIGPROFILE
+         cp /tmp/fw/figural_core.py    figural_core.py      # the 12 A-FIG* gates
+     BARE NAMES ARE MANDATORY — these are imported as Python modules, and an
+     [ExamCode]_ prefix breaks `import blueprint_core`, silently disabling the
+     gates. Do NOT prefix them. They are exam-agnostic by construction, so one
+     copy per project is correct and multi-exam containers collide benignly
+     (identical bytes from the same hash-tracked repo).
+  3. Runs: python3 [ExamCode]_mock_test_audit.py --self-test
+     → MUST print "SELF-TEST: N/N PASS" with N >= AUTH_GATE_FLOOR (35) AND be
+       fixture-based (the v2.12 canonical build prints 61/61; a v2.11 copy prints
+       51/51 and remains valid — the floor stays at 35 precisely so the estate can
+       migrate exam by exam without an outage). A constant-print "N/N PASS" is
+       REJECTED. If output differs or is not fixture-based → HALT. Do not deliver.
+  4. Includes all 8 files in the B3 present_files call.
+
+WHY THE ENGINES SHIP (v2.12). Before v2.12 they did not, and the auditor's
+A-FIGPROFILE gate referenced blueprint_core without importing it — so every exam
+on Step 7 v5.31+ hit a NameError that killed the entire Step-8 run before one gate
+line printed. The import is now bound and triple-guarded, so a missing engine can
+no longer crash anything; shipping the engines is what turns that guarded skip
+back into ACTUAL COVERAGE. Both changes are required — the guard alone converts a
+loud crash into a quiet nothing.
 ```
 
 ### S13-7 — present_files delivery order
 
 ```
-B3 delivers all 6 files in ONE present_files call (final delivery):
+B3 delivers all 8 files in ONE present_files call (final delivery — v2.12, was 6):
   1. [ExamCode]_blueprint.xlsx           ← FINAL version; user reviews allocation
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
   4. [ExamCode]_ExplainLearnings.md
   5. [ExamCode]_ExplainAuditLearnings.md
   6. [ExamCode]_mock_test_audit.py       ← audit script (Step 7 optional, Step 8 mandatory)
+  7. blueprint_core.py                   ← repo engine, BARE name (A-FIGPROFILE)
+  8. figural_core.py                     ← repo engine, BARE name (12 A-FIG* gates)
+
+Files 7 and 8 keep their BARE names — no [ExamCode]_ prefix. They are imported as
+Python modules; a prefix breaks the import and silently disables the gates.
 
 If any file fails to create: HALT. Do not deliver partial set.
-All 6 must be present before calling present_files.
+All 8 must be present before calling present_files.
 
 See S13-1 for B1 and B2 present_files calls (intermediate deliveries).
 ```
@@ -5130,13 +5176,21 @@ Step A: Review blueprint.xlsx locally (human verification of full allocation).
 
 Step B: Create [ExamCode] Claude project (if not already exists).
 
-Step C: Upload to [ExamCode] project knowledge (5 Step-1 output files + 1 Step-0 file = 6 total; do NOT upload the xlsx):
+Step C: Upload to [ExamCode] project knowledge (7 Step-1 output files + 1 Step-0 file
+        = 8 total; do NOT upload the xlsx):
           ✓ [ExamCode]_blueprint.json          ← Step 1 output
           ✓ [ExamCode]_registry.json           ← Step 1 output
           ✓ [ExamCode]_ExplainLearnings.md     ← Step 1 output
           ✓ [ExamCode]_ExplainAuditLearnings.md ← Step 1 output
           ✓ [ExamCode]_mock_test_audit.py      ← Step 1 output (Step 7 optional, Step 8 mandatory)
+          ✓ blueprint_core.py                  ← Step 1 output, BARE name (v2.12)
+          ✓ figural_core.py                    ← Step 1 output, BARE name (v2.12)
           ✓ [ExamCode]_section_rules.md        ← Step 0 output (PYQExtract)
+        NOTE: upload blueprint_core.py and figural_core.py under EXACTLY those
+              names. Renaming them (e.g. adding an [ExamCode]_ prefix) breaks
+              `import blueprint_core` and silently reduces audit coverage —
+              A-FIGPROFILE and the 12 A-FIG* gates then report WARN skips instead
+              of running. The audit still completes; it just checks less.
         Do NOT upload: [ExamCode]_blueprint.xlsx (xlsx not readable by Claude in project knowledge)
         NOTE: section_rules.md must be present before MockCreate M1 is triggered.
         NOTE: mock_test_audit.py is the canonical v2.6 auditor (§13-7A) — one script,
@@ -5145,7 +5199,7 @@ Step C: Upload to [ExamCode] project knowledge (5 Step-1 output files + 1 Step-0
 Step D: Start fresh chat in [ExamCode] project.
         Minimum required before Step 2 can start:
           blueprint.json + registry.json + section_rules.md (from Step 0)
-        Recommended: upload all 6 files at once.
+        Recommended: upload all 8 files at once.
 
 Step E: Run: MockCreate M1
 ```
@@ -6238,10 +6292,15 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 ☐ 15. Step 5 (PYQExtract) also complete in [ExamCode] project.
        [ExamCode]_section_rules.md is ready for upload to [ExamCode] project.
        Step 2 MUST NOT start until BOTH Step 0 AND Step 1 are complete.
-☐ 25. [ExamCode]_mock_test_audit.py generated per §13-7A rules (the canonical v2.6
+☐ 25. [ExamCode]_mock_test_audit.py generated per §13-7A rules (the canonical
        auditor, verbatim from audit_canonical.py); --self-test
-       passed FIXTURE-BASED with N >= 35 (51/51); included in B3 present_files delivery.
+       passed FIXTURE-BASED with N >= AUTH_GATE_FLOOR (35); the v2.12 build prints
+       61/61; included in B3 present_files delivery.
        Collision check completed if prior script existed (EC-D1/D3).
+☐ 26. blueprint_core.py AND figural_core.py copied VERBATIM under their BARE names
+       and included in the B3 present_files delivery (v2.12 — 8 files total). No
+       [ExamCode]_ prefix: they are imported as Python modules and a prefix breaks
+       the import, silently reducing Step-8 gate coverage.
 ```
 
 
@@ -6594,4 +6653,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.41.2
+# END OF Framework_Blueprint v1.42

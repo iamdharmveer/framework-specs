@@ -958,6 +958,113 @@ def check_ah_spec_engine_routing(directory):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# CHECK AI — DECLARED-VS-ACTUAL ENGINE DEPENDENCY PARITY
+# (v2.12 — GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D5/D7)
+#
+# CHECK AH covers SPEC -> engine. This covers ENGINE -> engine, which AH cannot
+# see: audit_canonical.py imports blueprint_core, and corpus_io.py imports
+# blueprint_core, yet blueprint_core.py was routed to NEITHER the audit triggers
+# NOR the create triggers. routes.json therefore actively told the operator that
+# blueprint_core was not needed — the machine-readable root cause of the gap.
+# For every routed .py, every repo module it imports must be routed alongside it.
+# ═══════════════════════════════════════════════════════════════════════
+def check_ai_engine_dependency_parity(directory):
+    issues = []
+    routes_path = os.path.join(directory, 'routes.json')
+    if not os.path.exists(routes_path):
+        return issues
+    try:
+        import json as _json
+        routes = _json.load(open(routes_path, encoding='utf-8'))
+    except Exception as exc:
+        return [('routes.json', 'unreadable: %s' % exc)]
+    import ast as _ast
+    repo_mods = {f[:-3] for f in os.listdir(directory) if f.endswith('.py')}
+    deps = {}
+    for fname in sorted(f for f in os.listdir(directory) if f.endswith('.py')):
+        try:
+            tree = _ast.parse(open(os.path.join(directory, fname), encoding='utf-8').read())
+        except SyntaxError:
+            continue
+        found = set()
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.Import):
+                found |= {a.name.split('.')[0] for a in node.names}
+            elif isinstance(node, _ast.ImportFrom) and node.module:
+                found.add(node.module.split('.')[0])
+        found &= repo_mods
+        found.discard(fname[:-3])
+        deps[fname] = sorted(found)
+    for trig, files in sorted(routes.items()):
+        if not isinstance(files, list):
+            continue
+        for eng in [f for f in files if f.endswith('.py')]:
+            for dep in deps.get(eng, []):
+                if dep + '.py' not in files:
+                    issues.append(('routes.json',
+                        'trigger %r routes %s, which imports %s.py — but %s.py is '
+                        'NOT routed to that trigger. The declared dependency set '
+                        'diverges from the actual one; the step will hit an '
+                        'ImportError or a silently-degraded gate '
+                        '(GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D5/D7).'
+                        % (trig, eng, dep, dep)))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CHECK AJ — UNDEFINED-NAME SCAN (every repo engine)
+# (v2.12 — GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D1)
+#
+# THE GENERALISED GUARD. `bc` was READ at three sites in audit_canonical.py and
+# BOUND at none: the v2.10 delegation was written into the comments and the call
+# sites, but the import was never added. Every gate, every fixture and the whole
+# 51/51 self-test passed over it, because the only branch that touched `bc` was
+# never executed by any fixture. A whole-file AST scan finds this class of defect
+# in ONE pass, without anyone having to anticipate which gate will have it next.
+# ═══════════════════════════════════════════════════════════════════════
+def check_aj_undefined_names(directory):
+    issues = []
+    import ast as _ast, builtins as _bi
+    for fname in sorted(f for f in os.listdir(directory) if f.endswith('.py')):
+        path = os.path.join(directory, fname)
+        try:
+            tree = _ast.parse(open(path, encoding='utf-8').read())
+        except SyntaxError as exc:
+            issues.append((fname, 'ast.parse SyntaxError line %s (truncated/corrupt)'
+                           % exc.lineno))
+            continue
+        bound = set(dir(_bi)) | {'__file__', '__name__', '__doc__',
+                                 '__builtins__', '__spec__', '__package__'}
+        for node in _ast.walk(tree):
+            if isinstance(node, _ast.alias):
+                bound.add(node.asname or node.name.split('.')[0])
+            elif isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef, _ast.ClassDef)):
+                bound.add(node.name)
+            elif isinstance(node, _ast.Name) and isinstance(node.ctx, (_ast.Store, _ast.Del)):
+                bound.add(node.id)
+            elif isinstance(node, _ast.arg):
+                bound.add(node.arg)
+            elif isinstance(node, _ast.ExceptHandler) and node.name:
+                bound.add(node.name)
+            elif isinstance(node, (_ast.Global, _ast.Nonlocal)):
+                bound |= set(node.names)
+        undefined = {}
+        for node in _ast.walk(tree):
+            if (isinstance(node, _ast.Name) and isinstance(node.ctx, _ast.Load)
+                    and node.id not in bound):
+                undefined.setdefault(node.id, []).append(node.lineno)
+        for name, lines in sorted(undefined.items()):
+            issues.append((fname,
+                'name %r is READ at line(s) %s but BOUND NOWHERE. Either the import '
+                'is missing (the exact v2.10 A-FIGPROFILE defect: a delegation '
+                'written into the comments and call sites but never imported) or it '
+                'is a typo. Either way this raises NameError the first time that '
+                'branch executes (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D1).'
+                % (name, ', '.join(str(x) for x in sorted(set(lines))))))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # CHECK AA — ROUTES <-> SKILL SYNC (batch-level, both directions)
 # ═══════════════════════════════════════════════════════════════════════
 def check_aa_routes_skill_sync(directory):
@@ -1601,6 +1708,12 @@ if __name__ == '__main__':
                 ('AH', 'SPEC <-> ENGINE ROUTING',
                  check_ah_spec_engine_routing,
                  'every engine a spec imports is routed to its triggers.'),
+                ('AI', 'ENGINE <-> ENGINE DEPENDENCY PARITY',
+                 check_ai_engine_dependency_parity,
+                 'every engine an engine imports is routed alongside it.'),
+                ('AJ', 'UNDEFINED-NAME SCAN',
+                 check_aj_undefined_names,
+                 'no engine reads a name it never binds.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')
