@@ -1,6 +1,78 @@
 # Changelog
 
-## 2026.08.01.7
+## 2026.08.01.8
+D1 + D3 + D8 — THE THREE DEFECTS CERTAIN TO RECUR. Release 5 of the
+session-exhaustion programme. **No gate semantics change and no coverage changes.**
+Every item here was verified still-live against the deployed 2026.08.01.7 build.
+
+**D1 — MANDATE 0 was unimplementable, and an operator had already improvised a
+waiver.** Inherited verbatim from Step 7, where it is trivially satisfiable because
+Step 7 GENERATES content and never reads it back. Step 8 must read it back (§6 S6-0
+requires the full stem and every option; S11-1 requires solving all of them), and on
+every rendering surface each tool result enters the visible transcript — so
+**reading is printing**. Step 8 could neither run Part B lawfully nor satisfy the
+mandate while running it; both outcomes fail certification. On a live audit the
+operator asked the paper's author to waive MANDATE 0, and that waiver had **no basis
+in this spec**. The contradiction is now resolved rather than waived: MANDATE 0
+governs **authored prose**, not spec-directed reads — the same distinction SKILL.md
+Rule 5 already draws for in-protocol vision. The rule that actually protects the
+exam is unchanged and absolute: Claude never RESTATES content in its own prose,
+findings, dashboards or reports. Reads must be minimal-surface, incidental leakage
+from diagnostic code remains a VIOLATION logged to `session_log.mandate0_incidents[]`,
+and P0 emits a one-time SURFACE NOTICE so the author knows the session log will
+contain content. On a shared or multi-tenant project the notice instructs a halt —
+the only case where Step 8 should stop for MANDATE-0 reasons.
+
+**And MANDATE 0 gets its first machine check, ever.** It declared itself absolute and
+had no gate of any kind: S5-1A asserts ledger and evidence; S14-2 scans output
+FILENAMES. Nothing inspected what Claude actually wrote, which is precisely how a
+violation occurred and went unnoticed. `mandate0_scan()` statically flags the
+incidental-print pattern rule 2 forbids — `print(p.text)` is a violation,
+`print(len(b.opts))` is correct.
+
+**D3 — Appendix B, introspected not transcribed.** The spec orders the operator to
+call engines whose signatures it never stated, while SKILL.md forbids reading a `.py`
+into context: no sanctioned discovery path existed. Two mis-calls on a live run cost
+two turns and produced a materially wrong finding (6 failing subtopics reported where
+the true answer was 2). Appendix B now carries every signature, argument
+**provenance**, return type and unstated precondition, and fixture 94 asserts it
+against the live engines by introspection so it cannot drift.
+
+**It also corrects the circulating gap report.** That report states
+`check_figural_conformance` returns `FAIL` for an unconstrained profile and
+prescribes a caller-side skip guard. It returns **`SKIP`** — verified by
+introspection and source. Documenting the report's version would have enshrined a
+false precondition across 200 exams. The engine already handles it; SKIP is what
+keeps ~200 legacy exams passing untouched.
+
+**Also corrected:** the S5-2 A-FIGPROFILE row named
+`batch_state.figural_qs[n].object_type` as its input. `batch_state.json` is a Step-7
+internal sidecar that S0-1 explicitly does NOT deliver; the auditor has always read
+`registry.figural_manifests[].object_types`. The stale row sent an operator hunting
+for a file Step 8 can never have.
+
+**D8 — P4 emits the EC-V18 notice BEFORE Phase 1.** A paper with 0 FigureSpec
+sidecars is destined for an AMBER footer and a permanent §R13 limitation however well
+the audit goes. The author deserves to know before committing hours, not to discover
+it mid-audit. Partial coverage reports a RATIO and degrades per figure, never per
+paper.
+
+**Regression lock: 105/105 -> 107/107.** Two fixture weaknesses in this release's own
+first cut, both found by mutation testing: the Appendix-B check passed vacuously
+wherever `blueprint_core` was off the path (`except ImportError` swallowed it
+silently), and the MANDATE-0 clean list omitted `print(len(b.opts))` — the exact
+boundary the rule draws — so the guard was never exercised and a mutation deleting it
+survived. A clean list that avoids the boundary tests nothing.
+
+**Files:** `audit_canonical.py`; `Framework_MockTestCreateAudit.md` v2.17 ->
+**v2.18**; `Framework_Blueprint.md` v1.42.6 -> **v1.42.7** and
+`Framework_MockTestCreate.md` v5.35 -> **v5.35.1** (count refresh); `CHANGELOG.md`;
+`VERSION`; `MANIFEST.json`.
+
+**Remaining, all optimisation:** Tier B (sealed key), scope profiles, D6 partial
+certification, and the W-DECISION decision register.
+
+ 2026.08.01.7
 D7 (NO SILENT TRUNCATION) + TIER A (THE STEP-7 DOSSIER). Release 4 of the
 session-exhaustion programme. Shipped together on purpose: fixing truncation alone
 would have raised A-FIGCOMP from 12 visible findings to 27 — more honest but more

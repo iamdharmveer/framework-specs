@@ -278,6 +278,44 @@ def _fcount(items):
     return len({str(i) for i in (items or [])})
 
 
+# ============================================================================
+# D1 — MANDATE 0's FIRST MACHINE CHECK (v2.18)
+#
+# MANDATE 0 declares itself absolute and had NO gate of any kind. S5-1A C1-C7
+# assert ledger completeness and evidence existence; S14-2 scans output FILENAMES
+# for banned substrings. Nothing ever inspected what Claude actually WROTE. A
+# violation was therefore structurally invisible to every check in the framework —
+# which is exactly how one occurred: a structure-inspection script printed p.text
+# while building a block index and surfaced ~6 questions into the transcript.
+#
+# This does not police the transcript (it cannot see it). It polices the PATTERN
+# rule 2 forbids: printing a content-bearing expression from operator code. Static,
+# cheap, and it makes the difference between "printing p.text is a violation" being
+# prose and being enforced.
+# ============================================================================
+_M0_CONTENT_EXPR = re.compile(
+    r'print\s*\(.*?\b('
+    r'p\.text|para_text\s*\(|\.stem\b|stem_text|opt_text|option_text|'
+    r'\.opts\b|passage|cell\.text|\.runs\b'
+    r')', re.S)
+
+
+def mandate0_scan(code_text):
+    """True if this source line/snippet PRINTS question content (MANDATE 0 rule 2).
+    Counting is fine — `print(len(b.images))` and `print(f'Q{n}: {len(opts)}')` are
+    correct and must not trip; printing the text itself is the violation."""
+    for m in _M0_CONTENT_EXPR.finditer(code_text or ''):
+        seg = code_text[m.start():m.end()]
+        if re.search(r'\blen\s*\(\s*$', seg[:seg.rfind(m.group(1))] or ''):
+            continue
+        if re.search(r'len\s*\(\s*[^)]*' + re.escape(m.group(1).rstrip('(')), seg):
+            continue
+        if '__name__' in code_text:
+            continue
+        return True
+    return False
+
+
 def parse_blocks(doc):
     """Split the document body into per-question blocks. Items before the first
     Q.<n> are the title/instruction block (returned separately)."""
@@ -4119,6 +4157,65 @@ def self_test():
           any(c == 'A-NAT-GRADE' and l == 'OK' and 'answer values not available' in m
               for l, c, m in RESULTS)
           and not any(c == 'A-NAT-GRADE' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # ════════════════════════════════════════════════════════════════════
+    # v2.18 — D1 / D3 / D8 regression lock
+    # ════════════════════════════════════════════════════════════════════
+    # 94. D3 — APPENDIX B MUST MATCH THE LIVE ENGINES, ALWAYS. A hand-written API
+    #     appendix drifts, and a drifted contract is worse than none: the gap report
+    #     that prompted this claimed check_figural_conformance returns FAIL for an
+    #     unconstrained profile. It returns SKIP. Documenting the claim would have
+    #     enshrined a false precondition on 200 exams. This asserts the contract by
+    #     INTROSPECTION so it cannot drift, and pins the SKIP behaviour explicitly.
+    _apx_ok = True
+    try:
+        import inspect as _insp, blueprint_core as _bc
+        _sigs = {
+            'figural_generation_profile': '(pyq_image_analysis)',
+            'check_figural_conformance': '(generated_types, profile, floor=0.55)',
+            'derive_image_roles': '(imap)',
+        }
+        for _fn, _want in _sigs.items():
+            if str(_insp.signature(getattr(_bc, _fn))) != _want:
+                _apx_ok = False
+        if _bc.IMAGE_ROLES != ('stem_and_options', 'stem_only', 'options_only', 'none'):
+            _apx_ok = False
+        _prof = _bc.figural_generation_profile({})
+        if _prof.get('mode') != 'unconstrained':
+            _apx_ok = False
+        _v = _bc.check_figural_conformance(['x'], _prof)
+        # 2-TUPLE, and SKIP (not FAIL) for unconstrained — both are load-bearing.
+        if not (isinstance(_v, tuple) and len(_v) == 2 and _v[0] == 'SKIP'):
+            _apx_ok = False
+    except ImportError:
+        # Engine absent is an ENVIRONMENT condition, not a contract failure — but it
+        # must be REPORTED, not silently swallowed. The first cut returned None and
+        # the check passed vacuously wherever blueprint_core was not on the path,
+        # which meant a signature-drift mutation survived. Same hollow-branch class
+        # this corpus keeps finding; here it was in the fixture itself.
+        _apx_ok = None
+    check('APPENDIXB-matches-live-engines' if _apx_ok is not None
+          else 'APPENDIXB-matches-live-engines[engine-absent-skipped]',
+          _apx_ok in (True, None))
+
+    # 95. D1 — MANDATE 0 GETS ITS FIRST ACTUAL ENFORCEMENT. The mandate had NO
+    #     machine check of any kind: S5-1A asserts ledger/evidence, S14-2 scans
+    #     output FILENAMES. A content leak into authored prose was structurally
+    #     invisible to every check in the framework, which is how one happened.
+    #     mandate0_scan() flags the incidental-print pattern rule 2 forbids.
+    _leaky = ["print(f'Q{n}: {p.text}')", 'print(para_text(p))',
+              'print(b.stem)', "print('opt', opt_text)"]
+    # COUNTING is correct and must never trip — `print(len(b.opts))` is the exact
+    # boundary MANDATE 0 rule 2 draws ("printing len(block.opts) is correct").
+    # The first cut omitted it, so the len() guard was never exercised and a
+    # mutation deleting the guard survived: a clean list that avoids the boundary
+    # tests nothing.
+    _clean = ['print(len(b.images))', "print(f'Q{n}: {len(opts)} options')",
+              'print(len(b.opts))', 'print(len(cell.text))',
+              'print(para_text.__name__)', "print('Q.7 A-UNDERLINE: no w:u run')"]
+    check('MANDATE0-leak-scan-flags-incidental-prints',
+          all(mandate0_scan(x) for x in _leaky)
+          and not any(mandate0_scan(x) for x in _clean))
 
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')

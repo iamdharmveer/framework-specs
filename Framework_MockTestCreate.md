@@ -1,9 +1,10 @@
-# Framework_MockTestCreate v5.35
+# Framework_MockTestCreate v5.35.1
+# v5.35.1 — 2026-08-01 — self-test count refresh only (105/105 -> 107/107).
 # v5.35 — 2026-08-01 — TIER A: emit [ExamCode]_M[N]_audit_dossier.json for
 #   Step 8 (S13-4b). Facts only, never judgments; MD5-bound to the paper.
-# v5.34.3 — 2026-08-01 — self-test count refresh only (89/89 -> 105/105, D2+D4).
-# v5.34.2 — 2026-08-01 — self-test count refresh only (78/78 -> 105/105, C1).
-# v5.34.1 — 2026-08-01 — self-test count refresh only (73/73 -> 105/105, B3).
+# v5.34.3 — 2026-08-01 — self-test count refresh only (89/89 -> 107/107, D2+D4).
+# v5.34.2 — 2026-08-01 — self-test count refresh only (78/78 -> 107/107, C1).
+# v5.34.1 — 2026-08-01 — self-test count refresh only (73/73 -> 107/107, B3).
 # v5.34 — 2026-08-01 — FIGURESPEC TRANSPORT TO STEP 8
 #   (GAP-2026-08-01-FIGSPEC-TRANSPORT D2). One additive field at S13-4; zero
 #   change to any render, any question, any gate, any deliverable.
@@ -102,7 +103,7 @@
 #     check (v2.6). It must print "SELF-TEST: N/N PASS" with N >= AUTH_GATE_FLOOR (35) AND
 #     be fixture-based (builds docx fixtures; asserts each gate CATCHES a planted defect and
 #     PASSES a clean one). The canonical auditor (Framework_MockTestCreateAudit.md Appendix
-#     A) self-tests 105/105. Request a corrected script if it prints N/M with N≠M, N < 35, is a
+#     A) self-tests 107/107. Request a corrected script if it prints N/M with N≠M, N < 35, is a
 #     CONSTANT-PRINT stub (no fixtures), exits non-zero, or errors. (The old "24/24"/"13/13"
 #     literals and the accept-ANY-N/N rule are superseded — see GATE-COUNT CONTRACT below.)
 #     PURPOSE: Self-check before Q1 to verify the script works.
@@ -136,7 +137,7 @@
 # Framework_MockTestCreateAudit.md Appendix A (v2.6+): the AUTHORITATIVE A-* gate set that
 # gates Step-8 delivery, carrying the --audit-state COMPLETION GATE (S5-1A, C1-C7) and a
 # FIXTURE-BASED self-test (SELF-TEST: N/N, N >= AUTH_GATE_FLOOR = 35; the canonical build
-# self-tests 105/105). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
+# self-tests 107/107). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
 # it. The old two-auditor / 13-vs-66 split is RETIRED — it enabled the hollow-stub false-clean.
 # RULE (v2.6 — kills BOTH count-drift AND the hollow stub): a caller runs `--self-test` and
 #   accepts "SELF-TEST: N/N PASS" ONLY WHEN the self-test is FIXTURE-BASED (builds docx
@@ -6783,7 +6784,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   gate catalogue, the --audit-state COMPLETION GATE (S5-1A, C1-C7 + on-disk evidence
 #   checks), and a FIXTURE-BASED self-test (builds tiny docx fixtures; asserts each gate
 #   CATCHES a planted defect and PASSES a clean one; SELF-TEST: N/N with N >= 35 — the
-#   canonical build self-tests 105/105).
+#   canonical build self-tests 107/107).
 #
 #   RETIRED (do NOT generate, copy, or use): the old 13-gate "minimum-viable" embedded
 #   script whose self_test() was a CONSTANT print ("SELF-TEST: 13/13 PASS") that executed
@@ -6870,7 +6871,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.35
+# END OF Framework_MockTestCreate v5.35.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

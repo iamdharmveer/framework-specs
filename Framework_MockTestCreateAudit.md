@@ -1,4 +1,44 @@
-# Framework_MockTestCreateAudit v2.17
+# Framework_MockTestCreateAudit v2.18
+# v2.18 — 2026-08-01 — D1 (MANDATE 0 MADE IMPLEMENTABLE) + D3 (ENGINE API CONTRACT)
+#   + D8 (EC-V18 PRE-FLIGHT NOTICE). Three defects CERTAIN to recur on the next run.
+#   No gate semantics change; nothing about coverage changes.
+#
+#   D1 — MANDATE 0 WAS UNIMPLEMENTABLE, AND AN OPERATOR HAD ALREADY IMPROVISED A
+#   WAIVER. Inherited verbatim from Step 7, where it is trivially satisfiable
+#   because Step 7 GENERATES content and never reads it back. Step 8 must read it
+#   back (§6 S6-0, S11-1), and on every rendering surface each tool result enters the
+#   visible transcript — so READING IS PRINTING. Step 8 could neither run Part B
+#   lawfully nor satisfy the mandate while running it. On a live audit the operator
+#   asked the author to waive MANDATE 0; that waiver had NO BASIS IN THIS SPEC. The
+#   contradiction is now resolved instead of waived: MANDATE 0 governs AUTHORED
+#   PROSE, not spec-directed reads — the same distinction SKILL.md Rule 5 already
+#   draws for in-protocol vision. The rule that actually protects the exam is
+#   unchanged and absolute: Claude NEVER RESTATES content in its own prose, findings,
+#   dashboards or reports. Reads must be minimal-surface, incidental leakage from
+#   diagnostic code remains a VIOLATION, and P0 emits a one-time SURFACE NOTICE so
+#   the author knows the session log will contain content.
+#
+#   D3 — APPENDIX B, INTROSPECTED NOT TRANSCRIBED. The spec orders the operator to
+#   call engines whose signatures it never stated, while SKILL.md forbids reading a
+#   .py into context: no sanctioned discovery path existed. Two mis-calls on a live
+#   run cost two turns and produced a wrong finding. Appendix B now carries every
+#   signature, argument PROVENANCE, return type and unstated precondition.
+#   NOTE: it also CORRECTS a claim in the circulating gap report — an unconstrained
+#   profile returns 'SKIP', not 'FAIL' (verified by introspection and source).
+#   Documenting the report's version would have enshrined a false precondition.
+#
+#   ALSO CORRECTED: the S5-2 A-FIGPROFILE row named batch_state.figural_qs[n].
+#   object_type as its input. batch_state.json is a Step-7 internal sidecar that S0-1
+#   explicitly does NOT deliver; the auditor has always read registry
+#   figural_manifests[].object_types. The stale row sent an operator hunting for a
+#   file Step 8 can never have.
+#
+#   D8 — P4 now emits the EC-V18 notice BEFORE Phase 1: a paper with 0 FigureSpec
+#   sidecars is destined for an AMBER footer and a permanent §R13 limitation however
+#   well the audit goes, and the author deserves to know that before committing hours
+#   rather than discovering it mid-audit. Partial coverage reports a RATIO and
+#   degrades per figure, never per paper.
+#
 # v2.17 — 2026-08-01 — D7 (NO SILENT TRUNCATION) + TIER A (THE STEP-7 DOSSIER)
 #   (SESSION-EXHAUSTION programme, release 4). Two changes to the SAME gate surface,
 #   shipped together on purpose: fixing truncation alone would have raised
@@ -581,6 +621,47 @@
 #   overrides every other instruction. The one permitted exception is web-search
 #   queries for fact-verification (§6 B-FACT), which necessarily contain the fact
 #   being checked — those go to the search tool, never to the visible chat.
+#   SCOPE — AUTHORED PROSE vs SPEC-DIRECTED READS (v2.18 / D1). THIS CLAUSE EXISTS
+#   BECAUSE THE MANDATE WAS OTHERWISE UNIMPLEMENTABLE. MANDATE 0 was inherited
+#   verbatim from Step 7, where it is trivially satisfiable: Step 7 GENERATES content
+#   into the artefact and never reads it back. Step 8 must read it back — §6 S6-0
+#   requires "the FULL stem + the FULL text of all OPTIONS_COUNT options" for every
+#   question, and S11-1 requires solving all of them. On claude.ai and every
+#   equivalent surface, EVERY tool result renders into the visible transcript. There
+#   is no tool that returns text to the model's context without displaying it.
+#   Therefore READING IS PRINTING, and Step 8 could neither perform Part B without
+#   violating MANDATE 0 nor satisfy MANDATE 0 without skipping Part B. Both outcomes
+#   fail certification. On a real run this forced the operator to ask the paper's
+#   author to waive MANDATE 0 — a waiver with NO BASIS IN THIS SPEC. No operator
+#   should be improvising exemptions to a mandate that declares itself absolute; the
+#   contradiction is the defect, and it is resolved here rather than waived.
+#
+#   MANDATE 0 governs AUTHORED PROSE: what Claude WRITES in chat. It does NOT govern
+#   SPEC-DIRECTED READS. Performing a read the spec ORDERS is the executed protocol —
+#   exactly as SKILL.md Rule 5 already holds for view() of a source image ("in-protocol
+#   vision is not working from memory"). The binding rules, which NO surface changes:
+#     1. Claude NEVER RESTATES stem/option/passage/table/figure content in its own
+#        prose — not in findings, fix logs, dashboards (§14-4) or reports (§15).
+#        These remain Q-numbers + codes + counts ONLY. This is the rule that actually
+#        protects the exam, and it is absolute.
+#     2. Spec-directed reads MUST be MINIMAL-SURFACE: extract to an internal file
+#        under /home/claude and read it in ONE pass. NEVER print content incidentally
+#        from structure-inspection, debugging or diagnostic code. Printing p.text
+#        while building a block index is a VIOLATION; printing len(block.opts) is
+#        correct. Incidental leakage is logged to session_log.mandate0_incidents[]
+#        and disclosed in §R13.
+#     3. P0 emits the SURFACE NOTICE below exactly once, before any Part-B read.
+#
+#   P0 SURFACE NOTICE (mandatory, verbatim, once per session):
+#     "MANDATE 0 SURFACE NOTICE: this deployment renders tool results into the
+#      transcript. §6 Part B requires reading every stem and option, so question
+#      content WILL appear in this session log. Authored output remains content-free.
+#      If this session log will be shared beyond the paper's author, stop and run
+#      Step 8 on a non-rendering surface."
+#   If the surface type is unknown, ASSUME RENDERING and emit the notice (fail safe).
+#   On a shared or multi-tenant project the notice instructs a HALT — that is the ONLY
+#   case in which Step 8 should stop for MANDATE-0 reasons.
+#
 #   SCOPE NOTE (v1.1): MANDATE 0 governs the CHAT STREAM. The two content-bearing
 #   artefacts the author downloads — the rectified .docx and (only when questions were
 #   regenerated) the audit change-log .md (S8-5 / S14-1) — are FILES, not chat, and
@@ -1539,6 +1620,29 @@
 
 ## P4 — Extract the embedded maps from the registry (the Step-8 analogue of T2 S3b)
 
+  P4 NOTICE — EC-V18 LEGACY FIGURES (v2.18 / D8). Emit BEFORE Phase 1 whenever
+  figural questions are present and registry figure_specs is empty or partial. The
+  status was previously discovered mid-audit, after full pre-flight had run, when the
+  author had already committed hours to a paper they might have preferred to
+  regenerate.
+
+  ```python
+  _fs = figure_specs or {}
+  _nfig = len(figural_qs)
+  if _nfig and not _fs:
+      print(f"P4 NOTICE (EC-V18): this paper carries 0 FigureSpec sidecars for {_nfig} "
+            f"figural question(s) — it predates Step 7 v5.34. The twelve figure-"
+            f"conformance gates will evaluate only their PIXEL-side half. This paper "
+            f"CAN be certified but WILL ship with an AMBER footer and a permanent §R13 "
+            f"limitation. If you intend to regenerate on Step 7 v5.34+, DO SO BEFORE "
+            f"AUDITING — a regenerated paper invalidates this audit entirely.")
+  elif _nfig and len(_fs) < _nfig:
+      print(f"P4 NOTICE (EC-V18, PARTIAL): {len(_fs)}/{_nfig} figural question(s) carry "
+            f"a FigureSpec. Degradation is PER FIGURE, not per paper — the covered "
+            f"figures are audited in full.")
+  ```
+  E8.3: suppressed entirely when the paper has no figures.
+
   ```python
   # RC / cloze map for this mock (drives A-STIMORPHAN linked-group completeness):
   rc_entry = next((m for m in registry.get('rc_manifests', []) if m.get('mock') == N), None)
@@ -2034,7 +2138,7 @@
 
   FIGURAL DECOMPOSITION
   | A-FIGCOMP  | v2.4 image_role-aware: each figural Q is structured per its image_role variant. stem_and_options (default): problem image(s) + 1 image/option, single-column, 1 per line, bound 1:1 to labels; no composite panel; no "Figure k" dummy-text option. stem_only (v2.4): ≥1 problem image + TEXT options — option-image arm SKIPPED. options_only (v2.4): ≥n option images, no problem image required. FIGURAL-NAT (answer_type=='numerical', options_by_q==0): treated as stem_only — problem image(s) only with ZERO option images. All variants: single-column/no-composite/300-DPI/named-image discipline checked. image_role read from section_rules PYQ_IMAGE_ANALYSIS per subtopic_id | registry figural_manifests + section_rules PYQ_IMAGE_ANALYSIS + figural stem cues + registry options_by_q | R-FIGURAL | CP/RG |
-  | A-FIGPROFILE | v2.10 (GAP-2026-07-26-003 D2): each FIGURAL subtopic's GENERATED figure types conform to the profile Step 5 measured. Reads section_rules PYQ_IMAGE_ANALYSIS via bc.figural_generation_profile(), reads the object_type Step 7 recorded per question in batch_state.figural_qs[n].object_type, and delegates the verdict to bc.check_figural_conformance() — the SAME function Step 7 generates against, so generator and auditor cannot drift. FAIL when a generated type appears in neither the dominant nor the observed list, or when dominant-mode coverage falls below the 55% floor (target 70%). SKIP when the profile is unconstrained — absent, empty, or vision_status='unavailable'. AUDITS RECORDED INTENT, NOT PIXELS: confirming a render actually depicts a micrograph needs a view(), a CLASS T operation that cannot run inside an audit's python; intent is deterministic and catches the real failure, which is Step 7 ignoring the profile. EC-V18: SKIP keeps ~200 pre-v2.37 exams passing untouched. | section_rules PYQ_IMAGE_ANALYSIS + batch_state figural_qs[].object_type | R-FIGURAL | CP/RG |
+  | A-FIGPROFILE | v2.10 (GAP-2026-07-26-003 D2): each FIGURAL subtopic's GENERATED figure types conform to the profile Step 5 measured. Reads section_rules PYQ_IMAGE_ANALYSIS via bc.figural_generation_profile(), reads the object_type Step 7 recorded per question in registry.figural_manifests[mock].object_types (v2.18 CORRECTION: this row previously named batch_state.figural_qs[n].object_type, a Step-7 INTERNAL sidecar that S0-1 explicitly does NOT deliver — the auditor has always read the registry. The stale row sent an operator hunting for a file Step 8 can never have, and cost two turns and one wrong intermediate finding on a live run), and delegates the verdict to bc.check_figural_conformance() — the SAME function Step 7 generates against, so generator and auditor cannot drift. FAIL when a generated type appears in neither the dominant nor the observed list, or when dominant-mode coverage falls below the 55% floor (target 70%). SKIP when the profile is unconstrained — absent, empty, or vision_status='unavailable'. AUDITS RECORDED INTENT, NOT PIXELS: confirming a render actually depicts a micrograph needs a view(), a CLASS T operation that cannot run inside an audit's python; intent is deterministic and catches the real failure, which is Step 7 ignoring the profile. EC-V18: SKIP keeps ~200 pre-v2.37 exams passing untouched. | section_rules PYQ_IMAGE_ANALYSIS + registry figural_manifests[].object_types | R-FIGURAL | CP/RG |
 
   FIGURE CONFORMANCE (v2.11, GAP-2026-07-29-FIG-R2). Twelve gates, all arithmetic
             over the saved PNG and its FigureSpec sidecar — NOT vision.
@@ -3947,7 +4051,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.13 build prints 105/105 — see tests 16-20).
+#     v2.12; the v2.13 build prints 107/107 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4055,7 +4159,7 @@ Replace for registry.json), and next-step reference.
 #   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
-#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (105/105) all pass, and
+#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (107/107) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4065,6 +4169,72 @@ Replace for registry.json), and next-step reference.
 #   a stamp AND a durable evidence artefact in a machine-readable ledger, and a runnable
 #   gate verifies both before delivery. Prose describes; only code certifies.
 
+
+# ════════════════════════════════════════════════════════════════════════
+# APPENDIX B — ENGINE API CONTRACT (NORMATIVE, v2.18 / D3)
+# ════════════════════════════════════════════════════════════════════════
+#   WHY THIS EXISTS. The spec ORDERS the operator to call these engines (S0-1
+#   items 7-8, the S5-2 A-FIGPROFILE row) while SKILL.md Rule 2 forbids reading a
+#   .py into context. That left NO sanctioned discovery path for an API the spec
+#   mandates, so trial and error was the only route — and it produced wrong
+#   verdicts along the way. On a live run this cost two turns and one materially
+#   wrong intermediate finding (6 failing subtopics reported where the true answer
+#   was 2). audit_canonical.py calls these functions correctly internally, so all
+#   105 fixtures passed while the gap bit the OPERATOR every time.
+#
+#   Signatures below are INTROSPECTED from the engines in the verified clone, not
+#   transcribed. Regenerate with:
+#     python3 -c "import inspect,blueprint_core as bc;print(inspect.signature(bc.check_figural_conformance))"
+#
+#   ── blueprint_core ────────────────────────────────────────────────────────
+#   figural_generation_profile(pyq_image_analysis: dict) -> dict
+#       ARGUMENT PROVENANCE — THE ONE THAT BITES: a PARSED PYQ_IMAGE_ANALYSIS
+#       block. NOT the raw section_rules.md text. Passing raw text returns
+#       mode='unconstrained' for EVERY subtopic, which reads as "the profile
+#       system is inert paper-wide" and is silently wrong.
+#       RETURNS keys: mode ('unconstrained'|'observed'|'dominant'), dominant[],
+#       observed[], transformation_types[], arrangement_types[],
+#       complexity_dist{}, reason.
+#
+#   check_figural_conformance(generated_types: list[str], profile: dict,
+#                             floor: float = 0.55) -> tuple[str, str]
+#       RETURNS A 2-TUPLE ('PASS'|'FAIL'|'SKIP', message) — NOT a dict. Truth-testing
+#       the tuple makes every subtopic read as PASS (a non-empty tuple is always
+#       truthy); .get('ok') raises. Read element [0].
+#       CORRECTION TO A WIDELY-CIRCULATED CLAIM: an unconstrained profile returns
+#       'SKIP', NOT 'FAIL'. Verified by introspection and source. A gap report
+#       asserted the opposite and prescribed a caller-side skip guard; documenting
+#       that would have enshrined a false precondition. The engine already handles
+#       it — SKIP is what keeps ~200 legacy exams passing untouched (EC-V18).
+#
+#   derive_image_roles(imap: dict) -> dict
+#   IMAGE_ROLES = ('stem_and_options', 'stem_only', 'options_only', 'none')
+#   classify_paper_era(observed_q_numbers, cfg_total, min_cfg_q, max_cfg_q,
+#                      observed_types=None, cfg_type_for_q=None)
+#
+#   ── figural_core ──────────────────────────────────────────────────────────
+#   make_figure_spec(question, fig_class, display_in, series=None, axes=None,
+#                    key_mode='none', target_onpage_pt=10.0, role='problem') -> dict
+#   render_figure(draw_fn, out_path, spec)      # MUTATES spec with png_px, png_dpi,
+#                                               # placed_in, placement_scale,
+#                                               # font_pt_native — read back from the
+#                                               # SAVED artefact, not predicted
+#   write_spec_sidecar(spec, png_path)          # -> <png stem>.figspec.json
+#   audit_figure(spec, png_path, descr=None) -> (hard: list, warns: list)
+#   triage(findings, spec=None) -> {'BLOCKING': [], 'VOID_ITEM': [], 'AMBER': []}
+#   is_legacy(spec) -> bool                     # no sidecar => pre-v5.33 => EC-V18
+#   audit_gate_id(finding) -> str               # engine G-*/W-* -> catalogue A-*
+#   preflight() -> {'available': {...}}
+#
+#   PRECONDITIONS THAT ARE NOT IN THE SIGNATURES:
+#     • A-FIGPROFILE reads object types from registry.figural_manifests[mock].
+#       object_types (v5.31+). batch_state.json is a Step-7 INTERNAL sidecar and is
+#       NOT delivered to Step 8 (S0-1) — never look for it.
+#     • S5-2 prose says SKIP unconstrained profiles and profiles whose
+#       vision_status is 'unavailable'; the engine's own SKIP covers the former.
+#     • Engine absent/truncated/stale: the v2.12 three-layer guard applies. Never
+#       hand-roll a substitute (RA-9).
+#
 # ════════════════════════════════════════════════════════════════════════
 # APPENDIX A — UNIVERSAL EXAM-AGNOSTIC mock_test_audit.py (MANDATE A)
 # ════════════════════════════════════════════════════════════════════════
@@ -4086,7 +4256,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 105/105 PASS  (exit 0) on the v2.13 canonical
+#     • `--self-test`  → SELF-TEST: 107/107 PASS  (exit 0) on the v2.13 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4154,10 +4324,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 105/105). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 107/107). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.17
+# END OF Framework_MockTestCreateAudit v2.18
 # ════════════════════════════════════════════════════════════════════════
