@@ -1,18 +1,18 @@
 {
  "files": {
   "Framework_Blueprint.md": {
-   "end_sentinel": "# END OF Framework_Blueprint v1.41.2",
-   "lines": 6598,
-   "sha256": "0508113a2c3a7797aa6fe4bc35f03148489a0eb4c07f7be977c256b8322b1fdb",
-   "size_bytes": 344005,
-   "version_header": "# Framework_Blueprint v1.41.2 \u2014 Universal Mock Test Blueprint Generator"
+   "end_sentinel": "# END OF Framework_Blueprint v1.42",
+   "lines": 6680,
+   "sha256": "de3f46173449a0a9ea0e4c299c7076b6e20593e7472f7cec6913a22d607a5445",
+   "size_bytes": 349774,
+   "version_header": "# Framework_Blueprint v1.42 \u2014 Universal Mock Test Blueprint Generator"
   },
   "Framework_DeliveryFooter.md": {
    "end_sentinel": "```",
-   "lines": 638,
-   "sha256": "29258a5091ddf0ae29d1d581b04835d843f4e3562734f1b7d7f32d1978789dd3",
-   "size_bytes": 30846,
-   "version_header": "# Framework_DeliveryFooter v1.8.1 \u2014 Universal Delivery Footer Contract"
+   "lines": 653,
+   "sha256": "bd51ac31d6debf52e0482116c696b91c23aa1600736bd7933afa3753a76d2392",
+   "size_bytes": 32036,
+   "version_header": "# Framework_DeliveryFooter v1.9 \u2014 Universal Delivery Footer Contract"
   },
   "Framework_MockDeliver.md": {
    "end_sentinel": "# END OF Framework_MockDeliver v1.9.1",
@@ -37,10 +37,10 @@
   },
   "Framework_MockTestCreateAudit.md": {
    "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-   "lines": 3101,
-   "sha256": "9f390036b50652065df070b09645805767f95e78ab855bcbc241f24857bf6e2e",
-   "size_bytes": 225000,
-   "version_header": "# Framework_MockTestCreateAudit v2.11.2"
+   "lines": 3322,
+   "sha256": "40501901308a5ba674265c67acc7fe3d279e6f6701cda9f5c1dbab116ddecfd3",
+   "size_bytes": 242517,
+   "version_header": "# Framework_MockTestCreateAudit v2.12"
   },
   "Framework_MockTestExplain.md": {
    "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
@@ -160,9 +160,9 @@
    "size_bytes": 25010
   },
   "audit_canonical.py": {
-   "lines": 2195,
-   "sha256": "577c0b7fc6697e56be41e588656c9d56fe6e182ff20825133b6c67a4c30f1457",
-   "size_bytes": 109735
+   "lines": 2485,
+   "sha256": "98603ce8db55d4a2c6eb9aae3ac0bfc3db0dbe52a73d462625f17c913110891a",
+   "size_bytes": 126060
   },
   "audit_deep.py": {
    "lines": 178,
@@ -246,9 +246,9 @@
    "size_bytes": 68963
   },
   "routes.json": {
-   "lines": 161,
-   "sha256": "37d2d55039beddfc48beba97dce87c20cd3bc0f8d07d7402b837a5f632d1cf5b",
-   "size_bytes": 3517
+   "lines": 166,
+   "sha256": "1fdc76bb0253ec7eb4aed98311b8bec68f893e9b7046e50089b613a26390714d",
+   "size_bytes": 3888
   },
   "syllabus_provenance.py": {
    "lines": 444,
@@ -256,9 +256,9 @@
    "size_bytes": 20942
   },
   "validate_framework_md.py": {
-   "lines": 1624,
-   "sha256": "21b0a6146af1d362b9d620cfccb81abc0720a7f761c45134f4c0e471c605db87",
-   "size_bytes": 94987
+   "lines": 1825,
+   "sha256": "ce413575fef638f44602bca64903fe33bace5c48201cdb7f3d6593c398da004a",
+   "size_bytes": 107471
   }
  },
  "generated_at": "2026-07-31T09:56:47+00:00"

@@ -4,8 +4,32 @@
 GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING — Step 8 (Mock/TestCreateAudit) HALTED
 PERMANENTLY with ZERO gate output on any exam whose paper came from Step 7 v5.31+.
 Reproduced deterministically on a pristine clone of 4ddfc0c; fix verified by
-mutation test (the two new CI checks fire on the unfixed tree and are silent on
-the fixed one).
+mutation test (the new CI checks fire on the unfixed tree and are silent on the
+fixed one).
+
+**Deployment-hold rectification (pre-push review).** The first cut of this wave was
+HELD, correctly. The B3 deliverable cardinality change (6 -> 8) had landed in §13-7
+ONLY; eleven other sites still described a 6-file delivery, including §11 S11-3
+PART B — the OPERATIVE `present_files` call. A session following the spec would
+still have delivered 6 files and neither engine would have reached the exam
+project, leaving the whole fix INERT — precisely the state D2/D3 exist to end. Two
+of the stale sites were actively harmful rather than merely undercounting: the
+S11-3 checklist mandated `[ExamCode]`-prefixed names for ALL files, which for the
+two engines is exactly the prefix that BREAKS `import blueprint_core`; and a second
+copy of the retired hollow-MVP marker `--self-test passed (13/13 PASS)` survived at
+S11-3 (only the §13-7A copy was corrected), telling the operator to CONFIRM the
+constant-print signature that P1 is instructed to REJECT as proof of a false-clean.
+All twelve sites are now corrected — Blueprint §8 batch overview, §11 S11-3 PART B
++ checklist + PART C handoff, re-generation path, §13 header, §13-1 naming
+convention, §13-1 pipeline map, §13-8 header, restart path, footer-type map, §15
+checklist; DeliveryFooter §1 F2 (Step 5's own unrelated 6-file line deliberately
+untouched); and CreateAudit's MANDATE-A hard-stop text. The §13-1 naming section
+previously stated a UNIVERSAL prefix rule that the two new deliverables must
+violate; it now names them as the explicit, mandatory exception and says why.
+This is CLAUDE.md verbatim: *a deliverable RENAME or CARDINALITY change is a
+cross-step contract change, never a docs-only edit* — every consumer re-tested in
+the same commit. **CHECK AK now enforces it mechanically** (below), because prose
+did not: the miss was invisible to every automated gate in the previous wave.
 
 - **D1 — `bc` referenced but never imported (BLOCKING).** `audit_canonical.py`
   gate `A-FIGPROFILE` READ `bc` at lines 1101/1109/1110 and BOUND it at none. The
@@ -89,14 +113,24 @@ the fixed one).
   un-refreshed exam and convert a coverage improvement into an estate-wide outage.
   At 35 a v2.11 copy (51/51) and a v2.12 copy (61/61) both pass, and the estate
   migrates exam by exam with zero downtime.
-- **Two new CI checks in `validate_framework_md.py`, both mutation-tested.**
+- **Three new CI checks in `validate_framework_md.py`, all mutation-tested.**
   CHECK AI (ENGINE <-> ENGINE DEPENDENCY PARITY) — every engine an engine imports
   must be routed alongside it; catches D5/D7 automatically for all future
   delegations, on both the generator and auditor sides. CHECK AJ (UNDEFINED-NAME
   SCAN) — no engine may read a name it never binds; catches the next `bc`-class
   defect in one pass without anyone having to anticipate which gate will have it.
-  Verified against the unfixed tree: AJ names `bc` at 1101/1109/1110, AI names both
-  Create triggers. Silent on the fixed tree.
+  CHECK AK (B3 DELIVERABLE CARDINALITY) — every site describing the B3 delivery
+  must state the same count, and no site may assert the retired hollow-MVP
+  self-test signature as a PASS criterion. Verified against the unfixed tree: AJ
+  names `bc` at 1101/1109/1110, AI names both Create triggers, AK names all
+  thirteen stale cardinality sites plus the surviving `13/13` assertion. All three
+  silent on the fixed tree.
+- **Dead fallback removed (pre-existing, flagged two waves ago).** MANDATE A's
+  hard-stop text and §17's `audit.py missing` row both told the operator to "copy
+  it from Framework_MockTestCreate.md Appendix A". That file has carried no auditor
+  fence since v2.11.2 and now only points here — so the instruction was dead, and
+  it sat on the hard-stop path, i.e. it was what someone read while already
+  blocked. Both sites now name `audit_canonical.py` as the live source.
 - **Corrected false in-spec claim.** `Framework_MockTestCreateAudit.md:3069` still
   read *"Dependency-light: python-docx + Python stdlib only."* — false since v2.10.
   A maintainer reading it had an explicit in-spec assurance that no repo engine was

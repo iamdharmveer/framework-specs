@@ -3046,7 +3046,7 @@ Total batches = 1 + ceil(N_mocks / 10) + 1.
 ```
 B1  : Read all inputs → build blueprint skeleton → deliver blueprint.xlsx (skeleton) + blueprint.json v1
 B2  : Generate 10 mocks per batch → validate → deliver updated blueprint.json (1 file only)
-B3  : Final validation → generate all 6 output files → deliver
+B3  : Final validation → generate all 8 output files → deliver
 
 Examples:
   N_mocks = 10  → B1 + B2×1  + B3 = 3 batches total
@@ -4621,21 +4621,29 @@ PART A — Validation confirmation:
    BV-7 (Full series check) : ✓
    BV-8 (ZP final counts)   : ✓"
 
-PART B — present_files with all 6 output files (MANDATORY — in this exact order):
+PART B — present_files with all 8 output files (MANDATORY — in this exact order):
   1. [ExamCode]_blueprint.xlsx          ← FINAL version with all mock allocations
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
   4. [ExamCode]_ExplainLearnings.md
   5. [ExamCode]_ExplainAuditLearnings.md
   6. [ExamCode]_mock_test_audit.py      ← audit script (Step 7 optional, Step 8 mandatory)
+  7. blueprint_core.py                  ← repo engine, BARE name (v2.12) — A-FIGPROFILE
+  8. figural_core.py                    ← repo engine, BARE name (v2.12) — the 12 A-FIG* gates
 
   CHECKLIST before calling present_files:
-    ☐ All 6 files exist at /mnt/user-data/outputs/ with exact [ExamCode]-prefixed names
+    ☐ All 8 files exist at /mnt/user-data/outputs/; the 6 exam artefacts carry exact
+      [ExamCode]-prefixed names, and blueprint_core.py / figural_core.py carry their
+      BARE names (an [ExamCode]_ prefix breaks `import blueprint_core` and silently
+      reduces Step-8 audit coverage — v2.12)
     ☐ blueprint.xlsx has Sheet 2 FULLY populated (all N_mocks mock columns filled)
     ☐ blueprint.json len(mocks[]) == N_mocks
     ☐ registry.json has correct exam_code and empty arrays
     ☐ Both .md files contain header line only (# [ExamCode] ... Learnings)
-    ☐ mock_test_audit.py --self-test passed (13/13 PASS)
+    ☐ mock_test_audit.py --self-test passed, FIXTURE-BASED, N/N with
+      N >= AUTH_GATE_FLOOR (35); the v2.12 canonical build prints 61/61.
+      A constant-print "N/N PASS" is REJECTED (it is the retired hollow-MVP
+      signature — see Framework_MockTestCreateAudit.md P1).
     ☐ BV-7 and BV-8 both passed
   If any checklist item fails: HALT. Fix before calling present_files.
 
@@ -4648,6 +4656,8 @@ PART C — Handoff message (concise):
      ✓ [ExamCode]_ExplainLearnings.md
      ✓ [ExamCode]_ExplainAuditLearnings.md
      ✓ [ExamCode]_mock_test_audit.py
+     ✓ blueprint_core.py                  ← BARE name (v2.12) — do NOT prefix
+     ✓ figural_core.py                    ← BARE name (v2.12) — do NOT prefix
 
    Keep locally (do NOT upload to project):
      [ExamCode]_blueprint.xlsx  ← review full allocation here
@@ -4656,7 +4666,8 @@ PART C — Handoff message (concise):
      ✓ [ExamCode]_section_rules.md
      (If Step 0 is not yet complete, finish it first before Step 2.)
 
-   After uploading all 6 files to [ExamCode] project knowledge:
+   After uploading all 7 files to [ExamCode] project knowledge (the 8 B3
+   deliverables minus the xlsx, which stays local):
    → Start MockCreate M1
      (in the [ExamCode] project)"
 ```
@@ -4699,7 +4710,7 @@ User requests batch regeneration (before B3 OR after B3):
   BV-7 + BV-8 must re-pass in B3 before final files are re-delivered.
 
   If B3 was already completed (files previously delivered):
-    After batch re-generation: re-run B3 → all 6 output files re-delivered.
+    After batch re-generation: re-run B3 → all 8 output files re-delivered.
     User must replace all 5 non-xlsx Step 1 files in [ExamCode] project knowledge:
     (blueprint.json, registry.json, ExplainLearnings.md, ExplainAuditLearnings.md,
      mock_test_audit.py)
@@ -4953,12 +4964,12 @@ Step 8 (MockCreateAudit) uses registry for G-DUP gate.
 
 ## §13 — OUTPUT FILES
 
-All 6 files produced by Step 1. Naming, content, and destination.
+All 8 files produced by Step 1. Naming, content, and destination.
 
 ### S13-1 — File naming convention
 
 ```
-All 6 files use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
+The 6 EXAM ARTEFACTS use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
 
 [ExamCode]_blueprint.xlsx
 [ExamCode]_blueprint.json
@@ -4966,6 +4977,17 @@ All 6 files use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
 [ExamCode]_ExplainLearnings.md
 [ExamCode]_ExplainAuditLearnings.md
 [ExamCode]_mock_test_audit.py
+
+The 2 REPO ENGINES are delivered under their BARE names — they are the ONLY
+B3 deliverables that are NOT prefixed, and this is mandatory (v2.12):
+
+blueprint_core.py     ← Step 8 A-FIGPROFILE
+figural_core.py       ← Step 8's 12 A-FIG* figure-conformance gates
+
+WHY THE PREFIX RULE DOES NOT APPLY TO THEM: they are imported as Python modules
+(`import blueprint_core`). An [ExamCode]_ prefix breaks that import, and the
+dependent gates then report a WARN skip instead of running — the audit still
+completes, it just silently checks less. Never prefix these two.
 
 All written to: /mnt/user-data/outputs/
 File names are FIXED at delivery — never rename after downloading.
@@ -4975,7 +4997,7 @@ present_files usage across the pipeline:
   B1 : present_files(blueprint.xlsx skeleton, blueprint.json v1)
        (skeleton xlsx has empty mock columns; blueprint.json has mocks[]=[])
   B2 : present_files(blueprint.json updated)  ← one call per B2 batch
-  B3 : present_files(all 6 final files)       ← ONE call with complete output
+  B3 : present_files(all 8 final files)       ← ONE call with complete output
 ```
 
 ### S13-2 — blueprint.xlsx (human review only)
@@ -5170,7 +5192,7 @@ See S13-1 for B1 and B2 present_files calls (intermediate deliveries).
 ### S13-8 — Project upload instructions
 
 ```
-After downloading all 6 files from B3:
+After downloading all 8 files from B3:
 
 Step A: Review blueprint.xlsx locally (human verification of full allocation).
 
@@ -5219,7 +5241,7 @@ Procedure:
        mock_test_audit.py
        section_rules.md (from Step 0 — delete only if Step 0 will also be re-run;
        if Step 0 is NOT being re-run, keep existing section_rules.md in project)
-  2. Run Step 1 again → download all 6 new output files.
+  2. Run Step 1 again → download all 8 new output files.
   3. Upload the 5 non-xlsx files to [ExamCode] project knowledge.
      (blueprint.xlsx stays local — do not upload)
   4. Start fresh chat session in [ExamCode] project.
@@ -5241,7 +5263,7 @@ deliverable file badges (Upload / Replace / Use locally), and next-step referenc
 
 Step 6 uses BOTH footer types:
   - F1 (amber) after B1 (2 files) and each B2 batch (1 file)
-  - F2 (green) after B3 final delivery (6 files)
+  - F2 (green) after B3 final delivery (8 files)
 ```
 
 ## §14 — BLUEPRINT JSON SCHEMA
@@ -6287,7 +6309,8 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 ☐ 10. BV-8 passed: zero-PYQ final count exact (§9-8)
 ☐ 11. All edge cases in §16 verified (including EC-11 feasibility check)
 ☐ 12. All assumptions documented in Paper Structure sheet (§10 S10-12)
-☐ 13. All 6 output files generated and present_files called (§13-7)
+☐ 13. All 8 output files generated and present_files called (§13-7); the two
+       repo engines carry BARE names (v2.12)
 ☐ 14. Handoff message delivered (§11-3)
 ☐ 15. Step 5 (PYQExtract) also complete in [ExamCode] project.
        [ExamCode]_section_rules.md is ready for upload to [ExamCode] project.

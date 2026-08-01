@@ -1065,6 +1065,91 @@ def check_aj_undefined_names(directory):
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# CHECK AK — B3 DELIVERABLE CARDINALITY CONSISTENCY
+# (v2.12 — GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, deployment-hold review)
+#
+# WHY THIS EXISTS. The 6 -> 8 B3 cardinality change first landed in §13-7 ONLY.
+# Nine other sites in Framework_Blueprint.md, one in Framework_DeliveryFooter.md
+# and one in Framework_MockTestCreateAudit.md still said 6 — including §11 S11-3
+# PART B, which is the OPERATIVE present_files call. A session following the spec
+# would still have delivered 6 files and the two engines would never have reached
+# the exam project: the fix would have been inert, exactly the failure D2/D3 exist
+# to end. Worse, the S11-3 checklist mandated [ExamCode]-prefixed names for ALL
+# files, which for the two engines is the prefix that BREAKS the module import.
+#
+# CLAUDE.md states the rule this enforces: "A deliverable RENAME or CARDINALITY
+# change is a cross-step contract change, never a docs-only edit." Prose cannot
+# enforce that; this check can. Any B3 delivery-count claim that disagrees with
+# the others is reported, so the next cardinality change cannot land partially.
+# ═══════════════════════════════════════════════════════════════════════
+_AK_B3_EXPECTED = 8      # B3 deliverable count — bump here AND in every spec site
+
+def check_ak_b3_cardinality(directory):
+    issues = []
+    # Sites that talk about the Step-6 B3 delivery specifically. Step 5's own
+    # 6-file delivery and unrelated numerics must NOT be swept in, so each
+    # pattern is anchored on B3 / MockBlueprint / Step-1-output vocabulary.
+    pats = [
+        (r'present_files with all (\d+) output files', 'S11-3 / §13-7A delivery call'),
+        (r'B3\s*:\s*Final validation → generate all (\d+) output files', '§8 batch overview'),
+        (r'B3 delivers all (\d+) files in ONE present_files call', '§13-7 delivery order'),
+        (r'B3 FINAL DELIVERABLES \((\d+) files', 'DeliveryFooter §3 registry'),
+        (r'Step 6 MockBlueprint: after B3 final delivery of all (\d+) files',
+         'DeliveryFooter §1 F2'),
+        (r'All (\d+) files exist at /mnt/user-data/outputs/', 'S11-3 checklist'),
+        (r'All (\d+) files produced by Step 1', '§13 header'),
+        (r'All (\d+) output files generated and present_files called', '§15 checklist'),
+        (r'After downloading all (\d+) files from B3', '§13-8 header'),
+        (r'B3 → all (\d+) output files re-delivered', 're-generation path'),
+        (r'present_files\(all (\d+) final files\)', '§13-1 pipeline map'),
+        (r'B3 final delivery \((\d+) files\)', 'footer-type map'),
+        (r'Verify that all (\d+) Step 6 output files were uploaded', 'MANDATE A hard stop'),
+        (r're-run B3 → all (\d+) output', 're-generation path'),
+        (r'Run Step 1 again → download all (\d+) new output files', 'restart path'),
+    ]
+    for fname in sorted(f for f in os.listdir(directory)
+                        if f.startswith('Framework_') and f.endswith('.md')):
+        try:
+            text = open(os.path.join(directory, fname), encoding='utf-8').read()
+        except OSError:
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            if line.lstrip().startswith('#   ') and 'previously read' in line:
+                continue          # historical changelog prose in headers
+            for pat, where in pats:
+                m = re.search(pat, line)
+                if m and int(m.group(1)) != _AK_B3_EXPECTED:
+                    issues.append((fname,
+                        'line %d (%s) claims the Step-6 B3 delivery is %s files, but '
+                        'the contract is %d. A CARDINALITY change is a cross-step '
+                        'contract change, never a docs-only edit — every site that '
+                        'describes the delivery must move together, or a session '
+                        'following THIS site delivers the wrong set.'
+                        % (lineno, where, m.group(1), _AK_B3_EXPECTED)))
+            # HOLLOW-MVP SIGNATURE. "13/13" (and its siblings) was the RETIRED
+            # constant-print self_test that executed no gate. P1 instructs the
+            # operator to REJECT it as proof of a false-clean. Any site that
+            # instead tells the operator to CONFIRM it inverts that rule — which
+            # is what a stale B3 checklist did at two separate sites. Historical
+            # prose that names the literal in order to retire it is fine; a
+            # checkbox or "passed (N/N)" assertion is not.
+            if re.search(r'(13/13|24/24|66/66)', line):
+                asserts_it = re.search(r'(☐|✓|MUST print|passed)\s*[^#]*?(13/13|24/24|66/66)',
+                                       line)
+                retires_it = re.search(r'RETIRED|REJECT|stale|superseded|hollow|constant.print'
+                                       r'|previously read|old\b', line, re.I)
+                if asserts_it and not retires_it:
+                    issues.append((fname,
+                        'line %d asserts the RETIRED hollow-MVP self-test signature '
+                        '(%s) as a PASS criterion. That literal is the constant-print '
+                        'stub which executed no gate and which P1 is instructed to '
+                        'REJECT; confirming it certifies a false-clean. Require a '
+                        'FIXTURE-BASED N/N with N >= AUTH_GATE_FLOOR instead.'
+                        % (lineno, asserts_it.group(2))))
+    return issues
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # CHECK AA — ROUTES <-> SKILL SYNC (batch-level, both directions)
 # ═══════════════════════════════════════════════════════════════════════
 def check_aa_routes_skill_sync(directory):
@@ -1714,6 +1799,9 @@ if __name__ == '__main__':
                 ('AJ', 'UNDEFINED-NAME SCAN',
                  check_aj_undefined_names,
                  'no engine reads a name it never binds.'),
+                ('AK', 'B3 DELIVERABLE CARDINALITY',
+                 check_ak_b3_cardinality,
+                 'every site describing the B3 delivery states the same count.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')
