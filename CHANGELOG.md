@@ -1,6 +1,53 @@
 # Changelog
 
-## 2026.08.01.10
+## 2026.08.01.11
+GAP-2026-08-01-DEAD-PARAMETER — **one third of the dossier identity triple was
+never checked.** Found by a line-by-line producer/consumer audit of Steps 7 and 8,
+by RUNNING the edge-case matrix rather than reading it.
+
+**What was wrong.** `load_dossier()` has accepted an `exam` argument since v2.17,
+and S0-1 item 7b documents the binding as exam_code / mock / paper_md5. The call
+site passed `docx_path` and `mockN` and **never passed `exam`** — so the exam_code
+leg never executed, and a dossier built for another exam was ACCEPTED. Verified
+empirically: the wrong-exam case returned 60 questions before v2.20 and is REFUSED
+after.
+
+**Severity, stated honestly.** Unreachable in practice: `paper_md5` is checked, and
+a different exam's paper cannot share this paper's hash, so the md5 leg would have
+caught it. This was defence-in-depth with one layer unwired, not an open door. But a
+documented binding that never executes is the same dead-parameter class this corpus
+keeps rediscovering — v2.10 (`bc` bound nowhere), v2.13 (`Block.images` never
+populated), v2.17 (`--dossier` never passed) — and the point of a triple is that no
+single leg is load-bearing alone.
+
+**Fix.** `load_sources()` passes `exam=blueprint.exam_code`, the authority P2 already
+asserts equals the trigger (RS-5). Fixture 90 now checks BOTH that the leg refuses a
+wrong exam AND that `load_sources` actually supplies it — because a working check
+nobody calls is not a check, which is exactly how this and the v2.17 defect both
+survived. Mutation-verified: unwiring the argument fails the fixture.
+
+**FULL STEP-7 / STEP-8 SYNC AUDIT — what else was checked and found clean:**
+
+| Contract | Result |
+|---|---|
+| Dossier field names (`_FACTS` vs `DOSSIER_FACT_KEYS`) | 10/10 identical, no drift either way |
+| Dossier top-level keys (producer vs consumer reads) | complete; nothing read that is not written |
+| Registry `figural_manifests` keys | `object_types` / `subtopic_ids` / `figure_specs` written and read; §13 re-sync carries all forward |
+| Filenames (docx / registry / dossier) | identical construction on both sides; `paper_slug` shared |
+| Variable scope at every injection point | `N` bound at P0 line 1175, used line 1285; `N`/`paper_slug` in scope at S13-4b and S13-7 |
+| Version cross-references | all are capability markers ("v5.34+ delivers"), correctly historical |
+| Input-count claims | none hardcoded; nothing to drift |
+| Edge-case matrix | 10/10 correct (see below) |
+
+**Edge cases re-verified end to end:** happy path ACCEPTED; paper regenerated after
+the dossier was written, wrong mock, wrong exam, future schema, smuggled judgment
+key, empty questions, truncated file, and absent md5 binding all REFUSED with a
+named reason; absent dossier degrades to the legacy WARN and the audit continues.
+
+**Files:** `audit_canonical.py`; `Framework_MockTestCreateAudit.md` v2.19 ->
+**v2.20**; `CHANGELOG.md`; `VERSION`; `MANIFEST.json`.
+
+ 2026.08.01.10
 GAP-2026-08-01-FLAG-NOT-INVOKED — **THE DOSSIER WAS DELIVERED, STAGED, AND NEVER
 READ.** A regression introduced by 2026.08.01.7 and shipped through two further
 releases.

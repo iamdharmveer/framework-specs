@@ -1,4 +1,34 @@
-# Framework_MockTestCreateAudit v2.19
+# Framework_MockTestCreateAudit v2.20
+# v2.20 — 2026-08-01 — ONE THIRD OF THE DOSSIER IDENTITY TRIPLE WAS NEVER CHECKED.
+#   GAP-2026-08-01-DEAD-PARAMETER. Found by a line-by-line producer/consumer audit
+#   of Steps 7 and 8, running the edge-case matrix rather than reading it.
+#
+#   load_dossier() has accepted an `exam` argument since v2.17, and S0-1 item 7b
+#   documents the identity binding as exam_code / mock / paper_md5. The call site in
+#   load_sources() passed docx_path and mockN and NEVER passed exam — so the
+#   exam_code leg never executed and a dossier built for ANOTHER EXAM was ACCEPTED.
+#   Verified empirically: the wrong-exam case returned 60 questions before v2.20 and
+#   is REFUSED after.
+#
+#   SEVERITY, STATED HONESTLY: unreachable in practice, because paper_md5 is checked
+#   and a different exam's paper cannot share this paper's hash — a wrong-exam
+#   dossier would have been caught by the md5 leg. This was defence-in-depth with one
+#   layer unwired, not an open door. But a documented binding that never executes is
+#   the same dead-parameter class this corpus keeps rediscovering (v2.10 `bc` bound
+#   nowhere, v2.13 Block.images never populated, v2.17 --dossier never passed), and
+#   the whole point of a triple is that no single leg is load-bearing alone.
+#
+#   FIX: load_sources() passes exam=blueprint.exam_code (the authority P2 already
+#   asserts equals the trigger, RS-5). Fixture 90 now checks BOTH that the leg
+#   refuses a wrong exam AND that load_sources actually supplies it — because a
+#   working check nobody calls is not a check, which is precisely how this defect
+#   and the v2.17 --dossier defect both survived.
+#
+#   FULL EDGE-CASE MATRIX RE-VERIFIED (10/10): happy path ACCEPTED; paper
+#   regenerated, wrong mock, wrong exam, future schema, smuggled judgment key, empty
+#   questions, truncated file, and absent md5 binding all REFUSED with a named
+#   reason; absent dossier degrades to the legacy WARN and the audit continues.
+#
 # v2.19 — 2026-08-01 — THE DOSSIER WAS DELIVERED, STAGED, AND NEVER READ.
 #   GAP-2026-08-01-FLAG-NOT-INVOKED. v2.17 declared the Tier-A dossier as a
 #   delivered input (S0-1 item 7b) and audit_canonical.py grew a --dossier flag to
@@ -4386,5 +4416,5 @@ Replace for registry.json), and next-step reference.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.19
+# END OF Framework_MockTestCreateAudit v2.20
 # ════════════════════════════════════════════════════════════════════════

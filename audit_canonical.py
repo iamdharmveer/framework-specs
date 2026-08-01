@@ -401,7 +401,18 @@ def load_sources(args):
     src['dossier_why'] = 'not supplied'
     if getattr(args, 'dossier', None):
         try:
+            # v2.20 — PASS THE EXAM CODE. load_dossier() has accepted an `exam`
+            # argument since v2.17 and the call site never supplied it, so ONE
+            # THIRD OF THE DECLARED IDENTITY TRIPLE (exam_code / mock / paper_md5)
+            # was never checked in production: a dossier from another exam was
+            # ACCEPTED. paper_md5 made it unreachable in practice — a different
+            # exam's paper cannot share this paper's hash — but a documented
+            # binding that never executes is the same dead-parameter class this
+            # corpus keeps finding, and defence in depth is worth nothing if one
+            # of the layers is not wired. blueprint.exam_code is the authority
+            # (P2 already asserts it equals the trigger, RS-5).
             _qs, _man = load_dossier(args.dossier, docx_path=args.docx,
+                                     exam=(bp.get('exam_code') or None),
                                      mockN=getattr(args, 'mockN', None))
             src['dossier'] = _qs
             src['dossier_manifest'] = _man
@@ -4118,11 +4129,22 @@ def self_test():
         load_dossier(_dos(_good_qs), docx_path=_dpaper, mockN=2)
     except DossierError as e:
         _t90b = 'mock' in str(e)
+    # v2.20: the exam leg of the triple. It was DEAD in production until v2.20 —
+    # the parameter existed, the call site never passed it, and a wrong-exam
+    # dossier was accepted. Assert the leg itself AND that load_sources supplies
+    # it, because a working check nobody calls is not a check.
+    _t90d = False
+    try:
+        load_dossier(_dos(_good_qs), docx_path=_dpaper, exam='OTHER')
+    except DossierError as e:
+        _t90d = 'exam' in str(e)
+    import inspect as _i90
+    _t90e = 'exam=' in _i90.getsource(load_sources)
     try:
         load_dossier(_dos(_good_qs, schema=99), docx_path=_dpaper)
     except DossierError as e:
         _t90c = 'schema' in str(e)
-    check('DOSSIER-identity-bound', _t90 and _t90b and _t90c)
+    check('DOSSIER-identity-bound', _t90 and _t90b and _t90c and _t90d and _t90e)
 
     # 91. ABSENT-SAFE — no dossier means legacy behaviour and a NAMED reason, never
     #     a silent degradation. ~200 existing exams run exactly as before.
