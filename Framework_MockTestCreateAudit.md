@@ -1900,7 +1900,7 @@
             Phase 3 does NOT proceed until COMPLETION-GATE: PASS. (There is no
             "PROVISIONAL ship" — Step 8 ships only a certified-clean paper.)
     STEP 3. REGISTRY RE-SYNC (§13) from the FINAL fixed docx (rebuild mock-N slice).
-    STEP 4. Stage EXACTLY the two deliverables to /mnt/user-data/outputs; run the
+    STEP 4. Stage EXACTLY the closed deliverable set to /mnt/user-data/outputs; run the
             §14 pre-delivery checklist (closed set); ONE present_files call.
     STEP 5. Print the §15 full audit report + the §14 handoff. END THE RESPONSE.
 

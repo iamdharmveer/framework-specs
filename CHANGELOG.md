@@ -1,6 +1,55 @@
 # Changelog
 
-## 2026.08.01.8
+## 2026.08.01.9
+GAP-2026-08-01-DELIVERY-SET-DRIFT — **STEP 7 HARD-STOPPED AT PRE-DELIVERY ON EVERY
+EXAM.** A regression introduced by 2026.08.01.7, caught before any run.
+
+**What broke.** v5.35 added the Tier-A audit dossier as a THIRD delivered file
+(S13-4b) for Step 8's benefit, and did not widen S13-7 check 6, which asserted
+`staged == {docx_name, reg_name}` — a hardcoded set of two. The extra file made the
+comparison false, S13-7 raised `SystemExit`, and **Step 7 could not deliver at all**,
+on every exam and every mock. It would have failed on the first run after deployment.
+Step 7 had been the one step in this pipeline that never failed; an improvement made
+for Step 8 broke it.
+
+**Why nothing caught it.** All six auditors reported zero findings, twice, plus a
+fresh-clone deployment simulation — and they still would have. **Nothing anywhere
+cross-verified the Step-7 closed deliverable set.** It was stated in prose at four
+sites and asserted in code at one, with nothing binding them together. Check AK
+guards the Step-6 B3 bundle, a different contract. This is the familiar "rule stated
+in prose with no machine check behind it" class, this time spanning a STEP BOUNDARY
+rather than sitting inside one file — which is why every single-file auditor missed
+it.
+
+**The fix.**
+
+- S13-7 check 6 now **DERIVES** the expected set from what was actually staged —
+  docx + registry always, dossier when S13-4b wrote one — instead of hardcoding a
+  count. A producer change and the gate that guards it can no longer disagree by
+  construction. Verified across all three cases: 2-file (legacy), 3-file (v5.35+),
+  and 3-file-plus-stray (correctly rejected).
+- R-DELIVER, G-DELIVERY-SET and the §13 staging prose corrected in lockstep.
+- **New `validate_framework_md.py` CORPUS CHECK AL — STEP-7 DELIVERY-SET CONTRACT.**
+  Fails the build if any site hardcodes the set or states a stale cardinality.
+
+**CHECK AL found a sixth site on its first run** — `Framework_MockTestCreateAudit.md`
+S13 STEP 4, "Stage EXACTLY the two deliverables", which I had missed while fixing
+the other five by hand. That is precisely the argument for machine checks over
+careful reading. AL also flagged its own spec's version-history prose, which QUOTES
+the defective assertion in order to explain it; quoting a defect is not committing
+one, so comment lines are excluded.
+
+**Verified:** AL reports 0 issues on the corrected corpus, and 2 issues when the
+hardcoded assertion is reintroduced.
+
+**Absent-safe.** A pre-v5.35 mock writes no dossier and the closed set is exactly 2 —
+byte-identical to v5.34 behaviour across the estate.
+
+**Files:** `Framework_MockTestCreate.md` v5.35.1 -> **v5.36**;
+`Framework_MockTestCreateAudit.md` (S13 STEP 4 wording); `validate_framework_md.py`
+(CHECK AL); `CHANGELOG.md`; `VERSION`; `MANIFEST.json`.
+
+ 2026.08.01.8
 D1 + D3 + D8 — THE THREE DEFECTS CERTAIN TO RECUR. Release 5 of the
 session-exhaustion programme. **No gate semantics change and no coverage changes.**
 Every item here was verified still-live against the deployed 2026.08.01.7 build.

@@ -1087,6 +1087,65 @@ _AK_B3_EXPECTED = 6      # B3 deliverable count — bump here AND in every spec 
                          # deliverables. Step 8 copies them from the verified
                          # clone; engines are never provisioned per-exam.
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CHECK AL — STEP-7 DELIVERY-SET CONTRACT (cross-step)
+# ─────────────────────────────────────────────────────────────────────────────
+# MOTIVATING DEFECT — GAP-2026-08-01-DELIVERY-SET-DRIFT. Framework_MockTestCreate
+# v5.35 added the Tier-A audit dossier as a THIRD delivered file (S13-4b) and did
+# not widen S13-7 check 6, which asserted `staged == {docx_name, reg_name}` — a
+# hardcoded set of two. The extra file made the comparison false and S13-7 raised
+# SystemExit, so Step 7 could not deliver AT ALL, on every exam and every mock. It
+# would have failed on the first run after deployment.
+#
+# Every existing auditor passed, twice, plus a fresh-clone deployment simulation.
+# NOTHING cross-verified the delivery set: it was stated in prose at four sites and
+# asserted in code at one, with nothing binding them. Check AK guards the Step-6 B3
+# bundle, a different contract entirely. This closes that blind spot.
+#
+# The rule enforced: the ASSERTION must be DERIVED, never hardcoded. A gate that
+# hardcodes what its own producer writes will drift the moment the producer changes,
+# and the drift is a HARD STOP rather than a warning.
+_AL_HARDCODED = re.compile(r'staged\s*==\s*\{\s*docx_name\s*,\s*reg_name\s*\}')
+_AL_STALE_PROSE = re.compile(
+    r'(?:EXACTLY|exactly) the (?:2|two) deliverables?'
+    r'|delivers EXACTLY two files'
+    r'|Stage ONLY the two deliverables')
+
+
+def check_al_delivery_set(directory):
+    issues = []
+    for fname in sorted(f for f in os.listdir(directory)
+                        if f.startswith('Framework_') and f.endswith('.md')):
+        try:
+            text = open(os.path.join(directory, fname), encoding='utf-8').read()
+        except OSError:
+            continue
+        for lineno, line in enumerate(text.splitlines(), 1):
+            # Version-history prose QUOTES the defective assertion in order to
+            # explain it; quoting a defect is not committing it. Only live spec
+            # body counts. (Found on AL's first run: the check flagged this very
+            # file's own v5.36 changelog entry describing the bug it guards.)
+            if line.lstrip().startswith('#'):
+                continue
+            if _AL_HARDCODED.search(line):
+                issues.append((fname,
+                    'line %d hardcodes the Step-7 delivery set as {docx, registry}. '
+                    'It MUST be DERIVED from what was actually staged (docx + '
+                    'registry always, dossier when S13-4b wrote one). A hardcoded '
+                    'set drifts the moment a producer adds a file, and S13-7 turns '
+                    'that drift into a HARD STOP — exactly the v5.35 defect.'
+                    % lineno))
+            if _AL_STALE_PROSE.search(line):
+                issues.append((fname,
+                    'line %d still describes the Step-7 delivery as exactly TWO '
+                    'files. Since v5.35 the closed set also carries '
+                    '[ExamCode]_M[N]_audit_dossier.json when S13-4b writes one. A '
+                    'cardinality claim is a cross-step contract: every site must '
+                    'move together, or a session following THIS site stages the '
+                    'wrong set.' % lineno))
+    return issues
+
+
 def check_ak_b3_cardinality(directory):
     issues = []
     # Sites that talk about the Step-6 B3 delivery specifically. Step 5's own
@@ -1805,6 +1864,9 @@ if __name__ == '__main__':
                 ('AK', 'B3 DELIVERABLE CARDINALITY',
                  check_ak_b3_cardinality,
                  'every site describing the B3 delivery states the same count.'),
+                ('AL', 'STEP-7 DELIVERY-SET CONTRACT',
+                 check_al_delivery_set,
+                 'the delivery set is DERIVED, and every site agrees on it.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')

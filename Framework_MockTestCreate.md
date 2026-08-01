@@ -1,4 +1,30 @@
-# Framework_MockTestCreate v5.35.1
+# Framework_MockTestCreate v5.36
+# v5.36 — 2026-08-01 — GAP-2026-08-01-DELIVERY-SET-DRIFT: STEP 7 HARD-STOPPED AT
+#   PRE-DELIVERY ON EVERY EXAM. v5.35 added the Tier-A dossier as a THIRD delivered
+#   file (S13-4b) and did not widen S13-7 check 6, which asserted
+#   `staged == {docx_name, reg_name}` — a hardcoded set of two. The third file made
+#   the comparison false, S13-7 raised SystemExit, and Step 7 could not deliver.
+#   Step 7 had been the one step in this pipeline that never failed; an improvement
+#   made for Step 8's benefit broke it, and it would have failed on the FIRST run
+#   after deployment.
+#
+#   WHY NOTHING CAUGHT IT. All six auditors reported zero findings, twice, plus a
+#   fresh-clone deployment simulation — and they still would. NO CHECK ANYWHERE
+#   cross-verifies the Step-7 closed deliverable set against what Step 7 actually
+#   stages. validate_framework_md's cardinality check AK covers the 19 .py files of
+#   the B3 bundle, a different contract. The delivery set was stated in prose at
+#   four sites and asserted in code at one, with nothing binding them together —
+#   the same "rule with no machine check behind it" class this corpus keeps
+#   rediscovering, this time across a STEP BOUNDARY rather than inside one file.
+#
+#   THE FIX. S13-7 check 6 now DERIVES the expected set from what was written
+#   (docx + registry always; dossier when S13-4b produced one) instead of
+#   hardcoding a count, so a producer change and its gate cannot disagree by
+#   construction. R-DELIVER, G-DELIVERY-SET and the §13 prose are corrected in
+#   lockstep, and a new cross-file check (validate_framework_md CHECK AL) fails
+#   the build if any site states a delivery-set cardinality the others do not.
+#   Absent-safe: a pre-v5.35 mock writes no dossier and the set is exactly 2,
+#   byte-identical to v5.34 behaviour.
 # v5.35.1 — 2026-08-01 — self-test count refresh only (105/105 -> 107/107).
 # v5.35 — 2026-08-01 — TIER A: emit [ExamCode]_M[N]_audit_dossier.json for
 #   Step 8 (S13-4b). Facts only, never judgments; MD5-bound to the paper.
@@ -17,8 +43,8 @@
 #   gates are arithmetic over the PNG AND ITS SIDECAR.
 #
 #   But the sidecars live in THIS session's working directory, which is internal
-#   and is never delivered (S0-1 / R-DELIVER lists the closed set: the docx and
-#   the registry). So Step 8 saw spec == {} on every figure, fc.is_legacy() read
+#   and is never delivered (S0-1 / R-DELIVER lists the closed set: the docx, the
+#   registry, and — from v5.35 — the Tier-A audit dossier when S13-4b wrote one). So Step 8 saw spec == {} on every figure, fc.is_legacy() read
 #   every v5.33 render as pre-v5.33 output, and EC-V18 leniency was applied to
 #   papers that were not legacy at all. The gates could not fail on a real
 #   regression because they never had the record to compare against.
@@ -378,9 +404,18 @@
        — Stems: configured font, configured size, bold.
        — Options: configured font, configured size, normal weight.
        — Verify: scan all runs; if run.font.name not in [configured_font, None]: fix.
-  R-DELIVER (v3.5, HARD STOP): Step 7 delivers EXACTLY two files at Final
-       Assembly — [ExamCode]_Mock[N]_Create.docx and [ExamCode]_registry.json —
-       and NOTHING else. Producing a standalone answer-key file (any format:
+  R-DELIVER (v5.36, HARD STOP): Step 7 delivers EXACTLY the CLOSED SET at Final
+       Assembly and NOTHING else. The set is:
+         1. [ExamCode]_Mock[N]_Create.docx        — always
+         2. [ExamCode]_registry.json              — always
+         3. [ExamCode]_M[N]_audit_dossier.json    — when S13-4b wrote one (v5.35+;
+            absent on every pre-v5.35 mock, and the set is then exactly 2)
+       "EXACTLY" is the operative word in BOTH directions: nothing missing and
+       nothing extra. v5.35 added item 3 as a producer without widening S13-7
+       check 6, which still asserted a hardcoded set of 2 — so Step 7 HARD-STOPPED
+       at pre-delivery on every exam and every mock until v5.36. The gate now
+       DERIVES the expected set from what was actually written, so a future
+       producer change cannot silently disagree with the gate that guards it. Producing a standalone answer-key file (any format:
        .docx/.pdf/.json/.txt) as a deliverable is forbidden with the same force
        as R5 (no answer key in the paper). Internal sidecars (answer_key.json,
        fig_manifest.json, batch_state.json, progress.json) are NEVER delivered.
@@ -6176,10 +6211,20 @@
               '_batch_state.json', '_progress.json']
   leaked = [f for f in os.listdir(out) if any(m in f for m in internal)]
   checks.append(("5 no internal sidecars in outputs", len(leaked) == 0))
-  # 6. outputs == EXACTLY the 2 deliverables (closed set).
+  # 6. outputs == EXACTLY the closed deliverable set.
+  #    v5.36 (GAP-2026-08-01-DELIVERY-SET-DRIFT): v5.35 added the Tier-A dossier as
+  #    a THIRD delivered file (S13-4b) and did NOT widen this assertion, so check 6
+  #    failed and S13-7 HARD-STOPPED Step 7 at pre-delivery on every exam and every
+  #    mock. Step 7 had been the one step that never failed; a Step-8 improvement
+  #    broke it. The set is now DERIVED from what S13-4b actually wrote, so a
+  #    producer change and this gate can no longer disagree by construction.
+  dossier_name = f'{EXAM}_M{N}_audit_dossier.json'
+  expected_set = {docx_name, reg_name}
+  if os.path.exists(os.path.join(out, dossier_name)):
+      expected_set.add(dossier_name)          # written by S13-4b; absent pre-v5.35
   staged = set(os.listdir(out))
-  checks.append(("6 outputs == exactly the 2 deliverables",
-                 staged == {docx_name, reg_name}))
+  checks.append((f"6 outputs == exactly the {len(expected_set)} deliverables",
+                 staged == expected_set))
   # 7. question_index certified for this mock (G-QINDEX / S13-QINDEX ran OK).
   checks.append(("7 question_index certified (G-QINDEX)", bool(globals().get('QINDEX_OK'))))
 
@@ -6195,8 +6240,12 @@
   print("S13-7: all 7 pre-delivery checks PASS. Cleared to deliver.")
   ```
 
-  Stage ONLY the two deliverables in /mnt/user-data/outputs; keep every
-  internal file in /home/claude. Item 6 enforces the closed set.
+  Stage ONLY the deliverables in /mnt/user-data/outputs; keep every internal file
+  in /home/claude. Item 6 enforces the closed set, and DERIVES it from what was
+  actually written rather than hardcoding a count — v5.35 hardcoded 2 while S13-4b
+  wrote a 3rd file, and Step 7 hard-stopped on every exam until v5.36.
+  THE CLOSED SET (v5.36): the rectified docx + registry.json ALWAYS, plus
+  [ExamCode]_M[N]_audit_dossier.json when S13-4b wrote one. Nothing else, ever.
 
 ## S13-8 — Deliver (v3.5 — the SINGLE present_files call)
 
@@ -6445,7 +6494,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
   | Gate Code      | Checks                                          | Fix? | Fix                                  |
   |----------------|-------------------------------------------------|------|--------------------------------------|
-  | G-DELIVERY-SET | Outputs dir holds EXACTLY the 2 deliverables    | YES  | Remove stray/internal files; add reg |
+  | G-DELIVERY-SET | Outputs dir holds EXACTLY the closed set: docx + registry + audit_dossier when S13-4b wrote one (v5.36; was a hardcoded 2 and hard-stopped Step 7 once the dossier landed) | YES  | Remove stray/internal files; add reg |
 
   G-DELIVERY-SET (definition): at Final Assembly, /mnt/user-data/outputs must
   contain exactly { [ExamCode]_Mock[N]_Create.docx, [ExamCode]_registry.json }
@@ -6871,7 +6920,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.35.1
+# END OF Framework_MockTestCreate v5.36
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

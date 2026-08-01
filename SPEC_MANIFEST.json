@@ -30,16 +30,16 @@
   },
   "Framework_MockTestCreate.md": {
    "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-   "lines": 6955,
-   "sha256": "04569d186bf20409c2b470d6b15c40985450e7c2809df06d97feaf85f42a0b99",
-   "size_bytes": 424908,
-   "version_header": "# Framework_MockTestCreate v5.35.1"
+   "lines": 7004,
+   "sha256": "d904df6c7f7fb3147f93bfbc349d440f46d4f63374511b8943ffbbd771464a56",
+   "size_bytes": 428681,
+   "version_header": "# Framework_MockTestCreate v5.36"
   },
   "Framework_MockTestCreateAudit.md": {
    "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
    "lines": 4334,
-   "sha256": "3b731e23f910b8eb88ab089468edf677d9b12d672300bbde4e6fb42045ae3b8e",
-   "size_bytes": 316335,
+   "sha256": "d936b237c393b54152f90c6d59e8dfcf384b9625374595fb4b607dd0f84314d9",
+   "size_bytes": 316341,
    "version_header": "# Framework_MockTestCreateAudit v2.18"
   },
   "Framework_MockTestExplain.md": {
@@ -256,9 +256,9 @@
    "size_bytes": 20942
   },
   "validate_framework_md.py": {
-   "lines": 1828,
-   "sha256": "ca3e586edec549c45f83d83b97deed74aefda3f6ac078f727b3bef2b1c50c572",
-   "size_bytes": 107698
+   "lines": 1890,
+   "sha256": "250254a33f995c73add7e3f90e40d9c8504029819988880460d67afd5baee09d",
+   "size_bytes": 111505
   }
  },
  "generated_at": "2026-07-31T09:56:47+00:00"
