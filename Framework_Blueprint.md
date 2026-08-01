@@ -1,4 +1,12 @@
-# Framework_Blueprint v1.42 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.42.1 — Universal Mock Test Blueprint Generator
+# v1.42.1 — 2026-08-01 — B3 STAYS AT 6 OUTPUTS; NO ENGINE PROVISIONING
+#   (post-deploy correction). v1.42 raised B3 to 8 by shipping blueprint_core.py +
+#   figural_core.py per exam. Wrong remedy: CLAUDE.md states engines live ONLY in
+#   the central repo and no per-project provisioning should ever be performed,
+#   because a project copy is a second unverified source that can go stale. Step 8
+#   P0 now copies both engines from the Step-0 verified clone ($FW) instead — the
+#   same pattern §S1-2b already uses for blueprint_core — so the B3 contract
+#   returns to 6 and no exam project needs touching. Superseded v1.42 entry:
 # v1.42 — 2026-08-01 — B3 SHIPS THE RUNTIME ENGINES (8 outputs, was 6)
 #   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3). Step 8's auditor delegates
 #   A-FIGPROFILE to blueprint_core and the 12 A-FIG* gates to figural_core, but
@@ -3046,7 +3054,7 @@ Total batches = 1 + ceil(N_mocks / 10) + 1.
 ```
 B1  : Read all inputs → build blueprint skeleton → deliver blueprint.xlsx (skeleton) + blueprint.json v1
 B2  : Generate 10 mocks per batch → validate → deliver updated blueprint.json (1 file only)
-B3  : Final validation → generate all 8 output files → deliver
+B3  : Final validation → generate all 6 output files → deliver
 
 Examples:
   N_mocks = 10  → B1 + B2×1  + B3 = 3 batches total
@@ -3506,17 +3514,20 @@ Step 8A Generate [ExamCode]_mock_test_audit.py (ref §13-7A):
               canonical build prints 61/61). A constant-print "N/N PASS" is REJECTED.
             If output differs or is not fixture-based → HALT. Regenerate and retry.
 
-Step 8B Copy the two RUNTIME ENGINES the auditor depends on (v2.12 —
-        GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING). Under BARE names:
-          `cp /tmp/fw/blueprint_core.py  blueprint_core.py`   # A-FIGPROFILE
-          `cp /tmp/fw/figural_core.py    figural_core.py`     # the 12 A-FIG* gates
-        Do NOT add an [ExamCode]_ prefix — they are imported as Python modules and
-        a prefix breaks the import, silently reducing Step-8 coverage.
+Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
+        blueprint_core.py or figural_core.py, and must not. CLAUDE.md is explicit:
+        engines live ONLY in the central repo, and "a fix pushed to production
+        reaches all ~200 exam projects on their next clone — no per-project engine
+        provisioning is required, and none should be performed." Step 8 obtains
+        both engines by copying them from the Step-0 verified clone ($FW) into its
+        own working directory (Framework_MockTestCreateAudit.md P0), which is the
+        same pattern §S1-2b already uses for blueprint_core. A per-exam copy in
+        project Files would be a SECOND, unverified source that can silently go
+        stale — the very generator/auditor drift the v2.10 delegation prevents.
 
-        present_files with all 8 output files (ref §11 S11-3):
+        present_files with all 6 output files (ref §11 S11-3):
           Order: blueprint.xlsx, blueprint.json, registry.json,
-                 ExplainLearnings.md, ExplainAuditLearnings.md, mock_test_audit.py,
-                 blueprint_core.py, figural_core.py
+                 ExplainLearnings.md, ExplainAuditLearnings.md, mock_test_audit.py
 
         CHECKLIST before calling present_files:
           ☐ §15-CHECKLIST items XLSX-1 through XLSX-5 all passed
@@ -3526,8 +3537,6 @@ Step 8B Copy the two RUNTIME ENGINES the auditor depends on (v2.12 —
           ☐ [ExamCode]_ExplainLearnings.md        exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_ExplainAuditLearnings.md   exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_mock_test_audit.py          exists at /mnt/user-data/outputs/
-          ☐ blueprint_core.py  exists at /mnt/user-data/outputs/ (BARE name — v2.12)
-          ☐ figural_core.py    exists at /mnt/user-data/outputs/ (BARE name — v2.12)
           ☐ mock_test_audit.py --self-test passed FIXTURE-BASED, N/N with
             N >= AUTH_GATE_FLOOR (35); the v2.12 canonical build prints 61/61.
             (This line previously read "13/13 PASS" — a stale reference to the
@@ -4621,21 +4630,21 @@ PART A — Validation confirmation:
    BV-7 (Full series check) : ✓
    BV-8 (ZP final counts)   : ✓"
 
-PART B — present_files with all 8 output files (MANDATORY — in this exact order):
+PART B — present_files with all 6 output files (MANDATORY — in this exact order):
   1. [ExamCode]_blueprint.xlsx          ← FINAL version with all mock allocations
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
   4. [ExamCode]_ExplainLearnings.md
   5. [ExamCode]_ExplainAuditLearnings.md
   6. [ExamCode]_mock_test_audit.py      ← audit script (Step 7 optional, Step 8 mandatory)
-  7. blueprint_core.py                  ← repo engine, BARE name (v2.12) — A-FIGPROFILE
-  8. figural_core.py                    ← repo engine, BARE name (v2.12) — the 12 A-FIG* gates
+
+  NOT DELIVERED — blueprint_core.py / figural_core.py (v2.12.1). Step 8 copies both
+  from the Step-0 verified clone ($FW) itself. Engines are never provisioned
+  per-exam (CLAUDE.md): a copy in project Files is a second, unverified source that
+  can go stale, while the clone is hash-verified fresh at every session.
 
   CHECKLIST before calling present_files:
-    ☐ All 8 files exist at /mnt/user-data/outputs/; the 6 exam artefacts carry exact
-      [ExamCode]-prefixed names, and blueprint_core.py / figural_core.py carry their
-      BARE names (an [ExamCode]_ prefix breaks `import blueprint_core` and silently
-      reduces Step-8 audit coverage — v2.12)
+    ☐ All 6 files exist at /mnt/user-data/outputs/ with exact [ExamCode]-prefixed names
     ☐ blueprint.xlsx has Sheet 2 FULLY populated (all N_mocks mock columns filled)
     ☐ blueprint.json len(mocks[]) == N_mocks
     ☐ registry.json has correct exam_code and empty arrays
@@ -4656,8 +4665,6 @@ PART C — Handoff message (concise):
      ✓ [ExamCode]_ExplainLearnings.md
      ✓ [ExamCode]_ExplainAuditLearnings.md
      ✓ [ExamCode]_mock_test_audit.py
-     ✓ blueprint_core.py                  ← BARE name (v2.12) — do NOT prefix
-     ✓ figural_core.py                    ← BARE name (v2.12) — do NOT prefix
 
    Keep locally (do NOT upload to project):
      [ExamCode]_blueprint.xlsx  ← review full allocation here
@@ -4666,7 +4673,7 @@ PART C — Handoff message (concise):
      ✓ [ExamCode]_section_rules.md
      (If Step 0 is not yet complete, finish it first before Step 2.)
 
-   After uploading all 7 files to [ExamCode] project knowledge (the 8 B3
+   After uploading all 5 files to [ExamCode] project knowledge (the 6 B3
    deliverables minus the xlsx, which stays local):
    → Start MockCreate M1
      (in the [ExamCode] project)"
@@ -4710,7 +4717,7 @@ User requests batch regeneration (before B3 OR after B3):
   BV-7 + BV-8 must re-pass in B3 before final files are re-delivered.
 
   If B3 was already completed (files previously delivered):
-    After batch re-generation: re-run B3 → all 8 output files re-delivered.
+    After batch re-generation: re-run B3 → all 6 output files re-delivered.
     User must replace all 5 non-xlsx Step 1 files in [ExamCode] project knowledge:
     (blueprint.json, registry.json, ExplainLearnings.md, ExplainAuditLearnings.md,
      mock_test_audit.py)
@@ -4964,12 +4971,12 @@ Step 8 (MockCreateAudit) uses registry for G-DUP gate.
 
 ## §13 — OUTPUT FILES
 
-All 8 files produced by Step 1. Naming, content, and destination.
+All 6 files produced by Step 1. Naming, content, and destination.
 
 ### S13-1 — File naming convention
 
 ```
-The 6 EXAM ARTEFACTS use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
+All 6 files use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
 
 [ExamCode]_blueprint.xlsx
 [ExamCode]_blueprint.json
@@ -4978,16 +4985,12 @@ The 6 EXAM ARTEFACTS use [ExamCode] as prefix. ExamCode = alphanumeric + undersc
 [ExamCode]_ExplainAuditLearnings.md
 [ExamCode]_mock_test_audit.py
 
-The 2 REPO ENGINES are delivered under their BARE names — they are the ONLY
-B3 deliverables that are NOT prefixed, and this is mandatory (v2.12):
-
-blueprint_core.py     ← Step 8 A-FIGPROFILE
-figural_core.py       ← Step 8's 12 A-FIG* figure-conformance gates
-
-WHY THE PREFIX RULE DOES NOT APPLY TO THEM: they are imported as Python modules
-(`import blueprint_core`). An [ExamCode]_ prefix breaks that import, and the
-dependent gates then report a WARN skip instead of running — the audit still
-completes, it just silently checks less. Never prefix these two.
+REPO ENGINES ARE NOT B3 DELIVERABLES (v2.12.1). blueprint_core.py and
+figural_core.py are never delivered here and never uploaded per-exam. Step 8
+copies them from the Step-0 verified clone ($FW) into its own working directory
+(Framework_MockTestCreateAudit.md P0), the same way §S1-2b already does for
+blueprint_core. They keep their BARE names wherever they are copied, because they
+are imported as Python modules and an [ExamCode]_ prefix breaks the import.
 
 All written to: /mnt/user-data/outputs/
 File names are FIXED at delivery — never rename after downloading.
@@ -4997,7 +5000,7 @@ present_files usage across the pipeline:
   B1 : present_files(blueprint.xlsx skeleton, blueprint.json v1)
        (skeleton xlsx has empty mock columns; blueprint.json has mocks[]=[])
   B2 : present_files(blueprint.json updated)  ← one call per B2 batch
-  B3 : present_files(all 8 final files)       ← ONE call with complete output
+  B3 : present_files(all 6 final files)       ← ONE call with complete output
 ```
 
 ### S13-2 — blueprint.xlsx (human review only)
@@ -5156,7 +5159,7 @@ At B3, Claude:
        51/51 and remains valid — the floor stays at 35 precisely so the estate can
        migrate exam by exam without an outage). A constant-print "N/N PASS" is
        REJECTED. If output differs or is not fixture-based → HALT. Do not deliver.
-  4. Includes all 8 files in the B3 present_files call.
+  3. Includes all 6 files in the B3 present_files call.
 
 WHY THE ENGINES SHIP (v2.12). Before v2.12 they did not, and the auditor's
 A-FIGPROFILE gate referenced blueprint_core without importing it — so every exam
@@ -5170,21 +5173,19 @@ loud crash into a quiet nothing.
 ### S13-7 — present_files delivery order
 
 ```
-B3 delivers all 8 files in ONE present_files call (final delivery — v2.12, was 6):
+B3 delivers all 6 files in ONE present_files call (final delivery):
   1. [ExamCode]_blueprint.xlsx           ← FINAL version; user reviews allocation
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
   4. [ExamCode]_ExplainLearnings.md
   5. [ExamCode]_ExplainAuditLearnings.md
   6. [ExamCode]_mock_test_audit.py       ← audit script (Step 7 optional, Step 8 mandatory)
-  7. blueprint_core.py                   ← repo engine, BARE name (A-FIGPROFILE)
-  8. figural_core.py                     ← repo engine, BARE name (12 A-FIG* gates)
 
-Files 7 and 8 keep their BARE names — no [ExamCode]_ prefix. They are imported as
-Python modules; a prefix breaks the import and silently disables the gates.
+The repo engines (blueprint_core.py, figural_core.py) are NOT delivered here —
+Step 8 copies them from the Step-0 verified clone itself (v2.12.1).
 
 If any file fails to create: HALT. Do not deliver partial set.
-All 8 must be present before calling present_files.
+All 6 must be present before calling present_files.
 
 See S13-1 for B1 and B2 present_files calls (intermediate deliveries).
 ```
@@ -5192,27 +5193,24 @@ See S13-1 for B1 and B2 present_files calls (intermediate deliveries).
 ### S13-8 — Project upload instructions
 
 ```
-After downloading all 8 files from B3:
+After downloading all 6 files from B3:
 
 Step A: Review blueprint.xlsx locally (human verification of full allocation).
 
 Step B: Create [ExamCode] Claude project (if not already exists).
 
-Step C: Upload to [ExamCode] project knowledge (7 Step-1 output files + 1 Step-0 file
-        = 8 total; do NOT upload the xlsx):
+Step C: Upload to [ExamCode] project knowledge (5 Step-1 output files + 1 Step-0 file
+        = 6 total; do NOT upload the xlsx):
           ✓ [ExamCode]_blueprint.json          ← Step 1 output
           ✓ [ExamCode]_registry.json           ← Step 1 output
           ✓ [ExamCode]_ExplainLearnings.md     ← Step 1 output
           ✓ [ExamCode]_ExplainAuditLearnings.md ← Step 1 output
           ✓ [ExamCode]_mock_test_audit.py      ← Step 1 output (Step 7 optional, Step 8 mandatory)
-          ✓ blueprint_core.py                  ← Step 1 output, BARE name (v2.12)
-          ✓ figural_core.py                    ← Step 1 output, BARE name (v2.12)
           ✓ [ExamCode]_section_rules.md        ← Step 0 output (PYQExtract)
-        NOTE: upload blueprint_core.py and figural_core.py under EXACTLY those
-              names. Renaming them (e.g. adding an [ExamCode]_ prefix) breaks
-              `import blueprint_core` and silently reduces audit coverage —
-              A-FIGPROFILE and the 12 A-FIG* gates then report WARN skips instead
-              of running. The audit still completes; it just checks less.
+        NOTE (v2.12.1): do NOT upload blueprint_core.py or figural_core.py. Engines
+              are never provisioned per-exam (CLAUDE.md) — Step 8 copies them from
+              the Step-0 verified clone. A copy in project Files would be a second,
+              unverified source that can silently go stale.
         Do NOT upload: [ExamCode]_blueprint.xlsx (xlsx not readable by Claude in project knowledge)
         NOTE: section_rules.md must be present before MockCreate M1 is triggered.
         NOTE: mock_test_audit.py is the canonical v2.6 auditor (§13-7A) — one script,
@@ -5221,7 +5219,7 @@ Step C: Upload to [ExamCode] project knowledge (7 Step-1 output files + 1 Step-0
 Step D: Start fresh chat in [ExamCode] project.
         Minimum required before Step 2 can start:
           blueprint.json + registry.json + section_rules.md (from Step 0)
-        Recommended: upload all 8 files at once.
+        Recommended: upload all 6 files at once.
 
 Step E: Run: MockCreate M1
 ```
@@ -5241,7 +5239,7 @@ Procedure:
        mock_test_audit.py
        section_rules.md (from Step 0 — delete only if Step 0 will also be re-run;
        if Step 0 is NOT being re-run, keep existing section_rules.md in project)
-  2. Run Step 1 again → download all 8 new output files.
+  2. Run Step 1 again → download all 6 new output files.
   3. Upload the 5 non-xlsx files to [ExamCode] project knowledge.
      (blueprint.xlsx stays local — do not upload)
   4. Start fresh chat session in [ExamCode] project.
@@ -5263,7 +5261,7 @@ deliverable file badges (Upload / Replace / Use locally), and next-step referenc
 
 Step 6 uses BOTH footer types:
   - F1 (amber) after B1 (2 files) and each B2 batch (1 file)
-  - F2 (green) after B3 final delivery (8 files)
+  - F2 (green) after B3 final delivery (6 files)
 ```
 
 ## §14 — BLUEPRINT JSON SCHEMA
@@ -6309,8 +6307,7 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 ☐ 10. BV-8 passed: zero-PYQ final count exact (§9-8)
 ☐ 11. All edge cases in §16 verified (including EC-11 feasibility check)
 ☐ 12. All assumptions documented in Paper Structure sheet (§10 S10-12)
-☐ 13. All 8 output files generated and present_files called (§13-7); the two
-       repo engines carry BARE names (v2.12)
+☐ 13. All 6 output files generated and present_files called (§13-7)
 ☐ 14. Handoff message delivered (§11-3)
 ☐ 15. Step 5 (PYQExtract) also complete in [ExamCode] project.
        [ExamCode]_section_rules.md is ready for upload to [ExamCode] project.
@@ -6320,10 +6317,10 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
        passed FIXTURE-BASED with N >= AUTH_GATE_FLOOR (35); the v2.12 build prints
        61/61; included in B3 present_files delivery.
        Collision check completed if prior script existed (EC-D1/D3).
-☐ 26. blueprint_core.py AND figural_core.py copied VERBATIM under their BARE names
-       and included in the B3 present_files delivery (v2.12 — 8 files total). No
-       [ExamCode]_ prefix: they are imported as Python modules and a prefix breaks
-       the import, silently reducing Step-8 gate coverage.
+☐ 26. NO engine provisioning performed: blueprint_core.py and figural_core.py were
+       NOT delivered in B3 and NOT uploaded to the exam project (v2.12.1). Step 8
+       copies both from the Step-0 verified clone itself. A per-exam engine copy is
+       a second, unverified source that can silently go stale (CLAUDE.md).
 ```
 
 
@@ -6676,4 +6673,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.42
+# END OF Framework_Blueprint v1.42.1

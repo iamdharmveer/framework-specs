@@ -1,5 +1,65 @@
 # Changelog
 
+## 2026.08.01.2
+Post-deployment correction to 2026.08.01.1. The engine fix (D1, P6, D3-D7) is
+UNCHANGED and remains deployed — `audit_canonical.py`, `routes.json` and the
+gate behaviour are byte-identical. What changes is the DISTRIBUTION remedy, and a
+CLAUDE.md gap that made the wrong remedy look necessary.
+
+**The wrong remedy.** 2026.08.01.1 solved "the engines never reach the machine that
+runs the auditor" by adding both to the Step-6 B3 output set (6 -> 8 files), which
+implied uploading them to ~200 exam projects. CLAUDE.md states the opposite rule
+and states it correctly: engines live ONLY in the central repo, `/mnt/project` is
+DATA and never an import source, and *"a fix pushed to production reaches all ~200
+exam projects on their next clone — no per-project engine provisioning is required,
+and none should be performed."* A per-exam `.py` copy is a SECOND, UNVERIFIED source
+that can silently go stale, reintroducing exactly the generator/auditor drift the
+v2.10 delegation to `blueprint_core` exists to prevent.
+
+**Why the exception looked real, and what it actually is.** CLAUDE.md's reasoning is
+that Step 0 does `cd "$FW"`, so a bare import resolves in the clone. That is TRUE
+for every engine consumer EXCEPT one, and the difference is purely mechanical —
+verified empirically in both directions:
+
+- Spec-inline code runs as `python3 - <<EOF`, so `sys.path[0] == ''`, which resolves
+  to the cwd, i.e. `$FW`. `import blueprint_core` RESOLVES. This is every ordinary
+  consumer.
+- The auditor is a standalone file run as `python3 /home/claude/X_mock_test_audit.py`.
+  Python sets `sys.path[0]` to the SCRIPT'S OWN DIRECTORY, never the cwd — so
+  `/home/claude` goes on the path and `$FW` does NOT, even when the cwd IS `$FW`.
+  The import FAILS.
+
+That single unnamed exception is why the A-FIGPROFILE delegation could be written,
+reviewed and shipped without its import: in the environment the change was reviewed
+in, a bare import appeared to resolve.
+
+**The right remedy.** Step 8 P0 now copies both engines from the Step-0 verified
+clone (`$FW`) into `/home/claude` — precisely the pattern `Framework_Blueprint.md`
+§S1-2b has always used for `blueprint_core`. The clone is hash-tracked and
+bootstrap-verified at Step 0 of every session, so the engines are current BY
+CONSTRUCTION, CLAUDE.md's promise holds in full, and **no exam project needs
+touching**. If the clone is somehow unavailable, P0 falls back to an upload/project
+copy but says explicitly that it is UNVERIFIED and may be stale.
+
+**Consequences:**
+- B3 returns to **6 deliverables**. `Framework_Blueprint.md` v1.42 -> **v1.42.1**;
+  `Framework_DeliveryFooter.md` v1.9 -> **v1.9.1**;
+  `Framework_MockTestCreateAudit.md` v2.12 -> **v2.12.1**.
+- `CHECK AK`'s `_AK_B3_EXPECTED` returns to 6, which is exactly what that constant
+  is for: one edit, and the check lists every site that must move with it. All
+  cardinality sites verified consistent by the check itself.
+- **ESTATE ACTION PATH A IS WITHDRAWN.** The ~200 per-exam uploads are unnecessary
+  and should NOT be performed. Refreshing an exam's `[ExamCode]_mock_test_audit.py`
+  is still worthwhile (it is a genuine per-exam copy, taken at B3), but no engine is
+  ever uploaded. Path B (in-session sanctioned repair of a stale auditor copy under
+  P0.5 policy (b)) is unaffected and remains the immediate unblock.
+- `CLAUDE.md` now NAMES the standalone-script exception under its engine-loading
+  section, with both consumers listed and the empirical rule spelled out, so the
+  section can no longer be read as licensing an unbound import.
+- Third and last dead "copy it from Framework_MockTestCreate.md Appendix A"
+  instruction retired (P1 REJECT hard-stop path, CreateAudit:882). That file has
+  carried no auditor fence since v2.11.2. All three instances are now gone.
+
 ## 2026.08.01.1
 GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING — Step 8 (Mock/TestCreateAudit) HALTED
 PERMANENTLY with ZERO gate output on any exam whose paper came from Step 7 v5.31+.

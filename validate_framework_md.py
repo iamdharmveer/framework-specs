@@ -1082,7 +1082,10 @@ def check_aj_undefined_names(directory):
 # enforce that; this check can. Any B3 delivery-count claim that disagrees with
 # the others is reported, so the next cardinality change cannot land partially.
 # ═══════════════════════════════════════════════════════════════════════
-_AK_B3_EXPECTED = 8      # B3 deliverable count — bump here AND in every spec site
+_AK_B3_EXPECTED = 6      # B3 deliverable count — bump here AND in every spec site
+                         # 6, not 8 (v2.12.1): the repo engines are NOT B3
+                         # deliverables. Step 8 copies them from the verified
+                         # clone; engines are never provisioned per-exam.
 
 def check_ak_b3_cardinality(directory):
     issues = []

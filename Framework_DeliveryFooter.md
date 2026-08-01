@@ -1,4 +1,13 @@
-# Framework_DeliveryFooter v1.9 — Universal Delivery Footer Contract
+# Framework_DeliveryFooter v1.9.1 — Universal Delivery Footer Contract
+# v1.9.1 — 2026-08-01 — B3 STAYS AT 6 FILES; ENGINES COME FROM THE CLONE
+#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, post-deploy correction). v1.9 briefly
+#   raised B3 to 8 by shipping blueprint_core.py + figural_core.py per exam. That was
+#   the wrong remedy: CLAUDE.md states engines live ONLY in the central repo and no
+#   per-project provisioning should ever be performed, because a project copy is a
+#   second unverified source that can go stale. Step 8 P0 now copies both engines
+#   from the Step-0 verified clone ($FW) instead — the same pattern Blueprint §S1-2b
+#   already uses — so the delivery contract returns to 6 and no exam project needs
+#   touching. Superseded v1.9 entry:
 # v1.9 — 2026-08-01 — STEP 6 B3 DELIVERABLE LIST 6 -> 8 FILES
 #   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3). B3 now also delivers
 #   blueprint_core.py and figural_core.py under their BARE names. Step 8's auditor
@@ -93,7 +102,7 @@ WHEN TO SHOW:
     - Step 2a PYQDraft: after delivering taxonomy_draft + exam_config
     - Step 3 PYQSort: after delivering the sorted docx
     - Step 5 PYQExtract: after final batch + auto-synthesis + all 6 files
-    - Step 6 MockBlueprint: after B3 final delivery of all 8 files
+    - Step 6 MockBlueprint: after B3 final delivery of all 6 files
     - Step 11 MockDeliver: after delivering the tagged docx
 
 VISUAL IDENTITY (superseded by §4 — see note above):
@@ -327,20 +336,20 @@ B1 DELIVERABLES:
 B2 DELIVERABLES (per batch):
   [ExamCode]_blueprint.json          → Replace in Project Files
 
-B3 FINAL DELIVERABLES (8 files — per Blueprint v1.42 / CreateAudit v2.12):
+B3 FINAL DELIVERABLES (6 files — per Blueprint v1.42 / CreateAudit v2.12.1):
   [ExamCode]_blueprint.xlsx          → Use locally (xlsx not readable by Claude)
   [ExamCode]_blueprint.json          → Replace in Project Files
   [ExamCode]_registry.json           → Upload to Project Files
   [ExamCode]_ExplainLearnings.md     → Upload to Project Files
   [ExamCode]_ExplainAuditLearnings.md → Upload to Project Files
   [ExamCode]_mock_test_audit.py      → Upload to Project Files (Step 7 optional, Step 8 mandatory)
-  blueprint_core.py                  → Upload to Project Files (BARE name — Step 8 A-FIGPROFILE)
-  figural_core.py                    → Upload to Project Files (BARE name — Step 8's 12 A-FIG* gates)
 
-  NOTE (v2.12): the last two keep their BARE names — no [ExamCode]_ prefix. They are
-  imported as Python modules; renaming breaks `import blueprint_core` and silently
-  reduces Step-8 coverage (the affected gates then report WARN skips instead of
-  running). The audit still completes either way — no engine condition halts a run.
+  NOTE (v2.12.1): the repo engines blueprint_core.py / figural_core.py are NOT
+  delivered here and must NOT be uploaded per-exam. Step 8 copies both from the
+  Step-0 verified clone into its own working directory. Engines live only in the
+  central repo (CLAUDE.md); a per-project copy is a second, unverified source that
+  can silently go stale. If an engine is ever unavailable the dependent gates
+  report an explicit WARN skip — no engine condition halts a run.
 
 NEXT STEP  : Step 7: MockCreate M1
 

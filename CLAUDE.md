@@ -91,6 +91,35 @@ looking like a fix. (Pre-2026-07-25 this file claimed the opposite: that specs l
 at runtime". That was false in both directions and, acted upon, would have turned every engine
 fix into a 200-project manual migration with no way to tell whether it had taken.)
 
+##### The one mechanical exception: standalone scripts (2026-08-01)
+The rule above is correct, and it rests on `cd "$FW"` putting the clone on `sys.path`. That
+holds **only for code Python reads from stdin** — spec-inline `python3 - <<EOF` gets
+`sys.path[0] == ''`, which resolves to the cwd, i.e. `$FW`. Every ordinary engine consumer
+works this way.
+
+It does **not** hold for a standalone `.py` executed by path. Python sets `sys.path[0]` to the
+**script's own directory**, never the cwd, so `python3 /home/claude/X.py` puts `/home/claude`
+on the path and leaves `$FW` off it *even when the cwd is `$FW`*. Verified empirically in both
+directions.
+
+Two consumers run that way, and both already handle it the same correct way — by **copying the
+engine out of `$FW` into their own working directory**:
+
+- `Framework_Blueprint.md` §S1-2b copies `blueprint_core.py` from `/tmp/fw` before Step 1 runs.
+- `Framework_MockTestCreateAudit.md` P0 copies `blueprint_core.py` + `figural_core.py` from
+  `$FW` before the auditor runs (v2.12.1).
+
+This is not a counter-example to the rule — it preserves it. The copy is taken from the fresh,
+bootstrap-verified clone at session time, so the engine is current by construction and a
+production push still reaches every exam on its next clone. What remains forbidden is sourcing
+that copy from `/mnt/project`, which would create a second, unverified per-exam copy that can
+silently go stale.
+
+**Missing this exception is what produced GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING**: the
+auditor's `A-FIGPROFILE` gate was written to delegate to `blueprint_core`, the delegation was
+recorded in its comments and call sites, and the import was never added — because in the
+environment the change was reviewed in, a bare import appeared to resolve.
+
 ## Command: `seal_release`
 Stamp a clean version + changelog over everything shipped since the last seal.
 1. New version from `VERSION` + today's date: if today > VERSION → today's date; if VERSION
