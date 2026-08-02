@@ -1251,6 +1251,22 @@ def gate_images(blocks, src, media_map):
     figtext_prose = []   # v2.4: figure-reference text in zero-image blocks
     fig = src['figural_qs']
     oc = src['options_count']
+    # v2.21.5 (ND10) — the registry's per-Q option count. A question the registry
+    # marks 0-option is NUMERICAL (NAT): Create.md R-FIGURAL v4.7 FIGURAL-NAT
+    # VARIANT (ND10) says such a question "has a PROBLEM image (or series images)
+    # but ZERO option images — there are no options to decompose", and that
+    # G-FIGURAL-COMPOSITE "must skip its per-option-image arm for a numerical
+    # figural question". This is the SAME signal gate_options already reads
+    # (obq[str(qnum)] == 0 → skip); gate_images had never read it.
+    #
+    # It must come from options_by_q, NOT from concept_map/nat_subtopic_ids: this
+    # function's own fallback comment (load_sources, "otherwise empty dict →
+    # gate_images falls back to default image_role='stem_and_options'") is exact —
+    # concept_map is {} on any run without a dossier or --key, so the existing
+    # _nat_ids mapping silently does not fire there and a figural-NAT lands in the
+    # stem_and_options arm. options_by_q travels in the registry (ND6), which
+    # Step 8 always receives.
+    obq_img = src.get('options_by_q', {})
     # v2.4: read image_role per subtopic from section_rules
     sr_text = src.get('section_rules_text', '')
     concept_map = src.get('concept_map', {})
@@ -1275,6 +1291,24 @@ def gate_images(blocks, src, media_map):
             stem = ' '.join(para_text(p) for p in b.paras)
             if _fig_ref_re.search(stem):
                 figtext_prose.append(f'Q{b.qnum}')
+            # v2.21.4 — A FIGURAL QUESTION THAT RENDERS ZERO IMAGES IS A FINDING.
+            # This `continue` used to swallow the condition entirely: the
+            # `stem_only:0img` arm below sits AFTER it, so `len(block_imgs) < 1`
+            # could never be true and that branch was DEAD CODE. A figural
+            # question whose figure was never drawn passed A-FIGCOMP clean unless
+            # its stem happened to match the _fig_ref_re prose pattern — i.e.
+            # detection depended on the wording of the stem rather than on the
+            # absence of the figure. Step-7 G-FIGURAL-COMPOSITE requires >=1
+            # problem image for stem_only, >=n for options_only and problem+per-
+            # option for stem_and_options; ZERO images satisfies no variant.
+            #
+            # Membership is taken from the REGISTRY set `fig` ONLY, never from
+            # figural_cue_keywords: the cue list contains ordinary MCQ phrases
+            # ('which of the', 'series', 'complete the'), so applying it to
+            # zero-image blocks would false-FAIL a large share of ordinary TEXT
+            # questions across the estate.
+            if b.qnum in fig:
+                composite.append(f'Q{b.qnum}(figural:0img)')
             continue
         stem = ' '.join(para_text(p) for p in b.paras[:3])
         math_ctx = src['omml_required_present']  # coarse; refined in Part B
@@ -1309,18 +1343,35 @@ def gate_images(blocks, src, media_map):
                 _q_sid = concept_map[qnum_str].get('subtopic_id', '')
                 if _q_sid in _nat_ids:
                     _q_role = 'stem_only'
+            # v2.21.5 (ND10) — REGISTRY-DRIVEN NAT DETECTION, which works even when
+            # concept_map is empty (no dossier / no --key). A 0-option question has
+            # no options to decompose, so the per-option-image arm DOES NOT APPLY
+            # in EITHER the stem_and_options or the options_only variant; ND10
+            # still requires >=1 problem image, and the zero-image branch above
+            # (which runs before this point) continues to enforce exactly that.
+            if obq_img.get(qnum_str) == 0:
+                _q_role = 'stem_only'
             # Branch by image_role
             if _q_role == 'stem_only':
-                if len(block_imgs) < 1:
-                    composite.append(f'Q{b.qnum}(stem_only:0img)')
-                # 1 image IS correct for stem_only — do NOT flag as composite
+                # v2.21.4: the zero-image case is handled ABOVE (before the
+                # `continue`); reaching here means >=1 image, which IS correct for
+                # stem_only. Do NOT flag as composite.
+                pass
             elif _q_role == 'options_only':
                 n_opt = oc   # oc is int (exam-wide OPTIONS_COUNT from section_rules)
                 if len(block_imgs) < n_opt:
                     composite.append(f'Q{b.qnum}(opts_only:{len(block_imgs)}<{n_opt})')
             else:   # stem_and_options (default)
-                if len(block_imgs) == 1:
-                    composite.append(f'Q{b.qnum}')
+                # v2.21.4 — REQUIRE THE FULL SET, not merely "more than one".
+                # Step-7 G-FIGURAL-COMPOSITE: stem_and_options = "problem image +
+                # one separate image per option", i.e. oc+1 images. The check was
+                # `len(block_imgs) == 1`, so a block rendering 2, 3 or 4 images —
+                # a problem figure with a PARTIAL option set, options silently
+                # undrawn — passed A-FIGCOMP clean. Only the degenerate 1-image
+                # case was caught. A candidate cannot answer a question whose
+                # option figures were never rendered.
+                if len(block_imgs) < oc + 1:
+                    composite.append(f'Q{b.qnum}({len(block_imgs)}<{oc + 1})')
     (_ok if not math_raster else _fail)('A-MATHRASTER',
         'no math-token raster names.' if not math_raster else
         'image named like a math raster: ' + _flist(math_raster))
@@ -3625,6 +3676,157 @@ def self_test():
 
     # 53. BLOCK.IMAGES IS POPULATED — the fixture whose absence WAS the defect.
     #     Nothing in this suite had ever asserted that a block carries an image.
+    # ══════════════════════════════════════════════════════════════════════
+    # 53a-53g. v2.21.4 — gate_images MUTATION CLOSURE + TWO REAL DEFECTS.
+    #     audit_mutation.py showed SEVEN findings in gate_images could be deleted
+    #     outright with all 120 fixtures still green: multi_per_line,
+    #     figtext_prose, math_raster, warn_view and all three composite arms. The
+    #     gate owning A-FIGCOMP and A-MATHRASTER on every figural paper in the
+    #     estate had no fixture that could detect it going silent. Probing that
+    #     space surfaced two real defects, both fixed in this release and locked
+    #     by 53f/53g.
+    # ══════════════════════════════════════════════════════════════════════
+    def _fig_src(role='stem_and_options', oc=4, figq=(1,)):
+        _s = _src_stub(tq=1); _s['options_count'] = oc
+        _s['figural_qs'] = set(figq); _s['omml_required_present'] = False
+        _s['concept_map'] = {'1': {'subtopic_id': 's.a'}}
+        _s['section_rules_text'] = f'subtopic_id: s.a\n  image_role: {role}\n'
+        return _s
+    def _img_verdict(names, role='stem_and_options', oc=4, figq=(1,)):
+        _p = _img_doc(list(names))
+        _mm = gate_zip(_p)
+        _doc = Document(_p); _t, _bl = parse_blocks(_doc)
+        _reset(); gate_images(_bl, _fig_src(role, oc, figq), _mm)
+        return {c: l for l, c, m in RESULTS}
+    _CANON5 = ['q1_problem.png', 'q1_opt1.png', 'q1_opt2.png',
+               'q1_opt3.png', 'q1_opt4.png']
+
+    # 53a — GUARD: the CANONICAL stem_and_options set (problem + one image per
+    #       option) must stay clean, so none of the fixes below can be "achieved"
+    #       by making the gate reject everything.
+    check('FIGCOMP-canonical-stem-and-options-clean',
+          _img_verdict(_CANON5).get('A-FIGCOMP') == 'OK')
+
+    # 53b — MATH-TOKEN raster name is an A-MATHRASTER finding (kills math_raster).
+    check('MATHRASTER-math-token-name-is-a-finding',
+          _img_verdict(['q1_problem.png', 'q1_eqn.png'])
+          .get('A-MATHRASTER') == 'FAIL')
+
+    # 53c — NON-CANONICAL image name routes to the Part-B view WARN (warn_view).
+    check('MATHRASTER-VIEW-noncanonical-name-warns',
+          _img_verdict(['q1_problem.png', 'Picture 2.png'])
+          .get('A-MATHRASTER-VIEW') == 'WARN')
+
+    # 53d — TWO IMAGES ON ONE LINE is an A-FIGCOMP-LINE finding (multi_per_line).
+    def _b_twoline(d):
+        from docx.shared import Inches
+        d.add_paragraph('Q.1  Study the figure.')
+        _pp = d.add_paragraph()
+        for _ in range(2):
+            _pp.add_run().add_picture(io.BytesIO(_png_bytes()), width=Inches(1.0))
+    _p53d = _mini_doc(tmp, _b_twoline)
+    _mm53d = gate_zip(_p53d)
+    _t, _bl53d = parse_blocks(Document(_p53d))
+    _reset(); gate_images(_bl53d, _fig_src(), _mm53d)
+    check('FIGCOMP-LINE-two-images-one-line-is-a-finding',
+          any(c == 'A-FIGCOMP-LINE' and l == 'FAIL' for l, c, m in RESULTS))
+
+    # 53e — FIGURE-REFERENCE PROSE in a ZERO-IMAGE block is a finding
+    #       (kills figtext_prose). A figural subtopic rendered as prose is a
+    #       figure that was never drawn.
+    def _b_prose(d):
+        d.add_paragraph('Q.1  In the given figure, find the value of X.')
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.  Option {_i}')
+    _p53e = _mini_doc(tmp, _b_prose)
+    _mm53e = gate_zip(_p53e)
+    _t, _bl53e = parse_blocks(Document(_p53e))
+    _reset(); gate_images(_bl53e, _fig_src(), _mm53e)
+    check('FIGTEXT-PROSE-zero-image-figure-reference-is-a-finding',
+          any(c == 'A-FIGTEXT-PROSE' and l == 'FAIL' for l, c, m in RESULTS))
+
+    # 53f — v2.21.4 DEAD-BRANCH LOCK. A REGISTRY-DECLARED FIGURAL question that
+    #       renders ZERO images is a finding. The `if not block_imgs: continue`
+    #       sat ABOVE the stem_only arm, so `len(block_imgs) < 1` could NEVER be
+    #       true: that arm was DEAD CODE and a figure that was never drawn passed
+    #       A-FIGCOMP clean unless its stem happened to match the prose pattern —
+    #       detection depended on the WORDING of the stem, not on the absence of
+    #       the figure. Membership comes from the REGISTRY set only, never from
+    #       figural_cue_keywords (which contain ordinary MCQ phrases like
+    #       'which of the'); 53f2 guards that a NON-figural text question with
+    #       zero images stays clean.
+    def _b_noimg(d):
+        d.add_paragraph('Q.1  Which of the following is correct?')
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.  Option {_i}')
+    _p53f = _mini_doc(tmp, _b_noimg)
+    _mm53f = gate_zip(_p53f)
+    _t, _bl53f = parse_blocks(Document(_p53f))
+    _reset(); gate_images(_bl53f, _fig_src('stem_only', figq=(1,)), _mm53f)
+    _f_declared = any(c == 'A-FIGCOMP' and l == 'WARN' and '0img' in m
+                      for l, c, m in RESULTS)
+    _reset(); gate_images(_bl53f, _fig_src('stem_only', figq=()), _mm53f)
+    _f_plain = any(c == 'A-FIGCOMP' and l == 'OK' for l, c, m in RESULTS)
+    check('FIGCOMP-declared-figural-with-zero-images-is-a-finding',
+          _f_declared and _f_plain)
+
+    # 53h — OPTIONS_ONLY SHORT SET is a finding. Step-7 G-FIGURAL-COMPOSITE:
+    #       options_only requires ">=n option images, no problem image required",
+    #       so 3 images where OPTIONS_COUNT is 4 means an option was never drawn.
+    #       Guarded by the exact-count case staying clean.
+    check('FIGCOMP-options-only-short-set-is-a-finding',
+          _img_verdict(_CANON5[1:4], role='options_only').get('A-FIGCOMP') == 'WARN'
+          and _img_verdict(_CANON5[1:], role='options_only').get('A-FIGCOMP') == 'OK')
+
+    # 53i — v2.21.5 ND10 FIGURAL-NAT EXEMPTION, BOTH HALVES. Create.md R-FIGURAL
+    #       v4.7 FIGURAL-NAT VARIANT: a figural question whose subtopic is
+    #       answer_type=='numerical' has a PROBLEM image (or series images) but
+    #       ZERO option images, and G-FIGURAL-COMPOSITE "must skip its
+    #       per-option-image arm" for it. v2.21.4 tightened stem_and_options to
+    #       oc+1 images WITHOUT reading that exemption, so a 3-image figural-NAT
+    #       series false-WARNed and routed a human to "fix" a CORRECT paper.
+    #       The registry's options_by_q is the signal (same one gate_options
+    #       reads); concept_map/nat_subtopic_ids cannot be relied on because
+    #       concept_map is {} on any run without a dossier or --key.
+    #       BOTH HALVES are asserted so the fix cannot be "achieved" by disabling
+    #       the arm: the SAME 3-image block is OK when the registry marks it NAT
+    #       and a FINDING when it does not.
+    def _img_verdict_obq(names, obq, role='stem_and_options', oc=4, figq=(1,)):
+        _p = _img_doc(list(names))
+        _mm = gate_zip(_p)
+        _doc = Document(_p); _t, _bl = parse_blocks(_doc)
+        _s = _fig_src(role, oc, figq); _s['options_by_q'] = obq
+        _reset(); gate_images(_bl, _s, _mm)
+        return {c: l for l, c, m in RESULTS}
+    _nat3 = ['q1_problem.png', 'q1_problem_2.png', 'q1_problem_3.png']
+    check('FIGCOMP-figural-NAT-exempt-from-per-option-arm-ND10',
+          _img_verdict_obq(_nat3, {'1': 0}).get('A-FIGCOMP') == 'OK'
+          and _img_verdict_obq(_nat3, {'1': 4}).get('A-FIGCOMP') == 'WARN')
+
+    # 53j — ND10 GUARD: a figural-NAT with ZERO images is STILL a finding. ND10
+    #       exempts the per-OPTION arm only; it still requires >=1 problem image.
+    def _b_natnoimg(d):
+        d.add_paragraph('Q.1  Compute the area. (Enter numerical value)')
+    _p53j = _mini_doc(tmp, _b_natnoimg)
+    _mm53j = gate_zip(_p53j)
+    _t, _bl53j = parse_blocks(Document(_p53j))
+    _s53j = _fig_src('stem_and_options'); _s53j['options_by_q'] = {'1': 0}
+    _reset(); gate_images(_bl53j, _s53j, _mm53j)
+    check('FIGCOMP-figural-NAT-with-zero-images-still-a-finding',
+          any(c == 'A-FIGCOMP' and l == 'WARN' and '0img' in m
+              for l, c, m in RESULTS))
+
+    # 53g — v2.21.4 PARTIAL-OPTION-SET LOCK. stem_and_options requires the FULL
+    #       set: Step-7 G-FIGURAL-COMPOSITE says "problem image + one separate
+    #       image per option" (oc+1). The check was `len(block_imgs) == 1`, so a
+    #       block rendering 2, 3 or 4 images — a problem figure with options
+    #       SILENTLY UNDRAWN — passed clean. Only the degenerate 1-image case was
+    #       caught. A candidate cannot answer a question whose option figures were
+    #       never rendered.
+    check('FIGCOMP-partial-option-image-set-is-a-finding',
+          all(_img_verdict(_CANON5[:_k]).get('A-FIGCOMP') == 'WARN'
+              for _k in (2, 3, 4)))
+
     _b53, _d53, _r53 = _attach(_img_doc(['q1_problem.png', 'q1_opt1.png']))
     check('IMAGES-attached-to-block',
           _d53 == 2 and _r53 == 2 and len(_b53[0].images) == 2

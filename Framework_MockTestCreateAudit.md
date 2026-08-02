@@ -1,4 +1,80 @@
-# Framework_MockTestCreateAudit v2.21.3
+# Framework_MockTestCreateAudit v2.21.5
+# v2.21.5 — 2026-08-02 — ND10 FIGURAL-NAT EXEMPTION WIRED INTO gate_images.
+#   Caught in REVIEW, before deployment, by a reader checking the v2.21.4 change
+#   against the PRODUCER contract rather than against its own fixtures.
+#
+#   Create.md R-FIGURAL v4.7 FIGURAL-NAT VARIANT (ND10): a figural question whose
+#   subtopic is answer_type=='numerical' has a PROBLEM image (or SERIES images) but
+#   ZERO option images — "there are no options to decompose" — and
+#   G-FIGURAL-COMPOSITE "must skip its per-option-image arm" for it. ND10 says in
+#   terms that without this variant "a valid figural-NAT would be hard-stopped for
+#   missing option images".
+#
+#   gate_images had NEVER read the signal. v2.21.3 and earlier flagged a
+#   SINGLE-image figural-NAT (the `len(block_imgs) == 1` arm) — a pre-existing false
+#   positive. v2.21.4 tightened that arm to `< oc + 1` to catch partial option sets,
+#   which WIDENED the same false positive to every 2..oc-image figural-NAT series.
+#   It is a WARN, so no paper hard-stops, but it routes a human to "VIEW + fix in
+#   Part B" a paper that is CORRECT — the most expensive kind of wrong answer an
+#   auditor can give.
+#
+#   THE SIGNAL MUST BE options_by_q, NOT concept_map. The existing
+#   nat_subtopic_ids mapping requires concept_map, and load_sources sets
+#   concept_map = {} on any run WITHOUT a dossier or --key — its own comment says
+#   "otherwise empty dict (gate_images falls back to default
+#   image_role='stem_and_options')". So on a plain run the NAT mapping silently does
+#   not fire and the figural-NAT lands in exactly the arm that was tightened.
+#   options_by_q travels in the registry (ND6), which Step 8 ALWAYS receives, and is
+#   the SAME signal gate_options has always read (obq[str(qnum)] == 0 -> skip).
+#   gate_images now reads it too — one shared NAT signal, per S5-2 "ONE STRUCTURAL
+#   QUESTION, ONE ANSWER".
+#
+#   SCOPE OF THE EXEMPTION: the per-OPTION-image arm only, in BOTH the
+#   stem_and_options and options_only variants. ND10 still requires >=1 problem
+#   image, so a figural-NAT rendering ZERO images REMAINS a finding (fixture 53j).
+#
+#   Fixtures 53i (BOTH halves: the SAME 3-image block is OK when the registry marks
+#   it NAT and a FINDING when it does not — so the fix cannot be "achieved" by
+#   disabling the arm) and 53j. Self-test 128 -> 130. gate_images stays at 100%
+#   (7/7 killed). AUTH_GATE_FLOOR stays 35. NO paper changes. NO Step-7 changes.
+#
+# v2.21.4 — 2026-08-02 — A-FIGCOMP HAD A DEAD BRANCH AND ACCEPTED PARTIAL FIGURE SETS.
+#   Found by working the audit_mutation.py backlog. gate_images carried SEVEN
+#   surviving mutants — every finding it emits (multi_per_line, figtext_prose,
+#   math_raster, warn_view, all three composite arms) could be DELETED OUTRIGHT with
+#   all 120 fixtures still green. The gate owning A-FIGCOMP and A-MATHRASTER on every
+#   figural paper in the estate had no fixture that could detect it going silent.
+#   Probing that space surfaced TWO REAL DEFECTS. This is the third consecutive gate
+#   where closing a coverage gap exposed a live bug.
+#
+#   DEFECT 1 — DEAD BRANCH. `if not block_imgs: ... continue` sits ABOVE the
+#   stem_only arm, so `if len(block_imgs) < 1: composite.append('stem_only:0img')`
+#   could NEVER be true. It was unreachable code. A REGISTRY-DECLARED FIGURAL
+#   question that rendered ZERO images passed A-FIGCOMP clean — a figure that was
+#   never drawn — UNLESS its stem happened to match the _fig_ref_re prose pattern.
+#   Detection therefore depended on the WORDING OF THE STEM rather than on the
+#   ABSENCE OF THE FIGURE. Fixed by testing the condition before the `continue`.
+#   Membership is taken from the REGISTRY set only, NEVER from figural_cue_keywords:
+#   that list contains ordinary MCQ phrases ('which of the', 'series', 'complete
+#   the'), so applying it to zero-image blocks would false-FAIL a large share of
+#   ordinary TEXT questions estate-wide. Fixture 53f locks both halves.
+#
+#   DEFECT 2 — PARTIAL FIGURE SETS ACCEPTED. Step-7 G-FIGURAL-COMPOSITE requires,
+#   for stem_and_options, "problem image + one separate image per option" (oc+1
+#   images). The check was `if len(block_imgs) == 1`, so a block rendering 2, 3 or 4
+#   images — a problem figure with its OPTION FIGURES SILENTLY UNDRAWN — passed
+#   A-FIGCOMP clean. Only the degenerate 1-image case was caught. A candidate cannot
+#   answer a question whose option figures were never rendered. Fixed to
+#   `len(block_imgs) < oc + 1`, with the count reported in the finding. Verified on
+#   the real 60-question IIT_JAM_BIOTECHNOLOGY paper (57 drawings): the flagged
+#   question set is IDENTICAL before and after — only the diagnostic detail is
+#   richer. Fixture 53g locks it; 53a guards the canonical set staying clean.
+#
+#   Fixtures 53a-53h added. gate_images now scores 100% (7/7 killed). Self-test
+#   120 -> 128 (-> 130 in v2.21.5). Engine-wide survivors 14 -> 7, score 48.1% -> 74.1%; §21 ratchet
+#   budget LOWERED to 7. THREE gates now at 100%: gate_dossier, gate_options,
+#   gate_images. AUTH_GATE_FLOOR stays 35. NO paper changes. NO Step-7 changes.
+#
 # v2.21.3 — 2026-08-02 — A-OPTORDER DID NOT ENFORCE ITS OWN DOCUMENTED CONTRACT.
 #   Found by working the audit_mutation.py backlog: gate_options was carrying TWO
 #   surviving mutants (bad_lab, bad_ord), meaning A-OPTLABEL and A-OPTORDER — which
@@ -2375,7 +2451,7 @@
   | A-OMML      | every <m:f> has non-empty numerator AND denominator; no year-range "YYYY/YY" stacked fraction; OMML floor ≥1 if any subtopic OMML_required | section_rules OMML_required | R-MATH-OMML | CP |
 
   FIGURAL DECOMPOSITION
-  | A-FIGCOMP  | v2.4 image_role-aware: each figural Q is structured per its image_role variant. stem_and_options (default): problem image(s) + 1 image/option, single-column, 1 per line, bound 1:1 to labels; no composite panel; no "Figure k" dummy-text option. stem_only (v2.4): ≥1 problem image + TEXT options — option-image arm SKIPPED. options_only (v2.4): ≥n option images, no problem image required. FIGURAL-NAT (answer_type=='numerical', options_by_q==0): treated as stem_only — problem image(s) only with ZERO option images. All variants: single-column/no-composite/300-DPI/named-image discipline checked. image_role read from section_rules PYQ_IMAGE_ANALYSIS per subtopic_id | registry figural_manifests + section_rules PYQ_IMAGE_ANALYSIS + figural stem cues + registry options_by_q | R-FIGURAL | CP/RG |
+  | A-FIGCOMP  | v2.4 image_role-aware: each figural Q is structured per its image_role variant. stem_and_options (default): problem image(s) + 1 image/option, single-column, 1 per line, bound 1:1 to labels; no composite panel; no "Figure k" dummy-text option. stem_only (v2.4): ≥1 problem image + TEXT options — option-image arm SKIPPED. options_only (v2.4): ≥n option images, no problem image required. FIGURAL-NAT (answer_type=='numerical', options_by_q==0): treated as stem_only — problem image(s) only with ZERO option images. All variants: single-column/no-composite/300-DPI/named-image discipline checked. image_role read from section_rules PYQ_IMAGE_ANALYSIS per subtopic_id | registry figural_manifests + section_rules PYQ_IMAGE_ANALYSIS + figural stem cues + registry options_by_q | R-FIGURAL | CP/RG | v2.21.4: a REGISTRY-DECLARED figural Q rendering ZERO images is a finding (the zero-image case previously hit an early `continue`, making the stem_only arm DEAD CODE); and stem_and_options requires the FULL set of oc+1 images, not merely more than one — a partial option-image set was previously accepted. v2.21.5 (ND10): a question the registry marks 0-option is NUMERICAL — the per-OPTION-image arm DOES NOT APPLY in either the stem_and_options or options_only variant; the signal is registry options_by_q (the same one gate_options reads), NEVER concept_map, which is empty on any run without a dossier or --key. >=1 problem image is still required.
   | A-FIGPROFILE | v2.10 (GAP-2026-07-26-003 D2): each FIGURAL subtopic's GENERATED figure types conform to the profile Step 5 measured. Reads section_rules PYQ_IMAGE_ANALYSIS via bc.figural_generation_profile(), reads the object_type Step 7 recorded per question in registry.figural_manifests[mock].object_types (v2.18 CORRECTION: this row previously named batch_state.figural_qs[n].object_type, a Step-7 INTERNAL sidecar that S0-1 explicitly does NOT deliver — the auditor has always read the registry. The stale row sent an operator hunting for a file Step 8 can never have, and cost two turns and one wrong intermediate finding on a live run), and delegates the verdict to bc.check_figural_conformance() — the SAME function Step 7 generates against, so generator and auditor cannot drift. FAIL when a generated type appears in neither the dominant nor the observed list, or when dominant-mode coverage falls below the 55% floor (target 70%). SKIP when the profile is unconstrained — absent, empty, or vision_status='unavailable'. AUDITS RECORDED INTENT, NOT PIXELS: confirming a render actually depicts a micrograph needs a view(), a CLASS T operation that cannot run inside an audit's python; intent is deterministic and catches the real failure, which is Step 7 ignoring the profile. EC-V18: SKIP keeps ~200 pre-v2.37 exams passing untouched. | section_rules PYQ_IMAGE_ANALYSIS + registry figural_manifests[].object_types | R-FIGURAL | CP/RG |
 
   FIGURE CONFORMANCE (v2.11, GAP-2026-07-29-FIG-R2). Twelve gates, all arithmetic
@@ -4290,15 +4366,15 @@ Replace for registry.json), and next-step reference.
 #   |   explanation / answer-key set cannot ship the way a bad paper did.                 |
 #   | audit_mutation.py (v2.21.2) | MUTATION TESTING IS A RELEASE GATE. Run              |
 #   |   `python3 audit_mutation.py --max-survivors N` where N is the CURRENT budget      |
-#   |   (14 as of 2026.08.02.4). The count MUST NOT INCREASE: a release that adds an     |
+#   |   (7 as of 2026.08.02.5). The count MUST NOT INCREASE: a release that adds an      |
 #   |   untested finding FAILS here. Lower N whenever survivors are retired; never       |
 #   |   raise it. A SURVIVING mutant means no fixture can detect that finding being      |
 #   |   deleted outright — the hollow-branch class, caught mechanically instead of by    |
 #   |   a human reading code after it shipped. Inherited survivors awaiting fixtures:    |
-#   |   gate_images (7: multi_per_line, figtext_prose, math_raster, warn_view,           |
-#   |   composite x3), gate_nat (3: nat_value/nat_grading_value missing, re-derivation    |
-#   |   raise), gate_seccount (1), gate_zip (2),                                         |
-#   |   [gate_options RETIRED v2.21.3 — now 100%, 4/4 killed],                            |
+#   |   gate_nat (3: nat_value/nat_grading_value missing, re-derivation raise),           |
+#   |   gate_seccount (1), gate_zip (2), restore_checkpoint (1).                          |
+#   |   RETIRED AT 100%: gate_dossier (v2.21.2), gate_options (v2.21.3),                  |
+#   |   gate_images (v2.21.4, 7/7 killed).                                                |
 #   |   restore_checkpoint (1). CHECK AO catches a tautological fixture SHAPE; only      |
 #   |   mutation catches a finding that is simply never triggered. Both are required.    |
 #   | audit_canonical.py self_test() (v2.21) | EVERY new gate MUST ship at least one   |
@@ -4344,7 +4420,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.21.3 build prints 120/120 — see tests 16-20).
+#     v2.12; the v2.21.5 build prints 130/130 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4453,7 +4529,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (120/120) all pass, and
+#   (130/130) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4550,7 +4626,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 120/120 PASS  (exit 0) on the v2.21.3 canonical
+#     • `--self-test`  → SELF-TEST: 130/130 PASS  (exit 0) on the v2.21.5 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4618,10 +4694,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 120/120). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 130/130). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21.3
+# END OF Framework_MockTestCreateAudit v2.21.5
 # ════════════════════════════════════════════════════════════════════════

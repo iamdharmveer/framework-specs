@@ -1,5 +1,96 @@
 # Changelog
 
+## 2026.08.02.5
+**Includes the ND10 figural-NAT correction (spec v2.21.5), caught in review before
+deployment.** See the ND10 section at the end of this entry.
+
+**A-FIGCOMP had a dead branch and accepted partial figure sets. Two real defects,
+both on the figural path that every image-based paper in the estate travels.**
+
+Found by working the `audit_mutation.py` backlog. `gate_images` carried **seven**
+surviving mutants — *every* finding it emits could be deleted outright with all 120
+fixtures still green. The gate owning A-FIGCOMP and A-MATHRASTER had no fixture that
+could detect it going silent. This is the **third consecutive gate** where closing a
+coverage gap exposed a live bug.
+
+**Defect 1 — dead branch.** `if not block_imgs: ... continue` sits *above* the
+`stem_only` arm, so `if len(block_imgs) < 1: composite.append('stem_only:0img')`
+could never be true — unreachable code. A registry-declared figural question that
+rendered **zero images** passed A-FIGCOMP clean (a figure that was never drawn),
+unless its stem happened to match the `_fig_ref_re` prose pattern. Detection depended
+on the **wording of the stem** rather than on the **absence of the figure**. Fixed by
+testing the condition before the `continue`. Membership comes from the **registry set
+only**, never from `figural_cue_keywords` — that list holds ordinary MCQ phrases
+("which of the", "series", "complete the"), so applying it to zero-image blocks would
+false-FAIL a large share of ordinary text questions estate-wide. Fixture 53f locks
+both halves.
+
+**Defect 2 — partial figure sets accepted.** Step-7 `G-FIGURAL-COMPOSITE` requires,
+for `stem_and_options`, "problem image + one separate image per option" — `oc+1`
+images. The check was `if len(block_imgs) == 1`, so a block rendering 2, 3 or 4
+images — a problem figure with its **option figures silently undrawn** — passed
+clean. Only the degenerate 1-image case was caught. A candidate cannot answer a
+question whose option figures were never rendered. Fixed to `len(block_imgs) < oc+1`,
+with the count now reported in the finding.
+
+Verified on the real 60-question IIT_JAM_BIOTECHNOLOGY paper (57 drawings): the
+flagged question set is **identical** before and after — only the diagnostic detail
+is richer. Fixture 53g locks it; 53a guards the canonical set staying clean.
+
+**Fixtures 53a-53h** added (canonical guard, math-token name, non-canonical name
+warn, two-images-per-line, figure-reference prose, dead-branch lock, partial-set
+lock, options_only short set). `gate_images` now scores **100% (7/7 killed)**.
+
+Self-test **120 → 128**. Engine-wide survivors **14 → 7**, mutation score
+**48.1% → 74.1%**. §21 ratchet budget **lowered to 7**. Three gates now at 100%:
+`gate_dossier`, `gate_options`, `gate_images`.
+
+Spec → **v2.21.4**. `AUTH_GATE_FLOOR` stays **35**. No paper changes. No Step-7
+changes.
+
+### ND10 correction (spec v2.21.5) — figural-NAT must skip the per-option-image arm
+
+Caught in **review, before deployment**, by a reader checking the change against the
+**producer contract** rather than against its own fixtures.
+
+Create.md `R-FIGURAL` v4.7 **FIGURAL-NAT VARIANT (ND10)**: a figural question whose
+subtopic is `answer_type=='numerical'` has a problem image (or *series* images) but
+**zero option images** — "there are no options to decompose" — and
+`G-FIGURAL-COMPOSITE` "must skip its per-option-image arm" for it. ND10 states in
+terms that without the variant "a valid figural-NAT would be hard-stopped for missing
+option images".
+
+`gate_images` had **never read that signal**. v2.21.3 and earlier already
+false-flagged a **single-image** figural-NAT via the `len(block_imgs) == 1` arm — a
+pre-existing defect. Tightening that arm to `< oc + 1` (Defect 2 above) **widened**
+the same false positive to every 2..oc-image figural-NAT series. It is a WARN, so no
+paper hard-stops, but it routes a human to "VIEW + fix in Part B" a paper that is
+**correct** — the most expensive kind of wrong answer an auditor can give.
+
+**The signal must be `options_by_q`, not `concept_map`.** The existing
+`nat_subtopic_ids` mapping requires `concept_map`, and `load_sources` sets
+`concept_map = {}` on any run without a dossier or `--key` — its own comment says
+"otherwise empty dict (gate_images falls back to default
+image_role='stem_and_options')". So on a plain run the NAT mapping silently does not
+fire and the figural-NAT lands in exactly the arm that was tightened. `options_by_q`
+travels in the registry (ND6), which Step 8 always receives, and is the same signal
+`gate_options` has always read. One shared NAT signal, per S5-2 "one structural
+question, one answer".
+
+**Scope:** the per-option-image arm only, in both `stem_and_options` and
+`options_only`. ND10 still requires ≥1 problem image, so a figural-NAT rendering
+**zero** images remains a finding.
+
+Measured across both builds — N1 single-image figural-NAT: production WARN → **OK**;
+N2 three-image series: would have become WARN → **OK**; N3 zero-image figural-NAT:
+production OK → **WARN** (correctly detected); N4 the same 3-image block when the
+registry does *not* mark it NAT: **WARN** (still caught).
+
+**Fixtures 53i** (both halves — the same 3-image block is OK when the registry marks
+it NAT and a finding when it does not, so the fix cannot be "achieved" by disabling
+the arm) **and 53j** (zero-image guard). Self-test **128 → 130**. `gate_images` stays
+at **100%** (7/7 killed).
+
 ## 2026.08.02.4
 **A-OPTORDER did not enforce its own documented contract. Options labelled 2,3,4,5
 certified clean — and every answer key on such a question is wrong.**
