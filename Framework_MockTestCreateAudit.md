@@ -1,4 +1,37 @@
-# Framework_MockTestCreateAudit v2.21.2
+# Framework_MockTestCreateAudit v2.21.3
+# v2.21.3 — 2026-08-02 — A-OPTORDER DID NOT ENFORCE ITS OWN DOCUMENTED CONTRACT.
+#   Found by working the audit_mutation.py backlog: gate_options was carrying TWO
+#   surviving mutants (bad_lab, bad_ord), meaning A-OPTLABEL and A-OPTORDER — which
+#   police option labelling on EVERY question of EVERY paper in the estate — had no
+#   fixture that could detect them going silent. Only A-OPTN and A-OPTUNIQUE were
+#   covered. Probing the uncovered space to write those fixtures surfaced a REAL
+#   DEFECT, which is the point of the exercise.
+#
+#   THE DEFECT. This gate's S5-2 row has always read "options appear in document
+#   order 1..OPTIONS_COUNT". The check was
+#       if 0 in idxs or idxs != list(range(idxs[0], idxs[0] + oc))
+#   which accepts ANY CONSECUTIVE RUN. A block labelled 2,3,4,5 passed A-OPTORDER
+#   *and* A-OPTLABEL and certified CLEAN. The engine was weaker than its own
+#   documented contract, and nothing compared the two.
+#
+#   IT IS NOT COSMETIC. A-KINT derives the key as an int in 1..OPTIONS_COUNT. On a
+#   paper labelled 2,3,4,5 the key "option 1" refers to an option that DOES NOT
+#   EXIST, and keys 2..oc each point one place off — EVERY ANSWER FOR THAT QUESTION
+#   IS WRONG on the delivered paper, with no gate objecting. A zero-start set
+#   (0,1,2,3) was caught only incidentally, by the separate `0 in idxs` clause.
+#
+#   FIX: idxs != list(range(1, oc + 1)) — anchored at 1, not merely consecutive.
+#   _idx_of() normalises all three label families to 1-based (num 1.., alpha a=1..,
+#   roman i=1..), so the anchor is family-agnostic and no legitimate
+#   option_label_format starts anywhere else. Verified on the real 60-question
+#   IIT_JAM_BIOTECHNOLOGY paper: all four option gates unmoved.
+#
+#   Fixtures 4a-4e added (mixed family, family-vs-format mismatch, out-of-order,
+#   the ANCHOR LOCK, and a three-family canonical guard so the fix cannot be
+#   "achieved" by rejecting everything). gate_options now scores 100% (4/4 killed).
+#   Self-test 115 -> 120. Engine-wide survivors 16 -> 14, score 40.7% -> 48.1%;
+#   §21 ratchet budget LOWERED to 14. AUTH_GATE_FLOOR stays 35. NO paper changes.
+#
 # v2.21.2 — 2026-08-02 — MUTATION TESTING MADE MECHANICAL; 3 HOLLOW BRANCHES CLOSED.
 #   Answer to "is there a more robust way to prove these two Steps are in sync?"
 #   YES, and reading the code is not it. Eight times this corpus has shipped a code
@@ -15,7 +48,7 @@
 #   fixture. Half of the Tier-A cross-check was unverified while the release that
 #   touched it reported 112/112 green.
 #
-#   Fixtures 92g/92h/92i close all three; gate_dossier is now at a 100% mutation
+#   Fixtures 92g/92h/92i close all three; gate_dossier is at a 100% mutation
 #   score (5/5 killed). Self-test 112 -> 115. Engine-wide: 16 survivors remain,
 #   score 40.7%, all inherited and all itemised in §21.
 #
@@ -2314,7 +2347,7 @@
             A-NAT-NOOPT verifies those render zero options instead)
   | A-OPTN     | every Q has exactly OPTIONS_COUNT options (NAT Qs skipped)| section_rules options_count        | R4  | RG      |
   | A-OPTLABEL | option labels match option_label_format (default "n.  ")| section_rules option_label_format  | R10 | CP      |
-  | A-OPTORDER | options appear in document order 1..OPTIONS_COUNT        | —                                  | R13 | CP      |
+  | A-OPTORDER | options appear in document order 1..OPTIONS_COUNT — ANCHORED AT 1 (v2.21.3), not merely consecutive: a set labelled 2,3,4,5 is a FAIL. A-KINT derives the key in 1..OPTIONS_COUNT, so an unanchored set misaligns EVERY key on that question. Family-agnostic: _idx_of() normalises num/alpha/roman to 1-based | — | R13 | CP      |
   | A-OPTUNIQUE| options distinct within a Q (strip+casefold)            | —                                  | R4  | RG      |
 
   BODY HYGIENE
@@ -4257,14 +4290,15 @@ Replace for registry.json), and next-step reference.
 #   |   explanation / answer-key set cannot ship the way a bad paper did.                 |
 #   | audit_mutation.py (v2.21.2) | MUTATION TESTING IS A RELEASE GATE. Run              |
 #   |   `python3 audit_mutation.py --max-survivors N` where N is the CURRENT budget      |
-#   |   (16 as of 2026.08.02.3). The count MUST NOT INCREASE: a release that adds an     |
+#   |   (14 as of 2026.08.02.4). The count MUST NOT INCREASE: a release that adds an     |
 #   |   untested finding FAILS here. Lower N whenever survivors are retired; never       |
 #   |   raise it. A SURVIVING mutant means no fixture can detect that finding being      |
 #   |   deleted outright — the hollow-branch class, caught mechanically instead of by    |
 #   |   a human reading code after it shipped. Inherited survivors awaiting fixtures:    |
 #   |   gate_images (7: multi_per_line, figtext_prose, math_raster, warn_view,           |
 #   |   composite x3), gate_nat (3: nat_value/nat_grading_value missing, re-derivation    |
-#   |   raise), gate_options (2: bad_lab, bad_ord), gate_seccount (1), gate_zip (2),     |
+#   |   raise), gate_seccount (1), gate_zip (2),                                         |
+#   |   [gate_options RETIRED v2.21.3 — now 100%, 4/4 killed],                            |
 #   |   restore_checkpoint (1). CHECK AO catches a tautological fixture SHAPE; only      |
 #   |   mutation catches a finding that is simply never triggered. Both are required.    |
 #   | audit_canonical.py self_test() (v2.21) | EVERY new gate MUST ship at least one   |
@@ -4310,7 +4344,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.21.2 build prints 115/115 — see tests 16-20).
+#     v2.12; the v2.21.3 build prints 120/120 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4419,7 +4453,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (115/115) all pass, and
+#   (120/120) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4516,7 +4550,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 115/115 PASS  (exit 0) on the v2.21.2 canonical
+#     • `--self-test`  → SELF-TEST: 120/120 PASS  (exit 0) on the v2.21.3 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4584,10 +4618,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 115/115). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 120/120). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21.2
+# END OF Framework_MockTestCreateAudit v2.21.3
 # ════════════════════════════════════════════════════════════════════════

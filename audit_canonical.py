@@ -744,7 +744,18 @@ def gate_options(blocks, src):
         if any(_fam_of(t) != fam for t in tokens):
             bad_lab.append(f'Q{b.qnum}')
         idxs = [_idx_of(t, fam) for t in tokens]
-        if 0 in idxs or idxs != list(range(idxs[0], idxs[0] + oc)):
+        # v2.21.3 — ANCHORED AT 1, not merely consecutive. The S5-2 catalogue row
+        # for this gate has always read "options appear in document order
+        # 1..OPTIONS_COUNT", but the check was `range(idxs[0], idxs[0] + oc)`,
+        # which accepts ANY consecutive run: a block labelled 2,3,4,5 passed
+        # A-OPTORDER *and* A-OPTLABEL and certified clean. That is not cosmetic.
+        # A-KINT derives the key as an int in 1..OPTIONS_COUNT, so on such a paper
+        # key "option 1" refers to an option that DOES NOT EXIST and keys 2..oc
+        # each point one place off — every answer for that question is wrong on
+        # the delivered paper. _idx_of() normalises all three families to 1-based
+        # (num 1.., alpha a=1.., roman i=1..), so anchoring at 1 is family-agnostic
+        # and no legitimate option_label_format starts anywhere else.
+        if idxs != list(range(1, oc + 1)):
             bad_ord.append(f'Q{b.qnum}')
         # text-uniqueness applies only when options are TEXT (figural options are
         # bare labels followed by images → empty text → uniqueness checked in §7).
@@ -2790,6 +2801,60 @@ def self_test():
     p = _mini_doc(tmp, b_dupopt); _reset()
     _t, bl = parse_blocks(Document(p)); gate_options(bl, _src_stub(tq=1))
     check('A-OPTUNIQUE-catch', any(c == 'A-OPTUNIQUE' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 4a-4e. v2.21.3 — A-OPTLABEL / A-OPTORDER MUTATION CLOSURE.
+    #     audit_mutation.py showed `bad_lab.append(...)` and `bad_ord.append(...)`
+    #     could BOTH be deleted outright with all 115 fixtures still green: the two
+    #     gates that police option labelling on EVERY question of EVERY paper in the
+    #     estate had no fixture that could detect them going silent. Only A-OPTN and
+    #     A-OPTUNIQUE were covered. Each fixture below KILLS its mutant.
+    def _b_labels(labels, texts=None):
+        """Block whose option labels are exactly `labels`."""
+        def _f(d):
+            d.add_paragraph('Q.1  Solve.')
+            tx = texts or [f'Option {i}' for i in range(1, len(labels) + 1)]
+            for lb, t in zip(labels, tx):
+                d.add_paragraph(f'{lb}.  {t}')
+        return _f
+    def _opt_verdict(labels, fmt='1/2/3/4', oc=4):
+        _p = _mini_doc(tmp, _b_labels(labels))
+        _t, _bl = parse_blocks(Document(_p))
+        _s = _src_stub(tq=1); _s['options_count'] = oc; _s['opt_label_fmt'] = fmt
+        _reset(); gate_options(_bl, _s)
+        _r = {c: l for l, c, m in RESULTS}
+        return _r.get('A-OPTLABEL'), _r.get('A-OPTORDER')
+
+    # 4a — MIXED LABEL FAMILY is an A-OPTLABEL finding (kills the bad_lab mutant).
+    check('A-OPTLABEL-mixed-family-is-a-finding',
+          _opt_verdict(['1', '2', 'C', '4'])[0] == 'FAIL')
+
+    # 4b — WHOLE-SET FAMILY MISMATCH against the configured format is a finding.
+    #      Exam declares numeric labels; the paper ships alpha.
+    check('A-OPTLABEL-family-mismatch-vs-format-is-a-finding',
+          _opt_verdict(['a', 'b', 'c', 'd'])[0] == 'FAIL')
+
+    # 4c — OUT-OF-ORDER labels are an A-OPTORDER finding (kills the bad_ord mutant).
+    check('A-OPTORDER-out-of-order-is-a-finding',
+          _opt_verdict(['1', '2', '4', '3'])[1] == 'FAIL')
+
+    # 4d — v2.21.3 ANCHOR LOCK. Labels 2,3,4,5 are CONSECUTIVE but do not start at 1.
+    #      The pre-v2.21.3 check was `range(idxs[0], idxs[0]+oc)`, which accepted any
+    #      consecutive run, so this paper certified CLEAN while contradicting this
+    #      gate's own S5-2 row ("options appear in document order 1..OPTIONS_COUNT").
+    #      It is not cosmetic: A-KINT derives the key as an int in 1..OPTIONS_COUNT,
+    #      so on such a paper key "option 1" refers to an option that DOES NOT EXIST
+    #      and every later key points one place off — every answer for that question
+    #      is wrong on the delivered paper.
+    check('A-OPTORDER-must-anchor-at-1-not-merely-consecutive',
+          _opt_verdict(['2', '3', '4', '5'])[1] == 'FAIL')
+
+    # 4e — GUARD (canonical sets must stay clean in ALL THREE families, so the
+    #      anchor fix cannot be "achieved" by making the gate reject everything).
+    check('A-OPTORDER-canonical-sets-clean-all-families',
+          all(_opt_verdict(_lb, _fm) == ('OK', 'OK') for _lb, _fm in (
+              (['1', '2', '3', '4'], '1/2/3/4'),
+              (['a', 'b', 'c', 'd'], 'a/b/c/d'),
+              (['i', 'ii', 'iii', 'iv'], 'i/ii/iii/iv'))))
 
     # 5. A-QNFIRST catches stimulus orphaned before the next Q.N
     def b_notfirst(d):

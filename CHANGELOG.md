@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026.08.02.4
+**A-OPTORDER did not enforce its own documented contract. Options labelled 2,3,4,5
+certified clean — and every answer key on such a question is wrong.**
+
+Found by working the `audit_mutation.py` backlog. `gate_options` carried two
+surviving mutants (`bad_lab`, `bad_ord`), meaning **A-OPTLABEL and A-OPTORDER — which
+police option labelling on every question of every paper in the estate — had no
+fixture that could detect them going silent.** Only A-OPTN and A-OPTUNIQUE were
+covered. Probing that uncovered space to write the fixtures surfaced a real defect,
+which is the whole point of the exercise.
+
+**The defect.** This gate's S5-2 row has always read "options appear in document
+order 1..OPTIONS_COUNT". The check was `idxs != list(range(idxs[0], idxs[0] + oc))`,
+which accepts **any consecutive run**. A block labelled `2,3,4,5` passed A-OPTORDER
+*and* A-OPTLABEL and certified CLEAN. The engine was weaker than its own documented
+contract and nothing compared the two — the same producer/consumer divergence class
+as `GAP-2026-08-02`, this time between a gate and its own spec row.
+
+**It is not cosmetic.** A-KINT derives the key as an int in `1..OPTIONS_COUNT`. On a
+paper labelled 2,3,4,5 the key "option 1" refers to an option that **does not
+exist**, and keys 2..oc each point one place off — **every answer for that question
+is wrong on the delivered paper**, with no gate objecting. A zero-start set
+(`0,1,2,3`) was caught only incidentally, by the separate `0 in idxs` clause.
+
+**Fix.** `idxs != list(range(1, oc + 1))` — anchored at 1, not merely consecutive.
+`_idx_of()` normalises all three label families to 1-based (num `1..`, alpha `a=1..`,
+roman `i=1..`), so the anchor is family-agnostic and no legitimate
+`option_label_format` starts anywhere else. Verified on the real 60-question
+IIT_JAM_BIOTECHNOLOGY paper: all four option gates unmoved.
+
+**Fixtures 4a-4e** added — mixed family, family-vs-format mismatch, out-of-order, the
+**anchor lock**, and a three-family canonical guard so the fix cannot be "achieved"
+by rejecting everything. `gate_options` now scores **100% (4/4 killed)**.
+
+Self-test **115 → 120**. Engine-wide survivors **16 → 14**, mutation score
+**40.7% → 48.1%**. §21 ratchet budget **lowered to 14** — it may never be raised.
+
+Spec → **v2.21.3**. `AUTH_GATE_FLOOR` stays **35**. No paper changes. No Step-7
+changes.
+
 ## 2026.08.02.3
 **Mutation testing made mechanical. Three hollow branches closed in A-DOSSIER —
 including half the Tier-A cross-check, unverified since v2.17.**
