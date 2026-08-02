@@ -1930,16 +1930,26 @@ def gate_dossier(blocks, src, dossier, why=None):
         n_opt = block_option_count(b, oc)
         qt = (e.get('qtype') or '').lower()
         # qtype is checkable against the rendered structure.
-        # v2.21: the nat leg fires only on a COMPLETE rendered option set
-        # (n_opt >= oc). A block carrying FEWER label paragraphs than oc has no
-        # option set — those labels are an ENUMERATED STEM ("Consider the
-        # following statements: 1. ... 2. ..."), a legitimate NAT construction.
-        # Firing on them made A-DOSSIER MORE opinionated than the gate that OWNS
-        # this fact (A-NAT-NOOPT), which is the same divergence class this
-        # release exists to remove. A genuinely short option set on a claimed-NAT
-        # question is owned by A-NAT-NOOPT (registry marks it 0) or by A-OPTN
-        # (registry marks it oc) — never silently unowned.
-        if qt == 'nat' and oc and n_opt >= oc:
+        #
+        # v2.21.1 — THE NAT LEG FIRES ON ANY NON-ZERO COUNT, and this is
+        # SPEC-GROUNDED, not a judgement call. Framework_MockTestCreate.md R13
+        # (v4.7 NAT EXEMPTION) states that a NAT question has ZERO option
+        # paragraphs — "only the bold Q.<N> stem (carrying the nat_instruction
+        # per R14) and the blank separator". A NAT block therefore CANNOT
+        # legitimately carry ANY option-label paragraph, not even an "enumerated
+        # stem": R13 admits no third paragraph class.
+        #
+        # v2.21 briefly clamped this leg to n_opt >= oc on the ASSUMPTION that a
+        # NAT stem could enumerate. R13 forbids it. The assumption was never
+        # checked against the producer spec — the SAME error class this release
+        # exists to remove (a belief about a sibling contract, unverified) — and
+        # it opened a REAL false negative: with nat_present=False and the
+        # registry marking the question 0-option, gate_options SKIPS the block
+        # (obq==0), gate_nat is DORMANT (nat_present false), and a clamped
+        # A-DOSSIER was silent too, so an R13 violation passed ALL THREE gates.
+        # That configuration is precisely a Step-7 internal inconsistency, which
+        # is the one thing this gate exists to catch. Never clamp this leg.
+        if qt == 'nat' and n_opt:
             bad.append(f'Q{b.qnum}:qtype-nat-but-{n_opt}-options')
         elif qt in ('mcq', 'msq') and oc and n_opt != oc:
             bad.append(f'Q{b.qnum}:qtype-{qt}-but-{n_opt}!={oc}-options')
@@ -4225,7 +4235,7 @@ def self_test():
         for i in range(1, 4):
             d.add_paragraph(f'{i}.  Opt {i}')
     def _b_nat_enum(d):
-        """Legitimate NAT block whose STEM enumerates; renders NO option set."""
+        """R13-VIOLATING NAT block: carries stray option-label paragraphs."""
         d.add_paragraph('Q.1  Consider the following statements:')
         d.add_paragraph('1.  Statement one')
         d.add_paragraph('2.  Statement two')
@@ -4277,14 +4287,19 @@ def self_test():
     check('DOSSIER-short-option-set-still-fails',
           _dos_verdict(_b_short, 'mcq'))
 
-    # 92f — v2.21 NAT-LEG COMPLETENESS. A legitimate NAT question whose STEM
-    #       enumerates renders NO option set, and must not be a dossier finding.
-    #       The v2.20 counter returned the raw label total (2) and the nat leg
-    #       fired on any non-zero, so this shape false-FAILed. The nat leg now
-    #       requires a COMPLETE set (n_opt >= oc), keeping A-DOSSIER from being
-    #       more opinionated than A-NAT-NOOPT, which OWNS this fact.
-    check('DOSSIER-nat-enumerated-stem-not-a-finding',
-          not _dos_verdict(_b_nat_enum, 'nat'))
+    # 92f — v2.21.1 NAT-LEG FALSE-NEGATIVE LOCK, GROUNDED IN R13. A NAT block
+    #       carrying ANY option-label paragraph is an R13 violation: the v4.7 NAT
+    #       EXEMPTION allows a NAT question ONLY the bold Q.<N> stem and the blank
+    #       separator — ZERO option paragraphs, with no "enumerated stem" class.
+    #       v2.21 clamped this leg to n_opt >= oc on the unverified assumption
+    #       that a NAT stem may enumerate; it may not. The clamp opened a hole:
+    #       with nat_present=False and the registry marking the Q 0-option,
+    #       gate_options SKIPS the block and gate_nat is DORMANT, so A-DOSSIER was
+    #       the ONLY remaining gate — and it had been silenced. This fixture is
+    #       the lock: a PARTIAL stray-label set on a claimed-NAT block IS a
+    #       finding, exactly as a complete one is (92c).
+    check('DOSSIER-nat-with-stray-labels-is-a-finding',
+          _dos_verdict(_b_nat_enum, 'nat'))
 
     # 93. A FACTS-ONLY DOSSIER MUST NOT WAKE AN ANSWER-DEPENDENT GATE.
     #     A-NAT-GRADE re-runs derive_nat_grading() over the KEYED VALUE, so it needs

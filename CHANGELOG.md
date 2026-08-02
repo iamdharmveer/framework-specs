@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026.08.02.2
+Follow-up to `GAP-2026-08-02-DOSSIER-OPTION-PREDICATE`, found by a line-by-line
+Step-7 / Step-8 sync audit of the 2026.08.02.1 release itself. **Two findings, one
+of them a regression introduced by that release.**
+
+**1. The A-DOSSIER `nat` leg must never be clamped (REGRESSION FIX).** v2.21 changed
+the leg to fire only on a COMPLETE rendered option set (`n_opt >= oc`), on the
+assumption that a NAT stem may legitimately enumerate. **It may not.**
+`Framework_MockTestCreate.md` **R13** (v4.7 NAT EXEMPTION) gives a NAT question ZERO
+option paragraphs — "only the bold Q.<N> stem (carrying the nat_instruction per R14)
+and the blank separator". R13 admits no third paragraph class, so an enumerated stem
+on a NAT block is an R13 *violation*, not a legitimate shape. The assumption was
+never checked against the producer spec — the exact error class v2.21 exists to
+remove, committed while fixing it.
+
+It opened a real false negative. With `nat_present=False` and the registry marking
+the question 0-option, `gate_options` SKIPS the block (`obq == 0`), `gate_nat` is
+DORMANT (`nat_present` false), and the clamped `A-DOSSIER` was silent — so an R13
+violation passed **all three gates**. v2.20 caught it. That configuration is
+precisely a Step-7 internal inconsistency between blueprint and registry, which is
+the one condition `A-DOSSIER` exists to detect. Verified across four
+`nat_present` × `options_by_q` configurations: 4/4 caught before, 3/4 after v2.21,
+4/4 again now. Fixture 92f is inverted and now locks the false negative.
+
+**2. `A-FIGTEXT-PROSE` was an undocumented live gate.** It is emitted by
+`gate_images` (v2.4), prints on every Part-A run, and can `_fail()` and block
+certification — yet it had **no catalogue row, no sub-code entry and no glossary
+line** anywhere in the audit spec. That is the identical documentation gap that left
+an operator with nothing to read when `A-DOSSIER` FAILed. Now carries a full S5-2
+row and a §16 glossary line mapped to its Step-7 twin `G-FIGTEXT-PROSE`
+(Create.md Tier 3).
+
+Self-test stays **112/112**. `AUTH_GATE_FLOOR` stays **35**. **No paper changes.**
+Spec → **v2.21.1**.
+
 ## 2026.08.02.1
 GAP-2026-08-02-DOSSIER-OPTION-PREDICATE — **A-DOSSIER could not see an image
 option.** Raised by a live Step-8 `TestCreateAudit P1` run that HALTED PERMANENTLY

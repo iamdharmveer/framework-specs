@@ -1,4 +1,39 @@
-# Framework_MockTestCreateAudit v2.21
+# Framework_MockTestCreateAudit v2.21.1
+# v2.21.1 — 2026-08-02 — NAT LEG RE-GROUNDED IN R13; A-FIGTEXT-PROSE DOCUMENTED.
+#   Follow-up to GAP-2026-08-02-DOSSIER-OPTION-PREDICATE, found by a line-by-line
+#   Step-7/Step-8 sync audit of THIS release.
+#
+#   v2.21 clamped the A-DOSSIER `nat` leg to fire only on a COMPLETE rendered option
+#   set (n_opt >= oc), on the ASSUMPTION that a NAT stem may legitimately enumerate
+#   ("Consider the following statements: 1. ... 2. ..."). IT MAY NOT.
+#   Framework_MockTestCreate.md R13 (v4.7 NAT EXEMPTION) states that a NAT question
+#   has ZERO option paragraphs — "only the bold Q.<N> stem (carrying the
+#   nat_instruction per R14) and the blank separator". R13 admits no third paragraph
+#   class, so an "enumerated stem" on a NAT block is an R13 VIOLATION, not a
+#   legitimate shape.
+#
+#   THE ASSUMPTION WAS NEVER CHECKED AGAINST THE PRODUCER SPEC — the exact error
+#   class v2.21 exists to remove (a belief about a sibling contract, held without
+#   verifying it), committed by v2.21's own author while fixing that very class.
+#
+#   IT OPENED A REAL FALSE NEGATIVE. With nat_present=False and the registry marking
+#   the question 0-option, gate_options SKIPS the block (obq == 0), gate_nat is
+#   DORMANT (nat_present false), and the clamped A-DOSSIER was silent too — so an
+#   R13 violation passed ALL THREE gates. v2.20 caught it. That configuration is
+#   precisely a Step-7 INTERNAL INCONSISTENCY between blueprint and registry, which
+#   is the one condition A-DOSSIER exists to detect. FIX: the nat leg fires on ANY
+#   non-zero rendered count. NEVER clamp it. Fixture 92f is inverted accordingly and
+#   now locks the false negative (a PARTIAL stray-label set on a claimed-NAT block IS
+#   a finding, exactly as a complete one is under 92c).
+#
+#   ALSO: A-FIGTEXT-PROSE (v2.4, gate_images) is a LIVE roster gate that can _fail()
+#   and block certification, and it had NO catalogue row, NO sub-code entry and NO
+#   glossary line anywhere in this spec — the identical documentation gap that left
+#   an operator with nothing to read when A-DOSSIER FAILed. Now documented in S5-2
+#   and §16, mapped to its Step-7 twin G-FIGTEXT-PROSE (Create.md Tier 3).
+#
+#   Self-test stays 112/112. AUTH_GATE_FLOOR stays 35. NO paper changes.
+#
 # v2.21 — 2026-08-02 — A-DOSSIER COULD NOT SEE AN IMAGE OPTION.
 #   GAP-2026-08-02-DOSSIER-OPTION-PREDICATE. Raised by a live Step-8 TestCreateAudit
 #   P1 run that HALTED PERMANENTLY with nothing on the paper to repair.
@@ -2337,11 +2372,13 @@
   | A-GATEERROR| (v2.12) a gate raised an unexpected exception. The gate DID NOT audit the paper; every other gate still ran and the report is complete. FRAMEWORK defect — never fix the paper for this | (structural) | FAIL — blocks certification; file a gap report |
   | A-FIGPROFILE| generated figure object_types conform to the PYQ profile Step 5 measured; verdict DELEGATED to blueprint_core (the same function Step 7 generates against, so generator and auditor cannot drift). Dormant on pre-v5.31 registries; WARN "NOT CHECKED" if the engine is absent/truncated/stale | RG | FAIL / WARN |
 
+  | A-FIGTEXT-PROSE | (v2.4, sub-code of gate_images) a block containing ZERO images must not carry figure-reference PROSE ("in the figure above", "the diagram shows"). A figural subtopic rendered as prose is a figure that was never drawn; the candidate is asked to read something that is not there. Blocks with >=1 image are skipped (no false positive). Twin of Step-7 G-FIGTEXT-PROSE (Create.md Tier 3) | rendered block text vs image presence | R-FIGURAL / G-FIGTEXT-PROSE | RG (render the figure per S7-NEW-B OPTION A, or replace the subtopic) |
+
   CROSS-MOCK DEDUP
   | A-DUP      | no stem in mock N exact-matches OR near-matches (Jaccard ≥ J_FAIL) a stem from a PRIOR mock in registry.stem_texts (self-excluding mock N via --mockN); image MD5/pHash not reused from a prior mock | registry stem_texts/question_hashes/image_phashes/content_tracking | R2/R3 | RG |
 
   TIER-A DOSSIER CROSS-CHECK (v2.17; predicate corrected v2.21)
-  | A-DOSSIER  | every Tier-A FACT (qtype, subtopic_id) agrees with the SHIPPED PAPER and the registry. qtype is checked against the RENDERED OPTION COUNT, which MUST be obtained from the SAME helper the option gates use — block_option_count(b, oc) -> _label_paras() + trailing-oc clamp — NEVER from a second predicate. An IMAGE option is a BARE label paragraph followed by a picture paragraph and carries NO text glyph, so any predicate requiring one counts it as ZERO (GAP-2026-08-02). The nat leg fires only on a COMPLETE rendered set (n_opt >= oc); a block with fewer labels than oc has an ENUMERATED STEM, not an option set, and is owned by A-NAT-NOOPT. subtopic_id is checked against registry figural subtopic_ids. A disagreement is a FAIL, never a silent overwrite in either direction. Dossier ABSENT => WARN (legacy, not a paper defect). NO GATE MAY PASS ON DOSSIER EVIDENCE ALONE | dossier + registry options_by_q + rendered block | S13-4b (v5.35) | RG (Step-7 side) / none (paper) |
+  | A-DOSSIER  | every Tier-A FACT (qtype, subtopic_id) agrees with the SHIPPED PAPER and the registry. qtype is checked against the RENDERED OPTION COUNT, which MUST be obtained from the SAME helper the option gates use — block_option_count(b, oc) -> _label_paras() + trailing-oc clamp — NEVER from a second predicate. An IMAGE option is a BARE label paragraph followed by a picture paragraph and carries NO text glyph, so any predicate requiring one counts it as ZERO (GAP-2026-08-02). The nat leg fires on ANY non-zero rendered count and MUST NEVER be clamped (v2.21.1): Create R13 (v4.7 NAT EXEMPTION) gives a NAT block ONLY the bold Q.<N> stem and the blank separator — ZERO option paragraphs, with no 'enumerated stem' class — so any option-label paragraph on a claimed-NAT block is an R13 violation. Clamping it opened a false negative in the nat_present=False + registry-0 configuration, where gate_options skips and gate_nat is dormant and A-DOSSIER is the only remaining gate. subtopic_id is checked against registry figural subtopic_ids. A disagreement is a FAIL, never a silent overwrite in either direction. Dossier ABSENT => WARN (legacy, not a paper defect). NO GATE MAY PASS ON DOSSIER EVIDENCE ALONE | dossier + registry options_by_q + rendered block | S13-4b (v5.35) | RG (Step-7 side) / none (paper) |
 
   HEADER
   | A-HEADER   | NO non-blank paragraph before Q.1 — the paper is questions-only; any title/info/scoring/cover block is a defect → STRIP it (CP-HEADER-STRIP). Dormant only if section_rules EXAM_STRUCTURE declares paper_header_block | section_rules CATEGORY-C (paper_header_block) | R8b/G-PREQ1 | CP |
@@ -3952,6 +3989,8 @@ Replace for registry.json), and next-step reference.
     A-DUP ← R2/R3/G-DUP (cross-mock, --mockN self-exclude)
     A-KINT/A-KBAL/A-KPAT ← K-INT/K-BAL/K-PAT (on Step-8's DERIVED key, §11)
     A-HEADER ← R8b/G-PREQ1 (Step 7 pre-Q.1 body-block ban; strip if present)
+    A-FIGTEXT-PROSE <- R-FIGURAL/G-FIGTEXT-PROSE (Create Tier 3). Live roster gate,
+                CAN FAIL; zero-image block carrying figure-reference prose.
     A-DOSSIER <- S13-4b Tier-A fact channel (v2.17; predicate corrected v2.21).
                 Step-8-only; no Step-7 gate equivalent. Cross-checks FACTS, never
                 JUDGMENTS (RA-1); passes NOTHING on dossier evidence alone. Its
@@ -4510,5 +4549,5 @@ Replace for registry.json), and next-step reference.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21
+# END OF Framework_MockTestCreateAudit v2.21.1
 # ════════════════════════════════════════════════════════════════════════
