@@ -1,4 +1,32 @@
-# Framework_MockTestCreateAudit v2.21.1
+# Framework_MockTestCreateAudit v2.21.2
+# v2.21.2 — 2026-08-02 — MUTATION TESTING MADE MECHANICAL; 3 HOLLOW BRANCHES CLOSED.
+#   Answer to "is there a more robust way to prove these two Steps are in sync?"
+#   YES, and reading the code is not it. Eight times this corpus has shipped a code
+#   path no fixture exercises, and every one was found by a human reading code AFTER
+#   it shipped. A green self-test is exactly what a hollow branch looks like.
+#
+#   audit_mutation.py (new, untracked tooling) neutralises each finding emission in
+#   audit_canonical.py one at a time and re-runs --self-test. A mutant that SURVIVES
+#   means NO fixture can tell the difference between a gate that reports that defect
+#   and a gate that does not. First run: 19 of 27 findings SURVIVED — a mutation
+#   score of 29.6%. Three were in A-DOSSIER itself, the gate v2.21 had just been
+#   rewritten to fix: the two set-mismatch legs (absent-from-dossier / not-in-paper)
+#   and the ENTIRE subtopic_id-vs-registry leg had NEVER been executed by any
+#   fixture. Half of the Tier-A cross-check was unverified while the release that
+#   touched it reported 112/112 green.
+#
+#   Fixtures 92g/92h/92i close all three; gate_dossier is now at a 100% mutation
+#   score (5/5 killed). Self-test 112 -> 115. Engine-wide: 16 survivors remain,
+#   score 40.7%, all inherited and all itemised in §21.
+#
+#   RATCHET POLICY (§21): the survivor count MUST NOT INCREASE release over release.
+#   A new gate ships with fixtures that kill its own mutants, or it does not ship.
+#   The 16 inherited survivors retire one release at a time by lowering the budget.
+#   This is the first control in this corpus that detects a hollow branch WITHOUT
+#   anyone suspecting it is there.
+#
+#   AUTH_GATE_FLOOR stays 35. NO paper changes. NO Step-7 changes.
+#
 # v2.21.1 — 2026-08-02 — NAT LEG RE-GROUNDED IN R13; A-FIGTEXT-PROSE DOCUMENTED.
 #   Follow-up to GAP-2026-08-02-DOSSIER-OPTION-PREDICATE, found by a line-by-line
 #   Step-7/Step-8 sync audit of THIS release.
@@ -32,7 +60,7 @@
 #   an operator with nothing to read when A-DOSSIER FAILed. Now documented in S5-2
 #   and §16, mapped to its Step-7 twin G-FIGTEXT-PROSE (Create.md Tier 3).
 #
-#   Self-test stays 112/112. AUTH_GATE_FLOOR stays 35. NO paper changes.
+#   Self-test 112 -> 115 in v2.21.2. AUTH_GATE_FLOOR stays 35. NO paper changes.
 #
 # v2.21 — 2026-08-02 — A-DOSSIER COULD NOT SEE AN IMAGE OPTION.
 #   GAP-2026-08-02-DOSSIER-OPTION-PREDICATE. Raised by a live Step-8 TestCreateAudit
@@ -4227,6 +4255,18 @@ Replace for registry.json), and next-step reference.
 #   |   (Step 9 self-audit) | Same false-clean chain (Claude-driven Part-B-style          |
 #   |   certification behind prose). Apply the parallel completion-gate pattern so a bad  |
 #   |   explanation / answer-key set cannot ship the way a bad paper did.                 |
+#   | audit_mutation.py (v2.21.2) | MUTATION TESTING IS A RELEASE GATE. Run              |
+#   |   `python3 audit_mutation.py --max-survivors N` where N is the CURRENT budget      |
+#   |   (16 as of 2026.08.02.3). The count MUST NOT INCREASE: a release that adds an     |
+#   |   untested finding FAILS here. Lower N whenever survivors are retired; never       |
+#   |   raise it. A SURVIVING mutant means no fixture can detect that finding being      |
+#   |   deleted outright — the hollow-branch class, caught mechanically instead of by    |
+#   |   a human reading code after it shipped. Inherited survivors awaiting fixtures:    |
+#   |   gate_images (7: multi_per_line, figtext_prose, math_raster, warn_view,           |
+#   |   composite x3), gate_nat (3: nat_value/nat_grading_value missing, re-derivation    |
+#   |   raise), gate_options (2: bad_lab, bad_ord), gate_seccount (1), gate_zip (2),     |
+#   |   restore_checkpoint (1). CHECK AO catches a tautological fixture SHAPE; only      |
+#   |   mutation catches a finding that is simply never triggered. Both are required.    |
 #   | audit_canonical.py self_test() (v2.21) | EVERY new gate MUST ship at least one   |
 #   |   DISCRIMINATING fixture per BLOCK SHAPE it can meet — text options, IMAGE options |
 #   |   (bare label + picture), NAT (zero options), ENUMERATED-STEM, and a short-set     |
@@ -4270,7 +4310,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.21 build prints 112/112 — see tests 16-20).
+#     v2.12; the v2.21.2 build prints 115/115 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4379,7 +4419,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (112/112) all pass, and
+#   (115/115) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4476,7 +4516,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 112/112 PASS  (exit 0) on the v2.21 canonical
+#     • `--self-test`  → SELF-TEST: 115/115 PASS  (exit 0) on the v2.21.2 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4544,10 +4584,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 112/112). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 115/115). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21.1
+# END OF Framework_MockTestCreateAudit v2.21.2
 # ════════════════════════════════════════════════════════════════════════

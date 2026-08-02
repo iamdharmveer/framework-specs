@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.02.2",
+  "framework_version": "2026.08.02.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -203,11 +203,11 @@
       "bytes": 428681
     },
     "Framework_MockTestCreateAudit.md": {
-      "sha256": "18c912d29c3629886d93327d691608439c7db7e2092632b2141be4c8aeeb77e6",
-      "version_header": "# Framework_MockTestCreateAudit v2.21.1",
+      "sha256": "157ae2a61ef423612eaccb51176c2b0d1fc7802ea46fc674949c9aa8f66f185f",
+      "version_header": "# Framework_MockTestCreateAudit v2.21.2",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 4553,
-      "bytes": 334529
+      "lines": 4593,
+      "bytes": 337420
     },
     "Framework_MockTestExplain.md": {
       "sha256": "35ee0af595836ad13bb1aced39778954597a98b4b0a2fcb4bacaea10143aa40e",
@@ -385,11 +385,11 @@
       "bytes": 51906
     },
     "audit_canonical.py": {
-      "sha256": "6ecf9a41718cbb46434bca01676dabc1099c9c34c5a2028c8bc40be922f0c0b9",
+      "sha256": "38916d901d7d0e8f90f7ba055054abfd57a04947352b45c323b407847ef00672",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 4495,
-      "bytes": 236555
+      "lines": 4540,
+      "bytes": 239009
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",

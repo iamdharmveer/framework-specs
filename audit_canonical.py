@@ -4287,6 +4287,51 @@ def self_test():
     check('DOSSIER-short-option-set-still-fails',
           _dos_verdict(_b_short, 'mcq'))
 
+    # 92g-92i — v2.21.2 HOLLOW-BRANCH CLOSURE (audit_mutation.py survivors).
+    #     Automated mutation testing showed THREE A-DOSSIER findings could be
+    #     DELETED OUTRIGHT with all 112 fixtures still green: the two set-mismatch
+    #     legs and the subtopic leg. They had never been executed by ANY fixture —
+    #     the same hollow-branch class as the retired tautology, found mechanically
+    #     this time instead of by reading. Each fixture below KILLS its mutant.
+    def _b_two_q(d):
+        d.add_paragraph('Q.1  Solve.')
+        for i in range(1, 5):
+            d.add_paragraph(f'{i}.  Opt {i}')
+        d.add_paragraph('')
+        d.add_paragraph('Q.2  Solve.')
+        for i in range(1, 5):
+            d.add_paragraph(f'{i}.  Opt {i}')
+        d.add_paragraph('')
+
+    # 92g — a question ON THE PAPER but ABSENT FROM THE DOSSIER is a finding. The
+    #       dossier must describe the paper that shipped, not a subset of it.
+    _p92 = _mini_doc(tmp, _b_two_q)
+    _t, _bl92 = parse_blocks(Document(_p92))
+    _s92 = _src_stub(tq=2); _s92['options_count'] = 4
+    _reset(); gate_dossier(_bl92, _s92, {'1': {'qtype': 'mcq'}})   # Q.2 missing
+    check('DOSSIER-paper-Q-absent-from-dossier-is-a-finding',
+          any(c == 'A-DOSSIER' and l == 'FAIL' and 'absent-from-dossier' in m
+              for l, c, m in RESULTS))
+
+    # 92h — a question IN THE DOSSIER but NOT ON THE PAPER is a finding. Step 7
+    #       recorded a question it did not ship.
+    _reset(); gate_dossier(_bl92, _s92, {'1': {'qtype': 'mcq'}, '2': {'qtype': 'mcq'},
+                                         '3': {'qtype': 'mcq'}})
+    check('DOSSIER-dossier-Q-not-in-paper-is-a-finding',
+          any(c == 'A-DOSSIER' and l == 'FAIL' and 'not-in-paper' in m
+              for l, c, m in RESULTS))
+
+    # 92i — a dossier subtopic_id that DISAGREES with the registry is a finding.
+    #       This is the second half of the Tier-A cross-check and had never run.
+    _s92b = _src_stub(tq=2); _s92b['options_count'] = 4
+    _s92b['figural_subtopics'] = {'1': 'sub.registry.value'}
+    _reset(); gate_dossier(_bl92, _s92b,
+                           {'1': {'qtype': 'mcq', 'subtopic_id': 'sub.dossier.other'},
+                            '2': {'qtype': 'mcq'}})
+    check('DOSSIER-subtopic-disagreement-is-a-finding',
+          any(c == 'A-DOSSIER' and l == 'FAIL' and 'subtopic-disagrees-with-registry' in m
+              for l, c, m in RESULTS))
+
     # 92f — v2.21.1 NAT-LEG FALSE-NEGATIVE LOCK, GROUNDED IN R13. A NAT block
     #       carrying ANY option-label paragraph is an R13 violation: the v4.7 NAT
     #       EXEMPTION allows a NAT question ONLY the bold Q.<N> stem and the blank

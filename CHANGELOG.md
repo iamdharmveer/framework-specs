@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026.08.02.3
+**Mutation testing made mechanical. Three hollow branches closed in A-DOSSIER —
+including half the Tier-A cross-check, unverified since v2.17.**
+
+Answer to "is there a more robust way to prove Step 7 and Step 8 are in sync?"
+Yes — and reading the code is not it. This corpus has now shipped **eight** code
+paths that no fixture exercises (v2.10, v2.12, v2.13, v2.15, v2.16, v2.20, v2.21,
+v2.21.1). Every one was found by a human reading code *after* it shipped, because a
+green self-test is exactly what a hollow branch looks like.
+
+**New tool: `audit_mutation.py`** (untracked tooling, alongside `audit_sync.py` et
+al — the 33-file tracked count is unchanged). It neutralises each finding emission
+in `audit_canonical.py` one at a time and re-runs `--self-test`. A **surviving**
+mutant means no fixture can distinguish a gate that reports that defect from one
+that does not.
+
+**First run: 19 of 27 findings survived — a mutation score of 29.6%.** Three were
+inside `A-DOSSIER` itself, the gate rewritten two releases ago: both set-mismatch
+legs (`absent-from-dossier`, `not-in-paper`) and the **entire `subtopic_id`
+vs-registry leg** had never been executed by any fixture. Half of the Tier-A
+cross-check was unverified while the release that touched it reported 112/112.
+
+Fixtures **92g/92h/92i** close all three. `gate_dossier` now scores **100% (5/5
+killed)**. Self-test **112 → 115**. Engine-wide **16 survivors remain, score
+40.7%**, all inherited and each itemised by function in §21.
+
+**Ratchet policy (§21):** the survivor count **must not increase** release over
+release — `audit_mutation.py --max-survivors 16` is a release gate. A new gate ships
+with fixtures that kill its own mutants, or it does not ship. The 16 inherited
+survivors retire one release at a time by lowering the budget, never raising it.
+
+`CHECK AO` catches a tautological fixture *shape*; only mutation catches a finding
+that is simply never triggered. Both are now required. This is the first control in
+the corpus that finds a hollow branch **without anyone suspecting it is there**.
+
+Spec → **v2.21.2**. `AUTH_GATE_FLOOR` stays **35**. No paper changes. No Step-7
+changes.
+
 ## 2026.08.02.2
 Follow-up to `GAP-2026-08-02-DOSSIER-OPTION-PREDICATE`, found by a line-by-line
 Step-7 / Step-8 sync audit of the 2026.08.02.1 release itself. **Two findings, one
