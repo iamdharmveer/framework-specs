@@ -1,18 +1,18 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.42.7",
-      "lines": 6699,
-      "sha256": "90168397a5d75a6ce396d71ad3d06f203fd410308ca0c5dbb747571b005e4bba",
-      "size_bytes": 351319,
-      "version_header": "# Framework_Blueprint v1.42.7 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.42.8",
+      "lines": 6713,
+      "sha256": "03d98d0ca78072339db31949eae38436b9cc8e3bb1450fd63ae89dc8b3dcb6b0",
+      "size_bytes": 352448,
+      "version_header": "# Framework_Blueprint v1.42.8 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
       "lines": 680,
-      "sha256": "5576ab47008e65ed26bb886741eaa5a9f902e623b2973cd9ddf0e1af6fdc73e6",
-      "size_bytes": 33922,
-      "version_header": "# Framework_DeliveryFooter v1.10"
+      "sha256": "49615285782ae9458de9608b29380dfd01ddd521bcb71744738031cc90603f60",
+      "size_bytes": 33969,
+      "version_header": "# Framework_DeliveryFooter v1.10 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.9.1",
@@ -37,10 +37,10 @@
     },
     "Framework_MockTestCreateAudit.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 4744,
-      "sha256": "211d9aafe7db50b86f448321169c034f77f89a6694319e0f9c2f932a84323e6d",
-      "size_bytes": 348502,
-      "version_header": "# Framework_MockTestCreateAudit v2.21.6"
+      "lines": 4799,
+      "sha256": "37e5e86c8edc659521591181c53d2431ea1f48bf365dcb2f859224ae001bd6fb",
+      "size_bytes": 352314,
+      "version_header": "# Framework_MockTestCreateAudit v2.21.7"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -51,10 +51,10 @@
     },
     "Framework_MockTestExplainAudit.md": {
       "end_sentinel": "**End of Framework_MockTestExplainAudit.md (v1.16.1)**",
-      "lines": 1048,
-      "sha256": "8def7ddbdaafb94fa7daa364882bb568304130b0e0285800a9e00dbbfd01e10d",
-      "size_bytes": 107922,
-      "version_header": "# Framework_MockTestExplainAudit.md"
+      "lines": 1059,
+      "sha256": "1aacdbe4a24642c10a4cdda845b291020eb3a2624851b804272427334065d7d7",
+      "size_bytes": 108800,
+      "version_header": "# Framework_MockTestExplainAudit v1.16.1 — Universal Mock Test Explanation Auditor"
     },
     "Framework_PYQAnalyse.md": {
       "end_sentinel": "# END OF Framework_PYQAnalyse v3.0",
@@ -160,9 +160,9 @@
       "size_bytes": 25010
     },
     "audit_canonical.py": {
-      "lines": 4931,
-      "sha256": "8003ac1fa44ebaa88ef03f60a33bfa74dde1ba735d67a9aa59fd84848956f620",
-      "size_bytes": 262342
+      "lines": 5018,
+      "sha256": "b18608d480aa1ce0130b848a5ae72acfe7bc8d09e1c8efe9b6c70a320f36992c",
+      "size_bytes": 267813
     },
     "audit_deep.py": {
       "lines": 178,
@@ -266,5 +266,5 @@
       "size_bytes": 123775
     }
   },
-  "generated_at": "2026-08-02T10:29:25+00:00"
+  "generated_at": "2026-08-02T10:56:55+00:00"
 }

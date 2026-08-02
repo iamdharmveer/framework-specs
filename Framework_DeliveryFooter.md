@@ -1,4 +1,4 @@
-# Framework_DeliveryFooter v1.10
+# Framework_DeliveryFooter v1.10 — Universal Delivery Footer (F1/F2) Contract
 # v1.10 — 2026-08-01 — §5 Q0b: CERTIFIED-DEGRADED (VISION) forces F1 AMBER.
 #   A paper certified under a MEASURED vision outage (RA-4 v2.16) delivers, but must
 #   never render green: some figures were machine-checked and never eyeballed. — Universal Delivery Footer Contract

@@ -599,22 +599,20 @@ def option_label_family(fmt):
     if len(first) == 1 and first.isalpha():     return 'alpha'
     return 'num'
 
-OPT_RE = re.compile(r'^\s*\(?\s*([0-9]+|[A-Za-z]|[ivxIVX]+)\s*\)?\s*[.)]\s+\S')
+# v2.21.7 — OPT_RE RETIRED with option_paras(); see the note above _label_paras.
 # bare-or-full option label (figural options are a bare '1.' label paragraph
 # followed by an image paragraph; text options are 'label. text').
 OPT_LABEL_RE = re.compile(r'^\s*\(?\s*([0-9]+|[A-Za-z]|[ivxIVX]+)\s*\)?\s*[.)](\s|$)')
 
-def option_paras(block):
-    """Paragraphs in the block that look like labelled options."""
-    out = []
-    for p in block.paras:
-        t = para_text(p)
-        if QNUM_RE.match(t):      # never the Q.<n> line
-            continue
-        mobj = OPT_RE.match(t)
-        if mobj:
-            out.append((mobj.group(1), p, t))
-    return out
+# v2.21.7 — option_paras() RETIRED. It was the last wrapper around OPT_RE, and
+# both of its remaining consumers (gate_optref, gate_qnfirst) have been moved onto
+# _label_paras()/OPT_LABEL_RE. Keeping a second option predicate alive with no
+# caller is drift waiting for an author: the next person needing "the options of a
+# block" would have found two helpers and picked one. There is now exactly ONE
+# option-label predicate in this file (S5-2 "ONE STRUCTURAL QUESTION, ONE ANSWER"),
+# so the divergence class that produced GAP-2026-08-02 is structurally impossible
+# rather than merely absent. validate_framework_md.py CHECK AN still guards the
+# reintroduction of a second one.
 
 
 def block_stem_text(block):
@@ -782,7 +780,21 @@ def gate_qnfirst(blocks):
     for k, b in enumerate(blocks):
         last_opt = -1
         for idx, (kind, obj) in enumerate(b.items):
-            if kind == 'p' and OPT_RE.match(para_text(obj)):
+            # v2.21.7 (SEC-1) — OPT_LABEL_RE, not OPT_RE. The anchor is "where does
+            # this block's option set END", and an IMAGE option is a BARE label
+            # paragraph followed by a picture: OPT_RE requires a visible glyph after
+            # the label and matched NONE of them, so last_opt stayed -1 on every
+            # figural block and the `continue` below SKIPPED THE WHOLE CHECK. The
+            # gate printed ok regardless, so the shortfall was invisible: measured
+            # 25 of 60 blocks unchecked on a real paper. An identical orphaned
+            # lead-in was CAUGHT after a text block and MISSED after a figural one.
+            # Same predicate split as GAP-2026-08-02; this was its last consumer.
+            if kind != 'p':
+                continue
+            _t = para_text(obj)
+            if QNUM_RE.match(_t):          # never the Q.<n> line itself
+                continue
+            if OPT_LABEL_RE.match(_t):
                 last_opt = idx
         if last_opt < 0 or k + 1 >= len(blocks):
             continue
@@ -1414,7 +1426,13 @@ def gate_images(blocks, src, media_map):
         # like the concept_map-dependent gates above — never a FAIL for a missing
         # optional input (EC-V18).
         _ok('A-FIGPROFILE',
-            'registry carries no per-question object_types (pre-v5.31 mock) — dormant.')
+            'registry carries no per-question object_types — dormant. '
+            'EXPECTED when every figural subtopic profile is unconstrained '
+            '(Step 7 omits the entry deliberately, S13 object_types writer); '
+            'also true of a genuinely pre-v5.31 registry. This message no longer '
+            'asserts which (v2.21.7, SEC-3): the earlier wording said '
+            '"pre-v5.31 mock", which MISATTRIBUTED modern v5.34+ output as legacy '
+            'and sent operators looking for a producer fault that was not there.')
     else:
         # ── FIX GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING (D1/D2) — v2.12 ──────
         # BIND THE ENGINE. Until v2.12 `bc` was READ at three sites and BOUND at
@@ -1723,7 +1741,14 @@ def gate_optref(blocks, src):
     miss = []
     for b in blocks:
         stem = block_stem_text(b)
-        opts = [o[2].lower() for o in option_paras(b)]
+        # v2.21.7 (SEC-2) — _label_paras, not option_paras. option_paras was built
+        # on OPT_RE, so on a FIGURAL block it saw only the text-bearing options and
+        # missed every bare-label image option (measured: 1 seen where 4 exist). A
+        # figural stem carrying an escape token ("None of these") would then be
+        # reported as referencing an ABSENT option and FAIL A-OPTREF on a correct
+        # paper. o[2] is the text AFTER the label in both helpers, so the escape
+        # token search is unchanged — and now cannot match the label itself.
+        opts = [o[2].lower() for o in _label_paras(b)]
         for tok in tokens:
             # MODE 1: a select/mark/choose verb near the escape token in the stem.
             triggered = bool(re.search(r'(select|mark|choose).{0,40}' + tok, stem, re.I))
@@ -2927,6 +2952,68 @@ def self_test():
     _sc_catch = any(c == 'A-SECCOUNT' and l == 'FAIL' and 'S1:3/5' in m
                     for l, c, m in RESULTS)
     check('SECCOUNT-section-count-mismatch-is-a-finding', _sc_clean and _sc_catch)
+
+    # 5a-5c. v2.21.7 — SEC-1 / SEC-2: THE LAST TWO OPT_RE CONSUMERS.
+    #     GAP-2026-08-02 moved A-DOSSIER onto the option gates' predicate but left
+    #     gate_qnfirst and gate_optref on OPT_RE, which cannot see a BARE-LABEL
+    #     image option. Both are now on _label_paras()/OPT_LABEL_RE and OPT_RE
+    #     itself is retired, so the divergence is structurally impossible.
+    def _b_orphan(figural):
+        def _f(d):
+            d.add_paragraph('Q.1  Select the figure.' if figural else 'Q.1  Solve.')
+            for _i in range(1, 5):
+                d.add_paragraph(f'{_i}.' if figural else f'{_i}.  Opt {_i}')
+            d.add_paragraph(' '.join(['word'] * 60))      # ORPHANED lead-in
+            d.add_paragraph('Q.2  Solve.')
+            for _i in range(1, 5):
+                d.add_paragraph(f'{_i}.  Opt {_i}')
+        return _f
+    def _qn_fail(build):
+        _p = _mini_doc(tmp, build)
+        _t, _bl = parse_blocks(Document(_p))
+        _reset(); gate_qnfirst(_bl)
+        return any(c == 'A-QNFIRST' and l == 'FAIL' for l, c, m in RESULTS)
+
+    # 5a — SEC-1 PARITY LOCK. The SAME orphaned lead-in must be caught after a
+    #      FIGURAL block and after a TEXT block. Under OPT_RE the figural anchor
+    #      never matched, last_opt stayed -1, and the `continue` skipped the whole
+    #      check while the gate still printed ok — 25 of 60 blocks unchecked on a
+    #      real paper. Both halves asserted so the fix cannot be "achieved" by
+    #      making the gate fire always.
+    check('QNFIRST-figural-and-text-blocks-at-parity',
+          _qn_fail(_b_orphan(True)) and _qn_fail(_b_orphan(False)))
+
+    # 5b — GUARD: a CLEAN figural block (blank separator, no orphan) stays OK.
+    def _b_fig_clean(d):
+        d.add_paragraph('Q.1  Select the figure.')
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.')
+        d.add_paragraph('')
+        d.add_paragraph('Q.2  Solve.')
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.  Opt {_i}')
+    check('QNFIRST-clean-figural-block-stays-clean',
+          not _qn_fail(_b_fig_clean))
+
+    # 5c — SEC-2: A-OPTREF must SEE a figural block's full option set. option_paras
+    #      (OPT_RE) reported ONE option on a block rendering four; _label_paras
+    #      reports four. Asserted as a COUNT PARITY with the option gates rather
+    #      than only as a verdict, because the wrong verdict it enables (a figural
+    #      stem whose escape option is itself an image) is rare while the predicate
+    #      inconsistency is always present.
+    def _b_fig_escape(d):
+        d.add_paragraph('Q.1  Which figure fits? Select None of these if inapplicable.')
+        d.add_paragraph('Problem Figure')
+        for _i in range(1, 4):
+            d.add_paragraph(f'{_i}.')
+        d.add_paragraph('4.  None of these')
+    _p5c = _mini_doc(tmp, _b_fig_escape)
+    _t, _bl5c = parse_blocks(Document(_p5c))
+    _s5c = _src_stub(tq=1); _s5c['rules_txt'] = ''
+    _reset(); gate_optref(_bl5c, _s5c)
+    check('OPTREF-sees-full-figural-option-set',
+          len(_label_paras(_bl5c[0])) == 4
+          and not any(c == 'A-OPTREF' and l == 'FAIL' for l, c, m in RESULTS))
 
     # 5. A-QNFIRST catches stimulus orphaned before the next Q.N
     def b_notfirst(d):

@@ -1,4 +1,15 @@
-# Framework_MockTestExplainAudit.md
+# Framework_MockTestExplainAudit v1.16.1 — Universal Mock Test Explanation Auditor
+# LINE-1 HEADER REPAIRED (v2.21.7 corpus sweep; no rule change).
+#   This file's first line read "# Framework_MockTestExplainAudit.md" — it carried
+#   the FILE EXTENSION and NO VERSION AT ALL, unlike every other Framework_*.md.
+#   MANIFEST.json recorded that string verbatim as the version_header, so bootstrap
+#   compared it to itself and PASSED: the file was version-pinned to a value that
+#   contained no version, and CHECK C's header-vs-footer comparison had nothing to
+#   compare. v1.16.1 is the file's OWN end-of-file marker ("End of
+#   Framework_MockTestExplainAudit.md (v1.16.1)") — the authoritative source. A
+#   first attempt used v1.15 from a cross-reference in Framework_MockDeliver.md;
+#   CHECK C rejected it against the footer, which is exactly the check this repair
+#   restores. Content is untouched.
 # [ExamCode] project | Step 10 (MockExplainAudit) | Universal Mock Test Explanation Auditor
 
 **Step 10 — MockExplainAudit**

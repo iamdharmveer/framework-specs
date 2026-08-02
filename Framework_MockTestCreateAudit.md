@@ -1,4 +1,42 @@
-# Framework_MockTestCreateAudit v2.21.6
+# Framework_MockTestCreateAudit v2.21.7
+# v2.21.7 — 2026-08-02 — THE LAST TWO OPT_RE CONSUMERS; PREDICATE SPLIT RETIRED.
+#   Closes SEC-1, SEC-2 and SEC-3, the three findings carried since
+#   GAP-2026-08-02, plus a corpus-wide header/count sweep.
+#
+#   SEC-1 (REAL DEFECT, MEASURED) — gate_qnfirst anchored on OPT_RE, which cannot
+#   see a BARE-LABEL image option. On every figural block last_opt stayed -1 and the
+#   `continue` SKIPPED THE WHOLE CHECK, while the gate still printed ok, so the
+#   shortfall was invisible: 25 of 60 blocks unchecked on a real paper. Measured
+#   both ways — an IDENTICAL orphaned lead-in was CAUGHT after a text block and
+#   MISSED after a figural one. Now on OPT_LABEL_RE. Fixture 5a asserts the two are
+#   at PARITY; 5b guards that a clean figural block stays clean.
+#
+#   SEC-2 (CONSISTENCY, STATED HONESTLY) — gate_optref read option_paras(), also
+#   built on OPT_RE: on a figural block it reported ONE option where FOUR are
+#   rendered (measured). The wrong verdict this enables — a figural stem whose
+#   escape option is itself an image — is RARE, and no wrong verdict was observed on
+#   the common shapes, so this is hardening rather than a demonstrated live bug.
+#   Fixture 5c asserts the COUNT PARITY, which is always present, rather than a
+#   verdict that usually is not.
+#
+#   PREDICATE SPLIT NOW STRUCTURALLY IMPOSSIBLE — with both consumers moved,
+#   option_paras() had NO callers and OPT_RE had no wrapper. Both are RETIRED. A
+#   second option predicate kept alive with no caller is drift waiting for an
+#   author: the next person needing "the options of a block" would have found two
+#   helpers and picked one. There is now exactly ONE option-label predicate in the
+#   file. CHECK AN still guards the reintroduction of a second.
+#
+#   SEC-3 (MESSAGE ONLY — the producer is CORRECT) — A-FIGPROFILE printed
+#   "registry carries no per-question object_types (pre-v5.31 mock) — dormant" on
+#   MODERN v5.34+ output. Step 7's writer is right: it OMITS object_types per
+#   question when the profile mode is 'unconstrained' ("an absent entry makes the
+#   gate dormant rather than wrong"), so an empty map is EXPECTED, not legacy. The
+#   message misattributed it and sent operators looking for a producer fault that
+#   was not there. Reworded to state both causes and assert neither.
+#
+#   Self-test 136 -> 139. Mutation stays 100% / 0 survivors. AUTH_GATE_FLOOR stays
+#   35. NO paper changes. NO Step-7 changes.
+#
 # v2.21.6 — 2026-08-02 — MUTATION SCORE 100%. ZERO SURVIVORS. RATCHET AT 0.
 #   The last seven untested findings closed in one release. Every finding
 #   audit_canonical.py can emit is now provably detected by at least one fixture:
@@ -4167,6 +4205,23 @@ Replace for registry.json), and next-step reference.
     A-DUP ← R2/R3/G-DUP (cross-mock, --mockN self-exclude)
     A-KINT/A-KBAL/A-KPAT ← K-INT/K-BAL/K-PAT (on Step-8's DERIVED key, §11)
     A-HEADER ← R8b/G-PREQ1 (Step 7 pre-Q.1 body-block ban; strip if present)
+    A-FIGSCALE/A-FIGLABEL/A-FIGDPI/A-FIGDEGEN/A-FIGMONO/A-FIGOPTUNIF/A-FIGCOLOUR/
+    A-FIGCVD/A-FIGSERIES/A-FIGGLYPH/A-FIGALT/A-FIGLABELPX
+                <- G-FIGSCALE/G-FIGLABEL/G-FIGDPI/G-FIGDEGEN/G-FIGMONO/G-FIGOPTUNIF/
+                   G-FIGCOLOUR/G-FIGCVD/G-FIGSERIES/G-FIGGLYPH/G-FIGALT (Step-7 twins).
+                   Verdict DELEGATED to figural_core so generator and auditor cannot
+                   drift. (v2.21.7 — these twelve had Step-7 twins but no §16 row.)
+    A-OPTLABEL  <- R10/G-OPTLABEL · A-NAT-NOOPT <- R13 NAT exemption/G-NAT-NOOPT
+    A-NAT-INSTR <- R14 NAT/G-NAT-INSTR · A-NAT-GRADE <- S7-NEW-C/G-NAT-GRADE
+    A-MSQ-INSTR <- G-MSQ-INSTR · A-NAT-ANSWER <- G-NAT-ANSWER (Claude-derived, §11)
+    A-KBAL/A-KPAT <- G-KBAL/G-KPAT (Claude-derived from Step-8's OWN key, §11)
+    STEP-7-ONLY (no Step-8 twin — allocation-time or key-dependent, NOT machine-
+    checkable from a delivered docx): G-ALLOC-family, G-CLUSTER, G-PROG, G-RANGE,
+    G-MINCOUNT, G-GROUPMANDATE, G-ALTGROUP, G-KEY, G-DEDUP (superseded by A-DUP),
+    G-BLANK (superseded by A-BLANKSEP), G-BOLD, G-CONT, G-FIGDEP, G-FIGTEXT-DEPS,
+    G-MSQ-CARD/G-MSQ-SET (superseded by A-MSQ-KEY). Listed so the §16 claim that
+    Step 8 re-verifies "every machine-checkable Step-7 contract" is TRUE as written
+    rather than silently incomplete (v2.21.7).
     A-FIGTEXT-PROSE <- R-FIGURAL/G-FIGTEXT-PROSE (Create Tier 3). Live roster gate,
                 CAN FAIL; zero-image block carrying figure-reference prose.
     A-DOSSIER <- S13-4b Tier-A fact channel (v2.17; predicate corrected v2.21).
@@ -4460,7 +4515,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.21.6 build prints 136/136 — see tests 16-20).
+#     v2.12; the v2.21.7 build prints 139/139 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4569,7 +4624,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (136/136) all pass, and
+#   (139/139) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4666,7 +4721,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 136/136 PASS  (exit 0) on the v2.21.6 canonical
+#     • `--self-test`  → SELF-TEST: 139/139 PASS  (exit 0) on the v2.21.7 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4734,10 +4789,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 136/136). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 139/139). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21.6
+# END OF Framework_MockTestCreateAudit v2.21.7
 # ════════════════════════════════════════════════════════════════════════

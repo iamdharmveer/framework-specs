@@ -1,5 +1,73 @@
 # Changelog
 
+## 2026.08.02.7
+**The last two OPT_RE consumers closed; the predicate split is now structurally
+impossible. Plus a corpus-wide header and count sweep.**
+
+**SEC-1 — real defect, measured.** `gate_qnfirst` anchored on `OPT_RE`, which cannot
+see a bare-label image option. On every figural block `last_opt` stayed `-1` and the
+`continue` **skipped the whole check**, while the gate still printed `ok` — so the
+shortfall was invisible: 25 of 60 blocks unchecked on a real paper. Measured both
+ways: an *identical* orphaned lead-in was **caught** after a text block and
+**missed** after a figural one. Now on `OPT_LABEL_RE`. Fixture 5a asserts the two
+are at parity; 5b guards that a clean figural block stays clean.
+
+**SEC-2 — consistency, stated honestly.** `gate_optref` read `option_paras()`, also
+built on `OPT_RE`: on a figural block it reported **one** option where **four** are
+rendered. The wrong verdict this enables — a figural stem whose escape option is
+itself an image — is rare, and no wrong verdict was observed on the common shapes.
+This is hardening, not a demonstrated live bug, and fixture 5c asserts the **count
+parity** (always present) rather than a verdict (usually absent).
+
+**Predicate split retired.** With both consumers moved, `option_paras()` had no
+callers and `OPT_RE` had no wrapper. Both **deleted**. A second option predicate kept
+alive with no caller is drift waiting for an author — the next person needing "the
+options of a block" would have found two helpers and picked one. There is now exactly
+**one** option-label predicate in the file, so the divergence class behind
+`GAP-2026-08-02` is impossible by construction rather than merely absent. `CHECK AN`
+still guards reintroduction.
+
+**SEC-3 — message only; the producer is correct.** `A-FIGPROFILE` printed
+"pre-v5.31 mock" on modern v5.34+ output. Step 7's writer is right: it deliberately
+**omits** `object_types` per question when the profile mode is `unconstrained`, so an
+empty map is *expected*, not legacy. The message misattributed it and sent operators
+hunting a producer fault that did not exist. Reworded to state both causes and assert
+neither.
+
+**D2 (FigureSpec transport) — already closed; no change needed.** Verified against
+your live registry: `figure_specs` carries **57** entries on mock 1, written by Step 7
+into `registry.figural_manifests[].figure_specs` and read by the auditor. The
+carry-forward was stale.
+
+**§16 glossary completed.** Twelve `A-FIG*` gates plus `A-OPTLABEL`, `A-NAT-*`,
+`A-MSQ-INSTR`, `A-KBAL`/`A-KPAT` had Step-7 twins but no mapping row. Added — along
+with an explicit **STEP-7-ONLY** list (allocation-time and key-dependent gates that
+are genuinely not machine-checkable from a delivered docx), so §16's claim that Step 8
+re-verifies "every machine-checkable Step-7 contract" is true as written rather than
+silently incomplete.
+
+**`Framework_Blueprint.md` → v1.42.8.** Five **live** normative sites still quoted
+"the v2.13 canonical build prints 107/107" as the expected auditor count — stale twice
+over and version-misattributed. Refreshed to 139/139, each now stating that the count
+is informational and `AUTH_GATE_FLOOR` is the binding condition, so the next count
+change needs no sweep. Historical changelog lines left exactly as written.
+
+**`Framework_MockTestExplainAudit.md` header repaired (v1.16.1).** Its line 1 read
+`# Framework_MockTestExplainAudit.md` — carrying the file extension and **no version
+at all**, unlike every other `Framework_*.md`. `MANIFEST.json` recorded that string
+verbatim as the `version_header`, so bootstrap compared it to itself and passed, and
+`CHECK C`'s header-vs-footer comparison had nothing to compare: the file was
+version-pinned to a value containing no version. The version is taken from the file's
+**own end-of-file marker** (`v1.16.1`). Worth recording: a first attempt used `v1.15`
+from a cross-reference in `Framework_MockDeliver.md`, and **`CHECK C` rejected it**
+against the footer — the check this repair restores caught the repair's own error on
+the first run. Content untouched.
+
+**`Framework_DeliveryFooter.md`** line-1 title normalised to the corpus convention.
+
+Self-test **136 → 139**. Mutation stays **100% / 0 survivors**. Spec → **v2.21.7**.
+`AUTH_GATE_FLOOR` stays **35**. No paper changes. No Step-7 changes.
+
 ## 2026.08.02.6
 **Mutation score 100%. Zero survivors. Ratchet lowered to 0 — absolute from here.**
 
