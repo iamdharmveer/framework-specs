@@ -2907,6 +2907,27 @@ def self_test():
               (['a', 'b', 'c', 'd'], 'a/b/c/d'),
               (['i', 'ii', 'iii', 'iv'], 'i/ii/iii/iv'))))
 
+    # 6a. v2.21.6 — A-SECCOUNT MUTATION CLOSURE. The gate that proves each section
+    #     actually contains the number of questions its q_range declares had NO
+    #     fixture: its finding could be deleted with every test still green. Both
+    #     halves asserted (matching counts stay clean) so it cannot be "achieved"
+    #     by making the gate fire always.
+    def _b_three_q(d):
+        for _n in (1, 2, 3):
+            _add_q(d, _n)
+    _p6a = _mini_doc(tmp, _b_three_q)
+    _t, _bl6a = parse_blocks(Document(_p6a))
+    _s6a = _src_stub(tq=3)
+    _s6a['sections'] = [{'name': 'S1', 'q_range': (1, 3), 'total_qs': 3}]
+    _reset(); gate_seccount(_bl6a, _s6a)
+    _sc_clean = any(c == 'A-SECCOUNT' and l == 'OK' for l, c, m in RESULTS)
+    _s6b = _src_stub(tq=3)
+    _s6b['sections'] = [{'name': 'S1', 'q_range': (1, 3), 'total_qs': 5}]
+    _reset(); gate_seccount(_bl6a, _s6b)
+    _sc_catch = any(c == 'A-SECCOUNT' and l == 'FAIL' and 'S1:3/5' in m
+                    for l, c, m in RESULTS)
+    check('SECCOUNT-section-count-mismatch-is-a-finding', _sc_clean and _sc_catch)
+
     # 5. A-QNFIRST catches stimulus orphaned before the next Q.N
     def b_notfirst(d):
         _add_q(d, 1)                                   # Q.1 + options + blank
@@ -3300,6 +3321,54 @@ def self_test():
     s['answers'] = {'1': 3}
     gate_nat(bl, s)
     check('A-NAT-GRADE-pass', not any(c == 'A-NAT-GRADE' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 36a-36c. v2.21.6 — A-NAT-GRADE INCOMPLETENESS CLOSURE. Fixtures 35/36 cover
+    #     only the MISMATCH and the happy path. Three further findings could each be
+    #     deleted with every test still green: missing nat_value, missing
+    #     nat_grading_value, and a re-derivation that RAISES. This gate guards the
+    #     exact string the delivery portal ingests to auto-grade a numerical
+    #     question, so a silent failure here is WRONG MARKS, not a wrong-looking
+    #     paper — the same class as the A-OPTORDER anchor defect.
+    def _b_nat_stem(d):
+        _add_q(d, 1, opts=(), stem='Find the value. Enter your answer as a numerical value.')
+    def _grade_verdict(entry, answers):
+        _p = _mini_doc(tmp, _b_nat_stem)
+        _t, _bl = parse_blocks(Document(_p))
+        _s = _src_stub(tq=1); _s['nat_present'] = True
+        _s['concept_map'] = {'1': dict(entry)}
+        _s['answers'] = dict(answers)
+        _reset(); gate_nat(_bl, _s)
+        return next((m for l, c, m in RESULTS
+                     if c == 'A-NAT-GRADE' and l == 'FAIL'), None)
+    _GOOD = {'qtype': 'nat', 'ca_range': None, 'nat_grading_type': 'positive_integer',
+             'nat_grading_value': '3', 'stem_precision': None}
+
+    # 36a — the sidecar carries answers, but NONE for a question it calls NAT.
+    #       (An entirely EMPTY answers map makes the whole gate dormant by design —
+    #       Step 8 gets no key unless --key is supplied — so the reachable defect is
+    #       a PARTIAL sidecar: answers present, this question's value missing.)
+    #       Nothing can be re-derived, so the grading string is unverifiable and must
+    #       be reported, never skipped silently.
+    _m36a = _grade_verdict(_GOOD, {'2': 5})
+    check('NAT-GRADE-missing-nat-value-is-a-finding',
+          _m36a is not None and 'nat_value missing' in _m36a)
+
+    # 36b — the sidecar carries a value but NO nat_grading_value. The portal would
+    #       receive nothing to match against; every candidate scores zero on this Q.
+    _e36b = dict(_GOOD); _e36b['nat_grading_value'] = None
+    _m36b = _grade_verdict(_e36b, {'1': 3})
+    check('NAT-GRADE-missing-grading-value-is-a-finding',
+          _m36b is not None and 'nat_grading_value missing' in _m36b)
+
+    # 36c — the re-derivation RAISES (an inverted ca_range, lo > hi, which
+    #       derive_nat_grading rejects). The exception must become a NAMED FINDING,
+    #       not propagate and not be swallowed: an un-derivable grading value is a
+    #       real Step-7 defect and the run must say so.
+    _e36c = dict(_GOOD); _e36c['ca_range'] = (9, 1)
+    _e36c['nat_grading_type'] = 'range'; _e36c['nat_grading_value'] = '1-9'
+    _m36c = _grade_verdict(_e36c, {'1': 3})
+    check('NAT-GRADE-re-derivation-raise-is-a-finding',
+          _m36c is not None and 're-derivation raised' in _m36c)
 
     # 37. A-NAT-GRADE is DORMANT when the blueprint declares no numerical subtopics.
     def b_grade_dormant(d): _add_q(d, 1)
@@ -3778,6 +3847,38 @@ def self_test():
           _img_verdict(_CANON5[1:4], role='options_only').get('A-FIGCOMP') == 'WARN'
           and _img_verdict(_CANON5[1:], role='options_only').get('A-FIGCOMP') == 'OK')
 
+    # 6b-6c. v2.21.6 — A-ZIP MUTATION CLOSURE. A-ZIP proves every rId referenced by
+    #     document.xml resolves to a real part. BOTH failure modes were untested:
+    #     an rId with NO relationship entry, and an rId whose relationship points at
+    #     a part that is NOT IN THE ZIP. A docx failing either is structurally
+    #     broken — images silently vanish in Word — so a silent A-ZIP is severe.
+    def _zip_verdict(mutate):
+        _src_docx = _img_doc(['q1_problem.png'])
+        _out = os.path.join(tmp, f'zipmut_{abs(hash(mutate)) % 99999}.docx')
+        with zipfile.ZipFile(_src_docx) as zin, \
+             zipfile.ZipFile(_out, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for _i in zin.infolist():
+                _nm, _data = _i.filename, zin.read(_i.filename)
+                _keep, _data = mutate(_nm, _data)
+                if _keep:
+                    zout.writestr(_i, _data)
+        _reset(); gate_zip(_out)
+        return {c: l for l, c, m in RESULTS}.get('A-ZIP')
+
+    # 6b — rId referenced but ABSENT from the .rels (no relationship at all).
+    def _mut_drop_rel(nm, data):
+        if nm == 'word/_rels/document.xml.rels':
+            # the image relationship Type ends '/relationships/image' (lowercase)
+            data = re.sub(rb'<Relationship\b[^>]*/image"[^>]*/?>', b'', data)
+        return True, data
+    # 6c — relationship present but the TARGET PART is missing from the archive.
+    def _mut_drop_media(nm, data):
+        return (not nm.startswith('word/media/')), data
+    check('ZIP-unresolved-rId-is-a-finding',
+          _zip_verdict(_mut_drop_rel) == 'FAIL'
+          and _zip_verdict(_mut_drop_media) == 'FAIL'
+          and _zip_verdict(lambda nm, d: (True, d)) == 'OK')
+
     # 53i — v2.21.5 ND10 FIGURAL-NAT EXEMPTION, BOTH HALVES. Create.md R-FIGURAL
     #       v4.7 FIGURAL-NAT VARIANT: a figural question whose subtopic is
     #       answer_type=='numerical' has a PROBLEM image (or series images) but
@@ -4139,6 +4240,28 @@ def self_test():
     except CheckpointError as e:
         _t73 = 'integrity' in str(e)
     check('CK-tamper-refused', _t73)
+
+    # 73a. v2.21.6 — restore_checkpoint MEMBER-ABSENCE CLOSURE. CK-tamper-refused
+    #     covers a member whose CONTENT changed (hash mismatch). The other half —
+    #     a member listed in the manifest but MISSING FROM THE ARCHIVE ENTIRELY —
+    #     had no fixture, so its finding could be deleted with every test green.
+    #     A truncated bundle is the more likely real-world corruption (interrupted
+    #     upload/copy) and it must be refused BEFORE anything is written to disk,
+    #     not resumed onto a half-restored evidence set.
+    _gone_zip = os.path.join(tmp, 'ck_truncated.zip')
+    with zipfile.ZipFile(_ck_zip) as zin, \
+         zipfile.ZipFile(_gone_zip, 'w', zipfile.ZIP_DEFLATED) as zout:
+        for _i in zin.infolist():
+            if _i.filename.startswith('evidence/'):
+                continue                      # drop the member, keep the manifest
+            zout.writestr(_i, zin.read(_i.filename))
+    try:
+        restore_checkpoint(_gone_zip, os.path.join(tmp, 'ck_g'), docx_path=_ck_paper)
+        _t73a = False
+    except CheckpointError as e:
+        _t73a = 'absent' in str(e) or 'integrity' in str(e)
+    check('CK-missing-member-refused', _t73a)
+
 
     # 74. WRONG PAPER IS REFUSED — restoring onto a different document would
     #     certify an audit nobody performed on it. Strictly worse than losing the

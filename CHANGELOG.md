@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026.08.02.6
+**Mutation score 100%. Zero survivors. Ratchet lowered to 0 — absolute from here.**
+
+The last seven untested findings closed in one release. Every finding
+`audit_canonical.py` can emit is now provably detected by at least one fixture:
+deleting **any** of the 27 finding emissions turns the self-test red.
+
+**A-NAT-GRADE (3).** Fixtures 35/36 covered only the mismatch case and the happy
+path. Missing `nat_value`, missing `nat_grading_value`, and a re-derivation that
+**raises** were all deletable with every test green. This gate guards the exact
+string the delivery portal ingests to **auto-grade** a numerical question, so a
+silent failure here means **wrong marks**, not a wrong-looking paper — the same
+severity class as the v2.21.3 A-OPTORDER anchor defect. Reachability note found
+while writing the fixture: an *entirely empty* answers map makes the gate dormant by
+design (Step 8 receives no key unless `--key` is supplied), so the reachable defect
+is a **partial sidecar** — answers present, this question's value absent. The fixture
+asserts that shape.
+
+**A-ZIP (2).** Both failure modes were untested: an rId with **no relationship
+entry**, and an rId whose relationship points at a part **not in the archive**. A
+docx failing either is structurally broken and its images silently vanish in Word.
+Both halves asserted plus the clean case, so neither can be "achieved" by making the
+gate fire always.
+
+**A-SECCOUNT (1).** The gate proving each section holds the number of questions its
+`q_range` declares had no fixture at all. Matching-count guard included.
+
+**restore_checkpoint (1).** `CK-tamper-refused` covered a member whose *content*
+changed (hash mismatch); a member **listed in the manifest but missing from the
+archive** had none. A truncated bundle is the likelier real-world corruption
+(interrupted upload or copy) and must be refused **before anything is written to
+disk**, never resumed onto a half-restored evidence set.
+
+Self-test **130 → 136**. Survivors **7 → 0**; score **74.1% → 100%**. §21 ratchet
+budget **lowered to 0** — from this release the gate is absolute: any new finding no
+fixture can detect fails the build. No inherited backlog remains.
+
+**Honest scope.** A 100% mutation score means every finding *emission* is covered. It
+does **not** mean the gates are correct. A gate can be provably-fires-when-it-should
+and still encode the wrong rule — which is exactly what the v2.21.3 (A-OPTORDER
+unanchored), v2.21.4 (A-FIGCOMP dead branch, partial figure sets) and v2.21.5 (ND10
+figural-NAT) defects were. Those were found by reading the **producer contract**, not
+by mutation. Both controls are necessary; neither is sufficient.
+
+Spec → **v2.21.6**. `AUTH_GATE_FLOOR` stays **35**. No paper changes. No Step-7
+changes.
+
 ## 2026.08.02.5
 **Includes the ND10 figural-NAT correction (spec v2.21.5), caught in review before
 deployment.** See the ND10 section at the end of this entry.
