@@ -1322,6 +1322,64 @@ def _ao_pred_attrs(node):
             if isinstance(n, ast.Name) and n.id.endswith('_RE')}
 
 
+def check_ap_clean_shape_matrix(directory):
+    """CHECK AP — THE CLEAN-SHAPE MATRIX MUST EXIST AND COVER EVERY RENDERING.
+
+    EIGHT hollow-branch defects are on record and the last four share one shape: a
+    block-structural gate written and fixtured against the TEXT-option rendering,
+    which then meets a DIFFERENT LEGITIMATE RENDERING in the wild. v2.21 (A-DOSSIER
+    blind to an image option), v2.21.3 (A-OPTORDER unanchored), v2.21.7 (A-QNFIRST
+    skipping figural blocks) and v2.21.9 (A-QNFIRST then FALSE-FAILING them) were
+    each closed with a per-gate fixture. That is necessary and not sufficient: it
+    requires an author to ANTICIPATE the shape, and four times running nobody did.
+
+    CHECK AN and CHECK AO do not catch this class. The v2.21.9 gate used the shared
+    predicate CORRECTLY and its fixture was NOT tautological — the fixture simply
+    modelled the LABELS and not the PICTURES, so the mandated shape was never built.
+
+    The invariant that needs no anticipation: A CONFORMANT PAPER IS CONFORMANT IN
+    EVERY RENDERING THE FRAMEWORK MANDATES. audit_canonical.py fixture 5g asserts it
+    by DISCOVERING every gate_* by introspection and running all of them over a clean
+    paper in each shape. This check keeps that control from being quietly deleted,
+    and keeps its shape list honest: dropping a shape would silently shrink coverage
+    while the self-test still reported green — the exact failure mode being closed.
+    """
+    issues = []
+    REQUIRED_SHAPES = ('text', 'image', 'enumerated-stem')
+    for fname in sorted(os.listdir(directory)):
+        if fname != 'audit_canonical.py':
+            continue
+        fp = os.path.join(directory, fname)
+        try:
+            src_txt = open(fp, encoding='utf-8').read()
+        except OSError:
+            continue
+        if 'SHAPE-MATRIX-no-gate-fails-a-conformant-rendering' not in src_txt:
+            issues.append((fname,
+                'CHECK AP: the CLEAN-SHAPE MATRIX (fixture 5g) is ABSENT. It is the '
+                'only control that catches a gate false-failing a legitimate '
+                'rendering WITHOUT anyone anticipating that shape. Restore it.'))
+            continue
+        if '_SHAPES' not in src_txt:
+            issues.append((fname,
+                'CHECK AP: fixture 5g is present but its _SHAPES table is missing — '
+                'the matrix cannot enumerate renderings.'))
+            continue
+        missing = [s for s in REQUIRED_SHAPES if f"'{s}'" not in src_txt]
+        if missing:
+            issues.append((fname,
+                'CHECK AP: the CLEAN-SHAPE MATRIX does not cover mandated '
+                'rendering(s) %s. Each corresponds to a defect already shipped '
+                'against this corpus; removing one restores that blind spot.'
+                % ', '.join(repr(m) for m in missing)))
+        if 'startswith(\'gate_\')' not in src_txt.replace('"', "'"):
+            issues.append((fname,
+                'CHECK AP: the matrix must DISCOVER gates by introspection '
+                '(gate_* prefix scan), not from a hand-maintained list — a list '
+                'omits every gate written after it.'))
+    return issues
+
+
 def check_ao_tautological_fixture(directory):
     """CHECK AO — A FIXTURE MUST NOT RESTATE ITS SUBJECT.
 
@@ -2110,6 +2168,9 @@ if __name__ == '__main__':
                 ('AO', 'TAUTOLOGICAL-FIXTURE DETECTOR',
                  check_ao_tautological_fixture,
                  'no fixture restates its own subject; every lock can actually fail.'),
+                ('AP', 'CLEAN-SHAPE MATRIX',
+                 check_ap_clean_shape_matrix,
+                 'a conformant paper is conformant in EVERY mandated rendering.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')

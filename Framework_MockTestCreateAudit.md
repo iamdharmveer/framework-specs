@@ -1,4 +1,74 @@
-# Framework_MockTestCreateAudit v2.21.8
+# Framework_MockTestCreateAudit v2.21.9
+# v2.21.9 — 2026-08-02 — A-QNFIRST FALSE-FAILED EVERY CONFORMANT FIGURAL PAPER.
+#   GAP-2026-08-02-QNFIRST-IMAGE-OPTION. Raised from a live TestCreateAudit run
+#   that reported "Part A — 48 OK · 0 WARN · 1 FAIL · exit 1" with A-QNFIRST
+#   naming six questions on a paper that was CORRECT.
+#
+#   THE DEFECT, AND IT IS A FALSE POSITIVE ON A CONFORMANT PAPER — the most
+#   expensive kind of wrong answer an auditor can give. gate_qnfirst anchors on
+#   the LAST OPTION LABEL and treats anything after it as a stimulus orphaned
+#   ahead of the next Q.<n>. An IMAGE option is a BARE label paragraph FOLLOWED BY
+#   its picture (R-FIGURAL / G-FIGURAL-COMPOSITE: "problem image + one separate
+#   image per option, bound 1:1 to labels"), so the FINAL option's OWN picture
+#   NECESSARILY sits after the last label. Every stem_and_options figural block in
+#   the estate was therefore reported as orphaning a stimulus, while A-FIGCOMP,
+#   A-OPTN, A-OPTUNIQUE and A-DOSSIER — the gates that OWN that structure — all
+#   passed the SAME block. Two gates, one block, contradictory verdicts: the
+#   v2.21 A-DOSSIER signature exactly.
+#
+#   IT WAS INTRODUCED BY THE PREVIOUS RELEASE'S OWN FIX. v2.21.7 moved the anchor
+#   from OPT_RE to OPT_LABEL_RE to close a real false NEGATIVE (figural blocks were
+#   skipped entirely — 25 of 60 unchecked on a real paper). Correct fix; nothing
+#   measured what the newly-visible anchor did to the TRAILING scan. A false
+#   negative became a false positive in one move.
+#
+#   SEVERITY IS NOT COSMETIC. A-QNFIRST is a FAIL, so exit is non-zero and
+#   MANDATE D refuses to certify — and A-QNFIRST is catalogued CP-fixable, so
+#   Phase 1 calls CP-QNFIRST on a block that has nothing to re-emit. The fix does
+#   nothing, Part A re-runs, still red: an UNFIXABLE FALSE FAILURE INSIDE A REPAIR
+#   LOOP. That is the shape of a multi-day audit that never certifies, and it is
+#   what the reporting operator experienced.
+#
+#   FIX. The allowance is MEASURED FROM THE BLOCK, never assumed (RA-9): count the
+#   pictures bound to each NON-FINAL option (between consecutive labels) and allow
+#   the same number to trail the final label. A TEXT-option block measures 0 and
+#   behaves EXACTLY as before, so the genuine orphan catch is preserved at full
+#   strength. Verified in both directions on real docx fixtures: a conformant
+#   figural block is clean; a genuine orphan after the last option image — as an
+#   EXTRA image, a TABLE, or a 60-word passage — still FAILS. Measured on the
+#   v2.21.8 build, exactly ONE case flips. No over-correction.
+#
+#   WHY NO FIXTURE SAW IT: FIXTURE 5b MODELLED THE LABELS AND NOT THE PICTURES.
+#   The v2.21.7 guard "a CLEAN figural block stays clean" builds four BARE LABELS
+#   AND NO IMAGES — a shape v2.21.4 declares a FINDING in its own right ("a
+#   REGISTRY-DECLARED figural Q rendering ZERO images is a finding"). The guard
+#   that existed to prove a conformant figural block stays clean never once built
+#   the shape R-FIGURAL mandates. EIGHTH hollow-branch occurrence.
+#
+#   THE GENERALISED CONTROL — THE CLEAN-SHAPE MATRIX (fixture 5g) + CHECK AP.
+#   The last FOUR defects share one shape: a block-structural gate written and
+#   fixtured against the TEXT-option rendering, meeting a different LEGITIMATE
+#   rendering in the wild (v2.21 A-DOSSIER, v2.21.3 A-OPTORDER, v2.21.7 and now
+#   v2.21.9 A-QNFIRST). Each was closed with a per-gate fixture, which requires an
+#   author to ANTICIPATE the shape — and four times running nobody did. CHECK AN
+#   and CHECK AO cannot catch it: this gate used the shared predicate CORRECTLY
+#   and its fixture was NOT tautological.
+#   The invariant that needs no anticipation: A CONFORMANT PAPER IS CONFORMANT IN
+#   EVERY RENDERING THE FRAMEWORK MANDATES. Fixture 5g builds a clean paper in each
+#   canonical shape (text options / IMAGE options / enumerated stem), DISCOVERS
+#   every gate_* by introspection, runs all of them over each shape, and asserts
+#   ZERO FAILs — naming the offending shape when it trips. Because gates are
+#   discovered and not listed, a gate written NEXT YEAR is covered with nobody
+#   remembering to opt it in. Measured: on the v2.21.8 build 5g reports the
+#   A-QNFIRST FAIL on the clean image-option shape — it would have caught this
+#   defect with no one suspecting the gate was wrong. Only FAIL is asserted; a WARN
+#   on a clean shape stays legitimate (absent dossier, uninstalled engine).
+#   CHECK AP fails the BUILD if 5g is deleted, loses its shape table, drops a
+#   mandated shape, or replaces gate DISCOVERY with a hand-maintained list.
+#
+#   Self-test 142 -> 149. Mutation 27/27 killed, 100%, 0 survivors — budget stays
+#   0. AUTH_GATE_FLOOR stays 35. NO paper changes. NO Step-7 changes.
+#
 # v2.21.8 — 2026-08-02 — A-FIGTEXT-PROSE ASSUMED ENGLISH (RA-9 VIOLATION).
 #   Found by auditing the corpus for EXAM-INDEPENDENCE rather than for correctness —
 #   a different question from the one every previous release asked, and it found
@@ -4320,6 +4390,8 @@ Replace for registry.json), and next-step reference.
   | **`A-DOSSIER` FAIL `qtype-mcq-but-M!=N-options` where M > N** | Same root cause, **TEXT-option papers**: an enumerated stem ("1. ... 2. ...") inflated the count because the pre-v2.21 counter had no trailing-set clamp. Standard on STATEMENT / SEQUENCE / MATCH / ASSERTION_REASON items. Same remedy. |
   | **`A-DOSSIER` FAIL `qtype-nat-but-M-options` on a NAT question whose STEM enumerates** | Same root cause. Pre-v2.21 the nat leg fired on ANY non-zero label count, so a legitimate NAT stem carrying an enumerated list was reported as if it rendered options. Same remedy. |
   | **`A-DOSSIER` FAIL and `A-OPTN` ALSO fails on the same Q** | **Now it IS a paper defect** — the option set is genuinely wrong. Route to Phase 2, class RG, per the normal option-count repair path. **The `A-OPTN` verdict is the discriminator between a framework defect and a paper defect; always read the two together.** |
+  | **`A-QNFIRST` FAIL "stimulus orphaned before Q.<n>" on FIGURAL questions** | **FRAMEWORK defect, NOT a paper defect (GAP-2026-08-02-QNFIRST-IMAGE-OPTION, fixed v2.21.9).** The auditor copy predates v2.21.9 and counts the final option's OWN picture as an orphaned stimulus, because an IMAGE option is a bare label FOLLOWED BY its picture and that picture necessarily trails the last option label. Confirm in ONE step: if **A-FIGCOMP is `ok`** on the same questions, the PAPER IS CORRECT and the GATE IS WRONG — A-FIGCOMP owns this exact structure. **DO NOT MODIFY THE PAPER**, and do NOT let CP-QNFIRST re-emit the block: there is nothing to re-emit, the gate stays red, and the run is then an unfixable false failure inside a repair loop (exit 1 -> MANDATE D refuses to certify). SANCTIONED REPAIR policy (b): replace `[ExamCode]_mock_test_audit.py` with the current repo `audit_canonical.py` (v2.21.9+), re-run P0.5 + P1, log to `session_log.inputs_repaired[]`, disclose in §R13. No `resume`/checkpoint is needed — this fires in Phase 1 before any Phase-2 work exists. |
+  | **A Part-A gate FAILs a paper you believe is conformant** | Read the gate that OWNS the structure in question (A-FIGCOMP for figural layout, A-OPTN/A-OPTUNIQUE for option sets, A-DOSSIER for recorded-vs-shipped). **Two gates reaching contradictory verdicts about ONE block IS the defect**, and the owning gate is the discriminator. Treat a contradiction as a FRAMEWORK defect until proven otherwise, and NEVER edit the paper to silence one half of it — that introduces a real defect to hide a false one. This pattern has now produced four releases (v2.21 A-DOSSIER, v2.21.3 A-OPTORDER, v2.21.7 and v2.21.9 A-QNFIRST). |
   | **`A-FIG*` gates print "0 figure(s)" on a paper that HAS drawings** | The auditor copy PREDATES v2.13 — `Block.images` was never populated, so all twelve gates passed vacuously. NOT a paper property and NOT a pass: the paper was never audited for figure conformance. Refresh the copy (§21 path (A) or (B)) and re-run. |
   | **`A-FIG*` WARN "conformance NOT ESTABLISHED"** | Drawings are declared in the docx but none could be read out of the ZIP. A COVERAGE gap, never a pass — check A-ZIP first (a dangling rId is a hard stop in its own right), then re-run. Never certify past it. |
   | **`A-FIG*` WARN "EC-V18 legacy ... delivery NOT blocked"** | The paper predates Step 7 v5.34, so its figures carry no FigureSpec sidecar and the gate has no record to check against. LOUD but not fixable at Step 8 — an S5-4 ACCEPTED WARN: record it under §R13, the amber footer applies, and the paper still certifies and ships. To obtain full figure coverage, regenerate the paper on Step 7 v5.34+. |
@@ -4499,6 +4571,12 @@ Replace for registry.json), and next-step reference.
 #   |   AUDIT_SCRIPT_CONTENT constant-print self_test with the fixture-based one; add     |
 #   |   --audit-state + C1–C7. Retire the "GATE-COUNT CONTRACT accepts ANY N/N" clause —  |
 #   |   it must accept ONLY a fixture-based N/N with N>=AUTH_GATE_FLOOR.                   |
+#   | validate_framework_md.py (v2.21.9) | CHECK AP — CLEAN-SHAPE MATRIX. Fails the |
+#   |   build if audit_canonical.py loses fixture 5g, loses its _SHAPES table, drops a |
+#   |   mandated rendering, or replaces gate DISCOVERY with a hand-maintained list (a  |
+#   |   list omits every gate written after it). CHECK AN and CHECK AO CANNOT catch    |
+#   |   the shape class: the v2.21.9 gate used the shared predicate CORRECTLY and its  |
+#   |   fixture was NOT tautological — it simply never built the shape.                |
 #   | validate_framework_md.py | Add the 6 regression tests below + a check that MANDATE  |
 #   |   B / RA-0 / RA-15a / RA-15b / S4-3A / S5-1A / P0.5 headings all exist and          |
 #   |   cross-refs resolve.                                                               |
@@ -4561,7 +4639,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.21.8 build prints 142/142 — see tests 16-20).
+#     v2.12; the v2.21.9 build prints 149/149 — see tests 16-20, 25).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4616,6 +4694,16 @@ Replace for registry.json), and next-step reference.
 #        the call sites, bound nowhere. Test 15 (Context-2) proves the file runs
 #        ALONE; this proves its entry point actually invokes what it added.
 #        (fixture 63)
+#    25. CLEAN-SHAPE MATRIX (v2.21.9): build a CONFORMANT paper in each mandated
+#        rendering — TEXT options, IMAGE options (bare label + its own picture), and
+#        an ENUMERATED stem — DISCOVER every gate_* by introspection, run all of them
+#        over each shape, and assert ZERO FAILs, naming the shape that trips. Only
+#        FAIL is asserted: a WARN on a clean shape stays legitimate (absent dossier,
+#        uninstalled engine). THIS IS THE CONTROL THAT REQUIRES NO ONE TO ANTICIPATE
+#        THE SHAPE — which is precisely what the previous four per-gate fixtures each
+#        required and none delivered. Measured: on the v2.21.8 build it reports the
+#        A-QNFIRST FAIL on the clean image-option shape. Locked by CHECK AP.
+#        (fixture 5g)
 #    24. VISION DEGRADATION (v2.16/D2+D4): a MEASURED outage certifies DEGRADED at
 #        exit 0; the SAME stamp with no failed probe FAILS; a RECOVERED probe with
 #        un-upgraded stamps FAILS; a trivial montage still blocks; a MIXED ledger is
@@ -4670,7 +4758,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (142/142) all pass, and
+#   (149/149) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4767,7 +4855,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 142/142 PASS  (exit 0) on the v2.21.8 canonical
+#     • `--self-test`  → SELF-TEST: 149/149 PASS  (exit 0) on the v2.21.9 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4835,10 +4923,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 142/142). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 149/149). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21.8
+# END OF Framework_MockTestCreateAudit v2.21.9
 # ════════════════════════════════════════════════════════════════════════

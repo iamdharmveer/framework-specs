@@ -1,5 +1,72 @@
 # Changelog
 
+## 2026.08.02.9
+**A-QNFIRST false-failed every conformant figural paper — and the guard that
+existed to prevent it modelled the labels and not the pictures.**
+
+Raised from a live `TestCreateAudit` run reporting `Part A — 48 OK · 0 WARN ·
+1 FAIL · exit 1`, with A-QNFIRST naming six questions on a paper that was correct.
+
+**The defect.** `gate_qnfirst` anchors on the last option LABEL and treats anything
+after it as a stimulus orphaned ahead of the next `Q.<n>`. An IMAGE option is a bare
+label paragraph FOLLOWED BY its picture (R-FIGURAL / G-FIGURAL-COMPOSITE: "problem
+image + one separate image per option, bound 1:1 to labels"), so the final option's
+OWN picture necessarily sits after the last label. Every `stem_and_options` figural
+block in the estate was reported as orphaning a stimulus, while A-FIGCOMP, A-OPTN,
+A-OPTUNIQUE and A-DOSSIER — the gates that own that structure — all passed the SAME
+block. Two gates, one block, contradictory verdicts: the v2.21 A-DOSSIER signature.
+
+**Introduced by the previous release's own fix.** v2.21.7 moved the anchor from
+`OPT_RE` to `OPT_LABEL_RE` to close a real false NEGATIVE (figural blocks were being
+skipped entirely — 25 of 60 unchecked on a real paper). The fix was correct; nothing
+measured what the newly-visible anchor did to the TRAILING scan. A false negative
+became a false positive in one move.
+
+**Severity is not cosmetic.** A-QNFIRST is a FAIL, so exit is non-zero and MANDATE D
+refuses to certify — and A-QNFIRST is catalogued CP-fixable, so Phase 1 calls
+CP-QNFIRST on a block that has nothing to re-emit. The fix does nothing, Part A
+re-runs, still red: an unfixable false failure inside a repair loop. That is the
+shape of a multi-day audit that never certifies, and it is what the reporting
+operator experienced.
+
+**Fix.** The allowance is MEASURED FROM THE BLOCK, never assumed (RA-9): count the
+pictures bound to each NON-FINAL option (between consecutive labels) and allow the
+same number to trail the final label. A text-option block measures 0 and behaves
+exactly as before, so the genuine orphan catch is preserved at full strength.
+Verified on real docx fixtures in both directions — a conformant figural block is
+clean; a genuine orphan after the last option image still FAILS as an EXTRA image,
+a TABLE, or a 60-word passage. Against the v2.21.8 build exactly ONE case flips: no
+over-correction.
+
+**Why no fixture saw it.** v2.21.7's guard "a CLEAN figural block stays clean" builds
+four BARE LABELS AND NO IMAGES — a shape v2.21.4 declares a finding in its own right.
+The guard that existed to prove a conformant figural block stays clean never once
+built the shape R-FIGURAL mandates. EIGHTH hollow-branch occurrence.
+
+**The generalised control — CLEAN-SHAPE MATRIX (fixture 5g) + CHECK AP.** The last
+four defects share one shape: a block-structural gate written and fixtured against
+the TEXT-option rendering, then meeting a different LEGITIMATE rendering in the wild
+(v2.21 A-DOSSIER, v2.21.3 A-OPTORDER, v2.21.7 and now v2.21.9 A-QNFIRST). Each was
+closed with a per-gate fixture, which requires an author to ANTICIPATE the shape —
+and four times running nobody did. CHECK AN and CHECK AO cannot catch it: this gate
+used the shared predicate CORRECTLY and its fixture was NOT tautological.
+The invariant that needs no anticipation: A CONFORMANT PAPER IS CONFORMANT IN EVERY
+RENDERING THE FRAMEWORK MANDATES. Fixture 5g builds a clean paper in each canonical
+shape (text options / IMAGE options / enumerated stem), DISCOVERS every `gate_*` by
+introspection, runs all of them over each shape, and asserts ZERO FAILs — naming the
+offending shape when it trips. Because gates are discovered and not listed, a gate
+written next year is covered with nobody remembering to opt it in. Measured: on the
+v2.21.8 build 5g reports the A-QNFIRST FAIL on the clean image-option shape. Only
+FAIL is asserted; a WARN on a clean shape stays legitimate. CHECK AP fails the BUILD
+if 5g is deleted, loses its shape table, drops a mandated shape, or replaces gate
+discovery with a hand-maintained list.
+
+Self-test 142 -> 149. Mutation 27/27 killed, 100%, 0 survivors — budget stays 0.
+AUTH_GATE_FLOOR stays 35. No paper changes. No Step-7 changes.
+
+Files: `audit_canonical.py`, `validate_framework_md.py`,
+`Framework_MockTestCreateAudit.md` (v2.21.8 -> v2.21.9).
+
 ## 2026.08.02.8
 **A-FIGTEXT-PROSE assumed English — an RA-9 violation that produced a false
 assurance on every non-English exam in the estate.**

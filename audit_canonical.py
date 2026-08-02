@@ -31,6 +31,8 @@
 # ============================================================================
 import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata
 import io, zlib, struct, random          # v2.13 — stdlib PNG fixtures (D4); no PIL needed
+import inspect                           # v2.21.9 — the CLEAN-SHAPE MATRIX (5g)
+                                         # DISCOVERS gates instead of listing them
 from pathlib import Path
 from collections import Counter, defaultdict
 
@@ -39,6 +41,8 @@ from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from docx.document import Document as _DocClass
+from docx.shared import Inches          # v2.21.9 — shape fixtures run before the
+                                        # local import that used to own this name
 
 # ---- OOXML namespaces ------------------------------------------------------
 W  = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -789,6 +793,7 @@ def gate_qnfirst(blocks):
     viol = []
     for k, b in enumerate(blocks):
         last_opt = -1
+        opt_idxs = []
         for idx, (kind, obj) in enumerate(b.items):
             # v2.21.7 (SEC-1) — OPT_LABEL_RE, not OPT_RE. The anchor is "where does
             # this block's option set END", and an IMAGE option is a BARE label
@@ -806,13 +811,40 @@ def gate_qnfirst(blocks):
                 continue
             if OPT_LABEL_RE.match(_t):
                 last_opt = idx
+                opt_idxs.append(idx)
         if last_opt < 0 or k + 1 >= len(blocks):
             continue
+        # v2.21.9 (GAP-2026-08-02-QNFIRST-IMAGE-OPTION) — IMAGE-BOUND OPTIONS.
+        # last_opt is the index of the last option LABEL. An IMAGE option is a
+        # BARE label paragraph FOLLOWED BY its picture (R-FIGURAL / G-FIGURAL-
+        # COMPOSITE: "problem image + one separate image per option, bound 1:1 to
+        # labels"), so the final option's OWN picture NECESSARILY sits after the
+        # last label. Flagging it made this gate FAIL every conformant
+        # stem_and_options figural paper in the estate while A-FIGCOMP, A-OPTN,
+        # A-OPTUNIQUE and A-DOSSIER all passed the SAME block — two gates, one
+        # block, contradictory verdicts, which is the v2.21 A-DOSSIER signature.
+        # v2.21.7 introduced it: moving the anchor to OPT_LABEL_RE correctly fixed
+        # a false NEGATIVE (figural blocks were skipped entirely) and, unmeasured,
+        # opened this false POSITIVE.
+        # THE ALLOWANCE IS MEASURED FROM THE BLOCK, NEVER ASSUMED (RA-9). Count the
+        # pictures bound to each NON-FINAL option (between consecutive labels); the
+        # same number is allowed to trail the final label. A TEXT-option block
+        # measures 0 and behaves EXACTLY as before, so the genuine orphan catch —
+        # a stimulus belonging to the NEXT question stranded at the end of this one
+        # — is preserved at full strength (fixture 5a parity).
+        _bound = []
+        for _a, _bnext in zip(opt_idxs, opt_idxs[1:]):
+            _bound.append(sum(1 for _kd, _ob in b.items[_a + 1:_bnext]
+                              if _kd == 'p' and para_images(_ob)))
+        _img_allow = max(_bound) if _bound else 0
         for kind, obj in b.items[last_opt + 1:]:
             if kind == 't':
                 viol.append(f'Q{blocks[k+1].qnum}'); break
             if kind == 'p':
                 if para_images(obj):
+                    if _img_allow > 0:
+                        _img_allow -= 1      # the final option's own image
+                        continue
                     viol.append(f'Q{blocks[k+1].qnum}'); break
                 if len(para_text(obj).split()) >= 35:
                     viol.append(f'Q{blocks[k+1].qnum}'); break
@@ -2884,6 +2916,25 @@ def _add_q(d, n, opts=('Alpha', 'Beta', 'Gamma', 'Delta'), qn_first=True, stem='
         d.add_paragraph(f'{i}.  {o}')
     d.add_paragraph('')
 
+# ── v2.21.9 — HOISTED TO MODULE SCOPE. The CLEAN-SHAPE MATRIX (fixture 5g)
+# runs BEFORE the figure fixtures that used to own this helper, and a second
+# copy would be drift by construction (S5-2 "one structural question, one
+# answer"). Behaviour is byte-identical; every existing caller resolves it
+# globally.
+def _png_bytes(w=8, h=8):
+    """A minimal, valid RGB PNG. stdlib only — the self-test must never
+    require matplotlib or PIL to prove that images are attached."""
+    raw = b''.join(b'\x00' + b'\xff\x00\x00' * w for _ in range(h))
+    def _ck(t, d):
+        c = t + d
+        return (struct.pack('>I', len(d)) + c
+                + struct.pack('>I', zlib.crc32(c) & 0xffffffff))
+    return (b'\x89PNG\r\n\x1a\n'
+            + _ck(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
+            + _ck(b'IDAT', zlib.compress(raw))
+            + _ck(b'IEND', b''))
+
+
 def self_test():
     passed = 0; total = 0; fails = []
     tmp = tempfile.mkdtemp()
@@ -3034,6 +3085,179 @@ def self_test():
             d.add_paragraph(f'{_i}.  Opt {_i}')
     check('QNFIRST-clean-figural-block-stays-clean',
           not _qn_fail(_b_fig_clean))
+
+    # 5d-5f. v2.21.9 — GAP-2026-08-02-QNFIRST-IMAGE-OPTION.
+    #     FIXTURE 5b ABOVE MODELLED THE LABELS AND NOT THE PICTURES. Its "clean
+    #     figural block" renders four BARE LABELS AND NO IMAGES — a shape v2.21.4
+    #     declares a FINDING in its own right ("a REGISTRY-DECLARED figural Q
+    #     rendering ZERO images is a finding"). So the guard that was supposed to
+    #     prove a conformant figural block stays clean never once built the shape
+    #     R-FIGURAL actually mandates, and v2.21.7's anchor move shipped a false
+    #     POSITIVE on every stem_and_options figural paper in the estate while the
+    #     self-test reported 142/142. EIGHTH hollow-branch occurrence.
+    #     Measured on the real reproduction: A-QNFIRST FAIL "stimulus orphaned
+    #     before Q.<n>" on a block A-FIGCOMP / A-OPTN / A-OPTUNIQUE / A-DOSSIER all
+    #     pass. It is a FAIL, so exit is non-zero and MANDATE D refuses to certify
+    #     — and A-QNFIRST is catalogued CP-fixable, so Phase 1 calls CP-QNFIRST on
+    #     a block with nothing to re-emit: an unfixable false failure inside a
+    #     repair loop.
+    def _b_fig_real(trailer=None):
+        """The MANDATED stem_and_options shape (R-FIGURAL / G-FIGURAL-COMPOSITE):
+        problem image, then one BARE label + its OWN picture per option."""
+        def _f(d):
+            d.add_paragraph('Q.1  Select the figure.')
+            _p = d.add_paragraph()
+            _p.add_run().add_picture(io.BytesIO(_png_bytes()), width=Inches(2.0))
+            for _i in range(1, 5):
+                d.add_paragraph(f'{_i}.')
+                _op = d.add_paragraph()
+                _op.add_run().add_picture(io.BytesIO(_png_bytes()), width=Inches(1.0))
+            if trailer:
+                trailer(d)
+            d.add_paragraph('')
+            _add_q(d, 2)
+        return _f
+    def _tr_img(d):
+        d.add_paragraph().add_run().add_picture(io.BytesIO(_png_bytes()), width=Inches(2.0))
+    def _tr_tbl(d):
+        d.add_table(rows=2, cols=2)
+    def _tr_txt(d):
+        d.add_paragraph(' '.join(['word'] * 60))
+
+    # 5d — THE FIX. A conformant figural block MUST stay clean. The final option's
+    #      OWN picture necessarily follows the last option LABEL; treating it as an
+    #      orphaned stimulus fails the paper for obeying the producer contract.
+    #      MUTATION-VERIFIED: measures False on the v2.21.8 build.
+    check('QNFIRST-mandated-figural-option-images-are-not-orphans',
+          not _qn_fail(_b_fig_real()))
+
+    # 5e — THE FIX IS NOT "SKIP FIGURAL BLOCKS". A genuine orphan AFTER the last
+    #      option's image must STILL fire, in all three of its forms. Without this,
+    #      5d could be "achieved" by exempting image-bearing blocks outright, which
+    #      would restore the very false NEGATIVE v2.21.7 existed to close.
+    check('QNFIRST-genuine-orphan-after-figural-options-still-caught',
+          _qn_fail(_b_fig_real(_tr_img))
+          and _qn_fail(_b_fig_real(_tr_tbl))
+          and _qn_fail(_b_fig_real(_tr_txt)))
+
+    # 5f — RENDER PARITY. The SAME logical block, rendered with IMAGE options and
+    #      with TEXT options, must reach the SAME verdict — clean when clean and
+    #      flagged when orphaned. This is the assertion whose absence let a gate
+    #      hold two contradictory opinions about one block for a whole release.
+    def _b_txt_real(trailer=None):
+        def _f(d):
+            d.add_paragraph('Q.1  Solve.')
+            for _i in range(1, 5):
+                d.add_paragraph(f'{_i}.  Opt {_i}')
+            if trailer:
+                trailer(d)
+            d.add_paragraph('')
+            _add_q(d, 2)
+        return _f
+    check('QNFIRST-image-and-text-renderings-agree',
+          (_qn_fail(_b_fig_real())     == _qn_fail(_b_txt_real()))
+          and (_qn_fail(_b_fig_real(_tr_txt)) == _qn_fail(_b_txt_real(_tr_txt)))
+          and (_qn_fail(_b_fig_real(_tr_tbl)) == _qn_fail(_b_txt_real(_tr_tbl))))
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 5g. THE CLEAN-SHAPE MATRIX (v2.21.9) — THE GENERALISED GUARD.
+    # ══════════════════════════════════════════════════════════════════════════
+    #     WHY THIS EXISTS, AND WHY IT IS NOT ANOTHER PER-GATE FIXTURE. This corpus
+    #     has now recorded EIGHT hollow-branch defects, and the last four share ONE
+    #     shape: a block-structural gate written and fixtured against the TEXT-option
+    #     rendering, then meeting a DIFFERENT LEGITIMATE RENDERING in the wild.
+    #       v2.21   A-DOSSIER  — could not see an IMAGE option; also inflated on an
+    #                            ENUMERATED stem.
+    #       v2.21.3 A-OPTORDER — accepted any consecutive run.
+    #       v2.21.7 A-QNFIRST  — SKIPPED figural blocks entirely.
+    #       v2.21.9 A-QNFIRST  — then FALSE-FAILED them (this release).
+    #     Each was closed with a fixture for THAT gate. That is necessary and it is
+    #     not sufficient: it depends on an author ANTICIPATING the shape, and four
+    #     times running, nobody did. CHECK AN (shared-predicate parity) and CHECK AO
+    #     (tautological fixture) do not catch it either — this gate used the shared
+    #     predicate correctly and its fixture was not tautological. It simply never
+    #     built the shape.
+    #
+    #     THE INVARIANT, AND IT NEEDS NO ANTICIPATION: **A CONFORMANT PAPER IS
+    #     CONFORMANT IN EVERY RENDERING THE FRAMEWORK MANDATES.** So: build a CLEAN
+    #     paper in each canonical shape, run EVERY gate over each, and assert ZERO
+    #     FAILs. A gate that false-fails a legitimate rendering turns the self-test
+    #     red — automatically, in all ~200 exam projects, for gates not yet written.
+    #
+    #     IT IS SELF-HOSTING. Gates are DISCOVERED by introspection (every module
+    #     callable named gate_*) and their arguments supplied BY PARAMETER NAME, so
+    #     a NEW gate is covered the moment it is added, with nobody remembering to
+    #     opt it in. That is the difference between a fixture and a control.
+    #     Measured: on the v2.21.8 build this fixture reports the A-QNFIRST FAIL on
+    #     the clean image-option shape — it would have caught this release's defect
+    #     with no one suspecting the gate was wrong.
+    #     ONLY 'FAIL' IS ASSERTED. A WARN on a clean shape is legitimate (a dossier
+    #     that is absent, an engine that is not installed); a FAIL is the gate
+    #     saying a conformant paper is defective, which is never legitimate.
+    def _shape_text(d, n):
+        d.add_paragraph(f'Q.{n}  Solve.')
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.  Opt {_i}')
+        d.add_paragraph('')
+
+    def _shape_image(d, n):
+        """R-FIGURAL stem_and_options: problem image + one bare label + picture
+        per option. THE SHAPE NO FIXTURE HAD EVER BUILT."""
+        d.add_paragraph(f'Q.{n}  Select the figure.')
+        d.add_paragraph().add_run().add_picture(
+            io.BytesIO(_png_bytes()), width=Inches(2.0))
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.')
+            d.add_paragraph().add_run().add_picture(
+                io.BytesIO(_png_bytes()), width=Inches(1.0))
+        d.add_paragraph('')
+
+    def _shape_enum(d, n):
+        """STATEMENT/SEQUENCE/MATCH/ASSERTION_REASON: an ENUMERATED stem whose
+        numbered points must not be mistaken for options (the v2.21 defect)."""
+        d.add_paragraph(f'Q.{n}  Consider the following statements:')
+        d.add_paragraph('1.  First statement.')
+        d.add_paragraph('2.  Second statement.')
+        d.add_paragraph('Which of the above is/are correct?')
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.  Opt {_i}')
+        d.add_paragraph('')
+
+    _SHAPES = (('text', _shape_text, {}),
+               ('image', _shape_image, {'figural_qs': {1}}),
+               ('enumerated-stem', _shape_enum, {}))
+
+    def _shape_fails(builder, extra):
+        def _b(d):
+            builder(d, 1)
+            _shape_text(d, 2)
+        _p = _mini_doc(tmp, _b)
+        _doc = Document(_p)
+        _t, _bl = parse_blocks(_doc)
+        _s = _src_stub(tq=2); _s.update(extra)
+        _pool = dict(doc=_doc, blocks=_bl, src=_s, docx_path=_p, media_map={},
+                     dossier=None, final=True, why=None)
+        _reset()
+        for _gn in sorted(n for n in globals() if n.startswith('gate_')):
+            _g = globals()[_gn]
+            if not callable(_g):
+                continue
+            _sig = inspect.signature(_g)
+            if not all(_pn in _pool for _pn in _sig.parameters):
+                continue          # a gate needing state this matrix cannot stub
+            try:
+                _g(*[_pool[_pn] for _pn in _sig.parameters])
+            except Exception:
+                pass              # _safe_gate owns crash reporting; not this fixture
+        return [(c, m) for l, c, m in RESULTS if l == 'FAIL']
+
+    _matrix = {nm: _shape_fails(b, x) for nm, b, x in _SHAPES}
+    check('SHAPE-MATRIX-no-gate-fails-a-conformant-rendering',
+          all(not v for v in _matrix.values()))
+    # Report WHICH shape and WHICH gate, so a future failure is diagnosable at a
+    # glance instead of sending someone back through the whole roster.
+    for _snm, _sfails in _matrix.items():
+        check(f'SHAPE-MATRIX[{_snm}]-clean',  not _sfails)
 
     # 5c — SEC-2: A-OPTREF must SEE a figural block's full option set. option_paras
     #      (OPT_RE) reported ONE option on a block rendering four; _label_paras
@@ -3782,25 +4006,14 @@ def self_test():
     # severity-routing fixtures assert THIS file's logic and hold identically on
     # a machine with no matplotlib/PIL — the environment ~200 exams may present.
 
-    def _png_bytes(w=8, h=8):
-        """A minimal, valid RGB PNG. stdlib only — the self-test must never
-        require matplotlib or PIL to prove that images are attached."""
-        raw = b''.join(b'\x00' + b'\xff\x00\x00' * w for _ in range(h))
-        def _ck(t, d):
-            c = t + d
-            return (struct.pack('>I', len(d)) + c
-                    + struct.pack('>I', zlib.crc32(c) & 0xffffffff))
-        return (b'\x89PNG\r\n\x1a\n'
-                + _ck(b'IHDR', struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0))
-                + _ck(b'IDAT', zlib.compress(raw))
-                + _ck(b'IEND', b''))
-
     def _img_doc(names, in_table=False):
         """A 1-question docx carrying len(names) inline drawings, each stamped
         with its canonical docPr name + its OWN alt text (S10-8 does exactly
         this via _name_last_drawing). in_table places them in a table cell."""
         from docx import Document as D
-        from docx.shared import Inches
+        # v2.21.9 — Inches is now a MODULE-level import (line 42). A function-local
+        # import here would shadow it for the WHOLE of self_test(), unbinding it for
+        # every fixture defined earlier in the same scope.
         d = D()
         d.add_paragraph('Q.1  Study the figure.')
         holder = d.add_table(rows=1, cols=1).rows[0].cells[0] if in_table else d
@@ -3915,7 +4128,9 @@ def self_test():
 
     # 53d — TWO IMAGES ON ONE LINE is an A-FIGCOMP-LINE finding (multi_per_line).
     def _b_twoline(d):
-        from docx.shared import Inches
+        # v2.21.9 — Inches is now a MODULE-level import (line 42). A function-local
+        # import here would shadow it for the WHOLE of self_test(), unbinding it for
+        # every fixture defined earlier in the same scope.
         d.add_paragraph('Q.1  Study the figure.')
         _pp = d.add_paragraph()
         for _ in range(2):
@@ -4558,7 +4773,9 @@ def self_test():
         p = d.add_paragraph()
         p.add_run().add_picture(io.BytesIO(_png_bytes()), width=Inches(1.0))
 
-    from docx.shared import Inches
+    # v2.21.9 — Inches is now a MODULE-level import (line 42). A function-local
+    # import here would shadow it for the WHOLE of self_test(), unbinding it for
+    # every fixture defined earlier in the same scope.
     _dv, _bv = _cg_doc(lambda d: _add_q_img(d, 1))
 
     # 78. T2.1 — MEASURED OUTAGE ⇒ CERTIFIES DEGRADED, EXIT 0, NOT A HALT.

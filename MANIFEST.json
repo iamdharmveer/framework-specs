@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.02.8",
+  "framework_version": "2026.08.02.9",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -203,11 +203,11 @@
       "bytes": 428681
     },
     "Framework_MockTestCreateAudit.md": {
-      "sha256": "ec2325aa7c092e2244f495702c26a145b360d6f34e1c6ec7ffa7d1aee73a7f37",
-      "version_header": "# Framework_MockTestCreateAudit v2.21.8",
+      "sha256": "c28b4abd6733930f088bb6fc063883db061ff6d58076b5880f4256a3c1430514",
+      "version_header": "# Framework_MockTestCreateAudit v2.21.9",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 4844,
-      "bytes": 355290
+      "lines": 4932,
+      "bytes": 363111
     },
     "Framework_MockTestExplain.md": {
       "sha256": "35ee0af595836ad13bb1aced39778954597a98b4b0a2fcb4bacaea10143aa40e",
@@ -322,11 +322,11 @@
       "bytes": 73634
     },
     "validate_framework_md.py": {
-      "sha256": "21de521383914d9e486a2e96e3b5d2859f948f2b2ae0aa7d8fc2fa552457a157",
+      "sha256": "617482a4e49bb422209d6d14c4791f792790add2a0b6887f009d8d7e3cb7f1eb",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2132,
-      "bytes": 123775
+      "lines": 2193,
+      "bytes": 127147
     },
     "explain_audit_gate.py": {
       "sha256": "b92522cb379fa6fc2249b3de18c8b4c344966881249d88070b5c2ee0e20d8e1e",
@@ -385,11 +385,11 @@
       "bytes": 51906
     },
     "audit_canonical.py": {
-      "sha256": "3412223bb27b4884cd557d6babba8ecfc57a528b36e01b78dcecca377edc85c5",
+      "sha256": "9620ef877d38d4cca48a0ac2d77e1f9f9e94f269d2f73775bbde70caed72b199",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 5096,
-      "bytes": 272858
+      "lines": 5313,
+      "bytes": 285576
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",
