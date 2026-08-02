@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026.08.02.8
+**A-FIGTEXT-PROSE assumed English — an RA-9 violation that produced a false
+assurance on every non-English exam in the estate.**
+
+Found by auditing for **exam-independence** rather than for correctness. That is a
+different question from the one every previous release asked, and it found something
+none of them could have.
+
+**The defect.** `gate_images` built its figure-reference detector from a **hardcoded
+English regex** that also carried reasoning-exam shape nouns
+(triangles/squares/circles/angles/regions). Four sibling language inputs —
+`msq_instruction_phrases`, `nat_instruction_phrases`, `figural_cue_keywords`,
+`escape_reference_phrases` — are all read from `section_rules` per RA-9. This one was
+not, and nothing compared them.
+
+**It was a false assurance, not a miss.** On a non-English paper the pattern matched
+nothing, so `A-FIGTEXT-PROSE` printed *"no figure-reference prose in zero-image
+blocks"* — a clean OK asserting a property of a paper the detector never examined. A
+figural subtopic rendered as **prose** (a figure that was never drawn) was
+undetectable on every non-English exam while the report claimed conformance.
+Measured: a Hindi stem with figure-reference prose and zero images returns **OK** on
+v2.21.7, **WARN** (undeclared) or **FAIL** (declared) after.
+
+RA-9 is explicit: *"Hardcode nothing. A missing value → SKIP the dependent check with
+a logged reason, never a hardcoded substitute."*
+
+**Fix.** `section_rules figure_reference_phrases` is now read in `load_sources`, the
+same shape as its four siblings, and documented as a CATEGORY-C param. The English
+set survives **only** as a default that applies when `language == english`. Any other
+language with nothing declared makes the gate report **dormant** — a WARN naming the
+reason and the remedy — never OK. Fixtures 53k (English unchanged, both directions),
+53l (non-English undeclared is dormant, not OK), 53m (non-English with declared
+phrases detects normally and stays clean when absent — both halves).
+
+**Scope re-verified for the 200-exam estate.** Every other exam-varying input is read
+from source: `language`, `options_count`, `option_label_format`, `font_family`,
+`marks_per_q`, `negative_marking`, `marking_scheme`, `level`, `medium`, escape
+tokens, MSQ/NAT instruction phrases, figural cues, stimulus cues. The MATCH
+detector's `_MT_PAIR_RE`/`_MT_OPT_RE` are **structural** (label-pair shapes), not
+lexical, so they are language-independent by construction. `A-SCRIPT` is already
+language-conditioned. No exam **name** appears in any engine outside illustrative
+comments.
+
+Self-test **139 → 142**. Mutation stays **100% / 0 survivors**. Spec → **v2.21.8**.
+`AUTH_GATE_FLOOR` stays **35**. No paper changes. No Step-7 changes.
+
 ## 2026.08.02.7
 **The last two OPT_RE consumers closed; the predicate split is now structurally
 impossible. Plus a corpus-wide header and count sweep.**

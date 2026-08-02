@@ -1,4 +1,46 @@
-# Framework_MockTestCreateAudit v2.21.7
+# Framework_MockTestCreateAudit v2.21.8
+# v2.21.8 — 2026-08-02 — A-FIGTEXT-PROSE ASSUMED ENGLISH (RA-9 VIOLATION).
+#   Found by auditing the corpus for EXAM-INDEPENDENCE rather than for correctness —
+#   a different question from the one every previous release asked, and it found
+#   something none of them could have.
+#
+#   THE DEFECT. gate_images built its figure-reference detector from a HARDCODED
+#   English regex that also carried reasoning-exam shape nouns
+#   (triangles/squares/circles/angles/regions). Four sibling language inputs —
+#   msq_instruction_phrases, nat_instruction_phrases, figural_cue_keywords,
+#   escape_reference_phrases — are all read from section_rules per RA-9. This one
+#   was not, and nothing compared them.
+#
+#   CONSEQUENCE, AND IT IS A FALSE ASSURANCE, NOT A MISS. On a NON-ENGLISH paper the
+#   pattern matched NOTHING, so A-FIGTEXT-PROSE printed "no figure-reference prose in
+#   zero-image blocks" — a clean OK asserting a property of a paper the detector
+#   never examined. A figural subtopic rendered as PROSE (a figure that was never
+#   drawn) was undetectable on every non-English exam in the estate, while the
+#   report claimed conformance. Measured: a Hindi stem with figure-reference prose
+#   and zero images returns OK on v2.21.7 and WARN/FAIL after.
+#
+#   RA-9 IS EXPLICIT: "Hardcode nothing. A missing value -> SKIP the dependent check
+#   with a logged reason, never a hardcoded substitute."
+#
+#   FIX. section_rules `figure_reference_phrases` is now read in load_sources
+#   (same shape as its four siblings). The English set survives ONLY as a default
+#   that applies WHEN language == english. Any other language with nothing declared
+#   makes the gate report DORMANT — a WARN naming the reason and the remedy — never
+#   OK. Fixtures 53k (English unchanged, both directions), 53l (non-English
+#   undeclared is dormant, not OK) and 53m (non-English WITH declared phrases
+#   detects normally and stays clean when absent, both halves).
+#
+#   SCOPE CHECKED. Every other exam-varying input was re-verified as read from
+#   source: language, options_count, option_label_format, font_family,
+#   marks_per_q, negative_marking, marking_scheme, level, medium, escape tokens,
+#   MSQ/NAT instruction phrases, figural cues, stimulus cues. The MATCH detector's
+#   _MT_PAIR_RE/_MT_OPT_RE are STRUCTURAL (label-pair shapes), not lexical, so they
+#   are language-independent by construction. A-SCRIPT is already language-
+#   conditioned. No exam NAME appears in any engine outside illustrative comments.
+#
+#   Self-test 139 -> 142. Mutation stays 100% / 0 survivors. AUTH_GATE_FLOOR stays
+#   35. NO paper changes. NO Step-7 changes.
+#
 # v2.21.7 — 2026-08-02 — THE LAST TWO OPT_RE CONSUMERS; PREDICATE SPLIT RETIRED.
 #   Closes SEC-1, SEC-2 and SEC-3, the three findings carried since
 #   GAP-2026-08-02, plus a corpus-wide header/count sweep.
@@ -1953,6 +1995,10 @@
   OPTION_LABEL_FMT= cat_c('option_label_format', '1/2/3/4')   # CATEGORY-A may override per section
   # v2.1: new CATEGORY C fields from Step 5 v2.18
   MARKING_SCHEME  = cat_c('marking_scheme', '[]')  # per-range scoring rules (string repr of list)
+  # v2.21.8 (RA-9): figure-reference prose phrases for A-FIGTEXT-PROSE. OPTIONAL
+  # for an ENGLISH paper (a built-in English set applies); REQUIRED for any other
+  # language, or the detector reports DORMANT rather than a false clean OK.
+  FIG_REF_PHRASES = cat_c('figure_reference_phrases')   # comma-separated
   LEVEL           = cat_c('level', 'unknown')       # academic level
   MEDIUM          = cat_c('medium', 'unknown')      # exam language
   ```
@@ -4515,7 +4561,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.21.7 build prints 139/139 — see tests 16-20).
+#     v2.12; the v2.21.8 build prints 142/142 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4624,7 +4670,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (139/139) all pass, and
+#   (142/142) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4721,7 +4767,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 139/139 PASS  (exit 0) on the v2.21.7 canonical
+#     • `--self-test`  → SELF-TEST: 142/142 PASS  (exit 0) on the v2.21.8 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4789,10 +4835,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 139/139). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 142/142). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21.7
+# END OF Framework_MockTestCreateAudit v2.21.8
 # ════════════════════════════════════════════════════════════════════════

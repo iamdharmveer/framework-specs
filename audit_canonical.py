@@ -577,6 +577,16 @@ def load_sources(args):
     eref_m = re.search(r'^\s*escape_reference_phrases\s*[:=]\s*(.+?)\s*$', rt, re.I | re.M)
     if eref_m:
         src['escape_reference_phrases'] = [t.strip() for t in eref_m.group(1).split(',')]
+    # figure-reference prose phrases (A-FIGTEXT-PROSE): exam's own, read from
+    # section_rules. RA-9 — the gate previously HARDCODED an English pattern with
+    # reasoning-exam shape nouns (triangles/squares/circles). On a non-English paper
+    # it matched NOTHING and the gate printed a clean OK, so the detector was
+    # silently vacuous for every non-English exam in the estate while reporting
+    # conformance. v2.21.8.
+    fref_m = re.search(r'^\s*figure_reference_phrases\s*[:=]\s*(.+?)\s*$', rt, re.I | re.M)
+    if fref_m:
+        src['figure_reference_phrases'] = [t.strip() for t in fref_m.group(1).split(',')
+                                           if t.strip()]
     # stimulus detection cues: exam's own (section_rules stimulus_cue_patterns) if
     # declared; gate_stimorphan merges them with the built-in English cues. RA-9.
     scue_m = re.search(r'^\s*stimulus_cue_patterns\s*[:=]\s*(.+?)\s*$', rt, re.I | re.M)
@@ -1282,13 +1292,38 @@ def gate_images(blocks, src, media_map):
     # v2.4: read image_role per subtopic from section_rules
     sr_text = src.get('section_rules_text', '')
     concept_map = src.get('concept_map', {})
-    # v2.4: figure-reference pattern for prose detector
-    _fig_ref_re = re.compile(
-        r'(?i)\b(in the given figure|in the following figure|'
-        r'from the (given|following) (figure|diagram)|'
-        r'figure \(X\)|the figure (shows|below|above)|'
-        r'how many .{0,30}(triangles|squares|circles|lines|shapes|'
-        r'angles|sides|regions|parts)\s+(are|in|does|can))')
+    # v2.21.8 (RA-9) — figure-reference prose pattern is EXAM-SUPPLIED, not
+    # hardcoded. It was a fixed ENGLISH regex carrying reasoning-exam shape nouns
+    # (triangles/squares/circles/angles). Consequences, both silent:
+    #   • on a NON-ENGLISH paper it matched nothing, so A-FIGTEXT-PROSE printed a
+    #     clean OK while detecting nothing — a false assurance, not a pass;
+    #   • on a non-reasoning exam (biology, chemistry) the "how many <shape>" arm
+    #     was dead weight.
+    # RA-9: "Hardcode nothing. A missing value → SKIP the dependent check with a
+    # logged reason, never a hardcoded substitute." The English set is now a
+    # DEFAULT THAT APPLIES ONLY WHEN THE PAPER IS ENGLISH; any other language must
+    # declare section_rules figure_reference_phrases or the gate reports DORMANT
+    # with a named reason instead of OK.
+    _fig_ref_phrases = src.get('figure_reference_phrases')
+    _fig_lang = (src.get('language') or 'english').lower()
+    if _fig_ref_phrases:
+        _fig_ref_re = re.compile('(?i)(' + '|'.join(re.escape(t) for t in
+                                                    _fig_ref_phrases) + ')')
+        _fig_ref_why = None
+    elif _fig_lang == 'english':
+        _fig_ref_re = re.compile(
+            r'(?i)\b(in the given figure|in the following figure|'
+            r'from the (given|following) (figure|diagram)|'
+            r'figure \(X\)|the figure (shows|below|above)|'
+            r'how many .{0,30}(triangles|squares|circles|lines|shapes|'
+            r'angles|sides|regions|parts)\s+(are|in|does|can))')
+        _fig_ref_why = None
+    else:
+        _fig_ref_re = None
+        _fig_ref_why = (f'language={_fig_lang}: no section_rules '
+                        f'figure_reference_phrases declared, and the built-in '
+                        f'phrase set is ENGLISH-ONLY. Detector NOT RUN — declare '
+                        f'figure_reference_phrases to enable it (RA-9).')
     for b in blocks:
         block_imgs = []
         for p in b.paras:
@@ -1301,7 +1336,7 @@ def gate_images(blocks, src, media_map):
         # v2.4: A-FIGTEXT-PROSE — zero-image blocks referencing figures
         if not block_imgs:
             stem = ' '.join(para_text(p) for p in b.paras)
-            if _fig_ref_re.search(stem):
+            if _fig_ref_re is not None and _fig_ref_re.search(stem):
                 figtext_prose.append(f'Q{b.qnum}')
             # v2.21.4 — A FIGURAL QUESTION THAT RENDERS ZERO IMAGES IS A FINDING.
             # This `continue` used to swallow the condition entirely: the
@@ -1529,6 +1564,11 @@ def gate_images(blocks, src, media_map):
               'Q-block references a figure but contains 0 images — '
               'render the figure or replace the subtopic (S7-NEW-B): '
               + _flist(figtext_prose))
+    elif _fig_ref_why:
+        # v2.21.8 (RA-9) — the detector could not run for this exam. Reporting OK
+        # here would be a FALSE ASSURANCE: it would claim "no figure-reference
+        # prose" on a paper the gate never examined. Say so, and name the fix.
+        _warn('A-FIGTEXT-PROSE', _fig_ref_why)
     else:
         _ok('A-FIGTEXT-PROSE', 'no figure-reference prose in zero-image blocks.')
 
@@ -3965,6 +4005,45 @@ def self_test():
           _zip_verdict(_mut_drop_rel) == 'FAIL'
           and _zip_verdict(_mut_drop_media) == 'FAIL'
           and _zip_verdict(lambda nm, d: (True, d)) == 'OK')
+
+    # 53k-53m. v2.21.8 — RA-9 EXAM-INDEPENDENCE: A-FIGTEXT-PROSE MUST NOT ASSUME
+    #     ENGLISH. The detector was a HARDCODED English regex carrying reasoning-exam
+    #     shape nouns. On a non-English paper it matched nothing and the gate printed
+    #     a clean OK — a FALSE ASSURANCE, claiming "no figure-reference prose" on a
+    #     paper it never examined. RA-9: "Hardcode nothing. A missing value -> SKIP
+    #     the dependent check with a logged reason, never a hardcoded substitute."
+    def _prose_verdict(stem, lang, phrases=None):
+        def _b(d):
+            d.add_paragraph(f'Q.1  {stem}')
+            for _i in range(1, 5):
+                d.add_paragraph(f'{_i}.  Option {_i}')
+        _p = _mini_doc(tmp, _b)
+        _t, _bl = parse_blocks(Document(_p))
+        _s = _fig_src(); _s['options_by_q'] = {}; _s['language'] = lang
+        _s['section_rules_text'] = ''; _s['concept_map'] = {}
+        if phrases:
+            _s['figure_reference_phrases'] = phrases
+        _reset(); gate_images(_bl, _s, {})
+        return {c: l for l, c, m in RESULTS}.get('A-FIGTEXT-PROSE')
+
+    # 53k — ENGLISH behaviour is unchanged (both directions).
+    check('FIGTEXT-PROSE-english-default-unchanged',
+          _prose_verdict('In the given figure, find X.', 'english') == 'FAIL'
+          and _prose_verdict('Compute the value of X.', 'english') == 'OK')
+
+    # 53l — NON-ENGLISH with NOTHING declared must report DORMANT (WARN with a named
+    #       reason), NEVER a clean OK. Reporting OK here would certify a detector
+    #       that did not run — the false-clean class this corpus keeps rediscovering.
+    check('FIGTEXT-PROSE-non-english-undeclared-is-dormant-not-ok',
+          _prose_verdict('\u0926\u0940 \u0917\u0908 \u0906\u0915\u0943\u0924\u093f \u092e\u0947\u0902 X', 'hindi') == 'WARN')
+
+    # 53m — NON-ENGLISH WITH section_rules figure_reference_phrases DECLARED detects
+    #       normally, in that exam's own language, and stays clean when the prose is
+    #       absent. Both halves, so the fix cannot be "achieved" by always warning.
+    _hi = ['\u0926\u0940 \u0917\u0908 \u0906\u0915\u0943\u0924\u093f \u092e\u0947\u0902']
+    check('FIGTEXT-PROSE-non-english-declared-phrases-work',
+          _prose_verdict('\u0926\u0940 \u0917\u0908 \u0906\u0915\u0943\u0924\u093f \u092e\u0947\u0902 X', 'hindi', _hi) == 'FAIL'
+          and _prose_verdict('X \u0915\u093e \u092e\u093e\u0928', 'hindi', _hi) == 'OK')
 
     # 53i — v2.21.5 ND10 FIGURAL-NAT EXEMPTION, BOTH HALVES. Create.md R-FIGURAL
     #       v4.7 FIGURAL-NAT VARIANT: a figural question whose subtopic is
