@@ -1207,6 +1207,179 @@ def check_am_flag_invocation_parity(directory):
     return issues
 
 
+_AN_OPT_PRED = re.compile(r'^_?[A-Z][A-Z0-9_]*_RE$')
+
+
+def _an_pred_names(tree):
+    """Module-level compiled predicates whose name is of the option-label class."""
+    out = set()
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            t = node.targets[0]
+            # OPTION-LABEL class only: module-public OPT*_RE. Private/derived
+            # predicates answering a DIFFERENT structural question (e.g.
+            # _MT_OPT_RE, the MATCH-TABLE pair predicate) are out of scope —
+            # this check is about "how many OPTIONS does this block render?".
+            if (isinstance(t, ast.Name) and not t.id.startswith('_')
+                    and t.id.startswith('OPT') and t.id.endswith('_RE')):
+                out.add(t.id)
+    return out
+
+
+def _an_names_used(fn):
+    return {n.id for n in ast.walk(fn) if isinstance(n, ast.Name)}
+
+
+def _an_calls_made(fn):
+    out = set()
+    for n in ast.walk(fn):
+        if isinstance(n, ast.Call):
+            f = n.func
+            if isinstance(f, ast.Name):
+                out.add(f.id)
+            elif isinstance(f, ast.Attribute):
+                out.add(f.attr)
+    return out
+
+
+def _an_is_counting_body(fn):
+    """True when the function tallies matches itself: `n += 1` or `sum(1 for ...)`."""
+    for n in ast.walk(fn):
+        if isinstance(n, ast.AugAssign) and isinstance(n.op, ast.Add):
+            v = n.value
+            if isinstance(v, ast.Constant) and v.value == 1:
+                return True
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'sum':
+            for a in n.args:
+                if isinstance(a, (ast.GeneratorExp, ast.ListComp)):
+                    e = a.elt
+                    if isinstance(e, ast.Constant) and e.value == 1:
+                        return True
+    return False
+
+
+def check_an_shared_predicate_parity(directory):
+    """CHECK AN — SHARED-PREDICATE PARITY.
+
+    Two gates that answer the SAME structural question about a block ("how many
+    options does it render?") MUST read ONE shared helper. A second implementation
+    is drift by construction: it is written against the author's BELIEF about the
+    first rather than against the first, and the divergence stays invisible until a
+    paper exercises it. GAP-2026-08-02: A-DOSSIER counted with OPT_RE (which needs a
+    visible glyph after the label) while A-OPTN counted with OPT_LABEL_RE (which
+    does not), so every IMAGE option — a bare label followed by a picture — read as
+    zero and certification was blocked estate-wide for four releases.
+    """
+    issues = []
+    for fname in sorted(os.listdir(directory)):
+        if not fname.endswith('.py'):
+            continue
+        fp = os.path.join(directory, fname)
+        try:
+            src = open(fp, encoding='utf-8').read()
+            tree = ast.parse(src)
+        except (OSError, SyntaxError):
+            continue
+        preds = _an_pred_names(tree)
+        if len(preds) < 2:
+            continue                       # only one predicate: no divergence possible
+        collectors = {n.name for n in ast.walk(tree)
+                      if isinstance(n, ast.FunctionDef)
+                      and ('label_paras' in n.name or 'option_paras' in n.name)}
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            used = _an_names_used(node) & preds
+            calls = _an_calls_made(node)
+            # ARM 1 — a named option-COUNT helper must DELEGATE, never name a predicate.
+            if 'option_count' in node.name:
+                if used:
+                    issues.append((fname,
+                        'CHECK AN: %s() names the option-label predicate(s) %s directly. '
+                        'A rendered-option count MUST delegate to the shared collector '
+                        'the option gates use (_label_paras) — a second implementation '
+                        'is drift by construction (GAP-2026-08-02).'
+                        % (node.name, ', '.join(sorted(used)))))
+                elif not (calls & collectors):
+                    issues.append((fname,
+                        'CHECK AN: %s() neither delegates to a shared option collector '
+                        '(%s) nor is one defined. An option count with no single owner '
+                        'cannot be kept at parity.'
+                        % (node.name, ', '.join(sorted(collectors)) or 'none defined')))
+            # ARM 2 — no ad-hoc tally loop over an option predicate anywhere else.
+            elif used and _an_is_counting_body(node) and not (calls & collectors):
+                issues.append((fname,
+                    'CHECK AN: %s() tallies matches of %s itself instead of reading the '
+                    'shared count. Every gate needing "how many options does this block '
+                    'render?" MUST read ONE helper (S5-2 ONE STRUCTURAL QUESTION, ONE '
+                    'ANSWER).' % (node.name, ', '.join(sorted(used)))))
+    return issues
+
+
+def _ao_pred_attrs(node):
+    """Regex-predicate names referenced inside an expression/function."""
+    return {n.id for n in ast.walk(node)
+            if isinstance(n, ast.Name) and n.id.endswith('_RE')}
+
+
+def check_ao_tautological_fixture(directory):
+    """CHECK AO — A FIXTURE MUST NOT RESTATE ITS SUBJECT.
+
+    Old fixture 92 asserted
+        block_option_count(b) == sum(1 for p in b.paras if OPT_RE.match(para_text(p)))
+    The right-hand side is a verbatim re-implementation of the left-hand side's own
+    body, so the assertion CANNOT FAIL FOR ANY PREDICATE. It reported green for four
+    releases on a build whose dossier gate could not see a single image option. A
+    fixture that restates the implementation is indistinguishable from no fixture,
+    and is WORSE than none because it reports green.
+    """
+    issues = []
+    for fname in sorted(os.listdir(directory)):
+        if not fname.endswith('.py'):
+            continue
+        fp = os.path.join(directory, fname)
+        try:
+            src = open(fp, encoding='utf-8').read()
+            tree = ast.parse(src)
+        except (OSError, SyntaxError):
+            continue
+        bodies = {n.name: n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
+        for call in ast.walk(tree):
+            if not (isinstance(call, ast.Call)
+                    and isinstance(call.func, ast.Name)
+                    and call.func.id == 'check'
+                    and len(call.args) >= 2):
+                continue
+            label = (call.args[0].value
+                     if isinstance(call.args[0], ast.Constant) else '<expr>')
+            for cmp_node in ast.walk(call.args[1]):
+                if not (isinstance(cmp_node, ast.Compare)
+                        and len(cmp_node.ops) == 1
+                        and isinstance(cmp_node.ops[0], ast.Eq)):
+                    continue
+                sides = [cmp_node.left, cmp_node.comparators[0]]
+                for i, side in enumerate(sides):
+                    if not (isinstance(side, ast.Call)
+                            and isinstance(side.func, ast.Name)
+                            and side.func.id in bodies):
+                        continue
+                    subject = side.func.id
+                    other = sides[1 - i]
+                    inlined = _ao_pred_attrs(other)
+                    own = _ao_pred_attrs(bodies[subject])
+                    if inlined and own and (inlined & own):
+                        issues.append((fname,
+                            'CHECK AO: fixture %r asserts %s(...) == an expression that '
+                            'INLINES %s\'s own body (same predicate %s). This is a '
+                            'TAUTOLOGY — it cannot fail for any value of that predicate, '
+                            'so it locks nothing. Assert the REQUIREMENT (a block shape '
+                            'and the verdict it must produce), and MUTATION-VERIFY it '
+                            'against the pre-fix build (GAP-2026-08-02).'
+                            % (label, subject, subject,
+                               ', '.join(sorted(inlined & own)))))
+    return issues
+
+
 def check_ak_b3_cardinality(directory):
     issues = []
     # Sites that talk about the Step-6 B3 delivery specifically. Step 5's own
@@ -1931,6 +2104,12 @@ if __name__ == '__main__':
                 ('AM', 'CLI FLAG INVOCATION PARITY',
                  check_am_flag_invocation_parity,
                  'every engine flag for a declared input is actually passed.'),
+                ('AN', 'SHARED-PREDICATE PARITY',
+                 check_an_shared_predicate_parity,
+                 'one structural question, one shared answer — no second option-count.'),
+                ('AO', 'TAUTOLOGICAL-FIXTURE DETECTOR',
+                 check_ao_tautological_fixture,
+                 'no fixture restates its own subject; every lock can actually fail.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')

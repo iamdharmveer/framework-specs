@@ -1,4 +1,59 @@
-# Framework_MockTestCreateAudit v2.20
+# Framework_MockTestCreateAudit v2.21
+# v2.21 — 2026-08-02 — A-DOSSIER COULD NOT SEE AN IMAGE OPTION.
+#   GAP-2026-08-02-DOSSIER-OPTION-PREDICATE. Raised by a live Step-8 TestCreateAudit
+#   P1 run that HALTED PERMANENTLY with nothing on the paper to repair.
+#
+#   block_option_count() was built on OPT_RE, which requires a VISIBLE GLYPH after
+#   the option label (`[.)]\s+\S`). An IMAGE option is a BARE label paragraph ('1.')
+#   followed by a picture paragraph — the glyph IS the picture — so OPT_RE counted
+#   every image option as ZERO. A-DOSSIER therefore FAILed `qtype-mcq-but-0!=N-options`
+#   on every figural question in the estate, blocking certification under MANDATE D
+#   while A-OPTN, A-OPTORDER, A-OPTUNIQUE and A-NAT-NOOPT all passed on the SAME
+#   blocks. Two gates, one block, contradictory verdicts — that contradiction WAS the
+#   defect. Its docstring asserted parity with "the same OPT_RE the option gates use";
+#   the option gates do not use OPT_RE at all, they use OPT_LABEL_RE via
+#   _label_paras(). The docstring encoded a BELIEF about a sibling function rather
+#   than a verified fact about it, and no fixture ever compared the two.
+#
+#   NOT FIGURAL-ONLY. block_option_count() also had no trailing-set clamp, while
+#   gate_options() takes the TRAILING oc labels precisely so an enumerated stem
+#   cannot inflate the count. So every STATEMENT / SEQUENCE / MATCH /
+#   ASSERTION_REASON stem that renders an enumerated list — a standard construction
+#   on PURE TEXT papers — false-FAILed A-DOSSIER too.
+#
+#   AND IT PRODUCED A FALSE PASS. Because the same zero vacuously satisfied
+#   `if qt == 'nat' and n_opt:`, a question the dossier records as NAT that actually
+#   SHIPS four image options was ACCEPTED SILENTLY. The gate that exists to detect
+#   "Step 7 recorded something other than what it shipped" was BLIND to that exact
+#   condition for every figural question. One predicate, a false FAIL and a false
+#   PASS.
+#
+#   FIX: block_option_count(b, oc) delegates to the option gates' OWN predicate
+#   (_label_paras) and their OWN trailing-oc clamp. ONE shared rendered-option
+#   count; a second implementation is drift by construction. The nat leg now fires
+#   only on a COMPLETE rendered set (n_opt >= oc), so a legitimate NAT question
+#   whose STEM enumerates is not a finding and A-DOSSIER is never more opinionated
+#   than A-NAT-NOOPT, which OWNS that fact.
+#
+#   FIXTURE 92 WAS A TAUTOLOGY. It asserted
+#     block_option_count(b) == sum(1 for p in b.paras if OPT_RE.match(para_text(p)))
+#   — the right-hand side is a verbatim re-implementation of the left-hand side's
+#   body, so it CANNOT FAIL FOR ANY PREDICATE. It reported green across v2.17-v2.20
+#   on a build whose dossier gate could not see a single image option. RETIRED and
+#   replaced by six fixtures: 92a-92d + 92f MUTATION-VERIFIED (measured False on the
+#   OPT_RE build, True on this one) and 92e a permissiveness GUARD. Every dossier
+#   fixture before this release was built from _add_q(), which emits text options
+#   only — no dossier fixture had EVER rendered a non-text option. This is the
+#   SEVENTH hollow-branch occurrence this corpus has recorded; the counter-measure is
+#   structural, not vigilance: CHECK AN (shared-predicate parity) and CHECK AO
+#   (tautological-fixture detector) now fail the build mechanically.
+#
+#   Self-test 107 -> 112. AUTH_GATE_FLOOR STAYS AT 35 — raising it would hard-stop
+#   every un-refreshed exam and convert a coverage fix into an estate-wide outage.
+#   NO PAPER CHANGES. Papers produced by Step 7 v5.35+ are correct; they were only
+#   mis-audited. Step 7 requires NO change — qtype derivation and the dossier writer
+#   were both verified correct.
+#
 # v2.20 — 2026-08-01 — ONE THIRD OF THE DOSSIER IDENTITY TRIPLE WAS NEVER CHECKED.
 #   GAP-2026-08-01-DEAD-PARAMETER. Found by a line-by-line producer/consumer audit
 #   of Steps 7 and 8, running the edge-case matrix rather than reading it.
@@ -2285,6 +2340,9 @@
   CROSS-MOCK DEDUP
   | A-DUP      | no stem in mock N exact-matches OR near-matches (Jaccard ≥ J_FAIL) a stem from a PRIOR mock in registry.stem_texts (self-excluding mock N via --mockN); image MD5/pHash not reused from a prior mock | registry stem_texts/question_hashes/image_phashes/content_tracking | R2/R3 | RG |
 
+  TIER-A DOSSIER CROSS-CHECK (v2.17; predicate corrected v2.21)
+  | A-DOSSIER  | every Tier-A FACT (qtype, subtopic_id) agrees with the SHIPPED PAPER and the registry. qtype is checked against the RENDERED OPTION COUNT, which MUST be obtained from the SAME helper the option gates use — block_option_count(b, oc) -> _label_paras() + trailing-oc clamp — NEVER from a second predicate. An IMAGE option is a BARE label paragraph followed by a picture paragraph and carries NO text glyph, so any predicate requiring one counts it as ZERO (GAP-2026-08-02). The nat leg fires only on a COMPLETE rendered set (n_opt >= oc); a block with fewer labels than oc has an ENUMERATED STEM, not an option set, and is owned by A-NAT-NOOPT. subtopic_id is checked against registry figural subtopic_ids. A disagreement is a FAIL, never a silent overwrite in either direction. Dossier ABSENT => WARN (legacy, not a paper defect). NO GATE MAY PASS ON DOSSIER EVIDENCE ALONE | dossier + registry options_by_q + rendered block | S13-4b (v5.35) | RG (Step-7 side) / none (paper) |
+
   HEADER
   | A-HEADER   | NO non-blank paragraph before Q.1 — the paper is questions-only; any title/info/scoring/cover block is a defect → STRIP it (CP-HEADER-STRIP). Dormant only if section_rules EXAM_STRUCTURE declares paper_header_block | section_rules CATEGORY-C (paper_header_block) | R8b/G-PREQ1 | CP |
 
@@ -2306,6 +2364,24 @@
   images to VIEW in Part B), A-FIGCOMP-LINE (two images on one line). A "-VIEW"/
   "-SLASH"/"-YEAR"/"-FLOOR" sub-code is a WARN routed to Part B/§7; the others are
   FAILs of their parent gate.
+
+  ONE STRUCTURAL QUESTION, ONE ANSWER (v2.21 — GAP-2026-08-02-DOSSIER-OPTION-PREDICATE).
+  Where two or more gates need the SAME structural fact about a block — how many
+  options it renders, how many images it carries, how many tables it holds — they
+  MUST obtain it from ONE shared helper. A second implementation is DRIFT BY
+  CONSTRUCTION: it will be written against the author's BELIEF about the first
+  rather than against the first, and the divergence stays invisible until a paper
+  exercises the difference. This is the SAME anti-drift rule already binding on
+  derive_nat_grading() ("byte-identical to Framework_MockTestCreate.md §S7-NEW-C,
+  never re-implemented independently") and on bc.check_figural_conformance() ("the
+  SAME function Step 7 generates against, so generator and auditor cannot drift") —
+  it had simply never been stated for two gates inside the SAME file. A-DOSSIER
+  answered "how many options does this block render?" with OPT_RE while A-OPTN
+  answered it with OPT_LABEL_RE, and the two disagreed on EVERY image option in the
+  estate for four consecutive releases. Enforced mechanically by
+  validate_framework_md.py CHECK AN. A helper that answers such a question MUST NOT
+  claim parity with a sibling in its docstring unless a fixture MEASURES that parity
+  (fixture 92d).
 
 ## S5-3 — A-MATHRASTER: robust, exam-agnostic, view-backed (the naming-gap fix)
 
@@ -3876,6 +3952,11 @@ Replace for registry.json), and next-step reference.
     A-DUP ← R2/R3/G-DUP (cross-mock, --mockN self-exclude)
     A-KINT/A-KBAL/A-KPAT ← K-INT/K-BAL/K-PAT (on Step-8's DERIVED key, §11)
     A-HEADER ← R8b/G-PREQ1 (Step 7 pre-Q.1 body-block ban; strip if present)
+    A-DOSSIER <- S13-4b Tier-A fact channel (v2.17; predicate corrected v2.21).
+                Step-8-only; no Step-7 gate equivalent. Cross-checks FACTS, never
+                JUDGMENTS (RA-1); passes NOTHING on dossier evidence alone. Its
+                rendered-option count is the SHARED one (block_option_count(b, oc)),
+                never a second predicate — S5-2 "ONE STRUCTURAL QUESTION, ONE ANSWER".
     STEP-8-ONLY: A-ZIP, A-ENCODING (U+FFFD), A-SCRIPT (language-conditioned, RA-10),
                  A-INTEGRITY (P0.5 input corruption/truncation)
 
@@ -3917,6 +3998,10 @@ Replace for registry.json), and next-step reference.
   | **`A-GATEERROR` appears in the Part-A report** | A gate CRASHED, so the paper is NOT audited for it. This is a framework defect, never a paper defect — do not attempt to "fix" the paper. The run completed and every other gate is valid. Capture the named gate + the STDERR traceback, file a gap report, and treat certification as BLOCKED (exit is non-zero by design) until the framework is repaired. |
   | **`A-FIGPROFILE` WARNs "NOT CHECKED" / `A-FIG*` WARN "NOT RUN"** | The named ENGINE is missing, truncated, or stale — an environment condition, NOT a paper defect. The audit is valid but has REDUCED COVERAGE. Upload `blueprint_core.py` / `figural_core.py` under their BARE names (Step 6 B3 delivers both) and re-run to obtain full coverage. If unobtainable, document the skip under S5-4 and record it as a §19 limitation. NEVER certify while pretending the gate ran. |
   | Part-A prints FEWER gate lines than a full roster | Treat as INCOMPLETE COVERAGE, not as a pass. From v2.12 the roster is INVARIANT — every gate prints a line in every environment — so a short roster means the auditor copy predates v2.12. Refresh it (policy (b)). |
+  | **`A-DOSSIER` FAIL `qtype-mcq-but-0!=N-options` on FIGURAL questions** | **FRAMEWORK defect, NOT a paper defect (GAP-2026-08-02, fixed v2.21).** The auditor copy predates v2.21 and counts options with a predicate (OPT_RE) that CANNOT SEE an IMAGE option — a bare label paragraph followed by a picture. Confirm in ONE step: if `A-OPTN` is `ok` on the same questions, the PAPER IS CORRECT and the GATE IS WRONG. **DO NOT MODIFY THE PAPER** — adding text after the option labels would violate A-FIGCOMP (no dummy-text options) and R-FIGURAL, i.e. introduce a real defect to silence a false one. SANCTIONED REPAIR policy (b): replace `[ExamCode]_mock_test_audit.py` with the current repo `audit_canonical.py` (v2.21+), re-run P0.5 + P1, log to `session_log.inputs_repaired[]`, disclose in §R13. No `resume`/checkpoint is needed — the failure occurs in Phase 1 before any Phase-2 work exists. |
+  | **`A-DOSSIER` FAIL `qtype-mcq-but-M!=N-options` where M > N** | Same root cause, **TEXT-option papers**: an enumerated stem ("1. ... 2. ...") inflated the count because the pre-v2.21 counter had no trailing-set clamp. Standard on STATEMENT / SEQUENCE / MATCH / ASSERTION_REASON items. Same remedy. |
+  | **`A-DOSSIER` FAIL `qtype-nat-but-M-options` on a NAT question whose STEM enumerates** | Same root cause. Pre-v2.21 the nat leg fired on ANY non-zero label count, so a legitimate NAT stem carrying an enumerated list was reported as if it rendered options. Same remedy. |
+  | **`A-DOSSIER` FAIL and `A-OPTN` ALSO fails on the same Q** | **Now it IS a paper defect** — the option set is genuinely wrong. Route to Phase 2, class RG, per the normal option-count repair path. **The `A-OPTN` verdict is the discriminator between a framework defect and a paper defect; always read the two together.** |
   | **`A-FIG*` gates print "0 figure(s)" on a paper that HAS drawings** | The auditor copy PREDATES v2.13 — `Block.images` was never populated, so all twelve gates passed vacuously. NOT a paper property and NOT a pass: the paper was never audited for figure conformance. Refresh the copy (§21 path (A) or (B)) and re-run. |
   | **`A-FIG*` WARN "conformance NOT ESTABLISHED"** | Drawings are declared in the docx but none could be read out of the ZIP. A COVERAGE gap, never a pass — check A-ZIP first (a dangling rId is a hard stop in its own right), then re-run. Never certify past it. |
   | **`A-FIG*` WARN "EC-V18 legacy ... delivery NOT blocked"** | The paper predates Step 7 v5.34, so its figures carry no FigureSpec sidecar and the gate has no record to check against. LOUD but not fixable at Step 8 — an S5-4 ACCEPTED WARN: record it under §R13, the amber footer applies, and the paper still certifies and ships. To obtain full figure coverage, regenerate the paper on Step 7 v5.34+. |
@@ -4103,6 +4188,14 @@ Replace for registry.json), and next-step reference.
 #   |   (Step 9 self-audit) | Same false-clean chain (Claude-driven Part-B-style          |
 #   |   certification behind prose). Apply the parallel completion-gate pattern so a bad  |
 #   |   explanation / answer-key set cannot ship the way a bad paper did.                 |
+#   | audit_canonical.py self_test() (v2.21) | EVERY new gate MUST ship at least one   |
+#   |   DISCRIMINATING fixture per BLOCK SHAPE it can meet — text options, IMAGE options |
+#   |   (bare label + picture), NAT (zero options), ENUMERATED-STEM, and a short-set     |
+#   |   negative. A fixture that RESTATES THE IMPLEMENTATION (old fixture 92, retired    |
+#   |   v2.21) is NOT a fixture: it cannot fail and it reports green. MUTATION-VERIFY    |
+#   |   each one — it MUST measure False on the pre-fix build. Enforced by CHECK AO.     |
+#   |   Any helper answering a structural question two gates share MUST be exercised by  |
+#   |   a PARITY fixture (92d). Enforced by CHECK AN.                                    |
 #   | Framework_DeliveryFooter.md | No change; F2 already fires only post-certification.  |
 #   |   Its correctness now depends on S5-1A actually gating certification.               |
 #
@@ -4138,7 +4231,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.13 build prints 107/107 — see tests 16-20).
+#     v2.12; the v2.21 build prints 112/112 — see tests 16-20).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4246,7 +4339,8 @@ Replace for registry.json), and next-step reference.
 #   AUTH_GATE_FLOOR REMAINS 35 — do NOT raise it to 61. The floor gates the DEPLOYED
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
-#   v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13 copy (107/107) all pass, and
+#   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
+#   (112/112) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4343,7 +4437,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 107/107 PASS  (exit 0) on the v2.13 canonical
+#     • `--self-test`  → SELF-TEST: 112/112 PASS  (exit 0) on the v2.21 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4411,10 +4505,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 107/107). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 112/112). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.20
+# END OF Framework_MockTestCreateAudit v2.21
 # ════════════════════════════════════════════════════════════════════════

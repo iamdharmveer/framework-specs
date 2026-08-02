@@ -1,5 +1,74 @@
 # Changelog
 
+## 2026.08.02.1
+GAP-2026-08-02-DOSSIER-OPTION-PREDICATE — **A-DOSSIER could not see an image
+option.** Raised by a live Step-8 `TestCreateAudit P1` run that HALTED PERMANENTLY
+with nothing on the paper to repair.
+
+**What was wrong.** `block_option_count()` was built on `OPT_RE`, which requires a
+VISIBLE GLYPH after the option label (`[.)]\s+\S`). An IMAGE option is a BARE label
+paragraph (`1.`) followed by a picture paragraph — the glyph IS the picture — so
+`OPT_RE` counted every image option as ZERO. `A-DOSSIER` therefore FAILed
+`qtype-mcq-but-0!=N-options` on every figural question in the estate while `A-OPTN`,
+`A-OPTORDER`, `A-OPTUNIQUE` and `A-NAT-NOOPT` all passed on the SAME blocks. Two
+gates, one block, contradictory verdicts — that contradiction WAS the defect. The
+function's docstring claimed it used "the same OPT_RE the option gates use"; the
+option gates do not use `OPT_RE` at all — they use `OPT_LABEL_RE` via
+`_label_paras()`. The docstring encoded a BELIEF about a sibling function rather
+than a verified fact about it, and no fixture ever compared the two.
+
+**Not figural-only.** `block_option_count()` also had no trailing-set clamp, while
+`gate_options()` takes the TRAILING `oc` labels precisely so an enumerated stem
+cannot inflate the count. Every STATEMENT / SEQUENCE / MATCH / ASSERTION_REASON stem
+that renders an enumerated list — standard on PURE TEXT papers — false-FAILed
+`A-DOSSIER` too. The blast radius was the whole estate, not the figural subset.
+
+**It also produced a FALSE PASS.** Because the same zero vacuously satisfied
+`if qt == 'nat' and n_opt:`, a question the dossier records as NAT that actually
+SHIPS four image options was ACCEPTED SILENTLY. The gate that exists to detect
+"Step 7 recorded something other than what it shipped" was BLIND to that exact
+condition for every figural question. One predicate, a false FAIL and a false PASS.
+
+**Fix.** `block_option_count(b, oc)` delegates to the option gates' OWN predicate
+(`_label_paras`) and their OWN trailing-`oc` clamp. There is now ONE rendered-option
+count in the file and every gate reads it. The `nat` leg fires only on a COMPLETE
+rendered set (`n_opt >= oc`), so a legitimate NAT question whose STEM enumerates is
+not a finding and `A-DOSSIER` is never more opinionated than `A-NAT-NOOPT`, which
+OWNS that fact. Verified on a 14-case shape matrix: 14/14 correct after, 8/14 wrong
+before (7 false positives, 1 false negative).
+
+**Fixture 92 was a tautology.** It asserted
+`block_option_count(b) == sum(1 for p in b.paras if OPT_RE.match(para_text(p)))` —
+the right-hand side is a verbatim re-implementation of the left-hand side's body, so
+it CANNOT FAIL FOR ANY PREDICATE. It reported green across v2.17–v2.20 on a build
+whose dossier gate could not see a single image option. RETIRED and replaced by six
+fixtures: 92a–92d and 92f MUTATION-VERIFIED (measured False on the `OPT_RE` build,
+True on this one), 92e a permissiveness guard. Every dossier fixture before this
+release was built from `_add_q()`, which emits text options only — no dossier
+fixture had EVER rendered a non-text option. Self-test 107 → 112.
+
+**Structural counter-measures (so the class cannot recur).** This was the seventh
+hollow-branch occurrence the corpus has recorded, so the answer is mechanical, not
+vigilance-based. `validate_framework_md.py` gains **CHECK AN** (shared-predicate
+parity — an option count must delegate to the one shared collector, never name a
+predicate itself) and **CHECK AO** (tautological-fixture detector — a fixture may
+not assert `F(x) == <inline of F's own body>`). Both were verified to FAIL on the
+pre-fix build and PASS on the post-fix build, which is the acceptance criterion.
+
+**Spec.** `Framework_MockTestCreateAudit.md` → **v2.21**: `A-DOSSIER` added to the
+§S5-2 gate catalogue (it could FAIL and block certification while having no
+catalogue row at all); new §S5-2 doctrine **ONE STRUCTURAL QUESTION, ONE ANSWER**;
+four new §17 operator playbook rows (the discriminator is `A-OPTN` — if it is `ok`
+on the same questions, the paper is correct and the gate is wrong); §16 glossary
+entry; §21 propagation row mandating a discriminating, mutation-verified fixture per
+BLOCK SHAPE for every new gate.
+
+**Estate impact.** NO PAPER CHANGES. Papers produced by Step 7 v5.35+ are correct;
+they were only mis-audited. Step 7 requires NO change — `qtype` derivation and the
+dossier writer were both verified correct. `AUTH_GATE_FLOOR` STAYS AT 35, so v2.11
+(51/51), v2.12 (61/61), v2.13 (107/107) and v2.21 (112/112) copies all coexist and
+the estate migrates exam by exam with zero downtime.
+
 ## 2026.08.01.11
 GAP-2026-08-01-DEAD-PARAMETER — **one third of the dossier identity triple was
 never checked.** Found by a line-by-line producer/consumer audit of Steps 7 and 8,

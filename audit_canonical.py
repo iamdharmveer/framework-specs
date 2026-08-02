@@ -1855,9 +1855,9 @@ def load_dossier(path, docx_path=None, exam=None, mockN=None):
     return qs, d
 
 
-def block_option_count(b):
-    """Options actually RENDERED in this block, counted with the same OPT_RE the
-    option gates use.
+def block_option_count(b, oc=0):
+    """Options actually RENDERED in this block, counted EXACTLY as gate_options()
+    counts them — SAME predicate, SAME trailing-set rule. Never re-implemented.
 
     v2.17: written because the first cut of gate_dossier read `b.opts`, which DOES
     NOT EXIST on Block — getattr() returned None, n_opt was 0 for every question,
@@ -1866,12 +1866,37 @@ def block_option_count(b):
     author and caught only by running the gate against a real paper. A field that
     is never populated is indistinguishable from a field that is empty; assume
     nothing, count from the document.
+
+    v2.21 (GAP-2026-08-02-DOSSIER-OPTION-PREDICATE): the v2.17 fix counted from the
+    document but with the WRONG PREDICATE, and its docstring asserted a parity that
+    did not exist. OPT_RE requires a VISIBLE GLYPH after the label (`[.)]\\s+\\S`);
+    an IMAGE option is a BARE label paragraph followed by a picture paragraph, so
+    OPT_RE counted every image option as ZERO and A-DOSSIER reported
+    `qtype-mcq-but-0!=N-options` on every figural question in the estate, blocking
+    certification under MANDATE D with NOTHING ON THE PAPER TO REPAIR. It also had
+    no trailing-set clamp, so an enumerated stem ("1. ... 2. ...") INFLATED the
+    count on pure TEXT papers — the defect was never figural-only. And because the
+    same zero vacuously satisfied the `nat` branch, a dossier mislabel on a figural
+    question was accepted SILENTLY: one predicate produced both a false FAIL and a
+    false PASS.
+
+    THE RULE (spec S5-2 "ONE STRUCTURAL QUESTION, ONE ANSWER"): there is ONE
+    rendered-option count in this file and every gate reads it. A second
+    implementation is drift by construction — it is written against the author's
+    BELIEF about the first rather than against the first, and the divergence stays
+    invisible until a paper exercises the difference. Enforced by
+    validate_framework_md.py CHECK AN.
+
+    RETURN SEMANTICS (oc = the expected option count; 0 = unknown/no clamp):
+      4 text options,          oc=4 -> 4   (unchanged)
+      4 image options (bare),  oc=4 -> 4   (v2.21 fix; OPT_RE returned 0)
+      0 options (NAT),         oc=4 -> 0   (unchanged)
+      3 options,               oc=4 -> 3   (short set still FAILs — no false negative)
+      2 stem points + 4 opts,  oc=4 -> 4   (v2.21 fix; trailing clamp, parity A-OPTN)
+      any count,               oc=0 -> raw (defensive; no clamp target available)
     """
-    n = 0
-    for p in b.paras:
-        if OPT_RE.match(para_text(p)):
-            n += 1
-    return n
+    labs = _label_paras(b)                    # OPT_LABEL_RE — bare-label tolerant
+    return oc if (oc and len(labs) >= oc) else len(labs)
 
 
 def gate_dossier(blocks, src, dossier, why=None):
@@ -1902,10 +1927,19 @@ def gate_dossier(blocks, src, dossier, why=None):
         e = dossier.get(str(b.qnum))
         if not e:
             continue
-        n_opt = block_option_count(b)
+        n_opt = block_option_count(b, oc)
         qt = (e.get('qtype') or '').lower()
-        # qtype is checkable against the rendered structure
-        if qt == 'nat' and n_opt:
+        # qtype is checkable against the rendered structure.
+        # v2.21: the nat leg fires only on a COMPLETE rendered option set
+        # (n_opt >= oc). A block carrying FEWER label paragraphs than oc has no
+        # option set — those labels are an ENUMERATED STEM ("Consider the
+        # following statements: 1. ... 2. ..."), a legitimate NAT construction.
+        # Firing on them made A-DOSSIER MORE opinionated than the gate that OWNS
+        # this fact (A-NAT-NOOPT), which is the same divergence class this
+        # release exists to remove. A genuinely short option set on a claimed-NAT
+        # question is owned by A-NAT-NOOPT (registry marks it 0) or by A-OPTN
+        # (registry marks it oc) — never silently unowned.
+        if qt == 'nat' and oc and n_opt >= oc:
             bad.append(f'Q{b.qnum}:qtype-nat-but-{n_opt}-options')
         elif qt in ('mcq', 'msq') and oc and n_opt != oc:
             bad.append(f'Q{b.qnum}:qtype-{qt}-but-{n_opt}!={oc}-options')
@@ -4153,16 +4187,104 @@ def self_test():
           any(c == 'A-DOSSIER' and l == 'WARN' and 'Legacy behaviour' in m
               for l, c, m in RESULTS))
 
-    # 92. OPTIONS ARE COUNTED FROM THE DOCUMENT. The first cut read `b.opts`, a
-    #     field that DOES NOT EXIST on Block; getattr() returned None and every
-    #     mcq cross-check compared 0 against OPTIONS_COUNT, producing 27 false
-    #     failures on a real paper. Same class as Block.images '# reserved'.
-    _optdoc = _mini_doc(tmp, lambda d: _add_q(d, 1))
-    _od = Document(_optdoc); _t, _ob = parse_blocks(_od)
-    check('DOSSIER-options-counted-from-document',
-          not hasattr(_ob[0], 'opts')
-          and block_option_count(_ob[0]) == sum(
-              1 for p in _ob[0].paras if OPT_RE.match(para_text(p))))
+    # ══════════════════════════════════════════════════════════════════════
+    # 92. GAP-2026-08-02-DOSSIER-OPTION-PREDICATE — A-DOSSIER COUNTS OPTIONS THE
+    #     WAY THE OPTION GATES DO.
+    #
+    #     RETIRED IN v2.21: the old fixture 92 asserted
+    #         block_option_count(b) == sum(1 for p in b.paras
+    #                                      if OPT_RE.match(para_text(p)))
+    #     which is a TAUTOLOGY — the right-hand side is a verbatim re-implementation
+    #     of the left-hand side's body, so the assertion CANNOT FAIL FOR ANY
+    #     PREDICATE. It reported green for four consecutive releases on a build
+    #     whose dossier gate could not see a single image option. A fixture that
+    #     restates its subject is worse than no fixture, because it reports green.
+    #     Enforced against recurrence by validate_framework_md.py CHECK AO.
+    #
+    #     Six fixtures replace it. 92a-92d are MUTATION-VERIFIED (each measured
+    #     False on the v2.20 OPT_RE build and True on this one); 92e-92f are GUARDS
+    #     (true on both) retained so the fix can never be "achieved" by making the
+    #     gate permissive.
+    # ══════════════════════════════════════════════════════════════════════
+    def _b_fig_opts(d):
+        """stem_and_options figural block: BARE labels; images would follow."""
+        d.add_paragraph('Q.1  Select the figure.')
+        d.add_paragraph('Problem Figure')
+        for i in range(1, 5):
+            d.add_paragraph(f'{i}.')
+    def _b_enum_stem(d):
+        """STATEMENT-format block: enumerated stem points THEN four text options."""
+        d.add_paragraph('Q.1  Consider the following statements:')
+        d.add_paragraph('1.  Statement one')
+        d.add_paragraph('2.  Statement two')
+        for i in range(1, 5):
+            d.add_paragraph(f'{i}.  Option {i}')
+    def _b_short(d):
+        """Genuinely short option set — three labels where four are expected."""
+        d.add_paragraph('Q.1  Solve.')
+        for i in range(1, 4):
+            d.add_paragraph(f'{i}.  Opt {i}')
+    def _b_nat_enum(d):
+        """Legitimate NAT block whose STEM enumerates; renders NO option set."""
+        d.add_paragraph('Q.1  Consider the following statements:')
+        d.add_paragraph('1.  Statement one')
+        d.add_paragraph('2.  Statement two')
+        d.add_paragraph('How many are correct? (Enter numerical value)')
+    def _dos_verdict(build, dossier_qtype):
+        _p = _mini_doc(tmp, build)
+        _t, _bl = parse_blocks(Document(_p))
+        _s = _src_stub(tq=1); _s['options_count'] = 4
+        _reset(); gate_dossier(_bl, _s, {'1': {'qtype': dossier_qtype}})
+        return any(c == 'A-DOSSIER' and l == 'FAIL' for l, c, m in RESULTS)
+
+    # 92a — THE HEADLINE CASE. An IMAGE-OPTION MCQ is not a dossier disagreement.
+    #       OPT_RE counted these as 0 and blocked certification estate-wide.
+    check('DOSSIER-image-options-not-a-finding',
+          not _dos_verdict(_b_fig_opts, 'mcq'))
+
+    # 92b — an ENUMERATED STEM does not inflate the count. Proves the defect was
+    #       NOT figural-only: this block is a pure TEXT-option question, the
+    #       standard STATEMENT/SEQUENCE/MATCH/ASSERTION_REASON construction.
+    check('DOSSIER-enumerated-stem-does-not-inflate',
+          not _dos_verdict(_b_enum_stem, 'mcq'))
+
+    # 92c — FALSE-NEGATIVE LOCK (the integrity half). A dossier claiming 'nat' on a
+    #       block that RENDERS four image options MUST be a finding. Under OPT_RE
+    #       n_opt was 0, so `qt == 'nat' and n_opt` never fired and a real Step-7
+    #       mislabel was ACCEPTED SILENTLY and would have reached students.
+    check('DOSSIER-nat-with-image-options-is-a-finding',
+          _dos_verdict(_b_fig_opts, 'nat'))
+
+    # 92d — PREDICATE PARITY, THE STRUCTURAL GUARANTEE. A-DOSSIER and A-OPTN must
+    #       agree about how many options a block renders on EVERY block shape. Any
+    #       future divergence — a new regex, a new gate, a "small" optimisation —
+    #       fails HERE rather than on a live paper.
+    _parity = True
+    for _bld in (_b_fig_opts, _b_enum_stem, _b_short):
+        _pp = _mini_doc(tmp, _bld)
+        _t, _pbl = parse_blocks(Document(_pp))
+        _ps = _src_stub(tq=1); _ps['options_count'] = 4
+        _reset(); gate_options(_pbl, _ps)
+        _optn_clean = not any(c == 'A-OPTN' and l == 'FAIL' for l, c, m in RESULTS)
+        _reset(); gate_dossier(_pbl, _ps, {'1': {'qtype': 'mcq'}})
+        _dos_clean = not any(c == 'A-DOSSIER' and l == 'FAIL' for l, c, m in RESULTS)
+        if _optn_clean != _dos_clean:
+            _parity = False
+    check('DOSSIER-OPTN-predicate-parity', _parity)
+
+    # 92e — GUARD (true on both builds). A genuinely SHORT option set STILL fails,
+    #       so the fix cannot be "achieved" by making the gate permissive.
+    check('DOSSIER-short-option-set-still-fails',
+          _dos_verdict(_b_short, 'mcq'))
+
+    # 92f — v2.21 NAT-LEG COMPLETENESS. A legitimate NAT question whose STEM
+    #       enumerates renders NO option set, and must not be a dossier finding.
+    #       The v2.20 counter returned the raw label total (2) and the nat leg
+    #       fired on any non-zero, so this shape false-FAILed. The nat leg now
+    #       requires a COMPLETE set (n_opt >= oc), keeping A-DOSSIER from being
+    #       more opinionated than A-NAT-NOOPT, which OWNS this fact.
+    check('DOSSIER-nat-enumerated-stem-not-a-finding',
+          not _dos_verdict(_b_nat_enum, 'nat'))
 
     # 93. A FACTS-ONLY DOSSIER MUST NOT WAKE AN ANSWER-DEPENDENT GATE.
     #     A-NAT-GRADE re-runs derive_nat_grading() over the KEYED VALUE, so it needs
