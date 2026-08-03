@@ -12,9 +12,12 @@ repo root before running the gate.
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **32/32** — 20 `Framework_*.md` + 12 engines. The count moves when a spec/engine is added or
-   retired; Steps 8 and 10 were retired in 2026.08.03.5, taking 2 specs with them, and
-   `figural_vision.py` was added in 2026.08.03.6.)
+   **33/33** — 20 `Framework_*.md` + 13 engines. The count moves when a spec/engine is added or
+   retired; Steps 8 and 10 were retired in 2026.08.03.5, taking 2 specs with them,
+   `figural_vision.py` was added in 2026.08.03.6, and `spec_source.py` in 2026.08.03.8.
+   NOTE: inside `/tmp/fw_effective` with a project override active this prints
+   `PARTIALLY VERIFIED — 32/33 ... 1 spec(s) PROJECT-UNVERIFIED` and exits 0. That is the
+   correct, non-halting result, not a failure.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
    This includes the CORPUS-level checks (AA routes/skill sync, AB thin-core purity,
    AC aggregator single-exit, AD emitted-class documented, AE normalization conformance).
@@ -23,7 +26,7 @@ repo root before running the gate.
    of it too.
 
 (`MANIFEST.json`/`bootstrap.py` track the framework files a session clones (count = MANIFEST.json "files"). `SPEC_MANIFEST.json`
-is the separate, wider workbench baseline — currently 42 files, including the audit and
+is the separate, wider workbench baseline — currently 43 files, including the audit and
 tooling scripts. It has NO generator in the repo: the release manager refreshes the changed
 entries from disk at deploy time, after checking the entry-builder reproduces every
 unchanged entry byte-for-byte. Both must be clean.
@@ -78,34 +81,75 @@ the bytes are the intended bytes, never that the code is reachable):
 - `python3 reconcile_taxonomy.py --self-test`  (S4-0 — its output LOCKS a taxonomy)
 - `python3 corpus_io.py --self-test`  (corpus I/O shell)
 - `python3 figural_vision.py --self-test`  (Phase A/C of PYQExplain §13A figural pre-transcription)
+- `python3 spec_source.py --self-test`  (project-first spec resolution — P1-P5 + overlay + provenance)
 
 An engine whose output locks or gates an artifact MUST have a self-test, and that self-test
 MUST contain a fixture that fails on the defect it was written for. A regression test that
 passes on the broken code tests nothing.
 
-#### Where engines actually load from — the repo, not the project
-`mocktestframework_SKILL.md` Step 0 clones the repo to `$FW` and does `cd "$FW"` before
-anything runs, so the clone is the working directory and a bare `import reconcile_taxonomy`
-resolves there. **No spec and no engine ever places `/mnt/project` on `sys.path`** (verified by
-grep across the whole corpus), and `mocktestframework_SKILL.md` states the rule directly: the
-specs and engine scripts live ONLY in the central repo.
+#### Where things load from — engines from the repo, SPECS PROJECT-FIRST (2026.08.03.8)
+`mocktestframework_SKILL.md` Step 0 clones the repo to `$FW`, verifies it with `bootstrap.py`,
+then runs `spec_source.py --resolve` to build `/tmp/fw_effective` — a copy of the verified
+clone with any `Framework_*.md` from `/mnt/project` laid over it — and does `cd
+/tmp/fw_effective`. So the working directory is the RESOLVED corpus and a bare
+`import reconcile_taxonomy` resolves to the engine copied out of the verified clone.
+
+**SPECS ARE PROJECT-FIRST.** A `Framework_*.md` in the exam project's Files section wins over
+the repo copy, per file. This is the framework owner's rule, set deliberately.
+
+**ENGINES ARE NOT.** Every `.py` still comes from the verified clone, and **no spec and no
+engine ever places `/mnt/project` on `sys.path`** (grep-verified across the corpus). A `.py`
+copy in a project's Files section is never imported, so editing one produces no effect while
+looking like a fix. `routes.json` and `MANIFEST.json` are repo-only too — which is why a
+project spec that no trigger routes (a retired step's spec, say) is reported as ORPHAN and
+never loaded.
 
 `/mnt/project` holds the exam's DATA — `blueprint.json`, `registry.json`, `taxonomy_draft.json`,
-`approval_record.json`, per-exam config and output documents. It is not an import source.
+`approval_record.json`, per-exam config and output documents — and now, optionally, spec
+overrides. It is still not an import source.
 
-Therefore: **a fix pushed to `production` reaches all ~200 exam projects on their next clone.**
-No per-project engine provisioning is required, and none should be performed — a `.py` copy
-sitting in an exam's Files section is never imported, so editing one produces no effect while
-looking like a fix. (Pre-2026-07-25 this file claimed the opposite: that specs load engines from
-`/mnt/project` and hard-stop if absent, and that the repo copy is "not the one the steps import
-at runtime". That was false in both directions and, acted upon, would have turned every engine
-fix into a 200-project manual migration with no way to tell whether it had taken.)
+##### The cost, recorded so it is never rediscovered by accident
+`bootstrap.py`'s guarantee (sha256 + version header + END-sentinel + exact line count, hard
+stop on any failure) rests on `MANIFEST.json`, which is generated from and describes the REPO.
+A project-supplied spec has no manifest entry, so **byte-integrity verification is impossible
+for it** — not skipped, impossible. Building a manifest from the project copies does not
+recover it: hashing the same files you are certifying verifies them against themselves.
+`spec_source.py` therefore checks only what needs no reference (P1-P5: non-empty, UTF-8,
+well-formed header, header/filename agreement, sentinel present per the repo's own convention,
+header/sentinel version agreement) and hard-stops on failure. **Passing proves the file is
+well-formed. It never proves it is correct, current, or in step with the engines it drives.**
 
-##### The one mechanical exception: standalone scripts (2026-08-01)
-The rule above is correct, and it rests on `cd "$FW"` putting the clone on `sys.path`. That
-holds **only for code Python reads from stdin** — spec-inline `python3 - <<EOF` gets
-`sys.path[0] == ''`, which resolves to the cwd, i.e. `$FW`. Every ordinary engine consumer
-works this way.
+Two consequences follow, and both are accepted:
+- **Fix propagation is no longer universal.** A push to `production` reaches every project that
+  does NOT carry its own copy of the changed spec. A project holding an override silently opts
+  out of that fix, permanently and invisibly, until the override is removed or updated.
+- **`routes.json` pins spec and engine together; an override breaks that pin.** An overridden
+  spec vX runs against repo engines vY. That is the shape of
+  `GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING`, and nothing detects it automatically.
+
+Therefore, **for ENGINES**: a fix pushed to `production` reaches all ~200 exam projects on their
+next clone. No per-project engine provisioning is required, and none should be performed — a
+`.py` copy sitting in an exam's Files section is never imported, so editing one produces no
+effect while looking like a fix. (Pre-2026-07-25 this file claimed the opposite: that specs load
+engines from `/mnt/project` and hard-stop if absent, and that the repo copy is "not the one the
+steps import at runtime". That was false in both directions and, acted upon, would have turned
+every engine fix into a 200-project manual migration with no way to tell whether it had taken.)
+
+**For SPECS this no longer holds, and the difference is the whole point of 2026.08.03.8.** A spec
+fix reaches only those projects that do NOT carry their own copy of that spec. A project holding
+an override opts out of the fix silently and permanently, until the override is removed or
+updated by hand. Do not reason about spec propagation using the engine paragraph above.
+
+##### The one mechanical exception: standalone scripts (2026-08-01; cwd restated 2026.08.03.8)
+The rule above is correct, and it rests on the CURRENT WORKING DIRECTORY being on `sys.path`.
+Since 2026.08.03.8 Step 0 ends `cd /tmp/fw_effective`, **not** `cd "$FW"` — the overlay, not the
+clone. The mechanism is unchanged and still sound: the overlay is a byte copy of the
+bootstrap-verified clone with only `Framework_*.md` overrides laid over it, so every `.py` in it
+is byte-identical to the verified engine (asserted in the release's end-to-end test). Reason
+about the cwd as `/tmp/fw_effective`; this paragraph exists precisely to stop `sys.path`
+reasoning drifting from what Step 0 actually does.
+This holds **only for code Python reads from stdin** — spec-inline `python3 - <<EOF` gets
+`sys.path[0] == ''`, which resolves to the cwd. Every ordinary engine consumer works this way.
 
 It does **not** hold for a standalone `.py` executed by path. Python sets `sys.path[0]` to the
 **script's own directory**, never the cwd, so `python3 /home/claude/X.py` puts `/home/claude`
@@ -224,6 +268,10 @@ Stamp a clean version + changelog over everything shipped since the last seal.
 - Never edit or push `production` directly — only the `main:production` fast-forward.
 - Never force-push `production` without explicit authorization.
 - `.verified` is gitignored and must never be committed.
+- `.spec_provenance.json` (written by `spec_source.py --resolve` into the overlay) is
+  gitignored and must never be committed either. It can excuse a spec from manifest
+  verification, so a copy sitting in the repo would be cloned to `$FW` and honoured by
+  Step 0's own bootstrap — more authority than `.verified`, same never-commit rule.
 - These files are NOT tracked by MANIFEST.json / bootstrap: `VERSION`, `CHANGELOG.md`,
   `routes.json` (routes are read into the manifest but the file itself isn't hashed),
   `MANIFEST.json` itself, and this `CLAUDE.md`. Editing them cannot break bootstrap.

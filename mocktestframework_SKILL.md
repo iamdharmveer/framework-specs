@@ -5,12 +5,29 @@ description: Central source of truth for the exam mock-test framework. Use this 
 
 # Mock Test Framework — Source of Truth
 
-The 20 framework specs and 10 engine scripts live ONLY in the central GitHub repo below
-(10 = engines routed to triggers; 2 further tracked scripts are deliberately never routed:
-validate_framework_md.py, the CI validator, and audit_canonical.py, the canonical auditor
-that Step 6 copies to each exam and Step 7 runs as its per-batch self-audit),
-never in project knowledge. NEVER work from memory or from any Framework_*.md that may
-appear in project knowledge. Always pull and verify the latest specs first.
+SPECS ARE PROJECT-FIRST (2026.08.03.8). If a `Framework_*.md` is present in the exam
+project's Files section, THAT copy is authoritative for this run. GitHub supplies only the
+specs the project does not carry. Precedence is PER FILE — a project may override one spec
+and inherit the rest.
+
+ENGINES ARE REPO-ONLY. All 10 routed engine scripts, plus the 3 tracked-but-never-routed
+scripts (validate_framework_md.py the CI validator, audit_canonical.py the canonical auditor
+that Step 6 copies to each exam and Step 7 runs as its self-audit, and spec_source.py the
+resolver), come ONLY from the verified clone. `/mnt/project` is never placed on `sys.path`,
+so a `.py` sitting in a project's Files section is never imported and editing one has no
+effect. `routes.json` and `MANIFEST.json` are likewise repo-only.
+
+WHAT PROJECT-FIRST COSTS — read this once, it is not a formality. `bootstrap.py` verifies
+sha256, version header, END-sentinel and exact line count against `MANIFEST.json`, which
+describes the REPO. A project-supplied spec has no manifest entry, so byte-integrity
+verification is IMPOSSIBLE for it — not skipped, impossible. `spec_source.py` checks what
+can be checked without a reference (non-empty, UTF-8, well-formed header, header/filename
+agreement, sentinel present per the repo's own convention, header/sentinel version
+agreement) and HARD-STOPS on failure. Passing proves the file is WELL-FORMED. It never
+proves it is correct, current, or in step with the repo engines it drives. A project spec
+that is simply old is perfectly well-formed and will be used.
+
+NEVER work from memory. That rule is unchanged and absolute.
 
 ## STEP 0 — Load and verify the framework (run this bash FIRST, before every step)
 
@@ -39,19 +56,34 @@ cd "$FW" && python3 bootstrap.py \
 pip install matplotlib pillow numpy scipy fonttools --break-system-packages -q 2>/dev/null \
   || echo "WARN: figure dependencies incomplete — run figural_core.preflight() and expect DORMANT figure gates."
 python3 -c "import figural_core as fc, json; print('FIGURE PREFLIGHT:', json.dumps(fc.preflight()['available']))" 2>/dev/null || true
+# ── PROJECT-FIRST SPEC RESOLUTION (2026.08.03.8) ────────────────────────────
+# Owner rule: a Framework_*.md present in the exam project's Files section WINS.
+# GitHub supplies only the specs the project does not carry. Precedence is PER FILE.
+# Engines are NEVER taken from the project; /mnt/project is never on sys.path.
+python3 spec_source.py --resolve --repo-dir "$FW" --project-dir /mnt/project \
+        --overlay-dir /tmp/fw_effective \
+  || { echo "HARD STOP: a project spec is malformed or truncated. Fix or remove it in the project Files section. DO NOT proceed."; exit 1; }
+cd /tmp/fw_effective
 ```
 
 ## RULES
 
 1. If Step 0 prints "HARD STOP" or exits non-zero, STOP — generate nothing.
-2. After it succeeds, open the spec in /tmp/fw that matches the step the user asked for
+2. After it succeeds, open the spec in /tmp/fw_effective (the resolved corpus: the verified
+   clone with any project specs laid over it) that matches the step the user asked for
    (e.g. "MockDeliver M1" -> Framework_MockDeliver.md; PYQDraft/PYQScan/PYQApprove/PYQCount each load their step file PLUS Framework_PYQCore.md — run
    `python3 bootstrap.py --trigger <Step>` to print the entry files split by role) and READ IT IN FULL — the read-in-full rule applies to .md SPEC files ONLY; .py ENGINE files in the route are EXECUTED via `import` inside the spec's code blocks and must NOT be read into context — every line to
    its "# END OF ..." sentinel. Some specs are thousands of lines (Blueprint ~6400) — read
    all pages, never a partial.
 3. Read blueprint.json / registry.json / per-exam files from /mnt/project (the project's
    own files), exactly as the specs describe.
-4. Before presenting any output, confirm /tmp/fw/.verified exists.
+4. Before presenting any output, confirm /tmp/fw/.verified exists AND that the
+   "SPEC SOURCE:" provenance report from Step 0 was printed. If it listed any
+   [PROJECT-UNVERIFIED] spec, the delivery footer MUST disclose that (Framework_DeliveryFooter
+   §2A) — naming each project-sourced spec. A run on project specs still completes and still
+   delivers; it is never silently presented as fully verified.
+4b. An [ORPHAN — NOT LOADED] line means the project holds a spec no trigger routes (e.g. a
+   spec for a retired step). It is ignored, never executed. Tell the user it can be deleted.
 5. **In-protocol vision is not "working from memory."** The "never from
    memory" rule bans inventing question CONTENT from your own knowledge. It
    does NOT ban spec-sanctioned reading of the SOURCE. When a spec protocol

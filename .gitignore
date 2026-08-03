@@ -219,3 +219,9 @@ __marimo__/
 
 # Framework integrity gate runtime token (written by bootstrap.py; never committed)
 .verified
+
+# Project-first spec provenance record (written by spec_source.py --resolve into the
+# overlay; never committed). If this file ever reached the repo it would be cloned to
+# $FW and Step 0's own bootstrap would honour it, silently excusing the specs it names
+# from manifest verification. Same lifecycle as .verified, and strictly more authority.
+.spec_provenance.json

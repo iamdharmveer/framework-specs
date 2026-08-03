@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.03.7",
+  "framework_version": "2026.08.03.9",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -148,11 +148,11 @@
       "bytes": 354440
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "5ddc6a7febb8b88e7f755591f14e5cac87ee0bda3e00912f9fbe7ba22001fb1f",
-      "version_header": "# Framework_DeliveryFooter v1.13 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "601bc66f6522cbde6b156e2784a06ce5a3d32c1dc8e4c54c8be79c1f531275c1",
+      "version_header": "# Framework_DeliveryFooter v1.14 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 704,
-      "bytes": 36370
+      "lines": 737,
+      "bytes": 38384
     },
     "Framework_MockDeliver.md": {
       "sha256": "38abd3a29145269424dac96caba6f2875f3bcd6dd21bb0c120f5468f1f8fcb8d",
@@ -356,6 +356,13 @@
       "end_sentinel": "    main()",
       "lines": 5934,
       "bytes": 322824
+    },
+    "spec_source.py": {
+      "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    main()",
+      "lines": 449,
+      "bytes": 21616
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",

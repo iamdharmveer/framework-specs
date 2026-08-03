@@ -1,4 +1,11 @@
-# Framework_DeliveryFooter v1.13 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.14 — Universal Delivery Footer (F1/F2) Contract
+# v1.14 — 2026-08-03 — NEW §2A SPEC PROVENANCE DISCLOSURE (project-first specs).
+#   Specs are now PROJECT-FIRST: a Framework_*.md in an exam project's Files section
+#   overrides the repo copy and CANNOT be byte-verified. Every footer must now state
+#   whether the run used repo-verified specs or project overrides, naming them.
+#   DISCLOSURE ONLY — no severity routing, no AMBER/VOID_ITEM/BLOCKING change, no F1/F2
+#   change, no §5 flowchart change. No condition may halt a run, and that is untouched.
+#
 # v1.13 — 2026-08-03 — DEFECT FIX: this file still routed operators to the RETIRED steps.
 #   2026.08.03.5 retired canonical Steps 8 and 10 but left §2's step registry intact, so
 #   every Step 7 footer printed "NEXT STEP: Step 8: MockCreateAudit M[N]" and every Step 9
@@ -234,6 +241,32 @@ Complete mapping of every step's deliverables, their footer type, and
 the next step to reference. [ExamCode] is the exam prefix throughout.
 
 ```
+§2A — SPEC PROVENANCE DISCLOSURE (v1.14 — MANDATORY, every footer)
+═══════════════════════════════════════════════════════════════════════
+Specs are PROJECT-FIRST (2026.08.03.8): a Framework_*.md in the exam project's
+Files section overrides the repo copy. Such a spec CANNOT be byte-verified —
+MANIFEST.json describes the repo, so there is nothing to compare it against.
+
+Step 0 prints a "SPEC SOURCE:" report. Carry its verdict into every footer:
+
+  All specs repo-sourced →
+      SPECS      : repo-verified (bootstrap 100%)
+
+  Any spec project-sourced →
+      SPECS      : PROJECT-OVERRIDE — N spec(s) unverified
+                   [names every project-sourced spec and its version]
+                   Integrity not verifiable; these may be stale or out of step
+                   with the repo engines.
+
+THIS NEVER HALTS AND NEVER CHANGES SEVERITY. It is a DISCLOSURE line, not a
+gate: it does not set AMBER, does not emit VOID_ITEM or BLOCKING, and does not
+alter F1/F2 selection or the §5 flowchart. The framework rule that no condition
+may halt a run or hard-stop a paper is untouched. What it prevents is a run on
+an unverified spec being presented as if it were fully verified.
+
+An [ORPHAN — NOT LOADED] line means the project holds a spec no trigger routes.
+It was ignored. Say so, and say it can be deleted from project Files.
+
 ═══════════════════════════════════════════════════════════════════════
 STEP 1 — PYQPrepare
 ═══════════════════════════════════════════════════════════════════════

@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 704,
-      "sha256": "5ddc6a7febb8b88e7f755591f14e5cac87ee0bda3e00912f9fbe7ba22001fb1f",
-      "size_bytes": 36370,
-      "version_header": "# Framework_DeliveryFooter v1.13 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 737,
+      "sha256": "601bc66f6522cbde6b156e2784a06ce5a3d32c1dc8e4c54c8be79c1f531275c1",
+      "size_bytes": 38384,
+      "version_header": "# Framework_DeliveryFooter v1.14 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.10.0",
@@ -293,7 +293,14 @@
       "size_bytes": 130089,
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)"
+    },
+    "spec_source.py": {
+      "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    main()",
+      "lines": 449,
+      "size_bytes": 21616
     }
   },
-  "generated_at": "2026-08-03T09:46:30Z"
+  "generated_at": "2026-08-03T11:07:04Z"
 }

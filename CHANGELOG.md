@@ -1,5 +1,139 @@
 # Changelog
 
+## 2026.08.03.9
+**Release-hold fix for 2026.08.03.8. One blocker, three CLAUDE.md defects. 2026.08.03.8 was
+held and never pushed; this release supersedes it in full.**
+
+**THE BLOCKER — `bootstrap.py --trigger` hard-stopped inside the overlay whenever any project
+override was active.** Step 0 ends `cd /tmp/fw_effective`. SKILL RULE 2 then tells the operator
+to run `python3 bootstrap.py --trigger <Step>`, so that command runs inside the overlay.
+`spec_source.py` builds the overlay with `shutil.copytree`, which copies `bootstrap.py` and
+`MANIFEST.json` into it alongside the overridden spec — and `MANIFEST.json` describes the REPO,
+so an override cannot match it by definition. bootstrap therefore reported the override as
+`sha256 MISMATCH` and printed *"Do NOT generate anything from memory or project knowledge. Stop
+here."*
+
+Three things made it severe, and all three were reproduced here before fixing, not taken on
+report: the blast radius is EVERY trigger, not the overridden one (bootstrap verifies all files
+regardless of `--trigger`; `PYQSort`, `MockDeliver` and `PYQExplain` all exit 1 against an
+overlay whose only override is `Framework_PYQSort.md`); the message instructs abandonment; and
+it contradicts the release's own contract — SKILL rule 4 says such a run "still completes and
+still delivers", and `Framework_DeliveryFooter` §2A says "THIS NEVER HALTS AND NEVER CHANGES
+SEVERITY". The feature and its own guarantee contradicted each other in the shipped artefacts.
+The failure was exactly coextensive with the feature: with no override, everything worked.
+
+**THE FIX (the preferred structural one, not the doc workaround).** `spec_source.py --resolve`
+now writes `.spec_provenance.json` into the overlay, recording every overridden spec with the
+sha256 the resolver actually inspected. `bootstrap.py` reads it when present and reports those
+files as **PROJECT-UNVERIFIED** instead of MISMATCH, exiting 0 with a `PARTIALLY VERIFIED`
+banner that names each one and states it is not a failure.
+
+**It is not a verification bypass, and five negative tests hold it to that:**
+- A listed file is still hashed and must match the RESOLVER's sha — tampering with the overlay
+  after resolution still HARD-STOPS (T1).
+- A file NOT listed that fails any check still HARD-STOPS, unchanged (T2).
+- Only `.md` specs may be listed; a `.py` in the provenance file is refused outright, so an
+  engine can never be excused from manifest verification (T3).
+- A provenance entry without a sha256 is refused — an unusable record excuses nothing (T4).
+- A plain repo clone with no provenance file behaves exactly as before: `VERIFIED — 33/33` (T5).
+What remains impossible, and is not attempted, is verifying an override against the repo: there
+is no reference to verify it against.
+
+**CLAUDE.md — three defects, none of which any gate could catch** (the file is not tracked by
+MANIFEST/bootstrap, which is precisely why they needed catching by hand):
+- **It contradicted itself about fix propagation.** The new section said propagation is no longer
+  universal; eight lines later a retained pre-existing paragraph said a push "reaches all ~200
+  exam projects". That "Therefore" was the conclusion of the OLD repo-only model. The engine half
+  is still correct and is kept, now scoped explicitly to ENGINES; the spec half is replaced by a
+  statement that a project holding an override opts out of spec fixes silently and permanently.
+- **The tracked count arrived stale**: 32/32 / 12 engines -> **33/33 / 13 engines**
+  (`spec_source.py` is a new tracked engine), plus a note that inside the overlay with an
+  override active the correct output is `PARTIALLY VERIFIED — 32/33`, not a failure.
+  `spec_source.py --self-test` added to the pre-push self-test list.
+- **The `sys.path` basis was stale**: the paragraph still rested on `cd "$FW"`, but Step 0 now
+  ends `cd /tmp/fw_effective`. The mechanism is unchanged and still sound — the overlay is a byte
+  copy of the verified clone, engines byte-identical — but the stated basis was no longer what
+  the SKILL does, which is exactly the drift that paragraph exists to prevent.
+
+**Regression guard.** `spec_source.py --self-test` grows from 21 to 27, adding coverage of the
+provenance record itself: written into the overlay, lists the overridden spec, records its
+on-disk sha, never lists a `.py`, records orphans separately, and is written (as an empty list)
+even when nothing was overridden.
+
+**Carry-forwards, unchanged and NOT addressed here** — both pre-date this work and neither blocks:
+`SPEC_MANIFEST.json` still lists three `claude_Framework_*.md` files that have never existed on
+disk or in git (restore or drop — dropping is correct, but it moves the workbench baseline and
+should be its own release), and `audit_canonical.py` self-test #60 "SPEC TRANSPORT RESOLVES (D2)"
+still passes when the transport line is replaced with `src['figure_specs'] = {}`, so by the
+corpus's own rule it tests nothing while being load-bearing for A-FIGCOMP.
+
+## 2026.08.03.8
+**Specs become PROJECT-FIRST. Engines do not.**
+
+**The rule, set by the framework owner.** If a `Framework_*.md` is present in an exam
+project's Files section, THAT copy is authoritative for the run. GitHub supplies only the
+specs the project does not carry. Precedence is PER FILE: a project may override one spec
+and inherit the rest.
+
+**What this costs, recorded at the top because it must never be rediscovered by accident.**
+`bootstrap.py`'s guarantee — present + sha256 byte-exact + version header + END-sentinel +
+exact line count, hard stop on any failure — rests entirely on `MANIFEST.json`, which is
+generated from and describes the REPO. A project-supplied spec has no manifest entry, so
+**byte-integrity verification is impossible for it — not skipped, impossible.** Generating a
+manifest from the project copies does not recover it: hashing the same files you are
+certifying verifies them against themselves and reports VERIFIED for any content whatsoever.
+Two further consequences are accepted deliberately:
+- **Fix propagation is no longer universal.** A push to `production` reaches every project
+  that does not carry its own copy of the changed spec. A project holding an override opts
+  out of that fix silently, permanently, and invisibly until the override is removed.
+- **`routes.json` pins spec and engine together, and an override breaks that pin.** An
+  overridden spec vX runs against repo engines vY — the shape of
+  `GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING`. Nothing detects it automatically.
+
+**New engine: `spec_source.py`** (tracked, bootstrap-verified, deliberately never routed —
+it runs in Step 0, before any spec is opened). It clones nothing and decides nothing about
+engines. It: discovers `Framework_*.md` in `/mnt/project`; runs P1-P5 well-formedness on each
+(non-empty + UTF-8; `# Framework_<Name> v<ver>` header; header name matches filename; END
+sentinel present; header/sentinel versions agree); HARD-STOPS on any failure, because a
+half-applied override is worse than none; copies the verified clone to `/tmp/fw_effective`
+and lays the project specs over it; and prints a `SPEC SOURCE:` provenance report naming
+every project-sourced spec beside the repo version it displaced.
+
+**P4 is CALIBRATED against the repo, not hardcoded — and this was found by testing, not
+assumed.** The obvious rule ("the END sentinel must be the last non-blank line") was written
+first and then measured against the live corpus: it REJECTED 4 of 20 genuine specs.
+`Framework_MockTestCreate.md` carries 78 further non-blank lines of appendix after its
+sentinel; `Framework_MockTestExplain.md` and `Framework_PYQExplain.md` are followed by a
+divider rule; and `Framework_DeliveryFooter.md` has no sentinel at all. P4 now requires a
+sentinel only when the repo copy of the same spec carries one, and a sentinel naming a
+DIFFERENT spec is rejected unconditionally. Re-measured: 20/20 genuine specs accepted.
+
+**Engines, routes and manifests stay repo-only.** All 10 routed engines plus the 3
+tracked-but-never-routed scripts come from the verified clone. `/mnt/project` is still never
+placed on `sys.path`, so a `.py` in a project's Files section is still never imported and
+editing one still produces no effect while looking like a fix. Because `routes.json` is
+repo-sourced, only specs named in a route are ever loaded: a project holding a spec for a
+RETIRED step (`Framework_MockTestCreateAudit.md`, deleted in 2026.08.03.5) is reported as
+**ORPHAN — NOT LOADED** and ignored rather than silently resurrected. That mitigation is a
+consequence of keeping routes repo-side, and is the reason to keep them there.
+
+**Files changed.**
+- `spec_source.py` — NEW. Self-test 21/21, fixture-based (each check must catch a planted
+  defect and pass a clean file), plus a real-corpus calibration run over all 20 live specs.
+- `mocktestframework_SKILL.md`, `SKILL.md` — Step 0 gains the resolve call and `cd
+  /tmp/fw_effective`; the "never from project knowledge" clause is replaced by the
+  project-first rule plus an explicit statement of what it costs; Rule 2 re-points at the
+  resolved corpus; Rule 4 requires the provenance report and the footer disclosure; new
+  Rule 4b covers ORPHAN specs. "NEVER work from memory" is unchanged and absolute.
+- `CLAUDE.md` — the "where things load from" section inverted for specs, held for engines,
+  with the cost and the two accepted consequences recorded inline.
+- `Framework_DeliveryFooter.md` v1.13 -> **v1.14** — new §2A SPEC PROVENANCE DISCLOSURE.
+  Every footer states whether the run used repo-verified specs or project overrides, naming
+  them. DISCLOSURE ONLY: no severity routing, no AMBER/VOID_ITEM/BLOCKING change, no F1/F2
+  change, no §5 flowchart change. No condition may halt a run, and that stays untouched.
+- `gen_manifest.py` — `spec_source.py` added to TRACKED_PY.
+- `MANIFEST.json` regenerated (33 files); `SPEC_MANIFEST.json` rebuilt.
+
 ## 2026.08.03.7
 **Release F, rebased. Four residual classes from the audit-step retirement, plus one
 regression the parallel release introduced.**
