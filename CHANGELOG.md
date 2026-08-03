@@ -1,5 +1,91 @@
 # Changelog
 
+## 2026.08.03.6
+**PYQ-1 lost figural vision partway through long runs and HALTED instead of
+degrading — the one place the corpus did not apply its own CLASS T rule.**
+
+**The defect.** `view` is CLASS T (CLAUDE.md EXECUTION-BOUNDARY LAW): it can only
+happen between model turns, and an image held in context is not durable.
+PYQExplain viewed each figure lazily, at solve time, inside whichever batch
+contained it — so the last figural batch asked the image channel for a fresh
+render after a clone, a bootstrap, two specs read in full (skill RULE 2), and
+every prior batch. Measured in one session on pixel-verified non-blank files:
+early views returned perceptible content, later views on the SAME files returned
+empty payloads, and a retry did not recover.
+
+Two failures followed. The channel was asked for the same image repeatedly, at
+the point of greatest context pressure; and when it failed, §13 had no sanctioned
+path onward, so PYQ-1 halted. On a 60-question reference paper with figures in
+five of six batches, a session-level tool fault blocked the whole paper.
+CLAUDE.md already states that a CLASS T failure must be LOUD and must NOT halt;
+vision was the one place that rule was not applied.
+
+**The fix.** New §13A FIGURAL PRE-TRANSCRIPTION PASS at the new preflight step
+P2a, in MATERIALISE-THEN-INJECT form. Phase A extracts and role-binds every
+figure and emits a work queue; Phase B (prose, never a code block) views each one
+in-turn; Phase C verifies and persists. What was seen becomes TEXT on disk
+(`pyq_figural_vision.json`), so a figure is viewed exactly ONCE per paper no
+matter how long the run or how many resumes it survives, and vision is spent at
+the moment context is lightest. Role binding is READ FROM THE DOCUMENT — a
+drawing in a paragraph whose text opens with an option label binds to that option
+— never inferred from extraction order.
+
+Verification is by measurement, not assumption: OK / MISSING / EMPTY / THIN /
+STALE. THIN catches a payload that arrived but says too little to derive from;
+STALE catches a transcription written against a different image.
+
+**It never halts.** A shortfall makes the affected question VOID_ITEM and the run
+AMBER. BLOCKING is never emitted for a vision condition. A VOID_ITEM takes the
+§17-3 anomaly shape, so batch coverage stays exact and the S4-5 guard 3 assertion
+still holds. Reported in the new §R12, never §R7 — an untranscribable figure is a
+session defect with a known remedy, not a fact about the exam paper.
+
+**RE-11 is not weakened.** A figural answer is still derived only from what was
+actually seen; "what was seen" is now an auditable artefact rather than an
+unfalsifiable claim. A question whose figure was never legibly seen publishes NO
+answer, where before it produced a halt at best.
+
+**Two defects were caught at deployment review, BEFORE this shipped.**
+
+1. **Phase C raised on a non-string transcript.** Phase B is model-authored JSON
+   with no schema, and a list of clauses is the shape a model most naturally
+   writes when the queue contract asks it to name distinct visible elements.
+   Every non-`str` payload raised `AttributeError`, and the §S13A-4 call site has
+   no `try`/`except` — so the engine written to stop a vision failure halting
+   PYQ-1 would itself have halted PYQ-1, the same defect one layer down, while
+   three separate docstrings promised "never raises". `coerce_text()` now
+   normalises any payload: a list is JOINED rather than rejected, because a model
+   that wrote a list did transcribe the figure. Re-measured across 16 payload
+   shapes: zero raise. `write_manifest()` stores the COERCED string, so a raw
+   list can never reach `transcript_for()` at solve time and push the same shape
+   defect one artefact downstream.
+
+2. **`MIN_TRANSCRIPT_CHARS` had no isolating fixture.** Deleting the character
+   floor left the suite fully green, because both THIN fixtures also failed the
+   ELEMENT floor. The new fixture uses a payload with 3 elements in 33 characters,
+   which only the character floor can catch.
+
+Each lock is mutation-verified: removing the char floor, `coerce_text`'s list
+branch, the manifest coercion, the `ST_EMPTY` branch, the `ST_STALE` sha check or
+the element floor each turns the self-test red, by 1 to 4 named fixtures.
+
+**Also fixed (pre-existing, unrelated).** `mocktestframework_SKILL.md` was not
+updated by release 2026.08.03.5 and still claimed 22 specs / 9 engines plus the
+pre-retirement auditor wording, while `SKILL.md` had moved to 20. The two skill
+files are byte-identical again.
+
+**Files.** New `figural_vision.py` (pure stdlib; Phase A/C only — it models no
+tool call and contains no CLASS T stub; SELF-TEST 46/46).
+`Framework_PYQExplain.md` v1.1.1 -> v1.2. `Framework_DeliveryFooter.md`
+v1.11 -> v1.12 (Q0b gains PYQ-1 as a second producer; F1/F2 shape, Q0, Q1 and all
+severity routing untouched). `routes.json` (one line), `gen_manifest.py`
+TRACKED_PY, `SKILL.md` + `mocktestframework_SKILL.md` engine count 9 -> 10.
+Bootstrap 31/31 -> 32/32.
+
+Zero changes to `explain_engine.py` (62/62 and 10/10 unchanged), the
+ExplanationBlock model, the delivered document, §12 byte-identity, or any
+existing gate.
+
 ## 2026.08.03.5
 **Release E — the Create and Explain audit steps are removed from the framework.**
 
