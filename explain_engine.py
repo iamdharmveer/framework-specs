@@ -1583,7 +1583,9 @@ def self_test():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# STEP-10 ADDITION (MockExplainAudit) — the docx→ExplanationBlock reader.
+# EXPLANATION-AUDITOR READER — the docx->ExplanationBlock reader.
+# (Added for canonical Step 10, retired 2026.08.03.5. UNCHANGED and still live: its
+#  surviving consumer is PYQExplainAudit on the PYQ chain.)
 # Additive: no existing write/verify path changes; --self-test stays 44/44. The
 # EXACT INVERSE of _block_paragraphs, driven by the SAME cfg, so a rectified block
 # is structurally identical to how Step 9 would have written it correctly.
@@ -1658,7 +1660,8 @@ def parse_solution_blocks(path, cfg, expected_qs=None):
     """Read a Step-4 Solutions docx back into {q: ExplanationBlock}. Inverse of
     build_interleaved_docx's per-block render, driven by the same cfg (labels /
     markers / label-scheme / options). MCQ / MSQ / NAT, any label scheme, any
-    language — all via cfg, nothing hardcoded. Used by Step 10 to reason about each
+    language - all via cfg, nothing hardcoded. Used by the explanation auditor
+    (PYQExplainAudit) to reason about each
     explanation and to rebuild corrected blocks."""
     doc = Document(path)
     ca_label = cfg.labels['correct_answer'].lower(); opt_word = cfg.labels['option']

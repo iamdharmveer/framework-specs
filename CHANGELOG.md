@@ -1,5 +1,84 @@
 # Changelog
 
+## 2026.08.03.7
+**Release F, rebased. Four residual classes from the audit-step retirement, plus one
+regression the parallel release introduced.**
+
+**REBASE NOTE — read first.** An earlier build of this work was cut against 2026.08.03.5
+and never pushed. While it was being built, a different 2026.08.03.6 (the PYQ-1 figural
+vision release) landed. That build therefore collided: it carried its own `2026.08.03.6`
+heading, and its `Framework_DeliveryFooter.md` v1.12 was authored from the v1.11 base and
+would have DELETED the §5 Q0b PYQ-1 `VOID_ITEM` producer clause that the real v1.12 added —
+silently reopening the halt-vs-amber gap that release closed, and breaking
+`Framework_PYQExplain.md` v1.2, which depends on that clause explicitly. That build is
+discarded. This release is rebased onto the sealed 2026.08.03.6: the DeliveryFooter fix is
+re-applied ON TOP of the live v1.12 (its Q0b clause verified intact, 4 `VOID_ITEM`
+occurrences preserved), this entry is APPENDED above the sealed .6 entry rather than
+replacing it, and the 8 files whose bases were untouched by .6 are applied unchanged.
+
+**S1 (severe, user-facing) — every step routed operators to a retired trigger.**
+`Framework_DeliveryFooter.md` is routed to every trigger. Its §2 step registry still
+carried full `STEP 8 — MockCreateAudit` and `STEP 10 — MockExplainAudit` template blocks,
+so every Step 7 delivery printed `NEXT STEP : Step 8: MockCreateAudit M[N]` and every
+Step 9 delivery printed `NEXT STEP : Step 10: MockExplainAudit M[N]` — triggers that no
+longer resolve. The §7 chain map agreed with them. FIXED: both blocks removed, chain is
+7 -> 9 -> 11, each removal site carries an explicit "never print this" note. The pipeline
+bar STAYS at 11 cells — retirement did not renumber anything, so Step 9 is still 9 of 11.
+The three retired filenames stay in LOCAL_ONLY so pre-retirement files already on disk
+still badge as 'Use locally'. ZERO change to §5 Q0b, to the v1.12 PYQ-1 VOID_ITEM producer
+clause, to F1/F2 shape, or to any severity routing.
+(Framework_DeliveryFooter.md v1.12 -> **v1.13**)
+
+**S2 (functional) — a guard disabled itself, and the wiring it guarded broke.**
+CHECK AM in `validate_framework_md.py` enforces that a spec declaring an input actually
+passes the engine flag consuming it. Its only contract named
+`Framework_MockTestCreateAudit.md`; once that file was deleted the check hit its
+missing-file `continue` and silently did nothing. The thing it guarded then broke for real:
+`audit_canonical.py` still exposes `--dossier`, Step 7 still writes the Tier-A dossier at
+S13-4b, and after Step 8's deletion NO invocation anywhere passed the flag. The dossier
+became a file written for nobody, and A-NAT-GRADE + A-FIGPROFILE quietly went back to
+re-deriving what Step 7 had already recorded — the exact regression the dossier exists to
+prevent, reintroduced one layer up and concealed by the same deletion.
+FIXED two ways: CHECK AM is re-pointed at `Framework_MockTestCreate.md` (a spec expected to
+EXIST — a guard keyed to a deletable file retires along with it), and new **S13-4c** re-runs
+the same auditor over the same final docx with `--dossier` immediately after S13-4b writes
+it. It cannot live in S13-2, which runs before the file exists. No new gate, no new hard
+stop, no new artefact. CHECK AM now passes on real wiring rather than on absence.
+(Framework_MockTestCreate.md v5.39 -> **v5.40**, validate_framework_md.py)
+
+**S3 — a live cross-step contract still named the dead step.**
+`Framework_MockTestAnalyse.md`'s axis classifier carried "MUST PROPAGATE (byte-identical)
+to Step 8 MockCreateAudit S6-1b" — binding instruction pointing at a deleted spec. The
+CONTRACT IS UNCHANGED and still binding; its target is restated as `audit_canonical.py`.
+Internal step map marks slots 3 and 5 RETIRED without renumbering.
+(Framework_MockTestAnalyse.md v2.39.2 -> **v2.40.0**)
+
+**S4 — engine banners and comments.** `audit_canonical.py` still announced itself as the
+"auditor for Step 8" — and it is copied verbatim into every exam project, so operators read
+it; its header now names Step 7 as the runner. `explain_audit_gate.py` and
+`explain_engine.py`'s reader described themselves as Step-10 components; both are UNCHANGED
+and still live, their surviving consumer being PYQExplainAudit, and their banners now say
+so. `paper_pipeline.py`'s option-label SYNC INVARIANT comments and its two runtime error
+messages said "Step 8" where they meant the auditor. `blueprint_core.py` named the deleted
+spec twice. No executable logic changed in any engine; all self-tests re-run PASS.
+
+**S5 (new — regression introduced by the parallel .6 release).**
+`Framework_PYQExplain.md` v1.2 was authored from a base predating 2026.08.03.5 and
+reintroduced a pointer to `Framework_MockTestCreateAudit.md`, deleted in that release. One
+line restated to `audit_canonical.py`. Every §13A figural pre-transcription rule, the P2a
+preflight, the VOID_ITEM/AMBER routing and the §R12 reporting shape introduced by v1.2 are
+UNTOUCHED. (Framework_PYQExplain.md v1.2 -> **v1.2.1**)
+
+**Why the existing tooling caught none of S1-S5.** `audit_sync.py` compares the SKILL
+trigger list against routes.json, not spec bodies. The validator's E-STEPNUM went blind the
+moment the PIPELINE entries were deleted — a removed trigger has no expected step number,
+so stale `Step 8 (MockCreateAudit)` text passes silently. CHECK AM disabled itself. And
+nothing at all guards against a parallel release re-authoring a file from a stale base,
+which is how S5 arrived. Two lessons worth keeping: deleting a step removes the very checks
+that would police its removal, so a retirement release needs a full-corpus grep for TRIGGER
+NAMES and a sweep of the engines; and any release built over more than one sitting must be
+re-based against a fresh clone before delivery, not against the clone it started from.
+
 ## 2026.08.03.6
 **PYQ-1 lost figural vision partway through long runs and HALTED instead of
 degrading — the one place the corpus did not apply its own CLASS T rule.**

@@ -1,4 +1,10 @@
-# Framework_PYQExplain v1.2 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v1.2.1 — Universal PYQ Explanation Generator
+# v1.2.1 — 2026-08-03 — REGRESSION REPAIR (one line; zero rule change).
+#   v1.2 was authored from a base predating 2026.08.03.5 and reintroduced a pointer to
+#   Framework_MockTestCreateAudit.md, a spec deleted in that release. Restated as
+#   audit_canonical.py, which is where the A-NAT-GRADE implementation actually lives.
+#   Every §13A figural pre-transcription rule, the P2a preflight, the VOID_ITEM/AMBER
+#   routing and the §R12 reporting shape introduced by v1.2 are UNTOUCHED.
 #
 # v1.2 — 2026-08-03 — §13A FIGURAL PRE-TRANSCRIPTION PASS (new capability).
 #   Figural images are VIEWED ONCE, at P2a, and persisted as TEXT. Every batch
@@ -701,7 +707,7 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   ```
 
   PINNED: byte-identical to Framework_MockTestCreate.md §S7-NEW-C and
-  Framework_MockTestCreateAudit.md's A-NAT-GRADE copy.
+  audit_canonical.py's A-NAT-GRADE implementation.
 
 # ════════════════════════════════════════════════════════════════════════
 # §7A — PER-QUESTION DIFFICULTY ASSESSMENT (v1.1)
@@ -1551,5 +1557,5 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v1.2
+# END OF Framework_PYQExplain v1.2.1
 # ════════════════════════════════════════════════════════════════════════

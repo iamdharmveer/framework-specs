@@ -176,7 +176,7 @@ def apply_mock_offset(blueprint, registry):
     labels. When there are no prior mocks (offset == 0) the blueprint is returned UNCHANGED, so an
     exam's first mock series is byte-identical to before.
 
-    Offsets: mocks[].mock, mocks[].paper_id, and difficulty_schedule[].mock (Step 8 looks up
+    Offsets: mocks[].mock, mocks[].paper_id, and difficulty_schedule[].mock (the auditor looks up
     difficulty by mock number, so it must move too). Records blueprint['mock_offset'] for audit.
     Idempotent-guarded: refuses to double-apply (a blueprint already carrying mock_offset).
     """
@@ -394,7 +394,7 @@ def _self_test():
 
     # THE DEFECT THIS CLOSES: before v5.37, 'i/ii/iii/iv' rendered (a)(b)(c)(d)
     # because Step 7 tested the leading token's CASING and had no roman branch,
-    # while Step 8 classified the family as 'roman' — A-OPTLABEL then FAILED every
+    # while the auditor classified the family as 'roman' — A-OPTLABEL then FAILED every
     # question, exit 1, MANDATE D blocked delivery, and no CP repair could fix a
     # paper that matched Step 7's own contract. Measured end-to-end.
     ck_call('LABELFMT-roman-lower-renders-roman',
@@ -414,7 +414,7 @@ def _self_test():
     ck_call('LABELFMT-empty-defaults-numeric',
             lambda: resolve_option_label('')[0] == '{i}.  {text}')
 
-    # THE SYNC INVARIANT: Step 7's render family must equal Step 8's classification
+    # THE SYNC INVARIANT: Step 7's render family must equal the auditor's classification
     # for EVERY notation that resolves, or the pair can silently drift again.
     _SUPPORTED = ('1/2/3/4', 'A/B/C/D', 'a/b/c/d', 'i/ii/iii/iv', 'I/II/III/IV',
                   '(1)/(2)/(3)/(4)', '(A)/(B)/(C)/(D)', '(i)/(ii)/(iii)/(iv)',
@@ -469,15 +469,15 @@ class LabelFormatError(Exception):
 # ── OPTION LABEL RESOLUTION (v5.37, GAP-2026-08-03-LABELFMT) ────────────────────
 # SINGLE SOURCE OF TRUTH for turning the section_rules `option_label_format`
 # notation ('1/2/3/4', 'A/B/C/D', 'i/ii/iii/iv', ...) into BOTH the render
-# template Step 7 emits with AND the label family Step 8 audits against.
+# template Step 7 emits with AND the label family the auditor audits against.
 #
 # WHY IT LIVES HERE. Before v5.37 the two steps derived this INDEPENDENTLY:
-# Step 7 by testing the leading token's CASING inside a spec code block, Step 8 by
+# Step 7 by testing the leading token's CASING inside a spec code block, the auditor by
 # a regex family classifier in audit_canonical. They disagreed, and the disagreement
 # was a guaranteed halt:
 #     section_rules 'i/ii/iii/iv'
 #        Step 7  -> .islower() is True for 'i'  -> ({alpha_lower}) -> renders (a)(b)(c)(d)
-#        Step 8  -> option_label_family        -> 'roman'
+#        auditor -> option_label_family        -> 'roman'
 #        result  -> A-OPTLABEL FAIL on EVERY question, exit 1, MANDATE D blocks
 #                   delivery, and NO CP repair can fix it because the paper matches
 #                   Step 7's own contract. Measured end-to-end.
@@ -551,7 +551,7 @@ def resolve_option_label(fmt):
             f"render (first token {first!r}). Supported: decimal digits, a single "
             f"ASCII letter, or roman numerals. Add explicit support before using it "
             f"— it is NEVER guessed at, because a guessed label reaches the "
-            f"delivered paper and Step 8 then fails every question against the "
+            f"delivered paper and the auditor then fails every question against the "
             f"format section_rules actually declared.")
     # preserve the declared bracketing/punctuation around the token
     lead = first[:len(first) - len(first.lstrip('(['))]
@@ -568,7 +568,7 @@ def resolve_option_label(fmt):
     #                         but the classifier reads the first token 'i' as roman
     #   '[A]/[B]/[C]/[D]'  -> renders [A],[B] (alpha) but the classifier strips only
     #                         ()., not [], so it reads 'num'
-    # In both cases Step 8 would fail every question on a paper that obeys Step 7.
+    # In both cases the auditor would fail every question on a paper that obeys Step 7.
     # Refusing at PRE-GENERATION is not the halt class this framework fights: it
     # happens before Q1, names the exact conflict, and prevents a paper that could
     # never certify. A guessed label, by contrast, reaches the delivered document.
@@ -579,8 +579,8 @@ def resolve_option_label(fmt):
     if _tok_family != _audit_family:
         raise LabelFormatError(
             f"option_label_format {fmt!r} is AMBIGUOUS ACROSS STEPS: Step 7 would "
-            f"render it as {_tok_family!r} labels (e.g. {template!r}) while Step 8's "
-            f"option_label_family classifies it as {_audit_family!r}. Step 8 would "
+            f"render it as {_tok_family!r} labels (e.g. {template!r}) while the auditor's "
+            f"option_label_family classifies it as {_audit_family!r}. The auditor would "
             f"then FAIL A-OPTLABEL on every question of a paper that obeys Step 7, "
             f"with no repair possible. Declare an unambiguous notation "
             f"('1/2/3/4', 'A/B/C/D', 'a/b/c/d', 'i/ii/iii/iv', 'I/II/III/IV', or "

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.03.6",
+  "framework_version": "2026.08.03.7",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -148,11 +148,11 @@
       "bytes": 354440
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "975a20315f10bcca3a4509a0444d7e1c246062b96cd711925b64b074668f93c4",
-      "version_header": "# Framework_DeliveryFooter v1.12 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "5ddc6a7febb8b88e7f755591f14e5cac87ee0bda3e00912f9fbe7ba22001fb1f",
+      "version_header": "# Framework_DeliveryFooter v1.13 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 709,
-      "bytes": 36191
+      "lines": 704,
+      "bytes": 36370
     },
     "Framework_MockDeliver.md": {
       "sha256": "38abd3a29145269424dac96caba6f2875f3bcd6dd21bb0c120f5468f1f8fcb8d",
@@ -162,18 +162,18 @@
       "bytes": 83865
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "f22511325562989855fe88f70162877764aac04a757fef4fcbe2c9144b69b5de",
-      "version_header": "# Framework_MockTestAnalyse v2.39.2 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.39.2",
-      "lines": 7752,
-      "bytes": 426901
+      "sha256": "816333bd55909176613ab3c702be309bf64114724c98adbe60f980cc01530bf2",
+      "version_header": "# Framework_MockTestAnalyse v2.40.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.40.0",
+      "lines": 7760,
+      "bytes": 427570
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "d0508c70678832881c382eca97e9eb1fc83ec8032808c7e41899197d27045bba",
-      "version_header": "# Framework_MockTestCreate v5.39",
+      "sha256": "f2053bdb45570731c6c719e73d7861135c88dccb0400c88def5302b1d19b271c",
+      "version_header": "# Framework_MockTestCreate v5.40",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 7114,
-      "bytes": 436693
+      "lines": 7167,
+      "bytes": 439731
     },
     "Framework_MockTestExplain.md": {
       "sha256": "a2bfc7b12d086988fd056a2a3578de0c5e6d7e593dd80cbd8a5f4685473cb53c",
@@ -232,11 +232,11 @@
       "bytes": 45903
     },
     "Framework_PYQExplain.md": {
-      "sha256": "14564cf56b5f128ef373c06aafc7d8f2bba6bd7bf55d5f70c9764e58a3cbc7fc",
-      "version_header": "# Framework_PYQExplain v1.2 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "5ec51a5ebf2258eda6d6e1552406b0d3cc91b4124cc775512977644538d97ad7",
+      "version_header": "# Framework_PYQExplain v1.2.1 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1555,
-      "bytes": 103465
+      "lines": 1561,
+      "bytes": 103959
     },
     "Framework_PYQExplainAudit.md": {
       "sha256": "4868738fc6f3016822b1d7216d2a171ff6df76e378c9a3ac58321a65965e9634",
@@ -281,39 +281,39 @@
       "bytes": 74288
     },
     "validate_framework_md.py": {
-      "sha256": "f309834e9f8e4b8f35935e7367d1f14b82b1db6f47449694dfeec984b02420a7",
+      "sha256": "db8da09c1d9ebf65c0de48e31f5e273a75ba6721d9fa56540fcab88edd7bf84d",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2246,
-      "bytes": 129566
+      "lines": 2252,
+      "bytes": 130089
     },
     "explain_audit_gate.py": {
-      "sha256": "d0f593abbe2ad54eb5405554388cd84ffad2d896887dc8caba30f59ee93b723b",
+      "sha256": "2040f4ca7da3a0e6c89fd8a994b9fdd407fe6c0d9526f4c22e3e3f9638d00e4d",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 210,
-      "bytes": 11017
+      "lines": 214,
+      "bytes": 11299
     },
     "explain_engine.py": {
-      "sha256": "be358fdf2c771aa55300c70162406398827fb5d682e9faf6054581f6ce9da3a7",
+      "sha256": "baad4d67b42ec06223965972e25378a49968dd4d141d75515a8547399f82f70e",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 1937,
-      "bytes": 105810
+      "lines": 1940,
+      "bytes": 105980
     },
     "blueprint_core.py": {
-      "sha256": "1c24f148b4d1c2db015abb7c10347d2a8ae91bb29677519ac2615a1f0b4be8f8",
+      "sha256": "24c4e5950ece1245484e079443eaf69d1b4f4f89e73b7fd1056aa645e3161f59",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
       "lines": 3226,
-      "bytes": 168342
+      "bytes": 168316
     },
     "paper_pipeline.py": {
-      "sha256": "d9db1f961d8f02035057fc51124aa8a9307aaa5af4485781a18dfd62aac8e0bb",
+      "sha256": "f27b59d590f81789847ad55fb10a0455b8c9a3d9574b09bb1cf35ae8842015cf",
       "version_header": "\"\"\"",
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
       "lines": 593,
-      "bytes": 31434
+      "bytes": 31479
     },
     "corpus_io.py": {
       "sha256": "5112ff0ccea1cc20efaaef9523d9c802e73957185052ce983d6cc43dd95fb94a",
@@ -351,11 +351,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "b6a93ddb811483baa0ef9f7d8adeac4b4f9109d03c6eb1a5bc18624013ccf073",
+      "sha256": "21aa3f206413e48eebf2f434b4e4edeeeb1489aef9e95798409110b0fd1d5572",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 5930,
-      "bytes": 322537
+      "lines": 5934,
+      "bytes": 322824
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",

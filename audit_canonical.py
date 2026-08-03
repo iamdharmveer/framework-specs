@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # ============================================================================
 # [ExamCode]_mock_test_audit.py
-# UNIVERSAL, EXAM-AGNOSTIC Part-A machine-gate auditor for Step 8
+# UNIVERSAL, EXAM-AGNOSTIC Part-A machine-gate auditor.
+# RUNNER (2026.08.03.6): Step 7 (MockCreate / TestCreate) — via the per-exam copy
+# [ExamCode]_mock_test_audit.py at S4-7 STEP B and S13-4c. Canonical Step 8, which
+# formerly ran it mandatorily, was retired in 2026.08.03.5. This is now the ONLY
+# machine auditor in the mock/scoped pipeline.
 # (originally CreateAudit v2.6 Appendix A; that spec was retired 2026-08-03 and this
 # file is now the sole home of the A-* catalogue).
 #
@@ -28,7 +32,7 @@
 # Exit code: 0 if no FAIL AND (when --audit-state) COMPLETION-GATE PASS, else 1.
 # WARNs name a MECHANICAL remedy or declare dormancy (v2.22.0 SELF-ADJUDICATION:
 # no gate may instruct a human to look at something and decide) and do not change the
-# exit code; the Step-8 certification gate (spec §12-2) decides whether a fixable
+# exit code; the caller's certification gate (spec §12-2) decides whether a fixable
 # WARN blocks delivery.
 # ============================================================================
 import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata

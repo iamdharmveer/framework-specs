@@ -12,8 +12,9 @@ repo root before running the gate.
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **31/31** — 20 `Framework_*.md` + 11 engines. The count moves when a spec/engine is added or
-   retired; Steps 8 and 10 were retired in 2026.08.03.5, taking 2 specs with them.)
+   **32/32** — 20 `Framework_*.md` + 12 engines. The count moves when a spec/engine is added or
+   retired; Steps 8 and 10 were retired in 2026.08.03.5, taking 2 specs with them, and
+   `figural_vision.py` was added in 2026.08.03.6.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
    This includes the CORPUS-level checks (AA routes/skill sync, AB thin-core purity,
    AC aggregator single-exit, AD emitted-class documented, AE normalization conformance).
@@ -22,7 +23,7 @@ repo root before running the gate.
    of it too.
 
 (`MANIFEST.json`/`bootstrap.py` track the framework files a session clones (count = MANIFEST.json "files"). `SPEC_MANIFEST.json`
-is the separate, wider workbench baseline — currently 41 files, including the audit and
+is the separate, wider workbench baseline — currently 42 files, including the audit and
 tooling scripts. It has NO generator in the repo: the release manager refreshes the changed
 entries from disk at deploy time, after checking the entry-builder reproduces every
 unchanged entry byte-for-byte. Both must be clean.
@@ -76,6 +77,7 @@ the bytes are the intended bytes, never that the code is reachable):
 - `python3 paper_pipeline.py`  (shared naming/numbering/registry plumbing for Steps 6-11 + Test* triggers)
 - `python3 reconcile_taxonomy.py --self-test`  (S4-0 — its output LOCKS a taxonomy)
 - `python3 corpus_io.py --self-test`  (corpus I/O shell)
+- `python3 figural_vision.py --self-test`  (Phase A/C of PYQExplain §13A figural pre-transcription)
 
 An engine whose output locks or gates an artifact MUST have a self-test, and that self-test
 MUST contain a fixture that fails on the defect it was written for. A regression test that

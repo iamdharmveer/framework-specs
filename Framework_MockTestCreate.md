@@ -1,4 +1,15 @@
-# Framework_MockTestCreate v5.39
+# Framework_MockTestCreate v5.40
+# v5.40 — 2026-08-03 — DEFECT FIX: the Tier-A dossier had lost its reader.
+#   v5.39 retired Step 8, which was the only consumer that passed `--dossier` to the
+#   auditor. The writer (S13-4b) survived; the reader did not. audit_canonical.py still
+#   exposes the flag, nothing passed it, and A-NAT-GRADE + A-FIGPROFILE silently went back
+#   to re-deriving what Step 7 had already recorded — the regression the dossier exists to
+#   prevent. NEW S13-4c re-runs the SAME auditor over the SAME final docx with `--dossier`
+#   immediately after S13-4b writes it (it cannot live in S13-2, which runs before the file
+#   exists). No new gate, no new hard stop, no new artefact.
+#   Also: Step 7 now delivers the dossier explicitly in the Step-7 footer template
+#   (Framework_DeliveryFooter v1.12).
+#
 # v5.39 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
 #   Step 7 now hands the paper straight to Step 9. Every clause that promised a downstream
 #   re-verification ("independently re-verified by Step 8 A-HEADER", "audited within
@@ -6263,6 +6274,48 @@
   (Steps 9 and 11 neither read nor require it) and absent-safe: a pre-v5.35 paper simply
   has none.
 
+## S13-4c — DOSSIER-FED RE-SWEEP (v5.40 — the wiring, restored)
+
+  THE DEFECT THIS REPAIRS. Through v5.35 the dossier crossed a step boundary: Step 7
+  wrote it, Step 8 staged it and passed `--dossier` to the auditor, and A-NAT-GRADE +
+  A-FIGPROFILE read recorded FACTS instead of re-deriving them. When Step 8 was retired
+  in 2026.08.03.5 the writer stayed and the reader vanished. No invocation anywhere passed
+  the flag, so the dossier became a file written for nobody — the exact producer-written /
+  consumer-written / nobody-wiring-them defect the dossier itself was built to repair,
+  reintroduced one layer up. CHECK AM in validate_framework_md.py existed to catch this and
+  could not, because its contract named the deleted spec and it skipped silently.
+
+  WHY IT CANNOT LIVE IN S13-2. The Final-Assembly sweep runs BEFORE S13-4b writes the
+  dossier, so the file does not exist yet at that point. Ordering makes S13-2 impossible.
+
+  THE RULE. Immediately after S13-4b writes the dossier, and ONLY when AUDIT_AVAILABLE,
+  re-run the auditor once over the final docx WITH the flag. The effective command is:
+
+  ```
+  python3 /home/claude/[ExamCode]_mock_test_audit.py \
+      /mnt/user-data/outputs/[ExamCode]_Mock[N]_Create.docx \
+      --dossier /mnt/user-data/outputs/[ExamCode]_M[N]_audit_dossier.json
+  ```
+
+  Executed as:
+
+  ```python
+  if AUDIT_AVAILABLE and os.path.exists(_out):
+      _r = subprocess.run(
+          ['python3', f'/home/claude/{EXAM}_mock_test_audit.py',
+           _docx, '--dossier', _out],
+          capture_output=True, text=True)
+      print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
+  ```
+
+  THIS ADDS NO NEW GATE AND NO NEW HARD STOP. It is the same auditor, the same A-*
+  catalogue, and the same paper that S13-2 already swept clean — run once more so the two
+  dossier-fed gates read facts rather than defaults. A FAIL here is handled exactly as a
+  FAIL in S13-2 is handled (fix, re-run, present_files forbidden until clean, B-7).
+  If AUDIT_AVAILABLE is False the dossier is still written and this re-sweep is skipped,
+  with the S4-11 absence note (see the audit.py requirement block at the head of this
+  spec) already stating that no machine audit ran.
+
 ## S13-5 — Registry integrity check (unchanged)
 
 ## S13-6 — THE DELIVERABLE SET IS CLOSED (v3.5 — read before delivering)
@@ -7031,7 +7084,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.39
+# END OF Framework_MockTestCreate v5.40
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

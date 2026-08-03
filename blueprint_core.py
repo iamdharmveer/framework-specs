@@ -517,7 +517,7 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
     #       annihilated minority stimulus/mechanism classes;
     #   (2) axis2_window_target — computed as avg * papers_per_window with no rescale at
     #       all, so band quotas were off by the full pattern-size ratio;
-    #   (3) Framework_MockTestCreateAudit's Step-8 B-AXIS1/B-AXIS3 audit, which scales the
+    #   (3) audit_canonical.py's B-AXIS1/B-AXIS3 audit, which scales the
     #       RETURNED axis{1,3}_per_paper by the window — so it audited every produced paper
     #       against historical-size targets and raised findings that no correct paper could
     #       ever clear.
@@ -2472,7 +2472,7 @@ def self_test():
     # paper = 10% -> 6.0 per 60-Q paper -> 60 per 10-paper window (pre-v2: 100).
     check('axis_shrink_axis2_window_unit',
           _shrink['axis2_window_target']['MATCH'] == 60)
-    # Step-8 (MockTestCreateAudit B-AXIS1/3) scales the RETURNED per_paper maps by the
+    # audit_canonical.py (B-AXIS1/3) scales the RETURNED per_paper maps by the
     # window, so those must be current-pattern units too, or every window raises findings.
     check('axis_shrink_returned_per_paper_unit',
           abs(sum(_shrink['axis1_per_paper'].values()) - 60) < 1e-9

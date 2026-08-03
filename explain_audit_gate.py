@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-# explain_audit_gate.py — Step 10 (MockExplainAudit) / Step 9 (MockExplain)
+# explain_audit_gate.py — PYQExplainAudit (PYQ-2) completion gate.
+# NOTE (2026.08.03.6): canonical Step 10 (MockExplainAudit) was retired in
+# 2026.08.03.5. This module is UNCHANGED and still routed — its surviving consumer
+# is PYQExplainAudit on the PYQ chain. References to "Step 10" below describe the
+# original motivating design and are historical.
 # MECHANICAL COMPLETION GATE for the explanation-audit pipeline (v1.0).
 #
 # WHY THIS EXISTS (parallel to the S5-1A completion gate in audit_canonical.py):
@@ -201,7 +205,7 @@ def main():
         i = sys.argv.index('--audit-progress')
         if i + 1 < len(sys.argv):
             sys.exit(audit_completion_gate(sys.argv[i + 1]))
-    print('explain_audit_gate.py — Step-10 mechanical completion gate. '
+    print('explain_audit_gate.py — mechanical completion gate (PYQ-2). '
           '--audit-progress <audit_progress.json> or --self-test.')
     sys.exit(2)
 

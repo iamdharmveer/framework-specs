@@ -33,9 +33,10 @@ Checks (each reports PASS/issues):
   M. GATE-CODE EMISSION — embedded script emitted codes vs documented A-* codes
   N. RA-RULE ANCHORS — every RA-N reference resolves to a definition (checked locally;
      ALSO checked against every other file in the batch when 2+ files are passed — v2.8,
-     since RA-N is a framework-wide numbering space, not per-file: e.g. RA-12 is
-     referenced in Framework_MockTestCreate.md but defined in
-     Framework_MockTestCreateAudit.md)
+     since RA-N is a framework-wide numbering space, not per-file. NOTE 2026.08.03.6:
+     the RA-* rules were defined in Framework_MockTestCreateAudit.md, retired in
+     2026.08.03.5; surviving historical references resolve against the RETIRED RULE
+     INDEX in CHANGELOG.md)
   O. MANDATE ANCHORS — every MANDATE X reference resolves to a definition (same v2.8
      local-then-batch fallback as N; MANDATE 0/1/2 are GLOBAL — defined once in
      Framework_MockTestCreate.md, referenced from other Step specs — while MANDATE A/B/D
@@ -1167,7 +1168,12 @@ def check_al_delivery_set(directory):
 # least one documented invocation in that spec MUST pass the flag.
 _AM_CONTRACTS = [
     # (spec file, engine file, flag, the input the flag consumes)
-    ('Framework_MockTestCreateAudit.md', 'audit_canonical.py',
+    # 2026.08.03.6 — RE-POINTED. This contract named Framework_MockTestCreateAudit.md,
+    # which was deleted in 2026.08.03.5. check_am_flag_invocation_parity() skips any
+    # contract whose spec file is missing, so the check disabled ITSELF silently and the
+    # --dossier wiring broke unobserved. A guard keyed to a deletable file is a guard that
+    # retires with it: contracts must name a spec that is expected to EXIST.
+    ('Framework_MockTestCreate.md', 'audit_canonical.py',
      '--dossier', 'audit_dossier.json'),
 ]
 

@@ -1,4 +1,15 @@
-# Framework_DeliveryFooter v1.12 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.13 — Universal Delivery Footer (F1/F2) Contract
+# v1.13 — 2026-08-03 — DEFECT FIX: this file still routed operators to the RETIRED steps.
+#   2026.08.03.5 retired canonical Steps 8 and 10 but left §2's step registry intact, so
+#   every Step 7 footer printed "NEXT STEP: Step 8: MockCreateAudit M[N]" and every Step 9
+#   footer printed "NEXT STEP: Step 10: MockExplainAudit M[N]" — triggers that no longer
+#   resolve. This file is routed to ALL triggers, so the defect printed on every delivery.
+#   FIXED: the STEP 8 and STEP 10 template blocks are removed, Step 7 -> Step 9 -> Step 11
+#   is the printed chain, and the §7 chain map matches. The pipeline bar STAYS at 11 cells.
+#   The three retired filenames stay in LOCAL_ONLY so pre-retirement files on disk badge
+#   correctly. ZERO CHANGE to §5 Q0b, to the v1.12 PYQ-1 VOID_ITEM producer clause, to any
+#   severity routing, or to F1/F2 shape: no colour or vision condition may halt a run.
+#
 # v1.12 — 2026-08-03 — §5 Q0b GAINS A SECOND PRODUCER: PYQExplain §13A VOID_ITEM.
 #   Q0b already fires on a MEASURED vision outage in the mock pipeline. PYQ-1 can
 #   now measure the same condition (Framework_PYQExplain v1.2 §13A-5) and had no
@@ -186,10 +197,13 @@ def get_badge(filename, step, is_first_run):
         'Sorted_*.docx',            # goes to Google Drive PYQ folder
         'Mock*_Q1to*.docx',         # Step 7 per-batch cumulative paper
         'Mock*_Create.docx',        # Step 7 final
-        'Mock*_Create_Complete.docx', # Step 8 rectified (distinct filename)
-        'Mock*_audit_changelog.md', # Step 8 conditional (only if Qs regenerated)
         'Mock*_Explanation.docx',     # Step 9 solutions (same file each batch)
-        'Mock*_Explanation_Complete.docx', # Step 10 audited solutions
+        # LEGACY (v1.13) — no step produces these any more (Steps 8/10 retired in
+        # 2026.08.03.5). Kept in LOCAL_ONLY so a pre-retirement file already on disk
+        # still gets the correct 'Use locally' badge and is never sent to project Files.
+        'Mock*_Create_Complete.docx',      # was Step 8 rectified
+        'Mock*_audit_changelog.md',        # was Step 8 conditional
+        'Mock*_Explanation_Complete.docx', # was Step 10 audited solutions
         'Mock*_Final.docx',        # Step 11 tagged final deliverable
         'analysis_summary.md',      # Step 5 final — human review audit trail
     }
@@ -388,26 +402,12 @@ MID-STEP DELIVERABLES (per batch — cumulative whole-paper):
 FINAL DELIVERABLES:
   [ExamCode]_Mock[N]_Create.docx   → Use locally
   [ExamCode]_registry.json           → Replace in Project Files
-
-NEXT STEP  : Step 8: MockCreateAudit M[N]
-
-═══════════════════════════════════════════════════════════════════════
-STEP 8 — MockCreateAudit
-═══════════════════════════════════════════════════════════════════════
-PARTS      : 1 (single response)
-FOOTER TYPE: F2 (step-complete) — always
-
-DELIVERABLES:
-  [ExamCode]_Mock[N]_Create_Complete.docx   → Use locally
-    (DISTINCT filename — reads Mock[N]_Create.docx, writes Mock[N]_Create_Complete.docx)
-  [ExamCode]_registry.json           → Replace in Project Files
-    (re-synced from rectified paper)
-
-CONDITIONAL DELIVERABLE (only when ≥1 question was regenerated):
-  [ExamCode]_Mock[N]_audit_changelog.md → Use locally
-    (author-only BEFORE→AFTER diff; NOT produced if zero regenerations)
+  [ExamCode]_M[N]_audit_dossier.json → Use locally (when S13-4b wrote one)
 
 NEXT STEP  : Step 9: MockExplain M[N]
+
+  (v1.13 — STEP 8 IS RETIRED. There is no MockCreateAudit / TestCreateAudit trigger.
+   Step 7 hands the paper straight to Step 9. Never print "Step 8" as a next step.)
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 9 — MockExplain
@@ -427,18 +427,12 @@ FINAL DELIVERABLES (same file, now fully explained):
 
 NOTE: registry.json is NOT delivered by Step 9 (frozen/read-only).
 
-NEXT STEP  : Step 10: MockExplainAudit M[N]
-
-═══════════════════════════════════════════════════════════════════════
-STEP 10 — MockExplainAudit
-═══════════════════════════════════════════════════════════════════════
-PARTS      : 1 (single response)
-FOOTER TYPE: F2 (step-complete) — always
-
-DELIVERABLES:
-  [ExamCode]_Mock[N]_Explanation_Complete.docx → Use locally
-
 NEXT STEP  : Step 11: MockDeliver M[N]
+
+  (v1.13 — STEP 10 IS RETIRED. There is no MockExplainAudit / TestExplainAudit
+   trigger. Step 9 hands the Solutions docx straight to Step 11. Never print
+   "Step 10" as a next step. PYQExplainAudit is a DIFFERENT, still-live step on the
+   PYQ chain and is unaffected.)
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 11 — MockDeliver
@@ -574,8 +568,11 @@ the icon is a fixed prefix per badge.
 PIPELINE BAR (F2 only): exactly 11 cells.
   filled = the step's MAIN number. Steps 2a / 2b / 2c all count as 2.
   Render `filled` × 🟩 followed by (11 − filled) × ⬜. Label: "[N] of 11".
+  The bar stays at 11 cells (v1.13): retiring Steps 8 and 10 did NOT renumber the
+  pipeline, so Step 9 is still 9 of 11 and Step 11 is still 11 of 11. Numbers 8 and
+  10 simply never occur as a step's MAIN number any more.
   Example — Step 3 : 🟩🟩🟩⬜⬜⬜⬜⬜⬜⬜⬜  3 of 11
-  Example — Step 8 : 🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜⬜  8 of 11
+  Example — Step 9 : 🟩🟩🟩🟩🟩🟩🟩🟩🟩⬜⬜  9 of 11
 
 BATCH BAR (F1 only): exactly 12 cells.
   filled = round(12 × X / Y). Render `filled` × 🟨 + (12 − filled) × ⬜.
@@ -687,10 +684,8 @@ After Step 3   → Step 4: PYQCount
 After Step 4   → Step 5: PYQExtract
 After Step 5   → Step 6: MockBlueprint (if not already done)
 After Step 6   → Step 7: MockCreate M1
-After Step 7   → Step 8: MockCreateAudit M[N]
-After Step 8   → Step 9: MockExplain M[N]
-After Step 9   → Step 10: MockExplainAudit M[N]
-After Step 10  → Step 11: MockDeliver M[N]
+After Step 7   → Step 9: MockExplain M[N]      (Step 8 retired — 2026.08.03.5)
+After Step 9   → Step 11: MockDeliver M[N]     (Step 10 retired — 2026.08.03.5)
 After Step 11  → Pipeline complete for Mock [N].
                  Next mock: Step 7: MockCreate M[N+1]
 ```

@@ -1,4 +1,12 @@
-# Framework_MockTestAnalyse v2.39.2 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.40.0 — Universal PYQ Pattern Extraction Engine
+# v2.40.0 — 2026-08-03 — DEFECT FIX: live cross-step contracts still named the retired
+#   Step 8. The axis classifier's propagation contract read "MUST PROPAGATE (byte-identical)
+#   to Step 8 MockCreateAudit S6-1b" — a binding instruction pointing at a spec deleted in
+#   2026.08.03.5. The contract itself is UNCHANGED and still binding; its target is
+#   restated as audit_canonical.py, which is where the verbatim classifier copy actually
+#   lives and which Step 7 runs. Internal/canonical step map marks slots 3 and 5 RETIRED
+#   without renumbering, so unlabelled internal step references keep their meanings.
+#
 # v2.39.2 — 2026-07-31 — §16 XLSX IMPLEMENTATION EXTRACTED to frequency_xlsx.py (repo
 #   engine, hash-tracked). 664 lines of workbook code (aggregation, derived metrics,
 #   generation, 5 sheet writers) moved byte-identically; §16 keeps the sheet spec (§16-3),
@@ -134,9 +142,9 @@
 #   internal "Step 0" = canonical Step 5  (PYQExtract, THIS file)
 #   internal "Step 1" = canonical Step 6  (MockBlueprint)
 #   internal "Step 2" = canonical Step 7  (MockCreate)
-#   internal "Step 3" = canonical Step 8  (MockCreateAudit)
+#   internal "Step 3" = RETIRED (was canonical Step 8, MockCreateAudit — 2026.08.03.5)
 #   internal "Step 4" = canonical Step 9  (MockExplain)
-#   internal "Step 5" = canonical Step 10 (MockExplainAudit)
+#   internal "Step 5" = RETIRED (was canonical Step 10, MockExplainAudit — 2026.08.03.5)
 #   internal "Step 6" = canonical Step 11 (MockDeliver)
 # Changelogs are preserved as-is (historical). All ACTIVE code, docstrings,
 # handoff messages, and documentation now use canonical step numbers exclusively.
@@ -2854,7 +2862,7 @@ def pre_synthesis_check(progress, taxonomy, target='ALL'):
 # AXIS CLASSIFIER v1.0  (v2.23 — SHARED SINGLE SOURCE OF TRUTH)
 # ────────────────────────────────────────────────────────────────────────────
 # The canonical, exam-agnostic classifier for the three orthogonal format axes.
-# Step 8 (MockCreateAudit) MUST re-tag GENERATED questions with THESE SAME
+# audit_canonical.py MUST re-tag GENERATED questions with THESE SAME
 # functions (import/copy verbatim, never re-implement) — the PYQ distribution and
 # the generated distribution are only comparable if classified identically.
 #
@@ -2905,8 +2913,8 @@ def _looks_like_table_stimulus(stem):
     "notable" — with no real tabular data present. Requires either (a) >=2 pipe-delimited
     rows (a real rendered table), or (b) a word-boundary table-keyword match co-occurring
     with >=1 pipe-delimited row. A bare stray '|' or an unrelated "table"-containing word
-    alone no longer qualifies. MUST PROPAGATE (byte-identical) to Step 8 MockCreateAudit
-    S6-1b (verbatim classifier copy) — same requirement as classify_axis2's MATCH rule.
+    alone no longer qualifies. MUST PROPAGATE (byte-identical) to audit_canonical.py's
+    verbatim classifier copy — same requirement as classify_axis2's MATCH rule.
     """
     stem = stem or ''
     pipe_rows = sum(1 for ln in stem.splitlines() if ln.count('|') >= 2)
@@ -7749,4 +7757,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.39.2
+# END OF Framework_MockTestAnalyse v2.40.0
