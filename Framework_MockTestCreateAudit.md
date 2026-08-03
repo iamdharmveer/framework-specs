@@ -1,4 +1,32 @@
-# Framework_MockTestCreateAudit v2.24.0
+# Framework_MockTestCreateAudit v2.26.0
+# v2.26.0 — 2026-08-03 — FIXTURE 5k COULD ABORT THE SUITE. GAP-2026-08-03-BANNER.
+#   The v2.25.0 parity fixture calls paper_pipeline.resolve_option_label(), which
+#   RAISES by design on an ambiguous notation — and check() takes an ALREADY-
+#   EVALUATED condition, so a raise would abort the whole self-test and every later
+#   fixture would silently never run. Same defect found in paper_pipeline v5.38 one
+#   file over; a hollow branch in the harness hides every other check. 5k now
+#   evaluates through a guard that counts a raise as a FAILURE.
+#   This file's banner ordering was already correct (verified: every check precedes
+#   the print) and is now locked by validate_framework_md CHECK AQ.
+#   No gate changed. Self-test 175 -> 175.
+#
+# v2.25.0 — 2026-08-03 — CROSS-STEP LABEL PARITY (GAP-2026-08-03-LABELFMT).
+#   Step 7 RESOLVES a section_rules option_label_format into a render template;
+#   this step CLASSIFIES the same string into a family via option_label_family.
+#   Two different computations that must agree — and they did not. Step 7 had no
+#   roman branch, so 'i/ii/iii/iv' rendered (a)(b)(c)(d) while this step read
+#   'roman'; A-OPTLABEL then FAILED EVERY QUESTION on a paper that obeyed Step 7,
+#   exit 1, MANDATE D refused delivery, and no CP repair could fix it. Latent, not
+#   yet observed in the field: it fires the first time an exam declares roman
+#   labels. Found by a line-by-line Step-7/Step-8 sync audit.
+#   Step 7 v5.37 moves resolution into paper_pipeline.resolve_option_label(), which
+#   BOTH triggers route, so one function serves both steps. Fixture 5k asserts the
+#   pair FROM THIS SIDE TOO, so a change to either implementation turns BOTH
+#   self-tests red rather than one. The auditor must run STANDALONE (Context-2), so
+#   an absent paper_pipeline is a SKIP, never a failure.
+#   NOTHING IN THIS FILE CHANGED BEHAVIOUR — option_label_family is untouched and
+#   no paper certifies differently. Self-test 173 -> 175.
+#
 # v2.24.0 — 2026-08-03 — RELEASE C: TWO NEW GATES, BOTH AMBER BY CONSTRUCTION.
 #   Both were found by AUDITING A REAL DELIVERED PAPER (IIT_JAM_BIOTECHNOLOGY
 #   M01), not by reading the spec. Neither can halt a paper: a NEW gate entering
@@ -4816,7 +4844,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.24.0 build prints 173/173 — see tests 16-20, 25).
+#     v2.12; the v2.24.0 build prints 175/175 — see tests 16-20, 25).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4941,7 +4969,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (173/173) all pass, and
+#   (175/175) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -5038,7 +5066,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 173/173 PASS  (exit 0) on the v2.21.9 canonical
+#     • `--self-test`  → SELF-TEST: 175/175 PASS  (exit 0) on the v2.21.9 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -5106,10 +5134,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 173/173). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 175/175). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.24.0
+# END OF Framework_MockTestCreateAudit v2.26.0
 # ════════════════════════════════════════════════════════════════════════

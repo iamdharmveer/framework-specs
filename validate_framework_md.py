@@ -1322,6 +1322,54 @@ def _ao_pred_attrs(node):
             if isinstance(n, ast.Name) and n.id.endswith('_RE')}
 
 
+def check_aq_banner_is_last(directory):
+    """CHECK AQ — A SELF-TEST BANNER MUST BE THE LAST THING COMPUTED.
+
+    paper_pipeline v5.37 appended 13 new fixtures AFTER the line that prints
+    "SELF-TEST: {p}/{p+f} PASS". Reintroducing that release's own defect produced:
+
+        SELF-TEST: 37/37 PASS          <- printed first
+        Traceback ... LabelFormatError
+        exit=1
+
+    The exit code was correct, so the release gate still failed — but every human
+    reading the banner, and every spec quoting it, saw PASS over broken work. That
+    is the false-clean-banner shape (GAP-2026-07-26-003: "QV-9 PASS and a green
+    Step Complete footer" over a broken step), and this corpus has spent several
+    releases eliminating it. A banner emitted before the last assertion is a lie by
+    construction, whatever the assertions afterwards conclude.
+
+    Mechanical rule: in any engine with a self-test, no ck(/check( call may appear
+    on a line AFTER the banner print. Cheap, exact, and binds engines not yet
+    written.
+    """
+    import os as _os
+    issues = []
+    for fname in sorted(_os.listdir(directory)):
+        if not fname.endswith('.py'):
+            continue
+        try:
+            lines = open(_os.path.join(directory, fname), encoding='utf-8').read().split('\n')
+        except OSError:
+            continue
+        banner = [i for i, l in enumerate(lines)
+                  if 'SELF-TEST:' in l and 'print' in l]
+        if not banner:
+            continue
+        last_banner = max(banner)
+        after = [i + 1 for i, l in enumerate(lines)
+                 if i > last_banner
+                 and (l.strip().startswith('ck(') or l.strip().startswith('check(')
+                      or l.strip().startswith('ck_call('))]
+        if after:
+            issues.append((fname,
+                'CHECK AQ: %d assertion(s) run AFTER the SELF-TEST banner is printed '
+                '(lines %s). The banner would report PASS while those checks fail — '
+                'the false-clean-banner defect. Move the print immediately before the '
+                'return.' % (len(after), ', '.join(str(a) for a in after[:8]))))
+    return issues
+
+
 def check_ap_clean_shape_matrix(directory):
     """CHECK AP — THE CLEAN-SHAPE MATRIX MUST EXIST AND COVER EVERY RENDERING.
 
@@ -2171,6 +2219,9 @@ if __name__ == '__main__':
                 ('AP', 'CLEAN-SHAPE MATRIX',
                  check_ap_clean_shape_matrix,
                  'a conformant paper is conformant in EVERY mandated rendering.'),
+                ('AQ', 'SELF-TEST BANNER IS LAST',
+                 check_aq_banner_is_last,
+                 'no assertion runs after the banner that reports on it.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')

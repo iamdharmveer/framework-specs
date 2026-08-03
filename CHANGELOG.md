@@ -1,5 +1,80 @@
 # Changelog
 
+## 2026.08.03.4
+**Release D — option label resolution was re-implemented, and the two
+implementations disagreed.**
+
+Found by a line-by-line Step-7/Step-8 sync audit, not by a failing run. It is
+latent: it fires the first time any exam declares roman option labels.
+
+**The defect.** Step 7 turned the section_rules `option_label_format` into a render
+template by testing the leading token's casing, with no roman branch and no
+else-branch. `i/ii/iii/iv` rendered `(a)(b)(c)(d)` while Step 8's
+`option_label_family` read the same string as `roman` — A-OPTLABEL then failed
+every question, exit 1, MANDATE D refused delivery, and no CP repair could fix a
+paper that matched Step 7's own contract. Confirmed end-to-end. `I/II/III/IV`
+failed identically. `(1)/(2)/(3)/(4)` matched no branch and became the render
+template verbatim, with no `{text}` placeholder and therefore no substitution;
+`[A]/[B]/[C]/[D]` silently became `(A)`; circled digits silently became `1.`
+(Python's `.isdigit()` is True for them).
+
+**Fix.** Resolution moves to `paper_pipeline.resolve_option_label()`, routed by
+both TestCreate and TestCreateAudit, so one function is reachable from both steps
+and the pair cannot drift again. Roman is rendered, not aliased. The resolver
+asserts that the family Step 7 renders equals the family Step 8 classifies and
+raises otherwise, so `i/j/k/l` (renders alpha, classifies roman) and
+`[A]/[B]/[C]/[D]` (renders alpha, classifies num) are refused at pre-generation
+rather than producing a paper that could never certify. Unrenderable notations
+hard-stop instead of guessing — the same posture as `pick_blueprint` and
+`derive_nat_grading`, and for the same reason: a guessed label reaches the paper.
+
+Verified by round trip: for all nine supported notations, output rendered as Step 7
+renders it passes Step 8's A-OPTLABEL / A-OPTORDER / A-OPTUNIQUE. Fixture 5k
+asserts the parity from the Step 8 side as well, so a change to either
+implementation turns both self-tests red.
+
+Also verified clean in the same audit: all 61 Step-7 G-gates are known to Step 8
+(0 unmirrored); zero overlapping constant definitions between engines; NAT portal
+grading identical across 24 edge cases including negative zero, float noise,
+banker's-rounding traps and negative-bound ranges; canonical image-name contract
+agrees.
+
+paper_pipeline self-test 22 to 51; audit_canonical 173 to 175. No existing
+notation changes behaviour and no paper certifies differently.
+
+**Also in this release — the self-test banner reported PASS over a failed run
+(GAP-2026-08-03-BANNER), caught at deployment review before shipping.**
+
+The 13 new LABELFMT fixtures were appended AFTER the line printing
+`SELF-TEST: {p}/{p+f} PASS`. Reintroducing this release's own defect produced a
+green `SELF-TEST: 37/37 PASS` directly above the traceback of the fixture written
+to catch it. The exit code was correct so the gate still failed, but every human
+reading the banner — and every spec quoting it — saw PASS over broken work. That is
+the false-clean-banner shape (GAP-2026-07-26-003), reintroduced by the very release
+closing a sync bug. 14 assertions were outside the count: the true figure was 51,
+not 37.
+
+A second, deeper defect sat in the harness itself: `ck(name, cond)` receives an
+already-evaluated condition, so an exception inside a fixture propagates and aborts
+the whole self-test — every later fixture silently never runs. The LABELFMT
+fixtures call `resolve_option_label()`, which raises by design. A hollow branch in
+the test harness is worse than one in a gate, because it hides all the others. The
+same shape was present in `audit_canonical` fixture 5k and is fixed there too.
+
+Fix: the banner is now the last thing computed, immediately before the return, and
+names every failing fixture; new `ck_call(name, fn)` counts a raise as a failure.
+Verified — clean run prints 51/51; with the defect reintroduced it prints 46/51,
+all five failures named, no green banner. Permanent control: `validate_framework_md`
+CHECK AQ forbids any assertion after a self-test banner in any engine
+(negative-tested).
+
+paper_pipeline self-test 22 to 51 (not 37 — the earlier figure was itself the bug).
+
+
+Files: `paper_pipeline.py`, `Framework_MockTestCreate.md` (v5.36 to v5.38),
+`audit_canonical.py`, `Framework_MockTestCreateAudit.md` (v2.24.0 to v2.26.0),
+`validate_framework_md.py`, `MANIFEST.json`, `VERSION`.
+
 ## 2026.08.03.3
 **Release C — two new gates, both AMBER by construction.**
 

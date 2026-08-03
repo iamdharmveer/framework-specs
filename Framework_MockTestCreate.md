@@ -1,4 +1,73 @@
-# Framework_MockTestCreate v5.36
+# Framework_MockTestCreate v5.38
+# v5.38 — 2026-08-03 — THE SELF-TEST BANNER REPORTED PASS OVER A FAILED RUN.
+#   GAP-2026-08-03-BANNER. Caught at deployment review of v5.37, BEFORE it shipped.
+#
+#   v5.37 appended its 13 LABELFMT fixtures AFTER the line that prints
+#   "SELF-TEST: {p}/{p+f} PASS". Reintroducing v5.37's OWN defect produced:
+#         SELF-TEST: 37/37 PASS          <- printed first
+#         Traceback ... LabelFormatError
+#         exit=1
+#   The exit code was correct, so the release gate still failed — but every human
+#   reading the banner, and every spec quoting it, saw PASS over broken work. That
+#   is the false-clean-banner shape (GAP-2026-07-26-003, "QV-9 PASS and a green Step
+#   Complete footer"), reintroduced by the very release that was closing a sync bug.
+#   14 assertions were outside the count: the true figure was 51, not 37.
+#
+#   SECOND, DEEPER DEFECT IN THE HARNESS ITSELF: ck(name, cond) receives an
+#   ALREADY-EVALUATED condition, so an exception inside a fixture PROPAGATES and
+#   ABORTS the whole self-test — every later fixture silently never runs. The
+#   LABELFMT fixtures call resolve_option_label(), which RAISES by design. A hollow
+#   branch in the test harness is worse than one in a gate: it hides all the others.
+#
+#   FIX. The banner is now the LAST thing computed, immediately before the return,
+#   and names every failing fixture. New ck_call(name, fn) evaluates a fixture that
+#   may raise and COUNTS A RAISE AS A FAILURE. Verified: clean run prints 51/51;
+#   with v5.37's defect reintroduced it prints 46/51 with all five failures named
+#   and no green banner anywhere.
+#
+#   PERMANENT CONTROL: validate_framework_md CHECK AQ — in any engine with a
+#   self-test, no ck(/ck_call(/check( may appear after the banner print. Mechanical,
+#   exact, and binds engines not yet written. Negative-tested.
+#
+# v5.37 — 2026-08-03 — OPTION LABEL RESOLUTION WAS RE-IMPLEMENTED, AND THE TWO
+#   IMPLEMENTATIONS DISAGREED. GAP-2026-08-03-LABELFMT.
+#
+#   Found by a line-by-line Step-7/Step-8 sync audit, not by a failing run — it is
+#   LATENT, and fires the first time any exam declares roman option labels.
+#
+#   THE DEFECT. This step turned the section_rules option_label_format notation
+#   into a render template by testing the LEADING TOKEN'S CASING. It had no roman
+#   branch and no else-branch:
+#     'i/ii/iii/iv'      -> .islower() is True for 'i' -> ({alpha_lower})
+#                        -> RENDERS (a)(b)(c)(d), while Step 8's
+#                           option_label_family reads the same string as 'roman'.
+#                           A-OPTLABEL then FAILS EVERY QUESTION, exit 1, Step 8
+#                           refuses to certify, and NO CP repair can fix it because
+#                           the paper matches THIS STEP'S OWN contract. Confirmed
+#                           end-to-end on a rendered paper.
+#     'I/II/III/IV'      -> identical failure via .isupper().
+#     '(1)/(2)/(3)/(4)'  -> matched no branch, so the NOTATION ITSELF became the
+#                           render template — a template with no {text} placeholder,
+#                           i.e. no substitution at all.
+#     '[A]/[B]/[C]/[D]'  -> silently became '(A)'.
+#     circled digits     -> silently became '1.'  (Python .isdigit() is True for them).
+#
+#   FIX. Resolution moves to paper_pipeline.resolve_option_label(), which is routed
+#   by BOTH TestCreate and TestCreateAudit, so one function is reachable from both
+#   steps and the pair cannot drift again. Roman is RENDERED, not aliased ({roman_upper}
+#   / {roman_lower} tokens, also taught to the G-OPTLABEL prefix regex). The resolver
+#   ASSERTS that the family this step renders equals the family Step 8 classifies and
+#   RAISES LabelFormatError otherwise, so 'i/j/k/l' (renders alpha, classifies roman)
+#   and '[A]/[B]/[C]/[D]' (renders alpha, classifies num) are REFUSED AT
+#   PRE-GENERATION rather than producing a paper that could never certify. An
+#   unrenderable notation hard-stops instead of guessing — the same posture as
+#   pick_blueprint (PickError) and derive_nat_grading, and for the same reason: a
+#   guessed label reaches the delivered paper.
+#
+#   VERIFIED BY ROUND TRIP: for all NINE supported notations, output rendered as
+#   this step renders it passes Step 8's A-OPTLABEL / A-OPTORDER / A-OPTUNIQUE.
+#   paper_pipeline self-test 22 -> 37. No existing notation changes behaviour.
+#
 # v5.36 — 2026-08-01 — GAP-2026-08-01-DELIVERY-SET-DRIFT: STEP 7 HARD-STOPPED AT
 #   PRE-DELIVERY ON EVERY EXAM. v5.35 added the Tier-A dossier as a THIRD delivered
 #   file (S13-4b) and did not widen S13-7 check 6, which asserted
@@ -955,21 +1024,34 @@
   FONT_SIZE_PT     = int(_ecfg.get('font_size_pt',
                        _sr_field('font_size_pt', bp.get('font_size_pt', 11))))
   _sr_label        = _sr_field('option_label_format', None)
-  # section_rules uses '1/2/3/4' notation; convert to '{i}.  {text}' template if needed.
-  if _sr_label and '/' in _sr_label and '{' not in _sr_label:
-      _token = _sr_label.split('/')[0].strip()  # '1' or 'A' or 'a' or 'i'
-      if _token.isdigit():
-          _sr_label = '{i}.  {text}'
-      elif _token.isupper():
-          _sr_label = '({alpha_upper})  {text}'
-      elif _token.islower():
-          _sr_label = '({alpha_lower})  {text}'
+  # v5.37 (GAP-2026-08-03-LABELFMT) — RESOLUTION IS DELEGATED, NOT RE-IMPLEMENTED.
+  # The inline casing test this replaced had NO ROMAN BRANCH and NO ELSE-BRANCH:
+  #   'i/ii/iii/iv' -> .islower() -> ({alpha_lower}) -> rendered (a)(b)(c)(d), while
+  #     Step 8's option_label_family read 'roman'. A-OPTLABEL then FAILED EVERY
+  #     question, exit 1, Step 8 refused to certify, and NO CP repair could fix a
+  #     paper that matched this step's own contract. Measured end-to-end.
+  #   '(1)/(2)/(3)/(4)' fell through and became the template VERBATIM — no {text}
+  #     placeholder, so no substitution happened at all.
+  #   '[A]/[B]/[C]/[D]' silently became '(A)'; '(circled digits)' silently became
+  #     '1.' (Python's .isdigit() is True for them).
+  # paper_pipeline is routed by BOTH TestCreate and TestCreateAudit, so one resolver
+  # there is reachable from both steps and the pair cannot drift again. It ASSERTS
+  # that the family this step renders equals the family Step 8 will classify, and
+  # RAISES rather than guessing — a guessed label reaches the delivered paper.
+  _resolved_family = None
+  if _sr_label:
+      try:
+          _sr_label, _resolved_family = pp.resolve_option_label(_sr_label)
+      except pp.LabelFormatError as e:
+          raise SystemExit(f"HARD STOP: {e}")
   OPTION_LABEL_FMT = _ecfg.get('option_label_format',
                        _sr_label or bp.get('option_label_format', '{i}.  {text}'))
   # Regex for gate G-OPTLABEL built from the configured format:
   import re as _re_cfg
   _opt_prefix = OPTION_LABEL_FMT.split('{text}')[0].replace('{i}', r'\d+')
   _opt_prefix = _opt_prefix.replace('{alpha_upper}', r'[A-Z]').replace('{alpha_lower}', r'[a-z]')
+  # v5.37 — roman tokens, else G-OPTLABEL would never match a roman-labelled paper
+  _opt_prefix = _opt_prefix.replace('{roman_upper}', r'[IVX]+').replace('{roman_lower}', r'[ivx]+')
   OPTION_LABEL_RE  = _re_cfg.compile(r'^\s*' + _re_cfg.escape(_opt_prefix).replace(
                          _re_cfg.escape(r'\d+'), r'\d+').replace(
                          _re_cfg.escape(r'[A-Z]'), r'[A-Z]').replace(
@@ -4216,10 +4298,14 @@
 
   def _option_label(i, fmt=OPTION_LABEL_FMT):
       """Render the label for option i (1-based) using the configured format."""
+      _ROMAN = ('i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x')
+      _r = _ROMAN[i - 1] if 1 <= i <= len(_ROMAN) else str(i)
       return fmt.format(
           i=i, text='{text}',
           alpha_upper=chr(ord('A') + i - 1),
-          alpha_lower=chr(ord('a') + i - 1)
+          alpha_lower=chr(ord('a') + i - 1),
+          roman_upper=_r.upper(),          # v5.37 — roman is RENDERED, not aliased
+          roman_lower=_r
       ).replace('{text}', '').strip()
 
   def add_text_options(doc, options):
@@ -6920,7 +7006,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.36
+# END OF Framework_MockTestCreate v5.38
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

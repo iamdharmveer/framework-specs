@@ -30,17 +30,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7004,
-      "sha256": "d904df6c7f7fb3147f93bfbc349d440f46d4f63374511b8943ffbbd771464a56",
-      "size_bytes": 428681,
-      "version_header": "# Framework_MockTestCreate v5.36"
+      "lines": 7090,
+      "sha256": "98f46ca0eb3ef0a81383aab2e0da1c03bd6722fedc5b120a5f48ddbb5b17716a",
+      "size_bytes": 434398,
+      "version_header": "# Framework_MockTestCreate v5.38"
     },
     "Framework_MockTestCreateAudit.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 5116,
-      "sha256": "a3b5e339693c8d829c0eca78899c88bfb7d3ea4cb9ef22bfe6b8749368373281",
-      "size_bytes": 376046,
-      "version_header": "# Framework_MockTestCreateAudit v2.24.0"
+      "lines": 5144,
+      "sha256": "70d7d1d75a05b8c5c08abcd78fffdf01b2e33b8c5d74aefaca6384c48021704c",
+      "size_bytes": 378036,
+      "version_header": "# Framework_MockTestCreateAudit v2.26.0"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -160,9 +160,9 @@
       "size_bytes": 25010
     },
     "audit_canonical.py": {
-      "lines": 5895,
-      "sha256": "387ea412e6a78626ef7e86a8d22b498bcbc9778a50434c58d78207d51f971d6d",
-      "size_bytes": 320339
+      "lines": 5930,
+      "sha256": "d37f85d8cc1917dbc8f5396f9d311468e1a0a7a8e386cea128b79b7a075a7151",
+      "size_bytes": 322453
     },
     "audit_deep.py": {
       "lines": 178,
@@ -241,9 +241,9 @@
       "size_bytes": 5287
     },
     "paper_pipeline.py": {
-      "lines": 378,
-      "sha256": "04ee4dc4565c33149d97bc23898d1798df730c425f4f8806d07a26d58605f126",
-      "size_bytes": 19154
+      "lines": 594,
+      "sha256": "f559924f3786d49ef2f5d71f6fa6fa0cb251847f2ba7a5bae5909835343ae3dd",
+      "size_bytes": 31439
     },
     "reconcile_taxonomy.py": {
       "lines": 1249,
@@ -261,10 +261,10 @@
       "size_bytes": 20942
     },
     "validate_framework_md.py": {
-      "lines": 2194,
-      "sha256": "617482a4e49bb422209d6d14c4791f792790add2a0b6887f009d8d7e3cb7f1eb",
-      "size_bytes": 127147
+      "lines": 2245,
+      "sha256": "4be38a055a6528ae2901e53d1d701393a11e8328c2aad71e77c4a28899480a24",
+      "size_bytes": 129489
     }
   },
-  "generated_at": "2026-08-03T11:00:00+00:00"
+  "generated_at": "2026-08-03T12:00:00+00:00"
 }

@@ -3626,6 +3626,41 @@ def self_test():
     check('SELF-ADJUDICATION-no-gate-defers-to-a-human',
           not _offenders)
 
+    # 5k. v2.25.0 — CROSS-STEP LABEL PARITY (GAP-2026-08-03-LABELFMT).
+    #     Step 7 RESOLVES a section_rules option_label_format into a render
+    #     template; Step 8 CLASSIFIES the same string into a family. Two different
+    #     computations that must agree, and before v5.37/v2.25.0 they did not:
+    #     'i/ii/iii/iv' rendered (a)(b)(c)(d) and classified as 'roman', so
+    #     A-OPTLABEL FAILED every question on a paper that obeyed Step 7 — exit 1,
+    #     MANDATE D blocked delivery, no CP repair possible.
+    #     paper_pipeline.resolve_option_label is now the single source, and this
+    #     fixture asserts the pair from THIS side too: a change to either
+    #     implementation turns BOTH self-tests red, not just one.
+    #     The auditor must run STANDALONE (Context-2), so an absent paper_pipeline
+    #     is a SKIP, never a failure.
+    try:
+        import paper_pipeline as _pp_parity
+        _SUPPORTED = ('1/2/3/4', 'A/B/C/D', 'a/b/c/d', 'i/ii/iii/iv', 'I/II/III/IV',
+                      '(1)/(2)/(3)/(4)', '(A)/(B)/(C)/(D)', '(i)/(ii)/(iii)/(iv)',
+                      '1)/2)/3)/4)', '')
+        # v2.26.0 — EVALUATED SAFELY. resolve_option_label RAISES by design on an
+        # ambiguous notation, and check() takes an ALREADY-EVALUATED condition, so a
+        # raise here would abort the whole suite and every later fixture would
+        # silently never run (the paper_pipeline v5.38 defect, one file over).
+        def _parity(fn):
+            try:
+                return bool(fn())
+            except Exception:
+                return False
+        check('LABEL-PARITY-step7-resolution-matches-step8-family',
+              _parity(lambda: all(_pp_parity.resolve_option_label(_x)[1]
+                                  == option_label_family(_x) for _x in _SUPPORTED)))
+        check('LABEL-PARITY-family-classifiers-agree',
+              _parity(lambda: all(_pp_parity.option_label_family(_x)
+                                  == option_label_family(_x) for _x in _SUPPORTED)))
+    except ImportError:
+        check('LABEL-PARITY-skipped-standalone', True)
+
     # ══════════════════════════════════════════════════════════════════════════
     # 5i / 5j.  RELEASE C (v2.24.0) — TWO NEW GATES, BOTH AMBER BY CONSTRUCTION.
     # ══════════════════════════════════════════════════════════════════════════
