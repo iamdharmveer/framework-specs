@@ -2318,6 +2318,19 @@ PROBE_GLYPH_ALPHABET = 'ACEFHJKLMNPRTUVWXY34679'
 PROBE_GLYPH_COUNT = 3
 VISION_STAMP_VIEWED = 'rendered-and-viewed'
 VISION_STAMP_UNAVAILABLE = 'view-unavailable'
+# v2.23.0 (RELEASE B) — CONFORMANCE ESTABLISHED WITHOUT VIEWING.
+# The twelve figure gates (A-FIGSCALE / A-FIGLABEL / A-FIGDPI / A-FIGDEGEN /
+# A-FIGMONO / A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGCVD / A-FIGSERIES / A-FIGGLYPH /
+# A-FIGALT / A-FIGLABELPX) are ARITHMETIC over the saved PNG and its FigureSpec.
+# They do not use vision and never did. Measured on a real delivered paper
+# (IIT_JAM_BIOTECHNOLOGY M01): all twelve reported "57 figure(s) conform" with no
+# view tool involved — and they catch what eyes do not (a 72-DPI render, a
+# 1-pixel stroke, colours that collapse under greyscale).
+# Vision establishes a DIFFERENT and NARROWER claim: does the drawing depict what
+# the stem describes. Conflating the two is what made a vision outage fatal —
+# C7 saw an unstamped artefact, failed, and MANDATE D refused delivery, so a
+# paper whose figures were fully conformance-checked shipped as nothing at all.
+VISION_STAMP_ARITHMETIC = 'conformance-arithmetic'
 
 
 def _probe_paths(d):
@@ -2479,13 +2492,25 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
     # conditions below. Everything else about C6 is unchanged.
     _vstatus, _vfailed_batches = vision_state(state)
     bad6, degraded6, forged6, stale6 = [], [], [], []
+    arith6 = []
     for q, e in entries.items():
         st = e.get('artefact_stamps') or {}
         ok = True
         for img in (st.get('images') or []):
             _montage_ok = _file_ok(_resolve_evidence(evidence_dir, img.get('montage')),
                                    EVIDENCE_MIN_BYTES)
-            if img.get('stamp') == VISION_STAMP_UNAVAILABLE:
+            if img.get('stamp') == VISION_STAMP_ARITHMETIC:
+                # v2.23.0 — the twelve figure gates ran over this PNG + its spec.
+                # Unfakeability here is NOT the vision probe (arithmetic does not
+                # depend on vision and is valid whether or not the view tool
+                # works); it is RA-4's render-or-recompute rule — the saved
+                # artefact must exist and be non-trivial, exactly as a table or
+                # OMML recompute trace must.
+                if not _montage_ok:
+                    ok = False
+                    continue
+                arith6.append(q)
+            elif img.get('stamp') == VISION_STAMP_UNAVAILABLE:
                 # (a) the montage must STILL exist and be non-trivial. A vision outage
                 #     does not excuse producing no artefact — that is E2.5/E2.6, an
                 #     un-audited item, and it still blocks.
@@ -2527,11 +2552,19 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
                     f'{_flist(stale6)}')
     elif bad6:
         _fail('C6', f'artefact stamp evidence missing/trivial: {_flist(bad6)}')
-    elif degraded6:
-        _warn('C6', f'{len(set(degraded6))} question(s) carry view-unavailable under a '
-                    f'MEASURED vision outage (batches {sorted(b for b in _vfailed_batches if b is not None)}); '
-                    'montages exist and are non-trivial. Certifies DEGRADED, not clean — '
-                    '§R13 limitation required.')
+    elif degraded6 or arith6:
+        _parts = []
+        if degraded6:
+            _parts.append(f'{len(set(degraded6))} question(s) carry view-unavailable under a '
+                          f'MEASURED vision outage (batches '
+                          f'{sorted(b for b in _vfailed_batches if b is not None)})')
+        if arith6:
+            _parts.append(f'{len(set(arith6))} question(s) carry conformance-arithmetic '
+                          '(the twelve figure gates ran over the PNG + FigureSpec; '
+                          'CONFORMANCE IS ESTABLISHED, the figure-vs-stem semantic '
+                          'claim is not)')
+        _warn('C6', '; '.join(_parts) + '. Evidence exists and is non-trivial. '
+                    'Certifies DEGRADED, not clean — §R13 limitation required.')
     else:
         _ok('C6', 'every artefact stamp is backed by an existing evidence file.')
     # C7 — coverage: every artefact PRESENT IN THE PAPER is represented in the ledger
@@ -2547,7 +2580,14 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
             bad7.append(f'Q{b.qnum}:omml'); continue
     (_ok if not bad7 else _fail)('C7',
         'every paper artefact is covered by a ledger stamp.' if not bad7 else
-        f'paper artefact not audited (no ledger stamp): {_flist(bad7)}')
+        f'paper artefact not audited (no ledger stamp): {_flist(bad7)}. '
+        'MECHANICAL REMEDY — an IMAGE artefact does NOT require the view tool. '
+        'The twelve figure gates are ARITHMETIC over the PNG + FigureSpec and '
+        f'establish conformance without it: stamp {VISION_STAMP_ARITHMETIC!r} '
+        'with the saved gate trace. If the view tool is genuinely down, run P3.5 '
+        '(--vision-probe / --vision-probe-verify) ONCE to record the outage, then '
+        f'stamp {VISION_STAMP_UNAVAILABLE!r}; the paper certifies DEGRADED and '
+        'DELIVERS. AN UNVIEWABLE FIGURE IS NEVER A REASON TO SHIP NOTHING.')
 
     cfails = [c for lvl, c, _ in RESULTS if lvl == 'FAIL' and (c == 'C0' or c.startswith('C'))
               and c[1:].isdigit()]
@@ -2557,7 +2597,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
                 for e in entries.values() for k in ('images', 'tables', 'charts', 'omml'))
         _tail = (f'Q reviewed={len(entries)}/{total_questions}, facts sourced={F}, '
                  f'artefacts stamped={V}, evidence files present={V + F}')
-        if degraded6:
+        if degraded6 or arith6:
             # v2.16 (D2): exit code stays 0 and the paper DELIVERS. A paper whose
             # figures were machine-checked but not eyeballed is in the same epistemic
             # class as the ~200 EC-V18 legacy papers the framework already ships — and
@@ -2566,6 +2606,17 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
             # records it.
             _I = sum(len((e.get('artefact_stamps') or {}).get('images', []))
                      for e in entries.values())
+            _n_arith = sum(1 for e in entries.values()
+                           for i in ((e.get('artefact_stamps') or {}).get('images') or [])
+                           if i.get('stamp') == VISION_STAMP_ARITHMETIC)
+            if _n_arith:
+                print(f'COMPLETION-GATE: DEGRADED (vision) — figure CONFORMANCE '
+                      f'ESTABLISHED ARITHMETICALLY for {_n_arith} image artefact(s) '
+                      f'(twelve figure gates over PNG + FigureSpec, no view tool); the '
+                      f'figure-vs-stem SEMANTIC claim is NOT visually confirmed. '
+                      f'§R13 limitation required; CERTIFIED-DEGRADED (VISION) ⇒ F1 '
+                      f'AMBER footer. ({_tail})')
+                return 0
             print(f'COMPLETION-GATE: DEGRADED (vision) — {len(set(degraded6))} question(s), '
                   f'{sum(1 for e in entries.values() for i in ((e.get("artefact_stamps") or {}).get("images") or []) if i.get("stamp") == VISION_STAMP_UNAVAILABLE)} '
                   f'of {_I} image artefact(s) unviewed; §R13 limitation required; '
@@ -4975,6 +5026,75 @@ def self_test():
     # import here would shadow it for the WHOLE of self_test(), unbinding it for
     # every fixture defined earlier in the same scope.
     _dv, _bv = _cg_doc(lambda d: _add_q_img(d, 1))
+
+    # 78a-78e  v2.23.0 (RELEASE B) — ARITHMETIC CONFORMANCE COVERAGE.
+    #   THE FAILURE BEING CLOSED, measured on a real 60-question paper: vision died,
+    #   the run retried a dozen times, never recorded P3.5, left figures unstamped,
+    #   C7 failed, MANDATE D refused delivery — and a paper whose figures the twelve
+    #   arithmetic gates would have passed shipped as NOTHING. Vision and conformance
+    #   were conflated; they are different claims and only one needs eyes.
+
+    # 78a — THE UNBLOCK. An arithmetic stamp IS C7 coverage: exit 0, paper delivers.
+    #       MUTATION-VERIFIED against v2.22.0.
+    _reset()
+    rc = completion_gate(_write_state('vb1.json',
+                         _vis_state(VISION_STAMP_ARITHMETIC, None)), 1, _bv, _dv)
+    check('VIS-ARITH-conformance-stamp-is-C7-coverage',
+          rc == 0 and not any(c == 'C7' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 78b — IT MUST NOT OVERCLAIM. Conformance established arithmetically is NOT the
+    #       same as a figure that was looked at, so the paper certifies DEGRADED, never
+    #       clean PASS. (Caught during development: the first implementation printed
+    #       PASS — a STRONGER claim than the pre-release behaviour, which is precisely
+    #       what a certification-semantics change must never do.)
+    _reset()
+    import io as _io, contextlib as _ctx
+    _cap = _io.StringIO()
+    with _ctx.redirect_stdout(_cap):
+        completion_gate(_write_state('vb2.json',
+                        _vis_state(VISION_STAMP_ARITHMETIC, None)), 1, _bv, _dv)
+    _verdict = _cap.getvalue()
+    check('VIS-ARITH-certifies-degraded-never-clean',
+          'DEGRADED' in _verdict and 'COMPLETION-GATE: PASS' not in _verdict
+          and any(c == 'C6' and l == 'WARN' and 'conformance-arithmetic' in m
+                  for l, c, m in RESULTS))
+
+    # 78c — STILL EVIDENCE-BOUND. RA-4 render-or-recompute applies unchanged: a
+    #       trivial/absent trace is not conformance, it is an unaudited artefact.
+    #       Without this the new stamp would be a self-signed excuse — the same
+    #       cheat surface T2.3 closes for view-unavailable.
+    _reset()
+    rc = completion_gate(_write_state('vb3.json',
+                         _vis_state(VISION_STAMP_ARITHMETIC, None,
+                                    montage_bytes=8)), 1, _bv, _dv)
+    check('VIS-ARITH-requires-real-evidence',
+          rc == 1 and any(c == 'C6' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 78d — NO PROBE REQUIRED. Arithmetic does not depend on the view tool, so unlike
+    #       view-unavailable it is admissible with NO vision_probe record at all. Tying
+    #       it to a failed probe would re-couple the two claims this release separates.
+    _reset()
+    rc = completion_gate(_write_state('vb4.json',
+                         _vis_state(VISION_STAMP_ARITHMETIC, _OK_PROBE)), 1, _bv, _dv)
+    check('VIS-ARITH-admissible-whatever-the-vision-state',
+          rc == 0 and not any(c == 'C6' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 78e — THE DIAGNOSTIC. An unstamped artefact must NAME the mechanical remedy.
+    #       The stalled session saw only "paper artefact not audited" and concluded it
+    #       was blocked; the escape hatch existed and the message never mentioned it.
+    _reset()
+    _st_none = _vis_state(VISION_STAMP_ARITHMETIC, None)
+    _st_none['ledger']['entries']['1']['artefact_stamps'] = {}
+    rc = completion_gate(_write_state('vb5.json', _st_none), 1, _bv, _dv)
+    check('VIS-C7-failure-names-the-mechanical-remedy',
+          rc == 1 and any(c == 'C7' and l == 'FAIL'
+                          and 'MECHANICAL REMEDY' in m
+                          and 'does NOT require the view tool' in m
+                          and VISION_STAMP_ARITHMETIC in m and 'P3.5' in m
+                          and 'NEVER a reason to ship nothing' in m.replace(
+                              'NEVER A REASON TO SHIP NOTHING',
+                              'NEVER a reason to ship nothing')
+                          for l, c, m in RESULTS))
 
     # 78. T2.1 — MEASURED OUTAGE ⇒ CERTIFIES DEGRADED, EXIT 0, NOT A HALT.
     #     The whole point: a vision outage is an ENVIRONMENT condition, and §5 says

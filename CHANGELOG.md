@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026.08.03.2
+**Release B — vision is off the critical path.**
+
+A vision outage could still refuse delivery of a paper whose figures were fully
+conformance-checked. That is the failure that cost a real operator a day: views
+died, the session retried about a dozen times, never recorded P3.5, left figures
+unstamped, C7 failed, MANDATE D refused delivery — and the paper shipped as
+nothing. That session concluded "there is no version of this where the current
+session produces a certified paper", which was measurably false.
+
+**The root confusion: two claims, one stamp.** Figure CONFORMANCE — the twelve
+figure gates — is ARITHMETIC over the saved PNG and its FigureSpec and never used
+vision (measured on a real paper: all twelve reported "57 figure(s) conform" with
+no view tool involved, and they catch what eyes do not — a 72-DPI render, a
+1-pixel stroke, colours that collapse to identical grey). Figure-vs-stem SEMANTIC
+match is the claim that needs eyes, and it is narrow. Conflating them made an
+outage fatal to both.
+
+**Fix.** New stamp `conformance-arithmetic`. C7 accepts it as full coverage, so an
+unviewable figure no longer blocks delivery. C6 admits it under RA-4's
+render-or-recompute rule — the saved gate trace must exist and be non-trivial.
+Unlike `view-unavailable` it requires no vision probe: arithmetic does not depend
+on the view tool, and tying it to a failed probe would re-couple the two claims.
+
+**It does not overclaim — and the first implementation did.** A paper carrying
+arithmetic stamps certifies CERTIFIED-DEGRADED (VISION), never a clean PASS. The
+initial build printed PASS, a stronger claim than the pre-release behaviour, which
+is exactly what a certification-semantics change must never do. Caught in
+development and locked by fixture 78b, which asserts the printed verdict — the
+first version of that fixture asserted the C6 message instead and the overclaim
+mutant survived it.
+
+**Diagnostic.** C7's failure now names the mechanical remedy rather than leaving
+an operator to infer one: an image artefact does not require the view tool; stamp
+`conformance-arithmetic` with the gate trace, or run P3.5 once to record a genuine
+outage and stamp `view-unavailable`. "An unviewable figure is never a reason to
+ship nothing."
+
+Measured on a 60-question/20-figure reconstruction of the stalled run: unstamped
+with no probe still FAILs (unchanged, now signposted); arithmetic stamps certify
+DEGRADED and DELIVER; view-unavailable unchanged; fully viewed unchanged PASS.
+
+Self-test 156 to 161. Mutation 28/28 killed, 100%, 0 survivors. No paper changes,
+no Step-7 changes, no previously-passing paper certifies differently, and no claim
+anywhere becomes stronger.
+
+Files: `audit_canonical.py`, `Framework_MockTestCreateAudit.md` (v2.22.0 to
+v2.23.0), `MANIFEST.json`, `VERSION`.
+
 ## 2026.08.03.1
 **Release A — A-FIGCOMP false-flagged the commonest figural shape, and every
 finding it emitted addressed an operator who does not exist.**

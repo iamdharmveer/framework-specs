@@ -1,4 +1,58 @@
-# Framework_MockTestCreateAudit v2.22.0
+# Framework_MockTestCreateAudit v2.23.0
+# v2.23.0 — 2026-08-03 — RELEASE B: VISION IS OFF THE CRITICAL PATH.
+#   A vision outage could still refuse delivery of a paper whose figures were
+#   fully conformance-checked. That is the failure that cost a real operator a
+#   day: views died, the session retried ~a dozen times, never recorded P3.5, left
+#   figures unstamped, C7 FAILED, MANDATE D refused delivery — and the paper
+#   shipped as NOTHING. The session concluded "there is no version of this where
+#   the current session produces a certified paper", which was measurably false.
+#
+#   THE ROOT CONFUSION: TWO CLAIMS, ONE STAMP.
+#     • FIGURE CONFORMANCE — the twelve gates (A-FIGSCALE / A-FIGLABEL / A-FIGDPI
+#       / A-FIGDEGEN / A-FIGMONO / A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGCVD /
+#       A-FIGSERIES / A-FIGGLYPH / A-FIGALT / A-FIGLABELPX) are ARITHMETIC over
+#       the saved PNG and its FigureSpec. They never used vision. Measured on a
+#       real delivered paper: all twelve reported "57 figure(s) conform" with no
+#       view tool involved — and they catch what eyes do not (a 72-DPI render, a
+#       1-pixel stroke, colours that collapse to identical grey).
+#     • FIGURE-vs-STEM SEMANTIC MATCH — does the drawing depict what the stem
+#       describes. This one needs eyes, and it is NARROW.
+#   Conflating them made an outage fatal to BOTH.
+#
+#   FIX. New stamp 'conformance-arithmetic' (VISION_STAMP_ARITHMETIC). C7 accepts
+#   it as full coverage, so an unviewable figure no longer blocks delivery. C6
+#   admits it under RA-4's render-or-recompute rule — the saved gate trace must
+#   exist and be non-trivial, exactly as a table/OMML recompute trace must.
+#   Unlike 'view-unavailable' it requires NO vision probe: arithmetic does not
+#   depend on the view tool, and tying it to a failed probe would re-couple the
+#   two claims this release separates.
+#
+#   IT DOES NOT OVERCLAIM — AND THE FIRST IMPLEMENTATION DID. A paper carrying
+#   arithmetic stamps certifies CERTIFIED-DEGRADED (VISION), never a clean PASS:
+#   conformance established, semantic match not visually confirmed, §R13
+#   limitation, F1 AMBER footer. The initial build printed PASS — a STRONGER claim
+#   than the pre-release behaviour, which is exactly what a certification-semantics
+#   change must never do. Caught in development and locked by fixture 78b, which
+#   asserts the PRINTED VERDICT (the first version of that fixture asserted the C6
+#   message instead and the overclaim mutant SURVIVED it).
+#
+#   DIAGNOSTIC. C7's failure now names the mechanical remedy: an image artefact
+#   does not require the view tool; stamp conformance-arithmetic with the gate
+#   trace, or run P3.5 ONCE to record a genuine outage and stamp view-unavailable.
+#   "AN UNVIEWABLE FIGURE IS NEVER A REASON TO SHIP NOTHING." The stalled session
+#   saw only "paper artefact not audited" — the escape hatch existed and the
+#   message never mentioned it. Consistent with the v2.22.0 SELF-ADJUDICATION rule.
+#
+#   MEASURED, on the 60-question/20-figure reconstruction of the stalled run:
+#     unstamped, no probe   -> C7 FAIL, exit 1   (unchanged; now signposted)
+#     arithmetic stamps     -> DEGRADED, exit 0, DELIVERS   (the unblock)
+#     view-unavailable      -> DEGRADED, exit 0   (unchanged)
+#     fully viewed          -> PASS, exit 0       (unchanged)
+#
+#   Self-test 156 -> 161. Mutation 28/28 killed, 100%, 0 survivors. AUTH_GATE_FLOOR
+#   stays 35. NO paper changes. NO Step-7 changes. No previously-passing paper
+#   certifies differently; no claim anywhere becomes stronger.
+#
 # v2.22.0 — 2026-08-03 — RELEASE A: A-FIGCOMP FALSE-FLAGGED THE COMMONEST
 #   FIGURAL SHAPE, AND EVERY FINDING IT EMITTED ADDRESSED AN OPERATOR WHO DOES
 #   NOT EXIST. GAP-2026-08-03-FIGCOMP-ROLE + the SELF-ADJUDICATION rule.
@@ -4703,7 +4757,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.22.0 build prints 156/156 — see tests 16-20, 25).
+#     v2.12; the v2.23.0 build prints 161/161 — see tests 16-20, 25).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4828,7 +4882,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (156/156) all pass, and
+#   (161/161) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4925,7 +4979,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 156/156 PASS  (exit 0) on the v2.21.9 canonical
+#     • `--self-test`  → SELF-TEST: 161/161 PASS  (exit 0) on the v2.21.9 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4993,10 +5047,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 156/156). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 161/161). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.22.0
+# END OF Framework_MockTestCreateAudit v2.23.0
 # ════════════════════════════════════════════════════════════════════════
