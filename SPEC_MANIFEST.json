@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 687,
-      "sha256": "28cdb4adec3c22629d20279e93f315b79889c1e3b488e018539ba89b3e277237",
-      "size_bytes": 34523,
-      "version_header": "# Framework_DeliveryFooter v1.11 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 709,
+      "sha256": "975a20315f10bcca3a4509a0444d7e1c246062b96cd711925b64b074668f93c4",
+      "size_bytes": 36191,
+      "version_header": "# Framework_DeliveryFooter v1.12 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.10.0",
@@ -93,10 +93,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1334,
-      "sha256": "60e80a86ffb1f097154163ee2b410025067d747fd4ee9d9c6dd7e6f8f503b2fb",
-      "size_bytes": 90005,
-      "version_header": "# Framework_PYQExplain v1.1.1 — Universal PYQ Explanation Generator"
+      "lines": 1555,
+      "sha256": "14564cf56b5f128ef373c06aafc7d8f2bba6bd7bf55d5f70c9764e58a3cbc7fc",
+      "size_bytes": 103465,
+      "version_header": "# Framework_PYQExplain v1.2 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQExplainAudit.md": {
       "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.2.0)**",
@@ -238,6 +238,13 @@
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"figural_core.py — shared figure renderer + gates. Run with --self-test.\")"
     },
+    "figural_vision.py": {
+      "lines": 599,
+      "sha256": "585df46be615fb05415aa98dabe25658f48bfd2e8a4c1048fa2c23457ec7d692",
+      "size_bytes": 27029,
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "          \"Run with --self-test.\")"
+    },
     "frequency_xlsx.py": {
       "lines": 695,
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",
@@ -267,9 +274,9 @@
       "end_sentinel": "    print(__doc__.strip().splitlines()[0])"
     },
     "routes.json": {
-      "lines": 137,
-      "sha256": "1b6269ba071e31be65c517ab5c9b0c94b6e9d641bb7b1ec04979b0f7b53f1fb5",
-      "size_bytes": 3172,
+      "lines": 138,
+      "sha256": "02053d22cb6840c85ea73475ebcf59b99e973c1679715f25eeb760b0bdb46bf2",
+      "size_bytes": 3197,
       "version_header": "{",
       "end_sentinel": "}"
     },
@@ -288,5 +295,5 @@
       "end_sentinel": "    sys.exit(1 if total else 0)"
     }
   },
-  "generated_at": "2026-08-03T07:01:58Z"
+  "generated_at": "2026-08-03T13:00:00Z"
 }

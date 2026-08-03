@@ -1,4 +1,46 @@
-# Framework_PYQExplain v1.1.1 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v1.2 — Universal PYQ Explanation Generator
+#
+# v1.2 — 2026-08-03 — §13A FIGURAL PRE-TRANSCRIPTION PASS (new capability).
+#   Figural images are VIEWED ONCE, at P2a, and persisted as TEXT. Every batch
+#   then reads the transcription instead of re-viewing the image.
+#
+#   THE DEFECT THIS REPAIRS. `view` is CLASS T (CLAUDE.md EXECUTION-BOUNDARY
+#   LAW) and an image held in context is not durable. PYQ-1 previously viewed
+#   each figure lazily, inside whichever batch contained it — so the LAST
+#   figural batch asked the image channel for a fresh render after a clone, a
+#   bootstrap, two specs read in full (RULE 2), and five prior batches. Measured
+#   in one session on pixel-verified non-blank files: early views returned
+#   perceptible content, later views on the SAME files returned empty payloads,
+#   and a retry did not recover. The failure then surfaced as a HALT inside
+#   Batch 1 rather than at preflight, and §13 offered no sanctioned path
+#   onward — the CERTIFIED-DEGRADED (VISION) route in DeliveryFooter §5 Q0b was
+#   scoped to Step 8 only.
+#
+#   THREE PROPERTIES, ALL NEW. (a) Vision is spent at the EARLIEST executable
+#   moment, when context is lightest. (b) What was seen becomes durable text on
+#   disk, so a figure is viewed exactly once per paper no matter how long the
+#   run or how many resumes it survives. (c) A dead image channel is detected at
+#   P2a in seconds, by measurement, instead of as a mid-batch halt.
+#
+#   IT NEVER HALTS. CLAUDE.md: "A CLASS T failure must be LOUD, and must NOT
+#   halt." An untranscribable figure makes its question VOID_ITEM and the run
+#   AMBER; the paper still completes, still delivers every other question, and
+#   still ships. BLOCKING is never emitted for a vision condition. This aligns
+#   PYQ-1 with the corpus rule that no rendering/observation condition may stop
+#   a paper, and DeliveryFooter v1.11 extends Q0b to carry the amber.
+#
+#   RE-11 IS NOT WEAKENED — IT IS MOVED EARLIER AND MADE AUDITABLE. A figural
+#   answer is still derived only from what was actually seen. What changes is
+#   that "what was seen" is now a recorded artefact a later step can inspect,
+#   rather than a claim about a context window nobody can re-examine. A question
+#   whose figure was never legibly seen now yields NO published answer, where
+#   before it yielded a halt (best case) or an unfalsifiable assertion (worst).
+#
+#   Zero changes to explain_engine.py (62/62 unchanged), the ExplanationBlock
+#   model, the delivered document, §12 byte-identity, or any existing gate.
+#   New engine: figural_vision.py (pure stdlib, Phase A/C only — it models no
+#   tool call and contains no CLASS T stub).
+#
 # v1.1.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   29 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQExplain'. The current companion block, the
@@ -95,7 +137,9 @@
 #     3. bash_tool    → run §18 self-audit checks (verify_fidelity, verify_structure,
 #                       verify_explanations, count invariants, strip-and-re-audit)
 #     4. present_files → deliver the whole-paper PYQ Explanation docx
-#   The Row file is copied to /home/claude at the start (immutable read-only source).
+#   Before Batch 1 only: the §13A figural pre-transcription pass (P2a) adds one
+  Phase A call, one in-turn view per figure artefact, and one Phase C call.
+  The Row file is copied to /home/claude at the start (immutable read-only source).
 #   All WIP state lives in /home/claude (never in /mnt/user-data/outputs).
 #   Claude self-fixes on failure — iterate until §18 all-clean before present_files.
 
@@ -365,6 +409,15 @@ PYQExplain
         from 1; every question carries its EXPECTED option count; Q_TOTAL derived.
         Any fail → HALT with the specific check.
 
+  P2a FIGURAL PRE-TRANSCRIPTION PASS (v1.2, §13A). Runs HERE — the earliest
+      point at which the Row file is parsed and the figural set is known, and
+      before any project-knowledge load, batch plan, or solve. Execute §13A in
+      full: extract + role-bind every figure (Phase A), VIEW each one in-turn
+      and record what is visible (Phase B), verify and persist (Phase C).
+      Produces pyq_figural_vision.json. NEVER HALTS: a shortfall marks the
+      affected questions VOID_ITEM and sets the run AMBER (§13A-5).
+      A paper with zero figural questions skips P2a and records that fact.
+
   P3  BUILD THE SUBTOPIC CLASSIFICATION MAP.
       For each question Q.n, determine its (subject, topic, subtopic, subtopic_id).
       Sources (in priority order):
@@ -416,6 +469,8 @@ Learnings loaded   : [k AL-rules · m EX-rules] OR [none — first paper]
 Paper (Row file)   : [X bytes · Q_TOTAL questions · K images · T tables]
 Subtopic map       : [Q_TOTAL] questions classified · source: [Sorted file / taxonomy]
 Batch plan         : [K batches · ceiling 10 · linked groups atomic]
+Figural vision     : [n/n artefact(s) transcribed across k question(s)]
+                     OR [no figural questions] OR [AMBER — v VOID_ITEM]
 Mode               : [interactive — halt per batch] OR [autonomous]
 Output             : [ExamCode]_[date]_[session]_PYQ_Explanation.docx
 State              : /home/claude (chat-scoped)
@@ -430,6 +485,9 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   P9  MALFUNCTION GUARD: if about to ask "per-batch or all-at-once?", STOP — the
       answer is fixed (per-batch, MANDATE B). If about to solve beyond the current
       batch, STOP. If about to declare a paper defect, go to §17 first.
+      If about to HALT because a figure cannot be seen, STOP — that is a
+      VOID_ITEM + AMBER, never a halt (§13A-5). If about to derive a figural
+      answer with no OK transcription behind it, STOP — that is RE-11.
 
   P10 PRINT the batch plan summary (batch → q-range → count) and announce Batch 1.
       EXECUTE the current batch (§4).
@@ -525,7 +583,8 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   [ ] Question TYPE resolved: mcq · msq · nat
   [ ] Negative phrasing scanned (NOT/EXCEPT/INCORRECT/FALSE)        → §10a
   [ ] Composite options scanned (Both/Only/All/None of the above)   → §10b
-  [ ] Figural? → every image extracted, role-bound, and VIEWED       (§13)
+  [ ] Figural? → transcription read from pyq_figural_vision.json    (§13A)
+      (VOID_ITEM there → no answer is published for this Q; §13A-5)
   [ ] Answer derived from first principles AND a second method       (§7)
   [ ] Methods agree (else DERIVATION-CONFIDENCE)                     (§7)
   [ ] Factual content web-verified with a recorded source            (RE-18)
@@ -642,7 +701,7 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   ```
 
   PINNED: byte-identical to Framework_MockTestCreate.md §S7-NEW-C and
-  audit_canonical.py's A-NAT-GRADE implementation.
+  Framework_MockTestCreateAudit.md's A-NAT-GRADE copy.
 
 # ════════════════════════════════════════════════════════════════════════
 # §7A — PER-QUESTION DIFFICULTY ASSESSMENT (v1.1)
@@ -955,13 +1014,131 @@ label = assess_difficulty(
 ## S13-2 — Extract, role-bind, view
   Extract image bytes, render them, bind each to its role, VIEW each before
   deriving. The binding matters: an unbound view can key the wrong index.
+  v1.2: this happens ONCE per paper, at P2a, via §13A — not per batch. Role
+  binding is READ FROM THE DOCUMENT (a drawing in a paragraph whose text opens
+  with an option label binds to that option), never inferred from extraction
+  order.
 
 ## S13-3 — Derive from the images
   VIEW → derive → proceed. No manifest cross-check for PYQ (no registry).
+  v1.2: at solve time the observation is read from pyq_figural_vision.json
+  (§13A-4). That file IS the record of the view — reading it is not "deriving
+  from a manifest" in the §13-3 sense that TestExplain forbids, because no
+  registry stated what the figure was SUPPOSED to contain; the transcription
+  records only what was actually seen.
 
 ## S13-4 — Write what is visible
   AXIOM = the visual rule. DEDUCTION traces the VISIBLE transformation.
   WHY WRONG names, per wrong option-figure, the specific visual difference.
+
+# ════════════════════════════════════════════════════════════════════════
+# §13A — FIGURAL PRE-TRANSCRIPTION PASS (v1.2; MATERIALISE-THEN-INJECT)
+# ════════════════════════════════════════════════════════════════════════
+#   View every figure ONCE, at P2a, and persist what was seen as TEXT. Every
+#   batch afterwards reads the text. Governed by the EXECUTION-BOUNDARY LAW
+#   (CLAUDE.md): `view` is CLASS T, so it happens only BETWEEN model turns and
+#   is NEVER modelled as a Python function, callback, or parameter.
+#
+#   WHY ONCE, AND WHY EARLY. An image in context is volatile; text on disk is
+#   not. Viewing lazily meant the last figural batch asked the image channel for
+#   a fresh render at the point of greatest context pressure — after the clone,
+#   the bootstrap, two specs read in full, and every earlier batch. Viewing once
+#   at P2a spends vision when it is cheapest and converts it into an artefact
+#   that survives every later batch, every resume, and every session break.
+
+## S13A-1 — Applicability
+  Runs at P2a for every paper with ≥1 figural question (§13-1 detection: a
+  <w:drawing> in the STEM or any OPTION). Zero figural questions → skip and
+  record "no figural questions" in the P7 dashboard. Never skipped for any
+  other reason, and never deferred into a batch.
+
+## S13A-2 — PHASE A (python — deterministic)
+```python
+import figural_vision as fv, os
+FIGDIR = '/home/claude/figures'
+items = fv.extract_figures(CLEAN_ROW_FILE, FIGDIR, cfg.q_re, cfg.opt_re)
+fv.write_queue(items, '/home/claude/pyq_figural_queue.json')
+print(fv.vision_report_line({'clean': True, 'ok_items': 0,
+                             'total_items': len(items)}))
+for it in items:
+    print(fv.item_key(it), it['path'])
+```
+  q_re / opt_re come from EngineConfig (section_rules CATEGORY C) — no exam
+  value is hardcoded (RE-9). Media bytes are written out UNCHANGED: nothing is
+  re-encoded, so §12 byte-identity is untouched and this pass never writes to
+  the delivered document.
+
+## S13A-3 — PHASE B (model — IN-TURN tool calls; NOT a code block)
+
+  Phase B is prose by law. Do not implement it, do not wrap it in a ```python
+  fence, and do not name a function for it. The urge to "implement" Phase B is
+  the bug, not the fix.
+
+```
+  For each item printed by Phase A, in order:
+    1. Call the view tool on item.path.
+    2. Record, in your own words, EVERY visible element: labels, axis names and
+       scales, arrows and their direction, shapes and their relative position,
+       printed values, shading, counts. Transcribe what is THERE; do not solve
+       the question and do not interpret it — interpretation happens at solve
+       time, from this text.
+    3. If the payload comes back blank or unreadable, retry that item ONCE. If
+       it is still blank, write an EMPTY string for it and move on. Do not
+       guess, do not infer the figure from the surrounding stem text, and do
+       not halt.
+  Then write every transcription to /home/claude/pyq_figural_transcripts.json
+  as {item_key: {"text": "...", "sha256": "<item sha256>"}}.
+```
+
+  MANDATE 0 STILL BINDS. The transcriptions go to a FILE. No stem, option,
+  figure description, or derived answer is ever printed in chat — the only
+  chat output from this pass is the MANDATE-0-safe count line of §13A-5.
+
+## S13A-4 — PHASE C (python — deterministic; NEVER raises)
+```python
+import figural_vision as fv, json
+items = fv.load_queue('/home/claude/pyq_figural_queue.json')
+transcripts = json.load(open('/home/claude/pyq_figural_transcripts.json'))
+report = fv.verify_transcripts(items, transcripts)
+fv.write_manifest(items, transcripts, report,
+                  '/home/claude/pyq_figural_vision.json')
+print(fv.vision_report_line(report))
+```
+  verify_transcripts classifies each artefact OK / MISSING / EMPTY / THIN /
+  STALE. THIN catches the payload that arrived but says too little to derive
+  from; STALE catches a transcription written against a different image. It
+  returns a report — it does not raise, and Phase C never halts the run.
+
+  At solve time (§4-4 A) a figural question reads its observation with
+  `fv.transcript_for(manifest, q, role)`. That returns None for any artefact
+  that is not OK, so an unusable transcription can never reach a derivation.
+
+## S13A-5 — SEVERITY: AMBER and VOID_ITEM only; BLOCKING never
+  A vision shortfall NEVER stops the paper. Three-tier model:
+
+  | Condition | Severity | Effect |
+  |---|---|---|
+  | every artefact OK | — | normal run |
+  | ≥1 artefact not OK | AMBER | run completes; footer is amber (F1) |
+  | a question with ≥1 not-OK artefact | VOID_ITEM | that Q publishes no answer |
+  | any vision condition | never BLOCKING | a paper is never halted by vision |
+
+  A VOID_ITEM question takes the §17-3 VERY-RARE shape mechanically — an
+  ExplanationBlock carrying the anomaly flag and NO content (the engine forbids
+  anomaly + content on one block) — so batch COVERAGE stays exact and the
+  S4-5 guard 3 assertion still holds with no gaps. It is reported SEPARATELY
+  from exam-body defects (§20 §R12, not §R7): an untranscribable figure is a
+  SESSION defect with a known remedy, not a fact about the exam paper.
+
+  WHY VOID AND NOT GUESS. RE-11 forbids deriving a figural answer from anything
+  but the image. With no legible image there is no honest derivation, and this
+  document is a learner-facing answer key — a fabricated figural answer is the
+  single most damaging output this pipeline can produce. Publishing nothing for
+  that question is recoverable; publishing a guess is not.
+
+  REMEDY, stated in the footer and the report: re-run PYQExplain in a session
+  with a working view tool. The pass is cheap and idempotent — a re-run that
+  transcribes cleanly clears the VOID_ITEM and the amber.
 
 # ════════════════════════════════════════════════════════════════════════
 # §14 — SPEED HACK INCLUSION GATE (derivation-driven; omit, never fake)
@@ -1105,6 +1282,13 @@ label = assess_difficulty(
     skip explanation for this question, note in report. PYQ-2 will review.
     The anomaly flag is reserved for THIS case only — a question so broken that
     no answer can be defended at all.
+  • VISION-UNAVAILABLE (v1.2, §13A-5): a figural question whose image could not
+    be legibly transcribed at P2a. Mechanically identical to the VERY RARE case
+    (anomaly flag, no content, coverage preserved), but it is NOT an exam-body
+    defect and MUST NOT be reported as one — the paper is fine and the session's
+    view tool was not. Report it in §R12, never §R7, with the remedy. Do not
+    convert it into a derived answer by reasoning from the surrounding stem
+    text; that is precisely what RE-11 forbids.
 
 ## S17-4 — Why this is different from mock pipeline defect handling
   Mock papers were GENERATED by the pipeline — a defect is a pipeline bug that
@@ -1132,6 +1316,9 @@ label = assess_difficulty(
   [ ] derived answers flushed to pyq_answer_keys.json; CA three-way binding holds
   [ ] coverage assertion (S4-5 guard 3): exactly Q1..last(batch k)
   [ ] learnings coverage (§24): every applicable rule routed
+  [ ] figural coverage (§13A): every figural Q in this batch either
+      carries an OK transcription or is a recorded VOID_ITEM — never
+      a figural answer with no transcription behind it
 ```
   Any item open → fix, re-build, re-audit. present_files FORBIDDEN until ALL hold.
 
@@ -1209,6 +1396,12 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
        explicitly — a whole paper at one difficulty is a signal worth checking
        before PYQ-2, not a result to pass along silently.
 
+  §R12 FIGURAL VISION (§13A, v1.2): artefacts extracted · artefacts transcribed
+       OK · every VOID_ITEM question with its status (MISSING/EMPTY/THIN/STALE)
+       and the stated remedy. Reported here and NOT in §R7 — a vision shortfall
+       is a session defect, not an exam-body error. If any VOID_ITEM exists the
+       verdict is SHIP-AMBER, never SHIP.
+
 # ════════════════════════════════════════════════════════════════════════
 # §21 — DEFINITION OF DONE / HARD INVARIANTS
 # ════════════════════════════════════════════════════════════════════════
@@ -1216,7 +1409,9 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
   2.  Every question explained (zero sampling); every validate() clean.
   3.  Every answer derived two ways; disagreements resolved 2-of-3 +
       DERIVATION-CONFIDENCE. Zero guesses. Typed correctly (mcq/msq/nat).
-  4.  Every figural question's images extracted, role-bound, VIEWED.
+  4.  Every figural question's images extracted, role-bound, VIEWED ONCE at
+      P2a (§13A) and persisted; every figural answer traceable to an OK
+      transcription, or the question recorded as VOID_ITEM.
   5.  Every CA/factual option web-verified with a recorded source.
   6.  WHY WRONG keys == exactly non-selected; error type REPRODUCES option.
       NAT: ≥1 pitfall. No template/glyph/fake-cite.
@@ -1292,6 +1487,32 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # ════════════════════════════════════════════════════════════════════════
 # SHARED_RULES_VERSION: 1.0 (2026-07-22)
 #
+# DELIBERATE PYQ-ONLY DIVERGENCE (v1.2, 2026-08-03) — RECORDED, NOT DRIFT.
+#   §13A (figural pre-transcription pass) is NEW and is NOT mirrored in
+#   Framework_MockTestExplain.md. No RE-* rule, no MANDATE, and no existing
+#   §4-§18 rule was MODIFIED: §13-2 / §13-3 gained pointer lines only, exactly
+#   as §5-3 did for §7A. SHARED_RULES_VERSION is therefore NOT bumped, on the
+#   same reasoning recorded for v1.1 below.
+#
+#   WHY THE MOCK SIDE IS NOT MIRRORED. The two pipelines do not face the same
+#   risk. A mock paper's figures are GENERATED by figural_core from a spec
+#   sidecar, and registry.json carries figural_manifests[] recording what Step 7
+#   intended to draw — so TestExplain §13-3 already has an independent semantic
+#   cross-check when the pixels are unreadable, and Step 8 already has its own
+#   measured vision route (COMPLETION-GATE: DEGRADED (vision), Audit v2.16 / D2).
+#   A PYQ paper has NEITHER: §13 states plainly that for PYQ there are no
+#   figural_manifests and no registry. The image is the ONLY record of what the
+#   figure contains, which is exactly why PYQ-1 needs a durable transcription
+#   and the mock side does not.
+#
+#   WHAT A FUTURE SESSION MUST DO. If TestExplain is ever given a pre-
+#   transcription pass, it should REUSE figural_vision.py rather than copy §13A:
+#   the engine is exam-agnostic and pipeline-agnostic by construction. The mock
+#   side would additionally have to specify how a transcription and a
+#   figural_manifest that DISAGREE are reconciled — a design decision §13A does
+#   not make, because PYQ has no manifest to disagree with. Do NOT resolve it by
+#   blindly copying §13A across.
+#
 # DELIBERATE PYQ-ONLY DIVERGENCE (v1.1, 2026-07-24) — RECORDED, NOT DRIFT.
 #   Two additions in this file are NOT mirrored in Framework_MockTestExplain.md:
 #     * §7A (per-question difficulty assessment) — a NEW section, added between
@@ -1330,5 +1551,5 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v1.1.1
+# END OF Framework_PYQExplain v1.2
 # ════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,15 @@
-# Framework_DeliveryFooter v1.11 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.12 — Universal Delivery Footer (F1/F2) Contract
+# v1.12 — 2026-08-03 — §5 Q0b GAINS A SECOND PRODUCER: PYQExplain §13A VOID_ITEM.
+#   Q0b already fires on a MEASURED vision outage in the mock pipeline. PYQ-1 can
+#   now measure the same condition (Framework_PYQExplain v1.2 §13A-5) and had no
+#   amber path, so it HALTED instead — the one place the corpus rule 'a CLASS T
+#   failure must be LOUD and must NOT halt' (CLAUDE.md) was not applied. Same
+#   measured condition, same AMBER, one more producer. The PYQ wording NAMES the
+#   voided questions, because an unexplained question that is not named reads as
+#   an oversight and PYQ-2 must be told where to look (PYQExplain RE-20).
+#   Zero change to F1/F2 shape, to Q0, to Q1, or to any severity routing:
+#   no colour or vision condition may halt a run, and that stays untouched.
+#
 # v1.11 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
 #   B3 final deliverables drop 6 -> 5 (ExplainAuditLearnings.md is no longer generated);
 #   the engine-copy duty moves from Step 8 to Step 7. The former audit-rule cross-reference
@@ -587,9 +598,13 @@ After every present_files call, Claude evaluates:
             failing check and its remedy in the footer body.
             DO NOT render F2. Then END response.
 
-      NO  → Q0b (v1.11): did the run that produced this paper report
-            COMPLETION-GATE: DEGRADED (vision)? (Through v1.10 this was Step 8's
-            print; with Step 8 retired the producing step — Step 7 — reports it.)
+      NO  → Q0b (v1.12): did the run that produced this paper report
+            COMPLETION-GATE: DEGRADED (vision) — OR did PYQExplain (PYQ-1) record
+            any VOID_ITEM in its §13A figural pre-transcription pass?
+            (Through v1.10 the first was Step 8's print; with Step 8 retired the
+            producing step — Step 7 — reports it. The second is
+            Framework_PYQExplain v1.2 §13A-5. Both are the SAME condition: an
+            image artefact measured as un-viewable, never assumed to be.)
 
             YES → Render F1 (AMBER). The paper IS certified and IS delivered, but a
                   measured vision outage meant some figures were machine-checked and
@@ -599,6 +614,13 @@ After every present_files call, Claude evaluates:
                    fully checked; legibility and figure/stem match were NOT visually
                    confirmed. Remedy: re-run Step 7 on a session with a working view
                    tool." Then END response.
+                  For PYQ-1 the same footer NAMES the voided questions instead:
+                  "CERTIFIED-DEGRADED (VISION) — <v> of <i> figural artefact(s) could
+                   not be transcribed (§13A). Question(s) <list> carry NO derived
+                   answer; every other question is fully explained and audited.
+                   Remedy: re-run PYQExplain on a session with a working view tool."
+                  Naming is mandatory: an unexplained question that is not named
+                  reads as an oversight, and PYQ-2 has to be told where to look.
                   A degraded certificate must NEVER render green — green is a claim
                   that the artefact is fit to hand downstream, and a partially
                   un-eyeballed paper is fit to SHIP but not fit to be called clean.

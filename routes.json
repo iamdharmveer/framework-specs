@@ -109,6 +109,7 @@
   "PYQExplain": [
     "Framework_PYQExplain.md",
     "explain_engine.py",
+    "figural_vision.py",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md"
   ],

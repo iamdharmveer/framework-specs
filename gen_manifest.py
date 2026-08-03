@@ -16,7 +16,7 @@ import hashlib, json, os, sys
 TRACKED_PY = ["validate_framework_md.py", "explain_audit_gate.py", "explain_engine.py",
               "blueprint_core.py", "paper_pipeline.py",
               "corpus_io.py", "reconcile_taxonomy.py", "syllabus_provenance.py",
-              "figural_core.py", "audit_canonical.py",
+              "figural_core.py", "figural_vision.py", "audit_canonical.py",
               "frequency_xlsx.py"]
 
 def sha256(p):
