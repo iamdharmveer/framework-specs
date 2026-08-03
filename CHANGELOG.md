@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026.08.03.3
+**Release C — two new gates, both AMBER by construction.**
+
+Both were found by auditing a real delivered paper (IIT_JAM_BIOTECHNOLOGY M01),
+not by reading the spec. Neither can halt a paper: a new gate entering at BLOCKING
+would strand output on its first false positive, and the deployed operator cannot
+adjudicate anything.
+
+**A-FIGSPECLABEL — does the spec describe the figure?** All 57 FigureSpec records
+on the real paper carry series labels `Series 1` / `Series 2` — matplotlib's
+defaults — while the rendered PNGs carry the names the stems depend on (`P`, `F`,
+`S`, `No inhibitor`), confirmed by ink-width template matching against references
+rendered at the spec's own `font_pt_native`. A placeholder label is a defect
+whichever way it resolves: if it was rendered, the question is unanswerable — a
+stem naming curves P and Q against a legend reading "Series 1"/"Series 2" gives
+the candidate no way to map either curve; if it was not rendered, the spec is
+unfaithful to the render and A-FIGSERIES / A-FIGGLYPH are auditing fiction,
+reporting conformance they never established. The check is pure data — it asks
+only whether a label is a generator default — so it cannot inherit the fragility
+of pixel measurement; a legend locator built for this defect returned inconsistent
+widths and was discarded rather than certified on. Skips unkeyed single-series
+figures, which print no legend and cannot mislead anyone (51 of the 57). Dormant
+without `figure_specs`.
+
+**A-OPTDOMAIN — distractors outside the quantity's domain.** A question asking for
+the eccentricity of an ellipse offered four numeric options, two greater than 1.
+An ellipse has 0 < e < 1 by definition, so those are impossible for any ellipse
+whatever the figure shows: half the option set is eliminable without reading the
+figure and a 4-way discrimination collapses to a coin flip. The key stayed
+uniquely correct, so this is a distractor-quality defect, not a wrong answer.
+It deserves a gate rather than a one-question fix because the two impossible
+values are the reciprocals of the two plausible ones (1/0.8 = 1.25, 1/0.6 = 1.67)
+— a distractor strategy that is perfectly good for an unbounded quantity and
+mechanically emits out-of-domain values for a bounded one. The same generator will
+have produced the same defect wherever a bounded quantity met that strategy, in
+every exam. Domains are mathematical, not exam values, and `section_rules` may
+extend them via `option_domain_rules`. Fires only when the stem names the quantity
+and every option parses as a bare number.
+
+**Self-adjudication scanner made exact.** The v2.22.0 scanner was line-based and
+so also read docstrings — `gate_specfaith`'s docstring, which explains the rule,
+tripped it. A control that forces contorted documentation eventually gets
+weakened. It now parses the module and inspects only the string literals passed to
+`_warn` / `_fail` / `_ok` / `print`. Still kills the reinstate-a-deferral mutant.
+
+Measured on the real paper: A-FIGSPECLABEL names Q3/Q31/Q37 (6 labels, the three
+keyed figures) and is silent on the other 51; A-OPTDOMAIN names Q28 (1.25, 1.67).
+0 FAIL throughout — the paper still PASSES.
+
+Self-test 161 to 173. Mutation 30/30 killed, 100%, 0 survivors. No paper changes,
+no Step-7 changes, no existing gate changed verdict or severity.
+
+Files: `audit_canonical.py`, `Framework_MockTestCreateAudit.md` (v2.23.0 to
+v2.24.0), `MANIFEST.json`, `VERSION`.
+
 ## 2026.08.03.2
 **Release B — vision is off the critical path.**
 

@@ -1,4 +1,63 @@
-# Framework_MockTestCreateAudit v2.23.0
+# Framework_MockTestCreateAudit v2.24.0
+# v2.24.0 — 2026-08-03 — RELEASE C: TWO NEW GATES, BOTH AMBER BY CONSTRUCTION.
+#   Both were found by AUDITING A REAL DELIVERED PAPER (IIT_JAM_BIOTECHNOLOGY
+#   M01), not by reading the spec. Neither can halt a paper: a NEW gate entering
+#   at BLOCKING would strand output on its first false positive, and the deployed
+#   operator cannot adjudicate anything (v2.22.0 SELF-ADJUDICATION).
+#
+#   ── A-FIGSPECLABEL — DOES THE SPEC DESCRIBE THE FIGURE? ────────────────────
+#   ALL 57 FigureSpec records on the real paper carry series labels 'Series 1' /
+#   'Series 2' — matplotlib's DEFAULTS — while the rendered PNGs carry the names
+#   the stems depend on ('P', 'F', 'S', 'No inhibitor'), confirmed by ink-width
+#   template matching against references rendered at the spec's own
+#   font_pt_native. A placeholder label is a defect WHICHEVER WAY IT RESOLVES:
+#     (a) rendered  ⇒ the question is UNANSWERABLE (a stem naming curves P and Q
+#         against a legend reading 'Series 1'/'Series 2' gives the candidate no
+#         way to map either curve); or
+#     (b) not rendered ⇒ THE SPEC IS UNFAITHFUL TO THE RENDER, and A-FIGSERIES /
+#         A-FIGGLYPH audit against it — validating fiction and reporting
+#         conformance they never established.
+#   THE CHECK IS PURE DATA: it asks only whether a label is a generator default,
+#   so it cannot inherit the fragility of pixel measurement (a legend locator
+#   built for this defect returned inconsistent widths and was discarded — the
+#   honest conclusion was that the pixel route was not reliable enough to certify
+#   on). Skips unkeyed single-series figures, which print no legend and therefore
+#   cannot mislead anyone — 51 of the paper's 57. Dormant without figure_specs.
+#
+#   ── A-OPTDOMAIN — DISTRACTORS OUTSIDE THE QUANTITY'S DOMAIN ────────────────
+#   A question asking for the ECCENTRICITY OF AN ELLIPSE offered four numeric
+#   options, TWO greater than 1. An ellipse has 0 < e < 1 by definition, so those
+#   are impossible for ANY ellipse whatever the figure shows: a candidate who
+#   knows the definition discards half the option set without reading the figure
+#   and a 4-way discrimination collapses to a coin flip. The key stayed uniquely
+#   correct, so this is B-DISTRACT (quality), not a wrong answer.
+#   WHY IT DESERVES A GATE RATHER THAN A ONE-QUESTION FIX: the two impossible
+#   values are the RECIPROCALS of the two plausible ones (1/0.8 = 1.25,
+#   1/0.6 = 1.67). That is a distractor STRATEGY — invert the answer — which is
+#   perfectly good for an UNBOUNDED quantity and mechanically emits out-of-domain
+#   values for a BOUNDED one. The same generator will have produced the same
+#   defect wherever a bounded quantity met that strategy, in every exam.
+#   The domains are MATHEMATICAL, not exam values (the range of a cosine is not a
+#   syllabus decision), and section_rules may extend them via option_domain_rules.
+#   Fires only when the stem NAMES the quantity AND every option parses as a bare
+#   number, so unit-bearing, symbolic or worded options are never judged.
+#
+#   ── SELF-ADJUDICATION SCANNER MADE EXACT ───────────────────────────────────
+#   The v2.22.0 scanner was line-based and therefore also read DOCSTRINGS — so
+#   gate_specfaith's docstring, which EXPLAINS the rule, tripped it. A control
+#   that forces contorted documentation is a control that eventually gets
+#   weakened. It now parses the module and inspects only the string literals
+#   actually passed to _warn / _fail / _ok / print — precisely the set a human
+#   could ever read. Still kills the reinstate-a-deferral mutant.
+#
+#   MEASURED on the real paper: A-FIGSPECLABEL names Q3/Q31/Q37 (6 labels, the
+#   three keyed figures) and is silent on the other 51; A-OPTDOMAIN names Q28
+#   (1.25, 1.67). 0 FAIL throughout — the paper still PASSES.
+#
+#   Self-test 161 -> 173. Mutation 30/30 killed, 100%, 0 survivors.
+#   AUTH_GATE_FLOOR stays 35. NO paper changes. NO Step-7 changes. No existing
+#   gate changed verdict or severity.
+#
 # v2.23.0 — 2026-08-03 — RELEASE B: VISION IS OFF THE CRITICAL PATH.
 #   A vision outage could still refuse delivery of a paper whose figures were
 #   fully conformance-checked. That is the failure that cost a real operator a
@@ -4757,7 +4816,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.23.0 build prints 161/161 — see tests 16-20, 25).
+#     v2.12; the v2.24.0 build prints 173/173 — see tests 16-20, 25).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4882,7 +4941,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (161/161) all pass, and
+#   (173/173) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4979,7 +5038,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 161/161 PASS  (exit 0) on the v2.21.9 canonical
+#     • `--self-test`  → SELF-TEST: 173/173 PASS  (exit 0) on the v2.21.9 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -5047,10 +5106,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 161/161). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 173/173). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.23.0
+# END OF Framework_MockTestCreateAudit v2.24.0
 # ════════════════════════════════════════════════════════════════════════

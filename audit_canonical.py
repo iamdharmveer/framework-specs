@@ -32,6 +32,8 @@
 # ============================================================================
 import sys, os, re, json, hashlib, zipfile, argparse, tempfile, unicodedata
 import io, zlib, struct, random          # v2.13 — stdlib PNG fixtures (D4); no PIL needed
+import ast                               # v2.24.0 — SELF-ADJUDICATION scans
+                                         # EMITTED message literals, not raw lines
 import inspect                           # v2.21.9 — the CLEAN-SHAPE MATRIX (5g)
                                          # DISCOVERS gates instead of listing them
 from pathlib import Path
@@ -1956,6 +1958,154 @@ def gate_dup(blocks, src):
         f'exact={_flist(exact)} near={_flist(near)} (vs prior mocks).')
 
 
+def gate_specfaith(blocks, src):
+    """A-FIGSPECLABEL (v2.24.0, RELEASE C) — DOES THE SPEC DESCRIBE THE FIGURE?
+
+    FOUND ON REAL DELIVERED OUTPUT (IIT_JAM_BIOTECHNOLOGY M01): all 57 FigureSpec
+    records carry series labels 'Series 1' / 'Series 2' — matplotlib's DEFAULTS —
+    while the rendered PNGs carry the real names the stems depend on ('P', 'F',
+    'S', 'No inhibitor'), confirmed by ink-width template matching against
+    references rendered at the spec's own font_pt_native.
+
+    WHY A PLACEHOLDER LABEL IS A DEFECT WHICHEVER WAY IT RESOLVES:
+      (a) if the placeholder WAS rendered, the question is UNANSWERABLE — a stem
+          naming curves 'P' and 'Q' against a legend reading 'Series 1'/'Series 2'
+          gives the candidate no way to map either curve; or
+      (b) if the placeholder was NOT rendered — the case measured here — the SPEC
+          IS UNFAITHFUL TO THE RENDER, and A-FIGSERIES / A-FIGGLYPH audit against
+          it. Those gates then validate fiction and report conformance they never
+          established. Any downstream consumer trusting spec labels is wrong too.
+
+    THE CHECK IS PURE DATA — no pixel analysis, so it cannot inherit the fragility
+    of image measurement (a legend locator built for this defect gave inconsistent
+    widths and was discarded). It asks only whether a label is a generator default.
+    AMBER by construction (v2.22.0 rule: a NEW gate never enters at a severity that
+    can halt a paper, because the deployed operator cannot adjudicate anything).
+    Exam-agnostic: the patterns are GENERATOR defaults, not exam values, and
+    section_rules may extend them via figure_label_placeholders.
+    """
+    specs = src.get('figure_specs') or {}
+    if not specs:
+        _ok('A-FIGSPECLABEL', 'registry carries no figure_specs — dormant '
+                              '(pre-v5.34 registry; nothing to check).')
+        return
+    extra = tuple(src.get('figure_label_placeholders') or ())
+    pats = [re.compile(_p, re.I) for _p in (
+        r'^\s*series\s*[-_ ]?\d+\s*$',
+        r'^\s*(data|line|curve|trace|set|group)\s*[-_ ]?\d+\s*$',
+        r'^\s*s\d+\s*$',
+        r'^\s*(label|untitled|unnamed|todo|tbd|xxx|placeholder)\s*[-_ ]?\d*\s*$',
+        r'^\s*$',
+    ) + extra]
+    bad = []
+    for name, sp in sorted(specs.items()):
+        series = sp.get('series') or []
+        if (sp.get('key_mode') or 'none') == 'none' and len(series) < 2:
+            continue
+        for ser in series:
+            lab = str(ser.get('label') or '')
+            if any(_p.match(lab) for _p in pats) or lab.strip() == str(ser.get('id') or ''):
+                bad.append(f'Q{sp.get("question")}:{name}:{lab or "<empty>"}')
+    if bad:
+        _warn('A-FIGSPECLABEL',
+              f'{len(bad)} FigureSpec series label(s) are GENERATOR DEFAULTS, not the '
+              'names the stem refers to. Either the placeholder was rendered (the '
+              'question is unanswerable) or the spec is unfaithful to the render (and '
+              'A-FIGSERIES / A-FIGGLYPH are auditing fiction). MECHANICAL REMEDY: '
+              're-emit these figures through Step 7 S10-8 with series labels bound to '
+              "the stem's own names, so the spec records what was drawn: "
+              + _flist(sorted(set(bad))))
+    else:
+        _ok('A-FIGSPECLABEL', f'{len(specs)} figure spec(s): every keyed series carries '
+                              'a stem-meaningful label (no generator defaults).')
+
+
+# MATHEMATICAL domains — these are properties of the QUANTITIES THEMSELVES, not of
+# any exam, syllabus or board (RA-9 is about exam values; the range of a cosine is
+# not one). Each entry: (stem trigger regex, (lo, hi), inclusive?, display name).
+# section_rules may extend via option_domain_rules; it may not silently shrink them.
+OPTION_DOMAINS = (
+    (r'\beccentricit(y|ies)\b(?=.*\bellipse\b)', (0.0, 1.0), False, 'eccentricity of an ellipse'),
+    (r'\bprobabilit(y|ies)\b',                     (0.0, 1.0), True,  'probability'),
+    (r'\bmole\s+fraction\b',                      (0.0, 1.0), True,  'mole fraction'),
+    (r'\b(correlation\s+coefficient|Pearson\'?s?\s+r)\b', (-1.0, 1.0), True, 'correlation coefficient'),
+)
+
+
+def gate_optdomain(blocks, src):
+    """A-OPTDOMAIN (v2.24.0, RELEASE C) — DISTRACTORS OUTSIDE THE QUANTITY'S DOMAIN.
+
+    FOUND ON REAL DELIVERED OUTPUT: a question asking for the ECCENTRICITY OF AN
+    ELLIPSE offered four numeric options, TWO of them greater than 1. An ellipse
+    has 0 < e < 1 by definition, so those two are impossible for ANY ellipse
+    whatever the figure shows — a candidate who knows the definition discards half
+    the option set without reading the figure, and a 4-way discrimination collapses
+    to a coin flip. The key stayed uniquely correct, so this is a DISTRACTOR
+    QUALITY defect (B-DISTRACT), not a wrong-answer defect.
+
+    WHY IT GENERALISES, which is the reason it is worth a gate: the two impossible
+    values were the RECIPROCALS of the two plausible ones (1/0.8 = 1.25, 1/0.6 =
+    1.67). That is a distractor STRATEGY — invert the answer — and it is perfectly
+    good for an UNBOUNDED quantity. Applied to a BOUNDED one it mechanically emits
+    out-of-domain values. The same generator will therefore have produced the same
+    defect wherever a bounded quantity met that strategy, across every exam.
+
+    AMBER by construction. Fires only when the stem NAMES the quantity and EVERY
+    option parses as a bare number, so a stem carrying units, ranges or symbolic
+    options is never judged. Absent triggers ⇒ dormant.
+    """
+    rules = list(OPTION_DOMAINS)
+    for r in (src.get('option_domain_rules') or ()):
+        try:
+            rules.append((r['pattern'], (float(r['lo']), float(r['hi'])),
+                          bool(r.get('inclusive', True)), str(r.get('name', 'quantity'))))
+        except Exception:
+            continue
+    _NUM = re.compile(r'^\s*[-+]?\d+(?:\.\d+)?\s*$')
+    bad, checked = [], 0
+    for b in blocks:
+        stem = para_text(b.items[0][1]) if b.items else ''
+        opts = [para_text(o) for k, o in b.items
+                if k == 'p' and OPT_LABEL_RE.match(para_text(o))]
+        if len(opts) < 2:
+            continue
+        vals = []
+        for o in opts:
+            body = OPT_LABEL_RE.sub('', o, count=1)
+            if not _NUM.match(body):
+                vals = None
+                break
+            vals.append(float(body.strip()))
+        if not vals:
+            continue
+        for pat, (lo, hi), incl, nm in rules:
+            if not re.search(pat, stem, re.I):
+                continue
+            checked += 1
+            if incl:
+                out = [v for v in vals if v < lo or v > hi]
+            else:
+                out = [v for v in vals if v <= lo or v >= hi]
+            if out:
+                bad.append(f'Q{b.qnum}({nm}: ' + ', '.join(f'{v:g}' for v in out) + ')')
+            break
+    if bad:
+        _warn('A-OPTDOMAIN',
+              f'{len(bad)} question(s) offer option value(s) OUTSIDE the mathematical '
+              'domain of the quantity the stem names. Such options are eliminable by '
+              'definition, so the effective option count is reduced and the item '
+              'under-discriminates. MECHANICAL REMEDY: replace each out-of-domain '
+              'value with an in-domain one derived from a plausible MISREADING (a '
+              'reciprocal distractor is valid only for an UNBOUNDED quantity): '
+              + _flist(bad))
+    elif checked:
+        _ok('A-OPTDOMAIN', f'{checked} numeric option set(s) with a named bounded '
+                           'quantity: all values lie inside the domain.')
+    else:
+        _ok('A-OPTDOMAIN', 'no question names a bounded quantity with an all-numeric '
+                           'option set — dormant.')
+
+
 def gate_header(doc, blocks, src):
     # v2.7: A-HEADER INVERTED. The paper is questions-only (Step 7 R8b / G-PREQ1): NO
     # title/info/scoring/cover paragraph may sit before Q.1. Any non-blank paragraph before
@@ -2954,6 +3104,8 @@ def run_audit(args):
     _safe_gate('A-OPTREF', gate_optref, blocks, src)
     _safe_gate('A-ENCODING', gate_encoding_script, doc, src)
     _safe_gate('A-DUP', gate_dup, blocks, src)
+    _safe_gate('A-FIGSPECLABEL', gate_specfaith, blocks, src)
+    _safe_gate('A-OPTDOMAIN', gate_optdomain, blocks, src)
     _safe_gate('A-HEADER', gate_header, doc, blocks, src)
     rc = print_results()
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
@@ -3450,18 +3602,127 @@ def self_test():
         ('view ', '+ fix'), ('view in ', 'part b'), ('reviewer ', 'adjudication'),
         ('adjud', 'icate'), ('manually ', 'inspect'), ('ask the ', 'reviewer'),
         ('someone ', 'should'), ('human ', 'review')))
-    _src_self = open(__file__, encoding='utf-8').read().split('\n')
-    _offenders = []
-    for _i, _ln in enumerate(_src_self, 1):
-        _code = _ln.split('#', 1)[0]          # strip trailing comments
-        if _code.lstrip().startswith('#'):
+    # v2.24.0 — SCAN THE EMITTED MESSAGES, NOT THE WHOLE FILE. The line-based
+    # scanner also read DOCSTRINGS, so a docstring EXPLAINING this rule tripped it
+    # (gate_specfaith's own does). A control that forces contorted documentation is
+    # a control that eventually gets weakened, so it is now exact: parse the module
+    # and inspect only the string literals actually passed to _warn/_fail/_ok/print
+    # — which is precisely the set a human could ever read.
+    _tree = ast.parse(open(__file__, encoding='utf-8').read())
+    _emitted = []
+    for _node in ast.walk(_tree):
+        if not isinstance(_node, ast.Call):
             continue
-        _low = _code.lower()
-        for _d in _DEFERRAL:
-            if _d in _low:
-                _offenders.append(f'L{_i}:{_d}')
+        _fn = _node.func
+        _nm = getattr(_fn, 'id', None) or getattr(_fn, 'attr', None)
+        if _nm not in ('_warn', '_fail', '_ok', 'print'):
+            continue
+        for _arg in list(_node.args) + [kw.value for kw in _node.keywords]:
+            for _sub in ast.walk(_arg):
+                if isinstance(_sub, ast.Constant) and isinstance(_sub.value, str):
+                    _emitted.append((_sub.lineno, _sub.value))
+    _offenders = [f'L{_ln}:{_d}' for _ln, _txt in _emitted
+                  for _d in _DEFERRAL if _d in _txt.lower()]
     check('SELF-ADJUDICATION-no-gate-defers-to-a-human',
           not _offenders)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 5i / 5j.  RELEASE C (v2.24.0) — TWO NEW GATES, BOTH AMBER BY CONSTRUCTION.
+    # ══════════════════════════════════════════════════════════════════════════
+    def _spec_verdict(specs):
+        _reset(); gate_specfaith([], {'figure_specs': specs})
+        return {c: (l, m) for l, c, m in RESULTS}
+
+    def _sp(label1, label2=None, key='legend', q=1):
+        _ser = [{'id': 's1', 'label': label1}]
+        if label2 is not None:
+            _ser.append({'id': 's2', 'label': label2})
+        return {f'q{q}_problem.png': {'question': q, 'key_mode': key, 'series': _ser}}
+
+    # 5i-1 — THE DEFECT. matplotlib defaults recorded as series labels. Measured on
+    #        real output: ALL 57 specs of IIT_JAM_BIOTECHNOLOGY M01 carry them.
+    check('SPECLABEL-generator-default-is-a-finding',
+          _spec_verdict(_sp('Series 1', 'Series 2')).get('A-FIGSPECLABEL', (None,))[0] == 'WARN')
+
+    # 5i-2 — AMBER, NEVER BLOCKING. A NEW gate may not halt a paper (v2.22.0):
+    #        the deployed operator cannot adjudicate, so a first false positive
+    #        would strand papers with nobody to release them.
+    check('SPECLABEL-is-amber-not-blocking',
+          _spec_verdict(_sp('Series 1', 'Series 2')).get('A-FIGSPECLABEL', (None,))[0] != 'FAIL')
+
+    # 5i-3 — REAL LABELS ARE CLEAN. Without this the gate could be "achieved" by
+    #        flagging every figure, which is the A-FIGCOMP defect one gate over.
+    check('SPECLABEL-stem-meaningful-labels-clean',
+          _spec_verdict(_sp('P', 'Q')).get('A-FIGSPECLABEL', (None,))[0] == 'OK')
+
+    # 5i-4 — id-as-label is a placeholder too ('s1' labelled 's1').
+    check('SPECLABEL-id-as-label-is-a-finding',
+          _spec_verdict(_sp('s1', 's2')).get('A-FIGSPECLABEL', (None,))[0] == 'WARN')
+
+    # 5i-5 — LEGACY DORMANT. Pre-v5.34 registry has no figure_specs; ~200 exams.
+    check('SPECLABEL-no-specs-dormant',
+          _spec_verdict({}).get('A-FIGSPECLABEL', (None, ''))[0] == 'OK')
+
+    # 5i-6 — A SINGLE UNKEYED SERIES CANNOT MISLEAD ANYONE: no legend is printed,
+    #        so its label is never read. 51 of the real paper's 57 figures are this.
+    check('SPECLABEL-unkeyed-single-series-not-flagged',
+          _spec_verdict(_sp('Series 1', None, key='none'))
+          .get('A-FIGSPECLABEL', (None,))[0] == 'OK')
+
+    def _dom_verdict(stem, opts):
+        def _b(d):
+            d.add_paragraph(f'Q.1  {stem}')
+            for _i, _o in enumerate(opts, 1):
+                d.add_paragraph(f'{_i}.  {_o}')
+            d.add_paragraph('')
+            _add_q(d, 2)
+        _doc = Document(_mini_doc(tmp, _b)); _t, _bl = parse_blocks(_doc)
+        _reset(); gate_optdomain(_bl, _src_stub(tq=2))
+        return {c: (l, m) for l, c, m in RESULTS}
+
+    # 5j-1 — THE DEFECT, as delivered: eccentricity of an ellipse with two values
+    #        greater than 1 — impossible for ANY ellipse, so half the option set is
+    #        eliminable without reading the figure.
+    check('OPTDOMAIN-out-of-domain-distractors-are-a-finding',
+          _dom_verdict('The eccentricity of this ellipse is:',
+                       ['0.60', '0.80', '1.25', '1.67'])
+          .get('A-OPTDOMAIN', (None,))[0] == 'WARN')
+
+    # 5j-2 — AMBER, NEVER BLOCKING.
+    check('OPTDOMAIN-is-amber-not-blocking',
+          _dom_verdict('The eccentricity of this ellipse is:',
+                       ['0.60', '0.80', '1.25', '1.67'])
+          .get('A-OPTDOMAIN', (None,))[0] != 'FAIL')
+
+    # 5j-3 — IN-DOMAIN OPTIONS ARE CLEAN.
+    check('OPTDOMAIN-in-domain-option-set-clean',
+          _dom_verdict('The eccentricity of this ellipse is:',
+                       ['0.20', '0.45', '0.60', '0.80'])
+          .get('A-OPTDOMAIN', (None,))[0] == 'OK')
+
+    # 5j-4 — BOUNDS ARE EXCLUSIVE FOR AN ELLIPSE (e=1 is a parabola, e=0 a circle),
+    #        INCLUSIVE for a probability. Getting this backwards would either miss
+    #        the defect or fire on a legitimate p=0/p=1 option.
+    check('OPTDOMAIN-bound-inclusivity-is-per-quantity',
+          _dom_verdict('The eccentricity of this ellipse is:',
+                       ['0.5', '0.7', '0.9', '1.0']).get('A-OPTDOMAIN', (None,))[0] == 'WARN'
+          and _dom_verdict('The probability of the event is:',
+                           ['0', '0.25', '0.5', '1']).get('A-OPTDOMAIN', (None,))[0] == 'OK')
+
+    # 5j-5 — NON-NUMERIC OPTIONS ARE NEVER JUDGED. A stem may name a bounded
+    #        quantity while its options carry units, ranges or words; parsing those
+    #        as bare numbers would invent findings.
+    check('OPTDOMAIN-non-numeric-options-ignored',
+          _dom_verdict('The probability of the event is:',
+                       ['one half', '0.25', '0.5', '1'])
+          .get('A-OPTDOMAIN', (None, ''))[0] == 'OK')
+
+    # 5j-6 — NO NAMED QUANTITY ⇒ DORMANT. An unbounded numeric answer must never
+    #        be judged against a domain it does not have.
+    check('OPTDOMAIN-unnamed-quantity-dormant',
+          _dom_verdict('The value of the current is:',
+                       ['1.25', '1.67', '2.50', '9.90'])
+          .get('A-OPTDOMAIN', (None, ''))[0] == 'OK')
 
     # 5c — SEC-2: A-OPTREF must SEE a figural block's full option set. option_paras
     #      (OPT_RE) reported ONE option on a block rendering four; _label_paras
@@ -4179,7 +4440,9 @@ def self_test():
     #     it catches the next `bc`-class defect automatically, in any gate.
     _und = {}
     try:
-        import builtins as _bi, ast
+        import builtins as _bi          # v2.24.0 — 'ast' is a MODULE-level
+        # import (line 35); a function-local one here would shadow it for the
+        # WHOLE of self_test(), unbinding it for fixture 5h defined earlier.
         _tree = ast.parse(open(__file__, encoding='utf-8').read())
         _bnd = set(dir(_bi)) | {'__file__', '__name__', '__doc__', '__builtins__'}
         for _n in ast.walk(_tree):
