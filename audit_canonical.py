@@ -25,7 +25,8 @@
 #   python3 [ExamCode]_mock_test_audit.py --self-test
 #
 # Exit code: 0 if no FAIL AND (when --audit-state) COMPLETION-GATE PASS, else 1.
-# WARNs are printed for reviewer adjudication (Part B / §7) and do not change the
+# WARNs name a MECHANICAL remedy or declare dormancy (v2.22.0 SELF-ADJUDICATION:
+# no gate may instruct a human to look at something and decide) and do not change the
 # exit code; the Step-8 certification gate (spec §12-2) decides whether a fixable
 # WARN blocks delivery.
 # ============================================================================
@@ -1294,7 +1295,7 @@ def gate_frac_ascii(blocks, src):
     (_ok if not caret else _fail)('A-FRAC',
         'no ASCII caret exponents.' if not caret else 'ASCII "^" exponent: ' + _flist(caret))
     if slash:
-        _warn('A-FRAC-SLASH', 'slash fraction in math-context stem (view in Part B): '
+        _warn('A-FRAC-SLASH', 'slash fraction in a math-context stem; R-MATH-OMML requires built-up structures as native OMML. MECHANICAL REMEDY: re-emit these stems through Step 7 S10-4 add_math_stem: '
               + _flist(slash))
 
 
@@ -1430,6 +1431,44 @@ def gate_images(blocks, src, media_map):
             # (which runs before this point) continues to enforce exactly that.
             if obq_img.get(qnum_str) == 0:
                 _q_role = 'stem_only'
+            # v2.22.0 (GAP-2026-08-03-FIGCOMP-ROLE) — THE PRODUCER'S OWN RECORD WINS.
+            # Every branch above INFERS the role (section_rules by subtopic, NAT
+            # subtopic set, 0-option registry). The registry figure_specs carry the
+            # role figural_core actually DREW each PNG as — 'problem' vs 'opt<i>' —
+            # which is not an inference at all. Measured on a real delivered paper
+            # (IIT_JAM_BIOTECHNOLOGY M01): 27 of 33 figural questions are a single
+            # role='problem' figure with FOUR TEXT OPTIONS — a diagram/gel/graph
+            # with text answers, the commonest figural shape in the life sciences.
+            # The default 'stem_and_options' demanded oc+1 images, found 1, and
+            # emitted 17 findings on questions that were CORRECT. Those findings
+            # then said "VIEW + fix in Part B", pushing 17 conformant questions
+            # into a vision queue — the queue that stalled a real audit for a day.
+            # FOURTH occurrence of one gate assuming one rendering shape (v2.21
+            # A-DOSSIER, v2.21.3 A-OPTORDER, v2.21.9 A-QNFIRST, now this).
+            # PRECEDENCE: specs are consulted LAST and override, because they are
+            # the only non-inferred signal. Absent specs (pre-v5.34 registry, or a
+            # question with no spec record) leave every earlier branch untouched,
+            # so legacy behaviour is byte-identical.
+            _q_specs = [s for s in (src.get('figure_specs') or {}).values()
+                        if str(s.get('question')) == qnum_str]
+            if _q_specs:
+                _roles = {str(s.get('role') or '') for s in _q_specs}
+                _opt_roles = {r for r in _roles if r.startswith('opt')}
+                if not _opt_roles:
+                    # The producer drew NO option figures for this question. There
+                    # are no option images to bind 1:1, exactly as for a NAT item.
+                    _q_role = 'stem_only'
+                else:
+                    # The producer DID draw option figures: require the full set,
+                    # counted from the specs themselves rather than from the
+                    # exam-wide OPTIONS_COUNT, so a question whose option set is
+                    # legitimately shorter is judged against what it declares.
+                    _q_role = 'stem_and_options'
+                    _spec_expect = len(_opt_roles) + (1 if 'problem' in _roles else 0)
+                    if len(block_imgs) < _spec_expect:
+                        composite.append(
+                            f'Q{b.qnum}({len(block_imgs)}<{_spec_expect})')
+                    continue
             # Branch by image_role
             if _q_role == 'stem_only':
                 # v2.21.4: the zero-image case is handled ABOVE (before the
@@ -1456,9 +1495,11 @@ def gate_images(blocks, src, media_map):
         'image named like a math raster: ' + _flist(math_raster))
     if warn_view:
         _warn('A-MATHRASTER-VIEW',
-              f'{len(set(warn_view))} block(s) have non-canonically-named images — '
-              'VIEW in Part B (§7) to confirm figure vs math raster: '
-              + _flist(warn_view))
+              f'{len(set(warn_view))} block(s) have non-canonically-named images; '
+              'the name contract (q<N>_problem/_opt<i>) cannot confirm figure-vs-math '
+              'from the name alone. MECHANICAL REMEDY: re-run Step 7 S10-8 naming for '
+              'these blocks, or supply the registry figure_specs (v5.34+) whose role '
+              'field settles it without inspection: ' + _flist(warn_view))
     if multi_per_line:
         _fail('A-FIGCOMP-LINE', 'multiple images on one line (option-per-line broken): '
               + _flist(multi_per_line))
@@ -1466,8 +1507,11 @@ def gate_images(blocks, src, media_map):
         _ok('A-FIGCOMP-LINE', 'at most one image per line.')
     if composite:
         _warn('A-FIGCOMP',
-              'figural block image-count mismatch (per image_role) — '
-              'VIEW + fix in Part B: ' + _flist(composite))
+              'figural block renders FEWER images than its own registry '
+              'figure_specs declare (v2.22.0: the expectation is the producer\'s '
+              'OWN role record, never an inference). MECHANICAL REMEDY: re-render '
+              'the missing option figure(s) for these questions via Step 7 S10-8; '
+              'no inspection is required to decide this: ' + _flist(composite))
     else:
         _ok('A-FIGCOMP', 'figural blocks pass image_role-aware check (v2.4).')
 
@@ -2880,7 +2924,8 @@ def print_results():
         print(f'[{mark}] {code:20s} {msg}')
     print('-' * 70)
     if n_fail == 0:
-        print(f'RESULT: PASS (0 FAIL, {n_warn} WARN for reviewer adjudication)')
+        print(f'RESULT: PASS (0 FAIL, {n_warn} WARN — each names its own mechanical '
+              f'remedy or is dormant; no WARN requires human adjudication)')
     else:
         print(f'RESULT: FAIL ({n_fail} gate(s) failed)')
     return 0 if n_fail == 0 else 1
@@ -3223,15 +3268,44 @@ def self_test():
             d.add_paragraph(f'{_i}.  Opt {_i}')
         d.add_paragraph('')
 
+    def _shape_figural_problem_only(d, n):
+        """v2.22.0 — THE SHAPE THAT PRODUCED GAP-2026-08-03-FIGCOMP-ROLE: ONE
+        role='problem' figure with TEXT options (diagram/gel/graph + text answers,
+        the commonest figural shape in the life sciences — 27 of 33 figural Qs on
+        the real IIT_JAM_BIOTECHNOLOGY paper). No fixture had ever built it."""
+        d.add_paragraph(f'Q.{n}  Study the figure and answer.')
+        d.add_paragraph().add_run().add_picture(
+            io.BytesIO(_png_bytes()), width=Inches(2.0))
+        for _i in range(1, 5):
+            d.add_paragraph(f'{_i}.  Opt {_i}')
+        d.add_paragraph('')
+
+    def _shape_nat_zero_option(d, n):
+        """v2.22.0 — a NUMERICAL-ANSWER question: bold stem carrying the
+        nat_instruction and ZERO option paragraphs (R13/R14 NAT exemption).
+        20 of the 60 questions on the real paper are this shape."""
+        p = d.add_paragraph()
+        p.add_run(f'Q.{n}  The value is ______ .  Enter your answer as a '
+                  'numerical value.').bold = True
+        d.add_paragraph('')
+
     _SHAPES = (('text', _shape_text, {}),
                ('image', _shape_image, {'figural_qs': {1}}),
-               ('enumerated-stem', _shape_enum, {}))
+               ('enumerated-stem', _shape_enum, {}),
+               ('figural-problem-only', _shape_figural_problem_only,
+                {'figural_qs': {1},
+                 'figure_specs': {'q1_problem.png': {'question': 1,
+                                                     'role': 'problem'}}}),
+               ('nat-zero-option', _shape_nat_zero_option,
+                {'options_by_q': {'1': 0}, 'nat_present': True}))
 
-    def _shape_fails(builder, extra):
+    def _shape_fails(builder, extra, img_names=None):
         def _b(d):
             builder(d, 1)
             _shape_text(d, 2)
         _p = _mini_doc(tmp, _b)
+        if img_names:
+            _p = _stamp_canonical(_p, img_names)
         _doc = Document(_p)
         _t, _bl = parse_blocks(_doc)
         _s = _src_stub(tq=2); _s.update(extra)
@@ -3249,15 +3323,94 @@ def self_test():
                 _g(*[_pool[_pn] for _pn in _sig.parameters])
             except Exception:
                 pass              # _safe_gate owns crash reporting; not this fixture
-        return [(c, m) for l, c, m in RESULTS if l == 'FAIL']
+        # v2.22.0 — WARN-SEVERITY FINDINGS COUNT TOO. The original matrix asserted
+        # only FAILs, and GAP-2026-08-03-FIGCOMP-ROLE was a WARN — so the matrix
+        # would NOT have caught the very defect that motivated extending it. But a
+        # blanket "no WARN" is wrong: dormancy warnings on a clean shape are
+        # legitimate and expected (absent blueprint, uninstalled engine).
+        # THE DISCRIMINATOR IS MECHANICAL: a DORMANCY warning describes the gate
+        # ('skipped', 'dormant', 'absent'); a DEFECT finding NAMES QUESTIONS. On a
+        # CONFORMANT paper no gate may name a question at any severity.
+        _bad = [(c, m) for l, c, m in RESULTS if l == 'FAIL']
+        _bad += [(c, m) for l, c, m in RESULTS
+                 if l == 'WARN' and re.search(r'\bQ\d+\b', m or '')]
+        return _bad
 
-    _matrix = {nm: _shape_fails(b, x) for nm, b, x in _SHAPES}
+    def _stamp_canonical(path, names):
+        """v2.22.0 — stamp docPr name/descr in document order, exactly as Step 7
+        S10-8 _name_last_drawing does. WITHOUT THIS the matrix's synthetic images
+        carry python-docx default part names, A-MATHRASTER-VIEW correctly reports
+        a name-contract miss, and the matrix would flag its OWN fixture rather
+        than a gate defect — a false positive in the very control built to stop
+        false positives. A conformant paper always carries canonical names."""
+        out = os.path.join(tempfile.mkdtemp(), 'stamped.docx')
+        with zipfile.ZipFile(path) as zin:
+            items = zin.infolist()
+            xml = zin.read('word/document.xml').decode('utf-8')
+            it = iter(names); _c = [0]
+            def _sub(mo):
+                nm = next(it, 'x.png'); _c[0] += 1
+                close = '/>' if mo.group(0).rstrip().endswith('/>') else '>'
+                return (f'<wp:docPr id="{_c[0]}" name="{nm}" '
+                        f'descr="alt for {nm}"{close}')
+            xml = re.sub(r'<wp:docPr\b[^>]*>', _sub, xml)
+            with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as zo:
+                for i in items:
+                    zo.writestr(i, xml.encode('utf-8')
+                                if i.filename == 'word/document.xml'
+                                else zin.read(i.filename))
+        return out
+
+    _SHAPE_IMG_NAMES = {
+        'image': ['q1_problem.png', 'q1_opt1.png', 'q1_opt2.png',
+                  'q1_opt3.png', 'q1_opt4.png'],
+        'figural-problem-only': ['q1_problem.png'],
+    }
+    _matrix = {nm: _shape_fails(b, x, _SHAPE_IMG_NAMES.get(nm))
+               for nm, b, x in _SHAPES}
     check('SHAPE-MATRIX-no-gate-fails-a-conformant-rendering',
           all(not v for v in _matrix.values()))
     # Report WHICH shape and WHICH gate, so a future failure is diagnosable at a
     # glance instead of sending someone back through the whole roster.
     for _snm, _sfails in _matrix.items():
         check(f'SHAPE-MATRIX[{_snm}]-clean',  not _sfails)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # 5h. SELF-ADJUDICATION (v2.22.0) — NO GATE MAY DEFER TO A HUMAN.
+    # ══════════════════════════════════════════════════════════════════════════
+    #     THE DEPLOYED REALITY: the operator running these ~200 exam pipelines is
+    #     not a reviewer and cannot adjudicate anything. A finding that says "VIEW
+    #     + fix in Part B" or "for reviewer adjudication" therefore has NO RECEIVER
+    #     — it is, in effect, a silent no-op, and at worst it parks conformant work
+    #     in an inspection queue that never drains. That is exactly what happened:
+    #     A-FIGCOMP's 17 false findings each carried "VIEW + fix in Part B" and the
+    #     resulting queue stalled a real 60-question audit for a day.
+    #
+    #     THE RULE: every gate message must either (a) name a MECHANICAL remedy the
+    #     pipeline can execute, or (b) declare the gate dormant. Never "look at this
+    #     and decide". This fixture scans THIS FILE's emitted message literals for
+    #     deferral phrasing, so the rule is enforced on gates not yet written.
+    #     Comments are excluded — the prose above documents the defect and must be
+    #     allowed to name it.
+    # Built from fragments so this list does not match ITSELF — a scanner whose
+    # own definition trips it would be permanently red and would then be deleted,
+    # which is how controls die.
+    _DEFERRAL = tuple(_a + _b for _a, _b in (
+        ('view ', '+ fix'), ('view in ', 'part b'), ('reviewer ', 'adjudication'),
+        ('adjud', 'icate'), ('manually ', 'inspect'), ('ask the ', 'reviewer'),
+        ('someone ', 'should'), ('human ', 'review')))
+    _src_self = open(__file__, encoding='utf-8').read().split('\n')
+    _offenders = []
+    for _i, _ln in enumerate(_src_self, 1):
+        _code = _ln.split('#', 1)[0]          # strip trailing comments
+        if _code.lstrip().startswith('#'):
+            continue
+        _low = _code.lower()
+        for _d in _DEFERRAL:
+            if _d in _low:
+                _offenders.append(f'L{_i}:{_d}')
+    check('SELF-ADJUDICATION-no-gate-defers-to-a-human',
+          not _offenders)
 
     # 5c — SEC-2: A-OPTREF must SEE a figural block's full option set. option_paras
     #      (OPT_RE) reported ONE option on a block rendering four; _label_paras
@@ -4095,18 +4248,23 @@ def self_test():
     #     space surfaced two real defects, both fixed in this release and locked
     #     by 53f/53g.
     # ══════════════════════════════════════════════════════════════════════
-    def _fig_src(role='stem_and_options', oc=4, figq=(1,)):
+    def _fig_src(role='stem_and_options', oc=4, figq=(1,), specs=None):
         _s = _src_stub(tq=1); _s['options_count'] = oc
         _s['figural_qs'] = set(figq); _s['omml_required_present'] = False
         _s['concept_map'] = {'1': {'subtopic_id': 's.a'}}
         _s['section_rules_text'] = f'subtopic_id: s.a\n  image_role: {role}\n'
+        if specs is not None:
+            _s['figure_specs'] = specs
         return _s
-    def _img_verdict(names, role='stem_and_options', oc=4, figq=(1,)):
+    def _img_verdict(names, role='stem_and_options', oc=4, figq=(1,), specs=None):
         _p = _img_doc(list(names))
         _mm = gate_zip(_p)
         _doc = Document(_p); _t, _bl = parse_blocks(_doc)
-        _reset(); gate_images(_bl, _fig_src(role, oc, figq), _mm)
+        _reset(); gate_images(_bl, _fig_src(role, oc, figq, specs), _mm)
         return {c: l for l, c, m in RESULTS}
+    def _specs(*roles, q=1):
+        """A registry figure_specs map as Step 7 v5.34 transports it."""
+        return {f'q{q}_{r}.png': {'question': q, 'role': r} for r in roles}
     _CANON5 = ['q1_problem.png', 'q1_opt1.png', 'q1_opt2.png',
                'q1_opt3.png', 'q1_opt4.png']
 
@@ -4115,6 +4273,46 @@ def self_test():
     #       by making the gate reject everything.
     check('FIGCOMP-canonical-stem-and-options-clean',
           _img_verdict(_CANON5).get('A-FIGCOMP') == 'OK')
+
+    # 53a-1..4  v2.22.0 — GAP-2026-08-03-FIGCOMP-ROLE.
+    #   MEASURED ON REAL DELIVERED OUTPUT: 27 of 33 figural questions in
+    #   IIT_JAM_BIOTECHNOLOGY M01 are ONE role='problem' figure with FOUR TEXT
+    #   OPTIONS. The gate INFERRED 'stem_and_options', demanded oc+1 images, and
+    #   emitted 17 findings against CORRECT questions — each telling an operator
+    #   to "VIEW + fix in Part B", i.e. deferring to a human who, in the deployed
+    #   configuration, does not exist. The registry figure_specs record the role
+    #   figural_core actually DREW; that is not an inference and it now wins.
+
+    # 53a-1 — THE FIX. Problem-only specs ⇒ no option figures exist to bind ⇒ the
+    #         per-option arm is inapplicable. MUTATION-VERIFIED against v2.21.9.
+    check('FIGCOMP-problem-only-specs-not-flagged',
+          _img_verdict(['q1_problem.png'],
+                       specs=_specs('problem')).get('A-FIGCOMP') == 'OK')
+
+    # 53a-2 — THE FIX IS NOT A BLANKET EXEMPTION. When the producer DID draw
+    #         option figures, a PARTIAL render must STILL be caught. Without this
+    #         53a-1 could be "achieved" by exempting every figural block, which
+    #         would restore the v2.21.4 defect (options silently undrawn, a
+    #         question no candidate can answer).
+    check('FIGCOMP-declared-option-figures-still-required',
+          _img_verdict(['q1_problem.png', 'q1_opt1.png'],
+                       specs=_specs('problem', 'opt1', 'opt2', 'opt3', 'opt4')
+                       ).get('A-FIGCOMP') == 'WARN')
+
+    # 53a-3 — COUNTED FROM THE SPECS, NOT FROM THE EXAM-WIDE OPTIONS_COUNT. A
+    #         question declaring a SHORTER option-figure set is judged against
+    #         what it declares; oc would over-demand and re-create the false
+    #         positive one layer down.
+    check('FIGCOMP-expectation-derives-from-specs-not-oc',
+          _img_verdict(['q1_problem.png', 'q1_opt1.png', 'q1_opt2.png'],
+                       oc=4,
+                       specs=_specs('problem', 'opt1', 'opt2')).get('A-FIGCOMP') == 'OK')
+
+    # 53a-4 — LEGACY UNCHANGED. No specs (pre-v5.34 registry) ⇒ every earlier
+    #         inference branch stands exactly as before. ~200 exams depend on it.
+    check('FIGCOMP-no-specs-legacy-path-unchanged',
+          _img_verdict(['q1_problem.png'], specs={}).get('A-FIGCOMP') == 'WARN'
+          and _img_verdict(_CANON5, specs={}).get('A-FIGCOMP') == 'OK')
 
     # 53b — MATH-TOKEN raster name is an A-MATHRASTER finding (kills math_raster).
     check('MATHRASTER-math-token-name-is-a-finding',

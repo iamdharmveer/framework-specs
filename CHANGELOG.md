@@ -1,5 +1,60 @@
 # Changelog
 
+## 2026.08.03.1
+**Release A — A-FIGCOMP false-flagged the commonest figural shape, and every
+finding it emitted addressed an operator who does not exist.**
+
+Measured on real delivered output (IIT_JAM_BIOTECHNOLOGY M01: 60 questions, 33
+figural, 57 figures): Part A returned 43 OK / 4 WARN / 0 FAIL, and all twelve
+figure-conformance gates reported "57 figure(s) conform" **with no vision used**.
+The one substantive finding — A-FIGCOMP on 17 questions — was false.
+
+**The defect.** `gate_images` INFERS `image_role` (section_rules by subtopic, the
+NAT subtopic set, registry `options_by_q`), defaulting to `stem_and_options` and
+so demanding `options_count + 1` images. But 27 of the paper's 33 figural
+questions are ONE `role='problem'` figure with FOUR TEXT OPTIONS — a diagram,
+gel or graph with text answers, the commonest figural shape in the life sciences.
+Ten of those sit in NAT ranges and were already exempt (v2.21.5), leaving exactly
+the 17 observed. Fourth occurrence of one gate assuming one rendering shape
+(v2.21 A-DOSSIER, v2.21.3 A-OPTORDER, v2.21.9 A-QNFIRST, now this).
+
+**Fix — the producer's own record wins.** The registry `figure_specs` (v5.34
+FIGSPEC-TRANSPORT) carry the role `figural_core` actually DREW each PNG as. That
+is not an inference. Specs are consulted last and override: no `opt*` role means
+no option figures exist to bind, so the per-option arm is inapplicable (identical
+reasoning to the v2.21.5 NAT exemption); `opt*` roles present means require the
+full set, counted FROM THE SPECS rather than the exam-wide OPTIONS_COUNT, so a
+legitimately shorter option-figure set is judged against what it declares. Absent
+specs leave every earlier branch untouched, so ~200 pre-v5.34 exams are
+byte-identical. Measured: 17 findings to 0, genuine partial-render catch intact.
+
+**Self-adjudication — the rule behind the rule.** Every A-FIGCOMP finding said
+"VIEW + fix in Part B". The operator running these pipelines is not a reviewer
+and cannot adjudicate, so such a finding has no receiver: a silent no-op at best,
+an inspection queue that never drains at worst — which is what stalled a real
+60-question audit for a day. The rule: every gate message names a MECHANICAL
+remedy the pipeline can execute, or declares dormancy. Never "look and decide".
+A-FIGCOMP, A-MATHRASTER-VIEW, A-FRAC-SLASH and the RESULT line were reworded.
+A-FRAC-SLASH was found BY the new guard, not by inspection.
+
+**Controls added.** Fixture 5h scans emitted message literals for deferral
+phrasing (pattern list assembled from fragments so it cannot match itself). The
+CLEAN-SHAPE MATRIX now covers five renderings — text, image, enumerated-stem,
+figural-problem-only, nat-zero-option. **The matrix was strengthened to WARN
+severity**: as shipped at v2.21.9 it asserted only FAILs, and this defect was a
+WARN, so it would not have caught the very defect that motivated extending it.
+The discriminator is mechanical — a dormancy warning describes the gate, a defect
+finding NAMES QUESTIONS; on a conformant paper no gate may name a question at any
+severity. Matrix fixtures now stamp canonical docPr names (S10-8), without which
+A-MATHRASTER-VIEW correctly flagged the fixture's own default part names.
+
+Self-test 149 to 156. Mutation 28/28 killed, 100%, 0 survivors. AUTH_GATE_FLOOR
+stays 35. No paper changes, no Step-7 changes, no gate changed severity — this
+release can only make wrongly-failing things pass.
+
+Files: `audit_canonical.py`, `Framework_MockTestCreateAudit.md` (v2.21.9 to
+v2.22.0), `MANIFEST.json`, `VERSION`.
+
 ## 2026.08.02.9
 **A-QNFIRST false-failed every conformant figural paper — and the guard that
 existed to prevent it modelled the labels and not the pictures.**

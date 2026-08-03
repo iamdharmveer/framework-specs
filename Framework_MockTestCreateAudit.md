@@ -1,4 +1,68 @@
-# Framework_MockTestCreateAudit v2.21.9
+# Framework_MockTestCreateAudit v2.22.0
+# v2.22.0 — 2026-08-03 — RELEASE A: A-FIGCOMP FALSE-FLAGGED THE COMMONEST
+#   FIGURAL SHAPE, AND EVERY FINDING IT EMITTED ADDRESSED AN OPERATOR WHO DOES
+#   NOT EXIST. GAP-2026-08-03-FIGCOMP-ROLE + the SELF-ADJUDICATION rule.
+#
+#   MEASURED ON REAL DELIVERED OUTPUT (IIT_JAM_BIOTECHNOLOGY M01, 60 Q, 33
+#   figural, 57 figures): Part A returned 43 OK / 4 WARN / 0 FAIL, and ALL TWELVE
+#   figure-conformance gates reported "57 figure(s) conform" WITH NO VISION USED.
+#   The one substantive finding — A-FIGCOMP, 17 questions — was FALSE.
+#
+#   THE DEFECT. gate_images INFERS image_role from section_rules-by-subtopic, the
+#   NAT subtopic set, and registry options_by_q, defaulting to 'stem_and_options'
+#   and therefore demanding options_count+1 images. But 27 of the paper's 33
+#   figural questions are ONE role='problem' figure with FOUR TEXT OPTIONS — a
+#   diagram / gel / graph with text answers, the commonest figural shape in the
+#   life sciences. (10 of those 27 sit in NAT ranges and were already exempt via
+#   v2.21.5, leaving exactly the 17 observed.) FOURTH occurrence of one gate
+#   assuming ONE rendering shape: v2.21 A-DOSSIER, v2.21.3 A-OPTORDER, v2.21.9
+#   A-QNFIRST, now this.
+#
+#   FIX — THE PRODUCER'S OWN RECORD WINS. The registry figure_specs (v5.34
+#   FIGSPEC-TRANSPORT) carry the role figural_core actually DREW each PNG as.
+#   That is not an inference. Specs are consulted LAST and override: no opt* role
+#   ⇒ there are no option figures to bind ⇒ the per-option arm is inapplicable
+#   (identical reasoning to the v2.21.5 NAT exemption); opt* roles present ⇒
+#   require the full set, COUNTED FROM THE SPECS rather than from the exam-wide
+#   OPTIONS_COUNT, so a legitimately shorter option-figure set is judged against
+#   what it declares. Absent specs ⇒ every earlier branch untouched, so ~200
+#   pre-v5.34 exams are byte-identical. Measured: 17 findings -> 0 on the real
+#   paper, with the genuine partial-render catch preserved.
+#
+#   SELF-ADJUDICATION — THE RULE BEHIND THE RULE. Every A-FIGCOMP finding said
+#   "VIEW + fix in Part B". In the deployed configuration the operator is not a
+#   reviewer and cannot adjudicate anything, so such a finding has NO RECEIVER:
+#   at best a silent no-op, at worst a vision queue that never drains — which is
+#   precisely what stalled a real 60-question audit for a day. THE RULE: every
+#   gate message must name a MECHANICAL remedy the pipeline can execute, or
+#   declare dormancy. Never "look at this and decide". A-FIGCOMP, A-MATHRASTER-
+#   VIEW, A-FRAC-SLASH and the RESULT line were reworded accordingly; the
+#   A-FRAC-SLASH offender was found BY the new guard, not by inspection.
+#
+#   CONTROLS ADDED
+#     • fixture 5h SELF-ADJUDICATION — scans this file's emitted message literals
+#       for deferral phrasing, so the rule binds gates not yet written. Its own
+#       pattern list is assembled from fragments so it cannot match itself (a
+#       scanner that trips on its own definition is a scanner that gets deleted).
+#     • CLEAN-SHAPE MATRIX extended to FIVE canonical renderings: text, image,
+#       enumerated-stem, figural-problem-only, nat-zero-option.
+#     • MATRIX STRENGTHENED TO WARN SEVERITY. As shipped at v2.21.9 it asserted
+#       only FAILs — and this defect was a WARN, so the matrix would NOT have
+#       caught the very defect that motivated extending it. A blanket "no WARN"
+#       would be wrong (dormancy warnings are legitimate), so the discriminator is
+#       mechanical: a dormancy warning describes the GATE; a defect finding NAMES
+#       QUESTIONS. On a conformant paper no gate may name a question at ANY
+#       severity. Verified: with the fix reverted the matrix fires independently
+#       and names the offending shape.
+#     • Matrix fixtures now stamp CANONICAL docPr names (S10-8 contract). Without
+#       it A-MATHRASTER-VIEW correctly flagged the fixture's own default part
+#       names — the control would have produced a false positive of exactly the
+#       kind it exists to prevent.
+#
+#   Self-test 149 -> 156. Mutation 28/28 killed, 100%, 0 survivors — budget stays
+#   0. AUTH_GATE_FLOOR stays 35. NO paper changes. NO Step-7 changes. No gate
+#   changed severity: this release can only make wrongly-failing things pass.
+#
 # v2.21.9 — 2026-08-02 — A-QNFIRST FALSE-FAILED EVERY CONFORMANT FIGURAL PAPER.
 #   GAP-2026-08-02-QNFIRST-IMAGE-OPTION. Raised from a live TestCreateAudit run
 #   that reported "Part A — 48 OK · 0 WARN · 1 FAIL · exit 1" with A-QNFIRST
@@ -2646,7 +2710,7 @@
   | A-OMML      | every <m:f> has non-empty numerator AND denominator; no year-range "YYYY/YY" stacked fraction; OMML floor ≥1 if any subtopic OMML_required | section_rules OMML_required | R-MATH-OMML | CP |
 
   FIGURAL DECOMPOSITION
-  | A-FIGCOMP  | v2.4 image_role-aware: each figural Q is structured per its image_role variant. stem_and_options (default): problem image(s) + 1 image/option, single-column, 1 per line, bound 1:1 to labels; no composite panel; no "Figure k" dummy-text option. stem_only (v2.4): ≥1 problem image + TEXT options — option-image arm SKIPPED. options_only (v2.4): ≥n option images, no problem image required. FIGURAL-NAT (answer_type=='numerical', options_by_q==0): treated as stem_only — problem image(s) only with ZERO option images. All variants: single-column/no-composite/300-DPI/named-image discipline checked. image_role read from section_rules PYQ_IMAGE_ANALYSIS per subtopic_id | registry figural_manifests + section_rules PYQ_IMAGE_ANALYSIS + figural stem cues + registry options_by_q | R-FIGURAL | CP/RG | v2.21.4: a REGISTRY-DECLARED figural Q rendering ZERO images is a finding (the zero-image case previously hit an early `continue`, making the stem_only arm DEAD CODE); and stem_and_options requires the FULL set of oc+1 images, not merely more than one — a partial option-image set was previously accepted. v2.21.5 (ND10): a question the registry marks 0-option is NUMERICAL — the per-OPTION-image arm DOES NOT APPLY in either the stem_and_options or options_only variant; the signal is registry options_by_q (the same one gate_options reads), NEVER concept_map, which is empty on any run without a dossier or --key. >=1 problem image is still required.
+  | A-FIGCOMP  | v2.4 image_role-aware: each figural Q is structured per its image_role variant. stem_and_options (default): problem image(s) + 1 image/option, single-column, 1 per line, bound 1:1 to labels; no composite panel; no "Figure k" dummy-text option. stem_only (v2.4): ≥1 problem image + TEXT options — option-image arm SKIPPED. options_only (v2.4): ≥n option images, no problem image required. FIGURAL-NAT (answer_type=='numerical', options_by_q==0): treated as stem_only — problem image(s) only with ZERO option images. All variants: single-column/no-composite/300-DPI/named-image discipline checked. image_role read from section_rules PYQ_IMAGE_ANALYSIS per subtopic_id | registry figural_manifests + section_rules PYQ_IMAGE_ANALYSIS + figural stem cues + registry options_by_q | R-FIGURAL | CP/RG | v2.21.4: a REGISTRY-DECLARED figural Q rendering ZERO images is a finding (the zero-image case previously hit an early `continue`, making the stem_only arm DEAD CODE); and stem_and_options requires the FULL set of oc+1 images, not merely more than one — a partial option-image set was previously accepted. v2.21.5 (ND10): a question the registry marks 0-option is NUMERICAL — the per-OPTION-image arm DOES NOT APPLY in either the stem_and_options or options_only variant; the signal is registry options_by_q (the same one gate_options reads), NEVER concept_map, which is empty on any run without a dossier or --key. >=1 problem image is still required. v2.22.0: the expectation is the PRODUCER'S OWN registry figure_specs role record, not an inference — no opt* role means no option figures exist to bind and the per-option arm is inapplicable (as for NAT); opt* roles present means require the full set counted FROM THE SPECS, not from the exam-wide OPTIONS_COUNT. Absent specs leave every inference branch unchanged (legacy-safe) |
   | A-FIGPROFILE | v2.10 (GAP-2026-07-26-003 D2): each FIGURAL subtopic's GENERATED figure types conform to the profile Step 5 measured. Reads section_rules PYQ_IMAGE_ANALYSIS via bc.figural_generation_profile(), reads the object_type Step 7 recorded per question in registry.figural_manifests[mock].object_types (v2.18 CORRECTION: this row previously named batch_state.figural_qs[n].object_type, a Step-7 INTERNAL sidecar that S0-1 explicitly does NOT deliver — the auditor has always read the registry. The stale row sent an operator hunting for a file Step 8 can never have, and cost two turns and one wrong intermediate finding on a live run), and delegates the verdict to bc.check_figural_conformance() — the SAME function Step 7 generates against, so generator and auditor cannot drift. FAIL when a generated type appears in neither the dominant nor the observed list, or when dominant-mode coverage falls below the 55% floor (target 70%). SKIP when the profile is unconstrained — absent, empty, or vision_status='unavailable'. AUDITS RECORDED INTENT, NOT PIXELS: confirming a render actually depicts a micrograph needs a view(), a CLASS T operation that cannot run inside an audit's python; intent is deterministic and catches the real failure, which is Step 7 ignoring the profile. EC-V18: SKIP keeps ~200 pre-v2.37 exams passing untouched. | section_rules PYQ_IMAGE_ANALYSIS + registry figural_manifests[].object_types | R-FIGURAL | CP/RG |
 
   FIGURE CONFORMANCE (v2.11, GAP-2026-07-29-FIG-R2). Twelve gates, all arithmetic
@@ -4639,7 +4703,7 @@ Replace for registry.json), and next-step reference.
 #     ── v2.12 additions (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING) ──────────────
 #     Tests 8 and 9 are the two that would have caught the v2.10 defect. All eight
 #     are implemented as fixtures 43-52 in audit_canonical.py self_test() (61/61 at
-#     v2.12; the v2.21.9 build prints 149/149 — see tests 16-20, 25).
+#     v2.12; the v2.22.0 build prints 156/156 — see tests 16-20, 25).
 #     8. NON-DORMANT-BRANCH COVERAGE: a registry carrying figural_manifests[].
 #        object_types + subtopic_ids, with blueprint_core importable → the run MUST
 #        NOT raise and A-FIGPROFILE MUST print a NON-DORMANT verdict. THE ENTIRE
@@ -4694,6 +4758,12 @@ Replace for registry.json), and next-step reference.
 #        the call sites, bound nowhere. Test 15 (Context-2) proves the file runs
 #        ALONE; this proves its entry point actually invokes what it added.
 #        (fixture 63)
+#    26. SELF-ADJUDICATION (v2.22.0): no gate message may instruct a human to look
+#        at something and decide. In the deployed configuration the operator is not
+#        a reviewer, so such a finding has NO RECEIVER — a silent no-op at best, an
+#        undrainable inspection queue at worst. Every message names a MECHANICAL
+#        remedy or declares dormancy. Scanner built from fragments so it cannot
+#        match its own definition. (fixture 5h)
 #    25. CLEAN-SHAPE MATRIX (v2.21.9): build a CONFORMANT paper in each mandated
 #        rendering — TEXT options, IMAGE options (bare label + its own picture), and
 #        an ENUMERATED stem — DISCOVER every gate_* by introspection, run all of them
@@ -4758,7 +4828,7 @@ Replace for registry.json), and next-step reference.
 #   copies; raising it above their printed count would HARD STOP every un-refreshed
 #   exam and convert a coverage improvement into an estate-wide outage. At 35, a
 #   v2.11 copy (51/51), a v2.12 copy (61/61), a v2.13 copy (107/107) and a v2.21 copy
-#   (149/149) all pass, and
+#   (156/156) all pass, and
 #   the estate migrates
 #   exam by exam with zero downtime.
 #
@@ -4855,7 +4925,7 @@ Replace for registry.json), and next-step reference.
 #   MANDATE A requires it for Step 8.
 #
 #   Validation status (v2.8):
-#     • `--self-test`  → SELF-TEST: 149/149 PASS  (exit 0) on the v2.21.9 canonical
+#     • `--self-test`  → SELF-TEST: 156/156 PASS  (exit 0) on the v2.21.9 canonical
 #       build (was 51/51 at v2.8, 61/61 at v2.12). The 35 v2.5 tests cover every
 #       gate plus the edge cases (roman/alpha/figural option labels; an enumerated
 #       passage point that must NOT inflate the option count; accented-Latin and
@@ -4923,10 +4993,10 @@ Replace for registry.json), and next-step reference.
 # SINGLE SOURCE OF TRUTH: audit_canonical.py. To generate an exam's auditor,
 # copy that file VERBATIM to [ExamCode]_mock_test_audit.py (it self-parameterises
 # at runtime; no exam-specific edits). VALIDATE with:  --self-test  (fixture-based,
-# N>=35; currently 149/149). All MANDATE A / P1 / §21 rules apply to that file
+# N>=35; currently 156/156). All MANDATE A / P1 / §21 rules apply to that file
 # unchanged; §21's regression tests run against it.
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreateAudit v2.21.9
+# END OF Framework_MockTestCreateAudit v2.22.0
 # ════════════════════════════════════════════════════════════════════════
