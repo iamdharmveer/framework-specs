@@ -1,4 +1,12 @@
-# Framework_PYQExplainAudit v1.1.2 — Universal PYQ Explanation Auditor
+# Framework_PYQExplainAudit v1.2.0 — Universal PYQ Explanation Auditor
+# v1.2.0 — 2026-08-03 — SOLE OWNER OF THE RXA-* RULE SET (zero behaviour change).
+#   Framework_MockTestExplainAudit.md was retired when canonical Steps 8 and 10 were
+#   removed framework-wide. That file was this spec's shared-rules counterpart, so the
+#   SHARED_RULES block is rewritten: no counterpart, no parity obligation, and this file
+#   now owns the RXA-* rules and the §4-§18 sections outright. PYQExplainAudit REMAINS A
+#   LIVE, ROUTED STEP — it still runs explain_engine.py + explain_audit_gate.py and the
+#   CA1-CA7 completion gate over the PYQ pipeline. Not one rule, gate, or mandate changed.
+#
 # v1.1.2 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   53 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQExplainAudit'. The current companion block, the
@@ -947,14 +955,15 @@ Both files ship with the framework repo (GitHub projects get them from the /tmp/
 
 ---
 
-# SHARED_RULES_VERSION: 1.0 (2026-07-22)
-# Shared with: Framework_MockTestExplainAudit.md (mock/test pipeline)
-# Counterpart file: Framework_MockTestExplainAudit.md
-# If any RXA-* rule, MANDATE, or §4-§18 section changes in EITHER file,
-# update BOTH files and bump this version.
-# validate_framework_md.py checks version parity between
-# Framework_PYQExplainAudit.md and Framework_MockTestExplainAudit.md.
+# SHARED_RULES_VERSION: 1.1 (2026-08-03)
+# Counterpart file: NONE. Through v1.0 the RXA-* rules were shared with
+# Framework_MockTestExplainAudit.md (the mock/test explanation auditor). That spec was
+# RETIRED on 2026-08-03 when canonical Steps 8 and 10 were removed framework-wide, so
+# this file is now the SOLE owner of the RXA-* rule set and the §4-§18 sections. There is
+# no parity check left to satisfy and no second file to update. PYQExplainAudit itself is
+# UNCHANGED in behaviour: it still routes explain_engine.py + explain_audit_gate.py and
+# still runs the CA1-CA7 completion gate over the PYQ pipeline.
 
 ---
 
-**End of Framework_PYQExplainAudit.md (v1.1.2)**
+**End of Framework_PYQExplainAudit.md (v1.2.0)**

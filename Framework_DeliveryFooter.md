@@ -1,6 +1,14 @@
-# Framework_DeliveryFooter v1.10 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.11 — Universal Delivery Footer (F1/F2) Contract
+# v1.11 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
+#   B3 final deliverables drop 6 -> 5 (ExplainAuditLearnings.md is no longer generated);
+#   the engine-copy duty moves from Step 8 to Step 7. The former audit-rule cross-reference
+#   is inlined because the spec that defined it no longer exists. No footer rule, severity, or
+#   AMBER/VOID_ITEM/BLOCKING routing changes: no colour condition may halt a run, and
+#   that is untouched here.
+#
 # v1.10 — 2026-08-01 — §5 Q0b: CERTIFIED-DEGRADED (VISION) forces F1 AMBER.
-#   A paper certified under a MEASURED vision outage (RA-4 v2.16) delivers, but must
+#   A paper certified under a MEASURED vision outage (the retired audit-side rule on
+#   vision outage, now carried by Step 7's own handling) delivers, but must
 #   never render green: some figures were machine-checked and never eyeballed. — Universal Delivery Footer Contract
 # v1.9.1 — 2026-08-01 — B3 STAYS AT 6 FILES; ENGINES COME FROM THE CLONE
 #   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, post-deploy correction). v1.9 briefly
@@ -105,7 +113,7 @@ WHEN TO SHOW:
     - Step 2a PYQDraft: after delivering taxonomy_draft + exam_config
     - Step 3 PYQSort: after delivering the sorted docx
     - Step 5 PYQExtract: after final batch + auto-synthesis + all 6 files
-    - Step 6 MockBlueprint: after B3 final delivery of all 6 files
+    - Step 6 MockBlueprint: after B3 final delivery of all 5 files
     - Step 11 MockDeliver: after delivering the tagged docx
 
 VISUAL IDENTITY (superseded by §4 — see note above):
@@ -339,16 +347,15 @@ B1 DELIVERABLES:
 B2 DELIVERABLES (per batch):
   [ExamCode]_blueprint.json          → Replace in Project Files
 
-B3 FINAL DELIVERABLES (6 files — per Blueprint v1.42 / CreateAudit v2.12.1):
+B3 FINAL DELIVERABLES (5 files — per Blueprint v1.43.0):
   [ExamCode]_blueprint.xlsx          → Use locally (xlsx not readable by Claude)
   [ExamCode]_blueprint.json          → Replace in Project Files
   [ExamCode]_registry.json           → Upload to Project Files
   [ExamCode]_ExplainLearnings.md     → Upload to Project Files
-  [ExamCode]_ExplainAuditLearnings.md → Upload to Project Files
-  [ExamCode]_mock_test_audit.py      → Upload to Project Files (Step 7 optional, Step 8 mandatory)
+  [ExamCode]_mock_test_audit.py      → Upload to Project Files (run by Step 7)
 
   NOTE (v2.12.1): the repo engines blueprint_core.py / figural_core.py are NOT
-  delivered here and must NOT be uploaded per-exam. Step 8 copies both from the
+  delivered here and must NOT be uploaded per-exam. Step 7 copies both from the
   Step-0 verified clone into its own working directory. Engines live only in the
   central repo (CLAUDE.md); a per-project copy is a second, unverified source that
   can silently go stale. If an engine is ever unavailable the dependent gates
@@ -580,8 +587,9 @@ After every present_files call, Claude evaluates:
             failing check and its remedy in the footer body.
             DO NOT render F2. Then END response.
 
-      NO  → Q0b (v1.10, Framework_MockTestCreateAudit v2.16 / D2): did Step 8 print
-            COMPLETION-GATE: DEGRADED (vision)?
+      NO  → Q0b (v1.11): did the run that produced this paper report
+            COMPLETION-GATE: DEGRADED (vision)? (Through v1.10 this was Step 8's
+            print; with Step 8 retired the producing step — Step 7 — reports it.)
 
             YES → Render F1 (AMBER). The paper IS certified and IS delivered, but a
                   measured vision outage meant some figures were machine-checked and
@@ -589,7 +597,7 @@ After every present_files call, Claude evaluates:
                   "CERTIFIED-DEGRADED (VISION) — <v> of <i> image artefact(s) were not
                    viewed (P3.5 probe FAILED). Figure arithmetic, tables and OMML were
                    fully checked; legibility and figure/stem match were NOT visually
-                   confirmed. Remedy: re-run Step 8 on a session with a working view
+                   confirmed. Remedy: re-run Step 7 on a session with a working view
                    tool." Then END response.
                   A degraded certificate must NEVER render green — green is a claim
                   that the artefact is fit to hand downstream, and a partially

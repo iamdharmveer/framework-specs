@@ -1,4 +1,19 @@
-# Framework_MockTestCreate v5.38
+# Framework_MockTestCreate v5.39
+# v5.39 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
+#   Step 7 now hands the paper straight to Step 9. Every clause that promised a downstream
+#   re-verification ("independently re-verified by Step 8 A-HEADER", "audited within
+#   tolerance at Step 8", "Step 8 re-derives subtopic_id") has been restated against what
+#   actually runs: the SAME canonical A-* catalogue, in audit_canonical.py, executed HERE
+#   via [ExamCode]_mock_test_audit.py at S3-10 / S4-11. audit_canonical.py is KEPT and Step
+#   6 B3 still generates the per-exam copy.
+#   NO RULE WAS ADDED: audit.py remains OPTIONAL to run (S4-11's manual checklist still
+#   substitutes when it is absent). What changed is the reporting duty — its absence must
+#   now be stated explicitly in the batch report, because with no audit step downstream an
+#   absent audit.py means NO machine gate ever runs over the paper.
+#   ACCEPTED LOSS, stated once: subtopic_id, the answer key, the axis distribution and the
+#   figure conformance verdicts are no longer independently re-derived by a second reader.
+#   The Tier-A dossier (S13-4b) is still written; its consumer is now the author.
+#
 # v5.38 — 2026-08-03 — THE SELF-TEST BANNER REPORTED PASS OVER A FAILED RUN.
 #   GAP-2026-08-03-BANNER. Caught at deployment review of v5.37, BEFORE it shipped.
 #
@@ -53,7 +68,7 @@
 #     circled digits     -> silently became '1.'  (Python .isdigit() is True for them).
 #
 #   FIX. Resolution moves to paper_pipeline.resolve_option_label(), which is routed
-#   by BOTH TestCreate and TestCreateAudit, so one function is reachable from both
+#   by BOTH MockCreate and TestCreate, so one function is reachable from both
 #   steps and the pair cannot drift again. Roman is RENDERED, not aliased ({roman_upper}
 #   / {roman_lower} tokens, also taught to the G-OPTLABEL prefix regex). The resolver
 #   ASSERTS that the family this step renders equals the family Step 8 classifies and
@@ -185,60 +200,63 @@
 # QUESTION: IS mock_test_audit.py REQUIRED?
 # ════════════════════════════════════════════════════════════════════════
 #
-# SHORT ANSWER: YES for Step 8 (MockCreateAudit). NO for Step 7 to operate.
+# SHORT ANSWER (v5.36): NO for Step 7 to operate — but it is now the ONLY machine
+# auditor that will ever see this paper, so running it is STRONGLY RECOMMENDED and its
+# absence must be reported, not shrugged off.
 #
 # DETAILED ANSWER:
 #
-# Step 7 (THIS spec) performs a SELF-AUDIT after each batch.
-# Step 8 (MockCreateAudit) performs an INDEPENDENT AUDIT of the finished mock.
+# Step 7 (THIS spec) performs a SELF-AUDIT after each batch. Through v5.35 an
+# INDEPENDENT audit (Step 8, MockCreateAudit) ran afterwards over the finished mock and
+# mandatorily executed the same canonical A-* gate catalogue. THAT STEP NO LONGER EXISTS
+# (v5.36 — audit steps retired framework-wide). Consequences, stated plainly:
 #
-# The mock_test_audit.py script is referenced in TWO different specs:
+#   • The A-* catalogue in mock_test_audit.py still exists and is still the canonical,
+#     hash-tracked auditor (audit_canonical.py). Step 6 still generates it. But it now
+#     runs ONLY here, and only per S3-10 / S4-11, and only if it is present.
+#   • If it is ABSENT, no machine gate runs over this paper at any point in the pipeline.
+#     The S4-11 manual gate checklist becomes the entire mechanical guarantee.
+#   • Nothing downstream re-derives an answer, re-tags a subtopic_id, or re-checks a
+#     figure. Every "re-verified downstream" claim that used to appear in this spec has
+#     been restated against what actually runs.
 #
 #   In THIS spec (Step 7): the script's --self-test is a FIXTURE-BASED working-auditor
 #     check (v2.6). It must print "SELF-TEST: N/N PASS" with N >= AUTH_GATE_FLOOR (35) AND
 #     be fixture-based (builds docx fixtures; asserts each gate CATCHES a planted defect and
-#     PASSES a clean one). The canonical auditor (Framework_MockTestCreateAudit.md Appendix
-#     A) self-tests 107/107. Request a corrected script if it prints N/M with N≠M, N < 35, is a
+#     PASSES a clean one). The canonical auditor (audit_canonical.py) self-tests well above
+#     the floor. Request a corrected script if it prints N/M with N≠M, N < 35, is a
 #     CONSTANT-PRINT stub (no fixtures), exits non-zero, or errors. (The old "24/24"/"13/13"
 #     literals and the accept-ANY-N/N rule are superseded — see GATE-COUNT CONTRACT below.)
 #     PURPOSE: Self-check before Q1 to verify the script works.
 #     IF MISSING: Step 7 CANNOT run the script but CAN still run using
 #     spec-level (Claude-executed) gate checking per S4-10/S4-11.
-#     THE KEY INSIGHT: The original T2 spec was written assuming the audit
-#     script ALWAYS exists. For universal Step 7, we must handle its absence.
-#     v3.0 DECISION: audit.py absence → WARN (not HARD STOP) + manual checklist.
-#
-#   In Step 8 spec (MockCreateAudit): Framework_MockTestCreateAudit.md §1 says:
-#     "mock_test_audit.py missing → HARD STOP: Upload mock_test_audit.py to project."
-#     PURPOSE: Step 8 cannot run Part A (machine gates) without it.
-#     IF MISSING: Step 8 CANNOT proceed at all.
-#     v3.0 DECISION: HARD STOP in Step 8 is correct. User MUST create and upload it.
+#     v5.36 DECISION (unchanged mechanism, raised stakes): audit.py absence remains
+#     WARN (not HARD STOP) + manual checklist — but the warning must state explicitly,
+#     in the batch report, that NO machine audit will run over this paper at any step.
 #
 # THEREFORE:
-#   Step 7 (MockCreate): audit.py OPTIONAL — recommended but not blocking
-#   Step 8 (MockCreateAudit): audit.py MANDATORY — hard stop without it
+#   Step 7 (MockCreate): audit.py OPTIONAL to run, MANDATORY to report on
 #
 # SOURCE OF AUDIT SCRIPT (v5.11):
 #   Step 6 (MockBlueprint) v1.20+ auto-generates [ExamCode]_mock_test_audit.py
-#   as its 6th output file (see Framework_Blueprint.md §13-7A).
+#   as one of its output files (see Framework_Blueprint.md §13-7A).
 #   The script is uploaded to [ExamCode] project Files alongside blueprint.json,
 #   registry.json, and other Step 6 outputs.
 #   If missing at Step 7 start: verify Step 6 outputs were uploaded to project.
 #   The generated script IS the full canonical auditor (no separate "upgrade" step —
-#   see Framework_MockTestCreateAudit.md Appendix A + Step 6 §13-7A).
+#   see audit_canonical.py + Step 6 §13-7A).
 #
 # ── GATE-COUNT CONTRACT (v5.17 — ONE canonical auditor; fixture-based self-test) ──
-# There is now ONE auditor across the pipeline, defined in
-# Framework_MockTestCreateAudit.md Appendix A (v2.6+): the AUTHORITATIVE A-* gate set that
-# gates Step-8 delivery, carrying the --audit-state COMPLETION GATE (S5-1A, C1-C7) and a
-# FIXTURE-BASED self-test (SELF-TEST: N/N, N >= AUTH_GATE_FLOOR = 35; the canonical build
-# self-tests 107/107). Step 6 generates it; Step 7 optionally runs it; Step 8 mandatorily runs
-# it. The old two-auditor / 13-vs-66 split is RETIRED — it enabled the hollow-stub false-clean.
+# There is ONE auditor across the pipeline: audit_canonical.py — the AUTHORITATIVE A-* gate
+# set, carrying the --audit-state COMPLETION GATE (S5-1A, C1-C7) and a
+# FIXTURE-BASED self-test (SELF-TEST: N/N, N >= AUTH_GATE_FLOOR = 35). Step 6 generates it;
+# Step 7 runs it (v5.36: the only step that does).
+# The old two-auditor / 13-vs-66 split is RETIRED — it enabled the hollow-stub false-clean.
 # RULE (v2.6 — kills BOTH count-drift AND the hollow stub): a caller runs `--self-test` and
 #   accepts "SELF-TEST: N/N PASS" ONLY WHEN the self-test is FIXTURE-BASED (builds docx
 #   fixtures; asserts each gate catches a planted defect and passes a clean one) AND
 #   N >= AUTH_GATE_FLOOR (35), exit 0. A CONSTANT-PRINT "N/N PASS" that executes no fixtures
-#   is REJECTED — it is not a working auditor (P1 hardened, Framework_MockTestCreateAudit.md).
+#   is REJECTED — it is not a working auditor (P1 hardened, audit_canonical.py).
 #   The specific N (35, 43, …) above the floor is INFORMATIONAL; fixture-based + floor is the
 #   pass/fail criterion. The stale literals "13/13", "24/24", "52", "65", "66/66" are superseded.
 #
@@ -313,10 +331,11 @@
   Step 6 (MockBlueprint) → produces [ExamCode]_blueprint.json,
                                [ExamCode]_registry.json (empty template),
                                [ExamCode]_ExplainLearnings.md,
-                               [ExamCode]_ExplainAuditLearnings.md
+                               [ExamCode]_mock_test_audit.py
   THIS STEP — Step 7 (MockCreate) → produces [ExamCode]_Mock[N]_Create.docx,
                                updated [ExamCode]_registry.json
-  Step 8 (MockCreateAudit) → consumes outputs of this step
+  Step 9 (MockExplain) → consumes outputs of this step (v5.36: directly — the former
+                               Step 8 audit between them has been retired)
 
   PREREQUISITE: Step 0 AND Step 1 must both be complete.
   section_rules.md AND blueprint.json must both be in project knowledge.
@@ -405,7 +424,7 @@
          never a generic word list — exam-agnostic.
        — HARD STOP. Detection: scan all body paragraphs (a header may sit before the first Q
          or between sections), before and during assembly. Independently re-verified by
-         Step 8 A-SECHDR.
+         audit.py A-SECHDR.
   R8b: No title / info / scoring / cover / instruction block before Q.1 (v5.18).
        — The generated paper is questions-only at the DOCUMENT level (not merely per-block):
          the FIRST non-blank body paragraph of the docx MUST be the bold "Q.1" stem. No title
@@ -423,7 +442,7 @@
          header matching that declaration is permitted and gate G-PREQ1 is dormant. No current
          section_rules.md declares it, so the ban is absolute for every present exam.
        — HARD STOP. Detection: scan every paragraph before the first "Q.<N>" stem, before and
-         during assembly. Enforced by gate G-PREQ1; independently re-verified by Step 8
+         during assembly. Enforced by gate G-PREQ1; re-verified by audit.py
          A-HEADER (which strips the block, not merely validates it). Distinct from R8
          (section-name headers inside the body) and R9 (docx page header/footer region).
   R9:  No header, no footer (unless EXAM_STRUCTURE in section_rules.md says otherwise).
@@ -591,7 +610,8 @@
        instruction and the sentence on SEPARATE paragraphs (§10-S10-2, generalised
        in v4.2 — no run-on). Enforced by §10-S10-2 layout + gate G-OPTREF.
   R-ANSWER (v4.5, HARD STOP at generation — generalises v4.2 R-UNIQUE; single source
-       of truth, mirrored verbatim by Step 8 RA-12). The contract is parameterised by the
+       of truth; the former audit-side mirror of this rule is retired — this is now the
+       sole statement of it anywhere). The contract is parameterised by the
        subtopic's answer_cardinality (blueprint subtopic_list; default 'single'):
 
      ── answer_cardinality == 'single' (the v4.2 R-UNIQUE rule, UNCHANGED) ──
@@ -644,7 +664,7 @@
          • tolerance: 'integer' ⇒ exact match (no band); 'real' ⇒ the accepted band is
            [value − nat_tolerance, value + nat_tolerance] (or the % form), recorded as
            ca_range = (lo, hi) with lo ≤ hi — this is the SAME ca_range Step 4 renders and
-           Step 8 A-NAT-ANSWER re-derives. A '0' tolerance means exact-to-displayed-precision;
+           audit.py A-NAT-ANSWER re-derives. A '0' tolerance means exact-to-displayed-precision;
          • a zero, negative, or fractional value is valid — the value is stored as data, never
            tested for truthiness, and a fractional value renders as OMML (§11), never inline;
          • the value MUST NOT appear as a GIVEN anywhere else in the paper (no cross-question
@@ -669,7 +689,7 @@
   must be TRANSFORMED into a portal-safe string before it ever reaches a sidecar, a docx, or an
   audit gate. This transformation is a PURE FUNCTION of (value, ca_range, stem_precision) — it
   is computed ONCE, here, at generation time, and carried forward verbatim by every downstream
-  step (Step 8 re-derives it independently; Steps 9-11 render/pass it through, never reformat
+  step (v5.36: nothing re-derives it downstream; Steps 9-11 render/pass it through, never reformat
   it). EXAM-AGNOSTIC — zero hardcoded exam values; the function reads only its three arguments.
 
   INPUTS:
@@ -767,7 +787,7 @@
   section is handled; never suppress or work around it.
 
   Enforced by gate G-NAT-GRADE (S12-NEW-29) at generation time and independently re-derived by
-  Step 8's A-NAT-GRADE.
+  audit.py's A-NAT-GRADE.
 
        Enforced by §7 CHECK 3 verify_answer (persisted as answer_verified in the
        S7-NEW-A sidecar) and gates G-UNIQUE (record backstop, both modes) + G-MSQ-SET /
@@ -860,8 +880,7 @@
       shutil.copy(fig_src, f'/home/claude/{EXAM}_fig_manifest.json')
 
   # OPTIONAL — ExplainLearnings (v2.0 GAP-07 fix):
-  for learn_file in [f'{EXAM}_ExplainLearnings.md',
-                     f'{EXAM}_ExplainAuditLearnings.md']:
+  for learn_file in [f'{EXAM}_ExplainLearnings.md']:
       src = f'/mnt/project/{learn_file}'
       if os.path.exists(src):
           shutil.copy(src, f'/home/claude/{learn_file}')
@@ -1003,7 +1022,7 @@
   zero_pyq_rotation = bp.get('zero_pyq_rotation', {})
 
   # v5.6 EXAM-AGNOSTIC CONFIG — font, option labels, styling. PRIMARY source is
-  # section_rules.md (matching Step 8's cat_c reads: font_family, option_label_format).
+  # section_rules.md (matching audit.py's cat_c reads: font_family, option_label_format).
   # exam_config.json is an OPTIONAL OVERRIDE. Defaults match the SSC CGL reference
   # implementation. Zero hardcoded exam values — every constant has a config path.
   _ecfg_path = f'/home/claude/{EXAM}_exam_config.json'
@@ -1014,7 +1033,7 @@
       _ecfg = json.load(open(f'/mnt/project/exam_config.json', encoding='utf-8'))
 
   def _sr_field(field, default):
-      """Read a CATEGORY-A field from section_rules.md (same source as Step 8 cat_c)."""
+      """Read a CATEGORY-A field from section_rules.md (same source as audit.py cat_c)."""
       m = re.search(rf'^\s*{re.escape(field)}\s*[:=]\s*(.+?)\s*$', sr_text, re.M)
       return m.group(1).strip() if m else default
 
@@ -1027,16 +1046,16 @@
   # v5.37 (GAP-2026-08-03-LABELFMT) — RESOLUTION IS DELEGATED, NOT RE-IMPLEMENTED.
   # The inline casing test this replaced had NO ROMAN BRANCH and NO ELSE-BRANCH:
   #   'i/ii/iii/iv' -> .islower() -> ({alpha_lower}) -> rendered (a)(b)(c)(d), while
-  #     Step 8's option_label_family read 'roman'. A-OPTLABEL then FAILED EVERY
-  #     question, exit 1, Step 8 refused to certify, and NO CP repair could fix a
+  #     the auditor's option_label_family read 'roman'. A-OPTLABEL then FAILED EVERY
+  #     question, exit 1, the audit refused to certify, and NO CP repair could fix a
   #     paper that matched this step's own contract. Measured end-to-end.
   #   '(1)/(2)/(3)/(4)' fell through and became the template VERBATIM — no {text}
   #     placeholder, so no substitution happened at all.
   #   '[A]/[B]/[C]/[D]' silently became '(A)'; '(circled digits)' silently became
   #     '1.' (Python's .isdigit() is True for them).
-  # paper_pipeline is routed by BOTH TestCreate and TestCreateAudit, so one resolver
+  # paper_pipeline is routed by BOTH MockCreate and TestCreate, so one resolver
   # there is reachable from both steps and the pair cannot drift again. It ASSERTS
-  # that the family this step renders equals the family Step 8 will classify, and
+  # that the family this step renders equals the family audit.py will classify, and
   # RAISES rather than guessing — a guessed label reaches the delivered paper.
   _resolved_family = None
   if _sr_label:
@@ -1137,8 +1156,7 @@
   LOAD ExplainLearnings for quality constraints (GAP-07 fix):
   ```python
   learnings_bans = []  # Extra banned patterns from prior Explain sessions
-  for learn_file in [f'/home/claude/{EXAM}_ExplainLearnings.md',
-                     f'/home/claude/{EXAM}_ExplainAuditLearnings.md']:
+  for learn_file in [f'/home/claude/{EXAM}_ExplainLearnings.md']:
       if os.path.exists(learn_file):
           content = open(learn_file, encoding='utf-8').read()
           # Extract BANNED/VERIFIED DEFECT entries and add to generation bans
@@ -2098,7 +2116,7 @@
                → Mark figural_qs[str(qnum)].rendered = true in batch_state
                → Record figural_qs[str(qnum)].object_type = the type this figure was
                  generated AS, drawn from profile['dominant'] / profile['observed']
-                 (omit when mode == 'unconstrained'). Step 8 A-FIGPROFILE audits this
+                 (omit when mode == 'unconstrained'). audit.py A-FIGPROFILE audits this
                  recorded intent against the same profile via the SAME engine function,
                  bc.check_figural_conformance — one rule, so the generator and its
                  auditor cannot drift apart.
@@ -2110,7 +2128,7 @@
                  columns blank-padded), THEN the pairing-quad options. Pass the List columns +
                  options as DATA — NEVER embed the lists as stem text.
                → add_standard_question() with the lists in the stem is BANNED for match: it
-                 renders the grid as plain text (G-MATCH-TABLE; re-verified by Step 8
+                 renders the grid as plain text (G-MATCH-TABLE; re-verified by audit.py
                  A-MATCH-TABLE). Keep the 'Match …' instruction in the Q.N paragraph so the
                  audit re-detects the MATCH axis.
              IF format == TEXT/PASSAGE/DI:
@@ -2347,7 +2365,7 @@
                   Q.N stem line (R14). HARD FAIL.
   [ ] G-MATCH-TABLE: Every match question (stem_format_variant == 'match_the_following')
                   renders its List columns as a REAL Word table, not plain text. Executable
-                  enforcement is the Step-8 audit A-MATCH-TABLE (STEP B); this item is the
+                  enforcement is the audit.py A-MATCH-TABLE (STEP B); this item is the
                   no-audit fallback. HARD FAIL — re-emit via add_match_table().
 
   All 41 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
@@ -2938,7 +2956,7 @@
       pairwise-distinct stem_format_variant guarantee (C1/C2) and presentation_key uniqueness
       (C3, G-FORMATDUP) hold UNCHANGED. When uniqueness and the target genuinely conflict (the
       only unique variant left is not the one the target wants), uniqueness wins and the target
-      yields — audited within tolerance at Step 8, never fabricated.
+      yields — audited within tolerance by audit.py (S4-11), never fabricated.
 
     WORKED FIX (M1):
       Q.77 Antonym BENEVOLENT  → (isolated_word | near_synonyms_of_headword)
@@ -3266,7 +3284,7 @@
           # v5.14: record this question's Axis-2 class + negativity into the WINDOW tracker.
           # LINKED for CLASS4 (stimulus-locked), the variant's class when one was chosen,
           # else DIRECT. axis2_need()==0 for DIRECT/LINKED so this never mis-steers; it keeps
-          # the window counts (and the negative rate) accurate for Step 8's audit.
+          # the window counts (and the negative rate) accurate for audit.py's audit.
           _ax2 = (STEM_FORMAT_TO_AXIS2.get(accepted.stem_format_variant, 'DIRECT')
                   if accepted.stem_format_variant
                   else ('LINKED' if sclass == 'CLASS4' else 'DIRECT'))
@@ -3520,7 +3538,7 @@
        is already a hard gate (G-QINDEX). Because difficulty is assigned schedule-first and the
        Axis-2 arm only chooses among variants (which don't change a question's difficulty band),
        Axis-2 yields to difficulty automatically — the format target is met best-effort and
-       AUDITED WITHIN TOLERANCE at Step 8, never forced at difficulty's expense.
+       AUDITED WITHIN TOLERANCE by audit.py (S4-11), never forced at difficulty's expense.
     4. LINKED is allocation-enforced (Step 6, decision (a)); Step 7 does not steer it. DIRECT is
        the residual filler and is never steered toward (axis2_need==0).
   ```
@@ -3551,7 +3569,7 @@
   pick_presentation falls back to the exact v5.13 family-menu rotation, and nothing is written
   to `reg['axis2_window']`. The feature turns itself off with zero behavioural drift.
 
-  STEP 8 CONTRACT: Step 8 (MockCreateAudit) re-tags every generated question with the Step-5
+  AXIS AUDIT CONTRACT (v5.36 — formerly the Step-8 contract): audit.py re-tags every generated question with the Step-5
   AXIS CLASSIFIER v1.0 and audits the realized per-window Axis-2 distribution against
   blueprint.axis_schedule (band = ±1/±15% whichever larger; guarantee = ≥1/window; DIRECT
   floats; negative rate = soft WARN). blueprint.json axis_schedule is the AUTHORITATIVE target.
@@ -3629,7 +3647,7 @@
           "nat_grading_value": nat_grading_value,     # the 0-9.- only string, or None
           # v5.26 — the stem-stated rounding-instruction N (int) or None, EXACTLY the
           # third argument passed to derive_nat_grading() when nat_grading_type/value
-          # were computed. Persisted so Step 8's A-NAT-GRADE self-consistency check can
+          # were computed. Persisted so audit.py's A-NAT-GRADE self-consistency check can
           # re-run the SAME function call, not just guess the precision back out of the
           # already-formatted string.
           "stem_precision": stem_precision,
@@ -4357,9 +4375,9 @@
       options : the pairing-quad option texts.
       Exam-agnostic: headers, labels and the optional header_fill come from the caller — no
       hardcoded scheme. Emitting a match via add_standard_question() (lists as stem text) is
-      BANNED — its grid renders as plain text: G-MATCH-TABLE, re-verified by Step 8
+      BANNED — its grid renders as plain text: G-MATCH-TABLE, re-verified by audit.py
       A-MATCH-TABLE. Keeping the 'Match …' instruction in the Q.N paragraph (not inside the
-      table) is what lets Step 8 re-detect the MATCH axis and confirm the table is present.
+      table) is what lets audit.py re-detect the MATCH axis and confirm the table is present.
       """
       from docx.shared import Pt, RGBColor
       from docx.oxml import parse_xml
@@ -5670,7 +5688,7 @@
     ca_range, against nat_meta.nat_answer_type. Exit 1 when: (a) no value recorded; (b)
     value is non-numeric; (c) nat_answer_type=='integer' but the value is not integral;
     (d) ca_range present but malformed (not exactly (lo,hi) with lo<=hi). This is the
-    generation-side backstop for R-ANSWER's numerical branch; Step 8 A-NAT-ANSWER
+    generation-side backstop for R-ANSWER's numerical branch; audit.py A-NAT-ANSWER
     independently RE-DERIVES the value and checks it lies in the band. EXAM-AGNOSTIC.
     Report: "G-NAT-ANSWER: Q.[n] [value/ca_range problem]."
 
@@ -5679,7 +5697,7 @@
     nat_contract; e.g. "Enter your answer as a numerical value.", localized) MUST appear
     INSIDE the bold Q.<N>-first stem paragraph (R14 / G-QNUM-FIRST — no paper-level
     instructions page). Record-presence backstop here (the per-Q nat_instr_in_stem flag);
-    Step 8 A-NAT-INSTR re-checks the rendered docx. NOT FIXABLE by a separate paragraph
+    audit.py A-NAT-INSTR re-checks the rendered docx. NOT FIXABLE by a separate paragraph
     (breaks R14): re-emit the stem with the instruction appended to the Q.<N> line.
     Fully dormant when nat_present=false. EXAM-AGNOSTIC.
     Report: "G-NAT-INSTR: Q.[n] (NAT) has no numerical-entry instruction in its Q.N stem line."
@@ -5696,7 +5714,7 @@
     three inputs; (d) a range-typed value's re-derivation raises the NOT-SUPPORTED
     negative-bound error — this Exit 1's as a WELL-POSEDNESS defect on the question (rework the
     numbers), never silently reformatted around. This is the generation-side backstop for the
-    portal-grading contract (S7-NEW-C); Step 8 A-NAT-GRADE independently re-derives it again
+    portal-grading contract (S7-NEW-C); audit.py A-NAT-GRADE independently re-derives it again
     from scratch, exactly as A-NAT-ANSWER does for the math value. EXAM-AGNOSTIC.
     Report: "G-NAT-GRADE: Q.[n] [charset/type/determinism problem]."
 
@@ -5790,7 +5808,7 @@
   v5.18 adds G-PREQ1 (S12-NEW-27) — the pre-Q.1 body-block ban. Total gates: 67.
 
   v5.19 adds G-MATCH-TABLE (S12-NEW-28) — match-grid rendering; executable enforcement
-  delegated to the Step 8 audit A-MATCH-TABLE (no logic duplicated here). Total gates: 68.
+  delegated to the audit.py A-MATCH-TABLE (no logic duplicated here). Total gates: 68.
 
   v5.25 adds G-NAT-GRADE (S12-NEW-29) — NAT portal grading value/type well-formedness
   (0-9.- charset, deterministic re-derivation via derive_nat_grading, S7-NEW-C). NUMERICAL-mode
@@ -5808,7 +5826,7 @@
       6  the difficulty distribution EQUALS difficulty_schedule[N] exactly (simple->Easy,
          medium->Medium, hard->Hard alias) — satisfiable by construction under the SCHEDULE-FIRST
          assignment rule (§ difficulty budget).
-    subtopic_id is Step-7's assignment here; Step 8 INDEPENDENTLY re-derives it from the fixed
+    subtopic_id is Step-7's assignment here and (v5.36) the ONLY one — nothing re-derives it from the fixed
     docx and cross-checks it (that is subtopic_id's certification). difficulty is
     authoritative-by-assignment (not re-derivable from the paper) + distribution-verified.
     Writes NOTHING to the docx. Governed by Contract_QuestionMetadataIndex v1.0; the six checks
@@ -5826,14 +5844,14 @@
     Blank paragraphs before Q.1 are ignored (normal separators). DORMANT only if
     section_rules.md EXAM_STRUCTURE declares paper_header_block (a deliberate per-exam opt-in;
     no current exam declares it). Fixable: remove the offending paragraphs from the docx.
-    Independently re-verified by Step 8 A-HEADER (strip, not validate).
+    Independently re-verified by audit.py A-HEADER (strip, not validate).
 
-  S12-NEW-28 — G-MATCH-TABLE (v5.19 — match-grid rendering; per-batch S4-11 + Step-8 audit):
+  S12-NEW-28 — G-MATCH-TABLE (v5.19 — match-grid rendering; per-batch S4-11 + audit.py):
     Every question rendered from stem_format_variant == 'match_the_following' MUST carry a real
     Word table (<w:tbl>) for its List columns. A match emitted via add_standard_question()
     (lists as plain text) is a format-fidelity defect: the MATCH format is counted present
     while the skill is left un-rehearsed. ENFORCEMENT: executable detection is DELEGATED to the
-    Step 8 audit A-MATCH-TABLE, which already runs on the cumulative docx during S4-11 STEP B
+    audit.py A-MATCH-TABLE, which already runs on the cumulative docx during S4-11 STEP B
     when AUDIT_AVAILABLE — the match-detection logic is NOT duplicated here (anti-drift). The
     S4-11 manual checklist item is the no-audit fallback. Fixable: re-emit the question via
     add_match_table() (§10-S10-3M).
@@ -5959,9 +5977,9 @@
               h for q in fig['questions'].values() for h in q.get('image_hashes', [])
           ],
           # v5.31 (GAP-2026-07-26-003 D2): the object_type each figure was generated
-          # AS, plus its subtopic_id, so Step 8 A-FIGPROFILE can audit conformance
+          # AS, plus its subtopic_id, so audit.py A-FIGPROFILE can audit conformance
           # against the profile Step 5 measured. These live in the REGISTRY because
-          # Step 8 receives it; the answer_key sidecar carrying concept_map is NOT
+          # the registry is delivered; the answer_key sidecar carrying concept_map is NOT
           # delivered (S0-1), so subtopic_id must travel here or the gate is blind.
           # Omitted per question when the profile mode was 'unconstrained' — an
           # absent entry makes the gate dormant rather than wrong.
@@ -5986,21 +6004,21 @@
           # placed_in, placement_scale and font_pt_native — the record of what
           # actually happened — and write_spec_sidecar() drops it beside the PNG
           # in THIS session's working directory. That directory is internal and
-          # is never delivered (S0-1 / R-DELIVER), so before v5.34 Step 8 saw
+          # is never delivered (S0-1 / R-DELIVER), so before v5.34 the auditor saw
           # spec == {} on every figure, fc.is_legacy() read every v5.33+ render
           # as pre-v5.33 output, and EC-V18 downgraded every BLOCKING verdict on
           # a paper that was not in fact legacy. The registry is the sanctioned
           # channel for exactly this — the precedent object_types/subtopic_ids
-          # set at v5.31, and for the identical reason: Step 8 receives the
+          # set at v5.31, and for the identical reason: the auditor receives the
           # registry and receives no sidecar.
           #
           # ABSENT-SAFE BOTH WAYS: a session that rendered no figure through
-          # figural_core writes no sidecar and this is {}, which Step 8 reads as
+          # figural_core writes no sidecar and this is {}, which the auditor reads as
           # legacy — i.e. exactly the pre-v5.34 behaviour, never a wrong verdict.
           # NOT delivered as a file and NOT written to the docx; it travels only
-          # inside the registry that Step 8 already receives.
+          # inside the registry that every downstream step already receives.
           # v5.35 (TIER A): nothing here — the dossier is its own delivered
-          # sidecar (S13-4b), not a registry field, because Steps 9/10 also read
+          # sidecar (S13-4b), not a registry field, because Step 9 also reads
           # the registry and audit-only facts do not belong in series state.
           "figure_specs": {
               os.path.basename(_fs)[:-len('.figspec.json')] + '.png':
@@ -6013,7 +6031,8 @@
   # {mock, questions:[{q, subtopic_id, difficulty}]} from the per-Q concept_map the sidecar
   # accumulated (S7-NEW-A). subtopic_id = cross-step join key; difficulty = canonical Complexity
   # label. NEVER written to the docx. Replace-by-key so a re-run of this mock is idempotent;
-  # Step 8 later re-syncs this object by key from the fixed docx.
+  # v5.36: no later step re-syncs this object — Step 7's write is final, and Step 11's
+  # tags JOIN against it directly, so an error here reaches the delivered paper.
   _cm = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json')).get('concept_map', {})
   _qi = [{"q": int(qn),
           "subtopic_id": _cm[qn].get("subtopic_id"),
@@ -6119,7 +6138,7 @@
   reg.setdefault('options_by_q', {})[str(N)] = obq
 
   # v4.8 — section_names: the declared section names for THIS exam, written so both the
-  # embedded G-SECTIONHDR gate and Step 8 A-SECHDR can flag a stray body paragraph that IS a
+  # embedded G-SECTIONHDR gate and audit.py A-SECHDR can flag a stray body paragraph that IS a
   # section name (the realistic section-header form). Provenance-based, exam-agnostic.
   reg['section_names'] = [ (s.get('section_name') or s.get('name') or '').strip()
                            for s in bp.get('sections', [])
@@ -6195,20 +6214,23 @@
   ```
 
 
-## S13-4b — TIER-A AUDIT DOSSIER (v5.35) — DELIVERED TO STEP 8
+## S13-4b — TIER-A AUDIT DOSSIER (v5.35; consumer restated v5.36) — DELIVERED AS RECORD
 
   WHY. Step 7 already records every fact below. §S7-NEW-A even states of concept_map:
   "The audit gates read it directly instead of re-deriving." But S0-1 never delivered
-  it, so Step 8 re-derived what Step 7 had written down — and two gates paid for it:
+  it, so the audit re-derived what Step 7 had written down — and two gates paid for it:
   A-NAT-GRADE ran dormant on ~200 exams, and image_role defaulted for every question,
   false-flagging 27 of 33 figural blocks on the reference paper (7 with the dossier).
 
   THE LINE, AND IT IS NOT NEGOTIABLE:
     HAND OVER FACTS STEP 7 RECORDED. NEVER HAND OVER JUDGMENTS STEP 7 REACHED.
   Facts are checkable against the artefact or the world. Judgments — the answer,
-  answer_verified, "these options are unambiguous" — are what Step 8 exists to form,
-  and they NEVER travel here. Step 8's load_dossier() REFUSES the file outright if it
-  carries answers/answer_verified/derived_answer, so a leak cannot pass unnoticed.
+  answer_verified, "these options are unambiguous" — are formed by the reader of this
+  dossier, and they NEVER travel here. Any consumer's load_dossier() REFUSES the file
+  outright if it carries answers/answer_verified/derived_answer, so a leak cannot pass
+  unnoticed. v5.36: with the audit steps retired the dossier's consumer is the AUTHOR (and
+  any future auditor). It is still written — it is now the only structured record of what
+  Step 7 believed it produced.
 
   ```python
   import os, json, hashlib
@@ -6223,7 +6245,7 @@
       'exam_code': EXAM,
       'mock': N,
       # The binding. Without it a dossier could be restored onto ANOTHER paper and
-      # Step 8 would audit against facts describing a different document.
+      # a reader would audit against facts describing a different document.
       'paper_md5': hashlib.md5(open(_docx, 'rb').read()).hexdigest(),
       'created_utc': __import__('datetime').datetime.now(
           __import__('datetime').timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -6237,9 +6259,9 @@
   json.dump(dossier, open(_out, 'w', encoding='utf-8'), indent=1, ensure_ascii=False)
   ```
 
-  DELIVERED alongside the paper and the registry. It is INERT for every consumer
-  other than Step 8, and absent-safe: a pre-v5.35 paper simply has none, and Step 8
-  then behaves exactly as it did before v2.17.
+  DELIVERED alongside the paper and the registry. It is INERT for every downstream step
+  (Steps 9 and 11 neither read nor require it) and absent-safe: a pre-v5.35 paper simply
+  has none.
 
 ## S13-5 — Registry integrity check (unchanged)
 
@@ -6301,7 +6323,7 @@
   #    v5.36 (GAP-2026-08-01-DELIVERY-SET-DRIFT): v5.35 added the Tier-A dossier as
   #    a THIRD delivered file (S13-4b) and did NOT widen this assertion, so check 6
   #    failed and S13-7 HARD-STOPPED Step 7 at pre-delivery on every exam and every
-  #    mock. Step 7 had been the one step that never failed; a Step-8 improvement
+  #    mock. Step 7 had been the one step that never failed; an audit-side improvement
   #    broke it. The set is now DERIVED from what S13-4b actually wrote, so a
   #    producer change and this gate can no longer disagree by construction.
   dossier_name = f'{EXAM}_M{N}_audit_dossier.json'
@@ -6363,8 +6385,11 @@
   No separate answer-key file is produced by Step 7 (by design). Answers are
   surfaced later by Step 9 (MockExplain).
 
-  Next step → Step 8 (MockCreateAudit): independent audit of this mock.
-  Audit result this run: [exit_0 / SHIP].
+  Next step → Step 9 (MockExplain): explanations for this mock.
+  (v5.36: the former Step 8 independent audit is retired. If audit.py was present, the
+  result below is the ONLY machine audit this paper will receive; if it was absent, say so
+  explicitly here.)
+  Audit result this run: [exit_0 / SHIP / NOT RUN — audit.py absent].
   =========================================
   ```
 
@@ -6420,7 +6445,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   consumed by Step 9 (Explain) to resolve each question's TYPE (mcq/msq/nat).
   section_names (v4.8): list of declared section names for this exam, from blueprint
   sections[].section_name. Written by S13-REGCHECK; consumed by the embedded G-SECTIONHDR
-  gate and Step 8 A-SECHDR to flag stray section-name headers in the paper body.
+  gate and audit.py A-SECHDR to flag stray section-name headers in the paper body.
   If registry from Step 1 is missing them: S13-4 first-mock init adds them, and
   S13-REGCHECK (v3.5) enforces the full schema as a gate before delivery —
   self-healing any field the drifted Step-1 template omitted, so an incomplete
@@ -6551,11 +6576,11 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     distribution == difficulty_schedule[N] exactly (S13-QINDEX / Contract v1.0)  **
   □ S13-9 handoff printed with the registry-replacement instruction  **
 
-## S17-2 — Step 8 handoff (unchanged from v1.0)
+## S17-2 — Downstream handoff (v5.36: to Step 9; mechanism unchanged from v1.0)
 
 # ════════════════════════════════════════════════════════════════════════
 # §18 — AUDIT GATE GLOSSARY (80 gates total — 39 v1.0 baseline + 29 tabled below
-#        + 12 FIGURE CONFORMANCE catalogued in Framework_MockTestCreateAudit v2.11)
+#        + 12 FIGURE CONFORMANCE catalogued in audit_canonical.py)
 # ════════════════════════════════════════════════════════════════════════
 
   v2.0 adds 6 new gates to the 39 from v1.0:
@@ -6772,8 +6797,8 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   "(Select TWO)" / localized equivalent from section_rules) MUST live INSIDE the bold
   Q.<N>-first stem paragraph — there is NO paper-level instructions page, and a separate
   instruction paragraph would break R14 / G-QNUM-FIRST. Step 7's gate is a record-presence
-  backstop (msq_instr_in_stem flag in the sidecar, same pattern as G-UNIQUE); Step 8's
-  independent audit (A-MSQ-INSTR) re-checks the docx Q.N line directly. Fix by re-emitting
+  backstop (msq_instr_in_stem flag in the sidecar, same pattern as G-UNIQUE); audit.py
+  (A-MSQ-INSTR) re-checks the docx Q.N line directly when run. Fix by re-emitting
   the stem with the instruction appended to the Q.<N> line (never as its own paragraph).
 
   v5.0 adds 2 new gates (→ 65), Issue 2b, enforced per-batch (S4-11) and in the
@@ -6807,7 +6832,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   |-----------|---------------------------------------------------------------|------|-----------------------------------------|
   | G-PREQ1   | No non-blank paragraph before Q.1 (title/info/scoring/cover)  | YES  | Delete the pre-Q.1 paragraphs from docx |
 
-  v5.19 adds 1 new gate (→ 68), per-batch (S4-11 fallback) + Step-8 audit A-MATCH-TABLE:
+  v5.19 adds 1 new gate (→ 68), per-batch (S4-11 fallback) + audit.py A-MATCH-TABLE:
 
   | Gate Code     | Checks                                                        | Fix? | Fix                                        |
   |---------------|---------------------------------------------------------------|------|--------------------------------------------|
@@ -6821,7 +6846,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   / blueprint.json / registry and are NEVER printed in the paper; a downstream platform may
   render them from that metadata. Blank separators before Q.1 are ignored. DORMANT only if
   section_rules.md EXAM_STRUCTURE declares paper_header_block (a deliberate per-exam opt-in; no
-  current exam declares it). Independently re-verified by Step 8 A-HEADER (which strips the
+  current exam declares it). Independently re-verified by audit.py A-HEADER (which strips the
   block rather than validating it).
 
 # ════════════════════════════════════════════════════════════════════════
@@ -6912,9 +6937,9 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #
 # CANONICAL AUDITOR — SINGLE SOURCE OF TRUTH (v5.17)
 # ────────────────────────────────────────────────────────────────────────
-#   The Step-8 auditor is NO LONGER a separate "minimum-viable" script embedded here.
+#   The canonical auditor is NO LONGER a separate "minimum-viable" script embedded here.
 #   The ONE canonical, exam-agnostic auditor is the repo engine file
-#       audit_canonical.py   (hash-tracked; formerly CreateAudit Appendix A)
+#       audit_canonical.py   (hash-tracked; formerly the retired CreateAudit Appendix A)
 #   and it is the ONLY auditor the pipeline generates or runs. It carries the full A-*
 #   gate catalogue, the --audit-state COMPLETION GATE (S5-1A, C1-C7 + on-disk evidence
 #   checks), and a FIXTURE-BASED self-test (builds tiny docx fixtures; asserts each gate
@@ -6924,15 +6949,14 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   RETIRED (do NOT generate, copy, or use): the old 13-gate "minimum-viable" embedded
 #   script whose self_test() was a CONSTANT print ("SELF-TEST: 13/13 PASS") that executed
 #   NO gate. That hollow stub is exactly what let a truncated/dead auditor pass the P1
-#   self-test check and ship a false-clean paper (root cause documented in
-#   Framework_MockTestCreateAudit.md v2.6). It is REMOVED here so it can never be copied
-#   again. MVP_GATE_COUNT and the 13-vs-66 two-build split no longer exist.
+#   self-test check and ship a false-clean paper (root cause documented in CHANGELOG.md).
+#   It is REMOVED here so it can never be copied again. MVP_GATE_COUNT and the 13-vs-66 two-build split no longer exist.
 #
 #   HOW THE SCRIPT IS BORN (Step 6 B3 — Framework_Blueprint.md §13-7A):
 #     B3 writes [ExamCode]_mock_test_audit.py by copying, VERBATIM, the repo engine
 #     file audit_canonical.py (hash-tracked + bootstrap-verified; the single source of
-#     truth since CreateAudit v2.11.2 — formerly the fenced python block in
-#     Framework_MockTestCreateAudit.md Appendix A). No exam-specific edits are
+#     truth since 2026-07-31 — formerly a fenced python block in the retired
+#     CreateAudit spec). No exam-specific edits are
 #     needed — the script parameterises itself from blueprint.json / section_rules.md /
 #     subtopic_manifest.json / registry.json at runtime. B3 then VALIDATES:
 #         python3 [ExamCode]_mock_test_audit.py --self-test
@@ -6999,14 +7023,15 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #
 # 5. NEVER print question content in chat (MANDATE 0).
 #
-# 6. audit.py: OPTIONAL for Step 7 (manual checklist S4-11 substitutes).
-#    MANDATORY for Step 8. If absent in Step 7 → WARN, use manual checklist.
+# 6. audit.py: OPTIONAL to run (manual checklist S4-11 substitutes), MANDATORY to report
+#    on. v5.36: it is the pipeline's ONLY machine auditor — if absent → WARN loudly, use
+#    the manual checklist, and say in the batch report that no machine audit ran.
 #
 # THE M1 FAILURE: all 100Q in one response. THE v3.0 FIX: §4 B-4 + S4-7
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.38
+# END OF Framework_MockTestCreate v5.39
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

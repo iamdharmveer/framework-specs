@@ -481,7 +481,7 @@ class LabelFormatError(Exception):
 #        result  -> A-OPTLABEL FAIL on EVERY question, exit 1, MANDATE D blocks
 #                   delivery, and NO CP repair can fix it because the paper matches
 #                   Step 7's own contract. Measured end-to-end.
-# paper_pipeline is routed by BOTH TestCreate and TestCreateAudit, so one function
+# paper_pipeline is routed by BOTH MockCreate and TestCreate, so one function
 # here is reachable from both and the pair cannot drift again.
 #
 # ROMAN IS SUPPORTED, NOT REFUSED. Refusing would trade a mid-audit halt for a

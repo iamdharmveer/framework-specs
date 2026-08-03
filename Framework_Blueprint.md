@@ -1,4 +1,18 @@
-# Framework_Blueprint v1.42.8 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.43.0 — Universal Mock Test Blueprint Generator
+# v1.43.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
+#   B3's deliverable set drops from 6 files to 5: [ExamCode]_ExplainAuditLearnings.md is
+#   NO LONGER GENERATED (§13-6), because its only filler — canonical Step 10 — is retired.
+#   An ExplainAuditLearnings file already accumulated in an exam project STAYS VALID and is
+#   still loaded and obeyed by Step 9; never delete one.
+#   §13-7A is KEPT IN FULL: audit_canonical.py remains the single canonical auditor and B3
+#   still copies it verbatim to [ExamCode]_mock_test_audit.py. What changed is who runs it —
+#   Step 7 only, and optionally, which means an absent audit.py now leaves the paper with no
+#   machine gate at any step. Every "audited within tolerance at Step 8" advisory in this
+#   file is restated as "audited within tolerance by Step 7's audit.py"; the engine copy
+#   duty (blueprint_core.py + figural_core.py from $FW) moves from Step 8 to Step 7.
+#   EDITOR CAUTION added at the internal/canonical step map: this file uses "Step 8" for its
+#   own B3 sub-steps as well, and those must never be mass-replaced.
+#
 # v1.42.8 — 2026-08-02 — self-test count refresh only (107/107 -> 139/139).
 #   The five LIVE normative sites still quoted "the v2.13 canonical build prints
 #   107/107" as the expected auditor count. That was stale twice over (the canonical
@@ -38,7 +52,7 @@
 #   same pattern §S1-2b already uses for blueprint_core — so the B3 contract
 #   returns to 6 and no exam project needs touching. Superseded v1.42 entry:
 # v1.42 — 2026-08-01 — B3 SHIPS THE RUNTIME ENGINES (8 outputs, was 6)
-#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3). Step 8's auditor delegates
+#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3). The canonical auditor delegates
 #   A-FIGPROFILE to blueprint_core and the 12 A-FIG* gates to figural_core, but
 #   NEITHER engine was ever copied into an exam project — not in the B3 output set,
 #   not in project knowledge, not named as a Step-8 input anywhere. B3 now copies
@@ -91,11 +105,18 @@
 #   internal "Step 0" = canonical Step 5  (PYQExtract)
 #   internal "Step 1" = canonical Step 6  (MockBlueprint, THIS file)
 #   internal "Step 2" = canonical Step 7  (MockCreate)
-#   internal "Step 3" = canonical Step 8  (MockCreateAudit)
+#   internal "Step 3" = RETIRED (was canonical Step 8, MockCreateAudit — v1.43.0)
 #   internal "Step 4" = canonical Step 9  (MockExplain)
-#   internal "Step 5" = canonical Step 10 (MockExplainAudit)
+#   internal "Step 5" = RETIRED (was canonical Step 10, MockExplainAudit — v1.43.0)
 #   internal "Step 6" = canonical Step 11 (MockDeliver)
-# When an explicit label is given (e.g. "Step 8 (MockCreateAudit)"), the
+# NOTE (v1.43.0): the two audit steps are retired framework-wide. The internal
+# shorthand slots above are left in place, marked RETIRED, so that unlabelled
+# "Step 2"/"Step 4"/"Step 6" in body text keep their existing meanings — renumbering
+# them would silently change every unlabelled reference in this 6700-line file.
+# CAUTION FOR EDITORS: this file ALSO uses "Step 8" for its own B3 sub-steps
+# (e.g. "Step 8 Generate FINAL blueprint.xlsx"). Those are internal B3 sub-steps and
+# have nothing to do with the retired canonical Step 8. Never mass-replace "Step 8".
+# When an explicit label is given (e.g. "Step 7 (MockCreate)"), the
 # canonical number is always used. Unlabelled "Step 2" in body text means
 # MockCreate (= canonical Step 7) per the mapping above.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -137,8 +158,7 @@
 #   [ExamCode]_blueprint.json           — authoritative allocation data
 #   [ExamCode]_registry.json            — empty registry template
 #   [ExamCode]_ExplainLearnings.md      — empty template for Step 9 (MockExplain)
-#   [ExamCode]_ExplainAuditLearnings.md — empty template for Step 10 (MockExplainAudit)
-#   [ExamCode]_mock_test_audit.py       — canonical v2.6 audit script (Step 7 optional, Step 8 mandatory)
+#   [ExamCode]_mock_test_audit.py       — canonical audit script (run by Step 7; v1.43.0)
 #
 # PROJECT SETUP:
 #   ALL steps run in: [ExamCode] project (exam-specific, created by user)
@@ -151,8 +171,7 @@
 #   From Step 1: [ExamCode]_blueprint.json    — mock allocation plan
 #                [ExamCode]_registry.json     — dedup tracking template
 #                [ExamCode]_ExplainLearnings.md
-#                [ExamCode]_ExplainAuditLearnings.md
-#                [ExamCode]_mock_test_audit.py — audit script (Step 7 optional, Step 8 mandatory)
+#                [ExamCode]_mock_test_audit.py — audit script (run by Step 7; v1.43.0)
 #
 # EXAM-AGNOSTIC GUARANTEE:
 #   This spec contains zero hardcoded exam values.
@@ -2390,7 +2409,7 @@ v1.23 RECONCILIATION — FORMAT NOW ALSO INFLUENCES SCHEDULING (still never EXCL
     • The SOLE exclusion criterion is STILL r_avg = 0.0. Format never excludes.
     • A FIGURAL/PASSAGE/DI subtopic with r_avg > 0 is STILL always allocated (§4).
     • Format now additionally INFLUENCES the ORDER/CHOICE of free fills (soft-steer,
-      tie-break only) and is verified within tolerance downstream (Step 8) — it never
+      tie-break only) and is verified within tolerance by Step 7's audit.py — it never
       removes a subtopic from allocation.
   SCHEDULING-INFLUENCE ⊃/≠ EXCLUSION. If the axis target and the GOLDEN RULE ever appear
   to conflict, the GOLDEN RULE wins: keep the subtopic, accept a format-target shortfall
@@ -2923,8 +2942,9 @@ Per-subtopic difficulty = Step 7 (MockCreate) responsibility.
 Step 2 reads PYQ papers and assigns difficulty to each generated question
 based on observed PYQ difficulty patterns for that subtopic.
 
-K-BAL gate in Step 8 (MockCreateAudit) verifies final distribution
-matches the blueprint difficulty_schedule counts.
+K-BAL gate (audit_canonical.py, run by Step 7 at S4-11) verifies final distribution
+matches the blueprint difficulty_schedule counts. v1.43.0: this is the only step that
+runs it — the former Step 8 that ran it mandatorily is retired.
 
 v1.12 — canonical Complexity vocabulary + question_index:
   The per-question difficulty label Step 2 assigns is drawn from the CANONICAL set
@@ -2968,8 +2988,8 @@ import blueprint_core as bc   # ENGINE (mandated in S1-2b)
 #   {TEXT 85, FIGURAL 10, PASSAGE 5} mix apportioned to a 60-Q section returned
 #   {TEXT 75, FIGURAL 0, PASSAGE 0} — sum 75, both minorities annihilated);
 #   (2) axis2_window_target was computed as avg x window with no rescale at all, so band
-#   quotas were off by the full pattern-size ratio; (3) Step 8's B-AXIS1/B-AXIS3 audit
-#   (Framework_MockTestCreateAudit §audit_axis13) scales the RETURNED axis{1,3}_per_paper
+#   quotas were off by the full pattern-size ratio; (3) the B-AXIS1/B-AXIS3 audit
+#   (audit_canonical.py) scales the RETURNED axis{1,3}_per_paper
 #   by the window, so it audited every produced paper against historical-size targets and
 #   raised findings no correct paper could clear. The builder now RETURNS the normalised
 #   maps, which is what fixes (3) at source.
@@ -3046,7 +3066,7 @@ for section in sections:
     if sched.get('axis1_unreachable_formats'):
         note(f"AXIS [{sec_name}]: Axis-1 target names formats with no PYQ subtopic: "
              f"{sched['axis1_unreachable_formats']} — target steered best-effort, audited "
-             f"within tolerance at Step 8.")
+             f"within tolerance by Step 7's audit.py.")
 
 blueprint['axis_schedule'] = axis_schedule
 
@@ -3066,7 +3086,8 @@ axis_schedule tells Step 7/8:  the per-section FORMAT-MIX target (per-paper aver
                                Axis-1/3 per-mock target counts.
 axis_schedule does NOT:        hard-force any per-mock format count. Subtopic allocation is
                                hard #1; Axis-1/Axis-3 are locked CONSEQUENCES of it, steered
-                               (tie-break) toward target and AUDITED within tolerance at Step 8.
+                               (tie-break) toward target and AUDITED within tolerance by
+                               Step 7's audit.py (v1.43.0).
                                The 7 flexible Axis-2 classes are JOINT-solved with difficulty at
                                generation (Step 7). DIRECT floats (residual filler, never audited).
 Guarantee handling:            'pyq_covered' formats need NO allocation action — Option-C batch
@@ -3084,7 +3105,7 @@ Total batches = 1 + ceil(N_mocks / 10) + 1.
 ```
 B1  : Read all inputs → build blueprint skeleton → deliver blueprint.xlsx (skeleton) + blueprint.json v1
 B2  : Generate 10 mocks per batch → validate → deliver updated blueprint.json (1 file only)
-B3  : Final validation → generate all 6 output files → deliver
+B3  : Final validation → generate all 5 output files → deliver
 
 Examples:
   N_mocks = 10  → B1 + B2×1  + B3 = 3 batches total
@@ -3427,7 +3448,8 @@ Step 4  Run BV-8 (§9): zero-PYQ final count check.
 Step 4A Run BV-AXIS (§9 S9-12): axis_schedule integrity + feasibility report (v1.23).
         Hard-fails ONLY on a missing/malformed axis_schedule (a Blueprint bug); the
         format-mix feasibility (Axis-1/3, zp_only/unsatisfiable guarantees) is advisory —
-        realized-vs-target proportion is audited within tolerance at Step 8, not here.
+        realized-vs-target proportion is audited within tolerance by Step 7's audit.py,
+        not here.
         Inert (passes vacuously) when the manifest predates Step 5 v2.23.
 
 Step 4B Apply cross-slot mock offset (paper_pipeline.py — v1.33):
@@ -3513,9 +3535,9 @@ Step 6  Generate [ExamCode]_ExplainLearnings.md:
           # [ExamCode] — [exam_name] MockExplain Learnings
           (header only — Step 4 fills content)
 
-Step 7  Generate [ExamCode]_ExplainAuditLearnings.md:
-          # [ExamCode] — [exam_name] MockExplainAudit Learnings
-          (header only — Step 5 fills content)
+Step 7  RETIRED (v1.43.0) — [ExamCode]_ExplainAuditLearnings.md is no longer generated.
+          Its only filler, canonical Step 10 (MockExplainAudit), is retired. An existing
+          file in an exam project stays valid and is still read by Step 9 (§13-6).
 
 Step 8  Generate FINAL blueprint.xlsx with full allocation data:
           Sheet 2 now fully populated — all mock allocations from blueprint.json.
@@ -3533,9 +3555,9 @@ Step 8A Generate [ExamCode]_mock_test_audit.py (ref §13-7A):
               version) → replacing with a fresh copy is safe; confirm.
             If not found → proceed silently.
           Write the CANONICAL auditor by copying, VERBATIM, the repo engine file
-          audit_canonical.py (SINGLE SOURCE OF TRUTH since CreateAudit v2.11.2;
-          hash-tracked + bootstrap-verified; formerly the fenced block in
-          Framework_MockTestCreateAudit.md Appendix A). Simply:
+          audit_canonical.py (SINGLE SOURCE OF TRUTH since 2026-07-31;
+          hash-tracked + bootstrap-verified; formerly a fenced block in the
+          retired CreateAudit spec). Simply:
           `cp /tmp/fw/audit_canonical.py [ExamCode]_mock_test_audit.py`
           No exam-specific edits (it self-parameterises at runtime).
           VALIDATE: python3 [ExamCode]_mock_test_audit.py --self-test
@@ -3551,16 +3573,16 @@ Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
         blueprint_core.py or figural_core.py, and must not. CLAUDE.md is explicit:
         engines live ONLY in the central repo, and "a fix pushed to production
         reaches all ~200 exam projects on their next clone — no per-project engine
-        provisioning is required, and none should be performed." Step 8 obtains
+        provisioning is required, and none should be performed." Step 7 obtains
         both engines by copying them from the Step-0 verified clone ($FW) into its
-        own working directory (Framework_MockTestCreateAudit.md P0), which is the
+        own working directory (v1.43.0 — formerly the retired Step 8 did this), which is the
         same pattern §S1-2b already uses for blueprint_core. A per-exam copy in
         project Files would be a SECOND, unverified source that can silently go
         stale — the very generator/auditor drift the v2.10 delegation prevents.
 
-        present_files with all 6 output files (ref §11 S11-3):
+        present_files with all 5 output files (ref §11 S11-3):
           Order: blueprint.xlsx, blueprint.json, registry.json,
-                 ExplainLearnings.md, ExplainAuditLearnings.md, mock_test_audit.py
+                 ExplainLearnings.md, mock_test_audit.py
 
         CHECKLIST before calling present_files:
           ☐ §15-CHECKLIST items XLSX-1 through XLSX-5 all passed
@@ -3568,7 +3590,6 @@ Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
           ☐ [ExamCode]_blueprint.json  exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_registry.json   exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_ExplainLearnings.md        exists at /mnt/user-data/outputs/
-          ☐ [ExamCode]_ExplainAuditLearnings.md   exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_mock_test_audit.py          exists at /mnt/user-data/outputs/
           ☐ mock_test_audit.py --self-test passed FIXTURE-BASED, N/N with
             N >= AUTH_GATE_FLOOR (35); the CURRENT canonical build prints 139/139
@@ -3852,7 +3873,7 @@ be unique):
 
   BV-10b — SOFT cap on FAMILY (coarse diversity).
     Per mock, count(family) ≤ cap_M, cap_M = blueprint['max_per_mechanic_per_mock'].get(
-    family, 1). A STEERING TARGET audited within tolerance at Step 8 — NEVER a hard blocker.
+    family, 1). A STEERING TARGET audited within tolerance by Step 7's audit.py — NEVER a hard blocker.
     Over-cap is a diversity note, not a failure (every question is still unique at form_key).
 
 PREREQUISITE (Step 5 v2.24.1): section_rules.md carries form_key, question_mechanic,
@@ -3901,7 +3922,7 @@ PROCEDURE (runs in B2 per batch AND B3 full validation):
 BV-10 runs:
   — B1: §4-1b feasibility gate PROVES BV-10a satisfiable (HALT-with-fix if not — terminating).
   — B2 per batch and B3 full validation: BV-10a HARD (unreachable on clean Step-5 data),
-    BV-10b SOFT advisory (audited at Step 8 within tolerance).
+    BV-10b SOFT advisory (audited by Step 7's audit.py within tolerance).
   — SEVERITY: BV-10a HARD but B1-guaranteed terminating (no 3-attempt loop); BV-10b never blocks.
   — auto-correctable: BV-10a via §4-1b upstream HALT; BV-10b via cap config / Step-8 tolerance.
   — SCOPE: per collision_domain (default = section) — no cross-section false positives; a
@@ -4111,7 +4132,7 @@ Print in B2 delivery summary:
 PURPOSE (v1.23): verify blueprint['axis_schedule'] is present and well-formed for every
 section, and REPORT axis feasibility. This gate is ADVISORY on the locked axes (Axis-1/3)
 and on 'unsatisfiable'/'zp_only' guarantees — because Subtopic is hard #1, Blueprint cannot
-force those; realized-vs-target proportion is audited within tolerance at Step 8. It HARD-FAILS
+force those; realized-vs-target proportion is audited within tolerance by Step 7's audit.py. It HARD-FAILS
 only on structural corruption (missing/malformed schedule), never on a format shortfall.
 
 Absent-safe: if the manifest predates Step 5 v2.23, every section's schedule has
@@ -4210,7 +4231,7 @@ def bv_axis(blueprint, sections):
     else:
         print("BV-AXIS: ✓ axis_schedule well-formed. Feasibility report:")
         print("\n".join(report_lines))
-        print("  (Axis-1/3 + zp_only/unsatisfiable are advisory — audited within tolerance at Step 8.)")
+        print("  (Axis-1/3 + zp_only/unsatisfiable are advisory — audited within tolerance by audit.py.)")
 ```
 
 BV-AXIS runs in B3 alongside BV-7/BV-8 (S8-5 final validation). It never blocks delivery on a
@@ -4664,21 +4685,20 @@ PART A — Validation confirmation:
    BV-7 (Full series check) : ✓
    BV-8 (ZP final counts)   : ✓"
 
-PART B — present_files with all 6 output files (MANDATORY — in this exact order):
+PART B — present_files with all 5 output files (MANDATORY — in this exact order):
   1. [ExamCode]_blueprint.xlsx          ← FINAL version with all mock allocations
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
   4. [ExamCode]_ExplainLearnings.md
-  5. [ExamCode]_ExplainAuditLearnings.md
-  6. [ExamCode]_mock_test_audit.py      ← audit script (Step 7 optional, Step 8 mandatory)
+  5. [ExamCode]_mock_test_audit.py      ← audit script (run by Step 7; v1.43.0)
 
-  NOT DELIVERED — blueprint_core.py / figural_core.py (v2.12.1). Step 8 copies both
+  NOT DELIVERED — blueprint_core.py / figural_core.py (v2.12.1). Step 7 copies both
   from the Step-0 verified clone ($FW) itself. Engines are never provisioned
   per-exam (CLAUDE.md): a copy in project Files is a second, unverified source that
   can go stale, while the clone is hash-verified fresh at every session.
 
   CHECKLIST before calling present_files:
-    ☐ All 6 files exist at /mnt/user-data/outputs/ with exact [ExamCode]-prefixed names
+    ☐ All 5 files exist at /mnt/user-data/outputs/ with exact [ExamCode]-prefixed names
     ☐ blueprint.xlsx has Sheet 2 FULLY populated (all N_mocks mock columns filled)
     ☐ blueprint.json len(mocks[]) == N_mocks
     ☐ registry.json has correct exam_code and empty arrays
@@ -4687,7 +4707,7 @@ PART B — present_files with all 6 output files (MANDATORY — in this exact or
       N >= AUTH_GATE_FLOOR (35); the CURRENT canonical build prints 139/139
       (v2.21.7). The count is informational and moves every release.
       A constant-print "N/N PASS" is REJECTED (it is the retired hollow-MVP
-      signature — see Framework_MockTestCreateAudit.md P1).
+      signature — see audit_canonical.py --self-test).
     ☐ BV-7 and BV-8 both passed
   If any checklist item fails: HALT. Fix before calling present_files.
 
@@ -4698,7 +4718,6 @@ PART C — Handoff message (concise):
      ✓ [ExamCode]_blueprint.json
      ✓ [ExamCode]_registry.json
      ✓ [ExamCode]_ExplainLearnings.md
-     ✓ [ExamCode]_ExplainAuditLearnings.md
      ✓ [ExamCode]_mock_test_audit.py
 
    Keep locally (do NOT upload to project):
@@ -4752,10 +4771,9 @@ User requests batch regeneration (before B3 OR after B3):
   BV-7 + BV-8 must re-pass in B3 before final files are re-delivered.
 
   If B3 was already completed (files previously delivered):
-    After batch re-generation: re-run B3 → all 6 output files re-delivered.
-    User must replace all 5 non-xlsx Step 1 files in [ExamCode] project knowledge:
-    (blueprint.json, registry.json, ExplainLearnings.md, ExplainAuditLearnings.md,
-     mock_test_audit.py)
+    After batch re-generation: re-run B3 → all 5 output files re-delivered.
+    User must replace all 4 non-xlsx Step 1 files in [ExamCode] project knowledge:
+    (blueprint.json, registry.json, ExplainLearnings.md, mock_test_audit.py)
     Do NOT delete section_rules.md — it is from Step 0 and is not regenerated by Step 1.
 
 User requests B3 re-run (no batch changes):
@@ -4946,7 +4964,6 @@ RS-8  : Registry is a SEPARATE file. Never embedded in blueprint.json.
            blueprint.json           : read-only after Step 1 (never modified by Steps 2–6)
            registry.json            : fully replaced after every Step 2 session
            ExplainLearnings.md      : appended after every Step 4 session
-           ExplainAuditLearnings.md : appended after every Step 5 session
 
 RS-9  : Registry schema fixed at Step 1 B3. Step 2 only ADDS entries to
          existing arrays and POPULATES subfields within content_tracking{}.
@@ -4999,31 +5016,31 @@ After each Step 7 (MockCreate) session completes:
 
 Step 2 then outputs the complete updated registry.json.
 User replaces registry in project knowledge (RS-10).
-Step 8 (MockCreateAudit) uses registry for G-DUP gate.
+audit_canonical.py uses registry for the G-DUP gate (run by Step 7 at S4-11; v1.43.0 —
+the former Step 8 that also ran it is retired).
 ```
 
 ---
 
 ## §13 — OUTPUT FILES
 
-All 6 files produced by Step 1. Naming, content, and destination.
+All 5 files produced by Step 1. Naming, content, and destination.
 
 ### S13-1 — File naming convention
 
 ```
-All 6 files use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
+All 5 files use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
 
 [ExamCode]_blueprint.xlsx
 [ExamCode]_blueprint.json
 [ExamCode]_registry.json
 [ExamCode]_ExplainLearnings.md
-[ExamCode]_ExplainAuditLearnings.md
 [ExamCode]_mock_test_audit.py
 
 REPO ENGINES ARE NOT B3 DELIVERABLES (v2.12.1). blueprint_core.py and
-figural_core.py are never delivered here and never uploaded per-exam. Step 8
+figural_core.py are never delivered here and never uploaded per-exam. Step 7
 copies them from the Step-0 verified clone ($FW) into its own working directory
-(Framework_MockTestCreateAudit.md P0), the same way §S1-2b already does for
+(v1.43.0 — formerly the retired Step 8 did this), the same way §S1-2b already does for
 blueprint_core. They keep their BARE names wherever they are copied, because they
 are imported as Python modules and an [ExamCode]_ prefix breaks the import.
 
@@ -5035,7 +5052,7 @@ present_files usage across the pipeline:
   B1 : present_files(blueprint.xlsx skeleton, blueprint.json v1)
        (skeleton xlsx has empty mock columns; blueprint.json has mocks[]=[])
   B2 : present_files(blueprint.json updated)  ← one call per B2 batch
-  B3 : present_files(all 6 final files)       ← ONE call with complete output
+  B3 : present_files(all 5 final files)       ← ONE call with complete output
 ```
 
 ### S13-2 — blueprint.xlsx (human review only)
@@ -5090,28 +5107,32 @@ Upload   : YES — uploaded to [ExamCode] project knowledge.
 Lifecycle: Appended by Step 9 as patterns accumulate. Never fully replaced.
 ```
 
-### S13-6 — ExplainAuditLearnings.md (empty template — Step 10 fills)
+### S13-6 — ExplainAuditLearnings.md — RETIRED (v1.43.0)
 
 ```
-Content at Step 1:
-  # [ExamCode] — [exam_name] MockExplainAudit Learnings
+NO LONGER GENERATED. This template existed solely as the empty file Step 10
+(MockExplainAudit) filled in as it audited. Step 10 is retired framework-wide, so
+nothing writes AL-rules any more and B3 no longer emits this file.
 
-  (nothing else — Step 10 fills content as sessions run)
-
-  Example: # SSC_CGL_TIER1 — SSC CGL Tier 1 MockExplainAudit Learnings
-
-Purpose  : Stores exam-specific learnings from Step 10 (MockExplainAudit).
-           Cross-mock audit patterns and known failure modes.
-Upload   : YES — uploaded to [ExamCode] project knowledge.
-Lifecycle: Appended by Step 10 as audit patterns accumulate. Never fully replaced.
+BACKWARD COMPATIBILITY (deliberate, do not "clean up"):
+  • An [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md already accumulated in an existing exam
+    project STAYS VALID and is STILL LOADED and obeyed by Step 9 (Framework_MockTestExplain
+    LEARNINGS CONSUMPTION CONTRACT, consumer-only since v1.21.0). Never delete one.
+  • An author may still add rules to such a file BY HAND, following the learnings
+    schema documented in Framework_MockTestExplain.md (LEARNINGS CONSUMPTION CONTRACT).
+  • Step 9 treats the file's absence as normal (it was always absent on mock 1).
 ```
 
-### S13-7A — mock_test_audit.py (auto-generated — Step 7 optional, Step 8 mandatory)
+### S13-7A — mock_test_audit.py (auto-generated — run by Step 7)
 
 ```
 Purpose  : Automated gate-check script for mock test papers.
-           Step 7 (MockCreate) uses it OPTIONALLY for per-batch self-audit.
-           Step 8 (MockCreateAudit) requires it MANDATORILY (HARD STOP without it).
+           Step 7 (MockCreate) uses it for per-batch self-audit (S3-10 / S4-11).
+           v1.43.0: Step 7 is now the ONLY step that runs it — the former Step 8
+           (MockCreateAudit), which required it mandatorily, is retired. Running it
+           remains OPTIONAL for Step 7 (S4-11's manual checklist substitutes when it is
+           absent), but its absence now means NO machine gate runs over the paper at any
+           point in the pipeline, so Step 7 must report the absence explicitly.
 Content  : The CANONICAL v2.6 auditor, copied VERBATIM from audit_canonical.py
            (SINGLE SOURCE OF TRUTH).
            Full A-* gate catalogue + the --audit-state COMPLETION GATE (S5-1A, C1-C7)
@@ -5137,8 +5158,8 @@ UPGRADE PATH — RETIRED (v1.27):
   There is no longer a "minimum viable vs full" split. Step 6 generates the ONE
   canonical v2.6 auditor (audit_canonical.py). The old
   13-gate MVP — whose self_test() was a CONSTANT print that executed no gate — is
-  RETIRED; it enabled a false-clean Step-8 run (root cause:
-  Framework_MockTestCreateAudit.md v2.6). Do NOT generate or accept it. Re-running
+  RETIRED; it enabled a false-clean audit run (root cause documented in
+  CHANGELOG.md). Do NOT generate or accept it. Re-running
   Step 6 regenerates the canonical auditor (collision check above).
 
 RUNTIME DEPENDENCIES (EC-B3):
@@ -5169,7 +5190,7 @@ SINGLE SOURCE OF TRUTH (v1.27):
   the full A-* gate catalogue, the --audit-state COMPLETION GATE (S5-1A, C1-C7 + on-
   disk evidence checks), and a FIXTURE-BASED self-test. The old MVP embedded in
   Framework_MockTestCreate.md Appendix A is RETIRED; that file now POINTS to
-  audit_canonical.py, as does Framework_MockTestCreateAudit.md Appendix A.
+  audit_canonical.py.
   Keeping ONE copy prevents the 13/35/66 drift that enabled the false-clean.
 
 CANONICAL_AUDITOR_SOURCE = audit_canonical.py (repo engine, hash-tracked; formerly CreateAudit Appendix A fenced python)
@@ -5208,16 +5229,15 @@ loud crash into a quiet nothing.
 ### S13-7 — present_files delivery order
 
 ```
-B3 delivers all 6 files in ONE present_files call (final delivery):
+B3 delivers all 5 files in ONE present_files call (final delivery):
   1. [ExamCode]_blueprint.xlsx           ← FINAL version; user reviews allocation
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
   4. [ExamCode]_ExplainLearnings.md
-  5. [ExamCode]_ExplainAuditLearnings.md
-  6. [ExamCode]_mock_test_audit.py       ← audit script (Step 7 optional, Step 8 mandatory)
+  5. [ExamCode]_mock_test_audit.py       ← audit script (run by Step 7; v1.43.0)
 
 The repo engines (blueprint_core.py, figural_core.py) are NOT delivered here —
-Step 8 copies them from the Step-0 verified clone itself (v2.12.1).
+Step 7 copies them from the Step-0 verified clone itself (v2.12.1).
 
 If any file fails to create: HALT. Do not deliver partial set.
 All 6 must be present before calling present_files.
@@ -5228,22 +5248,21 @@ See S13-1 for B1 and B2 present_files calls (intermediate deliveries).
 ### S13-8 — Project upload instructions
 
 ```
-After downloading all 6 files from B3:
+After downloading all 5 files from B3:
 
 Step A: Review blueprint.xlsx locally (human verification of full allocation).
 
 Step B: Create [ExamCode] Claude project (if not already exists).
 
 Step C: Upload to [ExamCode] project knowledge (5 Step-1 output files + 1 Step-0 file
-        = 6 total; do NOT upload the xlsx):
+        = 5 total; do NOT upload the xlsx):
           ✓ [ExamCode]_blueprint.json          ← Step 1 output
           ✓ [ExamCode]_registry.json           ← Step 1 output
           ✓ [ExamCode]_ExplainLearnings.md     ← Step 1 output
-          ✓ [ExamCode]_ExplainAuditLearnings.md ← Step 1 output
-          ✓ [ExamCode]_mock_test_audit.py      ← Step 1 output (Step 7 optional, Step 8 mandatory)
+          ✓ [ExamCode]_mock_test_audit.py      ← Step 1 output (run by Step 7)
           ✓ [ExamCode]_section_rules.md        ← Step 0 output (PYQExtract)
         NOTE (v2.12.1): do NOT upload blueprint_core.py or figural_core.py. Engines
-              are never provisioned per-exam (CLAUDE.md) — Step 8 copies them from
+              are never provisioned per-exam (CLAUDE.md) — Step 7 copies them from
               the Step-0 verified clone. A copy in project Files would be a second,
               unverified source that can silently go stale.
         Do NOT upload: [ExamCode]_blueprint.xlsx (xlsx not readable by Claude in project knowledge)
@@ -5270,11 +5289,10 @@ Step E: Run: MockCreate M1
 
 Procedure:
   1. Delete ALL old [ExamCode] files from project knowledge:
-       blueprint.json, registry.json, ExplainLearnings.md, ExplainAuditLearnings.md,
-       mock_test_audit.py
+       blueprint.json, registry.json, ExplainLearnings.md, mock_test_audit.py
        section_rules.md (from Step 0 — delete only if Step 0 will also be re-run;
        if Step 0 is NOT being re-run, keep existing section_rules.md in project)
-  2. Run Step 1 again → download all 6 new output files.
+  2. Run Step 1 again → download all 5 new output files.
   3. Upload the 5 non-xlsx files to [ExamCode] project knowledge.
      (blueprint.xlsx stays local — do not upload)
   4. Start fresh chat session in [ExamCode] project.
@@ -5296,7 +5314,7 @@ deliverable file badges (Upload / Replace / Use locally), and next-step referenc
 
 Step 6 uses BOTH footer types:
   - F1 (amber) after B1 (2 files) and each B2 batch (1 file)
-  - F2 (green) after B3 final delivery (6 files)
+  - F2 (green) after B3 final delivery (5 files)
 ```
 
 ## §14 — BLUEPRINT JSON SCHEMA
@@ -6342,7 +6360,7 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 ☐ 10. BV-8 passed: zero-PYQ final count exact (§9-8)
 ☐ 11. All edge cases in §16 verified (including EC-11 feasibility check)
 ☐ 12. All assumptions documented in Paper Structure sheet (§10 S10-12)
-☐ 13. All 6 output files generated and present_files called (§13-7)
+☐ 13. All 5 output files generated and present_files called (§13-7)
 ☐ 14. Handoff message delivered (§11-3)
 ☐ 15. Step 5 (PYQExtract) also complete in [ExamCode] project.
        [ExamCode]_section_rules.md is ready for upload to [ExamCode] project.
@@ -6709,4 +6727,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.42.8
+# END OF Framework_Blueprint v1.43.0

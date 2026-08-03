@@ -12,7 +12,8 @@ repo root before running the gate.
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **33/33** — 22 `Framework_*.md` + 11 engines. The count grows when a new spec/engine is added.)
+   **31/31** — 20 `Framework_*.md` + 11 engines. The count moves when a spec/engine is added or
+   retired; Steps 8 and 10 were retired in 2026.08.03.5, taking 2 specs with them.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
    This includes the CORPUS-level checks (AA routes/skill sync, AB thin-core purity,
    AC aggregator single-exit, AD emitted-class documented, AE normalization conformance).
@@ -21,10 +22,15 @@ repo root before running the gate.
    of it too.
 
 (`MANIFEST.json`/`bootstrap.py` track the framework files a session clones (count = MANIFEST.json "files"). `SPEC_MANIFEST.json`
-is the separate, wider workbench baseline — currently 42 files, including the audit and
+is the separate, wider workbench baseline — currently 41 files, including the audit and
 tooling scripts. It has NO generator in the repo: the release manager refreshes the changed
 entries from disk at deploy time, after checking the entry-builder reproduces every
-unchanged entry byte-for-byte. Both must be clean.)
+unchanged entry byte-for-byte. Both must be clean.
+Its entry convention was aligned to gen_manifest's in 2026.08.03.5: `lines` is
+`len(text.splitlines())` (NOT `split('\n')`, which is one higher), `end_sentinel` is the last
+non-empty line `.rstrip()`ed with leading indentation PRESERVED, and `.py`/`.json` entries now
+carry `version_header`/`end_sentinel` too. Rebuilding with the pre-08.03.5 convention rewrites
+every entry.)
 
 If any step fails: **STOP, show the error in plain words, push nothing.**
 
@@ -108,8 +114,9 @@ Two consumers run that way, and both already handle it the same correct way — 
 engine out of `$FW` into their own working directory**:
 
 - `Framework_Blueprint.md` §S1-2b copies `blueprint_core.py` from `/tmp/fw` before Step 1 runs.
-- `Framework_MockTestCreateAudit.md` P0 copies `blueprint_core.py` + `figural_core.py` from
-  `$FW` before the auditor runs (v2.12.1).
+- `Framework_MockTestCreate.md` copies `blueprint_core.py` + `figural_core.py` from
+  `$FW` before running `[ExamCode]_mock_test_audit.py` (v2.12.1; moved here from the
+  retired Step 8 on 2026-08-03).
 
 This is not a counter-example to the rule — it preserves it. The copy is taken from the fresh,
 bootstrap-verified clone at session time, so the engine is current by construction and a

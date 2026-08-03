@@ -642,7 +642,7 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   ```
 
   PINNED: byte-identical to Framework_MockTestCreate.md §S7-NEW-C and
-  Framework_MockTestCreateAudit.md's A-NAT-GRADE copy.
+  audit_canonical.py's A-NAT-GRADE implementation.
 
 # ════════════════════════════════════════════════════════════════════════
 # §7A — PER-QUESTION DIFFICULTY ASSESSMENT (v1.1)

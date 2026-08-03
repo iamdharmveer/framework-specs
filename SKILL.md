@@ -1,14 +1,14 @@
 ---
 name: mock-test-framework
-description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, PYQExplain, PYQExplainAudit, PYQFormat, PYQDeliver, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockCreateAudit, TestCreateAudit, MockExplain, TestExplain, MockExplainAudit, TestExplainAudit, MockDeliver, TestDeliver, or PYQCompress — or asks to generate, audit, explain, tag, deliver, or shrink an oversized mock/PYQ document. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
+description: Central source of truth for the exam mock-test framework. Use this whenever the user triggers a framework step — PYQPrepare, PYQDraft, PYQScan, PYQApprove, PYQSort, PYQCount, PYQExtract, PYQExplain, PYQExplainAudit, PYQFormat, PYQDeliver, MockBlueprint, ScopedBlueprint, MockCreate, TestCreate, MockExplain, TestExplain, MockDeliver, TestDeliver, or PYQCompress — or asks to generate, audit, explain, tag, deliver, or shrink an oversized mock/PYQ document. It pulls the latest verified specs from the central GitHub repo, verifies their integrity, and runs the requested step from the complete spec. Do not generate any mock-test output from memory.
 ---
 
 # Mock Test Framework — Source of Truth
 
-The 22 framework specs and 9 engine scripts live ONLY in the central GitHub repo below
+The 20 framework specs and 9 engine scripts live ONLY in the central GitHub repo below
 (9 = engines routed to triggers; 2 further tracked scripts are deliberately never routed:
 validate_framework_md.py, the CI validator, and audit_canonical.py, the canonical auditor
-that Step 6 copies to each exam),
+that Step 6 copies to each exam and Step 7 runs as its per-batch self-audit),
 never in project knowledge. NEVER work from memory or from any Framework_*.md that may
 appear in project knowledge. Always pull and verify the latest specs first.
 

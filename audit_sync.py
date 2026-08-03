@@ -121,13 +121,10 @@ for trig, files in ROUTES.items():
         if not os.path.exists(fl):
             rec('ROUTE-MISSING', f"{trig}: routed file {fl} does not exist")
 
-# ── 5. PIPELINE FILENAME CHAIN (Steps 7-11) ─────────────────────────────────
-CHAIN = ['_Create.docx', '_Create_Complete.docx', '_Explanation.docx',
-         '_Explanation_Complete.docx', '_Final.docx']
+# ── 5. PIPELINE FILENAME CHAIN (Steps 7, 9, 11) ─────────────────────────────
+CHAIN = ['_Create.docx', '_Explanation.docx', '_Final.docx']
 OWNER = {'_Create.docx': 'Framework_MockTestCreate.md',
-         '_Create_Complete.docx': 'Framework_MockTestCreateAudit.md',
          '_Explanation.docx': 'Framework_MockTestExplain.md',
-         '_Explanation_Complete.docx': 'Framework_MockTestExplainAudit.md',
          '_Final.docx': 'Framework_MockDeliver.md'}
 for suffix, owner in OWNER.items():
     if suffix not in TXT.get(owner, ''):
@@ -148,7 +145,7 @@ for f, t in TXT.items():
 # ── 7. BLUEPRINT.JSON SCHEMA SYNC (writer §14 vs readers) ───────────────────
 bp = TXT.get('Framework_Blueprint.md', '')
 declared = set(re.findall(r'^([a-z_][a-z0-9_]*)\s*:\s', bp, re.M))
-readers = ['Framework_MockTestCreate.md', 'Framework_MockTestCreateAudit.md',
+readers = ['Framework_MockTestCreate.md',
            'Framework_MockTestExplain.md', 'Framework_MockDeliver.md']
 KNOWN = {'axis_schedule', 'difficulty_schedule', 'marking_scheme', 'subtopic_allocations',
          'mocks', 'exam_code', 'blueprint_version', 'sections', 'zero_pyq_rotation'}

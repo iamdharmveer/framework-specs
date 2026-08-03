@@ -84,20 +84,6 @@
     "corpus_io.py",
     "Framework_DeliveryFooter.md"
   ],
-  "MockCreateAudit": [
-    "Framework_MockTestCreateAudit.md",
-    "blueprint_core.py",
-    "figural_core.py",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "TestCreateAudit": [
-    "Framework_MockTestCreateAudit.md",
-    "blueprint_core.py",
-    "figural_core.py",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
   "MockExplain": [
     "Framework_MockTestExplain.md",
     "explain_engine.py",
@@ -107,20 +93,6 @@
   "TestExplain": [
     "Framework_MockTestExplain.md",
     "explain_engine.py",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "MockExplainAudit": [
-    "Framework_MockTestExplainAudit.md",
-    "explain_engine.py",
-    "explain_audit_gate.py",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "TestExplainAudit": [
-    "Framework_MockTestExplainAudit.md",
-    "explain_engine.py",
-    "explain_audit_gate.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md"
   ],

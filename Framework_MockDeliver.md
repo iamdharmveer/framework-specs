@@ -1,4 +1,14 @@
-# Framework_MockDeliver v1.9.1 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.10.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.10.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
+#   No logic change: preflight already accepted the Step-9 [ExamCode]_[paper_slug]_
+#   Explanation.docx, and that is now the only input that exists. The _Complete filename
+#   is retained in the accept-regex purely so papers produced before this release still
+#   deliver. What DID change is every certification claim: tag values are Step-7-written,
+#   not Step-8-certified, and the pre-Q.1 SAFETY-NET is now a genuine net rather than a
+#   formality, because no A-HEADER gate runs upstream of it. Stated plainly and not
+#   hidden: the JOIN is still fully deterministic, but its inputs carry one fewer
+#   independent check than they did.
+#
 # v1.9.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   187 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_MockDeliver'. The current companion block, the
@@ -6,7 +16,7 @@
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 #   v1.9 — 2026-07-20 — TEST* TRIGGERS + MULTI-BLUEPRINT SUPPORT (paper_pipeline.py
-#       integration; twin of Framework_MockTestExplainAudit v1.15). Adds TestDeliver P[N]
+#       integration). Adds TestDeliver P[N]
 #       as the primary trigger (works for mock AND every scoped tier via --level/--scope),
 #       keeping MockDeliver M[N] as a working alias (implicitly level='mock'). WHAT CHANGED:
 #         §1 S1-1 — new PRIMARY trigger TestDeliver P[N] [--level ...] [--scope ...];
@@ -50,8 +60,9 @@ Step 11 uses a fundamentally different architecture: **JOIN-derived tags**.
 The pipeline has already determined and certified every tag value upstream:
 - Step 7 (MockCreate) assigns `subtopic_id` and `difficulty` per question and writes
   them to `registry.question_index`.
-- Step 8 (MockCreateAudit) independently re-derives `subtopic_id` and certifies it;
-  `difficulty` is carried forward (not rendered in the paper).
+- (v1.10.0) The former Step 8 independent re-derivation of `subtopic_id` no longer runs;
+  Step 7's write is the single authority. `difficulty` is carried forward as before
+  (not rendered in the paper).
 - `blueprint.subtopic_list[]` maps every `subtopic_id` to its `section` (Subject),
   `topic` (Topic), `subtopic` display name (Subtopic), `answer_type`, and
   `answer_cardinality`.
@@ -74,9 +85,10 @@ registry.question_index[mock_N].questions[q].difficulty
   → canonical label from blueprint.difficulty_labels  = Complexity
 ```
 
-**Zero AI classification. Zero hardcoded exam values. Fully deterministic.
-Already certified by Step 8.** A tag value is wrong only if the registry or
-blueprint is wrong — and those are certified artifacts.
+**Zero AI classification. Zero hardcoded exam values. Fully deterministic.**
+A tag value is wrong only if the registry or blueprint is wrong. v1.10.0: those
+artifacts are Step-7 / Step-6 outputs that no audit step re-derives, so the JOIN is
+exactly as correct as its inputs — deterministic, but no longer independently certified.
 
 **Position-based vs. subtopic-based typing (v1.7).** The JOIN path above assumes
 Question Type is a property of the subtopic. This is correct for subtopic-based
@@ -102,8 +114,9 @@ mode-selection rule.
 
 The content of every question block is SACRED. This step may only:
 - **Strip** any residual pre-Q.1 header paragraphs (SAFETY-NET only — the input is
-  questions-only per Step 7 R8b / G-PREQ1 + Step 8 A-HEADER, so this normally strips
-  nothing; a non-zero strip is an upstream regression, flagged in the delivery report)
+  questions-only per Step 7 R8b / G-PREQ1, so this normally strips nothing; a non-zero
+  strip is an upstream regression, flagged in the delivery report. v1.10.0: with the
+  Step-8 A-HEADER backstop gone this is the ONLY header strip in the pipeline)
 - **Insert** 5-line tag blocks above each Q-stem (new content only)
 - **Linearize** OMML → Unicode text on the render-source copy only
 - **Re-font** non-ASCII spans to a safe font on the render-source copy only
@@ -154,11 +167,11 @@ render-source docx is the final delivered file.**
 
 The output Word document is NOT finished until ALL hold:
 
-1. **Output is questions-only before Q.1** — the input is already questions-only
-   (Step 7 R8b / G-PREQ1 + Step 8 A-HEADER), so `detect_header_paras()` is a SAFETY-NET
-   that should find ZERO. Any non-blank, non-Q-stem paragraph before Q.1 is stripped
-   (output stays questions-only) AND, if the count is non-zero, a REGRESSION ALARM is
-   raised in the delivery report (an upstream Step 7/8 leak to fix).
+1. **Output is questions-only before Q.1** — the input should be questions-only
+   (Step 7 R8b / G-PREQ1), so `detect_header_paras()` should find ZERO. Any non-blank,
+   non-Q-stem paragraph before Q.1 is stripped (output stays questions-only) AND, if the
+   count is non-zero, a REGRESSION ALARM is raised in the delivery report (a Step 7 leak
+   to fix). v1.10.0: no upstream gate strips these any more — this net is load-bearing.
 2. **All tag blocks inserted** — every Q-stem preceded by exactly 5 tag
    paragraphs in order (total_questions tag blocks, count read from blueprint).
 3. **Zero content mutation** — no character changed in any question, option, image,
@@ -206,8 +219,10 @@ Parse:
 
 ```
 1. Verify Solutions docx attached. Accept either:
-     [ExamCode]_[paper_slug]_Explanation_Complete.docx  (Step 10 output — preferred)
-     [ExamCode]_[paper_slug]_Explanation.docx           (Step 9 output — acceptable)
+     [ExamCode]_[paper_slug]_Explanation.docx           (Step 9 output — the input)
+     [ExamCode]_[paper_slug]_Explanation_Complete.docx  (LEGACY — pre-v1.10.0 papers
+                                                         produced by the retired Step 10;
+                                                         still accepted, never produced)
    (v1.9: paper_slug is pp.paper_slug(paper_id) — "Mock[N]" zero-padded for a mock, else
    the scoped slug; parsed from the uploaded filename itself, §5 Phase 1.)
    If neither attached → HARD STOP: "Attach the Solutions docx for [N]."
@@ -223,7 +238,7 @@ Parse:
    Read: question_index — find the mock N entry.
    If no mock N entry in question_index → HARD STOP:
      "registry.json has no question_index entry for Mock [N].
-      Run MockCreate + MockCreateAudit for Mock [N] first."
+      Run MockCreate for Mock [N] first."
 
 4. Verify question_index[mock_N] has exactly total_questions entries
    with q = 1..total_questions (sorted, unique, complete).
@@ -422,7 +437,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
 
 ---
 
-# §2 — INPUT DOCX STRUCTURE (Solutions document from Step 10)
+# §2 — INPUT DOCX STRUCTURE (Solutions document from Step 9)
 
 Understanding the exact structure is mandatory for correct processing.
 
@@ -430,7 +445,7 @@ Understanding the exact structure is mandatory for correct processing.
 
 ```
 [Q.1 first] NO pre-Q.1 header paragraphs — the paper is questions-only from Step 7
-           (R8b / G-PREQ1) and Step 8 (A-HEADER strips any residual). The FIRST non-blank
+           (R8b / G-PREQ1). The FIRST non-blank
            body paragraph is the bold "Q.1" stem. detect_header_paras() runs as a
            safety-net and normally finds zero; any hit is an upstream Step 7/8 regression.
 [Q blocks] Q.1 body ... Q.N body (interleaved with explanations)
@@ -625,7 +640,7 @@ def is_expl_marker(text):
 
 ## S4-2 — Header detection (exam-agnostic — SAFETY-NET, v1.2)
 
-Retained UNCHANGED from v1.0. Since Step 7 (R8b / G-PREQ1) and Step 8 (A-HEADER)
+Retained UNCHANGED from v1.0. Since Step 7 (R8b / G-PREQ1)
 guarantee a questions-only input, `detect_header_paras()` is now a defensive
 safety-net that should return an EMPTY list on every mock produced by the current
 pipeline. A non-empty return is an upstream Step 7/8 regression — the paragraphs are
@@ -769,8 +784,8 @@ if len(_exam_codes) > 1:
         f"Only one ExamCode's files should exist per project.")
 EXAM = next(iter(_exam_codes))
 
-# v1.9: derive paper_slug from the UPLOADED filename itself (accepts either Step-9 or
-# Step-10 output naming), then let pp.pick_blueprint identify WHICH blueprint (mock or
+# v1.9: derive paper_slug from the UPLOADED filename itself (accepts the Step-9 name and
+# the legacy _Complete name), then let pp.pick_blueprint identify WHICH blueprint (mock or
 # scoped) produced it — cross-checked against --level if given.
 _uploaded_name = os.path.basename(src_path)
 _slug_m = re.match(rf'^{re.escape(EXAM)}_(.+)_Explanation(?:_Complete)?\.docx$', _uploaded_name)
@@ -1046,8 +1061,7 @@ C16(b).
 **Portal grading-value charset gate — render-source docx (v1.8, last-mile defense-in-depth):**
 
 **C17** NAT Correct-Answer portal charset (part of the same defect chain as
-Framework_MockTestCreate.md v5.25/v5.26, Framework_MockTestCreateAudit.md v2.8,
-Framework_MockTestExplainAudit.md v1.12, and explain_engine.py v1.16/v1.17). Runs on the
+Framework_MockTestCreate.md v5.25/v5.26 and explain_engine.py v1.16/v1.17). Runs on the
 FINAL DELIVERED docx, immediately before `present_files` — the last possible check before
 the artifact reaches the upload-ready state. For every question whose `tag_lookup[q]
 ['question_type'] == 'NAT'` (the SAME resolved type already used for that question's
@@ -1482,11 +1496,11 @@ Mock         : [N]
 Checklist    : C1–C17 all PASS
 
 Questions tagged  : [total_questions] / [total_questions]
-Headers stripped  : [count]  (expected 0 — input is questions-only per Step 7/8)
+Headers stripped  : [count]  (expected 0 — input is questions-only per Step 7)
 Header regression : none      (or: ⚠ REGRESSION ALARM — [count] pre-Q.1 paragraph(s)
                                were present and stripped. The Complete/Solutions docx
-                               should be questions-only (Step 7 R8b/G-PREQ1 + Step 8
-                               A-HEADER). Re-run Step 8 on the upstream paper.)
+                               should be questions-only (Step 7 R8b/G-PREQ1).
+                               Re-run Step 7 on the upstream paper.)
 
 OMML zones linearized : [count]
 Non-ASCII codepoints  : [count] unique; all survived docx text-layer check
@@ -1533,20 +1547,21 @@ For the next mock: "Step 7: MockCreate M[N+1]".
 
 ## EC-1 — Solutions docx is questions-only (the guaranteed, normal case)
 
-Since Step 7 (R8b / G-PREQ1) never emits a pre-Q.1 block and Step 8 (A-HEADER) strips
-any residual, the Solutions docx starts directly with Q.1. `detect_header_paras()`
+Since Step 7 (R8b / G-PREQ1) never emits a pre-Q.1 block, the Solutions docx starts
+directly with Q.1. `detect_header_paras()`
 returns an empty list, nothing is stripped, and C4 passes (zero detected, zero remain).
 This is the expected case for every mock produced by the current pipeline; the delivery
 report reads "Headers stripped: 0" and "Header regression: none".
 
 ## EC-2 — Solutions docx has pre-Q.1 header paragraphs (UPSTREAM REGRESSION — safety-net)
 
-This should NOT occur: Step 7 R8b / G-PREQ1 and Step 8 A-HEADER together guarantee a
-questions-only paper. If a title/info/scoring block nonetheless appears before Q.1, it is
-an upstream regression (a Step 7 generator leak that Step 8 failed to strip). The
+This should NOT occur: Step 7 R8b / G-PREQ1 guarantees a questions-only paper. If a
+title/info/scoring block nonetheless appears before Q.1, it is an upstream regression (a
+Step 7 generator leak). v1.10.0: the Step-8 A-HEADER backstop that used to catch such a
+leak before it reached here no longer exists, so this net is the only one left. The
 safety-net `detect_header_paras()` still removes it (the delivered Final.docx stays
 questions-only) and C4 verifies removal, but the delivery report raises a REGRESSION ALARM
-naming the count so the upstream Step 7/8 run can be fixed. Never silently absorb it as if
+naming the count so the upstream Step 7 run can be fixed. Never silently absorb it as if
 it were normal — Step 11 delivers correctly AND surfaces the leak.
 
 ## EC-3 — Exam with MSQ questions
@@ -1580,7 +1595,7 @@ If the Solutions docx has no `<m:oMath>` elements (pure text exam),
 ## EC-6 — Missing question_index for mock N
 
 If `registry.question_index` has no entry for mock N, Step 11 halts at S1-2
-step 3. The user must run Step 7 + Step 8 for mock N first. Step 11 never
+step 3. The user must run Step 7 for mock N first. Step 11 never
 guesses or infers tag values from content.
 
 ## EC-7 — Subtopic mismatch between registry and blueprint
@@ -1594,7 +1609,7 @@ same pipeline run.
 
 If any question's `difficulty` value is not in `blueprint.difficulty_labels`,
 Step 11 halts at S1-3. This indicates a registry corruption. The user must
-re-run Step 7 + Step 8.
+re-run Step 7.
 
 ## EC-9 — Table or drawing element before Q.1
 
@@ -1718,4 +1733,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.9.1
+# END OF Framework_MockDeliver v1.10.0

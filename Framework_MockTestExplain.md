@@ -1,4 +1,15 @@
-# Framework_MockTestExplain v1.20.1
+# Framework_MockTestExplain v1.21.0
+# v1.21.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
+#   Step 9 now reads the Step-7 paper directly ([ExamCode]_Mock[N]_Create.docx) — the
+#   rectified _Create_Complete.docx no longer exists because no step produces it. Every
+#   claim of upstream certification, every escalation target, and every "Step 10 proves
+#   truth" clause is restated against what actually survives: Step 7's own gates upstream,
+#   and this step's §12 fidelity verification + §19 pre-delivery checklist downstream.
+#   ACCEPTED LOSS, stated once and not hidden: no independent re-derivation of any answer
+#   and no independent completion gate exist after this step. Step 9's self-checks are now
+#   TERMINAL for explanation correctness. The §24 learnings loop loses its producer and is
+#   demoted to an optional, manually-authored input.
+#
 # v1.20.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   401 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_MockTestExplain'. The current companion block, the
@@ -16,30 +27,30 @@
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
 # ════════════════════════════════════════════════════════════════════════
-#   Take the certified-clean .docx produced by Step 8 and the frozen registry.json,
+#   Take the .docx produced by Step 7 and the frozen registry.json,
 #   INDEPENDENTLY DERIVE the answer to every Question, and INTERLEAVE a perfect,
 #   highest-standard explanation after each question — without altering one byte of
 #   the paper. Emit [ExamCode]_Mock[N]_Explanation.docx: a 100%-explained, zero-defect
-#   learner-facing solution document, plus an author handoff for Step 10.
+#   learner-facing solution document, plus an author handoff report.
 #
 # ════════════════════════════════════════════════════════════════════════
 # PIPELINE POSITION
 # ════════════════════════════════════════════════════════════════════════
 #   Step 5 (PYQExtract)   → [ExamCode]_section_rules.md + _subtopic_manifest.json
 #   Step 6 (MockBlueprint) → [ExamCode]_blueprint.json + _registry.json (template)
-#   Step 7 (MockCreate)    → [ExamCode]_Mock[N]_Create.docx + registry.json
-#   Step 8 (MockCreateAudit) → [ExamCode]_Mock[N]_Create_Complete.docx (RECTIFIED, certified)
-#                                  [ExamCode]_registry.json (re-synced — now FROZEN)
+#   Step 7 (MockCreate)    → [ExamCode]_Mock[N]_Create.docx
+#                                  [ExamCode]_registry.json (written at Final Assembly —
+#                                  FROZEN for every step after Step 7)
 #   THIS STEP — Step 9 (MockExplain) → [ExamCode]_Mock[N]_Explanation.docx (interleaved explanations)
 #   C3 (v1.15): in every [ExamCode]_Mock[N]_*.docx name above, "Mock[N]" is the paper_slug of the
 #   paper being processed — "Mock[N]" for a mock (byte-identical), else the scoped paper_id with
 #   ":"→"_" (e.g. SUBJ_Physics_03), derived from blueprint.mocks[N].paper_id (fallback MOCK:M{N:02d}).
 #   Read the input under, and write the output under, that same paper_slug. No registry writes here.
-#   Step 10 (MockExplainAudit) → independently audits the Solutions docx
 #   Step 11 (MockDeliver)
 #
-#   Steps 5–11 all run in the [ExamCode] project (exam-specific). Step 9 runs after
-#   Step 8 has certified mock N and BEFORE Step 10 audits it.
+#   Steps 5–11 all run in the [ExamCode] project (exam-specific). Step 9 runs directly
+#   after Step 7 and directly before Step 11. There is no audit step on either side:
+#   nothing re-derives these answers after this step, so §12 and §19 are terminal.
 #
 # ════════════════════════════════════════════════════════════════════════
 # EXAM-AGNOSTIC GUARANTEE
@@ -68,7 +79,7 @@
 #   that is 4-option in one section and 5-option in another), alphabetic / roman /
 #   custom option labels (A·B·C·D, i·ii·iii, …) as well as numeric, and language-
 #   specific sentence terminators (e.g. the Devanagari danda '।'). With valid
-#   upstream outputs (Steps 5–8) it therefore covers SSC CGL, GATE (incl. NAT/MSQ), NEET, IBPS,
+#   upstream outputs (Steps 5–7) it therefore covers SSC CGL, GATE (incl. NAT/MSQ), NEET, IBPS,
 #   UPSC CSAT, CAT and regional/other-language exams. OUT OF SCOPE by nature: purely
 #   DESCRIPTIVE / essay papers (e.g. UPSC Mains), which have no options and no single
 #   keyed answer — the objective block model does not apply (see §22). If a value an
@@ -82,8 +93,9 @@
 
 ## S0-1 — INPUTS (what Step 9 is given)
 
-  DELIVERED BY STEP 8 (the closed set; both already in the [ExamCode] project):
-    1. [ExamCode]_Mock[N]_Create_Complete.docx   — the certified-clean paper to explain
+  DELIVERED BY STEP 7 (the closed set; both already in the [ExamCode] project):
+    1. [ExamCode]_Mock[N]_Create.docx     — the paper to explain, exactly as Step 7
+                                            assembled and self-audited it
     2. [ExamCode]_registry.json           — FROZEN; read for figural_manifests[] /
                                             rc_manifests[] cross-checks + dedup context +
                                             options_by_q[str(N)] (v1.3: per-question expected
@@ -98,9 +110,9 @@
                                             in every exam project (MANDATORY — MANDATE A)
 
   NOT DELIVERED (Step 9 must do without these — by design):
-    ✗ any answer key. Step 8 derived a key only to AUDIT and never delivered it
-       (Step-8 §11-3 / S0-2 / §19). Step 9 re-derives all answers independently (§7).
-    ✗ internal Step-7/Step-8 sidecars (answer_key.json, concept_map, audit ledger).
+    ✗ any answer key. Step 7 holds a key internally and never delivers it.
+       Step 9 re-derives all answers independently (§7).
+    ✗ internal Step-7 sidecars (answer_key.json, concept_map, audit ledger).
        The figural/RC maps Step 9 needs are in registry.json and re-extracted at P3.
 
 ## S0-2 — OUTPUTS (what Step 9 delivers)
@@ -108,22 +120,22 @@
   CORE DELIVERABLE (every batch, via ONE present_files call — the WHOLE paper):
     1. /mnt/user-data/outputs/[ExamCode]_Mock[N]_Explanation.docx
        The complete paper: every question solved so far carries its interleaved
-       explanation; every not-yet-solved question is byte-identical to the Step-8
+       explanation; every not-yet-solved question is byte-identical to the Step-7
        input (D4). The same file grows explanation-coverage each batch until 100%.
 
   IN-CHAT (every batch): a STATUS DASHBOARD (§3 P2) + a per-batch progress line, then
   an explicit CONFIRMATION REQUEST that ENDS the turn (MANDATE B). At the final batch:
-  the END-OF-MOCK REPORT (§20) + the Step-10 handoff. Both are STRICTLY MANDATE-0 safe
+  the END-OF-MOCK REPORT (§20) + the author handoff. Both are STRICTLY MANDATE-0 safe
   (Q-numbers + codes + counts only — never stem/option/answer/solution text).
 
-  NEVER delivered / never written: the Step-8 questions-only paper is NOT overwritten;
+  NEVER delivered / never written: the Step-7 questions-only paper is NOT overwritten;
   registry.json is NOT re-synced (frozen); no internal state file (progress.json,
   answer_keys.json, the pickled blocks, the strip copy, montages) leaks to outputs.
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE 0 — NO QUESTION/ANSWER CONTENT IN CHAT (ABSOLUTE — ZERO EXCEPTIONS)
 # ════════════════════════════════════════════════════════════════════════
-#   Inherited from Step 7 / Step 8 MANDATE 0. MANDATE 0 governs the CHAT STREAM.
+#   Inherited from Step 7 MANDATE 0. MANDATE 0 governs the CHAT STREAM.
 #   NEVER print any stem, option, passage, table cell, figure description, derived
 #   answer, or explanation sentence in chat — not while solving, not in a finding,
 #   not in the report. Refer to a question ONLY as "Q.[n]" plus a code + a structural
@@ -188,22 +200,23 @@
 #   is NEVER collapsed, and the whole-paper coverage assertion still fires per batch. A
 #   run that finishes "fast" by skipping the per-question solve/verify is a MANDATE B
 #   violation, not a valid autonomous run. Autonomy waives the PAUSE, never the WORK
-#   (RE-0). Step 10's independent completion gate (its §20) re-checks coverage anyway.
+#   (RE-0). NOTE (v1.21.0): no downstream completion gate re-checks coverage any more —
+#   the per-batch coverage assertion here is the ONLY coverage check that will ever run.
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE D — WHOLE-PAPER EACH BATCH, ONLY AFTER SELF-AUDIT CLEAN (HARD STOP)
 # ════════════════════════════════════════════════════════════════════════
 #   present_files is FORBIDDEN until the current batch's self-audit (§18) is clean:
 #   engine validate() on every block + verify_fidelity (whole paper byte-identical to
-#   the Step-8 source) + verify_structure (coverage == exactly this batch's questions,
+#   the Step-7 source) + verify_structure (coverage == exactly this batch's questions,
 #   no look-ahead) + math-render check. The delivered file is ALWAYS the complete
-#   paper (D4): explained-so-far interleaved + remainder identical to the Step-8
+#   paper (D4): explained-so-far interleaved + remainder identical to the Step-7
 #   input. A fragment containing only the batch's questions must NEVER be presented.
 #   /mnt/user-data/outputs holds ONLY the single Solutions docx; the WIP state lives
 #   in /home/claude across "continue" turns so nothing is lost.
 
 # ════════════════════════════════════════════════════════════════════════
-# THE CORE PRINCIPLE — engine proves shape; discipline + Step 10 prove truth
+# THE CORE PRINCIPLE — engine proves shape; discipline alone proves truth (v1.21.0)
 # ════════════════════════════════════════════════════════════════════════
 #   No code can prove a sentence is TRUE or WELL-TAUGHT — only that it is SHAPED
 #   right. So the guarantees are split, and the split is deliberate:
@@ -211,15 +224,17 @@
 #       mechanical: block presence + order, the CA three-way binding, WHY-WRONG key
 #       set, OMML for every fraction, banned glyphs / templates / fake-cites /
 #       metacommentary, one-sentence-per-paragraph, and byte-identical fidelity to the
-#       Step-8 source. A breach raises BEFORE the docx is written — it cannot ship.
+#       Step-7 source. A breach raises BEFORE the docx is written — it cannot ship.
 #     • DISCIPLINE (derive-twice, web-verify, view-every-image, the per-question
-#       checklist §5) + STEP 10 (independent, zero-sampling re-audit that does not trust
-#       Step 9) enforce what code cannot: answer correctness, conceptual soundness,
+#       checklist §5) enforces what code cannot: answer correctness, conceptual soundness,
 #       "the named error actually produces this option", a genuinely-faster SPEED HACK,
-#       web-true facts, and no-restatement density. v1.12: Step 10 now certifies with a
-#       runnable COMPLETION GATE (explain_audit_gate.py, CA1–CA7 over an evidence-bound
-#       ledger — its §20), so "the independent re-audit ran and was exhaustive" is itself
-#       a command result, not a self-declaration.
+#       web-true facts, and no-restatement density.
+#   v1.21.0 — THE SECOND HALF OF THIS SPLIT IS GONE. Step 10's independent, zero-sampling
+#   re-audit and its runnable COMPLETION GATE were retired with the audit steps. Nothing
+#   downstream re-derives a single answer. Every discipline clause below is therefore
+#   LOAD-BEARING AND TERMINAL: if the writer skips derive-twice, or certifies a fact from
+#   memory, or accepts a generic WHY WRONG, that defect ships. Read "by discipline" in
+#   §8 as "by discipline, with no second reader" — it is the whole guarantee, not half.
 #   The hardest CONTENT requirement — a WHY-WRONG error type that REPRODUCES its option
 #   (§15) — is also the strongest anti-laziness mechanism in the step: it cannot be
 #   satisfied by a template, because three different wrong options cannot share one
@@ -239,7 +254,7 @@
           to conflict with a HARD rule, the HARD rule wins and the preference is applied
           to pacing/reporting only. (A loaded LEARNINGS rule may still override a base
           rule on content — RE-22 / §24 — but never to reduce coverage or skip §18.)
-  RE-1  : NO INHERITED KEY. Step 8 delivered no key; derive every answer
+  RE-1  : NO INHERITED KEY. Step 7 delivers no key; derive every answer
           independently (§7). Step 9 is the first step to publish a learner key.
   RE-2  : NO CONTENT IN CHAT. = MANDATE 0. The Solutions docx is the only home.
   RE-3  : APPEND-ONLY. Never modify, re-type, re-encode or re-create any question
@@ -263,7 +278,7 @@
           print the paper's OWN labels (A/B/C, i/ii/iii, …), never a mismatched number.
   RE-11 : VIEW EVERY IMAGE. A figural answer is derived from the VIEWED extracted images,
           never from a manifest (the manifest is a cross-check, not a key — §13).
-  RE-12 : ONE DEFENSIBLE ANSWER ASSUMED. The paper was certified clean (Step 8); expect
+  RE-12 : ONE DEFENSIBLE ANSWER ASSUMED. Step 7 built one defensible answer; expect
           exactly one defensible answer. A suspicion otherwise is most likely an
           incomplete solve — raise the bar before concluding a defect (§17).
   RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option names an error type
@@ -272,25 +287,28 @@
           reaches the same CA with materially less work; otherwise OMIT — never pad (§14).
   RE-15 : NO TEMPLATES / GLYPHS / FAKE-CITES / METACOMMENTARY / BANNED BLOCKS. Engine-
           enforced at write time; the writer must not even attempt them.
-  RE-16 : HALT-AND-ESCALATE, NEVER FIX. A genuine, reproduced defect escalates to Step 8;
-          Step 9 never edits question content and never publishes a guessed key (§17).
+  RE-16 : HALT-AND-ESCALATE, NEVER FIX. A genuine, reproduced defect HALTS the run and is
+          escalated to the author for a Step 7 re-run of that question; Step 9 never edits
+          question content and never publishes a guessed key (§17).
   RE-17 : FIDELITY EVERY BATCH. The whole question region must be byte-identical to the
-          Step-8 source, verified after every batch — not once at the end (§12, §18).
+          Step-7 source, verified after every batch — not once at the end (§12, §18).
   RE-18 : WEB-VERIFY FACTS. Every current-affairs / general-knowledge fact and every factual
           option is web-verified with a recorded source; never certified from memory.
   RE-19 : RESUME-SAFE. All cross-batch state lives in files; "continue" reloads and
           re-verifies the on-disk doc before solving the next batch (§4).
-  RE-20 : KINDNESS TO STEP 10. The handoff states plainly what was derived, what was
-          web-verified, what carries a DERIVATION-CONFIDENCE flag, and what is
-          model-derived — so the independent audit knows where to look hardest. This is
-          also the data that populates Step 10's completion-gate ledger (§18 / Step 10 §20).
+  RE-20 : KINDNESS TO THE READER OF RECORD. The handoff states plainly what was derived,
+          what was web-verified, what carries a DERIVATION-CONFIDENCE flag, and what is
+          model-derived — so a human reviewer knows where to look hardest. With no audit
+          step downstream (v1.21.0) this handoff is the ONLY surviving record of where the
+          run was least certain: it is MANDATORY, never abbreviated, never skipped.
   RE-21 : QUESTION-TYPE-AWARE. Resolve each question as mcq / msq / nat from config (§6,
           §3 P3) and shape the block accordingly: mcq binds one option, msq binds the full
           correct set with WHY WRONG over the non-selected, nat binds a value (+ optional
           range) with COMMON PITFALLS in place of WHY WRONG. Never force one type's shape
           onto another. Descriptive/essay questions are out of scope and flagged (§22).
   RE-22 : LOAD & APPLY LEARNINGS. At P1, load the accumulated learnings —
-          [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (the Step-10 audit feedback loop) and
+          [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (v1.21.0: legacy/manually-authored — its
+          Step-10 producer no longer exists; still READ when present) and
           [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) — via parse_learnings, and
           OBEY every applicable rule while authoring (§24). Learnings OVERRIDE this spec on
           conflict (content only — never coverage/§18, RE-0); they accumulate across mocks
@@ -303,14 +321,14 @@
 
 ## S1-1 — Sources of truth (strict priority order)
 
-  1. THE PAPER ITSELF — [ExamCode]_Mock[N]_Create_Complete.docx. The rendered stem +
+  1. THE PAPER ITSELF — [ExamCode]_Mock[N]_Create.docx. The rendered stem +
      options + attached artefacts are the ground truth for what must be explained.
   2. section_rules.md — CATEGORY C (option count, language, labels, escape tokens,
      figural types) + per-subtopic patterns (what the AXIOM must state per class).
   3. blueprint.json — sections[], q_range[] (the batch-plan source), difficulty.
   4. subtopic_manifest.json — subtopic_id join (class detection support — §6).
   5. registry.json — figural_manifests[] / rc_manifests[] as CROSS-CHECKS only.
-     (v1.5) registry.question_index is a FROZEN, read-only field (Step 8 -> Step 11): Step 9
+     (v1.5) registry.question_index is a FROZEN, read-only field (Step 7 -> Step 11): Step 9
      neither consumes it as a source nor modifies it; see S2-2 for the defensive alignment check.
   When the paper and a manifest disagree, the PAPER wins (a manifest records intent;
   a render bug is exactly what Step 9 must catch — §13).
@@ -349,19 +367,19 @@
 ## S2-2 — Mock/paper-number resolution (do this BEFORE loading questions)
 
   Resolve N from the trigger. Confirm registry.papers_completed CONTAINS this paper's
-  paper_id (Step 8 certified it) — falling back to legacy registry.mocks_completed
-  containing N for a mock on an older registry. If neither holds:
+  paper_id (Step 7 appends it at Final Assembly) — falling back to legacy
+  registry.mocks_completed containing N for a mock on an older registry. If neither holds:
     HARD STOP: "registry.papers_completed = [...] does not contain paper_id [paper_id].
-    Step 9 explains a Step-8-certified paper; run Step 8 on it first."
+    Step 9 explains a paper Step 7 has completed; run Step 7 on it first."
   registry is FROZEN here — this is a read-only alignment check, never a re-sync.
 
   DEFENSIVE INDEX ALIGNMENT (v1.5 — read-only; Contract_QuestionMetadataIndex v1.0):
-  registry.question_index is a Step-8-certified, FROZEN field that feeds Step 11's tags. Step 9
+  registry.question_index is a Step-7-written, FROZEN field that feeds Step 11's tags. Step 9
   NEVER reads it as a source and NEVER modifies it. As a cheap corruption tripwire ONLY: if the
   field is present it should carry exactly one object for mock N whose questions cover
   1..total_questions; a mismatch is reported as a WARNING (Step 9 derives its own question TYPE
   from the paper + registry.options_by_q and does NOT consume the index, so this never blocks or
-  alters Step 9's output — it flags a registry that Step 8 should re-certify). If the field is
+  alters Step 9's output — it flags a registry that Step 7 should rebuild). If the field is
   absent, Step 9 proceeds silently (older registries predate it).
 
 # ════════════════════════════════════════════════════════════════════════
@@ -370,8 +388,8 @@
 
   P0  TRIGGER DETECTION (§2). Resolve N; pick FRESH / RESUME / STATUS / CONT.
   P1  AUTO-LOAD (exact order): this spec → section_rules.md → BLUEPRINT (v1.19,
-      docx-driven pp.pick_blueprint — twin of Step 8's P0): discover the uploaded
-      [ExamCode]_[paper_slug]_Create_Complete.docx, parse its paper_slug from the
+      docx-driven pp.pick_blueprint — twin of Step 7's resolver): discover the uploaded
+      [ExamCode]_[paper_slug]_Create.docx, parse its paper_slug from the
       filename, load every [ExamCode]*_blueprint.json present (mock + any scoped),
       import paper_pipeline as pp, and call
       pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=paper_slug) to select the
@@ -385,7 +403,7 @@
       `python3 explain_engine.py --self-test` → MUST print
       "SELF-TEST: 62/62 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
-      [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (Step-10 feedback) and
+      [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (legacy/manual — v1.21.0) and
       [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT, and index every
       AL/EX rule by defect_code. These OVERRIDE this spec on conflict (§24). When a
       learnings file is present, also run `--self-test-audit` (10/10) to confirm the
@@ -494,7 +512,7 @@
     C. CUMULATIVE WHOLE-PAPER BUILD: build_interleaved_docx(CLEAN_SOURCE, ALL_BLOCKS_1..k,
        out, cfg). ALL blocks from batch 1 through k — never batch-k-only (this is why the
        remainder stays the source's bytes and prior batches are never dropped). The clean
-       Step-8 source is kept read-only in /home/claude and seeded WHOLE every time.
+       Step-7 source is kept read-only in /home/claude and seeded WHOLE every time.
     D. §18 SELF-AUDIT on the whole doc: validate() all blocks + verify_fidelity (byte-
        identical to source) + verify_structure (coverage == Q1..last(batch k), NO look-
        ahead) + math-render check. Any fail → fix, re-build, re-audit. Never deliver dirty.
@@ -507,7 +525,7 @@
        running A..F for one batch at a time (the review is never collapsed, RE-0).
   The run resumes only on the author's "continue" (P6 reloads + re-verifies first) in
   interactive mode. The FINAL batch (k == K) also stops and asks (interactive); on the
-  next "continue" it prints the §20 report + Step-10 handoff (no auto-finalise —
+  next "continue" it prints the §20 report + author handoff (no auto-finalise —
   MANDATE B). In autonomous mode the report + handoff print after batch K in the same run.
 
 ## S4-5 — The four anti-overrun guards (why all-at-once cannot happen)
@@ -592,10 +610,10 @@
 # ════════════════════════════════════════════════════════════════════════
 # §6 — UNIVERSAL QUESTION CLASSES & CLASS-ADAPTIVE SOLVING
 # ════════════════════════════════════════════════════════════════════════
-#   Solving protocols are keyed to the SAME universal question CLASSES that Step 8
-#   Part B uses (Step-8 §6-1) — derived at runtime from section_rules format +
+#   Solving protocols are keyed to the SAME universal question CLASSES that Step 7's
+#   generation model uses — derived at runtime from section_rules format +
 #   wrong_option_structure + stem cues, NEVER from exam-specific section ranges. One
-#   shared class model across Steps 8/9/10. A question may carry more than one facet.
+#   shared class model across Steps 7 and 9. A question may carry more than one facet.
 
 ## S6-1 — The classes and what each makes the explanation LEAD with
 
@@ -654,7 +672,7 @@
 
 ## S7-3 — Uniqueness expectation (RE-12)
 
-  Step 8 certified exactly one defensible answer per question. The derivation must land
+  Step 7 builds exactly one defensible answer per question. The derivation must land
   on a single defensible answer: one option (mcq), one correct SET (msq), or one value /
   accepted range (nat). If an MCQ appears to land on two options, or an MSQ set is
   ambiguous, or a NAT value is not pinned, that is almost certainly an incomplete solve
@@ -747,7 +765,7 @@
   ```
 
   PINNED: this function body MUST stay byte-identical to Framework_MockTestCreate.md
-  §S7-NEW-C and Framework_MockTestCreateAudit.md's A-NAT-GRADE copy — never re-implemented
+  §S7-NEW-C and audit_canonical.py's A-NAT-GRADE implementation — never re-implemented
   independently (anti-drift by design). Three independent copies computing the SAME
   deterministic function on the SAME true inputs is the intended redundancy (matches Step
   8's own pinned-copy pattern); three DIFFERENT implementations would not be.
@@ -758,7 +776,8 @@
 #   Governing rule across ALL sections — the DENSITY FLOOR (not a length floor):
 #   every line must add a NEW number, fact, or reason; NO sentence may restate another.
 #   Brevity is allowed only when the line is dense; a line carrying none of its required
-#   facts fails the content floor (Step 10 enforces the no-restatement rule code cannot).
+#   facts fails the content floor (v1.21.0: the no-restatement rule is enforced by the
+#   writer alone — no audit step re-reads it).
 
 ## S8-1 — Correct Answer
   Role: the one line the student trusts absolutely; the most dangerous line in the
@@ -773,7 +792,7 @@
   derived answer; bound three ways (line = DEDUCTION binding = answer_keys.json). For a
   negative stem it is the option the stem asks to IDENTIFY, polarity-correct (§10a).
   Enforced: three-way binding asserted at write time; truth by derive-twice + web-verify
-  + Step 10.
+  + the §19 pre-delivery checklist (no second reader — v1.21.0).
 
 ## S8-2 — AXIOM
   Role: the transferable concept — the rule/formula/theorem/definition that makes this
@@ -791,7 +810,7 @@
   subtopic is read from section_rules (RE-9). A forced second sentence is how restatement
   creeps in; one dense sentence is preferred when it fully states the rule AND its reason.
   Enforced: ≥1 sentence, one-per-paragraph, banned-phrase scan (engine); "truth not task",
-  "why not just what", correctness by discipline + Step 10.
+  "why not just what", correctness by discipline alone (v1.21.0).
 
 ## S8-3 — DEDUCTION
   Role: the reproducible spine — AXIOM → answer with every intermediate value shown, so
@@ -802,7 +821,7 @@
   strong student reads only the bolded path (fast lane) and a weaker one reads the full
   line (full lane) — both served by one block. Enforced: ≥2 steps + last-binds-Option-N
   + OMML + one-per-paragraph + zero glyphs (engine); chain completeness + arithmetic
-  truth by derive-twice + back-substitution + Step 10.
+  truth by derive-twice + back-substitution (no second reader — v1.21.0).
 
 ## S8-4 — SPEED HACK
   Role: exam-craft — a genuinely shorter route to the SAME answer, for time pressure;
@@ -812,7 +831,7 @@
   encouragement ("do it mentally", "obvious with practice") is banned — that is a
   platitude, not a hack. Inclusion is decided per question by §14; if no honest shortcut
   exists the block is OMITTED, never padded. Enforced: if present, binds the same CA
-  (engine); "genuinely faster, not cosmetic" by discipline + Step 10.
+  (engine); "genuinely faster, not cosmetic" by discipline alone (v1.21.0).
 
 ## S8-5 — WHY WRONG (mcq / msq) · COMMON PITFALLS (nat)
   Role: where most learning happens — the SPECIFIC error a student commits to land on a
@@ -831,8 +850,8 @@
   "dividing by the wrong count gives 9.4 — value_swap"). Same anti-template discipline:
   each pitfall must reproduce a real wrong value, none generic. Enforced: key set (mcq/msq)
   or ≥1 value-keyed pitfall (nat) + ≥1 sentence + error-type token + banned
-  templates/glyphs (engine); reproduces-the-wrong-answer + factual truth by discipline +
-  Step 10.
+  templates/glyphs (engine); reproduces-the-wrong-answer + factual truth by discipline
+  alone (v1.21.0).
 
 # NOTE (v1.13): the former S8-6 (figure_note, rendered under ⬛ FIGURE) is REMOVED.
 #   Figural questions no longer emit any FIGURE section; the rendered order for EVERY
@@ -910,7 +929,7 @@
 # ════════════════════════════════════════════════════════════════════════
 #   Every piece of math in an explanation is real OMML built through one validated
 #   funnel — never inline text, glyph, or LaTeX. Same OMML standard Step 7 generates
-#   under and Step 8 audits under: one math standard across the whole document.
+#   under: one math standard across the whole document.
 
 ## S11-1 — The single funnel (write-time enforced)
   All prose enters via add_math_text(), which auto-converts every digit/digit fraction
@@ -936,8 +955,8 @@
   delivery target). LibreOffice / pandoc / many docx→PDF/HTML pipelines silently drop or
   mangle OMML — so a previewer may show broken math on a CORRECT file. This is a
   rendering-environment artefact, never a document defect. The deliverable and the §20
-  report state plainly: FINAL VISUAL REVIEW MUST BE DONE IN MICROSOFT WORD. Step 10
-  discloses the same so a LibreOffice preview is never mistaken for a bug.
+  report state plainly: FINAL VISUAL REVIEW MUST BE DONE IN MICROSOFT WORD, so a
+  LibreOffice preview is never mistaken for a bug.
 
 # ════════════════════════════════════════════════════════════════════════
 # §12 — CONTENT-FIDELITY PRESERVATION (append-only; byte-identity)
@@ -946,7 +965,7 @@
 #   APPENDS (RE-3). There is no code path in Step 9 that writes question content; only
 #   paths that write explanation content and move existing content unchanged.
 
-## S12-1 — What is guaranteed byte-identical to the Step-8 source (verified EVERY batch)
+## S12-1 — What is guaranteed byte-identical to the Step-7 source (verified EVERY batch)
   • Stem + option TEXT (paragraph lines), and <w:u> underline / bold runs.
   • OMML: the <m:t> math-text sequence + node count per question (a math-bearing or
     pure-OMML stem is read math+text MERGED in document order, never judged "empty").
@@ -957,7 +976,7 @@
     grid compared cell-by-cell.
 
 ## S12-2 — How (the architecture, not a promise)
-  build_interleaved_docx seeds the CLEAN Step-8 source WHOLE and inserts explanation
+  build_interleaved_docx seeds the CLEAN Step-7 source WHOLE and inserts explanation
   paragraphs only AFTER a question's last option — never inside a region, never touching
   a question paragraph, never re-creating an image or re-typing OMML. verify_fidelity
   compares the output's every question region to the immutable source (kept read-only in
@@ -968,10 +987,10 @@
   • STRIP-AND-RE-AUDIT: strip_solutions() produces a questions-only copy; the Step-7
     paper auditor runs on THAT (never the combined doc — running it raw scans
     explanation prose as paper content and false-alarms). It must pass identically to
-    the Step-8 input.
+    the Step-7 input.
   • COUNT INVARIANTS: output question count, options/question, image count, table count
-    and OMML count == the Step-8 input exactly. Then Step 10 re-verifies all of this
-    independently.
+    and OMML count == the Step-7 input exactly. v1.21.0: nothing re-verifies these
+    counts downstream — this per-batch check is the only one that runs.
 
 # ════════════════════════════════════════════════════════════════════════
 # §13 — FIGURAL DEEP-ANALYSIS PROTOCOL (view every image — no exception)
@@ -991,7 +1010,7 @@
 ## S13-2 — Extract, role-bind, view (the gate before solving)
   Extract the actual image bytes from the docx media parts, render them, and bind each
   to its exact role (which is the problem figure, which is option 1, option 2, …) using
-  the 1:1 image↔label binding Step 7 built and Step 8 verified. VIEW each labelled image
+  the 1:1 image↔label binding Step 7 built. VIEW each labelled image
   before deriving. The binding matters: an unbound view can derive the right shape but
   key the wrong index.
 
@@ -999,8 +1018,10 @@
   figural_manifests[].answer_position records what Step 7 INTENDED to draw — a render
   bug is exactly what produces a wrong figure, so the manifest is a CROSS-CHECK, never a
   key. VIEW → derive → compare. Agreement → proceed. Disagreement → re-derive; if the
-  pixels still win, trust the image, flag DERIVATION-CONFIDENCE, and (since Step 8
-  certified the paper) HALT-AND-ESCALATE the possible render defect (§17). Manifest
+  pixels still win, trust the image, flag DERIVATION-CONFIDENCE, and HALT-AND-ESCALATE
+  the possible render defect to the author (§17). v1.21.0: no audit step ran the A-FIG*
+  pixel gates over this paper unless Step 7 ran audit.py, so a render defect reaching
+  here is more likely than it was — escalate it, never explain around it. Manifest
   absent (it is chat-scoped) → derive without it; the strip re-audit waives the manifest
   requirement (§12-3).
 
@@ -1050,7 +1071,7 @@
 
 ## S14-4 — The honesty guard
   If you cannot state the SPECIFIC lever that saves SPECIFIC work, there is no SPEED HACK
-  — omit it. An empty or generic SPEED HACK is a Step-10 defect, treated like a wrong
+  — omit it. An empty or generic SPEED HACK is a DEFECT, treated like a wrong
   answer. The pressure runs toward omission, never fabrication.
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1131,11 +1152,14 @@
   THE STUDENT", caught at four independent layers that do not weaken with length.
 
 # ════════════════════════════════════════════════════════════════════════
-# §17 — DEFECT HANDLING (certified-clean prior; halt-and-escalate, never fix)
+# §17 — DEFECT HANDLING (halt-and-escalate, never fix)
 # ════════════════════════════════════════════════════════════════════════
-#   The paper was independently audited and certified zero-defect by Step 8. So the
-#   prior is inverted: if a question looks wrong, the overwhelmingly likely explanation
-#   is an INCOMPLETE SOLVE on Step 9's part — not a defect two audit layers missed.
+#   v1.21.0 — THE PRIOR IS WEAKER THAN IT WAS. The paper carries Step 7's own generation
+#   gates and its per-batch self-audit, but NO independent audit layer has re-derived a
+#   single answer. If a question looks wrong, an INCOMPLETE SOLVE on Step 9's part is
+#   still the likelier explanation and §17-1/§17-2 still bind — but a real Step-7 defect
+#   is now materially more plausible than it was under a certified paper, so a claim that
+#   survives §17-1/§17-2 is to be escalated promptly rather than assumed self-inflicted.
 
 ## S17-1 — The burden of proof is inverted (RE-12)
   "This question/option is wrong" is a conclusion of LAST RESORT, never a reaction to
@@ -1153,28 +1177,28 @@
   be reproduced is not a defect — it is a Step-9 error; go solve the question.
 
 ## S17-3 — Step 9 does NOT fix, and almost never declares
-  Per RE-16, Step 9 NEVER edits question content (that is Step 8's job) and NEVER
+  Per RE-16, Step 9 NEVER edits question content (that is Step 7's job) and NEVER
   publishes a guessed key. The two outcomes:
-  • COMMON (essentially always): what looked wrong was an incomplete solve → solve it
+  • COMMON (still the usual case): what looked wrong was an incomplete solve → solve it
     properly and write the explanation. No defect.
-  • RARE (should not occur on a certified paper): after §17-1/§17-2, there is provably no
-    single defensible answer → set the INTERNAL anomaly flag (never rendered, §5-1),
-    HALT the run, and ESCALATE to Step 8 with the reproduced evidence. A defect surviving
-    into Step 9 means Step 8 erred OR Step 9 did — and since Step 9 is the likelier
-    culprit, escalation forces a re-check of both rather than a unilateral override.
+  • RARE: after §17-1/§17-2, there is provably no single defensible answer → set the
+    INTERNAL anomaly flag (never rendered, §5-1), HALT the run, and ESCALATE TO THE AUTHOR
+    with the reproduced evidence, naming the question and the derivation. The author
+    re-runs Step 7 for that question. Step 9 never overrides unilaterally.
 
 ## S17-4 — Why this cannot become lazy defect-calling
   The escalation path is deliberately EXPENSIVE (reproduced derivation + halt + bounce to
-  a prior certified step), while solving is the path of least resistance. The cheap
-  escape that drove the bad reflex no longer exists. Step 10's independent re-derivation
-  also catches a wrongly-flagged clean question (false defect) or a waved-through misread.
+  the author for a Step 7 re-run), while solving is the path of least resistance. The
+  cheap escape that drove the bad reflex no longer exists. v1.21.0: no downstream step
+  catches a wrongly-flagged clean question or a waved-through misread, so §17-1's
+  preconditions must be met in full before any claim is raised.
 
 # ════════════════════════════════════════════════════════════════════════
 # §18 — PER-BATCH SELF-AUDIT (the Audit-A analogue; producer self-certification)
 # ════════════════════════════════════════════════════════════════════════
 #   Runs after EVERY batch over the WHOLE cumulative doc (not just the new batch), so a
-#   fix in one batch cannot silently break an earlier one. This is Step 9's own gate;
-#   the INDEPENDENT re-audit is Step 10 (D8).
+#   fix in one batch cannot silently break an earlier one. v1.21.0: this is Step 9's own
+#   gate AND the last gate — no independent re-audit follows it.
 
 ## S18-1 — The checklist (all must hold before present_files — MANDATE D)
 ```text
@@ -1189,7 +1213,7 @@
       PITFALLS coverage, zero banned glyphs / metacommentary / templates / inline or
       vulgar fractions in rendered prose, one sentence per rendered paragraph, and every
       OMML fraction well-formed with no year-range artefact (§13)
-  [ ] count invariants: image / table / OMML / question / option counts == Step-8 input
+  [ ] count invariants: image / table / OMML / question / option counts == Step-7 input
   [ ] strip-and-re-audit: questions-only copy passes the Step-7 auditor identically (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
   [ ] derived answers flushed to answer_keys.json; CA three-way binding holds
@@ -1206,19 +1230,22 @@
   could write something the construction-time guards never saw, and only an
   independent read-back of the document catches it.
 
-## S18-2 — The independent gate is Step 10's completion gate (the loop's other half — v1.12)
-  Step 9's §18 above is PRODUCER self-certification. The INDEPENDENT certification is
-  Step 10 (MockExplainAudit), which at its Phase 3 runs a runnable COMPLETION GATE —
-  `explain_audit_gate.py --audit-progress [ExamCode]_Mock[N]_audit_progress.json` — that
-  asserts CA1–CA7 over an evidence-bound ledger (every question reviewed, every verdict
-  CLEAN/FIXED, every answer re-derived, every figural view / web source / reproduce-check
-  file present on disk). The per-question data Step 9 records for its own §18 (derived
-  answers, web-verified facts, viewed-image confirmations, DERIVATION-CONFIDENCE flags)
-  and hands off (RE-20) is exactly what populates that ledger — so producer self-check and
-  independent gate READ ONE SHARED EVIDENCE CONTRACT (audit_progress + evidence), which is
-  what prevents producer↔auditor drift. Step 9 does not run the gate itself (it produces
-  the Solutions doc, not the audit ledger); it guarantees the handoff carries the evidence
-  the gate needs. RE-0 forbids any preference from weakening either half.
+## S18-2 — THERE IS NO INDEPENDENT GATE (v1.21.0 — stated, not hidden)
+  Step 9's §18 above is PRODUCER self-certification, and with Step 10 retired it is the
+  ONLY certification this document will ever receive. The former independent half —
+  `explain_audit_gate.py --audit-progress ...` asserting CA1–CA7 over an evidence-bound
+  ledger — is no longer run for mock/scoped papers by any step. (The module itself
+  survives, still routed and self-tested, for PYQExplainAudit.)
+  CONSEQUENCES, binding:
+  • The per-question evidence Step 9 records (derived answers, web-verified facts,
+    viewed-image confirmations, DERIVATION-CONFIDENCE flags) is still recorded IN FULL and
+    still handed off (RE-20). Its consumer is now a human reviewer, not a gate. Recording
+    it is NOT optional merely because nothing machine-reads it.
+  • Producer↔auditor drift is no longer a risk because there is no auditor; the risk that
+    replaces it is PRODUCER SELF-DECEPTION, which §18-1's read-back-the-written-document
+    checks (not self-report) are the only defence against. Run them literally.
+  • RE-0 forbids any preference from weakening §18. That prohibition is now the single
+    load-bearing guarantee of this step and admits no exception.
 
 # ════════════════════════════════════════════════════════════════════════
 # §19 — DELIVERY (incremental whole-paper; one present_files per batch)
@@ -1294,10 +1321,10 @@ Step 9 uses BOTH footer types:
   §R6 FACT SOURCES: every web-verified fact with source URL + verification date
       (author-facing; never echoed to chat).
   §R7 ESCALATIONS (§17): every Q where no single defensible answer was found, with the
-      reproduced evidence — these block SHIP and bounce to Step 8.
-  §R8 STEP-10 HANDOFF (RE-20): what was derived, what was web-verified, what is model-
-      derived, where to look hardest — the evidence Step 10's completion gate ledger
-      needs (§18-2). State: review the docx IN MICROSOFT WORD (§11-3).
+      reproduced evidence — these block SHIP and bounce to the author for a Step 7 re-run.
+  §R8 AUTHOR HANDOFF (RE-20): what was derived, what was web-verified, what is model-
+      derived, where to look hardest — the record a human reviewer needs, since no gate
+      reads it (§18-2). State: review the docx IN MICROSOFT WORD (§11-3).
   §R9 LIMITATIONS (§22).
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1317,7 +1344,7 @@ Step 9 uses BOTH footer types:
       container matches the type (no why_wrong on nat, no common_pitfalls on mcq/msq).
   7.  SPEED HACK present IFF a genuinely faster route exists; never padded.
   8.  Every fraction OMML; explanation OMML well-formed; no year-range artefact.
-  9.  FIDELITY: whole question region byte-identical to the Step-8 source (text, OMML,
+  9.  FIDELITY: whole question region byte-identical to the Step-7 source (text, OMML,
       drawings, media MD5, tables); strip-re-audit passes; count invariants hold.
   10. Delivery: each batch shipped the COMPLETE paper (explained-so-far + untouched
       remainder); never a fragment; never the secure paper overwritten.
@@ -1326,9 +1353,9 @@ Step 9 uses BOTH footer types:
       each batch; final batch also stopped before the report (MANDATE B).
   12. registry.json NOT re-synced (frozen); no internal sidecar leaked to outputs.
   13. present_files called exactly once per batch, only after §18 clean (MANDATE D).
-  14. Report (§20) built from real STDOUT + findings; MANDATE-0 safe; Step-10 handoff printed.
+  14. Report (§20) built from real STDOUT + findings; MANDATE-0 safe; author handoff printed.
   15. No question/answer/solution content ever printed in chat (MANDATE 0).
-  16. Any genuine, reproduced defect HALTED-and-ESCALATED to Step 8; content never edited.
+  16. Any genuine, reproduced defect HALTED-and-ESCALATED to the author; content never edited.
   17. Learnings loaded at P1 (EXPLAIN_AUDIT_LEARNINGS + EXPLAIN_LEARNINGS, if present) and
       every question's applicable AL/EX rules routed and obeyed (§24); on mock 1 their
       absence is recorded, not an error.
@@ -1355,21 +1382,22 @@ Step 9 uses BOTH footer types:
     stem / composite trigger lists are config-supplied (§10) so those protocols stay
     language-correct.
   • No external key existed — correctness rests on first-principles derivation + a second
-    independent method (+ web-verification for facts). Step 10 re-derives independently.
+    independent method (+ web-verification for facts). v1.21.0: nothing re-derives them
+    afterwards — this is the only derivation the answer will receive.
   • Difficulty/section labels are model-estimated; not independently provable here.
   • Figural answers rest on reviewer reasoning over the VIEWED images (no machine proof) —
     but viewing is mandatory and un-sampled.
   • Web-verified facts are correct as of the verification timestamp; later real-world
     changes are outside Step 9's window.
   • "Genuinely faster" (SPEED HACK) and "the named error reproduces the option / value"
-    (WHY WRONG / COMMON PITFALLS) are writer-discipline + Step-10 judgements; the engine
-    proves shape, not pedagogy.
+    (WHY WRONG / COMMON PITFALLS) are writer-discipline judgements with no second reader
+    (v1.21.0); the engine proves shape, not pedagogy.
 
 # ════════════════════════════════════════════════════════════════════════
 # §23 — SUBTOPIC_ID CONTRACT (consumer role — v2.4 cross-step authority)
 # ════════════════════════════════════════════════════════════════════════
 #   Step 9 is a pure CONSUMER of the subtopic_id contract (the PYQ-phase steps mint; Step 5 enforces;
-#   Step 7 joins; Step 8 consumes). Step 9 reads subtopic_manifest.json only to support
+#   Step 7 joins and is the last writer). Step 9 reads subtopic_manifest.json only to support
 #   CLASS detection (§6) and to label the per-class coverage rollup (§20 §R3) — mapping a
 #   question to its subtopic_id by matching rendered content to section_rules patterns
 #   keyed by id, NEVER by display-name string-match. Step 9 NEVER mints an id, NEVER joins
@@ -1377,24 +1405,25 @@ Step 9 uses BOTH footer types:
 #   specific values (PYQ-phase §15).
 
 # ════════════════════════════════════════════════════════════════════════
-# §24 — LEARNINGS CONSUMPTION CONTRACT (the Step 10 → Step 9 feedback loop)
+# §24 — LEARNINGS CONSUMPTION CONTRACT (consumer-only since v1.21.0)
 # ════════════════════════════════════════════════════════════════════════
-#   Step 10 (MockExplainAudit) is the independent auditor of this step's output.
-#   Every mock it audits, it distils the defects it had to FIX into reusable rules and
-#   writes them to a learnings file, so the SAME mistake is not authored again. This
-#   section is the consumer half of that loop; Step 10 §24 is the producer half, and the
-#   two schemas are PINNED to each other (a desync here is the silent-failure mode this
-#   project exists to prevent — so the contract is explicit, not implied).
+#   v1.21.0 — THE AUTOMATIC PRODUCER IS GONE. Step 10 was this loop's producer: it distilled
+#   the defects it had to FIX into reusable AL-rules so the same mistake was not authored
+#   again. With Step 10 retired, NOTHING generates AL-rules automatically any more. This
+#   section remains as the CONSUMER half only: any AL-rule file already accumulated stays
+#   valid and is still loaded and obeyed, and new rules may be added BY HAND by the author.
+#   The schema below is frozen so existing files keep parsing; there is no producer half to
+#   keep pinned to it.
 #
 #   TWO learnings files, both loaded at P1, both exam-agnostic, both OVERRIDE this spec:
-#     • [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md — AL-rules ("Audit Learning"), AUTO-
-#       generated/updated by Step 10. The feedback loop proper.
+#     • [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md — AL-rules ("Audit Learning"). Formerly
+#       auto-generated by Step 10; now legacy + manually authored.
 #     • [ExamCode]_EXPLAIN_LEARNINGS_v*.md — EX-rules, human-authored guardrails (the
 #       hard-won manual fixes). Same mechanism, same precedence.
-#   Neither exists on mock 1 by design (nothing has been audited yet). Their ABSENCE is
+#   Neither exists on mock 1 by design (nothing has been reviewed yet). Their ABSENCE is
 #   normal and never a HALT; their PRESENCE is loaded and obeyed.
 #
-# ── S24-1 — WHAT A RULE CARRIES (the pinned schema; producer = Step 10 §24) ──────────
+# ── S24-1 — WHAT A RULE CARRIES (frozen schema; no automatic producer — v1.21.0) ─────
 #   Each rule is a markdown block headed `## AL-<id> — TITLE` (or `## EX-<id> — TITLE`)
 #   with these fields (parse_learnings extracts them verbatim):
 ```text
@@ -1438,16 +1467,18 @@ Step 9 uses BOTH footer types:
 #     absent that, the more specific (narrower defect_code / class) wins; surface, never
 #     guess.
 #
-# ── S24-4 — THE PRODUCER CONTRACT (pinned to Step 10 §24 — the promotion threshold) ──
-#   Step 10, at the end of a mock's audit, updates [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v1.md:
+# ── S24-4 — THE PRODUCER CONTRACT (RETIRED — kept for files already written) ──────────
+#   HISTORICAL (through v1.20.1): Step 10, at the end of a mock's audit, updated
+#   [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v1.md:
 #   for EVERY defect code it fixed >= 2 times in that mock (the promotion threshold), it
 #   writes or updates an AL-rule in the schema above, appends the mock to the file's
 #   coverage line, and re-uploads the file (accumulate, never overwrite history). A single
 #   occurrence is logged in the audit defect log but does not yet earn a standing rule —
 #   the threshold keeps the learnings file signal, not noise. The filename version (_v1,
 #   _v2, …) advances only on an incompatible schema change; the consumer loads the highest
-#   version present. If this threshold or schema changes on either side, BOTH §24s change
-#   in the same pass (coordinated edit) — that is what "pinned" means.
+#   version present. v1.21.0: no step performs this promotion any more. An author adding a
+#   rule by hand SHOULD follow the same threshold and schema so the consumer keeps parsing
+#   the file, but nothing enforces it.
 #
 # ════════════════════════════════════════════════════════════════════════
 # APPENDIX A — UNIVERSAL EXAM-AGNOSTIC explain_engine.py (MANDATE A) — SINGLE SOURCE
@@ -1456,35 +1487,33 @@ Step 9 uses BOTH footer types:
 #   ONE canonical, runnable home:
 #       explain_engine.py   (delivered alongside this spec; uploaded to each [ExamCode] project)
 #   It is COMPLETE, working, universal, and byte-identical across exams — the same file
-#   Step 10 (MockExplainAudit) reads. It carries EngineConfig, ExplanationBlock,
+#   PYQExplain / PYQExplainAudit read. It carries EngineConfig, ExplanationBlock,
 #   add_math_text, parse_paper, build_interleaved_docx, verify_fidelity, verify_structure,
-#   verify_explanations, strip_solutions, the Step-10 reader parse_solution_blocks, and
+#   verify_explanations, strip_solutions, the reader parse_solution_blocks, and
 #   parse_learnings. Self-tests: `python3 explain_engine.py --self-test` →
 #   "SELF-TEST: 62/62 PASS" (core, required at P1) and `--self-test-audit` →
 #   "AUDIT-SELF-TEST: 10/10 PASS" (reader round-trip).
 #
 #   WHY THE LISTING WAS REMOVED (v1.12): through v1.11 the full engine was reproduced
-#   verbatim in this Appendix AND in Framework_MockTestExplainAudit.md Appendix A "for
+#   verbatim in this Appendix AND in the (now retired) ExplainAudit spec's Appendix A "for
 #   self-containment" — but a reproduced copy and the standalone can silently DESYNC, and
 #   the v1.8/v1.9 changelog records that this ALREADY happened once (the embedded copy
 #   lagged the standalone's step-number + code fixes). A single canonical copy removes
-#   that failure mode — the same multi-copy-drift fix Step 8 v2.6 and Step 10 v1.7 applied
+#   that failure mode — the same multi-copy-drift fix the retired audit steps applied
 #   to their auditors. The framework linter (validate_framework_md.py) runs
 #   explain_engine.py's `--self-test` directly.
 #
-#   COMPANION GATE (v1.12): the explanation pipeline's mechanical certification lives in a
-#   second small module, explain_audit_gate.py (Step 10 §20) — the runnable COMPLETION
-#   GATE that asserts CA1–CA7 over Step 10's audit_progress.json + evidence sidecars. Step 9
-#   does not run it (it produces the Solutions doc, not the audit ledger), but its §18-2
-#   handoff supplies the per-question evidence that gate reads — one shared contract across
-#   producer and independent auditor.
+#   COMPANION GATE (v1.21.0 — NOT RUN BY THIS CHAIN): explain_audit_gate.py still exists,
+#   is still hash-tracked, and still asserts CA1–CA7 over an audit_progress.json ledger —
+#   but only PYQExplainAudit routes it now. No step runs it over a mock/scoped Solutions
+#   doc. Step 9's §18 self-audit is the whole mechanical certification this document gets.
 
 # ════════════════════════════════════════════════════════════════════════
 # FOOTER — this file is the canonical Step-9 spec. On any CONTENT conflict with a loaded
-# learnings file — [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (the Step-10 audit feedback
-# loop, §24) or [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) — that learnings
+# learnings file — [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (legacy/manual, §24)
+# or [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) — that learnings
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.20.1
+# END OF Framework_MockTestExplain v1.21.0
 # ════════════════════════════════════════════════════════════════════════

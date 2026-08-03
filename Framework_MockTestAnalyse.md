@@ -7145,7 +7145,7 @@ CATEGORY C (file-level header — written once at top of section_rules.md):
   A consumer spec MUST test for '=== EXAM_STRUCTURE ===' (or read specific key: value
   lines via a regex like cat_c() does) — NEVER regex-match the phrase "CATEGORY" or
   "CATEGORY C" against file content; that string is never written to disk. (See
-  A-INTEGRITY-FALSEPOS-01 / Framework_MockTestCreateAudit.md v2.7.5 changelog for the
+  A-INTEGRITY-FALSEPOS-01 / the CreateAudit v2.7.5 changelog entry (CHANGELOG.md) for the
   exact defect this caused when violated.)
   NEW v2.3 — auto-detected at runtime, never hardcoded.
   Written by write_section_rules() under '=== EXAM_STRUCTURE ==='.

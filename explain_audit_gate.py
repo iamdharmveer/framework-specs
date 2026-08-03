@@ -2,7 +2,7 @@
 # explain_audit_gate.py — Step 10 (MockExplainAudit) / Step 9 (MockExplain)
 # MECHANICAL COMPLETION GATE for the explanation-audit pipeline (v1.0).
 #
-# WHY THIS EXISTS (parallel to Framework_MockTestCreateAudit.md S5-1A):
+# WHY THIS EXISTS (parallel to the S5-1A completion gate in audit_canonical.py):
 #   Step 10 already names the right guarantees — the per-question EVIDENCE gate
 #   (§17 mechanism 2), the zero-sampling COVERAGE assertion (§17 mechanism 3), and
 #   the pre-delivery SCOPE assertion (§18). But those were PROSE the model

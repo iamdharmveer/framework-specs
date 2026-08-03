@@ -1,4 +1,10 @@
-# Framework_ScopedBlueprint v1.7.1 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# Framework_ScopedBlueprint v1.8.0 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# v1.8.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
+#   Pipeline listing updated to 6S -> 7 -> 9 -> 11; the one "audited downstream at Step 8"
+#   claim is restated against Step 7's audit.py. No allocation rule, gate, or output of
+#   this spec changes. ACCEPTED LOSS: a scoped paper now receives no independent audit at
+#   any point — Step 7's own gates are terminal for it.
+#
 # v1.7.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   105 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_ScopedBlueprint'. The current companion block, the
@@ -44,10 +50,11 @@
 #   Step 6:  MockBlueprint     ← the FULL-EXAM blueprint (Framework_Blueprint.md)
 #   Step 6S: ScopedBlueprint   ← THIS SPEC — one scoped series per (level, scope)
 #   Step 7:  MockCreate / ScopedCreate  ← SHARED generator (reads blueprint.json)
-#   Step 8:  MockCreateAudit
 #   Step 9:  MockExplain
-#   Step 10: MockExplainAudit
 #   Step 11: MockDeliver
+#   (v1.8.0: canonical Steps 8 and 10 — the Create and Explain audits — are RETIRED
+#    framework-wide. Step numbers 7/9/11 are NOT renumbered, so every cross-spec
+#    "Step 9"/"Step 11" reference stays valid.)
 #
 #   Step 6S is INDEPENDENT of Step 6 (mock) — a project may have mocks, scoped tests,
 #   both, or neither, generated in any order (append-only, tier-agnostic — see §9).
@@ -687,7 +694,8 @@ for b, P_b in enumerate(papers_per_batch):
 # (C) series totals are frequency-ordered among PYQ subtopics (sanity, not exact):
 #     higher r_avg => >= questions in aggregate is NOT asserted per-pair (largest-remainder
 #     + per-batch flooring can invert close ties); the per-batch r_avg split is the
-#     authoritative fidelity mechanism, audited downstream at Step 8.
+#     authoritative fidelity mechanism, audited by Step 7's audit.py when present
+#     (v1.8.0 — the former downstream Step 8 audit is retired).
 
 # series_total[S] = total questions for subtopic S across all N papers (for §8 blueprint.json)
 series_total = {S: sum(paper_alloc[p].get(S, 0) for p in paper_alloc) for S in in_scope_ids}
@@ -1300,4 +1308,4 @@ strict-global uniqueness holds across all tiers:
          override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
 ```
 
-# END OF Framework_ScopedBlueprint v1.7.1 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
+# END OF Framework_ScopedBlueprint v1.8.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)

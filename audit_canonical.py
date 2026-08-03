@@ -2,7 +2,8 @@
 # ============================================================================
 # [ExamCode]_mock_test_audit.py
 # UNIVERSAL, EXAM-AGNOSTIC Part-A machine-gate auditor for Step 8
-# (Framework_MockTestCreateAudit v2.6, Appendix A).
+# (originally CreateAudit v2.6 Appendix A; that spec was retired 2026-08-03 and this
+# file is now the sole home of the A-* catalogue).
 #
 # Zero hardcoded exam values: every expected value (question/section counts,
 # q_ranges, options_count, option label format, language, OMML-required

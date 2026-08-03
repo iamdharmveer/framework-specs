@@ -1,5 +1,106 @@
 # Changelog
 
+## 2026.08.03.5
+**Release E — the Create and Explain audit steps are removed from the framework.**
+
+Canonical **Step 8 (MockCreateAudit / TestCreateAudit)** and **Step 10
+(MockExplainAudit / TestExplainAudit)** are retired. Four triggers are deleted from
+`routes.json` (24 -> 20) and two specs are deleted from the corpus (22 -> 20):
+`Framework_MockTestCreateAudit.md` (v2.26.0) and `Framework_MockTestExplainAudit.md`
+(v1.16.1). The pipeline is now 6 -> 7 -> 9 -> 11. Step numbers are deliberately NOT
+renumbered, so every existing cross-spec "Step 9" / "Step 11" reference stays valid.
+
+**What this costs, stated plainly and not buried.** No independent step re-derives an
+answer, re-derives a `subtopic_id`, re-checks a figure, or runs a completion gate over a
+mock or scoped paper any more. Step 7's own gates and Step 9's §18 self-audit are now
+TERMINAL. This is an accepted loss requested by the framework owner, not an oversight,
+and every spec clause that previously promised a downstream re-verification has been
+restated against what actually runs rather than left to read as if the audit were still
+there.
+
+**What survives, and why.** `audit_canonical.py` is KEPT: it is not Step-8-only, because
+Step 7 already ran it per batch (S3-10 / S4-11). Step 6 B3 still generates the per-exam
+`[ExamCode]_mock_test_audit.py` copy verbatim from it, so the full A-* catalogue —
+including the twelve A-FIG* figure-conformance gates that caught the IIT JAM figural
+defect — still runs, now inside Step 7. `explain_audit_gate.py` also survives: it is
+still routed and self-tested for `PYQExplainAudit`, which is unaffected by this release.
+
+**No rule was added.** `audit.py` remains OPTIONAL to run for Step 7 — S4-11's manual gate
+checklist still substitutes when it is absent. What changed is a REPORTING duty: its
+absence must now be stated explicitly in the batch report, because with no audit step
+downstream an absent `audit.py` means no machine gate ever runs over the paper. Promoting
+the run to mandatory is a deliberate, separate decision and was not taken here.
+
+**Files changed.**
+- `routes.json` — 4 audit triggers removed (24 -> 20 triggers).
+- `Framework_MockTestCreateAudit.md`, `Framework_MockTestExplainAudit.md` — DELETED.
+- `Framework_MockTestCreate.md` v5.38 -> **v5.39** — hands off to Step 9 directly; ~60
+  "re-verified by Step 8 A-*" claims retargeted to `audit.py A-*` (same catalogue, same
+  gates, different runner); Tier-A dossier (S13-4b) still written, consumer restated as
+  the author; the orphaned RA-12 cross-reference inlined.
+- `Framework_MockTestExplain.md` v1.20.1 -> **v1.21.0** — input is now
+  `_Create.docx`; S2-2 re-pointed at Step 7's `papers_completed` write; RE-1/12/16/17/20/22
+  rewritten; §17 escalation goes to the author for a Step 7 re-run; §18-2 rewritten as
+  "there is no independent gate"; §24 learnings loop demoted to consumer-only (existing
+  AL-rule files stay valid, still loaded, and may be extended by hand).
+- `Framework_MockDeliver.md` v1.9.1 -> **v1.10.0** — no logic change (preflight already
+  accepted the Step-9 file); `_Explanation_Complete.docx` retained in the accept-regex so
+  papers produced before this release still deliver; certification claims restated.
+- `Framework_Blueprint.md` v1.42.8 -> **v1.43.0** — B3 deliverables 6 -> 5;
+  `ExplainAuditLearnings.md` no longer generated (§13-6); §13-7A kept in full; the
+  engine-copy duty (`blueprint_core.py` + `figural_core.py` from `$FW`) moves from Step 8
+  to Step 7; editor caution added because this file also uses "Step 8" for its own B3
+  sub-steps.
+- `Framework_ScopedBlueprint.md` v1.7.1 -> **v1.8.0** — pipeline listing 6S -> 7 -> 9 -> 11.
+- `Framework_DeliveryFooter.md` v1.10 -> **v1.11** — B3 deliverables 6 -> 5; Q0b
+  vision-outage branch re-pointed from Step 8 to the producing step; orphaned RA-4
+  cross-reference inlined.
+- `Framework_PYQExplainAudit.md` v1.1.2 -> **v1.2.0** — SHARED_RULES block rewritten: its
+  counterpart file no longer exists, so this spec is now the sole owner of the RXA-* rule
+  set. Zero behaviour change; the step remains live and routed.
+- `validate_framework_md.py` — 4 PIPELINE entries removed; `_AK_B3_EXPECTED` 6 -> 5.
+- `audit_sync.py` — `CHAIN`/`OWNER` filename map drops the two `_Complete` suffixes;
+  BP-SCHEMA `readers` list drops the deleted CreateAudit spec.
+- `SKILL.md`, `mocktestframework_SKILL.md` — trigger list and spec inventory corrected.
+- `CLAUDE.md`, `Framework_PYQExplain.md`, `Framework_MockTestAnalyse.md`,
+  `paper_pipeline.py`, `explain_audit_gate.py`, `audit_canonical.py` — dangling pointers
+  to the two deleted specs repaired.
+- `MANIFEST.json` regenerated (31 files, 20 triggers); `SPEC_MANIFEST.json` rebuilt.
+
+**Caught by the tooling during this release, worth recording.** CHECK AK (B3 deliverable
+cardinality) held a hardcoded contract of 6 and flagged eleven separate sites across
+`Framework_Blueprint.md` and `Framework_DeliveryFooter.md` that still claimed 6 after the
+first pass — exactly the cross-step cardinality drift that check exists to prevent. All
+eleven were moved together.
+
+**Known residual, requires manual action.** `audit_sync.py` reads the INSTALLED skill at
+`/mnt/skills/user/mock-test-framework/SKILL.md`, not the repo copy. Until that installed
+skill is updated, every audit run will report 4 TRIGGER-SYNC findings and 1
+SKILL-INVENTORY finding naming the removed triggers. The repo copy is already correct.
+
+### RETIRED RULE INDEX — RA-* (historical reference only)
+
+The RA-* rules were the audit-side rule set defined in `Framework_MockTestCreateAudit.md`,
+deleted in this release. Entries below this line elsewhere in this changelog reference them
+by number and are left EXACTLY as written — a changelog records what was true when it was
+written, and rewriting it would falsify the audit trail. This index exists so those
+historical references still resolve to a title, and so the framework validator's RA-anchor
+check does not report them as dangling. NONE of these rules is in force. Nothing reads
+them. They are reproduced here as titles only, verbatim from the retired spec.
+
+RA-0  — PRECEDENCE (no preference may weaken coverage or the audit gates). RETIRED.
+RA-3  — AUDIT EVERYTHING, SAMPLE NOTHING. RETIRED.
+RA-4  — RENDER-OR-RECOMPUTE OR IT DOESN'T COUNT, with one declared, measured exception
+        (the vision-outage branch now carried by Step 7 — see Framework_DeliveryFooter
+        v1.11 Q0b). RETIRED as an audit rule.
+RA-6  — REGENERATION OBEYS STEP-7 CONTRACTS. RETIRED.
+RA-11 — LIVE FACT-CHECK, EVIDENCE ON DISK, ONE LINE IN CONTEXT. RETIRED.
+RA-12 — DEFENSIBLE-ANSWER CONTRACT (mirrored Step 7's R-ANSWER). RETIRED; R-ANSWER in
+        Framework_MockTestCreate.md is now the sole statement of that contract.
+RA-16 — ATOMIC LINKED GROUPS (a linked-stimulus group is never split). RETIRED as an
+        audit rule; the equivalent batch-atomicity law survives in Step 7 and Step 9.
+RA-18 — RESUME-SAFE, WITHIN A SESSION AND ACROSS ONE. RETIRED.
+
 ## 2026.08.03.4
 **Release D — option label resolution was re-implemented, and the two
 implementations disagreed.**

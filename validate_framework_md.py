@@ -113,9 +113,9 @@ PIPELINE = {
     'PYQExplain': 'PYQ-1', 'PYQExplainAudit': 'PYQ-2', 'PYQFormat': 'PYQ-3', 'PYQDeliver': 'PYQ-4',
     'PYQCompress': 'L2',
     'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6', 'ScopedBlueprint': '6S',
-    'MockCreate': '7', 'MockCreateAudit': '8', 'TestCreate': '7', 'TestCreateAudit': '8',
-    'MockExplain': '9', 'MockExplainAudit': '10', 'MockDeliver': '11',
-    'TestExplain': '9', 'TestExplainAudit': '10', 'TestDeliver': '11',
+    'MockCreate': '7', 'TestCreate': '7',
+    'MockExplain': '9', 'MockDeliver': '11',
+    'TestExplain': '9', 'TestDeliver': '11',
 }
 
 def validate(path, all_texts=None):
@@ -1082,8 +1082,10 @@ def check_aj_undefined_names(directory):
 # enforce that; this check can. Any B3 delivery-count claim that disagrees with
 # the others is reported, so the next cardinality change cannot land partially.
 # ═══════════════════════════════════════════════════════════════════════
-_AK_B3_EXPECTED = 6      # B3 deliverable count — bump here AND in every spec site
-                         # 6, not 8 (v2.12.1): the repo engines are NOT B3
+_AK_B3_EXPECTED = 5      # B3 deliverable count — bump here AND in every spec site
+                         # 5, not 6 (2026-08-03): ExplainAuditLearnings.md is no longer
+                         # generated — its only filler, canonical Step 10, is retired.
+                         # 5, not 8 (v2.12.1): the repo engines are NOT B3
                          # deliverables. Step 8 copies them from the verified
                          # clone; engines are never provisioned per-exam.
 
