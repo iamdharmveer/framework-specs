@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.03.9",
+  "framework_version": "2026.08.05.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -162,11 +162,11 @@
       "bytes": 83865
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "816333bd55909176613ab3c702be309bf64114724c98adbe60f980cc01530bf2",
-      "version_header": "# Framework_MockTestAnalyse v2.40.0 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.40.0",
-      "lines": 7760,
-      "bytes": 427570
+      "sha256": "b8ddb55c100c14da7f8528b6750b33769e1379a16dc5ad5ddb59865a58d004fc",
+      "version_header": "# Framework_MockTestAnalyse v2.41.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.41.0",
+      "lines": 7824,
+      "bytes": 432358
     },
     "Framework_MockTestCreate.md": {
       "sha256": "f2053bdb45570731c6c719e73d7861135c88dccb0400c88def5302b1d19b271c",
@@ -204,18 +204,18 @@
       "bytes": 32771
     },
     "Framework_PYQCore.md": {
-      "sha256": "8bb515a6b6d628c014e9b33ce96a0d36e423e61f7b58a2562d98ef794638ffc8",
-      "version_header": "# Framework_PYQCore v1.0.2 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
-      "end_sentinel": "# END OF Framework_PYQCore v1.0.2",
-      "lines": 1625,
-      "bytes": 89318
+      "sha256": "5092d94db65927e234224e502d3ce2ef4ef31c8e08d6997578450f4332531a6b",
+      "version_header": "# Framework_PYQCore v1.1 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.1",
+      "lines": 1701,
+      "bytes": 95078
     },
     "Framework_PYQCount.md": {
-      "sha256": "69cab9c7bd96e72277aade2a82752bf0cee54beffeffc0406316b427ebff09f9",
-      "version_header": "# Framework_PYQCount v1.0 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
-      "end_sentinel": "# END OF Framework_PYQCount v1.0",
-      "lines": 1021,
-      "bytes": 54098
+      "sha256": "6a885ea54d3b9ff56b45e76c620ad427565af824aeeaad882353bcaa9b389896",
+      "version_header": "# Framework_PYQCount v1.1 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
+      "end_sentinel": "# END OF Framework_PYQCount v1.1",
+      "lines": 1073,
+      "bytes": 58024
     },
     "Framework_PYQDeliver.md": {
       "sha256": "b50254a218f0f361340988420f1c9870e21cab9969ed7d4468cfd755198394ed",
@@ -267,11 +267,11 @@
       "bytes": 82295
     },
     "Framework_PYQSort.md": {
-      "sha256": "60f8bc1f6b5d224f9f291f55143d79cacf55bf693fe22b2617a7642ffdb46bd4",
-      "version_header": "# Framework_PYQSort v1.18.1 \u2014 Universal PYQ Sorter",
-      "end_sentinel": "# END OF Framework_PYQSort v1.18.1",
-      "lines": 2343,
-      "bytes": 114767
+      "sha256": "5b252379f3562ba514fecee569ff6e1cce5a986b5e463f216cf3592d34dd3240",
+      "version_header": "# Framework_PYQSort v1.19.0 \u2014 Universal PYQ Sorter",
+      "end_sentinel": "# END OF Framework_PYQSort v1.19.0",
+      "lines": 2430,
+      "bytes": 120887
     },
     "Framework_ScopedBlueprint.md": {
       "sha256": "93af3d395ea3fcd887e70f0dd60b3e94a7ed80b2aefc0fe7684747c52134c2e7",
@@ -302,11 +302,11 @@
       "bytes": 105980
     },
     "blueprint_core.py": {
-      "sha256": "24c4e5950ece1245484e079443eaf69d1b4f4f89e73b7fd1056aa645e3161f59",
+      "sha256": "d07b6cc904403e0e1a90c072629cf6fd88826a5b8ae146dd92bd14698607778b",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 3226,
-      "bytes": 168316
+      "lines": 3586,
+      "bytes": 187364
     },
     "paper_pipeline.py": {
       "sha256": "f27b59d590f81789847ad55fb10a0455b8c9a3d9574b09bb1cf35ae8842015cf",
@@ -316,11 +316,11 @@
       "bytes": 31479
     },
     "corpus_io.py": {
-      "sha256": "5112ff0ccea1cc20efaaef9523d9c802e73957185052ce983d6cc43dd95fb94a",
+      "sha256": "733a5d7f6756c9602d1d654bb005e744e319ec3dffddcd3ca915c518dce880c1",
       "version_header": "\"\"\"",
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 4399,
-      "bytes": 225226
+      "lines": 4439,
+      "bytes": 227675
     },
     "reconcile_taxonomy.py": {
       "sha256": "474d654ffb98c19c3e587cba48d9c64cafa471d6e0fc2af1e6f02a9a8aee0530",

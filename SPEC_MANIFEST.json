@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.10.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.40.0",
-      "lines": 7760,
-      "sha256": "816333bd55909176613ab3c702be309bf64114724c98adbe60f980cc01530bf2",
-      "size_bytes": 427570,
-      "version_header": "# Framework_MockTestAnalyse v2.40.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.41.0",
+      "lines": 7824,
+      "sha256": "b8ddb55c100c14da7f8528b6750b33769e1379a16dc5ad5ddb59865a58d004fc",
+      "size_bytes": 432358,
+      "version_header": "# Framework_MockTestAnalyse v2.41.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -64,18 +64,18 @@
       "version_header": "# Framework_PYQCompress v1.1.1 — Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
-      "end_sentinel": "# END OF Framework_PYQCore v1.0.2",
-      "lines": 1625,
-      "sha256": "8bb515a6b6d628c014e9b33ce96a0d36e423e61f7b58a2562d98ef794638ffc8",
-      "size_bytes": 89318,
-      "version_header": "# Framework_PYQCore v1.0.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
+      "end_sentinel": "# END OF Framework_PYQCore v1.1",
+      "lines": 1701,
+      "sha256": "5092d94db65927e234224e502d3ce2ef4ef31c8e08d6997578450f4332531a6b",
+      "size_bytes": 95078,
+      "version_header": "# Framework_PYQCore v1.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
     },
     "Framework_PYQCount.md": {
-      "end_sentinel": "# END OF Framework_PYQCount v1.0",
-      "lines": 1021,
-      "sha256": "69cab9c7bd96e72277aade2a82752bf0cee54beffeffc0406316b427ebff09f9",
-      "size_bytes": 54098,
-      "version_header": "# Framework_PYQCount v1.0 — PYQ Step 4 — Phase B Count Filling (§5)"
+      "end_sentinel": "# END OF Framework_PYQCount v1.1",
+      "lines": 1073,
+      "sha256": "6a885ea54d3b9ff56b45e76c620ad427565af824aeeaad882353bcaa9b389896",
+      "size_bytes": 58024,
+      "version_header": "# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
       "end_sentinel": "**End of Framework_PYQDeliver.md (v1.5.2)**",
@@ -127,11 +127,11 @@
       "version_header": "# Framework_PYQScan v1.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
     },
     "Framework_PYQSort.md": {
-      "end_sentinel": "# END OF Framework_PYQSort v1.18.1",
-      "lines": 2343,
-      "sha256": "60f8bc1f6b5d224f9f291f55143d79cacf55bf693fe22b2617a7642ffdb46bd4",
-      "size_bytes": 114767,
-      "version_header": "# Framework_PYQSort v1.18.1 — Universal PYQ Sorter"
+      "end_sentinel": "# END OF Framework_PYQSort v1.19.0",
+      "lines": 2430,
+      "sha256": "5b252379f3562ba514fecee569ff6e1cce5a986b5e463f216cf3592d34dd3240",
+      "size_bytes": 120887,
+      "version_header": "# Framework_PYQSort v1.19.0 — Universal PYQ Sorter"
     },
     "Framework_ScopedBlueprint.md": {
       "end_sentinel": "# END OF Framework_ScopedBlueprint v1.8.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)",
@@ -183,9 +183,9 @@
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)"
     },
     "blueprint_core.py": {
-      "lines": 3226,
-      "sha256": "24c4e5950ece1245484e079443eaf69d1b4f4f89e73b7fd1056aa645e3161f59",
-      "size_bytes": 168316,
+      "lines": 3586,
+      "sha256": "d07b6cc904403e0e1a90c072629cf6fd88826a5b8ae146dd92bd14698607778b",
+      "size_bytes": 187364,
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")"
     },
@@ -211,9 +211,9 @@
       "version_header": "# Mock-Test Framework — Simple Operating Guide"
     },
     "corpus_io.py": {
-      "lines": 4399,
-      "sha256": "5112ff0ccea1cc20efaaef9523d9c802e73957185052ce983d6cc43dd95fb94a",
-      "size_bytes": 225226,
+      "lines": 4439,
+      "sha256": "733a5d7f6756c9602d1d654bb005e744e319ec3dffddcd3ca915c518dce880c1",
+      "size_bytes": 227675,
       "version_header": "\"\"\"",
       "end_sentinel": "          'Run with --self-test.')"
     },
@@ -302,5 +302,5 @@
       "size_bytes": 21616
     }
   },
-  "generated_at": "2026-08-03T11:07:04Z"
+  "generated_at": "2026-08-05T14:04:16Z"
 }

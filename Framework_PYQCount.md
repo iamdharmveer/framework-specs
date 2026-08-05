@@ -1,4 +1,9 @@
-# Framework_PYQCount v1.0 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.1 — 2026-08-05 — GAP-2026-08-05-001 (textless content is content). S5-2 now takes
+#   the BLOCK-level lookahead bc.sorted_body_lookahead(doc) and the per-FILE colour probe
+#   bc.heading_colour_available(paras); S5-4b CAUSE 1 split into 1a (gate absent) and 1b
+#   (gate present but DEFEATED), because 1a's remedy asked the operator to verify two
+#   already-true facts and re-run, which reproduced the halt forever.
 # v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
 #   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
 #   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
@@ -286,8 +291,8 @@ is_option    = corpus_io.is_option
 # shared Q_PATTERNS table via detect_question_start(). Those two match DIFFERENT strings
 # (e.g. "Q1 Analysis" matches the local regex but is not a Q_PATTERNS question start), so the
 # two steps disagreed about which paragraphs were headings AT ALL, not merely about level.
-def is_taxonomy_heading(para, next_text=None):
-    return bc.is_taxonomy_heading(para, is_option, next_text)
+def is_taxonomy_heading(para, next_text=None, colour_available=False):
+    return bc.is_taxonomy_heading(para, is_option, next_text, colour_available)
 
 # GAP-2026-07-26-001 — PASSING next_text IS MANDATORY HERE.
 # A LEVEL-3 heading is bare text by contract (PYQSort S6-2), so bold was its only
@@ -312,12 +317,21 @@ def count_sorted_file(docx_path):
     orphans = []
     cur_sec = cur_top = cur_sub = ''
 
-    paras = doc.paragraphs
-    nxt   = bc.next_nonempty_texts(paras)          # GAP-2026-07-26-001
+    # GAP-2026-07-26-001 + GAP-2026-08-05-001. sorted_body_lookahead() is BLOCK-level:
+    # a <w:tbl> is not a paragraph and never appears in doc.paragraphs, and a paragraph
+    # holding only an image / equation / embedded object has NO text, so the old
+    # paragraph-and-text-scoped lookahead skipped both and reported the NEXT QUESTION'S
+    # date label — making a bold stem continuation satisfy the level-3 heading test.
+    paras, nxt = bc.sorted_body_lookahead(doc)
+    # D6 — the DIRECT discriminator, probed ONCE PER FILE from the date labels (S6-2
+    # mandates them navy #003366; CHECK 3 enforces it). Never probe per paragraph: a
+    # misread continuation carries no <w:color> at all, so a per-paragraph fallback
+    # returns straight to the blind spot and measurably fixes nothing.
+    colour_ok = bc.heading_colour_available(paras)
     for i, para in enumerate(paras):
         text = para.text.strip()
         if not text: continue
-        if is_taxonomy_heading(para, nxt[i]):
+        if is_taxonomy_heading(para, nxt[i], colour_ok):
             lv, content = parse_taxonomy_level(text)
             # CRITICAL — reset child pointers when parent changes.
             # Matches Step 5 E-1: current_path[:level-1] + [content]
@@ -632,15 +646,53 @@ print("Taxonomy source: %s (%s)" % (doc['source'], doc['ingest_form']))
            fragment; and NO close fuzzy match exists in the taxonomy.
            This is NOT a name mismatch. A bold stem-continuation paragraph was read
            as a subtopic heading. The sorted file is CORRECT; the parser was wrong.
-           FIX: confirm count_sorted_file() (§S5-2) calls is_taxonomy_heading() WITH
-           next_text, and that blueprint_core.py carries the GAP-2026-07-26-001
-           positional gate (it exposes next_nonempty_texts()). Re-run PYQCount.
            DO NOT re-sort — PYQSort reproduces the identical file, so this is a
              no-op and the run halts again in exactly the same place.
            DO NOT add the phantom to the Analysis doc — that writes a question stem
              into the LOCKED taxonomy, precisely the defect D6-1 exists to block.
              Step 6 would then allocate it and Step 7 would be asked to generate
              questions FOR a question.
+           Those two prohibitions hold under 1a AND 1b below. Split the cause first.
+
+           CAUSE 1a — THE POSITIONAL GATE IS ABSENT OR NOT PASSED.
+             FIX: confirm count_sorted_file() (§S5-2) calls is_taxonomy_heading() WITH
+             next_text, and that blueprint_core.py carries the GAP-2026-07-26-001
+             positional gate (it exposes next_nonempty_texts()). Re-run PYQCount.
+
+           CAUSE 1b — THE GATE IS PRESENT AND WAS DEFEATED (GAP-2026-08-05-001).
+             If the two conditions in 1a are ALREADY TRUE, 1a's remedy is a dead end:
+             it asks the operator to verify two already-true facts and re-run, which
+             reproduces the identical halt forever. That is the exact failure the
+             "WHY THE TRIAGE EXISTS" note below was written to prevent, and it
+             happened again — this time one layer down. Diagnose instead:
+
+             (i)  Locate the phantom text in the sorted paper. Inspect every BLOCK
+                  between it and the NEXT date label. If all of them are TEXTLESS —
+                  an image-only paragraph (<w:drawing>/<w:pict>), an equation-only
+                  paragraph (<m:oMath>), an embedded object (<w:object>), an
+                  auto-numbered paragraph whose "1." is rendered by Word and absent
+                  from the XML, or a TABLE (which is not a paragraph at all) — this
+                  is GAP-2026-08-05-001. The engine must carry paragraph_is_content_
+                  bearing() and sorted_body_lookahead(); if it does not, upgrade it.
+             (ii) If the question is NAT, there may be NO intervening blocks at all.
+                  A NAT question has no options, so its last stem paragraph and a
+                  genuine subtopic heading occupy the IDENTICAL slot — the last text
+                  block before a date label — and no positional rule can separate
+                  them. This case is fixed ONLY by D6: confirm the walker computes
+                  bc.heading_colour_available(paras) once per file and passes it.
+             (iii) If the engine already carries both and the phantom persists,
+                  escalate to the framework project WITH THE PAPER ATTACHED. Do not
+                  work around it locally.
+
+             NO RE-SORT IS REQUIRED under 1b. The sorted bytes were always correct;
+             only the reading was wrong. Re-run Step 4 alone (and Step 5 if it had
+             already completed — see Framework_MockTestAnalyse QV-1a/QV-15).
+
+           A NOTE THAT SAVES TRIAGE TIME. The mis-attributed question is the one
+           AFTER the misread paragraph, not the one containing it: the continuation
+           sets cur_sub, so its OWN question was already counted correctly and the
+           NEXT question is displaced. An operator reading the phantom text and
+           looking for the question it came from will inspect the wrong question.
 
          CAUSE 2 — GENUINE NAME MISMATCH.
            Signals: verdict is OK; a close fuzzy match EXISTS in the taxonomy,
@@ -1018,4 +1070,4 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.0
+# END OF Framework_PYQCount v1.1

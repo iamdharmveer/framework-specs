@@ -1,4 +1,10 @@
-# Framework_PYQSort v1.18.1 — Universal PYQ Sorter
+# Framework_PYQSort v1.19.0 — Universal PYQ Sorter
+# v1.19.0 — 2026-08-05 — GAP-2026-08-05-001. CHECK 11 DOWNSTREAM-PARSE ROUND TRIP added
+#   (HARD FAIL, D3/SG-5): PYQSort now re-reads its own delivered file with the DOWNSTREAM
+#   predicate and asserts inferred headings == emitted headings, plus the heading-colour
+#   styling assertion (SG-10). S6-2 LEVEL 3 parser line amended (SG-9): it mandated
+#   11pt Bold Navy #003366 and then told the parser "default -> level 3", i.e. to ignore
+#   the marker the same clause guarantees — the root cause of all three heading defects.
 # v1.18.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   307 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQSort'. The current companion block, the
@@ -1119,8 +1125,33 @@ LEVEL 2 (Topic):
 LEVEL 3 (Subtopic):
   Text:    "<Subtopic Name>"  (no prefix)
   Name:    EXACT string from Analysis doc, .strip()-ed
-  Styling: 11pt Bold Navy #003366
-  Parser:  default → level 3
+  Styling: 11pt Bold Navy #003366   ← EMITTED UNCONDITIONALLY by make_heading_para()
+  Parser:  Navy #003366 on the first non-empty run → level 3,
+           WHEN the file's date-label colour probe passes
+           (bc.heading_colour_available(paras)); otherwise default → level 3.
+
+  WHY THIS LINE CHANGED (GAP-2026-08-05-001 / SG-9). It read "Parser: default →
+  level 3" — i.e. it MANDATED a machine-readable marker in the line above and then
+  told every consumer to throw it away. Levels 1 and 2 are identified by a prefix
+  they positively CARRY; level 3 was identified by the ABSENCE of every other
+  marker, and a bold multi-paragraph stem continuation (EC-S8) is precisely a
+  paragraph with no other marker. The two objects therefore collapsed into one
+  bucket BY CONTRACT, which is why all three heading defects in this framework's
+  history exist: with the direct signal ruled out of scope, every consumer was
+  forced onto a circumstantial one — length (GAP-2026-07-25-002, died when
+  MAX_HEADING_LEN went 100→300), bold (GAP-2026-07-26-001, EC-S8 emits bold
+  continuations), and position (GAP-2026-08-05-001, defeated by textless content
+  and STRUCTURALLY IMPOSSIBLE for NAT, which has no options to separate a
+  continuation from the next date label).
+  Measured: IIT_JAM_BIOTECHNOLOGY 22 papers — 1,229 of 1,230 accepted level-3
+  headings navy and all 1,229 verbatim in the taxonomy, the one exception being
+  the phantom; SSC_CGL_TIER1 09-Sep-2024 — 45/45 navy, 100/100 date labels navy.
+  Zero navy non-headings in either corpus.
+  THE PROBE IS PER FILE, NEVER PER PARAGRAPH. A misread continuation carries no
+  <w:color> at all, so "fall back when colour is absent on that paragraph" returns
+  it to the blind spot and fixes nothing (measured: phantoms 1 → 1). w:themeColor
+  counts as colour UNAVAILABLE, not as "not navy". Level 2 is BLACK #000000 and is
+  self-identifying by prefix, so it never reaches the colour gate.
 
 NOTE: Step 5's parser also supports "Chapter N" as a level 2 heading for
 non-SSC exams. PYQSort always EMITS "Topic N:" format. The "Chapter N"
@@ -1870,6 +1901,62 @@ CHECK 10 — IMAGE SURVIVAL (v1.12)
   date-label paragraph the emitter rebuilds) were reported by the S7-5 census
   and are NOT folded into the expected count.
   This is the only check that runs on the package rather than the DOM.
+
+CHECK 11 — DOWNSTREAM-PARSE ROUND TRIP (GAP-2026-08-05-001, D3)   [HARD FAIL]
+  Re-open the FINAL, size-governed file — the same artefact CHECK 10 runs on — and
+  parse it with the DOWNSTREAM predicate, i.e. the very blueprint_core functions
+  Steps 4 and 5 will use:
+
+      paras, nxt = bc.sorted_body_lookahead(doc)
+      colour_ok  = bc.heading_colour_available(paras)
+      inferred   = { i: bc.parse_taxonomy_level(paras[i].text.strip())
+                     for i in range(len(paras))
+                     if bc.is_taxonomy_heading(paras[i], corpus_io.is_option,
+                                               nxt[i], colour_ok) }
+      emitted    = the (index, level, name) set PYQSort itself wrote via
+                   make_heading_para()
+
+  HARD FAIL if inferred != emitted. The message must name, for each divergence:
+    - the paragraph index and its first 80 characters
+    - EXTRA   (a downstream parser will SEE a heading PYQSort did not write) or
+      MISSING (PYQSort wrote a heading a downstream parser will NOT see)
+    - every block between it and the next date label, with its content class
+      (text / image / equation / embedded object / table / auto-number), because
+      that IS the diagnosis
+  Also assert the STYLING the parser now depends on (SG-10): every emitted level-1
+  and level-3 heading carries explicit <w:color w:val="003366"/> and every level-2
+  heading explicit #000000. A future refactor of make_heading_para() that drops the
+  colour run-property would otherwise silently degrade the whole corpus to the
+  positional path with nothing anywhere reporting it — a discriminator with no
+  producer-side check is the same shape of defect this check exists to close.
+
+  WHY THIS IS THE ONE THAT MATTERS. CHECK 6 and CHECK 7 validate what PYQSort
+  MEANT — they count the headings it emitted and compare their text to the Analysis
+  doc. CHECK 11 validates what the BYTES SAY. Every heading defect in this
+  framework's history is a divergence between those two, and every one was found
+  DOWNSTREAM, years of exam-runs later, by whichever exam first happened to contain
+  the triggering shape. CLAUDE.md states the rule this implements: "A bound that
+  only the consumer enforces is not enforced. If a value must satisfy a constraint
+  to survive downstream, gate it at the PRODUCER." PYQSort holds the ground truth —
+  it KNOWS which paragraphs it built as headings — and until now discarded it, so
+  every consumer re-derived that truth by inference and any inference gap became a
+  corpus-wide defect. CHECK 11 finds all three historic defects at the producer, on
+  the paper that contains them, at the moment the file is written.
+  It is also the ONLY control that can see the silent branch: when a misread
+  continuation's text coincidentally canon-matches a real subtopic name, Step 4's
+  phantom set is empty, its totals reconcile, orphans stay 0, and the questions
+  after it are attributed to the wrong subtopic with no signal anywhere.
+
+  SEVERITY IS HARD FAIL, consistent with CHECK 3 / CHECK 5 / CHECK 10. This is a
+  deliberate operational commitment: PYQSort will refuse to deliver the moment any
+  future inference gap appears. That is the point. Validated retroactively against
+  the pre-fix engine over 22 IIT_JAM_BIOTECHNOLOGY papers: FAILS on exactly the one
+  paper carrying the defect (1 EXTRA at para 513, of 94 inferred headings in that
+  file) and PASSES on the other 21 — zero false positives.
+
+  NO RE-SORT OF EXISTING FILES IS REQUIRED. CHECK 11 governs files written from now
+  on. Sorted files already in Drive were always correct — the bytes were never the
+  problem, only the reading was.
 ```
 
 ---
@@ -2340,4 +2427,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.18.1
+# END OF Framework_PYQSort v1.19.0

@@ -1,4 +1,10 @@
-# Framework_PYQCore v1.0.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.1 — 2026-08-05 — GAP-2026-08-05-001. §6 DISCRIMINATOR rewritten: "next non-empty
+#   paragraph" -> "next CONTENT-BEARING BLOCK" with the four textless classes enumerated
+#   (image, equation, embedded object, TABLE) plus auto-numbering; the false invariant "a
+#   stem continuation NEVER is [followed by a date label]" corrected; DISCRIMINATOR 2
+#   (colour, per-FILE gate) added; the NAT impossibility stated explicitly. MINIMUM
+#   COMPANION VERSIONS now require the GAP-2026-08-05-001 engine and python-docx >= 1.1.0.
 # v1.0.2 — 2026-07-31 — HOST-NOTE HEADER DISAMBIGUATED (sync audit, ownership check).
 #   The scaffolding header '## §2-HOSTED — ...' matched the '^## §N' section-header
 #   pattern, so a tool locating §2 by header could resolve to this file's host note
@@ -53,6 +59,22 @@
 #                           and is_taxonomy_heading(para, is_option, next_text).
 #                           S5-2 PASSES next_text; on an older engine that raises
 #                           TypeError rather than silently miscounting.
+#                           GAP-2026-08-05-001 build REQUIRED, carrying
+#                           paragraph_is_content_bearing(), CONTENT_SENTINEL,
+#                           VISUAL_CONTENT_TAGS, sorted_body_lookahead(),
+#                           HEADING_NAVY, first_run_colour() and
+#                           heading_colour_available(). A walker calling
+#                           sorted_body_lookahead() against an older engine raises
+#                           AttributeError at the FIRST paper — loud, never a silent
+#                           miscount. A NEW engine under an OLD walker still gets the
+#                           textless-content fix (it is inside next_nonempty_texts)
+#                           but not the table fix: strictly better, never worse.
+#   python-docx           >= 1.1.0 — Paragraph.text includes hyperlink run text only
+#                                    from 1.1.0. On 0.8.x a hyperlink-only paragraph
+#                                    reports no text and carries none of the
+#                                    VISUAL_CONTENT_TAGS, so it is read as an empty
+#                                    spacer — a latent instance of the same
+#                                    "textless is not empty" class.
 
 ---
 
@@ -707,10 +729,64 @@ QUESTION (second and subsequent paragraphs — STEM CONTINUATION):
     continuation is therefore INDISTINGUISHABLE from a subtopic heading on styling
     alone. Bold is not an identity; it is a style attribute shared by both classes.
 
-  DISCRIMINATOR — POSITIONAL, and the only one the document carries:
-    A genuine BARE (level-3) heading is ALWAYS followed, as the next non-empty
-    paragraph, by a DATE LABEL. A stem continuation NEVER is — it is followed by
-    another stem paragraph, an option, the next structural heading, or end-of-file.
+  DISCRIMINATOR 1 — POSITIONAL (the FALLBACK; it is NOT the only one the document
+  carries — see DISCRIMINATOR 2):
+    A genuine BARE (level-3) heading is ALWAYS followed, as the next CONTENT-BEARING
+    BLOCK, by a DATE LABEL. A stem continuation is never followed by a date label as
+    the next content-bearing block — the options, figures, equations or tables that
+    belong to its own question always intervene.
+    "CONTENT-BEARING BLOCK" IS THE LOAD-BEARING PHRASE (GAP-2026-08-05-001). It was
+    written as "next non-empty paragraph", and the engine implemented exactly that:
+    the next paragraph with TEXT. Four classes of block carry content but no text —
+      (1) image-only paragraphs   <w:drawing> / <w:pict> / <v:imagedata>
+      (2) equation-only paragraphs <m:oMath> / <m:oMathPara>
+      (3) embedded objects        <w:object>  (Equation Editor 3.0)
+      (4) TABLES <w:tbl> — which are not paragraphs at all and never appear in
+          doc.paragraphs, so NO paragraph-scoped rule can ever see one
+    plus auto-numbered paragraphs whose visible "1." is rendered by Word and stored
+    nowhere in the XML. When every block between a continuation and the next date
+    label is of those classes, the continuation satisfies this test and becomes a
+    phantom subtopic. Use bc.sorted_body_lookahead(doc), never doc.paragraphs +
+    bc.next_nonempty_texts(), in any sorted-PYQ walker.
+    A WARNING TO THE NEXT IMPLEMENTER: in a printed copy, a PDF export or a
+    screenshot, those four textless option labels look identical to text ones. The
+    difference is visible only in the XML. Do not diagnose this class from an image.
+    EXPOSURE IS DECIDED BY STEP 1's RENDERING, so two papers of the SAME exam can
+    differ: a multi-line stem emitted as one paragraph with <w:br> line breaks
+    produces no continuation candidate at all, while the same stem split into
+    separate paragraphs produces one per break. Likewise an option labelled with a
+    literal "1." text run is safe where the same option auto-numbered is not. A
+    corpus that looks clean today is one rendering change from exposed.
+
+  THIS RULE CANNOT DISCRIMINATE A NAT QUESTION AND NOTHING WILL MAKE IT.
+    A NAT question has no options. Its last stem paragraph is therefore followed by
+    the next question's date label DIRECTLY — no textless content required, nothing
+    for D1/D2 to detect. A genuine subtopic heading occupies that identical slot.
+    The two objects yield byte-identical lookahead values, so no positional rule,
+    forward or backward, can separate them. For NAT, DISCRIMINATOR 2 is the only
+    consumer-side rule that works, and it is not optional.
+
+  DISCRIMINATOR 2 — COLOUR, the DIRECT signal (GAP-2026-08-05-001 / SG-9):
+    PYQSort S6-2 mandates 11pt Bold Navy #003366 for every level-3 heading and
+    make_heading_para() stamps <w:color> UNCONDITIONALLY, so any file PYQSort emitted
+    carries it by construction, not by luck. Consult it via
+    bc.heading_colour_available(paras) -> bool, computed ONCE PER FILE and passed to
+    is_taxonomy_heading(..., colour_available=). The probe reads the DATE LABELS, not
+    the headings, because S6-2 mandates their colour too, CHECK 3 enforces it and
+    EC-S10 guarantees one above every question.
+    THE GATE MUST BE PER FILE, NOT PER PARAGRAPH. "Require navy, fall back when
+    colour is absent on that paragraph" fixes NOTHING (measured: phantoms 1 -> 1) —
+    a misread continuation has no <w:color> element at all, so it takes the fallback
+    straight back into the blind spot. If ANY date label in the file is not
+    explicitly navy, colour is unavailable for that whole file and DISCRIMINATOR 1
+    applies. w:themeColor counts as UNAVAILABLE, not as "not navy": the alternative
+    turns an unusual styling choice into total heading loss for that file.
+    NOTE: level 2 (Topic N:) is BLACK #000000 per S6-2 and is self-identifying by its
+    prefix, so it returns True before the colour gate is ever reached. Do not "fix"
+    that by requiring navy of it.
+    BOTH DISCRIMINATORS SHIP. Their blind spots do not overlap: colour cannot see a
+    continuation deep-copied from a navy-styled source; position cannot see a heading
+    whose colour was stripped, and cannot see NAT at all.
   GUARANTEED BY (exam-agnostic; names no exam, section or subtopic):
     PYQSort S6-2    — date label "always emitted immediately above Q.N stem, zero
                       paragraphs between"
@@ -1622,4 +1698,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.0.2
+# END OF Framework_PYQCore v1.1

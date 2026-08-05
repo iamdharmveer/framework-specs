@@ -73,6 +73,14 @@ __all__ = [
     "parse_taxonomy_level",
     "extract_year_from_filename",
     "is_taxonomy_heading",
+    "next_nonempty_texts",
+    "sorted_body_lookahead",
+    "paragraph_is_content_bearing",
+    "CONTENT_SENTINEL",
+    "VISUAL_CONTENT_TAGS",
+    "HEADING_NAVY",
+    "first_run_colour",
+    "heading_colour_available",
     "score_difficulty",
     "determine_strip_mode",
     "map_difficulty_level",
@@ -1373,13 +1381,161 @@ MAX_HEADING_LEN = 300
 DATE_TAG_RE = re.compile(r'^\[\d{1,2}-')
 
 
-def next_nonempty_texts(paras):
-    """For each index i, the text of the next NON-EMPTY paragraph after i ('' at the end).
+# ── GAP-2026-08-05-001 — TEXTLESS IS NOT EMPTY ───────────────────────────────
+# Paragraph.text is RUN text only. A paragraph holding ONLY a picture, an OMML
+# equation or an embedded OLE object returns '' and was therefore skipped by the
+# lookahead — so a stem continuation whose options are images "led into" the next
+# question's date label and satisfied the GAP-2026-07-26-001 positional gate.
+# Textless content is still content: it TERMINATES the scan, and the sentinel below
+# is what the caller sees. It is deliberately NOT a date label, so the positional
+# gate rejects it. Measured on IIT_JAM_BIOTECHNOLOGY 2009 (para 513), on
+# SSC_CGL_TIER1 09-Sep-2024 (para 591, OMML options — a near miss that survives only
+# because its labels carry literal text) and on two IIT_JAM_PHYSICS mock papers
+# (24 instances of the MockTestCreate "Problem Figure:" layout).
+CONTENT_SENTINEL = '\ufffc'          # U+FFFC OBJECT REPLACEMENT CHARACTER
 
-    GAP-2026-07-26-001. Single pass, O(n). Lives in the engine so the two sorted-PYQ
-    walkers (PYQAnalyse S5-2 count_sorted_file, MockTestAnalyse S3-2 extract_presorted)
-    cannot each write their own lookahead and drift apart — the failure class that
-    produced this gap in the first place.
+_W_NS    = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+_MATH_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/math}'
+W_P_TAG   = _W_NS + 'p'
+W_TBL_TAG = _W_NS + 'tbl'
+W_NUMPR_TAG = _W_NS + 'numPr'
+
+# Visible content that Paragraph.text cannot show. Namespace-EXACT tags, walked as a
+# tree — never a substring search over element.xml, which a question stem containing
+# the literal characters "<w:drawing>" would defeat.
+VISUAL_CONTENT_TAGS = frozenset({
+    _W_NS + 'drawing',                                                # DrawingML picture/chart/SmartArt
+    _W_NS + 'pict',                                                   # legacy VML picture
+    _W_NS + 'object',                                                 # embedded OLE (Equation Editor 3.0)
+    '{urn:schemas-microsoft-com:vml}imagedata',                       # VML image reference
+    '{http://schemas.openxmlformats.org/drawingml/2006/picture}pic',  # inline pic
+    '{http://schemas.openxmlformats.org/drawingml/2006/main}blip',    # image reference
+    _MATH_NS + 'oMathPara',                                           # display equation
+    _MATH_NS + 'oMath',                                               # inline equation
+})
+
+
+def paragraph_is_content_bearing(para, include_autonumber=True):
+    """True when a paragraph carries visible content that Paragraph.text cannot show.
+
+    GAP-2026-08-05-001. Accepts EITHER form the corpus actually passes — a python-docx
+    Paragraph (has ``._p``) or a raw ``<w:p>`` lxml element (IS the element) — the same
+    dual-form contract corpus_io.para_has_image() already honours. A delegation that
+    assumed one form would raise AttributeError on the other or silently return False.
+    Any object with neither ``._p`` nor ``.iter`` (the plain self-test stubs in this
+    file) returns False, which keeps every pre-existing fixture valid; omitting that
+    guard is the single most likely way to get this patch wrong.
+
+    ``include_autonumber`` covers ``w:numPr``: Word RENDERS the list number ("1.", "2.")
+    that the XML does not store, so an auto-numbered paragraph is visibly non-empty to a
+    human and must be to the parser too. The LOOKAHEAD wants it (default True). The
+    OPTION predicate does not — there the rendered number merely duplicates the bare
+    label already present as text, and is not option CONTENT — so corpus_io passes False.
+
+    PURITY: attribute access and literal tag strings only. No import. This function must
+    stay inside the thin core (validate_framework_md Check AB) because both sorted-PYQ
+    walkers and corpus_io depend on it.
+    """
+    if para is None:
+        return False
+    el = getattr(para, '_p', para)          # Paragraph -> element; element -> itself
+    it = getattr(el, 'iter', None)
+    if it is None:
+        return False
+    try:
+        for node in it():
+            tag = getattr(node, 'tag', None)
+            if tag in VISUAL_CONTENT_TAGS:
+                return True
+            if include_autonumber and tag == W_NUMPR_TAG:
+                return True
+    except Exception:
+        return False
+    return False
+
+
+# ── GAP-2026-08-05-001 / SG-9 — D6: THE DIRECT DISCRIMINATOR ─────────────────
+# PYQSort S6-2 MANDATES "11pt Bold Navy #003366" for every level-3 heading and
+# make_heading_para() stamps <w:color> unconditionally — then the same clause tells the
+# parser "default -> level 3", i.e. to identify level 3 by the ABSENCE of other markers,
+# which is exactly what a stem continuation is. The marker was there all along.
+# Measured: IIT_JAM_BIOTECHNOLOGY 22 papers — 1,229/1,230 accepted level-3 headings navy,
+# the one exception being the phantom; SSC_CGL_TIER1 09-Sep-2024 — 45/45 navy, 100/100
+# date labels navy. Zero navy non-headings in either corpus.
+HEADING_NAVY = '003366'          # S6-2: level 1 + level 3 + date labels (level 2 is BLACK)
+
+
+def first_run_colour(para):
+    """Colour of the first non-empty run: '003366'-style hex, 'theme', or None.
+
+    None means the run INHERITS its colour (no <w:color> element) — which is NOT a
+    colour value and must never be read as "not navy" on its own. 'theme' means
+    w:themeColor, treated by heading_colour_available() as colour UNAVAILABLE rather
+    than as "not navy": the alternative turns an unusual styling choice into total
+    heading loss for that file (framework-owner decision 6, GAP-2026-08-05-001 S18).
+    """
+    for r in getattr(para, 'runs', ()) or ():
+        try:
+            if not (r.text or '').strip():
+                continue
+            c = r.font.color
+        except Exception:
+            return None
+        if c is None or getattr(c, 'type', None) is None:
+            return None                     # inherited — NOT a colour value
+        try:
+            return str(c.rgb).upper().lstrip('#')
+        except Exception:
+            return 'theme'
+    return None
+
+
+def heading_colour_available(paras):
+    """True when THIS FILE carries the S6-2 heading-colour signal.
+
+    GAP-2026-08-05-001 / SG-9. Probes the DATE LABELS, never the headings: S6-2 mandates
+    navy for them, PYQSort CHECK 3 HARD FAILS if the styling slips, and EC-S10 raises
+    when a Q.N has none — so they are the one styling fact a sorted file cannot lack,
+    and there are dozens to hundreds per paper.
+
+    THE GATE IS PER FILE, NOT PER PARAGRAPH, AND THAT IS THE WHOLE POINT. The obvious
+    phrasing — "require navy, fall back when colour is absent ON THAT PARAGRAPH" —
+    measurably fixes NOTHING (phantoms 1 -> 1 across 22 papers), because a misread stem
+    continuation carries no <w:color> at all and therefore takes the fallback straight
+    back into the blind spot. Requiring EVERY date label to be explicitly navy means a
+    single unstyled label (an old sort, a hand edit, a format round trip) degrades the
+    whole file to the positional rule instead of destroying its headings.
+    """
+    seen = 0
+    for p in paras:
+        t = (getattr(p, 'text', '') or '').strip()
+        if not t or not DATE_TAG_RE.match(t):
+            continue
+        seen += 1
+        if first_run_colour(p) != HEADING_NAVY:
+            return False
+    return seen > 0
+
+
+
+def next_nonempty_texts(paras):
+    """For each index i, the text of the next CONTENT-BEARING paragraph after i.
+
+    GAP-2026-07-26-001 introduced this lookahead. GAP-2026-08-05-001 corrected what
+    "non-empty" MEANT: this returned the next paragraph with TEXT while its name, its
+    docstring and every call site read it as the next paragraph with CONTENT. Textless
+    is not empty. A paragraph with text yields its text; a textless paragraph carrying
+    an image, equation, embedded object or rendered auto-number yields CONTENT_SENTINEL;
+    a TRULY empty spacer is still transparent, as before; '' at end of document.
+
+    Single pass, O(n). Lives in the engine so the two sorted-PYQ walkers (PYQCount S5-2
+    count_sorted_file, MockTestAnalyse S3-2 extract_presorted) cannot each write their
+    own lookahead and drift apart — the failure class that produced this gap in the
+    first place.
+
+    Callers needing TABLE awareness must use sorted_body_lookahead(doc) instead: a
+    <w:tbl> is not a paragraph and never appears in doc.paragraphs at all, so no
+    paragraph-scoped rule can see one.
     """
     out = [''] * len(paras)
     nxt = ''
@@ -1388,7 +1544,64 @@ def next_nonempty_texts(paras):
         t = (paras[i].text or '').strip()
         if t:
             nxt = t
+        elif paragraph_is_content_bearing(paras[i]):
+            nxt = CONTENT_SENTINEL
     return out
+
+
+def sorted_body_lookahead(doc):
+    """(paragraphs, next_content_text[]) for a sorted-PYQ document, TABLE-AWARE.
+
+    GAP-2026-08-05-001 (D2). doc.paragraphs contains only body-level <w:p>; a <w:tbl>
+    sitting between a stem continuation and the next date label is invisible to it, so
+    the paragraph-scoped lookahead reports the date label and the continuation is read
+    as a heading. Walking the body's own children keeps tables in the sequence.
+
+    The returned list IS doc.paragraphs — same objects, same order — so callers may
+    index the returned lookahead with the same i they use for the paragraph list.
+    (Note: python-docx rebuilds Paragraph wrappers on every access, so identity of the
+    WRAPPERS is not a meaningful property for any caller; the underlying <w:p> elements
+    and their order are what matter, and those are exactly preserved.)
+
+    PURITY: takes the Paragraph objects from doc.paragraphs and uses the body only for
+    BLOCK ORDER, so nothing is constructed and no import is needed — the thin core stays
+    importable everywhere (validate_framework_md Check AB). If the body walk and
+    doc.paragraphs ever disagree in length (paragraphs nested in a body-level <w:sdt>
+    are invisible to both, but a future format could differ), the function degrades to
+    the paragraph-scoped result rather than mis-indexing.
+    """
+    paras = doc.paragraphs
+    try:
+        body = doc.element.body
+        blocks = []
+        n_p = 0
+        for child in body.iterchildren():
+            tag = getattr(child, 'tag', None)
+            if tag == W_P_TAG:
+                blocks.append(True)
+                n_p += 1
+            elif tag == W_TBL_TAG:
+                blocks.append(False)        # a table is CONTENT
+        if n_p != len(paras):
+            return paras, next_nonempty_texts(paras)
+    except Exception:
+        return paras, next_nonempty_texts(paras)
+
+    out = [''] * len(paras)
+    nxt = ''
+    pi = len(paras) - 1
+    for is_para in reversed(blocks):
+        if not is_para:
+            nxt = CONTENT_SENTINEL
+            continue
+        out[pi] = nxt
+        t = (paras[pi].text or '').strip()
+        if t:
+            nxt = t
+        elif paragraph_is_content_bearing(paras[pi]):
+            nxt = CONTENT_SENTINEL
+        pi -= 1
+    return paras, out
 
 
 def detect_question_start(text):
@@ -1427,7 +1640,7 @@ def parse_taxonomy_level(text):
     return 3, text.strip()
 
 
-def is_taxonomy_heading(para, is_option_fn, next_text=None):
+def is_taxonomy_heading(para, is_option_fn, next_text=None, colour_available=False):
     r"""True when a python-docx paragraph is a taxonomy heading rather than a question,
     an option, a STEM CONTINUATION or a date/shift tag. THE canonical implementation.
 
@@ -1454,7 +1667,26 @@ def is_taxonomy_heading(para, is_option_fn, next_text=None):
     discriminator, and an accidental discriminator stops working the moment the constant
     is tuned for its real purpose.
 
-    THE DISCRIMINATOR IS POSITIONAL, and it is the only one the document carries.
+    THE DISCRIMINATOR IS POSITIONAL — BUT IT IS *NOT* THE ONLY ONE THE DOCUMENT
+    CARRIES. That claim stood here until GAP-2026-08-05-001 and it was false, and being
+    false it is why every discriminator this framework has used has been circumstantial:
+    length (accidental, died when MAX_HEADING_LEN went 100->300), bold (EC-S8 emits bold
+    continuations), position (defeated by textless content and structurally impossible
+    for NAT). PYQSort S6-2 mandates 11pt Bold Navy #003366 for every level-3 heading and
+    make_heading_para() stamps <w:color> unconditionally — a DIRECT, producer-guaranteed
+    marker that the very next line of S6-2 ("Parser: default -> level 3") then told the
+    parser to ignore. ``colour_available`` (from heading_colour_available(), computed
+    ONCE PER FILE) turns it back on; the positional gate below is now the FALLBACK for
+    files that do not carry it.
+
+    WHY BOTH REMEDIES SHIP. Their blind spots do not overlap. Colour cannot see a stem
+    continuation deep-copied from a navy-styled source; the positional rule cannot see a
+    heading whose colour was stripped, and CANNOT DISTINGUISH A NAT STEM CONTINUATION AT
+    ALL — a NAT question has no options, so its last stem paragraph and a genuine
+    subtopic heading occupy the identical slot (last text block before a date label) and
+    yield byte-identical lookahead values. No positional rule, forward or backward, can
+    separate those two objects. For NAT, colour is the only consumer-side discriminator
+    there is.
     PYQSort S6-2 emits the date label "immediately above Q.N stem — zero paragraphs
     between"; CHECK 3 HARD FAILS if date-label count != Q-count or the position slips;
     EC-S10 raises when a Q.N has no date label. So in any sorted file PYQSort was willing
@@ -1492,11 +1724,18 @@ def is_taxonomy_heading(para, is_option_fn, next_text=None):
     has_bold = any(r.bold for r in para.runs if r.text.strip())
     if not (has_bold and len(text) < MAX_HEADING_LEN):
         return False
-    if next_text is None:                          # caller cannot supply position
-        return True
     if parse_taxonomy_level(text)[0] in (1, 2):    # prefixed -> self-identifying
         return True
-    # GAP-2026-07-26-001: a bare level-3 heading must lead into a date label.
+    # GAP-2026-08-05-001 / SG-9 (D6) — the DIRECT signal, when this FILE carries it.
+    # Gated PER FILE by the caller's heading_colour_available() probe, never per
+    # paragraph: the per-paragraph phrasing measurably fixes nothing (see that
+    # function's docstring). Level 2 is BLACK per S6-2 and is already returned above.
+    if colour_available:
+        return first_run_colour(para) == HEADING_NAVY
+    if next_text is None:                          # caller cannot supply position
+        return True
+    # GAP-2026-07-26-001, corrected by GAP-2026-08-05-001 D1/D2: a bare level-3 heading
+    # must lead into a date label as the next CONTENT-BEARING BLOCK.
     return bool(DATE_TAG_RE.match(next_text.strip()))
 
 
@@ -2924,6 +3163,127 @@ def self_test():
     check('g_next_nonempty',
           next_nonempty_texts([_P3('A'), _P3(''), _P3('   '), _P3('B'), _P3('C'), _P3('')])
           == ['B', 'B', 'B', 'C', '', ''])
+
+    # ── GAP-2026-08-05-001 — TEXTLESS CONTENT IS CONTENT (D5) ───────────────
+    # Every t_* assertion below FAILS on the pre-fix engine, per CLAUDE.md: a
+    # regression test that passes on the broken code tests nothing. The fixtures are
+    # PURE stubs — building them with python-docx would import a non-stdlib module
+    # into the thin core and break validate_framework_md Check AB.
+    class _El:
+        """Minimal <w:p>-shaped element: .tag plus a recursive .iter()."""
+        def __init__(s, tag, kids=()): s.tag = tag; s.kids = list(kids)
+        def iter(s):
+            yield s
+            for k in s.kids:
+                for x in k.iter():
+                    yield x
+
+    class _P5:
+        """Paragraph stub carrying a real element tree and optional coloured runs."""
+        def __init__(s, text='', tags=(), colour='INHERIT', bold=True):
+            s.text = text
+            s._p = _El(W_P_TAG, [_El(t) for t in tags])
+            class _C:
+                def __init__(c, v):
+                    c.type = None if v == 'INHERIT' else 1
+                    c.rgb = v
+            class _R:
+                def __init__(r, t, b, col):
+                    r.text = t; r.bold = b
+                    r.font = type('F', (), {'color': _C(col)})()
+            s.runs = [_R(text, bold, colour)] if text else []
+
+    _IMG_T = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}drawing'
+    _EQN_T = '{http://schemas.openxmlformats.org/officeDocument/2006/math}oMath'
+    _OBJ_T = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}object'
+    _NUM_T = W_NUMPR_TAG
+
+    _cont5 = _P5('Compound E displays a prominent absorption band at 1710 cm-1.')
+    _sub5  = _P5('Alcohols, Aldehydes and Ketones', colour=HEADING_NAVY)
+    _img5  = _P5('', (_IMG_T,))
+    _eqn5  = _P5('', (_EQN_T,))
+    _obj5  = _P5('', (_OBJ_T,))
+    _num5  = _P5('', (_NUM_T,))
+    _blank5 = _P5('')
+    _date5 = _P5('[03-May-2009 Q74]', colour=HEADING_NAVY)
+
+    # the classifier
+    check('t_content_image',            paragraph_is_content_bearing(_img5))
+    check('t_content_equation',         paragraph_is_content_bearing(_eqn5))
+    check('t_content_object',           paragraph_is_content_bearing(_obj5))
+    check('t_content_autonumber',       paragraph_is_content_bearing(_num5))
+    check('t_content_autonumber_opt_out',
+          not paragraph_is_content_bearing(_num5, include_autonumber=False))
+    check('t_content_blank_is_not',     not paragraph_is_content_bearing(_blank5))
+    check('t_content_text_para_is_not', not paragraph_is_content_bearing(_sub5))
+    check('t_content_no_element_safe',  not paragraph_is_content_bearing(_P3('x')))
+    check('t_content_none_safe',        not paragraph_is_content_bearing(None))
+    check('t_content_raw_element',      paragraph_is_content_bearing(_img5._p))
+
+    # the lookahead: textless content TERMINATES the scan
+    _seq5 = [_cont5, _img5, _img5, _img5, _img5, _date5]
+    check('t_lookahead_image_stops',    next_nonempty_texts(_seq5)[0] == CONTENT_SENTINEL)
+    check('t_lookahead_equation_stops',
+          next_nonempty_texts([_cont5, _eqn5, _date5])[0] == CONTENT_SENTINEL)
+    check('t_lookahead_blank_transparent',
+          next_nonempty_texts([_cont5, _blank5, _date5])[0] == '[03-May-2009 Q74]')
+
+    # THE DEFECT — this assertion returns True (wrongly) on the pre-fix engine
+    check('t_stem_cont_before_image_options',
+          not is_taxonomy_heading(_cont5, _no_opt, next_nonempty_texts(_seq5)[0]))
+    check('t_head_still_passes',
+          is_taxonomy_heading(_sub5, _no_opt, next_nonempty_texts([_sub5, _date5])[0]))
+    check('t_legacy_next_nonempty_unchanged',
+          next_nonempty_texts([_P3('A'), _P3(''), _P3('   '), _P3('B'), _P3('C'), _P3('')])
+          == ['B', 'B', 'B', 'C', '', ''])
+
+    # ── D2: a table is a block, and it is CONTENT ───────────────────────────
+    class _Body:
+        def __init__(s, kids): s.kids = kids
+        def iterchildren(s): return iter(s.kids)
+
+    class _Doc:
+        def __init__(s, paras, kids): s.paragraphs = paras; s.element = s
+        @property
+        def body(s): return s._body
+
+    def _mkdoc(seq):
+        paras = [x for x in seq if x is not None]
+        kids  = [_El(W_P_TAG) if x is not None else _El(W_TBL_TAG) for x in seq]
+        d = _Doc(paras, kids); d._body = _Body(kids)
+        return d
+
+    _dt = _mkdoc([_P5('The determinant of the matrix is'), None, _date5])
+    _pt, _nt5 = sorted_body_lookahead(_dt)
+    check('t_table_stops_lookahead',  _nt5[0] == CONTENT_SENTINEL)
+    check('t_table_cont_not_heading', not is_taxonomy_heading(_pt[0], _no_opt, _nt5[0]))
+    check('t_body_lookahead_len',     len(_pt) == 2 and len(_nt5) == 2)
+    # no table -> identical to the paragraph-scoped lookahead
+    _d2 = _mkdoc([_cont5, _img5, _date5])
+    check('t_body_lookahead_matches_paragraph_scope',
+          sorted_body_lookahead(_d2)[1] == next_nonempty_texts(_d2.paragraphs))
+
+    # ── D6: the colour discriminator, gated PER FILE ────────────────────────
+    check('t_colour_first_run',      first_run_colour(_sub5) == HEADING_NAVY)
+    check('t_colour_inherited_none', first_run_colour(_cont5) is None)
+    check('t_probe_passes',          heading_colour_available([_date5, _sub5]))
+    check('t_probe_fails_unstyled',  not heading_colour_available([_P5('[03-May-2009 Q74]')]))
+    check('t_probe_needs_a_label',   not heading_colour_available([_sub5]))
+    # THE NAT CASE — no options, so the continuation IS followed by a date label and
+    # NO textless content is involved. D1/D2 cannot fix this; only D6 can.
+    _nat = _P5('The number of cells after 2 hours is ______.')
+    check('t_nat_positional_cannot_see_it',
+          is_taxonomy_heading(_nat, _no_opt, '[09-Feb-2025 Shift 1]'))
+    check('t_nat_fixed_by_colour',
+          not is_taxonomy_heading(_nat, _no_opt, '[09-Feb-2025 Shift 1]',
+                                  colour_available=True))
+    check('t_nat_heading_survives_colour',
+          is_taxonomy_heading(_sub5, _no_opt, '[09-Feb-2025 Shift 1]',
+                              colour_available=True))
+    # level 2 is BLACK per S6-2 and must never be rejected by the colour gate
+    check('t_l2_black_immune_to_colour',
+          is_taxonomy_heading(_P5('Topic 3: Genetics', colour='000000'), _no_opt,
+                              'DNA Replication', colour_available=True))
 
     # ── CLUSTER V — VISION MERGE / PROFILE (GAP-2026-07-26-003) ─────────────
     _keys = [('PAPER_A', 1), ('PAPER_A', 17), ('PAPER_B', 1)]

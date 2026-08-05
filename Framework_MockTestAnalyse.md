@@ -1,4 +1,10 @@
-# Framework_MockTestAnalyse v2.40.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.41.0 — Universal PYQ Pattern Extraction Engine
+# v2.41.0 — 2026-08-05 — GAP-2026-08-05-001. S3-2 takes bc.sorted_body_lookahead(doc)
+#   and the per-FILE colour probe. QV-1a severity WARN -> FAIL (SG-6): the identical
+#   condition was a HARD STOP at Step 4 and a silent green footer here. QV-15 BODY
+#   TERMINATION SANITY added (SG-7) with a NAT-specific colour assertion, since an
+#   option-count threshold is meaningless for a question that has no options. New counter
+#   questions_terminated_by_heading, reported even when 0.
 # v2.40.0 — 2026-08-03 — DEFECT FIX: live cross-step contracts still named the retired
 #   Step 8. The axis classifier's propagation contract read "MUST PROPAGATE (byte-identical)
 #   to Step 8 MockCreateAudit S6-1b" — a binding instruction pointing at a spec deleted in
@@ -1436,11 +1442,12 @@ Helpers:
 Algorithm (pseudocode — full implementation in S3-2 extract_presorted()):
   current_path  = []    # [section, topic, subtopic]
   current_shift = 'S1'
-  nxt = bc.next_nonempty_texts(doc.paragraphs)   # GAP-2026-07-26-001
-  for i, paragraph in enumerate(doc.paragraphs):
+  paras, nxt = bc.sorted_body_lookahead(doc)     # GAP-2026-07-26-001 + -08-05-001
+  colour_ok  = bc.heading_colour_available(paras)   # D6 — once per FILE
+  for i, paragraph in enumerate(paras):
       text = paragraph.text.strip()
       if not text: continue
-      if is_taxonomy_heading(paragraph, nxt[i]):
+      if is_taxonomy_heading(paragraph, nxt[i], colour_ok):
           level, content = parse_taxonomy_level(text)
           current_path = current_path[:level-1] + [content]
       elif is_shift_tag(text):
@@ -2350,7 +2357,7 @@ def run_img5b(mapping, questions, overrides=()):
 # no error raised anywhere. Measured on IIT_JAM_BIOTECHNOLOGY (22 papers): 16
 # questions truncated, 28 option lines silently discarded, 10 papers affected.
 # Step 4's phantom gate stops the run; nothing here stopped anything.
-is_taxonomy_heading      = lambda para, next_text=None: bc.is_taxonomy_heading(para, is_option, next_text)
+is_taxonomy_heading      = lambda para, next_text=None, colour_available=False: bc.is_taxonomy_heading(para, is_option, next_text, colour_available)
 parse_taxonomy_level     = bc.parse_taxonomy_level
 extract_year_from_filename = bc.extract_year_from_filename
 
@@ -2442,15 +2449,23 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
     questions = []
     cur_sec = cur_top = cur_sub = ''
     cur_date_label = None          # v2.39 — carries the stamped original position
-    paras   = doc.paragraphs
-    nxt     = bc.next_nonempty_texts(paras)        # GAP-2026-07-26-001
+    # GAP-2026-07-26-001 + GAP-2026-08-05-001. BLOCK-level: tables are not paragraphs,
+    # and an image/equation/object-only paragraph has no TEXT — the old lookahead
+    # skipped both and returned the next question's date label, so a bold stem
+    # continuation passed the level-3 heading test and TRUNCATED its own question here.
+    paras, nxt = bc.sorted_body_lookahead(doc)
+    colour_ok  = bc.heading_colour_available(paras)   # D6 — probed ONCE per FILE
+    terminated_by_heading = 0     # QV-15 counter (GAP-2026-08-05-001)
+    # Per-question flag, RESET at the top of every question body below. Initialised
+    # here as well so it is defined even for a question whose body loop never runs.
+    _ended_by_heading = False
     i = 0
 
     while i < len(paras):
         para = paras[i]; text = para.text.strip()
         if not text: i += 1; continue
 
-        if is_taxonomy_heading(para, nxt[i]):      # GAP-2026-07-26-001
+        if is_taxonomy_heading(para, nxt[i], colour_ok):   # GAP-2026-07-26-001 + -08-05-001
             lv, content = parse_taxonomy_level(text)
             if lv == 1: cur_sec = content
             elif lv == 2: cur_top = content
@@ -2481,7 +2496,13 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
             # GAP-2026-07-26-001: nxt[i] is what stops a bold STEM CONTINUATION from
             # terminating its own question here. Without it the stem is truncated and
             # every option after this point is silently discarded.
-            if detect_question_start(nt) is not None or is_taxonomy_heading(paras[i], nxt[i]):
+            # _ended_by_heading is initialised to False before this loop (see above),
+            # so a question whose body loop never runs can never leave it unbound.
+            _ended_by_heading = (detect_question_start(nt) is None and
+                                 is_taxonomy_heading(paras[i], nxt[i], colour_ok))
+            if detect_question_start(nt) is not None or _ended_by_heading:
+                if _ended_by_heading:
+                    terminated_by_heading += 1   # QV-15 (GAP-2026-08-05-001)
                 break
             if is_option(nt, paras[i]):
                 options.append(clean_option_text(nt))
@@ -2524,8 +2545,13 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         # option FORMAT type ('single_value' etc.) which describes content shape.
         _label = _detect_option_label_style(options_raw)
 
+        # GAP-2026-08-05-001 (QV-15). Record whether an INFERRED heading ended this
+        # question's body. When the inference is wrong the stem is truncated and every
+        # remaining option is discarded — silently, because nothing counted it. Stamped
+        # here so QV-15 can test it per question rather than only in aggregate.
         questions.append({
             'num'         : q_num,
+            'terminated_by_heading': _ended_by_heading,
             # v2.37 (GAP-2026-07-26-003 PART 9). BOTH keys are stamped at the ONE
             # emission point. This dict was emitted with 'num' only, while
             # blueprint_core.paper_eras_from_progress() reads q.get('q_num') and the
@@ -5423,8 +5449,46 @@ def run_qv(entries, taxonomy, progress):
     pyq_subs = set(k[2] for k in ekeys)
     tax_subs = set(st['subtopic'] for sts in taxonomy.values() for st in sts)
     extra    = pyq_subs - tax_subs
-    results['QV-1a'] = ('WARN' if extra else 'PASS',
+    # GAP-2026-08-05-001 (SG-6). Severity RAISED from WARN to FAIL. The IDENTICAL
+    # condition — a parsed subtopic that is not in the locked taxonomy — is a HARD STOP
+    # at Step 4 Task 2.5 and was only a WARN here. Per Framework_DeliveryFooter §5 Q0 a
+    # WARN does not force amber, so a phantom subtopic passed SILENTLY, rendered a green
+    # "Step Complete" footer, and flowed into subtopic_manifest.json -> Step 6 allocation
+    # -> Step 7 generation, carrying a truncated stem and dropped options with it.
+    # FAIL renders F1 amber and names the check. It MUST NOT halt Step 5: per CLAUDE.md
+    # a CLASS T failure must be LOUD and must NOT halt. Loud, not fatal.
+    results['QV-1a'] = ('FAIL' if extra else 'PASS',
                           f'In PYQ not taxonomy: {list(extra)[:5]}' if extra else 'OK')
+
+    # QV-15 — BODY TERMINATION SANITY (GAP-2026-08-05-001, SG-7)
+    # QV-1a only fires when the phantom's TEXT is absent from the taxonomy. If a misread
+    # continuation happens to canon-match a real subtopic name, QV-1a is silent, Step 4's
+    # totals still reconcile, and the questions after it are attributed to the WRONG
+    # subtopic with no signal anywhere. QV-15 tests the STRUCTURE instead of the name, so
+    # it catches that branch too.
+    # NAT IS TESTED DIFFERENTLY AND DELIBERATELY. An option-count threshold is meaningless
+    # for a question that has no options, and NAT is the shape MOST exposed to a heading
+    # misread (no options means its last stem paragraph sits in the same slot as a genuine
+    # heading). So for NAT the assertion is on COLOUR: in a file whose date-label probe
+    # passed, a body terminated by a non-navy inferred heading is a misread by definition.
+    _tbh   = [e for e in entries if e.get('terminated_by_heading')]
+    _short = [e for e in _tbh
+              if e.get('has_options', True)
+              and len(e.get('options') or []) < options_count]
+    _nat_bad = [e for e in _tbh
+                if not e.get('has_options', True)
+                and e.get('colour_available')
+                and e.get('terminating_heading_colour') != bc.HEADING_NAVY]
+    _bad = _short + _nat_bad
+    results['QV-15'] = ('FAIL' if _bad else 'PASS',
+                        f'{len(_bad)} question(s) terminated by an inferred heading '
+                        f'before their options were collected: '
+                        f'{[e.get("num") for e in _bad][:5]}' if _bad else
+                        f'OK ({len(_tbh)} bodies ended on a heading, all well-formed)')
+    # Report the raw counter in the batch summary even when it is 0 — an unexplained
+    # jump between papers of the same exam is the earliest visible symptom of a Step-1
+    # rendering change that newly exposes this class.
+    results['_counter_questions_terminated_by_heading'] = len(_tbh)
 
     # QV-2: Frequency% sums to 100 per subtopic
     bad = [e['subtopic'] for e in entries if e.get('PYQ_STEM_PATTERNS') and
@@ -7757,4 +7821,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.40.0
+# END OF Framework_MockTestAnalyse v2.41.0

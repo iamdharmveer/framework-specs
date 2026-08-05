@@ -1434,6 +1434,27 @@ def para_has_image(para):
     return False
 
 
+def para_is_option_content(para):
+    """True when a bare option LABEL's paragraph carries the option's actual content.
+
+    GAP-2026-08-05-001 (S-1). para_has_image() recognises only a DrawingML blip or a
+    VML imagedata reference, so an option whose content is an OMML equation or an
+    embedded OLE object was not recognised as an option at all — even though PYQSort
+    CHECK 4 accepts "(c) inline drawing" AND "(d) OMML formula" as valid option forms.
+    Producer and consumer disagreed about what an option IS.
+
+    Measured on SSC_CGL_TIER1 09-Sep-2024 Shift 1, a delivered sorted paper: Q.75
+    options 1 and 2 are bare labels "1." / "2." whose content is <m:oMath>. Both
+    returned False, so that question silently lost half its option set at Step 5.
+
+    include_autonumber=False is deliberate: on a bare label the rendered w:numPr number
+    merely duplicates the "1." already present as text and is not option CONTENT, so an
+    auto-numbered but otherwise empty paragraph must NOT be promoted to an option.
+    """
+    return bool(para_has_image(para) or
+                bc.paragraph_is_content_bearing(para, include_autonumber=False))
+
+
 def is_option(text, para=None):
     """THE option-line predicate. Every step delegates to this; nobody re-implements it.
 
@@ -1445,7 +1466,7 @@ def is_option(text, para=None):
     t = (text or '').strip()
     if any(re.match(p, t) for p in OPT_PATTERNS):
         return True
-    if para is not None and para_has_image(para):
+    if para is not None and para_is_option_content(para):
         return any(re.match(p, t) for p in BARE_OPT_PATTERNS)
     return False
 
@@ -4371,6 +4392,25 @@ def self_test():
     check('opt_bare_alpha_with_image', is_option('(D)', para=_p_img))
     check('opt_bare_imageless_rejected', not is_option('1.', para=_p_txt))
     check('opt_text_option_para_irrelevant', is_option('2. tundra', para=_p_txt))
+
+    # ── GAP-2026-08-05-001 (S-1) — an option's content may be an EQUATION ────
+    # PYQSort CHECK 4 accepts "(d) OMML formula" as a valid option form; para_has_image()
+    # sees only a blip/VML, so these returned False and the option was silently dropped.
+    # Real instance: SSC_CGL_TIER1 09-Sep-2024 Shift 1, Q.75 options 1 and 2 (paras
+    # 592-593) — a delivered sorted paper losing half its option set at Step 5.
+    # These FAIL on the pre-fix predicate.
+    _p_eqn = _ET.fromstring(
+        '<w:p xmlns:w="%s" xmlns:m="%s"><w:r><w:t>1.</w:t></w:r><m:oMath/></w:p>'
+        % (_NS_W, 'http://schemas.openxmlformats.org/officeDocument/2006/math'))
+    _p_obj = _ET.fromstring(
+        '<w:p xmlns:w="%s"><w:r><w:t>2.</w:t><w:object/></w:r></w:p>' % _NS_W)
+    _p_num = _ET.fromstring(
+        '<w:p xmlns:w="%s"><w:pPr><w:numPr/></w:pPr><w:r><w:t>1.</w:t></w:r></w:p>' % _NS_W)
+    check('opt_bare_with_equation', is_option('1.', para=_p_eqn))
+    check('opt_bare_with_embedded_object', is_option('2.', para=_p_obj))
+    # an auto-number alone is NOT option content — the rendered "1." only duplicates
+    # the label already present as text, so this must stay rejected.
+    check('opt_bare_autonumber_only_rejected', not is_option('1.', para=_p_num))
 
     class _FakeParagraph:                   # python-docx Paragraph form (has ._p)
         pass

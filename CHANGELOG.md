@@ -1,5 +1,68 @@
 # Changelog
 
+## 2026.08.05.1
+**GAP-2026-08-05-001 — textless content is content. A bold stem continuation was read as a
+level-3 subtopic heading whenever every block between it and the next date label carried no
+TEXT.** Fixed at the producer, in the shared contract, in the engine, and in both consumers.
+
+**THE DEFECT.** The level-3 discriminator asked for the "next non-empty PARAGRAPH". Three
+things are not paragraphs-with-text and were therefore skipped: a `<w:tbl>` (not a paragraph
+at all, so it never appears in `doc.paragraphs`), a paragraph holding only an image, equation
+or embedded object (`<w:drawing>` / `<w:pict>` / `<m:oMath>` / `<w:object>` — no text), and an
+auto-numbered paragraph whose "1." Word RENDERS but does not store. The lookahead skipped
+straight past them to the NEXT QUESTION'S date label, which made a bold stem continuation
+satisfy the heading test. The question AFTER the misread paragraph was then attributed to a
+question stem.
+
+**PRODUCER — `Framework_PYQSort.md` v1.18.1 -> v1.19.0.** New CHECK 11 DOWNSTREAM-PARSE ROUND
+TRIP (HARD FAIL): PYQSort re-reads its own delivered file with the DOWNSTREAM predicate and
+asserts inferred headings == emitted headings, plus the heading-colour styling assertion.
+S6-2's LEVEL 3 line mandated 11pt Bold Navy #003366 and then told the parser "default ->
+level 3" — telling it to ignore the very marker the same clause guarantees. That was the root
+cause of all three heading defects. This is the corpus rule applied: a bound only the consumer
+enforces is not enforced, so it is now gated where the file is produced.
+
+**CONTRACT — `Framework_PYQCore.md` v1.0.2 -> v1.1.** §6 DISCRIMINATOR rewritten from "next
+non-empty paragraph" to "next CONTENT-BEARING BLOCK", with the four textless classes
+enumerated. The false invariant "a stem continuation NEVER is followed by a date label" is
+corrected. DISCRIMINATOR 2 (heading colour, probed once per FILE) added, and the NAT
+impossibility stated outright: a NAT question has no options, so its last stem paragraph and a
+genuine subtopic heading occupy the identical slot and no positional rule can separate them —
+only colour can. MINIMUM COMPANION VERSIONS now require this engine and python-docx >= 1.1.0.
+
+**ENGINE — `blueprint_core.py`, `corpus_io.py`.** New `paragraph_is_content_bearing()`,
+`VISUAL_CONTENT_TAGS`, `sorted_body_lookahead()` (BLOCK-level, so a table is seen),
+`heading_colour_available()` and `first_run_colour()`. `is_taxonomy_heading()` gains
+`colour_available`. Inherited colour returns None and is never read as "not navy" — the
+alternative turns an unusual styling choice into total heading loss for that file.
+
+**CONSUMERS.** `Framework_PYQCount.md` v1.0 -> v1.1: S5-2 takes the block-level lookahead and
+the per-file colour probe; S5-4b CAUSE 1 is split into 1a (gate absent) and 1b (gate present
+but DEFEATED), because 1a's remedy asked the operator to verify two already-true facts and
+re-run, reproducing the halt forever. `Framework_MockTestAnalyse.md` v2.40.0 -> v2.41.0: S3-2
+takes the same two; QV-1a severity WARN -> FAIL, because the identical condition was a HARD
+STOP at Step 4 and a silent green footer here — the observability asymmetry the corpus rule
+about loud failures exists to remove; QV-15 BODY TERMINATION SANITY added with a NAT-specific
+colour assertion, since an option-count threshold is meaningless for a question with no
+options. New counter `questions_terminated_by_heading`, reported even when 0.
+
+**Verification.** 33/33 VERIFIED, validator 0 issues, audit_specs_ext 0/42, callgraph 0,
+audit_deep 0, triggers 20, mutation 30/30 killed. Engine self-tests: blueprint_core 266 ->
+295, corpus_io 303 -> 306. Every branch of the new logic was mutation-tested and each has a
+fixture that fails on its loss — blinding `paragraph_is_content_bearing` to
+`VISUAL_CONTENT_TAGS` fails 7 fixtures including `t_stem_cont_before_image_options`; dropping
+the auto-number branch, the table walk, the colour probe, or the inherited-colour rule each
+fail their own named fixture.
+
+**Release-manager note.** This wave arrived without a CHANGELOG entry while VERSION was bumped,
+so `audit_sync` REL-SYNC was red; this entry was written from the four specs' own recorded
+version histories and the verification above. `SPEC_MANIFEST.json` arrived with the
+`blueprint_core.py` and `corpus_io.py` entries still describing the PREVIOUS bytes — the two
+engines this release changes — and re-serialised at indent=1 with re-sorted keys, rewriting all
+43 entries. Both fixed: the six changed entries were refreshed from disk after the
+entry-builder was confirmed to reproduce all 34 unchanged entries byte-for-byte, and the repo's
+indent=2 / key-order convention was restored so the diff shows only the real changes.
+
 ## 2026.08.03.9
 **Release-hold fix for 2026.08.03.8. One blocker, three CLAUDE.md defects. 2026.08.03.8 was
 held and never pushed; this release supersedes it in full.**
