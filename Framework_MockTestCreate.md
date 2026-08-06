@@ -1,4 +1,12 @@
-# Framework_MockTestCreate v5.43
+# Framework_MockTestCreate v5.44
+# v5.44 — 2026-08-06 — GAP-2026-08-06-EXAMDEP: exam-independence.
+#   Six defects invisible on the reference exam (46 figural subtopics vs a budget of
+#   4.4) and fatal on shapes it does not have: a hard-coded 1-figure-per-subtopic-per-
+#   mock cap (10 subtopics/25 figures delivered 10, forever); total_mocks read from a
+#   key nobody wrote, so the whole estate got a 15-mock series; quota keyed by display
+#   name when subtopic_id was absent, silently yielding ZERO figures; sorted() over
+#   mixed None/int paper keys crashing Step 5; the last DI any() existential; and the
+#   subject-merge fallback dropping the new keys.
 # v5.43 — 2026-08-06 — GAP-2026-08-06-IRREDUCIBLE: figures are SCHEDULED, not forced.
 #   The render fork decided figural-vs-text per question from a boolean, so a
 #   subtopic allocated to every mock drew a figure in every mock whatever its
@@ -3871,18 +3879,33 @@
   # every mock drew a figure in every mock (1.00/paper) no matter that the corpus said
   # 0.68, and an irreducible flag then let it pass over budget in silence. Twenty-one
   # such subtopics forced 14.3 figures per mock against a budget of 5.
+  # capacity = how many questions this mock actually allocates to each subtopic, so a
+  # subtopic holding 3 questions may carry up to 3 figures. Omit it (v5.43) and the
+  # scheduler caps at ONE figure per subtopic per mock, which under-delivers on every
+  # exam whose figural budget approaches its figural-subtopic count.
+  _cap = {}
+  for a in section['subtopic_allocations']:
+      _cap[a['subtopic_id']] = _cap.get(a['subtopic_id'], 0) + int(a.get('q_count', 1) or 1)
   figural_slots = bc.schedule_figural_slots(
       (axis_schedule.get(sec_name) or {}).get('axis1_figural_quota') or {},
       (axis_schedule.get(sec_name) or {}).get('axis1_target_series') or [],
       bc.figural_band(
           (axis_schedule.get(sec_name) or {}).get('axis1_target_per_mock', {}).get('FIGURAL', 0),
-          (axis_schedule.get(sec_name) or {}).get('axis1_observed_figural')))
+          (axis_schedule.get(sec_name) or {}).get('axis1_observed_figural')),
+      capacity=_cap)
   # Empty schedule (pre-v1.45 blueprint) ⇒ fall through to the v5.41 ranking below, so
   # every un-remeasured exam keeps its current behaviour exactly.
   this_mock = figural_slots[(N - 1) % len(figural_slots)] if figural_slots else None
   if this_mock is not None:
-      figural_capable_slots = [(q, sid) for (q, sid) in figural_capable_slots
-                               if sid in this_mock]
+      # this_mock is {subtopic_id: n_figures} (v1.46, was a set) — take AT MOST that many
+      # slots per subtopic, in the ranked order established below.
+      _left = dict(this_mock)
+      _keep = []
+      for (q, sid) in figural_capable_slots:
+          if _left.get(sid, 0) > 0:
+              _left[sid] -= 1
+              _keep.append((q, sid))
+      figural_capable_slots = _keep
 
   ordered = bc.rank_figural_candidates(
       figural_capable_slots,                      # [(qnum, subtopic_id), ...]
@@ -7345,7 +7368,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.43
+# END OF Framework_MockTestCreate v5.44
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

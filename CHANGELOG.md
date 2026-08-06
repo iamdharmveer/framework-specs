@@ -1,5 +1,65 @@
 # Changelog
 
+## 2026.08.06.7
+
+### GAP-2026-08-06-EXAMDEP — six defects that only a different exam would have found
+
+Every defect below is **invisible on the reference exam** — 46 figural subtopics against
+a budget of 4.4 — and fatal on shapes it does not have. That is exactly why they survived
+five releases of testing against one exam.
+
+**1. One figure per subtopic per mock, hard-coded.** `schedule_figural_slots` used a SET
+per mock, capping the paper at its number of DISTINCT figural subtopics. Any exam whose
+figural budget approaches that count under-delivers on **every mock, forever**, with the
+generator structurally unable to comply:
+
+| exam shape | target | delivered |
+|---|---|---|
+| 46 subtopics (reference exam) | 4.4 | 4.40 |
+| 10 subtopics — non-verbal reasoning | 25 | **10.00** |
+| 3 subtopics — chemistry-heavy | 8 | **3.00** |
+| 1 subtopic | 5 | **1.00** |
+
+The schedule is now `{subtopic_id: n_figures}` and both `figural_quota` and
+`schedule_figural_slots` take a `capacity` map (each subtopic's q_count in that mock).
+All five shapes now deliver their target exactly.
+
+**2. `total_mocks` read from a key nobody writes.** `axis_dist["total_mocks"]` is never
+emitted by Step 5, so it silently fell back to 15 — every exam in the estate got a
+15-mock target series and a quota sized for 15 papers regardless of its configuration.
+Now an explicit parameter, sourced from `blueprint['total_mocks']`.
+
+**3. Quota keyed by display name.** `_fig_by_sub[q.subtopic_id or q.subtopic]` fell back
+to the display name when the id was absent. Step 7 matches those keys against blueprint
+subtopic_ids, so a display-name key matches nothing and the mock renders **ZERO figures**
+with every fixture green. Now `subtopic_id` only; unkeyed questions are counted into a
+new `figural_unkeyed_questions` field so a shortfall has a visible cause.
+
+**4. `sorted()` over mixed `{2026, None}`.** Raises `TypeError` in Python 3, reachable the
+moment ONE question lacks a year or paper_id — a scan gap, a hand-added row — taking out
+Step 5 for the whole exam. Keys are stringified; a missing key becomes its own bucket.
+
+**5. The last DI existential.** `has_tbl = any(_looks_like_table_stimulus(...))` is the
+same construct behind GAP-2026-08-06-AXIS1 and GAP-2026-08-06-IRREDUCIBLE. One
+table-bearing question anywhere marked the subtopic DI permanently — Electrochemistry on
+1 table in 14, Matrices on 1 in 19. Now `di_q_count >= 2 AND di_rate >= 0.50`, the same
+plain-majority line the reducibility test uses. DI was less damaging only because DI and
+TEXT share a rendering path — an accident of wiring, not a property of the rule, and it
+would bite on the first DI-heavy exam.
+
+**6. Subject-merge fallback dropped the new keys**, leaving the scheduling silently off
+on that path.
+
+**Self-tests.** blueprint_core 365/365 (was 342), audit_canonical 229/229. Every new
+fixture mutation-verified against 2026.08.06.6.
+
+**One fixture caught passing for the wrong reason — again, and it is the same lesson.**
+The `total_mocks` fixtures exercised `figural_target_series()` and
+`schedule_figural_slots()` directly, so reverting the fix inside `derive_axis_schedule`
+passed all 359. Testing the helper is not testing the caller — GAP-2026-08-06-CONSUMER,
+one release later, in the release that cited it. A consumer-path fixture was added and
+the mutation now fails three named checks.
+
 ## 2026.08.06.6
 
 ### GAP-2026-08-06-CONSUMER — the engine was fixtured, its consumer was not

@@ -60,6 +60,7 @@ __all__ = [
     "AXIS_WINDOW_YEARS",
     "AXIS_BAND_ABS",
     "AXIS_BAND_FLEX",
+    "AXIS_MAX_MOCKS",
     "AXIS_BAND_REL",
     "STIMULUS_CLASSES",
     "MECHANISM_CLASSES",
@@ -506,7 +507,8 @@ def section_axis2_pool_caps(section_name, id_list, cap_by_id, manifest_ids):
 
 def derive_axis_schedule(section_name, axis_dist, sec_qs,
                          pyq_ids, zp_ids, cap_by_id, manifest_ids,
-                         papers_per_window=10):
+                         papers_per_window=10, total_mocks=None,
+                         figural_capacity=None):
     """§7-7 ``derive_axis_schedule``. VERBATIM except ``mocks_per_window`` renamed to
     ``papers_per_window`` (a mock is a paper; a scoped test is a paper).
 
@@ -588,6 +590,12 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
                    else "zp_only" if g in zp_caps
                    else "unsatisfiable")
 
+    # v1.46 — the mock count is a PROPERTY OF THE EXAM and must be passed in. It was
+    # read from axis_dist["total_mocks"], a key Step 5 never writes, so it silently fell
+    # back to 15 for every exam in the estate. Any exam configured for a different
+    # number of mocks got a 15-long target series and a quota sized for 15 papers.
+    _n_mocks = _axis_int(total_mocks) or _axis_int(axis_dist.get("total_mocks")) or 15
+
     return {
         "section": section_name, "status": "ok",
         "axis1_per_paper": a1,
@@ -629,13 +637,13 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
         #   data, which is precisely what the v2.42 any() defect turned out to be.
         "axis1_target_series": figural_target_series(
             axis_dist.get("figural_per_paper_observed") or [],
-            _axis_int(axis_dist.get("total_mocks")) or 15,
+            _n_mocks,
             total=largest_remainder_apportion(a1, sec_qs).get("FIGURAL", 0)),
         "axis1_observed_figural": list(axis_dist.get("figural_per_paper_observed") or []),
         "axis1_figural_quota": figural_quota(
             axis_dist.get("figural_count_by_subtopic") or {},
-            _axis_int(axis_dist.get("total_mocks")) or 15,
-            axis_dist.get("figural_per_paper_mean")),
+            _n_mocks, axis_dist.get("figural_per_paper_mean"),
+            capacity=figural_capacity),
         "axis1_enforcement": "hard",
         "axis3_enforcement": "hard",
         # Provenance of the per-section numbers. "measured" = counted directly on
@@ -718,6 +726,15 @@ AXIS_WINDOW_YEARS = 5   # distinct years averaged for the per-paper axis targets
                         # can carry it — two different questions, two different samples.
                         # Era-scoping (filter_progress_to_eras) still applies FIRST, so a
                         # wider window can never straddle a pattern change.
+
+AXIS_MAX_MOCKS = 1000   # v1.46 hard clamp on any caller-supplied mock count.
+                        # total_mocks arrives from blueprint.json, i.e. from a file on
+                        # disk that another step wrote, so a typo or a corrupted field
+                        # is a real input. Unclamped, figural_target_series(obs, 2**40)
+                        # allocates a 10^12-element list and the OOM killer takes the
+                        # whole run — found by a resource probe, not by reasoning.
+                        # Clamped rather than rejected: a series that is too long is a
+                        # bad number, not a reason to lose the exam.
 
 AXIS_BAND_FLEX = 0.50   # v1.45 operator-set proportional floor for the audit band.
                         # Rationale in figural_band(): the previous ±1/±15% band
@@ -833,7 +850,7 @@ def figural_target_series(observed, n_mocks=15, total=None):
     if isinstance(observed, str) or not hasattr(observed, '__iter__'):
         observed = []
     vals = [_axis_int(v) for v in observed if v is not None]
-    n = max(1, _axis_int(n_mocks) or 15)
+    n = min(AXIS_MAX_MOCKS, max(1, _axis_int(n_mocks) or 15))
     if not vals:
         flat = _axis_int(total) if total is not None else 0
         return [flat] * n
@@ -841,7 +858,7 @@ def figural_target_series(observed, n_mocks=15, total=None):
     return [shape[i % len(shape)] for i in range(n)]
 
 
-def figural_quota(fig_counts, n_mocks=15, budget_per_paper=None):
+def figural_quota(fig_counts, n_mocks=15, budget_per_paper=None, capacity=None):
     """How many mocks each subtopic should carry a FIGURE in.
 
     THIS IS THE FIX FOR THE 'IRREDUCIBLE OVERRIDE' DEFECT. Before v1.45, whether a
@@ -870,7 +887,7 @@ def figural_quota(fig_counts, n_mocks=15, budget_per_paper=None):
     if not isinstance(fig_counts, dict):
         fig_counts = {}
     counts = {k: _axis_int(v) for k, v in fig_counts.items() if _axis_int(v) > 0}
-    n = max(1, _axis_int(n_mocks) or 15)
+    n = min(AXIS_MAX_MOCKS, max(1, _axis_int(n_mocks) or 15))
     total = sum(counts.values())
     if not total:
         return {}
@@ -896,10 +913,17 @@ def figural_quota(fig_counts, n_mocks=15, budget_per_paper=None):
     # (Caught by the fixture, not by inspection: with few figural subtopics and a high
     # budget the clip cost 24 of 66 slots.) Excess is handed to subtopics that still
     # have room, in measured-frequency order.
-    out = {k: min(v, n) for k, v in out.items()}
+    # v1.46 — a subtopic's ceiling is n_mocks x its PER-MOCK capacity (its q_count),
+    # not n_mocks. Capping at n_mocks assumes one figure per subtopic per mock, which
+    # silently starves every exam whose figural budget approaches its figural-subtopic
+    # count: one figural subtopic with a budget of 5 delivered 1.00 per mock, forever.
+    if not isinstance(capacity, dict):
+        capacity = {}
+    _cap = {k: max(1, _axis_int(capacity.get(k, 1))) * n for k in out}
+    out = {k: min(v, _cap[k]) for k, v in out.items()}
     excess = int(round(want)) - sum(out.values())
     while excess > 0:
-        room = [k for k in sorted(raw, key=lambda k: (-raw[k], k)) if out[k] < n]
+        room = [k for k in sorted(raw, key=lambda k: (-raw[k], k)) if out[k] < _cap[k]]
         if not room:
             break          # genuinely no capacity left: n_mocks x n_subtopics is the
                            # hard ceiling. Return what is achievable rather than raise —
@@ -912,7 +936,7 @@ def figural_quota(fig_counts, n_mocks=15, budget_per_paper=None):
     return out
 
 
-def schedule_figural_slots(quota, targets, band=None, n_mocks=None):
+def schedule_figural_slots(quota, targets, band=None, n_mocks=None, capacity=None):
     """Spread each subtopic's figure-slots across the series, least-crowded mock first.
 
     WHY THIS CANNOT FAIL, AND WHY THERE IS NO HALT.
@@ -937,29 +961,49 @@ def schedule_figural_slots(quota, targets, band=None, n_mocks=None):
     figures in Mock 12 and 4 in Mock 10 purely by allocation order), and placing each
     slot into the mock with the most remaining headroom is what removes it.
 
-    Returns [set(subtopic_id) per mock] — deterministic; ties break on subtopic_id.
+    Returns [{subtopic_id: n_figures} per mock] — deterministic; ties break on
+    subtopic_id. A DICT rather than a set (v1.46): a subtopic allocated several
+    questions in one mock may legitimately carry several figures. `sid in slots` still
+    works unchanged for callers that only test membership.
     """
     if isinstance(targets, str) or not hasattr(targets, '__iter__'):
         targets = []
+    # v1.46 — capacity: {subtopic_id: max figures it may carry in ONE mock}, normally
+    # its allocated q_count. Before v1.46 this was HARD-CODED to 1 by using a set per
+    # mock, which is a silent exam-independence break: the paper is then capped at one
+    # figure per DISTINCT figural subtopic, so any exam whose figural budget approaches
+    # its figural-subtopic count under-delivers permanently. Measured:
+    #     46 subtopics / budget 4.4 ->  4.40   fine (subtopics >> budget)
+    #     10 subtopics / budget 25  -> 10.00   SHORT by 15  (non-verbal reasoning)
+    #      3 subtopics / budget 8   ->  3.00   SHORT by 5   (chemistry-heavy)
+    #      1 subtopic  / budget 5   ->  1.00   SHORT by 4
+    # Those exams would FAIL A-AXIS1 shortfall on EVERY mock forever, with the generator
+    # structurally unable to comply — the permanent-failure shape this series exists to
+    # remove. The cap must be the subtopic's q_count, never a constant.
+    if not isinstance(capacity, dict):
+        capacity = {}
     tg = [_axis_int(t) for t in (targets or [])]
-    n = _axis_int(n_mocks) or len(tg) or 15
+    n = min(AXIS_MAX_MOCKS, _axis_int(n_mocks) or len(tg) or 15)
     if not tg:
         tg = [0] * n
     while len(tg) < n:
         tg.append(tg[-1] if tg else 0)
     ceil = [t + _axis_int(band) for t in tg]
     load = [0] * n
-    out = [set() for _ in range(n)]
+    out = [{} for _ in range(n)]          # v1.46: {subtopic_id: n_figures}, was a set
     if not isinstance(quota, dict):
         quota = {}
     for sid, cnt in sorted(quota.items(), key=lambda kv: (-_axis_int(kv[1]), str(kv[0]))):
-        for _ in range(min(_axis_int(cnt), n)):
-            # most headroom first; never place the same subtopic twice in one mock
-            cand = [m for m in range(n) if sid not in out[m]]
+        cap = max(1, _axis_int(capacity.get(sid, 1)))
+        for _ in range(_axis_int(cnt)):
+            # Most headroom first, never past this subtopic's own capacity in that mock.
+            # One slot at a time (rather than dumping a subtopic's whole quota into one
+            # mock) is what keeps the spread even.
+            cand = [m for m in range(n) if out[m].get(sid, 0) < cap]
             if not cand:
                 break
             m = min(cand, key=lambda k: (-(ceil[k] - load[k]), k))
-            out[m].add(sid)
+            out[m][sid] = out[m].get(sid, 0) + 1
             load[m] += 1
     return out
 
@@ -3441,6 +3485,85 @@ def self_test():
               _ser, figural_band(5, _OBS))] == [sorted(x) for x in _sch])
     check('FIGSCHED-total-safe', schedule_figural_slots(None, None, None) is not None
           and schedule_figural_slots({'a': 'x'}, [1], 'y') is not None)
+
+    # 14c — EXAM-INDEPENDENCE (v1.46, GAP-2026-08-06-EXAMDEP). Every fixture below
+    #       measures False on the v1.45 build. All four defects are INVISIBLE on the
+    #       reference exam — 46 figural subtopics against a budget of 4.4 — and bite
+    #       only on exam SHAPES it does not have. That is precisely why they survived
+    #       five releases of testing against one exam.
+
+    # (A) ONE FIGURE PER SUBTOPIC PER MOCK was hard-coded by using a set per mock, so
+    #     the paper was capped at its number of DISTINCT figural subtopics. Any exam
+    #     whose budget approaches that count under-delivers on EVERY mock, forever, with
+    #     the generator structurally unable to comply:
+    #        10 subtopics / 25 figures -> 10.00   (non-verbal reasoning)
+    #         3 subtopics /  8 figures ->  3.00   (chemistry-heavy)
+    #         1 subtopic  /  5 figures ->  1.00
+    for _ns, _bud, _cap in ((46, 4.4, 2), (10, 25.0, 5), (3, 8.0, 6), (1, 5.0, 8),
+                            (2, 12.0, 10)):
+        _capd = {f's{i}': _cap for i in range(_ns)}
+        _qq = figural_quota({f's{i}': 100 for i in range(_ns)}, 15, _bud, capacity=_capd)
+        _ss = schedule_figural_slots(_qq, [round(_bud)] * 15,
+                                     figural_band(round(_bud), None), capacity=_capd)
+        _got = sum(sum(v.values()) for v in _ss) / 15.0
+        check(f'EXAMDEP-delivers-budget[{_ns}sub/{_bud}fig]', abs(_got - _bud) <= 1.0)
+
+    # (B) The schedule is now {subtopic_id: n_figures}, so a subtopic may carry several
+    #     figures in one mock — but never more than its capacity.
+    _sc = schedule_figural_slots({'a': 30}, [4] * 15, 1, capacity={'a': 3})
+    check('EXAMDEP-respects-per-subtopic-capacity',
+          all(v.get('a', 0) <= 3 for v in _sc) and sum(v.get('a', 0) for v in _sc) == 30)
+    check('EXAMDEP-capacity-defaults-to-one-when-unknown',
+          all(v.get('a', 0) <= 1 for v in schedule_figural_slots({'a': 30}, [4] * 15, 1)))
+    check('EXAMDEP-membership-test-still-works',
+          all(('a' in v) == (v.get('a', 0) > 0) for v in _sc))
+
+    # (C) MOCK COUNT is a property of the exam. It was read from a manifest key nobody
+    #     wrote, so every exam in the estate silently got a 15-mock series.
+    for _nm in (5, 10, 15, 30, 50):
+        check(f'EXAMDEP-series-length-follows-total_mocks[{_nm}]',
+              len(figural_target_series([4, 2, 6], _nm)) == _nm
+              and len(schedule_figural_slots({'a': 3}, [1] * _nm, 1, n_mocks=_nm)) == _nm)
+    # Through derive_axis_schedule, the path Step 6 actually takes. Testing only the
+    # helpers left the hard-coded 15 alive: reverting _n_mocks passed all 359 fixtures,
+    # because nothing exercised the CONSUMER. Same shape as GAP-2026-08-06-CONSUMER.
+    _ad = {'axis1': {'TEXT': 50, 'FIGURAL': 10}, 'axis2': {}, 'axis3': {'MCQ': 60},
+           'figural_per_paper_observed': [10, 8, 12, 9, 11],
+           'figural_per_paper_mean': 10.0,
+           'figural_count_by_subtopic': {'a': 30, 'b': 20, 'c': 10}}
+    for _nm in (5, 10, 30):
+        _sd = derive_axis_schedule('S', _ad, 60, ['a', 'b', 'c'], [], {}, {},
+                                   total_mocks=_nm)
+        check(f'EXAMDEP-derive_axis_schedule-honours-total_mocks[{_nm}]',
+              len(_sd['axis1_target_series']) == _nm)
+    check('EXAMDEP-total_mocks-defaults-to-15-when-absent',
+          len(derive_axis_schedule('S', _ad, 60, ['a'], [], {}, {})['axis1_target_series']) == 15)
+
+    # (D) EXTREME EXAM SHAPES must not crash and must not over-deliver.
+    for _obs, _cnt, _mean, _lbl in (([0, 0, 0, 0, 0], {}, 0.0, 'zero-figure'),
+                                    ([25] * 5, {f's{i}': 25 for i in range(10)}, 25.0, 'all-figural'),
+                                    ([4], {'a': 4}, 4.0, 'single-paper'),
+                                    ([1, 0, 1, 0, 1], {'a': 3}, 0.6, 'fractional')):
+        _bd = figural_band(round(_mean), _obs)
+        _sr = figural_target_series(_obs, 15)
+        _cp = {k: 10 for k in _cnt}
+        _sl = schedule_figural_slots(figural_quota(_cnt, 15, _mean, capacity=_cp),
+                                     _sr, _bd, capacity=_cp)
+        check(f'EXAMDEP-no-mock-over-band[{_lbl}]',
+              all(sum(_sl[m].values()) <= _sr[m] + _bd for m in range(15)))
+
+    # (E) RESOURCE GUARD. total_mocks comes from a JSON file another step wrote, so a
+    #     typo is a real input. Unclamped, figural_target_series(obs, 2**40) allocates a
+    #     10^12-element list and the OOM killer ends the run — found by a resource probe,
+    #     not by reading the code. Clamped, never raised: a bad number must not cost the
+    #     exam.
+    check('EXAMDEP-mock-count-is-clamped-not-unbounded',
+          len(figural_target_series([4], 2 ** 40)) == AXIS_MAX_MOCKS
+          and len(schedule_figural_slots({'a': 1}, [1], 1, n_mocks=2 ** 40)) == AXIS_MAX_MOCKS
+          and max(figural_quota({'a': 5}, 2 ** 40, 1.0).values()) <= AXIS_MAX_MOCKS)
+    check('EXAMDEP-normal-mock-counts-unaffected-by-the-clamp',
+          len(figural_target_series([4], 15)) == 15
+          and len(figural_target_series([4], 999)) == 999)
 
     # 15 — TOTALITY OF THE WHOLE CLUSTER (v2.24.1). Every one of these inputs was a
     #      LIVE CRASH found by fuzzing, not by reading the code: int(float('inf'))

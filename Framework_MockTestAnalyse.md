@@ -1,4 +1,12 @@
-# Framework_MockTestAnalyse v2.44.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.45.0 — Universal PYQ Pattern Extraction Engine
+# v2.45.0 — 2026-08-06 — GAP-2026-08-06-EXAMDEP: exam-independence.
+#   Six defects invisible on the reference exam (46 figural subtopics vs a budget of
+#   4.4) and fatal on shapes it does not have: a hard-coded 1-figure-per-subtopic-per-
+#   mock cap (10 subtopics/25 figures delivered 10, forever); total_mocks read from a
+#   key nobody wrote, so the whole estate got a 15-mock series; quota keyed by display
+#   name when subtopic_id was absent, silently yielding ZERO figures; sorted() over
+#   mixed None/int paper keys crashing Step 5; the last DI any() existential; and the
+#   subject-merge fallback dropping the new keys.
 # v2.44.0 — 2026-08-06 — GAP-2026-08-06-IRREDUCIBLE: the exemption became the budget.
 #   v2.26 replaced `has_img = any(...)` with a rate and then decided REDUCIBILITY
 #   with a fresh any(). One question in a 22-year corpus made a subtopic permanently
@@ -3226,18 +3234,41 @@ def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10
     # through so Step 6 can build the target SERIES and the per-subtopic figure quota,
     # and so the auditor's band is this exam's own volatility. Without these the band is
     # a fixed percentage, which rejected four of the reference exam's five real papers.
+    # PAPER KEY: str() everything. sorted() over a mixed {2026, None} set raises
+    # TypeError in Python 3 ("'<' not supported between int and NoneType"), which is
+    # reachable the moment ONE question in the corpus lacks a year or paper_id — a
+    # scan gap, a hand-added question, a legacy row. That would take out the whole of
+    # Step 5 for an entire exam. A missing key becomes its own bucket rather than a crash.
+    def _paper_key(q):
+        return str(q.get('paper_id') or q.get('year') or '__unknown__')
+
+    # SUBTOPIC KEY: subtopic_id ONLY, never the display name. Step 7 matches these keys
+    # against blueprint subtopic_ids; a display-name key matches NOTHING, so the mock
+    # would silently render ZERO figures with every fixture green. Falling back to the
+    # display name looks defensive and is the more dangerous failure — a hard skip of the
+    # unkeyed question keeps the quota honest and is visible in the totals.
     _fig_by_paper = collections.Counter()
     _fig_by_sub = collections.Counter()
+    _fig_unkeyed = 0
     for _q in rq:
         if _q.get('image_role', 'none') != 'none':
-            _fig_by_paper[_q.get('paper_id') or _q.get('year')] += 1
-            _fig_by_sub[_q.get('subtopic_id') or _q.get('subtopic')] += 1
-    _per_paper = [_fig_by_paper.get(_p, 0) for _p in
-                  sorted({(_q.get('paper_id') or _q.get('year')) for _q in rq})]
+            _fig_by_paper[_paper_key(_q)] += 1
+            _sid = _q.get('subtopic_id')
+            if _sid:
+                _fig_by_sub[str(_sid)] += 1
+            else:
+                _fig_unkeyed += 1
+    _per_paper = [_fig_by_paper.get(_p, 0) for _p in sorted({_paper_key(_q) for _q in rq})]
     return {
         'figural_per_paper_observed' : _per_paper,                       # v2.44
         'figural_per_paper_mean'     : (sum(_per_paper) / len(_per_paper)) if _per_paper else 0.0,
         'figural_count_by_subtopic'  : dict(_fig_by_sub),                # v2.44
+        'figural_unkeyed_questions'  : _fig_unkeyed,   # v2.45 — figural questions with
+                                                       # no subtopic_id, excluded from the
+                                                       # quota. Non-zero means the corpus
+                                                       # lost keys upstream; surfaced so a
+                                                       # shortfall has a visible cause
+                                                       # instead of looking like a bug here.
         'recent_years'    : sorted(recentN, reverse=True),
         'window_years'    : window_years,     # v2.26 provenance — Step 6 echoes this into
                                               # blueprint.axis_schedule.axis_window_years so
@@ -3410,8 +3441,22 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     # locally-duplicated naive substring match (`'table' in stem.lower()`), which
     # false-positived on "vege**table**", "accep**table**", "no**table**", etc. Single
     # source of truth now; both DI derivations can never drift apart again.
-    has_tbl  = any(_looks_like_table_stimulus(q.get('stem', '')) for q in questions) \
-               or any(q.get('has_rendered_table') for q in questions)   # extractor tag, if present
+    # v2.45 — THE LAST EXISTENTIAL OF THIS FAMILY. `has_tbl = any(...)` is the same
+    # construct that produced GAP-2026-08-06-AXIS1 (format) and GAP-2026-08-06-
+    # IRREDUCIBLE (reducibility): ONE table-bearing question anywhere in a 22-year
+    # corpus marked the whole subtopic DI. On the reference exam that put
+    # Electrochemistry (1 table in 14) and Matrices & Determinants (1 in 19) into DI
+    # permanently. DI was less damaging than FIGURAL only because DI and TEXT share a
+    # rendering path, so the flag never FORCED a table — an accident of wiring, not a
+    # property of the rule, and it would bite on the first DI-heavy exam (banking or
+    # CAT-style aptitude) where the class carries real weight.
+    #
+    # `di_rate` is already computed above from the same predicate. Use it, with the same
+    # plain-majority line the reducibility test uses, and require at least 2 observed
+    # table questions so a lone outlier can never define a subtopic's format.
+    # A subtopic below the line keeps its DI questions in the corpus and its di_rate for
+    # ranking; it simply stops being DECLARED a DI subtopic. Nothing is dropped.
+    has_tbl = (di_q_count >= 2 and di_rate >= FIGURAL_IRREDUCIBLE_RATE)
     fmt      = ('FIGURAL' if has_img else 'PASSAGE' if has_pass else
                 'DI' if has_tbl else 'TEXT')
 
@@ -8139,4 +8184,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.44.0
+# END OF Framework_MockTestAnalyse v2.45.0

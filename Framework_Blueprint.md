@@ -1,4 +1,12 @@
-# Framework_Blueprint v1.45.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.46.0 — Universal Mock Test Blueprint Generator
+# v1.46.0 — 2026-08-06 — GAP-2026-08-06-EXAMDEP: exam-independence.
+#   Six defects invisible on the reference exam (46 figural subtopics vs a budget of
+#   4.4) and fatal on shapes it does not have: a hard-coded 1-figure-per-subtopic-per-
+#   mock cap (10 subtopics/25 figures delivered 10, forever); total_mocks read from a
+#   key nobody wrote, so the whole estate got a 15-mock series; quota keyed by display
+#   name when subtopic_id was absent, silently yielding ZERO figures; sorted() over
+#   mixed None/int paper keys crashing Step 5; the last DI any() existential; and the
+#   subject-merge fallback dropping the new keys.
 # v1.45.0 — 2026-08-06 — GAP-2026-08-06-IRREDUCIBLE: the exemption became the budget.
 #   v2.26 replaced `has_img = any(...)` with a rate and then decided REDUCIBILITY
 #   with a fresh any(). One question in a 22-year corpus made a subtopic permanently
@@ -3126,9 +3134,21 @@ for section in sections:
     zp_ids  = [sid for sid, mv in MANIFEST_IDS.items()
                if subtopic_in_section(sid, sec_name) and mv['display_name'] in zp_names]
     batch_win = blueprint.get('batch_size_qs', 10)   # B1 uses `blueprint` (bp is a B2 alias)
+    # v1.46 — total_mocks and figural_capacity are PROPERTIES OF THIS EXAM and must be
+    # passed in. total_mocks was read from a manifest key nobody wrote, so it silently
+    # defaulted to 15 for the whole estate. figural_capacity is how many questions a
+    # subtopic holds in one mock: without it the scheduler assumes ONE figure per
+    # subtopic per mock, which starves any exam whose figural budget approaches its
+    # figural-subtopic count (10 subtopics / 25 figures delivered 10, on every mock,
+    # forever). Both are exam-independence defects, invisible on an exam like the
+    # reference one where subtopics far outnumber the budget.
+    _fig_capacity = {sid: max(1, int((MANIFEST_IDS.get(sid) or {}).get('max_q_per_mock', 1) or 1))
+                     for sid in pyq_ids}
     sched = derive_axis_schedule(sec_name, _resolve_axis_dist_for_section(sec_name), sec_qs,
                                  pyq_ids, zp_ids, AXIS2_CAP_BY_ID, MANIFEST_IDS,
-                                 papers_per_window=batch_win)   # renamed param (was mocks_per_window)
+                                 papers_per_window=batch_win,   # renamed param (was mocks_per_window)
+                                 total_mocks=blueprint.get('total_mocks'),
+                                 figural_capacity=_fig_capacity)
     # advisory feasibility annotations (never block B1)
     sched['axis1_unreachable_formats'] = axis1_feasibility(
         sec_name, sched.get('axis1_target_per_mock', {}), pyq_ids, MANIFEST_IDS)
@@ -6830,4 +6850,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.45.0
+# END OF Framework_Blueprint v1.46.0
