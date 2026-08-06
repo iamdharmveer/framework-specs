@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.46.0",
-      "lines": 6853,
-      "sha256": "076404fdc8bbb079784bcd7454c83a818428e348937eaa7d732be0fd42e30b3c",
-      "size_bytes": 363556,
-      "version_header": "# Framework_Blueprint v1.46.0 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.47.0",
+      "lines": 6859,
+      "sha256": "9d1f9575b42fa0ccf2dccc30f7c0a07f4a40b08b510394651b437e75555fb467",
+      "size_bytes": 364060,
+      "version_header": "# Framework_Blueprint v1.47.0 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -22,18 +22,18 @@
       "version_header": "# Framework_MockDeliver v1.10.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.45.0",
-      "lines": 8187,
-      "sha256": "36d427a360a3edc1d1d95a4bdac3ea104a8b43b49c66bb8db5575e58922fbc9e",
-      "size_bytes": 458801,
-      "version_header": "# Framework_MockTestAnalyse v2.45.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.46.0",
+      "lines": 8223,
+      "sha256": "f85f52398b41032707f91431a139ab0071dab984701fbdac6bfa1b5b18b23948",
+      "size_bytes": 461005,
+      "version_header": "# Framework_MockTestAnalyse v2.46.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7451,
-      "sha256": "baba46b0be9105c57cf609196707b4e9791b8a110ac3308c6c9335b5badb2fdb",
-      "size_bytes": 458363,
-      "version_header": "# Framework_MockTestCreate v5.44"
+      "lines": 7485,
+      "sha256": "9a52c3aaed915b13d3076ed8d961d3f19ad9a943fa3ef900aa0820194c63c9c6",
+      "size_bytes": 460776,
+      "version_header": "# Framework_MockTestCreate v5.45"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -148,9 +148,9 @@
       "end_sentinel": "    sys.exit(main(sys.argv))"
     },
     "audit_canonical.py": {
-      "lines": 6844,
-      "sha256": "ee2548f7f12566de473e6527515f107862ea8fbe21ca8265ca6cb07563f45fa8",
-      "size_bytes": 376265,
+      "lines": 6865,
+      "sha256": "d58845b65bf1ef4eb73bc278ffe9eb94fae247bb7b169f40ac955ebd6584bd30",
+      "size_bytes": 377497,
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()"
     },
@@ -168,6 +168,13 @@
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()"
     },
+    "audit_seam.py": {
+      "lines": 161,
+      "sha256": "e78c110a60210d2cb1419a874a97d8f9b60baa62f6b66b803963286bcb2fa4a3",
+      "size_bytes": 9017,
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    sys.exit(main(sys.argv))"
+    },
     "audit_specs_ext.py": {
       "lines": 335,
       "sha256": "814dc0904d0998d4d7da742fba291dd218ec91631857eac1779a537bb6f9a3c4",
@@ -183,9 +190,9 @@
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)"
     },
     "blueprint_core.py": {
-      "lines": 4536,
-      "sha256": "77dc7234a3069de98176ab3b4db463a130772b9c3b4ff735c27dc5be2dedc821",
-      "size_bytes": 243104,
+      "lines": 4560,
+      "sha256": "139a03aca3675ad621bff46736c6322299b9c6663f7fd4b3a5660c684a44edc1",
+      "size_bytes": 244632,
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")"
     },
@@ -280,6 +287,13 @@
       "version_header": "{",
       "end_sentinel": "}"
     },
+    "spec_source.py": {
+      "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    main()",
+      "lines": 449,
+      "size_bytes": 21616
+    },
     "syllabus_provenance.py": {
       "lines": 443,
       "sha256": "f5bb1df6b0de7f66d824ef32c5d55bc22a0b4615691d6a0a53000666b84cd28d",
@@ -293,13 +307,6 @@
       "size_bytes": 130089,
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)"
-    },
-    "spec_source.py": {
-      "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
-      "version_header": "#!/usr/bin/env python3",
-      "end_sentinel": "    main()",
-      "lines": 449,
-      "size_bytes": 21616
     }
   },
   "generated_at": "2026-08-05T14:04:16Z"

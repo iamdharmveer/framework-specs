@@ -409,6 +409,9 @@ def load_sources(args):
     # "well-fixtured but unwired" shape audit_callgraph exists to catch on the engine
     # side and nothing catches on the loader side.
     src['mock_n'] = N
+    _mf = src.get('manifest')
+    src['unkeyed_questions_by_class'] = ((_mf or {}).get('unkeyed_questions_by_class')
+                                         if isinstance(_mf, dict) else {}) or {}
     # v2.25 (GAP-2026-08-06-DI) — the DI producer record. Closes the last hole in
     # A-AXIS1: DI was the one budgeted stimulus class with no trace anywhere, so it
     # could only ever be reported UNESTABLISHED. It cannot be recovered from the docx —
@@ -1206,6 +1209,24 @@ def gate_axis1(blocks, src):
     for _cls, _o in sorted(_orphan_by.items()):
         cov.append(f'{len(_o)} {_cls} Q(s) fall outside every section q_range: '
                    + ', '.join(f'Q{q}' for q in _o[:10]))
+    # v2.29 — UPSTREAM KEY LOSS. Step 5 counts stimulus questions carrying NO
+    # subtopic_id; they are excluded from the quota, so the series comes out short by
+    # exactly that many and the paper reads as a generator shortfall when the real cause
+    # is a corpus that lost keys between steps. Written since v2.45 and read by nothing
+    # — a diagnostic nobody surfaces is a diagnostic that does not exist.
+    _uk = {}
+    for _k, _v in (src.get('unkeyed_questions_by_class') or {}).items() \
+            if isinstance(src.get('unkeyed_questions_by_class'), dict) else ():
+        try:
+            if int(_v) > 0:
+                _uk[str(_k)] = int(_v)
+        except (TypeError, ValueError):
+            pass
+    if _uk:
+        cov.append('upstream questions with no subtopic_id, excluded from the quota: '
+                   + ', '.join(f'{k}={v}' for k, v in sorted(_uk.items()))
+                   + ' — a shortfall of this size is a corpus keying problem upstream, '
+                     'not a generator fault')
     (_ok if not cov else _warn)('A-AXIS1-COVERAGE',
         'every targeted Axis-1 class was observable and every section bucketed.'
         if not cov else 'Axis-1 verdict is PARTIAL — ' + ' | '.join(cov))

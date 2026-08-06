@@ -1,4 +1,10 @@
-# Framework_Blueprint v1.46.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.47.0 — Universal Mock Test Blueprint Generator
+# v1.47.0 — 2026-08-06 — GAP-2026-08-06-SEAM: DI was not in sync with FIGURAL.
+#   The rate->quota->schedule->rank chain was built for FIGURAL only; DI kept a
+#   render-time cap and its measured rate was discarded, so on a DI-heavy exam the
+#   COUNT was right and the DISTRIBUTION was not. Measurement and scheduling are now
+#   keyed BY CLASS, so DI and PASSAGE inherit the whole chain and a future class needs
+#   no release. New audit_seam.py cross-checks producer/consumer fields across steps.
 # v1.46.0 — 2026-08-06 — GAP-2026-08-06-EXAMDEP: exam-independence.
 #   Six defects invisible on the reference exam (46 figural subtopics vs a budget of
 #   4.4) and fatal on shapes it does not have: a hard-coded 1-figure-per-subtopic-per-
@@ -6850,4 +6856,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.46.0
+# END OF Framework_Blueprint v1.47.0

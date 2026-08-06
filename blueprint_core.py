@@ -635,6 +635,30 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
         #   7.00 per paper). Verified over 500 randomised synthetic exams — zero
         #   infeasible mocks. A halt here would always mean a FRAMEWORK BUG, not bad
         #   data, which is precisely what the v2.42 any() defect turned out to be.
+        # v1.47 — PER-CLASS, NOT FIGURAL-ONLY. The v1.45/v1.46 work built the full
+        # rate -> quota -> schedule chain for FIGURAL and left DI with a render-time cap
+        # only, so on a DI-heavy exam the COUNT was right but the DISTRIBUTION was not:
+        # DI landed on whichever subtopics were visited first, never at each subtopic's
+        # measured DI frequency. Same defect family, one class over, invisible on any
+        # exam with a DI budget of 0 — which is every exam we had to hand.
+        # Emitting per class means a future PASSAGE (or Axis-4) class inherits the whole
+        # chain instead of needing its own release.
+        "axis1_quota_by_class": {
+            _cls: figural_quota(
+                (axis_dist.get("count_by_subtopic_by_class") or {}).get(_cls) or {},
+                _n_mocks,
+                (axis_dist.get("per_paper_mean_by_class") or {}).get(_cls),
+                capacity=figural_capacity)
+            for _cls in STIMULUS_CLASSES if _cls != "TEXT"},
+        "axis1_series_by_class": {
+            _cls: figural_target_series(
+                (axis_dist.get("per_paper_observed_by_class") or {}).get(_cls) or [],
+                _n_mocks,
+                total=largest_remainder_apportion(a1, sec_qs).get(_cls, 0))
+            for _cls in STIMULUS_CLASSES if _cls != "TEXT"},
+        "axis1_observed_by_class": {
+            _cls: list((axis_dist.get("per_paper_observed_by_class") or {}).get(_cls) or [])
+            for _cls in STIMULUS_CLASSES if _cls != "TEXT"},
         "axis1_target_series": figural_target_series(
             axis_dist.get("figural_per_paper_observed") or [],
             _n_mocks,

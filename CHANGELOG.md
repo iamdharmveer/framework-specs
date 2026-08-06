@@ -1,5 +1,66 @@
 # Changelog
 
+## 2026.08.06.8
+
+### GAP-2026-08-06-SEAM — DI was never in sync with FIGURAL, and nothing could tell
+
+**Answering "is Step 5 to Step 7 in 100% sync?" honestly: it was not.**
+
+| class | rate | reducible | quota | schedule | Step 7 uses |
+|---|---|---|---|---|---|
+| FIGURAL | yes | yes | yes | yes | full chain |
+| **DI** | yes | yes | **no** | **no** | **cap only** |
+| **PASSAGE** | no | no | no | no | no |
+
+`di_rate` was computed by Step 5 and **discarded**. DI had a render-time budget cap and
+nothing else, so on a DI-heavy exam (banking/CAT-style, DI budget 20/60) the COUNT came
+out right while the DISTRIBUTION did not: DI landed on whichever subtopics the generator
+visited first, never at each subtopic's measured DI frequency. That is the figural defect
+one class over — and invisible on every exam to hand, all of which have a DI budget of 0.
+
+**Fix — measurement and scheduling are keyed BY CLASS.** Step 5 emits
+`per_paper_observed_by_class`, `per_paper_mean_by_class`, `count_by_subtopic_by_class`,
+`unkeyed_questions_by_class`; Step 6 emits `axis1_quota_by_class`,
+`axis1_series_by_class`, `axis1_observed_by_class`; Step 7 reads the DI schedule exactly
+as the FIGURAL fork does. PASSAGE inherits the same chain, and a future stimulus class
+needs no release. Absent per-class keys ⇒ cap-only, i.e. today's behaviour, so no
+deployed exam moves until it is re-measured.
+
+**`unkeyed_questions_by_class` is now surfaced** in `A-AXIS1-COVERAGE`. Step 5 has
+counted stimulus questions carrying no `subtopic_id` since v2.45 and nothing read them —
+a diagnostic nobody surfaces is a diagnostic that does not exist. A shortfall of that
+size is now identifiable as a corpus keying problem upstream rather than a generator
+fault.
+
+### NEW TOOL — `audit_seam.py`
+
+Every defect in this release series lived at a seam, and none was caught by existing
+tooling:
+
+| release | seam defect | result |
+|---|---|---|
+| .1 | Step 6 wrote `axis1_target_per_mock`; Step 7 never read it | 26 figures |
+| .2 | gates scored classes they had no evidence for | false FAILs |
+| .5 | Step 7 forced figures from a flag, not Step 6's frequency | 14.3/mock |
+| .6 | Step 7 read a series from a key `load_sources` never set | inert |
+| .7 | Step 6 read `total_mocks` from a key Step 5 never writes | always 15 |
+| .8 | Step 5 wrote `di_rate`; nothing consumed it | DI unscheduled |
+
+The pattern is identical every time: **one side of a contract changed**. Unit tests pass
+because each side is individually correct. `audit_callgraph` catches an unreferenced
+FUNCTION; nothing caught an unreferenced FIELD. `audit_seam.py` reports ORPHAN-WRITE and
+ORPHAN-READ across Step 5 / Step 6 / Step 7 / engine / auditor, with an allow-list that
+requires a written reason for every legitimately one-sided field. Currently **0 findings
+across 45 fields**.
+
+**Its limit is documented in the file and stated here.** It detects a field with NO
+consumer or NO producer. It does NOT detect one consumer among several dropping its read
+— GAP-2026-08-06-CONSUMER passes it clean. That class needs a consumer-side fixture, and
+the lesson has now recurred twice in this series: test the caller, not only the callee.
+This tool narrows the gap; it does not close it.
+
+**Self-tests.** blueprint_core 365/365, audit_canonical 229/229, audit_seam 0 findings.
+
 ## 2026.08.06.7
 
 ### GAP-2026-08-06-EXAMDEP — six defects that only a different exam would have found

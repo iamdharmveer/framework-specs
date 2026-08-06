@@ -1,4 +1,10 @@
-# Framework_MockTestCreate v5.44
+# Framework_MockTestCreate v5.45
+# v5.45 — 2026-08-06 — GAP-2026-08-06-SEAM: DI was not in sync with FIGURAL.
+#   The rate->quota->schedule->rank chain was built for FIGURAL only; DI kept a
+#   render-time cap and its measured rate was discarded, so on a DI-heavy exam the
+#   COUNT was right and the DISTRIBUTION was not. Measurement and scheduling are now
+#   keyed BY CLASS, so DI and PASSAGE inherit the whole chain and a future class needs
+#   no release. New audit_seam.py cross-checks producer/consumer fields across steps.
 # v5.44 — 2026-08-06 — GAP-2026-08-06-EXAMDEP: exam-independence.
 #   Six defects invisible on the reference exam (46 figural subtopics vs a budget of
 #   4.4) and fatal on shapes it does not have: a hard-coded 1-figure-per-subtopic-per-
@@ -2195,6 +2201,34 @@
                      granted, why = bc.axis_grant_figural(
                          axis1_trackers[sec_name], subtopic_id,
                          reducible=SR[sid].get('di_reducible', True), cls='DI')
+
+                 v5.45 — AND THE DI SLOT MUST BE SCHEDULED, NOT MERELY CAPPED. Until now
+                 the cap was the whole of DI's control: questions were granted greedily
+                 until the budget ran out, so on a DI-heavy exam the COUNT came out right
+                 while the DISTRIBUTION did not — DI landed on whichever subtopics the
+                 generator visited first, never at each subtopic's measured DI frequency.
+                 That is the figural defect one class over, and it was invisible because
+                 every exam to hand had a DI budget of 0. Read the per-class schedule the
+                 same way the FIGURAL fork does:
+
+                     di_slots = bc.schedule_figural_slots(
+                         (axis_schedule.get(sec_name) or {})
+                             .get('axis1_quota_by_class', {}).get('DI') or {},
+                         (axis_schedule.get(sec_name) or {})
+                             .get('axis1_series_by_class', {}).get('DI') or [],
+                         bc.figural_band(
+                             (axis_schedule.get(sec_name) or {})
+                                 .get('axis1_target_per_mock', {}).get('DI', 0),
+                             (axis_schedule.get(sec_name) or {})
+                                 .get('axis1_observed_by_class', {}).get('DI')),
+                         capacity=_cap)
+                     this_mock_di = di_slots[(N - 1) % len(di_slots)] if di_slots else None
+
+                 A subtopic absent from this_mock_di renders TEXT this mock. Empty
+                 schedule (pre-v1.47 blueprint) ⇒ cap-only, i.e. exactly today's
+                 behaviour, so no deployed exam moves until it is re-measured.
+                 PASSAGE inherits the identical treatment via axis1_*_by_class['PASSAGE']
+                 — the point of keying by class is that the next class needs no release.
 
                  GRANTED  → build the table stimulus and record the question in
                             {EXAM}_di_manifest.json with its subtopic_id and
@@ -7368,7 +7402,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.44
+# END OF Framework_MockTestCreate v5.45
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

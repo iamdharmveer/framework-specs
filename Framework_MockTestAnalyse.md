@@ -1,4 +1,10 @@
-# Framework_MockTestAnalyse v2.45.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.46.0 — Universal PYQ Pattern Extraction Engine
+# v2.46.0 — 2026-08-06 — GAP-2026-08-06-SEAM: DI was not in sync with FIGURAL.
+#   The rate->quota->schedule->rank chain was built for FIGURAL only; DI kept a
+#   render-time cap and its measured rate was discarded, so on a DI-heavy exam the
+#   COUNT was right and the DISTRIBUTION was not. Measurement and scheduling are now
+#   keyed BY CLASS, so DI and PASSAGE inherit the whole chain and a future class needs
+#   no release. New audit_seam.py cross-checks producer/consumer fields across steps.
 # v2.45.0 — 2026-08-06 — GAP-2026-08-06-EXAMDEP: exam-independence.
 #   Six defects invisible on the reference exam (46 figural subtopics vs a budget of
 #   4.4) and fatal on shapes it does not have: a hard-coded 1-figure-per-subtopic-per-
@@ -3247,22 +3253,52 @@ def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10
     # would silently render ZERO figures with every fixture green. Falling back to the
     # display name looks defensive and is the more dangerous failure — a hard skip of the
     # unkeyed question keeps the quota honest and is visible in the totals.
-    _fig_by_paper = collections.Counter()
-    _fig_by_sub = collections.Counter()
-    _fig_unkeyed = 0
+    # v2.46 — MEASURE EVERY STIMULUS CLASS, NOT JUST FIGURAL. v2.44/v2.45 measured
+    # figures per paper and per subtopic and left DI and PASSAGE with a rate and nothing
+    # else, so Step 6 could build the quota/series chain for FIGURAL only. On a DI-heavy
+    # exam that means DI reaches its budget but ignores each subtopic's measured DI
+    # frequency. Measuring per class costs one loop and lets a future class inherit the
+    # whole chain rather than needing its own release.
+    def _class_of(q):
+        if q.get('image_role', 'none') != 'none':
+            return 'FIGURAL'
+        if q.get('linked_group_id'):
+            return 'PASSAGE'
+        if _looks_like_table_stimulus(q.get('stem', '')) or q.get('has_rendered_table'):
+            return 'DI'
+        return 'TEXT'
+
+    _by_paper = collections.defaultdict(collections.Counter)   # cls -> paper -> n
+    _by_sub = collections.defaultdict(collections.Counter)     # cls -> subtopic_id -> n
+    _unkeyed = collections.Counter()                           # cls -> n
     for _q in rq:
-        if _q.get('image_role', 'none') != 'none':
-            _fig_by_paper[_paper_key(_q)] += 1
-            _sid = _q.get('subtopic_id')
-            if _sid:
-                _fig_by_sub[str(_sid)] += 1
-            else:
-                _fig_unkeyed += 1
-    _per_paper = [_fig_by_paper.get(_p, 0) for _p in sorted({_paper_key(_q) for _q in rq})]
+        _c = _class_of(_q)
+        if _c == 'TEXT':
+            continue
+        _by_paper[_c][_paper_key(_q)] += 1
+        _sid = _q.get('subtopic_id')
+        if _sid:
+            _by_sub[_c][str(_sid)] += 1
+        else:
+            _unkeyed[_c] += 1
+    _papers = sorted({_paper_key(_q) for _q in rq})
+    _obs_by_class = {c: [_by_paper[c].get(p, 0) for p in _papers] for c in _by_paper}
+    _mean_by_class = {c: (sum(v) / len(v) if v else 0.0) for c, v in _obs_by_class.items()}
+
+    _fig_by_paper = _by_paper['FIGURAL']
+    _fig_by_sub = _by_sub['FIGURAL']
+    _fig_unkeyed = _unkeyed['FIGURAL']
+    _per_paper = [_fig_by_paper.get(_p, 0) for _p in _papers]
     return {
         'figural_per_paper_observed' : _per_paper,                       # v2.44
         'figural_per_paper_mean'     : (sum(_per_paper) / len(_per_paper)) if _per_paper else 0.0,
         'figural_count_by_subtopic'  : dict(_fig_by_sub),                # v2.44
+        # v2.46 — per-class views, consumed by derive_axis_schedule to build the
+        # quota/series chain for EVERY stimulus class rather than FIGURAL alone.
+        'per_paper_observed_by_class': {c: list(v) for c, v in _obs_by_class.items()},
+        'per_paper_mean_by_class'    : dict(_mean_by_class),
+        'count_by_subtopic_by_class' : {c: dict(v) for c, v in _by_sub.items()},
+        'unkeyed_questions_by_class' : dict(_unkeyed),
         'figural_unkeyed_questions'  : _fig_unkeyed,   # v2.45 — figural questions with
                                                        # no subtopic_id, excluded from the
                                                        # quota. Non-zero means the corpus
@@ -8184,4 +8220,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.45.0
+# END OF Framework_MockTestAnalyse v2.46.0
