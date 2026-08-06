@@ -1,4 +1,12 @@
-# Framework_MockTestAnalyse v2.42.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.43.0 — Universal PYQ Pattern Extraction Engine
+# v2.43.0 — 2026-08-06 — GAP-2026-08-06-DI: DI becomes measurable.
+#   DI was the one budgeted Axis-1 stimulus class leaving NO trace anywhere, so
+#   A-AXIS1 could only ever report it UNESTABLISHED. It cannot be recovered from the
+#   docx: G-MATCH-TABLE mandates a real Word table for every MATCH question, so on a
+#   real paper table-presence finds 3 candidates where exactly 1 is DI. Step 7 now
+#   records di_manifests (the producer's own record) and asks the Axis-1 budget
+#   before building a table stimulus; Step 5 emits di_rate/di_q_count/di_reducible.
+#   Absent-safe: no di_manifest -> DI stays unestablished, exactly as before.
 # v2.42.0 — 2026-08-06 — GAP-2026-08-06-AXIS1: a budget nothing spent.
 #   `format: FIGURAL` was a RENDERING IMPERATIVE with no cap while
 #   axis1_target_per_mock — written since blueprint v1.23 — was read by NOTHING.
@@ -3308,6 +3316,26 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
 
     has_img  = figural_q_count > 0
     has_pass = any(q.get('linked_group_id') for q in questions)
+
+    # ── v2.43 (GAP-2026-08-06-DI) — DI IS A RATE TOO ────────────────────────────
+    # `has_tbl` below is the SAME existential quantifier that produced the figural
+    # defect: one table-bearing question anywhere in the corpus marks the subtopic DI
+    # forever, with no denominator. Measured on the reference exam, Electrochemistry
+    # (14 observed questions) and Matrices & Determinants (19) are both flagged DI on
+    # roughly one table each. DI is less damaging than FIGURAL was — DI and TEXT share
+    # a rendering path, so the flag never FORCED a table the way format=FIGURAL forced
+    # an image — but the same rate belongs here for the same reasons: it ranks claims
+    # on the Axis-1 DI budget, and it stops a 1-in-19 subtopic outranking a genuine one.
+    _di_qs = [q for q in questions
+              if _looks_like_table_stimulus(q.get('stem', ''))
+              or q.get('has_rendered_table')]
+    di_q_count = len(_di_qs)
+    di_rate = (di_q_count / float(len(questions))) if questions else 0.0
+    # A DI question whose data table IS the question (a computation over supplied
+    # values) has no table-free form; one that merely tabulates prose does. Absent a
+    # per-question signal the conservative reading is reducible — the stricter of the
+    # two, since it lets the budget bind.
+    di_reducible = True
     # v2.24.6 FIX C — delegates to the SAME structural/word-boundary table detector used
     # by the canonical classify_axis1() (SHARED AXIS CLASSIFIER v1.0, below) — was a
     # locally-duplicated naive substring match (`'table' in stem.lower()`), which
@@ -3466,6 +3494,10 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
         'figural_rate'           : round(figural_rate, 4),  # ranks claims on the Axis-1 budget
         'figural_reducible'      : figural_reducible,    # False ⇒ options ARE images ⇒ never
                                                          # downgrade to text (unanswerable)
+        # v2.43 — DI counterparts. Same contract, same absent-safe defaults.
+        'di_q_count'             : di_q_count,           # QUESTIONS with a data table
+        'di_rate'                : round(di_rate, 4),    # ranks claims on the DI budget
+        'di_reducible'           : di_reducible,
     }
 
 def _detect_recycled_stimuli(questions):
@@ -5140,6 +5172,9 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
             'figural_q_count'  : int(e.get('figural_q_count', 0)),
             'figural_rate'     : float(e.get('figural_rate', 0.0)),
             'figural_reducible': bool(e.get('figural_reducible', True)),
+            'di_q_count'       : int(e.get('di_q_count', 0)),          # v2.43
+            'di_rate'          : float(e.get('di_rate', 0.0)),         # v2.43
+            'di_reducible'     : bool(e.get('di_reducible', True)),    # v2.43
             # v2.23 THREE-AXIS per-subtopic capability (Step 6 rare-format reachability;
             # Step 7 renders only within axis2_capability — fabrication banned).
             'observed_axis2': e.get('observed_axis2', {}),
@@ -5242,6 +5277,9 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
     FIGRATE_RE = re.compile(r'^\s*figural_rate:\s*([0-9]*\.?[0-9]+)\s*$', re.I | re.M)
     FIGQC_RE   = re.compile(r'^\s*figural_q_count:\s*(\d+)\s*$', re.I | re.M)
     FIGRED_RE  = re.compile(r'^\s*figural_reducible:\s*(true|false)\s*$', re.I | re.M)
+    DIRATE_RE  = re.compile(r'^\s*di_rate:\s*([0-9]*\.?[0-9]+)\s*$', re.I | re.M)   # v2.43
+    DIQC_RE    = re.compile(r'^\s*di_q_count:\s*(\d+)\s*$', re.I | re.M)
+    DIRED_RE   = re.compile(r'^\s*di_reducible:\s*(true|false)\s*$', re.I | re.M)
     CG_RE     = re.compile(r'^\s*concept_group:\s*(.+)$', re.M)
     QM_RE      = re.compile(r'^\s*question_mechanic:\s*(.+)$', re.M)    # v2.24
     FORMKEY_RE = re.compile(r'^\s*form_key:\s*(.+)$', re.M)             # v2.24
@@ -5291,6 +5329,12 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
                                 if FIGQC_RE.search(raw) else 0),             # v2.26
             'figural_reducible': (FIGRED_RE.search(raw).group(1).lower() == 'true'
                                   if FIGRED_RE.search(raw) else True),       # v2.26
+            'di_rate': (float(DIRATE_RE.search(raw).group(1))
+                        if DIRATE_RE.search(raw) else 0.0),                  # v2.43
+            'di_q_count': (int(DIQC_RE.search(raw).group(1))
+                           if DIQC_RE.search(raw) else 0),                   # v2.43
+            'di_reducible': (DIRED_RE.search(raw).group(1).lower() == 'true'
+                             if DIRED_RE.search(raw) else True),             # v2.43
             # v2.23 THREE-AXIS per-subtopic (round-tripped; safe defaults for legacy blocks)
             'observed_axis2':      (_lit(OBSAX_RE.search(raw).group(1), {})
                                     if OBSAX_RE.search(raw) else {}),
@@ -5401,6 +5445,11 @@ def format_entry(e):
         # this question. Granted a figure even over budget (bc.axis_grant_figural rule 2);
         # the audit raises its expectation by the same count so the overage is silent.
         f'figural_reducible: {str(e.get("figural_reducible", True)).lower()}',
+        # v2.43 — DI rate, read by Step 7 to rank claims on the Axis-1 DI budget and by
+        # A-AXIS1 to know whether a DI target is reachable at all.
+        f'di_q_count: {int(e.get("di_q_count", 0))}',
+        f'di_rate: {float(e.get("di_rate", 0.0)):.4f}',
+        f'di_reducible: {str(e.get("di_reducible", True)).lower()}',
         # REPLACEMENT_RULE — what to render when a FIGURAL-CAPABLE question does NOT win
         # a budget slot. It is NOT a downgrade to a worse question: it draws from this
         # subtopic's OWN observed text patterns (PYQ_STEM_PATTERNS below), which is the
@@ -8010,4 +8059,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.42.0
+# END OF Framework_MockTestAnalyse v2.43.0

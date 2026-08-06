@@ -1,5 +1,62 @@
 # Changelog
 
+## 2026.08.06.3
+
+### GAP-2026-08-06-DI — the last unmeasurable stimulus class
+
+**The gap.** Axis-1 budgets four stimulus classes. Three left a trace a gate could read:
+figures via `figural_manifests`, passages via `rc_manifests`, text as the residual. **DI
+left none.** `A-AXIS1` could therefore only ever report DI as UNESTABLISHED — an honest
+answer, but a permanent hole in the very budget the 2026.08.06.1 release existed to
+enforce.
+
+**Why it could not be inferred.** The obvious fix — "a block containing a Word table is
+DI" — is wrong, and measurably so. `G-MATCH-TABLE` *mandates* a real table for every
+MATCH question. On IIT_JAM_BIOTECHNOLOGY 15-Feb-2026 the paper carries three tables:
+
+| Table | Verdict |
+|---|---|
+| Vitamins \| Symptoms | MATCH (Axis-2) |
+| Nitrogen compound \| Oxidation state | MATCH (Axis-2) |
+| Reactant \| Product \| Standard Enthalpy | **DI** (Axis-1) |
+
+A table-presence heuristic reports **3 DI where there is 1** — trading a silent miss for
+a confident wrong answer. Only the generator knows which it built, so only the generator
+can record it. This is the same principle as `figure_specs` (v5.34): the producer's own
+record beats every inference.
+
+**Fix — the full four-stage treatment, matching FIGURAL.**
+
+* **MEASURE** — `Framework_MockTestAnalyse.md` v2.43.0 emits per-subtopic `di_q_count`,
+  `di_rate`, `di_reducible`, replacing the same existential `any()` that caused the
+  figural defect. On the reference exam Electrochemistry (14 observed) and Matrices &
+  Determinants (19) are flagged DI on roughly one table each.
+* **BUDGET** — unchanged; `axis1_target_per_mock` already carried DI.
+* **SPEND** — `Framework_MockTestCreate.md` v5.42: the DI dispatch asks
+  `bc.axis_grant_figural(..., cls='DI')` before building a table stimulus, and writes
+  `di_manifests` (`di_qs`, `subtopic_ids`, `table_shapes`) into the registry.
+* **VERIFY** — `audit_canonical.py` v2.25 reads `di_manifests`, adds DI to the observable
+  set, and counts it per section. `TEXT` is now computed as the true residual
+  (`sec_qs − figural − passage − di`) so an over-produced DI can no longer hide inside it.
+
+**Note on severity.** DI never over-generated the way figures did: DI and TEXT share a
+rendering path (`add_standard_question()`), so `format: DI` never *forced* a table the
+way `format: FIGURAL` forced an image. This release is therefore about measurability
+first and control second — but on a DI-heavy exam (banking/CAT-style aptitude) the
+control matters on its own terms, and an unaudited budget is precisely how this defect
+class survives.
+
+**Absent-safe.** No `di_manifest` (any pre-v5.42 Step 7) ⇒ DI remains UNESTABLISHED and
+is reported in `A-AXIS1-COVERAGE`, exactly as in 2026.08.06.2. Reading that absence as
+"zero DI questions" would turn an unknown into a hard shortfall on every legacy exam,
+and is explicitly tested against.
+
+**Self-tests.** blueprint_core 323/323, audit_canonical 209/209 (205/205 engine-absent).
+Five new DI fixtures, all mutation-verified: reverting DI observability fails three of
+them. One fixture was found passing for the wrong reason — it went green off an unrelated
+FIGURAL shortfall and survived a mutation that deleted DI observability outright — and
+was isolated so DI is the only class able to produce its finding.
+
 ## 2026.08.06.2
 
 ### GAP-2026-08-06-AXIS1-COVERAGE — the new gates were auditing evidence they did not have

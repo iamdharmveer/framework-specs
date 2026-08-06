@@ -403,6 +403,15 @@ def load_sources(args):
     # between `declared` and `resolved`.
     src['figural_manifest_present'] = fig is not None
     src['rc_manifest_present'] = rc is not None
+    # v2.25 (GAP-2026-08-06-DI) — the DI producer record. Closes the last hole in
+    # A-AXIS1: DI was the one budgeted stimulus class with no trace anywhere, so it
+    # could only ever be reported UNESTABLISHED. It cannot be recovered from the docx —
+    # G-MATCH-TABLE mandates a real Word table for every MATCH question, so on a real
+    # paper (IIT_JAM_BIOTECHNOLOGY 15-Feb-2026) table-presence finds 3 candidates where
+    # exactly 1 is DI. Only the generator knows which it built; Step 7 v5.42 records it.
+    _di = next((x for x in reg.get('di_manifests', []) if x.get('mock') == N), None)
+    src['di_qs'] = set(int(q) for q in _di.get('di_qs', [])) if _di else set()
+    src['di_manifest_present'] = _di is not None
     # v2.10 (GAP-2026-07-26-003 D2): A-FIGPROFILE needs the object_type Step 7 v5.31
     # recorded per figural question, plus that question's subtopic_id. Both travel in
     # the registry figural_manifest, which Step 8 DOES receive — unlike the answer_key
@@ -1091,6 +1100,8 @@ def gate_axis1(blocks, src):
         observable.add('FIGURAL')
     if src.get('rc_manifest_present', False):
         observable.add('PASSAGE')
+    if src.get('di_manifest_present', False):
+        observable.add('DI')          # v2.25 — producer record, never inferred
 
     # No usable q_range ⇒ no way to bucket questions into a section ⇒ every count would
     # be a fabricated zero. Such sections are SKIPPED and NAMED; never audited blind.
@@ -1116,8 +1127,20 @@ def gate_axis1(blocks, src):
                 _pn += 1 if lo <= int(_q) <= hi else 0
             except (TypeError, ValueError):
                 pass
-        observed = {'FIGURAL': len(obs_fig), 'PASSAGE': _pn,
-                    'TEXT': sec_qs - len(obs_fig)}
+        _diq = src.get('di_qs')
+        _diq = _diq if isinstance(_diq, (set, list, tuple)) else ()
+        _dn = 0
+        for _q in _diq:
+            try:
+                _dn += 1 if lo <= int(_q) <= hi else 0
+            except (TypeError, ValueError):
+                pass
+        # TEXT is the residual: every question not claimed by another stimulus class.
+        # It is never audited, so it absorbs rounding — but it must still be computed
+        # honestly, or an over-produced DI would hide inside it (the false-PASS half of
+        # the v2.24 defect).
+        observed = {'FIGURAL': len(obs_fig), 'PASSAGE': _pn, 'DI': _dn,
+                    'TEXT': max(0, sec_qs - len(obs_fig) - _pn - _dn)}
         if bc is None:
             unest |= {c for c in observable if int(target.get(c, 0) or 0) > 0}
             continue
@@ -1151,8 +1174,9 @@ def gate_axis1(blocks, src):
         # The reason differs per class, so name the right one. A generic parenthetical
         # that blamed DI regardless was printed even when FIGURAL was the missing class,
         # which sends the reader to fix the wrong thing.
-        _why = {'DI': 'no producer record exists, and it cannot be inferred from the '
-                      'docx without misreading every MATCH table as DI',
+        _why = {'DI': 'the registry carries no di_manifest for this mock (Step 7 '
+                      'pre-v5.42); DI is never inferred from table presence, because '
+                      'G-MATCH-TABLE makes every MATCH question render a real table too',
                 'FIGURAL': 'the registry carries no figural manifest for this mock — '
                            'absent record, which is NOT the same fact as zero figures',
                 'PASSAGE': 'the registry carries no rc manifest for this mock'}
@@ -5001,7 +5025,8 @@ def self_test():
     # pre-v2.24 build (where the gate did not exist and the verdict map is empty).
     # No exam, section or format name here is load-bearing.
 
-    def _axis_verdict(n_fig, target, sec_qs=60, irreducible_subs=None, enforcement='hard'):
+    def _axis_verdict(n_fig, target, sec_qs=60, irreducible_subs=None, enforcement='hard',
+                      di_qs=None, di_present=False):
         # ENGINE-AVAILABILITY IS PART OF THE CONTRACT, NOT AN OBSTACLE TO IT.
         # audit_mutation.py copies THIS file into a temp dir and runs it from that
         # dir, so blueprint_core is genuinely absent there. The gate's answer in that
@@ -5022,6 +5047,8 @@ def self_test():
         _s['figural_manifest_present'] = True     # v2.24.1 — a REAL record exists
         _s['rc_manifest_present'] = False
         _s['passage_linked'] = set()
+        _s['di_qs'] = set(di_qs or ())            # v2.25
+        _s['di_manifest_present'] = di_present
         _reset()
         _safe_gate('A-AXIS1', gate_axis1, [], _s)
         return {c: l for l, c, _m in RESULTS}
@@ -5179,6 +5206,49 @@ def self_test():
     check('AXIS1-verdict-degrades-to-NOT-ESTABLISHED-never-to-silent-OK',
           _axis_verdict(n_fig=26, target={'TEXT': 56, 'FIGURAL': 4}).get('A-AXIS1')
           in (('FAIL',) if _BC_OK else ('WARN',)))
+
+    # (q) DI OBSERVABILITY (v2.25, GAP-2026-08-06-DI). DI was the last budgeted
+    #     stimulus class with no producer record, so A-AXIS1 could only ever report it
+    #     unestablished. With a di_manifest it is counted like any other class.
+    _v, _c = _cov(n_fig=4, target={'TEXT': 50, 'FIGURAL': 4, 'DI': 6},
+                  di_qs=range(1, 7), di_present=True)
+    check('DI-observable-when-the-producer-recorded-it',
+          _v == _axv('OK') and (_c == 'OK' if _BC_OK else True))
+
+    # (r) AND IT IS NOW JUDGED, NOT MERELY SEEN. An over-produced DI must FAIL — this
+    #     is the false-PASS half of the old defect, where DI fell into the TEXT residual
+    #     and vanished. Mutation-verified: measures False on the v2.24.1 build.
+    # FIGURAL target is 0 here ON PURPOSE, so DI is the ONLY class that can produce a
+    # finding. An earlier draft left FIGURAL at 4 with 0 produced, and the fixture then
+    # went green off the FIGURAL shortfall — it survived a mutation that deleted DI
+    # observability entirely. A test that passes for the wrong reason is worse than no
+    # test, because it reports coverage it does not have.
+    _v, _c = _cov(n_fig=0, target={'TEXT': 60, 'FIGURAL': 0, 'DI': 0},
+                  di_qs=range(1, 21), di_present=True)
+    check('DI-over-production-is-caught-not-absorbed-into-TEXT', _v == _axv('FAIL'))
+
+    # (s) A DI SHORTFALL IS A FINDING TOO — the gate is not one-sided.
+    _v, _c = _cov(n_fig=0, target={'TEXT': 48, 'FIGURAL': 0, 'DI': 12},
+                  di_qs=(), di_present=True)
+    check('DI-shortfall-detected', _v == _axv('FAIL'))
+
+    # (t) NO RECORD ⇒ UNESTABLISHED, NEVER A SILENT ZERO. A pre-v5.42 Step 7 writes no
+    #     di_manifest; reading that absence as "no DI questions" would turn an unknown
+    #     into a hard shortfall on every legacy exam.
+    _v, _c = _cov(n_fig=4, target={'TEXT': 50, 'FIGURAL': 4, 'DI': 6},
+                  di_qs=(), di_present=False)
+    check('DI-absent-manifest-is-unestablished-not-a-shortfall',
+          _v == _axv('OK') and (_c == 'WARN' if _BC_OK else True))
+
+    # (u) DI IS NEVER INFERRED FROM A TABLE. Recorded as an executable reminder of the
+    #     measurement that settles it: on IIT_JAM_BIOTECHNOLOGY 15-Feb-2026 the paper
+    #     carries THREE Word tables — 'Vitamins|Symptoms' and 'Nitrogen compound|
+    #     Oxidation state' are MATCH, only 'Reactant|Product|Standard Enthalpy' is DI.
+    #     A table-presence heuristic reports 3 where the truth is 1, i.e. it trades a
+    #     silent miss for a confident wrong answer. The gate reads di_qs and nothing else.
+    _v, _c = _cov(n_fig=0, target={'TEXT': 59, 'FIGURAL': 0, 'DI': 1},
+                  di_qs=[3], di_present=True)
+    check('DI-counted-from-the-producer-record-only', _v == _axv('OK'))
 
     # (p) _axis_sections — EACH REJECTION BRANCH IS NAMED, NOT JUST SKIPPED.
     #     Tested directly rather than through a gate because the gate's coverage WARN

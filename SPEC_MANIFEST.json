@@ -22,18 +22,18 @@
       "version_header": "# Framework_MockDeliver v1.10.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.42.0",
-      "lines": 8013,
-      "sha256": "f0db8ddc8256412940ee59409908da3c4ac7f0e70115f6e7933c02080c6a18a1",
-      "size_bytes": 446004,
-      "version_header": "# Framework_MockTestAnalyse v2.42.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.43.0",
+      "lines": 8062,
+      "sha256": "0ebc10c64cc3d8edfa82246724e029d12abcbe19eca63615040f0a6ae67ea0ff",
+      "size_bytes": 449635,
+      "version_header": "# Framework_MockTestAnalyse v2.43.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7331,
-      "sha256": "f320d4027d75b003b3cfb9dbb33476a489fc6f9745085e02fcc654dcc0f95a6d",
-      "size_bytes": 450245,
-      "version_header": "# Framework_MockTestCreate v5.41"
+      "lines": 7399,
+      "sha256": "c401c7ee570ee1818f07aa99220543168a43514574efe49e7558fa374c91fdea",
+      "size_bytes": 454929,
+      "version_header": "# Framework_MockTestCreate v5.42"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -148,9 +148,9 @@
       "end_sentinel": "    sys.exit(main(sys.argv))"
     },
     "audit_canonical.py": {
-      "lines": 6497,
-      "sha256": "db1705a8af48d60642c0b4035dc32f077445cb9ad28b97fd8bfc42e92b1e174a",
-      "size_bytes": 355274,
+      "lines": 6567,
+      "sha256": "89d4b1797e355d3152dec195570c92a9310b3787b9eeefd645120bb5d21df175",
+      "size_bytes": 359798,
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()"
     },

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.06.2",
+  "framework_version": "2026.08.06.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -162,18 +162,18 @@
       "bytes": 83865
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "f0db8ddc8256412940ee59409908da3c4ac7f0e70115f6e7933c02080c6a18a1",
-      "version_header": "# Framework_MockTestAnalyse v2.42.0 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.42.0",
-      "lines": 8013,
-      "bytes": 446004
+      "sha256": "0ebc10c64cc3d8edfa82246724e029d12abcbe19eca63615040f0a6ae67ea0ff",
+      "version_header": "# Framework_MockTestAnalyse v2.43.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.43.0",
+      "lines": 8062,
+      "bytes": 449635
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "f320d4027d75b003b3cfb9dbb33476a489fc6f9745085e02fcc654dcc0f95a6d",
-      "version_header": "# Framework_MockTestCreate v5.41",
+      "sha256": "c401c7ee570ee1818f07aa99220543168a43514574efe49e7558fa374c91fdea",
+      "version_header": "# Framework_MockTestCreate v5.42",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 7331,
-      "bytes": 450245
+      "lines": 7399,
+      "bytes": 454929
     },
     "Framework_MockTestExplain.md": {
       "sha256": "a2bfc7b12d086988fd056a2a3578de0c5e6d7e593dd80cbd8a5f4685473cb53c",
@@ -351,11 +351,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "db1705a8af48d60642c0b4035dc32f077445cb9ad28b97fd8bfc42e92b1e174a",
+      "sha256": "89d4b1797e355d3152dec195570c92a9310b3787b9eeefd645120bb5d21df175",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 6497,
-      "bytes": 355274
+      "lines": 6567,
+      "bytes": 359798
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",

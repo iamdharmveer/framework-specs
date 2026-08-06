@@ -1,4 +1,12 @@
-# Framework_MockTestCreate v5.41
+# Framework_MockTestCreate v5.42
+# v5.42 — 2026-08-06 — GAP-2026-08-06-DI: DI becomes measurable.
+#   DI was the one budgeted Axis-1 stimulus class leaving NO trace anywhere, so
+#   A-AXIS1 could only ever report it UNESTABLISHED. It cannot be recovered from the
+#   docx: G-MATCH-TABLE mandates a real Word table for every MATCH question, so on a
+#   real paper table-presence finds 3 candidates where exactly 1 is DI. Step 7 now
+#   records di_manifests (the producer's own record) and asks the Axis-1 budget
+#   before building a table stimulus; Step 5 emits di_rate/di_q_count/di_reducible.
+#   Absent-safe: no di_manifest -> DI stays unestablished, exactly as before.
 # v5.41 — 2026-08-06 — GAP-2026-08-06-AXIS1: a budget nothing spent.
 #   `format: FIGURAL` was a RENDERING IMPERATIVE with no cap while
 #   axis1_target_per_mock — written since blueprint v1.23 — was read by NOTHING.
@@ -2167,6 +2175,32 @@
              IF format == TEXT/PASSAGE/DI:
                → Generate via add_standard_question() (§10-S10-3)
                → add_figural_question() / add_figural_stem_question() NOT called.
+               → v5.42 (GAP-2026-08-06-DI) — IF format == DI, ASK THE BUDGET BEFORE
+                 BUILDING A DATA TABLE, exactly as the FIGURAL fork does at S7-NEW-B0:
+
+                     granted, why = bc.axis_grant_figural(
+                         axis1_trackers[sec_name], subtopic_id,
+                         reducible=SR[sid].get('di_reducible', True), cls='DI')
+
+                 GRANTED  → build the table stimulus and record the question in
+                            {EXAM}_di_manifest.json with its subtopic_id and
+                            table_shape (rows x cols).
+                 DENIED   → render the SAME question without a table stimulus, from this
+                            subtopic's own observed PYQ_STEM_PATTERNS. The question keeps
+                            its slot, subtopic, difficulty and answer_cardinality.
+
+                 UNLIKE FIGURAL, DI SHARES A RENDERING PATH WITH TEXT — both go through
+                 add_standard_question(), so a DI-flagged subtopic was never FORCED to
+                 produce a table and DI has not over-generated the way figures did. The
+                 budget call is therefore about MEASURABILITY as much as control: without
+                 a recorded decision there is nothing for A-AXIS1 to count, and an
+                 unaudited budget is how this defect class survives. On a DI-heavy exam
+                 (banking/CAT-style aptitude) the control matters on its own terms too.
+
+                 A MATCH question is NOT DI and must never be recorded here, even though
+                 G-MATCH-TABLE makes it render a real table. Axis-2 owns MATCH; Axis-1
+                 owns DI. Conflating them is precisely the misreading that makes
+                 after-the-fact table detection unusable.
              This dispatch is NOT optional. Every Q passes through it.
              Skipping it (using add_question_stem for all Qs regardless of format)
              is the root cause of the production figural defect.
@@ -6142,6 +6176,39 @@
           "cloze_linked":   sorted(list(cloze_linked_qs))
       })
 
+  # ── DI manifests (v5.42, GAP-2026-08-06-DI) ──────────────────────────────────
+  # THE PRODUCER'S OWN RECORD OF WHICH QUESTIONS CARRY A DATA-TABLE STIMULUS.
+  #
+  # WHY THIS HAS TO EXIST. Axis-1 budgets four stimulus classes, and until now only
+  # two of them left a trace: figures via figural_manifests, passages via rc_manifests.
+  # DI left NONE, so A-AXIS1 could not count it — and a budget nobody can verify is the
+  # same shape of hole that let 26 figures ship against a budget of 4.
+  #
+  # AND IT CANNOT BE INFERRED AFTER THE FACT. "The block contains a Word table" does
+  # NOT mean DI: G-MATCH-TABLE *mandates* a real table for every MATCH question. Measured
+  # on a real paper (IIT_JAM_BIOTECHNOLOGY 15-Feb-2026): 3 tables, of which
+  # 'Vitamins|Symptoms' and 'Nitrogen compound|Oxidation state' are MATCH and only
+  # 'Reactant|Product|Standard Enthalpy' is DI. A table-presence heuristic would report
+  # THREE DI where there is ONE. Only the generator knows which it built, so only the
+  # generator can record it — exactly the principle behind figure_specs (v5.34).
+  #
+  # Absent-safe: no di_present ⇒ no key ⇒ A-AXIS1 reports DI unestablished, as today.
+  if di_present and os.path.exists(f'/home/claude/{EXAM}_di_manifest.json'):
+      _di = json.load(open(f'/home/claude/{EXAM}_di_manifest.json'))
+      registry.setdefault('di_manifests', []).append({
+          "mock": N,
+          "di_qs": sorted(int(q) for q in _di.get('questions', {})),
+          "subtopic_ids": {str(q): v.get('subtopic_id')
+                           for q, v in _di.get('questions', {}).items()
+                           if v.get('subtopic_id')},
+          # table_shape lets a later profile gate check that a generated table
+          # resembles the ones the exam actually uses (rows x cols), the DI analogue
+          # of figural object_types. Recorded now so the data exists when wanted.
+          "table_shapes": {str(q): v.get('table_shape')
+                           for q, v in _di.get('questions', {}).items()
+                           if v.get('table_shape')},
+      })
+
   # Figural manifests:
   if figural_present and os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):
       fig = json.load(open(f'/home/claude/{EXAM}_fig_manifest.json'))
@@ -6269,6 +6336,7 @@
       'image_phashes', 'image_sources_used', 'session_log',
       'content_tracking',
       'section_names', 'rc_manifests', 'figural_manifests',
+      'di_manifests',            # v5.42 — DI producer record (GAP-2026-08-06-DI)
   ]
   REQUIRED_CT = [   # content_tracking L4-L18 subfields
       'ga_facts_used', 'passage_topics', 'cloze_topics', 'vocab_words_used',
@@ -7248,7 +7316,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.41
+# END OF Framework_MockTestCreate v5.42
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
