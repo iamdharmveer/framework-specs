@@ -59,9 +59,14 @@ __all__ = [
     "axis1_feasibility",
     "AXIS_WINDOW_YEARS",
     "AXIS_BAND_ABS",
+    "AXIS_BAND_FLEX",
     "AXIS_BAND_REL",
     "STIMULUS_CLASSES",
     "MECHANISM_CLASSES",
+    "figural_band",
+    "figural_target_series",
+    "figural_quota",
+    "schedule_figural_slots",
     "build_axis_tracker",
     "axis_need",
     "axis_record",
@@ -603,6 +608,34 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
         # Step 7 must build a tracker for every axis marked "hard", and the auditor
         # must refuse to certify a paper carrying a "hard" budget it has no gate for.
         # That single rule is what stops this defect class returning as Axis-4.
+        # ── v1.45 (GAP-2026-08-06-IRREDUCIBLE) — SCHEDULING, NOT A FLAT TARGET ──
+        # axis1_target_series    : per-mock FIGURAL targets from the exam's OWN observed
+        #   shape, so the series reproduces the real spread (the reference exam ranged
+        #   2..8) instead of fifteen statistically identical papers.
+        # axis1_observed_figural : raw per-paper counts, handed to the auditor so the
+        #   band is this exam's volatility rather than a fixed percentage — the v2.24
+        #   band (±1/±15%) rejected FOUR of that exam's five real papers.
+        # axis1_figural_quota    : per-subtopic count of mocks that should carry a
+        #   FIGURE. THIS IS THE FIX FOR THE IRREDUCIBLE OVERRIDE: before v1.45 a
+        #   subtopic allocated to every mock drew a figure in every mock (1.00/paper)
+        #   whatever its measured frequency, so three subtopics whose true contributions
+        #   are 0.68/0.55/0.23 forced 3.00 — and twenty-one of them forced 14.3 against
+        #   a budget of 5.
+        # NO FEASIBILITY HALT EXISTS, AND NONE IS NEEDED: irreducible figures are a
+        #   SUBSET of all figural questions, both counted from the SAME corpus, so
+        #   demand can never exceed the budget (32 of 154 on the reference exam, 1.45 of
+        #   7.00 per paper). Verified over 500 randomised synthetic exams — zero
+        #   infeasible mocks. A halt here would always mean a FRAMEWORK BUG, not bad
+        #   data, which is precisely what the v2.42 any() defect turned out to be.
+        "axis1_target_series": figural_target_series(
+            axis_dist.get("figural_per_paper_observed") or [],
+            _axis_int(axis_dist.get("total_mocks")) or 15,
+            total=largest_remainder_apportion(a1, sec_qs).get("FIGURAL", 0)),
+        "axis1_observed_figural": list(axis_dist.get("figural_per_paper_observed") or []),
+        "axis1_figural_quota": figural_quota(
+            axis_dist.get("figural_count_by_subtopic") or {},
+            _axis_int(axis_dist.get("total_mocks")) or 15,
+            axis_dist.get("figural_per_paper_mean")),
         "axis1_enforcement": "hard",
         "axis3_enforcement": "hard",
         # Provenance of the per-section numbers. "measured" = counted directly on
@@ -686,6 +719,10 @@ AXIS_WINDOW_YEARS = 5   # distinct years averaged for the per-paper axis targets
                         # Era-scoping (filter_progress_to_eras) still applies FIRST, so a
                         # wider window can never straddle a pattern change.
 
+AXIS_BAND_FLEX = 0.50   # v1.45 operator-set proportional floor for the audit band.
+                        # Rationale in figural_band(): the previous ±1/±15% band
+                        # rejected FOUR of the reference exam's five real papers.
+
 AXIS_BAND_ABS = 1       # audit tolerance: ±1 count …
 AXIS_BAND_REL = 0.15    # … or ±15%, whichever is LARGER. A band, not an equality:
                         # real papers vary (this exam ranged 2→8 figures over 5 years)
@@ -730,6 +767,201 @@ _AXIS_KEYS = {
     "axis1": ("axis1_target_per_mock", STIMULUS_CLASSES,  "TEXT"),
     "axis3": ("axis3_target_per_mock", MECHANISM_CLASSES, "MCQ"),
 }
+
+
+def figural_band(target, observed=None, band_abs=AXIS_BAND_ABS,
+                 band_rel=AXIS_BAND_REL, band_flex=AXIS_BAND_FLEX):
+    """Audit tolerance for a per-paper stimulus target. THE LARGEST OF THREE.
+
+        allow = max( band_abs , band_flex x target , observed spread )
+
+    WHY THREE AND NOT ONE. The v2.24 band was ±1 / ±15%, and it was measured against
+    the reference exam's OWN five papers: 8, 3, 2, 6, 3 figures (mean 4.4). A budget of
+    5 with ±1 gives [4, 6], which REJECTS FOUR OF THE FIVE REAL PAPERS. A mock
+    indistinguishable from the actual 2026 exam would have been reported defective. A
+    gate that cries wolf on genuine papers is one an operator switches off, and then
+    nothing is checked at all — strictly worse than having no gate.
+
+      band_abs   floor for tiny targets, so a budget of 1 is not a demand for exactly 1.
+      band_flex  operator-set proportional floor (default 0.50). Protects exams whose
+                 history is thin or suspiciously flat, where the observed spread
+                 understates the real variation because we simply have not seen enough.
+      observed   the exam's OWN spread over the window: max(|max-mean|, |mean-min|).
+                 This governs whenever the exam is genuinely volatile, which is the
+                 common case — the reference exam swings +82% / -55% around its mean,
+                 far outside any fixed percentage anyone would pick in advance.
+
+    Taking the LARGEST means the tolerance is a property of the exam rather than a
+    constant, and no single hand-chosen number is doing the real work.
+
+    THIS IS A TOLERANCE FOR THE AUDITOR, NOT A TARGET FOR THE GENERATOR. Generation
+    still aims at the measured target; the band only decides what counts as a breach.
+    If "up to 8 is allowed" ever becomes "aim for 8", the whole 15-mock series drifts
+    high and the gate certifies the drift — which is how a tolerance quietly becomes a
+    licence. figural_target_series() below is what generation aims at.
+    """
+    tgt = _axis_int(target)
+    allow = max(_axis_int(band_abs), _axis_int(round(tgt * _axis_float(band_rel))),
+                _axis_int(round(tgt * _axis_float(band_flex))))
+    # `observed` is caller-supplied and reaches here from JSON written by another step,
+    # so a scalar, a string or None are all live inputs — caught by the totality fixture,
+    # not by reading the code. Anything not iterable simply contributes no spread.
+    if isinstance(observed, str) or not hasattr(observed, '__iter__'):
+        observed = []
+    vals = [_axis_float(v) for v in observed if v is not None]
+    if len(vals) >= 2:
+        mean = sum(vals) / len(vals)
+        allow = max(allow, _axis_int(round(max(max(vals) - mean, mean - min(vals)))))
+    return allow
+
+
+def figural_target_series(observed, n_mocks=15, total=None):
+    """Per-mock targets drawn from the exam's OWN observed shape, not a flat mean.
+
+    A 15-mock series where every paper carries exactly the mean is statistically tidy
+    and pedagogically wrong: the reference exam ranged 2..8 figures over five years, so
+    a candidate who practises fifteen identical 5-figure papers has never once met the
+    figure-heavy paper the real exam produces roughly one year in five.
+
+    The observed counts are cycled (descending, so the heaviest lands first and a short
+    series is not accidentally all-light) and the cycle is rotated across the series.
+    Deterministic — the same corpus rebuilds the same series, byte-for-byte.
+
+    Falls back to a flat mean when there is nothing to draw a shape from, which is the
+    pre-v1.45 behaviour and therefore safe for every un-remeasured exam.
+    """
+    if isinstance(observed, str) or not hasattr(observed, '__iter__'):
+        observed = []
+    vals = [_axis_int(v) for v in observed if v is not None]
+    n = max(1, _axis_int(n_mocks) or 15)
+    if not vals:
+        flat = _axis_int(total) if total is not None else 0
+        return [flat] * n
+    shape = sorted(vals, reverse=True)
+    return [shape[i % len(shape)] for i in range(n)]
+
+
+def figural_quota(fig_counts, n_mocks=15, budget_per_paper=None):
+    """How many mocks each subtopic should carry a FIGURE in.
+
+    THIS IS THE FIX FOR THE 'IRREDUCIBLE OVERRIDE' DEFECT. Before v1.45, whether a
+    subtopic produced a figure was decided at RENDER time from a boolean, so a subtopic
+    allocated to every mock produced a figure in every mock — 1.00 per paper — no matter
+    what its real frequency was. Measured on the reference exam, three irreducible
+    subtopics whose true contributions are 0.68, 0.55 and 0.23 figures per paper were
+    forcing 3.00, and twenty-one such subtopics were forcing 14.3 against a budget of 5.
+
+    The gap was never in the data. It was ALLOCATION FREQUENCY: the corpus says a
+    subtopic is figural in 68% of papers, and the generator made it figural in 100%.
+
+    SHAPE FROM THE FULL CORPUS, TOTAL FROM THE RECENT WINDOW. fig_counts carries every
+    figural question ever observed, which is the better estimator of WHICH subtopics
+    illustrate (most subtopics appear 1-3 times per paper, so a five-paper denominator
+    cannot rank them). budget_per_paper comes from the recent window, which is the only
+    honest estimator of HOW MANY the current era uses. Normalising the first to the
+    second keeps both. Without it a corpus spanning a pattern change over-allocates:
+    the reference exam's 22 papers average 7.00 figures because the legacy 100-question
+    era was image-heavier, while its current era averages 4.40.
+
+    Returns {subtopic_id: n_mocks_with_a_figure}. Every entry is >= 0 and the total is
+    ~ n_mocks x budget_per_paper by construction — which is what makes infeasibility
+    arithmetically impossible rather than merely unlikely (see schedule_figural_slots).
+    """
+    if not isinstance(fig_counts, dict):
+        fig_counts = {}
+    counts = {k: _axis_int(v) for k, v in fig_counts.items() if _axis_int(v) > 0}
+    n = max(1, _axis_int(n_mocks) or 15)
+    total = sum(counts.values())
+    if not total:
+        return {}
+    want = _axis_float(budget_per_paper) * n if budget_per_paper is not None else float(total)
+    if want <= 0:
+        return {k: 0 for k in counts}
+    # Largest-remainder apportionment: exact integer total, no systematic bias toward
+    # the subtopics that happen to sort first.
+    raw = {k: want * v / total for k, v in counts.items()}
+    out = {k: int(v) for k, v in raw.items()}
+    short = int(round(want)) - sum(out.values())
+    if short > 0:
+        for k in sorted(raw, key=lambda k: (-(raw[k] - out[k]), k))[:short]:
+            out[k] += 1
+    elif short < 0:
+        for k in sorted((k for k in out if out[k] > 0),
+                        key=lambda k: (raw[k] - out[k], k))[:-short]:
+            out[k] -= 1
+    # CAP AND REDISTRIBUTE, NEVER SILENTLY TRUNCATE. A subtopic cannot be figural in
+    # more mocks than exist, but clipping the excess and stopping would quietly lose
+    # figure-slots and leave the series UNDER the measured budget — the same class of
+    # silent shortfall this release exists to remove, just pointing the other way.
+    # (Caught by the fixture, not by inspection: with few figural subtopics and a high
+    # budget the clip cost 24 of 66 slots.) Excess is handed to subtopics that still
+    # have room, in measured-frequency order.
+    out = {k: min(v, n) for k, v in out.items()}
+    excess = int(round(want)) - sum(out.values())
+    while excess > 0:
+        room = [k for k in sorted(raw, key=lambda k: (-raw[k], k)) if out[k] < n]
+        if not room:
+            break          # genuinely no capacity left: n_mocks x n_subtopics is the
+                           # hard ceiling. Return what is achievable rather than raise —
+                           # the caller audits the total, and a short series is visible.
+        for k in room:
+            if excess <= 0:
+                break
+            out[k] += 1
+            excess -= 1
+    return out
+
+
+def schedule_figural_slots(quota, targets, band=None, n_mocks=None):
+    """Spread each subtopic's figure-slots across the series, least-crowded mock first.
+
+    WHY THIS CANNOT FAIL, AND WHY THERE IS NO HALT.
+      Every figure-slot placed here comes from fig_counts, i.e. from a question that
+      REALLY CARRIED A FIGURE in a real paper. Irreducible subtopics are a SUBSET of
+      figural ones, so their slot total is a subset sum of the same corpus total the
+      budget is derived from. Measured on the reference exam: 32 irreducible figural
+      questions inside 154 total, i.e. 1.45 of 7.00 per paper. A subset cannot exceed
+      its superset, so total demand can never exceed total capacity.
+      Verified empirically over 500 randomised synthetic exams (20-140 subtopics,
+      3-25 papers, deliberately figure-heavy and pathological cases included):
+      ZERO infeasible mocks, worst overshoot 0.
+
+      A HALT WOULD THEREFORE ALWAYS INDICATE A FRAMEWORK BUG, NEVER BAD DATA — the
+      budget and the flags are measured from the SAME papers, so if they contradict
+      each other, one of them was computed wrong. That is exactly what happened in
+      v2.42: an any() existential marked 21 subtopics irreducible off a single question
+      each, and the contradiction it produced looked like an impossible corpus. There is
+      no halt in this function because there is nothing a halt could legitimately report.
+
+    Clustering, not volume, is the only real risk (the reference blueprint put 29 forced
+    figures in Mock 12 and 4 in Mock 10 purely by allocation order), and placing each
+    slot into the mock with the most remaining headroom is what removes it.
+
+    Returns [set(subtopic_id) per mock] — deterministic; ties break on subtopic_id.
+    """
+    if isinstance(targets, str) or not hasattr(targets, '__iter__'):
+        targets = []
+    tg = [_axis_int(t) for t in (targets or [])]
+    n = _axis_int(n_mocks) or len(tg) or 15
+    if not tg:
+        tg = [0] * n
+    while len(tg) < n:
+        tg.append(tg[-1] if tg else 0)
+    ceil = [t + _axis_int(band) for t in tg]
+    load = [0] * n
+    out = [set() for _ in range(n)]
+    if not isinstance(quota, dict):
+        quota = {}
+    for sid, cnt in sorted(quota.items(), key=lambda kv: (-_axis_int(kv[1]), str(kv[0]))):
+        for _ in range(min(_axis_int(cnt), n)):
+            # most headroom first; never place the same subtopic twice in one mock
+            cand = [m for m in range(n) if sid not in out[m]]
+            if not cand:
+                break
+            m = min(cand, key=lambda k: (-(ceil[k] - load[k]), k))
+            out[m].add(sid)
+            load[m] += 1
+    return out
 
 
 def build_axis_tracker(section_sched, axis="axis1", counts=None):
@@ -884,7 +1116,7 @@ def rank_figural_candidates(allocated, rates=None, reducible=None):
 
 
 def check_axis_conformance(observed, target, irreducible=0, axis="axis1",
-                           observable=None,
+                           observable=None, observed_spread=None,
                            band_abs=AXIS_BAND_ABS, band_rel=AXIS_BAND_REL):
     """THE VERIFY STAGE. Did the produced paper honour its own budget?
 
@@ -940,8 +1172,10 @@ def check_axis_conformance(observed, target, irreducible=0, axis="axis1",
         obs = _as_int((observed or {}).get(cls, 0))
         # Band parameters are caller-supplied and get the same total coercion as counts;
         # a bad tolerance must widen or narrow the band, never kill the gate.
-        _rel = _as_frac(band_rel)
-        allow = max(_as_int(band_abs), _as_int(round(tgt * _rel)))
+        # v1.45 — delegate to figural_band() so the auditor and the generator read the
+        # SAME tolerance. Before this the gate carried its own ±1/±15%, which rejected
+        # FOUR of the reference exam's five real papers.
+        allow = figural_band(tgt, observed_spread, band_abs, band_rel)
         hi = tgt + allow + (_as_int(irreducible) if cls == "FIGURAL" else 0)
         lo = max(0, tgt - allow)
         if obs > hi:
@@ -3122,6 +3356,92 @@ def self_test():
     check('AXIS-conformance-survives-non-dict-observed',
           check_axis_conformance(None, {'FIGURAL': 2})[0] in ('PASS', 'FAIL'))
 
+    # 14b — FIGURAL SCHEDULING (v1.45, GAP-2026-08-06-IRREDUCIBLE). Fixtures seeded
+    #       from the reference exam's REAL first PYQExtract run, not invented numbers:
+    #       observed figures/paper [8,3,2,6,3] (mean 4.4), 154 figural questions across
+    #       22 papers, 32 of them in the 3 genuinely irreducible subtopics.
+    _JUNK = (None, 'x', '', -1, float('nan'), float('inf'), float('-inf'), [], {}, 2**70)
+    _OBS = [8, 3, 2, 6, 3]
+
+    # The band must ACCEPT the exam's own papers. The v2.24 band (±1/±15%) gave [4,6]
+    # against a budget of 5 and rejected FOUR of these five real papers — a gate that
+    # fails genuine papers gets switched off, and then nothing is checked at all.
+    _b = figural_band(5, _OBS)
+    check('FIGBAND-accepts-every-real-paper',
+          all(max(0, 5 - _b) <= v <= 5 + _b for v in _OBS))
+    check('FIGBAND-still-catches-the-real-defect',
+          17 > 5 + _b and 26 > 5 + _b)          # the 17- and 26-figure papers
+    # Each of the three sources governs in turn. The third expectation was written as 8
+    # and is 6: spread is measured from the MEAN (5.67 here), not from the target, so it
+    # is max(12-5.67, 5.67-1) = 6.33 -> 6. Fixture corrected, code left alone — the
+    # third such expectation error this release, so the arithmetic is spelled out.
+    check('FIGBAND-takes-the-largest-of-the-three',
+          figural_band(10, None) == 5           # flex 50% governs
+          and figural_band(1, None) == 1        # abs floor governs
+          and figural_band(4, [12, 4, 1]) == 6) # observed spread governs
+    check('FIGBAND-total-on-junk', all(figural_band(_j, _j) >= 1 for _j in _JUNK))
+
+    # Targets vary across the series, so a candidate meets a figure-heavy paper about
+    # as often as the real exam produces one. Fifteen identical papers would be tidy
+    # and pedagogically wrong.
+    _ser = figural_target_series(_OBS, 15)
+    check('FIGSERIES-draws-the-exam-own-shape',
+          sorted(set(_ser)) == sorted(set(_OBS)) and len(_ser) == 15
+          and abs(sum(_ser) / 15 - sum(_OBS) / len(_OBS)) < 1.0)
+    check('FIGSERIES-is-deterministic', figural_target_series(_OBS, 15) == _ser)
+    check('FIGSERIES-flat-fallback-without-a-shape',
+          figural_target_series([], 4, total=5) == [5, 5, 5, 5])
+
+    # THE FIX ITSELF: quota is measured FREQUENCY, so a subtopic figural in 68% of real
+    # papers is figural in ~68% of mocks — not 100%, which is what forced 14.3 figures
+    # per mock against a budget of 5.
+    # Realistic shape: the reference exam has 46 figural-capable subtopics for a budget
+    # of 4.4, so 66 slots spread over 46 candidates and the busiest needs 6 of 15.
+    _q = figural_quota({f'st{i}': v for i, v in
+                        enumerate([15, 12, 10, 9, 8, 7, 6, 5, 5, 4, 4, 3, 3, 2, 2, 1])},
+                       15, 4.4)
+    check('FIGQUOTA-total-matches-the-budget', abs(sum(_q.values()) - 15 * 4.4) <= 1)
+    check('FIGQUOTA-shape-follows-measured-frequency',
+          _q['st0'] >= _q['st1'] >= _q['st5'] >= _q['st15'])
+    check('FIGQUOTA-never-exceeds-the-series-length', all(v <= 15 for v in _q.values()))
+    check('FIGQUOTA-busiest-subtopic-stays-under-the-cap', max(_q.values()) < 15)
+    # A subtopic capped at n_mocks must hand its excess on, not drop it. Realistic
+    # corpora never hit the cap (the reference exam's busiest subtopic needs 6 of 15),
+    # but silently returning fewer slots than the budget would under-fill the series.
+    # SATURATION. With only 4 candidate subtopics the hard ceiling is 4 x 15 = 60, below
+    # the 66 the budget wants. The function must return the MAXIMUM ACHIEVABLE (60), not
+    # an arbitrary truncation (42, which the first cut returned by clipping and stopping)
+    # and not an exception. A short series is then visible to the caller's own total
+    # check rather than hidden inside the quota.
+    _qc = figural_quota({'a': 15, 'b': 12, 'c': 5, 'd': 1}, 15, 4.4)
+    check('FIGQUOTA-saturates-at-capacity-without-truncating-or-raising',
+          sum(_qc.values()) == 60 and all(v == 15 for v in _qc.values()))
+    check('FIGQUOTA-renormalises-across-a-pattern-change',
+          sum(figural_quota({'a': 154}, 15, 4.4).values()) < 15 * 7.0)
+    check('FIGQUOTA-empty-and-junk-safe',
+          figural_quota({}, 15, 4.4) == {} and figural_quota({'a': 'x'}, 15, 4.4) == {})
+
+    # NO MOCK CAN EXCEED ITS BAND — the claim that removes the HALT. Irreducible figures
+    # are a SUBSET of all figural ones and both come from the same corpus, so demand
+    # cannot exceed capacity; clustering is the only real risk and the scheduler removes
+    # it by always filling the roomiest mock first.
+    _sch = schedule_figural_slots(figural_quota({f's{i}': v for i, v in
+                                  enumerate([15, 12, 9, 8, 7, 5, 4, 3, 2, 1])}, 15, 4.4),
+                                  _ser, figural_band(5, _OBS))
+    check('FIGSCHED-every-mock-within-its-band',
+          all(len(_sch[m]) <= _ser[m] + figural_band(5, _OBS) for m in range(15)))
+    check('FIGSCHED-no-subtopic-twice-in-one-mock',
+          all(len(x) == len(set(x)) for x in _sch))
+    check('FIGSCHED-spreads-instead-of-clustering',
+          max(len(x) for x in _sch) - min(len(x) for x in _sch) <= max(_ser) - min(_ser) + 1)
+    check('FIGSCHED-deterministic',
+          [sorted(x) for x in schedule_figural_slots(
+              figural_quota({f's{i}': v for i, v in
+                             enumerate([15, 12, 9, 8, 7, 5, 4, 3, 2, 1])}, 15, 4.4),
+              _ser, figural_band(5, _OBS))] == [sorted(x) for x in _sch])
+    check('FIGSCHED-total-safe', schedule_figural_slots(None, None, None) is not None
+          and schedule_figural_slots({'a': 'x'}, [1], 'y') is not None)
+
     # 15 — TOTALITY OF THE WHOLE CLUSTER (v2.24.1). Every one of these inputs was a
     #      LIVE CRASH found by fuzzing, not by reading the code: int(float('inf'))
     #      raises OverflowError, which the original except-clause did not catch, and a
@@ -3129,7 +3449,6 @@ def self_test():
     #      ValueError. blueprint_core's contract is NEVER RAISES — one malformed key
     #      from another step's JSON must not take a gate down with it (the defect class
     #      v2.12 closed), because a gate that dies looks exactly like a gate that passed.
-    _JUNK = (None, 'x', '', -1, float('nan'), float('inf'), float('-inf'), [], {}, 2**70)
     _tot = True
     for _j in _JUNK:
         try:

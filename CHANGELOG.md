@@ -1,5 +1,85 @@
 # Changelog
 
+## 2026.08.06.5
+
+### GAP-2026-08-06-IRREDUCIBLE — the exemption became the budget
+
+**Found by the operator on the first real `PYQExtract` run.** Not by any gate, not by any
+fixture.
+
+**The defect.** v2.26 replaced the figural `any()` with a rate — and then, eleven lines
+later, decided REDUCIBILITY with a fresh `any()`:
+
+```python
+figural_reducible = not any(q.image_role in ('stem_and_options','options_only') ...)
+```
+
+One question anywhere in a 22-year corpus made a subtopic **permanently exempt from the
+figural budget**, and irreducible grants pass *even over budget* by design. The exemption
+silently became the budget. Measured on the reference exam's real regenerated
+`section_rules.md`:
+
+| | |
+|---|---|
+| subtopics marked irreducible | **21 of 133** |
+| mean forced figures per mock | **14.3** (budget 5) |
+| mocks over budget | **13 of 15** |
+| worst mock | **29** |
+| Complex Formation exempt on | **1 figural question in 32 (3.1%)** |
+| irreducible subtopics whose aggregate `image_role` is `stem_only` | **11 of 21** |
+
+Those last two lines are the shape of it: eleven exemptions were granted to subtopics
+whose figures are in the STEM with TEXT options — the reducible case by definition — on
+the strength of one minority question each.
+
+**Fix 1 — reducibility is a rate.** An exemption must now earn itself twice: the subtopic
+must be figure-dominant at all (`figural_rate >= 0.50`) AND its figures must live in the
+OPTIONS rather than the stem (`option_image_rate >= 0.50`). New `option_image_rate` is
+emitted per subtopic, so every exemption is auditable instead of implicit.
+
+| rule | irreducible | mean forced | mocks over budget |
+|---|---|---|---|
+| `any()` (v2.26) | 21 / 133 | 14.3 | 13 / 15 |
+| aggregate role only | 10 / 133 | 6.1 | 7 / 15 |
+| **rate >= 0.50 AND option-majority** | **3 / 133** | **1.5** | **0 / 15** |
+
+**Fix 2 — figures are SCHEDULED, not forced at render time.** The deeper cause was
+allocation frequency: a subtopic figural in 68% of real papers was made figural in 100%
+of mocks. `figural_quota()` gives each subtopic a number of figure-carrying mocks equal
+to its measured frequency, normalised so the series total equals the budget — SHAPE from
+the full corpus (more data per subtopic), TOTAL from the recent window (current era).
+`schedule_figural_slots()` then spreads them least-crowded-mock-first, which removes the
+clustering that put 29 forced figures in Mock 12 and 4 in Mock 10.
+
+**Fix 3 — the audit band was rejecting real papers.** The v2.24 band (±1 / ±15%) gave
+[4, 6] against a budget of 5 and **rejected four of the exam's five real papers**. A mock
+indistinguishable from the actual 2026 exam would have been reported defective, and a
+gate that cries wolf gets switched off. `figural_band()` now takes the LARGEST of: ±1,
+an operator-set 50% flex floor, and the exam's own observed spread — so the tolerance is
+a property of the exam rather than a constant.
+
+**Fix 4 — per-mock targets follow the exam's shape.** `figural_target_series()` cycles
+the observed counts (8, 6, 3, 3, 2 …) instead of fifteen identical papers, so a candidate
+meets a figure-heavy paper about as often as the real exam produces one.
+
+**NO FEASIBILITY HALT EXISTS, AND NONE IS NEEDED.** A halt was designed and then removed
+after the operator objected that it would signal a framework problem rather than a data
+problem — which is correct, and provably so. Irreducible figures are a SUBSET of all
+figural questions, and both are counted from the SAME corpus, so demand can never exceed
+the budget: 32 of 154 on the reference exam, 1.45 of 7.00 per paper. Verified over 500
+randomised synthetic exams (20-140 subtopics, 3-25 papers, figure-heavy and pathological
+cases included): **zero infeasible mocks, worst overshoot 0.** Clustering, not volume, was
+the only real risk, and the scheduler removes it.
+
+**Result on the reference exam:** mean **4.40** figures per mock against a measured exam
+mean of **4.4**, every mock inside its band, all 15 mocks.
+
+**Self-tests.** blueprint_core 342/342, audit_canonical 221/221. Fixtures seeded from the
+exam's REAL first-run data rather than invented numbers. Four fixture expectations were
+wrong during the build and were corrected against the code, not the reverse; one of them
+exposed a genuine truncation bug in the quota cap (24 of 66 slots silently lost), and one
+totality fixture caught a live `TypeError` on non-iterable input.
+
 ## 2026.08.06.4
 
 ### GAP-2026-08-06-PARTITION — nothing checked that the stimulus classes were exclusive

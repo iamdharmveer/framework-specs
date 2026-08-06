@@ -1,4 +1,14 @@
-# Framework_Blueprint v1.44.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.45.0 — Universal Mock Test Blueprint Generator
+# v1.45.0 — 2026-08-06 — GAP-2026-08-06-IRREDUCIBLE: the exemption became the budget.
+#   v2.26 replaced `has_img = any(...)` with a rate and then decided REDUCIBILITY
+#   with a fresh any(). One question in a 22-year corpus made a subtopic permanently
+#   exempt, and irreducible grants pass even over budget by design. First real
+#   PYQExtract run: 21 of 133 subtopics exempt, 14.3 figures/mock against a budget
+#   of 5, 13 of 15 mocks over. Reducibility is now rate-based (figural_rate >= 0.50
+#   AND option_image_rate >= 0.50) -> 3 subtopics, 1.5 forced, 0 mocks over.
+#   Figures are now SCHEDULED at measured frequency rather than forced at render
+#   time, the audit band is the exam's own volatility, and per-mock targets follow
+#   the exam's observed shape. No feasibility halt exists or is needed.
 # v1.44.0 — 2026-08-06 — GAP-2026-08-06-AXIS1: a budget nothing spent.
 #   `format: FIGURAL` was a RENDERING IMPERATIVE with no cap while
 #   axis1_target_per_mock — written since blueprint v1.23 — was read by NOTHING.
@@ -6820,4 +6830,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.44.0
+# END OF Framework_Blueprint v1.45.0

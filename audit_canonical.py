@@ -1144,8 +1144,20 @@ def gate_axis1(blocks, src):
         if bc is None:
             unest |= {c for c in observable if int(target.get(c, 0) or 0) > 0}
             continue
-        verdict, fs, un = bc.check_axis_conformance(observed, target, irreducible=irr,
-                                                    axis='axis1', observable=observable)
+        # v2.27 — hand the gate the exam's OWN observed spread and, when the blueprint
+        # carries a rotating series, THIS mock's target rather than a flat mean. A fixed
+        # band rejected four of the reference exam's five real papers.
+        _spread = (sched.get(name) or {}).get('axis1_observed_figural')
+        _series = (sched.get(name) or {}).get('axis1_target_series')
+        _tgt = dict(target)
+        if isinstance(_series, (list, tuple)) and _series and src.get('mock_n'):
+            try:
+                _tgt['FIGURAL'] = int(_series[(int(src['mock_n']) - 1) % len(_series)])
+            except (TypeError, ValueError, IndexError):
+                pass
+        verdict, fs, un = bc.check_axis_conformance(observed, _tgt, irreducible=irr,
+                                                    axis='axis1', observable=observable,
+                                                    observed_spread=_spread)
         audited += 1
         unest |= set(un)
         if verdict == 'FAIL':

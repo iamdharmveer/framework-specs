@@ -1,4 +1,14 @@
-# Framework_MockTestAnalyse v2.43.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.44.0 — Universal PYQ Pattern Extraction Engine
+# v2.44.0 — 2026-08-06 — GAP-2026-08-06-IRREDUCIBLE: the exemption became the budget.
+#   v2.26 replaced `has_img = any(...)` with a rate and then decided REDUCIBILITY
+#   with a fresh any(). One question in a 22-year corpus made a subtopic permanently
+#   exempt, and irreducible grants pass even over budget by design. First real
+#   PYQExtract run: 21 of 133 subtopics exempt, 14.3 figures/mock against a budget
+#   of 5, 13 of 15 mocks over. Reducibility is now rate-based (figural_rate >= 0.50
+#   AND option_image_rate >= 0.50) -> 3 subtopics, 1.5 forced, 0 mocks over.
+#   Figures are now SCHEDULED at measured frequency rather than forced at render
+#   time, the audit band is the exam's own volatility, and per-mock targets follow
+#   the exam's observed shape. No feasibility halt exists or is needed.
 # v2.43.0 — 2026-08-06 — GAP-2026-08-06-DI: DI becomes measurable.
 #   DI was the one budgeted Axis-1 stimulus class leaving NO trace anywhere, so
 #   A-AXIS1 could only ever report it UNESTABLISHED. It cannot be recovered from the
@@ -3212,7 +3222,22 @@ def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10
             audit_mode[cls] = 'float'              # residual filler — never audited (decision 5/10)
         else:
             audit_mode[cls] = 'band' if avg * mocks_per_window >= 1 else 'guarantee'
+    # v2.44 — the raw per-paper figural counts and the per-subtopic totals, carried
+    # through so Step 6 can build the target SERIES and the per-subtopic figure quota,
+    # and so the auditor's band is this exam's own volatility. Without these the band is
+    # a fixed percentage, which rejected four of the reference exam's five real papers.
+    _fig_by_paper = collections.Counter()
+    _fig_by_sub = collections.Counter()
+    for _q in rq:
+        if _q.get('image_role', 'none') != 'none':
+            _fig_by_paper[_q.get('paper_id') or _q.get('year')] += 1
+            _fig_by_sub[_q.get('subtopic_id') or _q.get('subtopic')] += 1
+    _per_paper = [_fig_by_paper.get(_p, 0) for _p in
+                  sorted({(_q.get('paper_id') or _q.get('year')) for _q in rq})]
     return {
+        'figural_per_paper_observed' : _per_paper,                       # v2.44
+        'figural_per_paper_mean'     : (sum(_per_paper) / len(_per_paper)) if _per_paper else 0.0,
+        'figural_count_by_subtopic'  : dict(_fig_by_sub),                # v2.44
         'recent_years'    : sorted(recentN, reverse=True),
         'window_years'    : window_years,     # v2.26 provenance — Step 6 echoes this into
                                               # blueprint.axis_schedule.axis_window_years so
@@ -3225,6 +3250,14 @@ def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10
         'axis2_audit_mode': audit_mode,
         'negative_rate'   : round(sum(1 for q in rq if q.get('is_negative')) / len(rq), 3),
     }
+
+# v2.44 — plain-majority threshold, both halves of the reducibility test (§S5-FIG).
+# MODULE SCOPE deliberately: it is referenced inside synthesise_subtopic() before the
+# line it was first written on, which is a NameError waiting for the first exam whose
+# corpus reaches that branch. Not tunable per exam ON PURPOSE — a per-exam knob here is
+# how an exemption rule gets quietly widened until it swallows the budget again.
+FIGURAL_IRREDUCIBLE_RATE = 0.50
+
 
 def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_data=None,
                         nat_allowed=False):
@@ -3310,9 +3343,45 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     # unanswerable, so it is granted a figure even over budget (bc.axis_grant_figural
     # rule 2). A stem-only figure usually CAN be replaced by an attested text question
     # from the same subtopic — which is what REPLACEMENT_RULE below is for.
-    figural_reducible = not any(
-        str(q.get('image_role', '')).strip() in ('stem_and_options', 'options_only')
-        for q in _fig_qs)
+    # ── v2.44 (GAP-2026-08-06-IRREDUCIBLE) — REDUCIBILITY IS A RATE, NOT AN any() ──
+    # WAS: figural_reducible = not any(q.image_role in ('stem_and_options',...))
+    #
+    # THE SAME EXISTENTIAL DEFECT THIS FILE EXISTS TO FIX, ONE FIELD TO THE LEFT.
+    # v2.26 replaced `has_img = any(...)` with a rate, and then decided reducibility
+    # with a fresh any(). One question anywhere in a 22-year corpus made a subtopic
+    # PERMANENTLY EXEMPT FROM THE FIGURAL BUDGET — and irreducible grants pass even
+    # over budget by design, so the exemption silently became the budget.
+    #
+    # MEASURED ON THE REFERENCE EXAM (2026-08-06, first real PYQExtract run):
+    #     21 of 133 subtopics marked irreducible, forcing a mean of 14.3 figures per
+    #     mock against a budget of 5; 13 of 15 mocks over budget; worst mock 29.
+    #     Complex Formation was exempt on 1 figural question in 32 (3.1%).
+    #     Chemical Bonding on 1 in 24. Trigonometry on 1 in 15.
+    #     ELEVEN of the 21 carried aggregate image_role 'stem_only' — the figure is in
+    #     the stem and the options are TEXT, which is the REDUCIBLE case by definition.
+    #     They were exempt anyway, because one minority question had image options.
+    #
+    # THE CORRECT TEST IS 'ARE THE OPTIONS USUALLY IMAGES', WHICH NEEDS A DENOMINATOR.
+    # An exemption must earn itself twice over: the subtopic has to be figure-dominant
+    # AT ALL (figural_rate), and its figures have to live in the OPTIONS rather than the
+    # stem (option_image_rate). A stem figure with text options can nearly always be
+    # replaced by an attested text question from the same subtopic; option figures —
+    # organic structures, circuit diagrams, spectra — cannot, because the answer set
+    # itself is pictorial.
+    #
+    # Thresholds tested against the reference exam's real 15-mock allocation:
+    #     rule                                   irreducible   mean forced   over budget
+    #     any()                     (v2.26)         21 / 133       14.3        13 / 15
+    #     aggregate role only                       10 / 133        6.1         7 / 15
+    #     rate>=0.50 AND option-majority (THIS)       3 / 133        1.5         0 / 15
+    # The three survivors are Alcohols/Aldehydes (71% figural), Aromatic Compounds
+    # (71%) and Carboxylic Acids (56%) — every one a case where the options ARE the
+    # structures. 0.50 is the plain majority line, deliberately not a tuned constant.
+    _opt_img = [q for q in _fig_qs
+                if str(q.get('image_role', '')).strip() in ('stem_and_options', 'options_only')]
+    option_image_rate = (len(_opt_img) / float(len(_fig_qs))) if _fig_qs else 0.0
+    figural_reducible = not (figural_rate >= FIGURAL_IRREDUCIBLE_RATE
+                             and option_image_rate >= FIGURAL_IRREDUCIBLE_RATE)
 
     has_img  = figural_q_count > 0
     has_pass = any(q.get('linked_group_id') for q in questions)
@@ -3494,6 +3563,9 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
         'figural_rate'           : round(figural_rate, 4),  # ranks claims on the Axis-1 budget
         'figural_reducible'      : figural_reducible,    # False ⇒ options ARE images ⇒ never
                                                          # downgrade to text (unanswerable)
+        'option_image_rate'      : round(option_image_rate, 4),   # v2.44 — the DENOMINATOR
+                                                         # the old any() threw away; makes
+                                                         # every exemption auditable
         # v2.43 — DI counterparts. Same contract, same absent-safe defaults.
         'di_q_count'             : di_q_count,           # QUESTIONS with a data table
         'di_rate'                : round(di_rate, 4),    # ranks claims on the DI budget
@@ -5277,6 +5349,7 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
     FIGRATE_RE = re.compile(r'^\s*figural_rate:\s*([0-9]*\.?[0-9]+)\s*$', re.I | re.M)
     FIGQC_RE   = re.compile(r'^\s*figural_q_count:\s*(\d+)\s*$', re.I | re.M)
     FIGRED_RE  = re.compile(r'^\s*figural_reducible:\s*(true|false)\s*$', re.I | re.M)
+    OPTIMG_RE  = re.compile(r'^\s*option_image_rate:\s*([0-9]*\.?[0-9]+)\s*$', re.I | re.M)
     DIRATE_RE  = re.compile(r'^\s*di_rate:\s*([0-9]*\.?[0-9]+)\s*$', re.I | re.M)   # v2.43
     DIQC_RE    = re.compile(r'^\s*di_q_count:\s*(\d+)\s*$', re.I | re.M)
     DIRED_RE   = re.compile(r'^\s*di_reducible:\s*(true|false)\s*$', re.I | re.M)
@@ -5329,6 +5402,8 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
                                 if FIGQC_RE.search(raw) else 0),             # v2.26
             'figural_reducible': (FIGRED_RE.search(raw).group(1).lower() == 'true'
                                   if FIGRED_RE.search(raw) else True),       # v2.26
+            'option_image_rate': (float(OPTIMG_RE.search(raw).group(1))
+                                  if OPTIMG_RE.search(raw) else 0.0),        # v2.44
             'di_rate': (float(DIRATE_RE.search(raw).group(1))
                         if DIRATE_RE.search(raw) else 0.0),                  # v2.43
             'di_q_count': (int(DIQC_RE.search(raw).group(1))
@@ -5445,6 +5520,11 @@ def format_entry(e):
         # this question. Granted a figure even over budget (bc.axis_grant_figural rule 2);
         # the audit raises its expectation by the same count so the overage is silent.
         f'figural_reducible: {str(e.get("figural_reducible", True)).lower()}',
+        # v2.44 — share of this subtopic's FIGURAL questions whose figure is in the
+        # OPTIONS. Read '2/15' not '13%' when debugging: the denominator is exactly what
+        # the pre-v2.44 any() discarded, and discarding it made 21 subtopics exempt from
+        # a budget of 5 on the strength of one question each.
+        f'option_image_rate: {float(e.get("option_image_rate", 0.0)):.4f}',
         # v2.43 — DI rate, read by Step 7 to rank claims on the Axis-1 DI budget and by
         # A-AXIS1 to know whether a DI target is reachable at all.
         f'di_q_count: {int(e.get("di_q_count", 0))}',
@@ -8059,4 +8139,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.43.0
+# END OF Framework_MockTestAnalyse v2.44.0

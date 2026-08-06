@@ -1,4 +1,10 @@
-# Framework_MockTestCreate v5.42
+# Framework_MockTestCreate v5.43
+# v5.43 — 2026-08-06 — GAP-2026-08-06-IRREDUCIBLE: figures are SCHEDULED, not forced.
+#   The render fork decided figural-vs-text per question from a boolean, so a
+#   subtopic allocated to every mock drew a figure in every mock whatever its
+#   measured frequency, and an irreducible flag let it pass over budget silently.
+#   Step 7 now reads Step 6's per-mock figure schedule (bc.schedule_figural_slots).
+#   Absent schedule -> v5.41 ranking, so un-remeasured exams are untouched.
 # v5.42 — 2026-08-06 — GAP-2026-08-06-DI: DI becomes measurable.
 #   DI was the one budgeted Axis-1 stimulus class leaving NO trace anywhere, so
 #   A-AXIS1 could only ever report it UNESTABLISHED. It cannot be recovered from the
@@ -3855,6 +3861,29 @@
   # Irreducible first, then highest figural_rate. (Reference exam: organic
   # stereochemistry 79% vs complex formation 3.1% — the pre-v2.26 boolean flagged both
   # identically, and Microbial Biotechnology sits at 0.0% and must never be drawn.)
+  # v5.43 (GAP-2026-08-06-IRREDUCIBLE) — THE SCHEDULE DECIDES, NOT THE FLAG.
+  # Step 6 has already computed WHICH subtopics carry a figure in WHICH mock, at each
+  # subtopic's MEASURED frequency (bc.figural_quota -> bc.schedule_figural_slots). Read
+  # that schedule; do not re-derive the decision from the per-subtopic format flag.
+  #
+  # This is what closes the irreducible-override defect at its source. Before v5.43 the
+  # decision was made HERE, per question, from a boolean — so a subtopic allocated to
+  # every mock drew a figure in every mock (1.00/paper) no matter that the corpus said
+  # 0.68, and an irreducible flag then let it pass over budget in silence. Twenty-one
+  # such subtopics forced 14.3 figures per mock against a budget of 5.
+  figural_slots = bc.schedule_figural_slots(
+      (axis_schedule.get(sec_name) or {}).get('axis1_figural_quota') or {},
+      (axis_schedule.get(sec_name) or {}).get('axis1_target_series') or [],
+      bc.figural_band(
+          (axis_schedule.get(sec_name) or {}).get('axis1_target_per_mock', {}).get('FIGURAL', 0),
+          (axis_schedule.get(sec_name) or {}).get('axis1_observed_figural')))
+  # Empty schedule (pre-v1.45 blueprint) ⇒ fall through to the v5.41 ranking below, so
+  # every un-remeasured exam keeps its current behaviour exactly.
+  this_mock = figural_slots[(N - 1) % len(figural_slots)] if figural_slots else None
+  if this_mock is not None:
+      figural_capable_slots = [(q, sid) for (q, sid) in figural_capable_slots
+                               if sid in this_mock]
+
   ordered = bc.rank_figural_candidates(
       figural_capable_slots,                      # [(qnum, subtopic_id), ...]
       rates={sid: SR[sid].get('figural_rate', 0.0)      for sid in capable_ids},
@@ -7316,7 +7345,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.42
+# END OF Framework_MockTestCreate v5.43
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
