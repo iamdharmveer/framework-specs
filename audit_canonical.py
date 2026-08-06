@@ -403,6 +403,12 @@ def load_sources(args):
     # between `declared` and `resolved`.
     src['figural_manifest_present'] = fig is not None
     src['rc_manifest_present'] = rc is not None
+    # v2.28 — WHICH mock this is, so gate_axis1 can read THIS paper's target out of the
+    # rotating axis1_target_series. Without it the series is inert in production: the
+    # fixture passed while the gate silently kept using the flat mean, which is the
+    # "well-fixtured but unwired" shape audit_callgraph exists to catch on the engine
+    # side and nothing catches on the loader side.
+    src['mock_n'] = N
     # v2.25 (GAP-2026-08-06-DI) — the DI producer record. Closes the last hole in
     # A-AXIS1: DI was the one budgeted stimulus class with no trace anywhere, so it
     # could only ever be reported UNESTABLISHED. It cannot be recovered from the docx —
@@ -1119,28 +1125,8 @@ def gate_axis1(blocks, src):
         # expectation can rise rather than a finding be raised.
         irr = sum(1 for q in obs_fig
                   if red_map.get(str(sub_of.get(str(q), ''))) is False)
-        _pl = src.get('passage_linked')
-        _pl = _pl if isinstance(_pl, (set, list, tuple)) else ()
-        _pn = 0
-        for _q in _pl:
-            try:
-                _pn += 1 if lo <= int(_q) <= hi else 0
-            except (TypeError, ValueError):
-                pass
-        _diq = src.get('di_qs')
-        _diq = _diq if isinstance(_diq, (set, list, tuple)) else ()
-        _dn = 0
-        for _q in _diq:
-            try:
-                _dn += 1 if lo <= int(_q) <= hi else 0
-            except (TypeError, ValueError):
-                pass
-        # TEXT is the residual: every question not claimed by another stimulus class.
-        # It is never audited, so it absorbs rounding — but it must still be computed
-        # honestly, or an over-produced DI would hide inside it (the false-PASS half of
-        # the v2.24 defect).
-        observed = {'FIGURAL': len(obs_fig), 'PASSAGE': _pn, 'DI': _dn,
-                    'TEXT': max(0, sec_qs - len(obs_fig) - _pn - _dn)}
+        _pn = _axis1_count_in(src.get('passage_linked'), lo, hi)
+        observed = _axis1_observed(sec_qs, obs_fig, _pn, src.get('di_qs'), lo, hi)
         if bc is None:
             unest |= {c for c in observable if int(target.get(c, 0) or 0) > 0}
             continue
@@ -1223,6 +1209,38 @@ def gate_axis1(blocks, src):
     (_ok if not cov else _warn)('A-AXIS1-COVERAGE',
         'every targeted Axis-1 class was observable and every section bucketed.'
         if not cov else 'Axis-1 verdict is PARTIAL — ' + ' | '.join(cov))
+
+def _axis1_count_in(qs, lo, hi):
+    """Questions from an iterable that fall inside [lo, hi]. Non-numeric entries are
+    skipped rather than fatal — a manifest is written by another step and may carry
+    anything."""
+    if isinstance(qs, str) or not hasattr(qs, '__iter__'):
+        return 0
+    n = 0
+    for q in qs:
+        try:
+            n += 1 if lo <= int(q) <= hi else 0
+        except (TypeError, ValueError):
+            pass
+    return n
+
+
+def _axis1_observed(sec_qs, fig_in_sec, passage_n, di_qs, lo, hi):
+    """The per-section Axis-1 observed vector. EXTRACTED so it can be unit-tested.
+
+    v2.28 — this arithmetic was inline and therefore UNPINNED: reverting the TEXT
+    residual to `sec_qs - figural` left all 221 fixtures green, because TEXT is the
+    residual class and check_axis_conformance() skips it, so no verdict depends on the
+    value. Code that no assertion can reach is code that will drift silently — the
+    residual is the one place an over-produced DI could hide (the false-PASS half of the
+    v2.24 defect), so its arithmetic is worth pinning even though nothing audits it yet.
+    Extracting it makes the value assertable directly rather than only through a verdict.
+    """
+    di_n = _axis1_count_in(di_qs, lo, hi)
+    fig_n = len(fig_in_sec) if hasattr(fig_in_sec, '__len__') else 0
+    return {'FIGURAL': fig_n, 'PASSAGE': int(passage_n or 0), 'DI': di_n,
+            'TEXT': max(0, int(sec_qs or 0) - fig_n - int(passage_n or 0) - di_n)}
+
 
 def gate_axis1_overlap(blocks, src):
     """v2.26 — A-AXIS1-OVERLAP. THE STIMULUS CLASSES MUST PARTITION THE PAPER.
@@ -5363,6 +5381,71 @@ def self_test():
     _v, _c = _cov(n_fig=0, target={'TEXT': 59, 'FIGURAL': 0, 'DI': 1},
                   di_qs=[3], di_present=True)
     check('DI-counted-from-the-producer-record-only', _v == _axv('OK'))
+
+    # (x) THE AUDITOR'S USE OF THE v1.45 ENGINE WORK (v2.28).
+    #     blueprint_core gained 19 fixtures for figural_band / figural_target_series /
+    #     figural_quota / schedule_figural_slots. audit_canonical gained ZERO while
+    #     changing 14 lines, so BOTH of its new lines survived mutation at 221/221:
+    #     deleting the axis1_target_series indexing, and passing observed_spread=None,
+    #     each silently reverted the gate to false-FAILing real-shaped papers — exactly
+    #     what those two fixes exist to prevent — with nothing objecting.
+    #     THE ENGINE BEING WELL-TESTED SAYS NOTHING ABOUT THE CONSUMER USING IT.
+    #     Verified by mutation before writing these: both reverts left every fixture green.
+    _OBSF = [8, 3, 2, 6, 3]          # the reference exam's real per-paper figure counts
+
+    def _axv2(n_fig, target, series=None, spread=None, mock_n=1, sec_qs=60):
+        _s = _src_stub(tq=sec_qs, sections=[{'name': 'S1', 'q_range': [1, sec_qs],
+                                             'total_qs': sec_qs}])
+        _sec = {'status': 'ok', 'axis1_target_per_mock': target}
+        if series is not None:
+            _sec['axis1_target_series'] = series
+        if spread is not None:
+            _sec['axis1_observed_figural'] = spread
+        _s['axis_schedule'] = {'S1': _sec}
+        _s['mock_n'] = mock_n
+        _s['figural_qs'] = set(range(1, n_fig + 1))
+        _s['figural_manifest_present'] = True
+        _s['figural_subtopics'] = {}; _s['figural_reducible'] = {}
+        _s['passage_linked'] = set(); _s['di_qs'] = set(); _s['di_manifest_present'] = False
+        _reset(); _safe_gate('A-AXIS1', gate_axis1, [], _s)
+        return {c: l for l, c, _m in RESULTS}.get('A-AXIS1')
+
+    # SERIES INDEXING. Mock 5 of the rotating series targets 2 figures; a paper carrying
+    # 8 must FAIL. Drop the indexing and the gate falls back to the flat target of 5,
+    # whose band admits 8 — the paper passes and the series means nothing.
+    check('AXIS1-uses-THIS-mock-target-from-the-series',
+          _axv2(8, {'TEXT': 55, 'FIGURAL': 5}, series=[8, 6, 3, 3, 2],
+                spread=_OBSF, mock_n=5) == _axv('FAIL'))
+    # And the positive half: mock 1 targets 8, so 8 figures is exactly right.
+    check('AXIS1-series-accepts-a-figure-heavy-mock-when-that-is-its-target',
+          _axv2(8, {'TEXT': 55, 'FIGURAL': 5}, series=[8, 6, 3, 3, 2],
+                spread=_OBSF, mock_n=1) == _axv('OK'))
+
+    # OBSERVED SPREAD. With the exam's own volatility the band is ±4, so a real
+    # 8-figure paper passes against a target of 5. Pass observed_spread=None and the
+    # band narrows to ±2 — the gate resumes rejecting genuine papers, which is the
+    # failure mode that made the v2.24 band unusable.
+    check('AXIS1-band-widens-to-the-exam-own-observed-spread',
+          _axv2(8, {'TEXT': 55, 'FIGURAL': 5}, spread=_OBSF) == _axv('OK'))
+    # Not a blanket amnesty: the 26-figure paper is still far outside even the wide band.
+    check('AXIS1-wide-band-still-catches-the-original-defect',
+          _axv2(26, {'TEXT': 55, 'FIGURAL': 5}, spread=_OBSF) == _axv('FAIL'))
+
+    # TEXT RESIDUAL, pinned directly. No verdict depends on it (the residual class is
+    # skipped by check_axis_conformance), so reverting it to `sec_qs - figural` left all
+    # 221 fixtures green. Unreachable-by-assertion code drifts; the residual is the one
+    # place an over-produced DI could hide, so its arithmetic is asserted as a unit.
+    check('AXIS1-TEXT-residual-subtracts-every-stimulus-class',
+          _axis1_observed(60, [1, 2, 3], 4, {10, 11}, 1, 60)
+          == {'FIGURAL': 3, 'PASSAGE': 4, 'DI': 2, 'TEXT': 51})
+    check('AXIS1-TEXT-residual-never-goes-negative',
+          _axis1_observed(2, [1, 2], 3, {1, 2}, 1, 60)['TEXT'] == 0)
+    check('AXIS1-observed-counts-only-inside-the-section',
+          _axis1_observed(30, [1], 0, {5, 99}, 1, 30)['DI'] == 1)
+    check('AXIS1-observed-total-on-junk',
+          _axis1_observed(None, None, None, 'x', 1, 30)['TEXT'] == 0
+          and _axis1_count_in(None, 1, 5) == 0
+          and _axis1_count_in(['a', 2], 1, 5) == 1)
 
     # (v) A-AXIS1-OVERLAP (v2.26). Axis-1 classes must PARTITION the paper — one
     #     stimulus per question, which is why the targets are declared to sum to

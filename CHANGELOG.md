@@ -1,5 +1,59 @@
 # Changelog
 
+## 2026.08.06.6
+
+### GAP-2026-08-06-CONSUMER — the engine was fixtured, its consumer was not
+
+**Found in review of 2026.08.06.5, not by any gate.**
+
+That release added `figural_band()`, `figural_target_series()`, `figural_quota()` and
+`schedule_figural_slots()` to `blueprint_core` with **19 new fixtures**. It changed 14
+lines in `audit_canonical.py` and added **zero**. Both of the auditor's new lines
+therefore survived mutation at 221/221 green:
+
+| mutation | effect | fixtures failing |
+|---|---|---|
+| delete the `axis1_target_series` indexing | gate reverts to a flat target | **0** |
+| pass `observed_spread=None` | band narrows back to the fixed one | **0** |
+| revert the TEXT residual to `sec_qs - figural` | over-produced DI hides in TEXT | **0** |
+
+Revert any one and the gate silently resumes false-FAILing real-shaped papers — which is
+precisely what those fixes exist to prevent. **A well-tested engine says nothing about
+whether its consumer uses it.** This is the third release running where the finding is
+that shape, so the fixtures below are written against the CONSUMER, not the engine.
+
+**And the series was inert in production anyway.** `src['mock_n']` was set only inside
+the self-test stub, never by `load_sources()`, so `gate_axis1` never took the branch that
+reads the rotating series — the fixture would have passed while the gate kept using the
+flat mean. Now wired in the loader. This is the "well-fixtured but unwired" pattern
+`audit_callgraph` catches on the engine side and nothing catches on the loader side.
+
+**Fix.**
+
+* Eight new consumer-side fixtures, each mutation-verified against 2026.08.06.5:
+  series indexing (a mock whose series target is 2 must fail an 8-figure paper, and mock
+  1, whose target IS 8, must pass it), observed-spread widening (a real 8-figure paper
+  passes a target of 5 with the exam's own volatility, while the 26-figure paper is still
+  caught), and the TEXT residual.
+* `_axis1_observed()` / `_axis1_count_in()` extracted from `gate_axis1`. The residual is
+  skipped by `check_axis_conformance()`, so **no verdict depends on it** and no
+  verdict-level fixture can ever pin it — extracting the arithmetic makes it assertable
+  as a unit. Code no assertion can reach is code that drifts, and the residual is the one
+  place an over-produced DI could hide.
+* `src['mock_n']` set in `load_sources()`.
+
+**One review claim did not reproduce.** `di_manifest_present`'s absent-vs-empty test was
+reported unpinned; ignoring the flag fails four fixtures
+(`AXIS1-unobservable-DI-*`, `DI-absent-manifest-is-unestablished-not-a-shortfall`).
+It was already covered.
+
+**Self-tests.** blueprint_core 342/342, audit_canonical 229/229 (225/225 engine-absent).
+
+**Carry-forwards NOT addressed here** (pre-existing, unrelated to the axis work, and
+deliberately not mixed into a targeted release): `SPEC_MANIFEST` does not track
+`bootstrap.py` or `gen_manifest.py`, so the verifier and the manifest generator are
+themselves unverified; and the D2 `figure_specs` transport.
+
 ## 2026.08.06.5
 
 ### GAP-2026-08-06-IRREDUCIBLE — the exemption became the budget
