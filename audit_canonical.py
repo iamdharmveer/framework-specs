@@ -396,6 +396,13 @@ def load_sources(args):
     src['cloze_linked']   = set(rc.get('cloze_linked', []))   if rc else set()
     fig = next((x for x in reg.get('figural_manifests', []) if x.get('mock') == N), None)
     src['figural_qs'] = set(int(q) for q in fig.get('figural_qs', [])) if fig else set()
+    # v2.24.1 — PRESENCE, NOT EMPTINESS. "no figural manifest for this mock" and "a
+    # manifest saying zero figures" are OPPOSITE FACTS, and an empty set represents both.
+    # A-AXIS1 must not read a missing record as a paper with no figures: that turns an
+    # unknown into a hard shortfall FAIL. Same distinction gate_images already draws
+    # between `declared` and `resolved`.
+    src['figural_manifest_present'] = fig is not None
+    src['rc_manifest_present'] = rc is not None
     # v2.10 (GAP-2026-07-26-003 D2): A-FIGPROFILE needs the object_type Step 7 v5.31
     # recorded per figural question, plus that question's subtopic_id. Both travel in
     # the registry figural_manifest, which Step 8 DOES receive — unlike the answer_key
@@ -982,6 +989,41 @@ def gate_msq_instr(blocks, src):
         else 'multi instruction-count mismatch — ' + ' | '.join(bad))
 
 
+def _axis_sections(src):
+    """Well-formed (name, lo, hi) triples, plus the names that could not be bucketed.
+
+    Hardened after fuzzing (v2.24.1): `sections` arriving as None or a string, a section
+    that is not a dict, a q_range that is a string or holds non-numeric entries, and a
+    reversed range were all live crashes. _safe_gate would have caught them as
+    A-GATEERROR — but a gate that dies takes its whole finding set with it (the defect
+    class v2.12 closed), and A-AXIS1 dying is indistinguishable from A-AXIS1 passing to
+    anyone reading a summary. A malformed section is SKIPPED and NAMED, never fatal.
+    """
+    good, bad = [], []
+    secs = src.get('sections')
+    if not isinstance(secs, (list, tuple)):
+        return good, bad
+    for sec in secs:
+        if not isinstance(sec, dict):
+            bad.append('<malformed section>')
+            continue
+        name = sec.get('name') or sec.get('section_name')
+        rng = sec.get('q_range')
+        if not isinstance(rng, (list, tuple)) or len(rng) < 2:
+            bad.append(str(name))
+            continue
+        try:
+            lo, hi = int(rng[0]), int(rng[1])
+        except (TypeError, ValueError):
+            bad.append(str(name))
+            continue
+        if hi < lo:
+            bad.append(str(name))
+            continue
+        good.append((name, lo, hi))
+    return good, bad
+
+
 def gate_axis1(blocks, src):
     """v2.24 — A-AXIS1 + A-AXIS-UNGATED (machine, per PAPER).
 
@@ -1010,53 +1052,121 @@ def gate_axis1(blocks, src):
     Fully dormant on a pre-v1.23 blueprint (no axis_schedule ⇒ SKIP), which is what keeps
     ~200 deployed exams passing un-remeasured.
     """
-    sched = src.get('axis_schedule') or {}
-    if not sched:
+    sched = src.get('axis_schedule')
+    if not isinstance(sched, dict) or not sched:
         return _ok('A-AXIS1', 'no axis_schedule in blueprint (pre-v1.23) — dormant.')
+    # ENGINE GUARD, DELIBERATELY NON-FATAL (v2.24.1). The conformance VERDICT is
+    # delegated to blueprint_core so generator and auditor cannot drift; without it the
+    # verdict is honestly NOT ESTABLISHED. But the COVERAGE report below is set
+    # arithmetic over blueprint keys and needs no engine at all — and it is the MOST
+    # valuable line precisely when something is missing, because it says what could not
+    # be checked. An early return here would have silenced it exactly then. (Same defect
+    # shape as A-AXIS-UNGATED, which had to be lifted out of this gate for this reason.)
     try:
         import blueprint_core as bc
     except Exception:
-        return _warn('A-AXIS1', 'blueprint_core not importable — Axis-1 NOT ESTABLISHED.')
+        bc = None
 
-    fig = set(int(q) for q in (src.get('figural_qs') or set()))
-    red_map = src.get('figural_reducible') or {}
-    sub_of = {str(k): v for k, v in (src.get('figural_subtopics') or {}).items()}
+    fig = set()
+    for _q in (src.get('figural_qs') or set()):
+        try:
+            fig.add(int(_q))
+        except (TypeError, ValueError):
+            pass                      # a non-numeric qnum is unbucketable, not fatal
+    red_map = src.get('figural_reducible')
+    red_map = red_map if isinstance(red_map, dict) else {}
+    _so = src.get('figural_subtopics')
+    sub_of = {str(k): v for k, v in _so.items()} if isinstance(_so, dict) else {}
 
-    def _section_for(qnum):
-        for s in src.get('sections', []):
-            lo, hi = (s.get('q_range') or [0, 0])[:2]
-            if lo <= qnum <= hi:
-                return s.get('name') or s.get('section_name')
-        return None
 
-    findings, audited = [], 0
-    for sec in src.get('sections', []):
-        name = sec.get('name') or sec.get('section_name')
-        ss = sched.get(name) or {}
-        target = ss.get('axis1_target_per_mock') or {}
-        if not target:
+    # WHAT THIS AUDITOR CAN ACTUALLY SEE (v2.24.1). FIGURAL comes from the registry
+    # figural manifest and PASSAGE from the rc manifest — both are the PRODUCER'S OWN
+    # record, which is why they are trustworthy. DI has no such record anywhere, and it
+    # CANNOT be inferred from the docx: a MATCH question renders a real Word table too
+    # (G-MATCH-TABLE mandates it), so "block contains a table" would misread every MATCH
+    # question as DI. Guessing there would trade a silent miss for a confident wrong
+    # answer, so DI is reported UNESTABLISHED instead.
+    observable = set()
+    if src.get('figural_manifest_present', bool(fig)):
+        observable.add('FIGURAL')
+    if src.get('rc_manifest_present', False):
+        observable.add('PASSAGE')
+
+    # No usable q_range ⇒ no way to bucket questions into a section ⇒ every count would
+    # be a fabricated zero. Such sections are SKIPPED and NAMED; never audited blind.
+    _secs, skipped = _axis_sections(src)
+    findings, unest, audited = [], set(), 0
+    for name, lo, hi in _secs:
+        ss = sched.get(name)
+        ss = ss if isinstance(ss, dict) else {}
+        target = ss.get('axis1_target_per_mock')
+        if not isinstance(target, dict) or not target:
             continue
-        obs_fig = [q for q in fig if _section_for(q) == name]
+        sec_qs = hi - lo + 1
+        obs_fig = [q for q in fig if lo <= q <= hi]
         # Irreducible questions were granted OVER budget by design; count them so the
         # expectation can rise rather than a finding be raised.
         irr = sum(1 for q in obs_fig
                   if red_map.get(str(sub_of.get(str(q), ''))) is False)
-        lo, hi = (sec.get('q_range') or [0, 0])[:2]
-        sec_qs = max(0, hi - lo + 1)
-        observed = {'FIGURAL': len(obs_fig), 'TEXT': sec_qs - len(obs_fig)}
-        verdict, fs = bc.check_axis_conformance(observed, target, irreducible=irr,
-                                                axis='axis1')
+        _pl = src.get('passage_linked')
+        _pl = _pl if isinstance(_pl, (set, list, tuple)) else ()
+        _pn = 0
+        for _q in _pl:
+            try:
+                _pn += 1 if lo <= int(_q) <= hi else 0
+            except (TypeError, ValueError):
+                pass
+        observed = {'FIGURAL': len(obs_fig), 'PASSAGE': _pn,
+                    'TEXT': sec_qs - len(obs_fig)}
+        if bc is None:
+            unest |= {c for c in observable if int(target.get(c, 0) or 0) > 0}
+            continue
+        verdict, fs, un = bc.check_axis_conformance(observed, target, irreducible=irr,
+                                                    axis='axis1', observable=observable)
         audited += 1
+        unest |= set(un)
         if verdict == 'FAIL':
             findings += [f'{name} — {f}' for f in fs]
 
-    if not audited:
+    # Figural questions the registry lists but no section claims. Silent loss here would
+    # under-count the very quantity the gate exists to police.
+    orphan = sorted(q for q in fig
+                    if not any(lo <= q <= hi for _n, lo, hi in _secs))
+
+    if bc is None:
+        _warn('A-AXIS1', 'blueprint_core not importable — Axis-1 conformance NOT '
+                         'ESTABLISHED (coverage below still reported).')
+    elif not audited:
         _ok('A-AXIS1', 'no Axis-1 target in any section (dormant).')
     else:
         (_ok if not findings else _fail)('A-AXIS1',
             f'Axis-1 stimulus mix within budget across {audited} section(s).'
             if not findings else
             'Axis-1 stimulus mix breaches the blueprint budget — ' + ' | '.join(findings))
+
+    # COVERAGE IS REPORTED SEPARATELY FROM CONFORMANCE. "within budget" and "I could not
+    # check" are different claims and must never be collapsed into one green line.
+    cov = []
+    if unest:
+        # The reason differs per class, so name the right one. A generic parenthetical
+        # that blamed DI regardless was printed even when FIGURAL was the missing class,
+        # which sends the reader to fix the wrong thing.
+        _why = {'DI': 'no producer record exists, and it cannot be inferred from the '
+                      'docx without misreading every MATCH table as DI',
+                'FIGURAL': 'the registry carries no figural manifest for this mock — '
+                           'absent record, which is NOT the same fact as zero figures',
+                'PASSAGE': 'the registry carries no rc manifest for this mock'}
+        cov.append('no observation source for '
+                   + '; '.join(f'{c} ({_why.get(c, "no producer record")})'
+                               for c in sorted(unest)))
+    if skipped:
+        cov.append('section(s) with no usable q_range skipped: ' + ', '.join(skipped))
+    if orphan:
+        cov.append(f'{len(orphan)} figural Q(s) fall outside every section q_range: '
+                   + ', '.join(f'Q{q}' for q in orphan[:10]))
+    (_ok if not cov else _warn)('A-AXIS1-COVERAGE',
+        'every targeted Axis-1 class was observable and every section bucketed.'
+        if not cov else 'Axis-1 verdict is PARTIAL — ' + ' | '.join(cov))
 
 def gate_axis_ungated(blocks, src):
     """v2.24 — A-AXIS-UNGATED. THE RULE THAT STOPS THIS RETURNING AS AXIS-4.
@@ -1074,8 +1184,8 @@ def gate_axis_ungated(blocks, src):
     where checks go missing. A meta-gate that can be disabled by an unrelated import
     failure is not a meta-gate.
     """
-    sched = src.get('axis_schedule') or {}
-    if not sched:
+    sched = src.get('axis_schedule')
+    if not isinstance(sched, dict) or not sched:
         return _ok('A-AXIS-UNGATED', 'no axis_schedule in blueprint (pre-v1.23) — dormant.')
     gated = {'axis1', 'axis3'}          # the axes THIS auditor actually counts
     hard = set()
@@ -1104,16 +1214,30 @@ def gate_axis3(blocks, src):
     OBSERVED is read from the registry options_by_q: 0 options ⇒ NAT; otherwise the
     stem's select-instruction decides MSQ vs MCQ. MCQ is the residual and is not audited.
     """
-    sched = src.get('axis_schedule') or {}
-    if not sched:
+    sched = src.get('axis_schedule')
+    if not isinstance(sched, dict) or not sched:
         return _ok('A-AXIS3', 'no axis_schedule in blueprint (pre-v1.23) — dormant.')
     try:
         import blueprint_core as bc
     except Exception:
-        return _warn('A-AXIS3', 'blueprint_core not importable — Axis-3 NOT ESTABLISHED.')
+        bc = None                       # verdict degrades; coverage below still runs
 
-    obq = src.get('options_by_q') or {}
+    obq = src.get('options_by_q')
+    obq = obq if isinstance(obq, dict) else {}
     phrases = [p.lower() for p in (src.get('msq_instruction_phrases') or [])]
+
+    # OBSERVABILITY (v2.24.1). NAT is established from the registry options_by_q (0
+    # options ⇒ NAT); MSQ from the select-instruction in the stem. Each depends on
+    # evidence that can simply be absent — a pre-v1.4 registry carries no options_by_q,
+    # and an exam with no multi-select subtopics contributes no phrases. Auditing
+    # against absent evidence would report "produced 0, budget 4" on a paper that may
+    # hold exactly four, i.e. a hard FAIL derived from having looked at nothing. MCQ is
+    # the residual and is never audited.
+    observable = set()
+    if obq:
+        observable.add('NAT')
+    if phrases and any(getattr(b, 'paras', None) for b in blocks):
+        observable.add('MSQ')
 
     def _mech(b):
         if str(obq.get(str(b.qnum), '')) == '0':
@@ -1121,29 +1245,49 @@ def gate_axis3(blocks, src):
         stem = para_text(b.paras[0]) if getattr(b, 'paras', None) else ''
         return 'MSQ' if any(p in stem.lower() for p in phrases) else 'MCQ'
 
-    findings, audited = [], 0
-    for sec in src.get('sections', []):
-        name = sec.get('name') or sec.get('section_name')
-        target = (sched.get(name) or {}).get('axis3_target_per_mock') or {}
-        if not target:
+    _secs, skipped = _axis_sections(src)
+    findings, unest, audited = [], set(), 0
+    for name, lo, hi in _secs:
+        _ss = sched.get(name)
+        target = (_ss if isinstance(_ss, dict) else {}).get('axis3_target_per_mock')
+        if not isinstance(target, dict) or not target:
             continue
-        lo, hi = (sec.get('q_range') or [0, 0])[:2]
         observed = {}
         for b in blocks:
             if lo <= b.qnum <= hi:
                 m = _mech(b)
                 observed[m] = observed.get(m, 0) + 1
-        verdict, fs = bc.check_axis_conformance(observed, target, axis='axis3')
+        if bc is None:
+            unest |= {c for c in observable if int(target.get(c, 0) or 0) > 0}
+            continue
+        verdict, fs, un = bc.check_axis_conformance(observed, target, axis='axis3',
+                                                    observable=observable)
         audited += 1
+        unest |= set(un)
         if verdict == 'FAIL':
             findings += [f'{name} — {f}' for f in fs]
 
-    if not audited:
-        return _ok('A-AXIS3', 'no Axis-3 target in any section (dormant).')
-    (_ok if not findings else _fail)('A-AXIS3',
-        f'Axis-3 mechanism mix within budget across {audited} section(s).'
-        if not findings else
-        'Axis-3 mechanism mix breaches the blueprint budget — ' + ' | '.join(findings))
+    if bc is None:
+        _warn('A-AXIS3', 'blueprint_core not importable — Axis-3 conformance NOT '
+                         'ESTABLISHED (coverage below still reported).')
+    elif not audited:
+        _ok('A-AXIS3', 'no Axis-3 target in any section (dormant).')
+    else:
+        (_ok if not findings else _fail)('A-AXIS3',
+            f'Axis-3 mechanism mix within budget across {audited} section(s).'
+            if not findings else
+            'Axis-3 mechanism mix breaches the blueprint budget — ' + ' | '.join(findings))
+
+    cov = []
+    if unest:
+        cov.append('no observation source for ' + ', '.join(sorted(unest))
+                   + ' (NAT needs registry options_by_q; MSQ needs stem text + '
+                     'instruction phrases)')
+    if skipped:
+        cov.append('section(s) with no usable q_range skipped: ' + ', '.join(skipped))
+    (_ok if not cov else _warn)('A-AXIS3-COVERAGE',
+        'every targeted Axis-3 class was observable and every section bucketed.'
+        if not cov else 'Axis-3 verdict is PARTIAL — ' + ' | '.join(cov))
 
 
 def gate_nat(blocks, src):
@@ -4875,6 +5019,9 @@ def self_test():
         _s['figural_qs'] = set(range(1, n_fig + 1))
         _s['figural_subtopics'] = {str(q): f'ST{q}' for q in range(1, n_fig + 1)}
         _s['figural_reducible'] = {f'ST{q}': False for q in (irreducible_subs or [])}
+        _s['figural_manifest_present'] = True     # v2.24.1 — a REAL record exists
+        _s['rc_manifest_present'] = False
+        _s['passage_linked'] = set()
         _reset()
         _safe_gate('A-AXIS1', gate_axis1, [], _s)
         return {c: l for l, c, _m in RESULTS}
@@ -4930,6 +5077,142 @@ def self_test():
     _reset(); _safe_gate('A-AXIS1', gate_axis1, [], _s_no)
     check('AXIS1-dormant-without-axis-schedule',
           {c: l for l, c, _m in RESULTS}.get('A-AXIS1') == 'OK')
+
+    # (h) OBSERVABILITY (v2.24.1). Every assertion below is MUTATION-VERIFIED against
+    #     the v2.24.0 build, where the gate fabricated observed=0 for any class it held
+    #     no evidence for. That produced a HARD FAIL reading "produced 0, budget 6" on
+    #     every DI-targeting exam in the estate — a false alarm on ~200 exams, and a
+    #     gate that cries wolf is one somebody switches off.
+    def _cov(**kw):
+        _r = _axis_verdict(**kw)
+        return _r.get('A-AXIS1'), _r.get('A-AXIS1-COVERAGE')
+    # SCOPE NOTE: the assertions from here to (n) exercise the DELEGATED verdict, so
+    # they need blueprint_core reachable. Under audit_mutation.py — which runs this file
+    # from a temp dir where the engine is absent — the honest answer to every one of
+    # them is NOT ESTABLISHED, and asserting 'OK'/'WARN' there would be asserting the
+    # harness's isolation rather than the gate. The engine-free half of the contract is
+    # asserted unconditionally in (o) below, so nothing goes unchecked either way.
+    _v, _c = _cov(n_fig=4, target={'TEXT': 50, 'FIGURAL': 4, 'DI': 6})
+    check('AXIS1-unobservable-DI-does-not-fail-the-paper', _v == _axv('OK'))
+    if _BC_OK:
+        check('AXIS1-unobservable-DI-is-REPORTED-not-swallowed', _c == 'WARN')
+
+    # (i) AND COVERAGE IS NOT AN AMNESTY. An observable breach must still FAIL in the
+    #     same run, or (h) could be "achieved" by excusing every class.
+    _v, _c = _cov(n_fig=26, target={'TEXT': 50, 'FIGURAL': 4, 'DI': 6})
+    check('AXIS1-observable-breach-still-fails-beside-unobservable-class',
+          _v == _axv('FAIL') and _c == 'WARN')
+
+    # (j) A CLEAN, FULLY-OBSERVABLE PAPER MUST BE CLEAN ON BOTH LINES — no standing WARN
+    #     that trains the reader to ignore the coverage line.
+    _v, _c = _cov(n_fig=4, target={'TEXT': 56, 'FIGURAL': 4})
+    if _BC_OK:
+        check('AXIS1-fully-observable-conformant-paper-is-clean-on-both-lines',
+              _v == 'OK' and _c == 'OK')
+
+    # (k) NO q_range ⇒ every count would be a fabricated zero. Skip and SAY SO.
+    _sq = _src_stub(tq=60, sections=[{'name': 'S1', 'total_qs': 60}])
+    _sq['axis_schedule'] = {'S1': {'status': 'ok',
+                                   'axis1_target_per_mock': {'TEXT': 56, 'FIGURAL': 4}}}
+    _sq['figural_qs'] = set(); _sq['figural_manifest_present'] = True
+    _sq['figural_subtopics'] = {}; _sq['figural_reducible'] = {}; _sq['passage_linked'] = set()
+    _reset(); _safe_gate('A-AXIS1', gate_axis1, [], _sq)
+    _rq = {c: l for l, c, _m in RESULTS}
+    check('AXIS1-section-without-q_range-is-skipped-not-failed',
+          _rq.get('A-AXIS1') == _axv('OK')
+          and (_rq.get('A-AXIS1-COVERAGE') == 'WARN' if _BC_OK else True))
+
+    # (l) A MISSING FIGURAL MANIFEST IS NOT A PAPER WITH NO FIGURES. Reading absence as
+    #     zero turns "I have no record" into a shortfall FAIL — the same conflation
+    #     gate_images separates as `declared` vs `resolved`.
+    # PRESENT manifest reporting zero figures against a budget of 4 IS a real shortfall
+    # and must FAIL. This is the exact contrast that gives the next assertion meaning:
+    # same observed counts, opposite verdicts, decided solely by whether a record exists.
+    _v, _c = _cov(n_fig=0, target={'TEXT': 56, 'FIGURAL': 4})
+    check('AXIS1-present-manifest-with-zero-figures-is-a-real-shortfall',
+          _v == _axv('FAIL'))
+    _sm = _src_stub(tq=60, sections=[{'name': 'S1', 'q_range': [1, 60], 'total_qs': 60}])
+    _sm['axis_schedule'] = {'S1': {'status': 'ok',
+                                   'axis1_target_per_mock': {'TEXT': 56, 'FIGURAL': 4}}}
+    _sm['figural_qs'] = set(); _sm['figural_manifest_present'] = False
+    _sm['figural_subtopics'] = {}; _sm['figural_reducible'] = {}; _sm['passage_linked'] = set()
+    _reset(); _safe_gate('A-AXIS1', gate_axis1, [], _sm)
+    _rm = {c: l for l, c, _m in RESULTS}
+    # Coverage must WARN here in BOTH environments, but for different reasons: with the
+    # engine, because FIGURAL has no observation source; without it, because nothing was
+    # established at all. Either way the paper must not be reported as short of figures.
+    check('AXIS1-absent-manifest-is-unestablished-not-a-shortfall',
+          _rm.get('A-AXIS1') == _axv('OK')
+          and (_rm.get('A-AXIS1-COVERAGE') == 'WARN' if _BC_OK else True))
+
+    # (m) FIGURAL Qs BELONGING TO NO SECTION must be surfaced. Silent loss would
+    #     under-count the exact quantity this gate exists to police.
+    _so = _src_stub(tq=60, sections=[{'name': 'S1', 'q_range': [1, 30], 'total_qs': 30}])
+    _so['axis_schedule'] = {'S1': {'status': 'ok',
+                                   'axis1_target_per_mock': {'TEXT': 28, 'FIGURAL': 2}}}
+    _so['figural_qs'] = {97, 98}; _so['figural_manifest_present'] = True
+    _so['figural_subtopics'] = {}; _so['figural_reducible'] = {}; _so['passage_linked'] = set()
+    _reset(); _safe_gate('A-AXIS1', gate_axis1, [], _so)
+    check('AXIS1-orphan-figural-questions-are-reported',
+          {c: l for l, c, _m in RESULTS}.get('A-AXIS1-COVERAGE') == 'WARN')
+
+    # (n) AXIS-3 SHARES THE DISCIPLINE. An empty options_by_q means NAT is genuinely
+    #     unknowable; asserting a shortfall from that is a verdict built on nothing.
+    _s3 = _src_stub(tq=30, sections=[{'name': 'S1', 'q_range': [1, 30], 'total_qs': 30}])
+    _s3['axis_schedule'] = {'S1': {'status': 'ok',
+                                   'axis3_target_per_mock': {'MCQ': 16, 'NAT': 10, 'MSQ': 4}}}
+    _s3['options_by_q'] = {}; _s3['msq_instruction_phrases'] = []
+    _reset(); _safe_gate('A-AXIS3', gate_axis3, [], _s3)
+    _r3 = {c: l for l, c, _m in RESULTS}
+    check('AXIS3-absent-evidence-does-not-fail-the-paper', _r3.get('A-AXIS3') == _axv('OK'))
+    if _BC_OK:
+        check('AXIS3-absent-evidence-is-REPORTED', _r3.get('A-AXIS3-COVERAGE') == 'WARN')
+
+    # (o) ENGINE-FREE HALF OF THE CONTRACT, asserted in EVERY environment. When
+    #     blueprint_core is unreachable the verdict must degrade to NOT ESTABLISHED
+    #     (never to a silent OK, which would be a vacuous pass) AND the coverage line
+    #     must still be emitted — it is the line that says what went unchecked, so
+    #     losing it exactly when the engine is missing is the worst possible time.
+    check('AXIS1-both-lines-always-emitted',
+          set(_axis_verdict(n_fig=4, target={'TEXT': 56, 'FIGURAL': 4}))
+          >= {'A-AXIS1', 'A-AXIS1-COVERAGE'})
+    check('AXIS1-verdict-degrades-to-NOT-ESTABLISHED-never-to-silent-OK',
+          _axis_verdict(n_fig=26, target={'TEXT': 56, 'FIGURAL': 4}).get('A-AXIS1')
+          in (('FAIL',) if _BC_OK else ('WARN',)))
+
+    # (p) _axis_sections — EACH REJECTION BRANCH IS NAMED, NOT JUST SKIPPED.
+    #     Tested directly rather than through a gate because the gate's coverage WARN
+    #     can also be raised by an unobservable class, so a gate-level fixture cannot
+    #     tell WHICH cause fired and would pass even if the malformed-section report
+    #     were deleted (mutation-verified: these four appends survived every gate-level
+    #     fixture). A section silently vanishing is the worst outcome here — its
+    #     questions leave the denominator and the budget looks satisfied because part
+    #     of the paper stopped existing.
+    _gs, _bs = _axis_sections({'sections': [
+        {'name': 'GOOD', 'q_range': [1, 30]},        # well-formed
+        'not-a-dict',                                 # → '<malformed section>'
+        {'name': 'NORANGE'},                          # q_range absent
+        {'name': 'STRRANGE', 'q_range': 'bad'},       # q_range not a sequence
+        {'name': 'SHORT', 'q_range': [1]},            # q_range too short
+        {'name': 'NONNUM', 'q_range': ['a', 'b']},    # non-numeric bounds
+        {'name': 'REVERSED', 'q_range': [30, 1]},     # hi < lo
+    ]})
+    check('AXIS-SECTIONS-keeps-only-the-well-formed-section',
+          _gs == [('GOOD', 1, 30)])
+    check('AXIS-SECTIONS-names-every-rejected-section',
+          _bs == ['<malformed section>', 'NORANGE', 'STRRANGE', 'SHORT',
+                  'NONNUM', 'REVERSED'])
+    check('AXIS-SECTIONS-non-dict-section-is-named-not-dropped',
+          '<malformed section>' in _axis_sections({'sections': [42]})[1])
+    check('AXIS-SECTIONS-missing-range-is-named',
+          _axis_sections({'sections': [{'name': 'X'}]})[1] == ['X'])
+    check('AXIS-SECTIONS-non-numeric-bounds-are-named',
+          _axis_sections({'sections': [{'name': 'X', 'q_range': ['a', 2]}]})[1] == ['X'])
+    check('AXIS-SECTIONS-reversed-range-is-named',
+          _axis_sections({'sections': [{'name': 'X', 'q_range': [9, 2]}]})[1] == ['X'])
+    check('AXIS-SECTIONS-total-on-hostile-input',
+          all(_axis_sections(_h) == ([], []) for _h in
+              ({}, {'sections': None}, {'sections': 'x'}, {'sections': 42})))
 
     # (g) A-AXIS-UNGATED — the rule that stops this returning as Axis-4. An axis the
     #     blueprint marks enforcement:"hard" with no gate here is itself a finding.

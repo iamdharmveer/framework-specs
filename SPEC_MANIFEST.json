@@ -148,9 +148,9 @@
       "end_sentinel": "    sys.exit(main(sys.argv))"
     },
     "audit_canonical.py": {
-      "lines": 6214,
-      "sha256": "93884aea45b9a09761f39f6ae8fc57714ca7b78e8d475d3a80a8cbce830f3df3",
-      "size_bytes": 338675,
+      "lines": 6497,
+      "sha256": "db1705a8af48d60642c0b4035dc32f077445cb9ad28b97fd8bfc42e92b1e174a",
+      "size_bytes": 355274,
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()"
     },
@@ -183,9 +183,9 @@
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)"
     },
     "blueprint_core.py": {
-      "lines": 3950,
-      "sha256": "73dea0d7b3833cd75cd3d97f3aa0b5dcb5ac0d19ea162af8c3a5084f0e3ee8c6",
-      "size_bytes": 207391,
+      "lines": 4094,
+      "sha256": "c14f87756b950aff85a9c6d4a6a503cd7fd9c81807b4dc5d4c67d01e31a58097",
+      "size_bytes": 215629,
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")"
     },

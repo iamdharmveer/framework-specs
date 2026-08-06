@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.06.1",
+  "framework_version": "2026.08.06.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -302,11 +302,11 @@
       "bytes": 105980
     },
     "blueprint_core.py": {
-      "sha256": "73dea0d7b3833cd75cd3d97f3aa0b5dcb5ac0d19ea162af8c3a5084f0e3ee8c6",
+      "sha256": "c14f87756b950aff85a9c6d4a6a503cd7fd9c81807b4dc5d4c67d01e31a58097",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 3950,
-      "bytes": 207391
+      "lines": 4094,
+      "bytes": 215629
     },
     "paper_pipeline.py": {
       "sha256": "f27b59d590f81789847ad55fb10a0455b8c9a3d9574b09bb1cf35ae8842015cf",
@@ -351,11 +351,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "93884aea45b9a09761f39f6ae8fc57714ca7b78e8d475d3a80a8cbce830f3df3",
+      "sha256": "db1705a8af48d60642c0b4035dc32f077445cb9ad28b97fd8bfc42e92b1e174a",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 6214,
-      "bytes": 338675
+      "lines": 6497,
+      "bytes": 355274
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",

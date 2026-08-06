@@ -694,6 +694,38 @@ AXIS_BAND_REL = 0.15    # … or ±15%, whichever is LARGER. A band, not an equa
 STIMULUS_CLASSES  = ("TEXT", "FIGURAL", "PASSAGE", "DI")     # Axis-1
 MECHANISM_CLASSES = ("MCQ", "MSQ", "NAT")                    # Axis-3
 
+def _axis_int(v):
+    """Total non-negative-integer coercion for the whole Axis cluster.
+
+    blueprint_core's contract is that these functions NEVER raise (RA-9 / CLAUDE.md):
+    one malformed key must not take out a gate — the defect class v2.12 closed for the
+    other call sites. The inputs here arrive from JSON written by another step, so
+    None, '', 'x', NaN, ±inf and negatives are all reachable in practice and every one
+    of them was a live crash until fuzzing found them. Counts are non-negative integers,
+    so anything that is not one collapses to 0.
+    """
+    try:
+        f = float(v)
+    except (TypeError, ValueError, OverflowError):
+        return 0
+    if f != f or f in (float('inf'), float('-inf')):        # NaN / ±inf
+        return 0
+    try:
+        n = int(f)
+    except (ValueError, OverflowError):
+        return 0
+    return n if n > 0 else 0
+
+
+def _axis_float(v):
+    """Total non-negative-float coercion (rates, tolerances). See _axis_int."""
+    try:
+        f = abs(float(v))
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return f if (f == f and f != float('inf')) else 0.0
+
+
 _AXIS_KEYS = {
     "axis1": ("axis1_target_per_mock", STIMULUS_CLASSES,  "TEXT"),
     "axis3": ("axis3_target_per_mock", MECHANISM_CLASSES, "MCQ"),
@@ -715,20 +747,26 @@ def build_axis_tracker(section_sched, axis="axis1", counts=None):
     Returns a plain dict (JSON-serialisable, registry-safe), or None when there is
     no usable target — in which case every grant is allowed and behaviour is legacy.
     """
-    if not section_sched or section_sched.get("status") != "ok":
+    if not isinstance(section_sched, dict) or section_sched.get("status") != "ok":
         return None
     key, classes, residual = _AXIS_KEYS.get(axis, _AXIS_KEYS["axis1"])
-    target = {k: int(v) for k, v in (section_sched.get(key) or {}).items()}
-    if not target:
+    _raw = section_sched.get(key)
+    if not isinstance(_raw, dict):
         return None
+    target = {str(k): _axis_int(v) for k, v in _raw.items()}
+    if not any(target.values()):
+        return None
+    if not isinstance(counts, dict):
+        counts = {}
+    _c = counts.get("counts")
     return {
         "axis":       axis,
         "target":     target,
-        "counts":     dict((counts or {}).get("counts", {})),
+        "counts":     {str(k): _axis_int(v) for k, v in _c.items()} if isinstance(_c, dict) else {},
         "residual":   residual,       # the class every unclaimed slot falls back to
         "classes":    list(classes),
-        "irreducible": int((counts or {}).get("irreducible", 0)),
-        "granted":    list((counts or {}).get("granted", [])),
+        "irreducible": _axis_int(counts.get("irreducible", 0)),
+        "granted":    list(counts.get("granted") or []),
     }
 
 
@@ -739,28 +777,28 @@ def axis_need(tr, cls):
     unclaimed slot decays into and is never steered toward — the same treatment
     DIRECT gets on Axis-2.
     """
-    if tr is None or cls == tr["residual"]:
+    if not isinstance(tr, dict) or cls == tr.get("residual"):
         return 0
-    gap = int(tr["target"].get(cls, 0)) - int(tr["counts"].get(cls, 0))
+    gap = _axis_int(tr.get("target", {}).get(cls, 0)) - _axis_int(tr.get("counts", {}).get(cls, 0))
     return gap if gap > 0 else 0
 
 
 def axis_record(tr, cls, irreducible=False):
     """Book one produced question against the budget. Idempotent per call site."""
-    if tr is None:
+    if not isinstance(tr, dict):
         return
-    tr["counts"][cls] = int(tr["counts"].get(cls, 0)) + 1
-    if irreducible and cls != tr["residual"]:
-        tr["irreducible"] += 1
+    tr["counts"][cls] = _axis_int(tr["counts"].get(cls, 0)) + 1
+    if irreducible and cls != tr.get("residual"):
+        tr["irreducible"] = _axis_int(tr.get("irreducible", 0)) + 1
 
 
 def axis_snapshot(tr):
     """Serialise for the registry commit / audit hand-off. None ⇒ nothing to write."""
-    if tr is None:
+    if not isinstance(tr, dict):
         return None
-    return {"counts": dict(tr["counts"]),
-            "irreducible": int(tr["irreducible"]),
-            "granted": list(tr["granted"])}
+    return {"counts": dict(tr.get("counts") or {}),
+            "irreducible": _axis_int(tr.get("irreducible", 0)),
+            "granted": list(tr.get("granted") or [])}
 
 
 def axis_grant_figural(tr, subtopic_id, reducible=True, cls="FIGURAL"):
@@ -795,7 +833,7 @@ def axis_grant_figural(tr, subtopic_id, reducible=True, cls="FIGURAL"):
                                           REPLACEMENT_RULE as a TEXT question drawn from
                                           that subtopic's own observed PYQ patterns.
     """
-    if tr is None:
+    if not isinstance(tr, dict):
         return (True, "inert")
     if not reducible:
         axis_record(tr, cls, irreducible=True)
@@ -831,14 +869,22 @@ def rank_figural_candidates(allocated, rates=None, reducible=None):
     """
     rates = rates or {}
     reducible = reducible or {}
+    if not isinstance(rates, dict):
+        rates = {}
+    if not isinstance(reducible, dict):
+        reducible = {}
     def _key(item):
-        _q, sid = item
-        red = bool(reducible.get(sid, True))
-        return (0 if not red else 1, -float(rates.get(sid, 0.0) or 0.0), str(sid))
-    return sorted(list(allocated), key=_key)
+        try:
+            _q, sid = item
+        except (TypeError, ValueError):
+            return (1, 0.0, str(item))
+        red = reducible.get(sid, True)
+        return (0 if red is False else 1, -_axis_float(rates.get(sid, 0.0)), str(sid))
+    return sorted(list(allocated or []), key=_key)
 
 
 def check_axis_conformance(observed, target, irreducible=0, axis="axis1",
+                           observable=None,
                            band_abs=AXIS_BAND_ABS, band_rel=AXIS_BAND_REL):
     """THE VERIFY STAGE. Did the produced paper honour its own budget?
 
@@ -851,31 +897,63 @@ def check_axis_conformance(observed, target, irreducible=0, axis="axis1",
     irreducible       : count of granted-over-budget irreducible questions. The
                         expectation is raised by this, so a legitimate overage is a
                         SILENT PASS and only unexplained excess fails.
+    observable        : the classes the CALLER could actually establish from the
+                        artefacts it holds. None ⇒ all of them (legacy callers).
 
-    Returns (verdict, findings) — verdict in 'PASS' | 'FAIL' | 'SKIP'.
+    OBSERVABILITY IS NOT OPTIONAL, AND ITS ABSENCE IS NOT A ZERO.
+      An auditor that cannot see a class must say so. The first cut of this function
+      had no `observable` parameter, so a caller with no evidence for a class passed
+      observed=0 — and a target of DI:6 then produced a HARD FAIL reading "produced 0,
+      budget 6" on a paper that may well have had six. Two failure modes, both severe:
+        • FALSE FAIL on every DI/PASSAGE exam in the estate — and a gate that cries
+          wolf gets switched off by hand, which is strictly worse than no gate;
+        • FALSE PASS in the other direction, because an unobservable class that WAS
+          over-produced fell into the residual and vanished.
+      An unobservable class is therefore EXCLUDED from the verdict and returned in
+      `unestablished` for the caller to surface as a coverage WARN. Reporting "I could
+      not check this" is a real result; inventing a zero is not.
+
+    Returns (verdict, findings, unestablished):
+      verdict      'PASS' | 'FAIL' | 'SKIP'
+      findings     human-readable breaches (empty on PASS/SKIP)
+      unestablished classes that were targeted but could not be observed
+
+    NEVER RAISES. A malformed target (None, a string, a negative) degrades to 0 rather
+    than killing the run — the whole gate dying over one bad key is the defect class
+    v2.12 closed for blueprint_core's other call sites.
     """
+    _as_int, _as_frac = _axis_int, _axis_float
+
     if not target:
-        return ("SKIP", [])                     # no budget ⇒ nothing to verify (inert)
+        return ("SKIP", [], [])                 # no budget ⇒ nothing to verify (inert)
     _k, classes, residual = _AXIS_KEYS.get(axis, _AXIS_KEYS["axis1"])
-    findings = []
+    obs_ok = None if observable is None else {str(c) for c in observable}
+    findings, unestablished = [], []
     for cls in classes:
-        tgt = int(target.get(cls, 0))
-        obs = int((observed or {}).get(cls, 0))
+        tgt = _as_int((target or {}).get(cls, 0))
         if cls == residual:
             continue                            # residual absorbs all rounding by design
-        allow = max(int(band_abs), int(round(tgt * float(band_rel))))
-        hi = tgt + allow + (int(irreducible) if cls == "FIGURAL" else 0)
+        if obs_ok is not None and cls not in obs_ok:
+            if tgt > 0 or _as_int((observed or {}).get(cls, 0)) > 0:
+                unestablished.append(cls)
+            continue
+        obs = _as_int((observed or {}).get(cls, 0))
+        # Band parameters are caller-supplied and get the same total coercion as counts;
+        # a bad tolerance must widen or narrow the band, never kill the gate.
+        _rel = _as_frac(band_rel)
+        allow = max(_as_int(band_abs), _as_int(round(tgt * _rel)))
+        hi = tgt + allow + (_as_int(irreducible) if cls == "FIGURAL" else 0)
         lo = max(0, tgt - allow)
         if obs > hi:
             findings.append(
                 f"{cls}: produced {obs}, budget {tgt} (tolerance +{allow}"
-                + (f", +{irreducible} irreducible" if irreducible and cls == "FIGURAL" else "")
+                + (f", +{_as_int(irreducible)} irreducible" if irreducible and cls == "FIGURAL" else "")
                 + f"). The paper over-represents {cls} against the exam it models.")
         elif obs < lo:
             findings.append(
                 f"{cls}: produced {obs}, budget {tgt} (tolerance -{allow}). "
                 f"The paper under-represents {cls} against the exam it models.")
-    return ("FAIL" if findings else "PASS", findings)
+    return ("FAIL" if findings else "PASS", findings, sorted(set(unestablished)))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -2950,7 +3028,7 @@ def self_test():
     check('AXIS1-absent-safe-grants-everything',
           _inert is None
           and all(axis_grant_figural(_inert, f'ST{i}')[0] for i in range(50))
-          and check_axis_conformance({'FIGURAL': 26}, {}) [0] == 'SKIP')
+          and check_axis_conformance({'FIGURAL': 26}, {})[0] == 'SKIP')
 
     # 3 — IRREDUCIBLE OVERRIDES THE CAP. A question whose OPTIONS are images cannot
     #     become text; capping it would ship an unanswerable question. GOLDEN RULE.
@@ -2965,12 +3043,12 @@ def self_test():
     #     clean PASS with no finding to read past.
     check('AXIS1-explained-overage-is-silent-pass',
           check_axis_conformance({'FIGURAL': 7}, {'FIGURAL': 2}, irreducible=5)
-          == ('PASS', []))
+          == ('PASS', [], []))
 
     # 5 — THE EXEMPTION IS NOT A HOLE. Excess NOT covered by irreducibles must still
     #     FAIL. Without this, 3 and 4 could be "achieved" by exempting every figural
     #     question, restoring the exact defect this cluster exists to close.
-    _v, _f = check_axis_conformance({'FIGURAL': 26}, {'FIGURAL': 2}, irreducible=0)
+    _v, _f, _u = check_axis_conformance({'FIGURAL': 26}, {'FIGURAL': 2}, irreducible=0)
     check('AXIS1-unexplained-excess-still-fails', _v == 'FAIL' and len(_f) == 1)
     check('AXIS1-partial-explanation-still-fails',
           check_axis_conformance({'FIGURAL': 26}, {'FIGURAL': 2}, irreducible=5)[0] == 'FAIL')
@@ -2980,7 +3058,7 @@ def self_test():
     #     switched off by hand, which is worse than no gate.
     check('AXIS1-conformant-paper-passes',
           check_axis_conformance({'TEXT': 28, 'FIGURAL': 2}, _sched_ok['axis1_target_per_mock'])
-          == ('PASS', []))
+          == ('PASS', [], []))
     check('AXIS1-within-band-passes',
           check_axis_conformance({'FIGURAL': 3}, {'FIGURAL': 2})[0] == 'PASS')
     check('AXIS1-residual-class-never-audited',
@@ -3013,7 +3091,73 @@ def self_test():
           axis_need(_tr3, 'NAT') == 10 and axis_need(_tr3, 'MCQ') == 0
           and check_axis_conformance({'MSQ': 9}, {'MSQ': 4}, axis='axis3')[0] == 'FAIL')
 
-    # 10 — SNAPSHOT ROUND-TRIPS, so a resumed/batched run keeps one honest budget
+    # 11 — OBSERVABILITY (v2.24.1). A class the caller cannot see must be EXCLUDED and
+    #      REPORTED, never scored as zero. Without this, a DI:6 target produced a hard
+    #      FAIL reading "produced 0, budget 6" on every DI exam in the estate — a gate
+    #      that cries wolf gets switched off by hand, which is worse than no gate.
+    _v11, _f11, _u11 = check_axis_conformance(
+        {'FIGURAL': 4}, {'TEXT': 50, 'FIGURAL': 4, 'DI': 6}, observable={'FIGURAL'})
+    check('AXIS1-unobservable-class-is-not-scored-as-zero',
+          _v11 == 'PASS' and _f11 == [] and _u11 == ['DI'])
+
+    # 12 — AND OBSERVABILITY IS NOT A MUTE BUTTON. An OBSERVABLE class must still be
+    #      judged in the very same call, or 11 could be "achieved" by excusing everything.
+    _v12, _f12, _u12 = check_axis_conformance(
+        {'FIGURAL': 26}, {'TEXT': 50, 'FIGURAL': 4, 'DI': 6}, observable={'FIGURAL'})
+    check('AXIS1-observable-class-still-judged-alongside-unobservable',
+          _v12 == 'FAIL' and len(_f12) == 1 and _u12 == ['DI'])
+
+    # 13 — observable=None keeps the legacy all-classes reading, so no existing caller
+    #      silently loses coverage on upgrade.
+    check('AXIS1-observable-None-audits-everything',
+          check_axis_conformance({}, {'DI': 6})[0] == 'FAIL')
+
+    # 14 — NEVER RAISES. blueprint_core's stated contract, and the reason one bad key
+    #      cannot take out a whole gate (the defect class v2.12 closed). A malformed
+    #      target used to throw TypeError straight through check_axis_conformance.
+    for _bad in (None, 'six', float('nan'), -3, [], {'x': 1}):
+        check(f'AXIS-conformance-never-raises[{type(_bad).__name__}:{_bad!r}]'[:60],
+              check_axis_conformance({'FIGURAL': _bad}, {'FIGURAL': _bad})[0] in
+              ('PASS', 'FAIL', 'SKIP'))
+    check('AXIS-conformance-survives-non-dict-observed',
+          check_axis_conformance(None, {'FIGURAL': 2})[0] in ('PASS', 'FAIL'))
+
+    # 15 — TOTALITY OF THE WHOLE CLUSTER (v2.24.1). Every one of these inputs was a
+    #      LIVE CRASH found by fuzzing, not by reading the code: int(float('inf'))
+    #      raises OverflowError, which the original except-clause did not catch, and a
+    #      non-dict schedule or a string rate went straight through to AttributeError /
+    #      ValueError. blueprint_core's contract is NEVER RAISES — one malformed key
+    #      from another step's JSON must not take a gate down with it (the defect class
+    #      v2.12 closed), because a gate that dies looks exactly like a gate that passed.
+    _JUNK = (None, 'x', '', -1, float('nan'), float('inf'), float('-inf'), [], {}, 2**70)
+    _tot = True
+    for _j in _JUNK:
+        try:
+            check_axis_conformance({'FIGURAL': _j}, {'FIGURAL': _j}, _j, 'axis1', None, _j, _j)
+            _t = build_axis_tracker({'status': 'ok', 'axis1_target_per_mock': {'FIGURAL': _j}},
+                                    'axis1', {'counts': {'FIGURAL': _j}, 'irreducible': _j})
+            axis_need(_t, 'FIGURAL'); axis_record(_t, 'FIGURAL')
+            axis_grant_figural(_t, 'S', True); axis_snapshot(_t)
+            build_axis_tracker(_j, 'axis1', _j)
+            rank_figural_candidates([(1, 'a')], {'a': _j}, {'a': _j})
+        except Exception:
+            _tot = False
+    check('AXIS-cluster-never-raises-on-malformed-input', _tot)
+    # A non-finite COUNT is meaningless, so it collapses to 0 and is then judged like
+    # any other 0 — here a genuine shortfall against a budget of 2. The property under
+    # test is that a verdict is REACHED at all; asserting PASS would have been asserting
+    # that garbage input is conformant, which is a different and wrong claim.
+    check('AXIS-nonfinite-count-reaches-a-verdict-instead-of-raising',
+          check_axis_conformance({'FIGURAL': float('inf')}, {'FIGURAL': 2})[0] == 'FAIL'
+          and check_axis_conformance({'FIGURAL': float('inf')}, {'FIGURAL': 0})[0] == 'PASS')
+    check('AXIS-non-dict-schedule-yields-an-inert-tracker',
+          build_axis_tracker('notadict', 'axis1') is None
+          and build_axis_tracker(42, 'axis1') is None)
+    check('AXIS-all-zero-target-is-inert-not-a-budget-of-zero',
+          build_axis_tracker({'status': 'ok', 'axis1_target_per_mock': {'FIGURAL': 0}},
+                             'axis1') is None)
+
+    # 16 — SNAPSHOT ROUND-TRIPS, so a resumed/batched run keeps one honest budget
     #      instead of silently restarting it at zero every batch.
     _tr4 = build_axis_tracker(_sched_ok, 'axis1')
     axis_grant_figural(_tr4, 'ST1')

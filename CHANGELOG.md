@@ -1,5 +1,61 @@
 # Changelog
 
+## 2026.08.06.2
+
+### GAP-2026-08-06-AXIS1-COVERAGE — the new gates were auditing evidence they did not have
+
+A line-by-line re-review of 2026.08.06.1 found six defects in the gates shipped the same
+day. All six share ONE root cause, and it is the same shape as the defect the release
+existed to fix: **a check asserting something it had not established.**
+
+`gate_axis1` built `observed = {'FIGURAL': n, 'TEXT': rest}` and passed it to
+`check_axis_conformance` against a target that could name DI or PASSAGE. Neither is
+derivable from the artefacts the auditor holds, so both scored a fabricated **0**:
+
+1. **FALSE FAIL on every DI/PASSAGE-targeting exam.** A target of `DI: 6` produced a hard
+   FAIL reading "produced 0, budget 6" on a paper that may well have had six. A gate that
+   cries wolf across ~200 exams is one somebody switches off by hand — strictly worse
+   than no gate.
+2. **FALSE PASS in the other direction.** DI questions actually produced fell into the
+   TEXT residual and vanished. The reference exam's own DI drift (budget 0, Mock01
+   allocated 1, Mock02 allocated 3) was invisible to the gate meant to catch it.
+3. **`gate_axis3` had the identical flaw.** With an empty registry `options_by_q` — any
+   pre-v1.4 registry — NAT is unknowable, yet the gate reported "produced 0, budget 10".
+4. **A section with no `q_range`** made every count a fabricated zero and failed the paper.
+5. **`check_axis_conformance` raised TypeError** on a malformed target value, violating
+   blueprint_core's stated NEVER-RAISES contract and taking the whole gate down with it.
+6. **Figural questions outside every `q_range`** were silently dropped from the count.
+
+**Fix — observability is part of the contract.**
+
+`check_axis_conformance()` takes an `observable` set and returns a 3-tuple
+`(verdict, findings, unestablished)`. A class the caller cannot see is EXCLUDED from the
+verdict and RETURNED, never scored as zero. Gates declare what they can actually
+establish: FIGURAL from the registry figural manifest, PASSAGE from the rc manifest, NAT
+from `options_by_q`, MSQ from stem instruction phrases. **DI is deliberately reported
+unestablished rather than guessed** — a MATCH question renders a real Word table too
+(G-MATCH-TABLE mandates it), so table-presence detection would misread every MATCH
+question as DI, trading a silent miss for a confident wrong answer.
+
+New `A-AXIS1-COVERAGE` / `A-AXIS3-COVERAGE` gates report what could not be checked.
+"Within budget" and "I could not check" are different claims and are no longer collapsed
+into one green line. `figural_manifest_present` / `rc_manifest_present` separate "no
+record exists" from "a record saying zero" — opposite facts an empty set represented
+identically, the same distinction `gate_images` draws between `declared` and `resolved`.
+
+The engine-import guard is now NON-FATAL: the verdict degrades to NOT ESTABLISHED, but
+the coverage line still prints. An early return there silenced the report of what went
+unchecked at exactly the moment it mattered most — the same defect shape that forced
+`A-AXIS-UNGATED` out of `gate_axis1` in the previous release.
+
+`check_axis_conformance` is now total: malformed, negative, NaN, string and None values
+all degrade to 0 rather than raising.
+
+**Self-tests.** blueprint_core 323/323, audit_canonical 204/204 (200/200 with the engine
+absent — both environments asserted, since the degraded path is part of the contract).
+No behaviour change for any conformant paper: the reference exam's 26-figure Mock01 still
+FAILs A-AXIS1 with the same message.
+
 ## 2026.08.06.1
 
 ### GAP-2026-08-06-AXIS1 — a budget nothing spent (BLOCKER)
