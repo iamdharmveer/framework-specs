@@ -366,6 +366,20 @@ def load_sources(args):
     bp = src['blueprint']
     src['total_questions'] = bp.get('total_questions')
     src['sections'] = bp.get('sections', [])
+    # v2.24 (GAP-2026-08-06-AXIS1) — the Axis-1/Axis-3 budgets. Present since blueprint
+    # v1.23 and, until this release, read by NOTHING: not by Step 7, not by any gate.
+    # Two real papers shipped at 26 and 30 figures against a budget of 4 and were
+    # certified clean, because no gate had ever been asked to count.
+    src['axis_schedule'] = bp.get('axis_schedule', {}) or {}
+    # figural_reducible per subtopic — an irreducible question (its OPTIONS are images)
+    # is granted a figure even over budget, so the expectation rises with it instead of
+    # a finding being raised. Read from section_rules; absent ⇒ every subtopic reducible,
+    # which is the STRICTER reading and therefore the safe default for an auditor.
+    src['figural_reducible'] = {}
+    for _m in re.finditer(r'subtopic_id:\s*(\S+)((?:(?!subtopic_id:).)*?)'
+                          r'figural_reducible:\s*(true|false)',
+                          src.get('rules_txt') or '', re.DOTALL | re.I):
+        src['figural_reducible'][_m.group(1)] = (_m.group(3).lower() == 'true')
     rt = src['rules_txt']
     src['language']      = (cat_c(rt, 'language', 'english') or 'english').lower()
     src['options_count'] = int(cat_c(rt, 'options_count', '4'))
@@ -966,6 +980,170 @@ def gate_msq_instr(blocks, src):
     (_ok if not bad else _fail)('A-MSQ-INSTR',
         'observed multi instruction counts match the blueprint per section.' if not bad
         else 'multi instruction-count mismatch — ' + ' | '.join(bad))
+
+
+def gate_axis1(blocks, src):
+    """v2.24 — A-AXIS1 + A-AXIS-UNGATED (machine, per PAPER).
+
+    THE GATE THAT WAS MISSING. Step 6 has written axis1_target_per_mock into
+    blueprint.json since v1.23; until this release nothing spent it and nothing checked
+    it. Measured cost on a real exam (IIT_JAM_BIOTECHNOLOGY, 2026-08-06): a budget of 4
+    figural questions per 60-question paper, two delivered papers carrying 26 and 30,
+    and a clean bill of health from all 24 existing gates. The exam itself averages 4.4
+    figures per paper over five years, so those mocks trained candidates on a paper that
+    does not exist.
+
+    OBSERVED is counted from the registry figural manifest (the producer's OWN record of
+    what it drew), bucketed into sections by q_range. TEXT is the residual and is never
+    audited — it absorbs all rounding by construction.
+
+    THE VERDICT IS DELEGATED to bc.check_axis_conformance(), the SAME engine function
+    Step 7 spends against, so the generator and its auditor cannot drift apart. That is
+    the identical discipline A-FIGPROFILE already applies to figure TYPE; this gate asks
+    the COUNT question that one never asked.
+
+    IRREDUCIBLE OVERAGE IS SILENT, NOT WARNED. A question whose OPTIONS are images has no
+    text form, so it is granted a figure even over budget and the EXPECTATION RISES with
+    it. Excess that irreducibles fully explain is a clean PASS; excess they do not is a
+    FAIL. Without that second half the exemption would be the hole the gate leaks through.
+
+    Fully dormant on a pre-v1.23 blueprint (no axis_schedule ⇒ SKIP), which is what keeps
+    ~200 deployed exams passing un-remeasured.
+    """
+    sched = src.get('axis_schedule') or {}
+    if not sched:
+        return _ok('A-AXIS1', 'no axis_schedule in blueprint (pre-v1.23) — dormant.')
+    try:
+        import blueprint_core as bc
+    except Exception:
+        return _warn('A-AXIS1', 'blueprint_core not importable — Axis-1 NOT ESTABLISHED.')
+
+    fig = set(int(q) for q in (src.get('figural_qs') or set()))
+    red_map = src.get('figural_reducible') or {}
+    sub_of = {str(k): v for k, v in (src.get('figural_subtopics') or {}).items()}
+
+    def _section_for(qnum):
+        for s in src.get('sections', []):
+            lo, hi = (s.get('q_range') or [0, 0])[:2]
+            if lo <= qnum <= hi:
+                return s.get('name') or s.get('section_name')
+        return None
+
+    findings, audited = [], 0
+    for sec in src.get('sections', []):
+        name = sec.get('name') or sec.get('section_name')
+        ss = sched.get(name) or {}
+        target = ss.get('axis1_target_per_mock') or {}
+        if not target:
+            continue
+        obs_fig = [q for q in fig if _section_for(q) == name]
+        # Irreducible questions were granted OVER budget by design; count them so the
+        # expectation can rise rather than a finding be raised.
+        irr = sum(1 for q in obs_fig
+                  if red_map.get(str(sub_of.get(str(q), ''))) is False)
+        lo, hi = (sec.get('q_range') or [0, 0])[:2]
+        sec_qs = max(0, hi - lo + 1)
+        observed = {'FIGURAL': len(obs_fig), 'TEXT': sec_qs - len(obs_fig)}
+        verdict, fs = bc.check_axis_conformance(observed, target, irreducible=irr,
+                                                axis='axis1')
+        audited += 1
+        if verdict == 'FAIL':
+            findings += [f'{name} — {f}' for f in fs]
+
+    if not audited:
+        _ok('A-AXIS1', 'no Axis-1 target in any section (dormant).')
+    else:
+        (_ok if not findings else _fail)('A-AXIS1',
+            f'Axis-1 stimulus mix within budget across {audited} section(s).'
+            if not findings else
+            'Axis-1 stimulus mix breaches the blueprint budget — ' + ' | '.join(findings))
+
+def gate_axis_ungated(blocks, src):
+    """v2.24 — A-AXIS-UNGATED. THE RULE THAT STOPS THIS RETURNING AS AXIS-4.
+
+    Any axis the blueprint marks enforcement:"hard" MUST have a gate in this auditor.
+    An enforced budget with no gate is exactly the state Axis-1 and Axis-3 sat in for
+    four releases — Step 6 wrote the target, Step 7 never read it, no gate ever counted
+    it — and nothing in the framework was capable of noticing. Two mocks shipped at 26
+    and 30 figures against a budget of 4 and were certified clean by 24 green gates.
+
+    DELIBERATELY ENGINE-FREE. This is set arithmetic over blueprint keys and nothing
+    else. It was originally written inside gate_axis1, behind that gate's
+    blueprint_core import guard, which meant the one check whose entire purpose is
+    catching an un-audited budget went silent in precisely the degraded environment
+    where checks go missing. A meta-gate that can be disabled by an unrelated import
+    failure is not a meta-gate.
+    """
+    sched = src.get('axis_schedule') or {}
+    if not sched:
+        return _ok('A-AXIS-UNGATED', 'no axis_schedule in blueprint (pre-v1.23) — dormant.')
+    gated = {'axis1', 'axis3'}          # the axes THIS auditor actually counts
+    hard = set()
+    for sec in sched.values():
+        if not isinstance(sec, dict):
+            continue
+        for k, v in sec.items():
+            if k.endswith('_enforcement') and str(v).lower() == 'hard':
+                hard.add(k[:-len('_enforcement')])
+    miss = sorted(hard - gated)
+    (_ok if not miss else _fail)('A-AXIS-UNGATED',
+        f'every hard-enforced axis {sorted(hard) or "(none)"} has a gate.' if not miss else
+        f'blueprint enforces {miss} but this auditor has no gate for it — an unspent, '
+        'unchecked budget is how GAP-2026-08-06-AXIS1 shipped twice.')
+
+
+def gate_axis3(blocks, src):
+    """v2.24 — A-AXIS3 (machine, per PAPER). Axis-3 = answer mechanism (MCQ/MSQ/NAT).
+
+    The IDENTICAL defect as Axis-1 — budgeted by Step 6, spent by nobody
+    (`grep axis3 Framework_MockTestCreate.md` → 0 hits) — and masked on exams whose
+    SECTIONS are defined per mechanism, where the section structure enforced it by
+    accident. On any exam that mixes mechanisms inside a section it was as unenforced as
+    Axis-1 was, and would have failed the same way given the same trigger.
+
+    OBSERVED is read from the registry options_by_q: 0 options ⇒ NAT; otherwise the
+    stem's select-instruction decides MSQ vs MCQ. MCQ is the residual and is not audited.
+    """
+    sched = src.get('axis_schedule') or {}
+    if not sched:
+        return _ok('A-AXIS3', 'no axis_schedule in blueprint (pre-v1.23) — dormant.')
+    try:
+        import blueprint_core as bc
+    except Exception:
+        return _warn('A-AXIS3', 'blueprint_core not importable — Axis-3 NOT ESTABLISHED.')
+
+    obq = src.get('options_by_q') or {}
+    phrases = [p.lower() for p in (src.get('msq_instruction_phrases') or [])]
+
+    def _mech(b):
+        if str(obq.get(str(b.qnum), '')) == '0':
+            return 'NAT'
+        stem = para_text(b.paras[0]) if getattr(b, 'paras', None) else ''
+        return 'MSQ' if any(p in stem.lower() for p in phrases) else 'MCQ'
+
+    findings, audited = [], 0
+    for sec in src.get('sections', []):
+        name = sec.get('name') or sec.get('section_name')
+        target = (sched.get(name) or {}).get('axis3_target_per_mock') or {}
+        if not target:
+            continue
+        lo, hi = (sec.get('q_range') or [0, 0])[:2]
+        observed = {}
+        for b in blocks:
+            if lo <= b.qnum <= hi:
+                m = _mech(b)
+                observed[m] = observed.get(m, 0) + 1
+        verdict, fs = bc.check_axis_conformance(observed, target, axis='axis3')
+        audited += 1
+        if verdict == 'FAIL':
+            findings += [f'{name} — {f}' for f in fs]
+
+    if not audited:
+        return _ok('A-AXIS3', 'no Axis-3 target in any section (dormant).')
+    (_ok if not findings else _fail)('A-AXIS3',
+        f'Axis-3 mechanism mix within budget across {audited} section(s).'
+        if not findings else
+        'Axis-3 mechanism mix breaches the blueprint budget — ' + ' | '.join(findings))
 
 
 def gate_nat(blocks, src):
@@ -3096,6 +3274,9 @@ def run_audit(args):
     _safe_gate('A-QNFIRST', gate_qnfirst, blocks)
     _safe_gate('A-MSQ-INSTR', gate_msq_instr, blocks, src)   # v1.2 — MULTI only; dormant otherwise
     _safe_gate('A-NAT', gate_nat, blocks, src)               # v1.4 — NUMERICAL only; dormant otherwise
+    _safe_gate('A-AXIS1', gate_axis1, blocks, src)           # v2.24 — stimulus budget; dormant pre-v1.23
+    _safe_gate('A-AXIS3', gate_axis3, blocks, src)           # v2.24 — mechanism budget; dormant pre-v1.23
+    _safe_gate('A-AXIS-UNGATED', gate_axis_ungated, blocks, src)  # v2.24 — meta: engine-free by design
     _safe_gate('A-BLANKSEP', gate_blanksep, doc, blocks)
     _safe_gate('A-FONT', gate_font, doc, src)
     _safe_gate('A-SECHDR', gate_sechdr, blocks, doc, src)
@@ -4667,6 +4848,105 @@ def self_test():
     check('FIGCOMP-no-specs-legacy-path-unchanged',
           _img_verdict(['q1_problem.png'], specs={}).get('A-FIGCOMP') == 'WARN'
           and _img_verdict(_CANON5, specs={}).get('A-FIGCOMP') == 'OK')
+
+    # ════════════════════════════════════════════════════════════════════════
+    # 53a-5 — A-AXIS1 / A-AXIS3 BUDGET GATES  (v2.24, GAP-2026-08-06-AXIS1)
+    # ════════════════════════════════════════════════════════════════════════
+    # The defect these close shipped TWICE on a real exam and passed all 24 gates
+    # then in the roster. Every assertion below is MUTATION-VERIFIED against the
+    # pre-v2.24 build (where the gate did not exist and the verdict map is empty).
+    # No exam, section or format name here is load-bearing.
+
+    def _axis_verdict(n_fig, target, sec_qs=60, irreducible_subs=None, enforcement='hard'):
+        # ENGINE-AVAILABILITY IS PART OF THE CONTRACT, NOT AN OBSTACLE TO IT.
+        # audit_mutation.py copies THIS file into a temp dir and runs it from that
+        # dir, so blueprint_core is genuinely absent there. The gate's answer in that
+        # situation — WARN "NOT ESTABLISHED" — is CORRECT and load-bearing: an auditor
+        # must never fabricate a verdict it cannot establish. So the fixture asserts
+        # the real verdicts when the engine is present and the degraded verdict when it
+        # is not, rather than forcing one environment or skipping the checks. Both
+        # branches are real assertions; neither is vacuous. (Forcing the import by
+        # mutating sys.path was the first attempt and it was wrong: it would have hidden
+        # a genuinely broken delegation behind a fixture's convenience.)
+        _s = _src_stub(tq=sec_qs, sections=[{'name': 'S1', 'q_range': [1, sec_qs],
+                                             'total_qs': sec_qs}])
+        _s['axis_schedule'] = {'S1': {'status': 'ok', 'axis1_target_per_mock': target,
+                                      'axis1_enforcement': enforcement}}
+        _s['figural_qs'] = set(range(1, n_fig + 1))
+        _s['figural_subtopics'] = {str(q): f'ST{q}' for q in range(1, n_fig + 1)}
+        _s['figural_reducible'] = {f'ST{q}': False for q in (irreducible_subs or [])}
+        _reset()
+        _safe_gate('A-AXIS1', gate_axis1, [], _s)
+        return {c: l for l, c, _m in RESULTS}
+
+    try:
+        import blueprint_core as _bc_probe            # noqa: F401
+        _BC_OK = True
+    except Exception:
+        _BC_OK = False
+
+    def _axv(expected):
+        """The verdict to expect: the real one when the engine is reachable, WARN
+        (NOT ESTABLISHED) when it is not. A-AXIS-UNGATED is pure blueprint arithmetic
+        with no engine dependency, so it is asserted unconditionally."""
+        return expected if _BC_OK else 'WARN'
+
+    # (a) THE DEFECT ITSELF. 26 figures against a budget of 4 must FAIL. This is the
+    #     exact delivered paper that motivated the release; pre-v2.24 it was OK.
+    check('AXIS1-the-shipped-defect-now-fails',
+          _axis_verdict(26, {'TEXT': 56, 'FIGURAL': 4}).get('A-AXIS1') == _axv('FAIL'))
+
+    # (b) A CONFORMANT PAPER STAYS CLEAN — and the band is a band. Real papers vary
+    #     (the reference exam ranged 2→8 across five years); a gate demanding an exact
+    #     count gets switched off by hand, which is strictly worse than no gate.
+    check('AXIS1-conformant-paper-passes',
+          _axis_verdict(4, {'TEXT': 56, 'FIGURAL': 4}).get('A-AXIS1') == _axv('OK'))
+    check('AXIS1-within-band-passes',
+          _axis_verdict(5, {'TEXT': 56, 'FIGURAL': 4}).get('A-AXIS1') == _axv('OK'))
+
+    # (c) SHORTFALL IS A FINDING TOO. Auditing only the upper bound would leave the
+    #     gate half-blind: a 0-figure paper for a figural exam is as unfaithful as a
+    #     26-figure one.
+    check('AXIS1-shortfall-detected',
+          _axis_verdict(0, {'TEXT': 52, 'FIGURAL': 8}).get('A-AXIS1') == _axv('FAIL'))
+
+    # (d) IRREDUCIBLE OVERAGE IS SILENT (operator decision 2026-08-06). Questions whose
+    #     OPTIONS are images have no text form; they are granted over budget and the
+    #     EXPECTATION RISES with them, so there is no finding to read past.
+    check('AXIS1-irreducible-overage-is-silent-pass',
+          _axis_verdict(9, {'TEXT': 56, 'FIGURAL': 4},
+                        irreducible_subs=range(1, 10)).get('A-AXIS1') == _axv('OK'))
+
+    # (e) AND THE EXEMPTION IS NOT A HOLE. Excess NOT covered by irreducibles must
+    #     still FAIL. Without this, (d) could be "achieved" by exempting every figural
+    #     question — which restores the exact defect this gate exists to close.
+    check('AXIS1-unexplained-excess-still-fails',
+          _axis_verdict(26, {'TEXT': 56, 'FIGURAL': 4},
+                        irreducible_subs=[1, 2, 3]).get('A-AXIS1') == _axv('FAIL'))
+
+    # (f) DORMANT ON A PRE-v1.23 BLUEPRINT. ~200 deployed exams carry no axis_schedule
+    #     and must keep passing untouched until they are re-measured.
+    _s_no = _src_stub(tq=60); _s_no['figural_qs'] = set(range(1, 27))
+    _reset(); _safe_gate('A-AXIS1', gate_axis1, [], _s_no)
+    check('AXIS1-dormant-without-axis-schedule',
+          {c: l for l, c, _m in RESULTS}.get('A-AXIS1') == 'OK')
+
+    # (g) A-AXIS-UNGATED — the rule that stops this returning as Axis-4. An axis the
+    #     blueprint marks enforcement:"hard" with no gate here is itself a finding.
+    #     axis1/axis3 are gated, so a normal schedule is clean; a fabricated axis4 is not.
+    def _ungated(sched):
+        _s = _src_stub(tq=60); _s['axis_schedule'] = sched
+        _reset(); _safe_gate('A-AXIS-UNGATED', gate_axis_ungated, [], _s)
+        return {c: l for l, c, _m in RESULTS}.get('A-AXIS-UNGATED')
+    # NOT wrapped in _axv: this gate is engine-free ON PURPOSE, so it must return a real
+    # verdict even where blueprint_core is unreachable. Asserting the raw value here is
+    # what proves that independence — the property is the whole point of the gate.
+    check('AXIS-UNGATED-clean-when-every-hard-axis-is-gated',
+          _ungated({'S1': {'status': 'ok', 'axis1_enforcement': 'hard',
+                           'axis3_enforcement': 'hard'}}) == 'OK')
+    check('AXIS-UNGATED-detects-an-enforced-axis-with-no-gate',
+          _ungated({'S1': {'status': 'ok', 'axis4_enforcement': 'hard'}}) == 'FAIL')
+    check('AXIS-UNGATED-dormant-without-axis-schedule', _ungated({}) == 'OK')
 
     # 53b — MATH-TOKEN raster name is an A-MATHRASTER finding (kills math_raster).
     check('MATHRASTER-math-token-name-is-a-finding',

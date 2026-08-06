@@ -1,4 +1,14 @@
-# Framework_MockTestCreate v5.40
+# Framework_MockTestCreate v5.41
+# v5.41 — 2026-08-06 — GAP-2026-08-06-AXIS1: a budget nothing spent.
+#   `format: FIGURAL` was a RENDERING IMPERATIVE with no cap while
+#   axis1_target_per_mock — written since blueprint v1.23 — was read by NOTHING.
+#   Two delivered mocks carried 26 and 30 figures against a budget of 4, and all
+#   24 machine gates certified them clean. Format now means ELIGIBILITY: how many
+#   are drawn is capped by the Axis-1 budget, which ones by measured figural_rate.
+#   Axis-3 had the identical unspent-budget defect and is fixed in the same release.
+#   Standing rule: any axis marked enforcement:"hard" MUST have a spender in Step 7
+#   and a gate in the auditor (A-AXIS-UNGATED). Absent-safe; no deployed exam moves
+#   until it is re-measured via PYQExtract -> MockBlueprint -> MockCreate.
 # v5.40 — 2026-08-03 — DEFECT FIX: the Tier-A dossier had lost its reader.
 #   v5.39 retired Step 8, which was the only consumer that passed `--dossier` to the
 #   auditor. The writer (S13-4b) survived; the reader did not. audit_canonical.py still
@@ -2068,7 +2078,13 @@
 
            FORMAT DISPATCH (v5.13 — per question, mandatory decision point):
              Read the subtopic's format from section_rules (by subtopic_id).
-             IF format == FIGURAL:
+             IF format == FIGURAL AND bc.axis_grant_figural(...) GRANTED the slot:
+               (v5.37 — format is ELIGIBILITY, not an imperative. The budget is asked
+                FIRST, per S7-NEW-B0. A DENIED question does not come here at all: it
+                takes OPTION B and renders TEXT from this same subtopic's observed
+                PYQ_STEM_PATTERNS, keeping its slot, difficulty and cardinality.
+                Pre-v5.37 this line read `IF format == FIGURAL:` with no cap, which
+                shipped 26 and 30 figures against a budget of 4 — GAP-2026-08-06-AXIS1.)
                Read image_role from section_rules PYQ_IMAGE_ANALYSIS
                (default 'stem_and_options' if PYQ_IMAGE_ANALYSIS absent).
 
@@ -2132,7 +2148,13 @@
                  bc.check_figural_conformance — one rule, so the generator and its
                  auditor cannot drift apart.
                → Verify via view tool (9-item visual checklist, §10-S10-7)
-               Text stem with add_question_stem() alone is BANNED for format=FIGURAL.
+               Text stem with add_question_stem() alone is BANNED for a GRANTED figural
+               slot. (v5.37: this ban applies to a question the Axis-1 budget granted —
+               it is what stops a granted figure degrading into a text placeholder. It
+               does NOT apply to a DENIED question, whose text rendering via OPTION B is
+               the correct and mandated outcome. Before v5.37 no question could be
+               denied, so the two cases were indistinguishable and the ban read as an
+               unconditional obligation to draw.)
              IF stem_format_variant == 'match_the_following' (any TEXT/PASSAGE format):
                → Render via add_match_table() (§10-S10-3M): the Q.N-first bold instruction
                  paragraph, THEN a REAL Word table (List-I | List-II | … columns; unequal
@@ -3565,9 +3587,33 @@
       win_counts = axis2_window_counts.get(sec_name, {})    # running counts for THIS window (S3-4)
       axis2_trackers[sec_name] = build_axis2_tracker(sec_sched, win_counts)  # None ⇒ inert
 
+  # v5.37 (GAP-2026-08-06-AXIS1) — AXIS-1 AND AXIS-3 GET TRACKERS TOO.
+  # These two were MEASURED (Step 5) and BUDGETED (Step 6) and then never spent, for
+  # four releases. A budget that nothing spends is a bug: axis1_target_per_mock and
+  # axis3_target_per_mock sat in blueprint.json unread while Step 7 rendered figures
+  # straight off the per-subtopic `format` flag, shipping 26 and 30 figures against a
+  # budget of 4 on a real exam.
+  #
+  # PER PAPER, NOT PER WINDOW — the one deliberate difference from Axis-2. Axis-2's
+  # minority classes are too rare to place one in every paper, so it accumulates across
+  # a 10-paper window. Axis-1/Axis-3 are visible on a single sheet: one mock that is 43%
+  # figures, or all-MSQ, is wrong on its own terms whatever the window average says.
+  #
+  # AXIS-3 IS THE SAME DEFECT, MASKED. On exams whose sections are DEFINED per mechanism
+  # (Section A = MCQ, B = MSQ, C = NAT) the section structure accidentally enforced it.
+  # On any exam that mixes mechanisms inside a section it was as unenforced as Axis-1.
+  axis1_trackers, axis3_trackers = {}, {}
+  for section in sections:
+      sec_name = section['name']
+      sec_sched = axis_schedule.get(sec_name)
+      axis1_trackers[sec_name] = bc.build_axis_tracker(sec_sched, 'axis1')
+      axis3_trackers[sec_name] = bc.build_axis_tracker(sec_sched, 'axis3')
+
   # ... during generation, for each subtopic in this section:
   produced = generate_subtopic(subtopic_data, N_alloc, section, registry_snapshot,
-                               axis2_tracker=axis2_trackers[section['name']])
+                               axis2_tracker=axis2_trackers[section['name']],
+                               axis1_tracker=axis1_trackers[section['name']],
+                               axis3_tracker=axis3_trackers[section['name']])
   # generate_subtopic records each accepted question's Axis-2 class + negativity into the
   # tracker (axis2_record). When the mock's generation is complete, snapshot every tracker
   # back into axis2_window_counts for the S13-4 commit:
@@ -3575,6 +3621,27 @@
       snap = axis2_window_snapshot(tr)
       if snap is not None:
           axis2_window_counts[sec_name] = snap
+
+  # v5.41 (GAP-2026-08-06-AXIS1) — SNAPSHOT AXIS-1/AXIS-3 TOO, for two reasons that are
+  # not optional:
+  #   (1) BATCHED / RESUMED RUNS. A mock is generated in batches (batch_size_qs). Without
+  #       a snapshot each batch would rebuild its tracker from an empty count and start
+  #       the paper's budget over — four figures per BATCH instead of per PAPER, which is
+  #       the original defect wearing a smaller number.
+  #   (2) THE AUDIT HAND-OFF. `irreducible` is the count of questions granted a figure
+  #       OVER budget because their options are images. A-AXIS1 needs it to raise its
+  #       expectation, and it cannot be re-derived from the rendered docx — only the
+  #       producer knows why it drew what it drew. This is the same principle as
+  #       figure_specs (v5.34): the producer's OWN record beats any inference.
+  for sec_name, tr in axis1_trackers.items():
+      snap = bc.axis_snapshot(tr)
+      if snap is not None:
+          axis1_paper_counts[sec_name] = snap
+          reg.setdefault('axis1_paper', {})[sec_name] = snap
+  for sec_name, tr in axis3_trackers.items():
+      snap = bc.axis_snapshot(tr)
+      if snap is not None:
+          reg.setdefault('axis3_paper', {})[sec_name] = snap
   ```
   Absent-safe end to end: no `axis_schedule` (pre-v1.23 blueprint) ⇒ every tracker is None ⇒
   pick_presentation falls back to the exact v5.13 family-menu rotation, and nothing is written
@@ -3584,6 +3651,21 @@
   AXIS CLASSIFIER v1.0 and audits the realized per-window Axis-2 distribution against
   blueprint.axis_schedule (band = ±1/±15% whichever larger; guarantee = ≥1/window; DIRECT
   floats; negative rate = soft WARN). blueprint.json axis_schedule is the AUTHORITATIVE target.
+
+  v5.37 (GAP-2026-08-06-AXIS1) — THE CONTRACT NOW COVERS ALL THREE AXES.
+  audit.py additionally audits the realized PER-PAPER Axis-1 (stimulus) and Axis-3
+  (mechanism) distributions via bc.check_axis_conformance() — the SAME engine function
+  Step 7 spends against, so generator and auditor cannot drift apart. Gates A-AXIS1 and
+  A-AXIS3; same ±1/±15% band; the residual class (TEXT / MCQ) absorbs rounding and is
+  never audited; irreducible figural overage raises the expectation rather than raising a
+  finding.
+
+  AND THE STANDING RULE THAT STOPS THIS RETURNING AS AXIS-4:
+    ANY axis carrying `"<axis>_enforcement": "hard"` in blueprint.axis_schedule MUST have
+    (a) a tracker built in S7-AXIS and (b) a gate in the auditor. An enforced budget with
+    no gate is itself an audit finding (A-AXIS-UNGATED). Before v5.37 both Axis-1 and
+    Axis-3 had a budget and neither had a spender or a gate, and nothing in the framework
+    was capable of noticing.
 
 ## S7-NEW-A — Per-question answer key sidecar write (v2.0 GAP-18 fix; v3.3 concept map)
 
@@ -3688,9 +3770,91 @@
   CLASS-2/3 question is itself a G-FORMATDUP failure (the generator did not
   choose a defined variant — see §6-3c NORMALISATION).
 
-## S7-NEW-B — Figural generation mandate (v2.0 GAP-12 fix)
+## S7-NEW-B — Figural generation mandate (v2.0 GAP-12 fix; v5.37 budget-gated)
 
   WHEN blueprint allocates a FIGURAL format question:
+
+  ### ══════════════════════════════════════════════════════════════════════════
+  ### S7-NEW-B0 — ASK THE BUDGET FIRST  (v5.37, GAP-2026-08-06-AXIS1 — HARD)
+  ### ══════════════════════════════════════════════════════════════════════════
+
+  ```
+  BEFORE v5.37 THIS SECTION BEGAN AT OPTION A UNCONDITIONALLY. `format == FIGURAL`
+  WAS A RENDERING IMPERATIVE, AND THERE WAS NO CAP OF ANY KIND.
+
+  WHAT THAT COST (measured, IIT_JAM_BIOTECHNOLOGY, 2026-08-06):
+      blueprint axis1_target_per_mock FIGURAL      :  4 / 60
+      Mock01 Qs allocated to FIGURAL subtopics     : 26  →  26 figures rendered
+      Mock02 Qs allocated to FIGURAL subtopics     : 30  →  30 figures rendered
+  An exact 1:1 map in both papers. The real exam averages 4.4 figures per 60-question
+  paper over the last five years. A mock that is 43% figures does not model a 7% exam,
+  and every existing gate certified it clean.
+
+  ROOT CAUSE WAS AN UNSPENT BUDGET. Step 6 has written axis1_target_per_mock into
+  blueprint.json since v1.23 and NOTHING EVER READ IT — `grep axis1` over this file
+  returned zero hits for four releases. Axis-2 had a full tracker; Axis-1 had none.
+  Axis-3 was in the identical state and is fixed in the same release (S7-AXIS3).
+
+  THE RULE NOW:
+    format == FIGURAL means the subtopic is CAPABLE of a figural question.
+    HOW MANY are drawn  is capped by blueprint.axis_schedule[section].axis1_target_per_mock.
+    WHICH ones are drawn is ranked by each subtopic's measured figural_rate.
+    Everything else renders TEXT via OPTION B — keeping its allocation slot.
+
+  THE GOLDEN RULE IS UNTOUCHED. Format still never EXCLUDES a subtopic from
+  allocation; the sole exclusion criterion remains r_avg == 0.0. All 60 slots stand.
+  Only the RENDERING of the denied ones changes.
+  ```
+
+  ```python
+  import blueprint_core as bc
+
+  # Built once per section, alongside axis2_trackers (S7-AXIS). Per PAPER, not per
+  # window: a single mock that is 43% figures is wrong on its own terms regardless of
+  # what the 10-paper average works out to.
+  axis1_trackers[sec_name] = bc.build_axis_tracker(
+      axis_schedule.get(sec_name), 'axis1',
+      counts=axis1_paper_counts.get(sec_name, {}))
+
+  # ORDER THE CLAIMS BEFORE SPENDING. A budget of 4 spent on the four subtopics the
+  # exam almost never illustrates is conformant-by-count and wrong-by-content.
+  # Irreducible first, then highest figural_rate. (Reference exam: organic
+  # stereochemistry 79% vs complex formation 3.1% — the pre-v2.26 boolean flagged both
+  # identically, and Microbial Biotechnology sits at 0.0% and must never be drawn.)
+  ordered = bc.rank_figural_candidates(
+      figural_capable_slots,                      # [(qnum, subtopic_id), ...]
+      rates={sid: SR[sid].get('figural_rate', 0.0)      for sid in capable_ids},
+      reducible={sid: SR[sid].get('figural_reducible', True) for sid in capable_ids})
+
+  for qnum, sid in ordered:
+      granted, why = bc.axis_grant_figural(
+          axis1_trackers[sec_name], sid,
+          reducible=SR[sid].get('figural_reducible', True))
+      if granted:
+          ...   # OPTION A below — render the real image
+      else:
+          ...   # OPTION B below — REPLACEMENT_RULE, question KEEPS its slot
+  ```
+
+  THREE OUTCOMES (bc.axis_grant_figural, precedence order):
+
+  | outcome | when | effect |
+  |---|---|---|
+  | `inert` | no `axis_schedule` (pre-v1.23 blueprint) | GRANT — byte-identical legacy behaviour for every un-remeasured exam |
+  | `irreducible` | `figural_reducible: false` — the OPTIONS are images (organic structures, circuit diagrams, spectra) | GRANT **even over budget**. There is no text form of such a question; capping it would ship something no candidate can answer. GOLDEN RULE decides. |
+  | `budget` / `over_budget` | budget remains / exhausted | GRANT, else OPTION B |
+
+  An `over_budget` question is **NOT dropped and NOT weakened**: it keeps its
+  allocation slot, its subtopic, its difficulty band and its answer_cardinality, and
+  renders from that subtopic's own observed PYQ_STEM_PATTERNS. For every subtopic
+  whose `figural_rate` is under 50% — 37 of the reference exam's 46 — the text form is
+  the *majority* shape in the real papers, not a consolation prize.
+
+  IRREDUCIBLE OVERAGE IS RECORDED, NEVER WARNED. `bc.check_axis_conformance()` raises
+  its expectation by the irreducible count, so an excess fully explained by them is a
+  SILENT PASS, and any excess that is not is a HARD FAIL. This is what keeps the
+  exemption from becoming the hole the whole gate leaks through — the failure mode
+  that let 26 figures ship twice.
 
   OPTION A (generate real image — DECOMPOSED, v4.0):
     Render via matplotlib at FIGURAL_DPI=300 and place via §10-S10-7/S10-8.
@@ -7084,7 +7248,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.40
+# END OF Framework_MockTestCreate v5.41
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

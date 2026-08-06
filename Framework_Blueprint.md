@@ -1,4 +1,14 @@
-# Framework_Blueprint v1.43.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.44.0 — Universal Mock Test Blueprint Generator
+# v1.44.0 — 2026-08-06 — GAP-2026-08-06-AXIS1: a budget nothing spent.
+#   `format: FIGURAL` was a RENDERING IMPERATIVE with no cap while
+#   axis1_target_per_mock — written since blueprint v1.23 — was read by NOTHING.
+#   Two delivered mocks carried 26 and 30 figures against a budget of 4, and all
+#   24 machine gates certified them clean. Format now means ELIGIBILITY: how many
+#   are drawn is capped by the Axis-1 budget, which ones by measured figural_rate.
+#   Axis-3 had the identical unspent-budget defect and is fixed in the same release.
+#   Standing rule: any axis marked enforcement:"hard" MUST have a spender in Step 7
+#   and a gate in the auditor (A-AXIS-UNGATED). Absent-safe; no deployed exam moves
+#   until it is re-measured via PYQExtract -> MockBlueprint -> MockCreate.
 # v1.43.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
 #   B3's deliverable set drops from 6 files to 5: [ExamCode]_ExplainAuditLearnings.md is
 #   NO LONGER GENERATED (§13-6), because its only filler — canonical Step 10 — is retired.
@@ -2414,6 +2424,46 @@ v1.23 RECONCILIATION — FORMAT NOW ALSO INFLUENCES SCHEDULING (still never EXCL
   SCHEDULING-INFLUENCE ⊃/≠ EXCLUSION. If the axis target and the GOLDEN RULE ever appear
   to conflict, the GOLDEN RULE wins: keep the subtopic, accept a format-target shortfall
   (audited within tolerance), never drop the subtopic.
+
+v1.44 RECONCILIATION — FORMAT IS ELIGIBILITY; THE BUDGET DECIDES HOW MANY.
+  (GAP-2026-08-06-AXIS1. Read this together with the block above, which it sharpens
+  rather than replaces.)
+
+  WHAT WENT WRONG. Format was ALSO being read by Step 7 as a RENDERING IMPERATIVE —
+  "format == FIGURAL ⇒ draw a picture", with no cap of any kind — while the Axis-1
+  budget this section describes as a "soft-steer" was, in fact, read by NOTHING. Both
+  halves were needed for the failure, and both were true for four releases:
+
+      Step 5 derived the flag with an EXISTENTIAL quantifier
+             (has_img = any(...)), so ONE figural question in a 22-year corpus
+             stamped a subtopic FIGURAL forever  →  46 of 131 subtopics flagged,
+             holding 42.7% of allocation weight, against a real rate of 7.3%.
+      Step 6 wrote axis1_target_per_mock = 4 per 60-question paper.
+      Step 7 read the flag, never the budget  →  delivered 26 and 30 figures.
+      audit  had no Axis-1 gate at all        →  both papers certified clean.
+
+  THE CORRECTED SEMANTICS:
+    • format: FIGURAL means the subtopic is CAPABLE of a figural question.
+    • HOW MANY are drawn  → capped by axis_schedule[section].axis1_target_per_mock.
+    • WHICH ones are drawn → ranked by the subtopic's measured figural_rate (Step 5
+      v2.26), so figures land where the exam puts them and nowhere else.
+    • A denied question KEEPS ITS SLOT and renders TEXT from that subtopic's own
+      observed PYQ_STEM_PATTERNS via REPLACEMENT_RULE.
+
+  THE GOLDEN RULE IS UNTOUCHED, AND STILL WINS. Format still never EXCLUDES anything;
+  the sole exclusion criterion is still r_avg = 0.0. A question whose OPTIONS are
+  themselves images (figural_reducible: false) has no text form, so it is granted a
+  figure EVEN OVER BUDGET — the budget yields to answerability, never the reverse.
+
+  AXIS-1 AND AXIS-3 ARE NOW "hard", NOT SOFT-STEER. derive_axis_schedule() emits
+  axis1_enforcement / axis3_enforcement = "hard", and the standing rule is:
+
+      ANY AXIS MARKED "hard" MUST HAVE A SPENDER IN STEP 7 AND A GATE IN THE AUDITOR.
+      AN ENFORCED BUDGET WITH NO GATE IS ITSELF AN AUDIT FINDING (A-AXIS-UNGATED).
+
+  That rule is the actual deliverable of this release. The figure count was the symptom;
+  a framework that could write a budget nothing spent, and could not notice, was the
+  defect. It is what stops this recurring as Axis-4.
 ```
 
 ### ═══════════════════════════════════════════════════════════════
@@ -3016,6 +3066,20 @@ axis1_feasibility    = bc.axis1_feasibility
 from collections import Counter as _Counter
 
 def _resolve_axis_dist_for_section(sec_name):
+    # ── v1.44 (GAP-2026-08-06-AXIS1) — PREFER A DIRECT MEASUREMENT ─────────────────
+    # A Step-5 v2.26 manifest counts each EXAM SECTION's own axis mix. Use it when it
+    # is there. The subject-merge path below is a BRIDGE, not a measurement: it sums
+    # every subject into a paper-wide total which derive_axis_schedule then splits by
+    # section SIZE — and a section's format mix has no reason to track its question
+    # count. On the reference exam that bridge produced A 2.2 / B 0.7 / C 1.4 figures
+    # where the papers actually show A 1.4 / B 1.0 / C 2.0, i.e. it gave the FEWEST
+    # figures to the section carrying the MOST. Absent-safe: a pre-v2.26 manifest has
+    # no such key and falls through to the identical legacy path, so every deployed
+    # exam keeps its current numbers until it is re-measured.
+    _direct = AXIS_DIST_BY_EXAM_SECTION.get(sec_name)
+    if _direct:
+        return _direct
+
     subjects = subjects_for_section(sec_name)
     dists = [AXIS_DIST_BY_SECTION[s] for s in subjects if s in AXIS_DIST_BY_SECTION]
     if not dists:
@@ -5612,12 +5676,36 @@ guarantee_feasibility  : per guarantee class — "pyq_covered" (Option-C batch c
                          guarantees a capable subtopic every window; no allocation action),
                          "zp_only" (best-effort via ZP rotation + Step 7), or "unsatisfiable"
                          (no capable subtopic → absent; Step 7 must NEVER fabricate it).
-axis1_target_per_mock  : Axis-1 (stimulus) per-mock counts (sum == sec_qs). Soft-steer + Step-8 audit.
-axis3_target_per_mock  : Axis-3 (mechanism) per-mock counts (sum == sec_qs). Soft-steer + Step-8 audit.
+axis1_target_per_mock  : Axis-1 (stimulus) per-mock counts (sum == sec_qs). v1.44: HARD — spent by
+                         Step 7 via bc.build_axis_tracker/axis_grant_figural, verified by A-AXIS1.
+                         Was documented "soft-steer" while in fact being read by NOTHING, which is
+                         how 26- and 30-figure papers shipped against a budget of 4
+                         (GAP-2026-08-06-AXIS1).
+axis3_target_per_mock  : Axis-3 (mechanism) per-mock counts (sum == sec_qs). v1.44: HARD — same
+                         machinery, gate A-AXIS3. Had the identical unspent-budget defect, masked
+                         on exams whose sections are DEFINED per mechanism.
+axis1_enforcement      : v1.44 "hard" — Step 7 MUST build a tracker and the auditor MUST carry a
+axis3_enforcement        gate. An enforced budget with no gate is itself a finding (A-AXIS-UNGATED).
+                         This is the invariant that stops the defect recurring as Axis-4.
+axis_measured_by       : v1.44 "measured" (counted on this exam section) | "apportioned" (a
+                         paper-wide total split by section SIZE). Apportionment is a real
+                         distortion, not rounding: on the reference exam the measured per-section
+                         figural averages are A 1.4 / B 1.0 / C 2.0 while size-apportionment yields
+                         A 2.2 / B 0.7 / C 1.4 — it gives the FEWEST figures to the section that
+                         carries the MOST.
+axis_window_years      : v1.44 distinct years averaged for these targets (bc.AXIS_WINDOW_YEARS = 5,
+                         raised from 3). Sets HOW MANY of a class a mock gets. WHICH subtopics may
+                         carry it is a different question answered by the FULL corpus (figural_rate),
+                         because most subtopics appear 1-3 times per paper and a 5-paper denominator
+                         cannot rate them.
 axis1_unreachable_formats : advisory — Axis-1 target names formats with no PYQ subtopic (shortfall
                          accepted; audited within tolerance). Usually [].
-negative_rate          : per-section 3-year negative-polarity rate (soft target; Step 7 nudge, Step 8 WARN).
+negative_rate          : per-section negative-polarity rate over the same window (soft target;
+                         Step 7 nudge, Step 8 WARN).
 mocks_per_window       : window size for guarantee/tolerance (= batch_size_qs, default 10).
+                         NOTE: Axis-2 accumulates across this WINDOW (its minority classes are too
+                         rare to place one per paper). Axis-1 and Axis-3 are budgeted PER PAPER —
+                         a single mock that is 43% figures is wrong on its own terms.
 ```
 
 ### S14-4 — zero_pyq_rotation{} — alphabetical rotation order
@@ -6433,7 +6521,12 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
   # ── v1.23 THREE-AXIS: read the format-distribution targets Step 5 v2.23 emits ──────
   # Absent-safe: a pre-v2.23 manifest lacks these keys → empty maps → the whole feature
   # stays inert (axis_schedule built with status='no_pyq', BV-AXIS passes vacuously).
-  AXIS_DIST_BY_SECTION = manifest.get('axis_distribution', {})   # section -> per-section target
+  AXIS_DIST_BY_SECTION = manifest.get('axis_distribution', {})   # SUBJECT -> per-subject target
+  # v1.44 (GAP-2026-08-06-AXIS1) — the EXAM-SECTION-keyed measurement, when Step 5 v2.26
+  # produced one. Preferred by _resolve_axis_dist_for_section() over summing subjects and
+  # splitting by section size, which is a bridge rather than a measurement (see there).
+  # Empty on any earlier manifest → identical legacy behaviour, no exam disturbed.
+  AXIS_DIST_BY_EXAM_SECTION = manifest.get('axis_distribution_by_exam_section', {}) or {}
   AXIS2_CAP_BY_ID      = {}   # subtopic_id -> [Axis-2 classes it may faithfully take]
   OBSERVED_AXIS2_BY_ID = {}   # subtopic_id -> {AXIS2_CLASS: observed count}
   PRES_FAMILY_BY_ID    = {}   # subtopic_id -> presentation_family (or None)
@@ -6727,4 +6820,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.43.0
+# END OF Framework_Blueprint v1.44.0

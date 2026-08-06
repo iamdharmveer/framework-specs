@@ -1,4 +1,14 @@
-# Framework_MockTestAnalyse v2.41.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.42.0 — Universal PYQ Pattern Extraction Engine
+# v2.42.0 — 2026-08-06 — GAP-2026-08-06-AXIS1: a budget nothing spent.
+#   `format: FIGURAL` was a RENDERING IMPERATIVE with no cap while
+#   axis1_target_per_mock — written since blueprint v1.23 — was read by NOTHING.
+#   Two delivered mocks carried 26 and 30 figures against a budget of 4, and all
+#   24 machine gates certified them clean. Format now means ELIGIBILITY: how many
+#   are drawn is capped by the Axis-1 budget, which ones by measured figural_rate.
+#   Axis-3 had the identical unspent-budget defect and is fixed in the same release.
+#   Standing rule: any axis marked enforcement:"hard" MUST have a spender in Step 7
+#   and a gate in the auditor (A-AXIS-UNGATED). Absent-safe; no deployed exam moves
+#   until it is re-measured via PYQExtract -> MockBlueprint -> MockCreate.
 # v2.41.0 — 2026-08-05 — GAP-2026-08-05-001. S3-2 takes bc.sorted_body_lookahead(doc)
 #   and the per-FILE colour probe. QV-1a severity WARN -> FAIL (SG-6): the identical
 #   condition was a HARD STOP at Step 4 and a silent green footer here. QV-15 BODY
@@ -3145,10 +3155,31 @@ def axis2_capability(observed_axis2, presentation_family, fmt):
         cap.discard('LINKED')
     return [c for c in AXIS2_CLASSES if c in cap]   # canonical ladder order
 
-def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10):
+def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10,
+                                      window_years=None):
     """CATEGORY A per-section target. Averages each axis's class counts PER PAPER over the
-    3 most-recent distinct years, and classifies each Axis-2 class band vs guarantee-only.
-    Returns None for a section with no observed questions (all Zero-PYQ scaffolds)."""
+    N most-recent distinct years, and classifies each Axis-2 class band vs guarantee-only.
+    Returns None for a section with no observed questions (all Zero-PYQ scaffolds).
+
+    v2.26 — N is bc.AXIS_WINDOW_YEARS (5), raised from a hardcoded 3. Two separate
+    questions must not share one sample:
+      • HOW MANY of a class a mock gets  → this window (5 years). A wider window is a
+        steadier average; on the reference exam the figural mean moved only 4.33 → 4.40,
+        which is the point — the number should not lurch on one unusual paper.
+      • WHICH subtopics may carry it     → the FULL corpus (figural_rate, below). Most
+        subtopics appear 1-3 times per paper, so a 5-paper sample leaves their denominator
+        far too small to rate; the reference exam's Population Genetics reads 0/8 over five
+        years and 1/16 over twenty-two.
+
+    The §S1-3 `get_detection_sample()` window stays at 3 ON PURPOSE and is NOT this
+    constant: it detects the CURRENT PATTERN (option format, section layout, marking), and
+    a layout that changed four years ago must not pollute today's reading of the paper.
+
+    ERA-SCOPING STILL RUNS FIRST (frequency_scope == 'current-era', §14). A wider window
+    can therefore never straddle a pattern change — it widens only WITHIN the current era.
+    """
+    import blueprint_core as bc
+    window_years = int(window_years or bc.AXIS_WINDOW_YEARS)
     qs = []
     for e in sec_entries:
         qs.extend(progress.get((e['section'], e['topic'], e['subtopic']), []))
@@ -3158,8 +3189,8 @@ def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10
         if 'axis2' not in q:
             tag_axes(q)
     years   = sorted({q.get('year') for q in qs if q.get('year')}, reverse=True)
-    recent3 = set(years[:3]) if years else set()
-    rq      = [q for q in qs if q.get('year') in recent3] or qs
+    recentN = set(years[:window_years]) if years else set()
+    rq      = [q for q in qs if q.get('year') in recentN] or qs
     n_papers = max(1, len({(q.get('year'), q.get('shift')) for q in rq}))
 
     def per_paper(axis):
@@ -3174,7 +3205,10 @@ def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10
         else:
             audit_mode[cls] = 'band' if avg * mocks_per_window >= 1 else 'guarantee'
     return {
-        'recent_years'    : sorted(recent3, reverse=True),
+        'recent_years'    : sorted(recentN, reverse=True),
+        'window_years'    : window_years,     # v2.26 provenance — Step 6 echoes this into
+                                              # blueprint.axis_schedule.axis_window_years so
+                                              # a target can always be traced to its sample.
         'n_papers_recent' : n_papers,
         'mocks_per_window': mocks_per_window,
         'axis1_per_paper' : per_paper('axis1'),
@@ -3234,7 +3268,45 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     neg_ct  = sum(1 for q in questions if q.get('is_negative'))
     blank_d = Counter(q.get('blank_pos','none') for q in questions).most_common(1)[0][0]
     sw      = [len(q['stem'].split()) for q in questions if q.get('stem')]
-    has_img  = any(q.get('image_role','none') != 'none' for q in questions)
+    # ── v2.26 (GAP-2026-08-06-AXIS1) — FIGURAL IS A RATE, NOT A FLAG ────────────────
+    # WAS: has_img = any(q.get('image_role','none') != 'none' for q in questions)
+    #
+    # `any()` is an EXISTENTIAL quantifier with no denominator: ONE figural question
+    # anywhere in a 22-year corpus stamped the subtopic FIGURAL permanently. Because
+    # Step 7 read `format` as a RENDERING IMPERATIVE ("format==FIGURAL ⇒ draw a
+    # picture"), that flag then forced a figure onto EVERY mock question the subtopic
+    # ever received. Measured on the reference exam: 46 of 131 subtopics flagged,
+    # holding 42.7% of allocation weight, against a true question-level figural rate
+    # of 7.3% — and the delivered mocks carried 26 and 30 figures against a blueprint
+    # budget of 4. Both passed every gate, because no gate counted.
+    #
+    # COUNT QUESTIONS, NOT IMAGES. A `stem_and_options` question contributes ONE to
+    # figural_q_count and FIVE to images_analysed (one stem figure + four option
+    # figures). The two fields answer different questions and must never be confused:
+    #   figural_q_count  → HOW MANY QUESTIONS carry a figure   → drives the Axis-1 budget
+    #   images_analysed  → HOW MANY IMAGES were inspected      → drives the figure PROFILE
+    # Reading images_analysed as a question count inflates the reference corpus from
+    # ~118 figural questions to 154 and biases every rate toward option-figure subtopics.
+    #
+    # `format` SURVIVES UNCHANGED for back-compat (~200 deployed exams read it, and the
+    # GOLDEN RULE still forbids it from EXCLUDING anything). What changes is its meaning
+    # downstream: from "always draw this" to "CAPABLE of being drawn this way". The new
+    # figural_rate decides which capable questions actually claim the scarce budget.
+    _fig_qs  = [q for q in questions if q.get('image_role', 'none') != 'none']
+    figural_q_count     = len(_fig_qs)
+    figural_denominator = len(questions)
+    figural_rate = (figural_q_count / float(figural_denominator)) if figural_denominator else 0.0
+
+    # REDUCIBILITY. A question whose OPTIONS are themselves images (organic structures,
+    # circuit diagrams, spectra) cannot be rewritten as text without becoming
+    # unanswerable, so it is granted a figure even over budget (bc.axis_grant_figural
+    # rule 2). A stem-only figure usually CAN be replaced by an attested text question
+    # from the same subtopic — which is what REPLACEMENT_RULE below is for.
+    figural_reducible = not any(
+        str(q.get('image_role', '')).strip() in ('stem_and_options', 'options_only')
+        for q in _fig_qs)
+
+    has_img  = figural_q_count > 0
     has_pass = any(q.get('linked_group_id') for q in questions)
     # v2.24.6 FIX C — delegates to the SAME structural/word-boundary table detector used
     # by the canonical classify_axis1() (SHARED AXIS CLASSIFIER v1.0, below) — was a
@@ -3263,6 +3335,17 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     if fmt == 'TEXT' and _VISUAL_KEYWORDS.search(subtopic):
         fmt = 'FIGURAL'
         _inherently_visual = True
+        # v2.26 — this branch fires precisely when NO PYQ image was observed (extraction
+        # failed, or the corpus is a scanned PDF), so the measured figural_rate is 0.0 and
+        # the subtopic would rank LAST for the Axis-1 budget and never be drawn. But a
+        # subtopic named "mirror images" or "paper folding" IS the figure — there is no
+        # text form of it. Mark it irreducible so bc.axis_grant_figural() grants it
+        # regardless of budget, and give it rate 1.0 so ranking treats it as the certainty
+        # it is. Non-figural exams are untouched: the keyword set never matches them.
+        figural_reducible = False
+        figural_rate = 1.0
+        if not figural_q_count:
+            figural_q_count = figural_denominator
         # Assign a default figural_data with image_role='stem_only' (conservative:
         # most inherently-visual TEXT-classified subtopics have text options).
         # If PYQ data DID have figural info, it would have set has_img=True above,
@@ -3375,6 +3458,14 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
         'PYQ_IMAGE_ANALYSIS'     : figural_data,
         'PYQ_PASSAGE_STRUCTURE'  : extract_passage_structure(questions) if has_pass else None,
         'inherently_visual'      : _inherently_visual,   # v2.22: True if keyword heuristic fired
+        # v2.26 (GAP-2026-08-06-AXIS1) — the three fields that turn `format` from an
+        # imperative into an eligibility flag. Additive: a consumer that ignores them
+        # behaves exactly as before, which is what keeps ~200 exams working un-remeasured.
+        'figural_q_count'        : figural_q_count,      # QUESTIONS with a figure (not images)
+        'figural_denominator'    : figural_denominator,  # observed questions in this subtopic
+        'figural_rate'           : round(figural_rate, 4),  # ranks claims on the Axis-1 budget
+        'figural_reducible'      : figural_reducible,    # False ⇒ options ARE images ⇒ never
+                                                         # downgrade to text (unanswerable)
     }
 
 def _detect_recycled_stimuli(questions):
@@ -4835,7 +4926,11 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     registry and the formal cross-step contract artifact.
     v2.23 — also carries the THREE-AXIS machine data Step 6 reads without re-parsing PYQ:
       • per subtopic: observed_axis2, presentation_family, axis2_capability
-      • top-level 'axis_distribution': {section: <compute_section_axis_distribution()>}
+      • top-level 'axis_distribution': {SUBJECT: <compute_section_axis_distribution()>}
+      • top-level 'axis_distribution_by_exam_section' (v2.26): the same statistic counted
+        per EXAM SECTION via exam_config q_ranges. Step 6 PREFERS this; without it Step 6
+        must sum every subject and split by section SIZE, which mis-assigns the mix
+        (reference exam: measured A 1.4 / B 1.0 / C 2.0 vs apportioned A 2.2 / B 0.7 / C 1.4).
         (needs `progress`; omitted per-section when progress is absent — section_rules.md
         remains the authoritative human-readable copy either way).
 
@@ -4902,7 +4997,8 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
         'mandatory_groups': {},   # {group: {members:[ids], min:int}} — >=min members present per mock
         'cadence_windows': {},    # {id: N}  — subtopic must appear >=1 in every N-mock window
         'min_counts': {},         # {id: k}  — subtopic must have >=k Q per mock
-        'axis_distribution': {},  # v2.23 {section: per-section 3-yr format-distribution target}
+        'axis_distribution': {},  # v2.23 {SUBJECT: per-subject format-distribution target}
+        'axis_distribution_by_exam_section': {},  # v2.26 {EXAM SECTION: same, measured directly}
         'pattern_eras': {}        # v2.25 per-paper era + the scope used (audit trail)
     }
 
@@ -4941,6 +5037,50 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
             _ax = compute_section_axis_distribution(_ents, _axis_progress)
             if _ax:
                 manifest['axis_distribution'][_sec] = _ax
+
+        # ── v2.26 (GAP-2026-08-06-AXIS1) — MEASURE THE EXAM SECTIONS DIRECTLY ──────
+        # The map above is keyed by SUBJECT (the taxonomy's top level). Step 6 needs it
+        # per EXAM SECTION (A/B/C), and until now bridged that gap by SUMMING every
+        # subject and splitting the total by section SIZE. That is a real distortion,
+        # not a rounding detail — on the reference exam:
+        #
+        #     measured per section   : A 1.4   B 1.0   C 2.0   (figures/paper)
+        #     size-apportioned       : A 2.2   B 0.7   C 1.4
+        #
+        # It hands the FEWEST figures to Section C, which actually carries the MOST
+        # (5 of the 8 figures in the most recent paper). Sections are format bands, not
+        # content domains; their format mix has no reason to track their question count.
+        #
+        # Counting them directly is possible because every question already carries its
+        # q_num, and exam_config already carries each section's q_range. Emitted under a
+        # SEPARATE key so a consumer that wants the subject view still has it, and a
+        # pre-v2.26 blueprint that never looks here is completely unaffected.
+        _ranges = []
+        for _s in (exam_config or {}).get('sections', []) or []:
+            _r = _s.get('q_range') or []
+            if len(_r) >= 2:
+                _ranges.append((_s.get('section_name') or _s.get('name'),
+                                int(_r[0]), int(_r[1])))
+        if _ranges:
+            manifest['axis_distribution_by_exam_section'] = {}
+            for _nm, _lo, _hi in _ranges:
+                # A counting VIEW over the same question lists — `progress` is never
+                # mutated, exactly as the era filter above leaves it untouched.
+                _sec_view, _seen = {}, False
+                for _k, _qs in _axis_progress.items():
+                    _keep = [q for q in _qs
+                             if q.get('q_num') is not None and _lo <= int(q['q_num']) <= _hi]
+                    if _keep:
+                        _sec_view[_k] = _keep
+                        _seen = True
+                if not _seen:
+                    continue      # section not represented (out-of-pattern era) — skip
+                _ents_all = [{'section': k[0], 'topic': k[1], 'subtopic': k[2]}
+                             for k in _sec_view]
+                _ax = compute_section_axis_distribution(_ents_all, _sec_view)
+                if _ax:
+                    _ax['measured_by'] = 'measured'   # provenance → blueprint.axis_measured_by
+                    manifest['axis_distribution_by_exam_section'][_nm] = _ax
 
     # v2.25 — record every paper's pattern era in the manifest so the decision is auditable
     # downstream and after the fact. Purely additive: absent on a pre-v2.25 manifest, and no
@@ -4992,6 +5132,14 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
             'collision_domain': e.get('collision_domain') or _derive_collision_domain(e),     # v2.24
             'format': e.get('format', 'TEXT'),
             'inherently_visual': bool(e.get('inherently_visual', False)),   # v2.22
+            # v2.26 — Step 6 copies these into blueprint.subtopic_list and Step 7 ranks
+            # the Axis-1 budget by them. Absent on a pre-v2.26 manifest, in which case
+            # bc.rank_figural_candidates() degrades to irreducible-first ordering and the
+            # budget is still enforced — the cap is what matters; the ranking is what
+            # makes the capped set faithful.
+            'figural_q_count'  : int(e.get('figural_q_count', 0)),
+            'figural_rate'     : float(e.get('figural_rate', 0.0)),
+            'figural_reducible': bool(e.get('figural_reducible', True)),
             # v2.23 THREE-AXIS per-subtopic capability (Step 6 rare-format reachability;
             # Step 7 renders only within axis2_capability — fabrication banned).
             'observed_axis2': e.get('observed_axis2', {}),
@@ -5087,6 +5235,13 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
     TOP_RE    = re.compile(r'^\s*topic:\s*(.+)$', re.M)
     FMT_RE    = re.compile(r'^\s*format:\s*(\S+)\s*$', re.M)
     INHERENT_RE = re.compile(r'^\s*inherently_visual:\s*(true|false)\s*$', re.I | re.M)  # v2.22
+    # v2.26 (GAP-2026-08-06-AXIS1) — round-trip the figural rate fields. Tolerant by
+    # construction: a block written before v2.26 carries none of them, and every
+    # consumer defaults (rate 0.0, reducible True) to the pre-v2.26 reading. A parser
+    # that HALTED on the older shape would strand ~200 deployed exams on re-read.
+    FIGRATE_RE = re.compile(r'^\s*figural_rate:\s*([0-9]*\.?[0-9]+)\s*$', re.I | re.M)
+    FIGQC_RE   = re.compile(r'^\s*figural_q_count:\s*(\d+)\s*$', re.I | re.M)
+    FIGRED_RE  = re.compile(r'^\s*figural_reducible:\s*(true|false)\s*$', re.I | re.M)
     CG_RE     = re.compile(r'^\s*concept_group:\s*(.+)$', re.M)
     QM_RE      = re.compile(r'^\s*question_mechanic:\s*(.+)$', re.M)    # v2.24
     FORMKEY_RE = re.compile(r'^\s*form_key:\s*(.+)$', re.M)             # v2.24
@@ -5130,6 +5285,12 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
             'format':        (FMT_RE.search(raw).group(1)         if FMT_RE.search(raw) else 'TEXT'),
             'inherently_visual': (INHERENT_RE.search(raw).group(1).lower() == 'true'
                                   if INHERENT_RE.search(raw) else False),   # v2.22
+            'figural_rate': (float(FIGRATE_RE.search(raw).group(1))
+                             if FIGRATE_RE.search(raw) else 0.0),            # v2.26
+            'figural_q_count': (int(FIGQC_RE.search(raw).group(1))
+                                if FIGQC_RE.search(raw) else 0),             # v2.26
+            'figural_reducible': (FIGRED_RE.search(raw).group(1).lower() == 'true'
+                                  if FIGRED_RE.search(raw) else True),       # v2.26
             # v2.23 THREE-AXIS per-subtopic (round-tripped; safe defaults for legacy blocks)
             'observed_axis2':      (_lit(OBSAX_RE.search(raw).group(1), {})
                                     if OBSAX_RE.search(raw) else {}),
@@ -5227,6 +5388,34 @@ def format_entry(e):
         f'section: {e["section"]}', f'topic: {e["topic"]}',
         f'observed_count: {e["observed_count"]}', f'format: {e["format"]}',
         f'inherently_visual: {str(e.get("inherently_visual", False)).lower()}',
+        # ── v2.26 (GAP-2026-08-06-AXIS1) ────────────────────────────────────────────
+        # figural_rate is the SHARE OF THIS SUBTOPIC'S OBSERVED QUESTIONS that carried a
+        # figure — read `4/39` not `10%` when you are debugging, because the denominator
+        # is what the old boolean threw away. Step 7 ranks claims on the scarce Axis-1
+        # budget by this number, so a subtopic the exam illustrates 79% of the time
+        # (organic stereochemistry) outranks one it illustrates 3% of the time (complex
+        # formation) — both of which the pre-v2.26 flag marked identically FIGURAL.
+        f'figural_q_count: {int(e.get("figural_q_count", 0))}',
+        f'figural_rate: {float(e.get("figural_rate", 0.0)):.4f}',
+        # figural_reducible: false ⇒ the OPTIONS are images, so there is no text form of
+        # this question. Granted a figure even over budget (bc.axis_grant_figural rule 2);
+        # the audit raises its expectation by the same count so the overage is silent.
+        f'figural_reducible: {str(e.get("figural_reducible", True)).lower()}',
+        # REPLACEMENT_RULE — what to render when a FIGURAL-CAPABLE question does NOT win
+        # a budget slot. It is NOT a downgrade to a worse question: it draws from this
+        # subtopic's OWN observed text patterns (PYQ_STEM_PATTERNS below), which is the
+        # majority shape for every subtopic whose figural_rate is under 50%. Required by
+        # HS-16 for any subtopic that can be denied a figure — which, post-v2.26, is every
+        # reducible FIGURAL subtopic, so it is emitted unconditionally rather than left to
+        # a hand-authored ban list (the reference exam had 46 FIGURAL subtopics and ZERO
+        # REPLACEMENT_RULE blocks, so nothing was ever downgradable and the cap could not
+        # have been honoured even if Step 7 had tried).
+        ('REPLACEMENT_RULE: render as TEXT using this subtopic\'s observed '
+         'PYQ_STEM_PATTERNS; preserve subtopic, difficulty band and answer_cardinality; '
+         'never substitute another subtopic'
+         if str(e.get('format', 'TEXT')).upper() == 'FIGURAL'
+            and bool(e.get('figural_reducible', True))
+         else 'REPLACEMENT_RULE: none (not reducible)'),
         f'option_format_primary: {ofmt_primary}',
         f'option_format_recent: {ofmt_recent}',
         f'option_format_changed_recently: {ofmt_changed}',
@@ -7821,4 +8010,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.41.0
+# END OF Framework_MockTestAnalyse v2.42.0

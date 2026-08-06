@@ -1,5 +1,82 @@
 # Changelog
 
+## 2026.08.06.1
+
+### GAP-2026-08-06-AXIS1 — a budget nothing spent (BLOCKER)
+
+**Symptom.** Two delivered mocks carried 26 and 30 figural questions on a 60-question
+paper whose real exam averages 4.4 figures over the last five years. Both passed all 24
+machine gates clean.
+
+**Root cause — three failures, all required.**
+
+1. *Step 5 measured with an existential quantifier.* `has_img = any(q.image_role != 'none')`
+   has no denominator, so ONE figural question anywhere in a 22-year corpus stamped a
+   subtopic `format: FIGURAL` permanently. 46 of 131 subtopics flagged, holding 42.7% of
+   allocation weight, against a true question-level figural rate of 7.3%.
+2. *Step 7 read `format` as a rendering imperative with no cap.* `IF format == FIGURAL:`
+   → draw, and a text stem was explicitly BANNED for such a subtopic. Meanwhile
+   `axis1_target_per_mock` — written into blueprint.json by Step 6 since v1.23 — was read
+   by NOTHING: `grep axis1 Framework_MockTestCreate.md` returned zero hits for four
+   releases. Axis-2 had a full tracker; Axis-1 had none. Axis-3 was in the identical
+   state, masked only on exams whose sections are defined per mechanism.
+3. *No gate counted.* `check_figural_conformance()` audits figure TYPE, not COUNT;
+   `axis1_feasibility()` detects only unreachable formats (too few), never excess, and is
+   advisory. Questions-on-FIGURAL-subtopics mapped 1:1 onto figures rendered, in both
+   papers, with no finding anywhere.
+
+**Fix — `format` becomes eligibility, not an imperative.**
+
+* `blueprint_core.py` — new Cluster C2: `build_axis_tracker`, `axis_need`, `axis_record`,
+  `axis_snapshot`, `axis_grant_figural`, `rank_figural_candidates`,
+  `check_axis_conformance`. The missing SPEND and VERIFY stages, shared by Step 7 and the
+  auditor so generator and gate cannot drift apart. `AXIS_WINDOW_YEARS = 5` (was a
+  hardcoded 3); `AXIS_BAND_ABS/REL` = ±1 or ±15%, whichever larger.
+* `Framework_MockTestAnalyse.md` v2.42.0 — figural is a RATE. New per-subtopic
+  `figural_q_count` / `figural_denominator` / `figural_rate` / `figural_reducible`, all
+  counting QUESTIONS not IMAGES (a `stem_and_options` question is 1 figural question and
+  5 analysed images; conflating them inflated the reference corpus from ~118 to 154).
+  New `axis_distribution_by_exam_section` — the axis mix counted per EXAM SECTION instead
+  of summed across subjects and split by section size, which mis-assigned the mix
+  (measured A 1.4 / B 1.0 / C 2.0 vs apportioned A 2.2 / B 0.7 / C 1.4: the fewest
+  figures to the section carrying the most). `REPLACEMENT_RULE` now emitted for every
+  reducible FIGURAL subtopic — the reference exam had 46 and zero, so nothing was ever
+  downgradable and the cap could not have been honoured even had Step 7 tried.
+* `Framework_MockTestCreate.md` v5.41 — new S7-NEW-B0: ask the budget before rendering.
+  Axis-1 and Axis-3 trackers built alongside Axis-2 (per PAPER, not per window). A denied
+  question KEEPS its slot and renders text from its own observed PYQ_STEM_PATTERNS.
+* `Framework_Blueprint.md` v1.44.0 — emits `axis1_enforcement` / `axis3_enforcement`
+  = `"hard"`, `axis_measured_by`, `axis_window_years`.
+* `audit_canonical.py` v2.24 — new gates **A-AXIS1**, **A-AXIS3**, **A-AXIS-UNGATED**.
+
+**Irreducible questions are granted over budget, silently.** A question whose OPTIONS are
+images has no text form; capping it would ship something no candidate can answer, so the
+GOLDEN RULE decides and the budget yields. `check_axis_conformance()` raises its
+expectation by the irreducible count, so an excess those explain is a clean PASS and any
+excess they do not is a hard FAIL — the exemption is not a hole.
+
+**The actual deliverable is A-AXIS-UNGATED.** The figure count was the symptom. The defect
+was a framework that could write a budget nothing spent and could not notice. Standing
+rule now: *any axis marked `enforcement: "hard"` MUST have a spender in Step 7 and a gate
+in the auditor; an enforced budget with no gate is itself a finding.* That is what stops
+this recurring as Axis-4.
+
+**Back-compat.** Absent-safe end to end, exactly as Axis-2 was introduced: no
+`axis_schedule` → tracker is `None` → byte-identical legacy behaviour; no `figural_rate`
+→ ranking degrades to irreducible-first while the cap still holds; no
+`axis_distribution_by_exam_section` → the legacy subject-merge path is untouched. No
+deployed exam changes until it is re-measured. The feature turns itself off; it never
+turns itself wrong.
+
+**Self-tests.** blueprint_core 309/309, audit_canonical 184/184. Every new assertion is
+mutation-verified against the pre-fix build: reverting `axis_grant_figural` to
+unconditional-grant fails `AXIS1-budget-caps-figural-generation`; hollowing the audit gate
+fails `AXIS1-the-shipped-defect-now-fails`, `AXIS1-shortfall-detected` and
+`AXIS1-unexplained-excess-still-fails`.
+
+**Re-run required per exam** to benefit: `PYQExtract` → `MockBlueprint` → `MockCreate`.
+Taxonomy steps (PYQDraft/Scan/Approve/Sort/Count) are unaffected and locks are preserved.
+
 ## 2026.08.05.1
 **GAP-2026-08-05-001 — textless content is content. A bold stem continuation was read as a
 level-3 subtopic heading whenever every block between it and the next date label carried no
