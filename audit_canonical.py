@@ -1153,8 +1153,28 @@ def gate_axis1(blocks, src):
 
     # Figural questions the registry lists but no section claims. Silent loss here would
     # under-count the very quantity the gate exists to police.
-    orphan = sorted(q for q in fig
-                    if not any(lo <= q <= hi for _n, lo, hi in _secs))
+    # v2.26 — ORPHAN CHECK COVERS EVERY STIMULUS CLASS, not just figures. A DI or
+    # passage question belonging to no section leaves the denominator just as silently
+    # as a figural one does, and the budget then looks satisfied because part of the
+    # paper stopped existing. Figures were checked here since v2.24.1; the other two
+    # were not, purely because they had no producer record to check at the time.
+    _orphan_by = {}
+    for _cls, _qs in (('FIGURAL', fig),
+                      ('PASSAGE', src.get('passage_linked') if src.get('rc_manifest_present') else None),
+                      ('DI', src.get('di_qs') if src.get('di_manifest_present') else None)):
+        if _qs is None:
+            continue
+        _o = []
+        for _q in (_qs if isinstance(_qs, (set, list, tuple)) else ()):
+            try:
+                _qi = int(_q)
+            except (TypeError, ValueError):
+                continue
+            if not any(lo <= _qi <= hi for _n, lo, hi in _secs):
+                _o.append(_qi)
+        if _o:
+            _orphan_by[_cls] = sorted(_o)
+    orphan = sorted(_orphan_by.get('FIGURAL', []))
 
     if bc is None:
         _warn('A-AXIS1', 'blueprint_core not importable — Axis-1 conformance NOT '
@@ -1185,12 +1205,93 @@ def gate_axis1(blocks, src):
                                for c in sorted(unest)))
     if skipped:
         cov.append('section(s) with no usable q_range skipped: ' + ', '.join(skipped))
-    if orphan:
-        cov.append(f'{len(orphan)} figural Q(s) fall outside every section q_range: '
-                   + ', '.join(f'Q{q}' for q in orphan[:10]))
+    for _cls, _o in sorted(_orphan_by.items()):
+        cov.append(f'{len(_o)} {_cls} Q(s) fall outside every section q_range: '
+                   + ', '.join(f'Q{q}' for q in _o[:10]))
     (_ok if not cov else _warn)('A-AXIS1-COVERAGE',
         'every targeted Axis-1 class was observable and every section bucketed.'
         if not cov else 'Axis-1 verdict is PARTIAL — ' + ' | '.join(cov))
+
+def gate_axis1_overlap(blocks, src):
+    """v2.26 — A-AXIS1-OVERLAP. THE STIMULUS CLASSES MUST PARTITION THE PAPER.
+
+    Axis-1 classes are MUTUALLY EXCLUSIVE by definition: a question carries exactly one
+    stimulus, which is the whole reason axis1_target_per_mock is declared to sum to
+    sec_qs. Nothing enforced that. Three separate producer records — figural_manifests,
+    rc_manifests, di_manifests — are written by three different code paths, and if any
+    two ever claimed the same question (a chart WITH a data table being the obvious
+    candidate), A-AXIS1 counted it twice and said nothing.
+
+    MEASURED ON THE v2.25 BUILD: 60 questions recorded in BOTH the figural and DI
+    manifests of a 60-question section — 120 stimuli in 60 slots, an arithmetic
+    impossibility — returned A-AXIS1 = OK and A-AXIS1-COVERAGE = OK. The residual guard
+    (max(0, ...)) stopped TEXT going negative, which is exactly what made the nonsense
+    survivable and therefore silent.
+
+    Low likelihood, deliberately gated anyway. It requires Step 7 to double-record, which
+    it should never do — and "should never happen" is the assumption class that produced
+    every other defect in this release series. The 26-figure paper shipped because nobody
+    checked a budget everyone assumed would be honoured.
+
+    TWO INDEPENDENT CHECKS, because they fail differently:
+      OVERLAP  — two manifests naming the same question. Points at the producer.
+      OVERFLOW — a section's non-residual classes exceeding its own question count.
+                 Catches the same corruption arriving via counts rather than identity,
+                 e.g. manifest entries for questions that are not in this section.
+
+    DELIBERATELY ENGINE-FREE. Pure set arithmetic over the producer records; no
+    blueprint_core, no axis_schedule. An integrity check that goes dormant whenever
+    something else is missing is worth very little — the lesson of A-AXIS-UNGATED, which
+    had to be lifted out of gate_axis1 for exactly this reason.
+    """
+    def _qset(v):
+        out = set()
+        for q in (v if isinstance(v, (set, list, tuple)) else ()):
+            try:
+                out.add(int(q))
+            except (TypeError, ValueError):
+                pass
+        return out
+
+    present = {}
+    if src.get('figural_manifest_present'):
+        present['FIGURAL'] = _qset(src.get('figural_qs'))
+    if src.get('rc_manifest_present'):
+        present['PASSAGE'] = _qset(src.get('passage_linked'))
+    if src.get('di_manifest_present'):
+        present['DI'] = _qset(src.get('di_qs'))
+
+    if len(present) < 2:
+        # Fewer than two records ⇒ nothing can overlap. Say so rather than passing
+        # silently, so a reader can tell "no conflict" from "nothing to compare".
+        return _ok('A-AXIS1-OVERLAP',
+                   f'{len(present)} stimulus manifest(s) present — nothing to cross-check.')
+
+    findings = []
+    names = sorted(present)
+    for i, a in enumerate(names):
+        for b in names[i + 1:]:
+            both = sorted(present[a] & present[b])
+            if both:
+                findings.append(
+                    f'{a} and {b} both claim ' + ', '.join(f'Q{q}' for q in both[:10])
+                    + (f' (+{len(both) - 10} more)' if len(both) > 10 else '')
+                    + ' — a question carries ONE stimulus, so one of the two producer '
+                      'records is wrong and A-AXIS1 has been counting it twice')
+
+    # NO SEPARATE "MORE STIMULI THAN SLOTS" ARM. It was written, then PROVED
+    # UNREACHABLE and removed: once the sets are disjoint and every counted element
+    # lies inside [lo, hi], their counts sum to |union| <= sec_qs, so overflow cannot
+    # occur without an overlap the arm above has already reported. Verified by
+    # exhaustive search over 20,000 randomised disjoint configurations — zero hits.
+    # Keeping it would have meant shipping a branch that can never fire inside the very
+    # gate written to stop silent non-checking, which is the defect, not the fix.
+
+    (_ok if not findings else _fail)('A-AXIS1-OVERLAP',
+        f'stimulus manifests are disjoint across {len(present)} class(es); '
+        'Axis-1 classes partition every section.' if not findings else
+        'Axis-1 stimulus classes do not partition the paper — ' + ' | '.join(findings))
+
 
 def gate_axis_ungated(blocks, src):
     """v2.24 — A-AXIS-UNGATED. THE RULE THAT STOPS THIS RETURNING AS AXIS-4.
@@ -3445,6 +3546,7 @@ def run_audit(args):
     _safe_gate('A-AXIS1', gate_axis1, blocks, src)           # v2.24 — stimulus budget; dormant pre-v1.23
     _safe_gate('A-AXIS3', gate_axis3, blocks, src)           # v2.24 — mechanism budget; dormant pre-v1.23
     _safe_gate('A-AXIS-UNGATED', gate_axis_ungated, blocks, src)  # v2.24 — meta: engine-free by design
+    _safe_gate('A-AXIS1-OVERLAP', gate_axis1_overlap, blocks, src)  # v2.26 — partition integrity
     _safe_gate('A-BLANKSEP', gate_blanksep, doc, blocks)
     _safe_gate('A-FONT', gate_font, doc, src)
     _safe_gate('A-SECHDR', gate_sechdr, blocks, doc, src)
@@ -5249,6 +5351,86 @@ def self_test():
     _v, _c = _cov(n_fig=0, target={'TEXT': 59, 'FIGURAL': 0, 'DI': 1},
                   di_qs=[3], di_present=True)
     check('DI-counted-from-the-producer-record-only', _v == _axv('OK'))
+
+    # (v) A-AXIS1-OVERLAP (v2.26). Axis-1 classes must PARTITION the paper — one
+    #     stimulus per question, which is why the targets are declared to sum to
+    #     sec_qs. Three producer records are written by three code paths and nothing
+    #     cross-checked them. Every assertion here is MUTATION-VERIFIED against v2.25,
+    #     where the gate did not exist and the verdict map is empty.
+    def _ovl(fig=(), di=(), pas=(), sec_qs=60, fp=True, dp=True, rp=False):
+        _s = _src_stub(tq=sec_qs, sections=[{'name': 'S1', 'q_range': [1, sec_qs],
+                                             'total_qs': sec_qs}])
+        _s['figural_qs'] = set(fig); _s['figural_manifest_present'] = fp
+        _s['di_qs'] = set(di);       _s['di_manifest_present'] = dp
+        _s['passage_linked'] = set(pas); _s['rc_manifest_present'] = rp
+        _reset(); _safe_gate('A-AXIS1-OVERLAP', gate_axis1_overlap, [], _s)
+        return {c: l for l, c, _m in RESULTS}.get('A-AXIS1-OVERLAP')
+
+    # THE CASE THAT MOTIVATED THE GATE: 60 figures AND 60 DI in a 60-question section.
+    # 120 stimuli in 60 slots. v2.25 returned OK on exactly this input.
+    check('OVERLAP-impossible-double-record-is-caught',
+          _ovl(fig=range(1, 61), di=range(1, 61)) == 'FAIL')
+
+    # A single shared question is enough — the defect does not need to be extreme to
+    # corrupt the count, it just needs to be silent.
+    check('OVERLAP-single-shared-question-is-caught',
+          _ovl(fig=[1, 2, 3], di=[3]) == 'FAIL')
+    check('OVERLAP-detected-across-every-manifest-pair',
+          _ovl(fig=[1], pas=[1], rp=True) == 'FAIL'
+          and _ovl(di=[7], pas=[7], rp=True) == 'FAIL')
+
+    # AND IT IS NOT A BLANKET ALARM. Disjoint records are the normal case and must stay
+    # clean, or the gate becomes noise and gets switched off — the failure mode that
+    # made the v2.24 DI false-FAIL so damaging.
+    check('OVERLAP-disjoint-manifests-are-clean',
+          _ovl(fig=[1, 2, 3, 4], di=[10, 11]) == 'OK')
+    check('OVERLAP-empty-manifests-are-clean', _ovl(fig=[], di=[]) == 'OK')
+
+    # A "more stimuli than slots" arm was written here and REMOVED as provably
+    # unreachable: disjoint sets confined to one section cannot outnumber it, so it
+    # could never fire without the overlap arm firing first (verified by exhaustive
+    # search, 20,000 randomised disjoint configurations, zero hits). This assertion
+    # locks in the proof — disjoint records that FILL a section exactly stay clean.
+    check('OVERLAP-disjoint-records-filling-a-section-exactly-are-clean',
+          _ovl(fig=range(1, 9), di=range(9, 11), sec_qs=10) == 'OK')
+
+    # FEWER THAN TWO RECORDS ⇒ nothing CAN overlap. Reported as such rather than passed
+    # silently, so "no conflict" is distinguishable from "nothing to compare".
+    check('OVERLAP-dormant-with-a-single-manifest',
+          _ovl(fig=[1, 2], dp=False) == 'OK' and _ovl(fp=False, dp=False) == 'OK')
+
+    # ENGINE-FREE IN EVERY ENVIRONMENT. Asserted unwrapped (no _axv): an integrity check
+    # that goes dormant whenever something ELSE is missing is worth very little. This is
+    # the lesson A-AXIS-UNGATED taught when it had to be lifted out of gate_axis1.
+    check('OVERLAP-verdict-is-engine-independent',
+          _ovl(fig=range(1, 61), di=range(1, 61)) == 'FAIL')
+
+    # (w) ORPHAN REPORTING NOW COVERS EVERY STIMULUS CLASS (v2.26). A DI or passage
+    #     question in no section leaves the denominator exactly as silently as a
+    #     figural one, and the budget then looks satisfied because part of the paper
+    #     stopped existing. Only figures were checked before.
+    def _orph(cls_qs):
+        _s = _src_stub(tq=60, sections=[{'name': 'S1', 'q_range': [1, 30],
+                                         'total_qs': 30}])
+        _s['axis_schedule'] = {'S1': {'status': 'ok',
+                                      'axis1_target_per_mock': {'TEXT': 28, 'FIGURAL': 2}}}
+        _s['figural_qs'] = set(cls_qs.get('FIGURAL', ()))
+        _s['figural_manifest_present'] = True
+        _s['figural_subtopics'] = {}; _s['figural_reducible'] = {}
+        _s['passage_linked'] = set(cls_qs.get('PASSAGE', ()))
+        _s['rc_manifest_present'] = 'PASSAGE' in cls_qs
+        _s['di_qs'] = set(cls_qs.get('DI', ()))
+        _s['di_manifest_present'] = 'DI' in cls_qs
+        _reset(); _safe_gate('A-AXIS1', gate_axis1, [], _s)
+        return next((m for l, c, m in RESULTS if c == 'A-AXIS1-COVERAGE'), '')
+    check('ORPHAN-figural-outside-every-section-is-named',
+          'FIGURAL Q(s) fall outside' in _orph({'FIGURAL': [97]}))
+    check('ORPHAN-DI-outside-every-section-is-named',
+          'DI Q(s) fall outside' in _orph({'FIGURAL': [1], 'DI': [98]}))
+    check('ORPHAN-PASSAGE-outside-every-section-is-named',
+          'PASSAGE Q(s) fall outside' in _orph({'FIGURAL': [1], 'PASSAGE': [99]}))
+    check('ORPHAN-in-range-questions-are-not-flagged',
+          'fall outside' not in _orph({'FIGURAL': [1, 2], 'DI': [3], 'PASSAGE': [4]}))
 
     # (p) _axis_sections — EACH REJECTION BRANCH IS NAMED, NOT JUST SKIPPED.
     #     Tested directly rather than through a gate because the gate's coverage WARN

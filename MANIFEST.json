@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.06.3",
+  "framework_version": "2026.08.06.4",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -351,11 +351,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "89d4b1797e355d3152dec195570c92a9310b3787b9eeefd645120bb5d21df175",
+      "sha256": "fcf2137fd60ec860b6f0aeeae102e3cb4c9ed92f66b63d3b67aec284cb301dd2",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 6567,
-      "bytes": 359798
+      "lines": 6749,
+      "bytes": 370306
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",

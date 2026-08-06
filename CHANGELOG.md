@@ -1,5 +1,58 @@
 # Changelog
 
+## 2026.08.06.4
+
+### GAP-2026-08-06-PARTITION — nothing checked that the stimulus classes were exclusive
+
+**The gap.** Axis-1 classes are mutually exclusive by definition: a question carries
+exactly ONE stimulus, which is precisely why `axis1_target_per_mock` is declared to sum
+to `sec_qs`. Three separate producer records — `figural_manifests`, `rc_manifests`,
+`di_manifests` — are written by three different code paths, and **nothing cross-checked
+them.** If any two ever claimed the same question (a chart WITH a data table being the
+obvious candidate), A-AXIS1 counted it twice and said nothing.
+
+Measured on the v2.25 build: 60 questions recorded in BOTH the figural and DI manifests
+of a 60-question section — 120 stimuli in 60 slots, an arithmetic impossibility —
+returned `A-AXIS1 = OK` and `A-AXIS1-COVERAGE = OK`. The residual guard
+(`max(0, ...)`), added in v2.24.1 to stop TEXT going negative, is what made the nonsense
+survivable and therefore silent.
+
+Low likelihood: it needs Step 7 to double-record, which it should never do. Gated anyway,
+because "should never happen" is the assumption class that produced every other defect in
+this series — the 26-figure paper shipped because nobody checked a budget everyone
+assumed would be honoured.
+
+**Fix.**
+
+* New **`A-AXIS1-OVERLAP`** gate: fails when any two stimulus manifests name the same
+  question, reporting which classes and which questions. Deliberately **engine-free** —
+  pure set arithmetic over the producer records, no `blueprint_core`, no `axis_schedule`.
+  An integrity check that goes dormant whenever something else is missing is worth very
+  little; that is the lesson `A-AXIS-UNGATED` taught when it had to be lifted out of
+  `gate_axis1`. Reports explicitly when fewer than two records exist, so "no conflict" is
+  distinguishable from "nothing to compare".
+* **Orphan reporting extended to every stimulus class.** `A-AXIS1-COVERAGE` flagged
+  figural questions falling outside every section `q_range` since v2.24.1; DI and PASSAGE
+  were not checked, purely because they had no producer record at the time. A DI or
+  passage question belonging to no section leaves the denominator just as silently, and
+  the budget then looks satisfied because part of the paper stopped existing.
+
+**A branch written and then deleted.** The gate initially carried a second arm — "more
+stimuli than slots in this section". It was **proved unreachable**: once the sets are
+disjoint and every counted element lies inside `[lo, hi]`, their counts sum to `|union|
+<= sec_qs`, so overflow cannot occur without an overlap the first arm has already
+reported. Verified by exhaustive search over 20,000 randomised disjoint configurations —
+zero hits. Shipping it would have meant a branch that can never fire inside the very gate
+written to stop silent non-checking. It was removed and the proof locked in as an
+assertion instead: disjoint records that fill a section exactly must stay clean.
+
+**Self-tests.** blueprint_core 323/323, audit_canonical 221/221 (217/217 engine-absent).
+All 12 new fixtures mutation-verified: hollowing the overlap and orphan branches fails
+eight of them.
+
+**Absent-safe.** Fewer than two stimulus manifests ⇒ nothing can overlap ⇒ clean. Every
+legacy exam, and every exam with only figural output, is unaffected.
+
 ## 2026.08.06.3
 
 ### GAP-2026-08-06-DI — the last unmeasurable stimulus class

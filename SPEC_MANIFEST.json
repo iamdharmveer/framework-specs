@@ -148,9 +148,9 @@
       "end_sentinel": "    sys.exit(main(sys.argv))"
     },
     "audit_canonical.py": {
-      "lines": 6567,
-      "sha256": "89d4b1797e355d3152dec195570c92a9310b3787b9eeefd645120bb5d21df175",
-      "size_bytes": 359798,
+      "lines": 6749,
+      "sha256": "fcf2137fd60ec860b6f0aeeae102e3cb4c9ed92f66b63d3b67aec284cb301dd2",
+      "size_bytes": 370306,
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()"
     },
