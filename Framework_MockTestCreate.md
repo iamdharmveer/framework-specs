@@ -1,4 +1,24 @@
-# Framework_MockTestCreate v5.45
+# Framework_MockTestCreate v5.46
+# v5.46 — 2026-08-07 — GAP-2026-08-07-FIGACCENT: the S10-6A palette column was
+#   normative prose with NO enforcing gate. "1 accent hue permitted" (data_single)
+#   and ">=1 accent for the item under interrogation" (schematic) had a Colour-gate
+#   column reading "not required", and figural_core's COLOUR_REQUIRED covered
+#   data_series only — so an all-black paper (IIT JAM PHYSICS Mock01, 16/16 figures
+#   at 0.0000% coloured pixels, the pre-v5.33 "solid black" habit of RC-1) and an
+#   accented paper (IIT JAM BIOTECH Mock01, 0.10-1.11%) both passed every gate
+#   identically, and cross-exam figure style drifted with session taste. Remedies:
+#   (1) Q7b.8 — the accent is now MANDATORY for data_single (owner decision
+#   2026-08-07: "permitted" -> mandatory, OKABE_ITO[0] series ink) and for
+#   schematic (interrogated item), gated by G-FIGACCENT/A-FIGACCENT, AMBER by
+#   construction (fire-0 history does not exist yet; owner directive: colour never
+#   halts); floor coloured_fraction >= 0.05%, calibrated on the real corpus
+#   (accented minimum 0.105%, all-black 0.0000%, 2x margin, zero false positives)
+#   and deliberately NOT gated on dominant_hues (its area cut swallows small
+#   accents). (2) The draw_fn authoring contract: accent ink MUST come from the
+#   palette argument, never hardcoded black. (3) render_figure() gains an optional
+#   palette= parameter — the plumbing Q7b.1 promised; exam_config wiring stays
+#   RESERVED. reasoning_glyph monochrome doctrine and EC-V18 legacy tolerance are
+#   untouched; ~200 pre-v5.33 exams stay silent under this gate.
 # v5.45 — 2026-08-06 — GAP-2026-08-06-SEAM: DI was not in sync with FIGURAL.
 #   The rate->quota->schedule->rank chain was built for FIGURAL only; DI kept a
 #   render-time cap and its measured rate was discarded, so on a DI-heavy exam the
@@ -172,8 +192,8 @@
 #   render_figure() MUTATES the FigureSpec with what actually happened —
 #   png_px, png_dpi, placed_in, placement_scale, font_pt_native — after reading
 #   the saved artefact back. write_spec_sidecar() then drops that record beside
-#   the PNG as q{N}_*.figspec.json. Step 8's twelve v2.11 figure-conformance
-#   gates are arithmetic over the PNG AND ITS SIDECAR.
+#   the PNG as q{N}_*.figspec.json. Step 8's thirteen figure-conformance
+#   gates (v2.11 + A-FIGACCENT, v5.46) are arithmetic over the PNG AND ITS SIDECAR.
 #
 #   But the sidecars live in THIS session's working directory, which is internal
 #   and is never delivered (S0-1 / R-DELIVER lists the closed set: the docx, the
@@ -4936,8 +4956,8 @@
   | Class | Description | Renderer | Palette | Colour gate |
   | :--- | :--- | :--- | :--- | :--- |
   | `data_series` | ≥2 comparable series (line, scatter, grouped bar) | figural_core | Okabe-Ito, ≥2 hues | REQUIRED |
-  | `data_single` | one series (single curve, single bar set) | figural_core | 1 accent hue permitted | not required |
-  | `schematic` | pathway, apparatus, circuit, pedigree, structure | figural_core | ≥1 accent for the item under interrogation | not required |
+  | `data_single` | one series (single curve, single bar set) | figural_core | 1 accent hue (OKABE_ITO[0] series ink) MANDATORY — v5.46 | accent required — A-FIGACCENT (AMBER) |
+  | `schematic` | pathway, apparatus, circuit, pedigree, structure | figural_core | ≥1 accent for the item under interrogation, MANDATORY — v5.46 | accent required — A-FIGACCENT (AMBER) |
   | `reasoning_glyph` | matrix / series / odd-one-out / figure-completion | S10-7 glyph path | MONOCHROME, mandatory | must be monochrome |
   | `option_canvas` | one MCQ option | inherits the parent question's class | inherits | inherits |
 
@@ -5058,7 +5078,10 @@
         canvases remain monochrome under Q7b.7.
     Q7b. COLOUR AND REDUNDANT ENCODING (v5.33 — new).
         1. Palette MUST be Okabe-Ito unless overridden by
-           `exam_config.figure_palette`:
+           `exam_config.figure_palette` (v5.46 STATUS: render_figure() now
+           accepts an optional palette= parameter — the engine plumbing exists —
+           but the exam_config wiring is RESERVED for a future rich-colour
+           release; until then every Step-7 render uses OKABE_ITO):
            #0072B2 #D55E00 #009E73 #CC79A7 #E69F00 #56B4E9 #F0E442 #000000
            (colour-blind safe across deuteranopia/protanopia/tritanopia, print
            safe, 8 hues). Defined once in figural_core.OKABE_ITO.
@@ -5097,6 +5120,29 @@
            property must be preserved.)
         7. Class `reasoning_glyph` MUST be monochrome apart from a declared
            missing-element accent. Gate G-FIGMONO.
+        8. ACCENT PRESENCE (v5.46 — GAP-2026-08-07-FIGACCENT). The S10-6A
+           palette column is NORMATIVE AND GATED, no longer prose. Class
+           `data_single`: the series ink MUST be OKABE_ITO[0] (axes, frame and
+           gridlines stay black) — "permitted" was upgraded to MANDATORY by
+           owner decision 2026-08-07, because "permitted" is exactly what let
+           one exam ship all-black while another shipped accented. Class
+           `schematic`: the item under interrogation MUST carry >=1 Okabe-Ito
+           accent hue; structural ink stays black. AUTHORING CONTRACT: the
+           draw_fn MUST take its accent ink from the `palette` argument that
+           render_figure() passes in; hardcoding "#000000"/"k" for the
+           interrogated item or the series is a Q7b.8 breach even if the
+           rendered figure happens to pass the gate. Gate G-FIGACCENT
+           (catalogue A-FIGACCENT), AMBER by construction: it has no fire-0
+           verification history yet, and no image-COLOUR condition may ever
+           halt a run. Floor: coloured_fraction >= 0.05% of visible pixels
+           (ACCENT_MIN_FRAC), calibrated on the delivered corpus — accented
+           figures measure >= 0.105%, all-black 0.0000% — and deliberately not
+           gated on dominant_hues(), whose minimum-area cut swallows small
+           accents. `data_series` stays G-FIGCOLOUR territory (never
+           double-gated); `reasoning_glyph` and its option canvases stay
+           monochrome under Q7b.7; option canvases of accent-class parents
+           keep the identical style budget of Q7b.6. EC-V18: legacy figures
+           with no FigureSpec sidecar are silent under this gate.
     Q8. GEOMETRY ONLY + CANONICAL NAME (v4.3, R-MATH-OMML). The figural raster
         path renders GEOMETRIC FIGURES ONLY — never an algebraic/symbolic
         expression (those are OMML, §10-S10-4). Every emitted image MUST be named
@@ -6324,10 +6370,10 @@
           # drawing (_name_last_drawing -> "q{N}_problem.png"/"q{N}_opt{i}.png"),
           # which is the same base write_spec_sidecar() names the sidecar after.
           #
-          # WHY THIS IS REQUIRED. The twelve v2.11 figure-conformance gates
+          # WHY THIS IS REQUIRED. The thirteen figure-conformance gates
           # (A-FIGSCALE / A-FIGLABEL / A-FIGDPI / A-FIGDEGEN / A-FIGMONO /
-          # A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGCVD / A-FIGSERIES / A-FIGGLYPH /
-          # A-FIGALT / A-FIGLABELPX) are arithmetic over the saved PNG AND ITS
+          # A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGACCENT / A-FIGCVD / A-FIGSERIES /
+          # A-FIGGLYPH / A-FIGALT / A-FIGLABELPX) are arithmetic over the saved PNG AND ITS
           # SIDECAR. render_figure() mutates the spec with png_px, png_dpi,
           # placed_in, placement_scale and font_pt_native — the record of what
           # actually happened — and write_spec_sidecar() drops it beside the PNG
@@ -7402,7 +7448,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.45
+# END OF Framework_MockTestCreate v5.46
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

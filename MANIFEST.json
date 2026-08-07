@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.06.8",
+  "framework_version": "2026.08.07.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -169,11 +169,11 @@
       "bytes": 461005
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "9a52c3aaed915b13d3076ed8d961d3f19ad9a943fa3ef900aa0820194c63c9c6",
-      "version_header": "# Framework_MockTestCreate v5.45",
+      "sha256": "fb48db62d43f8e142593e72909655337723f33c68ada4339225f97cdb61c8854",
+      "version_header": "# Framework_MockTestCreate v5.46",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 7485,
-      "bytes": 460776
+      "lines": 7531,
+      "bytes": 464503
     },
     "Framework_MockTestExplain.md": {
       "sha256": "a2bfc7b12d086988fd056a2a3578de0c5e6d7e593dd80cbd8a5f4685473cb53c",
@@ -337,11 +337,11 @@
       "bytes": 20942
     },
     "figural_core.py": {
-      "sha256": "e9062b054b087becfbbfb38ced35fa6e8c59eb2248319deadc30c7a5b41dbb9d",
+      "sha256": "41df7b13e5456200d8000a58458bd7169460fea67b9b196c4f245830daf9fe3b",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"figural_core.py \u2014 shared figure renderer + gates. Run with --self-test.\")",
-      "lines": 1172,
-      "bytes": 51906
+      "lines": 1281,
+      "bytes": 58408
     },
     "figural_vision.py": {
       "sha256": "585df46be615fb05415aa98dabe25658f48bfd2e8a4c1048fa2c23457ec7d692",
@@ -351,11 +351,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "d58845b65bf1ef4eb73bc278ffe9eb94fae247bb7b169f40ac955ebd6584bd30",
+      "sha256": "3f58fb969da6c019bb4c05658d35faa8fd5bcd7785ad27e487b2ada8e9ae5656",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 6865,
-      "bytes": 377497
+      "lines": 6869,
+      "bytes": 377661
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",

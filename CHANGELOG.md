@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026.08.07.1
+
+### GAP-2026-08-07-FIGACCENT — the S10-6A palette column was prose, not law
+
+**Why one exam's figures were black and another's were blue: nothing enforced the accent.**
+
+The class table prescribed "1 accent hue permitted" for `data_single` and "≥1 accent
+for the item under interrogation" for `schematic`, while its Colour-gate column read
+"not required" and `figural_core.COLOUR_REQUIRED` covered `data_series` only. So an
+all-black paper (IIT JAM PHYSICS Mock01 — 16/16 figures at **0.0000%** coloured pixels,
+the pre-v5.33 "solid black" habit of RC-1) and an accented paper (IIT JAM BIOTECH
+Mock01 — 0.10–1.11%) both passed every gate identically, and figure style drifted with
+session taste. Executing `g_figcolour()` against the shipped PNGs with their declared
+classes returns `[]` in every case: no gate was ever in scope.
+
+Remedies (Step 7 spec v5.45 → v5.46, figural_core, audit v2.24 → +A-FIGACCENT):
+
+1. **Q7b.8 (new)** — accent is now MANDATORY: `data_single` series ink = `OKABE_ITO[0]`
+   ("permitted" → mandatory, owner decision 2026-08-07); `schematic` interrogated item
+   carries ≥1 Okabe-Ito accent. Class-table Colour-gate cells updated.
+2. **G-FIGACCENT / A-FIGACCENT** — thirteenth figure gate. AMBER by construction (no
+   fire-0 history yet; colour never halts). Floor `coloured_fraction ≥ 0.05%`
+   (`ACCENT_MIN_FRAC`), calibrated on the delivered corpus (accented minimum 0.105%,
+   all-black 0.0000%, 2× margin); deliberately not gated on `dominant_hues()`, whose
+   minimum-area cut swallows small accents. Self-test fixture D-7 reproduces the
+   shipped defect and asserts the accented render of the same geometry passes.
+3. **Authoring contract** — draw_fn MUST take accent ink from the `palette` argument;
+   hardcoding black for the interrogated item/series is a Q7b.8 breach.
+4. **`render_figure(palette=)`** — the engine plumbing Q7b.1 promised now exists;
+   `exam_config.figure_palette` wiring stays RESERVED for a future rich-colour release.
+
+Untouched by design: `reasoning_glyph` monochrome doctrine (G-FIGMONO, answer-leak),
+`data_series` stays G-FIGCOLOUR territory (never double-gated), EC-V18 legacy
+tolerance (~200 pre-v5.33 exams are silent under the new gate), and the owner
+directive that no image-COLOUR condition may ever halt a run.
+
 ## 2026.08.06.8
 
 ### GAP-2026-08-06-SEAM — DI was never in sync with FIGURAL, and nothing could tell

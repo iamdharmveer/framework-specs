@@ -188,6 +188,21 @@ FIGURE_CLASSES = tuple(ONPAGE_FLOOR_PT)
 COLOUR_REQUIRED = ("data_series",)
 # Classes which MUST be monochrome (G-FIGMONO applies).
 MONO_REQUIRED = ("reasoning_glyph",)
+# v5.46 (GAP-2026-08-07-FIGACCENT): classes for which >=1 accent hue is
+# MANDATORY (G-FIGACCENT applies). Closes the enforcement gap behind the
+# S10-6A palette column: "1 accent hue" for data_single (now mandatory, owner
+# decision 2026-08-07) and ">=1 accent for the item under interrogation" for
+# schematic were normative prose with NO gate, so an all-black paper (IIT JAM
+# PHYSICS Mock01: 16/16 figures at 0.0000% coloured pixels) and an accented
+# paper (IIT JAM BIOTECH Mock01: 0.10-1.11%) both passed identically.
+ACCENT_REQUIRED = ("data_single", "schematic")
+# Accent presence floor for coloured_fraction(). Calibrated on the real
+# corpus: accented figures measure >=0.105% (BIO Mock01 minimum, a single
+# small blue NO2 label), all-black figures measure 0.0000%; 0.05% splits the
+# populations with a 2x margin and zero false positives. DELIBERATELY not
+# gated on dominant_hues(): its minimum-area cut swallows small accents (the
+# same BIO q14 label registers 0 dominant hues while being clearly blue).
+ACCENT_MIN_FRAC = 0.0005
 
 # Glyphs every figure font must cover; a tofu box is a HARD failure.
 REQUIRED_GLYPHS = "µ⁻²₂Å°αβθ×⇌≥≤‰Δλ"
@@ -220,6 +235,7 @@ REQUIRED_GLYPHS = "µ⁻²₂Å°αβθ×⇌≥≤‰Δλ"
 SEVERITY = {
     # colour + accessibility — NEVER halts, per owner directive
     "G-FIGCOLOUR":  "AMBER",
+    "G-FIGACCENT":  "AMBER",
     "G-FIGCVD":     "AMBER",
     "G-FIGSERIES":  "AMBER",
     "G-FIGALT":     "AMBER",
@@ -234,7 +250,7 @@ SEVERITY = {
     "G-FIGDPI":     "BLOCKING",
     "G-FIGDEGEN":   "BLOCKING",
 }
-NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO")
+NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGACCENT", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO")
 
 # Engine-side ids are G-* (hard) and W-* (advisory). The audit catalogue is A-*,
 # and Check M-GATE matches emitted gate names against A-* tokens in the spec
@@ -244,6 +260,7 @@ NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO
 # a red check, not a wrong figure, and therefore easy to paper over.
 AUDIT_GATE_ID = {
     "G-FIGCOLOUR":  "A-FIGCOLOUR",
+    "G-FIGACCENT":  "A-FIGACCENT",
     "G-FIGCVD":     "A-FIGCVD",
     "G-FIGSERIES":  "A-FIGSERIES",
     "G-FIGGLYPH":   "A-FIGGLYPH",
@@ -439,10 +456,14 @@ def figure_style(spec):
     }
 
 
-def render_figure(draw_fn, out_path, spec):
+def render_figure(draw_fn, out_path, spec, palette=None):
     """
     draw_fn(ax, series, palette) -> None.  Draws ONE visual unit.
     spec : from make_figure_spec(). MUTATED with the measured artefact facts.
+    palette : v5.46 — optional hue list overriding OKABE_ITO (the plumbing
+        Q7b.1 promised; exam_config wiring stays RESERVED until a rich-colour
+        release). None -> OKABE_ITO. Ignored for MONO_REQUIRED classes, which
+        always render black.
 
     The caller MUST place the PNG at exactly spec['display_in'] inches
     (capped to FIG_COLUMN_IN). S10-8 does this; nothing else may.
@@ -458,7 +479,8 @@ def render_figure(draw_fn, out_path, spec):
     from PIL import Image
 
     mono = spec["class"] in MONO_REQUIRED
-    palette = ["#000000"] * len(OKABE_ITO) if mono else OKABE_ITO
+    base = list(palette) if palette else OKABE_ITO
+    palette = ["#000000"] * len(base) if mono else base
     style = figure_style(spec)
 
     with plt.rc_context(style):
@@ -698,6 +720,37 @@ def g_figcolour(spec, png_path):
     return out
 
 
+def g_figaccent(spec, png_path):
+    """v5.46 (GAP-2026-08-07-FIGACCENT). Accent presence for data_single and
+    schematic — the S10-6A palette column made normative and enforceable.
+
+    Fires when a class in ACCENT_REQUIRED renders with fewer than
+    ACCENT_MIN_FRAC coloured pixels, i.e. the draw_fn ignored the palette and
+    drew everything in black (the pre-v5.33 "solid black" habit, RC-1).
+    AMBER by construction — a fire-0-times history does not exist yet for this
+    gate, so it must NOT start BLOCKING (regression-detector doctrine, and the
+    owner directive that no image-COLOUR condition may ever halt a run).
+    Deliberately reads coloured_fraction() only, never dominant_hues(): the
+    hue detector's minimum-area cut swallows small accents. EC-V18 safe:
+    a legacy spec has no class, _class_of() returns "unknown", the gate is
+    silent for the ~200 pre-v5.33 exams.
+    """
+    if _class_of(spec) not in ACCENT_REQUIRED:
+        return []
+    frac = coloured_fraction(png_path)
+    if frac is None:
+        return ["G-FIGACCENT: DORMANT — numpy/Pillow unavailable, accent "
+                "presence unverifiable. " + PIP_INSTALL]
+    if frac < ACCENT_MIN_FRAC:
+        return [f"G-FIGACCENT: {frac:.4%} coloured pixels (floor "
+                f"{ACCENT_MIN_FRAC:.2%}) on a {_class_of(spec)} figure. "
+                f"Q7b.8: the interrogated item (schematic) or the series ink "
+                f"(data_single) MUST carry an Okabe-Ito accent; the draw_fn "
+                f"must take its accent ink from the palette argument, never "
+                f"hardcode black."]
+    return []
+
+
 def g_figmono(spec, png_path):
     """Colour in an abstract-reasoning item can leak the answer."""
     if _class_of(spec) not in MONO_REQUIRED:
@@ -845,6 +898,7 @@ def audit_figure(spec, png_path, descr=None):
     hard += g_figscale(spec, png_path)
     hard += g_figlabel(spec)
     hard += g_figcolour(spec, png_path)
+    hard += g_figaccent(spec, png_path)
     hard += g_figmono(spec, png_path)
     hard += g_figseries(spec)
     hard += g_figcvd(spec, png_path)
@@ -915,6 +969,61 @@ def self_test():
     render_figure(draw2, mono_png, mono_spec)
     check("D1_monochrome_data_figure_is_caught",
           any("G-FIGCOLOUR" in m for m in g_figcolour(mono_spec, mono_png)))
+
+    # ---- FIXTURE D-7 (v5.46): all-black schematic / data_single -----------
+    # GAP-2026-08-07-FIGACCENT. IIT JAM PHYSICS Mock01 shipped 16/16 figures
+    # at 0.0000% coloured pixels while IIT JAM BIOTECH Mock01 shipped accented
+    # ones; both passed every gate. This fixture reproduces the shipped defect
+    # (a schematic drawn entirely in black) and asserts G-FIGACCENT catches
+    # it; the accented render of the SAME geometry must pass.
+    def draw_schem(ax, series, palette, ink="#000000"):
+        ax.plot([0, 1, 2], [0, 1, 0], color="#000000", lw=FIG_MIN_STROKE_PT)
+        ax.plot([0.8, 1.2], [0.5, 0.5], color=ink, lw=3.0)   # interrogated item
+        ax.set_xlabel("position"); ax.set_ylabel("level")
+    schem_black = make_figure_spec(7, "schematic", FIG_PROBLEM_DISPLAY_IN,
+                                   series=series_defaults(1, monochrome=True))
+    p_black = os.path.join(tmp, "schem_black.png")
+    render_figure(lambda ax, s, pal: draw_schem(ax, s, pal, "#000000"),
+                  p_black, schem_black)
+    check("D7_all_black_schematic_is_caught",
+          any("G-FIGACCENT" in m for m in g_figaccent(schem_black, p_black)))
+    schem_acc = make_figure_spec(7, "schematic", FIG_PROBLEM_DISPLAY_IN,
+                                 series=series_defaults(1))
+    p_acc = os.path.join(tmp, "schem_acc.png")
+    render_figure(lambda ax, s, pal: draw_schem(ax, s, pal, pal[0]),
+                  p_acc, schem_acc)
+    check("D7_accented_schematic_passes", g_figaccent(schem_acc, p_acc) == [])
+    # data_series is G-FIGCOLOUR territory, never G-FIGACCENT's — no double gate
+    check("D7_accent_gate_ignores_data_series",
+          g_figaccent(mono_spec, mono_png) == [])
+    # reasoning_glyph is exempt: monochrome there is MANDATORY (G-FIGMONO)
+    check("D7_accent_gate_ignores_reasoning_glyph",
+          g_figaccent({"class": "reasoning_glyph"}, p_black) == [])
+    # EC-V18: a legacy figure with no sidecar must stay silent
+    check("D7_accent_gate_is_legacy_safe", g_figaccent({}, p_black) == [])
+    # WIRING, not just logic: the audit pipeline reaches this gate ONLY through
+    # audit_figure(). Found by mutation testing 2026-08-07 — with the += line
+    # deleted every fixture stayed green, the exact hollow-branch class
+    # audit_mutation.py exists for. This fixture kills that mutant.
+    _h7, _w7 = audit_figure(schem_black, p_black)
+    check("D7_accent_finding_flows_through_audit_figure",
+          any("G-FIGACCENT" in m for m in _h7))
+    _h7c, _w7c = audit_figure(schem_acc, p_acc)
+    check("D7_accented_is_clean_through_audit_figure",
+          not any("G-FIGACCENT" in m for m in _h7c))
+    check("D7_accent_gate_never_blocks",
+          severity_of("G-FIGACCENT") == "AMBER"
+          and "G-FIGACCENT" in NEVER_BLOCKING_ON_COLOUR
+          and AUDIT_GATE_ID["G-FIGACCENT"] == "A-FIGACCENT")
+    # v5.46 palette plumbing: an override must reach the draw and stay
+    # backwards compatible when omitted
+    ovr_spec = make_figure_spec(7, "schematic", FIG_PROBLEM_DISPLAY_IN,
+                                series=series_defaults(1))
+    p_ovr = os.path.join(tmp, "schem_ovr.png")
+    render_figure(lambda ax, s, pal: draw_schem(ax, s, pal, pal[0]),
+                  p_ovr, ovr_spec, palette=["#D55E00"])
+    check("D7_palette_override_reaches_draw_fn",
+          g_figaccent(ovr_spec, p_ovr) == [])
 
     # ---- FIXTURE D-2: headroom halving (S = 0.500 on 24/24 option canvases)
     halved = dict(spec)
@@ -1106,7 +1215,7 @@ def self_test():
               for v in AUDIT_GATE_ID.values()))
     check("audit_gate_id_maps_a_finding",
           audit_gate_id("G-FIGCOLOUR: 0.000% coloured") == "A-FIGCOLOUR")
-    check("gate_count_is_twelve", len(SEVERITY) == 12)
+    check("gate_count_is_thirteen", len(SEVERITY) == 13)  # v5.46: +G-FIGACCENT
     # Every id a gate can EMIT must be registered. The alt-text gate once
     # emitted "W-FIGALT" while SEVERITY keyed "G-FIGALT", so a real alt-text
     # failure mapped to no catalogue gate and was reported under an id the audit

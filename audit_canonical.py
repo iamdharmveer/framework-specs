@@ -170,7 +170,7 @@ def block_image_paras(b):
 
 def extract_media(docx_path, media_map):
     """v2.13 — extract every referenced media part to a temp dir and return
-    {rid: absolute path}. The twelve figure-conformance gates are arithmetic
+    {rid: absolute path}. The thirteen figure-conformance gates are arithmetic
     over the saved PNG, so they need a real file on disk; a docx part is a ZIP
     member and PIL cannot open it in place.
 
@@ -2153,7 +2153,7 @@ def gate_images(blocks, src, media_map):
     else:
         _ok('A-FIGTEXT-PROSE', 'no figure-reference prose in zero-image blocks.')
 
-    # ── v2.11 FIGURE CONFORMANCE — 12 gates (GAP-2026-07-29-FIG-R2) ──────────
+    # ── v2.11 FIGURE CONFORMANCE — 13 gates (GAP-2026-07-29-FIG-R2; +A-FIGACCENT v2.25, GAP-2026-08-07-FIGACCENT) ──
     # Every check below is DETERMINISTIC arithmetic over the saved PNG and its
     # FigureSpec sidecar, and is therefore legal inside this python block. This
     # is the correction to the reasoning that let the defect ship: A-FIGPROFILE
@@ -2188,7 +2188,8 @@ def gate_images(blocks, src, media_map):
         # regardless of environment, which restores §R15 reproducibility and
         # makes the gate count itself a usable integrity signal.
         for _g in ('A-FIGSCALE', 'A-FIGLABEL', 'A-FIGDPI', 'A-FIGDEGEN',
-                   'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGCVD',
+                   'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGACCENT',
+                   'A-FIGCVD',
                    'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX'):
             _warn(_g, 'figural_core engine unavailable — gate NOT RUN '
                       f'(dependency degraded: {_fc_why}).')
@@ -2329,6 +2330,7 @@ def gate_images(blocks, src, media_map):
         _fig_verdict('A-FIGMONO', _by_gate)
         _fig_verdict('A-FIGOPTUNIF', _by_gate)
         _fig_verdict('A-FIGCOLOUR', _by_gate)
+        _fig_verdict('A-FIGACCENT', _by_gate)
         _fig_verdict('A-FIGCVD', _by_gate)
         _fig_verdict('A-FIGSERIES', _by_gate)
         _fig_verdict('A-FIGGLYPH', _by_gate)
@@ -2956,7 +2958,7 @@ def _block_has_image(b):
 # That contradicts this framework's own doctrine, stated at §5 and in CLAUDE.md:
 # "NO DEPENDENCY CONDITION MAY EVER HALT A RUN" and "Silence is the defect; a
 # halt is not the remedy." Graceful degradation was granted to blueprint_core, to
-# figural_core, to all twelve figure gates and to every colour condition — and
+# figural_core, to all thirteen figure gates and to every colour condition — and
 # denied to the one dependency whose absence is fatal.
 #
 # THE DANGER, AND HOW IT IS CLOSED. A third stamp state is an obvious cheat
@@ -2972,9 +2974,10 @@ PROBE_GLYPH_COUNT = 3
 VISION_STAMP_VIEWED = 'rendered-and-viewed'
 VISION_STAMP_UNAVAILABLE = 'view-unavailable'
 # v2.23.0 (RELEASE B) — CONFORMANCE ESTABLISHED WITHOUT VIEWING.
-# The twelve figure gates (A-FIGSCALE / A-FIGLABEL / A-FIGDPI / A-FIGDEGEN /
-# A-FIGMONO / A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGCVD / A-FIGSERIES / A-FIGGLYPH /
-# A-FIGALT / A-FIGLABELPX) are ARITHMETIC over the saved PNG and its FigureSpec.
+# The thirteen figure gates (A-FIGSCALE / A-FIGLABEL / A-FIGDPI / A-FIGDEGEN /
+# A-FIGMONO / A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGACCENT / A-FIGCVD / A-FIGSERIES /
+# A-FIGGLYPH / A-FIGALT / A-FIGLABELPX) are ARITHMETIC over the saved PNG and its
+# FigureSpec.
 # They do not use vision and never did. Measured on a real delivered paper
 # (IIT_JAM_BIOTECHNOLOGY M01): all twelve reported "57 figure(s) conform" with no
 # view tool involved — and they catch what eyes do not (a 72-DPI render, a
@@ -3153,7 +3156,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
             _montage_ok = _file_ok(_resolve_evidence(evidence_dir, img.get('montage')),
                                    EVIDENCE_MIN_BYTES)
             if img.get('stamp') == VISION_STAMP_ARITHMETIC:
-                # v2.23.0 — the twelve figure gates ran over this PNG + its spec.
+                # v2.23.0 — the thirteen figure gates ran over this PNG + its spec.
                 # Unfakeability here is NOT the vision probe (arithmetic does not
                 # depend on vision and is valid whether or not the view tool
                 # works); it is RA-4's render-or-recompute rule — the saved
@@ -3213,7 +3216,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
                           f'{sorted(b for b in _vfailed_batches if b is not None)})')
         if arith6:
             _parts.append(f'{len(set(arith6))} question(s) carry conformance-arithmetic '
-                          '(the twelve figure gates ran over the PNG + FigureSpec; '
+                          '(the thirteen figure gates ran over the PNG + FigureSpec; '
                           'CONFORMANCE IS ESTABLISHED, the figure-vs-stem semantic '
                           'claim is not)')
         _warn('C6', '; '.join(_parts) + '. Evidence exists and is non-trivial. '
@@ -3235,7 +3238,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
         'every paper artefact is covered by a ledger stamp.' if not bad7 else
         f'paper artefact not audited (no ledger stamp): {_flist(bad7)}. '
         'MECHANICAL REMEDY — an IMAGE artefact does NOT require the view tool. '
-        'The twelve figure gates are ARITHMETIC over the PNG + FigureSpec and '
+        'The thirteen figure gates are ARITHMETIC over the PNG + FigureSpec and '
         f'establish conformance without it: stamp {VISION_STAMP_ARITHMETIC!r} '
         'with the saved gate trace. If the view tool is genuinely down, run P3.5 '
         '(--vision-probe / --vision-probe-verify) ONCE to record the outage, then '
@@ -3265,7 +3268,7 @@ def completion_gate(audit_state_path, total_questions, blocks, doc):
             if _n_arith:
                 print(f'COMPLETION-GATE: DEGRADED (vision) — figure CONFORMANCE '
                       f'ESTABLISHED ARITHMETICALLY for {_n_arith} image artefact(s) '
-                      f'(twelve figure gates over PNG + FigureSpec, no view tool); the '
+                      f'(thirteen figure gates over PNG + FigureSpec, no view tool); the '
                       f'figure-vs-stem SEMANTIC claim is NOT visually confirmed. '
                       f'§R13 limitation required; CERTIFIED-DEGRADED (VISION) ⇒ F1 '
                       f'AMBER footer. ({_tail})')
@@ -5089,7 +5092,8 @@ def self_test():
                 or c == 'A-GATEERROR']
 
     _FIGGATES = ('A-FIGSCALE', 'A-FIGLABEL', 'A-FIGDPI', 'A-FIGDEGEN',
-                 'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGCVD',
+                 'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGACCENT',
+                 'A-FIGCVD',
                  'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX')
 
     # 53. BLOCK.IMAGES IS POPULATED — the fixture whose absence WAS the defect.
