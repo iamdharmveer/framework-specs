@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026.08.07.7
+
+### v5.47.2 review — one mask set, two consumers; yearform repair; figural scope named
+
+(1) _yearform repaired to [A-Za-z]{2,}: N/2000, M/1950, E/2026, k/1999, V/2048
+fire again; March/2026, Jan/2019, Sept/2020 stay masked; N/3000-class unaffected.
+(2) STRUCTURAL fix for the divergence class the reviewer measured: the shared
+_MM_UNIT/_MM_WORDPAIR/_MM_YEARFORM mask set is defined once and consumed by BOTH
+needs_omml and the post-build gate — m/s², cm²/s, kg/m³ and is/are are now False
+in needs_omml, matching the gate; UNIT_LABEL_RE (with its \b-before-² bug) is
+retired to an alias. NAMED ASYMMETRY, deliberate: 3/2 stays needs_omml-True
+(rule 3 — digit fractions are OMML at routing) while the gate is lenient on
+rendered digit/digit. (3) The behavioural change v5.47.2 failed to name is now
+scoped and named: assert_not_math tests the ORIGINAL v4.3 RASTER_BAN_RE, so
+normalised-axis figure labels (σ/σ₀, λ/λ₀, α/β, Δv/Δt, and is/are, m/s²) no
+longer abort builds, while whole built-up expressions ("x + 1/x = 5") still hard-
+stop the raster path exactly as before. Framework_MockTestCreate → v5.47.3.
+Measured: reviewer's full yearform table reproduces; divergence list all-False in
+needs_omml except the named 3/2 asymmetry; six axis labels pass assert_not_math,
+whole expression aborts; Mock05 stays at its true 20.
+
 ## 2026.08.07.6
 
 ### v5.47.1 gate review fixes — superscripted units, Greek classes, recorded noise

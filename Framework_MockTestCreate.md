@@ -1,4 +1,29 @@
-# Framework_MockTestCreate v5.47.2
+# Framework_MockTestCreate v5.47.3
+# v5.47.3 — 2026-08-07 — ONE MASK SET, TWO CONSUMERS (review findings on v5.47.2).
+#   (1) _yearform's [A-Za-z]+ swallowed single-letter-over-year fractions
+#       (N/2000, M/1950, E/2026) — the cure was wider than the March/2026
+#       complaint. Repaired to [A-Za-z]{2,} (month names keep masking; every
+#       single-letter numerator fires again).
+#   (2) STRUCTURAL FIX for the divergence class: the gate's masks lived only in
+#       the gate, while needs_omml kept the old narrow UNIT_LABEL_RE (with the
+#       \b-before-² bug, no word-pair mask, h|s|min|hr only) — m/s², 3/2 and
+#       is/are were gate-silent but needs_omml-True, and needs_omml feeds
+#       assert_not_math, which RAISES. There is now ONE shared mask set
+#       (_MM_UNIT/_MM_WORDPAIR/_MM_YEARFORM) and ONE masked detector,
+#       consumed by BOTH the gate and needs_omml — agreement is structural,
+#       not claimed. UNIT_LABEL_RE is retired to a compatibility alias.
+#       NAMED ASYMMETRY (deliberate, not divergence): digit/digit (3/2) stays
+#       needs_omml-True — rule 3 makes digit fractions mandatory OMML at
+#       routing — while the post-build gate is lenient on rendered digit/digit
+#       (dates, scores). Same masks, different pattern scope, on purpose.
+#   (3) Named behavioural scoping (the second consumer the v5.47.2 changelog
+#       failed to name): widening MATH_TRIGGER_RE had widened assert_not_math's
+#       build-aborting figural ban too — ordinary normalised-axis labels
+#       (σ/σ₀, λ/λ₀, α/β, Δv/Δt) began aborting builds. assert_not_math now
+#       tests the ORIGINAL v4.3-scope RASTER_BAN_RE (letters/digits fraction,
+#       caret, superscript-on-term, raw LaTeX, √( ) — restoring pre-v5.47.2
+#       figural behaviour exactly, while stem/option ROUTING keeps the widened
+#       Greek/subscript detector. Whole expressions still never rasterise.
 # v5.47.2 — 2026-08-07 — GATE FIXES (review findings 1–3 on v5.47.1):
 #   (1) m/s², rad/s² were false positives: ² is a \w character, so the _unit
 #       mask's trailing \b never matched after "s" — denominators (and
@@ -4861,11 +4886,8 @@
       from docx import Document as _D
       _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
       _Mns = M
-      _unit = _re.compile(r'\b(?:km|m|cm|mm|kg|g|l|ml|s|hr|h|rad|rev|V|W|J|N|C|T|A|eV)[²³]?'
-                          r'\s*/\s*(?:h|s|min|hr|m|K|kg|mol|c)[²³]?\b')
-      _yearform = _re.compile(r'\b[A-Za-z]+\s*/\s*(?:19|20)\d{2}\b')
-      _wordpair = _re.compile(r'\b(?:is/are|and/or|has/have|he/she|yes/no|a/an|c/o|w/o|I/O)\b',
-                              _re.IGNORECASE)
+      # v5.47.3 — masks are the SHARED _MM_* set (see the trigger block);
+      # the gate holds no private copies.
       probs = []
       doc = _D(docx_path)
       failed_bodies = {b for b, _ in T3_STATS.get('failed', [])}
@@ -4875,7 +4897,7 @@
               continue
           if T3_OPEN in t or T3_CLOSE in t:
               probs.append(f'residual region delimiter in: {t.strip()[:60]!r}')
-          st = _yearform.sub(' ', _wordpair.sub(' ', _unit.sub(' ', t)))
+          st = _mm_mask(t)
           if _re.search(r'[\w)\]²³]\s*÷|÷\s*[\w(]', st):
               probs.append(f'division-sign fraction in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
           if '^' in st:
@@ -4953,23 +4975,46 @@
       r"|(?:[\w)\]]\s*÷|÷\s*[\w(])"                    # ÷-fraction (v5.47)
       r"|(?:[\u0300-\u036f\u20d0-\u20ff])"             # combining accent (v5.47)
   )
-  # Allow-list so unit labels never trip the fraction branch.
-  UNIT_LABEL_RE = re.compile(r"(?i)\b(km|m|cm|mm|kg|g|l|ml|s|hr|h)\s*/\s*(h|s|min|hr)\b")
+  # v5.47.3 — THE ONE SHARED MASK SET. Defined once; consumed by BOTH
+  # needs_omml (authoring detection) and mock_math_residue_check (post-build
+  # gate). Agreement between the two consumers is structural — a mask edited
+  # here changes both, and a mask edited anywhere else does not exist.
+  _MM_UNIT = re.compile(r"\b(?:km|m|cm|mm|kg|g|l|ml|s|hr|h|rad|rev|V|W|J|N|C|T|A|eV)[²³]?"
+                        r"\s*/\s*(?:h|s|min|hr|m|K|kg|mol|c)[²³]?\b")
+  _MM_WORDPAIR = re.compile(r"\b(?:is/are|and/or|has/have|he/she|yes/no|a/an|c/o|w/o|I/O)\b",
+                            re.IGNORECASE)
+  _MM_YEARFORM = re.compile(r"\b[A-Za-z]{2,}\s*/\s*(?:19|20)\d{2}\b")
 
-  def needs_omml(text):
+  def _mm_mask(text):
+      return _MM_YEARFORM.sub(" ", _MM_WORDPAIR.sub(" ", _MM_UNIT.sub(" ", text or "")))
+
+  UNIT_LABEL_RE = _MM_UNIT   # retired compatibility alias (v5.47.3)
+
+  # v5.47.3 — the ORIGINAL v4.3-scope raster ban. assert_not_math (figural
+  # HARD STOP) tests THIS, not the widened MATH_TRIGGER_RE: normalised-axis
+  # figure labels (σ/σ₀, α/β, Δv/Δt) are legitimate figural text and must not
+  # abort builds; whole built-up expressions still never rasterise.
+  RASTER_BAN_RE = re.compile(
+      r"(?:[A-Za-z0-9\)\]]\s*/\s*[A-Za-z0-9\(\[])"
+      r"|(?:\^\s*[-+]?\d)"
+      r"|(?:[A-Za-z0-9]\s*[\u00b2\u00b3])"
+      r"|(?:\\frac|\\sqrt)"
+      r"|(?:\u221a\s*[\(A-Za-z0-9])"
+  )
+
+  def needs_omml(text, pattern=None):
+      """Masked built-up-math detector. Default pattern = the widened
+      MATH_TRIGGER_RE (stem/option ROUTING). assert_not_math passes
+      RASTER_BAN_RE (figural scope). Masks are the shared _MM_* set — the
+      SAME masks the post-build gate applies (v5.47.3 unification)."""
       if not text:
           return False
-      if UNIT_LABEL_RE.search(text):
-          # a unit label alone is plain text; only force OMML if ANOTHER built-up
-          # token is also present.
-          stripped = UNIT_LABEL_RE.sub(" ", text)
-          return bool(MATH_TRIGGER_RE.search(stripped))
-      return bool(MATH_TRIGGER_RE.search(text))
+      return bool((pattern or MATH_TRIGGER_RE).search(_mm_mask(text)))
 
   def assert_not_math(label):
       """Guard called by the FIGURAL path (S10-7). A built-up expression must
       NEVER reach the raster pipeline. R-MATH-OMML HARD STOP."""
-      if needs_omml(label):
+      if needs_omml(label, pattern=RASTER_BAN_RE):
           raise AssertionError(
               f"R-MATH-OMML: refusing to RASTERISE a math expression "
               f"({label!r}). Built-up math is OMML only (S10-4 add_math_stem); "
@@ -7604,7 +7649,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.47.2
+# END OF Framework_MockTestCreate v5.47.3
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
