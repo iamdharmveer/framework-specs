@@ -1,4 +1,11 @@
-# Framework_MockTestCreate v5.47
+# Framework_MockTestCreate v5.47.1
+# v5.47.1 — 2026-08-07 — GATE FIX (review finding on v5.47): the letter-fraction
+#   residue pattern required a LETTER after the slash, so letter-over-DIGIT
+#   fractions (M/3, E/2, v/2) — including this release's own headline example —
+#   passed silently. The right-hand class now admits digits; the left-hand class
+#   deliberately does not, so digit/digit (3/2), dates (12/3) and masked units/
+#   word-pairs stay non-firing. √N (bare digit radicand) remains deliberately
+#   non-firing: readable as-is, and t3_mathcomp auto-converts it inside regions.
 # v5.47 — 2026-08-07 — TIER-3 MATH (GAP-2026-08-07-MOCK-OMML, remedies MC1–MC3).
 #   Measured on IIT_JAM_PHYSICS Mock05 (14/60 questions): letter fractions left
 #   linear in stems ("M/3", "a/√n"), subscripts shipped as flat text ("k_B T",
@@ -4863,7 +4870,7 @@
               probs.append(f'flat subscript in: {t.strip()[:60]!r} — use ⟦MATH:k_{{B}}⟧')
           if _re.search(r'√\s*\(|√\s*[A-Za-zπλωεℏ]', st):
               probs.append(f'flat radical in: {t.strip()[:60]!r} — use ⟦MATH:\\sqrt{{…}}⟧')
-          if _re.search(r'[A-Za-zπθφλωε²³)\]]\s*/\s*[A-Za-z(π√λℏ]', st):
+          if _re.search(r'[A-Za-zπθφλωε²³)\]]\s*/\s*[0-9A-Za-z(π√λℏ]', st):
               probs.append(f'letter fraction left linear in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
           if _re.search(r'[\u0300-\u036f\u20d0-\u20ff]', st):
               probs.append(f'combining-character accent in: {t.strip()[:60]!r} — use ⟦MATH:\\bar{{A}}⟧ / ⟦MATH:\\vec{{E}}⟧')
@@ -7583,7 +7590,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.47
+# END OF Framework_MockTestCreate v5.47.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

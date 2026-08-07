@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.08.07.5
+
+### v5.47 gate review fix — letter-over-digit fractions now fire
+
+The mock_math_residue_check letter-fraction pattern required a LETTER after the
+slash, so M/3, E/2, v/2 — including the v5.47 release's own headline example —
+passed silently. Right-hand class now admits digits; left-hand class deliberately
+does not (digit/digit, dates, masked units and word-pairs stay non-firing). √N
+stays deliberately non-firing. Framework_MockTestCreate v5.47 → v5.47.1.
+Proof: M/3 · a/√n · x/2 fire; 3/2 · 12/3 · m/s · is/are do not; defective Mock05
+report rises 18 → 20 problems — the two new hits are the paragraphs whose only
+fractions are letter-over-digit (Q.3's "M/3 and 2M/3" among them); the other
+reviewer-named forms (a/√n etc.) were already firing via the √/letter right-class.
+
 ## 2026.08.07.4
 
 ### GAP-2026-08-07-MOCK-OMML — Step 7 math: no subscript vocabulary, no gate, latent invalid builders
