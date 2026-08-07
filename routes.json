@@ -87,12 +87,14 @@
   "MockExplain": [
     "Framework_MockTestExplain.md",
     "explain_engine.py",
+    "t3_mathcomp.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md"
   ],
   "TestExplain": [
     "Framework_MockTestExplain.md",
     "explain_engine.py",
+    "t3_mathcomp.py",
     "paper_pipeline.py",
     "Framework_DeliveryFooter.md"
   ],
@@ -109,6 +111,7 @@
   "PYQExplain": [
     "Framework_PYQExplain.md",
     "explain_engine.py",
+    "t3_mathcomp.py",
     "figural_vision.py",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md"
@@ -116,6 +119,7 @@
   "PYQExplainAudit": [
     "Framework_PYQExplainAudit.md",
     "explain_engine.py",
+    "t3_mathcomp.py",
     "explain_audit_gate.py",
     "blueprint_core.py",
     "Framework_DeliveryFooter.md"

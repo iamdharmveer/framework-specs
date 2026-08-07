@@ -1,4 +1,28 @@
-# Framework_PYQExplain v1.2.1 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.0 — Universal PYQ Explanation Generator
+# v2.0 — 2026-08-07 — TIER-3 STRUCTURED MATH (GAP-2026-08-07-EXPLAIN-OMML, remedies E1–E4).
+#   Measured on IIT_JAM_PHYSICS 15-Feb-2026 explanations (60 Q, 56 affected):
+#   (a) the v1 OMML builders interpolated RAW text into m:num/m:den — schema-invalid
+#   XML every Word engine renders as an EMPTY ▯/▯ placeholder, while the verifier's
+#   itertext() reader happily read the bare text, so 12 destroyed fractions shipped
+#   under green checks (verifier had been loosened to match the producer's bug);
+#   (b) the §11 guard understood only digit/digit slashes, so generation evaded it
+#   with an ASCII dialect — 234 "÷" fractions, V_B underscores, x^b carets, √( ),
+#   combining-character A̅/E⃗ accents — all guard-invisible, all typographically wrong;
+#   (c) inherited upstream loss (pre-v2.0 Row files with missing symbols) was
+#   faithfully laundered, because the fidelity check compares output to its own input.
+#   Fix (all in explain_engine.py — MockTestExplain Step 9 inherits via MANDATE A):
+#   E1 builders _r()-wrap + XML-escape all content; verifier check 5 now REJECTS
+#   bare-text num/den (the loosened reader is reverted and locked the other way);
+#   E2 add_math_text v2.0 dispatches ⟦MATH:…⟧ regions through the SHARED Tier-3
+#   compiler (new repo module t3_mathcomp.py, byte-identical to PYQPrepare §S3-5b,
+#   drift-locked in the engine self-test) with the same no-halt/no-markup graceful
+#   degradation and verbatim Ctrl+F quoting; E3 guard_sentence bans the dialect
+#   (÷, ^, _x, √(, combining accents) with the region spelling as the named remedy,
+#   and is region-aware (\frac etc. are legal INSIDE regions); E4 new
+#   source_math_health() input check names upstream loss in plain words ("re-run
+#   Step 1 v2.0 first") before any explanation is generated. Verifier gains Tier-3
+#   structural integrity, rendered-dialect residue, and a region ledger + degrade
+#   report. Self-test 10 → 24 audit checks incl. a negative-proofed drift lock.
 # v1.2.1 — 2026-08-03 — REGRESSION REPAIR (one line; zero rule change).
 #   v1.2 was authored from a base predating 2026.08.03.5 and reintroduced a pointer to
 #   Framework_MockTestCreateAudit.md, a spec deleted in that release. Restated as
@@ -962,19 +986,48 @@ label = assess_difficulty(
   ca/ca_range, write COMMON PITFALLS in place of WHY WRONG.
 
 # ════════════════════════════════════════════════════════════════════════
-# §11 — MATH / OMML RENDERING DISCIPLINE
+# §11 — MATH / OMML RENDERING DISCIPLINE (v2.0 — Tier-3)
 # ════════════════════════════════════════════════════════════════════════
 #   Every piece of math in an explanation is real OMML — never inline text, glyph,
-#   or LaTeX. Same OMML standard across the whole document.
+#   LaTeX, or ASCII dialect. Same OMML standard as PYQPrepare v2.0, via the SAME
+#   compiler: t3_mathcomp.py (byte-identical to Framework_PYQPrepare §S3-5b; the
+#   engine self-test drift-locks the two — one grammar, no divergence possible).
 
-## S11-1 — The single funnel (write-time enforced)
-  All prose enters via add_math_text(). Auto-converts digit/digit fractions to
-  OMML. Raises on: unconvertible inline fraction, year-range slash, vulgar glyph,
-  LaTeX. Units km/h, m/s are left as text.
+## S11-1 — The single funnel (write-time enforced; v2.0)
+  All prose enters via add_math_text(). Any non-trivial math is written as a
+  ⟦MATH:…⟧ LaTeX-lite region and compiles to ONE homogeneous <m:oMath> through
+  the shared Tier-3 compiler — fractions \frac/\sfrac, scripts x^{n}/V_{B},
+  radicals \sqrt/\root, n-ary operators with true operands, \lim, \cases,
+  matrices, \pre prescripts, stretchy delimiters, \bar/\vec/\hat accents
+  (Boolean negation and vectors are ACCENTS, never combining characters), roman
+  functions, and the Greek/relation symbol map. Plain segments keep the v1
+  digit/digit auto-fraction path byte-compatibly; units km/h, m/s stay text.
+  THE DIALECT IS BANNED: guard_sentence() raises — at authoring time, invisible
+  to the operator — on ÷ between operands, caret exponents, V_B-style
+  underscores, √( or √letter, and any combining accent character, each naming
+  the ⟦MATH:…⟧ spelling as the remedy. Guards are region-aware: \frac inside a
+  region is legal; the _BANNED_LATEX list applies to prose outside regions only.
+  A region the compiler rejects NEVER halts a build and NEVER ships silently:
+  it degrades to ordinary plain text (no colour, no markup) and
+  verify_explanations() quotes it VERBATIM so the author can Ctrl+F straight to
+  it — the same strict-core/forgiving-boundary contract as PYQPrepare S3-5.
 
-## S11-2 — Post-write verification (every batch)
-  verify_explanations() re-parses the RENDERED docx and re-confirms every OMML
-  fraction is well-formed and no inline fraction slipped the funnel.
+## S11-2 — Post-write verification (every batch; v2.0)
+  verify_explanations() re-parses the RENDERED docx and re-confirms: every OMML
+  fraction is well-formed WITH run-level children — bare text directly inside
+  m:num/m:den is SCHEMA-INVALID and named as such (Word renders it as an empty
+  ▯/▯ placeholder; itertext()-style readers that accept it are the defect, not
+  the proof); Tier-3 structural integrity (sSubSup/rad/nary/limLow complete,
+  matrices rectangular); zero ASCII-dialect residue in rendered prose; and the
+  region ledger — every ⟦MATH:⟧ region in the blocks either compiled or is
+  quoted verbatim in a plain-language degrade report.
+
+## S11-2a — Input health (before generating; v2.0)
+  source_math_health() scans the SOURCE paper's question regions for upstream
+  math loss — gap signatures where a symbol vanished, empty OMML islands, and
+  dialect already present in stems — and prints plain-word warnings ending with
+  the remedy: re-run PYQPrepare v2.0 on the source PDF FIRST, then regenerate.
+  Advisory, never a halt: PYQ-1 must never silently launder inherited damage.
 
 ## S11-3 — The Word-native limit
   OMML renders perfectly in Word. LibreOffice may mangle it — that is a rendering-
@@ -1557,5 +1610,5 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v1.2.1
+# END OF Framework_PYQExplain v2.0
 # ════════════════════════════════════════════════════════════════════════

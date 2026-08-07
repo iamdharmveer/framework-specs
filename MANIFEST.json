@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.07.2",
+  "framework_version": "2026.08.07.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -90,12 +90,14 @@
     "MockExplain": [
       "Framework_MockTestExplain.md",
       "explain_engine.py",
+      "t3_mathcomp.py",
       "paper_pipeline.py",
       "Framework_DeliveryFooter.md"
     ],
     "TestExplain": [
       "Framework_MockTestExplain.md",
       "explain_engine.py",
+      "t3_mathcomp.py",
       "paper_pipeline.py",
       "Framework_DeliveryFooter.md"
     ],
@@ -112,6 +114,7 @@
     "PYQExplain": [
       "Framework_PYQExplain.md",
       "explain_engine.py",
+      "t3_mathcomp.py",
       "figural_vision.py",
       "blueprint_core.py",
       "Framework_DeliveryFooter.md"
@@ -119,6 +122,7 @@
     "PYQExplainAudit": [
       "Framework_PYQExplainAudit.md",
       "explain_engine.py",
+      "t3_mathcomp.py",
       "explain_audit_gate.py",
       "blueprint_core.py",
       "Framework_DeliveryFooter.md"
@@ -176,11 +180,11 @@
       "bytes": 464503
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "a2bfc7b12d086988fd056a2a3578de0c5e6d7e593dd80cbd8a5f4685473cb53c",
+      "sha256": "284474c2f0918b6e62f9eede25e79d65b8794100033009f0ed7166a232cff54c",
       "version_header": "# Framework_MockTestExplain v1.21.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1519,
-      "bytes": 119775
+      "lines": 1523,
+      "bytes": 120070
     },
     "Framework_PYQAnalyse.md": {
       "sha256": "4e4d8eda31b58ecc545c4767f47d3faf5a06e99e1ebdd0183a75debfac865b18",
@@ -232,11 +236,11 @@
       "bytes": 45903
     },
     "Framework_PYQExplain.md": {
-      "sha256": "5ec51a5ebf2258eda6d6e1552406b0d3cc91b4124cc775512977644538d97ad7",
-      "version_header": "# Framework_PYQExplain v1.2.1 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "06321ce4ce95bd23602c5b544912a372835ea1a7bca96ea2c1f04c7bb61df4f1",
+      "version_header": "# Framework_PYQExplain v2.0 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1561,
-      "bytes": 103959
+      "lines": 1614,
+      "bytes": 108217
     },
     "Framework_PYQExplainAudit.md": {
       "sha256": "4868738fc6f3016822b1d7216d2a171ff6df76e378c9a3ac58321a65965e9634",
@@ -295,11 +299,18 @@
       "bytes": 11299
     },
     "explain_engine.py": {
-      "sha256": "baad4d67b42ec06223965972e25378a49968dd4d141d75515a8547399f82f70e",
+      "sha256": "8b4222c35c16b6e128900660fe721567c6b65b7b3bcfd212bee031ae53daf768",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 1940,
-      "bytes": 105980
+      "lines": 2216,
+      "bytes": 121565
+    },
+    "t3_mathcomp.py": {
+      "sha256": "49bc3a4b78454f03dffa900a81f62bdf7a230f7be1458a38e6189a0202aab8dd",
+      "version_header": "# t3_mathcomp.py \u2014 Tier-3 structured math compiler (SHARED ENGINE).",
+      "end_sentinel": "    return n",
+      "lines": 574,
+      "bytes": 20650
     },
     "blueprint_core.py": {
       "sha256": "139a03aca3675ad621bff46736c6322299b9c6663f7fd4b3a5660c684a44edc1",

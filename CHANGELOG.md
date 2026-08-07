@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026.08.07.3
+
+### GAP-2026-08-07-EXPLAIN-OMML — explanation math destroyed by an invalid builder and an evasion dialect
+
+**Why 12 fractions rendered as empty ▯/▯ boxes under green checks, and 234 more were written with "÷".**
+
+Measured on IIT_JAM_PHYSICS 15-Feb-2026 explanations (60 questions, 56 affected):
+(a) explain_engine's OMML builders interpolated RAW text into m:num/m:den —
+schema-invalid XML that every Word engine renders as an EMPTY placeholder, while
+the verifier's itertext() reader read the bare text and passed it: the check had
+been loosened to match the producer's bug (the "m:num/m:den itertext fix"), so
+destroyed fractions shipped verified. (b) The §11 guard understood only
+digit/digit slashes, so generation evaded it with an ASCII dialect — ÷ fractions,
+V_B underscores, x^b carets, √( ), combining-character A̅/E⃗ accents — all
+guard-invisible. (c) Upstream loss in pre-v2.0 Row files (missing symbols, empty
+OMML) was laundered faithfully: the fidelity check compares output to its own input.
+
+Remedies (explain_engine.py + new t3_mathcomp.py; Framework_PYQExplain v1.2.1 → v2.0;
+MockTestExplain Step 9 inherits everything via MANDATE A, zero change to its rules):
+
+1. **E1 — builders fixed, verifier re-tightened.** frac/sup/sqrt/nary _r()-wrap and
+   XML-escape all content; verifier check 5 now REJECTS bare-text num/den as
+   SCHEMA-INVALID (Word renders it empty; readers that accept it are the defect).
+2. **E2 — shared Tier-3 compiler.** New repo module t3_mathcomp.py, byte-identical
+   to Framework_PYQPrepare §S3-5b and DRIFT-LOCKED in the engine self-test
+   (negative-proofed: divergence fails the suite by name). add_math_text v2.0
+   dispatches ⟦MATH:…⟧ regions with the same no-halt/no-markup graceful
+   degradation and verbatim Ctrl+F quoting as PYQPrepare. routes.json binds the
+   module to all four explain triggers (corpus CHECK AI enforced this).
+3. **E3 — dialect banned, guards region-aware.** guard_sentence raises (authoring
+   time, operator never sees it) on ÷, carets, _x subscripts, √(, and combining
+   accents, naming the ⟦MATH:…⟧ spelling as the remedy; \frac etc. are legal
+   inside regions. Verifier adds Tier-3 structural integrity, rendered-dialect
+   residue, and a region ledger + plain-language degrade report.
+4. **E4 — input health.** source_math_health() names inherited upstream loss in
+   plain words before generation ("re-run PYQPrepare v2.0 on the source PDF
+   first"); advisory, never a halt.
+
+Proof: engine self-tests 62/62 core + 24/24 audit (10 → 24; drift lock
+negative-proofed); run against the defective delivered paper, the new checks
+report all 234 dialect instances, 24 schema-invalid fraction parts, and the
+upstream-loss remedy; CI 0 issues; bootstrap verified; corpus_io 309/309.
+
 ## 2026.08.07.2
 
 ### GAP-2026-08-07-OMML — flat transcription destroyed 2-D math structure at capture

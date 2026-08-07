@@ -145,6 +145,13 @@ class EngineConfig:
 # Banned glyphs in student text (EX1). The block-header markers are whitelisted.
 _BANNED_GLYPHS = ('\u2713', '\u2714', '\u2717', '\u2718', '\u2611', '\u2612')  # ✓✔✗✘☑☒
 _BANNED_LATEX = ('\\frac', '\\sqrt', '\\left', '\\right', '$')
+_DIALECT_BANS = (
+    (re.compile(r'[\w)\]²³⟧]\s*÷|÷\s*[\w(⟦]'), 'division-sign fraction', r'\frac{a}{b}'),
+    (re.compile(r'\^'), 'caret exponent', 'x^{n}'),
+    (re.compile(r'(?<![A-Za-z0-9_])[A-Za-zψφχε]_(?=[A-Za-z0-9{(])'), 'underscore subscript', 'V_{B}'),
+    (re.compile(r'√\s*\(|√\s*[A-Za-zπλωεℏ]'), 'flat radical', r'\sqrt{…}'),
+    (re.compile(r'[\u0300-\u036f\u20d0-\u20ff]'), 'combining-character accent', r'\bar{A} or \vec{E}'),
+)
 _BANNED_BLOCKS = ('REMEMBER', 'EXAM CONNECTION')
 _BANNED_TEMPLATE = (
     'this option is wrong', 'this is a common misconception', "doesn't match the answer",
@@ -300,7 +307,22 @@ def guard_sentence(text, cfg=None):
     the English/Latin defaults are used."""
     if text is None or not str(text).strip():
         raise ValueError('empty sentence')
-    s = str(text)
+    s_full = str(text)
+    # v2.0 — Tier-3 region awareness: ⟦MATH:…⟧ bodies are validated by the
+    # compiler, not by prose guards; every check below sees regions as ⟦M⟧.
+    _stripped = T3_REGION_RE.sub('', s_full)
+    if T3_OPEN in _stripped or T3_CLOSE in _stripped:
+        raise ValueError(f'unbalanced ⟦MATH:⟧ delimiters in: {s_full[:60]!r}')
+    s = T3_REGION_RE.sub('\u2202M\u2202', s_full)   # ∂M∂ placeholder — delimiter-free
+    # v2.0 — ASCII-math dialect is BANNED in prose. The v1 guard only understood
+    # digit/digit slashes, so generation evaded it with ÷, carets, V_B
+    # subscripts, √( … ) and combining overbars/arrows (measured: 234 ÷-fractions
+    # in one paper). Every construct now has a legal spelling: a ⟦MATH:…⟧ region.
+    for pat, what, fixit in _DIALECT_BANS:
+        mban = pat.search(s)
+        if mban:
+            raise ValueError(f'{what} {mban.group(0)!r} — write it as a '
+                             f'⟦MATH:{fixit}⟧ region: {s_full[:60]!r}')
     low = s.lower()
     terminators = cfg.sentence_terminators if cfg is not None else '.!?'
     meta_re = cfg.metacommentary_re if cfg is not None else _META_RE
@@ -336,14 +358,34 @@ def guard_sentence(text, cfg=None):
     return s
 
 # ───────────────────────────── OMML helpers ────────────────────────────────
-def _r(t):     return f'<m:r xmlns:m="{M}"><m:t xml:space="preserve">{t}</m:t></m:r>'
-def frac(n, d):return f'<m:f xmlns:m="{M}"><m:num>{n}</m:num><m:den>{d}</m:den></m:f>'
-def sup(b, e): return f'<m:sSup xmlns:m="{M}"><m:e>{b}</m:e><m:sup>{e}</m:sup></m:sSup>'
+# v2.0 (GAP-2026-08-07-EXPLAIN-OMML): shared Tier-3 compiler — SINGLE SOURCE with
+# Framework_PYQPrepare §S3-5b; the self-test drift lock keeps them byte-identical.
+from t3_mathcomp import (t3_compile, MathCompileError, count_math_regions,
+                         MATH_OPEN as T3_OPEN, MATH_CLOSE as T3_CLOSE,
+                         _REGION_RE as T3_REGION_RE, _T3_STATS as T3_STATS)
+
+def _esc(t):
+    return (str(t).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+
+def _r(t):     return f'<m:r xmlns:m="{M}"><m:t xml:space="preserve">{_esc(t)}</m:t></m:r>'
+
+def _r_wrap(x):
+    """Builder-argument normaliser (v2.0). The v1 builders interpolated RAW text
+    into <m:num>/<m:den>/<m:e> — schema-invalid OMML that every Word engine
+    renders as an EMPTY placeholder while itertext()-based checks still read it
+    (the GAP-2026-08-07-EXPLAIN-OMML defect, measured: 12 destroyed fractions in
+    one delivered paper). Every builder argument now passes through here: raw
+    OMML markup ('<m:…') is kept, anything else becomes a proper <m:r><m:t> run."""
+    x = '' if x is None else str(x)
+    return x if x.lstrip().startswith('<m:') else _r(x)
+def frac(n, d):return f'<m:f xmlns:m="{M}"><m:num>{_r_wrap(n)}</m:num><m:den>{_r_wrap(d)}</m:den></m:f>'
+def sup(b, e): return f'<m:sSup xmlns:m="{M}"><m:e>{_r_wrap(b)}</m:e><m:sup>{_r_wrap(e)}</m:sup></m:sSup>'
 def sqrt(x):   return (f'<m:rad xmlns:m="{M}"><m:radPr><m:degHide m:val="1"/></m:radPr>'
-                       f'<m:deg/><m:e>{x}</m:e></m:rad>')
+                       f'<m:deg/><m:e>{_r_wrap(x)}</m:e></m:rad>')
 def nary(op, sub, sup_, body):
     return (f'<m:nary xmlns:m="{M}"><m:naryPr><m:chr m:val="{op}"/></m:naryPr>'
-            f'<m:sub>{sub}</m:sub><m:sup>{sup_}</m:sup><m:e>{body}</m:e></m:nary>')
+            f'<m:sub>{_r_wrap(sub)}</m:sub><m:sup>{_r_wrap(sup_)}</m:sup>'
+            f'<m:e>{_r_wrap(body)}</m:e></m:nary>')
 def omath(*parts):
     return f'<m:oMath xmlns:m="{M}">{"".join(parts)}</m:oMath>'
 
@@ -364,10 +406,36 @@ def add_math_text(paragraph, text, bold=False, color=None, cfg=None):
     OMML; raises ValueError on any inline fraction it cannot convert, on a
     year-range slash, or on any guard breach. This is the ONLY sanctioned way to
     put explanation prose into the docx."""
-    guard_sentence(text, cfg)                          # full guard first
-    # Walk the string, emitting text runs and OMML fractions in order.
-    # _SIMPLE_FRAC only matches digit/digit, so letter units (km/h) never match here;
-    # they are handled (masked) only by the LOOSE detector in has_inline_fraction.
+    guard_sentence(text, cfg)                          # full guard first (region-aware)
+    # v2.0 — TIER-3 DISPATCH: ⟦MATH:…⟧ regions compile through the shared
+    # t3_mathcomp compiler (one <m:oMath> each); plain segments between them
+    # keep the v1 digit/digit auto-fraction path byte-compatibly. A region the
+    # compiler rejects NEVER raises here and NEVER ships silently: it degrades
+    # to ordinary plain text (no colour, no markup), is recorded in
+    # T3_STATS['failed'], and verify_explanations() quotes it verbatim so the
+    # author can Ctrl+F straight to it. (Authoring-time strictness lives in
+    # guard_sentence; this render boundary is the no-halt safety net.)
+    if T3_OPEN in text:
+        pos = 0
+        for mr in T3_REGION_RE.finditer(text):
+            if mr.start() > pos:
+                _emit_plain(paragraph, text[pos:mr.start()], bold, color)
+            try:
+                node = t3_compile(mr.group(1))
+                paragraph._p.append(node)
+            except MathCompileError as t3err:
+                T3_STATS['failed'].append((mr.group(1), str(t3err)))
+                _run(paragraph, mr.group(1), bold, color)
+            pos = mr.end()
+        if pos < len(text):
+            _emit_plain(paragraph, text[pos:], bold, color)
+        return paragraph
+    _emit_plain(paragraph, text, bold, color)
+    return paragraph
+
+def _emit_plain(paragraph, text, bold=False, color=None):
+    """The v1.x plain-segment emitter, verbatim: digit/digit fractions to stacked
+    OMML; raises on any inline fraction it cannot convert."""
     pos = 0
     for m in _SIMPLE_FRAC.finditer(text):
         if text[pos:m.start()]:
@@ -379,7 +447,6 @@ def add_math_text(paragraph, text, bold=False, color=None, cfg=None):
         raise ValueError(f'unconvertible inline fraction in: {tail[:60]!r}')
     if tail:
         _run(paragraph, tail, bold, color)
-    return paragraph
 
 # ───────────────────────────── block model ─────────────────────────────────
 class ExplanationBlock:
@@ -668,6 +735,8 @@ def build_interleaved_docx(source_path, blocks, out_path, cfg):
     Question regions are NEVER modified. Returns the count of questions explained."""
     # Validate the paper (option counts, contiguity) up front.
     parse_paper(source_path, cfg)
+    for _w in source_math_health(source_path, cfg):
+        print('  ⚠️ ' + _w)
     doc = Document(source_path)
     body = doc.element.body
     children = [c for c in body.iterchildren()
@@ -867,8 +936,12 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
     or COMMON PITFALLS the wrong values (nat); zero banned glyphs/metacommentary/
     templates/fake-cites/banned-blocks and zero inline or vulgar fractions in the
     rendered prose; one sentence per rendered prose paragraph. Document-wide it
-    confirms every OMML fraction has a non-empty numerator AND denominator and that
-    no fraction is a consecutive-year artifact."""
+    confirms every OMML fraction has a non-empty numerator AND denominator built
+    from RUN-LEVEL children (bare text = schema-invalid, v2.0), that no fraction
+    is a consecutive-year artifact, Tier-3 structural integrity (sSubSup/rad/
+    nary/limLow complete, matrices rectangular), zero ASCII-dialect residue in
+    rendered explanation prose, and quotes every degraded ⟦MATH:⟧ region
+    verbatim with its remedy (v2.0)."""
     problems = []
     by_q = {b.q: b for b in blocks}
     if expected_qs is None:
@@ -1008,7 +1081,110 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
             problems.append(f'malformed OMML fraction (empty num/den): {nt!r}/{dt!r}')
         elif _year_range_hit(f'{nt}/{dt}'):
             problems.append(f'year-range rendered as OMML fraction: {nt}/{dt}')
+        # v2.0 STRICT SHAPE: itertext() reads bare text nodes that Word CANNOT
+        # render — the exact loosening that let 12 destroyed fractions ship under
+        # green checks. num/den content must live in run-level children.
+        for part, name in ((num, 'num'), (den, 'den')):
+            if part is None:
+                continue
+            if (part.text or '').strip() or not len(part):
+                problems.append(
+                    f'SCHEMA-INVALID fraction m:{name} carries bare text '
+                    f'{(part.text or "").strip()!r} — Word renders it EMPTY; '
+                    f'content must be <m:r><m:t> runs (builders now enforce this)')
+
+    # 6. v2.0 — Tier-3 structural integrity (parity with PYQPrepare CHECK 10 v2)
+    for el in root.iter(qn('m:sSubSup')):
+        if any(el.find(qn(t)) is None for t in ('m:e', 'm:sub', 'm:sup')):
+            problems.append('broken m:sSubSup (missing e/sub/sup)')
+    for tag in ('m:rad', 'm:nary', 'm:limLow'):
+        for el in root.iter(qn(tag)):
+            if el.find(qn('m:e')) is None:
+                problems.append(f'broken {tag} (missing m:e)')
+    for el in root.iter(qn('m:m')):
+        widths = {len(mr_.findall(qn('m:e'))) for mr_ in el.findall(qn('m:mr'))}
+        if len(widths) != 1:
+            problems.append('ragged OMML matrix (unequal row widths)')
+
+    # 7. v2.0 — ASCII-math dialect residue in RENDERED prose <w:t> runs of the
+    # explanation regions (the evasion channel, now detected post-render too).
+    _failed_bodies = {b for b, _ in T3_STATS.get('failed', [])}
+    for q, seg in _expl_segments(out_path, cfg).items():
+        for t in seg:
+            if any(fb and fb in t for fb in _failed_bodies):
+                continue      # degraded region — reported by check 8 verbatim
+            for pat, what, fixit in _DIALECT_BANS:
+                if pat.search(t):
+                    problems.append(f'Q{q}: rendered {what} in {t[:50]!r} — '
+                                    f'should be a ⟦MATH:…⟧ region')
+                    break
+
+    # 8. v2.0 — Tier-3 degrade report (plain operator words). The ledger is the
+    # renderer itself: every ⟦MATH:⟧ region either compiled (t3_compile) or was
+    # recorded here — add_math_text has no third path, and guard_sentence rejects
+    # unbalanced delimiters at authoring time. T3_STATS is session-cumulative:
+    # entries are quoted, never counted against a single build.
+    for body, reason in T3_STATS.get('failed', []):
+        snippet = body if len(body) <= 60 else body[:57] + '…'
+        problems.append(
+            'one maths expression could not be structured and was delivered as '
+            f'plain text: "{snippet}" (reason: {reason}). Remedy: Ctrl+F the '
+            'quoted text, fix that ⟦MATH:⟧ spelling in the block, rebuild.')
     return (not problems), problems
+
+def _expl_segments(out_path, cfg):
+    """Rendered prose lines of each question's EXPLANATION region only (after the
+    Correct Answer line, question regions excluded — those belong to the source
+    paper and are audited by source_math_health() instead)."""
+    doc = Document(out_path)
+    out = {}
+    cur = 0; in_expl = False
+    for p in doc.paragraphs:
+        t = p.text.strip()
+        mq = cfg.q_re.match(t)
+        if mq:
+            cur = int(mq.group(1)); in_expl = False; continue
+        if cur and t.startswith('Correct Answer'):
+            in_expl = True; continue
+        if cur and in_expl and t:
+            out.setdefault(cur, []).append(t)
+    return out
+
+def source_math_health(path, cfg):
+    """v2.0 INPUT-SIDE HEALTH CHECK (advisory, never halts). Scans the SOURCE
+    paper's question regions for upstream math loss so PYQ-1 never silently
+    launders damage it inherited: (a) gap signatures where a symbol vanished
+    ("= " with nothing after, multi-space holes before punctuation), (b) OMML
+    islands whose math text is empty, (c) ASCII-math dialect already present in
+    stems/options. Any hit means the paper predates PYQPrepare v2.0 — the remedy
+    is to re-run Step 1 v2.0 on the source PDF FIRST, then regenerate. Returns a
+    list of plain-language warnings; build_interleaved_docx prints them."""
+    doc = Document(path)
+    warns = []
+    _gap = re.compile(r'(=\s*$|=\s{2}|\s{2,}[,.);]|\(\s+\)|\s{3,}\S)')
+    cur = 0
+    for p in doc.paragraphs:
+        t = p.text
+        mq = cfg.q_re.match(t.strip())
+        if mq:
+            cur = int(mq.group(1))
+        if not cur:
+            continue
+        _has_math = any(''.join(x.text or '' for x in om.iter(qn('m:t'))).strip()
+                        for om in p._element.iter(qn('m:oMath')))
+        if len(t.strip()) > 2 and not _has_math and _gap.search(t):
+            warns.append(f'Q{cur}: probable missing math symbol (gap) in source: {t.strip()[:70]!r}')
+        for om in p._element.iter(qn('m:oMath')):
+            if not ''.join(x.text or '' for x in om.iter(qn('m:t'))).strip():
+                warns.append(f'Q{cur}: EMPTY OMML island in source (content already lost upstream)')
+        for pat, what, _fx in _DIALECT_BANS:
+            if pat.search(t):
+                warns.append(f'Q{cur}: source carries {what} in {t.strip()[:60]!r}')
+                break
+    if warns:
+        warns.append('SOURCE MATH HEALTH: the input paper predates PYQPrepare v2.0 — '
+                     're-run Step 1 v2.0 on the source PDF, then regenerate explanations.')
+    return warns
 
 # ───────────────────────────── strip for re-audit ──────────────────────────
 def strip_solutions(out_path, stripped_path, cfg):
@@ -1591,11 +1767,13 @@ def self_test():
 # is structurally identical to how Step 9 would have written it correctly.
 # ══════════════════════════════════════════════════════════════════════════════
 def _omml_to_source(node, q, strict=True):
-    """SOURCE-TEXT form of one OMML child. Explanation prose only contains
-    digit/digit fractions (add_math_text is the sole writer), so m:f -> 'num/den'
-    round-trips exactly. strict=True (the READER): any other OMML structure RAISES
-    (never silently degrade). strict=False (the VERIFIER): unknown OMML degrades to
-    its m:t text so a post-render audit never crashes on an unexpected node."""
+    """SOURCE-TEXT form of one OMML child (v2.0). Explanation prose contains
+    digit/digit auto-fractions AND Tier-3 compiled structures. strict=True (the
+    Step-5 READER): a digit/digit m:f round-trips as 'num/den'; every other OMML
+    structure — a Tier-3 citizen — maps to the opaque token ⟦M⟧, because its
+    source spelling lives in the ⟦MATH:…⟧ region that produced it (token-level
+    round-trip, never body reconstruction). strict=False (the VERIFIER): unknown
+    OMML degrades to its m:t text so a post-render audit never crashes."""
     tag = node.tag
     if tag == qn('m:r'):
         return ''.join(t.text or '' for t in node.iter(qn('m:t')))
@@ -1603,11 +1781,15 @@ def _omml_to_source(node, q, strict=True):
         num = node.find(qn('m:num')); den = node.find(qn('m:den'))
         nt = ''.join(num.itertext()) if num is not None else ''
         dt = ''.join(den.itertext()) if den is not None else ''
+        if strict and not (nt.strip().isdigit() and dt.strip().isdigit()):
+            return '⟦M⟧'      # v2.0: a Tier-3 fraction is an opaque math token
         return f'{nt}/{dt}'
-    if strict:
-        raise ValueError(f'Q{q}: unexpected OMML {tag} in explanation prose — reader '
-                         f'supports digit/digit fractions only (halt, do not degrade)')
-    return ''.join(t.text or '' for t in node.iter(qn('m:t')))
+    # v2.0: a Tier-3 compiled structure is a FIRST-CLASS citizen of explanation
+    # prose. The reader maps it to the opaque token ⟦M⟧ (both the strict Step-5
+    # reader and the verifier), because its source spelling lives in the
+    # ⟦MATH:…⟧ region that produced it — the round-trip contract is token-level,
+    # never a reconstruction of the body.
+    return '⟦M⟧' if strict else ''.join(t.text or '' for t in node.iter(qn('m:t')))
 
 def _para_source(p_el, q, strict=True):
     """Rebuild the source string add_math_text was given: text runs verbatim,
@@ -1879,6 +2061,100 @@ def self_test_audit():
     _dd.add_paragraph(''); _dd.save(_s)
     build_interleaved_docx(_s, [_b], _oo, _c)
     _ok, _ = verify_explanations(_oo, [_b], _c); chk('RT-FRAC-VERIFY', _ok)
+
+    # ══ v2.0 (GAP-2026-08-07-EXPLAIN-OMML) locks ══════════════════════════════
+    # DRIFT LOCK — t3_mathcomp.py body must be byte-identical to the S3-5b embed
+    # in Framework_PYQPrepare.md (single source, two consumers).
+    import os as _os, re as _re2
+    _here = _os.path.dirname(_os.path.abspath(__file__))
+    _spec = open(_os.path.join(_here, 'Framework_PYQPrepare.md'), encoding='utf-8').read()
+    _mm = _re2.search(r'### S3-5b — Tier-3 structured math compiler \(v2\.0\)\n.*?```python\n(.*?)```', _spec, _re2.S)
+    _mod = open(_os.path.join(_here, 't3_mathcomp.py'), encoding='utf-8').read()
+    _body = _mod.split('# ── end shim; everything below is the verbatim S3-5b embed ──\n', 1)[1]
+    chk('T3-DRIFT-LOCK', _mm is not None and _body == _mm.group(1))
+
+    # BUILDER STRICTNESS — the v1 bare-text fraction shape must now FAIL verify.
+    _bad = Document()
+    _bp = _bad.add_paragraph()
+    _bp._p.append(parse_xml(f'<m:oMath xmlns:m="{M}"><m:f><m:num>5</m:num><m:den>4</m:den></m:f></m:oMath>'))
+    _bo = _os.path.join(_t.gettempdir(), 't3_badfrac.docx'); _bad.save(_bo)
+    import zipfile as _zf
+    _root = parse_xml(_zf.ZipFile(_bo).read('word/document.xml'))
+    _bare = 0
+    for _f in _root.iter(qn('m:f')):
+        for _part in (_f.find(qn('m:num')), _f.find(qn('m:den'))):
+            if _part is not None and ((_part.text or '').strip() or not len(_part)):
+                _bare += 1
+    chk('T3-BARE-TEXT-DETECTED', _bare == 2)
+    # …and the FIXED builder emits run-wrapped, digit-preserving XML.
+    _gd = Document(); _gp = _gd.add_paragraph()
+    add_math(_gp, omath(frac('5', '4')))
+    _gf = next(_gp._p.iter(qn('m:f')))
+    chk('T3-BUILDER-RUNWRAPPED',
+        _gf.find(qn('m:num')).find(qn('m:r')) is not None
+        and ''.join(_gf.find(qn('m:num')).itertext()) == '5'
+        and not (_gf.find(qn('m:num')).text or '').strip())
+    chk('T3-ESCAPE', '<m:t' in frac('a<b', '&') and '&lt;b' in frac('a<b', '&') and '&amp;' in frac('a<b', '&'))
+
+    # TIER-3 REGION RENDER — fraction, subscript, bar, vector through add_math_text.
+    _rd = Document(); _rp = _rd.add_paragraph()
+    add_math_text(_rp, 'Here ⟦MATH:V_{B} = \\frac{ℏ}{2mΔx}⟧ and ⟦MATH:\\bar{A}\\vec{E}⟧ close the loop.')
+    chk('T3-REGION-RENDER',
+        sum(1 for _ in _rp._p.iter(qn('m:oMath'))) == 2
+        and next(_rp._p.iter(qn('m:sSub'))) is not None
+        and next(_rp._p.iter(qn('m:acc'))) is not None
+        and '⟦' not in _rp.text)
+
+    # DIALECT GUARD — every evasion spelling now raises with the region remedy.
+    for _bad_s, _lbl in (('The value is ℏ ÷ 2 here.', 'DIV'),
+                         ('Take x^2 as the term here.', 'CARET'),
+                         ('Set V_B to zero here.', 'SUB'),
+                         ('Use √(2I) as the field here.', 'SQRT'),
+                         ('Factor A\u0305B out here.', 'COMBINING')):
+        try:
+            guard_sentence(_bad_s); chk('T3-GUARD-' + _lbl, False)
+        except ValueError as _e:
+            chk('T3-GUARD-' + _lbl, '⟦MATH:' in str(_e))
+    # …and the SAME constructs inside a region are legal.
+    chk('T3-GUARD-REGION-OK',
+        guard_sentence('Then ⟦MATH:V_{B} = \\sqrt{x^{2}}⟧ holds here.') is not None)
+
+    # GRACEFUL DEGRADATION — a bad region never raises at render; it ships as
+    # plain text and the ledger records it for the verifier's verbatim quote.
+    _n0 = len(T3_STATS['failed'])
+    _dd = Document(); _dp = _dd.add_paragraph()
+    add_math_text(_dp, 'Bad ⟦MATH:\\frobnicate{x}⟧ region here.')
+    chk('T3-DEGRADE-NO-RAISE', len(T3_STATS['failed']) == _n0 + 1
+        and '\\frobnicate{x}' in _dp.text and '⟦' not in _dp.text)
+    T3_STATS['failed'].pop()      # keep the shared ledger clean for later locks
+
+    # SOURCE MATH HEALTH — a gap-bearing input paper is named in plain words.
+    _sh = Document()
+    _sh.add_paragraph('Q.1  The voltage  , in Volts, equals what value?')
+    for _i in (1, 2, 3, 4): _sh.add_paragraph(f'{_i}. {_i}')
+    _so = _os.path.join(_t.gettempdir(), 't3_gapsrc.docx'); _sh.save(_so)
+    _w = source_math_health(_so, _c)
+    chk('T3-SOURCE-HEALTH', any('missing math symbol' in x for x in _w)
+        and any('re-run Step 1 v2.0' in x for x in _w))
+    chk('T3-SOURCE-HEALTH-CLEAN', source_math_health(_oo, _c) == [])
+
+    # (audit-hardening) degraded body inside a larger paragraph must be MASKED
+    # from the dialect scan by substring containment, not exact match.
+    T3_STATS['failed'].append(('V_{B} = \\frac{1}{2}', 'probe'))
+    _fb = {b for b, _ in T3_STATS['failed']}
+    chk('T3-MASK-CONTAINMENT',
+        any(fb and fb in 'prefix V_{B} = \\frac{1}{2} suffix.' for fb in _fb))
+    T3_STATS['failed'].pop()
+    # (audit-hardening) a HEALTHY paragraph whose math follows as trailing OMML
+    # ("V = <oMath>") must NOT be flagged as a gap.
+    _hd = Document()
+    _hd.add_paragraph('Q.1  What does the following equal?')
+    _hp = _hd.add_paragraph('The value V = ')
+    add_math(_hp, omath(frac('1', '2')))
+    for _i in (1, 2, 3, 4): _hd.add_paragraph(f'{_i}. {_i}')
+    _ho = _os.path.join(_t.gettempdir(), 't3_healthy.docx'); _hd.save(_ho)
+    chk('T3-SOURCE-HEALTH-NO-FALSEPOS',
+        not any('missing math symbol' in x for x in source_math_health(_ho, _c)))
     # regression: a NAT with a FRACTION answer AND a fraction pitfall value must
     # round-trip AND pass verify_explanations (both were OMML-blind before the fix).
     _cn = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', None, options_by_q={1: 0})

@@ -264,6 +264,10 @@
           ExplanationBlock. No skipping, no "see Q.x", no shared block.
   RE-5  : ENGINE-BUILT. Every explanation via ExplanationBlock + build_interleaved_docx;
           every fraction via add_math_text or explicit OMML (§11). = MANDATE A.
+          (v2.0 note: the engine now carries the Tier-3 ⟦MATH:…⟧ grammar, the
+          dialect bans and the strict fraction verifier of Framework_PYQExplain
+          §11 v2.0 — Step 9 inherits ALL of it through this same MANDATE, with
+          zero change to this spec's own rules.)
   RE-6  : DERIVE-TWICE, NEVER GUESS. First principles + a second independent method;
           disagreement → third → 2-of-3 + DERIVATION-CONFIDENCE (§7).
   RE-7  : BATCH-OR-HALT. = MANDATE B. ≤ ceiling, one batch/response, confirm before next

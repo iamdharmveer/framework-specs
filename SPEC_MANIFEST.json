@@ -37,9 +37,9 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1519,
-      "sha256": "a2bfc7b12d086988fd056a2a3578de0c5e6d7e593dd80cbd8a5f4685473cb53c",
-      "size_bytes": 119775,
+      "lines": 1523,
+      "sha256": "284474c2f0918b6e62f9eede25e79d65b8794100033009f0ed7166a232cff54c",
+      "size_bytes": 120070,
       "version_header": "# Framework_MockTestExplain v1.21.0"
     },
     "Framework_PYQAnalyse.md": {
@@ -93,10 +93,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1561,
-      "sha256": "5ec51a5ebf2258eda6d6e1552406b0d3cc91b4124cc775512977644538d97ad7",
-      "size_bytes": 103959,
-      "version_header": "# Framework_PYQExplain v1.2.1 — Universal PYQ Explanation Generator"
+      "lines": 1614,
+      "sha256": "06321ce4ce95bd23602c5b544912a372835ea1a7bca96ea2c1f04c7bb61df4f1",
+      "size_bytes": 108217,
+      "version_header": "# Framework_PYQExplain v2.0 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQExplainAudit.md": {
       "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.2.0)**",
@@ -233,9 +233,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 1940,
-      "sha256": "baad4d67b42ec06223965972e25378a49968dd4d141d75515a8547399f82f70e",
-      "size_bytes": 105980,
+      "lines": 2216,
+      "sha256": "8b4222c35c16b6e128900660fe721567c6b65b7b3bcfd212bee031ae53daf768",
+      "size_bytes": 121565,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {
@@ -282,9 +282,9 @@
     },
     "routes.json": {
       "end_sentinel": "}",
-      "lines": 138,
-      "sha256": "02053d22cb6840c85ea73475ebcf59b99e973c1679715f25eeb760b0bdb46bf2",
-      "size_bytes": 3197,
+      "lines": 142,
+      "sha256": "e79115bee090c431610acb48e9bbd3535db36adb9e324b36e55e76afc0cdde84",
+      "size_bytes": 3285,
       "version_header": "{"
     },
     "spec_source.py": {
@@ -300,6 +300,13 @@
       "sha256": "f5bb1df6b0de7f66d824ef32c5d55bc22a0b4615691d6a0a53000666b84cd28d",
       "size_bytes": 20942,
       "version_header": "\"\"\""
+    },
+    "t3_mathcomp.py": {
+      "end_sentinel": "    return n",
+      "lines": 574,
+      "sha256": "49bc3a4b78454f03dffa900a81f62bdf7a230f7be1458a38e6189a0202aab8dd",
+      "size_bytes": 20650,
+      "version_header": "# t3_mathcomp.py — Tier-3 structured math compiler (SHARED ENGINE)."
     },
     "validate_framework_md.py": {
       "end_sentinel": "    sys.exit(1 if total else 0)",
