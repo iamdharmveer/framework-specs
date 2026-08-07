@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026.08.07.6
+
+### v5.47.1 gate review fixes — superscripted units, Greek classes, recorded noise
+
+Review findings 1–3 on the deployed gate, all verified non-regressions and now
+closed: (1) m/s² and rad/s² false-fired because ² is a \w character and the
+_unit mask's trailing \b never matched after "s" — unit alternatives now take
+an optional [²³] on both sides; (2) uppercase and most lowercase Greek were
+absent from the fraction classes, so Δv/Δt, α/β, ℏ/2, Ω/2, Σ/n, v/c passed
+silently — both gate classes AND the MATH_TRIGGER_RE fraction branch now carry
+the full Greek block plus ℏ, keeping authoring detection and the post-build gate
+in agreement; (3) recorded accepted noise: letter-over-digit non-math ("Paper
+A/2") remains a low-volume amber-only cost by design; word-slash-year
+("March/2026") is now masked. Framework_MockTestCreate v5.47.1 → v5.47.2.
+Measured proof: 6/6 canonical Greek/ℏ fractions fire with 0 false positives
+across m/s², rad/s², kg/m², cm²/s, March/2026, 3/2, 12/3, is/are; needs_omml
+now detects Δv/Δt at authoring time; the defective Mock05 report stays at its
+true 20 (it contains no superscripted-unit or Greek-fraction instances).
+
 ## 2026.08.07.5
 
 ### v5.47 gate review fix — letter-over-digit fractions now fire

@@ -1,4 +1,17 @@
-# Framework_MockTestCreate v5.47.1
+# Framework_MockTestCreate v5.47.2
+# v5.47.2 — 2026-08-07 — GATE FIXES (review findings 1–3 on v5.47.1):
+#   (1) m/s², rad/s² were false positives: ² is a \w character, so the _unit
+#       mask's trailing \b never matched after "s" — denominators (and
+#       numerators, for cm²/s) now take an optional [²³] before the boundary.
+#   (2) Uppercase and most lowercase Greek were missing from the fraction
+#       classes: Δv/Δt, α/β, ρ/σ, ℏ/2, Ω/2, Σ/n, v/c passed silently. Both
+#       gate classes AND the MATH_TRIGGER_RE fraction branch now carry the
+#       full Greek block (\u0391-\u03c9) plus ℏ, so authoring detection and
+#       the post-build gate agree.
+#   (3) Known accepted noise, recorded so it is not rediscovered: widening the
+#       right class to digits admits non-math letter-over-digit ("Paper A/2",
+#       "Section B/1"). Word-slash-YEAR ("March/2026") is masked; the rest is
+#       low-volume amber-only operator attention by design (warn-and-deliver).
 # v5.47.1 — 2026-08-07 — GATE FIX (review finding on v5.47): the letter-fraction
 #   residue pattern required a LETTER after the slash, so letter-over-DIGIT
 #   fractions (M/3, E/2, v/2) — including this release's own headline example —
@@ -4848,8 +4861,9 @@
       from docx import Document as _D
       _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
       _Mns = M
-      _unit = _re.compile(r'\b(?:km|m|cm|mm|kg|g|l|ml|s|hr|h|rad|rev|V|W|J|N|C|T|A|eV)'
-                          r'\s*/\s*(?:h|s|min|hr|m|m²|m³|K|kg|mol|c)\b')
+      _unit = _re.compile(r'\b(?:km|m|cm|mm|kg|g|l|ml|s|hr|h|rad|rev|V|W|J|N|C|T|A|eV)[²³]?'
+                          r'\s*/\s*(?:h|s|min|hr|m|K|kg|mol|c)[²³]?\b')
+      _yearform = _re.compile(r'\b[A-Za-z]+\s*/\s*(?:19|20)\d{2}\b')
       _wordpair = _re.compile(r'\b(?:is/are|and/or|has/have|he/she|yes/no|a/an|c/o|w/o|I/O)\b',
                               _re.IGNORECASE)
       probs = []
@@ -4861,7 +4875,7 @@
               continue
           if T3_OPEN in t or T3_CLOSE in t:
               probs.append(f'residual region delimiter in: {t.strip()[:60]!r}')
-          st = _wordpair.sub(' ', _unit.sub(' ', t))
+          st = _yearform.sub(' ', _wordpair.sub(' ', _unit.sub(' ', t)))
           if _re.search(r'[\w)\]²³]\s*÷|÷\s*[\w(]', st):
               probs.append(f'division-sign fraction in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
           if '^' in st:
@@ -4870,7 +4884,7 @@
               probs.append(f'flat subscript in: {t.strip()[:60]!r} — use ⟦MATH:k_{{B}}⟧')
           if _re.search(r'√\s*\(|√\s*[A-Za-zπλωεℏ]', st):
               probs.append(f'flat radical in: {t.strip()[:60]!r} — use ⟦MATH:\\sqrt{{…}}⟧')
-          if _re.search(r'[A-Za-zπθφλωε²³)\]]\s*/\s*[0-9A-Za-z(π√λℏ]', st):
+          if _re.search(r'[A-Za-z\u0391-\u03c9ℏ²³)\]]\s*/\s*[0-9A-Za-z\u0391-\u03c9(√ℏ]', st):
               probs.append(f'letter fraction left linear in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
           if _re.search(r'[\u0300-\u036f\u20d0-\u20ff]', st):
               probs.append(f'combining-character accent in: {t.strip()[:60]!r} — use ⟦MATH:\\bar{{A}}⟧ / ⟦MATH:\\vec{{E}}⟧')
@@ -4930,7 +4944,7 @@
   # between operands, not a unit label), an exponent/superscript, or a radical.
   # Unit labels (km/h, m/s) and single Unicode symbols are deliberately NOT matched.
   MATH_TRIGGER_RE = re.compile(
-      r"(?:[A-Za-z0-9\)\]]\s*/\s*[A-Za-z0-9\(\[])"      # stacked fraction a/b
+      r"(?:[A-Za-z0-9\u0391-\u03c9ℏ\)\]]\s*/\s*[A-Za-z0-9\u0391-\u03c9ℏ\(\[])"  # stacked fraction a/b (v5.47.2: Greek+ℏ)
       r"|(?:\^\s*[-+]?\d)"                               # caret exponent x^2
       r"|(?:[A-Za-z0-9]\s*[\u00b2\u00b3])"              # superscript ² ³ on a term
       r"|(?:\\frac|\\sqrt)"                              # raw LaTeX
@@ -7590,7 +7604,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.47.1
+# END OF Framework_MockTestCreate v5.47.2
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
