@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026.08.07.2
+
+### GAP-2026-08-07-OMML — flat transcription destroyed 2-D math structure at capture
+
+**Why a 5×5 matrix shipped as prose and every fraction beyond N/N shipped linear.**
+
+Measured on IIT_JAM_MATHEMATICS 15-Feb-2026 (60 questions, FORMAT C1 vision path):
+S1-13 transcribed math as FLAT Unicode, so the 2-D structure the source PDF displays
+was destroyed at capture time, and the Tier-2 regex net could only reconstruct digit
+fractions and √N. Ten defect classes followed: letter-fraction flattening (dy/dx,
+π/4), caret and underscore artefacts, big operators without limits, piecewise cases
+flattened to prose (Q.11/17/33/34/36/52), matrices and column vectors PARAPHRASED
+into (…)ᵀ tuples or row descriptions (Q.14/37/49/56), hybrid-font islands, and
+OMML-only options unreadable as bare "N." labels through p.text.
+
+Remedies (Framework_PYQPrepare v1.14.1 → v2.0, corpus_io):
+
+1. **M1 — S1-13 structured transcription is LAW.** All non-trivial math is captured
+   as ⟦MATH:…⟧ LaTeX-lite regions; paraphrasing matrices/vectors/cases into prose is
+   a named transcription defect; STRUCT_FLAGS declares every matrix/cases question.
+2. **M2 — S3-5b Tier-3 compiler (new).** Deterministic LaTeX-lite→OMML: \frac \sfrac
+   \sqrt \root, scripts with sSubSup merge and balanced-paren bases, n-ary operators
+   whose <m:e> consumes the rest of scope (true nesting, no placeholder in Word OR
+   LibreOffice), \lim/limLow, \cases/eqArr, four matrix forms, \pre/sPre, stretchy
+   delimiters, roman functions, accents (\hat \bar \vec …), \binom, and a
+   Greek/relation/arrow symbol map so common LaTeX habits compile directly.
+   STRICT CORE, FORGIVING BOUNDARY: a region the compiler rejects NEVER halts the
+   run and NEVER ships silently — render_text_with_math() v2.0 delivers it as
+   ORDINARY plain text (no colour, no highlight; it blends with the surrounding
+   styling), records it, and CHECK 20 quotes the text VERBATIM with the remedy in
+   plain operator words ("Ctrl+F the quoted text, fix that ⟦MATH:⟧ spelling,
+   rebuild") under an F1 AMBER footer. Regions dispatch first; the v1.5 body
+   survives verbatim as _render_legacy.
+3. **M3 — corpus_io.text_of() (Cluster I).** Canonical w:t + m:t accessor; the
+   producer-side mirror of S-1: PYQPrepare CHECK 9 v2 accepts bare "N." labels whose
+   payload is <m:oMath>. PYQSort/PYQCount need NO change — they already delegate to
+   corpus_io.is_option()/OPT_PATTERNS.
+4. **M4 — CHECK 19/20/21 (18 → 21 checks).** Structure residue in plain <w:t>;
+   region→oMath round-trip equality; declared-structure fidelity (an undeclared or
+   flattened matrix/cases can no longer ship under a green footer).
+5. **M5 — S4-1 math-font exemption.** <m:oMath> keeps Cambria Math italic; set_font()
+   is for <w:r> prose runs only.
+
+Proof: 60-question rebuild from the spec's own extracted code — 142/142 regions
+compiled, 21/21 checks, 0 warnings; corpus_io self-test 309/309; validate_framework_md
+0 issues; LibreOffice render page-for-page structural match against the source PDF
+(nested triple integrals, dual cases braces, verbatim 5×5 matrix, column-vector
+equations, ¹³C₂ₖ prescripts all verified visually).
+
 ## 2026.08.07.1
 
 ### GAP-2026-08-07-FIGACCENT — the S10-6A palette column was prose, not law

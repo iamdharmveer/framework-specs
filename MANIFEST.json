@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.07.1",
+  "framework_version": "2026.08.07.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -253,11 +253,11 @@
       "bytes": 77223
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "6a84f61ff59fee8da44dc221e25b83e478ce47b52bcee0d986a6c647b9e58d11",
-      "version_header": "# Framework_PYQPrepare v1.14.1 \u2014 Universal PYQ Row File Generator",
-      "end_sentinel": "# END OF Framework_PYQPrepare v1.14.1",
-      "lines": 3373,
-      "bytes": 154683
+      "sha256": "3e69ef22dad6720e23de7d374cc1e00b603f4df6de4e1694c4442aff7244ceaf",
+      "version_header": "# Framework_PYQPrepare v2.0 \u2014 Universal PYQ Row File Generator",
+      "end_sentinel": "# END OF Framework_PYQPrepare v2.0",
+      "lines": 4279,
+      "bytes": 194479
     },
     "Framework_PYQScan.md": {
       "sha256": "15365d4ca73d745a4e1bc4712dbfef2a851cc38cfcfd569b11cf83538415bd17",
@@ -316,11 +316,11 @@
       "bytes": 31479
     },
     "corpus_io.py": {
-      "sha256": "733a5d7f6756c9602d1d654bb005e744e319ec3dffddcd3ca915c518dce880c1",
+      "sha256": "9f26829042a1783eaaccbff800290ad06103f1070a978b2738c4be723edf4395",
       "version_header": "\"\"\"",
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 4439,
-      "bytes": 227675
+      "lines": 4486,
+      "bytes": 229750
     },
     "reconcile_taxonomy.py": {
       "sha256": "474d654ffb98c19c3e587cba48d9c64cafa471d6e0fc2af1e6f02a9a8aee0530",

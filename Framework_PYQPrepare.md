@@ -1,4 +1,29 @@
-# Framework_PYQPrepare v1.14.1 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v2.0 — Universal PYQ Row File Generator
+# v2.0 — 2026-08-07 — TIER-3 STRUCTURED MATH (GAP-2026-08-07-OMML, remedies M1/M2/M4/M5).
+#   Root cause (measured on IIT_JAM_MATHEMATICS 15-Feb-2026, 60 questions): S1-13
+#   emitted FLAT Unicode transcription, destroying 2-D math structure at capture
+#   time; Tier-2 regex reconstruction then recovered only digit fractions and √N.
+#   Result classes: letter-fraction flattening, ^/_ artefacts, inline big-operator
+#   limits, cases/matrix structures PARAPHRASED into prose (Q.11/14/17/33/34/36/
+#   37/49/52/56), hybrid-font islands, and the bare-label OMML option conflict.
+#   Fix: (M1) S1-13 now REQUIRES ⟦MATH:…⟧ LaTeX-lite regions for all structural
+#   math and BANS paraphrasing matrices/vectors/cases into prose, with declared
+#   STRUCT_FLAGS; (M2) new S3-5b deterministic LaTeX-lite→OMML compiler (fractions,
+#   radicals, scripts, n-ary with true operands, limLow, cases, matrices, sPre,
+#   stretchy delimiters, accents, \binom, Greek/symbol map; STRICT CORE with a
+#   FORGIVING BOUNDARY — a region the compiler rejects never halts the run and
+#   never ships silently: it is delivered as ordinary plain text — no colour,
+#   no highlight — and CHECK 20 quotes it verbatim for Ctrl+F, with the remedy
+#   in plain operator words, under an F1 AMBER footer);
+#   render_text_with_math() v2.0 dispatches Tier-3 regions first and
+#   keeps the v1.5 legacy path byte-compatible for plain segments; (M3, in
+#   corpus_io Cluster I) text_of() = w:t + m:t canonical accessor; CHECK 9 v2
+#   accepts bare "N." labels whose payload is <m:oMath> (producer mirror of S-1);
+#   (M4) CHECK 19 structure-residue, CHECK 20 region round-trip, CHECK 21 declared-
+#   structure fidelity — 18 -> 21 checks; (M5) S4-1: OMML runs keep the Word math
+#   font (Cambria Math italic), EXEMPT from the Arial rule.
+#   Verified: 60-question rebuild, 142/142 regions compiled, 21/21 checks, page-
+#   for-page structural render match against the source PDF.
 # v1.14.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   317 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQPrepare'. The current companion block, the
@@ -322,9 +347,36 @@ OMML required for:
     as literal text inside <m:t> is a HARD BUG — see build_compound_content()
     in §3 S3-4.
 
-TWO-TIER MATH HANDLING ARCHITECTURE (v1.4):
+FOUR-TIER MATH HANDLING ARCHITECTURE (v2.0):
 
-  TIER 1 — PIPELINE-LEVEL DETECTION (PRIMARY):
+  TIER 3 — STRUCTURED ⟦MATH:…⟧ REGIONS (PRIMARY for vision-transcribed and
+    any structurally rich source — v2.0, S3-5b):
+    The transcription buffer wraps every non-trivial expression in
+    ⟦MATH: LaTeX-lite ⟧. render_text_with_math() compiles each region into
+    ONE homogeneous <m:oMath> via the deterministic S3-5b compiler:
+      \frac \sfrac \sqrt \root  →  <m:f> / <m:rad>
+      base^{…} base_{…}            →  <m:sSup>/<m:sSub>/<m:sSubSup>
+      \int \iint \oint \sum \prod \sumi \prodi  →  <m:nary> whose
+        <m:e> is the TRUE OPERAND (rest of the enclosing scope — correct
+        nesting, no placeholder box in any engine)
+      \lim \max \min _{…}        →  <m:limLow>
+      \cases{…&…\\…}              →  <m:d begChr="{"> + <m:eqArr>
+      \pmatrix \bmatrix \vmatrix \matrix  →  <m:d> + <m:m>
+      \pre{sub}{sup}{base}         →  <m:sPre>   (ⁿCᵣ prescripts)
+      \paren \brack \set \abs     →  stretchy <m:d>
+      \sin \cos … \log \text{…}   →  roman (m:sty="p") runs
+    STRICT CORE, FORGIVING BOUNDARY: an unknown command or malformed
+    region raises MathCompileError inside the compiler, and the RENDERER
+    catches it — the region is DELIVERED as ordinary plain text (no colour,
+    no highlight), quoted verbatim in the CHECK 20 report so the operator
+    can Ctrl+F straight to it, and explained in plain words. The run
+    never halts; the defect never ships invisibly. The grammar also maps
+    common LaTeX habits (\alpha…\Omega, \le \ge \in \to \infty …,
+    \hat \bar \vec accents, \binom) so degradation is rare in practice.
+    Regex reconstruction of structure is inherently lossy; structure is
+    captured at the source instead (GAP-2026-08-07-OMML root cause).
+
+  TIER 1 — PIPELINE-LEVEL DETECTION (deterministic text sources):
     During Phase B, Claude's pipeline.py detects math expressions in the
     source text and calls OMML helpers directly. This handles ALL patterns
     including complex ones that no regex safety net can parse:
@@ -336,9 +388,11 @@ TWO-TIER MATH HANDLING ARCHITECTURE (v1.4):
       - Any source-format-specific math detection
     This tier is written fresh by Claude for each exam's source format.
     The OMML helpers (omml_frac, omml_sqrt, omml_nthroot, omml_sup,
-    omml_sub) are the building blocks used at this tier.
+    omml_sub) are the building blocks used at this tier. Prefer emitting
+    ⟦MATH:…⟧ regions (Tier 3) over hand-built helper calls wherever the
+    expression has any structure.
 
-  TIER 2 — render_text_with_math() SAFETY NET:
+  TIER 2 — render_text_with_math() SAFETY NET (plain segments only):
     When the pipeline passes text to add_stem() or add_option(), the
     render_text_with_math() function scans for RESIDUAL math patterns
     that the pipeline missed. It handles:
@@ -348,12 +402,16 @@ TWO-TIER MATH HANDLING ARCHITECTURE (v1.4):
       - Standalone √N: √3, √15
       - Residual ⟦SQRT:N⟧ or [SQRT:N] pipeline markers
     It does NOT handle complex expressions (trig, operators, variables) —
-    those are Tier 1's responsibility.
+    those are Tier 3's (or, for deterministic sources, Tier 1's) job.
+    Tier 2 runs ONLY on text outside ⟦MATH:…⟧ regions.
 
-  TIER 3 — CHECK 11 VALIDATION:
-    After the document is built, CHECK 11 scans for any residual math
-    markers that BOTH tiers missed. Any occurrence is a WARN requiring
-    investigation.
+  TIER 4 — VALIDATION (CHECK 11 + CHECK 19/20/21, v2.0):
+    After the document is built, CHECK 11 scans for residual markers,
+    CHECK 19 scans plain <w:t> runs for structure that should have been a
+    ⟦MATH:⟧ region (carets, _x subscript artefacts, √(expr), letter
+    fractions), CHECK 20 proves the region→<m:oMath> round-trip count, and
+    CHECK 21 proves every DECLARED matrix/cases structure was built. Any
+    occurrence is a WARN requiring investigation.
 
 Unicode (NOT OMML) for:
   Polynomial superscripts in bold stem runs: x³ − 4x² − 8x + 11
@@ -1252,7 +1310,31 @@ MANDATORY ORDERED STEPS (C1 / C-HYBRID image pages):
      mixed type):
        TEXT   -> transcribe verbatim (S1-11: underline preserved via {{u}};
                  italic dropped as decorative)
-       MATH   -> transcribe for OMML (S1-6 tiers / S3-4 helpers)
+       MATH   -> transcribe as ⟦MATH:…⟧ LaTeX-lite regions (S1-6 Tier 3,
+                 S3-5b compiler). v2.0 MANDATORY RULES:
+                 (a) WRAP THE WHOLE EXPRESSION, not fragments — one region
+                     per displayed expression/equation, so the entire
+                     expression renders as one math object in one font.
+                     Trivial single tokens (ℝ, ∈, π, x², aₙ, S₃) may stay
+                     as bare Unicode in prose.
+                 (b) NEVER PARAPHRASE STRUCTURE INTO PROSE. A bracketed
+                     matrix is transcribed as \bmatrix/\pmatrix, a column
+                     vector as \pmatrix{a\\ b\\ c}, a piecewise
+                     definition as \cases — never as "the matrix whose
+                     rows are (…)", never as (…)ᵀ tuples. Rewording is a
+                     transcription DEFECT even when mathematically
+                     equivalent (measured: Q.37/Q.56, JAM MA 2026).
+                 (c) DECLARE structures: build STRUCT_FLAGS =
+                     {q_num: {'matrix'} | {'cases'} | both} for every
+                     question whose source shows a matrix/vector or a
+                     cases brace, and pass it to the validator (CHECK 21).
+                 (d) Regions are single-line; multi-line stems keep \n in
+                     the PLAIN text between regions.
+                 (e) Inside regions, √N literal is auto-converted; any
+                     other literal √ is rejected by the compiler (the
+                     region then degrades per S3-5) — use \sqrt{…}.
+                 (f) {{u}} underline spans must not cross a region
+                     boundary — underline plain text only, or none.
        TABLE  -> transcribe into a TableSpec, SPANS INCLUDED (S1-8a)
                  -> native Word table (S1-8). A scanned two-tier header is
                  a two-tier header; page rasterisation changes the
@@ -1938,7 +2020,7 @@ def add_omml_inline(paragraph, omml_element):
     paragraph._element.append(omath)
 ```
 
-### S3-5 — Inline math renderer (v1.3; v1.4 hardened)
+### S3-5 — Inline math renderer (v1.3; v1.4 hardened; v2.0 Tier-3 dispatch)
 
 ```python
 # render_text_with_math() — TIER 2 SAFETY NET.
@@ -2013,9 +2095,71 @@ def _find_math_spans(text):
             last_end = span[1]
     return result
 
-def render_text_with_math(paragraph, text, bold=False, color=None):
+def _t3_degrade(paragraph, body, err, bold=False, color=None):
+    """GRACEFUL DEGRADATION (v2.0 — never halt, never silent, NO markup).
+
+    A region the compiler rejects is DELIVERED as ORDINARY plain text —
+    same Arial, same bold/colour as the surrounding run, no highlight, no
+    colour flag of any kind — recorded in _T3_STATS['failed'], and surfaced
+    by CHECK 20 in plain operator language. Findability lives in the
+    REPORT, not in the document: CHECK 20 quotes the text verbatim, so the
+    operator presses Ctrl+F in Word, pastes the quote, lands on the spot,
+    fixes that ⟦MATH:⟧ spelling in the buffer, rebuilds. The compiler's
+    strictness is preserved (the defect can never ship UNREPORTED); the
+    run is preserved too (no condition halts a delivery — the
+    framework-wide rule); the document stays visually clean.
     """
-    TIER 2 SAFETY NET — render text with inline OMML and underline formatting.
+    _T3_STATS['failed'].append((body, str(err)))
+    r = paragraph.add_run(body)
+    set_font(r, bold=bold, color=color)
+
+def render_text_with_math(paragraph, text, bold=False, color=None):
+    """v2.0 DISPATCHER — Tier 3 first, then the v1.5 legacy path.
+
+    ⟦MATH:…⟧ regions compile through the S3-5b compiler into ONE <m:oMath>
+    each, appended inline at their position; every plain segment between
+    regions goes through the byte-compatible v1.5 legacy path
+    (_render_legacy: {{u}} underline split + Tier-2 safety net).
+
+    A region that fails to compile — unknown command, unmatched brace,
+    ragged matrix — NEVER halts the build and NEVER ships silently: it is
+    rendered via _t3_degrade() (ordinary plain text, quoted verbatim in the
+    CHECK 20 report for Ctrl+F). Damage is LOCALISED: every well-formed region still compiles;
+    only the failing region — or, for a stray unpaired delimiter, only the
+    plain segment carrying it (delimiters stripped) — degrades.
+    """
+    if MATH_OPEN in text or MATH_CLOSE in text:
+        pos = 0
+        for m in _REGION_RE.finditer(text):
+            if m.start() > pos:
+                _t3_plain_or_degrade(paragraph, text[pos:m.start()],
+                                     bold=bold, color=color)
+            try:
+                paragraph._element.append(t3_compile(m.group(1)))
+            except MathCompileError as err:
+                _t3_degrade(paragraph, m.group(1), err, bold=bold, color=color)
+            pos = m.end()
+        if pos < len(text):
+            _t3_plain_or_degrade(paragraph, text[pos:], bold=bold, color=color)
+        return
+    _render_legacy(paragraph, text, bold=bold, color=color)
+
+def _t3_plain_or_degrade(paragraph, seg, bold=False, color=None):
+    """Plain segment between regions. A stray unpaired ⟦MATH: or ⟧ marks the
+    segment as a broken region: degrade JUST this segment (delimiters
+    stripped so no ⟦ ⟧ residue reaches the document); neighbouring
+    well-formed regions are unaffected."""
+    if MATH_OPEN in seg or MATH_CLOSE in seg:
+        _t3_degrade(paragraph,
+                    seg.replace(MATH_OPEN, '').replace(MATH_CLOSE, ''),
+                    'unbalanced ⟦MATH:⟧ delimiters', bold=bold, color=color)
+    else:
+        _render_legacy(paragraph, seg, bold=bold, color=color)
+
+def _render_legacy(paragraph, text, bold=False, color=None):
+    """
+    TIER 2 SAFETY NET (the v1.5 render_text_with_math body, verbatim) —
+    render PLAIN text with inline OMML and underline formatting.
 
     Processing order:
       Step 0a: Pre-normalize residual SQRT markers → clean √N
@@ -2091,6 +2235,613 @@ def _emit_text_with_math(paragraph, text, bold=False, color=None, underline=Fals
             set_font(r, bold=bold, color=color, underline=underline)
 ```
 
+### S3-5b — Tier-3 structured math compiler (v2.0)
+
+```
+The deterministic LaTeX-lite → OMML compiler behind Tier 3 (S1-6). One
+⟦MATH:…⟧ region → one <m:oMath>. Grammar, commands and failure semantics
+are documented in the code header below; the load-bearing properties are:
+
+  DETERMINISTIC   the same region always compiles to the same XML — no
+                  regex guessing, no context sensitivity.
+  STRICT CORE     MathCompileError on any unknown command, unmatched
+                  brace, ragged matrix, script without base, or literal √
+                  before a non-digit — deterministically, with the failing
+                  region named.
+  FORGIVING       …but the failure NEVER halts a run and NEVER ships
+  BOUNDARY        silently: render_text_with_math() catches it and
+                  delivers the region as ORDINARY plain text — no colour,
+                  no highlight — recorded in _T3_STATS['failed'] and
+                  quoted VERBATIM by CHECK 20 so Ctrl+F finds it, with the
+                  remedy in plain operator language. (Silent fallback is what
+                  produced GAP-2026-08-07-OMML; a halt is what the
+                  framework-wide no-halt rule forbids. This is the third
+                  road.)
+  WIDE GRAMMAR    common LaTeX habits compile instead of degrading:
+                  Greek names, relation/arrow/set symbols, \hat \bar
+                  \tilde \vec \dot \ddot accents, \binom.
+  TRUE OPERANDS   \int/\sum/… consume the rest of their scope as <m:e>,
+                  so nesting is semantically correct and NO engine renders
+                  a placeholder box. Scope a big operator with \paren{…}
+                  or a {…} group when it must not swallow trailing text.
+  ENGINE-PROOF    empty required slots are filled with a preserved space:
+                  Word shows no dotted box, LibreOffice shows no ❑.
+  COUNTABLE       _T3_STATS['compiled'] and count_math_regions() feed the
+                  CHECK 20 round-trip proof.
+
+Script arguments SHOULD be braced (x^{2}, not x^2); an unbraced argument
+takes exactly one atom. A base ending in ")" attaches its whole balanced
+(…) group — (1 + x)^{2} superscripts the group, not the parenthesis.
+```
+
+```python
+# ── S3-5b — TIER 3 STRUCTURED MATH COMPILER (v2.0) ──────────────────────────────
+# Deterministic LaTeX-lite → OMML compiler. Replaces regex reconstruction for all
+# structural math. A transcription buffer wraps each non-trivial expression in
+# ⟦MATH: ... ⟧; the compiler emits ONE homogeneous <m:oMath> per region.
+#
+# STRICT CORE, FORGIVING BOUNDARY (v2.0): the compiler itself is strict — an
+# unknown command or malformed region raises MathCompileError, deterministically.
+# The RENDERER (S3-5 render_text_with_math) catches it: the run NEVER halts and
+# the defect NEVER ships silently — the region is delivered as ORDINARY plain
+# text (no colour, no highlight — it blends with the surrounding run styling),
+# recorded in _T3_STATS['failed'], and reported by CHECK 20 in plain operator
+# language, quoting the exact text so the operator can Ctrl+F straight to it.
+# That is the GAP-2026-08-07-OMML remedy M2 contract.
+#
+# Grammar (region body):
+#   literal text            any chars except { } ^ _ \   (√N auto-→ <m:rad>)
+#   {...}                   grouping (inlined; use as ^/_ argument)
+#   base^{sup}  base_{sub}  scripts — attach to preceding atom; both orders
+#                           merge into <m:sSubSup>; base "...)"-terminated
+#                           literals attach to the balanced (...) group
+#   \frac{a}{b}             stacked fraction        <m:f>
+#   \sfrac{a}{b}            skewed fraction         <m:f m:type="skw">
+#   \sqrt{a}  \root{n}{a}   radicals                <m:rad>
+#   \int \iint \oint        n-ary, limits subSup    <m:nary>  (scripts optional)
+#   \sum \prod              n-ary, limits undOvr    <m:nary>
+#   \sumi \prodi            n-ary, limits subSup (inline running-text style)
+#   \lim_{...}              limit-below             <m:limLow>
+#   \cases{a, & c1\\ b, & c2}   cases brace         <m:d "{"> + <m:eqArr>
+#   \pmatrix{a & b\\ c & d}     ( ) matrix          <m:d> + <m:m>   (also
+#   \bmatrix [ ]   \vmatrix | |   \matrix (bare)     — rows \\, cells &)
+#   \pre{sub}{sup}{base}    prescripts (ⁿCᵣ)        <m:sPre>
+#   \paren{a} \brack{a} \set{a} \abs{a}   stretchy ( ) [ ] { } | | <m:d>
+#   \text{...}              roman (upright) text run
+#   \sin \cos \tan \sec \csc \cot \log \ln \exp \det \max \min  roman functions
+#   \{ \} \& \\ \^ \_ \(space)   escaped literal characters
+#
+# Empty required slots (e.g. \pre{}{13}{C}) are filled with U+200B so Word never
+# shows a dotted placeholder box.
+
+import re as _t3_re
+
+MATH_OPEN = '\u27e6MATH:'      # ⟦MATH:
+MATH_CLOSE = '\u27e7'          # ⟧
+_REGION_RE = _t3_re.compile(_t3_re.escape(MATH_OPEN) + '(.*?)'
+                            + _t3_re.escape(MATH_CLOSE), _t3_re.S)
+_T3_STATS = {'compiled': 0, 'failed': []}   # CHECK 20 round-trip + degrade ledger
+
+
+class MathCompileError(ValueError):
+    """Tier-3 compile failure — the region cannot be structured. The S3-5
+    renderer catches this and degrades the region to ordinary plain text
+    (quoted verbatim in the CHECK 20 report so it can be found with Ctrl+F);
+    the build CONTINUES (never halt, never silent)."""
+
+
+_T3_NARY = {
+    'int':  ('\u222b', 'subSup'), 'iint': ('\u222c', 'subSup'),
+    'oint': ('\u222e', 'subSup'),
+    'sum':  ('\u2211', 'undOvr'), 'prod': ('\u220f', 'undOvr'),
+    'sumi': ('\u2211', 'subSup'), 'prodi': ('\u220f', 'subSup'),
+}
+_T3_MATRIX = {'pmatrix': ('(', ')'), 'bmatrix': ('[', ']'),
+              'vmatrix': ('|', '|'), 'matrix': ('', '')}
+_T3_DELIM = {'paren': ('(', ')'), 'brack': ('[', ']'),
+             'set': ('{', '}'), 'abs': ('|', '|')}
+_T3_FUNCS = {'sin', 'cos', 'tan', 'sec', 'csc', 'cot', 'log', 'ln', 'exp',
+             'det', 'sinh', 'cosh', 'tanh', 'gcd', 'arg'}
+_T3_LIMWORDS = {'lim', 'max', 'min'}
+_T3_ACCENTS = {'hat': '\u0302', 'tilde': '\u0303', 'bar': '\u0305',
+               'vec': '\u20d7', 'dot': '\u0307', 'ddot': '\u0308'}
+_T3_SYMBOLS = {
+    # Greek
+    'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ', 'epsilon': 'ε',
+    'zeta': 'ζ', 'eta': 'η', 'theta': 'θ', 'iota': 'ι', 'kappa': 'κ',
+    'lambda': 'λ', 'mu': 'μ', 'nu': 'ν', 'xi': 'ξ', 'pi': 'π', 'rho': 'ρ',
+    'sigma': 'σ', 'tau': 'τ', 'upsilon': 'υ', 'phi': 'φ', 'chi': 'χ',
+    'psi': 'ψ', 'omega': 'ω', 'Gamma': 'Γ', 'Delta': 'Δ', 'Theta': 'Θ',
+    'Lambda': 'Λ', 'Xi': 'Ξ', 'Pi': 'Π', 'Sigma': 'Σ', 'Phi': 'Φ',
+    'Psi': 'Ψ', 'Omega': 'Ω',
+    # relations / operators / arrows / sets
+    'le': '≤', 'leq': '≤', 'ge': '≥', 'geq': '≥', 'ne': '≠', 'neq': '≠',
+    'pm': '±', 'mp': '∓', 'times': '×', 'cdot': '·', 'div': '÷',
+    'in': '∈', 'notin': '∉', 'subset': '⊂', 'subseteq': '⊆',
+    'supset': '⊃', 'supseteq': '⊇', 'cup': '∪', 'cap': '∩',
+    'infty': '∞', 'partial': '∂', 'nabla': '∇', 'forall': '∀',
+    'exists': '∃', 'to': '→', 'rightarrow': '→', 'leftarrow': '←',
+    'Rightarrow': '⇒', 'Leftarrow': '⇐', 'mapsto': '↦', 'approx': '≈',
+    'equiv': '≡', 'propto': '∝', 'sim': '~', 'emptyset': '∅',
+    'setminus': '∖', 'mid': '|', 'circ': '∘', 'star': '⋆', 'cdots': '⋯',
+    'ldots': '…', 'because': '∵', 'therefore': '∴', 'angle': '∠',
+    'perp': '⊥', 'parallel': '∥', 'cong': '≅', 'oplus': '⊕',
+    'otimes': '⊗', 'wedge': '∧', 'vee': '∨', 'neg': '¬', 'prime': '′',
+    'degree': '°',
+}
+
+
+def _t3_run(text):
+    r = OxmlElement('m:r')
+    t = OxmlElement('m:t')
+    t.text = text
+    if text != text.strip():
+        t.set(qn('xml:space'), 'preserve')
+    r.append(t)
+    return r
+
+
+def _t3_run_roman(text):
+    r = OxmlElement('m:r')
+    rPr = OxmlElement('m:rPr')
+    sty = OxmlElement('m:sty')
+    sty.set(qn('m:val'), 'p')
+    rPr.append(sty)
+    r.append(rPr)
+    t = OxmlElement('m:t')
+    t.text = text
+    if text != text.strip():
+        t.set(qn('xml:space'), 'preserve')
+    r.append(t)
+    return r
+
+
+def _t3_wrap(tag, children):
+    el = OxmlElement(tag)
+    for c in children:
+        el.append(c)
+    return el
+
+
+def _t3_content(elems):
+    """Non-empty content list — empty slots get a preserved-space run so neither
+    Word (dotted box) nor LibreOffice (\u274f placeholder) shows an artefact."""
+    return elems if elems else [_t3_run(' ')]
+
+
+def _t3_e(elems):
+    return _t3_wrap('m:e', _t3_content(elems))
+
+
+def _t3_delim(beg, end, elems):
+    d = OxmlElement('m:d')
+    if beg != '(' or end != ')':
+        dPr = OxmlElement('m:dPr')
+        b = OxmlElement('m:begChr'); b.set(qn('m:val'), beg); dPr.append(b)
+        en = OxmlElement('m:endChr'); en.set(qn('m:val'), end); dPr.append(en)
+        d.append(dPr)
+    d.append(_t3_e(elems))
+    return d
+
+
+def _t3_frac(num_elems, den_elems, skewed=False, nobar=False):
+    f = OxmlElement('m:f')
+    if skewed or nobar:
+        fPr = OxmlElement('m:fPr')
+        ty = OxmlElement('m:type')
+        ty.set(qn('m:val'), 'skw' if skewed else 'noBar')
+        fPr.append(ty)
+        f.append(fPr)
+    f.append(_t3_wrap('m:num', _t3_content(num_elems)))
+    f.append(_t3_wrap('m:den', _t3_content(den_elems)))
+    return f
+
+
+def _t3_rad(deg_elems, content_elems):
+    rad = OxmlElement('m:rad')
+    radPr = OxmlElement('m:radPr')
+    if deg_elems is None:
+        dh = OxmlElement('m:degHide'); dh.set(qn('m:val'), '1'); radPr.append(dh)
+    rad.append(radPr)
+    deg = OxmlElement('m:deg')
+    if deg_elems is not None:
+        for el in _t3_content(deg_elems):
+            deg.append(el)
+    rad.append(deg)
+    rad.append(_t3_e(content_elems))
+    return rad
+
+
+def _t3_nary(chr_, limloc, sub_elems, sup_elems, operand_elems):
+    n = OxmlElement('m:nary')
+    pr = OxmlElement('m:naryPr')
+    c = OxmlElement('m:chr'); c.set(qn('m:val'), chr_); pr.append(c)
+    ll = OxmlElement('m:limLoc'); ll.set(qn('m:val'), limloc); pr.append(ll)
+    if sub_elems is None:
+        sh = OxmlElement('m:subHide'); sh.set(qn('m:val'), '1'); pr.append(sh)
+    if sup_elems is None:
+        sh = OxmlElement('m:supHide'); sh.set(qn('m:val'), '1'); pr.append(sh)
+    n.append(pr)
+    if sub_elems is not None:
+        n.append(_t3_wrap('m:sub', _t3_content(sub_elems)))
+    if sup_elems is not None:
+        n.append(_t3_wrap('m:sup', _t3_content(sup_elems)))
+    n.append(_t3_e(operand_elems))             # true operand — rest of scope
+    return n
+
+
+def _t3_limlow(word, sub_elems):
+    ll = OxmlElement('m:limLow')
+    ll.append(_t3_e([_t3_run_roman(word)]))
+    ll.append(_t3_wrap('m:lim', _t3_content(sub_elems)))
+    return ll
+
+
+def _t3_acc(chr_, base_elems):
+    acc = OxmlElement('m:acc')
+    pr = OxmlElement('m:accPr')
+    c = OxmlElement('m:chr'); c.set(qn('m:val'), chr_); pr.append(c)
+    acc.append(pr)
+    acc.append(_t3_e(base_elems))
+    return acc
+
+
+def _t3_spre(sub_elems, sup_elems, base_elems):
+    sp = OxmlElement('m:sPre')
+    sp.append(_t3_wrap('m:sub', _t3_content(sub_elems)))
+    sp.append(_t3_wrap('m:sup', _t3_content(sup_elems)))
+    sp.append(_t3_e(base_elems))
+    return sp
+
+
+def _t3_group_raw(s, i):
+    """s[i] == '{' → (raw_body, index_after_close), escape- and nest-aware."""
+    depth = 0
+    j = i
+    while j < len(s):
+        c = s[j]
+        if c == '\\':
+            j += 2
+            continue
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return s[i + 1:j], j + 1
+        j += 1
+    raise MathCompileError("unclosed '{' in %r" % s)
+
+
+def _t3_req_group_raw(s, j, cmd):
+    while j < len(s) and s[j] == ' ':
+        j += 1
+    if j >= len(s) or s[j] != '{':
+        raise MathCompileError("\\%s expects a {…} argument in %r" % (cmd, s))
+    return _t3_group_raw(s, j)
+
+
+def _t3_compile_group(raw):
+    elems, _ = _t3_seq(raw, 0, top=True)
+    return elems
+
+
+def _t3_rows(raw):
+    rows, buf, depth, i = [], [], 0, 0
+    while i < len(raw):
+        c = raw[i]
+        if c == '\\':
+            if i + 1 < len(raw) and raw[i + 1] == '\\' and depth == 0:
+                rows.append(''.join(buf)); buf = []; i += 2; continue
+            buf.append(raw[i:i + 2]); i += 2; continue
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+        buf.append(c); i += 1
+    rows.append(''.join(buf))
+    return rows
+
+
+def _t3_cells(row):
+    cells, buf, depth, i = [], [], 0, 0
+    while i < len(row):
+        c = row[i]
+        if c == '\\':
+            buf.append(row[i:i + 2]); i += 2; continue
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+        if c == '&' and depth == 0:
+            cells.append(''.join(buf)); buf = []; i += 1; continue
+        buf.append(c); i += 1
+    cells.append(''.join(buf))
+    return cells
+
+
+def _t3_cases(raw):
+    rows = _t3_rows(raw)
+    if len(rows) < 2:
+        raise MathCompileError("\\cases needs ≥2 rows (\\\\-separated): %r" % raw)
+    eq = OxmlElement('m:eqArr')
+    for row in rows:
+        content = []
+        for k, cell in enumerate(_t3_cells(row)):
+            if k:
+                content.append(_t3_run('  '))
+            content.extend(_t3_compile_group(cell.strip()))
+        eq.append(_t3_e(content))
+    return _t3_delim('{', '', [eq])
+
+
+def _t3_matrix(raw, beg, end):
+    rows = _t3_rows(raw)
+    mm = OxmlElement('m:m')
+    width = None
+    for row in rows:
+        cells = _t3_cells(row)
+        if width is None:
+            width = len(cells)
+        elif len(cells) != width:
+            raise MathCompileError(
+                "ragged matrix — row widths %d vs %d in %r" % (width, len(cells), raw))
+        mr = OxmlElement('m:mr')
+        for cell in cells:
+            mr.append(_t3_e(_t3_compile_group(cell.strip())))
+        mm.append(mr)
+    if beg == '' and end == '':
+        return mm
+    return _t3_delim(beg, end, [mm])
+
+
+def _t3_literal(out, chunk):
+    pos = 0
+    for m in _t3_re.finditer('\u221a(\\d+)', chunk):
+        if m.start() > pos:
+            out.append(_t3_run(chunk[pos:m.start()]))
+        out.append(_t3_rad(None, [_t3_run(m.group(1))]))
+        pos = m.end()
+    rest = chunk[pos:]
+    if '\u221a' in rest:
+        raise MathCompileError(
+            "literal \u221a before non-digit in %r — use \\sqrt{…}" % chunk)
+    if rest:
+        out.append(_t3_run(rest))
+
+
+def _t3_pop_base(out, kind):
+    if not out:
+        raise MathCompileError("script '%s' has no base" % kind)
+    base = out.pop()
+    if base.tag == qn('m:r') and base.find(qn('m:rPr')) is None:
+        t_el = base.find(qn('m:t'))
+        txt = (t_el.text or '').rstrip()
+        if not txt:
+            raise MathCompileError("script '%s' base is empty text" % kind)
+        if len(txt) > 1:
+            if txt.endswith(')'):
+                depth, k = 0, len(txt) - 1
+                while k >= 0:
+                    if txt[k] == ')':
+                        depth += 1
+                    elif txt[k] == '(':
+                        depth -= 1
+                        if depth == 0:
+                            break
+                    k -= 1
+                split = k if (k >= 0 and depth == 0) else len(txt) - 1
+            else:
+                split = len(txt) - 1
+            if split > 0:
+                out.append(_t3_run(txt[:split]))
+                base = _t3_run(txt[split:])
+            else:
+                base = _t3_run(txt)
+        else:
+            base = _t3_run(txt)
+    return base
+
+
+def _t3_children(el, *tags):
+    return [el.find(qn(t)) for t in tags]
+
+
+def _t3_script(s, i, out):
+    kind = s[i]
+    atoms, j = _t3_atom(s, i + 1)
+    prev = out[-1] if out else None
+    # merge x_a^b / x^b_a into m:sSubSup
+    if prev is not None and prev.tag == qn('m:sSub') and kind == '^':
+        e_el, sub_el = _t3_children(prev, 'm:e', 'm:sub')
+        out.pop()
+        ss = OxmlElement('m:sSubSup')
+        ss.append(e_el); ss.append(sub_el)
+        ss.append(_t3_wrap('m:sup', _t3_content(atoms)))
+        out.append(ss)
+        return j
+    if prev is not None and prev.tag == qn('m:sSup') and kind == '_':
+        e_el, sup_el = _t3_children(prev, 'm:e', 'm:sup')
+        out.pop()
+        ss = OxmlElement('m:sSubSup')
+        ss.append(e_el)
+        ss.append(_t3_wrap('m:sub', _t3_content(atoms)))
+        ss.append(sup_el)
+        out.append(ss)
+        return j
+    base = _t3_pop_base(out, kind)
+    tag = 'm:sSup' if kind == '^' else 'm:sSub'
+    arg = 'm:sup' if kind == '^' else 'm:sub'
+    ss = OxmlElement(tag)
+    ss.append(_t3_e([base]))
+    ss.append(_t3_wrap(arg, _t3_content(atoms)))
+    out.append(ss)
+    return j
+
+
+def _t3_atom(s, i):
+    if i >= len(s):
+        raise MathCompileError("script or command runs off end of region %r" % s)
+    c = s[i]
+    if c == '{':
+        raw, j = _t3_group_raw(s, i)
+        return _t3_compile_group(raw), j
+    if c == '\\':
+        out = []
+        j = _t3_command(s, i, out)
+        return out, j
+    if c == '\u221a':
+        m = _t3_re.match('\u221a(\\d+)', s[i:])
+        if m:
+            return [_t3_rad(None, [_t3_run(m.group(1))])], i + m.end()
+        raise MathCompileError("literal \u221a before non-digit — use \\sqrt{…}")
+    return [_t3_run(c)], i + 1
+
+
+def _t3_command(s, i, out):
+    m = _t3_re.match(r'\\([A-Za-z]+)', s[i:])
+    if not m:
+        nc = s[i + 1] if i + 1 < len(s) else ''
+        if nc in '{}&\\^_ ':
+            out.append(_t3_run(nc))
+            return i + 2
+        raise MathCompileError("bad escape '\\%s' in %r" % (nc, s))
+    name = m.group(1)
+    j = i + m.end()
+    if name in ('frac', 'sfrac'):
+        a, j = _t3_req_group_raw(s, j, name)
+        b, j = _t3_req_group_raw(s, j, name)
+        out.append(_t3_frac(_t3_compile_group(a), _t3_compile_group(b),
+                            skewed=(name == 'sfrac')))
+        return j
+    if name == 'sqrt':
+        a, j = _t3_req_group_raw(s, j, name)
+        out.append(_t3_rad(None, _t3_compile_group(a)))
+        return j
+    if name == 'root':
+        d, j = _t3_req_group_raw(s, j, name)
+        a, j = _t3_req_group_raw(s, j, name)
+        out.append(_t3_rad(_t3_compile_group(d), _t3_compile_group(a)))
+        return j
+    if name in _T3_DELIM:
+        a, j = _t3_req_group_raw(s, j, name)
+        beg, end = _T3_DELIM[name]
+        out.append(_t3_delim(beg, end, _t3_compile_group(a)))
+        return j
+    if name == 'text':
+        a, j = _t3_req_group_raw(s, j, name)
+        out.append(_t3_run_roman(a))
+        return j
+    if name in _T3_NARY:
+        ch, loc = _T3_NARY[name]
+        sub = sup = None
+        while j < len(s) and s[j] in '^_':
+            k = s[j]
+            atoms, j = _t3_atom(s, j + 1)
+            if k == '_':
+                sub = atoms
+            else:
+                sup = atoms
+        rest, _ = _t3_seq(s, j, top=True)   # operand = remainder of this scope
+        out.append(_t3_nary(ch, loc, sub, sup, rest))
+        return len(s)
+    if name in _T3_LIMWORDS:
+        if j < len(s) and s[j] == '_':
+            atoms, j = _t3_atom(s, j + 1)
+            out.append(_t3_limlow(name, atoms))
+            return j
+        out.append(_t3_run_roman(name))
+        return j
+    if name in _T3_FUNCS:
+        out.append(_t3_run_roman(name))
+        return j
+    if name == 'cases':
+        raw, j = _t3_req_group_raw(s, j, name)
+        out.append(_t3_cases(raw))
+        return j
+    if name in _T3_MATRIX:
+        raw, j = _t3_req_group_raw(s, j, name)
+        beg, end = _T3_MATRIX[name]
+        out.append(_t3_matrix(raw, beg, end))
+        return j
+    if name in _T3_ACCENTS:
+        a, j = _t3_req_group_raw(s, j, name)
+        out.append(_t3_acc(_T3_ACCENTS[name], _t3_compile_group(a)))
+        return j
+    if name == 'binom':
+        a, j = _t3_req_group_raw(s, j, name)
+        b, j = _t3_req_group_raw(s, j, name)
+        f = _t3_frac(_t3_compile_group(a), _t3_compile_group(b), nobar=True)
+        out.append(_t3_delim('(', ')', [f]))
+        return j
+    if name in _T3_SYMBOLS:
+        out.append(_t3_run(_T3_SYMBOLS[name]))
+        return j
+    if name == 'pre':
+        a, j = _t3_req_group_raw(s, j, name)
+        b, j = _t3_req_group_raw(s, j, name)
+        c, j = _t3_req_group_raw(s, j, name)
+        out.append(_t3_spre(_t3_compile_group(a), _t3_compile_group(b),
+                            _t3_compile_group(c)))
+        return j
+    raise MathCompileError(
+        "unknown command \\%s — not in the Tier-3 grammar (S3-5b). The renderer "
+        "delivers this region as plain text and CHECK 20 quotes it; fix the "
+        "⟦MATH:⟧ spelling in the buffer and rebuild" % name)
+
+
+def _t3_seq(s, i, top=False):
+    out = []
+    while i < len(s):
+        c = s[i]
+        if c == '}':
+            if top:
+                raise MathCompileError("unmatched '}' at %d in %r" % (i, s))
+            return out, i + 1
+        if c == '{':
+            raw, i = _t3_group_raw(s, i)
+            out.extend(_t3_compile_group(raw))
+        elif c in '^_':
+            i = _t3_script(s, i, out)
+        elif c == '\\':
+            i = _t3_command(s, i, out)
+        else:
+            jj = i
+            while jj < len(s) and s[jj] not in '{}^_\\':
+                jj += 1
+            _t3_literal(out, s[i:jj])
+            i = jj
+    if top:
+        return out, i
+    raise MathCompileError("missing '}' in %r" % s)
+
+
+def t3_compile(body):
+    """Compile one ⟦MATH:…⟧ region body → a single <m:oMath> element."""
+    if MATH_OPEN in body or MATH_CLOSE in body:
+        raise MathCompileError("nested/unbalanced region delimiters in %r" % body)
+    if '\n' in body or '\t' in body:
+        raise MathCompileError("⟦MATH:⟧ region must be single-line: %r" % body)
+    elems, _ = _t3_seq(body, 0, top=True)
+    if not elems:
+        raise MathCompileError("empty ⟦MATH:⟧ region")
+    om = OxmlElement('m:oMath')
+    for e in elems:
+        om.append(e)
+    _T3_STATS['compiled'] += 1
+    return om
+
+
+def count_math_regions(*texts):
+    """Region count across buffer strings (CHECK 20 producer side)."""
+    n = 0
+    for t in texts:
+        if not t:
+            continue
+        n += len(_t3_re.findall(_t3_re.escape(MATH_OPEN), t))
+    return n
+```
+
 ---
 
 ## §4 — DOCUMENT BUILDER
@@ -2127,6 +2878,12 @@ def create_document():
     sec.top_margin = Inches(1)
     sec.bottom_margin = Inches(1)
     return doc
+
+# MATH RUNS ARE EXEMPT FROM THE ARIAL RULE (v2.0 — M5).
+# <m:oMath> content takes Word's math default (Cambria Math, math italic),
+# matching source-PDF typography. set_font() is for <w:r> prose runs ONLY —
+# never inject w:rPr fonts into m:r runs; \text{…}/function names carry
+# m:sty="p" (roman) and nothing else.
 ```
 
 ### S4-2 — Element builders
@@ -2333,9 +3090,13 @@ CHECK 8 — NO ANSWER MARKERS
   Scan for ✓ ✔ ✗ ✘ characters and "Ans" / "Ans." text.
   WARN if any found.
 
-CHECK 9 — OPTIONS FORMAT
-  Every option paragraph should match r'^[1-5]\.\s+'.
-  WARN if non-canonical options found.
+CHECK 9 — OPTIONS FORMAT (v2.0)
+  Every option paragraph should match r'^[1-5]\.\s+'  OR  be a bare label
+  r'^[1-5]\.\s*$' whose paragraph carries an <m:oMath> payload — an
+  OMML-only option (e.g. a fraction or a column vector) is CANONICAL, the
+  producer-side mirror of corpus_io's S-1 consumer rule (is_option with
+  para). Downstream text audits read corpus_io.text_of(), which
+  concatenates <w:t> AND <m:t> (M3). WARN on anything else.
 
 CHECK 10 — OMML STRUCTURAL INTEGRITY
   Traverse OMML XML for broken <m:sSup> / <m:sSub> elements.
@@ -2428,18 +3189,52 @@ CHECK 18 — NO FUSED BLOCKS (v1.14)
   tables where Word shows one. WARN with the pair count.
   Cheap, no false positives, and it belongs in the shared validation layer:
   every step that inserts or copies a table inherits the hazard.
+
+CHECK 19 — STRUCTURE RESIDUE IN PLAIN TEXT (v2.0)
+  Scan every <w:t> run. HARD residue (WARN, marked HARD): region delimiters
+  ⟦ ⟧, caret ^, subscript artefacts _x/_{/_( , √ before a non-digit.
+  SOFT residue (WARN): probable letter fractions (x/2, π/4, dy/dx…) after
+  masking is/are-style word pairs, unit ratios and dates. Any hit means an
+  expression that should have been a ⟦MATH:⟧ region was left flat.
+
+CHECK 20 — TIER-3 ROUND-TRIP + DEGRADE REPORT (v2.0)
+  count_math_regions(buffer) must EQUAL _T3_STATS['compiled'], and no
+  ⟦MATH: / ⟧ delimiter may survive in any <w:t> or <m:t>. Every degraded
+  region (math_failed) is reported IN PLAIN WORDS: the affected text
+  QUOTED VERBATIM (so Ctrl+F in Word lands on it — the document itself
+  carries no colour or highlight), why it failed, and the remedy ("search
+  for the quoted text, fix that ⟦MATH:⟧ spelling in the buffer, rebuild").
+  ANY degraded region ⇒ deliver under an F1 AMBER footer that
+  repeats the same plain-language remedy (Framework_DeliveryFooter §5) —
+  the file still ships; nothing halts. Skipped silently when
+  math_regions/math_compiled are not passed (legacy pipelines).
+
+CHECK 21 — DECLARED-STRUCTURE FIDELITY (v2.0)
+  For every q_num in struct_flags (S1-13 rule c): 'matrix' requires an
+  <m:m> and 'cases' requires an <m:eqArr> somewhere in that question's
+  paragraphs. This mechanically prevents the Q.37/Q.56 defect class — a
+  source matrix or cases brace flattened or paraphrased into prose under a
+  green footer. Skipped silently when struct_flags is not passed.
 ```
 
 ### S5-2 — Validation implementation
 
 ```python
 def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total=None,
-                      table_specs=None):
+                      table_specs=None, math_regions=None, math_compiled=None,
+                      math_failed=None, struct_flags=None):
     """
-    Run all 18 validation checks. Return (pass_count, warn_count, messages).
+    Run all 21 validation checks. Return (pass_count, warn_count, messages).
 
     table_specs: {q_num: TableSpec} as transcribed in Phase B (S1-12 / S1-8a).
     Optional — when absent, CHECK 17 is skipped and CHECK 17b applies instead.
+    math_regions / math_compiled: count_math_regions(buffer strings) and
+    _T3_STATS['compiled'] (v2.0). Optional — when absent, CHECK 20 is skipped.
+    math_failed: _T3_STATS['failed'] — [(region_body, reason), …] for every
+    region delivered as unmarked plain text (graceful degradation) — CHECK 20
+    quotes each one verbatim for Ctrl+F.
+    struct_flags: {q_num: {'matrix','cases'}} declared per S1-13 rule (c).
+    Optional — when absent, CHECK 21 is skipped.
     """
     from docx import Document
     import re
@@ -2535,14 +3330,21 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     else:
         print("CHECK 8: No answer markers OK")
 
-    # CHECK 9 — Option format
+    # CHECK 9 — Option format (v2.0 — OMML-bearing bare labels are canonical)
+    OMML_NS_V = "http://schemas.openxmlformats.org/officeDocument/2006/math"
     opt_re = re.compile(r'^[1-5]\.\s+')
+    opt_bare_re = re.compile(r'^[1-5]\.\s*$')
     bad_opts = 0
     for p in paras:
         t = p.text.strip()
         if p.paragraph_format.left_indent and p.paragraph_format.left_indent > 0:
-            if t and not opt_re.match(t):
-                bad_opts += 1
+            if not t:
+                continue
+            if opt_re.match(t):
+                continue
+            if opt_bare_re.match(t) and p._p.find(f'.//{{{OMML_NS_V}}}oMath') is not None:
+                continue
+            bad_opts += 1
     if bad_opts:
         warnings.append(f"CHECK 9 WARN: {bad_opts} non-canonical option lines")
     else:
@@ -2559,6 +3361,23 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
             s = el.find(f'{{{omml_ns}}}{"sup" if tag == "sSup" else "sub"}')
             if e is None or s is None:
                 broken += 1
+    # v2.0 — Tier-3 element classes
+    for el in body.findall(f'.//{{{omml_ns}}}sSubSup'):
+        if (el.find(f'{{{omml_ns}}}e') is None or el.find(f'{{{omml_ns}}}sub') is None
+                or el.find(f'{{{omml_ns}}}sup') is None):
+            broken += 1
+    for el in body.findall(f'.//{{{omml_ns}}}f'):
+        if el.find(f'{{{omml_ns}}}num') is None or el.find(f'{{{omml_ns}}}den') is None:
+            broken += 1
+    for tag in ('rad', 'nary', 'limLow'):
+        for el in body.findall(f'.//{{{omml_ns}}}{tag}'):
+            if el.find(f'{{{omml_ns}}}e') is None:
+                broken += 1
+    for el in body.findall(f'.//{{{omml_ns}}}m'):
+        widths = {len(mr.findall(f'{{{omml_ns}}}e'))
+                  for mr in el.findall(f'{{{omml_ns}}}mr')}
+        if len(widths) != 1:
+            broken += 1
     if broken:
         warnings.append(f"CHECK 10 WARN: {broken} broken OMML elements")
     else:
@@ -2717,11 +3536,98 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     else:
         print("CHECK 18: No adjacent block tables OK")
 
+    # CHECK 19 — Structure residue in plain text (v2.0)
+    W_NS_V = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    _WL_RE = re.compile(
+        r'\b(?:is/are|and/or|has/have|have/has|he/she|s/he|yes/no'
+        r'|c/o|w/o|24/7|I/O|a/c)\b', re.IGNORECASE)
+    hard_res = soft_res = 0
+    _degraded_bodies = {body for body, _ in (math_failed or [])}
+    for p in paras:
+        for wt in p._element.iter(f'{{{W_NS_V}}}t'):
+            if (wt.text or '') in _degraded_bodies:
+                continue    # degraded region — already reported by CHECK 20
+            s = wt.text or ''
+            if ('⟦' in s or '⟧' in s or '^' in s
+                    or re.search(r'_[A-Za-z{(]', s)
+                    or re.search(r'√(?![0-9])', s) or s.endswith('√')):
+                hard_res += 1
+            masked = _WL_RE.sub(' ', s)
+            masked = _UNIT_RATIO_RE.sub(' ', masked)
+            masked = _DATE_RE.sub(' ', masked)
+            if (re.search(r'[A-Za-zπθφ)\]!²³ⁿᵏ]\s*/', masked)
+                    or re.search(r'/\s*[A-Za-z(π√]', masked)):
+                soft_res += 1
+    if hard_res:
+        warnings.append(f"CHECK 19 WARN (HARD): {hard_res} structural artefacts "
+                        f"in plain text — should be ⟦MATH:⟧ regions")
+    if soft_res:
+        warnings.append(f"CHECK 19 WARN: {soft_res} probable letter-fractions left linear")
+    if not hard_res and not soft_res:
+        print("CHECK 19: No structure residue in plain text OK")
+
+    # CHECK 20 — Tier-3 round-trip (v2.0)
+    if math_regions is None or math_compiled is None:
+        print("CHECK 20: math region counts not supplied — skipped (legacy path)")
+    else:
+        delim_res = 0
+        for p in paras:
+            for node in p._element.iter():
+                if node.tag in (f'{{{W_NS_V}}}t', f'{{{omml_ns}}}t'):
+                    if node.text and ('⟦MATH:' in node.text or '⟧' in node.text):
+                        delim_res += 1
+        for body, reason in (math_failed or []):
+            snippet = body if len(body) <= 60 else body[:57] + '…'
+            warnings.append(
+                "CHECK 20 WARN: one maths expression could not be structured and "
+                f"was delivered as plain text: \"{snippet}\" "
+                f"(reason: {reason}). Remedy: in Word press Ctrl+F, search for "
+                "the quoted text to locate it, fix that ⟦MATH:⟧ spelling in the "
+                "buffer, rebuild. Deliver under an F1 AMBER footer.")
+        n_failed = len(math_failed or [])
+        ledger_ok = (math_regions == math_compiled + n_failed)
+        if not ledger_ok:
+            warnings.append(
+                f"CHECK 20 WARN: region ledger mismatch — {math_regions} in buffer "
+                f"vs {math_compiled} compiled + {n_failed} degraded (a stray "
+                f"unpaired ⟧ can cause this; see the quoted text above)")
+        elif delim_res:
+            warnings.append(f"CHECK 20 WARN: {delim_res} residual region delimiters")
+        elif not n_failed:
+            print(f"CHECK 20: Tier-3 round-trip {math_compiled}/{math_regions} regions OK")
+
+    # CHECK 21 — Declared-structure fidelity (v2.0)
+    if not struct_flags:
+        print("CHECK 21: no struct_flags supplied — skipped")
+    else:
+        need_tag = {'matrix': f'{{{omml_ns}}}m', 'cases': f'{{{omml_ns}}}eqArr'}
+        cur_q = None
+        q_spans = {}
+        for p in paras:
+            m = re.match(r'^Q\.(\d+)', p.text.strip())
+            if m:
+                cur_q = int(m.group(1))
+                q_spans[cur_q] = []
+            if cur_q:
+                q_spans[cur_q].append(p)
+        missing = []
+        for q_num, kinds in struct_flags.items():
+            for kind in kinds:
+                found = any(p._element.find(f'.//{need_tag[kind]}') is not None
+                            for p in q_spans.get(q_num, []))
+                if not found:
+                    missing.append(f"Q.{q_num}:{kind}")
+        if missing:
+            warnings.append("CHECK 21 WARN: declared structures missing — "
+                            + ", ".join(missing))
+        else:
+            print(f"CHECK 21: Declared structures present ({len(struct_flags)} questions) OK")
+
     # Summary
-    pass_count = 18 - len(warnings)
+    pass_count = 21 - len(warnings)
     for w in warnings:
         print(f"  ⚠️ {w}")
-    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/18 checks passed, {len(warnings)} warnings")
+    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/21 checks passed, {len(warnings)} warnings")
 
     return pass_count, len(warnings), warnings
 ```
@@ -3163,7 +4069,7 @@ PHASE B — BUILD (3–4 tool calls):
       - DI table builder (v1.14 — TableSpec + corpus_io.build_di_table;
         spans preserved, cells rendered through render_text_with_math)
       - Document builder (date labels, stems, options, blanks)
-      - Validator (18 checks)
+      - Validator (21 checks)
       - File saver + copier
 
   CALL B2: Run pipeline
@@ -3358,7 +4264,7 @@ PROOF:
 ☐ 13. Date labels present: one per question, correct format and style
 ☐ 14. Answer markers stripped: no ✓/✗, no correct answer indicators
 ☐ 15. Document formatting: Arial 11pt, A4, 1" margins, proper spacing
-☐ 16. Validation run: all 18 checks executed, results logged
+☐ 16. Validation run: all 21 checks executed, results logged
 ☐ 17. Row file delivered via present_files (1 file, closed set)
 ☐ 18. Delivery footer rendered per Framework_DeliveryFooter.md
 
@@ -3370,4 +4276,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v1.14.1
+# END OF Framework_PYQPrepare v2.0

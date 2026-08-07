@@ -1471,6 +1471,38 @@ def is_option(text, para=None):
     return False
 
 
+W_T_TAG = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'
+M_T_TAG = '{http://schemas.openxmlformats.org/officeDocument/2006/math}t'
+
+
+def text_of(para):
+    """Canonical VISIBLE text of a paragraph — every <w:t> AND <m:t> descendant,
+    concatenated in document order. (GAP-2026-08-07-OMML, remedy M3.)
+
+    python-docx's p.text is <w:t>-only, so a paragraph whose payload is an
+    <m:oMath> equation reads as a bare label ("3. ") or as empty. That is the
+    exact producer/consumer disagreement S-1 fixed structurally for option
+    DETECTION; text_of() closes the remaining half — any consumer that needs the
+    words a reader actually sees (dedupe keys, taxonomy matching, QV text
+    audits, PYQPrepare CHECK 9) reads text_of(), never p.text, whenever OMML may
+    be present. is_option()/BARE_OPT_PATTERNS stay the structural predicates.
+
+    Accepts EITHER a python-docx Paragraph or a raw <w:p> lxml element — the
+    same duality, for the same reason, as para_has_image().
+    """
+    if para is None:
+        return ''
+    el = getattr(para, '_p', para)
+    it = getattr(el, 'iter', None)
+    if it is None:
+        return ''
+    out = []
+    for e in it():
+        if getattr(e, 'tag', None) in (W_T_TAG, M_T_TAG):
+            out.append(e.text or '')
+    return ''.join(out)
+
+
 def clean_option_text(text):
     """Option text with its marker stripped. '' for a bare marker — the option content
     IS the image, and an all-empty option set is what resolves option_format to
@@ -4383,6 +4415,21 @@ def self_test():
     check('opt_beyond_range_rejected', not is_option('6. beyond the option range'))
     check('opt_prose_rejected', not is_option('Consider the following statements'))
     check('opt_bare_no_para_rejected', not is_option('1.'))
+
+    # ── text_of() — w:t + m:t canonical accessor (GAP-2026-08-07-OMML M3) ──
+    _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    _M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+    from xml.etree import ElementTree as _ET   # stdlib — Check AB-safe
+    _p_omml = _ET.fromstring(
+        ('<w:p xmlns:w="%s" xmlns:m="%s">'
+         '<w:r><w:t xml:space="preserve">3. </w:t></w:r>'
+         '<m:oMath><m:f><m:num><m:r><m:t>1</m:t></m:r></m:num>'
+         '<m:den><m:r><m:t>2</m:t></m:r></m:den></m:f></m:oMath>'
+         '</w:p>') % (_W, _M))
+    check('textof_wt_plus_mt', text_of(_p_omml) == '3. 12')
+    check('textof_none', text_of(None) == '')
+    check('textof_non_element', text_of('junk') == '')
+
     _p_img = _ET.fromstring(
         '<w:p xmlns:w="%s" xmlns:a="%s"><w:r><w:drawing><a:blip/></w:drawing></w:r></w:p>'
         % (_NS_W, A_NS))
