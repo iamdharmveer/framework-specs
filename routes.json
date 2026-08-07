@@ -74,7 +74,8 @@
     "figural_core.py",
     "paper_pipeline.py",
     "corpus_io.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "t3_mathcomp.py"
   ],
   "TestCreate": [
     "Framework_MockTestCreate.md",
@@ -82,7 +83,8 @@
     "figural_core.py",
     "paper_pipeline.py",
     "corpus_io.py",
-    "Framework_DeliveryFooter.md"
+    "Framework_DeliveryFooter.md",
+    "t3_mathcomp.py"
   ],
   "MockExplain": [
     "Framework_MockTestExplain.md",

@@ -1,4 +1,24 @@
-# Framework_MockTestCreate v5.46
+# Framework_MockTestCreate v5.47
+# v5.47 — 2026-08-07 — TIER-3 MATH (GAP-2026-08-07-MOCK-OMML, remedies MC1–MC3).
+#   Measured on IIT_JAM_PHYSICS Mock05 (14/60 questions): letter fractions left
+#   linear in stems ("M/3", "a/√n"), subscripts shipped as flat text ("k_B T",
+#   "R_in") because MATH_TRIGGER_RE had NO underscore branch and S10-4 had no
+#   subscript vocabulary at all, one caret exponent, and — latent — the S10-4
+#   frac/sup/sqrt builders accepted RAW text (schema-invalid <m:num>3</m:num>
+#   that Word renders as an EMPTY placeholder; the exact GAP-2026-08-07-
+#   EXPLAIN-OMML defect, one forgotten _r() away from firing here).
+#   Fix: (MC1) builders _r_wrap + XML-escape internally — raw args are now safe;
+#   (MC2) S10-4 delegates to the SHARED Tier-3 compiler t3_mathcomp.py (byte-
+#   locked to Framework_PYQPrepare §S3-5b): new single funnel render_mock_text()
+#   dispatches ⟦MATH:…⟧ regions with the strict-core/forgiving-boundary contract
+#   (a bad region degrades to plain unmarked text and is quoted VERBATIM for
+#   Ctrl+F — never a halt, never silent); MATH_TRIGGER_RE gains underscore-
+#   subscript, ÷ and combining-accent branches; the decision tree names
+#   subscripts as built-up math; (MC3) new mock_math_residue_check() post-build
+#   gate scans the rendered docx for dialect residue, bare-text fraction parts,
+#   empty OMML and region delimiters, reporting in plain operator words —
+#   mandatory before delivery, amber-not-halt. routes.json binds t3_mathcomp.py
+#   to MockCreate/TestCreate.
 # v5.46 — 2026-08-07 — GAP-2026-08-07-FIGACCENT: the S10-6A palette column was
 #   normative prose with NO enforcing gate. "1 accent hue permitted" (data_single)
 #   and ">=1 accent for the item under interrogation" (schematic) had a Colour-gate
@@ -881,11 +901,15 @@
        — a SLASH/CARET ASCII fallback ("a/b" stacked fractions, "x^2") in the text
          stream (the long-standing G-FRAC ban).
        — RAW LaTeX (\frac, \sqrt) left unconverted.
-       Single Unicode symbols (², ³, √n, ×, ÷, ≤, ≥, ±, π, °, θ) and unit labels
+       Single Unicode symbols (², ³, √n, ×, ≤, ≥, ±, π, °, θ) and unit labels
+       (÷ is NEVER a fraction spelling — v5.47; subscripted symbols like k_B
+       are built-up math, S10-4 rule 3a)
        (km/h, cm²) stay plain text/Unicode per the decision tree rules 1-2 — they
        are NOT built-up structures and do NOT require OMML. The executable home is
-       §10-S10-4 (MATH_TRIGGER detector + add_math_stem/emit_math_inline +
-       assert_not_math guard); the figural boundary is enforced in §10-S10-7
+       §10-S10-4 (MATH_TRIGGER detector + render_mock_text ⟦MATH:⟧ funnel, with
+       add_math_stem/emit_math_inline as the legacy segments API, +
+       assert_not_math guard + the mock_math_residue_check post-build gate —
+       v5.47); the figural boundary is enforced in §10-S10-7
        (render_figural_image calls assert_not_math). Enforced by gate
        G-MATH-RASTER (image name-contract) and the existing G-FRAC (slash text).
 # All checks mandatory. Q1 FORBIDDEN until every check passes.
@@ -4751,14 +4775,112 @@
   ```python
   from docx.oxml import parse_xml
   M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
-  def _r(t): return f'<m:r xmlns:m="{M}"><m:t xml:space="preserve">{t}</m:t></m:r>'
-  def frac(n,d): return f'<m:f xmlns:m="{M}"><m:num>{n}</m:num><m:den>{d}</m:den></m:f>'
-  def sup(b,e): return f'<m:sSup xmlns:m="{M}"><m:e>{b}</m:e><m:sup>{e}</m:sup></m:sSup>'
+  def _esc(t):
+      return (str(t).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+  def _r(t): return f'<m:r xmlns:m="{M}"><m:t xml:space="preserve">{_esc(t)}</m:t></m:r>'
+  def _r_wrap(x):
+      # v5.47 (MC1): raw text interpolated into m:num/m:den/m:e is SCHEMA-INVALID
+      # OMML that Word renders as an EMPTY placeholder while itertext()-style
+      # checks still read it (measured as GAP-2026-08-07-EXPLAIN-OMML). Every
+      # builder argument now normalises here: OMML markup passes through, plain
+      # text becomes a proper <m:r><m:t> run — a forgotten _r() can no longer
+      # destroy content.
+      x = '' if x is None else str(x)
+      return x if x.lstrip().startswith('<m:') else _r(x)
+  def frac(n,d): return f'<m:f xmlns:m="{M}"><m:num>{_r_wrap(n)}</m:num><m:den>{_r_wrap(d)}</m:den></m:f>'
+  def sup(b,e): return f'<m:sSup xmlns:m="{M}"><m:e>{_r_wrap(b)}</m:e><m:sup>{_r_wrap(e)}</m:sup></m:sSup>'
   def sqrt(x): return (f'<m:rad xmlns:m="{M}"><m:radPr>'
                        f'<m:degHide m:val="1"/></m:radPr><m:deg/>'
-                       f'<m:e>{x}</m:e></m:rad>')
+                       f'<m:e>{_r_wrap(x)}</m:e></m:rad>')
   def omath(*p): return f'<m:oMath xmlns:m="{M}">{"".join(p)}</m:oMath>'
   def add_math(paragraph, omath_xml): paragraph._p.append(parse_xml(omath_xml))
+  ```
+
+  ```python
+  # v5.47 (MC2) — THE SINGLE FUNNEL. The SHARED Tier-3 compiler (t3_mathcomp.py,
+  # byte-locked to Framework_PYQPrepare §S3-5b; routed to this trigger) replaces
+  # per-expression segments authoring: write stems/options as ONE string with
+  # ⟦MATH:…⟧ regions and pass it here. Grammar: \frac \sfrac \sqrt, x^{n},
+  # k_{B}-style subscripts, n-ary operators, \cases, matrices, \bar/\vec
+  # accents, Greek/symbol map — identical to Steps 1/PYQ-1/9.
+  from t3_mathcomp import (t3_compile, MathCompileError,
+                           MATH_OPEN as T3_OPEN, MATH_CLOSE as T3_CLOSE,
+                           _REGION_RE as T3_REGION_RE, _T3_STATS as T3_STATS)
+
+  def render_mock_text(paragraph, text, bold=False):
+      """Interleave plain runs and compiled ⟦MATH:…⟧ regions. STRICT CORE,
+      FORGIVING BOUNDARY: a region the compiler rejects NEVER halts the build
+      and NEVER ships silently — it renders as ordinary plain text (no colour,
+      no markup), is recorded in T3_STATS['failed'], and
+      mock_math_residue_check() quotes it verbatim so the author can Ctrl+F
+      straight to it."""
+      pos = 0
+      for mr in T3_REGION_RE.finditer(text):
+          if mr.start() > pos:
+              r = paragraph.add_run(text[pos:mr.start()]); r.bold = bold
+          try:
+              paragraph._p.append(t3_compile(mr.group(1)))
+          except MathCompileError as err:
+              T3_STATS['failed'].append((mr.group(1), str(err)))
+              r = paragraph.add_run(mr.group(1)); r.bold = bold
+          pos = mr.end()
+      if pos < len(text):
+          r = paragraph.add_run(text[pos:]); r.bold = bold
+      return paragraph
+
+  def mock_math_residue_check(docx_path):
+      """v5.47 (MC3) POST-BUILD MATH GATE — mandatory before delivery, WARN-and-
+      deliver (amber), never a halt. Scans the RENDERED docx and reports in
+      plain operator words: (a) ASCII-dialect residue in plain text — ÷ between
+      operands, caret exponents, k_B-style underscores, √( or √letter, letter
+      fractions (units masked), combining accents; (b) SCHEMA-INVALID fractions
+      (bare text in m:num/m:den — renders EMPTY in Word); (c) empty OMML
+      islands; (d) residual ⟦MATH:⟧ delimiters; (e) every degraded region,
+      quoted verbatim with the remedy. Any hit ⇒ F1 AMBER footer naming it."""
+      import re as _re
+      from docx import Document as _D
+      _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+      _Mns = M
+      _unit = _re.compile(r'\b(?:km|m|cm|mm|kg|g|l|ml|s|hr|h|rad|rev|V|W|J|N|C|T|A|eV)'
+                          r'\s*/\s*(?:h|s|min|hr|m|m²|m³|K|kg|mol|c)\b')
+      _wordpair = _re.compile(r'\b(?:is/are|and/or|has/have|he/she|yes/no|a/an|c/o|w/o|I/O)\b',
+                              _re.IGNORECASE)
+      probs = []
+      doc = _D(docx_path)
+      failed_bodies = {b for b, _ in T3_STATS.get('failed', [])}
+      for p in doc.paragraphs:
+          t = p.text
+          if any(fb and fb in t for fb in failed_bodies):
+              continue
+          if T3_OPEN in t or T3_CLOSE in t:
+              probs.append(f'residual region delimiter in: {t.strip()[:60]!r}')
+          st = _wordpair.sub(' ', _unit.sub(' ', t))
+          if _re.search(r'[\w)\]²³]\s*÷|÷\s*[\w(]', st):
+              probs.append(f'division-sign fraction in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
+          if '^' in st:
+              probs.append(f'caret exponent in: {t.strip()[:60]!r} — use ⟦MATH:x^{{n}}⟧')
+          if _re.search(r'(?<![A-Za-z0-9_])[A-Za-zψφχε]_(?=[A-Za-z0-9{{(])', st):
+              probs.append(f'flat subscript in: {t.strip()[:60]!r} — use ⟦MATH:k_{{B}}⟧')
+          if _re.search(r'√\s*\(|√\s*[A-Za-zπλωεℏ]', st):
+              probs.append(f'flat radical in: {t.strip()[:60]!r} — use ⟦MATH:\\sqrt{{…}}⟧')
+          if _re.search(r'[A-Za-zπθφλωε²³)\]]\s*/\s*[A-Za-z(π√λℏ]', st):
+              probs.append(f'letter fraction left linear in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
+          if _re.search(r'[\u0300-\u036f\u20d0-\u20ff]', st):
+              probs.append(f'combining-character accent in: {t.strip()[:60]!r} — use ⟦MATH:\\bar{{A}}⟧ / ⟦MATH:\\vec{{E}}⟧')
+          for om in p._element.iter('{%s}oMath' % _Mns):
+              if not ''.join(x.text or '' for x in om.iter('{%s}t' % _Mns)).strip():
+                  probs.append('EMPTY OMML island (content lost) in: %r' % t.strip()[:50])
+              for f in om.iter('{%s}f' % _Mns):
+                  for part in (f.find('{%s}num' % _Mns), f.find('{%s}den' % _Mns)):
+                      if part is not None and ((part.text or '').strip() or not len(part)):
+                          probs.append('SCHEMA-INVALID fraction (bare text in num/den — '
+                                       'Word renders it EMPTY) in: %r' % t.strip()[:50])
+      for body, reason in T3_STATS.get('failed', []):
+          snip = body if len(body) <= 60 else body[:57] + '…'
+          probs.append('one maths expression could not be structured and was delivered '
+                       f'as plain text: "{snip}" (reason: {reason}). Remedy: Ctrl+F the '
+                       'quoted text, fix that ⟦MATH:⟧ spelling, rebuild.')
+      return probs
   ```
 
   Math rendering decision tree (in order — use FIRST applicable rule):
@@ -4766,12 +4888,20 @@
      rasterised. The matplotlib / figural / image pipeline is BANNED for
      algebraic/symbolic math — it is for GEOMETRIC FIGURES ONLY. (R-MATH-OMML.)
   1. Unit labels (km/h, m/s, cm²): plain text
-  2. Single symbols (², ³, √n, ×, ÷, ≤, ≥, ±, π, °, θ): Unicode
-  3. Fractions (a/b stacked): MANDATORY OMML frac()
+  2. Single symbols (², ³, √n, ×, ≤, ≥, ±, π, °, θ): Unicode. SUBSCRIPTED
+     symbols (k_B, R_in, N₂ beyond a single trailing digit) are NOT single
+     symbols — they are built-up math (rule 3a). ÷ is NEVER a fraction
+     spelling in prose.
+  3. Fractions (a/b stacked): MANDATORY OMML — ⟦MATH:\frac{a}{b}⟧ via
+     render_mock_text() (or legacy frac(), now raw-arg-safe)
+  3a. Subscripts (k_B, R_in, v_rms): MANDATORY OMML — ⟦MATH:k_{B}⟧
   4. Nested radicals: MANDATORY OMML sqrt()
   5. Exponent+fraction: MANDATORY OMML
   6. Trig identities with fractions: MANDATORY OMML
-  7. Raw LaTeX (\\frac, \\sqrt): NEVER — convert to OMML
+  7. Raw LaTeX (\\frac, \\sqrt) OUTSIDE a ⟦MATH:⟧ region, ÷-fractions,
+     caret exponents, underscore subscripts, √(…) and combining-character
+     accents in prose: NEVER — every one is the ASCII dialect that
+     mock_math_residue_check() names; the legal spelling is a ⟦MATH:…⟧ region.
 
   MATH-AS-OMML ROUTING CONTRACT (v4.3 — the executable home for rules 0/3-6).
   Before v4.3 the tree above stated the GOAL but there was no function to call:
@@ -4779,8 +4909,10 @@
   a built-up expression had no OMML entry point and could fall back to a raster
   (the M1 Q.55 defect: "x + 1/x = 5" and "x²+1/x²" shipped as 300-DPI matplotlib
   PNGs). These helpers close that hole. Any stem or option whose text matches
-  MATH_TRIGGER_RE MUST be emitted through add_math_stem / emit_math_inline (OMML),
-  NEVER through the figural raster path.
+  MATH_TRIGGER_RE MUST be emitted through render_mock_text() with ⟦MATH:…⟧
+  regions (the v5.47 single funnel — shared Tier-3 compiler), or through the
+  legacy add_math_stem / emit_math_inline segments API (OMML), NEVER through
+  the figural raster path.
 
   ```python
   import re
@@ -4796,6 +4928,9 @@
       r"|(?:[A-Za-z0-9]\s*[\u00b2\u00b3])"              # superscript ² ³ on a term
       r"|(?:\\frac|\\sqrt)"                              # raw LaTeX
       r"|(?:\u221a\s*[\(A-Za-z0-9])"                    # radical √(...)
+      r"|(?:[A-Za-z]_[A-Za-z0-9{{(])"                     # subscript k_B (v5.47)
+      r"|(?:[\w)\]]\s*÷|÷\s*[\w(])"                    # ÷-fraction (v5.47)
+      r"|(?:[\u0300-\u036f\u20d0-\u20ff])"             # combining accent (v5.47)
   )
   # Allow-list so unit labels never trip the fraction branch.
   UNIT_LABEL_RE = re.compile(r"(?i)\b(km|m|cm|mm|kg|g|l|ml|s|hr|h)\s*/\s*(h|s|min|hr)\b")
@@ -7448,7 +7583,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.46
+# END OF Framework_MockTestCreate v5.47
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.07.3",
+  "framework_version": "2026.08.07.4",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -77,7 +77,8 @@
       "figural_core.py",
       "paper_pipeline.py",
       "corpus_io.py",
-      "Framework_DeliveryFooter.md"
+      "Framework_DeliveryFooter.md",
+      "t3_mathcomp.py"
     ],
     "TestCreate": [
       "Framework_MockTestCreate.md",
@@ -85,7 +86,8 @@
       "figural_core.py",
       "paper_pipeline.py",
       "corpus_io.py",
-      "Framework_DeliveryFooter.md"
+      "Framework_DeliveryFooter.md",
+      "t3_mathcomp.py"
     ],
     "MockExplain": [
       "Framework_MockTestExplain.md",
@@ -173,11 +175,11 @@
       "bytes": 461005
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "fb48db62d43f8e142593e72909655337723f33c68ada4339225f97cdb61c8854",
-      "version_header": "# Framework_MockTestCreate v5.46",
+      "sha256": "fa08c7e00212f7470b9ce070308db0f3874e43785d131ddfbbca316a9b73b461",
+      "version_header": "# Framework_MockTestCreate v5.47",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 7531,
-      "bytes": 464503
+      "lines": 7666,
+      "bytes": 473269
     },
     "Framework_MockTestExplain.md": {
       "sha256": "284474c2f0918b6e62f9eede25e79d65b8794100033009f0ed7166a232cff54c",

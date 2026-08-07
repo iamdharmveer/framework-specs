@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026.08.07.4
+
+### GAP-2026-08-07-MOCK-OMML — Step 7 math: no subscript vocabulary, no gate, latent invalid builders
+
+**Why "k_B T" and "M/3" shipped flat in a delivered mock, and why worse was one forgotten _r() away.**
+
+Measured on IIT_JAM_PHYSICS Mock05 (14/60 questions): letter fractions linear in
+stems, nine flat underscore subscripts (k_B, R_in — MATH_TRIGGER_RE had no `_`
+branch and S10-4 defined no subscript builder at all), one caret, one flat
+radical. Latent: the S10-4 frac/sup/sqrt builders accepted RAW text — the exact
+schema-invalid shape that destroyed 12 PYQExplain fractions; only the example
+snippets' _r() calls stood between Step 7 and the same empty-placeholder class.
+No post-build math check existed for this step.
+
+Remedies (Framework_MockTestCreate v5.46 → v5.47, routes.json):
+1. **MC1** — builders _r_wrap + XML-escape internally; raw args are now safe.
+2. **MC2** — S10-4 delegates to the SHARED drift-locked Tier-3 compiler
+   (t3_mathcomp.py): new single funnel render_mock_text() with ⟦MATH:…⟧ regions,
+   strict-core/forgiving-boundary (degrade to plain unmarked text + verbatim
+   Ctrl+F quote — never halt, never silent); MATH_TRIGGER_RE gains subscript,
+   ÷ and combining-accent branches; decision tree adds rule 3a (subscripts are
+   built-up math) and extends rule 7 (the dialect is named and banned).
+3. **MC3** — new mandatory post-build gate mock_math_residue_check(): dialect
+   residue, schema-invalid fractions, empty OMML, region delimiters and degraded
+   regions, all in plain operator words; WARN-and-deliver under F1 AMBER.
+
+Proof: spec-extracted code compiles ⟦MATH:\frac{5}{2} k_{B} T⟧ to proper OMML,
+degrades a bad region quoted with no exception, legacy frac('3v','2') emits
+run-wrapped XML; the gate run against the defective Mock05 reports exactly the
+18 diagnosed issues (9 subscripts, 7 letter fractions, 1 radical, 1 caret).
+Tier-3 coverage is now pipeline-complete: Steps 1, 7, 9 and PYQ-1 share one
+compiler.
+
 ## 2026.08.07.3
 
 ### GAP-2026-08-07-EXPLAIN-OMML — explanation math destroyed by an invalid builder and an evasion dialect
