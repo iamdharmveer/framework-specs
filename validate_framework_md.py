@@ -117,6 +117,8 @@ PIPELINE = {
     'MockCreate': '7', 'TestCreate': '7',
     'MockExplain': '9', 'MockDeliver': '11',
     'TestExplain': '9', 'TestDeliver': '11',
+    'NotesBlueprint': 'NB', 'NotesCreate': 'NC',
+    'NotesAudit': 'NA', 'NotesDeliver': 'ND',
 }
 
 def validate(path, all_texts=None):

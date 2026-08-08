@@ -143,6 +143,28 @@
       "blueprint_core.py",
       "corpus_io.py",
       "Framework_DeliveryFooter.md"
+    ],
+    "NotesBlueprint": [
+      "Framework_NotesBlueprint.md",
+      "notes_core.py",
+      "notes_blueprint.py",
+      "Framework_DeliveryFooter.md"
+    ],
+    "NotesCreate": [
+      "Framework_NotesCreate.md",
+      "notes_core.py",
+      "Framework_DeliveryFooter.md"
+    ],
+    "NotesAudit": [
+      "Framework_NotesAudit.md",
+      "notes_core.py",
+      "notes_audit.py",
+      "Framework_DeliveryFooter.md"
+    ],
+    "NotesDeliver": [
+      "Framework_NotesDeliver.md",
+      "notes_core.py",
+      "Framework_DeliveryFooter.md"
     ]
   },
   "files": {
@@ -187,6 +209,34 @@
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
       "lines": 1523,
       "bytes": 120070
+    },
+    "Framework_NotesAudit.md": {
+      "sha256": "ee2ba43d4b81a8460ddac272f4956947520e06008fdcfc6a641218f4d82cf519",
+      "version_header": "# Framework_NotesAudit v1.0.0 \u2014 Notes Pipeline Step NA (Closed-Book Solvability Audit)",
+      "end_sentinel": "# END OF Framework_NotesAudit v1.0.0",
+      "lines": 87,
+      "bytes": 4766
+    },
+    "Framework_NotesBlueprint.md": {
+      "sha256": "b31bfb03321c2dc9c2dd0f467e0380d29d87e7ca776833da3931cf8ae55e604e",
+      "version_header": "# Framework_NotesBlueprint v1.0.0 \u2014 Notes Pipeline Step NB (Blueprint + SourceMap)",
+      "end_sentinel": "# END OF Framework_NotesBlueprint v1.0.0",
+      "lines": 104,
+      "bytes": 5726
+    },
+    "Framework_NotesCreate.md": {
+      "sha256": "617178f5cd3e4e462f2df7154b19d246b041981d829799fd9c916dd19fb7bcbd",
+      "version_header": "# Framework_NotesCreate v1.0.0 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
+      "end_sentinel": "# END OF Framework_NotesCreate v1.0.0",
+      "lines": 110,
+      "bytes": 6144
+    },
+    "Framework_NotesDeliver.md": {
+      "sha256": "1ade327481ae1dcfd0bc16c0bfab2398611387b00eb69ea7eb334cea44714879",
+      "version_header": "# Framework_NotesDeliver v1.0.0 \u2014 Notes Pipeline Step ND (Delivery)",
+      "end_sentinel": "# END OF Framework_NotesDeliver v1.0.0",
+      "lines": 46,
+      "bytes": 2066
     },
     "Framework_PYQAnalyse.md": {
       "sha256": "4e4d8eda31b58ecc545c4767f47d3faf5a06e99e1ebdd0183a75debfac865b18",
@@ -287,11 +337,11 @@
       "bytes": 74288
     },
     "validate_framework_md.py": {
-      "sha256": "db8da09c1d9ebf65c0de48e31f5e273a75ba6721d9fa56540fcab88edd7bf84d",
+      "sha256": "77dd12cde86f5bd4b82d7aac64fef12e776d7774b22c7e70da5adde432acbf84",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2252,
-      "bytes": 130089
+      "lines": 2254,
+      "bytes": 130184
     },
     "explain_audit_gate.py": {
       "sha256": "2040f4ca7da3a0e6c89fd8a994b9fdd407fe6c0d9526f4c22e3e3f9638d00e4d",
@@ -383,6 +433,27 @@
       "end_sentinel": "        ws.column_dimensions[get_column_letter(ci)].width = 13",
       "lines": 695,
       "bytes": 35405
+    },
+    "notes_core.py": {
+      "sha256": "d94c3fddb59ac7b58f0694ded2d0c8cc54087d892907756715ff5942314b59cd",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    return len(maths)",
+      "lines": 173,
+      "bytes": 6209
+    },
+    "notes_blueprint.py": {
+      "sha256": "f9ef33239c04a724b1d6f948e917fdacbfcddc053432ceefea1b6b5a71915d49",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    return bp_path, reg_path",
+      "lines": 96,
+      "bytes": 4579
+    },
+    "notes_audit.py": {
+      "sha256": "aa4d29603f60e2b85dd3a920519ed8925ff6b161b335215e9b5b4f1e0544f757",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    return bound",
+      "lines": 105,
+      "bytes": 3914
     }
   }
 }
