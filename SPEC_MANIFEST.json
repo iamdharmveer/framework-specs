@@ -99,11 +99,11 @@
       "version_header": "# Framework_PYQExplain v2.0 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQExplainAudit.md": {
-      "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.2.0)**",
-      "lines": 969,
-      "sha256": "4868738fc6f3016822b1d7216d2a171ff6df76e378c9a3ac58321a65965e9634",
-      "size_bytes": 94781,
-      "version_header": "# Framework_PYQExplainAudit v1.2.0 — Universal PYQ Explanation Auditor"
+      "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.2.1)**",
+      "lines": 984,
+      "sha256": "39a486d28739482aacefe4656828c0ba1de5ff26d47e241c4ced5b4f5ef97aff",
+      "size_bytes": 97768,
+      "version_header": "# Framework_PYQExplainAudit v1.2.1 — Universal PYQ Explanation Auditor"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.4.2)**",
@@ -233,9 +233,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 2216,
-      "sha256": "8b4222c35c16b6e128900660fe721567c6b65b7b3bcfd212bee031ae53daf768",
-      "size_bytes": 121565,
+      "lines": 2352,
+      "sha256": "117d4e2bf3879e2d979d4ce044ef2975f2214245f89a83d63c3852a0d9c44a71",
+      "size_bytes": 129956,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {

@@ -1,4 +1,17 @@
-# Framework_PYQExplainAudit v1.2.0 — Universal PYQ Explanation Auditor
+# Framework_PYQExplainAudit v1.2.1 — Universal PYQ Explanation Auditor
+# v1.2.1 — 2026-08-07 — PRE-v2.0 / RAW-OMML ROUND-TRIP (engine v2.1 preserve-and-reemit;
+#   zero change to rectification logic — this only broadens which documents the audit can RUN on).
+#   The engine reader now preserves ANY OMML structure LOSS-LESSLY (a digit/digit fraction → num/den;
+#   every other structure → a base64 ⟦M:…⟧ token that build re-emits byte-faithfully), so a pre-v2.0
+#   paper authored with raw OMML round-trips instead of crashing the rebuild. P4 (§3) now proves the
+#   reconstructed config through verify_fidelity + verify_structure (the mechanics that P4 actually
+#   depends on) and routes verify_explanations PROSE findings to the Phase-2 rectification queue (§7)
+#   rather than halting — a baseline that builds with fidelity + structure clean PROCEEDS. The
+#   independent verify_explanations is now math-aware: a slash or dot BETWEEN OMML terms (10^0/10^0,
+#   or '1.' followed by an OMML fraction-part) is no longer mis-flagged as an inline fraction or a
+#   sentence break, while a genuinely literal inline fraction (e.g. '1/2k') is still caught and routed
+#   to rectification. Engine self-tests unchanged (62/62, 26/26, 8/8); fidelity + structure semantics
+#   untouched.
 # v1.2.0 — 2026-08-03 — SOLE OWNER OF THE RXA-* RULE SET (zero behaviour change).
 #   Framework_MockTestExplainAudit.md was retired when canonical Steps 8 and 10 were
 #   removed framework-wide. That file was this spec's shared-rules counterpart, so the
@@ -220,7 +233,9 @@ The Row file opens, and `parse_paper` on the Row file validates ascending-contig
 `parse_solution_blocks(explanation_doc, cfg)` reads the Explanation document without raising. Every question in the Row file has exactly one explanation region (a correct-answer line) in the Explanation document; any missing or extra region is recorded as a structural defect for §7 and does not, by itself, halt the run.
 
 ## P4 — Round-trip self-check on this document
-Reconstruct all blocks with `parse_solution_blocks`, rebuild against the Row file with `build_interleaved_docx`, and confirm the rebuild passes `verify_fidelity` (question regions byte-identical to the Row file) and `verify_explanations` (structure intact). This proves the reconstructed `EngineConfig` matches how the document was written *before* any auditing relies on that reconstruction. A failure here means the config is wrong or the document was hand-edited outside the engine; either halts the run.
+Reconstruct all blocks with `parse_solution_blocks`, rebuild against the Row file with `build_interleaved_docx`, and confirm the rebuild passes `verify_fidelity` (question regions byte-identical to the Row file) and `verify_structure` (every question explained once, no look-ahead, every block re-validates). These two are what P4 actually proves: that the reconstructed `EngineConfig` matches how the document was written *before* any auditing relies on that reconstruction. A `parse_solution_blocks` raise, a `verify_fidelity` failure, or a `verify_structure` failure means the config is wrong or the document was hand-edited outside the engine in a way that breaks the paper — that halts the run.
+
+`verify_explanations` is also run here, but on the baseline it is a *content* probe, not a config gate: with engine v2.1 the reader preserves any OMML loss-lessly, so a pre-v2.0 or raw-OMML paper rebuilds and re-verifies without crashing, and any prose findings it reports (a genuinely literal inline fraction such as `1/2k`, a multi-sentence paragraph, a banned phrase) are recorded as the audit's initial defect log and handed to the Phase-2 rectification queue (§7) — they do NOT halt P4. A baseline whose rebuild is fidelity- and structure-clean PROCEEDS, and Phase-2 rectifies the flagged prose; the whole-document re-verification after each batch (MANDATE D) is where `verify_explanations` must ultimately pass clean for the delivered document.
 
 ## P5 — Figural manifest resolves
 Every question whose region carries an actual image (a `<w:drawing>` in the stem or an option) is collected into the figural set. Note: PYQ has no registry figural manifest — figural detection is purely structural from the Row file (the paper wins). Every image the Row file references resolves to a media part (no dangling relationship). A figural question whose image cannot be resolved halts the run for that batch when reached (§11).
@@ -653,7 +668,7 @@ For the current batch (context fresh from §8/§9 derivation):
 - **Figure reading changed** (§11) → re-audit axiom, deduction and wrong-option notes (all read from the image).
 - **Deduction step changed** → re-audit the binding and any wrong-option note whose reproduce-check depended on the changed arithmetic.
 
-**Why full-rebuild is safe for OMML.** The engine is the only writer of explanation prose, and it emits OMML only as digit/digit fractions (`add_math_text`); the reader maps those back to `num/den` losslessly and raises on any other OMML, so a clean section round-trips exactly and a rebuilt document carries genuine stacked fractions that pass `verify_explanations`. Clean sections are reconstructed and re-emitted identically; only defective sections carry new prose, and that new prose passes through the same guards PYQ-1 used.
+**Why full-rebuild is safe for OMML.** The engine is the only writer of explanation prose. `add_math_text` emits digit/digit fractions as stacked OMML, and (engine v2.1) the reader preserves every OTHER OMML structure LOSS-LESSLY: a digit/digit fraction maps back to `num/den`, and anything else is carried as a base64 `⟦M:…⟧` token that `build_interleaved_docx` re-emits byte-faithfully (the round-trip is idempotent — parse→build→parse is a fixed point). So a clean section round-trips exactly, INCLUDING a pre-v2.0 section authored with arbitrary raw OMML, and a rebuilt document carries genuine stacked fractions plus its original math that pass `verify_explanations`. Clean sections are reconstructed and re-emitted identically; only defective sections carry new prose, and that new prose passes through the same guards PYQ-1 used.
 
 ---
 
@@ -821,7 +836,7 @@ PYQ-2 is done for a paper only when **all** of the following hold:
 - **Web verification depends on source availability.** A fact no authoritative current source confirms is marked `FACT-UNVERIFIABLE` and noted, not guessed (§9). PYQ-2's factual confidence is bounded by what can be verified, by design.
 - **Figural judgement depends on the view.** PYQ-2's figural audit is only as good as the image it viewed; an unviewable image halts the affected question (§11) rather than being audited blind.
 - **The learnings loop is closed.** PYQ-2 emits the learnings file and PYQ-1 consumes it at P1 (PYQ-1 §24). Promotion is threshold-gated (≥2 occurrences), so a one-off defect is logged but does not yet become a standing rule.
-- **The reader assumes engine-written explanations.** `parse_solution_blocks` supports exactly the OMML the engine emits (digit/digit fractions) and raises on anything else, rather than guessing. An Explanation document hand-edited outside the engine may not round-trip; P4 detects this and halts.
+- **The reader round-trips any engine-valid OMML.** `parse_solution_blocks` preserves the OMML the engine emits (digit/digit fractions as `num/den`) AND, with engine v2.1, every other OMML structure loss-lessly as a re-emittable `⟦M:…⟧` token — so a pre-v2.0 Explanation authored with raw OMML, or one validly hand-edited in Word, round-trips rather than crashing. What still cannot round-trip is a document whose question regions were altered outside the engine (a fidelity breach) or whose structure no longer matches the reconstructed config; P4 detects those via `verify_fidelity` / `verify_structure` and halts. Sub-standard pre-v2.0 *prose* (a literal inline fraction, a multi-sentence step) does not halt — it is surfaced by `verify_explanations` and rectified in Phase-2.
 - **Completion-gate residual.** The gate verifies that each class-required evidence file EXISTS and is non-empty — it cannot prove the model reasoned correctly INSIDE that evidence. Evidence-binding shrinks the residual to "the model would have to produce every montage, saved source and reproduce-check trace — i.e. perform the audit — in order to fake having performed it," the structural ceiling of an LLM-driven audit.
 - **No ESCALATED/UNVERIFIED verdicts.** Unlike MockExplainAudit, PYQ-2 never leaves a question open for an upstream fix. Every question gets the best possible explanation; ambiguities are flagged for human review, not held open.
 
@@ -966,4 +981,4 @@ Both files ship with the framework repo (GitHub projects get them from the /tmp/
 
 ---
 
-**End of Framework_PYQExplainAudit.md (v1.2.0)**
+**End of Framework_PYQExplainAudit.md (v1.2.1)**

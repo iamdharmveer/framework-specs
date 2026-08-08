@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.07.7",
+  "framework_version": "2026.08.07.8",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -245,11 +245,11 @@
       "bytes": 108217
     },
     "Framework_PYQExplainAudit.md": {
-      "sha256": "4868738fc6f3016822b1d7216d2a171ff6df76e378c9a3ac58321a65965e9634",
-      "version_header": "# Framework_PYQExplainAudit v1.2.0 \u2014 Universal PYQ Explanation Auditor",
-      "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.2.0)**",
-      "lines": 969,
-      "bytes": 94781
+      "sha256": "39a486d28739482aacefe4656828c0ba1de5ff26d47e241c4ced5b4f5ef97aff",
+      "version_header": "# Framework_PYQExplainAudit v1.2.1 \u2014 Universal PYQ Explanation Auditor",
+      "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.2.1)**",
+      "lines": 984,
+      "bytes": 97768
     },
     "Framework_PYQFormat.md": {
       "sha256": "e6bd79cac47904d2cce7f659c11ace5e5ead5c5b71152f09b9140a3903397df0",
@@ -301,11 +301,11 @@
       "bytes": 11299
     },
     "explain_engine.py": {
-      "sha256": "8b4222c35c16b6e128900660fe721567c6b65b7b3bcfd212bee031ae53daf768",
+      "sha256": "117d4e2bf3879e2d979d4ce044ef2975f2214245f89a83d63c3852a0d9c44a71",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 2216,
-      "bytes": 121565
+      "lines": 2352,
+      "bytes": 129956
     },
     "t3_mathcomp.py": {
       "sha256": "49bc3a4b78454f03dffa900a81f62bdf7a230f7be1458a38e6189a0202aab8dd",

@@ -27,10 +27,11 @@
 # This file is embedded verbatim in Appendix A of Framework_MockTestExplain.md.
 # It is the canonical copy; never patch it by hand — regenerate from the spec.
 
-import re, sys, hashlib
+import re, sys, hashlib, base64
 from docx import Document
 from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import qn
+from lxml import etree
 
 # ───────────────────────────── namespaces ──────────────────────────────────
 W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
@@ -220,6 +221,10 @@ def _abbrev_safe(text):
                lambda m: m.group(0).replace('.', _SENT), t)
     t = re.sub(r'\b([A-Z])\.', lambda m: m.group(1) + _SENT, t)   # initials
     t = re.sub(r'(\d)\.(\d)', lambda m: m.group(1) + _SENT + m.group(2), t)  # decimals
+    # v2.1: a decimal whose fractional digits sit inside an adjacent math token
+    # renders as 'N.' + ∂M∂ (the ∂M∂ standing for ⟦MATH:…⟧ or a preserved ⟦M:…⟧);
+    # that dot is a decimal point, never a sentence end.
+    t = re.sub(r'(\d)\.(?=\u2202M\u2202)', lambda m: m.group(1) + _SENT, t)
     return t
 
 def sentence_count(text, terminators='.!?'):
@@ -308,6 +313,13 @@ def guard_sentence(text, cfg=None):
     if text is None or not str(text).strip():
         raise ValueError('empty sentence')
     s_full = str(text)
+    # v2.1 — opaque preserved-OMML tokens (⟦M:<b64>⟧, and legacy bodiless ⟦M⟧) are
+    # RESOLVED math citizens: collapse them to the delimiter-free ∂M∂ placeholder
+    # FIRST, so their closing bracket is never read as an unbalanced ⟦MATH:⟧
+    # delimiter and their base64 body never reaches the ASCII-dialect / year-range
+    # guards below. This runs before — and independently of — the Tier-3 region
+    # handling, and weakens no existing check.
+    s_full = _OPAQUE_MATH_RE.sub('\u2202M\u2202', s_full)
     # v2.0 — Tier-3 region awareness: ⟦MATH:…⟧ bodies are validated by the
     # compiler, not by prose guards; every check below sees regions as ⟦M⟧.
     _stripped = T3_REGION_RE.sub('', s_full)
@@ -364,6 +376,36 @@ from t3_mathcomp import (t3_compile, MathCompileError, count_math_regions,
                          MATH_OPEN as T3_OPEN, MATH_CLOSE as T3_CLOSE,
                          _REGION_RE as T3_REGION_RE, _T3_STATS as T3_STATS)
 
+# v2.1 (GAP-2026-08-07-EXPLAIN-OMML-ROUNDTRIP) — PRESERVE-AND-REEMIT.
+# The v2.0 strict reader collapsed every non-digit/digit OMML structure to a
+# BODILESS token ⟦M⟧, which (a) tripped guard_sentence's ⟦MATH:⟧ balance check
+# on its lone ⟧ and (b) could not be rebuilt, so build_interleaved_docx and
+# verify_structure failed on ANY math-bearing explanation (all pre-v2.0 papers,
+# and any physics/quant paper). v2.1 makes the strict reader LOSS-LESS: each such
+# structure is serialised, wrapped in a standalone <m:oMath>, base64-encoded and
+# carried inside a self-delimiting token ⟦M:<base64>⟧. base64's alphabet
+# (A-Za-z0-9+/=) contains no ⟦, ⟧ or the literal "⟦MATH:" sequence, so the token
+# is opaque to the Tier-3 delimiter guard. add_math_text() re-emits the preserved
+# OMML byte-faithfully; guard_sentence() collapses the token to the same ∂M∂
+# placeholder it already uses for ⟦MATH:…⟧ regions. Legacy bodiless ⟦M⟧ is still
+# tolerated by the guard (it only ever appears in the non-strict verifier text,
+# never on the writer path). ADDITIVE: no existing guard is weakened, and the
+# digit/digit auto-fraction path is byte-unchanged.
+_OPAQUE_MATH_RE = re.compile(r'\u27e6M(?::[A-Za-z0-9+/=]*)?\u27e7')
+_MATH_TOKEN_RE  = re.compile(
+    r'\u27e6MATH:(?P<t3>.*?)\u27e7'
+    r'|\u27e6M(?::(?P<op>[A-Za-z0-9+/=]*))?\u27e7')
+
+def _encode_opaque(node):
+    """v2.1 — serialise ONE non-fraction OMML child, wrapped in a standalone
+    <m:oMath>, into the loss-less, guard-safe token ⟦M:<base64>⟧ that
+    add_math_text() re-emits verbatim. The wrapper carries the m: namespace so the
+    payload parses standalone; a doubled xmlns:m (the child already declares it) is
+    harmless and idempotent under parse_xml."""
+    raw = etree.tostring(node)                       # bytes; declares the m: ns
+    xml = b'<m:oMath xmlns:m="' + M.encode('utf-8') + b'">' + raw + b'</m:oMath>'
+    return '\u27e6M:' + base64.b64encode(xml).decode('ascii') + '\u27e7'
+
 def _esc(t):
     return (str(t).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
 
@@ -401,41 +443,65 @@ def _run(paragraph, text, bold=False, color=None):
         c = OxmlElement('w:color'); c.set(qn('w:val'), color); rpr.append(c)
     return r
 
-def add_math_text(paragraph, text, bold=False, color=None, cfg=None):
+def add_math_text(paragraph, text, bold=False, color=None, cfg=None, preserve=False):
     """THE prose emitter. Auto-converts every digit/digit fraction to stacked
     OMML; raises ValueError on any inline fraction it cannot convert, on a
     year-range slash, or on any guard breach. This is the ONLY sanctioned way to
     put explanation prose into the docx."""
     guard_sentence(text, cfg)                          # full guard first (region-aware)
-    # v2.0 — TIER-3 DISPATCH: ⟦MATH:…⟧ regions compile through the shared
-    # t3_mathcomp compiler (one <m:oMath> each); plain segments between them
-    # keep the v1 digit/digit auto-fraction path byte-compatibly. A region the
-    # compiler rejects NEVER raises here and NEVER ships silently: it degrades
-    # to ordinary plain text (no colour, no markup), is recorded in
-    # T3_STATS['failed'], and verify_explanations() quotes it verbatim so the
-    # author can Ctrl+F straight to it. (Authoring-time strictness lives in
-    # guard_sentence; this render boundary is the no-halt safety net.)
-    if T3_OPEN in text:
+    # v2.0/v2.1 — UNIFIED REGION WALK. Two kinds of math token are handled in one
+    # ordered pass, with plain segments between them keeping the v1 digit/digit
+    # auto-fraction path byte-compatibly:
+    #   • ⟦MATH:…⟧  (Tier-3 DISPATCH) compiles through the shared t3_mathcomp
+    #     compiler (one <m:oMath> each). A region the compiler rejects NEVER raises
+    #     here and NEVER ships silently: it degrades to ordinary plain text (no
+    #     colour, no markup), is recorded in T3_STATS['failed'], and
+    #     verify_explanations() quotes it verbatim so the author can Ctrl+F to it.
+    #   • ⟦M:<b64>⟧ (v2.1 PRESERVE-AND-REEMIT) decodes to the original <m:oMath>
+    #     serialised by the strict reader and is re-emitted byte-faithfully.
+    # (Authoring-time strictness lives in guard_sentence; this render boundary is
+    # the no-halt safety net.)
+    if T3_OPEN in text or _OPAQUE_MATH_RE.search(text):
         pos = 0
-        for mr in T3_REGION_RE.finditer(text):
+        for mr in _MATH_TOKEN_RE.finditer(text):
             if mr.start() > pos:
-                _emit_plain(paragraph, text[pos:mr.start()], bold, color)
-            try:
-                node = t3_compile(mr.group(1))
-                paragraph._p.append(node)
-            except MathCompileError as t3err:
-                T3_STATS['failed'].append((mr.group(1), str(t3err)))
-                _run(paragraph, mr.group(1), bold, color)
+                _emit_plain(paragraph, text[pos:mr.start()], bold, color, preserve)
+            if mr.group('t3') is not None:             # ⟦MATH:…⟧ — Tier-3 compile
+                body = mr.group('t3')
+                try:
+                    node = t3_compile(body)
+                    paragraph._p.append(node)
+                except MathCompileError as t3err:
+                    T3_STATS['failed'].append((body, str(t3err)))
+                    _run(paragraph, body, bold, color)
+            else:                                      # ⟦M:<b64>⟧ / ⟦M⟧ — preserved
+                payload = mr.group('op')
+                if payload:
+                    add_math(paragraph,
+                             base64.b64decode(payload).decode('utf-8'))
+                else:
+                    # A bodiless ⟦M⟧ carries no math to re-emit; it must never
+                    # reach the writer (the strict reader emits ⟦M:<b64>⟧). Fail
+                    # loud rather than silently drop the math.
+                    raise ValueError(
+                        'bodiless opaque math token ⟦M⟧ reached the writer — '
+                        f'preservation was bypassed: {text[:60]!r}')
             pos = mr.end()
         if pos < len(text):
-            _emit_plain(paragraph, text[pos:], bold, color)
+            _emit_plain(paragraph, text[pos:], bold, color, preserve)
         return paragraph
-    _emit_plain(paragraph, text, bold, color)
+    _emit_plain(paragraph, text, bold, color, preserve)
     return paragraph
 
-def _emit_plain(paragraph, text, bold=False, color=None):
+def _emit_plain(paragraph, text, bold=False, color=None, preserve=False):
     """The v1.x plain-segment emitter, verbatim: digit/digit fractions to stacked
-    OMML; raises on any inline fraction it cannot convert."""
+    OMML; raises on any inline fraction it cannot convert.
+
+    v2.1 — preserve=True (re-emitting content the reader lifted verbatim from an
+    already-shipped doc) emits an unconvertible inline fraction as the LITERAL text
+    it already was, rather than raising. The raise is an AUTHORING guard that forces
+    NEW math to be real OMML; it must not fire when faithfully re-emitting existing
+    content (e.g. a pre-v2.0 paper that typed '1/2k' as plain text)."""
     pos = 0
     for m in _SIMPLE_FRAC.finditer(text):
         if text[pos:m.start()]:
@@ -443,7 +509,7 @@ def _emit_plain(paragraph, text, bold=False, color=None):
         add_math(paragraph, omath(frac(m.group(1), m.group(2))))
         pos = m.end()
     tail = text[pos:]
-    if has_inline_fraction(tail):
+    if has_inline_fraction(tail) and not preserve:
         raise ValueError(f'unconvertible inline fraction in: {tail[:60]!r}')
     if tail:
         _run(paragraph, tail, bold, color)
@@ -603,7 +669,7 @@ class ExplanationBlock:
 
 # ───────────────────────── paragraph construction ──────────────────────────
 def _new_para(cfg, kind, text=None, runs=None, before=0, after=120,
-              bold=False, color=None, math=True):
+              bold=False, color=None, math=True, preserve=False):
     """Create a standalone <w:p> element (not yet attached)."""
     p = OxmlElement('w:p')
     ppr = OxmlElement('w:pPr')
@@ -615,7 +681,8 @@ def _new_para(cfg, kind, text=None, runs=None, before=0, after=120,
     proxy = Paragraph(p, None)
     if text is not None:
         if math:
-            add_math_text(proxy, text, bold=bold, color=color, cfg=cfg)
+            add_math_text(proxy, text, bold=bold, color=color, cfg=cfg,
+                          preserve=preserve)
         else:
             _run(proxy, text, bold=bold, color=color)
     return p
@@ -630,6 +697,12 @@ def _header_para(cfg, key, before=240, after=120):
 def _block_paragraphs(cfg, blk):
     """Render one ExplanationBlock to an ordered list of <w:p> elements, shaped to
     the question type (mcq / msq / nat)."""
+    # v2.1 — blocks lifted by the reader from an already-shipped doc re-emit their
+    # verbatim content faithfully (a pre-v2.0 plain-text fraction is kept as text,
+    # not raised on). Author-constructed blocks (Step 9 / self-test) keep the
+    # default strict authoring behaviour; their new prose carries proper OMML and
+    # is unaffected by this flag.
+    pres = getattr(blk, '_preserved', False)
     out = []
     if blk.anomaly is not None:
         # Should never be written in Step 9 (halt-and-escalate); guarded here.
@@ -649,7 +722,7 @@ def _block_paragraphs(cfg, blk):
             val = validate_nat_grading_value(blk.ca, ctx=f'Q{blk.q}')
         # math=True so a fractional answer renders as OMML
         out.append(_new_para(cfg, 'ca', text=f'{ca_label}: {val}', before=120,
-                             after=120, bold=True, color=cfg.colors['ca'], math=True))
+                             after=120, bold=True, color=cfg.colors['ca'], math=True, preserve=pres))
     else:
         disp = ', '.join(cfg.option_label(i) for i in sorted(blk.ca_set()))
         out.append(_new_para(cfg, 'ca', text=f'{ca_label}: {disp}', before=120,
@@ -657,25 +730,25 @@ def _block_paragraphs(cfg, blk):
     out.append(_header_para(cfg, 'axiom'))
     for s in blk.axiom:
         out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
-                             color=cfg.colors['sent']))
+                             color=cfg.colors['sent'], preserve=pres))
     out.append(_header_para(cfg, 'deduction'))
     for s in blk.deduction:
         out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
-                             color=cfg.colors['sent']))
+                             color=cfg.colors['sent'], preserve=pres))
     if blk.speed_hack:
         out.append(_header_para(cfg, 'speed_hack'))
         for s in blk.speed_hack:
             out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
-                                 color=cfg.colors['sent']))
+                                 color=cfg.colors['sent'], preserve=pres))
     if blk.qtype == 'nat':
         # COMMON PITFALLS (wrong values), the NAT analogue of WHY WRONG
         out.append(_header_para(cfg, 'common_pitfalls'))
         for v in blk.common_pitfalls:
             out.append(_new_para(cfg, 'sub', text=str(v), before=160, after=40,
-                                 bold=True, color=cfg.colors['sub'], math=True))
+                                 bold=True, color=cfg.colors['sub'], math=True, preserve=pres))
             for s in blk.common_pitfalls[v]:
                 out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
-                                     color=cfg.colors['sent']))
+                                     color=cfg.colors['sent'], preserve=pres))
     else:
         out.append(_header_para(cfg, 'why_wrong'))
         for k in sorted(blk.why_wrong):
@@ -684,7 +757,7 @@ def _block_paragraphs(cfg, blk):
                                  color=cfg.colors['sub'], math=False))
             for s in blk.why_wrong[k]:
                 out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
-                                     color=cfg.colors['sent']))
+                                     color=cfg.colors['sent'], preserve=pres))
     # trailing blank separator
     out.append(_new_para(cfg, 'blank', text=None, before=0, after=0))
     return out
@@ -923,6 +996,26 @@ def verify_structure(out_path, blocks, cfg, expected_qs=None):
 def _para_mtext(p_el):
     return ''.join(t.text or '' for t in p_el.iter(qn('m:t')))
 
+def _para_prose(p_el):
+    """v2.1 — MATH-AWARE prose projection: literal w:r text verbatim, every OMML
+    node collapsed to a single ∂M∂ placeholder. verify_explanations() runs its
+    inline-fraction and one-sentence prose guards on THIS, not on p.text: a slash
+    or decimal point that is part of a text+OMML expression ('10' sup '/' '10' sup,
+    or '1.' + an OMML fraction-part) is no longer mis-read as a literal inline
+    fraction or a sentence break once the OMML it belongs to is visible as ∂M∂ —
+    while a genuinely literal inline fraction (no adjacent OMML, e.g. '1/2k') is
+    still caught. This mirrors guard_sentence's region-aware handling; p.text,
+    which silently drops OMML, false-positived on every mixed expression."""
+    out = []
+    for c in p_el:
+        if c.tag == qn('m:oMath'):
+            out.append('\u2202M\u2202')
+        elif c.tag == qn('w:pPr'):
+            continue
+        else:
+            out.append(''.join(t.text or '' for t in c.iter(qn('w:t'))))
+    return ''.join(out)
+
 def verify_explanations(out_path, blocks, cfg, expected_qs=None):
     """Independent POST-RENDER audit (A2, parity with T2 verify_master 10-17): it
     re-parses the RENDERED docx — NOT the in-memory blocks — and re-checks the
@@ -976,15 +1069,15 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
         if in_expl:
             _s = _para_source(p._p, cur, strict=False).strip()
             if t or _s:                          # keep OMML-only paras (fraction value headers)
-                segs[cur].append((t, _para_mtext(p._p), _s))
+                segs[cur].append((t, _para_mtext(p._p), _s, _para_prose(p._p)))
 
     for q in expected:
         b = by_q.get(q)
         if q not in segs:
             problems.append(f'Q{q}: no rendered explanation found'); continue
         lines = segs[q]
-        texts = [t for t, _, _ in lines]
-        srcs = [s for _, _, s in lines]
+        texts = [t for t, _, _, _ in lines]
+        srcs = [s for _, _, s, _ in lines]
         # v1.17: independent portal-charset check on the RENDERED Correct-Answer text
         # (RXA-2 / RXA-CHARSET) — runs regardless of whether any other lane flags this
         # question for rectification, so a bad grading string can never silently pass
@@ -1049,7 +1142,7 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
         # 4. prose guards on rendered sentence lines (exclude headers + sub-headers)
         sub_pat = re.compile(rf'^{re.escape(opt_word)}\s+\S')
         nat_keys = {str(v) for v in (b.common_pitfalls if b else {})}
-        for t, _mt, _s in lines:
+        for t, _mt, _s, _mp in lines:
             if t in HEADERS or sub_pat.match(t) or _s in nat_keys or not t:
                 continue
             for g in _BANNED_GLYPHS:
@@ -1065,9 +1158,9 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
             if meta_re.search(t) or any(x in lw for x in b_templates) \
                or any(x in lw for x in b_fakecites):
                 problems.append(f'Q{q}: rendered banned phrase in {t[:40]!r}')
-            if has_inline_fraction(t):
+            if has_inline_fraction(_mp):
                 problems.append(f'Q{q}: rendered inline fraction in {t[:40]!r}')
-            if sentence_count(t, cfg.sentence_terminators) != 1:
+            if sentence_count(_mp, cfg.sentence_terminators) != 1:
                 problems.append(f'Q{q}: rendered multi-sentence paragraph {t[:40]!r}')
 
     # 5. document-wide OMML fraction well-formedness + year-range artifact
@@ -1767,13 +1860,14 @@ def self_test():
 # is structurally identical to how Step 9 would have written it correctly.
 # ══════════════════════════════════════════════════════════════════════════════
 def _omml_to_source(node, q, strict=True):
-    """SOURCE-TEXT form of one OMML child (v2.0). Explanation prose contains
-    digit/digit auto-fractions AND Tier-3 compiled structures. strict=True (the
-    Step-5 READER): a digit/digit m:f round-trips as 'num/den'; every other OMML
-    structure — a Tier-3 citizen — maps to the opaque token ⟦M⟧, because its
-    source spelling lives in the ⟦MATH:…⟧ region that produced it (token-level
-    round-trip, never body reconstruction). strict=False (the VERIFIER): unknown
-    OMML degrades to its m:t text so a post-render audit never crashes."""
+    """SOURCE-TEXT form of one OMML child (v2.1). Explanation prose contains
+    digit/digit auto-fractions AND arbitrary OMML structures. strict=True (the
+    Step-5 READER): a bare digit/digit m:f round-trips as 'num/den' (adjacency is
+    resolved by the caller _para_source); every other OMML structure is preserved
+    LOSS-LESSLY as ⟦M:<b64>⟧ via _encode_opaque, so build re-emits its exact
+    <m:oMath> body (a byte-faithful round-trip, body included — not a bodiless
+    token). strict=False (the VERIFIER): unknown OMML degrades to its m:t text so a
+    post-render audit never crashes."""
     tag = node.tag
     if tag == qn('m:r'):
         return ''.join(t.text or '' for t in node.iter(qn('m:t')))
@@ -1782,30 +1876,70 @@ def _omml_to_source(node, q, strict=True):
         nt = ''.join(num.itertext()) if num is not None else ''
         dt = ''.join(den.itertext()) if den is not None else ''
         if strict and not (nt.strip().isdigit() and dt.strip().isdigit()):
-            return '⟦M⟧'      # v2.0: a Tier-3 fraction is an opaque math token
+            return _encode_opaque(node)   # v2.1: loss-less preserve-and-reemit
         return f'{nt}/{dt}'
-    # v2.0: a Tier-3 compiled structure is a FIRST-CLASS citizen of explanation
-    # prose. The reader maps it to the opaque token ⟦M⟧ (both the strict Step-5
-    # reader and the verifier), because its source spelling lives in the
-    # ⟦MATH:…⟧ region that produced it — the round-trip contract is token-level,
-    # never a reconstruction of the body.
-    return '⟦M⟧' if strict else ''.join(t.text or '' for t in node.iter(qn('m:t')))
+    # v2.1: a non-fraction OMML structure is a FIRST-CLASS citizen of explanation
+    # prose. The strict Step-5 reader preserves it LOSS-LESSLY as ⟦M:<b64>⟧ so
+    # build_interleaved_docx re-emits the exact <m:oMath> (byte-faithful
+    # round-trip, body included). The non-strict verifier keeps degrading unknown
+    # OMML to its m:t text so a post-render audit never crashes.
+    return _encode_opaque(node) if strict else ''.join(t.text or '' for t in node.iter(qn('m:t')))
+
+def _is_digit_frac(mf):
+    """True iff an m:f is a bare digit/digit fraction (num and den are integers)."""
+    n = mf.find(qn('m:num')); d = mf.find(qn('m:den'))
+    nt = ''.join(n.itertext()) if n is not None else ''
+    dt = ''.join(d.itertext()) if d is not None else ''
+    return nt.strip().isdigit() and dt.strip().isdigit()
 
 def _para_source(p_el, q, strict=True):
     """Rebuild the source string add_math_text was given: text runs verbatim,
-    m:f as 'num/den', in document order. strict is passed to _omml_to_source."""
-    out = []
+    m:f as 'num/den', in document order. strict is passed to _omml_to_source.
+
+    v2.1 — adjacency-safe fraction round-trip. A bare digit/digit fraction flattens
+    to 'num/den' ONLY when that survives the authoring emitter in its actual
+    textual context (standalone, e.g. '235/5'). When it abuts a word character —
+    '1/2k', 'k1/2', two adjacent fractions — the flattened form would NOT re-parse
+    (_SIMPLE_FRAC refuses it and add_math_text would raise), so the fraction is
+    preserved LOSS-LESSLY as an opaque ⟦M:<b64>⟧ token instead. Non-strict
+    (verifier) output is unchanged."""
+    if not strict:
+        out = []
+        for child in p_el:
+            tag = child.tag
+            if tag == qn('w:pPr'):
+                continue
+            if tag == qn('m:oMath'):
+                for m in child:
+                    out.append(_omml_to_source(m, q, strict))
+            else:
+                out.append(''.join(t.text or '' for t in child.iter(qn('w:t'))))
+        return ''.join(out)
+    # strict: build typed segments so a fraction's neighbours can be inspected.
+    segs = []                      # ('text', s) | ('frac', 'n/d', node)
     for child in p_el:
         tag = child.tag
         if tag == qn('w:pPr'):
             continue
-        if tag == qn('w:r'):
-            out.append(''.join(t.text or '' for t in child.iter(qn('w:t'))))
-        elif tag == qn('m:oMath'):
+        if tag == qn('m:oMath'):
             for m in child:
-                out.append(_omml_to_source(m, q, strict))
+                if m.tag == qn('m:f') and _is_digit_frac(m):
+                    num = m.find(qn('m:num')); den = m.find(qn('m:den'))
+                    nd = f"{''.join(num.itertext())}/{''.join(den.itertext())}"
+                    segs.append(('frac', nd, m))
+                else:
+                    segs.append(('text', _omml_to_source(m, q, strict)))
         else:
-            out.append(''.join(t.text or '' for t in child.iter(qn('w:t'))))
+            segs.append(('text', ''.join(t.text or '' for t in child.iter(qn('w:t')))))
+    raw = [s[1] for s in segs]
+    out = []
+    for i, s in enumerate(segs):
+        if s[0] != 'frac':
+            out.append(s[1]); continue
+        left = ''.join(out)
+        right = ''.join(raw[i + 1:])
+        probe = (left[-1:] if left else '') + s[1] + (right[:1] if right else '')
+        out.append(s[1] if _SIMPLE_FRAC.search(probe) else _encode_opaque(s[2]))
     return ''.join(out)
 
 def _label_to_index(cfg, n):
@@ -1942,6 +2076,8 @@ def parse_solution_blocks(path, cfg, expected_qs=None):
         kwargs['common_pitfalls' if qtype == 'nat' else 'why_wrong'] = (
             pitfalls if qtype == 'nat' else why_wrong)
         blocks[q] = ExplanationBlock(**kwargs)
+        blocks[q]._preserved = True   # v2.1: content lifted verbatim from a shipped
+                                      # doc re-emits faithfully (see _block_paragraphs)
     return blocks
 
 def parse_learnings(path):

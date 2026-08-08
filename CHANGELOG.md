@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026.08.07.8
+
+### engine v2.1 preserve-and-reemit — pre-v2.0 / raw-OMML documents round-trip
+
+GAP-2026-08-07-EXPLAIN-OMML-ROUNDTRIP. The v2.0 strict reader collapsed every
+non-digit/digit OMML structure to a BODILESS token, which tripped
+guard_sentence's delimiter-balance check on its lone closing bracket and could
+not be rebuilt — so build_interleaved_docx and verify_structure failed on any
+math-bearing pre-v2.0 explanation. The reader is now loss-less: each such
+structure is serialised, wrapped in a standalone m:oMath, base64-encoded and
+carried as a self-delimiting token that add_math_text re-emits byte-faithfully.
+guard_sentence collapses the token to the same placeholder it already uses for
+Tier-3 regions; a decimal point split across a math token is no longer read as a
+sentence break; a digit/digit fraction abutting a word character is preserved
+rather than flattened to an unrebuildable form; a `preserve` flag lets content
+lifted from an already-shipped doc re-emit a literal inline fraction as the text
+it already is, while NEW authoring prose still raises; and verify_explanations'
+inline-fraction and one-sentence guards now run on a math-aware projection.
+Framework_PYQExplainAudit v1.2.0 -> v1.2.1: P4 proves the reconstructed config
+through verify_fidelity + verify_structure and routes verify_explanations prose
+findings to the Phase-2 rectification queue instead of halting; two stale "the
+reader raises on any other OMML" claims corrected.
+
+Verified independently at deploy: token decodes to a valid standalone m:oMath;
+parse->build->parse is a fixed point; OMML node count preserved; guard_sentence
+accepts the token; a bodiless token still fails loud at the writer; NEW prose
+with a literal inline fraction still raises while preserve=True re-emits it; a
+standalone digit/digit fraction still flattens to num/den while an adjacent one
+is preserved; the latent verify_explanations false positive reproduces on the old
+projection and is gone on the new one; a genuinely literal fraction beside OMML
+is still caught. Engine self-tests 62/62, 26/26, 8/8 (unchanged — see the
+release note below on the missing fixture).
+
+KNOWN GAP, recorded at deploy: this release adds NO self-test fixture for the
+defect it fixes. Reverting _omml_to_source to the v2.0 bodiless token still
+yields 62/62 and 26/26, so the suites cannot detect a regression of this fix.
+The standing rule is that a fix must carry a fixture that fails on the defect it
+was written for; that fixture is owed in the next wave.
+
 ## 2026.08.07.7
 
 ### v5.47.2 review — one mask set, two consumers; yearform repair; figural scope named
