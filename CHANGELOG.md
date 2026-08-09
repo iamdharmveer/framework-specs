@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026.08.09.1
+
+### PYQExplainAudit (PYQ-2) retired and removed
+
+The independent PYQ audit/rectify step and its completion-gate engine (explain_audit_gate.py)
+are deleted from the framework (operator decision). PYQExplain (PYQ-1) is now the sole producer
+and final self-certifier; PYQFormat (PYQ-3) and PYQDeliver (PYQ-4) take PYQ-1's _PYQ_Explanation.docx
+directly, with pyq_explain_progress.json as the sole metadata source. A legacy _PYQ_Explanation_Complete.docx
+is still accepted but is never produced again. Accepted losses, stated plainly: no independent
+re-derivation, no independent completion gate, and no official-answer-key cross-check (former PYQ-2 D4)
+remain anywhere. Difficulty (Tier 1 of PYQDeliver) is now producer-only.
+
+Mechanics: routes.json PYQExplainAudit entry removed; the PYQExplainAudit spec and its gate engine
+deleted; MANIFEST regenerated (41 to 39 files, 24 to 23 triggers). Version bumps: PYQExplain to v2.1,
+PYQFormat to v1.5, PYQDeliver to v1.6, DeliveryFooter to v1.15, MockTestExplain to v1.21.1. Also updated
+CLAUDE.md, SKILL.md, mocktestframework_SKILL.md, explain_engine.py comments, gen_manifest.py TRACKED_PY,
+audit_sync.py, audit_deep.py, docs/SETUP.md, docs/DROP_IN_YOUR_SPECS.md, DEPLOY_NOTES.md. CI: bootstrap
+39/39 verified; validate_framework_md.py *.md holds at the pre-existing CHANGELOG-archive baseline with
+zero new findings introduced and the two prior CLAUDE.md findings cleared.
+
 ## 2026.08.07.8
 
 ### engine v2.1 preserve-and-reemit — pre-v2.0 / raw-OMML documents round-trip

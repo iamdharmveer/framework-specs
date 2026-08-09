@@ -12,11 +12,12 @@ repo root before running the gate.
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **41/41** — 24 `Framework_*.md` + 17 engines. The count moves when a spec/engine is added or
+   **39/39** — 23 `Framework_*.md` + 16 engines. The count moves when a spec/engine is added or
    retired; Steps 8 and 10 were retired in 2026.08.03.5, taking 2 specs with them,
-   `figural_vision.py` was added in 2026.08.03.6, `spec_source.py` in 2026.08.03.8, and the
-   Notes pipeline (4 specs + `notes_core.py`/`notes_blueprint.py`/`notes_audit.py`) on
-   2026-08-08.
+   `figural_vision.py` was added in 2026.08.03.6, `spec_source.py` in 2026.08.03.8, the
+   Notes pipeline (4 specs + `notes_core.py`/`notes_blueprint.py`/`notes_audit.py`) landed
+   2026-08-08, and PYQExplainAudit (PYQ-2) was retired in 2026.08.09.1, taking
+   `Framework_PYQExplainAudit.md` and `explain_audit_gate.py` with it.
    NOTE: inside `/tmp/fw_effective` with a project override active this prints
    `PARTIALLY VERIFIED — 32/33 ... 1 spec(s) PROJECT-UNVERIFIED` and exits 0. That is the
    correct, non-halting result, not a failure.)
@@ -28,7 +29,7 @@ repo root before running the gate.
    of it too.
 
 (`MANIFEST.json`/`bootstrap.py` track the framework files a session clones (count = MANIFEST.json "files"). `SPEC_MANIFEST.json`
-is the separate, wider workbench baseline — currently 52 files, including the audit and
+is the separate, wider workbench baseline — currently 50 files, including the audit and
 tooling scripts. It has NO generator in the repo: the release manager refreshes the changed
 entries from disk at deploy time, after checking the entry-builder reproduces every
 unchanged entry byte-for-byte. Both must be clean.
@@ -77,7 +78,6 @@ Steps:
 self-tests before pushing (integrity checks can't catch a logic regression — checksums prove
 the bytes are the intended bytes, never that the code is reachable):
 - `python3 explain_engine.py --self-test` and `--self-test-audit`
-- `python3 explain_audit_gate.py --self-test`
 - `python3 blueprint_core.py --self-test`  (shared allocation core for MockBlueprint + ScopedBlueprint)
 - `python3 paper_pipeline.py`  (shared naming/numbering/registry plumbing for Steps 6-11 + Test* triggers)
 - `python3 reconcile_taxonomy.py --self-test`  (S4-0 — its output LOCKS a taxonomy)

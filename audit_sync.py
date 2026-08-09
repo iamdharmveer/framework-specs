@@ -31,8 +31,7 @@ def public(mod):
                     names.add(t.id)
     return names
 
-ALIAS = {'bc': 'blueprint_core', 'pp': 'paper_pipeline', 'ee': 'explain_engine',
-         'eg': 'explain_audit_gate'}
+ALIAS = {'bc': 'blueprint_core', 'pp': 'paper_pipeline', 'ee': 'explain_engine'}
 API = {a: public(m) for a, m in ALIAS.items()}
 # Scope PER CODE BLOCK: an alias only means the module inside a block that imports it as
 # that alias. `pp` is also a common local for doc.add_paragraph(), and `bc` for other locals

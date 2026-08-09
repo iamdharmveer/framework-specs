@@ -111,7 +111,7 @@ from collections import Counter
 PIPELINE = {
     'PYQPrepare': '1', 'PYQDraft': '2a', 'PYQScan': '2b', 'PYQApprove': '2c',
     'PYQSort': '3', 'PYQCount': '4', 'PYQExtract': '5',
-    'PYQExplain': 'PYQ-1', 'PYQExplainAudit': 'PYQ-2', 'PYQFormat': 'PYQ-3', 'PYQDeliver': 'PYQ-4',
+    'PYQExplain': 'PYQ-1', 'PYQFormat': 'PYQ-3', 'PYQDeliver': 'PYQ-4',
     'PYQCompress': 'L2',
     'MockTestAnalyse': '5', 'MockBlueprint': '6', 'Blueprint': '6', 'ScopedBlueprint': '6S',
     'MockCreate': '7', 'TestCreate': '7',

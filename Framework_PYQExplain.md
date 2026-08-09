@@ -1,4 +1,16 @@
-# Framework_PYQExplain v2.0 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.1 — Universal PYQ Explanation Generator
+# v2.1 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED from the PYQ pipeline (operator
+#   decision). PYQ-1 is now the SOLE producer AND the FINAL self-certifier: its §18
+#   self-audit is the only certification this document receives, there is no downstream
+#   independent re-derivation or completion gate, and the official-answer-key cross-check
+#   (formerly PYQ-2 D4) no longer exists anywhere. Correctness now rests entirely on
+#   producer discipline (§7 derive-twice, RE-18 web-verify, §13/§13A view-every-image)
+#   plus the engine's write-time shape guarantees. PYQ-3 (PYQFormat) and PYQ-4 (PYQDeliver)
+#   now consume PYQ-1's _PYQ_Explanation.docx directly, with pyq_explain_progress.json as
+#   the SOLE metadata source. No algorithm, engine, ExplanationBlock field, gate, or
+#   delivered byte changes; the edits retire references to the removed auditor and the
+#   (now open) learnings feedback loop. Touched: PIPELINE POSITION, CORE PRINCIPLE,
+#   §7A recording note, §14 S14-4, §16, §17-3, §18-2, §20 §R8/§R11, §24, Appendix A.
 # v2.0 — 2026-08-07 — TIER-3 STRUCTURED MATH (GAP-2026-08-07-EXPLAIN-OMML, remedies E1–E4).
 #   Measured on IIT_JAM_PHYSICS 15-Feb-2026 explanations (60 Q, 56 affected):
 #   (a) the v1 OMML builders interpolated RAW text into m:num/m:den — schema-invalid
@@ -132,11 +144,10 @@
 #
 #   PHASE 2 — PYQ Explanation (this pipeline):
 #     PYQ-1  PYQExplain      → [ExamCode]_[date]_[session]_PYQ_Explanation.docx  ← THIS STEP
-#     PYQ-2  PYQExplainAudit → [ExamCode]_[date]_[session]_PYQ_Explanation_Complete.docx
 #     PYQ-3  PYQFormat       → [ExamCode]_[date]_[session]_PYQ_Formatted.docx  (student)
 #     PYQ-4  PYQDeliver      → [ExamCode]_[date]_[session]_PYQ_Final.docx       (portal)
-#     (PYQ-3 and PYQ-4 are INDEPENDENT — both take PYQ-2 output, neither depends
-#     on the other.)
+#     (PYQ-2 PYQExplainAudit was RETIRED in v2.1. PYQ-3 and PYQ-4 are INDEPENDENT —
+#     both take PYQ-1's _PYQ_Explanation.docx directly, neither depends on the other.)
 #
 #   PYQ-1 runs in the [ExamCode] project (exam-specific). It runs AFTER Steps 1-5
 #   have produced section_rules.md, subtopic_manifest.json, and exam_config.json.
@@ -209,7 +220,7 @@
 
   IN-CHAT (every batch): a STATUS DASHBOARD + a per-batch progress line, then
   an explicit CONFIRMATION REQUEST that ENDS the turn (MANDATE B). At the final
-  batch: the END-OF-PAPER REPORT + the PYQ-2 handoff.
+  batch: the END-OF-PAPER REPORT + the human-review handoff.
 
   NEVER delivered: the Row file is NOT overwritten; no internal state file
   (progress.json, answer_keys.json, pickled blocks, strip copy) leaks to outputs.
@@ -261,15 +272,18 @@
 #   to the Row file input. A fragment must NEVER be presented.
 
 # ════════════════════════════════════════════════════════════════════════
-# THE CORE PRINCIPLE — engine proves shape; discipline + PYQ-2 prove truth
+# THE CORE PRINCIPLE — engine proves shape; discipline proves truth
 # ════════════════════════════════════════════════════════════════════════
 #   The ENGINE enforces mechanically: block presence + order, the CA three-way
 #   binding, WHY-WRONG key set, OMML for every fraction, banned glyphs/templates/
 #   fake-cites/metacommentary, one-sentence-per-paragraph, and byte-identical
 #   fidelity to the Row file source. A breach raises BEFORE the docx is written.
-#   DISCIPLINE (derive-twice, web-verify, view-every-image, §5 checklist) +
-#   PYQ-2 (PYQExplainAudit, independent zero-sampling re-audit) enforce what code
-#   cannot: answer correctness, conceptual soundness, web-true facts.
+#   DISCIPLINE (derive-twice, web-verify, view-every-image, §5 checklist) enforces what
+#   code cannot: answer correctness, conceptual soundness, web-true facts.
+#   NOTE (v2.1): PYQExplainAudit (PYQ-2) has been RETIRED — no independent re-audit runs
+#   downstream. This §18 self-audit is the final certification (§18-2); the risk it must
+#   now guard against is PRODUCER SELF-DECEPTION, which the read-back-the-written-document
+#   checks (not self-report) exist to catch. Run them literally.
 
 # ════════════════════════════════════════════════════════════════════════
 # EXPLANATION RULES (RE-0 … RE-22) — the absolute rules the writer obeys
@@ -330,9 +344,11 @@
           factual option is web-verified with a recorded source.
   RE-19 : RESUME-SAFE. All cross-batch state lives in files; "continue" reloads and
           re-verifies the on-disk doc before solving the next batch (§4).
-  RE-20 : KINDNESS TO PYQ-2. The handoff states plainly what was derived, what was
-          web-verified, what carries a DERIVATION-CONFIDENCE flag, and what is model-
-          derived — so the independent audit knows where to look hardest.
+  RE-20 : KINDNESS TO THE READER OF RECORD. The handoff states plainly what was
+          derived, what was web-verified, what carries a DERIVATION-CONFIDENCE flag, and
+          what is model-derived — so a HUMAN reviewer knows where to look hardest. With
+          no audit step downstream (v2.1) this handoff is the ONLY surviving record of
+          where the run was least certain: MANDATORY, never abbreviated, never skipped.
   RE-21 : QUESTION-TYPE-AWARE. Resolve each question as mcq / msq / nat from config
           (§6, §3 P3) and shape the block accordingly (§5).
   RE-22 : LOAD & APPLY LEARNINGS. At P1, load accumulated learnings files via
@@ -464,8 +480,9 @@ PYQExplain
       pyq_explain_progress.json ALSO carries `q_to_difficulty` (v1.1) — the
       per-question {q: label} map produced by §7A. Written incrementally as each
       batch completes, alongside q_to_classification, under the same int-key
-      convention. PYQ-2 validates it; PYQ-4 reads it as Tier 1 of its §2-3
-      resolver. See §7A for the contract.
+      convention. PYQ-4 reads it as Tier 1 of its §2-3 resolver. (v2.1: PYQ-2's
+      independent validation of this map is retired — it is now producer-only.)
+      See §7A for the contract.
 
   P4  RESOLVE QUESTION TYPES (depends on P2 + P3).
       Using the options_by_q map (P2) AND the subtopic classification (P3):
@@ -831,7 +848,8 @@ label = assess_difficulty(
   * Values are members of `difficulty_labels`, nothing else.
   * Written incrementally per batch, so a resumed run (§4 P8) keeps the labels
     already produced and never re-assesses a completed batch.
-  * NEVER rendered into the document. This is metadata for PYQ-2 and PYQ-4 only.
+  * NEVER rendered into the document. This is metadata for PYQ-4 only (v2.1: PYQ-2
+    retired, so the difficulty map is no longer independently validated).
 
 ## S7A-5 — What this measures, and what it does not
 
@@ -857,8 +875,8 @@ label = assess_difficulty(
 #   Governing rule across ALL sections — the DENSITY FLOOR (not a length floor):
 #   every line must add a NEW number, fact, or reason; NO sentence may restate
 #   another. Brevity is allowed only when the line is dense; a line carrying none
-#   of its required facts fails the content floor (PYQ-2 enforces the no-
-#   restatement rule code cannot).
+#   of its required facts fails the content floor (producer discipline enforces the
+#   no-restatement rule code cannot).
 
 ## S8-1 — Correct Answer
   Role: the one line the student trusts absolutely; the most dangerous line in the
@@ -873,8 +891,8 @@ label = assess_difficulty(
   independently derived answer; bound three ways (line = DEDUCTION binding =
   pyq_answer_keys.json). For a negative stem it is the option the stem asks to
   IDENTIFY, polarity-correct (§10a).
-  Enforced: three-way binding at write time; truth by derive-twice + web-verify +
-  PYQ-2.
+  Enforced: three-way binding at write time; truth by derive-twice + web-verify
+  + producer discipline (§18 self-audit).
 
 ## S8-2 — AXIOM
   Role: the transferable concept — the rule/formula/theorem/definition that makes
@@ -894,7 +912,7 @@ label = assess_difficulty(
   restatement creeps in; one dense sentence is preferred when it fully states the
   rule AND its reason.
   Enforced: ≥1 sentence, one-per-paragraph, banned-phrase scan (engine); "truth
-  not task", "why not just what", correctness by discipline + PYQ-2.
+  not task", "why not just what", correctness by discipline (§18 self-audit).
 
 ## S8-3 — DEDUCTION
   Role: the reproducible spine — AXIOM → answer with every intermediate value
@@ -907,7 +925,7 @@ label = assess_difficulty(
   by one block.
   Enforced: ≥2 steps + last-binds-Option-N + OMML + one-per-paragraph + zero
   glyphs (engine); chain completeness + arithmetic truth by derive-twice + back-
-  substitution + PYQ-2.
+  substitution + producer discipline (§18 self-audit).
 
 ## S8-4 — SPEED HACK
   Role: exam-craft — a genuinely shorter route to the SAME answer, for time
@@ -918,7 +936,7 @@ label = assess_difficulty(
   banned — that is a platitude, not a hack. Inclusion is decided per question by
   §14; if no honest shortcut exists the block is OMITTED, never padded.
   Enforced: if present, binds the same CA (engine); "genuinely faster, not
-  cosmetic" by discipline + PYQ-2.
+  cosmetic" by discipline (§18 self-audit).
 
 ## S8-5 — WHY WRONG (mcq / msq) · COMMON PITFALLS (nat)
   Role: where most learning happens — the SPECIFIC error a student commits to land
@@ -938,7 +956,7 @@ label = assess_difficulty(
   Same anti-template discipline: each pitfall must reproduce a real wrong value.
   Enforced: key set (mcq/msq) or ≥1 value-keyed pitfall (nat) + ≥1 sentence +
   error-type token + banned templates/glyphs (engine); reproduces-the-wrong-answer
-  + factual truth by discipline + PYQ-2.
+  + factual truth by discipline (§18 self-audit).
 
 # NOTE: Figural questions no longer emit any FIGURE section; the rendered order
 #   for EVERY question type is Correct Answer → ⬛ AXIOM → ⬛ DEDUCTION →
@@ -1235,8 +1253,8 @@ print(fv.vision_report_line(report))
 
 ## S14-4 — The honesty guard
   If you cannot state the SPECIFIC lever that saves SPECIFIC work, there is no
-  SPEED HACK — omit it. An empty or generic SPEED HACK is a PYQ-2 defect, treated
-  like a wrong answer.
+  SPEED HACK — omit it. An empty or generic SPEED HACK is a defect — caught by
+  producer discipline (§18), since (v2.1) no downstream audit follows.
 
 # ════════════════════════════════════════════════════════════════════════
 # §15 — WHY WRONG / COMMON PITFALLS ANTI-TEMPLATE STANDARD (the diagnosis contract)
@@ -1300,10 +1318,12 @@ print(fv.vision_report_line(report))
   • UNIFORM MECHANICAL GUARANTEES: every engine guard fires identically on Q1 and
     Q97 — a write-time ValueError does not get lenient because the run is long.
   • DERIVE-TWICE HAS NO EXCEPTIONS (§7): no "confident by now, skip" path.
-  • PYQ-2 IS THE INDEPENDENT NET: it re-reads EVERY explanation, zero sampling,
-    not trusting PYQ-1; it certifies with a runnable completion gate (CA1–CA7).
-  The guarantee: "a weaker line CANNOT REACH THE STUDENT", caught at four
-  independent layers that do not weaken with length.
+  (v2.1: the former fourth layer — "PYQ-2 IS THE INDEPENDENT NET" — is GONE.
+  PYQExplainAudit is retired, so no independent re-read follows this step. The
+  defences above are producer-side only; the risk they must now carry alone is
+  PRODUCER SELF-DECEPTION, blocked by §18's read-back-the-document checks.)
+  The guarantee: "a weaker line CANNOT REACH THE STUDENT", caught at three
+  producer-side layers that do not weaken with length.
 
 # ════════════════════════════════════════════════════════════════════════
 # §17 — PYQ DEFECT HANDLING (exam body paper; note, never fix)
@@ -1332,13 +1352,14 @@ print(fv.vision_report_line(report))
     explained, not skipped — the student still gets a full explanation.
     IMPORTANT: PYQ-1 does NOT set the anomaly flag here (the engine forbids
     anomaly + content on the same block). Instead, the DERIVATION-CONFIDENCE +
-    PYQ-AMBIGUITY note in pyq_answer_keys.json signals PYQ-2 to review.
+    PYQ-AMBIGUITY note in pyq_answer_keys.json is surfaced in the END-OF-PAPER
+    REPORT for HUMAN review (v2.1: PYQ-2 retired — no auditor consumes it).
     Unlike TestExplain (which halts and escalates to Step 8), PYQ-1 CONTINUES
     because there is no upstream step to fix the paper — it IS the actual exam.
-    The ambiguity is noted in the END-OF-PAPER REPORT (§20) for PYQ-2 review.
+    The ambiguity is noted in the END-OF-PAPER REPORT (§20) for human review.
   • VERY RARE: the question is genuinely unanswerable (corrupt image, missing
     data, truncated stem from scan defect) → set the anomaly flag (no content),
-    skip explanation for this question, note in report. PYQ-2 will review.
+    skip explanation for this question, note in report for human review.
     The anomaly flag is reserved for THIS case only — a question so broken that
     no answer can be defended at all.
   • VISION-UNAVAILABLE (v1.2, §13A-5): a figural question whose image could not
@@ -1381,12 +1402,21 @@ print(fv.vision_report_line(report))
 ```
   Any item open → fix, re-build, re-audit. present_files FORBIDDEN until ALL hold.
 
-## S18-2 — The independent gate is PYQ-2's completion gate (the loop's other half)
-  PYQ-1's §18 is PRODUCER self-certification. The INDEPENDENT certification is
-  PYQ-2 (PYQExplainAudit), which runs the same explain_audit_gate.py completion
-  gate (CA1-CA7). PYQ-1's per-question handoff data (derived answers, web-verified
-  facts, viewed-image confirmations, DERIVATION-CONFIDENCE flags) populates that
-  ledger — one shared evidence contract.
+## S18-2 — THIS IS THE ONLY GATE (v2.1 — PYQ-2 retired; stated, not hidden)
+  PYQ-1's §18 is PRODUCER self-certification, and as of v2.1 it is the ONLY
+  certification this document will ever receive. The former independent half —
+  PYQ-2 (PYQExplainAudit) re-deriving every answer and running the
+  explain_audit_gate.py completion gate (CA1-CA7) — is RETIRED and is no longer
+  run by any step. ACCEPTED LOSS, stated once: no independent re-derivation of any
+  answer, no independent completion gate, and no official-answer-key cross-check
+  (former PYQ-2 D4) exist after this step. Correctness rests on producer discipline
+  (§7 derive-twice, RE-18 web-verify, §13/§13A view-every-image) plus the engine's
+  write-time shape guarantees. The per-question handoff data (derived answers,
+  web-verified facts, viewed-image confirmations, DERIVATION-CONFIDENCE flags) is
+  still recorded IN FULL and handed off (RE-20) — its consumer is now a HUMAN
+  reviewer, not a gate. The risk that replaces producer<->auditor drift is PRODUCER
+  SELF-DECEPTION, which §18-1's read-back-the-written-document checks (never
+  self-report) are the only defence against. Run them literally.
 
 # ════════════════════════════════════════════════════════════════════════
 # §19 — DELIVERY (incremental whole-paper; one present_files per batch)
@@ -1443,8 +1473,12 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
   §R7 ANOMALIES (§17): every Q where no defensible answer was found, with
       the reproduced evidence. For PYQ, these are exam body errors, not pipeline
       bugs — noted, not escalated.
-  §R8 PYQ-2 HANDOFF (RE-20): what was derived, what was web-verified, what is
-      model-derived, where to look hardest. State: review IN MICROSOFT WORD.
+  §R8 HANDOFF (RE-20): what was derived, what was web-verified, what is
+      model-derived, where to look hardest — for the HUMAN reviewer (v2.1: PYQ-2
+      retired, so this handoff is the ONLY surviving record of where the run was
+      least certain; it is MANDATORY, never abbreviated). Next: PYQ-3 (PYQFormat,
+      student doc) OR PYQ-4 (PYQDeliver, portal) — both take THIS
+      _PYQ_Explanation.docx directly. State: review IN MICROSOFT WORD.
   §R9 SUBTOPIC CLASSIFICATION MAP: summary of q_to_classification (Q→subtopic
       mapping) for PYQ-3 (PYQFormat pills) and PYQ-4 (PYQDeliver tags).
   §R10 LIMITATIONS (§22).
@@ -1453,7 +1487,7 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
        count of Qs whose derivation_confidence was 'flagged'. If EVERY question
        resolved to the SAME label and the paper has more than one question, say so
        explicitly — a whole paper at one difficulty is a signal worth checking
-       before PYQ-2, not a result to pass along silently.
+       before delivery, not a result to pass along silently.
 
   §R12 FIGURAL VISION (§13A, v1.2): artefacts extracted · artefacts transcribed
        OK · every VOID_ITEM question with its status (MISSING/EMPTY/THIN/STALE)
@@ -1501,19 +1535,22 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 #   values. subtopic_manifest.json is the single source for id ↔ name mapping.
 
 # ════════════════════════════════════════════════════════════════════════
-# §24 — LEARNINGS CONSUMPTION CONTRACT (the PYQ-2 → PYQ-1 feedback loop)
+# §24 — LEARNINGS CONSUMPTION CONTRACT (human-authored guardrails; v2.1)
 # ════════════════════════════════════════════════════════════════════════
-#   PYQ-2 (PYQExplainAudit) is the independent auditor. Every paper it audits, it
-#   distils the defects it fixed into reusable rules so the SAME mistake is not
-#   authored again. This section is the consumer half; PYQ-2 §24 is the producer.
+#   PYQExplainAudit (PYQ-2) — which used to AUTO-GENERATE PYQ audit learnings — has
+#   been RETIRED (v2.1). No step now produces PYQ_EXPLAIN_AUDIT_LEARNINGS or
+#   EXPLAIN_AUDIT_LEARNINGS automatically, so the automatic feedback loop is OPEN.
+#   PYQ-1 remains the CONSUMER: it still LOADS and OBEYS every learnings file present,
+#   so human-authored guardrail rules (and any AL-rules already written before
+#   retirement) keep working exactly as before. Nothing here HALTS on absence.
 #
 #   FOUR learnings files, all loaded at P1, all OVERRIDE this spec on content:
-#     • [ExamCode]_PYQ_EXPLAIN_AUDIT_LEARNINGS_v*.md — PYQ-specific AL-rules,
-#       auto-generated by PYQ-2. The PYQ feedback loop proper.
+#     • [ExamCode]_PYQ_EXPLAIN_AUDIT_LEARNINGS_v*.md — PYQ-specific AL-rules.
+#       Formerly auto-generated by PYQ-2; now LEGACY + manually authored only.
 #     • [ExamCode]_PYQ_EXPLAIN_LEARNINGS_v*.md — PYQ-specific human guardrails.
-#     • [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md — mock pipeline AL-rules (shared
-#       exam, shared subtopics, shared defect patterns — reusable).
-#     • [ExamCode]_EXPLAIN_LEARNINGS_v*.md — mock pipeline human guardrails.
+#     • [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md — shared exam AL-rules. Formerly
+#       auto-generated by the mock audit step (also retired); now legacy + manual.
+#     • [ExamCode]_EXPLAIN_LEARNINGS_v*.md — shared human guardrails.
 #   None exist on the first PYQ paper by design. Absence is normal, never a HALT.
 #
 ## S24-1 — What a rule carries (the pinned schema)
@@ -1541,7 +1578,8 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 #   and across both the mock and PYQ pipelines. Self-tests:
 #     --self-test       → "SELF-TEST: 62/62 PASS" (core, required at P0)
 #     --self-test-audit → "AUDIT-SELF-TEST: 10/10 PASS" (reader round-trip)
-#   The companion gate (explain_audit_gate.py) is used by PYQ-2, not PYQ-1.
+#   (v2.1: the companion gate explain_audit_gate.py and PYQExplainAudit (PYQ-2) were
+#    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
 # SHARED_RULES_VERSION: 1.0 (2026-07-22)
@@ -1610,5 +1648,5 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.0
+# END OF Framework_PYQExplain v2.1
 # ════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,7 @@
-# Framework_MockTestExplain v1.21.0
+# Framework_MockTestExplain v1.21.1
+# v1.21.1 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED and explain_audit_gate.py
+#   REMOVED from the framework. Updated the two notes that said the gate module still
+#   survives / is still routed "for PYQExplainAudit" (no longer true). No rule change.
 # v1.21.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
 #   Step 9 now reads the Step-7 paper directly ([ExamCode]_Mock[N]_Create.docx) — the
 #   rectified _Create_Complete.docx no longer exists because no step produces it. Every
@@ -1238,8 +1241,9 @@
   Step 9's §18 above is PRODUCER self-certification, and with Step 10 retired it is the
   ONLY certification this document will ever receive. The former independent half —
   `explain_audit_gate.py --audit-progress ...` asserting CA1–CA7 over an evidence-bound
-  ledger — is no longer run for mock/scoped papers by any step. (The module itself
-  survives, still routed and self-tested, for PYQExplainAudit.)
+  ledger — is no longer run for mock/scoped papers by any step. (v1.21.1: the module
+  explain_audit_gate.py has been REMOVED from the framework — its sole remaining
+  consumer, PYQExplainAudit, was retired.)
   CONSEQUENCES, binding:
   • The per-question evidence Step 9 records (derived answers, web-verified facts,
     viewed-image confirmations, DERIVATION-CONFIDENCE flags) is still recorded IN FULL and
@@ -1507,10 +1511,11 @@ Step 9 uses BOTH footer types:
 #   to their auditors. The framework linter (validate_framework_md.py) runs
 #   explain_engine.py's `--self-test` directly.
 #
-#   COMPANION GATE (v1.21.0 — NOT RUN BY THIS CHAIN): explain_audit_gate.py still exists,
-#   is still hash-tracked, and still asserts CA1–CA7 over an audit_progress.json ledger —
-#   but only PYQExplainAudit routes it now. No step runs it over a mock/scoped Solutions
-#   doc. Step 9's §18 self-audit is the whole mechanical certification this document gets.
+#   COMPANION GATE (v1.21.1 — REMOVED): explain_audit_gate.py has been deleted from the
+#   framework. Its sole remaining consumer, PYQExplainAudit (PYQ-2), was retired, so no
+#   step runs a CA1–CA7 completion gate over any audit_progress.json ledger or Solutions
+#   doc. Step 9's §18 self-audit is
+#   the whole mechanical certification this document gets.
 
 # ════════════════════════════════════════════════════════════════════════
 # FOOTER — this file is the canonical Step-9 spec. On any CONTENT conflict with a loaded
@@ -1519,5 +1524,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.21.0
+# END OF Framework_MockTestExplain v1.21.1
 # ════════════════════════════════════════════════════════════════════════

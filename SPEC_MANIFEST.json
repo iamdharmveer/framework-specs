@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 737,
-      "sha256": "601bc66f6522cbde6b156e2784a06ce5a3d32c1dc8e4c54c8be79c1f531275c1",
-      "size_bytes": 38384,
-      "version_header": "# Framework_DeliveryFooter v1.14 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 741,
+      "sha256": "4741a0d624553362ef82745f3254b30bbc373d82f88cb213c2f5601c9d6a79c8",
+      "size_bytes": 38810,
+      "version_header": "# Framework_DeliveryFooter v1.15 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.10.0",
@@ -37,10 +37,10 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1523,
-      "sha256": "284474c2f0918b6e62f9eede25e79d65b8794100033009f0ed7166a232cff54c",
-      "size_bytes": 120070,
-      "version_header": "# Framework_MockTestExplain v1.21.0"
+      "lines": 1528,
+      "sha256": "e913febcf3b3da05a649075609eb5d91c7f494ea9412d45e2fec6017ceb1db47",
+      "size_bytes": 120392,
+      "version_header": "# Framework_MockTestExplain v1.21.1"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v1.1.0",
@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.5.2)**",
-      "lines": 1175,
-      "sha256": "b50254a218f0f361340988420f1c9870e21cab9969ed7d4468cfd755198394ed",
-      "size_bytes": 58615,
-      "version_header": "# Framework_PYQDeliver v1.5.2 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.6)**",
+      "lines": 1188,
+      "sha256": "d7580da5279af6e5ac6b622b4d1e1bb12e4ac74fbb5d8244720a7baa23283e04",
+      "size_bytes": 59876,
+      "version_header": "# Framework_PYQDeliver v1.6 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0",
@@ -121,24 +121,17 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1614,
-      "sha256": "06321ce4ce95bd23602c5b544912a372835ea1a7bca96ea2c1f04c7bb61df4f1",
-      "size_bytes": 108217,
-      "version_header": "# Framework_PYQExplain v2.0 — Universal PYQ Explanation Generator"
-    },
-    "Framework_PYQExplainAudit.md": {
-      "end_sentinel": "**End of Framework_PYQExplainAudit.md (v1.2.1)**",
-      "lines": 984,
-      "sha256": "39a486d28739482aacefe4656828c0ba1de5ff26d47e241c4ced5b4f5ef97aff",
-      "size_bytes": 97768,
-      "version_header": "# Framework_PYQExplainAudit v1.2.1 — Universal PYQ Explanation Auditor"
+      "lines": 1652,
+      "sha256": "3e152415afd0fb2507d0232acd53b94af42ff0644e89cb2ab3fdb9a762dea659",
+      "size_bytes": 111653,
+      "version_header": "# Framework_PYQExplain v2.1 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
-      "end_sentinel": "**End of Framework_PYQFormat.md (v1.4.2)**",
-      "lines": 1687,
-      "sha256": "e6bd79cac47904d2cce7f659c11ace5e5ead5c5b71152f09b9140a3903397df0",
-      "size_bytes": 77223,
-      "version_header": "# Framework_PYQFormat v1.4.2 — Universal PYQ Student Document Formatter"
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.5)**",
+      "lines": 1698,
+      "sha256": "1e46a79561873e471e5dbba2e2388ebe6f4bf5e3aafcb3d999b8391452eec0dd",
+      "size_bytes": 78330,
+      "version_header": "# Framework_PYQFormat v1.5 — Universal PYQ Student Document Formatter"
     },
     "Framework_PYQPrepare.md": {
       "end_sentinel": "# END OF Framework_PYQPrepare v2.0",
@@ -185,8 +178,8 @@
     "audit_deep.py": {
       "end_sentinel": "sys.exit(1 if tot else 0)",
       "lines": 177,
-      "sha256": "831d4fd25efc7898407909d5d74589f1d95a8e5607f6cb0fc51e7fbf705b4c95",
-      "size_bytes": 10089,
+      "sha256": "36dd96845eb75ad61b5e0348c7f92e49f493d006f7f24e5c76407208065059e4",
+      "size_bytes": 10068,
       "version_header": "\"\"\"audit_deep.py — checks NOT covered by validate_framework_md.py or audit_sync.py."
     },
     "audit_mutation.py": {
@@ -212,9 +205,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 166,
-      "sha256": "80b7f9a12ffbc548a3a870a94821dde540d0ed7892e29c853d357e2abd03c6ed",
-      "size_bytes": 8625,
+      "lines": 165,
+      "sha256": "ca2f9f9a4bca135ccd59bcfade6b2107d96f785677944301061c4366ed88721c",
+      "size_bytes": 8588,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {
@@ -252,18 +245,11 @@
       "size_bytes": 229750,
       "version_header": "\"\"\""
     },
-    "explain_audit_gate.py": {
-      "end_sentinel": "    main()",
-      "lines": 214,
-      "sha256": "2040f4ca7da3a0e6c89fd8a994b9fdd407fe6c0d9526f4c22e3e3f9638d00e4d",
-      "size_bytes": 11299,
-      "version_header": "#!/usr/bin/env python3"
-    },
     "explain_engine.py": {
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 2352,
-      "sha256": "117d4e2bf3879e2d979d4ce044ef2975f2214245f89a83d63c3852a0d9c44a71",
-      "size_bytes": 129956,
+      "lines": 2353,
+      "sha256": "fd549491a16fdb0905c57a1a41602f95659bc654bde16fd5d16ace17afe2c1d6",
+      "size_bytes": 130108,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {
@@ -331,9 +317,9 @@
     },
     "routes.json": {
       "end_sentinel": "}",
-      "lines": 166,
-      "sha256": "1f6a7ea9cc0fa3a65811fe1ed354217656f9839b5ce628e4e26bfb743e8743ab",
-      "size_bytes": 3827,
+      "lines": 158,
+      "sha256": "4415de4576e792047ce7bbfb50e65e4b26e07bf8a693cb86d50a558bd497c8ab",
+      "size_bytes": 3628,
       "version_header": "{"
     },
     "spec_source.py": {
@@ -360,8 +346,8 @@
     "validate_framework_md.py": {
       "end_sentinel": "    sys.exit(1 if total else 0)",
       "lines": 2254,
-      "sha256": "77dd12cde86f5bd4b82d7aac64fef12e776d7774b22c7e70da5adde432acbf84",
-      "size_bytes": 130184,
+      "sha256": "82143339be7e512fb5710d2f07262a2cb575263b4ffae7f53395ff947390f90c",
+      "size_bytes": 130156,
       "version_header": "#!/usr/bin/env python3"
     }
   },

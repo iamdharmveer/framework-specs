@@ -1,4 +1,12 @@
-# Framework_PYQFormat v1.4.2 — Universal PYQ Student Document Formatter
+# Framework_PYQFormat v1.5 — Universal PYQ Student Document Formatter
+# v1.5 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. PYQ-3 now takes PYQ-1's
+#   _PYQ_Explanation.docx as its STANDARD input (a legacy _Complete.docx is still
+#   accepted, unchanged, but is no longer produced). q_to_classification is read from
+#   pyq_explain_progress.json as the primary sidecar. No runtime behaviour changes —
+#   PYQ-3 never audited; it formats whatever it is given. Edits retire the "certified by
+#   PYQ-2" framing (the input is now producer-certified by PYQ-1's self-audit, not independently
+#   audited) and the PYQ-2 cross-references. Touched: PURPOSE, ZERO-MUTATION rationale,
+#   §0/§1 input contract + map priority, §4, S7-2, §9/§10 notes, §12 edge cases.
 # v1.4.2 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   173 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQFormat'. The current companion block, the
@@ -17,13 +25,13 @@
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
 # ════════════════════════════════════════════════════════════════════════
-#   Transform a certified, content-complete PYQ explanation document into
-#   a polished student-facing download. The input has been through PYQ-1
-#   (explanation) and PYQ-2 (audit) — every answer is correct, every
-#   explanation is validated, the completion gate has passed. PYQ-3's job
-#   is purely visual: make it look beautiful for the student who downloads
-#   it. No content judgement, no re-derivation, no quality gate — those
-#   are done. This is presentation.
+#   Transform a content-complete PYQ explanation document into a polished
+#   student-facing download. The input is PYQ-1's _PYQ_Explanation.docx
+#   (v1.5: PYQ-2 PYQExplainAudit is retired, so PYQ-1's output is the final
+#   explanation document; a legacy _Complete.docx is also accepted). PYQ-3's
+#   job is purely visual: make it look beautiful for the student who downloads
+#   it. No content judgement, no re-derivation, no quality gate — PYQ-3 never
+#   audits; it presents whatever it is given.
 
 # ════════════════════════════════════════════════════════════════════════
 # PIPELINE POSITION (PYQ Explanation Pipeline)
@@ -36,10 +44,10 @@
 #
 #   PHASE 2 — PYQ Explanation:
 #     PYQ-1  PYQExplain      → _PYQ_Explanation.docx
-#     PYQ-2  PYQExplainAudit → _PYQ_Explanation_Complete.docx
 #     PYQ-3  PYQFormat       → _PYQ_Formatted.docx   ← THIS STEP
 #     PYQ-4  PYQDeliver      → _PYQ_Final.docx        (portal)
-#     (PYQ-3 and PYQ-4 are INDEPENDENT — both take PYQ-2 output.)
+#     (PYQ-2 PYQExplainAudit RETIRED in v1.5. PYQ-3 and PYQ-4 are INDEPENDENT —
+#      both take PYQ-1's _PYQ_Explanation.docx directly.)
 
 # ════════════════════════════════════════════════════════════════════════
 # EXAM-AGNOSTIC GUARANTEE
@@ -89,8 +97,10 @@ It **NEVER**:
   header paragraphs only)
 
 Violation of this rule is a hard failure regardless of any other outcome. The
-input was certified by PYQ-2's completion gate (CA1–CA7) — PYQ-3 preserves that
-certification by touching NOTHING the gate validated.
+input is PYQ-1's explanation content — producer-certified by PYQ-1's own self-audit
+(v1.5: PYQ-2 is retired, so there is no independent completion gate). PYQ-3
+preserves that content byte-for-byte by touching NOTHING but the visual elements
+named above.
 
 ---
 
@@ -98,19 +108,20 @@ certification by touching NOTHING the gate validated.
 
 **Inputs:**
 
-1. `[ExamCode]_[date]_[session]_PYQ_Explanation_Complete.docx` — the PYQ-2 audited
-   explanation document. Attached by user. This is the certified, content-complete
-   document that has passed the completion gate.
-   ALSO ACCEPTS: `_PYQ_Explanation.docx` (PYQ-1 output, if audit not yet run).
-   The spec prefers the audited version; if both are attached, use the
-   `_Complete` version.
+1. `[ExamCode]_[date]_[session]_PYQ_Explanation.docx` — the PYQ-1 explanation
+   document. Attached by user. This is the STANDARD input (v1.5: PYQ-2 PYQExplainAudit
+   is retired, so PYQ-1's output is the pipeline's final explanation document).
+   ALSO ACCEPTS (legacy): `_PYQ_Explanation_Complete.docx` — a pre-v1.5 PYQ-2 audited
+   document. Still a valid explanation doc; accepted unchanged. This format is no longer
+   produced. If both are attached, use whichever the user names; absent that, prefer
+   `_PYQ_Explanation.docx`.
 
 2. `exam_config.json` — in project knowledge. Provides `exam_name` for the header.
 
 3. `q_to_classification` map — the per-question {subject, topic, subtopic,
    subtopic_id} mapping. Loaded from ONE of these sources (in priority order):
-   a. `pyq_audit_progress.json` sidecar (if PYQ-2 was run, this carries the map)
-   b. `pyq_explain_progress.json` sidecar (PYQ-1's progress file)
+   a. `pyq_explain_progress.json` sidecar (PYQ-1's progress file — the standard source)
+   b. `pyq_audit_progress.json` sidecar (LEGACY — only if a pre-v1.5 PYQ-2 run left one)
    c. Attached by user as a separate JSON file
    If no classification map is found → HARD STOP:
      "q_to_classification map not found. Run PYQExplain first, or attach
@@ -118,7 +129,7 @@ certification by touching NOTHING the gate validated.
 
 NOT REQUIRED (PYQ-3 adds no content):
   ✗ explain_engine.py — no explanations written or read by this step
-  ✗ explain_audit_gate.py — no audit performed by this step
+  ✗ (no audit performed by this step; PYQ-2 PYQExplainAudit and its gate are retired)
   ✗ section_rules.md — no engine configuration needed
   ✗ blueprint.json — PYQ has no mock pipeline outputs
   ✗ registry.json — PYQ has no mock pipeline outputs
@@ -141,7 +152,7 @@ PYQ-3 begins on the instruction:
 PYQFormat
 ```
 
-Attach: the PYQ-2 output (or PYQ-1 output if audit not yet run).
+Attach: the PYQ-1 output `_PYQ_Explanation.docx` (a legacy PYQ-2 `_Complete.docx` is also accepted).
 
 Everything is derived from the attachment and project knowledge:
 
@@ -154,8 +165,8 @@ Everything is derived from the attachment and project knowledge:
    the attached filename."
 
 3. **Input document**: the attached file. Accept either:
-   - `_PYQ_Explanation_Complete.docx` (PYQ-2, preferred)
-   - `_PYQ_Explanation.docx` (PYQ-1, acceptable with WARN)
+   - `_PYQ_Explanation.docx` (PYQ-1 — standard)
+   - `_PYQ_Explanation_Complete.docx` (legacy PYQ-2 audited doc — accepted, no WARN)
    If neither attached → HARD STOP: "Attach the PYQ Explanation document."
 
 Derived values (used for filenames and header):
@@ -255,7 +266,7 @@ anywhere (D10).
 
 The input document carries a per-question date/session tag paragraph — the
 PYQSort `date_label` line that sits immediately above each Q-stem and rides
-through PYQExplain/PYQExplainAudit unchanged:
+through PYQExplain unchanged:
 
 ```text
 [12-Sep-2025 Shift 1]     (multi-session exam, keyword from exam_config)
@@ -477,7 +488,7 @@ Ensure paragraph spacing between questions is uniform:
 - After the last explanation element of each Q: 12pt
 - Between explanation sub-sections (AXIOM → DEDUCTION → etc.): the tag
   header spacing is set by S7-5; sentence spacing stays unchanged
-  (preserve the spacing PYQ-1/PYQ-2 set through the engine)
+  (preserve the spacing PYQ-1 set through the engine)
 
 ## S7-3 — What is NOT changed
 
@@ -784,7 +795,7 @@ PYQ-3 delivers in a single response (no batching):
    - File badge: `📁 Use locally` for PYQ_Formatted.docx.
    - Next-step reference: "This is the student-facing document — ready for
      distribution. For portal delivery, run PYQ-4 (PYQDeliver) separately
-     in a new chat (PYQ-4 takes PYQ-2 output directly, not this file)."
+     in a new chat (PYQ-4 takes PYQ-1 output directly, not this file)."
 
 ---
 
@@ -814,7 +825,7 @@ Printed in chat after present_files. Brief and skimmable:
   All must show PASS.
 - **§R8 — Note.** "This is the student-facing document. Review in Microsoft
   Word (OMML renders correctly only in Word). For portal delivery, run PYQ-4
-  (PYQDeliver) in a new chat — it takes PYQ-2 output directly."
+  (PYQDeliver) in a new chat — it takes PYQ-1 output directly."
 
 ---
 
@@ -879,9 +890,9 @@ PYQ-3 is done when **all** hold:
 3. **exam_config.json missing** → WARN (not HALT). Use ExamCode as the
    display name in the header. Everything else works.
 
-4. **Input is PYQ-1 output (not PYQ-2)** → ACCEPTED (§0). PYQ-3 does not
-   require the audit — it formats whatever it receives. A WARN is printed
-   noting the document has not been audited.
+4. **Input is PYQ-1 output** → the NORMAL input (v1.5: PYQ-2 retired). PYQ-3 does
+   not require any audit — it formats whatever it receives, with no WARN. A legacy
+   `_PYQ_Explanation_Complete.docx` is equally accepted.
 
 5. **Document has 0 questions** → HARD STOP. Nothing to format.
 
@@ -900,7 +911,7 @@ PYQ-3 is done when **all** hold:
    from the original input. If someone attaches the _PYQ_Formatted.docx
    by mistake, the spec detects it (filename check) and warns: "This
    appears to already be a formatted document. Attach the
-   _PYQ_Explanation_Complete.docx instead."
+   _PYQ_Explanation.docx instead."
 
 10. **No date/session tags in the document** → WARN (not HALT, S4-3).
     The document may predate tagging or use a non-standard label the
@@ -1684,4 +1695,4 @@ Correct Answer band the Topic pill family — one palette document-wide.
 
 ---
 
-**End of Framework_PYQFormat.md (v1.4.2)**
+**End of Framework_PYQFormat.md (v1.5)**

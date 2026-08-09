@@ -15,7 +15,7 @@ from collections import defaultdict
 SPECS=sorted(f for f in os.listdir('.') if f.startswith('Framework_') and f.endswith('.md'))
 TXT={f:open(f,encoding='utf-8').read() for f in SPECS}
 ENG={m:open(m+'.py',encoding='utf-8').read() for m in
-     ('blueprint_core','paper_pipeline','explain_engine','explain_audit_gate','syllabus_provenance')
+     ('blueprint_core','paper_pipeline','explain_engine','syllabus_provenance')
      if os.path.exists(m+'.py')}
 I=defaultdict(list)
 def rec(c,m): I[c].append(m)

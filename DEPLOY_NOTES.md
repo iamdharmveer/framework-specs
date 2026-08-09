@@ -47,7 +47,6 @@ Any paper currently sitting in a `MockCreateAudit ... resume` / `status` or
     audit_mutation.py       30/30 killed, mutation score 100.0%
     audit_canonical.py      SELF-TEST: 175/175 PASS
     explain_engine.py       SELF-TEST: 62/62 PASS · AUDIT-SELF-TEST: 10/10 PASS
-    explain_audit_gate.py   COMPLETION-SELF-TEST: 8/8 PASS
     validate_framework_md.py *.md   26 findings — EXACTLY the production baseline,
                                     zero new findings introduced by this release
 

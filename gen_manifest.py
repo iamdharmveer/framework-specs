@@ -13,7 +13,7 @@ CI usage (see .github/workflows/validate.yml):
 """
 import hashlib, json, os, sys
 
-TRACKED_PY = ["validate_framework_md.py", "explain_audit_gate.py", "explain_engine.py",
+TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               "t3_mathcomp.py",
               "blueprint_core.py", "paper_pipeline.py",
               "corpus_io.py", "reconcile_taxonomy.py", "syllabus_provenance.py",

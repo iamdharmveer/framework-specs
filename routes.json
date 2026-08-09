@@ -118,14 +118,6 @@
     "blueprint_core.py",
     "Framework_DeliveryFooter.md"
   ],
-  "PYQExplainAudit": [
-    "Framework_PYQExplainAudit.md",
-    "explain_engine.py",
-    "t3_mathcomp.py",
-    "explain_audit_gate.py",
-    "blueprint_core.py",
-    "Framework_DeliveryFooter.md"
-  ],
   "PYQFormat": [
     "Framework_PYQFormat.md",
     "Framework_DeliveryFooter.md"

@@ -2,8 +2,8 @@
 
 ## A. Create the repo and push
 1. Create a new **public** GitHub repo: `framework-specs` (empty, no README).
-2. On your machine, in a folder containing this scaffold PLUS your 14 real files
-   (11 Framework_*.md + validate_framework_md.py + explain_audit_gate.py + explain_engine.py):
+2. On your machine, in a folder containing this scaffold PLUS your 13 real files
+   (11 Framework_*.md + validate_framework_md.py + explain_engine.py):
 
     git init -b main
     git add .

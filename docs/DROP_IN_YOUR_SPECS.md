@@ -1,7 +1,7 @@
 # Drop in your real files, then generate the manifest
 
 Copy your 14 real files into the repo root (same folder as bootstrap.py):
-  11x Framework_*.md, validate_framework_md.py, explain_audit_gate.py, explain_engine.py
+  11x Framework_*.md, validate_framework_md.py, explain_engine.py
 
 Then:  python3 gen_manifest.py     # builds MANIFEST.json from YOUR real bytes
 

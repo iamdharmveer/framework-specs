@@ -1,4 +1,8 @@
-# Framework_DeliveryFooter v1.14 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.15 — Universal Delivery Footer (F1/F2) Contract
+# v1.15 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. Updated the PYQ VOID_ITEM /
+#   CERTIFIED-DEGRADED (VISION) wording that named PYQ-2 as the reader of the voided-
+#   question list (now the human reviewer), and the v1.13 note that called PYQExplainAudit
+#   a still-live step (it is now also retired). F1/F2 shape, Q0/Q0b, severity unchanged.
 # v1.14 — 2026-08-03 — NEW §2A SPEC PROVENANCE DISCLOSURE (project-first specs).
 #   Specs are now PROJECT-FIRST: a Framework_*.md in an exam project's Files section
 #   overrides the repo copy and CANNOT be byte-verified. Every footer must now state
@@ -24,7 +28,7 @@
 #   failure must be LOUD and must NOT halt' (CLAUDE.md) was not applied. Same
 #   measured condition, same AMBER, one more producer. The PYQ wording NAMES the
 #   voided questions, because an unexplained question that is not named reads as
-#   an oversight and PYQ-2 must be told where to look (PYQExplain RE-20).
+#   an oversight and the human reviewer must be told where to look (PYQExplain RE-20).
 #   Zero change to F1/F2 shape, to Q0, to Q1, or to any severity routing:
 #   no colour or vision condition may halt a run, and that stays untouched.
 #
@@ -464,8 +468,8 @@ NEXT STEP  : Step 11: MockDeliver M[N]
 
   (v1.13 — STEP 10 IS RETIRED. There is no MockExplainAudit / TestExplainAudit
    trigger. Step 9 hands the Solutions docx straight to Step 11. Never print
-   "Step 10" as a next step. PYQExplainAudit is a DIFFERENT, still-live step on the
-   PYQ chain and is unaffected.)
+   "Step 10" as a next step. v1.15: PYQExplainAudit (PYQ-2) is ALSO retired — PYQ-1
+   hands its _PYQ_Explanation.docx straight to PYQ-3/PYQ-4; there is no PYQ audit step.)
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 11 — MockDeliver
@@ -647,10 +651,10 @@ After every present_files call, Claude evaluates:
                   For PYQ-1 the same footer NAMES the voided questions instead:
                   "CERTIFIED-DEGRADED (VISION) — <v> of <i> figural artefact(s) could
                    not be transcribed (§13A). Question(s) <list> carry NO derived
-                   answer; every other question is fully explained and audited.
+                   answer; every other question is fully explained.
                    Remedy: re-run PYQExplain on a session with a working view tool."
                   Naming is mandatory: an unexplained question that is not named
-                  reads as an oversight, and PYQ-2 has to be told where to look.
+                  reads as an oversight, and the human reviewer has to be told where to look.
                   A degraded certificate must NEVER render green — green is a claim
                   that the artefact is fit to hand downstream, and a partially
                   un-eyeballed paper is fit to SHIP but not fit to be called clean.

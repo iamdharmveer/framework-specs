@@ -1,4 +1,14 @@
-# Framework_PYQDeliver v1.5.2 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.6 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.6 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. PYQ-4 now takes PYQ-1's
+#   _PYQ_Explanation.docx as its STANDARD input (a legacy _Complete.docx is still
+#   accepted, unchanged, but is no longer produced), and reads pyq_explain_progress.json
+#   as the primary sidecar for q_to_classification / options_by_q / q_to_difficulty.
+#   COMPLEXITY Tier 1 (q_to_difficulty) is now PRODUCER-ONLY: PYQ-2's independent
+#   validation (§10A) is gone, so PYQ-4 consumes PYQ-1's assessed values directly after
+#   the same membership check (S2-3a). No gate, transform, or delivered byte changes.
+#   Edits retire the PYQ-2 input preference and cross-references. Touched: PIPELINE
+#   POSITION, §0/§1 input + sidecar priority, S2-3a note, §4A, §5-3, §7 C18 note,
+#   §10 §R7, §12 edge cases.
 # v1.5.2 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
 #   197 lines of version history and superseded companion blocks moved
 #   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQDeliver'. The current companion block, the
@@ -34,10 +44,10 @@
 #
 #   PHASE 2 — PYQ Explanation:
 #     PYQ-1  PYQExplain      → _PYQ_Explanation.docx
-#     PYQ-2  PYQExplainAudit → _PYQ_Explanation_Complete.docx
 #     PYQ-3  PYQFormat       → _PYQ_Formatted.docx        (student)
 #     PYQ-4  PYQDeliver      → _PYQ_Final.docx             (portal)  ← THIS STEP
-#     (PYQ-3 and PYQ-4 are INDEPENDENT — both take PYQ-2 output.)
+#     (PYQ-2 PYQExplainAudit RETIRED in v1.6. PYQ-3 and PYQ-4 are INDEPENDENT —
+#      both take PYQ-1's _PYQ_Explanation.docx directly.)
 
 # ════════════════════════════════════════════════════════════════════════
 # EXAM-AGNOSTIC GUARANTEE
@@ -77,10 +87,11 @@ Violation of this rule is a hard failure regardless of any other outcome.
 
 **Inputs:**
 
-1. `[ExamCode]_[date]_[session]_PYQ_Explanation_Complete.docx` — the PYQ-2 audited
-   explanation document. Attached by user. This is the same input PYQ-3 uses (FORK).
-   ALSO ACCEPTS: `_PYQ_Explanation.docx` (PYQ-1 output, if audit not yet run).
-   The spec prefers the audited version.
+1. `[ExamCode]_[date]_[session]_PYQ_Explanation.docx` — the PYQ-1 explanation
+   document. Attached by user. This is the same input PYQ-3 uses (FORK). STANDARD input
+   (v1.6: PYQ-2 PYQExplainAudit is retired).
+   ALSO ACCEPTS (legacy): `_PYQ_Explanation_Complete.docx` — a pre-v1.6 PYQ-2 audited
+   document. Still a valid explanation doc; accepted unchanged. No longer produced.
 
 2. `exam_config.json` — in project knowledge. Provides `exam_name`, `difficulty_default`
    (fallback "Medium"), `difficulty_labels` (fallback ['Easy','Medium','Hard'] —
@@ -122,8 +133,8 @@ Violation of this rule is a hard failure regardless of any other outcome.
    strings — on load, normalize every per-question map to int keys via
    `{int(k): v}` and perform all lookups with the int question number.
    A key that cannot int-parse → HARD STOP naming the map and the key. Loaded from ONE of these sources (in priority order):
-   a. `pyq_audit_progress.json` sidecar (if PYQ-2 was run)
-   b. `pyq_explain_progress.json` sidecar (PYQ-1's progress file)
+   a. `pyq_explain_progress.json` sidecar (PYQ-1's progress file — the standard source)
+   b. `pyq_audit_progress.json` sidecar (LEGACY — only if a pre-v1.6 PYQ-2 run left one)
    c. Attached by user as a separate JSON file
    If no classification map is found → HARD STOP:
      "q_to_classification map not found. Run PYQExplain first, or attach
@@ -151,15 +162,17 @@ Violation of this rule is a hard failure regardless of any other outcome.
 
 7. `q_to_difficulty` map — OPTIONAL. Per-question {q: label} difficulty map
    from the same progress JSON as q_to_classification (§0 item 3 priority
-   order). Present only if PYQ-1 has performed per-question difficulty
-   assessment (future capability). When present and valid it is Tier 1 of
-   §2-3; when absent PYQ-4 proceeds on Tier 2 with no WARN.
+   order). Produced by PYQ-1 §7A. When present and valid it is Tier 1 of §2-3;
+   when absent PYQ-4 proceeds on Tier 2 with no WARN. NOTE (v1.6): PYQ-2's
+   independent validation of this map (§10A) is retired, so Tier 1 is now
+   PRODUCER-ONLY — PYQ-4 consumes PYQ-1's assessed values directly, after the
+   same membership check in S2-3a. A defective value still falls through safely.
 
 NOT REQUIRED (PYQ-4 does not use mock pipeline outputs):
   ✗ blueprint.json — does not exist for PYQ papers
   ✗ registry.json — does not exist for PYQ papers
   ✗ explain_engine.py — no explanations written or read
-  ✗ explain_audit_gate.py — no audit performed
+  ✗ (no audit is performed by PYQ-4; PYQ-2 PYQExplainAudit and its gate are retired)
   ✗ paper_pipeline.py — filenames derived from the attached document
   (blueprint_core.py IS required from v1.2 — §0 item 6 — but only its pure
    Cluster E scoring functions; none of its allocation machinery runs.)
@@ -182,7 +195,7 @@ PYQ-4 begins on the instruction:
 PYQDeliver
 ```
 
-Attach: the PYQ-2 output (or PYQ-1 output if audit not yet run).
+Attach: the PYQ-1 output `_PYQ_Explanation.docx` (a legacy PYQ-2 `_Complete.docx` is also accepted).
 
 Everything is derived from the attachment and project knowledge:
 
@@ -195,8 +208,8 @@ Everything is derived from the attachment and project knowledge:
    the attached filename."
 
 3. **Input document**: the attached file. Accept either:
-   - `_PYQ_Explanation_Complete.docx` (PYQ-2, preferred)
-   - `_PYQ_Explanation.docx` (PYQ-1, acceptable with WARN)
+   - `_PYQ_Explanation.docx` (PYQ-1 — standard)
+   - `_PYQ_Explanation_Complete.docx` (legacy PYQ-2 audited doc — accepted, no WARN)
    If no matching file attached → HARD STOP: "Attach the PYQ Explanation document."
 
 4. **exam_config.json**: load from project knowledge. Extract `exam_name`,
@@ -557,7 +570,7 @@ artifact is assembled — therefore NEITHER artifact contains date/session tags.
 
 The input document carries a per-question date/session tag paragraph — the
 PYQSort `date_label` line that sits immediately above each Q-stem and rides
-through PYQExplain/PYQExplainAudit unchanged:
+through PYQExplain unchanged:
 
 ```text
 [12-Sep-2025 Shift 1]     (multi-session exam, keyword from exam_config)
@@ -570,7 +583,7 @@ paper's identity is already carried by the output filename and the PYQ
 registry entry. PYQ-4 removes every tag paragraph from the document body.
 
 This section MIRRORS Framework_PYQFormat.md §4 (v1.1) — PYQ-3 and PYQ-4 are
-independent forks of the PYQ-2 output, so each performs its own removal.
+independent forks of the PYQ-1 output, so each performs its own removal.
 CROSS-FILE SYNC RULE: any change to DATE_TAG_RE or the removal algorithm in
 either spec MUST be applied to both in the same session.
 
@@ -663,7 +676,7 @@ After all insertions, `reassign_docpr_ids(root)`.
 
 Same as MockDeliver: detect_header_paras() scans for any non-blank, non-Q-stem paragraphs before Q.1.
 Runs AFTER §4A removal — Q.1's date/session tag has already been removed by
-then, so on a clean PYQ-2 output this finds ZERO (the tag-free document is
+then, so on a clean PYQ-1 output this finds ZERO (the tag-free document is
 questions + explanations only). Any hits are stripped and a REGRESSION ALARM
 is raised in the report. (v1.0 bug, fixed in v1.1: without §4A running first,
 this step mis-fired on Q.1's date label — a legitimate pipeline artifact, not
@@ -785,7 +798,7 @@ def gate_c18(source_docx, integrity_docx, render_source_docx):
     Returns 'validated' or 'degraded'; raises SystemExit on failure.
 
     --original is REQUIRED: it reports only errors NEW relative to the source,
-    so pre-existing quirks in a given exam's PYQ-2 output (frequent across ~200
+    so pre-existing quirks in a given exam's PYQ-1 output (frequent across ~200
     exams with heterogeneous provenance) do not block delivery, while anything
     PYQ-4 introduced does.
     """
@@ -938,9 +951,9 @@ Printed in chat after present_files:
 - **§R6 — PYQ registry.** Papers delivered to date, total questions, corpus progress.
 - **§R7 — Note.** "This is the portal-ready document. Open in Microsoft Word to
   verify. For student download, run PYQ-3 (PYQFormat) separately in a new chat —
-  it takes PYQ-2 output directly."
+  it takes PYQ-1 output directly."
 - **§R8 — Regression alarms.** Any header paragraphs detected and stripped (should
-  be zero on a clean PYQ-2 output).
+  be zero on a clean PYQ-1 output).
 
 ---
 
@@ -1002,8 +1015,8 @@ PYQ-4 is done when **all** hold:
 4. **Paper already delivered (registry)** → WARN + require confirmation. If
    confirmed, re-deliver and update the registry entry.
 
-5. **Input is PYQ-1 output (not PYQ-2)** → ACCEPTED with WARN noting the
-   document has not been audited.
+5. **Input is PYQ-1 output** → the NORMAL input (v1.6: PYQ-2 retired). Accepted
+   with no WARN. A legacy `_PYQ_Explanation_Complete.docx` is equally accepted.
 
 6. **NAT question with bad grading value** → C17 catches it as HARD STOP.
 
@@ -1024,7 +1037,7 @@ PYQ-4 is done when **all** hold:
 
 13. **Already-formatted doc attached by mistake (_PYQ_Formatted.docx)** → Detect
     from filename and HARD STOP: "This is the PYQ-3 formatted document. PYQ-4
-    takes the PYQ-2 output (_PYQ_Explanation_Complete.docx) directly."
+    takes the PYQ-1 output (_PYQ_Explanation.docx) directly."
 
 14. **No date/session tag paragraphs in the document** → WARN (not HALT,
     S4A-3): document may predate tagging or tags were already removed.
@@ -1172,4 +1185,4 @@ RENDER-SAFE FONT STACK:
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.5.2)**
+**End of Framework_PYQDeliver.md (v1.6)**
