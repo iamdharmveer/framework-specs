@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026.08.09.6
+
+### Delivered portal/mock file now preserves native OMML (math-mutation defect fixed)
+
+The reported defect: the delivered `_Final.docx` from both PYQDeliver (PYQ-4) and MockDeliver
+(Step 11) had every native OMML equation flattened to a one-line Unicode text run. ROOT CAUSE:
+both specs delivered the RENDER-SOURCE artifact, whose Rule 19 (OMML -> Unicode linearization)
+destroys all structured math — fractions, radicals, integrals/sums, matrices, sub/superscripts.
+Measured on IIT JAM Physics 15-Feb-2026: 856 native `<m:oMath>` in the input, 0 in the delivered
+file. The two-artifact design's justification (python-docx round-trip corruption) does not apply:
+both steps edit raw `word/document.xml` (unzip->XML->zip) and never round-trip through python-docx,
+so OMML already survives byte-perfect — the INTEGRITY artifact proves it (gate C5: integrity OMML
+count == source). PYQFormat (PYQ-3, student-facing) was already correct and preserves OMML.
+
+FIX (Option A — maximal fidelity): the INTEGRITY artifact (native OMML, tag blocks inserted,
+date/header cleanup applied, NO render transforms) is now THE delivered file in both steps. Rule 19
+linearization is retired; the render-source is no longer built or delivered. Rule 21 (safe-font)
+and Rule 22 (underline recolor) no longer apply to the delivered file. Gate C11 is INVERTED from
+"zero OMML in render-source" to "delivered OMML count == source; zero linearization." The delivered
+file is now byte-identical to the input except the pipeline-mandated tag-block insertion (and
+date/header cleanup). PYQDeliver v1.8 -> v1.9; MockDeliver v1.10.0 -> v1.11.0.
+Framework 2026.08.09.5 -> 2026.08.09.6.
+
+
 ## 2026.08.09.5
 
 ### Question Type is position-based end-to-end (section-determined-MSQ fix; supersedes aborted .4/v1.7)

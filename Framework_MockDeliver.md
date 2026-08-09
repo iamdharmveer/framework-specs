@@ -1,4 +1,29 @@
-# Framework_MockDeliver v1.10.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.11.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.11.0 — 2026-08-09 — DELIVERED FILE NOW PRESERVES NATIVE OMML — the OMML→Unicode
+#   linearization (Rule 19) is RETIRED from the delivery path. ROOT CAUSE of the
+#   reported math-mutation defect: the "WHY THE RENDER-SOURCE DOCX IS SEPARATE"
+#   section + Phase 4/5 named the RENDER-SOURCE docx (every `<m:oMath>` flattened
+#   to a one-line Unicode text run by Rule 19) as the final delivered `_Final.docx`.
+#   That silently DESTROYED all structured math — fractions, radicals,
+#   integrals/sums, matrices, sub/superscripts — in every delivered mock paper.
+#   The two-artifact design was justified by python-docx round-trip corruption, but
+#   Step 11 edits raw `word/document.xml` (unzip→XML→zip) and NEVER round-trips
+#   through python-docx, so OMML already survives byte-perfect: the INTEGRITY
+#   artifact proves it (gate C5: integrity OMML count == source). FIX: Phase 4's
+#   transforms are retired and Phase 5 now delivers the INTEGRITY artifact (native
+#   OMML, tag blocks inserted, headers stripped, NO render transforms) as
+#   `_Final.docx`. The delivered file is byte-identical to the Step-9 Solutions
+#   input except for the pipeline-mandated tag-block insertion (and the safety-net
+#   header strip, which is normally a no-op). CONSEQUENCE: Rule 21 (non-ASCII
+#   safe-font) and Rule 22 (underline recolor) no longer apply to the delivered
+#   file — content fidelity supersedes those portal-cosmetic transforms. Math
+#   preservation is now gated: C5 (unchanged) plus C11 INVERTED from "zero OMML in
+#   render-source" to "delivered OMML count == source; zero linearization." Mirrors
+#   PYQDeliver v1.9, which fixes the identical defect the same way. Touched:
+#   ZERO-MUTATION RULE, the render-source rationale section, DEFINITION OF DONE
+#   (items 5/6/8), preflight step 7, Phase 4 (retired), Phase 5 (delivers
+#   integrity), §6 gates C11/C14/C15, the delivery report, the assembly checklist,
+#   the hard invariants, and Rule 19/21/22 headers (marked RETIRED).
 # v1.10.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
 #   No logic change: preflight already accepted the Step-9 [ExamCode]_[paper_slug]_
 #   Explanation.docx, and that is now the only input that exists. The _Complete filename
@@ -112,54 +137,60 @@ mode-selection rule.
 
 # ★ ZERO-MUTATION RULE — NON-NEGOTIABLE
 
-The content of every question block is SACRED. This step may only:
+The content of every question block is SACRED. This step may only (v1.11.0):
 - **Strip** any residual pre-Q.1 header paragraphs (SAFETY-NET only — the input is
   questions-only per Step 7 R8b / G-PREQ1, so this normally strips nothing; a non-zero
   strip is an upstream regression, flagged in the delivery report. v1.10.0: with the
   Step-8 A-HEADER backstop gone this is the ONLY header strip in the pipeline)
 - **Insert** 5-line tag blocks above each Q-stem (new content only)
-- **Linearize** OMML → Unicode text on the render-source copy only
-- **Re-font** non-ASCII spans to a safe font on the render-source copy only
-- **Recolor** directly-underlined runs in question stems to red FF0000 on the
-  render-source copy only
 
-It **NEVER**:
-- Changes any character in any question stem, option, table, image, or explanation
+Those two edits are the ONLY changes to the delivered file. Nothing else is touched.
+
+It **NEVER** (v1.11.0 — this now holds for the DELIVERED file, not merely an
+undelivered "integrity" copy):
+- **Linearizes, converts, or otherwise rewrites OMML math.** Every `<m:oMath>` is
+  preserved byte-for-byte; the delivered OMML count equals the source (gates
+  C5 + C11). The v1.10.0-and-earlier OMML→Unicode linearization (Rule 19) is
+  RETIRED from the delivery path.
+- **Re-fonts or recolors** any run. Rule 21 (non-ASCII safe-font) and Rule 22
+  (underline recolor) are no longer applied to the delivered file (Phase 4 retired).
+- Changes any character in any question stem, option, table, image, chart, or explanation
 - Reorders questions
 - Removes, rewrites, or paraphrases any content
-- Modifies the integrity artifact in any way other than stripping residual headers
-  (safety-net) and inserting tag blocks
 - Drops or reorders the document root's namespace declarations, or lets mc:Ignorable
   name a prefix that is not declared (v1.3 — see the FOURTH hard invariant)
 
 Violation of this rule is a hard failure regardless of any other outcome.
 
+DELIVERED FILE = STEP-9 SOLUTIONS INPUT + (tag blocks). Byte-identical otherwise —
+math, options, images, tables, charts, fonts, and colours all preserved exactly.
+
 ---
 
-# ★ WHY THE RENDER-SOURCE DOCX IS SEPARATE FROM THE INTEGRITY ARTIFACT
+# ★ THE DELIVERED FILE IS THE INTEGRITY ARTIFACT (NATIVE OMML) — v1.11.0
 
-Three empirically verified facts drive the two-artifact design (inherited from
-the verified Tier-1 and Tier-2 pipelines):
+Earlier versions built TWO artifacts and delivered the linearized one. That was
+the math-destruction defect. The reasoning behind it does not survive scrutiny:
 
-**Fact 1:** A naive python-docx round-trip on a docx containing `<m:oMath>` can
-SILENTLY CORRUPT EVERY MATH ELEMENT. Raw OMML must therefore be linearized to
-Unicode text in the render-source copy before delivery. The integrity artifact
-keeps OMML untouched for archival fidelity.
+**Fact 1 (historical):** A naive python-docx ROUND-TRIP on a docx containing
+`<m:oMath>` can silently corrupt every math element. **But Step 11 does NOT
+round-trip through python-docx** — it edits raw `word/document.xml` and re-zips
+(Phases 3/5). OMML therefore survives the pipeline byte-perfect, PROVEN by the
+integrity artifact every prior version already built and gated (C5: integrity
+OMML count == source). There is no corruption to defend against, so there is
+nothing to linearize.
 
-**Fact 2:** Plain Unicode text runs survive all downstream tooling perfectly —
-visually and as extractable, copyable text.
+**Fact 2:** Native OMML is standard Word math and renders in Word and any
+Word-based portal. The student-facing PYQ pipeline (PYQFormat) already delivers
+native OMML to end users, so native math is a proven downstream contract.
 
-**Fact 3:** A non-ASCII glyph in a run tagged with Arial/Times/Courier can corrupt
-the text layer even though it displays correctly. Re-tagging the non-ASCII span to
-a glyph-verified safe font makes the text extract byte-identical.
+Therefore v1.11.0 delivers ONE artifact — the **integrity artifact** — carrying
+native OMML untouched, with tag blocks inserted and the safety-net header strip
+applied. Phase 4's render transforms (Rule 19 linearization, Rule 22 recolor,
+Rule 21 safe-font) are RETIRED; no render-source docx is built or delivered.
 
-Therefore Step 11 uses a **two-artifact model**: build a byte-perfect content docx
-(the *integrity artifact*, carrying native OMML untouched), then build a separate
-*render-source docx* in which every OMML zone is linearized to a Unicode text run
-and every non-ASCII span is re-fonted to a glyph-verified safe font. **The
-render-source docx is the final delivered file.**
-
-**No `soffice`, no `pdftotext`, no `pypdf` required.**
+**The integrity artifact IS the final delivered file (`_Final.docx`). No
+`soffice`, no `pdftotext`, no `pypdf`, and no OMML linearization.**
 
 ---
 
@@ -177,13 +208,13 @@ The output Word document is NOT finished until ALL hold:
 3. **Zero content mutation** — no character changed in any question, option, image,
    table, or explanation.
 4. **All 16 audit gates pass** (§6) — run before docx delivery.
-5. **Math as Unicode text** — zero `<m:oMath>` in render-source docx; every
-   linearized string is copy-paste–correct.
-6. **Symbols as Unicode text** — every non-ASCII codepoint in the source survives
-   copy-paste with exact codepoint.
+5. **Math preserved as native OMML** — the delivered docx's `<m:oMath>` count
+   equals the source (C5/C11). ZERO linearization (v1.11.0).
+6. **Symbols preserved** — every non-ASCII codepoint in the source survives in the
+   delivered file with the exact codepoint (no safe-fonting applied; C14).
 7. **Tag values are JOIN-verified** — every Subject/Topic/Subtopic/Question Type/
    Complexity value traces to a registry + blueprint JOIN, not to content inference.
-8. **Output is a .docx file** — the render-source docx assembled per §5 pipeline.
+8. **Output is a .docx file** — the integrity docx assembled per §5 Phase 5.
 9. **`present_files` called** immediately after docx verified — before any other output.
 10. **In-chat delivery report** printed after `present_files` (§8).
 11. **Opens clean in Microsoft Word** — the delivered docx opens with NO "unreadable
@@ -252,14 +283,11 @@ Parse:
    (Gate C16(b) needs this pristine pre-edit source to prove the delivered file
    dropped no root namespaces.)
 
-7. Verify the render-safe font stack is installed:
-     DejaVu Sans  /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-     FreeSans     /usr/share/fonts/truetype/freefont/FreeSans.ttf
-   FreeSans covers section markers absent from DejaVu Sans (❌ U+274C, ⬛ U+2B1B,
-   ✅ U+2705, and similar). If FreeSans is missing, INSTALL it before proceeding
-   (e.g. `apt-get install -y fonts-freefont-ttf`) — otherwise those glyphs render
-   as tofu (Rule 21 / v1.3 fix 6). Verify fontTools importable for the Rule 21
-   coverage probe. (soffice, pdftotext, pypdf are NOT required.)
+7. (v1.11.0: safe-fonting is RETIRED, so no render-safe font stack is required
+   for delivery — the delivered file keeps the input's original fonts. This step
+   is now advisory only: if you separately render a preview you may want DejaVu
+   Sans / FreeSans installed, but delivery does not depend on it, and soffice,
+   pdftotext, pypdf are NOT required.)
 
 8. Parse the docx with lxml via zipfile. Confirm document.xml parses cleanly.
 
@@ -476,11 +504,12 @@ Correct Answer: K                ← bold, color NAVY 003366
 - Other colors may be present per exam — all preserved byte-identical
 
 **OMML locations:** question stems, options, explanation sentences, WHY WRONG
-option clones. All must be linearized in the render-source.
+option clones. All are PRESERVED byte-for-byte in the delivered file (v1.11.0 —
+never linearized).
 
 **Section-marker glyphs** (❌ ⬛ ✅ ⚡ and similar) live in the explanation blocks.
-They are non-ASCII and are handled by Rule 21's per-codepoint safe-font selection —
-see §7 Rule 21 (v1.3 fix 6).
+They are non-ASCII and are PRESERVED in their original font (v1.11.0 — Rule 21
+safe-fonting retired; the input already carries them in a Word-openable file).
 
 ---
 
@@ -914,40 +943,32 @@ Run on the integrity docx. All 10 gates must pass. See §6 (C1–C10).
 Any FAIL → fix and re-run. Never proceed to Phase 4 with a failing integrity
 artifact.
 
-## Phase 4 — Build render-source docx
+## Phase 4 — Prepare the delivered tree (v1.11.0 — render transforms RETIRED)
 
 ```python
-# Deepcopy the integrity document.xml tree. Because FIX 1 removed the Phase 3
-# cleanup_namespaces() call, `root` still carries ALL of its original root xmlns
-# declarations here, so render_root inherits a complete, valid namespace set.
+import copy
+
+_M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+
+# v1.11.0: the delivered file is the INTEGRITY artifact with NATIVE OMML.
+# No linearization (Rule 19), no underline recolor (Rule 22), no safe-font
+# (Rule 21). render_root is an UNTRANSFORMED copy of the integrity tree, so
+# Phase 5's existing assembly delivers native math unchanged.
 render_root = copy.deepcopy(root)
 
-# Step 4a — Rule 19: OMML → Unicode text (math-as-text)
-omml_count, linearized_strings = replace_omath_with_text(render_root,
-                                                          font='DejaVu Sans')
-
-# Step 4b — Rule 22: Underlined stem text → red FF0000
-recolored_count = recolor_underlined_stems(render_root, color='FF0000')
-
-# Step 4c — Rule 21: Non-ASCII spans → per-codepoint safe font (FIX 6)
-runs_split, unresolved = apply_symbol_safe_font(render_root,
-                                                 default_font='DejaVu Sans')
-if unresolved:
-    # These codepoints are covered by NO font in _SAFE_STACK. Rule 21 (v1.3)
-    # LEAVES them in their original font so Word can font-substitute rather than
-    # forcing a font known to lack the glyph. Surface them in the delivery report;
-    # not a HARD STOP (the codepoint survives in the text layer), but the font may
-    # not render it visually. If a marker is affected, install a covering font
-    # (e.g. add Noto Sans Symbols to the preflight font set) and re-run.
-    print(f"WARNING: {len(unresolved)} non-ASCII codepoints covered by no safe font:")
-    for c in sorted(unresolved, key=ord):
-        print(f"  U+{ord(c):04X} '{c}'")
+# OMML is PRESERVED, not linearized. Counts below are for the delivery report
+# and gate C11 (which now asserts preservation, not elimination).
+omml_count = len(render_root.findall(f'.//{{{_M_NS}}}oMath'))   # == source (C5/C11)
+linearized_strings = []   # nothing linearized
+recolored_count = 0       # Rule 22 retired
+runs_split, unresolved = 0, []   # Rule 21 retired
 ```
 
-## Phase 5 — Assemble and deliver render-source docx
+## Phase 5 — Assemble and deliver the docx (native OMML preserved)
 
 ⚠️ **v1.3 / FIX 1 + FIX 3 applied below** (same as Phase 3). This is the
-DELIVERED file — the corruption the learner saw came from this assembly.
+DELIVERED file. v1.11.0: `render_root` is the untransformed integrity tree, so
+this assembly ships native OMML.
 
 ```python
 render_out_path = f'/home/claude/deliver_work/out/{EXAM}_{paper_slug}_Final.docx'  # C3
@@ -973,8 +994,8 @@ shutil.copy(render_out_path,
             f'/mnt/user-data/outputs/{EXAM}_{paper_slug}_Final.docx')  # C3
 ```
 
-**The render-source docx IS the final delivered file. No `soffice` conversion
-is performed.**
+**The integrity artifact (native OMML) IS the final delivered file. No `soffice`
+conversion is performed.**
 
 ---
 
@@ -1014,38 +1035,36 @@ in the ZIP. Zero dangling relationships and zero dangling Overrides.
 **C10** No blank Subject/Topic/Subtopic/Question Type/Complexity tag value
 (every field non-empty for all tag blocks).
 
-**Docx math/symbol-text gate — render-source docx (after Phase 5 assembly):**
+**Docx math/symbol gate — delivered docx (after Phase 5 assembly; v1.11.0):**
 
-**C11** Math conservation: `omml_count` returned by `replace_omath_with_text`
-== `<m:oMath>` count from C5; render-source `document.xml` contains **zero**
-residual `<m:oMath>` elements after linearization.
+**C11** Math PRESERVATION (INVERTED, v1.11.0): the delivered `document.xml`
+`<m:oMath>` count == `<m:oMath>` count from C5 (== source). `omml_count` from
+Phase 4 equals that count and `linearized_strings` is empty. ZERO linearization;
+NO `<m:oMath>` was replaced by text. A shortfall is a HARD STOP — it means math
+was lost.
 
-**C12** Render-source docx opens as a valid ZIP; `document.xml` in
-render-source parses without error.
+**C12** Delivered docx opens as a valid ZIP; `document.xml` parses without error.
 
-**C13** Text conservation in render-source: every `Q.N` (N=1..total_questions)
+**C13** Text conservation in the delivered docx: every `Q.N` (N=1..total_questions)
 present; total_questions occurrences each of `Subject:`, `Topic:`, `Subtopic:`,
 `Question Type:`, `Complexity:`; `Correct Answer:` count matches source; zero
 header paragraphs.
 
-**C14** Math + symbol round-trip: read all `<w:t>` text from render-source
-`document.xml`; collapse runs of whitespace; assert both:
-  - **(a)** Every linearized math string from `linearized_strings` appears
-    **verbatim** in the normalized extracted text. Codepoints exact: `³`=U+00B3,
-    `²`=U+00B2, `−`=U+2212, never `a 3` or hyphen `-`.
-  - **(b)** Every non-ASCII codepoint present in the source body appears in the
-    render-source with the **exact codepoint**.
+**C14** Symbol + math round-trip (v1.11.0): every non-ASCII codepoint present in
+the source body appears in the delivered file with the **exact codepoint**, AND
+native math subtrees are byte-identical to the source (no `<m:t>` math text
+altered, no OMML replaced by `<w:t>` runs). No Unicode linearization is expected
+or permitted.
 
-**C15** Stem-underline recolor (Rule 22): in the render-source, every
-directly-underlined run inside a stem region carries `w:color="FF0000"`;
-zero color changes on options, explanation blocks, tag headers, or table
-contents; NAVY `003366` Correct Answer color count unchanged.
+**C15** No stray recolor (v1.11.0, repurposed): the delivered docx introduces NO
+colour change vs source — no FF0000 recolor is applied to any run; NAVY `003366`
+Correct Answer colour count unchanged. (Rule 22 is retired; this gate now asserts
+colours were left alone.)
 
-**Docx namespace/reference/order integrity gate — render-source docx (v1.3):**
+**Docx namespace/reference/order integrity gate — delivered docx (v1.3):**
 
 **C16** Namespace + reference + tag-order integrity (FIX 5). Run on the DELIVERED
-render-source docx. Needs the pristine pre-edit source from `inputs_safe/` for
-C16(b).
+docx. Needs the pristine pre-edit source from `inputs_safe/` for C16(b).
 
   - **C16(a) — mc:Ignorable coverage:** every prefix token in the output root's
     `mc:Ignorable` MUST be declared as `xmlns:<prefix>` on that root.
@@ -1058,7 +1077,7 @@ C16(b).
   - **C16(d) — tag-block order:** for every inserted tag paragraph, `pPr` children
     must be `[spacing, jc]` in that order (guards FIX 2, which C16(a–c) cannot see).
 
-**Portal grading-value charset gate — render-source docx (v1.8, last-mile defense-in-depth):**
+**Portal grading-value charset gate — delivered docx (v1.8, last-mile defense-in-depth):**
 
 **C17** NAT Correct-Answer portal charset (part of the same defect chain as
 Framework_MockTestCreate.md v5.25/v5.26 and explain_engine.py v1.16/v1.17). Runs on the
@@ -1160,19 +1179,27 @@ def gate_c17_natcharset(out_docx, tag_lookup):
 Any C16 or C17 FAIL → HARD STOP (fix and re-run).
 
 **Optional stronger gate — OOXML XSD validation (recommended for a 200-exam guarantee):**
-If the OOXML `wml.xsd` schema set is available in the environment, validate
-render-source `word/document.xml` against it with `lxml.etree.XMLSchema`. A schema
+If the OOXML `wml.xsd` schema set is available in the environment, validate the
+delivered `word/document.xml` against it with `lxml.etree.XMLSchema`. A schema
 failure is a HARD STOP. This catches element-order and structural violations that the
 targeted gates above may not enumerate. If the XSD is not present, skip (do not block),
 and rely on C16 + the mandatory Word open (§10 step 13).
 
 ---
 
-# §7 — RULE IMPLEMENTATIONS (verified helpers from Tier-1/Tier-2 pipeline)
+# §7 — RULE IMPLEMENTATIONS (RETIRED v1.11.0 — kept for reference only)
 
-## Rule 19 — OMML → Selectable Unicode Text
+**RETIRED (v1.11.0).** Rules 19, 22, and 21 are NO LONGER APPLIED to the delivered
+file. The delivered file is the integrity artifact with native OMML and the
+input's original fonts/colours (Phase 4). These helper definitions are retained
+only so historical references to `replace_omath_with_text`, `recolor_underlined_stems`,
+`apply_symbol_safe_font`, and Rule 19/21/22 continue to resolve, and so an operator
+who wants the optional "Option B" variant (native OMML + red-underline emphasis)
+can reinstate Rule 22 selectively. Do NOT call them in the standard delivery path.
 
-Operates on the render-source deepcopy only. Never the integrity artifact.
+## Rule 19 — OMML → Selectable Unicode Text — RETIRED
+
+RETIRED (v1.11.0). Operated on the render-source deepcopy only. Never applied now.
 
 ```python
 M_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
@@ -1502,13 +1529,11 @@ Header regression : none      (or: ⚠ REGRESSION ALARM — [count] pre-Q.1 para
                                should be questions-only (Step 7 R8b/G-PREQ1).
                                Re-run Step 7 on the upstream paper.)
 
-OMML zones linearized : [count]
-Non-ASCII codepoints  : [count] unique; all survived docx text-layer check
-Runs re-fonted (R21)  : [count]
-Stem-underline recolor (R22): [count] runs recolored red
-Unresolved glyph defects: none  (or: list of U+XXXX codepoints covered by no safe
-                               font — left in original font for Word substitution;
-                               install a covering font and re-run if a marker shows)
+OMML preserved (native)  : [count]  (== source; ZERO linearized — v1.11.0)
+Non-ASCII codepoints     : [count] unique; all preserved with exact codepoint
+Runs re-fonted (R21)     : 0  (Rule 21 retired — safe-fonting not applied)
+Stem-underline recolor (R22): 0  (Rule 22 retired — no recolor applied)
+Content edits            : tag blocks inserted + safety-net header strip ONLY
 
 Namespace/reference (C16): superset OK · mc:Ignorable covered · 0 dangling refs · tag order OK
 
@@ -1588,9 +1613,10 @@ inserts tags.
 
 ## EC-5 — Zero OMML in source docx
 
-If the Solutions docx has no `<m:oMath>` elements (pure text exam),
-`replace_omath_with_text` returns `(0, [])`. C5 passes (0 == 0). C11 passes
-(0 replaced, 0 residual). C14(a) is trivially satisfied (empty list).
+If the Solutions docx has no `<m:oMath>` elements (pure text exam), `omml_count`
+(Phase 4) is 0. C5 passes (0 == 0). C11 passes (0 preserved == 0 source; nothing
+linearized). C14 is trivially satisfied. (v1.11.0: no linearization is performed
+in any case.)
 
 ## EC-6 — Missing question_index for mock N
 
@@ -1678,16 +1704,17 @@ when in position-based mode. No warning is logged; this is not a data-quality si
      cleanup_namespaces — FIX 1; double-quoted XML decl; ZIP_STORED structural parts).
 7. ☐ Phase 3.5: run content-integrity gate C1–C10 (C9 now checks for dangling
      references). All must PASS. Fix and re-run if any FAIL.
-8. ☐ Phase 4: deepcopy integrity tree → render-source. Apply Rule 19
-     (OMML→Unicode). Apply Rule 22 (stem underline → red). Apply Rule 21
-     (non-ASCII → per-codepoint safe font — FIX 6).
-9. ☐ Phase 5: assemble render-source docx ZIP (KEEP webSettings.xml — FIX 3; NO
-     cleanup_namespaces — FIX 1). Copy to
+8. ☐ Phase 4 (v1.11.0): deepcopy integrity tree → render_root UNTRANSFORMED.
+     Rules 19/22/21 RETIRED — NOT applied. Compute omml_count (== source) for the
+     report; linearized_strings=[], recolored_count=0.
+9. ☐ Phase 5: assemble the docx ZIP from render_root (native OMML) (KEEP
+     webSettings.xml — FIX 3; NO cleanup_namespaces — FIX 1). Copy to
      `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Final.docx`.
-10. ☐ Run docx gate C11–C17 on the DELIVERED render-source docx (C16 = namespace +
-     reference + tag-order integrity, needs the inputs_safe/ source for C16(b); C17 = NAT
-     portal grading-value charset, needs `tag_lookup` — already built at Preflight, never
-     re-derived). Optionally validate document.xml against the OOXML wml.xsd if present. Any
+10. ☐ Run docx gate C11–C17 on the DELIVERED docx (C11 = OMML PRESERVED: delivered
+     count == source, v1.11.0; C16 = namespace + reference + tag-order integrity,
+     needs the inputs_safe/ source for C16(b); C17 = NAT portal grading-value
+     charset, needs `tag_lookup` — already built at Preflight, never re-derived).
+     Optionally validate document.xml against the OOXML wml.xsd if present. Any
      FAIL → HARD STOP, fix and re-run.
 11. ☐ `present_files([output_path])`.
 12. ☐ Print delivery report (§8).
@@ -1698,19 +1725,19 @@ when in position-based mode. No warning is logged; this is not a data-quality si
 
 ---
 
-*End of Framework_MockDeliver v1.4*
+*End of Framework_MockDeliver v1.11.0 (body)*
 
-*Four hard invariants: (1) never deliver a render-source docx that still
-contains raw OMML — linearize ALL `<m:oMath>` via Rule 19 before assembling
-the render-source ZIP; (2) every equation in the delivered docx must survive
-copy-paste as proper Unicode (a³, never `a 3`) — verified by reading `<w:t>`
-text from render-source document.xml; (3) every tag value must trace to a
-registry + blueprint JOIN — Step 11 never infers Subject/Topic/Subtopic/
-Question Type/Complexity from question content; (4) never drop or reorder the
-document root's namespace declarations, and never let mc:Ignorable name a prefix
-that is not declared — do NOT run etree.cleanup_namespaces() on a Word document;
-validate with gate C16 and confirm in Microsoft Word itself (python-docx /
-LibreOffice accept namespace-broken files that Word rejects).*
+*Four hard invariants: (1) NEVER linearize OMML — deliver native `<m:oMath>`
+byte-for-byte; the delivered docx's OMML count MUST equal the source (gates
+C5/C11), and no `<m:oMath>` is ever replaced by a `<w:t>` run (v1.11.0); (2)
+every equation in the delivered docx is the source's own native OMML, unchanged —
+verified by the C11 count-equality and C14 math-subtree check; (3) every tag value
+must trace to a registry + blueprint JOIN — Step 11 never infers Subject/Topic/
+Subtopic/Question Type/Complexity from question content; (4) never drop or reorder
+the document root's namespace declarations, and never let mc:Ignorable name a
+prefix that is not declared — do NOT run etree.cleanup_namespaces() on a Word
+document; validate with gate C16 and confirm in Microsoft Word itself (python-docx
+/ LibreOffice accept namespace-broken files that Word rejects).*
 
 ---
 
@@ -1733,4 +1760,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.10.0
+# END OF Framework_MockDeliver v1.11.0

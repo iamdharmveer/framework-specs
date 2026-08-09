@@ -1,4 +1,29 @@
-# Framework_PYQDeliver v1.8 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.9 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.9 — 2026-08-09 — DELIVERED FILE NOW PRESERVES NATIVE OMML — the OMML→Unicode
+#   linearization (Rule 19) is RETIRED from the delivery path. ROOT CAUSE of the
+#   reported defect: §4-S4-2 named the RENDER-SOURCE artifact (every `<m:oMath>`
+#   flattened to a one-line Unicode text run by S6-1/Rule 19) as the delivered
+#   `_PYQ_Final.docx`. That silently DESTROYED all structured math — fractions,
+#   radicals, integrals/sums, matrices, sub/superscripts — in the portal file
+#   (measured on IIT JAM Physics 15-Feb-2026: 856 native `<m:oMath>` in the input,
+#   0 in the delivered file). The two-artifact design was justified (S4-1 Fact 1)
+#   by python-docx round-trip corruption — but PYQ-4 edits raw document.xml
+#   (unzip→XML→zip, §3) and NEVER round-trips through python-docx, so OMML already
+#   survives the pipeline byte-perfect: the INTEGRITY artifact proves it (gate C5:
+#   integrity OMML count == source). FIX: the INTEGRITY artifact (native OMML, tag
+#   blocks inserted, date/session tags removed, NO render transforms) is now THE
+#   delivered file. Rule 19 linearization is retired; the render-source is no longer
+#   built or delivered. The delivered file is therefore byte-identical to the input
+#   except for the two pipeline-mandated edits (§4A date-tag removal + §5 tag-block
+#   insertion). CONSEQUENCE: the render-only transforms Rule 21 (non-ASCII safe-font)
+#   and Rule 22 (underline recolor) no longer apply to the delivered file — content
+#   fidelity supersedes those portal-cosmetic transforms. Math preservation is now
+#   gated: C5 (unchanged) guards the delivered OMML count == source, and C11 is
+#   INVERTED from "zero OMML in render-source" to "delivered OMML count == source;
+#   zero linearization." Mirrors MockDeliver v1.11.0, which fixes the identical
+#   defect the same way. Touched: ZERO-MUTATION RULE, §0 outputs, §3, §4 (S4-1/S4-2),
+#   §6 (retired), §7 (C11 inverted; C14/C15 repurposed; "both artifacts" prose),
+#   §10 §R4/§R5, §11 (done + invariants), §12 case 7, §13 S13-1/S13-2, Appendix A.
 # v1.8 — 2026-08-09 — QUESTION TYPE IS NOW POSITION-BASED (three-tier), closing the
 #   section-determined-MSQ portal defect for real. SUPERSEDES the aborted v1.7 (never
 #   deployed). v1.7 tried to fix this by CONSUMING a `qtype` map it claimed PYQExplain
@@ -56,10 +81,11 @@
 # PURPOSE
 # ════════════════════════════════════════════════════════════════════════
 #   Take the audited PYQ explanation document, JOIN per-question metadata
-#   from the classification map, INSERT portal tag blocks, apply render-safe
-#   transforms, and deliver a tagged, upload-ready Word document for the
-#   distribution portal. This is the portal-facing counterpart to PYQ-3
-#   (which produces the student-facing download).
+#   from the classification map, INSERT portal tag blocks, and deliver a tagged,
+#   upload-ready Word document for the distribution portal — WITH ALL ORIGINAL
+#   CONTENT PRESERVED, including native OMML math (v1.9: no linearization, no
+#   render transforms). This is the portal-facing counterpart to PYQ-3 (which
+#   produces the student-facing download).
 
 # ════════════════════════════════════════════════════════════════════════
 # PIPELINE POSITION (PYQ Explanation Pipeline)
@@ -90,24 +116,33 @@
 
 # ★ ZERO-MUTATION RULE — NON-NEGOTIABLE
 
-The content of every question block is SACRED. PYQ-4 may only:
+The content of every question block is SACRED. PYQ-4 may only (v1.9):
 - **Remove** the per-question date/session tag paragraphs (§4A) — the ONLY
   element ever deleted, matched by an anchored full-paragraph regex (v1.1)
 - **Insert** 5-line tag blocks before each Q-stem (new content only)
-- **Linearize** OMML → Unicode text on the render-source copy only
-- **Re-font** non-ASCII spans to a safe font on the render-source copy only
-- **Recolor** directly-underlined runs in question stems to red FF0000 on the
-  render-source copy only
 
-It **NEVER**:
-- Changes any character in any question stem, option, table, image, or explanation
+Those two edits are the ONLY changes PYQ-4 makes to the delivered file. Nothing
+else in the body is touched.
+
+It **NEVER** (v1.9 — this now holds for the DELIVERED file, not merely an
+undelivered "integrity" copy):
+- **Linearizes, converts, or otherwise rewrites OMML math.** Every `<m:oMath>`
+  is preserved byte-for-byte; the delivered OMML count equals the source
+  (gates C5 + C11). The v1.8-and-earlier OMML→Unicode linearization (Rule 19)
+  is RETIRED from the delivery path.
+- **Re-fonts or recolors** any run. Rule 21 (non-ASCII safe-font) and Rule 22
+  (underline recolor) are no longer applied to the delivered file (§6 retired).
+- Changes any character in any question stem, option, table, image, chart, or
+  explanation
 - Reorders questions
 - Removes, rewrites, or paraphrases any content other than the date/session
   tag paragraphs sanctioned by §4A
-- Modifies the integrity artifact in any way other than removing date/session
-  tag paragraphs (§4A) and inserting tag blocks
 
 Violation of this rule is a hard failure regardless of any other outcome.
+
+DELIVERED FILE = INPUT + (§5 tag blocks) − (§4A date/session tags). Byte-identical
+otherwise — math, options, images, tables, charts, fonts, and colours all
+preserved exactly as the input carried them.
 
 ---
 
@@ -225,10 +260,12 @@ NOT REQUIRED (PYQ-4 does not use mock pipeline outputs):
 
 **Outputs:**
 
-- `[ExamCode]_[date]_[session]_PYQ_Final.docx` — the tagged, render-safe document
-  for portal upload. Every Q-stem preceded by 5 tag lines. Per-question
-  date/session tag paragraphs removed (§4A). OMML linearized to Unicode.
-  Non-ASCII safe-fonted. Underlined stems recolored red.
+- `[ExamCode]_[date]_[session]_PYQ_Final.docx` — the tagged document for portal
+  upload. Every Q-stem preceded by 5 tag lines. Per-question date/session tag
+  paragraphs removed (§4A). NATIVE OMML PRESERVED (v1.9) — no linearization, no
+  safe-fonting, no underline recolor. The delivered file is the INTEGRITY
+  artifact: byte-identical to the input except for §5 tag blocks and §4A date-tag
+  removal.
 - Updated `[ExamCode]_pyq_registry.json` — PYQ corpus progress tracker (§8).
 
 ---
@@ -285,7 +322,8 @@ Everything is derived from the attachment and project knowledge:
 7. **Preflight checks**: same structural validations as MockDeliver S1-2:
    - Q-stems match q_re and count equals Q_TOTAL
    - Q-numbers are 1..Q_TOTAL continuous, no gaps
-   - Render-safe font stack installed (DejaVu Sans, FreeSans)
+   - (v1.9: safe-fonting is retired, so no font-stack install is required for
+     delivery; the delivered file keeps the input's fonts)
    - document.xml parses cleanly
 
 ---
@@ -643,14 +681,17 @@ PYQ-4 is a SINGLE-PASS transformation. No batching, no multi-turn:
 1. create_file  → write complete pyq_deliver_pipeline.py
 2. bash_tool    → run it (parse → remove date/session tags (§4A) →
                   build tag lookup → insert tags →
-                  build integrity artifact → render transforms →
-                  build render-source → validate all gates)
+                  build the DELIVERED artifact (native OMML, tag blocks, NO
+                  render transforms) → validate all gates)
 3. bash_tool    → final gate checks + PYQ registry update
 4. present_files → deliver [ExamCode]_[date]_[session]_PYQ_Final.docx
+                  (the integrity artifact — native OMML preserved)
 ```
 
-Uses the same `unzip → XML edit → zip` approach as MockDeliver. The two-artifact
-model (integrity + render-source) is identical.
+Uses the same `unzip → XML edit → zip` approach as MockDeliver — raw document.xml
+editing that NEVER round-trips through python-docx, so OMML survives byte-perfect.
+v1.9: a single delivered artifact (the integrity artifact). The former
+render-source (OMML linearized) is RETIRED — not built, not delivered.
 
 ---
 
@@ -658,27 +699,38 @@ model (integrity + render-source) is identical.
 
 Same architecture as MockDeliver, adapted for PYQ:
 
-## S4-1 — Why two artifacts
+## S4-1 — Single delivered artifact (v1.9)
 
-Three empirically verified facts drive the two-artifact design:
+Earlier versions built TWO artifacts and delivered the linearized one. That was
+the defect: it destroyed native math in the portal file. The reasoning behind it
+does not survive scrutiny for PYQ-4:
 
-1. A naive python-docx round-trip on a docx containing `<m:oMath>` can SILENTLY
-   CORRUPT every math element. OMML must be linearized to Unicode text in the
-   render-source before delivery. The integrity artifact keeps OMML untouched.
-2. Plain Unicode text runs survive all downstream tooling perfectly.
-3. A non-ASCII glyph in a run tagged with Arial/Times can corrupt the text layer.
-   Re-tagging to a safe font fixes this.
+1. The historical justification was that a naive python-docx ROUND-TRIP on a docx
+   containing `<m:oMath>` can silently corrupt every math element. But PYQ-4 does
+   NOT round-trip through python-docx — it edits raw `word/document.xml` and
+   re-zips (§3). OMML therefore survives the pipeline byte-perfect, PROVEN by the
+   integrity artifact every prior version already built and gated (C5: integrity
+   OMML count == source). There is no corruption to defend against, so there is
+   nothing to linearize.
+2. Native OMML is standard Word math and renders in Word and any Word-based
+   portal. The student-facing PYQ-3 (PYQFormat) already delivers native OMML to
+   end users (its OMML-count-equality gate), so native math is a proven
+   downstream contract, not a risk.
 
-## S4-2 — Artifact definitions
+Therefore v1.9 delivers ONE artifact — the integrity artifact — and retires the
+render-source and its transforms entirely.
 
-- **Integrity artifact**: byte-perfect content docx with native OMML, tag blocks
-  inserted but no render transforms applied. Used for validation (gates C1-C10).
-  NOT delivered.
-- **Render-source artifact**: tag blocks + OMML linearized + safe-font + underline
-  recolor. THIS is the delivered file (`_PYQ_Final.docx`).
+## S4-2 — Artifact definition (v1.9)
 
-Date/session tag removal (§4A) runs on the working body BEFORE the integrity
-artifact is assembled — therefore NEITHER artifact contains date/session tags.
+- **Delivered artifact (the integrity artifact)**: byte-perfect content docx with
+  NATIVE OMML untouched, tag blocks inserted, date/session tags removed, and NO
+  render transforms. Validated by C1-C10, C16, C17, C18. THIS is the delivered
+  file (`_PYQ_Final.docx`).
+- **Render-source artifact**: RETIRED (v1.9). No OMML linearization, no
+  safe-font, no underline recolor is performed, and no second artifact is built.
+
+Date/session tag removal (§4A) runs on the working body BEFORE the delivered
+artifact is assembled — so the delivered file contains no date/session tags.
 
 ---
 
@@ -800,25 +852,30 @@ a regression — while Q.2..Qn labels were left in the delivered document.)
 
 ---
 
-# §6 — Render transforms
+# §6 — Render transforms — RETIRED (v1.9)
 
-Applied to the render-source artifact only. Same transforms as MockDeliver:
+The entire §6 render-transform stage is RETIRED. None of these transforms is
+applied to the delivered file. The delivered file is the integrity artifact,
+carrying native OMML and the input's original fonts/colours (see §4). The
+subsections are retained only so historical §6/S6-N and Rule 19/21/22 references
+elsewhere in the corpus continue to resolve.
 
-## S6-1 — Rule 19: OMML → Unicode text
+## S6-1 — Rule 19: OMML → Unicode text — RETIRED
 
-Replace every `<m:oMath>` with a Unicode text run. Each linearized string is
-copy-paste–correct. Font: DejaVu Sans.
+NOT PERFORMED (v1.9). Every `<m:oMath>` is preserved byte-for-byte. This is the
+single change that fixes the math-destruction defect: math is never linearized.
 
-## S6-2 — Rule 22: Underlined stem recolor
+## S6-2 — Rule 22: Underlined stem recolor — RETIRED
 
-Directly-underlined runs in Q-stem regions → red FF0000. Only stem regions —
-options, explanations, tag blocks are not touched.
+NOT PERFORMED (v1.9). Underlined stem runs keep their input colour. (A portal
+that wants red-underline emphasis can request the optional Option-B variant,
+which reintroduces this transform while still preserving native OMML.)
 
-## S6-3 — Rule 21: Non-ASCII safe-font
+## S6-3 — Rule 21: Non-ASCII safe-font — RETIRED
 
-Per-codepoint font selection from the safe font stack (DejaVu Sans + FreeSans).
-Section markers (❌ ⬛ ✅ ⚡) are covered by FreeSans. Codepoints no stacked font
-covers keep their original font (Word substitutes) and are logged.
+NOT PERFORMED (v1.9). Runs keep the input's original fonts. The input is an
+already-valid, Word-openable PYQ-1 artifact whose glyphs render as-is; C18
+re-proves package validity of the delivered file against the source.
 
 ---
 
@@ -858,21 +915,27 @@ The membership vocabulary is the §0 item 2 value including its
 ['Easy','Medium','Hard'] fallback, so C10 always has a vocabulary to
 check against — there is no degraded mode.
 
-**Render-source gates:**
+**Delivered-file math/text gates (v1.9 — the delivered file is the integrity artifact):**
 
-**C11** Math conservation: OMML count from C5 == linearized count; zero residual
-`<m:oMath>` in render-source.
+**C11** Math PRESERVATION (INVERTED, v1.9): the delivered file's `<m:oMath>`
+count == source count (== C5). ZERO linearization; NO `<m:oMath>` was replaced
+by text. This gate now guarantees native math is intact rather than eliminated.
+A shortfall is a HARD STOP — it means math was lost.
 
-**C12** Render-source docx valid ZIP; document.xml parses.
+**C12** Delivered docx valid ZIP; document.xml parses. (Covered for the delivered
+integrity artifact; formerly the render-source check.)
 
 **C13** Text conservation: Q.1..Q.{Q_TOTAL} present; tag label counts match;
 `Correct Answer:` count matches source.
 
-**C14** Math + symbol round-trip: linearized strings appear verbatim in
-extracted text; non-ASCII codepoints exact.
+**C14** Symbol + math round-trip (v1.9): every non-ASCII codepoint present in the
+source is present in the delivered file with the exact codepoint, AND native math
+subtrees are byte-identical to the source (no `<m:t>` text altered). No Unicode
+linearization is expected or permitted.
 
-**C15** Stem-underline recolor: underlined stem runs carry FF0000; no color
-changes on options/explanations/tags; NAVY count unchanged.
+**C15** No stray recolor (v1.9, repurposed): the delivered file introduces NO
+colour change vs source — no FF0000 recolor is applied; NAVY (003366) count
+unchanged. (Rule 22 is retired; this gate now asserts colours were left alone.)
 
 **Namespace/reference/order integrity:**
 
@@ -908,10 +971,15 @@ import subprocess
 VALIDATOR = '/mnt/skills/public/docx/scripts/office/validate.py'
 
 
-def gate_c18(source_docx, integrity_docx, render_source_docx):
-    """C18 — OOXML package validity on both artifacts.
+def gate_c18(source_docx, integrity_docx, render_source_docx=None):
+    """C18 — OOXML package validity on the delivered artifact (v1.9).
 
     Returns 'validated' or 'degraded'; raises SystemExit on failure.
+
+    v1.9: the render-source is retired, so the delivered file IS the integrity
+    artifact and C18 validates that one file. render_source_docx is accepted but
+    ignored when None (back-compat with pre-v1.9 callers). If a caller still
+    passes a render-source path it is validated too, harmlessly.
 
     --original is REQUIRED: it reports only errors NEW relative to the source,
     so pre-existing quirks in a given exam's PYQ-1 output (frequent across ~200
@@ -927,9 +995,11 @@ def gate_c18(source_docx, integrity_docx, render_source_docx):
               'Report as UNVERIFIED in §R5.')
         return 'degraded'
 
+    artifacts = [('delivered', integrity_docx)]
+    if render_source_docx is not None:
+        artifacts.append(('render-source', render_source_docx))
     failures = []
-    for label, path in (('integrity', integrity_docx),
-                        ('render-source', render_source_docx)):
+    for label, path in artifacts:
         result = subprocess.run(
             ['python3', VALIDATOR, path, '--original', source_docx],
             capture_output=True, text=True)
@@ -944,11 +1014,13 @@ def gate_c18(source_docx, integrity_docx, render_source_docx):
     return 'validated'
 ```
 
-**Both artifacts, not just the delivered one.** The render-source is what ships
-(`_PYQ_Final.docx`) so its validity is non-negotiable. But the integrity
-artifact is what C1–C10 are evaluated against — if it is structurally broken,
-those ten gates are being run on a damaged document and their PASS means less
-than it appears. A fault in either indicates the pipeline is wrong.
+**The single delivered artifact (v1.9).** The integrity artifact IS the shipped
+file (`_PYQ_Final.docx`), so its validity is non-negotiable — and it is also what
+C1–C10 are evaluated against. A structural fault means those gates ran on a
+damaged document and their PASS means less than it appears; a fault indicates the
+pipeline is wrong. (Prior versions validated a second render-source artifact;
+that artifact is retired, so C18 now validates the one delivered file against the
+source.)
 
 **Zero, not "fewer".** When a validator rejects an element at its own position
 it does not descend into it, so that element's children's violations stay
@@ -1060,17 +1132,21 @@ Printed in chat after present_files:
   EXPECTED on a paper WITH a PYQ-1 pass: Tier 1 = Q_TOTAL, all others 0.
   EXPECTED on a paper WITHOUT one: Tier 1.5 and/or Tier 2 carry the paper, and
   the report should say so rather than presenting the column as assessed.
-- **§R4 — Render transforms.** OMML linearized count, safe-font resolutions, underline recolor count.
-  Any unresolved non-ASCII codepoints listed.
+- **§R4 — Content fidelity (v1.9).** State the delivered `<m:oMath>` count and
+  confirm it equals the source count (C5/C11) — i.e. native math preserved, zero
+  linearization. Confirm no safe-font and no underline-recolor were applied
+  (Rule 21/22 retired). Report the two — and only two — permitted edits:
+  `tags_removed` (§4A) and tag blocks inserted (§5).
 - **§R5 — Gate results.** C1-C18 all PASS (or list failures). Report C18
-  explicitly for BOTH artifacts (integrity and render-source) — state the
-  validator verdict, not merely "passed". If the validator was unavailable and
-  C18 degraded to the C16(a)/(b) namespace fallback, say so here and mark
-  package validity UNVERIFIED rather than PASS.
+  explicitly for the delivered artifact — state the validator verdict, not merely
+  "passed". If the validator was unavailable and C18 degraded to the C16(a)/(b)
+  namespace fallback, say so here and mark package validity UNVERIFIED rather than
+  PASS.
 - **§R6 — PYQ registry.** Papers delivered to date, total questions, corpus progress.
-- **§R7 — Note.** "This is the portal-ready document. Open in Microsoft Word to
-  verify. For student download, run PYQ-3 (PYQFormat) separately in a new chat —
-  it takes PYQ-1 output directly."
+- **§R7 — Note.** "This is the portal-ready document with native math preserved.
+  Open in Microsoft Word to verify equations render as native OMML. For student
+  download, run PYQ-3 (PYQFormat) separately in a new chat — it takes PYQ-1 output
+  directly."
 - **§R8 — Regression alarms.** Any header paragraphs detected and stripped (should
   be zero on a clean PYQ-1 output).
 
@@ -1088,10 +1164,13 @@ PYQ-4 is done when **all** hold:
    date/session tag paragraphs removed per §4A accounting.
 5a. Every date/session tag paragraph removed (§4A) — residuals == tags_skipped
    (0 in the normal case), verified by gate C4.
-6. Integrity artifact passes C1-C10.
-7. Render-source artifact passes C11-C17.
-7a. BOTH artifacts pass C18 (package validity) against the source.
-8. No residual OMML in render-source. All non-ASCII safe-fonted.
+6. The delivered (integrity) artifact passes C1-C10.
+7. The delivered artifact passes C11-C17 (v1.9: C11 asserts OMML PRESERVED, not
+   eliminated; C14 asserts native math byte-identical; C15 asserts no stray
+   recolor).
+7a. The delivered artifact passes C18 (package validity) against the source.
+8. NATIVE OMML PRESERVED — delivered `<m:oMath>` count == source (C5/C11). No
+   linearization, no safe-fonting, no recolor performed.
 9. PYQ registry updated with this paper.
 10. Delivered via present_files with the delivery report and footer.
 11. Opens clean in Microsoft Word with no "unreadable content" prompt —
@@ -1102,12 +1181,14 @@ PYQ-4 is done when **all** hold:
 
 **Hard invariants (never violated):**
 
-- No text content is modified in the integrity artifact.
+- No text content is modified in the delivered artifact.
 - The date/session tag paragraphs (§4A) are the ONLY elements ever removed —
   matched by anchored full-paragraph DATE_TAG_RE, protected by the media
-  safety gate. Nothing else is ever deleted from either artifact.
-- OMML is linearized ONLY in the render-source (never in the integrity artifact).
-- The render-source is the ONLY delivered file. No `soffice` conversion.
+  safety gate. Nothing else is ever deleted from the delivered file.
+- OMML is NEVER linearized (v1.9). Native `<m:oMath>` is preserved byte-for-byte
+  in the delivered file; delivered OMML count == source (C5/C11).
+- The delivered file is the INTEGRITY artifact (native OMML); the render-source
+  is retired and never built. No `soffice` conversion.
 - No `cleanup_namespaces()` — ever (MockDeliver v1.3 lesson).
 - `word/webSettings.xml` is never stripped (MockDeliver v1.3 lesson).
 - Tag pPr: `<w:spacing>` before `<w:jc>` (OOXML schema order).
@@ -1139,7 +1220,8 @@ PYQ-4 is done when **all** hold:
 
 6. **NAT question with bad grading value** → C17 catches it as HARD STOP.
 
-7. **Document with no OMML** → Fine. Linearization count = 0. Gates still pass.
+7. **Document with no OMML** → Fine. Preserved OMML count = 0 == source. C5/C11
+   pass trivially (nothing to preserve, nothing linearized).
 
 8. **Document with no images** → Fine. Drawing count = 0. Gates still pass.
 
@@ -1233,13 +1315,17 @@ The following MockDeliver patterns are reused identically:
 - `make_tag_para(label, value)` — tag paragraph builder (§4-3 from MockDeliver)
 - `detect_header_paras(body_children)` — safety-net header strip
 - `reassign_docpr_ids(root)` — DocPr ID dedup
-- `replace_omath_with_text(root, font)` — Rule 19 OMML linearization
-- `recolor_underlined_stems(root, color)` — Rule 22 stem recolor
-- `apply_symbol_safe_font(root, default_font)` — Rule 21 safe-font
 - `gate_c16(src, out, labels)` — namespace/reference/order gate
 - `gate_c17_natcharset(out, tag_lookup)` — NAT portal charset gate
-- Two-artifact assembly (integrity + render-source ZIP construction)
+- Single-artifact assembly (the integrity artifact ZIP construction, native OMML)
 - All namespace preservation rules (no cleanup_namespaces, keep webSettings.xml)
+
+RETIRED in v1.9 (no longer invoked — the delivered file carries native OMML and
+the input's original fonts/colours):
+- `replace_omath_with_text(root, font)` — Rule 19 OMML linearization (RETIRED)
+- `recolor_underlined_stems(root, color)` — Rule 22 stem recolor (RETIRED)
+- `apply_symbol_safe_font(root, default_font)` — Rule 21 safe-font (RETIRED)
+- Second (render-source) artifact assembly (RETIRED)
 
 These are NOT engine functions — they are standalone document-transform utilities
 from MockDeliver, reproduced in PYQ-4's pipeline script.
@@ -1263,14 +1349,14 @@ of E-9 and is FORBIDDEN (anti-drift principle).
 | Registry | Required | Not required (does not exist for PYQ) |
 | PYQ registry | N/A | Maintained by PYQ-4 (§8) |
 | Trigger | TestDeliver P[N] / MockDeliver M[N] | PYQDeliver (no arguments needed) |
-| Package validity | C16(a)–(d) only | C16 **plus** C18 `gate_c18()` — full OOXML schema validation of BOTH artifacts against the source (§7, v1.4) |
+| Package validity | C16(a)–(d) only | C16 **plus** C18 `gate_c18()` — full OOXML schema validation of the delivered artifact against the source (§7; v1.9: one delivered artifact, native OMML) |
 
 `gate_c18()` is PYQ-4-specific and is NOT among the MockDeliver patterns reused
 in S13-1 — MockDeliver has no equivalent. It is defined in full in §7 (C18).
 
 ## S13-3 — Namespace preservation (MockDeliver v1.3 lessons)
 
-When assembling both the integrity and render-source docx:
+When assembling the delivered (integrity) docx:
 - Do NOT call `etree.cleanup_namespaces()` — this strips xmlns declarations
   that `mc:Ignorable` and drawing content reference, causing Word to show
   "unreadable content" errors.
@@ -1297,11 +1383,12 @@ PORTAL GRADING CHARSET (NAT only):
   Allowed : 0123456789.-
   Format  : plain number (-?\d+(\.\d+)?) or lo-hi range (\d+(\.\d+)?-\d+(\.\d+)?)
 
-RENDER-SAFE FONT STACK:
+RENDER-SAFE FONT STACK (RETIRED v1.9 — safe-fonting no longer applied; the
+delivered file keeps the input's original fonts):
   Primary : DejaVu Sans (covers most Unicode, math symbols)
   Fallback: FreeSans (covers section markers ❌ ⬛ ✅ ⚡)
 ```
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.8)**
+**End of Framework_PYQDeliver.md (v1.9)**

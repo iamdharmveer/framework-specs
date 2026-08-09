@@ -15,11 +15,11 @@
       "version_header": "# Framework_DeliveryFooter v1.15 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
-      "end_sentinel": "# END OF Framework_MockDeliver v1.10.0",
-      "lines": 1736,
-      "sha256": "38abd3a29145269424dac96caba6f2875f3bcd6dd21bb0c120f5468f1f8fcb8d",
-      "size_bytes": 83865,
-      "version_header": "# Framework_MockDeliver v1.10.0 — Universal Mock Test Tagger & Delivery Engine"
+      "end_sentinel": "# END OF Framework_MockDeliver v1.11.0",
+      "lines": 1763,
+      "sha256": "efd8c0879efa01ecef93c6466bd785ed71d655dc2d2d7154c18a4d887134858c",
+      "size_bytes": 86411,
+      "version_header": "# Framework_MockDeliver v1.11.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.46.0",
@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.8)**",
-      "lines": 1307,
-      "sha256": "ab33e8fa999621df422a79fb74739fe2e503f8869a7bde69d48c581787a20d0f",
-      "size_bytes": 67935,
-      "version_header": "# Framework_PYQDeliver v1.8 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.9)**",
+      "lines": 1394,
+      "sha256": "7b8aa67ebc5be64f72e544534ea90025ab489e38d267edd0c89a9d8172f87d8b",
+      "size_bytes": 74359,
+      "version_header": "# Framework_PYQDeliver v1.9 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0",
