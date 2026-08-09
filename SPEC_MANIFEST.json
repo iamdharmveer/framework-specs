@@ -217,6 +217,13 @@
       "size_bytes": 244632,
       "version_header": "\"\"\""
     },
+    "build_spec_manifest.py": {
+      "end_sentinel": "    main()",
+      "lines": 95,
+      "sha256": "b453a5b8324797395075be1197543011c1acae1bcf39cd19cd5e9c2dc9b262e3",
+      "size_bytes": 3662,
+      "version_header": "#!/usr/bin/env python3"
+    },
     "claude_Framework_GitHub_Architecture.md": {
       "end_sentinel": "4. Optional: stamp git commit SHA into .verified for finer per-release audit granularity.",
       "lines": 52,

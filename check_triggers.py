@@ -52,6 +52,18 @@ def main():
     unknown = routes - pipeline
     if unknown:
         errs.append(f"routes.json triggers not defined in PIPELINE: {sorted(unknown)}")
+
+    # Symmetric guard (added 2026-08-09): a trigger RETIRED from routes.json but left in
+    # PIPELINE is silent otherwise — the direction that let 'PYQExplainAudit' survive the
+    # PYQ-2 retirement. A leftover PIPELINE step must be either a routes trigger or a
+    # declared ALIAS; anything else is an unretired ghost.
+    orphan = pipeline - routes - ALIASES
+    if orphan:
+        errs.append(
+            "PIPELINE steps not in routes.json and not a declared ALIAS: "
+            f"{sorted(orphan)} (retired from routes.json but left in "
+            "validate_framework_md.py's PIPELINE)"
+        )
     if skill != routes:
         errs.append(
             "SKILL trigger list != routes.json  "

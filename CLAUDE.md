@@ -29,15 +29,20 @@ repo root before running the gate.
    of it too.
 
 (`MANIFEST.json`/`bootstrap.py` track the framework files a session clones (count = MANIFEST.json "files"). `SPEC_MANIFEST.json`
-is the separate, wider workbench baseline — currently 50 files, including the audit and
-tooling scripts. It has NO generator in the repo: the release manager refreshes the changed
-entries from disk at deploy time, after checking the entry-builder reproduces every
-unchanged entry byte-for-byte. Both must be clean.
-Its entry convention was aligned to gen_manifest's in 2026.08.03.5: `lines` is
-`len(text.splitlines())` (NOT `split('\n')`, which is one higher), `end_sentinel` is the last
-non-empty line `.rstrip()`ed with leading indentation PRESERVED, and `.py`/`.json` entries now
-carry `version_header`/`end_sentinel` too. Rebuilding with the pre-08.03.5 convention rewrites
-every entry.)
+is the separate, wider workbench baseline — currently 51 files, including the audit and
+tooling scripts. Since 2026.08.09.2 it HAS a generator: `python3 build_spec_manifest.py`
+refreshes every tracked entry from the live bytes, `--check` exits 1 if anything is stale
+(run it in the gate), and `--drop A,B` removes genuinely deleted files. It never invents
+entries — the tracked set is the keys already in the file, so a NEW workbench tool must be
+added by hand once. Both manifests must be clean.
+Its entry convention is gen_manifest's, byte-for-byte (verified across the corpus and on
+leading-blank-line / trailing-whitespace / CRLF fixtures): `lines` is `len(text.splitlines())`
+(NOT `split('\n')`, which is one higher), `version_header` is the LITERAL first line, and
+`end_sentinel` is the last non-empty line `.rstrip("\n")`ed — trailing spaces and tabs are
+PRESERVED, as is leading indentation. (Through 2026.08.09.1 this paragraph said `.rstrip()`
+and implied the first NON-EMPTY line; both generators disagree with that wording, and a
+hand-built entry following it would differ on any file with a blank first line or a
+whitespace-tailed sentinel.) `.py`/`.json` entries carry `version_header`/`end_sentinel` too.)
 
 If any step fails: **STOP, show the error in plain words, push nothing.**
 
