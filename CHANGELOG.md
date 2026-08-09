@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.08.09.3
+
+### Fix two v2.2 handoff-delivery findings
+
+(1) The delivered pyq_explain_progress.json shipped under a bare, un-prefixed name carrying no
+paper identity, so two papers of the same Q_TOTAL (same exam, different session) collided by
+filename and a wrong-paper classification map could pass every gate and mis-tag a portal. It is
+now delivered under the same [ExamCode]_[date]_[session] stem as the docx, and PYQFormat/PYQDeliver
+derive the expected sidecar name from the attached docx and load THAT (legacy bare names accepted
+with a WARN). (2) S19-1's shutil.copy ran before the checklist and would raise an uncaught
+FileNotFoundError on a missing source, making check 6 unreachable; the copy is now guarded so a
+missing handoff lands as a clean S19-1 HARD STOP. PYQExplain v2.2->v2.2.1, PYQFormat v1.5.1->v1.5.2,
+PYQDeliver v1.6.1->v1.6.2. Framework 2026.08.09.2 to 2026.08.09.3.
+
 ## 2026.08.09.2
 
 ### pyq_explain_progress.json promoted to a delivered pipeline handoff

@@ -1,4 +1,8 @@
-# Framework_PYQDeliver v1.6.1 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.6.2 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.6.2 — 2026-08-09 — PYQExplain v2.2.1 delivers the sidecar under the paper-identity stem
+#   [ExamCode]_[date]_[session]_pyq_explain_progress.json. §1/§0 now derive the expected sidecar
+#   name from the attached docx and load THAT — closing the same-Q_TOTAL collision where the
+#   §2-5 coverage gate (1..Q_TOTAL) would pass a wrong-paper map. Legacy bare names → WARN.
 # v1.6.1 — 2026-08-09 — PYQExplain v2.2 now DELIVERS pyq_explain_progress.json to outputs.
 #   Clarified §1/§0 that the sidecar (q_to_classification + options_by_q + q_to_difficulty)
 #   is attached alongside the _PYQ_Explanation.docx. No behaviour change — sourcing unchanged.
@@ -136,8 +140,11 @@ Violation of this rule is a hard failure regardless of any other outcome.
    strings — on load, normalize every per-question map to int keys via
    `{int(k): v}` and perform all lookups with the int question number.
    A key that cannot int-parse → HARD STOP naming the map and the key. Loaded from ONE of these sources (in priority order):
-   a. `pyq_explain_progress.json` — PYQExplain (v2.2) delivers this to outputs alongside the
-      explanation docx; attach it here together with the docx (the standard source)
+   a. `[ExamCode]_[date]_[session]_pyq_explain_progress.json` — PYQExplain (v2.2.1) delivers
+      this under the SAME stem as the docx. DERIVE the expected name from the attached docx's
+      parsed identity ({EXAM}_{DATE_SESSION}) and load THAT file, so the map provably belongs to
+      this paper. If only a different-stem or a bare `pyq_explain_progress.json` is present →
+      WARN that its paper-identity is unverifiable before using it (the standard source)
    b. `pyq_audit_progress.json` sidecar (LEGACY — only if a pre-v1.6 PYQ-2 run left one)
    c. Attached by user as a separate JSON file
    If no classification map is found → HARD STOP:
@@ -199,8 +206,9 @@ PYQ-4 begins on the instruction:
 PYQDeliver
 ```
 
-Attach BOTH: the PYQ-1 output `_PYQ_Explanation.docx` AND its `pyq_explain_progress.json`
-sidecar — PYQExplain (v2.2) delivers both to outputs, so carry them together into this chat.
+Attach BOTH: the PYQ-1 output `_PYQ_Explanation.docx` AND its identity-matched sidecar
+`[ExamCode]_[date]_[session]_pyq_explain_progress.json` — PYQExplain (v2.2.1) delivers both to
+outputs under the SAME stem, so carry them together into this chat.
 (A legacy PYQ-2 `_Complete.docx` is accepted in place of the docx.)
 
 Everything is derived from the attachment and project knowledge:
@@ -1191,4 +1199,4 @@ RENDER-SAFE FONT STACK:
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.6.1)**
+**End of Framework_PYQDeliver.md (v1.6.2)**

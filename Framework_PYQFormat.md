@@ -1,4 +1,8 @@
-# Framework_PYQFormat v1.5.1 — Universal PYQ Student Document Formatter
+# Framework_PYQFormat v1.5.2 — Universal PYQ Student Document Formatter
+# v1.5.2 — 2026-08-09 — PYQExplain v2.2.1 delivers the sidecar under the paper-identity stem
+#   [ExamCode]_[date]_[session]_pyq_explain_progress.json. §1/§0 now derive the expected sidecar
+#   name from the attached docx and load THAT (prevents a colliding sidecar from another paper
+#   silently supplying the classification map). Legacy bare names accepted with a WARN.
 # v1.5.1 — 2026-08-09 — PYQExplain v2.2 now DELIVERS pyq_explain_progress.json to outputs.
 #   Clarified §1/§0 that the sidecar is attached alongside the _PYQ_Explanation.docx (both
 #   are PYQExplain deliverables). No behaviour change — the sourcing priority is unchanged.
@@ -123,8 +127,11 @@ named above.
 
 3. `q_to_classification` map — the per-question {subject, topic, subtopic,
    subtopic_id} mapping. Loaded from ONE of these sources (in priority order):
-   a. `pyq_explain_progress.json` — PYQExplain (v2.2) delivers this to outputs alongside the
-      explanation docx; attach it here together with the docx (the standard source)
+   a. `[ExamCode]_[date]_[session]_pyq_explain_progress.json` — PYQExplain (v2.2.1) delivers
+      this under the SAME stem as the docx. DERIVE the expected name from the attached docx's
+      parsed identity ({EXAM}_{DATE_SESSION}) and load THAT file, so the map provably belongs to
+      this paper. If only a different-stem or a bare `pyq_explain_progress.json` is present →
+      WARN that its paper-identity is unverifiable before using it (the standard source)
    b. `pyq_audit_progress.json` sidecar (LEGACY — only if a pre-v1.5 PYQ-2 run left one)
    c. Attached by user as a separate JSON file
    If no classification map is found → HARD STOP:
@@ -156,8 +163,9 @@ PYQ-3 begins on the instruction:
 PYQFormat
 ```
 
-Attach BOTH: the PYQ-1 output `_PYQ_Explanation.docx` AND its `pyq_explain_progress.json`
-sidecar — PYQExplain (v2.2) delivers both to outputs, so carry them together into this chat.
+Attach BOTH: the PYQ-1 output `_PYQ_Explanation.docx` AND its identity-matched sidecar
+`[ExamCode]_[date]_[session]_pyq_explain_progress.json` — PYQExplain (v2.2.1) delivers both to
+outputs under the SAME stem, so carry them together into this chat.
 (A legacy PYQ-2 `_Complete.docx` is accepted in place of the docx.)
 
 Everything is derived from the attachment and project knowledge:
@@ -1701,4 +1709,4 @@ Correct Answer band the Topic pill family — one palette document-wide.
 
 ---
 
-**End of Framework_PYQFormat.md (v1.5.1)**
+**End of Framework_PYQFormat.md (v1.5.2)**
