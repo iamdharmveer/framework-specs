@@ -295,24 +295,24 @@
       "version_header": "#!/usr/bin/env python3"
     },
     "notes_audit.py": {
-      "end_sentinel": "    return bound",
-      "lines": 105,
-      "sha256": "aa4d29603f60e2b85dd3a920519ed8925ff6b161b335215e9b5b4f1e0544f757",
-      "size_bytes": 3914,
+      "end_sentinel": "    print(\"notes_audit.py — Notes Step NA engine. Run with --self-test.\")",
+      "lines": 192,
+      "sha256": "6d00079588d4d1a02602454c3ac1c4ea05a96df9ad972db8519160fa4fbbe911",
+      "size_bytes": 8020,
       "version_header": "\"\"\""
     },
     "notes_blueprint.py": {
-      "end_sentinel": "    return bp_path, reg_path",
-      "lines": 122,
-      "sha256": "1376e0e57ba3a19c68ac3d443c76ab2330e43da461f11070df1e7026c6624cd0",
-      "size_bytes": 5835,
+      "end_sentinel": "    print(\"notes_blueprint.py — Notes Step NB engine. Run with --self-test.\")",
+      "lines": 214,
+      "sha256": "9809581c921e39d94c76a5d5f3877d4e17bde262f0117e7e941dc9f05e9d395c",
+      "size_bytes": 10016,
       "version_header": "\"\"\""
     },
     "notes_core.py": {
-      "end_sentinel": "    return [\"flat math token: \" + p for p in MATH_TOKEN_RES if re.search(p, text)]",
-      "lines": 276,
-      "sha256": "9f4d3ff8180f95f6301aa7ac02abd12344b3b9bbf283ddecc96b718e712c56fc",
-      "size_bytes": 10615,
+      "end_sentinel": "    print(\"notes_core.py — shared Notes pipeline core. Run with --self-test.\")",
+      "lines": 382,
+      "sha256": "04828bddbe06cf6aa3757ed804208588ca63fbe484ffc94a9db28e7536d21295",
+      "size_bytes": 15342,
       "version_header": "\"\"\""
     },
     "paper_pipeline.py": {

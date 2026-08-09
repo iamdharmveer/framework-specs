@@ -1,5 +1,12 @@
 """
-notes_core.py v1.1 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v1.2 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v1.2 — 2026-08-08 — DEPLOYMENT-REVIEW FIXES. density_gate reports an unknown
+    tier as a finding instead of raising KeyError; assert_omml and
+    scan_omml_structural tolerate attributes on the m:oMath tag (Word-authored
+    or raw-XML files that carry xmlns on the element no longer count zero);
+    self_test() added per CLAUDE.md engine rule with fixtures that fail on
+    each rectified defect.
 
 v1.1 — 2026-08-08 — REFINEMENT GATES. Adds: LEVEL_COLORS / BOX_COLORS (the
     locked level colour map, Framework_NotesCreate §6A); PROSE_BAN lexicon +
@@ -171,9 +178,13 @@ def density_gate(docx_path, tier, page_count):
     for w in bullet_word_counts(docx_path):
         if w > BULLET_HARD_CAP_WORDS:
             findings.append(f"bullet exceeds hard cap: {w} words")
-    lo, hi = TIER_PAGE_BANDS[tier]
-    if not (lo <= page_count <= hi):
-        findings.append(f"page count {page_count} outside {tier} band {lo}-{hi}")
+    band = TIER_PAGE_BANDS.get(tier)
+    if band is None:
+        findings.append(f"unknown tier: {tier!r}")
+    else:
+        lo, hi = band
+        if not (lo <= page_count <= hi):
+            findings.append(f"page count {page_count} outside {tier} band {lo}-{hi}")
     return (not findings, findings)
 
 
@@ -182,7 +193,7 @@ def assert_omml(docx_path, expected_min, required_tokens=()):
     """NotesAudit §5 G-2: verify equations STRUCTURALLY. LibreOffice PDF
     previews drop OMML silently — never use them for equation checks."""
     xml = _docx_xml(docx_path)
-    maths = re.findall(r"<m:oMath>.*?</m:oMath>", xml, re.S)
+    maths = re.findall(r"<m:oMath\b[^>]*>.*?</m:oMath>", xml, re.S)
     if len(maths) < expected_min:
         raise AssertionError(f"OMML count {len(maths)} < expected {expected_min}")
     joined = "\n".join(maths)
@@ -257,7 +268,7 @@ def scan_omml_structural(docx_path):
     """NA gate G-2b: inside every oMath region, no textual exponents and no
     unicode script characters. Returns findings (empty == pass)."""
     xml = _docx_xml(docx_path)
-    joined = "\n".join(re.findall(r"<m:oMath>.*?</m:oMath>", xml, re.S))
+    joined = "\n".join(re.findall(r"<m:oMath\b[^>]*>.*?</m:oMath>", xml, re.S))
     findings = []
     if "^(" in joined:
         findings.append("textual exponent inside oMath")
@@ -274,3 +285,98 @@ def scan_flat_math_tokens(docx_path):
     Returns findings (empty == pass)."""
     text = _document_text(docx_path)
     return ["flat math token: " + p for p in MATH_TOKEN_RES if re.search(p, text)]
+
+
+# ---------------------------------------------------------------- self-test
+def self_test():
+    import tempfile, zipfile
+    passed, fails = 0, []
+
+    def check(name, cond):
+        nonlocal passed
+        if cond:
+            passed += 1
+        else:
+            fails.append(name)
+
+    def mini_docx(text, extra_xml=""):
+        fp = tempfile.mktemp(suffix=".docx")
+        with zipfile.ZipFile(fp, "w") as z:
+            z.writestr("word/document.xml",
+                       "<w:document>%s<w:p><w:r><w:t>%s</w:t></w:r></w:p>"
+                       "</w:document>" % (extra_xml, text))
+            z.writestr("[Content_Types].xml", "<Types/>")
+        return fp
+
+    # Defect fixture: density_gate KeyError on unknown tier (the shipped bug)
+    d = mini_docx("short bullet")
+    try:
+        okr, f = density_gate(d, "TIER-9", 7)
+        check("unknown tier is a finding, not a crash",
+              okr is False and any("unknown tier" in x for x in f))
+    except KeyError:
+        check("unknown tier is a finding, not a crash", False)
+    check("band edge 6 passes TIER-1", density_gate(d, "TIER-1", 6)[0])
+    check("band edge 15 passes TIER-1", density_gate(d, "TIER-1", 15)[0])
+    check("band edge 5 fails TIER-1", not density_gate(d, "TIER-1", 5)[0])
+    check("band edge 16 fails TIER-1", not density_gate(d, "TIER-1", 16)[0])
+
+    # Defect fixture: attributed m:oMath tag counted zero (the shipped bug)
+    fp = tempfile.mktemp(suffix=".docx")
+    with zipfile.ZipFile(fp, "w") as z:
+        z.writestr("word/document.xml",
+                   '<w:document><m:oMath xmlns:m="http://x"><m:r><m:t>V</m:t>'
+                   "</m:r></m:oMath></w:document>")
+    try:
+        check("attributed oMath counted", assert_omml(fp, 1) == 1)
+    except AssertionError:
+        check("attributed oMath counted", False)
+    check("attributed oMath scanned",
+          scan_omml_structural(mini_docx("x")) == [])
+
+    # Gate lexicons on synthetic defects
+    check("prose ban: year", scan_prose_bans(mini_docx("battle of 1857")) == ["year reference"])
+    check("prose ban: exemption",
+          scan_prose_bans(mini_docx("battle of 1857"), exemptions=("year reference",)) == [])
+    check("prose ban: boundaries safe",
+          scan_prose_bans(mini_docx("NATO NATure signature Nature Q3")) == [])
+    check("prose ban: attrs ignored",
+          scan_prose_bans(mini_docx("clean", '<w:gridCol w:w="1700"/>')) == [])
+    check("flat token caught", scan_flat_math_tokens(mini_docx("plain Vmax")) != [])
+    check("split runs clean", scan_flat_math_tokens(mini_docx("V and max apart")) == [])
+
+    # Registry migration + transition legality
+    import json as _json
+    rp = tempfile.mktemp(suffix=".json")
+    _json.dump({"schema": "notes-registry/1.0", "exam_code": "X",
+                "syllabus_sha256": "h", "exam_level": "G", "created": "c",
+                "updated": "u", "units": {"U": {"name": "n", "role": "COVERAGE",
+                "tier": "TIER-3", "pyq_count": 0, "provenance": "syllabus",
+                "state": "BLUEPRINTED", "stale": False, "notes_version": None,
+                "audit": None, "artifacts": {}, "history": []}}}, open(rp, "w"))
+    reg = registry_load(rp)
+    check("1.0 registry migrates", reg["schema"] == REGISTRY_SCHEMA
+          and reg["units"]["U"]["prose_ban_exemptions"] == [])
+    transition(reg, "U", "DRAFTED")
+    try:
+        transition(reg, "U", "DELIVERED")
+        check("illegal transition rejected", False)
+    except ValueError:
+        check("illegal transition rejected", True)
+
+    # Role/tier tables
+    check("role: evidence rule", assign_role(False, 5, False, 1) is None
+          and assign_role(False, 5, False, 2) == "EVIDENCE_ADDED")
+    check("tier: thresholds", assign_tier("PYQ_WEIGHTED", 15) == "TIER-1"
+          and assign_tier("PYQ_WEIGHTED", 14) == "TIER-2")
+
+    print(f"notes_core self-test: {passed} passed, {len(fails)} failed"
+          + (" — " + "; ".join(fails) if fails else ""))
+    return not fails
+
+
+if __name__ == "__main__":
+    import sys
+    if "--self-test" in sys.argv:
+        sys.exit(0 if self_test() else 1)
+    print("notes_core.py — shared Notes pipeline core. Run with --self-test.")
