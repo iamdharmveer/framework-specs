@@ -1,4 +1,17 @@
-# Framework_PYQExplain v2.2.1 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.3 — Universal PYQ Explanation Generator
+# v2.3 — 2026-08-09 — QUESTION TYPE RESOLVED POSITION-BASED + qtype DELIVERED as a
+#   fourth sidecar map. Until v2.2.1, P4 resolved Question Type ONLY from
+#   section_rules answer_cardinality (a subtopic-scoped corpus statistic), and the
+#   delivered pyq_explain_progress.json carried only three maps — no qtype. On
+#   section-determined-MSQ exams (IIT JAM, GATE, …) every subtopic in the MSQ section
+#   reads 'single', so P4 built those questions as MCQ and PYQ-4 had no per-question
+#   type to consume. P4 now has a Tier 1 that, when exam_config.marking_scheme carries
+#   >1 distinct question_type, resolves type POSITION-BASED from marking_scheme[].q_range
+#   (mirroring MockDeliver v1.7) — the "set explicitly" mechanism §5-1 names — falling
+#   back to the prior structural rule for single-type/subtopic-based exams. The resolved
+#   qtype is now RECORDED and DELIVERED (§S7A-4) as the fourth map and coverage-gated at
+#   S19-1 check 7. qtype is a structural type, MANDATE-0-safe. Consumed by PYQDeliver v1.8
+#   Tier 2. Touched: P4, §S7A-4, §S0-2, §19 S19-1, header + END sentinel.
 # v2.2.1 — 2026-08-09 — Fix two v2.2 deployment findings on the handoff delivery.
 #   (1) The handoff shipped under a BARE name (pyq_explain_progress.json) with no paper
 #   identity, so two papers' sidecars (same exam, different session) collided by filename
@@ -220,7 +233,11 @@
      per-subtopic class patterns (CATEGORY A/B blocks)
   3. [ExamCode]_subtopic_manifest.json — subtopic_id ↔ name mapping
   4. [ExamCode]_exam_config.json — exam metadata (total_questions, sections,
-     difficulty_labels [default Easy/Medium/Hard], etc.)
+     difficulty_labels [default Easy/Medium/Hard], etc.). `exam_config.marking_scheme`
+     (OPTIONAL field) — list of `{q_range, question_type, correct_marks, ...}` —
+     is READ at P4 for POSITION-BASED Question Type resolution (its `question_type`
+     per q_range) when it carries more than one distinct question_type; absent,
+     empty, or single-type → P4 falls back to the structural rule.
   5. explain_engine.py — the universal explanation engine; SAME file as TestExplain
      (MANDATORY — MANDATE A)
 
@@ -238,10 +255,10 @@
        byte-identical to the Row file input. The same file grows explanation-
        coverage each batch until 100%.
     2. /mnt/user-data/outputs/[ExamCode]_[date]_[session]_pyq_explain_progress.json
-       (v2.2.1 — PIPELINE HANDOFF) — delivered on the FINAL batch only (100% coverage),
-       when all three of its maps are complete. It is delivered under the SAME
+       (v2.3 — PIPELINE HANDOFF) — delivered on the FINAL batch only (100% coverage),
+       when all four of its maps are complete. It is delivered under the SAME
        [ExamCode]_[date]_[session] stem as the docx so two papers' sidecars never collide
-       by filename, and PYQ-3/PYQ-4 can prove it belongs to the attached paper. It carries q_to_classification, options_by_q, and
+       by filename, and PYQ-3/PYQ-4 can prove it belongs to the attached paper. It carries q_to_classification, options_by_q, qtype, and
        q_to_difficulty. Since PYQExplainAudit (PYQ-2) retired (v2.1), this JSON is the
        SOLE metadata source for PYQ-3 (PYQFormat pills) and PYQ-4 (PYQDeliver tags),
        and those steps normally run in a FRESH chat where /home/claude is gone. It is
@@ -520,11 +537,26 @@ PYQExplain
       See §7A for the contract.
 
   P4  RESOLVE QUESTION TYPES (depends on P2 + P3).
-      Using the options_by_q map (P2) AND the subtopic classification (P3):
+      TIER 1 — POSITION-BASED (v2.3). When exam_config.marking_scheme (§0 item 5)
+      carries MORE THAN ONE distinct question_type value, Question Type is a
+      property of the Q-NUMBER, not the subtopic: resolve q against
+      marking_scheme[].q_range and take that entry's question_type
+      (lower-cased mcq/msq/nat); answer_cardinality is IGNORED for this q.
+        distinct = { e.question_type for e in marking_scheme }
+        if len(distinct) > 1 and some range contains q → e.question_type.lower()
+      This mirrors MockDeliver v1.7 / PYQDeliver S2-2a and is the "set explicitly"
+      mechanism named in §5-1: it is what makes qtype AUTHORITATIVE for
+      section-determined-MSQ exams (IIT JAM, GATE, …) — where a whole section is
+      MSQ but each of its subtopics reads answer_cardinality 'single' across the
+      corpus — rather than a copy of that subtopic statistic.
+      TIER 2 — STRUCTURAL (fallback; single-type / subtopic-based exams). Using
+      the options_by_q map (P2) AND the subtopic classification (P3):
         - options_by_q[q] == 0 → nat
         - section_rules answer_cardinality == 'multi' for this Q's subtopic → msq
           (requires the subtopic from P3 to look up answer_cardinality)
         - else → mcq
+      The resolved per-question type is the ExplanationBlock.qtype (§5-1) and is
+      recorded in the delivered sidecar as the fourth map (§S7A-4).
 
   P5  BUILD THE FROZEN BATCH PLAN (§4).
       Walk Q.1 through Q.N in order, accumulating questions into batches.
@@ -874,6 +906,7 @@ label = assess_difficulty(
   "_meta": { "exam_code": "...", "phase": "pyq_explain", "...": "..." },
   "q_to_classification": { "1": { "...": "..." } },
   "options_by_q": { "1": 4, "41": 0 },
+  "qtype": { "1": "mcq", "31": "msq", "41": "nat" },
 
   "q_to_difficulty": { "1": "Easy", "42": "Medium", "54": "Hard" }
 }
@@ -881,6 +914,9 @@ label = assess_difficulty(
 
   * Keys follow the SAME convention as every other per-question map: JSON object
     keys are strings; readers normalise to int.
+  * `qtype` values (v2.3) are members of {'mcq','msq','nat'}, resolved at P4
+    (position-based first, structural fallback). qtype is a STRUCTURAL TYPE, not
+    answer content — MANDATE-0-safe — and covers every question 1..Q_TOTAL.
   * Values are members of `difficulty_labels`, nothing else.
   * Written incrementally per batch, so a resumed run (§4 P8) keeps the labels
     already produced and never re-assesses a completed batch.
@@ -1475,6 +1511,18 @@ present = set(os.listdir(out))
 # TRUE internal state must never leak; the one delivered handoff (in `expected`) is exempt.
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
 leaked = [f for f in present if f not in expected and any(b in f.lower() for b in BANNED)]
+# v2.3: the fourth map (qtype) must be complete before the handoff ships — coverage
+# is tied to q_to_classification so an incomplete qtype cannot pass as complete.
+_qtype_complete = True
+if FINAL_BATCH:
+    try:
+        import json as _j
+        _h = _j.load(open(f'{out}/{prog}'))
+        _exp = {int(k) for k in _h.get('q_to_classification', {})}
+        _qt  = {int(k) for k in _h.get('qtype', {})}
+        _qtype_complete = bool(_exp) and _qt == _exp
+    except Exception:
+        _qtype_complete = False
 checks = [
     ('1 PYQ explanation docx in outputs',       os.path.exists(f'{out}/{sol}')),
     ('2 self-audit (S18) all clean',            bool(globals().get('SELF_AUDIT_CLEAN'))),
@@ -1482,6 +1530,7 @@ checks = [
     ('4 no internal sidecar leaked',            not leaked),
     ('5 outputs == exactly the deliverables',   present == expected),
     ('6 handoff json present on final batch',   (not FINAL_BATCH) or os.path.exists(f'{out}/{prog}')),
+    ('7 qtype map complete on final batch',     (not FINAL_BATCH) or _qtype_complete),
 ]
 fails = [n for n, ok in checks if not ok]
 if fails:
@@ -1697,5 +1746,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.2.1
+# END OF Framework_PYQExplain v2.3
 # ════════════════════════════════════════════════════════════════════════

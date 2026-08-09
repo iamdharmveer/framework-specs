@@ -1,4 +1,25 @@
-# Framework_PYQDeliver v1.6.2 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.8 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.8 — 2026-08-09 — QUESTION TYPE IS NOW POSITION-BASED (three-tier), closing the
+#   section-determined-MSQ portal defect for real. SUPERSEDES the aborted v1.7 (never
+#   deployed). v1.7 tried to fix this by CONSUMING a `qtype` map it claimed PYQExplain
+#   had committed into pyq_explain_progress.json — but PYQExplain (§S7A-4) writes only
+#   _meta / q_to_classification / options_by_q / q_to_difficulty; there was no qtype key
+#   in the delivered sidecar, so v1.7's Tier 1 never fired and every question fell back to
+#   the same structural rule that returned 0 MSQ where 10 were expected. The v1.7 root-cause
+#   sentence ("PYQ-4 re-derived a type PYQExplain had already committed into the JSON") was
+#   simply false. TRUE ROOT CAUSE: Question Type was being read from section_rules
+#   `answer_cardinality`, a SUBTOPIC-scoped corpus statistic that cannot express
+#   SECTION-determined MSQ — on IIT JAM Physics 15-Feb-2026 every Section-B subtopic reads
+#   'single', so all 10 MSQ (Q31-40) mis-tagged as MCQ. FIX (mirrors the proven MockDeliver
+#   v1.7 precedent): S2-2 is now a three-tier resolver whose Tier 1 resolves Question Type
+#   POSITION-BASED from exam_config.marking_scheme[].question_type whenever marking_scheme
+#   carries more than one distinct question_type — the exam's OFFICIAL, section-scoped
+#   type-by-position, a field PYQ-4 already loads (§0 item 2). Tier 2 consumes PYQExplain's
+#   now-genuinely-delivered qtype (v2.3+); Tier 3 is the pre-v1.7 structural rule for
+#   single-type / subtopic-based exams. Deterministic; on IIT JAM Physics this yields
+#   exactly 30 MCQ / 10 MSQ / 20 NAT. Touched: §0 item 2 (third use) + item 8, §1 step 5,
+#   S2-1 row 4, S2-2 (rewritten), §10 §R1, S13-2 table. Paired with PYQExplain v2.3, which
+#   fixes P4 the same way and delivers qtype as a fourth map.
 # v1.6.2 — 2026-08-09 — PYQExplain v2.2.1 delivers the sidecar under the paper-identity stem
 #   [ExamCode]_[date]_[session]_pyq_explain_progress.json. §1/§0 now derive the expected sidecar
 #   name from the attached docx and load THAT — closing the same-Q_TOTAL collision where the
@@ -109,7 +130,9 @@ Violation of this rule is a hard failure regardless of any other outcome.
    `marking_scheme[]` (v1.5) — OPTIONAL list of per-range scoring rules, each
    `{q_range:[lo,hi], question_type, correct_marks, negative_marks}`. This is the
    SAME field Step 2a writes and Steps 7/9/11 already consume; PYQ-4 does not
-   introduce it and must not invent it. Used for TWO things and nothing else:
+   introduce it and must not invent it. Used for THREE things and nothing else:
+     * Tier 1 POSITION-BASED Question Type resolution (§2-2a) — reads
+       `question_type` per q_range when marking_scheme carries >1 distinct type
      * Tier 1.5 structural resolution (§2-3a1)
      * per-question marks for E-9 threshold scaling (§2-3b)
    Absent, empty, or malformed → Tier 1.5 is skipped for every question and marks
@@ -179,6 +202,18 @@ Violation of this rule is a hard failure regardless of any other outcome.
    PRODUCER-ONLY — PYQ-4 consumes PYQ-1's assessed values directly, after the
    same membership check in S2-3a. A defective value still falls through safely.
 
+8. `qtype` map — OPTIONAL. Per-question {q: 'mcq'/'msq'/'nat'} type map from the
+   same progress JSON as q_to_classification (§0 item 3 priority order). Same KEY
+   NORMALIZATION as item 3. DELIVERED by PYQExplain v2.3+ as a fourth sidecar map
+   (§S7A-4); a pre-v2.3 sidecar has no qtype key and that is expected. When
+   present and valid it is Tier 2 of the Question Type resolver (S2-2b) — used
+   only for single-type / subtopic-based exams, where Tier 1 (position-based
+   marking_scheme) does not apply. A defective per-q value or an absent map falls
+   through safely to Tier 3 (S2-2c); it never blocks delivery and never injects
+   an out-of-vocabulary tag. NOTE: qtype does NOT override Tier 1 — on a
+   position-based exam the exam's official marking_scheme is authoritative, so
+   Tier 1 wins and qtype is not consulted.
+
 NOT REQUIRED (PYQ-4 does not use mock pipeline outputs):
   ✗ blueprint.json — does not exist for PYQ papers
   ✗ registry.json — does not exist for PYQ papers
@@ -230,8 +265,10 @@ Everything is derived from the attachment and project knowledge:
    `difficulty_default`, `difficulty_labels`.
 
 5. **q_to_classification + options_by_q**: load from progress JSON (§0 priority).
-   Also load `q_to_difficulty` from the same JSON if present (§0 item 7,
-   optional — Tier 1 of §2-3).
+   Also load, from the same JSON if present: `qtype` (§0 item 8 — Tier 2 of S2-2)
+   and `q_to_difficulty` (§0 item 7, optional — Tier 1 of §2-3). Question Type
+   Tier 1 (S2-2a) reads `exam_config.marking_scheme[].question_type`, already
+   loaded at step 4.
 
 5a. **blueprint_core.py**: resolve it dual-path — the framework clone
    (`/tmp/fw/blueprint_core.py`) FIRST, else the project Files
@@ -266,25 +303,90 @@ directly — no JOIN needed.
 | 1 | Subject | `q_to_classification[q].subject` | Direct lookup |
 | 2 | Topic | `q_to_classification[q].topic` | Direct lookup |
 | 3 | Subtopic | `q_to_classification[q].subtopic` | Direct lookup |
-| 4 | Question Type | `options_by_q[q]` | 0 → NAT; answer_cardinality 'multi' → MSQ; else → MCQ |
+| 4 | Question Type | §2-2 three-tier resolver | Tier 1 position-based `marking_scheme[].question_type` (when >1 distinct type) → Tier 2 authoritative `qtype[q]` (PYQExplain v2.3+) → Tier 3 structural: `options_by_q` 0 → NAT; answer_cardinality 'multi' → MSQ; else → MCQ |
 | 5 | Complexity | §2-3 four-tier resolver | Tier 1 q_to_difficulty → Tier 1.5 structural_difficulty → Tier 2 E-9 scoring → Tier 3 difficulty_default (D11) |
 
-## S2-2 — Question Type resolution
+## S2-2 — Question Type resolution — position-first three-tier resolver (v1.8)
 
-PYQ papers have no `blueprint.marking_scheme` — Question Type is resolved from
-the question's structure, not from a position-based scheme:
+Question Type MUST be resolved from the exam's OFFICIAL structure, never from a
+corpus statistic alone. For each question q, the first tier that yields a valid
+value wins:
+
+```text
+TIER 1 — POSITION-BASED   marking_scheme[].question_type   (exam_config)
+TIER 2 — AUTHORITATIVE     qtype[q]                         (sidecar, PYQExplain v2.3+)
+TIER 3 — STRUCTURAL        options_by_q + answer_cardinality
+```
+
+### S2-2a — Tier 1: position-based (v1.8 — closes the section-determined-MSQ defect)
+
+This mirrors the proven MockDeliver v1.7 precedent exactly. When
+`exam_config.marking_scheme` carries MORE THAN ONE distinct `question_type`
+value, Question Type is a property of the Q-NUMBER, not of the subtopic: resolve
+q against `marking_scheme[].q_range` and emit that entry's `question_type`
+(upper-cased MCQ/MSQ/NAT). The subtopic's `answer_cardinality` is IGNORED for
+this tag.
+
+```text
+distinct = { e.question_type for e in marking_scheme }
+if len(distinct) > 1:
+    for e in marking_scheme:                    # first containing range wins
+        lo, hi = e.q_range
+        if lo <= q <= hi:  → e.question_type.upper()   (tier 1)
+    # q covered by no range → fall through to Tier 2
+```
+
+When `marking_scheme` is absent, empty, or carries only ONE distinct type — every
+subtopic-based exam (e.g. SSC CGL, all-MCQ) and every scoped blueprint — Tier 1
+yields nothing and resolution falls through.
+
+WHY THIS IS TIER 1. `answer_cardinality` (Tier 3) is SUBTOPIC-scoped. On exams
+where MSQ is SECTION-determined — a whole section is MSQ but each of its
+subtopics is predominantly single-answer across the corpus (IIT JAM, GATE, and
+many others) — every subtopic's observed cardinality collapses to 'single' and
+the structural rule silently mis-tags every MSQ in that section as MCQ. Measured
+on IIT JAM Physics 15-Feb-2026: the structural rule returned 0 MSQ where the
+exam's marking_scheme marks Q31-40 MSQ (10 questions) — a portal answer-format
+and scoring error, not a cosmetic tag. `marking_scheme` is the exam's official,
+section-scoped type-by-position and is the ONLY field that can express this
+distinction; PYQ-4 already loads it (§0 item 2), so Tier 1 needs no new input.
+
+### S2-2b — Tier 2: authoritative qtype (PYQExplain v2.3+)
+
+Reached only where Tier 1 yielded nothing (single-type / subtopic-based exams).
+PYQExplain (v2.3+) commits a per-question `qtype` ('mcq'/'msq'/'nat') at §5-1
+and DELIVERS it in the sidecar (§S7A-4); it is the type each explanation block
+was actually built as. Accept `qtype[q]` iff its value upper-cased is one of
+MCQ / MSQ / NAT and emit that. Value absent/invalid for a q, or the whole map
+absent (a pre-v2.3 sidecar) → fall through to Tier 3.
+
+### S2-2c — Tier 3: structural fallback (the pre-v1.7 rule)
+
+Reached only where Tiers 1 and 2 both yielded nothing. PYQ papers have no
+`blueprint.marking_scheme`; resolve from structure:
 
 ```text
 options_by_q[q] == 0                              → NAT
 section_rules answer_cardinality == 'multi'        → MSQ
-  (for this Q's subtopic, looked up via
-   q_to_classification[q].subtopic_id)
+  (for this Q's subtopic, via q_to_classification[q].subtopic_id)
 else                                              → MCQ
 ```
 
-This is the same resolution PYQ-1 uses at P4 — the types are consistent across
-the pipeline. If answer_cardinality is not available for a subtopic, default to
-'single' (MCQ) — the vast majority of PYQ questions are MCQ.
+If answer_cardinality is not available for a subtopic, default 'single' (MCQ).
+
+### S2-2d — Determinism (parity with §2-3d)
+
+All three tiers are pure functions of (exam_config, sidecar, project files).
+Tier 1 is a pure range lookup; Tier 2 a pure map lookup; Tier 3 a pure
+structural computation. The SAME inputs produce the SAME Question Type on every
+run and every model instance — no model judgment participates.
+
+### S2-2e — Provenance (reported in §R1)
+
+Track `qtype_tier_counts = {1: n1, 2: n2, 3: n3}`. On a position-based exam
+(marking_scheme with >1 distinct type) EXPECTED is Tier 1 = Q_TOTAL. Any Tier-3
+questions on such an exam mean a q fell outside every marking_scheme range —
+name them in §R1, because they were resolved by the weakest instrument.
 
 ## S2-3 — Complexity (difficulty) — four-tier deterministic resolver (D11, v1.5)
 
@@ -941,7 +1043,10 @@ PYQ-4 delivers in a single response:
 
 Printed in chat after present_files:
 
-- **§R1 — Scope.** Exam, paper (date, session), Q_TOTAL, question types (MCQ/MSQ/NAT split).
+- **§R1 — Scope.** Exam, paper (date, session), Q_TOTAL, question types (MCQ/MSQ/NAT
+  split), and Question Type provenance (Tier 1 position-based / Tier 2 qtype / Tier 3
+  structural counts, S2-2e). EXPECTED on a position-based exam: Tier 1 = Q_TOTAL; any
+  lower-tier questions are named.
 - **§R2 — Tag summary.** Total tag blocks inserted. Subject/Topic/Subtopic distribution.
   Date/session tag paragraphs removed (`tags_removed`, §4A); any safety-gate
   skips (`tags_skipped`) listed with position and reason.
@@ -1151,7 +1256,7 @@ of E-9 and is FORBIDDEN (anti-drift principle).
 | Aspect | MockDeliver (Step 11) | PYQDeliver (PYQ-4) |
 |---|---|---|
 | Tag data source | registry.json + blueprint.json JOIN | q_to_classification direct lookup |
-| Question Type | marking_scheme (position-based) or subtopic (subtopic-based) | options_by_q (structure-based) |
+| Question Type | marking_scheme (position-based) or subtopic (subtopic-based) | marking_scheme position-based (Tier 1) → qtype (Tier 2) → structural (Tier 3) |
 | Complexity | Per-Q from registry.difficulty | Per-Q four-tier resolver: q_to_difficulty (PYQ-1 §7A) → structural_difficulty (Cluster E2) → E-9 scoring (Cluster E) → difficulty_default (§2-3, D11) |
 | Paper identity | pp.paper\_slug() via paper\_pipeline.py | Parsed from attached filename |
 | Blueprint | Required | Not required (does not exist for PYQ) |
@@ -1199,4 +1304,4 @@ RENDER-SAFE FONT STACK:
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.6.2)**
+**End of Framework_PYQDeliver.md (v1.8)**

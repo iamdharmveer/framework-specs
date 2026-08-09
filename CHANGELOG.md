@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026.08.09.5
+
+### Question Type is position-based end-to-end (section-determined-MSQ fix; supersedes aborted .4/v1.7)
+
+The aborted 2026.08.09.4 / PYQDeliver v1.7 was never deployed: it tried to consume a `qtype`
+map that PYQExplain never wrote to the delivered sidecar (§S7A-4 shipped only three maps), so
+its Tier 1 was dead code and every question fell back to the same structural rule that mis-tagged
+section-determined MSQ. TRUE root cause: Question Type was read from section_rules
+`answer_cardinality`, a SUBTOPIC-scoped statistic that cannot express SECTION-determined MSQ — on
+IIT JAM Physics 15-Feb-2026 every Section-B subtopic reads 'single', so all 10 MSQ (Q31-40)
+mis-tagged as MCQ. Fix mirrors the proven MockDeliver v1.7 precedent: resolve Question Type
+POSITION-BASED from exam_config.marking_scheme[].question_type when it carries more than one
+distinct type. PYQExplain P4 now does this and DELIVERS the resolved `qtype` as a fourth sidecar
+map (S19-1 check 7 coverage-gates it). PYQDeliver S2-2 is now a three-tier resolver
+(position-based -> authoritative qtype -> structural). On IIT JAM Physics this yields exactly
+30 MCQ / 10 MSQ / 20 NAT, in both the producer and the consumer, independently. PYQExplain
+v2.2.1->v2.3, PYQDeliver v1.6.2->v1.8. Framework 2026.08.09.3 to 2026.08.09.5 (2026.08.09.4 aborted).
+
 ## 2026.08.09.3
 
 ### Fix two v2.2 handoff-delivery findings

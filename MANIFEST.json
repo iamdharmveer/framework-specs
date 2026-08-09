@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.09.3",
+  "framework_version": "2026.08.09.5",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -266,11 +266,11 @@
       "bytes": 58024
     },
     "Framework_PYQDeliver.md": {
-      "sha256": "4c648148443fd3cb0366aa116c9833db6d558ba733acd38263d92a564b864b8f",
-      "version_header": "# Framework_PYQDeliver v1.6.2 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.6.2)**",
-      "lines": 1202,
-      "bytes": 61152
+      "sha256": "ab33e8fa999621df422a79fb74739fe2e503f8869a7bde69d48c581787a20d0f",
+      "version_header": "# Framework_PYQDeliver v1.8 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.8)**",
+      "lines": 1307,
+      "bytes": 67935
     },
     "Framework_PYQDraft.md": {
       "sha256": "b0b87b0ebd7b10e87604560c50e4c47cb3f9654b1adf5f94eb0d1e35dfd011f5",
@@ -280,11 +280,11 @@
       "bytes": 45903
     },
     "Framework_PYQExplain.md": {
-      "sha256": "1f5ab2c83e3815f1b9c822c23a4e701141ab9b6c85422957ee8803744afffd2c",
-      "version_header": "# Framework_PYQExplain v2.2.1 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "718a9956890a92b01eeaa30b8f4624490d0d7226e1dd3a260ca95a2c24ca03b0",
+      "version_header": "# Framework_PYQExplain v2.3 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1701,
-      "bytes": 115722
+      "lines": 1750,
+      "bytes": 119205
     },
     "Framework_PYQFormat.md": {
       "sha256": "0bc4402ee6b3734011c813878708f0761586ba83a8f361ba2f5d0fbafed736c1",

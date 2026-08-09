@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.6.2)**",
-      "lines": 1202,
-      "sha256": "4c648148443fd3cb0366aa116c9833db6d558ba733acd38263d92a564b864b8f",
-      "size_bytes": 61152,
-      "version_header": "# Framework_PYQDeliver v1.6.2 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.8)**",
+      "lines": 1307,
+      "sha256": "ab33e8fa999621df422a79fb74739fe2e503f8869a7bde69d48c581787a20d0f",
+      "size_bytes": 67935,
+      "version_header": "# Framework_PYQDeliver v1.8 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0",
@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1701,
-      "sha256": "1f5ab2c83e3815f1b9c822c23a4e701141ab9b6c85422957ee8803744afffd2c",
-      "size_bytes": 115722,
-      "version_header": "# Framework_PYQExplain v2.2.1 — Universal PYQ Explanation Generator"
+      "lines": 1750,
+      "sha256": "718a9956890a92b01eeaa30b8f4624490d0d7226e1dd3a260ca95a2c24ca03b0",
+      "size_bytes": 119205,
+      "version_header": "# Framework_PYQExplain v2.3 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",
