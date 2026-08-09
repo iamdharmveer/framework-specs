@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.09.1",
+  "framework_version": "2026.08.09.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -266,11 +266,11 @@
       "bytes": 58024
     },
     "Framework_PYQDeliver.md": {
-      "sha256": "d7580da5279af6e5ac6b622b4d1e1bb12e4ac74fbb5d8244720a7baa23283e04",
-      "version_header": "# Framework_PYQDeliver v1.6 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.6)**",
-      "lines": 1188,
-      "bytes": 59876
+      "sha256": "e631edf19a737d72fb0241f7d6b4e457e2c19ce3a163a02af7ac971ce706a3c0",
+      "version_header": "# Framework_PYQDeliver v1.6.1 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.6.1)**",
+      "lines": 1194,
+      "bytes": 60407
     },
     "Framework_PYQDraft.md": {
       "sha256": "b0b87b0ebd7b10e87604560c50e4c47cb3f9654b1adf5f94eb0d1e35dfd011f5",
@@ -280,18 +280,18 @@
       "bytes": 45903
     },
     "Framework_PYQExplain.md": {
-      "sha256": "0a1cc0d671170b3e9caed7a873a44c5a9209f7bfd8360dfd07ba46df9e472fcb",
-      "version_header": "# Framework_PYQExplain v2.1 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "10c0c8d70c13aea8530634c3a0bb718130ac3001d4ee352ee9eb2560e6f0f7c9",
+      "version_header": "# Framework_PYQExplain v2.2 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1653,
-      "bytes": 111691
+      "lines": 1687,
+      "bytes": 114433
     },
     "Framework_PYQFormat.md": {
-      "sha256": "1e46a79561873e471e5dbba2e2388ebe6f4bf5e3aafcb3d999b8391452eec0dd",
-      "version_header": "# Framework_PYQFormat v1.5 \u2014 Universal PYQ Student Document Formatter",
-      "end_sentinel": "**End of Framework_PYQFormat.md (v1.5)**",
-      "lines": 1698,
-      "bytes": 78330
+      "sha256": "e866118451c7802ae33b8654c97a7950e0a5b2a85888a84c35e58dc8d7289198",
+      "version_header": "# Framework_PYQFormat v1.5.1 \u2014 Universal PYQ Student Document Formatter",
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.1)**",
+      "lines": 1704,
+      "bytes": 78857
     },
     "Framework_PYQPrepare.md": {
       "sha256": "3e69ef22dad6720e23de7d374cc1e00b603f4df6de4e1694c4442aff7244ceaf",

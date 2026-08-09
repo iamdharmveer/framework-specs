@@ -1,4 +1,7 @@
-# Framework_PYQFormat v1.5 — Universal PYQ Student Document Formatter
+# Framework_PYQFormat v1.5.1 — Universal PYQ Student Document Formatter
+# v1.5.1 — 2026-08-09 — PYQExplain v2.2 now DELIVERS pyq_explain_progress.json to outputs.
+#   Clarified §1/§0 that the sidecar is attached alongside the _PYQ_Explanation.docx (both
+#   are PYQExplain deliverables). No behaviour change — the sourcing priority is unchanged.
 # v1.5 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. PYQ-3 now takes PYQ-1's
 #   _PYQ_Explanation.docx as its STANDARD input (a legacy _Complete.docx is still
 #   accepted, unchanged, but is no longer produced). q_to_classification is read from
@@ -120,7 +123,8 @@ named above.
 
 3. `q_to_classification` map — the per-question {subject, topic, subtopic,
    subtopic_id} mapping. Loaded from ONE of these sources (in priority order):
-   a. `pyq_explain_progress.json` sidecar (PYQ-1's progress file — the standard source)
+   a. `pyq_explain_progress.json` — PYQExplain (v2.2) delivers this to outputs alongside the
+      explanation docx; attach it here together with the docx (the standard source)
    b. `pyq_audit_progress.json` sidecar (LEGACY — only if a pre-v1.5 PYQ-2 run left one)
    c. Attached by user as a separate JSON file
    If no classification map is found → HARD STOP:
@@ -152,7 +156,9 @@ PYQ-3 begins on the instruction:
 PYQFormat
 ```
 
-Attach: the PYQ-1 output `_PYQ_Explanation.docx` (a legacy PYQ-2 `_Complete.docx` is also accepted).
+Attach BOTH: the PYQ-1 output `_PYQ_Explanation.docx` AND its `pyq_explain_progress.json`
+sidecar — PYQExplain (v2.2) delivers both to outputs, so carry them together into this chat.
+(A legacy PYQ-2 `_Complete.docx` is accepted in place of the docx.)
 
 Everything is derived from the attachment and project knowledge:
 
@@ -1695,4 +1701,4 @@ Correct Answer band the Topic pill family — one palette document-wide.
 
 ---
 
-**End of Framework_PYQFormat.md (v1.5)**
+**End of Framework_PYQFormat.md (v1.5.1)**

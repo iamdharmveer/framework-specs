@@ -1,4 +1,7 @@
-# Framework_PYQDeliver v1.6 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.6.1 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.6.1 — 2026-08-09 — PYQExplain v2.2 now DELIVERS pyq_explain_progress.json to outputs.
+#   Clarified §1/§0 that the sidecar (q_to_classification + options_by_q + q_to_difficulty)
+#   is attached alongside the _PYQ_Explanation.docx. No behaviour change — sourcing unchanged.
 # v1.6 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. PYQ-4 now takes PYQ-1's
 #   _PYQ_Explanation.docx as its STANDARD input (a legacy _Complete.docx is still
 #   accepted, unchanged, but is no longer produced), and reads pyq_explain_progress.json
@@ -133,7 +136,8 @@ Violation of this rule is a hard failure regardless of any other outcome.
    strings — on load, normalize every per-question map to int keys via
    `{int(k): v}` and perform all lookups with the int question number.
    A key that cannot int-parse → HARD STOP naming the map and the key. Loaded from ONE of these sources (in priority order):
-   a. `pyq_explain_progress.json` sidecar (PYQ-1's progress file — the standard source)
+   a. `pyq_explain_progress.json` — PYQExplain (v2.2) delivers this to outputs alongside the
+      explanation docx; attach it here together with the docx (the standard source)
    b. `pyq_audit_progress.json` sidecar (LEGACY — only if a pre-v1.6 PYQ-2 run left one)
    c. Attached by user as a separate JSON file
    If no classification map is found → HARD STOP:
@@ -195,7 +199,9 @@ PYQ-4 begins on the instruction:
 PYQDeliver
 ```
 
-Attach: the PYQ-1 output `_PYQ_Explanation.docx` (a legacy PYQ-2 `_Complete.docx` is also accepted).
+Attach BOTH: the PYQ-1 output `_PYQ_Explanation.docx` AND its `pyq_explain_progress.json`
+sidecar — PYQExplain (v2.2) delivers both to outputs, so carry them together into this chat.
+(A legacy PYQ-2 `_Complete.docx` is accepted in place of the docx.)
 
 Everything is derived from the attachment and project knowledge:
 
@@ -1185,4 +1191,4 @@ RENDER-SAFE FONT STACK:
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.6)**
+**End of Framework_PYQDeliver.md (v1.6.1)**

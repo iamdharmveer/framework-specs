@@ -1,4 +1,13 @@
-# Framework_PYQExplain v2.1 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.2 — Universal PYQ Explanation Generator
+# v2.2 — 2026-08-09 — pyq_explain_progress.json PROMOTED to a delivered artifact.
+#   Since PYQ-2 retired (v2.1), this JSON is the SOLE metadata source for PYQ-3/PYQ-4,
+#   which run in a fresh chat where /home/claude is gone — yet PYQ-1 previously kept it
+#   internal, so the user had no way to carry it forward. It is now delivered to
+#   /mnt/user-data/outputs on the FINAL batch (100% coverage, all maps complete) as a
+#   first-class pipeline handoff. It carries only classification / option-counts /
+#   difficulty (NO answer keys — those stay in the never-delivered pyq_answer_keys.json),
+#   so it is MANDATE-0-safe. Touched: S0-2, S19-1 (gate now permits the one handoff on
+#   the final batch), S19-2 (present_files ships it).
 # v2.1 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED from the PYQ pipeline (operator
 #   decision). PYQ-1 is now the SOLE producer AND the FINAL self-certifier: its §18
 #   self-audit is the only certification this document receives, there is no downstream
@@ -213,18 +222,31 @@
 
 ## S0-2 — OUTPUTS (what PYQ-1 delivers)
 
-  CORE DELIVERABLE (every batch, via ONE present_files call — the WHOLE paper):
+  CORE DELIVERABLES (via present_files — the WHOLE paper):
     1. /mnt/user-data/outputs/[ExamCode]_[date]_[session]_PYQ_Explanation.docx
-       The complete paper: every question solved so far carries its interleaved
-       explanation; every not-yet-solved question is byte-identical to the Row file
-       input. The same file grows explanation-coverage each batch until 100%.
+       — delivered EVERY batch. The complete paper: every question solved so far
+       carries its interleaved explanation; every not-yet-solved question is
+       byte-identical to the Row file input. The same file grows explanation-
+       coverage each batch until 100%.
+    2. /mnt/user-data/outputs/pyq_explain_progress.json  (v2.2 — PIPELINE HANDOFF)
+       — delivered on the FINAL batch only (100% coverage), when all three of its
+       maps are complete. It carries q_to_classification, options_by_q, and
+       q_to_difficulty. Since PYQExplainAudit (PYQ-2) retired (v2.1), this JSON is the
+       SOLE metadata source for PYQ-3 (PYQFormat pills) and PYQ-4 (PYQDeliver tags),
+       and those steps normally run in a FRESH chat where /home/claude is gone. It is
+       therefore promoted from internal state to a first-class deliverable the user
+       carries forward and attaches to PYQ-3/PYQ-4. It contains NO answer keys or
+       correct-answer data — only classification, option counts, and difficulty — so it
+       is MANDATE-0-safe to hand over.
 
   IN-CHAT (every batch): a STATUS DASHBOARD + a per-batch progress line, then
   an explicit CONFIRMATION REQUEST that ENDS the turn (MANDATE B). At the final
   batch: the END-OF-PAPER REPORT + the human-review handoff.
 
-  NEVER delivered: the Row file is NOT overwritten; no internal state file
-  (progress.json, answer_keys.json, pickled blocks, strip copy) leaks to outputs.
+  NEVER delivered: the Row file is NOT overwritten; no TRUE internal state file
+  (answer_keys.json, pickled blocks, strip copy, figural queues) leaks to outputs.
+  The ONLY state file promoted to a deliverable is pyq_explain_progress.json (final
+  batch), because PYQ-3/PYQ-4 require it as a cross-chat handoff.
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE 0 — NO QUESTION/ANSWER CONTENT IN CHAT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -581,7 +603,8 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
     D. §18 SELF-AUDIT on the whole doc.
     E. Flush state to /home/claude: pyq_explain_progress.json (mark batch k done)
        + pyq_answer_keys.json (append this batch's CAs) + pickled blocks.
-    F. present_files(the single PYQ Explanation docx) — the whole paper (MANDATE D).
+    F. Set FINAL_BATCH = (k == K), then run §19 (S19-1 gate → S19-2 present_files): the
+       whole paper every batch, plus pyq_explain_progress.json on the final batch (MANDATE D).
     G. Print MANDATE-0-safe progress line + ASK for confirmation, then END.
        (AUTONOMOUS mode: proceed to batch k+1 without pause.)
 
@@ -1425,27 +1448,38 @@ print(fv.vision_report_line(report))
 
 ## S19-1 — Pre-delivery checklist (MANDATORY before present_files)
 ```python
-import os
-out = '/mnt/user-data/outputs'
-sol = f'{EXAM}_{DATE_SESSION}_PYQ_Explanation.docx'
+import os, shutil
+out  = '/mnt/user-data/outputs'
+sol  = f'{EXAM}_{DATE_SESSION}_PYQ_Explanation.docx'
+prog = 'pyq_explain_progress.json'                      # v2.2 — the pipeline handoff (S0-2)
+FINAL_BATCH = bool(globals().get('FINAL_BATCH'))        # True only on the last batch (k == K)
+# On the final batch, promote the COMPLETE handoff json into outputs BEFORE the gate runs.
+if FINAL_BATCH:
+    shutil.copy(f'/home/claude/{prog}', f'{out}/{prog}')
+expected = {sol, prog} if FINAL_BATCH else {sol}        # handoff ships ONLY at 100% coverage
 present = set(os.listdir(out))
+# TRUE internal state must never leak; the one delivered handoff (in `expected`) is exempt.
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
-leaked = [f for f in present if any(b in f.lower() for b in BANNED)]
+leaked = [f for f in present if f not in expected and any(b in f.lower() for b in BANNED)]
 checks = [
-    ('1 PYQ explanation docx in outputs',  os.path.exists(f'{out}/{sol}')),
-    ('2 self-audit (S18) all clean',       bool(globals().get('SELF_AUDIT_CLEAN'))),
-    ('3 whole-paper coverage asserted',    bool(globals().get('COVERAGE_OK'))),
-    ('4 no internal sidecar leaked',       not leaked),
-    ('5 outputs == exactly the PYQ docx',  present == {sol}),
+    ('1 PYQ explanation docx in outputs',       os.path.exists(f'{out}/{sol}')),
+    ('2 self-audit (S18) all clean',            bool(globals().get('SELF_AUDIT_CLEAN'))),
+    ('3 whole-paper coverage asserted',         bool(globals().get('COVERAGE_OK'))),
+    ('4 no internal sidecar leaked',            not leaked),
+    ('5 outputs == exactly the deliverables',   present == expected),
+    ('6 handoff json present on final batch',   (not FINAL_BATCH) or os.path.exists(f'{out}/{prog}')),
 ]
 fails = [n for n, ok in checks if not ok]
 if fails:
     raise SystemExit('HARD STOP (S19-1): ' + '; '.join(fails))
 ```
 
-## S19-2 — The single present_files call (per batch)
+## S19-2 — The present_files call (per batch; +handoff json on the FINAL batch)
 ```python
-present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.docx'])
+deliverables = [f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.docx']
+if FINAL_BATCH:                       # v2.2 — ship the pipeline handoff at 100% coverage
+    deliverables.append(f'/mnt/user-data/outputs/pyq_explain_progress.json')
+present_files(deliverables)
 ```
 
 ## S19-3 — Progress line + confirmation request
@@ -1649,5 +1683,5 @@ present_files([f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.do
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.1
+# END OF Framework_PYQExplain v2.2
 # ════════════════════════════════════════════════════════════════════════

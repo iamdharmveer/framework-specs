@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.6)**",
-      "lines": 1188,
-      "sha256": "d7580da5279af6e5ac6b622b4d1e1bb12e4ac74fbb5d8244720a7baa23283e04",
-      "size_bytes": 59876,
-      "version_header": "# Framework_PYQDeliver v1.6 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.6.1)**",
+      "lines": 1194,
+      "sha256": "e631edf19a737d72fb0241f7d6b4e457e2c19ce3a163a02af7ac971ce706a3c0",
+      "size_bytes": 60407,
+      "version_header": "# Framework_PYQDeliver v1.6.1 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0",
@@ -121,17 +121,17 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1653,
-      "sha256": "0a1cc0d671170b3e9caed7a873a44c5a9209f7bfd8360dfd07ba46df9e472fcb",
-      "size_bytes": 111691,
-      "version_header": "# Framework_PYQExplain v2.1 — Universal PYQ Explanation Generator"
+      "lines": 1687,
+      "sha256": "10c0c8d70c13aea8530634c3a0bb718130ac3001d4ee352ee9eb2560e6f0f7c9",
+      "size_bytes": 114433,
+      "version_header": "# Framework_PYQExplain v2.2 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
-      "end_sentinel": "**End of Framework_PYQFormat.md (v1.5)**",
-      "lines": 1698,
-      "sha256": "1e46a79561873e471e5dbba2e2388ebe6f4bf5e3aafcb3d999b8391452eec0dd",
-      "size_bytes": 78330,
-      "version_header": "# Framework_PYQFormat v1.5 — Universal PYQ Student Document Formatter"
+      "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.1)**",
+      "lines": 1704,
+      "sha256": "e866118451c7802ae33b8654c97a7950e0a5b2a85888a84c35e58dc8d7289198",
+      "size_bytes": 78857,
+      "version_header": "# Framework_PYQFormat v1.5.1 — Universal PYQ Student Document Formatter"
     },
     "Framework_PYQPrepare.md": {
       "end_sentinel": "# END OF Framework_PYQPrepare v2.0",

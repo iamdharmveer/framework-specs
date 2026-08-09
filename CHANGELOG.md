@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.08.09.2
+
+### pyq_explain_progress.json promoted to a delivered pipeline handoff
+
+After the PYQ-2 retirement, pyq_explain_progress.json became the sole metadata source for
+PYQFormat (PYQ-3) and PYQDeliver (PYQ-4), but PYQExplain kept it as internal /home/claude
+state and never delivered it — so a user running PYQ-3/PYQ-4 in a fresh chat had no way to
+obtain it. PYQExplain (v2.2) now delivers it to /mnt/user-data/outputs on the final batch
+(100% coverage, all maps complete) as a first-class artifact. It carries only classification,
+option counts, and difficulty (NO answer keys — those stay in the never-delivered
+pyq_answer_keys.json), so it is MANDATE-0-safe. S19-1's gate now permits exactly this one
+handoff on the final batch; S19-2 ships it. PYQFormat (v1.5.1) and PYQDeliver (v1.6.1)
+clarify that the sidecar is attached alongside the explanation docx. Framework 2026.08.09.1
+to 2026.08.09.2.
+
 ## 2026.08.09.1
 
 ### PYQExplainAudit (PYQ-2) retired and removed
