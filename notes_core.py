@@ -1,5 +1,23 @@
 """
-notes_core.py v1.2 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v1.3 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v1.3 — 2026-08-08 — DEFECT-CLASS CLOSURE (second review wave). (1) G-4 year
+    detection rewritten to POSITIVE-EVIDENCE rules: a 16xx-20xx number is
+    flagged only with year context (preceding cue word such as in/since/by/
+    the/circa; trailing s/AD/CE; comma-joined year lists; year-to-year en-
+    dash ranges; year+question anchors). Scientific numbers — 1650 cm-1,
+    1800 g/mol, 2000 per second, bare 1700 — no longer fire. Documented
+    trade-off: an isolated cue-less year is not caught; the per-unit
+    exemption remains for subjects that need years legitimately. (2) All
+    word-like ban patterns are now case-insensitive (pyq, Examiner, Exam
+    Lens, Modelled On, q: prefix, mcq/msq); NAT stays exact-case by design —
+    lowercase "nat" is a plausible text fragment, and the trade-off is
+    recorded here and in the self-test. (3) BLUEPRINT_SCHEMA bumped to
+    notes-blueprint/1.1 with load_blueprint() migration accepting 1.0,
+    symmetric with the registry. (4) scan_flat_math_tokens suppresses
+    measurement collisions: a token directly preceded by a numeral
+    ("5 Km", "3Kd") is a quantity, not a symbol. Every reviewer example from
+    both waves is a permanent fixture in self_test().
 
 v1.2 — 2026-08-08 — DEPLOYMENT-REVIEW FIXES. density_gate reports an unknown
     tier as a finding instead of raising KeyError; assert_omml and
@@ -39,7 +57,8 @@ TIER_PAGE_BANDS = {"TIER-1": (6, 15), "TIER-2": (4, 8), "TIER-3": (2, 5)}
 
 REGISTRY_SCHEMA = "notes-registry/1.1"
 REGISTRY_SCHEMAS_ACCEPTED = ("notes-registry/1.0", "notes-registry/1.1")
-BLUEPRINT_SCHEMA = "notes-blueprint/1.0"
+BLUEPRINT_SCHEMA = "notes-blueprint/1.1"
+BLUEPRINT_SCHEMAS_ACCEPTED = ("notes-blueprint/1.0", "notes-blueprint/1.1")
 
 _NSMATH = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 
@@ -203,6 +222,22 @@ def assert_omml(docx_path, expected_min, required_tokens=()):
     return len(maths)
 
 
+def load_blueprint(path):
+    """Load notes_blueprint.json accepting schema 1.0 or 1.1; migrate 1.0
+    in place (allowed_question_types default [], per-unit seq_in_topic /
+    prose_ban_exemptions defaults) so consumers can rely on the 1.1 shape."""
+    bp = json.load(open(path, encoding="utf-8"))
+    if bp.get("schema") not in BLUEPRINT_SCHEMAS_ACCEPTED:
+        raise ValueError(f"blueprint schema mismatch: {bp.get('schema')}")
+    if bp["schema"] != BLUEPRINT_SCHEMA:
+        bp["schema"] = BLUEPRINT_SCHEMA
+        bp.setdefault("allowed_question_types", [])
+        for u in bp.get("units", []):
+            u.setdefault("seq_in_topic", None)
+            u.setdefault("prose_ban_exemptions", [])
+    return bp
+
+
 # ------------------------------------------------- level colour map (§6A)
 LEVEL_COLORS = {"L1": "1F4E79", "L2": "00838F", "L3": "6A1B9A",
                 "table_header": "44546A"}
@@ -226,34 +261,48 @@ def normalize_types(raw_values):
 
 
 # ------------------------------------------------- content-style bans (G-4)
+# Word-like patterns are case-insensitive. NAT is exact-case BY DESIGN:
+# lowercase "nat" is a plausible fragment of ordinary text, so the initialism
+# is only banned in its capitalised form (trade-off recorded in self_test).
 PROSE_BAN = [
-    (r"(?<![A-Za-z])NAT(?![A-Za-z])", "question-type name NAT"),
-    (r"(?<![A-Za-z])MCQ(?![A-Za-z])", "question-type name MCQ"),
-    (r"(?<![A-Za-z])MSQ(?![A-Za-z])", "question-type name MSQ"),
-    (r"PYQ", "PYQ token"),
-    (r"EXAM LENS", "retired block name"),
-    ("[★☆]", "star glyph"),
-    (r"\b(1[6-9]|20)\d\d\b", "year reference"),
-    (r"(?m)(?:^|[>\s])Q:\s", "Q: stem prefix"),
-    (r"modelled on", "example anchor phrase"),
-    (r"examiner", "editorial lead-in"),
+    (r"(?<![A-Za-z])NAT(?![A-Za-z])", "question-type name NAT", 0),
+    (r"(?<![A-Za-z])MCQ(?![A-Za-z])", "question-type name MCQ", re.I),
+    (r"(?<![A-Za-z])MSQ(?![A-Za-z])", "question-type name MSQ", re.I),
+    (r"(?<![A-Za-z])PYQ", "PYQ token", re.I),
+    (r"EXAM\s+LENS", "retired block name", re.I),
+    ("[★☆]", "star glyph", 0),
+    (r"(?m)(?:^|[>\s])Q:\s", "Q: stem prefix", re.I),
+    (r"modelled\s+on", "example anchor phrase", re.I),
+    (r"examiner", "editorial lead-in", re.I),
 ]
 
-
+# Positive-evidence year detection (G-4). _YR is 1600-2099.
+_YR = r"(?:1[6-9]\d\d|20\d\d)"
+YEAR_EVIDENCE = [
+    r"(?i)(?<![A-Za-z0-9])(?:in|by|since|from|until|till|during|circa|the|year|early|late|mid|pre|post)\s+" + _YR + r"(?!\d)",
+    _YR + r"(?:s|\s+(?:AD|CE|BCE|BC))(?![A-Za-z0-9])",
+    _YR + r"\s*,\s*" + _YR,                       # comma-joined year lists
+    _YR + r"\s*[–—-]\s*" + _YR,          # year-to-year ranges
+    _YR + r"\s+Q\d",                               # year + question anchors
+]
 def _document_text(docx_path):
     xml = _docx_xml(docx_path)
     return " ".join(re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", xml, re.S))
 
 
 def scan_prose_bans(docx_path, exemptions=()):
-    """NA gate G-4. Returns findings (empty == pass)."""
+    """NA gate G-4. Returns findings (empty == pass). Year detection is
+    positive-evidence only; see YEAR_EVIDENCE."""
     text = _document_text(docx_path)
     findings = []
-    for pat, label in PROSE_BAN:
+    for pat, label, flags in PROSE_BAN:
         if label in exemptions:
             continue
-        if re.search(pat, text):
+        if re.search(pat, text, flags):
             findings.append(label)
+    if "year reference" not in exemptions:
+        if any(re.search(p, text) for p in YEAR_EVIDENCE):
+            findings.append("year reference")
     return findings
 
 
@@ -282,9 +331,18 @@ def scan_omml_structural(docx_path):
 def scan_flat_math_tokens(docx_path):
     """NA gate G-2c: no un-styled math token in any plain text run. A token
     split into styled sub/superscript runs no longer matches these patterns.
-    Returns findings (empty == pass)."""
+    A token directly preceded by a numeral ("5 Km", "3Kd") is a measurement,
+    not a symbol, and is suppressed. Returns findings (empty == pass)."""
     text = _document_text(docx_path)
-    return ["flat math token: " + p for p in MATH_TOKEN_RES if re.search(p, text)]
+    findings = []
+    for p in MATH_TOKEN_RES:
+        for m in re.finditer(p, text):
+            pre = text[max(0, m.start() - 2):m.start()]
+            if re.search(r"\d\s?$", pre):
+                continue
+            findings.append("flat math token: " + p)
+            break
+    return findings
 
 
 # ---------------------------------------------------------------- self-test
@@ -335,9 +393,9 @@ def self_test():
           scan_omml_structural(mini_docx("x")) == [])
 
     # Gate lexicons on synthetic defects
-    check("prose ban: year", scan_prose_bans(mini_docx("battle of 1857")) == ["year reference"])
+    check("prose ban: year", scan_prose_bans(mini_docx("the 1857 revolt")) == ["year reference"])
     check("prose ban: exemption",
-          scan_prose_bans(mini_docx("battle of 1857"), exemptions=("year reference",)) == [])
+          scan_prose_bans(mini_docx("the 1857 revolt"), exemptions=("year reference",)) == [])
     check("prose ban: boundaries safe",
           scan_prose_bans(mini_docx("NATO NATure signature Nature Q3")) == [])
     check("prose ban: attrs ignored",
@@ -369,6 +427,57 @@ def self_test():
           and assign_role(False, 5, False, 2) == "EVIDENCE_ADDED")
     check("tier: thresholds", assign_tier("PYQ_WEIGHTED", 15) == "TIER-1"
           and assign_tier("PYQ_WEIGHTED", 14) == "TIER-2")
+
+    # ---- Wave-2 fixtures: scientific numbers must NOT fire the year ban
+    for sci in ("absorption at 1650 cm\u207b\u00b9", "a load of 1700 held",
+                "melting near 1750", "molar mass 1800 g/mol",
+                "rotates 2000 per second", "range 1600 to saturation"):
+        check("no year on: " + sci, scan_prose_bans(mini_docx(sci)) == [])
+    # ...while genuine year contexts still fire
+    for yr in ("in 2014 the pattern", "since 2006 it recurs",
+               "the 1857 revolt", "seen 2006, 2009, 2014",
+               "span 2005\u20132026", "the 1990s trend", "asked 2013 Q32"):
+        check("year on: " + yr,
+              scan_prose_bans(mini_docx(yr)) == ["year reference"])
+    check("year exemption still works",
+          scan_prose_bans(mini_docx("in 2014"), exemptions=("year reference",)) == [])
+
+    # ---- Wave-2 fixtures: case-insensitivity
+    for t2 in ("The Examiner expects", "EXAMINER note", "pyq bank", "Pyq",
+               "exam lens returns", "Modelled On a pattern", "mcq set", "q: hello"):
+        check("case-insensitive ban: " + t2,
+              scan_prose_bans(mini_docx(t2)) != [])
+    check("NAT stays exact-case (documented trade-off)",
+          scan_prose_bans(mini_docx("a nat fragment")) == [])
+
+    # ---- Wave-2 fixtures: measurement collisions in flat-token scan
+    check("'distance 5 Km north' is a measurement",
+          scan_flat_math_tokens(mini_docx("distance 5 Km north")) == [])
+    check("'3Kd sample' is a measurement",
+          scan_flat_math_tokens(mini_docx("3Kd sample")) == [])
+    check("bare Km still flagged",
+          scan_flat_math_tokens(mini_docx("the Km of this enzyme")) != [])
+
+    # ---- Wave-2 fixtures: blueprint schema symmetry
+    import tempfile, json as _json
+    bp10 = {"schema": "notes-blueprint/1.0", "exam_code": "X", "level": "G",
+            "syllabus_sha256": "h", "generated": "g", "sources": {},
+            "units": [{"unit_code": "X_S1_T1_ST01", "name": "n", "slug": "n",
+                       "role": "COVERAGE", "tier": "TIER-3", "pyq_count": 0,
+                       "provenance": "syllabus"}], "excluded": []}
+    fp2 = tempfile.mktemp(suffix=".json")
+    _json.dump(bp10, open(fp2, "w"))
+    bp = load_blueprint(fp2)
+    check("blueprint 1.0 migrates to 1.1",
+          bp["schema"] == BLUEPRINT_SCHEMA
+          and bp["allowed_question_types"] == []
+          and bp["units"][0]["prose_ban_exemptions"] == [])
+    _json.dump(dict(bp10, schema="notes-blueprint/0.9"), open(fp2, "w"))
+    try:
+        load_blueprint(fp2)
+        check("unknown blueprint schema rejected", False)
+    except ValueError:
+        check("unknown blueprint schema rejected", True)
 
     print(f"notes_core self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

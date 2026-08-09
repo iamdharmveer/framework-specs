@@ -435,11 +435,11 @@
       "bytes": 35405
     },
     "notes_core.py": {
-      "sha256": "04828bddbe06cf6aa3757ed804208588ca63fbe484ffc94a9db28e7536d21295",
+      "sha256": "d122c4cb992a7247ddcb1199f8f19e4d3a9d8995bd2655fe0b36c668c5db2a8f",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_core.py \u2014 shared Notes pipeline core. Run with --self-test.\")",
-      "lines": 382,
-      "bytes": 15342
+      "lines": 491,
+      "bytes": 21358
     },
     "notes_blueprint.py": {
       "sha256": "9809581c921e39d94c76a5d5f3877d4e17bde262f0117e7e941dc9f05e9d395c",
