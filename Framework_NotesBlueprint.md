@@ -1,4 +1,14 @@
-# Framework_NotesBlueprint v1.0.0 — Notes Pipeline Step NB (Blueprint + SourceMap)
+# Framework_NotesBlueprint v1.1.0 — Notes Pipeline Step NB (Blueprint + SourceMap)
+# v1.1.0 — 2026-08-08 — REFINEMENT SUPPORT. The blueprint now carries (a)
+#   allowed_question_types, the ordered unique type set read from the Exam
+#   Pattern Range tab — HARD STOP if empty — consumed by NC for example/recall
+#   typing and by NA gate G-5; (b) explicit unit ordering: units are listed in
+#   syllabus order and each unit carries seq_in_topic, the 1-based sequence
+#   within its parent Topic, which becomes the document's top-level outline
+#   number; (c) optional per-unit prose_ban_exemptions for subjects whose own
+#   content requires otherwise-banned tokens (e.g. years in History units).
+#   Registry schema advances to notes-registry/1.1 with in-place migration of
+#   1.0 files (new fields defaulted; nothing deleted).
 # v1.0.0 — 2026-08-08 — INITIAL RELEASE. Codifies the design locked in the
 #   2026-08-08 design session and validated end-to-end on the IIT JAM BT
 #   Enzyme Kinetics proof-of-concept (37/37 PYQ solvability, 1 convergence
@@ -6,8 +16,9 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py      >= v1.0 — registry create/load/save, syllabus hashing,
-#                                unit-code naming, role/tier assignment tables
+#   notes_core.py      >= v1.1 — registry create/load/save + 1.0→1.1
+#                                migration, syllabus hashing, unit-code naming,
+#                                role/tier assignment tables
 #   notes_blueprint.py >= v1.0 — input parsing helpers + blueprint writer
 #
 # PURPOSE:
@@ -78,8 +89,10 @@ tier; it never changes the tier boundaries above.
 
 ## §6 — OUTPUTS
 O-1 notes_blueprint.json — schema in notes_core.py BLUEPRINT_SCHEMA; contains
-    exam_code, level, sources, exclusion report, and the full unit table
-    (unit_code, names, role, pyq_count, tier, provenance).
+    exam_code, level, allowed_question_types (ordered unique set from the
+    Range tab; HARD STOP if empty), sources, exclusion report, and the full
+    unit table (unit_code, names, role, pyq_count, tier, provenance,
+    seq_in_topic, optional prose_ban_exemptions).
 O-2 notes_registry.json — initialised via notes_core.registry_init(); every
     unit enters state BLUEPRINTED.
 O-3 Chat summary — unit counts by role/tier + the exclusion report. Version
@@ -101,4 +114,4 @@ the chat summary lists the diff. Nothing is deleted automatically.
 
 ---
 
-# END OF Framework_NotesBlueprint v1.0.0
+# END OF Framework_NotesBlueprint v1.1.0

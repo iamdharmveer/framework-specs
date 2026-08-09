@@ -43,25 +43,25 @@
       "version_header": "# Framework_MockTestExplain v1.21.0"
     },
     "Framework_NotesAudit.md": {
-      "end_sentinel": "# END OF Framework_NotesAudit v1.0.0",
-      "lines": 87,
-      "sha256": "ee2ba43d4b81a8460ddac272f4956947520e06008fdcfc6a641218f4d82cf519",
-      "size_bytes": 4766,
-      "version_header": "# Framework_NotesAudit v1.0.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
+      "end_sentinel": "# END OF Framework_NotesAudit v1.1.0",
+      "lines": 113,
+      "sha256": "4ef56f338b45285f8858aaf6c56941c7b0ad529918a1acefd0704bbf66a66c8d",
+      "size_bytes": 6635,
+      "version_header": "# Framework_NotesAudit v1.1.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
     },
     "Framework_NotesBlueprint.md": {
-      "end_sentinel": "# END OF Framework_NotesBlueprint v1.0.0",
-      "lines": 104,
-      "sha256": "b31bfb03321c2dc9c2dd0f467e0380d29d87e7ca776833da3931cf8ae55e604e",
-      "size_bytes": 5726,
-      "version_header": "# Framework_NotesBlueprint v1.0.0 — Notes Pipeline Step NB (Blueprint + SourceMap)"
+      "end_sentinel": "# END OF Framework_NotesBlueprint v1.1.0",
+      "lines": 117,
+      "sha256": "bf65cd8902b05d7c1913919916e5b0fe88ab0a2681be93a6c7dc617ee656e332",
+      "size_bytes": 6672,
+      "version_header": "# Framework_NotesBlueprint v1.1.0 — Notes Pipeline Step NB (Blueprint + SourceMap)"
     },
     "Framework_NotesCreate.md": {
-      "end_sentinel": "# END OF Framework_NotesCreate v1.0.0",
-      "lines": 110,
-      "sha256": "617178f5cd3e4e462f2df7154b19d246b041981d829799fd9c916dd19fb7bcbd",
-      "size_bytes": 6144,
-      "version_header": "# Framework_NotesCreate v1.0.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
+      "end_sentinel": "# END OF Framework_NotesCreate v2.0.0",
+      "lines": 171,
+      "sha256": "9ad9c7ecf0b89195adfca9af042744cf677ac6d95d3cdc2bd4c41b1649168d04",
+      "size_bytes": 10209,
+      "version_header": "# Framework_NotesCreate v2.0.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
     },
     "Framework_NotesDeliver.md": {
       "end_sentinel": "# END OF Framework_NotesDeliver v1.0.0",
@@ -303,16 +303,16 @@
     },
     "notes_blueprint.py": {
       "end_sentinel": "    return bp_path, reg_path",
-      "lines": 96,
-      "sha256": "f9ef33239c04a724b1d6f948e917fdacbfcddc053432ceefea1b6b5a71915d49",
-      "size_bytes": 4579,
+      "lines": 122,
+      "sha256": "1376e0e57ba3a19c68ac3d443c76ab2330e43da461f11070df1e7026c6624cd0",
+      "size_bytes": 5835,
       "version_header": "\"\"\""
     },
     "notes_core.py": {
-      "end_sentinel": "    return len(maths)",
-      "lines": 173,
-      "sha256": "d94c3fddb59ac7b58f0694ded2d0c8cc54087d892907756715ff5942314b59cd",
-      "size_bytes": 6209,
+      "end_sentinel": "    return [\"flat math token: \" + p for p in MATH_TOKEN_RES if re.search(p, text)]",
+      "lines": 276,
+      "sha256": "9f4d3ff8180f95f6301aa7ac02abd12344b3b9bbf283ddecc96b718e712c56fc",
+      "size_bytes": 10615,
       "version_header": "\"\"\""
     },
     "paper_pipeline.py": {

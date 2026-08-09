@@ -1,4 +1,12 @@
-# Framework_NotesAudit v1.0.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# Framework_NotesAudit v1.1.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# v1.1.0 — 2026-08-08 — REFINEMENT GATES. Adds the machine gates that enforce
+#   the v2 document standard of Framework_NotesCreate: content-style ban scan
+#   (G-4), question-type-set and template gate (G-5), outline-number integrity
+#   (G-6); G-2 extended with the dual zero-issue math scans (no textual
+#   exponents or unicode scripts inside oMath; no flat math tokens in any
+#   text run); G-3 re-pointed at the v2 anatomy. Gate helpers live in
+#   notes_core >= v1.1 and were regression-locked against the approved
+#   Enzyme Kinetics golden sample.
 # v1.0.0 — 2026-08-08 — INITIAL RELEASE. Encodes the audit protocol proven on
 #   Enzyme Kinetics (35 SOLVABLE + 2 PARTIAL at v0.1; both patched; 37/37 at
 #   v0.2 in one convergence iteration) plus the two environment rules that run
@@ -6,8 +14,8 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v1.0 — density-gate constants, OMML assertion,
-#                            registry transitions
+#   notes_core.py  >= v1.1 — density-gate constants, math gates, PROSE_BAN
+#                            lexicon, registry transitions
 #   notes_audit.py >= v1.0 — verdict/report schema, convergence-loop state,
 #                            figure extraction + binding
 #
@@ -66,22 +74,40 @@ and queued for official-key resolution.
 ## §5 — MACHINE GATES RUN ALONGSIDE THE SOLVE
   G-1 DENSITY GATE (constants in notes_core.py, spec in NotesCreate §5):
       bullet word counts, table-first violations, page count within tier band.
-  G-2 OMML STRUCTURAL VERIFICATION: equations are verified by XML assertion
-      (m:oMath presence + expected content tokens). NEVER verify equations via
-      a LibreOffice-rendered preview: LibreOffice DOCX→PDF drops OMML
-      SILENTLY (verified 2026-08-08 with a minimal fixture). Visual page
-      checks remain valid for layout, images and tables.
-  G-3 ANATOMY GATE: required blocks for the unit's tier are present (B1–B10
-      per NotesCreate §4).
+  G-2 MATH GATES (all three must report ZERO findings):
+      (a) OMML presence verified by XML assertion (m:oMath count + expected
+          content tokens). NEVER verify equations via a LibreOffice-rendered
+          preview: LibreOffice DOCX→PDF drops OMML SILENTLY (verified
+          2026-08-08 with a minimal fixture). Visual page checks remain valid
+          for layout, images and tables.
+      (b) STRUCTURAL-OMML SCAN: no textual exponent ("^(") and no unicode
+          super/subscript character inside any oMath region.
+      (c) FLAT-TOKEN SCAN: no un-styled math token (the notes_core token
+          lexicon) in any plain text run anywhere in the document.
+  G-3 ANATOMY GATE: required blocks for the unit's tier are present and in
+      order per the v2 anatomy in Framework_NotesCreate, including: no EXAM
+      LENS block; RECALL CHECK items follow the Example template minus
+      Explanation and speed hack; adjacent boxes separated by spacers.
+  G-4 CONTENT-STYLE BAN SCAN: zero occurrences of the PROSE_BAN lexicon
+      (type names, PYQ token, star glyphs, year references, "Q:" prefixes,
+      editorial lead-ins) in document text, honouring any per-unit
+      exemptions declared in the blueprint.
+  G-5 QUESTION-FORMAT GATE: every Example and Recall item matches the fixed
+      template (options as numbered lines for choice types; bold Answer
+      before Explanation; NAT stems carry unit + rounding) and its type is a
+      member of the blueprint's allowed_question_types; across the unit all
+      allowed types are represented where evidence permits.
+  G-6 OUTLINE-NUMBER INTEGRITY: level numbering is gapless and sequential;
+      every in-text cross-reference resolves to an existing outline number.
 
 ## §6 — REPORT AND STATE
 The audit report artifact (schema notes_audit.REPORT_SCHEMA) carries: per-id
 verdict table with notes locations and answers, the convergence log, the
-FIGURE_PENDING and KEY_FLAG queues, and gate results. On 100% SOLVABLE (with
+FIGURE_PENDING and KEY_FLAG queues, and gate results (G-1 through G-6). On 100% SOLVABLE (with
 FIGURE_PENDING permitted per §1) the unit moves DRAFTED → AUDITED_PASS and
 the report is stored beside the notes artifact. PARTIAL/NOT never persists
 past the loop of §4 — the loop exits only at pass or at the §4 L-3 diagnostic.
 
 ---
 
-# END OF Framework_NotesAudit v1.0.0
+# END OF Framework_NotesAudit v1.1.0
