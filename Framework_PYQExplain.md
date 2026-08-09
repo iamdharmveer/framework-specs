@@ -118,7 +118,8 @@
 #   acceptable because the value is WRITTEN ONCE to the progress JSON and every
 #   downstream reader performs a pure lookup — PYQ-4 §S2-3d's guarantee that "no
 #   model judgment participates in tag resolution at PYQ-4 time" stays literally
-#   true. PYQ-2 (§10A of Framework_PYQExplainAudit.md) is the independent check.
+#   true. (v2.1: PYQ-2's independent check on this value is retired — the difficulty
+#   label is now producer-only.)
 #
 #   Zero changes to explain_engine.py. Zero changes to the ExplanationBlock model,
 #   the delivered document, or any existing gate. The assessment is metadata only

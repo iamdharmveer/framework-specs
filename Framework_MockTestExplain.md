@@ -1495,7 +1495,7 @@ Step 9 uses BOTH footer types:
 #   ONE canonical, runnable home:
 #       explain_engine.py   (delivered alongside this spec; uploaded to each [ExamCode] project)
 #   It is COMPLETE, working, universal, and byte-identical across exams — the same file
-#   PYQExplain / PYQExplainAudit read. It carries EngineConfig, ExplanationBlock,
+#   PYQExplain reads. It carries EngineConfig, ExplanationBlock,
 #   add_math_text, parse_paper, build_interleaved_docx, verify_fidelity, verify_structure,
 #   verify_explanations, strip_solutions, the reader parse_solution_blocks, and
 #   parse_learnings. Self-tests: `python3 explain_engine.py --self-test` →
