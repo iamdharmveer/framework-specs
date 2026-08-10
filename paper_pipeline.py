@@ -676,9 +676,39 @@ def resolve_option_label(fmt):
 
 
 # ── 9. question_index FK validation + registry ledger integrity (v2026.08.10 —
-#       GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). ONE implementation, imported by
-#       Step 7 (via audit_canonical gate A-QINDEX), Step 9 (P10 tripwire) and
-#       Step 11 (S1-2/S1-3). Pure: data in, data out. ─────────────────────────
+#       GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). Pure: data in, data out.
+#
+#   ARCHITECTURE — ONE CONTRACT, FOUR INDEPENDENT IMPLEMENTATIONS (corrected
+#   2026.08.10.5; the original header here claimed "ONE implementation,
+#   imported by Step 7 … Step 9 … Step 11", which was FALSE — none of those
+#   steps import these helpers, and believing it would make an editor change
+#   this file and assume every step followed). The FK/coverage/difficulty
+#   contract is enforced at four sites, each DELIBERATELY self-contained:
+#     1. THIS FILE — the REFERENCE implementation. Consumers: standalone
+#        tooling, one-time corpus sweeps, and the agreement fixtures in
+#        audit_canonical's self-test. Not imported by any step spec.
+#     2. audit_canonical.gate_qindex (A-QINDEX) — self-contained ON PURPOSE:
+#        it ships as a per-exam Step-6 copy that must carry zero new imports.
+#        This is the enforcement of record (exit-code-logged at S13-4c).
+#     3. Framework_MockTestExplain P10 — spec-inline preflight, self-contained
+#        so the tripwire needs nothing importable at that point in a session.
+#     4. Framework_MockDeliver S1-2/S1-3 — spec-inline; S1-3's remediation
+#        classifier mirrors classify_unresolved below (same leaf rule, same
+#        difflib cutoff=0.5).
+#   Independence is the point: an inline gate can be skipped by a defective
+#   session, but a shared import cannot substitute for it at sites 2-4 (per-
+#   exam copies and spec-inline blocks cannot depend on this module being on
+#   the path). The drift risk of four copies is held down by the A-QINDEX
+#   self-test agreement matrix, which EXECUTES all four and compares them:
+#   this module vs gate_qindex vs the P10 block extracted from
+#   Framework_MockTestExplain vs the S1-3 classifier extracted from
+#   Framework_MockDeliver (classes AND candidate lists, so the difflib
+#   cutoff is pinned too). Added 2026.08.10.5 — until then the matrix
+#   compared sites 1 and 2 only, and site 3 had already shipped one release
+#   MISSING its q-set coverage check while sites 1-2 rejected the same
+#   registry. ANY change to the contract must touch ALL FOUR sites above and
+#   keep that matrix green — this list is the map, and the matrix is what
+#   makes the map load-bearing rather than advisory. ─────────────────────────
 def subtopic_set_hash(blueprint):
     """Stable hash of the blueprint's subtopic_id set (provenance stamp)."""
     import hashlib

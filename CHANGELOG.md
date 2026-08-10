@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026.08.10.5
+
+### The four-site architecture is now documented AND enforced
+`paper_pipeline.py`'s §9 header claimed the helpers were "ONE implementation,
+imported by Step 7 … Step 9 … Step 11". No step imports them. The FK/coverage/
+difficulty contract is enforced at FOUR deliberately independent sites — this
+module (reference), `audit_canonical.gate_qindex` (per-exam copy, zero new
+imports, enforcement of record), `Framework_MockTestExplain` P10 (spec-inline
+preflight), and `Framework_MockDeliver` S1-3 (spec-inline classifier). The false
+claim was the dangerous part: an editor changing the contract here would believe
+every step followed automatically. The header now maps the four sites. Code
+byte-identical — verified by AST comparison against the deployed 2026.08.10.4
+copy, docstrings and comments stripped.
+
+### Added during deployment review
+The corrected header asserted the drift risk was "held down by the A-QINDEX
+self-test agreement matrix (pp vs engine vs P10 predicate)". The matrix compared
+pp vs engine ONLY — two of the four sites, and P10 was not in it at all. That is
+the same shape as the claim it replaced: a comment asserting a safety property
+that does not exist. The matrix now EXECUTES all four:
+
+- **Third leg — P10.** The block is extracted from `Framework_MockTestExplain`,
+  dedented, and RUN against the engine's case matrix. Not decorative: P10 shipped
+  in 2026.08.10.4 missing its q-set coverage check, so `q=[1,1]` had the right
+  length and was certified clean while both engine copies rejected it. Deleting
+  P10/2b now fails this fixture — it fails on the defect it was written for. The
+  path substitution has its own guard, so a spec-side rename cannot silently
+  neuter the fixture instead of failing it.
+- **Fourth leg — S1-3.** The classifier is extracted from `Framework_MockDeliver`
+  and compared against `classify_unresolved` on classes AND candidate lists. This
+  is the only one of the four whose output is a human instruction rather than a
+  verdict: its W1 line is "safe to apply mechanically to the registry", so a
+  drifted leaf rule does not fail loudly — it prints a confident PATCH pointing at
+  the wrong subtopic. A class-only comparison was not enough; `cutoff=0.5 -> 0.9`
+  moved the W2 candidates while leaving every class untouched and passed straight
+  through it (measured). Comparing the rendered candidate lists pins the constant
+  the header names.
+
+Both legs mutation-verified in both directions, and both SKIP cleanly when the
+spec file is absent — a per-exam auditor copy runs standalone with no
+`Framework_*.md` beside it. audit_canonical 240 -> 243.
+
 ## 2026.08.10.4
 
 ### Registry question_index is now FK-enforced by an engine (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT)

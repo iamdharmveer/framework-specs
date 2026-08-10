@@ -4330,6 +4330,120 @@ def self_test():
     except ImportError:
         check('A-QINDEX-PARITY-skipped-standalone', True)
 
+    # THIRD LEG: the P10 spec-inline preflight (Framework_MockTestExplain).
+    #   paper_pipeline's header describes ONE CONTRACT AT FOUR INDEPENDENT SITES
+    #   and says the drift risk is "held down by the A-QINDEX self-test agreement
+    #   matrix (pp vs engine vs P10 predicate)". The fixture above compares only
+    #   pp vs engine, so that claim was true of two sites out of three — the same
+    #   shape as the "ONE implementation, imported by" claim it replaced. This
+    #   leg makes it true. It is not decorative: P10 shipped in 2026.08.10.4
+    #   MISSING the q-set coverage check, so an index of q=[1,1] had the right
+    #   LENGTH, passed P10, and was certified clean while BOTH engine copies
+    #   failed it — found only by running the three against each other.
+    #   The spec's block is EXECUTED, not pattern-matched: a coverage rule that
+    #   is merely mentioned in prose is not a rule.
+    #   Absent spec = SKIP, like LABEL-PARITY: a per-exam auditor copy runs
+    #   standalone (Context-2) with no Framework_*.md beside it.
+    try:
+        import textwrap as _tw
+        _p10_spec = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                      'Framework_MockTestExplain.md'),
+                         encoding='utf-8').read()
+        _p10_src = _tw.dedent(
+            _p10_spec.split('## P10 — REGISTRY-FK TRIPWIRE', 1)[1]
+                     .split('```python', 1)[1].split('```', 1)[0]
+                     .split('# Ledger↔index agreement', 1)[0])
+        _p10_dir = tempfile.mkdtemp()
+        # The block reads the exam's two artefacts by absolute project path;
+        # redirect them at a fixture dir. If the spec ever renames that path the
+        # substitution is a no-op, which would silently neuter this fixture — so
+        # assert it bit rather than trusting it.
+        _p10_run = _p10_src.replace('/mnt/project/{EXAM}', _p10_dir + '/{EXAM}')
+        check('A-QINDEX-P10-fixture-is-wired-to-the-fixture-dir',
+              _p10_run != _p10_src and '/mnt/project/' not in _p10_run)
+
+        def _p10_ok(qs):
+            with open(os.path.join(_p10_dir, 'E_blueprint.json'), 'w') as _fh:
+                json.dump(_QBP, _fh)
+            with open(os.path.join(_p10_dir, 'E_registry.json'), 'w') as _fh:
+                json.dump(_q_reg(qs) if qs is not None else {'question_index': []}, _fh)
+            try:
+                exec(compile(_p10_run, 'P10', 'exec'), {'EXAM': 'E', 'N': 1})
+                return True
+            except SystemExit:
+                return False
+
+        def _p10_matrix():
+            for _c in _QCASES + [_QCLEAN[:1] + [{'q': 3, 'subtopic_id': 'PHY.MECH.WORK',
+                                                 'difficulty': 'Hard'}], None]:
+                _reg2 = _q_reg(_c) if _c is not None else {'question_index': []}
+                _e = [l for l, _, _ in _q_run(_reg2)] == ['OK']
+                if _p10_ok(_c) != _e:
+                    return False
+            return True
+        try:
+            _p10_agrees = _p10_matrix()
+        except Exception:
+            _p10_agrees = False
+        check('A-QINDEX-PARITY-P10-spec-preflight-matches-the-engine-gate',
+              _p10_agrees)
+    except (ImportError, FileNotFoundError, IndexError):
+        check('A-QINDEX-PARITY-P10-skipped-standalone', True)
+
+    # FOURTH LEG: MockDeliver S1-3's remediation classifier — the last of the
+    #   four sites, and the only one whose output is a HUMAN INSTRUCTION rather
+    #   than a verdict. Its W1 line is described as "safe to apply mechanically
+    #   to the registry", so a leaf-rule that drifts from classify_unresolved
+    #   does not fail loudly: it prints a confident PATCH pointing at the wrong
+    #   subtopic, and the operator applies it. A W1 that should have been D
+    #   (leaf present on two subtopics) is exactly that silent mis-repair.
+    try:
+        import paper_pipeline as _pp_c
+        _md = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'Framework_MockDeliver.md'), encoding='utf-8').read()
+        _c_src = _tw.dedent('    if _unresolved:' + _md.split(
+            '    if _unresolved:', 1)[1].split('Root-cause fix:', 1)[0] + '")')
+        _CBP2 = {'subtopic_list': [{'subtopic_id': 'PHY.MECH.WORK'},
+                                   {'subtopic_id': 'CHEM.THERMO.WORK'},
+                                   {'subtopic_id': 'PHY.MECH.NEWTON'}]}
+        _stale = {1: 'Physics.Mechanics.NEWTON',   # unique leaf   -> W1
+                  2: 'X.Y.WORK',                   # leaf on two   -> D
+                  3: 'PHY.MECH.ENERGYY'}           # no leaf       -> W2
+
+        def _spec_report():
+            _ns = {'_unresolved': dict(_stale), 'blueprint': _CBP2}
+            try:
+                exec(compile(_c_src, 'S1-3', 'exec'), _ns)
+                return None                      # must STOP; a silent pass is a defect
+            except SystemExit as _e:
+                return str(_e)
+        try:
+            _msg = _spec_report()
+            _spec_cls = {int(_m.group(1)): _m.group(2)
+                         for _m in re.finditer(r'Q(\d+) \[(W1|W2|D)', _msg or '')}
+            _pp_full = _pp_c.classify_unresolved(dict(_stale), _CBP2)
+            _pp_cls = {_q: _v['cls'] for _q, _v in _pp_full.items()}
+            # CLASS AGREEMENT IS NOT ENOUGH. The header pins "same leaf rule, same
+            # difflib cutoff=0.5" — and a cutoff drift moves the CANDIDATES while
+            # leaving every class untouched, so a class-only comparison passes
+            # through it (measured: 0.5 -> 0.9 was invisible until this half was
+            # added). The W2 line is a human-confirm list; wrong candidates there
+            # are wrong advice, which is the failure mode of this site.
+            _tgt_ok = all(
+                (repr(_v['targets'][0]) in _msg) if _v['cls'] == 'W1'
+                else (repr(_v['targets']) in _msg)
+                for _q, _v in _pp_full.items())
+            _c_agrees = (_spec_cls == _pp_cls
+                         and _pp_cls == {1: 'W1', 2: 'D', 3: 'W2'}
+                         and _pp_full[3]['targets']        # the W2 list must be non-empty,
+                         and _tgt_ok)                      # or 'agreement' is two blanks
+        except Exception:
+            _c_agrees = False
+        check('A-QINDEX-PARITY-S1-3-classifier-matches-classify_unresolved',
+              _c_agrees)
+    except (ImportError, FileNotFoundError, IndexError, NameError):
+        check('A-QINDEX-PARITY-S1-3-skipped-standalone', True)
+
     # ══════════════════════════════════════════════════════════════════════════
     # 5i / 5j.  RELEASE C (v2.24.0) — TWO NEW GATES, BOTH AMBER BY CONSTRUCTION.
     # ══════════════════════════════════════════════════════════════════════════

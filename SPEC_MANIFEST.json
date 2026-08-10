@@ -170,9 +170,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7028,
-      "sha256": "dedc22d337f8c1c07ea84764ff38c16ff96cd3e0f985a246284c1593e037949f",
-      "size_bytes": 386581,
+      "lines": 7142,
+      "sha256": "a03eaf88eb28df66cee1464339bdcba1f90b06a16679a52a4f84f94290ed5e3b",
+      "size_bytes": 393176,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -310,9 +310,9 @@
     },
     "paper_pipeline.py": {
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 781,
-      "sha256": "b936c8e605b39a47c120b0b6de27cbd09354694f6dc75040f70207d3e48128b4",
-      "size_bytes": 41913,
+      "lines": 811,
+      "sha256": "9dfd19aae70f1f18b93b3bf267cda3a4ff6e52aff212af506c5f905ad9506847",
+      "size_bytes": 44028,
       "version_header": "\"\"\""
     },
     "reconcile_taxonomy.py": {
