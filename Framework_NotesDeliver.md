@@ -1,4 +1,9 @@
-# Framework_NotesDeliver v1.1.0 — Notes Pipeline Step ND (Delivery)
+# Framework_NotesDeliver v1.1.1 — Notes Pipeline Step ND (Delivery)
+# v1.1.1 — 2026-08-10 — CROSS-CHAT READ + REGISTRY. Made the fresh-chat handoff
+#   explicit: ND READS the audited .docx + _Audit.md + notes_registry.json from
+#   Project Files (NA uploaded them), and re-presents the updated registry
+#   (unit → DELIVERED) alongside the delivery so the state persists. Pairs with
+#   Framework_NotesAudit v2.0.4 / Framework_DeliveryFooter v1.19.
 # v1.1.0 — 2026-08-10 — POST-DEPLOY REVIEW. (1) ND is the delivery step but never
 #   said to present_files its artifacts and rendered no footer — so on mobile the
 #   delivered files were unreachable and the Framework_DeliveryFooter contract was
@@ -26,14 +31,18 @@
 #   state named (never silently skipped).
 
 ## §1 — DELIVERABLES
+  0. INPUTS (fresh chat): read the audited [ExamCode]_<unit>.docx, its
+     [ExamCode]_<unit>_Audit.md, and notes_registry.json from Project Files (NA
+     uploaded them at its cross-chat handoff). ND never re-generates or edits content.
   1. The notes .docx, filename per rule F-1 in Framework_NotesCreate, byte-identical to the
      audited artifact (delivery never edits content).
   2. The audit report for that unit (markdown), same basename + _Audit.
   3. A chat delivery line per unit: unit code, notes_version, verdict summary
      (n/n SOLVABLE), open FIGURE_PENDING count (KEY_FLAG is retired — NotesAudit
      owner decision 4a).
-  4. present_files BOTH artifacts (the .docx and the _Audit.md) so the operator
-     can download them, then RENDER THE F2 STEP-COMPLETE FOOTER as the LAST element
+  4. present_files the .docx, the _Audit.md, AND the updated notes_registry.json
+     (unit → DELIVERED, §4) so the operator can download them and the state
+     persists, then RENDER THE F2 STEP-COMPLETE FOOTER as the LAST element
      of the response (Framework_DeliveryFooter §4-1, the 4-cell NOTES pipeline bar
      "4 of 4", header "Step ND · NotesDeliver"). The footer is obligatory after a
      present_files call (§4-0 R1) and NEVER omitted. Next callout: NC — NotesCreate
@@ -60,4 +69,4 @@ redelivery. (There is no KEY_FLAG queue — retired, NA owner decision 4a.)
 
 ---
 
-# END OF Framework_NotesDeliver v1.1.0
+# END OF Framework_NotesDeliver v1.1.1

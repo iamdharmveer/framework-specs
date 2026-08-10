@@ -1,4 +1,16 @@
-# Framework_DeliveryFooter v1.18 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.19 — Universal Delivery Footer (F1/F2) Contract
+# v1.19 — 2026-08-10 — NOTES CROSS-CHAT HANDOFF (supersedes v1.18's "NC/NA
+#   present nothing"). v1.18 marked NC and NA intermediate, which only holds if
+#   all four Notes steps run in ONE session — but the framework idiom is a new
+#   chat per step, so NC's draft .docx and NA's audited .docx must persist across
+#   chats exactly like NB's bank. NC and NA now PRESENT their handoff artifacts
+#   (draft / audited .docx + audit report + the updated registry) and render a
+#   footer, so their §6 next-step line actually prints. §3 NC/NA entries rewritten
+#   (F2, deliverables, Upload to Project Files); the §4-4 NOTES bar now applies to
+#   all four Notes F2 footers (NB=1, NC=2, NA=3, ND=4). Also: notes_pyq_bank.json
+#   is NAMED in the get_badge context-dependent note (its mid-batch checkpoint is
+#   Upload/Replace for a fresh-chat resume, Use locally for an in-session
+#   continue), resolving the §3-vs-get_badge disagreement. Additive to Step 1-11.
 # v1.18 — 2026-08-10 — NOTES PIPELINE INTEGRATED. The Notes pipeline
 #   (NB/NC/NA/ND) routes this footer but had ZERO §3 registry entries and no
 #   pipeline bar, so once NB began calling present_files (NB v2.0.4) it owed a
@@ -258,6 +270,11 @@ def get_badge(filename, step, is_first_run):
     #   analysis_progress.json:
     #     Step 5 mid-step delivery → Upload/Replace in Project Files (session resume)
     #     Step 5 final delivery    → Use locally (keep for future re-runs)
+    #   notes_pyq_bank.json (NB):
+    #     mid-batch checkpoint     → Upload/Replace in Project Files (fresh-chat
+    #                                resume, NB A-7 option B); Use locally if
+    #                                continuing in-session (option A)
+    #     final delivery           → Upload to Project Files (NC/NA consume it)
     #   Claude determines the correct badge from §3 registry per step + context.
     if any(filename.endswith(pat.replace('*', '')) or
            fnmatch(filename, f'*{pat}') for pat in LOCAL_ONLY):
@@ -522,10 +539,13 @@ NEXT STEP  : Pipeline complete for this mock.
 NOTES PIPELINE (NB / NC / NA / ND)
 ═══════════════════════════════════════════════════════════════════════
 A SEPARATE pipeline. Its F2 footers use the 4-cell NOTES bar (§4-4), never the
-11-cell Mock/PYQ bar. Only NB and ND present files to the operator and therefore
-render a footer; NC and NA are intermediate (they hand a working artifact to the
-next step and present nothing), so they render no footer — the contract binds
-only a present_files call.
+11-cell Mock/PYQ bar. Each step runs in its OWN chat (framework idiom), so every
+step reads its inputs from Project Files, present_files its outputs, and its
+footer tells the operator to upload them to Project Files before the next step's
+new chat — the same cross-chat persistence NB's bank uses. All four steps
+therefore present files and render a footer. The registry (notes_registry.json)
+is re-presented by every step that changes a unit's state (DRAFTED → AUDITED_PASS
+→ DELIVERED).
 
 ═══════════════════════════════════════════════════════════════════════
 NB — NotesBlueprint
@@ -535,8 +555,9 @@ FOOTER TYPE: F1 (mid-step) after each non-final batch
              F2 (step-complete) after the final batch + blueprint/registry
 
 MID-BATCH DELIVERABLES (per batch — same file, append-only checkpoint):
-  notes_pyq_bank.json                → Use locally
-    (download to resume in a fresh chat via A-7 option B)
+  notes_pyq_bank.json                → Upload/Replace in Project Files for a
+    fresh-chat resume (A-7 option B); Use locally if continuing in-session
+    (option A). Context-dependent — see the get_badge note in §2.
 
 FINAL DELIVERABLES:
   notes_pyq_bank.json                → Upload to Project Files (NC/NA read it)
@@ -546,20 +567,32 @@ FINAL DELIVERABLES:
 NEXT STEP  : NC: NotesCreate (one subtopic at a time)
 
 ═══════════════════════════════════════════════════════════════════════
-NC — NotesCreate   (INTERMEDIATE — presents nothing, renders no footer)
+NC — NotesCreate
 ═══════════════════════════════════════════════════════════════════════
-PARTS      : 1 subtopic per run
-FOOTER TYPE: none — NC drafts a working .docx that NA audits; the audited copy
-             is delivered by ND, so NC presents no files to the operator.
-NEXT STEP  : NA: NotesAudit
+PARTS      : 1 subtopic per run (single response)
+FOOTER TYPE: F2 (step-complete) — the subtopic draft is done
+
+DELIVERABLES:
+  [ExamCode]_<unit>.docx (draft)     → Upload to Project Files (NA reads it)
+  notes_registry.json                → Replace in Project Files (unit → DRAFTED)
+
+NEXT STEP  : NA: NotesAudit (in a new chat)
 
 ═══════════════════════════════════════════════════════════════════════
-NA — NotesAudit   (INTERMEDIATE — presents nothing, renders no footer)
+NA — NotesAudit
 ═══════════════════════════════════════════════════════════════════════
-PARTS      : 1 unit per run; convergence loop until pass
-FOOTER TYPE: none — NA produces a working audit report and loops to NC on any
-             gap; it presents no files to the operator.
-NEXT STEP  : ND: NotesDeliver (on AUDITED_PASS)
+PARTS      : 1 unit per run; convergence loop until pass (internal)
+FOOTER TYPE: F2 (step-complete) on AUDITED_PASS
+             F1 AMBER (quality-gate variant) if the §4 loop exits at the L-3
+             non-convergence diagnostic
+
+DELIVERABLES (on AUDITED_PASS):
+  [ExamCode]_<unit>.docx (audited)   → Upload to Project Files (ND delivers it;
+    byte-identical to what ND ships)
+  [ExamCode]_<unit>_Audit.md         → Upload to Project Files
+  notes_registry.json                → Replace in Project Files (unit → AUDITED_PASS)
+
+NEXT STEP  : ND: NotesDeliver (in a new chat)
 
 ═══════════════════════════════════════════════════════════════════════
 ND — NotesDeliver
@@ -570,6 +603,7 @@ FOOTER TYPE: F2 (step-complete) — always
 DELIVERABLES:
   [ExamCode]_<unit>.docx             → Use locally (IFAS portal — Word-native)
   [ExamCode]_<unit>_Audit.md         → Use locally
+  notes_registry.json                → Replace in Project Files (unit → DELIVERED)
 
 NEXT STEP  : NC: NotesCreate (next subtopic), or Notes pipeline complete when all
              blueprinted units are DELIVERED.
@@ -708,12 +742,15 @@ BATCH BAR (F1 only): exactly 12 cells.
   Example — batch 1 of 3 : 🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜  1 of 3
 
 NOTES PIPELINE BAR (F2 only — Notes steps NB/NC/NA/ND): exactly 4 cells.
-  Used INSTEAD of the 11-cell bar in a Notes-step F2 footer (the 11-cell Mock/PYQ
-  bar never applies to Notes). filled = NB→1, NC→2, NA→3, ND→4. Render `filled`
-  × 🟩 + (4 − filled) × ⬜. Label: "[n] of 4" with the step code in the header
-  ("Step NB · NotesBlueprint"). NB's non-final batches stay F1 with the 12-cell
-  BATCH bar above; only NB's final delivery and ND use this 4-cell bar.
+  Used INSTEAD of the 11-cell bar in EVERY Notes-step F2 footer (the 11-cell
+  Mock/PYQ bar never applies to Notes). filled = NB→1, NC→2, NA→3, ND→4. Render
+  `filled` × 🟩 + (4 − filled) × ⬜. Label: "[n] of 4" with the step code in the
+  header ("Step NB · NotesBlueprint"). NB's NON-FINAL batches stay F1 with the
+  12-cell BATCH bar above; NB's final delivery, NC, NA and ND each use this 4-cell
+  bar.
   Example — NB final : 🟩⬜⬜⬜  1 of 4
+  Example — NC       : 🟩🟩⬜⬜  2 of 4
+  Example — NA       : 🟩🟩🟩⬜  3 of 4
   Example — ND       : 🟩🟩🟩🟩  4 of 4
 ```
 

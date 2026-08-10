@@ -1,4 +1,12 @@
-# Framework_NotesAudit v2.0.3 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# Framework_NotesAudit v2.0.4 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# v2.0.4 — 2026-08-10 — CROSS-CHAT HANDOFF + STALE-REF FIX. (1) NA runs in its own
+#   chat; on AUDITED_PASS it now present_files the audited .docx + audit report +
+#   the updated registry and renders the footer (F2 on pass, F1 amber at the §4
+#   L-3 diagnostic), so ND (a fresh chat) can deliver a byte-identical file (new
+#   §7). (2) Corrected the stale claim that the PYQ bank is "NC's artifact from
+#   §1" — since NB v2.0.0 the bank is NB's artifact and NC/NA are consumers; the
+#   PIPELINE POSITION and PREREQUISITE lines now say so. Pairs with
+#   Framework_DeliveryFooter v1.19.
 # v2.0.3 — 2026-08-10 — POST-DEPLOY REVIEW. bank_questions_for joins by
 #   RECOMPUTING the subtopic key from stored fields (drift class closed).
 #   Companion: notes_core >= v1.8.
@@ -49,12 +57,14 @@
 #   quality gate in the Notes pipeline (no human review exists).
 #
 # PIPELINE POSITION:
-#   Notes Step NC (NotesCreate) → draft .docx + PYQ bank
-#   Notes Step NA (NotesAudit)  → THIS SPEC
-#   Notes Step ND (NotesDeliver)→ delivery of AUDITED_PASS units only
+#   Notes Step NB (NotesBlueprint) → notes_pyq_bank.json (the PYQ bank)
+#   Notes Step NC (NotesCreate)    → the unit's draft .docx
+#   Notes Step NA (NotesAudit)     → THIS SPEC
+#   Notes Step ND (NotesDeliver)   → delivery of AUDITED_PASS units only
 #
 # PREREQUISITE:
-#   Unit state DRAFTED; the unit's PYQ bank artifact from NC §1 is present.
+#   Unit state DRAFTED; the draft .docx from NC and notes_pyq_bank.json from NB
+#   (the bank is NB's artifact — NA is a read-only consumer) are in Project Files.
 
 ## §1 — FIGURES (read from the bank; no re-extraction)
 NB already extracted every image from Drive and bound it to its question,
@@ -156,6 +166,19 @@ the unit moves DRAFTED → AUDITED_PASS and
 the report is stored beside the notes artifact. PARTIAL/NOT never persists
 past the loop of §4 — the loop exits only at pass or at the §4 L-3 diagnostic.
 
+## §7 — DELIVERY / CROSS-CHAT HANDOFF
+NA runs in its own chat, so the audited unit must reach ND (a fresh chat). On
+AUDITED_PASS: present_files the audited [ExamCode]_<unit>.docx (the SAME file ND
+ships — delivery never edits content), the [ExamCode]_<unit>_Audit.md report, and
+the updated notes_registry.json (unit → AUDITED_PASS); then RENDER THE F2
+STEP-COMPLETE FOOTER as the LAST element (Framework_DeliveryFooter §4-1; 4-cell
+NOTES bar "3 of 4"; header "Step NA · NotesAudit"; Next → ND: NotesDeliver in a
+new chat). If the §4 loop instead exits at the L-3 non-convergence diagnostic,
+render F1 AMBER with the quality-gate variant (the step ran, the unit is not
+AUDITED_PASS, the diagnostic names the suspect stage) — still after a present_files
+call, still the last element. The footer is obligatory after present_files
+(Framework_DeliveryFooter §4-0 R1) and never omitted.
+
 ---
 
-# END OF Framework_NotesAudit v2.0.3
+# END OF Framework_NotesAudit v2.0.4

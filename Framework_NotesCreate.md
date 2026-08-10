@@ -1,4 +1,9 @@
-# Framework_NotesCreate v2.1.3 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.1.4 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.1.4 — 2026-08-10 — CROSS-CHAT HANDOFF SPECIFIED. NC runs in its own chat, so
+#   its draft .docx must reach NA (a fresh chat) the same way NB's bank reaches NC.
+#   New §9: NC present_files the draft + the updated registry and renders the F2
+#   footer (4-cell NOTES bar "2 of 4"; Next → NA), so the handoff persists and the
+#   next-step pointer actually prints. Pairs with Framework_DeliveryFooter v1.19.
 # v2.1.3 — 2026-08-10 — POST-DEPLOY REVIEW. bank_questions_for now joins by
 #   RECOMPUTING the subtopic key from stored fields (drift class closed), so an
 #   older bank still reads correctly. Companion: notes_core >= v1.8.
@@ -200,6 +205,17 @@ continue-confirmation between batches. On completion the unit moves
 BLUEPRINTED → DRAFTED with notes_version set (starts 0.1; NA patches bump
 the minor).
 
+## §9 — DELIVERY / CROSS-CHAT HANDOFF
+NC runs in its own chat, so its draft must reach NA (a fresh chat) the same way
+NB's bank reaches NC. On completion: present_files the draft
+[ExamCode]_<unit>.docx AND the updated notes_registry.json (unit → DRAFTED), then
+RENDER THE F2 STEP-COMPLETE FOOTER as the LAST element of the response
+(Framework_DeliveryFooter §4-1; the 4-cell NOTES bar "2 of 4"; header "Step NC ·
+NotesCreate"). The footer's badges upload both artifacts to Project Files and its
+Next callout points to NA: NotesAudit in a NEW chat (which reads the draft + bank
+from Project Files). The footer is obligatory after a present_files call
+(Framework_DeliveryFooter §4-0 R1) and is never omitted.
+
 ---
 
-# END OF Framework_NotesCreate v2.1.3
+# END OF Framework_NotesCreate v2.1.4
