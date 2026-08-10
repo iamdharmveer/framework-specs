@@ -1,4 +1,13 @@
-# Framework_DeliveryFooter v1.17 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.18 — Universal Delivery Footer (F1/F2) Contract
+# v1.18 — 2026-08-10 — NOTES PIPELINE INTEGRATED. The Notes pipeline
+#   (NB/NC/NA/ND) routes this footer but had ZERO §3 registry entries and no
+#   pipeline bar, so once NB began calling present_files (NB v2.0.4) it owed a
+#   footer it could not render. Added: §3 entries for NB/NC/NA/ND (NB and ND
+#   deliver + render a footer; NC/NA are intermediate and present no files, so
+#   render none — the contract binds only a present_files call); a 4-cell NOTES
+#   PIPELINE BAR in §4-4 for Notes F2 footers (the 11-cell Mock/PYQ bar never
+#   applies to Notes); and the Notes chain in §6. Additive only — no Step 1-11
+#   entry, badge, severity, F1/F2 shape, or §5 flowchart changed.
 # v1.17 — 2026-08-10 — LOCAL_ONLY PATTERN MADE AIRTIGHT. v1.16 added
 #   '*_pyq_registry.json', but get_badge() matches via endswith(pat) / fnmatch(*pat),
 #   so a BARE 'pyq_registry.json' with no '[ExamCode]_' prefix did NOT match and fell
@@ -508,6 +517,62 @@ DELIVERABLES:
 
 NEXT STEP  : Pipeline complete for this mock.
              For next mock: Step 7: MockCreate M[N+1]
+
+═══════════════════════════════════════════════════════════════════════
+NOTES PIPELINE (NB / NC / NA / ND)
+═══════════════════════════════════════════════════════════════════════
+A SEPARATE pipeline. Its F2 footers use the 4-cell NOTES bar (§4-4), never the
+11-cell Mock/PYQ bar. Only NB and ND present files to the operator and therefore
+render a footer; NC and NA are intermediate (they hand a working artifact to the
+next step and present nothing), so they render no footer — the contract binds
+only a present_files call.
+
+═══════════════════════════════════════════════════════════════════════
+NB — NotesBlueprint
+═══════════════════════════════════════════════════════════════════════
+PARTS      : Multiple batches of 3 papers (BATCH STOP after each — NB §3A A-7)
+FOOTER TYPE: F1 (mid-step) after each non-final batch
+             F2 (step-complete) after the final batch + blueprint/registry
+
+MID-BATCH DELIVERABLES (per batch — same file, append-only checkpoint):
+  notes_pyq_bank.json                → Use locally
+    (download to resume in a fresh chat via A-7 option B)
+
+FINAL DELIVERABLES:
+  notes_pyq_bank.json                → Upload to Project Files (NC/NA read it)
+  notes_blueprint.json               → Upload to Project Files
+  notes_registry.json                → Upload to Project Files
+
+NEXT STEP  : NC: NotesCreate (one subtopic at a time)
+
+═══════════════════════════════════════════════════════════════════════
+NC — NotesCreate   (INTERMEDIATE — presents nothing, renders no footer)
+═══════════════════════════════════════════════════════════════════════
+PARTS      : 1 subtopic per run
+FOOTER TYPE: none — NC drafts a working .docx that NA audits; the audited copy
+             is delivered by ND, so NC presents no files to the operator.
+NEXT STEP  : NA: NotesAudit
+
+═══════════════════════════════════════════════════════════════════════
+NA — NotesAudit   (INTERMEDIATE — presents nothing, renders no footer)
+═══════════════════════════════════════════════════════════════════════
+PARTS      : 1 unit per run; convergence loop until pass
+FOOTER TYPE: none — NA produces a working audit report and loops to NC on any
+             gap; it presents no files to the operator.
+NEXT STEP  : ND: NotesDeliver (on AUDITED_PASS)
+
+═══════════════════════════════════════════════════════════════════════
+ND — NotesDeliver
+═══════════════════════════════════════════════════════════════════════
+PARTS      : 1 unit per run (single response)
+FOOTER TYPE: F2 (step-complete) — always
+
+DELIVERABLES:
+  [ExamCode]_<unit>.docx             → Use locally (IFAS portal — Word-native)
+  [ExamCode]_<unit>_Audit.md         → Use locally
+
+NEXT STEP  : NC: NotesCreate (next subtopic), or Notes pipeline complete when all
+             blueprinted units are DELIVERED.
 ```
 
 ---
@@ -641,6 +706,15 @@ BATCH BAR (F1 only): exactly 12 cells.
   filled = round(12 × X / Y). Render `filled` × 🟨 + (12 − filled) × ⬜.
   Label: "[X] of [Y]". If Y (total batches) is unknown, OMIT the bar line.
   Example — batch 1 of 3 : 🟨🟨🟨🟨⬜⬜⬜⬜⬜⬜⬜⬜  1 of 3
+
+NOTES PIPELINE BAR (F2 only — Notes steps NB/NC/NA/ND): exactly 4 cells.
+  Used INSTEAD of the 11-cell bar in a Notes-step F2 footer (the 11-cell Mock/PYQ
+  bar never applies to Notes). filled = NB→1, NC→2, NA→3, ND→4. Render `filled`
+  × 🟩 + (4 − filled) × ⬜. Label: "[n] of 4" with the step code in the header
+  ("Step NB · NotesBlueprint"). NB's non-final batches stay F1 with the 12-cell
+  BATCH bar above; only NB's final delivery and ND use this 4-cell bar.
+  Example — NB final : 🟩⬜⬜⬜  1 of 4
+  Example — ND       : 🟩🟩🟩🟩  4 of 4
 ```
 
 ---
@@ -751,6 +825,13 @@ After Step 7   → Step 9: MockExplain M[N]      (Step 8 retired — 2026.08.03.
 After Step 9   → Step 11: MockDeliver M[N]     (Step 10 retired — 2026.08.03.5)
 After Step 11  → Pipeline complete for Mock [N].
                  Next mock: Step 7: MockCreate M[N+1]
+
+NOTES PIPELINE (separate):
+After NB       → NC: NotesCreate (one subtopic at a time)
+After NC       → NA: NotesAudit
+After NA       → ND: NotesDeliver (on AUDITED_PASS; NA loops to NC on any gap)
+After ND       → NC: NotesCreate (next subtopic), or Notes pipeline complete when
+                 all blueprinted units are DELIVERED.
 ```
 
 ---

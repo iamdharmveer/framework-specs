@@ -1,4 +1,11 @@
-# Framework_NotesBlueprint v2.0.4 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v2.0.5 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v2.0.5 — 2026-08-10 — DELIVERY-FOOTER CONTRACT HONORED. v2.0.4 added
+#   present_files at every BATCH STOP but rendered no footer — a violation of
+#   Framework_DeliveryFooter §4-0 R1 ("a present_files call is always followed by
+#   the footer"), and the Notes pipeline had no §3 registry entry. A-7 now renders
+#   F1 (batch bar) after each non-final batch and F2 (4-cell NOTES bar, Next: NC)
+#   after the final delivery, per Framework_DeliveryFooter v1.18 (which now carries
+#   the NB/NC/NA/ND §3 entries, the NOTES bar, and the Notes §6 chain).
 # v2.0.4 — 2026-08-10 — POST-DEPLOY REVIEW. (B) O-2 no longer claims a "bank"
 #   provenance value the engine never writes — unit provenance is
 #   "syllabus"/"evidence-added"; only the pyq_count is bank-DERIVED, now stated as
@@ -190,26 +197,33 @@ This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
       user confirmation is STRICTLY PROHIBITED; analysing the whole folder in one
       go is STRICTLY PROHIBITED; no user instruction, efficiency argument, or time
       pressure overrides this. After each batch of 3 (A-3..A-6):
-        (i)   emit that batch's mini INGEST REPORT — papers ingested (Drive vs
-              upload lane), questions banked + per-type split, images read, any
-              IMG-gate finding, any UNRESOLVED stem figure, any undated filename;
-        (ii)  state how many papers remain and the two ways to proceed:
-                A) reply 'continue' to process the next batch of 3 in this session
-                   (the bank is still in the working dir — no upload needed);
-                B) DOWNLOAD the notes_pyq_bank.json presented at this checkpoint
-                   (A-6), upload it to [ExamCode] project knowledge (replace the
-                   prior copy), open a fresh chat, and re-trigger NotesBlueprint on
-                   the same source; A-0 loads it and resumes from the paper_keys
-                   already in the bank, re-downloading nothing;
-        (iii) END THE RESPONSE — write nothing further and start no new batch in
-              the same turn. The A-6 checkpoint makes the pause safe; the Python
-              loop boundary alone does NOT stop generation — this prose rule does
-              (same class of rule as the Framework_MockTestAnalyse BATCH STOP law,
-              added there after a run auto-advanced batch 1 -> batch 2 in one
-              response because no END-THE-RESPONSE rule existed).
-      Corpus-level work (§3B counts, roles/tiers, and the §6 blueprint + registry
-      outputs) runs ONLY after the LAST batch completes, since counts require the
-      full corpus. Until then only the incremental bank (O-1) exists.
+        (i)   present_files the batch checkpoint (notes_pyq_bank.json) so it is
+              downloadable, then emit that batch's mini INGEST REPORT — papers
+              ingested (Drive vs upload lane), questions banked + per-type split,
+              images read, any IMG-gate finding, any UNRESOLVED stem figure, any
+              undated filename;
+        (ii)  RENDER THE DELIVERY FOOTER as the LAST element of the response —
+              the present_files call in (i) obligates it (Framework_DeliveryFooter
+              §4-0 R1; §3 NB entry). For a non-final batch use F1 (amber, §4-2)
+              with the 12-cell BATCH bar "batch X of Y": the template's 'continue'
+              callout IS resume option A (reply 'continue' — the bank is still in
+              the working dir); the SESSION-BREAK variant IS resume option B
+              (download the presented bank, re-upload to [ExamCode] project
+              knowledge, open a fresh chat, re-trigger NotesBlueprint — A-0
+              resumes from the paper_keys already in the bank, re-downloading
+              nothing);
+        (iii) END THE RESPONSE — nothing after the footer, and start no new batch
+              in the same turn. The A-6 checkpoint makes the pause safe; the
+              Python loop boundary alone does NOT stop generation — this prose
+              rule does (same class of rule as the Framework_MockTestAnalyse BATCH
+              STOP law, added there after a run auto-advanced batch 1 -> batch 2 in
+              one response because no END-THE-RESPONSE rule existed).
+      After the LAST batch: run the corpus-level work (§3B counts, roles/tiers),
+      write blueprint + registry, present_files the final set (notes_pyq_bank.json
+      + notes_blueprint.json + notes_registry.json), and render F2 (green, §4-1)
+      with the 4-cell NOTES pipeline bar "1 of 4" (header "Step NB · NotesBlueprint")
+      and Next: NC — NotesCreate. That final F2 is the ONLY F2 in NB; every earlier
+      batch stop is F1. Until the last batch, only the incremental bank (O-1) exists.
 
 ## §3B — BANK BUILD, FIGURE SPLIT, ANSWER CAPTURE, COUNT DERIVATION
 B-1 PER-QUESTION FIELDS (notes_core.bank_add_question):
@@ -343,4 +357,4 @@ E-12 An optional PYQ Analysis doc disagreeing with bank counts -> reported; the
 
 ---
 
-# END OF Framework_NotesBlueprint v2.0.4
+# END OF Framework_NotesBlueprint v2.0.5

@@ -1,4 +1,12 @@
-# Framework_NotesDeliver v1.0.0 — Notes Pipeline Step ND (Delivery)
+# Framework_NotesDeliver v1.1.0 — Notes Pipeline Step ND (Delivery)
+# v1.1.0 — 2026-08-10 — POST-DEPLOY REVIEW. (1) ND is the delivery step but never
+#   said to present_files its artifacts and rendered no footer — so on mobile the
+#   delivered files were unreachable and the Framework_DeliveryFooter contract was
+#   unmet. §1 now present_files the notes .docx + audit report and renders the F2
+#   step-complete footer (4-cell NOTES bar "4 of 4"; Framework_DeliveryFooter
+#   v1.18 §3 ND entry). (2) Removed stale references the NA v2.0.0 changes left
+#   behind: KEY_FLAG is retired (NA owner decision 4a) and answer-mode "M-2" is
+#   gone (NA runs permanent ground-truth mode). Companion: notes_core >= v1.0.
 # v1.0.0 — 2026-08-08 — INITIAL RELEASE.
 # [ExamCode] project | Notes Step ND | Exam-agnostic
 #
@@ -22,7 +30,15 @@
      audited artifact (delivery never edits content).
   2. The audit report for that unit (markdown), same basename + _Audit.
   3. A chat delivery line per unit: unit code, notes_version, verdict summary
-     (n/n SOLVABLE), open queues (FIGURE_PENDING / KEY_FLAG counts).
+     (n/n SOLVABLE), open FIGURE_PENDING count (KEY_FLAG is retired — NotesAudit
+     owner decision 4a).
+  4. present_files BOTH artifacts (the .docx and the _Audit.md) so the operator
+     can download them, then RENDER THE F2 STEP-COMPLETE FOOTER as the LAST element
+     of the response (Framework_DeliveryFooter §4-1, the 4-cell NOTES pipeline bar
+     "4 of 4", header "Step ND · NotesDeliver"). The footer is obligatory after a
+     present_files call (§4-0 R1) and NEVER omitted. Next callout: NC — NotesCreate
+     for the next subtopic, or "Notes pipeline complete" when every blueprinted
+     unit is DELIVERED.
 
 ## §2 — DOCUMENT/VERSION SEPARATION
 No version footer, draft marker or pipeline metadata appears INSIDE the
@@ -36,11 +52,12 @@ repeat this warning the FIRST time a given exam project delivers notes, so
 the portal team confirms a Word-native path once per exam.
 
 ## §4 — STATE AND QUEUES
-On delivery the unit moves AUDITED_PASS → DELIVERED (timestamped). Open
-FIGURE_PENDING or KEY_FLAG queues survive delivery and keep their standing
-re-audit triggers (Framework_NotesAudit gate rules: figure pass and mode M-2); a re-audit that changes any
-verdict re-opens the unit to AUDITED_PASS pending redelivery.
+On delivery the unit moves AUDITED_PASS → DELIVERED (timestamped). An open
+FIGURE_PENDING item survives delivery and keeps its standing re-audit trigger
+(Framework_NotesAudit §1 figure handling; NA runs permanent ground-truth mode,
+§3); a re-audit that changes any verdict re-opens the unit to AUDITED_PASS pending
+redelivery. (There is no KEY_FLAG queue — retired, NA owner decision 4a.)
 
 ---
 
-# END OF Framework_NotesDeliver v1.0.0
+# END OF Framework_NotesDeliver v1.1.0
