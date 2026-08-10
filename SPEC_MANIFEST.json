@@ -37,10 +37,10 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1528,
-      "sha256": "50a7acc7fcc9ed58a5336412312165210b2a3ab33e76eed7bfb74077ea3651ac",
-      "size_bytes": 120375,
-      "version_header": "# Framework_MockTestExplain v1.21.1"
+      "lines": 1552,
+      "sha256": "4ad6ef4192a379bd21808af40d4ce35a5e217694520df7baae194ad65a1ee10b",
+      "size_bytes": 122482,
+      "version_header": "# Framework_MockTestExplain v1.22"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v2.0.1",
@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1750,
-      "sha256": "718a9956890a92b01eeaa30b8f4624490d0d7226e1dd3a260ca95a2c24ca03b0",
-      "size_bytes": 119205,
-      "version_header": "# Framework_PYQExplain v2.3 — Universal PYQ Explanation Generator"
+      "lines": 1828,
+      "sha256": "00e53345b8fa6790940882277f080dcf024e95ccedc9ee15a82d3fcfde64b979",
+      "size_bytes": 124894,
+      "version_header": "# Framework_PYQExplain v2.4 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",
@@ -205,9 +205,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 165,
-      "sha256": "ca2f9f9a4bca135ccd59bcfade6b2107d96f785677944301061c4366ed88721c",
-      "size_bytes": 8588,
+      "lines": 174,
+      "sha256": "5b24144f11a82eb7ebdd344d13eb1b5b747446d48bb2192aae07e7b53685337a",
+      "size_bytes": 9186,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {
@@ -254,9 +254,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 2353,
-      "sha256": "fd549491a16fdb0905c57a1a41602f95659bc654bde16fd5d16ace17afe2c1d6",
-      "size_bytes": 130108,
+      "lines": 2405,
+      "sha256": "0d3ab27780696d86f1ea1af3d86d7b3baaf5ebd286eec0636a1f26116199cc52",
+      "size_bytes": 133541,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {

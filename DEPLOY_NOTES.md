@@ -1,65 +1,90 @@
-# Release 2026.08.03.5 — Audit steps removed (Steps 8 and 10)
+# Deploy: Math-Integrity Gate — release 2026.08.10.3
 
-## Deploy order (single atomic release — do not split)
+**Fixes:** `GAP-2026-08-10-EXPLAIN-MATH-DEGRADE-SILENT` — a `⟦MATH:…⟧` region that
+did not compile degraded to raw LaTeX at render and shipped, because the failure
+was reported only through `verify_explanations()`'s **return value** (not a raise)
+and a self-audit consumed only whether the call raised.
 
-Copy all 22 files below over your `production` working tree, then DELETE these two:
+**Exam-independent:** the fix is pure Tier-3 grammar / verifier plumbing. No exam,
+subject, or value appears anywhere in the change. It protects all ~200 exams and
+**both** pipelines (PYQExplain and MockTestExplain) because both drive the same
+`explain_engine.py` (MANDATE A).
 
-    Framework_MockTestCreateAudit.md
-    Framework_MockTestExplainAudit.md
+---
 
-`check_triggers.py` fails CI on any partial landing, because routes.json,
-both SKILL files and validate_framework_md.py's PIPELINE must move together.
+## What changed
 
-## Post-push verification (fresh clone)
+1. **`explain_engine.py` — the permanent mechanical fix (load-bearing).**
+   `ExplanationBlock.validate()` now compiles every `⟦MATH:…⟧` region through
+   `t3_compile` and **raises `ValueError`** on any `MathCompileError`. A malformed
+   region fails at *construction*, before any docx exists, so it can never reach
+   the renderer or degrade. `validate()` is the one universal chokepoint (called on
+   every block, every step, both pipelines, all exams) and it raises — no producer
+   harness can bypass it. Only `⟦MATH:…⟧` is compiled; `⟦M:<base64>⟧` preserve
+   tokens are untouched. Engine self-test unchanged: **62/62 PASS**.
 
-    git clone --depth 1 --branch production <repo> /tmp/verify && cd /tmp/verify
-    python3 bootstrap.py          # expect: 2026.08.03.5 VERIFIED — 31/31 files
-    python3 check_triggers.py     # expect: 20 user-facing triggers
-    python3 audit_deep.py         # expect: findings: 0
-    python3 audit_sync.py         # expect: 5 findings, ALL from the installed skill (below)
+2. **`Framework_PYQExplain.md` → v2.4** — documents the authoring-time gate
+   (§S5-2, §S11-1, new §S11-1a) and adds an explicit **BLOCKING** contract plus a
+   literal HARD-STOP gate (§S18-1, new §S18-1a): a run must assert
+   `ok is True AND problems == [] AND T3_STATS['failed']` is empty; a non-empty
+   degrade ledger forbids `present_files`. Header + END sentinel bumped to v2.4;
+   `SHARED_RULES_VERSION` → 1.1.
 
-## REQUIRED MANUAL ACTION — the installed skill
+3. **`Framework_MockTestExplain.md` → v1.22** — mirrors the §18 BLOCKING contract
+   and the shared-engine gate note (§S5-2). (This pipeline authors math via the
+   explicit helpers and bans LaTeX, so regions are rare here, but the gate and the
+   contract apply.)
 
-`audit_sync.py` reads `/mnt/skills/user/mock-test-framework/SKILL.md`, NOT the repo copy.
-Until you reinstall the skill from this release's `mocktestframework_SKILL.md`, every audit
-run reports 4 TRIGGER-SYNC + 1 SKILL-INVENTORY findings naming the removed triggers.
-The repo copy in this release is already correct.
+4. **`VERSION` → `2026.08.10.3`** and **`MANIFEST.json` regenerated** (engine +
+   both specs changed their sha256/headers/sentinels).
 
-## Before you push — check nothing is mid-audit
+5. **`SPEC_MANIFEST.json` regenerated** — optional (not read by CI or bootstrap),
+   included only to keep the repo fully consistent.
 
-Any paper currently sitting in a `MockCreateAudit ... resume` / `status` or
-`MockExplainAudit ... resume` / `status` state becomes unreachable the moment this lands.
+---
 
-## Backward compatibility (deliberate — do not "clean up")
+## Files to commit to GitHub (branch: production)
 
-- `Framework_MockDeliver.md` still ACCEPTS `_Explanation_Complete.docx` so papers produced
-  by the old Step 10 still deliver. Nothing produces that filename any more.
-- Existing `[ExamCode]_ExplainAuditLearnings.md` files stay valid, are still loaded and
-  obeyed by Step 9, and may be extended by hand. Blueprint no longer generates new ones.
-- Old registries certified by past Step-8 runs remain valid. No migration needed.
+| File | Required | Why |
+| --- | --- | --- |
+| `explain_engine.py` | **Yes** | the fix |
+| `Framework_PYQExplain.md` | **Yes** | contract + gate |
+| `Framework_MockTestExplain.md` | **Yes** | mirror + parity |
+| `VERSION` | **Yes** | release bump |
+| `MANIFEST.json` | **Yes** | CI runs `gen_manifest.py` + `git diff --exit-code MANIFEST.json`; a stale manifest fails the build |
+| `SPEC_MANIFEST.json` | Optional | repo consistency only |
 
-## Verification evidence from this build
+> Do **not** hand-edit `MANIFEST.json`. It is machine-generated. If you change any
+> file after downloading, re-run `python3 gen_manifest.py` and commit the result.
 
-    bootstrap.py            31/31 VERIFIED (run twice, .verified cleared between)
-    check_triggers.py       CONSISTENT — 20 triggers
-    audit_deep.py           findings: 0
-    audit_callgraph.py      0 findings
-    audit_mutation.py       30/30 killed, mutation score 100.0%
-    audit_canonical.py      SELF-TEST: 175/175 PASS
-    explain_engine.py       SELF-TEST: 62/62 PASS · AUDIT-SELF-TEST: 10/10 PASS
-    validate_framework_md.py *.md   26 findings — EXACTLY the production baseline,
-                                    zero new findings introduced by this release
+---
 
-## Accepted losses (requested, not oversights)
+## Deploy steps
 
-No step re-derives an answer, re-derives a subtopic_id, re-checks a figure, or runs a
-completion gate over a mock or scoped paper. Step 7's gates and Step 9's §18 self-audit
-are terminal. audit_canonical.py survives and still runs inside Step 7 (S3-10 / S4-11),
-carrying the full A-* catalogue including the twelve A-FIG* figure gates.
+1. Replace the six files above in your `production` checkout with the ones in this
+   folder.
+2. Sanity-check locally (this is exactly what CI runs):
+   ```bash
+   python3 gen_manifest.py
+   git diff --exit-code MANIFEST.json      # must show NO diff
+   python3 bootstrap.py                     # must print: 39/39 files ... PASS
+   python3 validate_framework_md.py Framework_*.md   # 0 issues
+   python3 check_triggers.py                # TRIGGERS CONSISTENT
+   python3 explain_engine.py --self-test    # SELF-TEST: 62/62 PASS
+   ```
+3. Commit and push to `production`.
 
-## One change NOT made
+## CI expectation (`.github/workflows/validate.yml`)
+`gen_manifest.py` → `git diff --exit-code MANIFEST.json` → `bootstrap.py` →
+`validate_framework_md.py Framework_*.md` → `check_triggers.py`. All pass with this set.
 
-Step 7's audit.py run was NOT promoted from OPTIONAL to MANDATORY — that is a new hard
-stop and was not authorised. Instead a REPORTING duty was added: its absence must be
-stated explicitly in the batch report. To promote it, change the S3-10 / S4-11 handling
-in Framework_MockTestCreate.md from WARN to HARD STOP.
+## Rollback
+Restore the previous `explain_engine.py`, `Framework_PYQExplain.md`,
+`Framework_MockTestExplain.md`, `VERSION`, and `MANIFEST.json`
+(release 2026.08.10.2), then re-run `gen_manifest.py` and commit.
+
+## How to confirm the fix is live (post-deploy, any exam)
+Constructing an `ExplanationBlock` whose `⟦MATH:…⟧` region uses out-of-grammar
+LaTeX (e.g. `\tfrac`, `\varepsilon`, `\vec r` unbraced) now raises `ValueError`
+at `.validate()` — before any document is built — instead of degrading silently
+at render.

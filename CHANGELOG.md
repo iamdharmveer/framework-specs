@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026.08.10.3
+
+### Math-integrity gate — an uncompilable math region can no longer degrade silently
+
+`GAP-2026-08-10-EXPLAIN-MATH-DEGRADE-SILENT`. A `⟦MATH:…⟧` region that t3_compile
+rejected did NOT raise at render: by the no-halt render contract it degraded to raw
+LaTeX, was recorded in `T3_STATS['failed']`, and shipped. The failure was reported only
+through `verify_explanations()`'s RETURN value, so a harness that checked only whether
+the call raised passed a degraded document — a bound enforced at the consumer, not the
+producer. `ExplanationBlock.validate()` now compiles every `⟦MATH:…⟧` region and RAISES
+`ValueError`, so a malformed region fails at construction, before any docx exists.
+`validate()` is the one universal chokepoint — every block, every step, both pipelines,
+all exams — and no producer harness can bypass it. `⟦M:<base64>⟧` preserve tokens are
+untouched. Exam-agnostic: pure Tier-3 grammar. explain_engine.py, PYQExplain v2.3→v2.4
+(§S5-2, §S11-1, new §S11-1a, §S18-1a BLOCKING contract; SHARED_RULES_VERSION 1.1),
+MockTestExplain v1.21.1→v1.22 (mirrors the §18 contract and the §S5-2 engine note).
+
+The engine self-test gained the fixture the gate was missing: removing the gate now
+fails `T3-GATE-UNCOMPILABLE-REJECT`, and a gate that rejected every region fails
+`T3-GATE-COMPILABLE-ACCEPT`. The reject fixture uses a body the prose guard accepts
+(`\tfrac`), because a body `guard_sentence` already rejects would pass with the gate
+removed and test nothing. 62/62 → 64/64.
+
+### Also shipped since 2026.08.10.2 (unversioned at the time)
+
+- **Notes pipeline, NB becomes the ingest base** — NB performs the eager full-corpus
+  ingest and owns `notes_pyq_bank.json` (verbatim correct_answers and explanations,
+  stem/solution figure split); NC and NA consume it read-only and neither re-reads
+  Drive. NotesBlueprint v1.1.0→v2.0.1, NotesCreate v2.0.0→v2.1.1, NotesAudit
+  v1.1.0→v2.0.1, notes_core v1.4→v1.6, notes_blueprint v1.2→v1.4, notes_audit
+  v1.1→v1.3. routes.json: NotesBlueprint also routes corpus_io.py + blueprint_core.py.
+- **Notes deployment-review fixes** — `bank_ref` is now emitted by the blueprint and
+  verified by NC before drafting (`verify_bank_ref`), so a blueprint built from one bank
+  can no longer be silently paired with another; `pass_for_unit` derives the audit floor
+  from the bank so a partial audit can never certify AUDITED_PASS; NB §3A-1 enumeration
+  rewritten to the CLASS T bridge (plain-lookup resolver over a materialised listing,
+  never the tool marker).
+- **audit_deep: two blind spots fixed** — JSON-PARITY counted writers in single quotes
+  only while its read pattern accepted either, so any field a double-quoted engine wrote
+  counted zero writers; and the engine set was a hardcoded 4-name tuple while the
+  framework tracks 16, hiding 12 engines from every ENG-based check. The set is now
+  derived from MANIFEST.json. Widening it exposed a DISABLED-GUARD false positive on
+  wrapped prose beginning "assert", now discriminated by whether the comment parses as
+  python. All 16 engines scanned: no real disabled assertion exists.
+- **DEPLOY_NOTES.md** refreshed; it had described release 2026.08.03.5.
+
 ## 2026.08.10.2
 - **Framework_PYQDeliver v1.10 → v1.11** — doc-consistency only. Completes the v1.9
   single-artifact sweep: the §7 C18 summary line, §11 Definition-of-done item 11, and a

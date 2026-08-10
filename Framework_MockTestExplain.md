@@ -1,4 +1,16 @@
-# Framework_MockTestExplain v1.21.1
+# Framework_MockTestExplain v1.22
+# v1.22 — 2026-08-10 — SHARED-ENGINE MATH-INTEGRITY GATE (GAP-2026-08-10-EXPLAIN-
+#   MATH-DEGRADE-SILENT, mirrored from Framework_PYQExplain v2.4). The shared
+#   explain_engine.py now compiles every ⟦MATH:…⟧ region inside ExplanationBlock.
+#   validate() and RAISES at construction on a Tier-3 grammar reject, so a region
+#   can no longer degrade to raw plain text at render. Because verify_explanations
+#   REPORTS such degrades through its RETURN value (ok, problems) — it does NOT
+#   raise — §18-1's verify_explanations line is now an explicit BLOCKING CONTRACT
+#   (assert ok is True AND problems == [] AND T3_STATS['failed'] empty). This
+#   pipeline authors math with the explicit helpers and bans LaTeX in prose (§11),
+#   so ⟦MATH:…⟧ regions are rare here, but the shared-engine gate and the §18
+#   contract apply. Engine self-test unchanged (62/62). Touched: §S5-2, §S18-1,
+#   header + END sentinel. Ships with the regenerated MANIFEST (engine sha changed).
 # v1.21.1 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED and explain_audit_gate.py
 #   REMOVED from the framework. Updated the two notes that said the gate module still
 #   survives / is still routed "for PYQExplainAudit" (no longer true). No rule change.
@@ -586,7 +598,11 @@
   paragraph (terminator set is language-configurable — §11). Zero ✓/✗ glyphs, zero LaTeX,
   zero metacommentary, zero template sentences, zero fake citations, zero REMEMBER /
   EXAM-CONNECTION blocks, zero year-range slashes. A breach raises in
-  ExplanationBlock.validate() / add_math_text BEFORE the doc is written.
+  ExplanationBlock.validate() / add_math_text BEFORE the doc is written. As of
+  2026.08.10.3, validate() also COMPILES any ⟦MATH:…⟧ Tier-3 region (t3_compile) and
+  RAISES at construction on a grammar reject, so such a region can never degrade to
+  raw text at render; this pipeline normally builds math with the explicit helpers
+  (§11), so regions are rare here, but the gate applies to the shared engine.
 
 ## S5-3 — PER-QUESTION CHECKLIST (tick every item before constructing the block)
 
@@ -1214,12 +1230,20 @@
       image rId resolves to a relationship (no dangling embed) (§12)
   [ ] verify_structure(out, blocks, expected = Q1..last(batch k)): coverage exact,
       NO look-ahead, header order + CA binding intact (§4 / §5)
-  [ ] verify_explanations(out, blocks): INDEPENDENT post-render re-audit of the rendered
-      docx — re-reads the written bytes (not the in-memory blocks) and re-checks header
-      order, the type-aware CA binding read back from the document, WHY-WRONG / COMMON-
-      PITFALLS coverage, zero banned glyphs / metacommentary / templates / inline or
-      vulgar fractions in rendered prose, one sentence per rendered paragraph, and every
-      OMML fraction well-formed with no year-range artefact (§13)
+  [ ] verify_explanations(out, blocks) -> (ok, problems): INDEPENDENT post-render re-audit
+      of the rendered docx — re-reads the written bytes (not the in-memory blocks) and
+      re-checks header order, the type-aware CA binding read back from the document,
+      WHY-WRONG / COMMON-PITFALLS coverage, zero banned glyphs / metacommentary / templates
+      / inline or vulgar fractions in rendered prose, one sentence per rendered paragraph,
+      every OMML fraction well-formed with no year-range artefact, AND the Tier-3 degrade
+      ledger (§13). BLOCKING CONTRACT — the verifiers RETURN status, they do NOT raise:
+      assert ok is True AND problems == [] AND explain_engine.T3_STATS['failed'] is empty.
+      A non-empty degrade ledger (a ⟦MATH:⟧ region that fell back to raw plain text) is a
+      BLOCKING FAIL — present_files FORBIDDEN. A run that checks only "did the call raise"
+      is NON-CONFORMING. (As of 2026.08.10.3 ExplanationBlock.validate() also compiles any
+      ⟦MATH:⟧ region and RAISES at construction, so this ledger is normally empty; the
+      assertion is the second gate. This pipeline authors math via the explicit helpers and
+      bans LaTeX in prose (§11), so ⟦MATH:⟧ regions are rare here, but the contract holds.)
   [ ] count invariants: image / table / OMML / question / option counts == Step-7 input
   [ ] strip-and-re-audit: questions-only copy passes the Step-7 auditor identically (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
@@ -1524,5 +1548,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.21.1
+# END OF Framework_MockTestExplain v1.22
 # ════════════════════════════════════════════════════════════════════════

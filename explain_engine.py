@@ -560,7 +560,36 @@ class ExplanationBlock:
 
     def validate(self):
         cfg = self.cfg
-        g = lambda s: guard_sentence(s, cfg)
+
+        def g(s):
+            # Prose guards (banned glyphs/templates/metacommentary/one-sentence/…).
+            guard_sentence(s, cfg)
+            # AUTHORING-TIME TIER-3 COMPILE GATE (2026.08.10.3).
+            # Before this gate, a ⟦MATH:…⟧ region was compiled ONLY at render
+            # (add_math_text): a region t3_compile rejected did NOT raise there —
+            # by the no-halt render contract it DEGRADED to raw plain text, was
+            # recorded in T3_STATS['failed'], and shipped as literal LaTeX unless
+            # the producer separately consumed verify_explanations()'s RETURNED
+            # (ok, problems) ledger. That returned-not-raised signal was easy to
+            # drop (a harness that checks only "did the call raise" passes a
+            # degraded document). validate() is the ONE universal chokepoint —
+            # called on every block, every step, both pipelines, all exams — and
+            # it RAISES, so gating regions here makes a malformed region fail at
+            # construction, before any docx exists, and it can never reach the
+            # renderer. This mirrors the NAT grading-value posture ("Fail-at-
+            # construction: the primary gate; render() re-checks as defense-in-
+            # depth"). Exam-agnostic: pure Tier-3 grammar, no exam value. Only
+            # ⟦MATH:…⟧ (Tier-3) is compiled here; ⟦M:<b64>⟧ preserve tokens are
+            # never matched by T3_REGION_RE and are untouched.
+            for _body in T3_REGION_RE.findall(s):
+                try:
+                    t3_compile(_body)
+                except MathCompileError as _t3err:
+                    raise ValueError(
+                        f'Q{self.q}: ⟦MATH:…⟧ region does not compile — {_t3err}. '
+                        f'Region body: {_body!r}. Fix the Tier-3 syntax (§11); an '
+                        f'uncompilable region would otherwise degrade to raw text '
+                        f'at render.')
         if self.anomaly is not None:
             # anomaly is an INTERNAL escalation signal in Step 9 (never published).
             if any([self.axiom, self.deduction, self.why_wrong,
@@ -1465,6 +1494,29 @@ def self_test():
         common_pitfalls={'5': ['Uses the total rate, ignoring the neutral fraction.']},
         cfg=nat_cfg)
     check('NAT-BLOCK-VALID', good_nat.validate())
+    # ExplanationBlock end-to-end: an UNCOMPILABLE ⟦MATH:…⟧ region must fail AT
+    # CONSTRUCTION (validate()), never degrade to raw LaTeX at render
+    # (GAP-2026-08-10-EXPLAIN-MATH-DEGRADE-SILENT). The body below is chosen so the
+    # ONLY thing that can reject it is the Tier-3 compile gate: \tfrac survives
+    # guard_sentence (verified — the LaTeX guard does not fire on it) and fails
+    # t3_compile as an unknown command. A body the prose guard already rejects would
+    # make this fixture pass with the gate removed, which is no test at all.
+    try:
+        ExplanationBlock(q=1, ca=1,
+            axiom=['The ratio of the two quantities is fixed by the definition.'],
+            deduction=['Substituting gives ⟦MATH:\\tfrac{1}{2}⟧ for the ratio.',
+                       'That value settles option 1.'],
+            why_wrong={2: ['a.'], 3: ['b.'], 4: ['c.']}, cfg=cfg).validate()
+        check('T3-GATE-UNCOMPILABLE-REJECT', False)
+    except ValueError:
+        check('T3-GATE-UNCOMPILABLE-REJECT', True)
+    # …and a well-formed region still passes, so the gate rejects bad math rather
+    # than all math.
+    check('T3-GATE-COMPILABLE-ACCEPT', ExplanationBlock(q=1, ca=1,
+        axiom=['The ratio of the two quantities is fixed by the definition.'],
+        deduction=['Substituting gives ⟦MATH:\\frac{1}{2}⟧ for the ratio.',
+                   'That value settles option 1.'],
+        why_wrong={2: ['a.'], 3: ['b.'], 4: ['c.']}, cfg=cfg).validate())
 
     # 16 build + fidelity + structure round-trip (Q2 has a trailing option figure,
     #    Q4 ends in a table — both must survive byte-identical)

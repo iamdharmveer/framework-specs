@@ -1,4 +1,27 @@
-# Framework_PYQExplain v2.3 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.4 — Universal PYQ Explanation Generator
+# v2.4 — 2026-08-10 — AUTHORING-TIME TIER-3 COMPILE GATE (GAP-2026-08-10-EXPLAIN-
+#   MATH-DEGRADE-SILENT). Root cause, measured on a real 60-Q paper: every formula
+#   was authored as a ⟦MATH:…⟧ region, but many used LaTeX outside the Tier-3
+#   grammar (\tfrac/\dfrac, \varepsilon, \vec r / \sqrt3 unbraced, \frac12,
+#   \left…\right, \begin{pmatrix}). t3_compile rejected them; per the no-halt render
+#   contract add_math_text DEGRADED each to plain text and RECORDED it in
+#   T3_STATS['failed'] — shipping raw LaTeX in the document. It was not caught
+#   because verify_explanations() REPORTS the degrade ledger through its RETURN
+#   value (ok, problems), not by raising, and the §18 self-audit consumed only
+#   whether the call raised. TWO GaPS, BOTH now closed, exam-agnostically:
+#   (E1 — the permanent fix) ExplanationBlock.validate() now COMPILES every
+#   ⟦MATH:…⟧ region via t3_compile and RAISES a ValueError on MathCompileError, so
+#   a malformed region fails at CONSTRUCTION and can never reach the renderer.
+#   validate() is the one universal chokepoint (every block, every step, BOTH
+#   pipelines, all exams, one explain_engine.py under MANDATE A) and it RAISES, so
+#   no producer harness can bypass it — mirrors the NAT fail-at-construction posture.
+#   (E2 — defence in depth) §18 gains an explicit BLOCKING contract + literal
+#   S18-1a HARD-STOP that asserts ok is True AND problems == [] AND T3_STATS
+#   ['failed'] is empty, converting the RETURNED ledger into a delivery-blocking
+#   condition. Engine self-test unchanged (62/62). Touched: §S5-2, §S11-1, new
+#   §S11-1a, §S18-1, new §S18-1a, header + END sentinel + SHARED_RULES_VERSION.
+#   ENGINE CHANGE (explain_engine.py): validate()'s per-sentence guard compiles
+#   regions and raises; ships with this release (MANIFEST regenerated).
 # v2.3 — 2026-08-09 — QUESTION TYPE RESOLVED POSITION-BASED + qtype DELIVERED as a
 #   fourth sidecar map. Until v2.2.1, P4 resolved Question Type ONLY from
 #   section_rules answer_cardinality (a subtopic-scoped corpus statistic), and the
@@ -689,7 +712,10 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   last binds the answer. WHY WRONG keys == exactly the non-selected options
   (MCQ/MSQ); NAT uses common_pitfalls (≥1) and MUST NOT carry why_wrong.
   OMML for every fraction. One sentence per paragraph. Zero banned content.
-  A breach raises in ExplanationBlock.validate() / add_math_text.
+  Every ⟦MATH:…⟧ region COMPILES at validate() time (t3_compile) — a region the
+  Tier-3 grammar rejects RAISES at construction, so it can never degrade to raw
+  text at render (§S11-1a; 2026.08.10.3). A breach raises in
+  ExplanationBlock.validate() / add_math_text.
 
 ## S5-3 — PER-QUESTION CHECKLIST (tick every item before constructing the block)
 
@@ -1097,10 +1123,31 @@ label = assess_difficulty(
   underscores, √( or √letter, and any combining accent character, each naming
   the ⟦MATH:…⟧ spelling as the remedy. Guards are region-aware: \frac inside a
   region is legal; the _BANNED_LATEX list applies to prose outside regions only.
-  A region the compiler rejects NEVER halts a build and NEVER ships silently:
-  it degrades to ordinary plain text (no colour, no markup) and
-  verify_explanations() quotes it VERBATIM so the author can Ctrl+F straight to
-  it — the same strict-core/forgiving-boundary contract as PYQPrepare S3-5.
+  A region the compiler rejects at RENDER time degrades to ordinary plain text
+  (no colour, no markup), is recorded in T3_STATS['failed'], and is quoted
+  VERBATIM by verify_explanations() — the strict-core/forgiving-boundary contract
+  shared with PYQPrepare S3-5. That render path is now DEFENCE-IN-DEPTH, not the
+  primary gate.
+
+## S11-1a — AUTHORING-TIME COMPILE GATE (BLOCKING; 2026.08.10.3)
+  ExplanationBlock.validate() COMPILES every ⟦MATH:…⟧ region through t3_compile
+  and RAISES a ValueError on any MathCompileError, so a region that cannot compile
+  fails at CONSTRUCTION — before any docx exists and before it can ever reach the
+  renderer. validate() is the ONE universal chokepoint (called on every block, in
+  every step, in BOTH pipelines, for all exams, driving the SAME explain_engine.py
+  under MANDATE A) and it RAISES, so this gate cannot be bypassed by a producer's
+  §18 harness. It mirrors the NAT grading-value posture ("Fail-at-construction:
+  the primary gate; render() re-checks as defense-in-depth", §S5-2 / S7-4).
+  WHY THIS EXISTS. Before 2026.08.10.3 a ⟦MATH:…⟧ region was compiled ONLY at
+  render. A rejected region did not raise there — by the no-halt render contract
+  it degraded to raw text and shipped as literal LaTeX unless the producer
+  separately consumed verify_explanations()'s RETURNED (ok, problems) ledger. That
+  returned-not-raised signal was dropped by a harness that checked only whether the
+  call raised, and a whole paper shipped with un-rendered LaTeX under green audits.
+  The authoring gate removes the window entirely: the region never renders at all.
+  The gate is exam-agnostic — it names no exam, subject, or value; it is pure
+  Tier-3 grammar. Only ⟦MATH:…⟧ (Tier-3) is compiled; ⟦M:<b64>⟧ preserve tokens
+  are never matched by T3_REGION_RE and are untouched.
 
 ## S11-2 — Post-write verification (every batch; v2.0)
   verify_explanations() re-parses the RENDERED docx and re-confirms: every OMML
@@ -1461,7 +1508,15 @@ print(fv.vision_report_line(report))
       to the Row file, every image rId resolves (§12)
   [ ] verify_structure(out, blocks, expected = Q1..last(batch k)): coverage exact,
       NO look-ahead (§4 / §5)
-  [ ] verify_explanations(out, blocks): INDEPENDENT post-render re-audit (§11)
+  [ ] verify_explanations(out, blocks) -> (ok, problems): INDEPENDENT post-render
+      re-audit (§11). BLOCKING CONTRACT — the verifiers RETURN status, they do NOT
+      raise: assert ok is True AND problems == [] AND explain_engine.T3_STATS
+      ['failed'] is empty. A non-empty degrade ledger (a ⟦MATH:⟧ region that fell
+      back to plain text) is a BLOCKING FAIL — present_files is FORBIDDEN. A run
+      that checks only "did the call raise" is NON-CONFORMING and will ship raw
+      LaTeX. (As of 2026.08.10.3 validate() also compiles regions and RAISES at
+      construction, §S11-1a, so this ledger should always be empty; the assertion
+      is the second gate that guarantees it.)
   [ ] count invariants: image / table / OMML / question / option counts == Row file
   [ ] strip-and-re-audit: questions-only copy passes (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
@@ -1473,6 +1528,29 @@ print(fv.vision_report_line(report))
       a figural answer with no transcription behind it
 ```
   Any item open → fix, re-build, re-audit. present_files FORBIDDEN until ALL hold.
+
+## S18-1a — MATH-INTEGRITY GATE (literal, MANDATORY before present_files; 2026.08.10.3)
+  The verify_explanations line above is enforced by this exact HARD STOP, run every
+  batch after the cumulative build and BEFORE the S19-1 delivery gate. It exists
+  because verify_explanations RETURNS its verdict rather than raising, and a run
+  must consume that return — not merely call it.
+```python
+import explain_engine as _ee
+_ok, _problems = _ee.verify_explanations(out, blocks, cfg, expected_qs=EXPECTED)
+_degraded = list(_ee.T3_STATS.get('failed', []))
+if (not _ok) or _problems or _degraded:
+    # A ⟦MATH:⟧ region degraded to raw text, or another render check failed.
+    # Every such region is quoted verbatim in _problems (§11-2). Fix the Tier-3
+    # syntax (§11 / §S11-1a) and rebuild — do NOT deliver.
+    raise SystemExit('HARD STOP (§18-1a): verify_explanations not clean — '
+                     f'ok={_ok}; problems={_problems[:3]}; '
+                     f'degraded_regions={[b for b,_ in _degraded][:3]}')
+```
+  Note: as of 2026.08.10.3 a malformed region cannot reach the renderer at all —
+  ExplanationBlock.validate() raises on it at construction (§S11-1a) — so in a
+  conforming run _degraded is always empty here. This gate is the belt to that
+  braces: it converts the engine's RETURNED ledger into a delivery-blocking
+  condition, closing the returned-not-raised gap permanently. Exam-agnostic.
 
 ## S18-2 — THIS IS THE ONLY GATE (v2.1 — PYQ-2 retired; stated, not hidden)
   PYQ-1's §18 is PRODUCER self-certification, and as of v2.1 it is the ONLY
@@ -1680,7 +1758,7 @@ present_files(deliverables)
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
-# SHARED_RULES_VERSION: 1.0 (2026-07-22)
+# SHARED_RULES_VERSION: 1.1 (2026-08-10)
 #
 # DELIBERATE PYQ-ONLY DIVERGENCE (v1.2, 2026-08-03) — RECORDED, NOT DRIFT.
 #   §13A (figural pre-transcription pass) is NEW and is NOT mirrored in
@@ -1746,5 +1824,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.3
+# END OF Framework_PYQExplain v2.4
 # ════════════════════════════════════════════════════════════════════════
