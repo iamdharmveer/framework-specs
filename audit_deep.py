@@ -14,8 +14,20 @@ import ast, json, os, re, sys
 from collections import defaultdict
 SPECS=sorted(f for f in os.listdir('.') if f.startswith('Framework_') and f.endswith('.md'))
 TXT={f:open(f,encoding='utf-8').read() for f in SPECS}
-ENG={m:open(m+'.py',encoding='utf-8').read() for m in
-     ('blueprint_core','paper_pipeline','explain_engine','syllabus_provenance')
+# The engine set is DERIVED from MANIFEST.json's tracked .py files, not hardcoded.
+# It used to be a 4-name tuple while the framework tracked 16 engines, so 12 of them —
+# every notes_* engine, corpus_io, figural_core, reconcile_taxonomy and the rest — were
+# invisible to check 4 below, and a field those engines write read as "written nowhere".
+# Deriving it means the set cannot go stale as engines are added or retired.
+_TRACKED=('blueprint_core','paper_pipeline','explain_engine','syllabus_provenance')
+try:
+    import json as _json
+    _TRACKED=tuple(sorted(k[:-3] for k in
+                          _json.load(open('MANIFEST.json',encoding='utf-8'))['files']
+                          if k.endswith('.py')))
+except Exception:
+    pass   # no manifest here — fall back to the historical set rather than crashing
+ENG={m:open(m+'.py',encoding='utf-8').read() for m in _TRACKED
      if os.path.exists(m+'.py')}
 I=defaultdict(list)
 def rec(c,m): I[c].append(m)
@@ -63,7 +75,11 @@ for art in ('registry','exam_config','subtopic_manifest','blueprint'):
     for f,t in TXT.items():
         for m in re.finditer(rf"\b{art}(?:\.json)?\[['\"]([a-z_]+)['\"]\]",t):
             fld=m.group(1)
-            if CORPUS.count(f"'{fld}'")<2:
+            # Count BOTH quote styles. The read pattern above accepts ['"], but the
+            # write count used to accept only 'fld' — so a corpus written in double
+            # quotes (every notes_* engine and spec) counted zero writers and every
+            # such field reported as unwritten. Quote style is not evidence.
+            if CORPUS.count(f"'{fld}'")+CORPUS.count(f'"{fld}"')<2:
                 rec('JSON-PARITY',f"{f}: reads {art}['{fld}'] but nothing in the corpus writes it")
 
 # ── 5 declared triggers must exist in routes.json ──────────────────────────
@@ -119,7 +135,14 @@ for mod,src in ENG.items():
         if isinstance(n,ast.If) and isinstance(n.test,ast.Constant) and n.test.value is False:
             rec('DEAD-BRANCH',f"{mod}.py L{n.lineno}: unreachable `if False:` branch")
     for i,l in enumerate(src.split('\n'),1):
+        # A COMMENTED-OUT assertion still parses as python once the '#' is stripped.
+        # An English sentence that merely begins with the word "assert" (a wrapped
+        # prose comment: "... C1-C7 / assert ledger completeness and ...") does not.
+        # Without this discriminator the check reported prose as a disabled guard,
+        # which is how it read the moment the engine set widened past four files.
         if re.match(r'\s*#\s*assert\b',l):
+            try: ast.parse(re.sub(r'^\s*#\s*','',l))
+            except SyntaxError: continue
             rec('DISABLED-GUARD',f"{mod}.py L{i}: assertion commented out")
 
 # ── 7 SHARED DATA-TABLE PARITY ─────────────────────────────────────────────
