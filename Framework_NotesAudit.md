@@ -1,4 +1,10 @@
-# Framework_NotesAudit v2.0.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# Framework_NotesAudit v2.0.1 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# v2.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 2 (vacuous-pass floor wired). A
+#   unit pass is now certified ONLY through notes_audit.pass_for_unit(report,
+#   unit_questions), which derives expected_count = len(unit_questions) from the
+#   bank (notes_core.bank_questions_for) — so an audit that covered fewer than the
+#   unit's bank questions can never certify AUDITED_PASS. §2/§6 name the source of
+#   the count. Companion bump to notes_core >= v1.6, notes_audit >= v1.3.
 # v2.0.0 — 2026-08-10 — GROUND-TRUTH + BANK FIGURES (Framework_NotesBlueprint
 #   v2.0.0). NB now ingests the corpus and stores, per question, the verbatim
 #   correct_answer, the explanation, and the stem/solution figure split. So NA:
@@ -21,12 +27,14 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v1.5 — density-gate constants, math gates, PROSE_BAN
+#   notes_core.py  >= v1.6 — density-gate constants, math gates, PROSE_BAN
 #                            lexicon, registry transitions, ground-truth match
 #                            helpers (msq_match / nat_within_tolerance /
-#                            nat_precision_from_stem / normalize_answer)
-#   notes_audit.py >= v1.2 — verdict/report schema (no key_flags), convergence
-#                            loop, ground-truth verdict_against_key, bank figures
+#                            nat_precision_from_stem / normalize_answer),
+#                            bank_questions_for
+#   notes_audit.py >= v1.3 — verdict/report schema (no key_flags), convergence
+#                            loop, ground-truth verdict_against_key, bank figures,
+#                            pass_for_unit (bank-derived vacuous-pass floor)
 #
 # PURPOSE:
 #   Machine-verify the NotesCreate guarantee: after reading ONE subtopic's
@@ -72,6 +80,13 @@ KEY_FLAG IS RETIRED (owner decision 4a). The doc key is authoritative and never
 re-derived. If a stem is genuinely ambiguous under the notes' rules, the notes —
 not the key — are at fault: that is a PARTIAL that enters the §4 loop and is
 fixed by tightening the notes, never by re-opening the key.
+
+COVERAGE + PASS: NA audits EVERY one of the unit's bank questions —
+unit_questions = notes_core.bank_questions_for(bank, subject, topic, subtopic) —
+and certifies a pass ONLY through notes_audit.pass_for_unit(report,
+unit_questions). That helper derives expected_count = len(unit_questions) from the
+bank, so a run that recorded fewer verdicts than the unit has questions can never
+vacuously certify AUDITED_PASS (fix 2).
 
 ## §3 — ANSWER MODE (ground-truth, permanent)
 There is ONE mode. NB read the correct_answer and the explanation from every
@@ -126,11 +141,14 @@ affected units.
 The audit report artifact (schema notes_audit.REPORT_SCHEMA) carries: per-id
 verdict table with notes locations and produced answers, the convergence log, the
 FIGURE_PENDING queue (normally empty), and gate results (G-1 through G-6). There
-is no KEY_FLAG queue (owner decision 4a). On 100% SOLVABLE (with the rare
-FIGURE_PENDING permitted per §1) the unit moves DRAFTED → AUDITED_PASS and
+is no KEY_FLAG queue (owner decision 4a). A unit passes ONLY when
+notes_audit.pass_for_unit(report, unit_questions) is True — i.e. 100% SOLVABLE
+across ALL of the bank's questions for this unit (expected_count =
+len(unit_questions); the rare FIGURE_PENDING permitted per §1) — at which point
+the unit moves DRAFTED → AUDITED_PASS and
 the report is stored beside the notes artifact. PARTIAL/NOT never persists
 past the loop of §4 — the loop exits only at pass or at the §4 L-3 diagnostic.
 
 ---
 
-# END OF Framework_NotesAudit v2.0.0
+# END OF Framework_NotesAudit v2.0.1

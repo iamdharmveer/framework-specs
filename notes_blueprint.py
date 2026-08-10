@@ -1,5 +1,12 @@
 """
-notes_blueprint.py v1.3 — Engine for Notes Step NB (Framework_NotesBlueprint).
+notes_blueprint.py v1.4 — Engine for Notes Step NB (Framework_NotesBlueprint).
+
+v1.4 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 1 (bank_ref). build_blueprint now
+    accepts and EMITS a bank_ref, and bank_ref_for(bank_path) produces it
+    ({path, sha256, questions, generated}). The blueprint that NC/NA read is now
+    provably tied to the exact bank NB built, so NC's stale-bank stop
+    (notes_core.verify_bank_ref) has evidence to fire. Nothing else in v1.3
+    changed.
 
 v1.3 — 2026-08-10 — INGEST BASE (Framework_NotesBlueprint v2.0.0). NB now
     performs the eager full-corpus ingest and owns the PYQ bank. Added:
@@ -88,12 +95,17 @@ def resolve_sources(chat_link, pattern_sources, project_files):
 
 
 def build_blueprint(exam_code, level, syllabus_hash, sources, unit_rows,
-                    analysis_only_rows, allowed_question_types=None):
+                    analysis_only_rows, allowed_question_types=None,
+                    bank_ref=None):
     """unit_rows: in-syllabus rows {s_no,t_no,st_no,name,slug,pyq_count,
     is_bridge,bridge_reason?,provenance}. analysis_only_rows: PYQ-analysis
     subtopics absent from syllabus {name,pyq_count,recent3_count}; a row
     that folds in (Option B satisfied) MUST also carry its placement
-    {s_no,t_no,st_no} and may carry slug and prose_ban_exemptions."""
+    {s_no,t_no,st_no} and may carry slug and prose_ban_exemptions.
+
+    bank_ref (fix 1): {path, sha256, questions, generated} tying this blueprint
+    to the exact bank it was built from; emitted so NC/NA can detect a stale
+    pairing (notes_core.verify_bank_ref)."""
     units, excluded = [], []
     _topic_seq = {}
     for r in unit_rows:
@@ -137,9 +149,19 @@ def build_blueprint(exam_code, level, syllabus_hash, sources, unit_rows,
         "schema": notes_core.BLUEPRINT_SCHEMA,
         "exam_code": exam_code, "level": level,
         "allowed_question_types": allowed_question_types or [],
+        "bank_ref": bank_ref,
         "syllabus_sha256": syllabus_hash, "generated": _now(),
         "sources": sources, "units": units, "excluded": excluded,
     }
+
+
+def bank_ref_for(bank_path):
+    """Fix 1: the {path, sha256, questions, generated} reference embedded in the
+    blueprint. sha256 is over the bank bytes on disk, so any later change to
+    notes_pyq_bank.json is detectable by notes_core.verify_bank_ref."""
+    bank = notes_core.bank_load(bank_path)
+    return {"path": bank_path, "sha256": notes_core.file_sha256(bank_path),
+            "questions": len(bank.get("questions", [])), "generated": _now()}
 
 
 def assemble_bank(exam_code, papers, questions):
@@ -292,6 +314,22 @@ def self_test():
     bp_out = tempfile.mkdtemp()
     p = write_bank(bank, bp_out)
     check("bank round-trips", notes_core.bank_load(p)["exam_code"] == "IITJAM_PH")
+
+    # fix 1: bank_ref produced + carried into the blueprint, detects staleness
+    ref = bank_ref_for(p)
+    check("bank_ref_for yields path+sha+count",
+          ref["path"] == p and len(ref["sha256"]) == 64 and ref["questions"] == 3)
+    bp2 = build_blueprint("IITJAM_PH", "Graduate", "h",
+                          {"mode": "chat", "entries": []},
+                          [dict(s_no=1, t_no=1, st_no=1, name="Pol", slug="Pol",
+                                pyq_count=2)], [], bank_ref=ref)
+    check("blueprint carries bank_ref", bp2["bank_ref"]["sha256"] == ref["sha256"])
+    ok_, _ = notes_core.verify_bank_ref(p, bp2["bank_ref"])
+    check("fresh blueprint verifies against its bank", ok_ is True)
+    with open(p, "a", encoding="utf-8") as _f:
+        _f.write(" ")
+    check("mutated bank is caught as stale",
+          notes_core.verify_bank_ref(p, bp2["bank_ref"])[0] is False)
 
     print(f"notes_blueprint self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

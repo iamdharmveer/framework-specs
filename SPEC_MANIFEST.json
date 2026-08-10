@@ -43,25 +43,25 @@
       "version_header": "# Framework_MockTestExplain v1.21.1"
     },
     "Framework_NotesAudit.md": {
-      "end_sentinel": "# END OF Framework_NotesAudit v2.0.0",
-      "lines": 136,
-      "sha256": "b52e3e147796035bc0951460ddc83b60254b2557effc22083406a9255b11aa7f",
-      "size_bytes": 8466,
-      "version_header": "# Framework_NotesAudit v2.0.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
+      "end_sentinel": "# END OF Framework_NotesAudit v2.0.1",
+      "lines": 154,
+      "sha256": "e83b74a08b694ee8018b2deb59db495fdccdff84733ea5aec9f3988c0ee18dab",
+      "size_bytes": 9694,
+      "version_header": "# Framework_NotesAudit v2.0.1 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
     },
     "Framework_NotesBlueprint.md": {
-      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.0",
-      "lines": 249,
-      "sha256": "3388a1a988c096ca5e5dfdd38058443e4d26a323d19a6ebfc0902a5efa22593f",
-      "size_bytes": 17051,
-      "version_header": "# Framework_NotesBlueprint v2.0.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
+      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.1",
+      "lines": 278,
+      "sha256": "bd2aadd6922557b3096c5faefc049a80a24ed245ca445012412321299e8c752a",
+      "size_bytes": 19334,
+      "version_header": "# Framework_NotesBlueprint v2.0.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
     },
     "Framework_NotesCreate.md": {
-      "end_sentinel": "# END OF Framework_NotesCreate v2.1.0",
-      "lines": 187,
-      "sha256": "2e082592c71ee1a233fefc2e6c3098735200a3ff1bfb8efb6ed24764d7fac054",
-      "size_bytes": 11542,
-      "version_header": "# Framework_NotesCreate v2.1.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
+      "end_sentinel": "# END OF Framework_NotesCreate v2.1.1",
+      "lines": 198,
+      "sha256": "1999aa72dfac611cd777a057909da0a50d761976227f814c1273902cfd1c1bf2",
+      "size_bytes": 12403,
+      "version_header": "# Framework_NotesCreate v2.1.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
     },
     "Framework_NotesDeliver.md": {
       "end_sentinel": "# END OF Framework_NotesDeliver v1.0.0",
@@ -177,9 +177,9 @@
     },
     "audit_deep.py": {
       "end_sentinel": "sys.exit(1 if tot else 0)",
-      "lines": 177,
-      "sha256": "36dd96845eb75ad61b5e0348c7f92e49f493d006f7f24e5c76407208065059e4",
-      "size_bytes": 10068,
+      "lines": 200,
+      "sha256": "f7dcadba2eafe0ecc93aca630c0ef4a41c045a8a5c6de4910d839ec1d1c7c69f",
+      "size_bytes": 11689,
       "version_header": "\"\"\"audit_deep.py — checks NOT covered by validate_framework_md.py or audit_sync.py."
     },
     "audit_mutation.py": {
@@ -289,23 +289,23 @@
     },
     "notes_audit.py": {
       "end_sentinel": "    print(\"notes_audit.py — Notes Step NA engine. Run with --self-test.\")",
-      "lines": 232,
-      "sha256": "fd112f58f6b16e2325455e4c4cd0d8536c3116a86be89c845e0c9af7f04dc929",
-      "size_bytes": 10864,
+      "lines": 259,
+      "sha256": "33fe1599addfac6f4f106299e73ff64d8c9cfd5ed914b3d1f74673aabde6dca3",
+      "size_bytes": 12415,
       "version_header": "\"\"\""
     },
     "notes_blueprint.py": {
       "end_sentinel": "    print(\"notes_blueprint.py — Notes Step NB engine. Run with --self-test.\")",
-      "lines": 305,
-      "sha256": "223cf130421a3511542a929baa44e48a22b62f08ebf7697eff563e2b6ee22f2a",
-      "size_bytes": 15007,
+      "lines": 343,
+      "sha256": "cfcd1c4d6d46c09c7990ea1c33e0f29f49bf44ba1851a4c08a938a1d759bea0d",
+      "size_bytes": 17019,
       "version_header": "\"\"\""
     },
     "notes_core.py": {
       "end_sentinel": "    print(\"notes_core.py — shared Notes pipeline core. Run with --self-test.\")",
-      "lines": 786,
-      "sha256": "fc690001194d3631450f1e5c91262268ff7489bb0ae50a90dd0addac743a3eed",
-      "size_bytes": 35085,
+      "lines": 833,
+      "sha256": "45961eda4c277b98c96db8a4a3d56f5fb41dff2e3aae377e131bdc9265969ab7",
+      "size_bytes": 37554,
       "version_header": "\"\"\""
     },
     "paper_pipeline.py": {

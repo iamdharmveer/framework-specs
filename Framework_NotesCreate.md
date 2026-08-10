@@ -1,4 +1,10 @@
-# Framework_NotesCreate v2.1.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.1.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.1.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 1 (bank staleness stop wired).
+#   §1.2's "signals a stale bank" stop now has evidence: NC reads the blueprint's
+#   bank_ref and calls notes_core.verify_bank_ref(bank_path, bank_ref) before
+#   drafting; a sha256 mismatch (blueprint built from a different bank than the
+#   one on disk) or a missing bank_ref STOPS the unit back to NB. Companion bump
+#   to notes_core >= v1.6.
 # v2.1.0 — 2026-08-10 — BANK CONSUMER (Framework_NotesBlueprint v2.0.0). NC no
 #   longer reads Drive or builds its own PYQ bank. It LOADS the bank NB produced
 #   (notes_pyq_bank.json), filters it to the unit's subtopic
@@ -22,9 +28,10 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v1.5 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
-#                           lexicon, math gates, registry transitions, and the
-#                           bank readers (bank_load / bank_questions_for)
+#   notes_core.py >= v1.6 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
+#                           lexicon, math gates, registry transitions, the bank
+#                           readers (bank_load / bank_questions_for) and
+#                           verify_bank_ref (blueprint/bank staleness check)
 #
 # PURPOSE:
 #   Produce ONE subtopic's study-notes .docx (draft) from the blueprint unit
@@ -51,10 +58,14 @@
    stem_figures / solution_figures, concept_tags. The FIGURE dependency is
    simply `bool(stem_figures)` — no image re-extraction here.
 2. No re-download, no re-read of Drive, no re-checkpoint of a bank: the bank is
-   NB's artifact and is authoritative. If the bank is missing or empty for this
-   subtopic, STOP and route the operator back to NB (the unit was blueprinted from
-   bank counts, so an empty selection signals a stale bank or a subtopic-key
-   mismatch, not a drafting problem).
+   NB's artifact and is authoritative. BEFORE drafting, NC verifies the blueprint
+   and the bank agree: it reads the blueprint's bank_ref and calls
+   notes_core.verify_bank_ref(bank_path, blueprint["bank_ref"]). A sha256 mismatch
+   (the blueprint was built from a DIFFERENT bank than the one on disk) or a
+   missing bank_ref STOPS the unit and routes the operator back to NB — this is
+   the stale-bank stop, now with the evidence to fire. If the bank is present and
+   matches but has no questions for this subtopic, that signals a subtopic-key
+   mismatch or a genuinely empty subtopic, also handled at NB, not by drafting.
 3. The concept map (concept → bank_ids → weight) orders the concept sections and
    sets depth. It is built from the selected bank records (concept_tags + stem
    content) and is INTERNAL ONLY: no frequency marker, star, count, anchor, or
@@ -184,4 +195,4 @@ the minor).
 
 ---
 
-# END OF Framework_NotesCreate v2.1.0
+# END OF Framework_NotesCreate v2.1.1

@@ -205,25 +205,25 @@
       "bytes": 120375
     },
     "Framework_NotesAudit.md": {
-      "sha256": "b52e3e147796035bc0951460ddc83b60254b2557effc22083406a9255b11aa7f",
-      "version_header": "# Framework_NotesAudit v2.0.0 \u2014 Notes Pipeline Step NA (Closed-Book Solvability Audit)",
-      "end_sentinel": "# END OF Framework_NotesAudit v2.0.0",
-      "lines": 136,
-      "bytes": 8466
+      "sha256": "e83b74a08b694ee8018b2deb59db495fdccdff84733ea5aec9f3988c0ee18dab",
+      "version_header": "# Framework_NotesAudit v2.0.1 \u2014 Notes Pipeline Step NA (Closed-Book Solvability Audit)",
+      "end_sentinel": "# END OF Framework_NotesAudit v2.0.1",
+      "lines": 154,
+      "bytes": 9694
     },
     "Framework_NotesBlueprint.md": {
-      "sha256": "3388a1a988c096ca5e5dfdd38058443e4d26a323d19a6ebfc0902a5efa22593f",
-      "version_header": "# Framework_NotesBlueprint v2.0.0 \u2014 Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)",
-      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.0",
-      "lines": 249,
-      "bytes": 17051
+      "sha256": "bd2aadd6922557b3096c5faefc049a80a24ed245ca445012412321299e8c752a",
+      "version_header": "# Framework_NotesBlueprint v2.0.1 \u2014 Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)",
+      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.1",
+      "lines": 278,
+      "bytes": 19334
     },
     "Framework_NotesCreate.md": {
-      "sha256": "2e082592c71ee1a233fefc2e6c3098735200a3ff1bfb8efb6ed24764d7fac054",
-      "version_header": "# Framework_NotesCreate v2.1.0 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
-      "end_sentinel": "# END OF Framework_NotesCreate v2.1.0",
-      "lines": 187,
-      "bytes": 11542
+      "sha256": "1999aa72dfac611cd777a057909da0a50d761976227f814c1273902cfd1c1bf2",
+      "version_header": "# Framework_NotesCreate v2.1.1 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
+      "end_sentinel": "# END OF Framework_NotesCreate v2.1.1",
+      "lines": 198,
+      "bytes": 12403
     },
     "Framework_NotesDeliver.md": {
       "sha256": "1ade327481ae1dcfd0bc16c0bfab2398611387b00eb69ea7eb334cea44714879",
@@ -415,25 +415,25 @@
       "bytes": 35405
     },
     "notes_core.py": {
-      "sha256": "fc690001194d3631450f1e5c91262268ff7489bb0ae50a90dd0addac743a3eed",
+      "sha256": "45961eda4c277b98c96db8a4a3d56f5fb41dff2e3aae377e131bdc9265969ab7",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_core.py \u2014 shared Notes pipeline core. Run with --self-test.\")",
-      "lines": 786,
-      "bytes": 35085
+      "lines": 833,
+      "bytes": 37554
     },
     "notes_blueprint.py": {
-      "sha256": "223cf130421a3511542a929baa44e48a22b62f08ebf7697eff563e2b6ee22f2a",
+      "sha256": "cfcd1c4d6d46c09c7990ea1c33e0f29f49bf44ba1851a4c08a938a1d759bea0d",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_blueprint.py \u2014 Notes Step NB engine. Run with --self-test.\")",
-      "lines": 305,
-      "bytes": 15007
+      "lines": 343,
+      "bytes": 17019
     },
     "notes_audit.py": {
-      "sha256": "fd112f58f6b16e2325455e4c4cd0d8536c3116a86be89c845e0c9af7f04dc929",
+      "sha256": "33fe1599addfac6f4f106299e73ff64d8c9cfd5ed914b3d1f74673aabde6dca3",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_audit.py \u2014 Notes Step NA engine. Run with --self-test.\")",
-      "lines": 232,
-      "bytes": 10864
+      "lines": 259,
+      "bytes": 12415
     }
   }
 }

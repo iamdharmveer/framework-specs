@@ -1,4 +1,13 @@
-# Framework_NotesBlueprint v2.0.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v2.0.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v2.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIXES. (1) bank_ref is now actually
+#   EMITTED: NB builds the blueprint with bank_ref=notes_blueprint.bank_ref_for(
+#   bank_path) after writing the bank, so §6 O-2's staleness link is real and NC
+#   §1.2 can detect a blueprint/bank mismatch (notes_core.verify_bank_ref).
+#   (3) §3A-1 enumeration is reworded to the CLASS T bridge: Claude runs the
+#   paginated + recursive Google Drive:search_files walk IN ITS OWN TURN and
+#   passes collect_corpus_files a PLAIN-LOOKUP resolver over the materialised
+#   listing — never the tool marker (the defect audit_callgraph C6 exists to
+#   catch). §3A-3 download uses the same resolver idiom explicitly.
 # v2.0.0 — 2026-08-10 — INGEST BASE (breaking role change). NB is now the base
 #   of the Notes architecture: it performs the EAGER full-corpus ingest of every
 #   sorted-PYQ paper and emits a verified notes_pyq_bank.json (questions +
@@ -26,13 +35,13 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py      >= v1.5 — PYQ_BANK_SCHEMA, bank_*() builders/validators,
+#   notes_core.py      >= v1.6 — PYQ_BANK_SCHEMA, bank_*() builders/validators,
 #                                subtopic_key, derive_taxonomy_counts,
 #                                parse_exam_date_from_filename, normalize_answer,
 #                                nat_precision_from_stem/nat_within_tolerance,
-#                                msq_match, plus the v1.4 registry/gate surface.
-#   notes_blueprint.py >= v1.3 — assemble_bank, write_bank, counts_from_bank,
-#                                plus the v1.2 exam-pattern reader + blueprint writer.
+#                                msq_match, verify_bank_ref, plus registry/gates.
+#   notes_blueprint.py >= v1.4 — assemble_bank, write_bank, counts_from_bank,
+#                                bank_ref_for, blueprint writer (bank_ref emitted).
 #   corpus_io.py       >= v1.11 — Drive enumerate/download/decode/verify, image
 #                                extract + map_images_to_questions + vision queue.
 #   blueprint_core.py  (repo, bootstrap-verified) — DRIVE_CAP, screen_drive_entry,
@@ -98,22 +107,38 @@ The resolved source list is written into notes_blueprint.json.sources.
 ## §3A — CORPUS INGEST (eager; corpus_io; owner decisions 1 & 6)
 This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
 (Claude runs them in its own turn) and are injected into corpus_io as resolvers.
-  A-1 ENUMERATE. resolve the folder id (corpus_io.parse_drive_folder_id) and walk
-      it with corpus_io.collect_corpus_files, passing a list_fn that wraps
-      Google Drive:search_files (paginated to exhaustion, recursive). Each entry
-      is screened by blueprint_core.screen_drive_entry: a native Google Doc, a
-      legacy .doc, or a non-.docx is REJECTED with a fix message; a duplicate
-      paper key (canonical_paper_key) is rejected naming both files.
+  A-1 ENUMERATE (CLASS T bridge). resolve the folder id
+      (corpus_io.parse_drive_folder_id). collect_corpus_files paginates a folder
+      to exhaustion and recurses into sub-folders, so each listing call's
+      page_token and each sub-folder id are known only from the PREVIOUS result —
+      they cannot be pre-materialised in a single shot the way downloads can.
+      Claude therefore performs the Google Drive:search_files walk IN ITS OWN
+      TURN, iteratively: list the root, follow nextPageToken to the end, descend
+      into every sub-folder discovered, until nothing remains, accumulating a map
+      keyed by (folder_id, page_token) -> raw listing response. ONLY THEN is
+      collect_corpus_files driven, with a list_fn that is a PLAIN LOOKUP over that
+      already-materialised map — e.g. `list_fn = lambda fid, page_token=None:
+      listings[(fid, page_token)]`. NEVER pass the Google Drive:search_files
+      marker itself: that is precisely the CLASS T defect the
+      Framework_MockTestAnalyse CLASS T bridge documents, and audit_callgraph C6
+      fails the build on a call site that consumes a CLASS T stub's return value.
+      Each entry is screened by blueprint_core.screen_drive_entry (native Google
+      Doc / legacy .doc / non-.docx REJECTED with a fix message); a duplicate
+      paper key (canonical_paper_key) raises DuplicatePaperError naming both files.
   A-2 PARTITION BY TRANSPORT. blueprint_core.partition_by_transport splits papers
       by DRIVE_CAP (10 MB): at-or-under-cap -> Drive lane; over-cap -> upload lane
       (chat upload / GitHub). Owner note: papers are < 10 MB, so the Drive lane is
       the norm; the upload lane remains available and is never an error.
-  A-3 BATCH-OF-3 DOWNLOAD. process papers in batches of 3. For each paper, call
-      Google Drive:download_file_content in Claude's own turn, then
-      corpus_io.fetch_drive_docx(download_fn, paper, dest_dir) -> decode_drive_payload
+  A-3 BATCH-OF-3 DOWNLOAD (CLASS T bridge). process papers in batches of 3. In
+      Claude's OWN turn, call Google Drive:download_file_content for each paper of
+      the batch and note where each result landed (inline payload or spill-file
+      path), building drive_payloads = {file_id: payload_or_spill_path}. Then pass
+      corpus_io.fetch_drive_docx a RESOLVER that is a plain lookup over that map
+      (`resolver = lambda fid: drive_payloads[fid]`) — never the
+      download_file_content marker. fetch_drive_docx -> decode_drive_payload
       (unwraps the spill-file/JSON/base64 envelope) -> verify_downloaded_bytes
       (PK magic + EXACT size match; a truncated download raises TransportFallback).
-      A TransportFallback on any paper routes THAT paper to the upload lane; it
+      A missing entry / TransportFallback routes THAT paper to the upload lane; it
       never aborts the batch (owner decision 6).
   A-4 IMAGE READ (per paper). corpus_io.extract_images + map_images_to_questions
       (body.iter(), so images in tables / VML <v:imagedata> / option grids are
@@ -183,11 +208,15 @@ never the tier.
 O-1 notes_pyq_bank.json — schema notes_core.PYQ_BANK_SCHEMA; the full corpus:
     papers[] (with per-paper image_report) and questions[] (§3B fields). This is
     a project artifact, not a framework file; NC and NA read it read-only.
-O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA; exam_code, level,
-    allowed_question_types, sources, bank_ref (path + sha256 of the bank),
-    exclusion report, and the full unit table (unit_code, names, role, pyq_count,
-    tier, provenance, seq_in_topic, optional prose_ban_exemptions). Unit pyq_count
-    provenance is "bank".
+O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (>= notes-blueprint/1.2);
+    exam_code, level, allowed_question_types, sources, and bank_ref. bank_ref is
+    EMITTED by building the blueprint with
+    bank_ref=notes_blueprint.bank_ref_for(bank_path) AFTER the bank is written —
+    {path, sha256, questions, generated} over the bank bytes on disk — so any
+    later change to notes_pyq_bank.json is detectable (notes_core.verify_bank_ref;
+    read by NC §1.2). Also the exclusion report and the full unit table
+    (unit_code, names, role, pyq_count, tier, provenance, seq_in_topic, optional
+    prose_ban_exemptions). Unit pyq_count provenance is "bank".
 O-3 notes_registry.json — notes_core.registry_init; every unit -> BLUEPRINTED.
 O-4 Chat summary — unit counts by role/tier + exclusion report + INGEST REPORT:
     papers ingested (Drive lane vs upload lane), questions banked, per-type split,
@@ -246,4 +275,4 @@ E-12 An optional PYQ Analysis doc disagreeing with bank counts -> reported; the
 
 ---
 
-# END OF Framework_NotesBlueprint v2.0.0
+# END OF Framework_NotesBlueprint v2.0.1

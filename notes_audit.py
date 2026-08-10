@@ -1,5 +1,13 @@
 """
-notes_audit.py v1.2 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v1.3 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v1.3 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 2 (vacuous-pass floor wired). is_pass
+    has carried an expected_count floor since v1.1, but nothing named WHO supplies
+    it, so a run that audited 5 of 37 questions could still certify AUDITED_PASS.
+    pass_for_unit(report, unit_bank_questions) closes that: it derives
+    expected_count = len(unit_bank_questions) from the bank and calls is_pass, so
+    the count can no longer be forgotten. The NA spec now determines a unit pass
+    only through this helper. No other v1.2 surface changed.
 
 v1.2 — 2026-08-10 — GROUND-TRUTH + BANK FIGURES (Framework_NotesAudit v2.0.0).
     NB now ingests the corpus and stores, per question, the verbatim
@@ -93,6 +101,15 @@ def is_pass(report, expected_count=None):
     return all(v["verdict"] == "SOLVABLE" for v in items.values())
 
 
+def pass_for_unit(report, unit_bank_questions):
+    """Fix 2: the ONLY sanctioned way NA certifies a unit. expected_count is
+    derived from the bank (len of this unit's questions from
+    notes_core.bank_questions_for), so the vacuous-pass floor can never be
+    skipped by a caller that forgets to pass a count. A run that audited fewer
+    questions than the unit's bank holds is never a pass."""
+    return is_pass(report, expected_count=len(unit_bank_questions))
+
+
 def write_report(report, path):
     report["finished"] = _now()
     with open(path, "w", encoding="utf-8") as f:
@@ -164,6 +181,16 @@ def self_test():
     check("floor: 37 of 37 passes", is_pass(r, expected_count=37) is True)
     record(r, "Q1", "PARTIAL", "1.1", None)
     check("any PARTIAL blocks pass", is_pass(r, expected_count=37) is False)
+
+    # fix 2: pass_for_unit derives the floor from the bank (count can't be skipped)
+    r3 = new_report("U", "0.1", "ground_truth")
+    unit_qs = [{"bank_id": f"Q{i}"} for i in range(1, 38)]   # 37 in the bank
+    for i in range(1, 6):
+        record(r3, f"Q{i}", "SOLVABLE", "1.1", "a")
+    check("pass_for_unit: 5 of 37 is not a pass", pass_for_unit(r3, unit_qs) is False)
+    for i in range(6, 38):
+        record(r3, f"Q{i}", "SOLVABLE", "1.1", "a")
+    check("pass_for_unit: 37 of 37 passes", pass_for_unit(r3, unit_qs) is True)
 
     # Defect fixture 2: off-by-one convergence counters (the shipped bug)
     r2 = new_report("U", "0.1", "ground_truth")

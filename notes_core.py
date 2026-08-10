@@ -1,5 +1,14 @@
 """
-notes_core.py v1.5 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v1.6 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v1.6 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 1 (bank_ref staleness link). The
+    blueprint now carries a real bank_ref so a blueprint built from bank vN can
+    never be silently paired with bank vM. BLUEPRINT_SCHEMA -> notes-blueprint/1.2
+    (load_blueprint migrates 1.0/1.1 by defaulting bank_ref=None); new
+    verify_bank_ref(bank_path, bank_ref) recomputes the bank's sha256 and returns
+    (ok, detail) so NC §1.2's "stale bank" stop finally has the evidence to fire.
+    file_sha256() is exposed (syllabus_sha256 kept as an alias). No other v1.5
+    surface changed.
 
 v1.5 — 2026-08-10 — NOTES-INGEST BASE (Framework_NotesBlueprint v2.0.0). NB is
     now the eager full-corpus ingest step: it reads every sorted-PYQ paper from
@@ -57,8 +66,9 @@ TIER_PAGE_BANDS = {"TIER-1": (6, 15), "TIER-2": (4, 8), "TIER-3": (2, 5)}
 
 REGISTRY_SCHEMA = "notes-registry/1.1"
 REGISTRY_SCHEMAS_ACCEPTED = ("notes-registry/1.0", "notes-registry/1.1")
-BLUEPRINT_SCHEMA = "notes-blueprint/1.1"
-BLUEPRINT_SCHEMAS_ACCEPTED = ("notes-blueprint/1.0", "notes-blueprint/1.1")
+BLUEPRINT_SCHEMA = "notes-blueprint/1.2"
+BLUEPRINT_SCHEMAS_ACCEPTED = ("notes-blueprint/1.0", "notes-blueprint/1.1",
+                              "notes-blueprint/1.2")
 
 LEVEL_COLORS = {"L1": "1F4E79", "L2": "00838F", "L3": "6A1B9A",
                 "table_header": "44546A"}
@@ -73,9 +83,13 @@ def _now():
 
 
 # ---------------------------------------------------------------- identity
-def syllabus_sha256(path):
+def file_sha256(path):
     with open(path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
+
+
+# syllabus_sha256 kept as a named alias for existing call sites / clarity.
+syllabus_sha256 = file_sha256
 
 
 def unit_code(exam_code, s_no, t_no, st_no):
@@ -182,10 +196,30 @@ def load_blueprint(path):
     if bp["schema"] != BLUEPRINT_SCHEMA:
         bp["schema"] = BLUEPRINT_SCHEMA
         bp.setdefault("allowed_question_types", [])
+        bp.setdefault("bank_ref", None)
         for u in bp.get("units", []):
             u.setdefault("seq_in_topic", None)
             u.setdefault("prose_ban_exemptions", [])
     return bp
+
+
+def verify_bank_ref(bank_path, bank_ref):
+    """Fix 1 (deployment review): the staleness link NC §1.2 needs. Returns
+    (ok, detail). A blueprint with no bank_ref predates the bank and must be
+    rebuilt at NB. A bank_ref whose sha256 does not match the bank on disk means
+    the blueprint was built from a DIFFERENT bank than the one present — the
+    exact silent-mismatch this catches."""
+    if not bank_ref or not bank_ref.get("sha256"):
+        return (False, "blueprint carries no bank_ref — rebuild it at NB (the "
+                       "blueprint predates the current bank).")
+    if not os.path.exists(bank_path):
+        return (False, f"notes_pyq_bank.json not found at {bank_path}.")
+    actual = file_sha256(bank_path)
+    if actual != bank_ref["sha256"]:
+        return (False, "STALE BANK: the blueprint was built from bank sha256 "
+                f"{bank_ref['sha256'][:12]}… but notes_pyq_bank.json is now "
+                f"{actual[:12]}…. Re-run NB so blueprint and bank agree.")
+    return (True, "bank_ref matches the bank on disk.")
 
 
 # ---------------------------------------------------------------- docx text
@@ -673,8 +707,9 @@ def self_test():
     fp3 = tempfile.mktemp(suffix=".json")
     _json.dump(bp10, open(fp3, "w"))
     bp = load_blueprint(fp3)
-    check("blueprint 1.0 migrates to 1.1", bp["schema"] == BLUEPRINT_SCHEMA
+    check("blueprint 1.0 migrates to 1.2", bp["schema"] == BLUEPRINT_SCHEMA
           and bp["allowed_question_types"] == []
+          and bp["bank_ref"] is None
           and bp["units"][0]["prose_ban_exemptions"] == [])
     _json.dump(dict(bp10, schema="notes-blueprint/0.9"), open(fp3, "w"))
     try:
@@ -682,6 +717,18 @@ def self_test():
         check("unknown blueprint schema rejected", False)
     except ValueError:
         check("unknown blueprint schema rejected", True)
+
+    # bank_ref staleness link (fix 1)
+    bpath = tempfile.mktemp(suffix=".json")
+    bnk = bank_new("EX"); bank_save(bnk, bpath)
+    ref = {"path": bpath, "sha256": file_sha256(bpath), "questions": 0}
+    check("verify_bank_ref matches", verify_bank_ref(bpath, ref)[0] is True)
+    with open(bpath, "a", encoding="utf-8") as _f:
+        _f.write(" ")   # mutate the bank on disk
+    check("verify_bank_ref detects a stale bank",
+          verify_bank_ref(bpath, ref)[0] is False)
+    check("verify_bank_ref flags a missing ref",
+          verify_bank_ref(bpath, None)[0] is False)
     check("role: evidence rule", assign_role(False, 5, False, 1) is None
           and assign_role(False, 5, False, 2) == "EVIDENCE_ADDED")
     check("tier: thresholds", assign_tier("PYQ_WEIGHTED", 15) == "TIER-1"
