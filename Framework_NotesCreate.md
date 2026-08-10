@@ -1,4 +1,9 @@
-# Framework_NotesCreate v2.1.4 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.1.5 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.1.5 — 2026-08-10 — §8 wording aligned with §9/DeliveryFooter §3. Each
+#   multi-unit request is separate PER-UNIT RUNS, each a complete step ending F2
+#   (§9); the continue-confirmation is BETWEEN runs, not batches within one (NC
+#   has no intra-run batching — that F1 pattern is NB's). §8 retitled RUNS AND
+#   STATE and cross-references §9. Wording only; no behaviour change.
 # v2.1.4 — 2026-08-10 — CROSS-CHAT HANDOFF SPECIFIED. NC runs in its own chat, so
 #   its draft .docx must reach NA (a fresh chat) the same way NB's bank reaches NC.
 #   New §9: NC present_files the draft + the updated registry and renders the F2
@@ -52,7 +57,7 @@
 #
 # PIPELINE POSITION:
 #   Notes Step NB (NotesBlueprint) → unit table + sources + allowed types
-#   Notes Step NC (NotesCreate)    → THIS SPEC (1 unit per run; §8 batching)
+#   Notes Step NC (NotesCreate)    → THIS SPEC (1 unit per run; §8 runs)
 #   Notes Step NA (NotesAudit)     → audit + convergence loop
 #   Notes Step ND (NotesDeliver)   → delivery
 #
@@ -199,11 +204,13 @@ An exam whose OWN subject matter legitimately requires a banned token (e.g.
 a History unit needing years) declares a documented per-unit exemption in
 the blueprint; absent an exemption the gate is hard.
 
-## §8 — BATCHING AND STATE
-One subtopic per run. A multi-unit request splits into per-unit runs with a
-continue-confirmation between batches. On completion the unit moves
-BLUEPRINTED → DRAFTED with notes_version set (starts 0.1; NA patches bump
-the minor).
+## §8 — RUNS AND STATE
+One subtopic per run. A multi-unit request splits into separate PER-UNIT RUNS,
+each a COMPLETE step that ends with its own F2 step-complete footer (§9); the
+continue-confirmation sits BETWEEN those runs, not between batches within one run
+(NC has no intra-run batching — that F1 batch pattern belongs to NB's ingest, not
+here). On completion the unit moves BLUEPRINTED → DRAFTED with notes_version set
+(starts 0.1; NA patches bump the minor).
 
 ## §9 — DELIVERY / CROSS-CHAT HANDOFF
 NC runs in its own chat, so its draft must reach NA (a fresh chat) the same way
@@ -218,4 +225,4 @@ from Project Files). The footer is obligatory after a present_files call
 
 ---
 
-# END OF Framework_NotesCreate v2.1.4
+# END OF Framework_NotesCreate v2.1.5

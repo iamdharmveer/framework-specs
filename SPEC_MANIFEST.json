@@ -57,11 +57,11 @@
       "version_header": "# Framework_NotesBlueprint v2.0.5 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
     },
     "Framework_NotesCreate.md": {
-      "end_sentinel": "# END OF Framework_NotesCreate v2.1.4",
-      "lines": 221,
-      "sha256": "0a813a920a383031cb2b4735e4eadab9b400603a6dffa2a6230e9a8f55319e84",
-      "size_bytes": 14029,
-      "version_header": "# Framework_NotesCreate v2.1.4 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
+      "end_sentinel": "# END OF Framework_NotesCreate v2.1.5",
+      "lines": 228,
+      "sha256": "35c970da639181161cc04a698ecca6684497323a456c6a187c47f1e97d16d126",
+      "size_bytes": 14634,
+      "version_header": "# Framework_NotesCreate v2.1.5 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
     },
     "Framework_NotesDeliver.md": {
       "end_sentinel": "# END OF Framework_NotesDeliver v1.1.1",
