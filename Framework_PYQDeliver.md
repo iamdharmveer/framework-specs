@@ -1,4 +1,17 @@
-# Framework_PYQDeliver v1.10 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.11 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.11 — 2026-08-10 — DOC-CONSISTENCY: completes the v1.9 single-artifact sweep.
+#   v1.9 retired the render-source and made the delivered file the ONE artifact, and
+#   its changelog claimed it touched "§11 (done + invariants)" and the §7 "both
+#   artifacts" prose — but three LIVE lines were missed and still asserted the retired
+#   two-artifact model: the §7 C18 one-line summary ("on BOTH artifacts"), §11
+#   Definition-of-done item 11 ("machine-verified by C18 on both artifacts"), and the
+#   §11 hard invariant ("Both artifacts are schema-valid ..."). The gate_c18 code and
+#   the §7 body prose already validate exactly ONE delivered artifact, so behaviour was
+#   always correct; only these summary/invariant/done lines contradicted them, and no
+#   check catches prose drift. FIX: all three now name "the delivered artifact"
+#   (singular). No behaviour, gate, or delivered-byte change — documentation only.
+#   Surfaced in the 2026.08.10.1 deployment review; not introduced by v1.10.
+#   Touched: §7 C18 summary line, §11 done item 11, §11 hard invariant, END sentinel.
 # v1.10 — 2026-08-10 — PYQ REGISTRY IS NO LONGER A PROJECT-FILES DELIVERABLE.
 #   ROOT CAUSE of the reported cross-session gap: the registry
 #   ([ExamCode]_pyq_registry.json) was the ONLY PYQ-4 artifact whose usefulness
@@ -986,7 +999,9 @@ the package gate).
 
 **Package validity:**
 
-**C18** OOXML package validity on BOTH artifacts — HARD STOP.
+**C18** OOXML package validity on the delivered artifact — HARD STOP.
+(v1.9 retired the render-source; C18 validates the ONE delivered file. v1.11:
+wording corrected from the stale "BOTH artifacts".)
 
 ⚠️ **C1–C17 verify CONTENT FIDELITY. None of them verifies PACKAGE VALIDITY.**
 These are independent properties. C1 and C12 check that `document.xml` *parses*
@@ -1236,7 +1251,7 @@ PYQ-4 is done when **all** hold:
    item — the item is vacuously satisfied when no registry was attached.
 10. Delivered via present_files with the delivery report and footer.
 11. Opens clean in Microsoft Word with no "unreadable content" prompt —
-    machine-verified by C18 on both artifacts, not assumed. Items 1-10
+    machine-verified by C18 on the delivered artifact, not assumed. Items 1-10
     establish that the CONTENT is correct; only C18 establishes that the
     PACKAGE is valid. A file can satisfy every other item on this list and
     still fail to open.
@@ -1254,7 +1269,7 @@ PYQ-4 is done when **all** hold:
 - No `cleanup_namespaces()` — ever (MockDeliver v1.3 lesson).
 - `word/webSettings.xml` is never stripped (MockDeliver v1.3 lesson).
 - Tag pPr: `<w:spacing>` before `<w:jc>` (OOXML schema order).
-- Both artifacts are schema-valid OOXML packages, proven by C18 against the
+- The delivered artifact is a schema-valid OOXML package, proven by C18 against the
   source with `--original`. Parsing without error is NOT validity.
 - Tag paragraphs built from scratch, never cloned from body paragraphs.
 - No exam-specific value hardcoded (exam-agnostic guarantee).
@@ -1461,4 +1476,4 @@ delivered file keeps the input's original fonts):
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.10)**
+**End of Framework_PYQDeliver.md (v1.11)**

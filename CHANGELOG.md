@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026.08.10.2
+- **Framework_PYQDeliver v1.10 → v1.11** — doc-consistency only. Completes the v1.9
+  single-artifact sweep: the §7 C18 summary line, §11 Definition-of-done item 11, and a
+  §11 hard invariant still read "both artifacts" although v1.9 retired the render-source
+  and the gate code/§7 body already validate one delivered artifact. All three now name
+  "the delivered artifact". No behaviour/gate/byte change.
+- **Framework_DeliveryFooter v1.16 → v1.17** — `LOCAL_ONLY` registry pattern widened from
+  `*_pyq_registry.json` to `*pyq_registry.json`, so a bare `pyq_registry.json` (no
+  `[ExamCode]_` prefix) is also badged local, making the v1.16 never-uploaded guarantee
+  exact. Zero false positives verified.
+- Both surfaced in the 2026.08.10.1 deployment review; neither was introduced by that
+  release. Verified on a fresh production clone: bootstrap 39/39 pass, validator 0 issues,
+  audit_specs_ext 0, audit_mutation 0 survived.
+
 ## 2026.08.10.1
 - **Framework_PYQDeliver v1.10** — PYQ registry demoted from a required Project-Files
   deliverable to an OPTIONAL, local-only, absence-tolerant continuity aid. Closes the

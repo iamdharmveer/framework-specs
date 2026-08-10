@@ -1,4 +1,14 @@
-# Framework_DeliveryFooter v1.16 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.17 — Universal Delivery Footer (F1/F2) Contract
+# v1.17 — 2026-08-10 — LOCAL_ONLY PATTERN MADE AIRTIGHT. v1.16 added
+#   '*_pyq_registry.json', but get_badge() matches via endswith(pat) / fnmatch(*pat),
+#   so a BARE 'pyq_registry.json' with no '[ExamCode]_' prefix did NOT match and fell
+#   through to the upload/replace branch — the v1.16 "never routed to Project Files"
+#   guarantee was narrower than stated (the spec always names the file with a prefix,
+#   so it was not reachable in practice, but the guarantee should be exact). FIX: the
+#   pattern is now '*pyq_registry.json' (underscore dropped), which matches BOTH the
+#   prefixed and bare forms while still excluding the mock '_registry.json',
+#   'blueprint.json', and unrelated files (verified: zero false positives). Surfaced in
+#   the 2026.08.10.1 deployment review. Badge-only; no severity/F1/F2/flowchart change.
 # v1.16 — 2026-08-10 — PYQ REGISTRY IS LOCAL-ONLY (structural badge guarantee).
 #   Added '*_pyq_registry.json' to the §2 LOCAL_ONLY set so get_badge() can NEVER
 #   route the PYQ corpus tracker to Project Files on any step, for any exam — it
@@ -226,8 +236,10 @@ def get_badge(filename, step, is_first_run):
         'Mock*_Explanation_Complete.docx', # was Step 10 audited solutions
         'Mock*_Final.docx',        # Step 11 tagged final deliverable
         'analysis_summary.md',      # Step 5 final — human review audit trail
-        '*_pyq_registry.json',      # PYQ-4 corpus tracker — LOCAL-ONLY (v1.16);
-                                    # optional, never uploaded/replaced in Project
+        '*pyq_registry.json',       # PYQ-4 corpus tracker — LOCAL-ONLY (v1.16;
+                                    # pattern widened v1.17 to also catch a bare
+                                    # 'pyq_registry.json' with no [ExamCode]_ prefix).
+                                    # Optional, never uploaded/replaced in Project
                                     # Files on any step or exam (Framework_PYQDeliver
                                     # v1.10). Belt-and-suspenders: PYQ-4 also does not
                                     # present it on the normal run.

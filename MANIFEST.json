@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.10.1",
+  "framework_version": "2026.08.10.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -168,11 +168,11 @@
       "bytes": 364060
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "0d374f7c33d90357087a864ae7644ec111fb9353400b544c1a0d09accafc4aa0",
-      "version_header": "# Framework_DeliveryFooter v1.16 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "f8f7d37b430bb4ade483795ea142c18540a7cdbcab1f4955cd58e0f18cc65a60",
+      "version_header": "# Framework_DeliveryFooter v1.17 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 755,
-      "bytes": 39940
+      "lines": 767,
+      "bytes": 40949
     },
     "Framework_MockDeliver.md": {
       "sha256": "efd8c0879efa01ecef93c6466bd785ed71d655dc2d2d7154c18a4d887134858c",
@@ -266,11 +266,11 @@
       "bytes": 58024
     },
     "Framework_PYQDeliver.md": {
-      "sha256": "3fb46849289bb438b4dfd93c3198dcccb59fd7f172bd8b59dd04463cee2a12df",
-      "version_header": "# Framework_PYQDeliver v1.10 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.10)**",
-      "lines": 1464,
-      "bytes": 80138
+      "sha256": "133f2f1c43ee15e3e92425df9f02cca862a4c9165a30c4ca77625590eb019b2e",
+      "version_header": "# Framework_PYQDeliver v1.11 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.11)**",
+      "lines": 1479,
+      "bytes": 81394
     },
     "Framework_PYQDraft.md": {
       "sha256": "b0b87b0ebd7b10e87604560c50e4c47cb3f9654b1adf5f94eb0d1e35dfd011f5",
