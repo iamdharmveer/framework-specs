@@ -1,5 +1,19 @@
 """
-notes_blueprint.py v2.0 — Engine for Notes Step NB (Framework_NotesBlueprint).
+notes_blueprint.py v2.1 — Engine for Notes Step NB (Framework_NotesBlueprint).
+
+v2.1 — 2026-08-10 — DEPLOYMENT-REVIEW RESOLVE (reproducible validation). The
+    v2.0/v3.0.0 changelog cited an end-to-end validation against the live
+    IIT_JAM_BIOTECHNOLOGY manifest that repo CI cannot re-run (the manifest is a
+    PROJECT artifact, not a repo file). New verify_manifest(manifest_path,
+    exam_code=None) makes that validation a standing, reproducible preflight:
+    it loads the manifest (exam_code gate), derives numbering and asserts
+    unique unit_codes + gapless ST within every (S,T), runs the full three-tier
+    resolution sweep (sid / scope / bare name) across every subtopic, reports
+    duplicate display names (legitimately 'ambiguous' by design — the scope
+    form resolves them), and checks filename uniqueness. CLI:
+    `python3 notes_blueprint.py --verify-manifest <path> [exam_code]`.
+    NB §1A runs it as the session preflight. Additive only; nothing in v2.0
+    changed; all v2.0 self-tests retained verbatim.
 
 v2.0 — 2026-08-10 — TAXONOMY CONSUMER (Framework_NotesBlueprint v3.0.0). The
     Step-5 [ExamCode]_subtopic_manifest.json is the single source of truth for
@@ -244,6 +258,75 @@ def build_blueprint_v2(exam_code, level, syllabus_hash, sources, manifest,
         "syllabus_sha256": syllabus_hash, "generated": _now(),
         "sources": sources, "units": units, "excluded": excluded,
     }
+
+
+def verify_manifest(manifest_path, exam_code=None):
+    """v2.1 reproducible preflight for the §1A taxonomy contract. Runs against
+    the PROJECT's [ExamCode]_subtopic_manifest.json (which repo CI cannot see)
+    so the 'N units, N/N resolution' validation is re-runnable by anyone:
+    `python3 notes_blueprint.py --verify-manifest <path> [exam_code]`.
+
+    Checks: (1) manifest loads + exam_code gate (load_subtopic_manifest);
+    (2) numbering integrity — unique unit_codes, gapless ST within every (S,T),
+    contiguous S; (3) three-tier resolution sweep — every sid, every
+    Subject::Topic::Name scope, every bare name; (4) filename uniqueness.
+    Duplicate display names are reported as ambiguous_names, NOT a failure —
+    bare-name ambiguity is the designed STOP-and-choose path and the scope form
+    resolves each one (asserted here). Returns a report dict; report['ok'] is
+    the machine verdict."""
+    m = notes_core.load_subtopic_manifest(manifest_path, exam_code)
+    subs = m["subtopics"]
+    ex = m.get("exam_code") or "EXAM"
+    num = notes_core.assign_numbering(m)
+    codes = [notes_core.unit_code(ex, n["s_no"], n["t_no"], n["st_no"])
+             for n in num.values()]
+    sts = {}
+    for n in num.values():
+        sts.setdefault((n["s_no"], n["t_no"]), []).append(n["st_no"])
+    gapless = all(sorted(v) == list(range(1, len(v) + 1)) for v in sts.values())
+    secs = sorted({n["s_no"] for n in num.values()})
+    contiguous_s = secs == list(range(1, len(secs) + 1))
+    units = {sid: {"name": v["display_name"], "section": v["section"],
+                   "topic": v["topic"]} for sid, v in subs.items()}
+    ok_sid = ok_scope = ok_name = 0
+    ambiguous, failures = [], []
+    for sid, v in subs.items():
+        if notes_core.resolve_unit(units, sid).get("sid") == sid:
+            ok_sid += 1
+        else:
+            failures.append(("sid", sid))
+        scope = "%s::%s::%s" % (v["section"], v["topic"], v["display_name"])
+        if notes_core.resolve_unit(units, scope).get("sid") == sid:
+            ok_scope += 1
+        else:
+            failures.append(("scope", sid))
+        r = notes_core.resolve_unit(units, v["display_name"])
+        if r.get("sid") == sid:
+            ok_name += 1
+        elif r["status"] == "ambiguous":
+            if v["display_name"] not in ambiguous:
+                ambiguous.append(v["display_name"])
+        else:
+            failures.append(("name", sid))
+    fns = {notes_core.notes_filename(ex, num[s]["s_no"], num[s]["t_no"],
+                                     num[s]["st_no"], notes_core.sid_slug(s))
+           for s in subs}
+    total = len(subs)
+    report = {
+        "manifest": os.path.basename(str(manifest_path)),
+        "exam_code": m.get("exam_code"), "subtopics": total,
+        "codes_unique": len(codes) == len(set(codes)),
+        "st_gapless": gapless, "sections_contiguous": contiguous_s,
+        "resolved_sid": ok_sid, "resolved_scope": ok_scope,
+        "resolved_bare_name": ok_name, "ambiguous_names": ambiguous,
+        "resolution_failures": failures,
+        "filenames_unique": len(fns) == total,
+        "filename_max_len": max((len(f) for f in fns), default=0),
+    }
+    report["ok"] = (report["codes_unique"] and gapless and contiguous_s
+                    and ok_sid == total and ok_scope == total
+                    and not failures and report["filenames_unique"])
+    return report
 
 
 def bank_ref_for(bank_path):
@@ -520,6 +603,54 @@ def self_test():
                                   "membrane structure & function")["sid"]
           == "gb.cell.membranes")
 
+    # ---- v2.1 verify_manifest preflight ----------------------------------
+    import json as _json2
+    mp2 = tempfile.mktemp(suffix=".json")
+    _json2.dump(man, open(mp2, "w", encoding="utf-8"))
+    rep = verify_manifest(mp2, "EXBT")
+    check("verify_manifest: clean manifest passes",
+          rep["ok"] is True and rep["subtopics"] == 4
+          and rep["resolved_sid"] == 4 and rep["resolved_scope"] == 4
+          and rep["resolved_bare_name"] == 4 and rep["ambiguous_names"] == []
+          and rep["codes_unique"] and rep["st_gapless"]
+          and rep["filenames_unique"])
+    man_dup = {"exam_code": "EXBT", "subtopics": dict(man["subtopics"])}
+    man_dup["subtopics"]["ch.misc.membranes"] = {
+        "display_name": "Membrane Structure and Function",
+        "section": "Chemistry (10+2+3 level)", "topic": "Misc"}
+    _json2.dump(man_dup, open(mp2, "w", encoding="utf-8"))
+    rep = verify_manifest(mp2, "EXBT")
+    check("verify_manifest: duplicate name is ambiguous-not-failure; scope "
+          "still 100%; overall ok",
+          rep["ok"] is True
+          and rep["ambiguous_names"] == ["Membrane Structure and Function"]
+          and rep["resolved_scope"] == 5 and rep["resolved_bare_name"] == 3)
+    # A HARD-STOP verdict needs a fixture that FAILS. Two units sharing a full
+    # Subject::Topic::Sub Topic Name scope are addressable by neither the scope
+    # form nor the bare name — the operator can only ever reach them by sid, so
+    # the §1A "N/N resolution" claim is false and ok MUST be False. Duplicating
+    # the name ALONE (fixture above) is the designed ambiguous path and stays
+    # ok=True, so this fixture isolates the collision, not the duplication.
+    # Only the `not failures` term of the ok conjunction rejects it (the four
+    # numbering/filename terms are derived from manifest row order by
+    # assign_numbering(prior=None) and cannot be False as invoked here).
+    man_scope = {"exam_code": "EXBT", "subtopics": dict(man["subtopics"])}
+    dup_src = man_scope["subtopics"]["gb.cell.membranes"]
+    man_scope["subtopics"]["gb.cell.membranes_2"] = dict(dup_src)
+    _json2.dump(man_scope, open(mp2, "w", encoding="utf-8"))
+    rep = verify_manifest(mp2, "EXBT")
+    check("verify_manifest: colliding full scope FAILS the verdict",
+          rep["ok"] is False
+          and rep["resolved_sid"] == 5
+          and rep["resolved_scope"] == 3
+          and sorted(rep["resolution_failures"])
+          == [("scope", "gb.cell.membranes"), ("scope", "gb.cell.membranes_2")])
+    try:
+        verify_manifest(mp2, "WRONG_EXAM")
+        check("verify_manifest: exam_code gate fires", False)
+    except ValueError:
+        check("verify_manifest: exam_code gate fires", True)
+
     print(f"notes_blueprint self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
     return not fails
@@ -529,4 +660,16 @@ if __name__ == "__main__":
     import sys
     if "--self-test" in sys.argv:
         sys.exit(0 if self_test() else 1)
-    print("notes_blueprint.py — Notes Step NB engine. Run with --self-test.")
+    if "--verify-manifest" in sys.argv:
+        i = sys.argv.index("--verify-manifest")
+        args = sys.argv[i + 1:i + 3]
+        if not args:
+            print("usage: notes_blueprint.py --verify-manifest <path> [exam_code]")
+            sys.exit(2)
+        rep = verify_manifest(args[0], args[1] if len(args) > 1 else None)
+        for k, v in rep.items():
+            print(f"{k}: {v}")
+        print("VERDICT:", "PASS" if rep["ok"] else "FAIL")
+        sys.exit(0 if rep["ok"] else 1)
+    print("notes_blueprint.py — Notes Step NB engine. Run with --self-test, "
+          "or --verify-manifest <path> [exam_code].")

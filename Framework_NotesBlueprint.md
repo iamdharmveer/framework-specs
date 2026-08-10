@@ -1,4 +1,29 @@
-# Framework_NotesBlueprint v3.0.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.0.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW RESOLVE (three notes from the v3.0.0
+#   deployment verification).
+#   (1) "133/133 unverifiable from the repo": the manifest is a PROJECT artifact,
+#       so that validation is now a standing, REPRODUCIBLE preflight instead of a
+#       changelog claim: notes_blueprint.verify_manifest — CLI
+#       `python3 notes_blueprint.py --verify-manifest <path> [exam_code]` —
+#       loads the manifest (exam_code gate), asserts unique unit_codes + gapless
+#       ST numbering, sweeps ALL THREE resolution tiers across every subtopic,
+#       and checks filename uniqueness. §1A A-1 now runs it as the session
+#       preflight. Re-run against the live IIT_JAM_BIOTECHNOLOGY manifest at
+#       resolve time: 133 subtopics, 133/133 sid + scope + bare-name, VERDICT
+#       PASS — and anyone with the project file can re-verify with one command.
+#       Companion: notes_blueprint >= v2.1 (additive; v2.0 surface unchanged).
+#   (2) "breaking for mid-pipeline projects": intentional, now stated as the
+#       explicit MIGRATION block after §7 — one NB re-run per project, bank
+#       untouched (A-0 resumes; nothing re-downloads), and the previously
+#       UNSPECIFIED state carry-over across the key change (1.x unit_code keys ->
+#       sid keys) is specified: each 1.x unit's name resolves to its sid via
+#       notes_core.resolve_unit; states/notes_version/artifacts carry over;
+#       ambiguous/none resolutions are listed for the owner, never guessed.
+#   (3) "NB hard-stops without the Step-5 manifest": intentional and now stated
+#       plainly in the PREREQUISITE — Step 5 (PYQExtract) must have run for the
+#       exam BEFORE Notes; that ordering IS the single-vocabulary architecture.
+#       An exam that ran Notes before Step 5 completes Step 5 first, then takes
+#       the MIGRATION path.
 # v3.0.0 — 2026-08-10 — TAXONOMY CONSUMER (breaking; owner decision: ONE subtopic
 #   vocabulary across Test Creation and Notes Creation). The Step-5
 #   [ExamCode]_subtopic_manifest.json (the same file MockBlueprint consumes, whose
@@ -29,9 +54,9 @@
 #     (5) Engine: notes_blueprint.build_blueprint_v2 (manifest-consuming) replaces
 #         build_blueprint in this spec's flow (the v1 builder remains in the
 #         engine for legacy reads only). Companions: notes_core >= v2.0,
-#         notes_blueprint >= v2.0. Validated end-to-end against the live
-#         IIT_JAM_BIOTECHNOLOGY manifest: 133 units, 133/133 bare-name + sid +
-#         scope resolution, gapless unique numbering, unique filenames.
+#         notes_blueprint >= v2.0. Engineering-session validation against the
+#         live IIT_JAM_BIOTECHNOLOGY manifest (a project artifact, not in this
+#         repo) is reproducible via the v3.0.1 --verify-manifest preflight.
 #     (6) NEW §7 rules: manifest-hash staleness, ORPHANED (a delivered unit whose
 #         sid left the manifest is reported, never deleted), and the BANK-MATCH
 #         report (bank triples that fail to norm-match any manifest triple —
@@ -112,7 +137,8 @@
 #                                parse_exam_date_from_filename, normalize_answer,
 #                                nat_precision_from_stem/nat_within_tolerance,
 #                                msq_match, verify_bank_ref, registry/gates.
-#   notes_blueprint.py >= v2.0 — build_blueprint_v2 (manifest consumer),
+#   notes_blueprint.py >= v2.1 — build_blueprint_v2 (manifest consumer),
+#                                verify_manifest (reproducible §1A preflight),
 #                                assemble_bank, write_bank, counts_from_bank,
 #                                bank_ref_for, registry writer (taxonomy_ref).
 #   corpus_io.py       >= v1.11 — Drive enumerate/download/decode/verify, image
@@ -136,9 +162,12 @@
 #
 # PREREQUISITE:
 #   [ExamCode] project Files MUST contain: (a) [ExamCode]_subtopic_manifest.json —
-#   the Step-5 (PYQExtract) deliverable; missing = HARD STOP naming the file
-#   (its human view [ExamCode]_taxonomy.xlsx is the operator's picking list and
-#   is NOT read by NB), (b) official syllabus (pdf/docx, ANY official layout;
+#   the Step-5 (PYQExtract) deliverable; missing = HARD STOP naming the file.
+#   Step 5 MUST therefore have run for this exam BEFORE any Notes step — that
+#   ordering IS the single-vocabulary architecture (v3.0.1 note 3). An exam that
+#   ran Notes before Step 5 completes Step 5 first, then follows MIGRATION
+#   (after §7). (The manifest's human view [ExamCode]_taxonomy.xlsx is the
+#   operator's picking list and is NOT read by NB.) (b) official syllabus (pdf/docx, ANY official layout;
 #   §2 parsing), (c) Exam Pattern xlsx (Overview / Sections / Range tabs;
 #   Overview MUST carry a Level field). Sorted PYQ papers are located via §3 and
 #   ingested via §3A. A PYQ Analysis doc is OPTIONAL (cross-check only).
@@ -164,7 +193,11 @@
 A-1 READ THE MANIFEST. NB MUST notes_core.load_subtopic_manifest(
     "[ExamCode]_subtopic_manifest.json", exam_code) at session start. The loader
     HARD-STOPS on a structurally invalid manifest and on an exam_code mismatch
-    (the wrong exam's manifest in Files is never consumed silently). Every unit
+    (the wrong exam's manifest in Files is never consumed silently). NB then
+    runs the PREFLIGHT notes_blueprint.verify_manifest(path, exam_code) and
+    includes its report line in the chat summary; a FAIL verdict is a HARD STOP
+    naming the failing check (reproducible by the owner:
+    `python3 notes_blueprint.py --verify-manifest <path> [exam_code]`). Every unit
     NB places into the blueprint carries the manifest sid (Sub Topic Id)
     VERBATIM plus the manifest's display_name / section / topic EXACT BYTES.
 A-2 RESOLVE, NEVER MINT. The syllabus scope-match (§2 S-1) resolves each
@@ -419,6 +452,21 @@ from the last completed batch — reply 'continue' in-session, or re-trigger
 NotesBlueprint in a fresh chat (A-7 option B) and it picks up the paper_keys not
 yet in the bank. Nothing is deleted automatically.
 
+## MIGRATION (v3.0.0 -> sid-keyed; one-time per pre-v3 Notes project)
+A project with 1.x notes_blueprint.json / notes_registry.json is mid-pipeline on
+unit_code keys. Those artifacts still LOAD read-only (sid=None), but NC/NA/ND
+resolution and the taxonomy_ref check route to NB — by design. The remedy is ONE
+NB re-run: the ingested bank is untouched and A-0 resumes from it (nothing is
+re-downloaded), so the cost is the counts + blueprint + registry rebuild only.
+STATE CARRY-OVER across the key change is explicit: for each 1.x unit, resolve
+its name against the new sid-keyed units via notes_core.resolve_unit; on a
+unique hit, carry state, notes_version, audit, artifacts and history onto the
+sid-keyed unit (numbering comes from the new assignment — a pre-v3 unit_code was
+syllabus-positional and is NOT preserved as numbering prior); an ambiguous or
+failed resolution is LISTED in the chat summary for the owner to map manually —
+never guessed. Delivered .docx files keep their old filenames until their unit
+is next redelivered; the registry's artifacts map records both.
+
 ## §8 — HARD RULES CARRIED FROM THE FRAMEWORK CORE
 1. NEVER work from memory for exam-varying values: counts, ranges, marks, Level,
    answers and figures come from the parsed inputs / ingested bank only.
@@ -473,4 +521,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.0.0
+# END OF Framework_NotesBlueprint v3.0.1

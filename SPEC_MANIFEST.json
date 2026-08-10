@@ -50,11 +50,11 @@
       "version_header": "# Framework_NotesAudit v2.0.5 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
     },
     "Framework_NotesBlueprint.md": {
-      "end_sentinel": "# END OF Framework_NotesBlueprint v3.0.0",
-      "lines": 476,
-      "sha256": "dd50e1a7f8c25f0d7e72b29f338d61cc499ce1a01ad06f6c4f7c2878d51d681d",
-      "size_bytes": 34238,
-      "version_header": "# Framework_NotesBlueprint v3.0.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
+      "end_sentinel": "# END OF Framework_NotesBlueprint v3.0.1",
+      "lines": 524,
+      "sha256": "f04e082a40447c9bee57b064771f90f286c99652ce898282b4beb7e2e4b39364",
+      "size_bytes": 37832,
+      "version_header": "# Framework_NotesBlueprint v3.0.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
     },
     "Framework_NotesCreate.md": {
       "end_sentinel": "# END OF Framework_NotesCreate v2.2.0",
@@ -295,10 +295,10 @@
       "version_header": "\"\"\""
     },
     "notes_blueprint.py": {
-      "end_sentinel": "    print(\"notes_blueprint.py — Notes Step NB engine. Run with --self-test.\")",
-      "lines": 532,
-      "sha256": "cae9184686b63fd691e737d2ed3a8e696862a480e4686c50b3b2946713303f63",
-      "size_bytes": 27896,
+      "end_sentinel": "          \"or --verify-manifest <path> [exam_code].\")",
+      "lines": 675,
+      "sha256": "b85c6a4caee4e78a5fa192faac217d86a81a5750c81d8669a6b6d78214558353",
+      "size_bytes": 35542,
       "version_header": "\"\"\""
     },
     "notes_core.py": {
