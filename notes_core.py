@@ -1,5 +1,21 @@
 """
-notes_core.py v1.4 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v1.5 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v1.5 — 2026-08-10 — NOTES-INGEST BASE (Framework_NotesBlueprint v2.0.0). NB is
+    now the eager full-corpus ingest step: it reads every sorted-PYQ paper from
+    Drive via corpus_io and emits a verified notes_pyq_bank.json that NC and NA
+    consume read-only. New here: (1) PYQ_BANK_SCHEMA + bank_new/bank_add_paper/
+    bank_add_question/bank_validate/bank_save/bank_load with per-question fields
+    incl. verbatim correct_answer + explanation and a stem_figures/
+    solution_figures split; (2) subtopic_key() and derive_taxonomy_counts(),
+    which compute subtopic-wise pyq_count + recent-3-year counts DIRECTLY from
+    the bank so the separate PYQ Analysis doc is no longer a prerequisite
+    (owner decision 5i); (3) parse_exam_date_from_filename() — the filename is
+    authoritative for exam date (owner decision 2/3); (4) ground-truth answer
+    matching: normalize_answer(), nat_precision_from_stem(),
+    nat_within_tolerance() (rounding-precision, owner decision 4b) and
+    msq_match() (unordered set). Nothing in the v1.4 gate/registry surface
+    changed; all v1.4 self-tests are retained verbatim.
 
 v1.4 — 2026-08-08 — THIRD-WAVE CLOSURE; file rewritten whole (no incremental
     patches) after edit-scar corruption. Reviewer designs adopted verbatim:
@@ -334,6 +350,199 @@ def assert_omml(docx_path, expected_min, required_tokens=()):
     return len(maths)
 
 
+# ================================================================ PYQ BANK
+# The bank is NB's ingest artifact (notes_pyq_bank.json). It is a PROJECT
+# artifact, not a framework file — its SCHEMA lives here so it is bootstrap-
+# verified and unit-testable. NC filters it per subtopic; NA solves against
+# its verbatim correct_answer. Both consume it read-only; neither re-reads Drive.
+PYQ_BANK_SCHEMA = "notes-pyq-bank/1.0"
+
+BANK_REQUIRED_FIELDS = ("bank_id", "paper_key", "exam_date", "exam_year",
+                        "q_no", "type", "subject", "topic", "subtopic", "stem")
+
+_MONTHS = {m: i for i, m in enumerate(
+    ("jan", "feb", "mar", "apr", "may", "jun",
+     "jul", "aug", "sep", "oct", "nov", "dec"), 1)}
+
+
+def parse_exam_date_from_filename(name):
+    """Exam date from a sorted-PYQ filename (owner decision 2/3: the filename is
+    authoritative and stable). Returns (iso 'YYYY-MM-DD', year int,
+    label 'DD-Mon-YYYY') or None. Tolerant of prefixes/suffixes, 'Copy of',
+    '(1)', and DD-Mon-YYYY / DDMonYYYY / Mon-YYYY / YYYY-only shapes."""
+    stem = re.sub(r"\.(?:docx|doc)$", "", os.path.basename(str(name)), flags=re.I)
+    m = re.search(r"(?<!\d)(\d{1,2})[\-_ ]?([A-Za-z]{3,9})[\-_ ]?((?:19|20)\d\d)",
+                  stem)
+    if m and _MONTHS.get(m.group(2)[:3].lower()):
+        d, mon, y = int(m.group(1)), _MONTHS[m.group(2)[:3].lower()], int(m.group(3))
+        if 1 <= d <= 31:
+            return (f"{y:04d}-{mon:02d}-{d:02d}", y,
+                    f"{d:02d}-{m.group(2)[:3].title()}-{y}")
+    m = re.search(r"(?<![A-Za-z])([A-Za-z]{3,9})[\-_ ]?((?:19|20)\d\d)", stem)
+    if m and _MONTHS.get(m.group(1)[:3].lower()):
+        mon, y = _MONTHS[m.group(1)[:3].lower()], int(m.group(2))
+        return (f"{y:04d}-{mon:02d}-01", y, f"{m.group(1)[:3].title()}-{y}")
+    m = re.search(r"(?<!\d)((?:19|20)\d\d)(?!\d)", stem)
+    if m:
+        y = int(m.group(1))
+        return (f"{y:04d}-01-01", y, str(y))
+    return None
+
+
+def subtopic_key(subject, topic, subtopic):
+    """Canonical, case/space-insensitive key so bank counts and blueprint units
+    join on the same subtopic identity."""
+    def n(x):
+        return re.sub(r"\s+", " ", str(x or "").strip()).lower()
+    return f"{n(subject)}|||{n(topic)}|||{n(subtopic)}"
+
+
+def normalize_answer(qtype, raw):
+    """Normalise a doc-declared answer by type (never re-derived; owner
+    decision 4). MCQ -> option string ('2'); MSQ -> sorted int list ([1, 3]);
+    NAT -> float."""
+    t = (qtype or "").upper()
+    s = str("" if raw is None else raw).strip()
+    if t == "MSQ":
+        return sorted({int(x) for x in re.findall(r"\d+", s)})
+    if t == "NAT":
+        m = re.search(r"-?\d+(?:\.\d+)?", s)
+        return float(m.group(0)) if m else None
+    m = re.search(r"\d+", s)
+    return m.group(0) if m else s
+
+
+def nat_precision_from_stem(stem):
+    """Decimal places a NAT stem asks for (NC B3 requires NAT stems to state
+    rounding). Defaults to 2. 'nearest integer' -> 0."""
+    s = stem or ""
+    if re.search(r"nearest\s+(?:integer|whole)", s, re.I):
+        return 0
+    m = re.search(r"(?:to|up\s*to|correct\s+to|round(?:ed)?\s+to)\s+(\d+)\s*"
+                  r"(?:decimal|dp|place)", s, re.I) \
+        or re.search(r"(\d+)\s*decimal\s*place", s, re.I)
+    return int(m.group(1)) if m else 2
+
+
+def nat_within_tolerance(computed, target, precision_decimals=2):
+    """Ground-truth NAT match (owner decision 4b): equal after rounding BOTH to
+    the stem's stated precision. None on either side is never a match."""
+    if computed is None or target is None:
+        return False
+    p = int(precision_decimals)
+    return round(float(computed), p) == round(float(target), p)
+
+
+def msq_match(computed, target):
+    """MSQ ground-truth match: unordered set equality."""
+    def norm(x):
+        if isinstance(x, (list, tuple, set)):
+            return {int(i) for i in x}
+        return {int(i) for i in re.findall(r"\d+", str(x))}
+    return norm(computed) == norm(target)
+
+
+def bank_new(exam_code):
+    return {"schema": PYQ_BANK_SCHEMA, "exam_code": exam_code,
+            "created": _now(), "updated": _now(),
+            "papers": [], "questions": []}
+
+
+def bank_add_paper(bank, paper_key, exam_date, exam_year, filename,
+                   n_questions, image_report=None):
+    bank["papers"].append({
+        "paper_key": paper_key, "exam_date": exam_date,
+        "exam_year": int(exam_year), "filename": filename,
+        "questions": int(n_questions), "image_report": image_report or {}})
+
+
+def bank_add_question(bank, rec):
+    """Append one validated question. rec keys: the BANK_REQUIRED_FIELDS plus
+    optional complexity, options, correct_answer, explanation (verbatim),
+    stem_figures, solution_figures, concept_tags. stem_figures present ->
+    figure flag True (NC FIGURE dependency; owner decision 3 split)."""
+    missing = [k for k in BANK_REQUIRED_FIELDS if rec.get(k) in (None, "")]
+    if missing:
+        raise ValueError(f"bank question {rec.get('bank_id')!r} missing {missing}")
+    t = str(rec["type"]).upper()
+    if t not in CANONICAL_TYPES:
+        raise ValueError(f"bank question {rec['bank_id']!r} non-canonical type "
+                         f"{rec['type']!r}")
+    q = {"bank_id": rec["bank_id"], "paper_key": rec["paper_key"],
+         "exam_date": rec["exam_date"], "exam_year": int(rec["exam_year"]),
+         "q_no": rec["q_no"], "type": t, "complexity": rec.get("complexity"),
+         "subject": rec["subject"], "topic": rec["topic"],
+         "subtopic": rec["subtopic"],
+         "subtopic_key": subtopic_key(rec["subject"], rec["topic"], rec["subtopic"]),
+         "stem": rec["stem"], "options": list(rec.get("options", [])),
+         "correct_answer": rec.get("correct_answer"),
+         "explanation": rec.get("explanation", ""),
+         "stem_figures": list(rec.get("stem_figures", [])),
+         "solution_figures": list(rec.get("solution_figures", [])),
+         "figure": bool(rec.get("stem_figures")),
+         "concept_tags": list(rec.get("concept_tags", []))}
+    bank["questions"].append(q)
+    return q
+
+
+def bank_validate(bank):
+    if bank.get("schema") != PYQ_BANK_SCHEMA:
+        raise ValueError(f"bank schema mismatch: {bank.get('schema')}")
+    ids = [q["bank_id"] for q in bank.get("questions", [])]
+    if len(ids) != len(set(ids)):
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        raise ValueError(f"duplicate bank_id(s): {dupes}")
+    for q in bank.get("questions", []):
+        if str(q.get("type")).upper() not in CANONICAL_TYPES:
+            raise ValueError(f"bank_id {q.get('bank_id')!r} bad type {q.get('type')!r}")
+    return True
+
+
+def bank_save(bank, path):
+    bank["updated"] = _now()
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(bank, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.replace(tmp, path)
+    return path
+
+
+def bank_load(path):
+    bank = json.load(open(path, encoding="utf-8"))
+    bank_validate(bank)
+    return bank
+
+
+def bank_questions_for(bank, subject, topic, subtopic):
+    """Every bank question under one subtopic (NC §1 unit filter)."""
+    k = subtopic_key(subject, topic, subtopic)
+    return [q for q in bank["questions"] if q["subtopic_key"] == k]
+
+
+def derive_taxonomy_counts(bank, latest_years=3):
+    """Owner decision 5(i): subtopic-wise pyq_count and recent-N-year counts
+    computed DIRECTLY from the ingested bank — the separate PYQ Analysis doc is
+    no longer required. 'recent3' counts questions whose exam_year is among the
+    top `latest_years` DISTINCT exam years present in the corpus (so a corpus
+    that stops in 2024 still has a well-defined recent window). Returns
+    {subtopic_key: {subject, topic, subtopic, pyq_count, recent3_count,
+    per_year{year:count}}}."""
+    years = sorted({q["exam_year"] for q in bank["questions"]}, reverse=True)
+    recent = set(years[:max(0, int(latest_years))])
+    out = {}
+    for q in bank["questions"]:
+        e = out.setdefault(q["subtopic_key"],
+                           {"subject": q["subject"], "topic": q["topic"],
+                            "subtopic": q["subtopic"], "pyq_count": 0,
+                            "recent3_count": 0, "per_year": {}})
+        e["pyq_count"] += 1
+        e["per_year"][q["exam_year"]] = e["per_year"].get(q["exam_year"], 0) + 1
+        if q["exam_year"] in recent:
+            e["recent3_count"] += 1
+    return out
+
+
 # ---------------------------------------------------------------- self-test
 def self_test():
     import tempfile
@@ -484,6 +693,86 @@ def self_test():
           len({LC["L1"], LC["L2"], LC["L3"], LC["table_header"]}) == 4)
     check("example/recall boxes identical",
           BOX_COLORS["example"] == BOX_COLORS["recall"])
+
+    # ---- v1.5 ingest base -------------------------------------------------
+    # filename date parsing (the live physics name + variants + fallbacks)
+    check("date: DD-Mon-YYYY",
+          parse_exam_date_from_filename(
+              "IIT_JAM_PHYSICS_15-Feb-2026_PYQ_Final.docx")
+          == ("2026-02-15", 2026, "15-Feb-2026"))
+    check("date: compact DDMonYYYY + Copy of + (1)",
+          parse_exam_date_from_filename(
+              "Copy of IIT_JAM_BIOTECHNOLOGY_02May2010_Sorted (1).docx")[:2]
+          == ("2010-05-02", 2010))
+    check("date: Mon-YYYY fallback",
+          parse_exam_date_from_filename("EXAM_Feb-2019.docx")[:2]
+          == ("2019-02-01", 2019))
+    check("date: YYYY-only fallback",
+          parse_exam_date_from_filename("EXAM_2005_sorted.docx")[1] == 2005)
+    check("date: none when absent",
+          parse_exam_date_from_filename("no_date_here.docx") is None)
+
+    # answer normalisation + ground-truth matching
+    check("norm MCQ", normalize_answer("MCQ", "2") == "2")
+    check("norm MSQ set", normalize_answer("MSQ", "1, 3, 4") == [1, 3, 4])
+    check("norm NAT float", normalize_answer("NAT", "-8") == -8.0
+          and normalize_answer("NAT", "274.4") == 274.4)
+    check("nat precision from stem",
+          nat_precision_from_stem("... answer to 2 decimal places.") == 2
+          and nat_precision_from_stem("... to the nearest integer.") == 0
+          and nat_precision_from_stem("no hint") == 2)
+    check("nat tolerance match",
+          nat_within_tolerance(0.4149, 0.41, 2) is True
+          and nat_within_tolerance(0.418, 0.41, 2) is False
+          and nat_within_tolerance(None, 0.41, 2) is False)
+    check("msq unordered match",
+          msq_match([3, 1], [1, 3]) is True
+          and msq_match("1, 3", {1, 3}) is True
+          and msq_match([1, 2], [1, 3]) is False)
+
+    # bank build/validate/counts + subtopic join + recent-window
+    b = bank_new("IITJAM_PH")
+    bank_add_paper(b, "k2026", "2026-02-15", 2026, "..2026..docx", 2)
+    bank_add_paper(b, "k2013", "2013-02-10", 2013, "..2013..docx", 1)
+    bank_add_question(b, dict(bank_id="PH-1", paper_key="k2026",
+        exam_date="2026-02-15", exam_year=2026, q_no=1, type="MCQ",
+        subject="Physics", topic="Optics", subtopic="Polarization",
+        stem="s1", correct_answer="2", stem_figures=["m1.png"]))
+    bank_add_question(b, dict(bank_id="PH-2", paper_key="k2026",
+        exam_date="2026-02-15", exam_year=2026, q_no=2, type="NAT",
+        subject="Physics", topic="Optics", subtopic="Polarization",
+        stem="s2", correct_answer="0.41"))
+    bank_add_question(b, dict(bank_id="PH-3", paper_key="k2013",
+        exam_date="2013-02-10", exam_year=2013, q_no=5, type="MSQ",
+        subject="Physics", topic="Thermo", subtopic="Carnot", stem="s3",
+        correct_answer="1,3"))
+    check("bank validates", bank_validate(b) is True)
+    check("figure flag from stem_figures",
+          b["questions"][0]["figure"] is True
+          and b["questions"][1]["figure"] is False)
+    counts = derive_taxonomy_counts(b, latest_years=1)
+    pol = counts[subtopic_key("Physics", "Optics", "Polarization")]
+    car = counts[subtopic_key("Physics", "Thermo", "Carnot")]
+    check("counts: subtopic pyq_count", pol["pyq_count"] == 2 and car["pyq_count"] == 1)
+    check("counts: recent window = top-1 year (2026)",
+          pol["recent3_count"] == 2 and car["recent3_count"] == 0)
+    check("subtopic filter", len(bank_questions_for(b, "Physics", "optics",
+          " Polarization ")) == 2)
+    try:
+        bank_add_question(b, dict(bank_id="X", paper_key="k", exam_date="d",
+            exam_year=2000, q_no=9, type="FOO", subject="s", topic="t",
+            subtopic="st", stem="x"))
+        check("non-canonical type rejected", False)
+    except ValueError:
+        check("non-canonical type rejected", True)
+    try:
+        bank_add_question(b, dict(bank_id="PH-1", paper_key="k2026",
+            exam_date="2026-02-15", exam_year=2026, q_no=1, type="MCQ",
+            subject="Physics", topic="Optics", subtopic="Polarization", stem="d"))
+        bank_validate(b)
+        check("duplicate bank_id rejected", False)
+    except ValueError:
+        check("duplicate bank_id rejected", True)
 
     print(f"notes_core self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

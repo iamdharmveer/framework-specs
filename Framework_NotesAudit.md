@@ -1,23 +1,32 @@
-# Framework_NotesAudit v1.1.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
-# v1.1.0 — 2026-08-08 — REFINEMENT GATES. Adds the machine gates that enforce
-#   the v2 document standard of Framework_NotesCreate: content-style ban scan
-#   (G-4), question-type-set and template gate (G-5), outline-number integrity
-#   (G-6); G-2 extended with the dual zero-issue math scans (no textual
-#   exponents or unicode scripts inside oMath; no flat math tokens in any
-#   text run); G-3 re-pointed at the v2 anatomy. Gate helpers live in
-#   notes_core >= v1.1 and were regression-locked against the approved
-#   Enzyme Kinetics golden sample.
-# v1.0.0 — 2026-08-08 — INITIAL RELEASE. Encodes the audit protocol proven on
-#   Enzyme Kinetics (35 SOLVABLE + 2 PARTIAL at v0.1; both patched; 37/37 at
-#   v0.2 in one convergence iteration) plus the two environment rules that run
-#   discovered: OMML structural verification and docx line-rule clipping.
+# Framework_NotesAudit v2.0.0 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# v2.0.0 — 2026-08-10 — GROUND-TRUTH + BANK FIGURES (Framework_NotesBlueprint
+#   v2.0.0). NB now ingests the corpus and stores, per question, the verbatim
+#   correct_answer, the explanation, and the stem/solution figure split. So NA:
+#     (1) reads figures from the BANK (notes_audit.figures_for) — no re-download,
+#         no bind_figures; extract_media/bind_figures are removed from the engine.
+#     (2) runs PERMANENTLY in ground-truth mode: it solves from the notes and
+#         matches the bank's answer with notes_audit.verdict_against_key
+#         (MCQ token; MSQ unordered set; NAT rounding-precision tolerance from the
+#         stem — owner decision 4b). Self-answer (question-only) mode is retired.
+#     (3) DROPS KEY_FLAG (owner decision 4a): the doc key is authoritative and
+#         never re-derived; a notes-derived answer that disagrees with the key is
+#         a NOTES defect and enters the §4 convergence loop, not a key queue.
+#   FIGURE_PENDING survives only as a rare safety path (§1) for an unresolved bank
+#   figure; it is not the normal run (NB reads every image — owner decision 6).
+#   Gates G-1..G-6 are unchanged.
+# v1.1.0 — 2026-08-08 — REFINEMENT GATES (G-4 ban scan, G-5 type/template,
+#   G-6 outline integrity; G-2 dual math scans; G-3 v2 anatomy).
+# v1.0.0 — 2026-08-08 — INITIAL RELEASE. Audit protocol proven on Enzyme Kinetics
+#   (37/37 at v0.2 in one convergence iteration).
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v1.1 — density-gate constants, math gates, PROSE_BAN
-#                            lexicon, registry transitions
-#   notes_audit.py >= v1.0 — verdict/report schema, convergence-loop state,
-#                            figure extraction + binding
+#   notes_core.py  >= v1.5 — density-gate constants, math gates, PROSE_BAN
+#                            lexicon, registry transitions, ground-truth match
+#                            helpers (msq_match / nat_within_tolerance /
+#                            nat_precision_from_stem / normalize_answer)
+#   notes_audit.py >= v1.2 — verdict/report schema (no key_flags), convergence
+#                            loop, ground-truth verdict_against_key, bank figures
 #
 # PURPOSE:
 #   Machine-verify the NotesCreate guarantee: after reading ONE subtopic's
@@ -32,33 +41,46 @@
 # PREREQUISITE:
 #   Unit state DRAFTED; the unit's PYQ bank artifact from NC §1 is present.
 
-## §1 — FIGURE EXTRACTION (prerequisite pass)
-Before auditing, every bank question flagged FIGURE gets its images bound:
-download the source .docx, unzip, walk word/media, and bind images to bank
-ids by document position (notes_audit.bind_figures). If a source .docx cannot
-be obtained in the run environment (e.g. binary transport unavailable), the
-affected questions are audited on their TEXT STEMS and tagged FIGURE_PENDING;
-they re-audit automatically when the file arrives. FIGURE_PENDING does not
-block a pass verdict when concept coverage is complete on the stem.
+## §1 — FIGURES (read from the bank; no re-extraction)
+NB already extracted every image from Drive and bound it to its question,
+splitting stem figures from solution figures at the "Correct Answer:" line
+(NB §3B B-5). NA does NOT open any .docx. For each bank question it reads the
+solve-critical images with notes_audit.figures_for (stem figures only; solution
+figures are part of the key, not the prompt) and views them alongside the stem.
+DEGENERATE CASE ONLY: if a stem figure is recorded "UNRESOLVED:..."
+(notes_audit.missing_figures is non-empty — rare, since NB reads every image),
+that question is parked in report['figure_pending'] and re-audits when the bank
+is refreshed; it never hard-stops the run (owner decision 6). There is no
+binary-transport / stem-only fallback in the normal path.
 
-## §2 — CLOSED-BOOK SOLVE PROTOCOL
+## §2 — CLOSED-BOOK SOLVE PROTOCOL (ground-truth)
 For each bank question, in order:
   P-1 Extract the tested concept(s).
   P-2 PRESENCE: locate where the notes teach each concept (block reference).
-  P-3 SOLVE the question using ONLY the notes text — no outside knowledge
-      beyond the Level-assumed prerequisites declared in the blueprint.
-  P-4 VERDICT: SOLVABLE | PARTIAL | NOT, with the notes location and the
-      produced answer recorded.
-Ambiguous stems that admit two defensible answers under the notes' correct
-rules (e.g. a both-valid-options MCQ) are verdicted SOLVABLE with a KEY_FLAG
-and queued for official-key resolution.
+  P-3 SOLVE the question using ONLY the notes text (plus the stem figures from
+      §1) — no outside knowledge beyond the Level-assumed prerequisites declared
+      in the blueprint.
+  P-4 MATCH the produced answer against the bank's verbatim correct_answer via
+      notes_audit.verdict_against_key: MCQ option token; MSQ unordered set; NAT
+      equal after rounding BOTH to the stem's stated precision
+      (notes_core.nat_precision_from_stem, owner decision 4b).
+  P-5 VERDICT: SOLVABLE (produced answer matches the key) | PARTIAL (notes teach
+      the concept but the notes-derived answer misses the key) | NOT (notes do
+      not teach the concept). The notes location and the produced answer are
+      recorded (notes_audit.record).
+KEY_FLAG IS RETIRED (owner decision 4a). The doc key is authoritative and never
+re-derived. If a stem is genuinely ambiguous under the notes' rules, the notes —
+not the key — are at fault: that is a PARTIAL that enters the §4 loop and is
+fixed by tightening the notes, never by re-opening the key.
 
-## §3 — ANSWER MODES
-  M-1 QUESTION-ONLY MODE (default until the operator supplies solved PYQs):
-      the audit SELF-GENERATES answers; the report labels them self-answers.
-  M-2 GROUND-TRUTH MODE: when solved PYQs with explanations arrive in project
-      Files, all self-answers are replaced, every unit auto re-audits, and
-      KEY_FLAG items resolve. This re-audit is a STANDING TRIGGER.
+## §3 — ANSWER MODE (ground-truth, permanent)
+There is ONE mode. NB read the correct_answer and the explanation from every
+sorted paper and stored them VERBATIM in the bank, so a ground-truth key always
+exists. NA solves from the notes (§2 P-3) and matches that answer against the
+bank key (§2 P-4). NA NEVER self-generates a key and NEVER re-derives the doc's
+answer. new_report is opened with mode="ground_truth" (notes_audit rejects any
+other mode). A refreshed bank (NB re-run) is a STANDING TRIGGER to re-audit the
+affected units.
 
 ## §4 — CONVERGENCE LOOP (no delivery block; loop until pass)
   L-1 Any PARTIAL/NOT verdict produces a targeted PATCH to the notes; the
@@ -102,12 +124,13 @@ and queued for official-key resolution.
 
 ## §6 — REPORT AND STATE
 The audit report artifact (schema notes_audit.REPORT_SCHEMA) carries: per-id
-verdict table with notes locations and answers, the convergence log, the
-FIGURE_PENDING and KEY_FLAG queues, and gate results (G-1 through G-6). On 100% SOLVABLE (with
+verdict table with notes locations and produced answers, the convergence log, the
+FIGURE_PENDING queue (normally empty), and gate results (G-1 through G-6). There
+is no KEY_FLAG queue (owner decision 4a). On 100% SOLVABLE (with the rare
 FIGURE_PENDING permitted per §1) the unit moves DRAFTED → AUDITED_PASS and
 the report is stored beside the notes artifact. PARTIAL/NOT never persists
 past the loop of §4 — the loop exits only at pass or at the §4 L-3 diagnostic.
 
 ---
 
-# END OF Framework_NotesAudit v1.1.0
+# END OF Framework_NotesAudit v2.0.0

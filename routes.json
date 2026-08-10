@@ -137,6 +137,8 @@
     "Framework_NotesBlueprint.md",
     "notes_core.py",
     "notes_blueprint.py",
+    "corpus_io.py",
+    "blueprint_core.py",
     "Framework_DeliveryFooter.md"
   ],
   "NotesCreate": [

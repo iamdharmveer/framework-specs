@@ -1,5 +1,20 @@
 """
-notes_audit.py v1.1 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v1.2 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v1.2 — 2026-08-10 — GROUND-TRUTH + BANK FIGURES (Framework_NotesAudit v2.0.0).
+    NB now ingests the corpus and stores, per question, the verbatim
+    correct_answer, the explanation, and the stem_figures / solution_figures
+    split. So NA changes: (1) figure handling — bind_figures() and
+    extract_media() are REMOVED; figures are read from the bank question
+    (figures_for()), never re-downloaded or re-bound (owner decision 1/6).
+    (2) Answer mode — ground_truth is the default and only spec path; NA solves
+    from the notes and matches the bank's answer with type-aware helpers
+    verdict_against_key() / _mcq / msq (notes_core.msq_match) / nat
+    (notes_core.nat_within_tolerance, rounding precision — owner decision 4b).
+    (3) KEY_FLAG is DROPPED from the report (owner decision 4a); the doc key is
+    authoritative and never re-derived. new_report() no longer carries
+    key_flags. is_pass and the §4 convergence counters are unchanged; their
+    v1.1 self-tests are retained verbatim.
 
 v1.1 — 2026-08-08 — DEPLOYMENT-REVIEW FIXES. (1) is_pass now has a floor: an
     empty verdict set, or fewer verdicts than the bank's expected count, can
@@ -15,11 +30,12 @@ v1.0 — 2026-08-08 — INITIAL RELEASE. Verdict/report schema, convergence-loop
     The closed-book SOLVE itself is Claude-driven; this engine keeps the
     state machine honest.
 """
-import json, os, re, zipfile
+import json, os, re
 from datetime import datetime, timezone
+import notes_core
 
 VERDICTS = ("SOLVABLE", "PARTIAL", "NOT")
-REPORT_SCHEMA = "notes-audit-report/1.0"
+REPORT_SCHEMA = "notes-audit-report/1.1"   # v1.1: key_flags removed
 MAX_PATCHES_PER_QUESTION = 3     # spec §4 L-2
 MAX_REGENERATIONS = 3            # spec §4 L-3
 
@@ -28,12 +44,17 @@ def _now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-def new_report(unit_code, notes_version, mode):
-    assert mode in ("question_only", "ground_truth")
+def new_report(unit_code, notes_version, mode="ground_truth"):
+    """Ground-truth is the default and only spec path (owner decision 4): the
+    bank carries the authoritative answer, so NA never self-generates one.
+    KEY_FLAG is gone. figure_pending stays as an (normally empty) safety list
+    for the degenerate case where a bank figure is missing; it is not the
+    primary path since NB reads every image (owner decision 6)."""
+    assert mode == "ground_truth", "self-answer mode retired (owner decision 4)"
     return {"schema": REPORT_SCHEMA, "unit_code": unit_code,
             "notes_version": notes_version, "mode": mode, "started": _now(),
             "items": {}, "patch_log": [], "regenerations": 0,
-            "figure_pending": [], "key_flags": [], "gates": {}}
+            "figure_pending": [], "gates": {}}
 
 
 def record(report, qid, verdict, notes_location, answer, note=""):
@@ -80,44 +101,45 @@ def write_report(report, path):
 
 
 # ---------------------------------------------------------------- figures
-def extract_media(docx_path, out_dir):
-    """Unzip word/media/* to out_dir; returns extracted paths in zip order."""
-    os.makedirs(out_dir, exist_ok=True)
-    out = []
-    with zipfile.ZipFile(docx_path) as z:
-        for n in z.namelist():
-            if n.startswith("word/media/"):
-                tgt = os.path.join(out_dir, os.path.basename(n))
-                with open(tgt, "wb") as f:
-                    f.write(z.read(n))
-                out.append(tgt)
-    return out
+# NB already extracted every image from Drive and bound it to its question,
+# splitting stem figures from solution figures at the "Correct Answer:" line
+# (owner decision 3). NA does NOT re-open any .docx. It reads the split off the
+# bank question. extract_media()/bind_figures() are retired as of v1.2.
+def figures_for(bank_question):
+    """The stem figures a solver must SEE to answer this question. Solution
+    figures are excluded — they are part of the key, not the prompt."""
+    return list(bank_question.get("stem_figures", []))
 
 
-def bind_figures(docx_path, anchors):
-    """Positional binding (spec §1): anchors = ordered list of (qid, regex)
-    where regex matches the question's date-tag in document.xml text. Each
-    w:drawing between anchor i and anchor i+1 binds to anchors[i].qid.
-    Returns {qid: [media_rIds]} for Claude to pair with extract_media order
-    via the relationships file."""
-    xml = zipfile.ZipFile(docx_path).read("word/document.xml").decode("utf-8")
-    spans = []
-    for qid, pat in anchors:
-        m = re.search(pat, xml)
-        if m:
-            spans.append((m.start(), qid))
-    spans.sort()
-    bound = {qid: [] for _, qid in spans}
-    for dm in re.finditer(r"<w:drawing>.*?r:embed=\"(rId\d+)\".*?</w:drawing>", xml, re.S):
-        owner = None
-        for start, qid in spans:
-            if start <= dm.start():
-                owner = qid
-            else:
-                break
-        if owner:
-            bound[owner].append(dm.group(1))
-    return bound
+def missing_figures(bank_question):
+    """A stem figure the bank flagged but whose media file did not resolve.
+    Normally empty (NB reads every image). A non-empty result parks the
+    question in report['figure_pending'] rather than hard-stopping the run."""
+    return [f for f in bank_question.get("stem_figures", [])
+            if str(f).startswith("UNRESOLVED:")]
+
+
+# ------------------------------------------------------ ground-truth matching
+def verdict_against_key(qtype, computed, key, stem=""):
+    """Type-aware ground-truth comparison (owner decision 4). Returns
+    (matched: bool, detail: str). MCQ: option-token equality. MSQ: unordered
+    set (notes_core.msq_match). NAT: rounding-precision tolerance from the stem
+    (notes_core.nat_within_tolerance). None computed -> never a match."""
+    t = (qtype or "").upper()
+    if computed is None:
+        return False, "no answer produced from the notes"
+    if t == "MSQ":
+        ok = notes_core.msq_match(computed, key)
+        return ok, f"MSQ set {'==' if ok else '!='} key"
+    if t == "NAT":
+        p = notes_core.nat_precision_from_stem(stem)
+        tgt = notes_core.normalize_answer("NAT", key)
+        got = notes_core.normalize_answer("NAT", computed)
+        ok = notes_core.nat_within_tolerance(got, tgt, p)
+        return ok, f"NAT match at {p} dp ({got} vs {tgt})"
+    ok = notes_core.normalize_answer("MCQ", computed) == \
+        notes_core.normalize_answer("MCQ", key)
+    return ok, f"MCQ option {'==' if ok else '!='} key"
 
 
 # ---------------------------------------------------------------- self-test
@@ -132,7 +154,7 @@ def self_test():
             fails.append(name)
 
     # Defect fixture 1: vacuous pass on empty report (the shipped bug)
-    r = new_report("U", "0.1", "question_only")
+    r = new_report("U", "0.1", "ground_truth")
     check("empty report is never a pass", is_pass(r) is False)
     record(r, "Q1", "SOLVABLE", "1.1", "a")
     check("one solvable, no floor -> pass", is_pass(r) is True)
@@ -144,7 +166,7 @@ def self_test():
     check("any PARTIAL blocks pass", is_pass(r, expected_count=37) is False)
 
     # Defect fixture 2: off-by-one convergence counters (the shipped bug)
-    r2 = new_report("U", "0.1", "question_only")
+    r2 = new_report("U", "0.1", "ground_truth")
     record(r2, "Q1", "PARTIAL", "1.2", None)
     check("patch 1 -> REAUDIT", log_patch(r2, "Q1", "g", "p1") == "REAUDIT")
     check("patch 2 -> REAUDIT", log_patch(r2, "Q1", "g", "p2") == "REAUDIT")
@@ -163,22 +185,40 @@ def self_test():
     fp = os.path.join(tempfile.gettempdir(), "na_selftest_report.json")
     write_report(r2, fp)
     check("report round-trips", _json.load(open(fp))["unit_code"] == "U")
+    check("report has no key_flags (dropped)", "key_flags" not in r2)
 
-    # bind_figures positional binding on a minimal fixture
-    import zipfile, tempfile
-    dx = os.path.join(tempfile.gettempdir(), "na_selftest_fig.docx")
-    xml = ('<w:document><w:p><w:r><w:t>[10-Feb-2013 Q32]</w:t></w:r></w:p>'
-           '<w:p><w:drawing><a:blip r:embed="rId9"/></w:drawing></w:p>'
-           '<w:p><w:r><w:t>[10-Feb-2013 Q34]</w:t></w:r></w:p>'
-           '<w:p><w:drawing><a:blip r:embed="rId12"/></w:drawing></w:p></w:document>')
-    with zipfile.ZipFile(dx, "w") as z:
-        z.writestr("word/document.xml", xml)
-        z.writestr("word/media/image1.png", b"x")
-    bound = bind_figures(dx, [("EK-021", "\\[10-Feb-2013 Q32\\]"),
-                              ("EK-022", "\\[10-Feb-2013 Q34\\]")])
-    check("figure binding by position",
-          bound == {"EK-021": ["rId9"], "EK-022": ["rId12"]})
-    check("media extraction", len(extract_media(dx, tempfile.mkdtemp())) == 1)
+    # v1.2: self-answer mode is retired
+    try:
+        new_report("U", "0.1", "question_only")
+        check("self-answer mode rejected", False)
+    except AssertionError:
+        check("self-answer mode rejected", True)
+
+    # v1.2: figures read from the bank question (no docx re-open)
+    bq = {"stem_figures": ["image3.png", "UNRESOLVED:rId7"],
+          "solution_figures": ["image9.png"]}
+    check("figures_for returns stem figures only",
+          figures_for(bq) == ["image3.png", "UNRESOLVED:rId7"])
+    check("missing_figures flags only unresolved",
+          missing_figures(bq) == ["UNRESOLVED:rId7"])
+
+    # v1.2: ground-truth verdicts by type (owner decision 4)
+    ok, _ = verdict_against_key("MCQ", "2", "2")
+    check("MCQ match", ok is True)
+    check("MCQ mismatch", verdict_against_key("MCQ", "3", "2")[0] is False)
+    check("MSQ unordered match", verdict_against_key("MSQ", [3, 1], "1,3")[0] is True)
+    check("MSQ mismatch", verdict_against_key("MSQ", [1, 2], "1,3")[0] is False)
+    check("NAT within stem precision",
+          verdict_against_key("NAT", 0.4149, "0.41",
+                              "give the value to 2 decimal places")[0] is True)
+    check("NAT outside precision",
+          verdict_against_key("NAT", 0.418, "0.41",
+                              "give the value to 2 decimal places")[0] is False)
+    check("NAT nearest-integer stem",
+          verdict_against_key("NAT", 711.4, "711",
+                              "answer to the nearest integer")[0] is True)
+    check("no computed answer never matches",
+          verdict_against_key("NAT", None, "0.41", "")[0] is False)
 
     print(f"notes_audit self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

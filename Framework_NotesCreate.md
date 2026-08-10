@@ -1,4 +1,12 @@
-# Framework_NotesCreate v2.0.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.1.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.1.0 — 2026-08-10 — BANK CONSUMER (Framework_NotesBlueprint v2.0.0). NC no
+#   longer reads Drive or builds its own PYQ bank. It LOADS the bank NB produced
+#   (notes_pyq_bank.json), filters it to the unit's subtopic
+#   (notes_core.bank_questions_for), and drafts from those records. The FIGURE
+#   flag is the bank's stem_figures; the correct_answer and explanation are read
+#   from the bank as SME grounding (never reproduced verbatim — §3 paraphrase
+#   rule unchanged). §1 rewritten accordingly; all v2.0.0 anatomy/format/gates
+#   (§4-§8) are unchanged.
 # v2.0.0 — 2026-08-08 — REFINEMENT RELEASE (breaking anatomy change). Encodes the
 #   12-item refinement set locked in the 2026-08-08 review session and approved
 #   on the Enzyme Kinetics golden sample: title-only header; plain concept
@@ -14,8 +22,9 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v1.1 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
-#                           lexicon, math gates, registry transitions
+#   notes_core.py >= v1.5 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
+#                           lexicon, math gates, registry transitions, and the
+#                           bank readers (bank_load / bank_questions_for)
 #
 # PURPOSE:
 #   Produce ONE subtopic's study-notes .docx (draft) from the blueprint unit
@@ -33,18 +42,25 @@
 #   BLUEPRINTED (or STALE, or returned by NA for full regeneration). The
 #   blueprint carries allowed_question_types (Framework_NotesBlueprint §6).
 
-## §1 — UNIT OF WORK AND INGEST
-1. One run = one subtopic. The run FIRST builds the unit's PYQ bank: read the
-   resolved sorted papers, extract every question whose subtopic header
-   matches the unit, and record for each: bank id, exam-date + Q number, type,
-   full stem + options, concept tag(s), and a FIGURE flag when options or stem
-   depend on embedded images.
-2. The bank is CHECKPOINTED to a project artifact after every few papers
-   (append-only), so an interrupted run resumes without re-reading.
-3. The bank's frequency-tagged concept map (concept → question ids → weight)
-   orders the concept sections and sets depth. This map is INTERNAL ONLY: no
-   frequency marker, star, count, anchor, or year derived from it may appear
-   in the delivered document (§7).
+## §1 — UNIT OF WORK AND INGEST (bank consumer; NC no longer reads Drive)
+1. One run = one subtopic. NB has already ingested the whole corpus. NC LOADS
+   the bank (notes_core.bank_load on notes_pyq_bank.json) and selects this unit's
+   questions with notes_core.bank_questions_for(bank, subject, topic, subtopic).
+   Each record already carries: bank_id, exam_date + q_no, type, full stem (with
+   OMML math) + options, correct_answer (verbatim), explanation (verbatim),
+   stem_figures / solution_figures, concept_tags. The FIGURE dependency is
+   simply `bool(stem_figures)` — no image re-extraction here.
+2. No re-download, no re-read of Drive, no re-checkpoint of a bank: the bank is
+   NB's artifact and is authoritative. If the bank is missing or empty for this
+   subtopic, STOP and route the operator back to NB (the unit was blueprinted from
+   bank counts, so an empty selection signals a stale bank or a subtopic-key
+   mismatch, not a drafting problem).
+3. The concept map (concept → bank_ids → weight) orders the concept sections and
+   sets depth. It is built from the selected bank records (concept_tags + stem
+   content) and is INTERNAL ONLY: no frequency marker, star, count, anchor, or
+   year derived from it may appear in the delivered document (§7). The verbatim
+   correct_answer + explanation ground the SME drafting (terminology, the right
+   method, the real distractor traps) but are PARAPHRASED per §3 — never copied.
 
 ## §2 — CONTENT AUTHORITY (SME MODE + CARVE-OUT)
 1. The memory ban stays ABSOLUTE for question generation and answer keys of
@@ -168,4 +184,4 @@ the minor).
 
 ---
 
-# END OF Framework_NotesCreate v2.0.0
+# END OF Framework_NotesCreate v2.1.0

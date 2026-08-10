@@ -1,5 +1,17 @@
 """
-notes_blueprint.py v1.2 — Engine for Notes Step NB (Framework_NotesBlueprint).
+notes_blueprint.py v1.3 — Engine for Notes Step NB (Framework_NotesBlueprint).
+
+v1.3 — 2026-08-10 — INGEST BASE (Framework_NotesBlueprint v2.0.0). NB now
+    performs the eager full-corpus ingest and owns the PYQ bank. Added:
+    assemble_bank() (validates + wraps notes_core.bank_*), write_bank(), and
+    counts_from_bank() (delegates to notes_core.derive_taxonomy_counts so the
+    subtopic pyq_count / recent3_count fed into build_blueprint come from the
+    ingested corpus, not a separate Analysis doc — owner decision 5i). The
+    Drive enumeration/download/image work itself is done by corpus_io with
+    Claude-supplied Drive-MCP resolvers (spec §3A); this engine assembles and
+    validates the result. build_blueprint / read_exam_pattern /
+    extract_allowed_types / resolve_sources are unchanged; all v1.2 self-tests
+    are retained verbatim.
 
 v1.2 — 2026-08-08 — DEPLOYMENT-REVIEW FIXES. The EVIDENCE_ADDED path no
     longer crashes: a folded-in analysis-only subtopic requires explicit
@@ -130,6 +142,41 @@ def build_blueprint(exam_code, level, syllabus_hash, sources, unit_rows,
     }
 
 
+def assemble_bank(exam_code, papers, questions):
+    """Build + validate the PYQ bank from ingested material (spec §3A/§3B).
+
+    papers:    [{paper_key, exam_date, exam_year, name, n_questions,
+                 image_report?}]  — one per sorted paper successfully ingested.
+    questions: [rec, ...]         — see notes_core.bank_add_question; each rec
+                 carries verbatim correct_answer + explanation and the
+                 stem_figures / solution_figures split (owner decisions 2,3,4).
+
+    Returns the validated bank dict. Raises ValueError on a malformed record or
+    duplicate bank_id — a corrupt bank must never reach NC/NA."""
+    bank = notes_core.bank_new(exam_code)
+    for p in papers:
+        notes_core.bank_add_paper(bank, p["paper_key"], p["exam_date"],
+                                  p["exam_year"], p.get("name", ""),
+                                  p.get("n_questions", 0), p.get("image_report"))
+    for rec in questions:
+        notes_core.bank_add_question(bank, rec)
+    notes_core.bank_validate(bank)
+    return bank
+
+
+def write_bank(bank, out_dir="."):
+    """Persist notes_pyq_bank.json (checkpoint + final). Append-only ingest
+    writes this after every batch of 3 papers so an interrupted run resumes."""
+    return notes_core.bank_save(bank, os.path.join(out_dir, "notes_pyq_bank.json"))
+
+
+def counts_from_bank(bank, latest_years=3):
+    """Subtopic-wise pyq_count + recent3_count derived from the bank — the
+    single source of truth for blueprint weighting (owner decision 5i,
+    replaces the PYQ Analysis doc). Keyed by notes_core.subtopic_key."""
+    return notes_core.derive_taxonomy_counts(bank, latest_years)
+
+
 def write_blueprint_and_registry(bp, out_dir="."):
     bp_path = os.path.join(out_dir, "notes_blueprint.json")
     with open(bp_path, "w", encoding="utf-8") as f:
@@ -201,6 +248,50 @@ def self_test():
             check("empty type set hard-stops", False)
         except SystemExit:
             check("empty type set hard-stops", True)
+
+    # ---- v1.3 ingest base -------------------------------------------------
+    papers = [dict(paper_key="k26", exam_date="2026-02-15", exam_year=2026,
+                   name="EX_15-Feb-2026.docx", n_questions=2),
+              dict(paper_key="k13", exam_date="2013-02-10", exam_year=2013,
+                   name="EX_10-Feb-2013.docx", n_questions=1)]
+    qs = [dict(bank_id="EX-26-1", paper_key="k26", exam_date="2026-02-15",
+               exam_year=2026, q_no=1, type="MCQ", subject="Physics",
+               topic="Optics", subtopic="Polarization", stem="a",
+               correct_answer="2", explanation="AXIOM...",
+               stem_figures=["m1.png"], solution_figures=["m2.png"]),
+          dict(bank_id="EX-26-2", paper_key="k26", exam_date="2026-02-15",
+               exam_year=2026, q_no=2, type="NAT", subject="Physics",
+               topic="Optics", subtopic="Polarization", stem="b",
+               correct_answer="0.41"),
+          dict(bank_id="EX-13-5", paper_key="k13", exam_date="2013-02-10",
+               exam_year=2013, q_no=5, type="MSQ", subject="Physics",
+               topic="Thermo", subtopic="Carnot", stem="c",
+               correct_answer="1,3")]
+    bank = assemble_bank("IITJAM_PH", papers, qs)
+    check("bank assembles + validates", len(bank["questions"]) == 3
+          and len(bank["papers"]) == 2)
+    check("verbatim answer + explanation stored",
+          bank["questions"][0]["correct_answer"] == "2"
+          and bank["questions"][0]["explanation"] == "AXIOM...")
+    check("figure split preserved",
+          bank["questions"][0]["stem_figures"] == ["m1.png"]
+          and bank["questions"][0]["solution_figures"] == ["m2.png"]
+          and bank["questions"][0]["figure"] is True)
+    counts = counts_from_bank(bank, latest_years=1)
+    pol = counts[notes_core.subtopic_key("Physics", "Optics", "Polarization")]
+    check("counts_from_bank derives subtopic weighting",
+          pol["pyq_count"] == 2 and pol["recent3_count"] == 2)
+    try:
+        assemble_bank("EX", papers, qs + [dict(bank_id="EX-26-1",
+            paper_key="k26", exam_date="2026-02-15", exam_year=2026, q_no=9,
+            type="MCQ", subject="s", topic="t", subtopic="u", stem="d")])
+        check("assemble rejects duplicate bank_id", False)
+    except ValueError:
+        check("assemble rejects duplicate bank_id", True)
+    import tempfile
+    bp_out = tempfile.mkdtemp()
+    p = write_bank(bank, bp_out)
+    check("bank round-trips", notes_core.bank_load(p)["exam_code"] == "IITJAM_PH")
 
     print(f"notes_blueprint self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
