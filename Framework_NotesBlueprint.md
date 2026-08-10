@@ -1,4 +1,12 @@
-# Framework_NotesBlueprint v2.0.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v2.0.2 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v2.0.2 — 2026-08-10 — BATCH STOP law added to §3A (owner-selected cadence).
+#   The eager ingest now processes papers 3 at a time and PAUSES for user
+#   confirmation after each batch (A-7), mirroring PYQExtract /
+#   Framework_MockTestAnalyse: BATCH_SIZE = 3 is non-negotiable, and the response
+#   ENDS after each batch so the run never auto-advances in one turn. The A-6 bank
+#   checkpoint makes the pause resume-safe (reply 'continue', or re-trigger NB in
+#   a fresh chat — it resumes from the paper_keys already in the bank). Spec-only
+#   change; no engine surface moved.
 # v2.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIXES. (1) bank_ref is now actually
 #   EMITTED: NB builds the blueprint with bank_ref=notes_blueprint.bank_ref_for(
 #   bank_path) after writing the bank, so §6 O-2's staleness link is real and NC
@@ -152,6 +160,29 @@ This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
   A-6 CHECKPOINT. after every batch of 3, write the partial bank
       (notes_blueprint.write_bank -> notes_pyq_bank.json, append-only) so an
       interrupted run resumes without re-downloading (§7).
+  A-7 BATCH STOP (mirrors PYQExtract / Framework_MockTestAnalyse; NON-NEGOTIABLE).
+      BATCH_SIZE = 3 is fixed. Processing more than 3 papers without pausing for
+      user confirmation is STRICTLY PROHIBITED; analysing the whole folder in one
+      go is STRICTLY PROHIBITED; no user instruction, efficiency argument, or time
+      pressure overrides this. After each batch of 3 (A-3..A-6):
+        (i)   emit that batch's mini INGEST REPORT — papers ingested (Drive vs
+              upload lane), questions banked + per-type split, images read, any
+              IMG-gate finding, any UNRESOLVED stem figure, any undated filename;
+        (ii)  state how many papers remain and the two ways to proceed:
+                A) reply 'continue' to process the next batch of 3 in this session;
+                B) notes_pyq_bank.json is already checkpointed in project Files —
+                   open a fresh chat and re-trigger NotesBlueprint on the same
+                   source; the run resumes from the paper_keys already in the bank
+                   (A-6), re-downloading nothing;
+        (iii) END THE RESPONSE — write nothing further and start no new batch in
+              the same turn. The A-6 checkpoint makes the pause safe; the Python
+              loop boundary alone does NOT stop generation — this prose rule does
+              (same class of rule as the Framework_MockTestAnalyse BATCH STOP law,
+              added there after a run auto-advanced batch 1 -> batch 2 in one
+              response because no END-THE-RESPONSE rule existed).
+      Corpus-level work (§3B counts, roles/tiers, and the §6 blueprint + registry
+      outputs) runs ONLY after the LAST batch completes, since counts require the
+      full corpus. Until then only the incremental bank (O-1) exists.
 
 ## §3B — BANK BUILD, FIGURE SPLIT, ANSWER CAPTURE, COUNT DERIVATION
 B-1 PER-QUESTION FIELDS (notes_core.bank_add_question):
@@ -218,11 +249,13 @@ O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (>= notes-blueprint/1.2
     (unit_code, names, role, pyq_count, tier, provenance, seq_in_topic, optional
     prose_ban_exemptions). Unit pyq_count provenance is "bank".
 O-3 notes_registry.json — notes_core.registry_init; every unit -> BLUEPRINTED.
-O-4 Chat summary — unit counts by role/tier + exclusion report + INGEST REPORT:
-    papers ingested (Drive lane vs upload lane), questions banked, per-type split,
-    images read, any IMG-gate findings, any UNRESOLVED stem figures, any filename
-    with no parseable date, and (if an Analysis doc was present) the cross-check
-    result. Version numbers appear in CHAT ONLY, never inside delivered documents.
+O-4 Chat summary — the INGEST REPORT is emitted at EACH BATCH STOP (A-7) for that
+    batch's 3 papers; after the LAST batch a FULL summary adds unit counts by
+    role/tier + the exclusion report, plus totals: papers ingested (Drive lane vs
+    upload lane), questions banked, per-type split, images read, any IMG-gate
+    findings, any UNRESOLVED stem figures, any filename with no parseable date,
+    and (if an Analysis doc was present) the cross-check result. Version numbers
+    appear in CHAT ONLY, never inside delivered documents.
 
 ## §7 — INCREMENTAL RE-RUNS
 Unchanged syllabus_sha256 AND unchanged corpus (same paper_key set + sizes) is a
@@ -231,7 +264,9 @@ A NEW or CHANGED paper is (re)ingested and appended to the bank (its questions g
 fresh bank_ids); counts and Option-B evidence are recomputed. A changed syllabus
 hash marks every unit STALE=true (state preserved) and the summary lists the diff.
 The §3A-6 checkpoint means an interrupted ingest resumes from the last completed
-batch. Nothing is deleted automatically.
+batch — reply 'continue' in-session, or re-trigger NotesBlueprint in a fresh chat
+(A-7 option B) and it picks up the paper_keys not yet in the bank. Nothing is
+deleted automatically.
 
 ## §8 — HARD RULES CARRIED FROM THE FRAMEWORK CORE
 1. NEVER work from memory for exam-varying values: counts, ranges, marks, Level,
@@ -275,4 +310,4 @@ E-12 An optional PYQ Analysis doc disagreeing with bank counts -> reported; the
 
 ---
 
-# END OF Framework_NotesBlueprint v2.0.1
+# END OF Framework_NotesBlueprint v2.0.2

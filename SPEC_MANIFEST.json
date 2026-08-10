@@ -50,11 +50,11 @@
       "version_header": "# Framework_NotesAudit v2.0.1 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
     },
     "Framework_NotesBlueprint.md": {
-      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.1",
-      "lines": 278,
-      "sha256": "bd2aadd6922557b3096c5faefc049a80a24ed245ca445012412321299e8c752a",
-      "size_bytes": 19334,
-      "version_header": "# Framework_NotesBlueprint v2.0.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
+      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.2",
+      "lines": 313,
+      "sha256": "787a821f2c398ffb8fdc4d19d7652b68986f6ee946d756a59471a1a6c206b1fa",
+      "size_bytes": 21998,
+      "version_header": "# Framework_NotesBlueprint v2.0.2 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
     },
     "Framework_NotesCreate.md": {
       "end_sentinel": "# END OF Framework_NotesCreate v2.1.1",
