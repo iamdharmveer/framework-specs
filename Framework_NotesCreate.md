@@ -1,4 +1,8 @@
-# Framework_NotesCreate v2.1.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.1.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.1.2 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
+#   bank_questions_for now joins via the hardened notes_core.subtopic_key
+#   (syllabus_provenance.norm). Companion: notes_core >= v1.7,
+#   +syllabus_provenance.py on the route.
 # v2.1.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 1 (bank staleness stop wired).
 #   §1.2's "signals a stale bank" stop now has evidence: NC reads the blueprint's
 #   bank_ref and calls notes_core.verify_bank_ref(bank_path, bank_ref) before
@@ -28,7 +32,7 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v1.6 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
+#   notes_core.py >= v1.7 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
 #                           lexicon, math gates, registry transitions, the bank
 #                           readers (bank_load / bank_questions_for) and
 #                           verify_bank_ref (blueprint/bank staleness check)
@@ -195,4 +199,4 @@ the minor).
 
 ---
 
-# END OF Framework_NotesCreate v2.1.1
+# END OF Framework_NotesCreate v2.1.2

@@ -136,6 +136,7 @@
   "NotesBlueprint": [
     "Framework_NotesBlueprint.md",
     "notes_core.py",
+    "syllabus_provenance.py",
     "notes_blueprint.py",
     "corpus_io.py",
     "blueprint_core.py",
@@ -144,17 +145,20 @@
   "NotesCreate": [
     "Framework_NotesCreate.md",
     "notes_core.py",
+    "syllabus_provenance.py",
     "Framework_DeliveryFooter.md"
   ],
   "NotesAudit": [
     "Framework_NotesAudit.md",
     "notes_core.py",
+    "syllabus_provenance.py",
     "notes_audit.py",
     "Framework_DeliveryFooter.md"
   ],
   "NotesDeliver": [
     "Framework_NotesDeliver.md",
     "notes_core.py",
+    "syllabus_provenance.py",
     "Framework_DeliveryFooter.md"
   ]
 }

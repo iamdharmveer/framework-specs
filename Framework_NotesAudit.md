@@ -1,4 +1,8 @@
-# Framework_NotesAudit v2.0.1 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# Framework_NotesAudit v2.0.2 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# v2.0.2 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
+#   bank_questions_for joins via the hardened notes_core.subtopic_key
+#   (syllabus_provenance.norm). Companion: notes_core >= v1.7,
+#   +syllabus_provenance.py on the route.
 # v2.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 2 (vacuous-pass floor wired). A
 #   unit pass is now certified ONLY through notes_audit.pass_for_unit(report,
 #   unit_questions), which derives expected_count = len(unit_questions) from the
@@ -27,7 +31,7 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v1.6 — density-gate constants, math gates, PROSE_BAN
+#   notes_core.py  >= v1.7 — density-gate constants, math gates, PROSE_BAN
 #                            lexicon, registry transitions, ground-truth match
 #                            helpers (msq_match / nat_within_tolerance /
 #                            nat_precision_from_stem / normalize_answer),
@@ -151,4 +155,4 @@ past the loop of §4 — the loop exits only at pass or at the §4 L-3 diagnosti
 
 ---
 
-# END OF Framework_NotesAudit v2.0.1
+# END OF Framework_NotesAudit v2.0.2

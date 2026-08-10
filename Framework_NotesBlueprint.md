@@ -1,4 +1,10 @@
-# Framework_NotesBlueprint v2.0.2 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v2.0.3 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v2.0.3 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
+#   notes_core.subtopic_key now reuses syllabus_provenance.norm per component so
+#   bank counts join blueprint units across syllabus-vs-header label drift
+#   (& vs and, dash/unicode/slash-spacing). Prevents a real subtopic silently
+#   getting pyq_count=0 and the wrong tier. Companion: notes_core >= v1.7,
+#   +syllabus_provenance.py on the route. §1.3 updated.
 # v2.0.2 — 2026-08-10 — BATCH STOP law added to §3A (owner-selected cadence).
 #   The eager ingest now processes papers 3 at a time and PAUSES for user
 #   confirmation after each batch (A-7), mirroring PYQExtract /
@@ -43,7 +49,7 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py      >= v1.6 — PYQ_BANK_SCHEMA, bank_*() builders/validators,
+#   notes_core.py      >= v1.7 — PYQ_BANK_SCHEMA, bank_*() builders/validators,
 #                                subtopic_key, derive_taxonomy_counts,
 #                                parse_exam_date_from_filename, normalize_answer,
 #                                nat_precision_from_stem/nat_within_tolerance,
@@ -83,8 +89,10 @@
    exam years (recent3_count, derived from the bank). Otherwise excluded (reported).
 3. The Subject->Topic->Subtopic header stamped on each question IN THE SORTED
    PAPER is AUTHORITATIVE. NB never reclassifies a question. subtopic identity is
-   canonicalised (case/space-insensitive) via notes_core.subtopic_key so bank
-   counts and blueprint units join on the same key.
+   canonicalised via notes_core.subtopic_key — which reuses syllabus_provenance.norm
+   (NFKC, dash unification, & -> and, '/' as data, spaces-around-'/' collapsed) so
+   bank counts and blueprint units join on the same key even when the syllabus and
+   the paper header differ only in punctuation or unicode.
 
 ## §2 — INPUT PARSING (syllabus + pattern; Claude-driven per S-1/S-2)
 S-1 Syllabus: accept pdf or docx in any official layout. Extract the
@@ -310,4 +318,4 @@ E-12 An optional PYQ Analysis doc disagreeing with bank counts -> reported; the
 
 ---
 
-# END OF Framework_NotesBlueprint v2.0.2
+# END OF Framework_NotesBlueprint v2.0.3

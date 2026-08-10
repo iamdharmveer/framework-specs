@@ -139,6 +139,7 @@
     "NotesBlueprint": [
       "Framework_NotesBlueprint.md",
       "notes_core.py",
+      "syllabus_provenance.py",
       "notes_blueprint.py",
       "corpus_io.py",
       "blueprint_core.py",
@@ -147,17 +148,20 @@
     "NotesCreate": [
       "Framework_NotesCreate.md",
       "notes_core.py",
+      "syllabus_provenance.py",
       "Framework_DeliveryFooter.md"
     ],
     "NotesAudit": [
       "Framework_NotesAudit.md",
       "notes_core.py",
+      "syllabus_provenance.py",
       "notes_audit.py",
       "Framework_DeliveryFooter.md"
     ],
     "NotesDeliver": [
       "Framework_NotesDeliver.md",
       "notes_core.py",
+      "syllabus_provenance.py",
       "Framework_DeliveryFooter.md"
     ]
   },
@@ -205,25 +209,25 @@
       "bytes": 122482
     },
     "Framework_NotesAudit.md": {
-      "sha256": "e83b74a08b694ee8018b2deb59db495fdccdff84733ea5aec9f3988c0ee18dab",
-      "version_header": "# Framework_NotesAudit v2.0.1 \u2014 Notes Pipeline Step NA (Closed-Book Solvability Audit)",
-      "end_sentinel": "# END OF Framework_NotesAudit v2.0.1",
-      "lines": 154,
-      "bytes": 9694
+      "sha256": "8cb22634b6b722796ee409bf30ec6929eeb549a093ef2e9fd38813f0875af503",
+      "version_header": "# Framework_NotesAudit v2.0.2 \u2014 Notes Pipeline Step NA (Closed-Book Solvability Audit)",
+      "end_sentinel": "# END OF Framework_NotesAudit v2.0.2",
+      "lines": 158,
+      "bytes": 9952
     },
     "Framework_NotesBlueprint.md": {
-      "sha256": "787a821f2c398ffb8fdc4d19d7652b68986f6ee946d756a59471a1a6c206b1fa",
-      "version_header": "# Framework_NotesBlueprint v2.0.2 \u2014 Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)",
-      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.2",
-      "lines": 313,
-      "bytes": 21998
+      "sha256": "624830226b554415785c8f146ea314fbf45908100a2401babf18cd4645810daa",
+      "version_header": "# Framework_NotesBlueprint v2.0.3 \u2014 Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)",
+      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.3",
+      "lines": 321,
+      "bytes": 22629
     },
     "Framework_NotesCreate.md": {
-      "sha256": "1999aa72dfac611cd777a057909da0a50d761976227f814c1273902cfd1c1bf2",
-      "version_header": "# Framework_NotesCreate v2.1.1 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
-      "end_sentinel": "# END OF Framework_NotesCreate v2.1.1",
-      "lines": 198,
-      "bytes": 12403
+      "sha256": "c660f4a2217dd3556220d646ff74d9fba47f323cf8a637a78302324608d06f69",
+      "version_header": "# Framework_NotesCreate v2.1.2 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
+      "end_sentinel": "# END OF Framework_NotesCreate v2.1.2",
+      "lines": 202,
+      "bytes": 12665
     },
     "Framework_NotesDeliver.md": {
       "sha256": "1ade327481ae1dcfd0bc16c0bfab2398611387b00eb69ea7eb334cea44714879",
@@ -415,11 +419,11 @@
       "bytes": 35405
     },
     "notes_core.py": {
-      "sha256": "45961eda4c277b98c96db8a4a3d56f5fb41dff2e3aae377e131bdc9265969ab7",
+      "sha256": "e7d58bcdf7bd6e8883730e7edc84257f4957cc9d3c5211393e70626969f03213",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_core.py \u2014 shared Notes pipeline core. Run with --self-test.\")",
-      "lines": 833,
-      "bytes": 37554
+      "lines": 865,
+      "bytes": 39722
     },
     "notes_blueprint.py": {
       "sha256": "cfcd1c4d6d46c09c7990ea1c33e0f29f49bf44ba1851a4c08a938a1d759bea0d",

@@ -1,5 +1,18 @@
 """
-notes_core.py v1.6 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v1.7 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v1.7 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
+    subtopic_key now REUSES syllabus_provenance.norm per path component — the same
+    canonical form the rest of the framework's taxonomy joins use (NFKC, dash
+    unification, & -> and, '/' kept as data) — and additionally collapses spaces
+    around '/'. Previously it only lowercased + collapsed whitespace, so a subtopic
+    written "Microbial & Plant Biotech" in the syllabus and "Microbial and Plant
+    Biotech" on the paper header produced DIFFERENT keys; the bank count never
+    joined the blueprint unit, which silently got pyq_count=0 and the wrong tier.
+    Measured before the fix: 4 of 5 realistic label variants missed the join.
+    No public signature changed; downstream (bank_add_question stores the key,
+    derive_taxonomy_counts / bank_questions_for read it) is unaffected beyond
+    producing correct joins. All v1.6 self-tests retained.
 
 v1.6 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 1 (bank_ref staleness link). The
     blueprint now carries a real bank_ref so a blueprint built from bank vN can
@@ -53,6 +66,7 @@ v1.1 — 2026-08-08 — Refinement gates: colour map, PROSE_BAN, math scans,
 v1.0 — 2026-08-08 — Initial release.
 """
 import hashlib, json, os, re, zipfile
+import syllabus_provenance
 from datetime import datetime, timezone
 
 # ---------------------------------------------------------------- constants
@@ -424,10 +438,14 @@ def parse_exam_date_from_filename(name):
 
 
 def subtopic_key(subject, topic, subtopic):
-    """Canonical, case/space-insensitive key so bank counts and blueprint units
-    join on the same subtopic identity."""
+    """Canonical subtopic identity so bank counts and blueprint units join even
+    when the syllabus and the paper header differ only in punctuation or unicode.
+    Reuses syllabus_provenance.norm per component (NFKC, dash unification,
+    & -> and, casefold, '/' kept as data) — the same normalization the rest of the
+    framework's taxonomy joins use — and additionally collapses spaces around '/'
+    so 'Optics/Polarization' and 'Optics / Polarization' resolve identically."""
     def n(x):
-        return re.sub(r"\s+", " ", str(x or "").strip()).lower()
+        return re.sub(r"\s*/\s*", "/", syllabus_provenance.norm(x))
     return f"{n(subject)}|||{n(topic)}|||{n(subtopic)}"
 
 
@@ -805,6 +823,20 @@ def self_test():
           pol["recent3_count"] == 2 and car["recent3_count"] == 0)
     check("subtopic filter", len(bank_questions_for(b, "Physics", "optics",
           " Polarization ")) == 2)
+
+    # v1.7: subtopic_key joins across syllabus-vs-header label drift (fix 3)
+    def _joins(a, bb):
+        return subtopic_key("S", "T", a) == subtopic_key("S", "T", bb)
+    check("join: & vs and", _joins("Microbial & Plant Biotech",
+                                   "Microbial and Plant Biotech"))
+    check("join: en-dash vs hyphen", _joins("Enzyme Kinetics \u2013 Basics",
+                                            "Enzyme Kinetics - Basics"))
+    check("join: fullwidth NFKC", _joins("\uff2e\uff2d\uff32 Spectroscopy",
+                                         "NMR Spectroscopy"))
+    check("join: slash spacing", _joins("Optics/Polarization",
+                                        "Optics / Polarization"))
+    check("join: still distinguishes real differences",
+          not _joins("Carnot Cycle", "Otto Cycle"))
     try:
         bank_add_question(b, dict(bank_id="X", paper_key="k", exam_date="d",
             exam_year=2000, q_no=9, type="FOO", subject="s", topic="t",
