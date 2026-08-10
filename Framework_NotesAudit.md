@@ -1,4 +1,9 @@
-# Framework_NotesAudit v2.0.5 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# Framework_NotesAudit v2.0.6 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# v2.0.6 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). §7's
+#   informal "[ExamCode]_<unit>.docx" now reads "the unit's F-1 filename" —
+#   Framework_NotesCreate F-1 (notes_core.notes_filename) is the single
+#   authority for notes filenames. Pairs with Framework_NotesCreate v2.2.1.
+#   Nothing else changed.
 # v2.0.5 — 2026-08-10 — TAXONOMY SYNC (Framework_NotesBlueprint v3.0.0). The
 #   registry is KEYED BY the Step-5 manifest sid (notes-registry/2.0) and the
 #   operator's unit reference is resolved exactly as in Framework_NotesCreate section 0
@@ -178,7 +183,8 @@ past the loop of §4 — the loop exits only at pass or at the §4 L-3 diagnosti
 
 ## §7 — DELIVERY / CROSS-CHAT HANDOFF
 NA runs in its own chat, so the audited unit must reach ND (a fresh chat). On
-AUDITED_PASS: present_files the audited [ExamCode]_<unit>.docx (the SAME file ND
+AUDITED_PASS: present_files the audited notes .docx under the unit's F-1
+filename (the SAME file ND
 ships — delivery never edits content), the [ExamCode]_<unit>_Audit.md report, and
 the updated notes_registry.json (unit → AUDITED_PASS); then RENDER THE F2
 STEP-COMPLETE FOOTER as the LAST element (Framework_DeliveryFooter §4-1; 4-cell
@@ -191,4 +197,4 @@ call, still the last element. The footer is obligatory after present_files
 
 ---
 
-# END OF Framework_NotesAudit v2.0.5
+# END OF Framework_NotesAudit v2.0.6

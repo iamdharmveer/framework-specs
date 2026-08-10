@@ -1,4 +1,9 @@
-# Framework_NotesDeliver v1.1.2 — Notes Pipeline Step ND (Delivery)
+# Framework_NotesDeliver v1.1.3 — Notes Pipeline Step ND (Delivery)
+# v1.1.3 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). §1.0's
+#   informal "[ExamCode]_<unit>.docx" now reads "the unit's F-1 filename" —
+#   Framework_NotesCreate F-1 (notes_core.notes_filename) is the single
+#   authority for notes filenames (§1.1 already deferred to F-1). Pairs with
+#   Framework_NotesCreate v2.2.1. Nothing else changed.
 # v1.1.2 — 2026-08-10 — TAXONOMY SYNC (Framework_NotesBlueprint v3.0.0). The
 #   registry key is the Step-5 manifest sid; an operator unit reference is
 #   resolved per Framework_NotesCreate section 0 (notes_core.resolve_unit — same
@@ -37,8 +42,9 @@
 #   state named (never silently skipped).
 
 ## §1 — DELIVERABLES
-  0. INPUTS (fresh chat): read the audited [ExamCode]_<unit>.docx, its
-     [ExamCode]_<unit>_Audit.md, and notes_registry.json from Project Files (NA
+  0. INPUTS (fresh chat): read the audited notes .docx (the unit's F-1
+     filename), its audit report (same basename + _Audit.md), and
+     notes_registry.json from Project Files (NA
      uploaded them at its cross-chat handoff). ND never re-generates or edits content.
   1. The notes .docx, filename per rule F-1 in Framework_NotesCreate, byte-identical to the
      audited artifact (delivery never edits content).
@@ -76,4 +82,4 @@ redelivery. (There is no KEY_FLAG queue — retired, NA owner decision 4a.)
 
 ---
 
-# END OF Framework_NotesDeliver v1.1.2
+# END OF Framework_NotesDeliver v1.1.3

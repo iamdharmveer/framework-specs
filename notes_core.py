@@ -1,5 +1,27 @@
 """
-notes_core.py v2.0 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.1 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.1 — 2026-08-10 — SPEC-LOCK TRIPWIRE (defect-class closure). A deployment
+    review found Framework_NotesCreate F-1 restating the filename recipe in
+    prose while notes_filename sanitises non-alphanumerics to "_" — one
+    contract, two implementations. The CLASS is any spec restating an
+    engine-owned literal. Resolution: (a) the specs now name the engine as the
+    SINGLE AUTHORITY at every such spot; (b) this file gains a SPEC-LOCK
+    self-test block in TWO halves.
+      FORWARD half — pins each spec-restated literal to its documented value:
+        LEVEL_COLORS/BOX_COLORS (NC §6A), density constants + tier page bands
+        (NC §5 / NB §5), schema strings, ROLES/STATES/TIERS vocabularies, the
+        unit_code format and the notes_filename recipe INCLUDING its
+        sanitisation. Fires when the ENGINE moves.
+      REVERSE half — reads Framework_NotesCreate.md and compares the prose
+        itself (F-1's deferral + sanitisation statement, the §6A colour
+        literals, §5 D-1's word counts). Fires when the SPEC moves.
+    The reverse half is the one that closes THIS defect: the engine was
+    already correct and the prose was stale, so every forward pin passes
+    verbatim against the pre-v2.2.1 text. Coverage is deliberately narrow —
+    NotesCreate only, the three literals above; NB §5's tier bands and the
+    NA/ND restatements are NOT yet spec-read and can still drift prose-side.
+    No functional surface changed; all v2.0 self-tests retained verbatim.
 
 v2.0 — 2026-08-10 — TAXONOMY CONSUMER (Framework_NotesBlueprint v3.0.0; owner
     decision: ONE subtopic vocabulary across Test Creation and Notes Creation).
@@ -1272,6 +1294,73 @@ def self_test():
           and reg["units"]["U"]["unit_code"] == "U")
     check("blueprint 1.0 migrate gains taxonomy_ref default",
           bp["taxonomy_ref"] is None and bp["units"][0]["sid"] is None)
+
+    # ---- v2.1 SPEC-LOCK (defect-class tripwire) --------------------------
+    # FORWARD half: every literal a Framework_Notes* spec restates in prose is
+    # PINNED here to its documented value, so a moving ENGINE constant fails the
+    # self-test. These pins compare the engine to a literal in this same file —
+    # they say nothing about what the spec text actually reads, which is why the
+    # REVERSE half below exists and is what closes the defect this was written
+    # for. Neither half alone catches "one contract, two implementations".
+    check("spec-lock: NC §6A level colours",
+          LEVEL_COLORS == {"L1": "1F4E79", "L2": "00838F", "L3": "6A1B9A",
+                           "table_header": "44546A"})
+    check("spec-lock: NC §6A box colours",
+          BOX_COLORS == {"example": ("2E75B6", "E8F1FA"),
+                         "recall": ("2E75B6", "E8F1FA"),
+                         "key_points": ("2E7D32", "E4F2E4"),
+                         "trap": ("C62828", "FBE4E4")})
+    check("spec-lock: NC §5 density constants",
+          BULLET_TARGET_WORDS == 20 and BULLET_HARD_CAP_WORDS == 25)
+    check("spec-lock: NB §5 / NC §5 tier page bands",
+          TIER_PAGE_BANDS == {"TIER-1": (6, 15), "TIER-2": (4, 8),
+                              "TIER-3": (2, 5)})
+    check("spec-lock: schema strings as the specs cite them",
+          REGISTRY_SCHEMA == "notes-registry/2.0"
+          and BLUEPRINT_SCHEMA == "notes-blueprint/2.0"
+          and PYQ_BANK_SCHEMA == "notes-pyq-bank/1.1")
+    check("spec-lock: NB §4 / registry vocabularies",
+          ROLES == ("PYQ_WEIGHTED", "BRIDGE", "EVIDENCE_ADDED", "COVERAGE")
+          and STATES == ("BLUEPRINTED", "DRAFTED", "AUDITED_PASS", "DELIVERED")
+          and TIERS == ("TIER-1", "TIER-2", "TIER-3")
+          and CANONICAL_TYPES == ("MCQ", "MSQ", "NAT"))
+    check("spec-lock: NB §1A A-3 unit_code format",
+          unit_code("EX", 1, 2, 3) == "EX_S1_T2_ST03")
+    check("spec-lock: NC F-1 filename recipe INCLUDING sanitisation "
+          "(the engine is the single authority; deployment-review fixture)",
+          notes_filename("EX", 1, 2, 3, "pH & buffers")
+          == "EX_S1_T2_ST03_pH_buffers.docx"
+          and notes_filename("EX", 1, 2, 3, "membrane_structure")
+          == "EX_S1_T2_ST03_membrane_structure.docx"
+          and notes_filename("EX", 1, 2, 3, sid_slug("gb.cell.membranes"))
+          == "EX_S1_T2_ST03_membranes.docx")
+
+    # ---- SPEC-LOCK, REVERSE HALF (the drift direction that produced the bug)
+    # The pins above compare the engine to a literal in THIS file, so they fire
+    # only when the ENGINE moves. The defect they were written for ran the other
+    # way: the engine was right and Framework_NotesCreate's prose was stale, and
+    # every pin above passes verbatim against that stale text (verified). So the
+    # spec text itself is read and compared, the same way explain_engine's
+    # T3-DRIFT-LOCK reads Framework_PYQPrepare §S3-5b. Missing spec = loud crash,
+    # never a silent pass — also as in T3-DRIFT-LOCK.
+    _spec = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              "Framework_NotesCreate.md"), encoding="utf-8").read()
+    _f1 = _spec.split("F-1 Naming:", 1)[1].split("F-2 ", 1)[0]
+    check("spec-lock/reverse: NC F-1 defers to the engine and states the "
+          "sanitisation (fails on the pre-v2.2.1 prose recipe)",
+          "notes_core.notes_filename" in _f1
+          and "non-alphanumeric" in _f1 and "sanitis" in _f1)
+    _cmap = _spec.split("Colour map (constants", 1)[1].split(
+        "No other colour", 1)[0]
+    _engine_hex = set(LEVEL_COLORS.values())
+    for _fg, _bg in BOX_COLORS.values():
+        _engine_hex |= {_fg, _bg}
+    check("spec-lock/reverse: NC §6A colour literals == LEVEL_COLORS/BOX_COLORS",
+          set(re.findall(r"\b[0-9A-F]{6}\b", _cmap)) == _engine_hex)
+    _d5 = _spec.split("D-1 Bullet length:", 1)[1].split("\n", 1)[0]
+    check("spec-lock/reverse: NC §5 D-1 word counts == the engine constants",
+          [int(x) for x in re.findall(r"\d+", _d5)]
+          == [BULLET_TARGET_WORDS, BULLET_HARD_CAP_WORDS])
 
     print(f"notes_core self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

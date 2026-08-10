@@ -1,4 +1,10 @@
-# Framework_NotesBlueprint v3.0.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.0.2 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.0.2 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts; pairs
+#   with Framework_NotesCreate v2.2.1 and notes_core v2.1 SPEC-LOCK). §1A A-3
+#   now names notes_core.unit_code as the FORMATTER of the numeric code (the
+#   {EXAM}_S{s}_T{t}_ST{nn} pattern shown anywhere in this spec is the human
+#   rendering; the engine is the single authority, spec-lock-pinned). §5's tier
+#   bands and the §4 vocabularies are likewise spec-lock-pinned in notes_core.
 # v3.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW RESOLVE (three notes from the v3.0.0
 #   deployment verification).
 #   (1) "133/133 unverifiable from the repo": the manifest is a PROJECT artifact,
@@ -209,9 +215,11 @@ A-2 RESOLVE, NEVER MINT. The syllabus scope-match (§2 S-1) resolves each
     without a manifest sid (notes_blueprint.build_blueprint_v2 enforces this).
     SPECIFICALLY BANNED, exactly as in the Mock pipeline: sequential/self-minted
     ids, display-name-derived ids, and any fallback id of any shape.
-A-3 DERIVED NUMBERING, PERSISTED. The numeric unit_code
-    {EXAM}_S{s}_T{t}_ST{nn} is a PRESENTATION attribute derived from manifest
-    row order (notes_core.assign_numbering). Once assigned it is persisted in
+A-3 DERIVED NUMBERING, PERSISTED. The numeric unit_code is a PRESENTATION
+    attribute: numbers derive from manifest row order
+    (notes_core.assign_numbering) and are FORMATTED by notes_core.unit_code —
+    the single authority for the {EXAM}_S{s}_T{t}_ST{nn} pattern
+    (spec-lock-pinned). Once assigned it is persisted in
     the registry and NEVER changes for that sid — a Step-5 re-run that inserts
     or reorders subtopics appends numbers for new sids only. Identity is the
     sid; the number is for the B1 title, F-1 filename and human reading.
@@ -521,4 +529,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.0.1
+# END OF Framework_NotesBlueprint v3.0.2

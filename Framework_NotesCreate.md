@@ -1,4 +1,14 @@
-# Framework_NotesCreate v2.2.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.2.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.2.1 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). A
+#   deployment review found F-1 restating the filename recipe in prose while
+#   notes_core.notes_filename sanitises non-alphanumeric runs in {Slug} to "_"
+#   — one contract, two implementations. F-1 now names the ENGINE as the single
+#   authority, states the sanitisation, and requires NC to derive the draft
+#   filename by CALLING notes_core.notes_filename — never by re-implementing
+#   the pattern. The same sweep marked §5 and §6A as spec-lock-pinned (the
+#   notes_core v2.1 SPEC-LOCK self-test pins every literal these sections
+#   restate) and replaced §9's informal "[ExamCode]_<unit>.docx" with "the
+#   unit's F-1 filename". Companion: notes_core >= v2.1. No behaviour change.
 # v2.2.0 — 2026-08-10 — TAXONOMY-SYNCED OPERATOR INPUT (Framework_NotesBlueprint
 #   v3.0.0). Units are identified by the Step-5 manifest sid (the registry key);
 #   the OPERATOR identifies a unit by copying a cell from
@@ -187,7 +197,8 @@ Adjacent boxes are always separated by a spacer paragraph so consecutive
 box tables never merge visually.
 TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence).
 
-## §5 — DENSITY SPEC (machine-gated in NA; constants in notes_core.py)
+## §5 — DENSITY SPEC (machine-gated in NA; constants in notes_core.py,
+##      spec-lock-pinned — the constants are the single authority)
   D-1 Bullet length: target <= 20 words; HARD CAP 25.
   D-2 No prose paragraph longer than 2 rendered lines.
   D-3 TABLE-FIRST: >= 3 parallel facts MUST become a table.
@@ -197,12 +208,18 @@ TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence).
   D-6 Every fact must be syllabus-required, PYQ-anchored, or BRIDGE-justified.
 
 ## §6 — FORMAT RULES
-  F-1 Naming: {EXAM}_S{s}_T{t}_ST{nn}_{Slug}.docx — the numbers are the
-      unit's PERSISTED unit_code digits (NB §1A A-3) and {Slug} is
-      notes_core.sid_slug(sid), so the filename traces to the taxonomy.xlsx
-      row. Cross-references inside the document use the §6A outline numbers
-      ("see n.3"), never page numbers and never retired labels like
-      "Concept 3".
+  F-1 Naming: the draft's filename is EXACTLY
+      notes_core.notes_filename(exam_code, s, t, st, slug) — the ENGINE is the
+      SINGLE AUTHORITY for this recipe (spec-lock-pinned): pattern
+      {EXAM}_S{s}_T{t}_ST{nn}_{Slug}.docx with every non-alphanumeric run in
+      {Slug} sanitised to "_". NC derives the filename by CALLING the function,
+      never by re-implementing the pattern in prose or code. The numbers are
+      the unit's PERSISTED unit_code digits (NB §1A A-3); the slug input is
+      notes_core.sid_slug(sid) — already sanitary for Step-5 sids, with the
+      sanitiser as the defensive layer since sids are opaque to Notes — so the
+      filename traces to the taxonomy.xlsx row. Cross-references inside the
+      document use the §6A outline numbers ("see n.3"), never page numbers and
+      never retired labels like "Concept 3".
   F-2 Page A4, font Arial, colour strictly per the §6A level colour map.
   F-3 MATHEMATICS (dual standard, both machine-gated in NA):
       (a) EXPRESSIONS (equations, calculations, formula cells) are
@@ -233,8 +250,9 @@ Numbering (decimal cascade, document-wide, no gaps):
   REVISION SUMMARY, RECALL CHECK, MIND MAP. Level 3: "n.k.m" on sub-sections
   (currently the two RAPID REVISION tables). Removing or adding a block
   renumbers everything after it; stale numbers are an NA gate failure.
-Colour map (constants notes_core.LEVEL_COLORS / BOX_COLORS; same level ==
-same colour, adjacent levels distinct):
+Colour map (constants notes_core.LEVEL_COLORS / BOX_COLORS are the SINGLE
+AUTHORITY, spec-lock-pinned to the values below; same level == same colour,
+adjacent levels distinct):
   L1 title bar navy 1F4E79 | L2 bars teal 00838F | L3 sub-heads purple
   6A1B9A | table headers slate 44546A | Example and Recall boxes blue
   2E75B6 on E8F1FA | KEY POINTS green 2E7D32 on E4F2E4 | TRAP red C62828
@@ -263,8 +281,8 @@ here). On completion the unit moves BLUEPRINTED → DRAFTED with notes_version s
 
 ## §9 — DELIVERY / CROSS-CHAT HANDOFF
 NC runs in its own chat, so its draft must reach NA (a fresh chat) the same way
-NB's bank reaches NC. On completion: present_files the draft
-[ExamCode]_<unit>.docx AND the updated notes_registry.json (unit → DRAFTED), then
+NB's bank reaches NC. On completion: present_files the draft (the unit's F-1
+filename) AND the updated notes_registry.json (unit → DRAFTED), then
 RENDER THE F2 STEP-COMPLETE FOOTER as the LAST element of the response
 (Framework_DeliveryFooter §4-1; the 4-cell NOTES bar "2 of 4"; header "Step NC ·
 NotesCreate"). The footer's badges upload both artifacts to Project Files and its
@@ -274,4 +292,4 @@ from Project Files). The footer is obligatory after a present_files call
 
 ---
 
-# END OF Framework_NotesCreate v2.2.0
+# END OF Framework_NotesCreate v2.2.1
