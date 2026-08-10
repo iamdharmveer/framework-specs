@@ -1,4 +1,22 @@
-# Framework_NotesCreate v2.1.5 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.2.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.2.0 — 2026-08-10 — TAXONOMY-SYNCED OPERATOR INPUT (Framework_NotesBlueprint
+#   v3.0.0). Units are identified by the Step-5 manifest sid (the registry key);
+#   the OPERATOR identifies a unit by copying a cell from
+#   [ExamCode]_taxonomy.xlsx — the SAME convention that workbook's "How to use"
+#   sheet already teaches for Step 6. NEW §0: three-tier resolution via
+#   notes_core.resolve_unit — (1) Sub Topic Id (column D), (2)
+#   Subject::Topic::Sub Topic Name scope (columns A::B::C), (3) bare Sub Topic
+#   Name (column C), norm-matched so case/dash/&/spacing variants resolve; a
+#   multi-hit bare name STOPS and lists the candidates with their Topics for the
+#   operator to choose; zero hits STOP with nearest-name suggestions — NEVER a
+#   fuzzy auto-pick. §1.2 additionally verifies taxonomy_ref
+#   (notes_core.verify_taxonomy_ref): a manifest changed since the blueprint was
+#   built STOPS the unit back to NB, exactly like the stale-bank stop. F-1's
+#   {Slug} is the sid's final component (notes_core.sid_slug), so every
+#   delivered filename traces visibly to its taxonomy.xlsx row. Companion:
+#   notes_core >= v2.0. B1's "n" and F-1's numbers come from the unit's
+#   PERSISTED unit_code/seq_in_topic (NB §1A A-3) — they never churn on a
+#   taxonomy re-run. All v2.1.x behaviour otherwise unchanged.
 # v2.1.5 — 2026-08-10 — §8 wording aligned with §9/DeliveryFooter §3. Each
 #   multi-unit request is separate PER-UNIT RUNS, each a complete step ending F2
 #   (§9); the continue-confirmation is BETWEEN runs, not batches within one (NC
@@ -45,7 +63,10 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v1.8 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
+#   notes_core.py >= v2.0 — resolve_unit (operator-input resolution), sid_slug,
+#                           verify_taxonomy_ref (manifest staleness check),
+#                           sid-keyed registry (notes-registry/2.0); plus
+#                           LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
 #                           lexicon, math gates, registry transitions, the bank
 #                           readers (bank_load / bank_questions_for) and
 #                           verify_bank_ref (blueprint/bank staleness check)
@@ -66,6 +87,24 @@
 #   BLUEPRINTED (or STALE, or returned by NA for full regeneration). The
 #   blueprint carries allowed_question_types (Framework_NotesBlueprint §6).
 
+## §0 — UNIT INPUT RESOLUTION (operator-facing; shared convention with NA/ND)
+The trigger's unit reference is WHATEVER CELL the operator copied from
+[ExamCode]_taxonomy.xlsx (the Step-5 workbook; its "How to use" sheet teaches
+this same convention for Step 6 — one convention platform-wide, usable by a
+non-technical operator). Resolution is notes_core.resolve_unit against the
+registry's units, in this priority order:
+  1. Sub Topic Id (column D)                        -> exact registry key.
+  2. Subject::Topic::Sub Topic Name (A::B::C)       -> full-tuple norm match.
+  3. Bare Sub Topic Name (column C)                 -> norm match (case, dashes,
+     '&' vs 'and', spacing and unicode variants all resolve).
+Outcomes: a UNIQUE hit proceeds. MULTIPLE bare-name hits (same name under
+different topics) STOP and list every candidate with its Subject + Topic — the
+operator replies with the scope form or the Sub Topic Id; NC never picks. ZERO
+hits STOP with the nearest-name suggestions and the instruction to copy the
+exact cell — NC never fuzzy-picks a wrong unit. A malformed scope (not 3
+'::'-separated parts) STOPS with the correct shape named. The resolved unit is
+confirmed in the chat line as: <Sub Topic Name> (<sid>).
+
 ## §1 — UNIT OF WORK AND INGEST (bank consumer; NC no longer reads Drive)
 1. One run = one subtopic. NB has already ingested the whole corpus. NC LOADS
    the bank (notes_core.bank_load on notes_pyq_bank.json) and selects this unit's
@@ -75,14 +114,21 @@
    stem_figures / solution_figures, concept_tags. The FIGURE dependency is
    simply `bool(stem_figures)` — no image re-extraction here.
 2. No re-download, no re-read of Drive, no re-checkpoint of a bank: the bank is
-   NB's artifact and is authoritative. BEFORE drafting, NC verifies the blueprint
-   and the bank agree: it reads the blueprint's bank_ref and calls
-   notes_core.verify_bank_ref(bank_path, blueprint["bank_ref"]). A sha256 mismatch
-   (the blueprint was built from a DIFFERENT bank than the one on disk) or a
-   missing bank_ref STOPS the unit and routes the operator back to NB — this is
-   the stale-bank stop, now with the evidence to fire. If the bank is present and
-   matches but has no questions for this subtopic, that signals a subtopic-key
-   mismatch or a genuinely empty subtopic, also handled at NB, not by drafting.
+   NB's artifact and is authoritative. BEFORE drafting, NC verifies BOTH
+   staleness links: (a) the blueprint's bank_ref via
+   notes_core.verify_bank_ref(bank_path, blueprint["bank_ref"]) — a sha256
+   mismatch (the blueprint was built from a DIFFERENT bank than the one on disk)
+   or a missing bank_ref STOPS the unit back to NB; (b) the blueprint's
+   taxonomy_ref via notes_core.verify_taxonomy_ref(manifest_path,
+   blueprint["taxonomy_ref"]) when [ExamCode]_subtopic_manifest.json is present
+   in project Files — a mismatch means the taxonomy changed since the blueprint
+   was built and STOPS the unit back to NB (units are STALE there); a missing
+   taxonomy_ref means the blueprint predates Framework_NotesBlueprint v3.0.0 and
+   also routes to NB for a re-blueprint (cheap: the ingested bank is untouched).
+   If the bank is present and matches but has no questions for this subtopic,
+   that signals a subtopic-key mismatch or a genuinely empty subtopic, also
+   handled at NB, not by drafting. The unit's bank join uses the unit's stored
+   manifest triple (section, topic, name) through bank_questions_for as before.
 3. The concept map (concept → bank_ids → weight) orders the concept sections and
    sets depth. It is built from the selected bank records (concept_tags + stem
    content) and is INTERNAL ONLY: no frequency marker, star, count, anchor, or
@@ -151,9 +197,12 @@ TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence).
   D-6 Every fact must be syllabus-required, PYQ-anchored, or BRIDGE-justified.
 
 ## §6 — FORMAT RULES
-  F-1 Naming: {EXAM}_S{s}_T{t}_ST{nn}_{Slug}.docx. Cross-references inside
-      the document use the §6A outline numbers ("see n.3"), never page
-      numbers and never retired labels like "Concept 3".
+  F-1 Naming: {EXAM}_S{s}_T{t}_ST{nn}_{Slug}.docx — the numbers are the
+      unit's PERSISTED unit_code digits (NB §1A A-3) and {Slug} is
+      notes_core.sid_slug(sid), so the filename traces to the taxonomy.xlsx
+      row. Cross-references inside the document use the §6A outline numbers
+      ("see n.3"), never page numbers and never retired labels like
+      "Concept 3".
   F-2 Page A4, font Arial, colour strictly per the §6A level colour map.
   F-3 MATHEMATICS (dual standard, both machine-gated in NA):
       (a) EXPRESSIONS (equations, calculations, formula cells) are
@@ -225,4 +274,4 @@ from Project Files). The footer is obligatory after a present_files call
 
 ---
 
-# END OF Framework_NotesCreate v2.1.5
+# END OF Framework_NotesCreate v2.2.0

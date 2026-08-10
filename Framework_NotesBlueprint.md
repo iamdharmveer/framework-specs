@@ -1,4 +1,41 @@
-# Framework_NotesBlueprint v2.0.5 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.0.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.0.0 — 2026-08-10 — TAXONOMY CONSUMER (breaking; owner decision: ONE subtopic
+#   vocabulary across Test Creation and Notes Creation). The Step-5
+#   [ExamCode]_subtopic_manifest.json (the same file MockBlueprint consumes, whose
+#   human view is [ExamCode]_taxonomy.xlsx) is now the SINGLE SOURCE OF TRUTH for
+#   Notes unit identity. Step 5 itself is UNTOUCHED — Notes only consumes.
+#     (1) NEW §1A applies the Mock pipeline's Cross-Step Subtopic Contract
+#         (Framework_Blueprint RULES 1/2/2a) to Notes verbatim: every unit carries
+#         its manifest sid VERBATIM; resolution failure is a HARD STOP whose fix is
+#         upstream (re-run Step 5); NB NEVER mints, sequences, or fallback-creates
+#         an id — on ANY path, including evidence-added.
+#     (2) Unit names, section and topic are the manifest's EXACT BYTES; the
+#         syllabus's role shrinks to what §1.1 always said — the MASTER FILTER
+#         (in/out of scope, roles, tiers) — never a naming authority. §2 S-1
+#         rewritten; the summary gains a SYLLABUS-MATCH report.
+#     (3) The registry and blueprint are KEYED BY sid (schemas notes-registry/2.0,
+#         notes-blueprint/2.0). The numeric unit_code {EXAM}_S{s}_T{t}_ST{nn}
+#         survives as a DERIVED PRESENTATION attribute (B1 title number, F-1
+#         filename): numbers come from manifest row order via
+#         notes_core.assign_numbering and, once assigned, are PERSISTED — a Step-5
+#         re-run that inserts/reorders subtopics never renumbers an existing unit;
+#         new sids append with next numbers. The F-1 slug is notes_core.sid_slug
+#         (the sid's final component), so a delivered filename is visibly
+#         traceable to its taxonomy.xlsx row.
+#     (4) taxonomy_ref {path, sha256, subtopics, generated} over the manifest
+#         bytes is emitted beside bank_ref (notes_core.taxonomy_ref_for) and
+#         stored in blueprint + registry; verify_taxonomy_ref is the staleness
+#         link (NC §1.2 checks it; a changed manifest flips units STALE, §7).
+#     (5) Engine: notes_blueprint.build_blueprint_v2 (manifest-consuming) replaces
+#         build_blueprint in this spec's flow (the v1 builder remains in the
+#         engine for legacy reads only). Companions: notes_core >= v2.0,
+#         notes_blueprint >= v2.0. Validated end-to-end against the live
+#         IIT_JAM_BIOTECHNOLOGY manifest: 133 units, 133/133 bare-name + sid +
+#         scope resolution, gapless unique numbering, unique filenames.
+#     (6) NEW §7 rules: manifest-hash staleness, ORPHANED (a delivered unit whose
+#         sid left the manifest is reported, never deleted), and the BANK-MATCH
+#         report (bank triples that fail to norm-match any manifest triple —
+#         expected empty; nonzero exposes an upstream sorting anomaly).
 # v2.0.5 — 2026-08-10 — DELIVERY-FOOTER CONTRACT HONORED. v2.0.4 added
 #   present_files at every BATCH STOP but rendered no footer — a violation of
 #   Framework_DeliveryFooter §4-0 R1 ("a present_files call is always followed by
@@ -66,13 +103,18 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py      >= v1.8 — PYQ_BANK_SCHEMA, bank_*() builders/validators,
+#   notes_core.py      >= v2.0 — load_subtopic_manifest, taxonomy_ref_for /
+#                                verify_taxonomy_ref, assign_numbering,
+#                                resolve_unit, sid_slug, sid-keyed registry
+#                                (notes-registry/2.0, notes-blueprint/2.0); plus
+#                                PYQ_BANK_SCHEMA, bank_*() builders/validators,
 #                                subtopic_key, derive_taxonomy_counts,
 #                                parse_exam_date_from_filename, normalize_answer,
 #                                nat_precision_from_stem/nat_within_tolerance,
-#                                msq_match, verify_bank_ref, plus registry/gates.
-#   notes_blueprint.py >= v1.4 — assemble_bank, write_bank, counts_from_bank,
-#                                bank_ref_for, blueprint writer (bank_ref emitted).
+#                                msq_match, verify_bank_ref, registry/gates.
+#   notes_blueprint.py >= v2.0 — build_blueprint_v2 (manifest consumer),
+#                                assemble_bank, write_bank, counts_from_bank,
+#                                bank_ref_for, registry writer (taxonomy_ref).
 #   corpus_io.py       >= v1.11 — Drive enumerate/download/decode/verify, image
 #                                extract + map_images_to_questions + vision queue.
 #   blueprint_core.py  (repo, bootstrap-verified) — DRIVE_CAP, screen_drive_entry,
@@ -93,10 +135,13 @@
 #   Notes Step ND (NotesDeliver)   -> delivery + registry DELIVERED
 #
 # PREREQUISITE:
-#   [ExamCode] project Files MUST contain: (a) official syllabus (pdf/docx, ANY
-#   official layout; §2 parsing), (b) Exam Pattern xlsx (Overview / Sections /
-#   Range tabs; Overview MUST carry a Level field). Sorted PYQ papers are located
-#   via §3 and ingested via §3A. A PYQ Analysis doc is OPTIONAL (cross-check only).
+#   [ExamCode] project Files MUST contain: (a) [ExamCode]_subtopic_manifest.json —
+#   the Step-5 (PYQExtract) deliverable; missing = HARD STOP naming the file
+#   (its human view [ExamCode]_taxonomy.xlsx is the operator's picking list and
+#   is NOT read by NB), (b) official syllabus (pdf/docx, ANY official layout;
+#   §2 parsing), (c) Exam Pattern xlsx (Overview / Sections / Range tabs;
+#   Overview MUST carry a Level field). Sorted PYQ papers are located via §3 and
+#   ingested via §3A. A PYQ Analysis doc is OPTIONAL (cross-check only).
 
 ## §1 — SCOPE RULES (locked)
 1. CURRENT syllabus is the MASTER FILTER. Out-of-syllabus PYQ subtopics are
@@ -109,13 +154,53 @@
    canonicalised via notes_core.subtopic_key — which reuses syllabus_provenance.norm
    (NFKC, dash unification, & -> and, '/' as data, spaces-around-'/' collapsed) so
    bank counts and blueprint units join on the same key even when the syllabus and
-   the paper header differ only in punctuation or unicode.
+   the paper header differ only in punctuation or unicode. Since v3.0.0 this norm
+   join is a SAFETY NET, not a load-bearing joint: unit names ARE the manifest
+   names, which are the same taxonomy PYQSort stamped the headers from, so exact
+   agreement is the expectation and any residual drift is REPORTED (§7 BANK-MATCH).
+
+## §1A — TAXONOMY CONSUMER CONTRACT (v3.0.0; mirrors Framework_Blueprint
+##        RULES 1/2/2a — Step 5 is the single source of truth; Step 5 UNTOUCHED)
+A-1 READ THE MANIFEST. NB MUST notes_core.load_subtopic_manifest(
+    "[ExamCode]_subtopic_manifest.json", exam_code) at session start. The loader
+    HARD-STOPS on a structurally invalid manifest and on an exam_code mismatch
+    (the wrong exam's manifest in Files is never consumed silently). Every unit
+    NB places into the blueprint carries the manifest sid (Sub Topic Id)
+    VERBATIM plus the manifest's display_name / section / topic EXACT BYTES.
+A-2 RESOLVE, NEVER MINT. The syllabus scope-match (§2 S-1) resolves each
+    manifest subtopic IN or OUT of syllabus; the bank's subtopics resolve to
+    manifest triples by construction (§1.3). Any subtopic that cannot resolve to
+    a manifest sid — from the syllabus, the bank, or ANY path including
+    evidence-added — is a HARD STOP: "re-run Step 5 (PYQExtract) so the manifest
+    includes it, then re-run NB." There is NO code path that creates a unit
+    without a manifest sid (notes_blueprint.build_blueprint_v2 enforces this).
+    SPECIFICALLY BANNED, exactly as in the Mock pipeline: sequential/self-minted
+    ids, display-name-derived ids, and any fallback id of any shape.
+A-3 DERIVED NUMBERING, PERSISTED. The numeric unit_code
+    {EXAM}_S{s}_T{t}_ST{nn} is a PRESENTATION attribute derived from manifest
+    row order (notes_core.assign_numbering). Once assigned it is persisted in
+    the registry and NEVER changes for that sid — a Step-5 re-run that inserts
+    or reorders subtopics appends numbers for new sids only. Identity is the
+    sid; the number is for the B1 title, F-1 filename and human reading.
+A-4 STALENESS LINK. taxonomy_ref = notes_core.taxonomy_ref_for(manifest_path)
+    is emitted into blueprint + registry beside bank_ref. Any later manifest
+    change is detectable (notes_core.verify_taxonomy_ref; NC §1.2 checks it;
+    §7 flips units STALE).
 
 ## §2 — INPUT PARSING (syllabus + pattern; Claude-driven per S-1/S-2)
-S-1 Syllabus: accept pdf or docx in any official layout. Extract the
-    Subject->Topic->Subtopic hierarchy; where a syllabus lists prose topics with
-    no explicit subtopics, the bank's own subtopic set for that topic is adopted
-    (provenance per unit "syllabus" | "analysis-adopted" — here "bank-adopted").
+S-1 Syllabus: accept pdf or docx in any official layout. Its role is SCOPE
+    MATCHING ONLY (v3.0.0) — the manifest owns names and identity (§1A). Claude
+    extracts the syllabus's Subject->Topic->Subtopic rows and norm-matches each
+    manifest subtopic against them (syllabus_provenance.norm per component,
+    full-tuple first, then name-within-matching-parents) to decide IN or OUT of
+    syllabus. Where a syllabus lists prose topics with no explicit subtopics,
+    every manifest subtopic under the matched topic is IN (provenance stays
+    "syllabus"). The chat summary carries a SYLLABUS-MATCH report: every
+    manifest subtopic that failed to match any syllabus row (these face the
+    Option-B test as out-of-syllabus) AND every syllabus row that matched no
+    manifest subtopic (these are A-2 HARD-STOP candidates for the owner: the
+    manifest must be the superset — the fix is a Step-5 re-run, never a
+    Notes-side mint).
 S-2 Exam Pattern xlsx via notes_blueprint.read_exam_pattern: Overview (Total
     Questions, Types, Marks, Duration, Level), Sections and Range. Level drives
     depth calibration (§5). Missing Level = HARD STOP. allowed_question_types is
@@ -127,8 +212,9 @@ S-3 PYQ Analysis doc is NO LONGER required (owner decision 5i). Counts come from
     cross-check (bank-derived subtopic counts vs the doc) and reports any
     divergence in the chat summary; a divergence never blocks the run and the
     bank is authoritative.
-S-4 syllabus_sha256 over the raw syllabus bytes is written to the registry. Any
-    later hash change marks all units STALE for incremental re-run (§7).
+S-4 syllabus_sha256 over the raw syllabus bytes AND taxonomy_ref over the
+    manifest bytes (§1A A-4) are written to the registry. A later change to
+    EITHER hash marks all units STALE for incremental re-run (§7).
 
 ## §3 — SORTED-PYQ SOURCE RESOLUTION (SourceMap, folded in)
 Priority order (notes_blueprint.resolve_sources):
@@ -284,36 +370,54 @@ O-1 notes_pyq_bank.json — schema notes_core.PYQ_BANK_SCHEMA (>= notes-pyq-bank
     question's subject/topic/subtopic, so a bank written by an older notes_core
     still joins correctly. This is a project artifact, not a framework file; NC and
     NA read it read-only.
-O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (>= notes-blueprint/1.2);
-    exam_code, level, allowed_question_types, sources, and bank_ref. bank_ref is
-    EMITTED by building the blueprint with
-    bank_ref=notes_blueprint.bank_ref_for(bank_path) AFTER the bank is written —
-    {path, sha256, questions, generated} over the bank bytes on disk — so any
-    later change to notes_pyq_bank.json is detectable (notes_core.verify_bank_ref;
-    read by NC §1.2). Also the exclusion report and the full unit table
-    (unit_code, names, role, pyq_count, tier, provenance, seq_in_topic, optional
-    prose_ban_exemptions). Unit provenance is "syllabus" or "evidence-added" (the
-    values build_blueprint writes); pyq_count is DERIVED from the bank (§3B B-6),
-    not carried on a provenance field.
-O-3 notes_registry.json — notes_core.registry_init; every unit -> BLUEPRINTED.
+O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (notes-blueprint/2.0;
+    1.x still loads read-only); exam_code, level, allowed_question_types,
+    sources, bank_ref AND taxonomy_ref. bank_ref is EMITTED by building the
+    blueprint with bank_ref=notes_blueprint.bank_ref_for(bank_path) AFTER the
+    bank is written — {path, sha256, questions, generated} over the bank bytes on
+    disk — so any later change to notes_pyq_bank.json is detectable
+    (notes_core.verify_bank_ref; read by NC §1.2). taxonomy_ref is the same idiom
+    over the manifest (§1A A-4; notes_core.verify_taxonomy_ref). Built via
+    notes_blueprint.build_blueprint_v2. Also the exclusion report (each row with
+    its sid + manifest names) and the full unit table: sid, unit_code, name
+    (manifest display_name verbatim), section, topic, slug (notes_core.sid_slug),
+    role, pyq_count, tier, provenance, seq_in_topic, optional
+    prose_ban_exemptions. Unit provenance is "syllabus" or "evidence-added";
+    pyq_count is DERIVED from the bank (§3B B-6), not carried on a provenance
+    field.
+O-3 notes_registry.json — notes_core.registry_init (notes-registry/2.0; units
+    KEYED BY sid; taxonomy_ref stored); every unit -> BLUEPRINTED.
 O-4 Chat summary — the INGEST REPORT is emitted at EACH BATCH STOP (A-7) for that
     batch's 3 papers; after the LAST batch a FULL summary adds unit counts by
     role/tier + the exclusion report, plus totals: papers ingested (Drive lane vs
     upload lane), questions banked, per-type split, images read, any IMG-gate
     findings, any UNRESOLVED stem figures, any filename with no parseable date,
-    and (if an Analysis doc was present) the cross-check result. Version numbers
-    appear in CHAT ONLY, never inside delivered documents.
+    and (if an Analysis doc was present) the cross-check result — PLUS (v3.0.0)
+    the SYLLABUS-MATCH report (§2 S-1), the BANK-MATCH report (§7), and any
+    ORPHANED units (§7). Version numbers appear in CHAT ONLY, never inside
+    delivered documents.
 
 ## §7 — INCREMENTAL RE-RUNS
-Unchanged syllabus_sha256 AND unchanged corpus (same paper_key set + sizes) is a
-no-op merge: existing unit states preserved; genuinely new units enter BLUEPRINTED.
-A NEW or CHANGED paper is (re)ingested and appended to the bank (its questions get
-fresh bank_ids); counts and Option-B evidence are recomputed. A changed syllabus
-hash marks every unit STALE=true (state preserved) and the summary lists the diff.
-The §3A-6 checkpoint means an interrupted ingest resumes from the last completed
-batch — reply 'continue' in-session, or re-trigger NotesBlueprint in a fresh chat
-(A-7 option B) and it picks up the paper_keys not yet in the bank. Nothing is
-deleted automatically.
+Unchanged syllabus_sha256 AND unchanged taxonomy_ref.sha256 AND unchanged corpus
+(same paper_key set + sizes) is a no-op merge: existing unit states preserved;
+genuinely new units enter BLUEPRINTED. A NEW or CHANGED paper is (re)ingested and
+appended to the bank (its questions get fresh bank_ids); counts and Option-B
+evidence are recomputed. A changed syllabus hash OR a changed manifest hash marks
+every unit STALE=true (state preserved) and the summary lists the diff; unit
+identity is the sid, so a re-run against a changed manifest PRESERVES every
+existing unit's sid key, numbering (§1A A-3 — assign_numbering is fed the prior
+registry's numbers) and state. New manifest sids enter BLUEPRINTED with appended
+numbers. ORPHANED: a registry sid no longer present in the manifest is REPORTED
+(with its state) and NEVER deleted — the owner decides; a renamed subtopic
+upstream arrives as remove+add (slug-derived sids), which the report makes
+visible side by side. BANK-MATCH: after ingest, every bank (subject, topic,
+subtopic) triple is norm-matched against the manifest triples; failures are
+listed (expected ZERO — the sorted headers came from this same taxonomy; a
+nonzero list exposes an upstream sorting anomaly to fix at PYQSort/Step 5, never
+by a Notes-side rename). The §3A-6 checkpoint means an interrupted ingest resumes
+from the last completed batch — reply 'continue' in-session, or re-trigger
+NotesBlueprint in a fresh chat (A-7 option B) and it picks up the paper_keys not
+yet in the bank. Nothing is deleted automatically.
 
 ## §8 — HARD RULES CARRIED FROM THE FRAMEWORK CORE
 1. NEVER work from memory for exam-varying values: counts, ranges, marks, Level,
@@ -354,7 +458,19 @@ E-11 A stem figure whose media rId does not resolve -> "UNRESOLVED:..."; NA park
      the question in figure_pending, never hard-stops (owner decision 6).
 E-12 An optional PYQ Analysis doc disagreeing with bank counts -> reported; the
      bank is authoritative (owner decision 5i).
+E-13 Wrong exam's manifest in project Files -> load_subtopic_manifest exam_code
+     HARD STOP before any work (§1A A-1).
+E-14 Syllabus subtopic with no manifest match -> SYLLABUS-MATCH report + A-2
+     HARD-STOP path: re-run Step 5 so the manifest (the superset) includes it.
+     NB never mints an id for it.
+E-15 Manifest subtopic removed by a Step-5 re-run while its unit is DRAFTED/
+     DELIVERED -> ORPHANED report (§7), state + numbering preserved, nothing
+     deleted; the owner decides.
+E-16 Two subtopics with the SAME display name under different topics -> distinct
+     sids (full-tuple identity); the bare-name operator path returns both as
+     'ambiguous' for the operator to choose (notes_core.resolve_unit — Framework_NotesCreate section 0);
+     the scope form Subject::Topic::Sub Topic Name resolves uniquely.
 
 ---
 
-# END OF Framework_NotesBlueprint v2.0.5
+# END OF Framework_NotesBlueprint v3.0.0

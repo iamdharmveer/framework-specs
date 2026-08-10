@@ -1,4 +1,13 @@
-# Framework_NotesAudit v2.0.4 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# Framework_NotesAudit v2.0.5 — Notes Pipeline Step NA (Closed-Book Solvability Audit)
+# v2.0.5 — 2026-08-10 — TAXONOMY SYNC (Framework_NotesBlueprint v3.0.0). The
+#   registry is KEYED BY the Step-5 manifest sid (notes-registry/2.0) and the
+#   operator's unit reference is resolved exactly as in Framework_NotesCreate section 0
+#   (notes_core.resolve_unit: Sub Topic Id -> Subject::Topic::Sub Topic Name ->
+#   bare Sub Topic Name; ambiguous/zero hits STOP, never auto-pick). The audit
+#   report's unit_code field carries the REGISTRY KEY (the sid); the chat line
+#   names the unit as <Sub Topic Name> (<sid>). Bank joins are unchanged
+#   (bank_questions_for on the unit's stored manifest triple). Companion:
+#   notes_core >= v2.0. No gate logic changed; notes_audit.py is UNCHANGED.
 # v2.0.4 — 2026-08-10 — CROSS-CHAT HANDOFF + STALE-REF FIX. (1) NA runs in its own
 #   chat; on AUDITED_PASS it now present_files the audited .docx + audit report +
 #   the updated registry and renders the footer (F2 on pass, F1 amber at the §4
@@ -42,7 +51,8 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v1.8 — density-gate constants, math gates, PROSE_BAN
+#   notes_core.py  >= v2.0 — resolve_unit + sid-keyed registry; density-gate
+#                            constants, math gates, PROSE_BAN
 #                            lexicon, registry transitions, ground-truth match
 #                            helpers (msq_match / nat_within_tolerance /
 #                            nat_precision_from_stem / normalize_answer),
@@ -181,4 +191,4 @@ call, still the last element. The footer is obligatory after present_files
 
 ---
 
-# END OF Framework_NotesAudit v2.0.4
+# END OF Framework_NotesAudit v2.0.5

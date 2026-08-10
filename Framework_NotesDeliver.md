@@ -1,4 +1,10 @@
-# Framework_NotesDeliver v1.1.1 — Notes Pipeline Step ND (Delivery)
+# Framework_NotesDeliver v1.1.2 — Notes Pipeline Step ND (Delivery)
+# v1.1.2 — 2026-08-10 — TAXONOMY SYNC (Framework_NotesBlueprint v3.0.0). The
+#   registry key is the Step-5 manifest sid; an operator unit reference is
+#   resolved per Framework_NotesCreate section 0 (notes_core.resolve_unit — same
+#   taxonomy.xlsx convention). The §1.3 delivery line identifies the unit as
+#   <Sub Topic Name> (<sid>) alongside unit_code/notes_version. Companion:
+#   notes_core >= v2.0. Nothing else changed.
 # v1.1.1 — 2026-08-10 — CROSS-CHAT READ + REGISTRY. Made the fresh-chat handoff
 #   explicit: ND READS the audited .docx + _Audit.md + notes_registry.json from
 #   Project Files (NA uploaded them), and re-presents the updated registry
@@ -16,7 +22,7 @@
 # [ExamCode] project | Notes Step ND | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v1.0 — registry transitions, naming assertion
+#   notes_core.py >= v2.0 — registry transitions, naming assertion, resolve_unit
 #
 # PURPOSE:
 #   Deliver AUDITED_PASS notes to the operator (one .docx per subtopic, plus
@@ -37,7 +43,8 @@
   1. The notes .docx, filename per rule F-1 in Framework_NotesCreate, byte-identical to the
      audited artifact (delivery never edits content).
   2. The audit report for that unit (markdown), same basename + _Audit.
-  3. A chat delivery line per unit: unit code, notes_version, verdict summary
+  3. A chat delivery line per unit: <Sub Topic Name> (<sid>), unit code,
+     notes_version, verdict summary
      (n/n SOLVABLE), open FIGURE_PENDING count (KEY_FLAG is retired — NotesAudit
      owner decision 4a).
   4. present_files the .docx, the _Audit.md, AND the updated notes_registry.json
@@ -69,4 +76,4 @@ redelivery. (There is no KEY_FLAG queue — retired, NA owner decision 4a.)
 
 ---
 
-# END OF Framework_NotesDeliver v1.1.1
+# END OF Framework_NotesDeliver v1.1.2

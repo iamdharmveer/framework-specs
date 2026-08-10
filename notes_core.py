@@ -1,5 +1,34 @@
 """
-notes_core.py v1.8 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.0 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.0 — 2026-08-10 — TAXONOMY CONSUMER (Framework_NotesBlueprint v3.0.0; owner
+    decision: ONE subtopic vocabulary across Test Creation and Notes Creation).
+    The Step-5 [ExamCode]_subtopic_manifest.json is now the single source of
+    truth for Notes unit identity, mirroring the Mock pipeline's Cross-Step
+    Subtopic Contract (Framework_Blueprint RULES 1/2/2a). New here:
+      (1) load_subtopic_manifest() — loads + structurally validates the manifest
+          and HARD-STOPS (ValueError) on an exam_code mismatch (wrong exam's
+          manifest in Files can never be consumed silently).
+      (2) taxonomy_ref_for() / verify_taxonomy_ref() — the same staleness idiom
+          as bank_ref: {path, sha256, subtopics, generated} over the manifest
+          bytes, so a re-uploaded manifest is detectable and flips units STALE.
+      (3) assign_numbering(manifest, prior) — derives S/T/ST numbers from
+          manifest row order, PRESERVING any prior assignment verbatim (persisted
+          numbering: a Step-5 re-run that inserts or reorders subtopics never
+          renumbers already-assigned units; new sids append with next numbers).
+      (4) resolve_unit() — the three-tier operator-input resolution shared by
+          NC/NA/ND: exact Sub Topic Id -> 'Subject::Topic::Sub Topic Name'
+          scope (norm per component) -> bare Sub Topic Name (norm). Unique hit
+          proceeds; multiple hits return 'ambiguous' with the candidates; zero
+          hits return 'none' with nearest-name suggestions. Never fuzzy-picks.
+      (5) sid_slug() — the sid's final component, used as the F-1 filename slug.
+      (6) REGISTRY_SCHEMA -> notes-registry/2.0 and BLUEPRINT_SCHEMA ->
+          notes-blueprint/2.0: units are KEYED BY sid (registry_init keys by
+          u['sid'] when present, else legacy u['unit_code']); unit records carry
+          sid, section, topic, unit_code, slug; the registry carries
+          taxonomy_ref. 1.x registries/blueprints still load (read-only
+          migration: sid defaults None; a real migration is a re-blueprint).
+    All v1.8 self-tests retained verbatim; v2.0 adds its own.
 
 v1.8 — 2026-08-10 — POST-DEPLOY REVIEW (drift class closed + doc fixes).
     (A) subtopic_key is a DERIVED field that was also STORED in every bank
@@ -92,11 +121,12 @@ BULLET_TARGET_WORDS = 20
 BULLET_HARD_CAP_WORDS = 25
 TIER_PAGE_BANDS = {"TIER-1": (6, 15), "TIER-2": (4, 8), "TIER-3": (2, 5)}
 
-REGISTRY_SCHEMA = "notes-registry/1.1"
-REGISTRY_SCHEMAS_ACCEPTED = ("notes-registry/1.0", "notes-registry/1.1")
-BLUEPRINT_SCHEMA = "notes-blueprint/1.2"
+REGISTRY_SCHEMA = "notes-registry/2.0"
+REGISTRY_SCHEMAS_ACCEPTED = ("notes-registry/1.0", "notes-registry/1.1",
+                             "notes-registry/2.0")
+BLUEPRINT_SCHEMA = "notes-blueprint/2.0"
 BLUEPRINT_SCHEMAS_ACCEPTED = ("notes-blueprint/1.0", "notes-blueprint/1.1",
-                              "notes-blueprint/1.2")
+                              "notes-blueprint/1.2", "notes-blueprint/2.0")
 
 LEVEL_COLORS = {"L1": "1F4E79", "L2": "00838F", "L3": "6A1B9A",
                 "table_header": "44546A"}
@@ -159,14 +189,23 @@ def normalize_types(raw_values):
 
 
 # ---------------------------------------------------------------- registry
-def registry_init(exam_code, syllabus_hash, level, units):
+def registry_init(exam_code, syllabus_hash, level, units, taxonomy_ref=None):
+    """v2.0: units are KEYED BY sid (the verbatim Step-5 Sub Topic Id) when the
+    unit carries one; a legacy unit without a sid keys by unit_code so 1.x-shaped
+    callers still work. Unit records carry the manifest triple (section, topic,
+    name==display_name verbatim) plus the DERIVED unit_code and slug; the
+    registry carries taxonomy_ref (verify_taxonomy_ref staleness link)."""
     reg = {"schema": REGISTRY_SCHEMA, "exam_code": exam_code,
            "syllabus_sha256": syllabus_hash, "exam_level": level,
-           "allowed_question_types": None,
+           "allowed_question_types": None, "taxonomy_ref": taxonomy_ref,
            "created": _now(), "updated": _now(), "units": {}}
     for u in units:
-        reg["units"][u["unit_code"]] = {
-            "name": u["name"], "role": u["role"], "tier": u["tier"],
+        key = u.get("sid") or u["unit_code"]
+        reg["units"][key] = {
+            "sid": u.get("sid"), "name": u["name"],
+            "section": u.get("section"), "topic": u.get("topic"),
+            "unit_code": u.get("unit_code"), "slug": u.get("slug"),
+            "role": u["role"], "tier": u["tier"],
             "pyq_count": u.get("pyq_count", 0),
             "provenance": u.get("provenance", "syllabus"),
             "seq_in_topic": u.get("seq_in_topic"),
@@ -178,15 +217,25 @@ def registry_init(exam_code, syllabus_hash, level, units):
 
 
 def registry_load(path):
+    """Accept registry schema 1.0/1.1/2.0; migrate older ones IN PLACE to the
+    2.0 shape (read-only migration: a 1.x unit gains sid=None and keeps its
+    unit_code key — sid-keyed identity requires a re-blueprint at NB, which is
+    cheap because the ingested bank is untouched)."""
     reg = json.load(open(path, encoding="utf-8"))
     if reg.get("schema") not in REGISTRY_SCHEMAS_ACCEPTED:
         raise ValueError(f"registry schema mismatch: {reg.get('schema')}")
     if reg["schema"] != REGISTRY_SCHEMA:
         reg["schema"] = REGISTRY_SCHEMA
         reg.setdefault("allowed_question_types", None)
-        for u in reg.get("units", {}).values():
+        reg.setdefault("taxonomy_ref", None)
+        for key, u in reg.get("units", {}).items():
             u.setdefault("seq_in_topic", None)
             u.setdefault("prose_ban_exemptions", [])
+            u.setdefault("sid", None)
+            u.setdefault("section", None)
+            u.setdefault("topic", None)
+            u.setdefault("slug", None)
+            u.setdefault("unit_code", key)
     return reg
 
 
@@ -216,8 +265,9 @@ def transition(reg, unit_code_, new_state, **extra):
 
 
 def load_blueprint(path):
-    """Accept blueprint schema 1.0, 1.1 or 1.2; migrate older ones in place so
-    consumers can rely on the 1.2 shape (symmetric with registry_load)."""
+    """Accept blueprint schema 1.0/1.1/1.2/2.0; migrate older ones in place so
+    consumers can rely on the 2.0 shape (symmetric with registry_load): a 1.x
+    unit gains sid/section/topic = None and taxonomy_ref = None."""
     bp = json.load(open(path, encoding="utf-8"))
     if bp.get("schema") not in BLUEPRINT_SCHEMAS_ACCEPTED:
         raise ValueError(f"blueprint schema mismatch: {bp.get('schema')}")
@@ -225,9 +275,13 @@ def load_blueprint(path):
         bp["schema"] = BLUEPRINT_SCHEMA
         bp.setdefault("allowed_question_types", [])
         bp.setdefault("bank_ref", None)
+        bp.setdefault("taxonomy_ref", None)
         for u in bp.get("units", []):
             u.setdefault("seq_in_topic", None)
             u.setdefault("prose_ban_exemptions", [])
+            u.setdefault("sid", None)
+            u.setdefault("section", None)
+            u.setdefault("topic", None)
     return bp
 
 
@@ -248,6 +302,168 @@ def verify_bank_ref(bank_path, bank_ref):
                 f"{bank_ref['sha256'][:12]}… but notes_pyq_bank.json is now "
                 f"{actual[:12]}…. Re-run NB so blueprint and bank agree.")
     return (True, "bank_ref matches the bank on disk.")
+
+
+# ================================================================ TAXONOMY
+# v2.0 — the Step-5 subtopic manifest is the SINGLE SOURCE OF TRUTH for the
+# Notes unit vocabulary (owner decision 2026-08-10; mirrors the Mock pipeline's
+# Cross-Step Subtopic Contract). Notes NEVER mints a subtopic id. Step 5 is
+# untouched: everything below CONSUMES [ExamCode]_subtopic_manifest.json.
+
+def load_subtopic_manifest(path, expected_exam_code=None):
+    """Load + structurally validate the Step-5 manifest. HARD STOP (ValueError)
+    on: unreadable/shapeless file, empty subtopics, an entry missing
+    display_name/section/topic, or an exam_code mismatch (the wrong exam's
+    manifest in project Files must never be consumed silently). The Step-5 id
+    recipe is NOT re-validated here — the recipe is Step 5's contract and may
+    evolve; Notes treats each sid as an opaque verbatim key."""
+    m = json.load(open(path, encoding="utf-8"))
+    subs = m.get("subtopics")
+    if not isinstance(subs, dict) or not subs:
+        raise ValueError(f"subtopic manifest at {path} has no 'subtopics' map")
+    for sid, v in subs.items():
+        if not sid or not isinstance(sid, str):
+            raise ValueError(f"subtopic manifest has an empty/non-string id: {sid!r}")
+        missing = [k for k in ("display_name", "section", "topic")
+                   if not (isinstance(v, dict) and v.get(k))]
+        if missing:
+            raise ValueError(f"manifest entry {sid!r} missing {missing}")
+    mc = m.get("exam_code")
+    if expected_exam_code and mc != expected_exam_code:
+        raise ValueError(
+            "HARD STOP: manifest exam_code %r does not match this project's "
+            "exam_code %r — the wrong exam's %s is in project Files."
+            % (mc, expected_exam_code, os.path.basename(str(path))))
+    return m
+
+
+def taxonomy_ref_for(manifest_path):
+    """The {path, sha256, subtopics, generated} reference embedded in the
+    blueprint + registry — the same staleness idiom as bank_ref. sha256 is over
+    the manifest bytes on disk, so a re-uploaded/re-generated manifest is
+    detectable (verify_taxonomy_ref) and flips units STALE at NB §7."""
+    m = load_subtopic_manifest(manifest_path)
+    return {"path": manifest_path, "sha256": file_sha256(manifest_path),
+            "subtopics": len(m["subtopics"]), "generated": _now()}
+
+
+def verify_taxonomy_ref(manifest_path, taxonomy_ref):
+    """Mirror of verify_bank_ref for the subtopic manifest. Returns (ok, detail).
+    A blueprint/registry with no taxonomy_ref predates the taxonomy-consumer
+    architecture and must be rebuilt at NB. A sha256 mismatch means the manifest
+    on disk is not the one the blueprint was built from."""
+    if not taxonomy_ref or not taxonomy_ref.get("sha256"):
+        return (False, "no taxonomy_ref — rebuild at NB (the blueprint predates "
+                       "the taxonomy-consumer architecture).")
+    if not os.path.exists(manifest_path):
+        return (False, f"subtopic manifest not found at {manifest_path}.")
+    actual = file_sha256(manifest_path)
+    if actual != taxonomy_ref["sha256"]:
+        return (False, "STALE TAXONOMY: the blueprint was built from manifest "
+                f"sha256 {taxonomy_ref['sha256'][:12]}… but the manifest on disk "
+                f"is {actual[:12]}…. Re-run NB so blueprint and taxonomy agree.")
+    return (True, "taxonomy_ref matches the manifest on disk.")
+
+
+def sid_slug(sid):
+    """The sid's final dot-component — the filesystem-safe subtopic slug used
+    as the F-1 filename slug (S/T/ST numbers already encode section + topic)."""
+    return str(sid).rsplit(".", 1)[-1]
+
+
+def assign_numbering(manifest, prior=None):
+    """Derive per-sid S/T/ST numbers from MANIFEST ROW ORDER, preserving any
+    prior assignment VERBATIM (persisted numbering, owner decision 2026-08-10):
+    a Step-5 re-run that inserts or reorders subtopics never renumbers an
+    already-assigned unit — delivered filenames and printed title numbers stay
+    stable. New sections/topics/subtopics take the next free number in their
+    scope. prior: {sid: {"s_no","t_no","st_no"}} (a prior registry's map; sids
+    no longer in the manifest keep their numbers and are the caller's ORPHANED
+    report). Returns {sid: {"s_no","t_no","st_no"}} covering the union."""
+    subs = manifest["subtopics"]
+    out = {}
+    sec_no, top_no, st_used = {}, {}, {}
+    for sid, num in (prior or {}).items():
+        s, t, st = int(num["s_no"]), int(num["t_no"]), int(num["st_no"])
+        out[sid] = {"s_no": s, "t_no": t, "st_no": st}
+        v = subs.get(sid)
+        if v:                       # anchor the section/topic numbers it proves
+            sec_no.setdefault(v["section"], s)
+            top_no.setdefault((v["section"], v["topic"]), t)
+        st_used[(s, t)] = max(st_used.get((s, t), 0), st)
+    next_sec = max(sec_no.values(), default=0)
+    next_top = {}
+    for (sec, _t), t in top_no.items():
+        next_top[sec] = max(next_top.get(sec, 0), t)
+    for sid, v in subs.items():     # manifest insertion order == taxonomy order
+        if sid in out:
+            continue
+        sec, top = v["section"], v["topic"]
+        if sec not in sec_no:
+            next_sec += 1
+            sec_no[sec] = next_sec
+        s = sec_no[sec]
+        if (sec, top) not in top_no:
+            next_top[sec] = next_top.get(sec, 0) + 1
+            top_no[(sec, top)] = next_top[sec]
+        t = top_no[(sec, top)]
+        st_used[(s, t)] = st_used.get((s, t), 0) + 1
+        out[sid] = {"s_no": s, "t_no": t, "st_no": st_used[(s, t)]}
+    return out
+
+
+def resolve_unit(units_by_sid, operator_input):
+    """Three-tier operator-input resolution (shared by NC/NA/ND; the operator
+    copies a cell from [ExamCode]_taxonomy.xlsx — Sub Topic Id, a
+    'Subject::Topic::Sub Topic Name' scope, or the bare Sub Topic Name).
+    units_by_sid: {sid: {..., 'name'/'display_name', 'section', 'topic'}}.
+    Returns {'status': 'ok'|'ambiguous'|'none', 'sid', 'via', 'matches',
+    'suggestions', 'detail'}. NEVER fuzzy-picks: multiple bare-name hits are
+    returned for the operator to choose; zero hits return nearest-name
+    suggestions and stop."""
+    def _name(u):
+        return u.get("display_name") or u.get("name") or ""
+    n = syllabus_provenance.norm
+    t = str(operator_input or "").strip().strip('"').strip("'").strip()
+    if not t:
+        return {"status": "none", "sid": None, "via": None, "matches": [],
+                "suggestions": [], "detail": "empty unit reference"}
+    if t in units_by_sid:
+        return {"status": "ok", "sid": t, "via": "sid", "matches": [t],
+                "suggestions": [], "detail": "exact Sub Topic Id"}
+    if "::" in t:
+        parts = [p.strip() for p in t.split("::")]
+        if len(parts) != 3:
+            return {"status": "none", "sid": None, "via": "scope", "matches": [],
+                    "suggestions": [],
+                    "detail": "a scope must be Subject::Topic::Sub Topic Name "
+                              "(3 parts) — got %d part(s)" % len(parts)}
+        want = tuple(n(p) for p in parts)
+        hits = [sid for sid, u in units_by_sid.items()
+                if (n(u.get("section")), n(u.get("topic")), n(_name(u))) == want]
+        if len(hits) == 1:
+            return {"status": "ok", "sid": hits[0], "via": "scope",
+                    "matches": hits, "suggestions": [], "detail": "scope match"}
+        return {"status": "ambiguous" if hits else "none", "sid": None,
+                "via": "scope", "matches": hits, "suggestions": [],
+                "detail": "scope matched %d unit(s)" % len(hits)}
+    want = n(t)
+    hits = [sid for sid, u in units_by_sid.items() if n(_name(u)) == want]
+    if len(hits) == 1:
+        return {"status": "ok", "sid": hits[0], "via": "name", "matches": hits,
+                "suggestions": [], "detail": "unique Sub Topic Name"}
+    if hits:
+        return {"status": "ambiguous", "sid": None, "via": "name",
+                "matches": hits, "suggestions": [],
+                "detail": "Sub Topic Name matches %d units — re-trigger with "
+                          "the Subject::Topic::Sub Topic Name scope or the "
+                          "Sub Topic Id" % len(hits)}
+    sugg = [sid for sid, u in units_by_sid.items()
+            if want and (want in n(_name(u)) or n(_name(u)) in want)][:5]
+    return {"status": "none", "sid": None, "via": "name", "matches": [],
+            "suggestions": sugg,
+            "detail": "no unit named %r — copy the exact Sub Topic Name (or "
+                      "Sub Topic Id) from [ExamCode]_taxonomy.xlsx" % t}
 
 
 # ---------------------------------------------------------------- docx text
@@ -922,6 +1138,140 @@ def self_test():
         check("duplicate bank_id rejected", False)
     except ValueError:
         check("duplicate bank_id rejected", True)
+
+    # ---- v2.0 taxonomy consumer ------------------------------------------
+    _man = {"exam_code": "EXBT", "subtopics": {
+        "gb.cell.membranes": {"display_name": "Membrane Structure and Function",
+                              "section": "General Biology", "topic": "Cell"},
+        "gb.cell.signalling": {"display_name": "Cell Signalling - Endocrine and "
+                               "Paracrine Pathways",
+                               "section": "General Biology", "topic": "Cell"},
+        "gb.genetics.linkage": {"display_name": "Linkage and Mapping",
+                                "section": "General Biology",
+                                "topic": "Genetics"},
+        "ch.bonding.vsepr": {"display_name": "VSEPR Theory",
+                             "section": "Chemistry (10+2+3 level)",
+                             "topic": "Bonding"}}}
+    mp = tempfile.mktemp(suffix=".json")
+    _json.dump(_man, open(mp, "w", encoding="utf-8"))
+    check("manifest loads with matching exam_code",
+          load_subtopic_manifest(mp, "EXBT")["exam_code"] == "EXBT")
+    try:
+        load_subtopic_manifest(mp, "OTHER_EXAM")
+        check("manifest exam_code mismatch hard-stops", False)
+    except ValueError as e:
+        check("manifest exam_code mismatch hard-stops", "OTHER_EXAM" in str(e))
+    bad = tempfile.mktemp(suffix=".json")
+    _json.dump({"exam_code": "EXBT", "subtopics": {"x": {"section": "S"}}},
+               open(bad, "w"))
+    try:
+        load_subtopic_manifest(bad)
+        check("manifest entry missing fields hard-stops", False)
+    except ValueError:
+        check("manifest entry missing fields hard-stops", True)
+
+    ref2 = taxonomy_ref_for(mp)
+    check("taxonomy_ref_for yields sha+count",
+          len(ref2["sha256"]) == 64 and ref2["subtopics"] == 4)
+    check("verify_taxonomy_ref matches", verify_taxonomy_ref(mp, ref2)[0] is True)
+    with open(mp, "a", encoding="utf-8") as _f:
+        _f.write(" ")
+    check("verify_taxonomy_ref detects a changed manifest",
+          verify_taxonomy_ref(mp, ref2)[0] is False)
+    check("verify_taxonomy_ref flags a missing ref",
+          verify_taxonomy_ref(mp, None)[0] is False)
+
+    check("sid_slug takes final component",
+          sid_slug("gb.cell.membranes") == "membranes"
+          and sid_slug("plainslug") == "plainslug")
+
+    num = assign_numbering(_man)
+    check("numbering from manifest order",
+          num["gb.cell.membranes"] == {"s_no": 1, "t_no": 1, "st_no": 1}
+          and num["gb.cell.signalling"] == {"s_no": 1, "t_no": 1, "st_no": 2}
+          and num["gb.genetics.linkage"] == {"s_no": 1, "t_no": 2, "st_no": 1}
+          and num["ch.bonding.vsepr"] == {"s_no": 2, "t_no": 1, "st_no": 1})
+    # persistence: an INSERTED subtopic must not renumber existing units, and a
+    # sid removed from the manifest keeps its number (caller's ORPHANED report)
+    _man2 = {"exam_code": "EXBT", "subtopics": {}}
+    _man2["subtopics"]["gb.cell.transport"] = {
+        "display_name": "Membrane Transport", "section": "General Biology",
+        "topic": "Cell"}                       # inserted FIRST in row order
+    for k, v in _man["subtopics"].items():
+        if k != "gb.genetics.linkage":         # linkage removed upstream
+            _man2["subtopics"][k] = v
+    num2 = assign_numbering(_man2, prior=num)
+    check("prior numbering preserved verbatim",
+          all(num2[k] == num[k] for k in num))
+    check("inserted sid appends, never renumbers",
+          num2["gb.cell.transport"] == {"s_no": 1, "t_no": 1, "st_no": 3})
+    check("removed sid keeps its number (orphan)",
+          num2["gb.genetics.linkage"] == num["gb.genetics.linkage"])
+    # collision safety under the harshest re-run: an ENTIRE prior section is
+    # orphaned and a NEW section arrives. Even if the numeric s is reused, the
+    # (s,t,st) TRIPLE can never collide, because st_used is seeded from EVERY
+    # prior assignment (unconditionally), so new STs continue after orphans.
+    _man3 = {"exam_code": "EXBT", "subtopics": {
+        k: v for k, v in _man["subtopics"].items() if not k.startswith("ch.")}}
+    _man3["subtopics"]["ph.mech.kinematics"] = {
+        "display_name": "Kinematics", "section": "Physics", "topic": "Mechanics"}
+    num3 = assign_numbering(_man3, prior=num)
+    trips = [(v["s_no"], v["t_no"], v["st_no"]) for v in num3.values()]
+    check("orphaned-section re-run: all (s,t,st) triples unique",
+          len(trips) == len(set(trips)))
+    check("orphaned section keeps numbers; new section STs never collide",
+          num3["ch.bonding.vsepr"] == num["ch.bonding.vsepr"]
+          and num3["ph.mech.kinematics"]["st_no"]
+          > num["ch.bonding.vsepr"]["st_no"] - 1)
+
+    units_ix = {sid: dict(_man["subtopics"][sid],
+                          name=_man["subtopics"][sid]["display_name"])
+                for sid in _man["subtopics"]}
+    r = resolve_unit(units_ix, "gb.cell.membranes")
+    check("resolve: exact sid", r["status"] == "ok" and r["via"] == "sid")
+    r = resolve_unit(units_ix, "General Biology::Cell::Membrane Structure and Function")
+    check("resolve: 3-part scope", r["status"] == "ok"
+          and r["sid"] == "gb.cell.membranes")
+    r = resolve_unit(units_ix, "membrane structure & function")
+    check("resolve: bare name, norm (& vs and, case)",
+          r["status"] == "ok" and r["sid"] == "gb.cell.membranes")
+    r = resolve_unit(units_ix,
+                     "Cell Signalling \u2013 Endocrine and Paracrine Pathways")
+    check("resolve: bare name, en-dash vs hyphen",
+          r["status"] == "ok" and r["sid"] == "gb.cell.signalling")
+    dup = dict(units_ix)
+    dup["ch.misc.linkage"] = {"display_name": "Linkage and Mapping",
+                              "section": "Chemistry (10+2+3 level)",
+                              "topic": "Misc", "name": "Linkage and Mapping"}
+    r = resolve_unit(dup, "Linkage and Mapping")
+    check("resolve: duplicate bare name -> ambiguous with both candidates",
+          r["status"] == "ambiguous" and sorted(r["matches"])
+          == ["ch.misc.linkage", "gb.genetics.linkage"])
+    r = resolve_unit(dup, "Chemistry (10+2+3 level)::Misc::Linkage and Mapping")
+    check("resolve: scope disambiguates the duplicate",
+          r["status"] == "ok" and r["sid"] == "ch.misc.linkage")
+    r = resolve_unit(units_ix, "Membrane")
+    check("resolve: typo/partial -> none with suggestions, never auto-picked",
+          r["status"] == "none" and "gb.cell.membranes" in r["suggestions"])
+    r = resolve_unit(units_ix, "Cell::Membrane Structure and Function")
+    check("resolve: 2-part scope refused with guidance",
+          r["status"] == "none" and "3 parts" in r["detail"])
+
+    # registry v2: sid keying + taxonomy_ref carried + 1.x load unaffected
+    reg2 = registry_init("EXBT", "h", "G", [
+        {"sid": "gb.cell.membranes", "unit_code": "EXBT_S1_T1_ST01",
+         "name": "Membrane Structure and Function", "section": "General Biology",
+         "topic": "Cell", "slug": "membranes", "role": "PYQ_WEIGHTED",
+         "tier": "TIER-2", "pyq_count": 5}], taxonomy_ref=ref2)
+    check("registry v2 keys by sid and carries taxonomy_ref",
+          "gb.cell.membranes" in reg2["units"]
+          and reg2["units"]["gb.cell.membranes"]["unit_code"] == "EXBT_S1_T1_ST01"
+          and reg2["taxonomy_ref"]["sha256"] == ref2["sha256"])
+    check("1.x registry load gains v2 defaults",
+          reg["units"]["U"]["sid"] is None
+          and reg["units"]["U"]["unit_code"] == "U")
+    check("blueprint 1.0 migrate gains taxonomy_ref default",
+          bp["taxonomy_ref"] is None and bp["units"][0]["sid"] is None)
 
     print(f"notes_core self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
