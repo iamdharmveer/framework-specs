@@ -1,5 +1,81 @@
 # Changelog
 
+## 2026.08.10.4
+
+### Registry question_index is now FK-enforced by an engine (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT)
+Registry `subtopic_id` values are Step 11's JOIN key, but they were committed by
+session-executed code with no engine-enforced validation: the only FK check
+(spec-inline G-QINDEX) is itself session-executed and unverifiable, and
+`audit_canonical.py` — the only enforcement whose exit code is durably logged —
+never looked at `question_index`. On a 15-mock reference corpus, 3 sessions
+persisted invented (paraphrased) ids while truthfully logging clean audits, and a
+4th mock's entry was lost by a later registry write. All four detonated at Step 11.
+
+- `Framework_MockTestCreate.md` v5.47.3 -> v5.48.0 — S13-4 copy-by-reference + FK
+  hard stop + section/subtopic display names + `qindex_cert` provenance stamp;
+  S13-4c re-sweep arms A-QINDEX (`--registry --blueprint --mockN`) and hard-stops
+  on a nonzero exit, PLUS a stale-copy tripwire (below).
+- `Framework_MockTestExplain.md` v1.22 -> v1.23 — mandatory preflight P10 registry-FK
+  tripwire: hard stop for this mock, loud WARN for ledger gaps on other papers.
+- `Framework_MockDeliver.md` v1.11.0 -> v1.12.0 — S1-2 ledger<->index integrity check
+  (Class-A "REGISTRY DATA LOSS"); S1-3 collect-then-classify remediation report
+  (W1 ready-to-apply / W2 confirm / D human decision); misleading "same run" message retired.
+- `audit_canonical.py` — new engine gate A-QINDEX, armed by `--registry + --blueprint
+  + --mockN`, dormant-but-reported otherwise.
+- `paper_pipeline.py` — new pure helpers `validate_question_index`,
+  `registry_integrity_check`, `classify_unresolved`, `subtopic_set_hash`.
+
+### Added during deployment review
+Both engines arrived with NO new self-test fixtures — 229/229 and 51/51, the exact
+pre-change counts. A-QINDEX's exit code IS the enforcement, and every one of the 229
+existing fixtures reaches it through `_src_stub`, whose registry and blueprint are
+`{}`, so all of them exercised the DORMANT branch and none the armed one. The
+behavioural runs against the defective corpus were done by hand and could not re-run.
+They are now permanent:
+- `audit_canonical` 229 -> 240: armed clean / invented id / lost entry / short count /
+  duplicate q / bad difficulty, dormancy-stays-OK, and two WIRING fixtures asserting
+  the gate is reachable from `run_audit` (every other fixture calls `gate_qindex`
+  directly and would stay green if it were never added to the gate list —
+  GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING).
+- `paper_pipeline` 51 -> 68: the four helpers across their real-world split, including
+  W1/W2/D classification and the order-independence of the set hash.
+- A-QINDEX-PARITY / QINDEX-PARITY in BOTH suites. `gate_qindex` is a deliberate second
+  implementation of `validate_question_index` (its docstring pins the reason: the
+  per-exam copy must gain no new import). The deploy note described it as "ONE
+  implementation, imported by Step 7", which it is not. Deliberate duplication is safe
+  only while the pair is asserted equal — the same posture LABEL-PARITY already takes
+  for `option_label_family`, one release after the filename sweep closed this class.
+
+P10 COVERAGE GAP (found by differential testing the duplicate implementations). P10 as
+supplied checked entry-exists / count / FK / difficulty but NOT q-set coverage, so an index
+carrying q=[1,1] has the right LENGTH, passes P10, and is certified clean — while both
+engine copies FAIL it (A-QINDEX/3). Step 9 would then spend the whole Explain effort on a
+paper whose q=2 has no entry, and Step 11's JOIN would refuse it: the exact outcome P10
+exists to prevent. Added P10/2b (sorted, unique, exactly 1..total_questions). All three
+implementations now agree across an 8-case matrix including gap and out-of-order q sets.
+
+STALE-COPY TRIPWIRE (S13-4c). `[ExamCode]_mock_test_audit.py` is a Step-6-delivered
+copy in the PROJECT; a push to production does not refresh it. A pre-v5.48 copy already
+accepts `--registry/--blueprint/--mockN` (they predate this release), so it consumes all
+three flags, prints NO A-QINDEX line, and exits 0 — and the returncode check reads that
+as a clean FK certification for a gate that never ran. S13-4c now requires the A-QINDEX
+line to be present in real STDOUT; its absence is a hard stop naming the refresh action.
+Verified against both binaries: old engine rc=0 with no line, new engine prints it.
+
+### Also in this release (the ten waves sealed since 2026.08.10.3)
+- Notes pipeline taxonomy consumer: `Framework_NotesBlueprint` v3.0.0 -> v3.0.2 makes the
+  Step-5 `[ExamCode]_subtopic_manifest.json` the single source of Notes unit identity
+  (sid-keyed registry/blueprint, `taxonomy_ref` staleness link, ORPHANED + BANK-MATCH
+  reports, MIGRATION block), and adds `notes_blueprint.verify_manifest` — a reproducible
+  `--verify-manifest` preflight that replaces an unverifiable changelog claim.
+- Single-authority filename contract: `Framework_NotesCreate` v2.2.1 makes
+  `notes_core.notes_filename` the sole authority (F-1 previously restated the recipe in
+  prose and disagreed with the engine on any non-alphanumeric slug); NA/ND/NB follow.
+  `notes_core` v2.1 adds a two-half SPEC-LOCK — forward pins for engine drift, and a
+  reverse half that reads the spec text, which is the direction that produced the defect.
+- Notes cross-chat handoff specified for NC/NA/ND; delivery-footer contract honoured;
+  subtopic-key drift class closed at the reader; BATCH STOP law added to NB §3A.
+
 ## 2026.08.10.3
 
 ### Math-integrity gate — an uncompilable math region can no longer degrade silently

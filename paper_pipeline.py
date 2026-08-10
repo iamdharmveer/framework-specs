@@ -448,6 +448,93 @@ def _self_test():
     ck_call('LABELFMT-template-always-has-text-placeholder',
             lambda: all('{text}' in resolve_option_label(_x)[0] for _x in _SUPPORTED))
 
+    # ── GAP-2026-08-10-QINDEX-FK-ENFORCEMENT — the four §9 helpers ────────────
+    # These shipped with NO fixture at all: the release's own note recorded
+    # "51/51 PASS", the pre-change count, so four new functions gating three
+    # steps were added without moving the suite by one. The behavioural runs
+    # against the defective corpus were done by hand and cannot re-run. What
+    # follows is those runs, made permanent.
+    _QBP = {'total_questions': 2, 'mocks': [{'mock': 1, 'paper_id': 'MOCK:M01'}],
+            'subtopic_list': [{'subtopic_id': 'PHY.MECH.NEWTON'},
+                              {'subtopic_id': 'PHY.MECH.WORK'}],
+            'difficulty_labels': ['Easy', 'Medium', 'Hard']}
+    _QCLEAN = [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy'},
+               {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard'}]
+
+    def _qreg(qs):
+        return {'question_index': [{'paper_id': 'MOCK:M01', 'questions': qs}]}
+
+    def _qok(qs):
+        return validate_question_index(_qreg(qs), _QBP, mock_n=1)[0]
+
+    ck('QINDEX-clean-certifies', _qok(_QCLEAN))
+    # THE DEFECT: three reference sessions persisted a PARAPHRASED subtopic_id
+    # (the blueprint string retyped rather than copied) and logged clean audits.
+    ck('QINDEX-invented-id-fails',
+       not _qok([_QCLEAN[0], {'q': 2, 'subtopic_id': 'Physics.Mechanics.Work',
+                              'difficulty': 'Hard'}]))
+    ck_call('QINDEX-invented-id-names-the-question',
+            lambda: validate_question_index(
+                _qreg([_QCLEAN[0], {'q': 2, 'subtopic_id': 'Physics.Mechanics.Work',
+                                    'difficulty': 'Hard'}]),
+                _QBP, mock_n=1)[1]['bad_ids'] == {2: 'Physics.Mechanics.Work'})
+    ck('QINDEX-short-count-fails', not _qok(_QCLEAN[:1]))
+    ck('QINDEX-duplicate-q-fails',
+       not _qok([_QCLEAN[0], {'q': 1, 'subtopic_id': 'PHY.MECH.WORK',
+                              'difficulty': 'Hard'}]))
+    ck('QINDEX-bad-difficulty-fails',
+       not _qok([_QCLEAN[0], {'q': 2, 'subtopic_id': 'PHY.MECH.WORK',
+                              'difficulty': 'Tough'}]))
+    # the 4th defective mock: a later registry write dropped the whole entry
+    ck_call('QINDEX-lost-entry-fails-and-flags-entry_missing',
+            lambda: (lambda r: r[0] is False and r[1]['entry_missing'] is True)(
+                validate_question_index({'question_index': []}, _QBP, mock_n=1)))
+    ck('QINDEX-needs-a-paper-selector',
+       not validate_question_index(_qreg(_QCLEAN), _QBP)[0])
+
+    # registry_integrity_check — ledger claims complete, index data gone (Class A)
+    ck_call('QINDEX-integrity-names-the-lost-paper',
+            lambda: registry_integrity_check(
+                {'papers_completed': ['MOCK:M01', 'MOCK:M12'],
+                 'question_index': [{'paper_id': 'MOCK:M01', 'questions': []}]})
+            == (False, {'missing_index': ['MOCK:M12'], 'orphan_index': []}))
+    ck_call('QINDEX-integrity-orphan-is-advisory-not-fatal',
+            lambda: (lambda r: r[0] is True and r[1]['orphan_index'] == ['MOCK:M09'])(
+                registry_integrity_check(
+                    {'papers_completed': [],
+                     'question_index': [{'paper_id': 'MOCK:M09', 'questions': []}]})))
+    ck_call('QINDEX-integrity-legacy-mocks_completed-counted',
+            lambda: registry_integrity_check(
+                {'mocks_completed': [3], 'question_index': []})[1]['missing_index']
+            == ['MOCK:M03'])
+
+    # classify_unresolved — W1 deterministic / D human / W2 confirm
+    _CBP = {'subtopic_list': [{'subtopic_id': 'PHY.MECH.WORK'},
+                              {'subtopic_id': 'CHEM.THERMO.WORK'},
+                              {'subtopic_id': 'PHY.MECH.NEWTON'}]}
+    _cls = classify_unresolved({1: 'Physics.Mechanics.NEWTON', 2: 'X.Y.WORK',
+                                3: 'PHY.MECH.ENERGYY'}, _CBP)
+    ck('QINDEX-classify-W1-unique-leaf',
+       _cls[1]['cls'] == 'W1' and _cls[1]['targets'] == ['PHY.MECH.NEWTON'])
+    ck('QINDEX-classify-D-ambiguous-leaf',
+       _cls[2]['cls'] == 'D' and len(_cls[2]['targets']) == 2)
+    ck('QINDEX-classify-W2-reworded-leaf', _cls[3]['cls'] == 'W2')
+
+    # subtopic_set_hash — a SET stamp: order must not matter, membership must
+    ck('QINDEX-hash-order-independent',
+       subtopic_set_hash(_QBP)
+       == subtopic_set_hash({'subtopic_list': list(reversed(_QBP['subtopic_list']))}))
+    ck('QINDEX-hash-changes-on-membership',
+       subtopic_set_hash(_QBP)
+       != subtopic_set_hash({'subtopic_list': [{'subtopic_id': 'PHY.MECH.NEWTON'}]}))
+
+    # QINDEX PARITY lives in audit_canonical's suite ONLY, not here. The pair
+    # gate_qindex <-> validate_question_index must be asserted equal, but
+    # paper_pipeline is a THIN CORE (CHECK AB): stdlib imports only, so it may
+    # never import the auditor. This is the same asymmetry LABEL-PARITY already
+    # uses — the auditor imports the core, never the reverse. One red suite on
+    # divergence is the requirement; two would cost thin-core purity.
+
     # v5.38 (GAP-2026-08-03-BANNER) — THE BANNER IS THE LAST THING COMPUTED.
     # It previously sat mid-function, so the 13 LABELFMT fixtures appended after
     # it ran OUTSIDE the count: reintroducing THIS release's own defect printed a
@@ -586,6 +673,107 @@ def resolve_option_label(fmt):
             f"('1/2/3/4', 'A/B/C/D', 'a/b/c/d', 'i/ii/iii/iv', 'I/II/III/IV', or "
             f"those in round brackets) — this is NEVER guessed at.")
     return (template, _tok_family)
+
+
+# ── 9. question_index FK validation + registry ledger integrity (v2026.08.10 —
+#       GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). ONE implementation, imported by
+#       Step 7 (via audit_canonical gate A-QINDEX), Step 9 (P10 tripwire) and
+#       Step 11 (S1-2/S1-3). Pure: data in, data out. ─────────────────────────
+def subtopic_set_hash(blueprint):
+    """Stable hash of the blueprint's subtopic_id set (provenance stamp)."""
+    import hashlib
+    ids = sorted(s.get('subtopic_id') or '' for s in blueprint.get('subtopic_list', []))
+    return hashlib.sha256('\n'.join(ids).encode('utf-8')).hexdigest()[:16]
+
+
+def validate_question_index(registry, blueprint, mock_n=None, paper_id=None):
+    """FK-validate one paper's question_index against the blueprint.
+    Returns (ok: bool, report: dict). report['fails'] lists every violation;
+    report['bad_ids'] maps q -> offending subtopic_id for classifier use.
+    Never raises; callers decide HARD STOP vs WARN."""
+    fails, bad_ids = [], {}
+    if paper_id is None:
+        if mock_n is None:
+            return False, {'fails': ['validate_question_index: need mock_n or paper_id'],
+                           'bad_ids': {}}
+        _tp = next((mk for mk in blueprint.get('mocks', [])
+                    if mk.get('mock') == mock_n), None)
+        paper_id = (_tp or {}).get('paper_id', f"MOCK:M{int(mock_n):02d}")
+    entry = next((e for e in registry.get('question_index', [])
+                  if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == paper_id), None)
+    if entry is None:
+        return False, {'fails': [f'A-QINDEX/1: no question_index entry for {paper_id}'],
+                       'bad_ids': {}, 'paper_id': paper_id, 'entry_missing': True}
+    qs = entry.get('questions', [])
+    tq = blueprint.get('total_questions')
+    if tq is not None and len(qs) != tq:
+        fails.append(f'A-QINDEX/2: {len(qs)} entries != total_questions {tq}')
+    qn = [x.get('q') for x in qs]
+    if tq is not None and (qn != sorted(qn) or len(set(qn)) != len(qn)
+                           or set(qn) != set(range(1, tq + 1))):
+        fails.append(f'A-QINDEX/3: q set != 1..{tq} (sorted/unique/complete)')
+    sub_ids = {s.get('subtopic_id') for s in blueprint.get('subtopic_list', [])}
+    for x in qs:
+        sid = x.get('subtopic_id')
+        if sid not in sub_ids:
+            bad_ids[int(x.get('q', -1))] = sid
+    if bad_ids:
+        fails.append('A-QINDEX/4: subtopic_id(s) not in blueprint.subtopic_list: '
+                     + '; '.join(f"Q{q}={bad_ids[q]!r}" for q in sorted(bad_ids)))
+    canon = blueprint.get('difficulty_labels', ['Easy', 'Medium', 'Hard'])
+    bad_d = sorted({x.get('difficulty') for x in qs if x.get('difficulty') not in canon})
+    if bad_d:
+        fails.append(f'A-QINDEX/5: difficulty value(s) not in {canon}: {bad_d}')
+    return (not fails), {'fails': fails, 'bad_ids': bad_ids, 'paper_id': paper_id,
+                         'entry_missing': False}
+
+
+def registry_integrity_check(registry):
+    """Ledger <-> index agreement (closes the lost-question_index class, e.g. a
+    completed mock whose per-question data was dropped by a later write).
+    Invariant: every paper the ledgers claim complete has a question_index
+    entry, and every question_index entry is claimed complete.
+    Returns (ok, report) with report['missing_index'] / report['orphan_index']."""
+    claimed = set(registry.get('papers_completed') or [])
+    for m in registry.get('mocks_completed') or []:
+        try:
+            claimed.add(f"MOCK:M{int(m):02d}")
+        except (TypeError, ValueError):
+            pass
+    have = {e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}")
+            for e in registry.get('question_index', [])}
+    missing = sorted(claimed - have)   # completed but data lost  -> Class A
+    orphan  = sorted(have - claimed)   # data present, never claimed complete
+    ok = not missing                    # orphans are advisory, never fatal
+    return ok, {'missing_index': missing, 'orphan_index': orphan}
+
+
+def classify_unresolved(bad_ids, blueprint):
+    """Classify stale registry subtopic_ids for remediation (Step 11 S1-3).
+    bad_ids: {q: stale_id}. Returns {q: {'stale', 'cls', 'targets'}} where cls is
+      'W1' stale leaf exists on exactly ONE current subtopic  -> deterministic patch
+      'W2' leaf reworded (no verbatim leaf)                   -> confirm candidates
+      'D'  leaf exists on MULTIPLE current subtopics          -> human decision
+    Pure; suggestion only — callers must never auto-apply W2/D."""
+    import difflib
+    by_leaf = {}
+    all_ids = []
+    for s in blueprint.get('subtopic_list', []):
+        sid = s.get('subtopic_id') or ''
+        all_ids.append(sid)
+        by_leaf.setdefault(sid.rsplit('.', 1)[-1], []).append(sid)
+    out = {}
+    for q, stale in bad_ids.items():
+        leaf = (stale or '').rsplit('.', 1)[-1]
+        tgts = by_leaf.get(leaf, [])
+        if len(tgts) == 1:
+            out[q] = {'stale': stale, 'cls': 'W1', 'targets': tgts}
+        elif len(tgts) > 1:
+            out[q] = {'stale': stale, 'cls': 'D', 'targets': sorted(tgts)}
+        else:
+            cand = difflib.get_close_matches(stale or '', all_ids, n=3, cutoff=0.5)
+            out[q] = {'stale': stale, 'cls': 'W2', 'targets': cand}
+    return out
 
 
 if __name__ == '__main__':

@@ -15,11 +15,11 @@
       "version_header": "# Framework_DeliveryFooter v1.19 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
-      "end_sentinel": "# END OF Framework_MockDeliver v1.11.0",
-      "lines": 1763,
-      "sha256": "efd8c0879efa01ecef93c6466bd785ed71d655dc2d2d7154c18a4d887134858c",
-      "size_bytes": 86411,
-      "version_header": "# Framework_MockDeliver v1.11.0 — Universal Mock Test Tagger & Delivery Engine"
+      "end_sentinel": "# END OF Framework_MockDeliver v1.12.0",
+      "lines": 1833,
+      "sha256": "f62343e23ff4921f3b41236883d0ab98185130143630c10204a5175a1bc223c8",
+      "size_bytes": 91082,
+      "version_header": "# Framework_MockDeliver v1.12.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.46.0",
@@ -30,17 +30,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7732,
-      "sha256": "95d390300124510543c6f7195bb460322cde6b0d6bfce186e894f027be958e9a",
-      "size_bytes": 477883,
-      "version_header": "# Framework_MockTestCreate v5.47.3"
+      "lines": 7834,
+      "sha256": "7ecd4984dd5cdce45fb0ecd737915de01e5710f7a0fc2958ea80ff5f30fad056",
+      "size_bytes": 485104,
+      "version_header": "# Framework_MockTestCreate v5.48.0"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1552,
-      "sha256": "4ad6ef4192a379bd21808af40d4ce35a5e217694520df7baae194ad65a1ee10b",
-      "size_bytes": 122482,
-      "version_header": "# Framework_MockTestExplain v1.22"
+      "lines": 1638,
+      "sha256": "621c294702ff1f4d74f6823653b030901477db87663988c3920d05a3bd53f05b",
+      "size_bytes": 128244,
+      "version_header": "# Framework_MockTestExplain v1.23"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v2.0.6",
@@ -170,9 +170,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 6869,
-      "sha256": "3f58fb969da6c019bb4c05658d35faa8fd5bcd7785ad27e487b2ada8e9ae5656",
-      "size_bytes": 377661,
+      "lines": 7028,
+      "sha256": "dedc22d337f8c1c07ea84764ff38c16ff96cd3e0f985a246284c1593e037949f",
+      "size_bytes": 386581,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -310,9 +310,9 @@
     },
     "paper_pipeline.py": {
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 593,
-      "sha256": "f27b59d590f81789847ad55fb10a0455b8c9a3d9574b09bb1cf35ae8842015cf",
-      "size_bytes": 31479,
+      "lines": 781,
+      "sha256": "b936c8e605b39a47c120b0b6de27cbd09354694f6dc75040f70207d3e48128b4",
+      "size_bytes": 41913,
       "version_header": "\"\"\""
     },
     "reconcile_taxonomy.py": {

@@ -1,4 +1,35 @@
-# Framework_MockTestCreate v5.47.3
+# Framework_MockTestCreate v5.48.0
+# v5.48.0 — 2026-08-10 — QINDEX FK ENFORCEMENT MOVED INTO THE ENGINE
+#   (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). ROOT CAUSE, proven on a 15-mock
+#   reference corpus: registry.question_index subtopic_ids are captured at
+#   S7-NEW-A and committed at S13-4 by SESSION-EXECUTED code; the only FK check
+#   (spec-inline G-QINDEX) is likewise session-executed and its execution is
+#   unverifiable. Three of fifteen sessions persisted INVENTED subtopic_ids
+#   (semantically plausible paraphrases of blueprint ids — e.g. a re-typed
+#   section slug, a synonym leaf) while truthfully logging audit exit_0/SHIP,
+#   because audit_canonical.py — the ONLY enforcement whose exit code is
+#   durably logged — never validated question_index at all. The bad ids then
+#   hard-stopped Step 11's JOIN, four pipeline steps too late. WHAT CHANGED:
+#   (1) S13-4: _qi is now built by JOINING concept_map to blueprint.subtopic_list
+#       — the committed subtopic_id is the BLUEPRINT'S OWN STRING (copy-by-
+#       reference, never the sidecar's re-typed value); an unjoinable id is a
+#       HARD STOP naming the Q-numbers; each row also carries section+subtopic
+#       display names (activating Step 11's S1-3 (section,subtopic) fallback,
+#       dead until now because these fields were never written); the mock entry
+#       carries a qindex_cert {blueprint_version, subtopic_set_hash} provenance
+#       stamp.
+#   (2) S13-4c: the re-sweep now passes --registry --blueprint --mockN, arming
+#       the NEW ENGINE GATE A-QINDEX (audit_canonical.py v2026.08.10): entry
+#       exists, count/coverage, every id ∈ blueprint, every difficulty ∈ labels.
+#       A FAIL is a nonzero exit handled exactly like any S13-2 FAIL —
+#       present_files forbidden until clean. A session can no longer ship a bad
+#       index while logging a clean audit: the logged exit code IS the gate.
+#   (3) S13-QINDEX (G-QINDEX) is retained unchanged as the in-session early
+#       check; A-QINDEX is its engine-enforced, exit-code-logged twin.
+#   Companion changes: audit_canonical.py (A-QINDEX), paper_pipeline.py
+#   (validate_question_index / registry_integrity_check / classify_unresolved /
+#   subtopic_set_hash), Framework_MockTestExplain v1.23 (P10 tripwire),
+#   Framework_MockDeliver v1.12.0 (ledger check + remediation classifier).
 # v5.47.3 — 2026-08-07 — ONE MASK SET, TWO CONSUMERS (review findings on v5.47.2).
 #   (1) _yearform's [A-Za-z]+ swallowed single-letter-over-year fractions
 #       (N/2000, M/1950, E/2026) — the cure was wider than the March/2026
@@ -6609,10 +6640,37 @@
   # v5.36: no later step re-syncs this object — Step 7's write is final, and Step 11's
   # tags JOIN against it directly, so an error here reaches the delivered paper.
   _cm = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json')).get('concept_map', {})
+  # v5.48.0 (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT): COPY-BY-REFERENCE. The committed
+  # subtopic_id is the BLUEPRINT ROW'S OWN string, located by exact match of the sidecar
+  # value — never the sidecar's (session-typed) string itself. An id that does not JOIN
+  # is a HARD STOP HERE, in the session that caused it: three reference sessions proved
+  # that a session can re-type a semantically-plausible id (a paraphrased section slug
+  # or synonym leaf) that only detonates at Step 11's JOIN. section/subtopic display
+  # names are also committed (they activate Step 11 S1-3's (section, subtopic) fallback,
+  # which was dead because nothing ever wrote these fields).
+  import hashlib as _hl
+  _bp_by_id = {s.get('subtopic_id'): s for s in bp.get('subtopic_list', [])}
+  _fk_bad = {qn: _cm[qn].get('subtopic_id') for qn in _cm
+             if _cm[qn].get('subtopic_id') not in _bp_by_id}
+  if _fk_bad:
+      raise SystemExit(
+          "HARD STOP (S13-4 FK, v5.48.0): concept_map subtopic_id(s) are NOT in "
+          "blueprint.subtopic_list — the capture re-typed an id instead of copying the "
+          "blueprint string: "
+          + "; ".join(f"Q{q}={_fk_bad[q]!r}" for q in sorted(_fk_bad, key=int))
+          + ". Fix the S7-NEW-A capture for these questions (assign from the blueprint "
+            "row object), rebuild concept_map, re-run S13-4. Never hand-patch the "
+            "registry to bypass this.")
   _qi = [{"q": int(qn),
-          "subtopic_id": _cm[qn].get("subtopic_id"),
+          "subtopic_id": _bp_by_id[_cm[qn]["subtopic_id"]]["subtopic_id"],  # blueprint's string
+          "section":     _bp_by_id[_cm[qn]["subtopic_id"]].get("section"),
+          "subtopic":    _bp_by_id[_cm[qn]["subtopic_id"]].get("subtopic"),
           "difficulty":  _cm[qn].get("difficulty")}
          for qn in sorted(_cm, key=int)]
+  _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
+                  "subtopic_set_hash": _hl.sha256("\n".join(sorted(
+                      s.get("subtopic_id") or "" for s in bp.get("subtopic_list", [])
+                  )).encode("utf-8")).hexdigest()[:16]}
   # C2: re-derive identity here (self-contained — bp + N are session-level, always in scope).
   import re as _re_wb
   _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
@@ -6620,7 +6678,9 @@
   registry.setdefault('question_index', [])
   registry['question_index'] = [e for e in registry['question_index']
                                 if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") != paper_id]
-  registry['question_index'].append({"mock": N, "paper_id": paper_id, "questions": _qi})
+  registry['question_index'].append({"mock": N, "paper_id": paper_id,
+                                     "qindex_cert": _qindex_cert,   # v5.48.0 provenance
+                                     "questions": _qi})
 
   # Append to BOTH ledgers: mocks_completed (legacy int) + papers_completed (generalised id).
   registry.setdefault('mocks_completed', []).append(N)
@@ -6741,6 +6801,13 @@
   home of gate G-QINDEX (definition in §12 S12-NEW-26). Governed by
   Contract_QuestionMetadataIndex v1.0; the six checks were proven in the Phase-1 harness.
 
+  v5.48.0 — G-QINDEX now has an ENGINE-ENFORCED TWIN: gate A-QINDEX in
+  audit_canonical.py, armed at the S13-4c re-sweep via --registry/--blueprint/--mockN.
+  G-QINDEX remains the in-session early check (cheapest place to catch a capture bug);
+  A-QINDEX is the enforcement of record, because its verdict is an exit code the
+  session cannot paraphrase — the reference corpus proved sessions can skip or mistype
+  inline gates while logging a clean audit. Both must pass; neither replaces the other.
+
   ```python
   from collections import Counter
   reg = json.load(open(f'/home/claude/{EXAM}_registry.json'))
@@ -6859,7 +6926,10 @@
   ```
   python3 /home/claude/[ExamCode]_mock_test_audit.py \
       /mnt/user-data/outputs/[ExamCode]_Mock[N]_Create.docx \
-      --dossier /mnt/user-data/outputs/[ExamCode]_M[N]_audit_dossier.json
+      --dossier /mnt/user-data/outputs/[ExamCode]_M[N]_audit_dossier.json \
+      --registry /home/claude/[ExamCode]_registry.json \
+      --blueprint /mnt/project/[ExamCode]_blueprint.json \
+      --mockN [N]
   ```
 
   Executed as:
@@ -6868,14 +6938,46 @@
   if AUDIT_AVAILABLE and os.path.exists(_out):
       _r = subprocess.run(
           ['python3', f'/home/claude/{EXAM}_mock_test_audit.py',
-           _docx, '--dossier', _out],
+           _docx, '--dossier', _out,
+           # v5.48.0 — arm A-QINDEX: engine-enforced FK certification of the
+           # question_index this session just committed (S13-4). The exit code
+           # below is the durably-logged verdict; a bad index can no longer
+           # coexist with a clean audit log.
+           '--registry', f'/home/claude/{EXAM}_registry.json',
+           '--blueprint', f'/mnt/project/{EXAM}_blueprint.json',
+           '--mockN', str(N)],
           capture_output=True, text=True)
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
+      if _r.returncode != 0:
+          raise SystemExit(
+              "HARD STOP (S13-4c re-sweep, v5.48.0): auditor FAILed — see STDOUT "
+              "above (A-QINDEX FK violations are listed by Q-number). Fix and "
+              "re-run; present_files is forbidden until clean (B-7).")
+      # STALE-COPY TRIPWIRE. [ExamCode]_mock_test_audit.py is a Step-6-delivered
+      # copy in the PROJECT — a push to production does NOT refresh it. A pre-
+      # v5.48 copy already accepts --registry/--blueprint/--mockN (they predate
+      # this release), so it consumes all three flags, emits NO A-QINDEX line,
+      # and exits 0. The returncode check above then reads as a clean FK
+      # certification for a gate that never ran — the exact silent-enforcement
+      # shape this release exists to close, one level up. The gate is REQUIRED
+      # to print a line in both states (armed verdict or 'dormant'), so its
+      # ABSENCE is unambiguous evidence of a stale copy, never of a pass.
+      if 'A-QINDEX' not in (_r.stdout or ''):
+          raise SystemExit(
+              f"HARD STOP (S13-4c, v5.48.0): {EXAM}_mock_test_audit.py printed no "
+              "A-QINDEX line, so it predates the FK gate and the question_index "
+              "was NOT certified — a clean exit code here would be meaningless. "
+              "Refresh the per-exam auditor (re-run Step 6 B3, or replace the "
+              "project file with the current repo audit_canonical.py verbatim "
+              "under the same [ExamCode]_ name), then re-run. present_files is "
+              "forbidden until clean (B-7).")
   ```
 
-  THIS ADDS NO NEW GATE AND NO NEW HARD STOP. It is the same auditor, the same A-*
-  catalogue, and the same paper that S13-2 already swept clean — run once more so the two
-  dossier-fed gates read facts rather than defaults. A FAIL here is handled exactly as a
+  v5.48.0: this re-sweep now ALSO arms A-QINDEX (the engine-enforced FK gate over the
+  question_index committed at S13-4) via --registry/--blueprint/--mockN, and a nonzero
+  exit here is a HARD STOP. For the dossier-fed gates it remains the same auditor, the
+  same A-* catalogue, and the same paper that S13-2 already swept clean — run once more so
+  those two gates read facts rather than defaults. A FAIL here is handled exactly as a
   FAIL in S13-2 is handled (fix, re-run, present_files forbidden until clean, B-7).
   If AUDIT_AVAILABLE is False the dossier is still written and this re-sweep is skipped,
   with the S4-11 absence note (see the audit.py requirement block at the head of this
@@ -7649,7 +7751,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.47.3
+# END OF Framework_MockTestCreate v5.48.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

@@ -1,4 +1,26 @@
-# Framework_MockDeliver v1.11.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.12.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.12.0 — 2026-08-10 — LEDGER INTEGRITY CHECK + REMEDIATION CLASSIFIER
+#   (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). Two changes, both to the FAILURE
+#   side of S1-2/S1-3 — the clean-path JOIN, the tagging pipeline, and every
+#   C-gate are byte-untouched.
+#   (1) S1-2 step 3 now ALSO runs a whole-registry ledger↔index agreement check:
+#       a paper listed in mocks_completed/papers_completed with NO question_index
+#       entry is a Class-A finding named as REGISTRY DATA LOSS (the entry was
+#       dropped by a later write), with remedy "re-run Step 7" — replacing the
+#       misleading suggestion that Step 7 was never run.
+#   (2) S1-3 build_tag_lookup now COLLECTS every unresolved question, CLASSIFIES
+#       each stale subtopic_id, and hard-stops with a per-question remediation
+#       report instead of failing on the first and printing "ensure both files
+#       are from the same run" (proven misleading: on the reference corpus both
+#       files WERE from the same run — the ids were invented at Step-7 write
+#       time). Classes: W1 = stale leaf exists on exactly ONE current subtopic
+#       (deterministic registry patch, printed ready-to-apply); W2 = leaf
+#       reworded, no verbatim match (candidate targets printed; HUMAN must
+#       confirm — never auto-applied); D = leaf matches MULTIPLE subtopics
+#       (all candidates printed; human decision). Companion to MockTestCreate
+#       v5.48.0 (S13-4 copy-by-reference + engine gate A-QINDEX) and
+#       MockTestExplain v1.23 (P10 tripwire), which together make reaching this
+#       classifier require multiple independent upstream failures.
 # v1.11.0 — 2026-08-09 — DELIVERED FILE NOW PRESERVES NATIVE OMML — the OMML→Unicode
 #   linearization (Rule 19) is RETIRED from the delivery path. ROOT CAUSE of the
 #   reported math-mutation defect: the "WHY THE RENDER-SOURCE DOCX IS SEPARATE"
@@ -267,7 +289,17 @@ Parse:
 
 3. Verify registry.json in project knowledge.
    Read: question_index — find the mock N entry.
-   If no mock N entry in question_index → HARD STOP:
+   v1.12.0 — FIRST run the ledger↔index agreement check over the WHOLE registry:
+     claimed = papers_completed ∪ {f"MOCK:M{m:02d}" for m in mocks_completed}
+     have    = {entry.paper_id for entry in question_index}
+     For every paper in claimed − have, print a named Class-A finding:
+       "REGISTRY DATA LOSS: [paper] is recorded complete in the ledger but has
+        NO question_index entry — the entry was dropped by a later registry
+        write. Its delivery will hard-stop until the paper is recreated via
+        Step 7 (the per-question data cannot be recovered)."
+   THEN, if no mock N entry in question_index → HARD STOP with the Class-A
+   finding above when mock N is in the ledger (data loss — remedy: re-run
+   Step 7 for Mock [N]); otherwise:
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
 
@@ -420,6 +452,7 @@ def build_tag_lookup(blueprint, registry, mock_n):
 
     # 5. Build the per-question lookup
     lookup = {}
+    _unresolved = {}   # v1.12.0: q -> stale id, classified after the loop
     for q_entry in qi_entry.get('questions', []):
         q = int(q_entry['q'])
         difficulty = q_entry.get('difficulty')
@@ -440,10 +473,13 @@ def build_tag_lookup(blueprint, registry, mock_n):
             if name_key[0] is not None and name_key[1] is not None:
                 st_info = st_by_name.get(name_key)
             if st_info is None:
-                raise SystemExit(
-                    f"HARD STOP: Q{q} could not be JOINed to blueprint.subtopic_list. "
-                    f"Tried subtopic_id='{sid}' and (section, subtopic)={name_key}. "
-                    f"Registry/blueprint mismatch — ensure both are from the same run.")
+                # v1.12.0: COLLECT, don't fail-fast — the operator needs the full
+                # remediation picture in one report, and the old "ensure both are
+                # from the same run" message was proven misleading (reference
+                # corpus: both files WERE from the same run; the ids were
+                # invented at Step-7 write time).
+                _unresolved[q] = sid if sid else f"(no id; name_key={name_key})"
+                continue
 
         # Validate difficulty is in the canonical set
         if difficulty not in difficulty_labels:
@@ -460,6 +496,40 @@ def build_tag_lookup(blueprint, registry, mock_n):
             'complexity': difficulty,
         }
 
+    # v1.12.0 — REMEDIATION CLASSIFIER: one hard stop carrying every unresolved
+    # question, classified, with the exact remedy per class. W1 output is a
+    # ready-to-apply registry patch line; W2/D are NEVER auto-applied.
+    if _unresolved:
+        import difflib as _dl
+        _by_leaf, _all_ids = {}, []
+        for _st in blueprint.get('subtopic_list', []):
+            _sid2 = _st.get('subtopic_id') or ''
+            _all_ids.append(_sid2)
+            _by_leaf.setdefault(_sid2.rsplit('.', 1)[-1], []).append(_sid2)
+        _lines = []
+        for _q in sorted(_unresolved):
+            _stale = _unresolved[_q]
+            _leaf = str(_stale).rsplit('.', 1)[-1]
+            _tg = _by_leaf.get(_leaf, [])
+            if len(_tg) == 1:
+                _lines.append(f"Q{_q} [W1 — deterministic]: {_stale!r}\n"
+                              f"     PATCH registry -> {_tg[0]!r}")
+            elif len(_tg) > 1:
+                _lines.append(f"Q{_q} [D — AMBIGUOUS, human decision]: {_stale!r}\n"
+                              f"     candidates: {sorted(_tg)}")
+            else:
+                _cand = _dl.get_close_matches(str(_stale), _all_ids, n=3, cutoff=0.5)
+                _lines.append(f"Q{_q} [W2 — leaf reworded, HUMAN CONFIRM]: {_stale!r}\n"
+                              f"     candidates: {_cand or '(none ≥0.5 — check taxonomy)'}")
+        raise SystemExit(
+            "HARD STOP (S1-3 JOIN, v1.12.0): " + str(len(_unresolved)) + " question(s) "
+            "carry a subtopic_id that is not in blueprint.subtopic_list. Per-question "
+            "classification and remedy:\n  " + "\n  ".join(_lines) + "\n"
+            "W1 patches are safe to apply mechanically to the registry (then replace the "
+            "project registry and re-run this step). W2/D require a human decision — "
+            "never auto-apply. If the paper's data is wrong beyond the id, recreate via "
+            "Step 7. Root-cause fix: MockTestCreate v5.48.0 S13-4/A-QINDEX prevents these "
+            "ids from ever being committed.")
     return lookup
 ```
 
@@ -1725,7 +1795,7 @@ when in position-based mode. No warning is logged; this is not a data-quality si
 
 ---
 
-*End of Framework_MockDeliver v1.11.0 (body)*
+*End of Framework_MockDeliver v1.12.0 (body)*
 
 *Four hard invariants: (1) NEVER linearize OMML — deliver native `<m:oMath>`
 byte-for-byte; the delivered docx's OMML count MUST equal the source (gates
@@ -1760,4 +1830,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.11.0
+# END OF Framework_MockDeliver v1.12.0

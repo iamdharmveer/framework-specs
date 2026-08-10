@@ -1,4 +1,19 @@
-# Framework_MockTestExplain v1.22
+# Framework_MockTestExplain v1.23
+# v1.23 — 2026-08-10 — P10 REGISTRY-FK TRIPWIRE (GAP-2026-08-10-QINDEX-FK-
+#   ENFORCEMENT). New mandatory preflight P10: before ANY solving, validate this
+#   mock's registry.question_index against the blueprint (entry exists; count/
+#   coverage; every subtopic_id byte-exact in subtopic_list; every difficulty in
+#   difficulty_labels) AND check the registry's ledger↔index agreement. WHY HERE:
+#   three reference Step-7 sessions committed invented subtopic_ids that only
+#   detonated at Step 11's JOIN — after the full Explain effort had been spent —
+#   and one paper's question_index was silently LOST by a later registry write
+#   while the completion ledger still claimed it done. P10 catches both classes
+#   BEFORE Explain effort is spent: a defective index for THIS mock is a HARD
+#   STOP with per-Q findings (remedy: fix at Step 7 / patch the registry
+#   upstream, never inside Step 9); ledger gaps for OTHER papers are a loud WARN
+#   (they do not block this mock, but must be surfaced the first time any step
+#   sees them, not at those papers' deliveries). Companion to MockTestCreate
+#   v5.48.0 (S13-4 copy-by-reference + A-QINDEX) and MockDeliver v1.12.0.
 # v1.22 — 2026-08-10 — SHARED-ENGINE MATH-INTEGRITY GATE (GAP-2026-08-10-EXPLAIN-
 #   MATH-DEGRADE-SILENT, mirrored from Framework_PYQExplain v2.4). The shared
 #   explain_engine.py now compiles every ⟦MATH:…⟧ region inside ExplanationBlock.
@@ -494,6 +509,77 @@
       or proceed to the next batch (autonomous — §MANDATE B).
 
 # ════════════════════════════════════════════════════════════════════════
+## P10 — REGISTRY-FK TRIPWIRE (v1.23 — MANDATORY, runs after P9, before any solving)
+
+  Validates the registry↔blueprint contract for THIS mock so a defective
+  question_index is caught before a single question is explained, not at Step 11.
+  Self-contained on purpose (no engine import needed at this point in the session).
+
+  ```python
+  import json as _p10_json
+  _p10_bp  = _p10_json.load(open(f'/mnt/project/{EXAM}_blueprint.json', encoding='utf-8'))
+  _p10_reg = _p10_json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))
+  _p10_tp  = next((mk for mk in _p10_bp.get('mocks', []) if mk.get('mock') == N), None)
+  _p10_pid = (_p10_tp or {}).get('paper_id', f"MOCK:M{int(N):02d}")
+  _p10_entry = next((e for e in _p10_reg.get('question_index', [])
+                     if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == _p10_pid), None)
+  _p10_fails = []
+  if _p10_entry is None:
+      _p10_fails.append(f"P10/1: no question_index entry for {_p10_pid} — registry data "
+                        f"for this paper is missing (lost by a later write, or Step 7 "
+                        f"never committed). Remedy: re-run Step 7 for mock {N}.")
+  else:
+      _p10_qs = _p10_entry.get('questions', [])
+      _p10_tq = _p10_bp.get('total_questions')
+      if _p10_tq and len(_p10_qs) != _p10_tq:
+          _p10_fails.append(f"P10/2: {len(_p10_qs)} entries != total_questions {_p10_tq}")
+      # P10/2b COVERAGE + UNIQUENESS. The count test above is NOT sufficient: an
+      # index carrying q=[1,1] has the right LENGTH and passes it, so P10 would
+      # certify a paper whose q=2 has no entry at all — and Step 11's JOIN then
+      # fails after the whole Explain effort was spent, which is the one outcome
+      # P10 exists to prevent. Both engine implementations (A-QINDEX/3 and
+      # paper_pipeline.validate_question_index) already assert the q set is
+      # exactly 1..total_questions, sorted and unique; this preflight must agree
+      # with them or the three copies of this rule disagree on a real registry.
+      _p10_qn = [x.get('q') for x in _p10_qs]
+      if _p10_tq and (_p10_qn != sorted(_p10_qn) or len(set(_p10_qn)) != len(_p10_qn)
+                      or set(_p10_qn) != set(range(1, _p10_tq + 1))):
+          _p10_fails.append(f"P10/2b: q set != 1..{_p10_tq} (sorted/unique/complete) — "
+                            f"got {sorted(_p10_qn)!r}; a duplicate or missing q number "
+                            f"leaves a question with no index entry for Step 11's JOIN.")
+      _p10_ids = {s.get('subtopic_id') for s in _p10_bp.get('subtopic_list', [])}
+      _p10_bad = {int(x.get('q', -1)): x.get('subtopic_id')
+                  for x in _p10_qs if x.get('subtopic_id') not in _p10_ids}
+      if _p10_bad:
+          _p10_fails.append("P10/3: subtopic_id(s) not in blueprint.subtopic_list "
+                            "(invented/re-typed at Step 7 — Step 11's JOIN will hard-stop): "
+                            + "; ".join(f"Q{q}={_p10_bad[q]!r}" for q in sorted(_p10_bad)))
+      _p10_canon = _p10_bp.get('difficulty_labels', ['Easy', 'Medium', 'Hard'])
+      _p10_badd = sorted({x.get('difficulty') for x in _p10_qs
+                          if x.get('difficulty') not in _p10_canon})
+      if _p10_badd:
+          _p10_fails.append(f"P10/4: difficulty value(s) not in {_p10_canon}: {_p10_badd}")
+  if _p10_fails:
+      raise SystemExit("HARD STOP (P10 registry-FK tripwire, v1.23):\n  "
+                       + "\n  ".join(_p10_fails)
+                       + "\nFix upstream (Step 7 / registry patch) and re-trigger Step 9. "
+                         "Explaining a paper whose index cannot JOIN wastes the whole "
+                         "Explain effort — Step 11 will refuse it.")
+  # Ledger↔index agreement for the WHOLE registry (other papers): WARN, never block.
+  _p10_claimed = set(_p10_reg.get('papers_completed') or [])
+  for _m in _p10_reg.get('mocks_completed') or []:
+      try: _p10_claimed.add(f"MOCK:M{int(_m):02d}")
+      except (TypeError, ValueError): pass
+  _p10_have = {e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}")
+               for e in _p10_reg.get('question_index', [])}
+  _p10_missing = sorted(_p10_claimed - _p10_have)
+  if _p10_missing:
+      print(f"P10 WARN: registry ledger claims complete but question_index is MISSING for "
+            f"{_p10_missing} — those papers' data was lost and their deliveries WILL "
+            f"hard-stop. Surface this to the operator now; it does not block mock {N}.")
+  print(f"P10: registry-FK tripwire PASS for {_p10_pid}.")
+  ```
+
 # §4 — BATCH ARCHITECTURE (the continue contract; whole-paper incremental delivery)
 # ════════════════════════════════════════════════════════════════════════
 
@@ -1548,5 +1634,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.22
+# END OF Framework_MockTestExplain v1.23
 # ════════════════════════════════════════════════════════════════════════

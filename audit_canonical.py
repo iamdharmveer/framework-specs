@@ -3617,12 +3617,70 @@ def run_audit(args):
     _safe_gate('A-FIGSPECLABEL', gate_specfaith, blocks, src)
     _safe_gate('A-OPTDOMAIN', gate_optdomain, blocks, src)
     _safe_gate('A-HEADER', gate_header, doc, blocks, src)
+    _safe_gate('A-QINDEX', gate_qindex, src)   # v2026.08.10 — engine FK gate; dormant unless --registry+--blueprint+--mockN
     rc = print_results()
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
     if getattr(args, 'audit_state', None):
         cg = completion_gate(args.audit_state, src.get('total_questions'), blocks, doc)
         return 0 if (rc == 0 and cg == 0) else 1
     return rc
+
+
+def gate_qindex(src):
+    """A-QINDEX (v2026.08.10 — GAP-2026-08-10-QINDEX-FK-ENFORCEMENT).
+    ENGINE-ENFORCED foreign-key certification of registry.question_index for THIS
+    paper against the blueprint: entry exists; count/coverage 1..total; every
+    subtopic_id is byte-identical to a blueprint.subtopic_list id; every
+    difficulty is in difficulty_labels. WHY AN ENGINE GATE: the spec-inline
+    G-QINDEX (MockTestCreate S13-QINDEX) performs the same checks, but inline
+    spec code is session-executed and its execution is unverifiable — three
+    reference sessions persisted invented subtopic_ids while logging clean
+    audits, because this auditor (whose exit code IS durably logged and gates
+    SHIP) never looked at question_index. This gate closes that hole: armed
+    whenever --registry + --blueprint + --mockN are all supplied (the S13-4c
+    re-sweep supplies them); dormant-but-reported otherwise. Self-contained on
+    purpose — no paper_pipeline import, so the per-exam copy has zero new deps."""
+    reg = src.get('registry') or {}
+    bp  = src.get('blueprint') or {}
+    N   = src.get('_mockN')
+    if not reg or not bp or N is None:
+        _ok('A-QINDEX', 'dormant (needs --registry + --blueprint + --mockN; '
+                        'armed at Final Assembly re-sweep S13-4c)')
+        return
+    _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
+    pid = (_tp or {}).get('paper_id', f"MOCK:M{int(N):02d}")
+    entry = next((e for e in reg.get('question_index', [])
+                  if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == pid), None)
+    if entry is None:
+        _fail('A-QINDEX', f'no question_index entry for {pid} — registry data '
+                          f'missing for a paper this session claims to have built. '
+                          f'Rebuild the index (S13-4) before delivery.')
+        return
+    qs = entry.get('questions', [])
+    tq = src.get('total_questions')
+    fails = []
+    if tq and len(qs) != tq:
+        fails.append(f'{len(qs)} entries != total_questions {tq}')
+    qn = [x.get('q') for x in qs]
+    if tq and (qn != sorted(qn) or len(set(qn)) != len(qn)
+               or set(qn) != set(range(1, tq + 1))):
+        fails.append(f'q set != 1..{tq}')
+    sub_ids = {s.get('subtopic_id') for s in bp.get('subtopic_list', [])}
+    bad = {int(x.get('q', -1)): x.get('subtopic_id')
+           for x in qs if x.get('subtopic_id') not in sub_ids}
+    if bad:
+        fails.append('subtopic_id(s) NOT IN blueprint.subtopic_list (a reconstructed/'
+                     'invented id — the write must copy the blueprint string verbatim): '
+                     + _flist([f"Q{q}={bad[q]!r}" for q in sorted(bad)]))
+    canon = bp.get('difficulty_labels', ['Easy', 'Medium', 'Hard'])
+    bad_d = sorted({x.get('difficulty') for x in qs if x.get('difficulty') not in canon})
+    if bad_d:
+        fails.append(f'difficulty value(s) not in {canon}: {bad_d}')
+    if fails:
+        _fail('A-QINDEX', '; '.join(fails))
+    else:
+        _ok('A-QINDEX', f'question_index FK-certified for {pid} '
+                        f'({len(qs)} questions, all ids in blueprint)')
 
 
 def print_results():
@@ -4170,6 +4228,107 @@ def self_test():
                                   == option_label_family(_x) for _x in _SUPPORTED)))
     except ImportError:
         check('LABEL-PARITY-skipped-standalone', True)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # A-QINDEX (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT)
+    #   This gate's EXIT CODE is the enforcement — that is the whole argument for
+    #   adding it, since the spec-inline G-QINDEX is session-executed and
+    #   unverifiable. It shipped with no fixture: every pre-existing fixture
+    #   reaches it through _src_stub, whose registry and blueprint are {}, so all
+    #   229 of them exercised the DORMANT branch and none the armed one. A gate
+    #   that blocks SHIP needs a test that fails when the gate is removed.
+    _QBP = {'total_questions': 2, 'mocks': [{'mock': 1, 'paper_id': 'MOCK:M01'}],
+            'subtopic_list': [{'subtopic_id': 'PHY.MECH.NEWTON'},
+                              {'subtopic_id': 'PHY.MECH.WORK'}],
+            'difficulty_labels': ['Easy', 'Medium', 'Hard']}
+    _QCLEAN = [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy'},
+               {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard'}]
+
+    def _q_run(registry):
+        _reset()
+        gate_qindex({'total_questions': 2, 'blueprint': _QBP,
+                     'registry': registry, '_mockN': 1})
+        return [(l, c, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+
+    def _q_reg(qs):
+        return {'question_index': [{'paper_id': 'MOCK:M01', 'questions': qs}]}
+
+    check('A-QINDEX-armed-clean-certifies',
+          [l for l, _, _ in _q_run(_q_reg(_QCLEAN))] == ['OK'])
+    # THE DEFECT, verbatim: an id that reads correctly to a human but was retyped
+    # rather than copied from the blueprint. Three sessions persisted this and
+    # logged clean audits; all three detonated four steps later at Step 11.
+    _q_inv = _q_run(_q_reg([_QCLEAN[0], {'q': 2, 'subtopic_id': 'Physics.Mechanics.Work',
+                                         'difficulty': 'Hard'}]))
+    check('A-QINDEX-armed-invented-id-FAILS',
+          [l for l, _, _ in _q_inv] == ['FAIL'])
+    check('A-QINDEX-names-the-offending-question',
+          bool(_q_inv) and 'Q2=' in _q_inv[0][2])
+    # the 4th defective mock: a later registry write dropped the entry entirely
+    check('A-QINDEX-armed-lost-entry-FAILS',
+          [l for l, _, _ in _q_run({'question_index': []})] == ['FAIL'])
+    check('A-QINDEX-armed-short-count-FAILS',
+          [l for l, _, _ in _q_run(_q_reg(_QCLEAN[:1]))] == ['FAIL'])
+    check('A-QINDEX-armed-duplicate-q-FAILS',
+          [l for l, _, _ in _q_run(_q_reg(
+              [_QCLEAN[0], {'q': 1, 'subtopic_id': 'PHY.MECH.WORK',
+                            'difficulty': 'Hard'}]))] == ['FAIL'])
+    check('A-QINDEX-armed-bad-difficulty-FAILS',
+          [l for l, _, _ in _q_run(_q_reg(
+              [_QCLEAN[0], {'q': 2, 'subtopic_id': 'PHY.MECH.WORK',
+                            'difficulty': 'Tough'}]))] == ['FAIL'])
+    # DORMANCY IS A CONTRACT, not an accident: ~200 exams hold a Step-6 copy of
+    # this auditor and invoke it without the new flags. Dormant must stay OK, and
+    # must SAY it is dormant rather than silently reporting a pass.
+    _reset()
+    gate_qindex({'total_questions': 2, 'blueprint': {}, 'registry': {}, '_mockN': None})
+    _q_dorm = [(l, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+    check('A-QINDEX-unarmed-is-dormant-OK-and-says-so',
+          len(_q_dorm) == 1 and _q_dorm[0][0] == 'OK' and 'dormant' in _q_dorm[0][1])
+
+    # WIRING. Every fixture above calls gate_qindex DIRECTLY, so all of them stay
+    # green if the gate is never added to run_audit's gate list — a gate that is
+    # written, documented, tested and unreachable
+    # (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, where the delegation was recorded
+    # at the call sites and the import was simply never added). Assert reachability
+    # from the runner itself, not from the gate.
+    import inspect as _insp
+    _runner = _insp.getsource(run_audit)
+    check('A-QINDEX-is-wired-into-run_audit',
+          'gate_qindex' in _runner and "'A-QINDEX'" in _runner)
+    check('A-QINDEX-runner-passes-_mockN-through',
+          "src['_mockN'] = args.mockN" in _runner)
+
+    # QINDEX PARITY — gate_qindex is a deliberate second implementation of
+    # paper_pipeline.validate_question_index (its docstring pins the reason: the
+    # per-exam copy must gain no new import). Deliberate duplication is only safe
+    # while the pair is asserted equal, exactly as LABEL-PARITY above. Absent
+    # paper_pipeline is a SKIP — the auditor must run standalone (Context-2).
+    try:
+        import paper_pipeline as _pp_q
+        _QCASES = [
+            _QCLEAN,
+            [_QCLEAN[0], {'q': 2, 'subtopic_id': 'Physics.Mechanics.Work',
+                          'difficulty': 'Hard'}],
+            _QCLEAN[:1],
+            [_QCLEAN[0], {'q': 1, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard'}],
+            [_QCLEAN[0], {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Tough'}],
+        ]
+
+        def _q_parity():
+            for _c in _QCASES:
+                _mine = [l for l, _, _ in _q_run(_q_reg(_c))] == ['OK']
+                _theirs = _pp_q.validate_question_index(_q_reg(_c), _QBP, mock_n=1)[0]
+                if _mine != _theirs:
+                    return False
+            return True
+        try:
+            _qp = _q_parity()
+        except Exception:
+            _qp = False
+        check('A-QINDEX-PARITY-auditor-gate-matches-pp-validate', _qp)
+    except ImportError:
+        check('A-QINDEX-PARITY-skipped-standalone', True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # 5i / 5j.  RELEASE C (v2.24.0) — TWO NEW GATES, BOTH AMBER BY CONSTRUCTION.
