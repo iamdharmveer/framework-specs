@@ -1,4 +1,7 @@
-# Framework_NotesCreate v2.1.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.1.3 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.1.3 — 2026-08-10 — POST-DEPLOY REVIEW. bank_questions_for now joins by
+#   RECOMPUTING the subtopic key from stored fields (drift class closed), so an
+#   older bank still reads correctly. Companion: notes_core >= v1.8.
 # v2.1.2 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
 #   bank_questions_for now joins via the hardened notes_core.subtopic_key
 #   (syllabus_provenance.norm). Companion: notes_core >= v1.7,
@@ -32,7 +35,7 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v1.7 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
+#   notes_core.py >= v1.8 — LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
 #                           lexicon, math gates, registry transitions, the bank
 #                           readers (bank_load / bank_questions_for) and
 #                           verify_bank_ref (blueprint/bank staleness check)
@@ -199,4 +202,4 @@ the minor).
 
 ---
 
-# END OF Framework_NotesCreate v2.1.2
+# END OF Framework_NotesCreate v2.1.3

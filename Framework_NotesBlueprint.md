@@ -1,4 +1,14 @@
-# Framework_NotesBlueprint v2.0.3 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v2.0.4 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v2.0.4 — 2026-08-10 — POST-DEPLOY REVIEW. (B) O-2 no longer claims a "bank"
+#   provenance value the engine never writes — unit provenance is
+#   "syllabus"/"evidence-added"; only the pyq_count is bank-DERIVED, now stated as
+#   such. (D) the bank checkpoint is written to /mnt/user-data/outputs AND
+#   presented (present_files) at every BATCH STOP, and A-7 option B now tells the
+#   operator to DOWNLOAD that presented bank and re-upload it to project knowledge
+#   before a fresh-chat resume (the previous "already in project Files" was false —
+#   write_bank targets the working dir). A-0 makes the resume load explicit.
+#   Companion: notes_core >= v1.8 (stored subtopic_key is informational; reads
+#   recompute — a bank written by an older notes_core still joins correctly).
 # v2.0.3 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
 #   notes_core.subtopic_key now reuses syllabus_provenance.norm per component so
 #   bank counts join blueprint units across syllabus-vs-header label drift
@@ -49,7 +59,7 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py      >= v1.7 — PYQ_BANK_SCHEMA, bank_*() builders/validators,
+#   notes_core.py      >= v1.8 — PYQ_BANK_SCHEMA, bank_*() builders/validators,
 #                                subtopic_key, derive_taxonomy_counts,
 #                                parse_exam_date_from_filename, normalize_answer,
 #                                nat_precision_from_stem/nat_within_tolerance,
@@ -123,6 +133,11 @@ The resolved source list is written into notes_blueprint.json.sources.
 ## §3A — CORPUS INGEST (eager; corpus_io; owner decisions 1 & 6)
 This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
 (Claude runs them in its own turn) and are injected into corpus_io as resolvers.
+  A-0 RESUME LOAD. before enumerating, look for notes_pyq_bank.json in project
+      Files (a prior run's checkpoint the operator re-uploaded, A-7 option B). If
+      present, notes_core.bank_load it and treat every paper_key in its papers[]
+      as DONE — those papers are skipped in A-3..A-6 and never re-downloaded. If
+      absent, start a fresh bank (notes_core.bank_new).
   A-1 ENUMERATE (CLASS T bridge). resolve the folder id
       (corpus_io.parse_drive_folder_id). collect_corpus_files paginates a folder
       to exhaustion and recurses into sub-folders, so each listing call's
@@ -165,9 +180,11 @@ This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
   A-5 PER-QUESTION RECORD. anchor questions with the corpus_io Q pattern
       (^\s*Q\.?\s*(\d+); handles "Q.1" and "Q 1", full-number capture). For each
       question read from the paper build a bank record (§3B fields).
-  A-6 CHECKPOINT. after every batch of 3, write the partial bank
-      (notes_blueprint.write_bank -> notes_pyq_bank.json, append-only) so an
-      interrupted run resumes without re-downloading (§7).
+  A-6 CHECKPOINT. after every batch of 3, write the partial bank with
+      notes_blueprint.write_bank(bank, "/mnt/user-data/outputs") (append-only) and
+      present_files it, so notes_pyq_bank.json is DOWNLOADABLE (write_bank targets
+      a directory; without present_files the operator cannot reach it for a
+      fresh-chat resume). This is the resume artifact referenced by A-0 and A-7.
   A-7 BATCH STOP (mirrors PYQExtract / Framework_MockTestAnalyse; NON-NEGOTIABLE).
       BATCH_SIZE = 3 is fixed. Processing more than 3 papers without pausing for
       user confirmation is STRICTLY PROHIBITED; analysing the whole folder in one
@@ -177,11 +194,13 @@ This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
               upload lane), questions banked + per-type split, images read, any
               IMG-gate finding, any UNRESOLVED stem figure, any undated filename;
         (ii)  state how many papers remain and the two ways to proceed:
-                A) reply 'continue' to process the next batch of 3 in this session;
-                B) notes_pyq_bank.json is already checkpointed in project Files —
-                   open a fresh chat and re-trigger NotesBlueprint on the same
-                   source; the run resumes from the paper_keys already in the bank
-                   (A-6), re-downloading nothing;
+                A) reply 'continue' to process the next batch of 3 in this session
+                   (the bank is still in the working dir — no upload needed);
+                B) DOWNLOAD the notes_pyq_bank.json presented at this checkpoint
+                   (A-6), upload it to [ExamCode] project knowledge (replace the
+                   prior copy), open a fresh chat, and re-trigger NotesBlueprint on
+                   the same source; A-0 loads it and resumes from the paper_keys
+                   already in the bank, re-downloading nothing;
         (iii) END THE RESPONSE — write nothing further and start no new batch in
               the same turn. The A-6 checkpoint makes the pause safe; the Python
               loop boundary alone does NOT stop generation — this prose rule does
@@ -244,9 +263,13 @@ never changes the tier boundaries. Complexity (B-1) may nuance the register but
 never the tier.
 
 ## §6 — OUTPUTS
-O-1 notes_pyq_bank.json — schema notes_core.PYQ_BANK_SCHEMA; the full corpus:
-    papers[] (with per-paper image_report) and questions[] (§3B fields). This is
-    a project artifact, not a framework file; NC and NA read it read-only.
+O-1 notes_pyq_bank.json — schema notes_core.PYQ_BANK_SCHEMA (>= notes-pyq-bank/1.1;
+    a 1.0 bank still loads and migrates). The full corpus: papers[] (with per-paper
+    image_report) and questions[] (§3B fields). The stored subtopic_key is
+    informational only — NC/NA and count derivation RECOMPUTE it from each
+    question's subject/topic/subtopic, so a bank written by an older notes_core
+    still joins correctly. This is a project artifact, not a framework file; NC and
+    NA read it read-only.
 O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (>= notes-blueprint/1.2);
     exam_code, level, allowed_question_types, sources, and bank_ref. bank_ref is
     EMITTED by building the blueprint with
@@ -255,7 +278,9 @@ O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (>= notes-blueprint/1.2
     later change to notes_pyq_bank.json is detectable (notes_core.verify_bank_ref;
     read by NC §1.2). Also the exclusion report and the full unit table
     (unit_code, names, role, pyq_count, tier, provenance, seq_in_topic, optional
-    prose_ban_exemptions). Unit pyq_count provenance is "bank".
+    prose_ban_exemptions). Unit provenance is "syllabus" or "evidence-added" (the
+    values build_blueprint writes); pyq_count is DERIVED from the bank (§3B B-6),
+    not carried on a provenance field.
 O-3 notes_registry.json — notes_core.registry_init; every unit -> BLUEPRINTED.
 O-4 Chat summary — the INGEST REPORT is emitted at EACH BATCH STOP (A-7) for that
     batch's 3 papers; after the LAST batch a FULL summary adds unit counts by
@@ -318,4 +343,4 @@ E-12 An optional PYQ Analysis doc disagreeing with bank counts -> reported; the
 
 ---
 
-# END OF Framework_NotesBlueprint v2.0.3
+# END OF Framework_NotesBlueprint v2.0.4

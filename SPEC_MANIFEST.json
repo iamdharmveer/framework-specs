@@ -43,25 +43,25 @@
       "version_header": "# Framework_MockTestExplain v1.22"
     },
     "Framework_NotesAudit.md": {
-      "end_sentinel": "# END OF Framework_NotesAudit v2.0.2",
-      "lines": 158,
-      "sha256": "8cb22634b6b722796ee409bf30ec6929eeb549a093ef2e9fd38813f0875af503",
-      "size_bytes": 9952,
-      "version_header": "# Framework_NotesAudit v2.0.2 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
+      "end_sentinel": "# END OF Framework_NotesAudit v2.0.3",
+      "lines": 161,
+      "sha256": "579c4835381f92ad9a2c3967f4f58e60e8cd92d2786f92b00b8b8c43cee8a4bc",
+      "size_bytes": 10137,
+      "version_header": "# Framework_NotesAudit v2.0.3 — Notes Pipeline Step NA (Closed-Book Solvability Audit)"
     },
     "Framework_NotesBlueprint.md": {
-      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.3",
-      "lines": 321,
-      "sha256": "624830226b554415785c8f146ea314fbf45908100a2401babf18cd4645810daa",
-      "size_bytes": 22629,
-      "version_header": "# Framework_NotesBlueprint v2.0.3 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
+      "end_sentinel": "# END OF Framework_NotesBlueprint v2.0.4",
+      "lines": 346,
+      "sha256": "553a23ecdff609073dba983de78e36c17db1454ebc33644c13e06ef5b6b09f4b",
+      "size_bytes": 24586,
+      "version_header": "# Framework_NotesBlueprint v2.0.4 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
     },
     "Framework_NotesCreate.md": {
-      "end_sentinel": "# END OF Framework_NotesCreate v2.1.2",
-      "lines": 202,
-      "sha256": "c660f4a2217dd3556220d646ff74d9fba47f323cf8a637a78302324608d06f69",
-      "size_bytes": 12665,
-      "version_header": "# Framework_NotesCreate v2.1.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
+      "end_sentinel": "# END OF Framework_NotesCreate v2.1.3",
+      "lines": 205,
+      "sha256": "f5fe7745e789c08c2cb84b22fb2832417671d0be82c15f933d825c3f4eb72c01",
+      "size_bytes": 12894,
+      "version_header": "# Framework_NotesCreate v2.1.3 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
     },
     "Framework_NotesDeliver.md": {
       "end_sentinel": "# END OF Framework_NotesDeliver v1.0.0",
@@ -303,9 +303,9 @@
     },
     "notes_core.py": {
       "end_sentinel": "    print(\"notes_core.py — shared Notes pipeline core. Run with --self-test.\")",
-      "lines": 865,
-      "sha256": "e7d58bcdf7bd6e8883730e7edc84257f4957cc9d3c5211393e70626969f03213",
-      "size_bytes": 39722,
+      "lines": 935,
+      "sha256": "491c26bac361618b05e4db65a6a5478b889b4e6c377b3994b3bbd5d15ec9b3ce",
+      "size_bytes": 44298,
       "version_header": "\"\"\""
     },
     "paper_pipeline.py": {

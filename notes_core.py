@@ -1,5 +1,19 @@
 """
-notes_core.py v1.7 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v1.8 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v1.8 — 2026-08-10 — POST-DEPLOY REVIEW (drift class closed + doc fixes).
+    (A) subtopic_key is a DERIVED field that was also STORED in every bank
+    question, and the readers compared a fresh key against the stored one — so the
+    v1.7 normalization change meant a bank written by v1.6 returned 0 questions for
+    any subtopic containing '&' or an en-dash. Root fix: bank_questions_for and
+    derive_taxonomy_counts now RECOMPUTE the key from each question's
+    subject/topic/subtopic and never trust the stored value, which ends the drift
+    class for this and any future subtopic_key change. The stored key is now
+    informational only. PYQ_BANK_SCHEMA -> notes-pyq-bank/1.1 (accepts 1.0 and
+    1.1); bank_load migrates a 1.0 bank by refreshing its stored keys so an
+    inspected bank is self-consistent. (C) load_blueprint docstring corrected to
+    say it accepts 1.0/1.1/1.2 and migrates to the 1.2 shape (the code already
+    did). No public signature changed; all v1.7 self-tests retained.
 
 v1.7 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
     subtopic_key now REUSES syllabus_provenance.norm per path component — the same
@@ -202,8 +216,8 @@ def transition(reg, unit_code_, new_state, **extra):
 
 
 def load_blueprint(path):
-    """Accept blueprint schema 1.0 or 1.1; migrate 1.0 in place so consumers
-    can rely on the 1.1 shape (symmetric with registry_load)."""
+    """Accept blueprint schema 1.0, 1.1 or 1.2; migrate older ones in place so
+    consumers can rely on the 1.2 shape (symmetric with registry_load)."""
     bp = json.load(open(path, encoding="utf-8"))
     if bp.get("schema") not in BLUEPRINT_SCHEMAS_ACCEPTED:
         raise ValueError(f"blueprint schema mismatch: {bp.get('schema')}")
@@ -403,7 +417,8 @@ def assert_omml(docx_path, expected_min, required_tokens=()):
 # artifact, not a framework file — its SCHEMA lives here so it is bootstrap-
 # verified and unit-testable. NC filters it per subtopic; NA solves against
 # its verbatim correct_answer. Both consume it read-only; neither re-reads Drive.
-PYQ_BANK_SCHEMA = "notes-pyq-bank/1.0"
+PYQ_BANK_SCHEMA = "notes-pyq-bank/1.1"
+PYQ_BANK_SCHEMAS_ACCEPTED = ("notes-pyq-bank/1.0", "notes-pyq-bank/1.1")
 
 BANK_REQUIRED_FIELDS = ("bank_id", "paper_key", "exam_date", "exam_year",
                         "q_no", "type", "subject", "topic", "subtopic", "stem")
@@ -538,7 +553,7 @@ def bank_add_question(bank, rec):
 
 
 def bank_validate(bank):
-    if bank.get("schema") != PYQ_BANK_SCHEMA:
+    if bank.get("schema") not in PYQ_BANK_SCHEMAS_ACCEPTED:
         raise ValueError(f"bank schema mismatch: {bank.get('schema')}")
     ids = [q["bank_id"] for q in bank.get("questions", [])]
     if len(ids) != len(set(ids)):
@@ -563,13 +578,28 @@ def bank_save(bank, path):
 def bank_load(path):
     bank = json.load(open(path, encoding="utf-8"))
     bank_validate(bank)
+    # Migrate a pre-1.1 bank: subtopic_key is DERIVED, and older banks stored it
+    # under a weaker normalization. Refresh the stored key from the authoritative
+    # subject/topic/subtopic so an inspected bank is self-consistent, and stamp the
+    # schema. Reads recompute the key regardless (bank_questions_for /
+    # derive_taxonomy_counts), so this migration is cosmetic — the drift class is
+    # already closed; it just keeps the stored field honest.
+    if bank.get("schema") != PYQ_BANK_SCHEMA:
+        for q in bank.get("questions", []):
+            q["subtopic_key"] = subtopic_key(q.get("subject"), q.get("topic"),
+                                             q.get("subtopic"))
+        bank["schema"] = PYQ_BANK_SCHEMA
     return bank
 
 
 def bank_questions_for(bank, subject, topic, subtopic):
-    """Every bank question under one subtopic (NC §1 unit filter)."""
+    """Every bank question under one subtopic (NC §1 unit filter). Identity is
+    RECOMPUTED from each question's stored subject/topic/subtopic — the stored
+    subtopic_key is never trusted — so a bank written by an older notes_core with
+    a different subtopic_key normalization still joins correctly."""
     k = subtopic_key(subject, topic, subtopic)
-    return [q for q in bank["questions"] if q["subtopic_key"] == k]
+    return [q for q in bank["questions"]
+            if subtopic_key(q["subject"], q["topic"], q["subtopic"]) == k]
 
 
 def derive_taxonomy_counts(bank, latest_years=3):
@@ -584,7 +614,10 @@ def derive_taxonomy_counts(bank, latest_years=3):
     recent = set(years[:max(0, int(latest_years))])
     out = {}
     for q in bank["questions"]:
-        e = out.setdefault(q["subtopic_key"],
+        # Recompute the key from stored fields — never trust the stored
+        # subtopic_key — so counts are correct even on a bank written by an older
+        # notes_core (drift class closed, v1.8).
+        e = out.setdefault(subtopic_key(q["subject"], q["topic"], q["subtopic"]),
                            {"subject": q["subject"], "topic": q["topic"],
                             "subtopic": q["subtopic"], "pyq_count": 0,
                             "recent3_count": 0, "per_year": {}})
@@ -837,6 +870,43 @@ def self_test():
                                         "Optics / Polarization"))
     check("join: still distinguishes real differences",
           not _joins("Carnot Cycle", "Otto Cycle"))
+
+    # v1.8: reads recompute the key, so a bank whose STORED keys are stale (as a
+    # v1.6-written bank's would be) still joins correctly and counts correctly.
+    b2 = bank_new("EX")
+    bank_add_paper(b2, "p", "2026-02-15", 2026, "x_15-Feb-2026.docx", 2)
+    bank_add_question(b2, dict(bank_id="X1", paper_key="p", exam_date="2026-02-15",
+        exam_year=2026, q_no=1, type="MCQ", subject="Bio", topic="Enz",
+        subtopic="Microbial & Plant Biotech", stem="a", correct_answer="1"))
+    bank_add_question(b2, dict(bank_id="X2", paper_key="p", exam_date="2026-02-15",
+        exam_year=2026, q_no=2, type="MCQ", subject="Bio", topic="Enz",
+        subtopic="Microbial and Plant Biotech", stem="b", correct_answer="2"))
+    # Simulate a stale/legacy stored key (what a weaker normaliser would have left)
+    b2["questions"][0]["subtopic_key"] = "bio|||enz|||microbial & plant biotech"
+    b2["questions"][1]["subtopic_key"] = "bio|||enz|||microbial and plant biotech"
+    got = bank_questions_for(b2, "Bio", "Enz", "Microbial and Plant Biotech")
+    check("reader ignores stale stored key (join by recompute)", len(got) == 2)
+    cnts = derive_taxonomy_counts(b2)
+    check("counts ignore stale stored key", len(cnts) == 1
+          and list(cnts.values())[0]["pyq_count"] == 2)
+
+    # schema acceptance + migration
+    check("bank_validate accepts 1.0 and 1.1",
+          bank_validate({"schema": "notes-pyq-bank/1.0", "questions": []}) is True
+          and bank_validate({"schema": "notes-pyq-bank/1.1", "questions": []}) is True)
+    try:
+        bank_validate({"schema": "notes-pyq-bank/0.9", "questions": []})
+        check("bank_validate rejects unknown schema", False)
+    except ValueError:
+        check("bank_validate rejects unknown schema", True)
+    b2["schema"] = "notes-pyq-bank/1.0"
+    b2["questions"][0]["subtopic_key"] = "STALE"
+    _bp = tempfile.mktemp(suffix=".json"); bank_save(b2, _bp)
+    reloaded = bank_load(_bp)
+    check("bank_load migrates 1.0 -> current + refreshes stored key",
+          reloaded["schema"] == PYQ_BANK_SCHEMA
+          and reloaded["questions"][0]["subtopic_key"]
+          == subtopic_key("Bio", "Enz", "Microbial & Plant Biotech"))
     try:
         bank_add_question(b, dict(bank_id="X", paper_key="k", exam_date="d",
             exam_year=2000, q_no=9, type="FOO", subject="s", topic="t",
