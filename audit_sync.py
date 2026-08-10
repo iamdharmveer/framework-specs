@@ -29,6 +29,15 @@ def public(mod):
             for t in n.targets:
                 if isinstance(t, ast.Name):
                     names.add(t.id)
+        elif isinstance(n, (ast.Import, ast.ImportFrom)):
+            # A re-exported import IS part of the module's public surface: after
+            # `from t3_mathcomp import _T3_STATS as T3_STATS`, explain_engine.T3_STATS
+            # resolves at runtime exactly like an assignment would. Collecting only
+            # def/class/assign made every such name look absent, so a spec that used
+            # one was reported as calling into an API that does not exist.
+            for a in n.names:
+                if a.name != '*':
+                    names.add(a.asname or a.name.split('.')[0])
     return names
 
 ALIAS = {'bc': 'blueprint_core', 'pp': 'paper_pipeline', 'ee': 'explain_engine'}
