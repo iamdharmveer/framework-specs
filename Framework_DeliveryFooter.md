@@ -1,4 +1,13 @@
-# Framework_DeliveryFooter v1.15 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.16 — Universal Delivery Footer (F1/F2) Contract
+# v1.16 — 2026-08-10 — PYQ REGISTRY IS LOCAL-ONLY (structural badge guarantee).
+#   Added '*_pyq_registry.json' to the §2 LOCAL_ONLY set so get_badge() can NEVER
+#   route the PYQ corpus tracker to Project Files on any step, for any exam — it
+#   always badges 📁 Use locally. Pairs with Framework_PYQDeliver v1.10, which demotes
+#   the registry from a required Project-Files deliverable to an OPTIONAL, absence-
+#   tolerant, local-only continuity aid (closing the silent cross-session reset that
+#   the routinely-skipped manual upload caused across the ~200-exam corpus). BADGE
+#   ONLY — no severity routing, no F1/F2 change, no §5 flowchart change; no condition
+#   may halt a run, and that is untouched.
 # v1.15 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. Updated the PYQ VOID_ITEM /
 #   CERTIFIED-DEGRADED (VISION) wording that named PYQ-2 as the reader of the voided-
 #   question list (now the human reviewer), and the v1.13 note that called PYQExplainAudit
@@ -217,6 +226,11 @@ def get_badge(filename, step, is_first_run):
         'Mock*_Explanation_Complete.docx', # was Step 10 audited solutions
         'Mock*_Final.docx',        # Step 11 tagged final deliverable
         'analysis_summary.md',      # Step 5 final — human review audit trail
+        '*_pyq_registry.json',      # PYQ-4 corpus tracker — LOCAL-ONLY (v1.16);
+                                    # optional, never uploaded/replaced in Project
+                                    # Files on any step or exam (Framework_PYQDeliver
+                                    # v1.10). Belt-and-suspenders: PYQ-4 also does not
+                                    # present it on the normal run.
     }
 
     # CONTEXT-DEPENDENT FILES (not in LOCAL_ONLY — badge varies by delivery context):

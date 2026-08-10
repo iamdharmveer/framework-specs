@@ -1,4 +1,29 @@
-# Framework_PYQDeliver v1.9 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.10 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.10 — 2026-08-10 — PYQ REGISTRY IS NO LONGER A PROJECT-FILES DELIVERABLE.
+#   ROOT CAUSE of the reported cross-session gap: the registry
+#   ([ExamCode]_pyq_registry.json) was the ONLY PYQ-4 artifact whose usefulness
+#   depended on the operator MANUALLY uploading it back into the exam project's
+#   Files section (old S8-3) — /home/claude and outputs are chat-scoped and
+#   /mnt/project is read-only to the engine, so nothing else could persist it.
+#   Across the ~200-exam corpus that manual step was skipped routinely, so the NEXT
+#   paper's PYQ-4 ran in a fresh chat, found no registry, and — per the old §12
+#   case 11 — reset the corpus tally and dropped the duplicate-delivery guard
+#   SILENTLY. FIX: the registry is DEMOTED from a required Project-Files deliverable
+#   to an OPTIONAL, LOCAL-ONLY, absence-tolerant continuity aid. It is (1) NEVER
+#   badged Upload/Replace and NEVER presented as a file to manage in Project Files;
+#   (2) READ ONLY IF the operator voluntarily attaches one — absence is the normal,
+#   silent, expected state, never a WARN and never a nag; (3) CORRECTNESS-INDEPENDENT
+#   — producing the tagged portal file and passing C1–C18 never depends on it, and
+#   Definition-of-done no longer lists a registry update as a hard item; (4)
+#   BEST-EFFORT — when a prior registry IS attached PYQ-4 still updates it, may emit a
+#   LOCAL-ONLY copy, and the duplicate-delivery guard still fires; when none is
+#   attached the §R6 line reports current-paper-only totals neutrally. CONSEQUENCE:
+#   cross-chat corpus tracking becomes OPT-IN (attach the prior registry) instead of
+#   mandatory-upload; the portal deliverable is unchanged. Mirrors Framework_
+#   DeliveryFooter v1.16, which places *_pyq_registry.json in LOCAL_ONLY so the badge
+#   engine can never route it to Project Files on any step, for any exam. Touched:
+#   §0 outputs, §1 step 6, §3 step 3, §8 (open/S8-2/S8-3), §9 (items 2/6), §10 §R6,
+#   §11 done item 9, §12 cases 4 & 11, §13 S13-2 table, END sentinel.
 # v1.9 — 2026-08-09 — DELIVERED FILE NOW PRESERVES NATIVE OMML — the OMML→Unicode
 #   linearization (Rule 19) is RETIRED from the delivery path. ROOT CAUSE of the
 #   reported defect: §4-S4-2 named the RENDER-SOURCE artifact (every `<m:oMath>`
@@ -266,7 +291,11 @@ NOT REQUIRED (PYQ-4 does not use mock pipeline outputs):
   safe-fonting, no underline recolor. The delivered file is the INTEGRITY
   artifact: byte-identical to the input except for §5 tag blocks and §4A date-tag
   removal.
-- Updated `[ExamCode]_pyq_registry.json` — PYQ corpus progress tracker (§8).
+- OPTIONAL `[ExamCode]_pyq_registry.json` — a LOCAL-ONLY, best-effort PYQ corpus
+  progress tracker (§8). NOT a Project-Files deliverable and NOT required (v1.10):
+  it is emitted only when a prior registry was attached as input, is badged
+  📁 Use locally, and is never presented for upload/replace. Its absence never
+  affects delivery (§12 case 11).
 
 ---
 
@@ -314,10 +343,14 @@ Everything is derived from the attachment and project knowledge:
    `structural_difficulty`
    (Cluster E). Absent from both, or missing a function → HARD STOP (§0 item 6).
 
-6. **PYQ registry check**: load `[ExamCode]_pyq_registry.json` if it exists.
-   If this paper (date + session) is already marked `completed` → WARN:
-   "This paper has already been delivered. Proceed? (Continue to re-deliver,
-   or stop.)" Proceed only on explicit confirmation.
+6. **PYQ registry check (OPTIONAL)**: load `[ExamCode]_pyq_registry.json` ONLY if
+   the operator voluntarily attached one. It is NOT a Project-Files artifact, so on
+   most runs there is none — that is the normal, expected state and is never a WARN
+   or a nag. If a registry IS present and this paper (date + session) is already
+   marked `completed` → WARN: "This paper has already been delivered. Proceed?
+   (Continue to re-deliver, or stop.)" and proceed only on explicit confirmation.
+   If no registry is attached, skip this check silently and continue — delivery
+   never depends on it.
 
 7. **Preflight checks**: same structural validations as MockDeliver S1-2:
    - Q-stems match q_re and count equals Q_TOTAL
@@ -683,7 +716,8 @@ PYQ-4 is a SINGLE-PASS transformation. No batching, no multi-turn:
                   build tag lookup → insert tags →
                   build the DELIVERED artifact (native OMML, tag blocks, NO
                   render transforms) → validate all gates)
-3. bash_tool    → final gate checks + PYQ registry update
+3. bash_tool    → final gate checks + OPTIONAL PYQ registry update (only if a
+                  prior registry was attached; otherwise skipped silently — §8)
 4. present_files → deliver [ExamCode]_[date]_[session]_PYQ_Final.docx
                   (the integrity artifact — native OMML preserved)
 ```
@@ -1052,8 +1086,12 @@ absence of a rendering step is not mistaken for a missing validity check.
 
 # §8 — PYQ registry
 
-PYQ-4 maintains `[ExamCode]_pyq_registry.json` — a corpus-level progress tracker
-for PYQ paper delivery.
+PYQ-4 can maintain `[ExamCode]_pyq_registry.json` — a corpus-level progress tracker
+for PYQ paper delivery. It is OPTIONAL and LOCAL-ONLY (v1.10): it is NOT a
+Project-Files deliverable, it is never required, and its absence is the normal state
+on any run where the operator did not attach a prior copy. It exists purely as an
+opt-in continuity aid for operators who want a running cross-paper tally; the portal
+deliverable (`_PYQ_Final.docx`) never depends on it.
 
 ## S8-1 — Registry schema
 
@@ -1074,20 +1112,35 @@ for PYQ paper delivery.
 }
 ```
 
-## S8-2 — Registry operations
+## S8-2 — Registry operations (all conditional on an attached registry, v1.10)
 
-- **Before delivery**: check if this date_session is already in `papers_completed`.
-  If yes → WARN and require explicit confirmation to re-deliver.
-- **After delivery**: add/update the entry in `papers_completed` with the current
-  timestamp. Increment `total_papers_delivered` and `total_questions_delivered`.
-- **First run**: if the registry file does not exist, create it with empty arrays.
+- **Before delivery**: ONLY when a prior registry was attached — check if this
+  date_session is already in `papers_completed`. If yes → WARN and require explicit
+  confirmation to re-deliver. With no registry attached this check is skipped
+  silently.
+- **After delivery**: ONLY when a prior registry was attached — add/update the entry
+  in `papers_completed` with the current timestamp and increment
+  `total_papers_delivered` / `total_questions_delivered`, then emit the updated file
+  LOCAL-ONLY (📁 Use locally). With no registry attached, nothing is written and the
+  §R6 report states current-paper-only totals.
+- **No registry attached (the normal case)**: PYQ-4 does NOT create, deliver, badge,
+  or present a registry, and does NOT treat its absence as a defect. This is the
+  expected state and never blocks, warns, or renders amber.
 
-## S8-3 — Registry storage
+## S8-3 — Registry storage (v1.10 — no Project-Files handoff)
 
-The registry is saved to `/home/claude/` (chat-scoped) and presented for the user
-to upload to project knowledge for persistence across sessions. The user manages
-the registry file in their project — PYQ-4 reads it if present and writes the
-updated version.
+The registry is NEVER uploaded to or replaced in the exam project's Files section,
+and PYQ-4 never asks the operator to manage it there. This RETIRES the pre-v1.10
+manual handoff, whose routinely-skipped upload was the root cause of the silent
+cross-session reset across the ~200-exam corpus (see header v1.10). When PYQ-4 does
+update a registry — which happens ONLY because one was attached — the updated copy
+is written chat-scoped and badged 📁 Use locally: a convenience for an operator who
+chooses to carry it into the next paper's chat by RE-ATTACHING it, NOT an
+instruction and NOT a Project-Files deliverable. Cross-chat corpus tracking is
+therefore OPT-IN by attachment; skipping it costs only the running tally and the
+duplicate guard, never the portal file. Framework_DeliveryFooter v1.16 additionally
+lists `*_pyq_registry.json` in the §2 LOCAL_ONLY set, so the badge engine cannot
+route it to Project Files on any step or exam even if some future caller presents it.
 
 ---
 
@@ -1096,16 +1149,19 @@ updated version.
 PYQ-4 delivers in a single response:
 
 1. All gates (§7 C1-C18) pass, C18 (package validity) included.
-2. PYQ registry updated (§8).
+2. OPTIONAL PYQ registry update (§8) — performed ONLY when a prior registry was
+   attached; skipped silently otherwise. Never gates delivery.
 3. Present `[ExamCode]_[date]_[session]_PYQ_Final.docx` via present_files.
 4. Upload to Google Drive (if Drive access is available; otherwise instruct the
    user to upload manually).
 5. Print the delivery report (§10).
 6. Render the post-delivery footer per Framework_DeliveryFooter.md:
    - F2 (step-complete, GREEN).
-   - File badges: `📁 Use locally` for PYQ_Final.docx,
-     `📤 Upload to Project Files` for pyq_registry.json (if new) or
-     `🔁 Replace in Project Files` (if updating existing registry).
+   - File badges: `📁 Use locally` for PYQ_Final.docx. The registry is NEVER badged
+     for upload/replace and is NOT listed as a Project-Files deliverable (v1.10);
+     if a LOCAL-ONLY updated registry was emitted (only when one was attached) it
+     too carries `📁 Use locally`. On the normal run no registry line appears in the
+     footer at all.
    - Next-step reference: "PYQ pipeline complete for [ExamCode] [date] [session].
      Next paper: run PYQ-1 (PYQExplain) for the next PYQ paper in a new chat."
 
@@ -1142,7 +1198,11 @@ Printed in chat after present_files:
   "passed". If the validator was unavailable and C18 degraded to the C16(a)/(b)
   namespace fallback, say so here and mark package validity UNVERIFIED rather than
   PASS.
-- **§R6 — PYQ registry.** Papers delivered to date, total questions, corpus progress.
+- **§R6 — PYQ registry (OPTIONAL).** Reported ONLY when a prior registry was
+  attached: papers delivered to date, total questions, corpus progress. On the
+  normal run (no registry attached) state plainly: "corpus tracking not active for
+  this run (no registry attached); this paper delivered N questions." This is
+  expected, not a defect, and never renders amber.
 - **§R7 — Note.** "This is the portal-ready document with native math preserved.
   Open in Microsoft Word to verify equations render as native OMML. For student
   download, run PYQ-3 (PYQFormat) separately in a new chat — it takes PYQ-1 output
@@ -1171,7 +1231,9 @@ PYQ-4 is done when **all** hold:
 7a. The delivered artifact passes C18 (package validity) against the source.
 8. NATIVE OMML PRESERVED — delivered `<m:oMath>` count == source (C5/C11). No
    linearization, no safe-fonting, no recolor performed.
-9. PYQ registry updated with this paper.
+9. OPTIONAL: if (and only if) a prior registry was attached, it was updated with
+   this paper and emitted LOCAL-ONLY. Absence of a registry is NOT a failure of this
+   item — the item is vacuously satisfied when no registry was attached.
 10. Delivered via present_files with the delivery report and footer.
 11. Opens clean in Microsoft Word with no "unreadable content" prompt —
     machine-verified by C18 on both artifacts, not assumed. Items 1-10
@@ -1212,8 +1274,10 @@ PYQ-4 is done when **all** hold:
    (§0 item 2 fallback — MockDeliver parity). Tier 2 stays fully
    functional; only the vocabulary is defaulted, never the per-Q resolver.
 
-4. **Paper already delivered (registry)** → WARN + require confirmation. If
-   confirmed, re-deliver and update the registry entry.
+4. **Paper already delivered (registry attached)** → only reachable when a prior
+   registry was attached and lists this paper: WARN + require confirmation. If
+   confirmed, re-deliver and update the (local-only) registry entry. Unreachable on
+   the normal run, where no registry is attached.
 
 5. **Input is PYQ-1 output** → the NORMAL input (v1.6: PYQ-2 retired). Accepted
    with no WARN. A legacy `_PYQ_Explanation_Complete.docx` is equally accepted.
@@ -1231,10 +1295,16 @@ PYQ-4 is done when **all** hold:
 10. **Google Drive unavailable** → Deliver locally via present_files. Instruct
     user to upload manually. Not a HARD STOP.
 
-11. **Registry file does not exist** → Create new one. Normal on first PYQ paper.
+11. **No registry attached (the normal case)** → PYQ-4 does not create, deliver,
+    badge, or present one, and never treats the absence as an issue. Corpus tracking
+    is simply inactive for the run. This is the expected state on the ~200-exam
+    corpus (v1.10), not a first-paper special case, and never causes a WARN, a HALT,
+    or an amber footer.
 
-12. **Re-run on same paper** → Registry detects duplicate, WARNs, re-delivers on
-    confirmation. Output overwrites the previous _PYQ_Final.docx.
+12. **Re-run on same paper** → if a prior registry was attached, it detects the
+    duplicate, WARNs, and re-delivers on confirmation; with no registry attached
+    there is no duplicate check and the re-run proceeds normally. Either way the
+    output overwrites the previous _PYQ_Final.docx.
 
 13. **Already-formatted doc attached by mistake (_PYQ_Formatted.docx)** → Detect
     from filename and HARD STOP: "This is the PYQ-3 formatted document. PYQ-4
@@ -1347,7 +1417,7 @@ of E-9 and is FORBIDDEN (anti-drift principle).
 | Paper identity | pp.paper\_slug() via paper\_pipeline.py | Parsed from attached filename |
 | Blueprint | Required | Not required (does not exist for PYQ) |
 | Registry | Required | Not required (does not exist for PYQ) |
-| PYQ registry | N/A | Maintained by PYQ-4 (§8) |
+| PYQ registry | N/A | OPTIONAL, local-only, best-effort (§8) — never a Project-Files deliverable (v1.10) |
 | Trigger | TestDeliver P[N] / MockDeliver M[N] | PYQDeliver (no arguments needed) |
 | Package validity | C16(a)–(d) only | C16 **plus** C18 `gate_c18()` — full OOXML schema validation of the delivered artifact against the source (§7; v1.9: one delivered artifact, native OMML) |
 
@@ -1391,4 +1461,4 @@ delivered file keeps the input's original fonts):
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.9)**
+**End of Framework_PYQDeliver.md (v1.10)**

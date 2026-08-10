@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 741,
-      "sha256": "4741a0d624553362ef82745f3254b30bbc373d82f88cb213c2f5601c9d6a79c8",
-      "size_bytes": 38810,
-      "version_header": "# Framework_DeliveryFooter v1.15 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 755,
+      "sha256": "0d374f7c33d90357087a864ae7644ec111fb9353400b544c1a0d09accafc4aa0",
+      "size_bytes": 39940,
+      "version_header": "# Framework_DeliveryFooter v1.16 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.11.0",
@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.9)**",
-      "lines": 1394,
-      "sha256": "7b8aa67ebc5be64f72e544534ea90025ab489e38d267edd0c89a9d8172f87d8b",
-      "size_bytes": 74359,
-      "version_header": "# Framework_PYQDeliver v1.9 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.10)**",
+      "lines": 1464,
+      "sha256": "3fb46849289bb438b4dfd93c3198dcccb59fd7f172bd8b59dd04463cee2a12df",
+      "size_bytes": 80138,
+      "version_header": "# Framework_PYQDeliver v1.10 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0",

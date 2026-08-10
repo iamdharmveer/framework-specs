@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.08.10.1
+- **Framework_PYQDeliver v1.10** — PYQ registry demoted from a required Project-Files
+  deliverable to an OPTIONAL, local-only, absence-tolerant continuity aid. Closes the
+  silent cross-session reset: on the ~200-exam corpus the registry's manual re-upload
+  into Project Files was routinely skipped, so the next paper's PYQ-4 found no registry
+  and silently reset the corpus tally / dropped the duplicate guard. Producing the
+  portal file and passing C1–C18 never depends on the registry; cross-chat corpus
+  tracking is now opt-in by attaching the prior registry. Never uploaded/replaced, never
+  presented on the normal run, absence never warns/halts.
+- **Framework_DeliveryFooter v1.16** — `*_pyq_registry.json` added to the §2 LOCAL_ONLY
+  set so the badge engine can never route the registry to Project Files on any step or
+  exam. Badge-only; no severity/F1/F2/flowchart change.
+
 ## 2026.08.09.6
 
 ### Delivered portal/mock file now preserves native OMML (math-mutation defect fixed)
