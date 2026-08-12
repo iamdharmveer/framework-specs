@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026.08.12.9
+
+Seal over releases **2026.08.12.5, .7 and .8**, which shipped without their own
+changelog entries (`.6` was never cut). This seal changes only `VERSION`,
+`CHANGELOG.md` and `MANIFEST.json` — no spec or engine bytes move.
+
+### QINDEX quota enforcement (GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT) — shipped .5
+`paper_pipeline.validate_question_index` gained **check 6**: the schedule-first
+difficulty quota (`difficulty_schedule[mock]`, Contract_QuestionMetadataIndex
+v1.0) must be met EXACTLY, not merely with canonical labels. Checks 1–5 had
+already moved into the engine at GAP-2026-08-10-QINDEX-FK-ENFORCEMENT; check 6
+was left session-executed-only, so a session could satisfy checks 1–5 with a
+genuinely non-compliant distribution (e.g. every difficulty null, or a free
+assessment never constrained to the schedule) and still log a clean,
+exit-code-durable audit. Check 6 is **dormant** when an exam declares no
+`difficulty_schedule`, and a **fail** when it declares one but has no entry for
+the mock. `audit_canonical.gate_qindex` (A-QINDEX site 2) mirrors it, and the
+four-site A-QINDEX agreement matrix keeps the contract in sync. Ships with
+fixtures. Framework_MockTestCreate v5.49.0 documents it.
+
+### Blueprint allocation-core revisions — shipped .7 and .8
+`blueprint_core.py`, the shared allocation core for MockBlueprint and
+ScopedBlueprint, was revised across two releases (4560 → 4987 → 5139 lines),
+paired with **Framework_Blueprint v1.48.0** (.7) and **Framework_MockTestCreate
+v5.50.0** (.7) → **v5.51.0** (.8). Each release cleared the full gate at deploy
+time (blueprint_core self-test 384/384 then 391/391; audit_canonical 248/248,
+run because it delegates A-FIGPROFILE to blueprint_core; bootstrap 41/41;
+`validate_framework_md` 0 issues; both manifests clean).
+
 ## 2026.08.12.4
 
 ### The cross-step sync audit becomes an engine (GAP-2026-08-12-NOTESYNC)
