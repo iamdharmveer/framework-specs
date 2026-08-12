@@ -1,4 +1,35 @@
-# Framework_MockTestCreate v5.50.0
+# Framework_MockTestCreate v5.51.0
+# v5.51.0 — 2026-08-12 — AXIS-3 PRE-FLIGHT FEASIBILITY (advisory, before Batch 1)
+#   (GAP-2026-08-12-AXIS3-PREFLIGHT). Closes the Axis-3 half v5.50 (below) deliberately
+#   withheld rather than ship un-verified: a naive subtopic-capability feasibility check
+#   for Axis-3 (mechanism MCQ/MSQ/NAT) would be WRONG on any exam whose marking_scheme
+#   declares more than one distinct question_type anywhere, because v5.30's POSITION-
+#   BASED QUESTION TYPE DISPATCH (`_resolve_answer_axes`, §3 S3-2) means every question's
+#   mechanism on such an exam is decided by Q-POSITION (defaulting to MCQ outside any
+#   declared range) — in EVERY section, not only the ones GAP-2026-08-12-AXIS3-MECHLOCK's
+#   axis3_mechanism_lock marks locked, since `_position_based_typing` is a GLOBAL,
+#   exam-wide flag, not a per-section one. A subtopic-capability check applied
+#   unconditionally would therefore be not merely useless but ACTIVELY MISLEADING —
+#   capable of reporting a shortfall for a mechanism that position dispatch guarantees
+#   regardless of which subtopics were allocated.
+#   FIX: new `blueprint_core.axis3_mock_feasibility(target, alloc_counts, manifest_ids,
+#   position_based_typing)` — `position_based_typing` is a REQUIRED parameter (no
+#   default) and the function returns `{}` UNCONDITIONALLY whenever it is True, so the
+#   check degrades to a harmless no-op — never a wrong answer — on any exam where
+#   subtopic capability is not what actually decides the mechanism. §3 S3-17b (below,
+#   extended in place, not duplicated) now computes both axis1_preflight_shortfalls AND
+#   axis3_preflight_shortfalls in the SAME per-mock, per-section loop, reusing the SAME
+#   `_position_based_typing` variable S3-2 already computes for real drafting dispatch —
+#   never a recomputed copy that could drift from what Batch 1 will actually do.
+#   S3-18's summary gains a second, parallel AXIS-3 PRE-FLIGHT ADVISORY block, printed
+#   only when non-empty — ADVISORY ONLY, never a HALT, identical contract to Axis-1's.
+#   blueprint_core.py self-test: 384/384 -> 391/391 (7 new fixtures, including a fixture
+#   that feeds an OBVIOUS subtopic-capability shortfall under position_based_typing=True
+#   and asserts the function still returns {} — the exact correctness trap this release
+#   exists to avoid — mutation-verified twice: once neutering the whole function body,
+#   once neutering ONLY the position_based_typing gate while leaving the rest intact,
+#   confirming that specific gate is independently load-bearing, not merely coincidental
+#   to some other assertion).
 # v5.50.0 — 2026-08-12 — AXIS-1 PRE-FLIGHT FEASIBILITY (advisory, before Batch 1)
 #   (GAP-2026-08-12-AXIS-PREFLIGHT). Companion release to Framework_Blueprint v1.48's
 #   GAP-2026-08-12-AXIS3-MECHLOCK, closing the second half of the Mock-10 root-cause gap
@@ -2001,75 +2032,93 @@
   "Right Circular Cone" now resolve through ids, so a present-but-differently-
   named mandatory subtopic is correctly recognised and does NOT false-stop.
 
-## S3-17b — Axis-1 pre-flight feasibility (advisory, v5.50, GAP-2026-08-12-AXIS-PREFLIGHT)
+## S3-17b — Axis-1/Axis-3 pre-flight feasibility (advisory, v5.50/v5.51 — GAP-2026-08-12-AXIS-PREFLIGHT / GAP-2026-08-12-AXIS3-PREFLIGHT)
 
   WHY THIS EXISTS. `blueprint_core.axis1_feasibility` (Framework_Blueprint.md §7-7,
   B1/blueprint-build time) already answers "does this SECTION have ANY PYQ subtopic
   capable of each targeted format, ever" — necessary but not sufficient. A mock can
   pass that section-wide check and still be drafted from a subset of subtopics that
-  happens to under-represent (or entirely omit) the figural-capable ones THIS mock
-  needed, purely from how the window's rotation/quota split landed for this specific
-  mock — `axis1_feasibility` cannot see that, because it runs once, at blueprint-build
-  time, before any mock's specific allocation exists (Mock-10 root-cause gap analysis
-  §5.5/§13 row 2: "A-AXIS1/A-AXIS3 invisible before Final Assembly"). This mock's
-  `subtopic_allocations` ARE finalised by this point (S3-2/S3-8, above) — well before
-  Batch 1 drafts a single question — so the narrower, mock-specific question CAN be
-  answered here: "given EXACTLY the subtopics allocated to THIS mock, and assuming
-  every single capable slot renders in the targeted format, can this mock structurally
-  reach its own target?" If not, no amount of steering during drafting can fix it — the
-  allocation itself is short — and the operator should know that BEFORE spending effort
-  drafting 60 questions that Final Assembly's A-AXIS1 gate will fail regardless.
+  happens to under-represent (or entirely omit) the format/mechanism-capable ones THIS
+  mock needed, purely from how the window's rotation/quota split landed for this
+  specific mock — `axis1_feasibility` cannot see that, because it runs once, at
+  blueprint-build time, before any mock's specific allocation exists (Mock-10
+  root-cause gap analysis §5.5/§13 row 2: "A-AXIS1/A-AXIS3 invisible before Final
+  Assembly"). This mock's `subtopic_allocations` ARE finalised by this point (S3-2/
+  S3-8, above) — well before Batch 1 drafts a single question — so the narrower,
+  mock-specific question CAN be answered here: "given EXACTLY the subtopics allocated
+  to THIS mock, and assuming every single capable slot renders in the targeted
+  format/mechanism, can this mock structurally reach its own target?" If not, no
+  amount of steering during drafting can fix it — the allocation itself is short — and
+  the operator should know that BEFORE spending effort drafting 60 questions that
+  Final Assembly's A-AXIS1/A-AXIS3 gate will fail regardless.
 
-  SCOPE — AXIS-1 (stimulus format: TEXT/FIGURAL/PASSAGE/DI) ONLY, deliberately, this
-  release. Axis-3 (mechanism: MCQ/MSQ/NAT) is NOT included here: `Framework_MockTestCreate
-  v5.30`'s POSITION-BASED QUESTION TYPE DISPATCH (`_resolve_answer_axes`, §3 S3-2 above)
-  means that on a mechanism-locked exam (>1 distinct question_type in marking_scheme), a
-  question's mechanism is decided by its Q-POSITION, not by the allocated subtopic's own
-  answer_cardinality/answer_type — so a naive subtopic-capability feasibility check would
-  be WRONG (misleadingly report a shortfall) for exactly the sections
-  `axis3_mechanism_lock` (Framework_Blueprint v1.48, GAP-2026-08-12-AXIS3-MECHLOCK) marks
-  'full'-locked, where the target is ALWAYS achievable by construction. A correct Axis-3
-  pre-flight needs to branch on `axis_schedule[sec_name]['axis3_target_source']` first
-  (skip entirely when it is 'mechanism_lock_full'; check subtopic capability only against
-  the 'mechanism_lock_partial' gap portion or the plain 'pyq_measured' case) — that is
-  real, distinct design work, not a mechanical extension of this check, and is
-  deliberately left for its own dedicated, separately-verified change rather than risking
-  a false-shortfall advisory shipping alongside this one.
+  v5.50 shipped AXIS-1 (stimulus format: TEXT/FIGURAL/PASSAGE/DI) only, deliberately.
+  Axis-3 (mechanism: MCQ/MSQ/NAT) was named but withheld, because
+  `Framework_MockTestCreate v5.30`'s POSITION-BASED QUESTION TYPE DISPATCH
+  (`_resolve_answer_axes`, §3 S3-2 above) means that whenever this EXAM's
+  marking_scheme declares more than one distinct `question_type` ANYWHERE
+  (`_position_based_typing`, an EXAM-WIDE flag computed once in S3-2 — not a
+  per-section property), every question's mechanism in EVERY section is decided by
+  its Q-POSITION (defaulting to MCQ for any Q outside a declared range), never by the
+  allocated subtopic's own `answer_cardinality`/`answer_type`. A naive subtopic-
+  capability check would therefore be MEANINGLESS at best and ACTIVELY MISLEADING at
+  worst on such an exam — not only inside the sections `axis3_mechanism_lock`
+  (Framework_Blueprint v1.48, GAP-2026-08-12-AXIS3-MECHLOCK) marks locked, but in
+  EVERY section, since an un-locked "gap" Q-range on a position-based exam still
+  resolves via `_type_for_q`'s own MCQ default, not via subtopic capability.
+  v5.51 (GAP-2026-08-12-AXIS3-PREFLIGHT) closes this correctly: `bc.axis3_mock_
+  feasibility` takes `_position_based_typing` (the SAME S3-2 variable, not a
+  recomputed copy — see its own docstring for the full reasoning) as a REQUIRED
+  parameter and returns `{}` UNCONDITIONALLY whenever it is True, so the check is
+  simply inert — never wrong — on any exam where it would not be meaningful.
 
   ADVISORY ONLY — never a HARD STOP, mirroring `axis1_feasibility`'s own established
-  contract exactly ("Subtopic is hard #1"; Axis-1 is a locked CONSEQUENCE of allocation,
-  steered and audited within tolerance, never force-blocking on it). Absent-safe: no
-  `axis_schedule` (pre-v1.23 blueprint) or no `axis1_target_per_mock` for a section ⇒
-  silently skipped for that section, byte-identical to every exam that predates this.
+  contract exactly ("Subtopic is hard #1"; Axis-1/Axis-3 are locked CONSEQUENCES of
+  allocation, steered and audited within tolerance, never force-blocking on it).
+  Absent-safe: no `axis_schedule` (pre-v1.23 blueprint), a section whose status isn't
+  'ok', or no target for an axis ⇒ silently skipped for that axis/section,
+  byte-identical to every exam that predates this.
 
   ```python
-  # v5.50 (GAP-2026-08-12-AXIS-PREFLIGHT). Composes THIS MOCK's own Axis-1 target (the
-  # rotating FIGURAL series value for mock N, substituted into the flat per-mock target —
-  # every other format in axis1_target_per_mock does not rotate) and checks it against
-  # this mock's actual finalised subtopic_allocations via bc.axis1_mock_feasibility.
+  # v5.50/v5.51 (GAP-2026-08-12-AXIS-PREFLIGHT / GAP-2026-08-12-AXIS3-PREFLIGHT).
+  # Axis-1: composes THIS MOCK's own target (the rotating FIGURAL series value for
+  #   mock N, substituted into the flat per-mock target — every other format in
+  #   axis1_target_per_mock does not rotate) and checks it via bc.axis1_mock_feasibility.
+  # Axis-3: axis3_target_per_mock does not rotate per mock (no series to substitute) —
+  #   checked directly via bc.axis3_mock_feasibility, gated by _position_based_typing
+  #   (the S3-2 variable, reused as-is — NEVER recomputed here).
   axis1_preflight_shortfalls = {}
+  axis3_preflight_shortfalls = {}
   for sec_name, id_map in alloc_ids.items():
       sec_sched = axis_schedule.get(sec_name)
       if not sec_sched or sec_sched.get('status') != 'ok':
           continue                                        # absent-safe: dormant/no_pyq section
-      _target = dict(sec_sched.get('axis1_target_per_mock') or {})
-      if not _target:
-          continue
-      _series = sec_sched.get('axis1_target_series') or []
-      if _series:
-          _target['FIGURAL'] = _series[(N - 1) % len(_series)]
       _alloc_counts = {sid: info['q_count'] for sid, info in id_map.items()}
-      _shortfall = bc.axis1_mock_feasibility(_target, _alloc_counts, MANIFEST_IDS)
-      if _shortfall:
-          axis1_preflight_shortfalls[sec_name] = _shortfall
+
+      _target1 = dict(sec_sched.get('axis1_target_per_mock') or {})
+      if _target1:
+          _series = sec_sched.get('axis1_target_series') or []
+          if _series:
+              _target1['FIGURAL'] = _series[(N - 1) % len(_series)]
+          _sf1 = bc.axis1_mock_feasibility(_target1, _alloc_counts, MANIFEST_IDS)
+          if _sf1:
+              axis1_preflight_shortfalls[sec_name] = _sf1
+
+      _target3 = sec_sched.get('axis3_target_per_mock') or {}
+      if _target3:
+          _sf3 = bc.axis3_mock_feasibility(_target3, _alloc_counts, MANIFEST_IDS,
+                                           position_based_typing=_position_based_typing)
+          if _sf3:
+              axis3_preflight_shortfalls[sec_name] = _sf3
   ```
 
-  If `axis1_preflight_shortfalls` is non-empty, S3-18's summary (below) prints an
-  AXIS-1 PRE-FLIGHT ADVISORY block naming each short section/format/target/max-achievable
-  triple, then proceeds to "Type 'continue' to begin Batch 1" exactly as it always has —
-  this NEVER blocks, and NEVER changes which subtopics are allocated or how Batch 1 drafts.
-  It exists solely so the operator sees a structurally-doomed mock BEFORE drafting it,
-  instead of only at Final Assembly after 60 questions already exist (the exact, expensive
+  If `axis1_preflight_shortfalls`/`axis3_preflight_shortfalls` is non-empty, S3-18's
+  summary (below) prints an AXIS PRE-FLIGHT ADVISORY block naming each short
+  section/format-or-mechanism/target/max-achievable triple, then proceeds to
+  "Type 'continue' to begin Batch 1" exactly as it always has — this NEVER blocks, and
+  NEVER changes which subtopics are allocated or how Batch 1 drafts. It exists solely
+  so the operator sees a structurally-doomed mock BEFORE drafting it, instead of only
+  at Final Assembly after 60 questions already exist (the exact, expensive
   discovery-order failure this check exists to shorten).
 
 ## S3-18 — Display session start summary + batch plan
@@ -2132,6 +2181,20 @@
       [Section] — [format]: target=[N], max_achievable=[M] (allocation short by [N-M])
       ...
   Not a HALT — Subtopic is hard #1; Final Assembly's A-AXIS1 gate audits the actual
+  outcome within tolerance regardless. Shown so a structural shortfall is visible
+  before Batch 1, not only after 60 questions already exist.
+  ──────────────────────────────────────────────────
+
+  AXIS-3 PRE-FLIGHT ADVISORY (v5.51 — when axis3_preflight_shortfalls, S3-17b, is
+  non-empty; omit this block entirely when it is empty — including on any exam where
+  _position_based_typing is True, since bc.axis3_mock_feasibility returns {} there
+  unconditionally, so this block simply never has anything to report):
+  ──────────────────────────────────────────────────
+  ⚠ This mock's subtopic allocation may not be able to reach its Axis-3 target even
+    if every capable slot renders in the targeted mechanism:
+      [Section] — [mechanism]: target=[N], max_achievable=[M] (allocation short by [N-M])
+      ...
+  Not a HALT — Subtopic is hard #1; Final Assembly's A-AXIS3 gate audits the actual
   outcome within tolerance regardless. Shown so a structural shortfall is visible
   before Batch 1, not only after 60 questions already exist.
   ──────────────────────────────────────────────────
@@ -7930,7 +7993,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.50.0
+# END OF Framework_MockTestCreate v5.51.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

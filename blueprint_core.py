@@ -26,6 +26,7 @@ PROVENANCE
       axis3_mechanism_lock ..... §7-7 (GAP-2026-08-12-AXIS3-MECHLOCK, NEW — v1.49)
       axis1_feasibility ........ §7-7
       axis1_mock_feasibility ... §7-7 (GAP-2026-08-12-AXIS-PREFLIGHT, NEW — v1.50)
+      axis3_mock_feasibility ... §7-7 (GAP-2026-08-12-AXIS3-PREFLIGHT, NEW — v1.51)
       slugify .................. §17 S2-MANIFEST
     Source anchors (Framework_MockTestAnalyse.md v2.24.10 — Cluster E):
       score_difficulty ......... E-9  (3-axis universal difficulty scorer)
@@ -61,6 +62,7 @@ __all__ = [
     "axis3_mechanism_lock",
     "axis1_feasibility",
     "axis1_mock_feasibility",
+    "axis3_mock_feasibility",
     "AXIS_WINDOW_YEARS",
     "AXIS_BAND_ABS",
     "AXIS_BAND_FLEX",
@@ -955,6 +957,95 @@ def axis1_mock_feasibility(target, alloc_counts, manifest_ids):
         have = int(avail.get(fmt, 0))
         if have < want:
             shortfall[fmt] = {"target": want, "max_achievable": have}
+    return shortfall
+
+
+def axis3_mock_feasibility(target, alloc_counts, manifest_ids, position_based_typing):
+    """§7-7 GAP-2026-08-12-AXIS3-PREFLIGHT (Axis-3 companion to
+    ``axis1_mock_feasibility``, deliberately deferred out of that function's own
+    v5.50 release — see its history for why). ADVISORY (WARN, never HALT).
+
+    THE SUBTLETY THAT MAKES THIS A SEPARATE FUNCTION, NOT A COPY-PASTE OF
+    ``axis1_mock_feasibility`` WITH 'format' SWAPPED FOR 'mechanism':
+    Axis-1 (stimulus format) is always a SUBTOPIC property — nothing else ever
+    decides it. Axis-3 (mechanism: MCQ/MSQ/NAT) is NOT always a subtopic
+    property. ``Framework_MockTestCreate`` v5.30's POSITION-BASED QUESTION TYPE
+    DISPATCH (``_resolve_answer_axes``, §3 S3-2) means that whenever an exam's
+    marking_scheme declares MORE THAN ONE distinct ``question_type`` ANYWHERE
+    (``_position_based_typing = len(_distinct_q_types) > 1`` — an EXAM-WIDE
+    flag, computed once, not per-section), EVERY question's mechanism, in
+    EVERY section of that exam, is decided by its Q-POSITION via
+    ``_type_for_q(qnum)`` — which defaults to MCQ for any Q number outside a
+    declared marking_scheme range — and the allocated subtopic's own
+    ``answer_cardinality``/``answer_type`` is never consulted at all. This is
+    true even for a Q-range GAP-2026-08-12-AXIS3-MECHLOCK's own
+    ``axis3_mechanism_lock`` would call 'partial'-locked or 'none'-locked for
+    THIS section specifically — position-based dispatch is a GLOBAL exam
+    property, not a per-section one, so a section that looks un-locked by
+    ``axis3_mechanism_lock`` can still be entirely position-dispatched (falling
+    to the MCQ default) if ANY other section of the same exam declares 2+
+    distinct types. Checking subtopic capability in that regime would be
+    MEANINGLESS at best and ACTIVELY MISLEADING at worst — it could report a
+    shortfall for a mechanism that is, in fact, guaranteed by position
+    regardless of which subtopics were allocated. This is exactly the
+    correctness trap the v5.50 release note flagged and deliberately avoided
+    landing un-verified; ``position_based_typing`` is the fix, and it is a
+    REQUIRED parameter (no default) specifically so no caller can silently
+    omit it and get a wrong answer by accident.
+
+    target                : this section's axis3_target_per_mock (already the
+                             FINAL, lock-blended value if
+                             GAP-2026-08-12-AXIS3-MECHLOCK applies — no
+                             additional composition needed here, unlike Axis-1's
+                             rotating FIGURAL series; axis3_target_per_mock does
+                             not rotate per mock).
+    alloc_counts           : {subtopic_id: q_count} — identical contract to
+                             ``axis1_mock_feasibility``.
+    manifest_ids           : {subtopic_id: {..., 'answer_cardinality':,
+                             'answer_type': ...}}. Per-subtopic mechanism is
+                             derived to mirror BOTH ``_resolve_answer_axes``'s
+                             own SUBTOPIC-BASED branch (the values read) AND
+                             ``audit_canonical.gate_axis3``'s own observability
+                             order (the precedence: NAT is checked first — "0
+                             options ⇒ NAT" there mirrors ``answer_type ==
+                             'numerical'`` here — then MSQ, with MCQ as the
+                             untested residual, exactly as that gate's own
+                             docstring states it).
+    position_based_typing  : REQUIRED, EXAM-WIDE boolean — pass the SAME
+                             ``_position_based_typing`` variable
+                             Framework_MockTestCreate's own S3-2 already
+                             computes (``len(_distinct_q_types) > 1`` over the
+                             WHOLE marking_scheme), not a per-section
+                             recomputation. When True, this function returns
+                             ``{}`` UNCONDITIONALLY — see above.
+
+    Returns ``{mechanism: {'target': int, 'max_achievable': int}}`` for every
+    mechanism SHORT — identical "``{}`` == fully feasible" convention as
+    ``axis1_mock_feasibility``. Also ``{}`` (nothing meaningful to check) on a
+    position-based exam, or when ``target``/``alloc_counts`` is empty.
+    """
+    if position_based_typing:
+        return {}
+    if not target or not alloc_counts:
+        return {}
+    avail = {}
+    for sid, n in alloc_counts.items():
+        mv = manifest_ids.get(sid) or {}
+        if str(mv.get("answer_type", "option")).strip().lower() == "numerical":
+            mech = "NAT"
+        elif str(mv.get("answer_cardinality", "single")).strip().lower() == "multi":
+            mech = "MSQ"
+        else:
+            mech = "MCQ"
+        avail[mech] = avail.get(mech, 0) + int(n or 0)
+    shortfall = {}
+    for mech, want in target.items():
+        want = int(want or 0)
+        if want <= 0:
+            continue
+        have = int(avail.get(mech, 0))
+        if have < want:
+            shortfall[mech] = {"target": want, "max_achievable": have}
     return shortfall
 
 
@@ -3622,6 +3713,67 @@ def self_test():
     check('AXISPREFLIGHT-does-not-regress-axis1_feasibility',
           axis1_feasibility('SEC', {'TEXT': 20, 'FIGURAL': 5}, ['ST01'],
                             {'ST01': {'section': 'SEC', 'format': 'TEXT'}}) == ['FIGURAL'])
+
+    # ── GAP-2026-08-12-AXIS3-PREFLIGHT regression pack ───────────────────────
+    # The defining correctness trap this function exists to avoid (v5.50's own release
+    # note flagged it and deliberately deferred landing it un-verified): on a
+    # POSITION-BASED exam (Framework_MockTestCreate v5.30, _resolve_answer_axes),
+    # mechanism is decided by Q-POSITION, never by subtopic capability — checking
+    # subtopic capability there would be not just useless but ACTIVELY MISLEADING. No
+    # exam/subtopic name below is load-bearing.
+    _m3_manifest = {'ST01': {'answer_cardinality': 'single', 'answer_type': 'option'},   # MCQ
+                    'ST02': {'answer_cardinality': 'multi',  'answer_type': 'option'},   # MSQ
+                    'ST03': {'answer_cardinality': 'single', 'answer_type': 'numerical'}, # NAT
+                    'ST04': {'answer_cardinality': 'multi',  'answer_type': 'numerical'}} # NAT wins (precedence)
+
+    # 1 — THE GATE ITSELF: position_based_typing=True suppresses the check UNCONDITIONALLY,
+    #     even feeding it a target/allocation combo that would OBVIOUSLY be a shortfall
+    #     under subtopic-based reasoning. This is the exact scenario the v5.50 release
+    #     note described: a target this mock's allocation could never satisfy by subtopic
+    #     capability alone, but which position dispatch guarantees regardless.
+    check('AXIS3PREFLIGHT-position-based-exam-always-skips',
+          axis3_mock_feasibility({'MSQ': 10}, {'ST01': 10}, _m3_manifest,
+                                 position_based_typing=True) == {})
+
+    # 2 — SUBTOPIC-BASED exam (position_based_typing=False), fully feasible.
+    check('AXIS3PREFLIGHT-subtopic-based-fully-feasible',
+          axis3_mock_feasibility({'MCQ': 7, 'MSQ': 2, 'NAT': 1},
+                                 {'ST01': 7, 'ST02': 2, 'ST03': 1}, _m3_manifest,
+                                 position_based_typing=False) == {})
+
+    # 3 — SUBTOPIC-BASED exam, genuine shortfall — exact counts reported.
+    check('AXIS3PREFLIGHT-subtopic-based-detects-shortfall',
+          axis3_mock_feasibility({'MCQ': 6, 'MSQ': 4}, {'ST01': 6, 'ST02': 1}, _m3_manifest,
+                                 position_based_typing=False)
+          == {'MSQ': {'target': 4, 'max_achievable': 1}})
+
+    # 4 — PRECEDENCE: a subtopic with BOTH answer_type='numerical' AND
+    #     answer_cardinality='multi' resolves to NAT, not MSQ — mirrors
+    #     audit_canonical.gate_axis3's own observability order ("0 options ⇒ NAT" is
+    #     checked before the MSQ select-instruction; MCQ is the untested residual).
+    check('AXIS3PREFLIGHT-nat-precedence-over-msq',
+          axis3_mock_feasibility({'NAT': 3}, {'ST04': 3}, _m3_manifest,
+                                 position_based_typing=False) == {}
+          and axis3_mock_feasibility({'MSQ': 3}, {'ST04': 3}, _m3_manifest,
+                                     position_based_typing=False)
+          == {'MSQ': {'target': 3, 'max_achievable': 0}})
+
+    # 5 — ABSENT-SAFE: no target / no allocation / None everything, never crashes.
+    check('AXIS3PREFLIGHT-absent-safe',
+          axis3_mock_feasibility({}, {'ST01': 5}, _m3_manifest, position_based_typing=False) == {}
+          and axis3_mock_feasibility({'MCQ': 2}, {}, _m3_manifest, position_based_typing=False) == {}
+          and axis3_mock_feasibility(None, None, _m3_manifest, position_based_typing=False) == {}
+          and axis3_mock_feasibility(None, None, _m3_manifest, position_based_typing=True) == {})
+
+    # 6 — a target of 0 for a mechanism is never flagged, even with zero capacity.
+    check('AXIS3PREFLIGHT-zero-target-never-flagged',
+          axis3_mock_feasibility({'MSQ': 0, 'MCQ': 5}, {'ST01': 5}, _m3_manifest,
+                                 position_based_typing=False) == {})
+
+    # 7 — axis1_mock_feasibility itself (existing function) is completely untouched.
+    check('AXIS3PREFLIGHT-does-not-regress-axis1_mock_feasibility',
+          axis1_mock_feasibility({'TEXT': 9, 'FIGURAL': 4}, {'ST01': 9, 'ST02': 1},
+                                 _mf_manifest) == {'FIGURAL': {'target': 4, 'max_achievable': 1}})
 
     # ── GAP-2026-08-06-AXIS1 — BUDGET TRACKER regression pack ────────────────
     # The defect these lock down shipped TWICE on a real exam and passed every gate,
