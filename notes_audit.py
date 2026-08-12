@@ -439,7 +439,13 @@ def gate_counters(model, docx_path=None):
         printed_ex.append(int(m.group(1)))
     for m in re.finditer(r"Recall\s+(\d+)", text):
         printed_rc.append(int(m.group(1)))
-    for m in re.finditer(r"(?<![\d.])(\d+)\.(\d+)(?![\d.])", text):
+    # The lookarounds must reject only a LEVEL-3 number ("7.3.1" must not
+    # yield "7.3" or "3.1"), never an ordinary full stop in the preceding
+    # sentence. An earlier form used (?<![\d.]) and therefore missed every bar
+    # whose preceding text ended in "." — "…ceiling rate.7.2 TRAP BOX" — which
+    # is most of them, since bullets end in full stops. That produced a
+    # false-positive G-10 failure on a perfectly correct document.
+    for m in re.finditer(r"(?<!\d)(?<!\d\.)(\d+)\.(\d+)(?!\.?\d)", text):
         printed_l2.append(f"{m.group(1)}.{m.group(2)}")
     meta["verified_against_document"] = True
 
@@ -832,6 +838,41 @@ def self_test():
     check("G-10 states plainly when it has verified nothing "
           "(no document supplied)",
           gate_counters(m)[2]["verified_against_document"] is False)
+    # A bar whose preceding text ends in a full stop must still be seen. The
+    # first form of this gate used a (?<![\d.]) lookbehind and missed every
+    # such bar — i.e. most of them, since bullets end in full stops — failing
+    # a correct document. Full-anatomy fixture, prose ending in "." throughout.
+    full = {"schema": notes_docx.SCHEMA, "exam_code": "EX",
+            "unit": {"name": "Enzyme Kinetics", "tier": "TIER-2",
+                     "seq_in_topic": 7},
+            "blocks": [
+                {"type": "title", "name": "Enzyme Kinetics"},
+                {"type": "concept", "name": "Saturation kinetics",
+                 "content": [{"k": "bullet",
+                              "runs": T("Rate saturates as substrate rises.")}]},
+                {"type": "example", "qtype": "MCQ", "stem": T("Which holds?"),
+                 "options": [T("a"), T("b"), T("c"), T("d")], "answer": "2",
+                 "explanation": [T("Substitute and simplify.")]},
+                {"type": "key_points",
+                 "bullets": [T("Saturation sets the ceiling rate.")]},
+                {"type": "trap",
+                 "bullets": [T("It is not a binding constant.")]},
+                {"type": "rapid",
+                 "formulae": [[T("Name"), T("Form")], [T("MM"), T("v")]],
+                 "associations": [[T("Term"), T("Link")], [T("x"), T("y")]]},
+                {"type": "recall", "qtype": "MCQ",
+                 "stem": T("Which is correct?"),
+                 "options": [T("a"), T("b"), T("c"), T("d")],
+                 "answer": "3"}]}
+    fp = tempfile.mktemp(suffix=".docx")
+    notes_docx.build(full, fp)
+    ok_f, f_f, _ = gate_counters(full, fp)
+    check("G-10 sees a bar preceded by a full stop (regression: the old "
+          "lookbehind failed a correct full-anatomy document)",
+          ok_f and not f_f)
+    check("G-10 still rejects a level-3 number as if it were level-2",
+          all("." not in n.split(".", 2)[-1]
+              for n in [x for _, x, _ in notes_docx.outline_of(full)["l2"]]))
 
     # ---- G-9 orphan terms ----------------------------------------------
     ok9, f9, _ = gate_orphan_terms(m)

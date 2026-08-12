@@ -103,7 +103,13 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v2.0 — resolve_unit (operator-input resolution), sid_slug,
+#   notes_docx.py >= v1.1 — the SHARED builder. NC constructs the .docx ONLY
+#                           through notes_docx.build (section 4A); it never
+#                           hand-rolls a paragraph, colour, border or line rule
+#   notes_core.py >= v2.4 — notes_filename AND docx_ref_for (section 9A's
+#                           draft_ref), registry schema notes-registry/2.1,
+#                           the D-1 bullet counter G-1 depends on, plus:
+#                           resolve_unit (operator-input resolution), sid_slug,
 #                           verify_taxonomy_ref (manifest staleness check),
 #                           sid-keyed registry (notes-registry/2.0); plus
 #                           LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
@@ -250,7 +256,10 @@ it emits, so a tall equation or image can never inherit a fixed rule and clip.
 
 ## §5 — DENSITY SPEC (machine-gated in NA; constants in notes_core.py,
 ##      spec-lock-pinned — the constants are the single authority)
-  D-1 Bullet length: target <= 20 words; HARD CAP 25.
+  D-1 Bullet length: target <= 20 words; HARD CAP 25. Applies to EVERY
+      rendered bullet — concept bullets and the bullets inside KEY POINTS and
+      TRAP boxes alike. Enforced at construction by notes_docx.validate_model
+      and again at audit by gate G-1.
   D-2 No prose paragraph longer than 2 rendered lines.
   D-3 TABLE-FIRST: >= 3 parallel facts MUST become a table.
   D-4 One concept occupies ~0.5–1.5 pages.

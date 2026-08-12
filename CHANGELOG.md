@@ -1,5 +1,85 @@
 # Changelog
 
+## 2026.08.12.3
+
+### Final sync audit of the Notes pipeline — four defects found and fixed (GAP-2026-08-12-NADOCX, patch P3 of 3)
+A line-by-line audit of all four Notes specs and their engines, checking every
+producer/consumer handshake and attacking the engines with edge cases rather
+than happy paths. Everything below was found by that audit; two of the four
+were live defects in shipped code.
+
+**(A) `notes_core.py` v2.3 -> v2.4 — THE D-1 DENSITY GATE WAS DEAD ON EVERY
+NOTES DOCUMENT.** Gate G-1 calls `bullet_word_counts`, which counted only
+paragraphs carrying `<w:numPr>` — Word list paragraphs. `notes_docx` v1.0
+renders a bullet as a literal glyph run, not a list paragraph, so the counter
+returned `[]` for EVERY document the shared builder produces. Measured: a
+document with three 60-word bullets (cap 25) returned zero counts and
+`density_gate` reported CLEAN. A gate that reports clean while checking nothing
+is worse than no gate, because it buys false confidence. The counter now
+recognises BOTH conventions and walks all of `document.xml`, so bullets inside
+table cells — where the KEY POINTS and TRAP bullets live — are included. The
+`<w:numPr>` literal was also hardened to `<w:numPr` so a self-closing tag is
+not missed.
+
+**(B) `notes_core.py` v2.4 — A SLUG WITH NO ASCII PRODUCED A COLLIDING
+FILENAME.** The sanitiser maps every non-alphanumeric run to `_`, so a
+Devanagari, Tamil or Bengali slug — or one that is all punctuation — sanitised
+to empty and produced `EX_S1_T1_ST01__Final.docx`. Two different units in the
+same topic would write the SAME filename and one would silently overwrite the
+other. The framework is exam-agnostic across 200+ Indian exams and sids are
+opaque to Notes, so a non-ASCII sid is a realistic input. `_notes_stem` now
+falls back to a short deterministic hash of the RAW slug: stable across runs,
+collision-free, and never reached for an ASCII slug — every existing filename
+is byte-identical. Verified: six distinct non-ASCII/punctuation slugs now yield
+six distinct filenames where they previously yielded one.
+
+**(C) `notes_docx.py` v1.0 -> v1.1 — D-1 WAS ENFORCED ON CONCEPT BULLETS
+ONLY.** `validate_model` checked the word cap inside a concept's content but
+not on KEY POINTS or TRAP bullets, so a 60-word box bullet built cleanly.
+Combined with (A), an over-long box bullet passed BOTH layers silently. The cap
+now applies wherever a bullet is rendered, and a self-test asserts the two
+layers agree rather than one silently covering for the other.
+
+**(D) SPEC SYNC — four stale cross-references.** Each is the "one contract, two
+statements" class this framework fights:
+- `Framework_NotesCreate.md` v2.3.0 required `notes_docx` and `docx_ref_for`,
+  but its MINIMUM COMPANION VERSIONS block still read `notes_core >= v2.0` and
+  did not list `notes_docx` at all — its own header said `>= v2.3` / `v1.0`.
+- `Framework_NotesDeliver.md` v1.2.0 uses `notes_deliver_filename` and
+  `audit_summary`, but claimed `notes_core >= v2.0`.
+- `Framework_NotesBlueprint.md` v3.0.2 -> **v3.0.3**: NB CREATES the registry,
+  and `registry_init` emits `notes-registry/2.1` as of v2.4, but the spec still
+  cited 2.0 in its companion block and in O-3 — the step that creates the
+  artifact naming an older schema than the engine it calls. Its PIPELINE
+  POSITION line also still described NA as "audit + loop", which stopped being
+  true at NotesAudit v3.0.0.
+- `Framework_NotesDeliver.md` §4 still asserted "There is no KEY_FLAG queue —
+  retired, owner decision 4a" as the whole story. NotesAudit v3.0.0 §3A
+  replaced that decision with two-tier key CORRECTION, and §4 named neither the
+  quarantine queue nor the judgement-tier corrections that ND must surface.
+  Rewritten to name all three surviving queues and their review paths.
+
+**(E) `notes_audit.py` — G-10 FALSE POSITIVE, found by the end-to-end walk.**
+The gate's lookbehind for level-2 outline numbers was `(?<![\d.])`, intended to
+stop `7.3.1` yielding `7.3` or `3.1`. It also rejected any bar whose preceding
+text ended in a full stop — `…ceiling rate.7.2 TRAP BOX` — which is most bars,
+since bullets end in full stops. A correct full-anatomy document failed G-10
+with "outline numbers derived but not printed". Replaced with
+`(?<!\d)(?<!\d\.)…(?!\.?\d)`, which excludes only genuine level-3 numbers, plus
+a full-anatomy regression fixture whose prose ends in full stops throughout.
+This was introduced by the P2 rewrite of G-10 and never fired in the P2 unit
+fixtures, which used single-word bullets.
+
+Also corrected: `Framework_NotesAudit.md` G-1 and `Framework_NotesCreate.md`
+D-1 now state that the cap covers every rendered bullet and is enforced at both
+construction and audit.
+
+**Verification.** Self-tests `notes_core` 138 -> 149, `notes_docx` 63 -> 69,
+`notes_audit` 65 -> 67. Mutation testing: 6/6 killed on the P3 fixes, and
+the full P1 and P2 batteries re-run against P3 code — 7/7 and 8/8 still killed.
+The CI validator caught a version bump made without a matching changelog line
+during this patch, which is the check working as intended.
+
 ## 2026.08.12.2
 
 ### NotesAudit becomes a writer (GAP-2026-08-12-NADOCX, patch P2 of 2)

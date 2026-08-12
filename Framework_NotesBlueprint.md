@@ -1,4 +1,17 @@
-# Framework_NotesBlueprint v3.0.2 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.0.3 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.0.3 — 2026-08-12 — REGISTRY 2.1 SYNC (GAP-2026-08-12-NADOCX patch P3 of 3).
+#   NB creates the registry, and notes_core v2.4's registry_init now EMITS
+#   notes-registry/2.1 — additively: the 2.0 keys are untouched, 1.x/2.0 still
+#   load, and 2.1 adds the per-unit draft_ref (written by NC section 9A),
+#   final_ref and audit_summary (written by NA section 6). This spec still
+#   cited 2.0 in its companion block and in O-3, so the step that CREATES the
+#   artifact named an older schema than the engine it calls — the drift the
+#   SPEC-LOCK block exists to catch, one release after the flip. Corrected
+#   here, together with the PIPELINE POSITION line, which described NA as
+#   "audit + loop" and no longer matched Framework_NotesAudit v3.0.0, where NA
+#   also corrects, rebuilds and emits the unit's _Final.docx. Companion:
+#   notes_core >= v2.4. No behaviour change: notes_blueprint.py is untouched
+#   and notes-blueprint/2.0 is unchanged.
 # v3.0.2 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts; pairs
 #   with Framework_NotesCreate v2.2.1 and notes_core v2.1 SPEC-LOCK). §1A A-3
 #   now names notes_core.unit_code as the FORMATTER of the numeric code (the
@@ -44,8 +57,8 @@
 #         syllabus's role shrinks to what §1.1 always said — the MASTER FILTER
 #         (in/out of scope, roles, tiers) — never a naming authority. §2 S-1
 #         rewritten; the summary gains a SYLLABUS-MATCH report.
-#     (3) The registry and blueprint are KEYED BY sid (schemas notes-registry/2.0,
-#         notes-blueprint/2.0). The numeric unit_code {EXAM}_S{s}_T{t}_ST{nn}
+#     (3) The registry and blueprint are KEYED BY sid (schemas notes-registry/2.0
+#         — 2.1 as of notes_core v2.4, additive — and notes-blueprint/2.0). The numeric unit_code {EXAM}_S{s}_T{t}_ST{nn}
 #         survives as a DERIVED PRESENTATION attribute (B1 title number, F-1
 #         filename): numbers come from manifest row order via
 #         notes_core.assign_numbering and, once assigned, are PERSISTED — a Step-5
@@ -134,6 +147,12 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
+#   notes_core.py >= v2.4 — registry_init EMITS notes-registry/2.1 (additive:
+#                           adds draft_ref / final_ref / audit_summary per
+#                           unit). NB creates the registry, so it must be the
+#                           version that writes the 2.1 shape; a 2.0 registry
+#                           would reach NC without the fields section 9A sets.
+#                           notes-blueprint/2.0 is UNCHANGED. Also:
 #   notes_core.py      >= v2.0 — load_subtopic_manifest, taxonomy_ref_for /
 #                                verify_taxonomy_ref, assign_numbering,
 #                                resolve_unit, sid_slug, sid-keyed registry
@@ -163,8 +182,12 @@
 # PIPELINE POSITION (Notes pipeline — independent of the Mock pipeline):
 #   Notes Step NB (NotesBlueprint) -> THIS SPEC (bank + blueprint + registry)
 #   Notes Step NC (NotesCreate)    -> 1 subtopic -> 1 notes .docx (draft), reads bank
-#   Notes Step NA (NotesAudit)     -> ground-truth solvability audit + loop, reads bank
-#   Notes Step ND (NotesDeliver)   -> delivery + registry DELIVERED
+#   Notes Step NA (NotesAudit)     -> ground-truth solvability audit; from
+#                                     Framework_NotesAudit v3.0.0 NA also
+#                                     CORRECTS and REBUILDS the notes and emits
+#                                     the unit's _Final.docx. Reads the bank;
+#                                     never writes it (NA section 3A)
+#   Notes Step ND (NotesDeliver)   -> portal formatting + registry DELIVERED
 #
 # PREREQUISITE:
 #   [ExamCode] project Files MUST contain: (a) [ExamCode]_subtopic_manifest.json —
@@ -426,7 +449,10 @@ O-2 notes_blueprint.json — notes_core.BLUEPRINT_SCHEMA (notes-blueprint/2.0;
     prose_ban_exemptions. Unit provenance is "syllabus" or "evidence-added";
     pyq_count is DERIVED from the bank (§3B B-6), not carried on a provenance
     field.
-O-3 notes_registry.json — notes_core.registry_init (notes-registry/2.0; units
+O-3 notes_registry.json — notes_core.registry_init (notes-registry/2.1 as of
+    notes_core v2.4 — the 2.0 keys are unchanged and 2.0/1.x still load; 2.1
+    adds the per-unit draft_ref / final_ref / audit_summary that NC section 9A
+    and NA section 6 populate downstream; units
     KEYED BY sid; taxonomy_ref stored); every unit -> BLUEPRINTED.
 O-4 Chat summary — the INGEST REPORT is emitted at EACH BATCH STOP (A-7) for that
     batch's 3 papers; after the LAST batch a FULL summary adds unit counts by
@@ -529,4 +555,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.0.2
+# END OF Framework_NotesBlueprint v3.0.3

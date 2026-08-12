@@ -47,7 +47,11 @@
 # [ExamCode] project | Notes Step ND | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v2.0 — registry transitions, naming assertion, resolve_unit
+#   notes_core.py >= v2.4 — notes_deliver_filename (the _Deliver authority),
+#                           verify_docx_ref (the section 1.0 preflight against
+#                           final_ref), registry schema notes-registry/2.1
+#                           (audit_summary, final_ref), registry transitions,
+#                           resolve_unit
 #
 # PURPOSE:
 #   Deliver AUDITED_PASS notes to the operator (one .docx per subtopic, plus
@@ -101,11 +105,28 @@ repeat this warning the FIRST time a given exam project delivers notes, so
 the portal team confirms a Word-native path once per exam.
 
 ## §4 — STATE AND QUEUES
-On delivery the unit moves AUDITED_PASS → DELIVERED (timestamped). An open
-FIGURE_PENDING item survives delivery and keeps its standing re-audit trigger
-(Framework_NotesAudit §1 figure handling; NA runs permanent ground-truth mode,
-§3); a re-audit that changes any verdict re-opens the unit to AUDITED_PASS pending
-redelivery. (There is no KEY_FLAG queue — retired, NA owner decision 4a.)
+On delivery the unit moves AUDITED_PASS -> DELIVERED (timestamped).
+
+THREE QUEUES SURVIVE DELIVERY, all read from the unit's audit_summary:
+  1. FIGURE_PENDING — an unresolved stem figure keeps its standing re-audit
+     trigger (Framework_NotesAudit section 1).
+  2. QUARANTINED (v1.2.0) — a question NA could not make solvable from
+     in-syllabus notes (Framework_NotesAudit section 4 L-4). It indicates the
+     question does not belong to this subtopic or its stem is corrupt, so it
+     is checked against Step 5; it is NOT a defect in the delivered notes and
+     never appears inside the document.
+  3. KEY CORRECTIONS (v1.2.0) — the JUDGEMENT-tier entries of
+     audit_summary["key_corrections"], where NA disagreed with a bank key that
+     was internally consistent (Framework_NotesAudit section 3A TIER 2). These
+     are for human review of the SOURCE data, not of the notes. TIER 1
+     corrections are provable from the bank itself and need no review.
+A bank refresh (an NB re-run) is a standing trigger to re-audit the affected
+units; a re-audit that changes any verdict re-opens the unit to AUDITED_PASS
+pending redelivery.
+
+There is no KEY_FLAG queue: owner decision 4a retired it, and
+Framework_NotesAudit v3.0.0 section 3A replaced it with the two-tier key
+CORRECTION mechanism above — NA now fixes a wrong key rather than queueing it.
 
 ---
 

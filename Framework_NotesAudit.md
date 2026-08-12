@@ -41,7 +41,7 @@
 #         notes_core.notes_final_filename, in every outcome. A question that
 #         survives the loop is QUARANTINED, not shipped as a warning: nothing
 #         inside the document ever marks a defect (F-6/§7 unchanged).
-#   Companions: notes_core >= v2.3, notes_docx >= v1.0, notes_audit >= v2.0.
+#   Companions: notes_core >= v2.4, notes_docx >= v1.1, notes_audit >= v2.0.
 # v2.0.6 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). §7's
 #   informal "[ExamCode]_<unit>.docx" now reads "the unit's F-1 filename".
 # v2.0.5 — 2026-08-10 — TAXONOMY SYNC (registry keyed by the Step-5 sid).
@@ -56,11 +56,11 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.3 — notes_final_filename, docx_ref_for/verify_docx_ref,
+#   notes_core.py  >= v2.4 — notes_final_filename, docx_ref_for/verify_docx_ref,
 #                            registry schema notes-registry/2.1 (draft_ref,
 #                            final_ref, audit_summary), resolve_unit, the
 #                            density/math/prose gates, bank_questions_for
-#   notes_docx.py  >= v1.0 — the SHARED builder/parser: build/parse/
+#   notes_docx.py  >= v1.1 — the SHARED builder/parser: build/parse/
 #                            validate_model/outline_of. Derived numbering and
 #                            the byte-identical round trip are its guarantees
 #   notes_audit.py >= v2.0 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
@@ -280,7 +280,13 @@ pass.
 
 ## §5 — MACHINE GATES
   G-1 DENSITY (notes_core.density_gate): bullet word counts, table-first
-      violations, page count within the tier band.
+      violations, page count within the tier band. The bullet count covers
+      EVERY rendered bullet — concept bullets and the bullets inside KEY
+      POINTS and TRAP boxes alike (notes_core v2.4; before it, the counter
+      recognised only Word list paragraphs and the shared builder emits a
+      literal glyph, so the D-1 check saw nothing at all). D-1 is also
+      enforced at CONSTRUCTION by notes_docx.validate_model, so the two layers
+      agree rather than one silently covering for the other.
   G-2 MATH, all three reporting ZERO findings:
       (a) OMML presence by XML assertion (notes_core.assert_omml). NEVER
           verify equations through a LibreOffice-rendered preview: LibreOffice

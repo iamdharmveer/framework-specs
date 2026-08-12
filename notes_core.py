@@ -1,5 +1,35 @@
 """
-notes_core.py v2.3 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.4 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.4 — 2026-08-12 — FINAL-AUDIT FIXES (GAP-2026-08-12-NADOCX patch P3 of 3).
+    Two defects found by the end-to-end sync audit of the four Notes specs.
+
+    (A) THE D-1 DENSITY GATE WAS DEAD ON EVERY NOTES DOCUMENT. G-1 calls
+        bullet_word_counts, which counted ONLY paragraphs carrying <w:numPr> —
+        Word list paragraphs. notes_docx (v1.0) renders a bullet as a literal
+        "\u2022  " text run, not a list paragraph, so bullet_word_counts
+        returned [] for EVERY document the shared builder produces and
+        density_gate reported CLEAN with 60-word bullets throughout. A gate
+        that reports clean while checking nothing is worse than no gate: it
+        buys false confidence. bullet_word_counts now recognises BOTH
+        conventions — <w:numPr> and a leading bullet glyph — so it works on
+        documents built before and after notes_docx, in table cells (where the
+        KEY POINTS and TRAP bullets live) as well as body text.
+
+    (B) A SLUG WITH NO ASCII COLLAPSED TO AN EMPTY, COLLIDING FILENAME. The
+        sanitiser maps every non-alphanumeric run to "_", so a Devanagari,
+        Tamil or Bengali slug — or one that is all punctuation — sanitised to
+        "" and produced EX_S1_T1_ST01__Final.docx. Two different units in the
+        same topic would then write the SAME filename and one would silently
+        overwrite the other. The framework is exam-agnostic across 200+ Indian
+        exams, so a non-ASCII sid is a realistic input, not a curiosity.
+        _notes_stem now falls back to a short, deterministic hash of the RAW
+        slug when sanitisation leaves nothing, which is stable across runs and
+        cannot collide. An ASCII slug is completely unaffected — every
+        existing filename is byte-identical.
+
+    Both fixes are spec-lock-pinned and mutation-verified. No other surface
+    changed.
 
 v2.3 — 2026-08-12 — REGISTRY SCHEMA 2.1 (GAP-2026-08-12-NADOCX patch P2 of 2).
     P1 landed the 2.1 SHAPE while still emitting 2.0, because an engine that
@@ -225,8 +255,22 @@ def unit_code(exam_code, s_no, t_no, st_no):
 def _notes_stem(exam_code, s_no, t_no, st_no, slug):
     """The one place the {unit_code}_{Slug} stem is formed. Every filename
     authority below derives from it, so the sanitisation rule cannot drift
-    between the draft, the audited file and the delivered file."""
+    between the draft, the audited file and the delivered file.
+
+    v2.4 EMPTY-SLUG FALLBACK. The sanitiser maps every non-alphanumeric run to
+    "_", so a slug with no ASCII alphanumerics at all — Devanagari, Tamil,
+    Bengali, or pure punctuation — sanitised to "" and produced a filename
+    like EX_S1_T1_ST01__Final.docx. Two different units in the same topic
+    would then write the SAME filename and one would silently overwrite the
+    other. Since sids are opaque to Notes and the framework serves 200+ Indian
+    exams, that is a realistic input. The fallback is a short hash of the RAW
+    slug: deterministic across runs, collision-free, and never reached for an
+    ASCII slug — so every filename that worked before is byte-identical.
+    """
+    raw = slug
     slug = re.sub(r"[^A-Za-z0-9]+", "_", slug).strip("_")
+    if not slug:
+        slug = "u" + hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8]
     return f"{unit_code(exam_code, s_no, t_no, st_no)}_{slug}"
 
 
@@ -617,13 +661,36 @@ def _document_text(docx_path):
 
 
 # ---------------------------------------------------------------- density
+# The glyph notes_docx uses to render a bullet. A document built by the shared
+# builder has no <w:numPr> anywhere, so recognising this is what keeps G-1
+# alive (v2.4 defect A).
+BULLET_GLYPH = "\u2022"
+
+
 def bullet_word_counts(docx_path):
+    """Word counts for every bullet in the document, for gate G-1 / rule D-1.
+
+    v2.4: counts a paragraph as a bullet if it carries <w:numPr> (a Word list
+    paragraph) OR its text begins with the bullet glyph. Before this, only
+    <w:numPr> counted — and notes_docx renders bullets as a literal glyph run,
+    so this returned [] for EVERY document the shared builder produces and the
+    density gate passed 60-word bullets. The regex walks all of document.xml,
+    so bullets inside table cells (KEY POINTS, TRAP) are included, which is
+    where most box bullets live.
+    """
     xml = _docx_xml(docx_path)
     counts = []
     for para in re.findall(r"<w:p\b.*?</w:p>", xml, re.S):
-        if "<w:numPr>" not in para:
-            continue
         text = "".join(re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", para, re.S))
+        # "<w:numPr" not "<w:numPr>": Word writes a container
+        # <w:numPr>...</w:numPr>, but a self-closing <w:numPr/> is equally
+        # valid OOXML and the old literal missed it.
+        is_list = "<w:numPr" in para
+        is_glyph = text.lstrip().startswith(BULLET_GLYPH)
+        if not (is_list or is_glyph):
+            continue
+        if is_glyph:
+            text = text.lstrip()[len(BULLET_GLYPH):]
         words = len(re.findall(r"\S+", text))
         if words:
             counts.append(words)
@@ -1522,6 +1589,52 @@ def self_test():
     check("registry_load leaves the 2.1 defaults empty (additive, not lossy)",
           _loaded["units"]["a.b.c"]["draft_ref"] is None
           and _loaded["units"]["a.b.c"]["audit_summary"] is None)
+
+    # ---- v2.4 FINAL-AUDIT FIXTURES --------------------------------------
+    # (A) The D-1 gate must SEE the shared builder's bullets. Before v2.4 it
+    # counted only <w:numPr> paragraphs, so a notes_docx document — which
+    # renders a literal glyph — reported ZERO bullets and passed 60-word ones.
+    _b1 = mini_docx("x", extra_xml=(
+        "<w:p><w:r><w:t>\u2022  " + " ".join(["w"] * 60) + "</w:t></w:r></w:p>"))
+    check("v2.4-A: a glyph bullet is COUNTED (the shared builder emits no "
+          "numPr, so this is the only way G-1 can see it)",
+          bullet_word_counts(_b1) == [60])
+    check("v2.4-A: ...and density_gate therefore FAILS it",
+          density_gate(_b1, "TIER-3", 3)[0] is False)
+    _b2 = mini_docx("x", extra_xml=(
+        "<w:p><w:pPr><w:numPr/></w:pPr><w:r><w:t>"
+        + " ".join(["w"] * 30) + "</w:t></w:r></w:p>"))
+    check("v2.4-A: the legacy numPr convention still counts (documents built "
+          "before notes_docx keep working)",
+          bullet_word_counts(_b2) == [30])
+    _b3 = mini_docx("x", extra_xml=(
+        "<w:p><w:r><w:t>\u2022  short bullet here</w:t></w:r></w:p>"))
+    check("v2.4-A: the glyph itself is not counted as a word",
+          bullet_word_counts(_b3) == [3])
+    _b4 = mini_docx("plain prose that is not a bullet at all and runs long "
+                    + " ".join(["w"] * 40))
+    check("v2.4-A: a non-bullet paragraph is still ignored",
+          bullet_word_counts(_b4) == [])
+
+    # (B) A slug with no ASCII must not collapse to an empty, COLLIDING name.
+    _n1 = notes_final_filename("EX", 1, 1, 1, "\u092a\u093e\u0920")
+    _n2 = notes_final_filename("EX", 1, 1, 1, "\u0aaa\u0abe\u0aa0")
+    check("v2.4-B: a non-ASCII slug still yields a non-empty stem",
+          "__" not in _n1 and _n1.endswith("_Final.docx"))
+    check("v2.4-B: two DIFFERENT non-ASCII slugs cannot collide "
+          "(they used to produce one identical filename)", _n1 != _n2)
+    check("v2.4-B: an all-punctuation slug also cannot collide",
+          notes_final_filename("EX", 1, 1, 1, "...")
+          != notes_final_filename("EX", 1, 1, 1, "---"))
+    check("v2.4-B: the fallback is DETERMINISTIC across calls",
+          notes_final_filename("EX", 1, 1, 1, "\u092a\u093e\u0920") == _n1)
+    check("v2.4-B: all three authorities share the fallback stem",
+          notes_filename("EX", 1, 1, 1, "\u092a\u093e\u0920")[:-len(".docx")]
+          == _n1[:-len("_Final.docx")])
+    check("v2.4-B: an ASCII slug is COMPLETELY unaffected (no existing "
+          "filename moves)",
+          notes_filename("EX", 1, 2, 3, "pH & buffers")
+          == "EX_S1_T2_ST03_pH_buffers.docx")
 
     # ---- SPEC-LOCK, REVERSE HALF (the drift direction that produced the bug)
     # The pins above compare the engine to a literal in THIS file, so they fire

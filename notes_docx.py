@@ -1,5 +1,15 @@
 """
-notes_docx.py v1.0 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.1 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.1 — 2026-08-12 — FINAL-AUDIT FIX (GAP-2026-08-12-NADOCX patch P3 of 3).
+    D-1 WAS ENFORCED ON CONCEPT BULLETS ONLY. validate_model checked the
+    bullet word cap inside a concept's content but NOT on the bullets of a
+    KEY POINTS or TRAP box, so a 60-word box bullet built cleanly. Paired with
+    the notes_core v2.4 defect — where G-1 could not see the builder's bullets
+    at all — an over-long box bullet passed BOTH layers silently. The cap now
+    applies wherever a bullet is rendered, which is the only reading of D-1
+    that matches what a student sees on the page.
+    Companion: notes_core >= v2.4.
 
 v1.0 — 2026-08-12 — INITIAL RELEASE (GAP-2026-08-12-NADOCX, patch P1 of 2).
 
@@ -451,6 +461,14 @@ def validate_model(model):
                 f.append(f"block {i}: {t} has no bullets")
             for bi, bl in enumerate(b.get("bullets", [])):
                 check_runs(bl, f"block {i} bullet {bi}")
+                # v1.1: D-1 applies to EVERY rendered bullet, not just the
+                # ones inside a concept. A box bullet is a bullet on the page.
+                words = len(_runs_text(bl).split())
+                if words > notes_core.BULLET_HARD_CAP_WORDS:
+                    f.append(
+                        f"block {i} bullet {bi}: {t} bullet is {words} words, "
+                        f"over the D-1 hard cap of "
+                        f"{notes_core.BULLET_HARD_CAP_WORDS}")
         elif t == "rapid":
             for label in ("formulae", "associations"):
                 rows = b.get(label) or []
@@ -1095,6 +1113,35 @@ def self_test():
                                                    disorder["blocks"][4])
     check("tail blocks out of §6A order are rejected",
           not validate_model(disorder)[0])
+    # v1.1: D-1 applies to box bullets too. Before this, a 60-word KEY POINTS
+    # bullet built cleanly AND passed G-1 (which could not see the builder's
+    # bullets at all until notes_core v2.4) — clean on both layers.
+    boxb = copy.deepcopy(m)
+    boxb["blocks"][3]["bullets"] = [T(" ".join(["word"] * 60))]
+    ok_bx, f_bx = validate_model(boxb)
+    check("D-1 hard cap applies to KEY POINTS bullets, not only concept "
+          "bullets", not ok_bx and any("hard cap" in x for x in f_bx))
+    trapb = copy.deepcopy(m)
+    trapb["blocks"][4]["bullets"] = [T(" ".join(["word"] * 60))]
+    check("D-1 hard cap applies to TRAP bullets", not validate_model(trapb)[0])
+    edge = copy.deepcopy(m)
+    edge["blocks"][3]["bullets"] = [T(" ".join(["word"] * 25))]
+    check("D-1 cap is INCLUSIVE at exactly 25 words", validate_model(edge)[0])
+    edge2 = copy.deepcopy(m)
+    edge2["blocks"][3]["bullets"] = [T(" ".join(["word"] * 26))]
+    check("...and rejects 26", not validate_model(edge2)[0])
+
+    # The two layers must now agree: what the builder rejects, G-1 catches.
+    live = copy.deepcopy(m)
+    live["blocks"][3]["bullets"] = [T(" ".join(["word"] * 60))]
+    lp = tempfile.mktemp(suffix=".docx")
+    build(live, lp, strict=False)
+    check("G-1 SEES the shared builder's box bullets (dead-gate regression)",
+          notes_core.bullet_word_counts(lp) and
+          max(notes_core.bullet_word_counts(lp)) == 60)
+    check("...and density_gate fails that document",
+          notes_core.density_gate(lp, "TIER-1", 7)[0] is False)
+
     longb = copy.deepcopy(m)
     longb["blocks"][1]["content"][0] = {
         "k": "bullet", "runs": T(" ".join(["word"] * 30))}
