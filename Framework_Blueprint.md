@@ -1,4 +1,35 @@
-# Framework_Blueprint v1.47.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.48.0 — Universal Mock Test Blueprint Generator
+# v1.48.0 — 2026-08-12 — GAP-2026-08-12-AXIS3-MECHLOCK: PYQ-measured axis3 target
+#   could directly CONTRADICT the exam's own marking_scheme on any exam that locks a
+#   mechanism (question_type) to a fixed Q-range by position (e.g. Q1-30 declared
+#   pure MCQ) rather than letting it float by category — the target then named
+#   MSQ/NAT counts inside a Q-range that can only ever produce MCQ, a permanent,
+#   paper-unfixable A-AXIS3 finding no re-generation could ever clear (root-caused
+#   on IIT_JAM_BIOTECHNOLOGY Mock 10's gap analysis §6; the spec's own §7-7 docstring
+#   already named this exact failure mode as "masked on exams whose sections are
+#   DEFINED per mechanism" without fixing it). bc.derive_axis_schedule now accepts
+#   optional marking_scheme + q_range and detects whether this section's Q-range is
+#   fully or partially PARTITIONED by single-question_type marking_scheme entries
+#   (bc.axis3_mechanism_lock, new); when it is, axis3_target_per_mock is overridden
+#   from that position partition — fully (no PYQ blending) or, for a partially-locked
+#   section, the locked portion's exact counts plus the PYQ-measured distribution
+#   re-apportioned to exactly the remaining gap (never fabricated when there is no
+#   PYQ signal for the gap). Conditional, not universal: an exam whose marking_scheme
+#   defines marks by CATEGORY has no partition to detect and gets byte-identical
+#   pre-v1.48 behaviour — confirmed by a dedicated self-test asserting the omitted-
+#   parameters call path is unchanged, and Framework_ScopedBlueprint's own call site
+#   (§6-2 of Framework_ScopedBlueprint.md) never passes either new parameter, so
+#   scoped tests are completely unaffected. New provenance keys on every section's
+#   axis_schedule entry: axis3_target_source ('pyq_measured' / 'mechanism_lock_full'
+#   / 'mechanism_lock_partial') and axis3_mechanism_lock (the full detection result)
+#   — additive only, BV-AXIS's (S9-12) REQUIRED-key check is a subset check, never a
+#   no-extra-keys check, so this cannot regress it; the §14 AXIS-SUM contract BV-AXIS
+#   enforces downstream is defensively re-asserted at the source in blueprint_core.py
+#   itself. S7-7's call site (below) threads blueprint['marking_scheme'] and this
+#   section's own q_range through. blueprint_core.py self-test: 365/365 -> 377/377
+#   (12 new fixtures, including the exact Mock-10 wrong-distribution scenario from
+#   the gap analysis, mutation-verified: neutering the override makes the new tests
+#   fail/crash, confirming they are load-bearing, not decorative).
 # v1.47.0 — 2026-08-06 — GAP-2026-08-06-SEAM: DI was not in sync with FIGURAL.
 #   The rate->quota->schedule->rank chain was built for FIGURAL only; DI kept a
 #   render-time cap and its measured rate was discarded, so on a DI-heavy exam the
@@ -3150,11 +3181,22 @@ for section in sections:
     # reference one where subtopics far outnumber the budget.
     _fig_capacity = {sid: max(1, int((MANIFEST_IDS.get(sid) or {}).get('max_q_per_mock', 1) or 1))
                      for sid in pyq_ids}
+    # v1.49 (GAP-2026-08-12-AXIS3-MECHLOCK) — marking_scheme + this section's own
+    # q_range are threaded through so bc.derive_axis_schedule can detect a
+    # POSITION-LOCKED mechanism (a section whose Q-range is fully or partly
+    # partitioned by marking_scheme entries that each declare exactly one
+    # question_type) and override axis3_target_per_mock from that partition
+    # instead of a PYQ-measured target the marking_scheme itself makes
+    # IMPOSSIBLE. Both are optional/no-op when absent (see derive_axis_schedule's
+    # own docstring) — an exam whose marking_scheme defines marks by CATEGORY
+    # rather than by position gets byte-identical pre-v1.49 behaviour.
     sched = derive_axis_schedule(sec_name, _resolve_axis_dist_for_section(sec_name), sec_qs,
                                  pyq_ids, zp_ids, AXIS2_CAP_BY_ID, MANIFEST_IDS,
                                  papers_per_window=batch_win,   # renamed param (was mocks_per_window)
                                  total_mocks=blueprint.get('total_mocks'),
-                                 figural_capacity=_fig_capacity)
+                                 figural_capacity=_fig_capacity,
+                                 marking_scheme=blueprint.get('marking_scheme'),
+                                 q_range=section.get('q_range'))
     # advisory feasibility annotations (never block B1)
     sched['axis1_unreachable_formats'] = axis1_feasibility(
         sec_name, sched.get('axis1_target_per_mock', {}), pyq_ids, MANIFEST_IDS)
@@ -6856,4 +6898,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.47.0
+# END OF Framework_Blueprint v1.48.0

@@ -1,4 +1,41 @@
-# Framework_MockTestCreate v5.49.0
+# Framework_MockTestCreate v5.50.0
+# v5.50.0 — 2026-08-12 — AXIS-1 PRE-FLIGHT FEASIBILITY (advisory, before Batch 1)
+#   (GAP-2026-08-12-AXIS-PREFLIGHT). Companion release to Framework_Blueprint v1.48's
+#   GAP-2026-08-12-AXIS3-MECHLOCK, closing the second half of the Mock-10 root-cause gap
+#   analysis's §13 priority table (row 2): "A-AXIS1/A-AXIS3 invisible before Final
+#   Assembly." `blueprint_core.axis1_feasibility` (existing, B1/blueprint-build time)
+#   answers "does this SECTION have any PYQ subtopic capable of each targeted format,
+#   ever" — necessary but not sufficient, since it runs once, before any mock's specific
+#   allocation exists. A mock can pass that section-wide check and still be drafted from
+#   a subset of subtopics that under-represents the format-capable ones THIS mock needed,
+#   purely from how the window's rotation/quota split landed for this specific mock — a
+#   structural shortfall invisible until Final Assembly's A-AXIS1 gate audits the
+#   finished 60-question paper, by which point fixing it means rewriting already-drafted
+#   questions (the exact, expensive discovery-order failure this closes).
+#   NEW §3 S3-17b (after the mandatory-subtopic pre-check, before the session-start
+#   summary): once this mock's subtopic_allocations are finalised (S3-2/S3-8, well
+#   before Batch 1 drafts anything), composes this mock's own Axis-1 target (substituting
+#   axis1_target_series[this mock] for the rotating FIGURAL count) and checks it via new
+#   `blueprint_core.axis1_mock_feasibility(target, alloc_counts, MANIFEST_IDS)` against
+#   the mock's ACTUAL allocation. S3-18's summary prints an AXIS-1 PRE-FLIGHT ADVISORY
+#   block naming any short section/format/target/max-achievable — ADVISORY ONLY, never a
+#   HALT (mirrors axis1_feasibility's own established contract: "Subtopic is hard #1";
+#   Axis-1 is a steered, audited-within-tolerance consequence of allocation, never
+#   force-blocking on it). Absent-safe: no axis_schedule, or a section whose status isn't
+#   'ok', is silently skipped — byte-identical to every exam that predates this.
+#   SCOPE — AXIS-1 ONLY, deliberately, this release. Axis-3 (mechanism MCQ/MSQ/NAT) is
+#   NOT included: v5.30's POSITION-BASED QUESTION TYPE DISPATCH (`_resolve_answer_axes`,
+#   §3 S3-2) means a mechanism-locked exam's question mechanism is decided by Q-POSITION,
+#   not by the allocated subtopic's own answer_cardinality/answer_type — a naive
+#   subtopic-capability check would misleadingly report a shortfall for exactly the
+#   sections GAP-2026-08-12-AXIS3-MECHLOCK's axis3_mechanism_lock marks 'full'-locked,
+#   where the target is ALWAYS achievable by construction. A correct Axis-3 pre-flight
+#   needs to branch on axis3_target_source first and is left for its own dedicated,
+#   separately-verified change rather than risking a false-positive advisory shipping
+#   alongside this one. blueprint_core.py self-test: 377/377 -> 384/384 (7 new fixtures,
+#   mutation-verified: neutering the check to "always feasible" makes the shortfall-
+#   detection tests fail, confirming they are load-bearing, not decorative;
+#   axis1_feasibility itself, and its one existing caller, are byte-identical/untouched).
 # v5.49.0 — 2026-08-12 — QUOTA CHECK MOVED INTO THE ENGINE + AXIS-PAPER HISTORY
 #   Two independent fixes, found together during a forensic gap analysis of a
 #   single exam's 15-mock corpus (four mocks carrying live A-AXIS1 violations;
@@ -1964,6 +2001,77 @@
   "Right Circular Cone" now resolve through ids, so a present-but-differently-
   named mandatory subtopic is correctly recognised and does NOT false-stop.
 
+## S3-17b — Axis-1 pre-flight feasibility (advisory, v5.50, GAP-2026-08-12-AXIS-PREFLIGHT)
+
+  WHY THIS EXISTS. `blueprint_core.axis1_feasibility` (Framework_Blueprint.md §7-7,
+  B1/blueprint-build time) already answers "does this SECTION have ANY PYQ subtopic
+  capable of each targeted format, ever" — necessary but not sufficient. A mock can
+  pass that section-wide check and still be drafted from a subset of subtopics that
+  happens to under-represent (or entirely omit) the figural-capable ones THIS mock
+  needed, purely from how the window's rotation/quota split landed for this specific
+  mock — `axis1_feasibility` cannot see that, because it runs once, at blueprint-build
+  time, before any mock's specific allocation exists (Mock-10 root-cause gap analysis
+  §5.5/§13 row 2: "A-AXIS1/A-AXIS3 invisible before Final Assembly"). This mock's
+  `subtopic_allocations` ARE finalised by this point (S3-2/S3-8, above) — well before
+  Batch 1 drafts a single question — so the narrower, mock-specific question CAN be
+  answered here: "given EXACTLY the subtopics allocated to THIS mock, and assuming
+  every single capable slot renders in the targeted format, can this mock structurally
+  reach its own target?" If not, no amount of steering during drafting can fix it — the
+  allocation itself is short — and the operator should know that BEFORE spending effort
+  drafting 60 questions that Final Assembly's A-AXIS1 gate will fail regardless.
+
+  SCOPE — AXIS-1 (stimulus format: TEXT/FIGURAL/PASSAGE/DI) ONLY, deliberately, this
+  release. Axis-3 (mechanism: MCQ/MSQ/NAT) is NOT included here: `Framework_MockTestCreate
+  v5.30`'s POSITION-BASED QUESTION TYPE DISPATCH (`_resolve_answer_axes`, §3 S3-2 above)
+  means that on a mechanism-locked exam (>1 distinct question_type in marking_scheme), a
+  question's mechanism is decided by its Q-POSITION, not by the allocated subtopic's own
+  answer_cardinality/answer_type — so a naive subtopic-capability feasibility check would
+  be WRONG (misleadingly report a shortfall) for exactly the sections
+  `axis3_mechanism_lock` (Framework_Blueprint v1.48, GAP-2026-08-12-AXIS3-MECHLOCK) marks
+  'full'-locked, where the target is ALWAYS achievable by construction. A correct Axis-3
+  pre-flight needs to branch on `axis_schedule[sec_name]['axis3_target_source']` first
+  (skip entirely when it is 'mechanism_lock_full'; check subtopic capability only against
+  the 'mechanism_lock_partial' gap portion or the plain 'pyq_measured' case) — that is
+  real, distinct design work, not a mechanical extension of this check, and is
+  deliberately left for its own dedicated, separately-verified change rather than risking
+  a false-shortfall advisory shipping alongside this one.
+
+  ADVISORY ONLY — never a HARD STOP, mirroring `axis1_feasibility`'s own established
+  contract exactly ("Subtopic is hard #1"; Axis-1 is a locked CONSEQUENCE of allocation,
+  steered and audited within tolerance, never force-blocking on it). Absent-safe: no
+  `axis_schedule` (pre-v1.23 blueprint) or no `axis1_target_per_mock` for a section ⇒
+  silently skipped for that section, byte-identical to every exam that predates this.
+
+  ```python
+  # v5.50 (GAP-2026-08-12-AXIS-PREFLIGHT). Composes THIS MOCK's own Axis-1 target (the
+  # rotating FIGURAL series value for mock N, substituted into the flat per-mock target —
+  # every other format in axis1_target_per_mock does not rotate) and checks it against
+  # this mock's actual finalised subtopic_allocations via bc.axis1_mock_feasibility.
+  axis1_preflight_shortfalls = {}
+  for sec_name, id_map in alloc_ids.items():
+      sec_sched = axis_schedule.get(sec_name)
+      if not sec_sched or sec_sched.get('status') != 'ok':
+          continue                                        # absent-safe: dormant/no_pyq section
+      _target = dict(sec_sched.get('axis1_target_per_mock') or {})
+      if not _target:
+          continue
+      _series = sec_sched.get('axis1_target_series') or []
+      if _series:
+          _target['FIGURAL'] = _series[(N - 1) % len(_series)]
+      _alloc_counts = {sid: info['q_count'] for sid, info in id_map.items()}
+      _shortfall = bc.axis1_mock_feasibility(_target, _alloc_counts, MANIFEST_IDS)
+      if _shortfall:
+          axis1_preflight_shortfalls[sec_name] = _shortfall
+  ```
+
+  If `axis1_preflight_shortfalls` is non-empty, S3-18's summary (below) prints an
+  AXIS-1 PRE-FLIGHT ADVISORY block naming each short section/format/target/max-achievable
+  triple, then proceeds to "Type 'continue' to begin Batch 1" exactly as it always has —
+  this NEVER blocks, and NEVER changes which subtopics are allocated or how Batch 1 drafts.
+  It exists solely so the operator sees a structurally-doomed mock BEFORE drafting it,
+  instead of only at Final Assembly after 60 questions already exist (the exact, expensive
+  discovery-order failure this check exists to shorten).
+
 ## S3-18 — Display session start summary + batch plan
 
   Print in chat after all checks pass:
@@ -2014,6 +2122,18 @@
   section's Q-range (subtopics assigned to Q positions in blueprint order).
   This manifest is INFORMATIONAL — the authoritative format source remains
   section_rules format field per subtopic_id.
+  ──────────────────────────────────────────────────
+
+  AXIS-1 PRE-FLIGHT ADVISORY (v5.50 — when axis1_preflight_shortfalls, S3-17b, is
+  non-empty; omit this block entirely when it is empty):
+  ──────────────────────────────────────────────────
+  ⚠ This mock's subtopic allocation may not be able to reach its Axis-1 target even
+    if every capable slot renders in the targeted format:
+      [Section] — [format]: target=[N], max_achievable=[M] (allocation short by [N-M])
+      ...
+  Not a HALT — Subtopic is hard #1; Final Assembly's A-AXIS1 gate audits the actual
+  outcome within tolerance regardless. Shown so a structural shortfall is visible
+  before Batch 1, not only after 60 questions already exist.
   ──────────────────────────────────────────────────
 
   Answer budget: built and written to [EXAM]_M[N]_answer_budget.json
@@ -7810,7 +7930,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.49.0
+# END OF Framework_MockTestCreate v5.50.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

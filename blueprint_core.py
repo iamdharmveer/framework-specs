@@ -23,7 +23,9 @@ PROVENANCE
       exact_fill ............... §4-5b (Gale-Ryser matrix fill)
       section_axis2_pool_caps .. §7-7 (_section_axis2_pool_caps)
       derive_axis_schedule ..... §7-7
+      axis3_mechanism_lock ..... §7-7 (GAP-2026-08-12-AXIS3-MECHLOCK, NEW — v1.49)
       axis1_feasibility ........ §7-7
+      axis1_mock_feasibility ... §7-7 (GAP-2026-08-12-AXIS-PREFLIGHT, NEW — v1.50)
       slugify .................. §17 S2-MANIFEST
     Source anchors (Framework_MockTestAnalyse.md v2.24.10 — Cluster E):
       score_difficulty ......... E-9  (3-axis universal difficulty scorer)
@@ -56,7 +58,9 @@ __all__ = [
     "exact_fill",
     "section_axis2_pool_caps",
     "derive_axis_schedule",
+    "axis3_mechanism_lock",
     "axis1_feasibility",
+    "axis1_mock_feasibility",
     "AXIS_WINDOW_YEARS",
     "AXIS_BAND_ABS",
     "AXIS_BAND_FLEX",
@@ -505,10 +509,171 @@ def section_axis2_pool_caps(section_name, id_list, cap_by_id, manifest_ids):
     return caps
 
 
+def _clip_marking_scheme_to_section(q_range, marking_scheme):
+    """GAP-2026-08-12-AXIS3-MECHLOCK internal helper. Clip every marking_scheme
+    entry to this section's own ``[start, end]`` (inclusive) and keep only entries
+    carrying a single, non-empty ``question_type`` string. Entries with no overlap,
+    or that are malformed (missing/non-numeric/inverted ``q_range``, missing
+    ``question_type``), are dropped defensively — a dropped entry can only ever
+    WIDEN a gap in the caller's coverage accounting, never manufacture a false
+    'full' lock, so silently skipping bad data is safe here in a way it would not
+    be for a HARD validator (that validation is exam_config.json's own job,
+    upstream, at Step 2a/S2-1 — this is a best-effort structural detector, not a
+    second copy of that validation).
+
+    Returns a list of ``(clipped_start, clipped_end, question_type)`` tuples,
+    sorted by ``clipped_start`` ascending.
+    """
+    if not q_range or not marking_scheme:
+        return []
+    try:
+        sec_start, sec_end = int(q_range[0]), int(q_range[1])
+    except (TypeError, ValueError, IndexError):
+        return []
+    if sec_end < sec_start:
+        return []
+    clipped = []
+    for entry in marking_scheme:
+        if not isinstance(entry, dict):
+            continue
+        qtype = entry.get("question_type")
+        if not qtype or not isinstance(qtype, str):
+            continue
+        er = entry.get("q_range")
+        if not er or len(er) != 2:
+            continue
+        try:
+            e_start, e_end = int(er[0]), int(er[1])
+        except (TypeError, ValueError):
+            continue
+        if e_end < e_start:
+            continue
+        c_start, c_end = max(sec_start, e_start), min(sec_end, e_end)
+        if c_start > c_end:
+            continue                                       # no overlap with this section
+        clipped.append((c_start, c_end, qtype))
+    clipped.sort(key=lambda t: t[0])
+    return clipped
+
+
+def axis3_mechanism_lock(q_range, marking_scheme, sec_qs):
+    """§7-7 GAP-2026-08-12-AXIS3-MECHLOCK. Detect whether a section's marking_scheme
+    entries PARTITION it by position — disjoint, contiguous sub-ranges each
+    declaring exactly one ``question_type`` — and if so, return the EXACT
+    position-derived counts for the covered portion.
+
+    Returns ``{'coverage': 'none'|'partial'|'full', 'covered_qs': int,
+    'by_type': {question_type: exact_count}, 'gap_qs': int}``.
+
+      'none'    — no locked sub-range found for this section (or the exam defines
+                  marks by CATEGORY rather than by position here). Caller must fall
+                  back to the ordinary PYQ-measured target, unchanged. ``by_type``
+                  is ``{}``.
+      'partial' — some but not all of the section is position-locked. ``by_type``
+                  carries ONLY the locked portion's exact counts (sums to
+                  ``covered_qs``); the caller is responsible for apportioning the
+                  remaining ``gap_qs`` from the PYQ-measured distribution and
+                  summing the two.
+      'full'    — the ENTIRE section is position-locked. ``by_type`` sums to
+                  ``sec_qs`` exactly and IS the final axis3_target_per_mock for
+                  this section — no PYQ blending, no PYQ data required at all.
+
+    A GAP is any sub-range not covered by a single-question_type entry. An
+    OVERLAP between two locked entries is treated as a gap too — ambiguous
+    locking is not locking — so it can only ever downgrade 'full' to 'partial'
+    (or 'partial' to a smaller covered_qs), never inflate confidence.
+    """
+    clipped = _clip_marking_scheme_to_section(q_range, marking_scheme)
+    _sec_qs = int(sec_qs) if sec_qs else 0
+    if not clipped or _sec_qs <= 0:
+        return {"coverage": "none", "covered_qs": 0, "by_type": {}, "gap_qs": max(0, _sec_qs)}
+    sec_start = int(q_range[0])
+    sec_end = int(q_range[1])
+    by_type = {}
+    covered_qs = 0
+    cursor = sec_start
+    overlap_or_gap = False
+    for c_start, c_end, qtype in clipped:
+        if c_start > cursor:
+            overlap_or_gap = True                          # a true gap before this entry
+        elif c_start < cursor:
+            overlap_or_gap = True                          # this entry overlaps the previous one
+            c_start = cursor                                # do not double-count the overlapped slice
+            if c_start > c_end:
+                continue
+        n = c_end - c_start + 1
+        by_type[qtype] = by_type.get(qtype, 0) + n
+        covered_qs += n
+        cursor = max(cursor, c_end + 1)
+    if cursor <= sec_end:
+        overlap_or_gap = True                              # trailing gap after the last entry
+    gap_qs = _sec_qs - covered_qs
+    if gap_qs < 0:
+        # Defensive only: inconsistent q_range/sec_qs inputs, or overlapping
+        # clipped entries, can inflate covered_qs past sec_qs. Never return a
+        # negative gap; clamping here can only ever SUPPRESS a false 'full',
+        # never manufacture one.
+        gap_qs = 0
+        overlap_or_gap = True
+    if covered_qs == 0:
+        coverage = "none"
+    elif not overlap_or_gap and gap_qs == 0:
+        coverage = "full"
+    else:
+        coverage = "partial"
+    return {"coverage": coverage, "covered_qs": covered_qs, "by_type": by_type, "gap_qs": gap_qs}
+
+
+def _axis3_with_mechanism_lock(a3, sec_qs, q_range, marking_scheme):
+    """GAP-2026-08-12-AXIS3-MECHLOCK. Compute the final axis3_target_per_mock for a
+    section, blending the ordinary PYQ-measured apportionment with any detected
+    mechanism lock (``axis3_mechanism_lock``). Returns ``(target_map, lock_info)``
+    where ``lock_info`` is always the raw ``axis3_mechanism_lock`` result (for
+    provenance/reporting), even when the ordinary PYQ target was used unchanged.
+
+    'none'    → the ordinary PYQ-measured apportionment, byte-identical to the
+                pre-v1.49 return value (no marking_scheme/q_range given, or the
+                exam defines marks by category — nothing to override).
+    'full'    → the lock's own exact counts, verbatim. No PYQ data used at all.
+    'partial' → the lock's exact counts for the locked portion PLUS the
+                PYQ-measured distribution RE-apportioned to exactly the
+                remaining gap_qs, summed key-wise. If there is no PYQ signal at
+                all to fill the gap with (a3 empty or all-zero), NEVER fabricate
+                a mechanism split with no data behind it — same principle as
+                guarantee_feasibility's "unsatisfiable ... shortfall accepted,
+                never fabricated" — and fall back to the ordinary full-section
+                PYQ apportionment for this section instead of a lock that cannot
+                be honoured completely and correctly.
+    """
+    base = largest_remainder_apportion(a3, sec_qs)
+    lock = axis3_mechanism_lock(q_range, marking_scheme, sec_qs)
+    if lock["coverage"] == "none":
+        return base, lock
+    if lock["coverage"] == "full":
+        return dict(lock["by_type"]), lock
+    # partial
+    gap_qs = lock["gap_qs"]
+    if gap_qs <= 0 or not a3 or sum(a3.values()) <= 0:
+        return base, lock
+    remainder = largest_remainder_apportion(rescale_to_total(a3, gap_qs), gap_qs)
+    merged = dict(lock["by_type"])
+    for k, v in remainder.items():
+        merged[k] = merged.get(k, 0) + v
+    # Defensive re-assertion of the §14 AXIS-SUM contract this function exists to
+    # uphold — BV-AXIS (S9-12) enforces it downstream as a HARD FAIL, so a
+    # violation here must be loud immediately, at the source, not discovered
+    # three steps later in a different file.
+    assert sum(merged.values()) == sec_qs, (
+        "axis3 mechanism-lock blend violated the AXIS-SUM contract "
+        "(got %d, expected %d) for section covering %r" % (sum(merged.values()), sec_qs, q_range))
+    return merged, lock
+
+
 def derive_axis_schedule(section_name, axis_dist, sec_qs,
                          pyq_ids, zp_ids, cap_by_id, manifest_ids,
                          papers_per_window=10, total_mocks=None,
-                         figural_capacity=None):
+                         figural_capacity=None, marking_scheme=None,
+                         q_range=None):
     """§7-7 ``derive_axis_schedule``. VERBATIM except ``mocks_per_window`` renamed to
     ``papers_per_window`` (a mock is a paper; a scoped test is a paper).
 
@@ -518,6 +683,25 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
 
     Absent-safe: axis_dist is None (all-Zero-PYQ, or a pre-axis manifest) → a
     status='no_pyq' schedule and the whole feature stays inert.
+
+    marking_scheme / q_range (GAP-2026-08-12-AXIS3-MECHLOCK, v1.49 — BOTH optional,
+    default None, and BOTH must be given together for the override to activate).
+    When given, ``axis3_target_per_mock`` is checked against this section's own
+    marking_scheme position-partition (``axis3_mechanism_lock``) and overridden —
+    fully or partially — wherever the exam locks a mechanism (question_type) to a
+    fixed Q-range instead of letting it float by category. On such an exam the
+    PYQ-measured axis3 distribution can directly contradict the exam's own declared
+    marking scheme (e.g. targeting MSQ/NAT counts inside a Q-range the marking_scheme
+    itself declares pure MCQ) — every paper is then structurally unable to ever
+    satisfy the target, a permanent, paper-unfixable A-AXIS3 finding no amount of
+    re-generation can fix, because the target itself is impossible. Conditional, not
+    universal: an exam whose marking_scheme defines marks by CATEGORY rather than by
+    position (question types can appear at any Q number) has no partition to detect,
+    and for that exam this is a no-op — the ordinary PYQ-measured target is returned
+    unchanged, byte-identical to pre-v1.49 behaviour. Framework_ScopedBlueprint never
+    passes either parameter (a scope is not a fixed Q-range), so its call site is
+    completely unaffected by this change. See axis3_mechanism_lock's own docstring
+    for the exact partition/coverage rules.
     """
     if not axis_dist:
         return {
@@ -556,6 +740,12 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
     a1 = rescale_to_total(axis_dist.get("axis1_per_paper", {}), sec_qs)
     a2 = rescale_to_total(axis_dist.get("axis2_per_paper", {}), sec_qs)
     a3 = rescale_to_total(axis_dist.get("axis3_per_paper", {}), sec_qs)
+
+    # ── GAP-2026-08-12-AXIS3-MECHLOCK ───────────────────────────────────────────
+    # Compute the axis3 target ONCE here (a no-op when marking_scheme/q_range are
+    # not given, or the exam has no position-locked mechanism for this section) so
+    # both the returned target AND its provenance are available below.
+    _axis3_target, _axis3_lock = _axis3_with_mechanism_lock(a3, sec_qs, q_range, marking_scheme)
 
     # RE-DERIVE the audit mode with THIS window. Blueprint knows the exam's real
     # window, so it is AUTHORITATIVE. DIRECT is always the residual float.
@@ -606,7 +796,16 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
         "axis2_guarantee": guarantee,
         "guarantee_feasibility": feas,
         "axis1_target_per_mock": largest_remainder_apportion(a1, sec_qs),
-        "axis3_target_per_mock": largest_remainder_apportion(a3, sec_qs),
+        "axis3_target_per_mock": _axis3_target,
+        # ── GAP-2026-08-12-AXIS3-MECHLOCK — provenance, for audit/report visibility ──
+        # 'pyq_measured' is byte-identical to every pre-v1.49 blueprint (no override
+        # applied — either no marking_scheme/q_range given, or this section has no
+        # position-locked mechanism). 'mechanism_lock_full'/'mechanism_lock_partial'
+        # record that axis3_target_per_mock above was overridden, and by how much
+        # (axis3_mechanism_lock carries the exact covered/gap counts for a report).
+        "axis3_target_source": ("pyq_measured" if _axis3_lock["coverage"] == "none"
+                                else "mechanism_lock_" + _axis3_lock["coverage"]),
+        "axis3_mechanism_lock": _axis3_lock,
         "negative_rate": axis_dist.get("negative_rate", 0.0),
         "mocks_per_window": papers_per_window,
         "recent_years": axis_dist.get("recent_years", []),
@@ -695,6 +894,68 @@ def axis1_feasibility(section_name, axis1_target_per_mock, pyq_ids, manifest_ids
     unreachable = [fmt for fmt, cnt in axis1_target_per_mock.items()
                    if cnt > 0 and fmt not in avail]
     return unreachable
+
+
+def axis1_mock_feasibility(target, alloc_counts, manifest_ids):
+    """§7-7 GAP-2026-08-12-AXIS-PREFLIGHT (companion to ``axis1_feasibility``).
+    ADVISORY (WARN, never HALT) — same contract, but scoped to a single MOCK's
+    actual finalised subtopic allocation rather than the whole section's PYQ pool.
+
+    ``axis1_feasibility`` (above) answers "does this SECTION have ANY PYQ subtopic
+    capable of each targeted format, ever" — necessary but not sufficient. A mock
+    can pass that section-wide check and still be drafted from a subset of
+    subtopics that happens to under-represent (or entirely omit) the
+    format-capable ones THIS mock needed, purely from how the window's
+    rotation/quota split landed. ``axis1_feasibility`` cannot see that — it runs
+    once, at blueprint-build time, before any mock's specific allocation exists.
+    This function runs AFTER a mock's subtopic allocation is finalised (Step 7,
+    before Batch 1 drafts anything) and answers the narrower, mock-specific
+    question: "given EXACTLY the subtopics allocated to this mock, and assuming
+    every single capable slot renders in the targeted format, can this mock
+    structurally reach its own target?"
+
+    target       : this mock's resolved axis1 target dict, e.g.
+                   {'TEXT': 56, 'FIGURAL': 4} — the caller's responsibility to
+                   resolve (including substituting axis1_target_series[this mock]
+                   for 'FIGURAL' where that rotates), exactly mirroring
+                   axis1_feasibility's own contract of taking a pre-resolved
+                   target rather than deriving it itself.
+    alloc_counts : {subtopic_id: q_count} — this mock's finalised allocation,
+                   ONE entry per allocated subtopic with its slot count (a
+                   subtopic holding 3 slots contributes 3 to its format's total,
+                   not 1). NOT filtered to PYQ-only — an allocated Zero-PYQ
+                   subtopic still occupies a real slot and still has a real
+                   ``format``, so it counts toward capacity exactly like a PYQ
+                   one; only ``axis1_feasibility``'s section-wide advisory
+                   restricts itself to ``pyq_ids`` (a different question: PYQ
+                   provenance for the WHOLE section's format mix, not this
+                   mock's actual slot capacity).
+    manifest_ids : {subtopic_id: {..., 'format': ...}} — same shape/source as
+                   every other caller in this module.
+
+    Returns ``{format: {'target': int, 'max_achievable': int}}`` for every
+    format that is SHORT (max_achievable < target). ``{}`` == fully feasible for
+    this mock — mirrors ``axis1_feasibility``'s own "``[]`` == fully feasible"
+    spirit; a dict here (not a bare list of names) because the COUNT, not just
+    the format name, is the useful part of a mock-specific pre-flight.
+    ``axis1_feasibility`` itself is left completely untouched, byte-identical,
+    for its one existing caller (Framework_Blueprint.md §7-7).
+    """
+    if not target or not alloc_counts:
+        return {}
+    avail = {}
+    for sid, n in alloc_counts.items():
+        fmt = (manifest_ids.get(sid) or {}).get("format", "TEXT")
+        avail[fmt] = avail.get(fmt, 0) + int(n or 0)
+    shortfall = {}
+    for fmt, want in target.items():
+        want = int(want or 0)
+        if want <= 0:
+            continue
+        have = int(avail.get(fmt, 0))
+        if have < want:
+            shortfall[fmt] = {"target": want, "max_achievable": have}
+    return shortfall
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -3310,6 +3571,58 @@ def self_test():
           axis1_feasibility('SEC', {'TEXT': 20, 'FIGURAL': 5}, ['ST01'],
                             {'ST01': {'section': 'SEC', 'format': 'TEXT'}}) == ['FIGURAL'])
 
+    # ── GAP-2026-08-12-AXIS-PREFLIGHT regression pack ────────────────────────
+    # Real-world trigger (Mock-10 root-cause gap analysis §5.5/§13 row 2): a mock can
+    # pass axis1_feasibility's SECTION-wide check yet still be drafted from a subset of
+    # subtopics that under-represents the format-capable ones THIS mock needed. No
+    # exam/subtopic name below is load-bearing.
+    _mf_manifest = {'ST01': {'format': 'TEXT'}, 'ST02': {'format': 'FIGURAL'},
+                    'ST03': {'format': 'FIGURAL'}}
+
+    # 1 — FULLY FEASIBLE: allocation covers the target exactly.
+    check('AXISPREFLIGHT-fully-feasible-empty-shortfall',
+          axis1_mock_feasibility({'TEXT': 8, 'FIGURAL': 2},
+                                 {'ST01': 8, 'ST02': 1, 'ST03': 1},
+                                 _mf_manifest) == {})
+
+    # 2 — THE DEFECT ITSELF: target names 4 FIGURAL, but this mock's allocation only
+    #     grants 1 FIGURAL-capable slot — max_achievable must say so exactly.
+    check('AXISPREFLIGHT-detects-shortfall-with-exact-counts',
+          axis1_mock_feasibility({'TEXT': 9, 'FIGURAL': 4},
+                                 {'ST01': 9, 'ST02': 1},
+                                 _mf_manifest)
+          == {'FIGURAL': {'target': 4, 'max_achievable': 1}})
+
+    # 3 — q_count is SUMMED per format, not counted per distinct subtopic (a subtopic
+    #     holding 3 slots contributes 3, not 1).
+    check('AXISPREFLIGHT-sums-qcount-not-subtopic-count',
+          axis1_mock_feasibility({'FIGURAL': 5}, {'ST02': 3, 'ST03': 2}, _mf_manifest)
+          == {})
+
+    # 4 — a target format with ZERO allocated capacity at all (not merely present in
+    #     manifest_ids — genuinely absent from this mock's allocation) is a full shortfall.
+    check('AXISPREFLIGHT-zero-capacity-is-full-shortfall',
+          axis1_mock_feasibility({'PASSAGE': 3}, {'ST01': 10}, _mf_manifest)
+          == {'PASSAGE': {'target': 3, 'max_achievable': 0}})
+
+    # 5 — ABSENT-SAFE: no target, or no allocation, never crashes and reports nothing.
+    check('AXISPREFLIGHT-absent-safe',
+          axis1_mock_feasibility({}, {'ST01': 5}, _mf_manifest) == {}
+          and axis1_mock_feasibility({'FIGURAL': 2}, {}, _mf_manifest) == {}
+          and axis1_mock_feasibility(None, None, _mf_manifest) == {})
+
+    # 6 — a target of 0 (or absent) for a format is never flagged, even with zero
+    #     capacity for it — only POSITIVE targets can be short.
+    check('AXISPREFLIGHT-zero-target-never-flagged',
+          axis1_mock_feasibility({'FIGURAL': 0, 'TEXT': 5}, {'ST01': 5}, _mf_manifest)
+          == {})
+
+    # 7 — axis1_feasibility itself (existing function, one caller in
+    #     Framework_Blueprint.md) is completely untouched by this addition.
+    check('AXISPREFLIGHT-does-not-regress-axis1_feasibility',
+          axis1_feasibility('SEC', {'TEXT': 20, 'FIGURAL': 5}, ['ST01'],
+                            {'ST01': {'section': 'SEC', 'format': 'TEXT'}}) == ['FIGURAL'])
+
     # ── GAP-2026-08-06-AXIS1 — BUDGET TRACKER regression pack ────────────────
     # The defect these lock down shipped TWICE on a real exam and passed every gate,
     # so each assertion below was MUTATION-VERIFIED: it measures False against the
@@ -3746,6 +4059,120 @@ def self_test():
     check('axis_zero_secqs_safe',
           _zero['axis1_target_per_mock'] == {} and _zero['axis2_window_target'] == {}
           and _zero['axis1_per_paper'] == {})
+
+    # ── GAP-2026-08-12-AXIS3-MECHLOCK regression pack ────────────────────────
+    # Real-world trigger (Mock-10 root-cause gap analysis §6): an exam whose
+    # marking_scheme locks each section to ONE mechanism by q_range (MCQ-only,
+    # MSQ-only, NAT-only) with no overlap/gap. The PYQ-measured axis3 distribution
+    # can then name a target the marking_scheme itself makes IMPOSSIBLE (e.g. MSQ/NAT
+    # counts inside a Q-range the marking_scheme declares pure MCQ) — every paper
+    # was structurally unable to ever satisfy it, a permanent, paper-unfixable
+    # A-AXIS3 finding. No exam name here is load-bearing.
+    _ms_5section = [
+        {'q_range': [1, 10],  'question_type': 'MCQ', 'correct_marks': 1.0, 'negative_marks': -0.33},
+        {'q_range': [11, 30], 'question_type': 'MCQ', 'correct_marks': 2.0, 'negative_marks': -0.66},
+        {'q_range': [31, 40], 'question_type': 'MSQ', 'correct_marks': 2.0, 'negative_marks': 0.0},
+        {'q_range': [41, 50], 'question_type': 'NAT', 'correct_marks': 1.0, 'negative_marks': 0.0},
+        {'q_range': [51, 60], 'question_type': 'NAT', 'correct_marks': 2.0, 'negative_marks': 0.0},
+    ]
+
+    # 1 — axis3_mechanism_lock direct: FULL coverage, two adjacent MCQ entries merge.
+    _lock_full = axis3_mechanism_lock((1, 30), _ms_5section, 30)
+    check('AXIS3MECH-detect-full-lock-merges-adjacent-same-type',
+          _lock_full == {'coverage': 'full', 'covered_qs': 30,
+                         'by_type': {'MCQ': 30}, 'gap_qs': 0})
+
+    # 2 — axis3_mechanism_lock direct: NONE when the section has no locked entries at all
+    #     (a category-based exam — mechanism can appear at any position in this section).
+    check('AXIS3MECH-detect-none-when-no-partition',
+          axis3_mechanism_lock((1, 30), [], 30)
+          == {'coverage': 'none', 'covered_qs': 0, 'by_type': {}, 'gap_qs': 30})
+    check('AXIS3MECH-detect-none-when-marking-scheme-absent',
+          axis3_mechanism_lock(None, None, 30)['coverage'] == 'none')
+
+    # 3 — axis3_mechanism_lock direct: PARTIAL when the section is only partly locked.
+    _partial_ms = [{'q_range': [1, 15], 'question_type': 'MCQ',
+                    'correct_marks': 1.0, 'negative_marks': 0.0}]
+    _lock_partial = axis3_mechanism_lock((1, 20), _partial_ms, 20)
+    check('AXIS3MECH-detect-partial-lock',
+          _lock_partial == {'coverage': 'partial', 'covered_qs': 15,
+                            'by_type': {'MCQ': 15}, 'gap_qs': 5})
+
+    # 4 — axis3_mechanism_lock direct: an OVERLAP between two locked entries is treated
+    #     as a gap (ambiguous locking is not locking) — must NOT report 'full'.
+    _overlap_ms = [{'q_range': [1, 20], 'question_type': 'MCQ', 'correct_marks': 1.0, 'negative_marks': 0.0},
+                   {'q_range': [15, 30], 'question_type': 'MCQ', 'correct_marks': 1.0, 'negative_marks': 0.0}]
+    check('AXIS3MECH-overlap-is-not-full-lock',
+          axis3_mechanism_lock((1, 30), _overlap_ms, 30)['coverage'] != 'full')
+
+    # 5 — derive_axis_schedule end-to-end: FULL LOCK overrides a WRONG PYQ-measured
+    #     target entirely — this is THE defect. Feeding it the exact wrong distribution
+    #     from the gap analysis (MCQ:21, NAT:6, MSQ:3 inside a Q-range the marking_scheme
+    #     declares pure MCQ) must still yield the correct MCQ:30 target, not the PYQ one.
+    _wrong_pyq_dist = {'axis3_per_paper': {'MCQ': 21.0, 'NAT': 6.0, 'MSQ': 3.0}}
+    _sched_locked = derive_axis_schedule(
+        'Section A', _wrong_pyq_dist, 30, [], [], {}, {},
+        papers_per_window=10, marking_scheme=_ms_5section, q_range=(1, 30))
+    check('AXIS3MECH-full-lock-overrides-wrong-pyq-target',
+          _sched_locked['axis3_target_per_mock'] == {'MCQ': 30}
+          and _sched_locked['axis3_target_source'] == 'mechanism_lock_full')
+    # THE DEFECT ITSELF, made explicit: the un-overridden PYQ apportionment of that
+    # same wrong distribution is a DIFFERENT map than the locked target — proving this
+    # test would FAIL (catch the regression) if the override were ever removed/bypassed.
+    check('AXIS3MECH-full-lock-differs-from-unpatched-pyq-apportionment',
+          largest_remainder_apportion(_wrong_pyq_dist['axis3_per_paper'], 30)
+          != _sched_locked['axis3_target_per_mock'])
+
+    # 6 — derive_axis_schedule end-to-end: PARTIAL LOCK blends locked + re-apportioned
+    #     PYQ remainder, exact sum contract preserved (§14 AXIS-SUM).
+    _partial_dist = {'axis3_per_paper': {'MSQ': 4.0, 'NAT': 16.0}}   # already sums to sec_qs=20
+    _sched_partial = derive_axis_schedule(
+        'Section X', _partial_dist, 20, [], [], {}, {},
+        papers_per_window=10, marking_scheme=_partial_ms, q_range=(1, 20))
+    check('AXIS3MECH-partial-lock-blends-exact-sum',
+          sum(_sched_partial['axis3_target_per_mock'].values()) == 20
+          and _sched_partial['axis3_target_per_mock']['MCQ'] == 15
+          and _sched_partial['axis3_target_source'] == 'mechanism_lock_partial')
+    check('AXIS3MECH-partial-lock-blend-values',
+          _sched_partial['axis3_target_per_mock'] == {'MCQ': 15, 'MSQ': 1, 'NAT': 4})
+
+    # 7 — derive_axis_schedule end-to-end: NO override when marking_scheme/q_range are
+    #     omitted — byte-identical to pre-v1.49 behaviour (the ordinary regression pack
+    #     above, re-asserted here explicitly against the SAME wrong-looking distribution
+    #     used in test 5, to prove this really is opt-in, not always-on).
+    _sched_unlocked = derive_axis_schedule(
+        'Section A', _wrong_pyq_dist, 30, [], [], {}, {}, papers_per_window=10)
+    check('AXIS3MECH-omitted-params-is-pure-pyq-no-override',
+          _sched_unlocked['axis3_target_per_mock']
+          == largest_remainder_apportion(_wrong_pyq_dist['axis3_per_paper'], 30)
+          and _sched_unlocked['axis3_target_source'] == 'pyq_measured')
+
+    # 8 — derive_axis_schedule end-to-end: PARTIAL lock with NO PYQ signal for the gap
+    #     (a3 empty) must NEVER fabricate a mechanism split — falls back to the ordinary
+    #     PYQ apportionment for the section (here also empty, since a3 is empty), never
+    #     crashes, and the AXIS-SUM contract is trivially satisfied ({} has sum 0, which
+    #     BV-AXIS's own check only enforces `if tgt_map` — i.e. skips empty maps).
+    _no_signal_dist = {'axis3_per_paper': {}}
+    _sched_no_signal = derive_axis_schedule(
+        'Section X', _no_signal_dist, 20, [], [], {}, {},
+        papers_per_window=10, marking_scheme=_partial_ms, q_range=(1, 20))
+    check('AXIS3MECH-partial-lock-no-pyq-signal-never-fabricates',
+          _sched_no_signal['axis3_target_per_mock'] == {})
+
+    # 9 — Framework_ScopedBlueprint's call site never passes marking_scheme/q_range —
+    #     confirm the 4-positional-plus-papers_per_window call shape (its exact call
+    #     shape) still returns the identical schema keys, now WITH the two new
+    #     provenance keys present (additive only — BV-AXIS's REQUIRED-key check is a
+    #     subset check, never a no-extra-keys check, so this cannot regress it).
+    _scoped_call = derive_axis_schedule(
+        'SEC', _scoped_dist, 25, ['ST01'], ['ST02'],
+        {'ST01': ['DIRECT', 'MATCH'], 'ST02': ['SEQUENCE']},
+        {'ST01': {'section': 'SEC', 'format': 'TEXT'},
+         'ST02': {'section': 'SEC', 'format': 'FIGURAL'}},
+        papers_per_window=10)
+    check('AXIS3MECH-scopedblueprint-call-shape-unaffected',
+          _scoped_call['axis3_target_source'] == 'pyq_measured'
+          and 'axis3_mechanism_lock' in _scoped_call)
 
     # ── Cluster D: id + parsing ──────────────────────────────────────────────
     check('slugify_basic', slugify('Time & Work') == 'time_work')
