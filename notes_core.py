@@ -1,5 +1,34 @@
 """
-notes_core.py v2.1 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.2 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.2 — 2026-08-12 — NOTESAUDIT-AS-WRITER FOUNDATION (GAP-2026-08-12-NADOCX,
+    patch P1 of 2). PURELY ADDITIVE: no existing function changes behaviour,
+    no emitted schema string moves, so P1 deploys and verifies on its own and
+    every current NB/NC/NA/ND run is byte-for-byte unaffected. P2 (the
+    Framework_NotesAudit v3.0.0 rewrite and its companion specs) is what
+    switches these on.
+      (1) TWO NEW FILENAME AUTHORITIES beside notes_filename, same recipe and
+          same sanitisation, so no step ever spells a filename itself:
+            notes_final_filename   -> {unit_code}_{Slug}_Final.docx   (NA)
+            notes_deliver_filename -> {unit_code}_{Slug}_Deliver.docx (ND)
+          All three are spec-lock-pinned. A step that needs a name CALLS one.
+      (2) docx_ref_for / verify_docx_ref — the bank_ref/taxonomy_ref staleness
+          idiom applied to a .docx: {filename, sha256, bytes, generated}.
+          NotesAudit now receives its input as a CHAT ATTACHMENT rather than
+          from Project Files, so there is no longer any implicit guarantee
+          that the file audited is the file NotesCreate produced. This is the
+          evidence for that check. verify_docx_ref reports filename mismatch
+          and sha256 mismatch SEPARATELY, because the two mean different
+          things: the first is usually the wrong unit attached, the second a
+          hand-edit between steps.
+      (3) "notes-registry/2.1" is ACCEPTED but NOT yet emitted (REGISTRY_SCHEMA
+          stays 2.0 until P2 moves the specs with it — an engine that emitted a
+          schema the specs do not cite would be exactly the drift this file's
+          SPEC-LOCK exists to prevent). registry_load additionally defaults the
+          2.1 per-unit fields draft_ref / final_ref / audit_summary, so a 2.0
+          registry read by a P2 step already has the shape.
+    Companion: notes_docx.py >= v1.0 (the shared builder; construction left
+    prose and became an engine in the same patch).
 
 v2.1 — 2026-08-10 — SPEC-LOCK TRIPWIRE (defect-class closure). A deployment
     review found Framework_NotesCreate F-1 restating the filename recipe in
@@ -143,9 +172,13 @@ BULLET_TARGET_WORDS = 20
 BULLET_HARD_CAP_WORDS = 25
 TIER_PAGE_BANDS = {"TIER-1": (6, 15), "TIER-2": (4, 8), "TIER-3": (2, 5)}
 
+# v2.2: 2.1 is ACCEPTED but deliberately NOT EMITTED. REGISTRY_SCHEMA moves to
+# 2.1 in P2, together with the specs that cite it. An engine emitting a schema
+# string its own specs do not name is precisely the drift the SPEC-LOCK block
+# at the foot of this file exists to catch.
 REGISTRY_SCHEMA = "notes-registry/2.0"
 REGISTRY_SCHEMAS_ACCEPTED = ("notes-registry/1.0", "notes-registry/1.1",
-                             "notes-registry/2.0")
+                             "notes-registry/2.0", "notes-registry/2.1")
 BLUEPRINT_SCHEMA = "notes-blueprint/2.0"
 BLUEPRINT_SCHEMAS_ACCEPTED = ("notes-blueprint/1.0", "notes-blueprint/1.1",
                               "notes-blueprint/1.2", "notes-blueprint/2.0")
@@ -176,9 +209,72 @@ def unit_code(exam_code, s_no, t_no, st_no):
     return f"{exam_code}_S{int(s_no)}_T{int(t_no)}_ST{int(st_no):02d}"
 
 
-def notes_filename(exam_code, s_no, t_no, st_no, slug):
+def _notes_stem(exam_code, s_no, t_no, st_no, slug):
+    """The one place the {unit_code}_{Slug} stem is formed. Every filename
+    authority below derives from it, so the sanitisation rule cannot drift
+    between the draft, the audited file and the delivered file."""
     slug = re.sub(r"[^A-Za-z0-9]+", "_", slug).strip("_")
-    return f"{unit_code(exam_code, s_no, t_no, st_no)}_{slug}.docx"
+    return f"{unit_code(exam_code, s_no, t_no, st_no)}_{slug}"
+
+
+def notes_filename(exam_code, s_no, t_no, st_no, slug):
+    """Framework_NotesCreate F-1 — the NC DRAFT filename."""
+    return _notes_stem(exam_code, s_no, t_no, st_no, slug) + ".docx"
+
+
+def notes_final_filename(exam_code, s_no, t_no, st_no, slug):
+    """Framework_NotesAudit — the AUDITED, student-ready filename.
+
+    v2.2. NA emits one file in every outcome and it always carries this name,
+    so an operator on a phone can never confuse NC's draft with NA's certified
+    output. The stem is shared with notes_filename, so the two can never
+    disagree about sanitisation.
+    """
+    return _notes_stem(exam_code, s_no, t_no, st_no, slug) + "_Final.docx"
+
+
+def notes_deliver_filename(exam_code, s_no, t_no, st_no, slug):
+    """Framework_NotesDeliver — the portal-formatted delivery filename."""
+    return _notes_stem(exam_code, s_no, t_no, st_no, slug) + "_Deliver.docx"
+
+
+def docx_ref_for(path):
+    """A staleness/provenance ref over a .docx, mirroring bank_ref and
+    taxonomy_ref. Stored by NC as draft_ref and by NA as final_ref."""
+    return {"filename": os.path.basename(path),
+            "sha256": file_sha256(path),
+            "bytes": os.path.getsize(path),
+            "generated": _now()}
+
+
+def verify_docx_ref(path, ref, expected_filename=None):
+    """Returns (ok, kind, detail). kind is one of:
+        "ok" | "missing_ref" | "not_found" | "filename" | "sha256"
+
+    The kinds are reported SEPARATELY on purpose. A filename mismatch almost
+    always means the wrong unit's file was attached to the trigger — a
+    different defect, with a different remedy, from a sha256 mismatch, which
+    means the right file was attached but its bytes changed since the
+    producing step wrote it (a hand-edit in between).
+    """
+    if expected_filename and os.path.basename(path) != expected_filename:
+        return (False, "filename",
+                f"attached file is {os.path.basename(path)!r} but this unit's "
+                f"filename is {expected_filename!r} — the wrong unit's "
+                f"document appears to be attached.")
+    if not ref or not ref.get("sha256"):
+        return (False, "missing_ref",
+                "no reference recorded for this document by the producing "
+                "step — re-run it so the reference exists.")
+    if not os.path.exists(path):
+        return (False, "not_found", f"file not found at {path}.")
+    actual = file_sha256(path)
+    if actual != ref["sha256"]:
+        return (False, "sha256",
+                f"the recorded document is sha256 {ref['sha256'][:12]}… but "
+                f"the file present is {actual[:12]}… — it was modified after "
+                f"the producing step wrote it.")
+    return (True, "ok", "document matches the recorded reference.")
 
 
 # ---------------------------------------------------------------- roles/tiers
@@ -246,7 +342,7 @@ def registry_load(path):
     reg = json.load(open(path, encoding="utf-8"))
     if reg.get("schema") not in REGISTRY_SCHEMAS_ACCEPTED:
         raise ValueError(f"registry schema mismatch: {reg.get('schema')}")
-    if reg["schema"] != REGISTRY_SCHEMA:
+    if reg["schema"] not in (REGISTRY_SCHEMA, "notes-registry/2.1"):
         reg["schema"] = REGISTRY_SCHEMA
         reg.setdefault("allowed_question_types", None)
         reg.setdefault("taxonomy_ref", None)
@@ -258,6 +354,13 @@ def registry_load(path):
             u.setdefault("topic", None)
             u.setdefault("slug", None)
             u.setdefault("unit_code", key)
+    # v2.2 (additive, applied to EVERY accepted schema): the 2.1 per-unit
+    # fields are defaulted on load, so a P2 step reads a uniform shape whether
+    # the registry on disk was written by a 1.x, 2.0 or 2.1 producer.
+    for u in reg.get("units", {}).values():
+        u.setdefault("draft_ref", None)
+        u.setdefault("final_ref", None)
+        u.setdefault("audit_summary", None)
     return reg
 
 
@@ -1334,6 +1437,68 @@ def self_test():
           == "EX_S1_T2_ST03_membrane_structure.docx"
           and notes_filename("EX", 1, 2, 3, sid_slug("gb.cell.membranes"))
           == "EX_S1_T2_ST03_membranes.docx")
+
+    # ---- v2.2 SPEC-LOCK: the three filename authorities ------------------
+    # All three share one stem, so sanitisation cannot drift between the
+    # draft, the audited file and the delivered file.
+    check("spec-lock: NA _Final filename authority",
+          notes_final_filename("EX", 1, 2, 3, "pH & buffers")
+          == "EX_S1_T2_ST03_pH_buffers_Final.docx")
+    check("spec-lock: ND _Deliver filename authority",
+          notes_deliver_filename("EX", 1, 2, 3, "pH & buffers")
+          == "EX_S1_T2_ST03_pH_buffers_Deliver.docx")
+    check("spec-lock: all three filenames share one sanitised stem",
+          notes_filename("EX", 1, 2, 3, "a-b&c")[:-len(".docx")]
+          == notes_final_filename("EX", 1, 2, 3, "a-b&c")[:-len("_Final.docx")]
+          == notes_deliver_filename("EX", 1, 2, 3,
+                                    "a-b&c")[:-len("_Deliver.docx")])
+    check("spec-lock: the three filenames are mutually distinct",
+          len({notes_filename("EX", 1, 2, 3, "x"),
+               notes_final_filename("EX", 1, 2, 3, "x"),
+               notes_deliver_filename("EX", 1, 2, 3, "x")}) == 3)
+
+    # ---- v2.2: docx_ref_for / verify_docx_ref ----------------------------
+    _fp = tempfile.mktemp(suffix=".docx")
+    with open(_fp, "wb") as _f:
+        _f.write(b"original bytes")
+    _ref = docx_ref_for(_fp)
+    check("docx_ref_for captures filename, sha256 and size",
+          _ref["filename"] == os.path.basename(_fp)
+          and len(_ref["sha256"]) == 64 and _ref["bytes"] == 14)
+    check("verify_docx_ref: unmodified file verifies",
+          verify_docx_ref(_fp, _ref)[0] is True)
+    with open(_fp, "wb") as _f:
+        _f.write(b"tampered bytes!")
+    _ok, _kind, _ = verify_docx_ref(_fp, _ref)
+    check("verify_docx_ref: a modified file fails as 'sha256'",
+          _ok is False and _kind == "sha256")
+    _ok, _kind, _ = verify_docx_ref(_fp, _ref,
+                                    expected_filename="OTHER_UNIT.docx")
+    check("verify_docx_ref: wrong unit attached fails as 'filename' — a "
+          "DIFFERENT defect from a hand-edit, so it is reported separately",
+          _ok is False and _kind == "filename")
+    check("verify_docx_ref: absent ref fails as 'missing_ref'",
+          verify_docx_ref(_fp, None)[1] == "missing_ref")
+    check("verify_docx_ref: absent file fails as 'not_found'",
+          verify_docx_ref(tempfile.mktemp(suffix=".docx"), _ref)[1]
+          == "not_found")
+
+    # ---- v2.2: registry schema forward-compatibility ---------------------
+    check("registry: 2.1 accepted, 2.0 still EMITTED (specs move in P2)",
+          "notes-registry/2.1" in REGISTRY_SCHEMAS_ACCEPTED
+          and REGISTRY_SCHEMA == "notes-registry/2.0")
+    _rp = tempfile.mktemp(suffix=".json")
+    _reg = registry_init("EX", "h", "PG",
+                         [{"sid": "a.b.c", "name": "N", "role": "COVERAGE",
+                           "tier": "TIER-3", "unit_code": "EX_S1_T1_ST01"}])
+    registry_save(_reg, _rp)
+    _loaded = registry_load(_rp)
+    check("registry_load defaults the 2.1 per-unit fields on any schema",
+          all(k in _loaded["units"]["a.b.c"]
+              for k in ("draft_ref", "final_ref", "audit_summary")))
+    check("registry_load leaves the 2.1 defaults empty (additive, not lossy)",
+          _loaded["units"]["a.b.c"]["draft_ref"] is None
+          and _loaded["units"]["a.b.c"]["audit_summary"] is None)
 
     # ---- SPEC-LOCK, REVERSE HALF (the drift direction that produced the bug)
     # The pins above compare the engine to a literal in THIS file, so they fire

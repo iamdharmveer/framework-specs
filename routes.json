@@ -146,6 +146,8 @@
     "Framework_NotesCreate.md",
     "notes_core.py",
     "syllabus_provenance.py",
+    "notes_docx.py",
+    "t3_mathcomp.py",
     "Framework_DeliveryFooter.md"
   ],
   "NotesAudit": [
@@ -153,6 +155,8 @@
     "notes_core.py",
     "syllabus_provenance.py",
     "notes_audit.py",
+    "notes_docx.py",
+    "t3_mathcomp.py",
     "Framework_DeliveryFooter.md"
   ],
   "NotesDeliver": [

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.10.5",
+  "framework_version": "2026.08.12.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -149,6 +149,8 @@
       "Framework_NotesCreate.md",
       "notes_core.py",
       "syllabus_provenance.py",
+      "notes_docx.py",
+      "t3_mathcomp.py",
       "Framework_DeliveryFooter.md"
     ],
     "NotesAudit": [
@@ -156,6 +158,8 @@
       "notes_core.py",
       "syllabus_provenance.py",
       "notes_audit.py",
+      "notes_docx.py",
+      "t3_mathcomp.py",
       "Framework_DeliveryFooter.md"
     ],
     "NotesDeliver": [
@@ -419,11 +423,11 @@
       "bytes": 35405
     },
     "notes_core.py": {
-      "sha256": "e2dae6f9c84508213f597fbe8c6842576a336c778574c7f43b2b95dcae9c6453",
+      "sha256": "4f020b0eaccd8cce1e2fd4bf06011e4f3e001c4028580b82ee23c13fb72eb4ed",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_core.py \u2014 shared Notes pipeline core. Run with --self-test.\")",
-      "lines": 1374,
-      "bytes": 69834
+      "lines": 1539,
+      "bytes": 78947
     },
     "notes_blueprint.py": {
       "sha256": "b85c6a4caee4e78a5fa192faac217d86a81a5750c81d8669a6b6d78214558353",
@@ -438,6 +442,13 @@
       "end_sentinel": "    print(\"notes_audit.py \u2014 Notes Step NA engine. Run with --self-test.\")",
       "lines": 259,
       "bytes": 12415
+    },
+    "notes_docx.py": {
+      "sha256": "42feeb67bc0b1b0de853a470f8524d26421e80e618fe8344025af814f272bdee",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    print(\"notes_docx.py \u2014 shared Notes document builder. Run with --self-test.\")",
+      "lines": 1301,
+      "bytes": 57191
     }
   }
 }

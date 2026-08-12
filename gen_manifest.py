@@ -20,7 +20,8 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               "figural_core.py", "figural_vision.py", "audit_canonical.py",
               "spec_source.py",
               "frequency_xlsx.py",
-              "notes_core.py", "notes_blueprint.py", "notes_audit.py"]
+              "notes_core.py", "notes_blueprint.py", "notes_audit.py",
+              "notes_docx.py"]
 
 def sha256(p):
     with open(p, "rb") as f:

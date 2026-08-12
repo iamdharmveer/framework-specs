@@ -1,5 +1,93 @@
 # Changelog
 
+## 2026.08.12.1
+
+### Document construction becomes an engine (GAP-2026-08-12-NADOCX, patch P1 of 2)
+Framework_NotesAudit v3.0.0 (patch P2) makes NA a WRITER: it rebuilds the whole
+unit document from NotesCreate's content, corrects defects and improves the
+notes, and emits the student-facing file. That is a role inversion — today NA is
+a read-only certifier whose §7 states the audited file is "the SAME file ND
+ships — delivery never edits content" — and it cannot land safely on the
+existing foundation.
+
+**The blocking defect it would have re-opened.** `notes_core` exposes only
+READ-side gates (`assert_omml`, `scan_omml_structural`, `scan_flat_math_tokens`,
+`scan_prose_bans`, `density_gate`). No engine owned document CONSTRUCTION at
+all: NC built its .docx from python-docx code written per the spec at run time.
+A writing NA would therefore have been a SECOND implementation of the §6A colour
+map, the decimal cascade, box styling, spacer paragraphs, rule F-7 and the OMML
+conventions — the exact "one contract, two implementations" class the 2026-08-10
+sweep closed for filenames (Framework_NotesCreate v2.2.1 / notes_core v2.1
+SPEC-LOCK). Re-opening it directly upstream of a student-facing artifact is not
+acceptable, so construction moves into one engine both steps import.
+
+P1 is PURELY ADDITIVE. No existing function changes behaviour and no emitted
+schema string moves, so it deploys and fresh-clone verifies on its own and every
+current NB/NC/NA/ND run is byte-for-byte unaffected.
+
+- **`notes_docx.py` v1.0 (NEW)** — the shared builder/parser. A unit is a plain
+  dict (schema `notes-content/1.0`); `build()` renders it, `parse()` reads a
+  built .docx back. NA never edits .docx XML: it parses, edits the MODEL, and
+  rebuilds.
+  - **Numbers are never stored.** Every "n.k", "n.k.m", "Example j" and
+    "Recall j" is DERIVED from block order at render time. Framework_NotesCreate
+    §6A ("removing or adding a block renumbers everything after it; stale
+    numbers are an NA gate failure") therefore cannot be violated by
+    construction — there is no stored number to go stale. This closes the
+    largest single risk in letting NA insert or drop a block, and
+    `outline_of()` doubles as the oracle for NA's G-6 gate.
+  - **Round-trip identity is self-tested, not asserted.** `build -> parse ->
+    build` reproduces `word/document.xml` byte-for-byte, and a third pass is a
+    FIXED POINT. This is what makes "re-running NA on its own output changes
+    nothing" a checkable property. An untouched equation round-trips as its
+    ORIGINAL OMML element, so NA never re-authors maths it did not edit.
+  - **Rule F-7 is enforced structurally.** Every paragraph the engine emits
+    carries an explicit AUTO line rule. A fixed rule clips tall inline objects
+    and the clipped equation is still present in the XML — so G-2 passes while
+    the page is wrong. Prevented at construction instead of detected later.
+  - **Answer keys are validated at construction.** Out-of-range MCQ keys,
+    repeated MSQ options, non-numeric NAT answers and NAT stems missing a
+    rounding precision are now impossible to BUILD, not merely audited after.
+  - **The `V_max` trap is rejected.** `t3_compile("V_max")` renders V-sub-m
+    followed by body text "ax" — LaTeX-correct, invisible to an XML-level gate,
+    and visibly wrong on a student's page. Unbraced multi-character scripts are
+    a hard validation failure.
+  - **Picture names are deterministic.** python-docx stamps the source filename
+    into `pic:cNvPr@name`, which leaked temp paths into the document AND would
+    have churned `document.xml` on every figure re-render, breaking idempotence
+    for no visible benefit. Positional names mean an identical re-render to a
+    different path produces identical bytes.
+  - Self-test 63/63.
+- **`notes_core.py` v2.1 -> v2.2** — additive.
+  - Two new filename authorities beside `notes_filename`:
+    `notes_final_filename` (NA, `_Final.docx`) and `notes_deliver_filename`
+    (ND, `_Deliver.docx`). All three derive from one sanitised stem, so the
+    recipe cannot drift between the draft, the audited file and the delivered
+    file. All three spec-lock-pinned.
+  - `docx_ref_for` / `verify_docx_ref` — the bank_ref/taxonomy_ref staleness
+    idiom applied to a .docx. NA now receives its input as a CHAT ATTACHMENT
+    rather than from Project Files, so nothing otherwise guarantees the file
+    audited is the file NC produced. Filename mismatch and sha256 mismatch are
+    reported SEPARATELY because they mean different things: the first is
+    usually the wrong unit attached, the second a hand-edit in between.
+  - `notes-registry/2.1` is ACCEPTED but deliberately NOT EMITTED — the schema
+    moves in P2 with the specs that cite it. An engine emitting a schema string
+    its own specs do not name is precisely the drift the SPEC-LOCK block exists
+    to catch. `registry_load` defaults the 2.1 per-unit fields (`draft_ref`,
+    `final_ref`, `audit_summary`) on every accepted schema, so a P2 step reads a
+    uniform shape.
+  - Self-test 124 -> 137.
+- **`routes.json`** — `notes_docx.py` added to NotesCreate and NotesAudit, and
+  so was **`t3_mathcomp.py`**, which was NEVER on NC's route despite
+  Framework_NotesCreate §6 F-3 requiring its conventions. A real routing gap,
+  found while wiring the builder.
+- **`gen_manifest.py`** — `notes_docx.py` tracked. MANIFEST 39 -> 40 files.
+
+Deferred to P2: Framework_NotesAudit v3.0.0, Framework_NotesCreate v2.3.0
+(emits `draft_ref`), Framework_NotesDeliver, Framework_DeliveryFooter §3,
+`notes_audit.py` (4th verdict, key-correction tiers, gates G-7a/G-7b/G-8..G-11,
+terminal re-gate), and the REGISTRY_SCHEMA flip to 2.1.
+
 ## 2026.08.10.5
 
 ### The four-site architecture is now documented AND enforced
