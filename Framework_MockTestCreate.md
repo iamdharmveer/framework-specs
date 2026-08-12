@@ -1,4 +1,50 @@
-# Framework_MockTestCreate v5.53.0
+# Framework_MockTestCreate v5.53.1
+# v5.53.1 — 2026-08-12 — FINAL ASSEMBLY ENGINE HARDENING (post-extraction 0-bug audit)
+#   A dedicated final adversarial audit (3 independent passes: byte-fidelity diff of
+#   final_assembly.py against the pre-extraction spec-inline code it replaced, spec-inline
+#   wiring/variable-scope sync check, and adversarial edge-case/mutation hunting) found and
+#   fixed 5 real defects surfaced by v5.53.0's Row 0 extraction — 1 CRITICAL (would have
+#   crashed EVERY Final Assembly run) and 4 crash-on-malformed-input hardening gaps:
+#   1. GAP-2026-08-12-S13-4-UNDEFINED-BATCHES-COMPLETED (CRITICAL). S13-4's call into
+#      fa.commit_registry() referenced a bare `batches_completed` name that was NEVER bound
+#      anywhere in this file (only `bs['batches_completed']`/`batch_state['batches_completed']`
+#      dict keys exist, scoped inside S3-16/S4-8a). This exact NameError was latent in the
+#      PRE-EXTRACTION spec-inline code too (v5.52.0 and earlier — confirmed via `git show` on
+#      the parent commit), invisible to every verification pass to date because nothing in the
+#      chain (gen_manifest/bootstrap/validate_framework_md/check_triggers/self-tests) actually
+#      EXECUTES this specific inline block end-to-end. Found by a dedicated wiring-audit pass
+#      that traced every variable's binding site by line number, then confirmed live via a
+#      real exec() of the extracted S13-4/S13-REGCHECK/S13-QINDEX/S13-7 blocks in sequence
+#      against a fixture filesystem. Fixed by reloading batch_state.json fresh at S13-4 (same
+#      defensive-reload pattern already used for progress.json/registry.json there), rather
+#      than relying on a per-batch local (`bs`) that isn't guaranteed still bound this late.
+#   2-4. final_assembly.py regcheck() hardening: a non-numeric msq_meta.total_options no
+#      longer raises ValueError (the pre-extraction code's try/except protected this
+#      conversion; splitting file-load from schema-gate moved it outside that protection —
+#      an extraction-introduced regression, now fixed with its own guard); a malformed
+#      (non-dict) concept_map entry no longer raises AttributeError (degrades to "not
+#      numerical" rather than crashing); a pre-existing wrong-typed `options_by_q` (e.g. a
+#      hand-patched registry) no longer raises TypeError (force-reset to the correct
+#      container type, same self-heal spirit as the _REQUIRED_TOP fields). All three are
+#      pre-existing crash risks the old spec-inline code also had (same bare-indexing
+#      patterns existed before extraction) — hardened now because this function's own
+#      docstring promises it never raises, and doing so costs nothing on well-formed input
+#      (100% of real production data): all pre-existing self-test assertions are unchanged.
+#   5. final_assembly.py predelivery_checklist() hardening: broadened its `except
+#      FileNotFoundError` to `except OSError`, so a real filesystem's NotADirectoryError
+#      (a file sits where the outputs directory should be) or PermissionError (restricted
+#      ACL) degrade to "nothing staged" (checks then fail honestly) instead of crashing.
+#   6 new self-test fixtures added for items 2-5, each mutation-verified (neutered the fix,
+#   confirmed the self-test catches it, restored) — final_assembly.py --self-test: 79/79.
+#   NOT FIXED, EXPLICITLY DEFERRED (a design gap in G-COMMIT-COMPLETE itself, pre-dating
+#   this extraction, inherited unchanged from release .10 — out of Row 0's charter to
+#   redesign): GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING. question_index/session_log
+#   dedupe by paper_id while G-COMMIT-COMPLETE's cross-ledger check keys by mock number; if a
+#   mock's paper_id is ever changed and the SAME mock N is committed twice under two
+#   different paper_id values (only reachable via an unusual operational error — editing
+#   blueprint.json's mocks[].paper_id mid-session then re-running Final Assembly for that
+#   mock), the stale entry is never detected or removed. Recommended as its own scoped fix,
+#   same as the already-flagged GAP-2026-08-12-S13-4B-SCOPED-PATH.
 # v5.53.0 — 2026-08-12 — FINAL ASSEMBLY ENGINE EXTRACTION (Row 0)
 #   Closes Finding 0 of the Mock-10 root-cause gap analysis (GAP-2026-08-12-FINAL-ASSEMBLY-
 #   ENGINE) — the last open row of the §13 priority table (v5.52.0's SCOPING NOTE flagged it
@@ -6792,6 +6838,18 @@
   prog = json.load(open(f'/home/claude/{EXAM}_M{N}_progress.json'))
   passage_linked_qs = set(prog.get('passage_linked_qs', []))
   cloze_linked_qs   = set(prog.get('cloze_linked_qs', []))
+  # v5.53 GAP-2026-08-12-S13-4-UNDEFINED-BATCHES-COMPLETED (found + fixed during the final
+  # 0-bug audit): the pre-extraction spec-inline code referenced a bare `batches_completed`
+  # name here that was NEVER bound anywhere in this file — only `bs['batches_completed']`/
+  # `batch_state['batches_completed']` (dict keys inside S3-16/S4-8a's own locals) exist.
+  # That NameError was latent in EVERY release through v5.52.0; it went uncaught because
+  # nothing in the verification chain executes this specific spec-inline block end-to-end
+  # (Check AJ's undefined-name scan only covers the .py engine files, not .md inline code).
+  # Fixed here, at the extraction boundary, by reloading batch_state.json fresh — the same
+  # defensive-reload pattern already used for `prog`/`registry` above, rather than relying
+  # on a per-batch local (`bs`) that may or may not still be bound this late in the session.
+  _bs = json.load(open(f'/home/claude/{EXAM}_M{N}_batch_state.json'))
+  batches_completed = len(_bs.get('batches_completed', []))
 
   # Per-Q concept_map the sidecar accumulated (S7-NEW-A) — fa.commit_registry uses this to
   # build question_index and to run the v5.48.0 FK check (COPY-BY-REFERENCE against the
@@ -6821,7 +6879,7 @@
 
   _commit = fa.commit_registry(
       registry, pending_registry, bp, N,
-      paper_id=paper_id, batches_completed=len(batches_completed),
+      paper_id=paper_id, batches_completed=batches_completed,
       axis2_window_counts=axis2_window_counts,
       passage_present=passage_present, di_present=di_present, figural_present=figural_present,
       concept_map=_cm, passage_linked_qs=passage_linked_qs, cloze_linked_qs=cloze_linked_qs,
@@ -7808,7 +7866,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.53.0
+# END OF Framework_MockTestCreate v5.53.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

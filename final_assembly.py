@@ -100,6 +100,13 @@ current schema documented at Framework_MockTestCreate.md §14. No schema
 change is bundled into this extraction — Framework_MockDeliver.md,
 Framework_MockTestExplain.md, Framework_ScopedBlueprint.md, and
 audit_canonical.py all depend on this exact shape.
+
+NOTE ON `framework_repo_commit`/`spec_source_report` (commit_registry's two
+provenance kwargs): these are optional, additive-only fields — when supplied,
+they're stamped onto the new question_index entry's qindex_cert and the new
+session_log entry (per the original Finding-0 scoping recommendation); when
+omitted (the current reality — no §13 call site passes them yet), nothing
+changes. Forward-compatible surface, not yet wired to a live value.
 """
 
 import copy
@@ -408,10 +415,33 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None):
     # options_by_q (v4.7, ND6) — derived from concept_map/msq_meta the caller
     # already read (with the SAME try/except fallback the spec-inline code
     # has around the answer_key.json load — see §13 in the spec).
-    ocount = int(msq_meta.get("total_options", 4))
-    obq = {q: (0 if concept_map[q].get("answer_type") == "numerical" else ocount)
+    #
+    # v5.53 hardening (found in the final 0-bug audit): the spec-inline code's
+    # try/except around the answer_key.json load ALSO wrapped its int(total_
+    # options) coercion, so a syntactically-valid file with a non-numeric
+    # total_options fell back to 4 rather than crashing. Splitting the file
+    # load (caller) from the schema gate (here, pure) moved that coercion
+    # outside the caller's try/except — an extraction-introduced regression,
+    # fixed by giving it its own guard, which is the more correct home for it
+    # anyway: this function's docstring promises it never raises.
+    try:
+        ocount = int(msq_meta.get("total_options", 4))
+    except (TypeError, ValueError):
+        ocount = 4
+    # Guard against a malformed (non-dict) concept_map entry — e.g. a hand-
+    # edited or corrupted answer_key.json — degrading to "not numerical"
+    # (the ocount default) rather than raising AttributeError on `.get()`.
+    obq = {q: (0 if isinstance(concept_map.get(q), dict)
+                  and concept_map[q].get("answer_type") == "numerical"
+               else ocount)
            for q in concept_map}
-    reg.setdefault('options_by_q', {})[str(N)] = obq
+    # Guard against a pre-existing options_by_q of the WRONG TYPE (e.g. a
+    # hand-patched registry carrying a list) — force it to the correct
+    # container type rather than crashing on `[...][str(N)] = obq`, the same
+    # self-heal spirit already applied to the _REQUIRED_TOP fields above.
+    if not isinstance(reg.get('options_by_q'), dict):
+        reg['options_by_q'] = {}
+    reg['options_by_q'][str(N)] = obq
 
     reg['section_names'] = [(s.get('section_name') or s.get('name') or '').strip()
                             for s in bp.get('sections', [])
@@ -454,7 +484,15 @@ def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None
 
     try:
         staged = set(_listdir(outputs_dir))
-    except FileNotFoundError:
+    except OSError:
+        # v5.53 hardening (found in the final 0-bug audit): broadened from
+        # FileNotFoundError-only. outputs_dir can also fail to list with
+        # NotADirectoryError (a file sits where the directory should be) or
+        # PermissionError (restricted ACL) — both real OSError subclasses a
+        # real filesystem can raise, and this function's whole contract is
+        # "never crashes, report what's actually there." An unreadable
+        # directory correctly reads as "nothing staged" (checks 1/2/4/5/6
+        # then fail honestly on their own terms), never a raised exception.
         staged = set()
 
     checks = []
@@ -696,6 +734,35 @@ def self_test():
          rc_clean['registry']['section_names'] == ['Section A'])
     check('regcheck_does_not_mutate_input', clean_reg['section_names'] == [])
 
+    # v5.53 hardening fixtures (found in the final 0-bug audit): three
+    # malformed-input shapes that used to crash regcheck() outright, in
+    # violation of its own "never raises" docstring promise. All three are
+    # degrade-gracefully, not silently-wrong: a non-numeric total_options
+    # falls back to the documented default (4, matching the old spec-inline
+    # try/except's fallback); a non-dict concept_map entry is treated as
+    # "not numerical" (never crashes, never mis-detects a WELL-FORMED entry);
+    # a wrong-typed options_by_q is reset to a dict, not indexed into.
+    check_raises_never('regcheck_nonnumeric_total_options_does_not_crash',
+                       lambda: regcheck(clean_reg, bp1, N=1, concept_map=mini_cm(),
+                           msq_meta={'total_options': 'four'})['ok'] is True)
+    check('regcheck_nonnumeric_total_options_falls_back_to_4',
+         regcheck(clean_reg, bp1, N=1, concept_map=mini_cm(),
+                  msq_meta={'total_options': 'four'})['registry']['options_by_q']['1']['1'] == 4)
+    check_raises_never('regcheck_malformed_concept_map_entry_does_not_crash',
+                       lambda: regcheck(clean_reg, bp1, N=1,
+                           concept_map={'1': 'not-a-dict'})['ok'] is True)
+    check('regcheck_malformed_concept_map_entry_treated_as_not_numerical',
+         regcheck(clean_reg, bp1, N=1, concept_map={'1': 'not-a-dict'},
+                  msq_meta={'total_options': 4})['registry']['options_by_q']['1']['1'] == 4)
+    _wrongtype_reg = copy.deepcopy(clean_reg)
+    _wrongtype_reg['options_by_q'] = ['not', 'a', 'dict']
+    check_raises_never('regcheck_wrong_type_options_by_q_does_not_crash',
+                       lambda: regcheck(_wrongtype_reg, bp1, N=1,
+                           concept_map=mini_cm())['ok'] is True)
+    check('regcheck_wrong_type_options_by_q_reset_to_dict',
+         isinstance(regcheck(_wrongtype_reg, bp1, N=1,
+                             concept_map=mini_cm())['registry']['options_by_q'], dict))
+
     # session_log / question_index are G-COMMIT-COMPLETE's own evidence for
     # THIS mock's commit — deleting either one doesn't just mean "drifted
     # template", it means mock N's own S13-4 write is gone. Self-heal still
@@ -866,6 +933,26 @@ def self_test():
                        lambda: predelivery_checklist('/does/not/exist',
                            docx_name='x', reg_name='y', regcheck_ok=True, qindex_ok=True,
                            listdir=raising_listdir, exists=lambda p: False)['ok'] is False)
+
+    # v5.53 hardening fixtures (found in the final 0-bug audit): the guard
+    # above only ever exercised FileNotFoundError. A real outputs_dir can
+    # also fail to list with NotADirectoryError (a file occupies where the
+    # directory should be) or PermissionError (restricted ACL) — both real
+    # OSError subclasses, both now caught by the same broadened `except
+    # OSError` this function uses.
+    def notadir_listdir(_d):
+        raise NotADirectoryError()
+    check_raises_never('predelivery_not_a_directory_does_not_crash',
+                       lambda: predelivery_checklist('/some/file/path',
+                           docx_name='x', reg_name='y', regcheck_ok=True, qindex_ok=True,
+                           listdir=notadir_listdir, exists=lambda p: False)['ok'] is False)
+
+    def permission_listdir(_d):
+        raise PermissionError()
+    check_raises_never('predelivery_permission_error_does_not_crash',
+                       lambda: predelivery_checklist('/restricted',
+                           docx_name='x', reg_name='y', regcheck_ok=True, qindex_ok=True,
+                           listdir=permission_listdir, exists=lambda p: False)['ok'] is False)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

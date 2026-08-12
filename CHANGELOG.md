@@ -1,5 +1,91 @@
 # Changelog
 
+## 2026.08.12.12
+
+### Final Assembly engine hardening — post-extraction 0-bug audit
+A dedicated final adversarial audit of release `.11` (3 independent passes: a
+byte-fidelity diff of `final_assembly.py` against the pre-extraction
+spec-inline code it replaced, a spec-inline wiring/variable-scope sync check,
+and adversarial edge-case/mutation hunting) found and fixed 5 real defects —
+1 CRITICAL, 4 crash-on-malformed-input hardening gaps. See
+`Framework_MockTestCreate.md`'s own `v5.53.1` changelog header for the full
+per-defect writeup; summary:
+
+- **GAP-2026-08-12-S13-4-UNDEFINED-BATCHES-COMPLETED (CRITICAL).** `S13-4`
+  referenced a bare `batches_completed` name that was never bound anywhere in
+  the file — a `NameError` on every single Final Assembly run. Latent since
+  before the `.11` extraction (confirmed present in the pre-extraction
+  v5.52.0 spec-inline code too); invisible to every prior verification pass
+  because nothing in the chain executes this specific inline block
+  end-to-end. Found by tracing every variable's binding site by line number,
+  confirmed via a real `exec()` of the extracted S13-4/S13-REGCHECK/
+  S13-QINDEX/S13-7 blocks in sequence against a fixture filesystem. Fixed by
+  reloading `batch_state.json` fresh at `S13-4`.
+- **3 `regcheck()` hardening fixes** (non-numeric `total_options`, a
+  malformed `concept_map` entry, a wrong-typed pre-existing `options_by_q`)
+  — all pre-existing crash risks inherited from the old spec-inline code,
+  now guarded so `regcheck()`'s own "never raises" docstring promise is
+  actually true. Zero behavior change on well-formed input.
+- **1 `predelivery_checklist()` hardening fix** — broadened
+  `except FileNotFoundError` to `except OSError` so `NotADirectoryError`/
+  `PermissionError` degrade gracefully instead of crashing.
+
+`final_assembly.py --self-test`: 79/79 (6 new fixtures added for the 4
+hardening fixes, each mutation-verified). Full chain re-run clean:
+`gen_manifest.py` → `bootstrap.py` → `validate_framework_md.py` (0 issues) →
+`check_triggers.py` → all 4 engine self-tests.
+
+**Explicitly deferred** (a pre-existing design gap in `G-COMMIT-COMPLETE`
+itself, inherited unchanged from `.10`, out of this audit's charter to
+redesign): `GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING` —
+`question_index`/`session_log` dedupe by `paper_id` while
+`G-COMMIT-COMPLETE`'s cross-ledger check keys by mock number; only reachable
+via an unusual operational error (editing `blueprint.json`'s
+`mocks[].paper_id` mid-session then re-committing the same mock). Recommended
+as its own scoped fix, alongside the already-flagged
+`GAP-2026-08-12-S13-4B-SCOPED-PATH`.
+
+## 2026.08.12.11
+
+### Final Assembly engine extraction — Row 0 (GAP-2026-08-12-FINAL-ASSEMBLY-ENGINE)
+Closes Row 0 of the Mock-10 root-cause gap analysis's §13 priority table —
+the last open item after `.10` (which closed Rows 3 and 5). `S13-4`
+(registry commit), `S13-REGCHECK` (schema completeness +
+`G-COMMIT-COMPLETE`), `S13-QINDEX` (`G-QINDEX` certification), and `S13-7`
+(7-point pre-delivery checklist) had zero engine-file backing anywhere in
+the framework — pure spec prose re-derived every mock, unlike every other
+load-bearing step (`blueprint_core.py`/`paper_pipeline.py`/
+`audit_canonical.py`). All four now call into new `final_assembly.py`
+(routed, tracked, self-tested, CI-gated).
+
+Four disclosed deviations from the prior spec-inline behaviour (documented
+in `final_assembly.py`'s own module docstring): every function is pure (no
+file I/O, no input mutation); all four return a `{'ok', 'fails', ...}`
+result dict instead of raising `SystemExit` directly; `qindex_certify()`
+delegates to `paper_pipeline.py`'s pre-existing, already parity-tested
+`validate_question_index()` rather than a fifth independent copy of
+`G-QINDEX`'s six checks; three ledgers (`session_log`,
+`mocks_completed`/`papers_completed`, `rc_manifests`/`di_manifests`/
+`figural_manifests`) are now properly idempotent where the spec-inline code
+was append-only.
+
+`final_assembly.py --self-test`: 71/71 (mutation-tested: FK hard-stop,
+`G-COMMIT-COMPLETE` this-mock gate, idempotency dedup, `qindex_certify`
+delegation — each deliberately broken, confirmed caught, restored).
+Real-data regression run against this project's actual 15-mock production
+registry, correctly surfacing the real historical Mock-4 gap as a
+non-blocking warning. Full chain clean: `gen_manifest.py` → `bootstrap.py`
+(42/42) → `validate_framework_md.py` (0 issues, 23 files) →
+`check_triggers.py` → `blueprint_core.py` (391/391, unaffected) →
+`paper_pipeline.py` (72/72, unaffected) → `audit_canonical.py` (248/248,
+unaffected).
+
+Explicitly deferred: `GAP-2026-08-12-S13-4B-SCOPED-PATH` (an adjacent bug in
+`S13-4b`/`S13-4c`'s scoped-path handling, a different concern from
+registry/gate-commit logic); retrofitting CI to run
+`blueprint_core.py`/`paper_pipeline.py`/`audit_canonical.py --self-test`
+(pre-existing gap, unrelated to Row 0).
+
 ## 2026.08.12.9
 
 Seal over releases **2026.08.12.5, .7 and .8**, which shipped without their own

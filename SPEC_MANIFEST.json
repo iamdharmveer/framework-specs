@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7891,
-      "sha256": "54f49a5ccbe22d7d25fa0f1eb26d7a191af7ac85d8955c4002f6509088733064",
-      "size_bytes": 494304,
-      "version_header": "# Framework_MockTestCreate v5.53.0"
+      "lines": 7949,
+      "sha256": "29382a95c440599ccb78f6059fbb6c3c24ccbbfda66d1f5f7e193009654f43c0",
+      "size_bytes": 499469,
+      "version_header": "# Framework_MockTestCreate v5.53.1"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -373,9 +373,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 880,
-      "sha256": "e5456ae7bb6ac26249f1643c6837ab16f852d83d29865419af17a76d68a7f38b",
-      "size_bytes": 50653,
+      "lines": 967,
+      "sha256": "c1348cc03caff4ab9d16274552df9425f758bee2bde3d66e738259a0f87d6d42",
+      "size_bytes": 56245,
       "version_header": "\"\"\""
     }
   },
