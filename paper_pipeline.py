@@ -485,6 +485,37 @@ def _self_test():
     ck('QINDEX-bad-difficulty-fails',
        not _qok([_QCLEAN[0], {'q': 2, 'subtopic_id': 'PHY.MECH.WORK',
                               'difficulty': 'Tough'}]))
+
+    # ── GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT — check 6 ────────────────────
+    # THE DEFECT THIS CLOSES: checks 1-5 (above) were moved into the engine at
+    # GAP-2026-08-10-QINDEX-FK-ENFORCEMENT; the exact-quota check (schedule-first
+    # assignment, Contract_QuestionMetadataIndex v1.0) was left session-executed-
+    # only. A session can satisfy checks 1-5 with a canonical-labelled but wrong-
+    # QUOTA distribution (e.g. a free assessment never constrained to the
+    # schedule) and still log a clean, exit-code-durable audit. Ships WITH a
+    # fixture from day one, unlike the four helpers this extends (shipped with
+    # none, per the note above).
+    _QBP6 = dict(_QBP, difficulty_schedule=[{'mock': 1, 'simple': 1, 'hard': 1}])
+    ck('QINDEX-quota-exact-match-certifies',
+       validate_question_index(_qreg(_QCLEAN), _QBP6, mock_n=1)[0])
+    ck('QINDEX-quota-mismatch-fails',
+       not validate_question_index(
+           _qreg([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Medium'},
+                  {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}]),
+           _QBP6, mock_n=1)[0])
+    ck_call('QINDEX-quota-mismatch-names-got-and-want',
+            lambda: 'schedule quota' in validate_question_index(
+                _qreg([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Medium'},
+                       {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}]),
+                _QBP6, mock_n=1)[1]['fails'][0])
+    ck('QINDEX-quota-dormant-when-exam-has-no-schedule',
+       # _QBP (no difficulty_schedule key) must still certify a clean set —
+       # check 6 must never be invented for an exam that never declared one.
+       _qok(_QCLEAN))
+    ck('QINDEX-quota-fails-when-schedule-exists-but-not-for-this-mock',
+       not validate_question_index(_qreg(_QCLEAN),
+           dict(_QBP, difficulty_schedule=[{'mock': 99, 'simple': 2}]), mock_n=1)[0])
+
     # the 4th defective mock: a later registry write dropped the whole entry
     ck_call('QINDEX-lost-entry-fails-and-flags-entry_missing',
             lambda: (lambda r: r[0] is False and r[1]['entry_missing'] is True)(
@@ -754,6 +785,43 @@ def validate_question_index(registry, blueprint, mock_n=None, paper_id=None):
     bad_d = sorted({x.get('difficulty') for x in qs if x.get('difficulty') not in canon})
     if bad_d:
         fails.append(f'A-QINDEX/5: difficulty value(s) not in {canon}: {bad_d}')
+    # ── GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT ──────────────────────────────
+    # check 6: the SCHEDULE-FIRST quota (difficulty_schedule[mock_n], Contract_
+    # QuestionMetadataIndex v1.0) must be met EXACTLY, not merely with canonical
+    # labels. Checks 1-5 moved into the engine at GAP-2026-08-10-QINDEX-FK-
+    # ENFORCEMENT; check 6 was left session-executed-only, so a session could
+    # pass checks 1-5 with a genuinely non-compliant distribution (e.g. every
+    # difficulty null, or a free assessment that never matched the schedule)
+    # and still log a clean, exit-code-durable audit, because nothing durably
+    # logged ever compared the count. Dormant (not evaluated, never invented)
+    # when this exam does not declare difficulty_schedule at all; if it does
+    # but has no entry for THIS mock, that is itself a fail — a real gap in a
+    # feature the exam opted into, not silence.
+    sched_list = blueprint.get('difficulty_schedule')
+    if sched_list and mock_n is not None:
+        sched = next((d for d in sched_list if d.get('mock') == mock_n), None)
+        if sched is None:
+            fails.append(f'A-QINDEX/6: exam declares difficulty_schedule but has no '
+                         f'entry for mock {mock_n}')
+        else:
+            alias3 = ({'simple': canon[0], 'medium': canon[1], 'hard': canon[2]}
+                      if len(canon) == 3
+                      else {'simple': 'Easy', 'medium': 'Medium', 'hard': 'Hard'})
+            want = {}
+            for k, v in sched.items():
+                if k in ('mock', 'band') or not isinstance(v, int):
+                    continue
+                lab = alias3.get(k, k)
+                want[lab] = want.get(lab, 0) + v
+            want = {lab: want.get(lab, 0) for lab in canon}
+            got = {lab: 0 for lab in canon}
+            for x in qs:
+                d = x.get('difficulty')
+                if d in got:
+                    got[d] += 1
+            if got != want:
+                fails.append(f'A-QINDEX/6: difficulty distribution {got} != '
+                             f'schedule quota {want}')
     return (not fails), {'fails': fails, 'bad_ids': bad_ids, 'paper_id': paper_id,
                          'entry_missing': False}
 

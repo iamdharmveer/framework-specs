@@ -3627,19 +3627,28 @@ def run_audit(args):
 
 
 def gate_qindex(src):
-    """A-QINDEX (v2026.08.10 — GAP-2026-08-10-QINDEX-FK-ENFORCEMENT).
-    ENGINE-ENFORCED foreign-key certification of registry.question_index for THIS
-    paper against the blueprint: entry exists; count/coverage 1..total; every
-    subtopic_id is byte-identical to a blueprint.subtopic_list id; every
-    difficulty is in difficulty_labels. WHY AN ENGINE GATE: the spec-inline
-    G-QINDEX (MockTestCreate S13-QINDEX) performs the same checks, but inline
-    spec code is session-executed and its execution is unverifiable — three
-    reference sessions persisted invented subtopic_ids while logging clean
-    audits, because this auditor (whose exit code IS durably logged and gates
-    SHIP) never looked at question_index. This gate closes that hole: armed
-    whenever --registry + --blueprint + --mockN are all supplied (the S13-4c
-    re-sweep supplies them); dormant-but-reported otherwise. Self-contained on
-    purpose — no paper_pipeline import, so the per-exam copy has zero new deps."""
+    """A-QINDEX (v2026.08.10 — GAP-2026-08-10-QINDEX-FK-ENFORCEMENT; check 6 added
+    v2026.08.12 — GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT).
+    ENGINE-ENFORCED foreign-key AND quota certification of registry.question_index
+    for THIS paper against the blueprint: entry exists; count/coverage 1..total;
+    every subtopic_id is byte-identical to a blueprint.subtopic_list id; every
+    difficulty is in difficulty_labels; AND (check 6) the difficulty distribution
+    equals difficulty_schedule[mock] EXACTLY, when the exam declares one. WHY AN
+    ENGINE GATE: the spec-inline G-QINDEX (MockTestCreate S13-QINDEX) performs the
+    same six checks, but inline spec code is session-executed and its execution is
+    unverifiable — three reference sessions persisted invented subtopic_ids while
+    logging clean audits, because this auditor (whose exit code IS durably logged
+    and gates SHIP) never looked at question_index. Checks 1-5 closed that hole in
+    2026.08.10; check 6 was left session-executed-only, so a session could still
+    pass checks 1-5 with a genuinely non-compliant distribution (a null difficulty
+    that happens to be a canonical label mismatch is caught by check 5, but a
+    WRONG-QUOTA distribution using entirely canonical labels — e.g. an ungoverned
+    free assessment — is not) and log a clean, exit-code-durable audit. This gate
+    now closes that hole too: armed whenever --registry + --blueprint + --mockN
+    are all supplied (the S13-4c re-sweep supplies them); dormant-but-reported
+    otherwise. Check 6 is itself dormant (never invented) for an exam that does
+    not declare difficulty_schedule at all. Self-contained on purpose — no
+    paper_pipeline import, so the per-exam copy has zero new deps."""
     reg = src.get('registry') or {}
     bp  = src.get('blueprint') or {}
     N   = src.get('_mockN')
@@ -3676,6 +3685,31 @@ def gate_qindex(src):
     bad_d = sorted({x.get('difficulty') for x in qs if x.get('difficulty') not in canon})
     if bad_d:
         fails.append(f'difficulty value(s) not in {canon}: {bad_d}')
+    # ── GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT — check 6 ────────────────────
+    sched_list = bp.get('difficulty_schedule')
+    if sched_list:
+        sched = next((d for d in sched_list if d.get('mock') == N), None)
+        if sched is None:
+            fails.append(f'exam declares difficulty_schedule but has no entry '
+                         f'for mock {N}')
+        else:
+            alias3 = ({'simple': canon[0], 'medium': canon[1], 'hard': canon[2]}
+                      if len(canon) == 3
+                      else {'simple': 'Easy', 'medium': 'Medium', 'hard': 'Hard'})
+            want = {}
+            for k, v in sched.items():
+                if k in ('mock', 'band') or not isinstance(v, int):
+                    continue
+                lab = alias3.get(k, k)
+                want[lab] = want.get(lab, 0) + v
+            want = {lab: want.get(lab, 0) for lab in canon}
+            got = {lab: 0 for lab in canon}
+            for x in qs:
+                d = x.get('difficulty')
+                if d in got:
+                    got[d] += 1
+            if got != want:
+                fails.append(f'difficulty distribution {got} != schedule quota {want}')
     if fails:
         _fail('A-QINDEX', '; '.join(fails))
     else:
@@ -4277,6 +4311,43 @@ def self_test():
           [l for l, _, _ in _q_run(_q_reg(
               [_QCLEAN[0], {'q': 2, 'subtopic_id': 'PHY.MECH.WORK',
                             'difficulty': 'Tough'}]))] == ['FAIL'])
+
+    # ── GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT — check 6 ────────────────────
+    # THE DEFECT: checks 1-5 above are the FK/coverage/label checks moved into
+    # the engine at GAP-2026-08-10-QINDEX-FK-ENFORCEMENT. The exact-quota check
+    # (schedule-first assignment) was left session-executed-only — a session
+    # could pass checks 1-5 with a canonical-labelled but WRONG-QUOTA
+    # distribution and still log a clean, exit-code-durable audit. Ships WITH a
+    # fixture from day one.
+    _QBP6 = dict(_QBP, difficulty_schedule=[{'mock': 1, 'simple': 1, 'hard': 1}])
+
+    def _q_run6(registry):
+        _reset()
+        gate_qindex({'total_questions': 2, 'blueprint': _QBP6,
+                     'registry': registry, '_mockN': 1})
+        return [(l, c, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+
+    check('A-QINDEX-armed-quota-exact-match-certifies',
+          [l for l, _, _ in _q_run6(_q_reg(_QCLEAN))] == ['OK'])
+    check('A-QINDEX-armed-quota-mismatch-FAILS',
+          [l for l, _, _ in _q_run6(_q_reg(
+              [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Medium'},
+               {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}]))]
+          == ['FAIL'])
+    check('A-QINDEX-quota-dormant-when-exam-has-no-schedule',
+          # _QBP (no difficulty_schedule key) must still certify a clean set —
+          # check 6 must never be invented for an exam that never declared one.
+          [l for l, _, _ in _q_run(_q_reg(_QCLEAN))] == ['OK'])
+    def _q_run_no_entry_for_mock():
+        _reset()
+        gate_qindex({'total_questions': 2,
+                    'blueprint': dict(_QBP, difficulty_schedule=[{'mock': 99, 'simple': 2}]),
+                    'registry': _q_reg(_QCLEAN), '_mockN': 1})
+        return [(l, c, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+
+    check('A-QINDEX-quota-fails-when-schedule-exists-but-not-for-this-mock',
+          [l for l, _, _ in _q_run_no_entry_for_mock()] == ['FAIL'])
+
     # DORMANCY IS A CONTRACT, not an accident: ~200 exams hold a Step-6 copy of
     # this auditor and invoke it without the new flags. Dormant must stay OK, and
     # must SAY it is dormant rather than silently reporting a pass.
@@ -4327,6 +4398,27 @@ def self_test():
         except Exception:
             _qp = False
         check('A-QINDEX-PARITY-auditor-gate-matches-pp-validate', _qp)
+
+        # QUOTA PARITY (check 6, GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT) — the
+        # same agreement requirement, now against _QBP6 (a schedule present).
+        _Q6CASES = [
+            _QCLEAN,   # matches the schedule exactly -> both OK
+            [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Medium'},
+             {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}],  # wrong quota
+        ]
+
+        def _q6_parity():
+            for _c in _Q6CASES:
+                _mine = [l for l, _, _ in _q_run6(_q_reg(_c))] == ['OK']
+                _theirs = _pp_q.validate_question_index(_q_reg(_c), _QBP6, mock_n=1)[0]
+                if _mine != _theirs:
+                    return False
+            return True
+        try:
+            _q6p = _q6_parity()
+        except Exception:
+            _q6p = False
+        check('A-QINDEX-QUOTA-PARITY-auditor-gate-matches-pp-validate', _q6p)
     except ImportError:
         check('A-QINDEX-PARITY-skipped-standalone', True)
 

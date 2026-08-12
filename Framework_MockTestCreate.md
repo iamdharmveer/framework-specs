@@ -1,4 +1,38 @@
-# Framework_MockTestCreate v5.48.0
+# Framework_MockTestCreate v5.49.0
+# v5.49.0 — 2026-08-12 — QUOTA CHECK MOVED INTO THE ENGINE + AXIS-PAPER HISTORY
+#   Two independent fixes, found together during a forensic gap analysis of a
+#   single exam's 15-mock corpus (four mocks carrying live A-AXIS1 violations;
+#   one mock's question_index difficulty shipping null; a fifth mock's
+#   axis1_paper/axis3_paper history already unrecoverable).
+#   (1) GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT — G-QINDEX check 6 (the
+#       difficulty distribution EQUALS difficulty_schedule[N] EXACTLY,
+#       Contract_QuestionMetadataIndex v1.0) was the one check
+#       GAP-2026-08-10-QINDEX-FK-ENFORCEMENT did NOT move into the engine —
+#       checks 1-5 (FK/coverage/label validity) did. A session could pass
+#       checks 1-5 with a canonical-labelled but wrong-QUOTA distribution (an
+#       ungoverned free assessment, or — the mock that motivated this — every
+#       difficulty simply left null before S13-4 ever wrote them, since check
+#       5 alone would have hard-stopped it had S13-QINDEX actually run) and
+#       still log a clean, exit-code-durable audit, because A-QINDEX never
+#       compared the count. `audit_canonical.gate_qindex` and
+#       `paper_pipeline.validate_question_index` (the reference implementation
+#       and its per-exam FK-enforcement twin, GAP-2026-08-10-QINDEX-FK-
+#       ENFORCEMENT's four-site architecture) now both implement check 6,
+#       dormant when an exam declares no `difficulty_schedule`, kept in
+#       parity by the existing QINDEX PARITY self-test harness (extended with
+#       a quota-parity leg). S13-QINDEX (below) is unchanged prose — it
+#       remains the in-session early check; A-QINDEX is now its
+#       engine-enforced, exit-code-logged twin for ALL SIX checks, not five.
+#   (2) GAP-2026-08-12-AXISPAPER-HISTORY — S13-4's `axis1_paper`/`axis3_paper`
+#       commit (below) now writes `reg['axis1_paper'][str(N)][sec_name]`
+#       instead of `reg['axis1_paper'][sec_name]` — mock-keyed, mirroring
+#       `options_by_q`'s established `[str(N)] = ...` pattern, instead of the
+#       section-keyed, mock-overwriting write every OTHER S13-4 field avoided.
+#       Purely additive: the field was write-only (grepped, confirmed unread
+#       by any spec or engine in this repo), so no consumer's expected shape
+#       changes for the current mock; every PRIOR mock's per-paper Axis-1/
+#       Axis-3 counts are now retained instead of being overwritten out of
+#       existence by the next mock's commit.
 # v5.48.0 — 2026-08-10 — QINDEX FK ENFORCEMENT MOVED INTO THE ENGINE
 #   (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). ROOT CAUSE, proven on a 15-mock
 #   reference corpus: registry.question_index subtopic_ids are captured at
@@ -3835,15 +3869,34 @@
   #       expectation, and it cannot be re-derived from the rendered docx — only the
   #       producer knows why it drew what it drew. This is the same principle as
   #       figure_specs (v5.34): the producer's OWN record beats any inference.
+  # v5.49 (GAP-2026-08-12-AXISPAPER-HISTORY) — MOCK-KEYED, NOT SECTION-KEYED.
+  # Every other S13-4 write below (`rc_manifests`, `di_manifests`, `figural_manifests`,
+  # `mocks_completed`, `session_log`, `options_by_q`) either `.append()`s onto an
+  # accumulating list or writes `[str(N)] = ...` onto a dict keyed by mock number —
+  # both patterns preserve full history across every mock ever committed. Before
+  # v5.49, `axis1_paper`/`axis3_paper` were the ONLY two S13-4 fields that broke this
+  # pattern: keyed by SECTION NAME ONLY (`reg['axis1_paper'][sec_name] = snap`),
+  # overwritten every single mock, with no mock dimension in the write at all — a
+  # rolling snapshot, not a ledger. On a real 15-mock exam this meant every earlier
+  # mock's per-paper Axis-1/Axis-3 counts were gone the moment the NEXT mock
+  # committed, and no audit or gap analysis could ever reconstruct historical
+  # per-mock conformance from this field — it had to be rebuilt from
+  # `figural_manifests` instead, which happens to carry the same information for
+  # Axis-1 (figural) but nothing equivalent exists for Axis-3 (mechanism). Fixed by
+  # nesting one more level, mirroring `options_by_q`'s `[str(N)] = ...` pattern
+  # exactly: `reg['axis1_paper'][str(N)][sec_name] = snap`. This is purely additive —
+  # a reader that only ever consumed the CURRENT mock's own commit (the common case)
+  # reads `reg['axis1_paper'][str(N)]` instead of `reg['axis1_paper']` and gets the
+  # identical per-section dict it always got; a reader that wants history now has it.
   for sec_name, tr in axis1_trackers.items():
       snap = bc.axis_snapshot(tr)
       if snap is not None:
           axis1_paper_counts[sec_name] = snap
-          reg.setdefault('axis1_paper', {})[sec_name] = snap
+          reg.setdefault('axis1_paper', {}).setdefault(str(N), {})[sec_name] = snap
   for sec_name, tr in axis3_trackers.items():
       snap = bc.axis_snapshot(tr)
       if snap is not None:
-          reg.setdefault('axis3_paper', {})[sec_name] = snap
+          reg.setdefault('axis3_paper', {}).setdefault(str(N), {})[sec_name] = snap
   ```
   Absent-safe end to end: no `axis_schedule` (pre-v1.23 blueprint) ⇒ every tracker is None ⇒
   pick_presentation falls back to the exact v5.13 family-menu rotation, and nothing is written
@@ -6807,6 +6860,12 @@
   A-QINDEX is the enforcement of record, because its verdict is an exit code the
   session cannot paraphrase — the reference corpus proved sessions can skip or mistype
   inline gates while logging a clean audit. Both must pass; neither replaces the other.
+  v5.49.0 (GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT) — A-QINDEX's twin coverage now
+  extends to ALL SIX checks, not five: check 6 (the exact difficulty_schedule[N]
+  quota, below) was the one check v5.48.0 left engine-unenforced, and it was the
+  literal check that would have caught a mock whose difficulties shipped null — a
+  session that never runs S13-QINDEX at all (not merely mistypes it) now still gets
+  caught at the S13-4c re-sweep, on check 6, the same as any other G-QINDEX check.
 
   ```python
   from collections import Counter
@@ -7751,7 +7810,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.48.0
+# END OF Framework_MockTestCreate v5.49.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
