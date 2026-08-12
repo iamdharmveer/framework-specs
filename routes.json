@@ -73,6 +73,7 @@
     "blueprint_core.py",
     "figural_core.py",
     "paper_pipeline.py",
+    "final_assembly.py",
     "corpus_io.py",
     "Framework_DeliveryFooter.md",
     "t3_mathcomp.py"
@@ -82,6 +83,7 @@
     "blueprint_core.py",
     "figural_core.py",
     "paper_pipeline.py",
+    "final_assembly.py",
     "corpus_io.py",
     "Framework_DeliveryFooter.md",
     "t3_mathcomp.py"

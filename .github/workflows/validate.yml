@@ -29,3 +29,5 @@ jobs:
           for m in notes_core notes_docx notes_audit notes_blueprint notes_sync_audit; do
             [ -f "$m.py" ] && python3 "$m.py" --self-test
           done
+      - name: Final Assembly engine self-test (GAP-2026-08-12-FINAL-ASSEMBLY-ENGINE)
+        run: if [ -f final_assembly.py ]; then python3 final_assembly.py --self-test; fi

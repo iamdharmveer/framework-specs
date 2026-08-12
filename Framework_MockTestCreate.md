@@ -1,4 +1,26 @@
-# Framework_MockTestCreate v5.52.0
+# Framework_MockTestCreate v5.53.0
+# v5.53.0 — 2026-08-12 — FINAL ASSEMBLY ENGINE EXTRACTION (Row 0)
+#   Closes Finding 0 of the Mock-10 root-cause gap analysis (GAP-2026-08-12-FINAL-ASSEMBLY-
+#   ENGINE) — the last open row of the §13 priority table (v5.52.0's SCOPING NOTE flagged it
+#   as remaining). §13's S13-4 (registry update protocol), S13-REGCHECK (schema-completeness
+#   gate + G-COMMIT-COMPLETE), S13-QINDEX (G-QINDEX certification), and S13-7 (7-point
+#   pre-delivery checklist) had zero engine-file backing — pure spec prose a session had to
+#   re-type or faithfully re-derive on every single mock, unlike every other load-bearing
+#   step in this pipeline (blueprint_core.py / paper_pipeline.py / audit_canonical.py). All
+#   four now call into `final_assembly.py`: routed (MockCreate/TestCreate), tracked
+#   (gen_manifest.py), self-tested (71/71 fixtures, mutation-tested), and CI-gated
+#   (.github/workflows/validate.yml). Semantics are byte-faithful to the prior spec-inline
+#   logic — same hard-stop trigger conditions, same wording — with 4 deliberate, disclosed
+#   deviations documented in final_assembly.py's own module docstring: every function is
+#   PURE (no file I/O, no input mutation); all four return a {'ok', 'fails', ...} result dict
+#   instead of raising SystemExit directly (the spec-inline caller raises); qindex_certify()
+#   delegates to paper_pipeline.py's pre-existing, already parity-tested
+#   validate_question_index() rather than adding a fifth independent copy of G-QINDEX's six
+#   checks; and three ledgers (session_log, mocks_completed/papers_completed, rc_manifests/
+#   di_manifests/figural_manifests) are now properly idempotent (replace-by-key) where the
+#   spec-inline code was append-only. S13-4b/S13-4c (the Tier-A dossier + dossier-fed
+#   re-sweep) are deliberately left spec-inline — a different concern (external subprocess
+#   invocation), not registry/gate logic.
 # v5.52.0 — 2026-08-12 — MANDATORY concept_map CAPTURE + REGISTRY COMMIT COMPLETENESS
 #   Closes the last two open rows of the Mock-10 root-cause gap analysis's §13 priority
 #   table: row 3 (concept_map/difficulty authoring instruction missing from the consumer
@@ -6746,288 +6768,82 @@
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
-## S13-4 — Registry update protocol (v2.0 GAP-03 + GAP-04 fix)
+## S13-4 — Registry update protocol (v2.0 GAP-03 + GAP-04 fix; v5.53 — extracted to final_assembly.py)
 
-  FIRST-MOCK REGISTRY INITIALISATION (run only when mocks_completed=[]):
-  If Mock 1 (registry.mocks_completed is empty), initialise ALL fields:
+  v5.53 (GAP-2026-08-12-FINAL-ASSEMBLY-ENGINE): S13-4's full registry-commit logic — first-mock
+  field initialisation, the pending_registry merge, RC/DI/figural manifest writes, the
+  FK-checked question_index build, and the mocks_completed/papers_completed/session_log/
+  axis2_window ledgers — now lives in `final_assembly.commit_registry()`: routed, self-tested
+  engine code, not spec prose a session had to re-type or re-derive every mock. Semantics are
+  byte-faithful to the prior spec-inline logic (see that function's docstring for the 4
+  disclosed, non-observable-on-a-healthy-commit deviations: pure/no-I/O, result-dict-not-raise,
+  qindex_certify delegating to paper_pipeline.py, and 3 ledgers made properly idempotent).
+  This closes Finding 0 of the Mock-10 root-cause gap analysis.
+
   ```python
-  is_first_mock = len(reg.get('papers_completed', reg.get('mocks_completed', []))) == 0
-
-  if is_first_mock:
-      # Initialise fields that Step 1 registry template may not have:
-      # (v2.0 GAP-03 fix: content_tracking L4-L18)
-      if 'content_tracking' not in reg:
-          reg['content_tracking'] = {
-              '_schema': {
-                  '_note': 'C2 (v5.21): every entry also carries paper_id (from batch_state) '
-                           'for cross-tier dedup; mock_n retained. The generalised uniqueness '
-                           'ledger (B phase) keys on paper_id.',
-                  'ga_facts_used': 'list of {fact, source_url, mock_n}',
-                  'passage_topics': 'list of {topic, type, mock_n}',
-                  'cloze_topics': 'list of {topic, mock_n}',
-                  'vocab_words_used': 'list of {word, correct_answer, mock_n, subtopic}'
-                                      ' — v4.5: for a multi (MSQ) vocabulary item, append'
-                                      ' one entry per word in the correct SET (correct_answer'
-                                      ' may be a list of the in-set words), never just one,'
-                                      ' so cross-mock dedup counts every used word.',
-                  'idioms_used': 'list of {idiom, mock_n}',
-                  'grammar_rules_used': 'list of {rule, mock_n, position}',
-                  'computer_facts': 'list of {application, category, concept, mock_n}',
-                  'numeric_seeds': 'list of {subtopic, seed_values, mock_n}',
-                  'analogy_schemes': 'list of {scheme_type, mock_n}',
-                  'cause_effect_domains': 'list of {domain, mock_n}',
-                  'syllogism_domains': 'list of {domain, mock_n}',
-                  'option_sets': 'list of {subtopic, sorted_options, mock_n}'
-              },
-              'ga_facts_used': [],
-              'passage_topics': [],
-              'cloze_topics': [],
-              'vocab_words_used': [],
-              'idioms_used': [],
-              'grammar_rules_used': [],
-              'computer_facts': [],
-              'numeric_seeds': [],
-              'analogy_schemes': [],
-              'cause_effect_domains': [],
-              'syllogism_domains': [],
-              'option_sets': []
-          }
-      # (v2.0 GAP-04 fix: image_phashes, image_sources_used, session_log)
-      for field in ['image_phashes', 'image_sources_used', 'session_log', 'question_index']:
-          if field not in reg:
-              reg[field] = []
-  ```
-
-  THEN commit pending_registry to registry:
-  ```python
-  # v5.34: bind EXPLICITLY rather than relying on a session-level import. The
-  # whole GAP-2026-08-01 family began with a name that was read at three call
-  # sites and bound at none, so a new read (glob, below) states its import here.
+  # v5.53: single explicit import for the extracted engine, alongside the existing os/json/glob.
   import os, json, glob
+  import final_assembly as fa
 
   # Load registry from working dir (not /mnt/project/):
   registry = json.load(open(f'/home/claude/{EXAM}_registry.json'))
-
-  # Apply first-mock initialisation above if needed.
 
   # Reload cross-batch data:
   prog = json.load(open(f'/home/claude/{EXAM}_M{N}_progress.json'))
   passage_linked_qs = set(prog.get('passage_linked_qs', []))
   cloze_linked_qs   = set(prog.get('cloze_linked_qs', []))
 
-  # Commit pending_registry (the ONLY write to registry during this session):
-  registry['question_hashes'].extend(pending_registry['question_hashes'])
-  registry['stem_texts'].extend(pending_registry['stem_texts'])
-  registry['semantic_tuples'].extend(pending_registry['semantic_tuples'])
-  # B (v5.22): append this paper's (item × angle) usage log (for cross-paper spacing-8).
-  registry.setdefault('semantic_usage', []).extend(pending_registry.get('semantic_usage', []))
-  # B: merge the sticky, cross-tier exhaustion flags — set-once, NEVER clear (setdefault keeps
-  # the earliest since_paper if a subtopic was already flagged in a prior paper).
-  _ex = registry.setdefault('exhausted_subtopics', {})
-  for _sid, _rec in pending_registry.get('exhausted_subtopics', {}).items():
-      _ex.setdefault(_sid, _rec)
-  registry.setdefault('image_phashes', []).extend(pending_registry.get('image_phashes', []))
-  registry.setdefault('image_sources_used', []).extend(
-      pending_registry.get('image_sources_used', []))
-
-  # Update content_tracking (all L4-L18):
-  ct = registry.setdefault('content_tracking', {})
-  for field in ['ga_facts_used', 'passage_topics', 'cloze_topics',
-                'vocab_words_used', 'idioms_used', 'grammar_rules_used',
-                'computer_facts', 'numeric_seeds', 'analogy_schemes',
-                'cause_effect_domains', 'syllogism_domains', 'option_sets']:
-      ct.setdefault(field, []).extend(pending_registry.get(field, []))
-
-  # RC manifests:
-  if passage_present:
-      registry.setdefault('rc_manifests', []).append({
-          "mock": N,
-          "passage_linked": sorted(list(passage_linked_qs)),
-          "cloze_linked":   sorted(list(cloze_linked_qs))
-      })
-
-  # ── DI manifests (v5.42, GAP-2026-08-06-DI) ──────────────────────────────────
-  # THE PRODUCER'S OWN RECORD OF WHICH QUESTIONS CARRY A DATA-TABLE STIMULUS.
-  #
-  # WHY THIS HAS TO EXIST. Axis-1 budgets four stimulus classes, and until now only
-  # two of them left a trace: figures via figural_manifests, passages via rc_manifests.
-  # DI left NONE, so A-AXIS1 could not count it — and a budget nobody can verify is the
-  # same shape of hole that let 26 figures ship against a budget of 4.
-  #
-  # AND IT CANNOT BE INFERRED AFTER THE FACT. "The block contains a Word table" does
-  # NOT mean DI: G-MATCH-TABLE *mandates* a real table for every MATCH question. Measured
-  # on a real paper (IIT_JAM_BIOTECHNOLOGY 15-Feb-2026): 3 tables, of which
-  # 'Vitamins|Symptoms' and 'Nitrogen compound|Oxidation state' are MATCH and only
-  # 'Reactant|Product|Standard Enthalpy' is DI. A table-presence heuristic would report
-  # THREE DI where there is ONE. Only the generator knows which it built, so only the
-  # generator can record it — exactly the principle behind figure_specs (v5.34).
-  #
-  # Absent-safe: no di_present ⇒ no key ⇒ A-AXIS1 reports DI unestablished, as today.
-  if di_present and os.path.exists(f'/home/claude/{EXAM}_di_manifest.json'):
-      _di = json.load(open(f'/home/claude/{EXAM}_di_manifest.json'))
-      registry.setdefault('di_manifests', []).append({
-          "mock": N,
-          "di_qs": sorted(int(q) for q in _di.get('questions', {})),
-          "subtopic_ids": {str(q): v.get('subtopic_id')
-                           for q, v in _di.get('questions', {}).items()
-                           if v.get('subtopic_id')},
-          # table_shape lets a later profile gate check that a generated table
-          # resembles the ones the exam actually uses (rows x cols), the DI analogue
-          # of figural object_types. Recorded now so the data exists when wanted.
-          "table_shapes": {str(q): v.get('table_shape')
-                           for q, v in _di.get('questions', {}).items()
-                           if v.get('table_shape')},
-      })
-
-  # Figural manifests:
-  if figural_present and os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):
-      fig = json.load(open(f'/home/claude/{EXAM}_fig_manifest.json'))
-      registry.setdefault('figural_manifests', []).append({
-          "mock": N,
-          "figural_qs": list(fig['questions'].keys()),
-          "image_hashes": [
-              h for q in fig['questions'].values() for h in q.get('image_hashes', [])
-          ],
-          # v5.31 (GAP-2026-07-26-003 D2): the object_type each figure was generated
-          # AS, plus its subtopic_id, so audit.py A-FIGPROFILE can audit conformance
-          # against the profile Step 5 measured. These live in the REGISTRY because
-          # the registry is delivered; the answer_key sidecar carrying concept_map is NOT
-          # delivered (S0-1), so subtopic_id must travel here or the gate is blind.
-          # Omitted per question when the profile mode was 'unconstrained' — an
-          # absent entry makes the gate dormant rather than wrong.
-          "object_types": {
-              str(q): v['object_type'] for q, v in fig['questions'].items()
-              if v.get('object_type')
-          },
-          "subtopic_ids": {
-              str(q): v['subtopic_id'] for q, v in fig['questions'].items()
-              if v.get('subtopic_id')
-          },
-          # v5.34 (GAP-2026-08-01-FIGSPEC-TRANSPORT D2): the FigureSpec records
-          # themselves, keyed by the CANONICAL PNG name S10-8 stamps on the
-          # drawing (_name_last_drawing -> "q{N}_problem.png"/"q{N}_opt{i}.png"),
-          # which is the same base write_spec_sidecar() names the sidecar after.
-          #
-          # WHY THIS IS REQUIRED. The thirteen figure-conformance gates
-          # (A-FIGSCALE / A-FIGLABEL / A-FIGDPI / A-FIGDEGEN / A-FIGMONO /
-          # A-FIGOPTUNIF / A-FIGCOLOUR / A-FIGACCENT / A-FIGCVD / A-FIGSERIES /
-          # A-FIGGLYPH / A-FIGALT / A-FIGLABELPX) are arithmetic over the saved PNG AND ITS
-          # SIDECAR. render_figure() mutates the spec with png_px, png_dpi,
-          # placed_in, placement_scale and font_pt_native — the record of what
-          # actually happened — and write_spec_sidecar() drops it beside the PNG
-          # in THIS session's working directory. That directory is internal and
-          # is never delivered (S0-1 / R-DELIVER), so before v5.34 the auditor saw
-          # spec == {} on every figure, fc.is_legacy() read every v5.33+ render
-          # as pre-v5.33 output, and EC-V18 downgraded every BLOCKING verdict on
-          # a paper that was not in fact legacy. The registry is the sanctioned
-          # channel for exactly this — the precedent object_types/subtopic_ids
-          # set at v5.31, and for the identical reason: the auditor receives the
-          # registry and receives no sidecar.
-          #
-          # ABSENT-SAFE BOTH WAYS: a session that rendered no figure through
-          # figural_core writes no sidecar and this is {}, which the auditor reads as
-          # legacy — i.e. exactly the pre-v5.34 behaviour, never a wrong verdict.
-          # NOT delivered as a file and NOT written to the docx; it travels only
-          # inside the registry that every downstream step already receives.
-          # v5.35 (TIER A): nothing here — the dossier is its own delivered
-          # sidecar (S13-4b), not a registry field, because Step 9 also reads
-          # the registry and audit-only facts do not belong in series state.
-          "figure_specs": {
-              os.path.basename(_fs)[:-len('.figspec.json')] + '.png':
-                  json.load(open(_fs, encoding='utf-8'))
-              for _fs in sorted(glob.glob('/home/claude/*.figspec.json'))
-          }
-      })
-
-  # Question metadata index (v5.2 — Contract_QuestionMetadataIndex v1.0): build ONE mock object
-  # {mock, questions:[{q, subtopic_id, difficulty}]} from the per-Q concept_map the sidecar
-  # accumulated (S7-NEW-A). subtopic_id = cross-step join key; difficulty = canonical Complexity
-  # label. NEVER written to the docx. Replace-by-key so a re-run of this mock is idempotent;
-  # v5.36: no later step re-syncs this object — Step 7's write is final, and Step 11's
-  # tags JOIN against it directly, so an error here reaches the delivered paper.
+  # Per-Q concept_map the sidecar accumulated (S7-NEW-A) — fa.commit_registry uses this to
+  # build question_index and to run the v5.48.0 FK check (COPY-BY-REFERENCE against the
+  # blueprint's own subtopic_id strings).
   _cm = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json')).get('concept_map', {})
-  # v5.48.0 (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT): COPY-BY-REFERENCE. The committed
-  # subtopic_id is the BLUEPRINT ROW'S OWN string, located by exact match of the sidecar
-  # value — never the sidecar's (session-typed) string itself. An id that does not JOIN
-  # is a HARD STOP HERE, in the session that caused it: three reference sessions proved
-  # that a session can re-type a semantically-plausible id (a paraphrased section slug
-  # or synonym leaf) that only detonates at Step 11's JOIN. section/subtopic display
-  # names are also committed (they activate Step 11 S1-3's (section, subtopic) fallback,
-  # which was dead because nothing ever wrote these fields).
-  import hashlib as _hl
-  _bp_by_id = {s.get('subtopic_id'): s for s in bp.get('subtopic_list', [])}
-  _fk_bad = {qn: _cm[qn].get('subtopic_id') for qn in _cm
-             if _cm[qn].get('subtopic_id') not in _bp_by_id}
-  if _fk_bad:
-      raise SystemExit(
-          "HARD STOP (S13-4 FK, v5.48.0): concept_map subtopic_id(s) are NOT in "
-          "blueprint.subtopic_list — the capture re-typed an id instead of copying the "
-          "blueprint string: "
-          + "; ".join(f"Q{q}={_fk_bad[q]!r}" for q in sorted(_fk_bad, key=int))
-          + ". Fix the S7-NEW-A capture for these questions (assign from the blueprint "
-            "row object), rebuild concept_map, re-run S13-4. Never hand-patch the "
-            "registry to bypass this.")
-  _qi = [{"q": int(qn),
-          "subtopic_id": _bp_by_id[_cm[qn]["subtopic_id"]]["subtopic_id"],  # blueprint's string
-          "section":     _bp_by_id[_cm[qn]["subtopic_id"]].get("section"),
-          "subtopic":    _bp_by_id[_cm[qn]["subtopic_id"]].get("subtopic"),
-          "difficulty":  _cm[qn].get("difficulty")}
-         for qn in sorted(_cm, key=int)]
-  _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
-                  "subtopic_set_hash": _hl.sha256("\n".join(sorted(
-                      s.get("subtopic_id") or "" for s in bp.get("subtopic_list", [])
-                  )).encode("utf-8")).hexdigest()[:16]}
+
+  # DI manifest (v5.42, GAP-2026-08-06-DI) — absent-safe: no di_present ⇒ no key ⇒ A-AXIS1
+  # reports DI unestablished, as today.
+  _di_manifest = None
+  if di_present and os.path.exists(f'/home/claude/{EXAM}_di_manifest.json'):
+      _di_manifest = json.load(open(f'/home/claude/{EXAM}_di_manifest.json'))
+
+  # Figural manifest + the FigureSpec sidecars (v5.34, GAP-2026-08-01-FIGSPEC-TRANSPORT D2),
+  # keyed by the CANONICAL PNG name S10-8 stamps on the drawing.
+  _fig_manifest, _figure_specs = None, None
+  if figural_present and os.path.exists(f'/home/claude/{EXAM}_fig_manifest.json'):
+      _fig_manifest = json.load(open(f'/home/claude/{EXAM}_fig_manifest.json'))
+      _figure_specs = {
+          os.path.basename(_fs)[:-len('.figspec.json')] + '.png':
+              json.load(open(_fs, encoding='utf-8'))
+          for _fs in sorted(glob.glob('/home/claude/*.figspec.json'))
+      }
+
   # C2: re-derive identity here (self-contained — bp + N are session-level, always in scope).
-  import re as _re_wb
   _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
   paper_id = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
-  registry.setdefault('question_index', [])
-  registry['question_index'] = [e for e in registry['question_index']
-                                if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") != paper_id]
-  registry['question_index'].append({"mock": N, "paper_id": paper_id,
-                                     "qindex_cert": _qindex_cert,   # v5.48.0 provenance
-                                     "questions": _qi})
 
-  # Append to BOTH ledgers: mocks_completed (legacy int) + papers_completed (generalised id).
-  registry.setdefault('mocks_completed', []).append(N)
-  registry.setdefault('papers_completed', []).append(paper_id)
-  registry.setdefault('session_log', []).append({
-      "mock": N, "paper_id": paper_id, "batches": len(batches_completed),
-      "q_range": [1, total_questions], "questions_added": total_questions,
-      "audit_result": "exit_0", "verdict": "SHIP",
-      "timestamp": datetime.now(timezone.utc).isoformat(),
-      "notes": "v2.0 session"
-  })
+  _commit = fa.commit_registry(
+      registry, pending_registry, bp, N,
+      paper_id=paper_id, batches_completed=len(batches_completed),
+      axis2_window_counts=axis2_window_counts,
+      passage_present=passage_present, di_present=di_present, figural_present=figural_present,
+      concept_map=_cm, passage_linked_qs=passage_linked_qs, cloze_linked_qs=cloze_linked_qs,
+      di_manifest=_di_manifest, fig_manifest=_fig_manifest, figure_specs=_figure_specs)
+  if not _commit['ok']:
+      raise SystemExit(_commit['fails'][0])
+  registry = _commit['registry']
+  paper_id = _commit['paper_id']
 
-  # v5.14 THREE-AXIS: commit this paper's contribution to the WINDOW-level Axis-2 counts.
-  # Window index is recomputed here from paper_index + batch_size_qs (same formula as S3-4) so
-  # the commit is self-consistent even if the read-side variables are out of scope at assembly.
-  _win = bp.get('batch_size_qs', 10)
-  _pidx = int(_re_wb.sub(r'\D', '', paper_id.rsplit(':', 1)[-1]) or N)   # == N for a mock
-  _cur_window = (_pidx - 1) // max(1, _win)
-  # axis2_window_counts holds the per-section snapshots accumulated during generation (S7-AXIS).
-  if any(v is not None for v in axis2_window_counts.values()):
-      registry['axis2_window'] = {'window': _cur_window,
-                                  'sections': {s: c for s, c in axis2_window_counts.items()
-                                               if c is not None}}
-  # (Absent-safe: if the feature was inert this stays unset / carries the prior window verbatim.)
-
-  # v5.52 (GAP-2026-08-12-S13-COMMIT-COMPLETE) — ATOMICITY MANDATE: everything above
-  # this line mutates the in-memory `registry` dict ONLY. This is the single terminal
-  # write to registry.json for this mock's S13-4 commit — there must be NO other
-  # json.dump of registry.json anywhere else in this block. That is what makes an
-  # exception raised anywhere above (e.g. the FK hard stop) leave registry.json on
-  # disk COMPLETELY UNTOUCHED rather than partially written — the file cannot show
-  # some of a mock's ledgers updated and not others unless this rule is broken by a
-  # future edit. Any transcription of this block (hand-rolled or otherwise) MUST
-  # preserve this: accumulate every field in `registry`, then persist ONCE, at the
-  # end, never incrementally. G-COMMIT-COMPLETE (S13-REGCHECK) is the downstream
-  # detector if this rule is ever violated; this comment is the upstream prevention.
+  # v5.52 (GAP-2026-08-12-S13-COMMIT-COMPLETE) — ATOMICITY MANDATE: fa.commit_registry() is
+  # PURE (accumulates every field into a NEW in-memory dict, mutates nothing) — this remains
+  # the single terminal write to registry.json for this mock's S13-4 commit. There must be NO
+  # other json.dump of registry.json anywhere else in this block: an FK failure returns
+  # {'ok': False, 'registry': <the ORIGINAL, unmodified registry>} instead of raising mid-write,
+  # so registry.json on disk is COMPLETELY UNTOUCHED on failure — never partially written.
+  # G-COMMIT-COMPLETE (S13-REGCHECK) is the downstream detector if this rule is ever violated
+  # by a future edit; this comment is the upstream prevention.
   json.dump(registry, open(f'/home/claude/{EXAM}_registry.json', 'w'),
             indent=2, ensure_ascii=False)
   ```
 
-## S13-REGCHECK — Registry schema-completeness gate (v3.5 — runs after S13-4 commit)
+## S13-REGCHECK — Registry schema-completeness gate (v3.5 — runs after S13-4 commit; v5.53 — extracted)
 
   Runs immediately after the S13-4 commit writes registry.json, BEFORE S13-5.
   Sets REGCHECK_OK (read by S13-7). This gate does NOT trust the Step-1 template
@@ -7035,135 +6851,55 @@
   drifted template can never silently ship an incomplete registry (the M1-D13
   failure mode). It is idempotent and safe to re-run.
 
+  v5.53: the schema self-heal and the v5.52 G-COMMIT-COMPLETE cross-ledger check (S13-4's
+  three ledgers — mocks_completed/papers_completed, session_log, question_index — can drift
+  apart if a session ever hand-rolls or partially re-derives S13-4) now live in
+  `final_assembly.regcheck()`. THIS mock's own commit is a HARD STOP if incomplete; a
+  PRE-EXISTING partial commit from an earlier mock is a WARN, not a hard stop — same trigger
+  conditions, same wording, as before extraction.
+
   ```python
-  reg = json.load(open(f'/home/claude/{EXAM}_registry.json'))
+  registry = json.load(open(f'/home/claude/{EXAM}_registry.json'))
 
-  REQUIRED_TOP = [
-      'exam_code', 'schema_version', 'mocks_completed', 'papers_completed',
-      'question_hashes', 'stem_texts', 'semantic_tuples', 'semantic_usage',
-      'exhausted_subtopics',
-      'question_index',
-      'image_phashes', 'image_sources_used', 'session_log',
-      'content_tracking',
-      'section_names', 'rc_manifests', 'figural_manifests',
-      'di_manifests',            # v5.42 — DI producer record (GAP-2026-08-06-DI)
-  ]
-  REQUIRED_CT = [   # content_tracking L4-L18 subfields
-      'ga_facts_used', 'passage_topics', 'cloze_topics', 'vocab_words_used',
-      'idioms_used', 'grammar_rules_used', 'computer_facts', 'numeric_seeds',
-      'analogy_schemes', 'cause_effect_domains', 'syllogism_domains',
-      'option_sets',
-  ]
+  # v4.7 (ND6 — MANDATORY): options_by_q needs the mock's concept_map + msq_meta. Same
+  # try/except fallback as before extraction — regcheck() no longer reads the sidecar itself
+  # (it's pure), so the caller supplies it.
+  _akp = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+  try:
+      _kd = json.load(open(_akp))
+      _km = _kd.get("concept_map", {})
+      _msq_meta = _kd.get("msq_meta", {})
+  except Exception:
+      _km, _msq_meta = {}, {}
 
-  missing_top = [f for f in REQUIRED_TOP if f not in reg]
-  missing_ct  = [f for f in REQUIRED_CT if f not in reg.get('content_tracking', {})]
-
-  # SELF-HEAL (idempotent): schema is mandatory, so add any field the drifted
-  # Step-1 template omitted, as an empty container. Same intent as the S13-4
-  # first-mock init, but enforced as a GATE that ALWAYS runs.
-  for f in missing_top:
-      reg[f] = {} if f in ('content_tracking', 'exhausted_subtopics') else []
-  ct = reg.setdefault('content_tracking', {})
-  for f in missing_ct:
-      ct[f] = []
-
-  still_missing = ([f for f in REQUIRED_TOP if f not in reg]
-                   + [f for f in REQUIRED_CT if f not in reg.get('content_tracking', {})])
-  if still_missing:
-      raise SystemExit(
-          f"HARD STOP (S13-REGCHECK): registry still missing {still_missing} "
-          f"after self-heal. Do NOT deliver. Inspect S13-4 commit logic.")
-
-  # v5.52 (GAP-2026-08-12-S13-COMMIT-COMPLETE) — G-COMMIT-COMPLETE: cross-ledger
-  # completeness gate. S13-4's commit touches THREE separate ledgers per mock
-  # (mocks_completed/papers_completed, session_log, question_index) inside one
-  # in-memory dict written to disk with a single terminal json.dump — but that
-  # guarantee only holds if S13-4 was executed to the letter. A session that
-  # hand-rolls or partially re-derives S13-4 (Finding 0 — no engine-file
-  # backing exists for it yet) can still write SOME of these ledgers and not
-  # others. This is exactly what happened historically: a mock's
-  # question_index entry present with no paper_id, and no session_log entry
-  # for that mock at all. Nothing before this release cross-checked the three
-  # ledgers against each other.
-  #
-  # THIS mock's own commit is a HARD STOP if incomplete — a freshly-committed
-  # partial write must never reach delivery. A PRE-EXISTING partial commit
-  # from an earlier mock is a WARN, not a hard stop: repairing historical data
-  # is outside this gate's scope (the same precedent as axis1_paper/axis3_paper
-  # history, GAP-2026-08-12-AXISPAPER-HISTORY — fixable going forward, not
-  # retroactively), but it must never again be silently invisible.
-  _sl_mocks = {e.get('mock') for e in reg.get('session_log', [])}
-  _qi_by_mock = {e.get('mock'): e for e in reg.get('question_index', [])}
-  def _commit_problems(_m):
-      _p = []
-      if _m not in _sl_mocks:
-          _p.append('no session_log entry')
-      _qie = _qi_by_mock.get(_m)
-      if _qie is None:
-          _p.append('no question_index entry')
-      elif not _qie.get('paper_id'):
-          _p.append('question_index entry has no paper_id')
-      return _p
-
-  _this_mock_problems = _commit_problems(N)
-  if _this_mock_problems:
-      raise SystemExit(
-          "HARD STOP (G-COMMIT-COMPLETE): THIS mock's own S13-4 commit is incomplete — "
-          f"mock {N}: {', '.join(_this_mock_problems)}. A freshly committed mock MUST "
-          "have a session_log entry AND a question_index entry with a non-null "
-          "paper_id from the SAME S13-4 run. Re-run S13-4 in FULL (never a hand-rolled "
-          "subset of its writes), then re-run S13-REGCHECK. Do NOT deliver.")
-
-  _legacy_incomplete = [f"mock {_m}: {', '.join(_commit_problems(_m))}"
-                        for _m in reg.get('mocks_completed', [])
-                        if _m != N and _commit_problems(_m)]
-  if _legacy_incomplete:
+  _rc = fa.regcheck(registry, bp, N=N, concept_map=_km, msq_meta=_msq_meta)
+  if not _rc['ok']:
+      raise SystemExit(_rc['fails'][0])
+  registry = _rc['registry']
+  if _rc['healed']:
+      print(f"S13-REGCHECK: healed drifted template — added "
+            f"{_rc['healed']}. Registry now schema-complete.")
+  if _rc['warnings']:
       print("S13-REGCHECK WARNING (G-COMMIT-COMPLETE): pre-existing partial registry "
             "commit(s) found from an earlier mock/session — "
-            + "; ".join(_legacy_incomplete)
+            + "; ".join(_rc['warnings'])
             + ". Not blocking (historical — may predate this gate), but should be "
               "repaired: re-run S13-4's full commit block for the affected mock(s), "
               "or record the gap explicitly rather than leaving it silently "
               "inconsistent.")
 
-  # v4.7 (ND6 — MANDATORY): options_by_q — per-question EXPECTED option count for THIS mock,
-  # written into the registry so Step 9 (Explain) resolves each question's TYPE. 0 marks a NAT
-  # question (no options). Step 4's expected_options() READS this map and never counts rendered
-  # options, so a NAT question is non-resolvable (mis-typed as MCQ, or count-invariant HALT)
-  # WITHOUT it. Derived from the mock sidecar concept_map (answer_type per Q); total_options
-  # from the persisted msq_meta. Harmless for non-NAT mocks (every value == total_options).
-  _akp = f'/home/claude/{EXAM}_M{N}_answer_key.json'
-  try:
-      _kd     = json.load(open(_akp))
-      _km     = _kd.get("concept_map", {})
-      _ocount = int(_kd.get("msq_meta", {}).get("total_options", 4))
-  except Exception:
-      _km, _ocount = {}, 4
-  obq = {q: (0 if _km[q].get("answer_type") == "numerical" else _ocount) for q in _km}
-  reg.setdefault('options_by_q', {})[str(N)] = obq
-
-  # v4.8 — section_names: the declared section names for THIS exam, written so both the
-  # embedded G-SECTIONHDR gate and audit.py A-SECHDR can flag a stray body paragraph that IS a
-  # section name (the realistic section-header form). Provenance-based, exam-agnostic.
-  reg['section_names'] = [ (s.get('section_name') or s.get('name') or '').strip()
-                           for s in bp.get('sections', [])
-                           if (s.get('section_name') or s.get('name')) ]
-
   # Persist healed registry to BOTH working dir and outputs:
-  json.dump(reg, open(f'/home/claude/{EXAM}_registry.json', 'w'),
+  json.dump(registry, open(f'/home/claude/{EXAM}_registry.json', 'w'),
             indent=2, ensure_ascii=False)
   os.makedirs('/mnt/user-data/outputs', exist_ok=True)
-  json.dump(reg, open(f'/mnt/user-data/outputs/{EXAM}_registry.json', 'w'),
+  json.dump(registry, open(f'/mnt/user-data/outputs/{EXAM}_registry.json', 'w'),
             indent=2, ensure_ascii=False)
 
-  if missing_top or missing_ct:
-      print(f"S13-REGCHECK: healed drifted template — added "
-            f"{missing_top + missing_ct}. Registry now schema-complete.")
   REGCHECK_OK = True
   print("S13-REGCHECK: registry schema complete. OK.")
   ```
 
-## S13-QINDEX — Question-index gate execution (v5.2 — G-QINDEX; runs after S13-REGCHECK)
+## S13-QINDEX — Question-index gate execution (v5.2 — G-QINDEX; runs after S13-REGCHECK; v5.53 — extracted)
 
   Runs immediately after S13-REGCHECK, BEFORE S13-5/S13-7. Certifies the mock-N
   question_index this session built (S13-4). Sets QINDEX_OK (read by S13-7). Executable
@@ -7178,53 +6914,23 @@
   inline gates while logging a clean audit. Both must pass; neither replaces the other.
   v5.49.0 (GAP-2026-08-12-QINDEX-QUOTA-ENFORCEMENT) — A-QINDEX's twin coverage now
   extends to ALL SIX checks, not five: check 6 (the exact difficulty_schedule[N]
-  quota, below) was the one check v5.48.0 left engine-unenforced, and it was the
+  quota) was the one check v5.48.0 left engine-unenforced, and it was the
   literal check that would have caught a mock whose difficulties shipped null — a
   session that never runs S13-QINDEX at all (not merely mistypes it) now still gets
   caught at the S13-4c re-sweep, on check 6, the same as any other G-QINDEX check.
 
+  v5.53: `final_assembly.qindex_certify()` delegates to paper_pipeline.py's pre-existing
+  `validate_question_index()`, which is logically identical to G-QINDEX/1-6 and was already
+  parity-tested against audit_canonical.py's gate_qindex() (that module's own "QINDEX PARITY"
+  self-test) — reusing it collapses what would otherwise be a fifth independent copy of the
+  same six checks. One disclosed, non-observable-here behaviour change: check 6 is DORMANT
+  (not a false HARD STOP) when an exam's blueprint declares no difficulty_schedule at all;
+  IIT_JAM_BIOTECHNOLOGY always declares one, so nothing changes for this exam.
+
   ```python
-  from collections import Counter
-  reg = json.load(open(f'/home/claude/{EXAM}_registry.json'))
-  _canon   = bp.get('difficulty_labels', ['Easy', 'Medium', 'Hard'])
-  _sub_ids = {sub.get('subtopic_id') for sub in bp.get('subtopic_list', [])}
-  _sched   = next((d for d in bp.get('difficulty_schedule', []) if d.get('mock') == N), {})
-  _entry   = next((e for e in reg.get('question_index', []) if e.get('mock') == N), None)
-  _fails = []
-  if _entry is None:
-      _fails.append(f"G-QINDEX/1: no question_index object for mock {N}")
-  else:
-      _qs = _entry.get('questions', [])
-      if len(_qs) != total_questions:                                              # check 2
-          _fails.append(f"G-QINDEX/2: {len(_qs)} entries != total_questions {total_questions}")
-      _qn = [x.get('q') for x in _qs]                                              # check 3
-      if _qn != sorted(_qn) or len(set(_qn)) != len(_qn) \
-         or set(_qn) != set(range(1, total_questions + 1)):
-          _fails.append(f"G-QINDEX/3: q set != 1..{total_questions} (sorted/unique/complete)")
-      _bad_id = sorted({x.get('subtopic_id') for x in _qs                          # check 4
-                        if x.get('subtopic_id') not in _sub_ids})
-      if _bad_id:
-          _fails.append(f"G-QINDEX/4: subtopic_id(s) not in blueprint: {_bad_id}")
-      _bad_d = sorted({x.get('difficulty') for x in _qs                            # check 5
-                       if x.get('difficulty') not in _canon})
-      if _bad_d:
-          _fails.append(f"G-QINDEX/5: difficulty value(s) not in {_canon}: {_bad_d}")
-      # check 6 — distribution EXACT vs difficulty_schedule[N] (simple/medium/hard -> label alias)
-      _alias3 = ({'simple': _canon[0], 'medium': _canon[1], 'hard': _canon[2]}
-                 if len(_canon) == 3 else {'simple': 'Easy', 'medium': 'Medium', 'hard': 'Hard'})
-      _want = {}
-      for _k, _v in _sched.items():
-          if _k in ('mock', 'band') or not isinstance(_v, int):
-              continue
-          _lab = _alias3.get(_k, _k)
-          _want[_lab] = _want.get(_lab, 0) + _v
-      _want = {lab: _want.get(lab, 0) for lab in _canon}
-      _got_all = Counter(x.get('difficulty') for x in _qs)
-      _got = {lab: _got_all.get(lab, 0) for lab in _canon}
-      if _got != _want:
-          _fails.append(f"G-QINDEX/6: distribution {_got} != schedule {_want}")
-  if _fails:
-      raise SystemExit("HARD STOP (G-QINDEX): " + "; ".join(_fails)
+  _qi = fa.qindex_certify(registry, bp, N)
+  if not _qi['ok']:
+      raise SystemExit("HARD STOP (G-QINDEX): " + "; ".join(_qi['fails'])
                        + ". Fix the per-Q subtopic_id/difficulty capture (S7-NEW-A) or the "
                        + "schedule-first assignment, rebuild question_index (S13-4), re-run.")
   QINDEX_OK = True
@@ -7382,10 +7088,14 @@
   user wants a learner-facing answer key, that is a Step-4 (MockExplain)
   artefact, not a Step-7 one. Step 7 ships the paper + registry, full stop.
 
-## S13-7 — Pre-delivery checklist (v3.5 — MANDATORY before present_files)
+## S13-7 — Pre-delivery checklist (v3.5 — MANDATORY before present_files; v5.53 — extracted)
 
   Run this 7-point self-verification. If ANY item fails: fix, then re-run.
   present_files is FORBIDDEN until all 7 pass (extends B-7 to Final Assembly).
+
+  v5.53: the 7 checks now live in `final_assembly.predelivery_checklist()` — the one
+  extracted function that reads the filesystem (its whole job is verifying real files
+  landed in a real directory, so it can't be made pure like the other three).
 
   ```python
   import os, json
@@ -7396,46 +7106,18 @@
   paper_slug = pp.paper_slug(paper_id)
   docx_name = f'{EXAM}_{paper_slug}_Create.docx'
   reg_name  = f'{EXAM}_registry.json'
-  docx_path = f'{out}/{docx_name}'
-  reg_path  = f'{out}/{reg_name}'
-
-  checks = []
-  # 1. Final docx staged in outputs.
-  checks.append(("1 final docx in outputs", os.path.exists(docx_path)))
-  # 2. registry.json staged in outputs (THE step missed in M1).
-  checks.append(("2 registry.json in outputs", os.path.exists(reg_path)))
-  # 3. registry passed schema gate (§13-REGCHECK ran OK).
-  checks.append(("3 registry schema complete", bool(globals().get('REGCHECK_OK'))))
-  # 4. NO standalone answer-key file staged.
-  bad_ak = [f for f in os.listdir(out) if 'answer' in f.lower()]
-  checks.append(("4 no answer-key file in outputs", len(bad_ak) == 0))
-  # 5. NO internal sidecar staged.
-  internal = ['_answer_key.json', '_fig_manifest.json',
-              '_batch_state.json', '_progress.json']
-  leaked = [f for f in os.listdir(out) if any(m in f for m in internal)]
-  checks.append(("5 no internal sidecars in outputs", len(leaked) == 0))
-  # 6. outputs == EXACTLY the closed deliverable set.
-  #    v5.36 (GAP-2026-08-01-DELIVERY-SET-DRIFT): v5.35 added the Tier-A dossier as
-  #    a THIRD delivered file (S13-4b) and did NOT widen this assertion, so check 6
-  #    failed and S13-7 HARD-STOPPED Step 7 at pre-delivery on every exam and every
-  #    mock. Step 7 had been the one step that never failed; an audit-side improvement
-  #    broke it. The set is now DERIVED from what S13-4b actually wrote, so a
-  #    producer change and this gate can no longer disagree by construction.
+  # v5.36 (GAP-2026-08-01-DELIVERY-SET-DRIFT): the expected set is DERIVED from what
+  # S13-4b actually wrote (the dossier is only added if present), so a producer change
+  # and this gate can no longer disagree by construction.
   dossier_name = f'{EXAM}_M{N}_audit_dossier.json'
-  expected_set = {docx_name, reg_name}
-  if os.path.exists(os.path.join(out, dossier_name)):
-      expected_set.add(dossier_name)          # written by S13-4b; absent pre-v5.35
-  staged = set(os.listdir(out))
-  checks.append((f"6 outputs == exactly the {len(expected_set)} deliverables",
-                 staged == expected_set))
-  # 7. question_index certified for this mock (G-QINDEX / S13-QINDEX ran OK).
-  checks.append(("7 question_index certified (G-QINDEX)", bool(globals().get('QINDEX_OK'))))
 
-  fails = [name for name, ok in checks if not ok]
-  if fails:
+  _pdc = fa.predelivery_checklist(
+      out, docx_name=docx_name, reg_name=reg_name, dossier_name=dossier_name,
+      regcheck_ok=globals().get('REGCHECK_OK'), qindex_ok=globals().get('QINDEX_OK'))
+  if not _pdc['ok']:
       raise SystemExit(
           "HARD STOP (S13-7): pre-delivery checklist failed: "
-          + "; ".join(fails)
+          + "; ".join(_pdc['fails'])
           + ". Fix each, then re-run S13-7. Do NOT call present_files yet. "
           + "If item 4 fails, DELETE the off-spec answer-key file from outputs. "
           + "If item 2/3 fails, re-run S13-4 + S13-REGCHECK. "
@@ -8126,7 +7808,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.52.0
+# END OF Framework_MockTestCreate v5.53.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

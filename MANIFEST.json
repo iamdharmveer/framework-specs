@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.12.10",
+  "framework_version": "2026.08.12.11",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -76,6 +76,7 @@
       "blueprint_core.py",
       "figural_core.py",
       "paper_pipeline.py",
+      "final_assembly.py",
       "corpus_io.py",
       "Framework_DeliveryFooter.md",
       "t3_mathcomp.py"
@@ -85,6 +86,7 @@
       "blueprint_core.py",
       "figural_core.py",
       "paper_pipeline.py",
+      "final_assembly.py",
       "corpus_io.py",
       "Framework_DeliveryFooter.md",
       "t3_mathcomp.py"
@@ -199,11 +201,11 @@
       "bytes": 461005
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "03ef74b098e0f9671cf32d7ead293d459c12520e39b3fcec4340da8d67c58175",
-      "version_header": "# Framework_MockTestCreate v5.52.0",
+      "sha256": "54f49a5ccbe22d7d25fa0f1eb26d7a191af7ac85d8955c4002f6509088733064",
+      "version_header": "# Framework_MockTestCreate v5.53.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8209,
-      "bytes": 512547
+      "lines": 7891,
+      "bytes": 494304
     },
     "Framework_MockTestExplain.md": {
       "sha256": "621c294702ff1f4d74f6823653b030901477db87663988c3920d05a3bd53f05b",
@@ -365,6 +367,13 @@
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
       "lines": 879,
       "bytes": 48183
+    },
+    "final_assembly.py": {
+      "sha256": "e5456ae7bb6ac26249f1643c6837ab16f852d83d29865419af17a76d68a7f38b",
+      "version_header": "\"\"\"",
+      "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
+      "lines": 880,
+      "bytes": 50653
     },
     "corpus_io.py": {
       "sha256": "9f26829042a1783eaaccbff800290ad06103f1070a978b2738c4be723edf4395",
