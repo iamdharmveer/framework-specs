@@ -1,4 +1,33 @@
-# Framework_MockTestCreate v5.51.0
+# Framework_MockTestCreate v5.52.0
+# v5.52.0 — 2026-08-12 — MANDATORY concept_map CAPTURE + REGISTRY COMMIT COMPLETENESS
+#   Closes the last two open rows of the Mock-10 root-cause gap analysis's §13 priority
+#   table: row 3 (concept_map/difficulty authoring instruction missing from the consumer
+#   spec) and row 5 (partial registry commits, the Mock 4 failure mode).
+#   ROW 3 — GAP-2026-08-12-S10-CONCEPTMAP-MANDATE. §S7-NEW-A's write_q_to_sidecar()
+#   previously defaulted subtopic_id/difficulty to None, so a call site that forgot them
+#   silently persisted `null` — exactly what shipped Mock 10 with difficulty:null on all
+#   60 questions, undetected until (if ever) G-QINDEX ran at Final Assembly. Both
+#   parameters are now keyword-only with NO default: omitting either is a TypeError at
+#   the point of authoring, not a silent null propagated to Final Assembly. New §S10-0
+#   states the mandate explicitly in THIS spec's own per-question-authoring section
+#   (previously the obligation was documented only in Framework_Blueprint.md §S7-6, the
+#   producer's contract, and in §S7-NEW-A's docstring — never as an explicit instruction
+#   at S10, where the per-question authoring work actually happens).
+#   ROW 5 — GAP-2026-08-12-S13-COMMIT-COMPLETE. New G-COMMIT-COMPLETE gate in
+#   S13-REGCHECK cross-checks mocks_completed/session_log/question_index against each
+#   other for every mock: a session_log entry AND a question_index entry with a non-null
+#   paper_id must both exist. THIS mock's own commit is a HARD STOP if incomplete (a
+#   fresh partial write must never reach delivery); a PRE-EXISTING partial commit from an
+#   earlier mock is a WARN (repairing historical data is out of scope — same precedent as
+#   GAP-2026-08-12-AXISPAPER-HISTORY: fixable going forward, not retroactively). S13-4
+#   also gained an explicit ATOMICITY MANDATE comment immediately above its one terminal
+#   json.dump, so a future transcription of that block cannot silently regress into
+#   incremental (and therefore partially-crashable) writes.
+#   SCOPING NOTE: Finding 0 (extracting S13-4/S13-REGCHECK/S13-QINDEX/S13-7 into a real
+#   final_assembly.py engine file) remains open — both fixes above are implemented
+#   in-place, within the existing spec-inline pattern S13-4/S13-REGCHECK/S13-QINDEX
+#   already use, exactly as S13-QINDEX itself does. They do not require, and are not
+#   blocked by, the full engine-file extraction.
 # v5.51.0 — 2026-08-12 — AXIS-3 PRE-FLIGHT FEASIBILITY (advisory, before Batch 1)
 #   (GAP-2026-08-12-AXIS3-PREFLIGHT). Closes the Axis-3 half v5.50 (below) deliberately
 #   withheld rather than ship un-verified: a naive subtopic-capability feasibility check
@@ -4105,11 +4134,19 @@
     Axis-3 had a budget and neither had a spender or a gate, and nothing in the framework
     was capable of noticing.
 
-## S7-NEW-A — Per-question answer key sidecar write (v2.0 GAP-18 fix; v3.3 concept map)
+## S7-NEW-A — Per-question answer key sidecar write (v2.0 GAP-18 fix; v3.3 concept map; v5.52 mandatory concept_map)
 
   IMMEDIATELY after each question is accepted and added to docx:
   ```python
   def write_q_to_sidecar(qnum, correct_pos, subtopic, concept_group, scenario_key,
+                          *,   # v5.52 (GAP-2026-08-12-S10-CONCEPTMAP-MANDATE): everything
+                          # from here on is keyword-only, and subtopic_id/difficulty below
+                          # carry NO default. Before v5.52 both defaulted to None, so a call
+                          # site that forgot them silently persisted `null` into concept_map
+                          # — exactly what shipped Mock 10 with `difficulty: null` for all 60
+                          # questions, undetected until (if ever) G-QINDEX ran at Final
+                          # Assembly, mocks later. Now the omission is a TypeError raised
+                          # immediately, at the point of authoring — see S10-0.
                           subtopic_class=None, stem_format_variant=None,
                           distractor_strategy=None,
                           is_ga=False, fact_text=None, source_url=None,
@@ -4119,7 +4156,7 @@
                           nat_instr_in_stem=False,
                           nat_grading_type=None, nat_grading_value=None,
                           stem_precision=None,
-                          subtopic_id=None, difficulty=None):
+                          subtopic_id, difficulty):
       # v4.5: correct_pos is an int for single-answer Qs and a SORTED list[int] (the
       # correct set S) for MSQ (answer_cardinality=='multi'). The sidecar stores it verbatim.
       # v4.7: for a NAT question (answer_type=='numerical') the stored answer is the typed
@@ -4790,6 +4827,39 @@
 # ════════════════════════════════════════════════════════════════════════
 # §10 — OUTPUT FORMAT & DOCX CONSTRUCTION (v2.0 — FONT + OPTION FIXES)
 # ════════════════════════════════════════════════════════════════════════
+
+## S10-0 — MANDATORY: per-question concept_map capture (v5.52, GAP-2026-08-12-S10-CONCEPTMAP-MANDATE)
+
+  Every question this step authors MUST have its `subtopic_id` and `difficulty`
+  captured via write_q_to_sidecar() (§S7-NEW-A) — NOT optional, NOT deferred to
+  a later batch, NOT left to a default. These two fields are the ONLY source
+  registry.question_index draws from at Final Assembly (S13-4), and G-QINDEX
+  (S13-QINDEX) hard-stops on a mock whose distribution does not EXACTLY match
+  difficulty_schedule[N] (Contract_QuestionMetadataIndex v1.0).
+
+  WHY THIS IS HERE, NOT ONLY AT S7-NEW-A: the producer's obligation to compute a
+  difficulty label was previously documented only in `Framework_Blueprint.md
+  §S7-6` (Step 2's contract) and the mechanics of storing it only in §S7-NEW-A
+  (this spec's sidecar-write helper) — with no explicit instruction, in THIS
+  spec's own per-question-authoring section, telling an implementer that
+  omitting it is forbidden. An implementer who read S10 in isolation (as
+  Mock 10's batch-authoring scripts effectively did) had no local signal that
+  concept_map needed populating at all, until — if the Final-Assembly gate
+  happened to run — a HARD STOP arrived hundreds of questions later.
+
+  THE STRUCTURAL BACKSTOP (v5.52): §S7-NEW-A's write_q_to_sidecar() no longer
+  defaults subtopic_id/difficulty to None. Omitting either now raises
+  TypeError at the call site — the moment the question is authored — instead
+  of silently writing `null` to the sidecar. Treat that TypeError as the
+  contract working as designed, not a bug to code around: it means a
+  subtopic_id or difficulty value was never computed for that question, and
+  that must be fixed before the question is accepted, not patched around by
+  passing a placeholder.
+
+  This does not change WHAT was already required (§S7-NEW-A's docstring has
+  documented these two fields since v5.2) — it makes the requirement
+  impossible to silently skip, and states it where the per-question authoring
+  work actually happens.
 
 ## S10-1 — Question format rules (v2.0 GAP-14 + GAP-15 fixes)
 
@@ -6942,6 +7012,17 @@
                                                if c is not None}}
   # (Absent-safe: if the feature was inert this stays unset / carries the prior window verbatim.)
 
+  # v5.52 (GAP-2026-08-12-S13-COMMIT-COMPLETE) — ATOMICITY MANDATE: everything above
+  # this line mutates the in-memory `registry` dict ONLY. This is the single terminal
+  # write to registry.json for this mock's S13-4 commit — there must be NO other
+  # json.dump of registry.json anywhere else in this block. That is what makes an
+  # exception raised anywhere above (e.g. the FK hard stop) leave registry.json on
+  # disk COMPLETELY UNTOUCHED rather than partially written — the file cannot show
+  # some of a mock's ledgers updated and not others unless this rule is broken by a
+  # future edit. Any transcription of this block (hand-rolled or otherwise) MUST
+  # preserve this: accumulate every field in `registry`, then persist ONCE, at the
+  # end, never incrementally. G-COMMIT-COMPLETE (S13-REGCHECK) is the downstream
+  # detector if this rule is ever violated; this comment is the upstream prevention.
   json.dump(registry, open(f'/home/claude/{EXAM}_registry.json', 'w'),
             indent=2, ensure_ascii=False)
   ```
@@ -6992,6 +7073,58 @@
       raise SystemExit(
           f"HARD STOP (S13-REGCHECK): registry still missing {still_missing} "
           f"after self-heal. Do NOT deliver. Inspect S13-4 commit logic.")
+
+  # v5.52 (GAP-2026-08-12-S13-COMMIT-COMPLETE) — G-COMMIT-COMPLETE: cross-ledger
+  # completeness gate. S13-4's commit touches THREE separate ledgers per mock
+  # (mocks_completed/papers_completed, session_log, question_index) inside one
+  # in-memory dict written to disk with a single terminal json.dump — but that
+  # guarantee only holds if S13-4 was executed to the letter. A session that
+  # hand-rolls or partially re-derives S13-4 (Finding 0 — no engine-file
+  # backing exists for it yet) can still write SOME of these ledgers and not
+  # others. This is exactly what happened historically: a mock's
+  # question_index entry present with no paper_id, and no session_log entry
+  # for that mock at all. Nothing before this release cross-checked the three
+  # ledgers against each other.
+  #
+  # THIS mock's own commit is a HARD STOP if incomplete — a freshly-committed
+  # partial write must never reach delivery. A PRE-EXISTING partial commit
+  # from an earlier mock is a WARN, not a hard stop: repairing historical data
+  # is outside this gate's scope (the same precedent as axis1_paper/axis3_paper
+  # history, GAP-2026-08-12-AXISPAPER-HISTORY — fixable going forward, not
+  # retroactively), but it must never again be silently invisible.
+  _sl_mocks = {e.get('mock') for e in reg.get('session_log', [])}
+  _qi_by_mock = {e.get('mock'): e for e in reg.get('question_index', [])}
+  def _commit_problems(_m):
+      _p = []
+      if _m not in _sl_mocks:
+          _p.append('no session_log entry')
+      _qie = _qi_by_mock.get(_m)
+      if _qie is None:
+          _p.append('no question_index entry')
+      elif not _qie.get('paper_id'):
+          _p.append('question_index entry has no paper_id')
+      return _p
+
+  _this_mock_problems = _commit_problems(N)
+  if _this_mock_problems:
+      raise SystemExit(
+          "HARD STOP (G-COMMIT-COMPLETE): THIS mock's own S13-4 commit is incomplete — "
+          f"mock {N}: {', '.join(_this_mock_problems)}. A freshly committed mock MUST "
+          "have a session_log entry AND a question_index entry with a non-null "
+          "paper_id from the SAME S13-4 run. Re-run S13-4 in FULL (never a hand-rolled "
+          "subset of its writes), then re-run S13-REGCHECK. Do NOT deliver.")
+
+  _legacy_incomplete = [f"mock {_m}: {', '.join(_commit_problems(_m))}"
+                        for _m in reg.get('mocks_completed', [])
+                        if _m != N and _commit_problems(_m)]
+  if _legacy_incomplete:
+      print("S13-REGCHECK WARNING (G-COMMIT-COMPLETE): pre-existing partial registry "
+            "commit(s) found from an earlier mock/session — "
+            + "; ".join(_legacy_incomplete)
+            + ". Not blocking (historical — may predate this gate), but should be "
+              "repaired: re-run S13-4's full commit block for the affected mock(s), "
+              "or record the gap explicitly rather than leaving it silently "
+              "inconsistent.")
 
   # v4.7 (ND6 — MANDATORY): options_by_q — per-question EXPECTED option count for THIS mock,
   # written into the registry so Step 9 (Explain) resolves each question's TYPE. 0 marks a NAT
@@ -7993,7 +8126,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.51.0
+# END OF Framework_MockTestCreate v5.52.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

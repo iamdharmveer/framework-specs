@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.12.9",
+  "framework_version": "2026.08.12.10",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -199,11 +199,11 @@
       "bytes": 461005
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "c7ab9d7f15817c36a48614e1927be8ddb0b4fdc8467e122bf15916d2682fd9ad",
-      "version_header": "# Framework_MockTestCreate v5.51.0",
+      "sha256": "03ef74b098e0f9671cf32d7ead293d459c12520e39b3fcec4340da8d67c58175",
+      "version_header": "# Framework_MockTestCreate v5.52.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8076,
-      "bytes": 503436
+      "lines": 8209,
+      "bytes": 512547
     },
     "Framework_MockTestExplain.md": {
       "sha256": "621c294702ff1f4d74f6823653b030901477db87663988c3920d05a3bd53f05b",
