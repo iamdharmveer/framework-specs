@@ -1,5 +1,28 @@
 """
-notes_audit.py v2.0 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.1 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.1 — 2026-08-12 — SYNC-AUDIT FIXES (GAP-2026-08-12-NOTESYNC). Two drifts
+    found by notes_sync_audit.py, the new cross-step auditor:
+      (1) The terminal re-gate claimed in Framework_NotesAudit section 5 to
+          re-run "EVERY gate above", but only 11 of 14 identifiers were
+          actually emitted: G-3 (anatomy), G-5 (question format and type
+          coverage) and G-6 (outline integrity) were left to Claude-side
+          judgement and appeared in no report. A spec promise nothing
+          enforced. All three are now mechanical — gate_anatomy,
+          gate_question_format and gate_outline — and the re-gate emits every
+          identifier in GATES. G-6 in particular now resolves in-text
+          cross-references ("see 7.3") against the derived outline, which is
+          the one thing NA's editing can break silently.
+      (2) GATES omitted G-11 while Framework_NotesAudit section 5 named it, so
+          the engine's gate registry and the spec disagreed about what a report
+          can contain. G-11 is now registered AND emitted by terminal_regate,
+          carrying the certified sha256 and the count of gates run — which is
+          what "the certification covers the bytes that ship" should look like
+          in the report rather than only in prose.
+      (3) REPORT_SCHEMA ("notes-audit-report/2.0") was emitted into
+          audit_summary but cited by no spec, so a schema bump would have been
+          invisible spec-side. Framework_NotesAudit section 6 now cites it.
+    No behaviour change to any verdict, gate finding or pass decision.
 
 v2.0 — 2026-08-12 — NA BECOMES A WRITER (Framework_NotesAudit v3.0.0;
     GAP-2026-08-12-NADOCX patch P2 of 2). NA no longer routes defects back to
@@ -97,8 +120,13 @@ MAX_PATCHES_PER_QUESTION = 3     # spec §4 L-2
 MAX_REGENERATIONS = 3            # spec §4 L-3
 
 # Gate identifiers, in report order. G-1..G-6 predate v2.0.
+# v2.1: G-11 is included. It is not a content check like the others — it is the
+# assertion that the certification covers the BYTES THAT SHIP — but it is
+# reported like one, so it belongs in the registry of gate identifiers. The
+# cross-step sync auditor compares this tuple against the identifiers the NA
+# spec names, and a gate present in one and absent from the other is a finding.
 GATES = ("G-1", "G-2a", "G-2b", "G-2c", "G-3", "G-4", "G-5", "G-6",
-         "G-7a", "G-7b", "G-8", "G-9", "G-10")
+         "G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11")
 
 KEY_CORRECTION_TIERS = ("BANK_SELF_CONTRADICTS", "JUDGEMENT")
 
@@ -322,6 +350,87 @@ def preflight():
     return {"available": avail}
 
 
+def gate_anatomy(model):
+    """G-3 — ANATOMY. Required blocks present and in section 6A order.
+
+    notes_docx.validate_model owns the anatomy contract (it is the builder, so
+    it is the authority). This re-asserts it on the model that produced the
+    shipped file, which matters because NA edits the model after NC built it.
+    """
+    import notes_docx
+    ok, findings = notes_docx.validate_model(model)
+    structural = [f for f in findings
+                  if any(w in f for w in ("KEY POINTS", "order", "title",
+                                          "block", "tail"))]
+    return (not structural, structural, {"blocks": len(model.get("blocks", []))})
+
+
+def gate_question_format(model, allowed_types=()):
+    """G-5 — QUESTION FORMAT AND TYPE COVERAGE.
+
+    Every Example and Recall must match the fixed template, its type must be a
+    member of the blueprint's allowed_question_types, and across the unit the
+    allowed types must be represented where evidence permits.
+    """
+    findings = []
+    allowed = {t.upper() for t in (allowed_types or ())}
+    seen, n = set(), 0
+    for i, b in enumerate(model.get("blocks", [])):
+        t = b.get("type")
+        if t not in ("example", "recall"):
+            continue
+        n += 1
+        qt = (b.get("qtype") or "").upper()
+        seen.add(qt)
+        if allowed and qt not in allowed:
+            findings.append(f"block {i}: type {qt} is not in the blueprint's "
+                            f"allowed_question_types {sorted(allowed)}")
+        if not b.get("stem"):
+            findings.append(f"block {i}: no stem")
+        if qt in ("MCQ", "MSQ") and len(b.get("options") or []) != 4:
+            findings.append(f"block {i}: {qt} must print exactly 4 options")
+        if qt == "NAT" and (b.get("options") or []):
+            findings.append(f"block {i}: NAT must not print options")
+        if t == "example" and not b.get("explanation"):
+            findings.append(f"block {i}: Example without an Explanation")
+        if t == "recall" and (b.get("explanation") or b.get("speed_hack")):
+            findings.append(f"block {i}: Recall must carry neither an "
+                            f"Explanation nor a SPEED HACK (section 4 B7)")
+    missing = sorted(allowed - seen) if allowed and n else []
+    return (not findings, findings,
+            {"questions": n, "types_present": sorted(seen),
+             "allowed_types_unused": missing})
+
+
+_XREF = re.compile(r"\bsee\s+(\d+(?:\.\d+){1,2})\b", re.I)
+
+
+def gate_outline(model, docx_path=None):
+    """G-6 — OUTLINE-NUMBER INTEGRITY.
+
+    Level numbering gapless and sequential, and every in-text cross-reference
+    resolving to a number that exists. notes_docx.outline_of is the oracle:
+    numbers are derived from block order, so a stale reference is the only way
+    this can break — and a stale reference is exactly what NA's editing can
+    introduce.
+    """
+    import notes_docx
+    o = notes_docx.outline_of(model)
+    findings = []
+    valid = {n for _, n, _ in o["l2"]} | {n for _, n, _ in o["l3"]}
+    tail = [int(x.split(".")[1]) for _, x, _ in o["l2"]]
+    if tail and tail != list(range(1, len(tail) + 1)):
+        findings.append(f"level-2 numbers are not gapless: "
+                        f"{[n for _, n, _ in o['l2']]}")
+    body = json.dumps(model, ensure_ascii=False)
+    refs = set(_XREF.findall(body))
+    for r in sorted(refs - valid):
+        findings.append(f"cross-reference 'see {r}' does not resolve to any "
+                        f"outline number in this unit")
+    return (not findings, findings,
+            {"numbers": len(valid), "cross_references": len(refs)})
+
+
 def gate_line_rules(docx_path):
     """G-7b — OMML AND FIGURE GEOMETRY. Returns (ok, findings).
 
@@ -509,7 +618,7 @@ def gate_orphan_terms(model, allowed=()):
 
 
 def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
-                    expected_omml=0, orphan_allowed=()):
+                    expected_omml=0, orphan_allowed=(), allowed_types=()):
     """G-11 — THE TERMINAL RE-GATE. Run EVERY mechanical gate over the bytes
     that will ship, and hash them.
 
@@ -539,6 +648,12 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
     g["G-2c"] = {"ok": not f_t, "findings": list(f_t)}
     f_b = notes_core.scan_prose_bans(docx_path, exemptions)
     g["G-4"] = {"ok": not f_b, "findings": list(f_b)}
+    ok_an, f_an, m_an = gate_anatomy(model)
+    g["G-3"] = {"ok": ok_an, "findings": f_an, "meta": m_an}
+    ok_q, f_q, m_q = gate_question_format(model, allowed_types)
+    g["G-5"] = {"ok": ok_q, "findings": f_q, "meta": m_q}
+    ok_ol, f_ol, m_ol = gate_outline(model, docx_path)
+    g["G-6"] = {"ok": ok_ol, "findings": f_ol, "meta": m_ol}
     avail = preflight()["available"]
     g["G-7a"] = ({"ok": True, "dormant": True,
                   "findings": ["no renderer available — visual layout gate "
@@ -554,7 +669,15 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
     g["G-9"] = {"ok": ok_r, "findings": f_r, "meta": m_r}
     ok_c, f_c, m_c = gate_counters(model, docx_path)
     g["G-10"] = {"ok": ok_c, "findings": f_c, "meta": m_c}
-    g["_sha256"] = notes_core.file_sha256(docx_path)
+    sha = notes_core.file_sha256(docx_path)
+    # G-11 IS this function: the assertion that everything above ran against
+    # the file that will ship, not against the pre-patch draft. Recorded as a
+    # gate so audit_summary shows plainly WHICH bytes were certified.
+    ran = [k for k in g if k.startswith("G-")]
+    g["G-11"] = {"ok": True, "findings": [],
+                 "meta": {"certified_sha256": sha, "gates_run": len(ran),
+                          "path": os.path.basename(docx_path)}}
+    g["_sha256"] = sha
     # G-9 is advisory (English words are not syllabus terms) and G-7a may be
     # dormant; neither blocks. Everything else is blocking.
     blocking = [k for k, v in g.items()
@@ -687,6 +810,7 @@ def self_test():
           verdict_against_key("NAT", None, "0.41", "")[0] is False)
 
     # ================================================== v2.0 fixtures
+    import copy
     import tempfile
     import notes_docx
 
@@ -893,6 +1017,12 @@ def self_test():
                                    "G-7a", "G-7b", "G-8", "G-9", "G-10")))
     check("terminal re-gate hashes the bytes that ship",
           gates["_sha256"] == notes_core.file_sha256(good))
+    check("v2.1: G-11 is REPORTED as a gate, carrying the certified sha256",
+          gates["G-11"]["ok"] is True
+          and gates["G-11"]["meta"]["certified_sha256"] == gates["_sha256"]
+          and gates["G-11"]["meta"]["gates_run"] >= 10)
+    check("v2.1: every identifier in GATES appears in a re-gate report",
+          set(GATES) <= set(k for k in gates if k.startswith("G-")))
     check("terminal re-gate certifies the shipped file", gates["_ok"])
     check("G-9 is advisory — it never blocks on its own",
           "G-9" not in gates["_blocking_failures"])
@@ -927,6 +1057,58 @@ def self_test():
     log_improvement(r5, "3.1", "tightened a bullet over the D-1 cap")
     check("improvements are logged so a second NA run can be shown to make "
           "none", len(r5["improvements"]) == 1)
+
+    # ---- v2.1: G-3 / G-5 / G-6 are now MECHANICAL --------------------
+    # Framework_NotesAudit section 5 said the terminal re-gate re-runs "EVERY
+    # gate above", but three identifiers were emitted by nothing — a spec
+    # promise with no enforcement behind it.
+    ok_an, f_an, _ = gate_anatomy(m)
+    check("G-3 passes a well-formed unit", ok_an)
+    noKP = copy.deepcopy(m)
+    noKP["blocks"] = [b for b in noKP["blocks"] if b["type"] != "key_points"]
+    check("G-3 catches a concept with no KEY POINTS box",
+          not gate_anatomy(noKP)[0])
+
+    ok_q, f_q, m_q = gate_question_format(m, ("MCQ", "NAT"))
+    check("G-5 passes a template-conformant question", ok_q)
+    check("G-5 reports which allowed types went unused",
+          m_q["allowed_types_unused"] == ["NAT"])
+    check("G-5 catches a type outside the blueprint's allowed set",
+          not gate_question_format(m, ("NAT",))[0])
+    badopt = copy.deepcopy(m)
+    badopt["blocks"][2]["options"] = [T("a"), T("b")]
+    check("G-5 catches an MCQ that does not print 4 options",
+          not gate_question_format(badopt, ("MCQ",))[0])
+    # The demo model carries no Recall, so the block is ADDED here rather
+    # than mutated in place — a mutation with no target silently passes and
+    # proves nothing.
+    recall_bad = copy.deepcopy(m)
+    recall_bad["blocks"].append(
+        {"type": "recall", "qtype": "MCQ", "stem": T("Which is correct?"),
+         "options": [T("a"), T("b"), T("c"), T("d")], "answer": "3",
+         "explanation": [T("a Recall must not carry this")]})
+    ok_rb, f_rb, _ = gate_question_format(recall_bad, ("MCQ",))
+    check("G-5 catches a Recall carrying an Explanation",
+          not ok_rb and any("Recall must carry neither" in x for x in f_rb))
+    recall_ok = copy.deepcopy(recall_bad)
+    recall_ok["blocks"][-1].pop("explanation")
+    check("G-5 accepts a well-formed Recall",
+          gate_question_format(recall_ok, ("MCQ",))[0])
+
+    ok_ol, f_ol, m_ol = gate_outline(m)
+    check("G-6 passes a gapless outline", ok_ol)
+    stale = copy.deepcopy(m)
+    stale["blocks"][1]["content"].append(
+        {"k": "bullet", "runs": T("Compare with the result in see 9.7 above.")})
+    ok_st, f_st, _ = gate_outline(stale)
+    check("G-6 catches a cross-reference that resolves to nothing — the one "
+          "thing NA's editing can break silently",
+          not ok_st and any("does not resolve" in x for x in f_st))
+    live_ref = copy.deepcopy(m)
+    live_ref["blocks"][1]["content"].append(
+        {"k": "bullet", "runs": T("As shown in see 3.1 earlier.")})
+    check("G-6 accepts a cross-reference that does resolve",
+          gate_outline(live_ref)[0])
 
     print(f"notes_audit self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

@@ -63,10 +63,12 @@
 #   notes_docx.py  >= v1.1 — the SHARED builder/parser: build/parse/
 #                            validate_model/outline_of. Derived numbering and
 #                            the byte-identical round trip are its guarantees
-#   notes_audit.py >= v2.0 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
+#   notes_audit.py >= v2.1 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
 #                            record_key_correction, quarantine, gate_line_rules,
 #                            gate_answer_integrity, gate_counters,
-#                            gate_orphan_terms, terminal_regate, audit_summary
+#                            gate_orphan_terms, gate_anatomy,
+#                            gate_question_format, gate_outline,
+#                            terminal_regate, audit_summary
 #
 # PURPOSE:
 #   Guarantee that the delivered document teaches every in-syllabus PYQ of one
@@ -287,26 +289,37 @@ pass.
       literal glyph, so the D-1 check saw nothing at all). D-1 is also
       enforced at CONSTRUCTION by notes_docx.validate_model, so the two layers
       agree rather than one silently covering for the other.
-  G-2 MATH, all three reporting ZERO findings:
-      (a) OMML presence by XML assertion (notes_core.assert_omml). NEVER
+  G-2 MATH — three separately reported gates, all reporting ZERO findings.
+      They are named G-2a / G-2b / G-2c here because those are the exact keys
+      terminal_regate writes into the report and audit_summary; "G-2" alone is
+      the umbrella, never a report key.
+      G-2a OMML presence by XML assertion (notes_core.assert_omml). NEVER
           verify equations through a LibreOffice-rendered preview: LibreOffice
           drops OMML SILENTLY (verified 2026-08-08 with a minimal fixture).
-      (b) STRUCTURAL-OMML SCAN: no textual exponent, no unicode super/subscript
-          character inside any oMath region.
-      (c) FLAT-TOKEN SCAN: no un-styled math token in any plain text run.
-  G-3 ANATOMY: required blocks for the unit's tier present and in section 6A
-      order; RECALL items follow the Example template minus Explanation and
-      SPEED HACK; adjacent boxes separated by spacers.
-      notes_docx.validate_model enforces most of this at CONSTRUCTION, so the
-      gate is a re-assertion on the built file rather than the only line of
-      defence.
+      G-2b STRUCTURAL-OMML SCAN (notes_core.scan_omml_structural): no textual
+          exponent, no unicode super/subscript character inside any oMath
+          region.
+      G-2c FLAT-TOKEN SCAN (notes_core.scan_flat_math_tokens): no un-styled
+          math token in any plain text run.
+  G-3 ANATOMY (notes_audit.gate_anatomy): required blocks for the unit's tier
+      present and in section 6A order; adjacent boxes separated by spacers.
+      notes_docx.validate_model owns the contract and enforces it at
+      CONSTRUCTION, so this gate re-asserts it on the model that produced the
+      SHIPPED file — which matters because NA edits that model after NC built
+      it.
   G-4 CONTENT-STYLE BAN SCAN (notes_core.scan_prose_bans), honouring per-unit
       exemptions declared in the blueprint.
-  G-5 QUESTION-FORMAT: every Example and Recall matches the fixed template and
-      its type is a member of the blueprint's allowed_question_types; across
-      the unit all allowed types are represented where evidence permits.
-  G-6 OUTLINE-NUMBER INTEGRITY: numbering gapless and sequential, every
-      in-text cross-reference resolving. notes_docx.outline_of is the oracle.
+  G-5 QUESTION-FORMAT (notes_audit.gate_question_format): every Example and
+      Recall matches the fixed template, its type is a member of the
+      blueprint's allowed_question_types, and a Recall carries neither an
+      Explanation nor a SPEED HACK. The gate reports which allowed types went
+      unused across the unit so type coverage is visible rather than assumed.
+  G-6 OUTLINE-NUMBER INTEGRITY (notes_audit.gate_outline): numbering gapless
+      and sequential, and every in-text cross-reference ("see n.k") resolving
+      to a number that exists. notes_docx.outline_of is the oracle. Because
+      numbers are DERIVED from block order, a stale cross-reference is the only
+      way this can break — and it is exactly what NA's editing can introduce
+      silently, since removing a block renumbers everything after it.
   G-7a VISUAL LAYOUT (notes_audit.preflight -> renderer). Render and inspect
       every page for tables past the margin, boxes split mid-Answer,
       illegible figures, orphan headings and trailing blank pages.
@@ -342,13 +355,20 @@ pass.
       certifies a file that no longer exists: a correction that fixes Q7 and
       breaks Q12's cross-reference is exactly what a pre-patch certification
       misses. Only G-9 (advisory) and a DORMANT G-7a are non-blocking.
+      G-11 is itself REPORTED as a gate, carrying the certified sha256 and the
+      number of gates run, so audit_summary shows plainly WHICH bytes were
+      certified rather than asserting it in prose alone. Every identifier in
+      notes_audit.GATES appears in the report; notes_sync_audit.py checks that
+      this list and this section still agree.
 
 ## §6 — REPORT AND STATE
 There is NO .md audit report. The report OBJECT (notes_audit.new_report) is
 still built and is still the certification instrument — pass_for_unit operates
 on it and is the vacuous-pass floor — but the persisted artifact is
 notes_audit.audit_summary(...) stored INSIDE the registry unit record
-(notes-registry/2.1). It carries: verdict counts by class, the key-correction
+(notes-registry/2.1). The summary itself carries the report schema string
+notes-audit-report/2.0 (notes_audit.REPORT_SCHEMA), so a schema bump is
+visible to a reader of the registry and to notes_sync_audit.py. It carries: verdict counts by class, the key-correction
 list with tiers, the judgement-tier count, the quarantine list, the
 improvement and patch counts, the FIGURE_PENDING queue, every gate result,
 the bank_ref and taxonomy_ref the unit was audited against, and the final_ref

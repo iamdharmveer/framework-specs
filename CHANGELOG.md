@@ -1,5 +1,89 @@
 # Changelog
 
+## 2026.08.12.4
+
+### The cross-step sync audit becomes an engine (GAP-2026-08-12-NOTESYNC)
+`notes_core` v2.1 stated its own limit plainly: *"Coverage is deliberately
+narrow — NotesCreate only... NB section 5's tier bands and the NA/ND
+restatements are NOT yet spec-read and can still drift prose-side."* Every
+defect the 2026-08-12 end-to-end audit found lived in exactly that uncovered
+space, and four of the five were found by a human reading files — which is not
+a control. It does not run in CI, it does not run on the next patch, and it
+does not run six months from now.
+
+- **`notes_sync_audit.py` v1.0 (NEW, tracked, repo-level auditor — not routed
+  to any trigger).** Nine checks, each comparing one authority against another
+  rather than holding an opinion of its own: S-1 spec->engine symbol
+  resolution; S-2 gate identifiers; S-3 schema citation both ways; S-4 engine
+  constants restated in prose (extending the SPEC-LOCK reverse half from NC
+  alone to all four specs); S-5 companion-version claims; S-6 cross-step
+  artifact handshake; S-7 vocabularies; S-8 filename recipes not re-spelled;
+  S-9 routing parity. Its own self-test MUTATES a copy of the repo and asserts
+  each check fires — an auditor whose tests only prove it passes a clean repo
+  would still pass if every check were `return True`. 10/10.
+  - **Stated limit, so nobody over-trusts it:** it checks AGREEMENT, not
+    correctness. Four specs and an engine can be unanimously wrong and every
+    check will pass. It catches drift, not a bad idea implemented consistently.
+
+**What the auditor found on its first run against production — four real
+drifts, all now fixed:**
+
+- **`notes_audit.py` v2.0 -> v2.1 — the terminal re-gate did not run every gate
+  it promised.** Framework_NotesAudit section 5 claimed G-11 re-runs "EVERY
+  gate above", but only 11 of 14 identifiers were emitted: **G-3** (anatomy),
+  **G-5** (question format and type coverage) and **G-6** (outline integrity)
+  were left to Claude-side judgement and appeared in no report — a spec promise
+  with nothing enforcing it. All three are now mechanical (`gate_anatomy`,
+  `gate_question_format`, `gate_outline`). G-6 in particular now resolves
+  in-text cross-references ("see 7.3") against the derived outline, which is
+  the one thing NA's editing can break silently: removing a block renumbers
+  everything after it.
+- **G-11 was named by the spec but absent from `notes_audit.GATES`,** so the
+  engine's gate registry and the spec disagreed about what a report can
+  contain. G-11 is now registered and emitted, carrying the certified sha256
+  and the count of gates run — "the certification covers the bytes that ship"
+  now appears in the report rather than only in prose.
+- **`REPORT_SCHEMA` ("notes-audit-report/2.0") was emitted into every
+  `audit_summary` but cited by no spec,** so a schema bump would have been
+  invisible spec-side. Framework_NotesAudit section 6 now cites it.
+- **The NA spec described G-2 as one gate with sub-points (a)/(b)/(c) while
+  the report writes the keys `G-2a`/`G-2b`/`G-2c`.** The identifiers a reader
+  sees in `audit_summary` did not appear anywhere in the spec. Section 5 now
+  names all three explicitly and marks "G-2" as the umbrella, never a key.
+
+**A defect in the auditor itself, found by its own fixtures.** `_load` used
+`importlib.import_module`, which returns whatever is already in `sys.modules` —
+so auditing a second repository in the same process silently re-used the FIRST
+repository's engines and reported on files it never read. Every engine-side
+change was invisible. That is exactly the "a check that cannot fail" failure
+this module exists to catch, occurring inside this module. Fixed with an
+explicit file-path loader plus cache eviction plus root-at-the-front of
+sys.path. Mutation testing measured the redundancy honestly: reverting the
+function wholesale IS caught, while removing any ONE of the three mechanisms is
+NOT, because each is independently sufficient — recorded in the docstring so a
+later reader does not delete two of them on the evidence that deleting one
+changed nothing.
+
+**Fixture strength.** `fires()` originally asserted only the check id, so a
+two-directional check (S-2, S-3, S-5, S-6) looked tested while one branch had
+no fixture at all — disabling it survived. Assertions now pin the branch by
+message. Auditor mutation battery: 13/13 killed across every branch.
+
+**Also fixed during the build, in the auditor itself** — each found by its own
+fixtures rather than by inspection: `notes_blueprint.json` was being read as a
+call to `notes_blueprint.py` (an artifact mistaken for an engine, which would
+have trained the reader to ignore the report); the gate-id regex was
+`G-\d+[ab]?` and so could not express `G-2c`, reporting a real gate as
+undocumented; the S-6 fixture replaced only the first of three mentions and
+therefore passed for the wrong reason.
+
+- **CI** now runs `notes_sync_audit.py` and every Notes engine self-test on
+  each build. MANIFEST 40 -> 41 files.
+
+**Verification.** bootstrap 41/41; validator 0 issues; `notes_audit` self-test
+65 -> 80; `notes_audit` gates emitted 11 -> 14; `notes_sync_audit` 17/17; sync audit 0 findings; all prior mutation
+batteries re-run.
+
 ## 2026.08.12.3
 
 ### Final sync audit of the Notes pipeline — four defects found and fixed (GAP-2026-08-12-NADOCX, patch P3 of 3)

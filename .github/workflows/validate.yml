@@ -22,3 +22,10 @@ jobs:
         run: if [ -f validate_framework_md.py ]; then python3 validate_framework_md.py Framework_*.md; fi
       - name: Trigger names consistent (skill == routes.json == PIPELINE)
         run: if [ -f check_triggers.py ]; then python3 check_triggers.py; fi
+      - name: Notes cross-step sync audit (specs vs engines)
+        run: if [ -f notes_sync_audit.py ]; then python3 notes_sync_audit.py; fi
+      - name: Notes engine self-tests
+        run: |
+          for m in notes_core notes_docx notes_audit notes_blueprint notes_sync_audit; do
+            [ -f "$m.py" ] && python3 "$m.py" --self-test
+          done
