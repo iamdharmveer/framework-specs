@@ -18,7 +18,7 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               "blueprint_core.py", "paper_pipeline.py", "final_assembly.py",
               "corpus_io.py", "reconcile_taxonomy.py", "syllabus_provenance.py",
               "figural_core.py", "figural_vision.py", "audit_canonical.py",
-              "spec_source.py",
+              "spec_source.py", "spec_name_audit.py",
               "frequency_xlsx.py",
               "notes_core.py", "notes_blueprint.py", "notes_audit.py",
               "notes_docx.py", "notes_sync_audit.py"]

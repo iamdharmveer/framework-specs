@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7949,
-      "sha256": "29382a95c440599ccb78f6059fbb6c3c24ccbbfda66d1f5f7e193009654f43c0",
-      "size_bytes": 499469,
-      "version_header": "# Framework_MockTestCreate v5.53.1"
+      "lines": 8008,
+      "sha256": "df8496d38ac1e86a759147ac1bb4292471198536a22b048139b865a7c74ce9b3",
+      "size_bytes": 504457,
+      "version_header": "# Framework_MockTestCreate v5.53.2"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -377,6 +377,13 @@
       "sha256": "c1348cc03caff4ab9d16274552df9425f758bee2bde3d66e738259a0f87d6d42",
       "size_bytes": 56245,
       "version_header": "\"\"\""
+    },
+    "spec_name_audit.py": {
+      "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
+      "lines": 519,
+      "sha256": "42a30794fb3063008623f845f37f29df6954d29aeba8993f1138e242fad7c12d",
+      "size_bytes": 19057,
+      "version_header": "\"\"\"spec_name_audit.py v1.0 — cross-block undefined-name auditor for spec-inline python."
     }
   },
   "generated_at": "2026-08-07T06:33:50Z"

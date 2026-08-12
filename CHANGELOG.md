@@ -1,5 +1,64 @@
 # Changelog
 
+## 2026.08.12.13
+
+### Spec-inline name-flow audit — closing the CLASS, not just the instance
+The `.12` audit exposed the verification chain's one structural blind spot:
+Framework_*.md ```python blocks are syntax-checked (Check B) but never
+name-flow-analysed (Check AJ covers only .py engines) — which is exactly how
+the `batches_completed` NameError survived 7+ releases.
+
+- **`spec_name_audit.py` v1.0 (NEW, tracked, repo-level auditor — not routed
+  to any trigger; same standing as validate_framework_md.py /
+  notes_sync_audit.py).** Simulates sequential notebook-cell execution of
+  every ```python block in every spec: names bound per block accumulate;
+  any name READ before any block binds it (and not a builtin, and not
+  inside a NameError-catching guard) is a finding. Handles function/lambda/
+  comprehension scoping correctly. Self-test 16/16, including the
+  batches_completed calibration fixture (the buggy shape MUST flag, the
+  fixed shape MUST pass) — mutation-verified (neutering the analyzer, the
+  cross-block accumulation, or the ratchet each fails its own fixtures).
+  - **Stated limit, so nobody over-trusts it:** file order approximates but
+    does not equal execution order, and the specs legitimately contain
+    illustrative fragments, prose-contract inputs, and trigger-provided
+    names. A finding is a LEAD, not automatically a bug — hence the ratchet.
+- **Baseline ratchet in CI.** `spec_name_audit_baseline.json` freezes the
+  208 triaged pre-existing findings across 16 files; the new CI step fails
+  only on findings NOT in the baseline. Rolling Framework_MockTestCreate.md
+  back to its v5.53.0 state makes the ratchet fail on exactly the 4 real
+  bugs (batches_completed + the 3 below) — verified live, proof the tool
+  catches this entire class automatically.
+
+**What its first run found — 3 more real bugs in Framework_MockTestCreate.md
+(v5.53.2), all fixed:**
+
+- **GAP-2026-08-12-S3-17B-BC-UNBOUND** — S3-17b (§3, session start; added by
+  v5.50/v5.51) reads `bc.axis1_mock_feasibility(...)`, but the file's only
+  `import blueprint_core as bc` lived at §7 S7-NEW-B, which executes later.
+  Fixed: explicit import at the top of the S3-17b block.
+- **GAP-2026-08-12-S7-AXIS-COUNTS-UNINIT** — S7-AXIS assigns
+  `axis1_paper_counts[sec_name] = snap` and S7-NEW-B reads it; nothing ever
+  initialised the dict. Fixed: `axis1_paper_counts = {}` at its producer.
+- **G-ALTGROUP / G-GROUPMANDATE / G-MINCOUNT** (§12) called `sys.exit(...)`
+  with `sys` never imported by any block in the file. Fixed:
+  `raise SystemExit(...)` — no import needed, and already the file's own
+  house style (20 existing gates).
+
+**Explicitly flagged, deferred (design change, not a hardening):**
+`GAP-2026-08-12-AXISPAPER-PERSISTENCE` — S7-AXIS's `reg['axis1_paper']`/
+`reg['axis3_paper']` writes mutate an in-memory object no block ever
+json.dumps, so in strict execution order they never reach the delivered
+registry. No engine consumes either field today (verified by grep). The fix
+(threading the snapshots through `final_assembly.commit_registry()`,
+mirroring the `axis2_window_counts` precedent) is recommended as its own
+scoped release. Documented inline at S7-AXIS.
+
+Full chain clean after all changes: `gen_manifest.py` (43 files) →
+`bootstrap.py` → `validate_framework_md.py` (0 issues) →
+`check_triggers.py` → all engine self-tests (blueprint_core 391/391,
+paper_pipeline 72/72, audit_canonical 248/248, final_assembly 79/79,
+spec_name_audit 16/16) → live end-to-end exec of the §13 blocks.
+
 ## 2026.08.12.12
 
 ### Final Assembly engine hardening — post-extraction 0-bug audit

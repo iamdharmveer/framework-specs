@@ -31,3 +31,9 @@ jobs:
           done
       - name: Final Assembly engine self-test (GAP-2026-08-12-FINAL-ASSEMBLY-ENGINE)
         run: if [ -f final_assembly.py ]; then python3 final_assembly.py --self-test; fi
+      - name: Spec-inline undefined-name audit (GAP-2026-08-12-SPEC-INLINE-NAME-AUDIT)
+        run: |
+          if [ -f spec_name_audit.py ]; then
+            python3 spec_name_audit.py --self-test
+            python3 spec_name_audit.py --check-baseline spec_name_audit_baseline.json Framework_*.md
+          fi

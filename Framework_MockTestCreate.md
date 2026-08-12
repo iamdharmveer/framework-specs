@@ -1,4 +1,37 @@
-# Framework_MockTestCreate v5.53.1
+# Framework_MockTestCreate v5.53.2
+# v5.53.2 — 2026-08-12 — SPEC-INLINE NAME-FLOW AUDIT (GAP-2026-08-12-SPEC-INLINE-NAME-AUDIT)
+#   The v5.53.1 audit proved the one blind spot in the whole verification chain: spec-inline
+#   ```python blocks are syntax-checked (validate_framework_md.py Check B) but never
+#   name-flow-analysed (Check AJ covers .py engines only), which is how the
+#   batches_completed NameError survived 7+ releases. This release closes the CLASS, not
+#   just the instance: new tracked repo-level auditor `spec_name_audit.py` v1.0 simulates
+#   sequential (notebook-cell) execution of every ```python block in every Framework_*.md
+#   and flags any name read before any block binds it. Calibrated against the known bug
+#   shape (its self-test embeds the batches_completed fixture: buggy shape MUST flag, fixed
+#   shape MUST pass; 16/16, mutation-verified). CI now runs it in baseline-ratchet mode
+#   (spec_name_audit_baseline.json freezes the triaged pre-existing findings — illustrative
+#   fragments, prose-contract inputs, trigger-provided names; any NEW finding fails CI).
+#   Rolling this file back to its v5.53.0 state makes the ratchet fail on exactly the 4
+#   real bugs — proof the tool would have caught all of them automatically.
+#   ITS FIRST RUN AGAINST THIS FILE FOUND 3 MORE REAL BUGS, ALL FIXED HERE:
+#   1. GAP-2026-08-12-S3-17B-BC-UNBOUND — S3-17b (§3, session start; added v5.50/v5.51)
+#      reads `bc.axis1_mock_feasibility(...)`, but this file's only
+#      `import blueprint_core as bc` lived at §7 S7-NEW-B, which executes LATER. NameError
+#      in strict execution order. Fixed: explicit import at the top of the S3-17b block.
+#   2. GAP-2026-08-12-S7-AXIS-COUNTS-UNINIT — S7-AXIS's snapshot loop assigns
+#      `axis1_paper_counts[sec_name] = snap` and S7-NEW-B reads it, but nothing anywhere
+#      initialised the dict. NameError in strict execution order. Fixed:
+#      `axis1_paper_counts = {}` at its producer.
+#   3. G-ALTGROUP / G-GROUPMANDATE / G-MINCOUNT (§12) called `sys.exit(...)` with `sys`
+#      never imported by any block in this file. Fixed: `raise SystemExit(...)` — needs no
+#      import and is this file's own house style (20 existing gates already use it).
+#   ALSO EXPLICITLY FLAGGED, NOT FIXED (GAP-2026-08-12-AXISPAPER-PERSISTENCE, deferred —
+#   design change, not a hardening): S7-AXIS's `reg['axis1_paper']`/`reg['axis3_paper']`
+#   writes mutate the in-memory §3 `reg` object that no block ever json.dumps, so in
+#   strict execution order they never reach the delivered registry. No engine consumes
+#   either field today (verified by grep), so nothing mis-audits; the fix (threading the
+#   snapshots through final_assembly.commit_registry(), mirroring axis2_window_counts) is
+#   recommended as its own scoped release. Documented inline at S7-AXIS.
 # v5.53.1 — 2026-08-12 — FINAL ASSEMBLY ENGINE HARDENING (post-extraction 0-bug audit)
 #   A dedicated final adversarial audit (3 independent passes: byte-fidelity diff of
 #   final_assembly.py against the pre-extraction spec-inline code it replaced, spec-inline
@@ -2184,6 +2217,13 @@
   # Axis-3: axis3_target_per_mock does not rotate per mock (no series to substitute) —
   #   checked directly via bc.axis3_mock_feasibility, gated by _position_based_typing
   #   (the S3-2 variable, reused as-is — NEVER recomputed here).
+  # v5.53.2 (GAP-2026-08-12-S3-17B-BC-UNBOUND, found by spec_name_audit.py): this block
+  # runs at SESSION START (§3), but this file's only `import blueprint_core as bc` lived
+  # at §7 S7-NEW-B — a block that executes LATER. Reading `bc` here was therefore a
+  # NameError in strict execution order — the same class as GAP-2026-08-12-S13-4-
+  # UNDEFINED-BATCHES-COMPLETED. Bound explicitly here (v5.34's own rule: a new read
+  # states its import; re-importing at S7-NEW-B is a harmless no-op).
+  import blueprint_core as bc
   axis1_preflight_shortfalls = {}
   axis3_preflight_shortfalls = {}
   for sec_name, id_map in alloc_ids.items():
@@ -4168,6 +4208,12 @@
   # a reader that only ever consumed the CURRENT mock's own commit (the common case)
   # reads `reg['axis1_paper'][str(N)]` instead of `reg['axis1_paper']` and gets the
   # identical per-section dict it always got; a reader that wants history now has it.
+  # v5.53.2 (GAP-2026-08-12-S7-AXIS-COUNTS-UNINIT, found by spec_name_audit.py):
+  # `axis1_paper_counts` was subscript-assigned below and read at S7-NEW-B
+  # (`axis1_paper_counts.get(sec_name, {})`) but INITIALISED NOWHERE in this file —
+  # a NameError in strict execution order, same class as GAP-2026-08-12-S13-4-
+  # UNDEFINED-BATCHES-COMPLETED. Initialised here, at its producer.
+  axis1_paper_counts = {}
   for sec_name, tr in axis1_trackers.items():
       snap = bc.axis_snapshot(tr)
       if snap is not None:
@@ -4178,6 +4224,16 @@
       if snap is not None:
           reg.setdefault('axis3_paper', {}).setdefault(str(N), {})[sec_name] = snap
   ```
+  KNOWN, EXPLICITLY FLAGGED GAP — NOT fixed here (GAP-2026-08-12-AXISPAPER-PERSISTENCE,
+  deferred): the `reg['axis1_paper']`/`reg['axis3_paper']` writes above mutate the
+  in-memory §3 `reg` object, but no code block in this file `json.dump`s that object —
+  S13-4 reloads `registry` fresh from disk, so in strict execution order these two
+  fields reach the delivered registry only if a session improvises a dump. No engine
+  currently consumes either field (verified by grep across all tracked .py), so nothing
+  mis-audits today; but the v5.49 history rationale above is aspirational until the
+  snapshots are threaded through final_assembly.commit_registry() (the natural home —
+  the axis2_window_counts parameter is the established precedent). That is a scoped
+  design change, deliberately not bundled into a hardening release.
   Absent-safe end to end: no `axis_schedule` (pre-v1.23 blueprint) ⇒ every tracker is None ⇒
   pick_presentation falls back to the exact v5.13 family-menu rotation, and nothing is written
   to `reg['axis2_window']`. The feature turns itself off with zero behavioural drift.
@@ -6282,7 +6338,10 @@
         present = [m for m in members if m in mock_ids]
         if len(present) > 1:
             disp = [manifest['subtopics'].get(m, {}).get('display_name', m) for m in present]
-            sys.exit(f"G-ALTGROUP: Mock {N} — alternation group '{group}' has "
+            # v5.53.2: raise SystemExit, not sys.exit — `sys` was never imported by any
+            # earlier block in this file (spec_name_audit.py finding); SystemExit needs
+            # no import and is this file's own house style (every other gate uses it).
+            raise SystemExit(f"G-ALTGROUP: Mock {N} — alternation group '{group}' has "
                      f"{len(present)} members present ({', '.join(disp)}); ≤1 allowed.")
     ```
     Empty alternation_groups ⇒ nothing to enforce ⇒ pass (no false stop).
@@ -6305,8 +6364,8 @@
         have    = sum(1 for m in members if counts.get(m, 0) > 0)
         if have < need:
             disp = [manifest['subtopics'].get(m, {}).get('display_name', m) for m in members]
-            sys.exit(f"G-GROUPMANDATE: Mock {N} — group '{group}' has {have} of "
-                     f"[{', '.join(disp)}] present; needs >={need}.")
+            raise SystemExit(f"G-GROUPMANDATE: Mock {N} — group '{group}' has {have} of "
+                     f"[{', '.join(disp)}] present; needs >={need}.")  # v5.53.2: was sys.exit, sys never imported
     ```
     Empty mandatory_groups ⇒ pass. Fixable: regenerate so ≥min members appear
     (Step 1 RULE M4 should have guaranteed this in the blueprint).
@@ -6320,8 +6379,8 @@
         c = counts.get(mid, 0)
         if c < k:
             disp = manifest['subtopics'].get(mid, {}).get('display_name', mid)
-            sys.exit(f"G-MINCOUNT: Mock {N} — {mid} ('{disp}') has {c}Q generated; "
-                     f"needs >={k}.")
+            raise SystemExit(f"G-MINCOUNT: Mock {N} — {mid} ('{disp}') has {c}Q generated; "
+                     f"needs >={k}.")  # v5.53.2: was sys.exit, sys never imported
     ```
     Empty min_counts ⇒ pass. NOTE: manifest.cadence_windows is intentionally NOT
     gated in Step 7 — cadence is cross-mock (see S3-17 note + Step 1 RULE M5).
@@ -7866,7 +7925,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.53.1
+# END OF Framework_MockTestCreate v5.53.2
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
