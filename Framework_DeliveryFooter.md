@@ -1,4 +1,16 @@
-# Framework_DeliveryFooter v1.19 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.20 — Universal Delivery Footer (F1/F2) Contract
+# v1.20 — 2026-08-12 — NOTES HANDOFF BY ATTACHMENT (GAP-2026-08-12-NADOCX P2;
+#   pairs with Framework_NotesAudit v3.0.0 / NotesCreate v2.3.0 / NotesDeliver
+#   v1.2.0). The section 3 NC/NA/ND entries change: the notes .docx now moves
+#   between steps as a CHAT ATTACHMENT, not through Project Files, so its badge
+#   is "Use locally" at every step and the Next callout says to attach it. Only
+#   notes_registry.json is still filed — every step reads it from there, and it
+#   now carries draft_ref, final_ref and audit_summary (notes-registry/2.1).
+#   [ExamCode]_<unit>_Audit.md is REMOVED from ND's and NA's deliverable lists:
+#   NA no longer writes one. Filenames are the three engine authorities
+#   (notes_filename / notes_final_filename / notes_deliver_filename). The
+#   4-cell NOTES bar and every rendering rule are UNCHANGED — ND survives, so
+#   the pipeline is still 4 steps.
 # v1.19 — 2026-08-10 — NOTES CROSS-CHAT HANDOFF (supersedes v1.18's "NC/NA
 #   present nothing"). v1.18 marked NC and NA intermediate, which only holds if
 #   all four Notes steps run in ONE session — but the framework idiom is a new
@@ -539,11 +551,11 @@ NEXT STEP  : Pipeline complete for this mock.
 NOTES PIPELINE (NB / NC / NA / ND)
 ═══════════════════════════════════════════════════════════════════════
 A SEPARATE pipeline. Its F2 footers use the 4-cell NOTES bar (§4-4), never the
-11-cell Mock/PYQ bar. Each step runs in its OWN chat (framework idiom), so every
-step reads its inputs from Project Files, present_files its outputs, and its
-footer tells the operator to upload them to Project Files before the next step's
-new chat — the same cross-chat persistence NB's bank uses. All four steps
-therefore present files and render a footer. The registry (notes_registry.json)
+11-cell Mock/PYQ bar. Each step runs in its OWN chat (framework idiom). v1.20:
+the JSON artifacts (bank, blueprint, registry) persist through Project Files as
+before, but the notes .docx moves between NC -> NA -> ND as a CHAT ATTACHMENT —
+so its badge is "Use locally" and the Next callout tells the operator to attach
+it. All four steps still present files and render a footer. The registry (notes_registry.json)
 is re-presented by every step that changes a unit's state (DRAFTED → AUDITED_PASS
 → DELIVERED).
 
@@ -573,10 +585,13 @@ PARTS      : 1 subtopic per run (single response)
 FOOTER TYPE: F2 (step-complete) — the subtopic draft is done
 
 DELIVERABLES:
-  [ExamCode]_<unit>.docx (draft)     → Upload to Project Files (NA reads it)
-  notes_registry.json                → Replace in Project Files (unit → DRAFTED)
+  [ExamCode]_<unit>.docx (draft)     → Use locally, then ATTACH to the NA chat
+    (v1.20: the draft is NOT filed — Framework_NotesAudit §0A takes it as a
+     chat attachment, and §0B verifies it against the registry's draft_ref)
+  notes_registry.json                → Replace in Project Files (unit → DRAFTED,
+    carrying draft_ref)
 
-NEXT STEP  : NA: NotesAudit (in a new chat)
+NEXT STEP  : NA: NotesAudit (in a NEW chat, with the draft ATTACHED)
 
 ═══════════════════════════════════════════════════════════════════════
 NA — NotesAudit
@@ -586,13 +601,14 @@ FOOTER TYPE: F2 (step-complete) on AUDITED_PASS
              F1 AMBER (quality-gate variant) if the §4 loop exits at the L-3
              non-convergence diagnostic
 
-DELIVERABLES (on AUDITED_PASS):
-  [ExamCode]_<unit>.docx (audited)   → Upload to Project Files (ND delivers it;
-    byte-identical to what ND ships)
-  [ExamCode]_<unit>_Audit.md         → Upload to Project Files
-  notes_registry.json                → Replace in Project Files (unit → AUDITED_PASS)
+DELIVERABLES (NA emits exactly one document in EVERY outcome — v1.20):
+  [ExamCode]_<unit>_Final.docx       → Use locally, then ATTACH to the ND chat
+    (notes_core.notes_final_filename; no _Audit.md exists any more — the
+     evidence is the unit's audit_summary inside the registry)
+  notes_registry.json                → Replace in Project Files (unit →
+    AUDITED_PASS, carrying final_ref and audit_summary)
 
-NEXT STEP  : ND: NotesDeliver (in a new chat)
+NEXT STEP  : ND: NotesDeliver (in a NEW chat, with the _Final ATTACHED)
 
 ═══════════════════════════════════════════════════════════════════════
 ND — NotesDeliver
@@ -601,8 +617,8 @@ PARTS      : 1 unit per run (single response)
 FOOTER TYPE: F2 (step-complete) — always
 
 DELIVERABLES:
-  [ExamCode]_<unit>.docx             → Use locally (IFAS portal — Word-native)
-  [ExamCode]_<unit>_Audit.md         → Use locally
+  [ExamCode]_<unit>_Deliver.docx     → Use locally (IFAS portal — Word-native;
+    notes_core.notes_deliver_filename)
   notes_registry.json                → Replace in Project Files (unit → DELIVERED)
 
 NEXT STEP  : NC: NotesCreate (next subtopic), or Notes pipeline complete when all
@@ -866,7 +882,8 @@ After Step 11  → Pipeline complete for Mock [N].
 NOTES PIPELINE (separate):
 After NB       → NC: NotesCreate (one subtopic at a time)
 After NC       → NA: NotesAudit
-After NA       → ND: NotesDeliver (on AUDITED_PASS; NA loops to NC on any gap)
+After NA       → ND: NotesDeliver (NA is self-contained from v3.0.0: it
+                 corrects, rebuilds and always emits one _Final.docx)
 After ND       → NC: NotesCreate (next subtopic), or Notes pipeline complete when
                  all blueprinted units are DELIVERED.
 ```

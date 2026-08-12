@@ -1,5 +1,93 @@
 # Changelog
 
+## 2026.08.12.2
+
+### NotesAudit becomes a writer (GAP-2026-08-12-NADOCX, patch P2 of 2)
+Through v2.0.6, NA was a read-only certifier: it produced verdicts and routed
+every defect BACK to NC, and its §7 stated the audited file was "the SAME file
+ND ships — delivery never edits content". NA now VERIFIES, CORRECTS, IMPROVES
+and EMITS the student-facing document itself. P1 (2026.08.12.1) built the
+foundation this needed; P2 is the role inversion.
+
+- **`Framework_NotesAudit.md` v2.0.6 -> v3.0.0 (BREAKING).**
+  - **Input by attachment (§0A/§0B).** The unit .docx arrives attached to the
+    trigger; bank, blueprint and registry stay in Project Files. Attachment
+    removes the implicit guarantee that the file audited is the file NC
+    produced, so three HARD-STOP preflights replace it — filename identity,
+    exam-code cross-check, and sha256 against the registry's `draft_ref`. They
+    are reported SEPARATELY because they mean different things: a filename
+    mismatch is usually the wrong unit attached (the one error that would
+    otherwise produce a perfectly clean audit of the wrong notes), a sha256
+    mismatch is a hand-edit in between. `--accept-modified` downgrades P-3
+    only; P-1 and P-2 are never overridable.
+  - **Rebuild, never XML surgery (§2A).** NA parses the draft to a `notes_docx`
+    content model, edits the MODEL, and rebuilds through the shared builder.
+    Numbers are derived, untouched maths is never re-authored, and the rebuild
+    is a fixed point.
+  - **Key correction (§3A)** — supersedes v2.0.0 owner decision 4a for the
+    correction path. Where the notes-derived answer disagrees with the stored
+    key, NA teaches the CORRECT method rather than bending the notes to a wrong
+    key, which would mean deliberately teaching a student the wrong method so
+    the document agrees with a defect. Two tiers: a bank that contradicts
+    ITSELF (its verbatim explanation concludes one option while its
+    `correct_answer` names another — a Step-5 extraction defect with evidence
+    from inside the bank) is corrected silently; a bank that is internally
+    consistent is still corrected, but DISCLOSED in the chat. Without the tier
+    split every disagreement would resolve in NA's favour and the ground-truth
+    check would be decorative. No cap, per owner decision; the count is
+    reported because an unusual number in one unit more likely means the wrong
+    paper was bound upstream than that the examiner erred that often. **The
+    bank is never written** — editing it would fail `verify_bank_ref` for every
+    unit in the exam and force a full NB re-run.
+  - **Fourth verdict `SOLVABLE_KEY_CORRECTED`**, counting toward the pass.
+  - **Always deliver (§4/§9).** Exactly one file in every outcome, always
+    `_Final.docx`. A question that survives the loop is QUARANTINED, not
+    shipped as a warning — nothing inside the document ever marks a defect.
+    Quarantined questions stay in the pass DENOMINATOR, so quarantining can
+    never manufacture a pass by shrinking what must be solved.
+  - **No .md report (§6).** Evidence moves into `notes_registry.json` as
+    `audit_summary`. The report OBJECT stays: `pass_for_unit` operates on it
+    and IS the vacuous-pass floor, so dropping the object would delete the
+    certification, not just the file.
+- **`notes_audit.py` v1.3 -> v2.0.** Fourth verdict; `classify_key_conflict`,
+  `record_key_correction`, `disclosable_corrections`, `quarantine`,
+  `log_improvement`; gates `gate_line_rules` (G-7b), `gate_answer_integrity`
+  (G-8), `gate_orphan_terms` (G-9), `gate_counters` (G-10); `terminal_regate`
+  (G-11) and `audit_summary`. Self-test 27 -> 63.
+  - **G-7b exists because the visual check cannot cover equations.**
+    LibreOffice drops OMML silently on conversion (G-2a, verified 2026-08-08),
+    so a rendered page shows the maths MISSING whether or not it fits. Equation
+    and figure geometry is therefore asserted structurally: every paragraph
+    carrying an equation or image must use an AUTO line rule. A fixed rule
+    CLIPS the object while leaving it present in the XML — the self-test proves
+    the point by mutating a built file to `lineRule="exact"` and showing G-2a
+    passes it while G-7b catches it.
+  - **G-11 certifies the bytes that ship**, not the pre-patch draft. NA edits
+    the document, so certifying the draft certifies a file that no longer
+    exists; a correction that fixes Q7 and breaks Q12's cross-reference is
+    exactly what a pre-patch certification misses.
+  - G-9 is advisory and G-7a degrades to DORMANT-but-reported without a
+    renderer; neither blocks. Everything else does.
+- **`Framework_NotesCreate.md` v2.2.1 -> v2.3.0.** NC builds through
+  `notes_docx.build` (new §4A); numbers are no longer written by NC; new §9A
+  records `draft_ref`, the only evidence NA has that the attached file is the
+  one NC produced; §9's handoff changes the draft badge to "Use locally" with
+  an instruction to ATTACH it to the NA chat.
+- **`Framework_NotesDeliver.md` v1.1.3 -> v1.2.0.** Consumes `_Final.docx`,
+  emits `_Deliver.docx` via `notes_deliver_filename`, reads verdicts from
+  `audit_summary`, and runs NA's §0B preflights against `final_ref` — a
+  delivery step that ships an unverified file is the one thing this pipeline
+  must not do. Portal formatting deferred by owner decision; the note records
+  that it will make ND a second writer needing its own terminal re-gate.
+- **`Framework_DeliveryFooter.md` v1.19 -> v1.20.** NC/NA/ND deliverable
+  entries updated for attachment handoff; `_Audit.md` removed everywhere. The
+  4-cell NOTES bar is unchanged — ND survives, so the pipeline is still 4 steps.
+- **`notes_core.py` v2.2 -> v2.3.** `REGISTRY_SCHEMA` -> `notes-registry/2.1`,
+  emitting `draft_ref` / `final_ref` / `audit_summary` per unit. P1 held this
+  back for one release because an engine emitting a schema its own specs do not
+  cite is exactly the drift the SPEC-LOCK block catches; the specs now cite it.
+  Self-test 137 -> 138.
+
 ## 2026.08.12.1
 
 ### Document construction becomes an engine (GAP-2026-08-12-NADOCX, patch P1 of 2)

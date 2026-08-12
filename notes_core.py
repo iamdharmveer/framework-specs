@@ -1,5 +1,17 @@
 """
-notes_core.py v2.2 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.3 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.3 — 2026-08-12 — REGISTRY SCHEMA 2.1 (GAP-2026-08-12-NADOCX patch P2 of 2).
+    P1 landed the 2.1 SHAPE while still emitting 2.0, because an engine that
+    emits a schema string its own specs do not cite is exactly the drift the
+    SPEC-LOCK block catches. P2 moves the specs, so the emitted schema moves
+    with them:
+      REGISTRY_SCHEMA -> "notes-registry/2.1". Unit records now carry
+      draft_ref (written by NC), final_ref (written by NA) and audit_summary
+      (NA's registry-embedded replacement for the .md audit report). 1.x and
+      2.0 registries still load, gaining the three fields as None — the P1
+      read-side default is unchanged, so nothing needs migrating.
+    No other surface changed.
 
 v2.2 — 2026-08-12 — NOTESAUDIT-AS-WRITER FOUNDATION (GAP-2026-08-12-NADOCX,
     patch P1 of 2). PURELY ADDITIVE: no existing function changes behaviour,
@@ -172,11 +184,12 @@ BULLET_TARGET_WORDS = 20
 BULLET_HARD_CAP_WORDS = 25
 TIER_PAGE_BANDS = {"TIER-1": (6, 15), "TIER-2": (4, 8), "TIER-3": (2, 5)}
 
-# v2.2: 2.1 is ACCEPTED but deliberately NOT EMITTED. REGISTRY_SCHEMA moves to
-# 2.1 in P2, together with the specs that cite it. An engine emitting a schema
-# string its own specs do not name is precisely the drift the SPEC-LOCK block
-# at the foot of this file exists to catch.
-REGISTRY_SCHEMA = "notes-registry/2.0"
+# v2.3: the specs now cite 2.1 (Framework_NotesAudit v3.0.0 /
+# Framework_NotesCreate v2.3.0), so the engine emits it. P1 deliberately held
+# this back for one release: an engine emitting a schema string its own specs
+# do not name is precisely the drift the SPEC-LOCK block at the foot of this
+# file exists to catch.
+REGISTRY_SCHEMA = "notes-registry/2.1"
 REGISTRY_SCHEMAS_ACCEPTED = ("notes-registry/1.0", "notes-registry/1.1",
                              "notes-registry/2.0", "notes-registry/2.1")
 BLUEPRINT_SCHEMA = "notes-blueprint/2.0"
@@ -330,6 +343,8 @@ def registry_init(exam_code, syllabus_hash, level, units, taxonomy_ref=None):
             "prose_ban_exemptions": u.get("prose_ban_exemptions", []),
             "state": "BLUEPRINTED", "stale": False, "notes_version": None,
             "audit": None, "artifacts": {},
+            # v2.3 (notes-registry/2.1)
+            "draft_ref": None, "final_ref": None, "audit_summary": None,
             "history": [{"at": _now(), "event": "BLUEPRINTED"}]}
     return reg
 
@@ -1419,7 +1434,7 @@ def self_test():
           TIER_PAGE_BANDS == {"TIER-1": (6, 15), "TIER-2": (4, 8),
                               "TIER-3": (2, 5)})
     check("spec-lock: schema strings as the specs cite them",
-          REGISTRY_SCHEMA == "notes-registry/2.0"
+          REGISTRY_SCHEMA == "notes-registry/2.1"
           and BLUEPRINT_SCHEMA == "notes-blueprint/2.0"
           and PYQ_BANK_SCHEMA == "notes-pyq-bank/1.1")
     check("spec-lock: NB §4 / registry vocabularies",
@@ -1484,9 +1499,17 @@ def self_test():
           == "not_found")
 
     # ---- v2.2: registry schema forward-compatibility ---------------------
-    check("registry: 2.1 accepted, 2.0 still EMITTED (specs move in P2)",
-          "notes-registry/2.1" in REGISTRY_SCHEMAS_ACCEPTED
-          and REGISTRY_SCHEMA == "notes-registry/2.0")
+    check("registry: 2.1 is now EMITTED, and 1.x/2.0 still load",
+          REGISTRY_SCHEMA == "notes-registry/2.1"
+          and {"notes-registry/1.0", "notes-registry/2.0"}
+          <= set(REGISTRY_SCHEMAS_ACCEPTED))
+    check("registry_init emits the 2.1 per-unit fields",
+          all(k in registry_init("EX", "h", "PG",
+                                 [{"sid": "s", "name": "N", "role": "COVERAGE",
+                                   "tier": "TIER-3",
+                                   "unit_code": "EX_S1_T1_ST01"}]
+                                 )["units"]["s"]
+              for k in ("draft_ref", "final_ref", "audit_summary")))
     _rp = tempfile.mktemp(suffix=".json")
     _reg = registry_init("EX", "h", "PG",
                          [{"sid": "a.b.c", "name": "N", "role": "COVERAGE",

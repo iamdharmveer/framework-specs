@@ -1,4 +1,34 @@
-# Framework_NotesCreate v2.2.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.3.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.3.0 — 2026-08-12 — SHARED BUILDER + DRAFT PROVENANCE (GAP-2026-08-12-NADOCX
+#   patch P2 of 2; pairs with Framework_NotesAudit v3.0.0).
+#     (1) CONSTRUCTION IS NOW AN ENGINE. NC builds the .docx by calling
+#         notes_docx.build(model, path) — never by hand-rolling paragraphs.
+#         Until 2026-08-12 document construction lived only in this spec's
+#         prose, so NC's run-time code was the sole implementation of the
+#         section 6A colour map, the decimal cascade, box styling, spacer
+#         paragraphs, rule F-7 and the OMML conventions. NA now writes
+#         documents too (v3.0.0), and two implementations of one contract is
+#         the defect class the 2026-08-10 sweep closed for filenames. New
+#         section 4A states the content model and the derived-numbering rule.
+#     (2) NUMBERS ARE NO LONGER WRITTEN BY NC. Every "n.k", "n.k.m",
+#         "Example j" and "Recall j" is DERIVED from block order by
+#         notes_docx.outline_of at render time. Section 6A's renumber rule is
+#         satisfied structurally: there is no stored number that can go stale.
+#     (3) DRAFT PROVENANCE (new section 9A). NC records
+#         notes_core.docx_ref_for(draft) into the registry unit as draft_ref
+#         (schema notes-registry/2.1). NA now receives its input as a CHAT
+#         ATTACHMENT rather than from Project Files, so nothing else would
+#         prove the file audited is the file NC produced. draft_ref is the
+#         evidence for NA section 0B P-3.
+#     (4) HANDOFF CHANGED (section 9). The draft is NO LONGER uploaded to
+#         Project Files. Its footer badge is "Use locally" and the Next
+#         callout instructs the operator to ATTACH it to the NA chat. The
+#         registry is still uploaded, because NA reads it from Project Files.
+#     (5) t3_mathcomp.py is now ROUTED to NC. F-3(a) has always required its
+#         conventions, but the engine was never on NC's route — a real gap
+#         found while wiring the shared builder.
+#   Companions: notes_core >= v2.3, notes_docx >= v1.0. Anatomy, density,
+#   format rules and content bans (sections 4-7) are otherwise UNCHANGED.
 # v2.2.1 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). A
 #   deployment review found F-1 restating the filename recipe in prose while
 #   notes_core.notes_filename sanitises non-alphanumeric runs in {Slug} to "_"
@@ -197,6 +227,27 @@ Adjacent boxes are always separated by a spacer paragraph so consecutive
 box tables never merge visually.
 TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence).
 
+## §4A — CONSTRUCTION (the shared builder is the single authority)
+NC does not write .docx code. It assembles a CONTENT MODEL (notes_docx schema
+"notes-content/1.0") describing WHAT the notes say, then calls
+notes_docx.build(model, path). notes_docx.validate_model runs first and HARD
+FAILS on a structural or content defect, so the classes below cannot reach a
+built file at all:
+  - a bullet over the D-1 hard cap;
+  - a concept with no KEY POINTS box after its example stack (B4);
+  - tail blocks out of section 6A order;
+  - an MCQ key outside the printed options, an MSQ key repeating an option, a
+    non-numeric NAT key, or a NAT stem that omits its rounding precision;
+  - an unbraced multi-character math script. "V_max" is LaTeX for V-subscript-m
+    followed by the letters "ax": t3_compile renders it exactly that way, it is
+    correct XML, every math gate passes, and it is visibly wrong on a student's
+    page. Write "V_{max}".
+THE MODEL STORES NO NUMBERS. Outline numbers and the Example/Recall counters
+are derived from block ORDER at render time (notes_docx.outline_of), which is
+why section 6A's renumber rule cannot be violated by adding or removing a
+block. Rule F-7's AUTO line rule is applied by the builder to every paragraph
+it emits, so a tall equation or image can never inherit a fixed rule and clip.
+
 ## §5 — DENSITY SPEC (machine-gated in NA; constants in notes_core.py,
 ##      spec-lock-pinned — the constants are the single authority)
   D-1 Bullet length: target <= 20 words; HARD CAP 25.
@@ -279,17 +330,33 @@ continue-confirmation sits BETWEEN those runs, not between batches within one ru
 here). On completion the unit moves BLUEPRINTED → DRAFTED with notes_version set
 (starts 0.1; NA patches bump the minor).
 
-## §9 — DELIVERY / CROSS-CHAT HANDOFF
-NC runs in its own chat, so its draft must reach NA (a fresh chat) the same way
-NB's bank reaches NC. On completion: present_files the draft (the unit's F-1
-filename) AND the updated notes_registry.json (unit → DRAFTED), then
-RENDER THE F2 STEP-COMPLETE FOOTER as the LAST element of the response
-(Framework_DeliveryFooter §4-1; the 4-cell NOTES bar "2 of 4"; header "Step NC ·
-NotesCreate"). The footer's badges upload both artifacts to Project Files and its
-Next callout points to NA: NotesAudit in a NEW chat (which reads the draft + bank
-from Project Files). The footer is obligatory after a present_files call
-(Framework_DeliveryFooter §4-0 R1) and is never omitted.
+## §9 — DELIVERY / CROSS-CHAT HANDOFF (v2.3.0: the draft is ATTACHED, not filed)
+NC runs in its own chat. On completion: present_files the draft (the unit's F-1
+filename) AND the updated notes_registry.json (unit -> DRAFTED, carrying
+draft_ref per section 9A), then RENDER THE F2 STEP-COMPLETE FOOTER as the LAST
+element of the response (Framework_DeliveryFooter section 4-1; the 4-cell NOTES
+bar "2 of 4"; header "Step NC · NotesCreate"). The footer is obligatory after a
+present_files call (Framework_DeliveryFooter section 4-0 R1) and is never
+omitted.
+
+THE TWO ARTIFACTS ARE HANDED OVER DIFFERENTLY, and the footer badges say so:
+  - the DRAFT .docx  -> "Use locally". It is NOT uploaded to Project Files.
+    The Next callout instructs: start a NEW chat and ATTACH this file to the
+    NotesAudit trigger (Framework_NotesAudit section 0A).
+  - notes_registry.json -> "Replace in Project Files". NA reads it from there,
+    and it is where draft_ref lives.
+
+## §9A — DRAFT PROVENANCE (draft_ref)
+After building the draft, NC records
+    reg["units"][sid]["draft_ref"] = notes_core.docx_ref_for(draft_path)
+({filename, sha256, bytes, generated}) and saves the registry. This is the
+ONLY evidence NA has that the document attached to its trigger is the document
+NC produced: with a Project-Files handoff the chain was implicit, and with an
+attachment there is no chain at all unless it is recorded here. NA section 0B
+P-3 compares against it and HARD STOPS on a mismatch. A unit whose draft_ref is
+absent (a draft built before v2.3.0) is re-run at NC — cheap, since the bank
+and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.2.1
+# END OF Framework_NotesCreate v2.3.0

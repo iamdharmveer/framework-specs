@@ -1,4 +1,24 @@
-# Framework_NotesDeliver v1.1.3 — Notes Pipeline Step ND (Delivery)
+# Framework_NotesDeliver v1.2.0 — Notes Pipeline Step ND (Portal Formatting + Delivery)
+# v1.2.0 — 2026-08-12 — CONSUMES NA's _Final (GAP-2026-08-12-NADOCX patch P2 of
+#   2; pairs with Framework_NotesAudit v3.0.0).
+#     (1) ND's input is now the unit's _Final.docx from NA
+#         (notes_core.notes_final_filename), attached or filed per section 1.0,
+#         and its output is notes_core.notes_deliver_filename —
+#         {unit_code}_{Slug}_Deliver.docx. Three filename authorities now
+#         exist (draft / _Final / _Deliver) and each is an ENGINE CALL; no step
+#         spells a pattern.
+#     (2) THE AUDIT REPORT IS GONE. NA no longer writes [ExamCode]_<unit>_
+#         Audit.md; the evidence lives in notes_registry.json as the unit's
+#         audit_summary (schema notes-registry/2.1). ND's delivery line reads
+#         its verdict counts from there.
+#     (3) PORTAL FORMATTING IS DEFERRED (owner decision, 2026-08-12). ND
+#         currently ships the audited bytes UNCHANGED. When portal formatting
+#         is specified it will make ND a SECOND WRITER downstream of the
+#         certified bytes, so it will need its own terminal re-gate — and any
+#         LibreOffice-based conversion will silently destroy every equation
+#         (section 3). Recorded here so the requirement is not rediscovered
+#         late.
+#   Companions: notes_core >= v2.3.
 # v1.1.3 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). §1.0's
 #   informal "[ExamCode]_<unit>.docx" now reads "the unit's F-1 filename" —
 #   Framework_NotesCreate F-1 (notes_core.notes_filename) is the single
@@ -42,25 +62,32 @@
 #   state named (never silently skipped).
 
 ## §1 — DELIVERABLES
-  0. INPUTS (fresh chat): read the audited notes .docx (the unit's F-1
-     filename), its audit report (same basename + _Audit.md), and
-     notes_registry.json from Project Files (NA
-     uploaded them at its cross-chat handoff). ND never re-generates or edits content.
-  1. The notes .docx, filename per rule F-1 in Framework_NotesCreate, byte-identical to the
-     audited artifact (delivery never edits content).
-  2. The audit report for that unit (markdown), same basename + _Audit.
-  3. A chat delivery line per unit: <Sub Topic Name> (<sid>), unit code,
-     notes_version, verdict summary
-     (n/n SOLVABLE), open FIGURE_PENDING count (KEY_FLAG is retired — NotesAudit
-     owner decision 4a).
-  4. present_files the .docx, the _Audit.md, AND the updated notes_registry.json
-     (unit → DELIVERED, §4) so the operator can download them and the state
-     persists, then RENDER THE F2 STEP-COMPLETE FOOTER as the LAST element
-     of the response (Framework_DeliveryFooter §4-1, the 4-cell NOTES pipeline bar
-     "4 of 4", header "Step ND · NotesDeliver"). The footer is obligatory after a
-     present_files call (§4-0 R1) and NEVER omitted. Next callout: NC — NotesCreate
-     for the next subtopic, or "Notes pipeline complete" when every blueprinted
-     unit is DELIVERED.
+  0. INPUTS (fresh chat): the unit's _Final.docx from NA
+     (notes_core.notes_final_filename) — ATTACHED to the trigger, the same
+     convention NA uses — plus notes_registry.json from Project Files. There is
+     no _Audit.md: NA's evidence is the unit's audit_summary inside the
+     registry (Framework_NotesAudit section 6). ND performs the preflight
+     checks of Framework_NotesAudit section 0B against the unit's final_ref
+     (filename identity, exam-code cross-check, sha256), and HARD STOPS the
+     same way — a delivery step that ships an unverified file is the one thing
+     this pipeline must not do.
+  1. The delivered .docx, named by
+     notes_core.notes_deliver_filename(exam_code, s, t, st, slug) — the ENGINE
+     is the single authority for the recipe. v1.2.0 ships the audited bytes
+     UNCHANGED (portal formatting deferred), so its content is byte-identical
+     to NA's _Final.docx.
+  2. A chat delivery line per unit: <Sub Topic Name> (<sid>), unit code,
+     notes_version, verdict summary read from audit_summary (n/n solvable,
+     including any SOLVABLE_KEY_CORRECTED), the JUDGEMENT-tier key corrections
+     named individually, the quarantine list, and the open FIGURE_PENDING
+     count.
+  3. present_files the _Deliver.docx AND the updated notes_registry.json
+     (unit -> DELIVERED, section 4), then RENDER THE F2 STEP-COMPLETE FOOTER as
+     the LAST element of the response (Framework_DeliveryFooter section 4-1,
+     the 4-cell NOTES pipeline bar "4 of 4", header "Step ND · NotesDeliver").
+     The footer is obligatory after a present_files call (section 4-0 R1) and
+     NEVER omitted. Next callout: NC — NotesCreate for the next subtopic, or
+     "Notes pipeline complete" when every blueprinted unit is DELIVERED.
 
 ## §2 — DOCUMENT/VERSION SEPARATION
 No version footer, draft marker or pipeline metadata appears INSIDE the
@@ -82,4 +109,4 @@ redelivery. (There is no KEY_FLAG queue — retired, NA owner decision 4a.)
 
 ---
 
-# END OF Framework_NotesDeliver v1.1.3
+# END OF Framework_NotesDeliver v1.2.0
