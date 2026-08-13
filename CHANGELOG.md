@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026.08.13
+
+Seal over releases **2026.08.12.10 → .16** plus the mid-`.16` Framework_PYQDeliver
+v1.12 fix. The detailed per-release entries for `.11`–`.16` are retained below; this
+block stamps the clean `2026.08.13` version and fills the two gaps that shipped
+without their own changelog entry (`.10` and the PYQDeliver fix). No spec or engine
+bytes change in this seal — `VERSION`, `CHANGELOG.md` and `MANIFEST.json` only.
+
+### Backfill — 2026.08.12.10 (previously undocumented)
+Framework_MockTestCreate v5.52.0.
+
+### Backfill — Framework_PYQDeliver v1.12 (shipped mid-`.16`, no VERSION bump)
+Paper-era classification (`current` / `larger` / `smaller` / `renumbered` / `retyped`)
+added to PYQ delivery. Three session/upstream inputs — `Q_TOTAL` (from the opened
+document), `qtype_map` (from PYQExplain), `exam_config` (from `exam_config.json`) —
+were triaged into `spec_name_audit_baseline.json` as prose-contract inputs, not
+read-before-bind bugs. The version label stayed `2026.08.12.16` at deploy time.
+
+### Span summary (`.11`–`.16` — full entries below)
+- **.11** — `final_assembly.py`: Step 7 Final Assembly engine extracted from
+  MockTestCreate §13 (GAP-2026-08-12-FINAL-ASSEMBLY-ENGINE).
+- **.12** — `final_assembly.py` never-raises hardening.
+- **.13** — `spec_name_audit.py`: spec-inline undefined-name auditor + baseline ratchet
+  (GAP-2026-08-12-SPEC-INLINE-NAME-AUDIT).
+- **.14** — three deferred design gaps closed (Framework_MockTestCreate v5.54.0).
+- **.15** — MockTestAnalyse v2.47.0, MockTestExplain v1.24.0, `audit_canonical.py`.
+- **.16** — `mock_sync_audit.py`: mock/test cross-step sync auditor + round-2 desync
+  fixes across six specs (GAP-2026-08-13-MOCK-SYNC-AUDIT).
+
 ## 2026.08.12.16
 
 ### Sync audit round 2 (fresh lenses) + the audit becomes a machine
