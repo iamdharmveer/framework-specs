@@ -1,5 +1,15 @@
 """
-notes_core.py v2.4 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.5 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.5 — 2026-08-13 — PUBLIC TEXT AUTHORITY (GAP-2026-08-12-NAPARSE D-2).
+    document_text() is the PUBLIC single authority for the plain-text view of
+    a .docx: runs inside a paragraph concatenate with NO separator (a run
+    break is formatting, not text — Word may split "2.10" across runs),
+    paragraphs join with one. The old _document_text was PRIVATE, which is
+    why notes_audit.gate_counters reasonably rolled its own bare tag strip —
+    the "one contract, two implementations" channel this closes. The private
+    name survives as a sep=" " wrapper so the two existing prose/token
+    scanners keep their historic behaviour bit-for-bit.
 
 v2.4 — 2026-08-12 — FINAL-AUDIT FIXES (GAP-2026-08-12-NADOCX patch P3 of 3).
     Two defects found by the end-to-end sync audit of the four Notes specs.
@@ -655,9 +665,36 @@ def _docx_xml(path):
     return zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
 
 
-def _document_text(docx_path):
+def document_text(docx_path, sep="\n"):
+    """PUBLIC single authority for the plain-text view of a .docx.
+
+    ELEMENT BOUNDARIES ARE PRESERVED, and that is the whole point:
+      - runs INSIDE one paragraph are concatenated with NO separator, because
+        a run break is a formatting artefact, not a text boundary. Word may
+        split "2.10" into the runs "2." and "10" at any time;
+      - paragraphs (including those inside table cells) are joined with `sep`,
+        because a paragraph break IS a text boundary.
+    Stripping tags with a bare re.sub(r"<[^>]+>", "", xml) does neither: it
+    welds the last character of one paragraph to the first of the next, so
+    "Answer: 1" followed by the heading "2.10 MIND MAP" reads "12.10" and any
+    numeric scan is wrong. EVERY gate that scans document text must call this.
+
+    m:t (OMML) is deliberately EXCLUDED — this is the plain-text layer. A gate
+    that needs the maths reads the oMath regions directly (scan_omml_*).
+    """
     xml = _docx_xml(docx_path)
-    return " ".join(re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", xml, re.S))
+    paras = []
+    for para in re.findall(r"<w:p\b.*?</w:p>", xml, re.S):
+        paras.append("".join(
+            re.findall(r"<w:t(?: [^>]*)?>(.*?)</w:t>", para, re.S)))
+    return sep.join(paras)
+
+
+def _document_text(docx_path):
+    # Retained name for the existing prose/token scanners. " " keeps their
+    # historic run-joining behaviour for substring bans; document_text() is
+    # the boundary-preserving form any NEW scanner must use.
+    return document_text(docx_path, sep=" ")
 
 
 # ---------------------------------------------------------------- density

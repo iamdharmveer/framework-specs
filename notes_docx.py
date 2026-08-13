@@ -1,5 +1,18 @@
 """
-notes_docx.py v1.1 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.2 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.2 — 2026-08-13 — LOSSLESS PARSE (GAP-2026-08-12-NAPARSE D-1 + D-1b).
+    (1) Option detection matches the UNSTRIPPED paragraph text against
+    _OPT_MARKER with an end-of-string alternative and a sequential-number
+    check. p.text sees w:t only, so an option whose content is pure OMML is
+    "3. " exactly; stripping made it "3." and the old r"^[1-4]\\.\\s" could
+    never match — the option was dropped or welded to the stem, and MCQ/MSQ
+    items were silently re-typed NAT. (2) parse() accepts exam_code/tier
+    keywords: NotesCreate §7/F-6 bans pipeline metadata from the document, so
+    the two fields validate_model requires are exactly the two the file
+    cannot carry — NA supplies them from the registry unit record. (3) The
+    self-test round trip is STRICT and its fixture carries a pure-OMML
+    option, so the whole lossy-parse class is now a CI failure.
 
 v1.1 — 2026-08-12 — FINAL-AUDIT FIX (GAP-2026-08-12-NADOCX patch P3 of 3).
     D-1 WAS ENFORCED ON CONCEPT BULLETS ONLY. validate_model checked the
@@ -840,18 +853,34 @@ def _extract_image(doc, p_el, media_dir):
     return path
 
 
+_OPT_MARKER = re.compile(r"^\s*(\d+)\.(?=\s|$)")
+
+
 def _parse_question(cell, title):
     blk = {"type": "example" if title.startswith("Example") else "recall",
            "qtype": None, "stem": [], "options": [], "answer": "",
            "explanation": []}
     mode = "stem"
     for p in cell.paragraphs[1:]:
-        txt = p.text.strip()
-        if not txt and not p._p.findall(".//" + qn("m:oMath")):
+        raw = p.text                     # NOT stripped: see _OPT_MARKER below
+        txt = raw.strip()
+        has_math = bool(p._p.findall(".//" + qn("m:oMath")))
+        if not txt and not has_math:
             continue
-        if re.match(r"^[1-4]\.\s", txt):
+        # OPTION DETECTION. build() emits the marker as its own w:t run, and
+        # p.text sees w:t ONLY (never m:t), so an option whose content is pure
+        # OMML has p.text == "3. " exactly. Matching on the STRIPPED text made
+        # that "3." and the old r"^[1-4]\.\s" could not match it, so the
+        # option was dropped (or, before any option had matched, appended to
+        # the stem). Match the UNSTRIPPED text and allow end-of-string.
+        # The marker must also be the NEXT expected option number, which stops
+        # a stem line that happens to start "1. " from opening the option list
+        # and turns a numbering drift into a visible loss rather than a
+        # silent one.
+        m_opt = _OPT_MARKER.match(raw)
+        if m_opt and int(m_opt.group(1)) == len(blk["options"]) + 1:
             blk["options"].append(_strip_prefix(_runs_from_paragraph(p._p),
-                                               txt[:2] + " "))
+                                                m_opt.group(1) + ". "))
             mode = "opt"
         elif txt.startswith("Answer:"):
             blk["answer"] = txt.split(":", 1)[1].strip()
@@ -873,8 +902,17 @@ def _parse_question(cell, title):
     return blk
 
 
-def parse(docx_path, media_dir=None):
+def parse(docx_path, media_dir=None, *, exam_code=None, tier=None):
     """Read a document built by build() back into a content model.
+
+    exam_code / tier ARE NOT IN THE DOCUMENT and never can be: Framework_
+    NotesCreate §7 / F-6 bans pipeline metadata from a student-facing file, so
+    the two fields validate_model requires are precisely the two the document
+    cannot carry. Parsing without them yields a model that fails
+    validate_model, and build(strict=True) — the DEFAULT — then raises for
+    EVERY unit of EVERY exam, maths or not. Pass them from the registry unit
+    record so the parse -> edit -> build cycle of Framework_NotesAudit §2A
+    closes. Omitting them stays legal for read-only inspection.
 
     This walks the body in DOCUMENT ORDER as a state machine, so a concept's
     bullets, tables and figures are re-attached to the concept they follow.
@@ -985,6 +1023,10 @@ def parse(docx_path, media_dir=None):
                          "runs": _strip_prefix(runs, "\u2022  ")})
                 else:
                     cur_concept["content"].append({"k": "para", "runs": runs})
+    if exam_code is not None:
+        model["exam_code"] = exam_code
+    if tier is not None:
+        model["unit"]["tier"] = tier
     return model
 
 
@@ -1025,7 +1067,16 @@ def self_test():
                  "stem": [{"t": "text", "s": "For the region "},
                           {"t": "math", "latex": "\\frac{V_{max}[S]}{K_m+[S]}"},
                           {"t": "text", "s": " which holds?"}],
-                 "options": [T("a"), T("b"), T("c"), T("d")],
+                 # Option 3 is PURE OMML — no w:t content at all beyond the
+                 # "3. " marker run. Regression for GAP-2026-08-12-NAPARSE
+                 # D-1: parse() matched the option marker on the STRIPPED
+                 # paragraph text, which for this option is "3." with no
+                 # trailing space, so the option was silently dropped and the
+                 # item was re-typed NAT. Every quantitative exam authors
+                 # options this way, so this shape must stay in the fixture.
+                 "options": [T("a"), T("b"),
+                             [{"t": "math", "latex": "\\frac{1}{r^{2}}"}],
+                             T("d")],
                  "answer": "2",
                  "explanation": [T("Substitute and simplify.")],
                  "speed_hack": T("Compare denominators.")},
@@ -1196,14 +1247,25 @@ def self_test():
     # assertion rather than a fact. Every block type below is exercised.
     rt1 = tempfile.mktemp(suffix=".docx")
     build(m, rt1)
-    back = parse(rt1)
+    # STRICT on the rebuild (GAP-2026-08-12-NAPARSE D-1/D-1b). strict=False let a
+    # LOSSY parse round-trip "successfully": a dropped option produces a model
+    # that validate_model rejects, and with strict off it was built anyway, so
+    # the byte-identity check compared two equally-wrong files. Any future
+    # parse loss now raises here instead of shipping.
+    back = parse(rt1, exam_code=m["exam_code"], tier=m["unit"]["tier"])
+    check("parse recovers an option whose content is pure OMML",
+          all(len(b["options"]) == 4
+              for b in back["blocks"] if b["type"] in ("example", "recall")
+              and b["qtype"] in ("MCQ", "MSQ")))
+    check("a lossless parse re-validates (so the rebuild can be strict)",
+          validate_model(back)[0])
     rt2 = tempfile.mktemp(suffix=".docx")
-    build(back, rt2, strict=False)
+    build(back, rt2)
     check("ROUND TRIP: build -> parse -> build is byte-identical "
           "(document.xml)", document_xml(rt1) == document_xml(rt2))
-    back2 = parse(rt2)
+    back2 = parse(rt2, exam_code=m["exam_code"], tier=m["unit"]["tier"])
     rt3 = tempfile.mktemp(suffix=".docx")
-    build(back2, rt3, strict=False)
+    build(back2, rt3)
     check("ROUND TRIP is a FIXED POINT (a third pass changes nothing)",
           document_xml(rt2) == document_xml(rt3))
     check("ROUND TRIP preserves the derived outline",

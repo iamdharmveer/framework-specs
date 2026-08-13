@@ -1,5 +1,22 @@
 """
-notes_audit.py v2.1 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.2 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.2 — 2026-08-13 — TEXT AUTHORITY + PROSE-ONLY G-9 (GAP-2026-08-12-NAPARSE
+    D-2, D-3; owner decisions OD-1 and OD-2).
+      (1) gate_counters reads the document through notes_core.document_text —
+          the boundary-preserving public authority — instead of a bare tag
+          strip that welded "Answer: 1" to "2.10 MIND MAP" as "12.10" and
+          failed a CORRECT document on the standard tail anatomy (D-2).
+      (2) gate_orphan_terms scans PROSE (text/sym runs) via _prose_of, never
+          json.dumps of the model, so OMML markup and model keys can never
+          again surface as phantom "terms" (D-3).
+      (3) OD-1: G-9's scope stays exactly stem/options/explanation — SPEED
+          HACK is deliberately EXCLUDED (it teaches at point of use).
+      (4) OD-2 Design A: DOMAIN-ANCHORED mode. gate_orphan_terms accepts
+          syllabus_terms (build with the new syllabus_terms_for over the
+          unit's bank concept_tags + names) and reports only syllabus-
+          evidenced orphans; terminal_regate passes it through. A clean unit
+          yields ZERO findings — the usability bar the self-test now pins.
 
 v2.1 — 2026-08-12 — SYNC-AUDIT FIXES (GAP-2026-08-12-NOTESYNC). Two drifts
     found by notes_sync_audit.py, the new cross-step auditor:
@@ -542,8 +559,14 @@ def gate_counters(model, docx_path=None):
         return (True, findings, meta)
 
     printed_ex, printed_rc, printed_l2 = [], [], []
-    text = notes_docx.document_xml(docx_path).decode("utf-8")
-    text = re.sub(r"<[^>]+>", "", text)
+    # Boundary-preserving text (notes_core.document_text). The old form was
+    # re.sub(r"<[^>]+>", "", document_xml(...)) — a bare tag strip, which welds
+    # adjacent paragraphs together. A box ending "Answer: 1" immediately before
+    # the heading "2.10 MIND MAP" then reads "12.10", the level-2 scan below
+    # matches "12.10" instead of "2.10", and a CORRECT document is failed for a
+    # missing outline number. Run boundaries must NOT separate (Word may split
+    # "2.10" into two runs); paragraph boundaries MUST.
+    text = notes_core.document_text(docx_path)
     for m in re.finditer(r"Example\s+(\d+)", text):
         printed_ex.append(int(m.group(1)))
     for m in re.finditer(r"Recall\s+(\d+)", text):
@@ -579,7 +602,71 @@ def gate_counters(model, docx_path=None):
 _TERM = re.compile(r"\b[A-Za-z][A-Za-z0-9\-]{3,}\b")
 
 
-def gate_orphan_terms(model, allowed=()):
+def _prose_of(node):
+    """Human-readable PROSE carried by a model node — never its markup.
+
+    The first form of this gate ran the term regex over json.dumps(block),
+    which is a serialisation, not prose: every OMML tag and attribute name
+    inside a math run ("degHide", "radPr", "subHide", "oMath", schema URL
+    words) and every model KEY ("stem", "options", "explanation") became a
+    "term". Those tokens are then orphans whenever they occur in a question's
+    maths but not the body's, so a perfectly good unit reports dozens of
+    findings and the advisory gate becomes noise that no one reads.
+    Only "text" and "sym" runs carry prose; "math" runs are skipped whole.
+    """
+    out = []
+
+    def walk(n):
+        if isinstance(n, dict):
+            if n.get("t") == "math":
+                return                      # OMML is markup, never prose
+            if n.get("t") == "text":
+                out.append(n.get("s", ""))
+                return
+            if n.get("t") == "sym":
+                out.extend([n.get("base", ""), n.get("sub", ""),
+                            n.get("sup", "")])
+                return
+            for k, v in n.items():
+                if k in ("image", "type", "k", "kind", "qtype", "schema"):
+                    continue               # paths and enums are not prose
+                if isinstance(v, str):
+                    if k in ("name", "label", "answer"):
+                        out.append(v)
+                else:
+                    walk(v)
+        elif isinstance(n, list):
+            for v in n:
+                walk(v)
+
+    walk(node)
+    return " ".join(x for x in out if x)
+
+
+def syllabus_terms_for(unit_questions, extra=()):
+    """Harvest the unit's SYLLABUS-EVIDENCED vocabulary for G-9's
+    domain-anchored mode (GAP-2026-08-12-NAPARSE owner decision OD-2,
+    Design A).
+
+    Evidence the pipeline already carries: every bank question's concept_tags
+    (written at Step NB) plus any extra strings the caller supplies — the
+    resolved unit's subject/topic/subtopic names are the intended extras.
+    Returns a lowercase frozenset of _TERM tokens. Nothing is downloaded and
+    no stopword list exists anywhere: the exam's own artifacts are the only
+    authority, which is what keeps the gate exam-agnostic across the corpus —
+    an English stopword list would silently suppress words like 'potential'
+    that ARE syllabus terms in Physics.
+    """
+    words = set()
+    for q in unit_questions or ():
+        for tag in (q.get("concept_tags") or ()):
+            words |= {w.lower() for w in _TERM.findall(str(tag))}
+    for s in extra:
+        words |= {w.lower() for w in _TERM.findall(str(s))}
+    return frozenset(words)
+
+
+def gate_orphan_terms(model, allowed=(), syllabus_terms=None):
     """G-9 — ORPHAN TERMS. A term used in a question stem, option or
     explanation that appears NOWHERE in the notes body breaks the closed-book
     promise at vocabulary level.
@@ -589,18 +676,31 @@ def gate_orphan_terms(model, allowed=()):
     This gate cannot: it is pure set difference over the document's own text.
     Reported as findings for NA to judge, not as an automatic hard stop —
     common English is not a syllabus term.
+
+    DOMAIN-ANCHORED MODE (owner decision OD-2, Design A — GAP-2026-08-12-
+    NAPARSE §5.5). Passing syllabus_terms (build it with syllabus_terms_for)
+    reports an orphan ONLY when it is also syllabus-evidenced — i.e. the term
+    appears in the unit's concept_tags or names. That is what makes the gate
+    mean what its name says: on the reference unit the raw set difference
+    produced 46 findings of which exactly one ('potential') was real, and
+    'potential' is an ordinary English word, so no stopword list could ever
+    separate it from the noise — only domain evidence can. The unanchored
+    form (syllabus_terms=None) is retained for callers with no bank in hand;
+    its meta records mode 'unanchored' so a report always shows which form
+    ran. USABILITY BAR: a clean unit must yield ZERO findings in anchored
+    mode.
     """
-    import notes_docx
     body_words, q_words = set(), {}
     for b in model.get("blocks", []):
         t = b.get("type")
         if t in ("title", "concept", "key_points", "trap", "rapid", "mindmap"):
-            txt = json.dumps(b, ensure_ascii=False)
-            body_words |= {w.lower() for w in _TERM.findall(txt)}
+            body_words |= {w.lower() for w in _TERM.findall(_prose_of(b))}
         elif t in ("example", "recall"):
-            txt = json.dumps({k: v for k, v in b.items()
-                              if k in ("stem", "options", "explanation")},
-                             ensure_ascii=False)
+            # Scope is EXACTLY §5 G-9's wording — "a term used in a stem,
+            # option or explanation". SPEED HACK is deliberately excluded;
+            # widening the scope is a SPEC decision, not an engine one.
+            txt = _prose_of({k: v for k, v in b.items()
+                             if k in ("stem", "options", "explanation")})
             for w in _TERM.findall(txt):
                 q_words.setdefault(w.lower(), 0)
                 q_words[w.lower()] += 1
@@ -612,13 +712,22 @@ def gate_orphan_terms(model, allowed=()):
         "correct", "answer", "option", "options", "following", "statement",
         "statements", "type", "base", "holds", "rounded", "decimal", "places"}
     orphans = sorted(w for w in q_words if w not in body_words and w not in allow)
+    if syllabus_terms is not None:
+        anchor = {str(w).lower() for w in syllabus_terms}
+        anchored = [w for w in orphans if w in anchor]
+        return (not anchored,
+                [f"syllabus term used only in a question, never taught in "
+                 f"the notes: {w!r}" for w in anchored],
+                {"terms_checked": len(q_words), "mode": "domain-anchored",
+                 "suppressed_unanchored": len(orphans) - len(anchored)})
     return (not orphans, [f"term used only in a question, never taught in the "
                           f"notes: {w!r}" for w in orphans],
-            {"terms_checked": len(q_words)})
+            {"terms_checked": len(q_words), "mode": "unanchored"})
 
 
 def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
-                    expected_omml=0, orphan_allowed=(), allowed_types=()):
+                    expected_omml=0, orphan_allowed=(), allowed_types=(),
+                    syllabus_terms=None):
     """G-11 — THE TERMINAL RE-GATE. Run EVERY mechanical gate over the bytes
     that will ship, and hash them.
 
@@ -665,7 +774,8 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
     g["G-7b"] = {"ok": ok_l, "findings": f_l, "meta": m_l}
     ok_a, f_a, m_a = gate_answer_integrity(model)
     g["G-8"] = {"ok": ok_a, "findings": f_a, "meta": m_a}
-    ok_r, f_r, m_r = gate_orphan_terms(model, orphan_allowed)
+    ok_r, f_r, m_r = gate_orphan_terms(model, orphan_allowed,
+                                       syllabus_terms=syllabus_terms)
     g["G-9"] = {"ok": ok_r, "findings": f_r, "meta": m_r}
     ok_c, f_c, m_c = gate_counters(model, docx_path)
     g["G-10"] = {"ok": ok_c, "findings": f_c, "meta": m_c}
@@ -815,6 +925,17 @@ def self_test():
     import notes_docx
 
     T = lambda s: [{"t": "text", "s": s}]
+
+    def _tiny_png():
+        """Smallest valid PNG, written once — the mindmap block requires an
+        image and build() raises a raw KeyError without one."""
+        import base64
+        path = tempfile.mktemp(suffix=".png")
+        with open(path, "wb") as f:
+            f.write(base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42m"
+                "NkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="))
+        return path
 
     def demo_model(answer="2", qtype="MCQ", opts=4):
         return {"schema": notes_docx.SCHEMA, "exam_code": "EX",
@@ -998,11 +1119,88 @@ def self_test():
           all("." not in n.split(".", 2)[-1]
               for n in [x for _, x, _ in notes_docx.outline_of(full)["l2"]]))
 
+    # REGRESSION (GAP-2026-08-12-NAPARSE D-2): a section heading whose printed
+    # number is immediately preceded by a DIGIT. The last RECALL CHECK item
+    # ends "Answer: 1" and the MIND MAP heading follows, so a bare tag strip
+    # yields "12.10" and the level-2 scan never sees "2.10". This fixture is
+    # the standard tail anatomy — every unit in every exam ends this way — so
+    # the old form failed a correct document on essentially the whole corpus.
+    # SIX concepts + TRAP + RAPID + RECALL CHECK + MIND MAP = ten level-2
+    # sections, so the MIND MAP heading derives the two-digit number "2.10" —
+    # the shape that exposes the bug. A one-digit tail cannot expose it.
+    tail = {"schema": notes_docx.SCHEMA, "exam_code": "EX",
+            "unit": {"name": "Enzyme Kinetics", "tier": "TIER-2",
+                     "seq_in_topic": 2},
+            "blocks": [{"type": "title", "name": "Enzyme Kinetics"}]}
+    for c in range(6):
+        tail["blocks"] += [
+            {"type": "concept", "name": f"Concept {c}",
+             "content": [{"k": "bullet", "runs": T("A bullet ending in a "
+                                                   "full stop.")}]},
+            {"type": "key_points", "bullets": [T("A consolidating line.")]}]
+    tail["blocks"] += [
+        {"type": "trap", "bullets": [T("A recurring wrong-option pattern.")]},
+        {"type": "rapid",
+         "formulae": [[T("Name"), T("Form")], [T("MM"), T("v")]],
+         "associations": [[T("Term"), T("Link")], [T("x"), T("y")]]},
+        {"type": "recall", "qtype": "MCQ", "stem": T("Which is correct?"),
+         "options": [T("a"), T("b"), T("c"), T("d")], "answer": "1"},
+        {"type": "mindmap", "image": _tiny_png()}]
+    tp = tempfile.mktemp(suffix=".docx")
+    notes_docx.build(tail, tp, strict=False)
+    derived_tail = [n for _, n, _ in notes_docx.outline_of(tail)["l2"]]
+    ok_t, f_t, _ = gate_counters(tail, tp)
+    check("G-10 sees a heading number preceded by a digit "
+          "(Answer: 1 then 2.10 MIND MAP)", ok_t and not f_t)
+    check("the digit-adjacency fixture really does derive a two-digit "
+          "level-2 number", any(n.endswith(".10") for n in derived_tail))
+
     # ---- G-9 orphan terms ----------------------------------------------
-    ok9, f9, _ = gate_orphan_terms(m)
+    orph = demo_model()
+    orph["blocks"][2]["stem"] = orph["blocks"][2]["stem"] + [
+        {"t": "text", "s": " Assume allosteric behaviour."}]
+    ok9, f9, _ = gate_orphan_terms(orph)
+    joined9 = " ".join(f9)
     check("G-9 flags a term used only in the question and never taught",
-          not ok9 and any("saturation" not in x.lower()
-                          or "term used only" in x for x in f9))
+          not ok9 and "allosteric" in joined9)
+    # REGRESSION (GAP-2026-08-12-NAPARSE D-3): the gate used to run the term
+    # regex over json.dumps(block), so OMML/LaTeX markup and model KEYS became
+    # "terms". A clean unit then reported dozens of phantom orphans and the
+    # advisory gate was noise. None of these may ever appear again.
+    for phantom in ("frac", "latex", "stem", "options", "explanation",
+                    "deghide", "radpr", "subhide", "omath"):
+        check(f"G-9 never reports markup or a model key as a term "
+              f"({phantom})", phantom not in joined9.lower())
+    ok9c, f9c, _ = gate_orphan_terms(demo_model())
+    check("G-9 is clean on a unit whose question vocabulary is all taught",
+          ok9c and not f9c)
+    # DOMAIN-ANCHORED MODE (GAP-2026-08-12-NAPARSE owner decision OD-2,
+    # Design A). The reference unit produced 46 raw orphans of which exactly
+    # ONE ('potential') was a genuine syllabus term; a stopword list would
+    # suppress it, only domain evidence can keep it. These checks pin the
+    # contract: syllabus-evidenced orphans REPORT, unevidenced ones are
+    # SUPPRESSED and counted, and a clean unit yields ZERO findings.
+    syl = syllabus_terms_for(
+        [{"concept_tags": ["Allosteric regulation", "Enzyme kinetics"]}],
+        extra=("Biochemistry",))
+    check("syllabus_terms_for harvests concept_tags and extras",
+          {"allosteric", "regulation", "enzyme", "kinetics",
+           "biochemistry"} <= set(syl))
+    ok9a, f9a, m9a = gate_orphan_terms(orph, syllabus_terms=syl)
+    check("G-9 anchored mode reports a syllabus-evidenced orphan",
+          not ok9a and "allosteric" in " ".join(f9a)
+          and m9a["mode"] == "domain-anchored")
+    noise = demo_model()
+    noise["blocks"][2]["stem"] = noise["blocks"][2]["stem"] + [
+        {"t": "text", "s": " Assume arbitrary behaviour hence."}]
+    ok9n, f9n, m9n = gate_orphan_terms(noise, syllabus_terms=syl)
+    check("G-9 anchored mode suppresses common-English orphans and counts "
+          "them", ok9n and not f9n and m9n["suppressed_unanchored"] >= 1)
+    ok9z, f9z, _ = gate_orphan_terms(demo_model(), syllabus_terms=syl)
+    check("G-9 anchored mode is ZERO-findings on a clean unit (the "
+          "usability bar)", ok9z and not f9z)
+    check("G-9 unanchored mode records its mode",
+          gate_orphan_terms(demo_model())[2]["mode"] == "unanchored")
     taught = demo_model()
     taught["blocks"][1]["content"].append(
         {"k": "bullet", "runs": T("Given the Michaelis constant holds here.")})

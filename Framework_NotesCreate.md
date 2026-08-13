@@ -1,4 +1,9 @@
-# Framework_NotesCreate v2.3.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.3.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.3.1 — 2026-08-13 — OPTION CONTRACT MADE EXPLICIT (GAP-2026-08-12-NAPARSE
+#   D-1). §4 B3 now states that the "N. " option marker is the ONLY
+#   guaranteed plain text (w:t) on an option line: the option's CONTENT may
+#   be entirely OMML, so any reader of a built document must never require
+#   w:t content beyond the marker. Framework_NotesAudit §0B P-4 enforces it.
 # v2.3.0 — 2026-08-12 — SHARED BUILDER + DRAFT PROVENANCE (GAP-2026-08-12-NADOCX
 #   patch P2 of 2; pairs with Framework_NotesAudit v3.0.0).
 #     (1) CONSTRUCTION IS NOW AN ENGINE. NC builds the .docx by calling
@@ -368,4 +373,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.3.0
+# END OF Framework_NotesCreate v2.3.1

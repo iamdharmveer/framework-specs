@@ -1,6 +1,12 @@
 name: validate-framework
 on:
-  push: { branches: [ main ] }
+  # 'production' added by GAP-2026-08-12-NAPARSE §12 item 8: mirror.yml acts on
+  # production and SKILL.md Step 0 clones production, but nothing validated it —
+  # a direct push to production (the manual deploy path) reached every project
+  # unchecked. CI cannot BLOCK a push, so branch protection on production
+  # (require PR from main, no direct pushes) is still the real gate; this
+  # trigger makes any bypass turn the branch red immediately.
+  push: { branches: [ main, production ] }
   pull_request: { branches: [ main ] }
 jobs:
   validate:

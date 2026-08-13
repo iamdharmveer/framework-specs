@@ -1,5 +1,75 @@
 # Changelog
 
+## 2026.08.13.1 — GAP-2026-08-12-NAPARSE
+
+Four defects in Notes Step NA (NotesAudit v3.0.0), every one behind a green
+self-test built from the simplest shape rather than the production shape.
+Root-caused, patched, and locked with regression fixtures; owner decisions
+OD-1 and OD-2 resolved 2026-08-13.
+
+**Engines**
+
+- `notes_docx.py` v1.1 → v1.2 — **D-1 (BLOCKER):** `_parse_question` matched
+  the option marker on the STRIPPED paragraph text; an option whose content is
+  pure OMML has `p.text == "3. "` (w:t only, never m:t), stripping made it
+  `"3."` and `r"^[1-4]\.\s"` could never match — options were silently
+  dropped or welded to the stem and MCQ/MSQ items re-typed NAT (7 of 12 items
+  corrupted on the reference draft). Now matches the UNSTRIPPED text against
+  `_OPT_MARKER` with an end-of-string alternative and a sequential-number
+  check. **D-1b (BLOCKER):** `parse()` accepts `exam_code`/`tier` keywords —
+  NotesCreate §7/F-6 bans pipeline metadata from the document, so the two
+  fields `validate_model` requires are exactly the two the file cannot carry;
+  NA supplies them from the registry unit record. Self-test round trip is now
+  STRICT and its fixture carries a pure-OMML option, turning the whole
+  lossy-parse class into a permanent CI failure.
+- `notes_core.py` v2.4 → v2.5 — public `document_text()`: the single
+  boundary-preserving authority for the plain-text view of a `.docx` (runs
+  concatenate, paragraphs separate). `_document_text` survives as a `sep=" "`
+  wrapper so the two existing scanners are bit-for-bit unchanged.
+- `notes_audit.py` v2.1 → v2.2 — **D-2 (HIGH):** `gate_counters` read a bare
+  tag strip that welded `"Answer: 1"` to `"2.10 MIND MAP"` as `"12.10"`,
+  failing CORRECT documents on the standard B7→B8 tail anatomy; it now reads
+  `notes_core.document_text`. **D-3 (MEDIUM):** `gate_orphan_terms` scanned
+  `json.dumps(block)`, so OMML markup (`degHide`, `radPr`, `oMath`) and model
+  keys (`stem`, `options`) surfaced as phantom "terms"; it now scans prose
+  runs only via `_prose_of`. **OD-1:** G-9 scope pinned to
+  stem/options/explanation, SPEED HACK deliberately excluded. **OD-2
+  (Design A):** domain-anchored mode — `syllabus_terms_for` harvests the
+  unit's bank `concept_tags` + names, and only syllabus-evidenced orphans
+  report (`terminal_regate` passes `syllabus_terms` through); a clean unit
+  yields ZERO findings.
+
+**Specs**
+
+- `Framework_NotesAudit.md` v3.0.0 → v3.1.0 — §2A cycle passes
+  exam_code/tier into `parse` and rebuilds strict; W-3 strengthened (fixture
+  must cover every run/content shape incl. pure-OMML options, STRICT round
+  trip); new W-4 (the document cannot carry its own metadata; strict=False is
+  never a workaround); new §0B P-4 PARSE FIDELITY preflight (P-4a validate
+  HARD-STOP, P-4b byte-identity diagnostic); §5 G-10 names
+  `notes_core.document_text` as the only extractor; §5 G-9 rewritten
+  (prose-only source, OD-1 scope, OD-2 domain-anchored mode, zero-findings
+  usability bar).
+- `Framework_NotesCreate.md` v2.3.0 → v2.3.1 — §4 B3 option contract made
+  explicit: the `"N. "` marker run is the only guaranteed plain text on an
+  option line; content may be entirely OMML.
+
+**CI**
+
+- `.github/workflows/validate.yml` — `production` added to the push trigger
+  (§12 item 8): mirror.yml acts on production and SKILL.md Step 0 clones
+  production, but nothing validated it. Branch protection on `production`
+  (require PR from `main`) remains the owner-side gate; this makes any bypass
+  turn the branch red immediately.
+
+**Verification** — self-tests: notes_core 149/149, notes_docx 71/71 (+2),
+notes_audit 97/97 (+17), notes_blueprint 31/31, notes_sync_audit 17/17 and
+0 sync findings; `validate_framework_md` 0 issues / 23 files;
+`check_triggers` consistent; `repro_GAP-2026-08-12-NAPARSE.py --draft
+IIT_JAM_PHYSICS_S1_T1_ST02_…` → **0 of 5 defect(s) reproduced**; end-to-end
+§2A cycle on the untouched reference draft: strict build OK, byte-identical.
+
+
 ## 2026.08.13
 
 Seal over releases **2026.08.12.10 → .16** plus the mid-`.16` Framework_PYQDeliver

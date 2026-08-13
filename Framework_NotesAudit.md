@@ -1,4 +1,26 @@
-# Framework_NotesAudit v3.0.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.1.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.1.0 — 2026-08-13 — LOSSLESS PARSE + TEXT AUTHORITY + ANCHORED G-9
+#   (GAP-2026-08-12-NAPARSE; owner decisions OD-1 and OD-2 of 2026-08-13).
+#   Four defects, all root-caused to test fixtures built from the simplest
+#   shape rather than the production shape; every one had a green self-test.
+#     (1) §2A's cycle now passes exam_code and tier into notes_docx.parse —
+#         F-6 bans them from the document, so the registry unit record is the
+#         only place they can come from (D-1b: without this, strict build
+#         raised for EVERY unit of EVERY exam). New write property W-4.
+#     (2) §0B gains P-4 PARSE FIDELITY: validate_model over the parsed draft
+#         HARD-STOPS before any solving if the parser lost anything the
+#         builder wrote (the permanent guard for the whole lossy-parse class;
+#         D-1 lost every pure-OMML option and re-typed MCQ items NAT).
+#     (3) §5 G-10 names notes_core.document_text as the ONLY text extractor —
+#         a bare tag strip welded "Answer: 1" to "2.10 MIND MAP" and failed
+#         correct documents on the standard tail anatomy (D-2).
+#     (4) §5 G-9 scans PROSE, never model JSON (D-3), scope pinned to
+#         stem/options/explanation with SPEED HACK excluded (OD-1), and runs
+#         DOMAIN-ANCHORED (OD-2 Design A): only syllabus-evidenced orphans
+#         report, so a clean unit yields ZERO findings and the gate is
+#         readable again.
+#   Companions rise to notes_core >= v2.5, notes_docx >= v1.2,
+#   notes_audit >= v2.2.
 # v3.0.0 — 2026-08-12 — NA BECOMES A WRITER (BREAKING; GAP-2026-08-12-NADOCX
 #   patch P2 of 2; owner decisions of the 2026-08-12 design session).
 #   Through v2.0.6 NA was a read-only certifier: it produced verdicts and
@@ -56,18 +78,20 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.4 — notes_final_filename, docx_ref_for/verify_docx_ref,
+#   notes_core.py  >= v2.5 — notes_final_filename, docx_ref_for/verify_docx_ref,
 #                            registry schema notes-registry/2.1 (draft_ref,
 #                            final_ref, audit_summary), resolve_unit, the
-#                            density/math/prose gates, bank_questions_for
-#   notes_docx.py  >= v1.1 — the SHARED builder/parser: build/parse/
+#                            density/math/prose gates, bank_questions_for,
+#                            document_text (the ONLY document text extractor)
+#   notes_docx.py  >= v1.2 — the SHARED builder/parser: build/parse/
 #                            validate_model/outline_of. Derived numbering and
-#                            the byte-identical round trip are its guarantees
-#   notes_audit.py >= v2.1 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
+#                            the STRICT byte-identical round trip are its
+#                            guarantees; parse takes exam_code/tier (W-4)
+#   notes_audit.py >= v2.2 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
 #                            record_key_correction, quarantine, gate_line_rules,
 #                            gate_answer_integrity, gate_counters,
-#                            gate_orphan_terms, gate_anatomy,
-#                            gate_question_format, gate_outline,
+#                            gate_orphan_terms, syllabus_terms_for,
+#                            gate_anatomy, gate_question_format, gate_outline,
 #                            terminal_regate, audit_summary
 #
 # PURPOSE:
@@ -135,6 +159,20 @@ notes_core.verify_docx_ref returns the kind.
       STOP. An operator who deliberately hand-edited the draft re-issues the
       trigger with the token --accept-modified, which downgrades P-3 to a
       warning recorded in audit_summary; P-1 and P-2 are NEVER overridable.
+  P-4 PARSE FIDELITY (run immediately after P-3, before any solving).
+      P-4a  notes_docx.validate_model(parse(draft, exam_code=..., tier=...))
+            MUST pass. A failure means the parser did not recover something
+            the builder wrote. HARD STOP, naming every finding. Do not
+            proceed, do not work around it with strict=False, and do not
+            hand-repair the model: a parser that loses content on this
+            document loses it on every document of the same shape, and the
+            defect belongs in the engine, not in one run's workaround.
+      P-4b  build(parse(draft)) SHOULD reproduce the draft's
+            word/document.xml byte-for-byte. A difference is REPORTED as a
+            diagnostic, never a stop — a legitimate builder upgrade between
+            NC and NA changes bytes without losing content.
+      The asymmetry is deliberate: P-4a stops, P-4b reports. Validity is
+      guaranteed across engine versions; byte-identity is not.
 
   The v2.0.x staleness stops are unchanged and still run: verify_bank_ref
   against the blueprint's bank_ref, and verify_taxonomy_ref against
@@ -187,9 +225,11 @@ by shrinking what must be solved.
 
 ## §2A — WRITE AUTHORITY (rebuild, never XML surgery)
 NA's edit cycle is exactly:
-    model = notes_docx.parse(draft_path)
+    model = notes_docx.parse(draft_path, media_dir=...,
+                             exam_code=<registry exam_code>,
+                             tier=<unit record tier>)
     ...correct and improve the MODEL...
-    notes_docx.build(model, final_path)
+    notes_docx.build(model, final_path)          # strict=True, the default
 NA NEVER edits .docx XML and NEVER hand-rolls a paragraph, colour, border or
 line rule. Three properties follow from the shared builder and are the reason
 this is safe:
@@ -204,6 +244,21 @@ this is safe:
   W-3 THE REBUILD IS A FIXED POINT. build -> parse -> build reproduces
       word/document.xml byte-for-byte (notes_docx self-test), which is what
       makes section 8's idempotence rule checkable rather than asserted.
+      The fixture backing W-3 must exercise EVERY member of RUN_TYPES and
+      every CONTENT_KINDS variant, INCLUDING an option whose content is
+      entirely OMML — the commonest option shape in a quantitative exam and
+      the one that GAP-2026-08-12-NAPARSE lost. A fixture that omits a shape
+      does not test it, and a byte-identity check over two equally-wrong
+      files proves nothing. The round-trip rebuild is STRICT.
+  W-4 THE DOCUMENT CANNOT CARRY ITS OWN METADATA. Section 7 / F-6 bans
+      pipeline metadata from a student-facing file, so exam_code and
+      unit.tier — the two fields validate_model REQUIRES — are exactly the
+      two parse() cannot recover. NA supplies both from the registry unit
+      record. Parsing without them yields a model that fails validation, and
+      build(strict=True) then raises for EVERY unit of EVERY exam, maths or
+      not. NA NEVER passes strict=False to work around this: strict is the
+      contract that makes a lossy parse visible, and switching it off
+      converts a loud failure into a silently mangled student document.
 
 SCOPE OF THE WRITE:
   ALLOWED — defect remediation (anything a verdict or a gate identifies), and
@@ -342,12 +397,46 @@ pass.
   G-9 ORPHAN TERMS (notes_audit.gate_orphan_terms): a term used in a stem,
       option or explanation but taught nowhere in the notes body breaks the
       closed-book promise at vocabulary level. The section 2 solver already
-      knows the subject and can silently supply the missing term; this set
-      difference cannot. ADVISORY — it reports for NA's judgement and does not
-      block, because common English is not a syllabus term.
+      knows the subject and can silently supply the missing term; this gate
+      cannot. ADVISORY — it reports for NA's judgement and does not block.
+      SOURCE (GAP-2026-08-12-NAPARSE D-3): the gate reads the model's PROSE
+      runs only — text and sym — NEVER a serialisation of the model and NEVER
+      OMML: markup tokens (degHide, radPr, oMath) and model keys (stem,
+      options, explanation) are not vocabulary and may never surface as
+      findings.
+      SCOPE (owner decision OD-1): EXACTLY stem, options and explanation.
+      SPEED HACK is deliberately EXCLUDED — a shortcut teaches at point of
+      use, so a term introduced there is not left dangling, and including it
+      only multiplied noise. Widening this scope is a spec change, never an
+      engine one.
+      MODE (owner decision OD-2 — Design A, domain-anchored): NA passes
+      syllabus_terms = notes_audit.syllabus_terms_for(unit_questions,
+      extra=(subject, topic, subtopic names)) — the unit's bank concept_tags
+      plus its resolved names, artifacts the pipeline already carries. A term
+      reports ONLY if it is syllabus-evidenced AND untaught; everything else
+      is suppressed and counted in the gate's meta. This is what lets the one
+      real finding ('potential', an ordinary English word that IS a Physics
+      syllabus term) surface instead of drowning among dozens of false ones —
+      no stopword list can make that separation, only domain evidence.
+      Nothing is ever downloaded; the exam's own artifacts are the sole
+      authority, which keeps the gate exam-agnostic across the corpus.
+      USABILITY BAR: a clean unit yields ZERO findings. An advisory gate that
+      always fires is a gate nobody reads, and a real orphan inside dozens of
+      false ones is a missed defect. The unanchored form (no syllabus_terms)
+      exists only for callers with no bank in hand and its meta says so.
   G-10 COUNTER INTEGRITY (notes_audit.gate_counters): Example j and Recall j
       sequences gapless and 1-based. G-6 covers section 6A outline numbers
       only.
+      G-10 reads the document through notes_core.document_text, which
+      preserves ELEMENT BOUNDARIES: runs inside a paragraph concatenate with
+      no separator (Word may split "2.10" across runs at any time),
+      paragraphs join with one. A bare re.sub(r"<[^>]+>", "", xml) welds the
+      last character of one paragraph to the first of the next: a box ending
+      "Answer: 1" before the heading "2.10 MIND MAP" reads "12.10", the
+      level-2 scan matches "12.10" and the derived number is reported
+      missing. THAT IS THE STANDARD TAIL ANATOMY (B7 then B8), so the bare
+      form fails correct documents across the corpus. No gate may implement
+      its own text extraction.
   G-11 TERMINAL RE-GATE (notes_audit.terminal_regate) — MANDATORY, LAST.
       After the final edit, re-run the FULL solve across ALL of the unit's
       bank questions and EVERY gate above over the bytes that will ship, then
@@ -420,4 +509,4 @@ warning (section 0B P-3), the FIGURE_PENDING count, and any DORMANT gate
 
 ---
 
-# END OF Framework_NotesAudit v3.0.0
+# END OF Framework_NotesAudit v3.1.0
