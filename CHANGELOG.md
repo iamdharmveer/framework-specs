@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026.08.12.15
+
+### Cross-step sync audit — Steps 5 → TestDeliver, 3 passes
+A dedicated producer↔consumer audit of the full mock/test pipeline segment
+(Step 5 MockTestAnalyse → Step 6 Blueprint/ScopedBlueprint → Step 7
+MockTestCreate → Step 9 MockTestExplain → Step 11 MockDeliver): pass 1
+extracted each step's complete I/O contract (5 independent full-file reads);
+pass 2 cross-verified every handshake pair at field level; pass 3
+adversarially re-verified each finding and hunted for misses. Confirmed
+CLEAN (verified, not assumed): options_by_q chain 7→9 incl. pre-v4.7
+fallback and str/int key normalization; question_index 5-field chain 7→11
+incl. the legacy mock-keyed fallback on both sides; Explanation filename
+chain 9→11 (regex + slug equality, legacy _Explanation_Complete accepted);
+difficulty_labels defaults identical at 7 sites across 5 files + 2 engines;
+option_label chain 5→7→9 parity-locked; registry template 6→7 self-heal;
+axis_schedule keys (spec §14 omits them but blueprint_core.derive_axis_
+schedule is the documented producer — engine-side, aligned); NAVY 003366
+Correct-Answer chain 9→11 (produced by explain_engine, preserved by C7).
+
+**Five desyncs found, all fixed** (full rationale in each spec's own
+changelog header):
+
+- **Framework_MockTestExplain v1.24.0** — (1) GAP-2026-08-13-STALE-CREATE-
+  COMPLETE-NAME: S2-1 still demanded the "Create_Complete" docx retired at
+  v1.21.0; its HALT rule was literally unsatisfiable. Now names _Create.docx.
+  (2) GAP-2026-08-13-EXPLAIN-N-SLUG-GATE: new P10/0 — the trigger-N ↔
+  uploaded-docx slug equality hard stop Step 11 already had and Step 9
+  lacked; closes a silent wrong-paper binding on resumed scoped series
+  (blueprint `mock` ordinal ≠ offset series number, ScopedBlueprint S2-4).
+- **Framework_MockTestAnalyse v2.47.0** — (3) GAP-2026-08-13-STALE-NAME-
+  MATCH-RULE: S1-4 claimed Step 7 matches subtopics by EXACT display name
+  (false since MockTestCreate v3.4 — id-only joins) and prescribed
+  unnecessary full re-runs; rewritten to the id-based truth. (4)
+  GAP-2026-08-13-DELIVERY-COUNT-DRIFT: DoD [19] "EXACTLY 5" vs S11-3 "all
+  6" vs the code's conditional 7th file (taxonomy.xlsx) — S11-3's own
+  Check 2 would have vetoed the code's own delivery; all sites now agree
+  (6 mandatory + taxonomy.xlsx when written). (5) Provenance stamps
+  v2.22/v2.23 in section_rules/manifest writers updated to v2.47 —
+  cosmetic-only (no consumer parses them; Step 6's v2.22+ gate checks the
+  per-entry `format` field), but this stamp-drift class has now recurred
+  four times.
+
+Full chain clean twice; spec-name-audit ratchet clean (the new P10/0 code
+binds `pp` in-block; `PAPER_SLUG` is an established baselined P1
+prose-contract input); all engine self-tests unchanged.
+
 ## 2026.08.12.14
 
 ### Three deferred design gaps closed — scoped one by one

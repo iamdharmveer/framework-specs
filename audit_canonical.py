@@ -4460,7 +4460,14 @@ def self_test():
             with open(os.path.join(_p10_dir, 'E_registry.json'), 'w') as _fh:
                 json.dump(_q_reg(qs) if qs is not None else {'question_index': []}, _fh)
             try:
-                exec(compile(_p10_run, 'P10', 'exec'), {'EXAM': 'E', 'N': 1})
+                # v2.12→: P10/0 (MockTestExplain v1.24.0) asserts trigger-N's
+                # paper_slug == the uploaded docx's slug (PAPER_SLUG, bound at
+                # P1 in a real session). The fixture supplies the MATCHING slug
+                # for _QBP's mock 1 ('MOCK:M01' -> 'Mock01') so the identity
+                # gate passes and the qindex cases below stay the variable
+                # under test — and P10/0 itself is now execution-covered too.
+                exec(compile(_p10_run, 'P10', 'exec'),
+                     {'EXAM': 'E', 'N': 1, 'PAPER_SLUG': 'Mock01'})
                 return True
             except SystemExit:
                 return False

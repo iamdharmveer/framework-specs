@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.12.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.46.0",
-      "lines": 8223,
-      "sha256": "f85f52398b41032707f91431a139ab0071dab984701fbdac6bfa1b5b18b23948",
-      "size_bytes": 461005,
-      "version_header": "# Framework_MockTestAnalyse v2.46.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.47.0",
+      "lines": 8271,
+      "sha256": "439c17d2ec3a20bcbe2d08f717c48de2931f5e220898ebc906bbb505741aaee0",
+      "size_bytes": 465018,
+      "version_header": "# Framework_MockTestAnalyse v2.47.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -37,10 +37,10 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1638,
-      "sha256": "621c294702ff1f4d74f6823653b030901477db87663988c3920d05a3bd53f05b",
-      "size_bytes": 128244,
-      "version_header": "# Framework_MockTestExplain v1.23"
+      "lines": 1679,
+      "sha256": "e1a9684a2e359f0c094b467ccb80436010f7656fc76cdf94608392bbcab6bdab",
+      "size_bytes": 131516,
+      "version_header": "# Framework_MockTestExplain v1.24.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.0.0",
@@ -170,9 +170,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7234,
-      "sha256": "2c5d82c0e3f29318ad64a64885b5b64309138afe02d34c8933d0a4dfab025b1f",
-      "size_bytes": 398100,
+      "lines": 7241,
+      "sha256": "3bf2018f3733c06d48e81774003e76c265f491d7b7e1ef2f330c1451e88d38b6",
+      "size_bytes": 398616,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {

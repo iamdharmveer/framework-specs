@@ -1,4 +1,30 @@
-# Framework_MockTestAnalyse v2.46.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.47.0 — Universal PYQ Pattern Extraction Engine
+# v2.47.0 — 2026-08-13 — CROSS-STEP SYNC AUDIT FIXES (Steps 5→11 handshake audit)
+#   Three desyncs found by a dedicated 3-pass producer↔consumer audit of the whole
+#   Step 5 → TestDeliver chain, all fixed in this file:
+#   1. GAP-2026-08-13-STALE-NAME-MATCH-RULE — S1-4's CROSS-STEP SUBTOPIC NAME RULE
+#      still claimed "Step 7 matches subtopics by EXACT name" and prescribed re-running
+#      Steps 5+6 on any rename. FALSE since MockTestCreate v3.4 (its SUBTOPIC_ID
+#      CONTRACT section: joins are by subtopic_id ONLY; the display name is
+#      decorative) — and contradicted by this
+#      file's own §15 SUBTOPIC_ID CONTRACT. Rewritten to the id-based truth, keeping
+#      the one obligation that IS real (a rename that changes the derived id still
+#      requires re-running Step 5 AND Step 6 together).
+#   2. GAP-2026-08-13-DELIVERY-COUNT-DRIFT — three sites disagreed on the final
+#      deliverable count: DoD [19] said "EXACTLY 5" (predating BOTH the v2.24.9
+#      exam_config 6th file and the v2.24 taxonomy.xlsx conditional 7th), S11-3's
+#      closed list said "all 6", and the delivery code has appended taxonomy.xlsx
+#      since v2.24 — so S11-3's own Check 2 ("no unexpected files") would veto the
+#      code's own 7-file delivery. All sites now agree: 6 mandatory + taxonomy.xlsx
+#      when written (= 7 on a normal run), with the expected set DERIVED from what
+#      the code actually writes (the same v5.36 lesson Step 7's S13-7 learned).
+#   3. Provenance stamp drift — section_rules framework_version and the manifest
+#      generated_by stamps still said v2.22/v2.23. No consumer parses them (verified
+#      by grep across Framework_Blueprint/MockTestCreate/blueprint_core/corpus_io —
+#      Step 6's v2.22+ gate checks the per-entry `format` FIELD, never the stamp),
+#      so severity was cosmetic-only; updated to v2.47 for honest provenance. NOTE:
+#      this stamp-drift class has now recurred at least four times (v2.14/v2.15/
+#      v2.17 fixed it before) — future version bumps must update these literals.
 # v2.46.0 — 2026-08-06 — GAP-2026-08-06-SEAM: DI was not in sync with FIGURAL.
 #   The rate->quota->schedule->rank chain was built for FIGURAL only; DI kept a
 #   render-time cap and its measured rate was discarded, so on a DI-heavy exam the
@@ -1187,12 +1213,22 @@ else:
 CROSS-STEP SUBTOPIC NAME RULE (applies to Step 5 and Step 6 both):
   Step 5 (PYQExtract) and Step 6 (MockBlueprint) both read subtopic
   names from the SAME Analysis Word docs. Both steps MUST use the EXACT names
-  as written in the Analysis doc.
-  Step 7 (MockCreate) matches subtopics by EXACT name between section_rules.md
-  (from Step 5) and blueprint.json (from Step 6). A name mismatch = subtopic
-  unrecognised by Step 7 → that subtopic gets no allocation or pattern guidance.
-  If a name correction is needed: apply the SAME correction in the Analysis doc
-  and re-run BOTH Step 5 AND Step 6 before starting Step 7.
+  as written in the Analysis doc — the names seed the SAME taxonomy triples
+  both steps derive subtopic_ids from, so a divergent spelling here mints a
+  DIVERGENT id downstream, and ids are the only join key that matters.
+  v2.47 (GAP-2026-08-13-STALE-NAME-MATCH-RULE — cross-step sync audit): this
+  rule previously claimed "Step 7 matches subtopics by EXACT name between
+  section_rules.md and blueprint.json" and prescribed re-running BOTH Step 5
+  AND Step 6 on any rename. That has been FALSE since MockTestCreate v3.4:
+  Step 7 joins on subtopic_id ONLY (its SUBTOPIC_ID CONTRACT section: "v3.4
+  removes string-matching entirely... The display name is decorative;
+  nothing matches on it") —
+  exactly what this file's own §15 SUBTOPIC_ID CONTRACT says (Step 5 mints,
+  Step 6 consumes, Step 7 joins by id). A display-name-only correction that
+  does NOT change the derived slug/id needs NO re-runs; a correction that
+  DOES change the triple (and therefore the id) still requires re-running
+  Step 5 AND Step 6 together, because a manifest/blueprint id mismatch is a
+  Step-7 HARD STOP (HS-9/HS-11), never a silent no-allocation.
 ```
 
 ```python
@@ -4429,7 +4465,7 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
         f'nat_tolerance: {meta.get("nat_tolerance", "0")}',
         f'nat_instruction: {meta.get("nat_instruction", "Enter your answer as a numerical value.")}',
         f'total_sections: {len(set(e["section"] for e in entries))}',
-        f'framework_version: v2.23',
+        f'framework_version: v2.47',  # v2.47: was hardcoded v2.23 — a recurring stamp-drift class (see CHANGELOG v2.14/v2.15/v2.17); no consumer parses it (verified), keep honest anyway
         '',
     ]
 
@@ -5127,7 +5163,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     {
       "exam_code": "...",
       "manifest_version": "1.0",
-      "generated_by": "Framework_MockTestAnalyse v2.22",
+      "generated_by": "Framework_MockTestAnalyse v2.47",
       "id_recipe": "<section_prefix>.<topic_slug>.<subtopic_slug> via slugify v2.4",
       "subtopics": {
          "<subtopic_id>": {
@@ -5173,7 +5209,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     manifest = {
         'exam_code': exam_code,
         'manifest_version': '1.0',
-        'generated_by': 'Framework_MockTestAnalyse v2.23',
+        'generated_by': 'Framework_MockTestAnalyse v2.47',
         'id_recipe': '<section_prefix>.<topic_slug>.<subtopic_slug>; section_prefix=word-initials (gir/ga/qa/ec), slugify v2.4',
         'subtopics': {},
         'alternation_groups': {},
@@ -5396,7 +5432,7 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
     manifest = {
         'exam_code': exam_code,
         'manifest_version': '1.0',
-        'generated_by': 'Framework_MockTestAnalyse v2.23 (rebuild_from_section_rules)',
+        'generated_by': 'Framework_MockTestAnalyse v2.47 (rebuild_from_section_rules)',
         'id_recipe': '<section_prefix>.<topic_slug>.<subtopic_slug>; slugify v2.4',
         'subtopics': {},
         'alternation_groups': {},
@@ -7421,7 +7457,7 @@ PART C — Handoff message:
      1. Add new .docx files to your Google Drive PYQ folder
      2. Run: PYQExtract PYQ: <<same Drive link>>
      3. New papers auto-detected → processed → auto-synthesis → refreshed outputs
-     4. Download all 6 output files from chat
+     4. Download all output files from chat (6 mandatory + taxonomy.xlsx when present)
      5. Replace old files in [ExamCode] project Files/Knowledge section
      Existing mocks: unaffected. Future mocks: use improved patterns.
 
@@ -7458,7 +7494,8 @@ DO NOT DELIVER:
 ────────────────────────────────────────────────────────────────────
 FINAL DELIVERY (last batch → auto-synthesis → QV checks complete)
 ────────────────────────────────────────────────────────────────────
-DELIVER (all 6 in one present_files call, in this order):
+DELIVER (the 6 mandatory files in one present_files call, in this order — plus
+[ExamCode]_taxonomy.xlsx appended when it exists, which is every normal run; v2.47):
   1. [ExamCode]_section_rules.md
   2. [ExamCode]_subtopic_manifest.json
   3. [ExamCode]_PYQ_Frequency.xlsx
@@ -7478,6 +7515,13 @@ PRE-DELIVERY CHECKLIST (before every present_files call):
                final:     {section_rules.md, subtopic_manifest.json,
                            PYQ_Frequency.xlsx, exam_config.json,
                            analysis_progress.json, analysis_summary.md}
+               final, additionally WHEN IT EXISTS: {taxonomy.xlsx}
+               (v2.47, GAP-2026-08-13-DELIVERY-COUNT-DRIFT: the delivery code
+                has appended taxonomy.xlsx conditionally since v2.24 — written
+                on every normal run, skipped only when openpyxl is missing —
+                but this expected set did not list it, so Check 2 below would
+                veto the code's own 7-file delivery. DERIVED from what was
+                actually written, the same v5.36 lesson Step 7's S13-7 learned.)
   Check 1: All expected files present in delivery — assert not (expected - delivering)
   Check 2: No unexpected files in delivery — assert not (delivering - expected)
   Check 3: No internal files leaked — no banned patterns in filenames
@@ -7496,7 +7540,7 @@ deliverable file badges (Upload / Replace / Use locally), and next-step referenc
 
 Step 5 uses BOTH footer types:
   - F1 (amber) after each non-final batch (delivers analysis_progress.json)
-  - F2 (green) after final batch + auto-synthesis (delivers all 6 files)
+  - F2 (green) after final batch + auto-synthesis (delivers the full final set — S11-3)
 ```
 
 ---
@@ -7861,7 +7905,11 @@ Step 5 is complete when ALL of the following hold:
 [16] Year columns in xlsx match _meta.years_processed exactly.
 [17] User downloaded [ExamCode]_PYQ_Frequency.xlsx — kept for Step 6 input.
 [18] Per-batch deliverable set closed: EXACTLY 1 file per batch (S11-3)
-[19] Final deliverable set closed: EXACTLY 5 files at completion (S11-3)
+[19] Final deliverable set closed: the 6 mandatory files, + taxonomy.xlsx when written
+     (=7 on a normal run) — per S11-3's derived expected set. (v2.47: this item said
+     "EXACTLY 5" — stale twice over: it predated both the v2.24.9 exam_config addition
+     [6th] and the v2.24 taxonomy.xlsx companion [conditional 7th], and disagreed with
+     S11-3's own "all 6" list. GAP-2026-08-13-DELIVERY-COUNT-DRIFT.)
 [20] Pre-delivery checklist (S11-3) passed before every present_files call
 [21] No unauthorized files in any present_files call
 [22] Taxonomy sync ran: run_synthesise printed "Taxonomy sync:" summary line
@@ -8220,4 +8268,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.46.0
+# END OF Framework_MockTestAnalyse v2.47.0

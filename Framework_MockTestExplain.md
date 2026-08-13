@@ -1,4 +1,23 @@
-# Framework_MockTestExplain v1.23
+# Framework_MockTestExplain v1.24.0
+# v1.24.0 — 2026-08-13 — CROSS-STEP SYNC AUDIT FIXES (Steps 5→11 handshake audit)
+#   Two desyncs found by a dedicated 3-pass producer↔consumer audit of the whole
+#   Step 5 → TestDeliver chain, both fixed in this file:
+#   1. GAP-2026-08-13-STALE-CREATE-COMPLETE-NAME — S2-1's trigger contract (FRESH
+#      prerequisite line + the HALT rule) still demanded a "Create_Complete" docx,
+#      a filename RETIRED at v1.21.0 that no step produces (this file's own header
+#      says so; Step 7 delivers [ExamCode]_[paper_slug]_Create.docx). Read literally,
+#      the HALT rule could never be satisfied — a session would refuse the valid
+#      _Create.docx upload forever. Both sites (and the S19-1 comment) now name
+#      _Create.docx. The operative P1 discovery always did.
+#   2. GAP-2026-08-13-EXPLAIN-N-SLUG-GATE — new P10/0: trigger-N ↔ uploaded-docx
+#      identity gate, the SAME assertion Step 11 (MockDeliver S1-2) already makes
+#      and Step 9 did NOT. P1 selects the BLUEPRINT by the uploaded docx's slug, but
+#      N comes from the trigger — and on a RESUMED SCOPED SERIES the blueprint's
+#      `mock` field is an ORDINAL (1..count) while the paper_id carries the OFFSET
+#      series number (ScopedBlueprint S2-4 paper_start), so a mistyped P[N] could
+#      silently bind a DIFFERENT paper's options_by_q/question_index to the uploaded
+#      paper and publish a mislabeled Explanation. P10/0 hard-stops on
+#      pp.paper_slug(trigger-N's paper_id) != the uploaded filename's slug.
 # v1.23 — 2026-08-10 — P10 REGISTRY-FK TRIPWIRE (GAP-2026-08-10-QINDEX-FK-
 #   ENFORCEMENT). New mandatory preflight P10: before ANY solving, validate this
 #   mock's registry.question_index against the blueprint (entry exists; count/
@@ -381,7 +400,7 @@
 
 ```text
   FRESH  : TestExplain P[N] [--level <mock|subject|topic|subtopic>] [--scope <Subject[::Topic]>]
-           (+ [paper_slug] Create_Complete docx already in project)
+           (+ [ExamCode]_[paper_slug]_Create.docx already in project)
   RESUME : TestExplain P[N] resume  (re-enter mid-paper; reload state, §4)
   STATUS : TestExplain P[N] --status (dashboard only, then WAIT)
   CONT   : continue | next | go                     (proceed to the next batch — §4)
@@ -393,7 +412,11 @@
 ```
 
   Unclear trigger → ask ONE clarifying question. Never solve on ambiguous input.
-  Trigger WITHOUT the matching Create_Complete docx present → HALT, request the upload.
+  Trigger WITHOUT the matching [ExamCode]_[paper_slug]_Create.docx present → HALT, request
+  the upload. (v1.24: this and the FRESH line above said "Create_Complete" — a filename
+  RETIRED at v1.21.0 that no step produces (see the header note); a session following the
+  old wording literally would refuse the valid _Create.docx upload forever. The operative
+  P1 discovery always used _Create.docx; the trigger contract now says the same thing.)
   --level, when given, is cross-checked (not required) against the blueprint
   pp.pick_blueprint resolves via the uploaded docx (P1) — a mismatch is a HARD STOP.
   MockExplain M[N] always implies level='mock'.
@@ -517,10 +540,28 @@
 
   ```python
   import json as _p10_json
+  import paper_pipeline as pp   # v1.24: explicit in-block bind (P10 is self-contained;
+                                # a re-import after P1 is a harmless no-op)
   _p10_bp  = _p10_json.load(open(f'/mnt/project/{EXAM}_blueprint.json', encoding='utf-8'))
   _p10_reg = _p10_json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))
   _p10_tp  = next((mk for mk in _p10_bp.get('mocks', []) if mk.get('mock') == N), None)
   _p10_pid = (_p10_tp or {}).get('paper_id', f"MOCK:M{int(N):02d}")
+  # P10/0 (v1.24 — GAP-2026-08-13-EXPLAIN-N-SLUG-GATE): trigger-N ↔ uploaded-docx
+  # identity gate, the SAME assertion Step 11 (Framework_MockDeliver S1-2) already
+  # makes and Step 9 previously did NOT. P1 selects the BLUEPRINT by the uploaded
+  # docx's slug, but N comes from the trigger — and on a RESUMED SCOPED SERIES the
+  # blueprint's `mock` field is an ORDINAL (1..count) while the paper_id carries the
+  # OFFSET series number (ScopedBlueprint S2-4 paper_start), so a mistyped P[N] can
+  # silently bind a DIFFERENT paper's options_by_q/question_index to the uploaded
+  # paper and publish a mislabeled Explanation. PAPER_SLUG here is the slug parsed
+  # from the uploaded _Create.docx filename at P1.
+  if pp.paper_slug(_p10_pid) != PAPER_SLUG:
+      raise SystemExit(
+          f"HARD STOP (P10/0): trigger paper N={N} resolves to paper_slug "
+          f"{pp.paper_slug(_p10_pid)!r}, but the uploaded docx carries "
+          f"{PAPER_SLUG!r}. Wrong P[N] for this upload (on a resumed scoped "
+          f"series remember N is the blueprint ORDINAL, not the filename's series "
+          f"number). Re-trigger with the N whose paper produced this docx.")
   _p10_entry = next((e for e in _p10_reg.get('question_index', [])
                      if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == _p10_pid), None)
   _p10_fails = []
@@ -1375,7 +1416,7 @@ import os
 out = '/mnt/user-data/outputs'
 # PAPER_SLUG = pp.paper_slug(paper_id) of the blueprint mock/paper resolved at P1 (v1.19).
 # "Mock[N]" zero-padded for a mock, else the scoped slug — same value the input
-# Create_Complete.docx filename carries.
+# _Create.docx filename carries (v1.24: was "Create_Complete", retired at v1.21.0).
 sol = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
 present = set(os.listdir(out))
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
@@ -1634,5 +1675,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.23
+# END OF Framework_MockTestExplain v1.24.0
 # ════════════════════════════════════════════════════════════════════════
