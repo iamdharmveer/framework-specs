@@ -1,5 +1,17 @@
 """
-notes_audit.py v2.2 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.3 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.3 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE ENFORCEMENT
+    (Point 1; pairs with Framework_NotesAudit v3.2.0 G-5, Framework_NotesCreate
+    v2.4.0 §4 B3 and notes_docx v1.3). gate_question_format (G-5) now re-asserts,
+    on the SHIPPED model, what notes_docx.validate_model enforces at
+    construction: every Example carries a one-line Educational Objective and one
+    distractor-autopsy line per WRONG option (MCQ 3; MSQ 4 − #correct; NAT >= 1
+    trap value), and a Recall carries NEITHER. No new gate identifier is added —
+    the two elements are part of "the fixed template" G-5 already owns, so the
+    GATES registry and the NA spec stay in agreement (S-2). The terminal
+    re-gate (G-11) already runs G-5, so the shipped bytes are certified for the
+    autopsy/objective too.
 
 v2.2 — 2026-08-13 — TEXT AUTHORITY + PROSE-ONLY G-9 (GAP-2026-08-12-NAPARSE
     D-2, D-3; owner decisions OD-1 and OD-2).
@@ -410,9 +422,36 @@ def gate_question_format(model, allowed_types=()):
             findings.append(f"block {i}: NAT must not print options")
         if t == "example" and not b.get("explanation"):
             findings.append(f"block {i}: Example without an Explanation")
+        if t == "example":
+            # v2.3: DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE (section 4 B3).
+            # Re-assert on the shipped model what validate_model gates at
+            # construction: a one-line Objective, and one autopsy line per
+            # WRONG option (MCQ 3; MSQ 4 − #correct; NAT >= 1 trap value).
+            if not b.get("objective"):
+                findings.append(f"block {i}: Example without a one-line "
+                                f"Educational Objective (section 4 B3)")
+            ww = b.get("why_wrong") or []
+            if qt == "MCQ":
+                need = 3
+            elif qt == "MSQ":
+                need = 4 - len([p for p in str(b.get("answer", "")).split(",")
+                                if p.strip()])
+            else:                                        # NAT — no fixed count
+                need = None
+            if need is not None and len(ww) != need:
+                findings.append(f"block {i}: {qt} needs one distractor-autopsy "
+                                f"line per wrong option ({need}); found "
+                                f"{len(ww)} (section 4 B3)")
+            elif need is None and len(ww) < 1:
+                findings.append(f"block {i}: NAT needs at least one trap-value "
+                                f"line (section 4 B3)")
         if t == "recall" and (b.get("explanation") or b.get("speed_hack")):
             findings.append(f"block {i}: Recall must carry neither an "
                             f"Explanation nor a SPEED HACK (section 4 B7)")
+        if t == "recall" and (b.get("why_wrong") or b.get("objective")):
+            findings.append(f"block {i}: Recall must carry neither a distractor "
+                            f"autopsy nor an Educational Objective (section 4 "
+                            f"B7)")
     missing = sorted(allowed - seen) if allowed and n else []
     return (not findings, findings,
             {"questions": n, "types_present": sorted(seen),
@@ -954,7 +993,12 @@ def self_test():
                                                  "statement holds?"}],
                      "options": [T("a"), T("b"), T("c"), T("d")][:opts],
                      "answer": answer,
-                     "explanation": [T("Substrate saturates the enzyme.")]},
+                     "explanation": [T("Substrate saturates the enzyme.")],
+                     # v2.3: default fixture is MCQ answer "2" -> 3 wrong.
+                     "why_wrong": [T("Option a drops the denominator."),
+                                   T("Option c inverts the ratio."),
+                                   T("Option d confuses the two constants.")],
+                     "objective": T("Read the rate from the saturating form.")},
                     {"type": "key_points",
                      "bullets": [T("Saturation sets the ceiling rate.")]}]}
 
@@ -1097,7 +1141,11 @@ def self_test():
                               "runs": T("Rate saturates as substrate rises.")}]},
                 {"type": "example", "qtype": "MCQ", "stem": T("Which holds?"),
                  "options": [T("a"), T("b"), T("c"), T("d")], "answer": "2",
-                 "explanation": [T("Substitute and simplify.")]},
+                 "explanation": [T("Substitute and simplify.")],
+                 "why_wrong": [T("Option a drops the denominator."),
+                               T("Option c inverts the ratio."),
+                               T("Option d confuses the two constants.")],
+                 "objective": T("Read the rate from the saturating form.")},
                 {"type": "key_points",
                  "bullets": [T("Saturation sets the ceiling rate.")]},
                 {"type": "trap",
@@ -1292,6 +1340,21 @@ def self_test():
     recall_ok["blocks"][-1].pop("explanation")
     check("G-5 accepts a well-formed Recall",
           gate_question_format(recall_ok, ("MCQ",))[0])
+    # v2.3: G-5 enforces the distractor autopsy + Educational Objective.
+    noobj = copy.deepcopy(m)
+    noobj["blocks"][2].pop("objective")
+    ok_no, f_no, _ = gate_question_format(noobj, ("MCQ",))
+    check("G-5 catches an Example missing its Educational Objective",
+          not ok_no and any("Educational Objective" in x for x in f_no))
+    feww = copy.deepcopy(m)
+    feww["blocks"][2]["why_wrong"] = [T("only one line")]
+    ok_fw, f_fw, _ = gate_question_format(feww, ("MCQ",))
+    check("G-5 catches an MCQ with fewer autopsy lines than wrong options",
+          not ok_fw and any("per wrong option" in x for x in f_fw))
+    rc_obj = copy.deepcopy(recall_ok)
+    rc_obj["blocks"][-1]["objective"] = T("Recall must not carry this.")
+    check("G-5 catches a Recall carrying an Educational Objective",
+          not gate_question_format(rc_obj, ("MCQ",))[0])
 
     ok_ol, f_ol, m_ol = gate_outline(m)
     check("G-6 passes a gapless outline", ok_ol)

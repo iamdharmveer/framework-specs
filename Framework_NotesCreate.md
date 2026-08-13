@@ -1,4 +1,24 @@
-# Framework_NotesCreate v2.3.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.4.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.4.0 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE (Point 1;
+#   pairs with Framework_NotesAudit v3.2.0 and notes_docx v1.3). Every worked
+#   Example (B3) now ends with TWO new elements, and a Recall (B7) carries
+#   NEITHER:
+#     (1) A per-option "why the other options fail" block — ONE line per WRONG
+#         option, naming the specific error that produces it (MCQ: 3 lines;
+#         MSQ: 4 − #correct; NAT: this becomes a "trap values" block of >= 1
+#         line, each a wrong number and the mistake that yields it). The
+#         builder stores these in the example block's why_wrong field.
+#     (2) A one-line Educational Objective — the transferable takeaway — stored
+#         in the objective field.
+#   These are built THROUGH notes_docx.build like everything else (§4A):
+#   notes_docx.validate_model enforces the exact per-option count and the
+#   presence of the Objective at construction, and Framework_NotesAudit G-5
+#   re-asserts both on the shipped file, so a missing rationale can never reach
+#   a delivered document. The autopsy header renders in the TRAP red and the
+#   Objective label in the L2 teal — both EXISTING §6A colours, so no new
+#   colour is introduced. The new text is document-facing prose and is subject
+#   to §7 in full (no question-type names, no years, no PYQ token). Anatomy,
+#   density, math and numbering (§4A–§6A otherwise) are UNCHANGED.
 # v2.3.1 — 2026-08-13 — OPTION CONTRACT MADE EXPLICIT (GAP-2026-08-12-NAPARSE
 #   D-1). §4 B3 now states that the "N. " option marker is the ONLY
 #   guaranteed plain text (w:t) on an option line: the option's CONTENT may
@@ -108,9 +128,11 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_docx.py >= v1.1 — the SHARED builder. NC constructs the .docx ONLY
+#   notes_docx.py >= v1.3 — the SHARED builder. NC constructs the .docx ONLY
 #                           through notes_docx.build (section 4A); it never
-#                           hand-rolls a paragraph, colour, border or line rule
+#                           hand-rolls a paragraph, colour, border or line rule.
+#                           v1.3 adds the why_wrong / objective fields (§4 B3)
+#                           and validate_model's per-option-count enforcement
 #   notes_core.py >= v2.4 — notes_filename AND docx_ref_for (section 9A's
 #                           draft_ref), registry schema notes-registry/2.1,
 #                           the D-1 bullet counter G-1 depends on, plus:
@@ -217,7 +239,21 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
         Answer   bold; option number(s) for MCQ ("2"), comma-joined for MSQ
                  ("1,3"), bare numeric for NAT ("20.5")
         Explanation:  label line, then the working (equations per §6 F-3)
-        SPEED HACK    last, ONLY where a genuine shortcut exists
+        SPEED HACK    ONLY where a genuine shortcut exists
+        DISTRACTOR AUTOPSY  a per-option "why the other options fail" block:
+                 ONE line per WRONG option, each naming the SPECIFIC error
+                 that produces it, not merely restating the right answer.
+                 Counts are exact — MCQ: 3 lines; MSQ: 4 − (number of correct
+                 options); NAT: this becomes a "trap values" block of >= 1
+                 line, each a wrong NUMBER and the mistake (unit slip, factor,
+                 inverted ratio) that yields it. Stored in the block's
+                 why_wrong field; header text is DERIVED from the type by the
+                 builder (never authored), so the numbers cannot go stale. An
+                 all-correct MSQ (no wrong option) carries no autopsy lines.
+        Objective:  LAST — a single-line Educational Objective, the
+                 transferable takeaway (the general principle, not this item's
+                 answer). Stored in the block's objective field. Required on
+                 EVERY Example.
       Question types MUST be drawn exclusively from
       allowed_question_types; across the unit the examples collectively
       cover every allowed type where the concept evidence supports it. A
@@ -231,8 +267,10 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
   B6  RAPID REVISION SUMMARY — Must-Know Formulae (OMML in cells, §6 F-3)
       + Key Associations, as level-3 sub-sections.
   B7  RECALL CHECK — exam-format questions IDENTICAL to the B3 template
-      minus Explanation and SPEED HACK: same box style, titled "Recall j",
-      stem + options (where typed) + bold Answer. Types from the allowed set.
+      minus Explanation, SPEED HACK, the distractor autopsy AND the Objective:
+      same box style, titled "Recall j", stem + options (where typed) + bold
+      Answer. Types from the allowed set. validate_model and G-5 reject a
+      Recall that carries any of those four teaching elements.
   B8  MIND MAP — auto-generated concept graph, last page, obeying §6 F-4.
 Adjacent boxes are always separated by a spacer paragraph so consecutive
 box tables never merge visually.
@@ -249,6 +287,10 @@ built file at all:
   - tail blocks out of section 6A order;
   - an MCQ key outside the printed options, an MSQ key repeating an option, a
     non-numeric NAT key, or a NAT stem that omits its rounding precision;
+  - an Example missing its one-line Objective, or whose distractor-autopsy line
+    count does not equal the number of wrong options (MCQ 3; MSQ 4 − #correct;
+    NAT >= 1 trap value) — the §4 B3 per-option contract; and a Recall that
+    carries an autopsy or an Objective;
   - an unbraced multi-character math script. "V_max" is LaTeX for V-subscript-m
     followed by the letters "ax": t3_compile renders it exactly that way, it is
     correct XML, every math gate passes, and it is visibly wrong on a student's
@@ -322,6 +364,11 @@ adjacent levels distinct):
   6A1B9A | table headers slate 44546A | Example and Recall boxes blue
   2E75B6 on E8F1FA | KEY POINTS green 2E7D32 on E4F2E4 | TRAP red C62828
   on FBE4E4. No other colour may be introduced for these roles.
+  The §4 B3 distractor-autopsy header REUSES the TRAP red C62828 (error
+  signalling) and the Objective label REUSES the L2 teal 00838F with the
+  objective text in the L1 navy 1F4E79 — all three are existing authorities
+  above, so no NEW colour enters the map and the notes_core SPEC-LOCK is
+  untouched.
 
 ## §7 — CONTENT-STYLE BANS (machine-gated lexicon in notes_core.PROSE_BAN)
 The delivered document text (including tables and box titles; figures are
@@ -332,6 +379,10 @@ covered by F-4) must contain NONE of the following:
   4. "Q:" stem prefixes.
   5. Editorial/meta lead-in lines ("examiner", fold-away instructions) and
      instructional heading suffixes; headings carry the number + name only.
+The §4 B3 distractor-autopsy lines and the Objective line ARE delivered
+document text, so they fall under every ban above — in particular a rationale
+or objective must never name a question type or cite a year (G-4 scans them
+with the rest of the document).
 An exam whose OWN subject matter legitimately requires a banned token (e.g.
 a History unit needing years) declares a documented per-unit exemption in
 the blueprint; absent an exemption the gate is hard.
@@ -373,4 +424,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.3.1
+# END OF Framework_NotesCreate v2.4.0

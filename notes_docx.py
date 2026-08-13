@@ -1,5 +1,25 @@
 """
-notes_docx.py v1.2 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.3 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.3 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE (Point 1;
+    pairs with Framework_NotesCreate v2.4.0 §4 B3 and Framework_NotesAudit
+    v3.2.0 G-5). Two content fields are added to the "example" block of
+    notes-content/1.0 — required for every Example, forbidden on a Recall:
+      (1) why_wrong — a list of run-chunks, one "why this option/value fails"
+          line per WRONG option (MCQ: exactly 3; MSQ: exactly 4 − #correct;
+          NAT: >= 1 trap value, no fixed count). validate_model enforces the
+          exact count so a missing per-option rationale cannot reach a built
+          file, and G-5 re-asserts it on the shipped model.
+      (2) objective — a single run-chunk, the one-line Educational Objective.
+    build() renders them AFTER the SPEED HACK: a header ("Why the other
+    options fail" for MCQ/MSQ, "Trap values — the wrong numbers and why" for
+    NAT) in the TRAP red (notes_core.BOX_COLORS["trap"][0]), one line per
+    entry, then an "Objective: " label in the L2 teal with the objective text
+    in the L1 navy. NO new colour is introduced — every hex is an existing
+    notes_core authority, so the notes_core SPEC-LOCK is untouched. parse()
+    recovers both via two marker branches ("Why the other options fail" /
+    "Trap values", and "Objective:"), so build → parse → build (W-3) stays
+    byte-identical and NA parse fidelity (P-4a) holds. Numbers stored: none.
 
 v1.2 — 2026-08-13 — LOSSLESS PARSE (GAP-2026-08-12-NAPARSE D-1 + D-1b).
     (1) Option detection matches the UNSTRIPPED paragraph text against
@@ -465,10 +485,42 @@ def validate_model(model):
                                f"block {i} explanation {ci}")
                 if b.get("speed_hack"):
                     check_runs(b["speed_hack"], f"block {i} speed hack")
+                # v1.3: DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE (§4 B3).
+                # One "why wrong" line PER WRONG OPTION (MCQ 3; MSQ 4−#correct;
+                # NAT >= 1 trap value), and exactly one Objective. Enforced at
+                # construction here and re-asserted at audit by G-5.
+                obj = b.get("objective") or []
+                if not obj:
+                    f.append(f"block {i}: Example missing its one-line "
+                             f"Educational Objective (§4 B3)")
+                else:
+                    check_runs(obj if isinstance(obj, list) else [obj],
+                               f"block {i} objective")
+                ww = b.get("why_wrong") or []
+                if qt == "MCQ":
+                    need = 3
+                elif qt == "MSQ":
+                    need = 4 - len([p for p in ans.split(",") if p.strip()])
+                else:                                    # NAT — no fixed count
+                    need = None
+                if need is not None:
+                    if len(ww) != need:
+                        f.append(f"block {i}: {qt} needs one distractor-autopsy "
+                                 f"line per wrong option ({need}); found "
+                                 f"{len(ww)} (§4 B3)")
+                elif len(ww) < 1:
+                    f.append(f"block {i}: NAT needs at least one trap-value "
+                             f"line (§4 B3)")
+                for wi, wc in enumerate(ww):
+                    check_runs(wc if isinstance(wc, list) else [wc],
+                               f"block {i} why_wrong {wi}")
             else:
                 if b.get("explanation") or b.get("speed_hack"):
                     f.append(f"block {i}: Recall carries no Explanation or "
                              f"SPEED HACK (§4 B7)")
+                if b.get("why_wrong") or b.get("objective"):
+                    f.append(f"block {i}: Recall carries no distractor autopsy "
+                             f"or Educational Objective (§4 B7)")
         elif t in ("key_points", "trap"):
             if not b.get("bullets"):
                 f.append(f"block {i}: {t} has no bullets")
@@ -629,6 +681,31 @@ def _emit_question(doc, block, title, *, with_explanation):
                 ps = _para(cell)
                 _style_run(ps.add_run("SPEED HACK: "), bold=True)
                 _emit_runs(ps, block["speed_hack"])
+            # v1.3: DISTRACTOR AUTOPSY (§4 B3). One line per wrong option, under
+            # a header in the TRAP red — reusing an existing colour authority so
+            # the notes_core SPEC-LOCK is untouched and no new hex is added.
+            # The header text is DERIVED from qtype (never stored), so parse()
+            # can regenerate it and the round trip stays byte-identical.
+            ww = block.get("why_wrong") or []
+            if ww:
+                qt = (block.get("qtype") or "").upper()
+                header = ("Trap values — the wrong numbers and why"
+                          if qt == "NAT" else "Why the other options fail")
+                ph = _para(cell)
+                _style_run(ph.add_run(header),
+                           colour=notes_core.BOX_COLORS["trap"][0], bold=True)
+                for wc in ww:
+                    pw = _para(cell)
+                    _emit_runs(pw, wc if isinstance(wc, list) else [wc])
+            # v1.3: EDUCATIONAL OBJECTIVE (§4 B3). One line: an L2-teal label
+            # then the objective text in L1 navy — both existing authorities.
+            obj = block.get("objective") or []
+            if obj:
+                po = _para(cell)
+                _style_run(po.add_run("Objective: "),
+                           colour=notes_core.LEVEL_COLORS["L2"], bold=True)
+                _emit_runs(po, obj if isinstance(obj, list) else [obj],
+                           colour=notes_core.LEVEL_COLORS["L1"], bold=True)
     kind = "example" if with_explanation else "recall"
     return _add_box(doc, kind, title, body)
 
@@ -859,7 +936,7 @@ _OPT_MARKER = re.compile(r"^\s*(\d+)\.(?=\s|$)")
 def _parse_question(cell, title):
     blk = {"type": "example" if title.startswith("Example") else "recall",
            "qtype": None, "stem": [], "options": [], "answer": "",
-           "explanation": []}
+           "explanation": [], "why_wrong": []}
     mode = "stem"
     for p in cell.paragraphs[1:]:
         raw = p.text                     # NOT stripped: see _OPT_MARKER below
@@ -891,14 +968,35 @@ def _parse_question(cell, title):
             blk["speed_hack"] = _strip_prefix(_runs_from_paragraph(p._p),
                                               "SPEED HACK: ")
             mode = "hack"
+        # v1.3: the distractor-autopsy header (§4 B3). The header text is
+        # DERIVED from qtype at build, never stored, so it is recognised and
+        # discarded here; each following line is one why_wrong entry. Matching
+        # the FULL header phrase (not a bare "Why"/"Trap") keeps an ordinary
+        # explanation line that happens to start with those words out of scope.
+        elif (txt.startswith("Why the other options fail")
+              or txt.startswith("Trap values")):
+            mode = "why"
+        # v1.3: the one-line Educational Objective. The "Objective: " label is
+        # stripped and the remaining runs are the objective (a single chunk).
+        elif txt.startswith("Objective:"):
+            blk["objective"] = _strip_prefix(_runs_from_paragraph(p._p),
+                                             "Objective: ")
+            mode = "obj"
         elif mode == "stem":
             blk["stem"] += _runs_from_paragraph(p._p)
         elif mode == "expl":
             blk["explanation"].append(_runs_from_paragraph(p._p))
+        elif mode == "why":
+            blk["why_wrong"].append(_runs_from_paragraph(p._p))
     blk["qtype"] = ("NAT" if not blk["options"]
                     else ("MSQ" if "," in blk["answer"] else "MCQ"))
+    if not blk["why_wrong"]:
+        blk.pop("why_wrong", None)
     if blk["type"] == "recall":
+        # A Recall carries none of these (validate_model + G-5 reject them).
         blk.pop("explanation", None)
+        blk.pop("why_wrong", None)
+        blk.pop("objective", None)
     return blk
 
 
@@ -1079,7 +1177,12 @@ def self_test():
                              T("d")],
                  "answer": "2",
                  "explanation": [T("Substitute and simplify.")],
-                 "speed_hack": T("Compare denominators.")},
+                 "speed_hack": T("Compare denominators."),
+                 # v1.3: one why_wrong line per WRONG option (1,3,4) + Objective
+                 "why_wrong": [T("Option a drops the denominator."),
+                               T("Option c inverts the ratio."),
+                               T("Option d confuses the two constants.")],
+                 "objective": T("Read the ratio from the saturating form.")},
                 {"type": "key_points", "bullets": [T("Saturation is the key.")]},
                 {"type": "trap", "bullets": [T("Confusing Km with Kd.")]},
                 {"type": "rapid",
@@ -1092,6 +1195,41 @@ def self_test():
     m = demo_model()
     ok, findings = validate_model(m)
     check("valid demo model passes validation", ok)
+
+    # ---- v1.3: distractor autopsy + Educational Objective (§4 B3) --------
+    noobj = copy.deepcopy(m)
+    noobj["blocks"][2].pop("objective")
+    check("Example without an Educational Objective is rejected",
+          not validate_model(noobj)[0])
+    fewer = copy.deepcopy(m)
+    fewer["blocks"][2]["why_wrong"] = [T("only one line")]
+    ok_fw, f_fw = validate_model(fewer)
+    check("MCQ with fewer autopsy lines than wrong options is rejected",
+          not ok_fw and any("per wrong option" in x for x in f_fw))
+    natx = copy.deepcopy(m)
+    natx["blocks"][2]["qtype"] = "NAT"
+    natx["blocks"][2]["options"] = []
+    natx["blocks"][2]["answer"] = "2.50"
+    natx["blocks"][2]["stem"] = T("Compute the ratio, rounded to 2 decimals.")
+    natx["blocks"][2]["why_wrong"] = []
+    check("NAT example with no trap-value line is rejected",
+          not validate_model(natx)[0])
+    natx["blocks"][2]["why_wrong"] = [T("0.80 drops the (1 minus f) term.")]
+    check("NAT example with at least one trap-value line passes",
+          validate_model(natx)[0])
+    allc = copy.deepcopy(m)
+    allc["blocks"][2]["qtype"] = "MSQ"
+    allc["blocks"][2]["answer"] = "1,2,3,4"
+    allc["blocks"][2]["why_wrong"] = []
+    check("an all-correct MSQ needs zero autopsy lines (no wrong option)",
+          validate_model(allc)[0])
+    allc["blocks"][2]["why_wrong"] = [T("spurious line")]
+    check("...and a spurious autopsy line on an all-correct MSQ is rejected",
+          not validate_model(allc)[0])
+    rcobj = copy.deepcopy(m)
+    rcobj["blocks"][6]["objective"] = T("Recall must not carry this.")
+    check("a Recall carrying an Educational Objective is rejected",
+          not validate_model(rcobj)[0])
 
     # ---- numbering is DERIVED, never stored -----------------------------
     o = outline_of(m)
@@ -1233,6 +1371,17 @@ def self_test():
     check("Recall counter rendered", "Recall 1" in xml)
     check("Answer label is emitted bold before any Explanation",
           xml.index("Answer:") < xml.index("Explanation"))
+    # v1.3: the autopsy header and Objective render, and in reading order the
+    # autopsy sits after the Explanation and the Objective is last.
+    check("§4 B3: the distractor-autopsy header renders",
+          "Why the other options fail" in xml)
+    check("§4 B3: the Educational Objective renders",
+          "Objective:" in xml)
+    check("§4 B3: autopsy follows Explanation; Objective is last of the two",
+          xml.index("Explanation") < xml.index("Why the other options fail")
+          < xml.index("Objective:"))
+    check("§4 B3: the autopsy header uses the TRAP red (no new colour)",
+          notes_core.BOX_COLORS["trap"][0] in xml)
 
     # ---- determinism + round trip ---------------------------------------
     out2 = tempfile.mktemp(suffix=".docx")
@@ -1259,6 +1408,16 @@ def self_test():
               and b["qtype"] in ("MCQ", "MSQ")))
     check("a lossless parse re-validates (so the rebuild can be strict)",
           validate_model(back)[0])
+    # v1.3: the autopsy + Objective survive parse (else NA would lose them on
+    # its first parse and P-4a would hard-stop the unit).
+    ex_back = [b for b in back["blocks"] if b["type"] == "example"][0]
+    check("parse recovers one distractor-autopsy line per wrong option",
+          len(ex_back.get("why_wrong", [])) == 3)
+    check("parse recovers the Educational Objective",
+          bool(ex_back.get("objective")))
+    check("parse leaves the Recall free of autopsy/Objective fields",
+          all("why_wrong" not in b and "objective" not in b
+              for b in back["blocks"] if b["type"] == "recall"))
     rt2 = tempfile.mktemp(suffix=".docx")
     build(back, rt2)
     check("ROUND TRIP: build -> parse -> build is byte-identical "

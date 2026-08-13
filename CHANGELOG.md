@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026.08.13.2 — Point 1: Distractor Autopsy + Educational Objective
+
+Feature deployment. Every worked Example in a Notes unit now ends with a
+per-option "why the other options fail" block (one line per WRONG option;
+for NAT this is a "trap values" block of the wrong numbers and the mistakes
+that yield them) and a one-line Educational Objective. Both are built through
+the shared builder, gated at construction and re-asserted on the shipped file,
+so a missing rationale can never reach a delivered document. A Recall carries
+neither. No new colour and no new gate identifier are introduced.
+
+**Engines**
+
+- `notes_docx.py` v1.2 → v1.3 — adds the `why_wrong` (list of run-chunks, one
+  per wrong option) and `objective` (single run-chunk) fields to the
+  `example` block of `notes-content/1.0`. `validate_model` enforces the exact
+  per-option count (MCQ 3; MSQ 4 − #correct; NAT ≥ 1 trap value) and the
+  presence of the Objective, and forbids both on a Recall. `build` renders the
+  autopsy header in the TRAP red and the Objective label in the L2 teal /
+  navy — all existing `notes_core` colour authorities, so the SPEC-LOCK is
+  untouched. `parse` recovers both via two marker branches, keeping the
+  build → parse → build round trip byte-identical (W-3) and NA parse fidelity
+  (P-4a) intact. Numbers stored: still none.
+- `notes_audit.py` v2.2 → v2.3 — `gate_question_format` (G-5) re-asserts the
+  same per-option contract on the shipped model. Folded into the existing
+  G-5, not a new gate id, so `notes_audit.GATES` and the NA spec stay in
+  one-to-one agreement (sync check S-2).
+
+**Specs**
+
+- `Framework_NotesCreate.md` v2.3.1 → v2.4.0 — §4 B3 template gains the
+  distractor-autopsy and Objective elements; §4A lists the new construction
+  gate; §6A documents the reused colours; §7 confirms the new text is in the
+  content-ban scope; B7 states a Recall carries neither. Companion:
+  `notes_docx.py` ≥ v1.3.
+- `Framework_NotesAudit.md` v3.1.0 → v3.2.0 — §5 G-5 gains the shipped-model
+  enforcement; §2A lists the two fields as editable-but-undeletable.
+  Companions: `notes_docx.py` ≥ v1.3, `notes_audit.py` ≥ v2.3.
+
 ## 2026.08.13.1 — GAP-2026-08-12-NAPARSE
 
 Four defects in Notes Step NA (NotesAudit v3.0.0), every one behind a green

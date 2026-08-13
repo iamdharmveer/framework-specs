@@ -1,4 +1,18 @@
-# Framework_NotesAudit v3.1.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.2.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.2.0 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE ENFORCEMENT
+#   (Point 1; pairs with Framework_NotesCreate v2.4.0 §4 B3, notes_docx v1.3,
+#   notes_audit v2.3). G-5 (question format) now re-asserts, on the SHIPPED
+#   model, the two new B3 elements: every Example carries a one-line Educational
+#   Objective and one distractor-autopsy line per WRONG option (MCQ 3; MSQ
+#   4 − #correct; NAT >= 1 trap value), and a Recall carries NEITHER. This is
+#   deliberately folded into the EXISTING gate G-5 rather than a new identifier,
+#   so notes_audit.GATES and this spec stay in one-to-one agreement (the S-2
+#   sync check). notes_docx.validate_model gates the same contract at
+#   construction, so the two layers agree exactly as they do for D-1. The new
+#   text is document-facing and is scanned by G-4 like the rest of the file
+#   (Framework_NotesCreate §7). §2A's editable model now includes the why_wrong
+#   and objective fields — bounded improvement may sharpen a rationale or the
+#   Objective, but may not delete either (validate_model + G-5 would fail).
 # v3.1.0 — 2026-08-13 — LOSSLESS PARSE + TEXT AUTHORITY + ANCHORED G-9
 #   (GAP-2026-08-12-NAPARSE; owner decisions OD-1 and OD-2 of 2026-08-13).
 #   Four defects, all root-caused to test fixtures built from the simplest
@@ -83,11 +97,13 @@
 #                            final_ref, audit_summary), resolve_unit, the
 #                            density/math/prose gates, bank_questions_for,
 #                            document_text (the ONLY document text extractor)
-#   notes_docx.py  >= v1.2 — the SHARED builder/parser: build/parse/
+#   notes_docx.py  >= v1.3 — the SHARED builder/parser: build/parse/
 #                            validate_model/outline_of. Derived numbering and
 #                            the STRICT byte-identical round trip are its
-#                            guarantees; parse takes exam_code/tier (W-4)
-#   notes_audit.py >= v2.2 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
+#                            guarantees; parse takes exam_code/tier (W-4). v1.3
+#                            adds the why_wrong/objective fields (§4 B3) that
+#                            parse recovers and the round trip preserves
+#   notes_audit.py >= v2.3 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
 #                            record_key_correction, quarantine, gate_line_rules,
 #                            gate_answer_integrity, gate_counters,
 #                            gate_orphan_terms, syllabus_terms_for,
@@ -264,14 +280,17 @@ SCOPE OF THE WRITE:
   ALLOWED — defect remediation (anything a verdict or a gate identifies), and
     bounded improvement: tightening a bullet over the D-1 cap, converting >= 3
     parallel facts into a table (D-3), adding a clarifying bullet or KEY
-    POINTS line, adding a genuine SPEED HACK, improving figure clarity,
-    sharpening wording.
+    POINTS line, adding a genuine SPEED HACK, sharpening a §4 B3
+    distractor-autopsy line or the Educational Objective, improving figure
+    clarity, sharpening wording.
   FORBIDDEN — adding or removing Examples or Recall items (it moves the global
     j sequence and voids G-5's type-coverage proof); changing any Answer
-    except through section 3A; and introducing any fact that is not
-    syllabus-required, PYQ-anchored or BRIDGE-justified (D-6). Without that
-    last guard "improvement" is an open door for off-syllabus content in a
-    student document.
+    except through section 3A; DELETING an Example's distractor autopsy or its
+    Objective, or dropping a per-option rationale below the wrong-option count
+    (validate_model + G-5 would fail the rebuild); and introducing any fact
+    that is not syllabus-required, PYQ-anchored or BRIDGE-justified (D-6).
+    Without that last guard "improvement" is an open door for off-syllabus
+    content in a student document.
   Every improvement is logged (notes_audit.log_improvement) so section 8 is
   testable.
 
@@ -369,6 +388,14 @@ pass.
       blueprint's allowed_question_types, and a Recall carries neither an
       Explanation nor a SPEED HACK. The gate reports which allowed types went
       unused across the unit so type coverage is visible rather than assumed.
+      v3.2.0: G-5 also enforces the §4 B3 per-option contract on the SHIPPED
+      model — every Example carries a one-line Educational Objective and one
+      distractor-autopsy line per WRONG option (MCQ 3; MSQ 4 − #correct; NAT
+      >= 1 trap value), and a Recall carries neither the autopsy nor the
+      Objective. notes_docx.validate_model gates the same at construction, so
+      the two layers agree exactly as they do for D-1; folding this into G-5
+      (rather than a new gate id) keeps notes_audit.GATES and this spec in
+      one-to-one agreement.
   G-6 OUTLINE-NUMBER INTEGRITY (notes_audit.gate_outline): numbering gapless
       and sequential, and every in-text cross-reference ("see n.k") resolving
       to a number that exists. notes_docx.outline_of is the oracle. Because
@@ -509,4 +536,4 @@ warning (section 0B P-3), the FIGURE_PENDING count, and any DORMANT gate
 
 ---
 
-# END OF Framework_NotesAudit v3.1.0
+# END OF Framework_NotesAudit v3.2.0
