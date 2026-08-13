@@ -107,6 +107,38 @@ they're stamped onto the new question_index entry's qindex_cert and the new
 session_log entry (per the original Finding-0 scoping recommendation); when
 omitted (the current reality — no §13 call site passes them yet), nothing
 changes. Forward-compatible surface, not yet wired to a live value.
+
+v5.54 — TWO DEFERRED DESIGN GAPS CLOSED (each was flagged, documented and
+deliberately left out of the earlier hardening releases; each now gets its
+own scoped fix):
+
+  A. GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING. question_index/
+     session_log deduped by exact paper_id while G-COMMIT-COMPLETE looked
+     entries up by mock number — so a paper_id corrected mid-session and
+     re-committed left a stale sibling entry (same mock number, old id)
+     that no gate could ever see. Fixed on BOTH sides: (prevention)
+     commit_registry's dedupe key is widened to SAME-SERIES + SAME-NUMBER
+     (`_series_prefix()` — one series holds exactly one paper per number,
+     so a same-series entry with this number is by definition the stale
+     version of this commit; a same-number entry in a DIFFERENT series,
+     e.g. MOCK:M01 alongside SUBJ:Physics:01, legitimately coexists and is
+     never touched), and papers_completed drops the renamed predecessor
+     (same series, same parsed number, different id — unparseable numbers
+     are left alone rather than guessed at); (detection) regcheck() gains
+     `_duplicate_commit_problems()` — ≥2 same-series entries for one number
+     is a HARD STOP when it is THIS mock's slot, a warning for historical
+     mocks, mirroring G-COMMIT-COMPLETE's own fails/warns split exactly.
+
+  B. GAP-2026-08-12-AXISPAPER-PERSISTENCE. The spec's S7-AXIS block wrote
+     per-paper Axis-1/Axis-3 snapshots onto an in-memory registry object
+     nothing ever dumped, so the v5.49 mock-keyed history never actually
+     reached disk. commit_registry() now takes optional `axis1_snapshots`/
+     `axis3_snapshots` dicts ({section: snapshot}) and persists them as
+     reg['axis1_paper'][str(N)] / reg['axis3_paper'][str(N)] — replace-by-
+     mock, idempotent, deep-copied (purity), exactly the axis2_window_counts
+     precedent. Absent/empty ⇒ no write ⇒ byte-identical behaviour for
+     every exam without the axis feature. No engine consumes these fields
+     yet; this makes the write real so history accrues from now on.
 """
 
 import copy
@@ -128,15 +160,38 @@ __all__ = [
 # ══════════════════════════════════════════════════════════════════════════
 # S13-4 — commit_registry()
 # ══════════════════════════════════════════════════════════════════════════
+def _series_prefix(paper_id):
+    """Series identity of a paper_id ('MOCK', 'SUBJ:Physics', ...). A null /
+    absent paper_id maps to 'MOCK' — the same assumption the historical
+    default slug f"MOCK:M{mock:02d}" always encoded. Never raises."""
+    if not paper_id:
+        return 'MOCK'
+    try:
+        return pp.paper_prefix(paper_id)
+    except Exception:
+        return str(paper_id)
+
+
+def _paper_number_or_none(paper_id):
+    """pp.paper_number(), degraded to None on any unparseable id."""
+    try:
+        return pp.paper_number(paper_id)
+    except Exception:
+        return None
+
+
 def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                      axis2_window_counts, passage_present, di_present,
                      figural_present, concept_map,
                      passage_linked_qs=(), cloze_linked_qs=(),
                      di_manifest=None, fig_manifest=None, figure_specs=None,
+                     axis1_snapshots=None, axis3_snapshots=None,
                      framework_repo_commit=None, spec_source_report=None,
                      timestamp=None):
     """Registry update protocol (v2.0 GAP-03 + GAP-04 fix; v5.48.0 QINDEX-FK
-    enforcement; v5.52 idempotency — see module docstring deviation 4).
+    enforcement; v5.52 idempotency — see module docstring deviation 4;
+    v5.54 same-series dedupe + axis snapshot persistence — see the module
+    docstring's v5.54 section).
 
     Pure: does not mutate `registry`/`pending`; returns a NEW dict. On the
     FK check failing (a concept_map subtopic_id not present in
@@ -281,9 +336,26 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     if spec_source_report is not None:
         _qindex_cert["spec_source_report"] = spec_source_report
 
+    # v5.54 (GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING): the dedupe key
+    # for question_index/session_log is widened from exact-paper_id to
+    # SAME SERIES + SAME MOCK NUMBER. Rationale: one series can hold exactly
+    # one paper per number, so an existing entry with this mock's number in
+    # this paper's OWN series is by definition the stale version of THIS
+    # commit (the historical trigger: a paper_id corrected mid-session, then
+    # re-committed — the old key never matched the renamed entry, so the
+    # stale sibling survived forever and no gate could see it). An entry with
+    # the same number in a DIFFERENT series (MOCK:M01 vs SUBJ:Physics:01) is
+    # a legitimately coexisting paper and is never touched.
+    _new_prefix = _series_prefix(paper_id)
+
+    def _stale_sibling(e):
+        if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") == paper_id:
+            return True                      # the pre-v5.54 exact-id rule
+        return (e.get('mock') == N
+                and _series_prefix(e.get('paper_id')) == _new_prefix)
+
     reg.setdefault('question_index', [])
-    reg['question_index'] = [e for e in reg['question_index']
-                             if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") != paper_id]
+    reg['question_index'] = [e for e in reg['question_index'] if not _stale_sibling(e)]
     reg['question_index'].append({"mock": N, "paper_id": paper_id,
                                   "qindex_cert": _qindex_cert, "questions": _qi})
 
@@ -292,11 +364,19 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     if N not in mocks_completed:
         mocks_completed.append(N)
     papers_completed = reg.setdefault('papers_completed', [])
+    # v5.54: a stale same-series entry whose parsed paper NUMBER equals N is
+    # the renamed predecessor of THIS paper — remove it, or the ledger holds
+    # two ids for one paper forever. Unparseable numbers are left alone
+    # (can't attribute them safely); different series are never touched.
+    papers_completed[:] = [p for p in papers_completed
+                           if p == paper_id
+                           or _series_prefix(p) != _new_prefix
+                           or _paper_number_or_none(p) != N]
     if paper_id not in papers_completed:
         papers_completed.append(paper_id)
 
     session_log = [e for e in reg.setdefault('session_log', [])
-                   if e.get('paper_id', f"MOCK:M{e.get('mock', -1):02d}") != paper_id]
+                   if not _stale_sibling(e)]
     _ts = timestamp if timestamp is not None else datetime.now(timezone.utc).isoformat()
     _sl_entry = {
         "mock": N, "paper_id": paper_id, "batches": batches_completed,
@@ -321,6 +401,19 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
         reg['axis2_window'] = {'window': _cur_window,
                                'sections': {s: c for s, c in axis2_window_counts.items()
                                             if c is not None}}
+
+    # ── Axis-1/Axis-3 per-paper snapshots (v5.54 — GAP-2026-08-12-AXISPAPER-
+    # PERSISTENCE). The spec's S7-AXIS block accumulated these per section and
+    # wrote them onto an in-memory registry object that nothing ever dumped —
+    # so the v5.49 mock-keyed history the spec promised never reached disk.
+    # Persisted here, at the ONE terminal commit, exactly like every other
+    # per-mock field: [str(N)] keying = replace-by-mock = idempotent
+    # (deviation 4's pattern; axis2_window_counts is the signature precedent).
+    # Absent-safe: an exam with no axis feature passes nothing, writes nothing.
+    if axis1_snapshots:
+        reg.setdefault('axis1_paper', {})[str(N)] = copy.deepcopy(dict(axis1_snapshots))
+    if axis3_snapshots:
+        reg.setdefault('axis3_paper', {})[str(N)] = copy.deepcopy(dict(axis3_snapshots))
 
     return {'ok': True, 'fails': [], 'registry': reg, 'paper_id': paper_id}
 
@@ -357,6 +450,31 @@ def _commit_problems(reg, m):
         problems.append('no question_index entry')
     elif not qie.get('paper_id'):
         problems.append('question_index entry has no paper_id')
+    return problems
+
+
+def _duplicate_commit_problems(reg, m):
+    """v5.54 (GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING) — detect the
+    stale-sibling state the old gate was blind to: TWO OR MORE
+    question_index/session_log entries carrying the same mock number WITHIN
+    THE SAME SERIES. One series holds exactly one paper per number, so ≥2
+    same-series entries for one number always means a stale duplicate (the
+    historical trigger: a paper_id corrected mid-session, re-committed under
+    the new id, old entry never cleaned). Entries with the same number in
+    DIFFERENT series (MOCK:M01 alongside SUBJ:Physics:01) are legitimately
+    coexisting papers and never flagged. Keyed by series PREFIX, not full
+    paper_id, deliberately — the whole point is catching two different ids
+    that claim the same slot."""
+    problems = []
+    for ledger in ('question_index', 'session_log'):
+        by_prefix = Counter(_series_prefix(e.get('paper_id'))
+                            for e in reg.get(ledger, []) if e.get('mock') == m)
+        dups = {pfx: c for pfx, c in by_prefix.items() if c > 1}
+        for pfx, c in sorted(dups.items()):
+            problems.append(f"{ledger} holds {c} entries for number {m} in "
+                            f"series '{pfx}' (one series holds ONE paper per "
+                            f"number — a stale duplicate from a paper_id "
+                            f"change)")
     return problems
 
 
@@ -408,9 +526,31 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None):
                           "(never a hand-rolled subset of its writes), then re-run "
                           "S13-REGCHECK. Do NOT deliver."]}
 
+    # v5.54 (GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING) — the
+    # stale-sibling detector. Same THIS-mock-fails / other-mocks-warn split
+    # as the incompleteness check above, for the same reason: a fresh commit
+    # that left its own ledger slot ambiguous must never ship, while
+    # historical duplicates get surfaced on every run, never silently.
+    this_mock_dups = _duplicate_commit_problems(reg, N)
+    if this_mock_dups:
+        return {'ok': False, 'registry': reg, 'healed': missing_top + missing_ct,
+                'warnings': [],
+                'fails': [f"HARD STOP (G-COMMIT-COMPLETE/DUP): THIS mock's ledger slot "
+                          f"is ambiguous — {'; '.join(this_mock_dups)}. This is the "
+                          "renamed-paper_id stale-duplicate state: S13-4's v5.54 "
+                          "same-series dedupe prevents CREATING it, so its presence "
+                          "means an older/hand-rolled commit left it behind. Remove "
+                          "the stale entry (the one whose paper_id no longer matches "
+                          "the blueprint's mocks[] declaration for this number), "
+                          "re-run S13-4 in FULL, then re-run S13-REGCHECK. "
+                          "Do NOT deliver."]}
+
     warnings = [f"mock {m}: {', '.join(_commit_problems(reg, m))}"
                for m in reg.get('mocks_completed', [])
                if m != N and _commit_problems(reg, m)]
+    warnings += [f"mock {m}: {', '.join(_duplicate_commit_problems(reg, m))}"
+                 for m in reg.get('mocks_completed', [])
+                 if m != N and _duplicate_commit_problems(reg, m)]
 
     # options_by_q (v4.7, ND6) — derived from concept_map/msq_meta the caller
     # already read (with the SAME try/except fallback the spec-inline code
@@ -719,6 +859,99 @@ def self_test():
                            bp1, 1, paper_id='MOCK:M01', batches_completed=1,
                            axis2_window_counts={}, passage_present=False, di_present=False,
                            figural_present=False, concept_map=mini_cm())['ok'] is True)
+
+    # ── v5.54 A: same-series dedupe (PAPERID-KEYING) ─────────────────────
+    def _commit(reg_in, n, pid):
+        return commit_registry(reg_in, mini_pending(), bp1, n, paper_id=pid,
+                               batches_completed=1, axis2_window_counts={},
+                               passage_present=False, di_present=False,
+                               figural_present=False, concept_map=mini_cm())['registry']
+    # the historical trigger: paper_id corrected mid-session, same mock
+    # re-committed — the stale sibling must be REPLACED, not accumulated
+    _r1 = _commit(mini_registry(), 1, 'MOCK:M01')
+    _r2 = _commit(_r1, 1, 'MOCK:M01-CORRECTED')
+    check('rename_recommit_question_index_single_entry',
+         len([e for e in _r2['question_index'] if e.get('mock') == 1]) == 1)
+    check('rename_recommit_question_index_carries_new_id',
+         _r2['question_index'][0]['paper_id'] == 'MOCK:M01-CORRECTED')
+    check('rename_recommit_session_log_single_entry',
+         len([e for e in _r2['session_log'] if e.get('mock') == 1]) == 1)
+    check('rename_recommit_papers_completed_stale_id_removed',
+         _r2['papers_completed'] == ['MOCK:M01-CORRECTED'])
+    check('rename_recommit_mocks_completed_no_dup', _r2['mocks_completed'] == [1])
+    # a DIFFERENT series with the same number legitimately coexists —
+    # the widened dedupe must NEVER touch it
+    _m1 = _commit(mini_registry(), 1, 'MOCK:M01')
+    _mixed = _commit(_m1, 1, 'SUBJ:Physics:01')
+    check('mixed_series_same_number_coexist_qindex',
+         len(_mixed['question_index']) == 2)
+    check('mixed_series_same_number_coexist_papers',
+         set(_mixed['papers_completed']) == {'MOCK:M01', 'SUBJ:Physics:01'})
+    check('mixed_series_mock_entry_untouched',
+         any(e.get('paper_id') == 'MOCK:M01' for e in _mixed['question_index']))
+    # unparseable stale number in papers_completed is left alone, not guessed at
+    _odd = _commit(mini_registry(), 1, 'MOCK:M01')
+    _odd['papers_completed'].insert(0, 'MOCK:MBROKEN')
+    _odd2 = _commit(_odd, 1, 'MOCK:M01')
+    check('unparseable_stale_paper_id_left_alone',
+         'MOCK:MBROKEN' in _odd2['papers_completed'])
+
+    # regcheck detection side: a hand-left stale sibling for THIS mock's
+    # slot is a HARD STOP; the same state on a historical mock is a warning
+    _dup_reg = _commit(mini_registry(), 1, 'MOCK:M01')
+    _dup_reg['question_index'].append(
+        {'mock': 1, 'paper_id': 'MOCK:M01-OLD', 'questions': []})
+    _rc_dup = regcheck(_dup_reg, bp1, N=1, concept_map=mini_cm())
+    check('regcheck_this_mock_stale_sibling_hard_stops',
+         _rc_dup['ok'] is False and 'DUP' in _rc_dup['fails'][0])
+    _hist = _commit(_dup_reg, 2, 'MOCK:M02')  # mock 2 committed cleanly on top
+    _rc_hist = regcheck(_hist, bp1, N=2, concept_map=mini_cm())
+    check('regcheck_historical_stale_sibling_warns_not_fails',
+         _rc_hist['ok'] is True and any('mock 1' in w and 'series' in w
+                                        for w in _rc_hist['warnings']))
+    # mixed series must NOT trip the duplicate detector
+    _rc_mixed = regcheck(_mixed, bp1, N=1, concept_map=mini_cm())
+    check('regcheck_mixed_series_not_flagged_as_duplicate',
+         _rc_mixed['ok'] is True
+         and not any('series' in w for w in _rc_mixed['warnings']))
+
+    # ── v5.54 B: axis snapshot persistence (AXISPAPER-PERSISTENCE) ──────
+    _snap1 = {'Section A': {'TEXT': 8, 'FIGURAL': 2, 'irreducible': 1}}
+    _snap3 = {'Section A': {'MCQ': 7, 'MSQ': 2, 'NAT': 1}}
+    r_ax = commit_registry(mini_registry(), mini_pending(), bp1, 1,
+                           paper_id='MOCK:M01', batches_completed=1,
+                           axis2_window_counts={}, passage_present=False,
+                           di_present=False, figural_present=False,
+                           concept_map=mini_cm(),
+                           axis1_snapshots=_snap1, axis3_snapshots=_snap3)
+    check('axis1_snapshot_persisted_mock_keyed',
+         r_ax['registry']['axis1_paper']['1'] == _snap1)
+    check('axis3_snapshot_persisted_mock_keyed',
+         r_ax['registry']['axis3_paper']['1'] == _snap3)
+    # deep-copied, not aliased (purity)
+    _snap1['Section A']['TEXT'] = 999
+    check('axis_snapshot_deep_copied_not_aliased',
+         r_ax['registry']['axis1_paper']['1']['Section A']['TEXT'] == 8)
+    # absent/empty ⇒ no write ⇒ feature-inert exams byte-identical
+    r_noax = commit_registry(mini_registry(), mini_pending(), bp1, 1,
+                             paper_id='MOCK:M01', batches_completed=1,
+                             axis2_window_counts={}, passage_present=False,
+                             di_present=False, figural_present=False,
+                             concept_map=mini_cm(),
+                             axis1_snapshots={}, axis3_snapshots=None)
+    check('axis_snapshot_absent_safe_no_keys',
+         'axis1_paper' not in r_noax['registry']
+         and 'axis3_paper' not in r_noax['registry'])
+    # idempotent: re-commit of the same mock REPLACES its [str(N)] slot
+    r_ax2 = commit_registry(r_ax['registry'], mini_pending(), bp1, 1,
+                            paper_id='MOCK:M01', batches_completed=1,
+                            axis2_window_counts={}, passage_present=False,
+                            di_present=False, figural_present=False,
+                            concept_map=mini_cm(),
+                            axis1_snapshots={'Section A': {'TEXT': 9}},
+                            axis3_snapshots=_snap3)
+    check('axis_snapshot_replace_by_mock_idempotent',
+         r_ax2['registry']['axis1_paper'] == {'1': {'Section A': {'TEXT': 9}}})
 
     # ── regcheck ─────────────────────────────────────────────────────────
     clean_reg = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',

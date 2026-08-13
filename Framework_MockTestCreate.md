@@ -1,4 +1,42 @@
-# Framework_MockTestCreate v5.53.2
+# Framework_MockTestCreate v5.54.0
+# v5.54.0 — 2026-08-12 — THREE DEFERRED DESIGN GAPS CLOSED (scoped 1-by-1)
+#   Closes, as individually scoped fixes, the three gaps earlier hardening releases flagged
+#   and deliberately deferred (each documented at its flag site + in the audit records):
+#   1. GAP-2026-08-12-S13-4B-SCOPED-PATH (spec-only). S13-4b's dossier md5-binding and
+#      S13-4c's re-sweep command hardcoded f'{EXAM}_Mock{N}_Create.docx'. DOUBLY wrong:
+#      pp.paper_slug zero-pads ("Mock03"), so the literal missed EVERY single-digit mock's
+#      actual file (FileNotFoundError at S13-4b for mocks 1-9), and a scoped paper's slug
+#      ("SUBJ_Physics_01") never matched at all. Fixed: the docx path is derived from
+#      pp.paper_slug(paper_id) — the ONE filename-stem rule — at both sites. The dossier's
+#      OWN filename keeps its M[N] form (writer, S13-7 checker, DeliveryFooter and
+#      audit_canonical --dossier help all agree on it; outputs/ holds one paper per
+#      session, so it cannot collide).
+#   2. GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING (engine, final_assembly.py).
+#      question_index/session_log deduped by exact paper_id while G-COMMIT-COMPLETE looked
+#      up by mock number — a paper_id corrected mid-session then re-committed left a stale
+#      same-number sibling no gate could see. Fixed on BOTH sides: commit_registry's
+#      dedupe key widened to SAME-SERIES + SAME-NUMBER (one series holds exactly one paper
+#      per number; a same-number entry in a DIFFERENT series — MOCK:M01 alongside
+#      SUBJ:Physics:01 — legitimately coexists and is never touched), papers_completed
+#      drops the renamed same-series/same-number predecessor (unparseable numbers left
+#      alone, never guessed at), and regcheck() gains a stale-sibling DETECTOR
+#      (G-COMMIT-COMPLETE/DUP): ≥2 same-series entries for one number HARD-STOPS when it
+#      is THIS mock's slot, warns for historical mocks — the same fails/warns split as
+#      G-COMMIT-COMPLETE itself.
+#   3. GAP-2026-08-12-AXISPAPER-PERSISTENCE (spec + engine). S7-AXIS wrote per-paper
+#      Axis-1/Axis-3 snapshots onto an in-memory registry object nothing ever dumped —
+#      the v5.49 mock-keyed history never reached disk. Fixed: S7-AXIS now only
+#      ACCUMULATES the per-section snapshots (axis1_paper_counts / NEW axis3_paper_counts,
+#      dead reg writes removed), and S13-4 threads both into commit_registry's new
+#      optional axis1_snapshots/axis3_snapshots params, persisted as
+#      reg['axis1_paper'][str(N)] / reg['axis3_paper'][str(N)] — replace-by-mock,
+#      idempotent, deep-copied, the axis2_window_counts precedent exactly. Read at S13-4
+#      via globals().get (an exam with no axis feature never runs S7-AXIS, so the
+#      accumulators are legitimately unbound there — that means "nothing to persist",
+#      never a NameError). Absent/empty ⇒ no write ⇒ feature-inert exams byte-identical.
+#   final_assembly.py self-test: 79 → 96 fixtures (17 new, every new load-bearing branch
+#   mutation-verified). No schema change: axis1_paper/axis3_paper already existed in the
+#   documented v5.49 shape — this release makes the documented write actually happen.
 # v5.53.2 — 2026-08-12 — SPEC-INLINE NAME-FLOW AUDIT (GAP-2026-08-12-SPEC-INLINE-NAME-AUDIT)
 #   The v5.53.1 audit proved the one blind spot in the whole verification chain: spec-inline
 #   ```python blocks are syntax-checked (validate_framework_md.py Check B) but never
@@ -4213,27 +4251,27 @@
   # (`axis1_paper_counts.get(sec_name, {})`) but INITIALISED NOWHERE in this file —
   # a NameError in strict execution order, same class as GAP-2026-08-12-S13-4-
   # UNDEFINED-BATCHES-COMPLETED. Initialised here, at its producer.
+  # v5.54 (GAP-2026-08-12-AXISPAPER-PERSISTENCE — CLOSED): this block previously ALSO
+  # wrote `reg['axis1_paper'][str(N)]`/`reg['axis3_paper'][str(N)]` directly onto the
+  # in-memory §3 `reg` object — which no code block ever json.dump'ed, so the v5.49
+  # mock-keyed history NEVER actually reached the delivered registry. Those two dead
+  # writes are REMOVED; instead this block only ACCUMULATES the per-section snapshots
+  # (axis1_paper_counts / axis3_paper_counts), and S13-4 threads both into
+  # final_assembly.commit_registry(axis1_snapshots=..., axis3_snapshots=...), which
+  # persists them at the ONE terminal commit — replace-by-mock ([str(N)]), idempotent,
+  # exactly the axis2_window_counts precedent. Same data, same keying, but now it is
+  # actually saved.
   axis1_paper_counts = {}
+  axis3_paper_counts = {}
   for sec_name, tr in axis1_trackers.items():
       snap = bc.axis_snapshot(tr)
       if snap is not None:
           axis1_paper_counts[sec_name] = snap
-          reg.setdefault('axis1_paper', {}).setdefault(str(N), {})[sec_name] = snap
   for sec_name, tr in axis3_trackers.items():
       snap = bc.axis_snapshot(tr)
       if snap is not None:
-          reg.setdefault('axis3_paper', {}).setdefault(str(N), {})[sec_name] = snap
+          axis3_paper_counts[sec_name] = snap
   ```
-  KNOWN, EXPLICITLY FLAGGED GAP — NOT fixed here (GAP-2026-08-12-AXISPAPER-PERSISTENCE,
-  deferred): the `reg['axis1_paper']`/`reg['axis3_paper']` writes above mutate the
-  in-memory §3 `reg` object, but no code block in this file `json.dump`s that object —
-  S13-4 reloads `registry` fresh from disk, so in strict execution order these two
-  fields reach the delivered registry only if a session improvises a dump. No engine
-  currently consumes either field (verified by grep across all tracked .py), so nothing
-  mis-audits today; but the v5.49 history rationale above is aspirational until the
-  snapshots are threaded through final_assembly.commit_registry() (the natural home —
-  the axis2_window_counts parameter is the established precedent). That is a scoped
-  design change, deliberately not bundled into a hardening release.
   Absent-safe end to end: no `axis_schedule` (pre-v1.23 blueprint) ⇒ every tracker is None ⇒
   pick_presentation falls back to the exact v5.13 family-menu rotation, and nothing is written
   to `reg['axis2_window']`. The feature turns itself off with zero behavioural drift.
@@ -6936,13 +6974,24 @@
   _tp = next((mk for mk in bp.get('mocks', []) if mk.get('mock') == N), None)
   paper_id = (_tp or {}).get('paper_id', f"MOCK:M{N:02d}")
 
+  # v5.54 (GAP-2026-08-12-AXISPAPER-PERSISTENCE): the S7-AXIS per-section snapshot
+  # accumulators are threaded into the terminal commit here — commit_registry persists
+  # them as reg['axis1_paper'][str(N)] / reg['axis3_paper'][str(N)] (replace-by-mock,
+  # idempotent). Read via globals().get, NOT bare names: on an exam whose blueprint
+  # declares no axis feature the S7-AXIS block never runs, so the accumulators are
+  # legitimately unbound here — that must mean "nothing to persist", never a NameError
+  # (the batches_completed lesson, applied at authoring time instead of learned again).
+  _ax1 = globals().get('axis1_paper_counts') or {}
+  _ax3 = globals().get('axis3_paper_counts') or {}
+
   _commit = fa.commit_registry(
       registry, pending_registry, bp, N,
       paper_id=paper_id, batches_completed=batches_completed,
       axis2_window_counts=axis2_window_counts,
       passage_present=passage_present, di_present=di_present, figural_present=figural_present,
       concept_map=_cm, passage_linked_qs=passage_linked_qs, cloze_linked_qs=cloze_linked_qs,
-      di_manifest=_di_manifest, fig_manifest=_fig_manifest, figure_specs=_figure_specs)
+      di_manifest=_di_manifest, fig_manifest=_fig_manifest, figure_specs=_figure_specs,
+      axis1_snapshots=_ax1, axis3_snapshots=_ax3)
   if not _commit['ok']:
       raise SystemExit(_commit['fails'][0])
   registry = _commit['registry']
@@ -7077,7 +7126,16 @@
   import os, json, hashlib
   _ak = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json', encoding='utf-8'))
   _cm = _ak.get('concept_map', {})
-  _docx = f'/mnt/user-data/outputs/{EXAM}_Mock{N}_Create.docx'
+  # v5.54 (GAP-2026-08-12-S13-4B-SCOPED-PATH): the docx path is derived from
+  # pp.paper_slug(paper_id) — THE one filename-stem rule — never hand-built. The old
+  # literal f'{EXAM}_Mock{N}_Create.docx' was DOUBLY wrong: paper_slug zero-pads
+  # ("Mock03", so the literal missed EVERY single-digit mock's actual file), and a
+  # scoped paper's slug ("SUBJ_Physics_01") never matched at all — the md5 binding
+  # below then FileNotFoundError'd instead of binding the dossier to its paper.
+  # (The DOSSIER's own name keeps its M{N} form: writer, S13-7 checker,
+  # DeliveryFooter and audit_canonical --dossier help all agree on it, and outputs/
+  # holds exactly one paper per session, so it cannot collide.)
+  _docx = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
   _FACTS = ('subtopic_id', 'qtype', 'image_role', 'difficulty', 'stem_precision',
             'nat_grading_type', 'nat_grading_value', 'ca_range',
             'msq_instr_in_stem', 'nat_instr_in_stem')
@@ -7123,12 +7181,15 @@
 
   ```
   python3 /home/claude/[ExamCode]_mock_test_audit.py \
-      /mnt/user-data/outputs/[ExamCode]_Mock[N]_Create.docx \
+      /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Create.docx \
       --dossier /mnt/user-data/outputs/[ExamCode]_M[N]_audit_dossier.json \
       --registry /home/claude/[ExamCode]_registry.json \
       --blueprint /mnt/project/[ExamCode]_blueprint.json \
       --mockN [N]
   ```
+  ([paper_slug] = pp.paper_slug(paper_id) — "Mock01" for a mock, "SUBJ_Physics_01" for a
+  scoped paper; v5.54, GAP-2026-08-12-S13-4B-SCOPED-PATH. The executed block below uses
+  `_docx` carried from S13-4b, which is already slug-derived.)
 
   Executed as:
 
@@ -7925,7 +7986,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.53.2
+# END OF Framework_MockTestCreate v5.54.0
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

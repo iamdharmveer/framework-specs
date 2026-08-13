@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026.08.12.14
+
+### Three deferred design gaps closed — scoped one by one
+Every gap below was found by an earlier audit, flagged with a named GAP id,
+documented at its flag site, and deliberately NOT bundled into a hardening
+release. Each now gets its own scoped fix in one coordinated release
+(Framework_MockTestCreate v5.54.0; full per-gap rationale in that file's
+changelog header):
+
+- **GAP-2026-08-12-S13-4B-SCOPED-PATH (spec-only fix).** `S13-4b`/`S13-4c`
+  hardcoded `{EXAM}_Mock{N}_Create.docx` — wrong for every single-digit mock
+  (paper_slug zero-pads: "Mock03" ≠ "Mock3") and for every scoped paper
+  ("SUBJ_Physics_01"). Both sites now derive the docx path from
+  `pp.paper_slug(paper_id)`. The dossier's own `M[N]` filename is unchanged
+  (consistent across its writer, S13-7, DeliveryFooter, audit_canonical).
+- **GAP-2026-08-12-S13-COMMIT-COMPLETE-PAPERID-KEYING (engine fix,
+  final_assembly.py).** Prevention: commit_registry's question_index/
+  session_log dedupe widened from exact-paper_id to same-series+same-number
+  (`pp.paper_prefix`-based; different series with the same number — a mock
+  and a scoped paper — legitimately coexist, never touched), and
+  papers_completed drops a renamed same-series/same-number predecessor.
+  Detection: regcheck() gains G-COMMIT-COMPLETE/DUP — ≥2 same-series entries
+  for one number hard-stops for THIS mock's slot, warns for historical ones.
+- **GAP-2026-08-12-AXISPAPER-PERSISTENCE (spec + engine fix).** S7-AXIS's
+  per-paper Axis-1/Axis-3 snapshots were written to an in-memory object
+  nothing ever saved. S7-AXIS now only accumulates (new `axis3_paper_counts`
+  accumulator added; dead `reg[...]` writes removed); S13-4 threads both
+  accumulators into commit_registry's new optional `axis1_snapshots`/
+  `axis3_snapshots` params (read via `globals().get` — unbound on
+  axis-less exams means "nothing to persist", never a NameError), persisted
+  as `reg['axis1_paper'][str(N)]`/`reg['axis3_paper'][str(N)]` —
+  replace-by-mock, idempotent, deep-copied, the `axis2_window_counts`
+  precedent exactly. Absent/empty ⇒ no write ⇒ byte-identical for exams
+  without the axis feature.
+
+`final_assembly.py` self-test 79 → 96 (17 new fixtures — rename-recommit,
+mixed-series coexistence, unparseable-id safety, this-mock-vs-historical
+duplicate detection, axis persistence/purity/idempotency/absent-safety —
+each load-bearing branch mutation-verified). Full chain clean twice;
+spec-inline name audit clean against the existing baseline (no new unbound
+names introduced); live end-to-end exec of the §13 blocks re-verified,
+including the new axis threading.
+
 ## 2026.08.12.13
 
 ### Spec-inline name-flow audit — closing the CLASS, not just the instance
