@@ -37,3 +37,9 @@ jobs:
             python3 spec_name_audit.py --self-test
             python3 spec_name_audit.py --check-baseline spec_name_audit_baseline.json Framework_*.md
           fi
+      - name: Mock-track cross-step sync audit (GAP-2026-08-13-MOCK-SYNC-AUDIT)
+        run: |
+          if [ -f mock_sync_audit.py ]; then
+            python3 mock_sync_audit.py --self-test
+            python3 mock_sync_audit.py
+          fi
