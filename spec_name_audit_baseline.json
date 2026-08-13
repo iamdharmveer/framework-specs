@@ -166,9 +166,12 @@
   "re"
  ],
  "Framework_PYQDeliver.md": [
+  "Q_TOTAL",
   "difficulty_labels",
+  "exam_config",
   "marking_scheme",
-  "q"
+  "q",
+  "qtype_map"
  ],
  "Framework_PYQDraft.md": [
   "AnchoringGateFailure",

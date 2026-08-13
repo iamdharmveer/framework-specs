@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.11)**",
-      "lines": 1479,
-      "sha256": "133f2f1c43ee15e3e92425df9f02cca862a4c9165a30c4ca77625590eb019b2e",
-      "size_bytes": 81394,
-      "version_header": "# Framework_PYQDeliver v1.11 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.12)**",
+      "lines": 1599,
+      "sha256": "3ddb812df80c6812f6c0c9af0fbef8999dd85fbf92dbdd2bdfe7531bbcdce22f",
+      "size_bytes": 89265,
+      "version_header": "# Framework_PYQDeliver v1.12 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0",

@@ -278,11 +278,11 @@
       "bytes": 58024
     },
     "Framework_PYQDeliver.md": {
-      "sha256": "133f2f1c43ee15e3e92425df9f02cca862a4c9165a30c4ca77625590eb019b2e",
-      "version_header": "# Framework_PYQDeliver v1.11 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.11)**",
-      "lines": 1479,
-      "bytes": 81394
+      "sha256": "3ddb812df80c6812f6c0c9af0fbef8999dd85fbf92dbdd2bdfe7531bbcdce22f",
+      "version_header": "# Framework_PYQDeliver v1.12 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.12)**",
+      "lines": 1599,
+      "bytes": 89265
     },
     "Framework_PYQDraft.md": {
       "sha256": "b0b87b0ebd7b10e87604560c50e4c47cb3f9654b1adf5f94eb0d1e35dfd011f5",

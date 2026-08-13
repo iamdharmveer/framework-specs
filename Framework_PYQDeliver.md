@@ -1,4 +1,35 @@
-# Framework_PYQDeliver v1.11 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.12 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.12 — 2026-08-13 — TIER 0 ERA GUARD closes an era-blind Tier-1 defect surface
+#   (PROJECT OVERRIDE for IIT_JAM_BIOTECHNOLOGY; proposed upstream for the repo).
+#   ROOT CAUSE: S2-2a's Tier 1 is a literal, era-blind position lookup against
+#   exam_config.marking_scheme whenever marking_scheme carries >1 distinct
+#   question_type — with NO check that marking_scheme (which describes the
+#   CURRENT pattern) actually describes the PAPER being delivered. Measured on
+#   IIT JAM Biotechnology 07-May-2005: a 100-question, structurally all-MCQ
+#   legacy paper (options_by_q == 4 for every Q, zero NAT-shaped questions;
+#   PYQExplain's own qtype map already resolved all 100 as 'mcq') delivered
+#   against the CURRENT 60-question MCQ/MSQ/NAT config. Literal Tier 1 would
+#   have tagged Q31-40 MSQ and Q41-60 NAT on the delivered portal file — a
+#   portal answer-format and scoring defect (the exact class of error Tier 1
+#   was introduced in v1.8 to FIX, now reproduced by the same mechanism against
+#   an off-era paper). This is the identical class of defect Framework_PYQCore
+#   EC-P9/EC-P9b and Framework_MockTestAnalyse/PYQAnalyse Cluster F already
+#   name and solve at the CORPUS level via blueprint_core.classify_paper_era —
+#   PYQDeliver simply never called it. FIX: new S2-2 TIER 0 — before Tier 1 may
+#   fire for ANY question, classify the WHOLE PAPER once via the EXISTING
+#   canonical `classify_paper_era` (blueprint_core.py Cluster F — imported, per
+#   the S13-1 anti-drift principle, never reproduced). era != 'current' (paper
+#   is 'larger' / 'smaller' / 'renumbered' / 'retyped' relative to exam_config)
+#   -> Tier 1 is skipped for the WHOLE paper and resolution proceeds straight
+#   to Tier 2 (authoritative qtype). era == 'current' -> Tier 1 proceeds exactly
+#   as v1.11 specified. Deterministic, exam-agnostic, no model judgment, no
+#   operator prompt required for this class of paper ever again. PROVENANCE:
+#   this exact paper was already used as EC-P9's own worked example ("a
+#   100-question 2005 paper against a 60-question current pattern") before this
+#   fix existed — this release wires that already-documented case into
+#   PYQDeliver's own resolver instead of leaving it undetected there.
+#   Touched: §0 item 6 (dual-path import list), new §S2-2 TIER 0 section
+#   (before S2-2a), S2-2 diagram, S2-2e provenance, §10 §R1, END sentinel.
 # v1.11 — 2026-08-10 — DOC-CONSISTENCY: completes the v1.9 single-artifact sweep.
 #   v1.9 retired the render-source and made the delivered file the ONE artifact, and
 #   its changelog claimed it touched "§11 (done + invariants)" and the §7 "both
@@ -262,10 +293,16 @@ preserved exactly as the input carried them.
    Provides the Cluster E pure functions for Tier-2 Complexity resolution
    (§2-3): `score_difficulty`, `determine_strip_mode`, `map_difficulty_level`
    (Cluster E, Tier 2) and `structural_difficulty` (Cluster E2, Tier 1.5 — v1.5).
+   ALSO PROVIDES (v1.12) the Cluster F pure functions for the Question Type
+   TIER 0 era guard (§S2-2): `classify_paper_era`, `type_resolver_from_config`,
+   `exam_config_bounds`. Reused, never reproduced (S13-1 anti-drift principle) —
+   this is the SAME function Framework_PYQCore EC-P9/EC-P9b and Framework_
+   MockTestAnalyse/PYQAnalyse Cluster F already use for the identical concept.
    If absent from BOTH locations → HARD STOP:
      "blueprint_core.py not found in the framework clone (/tmp/fw) or the
       project Files (/mnt/project). It is required for per-question Complexity
-      resolution (v1.2). Reload the framework (Step 0) or upload it, then re-run."
+      resolution (v1.2) and the Question Type era guard (v1.12). Reload the
+      framework (Step 0) or upload it, then re-run."
 
 7. `q_to_difficulty` map — OPTIONAL. Per-question {q: label} difficulty map
    from the same progress JSON as q_to_classification (§0 item 3 priority
@@ -390,19 +427,83 @@ directly — no JOIN needed.
 | 4 | Question Type | §2-2 three-tier resolver | Tier 1 position-based `marking_scheme[].question_type` (when >1 distinct type) → Tier 2 authoritative `qtype[q]` (PYQExplain v2.3+) → Tier 3 structural: `options_by_q` 0 → NAT; answer_cardinality 'multi' → MSQ; else → MCQ |
 | 5 | Complexity | §2-3 four-tier resolver | Tier 1 q_to_difficulty → Tier 1.5 structural_difficulty → Tier 2 E-9 scoring → Tier 3 difficulty_default (D11) |
 
-## S2-2 — Question Type resolution — position-first three-tier resolver (v1.8)
+## S2-2 — Question Type resolution — era-guarded, position-first resolver (v1.12)
 
 Question Type MUST be resolved from the exam's OFFICIAL structure, never from a
 corpus statistic alone. For each question q, the first tier that yields a valid
-value wins:
+value wins — but Tier 1 itself is now gated PAPER-WIDE by Tier 0:
 
 ```text
-TIER 1 — POSITION-BASED   marking_scheme[].question_type   (exam_config)
-TIER 2 — AUTHORITATIVE     qtype[q]                         (sidecar, PYQExplain v2.3+)
-TIER 3 — STRUCTURAL        options_by_q + answer_cardinality
+TIER 0 — ERA GUARD (v1.12)   classify_paper_era(...)          (blueprint_core.py)
+TIER 1 — POSITION-BASED      marking_scheme[].question_type   (exam_config)
+TIER 2 — AUTHORITATIVE       qtype[q]                          (sidecar, PYQExplain v2.3+)
+TIER 3 — STRUCTURAL          options_by_q + answer_cardinality
 ```
 
-### S2-2a — Tier 1: position-based (v1.8 — closes the section-determined-MSQ defect)
+### S2-2·T0 — Tier 0: paper era guard (v1.12 — NEW, closes an era-blind Tier-1 defect)
+
+Before Tier 1 (S2-2a) may fire for ANY question in the paper, classify the
+WHOLE PAPER once against exam_config's CURRENT pattern using the canonical
+Cluster F function already shipped in `blueprint_core.py` for exactly this
+concept (Framework_PYQCore EC-P9/EC-P9b; the same Pattern-Era logic that
+backs Framework_MockTestAnalyse's and Framework_PYQAnalyse's corpus-era
+classification). Reused via import, never reproduced (S13-1 anti-drift principle):
+
+```python
+from blueprint_core import (classify_paper_era, type_resolver_from_config,
+                            exam_config_bounds)
+
+cfg_total, min_cfg_q, max_cfg_q = exam_config_bounds(exam_config)
+# raises ValueError if exam_config has no sections[] — a caller can never
+# silently classify every paper against zeroes.
+
+cfg_type_for_q = type_resolver_from_config(exam_config)
+# None when exam_config carries no marking_scheme -> no type comparison is
+# possible and classify_paper_era falls back to its size/range chain alone.
+
+era = classify_paper_era(
+    observed_q_numbers=range(1, Q_TOTAL + 1),
+    cfg_total=cfg_total, min_cfg_q=min_cfg_q, max_cfg_q=max_cfg_q,
+    observed_types=qtype_map,        # §0 item 8 — PYQExplain's authoritative map
+    cfg_type_for_q=cfg_type_for_q,
+)
+# era is one of blueprint_core.PATTERN_ERAS:
+#   'current' | 'larger' | 'smaller' | 'renumbered' | 'retyped'
+```
+
+RESOLUTION:
+
+* **`era == 'current'`** — this paper's size AND (where observable) its
+  per-position question types agree with exam_config's declared pattern.
+  Tier 1 is trustworthy for this paper; proceed to S2-2a exactly as written.
+* **`era != 'current'`** (`larger` / `smaller` / `renumbered` / `retyped`) —
+  exam_config.marking_scheme describes a DIFFERENT pattern than this paper.
+  Tier 1 is SKIPPED for EVERY question in the paper — not per-question,
+  because an off-era marking_scheme cannot be trusted at any position, not
+  just the ones a coincidence would flag. Resolution proceeds directly to
+  Tier 2 (S2-2b) for every question. Record `era` in `qtype_tier_counts`
+  provenance (S2-2e) and name it explicitly in §R1: "Tier 1 skipped — paper
+  era='<era>' (exam_config's marking_scheme does not describe this paper's
+  pattern)."
+
+WHY THIS EXISTS. Tier 1 (v1.8) was introduced to fix section-determined MSQ
+mis-tagging — but its literal position lookup carries an unstated assumption
+that exam_config.marking_scheme describes the PAPER being delivered, not just
+"the exam" in the abstract. Every exam whose pattern has changed over the
+years (question count, type mix, or both) breaks that assumption for its own
+older papers. Measured on IIT JAM Biotechnology 07-May-2005 (100 legacy
+all-MCQ questions against the current 60-question MCQ/MSQ/NAT config): a
+literal Tier 1 would have mistagged Q31-40 MSQ and Q41-60 NAT — reproducing,
+via an off-era config, the exact class of portal defect Tier 1 exists to
+prevent. `classify_paper_era` already existed for this precise concept
+(EC-P9/EC-P9b) but PYQDeliver never called it before v1.12.
+
+DETERMINISM: `classify_paper_era` is a pure function of (this paper's observed
+Q-numbers, exam_config, PYQExplain's qtype map). Same inputs -> same era on
+every run, every model instance. No model judgment participates, and no
+operator confirmation is required for this class of paper again.
+
+### S2-2a — Tier 1: position-based (v1.8 — closes the section-determined-MSQ defect; v1.12: reached only when Tier 0 returns era == 'current')
 
 This mirrors the proven MockDeliver v1.7 precedent exactly. When
 `exam_config.marking_scheme` carries MORE THAN ONE distinct `question_type`
@@ -467,10 +568,15 @@ run and every model instance — no model judgment participates.
 
 ### S2-2e — Provenance (reported in §R1)
 
-Track `qtype_tier_counts = {1: n1, 2: n2, 3: n3}`. On a position-based exam
-(marking_scheme with >1 distinct type) EXPECTED is Tier 1 = Q_TOTAL. Any Tier-3
-questions on such an exam mean a q fell outside every marking_scheme range —
-name them in §R1, because they were resolved by the weakest instrument.
+Track `qtype_tier_counts = {1: n1, 2: n2, 3: n3}` AND `paper_era` (v1.12, the
+S2-2·T0 verdict). On a `current`-era, position-based exam (marking_scheme with
+>1 distinct type) EXPECTED is Tier 1 = Q_TOTAL. Any Tier-3 questions on such an
+exam mean a q fell outside every marking_scheme range — name them in §R1,
+because they were resolved by the weakest instrument. On a NON-`current`-era
+paper, EXPECTED is Tier 1 = 0 for the WHOLE paper (S2-2·T0 skipped it
+paper-wide) and Tier 2 (or Tier 3, if qtype is also unavailable) carries every
+question instead — this is normal and correct for that paper, not a defect;
+§R1 must name the era so it reads as "by design" rather than "unexplained."
 
 ## S2-3 — Complexity (difficulty) — four-tier deterministic resolver (D11, v1.5)
 
@@ -1187,9 +1293,12 @@ PYQ-4 delivers in a single response:
 Printed in chat after present_files:
 
 - **§R1 — Scope.** Exam, paper (date, session), Q_TOTAL, question types (MCQ/MSQ/NAT
-  split), and Question Type provenance (Tier 1 position-based / Tier 2 qtype / Tier 3
-  structural counts, S2-2e). EXPECTED on a position-based exam: Tier 1 = Q_TOTAL; any
-  lower-tier questions are named.
+  split), and Question Type provenance: `paper_era` (S2-2·T0, v1.12) plus Tier 1
+  position-based / Tier 2 qtype / Tier 3 structural counts (S2-2e). EXPECTED on a
+  `current`-era, position-based exam: Tier 1 = Q_TOTAL; any lower-tier questions are
+  named. EXPECTED on a NON-`current`-era paper (`larger` / `smaller` / `renumbered` /
+  `retyped`): Tier 1 = 0 for the whole paper by design (Tier 0 skipped it) — state the
+  era explicitly so this reads as intentional, not a gap.
 - **§R2 — Tag summary.** Total tag blocks inserted. Subject/Topic/Subtopic distribution.
   Date/session tag paragraphs removed (`tags_removed`, §4A); any safety-gate
   skips (`tags_skipped`) listed with position and reason.
@@ -1387,6 +1496,17 @@ PYQ-4 is done when **all** hold:
     the §0 item 2 order; the existing v1.3 OUT-OF-PATTERN MARKS WARNING already
     reports them by Q-range and must still fire.
 
+22. **Paper era != 'current' (v1.12 — S2-2·T0)** — the paper's size and/or
+    per-position types disagree with exam_config's declared pattern (a
+    shrunk/grown/renumbered/retyped exam, e.g. a legacy 100-Q all-MCQ paper
+    against a current 60-Q MCQ/MSQ/NAT config). Tier 1 (S2-2a) is skipped for
+    the WHOLE paper; every question resolves via Tier 2 (qtype) or Tier 3
+    (structural). NOT a HARD STOP and NOT an operator prompt — deterministic,
+    reported in §R1 by name (`paper_era`). If `qtype` (Tier 2) is ALSO
+    unavailable for such a paper (pre-v2.3 sidecar), Tier 3 structural
+    resolution carries it; report that combination plainly, since two
+    weaker-than-Tier-1 instruments are then both in play.
+
 ---
 
 # §13 — Implementation notes
@@ -1476,4 +1596,4 @@ delivered file keeps the input's original fonts):
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.11)**
+**End of Framework_PYQDeliver.md (v1.12)**
