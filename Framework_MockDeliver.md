@@ -1,4 +1,7 @@
-# Framework_MockDeliver v1.12.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.12.1 — Universal Mock Test Tagger & Delivery Engine
+# v1.12.1 — 2026-08-13 — SYNC AUDIT ROUND 2: gate-count prose fix. §2 item 4 said "All 16
+#   audit gates" while §6 is headed "all 17 must PASS" and runs C1–C17 (C17 = NAT charset).
+#   Prose corrected to 17; no gate logic changed.
 # v1.12.0 — 2026-08-10 — LEDGER INTEGRITY CHECK + REMEDIATION CLASSIFIER
 #   (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). Two changes, both to the FAILURE
 #   side of S1-2/S1-3 — the clean-path JOIN, the tagging pipeline, and every
@@ -229,7 +232,7 @@ The output Word document is NOT finished until ALL hold:
    paragraphs in order (total_questions tag blocks, count read from blueprint).
 3. **Zero content mutation** — no character changed in any question, option, image,
    table, or explanation.
-4. **All 16 audit gates pass** (§6) — run before docx delivery.
+4. **All 17 audit gates pass** (§6) — run before docx delivery. (v1.12.1: said 16; §6 runs C1–C17.)
 5. **Math preserved as native OMML** — the delivered docx's `<m:oMath>` count
    equals the source (C5/C11). ZERO linearization (v1.11.0).
 6. **Symbols preserved** — every non-ASCII codepoint in the source survives in the
@@ -1830,4 +1833,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.12.0
+# END OF Framework_MockDeliver v1.12.1

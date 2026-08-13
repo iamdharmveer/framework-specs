@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.12.15",
+  "framework_version": "2026.08.12.16",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -180,39 +180,39 @@
       "bytes": 367480
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "b019d01ca5ef573104a25972e3b221e174ab05f132660958642648b8e5205fdc",
-      "version_header": "# Framework_DeliveryFooter v1.20 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "26e94108cd199922f619fb80a5503303ca3dd7b433a2fa6fc1bce0ccb44ad71d",
+      "version_header": "# Framework_DeliveryFooter v1.21 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 902,
-      "bytes": 50329
+      "lines": 929,
+      "bytes": 52594
     },
     "Framework_MockDeliver.md": {
-      "sha256": "f62343e23ff4921f3b41236883d0ab98185130143630c10204a5175a1bc223c8",
-      "version_header": "# Framework_MockDeliver v1.12.0 \u2014 Universal Mock Test Tagger & Delivery Engine",
-      "end_sentinel": "# END OF Framework_MockDeliver v1.12.0",
-      "lines": 1833,
-      "bytes": 91082
+      "sha256": "9e98db13fecb0b0a7d76ec2b4898b34e1a85045ac740cc85359f03848aedafda",
+      "version_header": "# Framework_MockDeliver v1.12.1 \u2014 Universal Mock Test Tagger & Delivery Engine",
+      "end_sentinel": "# END OF Framework_MockDeliver v1.12.1",
+      "lines": 1836,
+      "bytes": 91361
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "439c17d2ec3a20bcbe2d08f717c48de2931f5e220898ebc906bbb505741aaee0",
-      "version_header": "# Framework_MockTestAnalyse v2.47.0 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.47.0",
-      "lines": 8271,
-      "bytes": 465018
+      "sha256": "30ea2a3ecb5d2145e5f97efafdcc06fbc84011e480ca9e6bcc7f6e48c69db5a7",
+      "version_header": "# Framework_MockTestAnalyse v2.47.1 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.47.1",
+      "lines": 8284,
+      "bytes": 466067
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "f91b56a3366227a8f3b8165b3f912ddd0da62684fd23866ece8655abd134de68",
-      "version_header": "# Framework_MockTestCreate v5.54.0",
+      "sha256": "34071d535e9673ae22134960a2f96b5d66486ec034de894013454c6e095c5f33",
+      "version_header": "# Framework_MockTestCreate v5.54.1",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8069,
-      "bytes": 509240
+      "lines": 8089,
+      "bytes": 510969
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "e1a9684a2e359f0c094b467ccb80436010f7656fc76cdf94608392bbcab6bdab",
-      "version_header": "# Framework_MockTestExplain v1.24.0",
+      "sha256": "fa3505cddbb395d060b21d2a3194a3c9496ee410b46b149544a59cec2f50ed2b",
+      "version_header": "# Framework_MockTestExplain v1.25.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1679,
-      "bytes": 131516
+      "lines": 1721,
+      "bytes": 134787
     },
     "Framework_NotesAudit.md": {
       "sha256": "ea609b7f85fe3a2d6f0fd8906084cf6f6529e735f0b8b132c66b2cbe20b1c18e",
@@ -292,11 +292,11 @@
       "bytes": 45903
     },
     "Framework_PYQExplain.md": {
-      "sha256": "00e53345b8fa6790940882277f080dcf024e95ccedc9ee15a82d3fcfde64b979",
-      "version_header": "# Framework_PYQExplain v2.4 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "9d2c49774fba5f41e2c63d457a58f8a9f66e59311b82ff05dc7ffdfdb119a4e9",
+      "version_header": "# Framework_PYQExplain v2.5 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1828,
-      "bytes": 124894
+      "lines": 1834,
+      "bytes": 125482
     },
     "Framework_PYQFormat.md": {
       "sha256": "0bc4402ee6b3734011c813878708f0761586ba83a8f361ba2f5d0fbafed736c1",
@@ -369,11 +369,11 @@
       "bytes": 48183
     },
     "final_assembly.py": {
-      "sha256": "8d6e7b782de171360276f3ce6f0fe4b2545b39a08b237660c4e6e6ac127bcbf6",
+      "sha256": "ffe09a63068b41bf9615b2c130f0fc2b28640c21d49a4b05b3fe43906bf98d02",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 1200,
-      "bytes": 70044
+      "lines": 1257,
+      "bytes": 73819
     },
     "corpus_io.py": {
       "sha256": "9f26829042a1783eaaccbff800290ad06103f1070a978b2738c4be723edf4395",
@@ -430,6 +430,13 @@
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
       "lines": 519,
       "bytes": 19057
+    },
+    "mock_sync_audit.py": {
+      "sha256": "8c845767b8005a44fc51505714ff10bdf1006c9da126620a1f0a06e16118f122",
+      "version_header": "\"\"\"mock_sync_audit.py v1.0 \u2014 cross-step sync auditor for the mock/test track.",
+      "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
+      "lines": 509,
+      "bytes": 24394
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",

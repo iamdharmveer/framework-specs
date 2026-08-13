@@ -1,5 +1,70 @@
 # Changelog
 
+## 2026.08.12.16
+
+### Sync audit round 2 (fresh lenses) + the audit becomes a machine
+A REPEAT 3-pass audit of Steps 5→TestDeliver with lenses round 1 did not
+use — scoped-paper coherence, Step6↔7 blueprint field diff, DeliveryFooter
+contract, pinned-constant parity — found 8 more desyncs (2 behavioral-
+critical), all fixed; and the audit itself now ships as a permanent CI tool.
+
+**Behavioral fixes:**
+- **GAP-2026-08-13-STALE-SELFTEST-PIN** (MockTestExplain v1.25.0, PYQExplain
+  v2.5). Both specs pinned the engine gate at the literal "SELF-TEST: 62/62
+  PASS" (and "10/10" for --self-test-audit) while explain_engine.py prints
+  64/64 (26/26) — every Explain session following the spec literally HALTed
+  on a healthy engine. All 7 sites converted to the FLOOR form (N/N PASS,
+  N >= 62 / >= 10), the AUTH_GATE_FLOOR pattern Steps 6/7 already use.
+- **GAP-2026-08-13-P10-SCOPED-BLUEPRINT** (MockTestExplain v1.25.0). P10
+  loaded the hardcoded mock blueprint filename, so for a SCOPED paper the
+  v1.24 P10/0 gate compared against the wrong blueprint (unconditional false
+  HARD STOP) or crashed — it could never pass for the resumed-scoped papers
+  it was written about. P10 now selects the blueprint by the uploaded docx's
+  slug (P1's own semantics, self-contained); verified live in 4 scenarios.
+- **GAP-2026-08-13-SCOPED-MOCKS-COMPLETED** (final_assembly.py, self-test
+  96 → 103, mutation-verified). A SCOPED commit appended its bare ordinal to
+  mocks_completed, fabricating a phantom mock that registry_integrity_check
+  / Step 11 S1-2 / Step 9's P10 WARN then reported as false "REGISTRY DATA
+  LOSS: MOCK:Mnn" forever (live-reproduced). mocks_completed is now guarded
+  to the MOCK series, and G-COMMIT-COMPLETE's completeness lookup is
+  series-aware (a scoped entry can no longer MASK a genuinely lost MOCK
+  entry of the same number).
+- **GAP-2026-08-13-STEP5-EXAMCFG-VETO** (MockTestAnalyse v2.47.1).
+  exam_config.json moved to the WHEN-IT-EXISTS tier of S11-3's expected set
+  — the unconditional listing made Check 1 forbid delivery on runs S-SECMAP
+  had explicitly blessed (inverse of v2.47's taxonomy fix).
+
+**Prose/registry fixes:** MockTestCreate v5.54.1 ("EXACTLY TWO files" ×2 →
+the dossier-conditional derived set; the [N] "must ≤ total_mocks" rule →
+mocks[] MEMBERSHIP, correct for offset-resumed blueprints); MockDeliver
+v1.12.1 ("All 16 audit gates" → 17, matching §6's C1–C17); DeliveryFooter
+v1.21 (Step-5 final list caught up with exam_config + taxonomy —
+GAP-2026-08-13-DELIVERY-COUNT-DRIFT mirrored; LOCAL_ONLY gained
+slug-agnostic patterns so SCOPED papers' deliverables badge correctly —
+GAP-2026-08-13-FOOTER-SCOPED-PATTERNS); MockTestAnalyse v2.47.1 (last
+v2.23 comment stamp).
+
+**The machine (GAP-2026-08-13-MOCK-SYNC-AUDIT):** new `mock_sync_audit.py`
+v1.0 — the mock-track twin of notes_sync_audit.py. Ten checks, each
+comparing one authority against another: PIN-FLOOR (runs explain_engine and
+verifies every spec floor against actual output; flags exact must-print
+pins), RETIRED-NAMES, STAMP-PARITY, COUNT-CLAIMS, GATE-PRESENCE (P10/0,
+Step-11 slug stop, scoped guard, /DUP detector), SLUG-LITERALS,
+QINDEX-FIELDS, DLBL-PARITY, FOOTER-STEP5, VERSION-PINS (a spec pinning a
+companion version AHEAD of the real file fails). Self-test 22/22
+(clean+mutated fixture per check); its calibration run against the
+pre-fix tree flagged the real findings and caught 3 stale comments in the
+fix commits themselves. Tracked, CI-wired, not routed.
+
+**Explicitly flagged, deferred (design changes, not sync fixes):**
+GAP-2026-08-13-MIXED-REGISTRY-DEDUP-DEMOTION (Step 7's expected_cnt =
+papers × total_questions trips on mixed mock+scoped registries, demoting
+G-DUP to WARN); blueprint `option_label_format` styling tier reads a key no
+producer writes (Blueprint emits `option_label`; intent ambiguous);
+`batch_size_qs` read by Step 7 but written only by ScopedBlueprint (mock
+axis-2 window unconfigurable, silently 10). Each needs a design decision,
+not a drift fix.
+
 ## 2026.08.12.15
 
 ### Cross-step sync audit — Steps 5 → TestDeliver, 3 passes

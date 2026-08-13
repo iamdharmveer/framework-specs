@@ -1,4 +1,20 @@
-# Framework_MockTestExplain v1.24.0
+# Framework_MockTestExplain v1.25.0
+# v1.25.0 — 2026-08-13 — SYNC AUDIT ROUND 2 (fresh-lens re-audit of Steps 5→11)
+#   1. GAP-2026-08-13-STALE-SELFTEST-PIN (HALT-class). P1 pinned the engine gate at the
+#      literal "SELF-TEST: 62/62 PASS" (3 sites; + "10/10" for --self-test-audit, 2 sites)
+#      while explain_engine.py actually prints 64/64 (26/26 audit) — so EVERY Explain
+#      session following P1 literally HALTed on a healthy engine. All 5 sites converted to
+#      the FLOOR form ("N/N PASS with N >= 62 / >= 10"), the same AUTH_GATE_FLOOR pattern
+#      Steps 6/7 already use — integrity is bootstrap.py's sha256 job, not a count pin's.
+#   2. GAP-2026-08-13-P10-SCOPED-BLUEPRINT (behavioral). P10 loaded the hardcoded
+#      f'{EXAM}_blueprint.json' (the MOCK blueprint) though P1 selects among ALL
+#      {EXAM}*_blueprint.json by the uploaded docx's slug — so for a SCOPED paper the
+#      v1.24 P10/0 gate compared the scoped docx against the mock blueprint (unconditional
+#      false HARD STOP), or crashed if no mock blueprint existed: the gate could never
+#      pass for the resumed-scoped papers it was written about. P10 now selects the
+#      blueprint containing the paper whose slug matches PAPER_SLUG (P1's own semantics,
+#      restated self-contained), and every downstream P10 check (FK, count, difficulty)
+#      now validates against the CORRECT blueprint for scoped papers too.
 # v1.24.0 — 2026-08-13 — CROSS-STEP SYNC AUDIT FIXES (Steps 5→11 handshake audit)
 #   Two desyncs found by a dedicated 3-pass producer↔consumer audit of the whole
 #   Step 5 → TestDeliver chain, both fixed in this file:
@@ -220,7 +236,8 @@
 #   ships with the framework repo, so a GitHub project finds it in the /tmp/fw clone
 #   (no upload needed); a direct-upload project uploads it once to /mnt/project and
 #   reuses the SAME file in every exam project. It self-tests with `--self-test`
-#   (must print "SELF-TEST: 62/62 PASS").
+#   (must print "SELF-TEST: N/N PASS" with N >= 62 — FLOOR form, v1.25: the exact
+#   62/62 pin HALTed every session once the engine grew to 64 fixtures).
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE B — BATCH-OR-HALT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -458,13 +475,18 @@
       explain_engine.py (from the framework clone /tmp/fw, else the project Files
       /mnt/project). Copy the engine to /home/claude and run
       `python3 explain_engine.py --self-test` → MUST print
-      "SELF-TEST: 62/62 PASS" before any solving. THEN LOAD LEARNINGS (§24): via
+      "SELF-TEST: N/N PASS" with N == total (all pass) AND N >= 62 before any
+      solving (v1.25, GAP-2026-08-13-STALE-SELFTEST-PIN: the FLOOR form, the
+      same AUTH_GATE_FLOOR pattern Steps 6/7 use for the audit copy — the
+      previous exact "62/62" pin made every session HALT on a HEALTHY engine
+      the moment it grew fixtures; it prints 64/64 today. bootstrap.py's
+      sha256 verification is what proves engine integrity, not the count). THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (legacy/manual — v1.21.0) and
       [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT, and index every
       AL/EX rule by defect_code. These OVERRIDE this spec on conflict (§24). When a
-      learnings file is present, also run `--self-test-audit` (10/10) to confirm the
-      cross-step readers. Absent on mock 1 by design — proceed. Any load/self-test
+      learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10; currently 26/26) to
+      confirm the cross-step readers. Absent on mock 1 by design — proceed. Any load/self-test
       failure → HALT.
   P2  STATUS DASHBOARD (print every turn, before any solving):
 ```text
@@ -540,9 +562,29 @@
 
   ```python
   import json as _p10_json
+  import glob as _p10_glob
   import paper_pipeline as pp   # v1.24: explicit in-block bind (P10 is self-contained;
                                 # a re-import after P1 is a harmless no-op)
-  _p10_bp  = _p10_json.load(open(f'/mnt/project/{EXAM}_blueprint.json', encoding='utf-8'))
+  # v1.25 (GAP-2026-08-13-P10-SCOPED-BLUEPRINT): select the blueprint the SAME
+  # docx-driven way P1 does, never the hardcoded mock filename. The old literal
+  # f'{EXAM}_blueprint.json' load meant every SCOPED Explain either compared the
+  # uploaded scoped docx against the MOCK blueprint (unconditional false P10/0
+  # HARD STOP) or FileNotFoundError'd if no mock blueprint existed — the v1.24
+  # gate could never pass for the resumed-scoped papers it was written about.
+  # Selection key: the blueprint that CONTAINS a paper whose slug matches the
+  # uploaded docx (PAPER_SLUG, parsed at P1) — P1's own semantics, restated
+  # self-contained.
+  _p10_bps = [_p10_json.load(open(_f, encoding='utf-8'))
+              for _f in sorted(_p10_glob.glob(f'/mnt/project/{EXAM}*_blueprint.json'))]
+  _p10_bp = next((b for b in _p10_bps if any(
+      pp.paper_slug(mk.get('paper_id', f"MOCK:M{int(mk.get('mock', 0) or 0):02d}")) == PAPER_SLUG
+      for mk in b.get('mocks', []))), None)
+  if _p10_bp is None:
+      raise SystemExit(
+          f"HARD STOP (P10/0): no blueprint under /mnt/project/{EXAM}*_blueprint.json "
+          f"contains a paper whose slug matches the uploaded docx {PAPER_SLUG!r}. "
+          f"The blueprint that produced this paper is missing from the project — "
+          f"restore it (or re-run Step 6/6S), then re-trigger.")
   _p10_reg = _p10_json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))
   _p10_tp  = next((mk for mk in _p10_bp.get('mocks', []) if mk.get('mock') == N), None)
   _p10_pid = (_p10_tp or {}).get('paper_id', f"MOCK:M{int(N):02d}")
@@ -1416,7 +1458,7 @@ import os
 out = '/mnt/user-data/outputs'
 # PAPER_SLUG = pp.paper_slug(paper_id) of the blueprint mock/paper resolved at P1 (v1.19).
 # "Mock[N]" zero-padded for a mock, else the scoped slug — same value the input
-# _Create.docx filename carries (v1.24: was "Create_Complete", retired at v1.21.0).
+# _Create.docx filename carries (v1.24: previously named the retired "_Complete" form).
 sol = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
 present = set(os.listdir(out))
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
@@ -1650,8 +1692,8 @@ Step 9 uses BOTH footer types:
 #   add_math_text, parse_paper, build_interleaved_docx, verify_fidelity, verify_structure,
 #   verify_explanations, strip_solutions, the reader parse_solution_blocks, and
 #   parse_learnings. Self-tests: `python3 explain_engine.py --self-test` →
-#   "SELF-TEST: 62/62 PASS" (core, required at P1) and `--self-test-audit` →
-#   "AUDIT-SELF-TEST: 10/10 PASS" (reader round-trip).
+#   "SELF-TEST: N/N PASS", N >= 62 (core, required at P1) and `--self-test-audit` →
+#   "AUDIT-SELF-TEST: N/N PASS", N >= 10 (reader round-trip; v1.25 floor form).
 #
 #   WHY THE LISTING WAS REMOVED (v1.12): through v1.11 the full engine was reproduced
 #   verbatim in this Appendix AND in the (now retired) ExplainAudit spec's Appendix A "for
@@ -1675,5 +1717,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.24.0
+# END OF Framework_MockTestExplain v1.25.0
 # ════════════════════════════════════════════════════════════════════════

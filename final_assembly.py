@@ -360,8 +360,17 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                                   "qindex_cert": _qindex_cert, "questions": _qi})
 
     # ── Ledgers — idempotent (deviation 4) ───────────────────────────────────
+    # v5.55 (GAP-2026-08-13-SCOPED-MOCKS-COMPLETED): mocks_completed is the
+    # LEGACY MOCK-SERIES ledger — appending a SCOPED paper's bare ordinal here
+    # fabricated a phantom mock (ScopedBlueprint S9-1: scoped papers are
+    # "tagged with paper_id, NOT a bare mock number"): committing only
+    # SUBJ:Physics:03 yielded mocks_completed=[3], and every integrity check
+    # that converts those ints to MOCK:M03 (paper_pipeline.registry_integrity_
+    # check; Step 11 S1-2; Step 9 P10's WARN) then reported false "REGISTRY
+    # DATA LOSS: MOCK:M03" with a wrong remedy, forever. papers_completed is
+    # the universal ledger and gets EVERY paper; mocks_completed only mocks.
     mocks_completed = reg.setdefault('mocks_completed', [])
-    if N not in mocks_completed:
+    if _new_prefix == 'MOCK' and N not in mocks_completed:
         mocks_completed.append(N)
     papers_completed = reg.setdefault('papers_completed', [])
     # v5.54: a stale same-series entry whose parsed paper NUMBER equals N is
@@ -436,12 +445,21 @@ _REQUIRED_CT = [
 ]
 
 
-def _commit_problems(reg, m):
+def _commit_problems(reg, m, series_prefix='MOCK'):
     """G-COMMIT-COMPLETE per-mock cross-ledger check (GAP-2026-08-12-
-    S13-COMMIT-COMPLETE). A mock is complete iff it has a session_log entry
-    AND a question_index entry carrying a non-null paper_id."""
-    sl_mocks = {e.get('mock') for e in reg.get('session_log', [])}
-    qi_by_mock = {e.get('mock'): e for e in reg.get('question_index', [])}
+    S13-COMMIT-COMPLETE). A paper is complete iff it has a session_log entry
+    AND a question_index entry carrying a non-null paper_id.
+
+    v5.55 (GAP-2026-08-13-SCOPED-MOCKS-COMPLETED): entries are filtered to
+    the requested SERIES before matching by number. Without this, a SCOPED
+    paper's entry (mock=3, paper_id='SUBJ:Physics:03') could satisfy — and
+    therefore MASK — a check for MOCK number 3 whose own MOCK:M03 entry was
+    genuinely lost. Null/absent paper_id maps to 'MOCK', matching the
+    historical default-slug assumption everywhere else in this module."""
+    sl_mocks = {e.get('mock') for e in reg.get('session_log', [])
+                if _series_prefix(e.get('paper_id')) == series_prefix}
+    qi_by_mock = {e.get('mock'): e for e in reg.get('question_index', [])
+                  if _series_prefix(e.get('paper_id')) == series_prefix}
     problems = []
     if m not in sl_mocks:
         problems.append('no session_log entry')
@@ -514,7 +532,18 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None):
                           f"{still_missing} after self-heal. Do NOT deliver. Inspect "
                           f"S13-4 commit logic."]}
 
-    this_mock_problems = _commit_problems(reg, N)
+    # v5.55: the current paper's series prefix, derived from bp exactly the
+    # way S13-4 derives paper identity (C2). For a SCOPED run this makes the
+    # this-commit completeness check look for the SCOPED entry (previously it
+    # looked for a MOCK-series entry with the scoped ordinal — a guaranteed
+    # false HARD STOP once _commit_problems became series-aware); the
+    # historical warnings loop below stays MOCK-series (mocks_completed is
+    # the mock ledger, and now only ever contains mocks).
+    _this_pid = next((mk.get('paper_id') for mk in bp.get('mocks', [])
+                      if mk.get('mock') == N), None) or f"MOCK:M{int(N):02d}"
+    _this_prefix = _series_prefix(_this_pid)
+
+    this_mock_problems = _commit_problems(reg, N, series_prefix=_this_prefix)
     if this_mock_problems:
         return {'ok': False, 'registry': reg, 'healed': missing_top + missing_ct,
                 'warnings': [],
@@ -895,6 +924,34 @@ def self_test():
     _odd2 = _commit(_odd, 1, 'MOCK:M01')
     check('unparseable_stale_paper_id_left_alone',
          'MOCK:MBROKEN' in _odd2['papers_completed'])
+
+    # ── v5.55: SCOPED papers never pollute the mock ledger ───────────────
+    # (GAP-2026-08-13-SCOPED-MOCKS-COMPLETED) A scoped commit records its
+    # paper_id in papers_completed but must NOT append its bare ordinal to
+    # mocks_completed — that fabricated a phantom MOCK:M03 that
+    # registry_integrity_check / Step 11 / Step 9's P10 WARN then reported
+    # as "REGISTRY DATA LOSS" forever.
+    _sc = _commit(mini_registry(), 3, 'SUBJ:Physics:03')
+    check('scoped_commit_leaves_mocks_completed_empty',
+         _sc['mocks_completed'] == [])
+    check('scoped_commit_records_paper_id',
+         _sc['papers_completed'] == ['SUBJ:Physics:03'])
+    check('scoped_then_mock_ledgers_independent',
+         _commit(_sc, 3, 'MOCK:M03')['mocks_completed'] == [3])
+    # registry_integrity_check no longer sees a phantom mock
+    _ok_ic, _rep_ic = pp.registry_integrity_check(_sc)
+    check('scoped_commit_passes_registry_integrity_check', _ok_ic is True)
+    # a SCOPED entry must not MASK a genuinely missing MOCK entry of the
+    # same number, and a scoped commit's own completeness must be checked
+    # against the SCOPED series (not falsely against MOCK)
+    check('scoped_entry_does_not_mask_missing_mock_entry',
+         'no question_index entry' in ' '.join(_commit_problems(_sc, 3)))
+    check('scoped_own_series_completeness_clean',
+         _commit_problems(_sc, 3, series_prefix='SUBJ:Physics') == [])
+    _sc_bp = mini_bp(mocks=[{'mock': 3, 'paper_id': 'SUBJ:Physics:03'}],
+                     total_questions=3)
+    _rc_sc = regcheck(_sc, _sc_bp, N=3, concept_map=mini_cm())
+    check('regcheck_scoped_commit_ok_not_false_hard_stop', _rc_sc['ok'] is True)
 
     # regcheck detection side: a hand-left stale sibling for THIS mock's
     # slot is a HARD STOP; the same state on a historical mock is a warning

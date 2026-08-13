@@ -1,4 +1,8 @@
-# Framework_PYQExplain v2.4 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.5 — Universal PYQ Explanation Generator
+# v2.5 — 2026-08-13 — GAP-2026-08-13-STALE-SELFTEST-PIN: the MANDATE-A engine gate pinned
+#   the literal "SELF-TEST: 62/62 PASS" while explain_engine.py prints 64/64 — a HALT on
+#   every session with a healthy engine. Converted to the FLOOR form (N/N PASS, N >= 62),
+#   the AUTH_GATE_FLOOR pattern; same for the --self-test-audit reader pin (>= 10).
 # v2.4 — 2026-08-10 — AUTHORING-TIME TIER-3 COMPILE GATE (GAP-2026-08-10-EXPLAIN-
 #   MATH-DEGRADE-SILENT). Root cause, measured on a real 60-Q paper: every formula
 #   was authored as a ⟦MATH:…⟧ region, but many used LaTeX outside the Tier-3
@@ -320,7 +324,7 @@
 #       "HARD STOP (MANDATE A): explain_engine.py not found. PYQExplain cannot
 #        build explanations without it. Upload it to the project or reload the
 #        framework, then re-run."
-#   Self-tests: `python3 explain_engine.py --self-test` → "SELF-TEST: 62/62 PASS"
+#   Self-tests: `python3 explain_engine.py --self-test` → "SELF-TEST: N/N PASS", N >= 62 (v2.5 floor form; currently 64/64)
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE B — BATCH-OR-HALT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -494,7 +498,9 @@ PYQExplain
 
   P0  ENGINE PRESENT AND HONEST.
       explain_engine.py must be importable and its self-test must print
-      "SELF-TEST: 62/62 PASS" (MANDATE A). If absent or stale → HARD STOP.
+      "SELF-TEST: N/N PASS" with N == total AND N >= 62 (MANDATE A; v2.5 —
+      GAP-2026-08-13-STALE-SELFTEST-PIN: floor form, the exact 62/62 pin HALTed
+      every session once the engine grew to 64). If absent or stale → HARD STOP.
 
   P1  LOAD PROJECT KNOWLEDGE.
       Load from /mnt/project (project knowledge):
@@ -1753,7 +1759,7 @@ present_files(deliverables)
 #   It is COMPLETE, working, universal, and byte-identical across all exams
 #   and across both the mock and PYQ pipelines. Self-tests:
 #     --self-test       → "SELF-TEST: 62/62 PASS" (core, required at P0)
-#     --self-test-audit → "AUDIT-SELF-TEST: 10/10 PASS" (reader round-trip)
+#     --self-test-audit → "AUDIT-SELF-TEST: N/N PASS", N >= 10 (reader round-trip; v2.5 floor form)
 #   (v2.1: the companion gate explain_audit_gate.py and PYQExplainAudit (PYQ-2) were
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
@@ -1824,5 +1830,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.4
+# END OF Framework_PYQExplain v2.5
 # ════════════════════════════════════════════════════════════════════════

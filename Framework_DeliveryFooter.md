@@ -1,4 +1,13 @@
-# Framework_DeliveryFooter v1.20 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.21 — Universal Delivery Footer (F1/F2) Contract
+# v1.21 — 2026-08-13 — SYNC AUDIT ROUND 2: footer registry caught up with the steps.
+#   (1) GAP-2026-08-13-DELIVERY-COUNT-DRIFT (mirrored): §3's Step-5 final list said "5
+#   files" — no badge for exam_config.json (mandatory-when-generated since MockTestAnalyse
+#   v2.24.9) and none for taxonomy.xlsx (v2.24), which therefore fell through to an Upload
+#   badge for an xlsx this spec itself marks unreadable. List now matches S11-3's derived
+#   set. (2) GAP-2026-08-13-FOOTER-SCOPED-PATTERNS: §2 LOCAL_ONLY only knew Mock*_ name
+#   forms; scoped papers ({EXAM}_SUBJ_*/TOPIC_*/SUBTOPIC_* slugs) fell through to
+#   Upload/Replace. Added slug-agnostic suffix patterns (*_Create.docx, *_Explanation.docx,
+#   *_Final.docx, *_Q1to*.docx, *_audit_dossier.json, *_taxonomy.xlsx).
 # v1.20 — 2026-08-12 — NOTES HANDOFF BY ATTACHMENT (GAP-2026-08-12-NADOCX P2;
 #   pairs with Framework_NotesAudit v3.0.0 / NotesCreate v2.3.0 / NotesDeliver
 #   v1.2.0). The section 3 NC/NA/ND entries change: the notes .docx now moves
@@ -197,7 +206,7 @@ WHEN TO SHOW:
   Examples:
     - Step 2a PYQDraft: after delivering taxonomy_draft + exam_config
     - Step 3 PYQSort: after delivering the sorted docx
-    - Step 5 PYQExtract: after final batch + auto-synthesis + all 6 files
+    - Step 5 PYQExtract: after final batch + auto-synthesis + the full final set (S11-3)
     - Step 6 MockBlueprint: after B3 final delivery of all 5 files
     - Step 11 MockDeliver: after delivering the tagged docx
 
@@ -268,6 +277,17 @@ def get_badge(filename, step, is_first_run):
         'Mock*_audit_changelog.md',        # was Step 8 conditional
         'Mock*_Explanation_Complete.docx', # was Step 10 audited solutions
         'Mock*_Final.docx',        # Step 11 tagged final deliverable
+        # v1.21 (GAP-2026-08-13-FOOTER-SCOPED-PATTERNS): scoped papers name files
+        # {EXAM}_{paper_slug}_... where the slug is SUBJ_*/TOPIC_*/SUBTOPIC_* —
+        # the Mock* patterns above never matched them, so a scoped paper's docx
+        # fell through to an Upload/Replace badge. Suffix patterns cover every
+        # slug form (mock AND scoped) for the same three deliverable kinds.
+        '*_Q1to*.docx',             # Step 7 per-batch cumulative (any slug)
+        '*_Create.docx',            # Step 7 final (any slug)
+        '*_Explanation.docx',       # Step 9 solutions (any slug)
+        '*_Final.docx',             # Step 11 tagged final (any slug)
+        '*_audit_dossier.json',     # Step 7 Tier-A dossier (badged Use locally in §3)
+        '*_taxonomy.xlsx',          # Step 5 id companion (xlsx — not Claude-readable)
         'analysis_summary.md',      # Step 5 final — human review audit trail
         '*pyq_registry.json',       # PYQ-4 corpus tracker — LOCAL-ONLY (v1.16;
                                     # pattern widened v1.17 to also catch a bare
@@ -450,12 +470,19 @@ FOOTER TYPE: F1 (mid-step) after each non-final batch
 MID-STEP DELIVERABLES (per batch):
   [ExamCode]_analysis_progress.json  → Upload (1st batch) / Replace (subsequent)
 
-FINAL DELIVERABLES (5 files):
+FINAL DELIVERABLES (6 mandatory + taxonomy.xlsx when written — v1.21,
+GAP-2026-08-13-DELIVERY-COUNT-DRIFT mirrored from MockTestAnalyse v2.47: this
+list said "5 files", predating BOTH the v2.24.9 exam_config addition and the
+v2.24 taxonomy companion, so exam_config had no badge and taxonomy.xlsx fell
+through to an Upload badge for an xlsx this spec itself calls unreadable):
   [ExamCode]_section_rules.md        → Upload to Project Files
   [ExamCode]_subtopic_manifest.json  → Upload to Project Files
   [ExamCode]_PYQ_Frequency.xlsx      → Use locally (Step 6 input — user provides when needed)
+  [ExamCode]_exam_config.json        → Replace in Project Files (subjects[] added by S-SECMAP;
+                                       delivered only when generated)
   [ExamCode]_analysis_progress.json  → Use locally (keep for future re-runs if adding papers)
   [ExamCode]_analysis_summary.md     → Use locally (human review audit trail)
+  [ExamCode]_taxonomy.xlsx           → Use locally (human-readable id companion; when written)
 
 NEXT STEP  : Step 6: MockBlueprint (parallel with Step 5 — see §1 F2 special case)
 

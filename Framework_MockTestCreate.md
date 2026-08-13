@@ -1,4 +1,11 @@
-# Framework_MockTestCreate v5.54.0
+# Framework_MockTestCreate v5.54.1
+# v5.54.1 — 2026-08-13 — SYNC AUDIT ROUND 2: three prose desyncs fixed (no logic change)
+#   (1) S13-6 + DoD said "EXACTLY TWO files", contradicting the dossier-conditional 3-file
+#   closed set R-DELIVER/S13-7/G-DELIVERY-SET already agree on; both sites now state the
+#   derived set. (2) S13-6's file list showed the literal Mock[N] name; now slug-form,
+#   matching S13-7/S13-4b. (3) The trigger-contract [N] rule said "must ≤ total_mocks/
+#   n_papers" — wrong for offset-resumed blueprints (apply_mock_offset relabels mocks[].mock
+#   beyond total_mocks); the binding check is mocks[] MEMBERSHIP, now stated correctly.
 # v5.54.0 — 2026-08-12 — THREE DEFERRED DESIGN GAPS CLOSED (scoped 1-by-1)
 #   Closes, as individually scoped fixes, the three gaps earlier hardening releases flagged
 #   and deliberately deferred (each documented at its flag site + in the audit records):
@@ -827,9 +834,15 @@
 
   ExamCode: read from exam_config.json in project knowledge; must match blueprint + registry.
   [N]: integer ≥ 1 (P[N] for TestCreate, M[N] for the MockCreate alias — same meaning: the
-       paper number within the selected blueprint's series); must ≤ that blueprint's
-       total_mocks/n_papers. Identity is paper_id (= blueprint.mocks[N].paper_id): it must
-       not already be in registry.papers_completed[] (legacy registries fall back to
+       paper number within the selected blueprint's series). The binding check is
+       MEMBERSHIP, not a range bound: some mocks[] entry must have mock == N (v5.54.1 —
+       the old "must ≤ total_mocks/n_papers" wording was WRONG for an offset-resumed
+       blueprint, where pp.apply_mock_offset relabels mocks[].mock to offset+1..offset+K
+       but total_mocks stays the per-run count, so the prose gate would reject every
+       valid resumed trigger; on a resumed SCOPED blueprint N is likewise the mocks[]
+       ordinal, not the filename's series number). Identity is paper_id
+       (= blueprint.mocks[N].paper_id): it must not already be in
+       registry.papers_completed[] (legacy registries fall back to
        mocks_completed[] for the mock tier only).
 
 ## S2-2 — Universal Absolute Rules table
@@ -7128,7 +7141,7 @@
   _cm = _ak.get('concept_map', {})
   # v5.54 (GAP-2026-08-12-S13-4B-SCOPED-PATH): the docx path is derived from
   # pp.paper_slug(paper_id) — THE one filename-stem rule — never hand-built. The old
-  # literal f'{EXAM}_Mock{N}_Create.docx' was DOUBLY wrong: paper_slug zero-pads
+  # old literal (Mock-then-bare-N name) was DOUBLY wrong: paper_slug zero-pads
   # ("Mock03", so the literal missed EVERY single-digit mock's actual file), and a
   # scoped paper's slug ("SUBJ_Physics_01") never matched at all — the md5 binding
   # below then FileNotFoundError'd instead of binding the dossier to its paper.
@@ -7246,12 +7259,19 @@
 
 ## S13-6 — THE DELIVERABLE SET IS CLOSED (v3.5 — read before delivering)
 
-  At Final Assembly, Step 7 delivers EXACTLY TWO files to the user, and
-  NOTHING ELSE. This is an exhaustive, closed list — not a minimum.
+  At Final Assembly, Step 7 delivers the CLOSED SET to the user, and NOTHING
+  ELSE — the two mandatory files below, plus [ExamCode]_M[N]_audit_dossier.json
+  when S13-4b wrote one (v5.35+; that is every normal run). This is an
+  exhaustive, closed list — not a minimum. (v5.54.1: this prose said "EXACTLY
+  TWO", contradicting the dossier-conditional 3-file set that R-DELIVER,
+  S13-7's derived expected set, and G-DELIVERY-SET all already agreed on —
+  the same count-drift class as GAP-2026-08-01-DELIVERY-SET-DRIFT.)
 
-  DELIVER (both mandatory, both via the SAME present_files call):
-    1. [ExamCode]_Mock[N]_Create.docx     — the final mock paper
+  DELIVER (mandatory, all via the SAME present_files call):
+    1. [ExamCode]_[paper_slug]_Create.docx  — the final paper ("Mock[N]"
+                                              zero-padded for a mock; scoped slug otherwise)
     2. [ExamCode]_registry.json             — updated dedup/tracking registry
+    3. [ExamCode]_M[N]_audit_dossier.json   — when S13-4b wrote one
 
   DO NOT DELIVER (internal — never passed to present_files):
     ✗ [ExamCode]_M[N]_answer_key.json       — internal sidecar (S3-14)
@@ -7314,7 +7334,7 @@
 
   Call present_files ONCE, with BOTH files, docx first (most relevant):
     present_files([
-        docx_path,        # C2: paper-scoped ({EXAM}_Mock{N}_Create.docx for a mock)
+        docx_path,        # C2: paper-scoped ({EXAM}_{paper_slug}_Create.docx — zero-padded mock or scoped slug)
         reg_path
     ])
 
@@ -7477,7 +7497,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   □ Audit report produced
 
   DELIVERY (v3.5 — closed contract):
-  □ EXACTLY 2 files delivered: final .docx + registry.json (S13-6, R-DELIVER)  **
+  □ The closed set delivered: final .docx + registry.json + audit_dossier when written (S13-6, R-DELIVER; v5.54.1 — was 'EXACTLY 2')  **
   □ registry.json staged in /mnt/user-data/outputs and present_files'd (S13-8)  **
   □ NO standalone answer-key file in any format delivered (R-DELIVER)  **
   □ NO internal sidecar (answer_key/fig/batch_state/progress) delivered  **
@@ -7986,7 +8006,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.54.0
+# END OF Framework_MockTestCreate v5.54.1
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
