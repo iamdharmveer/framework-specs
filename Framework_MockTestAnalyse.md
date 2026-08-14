@@ -1,4 +1,24 @@
-# Framework_MockTestAnalyse v2.48.1 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.48.2 — Universal PYQ Pattern Extraction Engine
+# v2.48.2 — 2026-08-14 — S11-2 PART B FIXED FOR REAL + ONE ORDER EVERYWHERE
+#   (GAP-2026-08-14-S11-2-PARTB-UNFIXED, primary; GAP-2026-08-14-DELIVERY-ORDER-
+#   DRIFT, secondary; release-manager hold on 2026.08.13.6.) v2.48.1 claimed
+#   "S11-2's download step now agrees" but S11-2 has TWO delivery sites and the
+#   fix landed on PART C (future re-run note) while PART B — the operative
+#   present_files list — still said "All 6", exam_config unconditional,
+#   taxonomy.xlsx absent. Combined with v2.48.1's own NEVER-TRIM rule that
+#   stale list turned into a hard stop on every normal run (taxonomy.xlsx
+#   exists → Check 1 fires → STOP). PART B is now the same two-tier contract
+#   as S11-3/checklist/QV[19], in the order the delivery code emits (rules →
+#   manifest → xlsx → exam_config → taxonomy → progress → summary), and the
+#   bare "All 6" count line is deleted — a bare count is what regenerated this
+#   defect each time the set changed. S11-3's numbering is reconciled to that
+#   same emission order (v2.48.1 had introduced a third order). The NEVER-TRIM
+#   rule stays exactly as written — it is what made this visible. PERMANENT
+#   GUARD: mock_sync_audit MS-11 now parses the delivery code's unconditional/
+#   conditional sets and asserts all five prose sites (PART B, PART C, S11-3,
+#   checklist expected, QV[19]) declare the same two sets — self-tested with
+#   the v2.48.1 PART B text as the must-flag fixture. Emitted stamps stay
+#   v2.48 (major.minor unchanged). Prose fences only; no python fence touched.
 # v2.48.1 — 2026-08-14 — DELIVERY TIERS TOLD STRAIGHT + NEVER TRIM SILENTLY
 #   (GAP-2026-08-13-DELIVERY-COUNT-DRIFT, residual layer; field report from a
 #   live exam project). v2.47.1 moved exam_config.json to the checklist's
@@ -7508,16 +7528,30 @@ PART A — QV results in chat:
    v QV-12 Dedup           : PASS
    ==========================="
 
-PART B — present_files (all in one call, in this order):
-  1. [ExamCode]_section_rules.md        <- PRIMARY: download → upload to [ExamCode] project
-  2. [ExamCode]_subtopic_manifest.json  <- download → upload to [ExamCode] project
-  3. [ExamCode]_PYQ_Frequency.xlsx      <- download → keep for Step 6 input
-  4. [ExamCode]_exam_config.json        <- download → REPLACE in [ExamCode] project (v2.24.9:
-                                           now carries subjects[] for Step 6 resolver)
-  5. [ExamCode]_analysis_progress.json  <- download → keep locally
-  6. [ExamCode]_analysis_summary.md     <- download → review if WARNs exist
+PART B — present_files (all in one call, in the order the final_delivery code
+emits: rules → manifest → xlsx → exam_config → taxonomy → progress → summary):
 
-  All 6 are delivered as downloadable chat attachments.
+  MANDATORY — every run:
+    1. [ExamCode]_section_rules.md        <- PRIMARY: download → upload to [ExamCode] project
+    2. [ExamCode]_subtopic_manifest.json  <- download → upload to [ExamCode] project
+    3. [ExamCode]_PYQ_Frequency.xlsx      <- download → keep for Step 6 input
+
+  WHEN IT EXISTS — which is every normal run:
+    4. [ExamCode]_exam_config.json        <- download → REPLACE in [ExamCode] project
+                                             (v2.24.9: carries subjects[] for Step 6 resolver;
+                                              absent only when S-SECMAP warned and continued)
+    5. [ExamCode]_taxonomy.xlsx           <- download → human-readable taxonomy companion
+                                             (absent only when openpyxl was unavailable)
+
+  MANDATORY — every run (emitted last):
+    6. [ExamCode]_analysis_progress.json  <- download → keep locally
+    7. [ExamCode]_analysis_summary.md     <- download → review if WARNs exist
+
+  All files above are delivered as downloadable chat attachments — 7 on a normal run,
+  5 in the degraded case where both conditional files are absent. This list is the same
+  two-tier contract S11-3 and the pre-delivery checklist enforce; do not restate it as a
+  fixed count (v2.48.2 — the "All 6" wording here survived v2.47.1 and v2.48.1 and was
+  the site the field-reported silent drop came from).
   NOTHING is uploaded to Google Drive.
 
 PART C — Handoff message:
@@ -7581,19 +7615,24 @@ DO NOT DELIVER:
 ────────────────────────────────────────────────────────────────────
 FINAL DELIVERY (last batch → auto-synthesis → QV checks complete)
 ────────────────────────────────────────────────────────────────────
-DELIVER in ONE present_files call, in this order (v2.48.1: the list now shows
-the SAME two tiers the pre-delivery checklist below enforces — v2.47.1 moved
-exam_config.json to the conditional tier but this list still called it one of
-"the 6 mandatory files", the count-drift class one layer down):
+DELIVER in ONE present_files call, in the order the delivery code emits
+(v2.48.2: numbering now follows the code's emission order — rules → manifest →
+xlsx → exam_config → taxonomy → progress → summary — so this list, S11-2
+PART B, and the delivery code are literally identical; v2.48.1's renumbering
+put the conditional tier AFTER progress/summary, a third order in play.
+v2.48.1: the list shows the SAME two tiers the pre-delivery checklist below
+enforces — v2.47.1 moved exam_config.json to the conditional tier but this
+list still called it one of "the 6 mandatory files"):
   MANDATORY — every run:
     1. [ExamCode]_section_rules.md
     2. [ExamCode]_subtopic_manifest.json
     3. [ExamCode]_PYQ_Frequency.xlsx
-    4. [ExamCode]_analysis_progress.json
-    5. [ExamCode]_analysis_summary.md
   WHEN IT EXISTS — which is every normal run:
-    6. [ExamCode]_exam_config.json   (absent only when S-SECMAP warned and continued)
-    7. [ExamCode]_taxonomy.xlsx      (absent only when openpyxl was unavailable)
+    4. [ExamCode]_exam_config.json   (absent only when S-SECMAP warned and continued)
+    5. [ExamCode]_taxonomy.xlsx      (absent only when openpyxl was unavailable)
+  MANDATORY — every run (emitted last):
+    6. [ExamCode]_analysis_progress.json
+    7. [ExamCode]_analysis_summary.md
 
 DO NOT DELIVER:
   ✗ Input PYQ .docx files (these are INPUTS)
@@ -8376,4 +8415,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.48.1
+# END OF Framework_MockTestAnalyse v2.48.2

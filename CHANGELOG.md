@@ -1,21 +1,43 @@
 # Changelog
 
-## 2026.08.13.6 — Step-5 delivery tiers told straight; never trim silently
+## 2026.08.13.6 — Step-5 delivery tiers told straight; never trim silently; MS-11 ends the count-drift era
 
 Field report from a live exam project: a run held a generated taxonomy.xlsx
 back from delivery to satisfy an older six-file reading of S11-3, silently.
 The main conflict was already fixed in v2.47.x, but a residual layer remained
 and the silent-drop behaviour had no rule against it.
 
-- `Framework_MockTestAnalyse.md` v2.48.0 → **v2.48.1** — S11-3's FINAL
-  DELIVERY list now prints the same two tiers the pre-delivery checklist
-  enforces (5 mandatory; exam_config.json + taxonomy.xlsx when they exist —
-  every normal run); the S11-2 download step and QV item [19] agree; and a
-  NEW checklist rule makes any failed check a reported FINDING — the run
-  stops and names the differing files in chat, never silently trims or pads.
+The first cut of this release (v2.48.1) was HELD by the release manager
+(GAP-2026-08-14-S11-2-PARTB-UNFIXED): S11-2 has TWO delivery sites and the
+fix landed on PART C while PART B — the operative present_files list — still
+said "All 6", exam_config unconditional, taxonomy.xlsx absent; combined with
+the new never-trim rule that stale list became a hard stop on every normal
+run. Secondary (GAP-2026-08-14-DELIVERY-ORDER-DRIFT): the S11-3 renumbering
+put the conditional tier after progress/summary, a third order in play.
 
-Prose only; no engine, stamp (major.minor stays v2.48), schema or behaviour
-change beyond the reporting rule.
+- `Framework_MockTestAnalyse.md` v2.48.0 → **v2.48.2** — S11-2 PART B and
+  S11-3's FINAL DELIVERY list both print the same two tiers the pre-delivery
+  checklist enforces (5 mandatory; exam_config.json + taxonomy.xlsx when they
+  exist — every normal run), numbered in the order the delivery code emits
+  (rules → manifest → xlsx → exam_config → taxonomy → progress → summary);
+  the bare "All 6" count line is deleted — a bare count is what regenerated
+  this defect each time the set changed. S11-2 PART C and QV item [19] agree.
+  NEW checklist rule: any failed pre-delivery check is a reported FINDING —
+  the run stops and names the differing files in chat, never silently trims
+  or pads.
+- `mock_sync_audit.py` — new **MS-11 DELIVERY-SET-PARITY** permanent guard:
+  parses the delivery code's unconditional/conditional sets and asserts all
+  FIVE prose sites (PART B, PART C, S11-3, checklist expected set, QV [19])
+  declare the same two sets, and that the ordered sites match the code's
+  emission order. Self-tested with the shipped v2.48.1 PART B text as the
+  must-flag fixture (verified: MS-11 flags v2.48.1 as supplied with exactly
+  the two held defects, and passes v2.48.2). Self-test 22 → 28 checks. This
+  is the third hand-fix of the count-drift class (v2.47 → v2.47.1 → v2.48.1);
+  each pass fixed the sites someone happened to grep for — from now on the
+  auditor reads every site, every run.
+
+Spec changes are prose only; no stamp (major.minor stays v2.48), schema or
+behaviour change beyond the reporting rule and the new auditor check.
 
 ## 2026.08.13.5 — Taxonomy order is teaching order (GAP-2026-08-14-TAXONOMY-ORDER)
 

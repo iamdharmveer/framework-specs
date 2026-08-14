@@ -52,6 +52,17 @@ CHECKS (each compares one authority against another; none holds an opinion):
                       be <= that file's actual header version (a pin AHEAD
                       of the real file means the companion release never
                       shipped or the pin is fiction).
+  MS-11 DELIVERY-SET-PARITY
+                      MockTestAnalyse's Step-5 final delivery: the code's
+                      unconditional/conditional deliverable sets (parsed from
+                      the `delivery` construction) must be declared identically
+                      by ALL FIVE prose sites — S11-2 PART B, S11-3 FINAL
+                      DELIVERY, the checklist expected set, QV [19], and
+                      S11-2 PART C — and the two ordered sites must list files
+                      in the code's emission order. Third recurrence of the
+                      count-drift class (v2.47 / v2.47.1 / v2.48.1 each fixed
+                      only the sites someone grepped for); this ends the
+                      grep-driven era. GAP-2026-08-14-S11-2-PARTB-UNFIXED.
 
 USAGE
     python3 mock_sync_audit.py            # run all checks against the repo
@@ -328,6 +339,168 @@ def check_version_pins(read=_read, root=None):
     return problems
 
 
+# ── MS-11 ───────────────────────────────────────────────────────────────
+# DELIVERY-SET-PARITY. The third hand-fix of the DELIVERY-COUNT-DRIFT class
+# (v2.47 → v2.47.1 → v2.48.1 → v2.48.2) proved grep-driven passes always miss
+# a site. This check parses the delivery code's `delivery` construction into
+# an UNCONDITIONAL and a CONDITIONAL set (an append guarded by a path-existence
+# test is conditional; any other append, seed, or += is unconditional), then
+# asserts every prose delivery site agrees:
+#   full two-set parity + emission-order parity : S11-2 PART B, S11-3 FINAL
+#   brace-set parity                            : pre-delivery checklist expected
+#   weak parity (cond names present, first      : QV item [19], S11-2 PART C
+#     "N mandatory" claim == |unconditional|)
+# A site whose anchor cannot be found is itself a finding — renaming an anchor
+# must not silently disable the guard. (GAP-2026-08-14-S11-2-PARTB-UNFIXED.)
+
+_DELIV_NAME_RE = (r'(section_rules\.md|subtopic_manifest\.json|'
+                  r'PYQ_Frequency\.xlsx|exam_config\.json|taxonomy\.xlsx|'
+                  r'analysis_progress\.json|analysis_summary\.md)')
+
+_VAR_HINTS = [('rules', 'section_rules.md'),
+              ('manifest', 'subtopic_manifest.json'),
+              ('xlsx', 'PYQ_Frequency.xlsx'),
+              ('ecfg', 'exam_config.json'),
+              ('tax', 'taxonomy.xlsx'),
+              ('progress', 'analysis_progress.json'),
+              ('summary', 'analysis_summary.md')]
+
+
+def _delivery_code_sets(text):
+    """Parse the final-delivery construction. Returns (uncond, cond, order)
+    as (set, set, list of canonical filenames) or (None, None, None)."""
+    m = re.search(r'delivery = \[(.*?)present_files\(delivery\)', text, re.S)
+    if not m:
+        return None, None, None
+    block = 'delivery = [' + m.group(1)
+    assigns = dict(re.findall(
+        r"(\w+)\s*=\s*f'[^']*\{exam_code\}_([\w.]+)'", block))
+
+    def fname(var):
+        if var in assigns:
+            return assigns[var]
+        for hint, f in _VAR_HINTS:
+            if hint in var:
+                return f
+        return var            # unknown var stays loud — will never match prose
+
+    uncond, cond, order = set(), set(), []
+
+    def add(var, conditional):
+        f = fname(var)
+        (cond if conditional else uncond).add(f)
+        if f not in order:
+            order.append(f)
+
+    lines = block.split('\n')
+    seed = re.match(r'delivery = \[([^\]]*)\]', block)
+    if seed:
+        for var in re.findall(r'\w+', seed.group(1)):
+            add(var, False)
+    for i, line in enumerate(lines):
+        am = re.search(r'delivery\.append\((\w+)\)', line)
+        if am:
+            guard = line if 'if ' in line else (lines[i - 1] if i else '')
+            add(am.group(1), '.path.exists(' in guard)
+    tail = re.search(r'delivery \+= \[([^\]]*)\]', block)
+    if tail:
+        for var in re.findall(r'\w+', tail.group(1)):
+            add(var, False)
+    return uncond, cond, order
+
+
+_DELIV_SITES = [
+    # (label, start-anchor regex, end-anchor regex, mode)
+    ('S11-2 PART B', r'PART B — present_files \(all in one call',
+     r'PART C — Handoff message:', 'tiered'),
+    ('S11-3 FINAL DELIVERY', r'FINAL DELIVERY \(last batch',
+     r'DO NOT DELIVER', 'tiered'),
+    ('pre-delivery checklist expected set', r'PRE-DELIVERY CHECKLIST',
+     r'Check 1:', 'braces'),
+    ('QV item [19]', r'\n\[19\]', r'\n\[20\]', 'weak'),
+    ('S11-2 PART C', r'PART C — Handoff message:', r'```', 'weak'),
+]
+
+
+def _tiered_site_sets(seg):
+    """Parse a two-tier prose list. Returns (uncond, cond, order). A site
+    with NO tier headers (the v2.48.1 PART B shape) reads as all-mandatory."""
+    has_headers = ('MANDATORY —' in seg) or ('WHEN IT EXISTS' in seg)
+    mode, uncond, cond, order = (None if has_headers else 'u'), set(), set(), []
+    for line in seg.split('\n'):
+        if 'MANDATORY —' in line:
+            mode = 'u'
+            continue
+        if 'WHEN IT EXISTS' in line:
+            mode = 'c'
+            continue
+        if mode is None:
+            continue
+        for f in re.findall(_DELIV_NAME_RE, line):
+            (uncond if mode == 'u' else cond).add(f)
+            if f not in order:
+                order.append(f)
+    return uncond, cond, order
+
+
+def check_delivery_set_parity(read=_read):
+    problems = []
+    text = read('Framework_MockTestAnalyse.md')
+    code_u, code_c, code_order = _delivery_code_sets(text)
+    if code_u is None:
+        return ["Framework_MockTestAnalyse.md: final-delivery code block "
+                "(`delivery = [` … `present_files(delivery)`) not found — "
+                "MS-11 has no ground truth; was the delivery code renamed?"]
+    for label, start, end, mode in _DELIV_SITES:
+        m = re.search(start + r'(.*?)' + end, text, re.S)
+        if not m:
+            problems.append(f"Framework_MockTestAnalyse.md: delivery site "
+                            f"{label} not found (anchor {start!r}) — a rename "
+                            f"must not silently disable MS-11")
+            continue
+        seg = m.group(1)
+        if mode == 'tiered':
+            su, sc, sorder = _tiered_site_sets(seg)
+            if su != code_u or sc != code_c:
+                problems.append(
+                    f"Framework_MockTestAnalyse.md {label}: declared sets "
+                    f"disagree with delivery code — site mandatory={sorted(su)} "
+                    f"conditional={sorted(sc)}, code mandatory={sorted(code_u)} "
+                    f"conditional={sorted(code_c)} (the DELIVERY-COUNT-DRIFT "
+                    f"class; GAP-2026-08-14-S11-2-PARTB-UNFIXED)")
+            want = [f for f in code_order if f in (su | sc)]
+            if sorder != want:
+                problems.append(
+                    f"Framework_MockTestAnalyse.md {label}: file order "
+                    f"{sorder} != delivery-code emission order {want} "
+                    f"(GAP-2026-08-14-DELIVERY-ORDER-DRIFT)")
+        elif mode == 'braces':
+            fu = re.search(r'final:\s*\{([^}]*)\}', seg)
+            fc = re.search(r'WHEN IT EXISTS:\s*\{([^}]*)\}', seg)
+            su = set(re.findall(_DELIV_NAME_RE, fu.group(1))) if fu else set()
+            sc = set(re.findall(_DELIV_NAME_RE, fc.group(1))) if fc else set()
+            if su != code_u or sc != code_c:
+                problems.append(
+                    f"Framework_MockTestAnalyse.md {label}: expected sets "
+                    f"disagree with delivery code — site mandatory={sorted(su)} "
+                    f"conditional={sorted(sc)}, code mandatory={sorted(code_u)} "
+                    f"conditional={sorted(code_c)}")
+        else:  # weak
+            for f in sorted(code_c):
+                if f not in seg:
+                    problems.append(
+                        f"Framework_MockTestAnalyse.md {label}: conditional "
+                        f"deliverable {f} not mentioned (the taxonomy.xlsx "
+                        f"silent-drop came from exactly this omission)")
+            nm = re.search(r'(\d+) mandatory', seg)
+            if nm and int(nm.group(1)) != len(code_u):
+                problems.append(
+                    f"Framework_MockTestAnalyse.md {label}: claims "
+                    f"{nm.group(1)} mandatory files but the delivery code has "
+                    f"{len(code_u)} unconditional deliverables")
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -339,6 +512,7 @@ ALL_CHECKS = [
     ('MS-8 DLBL-PARITY', check_dlbl_parity),
     ('MS-9 FOOTER-STEP5', check_footer_step5),
     ('MS-10 VERSION-PINS', check_version_pins),
+    ('MS-11 DELIVERY-SET-PARITY', check_delivery_set_parity),
 ]
 
 
@@ -480,6 +654,125 @@ def self_test():
         '# Framework_MockTestCreate v5.54.1 — x\ncompanion Framework_MockDeliver v1.12.0\n'
     check('ms10_historical_pin_clean',
           check_version_pins(read=fake_reader(vp)) == [])
+
+    # MS-11 — fixture mandated by the defect report: the v2.48.1 PART B text
+    # MUST be flagged; the v2.48.2 fixed text MUST pass. If the v2.48.1 shape
+    # passes, the check does not work.
+    _CODE = (
+        "```python\n"
+        "    delivery = [rules_path]\n"
+        "    if manifest_path: delivery.append(manifest_path)\n"
+        "    if xlsx_path:     delivery.append(xlsx_path)\n"
+        "    _ecfg_out = f'/mnt/user-data/outputs/{exam_code}_exam_config.json'\n"
+        "    import os as _os2\n"
+        "    if _os2.path.exists(_ecfg_out):\n"
+        "        delivery.append(_ecfg_out)\n"
+        "    import os as _os\n"
+        "    _tax_path = f'/mnt/user-data/outputs/{exam_code}_taxonomy.xlsx'\n"
+        "    if _os.path.exists(_tax_path): delivery.append(_tax_path)\n"
+        "    delivery += [progress_path, summary_path]\n"
+        "    present_files(delivery)\n"
+        "```\n")
+    _PARTB_V2481 = (          # the shipped v2.48.1 text — the actual defect
+        "PART B — present_files (all in one call, in this order):\n"
+        "  1. [ExamCode]_section_rules.md\n"
+        "  2. [ExamCode]_subtopic_manifest.json\n"
+        "  3. [ExamCode]_PYQ_Frequency.xlsx\n"
+        "  4. [ExamCode]_exam_config.json\n"
+        "  5. [ExamCode]_analysis_progress.json\n"
+        "  6. [ExamCode]_analysis_summary.md\n"
+        "  All 6 are delivered as downloadable chat attachments.\n")
+    _PARTB_FIXED = (
+        "PART B — present_files (all in one call, in the order the delivery "
+        "code emits):\n"
+        "  MANDATORY — every run:\n"
+        "    1. [ExamCode]_section_rules.md\n"
+        "    2. [ExamCode]_subtopic_manifest.json\n"
+        "    3. [ExamCode]_PYQ_Frequency.xlsx\n"
+        "  WHEN IT EXISTS — which is every normal run:\n"
+        "    4. [ExamCode]_exam_config.json\n"
+        "    5. [ExamCode]_taxonomy.xlsx\n"
+        "  MANDATORY — every run (emitted last):\n"
+        "    6. [ExamCode]_analysis_progress.json\n"
+        "    7. [ExamCode]_analysis_summary.md\n")
+    _S113_V2481 = (           # v2.48.1's renumbering — the order-drift defect
+        "FINAL DELIVERY (last batch)\n"
+        "  MANDATORY — every run:\n"
+        "    1. [ExamCode]_section_rules.md\n"
+        "    2. [ExamCode]_subtopic_manifest.json\n"
+        "    3. [ExamCode]_PYQ_Frequency.xlsx\n"
+        "    4. [ExamCode]_analysis_progress.json\n"
+        "    5. [ExamCode]_analysis_summary.md\n"
+        "  WHEN IT EXISTS — which is every normal run:\n"
+        "    6. [ExamCode]_exam_config.json\n"
+        "    7. [ExamCode]_taxonomy.xlsx\n"
+        "DO NOT DELIVER\n")
+    _S113_FIXED = (
+        "FINAL DELIVERY (last batch)\n"
+        "  MANDATORY — every run:\n"
+        "    1. [ExamCode]_section_rules.md\n"
+        "    2. [ExamCode]_subtopic_manifest.json\n"
+        "    3. [ExamCode]_PYQ_Frequency.xlsx\n"
+        "  WHEN IT EXISTS — which is every normal run:\n"
+        "    4. [ExamCode]_exam_config.json\n"
+        "    5. [ExamCode]_taxonomy.xlsx\n"
+        "  MANDATORY — every run (emitted last):\n"
+        "    6. [ExamCode]_analysis_progress.json\n"
+        "    7. [ExamCode]_analysis_summary.md\n"
+        "DO NOT DELIVER\n")
+    _CHECKLIST = (
+        "PRE-DELIVERY CHECKLIST (before every present_files call):\n"
+        "  expected = per-batch: {analysis_progress.json}\n"
+        "             final:     {section_rules.md, subtopic_manifest.json,\n"
+        "                         PYQ_Frequency.xlsx,\n"
+        "                         analysis_progress.json, analysis_summary.md}\n"
+        "             final, additionally WHEN IT EXISTS: {exam_config.json, taxonomy.xlsx}\n"
+        "  Check 1: assert\n")
+    _QV19_OK = ("\n[19] Final set: the 5 mandatory files, + exam_config.json and\n"
+                "     taxonomy.xlsx when written (=7 on a normal run)\n[20] x\n")
+    _QV19_BAD = ("\n[19] Final set: the 6 mandatory files, + exam_config.json and\n"
+                 "     taxonomy.xlsx when written\n[20] x\n")
+    _PARTC = ("PART C — Handoff message:\n"
+              "  (the S11-3 final set: 5 mandatory, plus exam_config.json and\n"
+              "   taxonomy.xlsx when present)\n"
+              "```\n")
+
+    def _spec(partb, s113, qv19=_QV19_OK, partc=_PARTC):
+        return {'Framework_MockTestAnalyse.md':
+                _CODE + partb + partc + s113 + _CHECKLIST + qv19}
+
+    cu, cc, corder = _delivery_code_sets(_CODE)
+    check('ms11_code_sets_parsed',
+          cu == {'section_rules.md', 'subtopic_manifest.json',
+                 'PYQ_Frequency.xlsx', 'analysis_progress.json',
+                 'analysis_summary.md'}
+          and cc == {'exam_config.json', 'taxonomy.xlsx'}
+          and corder == ['section_rules.md', 'subtopic_manifest.json',
+                        'PYQ_Frequency.xlsx', 'exam_config.json',
+                        'taxonomy.xlsx', 'analysis_progress.json',
+                        'analysis_summary.md'])
+    check('ms11_v2481_partb_flagged',            # the mandated fixture
+          any('S11-2 PART B' in p and 'disagree' in p
+              for p in check_delivery_set_parity(
+                  read=fake_reader(_spec(_PARTB_V2481, _S113_FIXED)))))
+    check('ms11_fixed_spec_clean',
+          check_delivery_set_parity(
+              read=fake_reader(_spec(_PARTB_FIXED, _S113_FIXED))) == [])
+    check('ms11_s113_order_drift_flagged',
+          any('S11-3' in p and 'emission order' in p
+              for p in check_delivery_set_parity(
+                  read=fake_reader(_spec(_PARTB_FIXED, _S113_V2481)))))
+    check('ms11_qv19_count_mismatch_flagged',
+          any('QV item [19]' in p and '6 mandatory' in p
+              for p in check_delivery_set_parity(
+                  read=fake_reader(_spec(_PARTB_FIXED, _S113_FIXED,
+                                         qv19=_QV19_BAD)))))
+    check('ms11_missing_site_flagged',
+          any('not found' in p
+              for p in check_delivery_set_parity(
+                  read=fake_reader({'Framework_MockTestAnalyse.md':
+                                    _CODE + _S113_FIXED + _CHECKLIST
+                                    + _QV19_OK}))))
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
