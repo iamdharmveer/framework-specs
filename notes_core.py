@@ -1,5 +1,40 @@
 """
-notes_core.py v2.7 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.8 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.8 — 2026-08-14 — INTEGRATION HANDSHAKE CLOSED (line-by-line certification
+    sweep of the v2.7 feature; pairs with Framework_NotesCreate v2.6.1 and
+    Framework_NotesAudit v3.4.1). Two defects, both found by tracing ONE
+    fused question through NB -> NC -> NA:
+      (1) THE AUDIT BOUNDARY NOW FOLLOWS FILING. v2.7 filed the fused
+          question's TEACHING at the latest partner, but NA's closed-book
+          solve still read the HEADER slice (bank_questions_for): the
+          earlier unit was asked to solve a question whose ingredients its
+          own notes must not teach (backward-only), while the filing unit —
+          whose integration section exists to make it solvable — never
+          solved it at all. New audit_questions_for(bank, subject, topic,
+          subtopic, unit_order=None): the unit's CERTIFICATION SET — every
+          bank question whose FILING HOME is this unit (header slice, minus
+          fused questions DEFERRED to a later partner, plus fused questions
+          INBOUND from earlier slices). Identical to bank_questions_for
+          when the bank is grandfathered or no order is supplied, so
+          nothing changes for any existing exam. The filing decision is one
+          shared helper (_integration_filing_key) used by BOTH
+          integration_target_for and audit_questions_for — one authority,
+          the two can never disagree.
+      (2) THE ORDER MAP HAS ONE BUILDER. v2.7 said "unit_order maps
+          subtopic_key -> persisted ordinal" in prose and left NC and NA to
+          each build it — the author/gate drift class this framework exists
+          to kill. New unit_order_from_registry(registry): ordinals are the
+          (s, t, nn) digits parsed from each unit's PERSISTED unit_code
+          (NB §1A A-3 — assigned from manifest row order, never renumbered),
+          keyed by subtopic_key(section, topic, name). NC and NA both call
+          it; neither builds a map by hand. Units without a parseable
+          unit_code or a complete manifest triple (pre-v3 legacy) are
+          skipped — their resolution already routes to NB (MIGRATION).
+    coverage_target_for DELIBERATELY still reads the header slice: the
+    coverage contract reads the BANK's evidence (the v3.3.1 quarantine
+    discipline — the contract never shrinks because filing moved a
+    question); only the SOLVE/certification boundary follows filing.
 
 v2.7 — 2026-08-14 — INTEGRATION EVIDENCE (in-subtopic Integration sections;
     pairs with Framework_NotesCreate v2.6.0 §4 B4a, Framework_NotesBlueprint
@@ -1190,6 +1225,79 @@ def coverage_target_for(bank, subject, topic, subtopic, allowed_types=()):
             "distinct_concept_tags": len(tags)}
 
 
+def _integration_filing_key(q, unit_order):
+    """v2.8 — THE filing authority, shared by integration_target_for and
+    audit_questions_for so the teaching home and the audit home can never
+    disagree. Returns the subtopic_key of the unit where question q FILES:
+    an unfused question files at its header subtopic; a fused question files
+    at the LATEST member of its fusion set (header + declared partners)
+    present in unit_order (latest-partner filing, backward-only teaching by
+    construction). Without unit_order — or when no member is in it — the
+    header subtopic is the filing home (the degenerate-caller fallback; NC
+    and NA always pass unit_order_from_registry, spec-mandated)."""
+    home = subtopic_key(q["subject"], q["topic"], q["subtopic"])
+    declared = q.get("integration_partners") or []
+    if not declared or not unit_order:
+        return home
+    members = {home}
+    for p in declared:
+        parts = [x.strip() for x in str(p).split("::")]
+        if len(parts) == 3 and all(parts):
+            members.add(subtopic_key(*parts))
+    known = [k for k in members if k in unit_order]
+    if not known:
+        return home
+    return max(known, key=lambda k: unit_order[k])
+
+
+def unit_order_from_registry(registry):
+    """v2.8 — the ONE builder of the unit_order map (NC §4 B4a I-5 and NA §2
+    both call this; neither hand-builds a map — the author/gate drift class
+    stays closed). Ordinal = the (s, t, nn) digits parsed from each unit's
+    PERSISTED unit_code (NB §1A A-3: assigned from manifest row order and
+    NEVER renumbered, so the ordinal is stable teaching order), keyed by
+    subtopic_key(section, topic, name). Units without a parseable unit_code
+    or a complete manifest triple (pre-v3 legacy registries) are SKIPPED —
+    their resolution already routes to NB (MIGRATION); a skipped unit simply
+    keeps header filing. Deterministic; tuples compare lexicographically."""
+    order = {}
+    for u in registry.get("units", {}).values():
+        code = u.get("unit_code") or ""
+        m = re.search(r"_S(\d+)_T(\d+)_ST(\d+)$", str(code))
+        if not m:
+            continue
+        sec, top, name = u.get("section"), u.get("topic"), u.get("name")
+        if not (sec and top and name):
+            continue
+        order[subtopic_key(sec, top, name)] = (int(m.group(1)),
+                                               int(m.group(2)),
+                                               int(m.group(3)))
+    return order
+
+
+def audit_questions_for(bank, subject, topic, subtopic, unit_order=None):
+    """v2.8 — the unit's CERTIFICATION SET for NA's closed-book solve (§2):
+    every bank question whose FILING HOME (_integration_filing_key) is this
+    unit. That is the header slice MINUS fused questions DEFERRED to a later
+    partner (their ingredients live in material this unit's notes must not
+    teach — backward-only — so this unit can never make them solvable) PLUS
+    fused questions INBOUND from earlier units' slices (this unit's
+    integration section exists exactly to make them solvable closed-book).
+
+    IDENTICAL to bank_questions_for when the bank is GRANDFATHERED (no
+    integration_partners anywhere) or unit_order is not supplied — no
+    behaviour change for any existing exam, and pass_for_unit's denominator
+    still can never be shrunk by a caller: it derives from THIS list.
+    coverage_target_for deliberately still reads the header slice (the
+    contract reads the bank's evidence; only the solve boundary follows
+    filing)."""
+    if not any(q.get("integration_partners") for q in bank.get("questions", ())):
+        return bank_questions_for(bank, subject, topic, subtopic)
+    own = subtopic_key(subject, topic, subtopic)
+    return [q for q in bank["questions"]
+            if _integration_filing_key(q, unit_order) == own]
+
+
 def integration_target_for(bank, subject, topic, subtopic, unit_order=None):
     """v2.7 — the unit's INTEGRATION CONTRACT, derived entirely from the bank
     (G-13's single authority; NC §4 B4a authors to it, NA §5 G-13 gates it,
@@ -1207,12 +1315,13 @@ def integration_target_for(bank, subject, topic, subtopic, unit_order=None):
     LATEST-PARTNER FILING (backward-only, owner decision 2026-08-14): a fused
     question's FUSION SET is its own header subtopic plus every declared
     partner. The question files at — attests an integration section in — the
-    LATEST member of that set under unit_order (subtopic_key -> persisted
-    ordinal, from the registry's numbering; NB §1A A-3 makes that order
-    teaching order). Earlier members never teach the fusion: their students
-    have not met the later ingredients yet. Members absent from unit_order
-    (not registry units) cannot host teaching and are skipped for filing.
-    Without unit_order the question's own header subtopic is the filing home.
+    LATEST member of that set under unit_order (built ONLY by
+    unit_order_from_registry; NB §1A A-3 makes that order teaching order).
+    Earlier members never teach the fusion: their students have not met the
+    later ingredients yet. v2.8: the filing decision is
+    _integration_filing_key — the SAME authority audit_questions_for uses,
+    so where a fused question is TAUGHT and where it is SOLVED can never
+    disagree. Without unit_order the header subtopic is the filing home.
     Deterministic by construction — no clock, no randomness (NA §8)."""
     questions = bank.get("questions", [])
     if not any(q.get("integration_partners") for q in questions):
@@ -1224,22 +1333,14 @@ def integration_target_for(bank, subject, topic, subtopic, unit_order=None):
         declared = q.get("integration_partners") or []
         if not declared:
             continue
+        if _integration_filing_key(q, unit_order) != own:
+            continue
         home = subtopic_key(q["subject"], q["topic"], q["subtopic"])
         members = {home: (q["subject"], q["topic"], q["subtopic"])}
         for p in declared:
             parts = [x.strip() for x in str(p).split("::")]
             if len(parts) == 3 and all(parts):
                 members[subtopic_key(*parts)] = tuple(parts)
-        if own not in members:
-            continue
-        if unit_order:
-            known = [k for k in members if k in unit_order]
-            if own not in known:
-                continue
-            if max(known, key=lambda k: unit_order[k]) != own:
-                continue          # a LATER partner hosts this fusion
-        elif home != own:
-            continue              # no order info: header subtopic files it
         partner_names = tuple(sorted(members[k][2] for k in members
                                      if k != own))
         fusions.setdefault(partner_names, []).append(q["bank_id"])
@@ -1610,6 +1711,58 @@ def self_test():
         check("integration: a non-scope-form partner raises", False)
     except ValueError:
         check("integration: a non-scope-form partner raises", True)
+
+    # ---- v2.8: the audit boundary follows filing (handshake closure) -----
+    aud_late = audit_questions_for(bi, "Physics", "EM", "DC and AC Circuits",
+                                   unit_order=order)
+    aud_early = audit_questions_for(bi, "Physics", "EM", "Capacitors",
+                                    unit_order=order)
+    check("audit set: the filing unit SOLVES both fused questions — "
+          "including the one headered under the earlier unit",
+          sorted(q["bank_id"] for q in aud_late) == ["I-1", "I-2"])
+    check("audit set: the earlier unit DEFERS its fused question and keeps "
+          "none (its notes must not teach the later ingredients)",
+          aud_early == [])
+    check("audit set: an unfused unit is untouched by filing",
+          [q["bank_id"] for q in
+           audit_questions_for(bi, "Physics", "EM", "Electrostatics",
+                               unit_order=order)] == ["I-3"])
+    check("audit set: teaching home and audit home are the SAME authority "
+          "(every audited fused question is exactly the attested set)",
+          sorted(q["bank_id"] for q in aud_late
+                 if q.get("integration_partners"))
+          == sorted(x for f in integration_target_for(
+                 bi, "Physics", "EM", "DC and AC Circuits",
+                 unit_order=order)["fusions"] for x in f["bank_ids"]))
+    check("audit set: GRANDFATHERED bank -> identical to the header slice",
+          audit_questions_for(b, "Physics", "Optics", "Polarization")
+          == bank_questions_for(b, "Physics", "Optics", "Polarization"))
+    check("audit set: no unit_order -> header filing (degenerate caller)",
+          [q["bank_id"] for q in
+           audit_questions_for(bi, "Physics", "EM", "Capacitors")]
+          == ["I-1"])
+    reg_order = unit_order_from_registry({"units": {
+        "s1": {"unit_code": "EX_S1_T1_ST01", "section": "Physics",
+               "topic": "EM", "name": "Electrostatics"},
+        "s2": {"unit_code": "EX_S1_T1_ST02", "section": "Physics",
+               "topic": "EM", "name": "Capacitors"},
+        "s3": {"unit_code": "EX_S1_T2_ST01", "section": "Physics",
+               "topic": "EM", "name": "DC and AC Circuits"},
+        "legacy": {"unit_code": None, "section": None, "topic": None,
+                   "name": "Old Unit"}}})
+    check("unit_order_from_registry: (s,t,nn) ordinals from persisted "
+          "unit_code; legacy units without code/triple are skipped",
+          reg_order[subtopic_key("Physics", "EM", "Capacitors")] == (1, 1, 2)
+          and reg_order[subtopic_key("Physics", "EM",
+                                     "DC and AC Circuits")] == (1, 2, 1)
+          and len(reg_order) == 3)
+    check("unit_order_from_registry: tuple ordinals order cross-topic "
+          "correctly (T2 after T1)",
+          integration_target_for(bi, "Physics", "EM", "DC and AC Circuits",
+                                 unit_order=reg_order)["attested"] is True
+          and integration_target_for(bi, "Physics", "EM", "Capacitors",
+                                     unit_order=reg_order)["attested"]
+          is False)
 
     # v1.7: subtopic_key joins across syllabus-vs-header label drift (fix 3)
     def _joins(a, bb):

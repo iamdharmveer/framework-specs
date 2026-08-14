@@ -456,7 +456,7 @@ def self_test():
     check("S-4 fires on a colour that is not in the engine map",
           fires("S-4", mutated("NC", "1F4E79", "1F4E7A")))
     check("S-5 fires on a companion version higher than the engine",
-          fires("S-5", mutated("NA", "notes_core.py  >= v2.7",
+          fires("S-5", mutated("NA", "notes_core.py  >= v2.8",
                                "notes_core.py  >= v9.9")))
     check("S-6 fires when a consumer stops naming a handed-over artifact",
           fires("S-6", mutated("ND", "final_ref", "REMOVED_REF", count=0)))

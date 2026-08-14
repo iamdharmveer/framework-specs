@@ -1,5 +1,16 @@
 """
-notes_audit.py v2.5 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.5.1 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.5.1 — 2026-08-14 — AUDIT-BOUNDARY DOCSTRING SYNC (certification sweep;
+    pairs with notes_core v2.8 / Framework_NotesAudit v3.4.1). The unit's
+    certification set is now notes_core.audit_questions_for — the header
+    slice adjusted by latest-partner filing (a fused question DEFERS to its
+    filing unit and arrives INBOUND there), identical to bank_questions_for
+    for grandfathered banks and order-less callers. pass_for_unit's contract
+    is unchanged: the denominator derives from the list the caller passes,
+    which NA spec §2 now defines as the audit_questions_for set. No code
+    change in this engine — the boundary lives in notes_core; this entry and
+    the pass_for_unit docstring record it.
 
 v2.5 — 2026-08-14 — G-13 INTEGRATION (in-subtopic Integration sections;
     pairs with Framework_NotesAudit v3.4.0 §5 G-13, Framework_NotesCreate
@@ -283,10 +294,12 @@ def is_pass(report, expected_count=None):
 
 def pass_for_unit(report, unit_bank_questions):
     """Fix 2: the ONLY sanctioned way NA certifies a unit. expected_count is
-    derived from the bank (len of this unit's questions from
-    notes_core.bank_questions_for), so the vacuous-pass floor can never be
-    skipped by a caller that forgets to pass a count. A run that audited fewer
-    questions than the unit's bank holds is never a pass."""
+    derived from the bank (v2.5.1: the unit's CERTIFICATION SET from
+    notes_core.audit_questions_for — the header slice adjusted by
+    latest-partner filing; identical to bank_questions_for for grandfathered
+    banks), so the vacuous-pass floor can never be skipped by a caller that
+    forgets to pass a count. A run that audited fewer questions than the
+    unit's certification set holds is never a pass."""
     return is_pass(report, expected_count=len(unit_bank_questions))
 
 

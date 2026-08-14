@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026.08.14.2 — Integration handshake closed (certification sweep of 2026.08.14.1)
+
+Line-by-line certification of the integration feature, demanded before first
+production use. Method: trace ONE fused question through NB -> NC -> NA and
+check every rule against the engine that enforces it. Two defects found,
+both in the three-step handshake; both fixed and self-tested.
+
+- **The audit boundary now follows filing** (primary). 2026.08.14.1 taught
+  the fused question in the LATEST partner unit (G-13) but NA's closed-book
+  solve still read the HEADER slice: the earlier unit was asked to solve a
+  question whose ingredients its own notes must not teach (backward-only) —
+  a guaranteed failure with no licensed remedy — while the filing unit,
+  whose integration section exists to make that question solvable, never
+  solved it at all. New `notes_core.audit_questions_for` is NA §2's
+  certification set: header slice MINUS fused questions deferred to a later
+  partner PLUS fused questions inbound from earlier slices. One shared
+  filing authority (`_integration_filing_key`) drives BOTH the teaching
+  target and the audit set, so they can never disagree. Identical to the
+  old slice for grandfathered banks — zero change for existing exams.
+  Deferred and inbound questions are disclosed in the NA chat line.
+- **One order-map builder** (secondary). unit_order was prose-defined and
+  built independently by NC and NA — the author/gate drift class. New
+  `notes_core.unit_order_from_registry` (ordinals = persisted unit_code
+  digits, NB §1A A-3); NC I-5, NA §2 and G-13 all call it; no hand-built
+  maps anywhere.
+- Files: `notes_core.py` v2.7 → **v2.8** (self-test 166 → 174),
+  `notes_audit.py` v2.5 → **v2.5.1** (docstring sync; no code change),
+  `Framework_NotesCreate.md` v2.6.0 → **v2.6.1**,
+  `Framework_NotesAudit.md` v3.4.0 → **v3.4.1**, `notes_sync_audit.py`
+  (one self-test fixture anchor). NotesBlueprint unchanged — ingest and the
+  bank field are correct as shipped; coverage_target_for deliberately still
+  reads the header slice (the contract reads the bank's evidence; only the
+  solve boundary follows filing).
+
 ## 2026.08.14.1 — In-subtopic Integration sections (both layers, one release)
 
 Real exams fuse 2-3 subtopics in one question; the IFAS portal links one page

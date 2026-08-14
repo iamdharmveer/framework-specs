@@ -1,4 +1,16 @@
-# Framework_NotesCreate v2.6.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.6.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.6.1 — 2026-08-14 — ONE ORDER-MAP BUILDER (line-by-line certification
+#   sweep of the v2.6.0 feature; pairs with notes_core v2.8 and
+#   Framework_NotesAudit v3.4.1). v2.6.0's I-5 said "unit_order maps
+#   subtopic_key -> the registry's persisted ordinal" in PROSE and left NC
+#   and NA to each build the map — the author/gate drift class this
+#   framework exists to kill (two builders, one contract). I-5 now names
+#   notes_core.unit_order_from_registry as the ONE builder (ordinals = the
+#   persisted unit_code digits, NB §1A A-3); NA §2 and G-13 call the same
+#   function, so filing can never disagree between author and gate. Wording
+#   only on this side; the engine change and the companion audit-boundary
+#   fix (a fused question is SOLVED where it is TAUGHT) live in notes_core
+#   v2.8 / Framework_NotesAudit v3.4.1.
 # v2.6.0 — 2026-08-14 — IN-SUBTOPIC INTEGRATION SECTIONS (owner decisions of
 #   the 2026-08-14 design session; approved on the DC/AC Circuits placement
 #   demo; pairs with Framework_NotesBlueprint v3.1.0 §3B B-1,
@@ -174,7 +186,9 @@
 #                           hand-rolls a paragraph, colour, border or line rule.
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
-#   notes_core.py >= v2.7 — notes_filename AND docx_ref_for (section 9A's
+#   notes_core.py >= v2.8 — unit_order_from_registry (§4 B4a I-5's ONE
+#                           order-map builder, v2.8); plus
+#                           notes_filename AND docx_ref_for (section 9A's
 #                           draft_ref), registry schema notes-registry/2.1,
 #                           the D-1 bullet counter G-1 depends on, plus:
 #                           resolve_unit (operator-input resolution), sid_slug,
@@ -356,10 +370,13 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
             construction: integration_target_for files every fused question
             at the LATEST member of its fusion set.
         I-5 EVIDENCE-DRIVEN — before drafting, compute
-              itarget = notes_core.integration_target_for(bank, subject,
-                        topic, subtopic, unit_order)
-            (unit_order maps subtopic_key -> the registry's persisted
-            ordinal). Every attested fusion in itarget gets an integration
+              unit_order = notes_core.unit_order_from_registry(registry)
+              itarget    = notes_core.integration_target_for(bank, subject,
+                           topic, subtopic, unit_order)
+            (v2.6.1: unit_order_from_registry is the ONE builder of the
+            order map — NA §2 and G-13 call the SAME function; NC never
+            hand-builds the map, exactly as it never re-implements F-1's
+            filename). Every attested fusion in itarget gets an integration
             section naming its partners; NotesAudit G-13 gates this SAME
             bank-derived contract on the shipped file, so author and gate
             cannot drift. A unit with no attested fusion NEEDS no
@@ -544,4 +561,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.6.0
+# END OF Framework_NotesCreate v2.6.1

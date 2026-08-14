@@ -1,4 +1,30 @@
-# Framework_NotesAudit v3.4.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.4.1 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.4.1 — 2026-08-14 — THE AUDIT BOUNDARY FOLLOWS FILING (line-by-line
+#   certification sweep of the v3.4.0 feature; pairs with notes_core v2.8,
+#   Framework_NotesCreate v2.6.1). Found by tracing ONE fused question
+#   through NB -> NC -> NA: v3.4.0 filed the fused question's TEACHING at
+#   the latest partner (G-13) but §2's closed-book solve still read the
+#   HEADER slice — so the EARLIER unit was asked to solve a question whose
+#   ingredients its own notes must not teach (backward-only, NC I-4): a
+#   guaranteed PARTIAL/NOT with no licensed remedy, looping toward a
+#   quarantine the question does not deserve. Meanwhile the FILING unit —
+#   whose integration section exists exactly to make that question solvable
+#   — never solved it closed-book at all: the certification instrument
+#   missed the very questions the feature exists for. §2 now audits the
+#   unit's CERTIFICATION SET, notes_core.audit_questions_for: the header
+#   slice MINUS fused questions DEFERRED to a later partner PLUS fused
+#   questions INBOUND from earlier slices — the filing decision is the SAME
+#   shared authority G-13's target uses, so where a fusion is taught and
+#   where it is solved can never disagree. IDENTICAL to the old slice for
+#   grandfathered banks: no change for any existing exam. Second fix, same
+#   sweep: unit_order was prose-only and built independently by NC and NA —
+#   the author/gate drift class. notes_core.unit_order_from_registry is now
+#   the ONE builder (ordinals = the persisted unit_code digits, NB §1A
+#   A-3); NC I-5 and §2 here both call it, neither hand-builds a map.
+#   coverage_target_for DELIBERATELY still reads the header slice (the
+#   v3.3.1 discipline: the contract reads the BANK's evidence; only the
+#   solve boundary follows filing). Deferred and inbound questions are
+#   DISCLOSED in the §9 chat line.
 # v3.4.0 — 2026-08-14 — G-13 INTEGRATION (in-subtopic Integration sections;
 #   owner decisions of the 2026-08-14 design session; pairs with
 #   Framework_NotesCreate v2.6.0 §4 B4a, Framework_NotesBlueprint v3.1.0 §3B
@@ -145,7 +171,10 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.7 — notes_final_filename, docx_ref_for/verify_docx_ref,
+#   notes_core.py  >= v2.8 — audit_questions_for (§2's certification set) +
+#                            unit_order_from_registry (the ONE order-map
+#                            builder), both v2.8; plus
+#                            notes_final_filename, docx_ref_for/verify_docx_ref,
 #                            registry schema notes-registry/2.1 (draft_ref,
 #                            final_ref, audit_summary), resolve_unit, the
 #                            density/math/prose gates, bank_questions_for,
@@ -289,11 +318,38 @@ For each bank question, in order:
       NOT (the notes do not teach the concept). The notes location and the
       produced answer are recorded (notes_audit.record).
 
-COVERAGE + PASS: NA audits EVERY one of the unit's bank questions —
-unit_questions = notes_core.bank_questions_for(bank, subject, topic, subtopic)
+COVERAGE + PASS: NA audits EVERY question in the unit's CERTIFICATION SET —
+  unit_order     = notes_core.unit_order_from_registry(registry)
+  unit_questions = notes_core.audit_questions_for(bank, subject, topic,
+                                                  subtopic, unit_order)
 — and certifies ONLY through notes_audit.pass_for_unit(report,
-unit_questions), which derives expected_count from the bank. A run that
-recorded fewer verdicts than the unit has questions can never certify.
+unit_questions), which derives expected_count from that set. A run that
+recorded fewer verdicts than the set holds can never certify.
+
+THE CERTIFICATION SET FOLLOWS FILING (v3.4.1). audit_questions_for is the
+header slice adjusted by latest-partner filing — the SAME shared authority
+G-13's target uses, so where a fusion is taught and where it is solved can
+never disagree:
+  DEFERRED — a fused question in this unit's header slice whose filing home
+    is a LATER partner is EXCLUDED here: its ingredients live in material
+    this unit's notes must not teach (Framework_NotesCreate §4 B4a I-4), so
+    this unit can never make it solvable and is never punished for that.
+    Each deferral is DISCLOSED in the §9 chat line with its filing unit,
+    where it WILL be solved.
+  INBOUND — a fused question from an EARLIER unit's header slice whose
+    filing home is THIS unit is INCLUDED here and solved closed-book from
+    THIS unit's notes: the integration section's bridge bullets carry the
+    partner-side facts (NC §4 B4a I-3), so the notes alone suffice — that
+    is precisely what the section exists to guarantee. A PARTIAL/NOT on an
+    inbound question routes to the integration section (§5 G-13
+    remediation), like any other targeted correction.
+  For a GRANDFATHERED bank (or any order-less caller) the set IS the header
+  slice — identical to pre-v3.4.1 behaviour; nothing changes for existing
+  exams. The COVERAGE CONTRACT (§5 G-12 / coverage_target_for) DELIBERATELY
+  still reads the header slice: the contract reads the BANK's evidence and
+  never shrinks or grows because filing moved a question (the v3.3.1
+  quarantine discipline, applied consistently).
+
 A QUARANTINED question (section 4 L-4) is excluded from the solvable set but
 STILL COUNTED in the denominator, so quarantining can never manufacture a pass
 by shrinking what must be solved.
@@ -572,8 +628,10 @@ pass.
       The same is true of the spread minimum: it derives from the slice's
       concept_tags, quarantined or not.
   G-13 INTEGRATION (notes_audit.gate_integration) — v3.4.0. The target is
-      notes_core.integration_target_for over the bank with the registry's
-      persisted unit order, computed by NA itself — the SAME contract NC §4
+      notes_core.integration_target_for over the bank with unit_order =
+      notes_core.unit_order_from_registry(registry) (v3.4.1: the ONE order
+      builder — the same map §2's certification set uses; neither map is
+      ever hand-built), computed by NA itself — the SAME contract NC §4
       B4a authored to, one authority, no drift (the G-12 idiom). Filing is
       LATEST-PARTNER: a fused question attests an integration section only
       in the latest member of its fusion set, so backward-only teaching
@@ -691,8 +749,12 @@ Example replacement or licensed net ADD (section 2A) named individually —
 plus (v3.4.0) the section 5 G-13 integration line: fusions taught vs
 attested, a GRANDFATHERED dormancy disclosed plainly when the bank predates
 notes-pyq-bank/1.2, any unattested integration sections kept under D-6, and
-every G-13-driven extension or licensed net ADD named individually.
+every G-13-driven extension or licensed net ADD named individually. Also
+(v3.4.1) the audit-boundary line: every DEFERRED fused question named with
+its filing unit ("solved there, not here"), and every INBOUND fused question
+named with its header unit — so the operator always sees why this unit's
+question count differs from its taxonomy row.
 
 ---
 
-# END OF Framework_NotesAudit v3.4.0
+# END OF Framework_NotesAudit v3.4.1
