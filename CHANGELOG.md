@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.08.13.6 — Step-5 delivery tiers told straight; never trim silently
+
+Field report from a live exam project: a run held a generated taxonomy.xlsx
+back from delivery to satisfy an older six-file reading of S11-3, silently.
+The main conflict was already fixed in v2.47.x, but a residual layer remained
+and the silent-drop behaviour had no rule against it.
+
+- `Framework_MockTestAnalyse.md` v2.48.0 → **v2.48.1** — S11-3's FINAL
+  DELIVERY list now prints the same two tiers the pre-delivery checklist
+  enforces (5 mandatory; exam_config.json + taxonomy.xlsx when they exist —
+  every normal run); the S11-2 download step and QV item [19] agree; and a
+  NEW checklist rule makes any failed check a reported FINDING — the run
+  stops and names the differing files in chat, never silently trims or pads.
+
+Prose only; no engine, stamp (major.minor stays v2.48), schema or behaviour
+change beyond the reporting rule.
+
 ## 2026.08.13.5 — Taxonomy order is teaching order (GAP-2026-08-14-TAXONOMY-ORDER)
 
 The taxonomy xlsx has been alphabetizing its rows since v2.24 — silently

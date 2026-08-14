@@ -1,4 +1,17 @@
-# Framework_MockTestAnalyse v2.48.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.48.1 — Universal PYQ Pattern Extraction Engine
+# v2.48.1 — 2026-08-14 — DELIVERY TIERS TOLD STRAIGHT + NEVER TRIM SILENTLY
+#   (GAP-2026-08-13-DELIVERY-COUNT-DRIFT, residual layer; field report from a
+#   live exam project). v2.47.1 moved exam_config.json to the checklist's
+#   WHEN-IT-EXISTS tier, but three prose sites still said "the 6 mandatory
+#   files" with exam_config listed among them — the same count-drift class one
+#   layer down. S11-3's FINAL DELIVERY list now prints the SAME two tiers the
+#   checklist enforces (5 mandatory; exam_config.json + taxonomy.xlsx when
+#   they exist, which is every normal run); S11-2's download step and QV item
+#   [19] now agree. NEW RULE in the pre-delivery checklist: a failed check is
+#   a FINDING, never a trim — the run STOPS and reports the differing
+#   filenames in chat; observed in the field: a generated taxonomy.xlsx held
+#   back to satisfy a stale six-file reading, discovered only when the
+#   operator asked. Emitted stamps stay v2.48 (major.minor unchanged).
 # v2.48.0 — 2026-08-14 — TAXONOMY ORDER IS TEACHING ORDER
 #   (GAP-2026-08-14-TAXONOMY-ORDER; owner decision of 2026-08-14). Two changes,
 #   one rule:
@@ -7530,7 +7543,8 @@ PART C — Handoff message:
      1. Add new .docx files to your Google Drive PYQ folder
      2. Run: PYQExtract PYQ: <<same Drive link>>
      3. New papers auto-detected → processed → auto-synthesis → refreshed outputs
-     4. Download all output files from chat (6 mandatory + taxonomy.xlsx when present)
+     4. Download all output files from chat (the S11-3 final set: 5 mandatory,
+        plus exam_config.json and taxonomy.xlsx when present)
      5. Replace old files in [ExamCode] project Files/Knowledge section
      Existing mocks: unaffected. Future mocks: use improved patterns.
 
@@ -7567,14 +7581,19 @@ DO NOT DELIVER:
 ────────────────────────────────────────────────────────────────────
 FINAL DELIVERY (last batch → auto-synthesis → QV checks complete)
 ────────────────────────────────────────────────────────────────────
-DELIVER (the 6 mandatory files in one present_files call, in this order — plus
-[ExamCode]_taxonomy.xlsx appended when it exists, which is every normal run; v2.47):
-  1. [ExamCode]_section_rules.md
-  2. [ExamCode]_subtopic_manifest.json
-  3. [ExamCode]_PYQ_Frequency.xlsx
-  4. [ExamCode]_exam_config.json
-  5. [ExamCode]_analysis_progress.json
-  6. [ExamCode]_analysis_summary.md
+DELIVER in ONE present_files call, in this order (v2.48.1: the list now shows
+the SAME two tiers the pre-delivery checklist below enforces — v2.47.1 moved
+exam_config.json to the conditional tier but this list still called it one of
+"the 6 mandatory files", the count-drift class one layer down):
+  MANDATORY — every run:
+    1. [ExamCode]_section_rules.md
+    2. [ExamCode]_subtopic_manifest.json
+    3. [ExamCode]_PYQ_Frequency.xlsx
+    4. [ExamCode]_analysis_progress.json
+    5. [ExamCode]_analysis_summary.md
+  WHEN IT EXISTS — which is every normal run:
+    6. [ExamCode]_exam_config.json   (absent only when S-SECMAP warned and continued)
+    7. [ExamCode]_taxonomy.xlsx      (absent only when openpyxl was unavailable)
 
 DO NOT DELIVER:
   ✗ Input PYQ .docx files (these are INPUTS)
@@ -7605,6 +7624,13 @@ PRE-DELIVERY CHECKLIST (before every present_files call):
   Check 2: No unexpected files in delivery — assert not (delivering - expected)
   Check 3: No internal files leaked — no banned patterns in filenames
   Only after all checks pass → call present_files
+  A FAILED CHECK IS A FINDING, NEVER A TRIM (v2.48.1). If any check fires,
+  STOP and report the exact differing filenames in chat as a spec/code drift
+  discrepancy — do NOT silently drop the extra file or pad the missing one
+  and proceed. Observed in the field: a run holding a generated
+  taxonomy.xlsx back to satisfy a stale six-file reading of this contract,
+  with no mention in chat; the operator learned the file existed only by
+  asking. The contract polices drift; silence hides it.
 ═══════════════════════════════════════════════════════════════════════
 ```
 
@@ -7984,8 +8010,11 @@ Step 5 is complete when ALL of the following hold:
 [16] Year columns in xlsx match _meta.years_processed exactly.
 [17] User downloaded [ExamCode]_PYQ_Frequency.xlsx — kept for Step 6 input.
 [18] Per-batch deliverable set closed: EXACTLY 1 file per batch (S11-3)
-[19] Final deliverable set closed: the 6 mandatory files, + taxonomy.xlsx when written
-     (=7 on a normal run) — per S11-3's derived expected set. (v2.47: this item said
+[19] Final deliverable set closed: the 5 mandatory files, + exam_config.json and
+     taxonomy.xlsx when written (=7 on a normal run) — per S11-3's derived
+     expected set, two tiers exactly as S11-3 now prints them (v2.48.1; the
+     "6 mandatory" wording predated v2.47.1's exam_config tier move).
+     (v2.47: this item said
      "EXACTLY 5" — stale twice over: it predated both the v2.24.9 exam_config addition
      [6th] and the v2.24 taxonomy.xlsx companion [conditional 7th], and disagreed with
      S11-3's own "all 6" list. GAP-2026-08-13-DELIVERY-COUNT-DRIFT.)
@@ -8347,4 +8376,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.48.0
+# END OF Framework_MockTestAnalyse v2.48.1
