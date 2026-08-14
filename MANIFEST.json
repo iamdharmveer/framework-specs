@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.13.3",
+  "framework_version": "2026.08.13.4",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -215,11 +215,11 @@
       "bytes": 134787
     },
     "Framework_NotesAudit.md": {
-      "sha256": "f97d4f5a34ade439743a07dac5fb72a6c21cee0acffd2cb0164afb02845f4dcb",
-      "version_header": "# Framework_NotesAudit v3.3.0 \u2014 Notes Pipeline Step NA (Closed-Book Audit + Remediation)",
-      "end_sentinel": "# END OF Framework_NotesAudit v3.3.0",
-      "lines": 607,
-      "bytes": 39383
+      "sha256": "561f2773349b46d4051fe478ebb28c89580bbb960e1b055c80995dbf0c76d372",
+      "version_header": "# Framework_NotesAudit v3.3.1 \u2014 Notes Pipeline Step NA (Closed-Book Audit + Remediation)",
+      "end_sentinel": "# END OF Framework_NotesAudit v3.3.1",
+      "lines": 627,
+      "bytes": 40818
     },
     "Framework_NotesBlueprint.md": {
       "sha256": "4597e0717134c3c481a70e1c8d2007022bb91783e77f96114713f2ad28bea81d",
@@ -229,11 +229,11 @@
       "bytes": 40400
     },
     "Framework_NotesCreate.md": {
-      "sha256": "8a06ca87aca24bfedfd019d99e804b637c21d4aec8500d34c8bb9b56cdaeb809",
-      "version_header": "# Framework_NotesCreate v2.5.0 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
-      "end_sentinel": "# END OF Framework_NotesCreate v2.5.0",
-      "lines": 462,
-      "bytes": 31110
+      "sha256": "2facbfbbff2e3b598982246b771f52b38d97c670c0df60bd79a2653a8e9fad6e",
+      "version_header": "# Framework_NotesCreate v2.5.1 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
+      "end_sentinel": "# END OF Framework_NotesCreate v2.5.1",
+      "lines": 468,
+      "bytes": 31535
     },
     "Framework_NotesDeliver.md": {
       "sha256": "c8651cdf0d367a693234980107c6fa16095460401f34b26f1b242a1d1b0fa10f",

@@ -1,4 +1,14 @@
-# Framework_NotesAudit v3.3.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.3.1 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.3.1 — 2026-08-14 — QUARANTINE x COVERAGE EDGE STATED (line-by-line
+#   certification sweep). §5 G-12 now states explicitly what the engine
+#   already does: a QUARANTINED question (§4 L-4) still counts toward the
+#   coverage contract. coverage_target_for reads the BANK slice, and
+#   quarantine lives in the report, never in the bank — so quarantining a
+#   unit's only numeric item does not waive the numeric-Example requirement.
+#   That is deliberate: quarantine says "this one stem is corrupt or
+#   mis-filed", not "the syllabus stopped testing this type" — NA teaches the
+#   type from a FRESH scenario (§2A licenses the add on the G-12 finding).
+#   Prose only; no engine, gate or behaviour change.
 # v3.3.0 — 2026-08-13 — G-12 COVERAGE (Phase 2, Recommendations 3+4; pairs with
 #   Framework_NotesCreate v2.5.0 §4 B3a; notes_core >= v2.6, notes_audit >=
 #   v2.4). New BLOCKING gate G-12 (notes_audit.gate_coverage) against the
@@ -524,6 +534,16 @@ pass.
       bank-less callers of the engine; a dormant G-12 in an NA delivery is
       itself a defect and MUST be disclosed in the §9 chat line, never
       silently accepted.
+      QUARANTINE DOES NOT SHRINK THE CONTRACT (v3.3.1): a quarantined
+      question (section 4 L-4) still counts toward required_types and the
+      concept evidence, because coverage_target_for reads the BANK slice and
+      quarantine lives in the report, never in the bank. Quarantine says
+      "this one stem is corrupt or mis-filed", not "the syllabus stopped
+      testing this type" — so if a unit's only numeric item is quarantined,
+      the numeric-Example requirement stands and NA teaches that type from a
+      FRESH scenario (the section 2A net-ADD licence covers exactly this).
+      The same is true of the spread minimum: it derives from the slice's
+      concept_tags, quarantined or not.
   G-11 TERMINAL RE-GATE (notes_audit.terminal_regate) — MANDATORY, LAST.
       After the final edit, re-run the FULL solve across ALL of the unit's
       bank questions and EVERY gate above over the bytes that will ship, then
@@ -604,4 +624,4 @@ Example replacement or licensed net ADD (section 2A) named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.3.0
+# END OF Framework_NotesAudit v3.3.1

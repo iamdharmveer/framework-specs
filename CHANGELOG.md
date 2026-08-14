@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026.08.13.4 — Notes-spec certification sweep (two prose fixes, zero behaviour change)
+
+A line-by-line certification of the two Notes specs carrying Points 1/3/4
+(distractor autopsy + educational objective, depth-to-yield, type-triad
+guarantee). Every rule was cross-checked against the engine that enforces it.
+Two defects found, both prose-only:
+
+- `Framework_NotesCreate.md` v2.5.0 → **v2.5.1** — §2.1 called the practice
+  questions "§4 B4/B7"; under the current anatomy B4 is KEY POINTS. Corrected
+  to "§4 B3/B7" (a leftover from a pre-v2.0.0 block layout).
+- `Framework_NotesAudit.md` v3.3.0 → **v3.3.1** — §5 G-12 now states the
+  quarantine × coverage edge the engine already implements: a quarantined
+  question still counts toward required_types and the spread minimum, because
+  coverage_target_for reads the bank slice and quarantine lives in the report.
+  NA teaches a quarantined-away type from a fresh scenario (§2A net-ADD).
+
+No engine, gate, schema or behaviour change of any kind.
+
 ## 2026.08.13.3 — Phase 2: G-12 Coverage (Recommendations 3+4)
 
 Feature deployment. Every Notes unit now carries a bank-derived COVERAGE
