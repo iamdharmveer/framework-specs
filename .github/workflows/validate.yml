@@ -15,8 +15,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.11" }
-      - name: Install validator runtime deps (embedded self-test needs python-docx)
-        run: pip install python-docx
+      - name: Install validator runtime deps
+        # python-docx: embedded self-tests build documents. matplotlib/pillow/
+        # numpy: without them the engines' figure checks go DORMANT, and a
+        # dormant test is exactly where a mutation survivor could hide — the
+        # mutation gate below is only meaningful if CI runs the same test
+        # surface the local verification env runs.
+        run: pip install python-docx matplotlib pillow numpy
       - name: Manifest must be up to date
         run: |
           python3 gen_manifest.py
@@ -49,3 +54,59 @@ jobs:
             python3 mock_sync_audit.py --self-test
             python3 mock_sync_audit.py
           fi
+      # ---- GAP-2026-08-14-CI-AUDITOR-WIRING: the six auditors below existed
+      # in the repo but never ran in CI, so a regression any of them catches
+      # (the AXISPAPER-PERSISTENCE seam break included) could only be found
+      # by someone running them by hand after the fact. Wired as blocking
+      # gates; audit_seam runs in KNOWN-BASELINE mode until that pre-existing
+      # regression is fixed (see the step's own comment).
+      - name: Deep spec-vs-engine parity audit
+        run: if [ -f audit_deep.py ]; then python3 audit_deep.py; fi
+      - name: Call-graph / return-shape audit
+        run: if [ -f audit_callgraph.py ]; then python3 audit_callgraph.py; fi
+      - name: Whole-corpus sync audit
+        run: if [ -f audit_sync.py ]; then python3 audit_sync.py; fi
+      - name: Supplementary spec deep audit (V/W/X/Y/Z families)
+        # Sync-rule parity needs the ENGINE side of every rule in the same
+        # run, so the .py files are passed alongside the specs — specs alone
+        # report V-SCOPE "parity UNVERIFIED".
+        run: if [ -f audit_specs_ext.py ]; then python3 audit_specs_ext.py Framework_*.md *.py; fi
+      - name: Structural seam audit (KNOWN-BASELINE mode)
+        # audit_seam is RED on production for one pre-existing regression
+        # (AXISPAPER-PERSISTENCE: 5 orphaned axis fields, green at
+        # 2026.08.10.5, unrelated to any Notes release). Wiring it strict
+        # would block every future release on an old defect, so this step
+        # blocks on NEW findings only: the 5 known lines are baselined
+        # below. The guard is self-tightening — once the fix lands the
+        # baseline matches nothing and every finding is again blocking.
+        # Delete the baseline lines in the commit that fixes the regression.
+        run: |
+          if [ -f audit_seam.py ]; then
+            python3 audit_seam.py > seam.out 2>&1 || true
+            awk '$1 ~ /^ORPHAN-/{print $1, $2}' seam.out | sort -u > seam.now
+            printf '%s\n' \
+              'ORPHAN-READ axis1_paper' \
+              'ORPHAN-READ axis1_paper_counts' \
+              'ORPHAN-READ axis3_paper' \
+              'ORPHAN-READ axis3_paper_counts' \
+              'ORPHAN-WRITE axis3_mechanism_lock' \
+              | sort -u > seam.known
+            comm -13 seam.known seam.now > seam.new
+            if [ -s seam.new ]; then
+              echo "::error::NEW seam findings (not in the AXISPAPER baseline):"
+              cat seam.new
+              cat seam.out
+              exit 1
+            fi
+            if [ -s seam.now ]; then
+              echo "::warning::audit_seam carries only the known AXISPAPER-PERSISTENCE baseline findings — fix pending:"
+              cat seam.now
+            else
+              echo "audit_seam clean — baseline no longer needed; remove it from this step."
+            fi
+          fi
+      - name: Mutation audit (gate tests must kill every mutant)
+        # ~4 minutes: mutates the engine gates and requires the self-tests to
+        # catch every mutant. --max-survivors 0 == a gate whose test cannot
+        # detect its own deletion fails the build.
+        run: if [ -f audit_mutation.py ]; then python3 audit_mutation.py --quiet --max-survivors 0; fi
