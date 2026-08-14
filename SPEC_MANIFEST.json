@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.12.1 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.47.1",
-      "lines": 8284,
-      "sha256": "30ea2a3ecb5d2145e5f97efafdcc06fbc84011e480ca9e6bcc7f6e48c69db5a7",
-      "size_bytes": 466067,
-      "version_header": "# Framework_MockTestAnalyse v2.47.1 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.48.0",
+      "lines": 8350,
+      "sha256": "a248752566df04c72855d4b60ada074f400bb5d82ff9c64fbf0528ce131361c0",
+      "size_bytes": 470638,
+      "version_header": "# Framework_MockTestAnalyse v2.48.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -282,9 +282,9 @@
     },
     "manifest_to_taxonomy_xlsx.py": {
       "end_sentinel": "    main()",
-      "lines": 124,
-      "sha256": "a2fd9c118b21abf43d486cec032d0eceb1a97c9ce8ef0a6e8622abce5953f5a0",
-      "size_bytes": 5287,
+      "lines": 141,
+      "sha256": "7b442b1667cee2073135890f06d0a1a838a65049ad83c76c7400afd01be4bab4",
+      "size_bytes": 6449,
       "version_header": "#!/usr/bin/env python3"
     },
     "notes_audit.py": {

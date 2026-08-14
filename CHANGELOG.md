@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026.08.13.5 — Taxonomy order is teaching order (GAP-2026-08-14-TAXONOMY-ORDER)
+
+The taxonomy xlsx has been alphabetizing its rows since v2.24 — silently
+discarding the manifest's curated order, which `notes_core.assign_numbering`
+freezes into the permanent S/T/ST unit numbers (verified against delivered
+filenames: Vector Calculus is ST02 by syllabus order, ST06 alphabetically).
+A non-technical operator uploading portal links in sheet order therefore got
+the WRONG sequence while every filename carried the right one.
+
+- `Framework_MockTestAnalyse.md` v2.47.1 → **v2.48.0** — S5-3
+  `write_taxonomy_xlsx` emits rows in MANIFEST ORDER with a new "Upload
+  Order" column (E) and a How-to-use instruction to upload top-to-bottom;
+  columns A-D unchanged in position and meaning. New SUBTOPIC ORDERING RULE
+  above `write_subtopic_manifest`: first extraction of a NEW exam enters each
+  topic's subtopics in TEACHING order (syllabus default, SME-adjusted);
+  re-runs APPEND at the end of their topic, never mid-list; an exam with
+  persisted numbering is NEVER reordered.
+- `manifest_to_taxonomy_xlsx.py` — the standalone converter changed
+  identically: two writers, one behaviour, verified on the same fixture.
+
+No engine-gate, schema or Notes-track change. Existing exams keep their
+numbering untouched; only the sheet now tells the truth about it.
+
 ## 2026.08.13.4 — Notes-spec certification sweep (two prose fixes, zero behaviour change)
 
 A line-by-line certification of the two Notes specs carrying Points 1/3/4

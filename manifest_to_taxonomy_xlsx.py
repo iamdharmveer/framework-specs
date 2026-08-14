@@ -6,8 +6,18 @@ Excel you can browse to pick Step-6 scope values (no JSON reading required).
 Usage:
     python3 manifest_to_taxonomy_xlsx.py  <ExamCode>_subtopic_manifest.json  [output.xlsx]
 
-Output sheet "Taxonomy": Subject | Topic | Sub Topic Name | Sub Topic Id  (one row per
-sub-topic, sorted). Sheet "How to use" maps each column to the Step-6 trigger.
+Output sheet "Taxonomy": Subject | Topic | Sub Topic Name | Sub Topic Id | Upload Order
+(one row per sub-topic, in MANIFEST ORDER — v2: GAP-2026-08-14-TAXONOMY-ORDER).
+Sheet "How to use" maps each column to the Step-6 trigger and states the portal
+upload sequence.
+
+ROW ORDER IS THE TEACHING ORDER, NEVER RE-SORTED. v1 sorted alphabetically
+"for readability", which silently discarded the manifest's curated order —
+the order notes_core.assign_numbering freezes into the permanent S/T/ST unit
+numbers and the order the portal upload must follow. This converter and the
+spec-inline writer (Framework_MockTestAnalyse S5-3 write_taxonomy_xlsx) are
+changed identically in the same release — two writers, one behaviour.
+Columns A-D keep their positions and meanings; Upload Order is column E.
 """
 
 import json
@@ -17,18 +27,19 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-HEADER = ['Subject', 'Topic', 'Sub Topic Name', 'Sub Topic Id']
+HEADER = ['Subject', 'Topic', 'Sub Topic Name', 'Sub Topic Id', 'Upload Order']
 
 
 def build_rows(manifest):
-    """Flatten manifest['subtopics'] → sorted [Subject, Topic, Sub Topic Name, Sub Topic Id]."""
+    """Flatten manifest['subtopics'] in MANIFEST ORDER (insertion order == the
+    taxonomy/teaching order that assign_numbering freezes into unit numbers).
+    NEVER re-sort: an alphabetical resort shows the operator a different order
+    from the one every delivered filename already carries."""
     subs = manifest.get('subtopics', {})
     rows = []
-    for sid, v in subs.items():
+    for i, (sid, v) in enumerate(subs.items(), start=1):
         rows.append([v.get('section', ''), v.get('topic', ''),
-                     v.get('display_name', ''), sid])
-    # sort by Subject, then Topic, then Sub Topic Name (stable, human-friendly)
-    rows.sort(key=lambda r: (str(r[0]).lower(), str(r[1]).lower(), str(r[2]).lower()))
+                     v.get('display_name', ''), sid, i])
     return rows
 
 
@@ -71,10 +82,10 @@ def write_xlsx(manifest, out_path):
                 cell.fill = band
 
     # widths (roomy for long names/ids)
-    for c, width in enumerate([26, 30, 46, 30], start=1):
+    for c, width in enumerate([26, 30, 46, 30, 14], start=1):
         ws.column_dimensions[get_column_letter(c)].width = width
     ws.freeze_panes = 'A2'                     # keep the header visible while scrolling
-    ws.auto_filter.ref = f'A1:D{len(rows) + 1}'  # click-to-filter by Subject / Topic
+    ws.auto_filter.ref = f'A1:E{len(rows) + 1}'  # click-to-filter by Subject / Topic
 
     # ── "How to use" sheet — plain instructions for a non-technical reader ──
     hw = wb.create_sheet('How to use')
@@ -84,6 +95,12 @@ def write_xlsx(manifest, out_path):
         ('This sheet lists every Subject, Topic and Sub-Topic in your exam.', False),
         ('Use the "Taxonomy" tab to pick what to test, then copy the value into the', False),
         ('Step-6 trigger. Match the text EXACTLY (spelling and capital letters matter).', False),
+        ('', False),
+        ('PORTAL UPLOAD ORDER — the rows are already in the correct teaching sequence', True),
+        ('(basics first). Upload sub-topics to the portal from TOP TO BOTTOM, exactly as', False),
+        ('listed; the "Upload Order" column (E) numbers that sequence. Do NOT re-sort', False),
+        ('this sheet before uploading — the row order matches the numbering printed in', False),
+        ('every delivered file.', False),
         ('', False),
         ('SUBJECT test  → copy the Subject cell (column A):', True),
         ('    ScopedBlueprint --level subject  --scope "<Subject>"            --count N --qs_per_paper Q', False),

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.13.4",
+  "framework_version": "2026.08.13.5",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -194,11 +194,11 @@
       "bytes": 91361
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "30ea2a3ecb5d2145e5f97efafdcc06fbc84011e480ca9e6bcc7f6e48c69db5a7",
-      "version_header": "# Framework_MockTestAnalyse v2.47.1 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.47.1",
-      "lines": 8284,
-      "bytes": 466067
+      "sha256": "a248752566df04c72855d4b60ada074f400bb5d82ff9c64fbf0528ce131361c0",
+      "version_header": "# Framework_MockTestAnalyse v2.48.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.48.0",
+      "lines": 8350,
+      "bytes": 470638
     },
     "Framework_MockTestCreate.md": {
       "sha256": "34071d535e9673ae22134960a2f96b5d66486ec034de894013454c6e095c5f33",
