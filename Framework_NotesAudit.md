@@ -1,4 +1,24 @@
-# Framework_NotesAudit v3.2.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.3.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.3.0 — 2026-08-13 — G-12 COVERAGE (Phase 2, Recommendations 3+4; pairs with
+#   Framework_NotesCreate v2.5.0 §4 B3a; notes_core >= v2.6, notes_audit >=
+#   v2.4). New BLOCKING gate G-12 (notes_audit.gate_coverage) against the
+#   unit's bank-derived coverage contract (notes_core.coverage_target_for):
+#   every question type the unit's OWN bank attests has >= 1 worked Example,
+#   and Examples span the required number of DISTINCT concept sections. The
+#   contract is deliberately CONCEPT SPREAD, never an example COUNT (owner
+#   decision, 2026-08-13): a count is satisfiable by clones of one scenario,
+#   which add pages and teach nothing new. An Example's concept is DERIVED
+#   from block order (nearest preceding concept block) — no new model field,
+#   no rendering change, W-3 untouched. Two ADVISORY signals ride in the
+#   gate's meta and never block: a bank-attested figure need with no concept
+#   figure in the model, and duplicate_suspects (a concept section carrying
+#   more than one Example of one type). Scenario diversity within a concept
+#   is §2A judgement, not regex: an Example teaching a scenario an existing
+#   Example already covers adds no coverage — NA REPLACES it with an
+#   uncovered scenario, never keeps both. Without a target G-12 reports
+#   DORMANT (the G-7a discipline). The spread clamp is
+#   notes_core.COVERAGE_CONCEPT_CEILING — the engine constant is the single
+#   authority; this spec deliberately restates no number.
 # v3.2.0 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE ENFORCEMENT
 #   (Point 1; pairs with Framework_NotesCreate v2.4.0 §4 B3, notes_docx v1.3,
 #   notes_audit v2.3). G-5 (question format) now re-asserts, on the SHIPPED
@@ -92,23 +112,26 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.5 — notes_final_filename, docx_ref_for/verify_docx_ref,
+#   notes_core.py  >= v2.6 — notes_final_filename, docx_ref_for/verify_docx_ref,
 #                            registry schema notes-registry/2.1 (draft_ref,
 #                            final_ref, audit_summary), resolve_unit, the
 #                            density/math/prose gates, bank_questions_for,
-#                            document_text (the ONLY document text extractor)
+#                            document_text (the ONLY document text extractor),
+#                            coverage_target_for + COVERAGE_CONCEPT_CEILING
+#                            (§5 G-12's bank-derived contract, v2.6)
 #   notes_docx.py  >= v1.3 — the SHARED builder/parser: build/parse/
 #                            validate_model/outline_of. Derived numbering and
 #                            the STRICT byte-identical round trip are its
 #                            guarantees; parse takes exam_code/tier (W-4). v1.3
 #                            adds the why_wrong/objective fields (§4 B3) that
 #                            parse recovers and the round trip preserves
-#   notes_audit.py >= v2.3 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
+#   notes_audit.py >= v2.4 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
 #                            record_key_correction, quarantine, gate_line_rules,
 #                            gate_answer_integrity, gate_counters,
 #                            gate_orphan_terms, syllabus_terms_for,
 #                            gate_anatomy, gate_question_format, gate_outline,
-#                            terminal_regate, audit_summary
+#                            gate_coverage (§5 G-12, v2.4), terminal_regate,
+#                            audit_summary
 #
 # PURPOSE:
 #   Guarantee that the delivered document teaches every in-syllabus PYQ of one
@@ -282,9 +305,18 @@ SCOPE OF THE WRITE:
     parallel facts into a table (D-3), adding a clarifying bullet or KEY
     POINTS line, adding a genuine SPEED HACK, sharpening a §4 B3
     distractor-autopsy line or the Educational Objective, improving figure
-    clarity, sharpening wording.
-  FORBIDDEN — adding or removing Examples or Recall items (it moves the global
-    j sequence and voids G-5's type-coverage proof); changing any Answer
+    clarity, sharpening wording; and (v3.3.0) REPLACING a redundant Example
+    IN PLACE with one teaching an uncovered scenario or moving it under an
+    uncovered concept section — the G-12 remediation. A one-for-one
+    replacement keeps the Example count, so the global j sequence and G-5's
+    type-coverage proof survive; the swap is logged as an improvement.
+  FORBIDDEN — changing the NUMBER of Examples or Recall items as bounded
+    IMPROVEMENT (a net add or remove moves the global j sequence and voids
+    G-5's type-coverage proof; replacement is not addition). A net ADD is
+    licensed ONLY by a G-12 hard finding — a bank-attested type or a concept
+    spread the existing stack cannot cover — because numbering is derived
+    (W-1) and G-11 re-gates the result; a net REMOVE is never licensed
+    outside §4 L-2 full regeneration. Also FORBIDDEN: changing any Answer
     except through section 3A; DELETING an Example's distractor autopsy or its
     Objective, or dropping a per-option rationale below the wrong-option count
     (validate_model + G-5 would fail the rebuild); and introducing any fact
@@ -464,18 +496,51 @@ pass.
       missing. THAT IS THE STANDARD TAIL ANATOMY (B7 then B8), so the bare
       form fails correct documents across the corpus. No gate may implement
       its own text extraction.
+  G-12 COVERAGE (notes_audit.gate_coverage) — v3.3.0, BLOCKING. The target
+      is notes_core.coverage_target_for over the unit's bank slice, computed
+      by NA itself (it holds the bank), so the same contract NC authored to
+      is the one gated here — one authority, no drift. HARD: every question
+      type the unit's own bank attests appears in >= 1 worked Example, and
+      Examples span at least the required number of DISTINCT concept
+      sections (from the slice's distinct concept_tags, clamped to
+      notes_core.COVERAGE_CONCEPT_CEILING; a tagless slice demands a spread
+      of one, and an empty slice demands nothing — no examples where no
+      evidence). THE CONTRACT IS SPREAD, NOT COUNT (owner decision,
+      2026-08-13): no minimum example count exists anywhere in this
+      pipeline, because a count is satisfiable by clones of one scenario.
+      An Example's concept is the nearest preceding concept section,
+      derived from block order exactly like the outline numbers — nothing
+      new is stored or rendered, so W-3 and §0B P-4 are untouched.
+      ADVISORY, in meta, never blocking: figure_advisory (the slice carries
+      stem figures but the model has no concept figure) and
+      duplicate_suspects (a concept section with more than one Example of
+      one type). The SEMANTIC half of the duplicate question — do two
+      Examples teach the same scenario? — cannot be a regex and is §2A's
+      duty: NA, having solved every bank question closed-book, REPLACES a
+      redundant Example with an uncovered scenario rather than keeping
+      both. Every replacement is a §2A improvement and is logged.
+      DORMANT IS NEVER A LIVE-NA OUTCOME: the bank is a required §0A input,
+      so a live run ALWAYS has a target. The DORMANT form exists only for
+      bank-less callers of the engine; a dormant G-12 in an NA delivery is
+      itself a defect and MUST be disclosed in the §9 chat line, never
+      silently accepted.
   G-11 TERMINAL RE-GATE (notes_audit.terminal_regate) — MANDATORY, LAST.
       After the final edit, re-run the FULL solve across ALL of the unit's
       bank questions and EVERY gate above over the bytes that will ship, then
       hash them. NA edits the document, so certifying the pre-patch draft
       certifies a file that no longer exists: a correction that fixes Q7 and
       breaks Q12's cross-reference is exactly what a pre-patch certification
-      misses. Only G-9 (advisory) and a DORMANT G-7a are non-blocking.
+      misses. Only G-9 (advisory), a DORMANT G-7a and a target-less DORMANT
+      G-12 are non-blocking.
       G-11 is itself REPORTED as a gate, carrying the certified sha256 and the
       number of gates run, so audit_summary shows plainly WHICH bytes were
       certified rather than asserting it in prose alone. Every identifier in
       notes_audit.GATES appears in the report; notes_sync_audit.py checks that
       this list and this section still agree.
+      Gate identifiers are HISTORICAL, not positional: G-12 was added after
+      G-11 existed and is deliberately listed above it, because G-11 is the
+      terminal re-gate and MUST remain last — "EVERY gate above" includes
+      G-12.
 
 ## §6 — REPORT AND STATE
 There is NO .md audit report. The report OBJECT (notes_audit.new_report) is
@@ -531,9 +596,12 @@ THE CHAT DELIVERY LINE carries what the document deliberately does not:
 <Sub Topic Name> (<sid>), unit_code, notes_version, n/n solvable, the
 key-correction count with the JUDGEMENT-tier ones named individually (section
 3A), the quarantine list with reasons (section 4 L-4), any --accept-modified
-warning (section 0B P-3), the FIGURE_PENDING count, and any DORMANT gate
-(section 5 G-7a).
+warning (section 0B P-3), the FIGURE_PENDING count, any DORMANT gate
+(section 5 G-7a; a dormant G-12 is a DEFECT, section 5 G-12), and the
+section 5 G-12 coverage line: concepts covered vs required, any
+duplicate_suspects, the figure advisory if raised, and every G-12-driven
+Example replacement or licensed net ADD (section 2A) named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.2.0
+# END OF Framework_NotesAudit v3.3.0

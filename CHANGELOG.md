@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026.08.13.3 — Phase 2: G-12 Coverage (Recommendations 3+4)
+
+Feature deployment. Every Notes unit now carries a bank-derived COVERAGE
+CONTRACT: at least one worked Example for every question type the unit's own
+PYQs attest, and Examples spread across the required number of DISTINCT
+concept sections. The contract is deliberately concept SPREAD, never an
+example COUNT (owner decision, 2026-08-13): a count is satisfiable by clones
+of one scenario, which add pages and teach nothing new. NC authors to the
+contract; a new BLOCKING gate G-12 enforces the same contract on the shipped
+file, so author and gate share one authority (the bank) and cannot drift.
+
+**Engines**
+
+- `notes_core.py` v2.5 → v2.6 — `coverage_target_for(bank, subject, topic,
+  subtopic, allowed_types)`: required_types (attested ∩ allowed),
+  min_concepts_with_examples (distinct normalized concept_tags clamped to the
+  new `COVERAGE_CONCEPT_CEILING`; a tagless slice demands spread of 1, an
+  empty slice demands nothing), requires_figure, evidence meta.
+  Deterministic; no clock, no randomness.
+- `notes_audit.py` v2.3 → v2.4 — `gate_coverage` (G-12): HARD on missing
+  attested types and on concept spread (an Example's concept is DERIVED from
+  block order — nearest preceding concept section — so nothing new is stored
+  or rendered and the round trip is untouched); ADVISORY meta for the figure
+  need and for duplicate_suspects (a concept carrying >1 Example of one
+  type). G-12 joins `GATES` and `terminal_regate` (new `coverage_target`
+  kwarg): blocking with a target, DORMANT-but-reported without one (the G-7a
+  discipline). Scenario-diversity judgement stays with NA §2A: a redundant
+  Example is REPLACED with an uncovered scenario, never kept alongside.
+
+**Specs**
+
+- `Framework_NotesCreate.md` v2.4.0 → v2.5.0 — new §4 B3a: compute the
+  contract before drafting and author to it; an Example is justified only by
+  an uncovered concept, scenario or type. Companion: `notes_core.py` ≥ v2.6.
+- `Framework_NotesAudit.md` v3.2.0 → v3.3.0 — §5 gains G-12; G-11's
+  non-blocking list adds a target-less DORMANT G-12; §2A licenses in-place
+  replacement of a redundant Example (and a net ADD only on a G-12 hard
+  finding). Companions: `notes_core.py` ≥ v2.6, `notes_audit.py` ≥ v2.4.
+
 ## 2026.08.13.2 — Point 1: Distractor Autopsy + Educational Objective
 
 Feature deployment. Every worked Example in a Notes unit now ends with a

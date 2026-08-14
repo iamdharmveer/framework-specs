@@ -1,5 +1,31 @@
 """
-notes_audit.py v2.3 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.4 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.4 — 2026-08-13 — G-12 COVERAGE (Phase 2, Recommendations 3+4; pairs with
+    Framework_NotesAudit v3.3.0 §5 G-12, Framework_NotesCreate v2.5.0 §4 B3a,
+    notes_core >= v2.6). New BLOCKING gate gate_coverage(model, target) with
+    target from notes_core.coverage_target_for — bank-derived, so the author
+    (NC) and this gate can never disagree. What it enforces, and what it
+    deliberately does not:
+      HARD  — every required_type (the types the unit's own PYQs attest) has
+              >= 1 worked Example; and Examples span >=
+              min_concepts_with_examples DISTINCT concept sections. An
+              Example's concept is DERIVED from block order (the nearest
+              preceding concept block — the same derivation discipline as
+              numbering), so no new model field exists, nothing new renders,
+              and the W-3 round trip is untouched.
+      ADVISORY (meta only, never findings, never blocks) — requires_figure
+              with no concept-content figure in the model; and
+              duplicate_suspects: concept sections carrying more than one
+              Example of the same qtype. A hard concept may legitimately
+              need two scenarios of one type — no regex can tell diversity
+              from redundancy, so that judgement is NA's (§2A), not a gate's.
+    There is deliberately NO minimum example COUNT anywhere (owner decision,
+    2026-08-13): a count is satisfiable by clones of one scenario; concept
+    SPREAD is the thing being promised. G-12 joins GATES and terminal_regate:
+    when a coverage target is supplied it BLOCKS like any mechanical gate;
+    when no target is supplied (no bank in hand) it reports DORMANT-but-
+    reported, exactly the G-7a discipline — absence never halts an audit.
 
 v2.3 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE ENFORCEMENT
     (Point 1; pairs with Framework_NotesAudit v3.2.0 G-5, Framework_NotesCreate
@@ -155,7 +181,7 @@ MAX_REGENERATIONS = 3            # spec §4 L-3
 # cross-step sync auditor compares this tuple against the identifiers the NA
 # spec names, and a gate present in one and absent from the other is a finding.
 GATES = ("G-1", "G-2a", "G-2b", "G-2c", "G-3", "G-4", "G-5", "G-6",
-         "G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11")
+         "G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12")
 
 KEY_CORRECTION_TIERS = ("BANK_SELF_CONTRADICTS", "JUDGEMENT")
 
@@ -764,9 +790,75 @@ def gate_orphan_terms(model, allowed=(), syllabus_terms=None):
             {"terms_checked": len(q_words), "mode": "unanchored"})
 
 
+def gate_coverage(model, target):
+    """G-12 — COVERAGE (v2.4). target comes from
+    notes_core.coverage_target_for on the unit's bank slice.
+
+    HARD (findings, blocking): every required_type appears in >= 1 Example;
+    Examples span >= min_concepts_with_examples DISTINCT concept sections.
+    An Example's concept is the nearest PRECEDING concept block — derived
+    from block order like every number in the document, so the mapping can
+    never go stale and no new model field is needed.
+
+    ADVISORY (meta only, never blocks): requires_figure with no concept
+    figure in the model; duplicate_suspects — concept sections carrying more
+    than one Example of the same qtype. Scenario diversity within a concept
+    is NA's judgement (§2A), not a regex's.
+
+    With target=None the gate reports DORMANT (the G-7a discipline): a
+    caller with no bank in hand still gets every GATES identifier in its
+    report, and absence never halts an audit."""
+    if target is None:
+        return (True, ["no coverage target supplied — gate DORMANT but "
+                       "reported (build the target with "
+                       "notes_core.coverage_target_for)"],
+                {"dormant": True})
+    findings = []
+    cur_concept, concept_names = None, {}
+    concepts_hit, types_present, dup_counter = set(), set(), {}
+    has_figure = False
+    for i, b in enumerate(model.get("blocks", [])):
+        t = b.get("type")
+        if t == "concept":
+            cur_concept = i
+            concept_names[i] = b.get("name", f"block {i}")
+            if any(c.get("k") == "figure" for c in b.get("content", [])):
+                has_figure = True
+        elif t == "example":
+            qt = (b.get("qtype") or "").upper()
+            types_present.add(qt)
+            if cur_concept is not None:
+                concepts_hit.add(cur_concept)
+                dup_counter[(cur_concept, qt)] = (
+                    dup_counter.get((cur_concept, qt), 0) + 1)
+    for rt in target.get("required_types", []):
+        if rt not in types_present:
+            findings.append(
+                f"the unit's own bank attests question type {rt} but no "
+                f"worked Example teaches it (section 4 B3a)")
+    need = int(target.get("min_concepts_with_examples", 0))
+    if len(concepts_hit) < need:
+        findings.append(
+            f"Examples span {len(concepts_hit)} distinct concept section(s) "
+            f"but the unit's bank evidence requires {need} — concept SPREAD, "
+            f"not example count, is the contract (section 4 B3a)")
+    dup_suspects = sorted(
+        f"{concept_names.get(ci, ci)} carries {n} Examples of one type"
+        for (ci, _qt), n in dup_counter.items() if n > 1)
+    meta = {"dormant": False,
+            "concepts_with_examples": len(concepts_hit),
+            "concepts_required": need,
+            "types_present": sorted(types_present),
+            "types_required": list(target.get("required_types", [])),
+            "duplicate_suspects": dup_suspects,
+            "figure_advisory": bool(target.get("requires_figure"))
+            and not has_figure}
+    return (not findings, findings, meta)
+
+
 def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
                     expected_omml=0, orphan_allowed=(), allowed_types=(),
-                    syllabus_terms=None):
+                    syllabus_terms=None, coverage_target=None):
     """G-11 — THE TERMINAL RE-GATE. Run EVERY mechanical gate over the bytes
     that will ship, and hash them.
 
@@ -818,6 +910,12 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
     g["G-9"] = {"ok": ok_r, "findings": f_r, "meta": m_r}
     ok_c, f_c, m_c = gate_counters(model, docx_path)
     g["G-10"] = {"ok": ok_c, "findings": f_c, "meta": m_c}
+    # v2.4: G-12 COVERAGE. BLOCKING when a coverage_target is supplied;
+    # DORMANT-but-reported without one (the G-7a discipline) so every GATES
+    # identifier still appears in every report.
+    ok_v, f_v, m_v = gate_coverage(model, coverage_target)
+    g["G-12"] = {"ok": ok_v, "findings": f_v, "meta": m_v,
+                 "dormant": bool(m_v.get("dormant"))}
     sha = notes_core.file_sha256(docx_path)
     # G-11 IS this function: the assertion that everything above ran against
     # the file that will ship, not against the pre-patch draft. Recorded as a
@@ -827,11 +925,12 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
                  "meta": {"certified_sha256": sha, "gates_run": len(ran),
                           "path": os.path.basename(docx_path)}}
     g["_sha256"] = sha
-    # G-9 is advisory (English words are not syllabus terms) and G-7a may be
-    # dormant; neither blocks. Everything else is blocking.
+    # G-9 is advisory (English words are not syllabus terms); G-7a and a
+    # target-less G-12 may be dormant; none of those block. Everything else
+    # is blocking.
     blocking = [k for k, v in g.items()
                 if k.startswith("G-") and k not in ("G-9", "G-7a")
-                and not v["ok"]]
+                and not v.get("dormant") and not v["ok"]]
     g["_blocking_failures"] = blocking
     g["_ok"] = not blocking
     return g
@@ -1279,6 +1378,28 @@ def self_test():
                                expected_omml=1)
     check("terminal re-gate BLOCKS on the clipped file",
           not gates_bad["_ok"] and "G-7b" in gates_bad["_blocking_failures"])
+    # v2.4: G-12 in the terminal re-gate — dormant without a target, blocking
+    # with a violated one.
+    check("v2.4: a target-less re-gate reports G-12 DORMANT and does not "
+          "block on it",
+          gates["G-12"]["dormant"] is True
+          and "G-12" not in gates["_blocking_failures"])
+    gates_cov = terminal_regate(
+        good, m, tier="TIER-2", page_count=5, expected_omml=1,
+        coverage_target={"required_types": ["MCQ", "NAT"],
+                         "min_concepts_with_examples": 2,
+                         "requires_figure": False, "pyq_count": 4,
+                         "distinct_concept_tags": 2})
+    check("v2.4: a violated coverage target BLOCKS the terminal re-gate "
+          "(demo model has one concept, one MCQ)",
+          not gates_cov["_ok"] and "G-12" in gates_cov["_blocking_failures"])
+    gates_cov_ok = terminal_regate(
+        good, m, tier="TIER-2", page_count=5, expected_omml=1,
+        coverage_target={"required_types": ["MCQ"],
+                         "min_concepts_with_examples": 1,
+                         "requires_figure": False, "pyq_count": 1,
+                         "distinct_concept_tags": 1})
+    check("v2.4: a satisfied coverage target certifies", gates_cov_ok["_ok"])
 
     # ---- audit_summary --------------------------------------------------
     summ = audit_summary(r2, gates, bank_ref={"sha256": "b" * 64},
@@ -1355,6 +1476,62 @@ def self_test():
     rc_obj["blocks"][-1]["objective"] = T("Recall must not carry this.")
     check("G-5 catches a Recall carrying an Educational Objective",
           not gate_question_format(rc_obj, ("MCQ",))[0])
+
+    # ---- v2.4: G-12 coverage --------------------------------------------
+    def cov_model(placements):
+        """Two concepts; placements = [(concept_idx 0/1, qtype), ...]."""
+        blocks = [{"type": "title", "name": "U"},
+                  {"type": "concept", "name": "Regimes", "content": []},
+                  {"type": "concept", "name": "Inhibition", "content": []}]
+        cidx = {0: 1, 1: 2}
+        out = blocks[:2]
+        first = [{"type": "example", "qtype": qt,
+                  "stem": T("s"), "options": [] if qt == "NAT"
+                  else [T("a"), T("b"), T("c"), T("d")],
+                  "answer": "1.0" if qt == "NAT" else "2"}
+                 for c, qt in placements if c == 0]
+        second = [{"type": "example", "qtype": qt,
+                   "stem": T("s"), "options": [] if qt == "NAT"
+                   else [T("a"), T("b"), T("c"), T("d")],
+                   "answer": "1.0" if qt == "NAT" else "2"}
+                  for c, qt in placements if c == 1]
+        return {"schema": notes_docx.SCHEMA, "exam_code": "EX",
+                "unit": {"name": "U", "tier": "TIER-2", "seq_in_topic": 1},
+                "blocks": (out + first + [blocks[2]] + second)}
+    tgt2 = {"required_types": ["MCQ", "NAT"],
+            "min_concepts_with_examples": 2, "requires_figure": False,
+            "pyq_count": 4, "distinct_concept_tags": 2}
+    ok12, f12, m12 = gate_coverage(
+        cov_model([(0, "MCQ"), (1, "NAT")]), tgt2)
+    check("G-12 passes a unit whose Examples span the required concepts "
+          "and types", ok12 and m12["concepts_with_examples"] == 2)
+    ok12b, f12b, _ = gate_coverage(cov_model([(0, "MCQ"), (1, "MCQ")]), tgt2)
+    check("G-12 catches a bank-attested type with no Example",
+          not ok12b and any("attests question type NAT" in x for x in f12b))
+    ok12c, f12c, _ = gate_coverage(cov_model([(0, "MCQ"), (0, "NAT")]), tgt2)
+    check("G-12 catches concept HOGGING — types satisfied but Examples "
+          "crowd one concept section",
+          not ok12c and any("SPREAD" in x for x in f12c))
+    tgt1 = dict(tgt2, min_concepts_with_examples=1, required_types=["MCQ"])
+    ok12d, f12d, m12d = gate_coverage(
+        cov_model([(0, "MCQ"), (0, "MCQ")]), tgt1)
+    check("G-12 flags same-concept same-type clones as ADVISORY "
+          "duplicate_suspects, never a block",
+          ok12d and not f12d and len(m12d["duplicate_suspects"]) == 1)
+    tgtf = dict(tgt1, requires_figure=True)
+    ok12e, _, m12e = gate_coverage(cov_model([(0, "MCQ")]), tgtf)
+    check("G-12 figure requirement is ADVISORY meta, never a finding",
+          ok12e and m12e["figure_advisory"] is True)
+    ok12f, f12f, m12f = gate_coverage(cov_model([(0, "MCQ")]), None)
+    check("G-12 without a target is DORMANT-but-reported (the G-7a "
+          "discipline)", ok12f and m12f["dormant"] is True and f12f)
+    zero = {"required_types": [], "min_concepts_with_examples": 0,
+            "requires_figure": False, "pyq_count": 0,
+            "distinct_concept_tags": 0}
+    check("G-12 passes a no-evidence unit against the ZERO target "
+          "(no examples where no evidence)",
+          gate_coverage({"blocks": [{"type": "title", "name": "U"}]},
+                        zero)[0])
 
     ok_ol, f_ol, m_ol = gate_outline(m)
     check("G-6 passes a gapless outline", ok_ol)

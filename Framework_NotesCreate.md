@@ -1,4 +1,19 @@
-# Framework_NotesCreate v2.4.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.5.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.5.0 — 2026-08-13 — COVERAGE CONTRACT AUTHORING (Phase 2, Recommendations
+#   3+4; pairs with Framework_NotesAudit v3.3.0 §5 G-12; notes_core >= v2.6).
+#   New §4 B3a: before drafting Examples, NC computes the unit's coverage
+#   contract with notes_core.coverage_target_for over the unit's bank slice
+#   and AUTHORS TO IT — at least one worked Example for every question type
+#   the unit's own PYQs attest, and Examples spread across at least the
+#   required number of DISTINCT concept sections. The contract is CONCEPT
+#   SPREAD, deliberately NOT an example count (owner decision, 2026-08-13):
+#   more Examples on one scenario add pages, not coverage — an additional
+#   Example is justified only by an uncovered concept, scenario or type.
+#   NotesAudit G-12 gates the SAME bank-derived contract on the shipped
+#   file, so author and gate can never disagree. An empty bank slice means
+#   no contract (TIER-3 "no examples where no evidence" unchanged). No model,
+#   anatomy, colour or rendering change of any kind — B3a constrains WHERE
+#   Examples go and WHICH types they teach, not how they are built.
 # v2.4.0 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE (Point 1;
 #   pairs with Framework_NotesAudit v3.2.0 and notes_docx v1.3). Every worked
 #   Example (B3) now ends with TWO new elements, and a Recall (B7) carries
@@ -133,7 +148,7 @@
 #                           hand-rolls a paragraph, colour, border or line rule.
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
-#   notes_core.py >= v2.4 — notes_filename AND docx_ref_for (section 9A's
+#   notes_core.py >= v2.6 — notes_filename AND docx_ref_for (section 9A's
 #                           draft_ref), registry schema notes-registry/2.1,
 #                           the D-1 bullet counter G-1 depends on, plus:
 #                           resolve_unit (operator-input resolution), sid_slug,
@@ -141,8 +156,9 @@
 #                           sid-keyed registry (notes-registry/2.0); plus
 #                           LEVEL_COLORS / BOX_COLORS constants, PROSE_BAN
 #                           lexicon, math gates, registry transitions, the bank
-#                           readers (bank_load / bank_questions_for) and
-#                           verify_bank_ref (blueprint/bank staleness check)
+#                           readers (bank_load / bank_questions_for),
+#                           verify_bank_ref (blueprint/bank staleness check),
+#                           and coverage_target_for (§4 B3a's contract, v2.6)
 #
 # PURPOSE:
 #   Produce ONE subtopic's study-notes .docx (draft) from the blueprint unit
@@ -260,6 +276,25 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       single-type exam yields single-type examples. Theory-style prompts
       (no options, no numeric target) are forbidden. Type names are never
       printed — the format itself communicates the type.
+  B3a COVERAGE CONTRACT (v2.5.0 — what "enough Examples" MEANS). Before
+      drafting any Example, compute the unit's contract:
+        target = notes_core.coverage_target_for(bank, subject, topic,
+                                                subtopic, allowed_types)
+      and author to it: >= 1 worked Example for EVERY type in
+      target's required_types (the types the unit's own PYQs attest — a
+      subtopic whose PYQs include a numeric item gets a numeric Example,
+      a theory-only subtopic is never forced one), and Examples spread
+      across >= min_concepts_with_examples DISTINCT concept sections.
+      THE CONTRACT IS SPREAD, NOT COUNT (owner decision, 2026-08-13):
+      an Example is justified only by an uncovered concept, scenario or
+      type — never author a second Example of a scenario an existing one
+      already teaches; N clones of one scenario satisfy any count while
+      teaching one thing. requires_figure in the target is ADVISORY:
+      prefer a figure-reading Example or concept figure where the PYQs
+      use figures. An empty bank slice returns the zero contract — the
+      TIER-3 "no examples where no evidence" rule is unchanged. NotesAudit
+      G-12 gates this same bank-derived contract on the shipped file, so
+      what NC authors to and what NA enforces cannot drift.
   B4  KEY POINTS — exactly one box per concept, placed AFTER that concept's
       example stack, consolidating the concept.
   B5  TRAP BOX — recurring wrong-option patterns. No year lists, no PYQ
@@ -424,4 +459,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.4.0
+# END OF Framework_NotesCreate v2.5.0

@@ -1,5 +1,29 @@
 """
-notes_core.py v2.5 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.6 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.6 — 2026-08-13 — COVERAGE TARGET (Phase 2, Recommendations 3+4; pairs with
+    Framework_NotesCreate v2.5.0 §4 B3a and Framework_NotesAudit v3.3.0 §5
+    G-12; notes_audit >= v2.4). coverage_target_for(bank, subject, topic,
+    subtopic, allowed_types=()) is the SINGLE authority for a unit's coverage
+    contract, derived ENTIRELY from the unit's bank slice so NC (author) and
+    NA (gate) can never disagree:
+      required_types            — CANONICAL_TYPES attested in the slice,
+                                  intersected with allowed_types when given.
+                                  Each must appear in >= 1 worked Example.
+      min_concepts_with_examples— distinct normalized concept_tags in the
+                                  slice, clamped to COVERAGE_CONCEPT_CEILING;
+                                  >= 1 whenever the slice is non-empty (a bank
+                                  with no tags never over-demands). This is
+                                  CONCEPT SPREAD, deliberately NOT an example
+                                  count: N clones of one scenario satisfy a
+                                  count and teach one thing — examples must
+                                  span distinct concept sections instead.
+      requires_figure           — any slice question carries a stem figure
+                                  (ADVISORY downstream, never blocking).
+      pyq_count / distinct_concept_tags — evidence meta for the report.
+    An empty slice returns a ZERO target (no types, no minimum, no figure) —
+    "no examples where no evidence" (NC B3/TIER-3) is preserved exactly.
+    Deterministic: same bank slice -> same target, so NA idempotence holds.
 
 v2.5 — 2026-08-13 — PUBLIC TEXT AUTHORITY (GAP-2026-08-12-NAPARSE D-2).
     document_text() is the PUBLIC single authority for the plain-text view of
@@ -223,6 +247,13 @@ TIERS = ("TIER-1", "TIER-2", "TIER-3")
 BULLET_TARGET_WORDS = 20
 BULLET_HARD_CAP_WORDS = 25
 TIER_PAGE_BANDS = {"TIER-1": (6, 15), "TIER-2": (4, 8), "TIER-3": (2, 5)}
+
+# v2.6: G-12 concept-spread clamp. concept_tags are free-ish text, so the
+# distinct-tag count is a PROXY for the tested-concept count — two tags can
+# name one concept. The ceiling keeps that noise from over-demanding sections
+# a unit cannot honestly carry; it is the single tuning knob of the coverage
+# contract and lives HERE so specs defer to it instead of restating numbers.
+COVERAGE_CONCEPT_CEILING = 6
 
 # v2.3: the specs now cite 2.1 (Framework_NotesAudit v3.0.0 /
 # Framework_NotesCreate v2.3.0), so the engine emits it. P1 deliberately held
@@ -1062,6 +1093,46 @@ def bank_questions_for(bank, subject, topic, subtopic):
             if subtopic_key(q["subject"], q["topic"], q["subtopic"]) == k]
 
 
+def coverage_target_for(bank, subject, topic, subtopic, allowed_types=()):
+    """v2.6 — the unit's COVERAGE CONTRACT, derived entirely from its bank
+    slice (G-12's single authority; NC §4 B3a authors to it, NA §5 G-12 gates
+    it, so author and gate can never disagree).
+
+    Returns {"required_types", "min_concepts_with_examples", "requires_figure",
+    "pyq_count", "distinct_concept_tags"}.
+
+    Design (owner decision, Phase 2): the contract is CONCEPT SPREAD, not an
+    example count — N examples on one scenario satisfy any count while
+    teaching one thing. min_concepts_with_examples is the number of DISTINCT
+    concept sections that must carry at least one Example, from the slice's
+    distinct normalized concept_tags clamped to COVERAGE_CONCEPT_CEILING.
+    Tags are optional in the bank (bank_add_question defaults them empty), so
+    a tagless slice demands spread of 1, never more — the proxy can only
+    under-demand, never invent evidence. An EMPTY slice returns the ZERO
+    target: no types, no minimum, no figure ("no examples where no evidence",
+    NC §4 B3/TIER-3). allowed_types, when given, intersects required_types so
+    a slice question mis-typed against the exam pattern is never demanded.
+    Deterministic by construction — no clock, no randomness — so a re-run of
+    NA on its own output derives the identical contract (NA §8)."""
+    qs = bank_questions_for(bank, subject, topic, subtopic)
+    if not qs:
+        return {"required_types": [], "min_concepts_with_examples": 0,
+                "requires_figure": False, "pyq_count": 0,
+                "distinct_concept_tags": 0}
+    types = {str(q.get("type", "")).upper() for q in qs}
+    types &= set(CANONICAL_TYPES)
+    if allowed_types:
+        types &= {str(t).upper() for t in allowed_types}
+    tags = {" ".join(str(t).lower().split())
+            for q in qs for t in (q.get("concept_tags") or ()) if str(t).strip()}
+    return {"required_types": sorted(types),
+            "min_concepts_with_examples": min(max(1, len(tags)),
+                                              COVERAGE_CONCEPT_CEILING),
+            "requires_figure": any(q.get("figure") for q in qs),
+            "pyq_count": len(qs),
+            "distinct_concept_tags": len(tags)}
+
+
 def derive_taxonomy_counts(bank, latest_years=3):
     """Owner decision 5(i): subtopic-wise pyq_count and recent-N-year counts
     computed DIRECTLY from the ingested bank — the separate PYQ Analysis doc is
@@ -1317,6 +1388,47 @@ def self_test():
     check("subtopic filter", len(bank_questions_for(b, "Physics", "optics",
           " Polarization ")) == 2)
 
+    # ---- v2.6: coverage_target_for (G-12's single authority) -------------
+    tgt = coverage_target_for(b, "Physics", "Optics", "Polarization")
+    check("coverage: required types are the slice's attested types",
+          tgt["required_types"] == ["MCQ", "NAT"])
+    check("coverage: figure requirement follows any stem figure in the slice",
+          tgt["requires_figure"] is True
+          and coverage_target_for(b, "Physics", "Thermo",
+                                  "Carnot")["requires_figure"] is False)
+    check("coverage: a TAGLESS slice demands spread of exactly 1 "
+          "(the proxy never invents evidence)",
+          tgt["min_concepts_with_examples"] == 1
+          and tgt["distinct_concept_tags"] == 0)
+    check("coverage: allowed_types intersects (a mis-typed question is "
+          "never demanded)",
+          coverage_target_for(b, "Physics", "Optics", "Polarization",
+                              allowed_types=("MCQ",))["required_types"]
+          == ["MCQ"])
+    check("coverage: an EMPTY slice returns the ZERO target "
+          "(no examples where no evidence)",
+          coverage_target_for(b, "Physics", "Optics", "Nothing")
+          == {"required_types": [], "min_concepts_with_examples": 0,
+              "requires_figure": False, "pyq_count": 0,
+              "distinct_concept_tags": 0})
+    bt = bank_new("EX")
+    bank_add_paper(bt, "k1", "2026-02-15", 2026, "..x..docx", 1)
+    for i, tags in enumerate([["Michaelis-Menten"], ["michaelis-menten "],
+                              ["Inhibition"], ["pH effects"], ["Kd binding"],
+                              ["Deactivation"], ["Specific activity"],
+                              ["Units"], ["Turnover"]]):
+        bank_add_question(bt, dict(bank_id=f"E-{i}", paper_key="k1",
+            exam_date="2026-02-15", exam_year=2026, q_no=i + 1, type="MCQ",
+            subject="B", topic="T", subtopic="EK", stem="s",
+            correct_answer="2", concept_tags=tags))
+    ct = coverage_target_for(bt, "B", "T", "EK")
+    check("coverage: tag normalization collapses case/whitespace duplicates",
+          ct["distinct_concept_tags"] == 8)
+    check("coverage: concept spread clamps at COVERAGE_CONCEPT_CEILING",
+          ct["min_concepts_with_examples"] == COVERAGE_CONCEPT_CEILING)
+    check("coverage: deterministic (same slice -> identical target)",
+          ct == coverage_target_for(bt, "B", "T", "EK"))
+
     # v1.7: subtopic_key joins across syllabus-vs-header label drift (fix 3)
     def _joins(a, bb):
         return subtopic_key("S", "T", a) == subtopic_key("S", "T", bb)
@@ -1537,6 +1649,8 @@ def self_test():
     check("spec-lock: NB §5 / NC §5 tier page bands",
           TIER_PAGE_BANDS == {"TIER-1": (6, 15), "TIER-2": (4, 8),
                               "TIER-3": (2, 5)})
+    check("spec-lock: NA §5 G-12 concept-spread clamp",
+          COVERAGE_CONCEPT_CEILING == 6)
     check("spec-lock: schema strings as the specs cite them",
           REGISTRY_SCHEMA == "notes-registry/2.1"
           and BLUEPRINT_SCHEMA == "notes-blueprint/2.0"

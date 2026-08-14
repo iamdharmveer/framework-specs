@@ -456,7 +456,7 @@ def self_test():
     check("S-4 fires on a colour that is not in the engine map",
           fires("S-4", mutated("NC", "1F4E79", "1F4E7A")))
     check("S-5 fires on a companion version higher than the engine",
-          fires("S-5", mutated("NA", "notes_core.py  >= v2.5",
+          fires("S-5", mutated("NA", "notes_core.py  >= v2.6",
                                "notes_core.py  >= v9.9")))
     check("S-6 fires when a consumer stops naming a handed-over artifact",
           fires("S-6", mutated("ND", "final_ref", "REMOVED_REF", count=0)))
@@ -472,8 +472,8 @@ def self_test():
           "notes_audit.GATES",
           fires("S-2", mutated_engine(
               "notes_audit.py",
-              '"G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11")',
-              '"G-7a", "G-8", "G-9", "G-10", "G-11")', count=1)))
+              '"G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12")',
+              '"G-7a", "G-8", "G-9", "G-10", "G-11", "G-12")', count=1)))
     check("S-3 fires the OTHER way: an engine emits a schema no spec cites",
           fires("S-3", mutated_engine(
               "notes_audit.py",
@@ -482,7 +482,7 @@ def self_test():
     check("S-2 fires the OTHER way: notes_audit.GATES lists a gate no spec "
           "describes",
           fires("S-2", mutated_engine(
-              "notes_audit.py", '"G-10", "G-11")', '"G-10", "G-11", "G-99")',
+              "notes_audit.py", '"G-11", "G-12")', '"G-11", "G-12", "G-99")',
               count=1), contains="never describes"))
     check("S-3 fires on an EMITTED schema that no spec cites",
           fires("S-3", mutated_engine(
@@ -501,7 +501,7 @@ def self_test():
           "audit (the auditor's own defect: import_module returns whatever "
           "is already loaded)",
           fires("S-2", mutated_engine(
-              "notes_audit.py", '"G-10", "G-11")', '"G-10", "G-11", "G-98")',
+              "notes_audit.py", '"G-11", "G-12")', '"G-11", "G-12", "G-98")',
               count=1), contains="G-98"))
     check("a clean copy of the repo still passes (no false positive from the "
           "harness itself)", mutated("NA", "G-7b", "G-7b")[0])
