@@ -163,9 +163,9 @@
     },
     "audit_callgraph.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 532,
-      "sha256": "aa349386e63f86e13b49f437278370567f513a02b0387b150870f16cb282133e",
-      "size_bytes": 25010,
+      "lines": 593,
+      "sha256": "14605a50b170e18213f971f792d022e77c42e5399308497d33b9b8dc9148d918",
+      "size_bytes": 27615,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_canonical.py": {
@@ -177,9 +177,9 @@
     },
     "audit_deep.py": {
       "end_sentinel": "sys.exit(1 if tot else 0)",
-      "lines": 200,
-      "sha256": "f7dcadba2eafe0ecc93aca630c0ef4a41c045a8a5c6de4910d839ec1d1c7c69f",
-      "size_bytes": 11689,
+      "lines": 286,
+      "sha256": "03a7622e038262a74eff3b5c0260ee2da5a64e590e2e5654497fb3058d66ac9a",
+      "size_bytes": 15259,
       "version_header": "\"\"\"audit_deep.py — checks NOT covered by validate_framework_md.py or audit_sync.py."
     },
     "audit_mutation.py": {
@@ -191,23 +191,23 @@
     },
     "audit_seam.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 201,
-      "sha256": "478af27ca6a9f626cc3468097cc968cc24af8fa5e2b30b803e4975872ad3d502",
-      "size_bytes": 11883,
+      "lines": 301,
+      "sha256": "9e9033334c3040987c393d1ffaaf84ca9acb07af6b487ea3d03ec7f336b27932",
+      "size_bytes": 16798,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_specs_ext.py": {
       "end_sentinel": "    sys.exit(main(args))",
-      "lines": 335,
-      "sha256": "814dc0904d0998d4d7da742fba291dd218ec91631857eac1779a537bb6f9a3c4",
-      "size_bytes": 17389,
+      "lines": 405,
+      "sha256": "a90146a8cbb469c418832d74af030c0c53a57618f6ece0b6fa53ca587debcbad",
+      "size_bytes": 20393,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 174,
-      "sha256": "5b24144f11a82eb7ebdd344d13eb1b5b747446d48bb2192aae07e7b53685337a",
-      "size_bytes": 9186,
+      "lines": 253,
+      "sha256": "42e791e9382f9678268c14ce96e8e971f25bbb0e5f9617c8272361af87f3c555",
+      "size_bytes": 12470,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {

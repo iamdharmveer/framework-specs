@@ -528,5 +528,66 @@ def main(argv):
     return 1
 
 
+def self_test():
+    """GAP-2026-08-14-AUDITOR-SELFTESTS. One synthetic spec fixture per wiring
+    check (C1/C2/C3/C6), each run through a SUBPROCESS so module state never
+    bleeds between verdicts, plus a clean fixture and the live corpus."""
+    import subprocess, tempfile
+    passed, fails = 0, []
+    here = os.path.abspath(__file__)
+
+    def check(name, cond):
+        nonlocal passed
+        if cond:
+            passed += 1
+        else:
+            fails.append(name)
+
+    def probe(body):
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, "Framework_Fixture.md")
+        open(p, 'w', encoding='utf-8').write(
+            "# Framework_Fixture v1.0 — self-test fixture\n\n```python\n"
+            + body + "```\n")
+        r = subprocess.run([sys.executable, here, p],
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    rc, out = probe("def ok(a):\n    return a + 1\n\ny = ok(2)\n")
+    check("clean fixture passes", rc == 0 and '0 findings' in out)
+
+    rc, out = probe('def load(path=None):\n'
+                    '    """Callers should always pass path."""\n'
+                    '    return path\n\nx = load()\n')
+    check("C1 fires on a documented-required argument no caller supplies",
+          rc == 1 and '[C1]' in out)
+
+    rc, out = probe("def duo(flag):\n    a, b = 1, 2\n    if flag:\n"
+                    "        return a, b\n    return b, a\n\nx, y = duo(True)\n")
+    check("C2 fires on equal-arity returns with a name at different positions",
+          rc == 1 and '[C2]' in out)
+
+    rc, out = probe("def build(flag):\n    if flag:\n        d = {'alpha': 1}\n"
+                    "    else:\n        d = {}\n        d['alpha'] = 1\n"
+                    "        d['beta'] = 2\n    return d\n\nr = build(True)\n")
+    check("C3 fires on a dict built with different key sets per branch",
+          rc == 1 and '[C3]' in out)
+
+    rc, out = probe("def analyse_thing(x):\n    pass\n\n"
+                    "val = analyse_thing(5)\nprint(val + 1)\n")
+    check("C6 fires on a pass-bodied stub whose return value is consumed",
+          rc == 1 and '[C6]' in out)
+
+    r = subprocess.run([sys.executable, here], capture_output=True, text=True)
+    check("live corpus passes the full-corpus run (C4 included)",
+          r.returncode == 0 and '0 findings' in r.stdout)
+
+    print(f"audit_callgraph self-test: {passed} passed, {len(fails)} failed"
+          + (" — " + "; ".join(fails) if fails else ""))
+    return not fails
+
+
 if __name__ == '__main__':
+    if '--self-test' in sys.argv:
+        sys.exit(0 if self_test() else 1)
     sys.exit(main(sys.argv))

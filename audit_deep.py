@@ -12,6 +12,92 @@ execute with runtime-supplied context (manifest ids, loaded config, tool names),
 tell the two apart trains its readers to ignore it."""
 import ast, json, os, re, sys
 from collections import defaultdict
+
+def _self_test():
+    """GAP-2026-08-14-AUDITOR-SELFTESTS. This auditor is a top-to-bottom script,
+    so fixtures run it as a SUBPROCESS against a mutated copy of the corpus and
+    assert the finding fires — the same mutate-and-expect-red pattern as
+    notes_sync_audit. Dispatched BEFORE the corpus loads, so `--self-test`
+    works from any directory state."""
+    import shutil, subprocess, tempfile
+    passed, fails = 0, []
+    here = os.path.dirname(os.path.abspath(__file__)) or '.'
+
+    def check(name, cond):
+        nonlocal passed
+        if cond:
+            passed += 1
+        else:
+            fails.append(name)
+
+    def run_in(root):
+        r = subprocess.run([sys.executable, os.path.join(root, 'audit_deep.py')],
+                           cwd=root, capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def corpus_copy(dst):
+        for f in os.listdir(here):
+            if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json'):
+                shutil.copy(os.path.join(here, f), os.path.join(dst, f))
+        return dst
+
+    def mutated(mutate):
+        d = tempfile.mkdtemp()
+        corpus_copy(d)
+        mutate(d)
+        rc, out = run_in(d)
+        shutil.rmtree(d, ignore_errors=True)
+        return rc, out
+
+    def append(root, fname, text):
+        with open(os.path.join(root, fname), 'a', encoding='utf-8') as f:
+            f.write(text)
+
+    d0 = tempfile.mkdtemp(); corpus_copy(d0)
+    rc, out = run_in(d0); shutil.rmtree(d0, ignore_errors=True)
+    check("clean corpus copy passes", rc == 0 and 'findings: 0' in out)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\ndef slugify(x):\n    return x.lower().replace(' ', '-')\n```\n"))
+    check("DELEGATION fires on a re-localised engine-owned function",
+          rc == 1 and 'DELEGATION' in out and 'slugify' in out)
+
+    rc, out = mutated(lambda r: append(r, 'blueprint_core.py',
+        "\nif False:\n    assert 1 == 1\n"))
+    check("DISABLED-GUARD fires on an `if False:` assertion",
+          rc == 1 and 'DISABLED-GUARD' in out)
+
+    rc, out = mutated(lambda r: append(r, 'blueprint_core.py',
+        "\n# assert total == sum(parts)\n"))
+    check("DISABLED-GUARD fires on a commented-out assertion",
+          rc == 1 and 'commented out' in out)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n# Trigger: Bogustrigger\n"))
+    check("TRIGGER-GRAMMAR fires on a trigger absent from routes.json",
+          rc == 1 and 'TRIGGER-GRAMMAR' in out and 'Bogustrigger' in out)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\nThe step then reads registry['zz_selftest_phantom'] for the count.\n"))
+    check("JSON-PARITY fires on a field read that nothing writes",
+          rc == 1 and 'JSON-PARITY' in out and 'zz_selftest_phantom' in out)
+
+    def xdrift(r):
+        append(r, 'Framework_PYQSort.md',
+               "\n```python\ndef shared_selftest_fn(a):\n    return a + 1\n```\n")
+        append(r, 'Framework_PYQCount.md',
+               "\n```python\ndef shared_selftest_fn(a):\n    return a * 2\n```\n")
+    rc, out = mutated(xdrift)
+    check("XSPEC-DRIFT fires on the same public function defined differently "
+          "in two specs", rc == 1 and 'XSPEC-DRIFT' in out)
+
+    print(f"audit_deep self-test: {passed} passed, {len(fails)} failed"
+          + (" — " + "; ".join(fails) if fails else ""))
+    return not fails
+
+if __name__ == '__main__' and '--self-test' in sys.argv:
+    sys.exit(0 if _self_test() else 1)
+
 SPECS=sorted(f for f in os.listdir('.') if f.startswith('Framework_') and f.endswith('.md'))
 TXT={f:open(f,encoding='utf-8').read() for f in SPECS}
 # The engine set is DERIVED from MANIFEST.json's tracked .py files, not hardcoded.

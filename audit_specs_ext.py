@@ -327,7 +327,77 @@ def main(paths):
     return 1
 
 
+def self_test():
+    """GAP-2026-08-14-AUDITOR-SELFTESTS. Synthetic single-file fixtures, one per
+    check family, run through a SUBPROCESS (ISSUES is module state; a fresh
+    interpreter per fixture keeps every verdict independent)."""
+    import subprocess, tempfile
+    passed, fails = 0, []
+    here = os.path.abspath(__file__)
+
+    def check(name, cond):
+        nonlocal passed
+        if cond:
+            passed += 1
+        else:
+            fails.append(name)
+
+    def probe(fname, content):
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, fname)
+        open(p, 'w', encoding='utf-8').write(content)
+        r = subprocess.run([sys.executable, here, p],
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    rc, out = probe("Framework_C.md",
+        "# Framework_C v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+        "# §1 — WORK\nplain body\n# END OF Framework_C v1.0.0\n")
+    check("clean fixture passes", rc == 0 and '0 issues' in out)
+
+    rc, out = probe("Framework_Z.md",
+        "# Framework_Z v1.0.0 — t\n# v1.0.1 — 2026-08-14 — newer entry\nbody\n")
+    check("Z-VERSION fires on a 3-part header/changelog disagreement",
+          rc == 1 and 'Z-VERSION' in out)
+
+    rc, out = probe("Framework_W.md",
+        "# Framework_W v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+        "# D1. First decision.\nUse the cap (D9) here.\n")
+    check("W-DECISION fires on a citation of an undefined decision",
+          rc == 1 and 'W-DECISION' in out and 'D9' in out)
+
+    rc, out = probe("Framework_X.md",
+        "# Framework_X v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+        "# §1 EDGE CASES\n1. **a** one\n2. **b** two\n4. **d** four\n")
+    check("X-NUMBER fires on a gapped numbered list",
+          rc == 1 and 'X-NUMBER' in out)
+
+    rc, out = probe("Framework_Y.md",
+        "# Framework_Y v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+        "# §0 — INPUTS\nnothing declared\n# §1 — WORK\n"
+        "Read exam_config.marks_default and apply it.\n")
+    check("Y-CONFIG fires on a config read the input contract omits",
+          rc == 1 and 'Y-CONFIG' in out and 'marks_default' in out)
+
+    # The live corpus itself must pass with the standard invocation
+    # (specs + engines together, per the V-SCOPE contract).
+    root = os.path.dirname(here) or '.'
+    corpus = sorted(
+        os.path.join(root, f) for f in os.listdir(root)
+        if (f.startswith('Framework_') and f.endswith('.md')) or f.endswith('.py'))
+    r = subprocess.run([sys.executable, here] + corpus,
+                       capture_output=True, text=True)
+    check("live corpus passes the standard md+py invocation",
+          r.returncode == 0 and '0 issues' in r.stdout)
+
+    print(f"audit_specs_ext self-test: {passed} passed, {len(fails)} failed"
+          + (" — " + "; ".join(fails) if fails else ""))
+    return not fails
+
+
 if __name__ == '__main__':
+    if '--self-test' in sys.argv:
+        sys.exit(0 if self_test() else 1)
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
     if not args:
         print(__doc__)

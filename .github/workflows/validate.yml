@@ -60,25 +60,51 @@ jobs:
       # by someone running them by hand after the fact. Wired as blocking
       # gates; audit_seam runs in KNOWN-BASELINE mode until that pre-existing
       # regression is fixed (see the step's own comment).
+      # GAP-2026-08-14-AUDITOR-SELFTESTS: each of the five gates below runs
+      # its own --self-test FIRST (mutate-a-copy fixtures proving every check
+      # class still fires), then the audit itself — the same watch-the-watcher
+      # discipline notes_sync_audit / mock_sync_audit / spec_name_audit
+      # already follow. A blocking gate that could silently go blind is not a
+      # gate; the seam auditor's own five-finding saga proved it.
       - name: Deep spec-vs-engine parity audit
-        run: if [ -f audit_deep.py ]; then python3 audit_deep.py; fi
+        run: |
+          if [ -f audit_deep.py ]; then
+            python3 audit_deep.py --self-test
+            python3 audit_deep.py
+          fi
       - name: Call-graph / return-shape audit
-        run: if [ -f audit_callgraph.py ]; then python3 audit_callgraph.py; fi
+        run: |
+          if [ -f audit_callgraph.py ]; then
+            python3 audit_callgraph.py --self-test
+            python3 audit_callgraph.py
+          fi
       - name: Whole-corpus sync audit
-        run: if [ -f audit_sync.py ]; then python3 audit_sync.py; fi
+        run: |
+          if [ -f audit_sync.py ]; then
+            python3 audit_sync.py --self-test
+            python3 audit_sync.py
+          fi
       - name: Supplementary spec deep audit (V/W/X/Y/Z families)
         # Sync-rule parity needs the ENGINE side of every rule in the same
         # run, so the .py files are passed alongside the specs — specs alone
         # report V-SCOPE "parity UNVERIFIED".
-        run: if [ -f audit_specs_ext.py ]; then python3 audit_specs_ext.py Framework_*.md *.py; fi
+        run: |
+          if [ -f audit_specs_ext.py ]; then
+            python3 audit_specs_ext.py --self-test
+            python3 audit_specs_ext.py Framework_*.md *.py
+          fi
       - name: Structural seam audit
         # STRICT since GAP-2026-08-14-AXISPAPER-PERSISTENCE was resolved
         # (audit_seam.py v1.1: final_assembly.py registered on the seam; the
         # two Step-7-internal accumulators and the report-only mechanism-lock
-        # ALLOW-listed with reasons). The temporary KNOWN-BASELINE guard this
-        # step carried while the regression was open has been removed, as its
-        # own comment required: every seam finding now blocks.
-        run: if [ -f audit_seam.py ]; then python3 audit_seam.py; fi
+        # ALLOW-listed with reasons). The self-test pins those three ALLOW
+        # justifications as STANDING guards and keeps the AXISPAPER mutation
+        # evidence as a permanent fixture.
+        run: |
+          if [ -f audit_seam.py ]; then
+            python3 audit_seam.py --self-test
+            python3 audit_seam.py
+          fi
       - name: Mutation audit (gate tests must kill every mutant)
         # ~4 minutes: mutates the engine gates and requires the self-tests to
         # catch every mutant. --max-survivors 0 == a gate whose test cannot

@@ -3,6 +3,85 @@ Does not test behaviour; tests whether the 11 steps AGREE with each other."""
 import ast, json, os, re, sys
 from collections import defaultdict
 
+def _self_test():
+    """GAP-2026-08-14-AUDITOR-SELFTESTS. Script-style auditor, so fixtures run
+    it as a SUBPROCESS against a mutated corpus copy and assert each check
+    class still fires. Dispatched before the corpus loads."""
+    import shutil, subprocess, tempfile
+    passed, fails = 0, []
+    here = os.path.dirname(os.path.abspath(__file__)) or '.'
+
+    def check(name, cond):
+        nonlocal passed
+        if cond:
+            passed += 1
+        else:
+            fails.append(name)
+
+    def run_in(root):
+        r = subprocess.run([sys.executable, os.path.join(root, 'audit_sync.py')],
+                           cwd=root, capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    def mutated(mutate=None):
+        d = tempfile.mkdtemp()
+        for f in os.listdir(here):
+            if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json',
+                                                   'VERSION', 'CHANGELOG.md'):
+                shutil.copy(os.path.join(here, f), os.path.join(d, f))
+        if mutate:
+            mutate(d)
+        rc, out = run_in(d)
+        shutil.rmtree(d, ignore_errors=True)
+        return rc, out
+
+    def append(root, fname, text):
+        with open(os.path.join(root, fname), 'a', encoding='utf-8') as f:
+            f.write(text)
+
+    rc, out = mutated()
+    check("clean corpus copy passes", rc == 0)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\nimport blueprint_core as bc\nx = bc.no_such_fn_selftest(1)\n```\n"))
+    check("ENGINE-API fires on a call into an API that does not exist",
+          rc == 1 and 'ENGINE-API' in out and 'no_such_fn_selftest' in out)
+
+    def relsync(r):
+        open(os.path.join(r, 'VERSION'), 'w', encoding='utf-8').write('9999.99.99.9\n')
+    rc, out = mutated(relsync)
+    check("REL-SYNC fires when VERSION and CHANGELOG top entry disagree",
+          rc == 1 and 'REL-SYNC' in out)
+
+    def badroute(r):
+        p = os.path.join(r, 'routes.json')
+        routes = json.load(open(p, encoding='utf-8'))
+        routes['PYQSort'] = routes['PYQSort'] + ['no_such_file_selftest.py']
+        json.dump(routes, open(p, 'w', encoding='utf-8'))
+    rc, out = mutated(badroute)
+    check("ROUTE-MISSING fires on a routed file that does not exist",
+          rc == 1 and 'ROUTE-MISSING' in out and 'no_such_file_selftest' in out)
+
+    def chainbreak(r):
+        p = os.path.join(r, 'Framework_MockDeliver.md')
+        s = open(p, encoding='utf-8').read().replace('_Final.docx', '_FinalX.docx')
+        open(p, 'w', encoding='utf-8').write(s)
+    rc, out = mutated(chainbreak)
+    check("FILENAME-CHAIN fires when a step stops naming its output suffix",
+          rc == 1 and 'FILENAME-CHAIN' in out)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\nSee Framework_Blueprint v99.99 for the schedule.\n"))
+    check("VERSION-XREF fires on a forward reference to a version that "
+          "does not exist", rc == 1 and 'VERSION-XREF' in out)
+
+    print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
+          + (" — " + "; ".join(fails) if fails else ""))
+    return not fails
+
+if __name__ == '__main__' and '--self-test' in sys.argv:
+    sys.exit(0 if _self_test() else 1)
+
 SPECS = sorted(f for f in os.listdir('.') if f.startswith('Framework_') and f.endswith('.md'))
 TXT = {f: open(f, encoding='utf-8').read() for f in SPECS}
 ROUTES = json.load(open('routes.json'))

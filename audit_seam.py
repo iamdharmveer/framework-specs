@@ -197,5 +197,105 @@ def main(argv):
           "legitimately one-sided.")
     return 1
 
+def self_test():
+    """Fixtures that MUTATE a copy of the seam files and assert the auditor
+    notices (GAP-2026-08-14-AUDITOR-SELFTESTS). The three v1.1 ALLOW
+    justifications are also pinned as STANDING guards: the mutation evidence
+    from the AXISPAPER resolution is now a permanent fixture, not a one-off
+    commit note."""
+    import io, shutil, tempfile, contextlib
+    passed, fails = 0, []
+
+    def check(name, cond):
+        nonlocal passed
+        if cond:
+            passed += 1
+        else:
+            fails.append(name)
+
+    def run_root(root):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = main(['audit_seam.py', root])
+        return rc, buf.getvalue()
+
+    def copy_seam_files(dst, mutate=None):
+        for f in set(PRODUCERS) | set(CONSUMERS):
+            shutil.copy(f, os.path.join(dst, f))
+        if mutate:
+            mutate(dst)
+        return dst
+
+    # 1 — the live repo passes.
+    rc, out = run_root('.')
+    check("live repo is seam-clean", rc == 0 and '0 seam findings' in out)
+
+    with tempfile.TemporaryDirectory() as d:
+        # 2 — STANDING MUTATION (the AXISPAPER evidence, made permanent):
+        # deleting final_assembly's axis1_paper write must go red again.
+        def kill_write(root):
+            p = os.path.join(root, 'final_assembly.py')
+            s = open(p, encoding='utf-8').read()
+            s2 = s.replace("reg.setdefault('axis1_paper', {})", "reg.setdefault('axis1_paper_gone', {})", 1)
+            assert s2 != s, "mutation anchor missing — final_assembly no longer writes axis1_paper?"
+            open(p, 'w', encoding='utf-8').write(s2)
+        rc, out = run_root(copy_seam_files(d, kill_write))
+        check("deleting the axis1_paper write fires ORPHAN-READ again",
+              rc == 1 and 'ORPHAN-READ' in out and 'axis1_paper' in out)
+    with tempfile.TemporaryDirectory() as d:
+        # 3 — a fresh producer-side orphan write is caught.
+        def orphan_write(root):
+            with open(os.path.join(root, 'blueprint_core.py'), 'a', encoding='utf-8') as f:
+                f.write('\n_SEAM_FIXTURE = {"figural_selftest_write": 1}\n')
+        rc, out = run_root(copy_seam_files(d, orphan_write))
+        check("a write nothing reads fires ORPHAN-WRITE",
+              rc == 1 and 'ORPHAN-WRITE' in out and 'figural_selftest_write' in out)
+    with tempfile.TemporaryDirectory() as d:
+        # 4 — a fresh consumer-side orphan read is caught.
+        def orphan_read(root):
+            with open(os.path.join(root, 'Framework_MockTestCreate.md'), 'a', encoding='utf-8') as f:
+                f.write('\n    snap = reg["figural_selftest_read"]\n')
+        rc, out = run_root(copy_seam_files(d, orphan_read))
+        check("a read nothing writes fires ORPHAN-READ",
+              rc == 1 and 'ORPHAN-READ' in out and 'figural_selftest_read' in out)
+
+    # 5 — regex units: every write/read form the model depends on.
+    check("writes(): dict-literal form", 'axis1_k' in writes("x = {'axis1_k': 1}"))
+    check("writes(): setdefault form (final_assembly's persistence path)",
+          'axis1_k' in writes("reg.setdefault('axis1_k', {})[n] = s"))
+    check("writes(): subscript-assign form", 'axis1_k' in writes("src['axis1_k'] = 1"))
+    check("reads(): .get form", 'axis1_k' in reads("v = d.get('axis1_k', {})"))
+    check("reads(): subscript form", 'axis1_k' in reads("v = d['axis1_k']"))
+
+    # 6 — ALLOW hygiene: an entry without a real reason is where findings
+    # get buried; the file's own comment says so.
+    check("every ALLOW entry carries a substantive reason",
+          all(isinstance(v, str) and len(v.strip()) >= 20 for v in ALLOW.values()))
+
+    # 7 — STANDING GUARDS for the three v1.1 ALLOW justifications: each entry
+    # stays honest only while its claim stays true of the corpus.
+    prod_writes = set()
+    for f in PRODUCERS:
+        prod_writes |= writes(_read(f))
+    check("allow-guard: no cross-step producer writes axis1_paper_counts "
+          "(still Step-7-internal)", 'axis1_paper_counts' not in prod_writes)
+    check("allow-guard: no cross-step producer writes axis3_paper_counts "
+          "(still Step-7-internal)", 'axis3_paper_counts' not in prod_writes)
+    mtc = _read('Framework_MockTestCreate.md')
+    check("allow-guard: MockTestCreate still initialises the counts locally",
+          'axis1_paper_counts = {}' in mtc and 'axis3_paper_counts = {}' in mtc)
+    cons_reads = set()
+    for f in CONSUMERS:
+        cons_reads |= reads(_read(f))
+    check("allow-guard: axis3_mechanism_lock still has no literal-name reader "
+          "(report-only)", 'axis3_mechanism_lock' not in cons_reads)
+
+    print(f"audit_seam self-test: {passed} passed, {len(fails)} failed"
+          + (" — " + "; ".join(fails) if fails else ""))
+    return not fails
+
+
 if __name__ == '__main__':
+    if '--self-test' in sys.argv:
+        sys.exit(0 if self_test() else 1)
     sys.exit(main(sys.argv))
