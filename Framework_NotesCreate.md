@@ -1,4 +1,24 @@
-# Framework_NotesCreate v2.5.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.6.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.6.0 — 2026-08-14 — IN-SUBTOPIC INTEGRATION SECTIONS (owner decisions of
+#   the 2026-08-14 design session; approved on the DC/AC Circuits placement
+#   demo; pairs with Framework_NotesBlueprint v3.1.0 §3B B-1,
+#   Framework_NotesAudit v3.4.0 §5 G-13; notes_core >= v2.7, notes_audit >=
+#   v2.5). Real exams fuse 2-3 subtopics in ONE question; the IFAS portal
+#   links one page per subtopic (owner constraint), so the fusion is taught
+#   IN-SUBTOPIC: new §4 B4a — an INTEGRATION SECTION closing the concept
+#   stack, after every core concept's KEY POINTS and immediately before the
+#   TRAP BOX. It is an ORDINARY concept section (same block type, own example
+#   stack, own KEY POINTS; numbering, colours, gates all already apply — no
+#   builder change of any kind) marked ONLY by its first bullet: the Combines
+#   declaration. Rules I-1..I-6: placement (end of stack), the Combines
+#   declaration + bridge bullets, backward-only partners (persisted teaching
+#   order — students have met every ingredient), evidence-driven authoring
+#   against notes_core.integration_target_for (latest-partner filing —
+#   the SAME contract NA's G-13 gates, so author and gate can never
+#   disagree), the last-subtopic capstone bound, and the no-earlier-partner
+#   edge (no integration section). B8's mind map stays SUBTOPIC-ONLY —
+#   merged concepts never enter it (owner decision). Anatomy is otherwise
+#   UNCHANGED; TIER-3 unchanged; §7 bans apply to integration prose in full.
 # v2.5.1 — 2026-08-14 — STALE ANATOMY REFERENCE (line-by-line certification
 #   sweep). §2.1 called the fresh-numbered practice questions "§4 B4/B7" — a
 #   leftover from a pre-v2.0.0 block layout. Under the CURRENT §4 anatomy B4
@@ -154,7 +174,7 @@
 #                           hand-rolls a paragraph, colour, border or line rule.
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
-#   notes_core.py >= v2.6 — notes_filename AND docx_ref_for (section 9A's
+#   notes_core.py >= v2.7 — notes_filename AND docx_ref_for (section 9A's
 #                           draft_ref), registry schema notes-registry/2.1,
 #                           the D-1 bullet counter G-1 depends on, plus:
 #                           resolve_unit (operator-input resolution), sid_slug,
@@ -164,7 +184,10 @@
 #                           lexicon, math gates, registry transitions, the bank
 #                           readers (bank_load / bank_questions_for),
 #                           verify_bank_ref (blueprint/bank staleness check),
-#                           and coverage_target_for (§4 B3a's contract, v2.6)
+#                           coverage_target_for (§4 B3a's contract, v2.6),
+#                           and integration_target_for (§4 B4a's contract,
+#                           v2.7 — latest-partner filing over the persisted
+#                           order; grandfathered-dormant for pre-1.2 banks)
 #
 # PURPOSE:
 #   Produce ONE subtopic's study-notes .docx (draft) from the blueprint unit
@@ -303,6 +326,57 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       what NC authors to and what NA enforces cannot drift.
   B4  KEY POINTS — exactly one box per concept, placed AFTER that concept's
       example stack, consolidating the concept.
+  B4a INTEGRATION SECTIONS (v2.6.0 — where 2-3 subtopics meet in ONE
+      question). Structurally an ORDINARY concept section — same block type,
+      own example stack (B3 template in full, autopsy + Objective included),
+      own KEY POINTS box — so numbering, colours, density and every existing
+      gate already police it; nothing new renders and no model field exists.
+      What makes it an integration section is its content contract:
+        I-1 PLACEMENT — integration sections CLOSE the concept stack: after
+            EVERY core concept's KEY POINTS, immediately before B5 TRAP BOX.
+            No core concept may follow one (G-13 checks mechanically).
+        I-2 THE COMBINES DECLARATION — the section's FIRST bullet begins
+            "Combines:" and names every partner subtopic by its manifest
+            display name plus "this sub topic" (e.g. "Combines: Conductors,
+            Capacitors and Dielectrics + this sub topic — one question, both
+            chapters."). This line is the MECHANICAL MARKER G-13 detects and
+            the student's plain-language signpost at once. Partner NAMES are
+            ordinary syllabus vocabulary — every §7 ban still applies to
+            every word of the section.
+        I-3 BRIDGE BULLETS + EXAMPLES — after the declaration, bridge
+            bullets carry the SEAM facts (the partner-side fact and its
+            this-side consequence; >= 3 parallel seam facts become a table,
+            D-3 as ever), then >= 1 worked Example whose solution genuinely
+            crosses the seam — a question needing only this subtopic's
+            content belongs in a core concept, not here.
+        I-4 BACKWARD-ONLY — partners are always EARLIER subtopics in the
+            persisted teaching order (NB §1A A-3 numbering): the student has
+            met every ingredient. NC never authors a forward reference to
+            material not yet taught. The engine enforces this by
+            construction: integration_target_for files every fused question
+            at the LATEST member of its fusion set.
+        I-5 EVIDENCE-DRIVEN — before drafting, compute
+              itarget = notes_core.integration_target_for(bank, subject,
+                        topic, subtopic, unit_order)
+            (unit_order maps subtopic_key -> the registry's persisted
+            ordinal). Every attested fusion in itarget gets an integration
+            section naming its partners; NotesAudit G-13 gates this SAME
+            bank-derived contract on the shipped file, so author and gate
+            cannot drift. A unit with no attested fusion NEEDS no
+            integration section; an SME-judged bridge section without bank
+            attestation is permitted under D-6 (BRIDGE-justified) and is
+            listed advisory by G-13, never demanded and never blocked. A
+            GRANDFATHERED bank (no integration_partners anywhere — written
+            before notes-pyq-bank/1.2) yields a dormant target: author
+            nothing, G-13 stays dormant.
+        I-6 CAPSTONE BOUND + FIRST-SUBTOPIC EDGE — a topic's LAST subtopic
+            may carry the capstone: one integration section spanning as many
+            earlier subtopics of that topic as its evidence attests (2.4 in
+            the approved demo). Any other unit keeps each integration
+            section to 1-2 partners — more belongs to the capstone. A unit
+            with NO earlier subtopic in the persisted order ships NO
+            integration section (nothing earlier exists to combine with;
+            the engine's latest-partner filing already guarantees this).
   B5  TRAP BOX — recurring wrong-option patterns. No year lists, no PYQ
       counts, no evidencing references in print (evidence stays in the bank).
   B6  RAPID REVISION SUMMARY — Must-Know Formulae (OMML in cells, §6 F-3)
@@ -313,6 +387,11 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       Answer. Types from the allowed set. validate_model and G-5 reject a
       Recall that carries any of those four teaching elements.
   B8  MIND MAP — auto-generated concept graph, last page, obeying §6 F-4.
+      SUBTOPIC-ONLY (v2.6.0, owner decision): the graph maps THIS subtopic's
+      core concepts only — B4a integration sections and their merged
+      concepts NEVER enter the mind map. The map answers "what does this
+      subtopic contain", not "what does it connect to"; the Combines
+      declaration already carries the connection in words.
 Adjacent boxes are always separated by a spacer paragraph so consecutive
 box tables never merge visually.
 TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence).
@@ -465,4 +544,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.5.1
+# END OF Framework_NotesCreate v2.6.0

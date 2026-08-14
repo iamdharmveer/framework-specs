@@ -1,5 +1,37 @@
 """
-notes_audit.py v2.4 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.5 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.5 — 2026-08-14 — G-13 INTEGRATION (in-subtopic Integration sections;
+    pairs with Framework_NotesAudit v3.4.0 §5 G-13, Framework_NotesCreate
+    v2.6.0 §4 B4a, Framework_NotesBlueprint v3.1.0 §3B B-1; notes_core >=
+    v2.7). New gate gate_integration(model, target) with target from
+    notes_core.integration_target_for — bank-derived with latest-partner
+    filing, so the author (NC) and this gate can never disagree (the G-12
+    idiom one feature over). What it enforces, and what it deliberately
+    does not:
+      HARD (only when the target attests a fusion for THIS unit) —
+              every attested fusion is taught by an integration section: a
+              concept block whose FIRST bullet is the Combines declaration
+              ("Combines: ..." — NC §4 B4a I-2, the mechanical marker; no
+              new model field, nothing new renders, W-3 untouched) naming
+              every partner; integration sections sit AFTER every core
+              concept section (before the tail); and a matched integration
+              section carries >= 1 worked Example.
+      DORMANT, never blocking — target=None (bank-less caller, the G-7a
+              discipline) and target.dormant=True: the GRANDFATHERED case,
+              a bank with no integration_partners anywhere predates
+              notes-pyq-bank/1.2 and could not carry the evidence. Dormant
+              is REPORTED, so every GATES identifier appears in every
+              report and audit_summary shows the grandfathering plainly.
+      ADVISORY (meta only) — unattested_sections: integration sections
+              present without bank attestation (SME bridge-justified under
+              D-6; listed for NA's judgement, never a finding).
+    terminal_regate gains integration_target= and reports G-13 beside the
+    other gates; a non-dormant G-13 failure blocks like any hard gate.
+    REMEDIATION ROUTING (spec §2A/§4): a G-13 finding is a partner-homing
+    gap — NA EXTENDS or ADDS the integration section (net-ADD licensed
+    exactly like G-12's); it NEVER quarantines the fused question, because
+    quarantine says "corrupt stem", not "the notes lack the partner bridge".
 
 v2.4 — 2026-08-13 — G-12 COVERAGE (Phase 2, Recommendations 3+4; pairs with
     Framework_NotesAudit v3.3.0 §5 G-12, Framework_NotesCreate v2.5.0 §4 B3a,
@@ -181,7 +213,7 @@ MAX_REGENERATIONS = 3            # spec §4 L-3
 # cross-step sync auditor compares this tuple against the identifiers the NA
 # spec names, and a gate present in one and absent from the other is a finding.
 GATES = ("G-1", "G-2a", "G-2b", "G-2c", "G-3", "G-4", "G-5", "G-6",
-         "G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12")
+         "G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12", "G-13")
 
 KEY_CORRECTION_TIERS = ("BANK_SELF_CONTRADICTS", "JUDGEMENT")
 
@@ -856,9 +888,105 @@ def gate_coverage(model, target):
     return (not findings, findings, meta)
 
 
+def gate_integration(model, target):
+    """G-13 — INTEGRATION (v2.5). target comes from
+    notes_core.integration_target_for on the bank (latest-partner filing).
+
+    HARD (findings, blocking) only when the target ATTESTS a fusion for this
+    unit: every attested fusion must be taught by an INTEGRATION SECTION — a
+    concept block whose FIRST bullet is the Combines declaration ("Combines:
+    ...", NC section 4 B4a I-2; the mechanical marker, so no new model field
+    exists and W-3 is untouched) naming every partner subtopic; integration
+    sections sit AFTER every core concept section (the end of the concept
+    stack, before the Trap Box); and a matched section carries >= 1 worked
+    Example.
+
+    DORMANT, never blocking: target=None (bank-less caller — the G-7a
+    discipline) and target["dormant"]=True — the GRANDFATHERED case: a bank
+    with no integration_partners field anywhere predates notes-pyq-bank/1.2
+    and could not have carried the evidence. Both are REPORTED.
+
+    ADVISORY (meta only): unattested_sections — integration sections present
+    with no bank attestation (SME bridge-justified under D-6; NA's judgement,
+    never a finding)."""
+    if target is None:
+        return (True, ["no integration target supplied — gate DORMANT but "
+                       "reported (build the target with "
+                       "notes_core.integration_target_for)"],
+                {"dormant": True})
+    if target.get("dormant"):
+        return (True, ["bank carries no integration_partners field anywhere "
+                       "— gate DORMANT (grandfathered: the bank predates "
+                       "notes-pyq-bank/1.2 and could not attest a fusion)"],
+                {"dormant": True, "grandfathered": True})
+
+    def _text(runs):
+        return "".join(r.get("s", "") for r in runs or ()
+                       if isinstance(r, dict))
+
+    integ, cur = [], None
+    core_after_integration = False
+    for i, b in enumerate(model.get("blocks", [])):
+        t = b.get("type")
+        if t == "concept":
+            content = b.get("content", [])
+            first = content[0] if content else None
+            declared = None
+            if isinstance(first, dict) and first.get("k") == "bullet":
+                s = _text(first.get("runs"))
+                if s.strip().startswith("Combines:"):
+                    declared = s
+            if declared is not None:
+                cur = {"i": i, "name": b.get("name", f"block {i}"),
+                       "combines": declared, "examples": 0}
+                integ.append(cur)
+            else:
+                if integ:
+                    core_after_integration = True
+                cur = None
+        elif t == "example" and cur is not None:
+            cur["examples"] += 1
+        elif t in ("trap", "rapid", "recall", "mindmap"):
+            cur = None
+    findings = []
+    if core_after_integration:
+        findings.append(
+            "a core concept section appears AFTER an integration section — "
+            "integration sections close the concept stack, immediately "
+            "before the Trap Box (NC section 4 B4a I-1)")
+    norm = lambda s: " ".join(str(s).lower().split())
+    matched = set()
+    for f in target.get("fusions", []):
+        partners = f.get("partners", [])
+        hit = next((sec for sec in integ
+                    if all(norm(p) in norm(sec["combines"])
+                           for p in partners)), None)
+        if hit is None:
+            findings.append(
+                f"the unit's own bank attests fusion with "
+                f"{', '.join(partners)} ({len(f.get('bank_ids', []))} "
+                f"question(s)) but no integration section declares it in a "
+                f"Combines line (NC section 4 B4a)")
+        else:
+            matched.add(hit["i"])
+            if hit["examples"] < 1:
+                findings.append(
+                    f"integration section {hit['name']!r} declares the "
+                    f"fusion but carries no worked Example (NC section 4 "
+                    f"B4a I-3)")
+    meta = {"dormant": False,
+            "integration_sections": len(integ),
+            "fusions_required": len(target.get("fusions", [])),
+            "fusions_taught": len(matched),
+            "unattested_sections": sorted(sec["name"] for sec in integ
+                                          if sec["i"] not in matched)}
+    return (not findings, findings, meta)
+
+
 def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
                     expected_omml=0, orphan_allowed=(), allowed_types=(),
-                    syllabus_terms=None, coverage_target=None):
+                    syllabus_terms=None, coverage_target=None,
+                    integration_target=None):
     """G-11 — THE TERMINAL RE-GATE. Run EVERY mechanical gate over the bytes
     that will ship, and hash them.
 
@@ -916,6 +1044,12 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
     ok_v, f_v, m_v = gate_coverage(model, coverage_target)
     g["G-12"] = {"ok": ok_v, "findings": f_v, "meta": m_v,
                  "dormant": bool(m_v.get("dormant"))}
+    # v2.5: G-13 INTEGRATION. BLOCKING when the target attests a fusion for
+    # this unit; DORMANT-but-reported without a target OR when the bank is
+    # GRANDFATHERED (no integration_partners anywhere — pre-1.2 bank).
+    ok_g, f_g, m_g = gate_integration(model, integration_target)
+    g["G-13"] = {"ok": ok_g, "findings": f_g, "meta": m_g,
+                 "dormant": bool(m_g.get("dormant"))}
     sha = notes_core.file_sha256(docx_path)
     # G-11 IS this function: the assertion that everything above ran against
     # the file that will ship, not against the pre-patch draft. Recorded as a
@@ -925,9 +1059,9 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
                  "meta": {"certified_sha256": sha, "gates_run": len(ran),
                           "path": os.path.basename(docx_path)}}
     g["_sha256"] = sha
-    # G-9 is advisory (English words are not syllabus terms); G-7a and a
-    # target-less G-12 may be dormant; none of those block. Everything else
-    # is blocking.
+    # G-9 is advisory (English words are not syllabus terms); G-7a, a
+    # target-less G-12 and a target-less or grandfathered G-13 may be
+    # dormant; none of those block. Everything else is blocking.
     blocking = [k for k, v in g.items()
                 if k.startswith("G-") and k not in ("G-9", "G-7a")
                 and not v.get("dormant") and not v["ok"]]
@@ -1400,6 +1534,28 @@ def self_test():
                          "requires_figure": False, "pyq_count": 1,
                          "distinct_concept_tags": 1})
     check("v2.4: a satisfied coverage target certifies", gates_cov_ok["_ok"])
+    # v2.5: G-13 in the terminal re-gate — dormant without a target or
+    # grandfathered, blocking with a violated live one.
+    check("v2.5: a target-less re-gate reports G-13 DORMANT and does not "
+          "block on it",
+          gates["G-13"]["dormant"] is True
+          and "G-13" not in gates["_blocking_failures"])
+    gates_int = terminal_regate(
+        good, m, tier="TIER-2", page_count=5, expected_omml=1,
+        integration_target={"dormant": False, "attested": True,
+                            "fusions": [{"partners": ["Capacitors"],
+                                         "bank_ids": ["I-1"]}],
+                            "pyq_count": 1})
+    check("v2.5: an attested-but-untaught fusion BLOCKS the terminal "
+          "re-gate (demo model has no integration section)",
+          not gates_int["_ok"] and "G-13" in gates_int["_blocking_failures"])
+    gates_gf = terminal_regate(
+        good, m, tier="TIER-2", page_count=5, expected_omml=1,
+        integration_target={"dormant": True, "attested": False,
+                            "fusions": [], "pyq_count": 0})
+    check("v2.5: a GRANDFATHERED pre-1.2 bank never blocks G-13",
+          gates_gf["G-13"]["dormant"] is True
+          and "G-13" not in gates_gf["_blocking_failures"])
 
     # ---- audit_summary --------------------------------------------------
     summ = audit_summary(r2, gates, bank_ref={"sha256": "b" * 64},
@@ -1532,6 +1688,75 @@ def self_test():
           "(no examples where no evidence)",
           gate_coverage({"blocks": [{"type": "title", "name": "U"}]},
                         zero)[0])
+
+    # ---- v2.5: G-13 integration -----------------------------------------
+    def integ_model(combines=None, integ_examples=1, core_after=False):
+        """One core concept + optionally one integration section (a concept
+        whose FIRST bullet is the Combines declaration)."""
+        blocks = [{"type": "title", "name": "U"},
+                  {"type": "concept", "name": "Core",
+                   "content": [{"k": "bullet", "runs": T("core fact")}]},
+                  {"type": "example", "qtype": "MCQ", "stem": T("s"),
+                   "options": [T("a"), T("b"), T("c"), T("d")],
+                   "answer": "2"}]
+        if combines is not None:
+            blocks.append({"type": "concept", "name": "Bridge",
+                           "content": [{"k": "bullet", "runs": T(combines)},
+                                       {"k": "bullet", "runs": T("seam fact")}]})
+            blocks += [{"type": "example", "qtype": "MCQ", "stem": T("s"),
+                        "options": [T("a"), T("b"), T("c"), T("d")],
+                        "answer": "2"}] * integ_examples
+        if core_after:
+            blocks.append({"type": "concept", "name": "Late Core",
+                           "content": [{"k": "bullet", "runs": T("x")}]})
+        blocks.append({"type": "trap", "bullets": [T("t")]})
+        return {"schema": notes_docx.SCHEMA, "exam_code": "EX",
+                "unit": {"name": "U", "tier": "TIER-2", "seq_in_topic": 1},
+                "blocks": blocks}
+    tgt13 = {"dormant": False, "attested": True,
+             "fusions": [{"partners": ["Capacitors"],
+                          "bank_ids": ["I-1", "I-2"]}], "pyq_count": 2}
+    ok13, f13, m13 = gate_integration(
+        integ_model("Combines: Capacitors + this sub topic"), tgt13)
+    check("G-13 passes an attested fusion taught by a Combines-led "
+          "integration section with an Example",
+          ok13 and m13["fusions_taught"] == 1
+          and m13["integration_sections"] == 1)
+    ok13b, f13b, _ = gate_integration(integ_model(None), tgt13)
+    check("G-13 catches an attested fusion with NO integration section",
+          not ok13b and any("no integration section declares" in x
+                            for x in f13b))
+    ok13c, f13c, _ = gate_integration(
+        integ_model("Combines: Semiconductors + this sub topic"), tgt13)
+    check("G-13 catches a Combines line that names the WRONG partner",
+          not ok13c and any("Capacitors" in x for x in f13c))
+    ok13d, f13d, _ = gate_integration(
+        integ_model("Combines: Capacitors + this sub topic",
+                    integ_examples=0), tgt13)
+    check("G-13 catches an integration section with no worked Example",
+          not ok13d and any("no worked Example" in x for x in f13d))
+    ok13e, f13e, _ = gate_integration(
+        integ_model("Combines: Capacitors + this sub topic",
+                    core_after=True), tgt13)
+    check("G-13 catches a core concept AFTER the integration section "
+          "(placement: end of the concept stack)",
+          not ok13e and any("AFTER an integration section" in x
+                            for x in f13e))
+    ok13f, f13f, m13f = gate_integration(
+        integ_model(None), {"dormant": True, "attested": False,
+                            "fusions": [], "pyq_count": 0})
+    check("G-13 is DORMANT-but-reported for a GRANDFATHERED pre-1.2 bank",
+          ok13f and m13f["dormant"] is True
+          and m13f.get("grandfathered") is True and f13f)
+    ok13g, f13g, m13g = gate_integration(integ_model(None), None)
+    check("G-13 without a target is DORMANT-but-reported (the G-7a "
+          "discipline)", ok13g and m13g["dormant"] is True and f13g)
+    ok13h, _, m13h = gate_integration(
+        integ_model("Combines: Capacitors + this sub topic"),
+        {"dormant": False, "attested": False, "fusions": [], "pyq_count": 0})
+    check("G-13 lists an unattested integration section as ADVISORY meta, "
+          "never a finding",
+          ok13h and m13h["unattested_sections"] == ["Bridge"])
 
     ok_ol, f_ol, m_ol = gate_outline(m)
     check("G-6 passes a gapless outline", ok_ol)

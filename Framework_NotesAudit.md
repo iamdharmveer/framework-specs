@@ -1,4 +1,27 @@
-# Framework_NotesAudit v3.3.1 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.4.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.4.0 — 2026-08-14 — G-13 INTEGRATION (in-subtopic Integration sections;
+#   owner decisions of the 2026-08-14 design session; pairs with
+#   Framework_NotesCreate v2.6.0 §4 B4a, Framework_NotesBlueprint v3.1.0 §3B
+#   B-1; notes_core >= v2.7, notes_audit >= v2.5). New gate G-13
+#   (notes_audit.gate_integration) against the unit's bank-derived
+#   INTEGRATION CONTRACT (notes_core.integration_target_for — latest-partner
+#   filing over the persisted teaching order, so the fusion is always taught
+#   where the student has met every ingredient). HARD when the bank attests
+#   a fusion for THIS unit: an integration section (a concept block whose
+#   FIRST bullet is the Combines declaration — the same
+#   derived-from-content discipline as every number in the document; no new
+#   model field, W-3 and §0B P-4 untouched) must name every partner, sit
+#   after every core concept, and carry >= 1 worked Example. DORMANT, never
+#   blocking: no target (bank-less caller) and the GRANDFATHERED case — a
+#   bank with no integration_partners anywhere predates notes-pyq-bank/1.2
+#   and could not attest a fusion; both are reported, and the grandfathered
+#   dormancy is a legitimate live-NA outcome (unlike G-12's). ADVISORY:
+#   unattested integration sections (SME bridge-justified, D-6). REMEDIATION
+#   ROUTING (§2A/§4): a G-13 finding is a PARTNER-HOMING gap — NA EXTENDS or
+#   ADDS the integration section (net-ADD licensed exactly like G-12's);
+#   it NEVER quarantines the fused question, because quarantine says "this
+#   stem is corrupt or mis-filed", not "the notes lack the partner bridge".
+#   G-11 runs G-13 with every other gate over the bytes that ship.
 # v3.3.1 — 2026-08-14 — QUARANTINE x COVERAGE EDGE STATED (line-by-line
 #   certification sweep). §5 G-12 now states explicitly what the engine
 #   already does: a QUARANTINED question (§4 L-4) still counts toward the
@@ -122,26 +145,29 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.6 — notes_final_filename, docx_ref_for/verify_docx_ref,
+#   notes_core.py  >= v2.7 — notes_final_filename, docx_ref_for/verify_docx_ref,
 #                            registry schema notes-registry/2.1 (draft_ref,
 #                            final_ref, audit_summary), resolve_unit, the
 #                            density/math/prose gates, bank_questions_for,
 #                            document_text (the ONLY document text extractor),
 #                            coverage_target_for + COVERAGE_CONCEPT_CEILING
-#                            (§5 G-12's bank-derived contract, v2.6)
+#                            (§5 G-12's bank-derived contract, v2.6), and
+#                            integration_target_for (§5 G-13's bank-derived
+#                            contract, v2.7 — latest-partner filing;
+#                            grandfathered-dormant for pre-1.2 banks)
 #   notes_docx.py  >= v1.3 — the SHARED builder/parser: build/parse/
 #                            validate_model/outline_of. Derived numbering and
 #                            the STRICT byte-identical round trip are its
 #                            guarantees; parse takes exam_code/tier (W-4). v1.3
 #                            adds the why_wrong/objective fields (§4 B3) that
 #                            parse recovers and the round trip preserves
-#   notes_audit.py >= v2.4 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
+#   notes_audit.py >= v2.5 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
 #                            record_key_correction, quarantine, gate_line_rules,
 #                            gate_answer_integrity, gate_counters,
 #                            gate_orphan_terms, syllabus_terms_for,
 #                            gate_anatomy, gate_question_format, gate_outline,
-#                            gate_coverage (§5 G-12, v2.4), terminal_regate,
-#                            audit_summary
+#                            gate_coverage (§5 G-12, v2.4), gate_integration
+#                            (§5 G-13, v2.5), terminal_regate, audit_summary
 #
 # PURPOSE:
 #   Guarantee that the delivered document teaches every in-syllabus PYQ of one
@@ -323,10 +349,11 @@ SCOPE OF THE WRITE:
   FORBIDDEN — changing the NUMBER of Examples or Recall items as bounded
     IMPROVEMENT (a net add or remove moves the global j sequence and voids
     G-5's type-coverage proof; replacement is not addition). A net ADD is
-    licensed ONLY by a G-12 hard finding — a bank-attested type or a concept
-    spread the existing stack cannot cover — because numbering is derived
-    (W-1) and G-11 re-gates the result; a net REMOVE is never licensed
-    outside §4 L-2 full regeneration. Also FORBIDDEN: changing any Answer
+    licensed ONLY by a G-12 or G-13 hard finding — a bank-attested type, a
+    concept spread the existing stack cannot cover, or (v3.4.0) an attested
+    fusion with no integration section to teach it — because numbering is
+    derived (W-1) and G-11 re-gates the result; a net REMOVE is never
+    licensed outside §4 L-2 full regeneration. Also FORBIDDEN: changing any Answer
     except through section 3A; DELETING an Example's distractor autopsy or its
     Objective, or dropping a per-option rationale below the wrong-option count
     (validate_model + G-5 would fail the rebuild); and introducing any fact
@@ -544,23 +571,63 @@ pass.
       FRESH scenario (the section 2A net-ADD licence covers exactly this).
       The same is true of the spread minimum: it derives from the slice's
       concept_tags, quarantined or not.
+  G-13 INTEGRATION (notes_audit.gate_integration) — v3.4.0. The target is
+      notes_core.integration_target_for over the bank with the registry's
+      persisted unit order, computed by NA itself — the SAME contract NC §4
+      B4a authored to, one authority, no drift (the G-12 idiom). Filing is
+      LATEST-PARTNER: a fused question attests an integration section only
+      in the latest member of its fusion set, so backward-only teaching
+      holds by construction and no two units are ever asked to teach the
+      same fusion.
+      HARD, only when the target attests a fusion for THIS unit: every
+      attested fusion is taught by an integration section — a concept block
+      whose FIRST bullet is the Combines declaration naming every partner
+      (NC §4 B4a I-2; the mechanical marker is CONTENT, so no new model
+      field exists and W-3 / §0B P-4 are untouched); integration sections
+      sit AFTER every core concept section (they close the concept stack,
+      before the Trap Box); and a matched section carries >= 1 worked
+      Example.
+      DORMANT, never blocking, always reported: a target-less call
+      (bank-less engine callers only — the §0A rule that a live NA always
+      has the bank applies exactly as it does to G-12), and the
+      GRANDFATHERED case: a bank carrying no integration_partners anywhere
+      predates notes-pyq-bank/1.2 and could not attest a fusion. UNLIKE
+      G-12, grandfathered dormancy IS a legitimate live-NA outcome — it is
+      disclosed in the §9 chat line, and the unit certifies without an
+      integration section until the bank is refreshed with tags (NB §3B
+      B-1; §7 there).
+      ADVISORY, in meta, never blocking: unattested_sections — integration
+      sections present without bank attestation (SME bridge-justified,
+      D-6); NA judges them under §2A like any other content.
+      REMEDIATION ROUTING: a G-13 finding is a PARTNER-HOMING gap, and the
+      remedy is the integration section — EXTEND it (a bridge bullet, a
+      seam Example via one-for-one replacement) or ADD it (the §2A net-ADD
+      licence covers a G-13 hard finding exactly as it covers G-12's).
+      QUARANTINE IS NEVER THE ANSWER to a G-13 finding: quarantine says
+      "this one stem is corrupt or mis-filed" (§4 L-4), not "the notes lack
+      the partner bridge" — quarantining a fused question would hide the
+      gap AND (v3.3.1 discipline) not even shrink the contract, since the
+      target reads the BANK. A fused question that is genuinely corrupt
+      still quarantines through §4 L-1..L-4 on its own merits, exactly as
+      before.
   G-11 TERMINAL RE-GATE (notes_audit.terminal_regate) — MANDATORY, LAST.
       After the final edit, re-run the FULL solve across ALL of the unit's
       bank questions and EVERY gate above over the bytes that will ship, then
       hash them. NA edits the document, so certifying the pre-patch draft
       certifies a file that no longer exists: a correction that fixes Q7 and
       breaks Q12's cross-reference is exactly what a pre-patch certification
-      misses. Only G-9 (advisory), a DORMANT G-7a and a target-less DORMANT
-      G-12 are non-blocking.
+      misses. Only G-9 (advisory), a DORMANT G-7a, a target-less DORMANT
+      G-12 and a DORMANT G-13 (target-less or grandfathered) are
+      non-blocking.
       G-11 is itself REPORTED as a gate, carrying the certified sha256 and the
       number of gates run, so audit_summary shows plainly WHICH bytes were
       certified rather than asserting it in prose alone. Every identifier in
       notes_audit.GATES appears in the report; notes_sync_audit.py checks that
       this list and this section still agree.
-      Gate identifiers are HISTORICAL, not positional: G-12 was added after
-      G-11 existed and is deliberately listed above it, because G-11 is the
-      terminal re-gate and MUST remain last — "EVERY gate above" includes
-      G-12.
+      Gate identifiers are HISTORICAL, not positional: G-12 and G-13 were
+      added after G-11 existed and are deliberately listed above it, because
+      G-11 is the terminal re-gate and MUST remain last — "EVERY gate above"
+      includes G-12 and G-13.
 
 ## §6 — REPORT AND STATE
 There is NO .md audit report. The report OBJECT (notes_audit.new_report) is
@@ -620,8 +687,12 @@ warning (section 0B P-3), the FIGURE_PENDING count, any DORMANT gate
 (section 5 G-7a; a dormant G-12 is a DEFECT, section 5 G-12), and the
 section 5 G-12 coverage line: concepts covered vs required, any
 duplicate_suspects, the figure advisory if raised, and every G-12-driven
-Example replacement or licensed net ADD (section 2A) named individually.
+Example replacement or licensed net ADD (section 2A) named individually —
+plus (v3.4.0) the section 5 G-13 integration line: fusions taught vs
+attested, a GRANDFATHERED dormancy disclosed plainly when the bank predates
+notes-pyq-bank/1.2, any unattested integration sections kept under D-6, and
+every G-13-driven extension or licensed net ADD named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.3.1
+# END OF Framework_NotesAudit v3.4.0

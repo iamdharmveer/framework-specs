@@ -1,4 +1,25 @@
-# Framework_NotesBlueprint v3.0.3 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.1.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.1.0 — 2026-08-14 — INTEGRATION EVIDENCE IN THE BANK (owner decisions of
+#   the 2026-08-14 design session; pairs with Framework_NotesCreate v2.6.0
+#   §4 B4a and Framework_NotesAudit v3.4.0 §5 G-13; notes_core >= v2.7).
+#   Real exams fuse 2-3 subtopics in one question; the bank now RECORDS that
+#   evidence where it is seen — at ingest. §3B B-1 gains the OPTIONAL
+#   integration_partners field (schema notes-pyq-bank/1.2, additive; 1.0/1.1
+#   banks still load): the OTHER subtopics a question genuinely fuses, each
+#   in the canonical Subject::Topic::Sub Topic Name scope form (the same
+#   form the resolve convention teaches everywhere). Claude-as-SME tags it
+#   while reading the question — the header subtopic stays AUTHORITATIVE
+#   and untouched (§1.3; NB still never reclassifies); a partner is evidence
+#   ABOUT the question, not a re-filing OF it. bank_add_question validates:
+#   scope form only, own subtopic never a partner. WHERE the fusion is
+#   taught is not NB's decision: notes_core.integration_target_for files
+#   every fused question at the LATEST member of its fusion set in the
+#   persisted teaching order (backward-only by construction — NC §4 B4a
+#   authors to it, NA G-13 gates it). GRANDFATHERING: a bank with no
+#   integration_partners anywhere (written before 1.2) makes the contract
+#   DORMANT downstream — no re-ingest is forced; the next §7 bank refresh
+#   or new-paper append is the natural moment tags enter. No other field,
+#   count, role, tier or output changes.
 # v3.0.3 — 2026-08-12 — REGISTRY 2.1 SYNC (GAP-2026-08-12-NADOCX patch P3 of 3).
 #   NB creates the registry, and notes_core v2.4's registry_init now EMITS
 #   notes-registry/2.1 — additively: the 2.0 keys are untouched, 1.x/2.0 still
@@ -147,7 +168,12 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v2.4 — registry_init EMITS notes-registry/2.1 (additive:
+#   notes_core.py >= v2.7 — notes-pyq-bank/1.2: bank_add_question accepts and
+#                           validates the optional integration_partners field
+#                           (§3B B-1); integration_target_for is the
+#                           downstream filing authority. Additive — a 1.0/1.1
+#                           bank still loads and migrates. Also (v2.4):
+#                           registry_init EMITS notes-registry/2.1 (additive:
 #                           adds draft_ref / final_ref / audit_summary per
 #                           unit). NB creates the registry, so it must be the
 #                           version that writes the 2.1 shape; a 2.0 registry
@@ -382,7 +408,21 @@ B-1 PER-QUESTION FIELDS (notes_core.bank_add_question):
       complexity (the doc's "Complexity:" value; stored, informs §5 register),
       subject/topic/subtopic (the per-question header, authoritative),
       stem (full text WITH its OMML math preserved), options (MCQ/MSQ; empty for NAT),
-      correct_answer, explanation, stem_figures, solution_figures, concept_tags.
+      correct_answer, explanation, stem_figures, solution_figures, concept_tags,
+      and (v3.1.0, OPTIONAL) integration_partners — when solving the question
+      genuinely REQUIRES another subtopic's content (not merely mentions its
+      vocabulary), Claude-as-SME lists that OTHER subtopic in the canonical
+      Subject::Topic::Sub Topic Name scope form; typically 1-2 partners, only
+      where the fusion is real. The header subtopic remains AUTHORITATIVE and
+      is never a partner (bank_add_question raises on the own subtopic and on
+      any non-scope-form entry). The field is EVIDENCE about the question —
+      never a re-filing of it (§1.3 stands: NB never reclassifies). WHERE the
+      fusion is taught is decided downstream by
+      notes_core.integration_target_for (latest-partner filing over the
+      persisted teaching order; NC §4 B4a authors to it, NA G-13 gates it) —
+      NB only records what it sees. A bank with no integration_partners
+      anywhere (pre-1.2) leaves the downstream contract DORMANT
+      (grandfathered); tags enter naturally at the next §7 refresh.
 B-2 EXAM DATE (owner decision 2/3): notes_core.parse_exam_date_from_filename on
       the paper filename supplies exam_date + exam_year for every question in that
       paper. A filename with no parseable date is REPORTED (that paper's questions
@@ -427,8 +467,10 @@ never changes the tier boundaries. Complexity (B-1) may nuance the register but
 never the tier.
 
 ## §6 — OUTPUTS
-O-1 notes_pyq_bank.json — schema notes_core.PYQ_BANK_SCHEMA (>= notes-pyq-bank/1.1;
-    a 1.0 bank still loads and migrates). The full corpus: papers[] (with per-paper
+O-1 notes_pyq_bank.json — schema notes_core.PYQ_BANK_SCHEMA (notes-pyq-bank/1.2
+    as of notes_core v2.7 — additive: 1.2 adds the optional per-question
+    integration_partners field of §3B B-1; a 1.0 or 1.1 bank still loads and
+    migrates). The full corpus: papers[] (with per-paper
     image_report) and questions[] (§3B fields). The stored subtopic_key is
     informational only — NC/NA and count derivation RECOMPUTE it from each
     question's subject/topic/subtopic, so a bank written by an older notes_core
@@ -555,4 +597,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.0.3
+# END OF Framework_NotesBlueprint v3.1.0

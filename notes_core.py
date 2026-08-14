@@ -1,5 +1,32 @@
 """
-notes_core.py v2.6 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.7 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.7 — 2026-08-14 — INTEGRATION EVIDENCE (in-subtopic Integration sections;
+    pairs with Framework_NotesCreate v2.6.0 §4 B4a, Framework_NotesBlueprint
+    v3.1.0 §3B B-1, Framework_NotesAudit v3.4.0 §5 G-13; notes_audit >= v2.5).
+    Real exams fuse 2-3 subtopics in one question; the portal links one page
+    per subtopic, so the fusion is taught IN-SUBTOPIC: an integration section
+    at the end of the concept stack, before the Trap Box, in the LATEST
+    partner subtopic (backward-only — students have met every ingredient).
+    Two additions, both additive:
+      (1) PYQ_BANK_SCHEMA -> notes-pyq-bank/1.2. bank_add_question accepts an
+          OPTIONAL integration_partners list: the OTHER subtopics a question
+          genuinely fuses, each in the canonical Subject::Topic::Sub Topic
+          Name scope form (the same form resolve_unit teaches). Malformed
+          entries and a question naming its OWN subtopic as a partner raise.
+          1.0/1.1 banks still load and migrate; the field defaults absent.
+      (2) integration_target_for(bank, subject, topic, subtopic,
+          unit_order=None) — the unit's INTEGRATION CONTRACT, the single
+          authority NC authors to and NA G-13 gates (the coverage_target_for
+          idiom one feature over). unit_order maps subtopic_key -> persisted
+          ordinal (registry numbering); a fused question FILES at the LATEST
+          member of its fusion set present in the order (latest-partner
+          filing), so earlier partners never teach material the student has
+          not reached. Without unit_order the question's own header subtopic
+          is the filing home. GRANDFATHERING: a bank carrying NO
+          integration_partners anywhere returns dormant=True — pre-1.2 banks
+          never fail a gate they could not have satisfied.
+    Deterministic throughout; no clock, no randomness (NA §8 idempotence).
 
 v2.6 — 2026-08-13 — COVERAGE TARGET (Phase 2, Recommendations 3+4; pairs with
     Framework_NotesCreate v2.5.0 §4 B3a and Framework_NotesAudit v3.3.0 §5
@@ -908,8 +935,9 @@ def assert_omml(docx_path, expected_min, required_tokens=()):
 # artifact, not a framework file — its SCHEMA lives here so it is bootstrap-
 # verified and unit-testable. NC filters it per subtopic; NA solves against
 # its verbatim correct_answer. Both consume it read-only; neither re-reads Drive.
-PYQ_BANK_SCHEMA = "notes-pyq-bank/1.1"
-PYQ_BANK_SCHEMAS_ACCEPTED = ("notes-pyq-bank/1.0", "notes-pyq-bank/1.1")
+PYQ_BANK_SCHEMA = "notes-pyq-bank/1.2"
+PYQ_BANK_SCHEMAS_ACCEPTED = ("notes-pyq-bank/1.0", "notes-pyq-bank/1.1",
+                             "notes-pyq-bank/1.2")
 
 BANK_REQUIRED_FIELDS = ("bank_id", "paper_key", "exam_date", "exam_year",
                         "q_no", "type", "subject", "topic", "subtopic", "stem")
@@ -1017,8 +1045,13 @@ def bank_add_paper(bank, paper_key, exam_date, exam_year, filename,
 def bank_add_question(bank, rec):
     """Append one validated question. rec keys: the BANK_REQUIRED_FIELDS plus
     optional complexity, options, correct_answer, explanation (verbatim),
-    stem_figures, solution_figures, concept_tags. stem_figures present ->
-    figure flag True (NC FIGURE dependency; owner decision 3 split)."""
+    stem_figures, solution_figures, concept_tags, integration_partners.
+    stem_figures present -> figure flag True (NC FIGURE dependency; owner
+    decision 3 split). integration_partners (v2.7, notes-pyq-bank/1.2,
+    OPTIONAL): the OTHER subtopics this question genuinely fuses, each in the
+    canonical Subject::Topic::Sub Topic Name scope form — a malformed entry or
+    the question's OWN subtopic raises (a fusion needs a partner that is not
+    itself)."""
     missing = [k for k in BANK_REQUIRED_FIELDS if rec.get(k) in (None, "")]
     if missing:
         raise ValueError(f"bank question {rec.get('bank_id')!r} missing {missing}")
@@ -1026,6 +1059,28 @@ def bank_add_question(bank, rec):
     if t not in CANONICAL_TYPES:
         raise ValueError(f"bank question {rec['bank_id']!r} non-canonical type "
                          f"{rec['type']!r}")
+    raw_partners = rec.get("integration_partners") or []
+    if not isinstance(raw_partners, (list, tuple)):
+        raise ValueError(f"bank question {rec['bank_id']!r} integration_partners "
+                         f"must be a list of Subject::Topic::Sub Topic Name "
+                         f"scope strings")
+    own_key = subtopic_key(rec["subject"], rec["topic"], rec["subtopic"])
+    partners, seen_keys = [], set()
+    for p in raw_partners:
+        parts = [x.strip() for x in str(p).split("::")]
+        if len(parts) != 3 or not all(parts):
+            raise ValueError(
+                f"bank question {rec['bank_id']!r} integration partner {p!r} "
+                f"is not the Subject::Topic::Sub Topic Name scope form")
+        k = subtopic_key(*parts)
+        if k == own_key:
+            raise ValueError(
+                f"bank question {rec['bank_id']!r} names its OWN subtopic as "
+                f"an integration partner — a fusion needs a partner that is "
+                f"not itself")
+        if k not in seen_keys:
+            seen_keys.add(k)
+            partners.append("::".join(parts))
     q = {"bank_id": rec["bank_id"], "paper_key": rec["paper_key"],
          "exam_date": rec["exam_date"], "exam_year": int(rec["exam_year"]),
          "q_no": rec["q_no"], "type": t, "complexity": rec.get("complexity"),
@@ -1039,6 +1094,8 @@ def bank_add_question(bank, rec):
          "solution_figures": list(rec.get("solution_figures", [])),
          "figure": bool(rec.get("stem_figures")),
          "concept_tags": list(rec.get("concept_tags", []))}
+    if partners:
+        q["integration_partners"] = partners
     bank["questions"].append(q)
     return q
 
@@ -1131,6 +1188,65 @@ def coverage_target_for(bank, subject, topic, subtopic, allowed_types=()):
             "requires_figure": any(q.get("figure") for q in qs),
             "pyq_count": len(qs),
             "distinct_concept_tags": len(tags)}
+
+
+def integration_target_for(bank, subject, topic, subtopic, unit_order=None):
+    """v2.7 — the unit's INTEGRATION CONTRACT, derived entirely from the bank
+    (G-13's single authority; NC §4 B4a authors to it, NA §5 G-13 gates it,
+    so author and gate can never disagree — the coverage_target_for idiom).
+
+    Returns {"dormant", "attested", "fusions": [{"partners": [display names of
+    the OTHER subtopics], "bank_ids": [...]}], "pyq_count"}.
+
+    GRANDFATHERING: a bank with NO integration_partners field on ANY question
+    (a bank written before notes-pyq-bank/1.2) returns dormant=True — the gate
+    reports DORMANT and never blocks, because the bank could not have carried
+    the evidence. The moment ANY question in the bank declares a partner, the
+    contract is live for every unit.
+
+    LATEST-PARTNER FILING (backward-only, owner decision 2026-08-14): a fused
+    question's FUSION SET is its own header subtopic plus every declared
+    partner. The question files at — attests an integration section in — the
+    LATEST member of that set under unit_order (subtopic_key -> persisted
+    ordinal, from the registry's numbering; NB §1A A-3 makes that order
+    teaching order). Earlier members never teach the fusion: their students
+    have not met the later ingredients yet. Members absent from unit_order
+    (not registry units) cannot host teaching and are skipped for filing.
+    Without unit_order the question's own header subtopic is the filing home.
+    Deterministic by construction — no clock, no randomness (NA §8)."""
+    questions = bank.get("questions", [])
+    if not any(q.get("integration_partners") for q in questions):
+        return {"dormant": True, "attested": False, "fusions": [],
+                "pyq_count": 0}
+    own = subtopic_key(subject, topic, subtopic)
+    fusions = {}
+    for q in questions:
+        declared = q.get("integration_partners") or []
+        if not declared:
+            continue
+        home = subtopic_key(q["subject"], q["topic"], q["subtopic"])
+        members = {home: (q["subject"], q["topic"], q["subtopic"])}
+        for p in declared:
+            parts = [x.strip() for x in str(p).split("::")]
+            if len(parts) == 3 and all(parts):
+                members[subtopic_key(*parts)] = tuple(parts)
+        if own not in members:
+            continue
+        if unit_order:
+            known = [k for k in members if k in unit_order]
+            if own not in known:
+                continue
+            if max(known, key=lambda k: unit_order[k]) != own:
+                continue          # a LATER partner hosts this fusion
+        elif home != own:
+            continue              # no order info: header subtopic files it
+        partner_names = tuple(sorted(members[k][2] for k in members
+                                     if k != own))
+        fusions.setdefault(partner_names, []).append(q["bank_id"])
+    out = [{"partners": list(names), "bank_ids": ids}
+           for names, ids in sorted(fusions.items())]
+    return {"dormant": False, "attested": bool(out), "fusions": out,
+            "pyq_count": sum(len(f["bank_ids"]) for f in out)}
 
 
 def derive_taxonomy_counts(bank, latest_years=3):
@@ -1429,6 +1545,72 @@ def self_test():
     check("coverage: deterministic (same slice -> identical target)",
           ct == coverage_target_for(bt, "B", "T", "EK"))
 
+    # ---- v2.7: integration_partners + integration_target_for (G-13) -----
+    check("integration: a partnerless bank is GRANDFATHERED dormant",
+          integration_target_for(b, "Physics", "Optics", "Polarization")
+          == {"dormant": True, "attested": False, "fusions": [],
+              "pyq_count": 0})
+    bi = bank_new("PH")
+    bank_add_paper(bi, "kp", "2026-02-15", 2026, "..x..docx", 3)
+    bank_add_question(bi, dict(bank_id="I-1", paper_key="kp",
+        exam_date="2026-02-15", exam_year=2026, q_no=1, type="MCQ",
+        subject="Physics", topic="EM", subtopic="Capacitors", stem="s",
+        correct_answer="1",
+        integration_partners=["Physics::EM::DC and AC Circuits"]))
+    bank_add_question(bi, dict(bank_id="I-2", paper_key="kp",
+        exam_date="2026-02-15", exam_year=2026, q_no=2, type="MCQ",
+        subject="Physics", topic="EM", subtopic="DC and AC Circuits",
+        stem="s", correct_answer="2",
+        integration_partners=["Physics::EM::Capacitors"]))
+    bank_add_question(bi, dict(bank_id="I-3", paper_key="kp",
+        exam_date="2026-02-15", exam_year=2026, q_no=3, type="NAT",
+        subject="Physics", topic="EM", subtopic="Electrostatics", stem="s",
+        correct_answer="4.2"))
+    order = {subtopic_key("Physics", "EM", "Electrostatics"): 1,
+             subtopic_key("Physics", "EM", "Capacitors"): 2,
+             subtopic_key("Physics", "EM", "DC and AC Circuits"): 3}
+    ti = integration_target_for(bi, "Physics", "EM", "DC and AC Circuits",
+                                unit_order=order)
+    check("integration: BOTH fused questions file at the LATEST partner",
+          ti["attested"] is True and ti["pyq_count"] == 2
+          and ti["fusions"] == [{"partners": ["Capacitors"],
+                                 "bank_ids": ["I-1", "I-2"]}])
+    check("integration: the EARLIER partner is never asked to teach the "
+          "fusion (backward-only by construction)",
+          integration_target_for(bi, "Physics", "EM", "Capacitors",
+                                 unit_order=order)["attested"] is False)
+    check("integration: an unfused unit in a live bank has no contract",
+          integration_target_for(bi, "Physics", "EM", "Electrostatics",
+                                 unit_order=order)
+          == {"dormant": False, "attested": False, "fusions": [],
+              "pyq_count": 0})
+    check("integration: without unit_order the header subtopic files it",
+          integration_target_for(bi, "Physics", "EM",
+                                 "Capacitors")["pyq_count"] == 1
+          and integration_target_for(bi, "Physics", "EM",
+                                     "DC and AC Circuits")["pyq_count"] == 1)
+    check("integration: deterministic (same bank -> identical target)",
+          ti == integration_target_for(bi, "Physics", "EM",
+                                       "DC and AC Circuits",
+                                       unit_order=order))
+    try:
+        bank_add_question(bi, dict(bank_id="I-BAD1", paper_key="kp",
+            exam_date="2026-02-15", exam_year=2026, q_no=4, type="MCQ",
+            subject="Physics", topic="EM", subtopic="Capacitors", stem="s",
+            correct_answer="1",
+            integration_partners=["Physics::EM::Capacitors"]))
+        check("integration: OWN subtopic as partner raises", False)
+    except ValueError:
+        check("integration: OWN subtopic as partner raises", True)
+    try:
+        bank_add_question(bi, dict(bank_id="I-BAD2", paper_key="kp",
+            exam_date="2026-02-15", exam_year=2026, q_no=5, type="MCQ",
+            subject="Physics", topic="EM", subtopic="Capacitors", stem="s",
+            correct_answer="1", integration_partners=["just a bare name"]))
+        check("integration: a non-scope-form partner raises", False)
+    except ValueError:
+        check("integration: a non-scope-form partner raises", True)
+
     # v1.7: subtopic_key joins across syllabus-vs-header label drift (fix 3)
     def _joins(a, bb):
         return subtopic_key("S", "T", a) == subtopic_key("S", "T", bb)
@@ -1463,9 +1645,10 @@ def self_test():
           and list(cnts.values())[0]["pyq_count"] == 2)
 
     # schema acceptance + migration
-    check("bank_validate accepts 1.0 and 1.1",
+    check("bank_validate accepts 1.0, 1.1 and 1.2",
           bank_validate({"schema": "notes-pyq-bank/1.0", "questions": []}) is True
-          and bank_validate({"schema": "notes-pyq-bank/1.1", "questions": []}) is True)
+          and bank_validate({"schema": "notes-pyq-bank/1.1", "questions": []}) is True
+          and bank_validate({"schema": "notes-pyq-bank/1.2", "questions": []}) is True)
     try:
         bank_validate({"schema": "notes-pyq-bank/0.9", "questions": []})
         check("bank_validate rejects unknown schema", False)
@@ -1654,7 +1837,7 @@ def self_test():
     check("spec-lock: schema strings as the specs cite them",
           REGISTRY_SCHEMA == "notes-registry/2.1"
           and BLUEPRINT_SCHEMA == "notes-blueprint/2.0"
-          and PYQ_BANK_SCHEMA == "notes-pyq-bank/1.1")
+          and PYQ_BANK_SCHEMA == "notes-pyq-bank/1.2")
     check("spec-lock: NB §4 / registry vocabularies",
           ROLES == ("PYQ_WEIGHTED", "BRIDGE", "EVIDENCE_ADDED", "COVERAGE")
           and STATES == ("BLUEPRINTED", "DRAFTED", "AUDITED_PASS", "DELIVERED")

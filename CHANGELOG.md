@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026.08.14.1 — In-subtopic Integration sections (both layers, one release)
+
+Real exams fuse 2-3 subtopics in one question; the IFAS portal links one page
+per subtopic (owner constraint), so the fusion is taught IN-SUBTOPIC: an
+integration section closing the concept stack — after every core concept's
+KEY POINTS, immediately before the Trap Box — in the LATEST partner subtopic,
+so the student has met every ingredient (backward-only). Approved on the
+DC/AC Circuits placement demo. Two layers, shipped together (owner decision):
+spec rules AND machine enforcement, with grandfathering keeping old banks
+safe.
+
+- `Framework_NotesCreate.md` v2.5.1 → **v2.6.0** — new §4 B4a: the
+  integration section is an ORDINARY concept section (own example stack, own
+  KEY POINTS; numbering, colours, density and every existing gate already
+  police it — no builder change) marked by its FIRST bullet, the Combines
+  declaration. Rules I-1..I-6: placement, declaration + bridge bullets +
+  seam Examples, backward-only partners, evidence-driven authoring against
+  `notes_core.integration_target_for`, the last-subtopic capstone bound, and
+  the no-earlier-partner edge. B8's mind map stays SUBTOPIC-ONLY — merged
+  concepts never enter it.
+- `Framework_NotesBlueprint.md` v3.0.3 → **v3.1.0** — §3B B-1 gains the
+  OPTIONAL integration_partners field (schema notes-pyq-bank/1.2, additive):
+  Claude-as-SME records, at ingest, the OTHER subtopics a question genuinely
+  fuses (canonical Subject::Topic::Sub Topic Name scope form; own subtopic
+  and malformed entries raise). The header subtopic stays authoritative —
+  a partner is evidence ABOUT the question, never a re-filing of it.
+- `Framework_NotesAudit.md` v3.3.1 → **v3.4.0** — new gate §5 G-13
+  (`notes_audit.gate_integration`): HARD when the unit's bank attests a
+  fusion (integration section present, every partner named in the Combines
+  line, placement after all core concepts, >= 1 worked Example); DORMANT and
+  never blocking for a GRANDFATHERED pre-1.2 bank — disclosed in the chat
+  line, exactly the pattern the framework already uses twice. Remediation
+  routing: a G-13 finding EXTENDS or ADDS the integration section (§2A
+  net-ADD licence widened to G-13); it never quarantines the fused question.
+- `notes_core.py` v2.6 → **v2.7** — PYQ_BANK_SCHEMA → notes-pyq-bank/1.2
+  (1.0/1.1 still load); bank_add_question validates integration_partners;
+  new `integration_target_for` with LATEST-PARTNER filing over the
+  registry's persisted order and grandfathered dormancy. Self-test 158 → 166.
+- `notes_audit.py` v2.4 → **v2.5** — new `gate_integration` (G-13);
+  `terminal_regate` gains integration_target= and reports G-13 beside every
+  other gate; GATES registry extended (S-2 parity holds). Self-test
+  110 → 121.
+
+Existing banks, drafts and delivered notes are untouched: a bank without the
+new field leaves G-13 dormant, and nothing changes in any document until an
+exam's bank carries fusion evidence.
+
 ## 2026.08.13.6 — Step-5 delivery tiers told straight; never trim silently; MS-11 ends the count-drift era
 
 Field report from a live exam project: a run held a generated taxonomy.xlsx
