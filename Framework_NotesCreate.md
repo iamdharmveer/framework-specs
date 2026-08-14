@@ -1,4 +1,22 @@
-# Framework_NotesCreate v2.6.1 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.6.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.6.2 — 2026-08-14 — ADVERSARIAL-REVIEW FIXES (independent fresh-eyes
+#   review + 400-trial property fuzz; pairs with notes_core v2.9,
+#   notes_audit v2.6, Framework_NotesAudit v3.4.2, Framework_NotesBlueprint
+#   v3.1.1). Six fixes: (1) new I-7 — a TIER-3 unit CAN be a fusion host:
+#   the inbound fused questions ARE the evidence, so it ships its TIER-3
+#   anatomy PLUS the demanded integration section(s), the only Examples in
+#   such a unit; G-13 demands them, G-12 (header-slice contract) never
+#   double-demands. (2) I-1 placement stated for units without B5 (before
+#   B6; the mechanical check is unchanged). (3) I-6: EVIDENCE OUTRANKS the
+#   1-2-partner style bound — an attested 3-partner fusion at a mid-topic
+#   unit gets its section there; the bound shapes unattested SME sections
+#   only (the old wording deadlocked against a G-13 demand). (4) I-2:
+#   duplicate partner names are Topic-qualified (NB E-16). (5) PIPELINE
+#   POSITION synced to NA v3.0.0 (was "audit + convergence loop" — the
+#   same stale line NB v3.0.3 fixed on its side). (6) PREREQUISITE: the
+#   "returned by NA for full regeneration" path died with NA §4 L-2
+#   (regeneration is NA-internal); the real NA->NC return is the missing-
+#   draft_ref preflight. Companions: notes_core >= v2.9.
 # v2.6.1 — 2026-08-14 — ONE ORDER-MAP BUILDER (line-by-line certification
 #   sweep of the v2.6.0 feature; pairs with notes_core v2.8 and
 #   Framework_NotesAudit v3.4.1). v2.6.0's I-5 said "unit_order maps
@@ -186,7 +204,9 @@
 #                           hand-rolls a paragraph, colour, border or line rule.
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
-#   notes_core.py >= v2.8 — unit_order_from_registry (§4 B4a I-5's ONE
+#   notes_core.py >= v2.9 — fully-resolved filing + unresolved reporting +
+#                           duplicate-name qualification (v2.9);
+#                           unit_order_from_registry (§4 B4a I-5's ONE
 #                           order-map builder, v2.8); plus
 #                           notes_filename AND docx_ref_for (section 9A's
 #                           draft_ref), registry schema notes-registry/2.1,
@@ -211,12 +231,19 @@
 # PIPELINE POSITION:
 #   Notes Step NB (NotesBlueprint) → unit table + sources + allowed types
 #   Notes Step NC (NotesCreate)    → THIS SPEC (1 unit per run; §8 runs)
-#   Notes Step NA (NotesAudit)     → audit + convergence loop
+#   Notes Step NA (NotesAudit)     → ground-truth solvability audit; from
+#                                    Framework_NotesAudit v3.0.0 NA also
+#                                    CORRECTS, REBUILDS and emits the unit's
+#                                    _Final.docx (v2.6.2: line synced — the
+#                                    same stale description NB v3.0.3 fixed)
 #   Notes Step ND (NotesDeliver)   → delivery
 #
 # PREREQUISITE:
 #   notes_blueprint.json + notes_registry.json exist; target unit is in state
-#   BLUEPRINTED (or STALE, or returned by NA for full regeneration). The
+#   BLUEPRINTED (or STALE, or re-run at NC for a missing draft_ref —
+#   Framework_NotesAudit §0B P-3; v2.6.2: NA's §4 L-2 regenerates BY
+#   ITSELF and "does not route back to NC", so the old "returned by NA for
+#   full regeneration" path no longer exists). The
 #   blueprint carries allowed_question_types (Framework_NotesBlueprint §6).
 
 ## §0 — UNIT INPUT RESOLUTION (operator-facing; shared convention with NA/ND)
@@ -348,7 +375,10 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       What makes it an integration section is its content contract:
         I-1 PLACEMENT — integration sections CLOSE the concept stack: after
             EVERY core concept's KEY POINTS, immediately before B5 TRAP BOX.
-            No core concept may follow one (G-13 checks mechanically).
+            No core concept may follow one (G-13 checks mechanically — the
+            mechanical check is "nothing core after integration", so it
+            holds identically in a unit that ships no B5: there the section
+            still closes the concept stack, immediately before B6).
         I-2 THE COMBINES DECLARATION — the section's FIRST bullet begins
             "Combines:" and names every partner subtopic by its manifest
             display name plus "this sub topic" (e.g. "Combines: Conductors,
@@ -356,7 +386,12 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
             chapters."). This line is the MECHANICAL MARKER G-13 detects and
             the student's plain-language signpost at once. Partner NAMES are
             ordinary syllabus vocabulary — every §7 ban still applies to
-            every word of the section.
+            every word of the section. DUPLICATE NAMES (v2.6.2, NB E-16):
+            when two partners in one fusion share a bare display name, the
+            target qualifies each as "<Topic> :: <Name>" — the Combines
+            line then carries BOTH the topic and the name for each such
+            partner (e.g. "Combines: Waves (Mechanics), Waves (Optics) +
+            this sub topic"), so student and gate stay unambiguous.
         I-3 BRIDGE BULLETS + EXAMPLES — after the declaration, bridge
             bullets carry the SEAM facts (the partner-side fact and its
             this-side consequence; >= 3 parallel seam facts become a table,
@@ -389,11 +424,29 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
         I-6 CAPSTONE BOUND + FIRST-SUBTOPIC EDGE — a topic's LAST subtopic
             may carry the capstone: one integration section spanning as many
             earlier subtopics of that topic as its evidence attests (2.4 in
-            the approved demo). Any other unit keeps each integration
-            section to 1-2 partners — more belongs to the capstone. A unit
-            with NO earlier subtopic in the persisted order ships NO
-            integration section (nothing earlier exists to combine with;
-            the engine's latest-partner filing already guarantees this).
+            the approved demo). Elsewhere, integration sections TYPICALLY
+            carry 1-2 partners — but EVIDENCE OUTRANKS THE STYLE BOUND
+            (v2.6.2): a fused question files at the LATEST member of its
+            fusion set wherever that is, and an attested 3-partner fusion at
+            a mid-topic unit gets its 3-partner section THERE — the bound
+            shapes SME-judged unattested sections and never overrides a
+            G-13 demand (the two would otherwise deadlock). A unit with NO
+            earlier subtopic in the persisted order ships NO integration
+            section (nothing earlier exists to combine with; the engine
+            guarantees no DEMAND can arise there — v2.9's fully-resolved
+            filing keeps defective-evidence questions at their header as
+            reported, non-demanding unresolved entries).
+        I-7 TIER-3 UNITS (v2.6.2) — an attested fusion CAN file at a TIER-3
+            unit (a BRIDGE unit late in the teaching order is a natural
+            fusion host). The inbound fused questions ARE evidence, so the
+            "no examples where no evidence" rule is not violated: the unit
+            ships its TIER-3 anatomy PLUS the demanded integration
+            section(s) with their example stacks and KEY POINTS — the ONLY
+            Examples in such a unit. Placement per I-1 (before B5 when B5
+            ships, else before B6). G-12's contract still derives from the
+            HEADER slice (empty for a 0-PYQ bridge unit — the zero
+            contract), so the integration Examples are demanded by G-13,
+            not G-12; the two gates never double-demand.
   B5  TRAP BOX — recurring wrong-option patterns. No year lists, no PYQ
       counts, no evidencing references in print (evidence stays in the bank).
   B6  RAPID REVISION SUMMARY — Must-Know Formulae (OMML in cells, §6 F-3)
@@ -411,7 +464,9 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       declaration already carries the connection in words.
 Adjacent boxes are always separated by a spacer paragraph so consecutive
 box tables never merge visually.
-TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence).
+TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence) —
+plus, when a fusion files there, the B4a integration section(s) with their
+example stacks (§4 B4a I-7: the inbound fused questions ARE the evidence).
 
 ## §4A — CONSTRUCTION (the shared builder is the single authority)
 NC does not write .docx code. It assembles a CONTENT MODEL (notes_docx schema
@@ -561,4 +616,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.6.1
+# END OF Framework_NotesCreate v2.6.2

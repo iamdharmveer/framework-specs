@@ -1,4 +1,30 @@
-# Framework_NotesAudit v3.4.1 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.4.2 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.4.2 — 2026-08-14 — ADVERSARIAL-REVIEW FIXES (independent fresh-eyes
+#   review + 400-trial property fuzz of the integration feature; pairs with
+#   notes_core v2.9, notes_audit v2.6, Framework_NotesCreate v2.6.2,
+#   Framework_NotesBlueprint v3.1.1). Five fixes on this side:
+#     (1) §5 G-11 still said "ALL of the unit's bank questions" — the exact
+#         pre-v3.4.1 boundary v3.4.1 replaced; the terminal re-solve runs
+#         over the §2 CERTIFICATION SET (the same count-drift class as the
+#         MockTestAnalyse PART-B miss, caught one release later this time).
+#     (2) FILING MOVES ONLY ON FULLY-RESOLVED EVIDENCE (notes_core v2.9): a
+#         fused question moves off its header only when EVERY fusion-set
+#         member is a registry unit in the order map. An out-of-syllabus
+#         header's question can no longer leak INTO a certifiable unit's
+#         set, and a typo'd partner no longer under-files — the question
+#         stays at its header and the defect is REPORTED.
+#     (3) §5 G-13: UNRESOLVED evidence is ADVISORY (never a Combines demand
+#         naming an unresolvable subtopic); the Combines match now uses
+#         notes_core.display_norm — the subtopic_key component norm — so
+#         & / and / dash / NFKC drift between paper-header bytes and
+#         manifest names cannot produce a false blocking finding; the
+#         containment-residual ("Waves" inside "Matter Waves") is STATED,
+#         with the §2 inbound solve as the semantic net.
+#     (4) §2: DEFERRED disclosure gains the ORPHANED-FILING check — when the
+#         manifest is present, a deferred question whose filing unit's sid
+#         has left the manifest is disclosed as certification-pending, never
+#         silently dropped from the exam's coverage.
+#     (5) §9 chat line: unresolved-evidence and orphaned-filing disclosures.
 # v3.4.1 — 2026-08-14 — THE AUDIT BOUNDARY FOLLOWS FILING (line-by-line
 #   certification sweep of the v3.4.0 feature; pairs with notes_core v2.8,
 #   Framework_NotesCreate v2.6.1). Found by tracing ONE fused question
@@ -171,7 +197,10 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.8 — audit_questions_for (§2's certification set) +
+#   notes_core.py  >= v2.9 — fully-resolved filing, unresolved reporting,
+#                            display_norm (G-13's name matching), duplicate-
+#                            name qualification (all v2.9); plus
+#                            audit_questions_for (§2's certification set) +
 #                            unit_order_from_registry (the ONE order-map
 #                            builder), both v2.8; plus
 #                            notes_final_filename, docx_ref_for/verify_docx_ref,
@@ -190,7 +219,9 @@
 #                            guarantees; parse takes exam_code/tier (W-4). v1.3
 #                            adds the why_wrong/objective fields (§4 B3) that
 #                            parse recovers and the round trip preserves
-#   notes_audit.py >= v2.5 — SOLVABLE_KEY_CORRECTED, classify_key_conflict,
+#   notes_audit.py >= v2.6 — display_norm Combines matching + unresolved
+#                            advisory in gate_integration (v2.6); plus
+#                            SOLVABLE_KEY_CORRECTED, classify_key_conflict,
 #                            record_key_correction, quarantine, gate_line_rules,
 #                            gate_answer_integrity, gate_counters,
 #                            gate_orphan_terms, syllabus_terms_for,
@@ -335,7 +366,20 @@ never disagree:
     this unit's notes must not teach (Framework_NotesCreate §4 B4a I-4), so
     this unit can never make it solvable and is never punished for that.
     Each deferral is DISCLOSED in the §9 chat line with its filing unit,
-    where it WILL be solved.
+    where it WILL be solved. FILING MOVES ONLY ON FULLY-RESOLVED EVIDENCE
+    (v3.4.2, notes_core v2.9): a question defers only when EVERY member of
+    its fusion set — header included — is a registry unit in unit_order;
+    a fused question with an unresolvable member (typo'd or out-of-registry
+    partner, or an out-of-syllabus header) STAYS at its header, is audited
+    there like any other question, and is reported as unresolved evidence
+    (G-13 advisory / §9). ORPHANED-FILING CHECK (v3.4.2): when
+    [ExamCode]_subtopic_manifest.json is present (§0A), NA cross-checks
+    each deferred question's filing unit against the manifest; a filing
+    unit whose sid has LEFT the manifest (NB §7 ORPHANED) is disclosed as
+    ORPHANED-FILING — that PYQ's certification is PENDING the owner's
+    orphan resolution (re-run Step 5 / NB), and the disclosure repeats on
+    every run until it clears; the question is never silently dropped from
+    the exam's coverage.
   INBOUND — a fused question from an EARLIER unit's header slice whose
     filing home is THIS unit is INCLUDED here and solved closed-book from
     THIS unit's notes: the integration section's bridge bullets carry the
@@ -656,7 +700,23 @@ pass.
       B-1; §7 there).
       ADVISORY, in meta, never blocking: unattested_sections — integration
       sections present without bank attestation (SME bridge-justified,
-      D-6); NA judges them under §2A like any other content.
+      D-6); NA judges them under §2A like any other content. Also ADVISORY
+      (v3.4.2): unresolved — fused questions filed at this unit on
+      DEFECTIVE evidence (a fusion-set member unknown to the unit order: a
+      typo'd or out-of-registry partner). The defect is the BANK's and its
+      fix is NB's next run; the gate NEVER demands a Combines line naming
+      an unresolvable subtopic, and every entry is disclosed in the §9
+      chat line.
+      NAME MATCHING (v3.4.2): the Combines-line match normalizes BOTH
+      sides with notes_core.display_norm — the SAME per-component norm
+      subtopic_key uses — so legal drift between paper-header bytes and
+      manifest names (& vs and, dash variants, NFKC, spacing) can never
+      produce a false blocking finding. STATED RESIDUAL: the match is
+      normalized CONTAINMENT, so a partner name contained in a longer name
+      ("Waves" inside "Matter Waves") can over-match; the §2 closed-book
+      solve of the INBOUND fused questions is the semantic net behind the
+      mechanical check — a bridge that teaches the wrong partner cannot
+      make them solvable, and the solve fails loudly.
       REMEDIATION ROUTING: a G-13 finding is a PARTNER-HOMING gap, and the
       remedy is the integration section — EXTEND it (a bridge bullet, a
       seam Example via one-for-one replacement) or ADD it (the §2A net-ADD
@@ -669,9 +729,12 @@ pass.
       still quarantines through §4 L-1..L-4 on its own merits, exactly as
       before.
   G-11 TERMINAL RE-GATE (notes_audit.terminal_regate) — MANDATORY, LAST.
-      After the final edit, re-run the FULL solve across ALL of the unit's
-      bank questions and EVERY gate above over the bytes that will ship, then
-      hash them. NA edits the document, so certifying the pre-patch draft
+      After the final edit, re-run the FULL solve across the unit's §2
+      CERTIFICATION SET (v3.4.2 — audit_questions_for; through v3.4.1 this
+      line still said "ALL of the unit's bank questions", the pre-filing
+      boundary, which would have re-solved a DEFERRED question from notes
+      that must not teach it) and EVERY gate above over the bytes that will
+      ship, then hash them. NA edits the document, so certifying the pre-patch draft
       certifies a file that no longer exists: a correction that fixes Q7 and
       breaks Q12's cross-reference is exactly what a pre-patch certification
       misses. Only G-9 (advisory), a DORMANT G-7a, a target-less DORMANT
@@ -753,8 +816,11 @@ every G-13-driven extension or licensed net ADD named individually. Also
 (v3.4.1) the audit-boundary line: every DEFERRED fused question named with
 its filing unit ("solved there, not here"), and every INBOUND fused question
 named with its header unit — so the operator always sees why this unit's
-question count differs from its taxonomy row.
+question count differs from its taxonomy row. Also (v3.4.2): every
+unresolved-evidence entry (bank_id + the unknown partner string — "fix at
+the next NotesBlueprint run") and every ORPHANED-FILING deferral (§2 —
+"certification pending orphan resolution"), named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.4.1
+# END OF Framework_NotesAudit v3.4.2

@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026.08.14.3 — Integration hardening: adversarial review + 400-trial fuzz
+
+Owner asked for stronger verification than the line-by-line sweep. Three new
+methods ran against 2026.08.14.2: (a) property-based fuzzing — 400 randomly
+generated banks/fusion graphs/orderings, asserting partition (every question
+audited exactly once), backward-only filing, determinism, and grandfather
+identity: ZERO invariant failures, the engine math holds; (b) an INDEPENDENT
+adversarial reviewer with no prior context read all three specs plus the
+cited engine functions hunting contradictions: 11 findings (1 blocker, 7
+major, 3 minor), all verified real, all fixed here; (c) a full NB→NC→NA
+dress rehearsal (see verification notes below).
+
+- **Fully-resolved filing** (blocker + 2 majors). A fused question now moves
+  off its header ONLY when every fusion-set member — header included — is a
+  registry unit in the order map. Closes: an out-of-syllabus header's
+  question leaking INTO a certifiable unit's set; a typo'd partner silently
+  under-filing; and the false first-unit guarantee. Unresolved evidence
+  keeps the question at its header (the pre-feature boundary) and is
+  REPORTED — `integration_target_for` gains an `unresolved` list, G-13
+  surfaces it ADVISORY, the NA chat line discloses it, and the fix is
+  re-tagging at NB.
+- **One name norm** (major). G-13's Combines-line match now uses
+  `notes_core.display_norm` (the subtopic_key component norm) — legal
+  paper-header vs manifest drift (& / and, dashes, NFKC) can no longer
+  produce a false blocking finding. Containment residual stated in the
+  spec, with the §2 inbound solve as the semantic net.
+- **G-11 boundary synced** (major, the count-drift class again): the
+  terminal re-solve line still said "ALL of the unit's bank questions";
+  now the §2 certification set.
+- **Tag Sweep** (major): §7 gains the mechanism for old papers' questions
+  to ever gain integration tags (no-op merges never re-read them); ingest
+  reports count tags so a half-tagged bank is visible.
+- **TIER-3 fusion hosts** (major): new NC I-7 — inbound fused questions ARE
+  evidence, so a TIER-3 unit ships its lean anatomy plus the demanded
+  integration section(s); G-13 demands them, G-12 never double-demands.
+- **Evidence outranks the capstone style bound** (major): an attested
+  3-partner fusion at a mid-topic unit gets its section there; the 1-2
+  partner guidance shapes unattested SME sections only.
+- **Orphaned filing homes** (major): NB's ORPHANED report and NA's deferral
+  disclosure both name fused questions whose certification home left the
+  manifest — never silently dropped.
+- **Duplicate partner names Topic-qualified** (minor, E-16); **two stale NC
+  lines synced** (minor): PIPELINE POSITION ("audit + convergence loop" →
+  NA v3.0.0 reality) and PREREQUISITE (the dead "returned by NA for full
+  regeneration" path → the real missing-draft_ref return).
+- Files: `notes_core.py` v2.8 → **v2.9** (self-test 174 → 180),
+  `notes_audit.py` v2.5.1 → **v2.6** (121 → 124), `Framework_NotesCreate.md`
+  v2.6.1 → **v2.6.2**, `Framework_NotesAudit.md` v3.4.1 → **v3.4.2**,
+  `Framework_NotesBlueprint.md` v3.1.0 → **v3.1.1**, `notes_sync_audit.py`
+  (fixture anchor). Grandfathered banks remain byte-for-byte unaffected on
+  every path.
+
 ## 2026.08.14.2 — Integration handshake closed (certification sweep of 2026.08.14.1)
 
 Line-by-line certification of the integration feature, demanded before first

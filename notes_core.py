@@ -1,5 +1,36 @@
 """
-notes_core.py v2.8 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.9 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.9 — 2026-08-14 — FULLY-RESOLVED FILING + ONE NAME NORM (independent
+    adversarial review + 400-trial property fuzz of the integration feature;
+    pairs with Framework_NotesBlueprint v3.1.1, Framework_NotesCreate
+    v2.6.2, Framework_NotesAudit v3.4.2; notes_audit >= v2.6). Four fixes:
+      (1) FILING MOVES ONLY ON FULLY-RESOLVED EVIDENCE. A fused question now
+          moves off its header ONLY when EVERY member of its fusion set —
+          header included — is in unit_order. Before: an OUT-OF-SYLLABUS
+          header's question could file INTO a certifiable unit's set (the
+          excluded subtopic is not in the registry, so the partner became
+          "latest known"), and a typo'd partner silently under-filed. Now
+          any unresolved member keeps the question at its header — exactly
+          the pre-feature boundary — and the defect is REPORTED, never
+          silently absorbed.
+      (2) unresolved REPORTING. integration_target_for returns an
+          "unresolved" list ({bank_id, unknown scope strings}) for fused
+          questions filed at this unit on defective evidence; G-13 surfaces
+          it ADVISORY (an ingest defect routes to NB, not to the notes) and
+          never demands a Combines line naming an unresolvable subtopic.
+      (3) display_norm — the ONE name normalization for matching a display
+          name in prose, wrapping syllabus_provenance.norm (the same norm
+          subtopic_key uses). G-13's Combines match now uses it, so legal
+          header-vs-manifest drift (& vs and, dashes, NFKC) can no longer
+          produce a false blocking finding.
+      (4) DUPLICATE-NAME QUALIFICATION (E-16): when two partners in one
+          fusion share a bare display name, the target qualifies each as
+          "<Topic> :: <Name>", so the Combines line and the gate stay
+          unambiguous.
+    Shared-authority discipline unchanged: _integration_filing_key drives
+    both teaching and audit homes; the 400-trial fuzz invariants (partition,
+    backward-only, determinism, grandfather identity) all hold.
 
 v2.8 — 2026-08-14 — INTEGRATION HANDSHAKE CLOSED (line-by-line certification
     sweep of the v2.7 feature; pairs with Framework_NotesCreate v2.6.1 and
@@ -1225,29 +1256,50 @@ def coverage_target_for(bank, subject, topic, subtopic, allowed_types=()):
             "distinct_concept_tags": len(tags)}
 
 
-def _integration_filing_key(q, unit_order):
-    """v2.8 — THE filing authority, shared by integration_target_for and
-    audit_questions_for so the teaching home and the audit home can never
-    disagree. Returns the subtopic_key of the unit where question q FILES:
-    an unfused question files at its header subtopic; a fused question files
-    at the LATEST member of its fusion set (header + declared partners)
-    present in unit_order (latest-partner filing, backward-only teaching by
-    construction). Without unit_order — or when no member is in it — the
-    header subtopic is the filing home (the degenerate-caller fallback; NC
-    and NA always pass unit_order_from_registry, spec-mandated)."""
+def display_norm(s):
+    """v2.9 — the ONE name normalization for matching a subtopic display name
+    inside prose (G-13's Combines-line match). Wraps syllabus_provenance.norm
+    — the SAME normalization subtopic_key uses per component — so legal
+    header-vs-manifest drift (& vs and, dash variants, NFKC, spacing) never
+    produces a false gate finding. No gate may roll its own name norm."""
+    return syllabus_provenance.norm(s)
+
+
+def _integration_members(q):
+    """The fusion set of q as {subtopic_key: (subject, topic, name)} —
+    header first, then every well-formed declared partner."""
     home = subtopic_key(q["subject"], q["topic"], q["subtopic"])
-    declared = q.get("integration_partners") or []
-    if not declared or not unit_order:
-        return home
-    members = {home}
-    for p in declared:
+    members = {home: (q["subject"], q["topic"], q["subtopic"])}
+    for p in (q.get("integration_partners") or []):
         parts = [x.strip() for x in str(p).split("::")]
         if len(parts) == 3 and all(parts):
-            members.add(subtopic_key(*parts))
-    known = [k for k in members if k in unit_order]
-    if not known:
+            members[subtopic_key(*parts)] = tuple(parts)
+    return home, members
+
+
+def _integration_filing_key(q, unit_order):
+    """v2.8/v2.9 — THE filing authority, shared by integration_target_for and
+    audit_questions_for so the teaching home and the audit home can never
+    disagree. Returns the subtopic_key of the unit where question q FILES.
+
+    An unfused question files at its header subtopic. A fused question MOVES
+    to the LATEST member of its fusion set (header + declared partners) ONLY
+    when the evidence is FULLY RESOLVED — every member, header included, is
+    present in unit_order (v2.9, certification-sweep finding): filing on
+    partial evidence either dragged an OUT-OF-SYLLABUS header's question
+    into a certifiable unit's set, or under-filed when a typo'd partner was
+    really a later unit. Any unresolved member -> the question STAYS at its
+    header (exactly the pre-feature boundary) and the defect is REPORTED
+    (integration_target_for's unresolved list; NB's next run is the fix).
+    Without unit_order the header is always the filing home (the
+    degenerate-caller fallback; NC and NA always pass
+    unit_order_from_registry, spec-mandated)."""
+    home, members = _integration_members(q)
+    if len(members) == 1 or not unit_order:
         return home
-    return max(known, key=lambda k: unit_order[k])
+    if any(k not in unit_order for k in members):
+        return home
+    return max(members, key=lambda k: unit_order[k])
 
 
 def unit_order_from_registry(registry):
@@ -1326,27 +1378,41 @@ def integration_target_for(bank, subject, topic, subtopic, unit_order=None):
     questions = bank.get("questions", [])
     if not any(q.get("integration_partners") for q in questions):
         return {"dormant": True, "attested": False, "fusions": [],
-                "pyq_count": 0}
+                "unresolved": [], "pyq_count": 0}
     own = subtopic_key(subject, topic, subtopic)
-    fusions = {}
+    fusions, unresolved = {}, []
     for q in questions:
         declared = q.get("integration_partners") or []
         if not declared:
             continue
         if _integration_filing_key(q, unit_order) != own:
             continue
-        home = subtopic_key(q["subject"], q["topic"], q["subtopic"])
-        members = {home: (q["subject"], q["topic"], q["subtopic"])}
-        for p in declared:
-            parts = [x.strip() for x in str(p).split("::")]
-            if len(parts) == 3 and all(parts):
-                members[subtopic_key(*parts)] = tuple(parts)
-        partner_names = tuple(sorted(members[k][2] for k in members
-                                     if k != own))
+        home, members = _integration_members(q)
+        # v2.9: a fused question that filed HERE only because its evidence is
+        # not fully resolved (some member unknown to unit_order) is NOT a
+        # teaching demand — it is a REPORTED ingest defect (fix at NB), and
+        # the question is simply audited here like any other (§2). Demanding
+        # a Combines line that names an unresolvable subtopic would deadlock
+        # a correct document.
+        if unit_order and any(k not in unit_order for k in members):
+            unresolved.append({
+                "bank_id": q["bank_id"],
+                "unknown": sorted("::".join(members[k]) for k in members
+                                  if k not in unit_order)})
+            continue
+        # v2.9: qualify a partner name with its Topic when two partners in
+        # this fusion share a bare display name (E-16 duplicate-name case) —
+        # the Combines line must be unambiguous for student and gate alike.
+        others = [members[k] for k in members if k != own]
+        names = [t[2] for t in others]
+        partner_names = tuple(sorted(
+            (f"{t[1]} :: {t[2]}" if names.count(t[2]) > 1 else t[2])
+            for t in others))
         fusions.setdefault(partner_names, []).append(q["bank_id"])
     out = [{"partners": list(names), "bank_ids": ids}
            for names, ids in sorted(fusions.items())]
     return {"dormant": False, "attested": bool(out), "fusions": out,
+            "unresolved": unresolved,
             "pyq_count": sum(len(f["bank_ids"]) for f in out)}
 
 
@@ -1650,7 +1716,7 @@ def self_test():
     check("integration: a partnerless bank is GRANDFATHERED dormant",
           integration_target_for(b, "Physics", "Optics", "Polarization")
           == {"dormant": True, "attested": False, "fusions": [],
-              "pyq_count": 0})
+              "unresolved": [], "pyq_count": 0})
     bi = bank_new("PH")
     bank_add_paper(bi, "kp", "2026-02-15", 2026, "..x..docx", 3)
     bank_add_question(bi, dict(bank_id="I-1", paper_key="kp",
@@ -1684,7 +1750,76 @@ def self_test():
           integration_target_for(bi, "Physics", "EM", "Electrostatics",
                                  unit_order=order)
           == {"dormant": False, "attested": False, "fusions": [],
-              "pyq_count": 0})
+              "unresolved": [], "pyq_count": 0})
+
+    # ---- v2.9: fully-resolved filing + unresolved reporting + name norm --
+    bx = bank_new("EX")
+    bank_add_paper(bx, "kx", "2026-02-15", 2026, "..x..docx", 3)
+    # X-1: header is an EXCLUDED subtopic (not in the registry/order),
+    # partner is a real unit -> must STAY at its header, leak nowhere
+    bank_add_question(bx, dict(bank_id="X-1", paper_key="kx",
+        exam_date="2026-02-15", exam_year=2026, q_no=1, type="MCQ",
+        subject="Physics", topic="EM", subtopic="Excluded Extras", stem="s",
+        correct_answer="1",
+        integration_partners=["Physics::EM::DC and AC Circuits"]))
+    # X-2: header is a real unit, partner is a TYPO (resolves to nothing)
+    # -> stays at header AND is reported unresolved there
+    bank_add_question(bx, dict(bank_id="X-2", paper_key="kx",
+        exam_date="2026-02-15", exam_year=2026, q_no=2, type="MCQ",
+        subject="Physics", topic="EM", subtopic="Capacitors", stem="s",
+        correct_answer="1", integration_partners=["Physics::EM::Capacitance"]))
+    # X-3: fully resolved -> normal latest-partner filing
+    bank_add_question(bx, dict(bank_id="X-3", paper_key="kx",
+        exam_date="2026-02-15", exam_year=2026, q_no=3, type="MCQ",
+        subject="Physics", topic="EM", subtopic="Capacitors", stem="s",
+        correct_answer="1",
+        integration_partners=["Physics::EM::DC and AC Circuits"]))
+    ox = {subtopic_key("Physics", "EM", "Capacitors"): 1,
+          subtopic_key("Physics", "EM", "DC and AC Circuits"): 2}
+    check("v2.9: excluded-header fused question leaks into NO unit's "
+          "audit set (stays at its non-unit header)",
+          "X-1" not in [q["bank_id"] for q in audit_questions_for(
+              bx, "Physics", "EM", "DC and AC Circuits", ox)]
+          and "X-1" not in [q["bank_id"] for q in audit_questions_for(
+              bx, "Physics", "EM", "Capacitors", ox)])
+    check("v2.9: excluded-header fusion is never DEMANDED anywhere",
+          all(not any("Excluded" in p for f in integration_target_for(
+                  bx, "Physics", "EM", u, unit_order=ox)["fusions"]
+                  for p in f["partners"])
+              for u in ("Capacitors", "DC and AC Circuits")))
+    tx = integration_target_for(bx, "Physics", "EM", "Capacitors",
+                                unit_order=ox)
+    check("v2.9: typo'd partner -> question stays home, REPORTED "
+          "unresolved, never a Combines demand",
+          "X-2" in [q["bank_id"] for q in audit_questions_for(
+              bx, "Physics", "EM", "Capacitors", ox)]
+          and tx["unresolved"] == [{"bank_id": "X-2",
+              "unknown": ["Physics::EM::Capacitance"]}]
+          and tx["attested"] is False)
+    check("v2.9: fully-resolved question still files at latest partner",
+          [f["bank_ids"] for f in integration_target_for(
+              bx, "Physics", "EM", "DC and AC Circuits",
+              unit_order=ox)["fusions"]] == [["X-3"]])
+    # duplicate-name qualification (E-16): two partners, same bare name
+    bd = bank_new("EX")
+    bank_add_paper(bd, "kd", "2026-02-15", 2026, "..d..docx", 1)
+    bank_add_question(bd, dict(bank_id="D-1", paper_key="kd",
+        exam_date="2026-02-15", exam_year=2026, q_no=1, type="MCQ",
+        subject="Phy", topic="Optics", subtopic="Interference", stem="s",
+        correct_answer="1",
+        integration_partners=["Phy::Optics::Waves", "Phy::Mechanics::Waves"]))
+    od = {subtopic_key("Phy", "Optics", "Waves"): 1,
+          subtopic_key("Phy", "Mechanics", "Waves"): 2,
+          subtopic_key("Phy", "Optics", "Interference"): 3}
+    td = integration_target_for(bd, "Phy", "Optics", "Interference",
+                                unit_order=od)
+    check("v2.9: duplicate partner names are Topic-qualified (E-16)",
+          td["fusions"][0]["partners"]
+          == ["Mechanics :: Waves", "Optics :: Waves"])
+    check("v2.9: display_norm matches across & / and / dash drift "
+          "(the subtopic_key component norm)",
+          display_norm("Conductors & Di–electrics")
+          == display_norm("Conductors and Di-electrics"))
     check("integration: without unit_order the header subtopic files it",
           integration_target_for(bi, "Physics", "EM",
                                  "Capacitors")["pyq_count"] == 1

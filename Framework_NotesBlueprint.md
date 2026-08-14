@@ -1,4 +1,30 @@
-# Framework_NotesBlueprint v3.1.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.1.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.1.1 — 2026-08-14 — TAG SWEEP + PARTNER RESOLUTION + ORPHANED-FILING
+#   (independent fresh-eyes review + 400-trial property fuzz; pairs with
+#   notes_core v2.9, Framework_NotesCreate v2.6.2, Framework_NotesAudit
+#   v3.4.2). Three fixes: (1) v3.1.0 claimed tags "enter naturally at the
+#   next §7 refresh" — false for UNCHANGED papers, which §7's no-op merge
+#   never re-reads: one tagged new paper made the contract live bank-wide
+#   while legacy fused questions could never gain tags. §7 gains the TAG
+#   SWEEP: once the bank is live (or on operator request), an NB re-run
+#   MAY review untagged questions of papers already in the bank and add
+#   integration_partners in place — an additive edit to NB's OWN artifact,
+#   every added tag listed in the chat summary, bank_ref re-emitted after
+#   the write so every downstream staleness link stays correct. Until a
+#   question is tagged it simply stays in its header unit's certification
+#   set (the pre-feature boundary) — safe, but taught without its bridge;
+#   the sweep is how the feature reaches old evidence. The ingest report
+#   now counts tags ("integration tags: N questions / M papers") so a
+#   half-tagged bank is visible, never silent. (2) §3B B-1: partners
+#   SHOULD resolve to manifest subtopics; notes_core v2.9 files a fused
+#   question AWAY from its header ONLY when every fusion-set member
+#   resolves to a registry unit — a typo'd or excluded partner keeps the
+#   question at its header and surfaces as a downstream unresolved
+#   advisory whose FIX IS HERE (correct the tag on the next NB run).
+#   (3) §7 ORPHANED report extended: fused questions whose FILING home is
+#   an orphaned sid are listed by bank_id — a deferred question must never
+#   silently lose its certification home (NA §2 discloses the same from
+#   its side). Companions: notes_core >= v2.9.
 # v3.1.0 — 2026-08-14 — INTEGRATION EVIDENCE IN THE BANK (owner decisions of
 #   the 2026-08-14 design session; pairs with Framework_NotesCreate v2.6.0
 #   §4 B4a and Framework_NotesAudit v3.4.0 §5 G-13; notes_core >= v2.7).
@@ -168,7 +194,9 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v2.7 — notes-pyq-bank/1.2: bank_add_question accepts and
+#   notes_core.py >= v2.9 — fully-resolved filing + unresolved reporting
+#                           (v2.9; the §7 TAG SWEEP / ORPHANED-FILING side);
+#                           notes-pyq-bank/1.2: bank_add_question accepts and
 #                           validates the optional integration_partners field
 #                           (§3B B-1); integration_target_for is the
 #                           downstream filing authority. Additive — a 1.0/1.1
@@ -376,6 +404,7 @@ This is the same proven engine PYQExtract runs. Drive MCP calls are CLASS T
         (i)   present_files the batch checkpoint (notes_pyq_bank.json) so it is
               downloadable, then emit that batch's mini INGEST REPORT — papers
               ingested (Drive vs upload lane), questions banked + per-type split,
+              integration tags added this batch (bank_id + partners; v3.1.1),
               images read, any IMG-gate finding, any UNRESOLVED stem figure, any
               undated filename;
         (ii)  RENDER THE DELIVERY FOOTER as the LAST element of the response —
@@ -422,7 +451,15 @@ B-1 PER-QUESTION FIELDS (notes_core.bank_add_question):
       persisted teaching order; NC §4 B4a authors to it, NA G-13 gates it) —
       NB only records what it sees. A bank with no integration_partners
       anywhere (pre-1.2) leaves the downstream contract DORMANT
-      (grandfathered); tags enter naturally at the next §7 refresh.
+      (grandfathered); tags enter via NEW/CHANGED papers and via the §7 TAG
+      SWEEP (v3.1.1) — an unchanged paper's questions gain tags ONLY through
+      the sweep, never silently. RESOLUTION (v3.1.1): every partner SHOULD
+      name a manifest subtopic; the scope-form check here is syntactic only,
+      and notes_core v2.9 moves a fused question off its header ONLY when
+      every fusion-set member resolves to a registry unit — a typo'd or
+      excluded partner keeps the question at its header, surfaces downstream
+      as an unresolved advisory (NA §5 G-13 / §9), and is FIXED HERE by
+      correcting the tag on the next NB run.
 B-2 EXAM DATE (owner decision 2/3): notes_core.parse_exam_date_from_filename on
       the paper filename supplies exam_date + exam_year for every question in that
       paper. A filename with no parseable date is REPORTED (that paper's questions
@@ -519,7 +556,26 @@ registry's numbers) and state. New manifest sids enter BLUEPRINTED with appended
 numbers. ORPHANED: a registry sid no longer present in the manifest is REPORTED
 (with its state) and NEVER deleted — the owner decides; a renamed subtopic
 upstream arrives as remove+add (slug-derived sids), which the report makes
-visible side by side. BANK-MATCH: after ingest, every bank (subject, topic,
+visible side by side. ORPHANED-FILING (v3.1.1): the ORPHANED report also
+lists, by bank_id, every fused question whose integration FILING home is an
+orphaned sid — computed with the public authority, per orphaned unit:
+notes_core.integration_target_for(bank, section, topic, name,
+unit_order_from_registry(registry)), whose fusions[].bank_ids are exactly
+the questions filed there. Those PYQs' certification home is leaving the
+taxonomy, and
+the owner's orphan decision must account for them (NA §2 discloses the same
+pending state on every audit until it clears). TAG SWEEP (v3.1.1): once the
+bank carries ANY integration_partners (live) — or whenever the operator
+asks for integration tagging — an NB re-run MAY review the untagged
+questions of papers ALREADY in the bank and add integration_partners where
+the fusion is real (Claude-as-SME, same bar as B-1: the question genuinely
+REQUIRES the partner's content). This is an additive edit to NB's own
+artifact: every added tag is listed in the chat summary (bank_id +
+partners), nothing else in the record changes, bank_validate re-runs, and
+bank_ref is re-emitted over the new bank bytes so NC/NA staleness links
+stay correct. Without the sweep an unchanged paper's questions can NEVER
+gain tags (§7 re-reads only new/changed papers) — they stay safely in
+their header unit's certification set, taught without their bridge. BANK-MATCH: after ingest, every bank (subject, topic,
 subtopic) triple is norm-matched against the manifest triples; failures are
 listed (expected ZERO — the sorted headers came from this same taxonomy; a
 nonzero list exposes an upstream sorting anomaly to fix at PYQSort/Step 5, never
@@ -597,4 +653,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.1.0
+# END OF Framework_NotesBlueprint v3.1.1

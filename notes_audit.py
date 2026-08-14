@@ -1,5 +1,29 @@
 """
-notes_audit.py v2.5.1 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.6 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.6 — 2026-08-14 — G-13 NAME-NORM PARITY + UNRESOLVED ADVISORY (independent
+    adversarial review; pairs with notes_core v2.9, Framework_NotesAudit
+    v3.4.2). Two gate fixes, no new gate:
+      (1) The Combines-line match now normalizes BOTH sides with
+          notes_core.display_norm — the same per-component norm subtopic_key
+          uses — instead of a private lowercase/whitespace norm. Before, a
+          Combines line correctly printing the manifest name ("Conductors
+          and Dielectrics") failed to match a target partner carrying the
+          paper-header bytes ("Conductors & Dielectrics"): a false BLOCKING
+          finding on a correct document. Qualified partners
+          ("Topic :: Name", the E-16 duplicate-name case) match when every
+          component appears.
+      (2) gate_integration meta gains "unresolved" (pass-through of the
+          target's v2.9 list): fused questions filed at this unit on
+          DEFECTIVE evidence — a member unknown to the unit order. ADVISORY,
+          never a demand: the defect is the bank's (fix at NB); demanding a
+          Combines line that names an unresolvable subtopic would deadlock a
+          correct document. Disclosed in the §9 chat line.
+    Residual, stated: the Combines match is a normalized CONTAINMENT test —
+    prose containing a partner's name inside a longer name ("Waves" inside
+    "Matter Waves") can over-match. The closed-book solve of the INBOUND
+    fused questions (§2) is the semantic net behind the mechanical check: a
+    bridge that teaches the wrong partner cannot make them solvable.
 
 v2.5.1 — 2026-08-14 — AUDIT-BOUNDARY DOCSTRING SYNC (certification sweep;
     pairs with notes_core v2.8 / Framework_NotesAudit v3.4.1). The unit's
@@ -967,13 +991,21 @@ def gate_integration(model, target):
             "a core concept section appears AFTER an integration section — "
             "integration sections close the concept stack, immediately "
             "before the Trap Box (NC section 4 B4a I-1)")
-    norm = lambda s: " ".join(str(s).lower().split())
+    # v2.6: name matching uses notes_core.display_norm — the SAME norm
+    # subtopic_key applies per component — so legal header-vs-manifest drift
+    # (& vs and, dash variants, NFKC, spacing) never yields a false blocking
+    # finding. A qualified partner ("Topic :: Name", the E-16 duplicate-name
+    # case) matches when EVERY component appears.
+    def _mentions(partner, combines):
+        c = notes_core.display_norm(combines)
+        return all(notes_core.display_norm(part) in c
+                   for part in str(partner).split("::") if part.strip())
     matched = set()
     for f in target.get("fusions", []):
         partners = f.get("partners", [])
         hit = next((sec for sec in integ
-                    if all(norm(p) in norm(sec["combines"])
-                           for p in partners)), None)
+                    if all(_mentions(p, sec["combines"]) for p in partners)),
+                   None)
         if hit is None:
             findings.append(
                 f"the unit's own bank attests fusion with "
@@ -991,6 +1023,12 @@ def gate_integration(model, target):
             "integration_sections": len(integ),
             "fusions_required": len(target.get("fusions", [])),
             "fusions_taught": len(matched),
+            # v2.6: fused questions filed here on DEFECTIVE evidence (a
+            # member unknown to the unit order — a typo'd or out-of-registry
+            # partner). ADVISORY: the defect is the BANK's, fixed at NB; the
+            # gate never demands a Combines line naming an unresolvable
+            # subtopic. The §9 chat line discloses every entry.
+            "unresolved": list(target.get("unresolved", [])),
             "unattested_sections": sorted(sec["name"] for sec in integ
                                           if sec["i"] not in matched)}
     return (not findings, findings, meta)
@@ -1770,6 +1808,40 @@ def self_test():
     check("G-13 lists an unattested integration section as ADVISORY meta, "
           "never a finding",
           ok13h and m13h["unattested_sections"] == ["Bridge"])
+    # v2.6: name-norm parity — Combines prints the manifest name with "and";
+    # the target partner carries the paper-header bytes with "&". MUST match.
+    tgt_amp = {"dormant": False, "attested": True,
+               "fusions": [{"partners": ["Conductors & Dielectrics"],
+                            "bank_ids": ["N-1"]}],
+               "unresolved": [], "pyq_count": 1}
+    ok13i, f13i, _ = gate_integration(
+        integ_model("Combines: Conductors and Dielectrics + this sub topic"),
+        tgt_amp)
+    check("v2.6: Combines match survives & / and drift (display_norm "
+          "parity — no false blocking finding)", ok13i and not f13i)
+    # v2.6: a Topic-qualified duplicate-name partner matches only when BOTH
+    # components appear.
+    tgt_q = {"dormant": False, "attested": True,
+             "fusions": [{"partners": ["Mechanics :: Waves"],
+                          "bank_ids": ["N-2"]}],
+             "unresolved": [], "pyq_count": 1}
+    ok13j, _, _ = gate_integration(
+        integ_model("Combines: Waves (Mechanics) + this sub topic"), tgt_q)
+    ok13k, f13k, _ = gate_integration(
+        integ_model("Combines: Waves + this sub topic"), tgt_q)
+    check("v2.6: qualified partner needs BOTH components in the Combines "
+          "line", ok13j and not ok13k
+          and any("Mechanics :: Waves" in x for x in f13k))
+    # v2.6: unresolved entries are ADVISORY meta, never a finding or demand
+    tgt_u = {"dormant": False, "attested": False, "fusions": [],
+             "unresolved": [{"bank_id": "X-2",
+                             "unknown": ["Phy::EM::Capacitance"]}],
+             "pyq_count": 0}
+    ok13l, f13l, m13l = gate_integration(integ_model(None), tgt_u)
+    check("v2.6: unresolved evidence is ADVISORY passthrough — gate passes, "
+          "meta discloses",
+          ok13l and not f13l
+          and m13l["unresolved"] == tgt_u["unresolved"])
 
     ok_ol, f_ol, m_ol = gate_outline(m)
     check("G-6 passes a gapless outline", ok_ol)
