@@ -71,40 +71,14 @@ jobs:
         # run, so the .py files are passed alongside the specs — specs alone
         # report V-SCOPE "parity UNVERIFIED".
         run: if [ -f audit_specs_ext.py ]; then python3 audit_specs_ext.py Framework_*.md *.py; fi
-      - name: Structural seam audit (KNOWN-BASELINE mode)
-        # audit_seam is RED on production for one pre-existing regression
-        # (AXISPAPER-PERSISTENCE: 5 orphaned axis fields, green at
-        # 2026.08.10.5, unrelated to any Notes release). Wiring it strict
-        # would block every future release on an old defect, so this step
-        # blocks on NEW findings only: the 5 known lines are baselined
-        # below. The guard is self-tightening — once the fix lands the
-        # baseline matches nothing and every finding is again blocking.
-        # Delete the baseline lines in the commit that fixes the regression.
-        run: |
-          if [ -f audit_seam.py ]; then
-            python3 audit_seam.py > seam.out 2>&1 || true
-            awk '$1 ~ /^ORPHAN-/{print $1, $2}' seam.out | sort -u > seam.now
-            printf '%s\n' \
-              'ORPHAN-READ axis1_paper' \
-              'ORPHAN-READ axis1_paper_counts' \
-              'ORPHAN-READ axis3_paper' \
-              'ORPHAN-READ axis3_paper_counts' \
-              'ORPHAN-WRITE axis3_mechanism_lock' \
-              | sort -u > seam.known
-            comm -13 seam.known seam.now > seam.new
-            if [ -s seam.new ]; then
-              echo "::error::NEW seam findings (not in the AXISPAPER baseline):"
-              cat seam.new
-              cat seam.out
-              exit 1
-            fi
-            if [ -s seam.now ]; then
-              echo "::warning::audit_seam carries only the known AXISPAPER-PERSISTENCE baseline findings — fix pending:"
-              cat seam.now
-            else
-              echo "audit_seam clean — baseline no longer needed; remove it from this step."
-            fi
-          fi
+      - name: Structural seam audit
+        # STRICT since GAP-2026-08-14-AXISPAPER-PERSISTENCE was resolved
+        # (audit_seam.py v1.1: final_assembly.py registered on the seam; the
+        # two Step-7-internal accumulators and the report-only mechanism-lock
+        # ALLOW-listed with reasons). The temporary KNOWN-BASELINE guard this
+        # step carried while the regression was open has been removed, as its
+        # own comment required: every seam finding now blocks.
+        run: if [ -f audit_seam.py ]; then python3 audit_seam.py; fi
       - name: Mutation audit (gate tests must kill every mutant)
         # ~4 minutes: mutates the engine gates and requires the self-tests to
         # catch every mutant. --max-survivors 0 == a gate whose test cannot

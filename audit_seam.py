@@ -1,4 +1,28 @@
 #!/usr/bin/env python3
+# audit_seam.py v1.1 — 2026-08-14 — WORLD-MAP REFRESH (GAP-2026-08-14-AXISPAPER-
+#   PERSISTENCE RESOLUTION). The 5 findings this auditor carried since the
+#   2026.08.12.x wave were not broken data — they were THIS FILE's map of the
+#   pipeline going stale while the pipeline grew:
+#     (1) final_assembly.py (the Step-7 engine, released .12.11) WRITES
+#         reg['axis1_paper']/reg['axis3_paper'] via setdefault and reads them
+#         back — it was in neither PRODUCERS nor CONSUMERS, so its writes were
+#         invisible and both fields reported ORPHAN-READ. It is now registered
+#         on both sides as 'Step7-engine'.
+#     (2) axis1_paper_counts / axis3_paper_counts are Step-7-INTERNAL
+#         accumulator variables (initialised, subscript-filled and consumed
+#         inside Framework_MockTestCreate §13-4 / S7-NEW-B) — local state,
+#         never a cross-step contract. ALLOW-listed with that reason, exactly
+#         like 'di_rate' (internal to Step 5).
+#     (3) axis3_mechanism_lock is emitted by blueprint_core into the Step-7
+#         report dict for AUDITABILITY (covered/gap counts, GAP-2026-08-12-
+#         AXIS3-MECHLOCK); it is consumed by report prose, never by field
+#         name. ALLOW-listed with that reason, exactly like
+#         'figural_denominator'.
+#   The lesson is the auditor's own: a checker whose world-model is not
+#   updated alongside the world reports yesterday's architecture as today's
+#   defect. CI now runs this file on every push (GAP-2026-08-14-CI-AUDITOR-
+#   WIRING), so the next stale-map drift turns a build red instead of
+#   waiting for a hand run.
 # audit_seam.py v1.0 — 2026-08-06 — PRODUCER/CONSUMER SEAM AUDIT (GAP-2026-08-06-SEAM)
 #
 # WHY THIS EXISTS.
@@ -48,11 +72,16 @@ PRODUCERS = {'Framework_MockTestAnalyse.md': 'Step5',
              'blueprint_core.py': 'engine',
              # audit_canonical populates its own `src` dict and reads it back; without
              # it here every src key reads as an ORPHAN-READ and the real findings drown.
-             'audit_canonical.py': 'audit'}
+             'audit_canonical.py': 'audit',
+             # v1.1: the Step-7 engine (released 2026.08.12.11) persists the
+             # per-mock axis snapshots (reg['axis1_paper']/reg['axis3_paper']
+             # via setdefault). Omitting it made both fields ORPHAN-READ.
+             'final_assembly.py': 'Step7-engine'}
 CONSUMERS = {'Framework_Blueprint.md': 'Step6',
              'Framework_MockTestCreate.md': 'Step7',
              'blueprint_core.py': 'engine',
-             'audit_canonical.py': 'audit'}
+             'audit_canonical.py': 'audit',
+             'final_assembly.py': 'Step7-engine'}
 
 # Fields legitimately written by one side only. Each needs a REASON, so the list cannot
 # quietly become a place to bury real findings.
@@ -74,6 +103,17 @@ ALLOW = {
     'check_figural_conformance': 'engine FUNCTION name, not a data field',
     'figural_generation_profile': 'prose section heading, not a data field',
     'figural_data':        'function PARAMETER of synthesise_subtopic, not a cross-step field',
+    # v1.1 (GAP-2026-08-14-AXISPAPER-PERSISTENCE resolution):
+    'axis1_paper_counts':  'Step-7-INTERNAL accumulator variable (initialised, filled and '
+                           'consumed inside MockTestCreate §13-4 / S7-NEW-B), not a '
+                           'cross-step contract — same class as di_rate',
+    'axis3_paper_counts':  'Step-7-INTERNAL accumulator variable (initialised, filled and '
+                           'consumed inside MockTestCreate §13-4 / S7-NEW-B), not a '
+                           'cross-step contract — same class as di_rate',
+    'axis3_mechanism_lock': 'emitted by blueprint_core into the Step-7 report dict for '
+                            'auditability (covered/gap counts, GAP-2026-08-12-AXIS3-'
+                            'MECHLOCK); consumed by report prose, never by field name — '
+                            'same class as figural_denominator',
 }
 
 # HONEST LIMIT OF THIS CHECK, stated here so nobody reads a green run as more than it is.

@@ -191,9 +191,9 @@
     },
     "audit_seam.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 161,
-      "sha256": "e78c110a60210d2cb1419a874a97d8f9b60baa62f6b66b803963286bcb2fa4a3",
-      "size_bytes": 9017,
+      "lines": 201,
+      "sha256": "478af27ca6a9f626cc3468097cc968cc24af8fa5e2b30b803e4975872ad3d502",
+      "size_bytes": 11883,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_specs_ext.py": {
