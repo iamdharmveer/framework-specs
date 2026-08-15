@@ -77,6 +77,26 @@ def _self_test():
     check("TRIGGER-GRAMMAR fires on a trigger absent from routes.json",
           rc == 1 and 'TRIGGER-GRAMMAR' in out and 'Bogustrigger' in out)
 
+    # GAP-2026-08-15-BAREQ (T-3). Three Q-detection dialects lived in production for
+    # the life of the framework because no check could see an anonymous inline regex.
+    # This fixture proves check 8 fires — and the two negatives below prove it does
+    # NOT fire on the label STRIPPERS or on the canonical tables, which is what makes
+    # it usable rather than something readers learn to ignore.
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\nm = re.match(r'^Q\\.?\\s*(\\d+)', t)\n```\n"))
+    check("INLINE-QREGEX fires on a private inline question regex",
+          rc == 1 and 'INLINE-QREGEX' in out)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\nt = re.sub(r'^Q\\.?\\d+\\.?\\s*', '', t)\n```\n"))
+    check("INLINE-QREGEX does NOT fire on a label stripper (re.sub)",
+          'INLINE-QREGEX' not in out)
+
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        "\n```python\nif bc.detect_question_start(t) is not None:\n    pass\n```\n"))
+    check("INLINE-QREGEX does NOT fire on a delegating call",
+          'INLINE-QREGEX' not in out)
+
     rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
         "\nThe step then reads registry['zz_selftest_phantom'] for the count.\n"))
     check("JSON-PARITY fires on a field read that nothing writes",
@@ -276,6 +296,46 @@ if canon:
                 f"blueprint_core's canonical table has {len(canon)} — the two would parse "
                 f"the same paper differently. If the extra entries are for RAW source "
                 f"detection, name the table SOURCE_Q_PATTERNS; do NOT widen the engine.")
+
+# ── 8 INLINE Q-DETECTION REGEX (GAP-2026-08-15-BAREQ, R-6) ─────────────────
+#   TABLE-PARITY compares NAMED tables. DELEGATION compares FunctionDefs. An inline
+#   ANONYMOUS r'^Q...' literal handed straight to re.match/search/fullmatch/compile is
+#   neither, which is how three incompatible Q-detection dialects lived in production
+#   alongside the canonical table for the entire life of the framework:
+#       A  engine   ^Q\.\s*(\d+)\s+ / ^Q(\d+)\.\s+     Steps 3, 5
+#       B  Step 4   ^Q\.?\s*(\d+)                       PYQCount, PYQCore
+#       C  Step 1   ^Q\.(\d+)                           PYQPrepare CHECK 1/2/12/15/21
+#   B and C matched a bare "Q.4"; A did not. So Step 1 CERTIFIED a 60-question file
+#   that Step 3 read as 56 and Step 4 counted as 60 again — three steps, three answers,
+#   no gate. Post-remedy the three dialects agree ACCIDENTALLY, which is precisely the
+#   failure mode blueprint_core.py documents for the old Step-4 copy; agreement reached
+#   by coincidence is not a contract. This check makes the private copy unrepresentable.
+#
+#   MATCH context only. A re.sub(r'^Q\.?\d+\.?\s*', '', t) is a label STRIPPER, not a
+#   detector — it cannot disagree about whether a question exists — and is allowed.
+#   The TABLES themselves are list literals, not calls, so they are untouched here and
+#   remain TABLE-PARITY's business.
+_QLIT = re.compile(r'\^Q')
+_MATCHERS = {'match', 'search', 'fullmatch', 'compile'}
+for f, t in TXT.items():
+    for b in blocks(t):
+        try: tree = ast.parse(b)
+        except SyntaxError: continue
+        for n in ast.walk(tree):
+            if not isinstance(n, ast.Call) or not n.args: continue
+            fn = n.func
+            if not (isinstance(fn, ast.Attribute) and fn.attr in _MATCHERS
+                    and isinstance(fn.value, ast.Name) and fn.value.id == 're'):
+                continue
+            a0 = n.args[0]
+            if not (isinstance(a0, ast.Constant) and isinstance(a0.value, str)): continue
+            v = a0.value
+            if _QLIT.match(v) and '\\d' in v:
+                rec('INLINE-QREGEX',
+                    f"{f}: inline question regex r'{v}' passed to re.{fn.attr}() — "
+                    f"delegate to bc.detect_question_start() (a Q-number) or "
+                    f"bc.is_bare_q_label() (the bare-label SHAPE). A private copy is how "
+                    f"producer and consumer came to disagree (GAP-2026-08-15-BAREQ).")
 
 tot=sum(len(v) for v in I.values())
 print(f"specs: {len(SPECS)} | engines: {len(ENG)} | findings: {tot}\n")

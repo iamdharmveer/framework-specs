@@ -1,4 +1,17 @@
-# Framework_PYQSort v1.19.0 — Universal PYQ Sorter
+# Framework_PYQSort v1.20.0 — Universal PYQ Sorter
+# v1.20.0 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-1 Q_PATTERNS mirrors the engine's
+#   widened four-entry table (entries 3/4 = BARE-LABEL forms). A stem whose whole payload
+#   is <m:oMath> reads through p.text as "Q.N", entries 1/2 require whitespace AFTER the
+#   digits, and extract_questions() therefore filed the stem, its four options and its
+#   date label as BODY of the preceding question: 4 of 60 lost on IIT_JAM_MATHEMATICS
+#   12-Feb-2017 with all ten checks GREEN (CHECK 2 counts input and output with the same
+#   blind detector; CHECK 5 passes because this step RENUMBERS; CHECK 3 passes because
+#   the emitter rebuilds one date label per DETECTED question). NEW S1-3b: reconcile the
+#   parsed count against scan_progress.json drive_file_inventory[].q_count — HARD STOP on
+#   disagreement, WARN when the field is absent so pre-remedy projects are not stranded.
+#   NEW CHECK 12 (HARD FAIL): the question-side twin of CHECK 11 — the <w:t> view and the
+#   <w:t>+<m:t> view of the delivered file must agree on every question start. §8 heading
+#   corrected from a stale "10 checks" (CHECK 11 was already live) to 12.
 # v1.19.0 — 2026-08-05 — GAP-2026-08-05-001. CHECK 11 DOWNSTREAM-PARSE ROUND TRIP added
 #   (HARD FAIL, D3/SG-5): PYQSort now re-reads its own delivered file with the DOWNSTREAM
 #   predicate and asserts inferred headings == emitted headings, plus the heading-colour
@@ -436,6 +449,42 @@ If Analysis docs missing → HARD STOP (see S1-2).
 If exam_config missing → HARD STOP (see S1-1).
 ```
 
+### S1-3b — Q-COUNT RECONCILIATION AGAINST THE SCAN INVENTORY (v1.20, GAP-2026-08-15-BAREQ)
+
+```
+Runs immediately after extract_questions() (S3-2) and BEFORE any classification,
+sorting or emission. This is the ONE gate in Step 3 with an INDEPENDENT expected
+count — every other check in §8 compares this step's own reading against itself.
+
+  parsed   = len(extract_questions(...))
+  expected = scan_progress.json['drive_file_inventory'][<this Row file>]['q_count']
+  method   = ...['q_count_method']
+
+  method == "parsed"  and parsed != expected
+      -> HARD STOP. Name, explicitly:
+           - the count from each side (e.g. "parsed 56, scan recorded 60")
+           - the Q-numbers present in one and absent from the other
+           - the paragraph index and first 40 characters of every paragraph whose
+             corpus_io.text_of() begins with a Q-label but whose p.text does not
+             — that list IS the diagnosis, and it is exactly the four paragraphs
+             GAP-2026-08-15-BAREQ lost on IIT_JAM_MATHEMATICS 12-Feb-2017.
+         Then instruct: verify the framework is >= 2026.08.15.5 and re-run. Do NOT
+         hand-edit the Row file to make it parse (S1-4 / R-7).
+  method == "filename"    -> WARN and continue. An inferred count is not evidence.
+  field absent            -> WARN and continue, never halt. Projects scanned before
+                             2026.08.15.5 have no q_count; refusing to sort them
+                             would strand ~200 existing exams for a missing field.
+
+WHY THIS EXISTS. §8 CHECK 2 (Q-count parity) counts the INPUT and the OUTPUT with
+the SAME detector, so a detector blind spot is invisible to it by construction:
+56 == 56 PASSES on a file that has lost four questions. CHECK 5 (sequential
+numbering) passes too, because Step 3 RENUMBERS — 56 questions renumber to a
+perfect Q.1…Q.56. CHECK 3 passes because the orphaned date labels are absorbed as
+body elements and the emitter rebuilds exactly one label per DETECTED question.
+Self-consistency is not verification. A count from a different step, computed by a
+different pass over a different artefact, is.
+```
+
 ---
 
 ## §2 — SECTION DETECTION
@@ -525,6 +574,8 @@ def parse_module_separator(text):
 Q_PATTERNS = [
     r'^Q\.\s*(\d+)\s+',            # Q.1  Q.25  Q. 1
     r'^Q(\d+)\.\s+',               # Q1.  Q25.
+    r'^Q\.\s*(\d+)\s*$',           # Q.4   bare label — OMML / figure / empty stem
+    r'^Q(\d+)\.\s*$',              # Q4.   bare label, alt form
 ]
 
 # DELEGATED to the engine (blueprint_core Cluster G). Four specs parse Q-numbers from the
@@ -532,17 +583,35 @@ Q_PATTERNS = [
 # happen. This table mirrors the engine's canonical table EXACTLY and is verified by
 # audit_deep.py TABLE-PARITY.
 #
-# WHY ONLY TWO PATTERNS — DO NOT ADD MORE (2026-07-25).
-# Three further forms exist in RAW exam sources — "Question 1:", bare "1." and "(1)" — and
-# Step 1 detects them via its own SOURCE_Q_PATTERNS. They are deliberately ABSENT here and
-# must never be restored. After Step 1 every document is NORMALISED: questions read "Q.N"
-# and OPTIONS read "N. text". The bare-number pattern therefore matches every option line.
-# Verified by execution on a canonical two-question fixture: the two-pattern table finds 2
-# question starts; the five-pattern table finds 10. A 100-question paper would parse as 500.
+# WHY THESE FOUR AND NO MORE (2026-07-25, extended 2026-08-15).
+#
+# Entries 1-2 are the WITH-CONTENT forms. Three further forms exist in RAW exam sources —
+# "Question 1:", bare "1." and "(1)" — and Step 1 detects them via its own
+# SOURCE_Q_PATTERNS. They are deliberately ABSENT here and must never be restored. After
+# Step 1 every document is NORMALISED: questions read "Q.N" and OPTIONS read "N. text".
+# The bare-number pattern therefore matches every option line. Verified by execution on a
+# canonical two-question fixture: the two-pattern table finds 2 question starts; the
+# five-pattern table finds 10. A 100-question paper would parse as 500.
 # Until 2026-07-25 these tables carried all five entries while the engine implemented two,
 # and audit_deep TABLE-PARITY could not see it: its extraction regex stopped at the first
 # ']', which occurs inside r'^Question\s+(\d+)\s*[:.]', so it compared a silently truncated
 # two-entry slice against the engine's two and always passed.
+#
+# Entries 3-4 are the BARE-LABEL forms (GAP-2026-08-15-BAREQ). python-docx's p.text is
+# <w:t>-only, so a stem paragraph whose entire payload is <m:oMath>, a drawing, or nothing
+# at all (PYQPrepare S1-4 "empty/corrupt") reads as just "Q.N" — and entries 1-2 require
+# whitespace AFTER the digits, applied to already-stripped text, so they can never match.
+# Such a question DID NOT EXIST for this parser: its stem, its options and its date label
+# were absorbed into the preceding question's body, and every check below passed because
+# input and output are counted with the SAME blind detector. Measured on
+# IIT_JAM_MATHEMATICS 12-Feb-2017: 4 of 60 questions (Q.4, Q.6, Q.25, Q.27) lost.
+# This is the QUESTION half of GAP-2026-08-07-OMML, whose OPTION half shipped as
+# corpus_io.BARE_OPT_PATTERNS + is_option(para=); OPT_PATTERNS had a bare-label companion
+# and Q_PATTERNS did not.
+# The $ anchor is LOAD-BEARING: it admits ONLY a paragraph that is nothing but the label,
+# so it can never match an option line (options never begin with Q), an in-passage
+# cross-reference "Q.11-15", a date label, a heading, or "Q1 Analysis". Verified by
+# execution over a 34-case adversarial fixture in blueprint_core.self_test().
 detect_question_start = bc.detect_question_start
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1826,10 +1895,12 @@ def assert_image_survival(input_path, out_file, census):
 
 ---
 
-## §8 — VALIDATION (10 checks — iterate until ALL PASSED)
+## §8 — VALIDATION (12 checks — iterate until ALL PASSED)
 
 ```
-Every Sorted file must pass all 10 checks before delivery.
+Every Sorted file must pass all 12 checks before delivery.
+(The heading read "10 checks" until 2026-08-15 while CHECK 11 was already live —
+corrected together with the addition of CHECK 12.)
 session_keyword is read from exam_config.json for Check 3.
 CHECK 10 (v1.12) runs on the FINAL, size-governed file — see the §9 write path.
 
@@ -1957,6 +2028,37 @@ CHECK 11 — DOWNSTREAM-PARSE ROUND TRIP (GAP-2026-08-05-001, D3)   [HARD FAIL]
   NO RE-SORT OF EXISTING FILES IS REQUIRED. CHECK 11 governs files written from now
   on. Sorted files already in Drive were always correct — the bytes were never the
   problem, only the reading was.
+
+CHECK 12 — TEXT-LAYER / VISIBLE-TEXT Q AGREEMENT (GAP-2026-08-15-BAREQ)  [HARD FAIL]
+  CHECK 11 does for HEADINGS what this does for QUESTIONS, and it does it the only
+  way a shared blind spot cannot defeat: by reading the delivered file TWICE, through
+  two different views, and comparing.
+
+      wt_view  = [i for i, p in enumerate(paras)
+                  if bc.detect_question_start(p.text) is not None]
+      vis_view = [i for i, p in enumerate(paras)
+                  if bc.detect_question_start(corpus_io.text_of(p)) is not None]
+
+  p.text is <w:t>-only — what Steps 4 and 5 will walk. corpus_io.text_of() is
+  <w:t> + <m:t> — what a human reading the page sees. HARD FAIL if the two disagree,
+  naming for each divergence the paragraph index, its first 80 characters, and which
+  view saw a question start.
+
+  A divergence means one of two things, both fatal and both otherwise silent:
+    - a question exists on the page that Steps 4 and 5 cannot see (the discovery
+      case: an OMML-only stem reading as a bare "Q.N"), or
+    - a paragraph LOOKS like a question start to a reader but is not one to the
+      parser, which is how a stem continuation or a cross-reference becomes a
+      phantom question.
+
+  This is the question-side twin of CHECK 11 and it exists for the identical reason,
+  stated in CLAUDE.md: "A bound that only the consumer enforces is not enforced."
+  Until 2026-08-15 nothing in Step 3 compared any two INDEPENDENT readings of a
+  question, so a detector that could not see a question produced a file in which
+  that question had never existed, and all ten checks reported green.
+
+  Zero cost on a conformant file: on all six IIT_JAM_MATHEMATICS Row files the two
+  views agree exactly, before and after the remedy, on every paragraph.
 ```
 
 ---
@@ -1974,7 +2076,7 @@ SINGLE SCRIPT, 4 TOOL CALLS, NO "CONTINUE":
     5. Sorter (8-field sort key)
     6. Emitter (headings + questions via insert_para)
     7. Write path: save → size governor (S7-6) → parity assert
-    8. Validator (all 10 checks, CHECK 10 = image survival S7-7)
+    8. Validator (all 12 checks, CHECK 10 = image survival S7-7)
     9. Delivery (shutil.copy2 to /mnt/user-data/outputs/)
 
   CALL 2 — bash_tool: Run sort_pipeline.py
@@ -2427,4 +2529,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.19.0
+# END OF Framework_PYQSort v1.20.0

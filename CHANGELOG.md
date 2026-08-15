@@ -1,5 +1,142 @@
 # Changelog
 
+## 2026.08.15.5 — GAP-2026-08-15-BAREQ: a question whose stem was an equation did not exist, and 77% of stems lost their maths
+
+**P0 — SILENT DATA LOSS. Three live defects of one family: a paragraph's meaning was
+read from its <w:t> text layer alone, and everything that could have noticed was
+reading the same layer.**
+
+Discovered in `IIT_JAM_MATHEMATICS`, Step 3 (PYQSort), Row file
+`IIT_JAM_MATHEMATICS_12-Feb-2017.docx`. Found by an operator-side sanity check
+(parsed Q-count vs `classifications.json` row count). **No framework gate fired.**
+
+### F-1 — the question did not exist  (blueprint_core, 4 specs)
+
+python-docx's `p.text` is `<w:t>`-only, so a stem paragraph whose entire payload is
+`<m:oMath>` reads as the bare label `"Q.4"`. `Q_PATTERNS` required whitespace AFTER
+the digits, applied to already-stripped text, so it matched nothing and
+`detect_question_start()` returned None. The stem, its four options and its date
+label became BODY of the preceding question. **4 of 60 questions (Q.4, Q.6, Q.25,
+Q.27) — 6.7% — absorbed.**
+
+All ten PYQSort checks PASSED on the result. CHECK 2 counts input and output with the
+SAME blind detector (`56 == 56`). CHECK 5 passes because Step 3 RENUMBERS — 56
+questions renumber to a perfect Q.1…Q.56. CHECK 3 passes because the orphaned date
+labels are absorbed as body and the emitter rebuilds one label per DETECTED question.
+CHECK 4 is a `>=` floor that the 16 extra options inflate. Step 1 CHECK 1/2 reported
+"Q-count = 60, sequential OK" because they used a PRIVATE regex `^Q\.\d+` that
+required no trailing content. Step 4 used a third dialect `^Q\.?\s*\d+` which also
+matched, so it counted 60 for a file Step 5 extracted as 56. **Three steps, three
+answers, no gate.** `report_pattern_era()` printed the true signal `56 vs 60` and is
+a print, not a gate — and indistinguishable from a legitimately partial paper.
+
+A bare bold `Q.N` was additionally classified TRUE by `is_taxonomy_heading()` whenever
+the next content-bearing block was a date label — i.e. for every OMML-only NAT stem —
+promoting a lost question into a PHANTOM level-3 subtopic heading. Verified by
+execution. Fixed as a consequence of F-1: a bare label is now a question, so the
+question-exclusion branch returns False before any heading test runs.
+
+### F-2 — the stem paragraph is a paragraph too  (Framework_MockTestAnalyse S3-2)
+
+Step 5's `extract_presorted()` ran `enrich_paragraph_with_omml()` over every
+CONTINUATION line and **never over the stem paragraph**: `stem_parts[0]` was built
+from `para.text`. So the equation in a stem paragraph — the normal shape for every
+mathematics, physics, statistics and quantitative-aptitude paper — was dropped from
+`full_stem`, `stem`, `stem_raw`, `detect_is_msq()`, `detect_blank_position()`, the
+negative-question test, the taxonomy/dedupe keys, `PYQ_STEM_PATTERNS`, and every mock
+question derived from the item.
+
+**Measured on the same paper: 46 of 60 stems (77%) lost part or all of their
+mathematics; the four F-1 stems extracted as `''`.** `omml_present` was computed from
+the body loop alone, so those questions were recorded `omml_present=False`, which made
+**QV-8 (OMML recovery ≥ 80%) skip exactly them** — `om == []` → PASS. The same
+self-consistent blindness as F-1, one layer down. This defect is INDEPENDENT of F-1
+and was live for every exam, not only those with bare labels.
+
+### F-3 — zero-width contamination  (PYQPrepare S2-4, blueprint_core)
+
+Zero-width characters are not whitespace to Python: `str.strip()` does not remove them
+and `\s` does not match them. `"Q.4<ZWSP>"` defeats every entry of the table, old or
+new, and is invisible on screen. `sanitise()` removed C0 controls only. PDF-to-DOCX
+converters emit ZWSP/ZWNJ/ZWJ/WJ/BOM routinely.
+
+### Remedies
+
+- **`blueprint_core.Q_PATTERNS` gains two anchored bare-label entries**, plus the
+  NAMED companion `BARE_Q_PATTERNS` and predicate `is_bare_q_label()` — the symmetry
+  with `OPT_PATTERNS`/`BARE_OPT_PATTERNS` whose ABSENCE was the root cause. The `$`
+  anchor admits only a paragraph that is nothing but the label: no option
+  (options never begin with Q), no cross-reference `Q.11-15`, no date label, no
+  heading, and not `Q1 Analysis`. **34-case adversarial fixture, 0 false positives.**
+- **ATOMIC.** The three spec-local mirrors (`Framework_PYQSort` S3-1,
+  `Framework_MockTestAnalyse` E-2, `Framework_PYQScan` S3-2) are updated in the SAME
+  commit; engine-only patching turns `audit_deep` TABLE-PARITY red by design.
+  `SOURCE_Q_PATTERNS` is deliberately UNCHANGED — widening it would reparse a
+  100-question paper as 500.
+- **`detect_question_start()` strips the zero-width class** before matching, so Row
+  files already delivered still parse without a Step 1 rebuild; `sanitise()` deletes
+  it at the producer and CHECK 7 becomes "NO CONTROL OR ZERO-WIDTH CHARACTERS".
+- **Step 5 seeds `stem_parts[0]` and both OMML flags from the stem paragraph** (F-2).
+- **Dialects B and C are deleted.** PYQPrepare CHECK 1/2/12/15/21 and PYQCount
+  `count_sorted_file` + the S5-1 gate now call `bc.detect_question_start()`.
+  PYQPrepare CHECK 13 calls `bc.is_bare_q_label()` — it had the RIGHT regex gated on
+  the WRONG payload test (it inspected the NEXT paragraph for a drawing and never the
+  SAME paragraph for an equation), which is why the check closest to catching this
+  stayed silent, and it now reports OMML-only, figure-only and truly-empty stems
+  separately.
+- **New PYQPrepare CHECK 22 (WARN, 21 → 22 checks)** — producer/consumer Q-detection
+  agreement. Compares the `<w:t>`-only view against the `<w:t>+<m:t>` view of the SAME
+  document. This is the one construction a shared blind spot cannot satisfy. Verified
+  to name exactly Q.4/6/25/27 under the pre-remedy engine and to pass under the
+  remedy — a regression test that cannot fail on the old code is not a regression test.
+- **New PYQSort CHECK 12 (HARD FAIL, 11 → 12 checks; heading corrected from a stale
+  "10")** — the question-side twin of CHECK 11, same two-view construction, run on the
+  delivered file.
+- **New PYQSort S1-3b (HARD STOP)** — reconciles the parsed count against
+  `scan_progress.json → drive_file_inventory[].q_count`. Absent field → WARN, never
+  halt, so ~200 pre-remedy projects are not stranded.
+- **PYQScan persists `q_count` / `q_count_method`** and S3-3 asserts
+  `len(classifications[paper]) == q_count` (HARD STOP). The scan's "MANDATORY GATE"
+  computed a ✓-verified per-file count, displayed it and DISCARDED it: the one number
+  that would have caught this in two seconds (56 parsed vs 60 classified) existed,
+  was correct, and was thrown away.
+- **`audit_deep` gains INLINE-QREGEX** — any `^Q…\d` literal handed to
+  `re.match/search/fullmatch/compile` inside a spec code block is a finding. TABLE-PARITY
+  compares NAMED tables and DELEGATION compares FunctionDefs; an anonymous inline regex
+  is neither, which is how three dialects lived in production for the life of the
+  framework. Label STRIPPERS (`re.sub`) are correctly exempt. Three self-test fixtures
+  (fires on a private regex; silent on a stripper; silent on a delegating call).
+- **S1-4 contract rewritten (R-7).** A bare `Q.N` is declared a LAWFUL normalised form
+  with a named reason, and "repairing" it by injecting filler such as `"Solve:"` is
+  now prohibited in the contract: filler is not in the source, survives into Step 5's
+  extraction and into every mock derived from the item, and corrupts the corpus it
+  appears to fix. Any Row file hand-edited that way while the defect was open must be
+  reverted and re-sorted.
+
+### Proof
+
+```
+blueprint_core --self-test   391/391 -> 447/447 PASS   (+56, all new tests fail on the old table)
+corpus_io      --self-test   309/309 PASS              unchanged
+audit_deep                   findings 0                (3 TABLE-PARITY if the patch is not atomic)
+audit_deep     --self-test   10 passed, 0 failed       (7 -> 10)
+audit_callgraph / audit_seam / audit_sync / validate_framework_md / check_triggers / spec_name_audit
+                             0 findings
+IIT_JAM_MATHEMATICS_12-Feb-2017.docx   56 -> 60 questions, Q.1…Q.60 sequential
+                                        0 -> 46 stems recover their mathematics
+```
+
+### Migration for existing projects
+
+The Row files were never wrong — only the reading was. An affected paper needs a
+**re-sort only**, never a Step 1 rebuild. Sweep every project's Row files with
+`audit_bare_q_label.py`; `proposed > strict` means any sorted file produced from that
+Row file has LOST questions and must be regenerated, then Step 4 → 5 → 6 re-run for
+that exam. F-2 is separate and broader: **every** exam whose stems carry OMML has an
+under-populated Step 5 extraction and must be re-extracted, whether or not F-1 touched
+it. Deploy before re-sorting — re-sorting under the old engine reproduces the loss
+byte for byte.
+
 ## 2026.08.15.4 — Rhythm sizes fixtured; the self-test count now reproduces everywhere
 
 Release-manager review of 2026.08.15.3 raised two findings, neither
@@ -1684,6 +1821,28 @@ Remedies (Framework_PYQPrepare v1.14.1 → v2.0, corpus_io):
    producer-side mirror of S-1: PYQPrepare CHECK 9 v2 accepts bare "N." labels whose
    payload is <m:oMath>. PYQSort/PYQCount need NO change — they already delegate to
    corpus_io.is_option()/OPT_PATTERNS.
+
+   > **AMENDED 2026-08-15 (GAP-2026-08-15-BAREQ, R-9). READ THIS BEFORE TREATING THE
+   > p.text/OMML CLASS AS CLOSED.** The ten defect classes above enumerate OMML-only
+   > **options**. "OMML-only **stems** unreadable as bare `Q.N` labels through p.text"
+   > is the same sentence with one noun changed, and it was never written — so it was
+   > never remedied. M3's "PYQSort/PYQCount need NO change" is TRUE for `is_option()`
+   > and FALSE for `detect_question_start()`: `is_option(text, para=None)` can consult
+   > the paragraph, `detect_question_start(text)` takes a string and structurally
+   > cannot. `OPT_PATTERNS` gained a `BARE_OPT_PATTERNS` companion here; `Q_PATTERNS`
+   > did not, and that asymmetry is the whole of GAP-2026-08-15-BAREQ.
+   >
+   > Worse, M1/M2 above made the unparseable shape MORE COMMON: once structured
+   > transcription is law, a stem that is a single display equation CORRECTLY compiles
+   > to a text-empty paragraph. Fidelity went up and parseability went down, and
+   > nothing in this release connected the two. Eight days later the same exam lost
+   > four questions to it.
+   >
+   > A second half-fix hid in the same area and survived until 2026-08-15 as well:
+   > Step 5's extractor ran `enrich_paragraph_with_omml()` over every CONTINUATION
+   > paragraph and never over the STEM paragraph, so `stem_raw` was <w:t>-only —
+   > 46 of 60 stems on IIT_JAM_MATHEMATICS 12-Feb-2017 (77%) silently lost their
+   > mathematics. See 2026.08.15.5.
 4. **M4 — CHECK 19/20/21 (18 → 21 checks).** Structure residue in plain <w:t>;
    region→oMath round-trip equality; declared-structure fidelity (an undeclared or
    flattened matrix/cases can no longer ship under a green footer).

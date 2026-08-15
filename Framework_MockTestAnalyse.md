@@ -1,4 +1,20 @@
-# Framework_MockTestAnalyse v2.48.2 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.49.0 — Universal PYQ Pattern Extraction Engine
+# v2.49.0 — 2026-08-15 — GAP-2026-08-15-BAREQ (F-1 mirror + F-2 primary).
+#   E-2 Q_PATTERNS mirrors the engine's widened four-entry table: entries 3/4 are the
+#   BARE-LABEL forms, for a stem paragraph whose whole payload is <m:oMath>, a drawing,
+#   or nothing (PYQPrepare S1-4). p.text is <w:t>-only, so such a stem read as "Q.N",
+#   entries 1/2 require whitespace AFTER the digits, and the question did not exist for
+#   this step. Updated ATOMICALLY with blueprint_core, PYQSort S3-1 and PYQScan S3-2 —
+#   engine-only patching turns audit_deep TABLE-PARITY red by design.
+#   S3-2 extract_presorted (F-2, INDEPENDENT and broader): stem_parts[0] was built from
+#   para.text and never passed through enrich_paragraph_with_omml(), which every
+#   CONTINUATION line already used. So a stem paragraph's equation was silently dropped
+#   from full_stem / 'stem' / 'stem_raw' / detect_is_msq / detect_blank_position / the
+#   negative test / taxonomy keys / PYQ_STEM_PATTERNS and every mock derived from the
+#   item. Measured on IIT_JAM_MATHEMATICS 12-Feb-2017: 46 of 60 stems (77%) lost part or
+#   all of their maths, and an OMML-only stem extracted as ''. omml_present/omml_ok were
+#   likewise seeded from the body loop alone, so QV-8 (OMML recovery) SKIPPED exactly
+#   those questions (om == [] -> PASS). Both flags are now seeded from the stem.
 # v2.48.2 — 2026-08-14 — S11-2 PART B FIXED FOR REAL + ONE ORDER EVERYWHERE
 #   (GAP-2026-08-14-S11-2-PARTB-UNFIXED, primary; GAP-2026-08-14-DELIVERY-ORDER-
 #   DRIFT, secondary; release-manager hold on 2026.08.13.6.) v2.48.1 claimed
@@ -1603,6 +1619,8 @@ Algorithm (pseudocode — full implementation in S3-2 extract_presorted()):
 Q_PATTERNS = [
     r'^Q\.\s*(\d+)\s+',            # Q.1  Q.25  Q. 1
     r'^Q(\d+)\.\s+',               # Q1.  Q25.
+    r'^Q\.\s*(\d+)\s*$',           # Q.4   bare label — OMML / figure / empty stem
+    r'^Q(\d+)\.\s*$',              # Q4.   bare label, alt form
 ]
 
 # DELEGATED to the engine (blueprint_core Cluster G). Four specs parse Q-numbers from the
@@ -1610,17 +1628,35 @@ Q_PATTERNS = [
 # happen. This table mirrors the engine's canonical table EXACTLY and is verified by
 # audit_deep.py TABLE-PARITY.
 #
-# WHY ONLY TWO PATTERNS — DO NOT ADD MORE (2026-07-25).
-# Three further forms exist in RAW exam sources — "Question 1:", bare "1." and "(1)" — and
-# Step 1 detects them via its own SOURCE_Q_PATTERNS. They are deliberately ABSENT here and
-# must never be restored. After Step 1 every document is NORMALISED: questions read "Q.N"
-# and OPTIONS read "N. text". The bare-number pattern therefore matches every option line.
-# Verified by execution on a canonical two-question fixture: the two-pattern table finds 2
-# question starts; the five-pattern table finds 10. A 100-question paper would parse as 500.
+# WHY THESE FOUR AND NO MORE (2026-07-25, extended 2026-08-15).
+#
+# Entries 1-2 are the WITH-CONTENT forms. Three further forms exist in RAW exam sources —
+# "Question 1:", bare "1." and "(1)" — and Step 1 detects them via its own
+# SOURCE_Q_PATTERNS. They are deliberately ABSENT here and must never be restored. After
+# Step 1 every document is NORMALISED: questions read "Q.N" and OPTIONS read "N. text".
+# The bare-number pattern therefore matches every option line. Verified by execution on a
+# canonical two-question fixture: the two-pattern table finds 2 question starts; the
+# five-pattern table finds 10. A 100-question paper would parse as 500.
 # Until 2026-07-25 these tables carried all five entries while the engine implemented two,
 # and audit_deep TABLE-PARITY could not see it: its extraction regex stopped at the first
 # ']', which occurs inside r'^Question\s+(\d+)\s*[:.]', so it compared a silently truncated
 # two-entry slice against the engine's two and always passed.
+#
+# Entries 3-4 are the BARE-LABEL forms (GAP-2026-08-15-BAREQ). python-docx's p.text is
+# <w:t>-only, so a stem paragraph whose entire payload is <m:oMath>, a drawing, or nothing
+# at all (PYQPrepare S1-4 "empty/corrupt") reads as just "Q.N" — and entries 1-2 require
+# whitespace AFTER the digits, applied to already-stripped text, so they can never match.
+# Such a question DID NOT EXIST for this parser: its stem, its options and its date label
+# were absorbed into the preceding question's body, and every check below passed because
+# input and output are counted with the SAME blind detector. Measured on
+# IIT_JAM_MATHEMATICS 12-Feb-2017: 4 of 60 questions (Q.4, Q.6, Q.25, Q.27) lost.
+# This is the QUESTION half of GAP-2026-08-07-OMML, whose OPTION half shipped as
+# corpus_io.BARE_OPT_PATTERNS + is_option(para=); OPT_PATTERNS had a bare-label companion
+# and Q_PATTERNS did not.
+# The $ anchor is LOAD-BEARING: it admits ONLY a paragraph that is nothing but the label,
+# so it can never match an option line (options never begin with Q), an in-passage
+# cross-reference "Q.11-15", a date label, a heading, or "Q1 Analysis". Verified by
+# execution over a 34-case adversarial fixture in blueprint_core.self_test().
 detect_question_start = bc.detect_question_start
 ```
 
@@ -2620,11 +2656,35 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         q_num = detect_question_start(text)
         if q_num is None: i += 1; continue
 
-        stem_parts   = [re.sub(r'^Q\.?\d+\.?\s*', '', text).strip()]
         options      = []
         options_raw  = []   # v2.15 BUG-D07: raw option lines for label detection
         omml_present = False
         omml_ok      = True   # BUG-A05 fix: start True, AND-reduce below
+
+        # ── GAP-2026-08-15-BAREQ, defect F-2 — THE STEM PARAGRAPH IS A PARAGRAPH TOO ──
+        # Until 2026-08-15 stem_parts[0] was built from `text`, i.e. para.text, which is
+        # <w:t>-only. Every CONTINUATION line went through enrich_paragraph_with_omml();
+        # the stem paragraph — the one paragraph guaranteed to exist for every question —
+        # did not. So the equation in a stem paragraph, which is the NORMAL shape for a
+        # mathematics, physics, statistics or quantitative-aptitude paper, was silently
+        # dropped from full_stem, and therefore from 'stem', 'stem_raw', detect_is_msq(),
+        # detect_blank_position(), the negative-question test, the dedupe/taxonomy keys,
+        # PYQ_STEM_PATTERNS and every mock question derived from the item.
+        #
+        # Measured on IIT_JAM_MATHEMATICS 12-Feb-2017: 46 of 60 stems (77%) lost part or
+        # all of their mathematics, and a stem that was ENTIRELY OMML extracted as ''.
+        #
+        # omml_present was computed from the body loop alone, so a question whose maths
+        # lives only in the stem paragraph was recorded omml_present=False — which made
+        # QV-8 (OMML recovery >= 80%) skip exactly those questions (om == [] -> PASS).
+        # Producer and consumer sharing a blind spot is what made this silent, the same
+        # shape as the Q-detector defect above. Seeding both flags from the stem closes it.
+        _stem_txt = re.sub(r'^Q\.?\d+\.?\s*', '', text).strip()
+        _stem_txt, _stem_ok, _stem_has_omml = enrich_paragraph_with_omml(_stem_txt, para)
+        if _stem_has_omml:
+            omml_present = True
+            omml_ok      = omml_ok and _stem_ok
+        stem_parts   = [_stem_txt]
         i += 1
 
         while i < len(paras):
@@ -4452,7 +4512,7 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
     # ── CATEGORY C: exam-level header (auto-detected — not hardcoded) ─────────
     lines = [
         f'# {exam_code}_section_rules.md',
-        f'# Generated by Framework_MockTestAnalyse v2.48',
+        f'# Generated by Framework_MockTestAnalyse v2.49',
         f'# DO NOT edit manually -- regenerate via: PYQExtract {exam_code} --synthesise ALL',
         f'# Download this file from chat → upload to {exam_code} project Files/Knowledge section.',
         '',
@@ -4524,7 +4584,7 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
         f'nat_tolerance: {meta.get("nat_tolerance", "0")}',
         f'nat_instruction: {meta.get("nat_instruction", "Enter your answer as a numerical value.")}',
         f'total_sections: {len(set(e["section"] for e in entries))}',
-        f'framework_version: v2.48',  # v2.47: was hardcoded v2.23 — a recurring stamp-drift class (see CHANGELOG v2.14/v2.15/v2.17); no consumer parses it (verified), keep honest anyway
+        f'framework_version: v2.49',  # v2.47: was hardcoded v2.23 — a recurring stamp-drift class (see CHANGELOG v2.14/v2.15/v2.17); no consumer parses it (verified), keep honest anyway
         '',
     ]
 
@@ -5269,7 +5329,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     {
       "exam_code": "...",
       "manifest_version": "1.0",
-      "generated_by": "Framework_MockTestAnalyse v2.48",
+      "generated_by": "Framework_MockTestAnalyse v2.49",
       "id_recipe": "<section_prefix>.<topic_slug>.<subtopic_slug> via slugify v2.4",
       "subtopics": {
          "<subtopic_id>": {
@@ -5315,7 +5375,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     manifest = {
         'exam_code': exam_code,
         'manifest_version': '1.0',
-        'generated_by': 'Framework_MockTestAnalyse v2.48',
+        'generated_by': 'Framework_MockTestAnalyse v2.49',
         'id_recipe': '<section_prefix>.<topic_slug>.<subtopic_slug>; section_prefix=word-initials (gir/ga/qa/ec), slugify v2.4',
         'subtopics': {},
         'alternation_groups': {},
@@ -5538,7 +5598,7 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
     manifest = {
         'exam_code': exam_code,
         'manifest_version': '1.0',
-        'generated_by': 'Framework_MockTestAnalyse v2.48 (rebuild_from_section_rules)',
+        'generated_by': 'Framework_MockTestAnalyse v2.49 (rebuild_from_section_rules)',
         'id_recipe': '<section_prefix>.<topic_slug>.<subtopic_slug>; slugify v2.4',
         'subtopics': {},
         'alternation_groups': {},
@@ -8415,4 +8475,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.48.2
+# END OF Framework_MockTestAnalyse v2.49.0

@@ -1,4 +1,20 @@
-# Framework_PYQPrepare v2.0 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v2.1 — Universal PYQ Row File Generator
+# v2.1 — 2026-08-15 — GAP-2026-08-15-BAREQ (producer side). S1-4 contract rewritten: a
+#   bare "Q.N" stem — OMML-only, figure-only, or empty/corrupt — is a LAWFUL normalised
+#   form with a named reason, and "repairing" it by injecting filler ("Solve:") is now
+#   PROHIBITED: filler is not in the source, survives into Step 5's extraction and into
+#   every mock derived from the item, and corrupts the corpus it appears to fix.
+#   CHECK 1/2/12/15/21 delegate to bc.detect_question_start() — they carried a PRIVATE
+#   regex r'^Q\.\d+' that needed no trailing content, so Step 1 certified "Q-count = 60,
+#   sequential OK" on a file Step 3 read as 56 and delivered it green. CHECK 13 calls
+#   bc.is_bare_q_label(): it already had the right regex gated on the wrong payload test
+#   (NEXT paragraph for a drawing, never the SAME paragraph for an equation) and now
+#   reports OMML-only, figure-only and truly-empty stems separately. S2-4 sanitise() and
+#   CHECK 7 widen to the zero-width class (U+200B/200C/200D/2060/FEFF), which str.strip()
+#   does not remove and \s does not match, so "Q.4<ZWSP>" defeats every table entry while
+#   looking correct on screen. NEW CHECK 22 (WARN, 21 -> 22): producer/consumer
+#   Q-detection agreement — the <w:t>-only view vs the <w:t>+<m:t> view of the SAME
+#   document, the one construction a shared blind spot cannot satisfy.
 # v2.0 — 2026-08-07 — TIER-3 STRUCTURED MATH (GAP-2026-08-07-OMML, remedies M1/M2/M4/M5).
 #   Root cause (measured on IIT_JAM_MATHEMATICS 15-Feb-2026, 60 questions): S1-13
 #   emitted FLAT Unicode transcription, destroying 2-D math structure at capture
@@ -272,8 +288,22 @@ Duplicates: FORBIDDEN — no Q.N may appear more than once.
 The stem paragraph is BOLD. Format: "Q.N  <stem text>" where N is the
 continuous number. Two spaces separate Q.N from stem text.
 
-Empty/corrupt questions (no stem, no image): include as Q.N with no
-content after the number. Downstream steps handle classification.
+Empty/corrupt questions (no stem, no image), and questions whose ENTIRE
+stem is a single OMML equation or a single figure, are emitted as a bare
+"Q.N" paragraph whose <w:t> text layer holds only the label.
+
+This is a LAWFUL normalised form, not a defect to be repaired.
+blueprint_core.Q_PATTERNS entries 3 and 4 exist for it
+(GAP-2026-08-15-BAREQ), and CHECK 22 proves the producer and the consumer
+agree about it on every delivered file.
+
+It must NEVER be "repaired" by injecting filler text such as "Solve:" or
+"Find the value of". Filler is not in the source. It survives into Step 5's
+extracted stem, into section_rules.md, into PYQ_STEM_PATTERNS and into every
+mock question derived from the item — it corrupts the corpus it appears to
+fix, permanently and invisibly. If a Row file was hand-edited this way while
+the defect was open, revert the edit and re-run Step 3; the Row file was
+never wrong, only the reading was.
 ```
 
 ### S1-5 — Option format (canonical)
@@ -1638,11 +1668,22 @@ import re
 
 def sanitise(s):
     """
-    Remove OCR control-character corruption.
-    Delete C0 control bytes EXCEPT tab (\t) and newline (\n, \r).
+    Remove OCR control-character corruption AND zero-width contamination.
+    Delete C0 control bytes EXCEPT tab (\t) and newline (\n, \r), and delete the
+    zero-width class U+200B ZWSP / U+200C ZWNJ / U+200D ZWJ / U+2060 WJ /
+    U+FEFF BOM-ZWNBSP.
     Preserve ALL legitimate Unicode: curly quotes, em/en dashes, ₹, °, θ, π, etc.
+
+    GAP-2026-08-15-BAREQ (R-8). Zero-width characters are NOT whitespace to Python:
+    str.strip() does not remove them and regex \s does not match them. So a stem
+    label written "Q.4<ZWSP>" is invisible to EVERY entry of Q_PATTERNS — the same
+    silent question loss as the bare-label defect, by a second route, and invisible
+    on screen because the operator sees "Q.4". PDF-to-DOCX converters emit these
+    routinely. The class is deleted here at the PRODUCER; blueprint_core's
+    detect_question_start() strips the same class at the CONSUMER so that Row files
+    already delivered still parse without a Step 1 rebuild.
     """
-    return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]', '', s)
+    return re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\u200b-\u200d\u2060\ufeff]', '', s)
 ```
 
 ```
@@ -1739,8 +1780,13 @@ import blueprint_core as bc   # ENGINE (routed)
 # It must never be widened to match the table above: after Step 1 renumbers, options read
 # "N. text", so the bare-number pattern would match every option line — a 100-question paper
 # would parse as 500 questions (verified by execution).
-# Step 1 does not currently call detect_question_start; it is bound here so that any future
-# validation of Step 1's OWN normalised output uses the shared detector rather than a copy.
+# Step 1 VALIDATES its own normalised output with this detector — §5 CHECK 1, CHECK 2,
+# CHECK 12, CHECK 15, CHECK 21 and CHECK 22 all call bc.detect_question_start(), never a
+# local regex (GAP-2026-08-15-BAREQ, R-2). Until 2026-08-15 this binding existed but
+# nothing used it: the checks carried a private r'^Q\.\d+' that matched strings the
+# engine did not, so Step 1 certified "Q-count = 60, sequential OK" on a file Step 3
+# read as 56 and delivered it green. A producer must count with the detector its
+# consumers parse with. If a future check needs a Q-number, call this — never re-write it.
 detect_question_start = bc.detect_question_start
 ```
 
@@ -3082,9 +3128,13 @@ CHECK 6 — NO METADATA LEAKAGE
   Also: third-party brands, URLs, app handles.
   WARN on any match.
 
-CHECK 7 — NO CONTROL CHARACTERS
-  Scan all paragraph text for C0 control bytes: [\x00-\x08\x0b\x0c\x0e-\x1f]
-  WARN if any found (sanitisation missed something).
+CHECK 7 — NO CONTROL OR ZERO-WIDTH CHARACTERS (v2.1, GAP-2026-08-15-BAREQ)
+  Scan all paragraph text for C0 control bytes AND the zero-width class:
+    [\x00-\x08\x0b\x0c\x0e-\x1f\u200b-\u200d\u2060\ufeff]
+  Zero-width characters are not matched by \s and not removed by str.strip(),
+  so "Q.4<ZWSP>" defeats every Q_PATTERNS entry and the question disappears at
+  Step 3 with nothing on screen to show why. WARN if any found (S2-4 sanitise()
+  missed something) and NAME the affected Q-numbers.
 
 CHECK 8 — NO ANSWER MARKERS
   Scan for ✓ ✔ ✗ ✘ characters and "Ans" / "Ans." text.
@@ -3215,6 +3265,27 @@ CHECK 21 — DECLARED-STRUCTURE FIDELITY (v2.0)
   paragraphs. This mechanically prevents the Q.37/Q.56 defect class — a
   source matrix or cases brace flattened or paraphrased into prose under a
   green footer. Skipped silently when struct_flags is not passed.
+
+CHECK 22 — PRODUCER/CONSUMER Q-DETECTION AGREEMENT (v1.0, GAP-2026-08-15-BAREQ)
+  THE check that cannot be satisfied by a blind spot shared between producer and
+  consumer, because it compares two DIFFERENT VIEWS of the same document:
+    - p.text            — the <w:t>-only view, which is what Steps 3 and 5 walk
+    - corpus_io.text_of — the <w:t> + <m:t> view, i.e. what a reader actually sees
+  For every paragraph, assert:
+      (bc.detect_question_start(p.text) is not None)
+      == (bc.detect_question_start(corpus_io.text_of(p)) is not None)
+  and assert the two views yield the SAME Q-count and the SAME Q-numbers.
+  A disagreement means a question exists in the visible document that the
+  downstream parser cannot see (or the reverse). That is silent data loss, and it
+  is the exact shape that cost IIT_JAM_MATHEMATICS 12-Feb-2017 four questions with
+  all ten PYQSort checks passing.
+  Also assert that no paragraph's Q-label is only reachable after zero-width
+  stripping — if it is, S2-4 sanitise() did not run or ran on the wrong buffer.
+  SEVERITY: WARN, consistent with §5's "warn on failure, deliver anyway" doctrine.
+  The warning text MUST name GAP-2026-08-15-BAREQ, list every divergent Q-number,
+  and state plainly that Step 3 will lose those questions — a warning that does
+  not say what will be lost is not actionable.
+
 ```
 
 ### S5-2 — Validation implementation
@@ -3224,7 +3295,7 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
                       table_specs=None, math_regions=None, math_compiled=None,
                       math_failed=None, struct_flags=None):
     """
-    Run all 21 validation checks. Return (pass_count, warn_count, messages).
+    Run all 22 validation checks. Return (pass_count, warn_count, messages).
 
     table_specs: {q_num: TableSpec} as transcribed in Phase B (S1-12 / S1-8a).
     Optional — when absent, CHECK 17 is skipped and CHECK 17b applies instead.
@@ -3238,22 +3309,31 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     """
     from docx import Document
     import re
+    import blueprint_core as bc   # ENGINE (routed) — THE Q-detector
+    import corpus_io              # ENGINE (routed) — text_of(): <w:t> AND <m:t>
 
     doc = Document(doc_path)
     paras = doc.paragraphs
     warnings = []
 
+    # ── GAP-2026-08-15-BAREQ (R-2). CHECK 1/2 used a PRIVATE regex r'^Q\.\d+' that
+    # required no trailing content, while Steps 3 and 5 parsed with Q_PATTERNS, which
+    # required whitespace AFTER the digits. On IIT_JAM_MATHEMATICS 12-Feb-2017 that
+    # divergence is the whole defect: Step 1 certified "Q-count = 60, sequential OK"
+    # on a file Step 3 could only read as 56, and delivered it green. A producer that
+    # validates with a different detector than its consumer parses with is not
+    # validating anything. Both checks now delegate to the engine — the SAME table,
+    # the SAME zero-width normalisation, no second copy to drift.
+    def _q(p):
+        return bc.detect_question_start(p.text)
+
     # CHECK 1 — Q-count
-    q_paras = [p for p in paras if re.match(r'^Q\.\d+', p.text.strip())]
+    q_paras = [p for p in paras if _q(p) is not None]
     q_count = len(q_paras)
     print(f"CHECK 1: Q-count = {q_count}")
 
     # CHECK 2 — Sequential numbering
-    q_nums = []
-    for p in paras:
-        m = re.match(r'^Q\.(\d+)', p.text.strip())
-        if m:
-            q_nums.append(int(m.group(1)))
+    q_nums = [_q(p) for p in paras if _q(p) is not None]
     expected = list(range(1, q_count + 1))
     if q_nums != expected:
         warnings.append(f"CHECK 2 WARN: Q-sequence not continuous. Got {q_nums[:5]}...{q_nums[-3:]}")
@@ -3315,13 +3395,17 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     else:
         print("CHECK 6: No metadata leakage OK")
 
-    # CHECK 7 — Control characters
-    CTRL_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f]')
-    ctrl = sum(1 for p in paras if CTRL_RE.search(p.text))
-    if ctrl:
-        warnings.append(f"CHECK 7 WARN: {ctrl} paragraphs with control characters")
+    # CHECK 7 — Control OR zero-width characters (v2.1, GAP-2026-08-15-BAREQ)
+    CTRL_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\u200b-\u200d\u2060\ufeff]')
+    ctrl_paras = [p for p in paras if CTRL_RE.search(p.text)]
+    if ctrl_paras:
+        _zw = [p.text.strip()[:24] for p in ctrl_paras
+               if re.search(r'[\u200b-\u200d\u2060\ufeff]', p.text)]
+        warnings.append(
+            f"CHECK 7 WARN: {len(ctrl_paras)} paragraphs with control or zero-width "
+            f"characters" + (f" — zero-width in: {_zw[:5]}" if _zw else ""))
     else:
-        print("CHECK 7: No control characters OK")
+        print("CHECK 7: No control or zero-width characters OK")
 
     # CHECK 8 — Answer markers
     ans_markers = sum(1 for p in paras if re.search(r'[✓✔✗✘]', p.text) or re.search(r'\bAns\b', p.text))
@@ -3406,7 +3490,7 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
         if '{{u}}' in t or '{{/u}}' in t:
             underline_issues += 1
         # Check: stem says "underlined" but no underline formatting exists
-        if re.match(r'^Q\.\d+', t) and 'underlined' in t.lower():
+        if bc.detect_question_start(t) is not None and 'underlined' in t.lower():
             has_underline = any(
                 r.underline for r in p.runs if r.underline
             )
@@ -3425,17 +3509,28 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     # that should have been transcribed.
     placeholder_issues = 0
     figure_only_qnums = []
+    omml_only_qnums   = []   # GAP-2026-08-15-BAREQ (G-5)
+    bare_empty_qnums  = []   # S1-4 "empty/corrupt" — no stem, no image, no equation
     for idx, p in enumerate(paras):
         t = p.text.strip()
-        # Detect figure-only stems: Q.N with very short text (just "Q.N")
-        m = re.match(r'^Q\.(\d+)\s*$', t)
-        if m:
-            qnum = int(m.group(1))
-            # Check if next paragraph has an inline image (placeholder)
-            if idx + 1 < len(paras):
-                next_xml = paras[idx + 1]._element.xml
-                if '<w:drawing' in next_xml or '<w:pict' in next_xml:
-                    figure_only_qnums.append(qnum)
+        # Detect bare-label stems: the paragraph is nothing but "Q.N".
+        # GAP-2026-08-15-BAREQ (G-5). This check already had the RIGHT regex and
+        # gated it on the WRONG payload test: it looked only at the NEXT paragraph
+        # for <w:drawing>/<w:pict> and never at the SAME paragraph for <m:oMath>.
+        # An OMML-only stem — the discovery shape, and the shape v2.0's M1/M2
+        # transcription rules make COMMON — was therefore silent here while being
+        # invisible to Step 3. Both payload positions are now inspected.
+        qnum = bc.is_bare_q_label(t)   # ENGINE predicate — no private copy (R-6)
+        if qnum is not None:
+            own    = p._element.xml
+            nxt    = paras[idx + 1]._element.xml if idx + 1 < len(paras) else ''
+            if '<m:oMath' in own:
+                omml_only_qnums.append(qnum)
+            elif ('<w:drawing' in own or '<w:pict' in own
+                  or '<w:drawing' in nxt or '<w:pict' in nxt):
+                figure_only_qnums.append(qnum)
+            else:
+                bare_empty_qnums.append(qnum)
     # Report figure-only stems for manual verification against
     # IMAGE_CLASSIFICATIONS. In automated mode, cross-check with
     # the classifications dict. In validation-only mode, report count.
@@ -3443,7 +3538,17 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
         print(f"CHECK 13: {len(figure_only_qnums)} figure-only stems "
               f"detected: Q.{figure_only_qnums}. Verify these are all "
               f"VISUAL-IMAGE classified (not MATH/TABLE/TEXT).")
-    else:
+    if omml_only_qnums:
+        print(f"CHECK 13: {len(omml_only_qnums)} OMML-only stems detected: "
+              f"Q.{omml_only_qnums}. This is a LAWFUL normalised form (S1-4) and "
+              f"needs NO repair — do NOT inject filler text. Q_PATTERNS entries 3/4 "
+              f"read it and CHECK 22 proves Step 3 will see it.")
+    if bare_empty_qnums:
+        print(f"CHECK 13: {len(bare_empty_qnums)} bare Q.N stems with no stem, no "
+              f"image and no equation: Q.{bare_empty_qnums}. These are S1-4 "
+              f"empty/corrupt carriers — confirm against the source that content "
+              f"was genuinely absent rather than lost in transcription.")
+    if not (figure_only_qnums or omml_only_qnums or bare_empty_qnums):
         print("CHECK 13: No figure-only stems — all content transcribed OK")
 
     # CHECK 14 — Vision provenance consistency (v1.7)
@@ -3464,7 +3569,7 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
     specimen_hits = 0
     for p in paras:
         t = p.text.strip()
-        if re.match(r'^Q\.\d+', t) and SPECIMEN_RE.search(t):
+        if bc.detect_question_start(t) is not None and SPECIMEN_RE.search(t):
             specimen_hits += 1
     out_of_range = sum(1 for qn in q_nums if qn > q_count)
     if specimen_hits or out_of_range:
@@ -3604,9 +3709,9 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
         cur_q = None
         q_spans = {}
         for p in paras:
-            m = re.match(r'^Q\.(\d+)', p.text.strip())
-            if m:
-                cur_q = int(m.group(1))
+            _n = bc.detect_question_start(p.text)   # R-2: engine detector, not a copy
+            if _n is not None:
+                cur_q = _n
                 q_spans[cur_q] = []
             if cur_q:
                 q_spans[cur_q].append(p)
@@ -3623,11 +3728,69 @@ def validate_row_file(doc_path, date_label_text, source_trust=None, stated_total
         else:
             print(f"CHECK 21: Declared structures present ({len(struct_flags)} questions) OK")
 
+    # CHECK 22 — Producer/consumer Q-detection agreement (v1.0, GAP-2026-08-15-BAREQ)
+    #
+    # Every other check in this file reads the document ONE way. This one reads it TWO
+    # ways and compares them, which is the only construction a shared blind spot cannot
+    # satisfy. p.text is <w:t>-only — exactly what Steps 3 and 5 walk. corpus_io.text_of()
+    # concatenates <w:t> AND <m:t> — what a human reading the page actually sees. If a
+    # paragraph opens a question in one view and not the other, a question that exists on
+    # the page does not exist for the parser, and it will be absorbed into the preceding
+    # question's body with every count still reconciling. That is what happened to
+    # IIT_JAM_MATHEMATICS 12-Feb-2017 Q.4/Q.6/Q.25/Q.27.
+    #
+    # It also catches the INVERSE — a paragraph the visible text makes look like a
+    # question start when the text layer does not — and the zero-width route (R-8), where
+    # the label parses only after the ZW class is stripped.
+    wt_nums, vis_nums, divergent, zw_only = [], [], [], []
+    for p in paras:
+        _wt  = p.text or ''
+        _vis = corpus_io.text_of(p)
+        a = bc.detect_question_start(_wt)
+        b = bc.detect_question_start(_vis)
+        if a is not None:  wt_nums.append(a)
+        if b is not None:  vis_nums.append(b)
+        if (a is None) != (b is None):
+            divergent.append({'q': a if a is not None else b,
+                              'seen_by_step3': a is not None,
+                              'text': repr(_wt.strip()[:40])})
+        # zero-width route: the label is only reachable after stripping the ZW class
+        if a is not None and re.search(r'[\u200b-\u200d\u2060\ufeff]', _wt):
+            zw_only.append(a)
+
+    if divergent:
+        _lost = [d['q'] for d in divergent if not d['seen_by_step3']]
+        _ghost = [d['q'] for d in divergent if d['seen_by_step3']]
+        _msg = ("CHECK 22 WARN: GAP-2026-08-15-BAREQ — the <w:t> view and the "
+                "<w:t>+<m:t> view of this file DISAGREE about which paragraphs open a "
+                "question. ")
+        if _lost:
+            _msg += (f"Step 3 (PYQSort) and Step 5 (PYQExtract) WILL LOSE Q.{_lost} — "
+                     f"each stem, its options and its date label will be absorbed into "
+                     f"the body of the preceding question, and every PYQSort check will "
+                     f"still pass because input and output are counted with the same "
+                     f"detector. ")
+        if _ghost:
+            _msg += (f"Q.{_ghost} open a question in the text layer but not in the "
+                     f"visible text — investigate before delivering. ")
+        _msg += ("Do NOT repair by injecting filler text into the stem (S1-4). Verify "
+                 "the framework carrying this file is >= 2026.08.15.5.")
+        warnings.append(_msg)
+    elif zw_only:
+        warnings.append(
+            f"CHECK 22 WARN: Q.{sorted(set(zw_only))} carry zero-width characters in the "
+            f"Q-label. They parse only because the engine strips them defensively — S2-4 "
+            f"sanitise() should have removed them at the producer (GAP-2026-08-15-BAREQ "
+            f"R-8). Re-run S2-4 over the buffers.")
+    else:
+        print(f"CHECK 22: Producer/consumer Q-detection agrees "
+              f"({len(wt_nums)} questions, both views) OK")
+
     # Summary
-    pass_count = 21 - len(warnings)
+    pass_count = 22 - len(warnings)
     for w in warnings:
         print(f"  ⚠️ {w}")
-    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/21 checks passed, {len(warnings)} warnings")
+    print(f"\n{'✅' if not warnings else '⚠️'} {pass_count}/22 checks passed, {len(warnings)} warnings")
 
     return pass_count, len(warnings), warnings
 ```
@@ -4069,7 +4232,7 @@ PHASE B — BUILD (3–4 tool calls):
       - DI table builder (v1.14 — TableSpec + corpus_io.build_di_table;
         spans preserved, cells rendered through render_text_with_math)
       - Document builder (date labels, stems, options, blanks)
-      - Validator (21 checks)
+      - Validator (22 checks)
       - File saver + copier
 
   CALL B2: Run pipeline
@@ -4264,7 +4427,7 @@ PROOF:
 ☐ 13. Date labels present: one per question, correct format and style
 ☐ 14. Answer markers stripped: no ✓/✗, no correct answer indicators
 ☐ 15. Document formatting: Arial 11pt, A4, 1" margins, proper spacing
-☐ 16. Validation run: all 21 checks executed, results logged
+☐ 16. Validation run: all 22 checks executed, results logged
 ☐ 17. Row file delivered via present_files (1 file, closed set)
 ☐ 18. Delivery footer rendered per Framework_DeliveryFooter.md
 
@@ -4276,4 +4439,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v2.0
+# END OF Framework_PYQPrepare v2.1

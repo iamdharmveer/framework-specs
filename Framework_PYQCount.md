@@ -1,4 +1,12 @@
-# Framework_PYQCount v1.1 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.2 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.2 — 2026-08-15 — GAP-2026-08-15-BAREQ (R-3). The S5-1 mandatory gate and
+#   count_sorted_file() carried an inline r'^Q\.?\s*\d+' justified by an ASSUMPTION about
+#   PYQSort's output ("always outputs Q.<N> format") where a DELEGATION belongs, and
+#   nothing enforced the assumption. That dialect matched strings the engine's table did
+#   not — a bare "Q.4" among them — so on IIT_JAM_MATHEMATICS 12-Feb-2017 this step
+#   counted 60 for a file Step 5 extracted as 56, attributing four questions to whatever
+#   subtopic happened to precede them. Both sites now call bc.detect_question_start();
+#   audit_deep's new INLINE-QREGEX check fails the build if a private copy returns.
 # v1.1 — 2026-08-05 — GAP-2026-08-05-001 (textless content is content). S5-2 now takes
 #   the BLOCK-level lookahead bc.sorted_body_lookahead(doc) and the per-FILE colour probe
 #   bc.heading_colour_available(paras); S5-4b CAUSE 1 split into 1a (gate absent) and 1b
@@ -219,11 +227,19 @@ the batch counting loop (S5-4):
   1. Read EVERY sorted PYQ file from Drive using python-docx (same method
      as count_sorted_file in S5-2 — paragraph iteration, NOT Drive
      read_file_content which may strip content).
-  2. For each file: count total questions using the SAME Q-pattern as
-     count_sorted_file():
-       re.match(r'^Q\.?\s*\d+', para.text.strip())
-     This pattern is sufficient because PYQSort always outputs Q.<N>
-     format (Step 1 normalizes to Q.<N>, renumber_stem preserves it).
+  2. For each file: count total questions using the SAME detector as
+     count_sorted_file(), which is the ENGINE detector:
+       bc.detect_question_start(para.text) is not None
+     GAP-2026-08-15-BAREQ (R-3). This step used to carry a private regex
+     r'^Q\.?\s*\d+' justified by "PYQSort always outputs Q.<N> format" — an
+     ASSUMPTION about another step's output where a DELEGATION belongs, and one
+     nothing enforced. It matched strings the engine's table did not (notably a
+     bare "Q.4", and "Q1 Analysis"), so Step 4 and Step 5 disagreed about which
+     paragraphs were questions AT ALL. On the discovery paper that divergence is
+     measurable in the wrong direction too: the permissive regex COUNTED the four
+     absorbed bare labels while Step 5 could not extract them, so Step 4 reported
+     60 for a file Step 5 read as 56 and attributed the four to whatever subtopic
+     happened to precede them.
      Store per-file count: task1_per_file[filename] = q_count
   3. Extract year from filename (S5-3 logic)
   4. Display a YEAR-WISE PAPER INVENTORY table:
@@ -291,6 +307,10 @@ is_option    = corpus_io.is_option
 # shared Q_PATTERNS table via detect_question_start(). Those two match DIFFERENT strings
 # (e.g. "Q1 Analysis" matches the local regex but is not a Q_PATTERNS question start), so the
 # two steps disagreed about which paragraphs were headings AT ALL, not merely about level.
+# 2026-08-15 (GAP-2026-08-15-BAREQ, R-3): the LAST two inline copies of that regex, in the
+# S5-1 mandatory gate and in count_sorted_file() below, are now gone as well. Q-detection in
+# this spec happens in exactly one way — bc.detect_question_start() — and audit_deep's
+# INLINE-QREGEX check fails the build if a private copy is ever reintroduced.
 def is_taxonomy_heading(para, next_text=None, colour_available=False):
     return bc.is_taxonomy_heading(para, is_option, next_text, colour_available)
 
@@ -344,9 +364,9 @@ def count_sorted_file(docx_path):
                 cur_top = content; cur_sub = ''
             else:
                 cur_sub = content
-        elif re.match(r'^Q\.?\s*\d+', text):
-            q_match = re.match(r'^Q\.?\s*(\d+)', text)
-            q_num = int(q_match.group(1)) if q_match else 0
+        elif bc.detect_question_start(text) is not None:
+            # GAP-2026-08-15-BAREQ (R-3) — engine detector, never a local copy.
+            q_num = bc.detect_question_start(text)
             if not cur_sec:
                 orphans.append((q_num, 'no_section_context'))
             elif not cur_sub:
@@ -1070,4 +1090,4 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.1
+# END OF Framework_PYQCount v1.2

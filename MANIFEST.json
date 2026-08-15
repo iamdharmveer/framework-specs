@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.15.4",
+  "framework_version": "2026.08.15.5",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -194,11 +194,11 @@
       "bytes": 91361
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "b32494dfa71e4548f0642b68dc6db6678ad821e654cd7859aef2d3102faa2b46",
-      "version_header": "# Framework_MockTestAnalyse v2.48.2 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.48.2",
-      "lines": 8418,
-      "bytes": 475464
+      "sha256": "8c54b55140fe857592c50646302c197d2082b1904cc3f1a060e9abe3b876529d",
+      "version_header": "# Framework_MockTestAnalyse v2.49.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.49.0",
+      "lines": 8478,
+      "bytes": 479920
     },
     "Framework_MockTestCreate.md": {
       "sha256": "34071d535e9673ae22134960a2f96b5d66486ec034de894013454c6e095c5f33",
@@ -264,18 +264,18 @@
       "bytes": 32771
     },
     "Framework_PYQCore.md": {
-      "sha256": "5092d94db65927e234224e502d3ce2ef4ef31c8e08d6997578450f4332531a6b",
-      "version_header": "# Framework_PYQCore v1.1 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
-      "end_sentinel": "# END OF Framework_PYQCore v1.1",
-      "lines": 1701,
-      "bytes": 95078
+      "sha256": "38f56ec4745d658c79026a801f4d9b9b0c200a92dca21460354c72c0830f41f2",
+      "version_header": "# Framework_PYQCore v1.2 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.2",
+      "lines": 1706,
+      "bytes": 95501
     },
     "Framework_PYQCount.md": {
-      "sha256": "6a885ea54d3b9ff56b45e76c620ad427565af824aeeaad882353bcaa9b389896",
-      "version_header": "# Framework_PYQCount v1.1 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
-      "end_sentinel": "# END OF Framework_PYQCount v1.1",
-      "lines": 1073,
-      "bytes": 58024
+      "sha256": "ff223b23daa03c1a0bf407d30afdb9a85ebdc3b341db44cebbce0e80c85eecd0",
+      "version_header": "# Framework_PYQCount v1.2 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
+      "end_sentinel": "# END OF Framework_PYQCount v1.2",
+      "lines": 1093,
+      "bytes": 59744
     },
     "Framework_PYQDeliver.md": {
       "sha256": "3ddb812df80c6812f6c0c9af0fbef8999dd85fbf92dbdd2bdfe7531bbcdce22f",
@@ -306,25 +306,25 @@
       "bytes": 79595
     },
     "Framework_PYQPrepare.md": {
-      "sha256": "3e69ef22dad6720e23de7d374cc1e00b603f4df6de4e1694c4442aff7244ceaf",
-      "version_header": "# Framework_PYQPrepare v2.0 \u2014 Universal PYQ Row File Generator",
-      "end_sentinel": "# END OF Framework_PYQPrepare v2.0",
-      "lines": 4279,
-      "bytes": 194479
+      "sha256": "2d7b92c18faf45393ac6fb35a9ded45cd39eae8bb55a00b84bc864f0d3e1a79b",
+      "version_header": "# Framework_PYQPrepare v2.1 \u2014 Universal PYQ Row File Generator",
+      "end_sentinel": "# END OF Framework_PYQPrepare v2.1",
+      "lines": 4442,
+      "bytes": 205657
     },
     "Framework_PYQScan.md": {
-      "sha256": "15365d4ca73d745a4e1bc4712dbfef2a851cc38cfcfd569b11cf83538415bd17",
-      "version_header": "# Framework_PYQScan v1.0 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
-      "end_sentinel": "# END OF Framework_PYQScan v1.0",
-      "lines": 1680,
-      "bytes": 82295
+      "sha256": "8fcf619f2288b0feab7e4da1c30db544ab1d48fa597decf72f099c0af781b0c7",
+      "version_header": "# Framework_PYQScan v1.1 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
+      "end_sentinel": "# END OF Framework_PYQScan v1.1",
+      "lines": 1736,
+      "bytes": 86126
     },
     "Framework_PYQSort.md": {
-      "sha256": "5b252379f3562ba514fecee569ff6e1cce5a986b5e463f216cf3592d34dd3240",
-      "version_header": "# Framework_PYQSort v1.19.0 \u2014 Universal PYQ Sorter",
-      "end_sentinel": "# END OF Framework_PYQSort v1.19.0",
-      "lines": 2430,
-      "bytes": 120887
+      "sha256": "204965dcd1dd7de6ab48e67a5ad3cab8363ead9c663eee69564cc71c1c040eaa",
+      "version_header": "# Framework_PYQSort v1.20.0 \u2014 Universal PYQ Sorter",
+      "end_sentinel": "# END OF Framework_PYQSort v1.20.0",
+      "lines": 2532,
+      "bytes": 127518
     },
     "Framework_ScopedBlueprint.md": {
       "sha256": "93af3d395ea3fcd887e70f0dd60b3e94a7ed80b2aefc0fe7684747c52134c2e7",
@@ -355,11 +355,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "dda373fd0a3c7b255e9c21bbb2a4fafddaf462d34555a53979216aa0a9d7083c",
+      "sha256": "49270cad1a011e6be44bf48f2fbe40f8f03c37e8e026509586efafc74efcf8fa",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 5139,
-      "bytes": 279330
+      "lines": 5276,
+      "bytes": 288117
     },
     "paper_pipeline.py": {
       "sha256": "9af50f405514457e7c84b92c682e1a954a4cc25dce66157b28af77190dec5aec",

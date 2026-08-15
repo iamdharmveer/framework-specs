@@ -1,4 +1,13 @@
-# Framework_PYQScan v1.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.1 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-2 Q_PATTERNS mirrors the engine's widened
+#   four-entry table (entries 3/4 = BARE-LABEL forms), updated atomically with
+#   blueprint_core, PYQSort S3-1 and MockTestAnalyse E-2. S3-2 now PERSISTS q_count and
+#   q_count_method into every drive_file_inventory[] entry: the "MANDATORY GATE" computed
+#   a check-verified per-file count, displayed it and DISCARDED it, so the one number that
+#   would have caught this defect in two seconds (56 parsed vs 60 classified on
+#   IIT_JAM_MATHEMATICS 12-Feb-2017) existed, was correct, and was thrown away. NEW S3-3
+#   step 1b: assert len(classifications[paper]) == inventory[paper].q_count — HARD STOP on
+#   mismatch, WARN when the count came from a filename or the field is absent.
 # v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
 #   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
 #   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
@@ -225,7 +234,20 @@ DRIVE RATE LIMIT HANDLING:
 DRIVE FILE INVENTORY CACHING (v1.7, updated v2.3):
   On first session: list all files from Drive → store in
   scan_progress.json['drive_file_inventory'] as:
-    [{"name": "filename.docx", "id": "driveId", "year": 2025, "size": 50629}, ...]
+    [{"name": "filename.docx", "id": "driveId", "year": 2025, "size": 50629,
+      "q_count": 100, "q_count_method": "parsed"}, ...]
+
+  q_count / q_count_method are MANDATORY (GAP-2026-08-15-BAREQ, R-5).
+    q_count        : the per-file question count this gate just computed
+    q_count_method : "parsed"   — counted by bc.detect_question_start over the docx
+                     "filename" — inferred from a Q-range in the filename because the
+                                  file could not be read; NOT usable for reconciliation
+  Until 2026-08-15 this gate computed a ✓-verified per-file count, DISPLAYED it, and
+  threw it away. The one number that would have caught GAP-2026-08-15-BAREQ in two
+  seconds — 56 parsed against 60 classified on IIT_JAM_MATHEMATICS 12-Feb-2017 —
+  existed, was correct, and was discarded before anything could compare it. A count
+  that is not persisted cannot reconcile anything, and "MANDATORY GATE" in the heading
+  above does not make it so. Persist it.
   On RESUME sessions: RE-LIST from Drive (do NOT rely on cached inventory).
   See S3-7 RESUME PROTOCOL for full details. Files may have been added or
   removed between sessions — cached inventory could be stale.
@@ -429,14 +451,26 @@ any batch scanning (S3-5):
      For uploaded files: use python-docx or text read.
   2. For each file: count total questions using Q_PATTERNS from Step 5's E-2:
        Q_PATTERNS = [
-         r'^Q\.\s*(\d+)\s+',        r'^Q(\d+)\.\s+'
+         r'^Q\.\s*(\d+)\s+',        r'^Q(\d+)\.\s+',
+         r'^Q\.\s*(\d+)\s*$',       r'^Q(\d+)\.\s*$'
        ]
-     TWO patterns, matching blueprint_core exactly — never five. Row files are
+     FOUR patterns, matching blueprint_core exactly — never five. Row files are
      NORMALISED (questions "Q.N", options "N. text"), so a bare-number pattern
      would count every OPTION as a question: 100 questions would count as 500.
+     Entries 3-4 are the BARE-LABEL forms (GAP-2026-08-15-BAREQ): a stem whose whole
+     payload is <m:oMath>, a drawing, or nothing (PYQPrepare S1-4 "empty/corrupt")
+     reads through p.text as just "Q.N", and entries 1-2 require whitespace AFTER
+     the digits, so they never matched it. The $ anchor admits ONLY a paragraph that
+     is nothing but the label, so no option, cross-reference or heading can match.
+     PREFER bc.detect_question_start(text) over a local copy of this table — the
+     table is reproduced here for reading only, and audit_deep TABLE-PARITY proves
+     it identical to the engine's.
      Mark each count as:
        ✓ = verified by parsing (file content was readable, Q-patterns matched)
        * = from filename pattern (file unreadable but filename has Q range like Q1-Q150)
+     RECORD the count — do not merely display it. Per-file q_count and
+     q_count_method are PERSISTED to scan_progress.json (S3-2, R-5), because a
+     number that is computed, printed and discarded cannot reconcile anything.
   3. Extract year from filename (reuse extract_year_from_filename from S3-2)
 
   3b. DETERMINE PATTERN ERA per paper (v2.19 — ENGINE-BACKED, exam-agnostic).
@@ -569,7 +603,28 @@ parsing failures upfront. Consistent with Step 4's Task 1 (S5-1a).
 ```
 For each paper in the batch:
   1. Read the Row file .docx (or Drive text via read_file_content — see S3-2)
-  2. For each question (detected via Q_PATTERNS from Step 5's E-2):
+
+  1b. RECONCILE AGAINST THE INVENTORY (GAP-2026-08-15-BAREQ, R-5 — HARD STOP).
+      After classifying this paper, assert:
+
+        len(classifications[paper]) == inventory[paper]['q_count']
+
+      when inventory[paper]['q_count_method'] == "parsed". A mismatch means the
+      mechanical parse and the classification pass disagree about how many questions
+      this paper HAS — which is this defect class observed at the earliest possible
+      point, before a single downstream artefact is built on it. HARD STOP and name
+      the Q-numbers present in one and absent from the other.
+
+      Measured precedent: IIT_JAM_MATHEMATICS_classifications.json held 60 rows for
+      12-Feb-2017 — four of them tagged "OMML-obscured", this step's own term for a
+      stem that extracted blank — while the Row file mechanically parsed to 56. Two
+      artefacts of the same project, in the same folder, disagreeing by four, and
+      nothing in the framework compared them.
+
+      q_count_method == "filename" → WARN and continue; an inferred count is not
+      evidence. Field absent (a pre-remedy project) → WARN and continue, never halt.
+
+  2. For each question (detected via bc.detect_question_start — Q_PATTERNS, Step 5 E-2):
      a. Extract stem text
      b. If OMML formula present and rendered → use rendered text
         If OMML-obscured (blank stem after extraction) → classify by
@@ -1622,7 +1677,8 @@ RESUME PROTOCOL:
   "papers_scanned_list": ["Paper_12-Sep-2025_Shift-1_Q1-Q100", "..."],
   "drive_file_inventory": [
     {"name": "Paper_12-Sep-2025_Shift-1_Q1-Q100.docx",
-     "id": "1jD5lA67...", "year": 2025, "size": 50629}
+     "id": "1jD5lA67...", "year": 2025, "size": 50629,
+     "q_count": 100, "q_count_method": "parsed"}
   ],
   "discovery_log": [
     {
@@ -1677,4 +1733,4 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.0
+# END OF Framework_PYQScan v1.1

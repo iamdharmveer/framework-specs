@@ -1,4 +1,8 @@
-# Framework_PYQCore v1.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.2 — 2026-08-15 — GAP-2026-08-15-BAREQ (R-3). Phase-B checklist TASK 1 no longer
+#   names a local regex: Q-counting uses bc.detect_question_start(), the same detector
+#   Steps 3 and 5 parse with. A checklist that tells the operator to reproduce a private
+#   pattern is how a third Q-detection dialect stayed in production.
 # v1.1 — 2026-08-05 — GAP-2026-08-05-001. §6 DISCRIMINATOR rewritten: "next non-empty
 #   paragraph" -> "next CONTENT-BEARING BLOCK" with the four textless classes enumerated
 #   (image, equation, embedded object, TABLE) plus auto-numbering; the false invariant "a
@@ -1647,7 +1651,8 @@ Phase 0c:
 
 Phase B:
   ☐ TASK 1: Year-wise paper inventory displayed with per-paper Q counts
-  ☐ TASK 1: Q-counting uses same pattern as count_sorted_file (r'^Q\.?\s*\d+')
+  ☐ TASK 1: Q-counting uses bc.detect_question_start() — never a local regex
+         (GAP-2026-08-15-BAREQ R-3; count_sorted_file delegates to the same engine call)
   ☐ TASK 1: Per-file Q counts stored in task1_per_file for Task 2 diagnostic
   ☐ TASK 1: User confirmation received before counting begins
   ☐ Sorted file filtering applied (*_Sorted_*.docx pattern)
@@ -1698,4 +1703,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.1
+# END OF Framework_PYQCore v1.2

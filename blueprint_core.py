@@ -93,6 +93,10 @@ __all__ = [
     "paper_eras_from_progress",
     "filter_progress_to_eras",
     "Q_PATTERNS",
+    "BARE_Q_PATTERNS",
+    "is_bare_q_label",
+    "ZERO_WIDTH",
+    "ZERO_WIDTH_RE",
     "detect_question_start",
     "parse_taxonomy_level",
     "extract_year_from_filename",
@@ -2359,7 +2363,48 @@ def filter_progress_to_eras(progress, eras, keep=("current",)):
 
 # Byte-identical across Framework_PYQPrepare / PYQSort / PYQAnalyse / MockTestAnalyse
 # (verified: exactly ONE distinct definition of this table exists in the corpus).
-Q_PATTERNS = [r'^Q\.\s*(\d+)\s+', r'^Q(\d+)\.\s+']
+#
+# GAP-2026-08-15-BAREQ. Entries 3 and 4 are the BARE-LABEL forms. python-docx's
+# p.text is <w:t>-only, so a stem paragraph whose entire payload is <m:oMath> (or a
+# drawing, or nothing at all per PYQPrepare S1-4 "empty/corrupt") reads as just
+# "Q.N" — and entries 1 and 2 require whitespace AFTER the digits, applied to
+# already-stripped text, so they can never match a label with nothing after it.
+# The question therefore DID NOT EXIST for Steps 3 and 5: its stem, its options and
+# its date label were absorbed into the preceding question's body while every gate
+# reported green, because input and output are counted with the same blind
+# detector. Measured on IIT_JAM_MATHEMATICS 12-Feb-2017: 4 of 60 questions lost.
+#
+# This is the QUESTION half of GAP-2026-08-07-OMML, whose OPTION half shipped as
+# corpus_io.BARE_OPT_PATTERNS + is_option(para=). OPT_PATTERNS got a bare-label
+# companion; Q_PATTERNS did not. That asymmetry was the defect.
+#
+# The $ anchor is LOAD-BEARING: it admits ONLY a paragraph that is nothing but the
+# label, so it can never match an option line ("N. text" — options never begin with
+# Q), an in-passage cross-reference ("Q.11-15"), a passage instruction ("Q.11 to
+# Q.15 are based on…"), a date label, a taxonomy heading, or the historic
+# false-positive "Q1 Analysis". Verified by execution over a 34-case adversarial
+# fixture (self_test below) with zero false positives, and over the 6-paper
+# IIT_JAM_MATHEMATICS corpus, which parses identically under both tables.
+#
+# DO NOT "fix" this by widening to the RAW-source forms ("Question N:", bare "N.",
+# "(N)"). Those live in PYQPrepare's SOURCE_Q_PATTERNS and belong there: after
+# Step 1 normalises, options read "N. text", so a bare-number entry here would
+# match every option line and a 100-question paper would parse as 500.
+Q_PATTERNS = [r'^Q\.\s*(\d+)\s+',            # Q.1  Q.25  Q. 1
+              r'^Q(\d+)\.\s+',               # Q1.  Q25.
+              r'^Q\.\s*(\d+)\s*$',           # Q.4   bare label — OMML / figure / empty stem
+              r'^Q(\d+)\.\s*$']              # Q4.   bare label, alt form
+
+# The NAMED companion table, deliberately mirroring corpus_io.BARE_OPT_PATTERNS.
+# G-1 of GAP-2026-08-15-BAREQ was not "the regex is wrong" — it was that OPT_PATTERNS
+# HAD a bare-label companion and Q_PATTERNS did not, so nobody reading either table
+# could see that one half of the p.text/OMML class was still open. Naming it makes the
+# symmetry visible and gives callers that need the SHAPE (rather than the number) a
+# predicate to delegate to instead of writing a private regex — PYQPrepare CHECK 13
+# carried exactly such a copy. Kept as a slice-identity assertion in self_test() so it
+# can never drift from the canonical table it is part of.
+BARE_Q_PATTERNS = [r'^Q\.\s*(\d+)\s*$',       # Q.4
+                   r'^Q(\d+)\.\s*$']           # Q4.
 
 # GAP-2026-07-25-002 (Defect D). is_taxonomy_heading() rejects long text so that a
 # wrapped question stem is never mistaken for a heading. That bound used to be the
@@ -2610,10 +2655,46 @@ def sorted_body_lookahead(doc):
     return paras, out
 
 
+# GAP-2026-08-15-BAREQ (R-8). Zero-width characters are NOT whitespace to Python:
+# str.strip() does not remove them and regex \s does not match them. So a stem
+# label carrying a ZWSP defeats entry 3 exactly as "Q.4" defeated entries 1 and 2
+# — a second, independent route to the same silent loss. PDF-to-DOCX converters emit
+# ZWSP/ZWNJ/ZWJ/WJ/BOM routinely, so this is not hypothetical, and it is invisible on
+# screen: the operator sees "Q.4" and the parser sees something else. PYQPrepare S2-4
+# sanitise() now strips the same class at the PRODUCER; this strip is the CONSUMER-side
+# twin, so a legacy Row file already carrying them still parses without a Step 1 rebuild.
+ZERO_WIDTH    = '\u200b\u200c\u200d\u2060\ufeff'      # ZWSP ZWNJ ZWJ WJ BOM/ZWNBSP
+ZERO_WIDTH_RE = '[\u200b\u200c\u200d\u2060\ufeff]'   # for re.sub / re.search
+_ZW_TABLE = str.maketrans('', '', ZERO_WIDTH)
+
+
 def detect_question_start(text):
     """Return the source Q-number if this line starts a question, else None."""
+    t = (text or '').translate(_ZW_TABLE).strip()
     for pat in Q_PATTERNS:
-        m = re.match(pat, (text or '').strip())
+        m = re.match(pat, t)
+        if m:
+            return int(m.group(1))
+    return None
+
+
+def is_bare_q_label(text):
+    """Q-number when this line is NOTHING BUT a question label, else None.
+
+    The structural twin of detect_question_start(): that answers "does a question
+    start here", this answers "does a question start here with an EMPTY <w:t>
+    payload" — i.e. the stem is an <m:oMath> equation, a drawing, or genuinely
+    absent (PYQPrepare S1-4 "empty/corrupt").
+
+    Exists so that a caller which needs the SHAPE does not write a private regex
+    for it. PYQPrepare CHECK 13 carried r'^Q\.(\d+)\s*$' inline — the correct
+    pattern, gated on the wrong payload test (it inspected the NEXT paragraph for a
+    drawing and never the SAME paragraph for an equation), which is why the check
+    that was closest to catching GAP-2026-08-15-BAREQ stayed silent through it.
+    """
+    t = (text or '').translate(_ZW_TABLE).strip()
+    for pat in BARE_Q_PATTERNS:
+        m = re.match(pat, t)
         if m:
             return int(m.group(1))
     return None
@@ -4710,6 +4791,62 @@ def self_test():
     # non-bold text is still never a heading
     check('g_head_requires_bold',
           not is_taxonomy_heading(_P2('Enzyme Kinetics', False), _no_opt, '[02-May-2010]'))
+
+    # ── GAP-2026-08-15-BAREQ — bare-label question detection (T-1) ───────────
+    # A stem whose entire payload is <m:oMath> / a drawing / nothing reads through
+    # p.text as just "Q.N". Entries 3 and 4 exist for exactly that shape. These
+    # tests FAIL on the pre-remedy two-entry table, which is the whole point: a
+    # regression test that cannot fail on the old code is not a regression test
+    # (the DISABLED-GUARD doctrine at audit_deep.py:210).
+    for _s in ('Q.4', 'Q.4  ', 'Q.4\t', 'Q. 4', 'Q25.', 'Q25. ', 'Q.60',
+               'Q.4\u00a0', 'Q.4\u2007'):
+        check(f'bareq_detect_{_s!r}', detect_question_start(_s) is not None)
+    check('bareq_value_dot',  detect_question_start('Q.4') == 4)
+    check('bareq_value_alt',  detect_question_start('Q25.') == 25)
+    # R-8: zero-width characters are neither stripped by str.strip() nor matched
+    # by \s, so they defeat entries 1-4 alike unless removed first.
+    check('bareq_zerowidth_zwsp', detect_question_start('Q.4\u200b') == 4)
+    check('bareq_zerowidth_bom',  detect_question_start('\ufeffQ.4') == 4)
+    check('bareq_zerowidth_mid',  detect_question_start('Q.\u200b4') == 4)
+    # ADVERSARIAL: the $ anchor must admit NOTHING else. Every string below is a
+    # real shape from the corpus. A single false positive here would split one
+    # question into two, or promote an option/heading/cross-reference to a question.
+    for _s in ('1.', '1. text option', '4. π', '(1) option', 'a. option', 'A.',
+               '[12-Feb-2017]', '[05-Feb-2025 Shift 1]', '[05-Feb-2025 Q37]',
+               'Subject: Real Analysis', 'Topic 3: Differential Equations',
+               'Riemann Integration and Fundamental Theorem of Calculus',
+               'Q.11-15', 'Questions 11-15 refer to the passage',
+               'Q1 Analysis', 'Q.', 'Q', 'Q.1a', 'Q.1a  sub-part', 'QA.1 something',
+               'QA.1', 'Q.4.5', 'Q .4', 'Enter your answer as an integer',
+               'Statement I: f is continuous', '=== Mathematical Abilities ===', ''):
+        check(f'bareq_reject_{_s!r}', detect_question_start(_s) is None)
+    # UNCHANGED behaviour on conformant documents — the widening is additive only.
+    check('bareq_unchanged_1', detect_question_start('Q.1  The sum of the series') == 1)
+    check('bareq_unchanged_2', detect_question_start('Q. 7  Find x') == 7)
+    check('bareq_unchanged_3', detect_question_start('Q1.  Find x') == 1)
+    check('bareq_unchanged_4',
+          detect_question_start('Q.11 to Q.15 are based on the passage below') == 11)
+    # A bare label is a QUESTION, therefore never a taxonomy heading — even bold,
+    # even when the next content-bearing block is a date label. Pre-remedy this
+    # returned True (verified by execution), which promoted an OMML-only NAT stem
+    # to a phantom level-3 subtopic heading.
+    check('bareq_not_heading_before_date',
+          not is_taxonomy_heading(_P2('Q.4'), _no_opt, '[12-Feb-2017]'))
+    check('bareq_not_heading_next_none',
+          not is_taxonomy_heading(_P2('Q.4'), _no_opt, None))
+    check('bareq_not_heading_alt_form',
+          not is_taxonomy_heading(_P2('Q25.'), _no_opt, '[12-Feb-2017]'))
+    # Renumbering a bare label round-trips: the emitted label must re-detect.
+    check('bareq_renumber_roundtrip',
+          detect_question_start(re.sub(r'^Q\.\s*\d+', 'Q.7', 'Q.4')) == 7)
+    # The named companion table IS the tail of the canonical table — not a copy of it.
+    check('bareq_companion_is_slice', BARE_Q_PATTERNS == Q_PATTERNS[2:])
+    check('bareq_label_shape_dot', is_bare_q_label('Q.4') == 4)
+    check('bareq_label_shape_alt', is_bare_q_label('Q25.') == 25)
+    check('bareq_label_shape_zw',  is_bare_q_label('Q.4\u200b') == 4)
+    check('bareq_label_rejects_content', is_bare_q_label('Q.4  x') is None)
+    check('bareq_label_rejects_option',  is_bare_q_label('1.') is None)
+    check('bareq_label_rejects_xref',    is_bare_q_label('Q.11-15') is None)
     # next_nonempty_texts contract
     class _P3:
         def __init__(s, t): s.text = t
