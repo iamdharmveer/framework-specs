@@ -26,7 +26,11 @@ def _self_test():
     def mutated(mutate=None):
         d = tempfile.mkdtemp()
         for f in os.listdir(here):
+            # SPEC_MANIFEST.json joins this list for DOC-COUNT (2026.08.15.7):
+            # a fixture corpus missing it cannot verify CLAUDE.md's declared counts,
+            # so the clean-copy baseline would fail for a reason that is not a defect.
             if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json',
+                                                   'SPEC_MANIFEST.json',
                                                    'VERSION', 'CHANGELOG.md',
                                                    'LAW_REGISTRY.json'):
                 shutil.copy(os.path.join(here, f), os.path.join(d, f))
@@ -102,6 +106,31 @@ def _self_test():
     rc, out = mutated(lambda r: os.remove(os.path.join(r, 'LAW_REGISTRY.json')))
     check("LAW-REGISTRY fires when the registry is missing",
           rc == 1 and 'LAW-REGISTRY' in out)
+
+    def _bend_count(r):
+        pth = os.path.join(r, 'CLAUDE.md')
+        t = open(pth, encoding='utf-8').read()
+        t = re.sub(r'(routes\.json triggers\s*:\s*)\d+', r'\g<1>999', t)
+        open(pth, 'w', encoding='utf-8').write(t)
+    rc, out = mutated(_bend_count)
+    check("DOC-COUNT fires when a declared count drifts from the files on disk",
+          rc == 1 and 'DOC-COUNT' in out and '999' in out)
+
+    def _drop_count_line(r):
+        pth = os.path.join(r, 'CLAUDE.md')
+        t = open(pth, encoding='utf-8').read()
+        t = re.sub(r'^\s*MANIFEST\.json files\s*:\s*\d+\s*$', '', t, flags=re.M)
+        open(pth, 'w', encoding='utf-8').write(t)
+    rc, out = mutated(_drop_count_line)
+    check("DOC-COUNT fires when a required count line is missing entirely",
+          rc == 1 and 'DOC-COUNT' in out)
+
+    def _reintroduce_idiom(r):
+        with open(os.path.join(r, 'CLAUDE.md'), 'a', encoding='utf-8') as f:
+            f.write('\nThe workbench baseline is currently 51 files, including tooling.\n')
+    rc, out = mutated(_reintroduce_idiom)
+    check("DOC-COUNT-IDIOM fires when a live count is hand-written back into prose",
+          rc == 1 and 'DOC-COUNT-IDIOM' in out)
 
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
@@ -354,6 +383,70 @@ if _REG is not None:
                     if not any(c == 'LAW-VERIFY' for c in ISSUES):
                         rec('LAW-VERIFY', f"{_law}: audit_callgraph exited "
                                           f"{_r.returncode} on the governed specs.")
+
+# ── 9. DOC COUNTS (2026.08.15.7) — no hand-maintained live count survives ────
+# WHY. CLAUDE.md's deploy gate carried "39/39 — 23 specs + 16 engines" through six
+# releases that changed both halves, and its SPEC_MANIFEST paragraph carried "51 files"
+# against an actual 57. Neither was caught by any check; both were corrected by hand,
+# one at a time, as reviewers happened to notice them. Correcting the instance and not
+# the class is the same failure the LAW-PROPAGATION LAW was added to remove — so the
+# class is removed here instead.
+#
+# TWO CHECKS, and the second is the one that makes it permanent:
+#   DOC-COUNT       — the FRAMEWORK COUNTS block must equal the files on disk. The
+#                     finding states the CORRECT value, so a drift is a build failure
+#                     with the fix already written in the error message.
+#   DOC-COUNT-IDIOM — a hand-written live count ANYWHERE ELSE in the document is itself
+#                     a failure. You cannot reintroduce the defect by writing more prose.
+#
+# Historical measurements are deliberately untouched: "0 of 1719 questions", "153/153
+# figural" and every CHANGELOG figure are frozen EVIDENCE, not live claims, and the
+# idiom check is written to the "currently N <noun>" form precisely so it can never
+# fire on them.
+_DOC = 'CLAUDE.md'
+_COUNT_LINE = re.compile(
+    r'^\s*(MANIFEST\.json files|SPEC_MANIFEST\.json entries|routes\.json triggers)'
+    r'\s*:\s*([0-9]+)\s*$', re.M)
+_LIVE_COUNT_IDIOM = re.compile(r'currently\s+\**([0-9]+)\**\s+'
+                               r'(files|entries|specs|engines|triggers|scripts)\b', re.I)
+
+if os.path.exists(_DOC):
+    _doc = open(_DOC, encoding='utf-8').read()
+    try:
+        _truth = {
+            'MANIFEST.json files':
+                len(json.load(open('MANIFEST.json', encoding='utf-8'))['files']),
+            'SPEC_MANIFEST.json entries':
+                len(json.load(open('SPEC_MANIFEST.json', encoding='utf-8'))['files']),
+            'routes.json triggers': len(ROUTES),
+        }
+    except (OSError, ValueError, KeyError) as _exc:
+        _truth = None
+        rec('DOC-COUNT', f"could not read a manifest to verify {_DOC}'s counts: {_exc}")
+
+    if _truth is not None:
+        _claimed = {m.group(1): int(m.group(2)) for m in _COUNT_LINE.finditer(_doc)}
+        for _label, _actual in sorted(_truth.items()):
+            if _label not in _claimed:
+                rec('DOC-COUNT',
+                    f"{_DOC}: the FRAMEWORK COUNTS block has no '{_label}' line. It must "
+                    f"read '{_label} : {_actual}'. A count that is not declared cannot be "
+                    f"checked, and an unchecked count is the defect this rule removes.")
+            elif _claimed[_label] != _actual:
+                rec('DOC-COUNT',
+                    f"{_DOC}: FRAMEWORK COUNTS says '{_label} : {_claimed[_label]}' but "
+                    f"the files on disk give {_actual}. Correct value: {_actual}.")
+
+    # the block's own lines are the ONLY place a live count may be written
+    _block_spans = [m.span() for m in _COUNT_LINE.finditer(_doc)]
+    for _m in _LIVE_COUNT_IDIOM.finditer(_doc):
+        if any(a <= _m.start() < b for a, b in _block_spans):
+            continue
+        _ln = _doc[:_m.start()].count('\n') + 1
+        rec('DOC-COUNT-IDIOM',
+            f"{_DOC}:{_ln}: '{_m.group(0)}' is a hand-maintained live count written in "
+            f"prose. Every such number in this file has gone stale at least once. Delete "
+            f"it and refer to the FRAMEWORK COUNTS block, which audit_sync keeps true.")
 
 # ── REPORT ──────────────────────────────────────────────────────────────────
 total = sum(len(v) for v in ISSUES.values())

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.15.6",
+  "framework_version": "2026.08.15.7",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [

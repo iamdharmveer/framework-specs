@@ -8,19 +8,38 @@ You act as the **release manager**. Two deploy commands are defined below. Uploa
 arrive under the session's uploads directory; match them by filename and copy them into the
 repo root before running the gate.
 
+## Framework counts — MACHINE-CHECKED, never hand-maintained
+
+```
+FRAMEWORK COUNTS
+  MANIFEST.json files        : 45
+  SPEC_MANIFEST.json entries : 57
+  routes.json triggers       : 23
+```
+
+**Do not edit those numbers by hand.** `audit_sync.py` recomputes each one from the files
+on disk, fails the build on any disagreement, and prints the correct value — so a drifted
+count is a build failure with the fix in the error message, not something a reader has to
+notice. Every other place in this file that needs a count refers HERE; writing a live count
+anywhere else in this document is itself a build failure (`DOC-COUNT-IDIOM`).
+
+This block exists because the prose alternative demonstrably does not work. The deploy gate
+below carried `39/39 — 23 specs + 16 engines` through six releases that changed both halves,
+and the SPEC_MANIFEST paragraph carried `51 files` against an actual 57. Both were corrected
+by hand, one at a time, as reviewers happened to spot them — which is the same
+remediate-the-instance-not-the-class failure the LAW-PROPAGATION LAW further down exists to
+remove. A number a human must remember to update is a number that is already wrong.
+
 ## The safety gate (run for every deploy)
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
 3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED`, where **N is whatever step 2
-   just reported**, not a number written down here. Step 2 rebuilds MANIFEST.json from the
+   just reported**, never a number written down here. Step 2 rebuilds MANIFEST.json from the
    files on disk and prints `MANIFEST.json written: v<version>, N files, T triggers`; step 3
-   must verify that same N. Compare the two lines against each other — that is the check.
-   Composition at 2026.08.15.6: 45 = 23 `Framework_*.md` + 21 engines + `LAW_REGISTRY.json`.
-   This line is orientation, NEVER the authority: a running total maintained by hand drifts
-   the moment a file is added, and this one did — it read `39/39 — 23 specs + 16 engines`
-   through six releases that changed both halves, which is the same hand-maintained-list
-   failure the LAW-PROPAGATION LAW below exists to remove. If the two printed numbers agree,
-   the gate has passed; if they disagree, a file is missing from the clone.
+   must verify that same N. **Compare the two printed lines against each other** — that
+   comparison IS the check, and it is self-correcting when a file is added or retired. If
+   they agree the gate has passed; if they disagree, a file is missing from the clone. The
+   expected values are in the FRAMEWORK COUNTS block above, which audit_sync keeps true.
    NOTE: inside `/tmp/fw_effective` with a project override active, bootstrap prints
    `PARTIALLY VERIFIED — <N-k>/<N> ... k spec(s) PROJECT-UNVERIFIED` and exits 0. That is the
    correct, non-halting result, not a failure.)
@@ -32,8 +51,9 @@ repo root before running the gate.
    of it too.
 
 (`MANIFEST.json`/`bootstrap.py` track the framework files a session clones (count = MANIFEST.json "files"). `SPEC_MANIFEST.json`
-is the separate, wider workbench baseline — currently 51 files, including the audit and
-tooling scripts. Since 2026.08.09.2 it HAS a generator: `python3 build_spec_manifest.py`
+is the separate, wider workbench baseline — a LARGER set than MANIFEST, including the audit
+and tooling scripts (count in the FRAMEWORK COUNTS block above; three tracked entries are
+deliberately kept while absent from this tree, so `entries` exceeds `present`). Since 2026.08.09.2 it HAS a generator: `python3 build_spec_manifest.py`
 refreshes every tracked entry from the live bytes, `--check` exits 1 if anything is stale
 (run it in the gate), and `--drop A,B` removes genuinely deleted files. It never invents
 entries — the tracked set is the keys already in the file, so a NEW workbench tool must be

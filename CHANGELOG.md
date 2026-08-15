@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026.08.15.7 — hand-maintained counts in CLAUDE.md are now a build failure, not a review finding
+
+**Tooling + docs only. No spec, engine or manifest-tracked file changes behaviour.**
+
+Two stale counts were found by review during the 2026.08.15.6 deploy and corrected by
+hand, one at a time: the deploy gate read `39/39 — 23 specs + 16 engines` against an
+actual 45 = 23 + 21 + 1, and the SPEC_MANIFEST paragraph read `51 files` against an
+actual 57. The first had been wrong across six releases that changed both halves.
+
+**Correcting the instance and not the class is the failure the LAW-PROPAGATION LAW was
+added in 2026.08.15.6 to remove.** Fixing a reported number, shipping, and waiting for
+the next reviewer to find the next one is a checklist by another name. So the class is
+removed:
+
+- `CLAUDE.md` gains a single **FRAMEWORK COUNTS** block. It is the only place in the
+  document where a live count may be written; every other passage refers to it.
+- `audit_sync` gains **DOC-COUNT** — recomputes each declared count from the files on
+  disk and fails the build on disagreement, printing the correct value, so a drift is a
+  failure with the fix already in the error message.
+- `audit_sync` gains **DOC-COUNT-IDIOM** — a hand-written live count anywhere else in
+  the document is itself a failure. The defect cannot be reintroduced by writing prose.
+- Historical measurements are deliberately untouched. `0 of 1719 questions`, `153/153
+  figural`, and every CHANGELOG figure are frozen EVIDENCE, not live claims; the idiom
+  check is scoped to the `currently N <noun>` form so it can never fire on them.
+- Three new self-test fixtures: a drifted count, a missing count line, and the idiom
+  written back into prose. `audit_sync` self-test 9 -> 12.
+
+Swept and confirmed clean at this release: no other document in the repo states a live
+count in any phrasing, and no auditor asserts a frozen corpus size.
+
 ## 2026.08.15.6 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION: Step 4 could not fetch a single paper from Drive, on any exam, for 20 days
 
 **P0 — AVAILABILITY, NOT CORRECTNESS. The Drive lane of PYQCount was unreachable on
