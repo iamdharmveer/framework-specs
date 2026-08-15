@@ -1,4 +1,39 @@
-# Framework_MockTestAnalyse v2.49.1 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.50.0 — Universal PYQ Pattern Extraction Engine
+# v2.50.0 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (EXECUTION-
+#   BOUNDARY LAW, Step 5). MINOR bump, not a patch: a function signature changes, a
+#   section is added, a persisted schema key is added and two DoD items are added.
+#   v2.49.1 was a patch release for a comment-only touch and its changelog called this
+#   spec "the reference implementation"; nobody then re-read it against the new
+#   contract, and its Drive lane was dead the whole time while four auditors reported
+#   0 findings. FOUR defects, all measured on IIT_JAM_MATHEMATICS (22 papers):
+#     D1 collect_drive_docx_recursive read results.get('items', []). The connector
+#        returns {'files': [...]}. Engine: 22 papers; that line: []. And an empty
+#        corpus was NOT loud here — the no-PYQ branch rewrote mode to '--synthesise
+#        ALL', so a broken listing became "this exam has no past papers" and Step 5
+#        shipped a complete, green, F2-footered deliverable of zero-PYQ scaffolds that
+#        Steps 6 and 7 then built an entire paper from. Step 4 could only stall; THIS
+#        STEP COULD PRODUCE A WRONG ANSWER. Now EC-P39: HARD STOP, never a fall-through.
+#     D2 that walker called gdrive_search() — a CLASS T marker — from python and
+#        consumed the result. Both call sites deleted; the walk is corpus_io's.
+#     D3 run_batch_loop's drive_payloads had NO PRODUCER anywhere in the spec and
+#        defaulted to {}, so every paper raised TransportFallback and the whole corpus
+#        routed to manual upload. It now fails loudly, mirroring v2.39's vision_pending.
+#     D4 no channel probe, no transport plan, no context budget, no persistence — in
+#        the one step that is inherently multi-session. New §S8-0 TRANSPORT PREFLIGHT.
+#   Step-5-specific deviations from PYQCount S5-0, because Step 4 is single-session and
+#   Step 5 is batched: the inline budget is PER SESSION and a fresh chat resets it (so
+#   the remainder is carried, never demanded as uploads); the budget is halved because
+#   an inline payload is charged twice (inbound + re-emitted); the partition runs AFTER
+#   sort_papers_recency_first (measured: listing order admits 2017/2021/2014 instead of
+#   2026/2025/2024 and can leave §1-6 unreachable); and PYQCompress is excluded from the
+#   remedy text — these papers are 213x UNDER the cap, the constraint is the channel.
+#   ROOT CAUSE OF THE CI BLINDNESS: this file's CLASS T stubs sat in an untagged fence
+#   spanning 321-603 that fails ast.parse at line 328 on an em-dash IN PROSE.
+#   any_python_blocks() yields only compiling fences, so C6 built an empty stub set,
+#   returned early, and never reached the two live violations in the fence next door
+#   that compiles fine. The fence is now split; C6-PRE fails the build if any governed
+#   spec ever hides a CLASS marker in a non-compiling fence again, and C9 fails the
+#   build for a correctly-injected resolver whose container has no producer.
 # v2.49.1 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (invariant
 #   correction only; zero rule/functionality change). The CLASS T transport block
 #   asserted that a Drive result "for any file of consequence is spilled to a JSON file
@@ -351,6 +386,9 @@ Mode flags:
   --status         -> print progress dashboard, then HALT
   --synthesise ALL -> re-synthesise from existing progress.json, skip paper processing
   --synthesise [S] -> synthesise named section only
+```
+
+```python
 
 # Parse mode from trigger (extract flag after ExamCode and optional PYQ: param)
 # mode is set here and used throughout session-start logic below.
@@ -360,6 +398,13 @@ Mode flags:
 #   "PYQExtract --synthesise ALL"       → mode = '--synthesise ALL'
 #   "PYQExtract PYQ: <<link>>"          → mode = None
 mode = None   # set from trigger parsing above; None = auto-mode
+
+# v2.50.0 — bind the other two trigger-parsing outputs explicitly, in the same idiom
+# as `mode` above. They were always used below and never bound in inspectable code:
+# before the S1-1 fence was split (GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION) this
+# whole block was invisible to every static check, so nothing could say so.
+trigger_text = ''    # the raw trigger line, set from trigger parsing above
+exam_config  = None  # loaded from [ExamCode]_exam_config.json below; None = absent
 
 import json, os, re, ast, glob
 import blueprint_core as bc      # Cluster H — pure acquisition/image decisions
@@ -617,101 +662,89 @@ analysis_doc_paths = []
 # version is also strictly more capable: it accepts a BARE folder id and the
 # /u/N/ account-scoped URL form, both of which this local copy returned None for —
 # a user pasting either got "no PYQ folder" with no explanation.
+# (the delegation itself is bound below, beside the listing contract it belongs to)
+
+# ── PHASE A / PHASE B — DRIVE LISTING (GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION)
+#
+# v2.50.0 DELETED collect_drive_docx_recursive(), a 90-line hand-rolled walker that
+# carried three defects at once and was invisible to every static check in the repo:
+#
+#   D1  it read `results.get('items', [])`. The connector returns {'files': [...]}.
+#       There is no 'items' key. Measured against the live envelope: the engine
+#       returns 22 papers, that line returns []. And an empty corpus is NOT loud in
+#       this step — the no-PYQ branch below used to rewrite mode to '--synthesise
+#       ALL', so a broken listing became "this exam has no past papers" and Step 5
+#       shipped a complete green deliverable of zero-PYQ scaffolds. Steps 6 and 7
+#       then generated every question from training knowledge for an exam with 22
+#       years of real papers in Drive. THIS STEP CAN PRODUCE A WRONG ANSWER; Step 4
+#       could only stall. EC-P39 now forbids that fall-through.
+#   D2  it called gdrive_search() — a CLASS T marker — from inside python and
+#       consumed the result. Executed literally that is None.get('items'), i.e. an
+#       AttributeError caught by the wrapper below and reported as a Drive outage.
+#   D4  it had no channel probe, no transport plan and no context budget.
+#
+# ONE definition of the walk exists, in corpus_io. It paginates to exhaustion,
+# recurses newest-first, screens every entry through bc.screen_drive_entry, raises
+# DuplicatePaperError on canonical-identity collisions and normalises 'files'/'items'
+# /bare-list plus the 'title'/'name' spellings. Never re-implement it here.
+DRIVE_LISTING_CACHE = '/home/claude/pyq_drive_listing.json'
+DRIVE_WORKDIR       = '/home/claude/pyq_temp'
+
 extract_folder_id = corpus_io.parse_drive_folder_id
 
-def collect_drive_docx_recursive(folder_id, all_files=None,
-                                 _seen_keys=None, _rejects=None):
+
+def make_drive_list_fn(listing_cache, root_folder_id):
+    """PHASE B resolver over the PHASE A listing cache. Performs NO tool call.
+
+    PHASE A (model, in its own turns, BEFORE any python):
+        Google Drive:search_files(query="parentId = '<folder_id>'", pageSize=100)
+        Paginate to exhaustion and MERGE every page into one {'files': [...]} per
+        folder. Recurse into every sub-folder the response reports and cache each
+        one under its OWN id. Write the result to DRIVE_LISTING_CACHE verbatim —
+        do not reshape the records; normalise_drive_listing owns every shape.
+
+    Cache format — either of:
+        {"<folder_id>": {"files": [...]}, "<sub_id>": {"files": [...]}}   # keyed
+        {"files": [...]}                                                  # flat root
+
+    WHY KEYED, AND WHY THE FLAT FORM IS SCOPED TO THE ROOT. collect_corpus_files
+    recurses: it calls list_fn again with each sub-folder's id. A resolver that
+    ignores folder_id and returns the whole cache every time hands the walker the
+    SAME entries for the sub-folder, so the sub-folder re-appears inside itself and
+    the paper is seen twice — which surfaces as `DuplicatePaperError: two files
+    resolve to the same paper identity`, a HARD STOP that blames the operator's Drive
+    for a defect in this contract. Measured 2026-08-15 on a one-folder/one-paper
+    fixture. The flat form is therefore answered for the ROOT id only; any other id
+    resolves to an empty page, which ends the walk cleanly.
     """
-    Recursively walk all subfolders under folder_id.
-    Collects every .docx file regardless of nesting depth.
+    with open(listing_cache, encoding='utf-8') as fh:
+        cached = json.load(fh)
+    if isinstance(cached, dict) and 'files' in cached:
+        cached = {root_folder_id: cached}          # flat cache: root folder only
 
-    ORDERING: year subfolders are sorted DESCENDING (2025 before 2024 before 2023 ...).
-    Files within each year folder are collected as-is; final ordering is applied
-    in run_batch_loop() by sort_papers_recency_first().
-
-    Folder structure can be:
-      flat       : all .docx directly in root folder
-      year-based : root/2025/*.docx, root/2024/*.docx, ...
-      any nesting: Claude walks the full tree
-    Returns list of {source, id, name, mimeType, fileSize, paper_key} dicts.
-    Rejected entries (native Google Doc, shortcut, legacy .doc, missing size) are
-    available on collect_drive_docx_recursive.last_rejects and MUST be shown to the
-    user — nothing is ever dropped silently.
-    """
-    if all_files is None:
-        all_files = []
-    if _seen_keys is None:
-        _seen_keys = {}
-    if _rejects is None:
-        _rejects = []
-
-    # Paginate through ALL items in folder (page_size=100, follow nextPageToken).
-    # Without pagination, folders with >50 files would silently miss files.
-    subfolders  = []
-    page_token  = None
-
-    while True:
+    def list_fn(folder_id, page_token=None):
         if page_token:
-            results = gdrive_search(f"parentId = '{folder_id}'", page_size=100,
-                                    page_token=page_token)
-        else:
-            results = gdrive_search(f"parentId = '{folder_id}'", page_size=100)
+            return {'files': []}                   # PHASE A merged every page already
+        return cached.get(folder_id, {'files': []})
 
-        items      = results if isinstance(results, list) else results.get('items', [])
-        page_token = None if isinstance(results, list) else results.get('nextPageToken')
+    return list_fn
 
-        for item in items:
-            mime = item.get('mimeType', '')
-            name = item.get('title', '')
-            fid  = item.get('id', '')
-            size = item.get('fileSize', item.get('size'))
-            try:
-                size = int(size) if size is not None else None
-            except (TypeError, ValueError):
-                size = None
 
-            # v2.29 — screen EVERY entry and capture size. Delegated to Cluster H so the
-            # rules are unit-testable without Drive. The old filter was
-            # `name.endswith(('.docx','.doc'))`, which had two silent failures:
-            #   * a native Google Doc's title carries NO extension, so it was neither
-            #     collected NOR reported — the paper simply vanished from the corpus and
-            #     §1-6 then evaluated an incomplete available_years without knowing it;
-            #   * legacy .doc was ACCEPTED even though python-docx cannot open it,
-            #     deferring a guaranteed failure to mid-batch.
-            verdict, reason = bc.screen_drive_entry(name, mime, size)
-            if verdict == 'folder':
-                subfolders.append((name, fid))
-            elif verdict == 'paper':
-                key = bc.canonical_paper_key(name)
-                if key in _seen_keys:
-                    raise SystemExit(
-                        "HARD STOP — two files resolve to the same paper identity:\n"
-                        f"  identity : {key}\n"
-                        f"  file A   : {_seen_keys[key]}\n"
-                        f"  file B   : {name}\n"
-                        "Remove or rename one in Drive. Leaving both makes this paper's "
-                        "year count TWICE in the §1-6 coverage gate, or drops one at "
-                        "random depending on listing order.")
-                _seen_keys[key] = name
-                all_files.append({'source': 'gdrive', 'id': fid, 'name': name,
-                                  'mimeType': mime, 'fileSize': size, 'paper_key': key})
-            else:
-                _rejects.append({'name': name, 'id': fid, 'reason': reason})
+def collect_pyq_papers(folder_id, listing_cache=DRIVE_LISTING_CACHE):
+    """Enumerate the PYQ corpus. Returns (papers, rejects) in DRIVE LISTING ORDER.
 
-        if not page_token:
-            break   # no more pages
+    Ordering note, and it is load-bearing: this returns listing order, NOT recency
+    order. sort_papers_recency_first() owns recency, and on an inline channel the
+    transport partition MUST run after that sort — see S8-0 and EC-X21.
 
-    # Sort subfolders DESCENDING by name so year folders are visited 2025→2024→...
-    # Works for numeric year names (2025, 2024, ...) and any other naming.
-    subfolders.sort(key=lambda x: x[0], reverse=True)
+    Rejects are ATTACHED, never discarded (v2.29 rule, unchanged). A paper that
+    disappears from the corpus with no error is a missing year that nobody notices.
+    """
+    list_fn = make_drive_list_fn(listing_cache, folder_id)
+    papers, rejects = corpus_io.collect_corpus_files(list_fn, folder_id)
+    collect_pyq_papers.last_rejects = rejects
+    return papers, rejects
 
-    for subfolder_name, subfolder_id in subfolders:
-        collect_drive_docx_recursive(subfolder_id, all_files, _seen_keys, _rejects)
-
-    # v2.29 — rejects are ATTACHED, never discarded. A paper that disappears from the
-    # corpus with no error is a missing year that nobody notices.
-    collect_drive_docx_recursive.last_rejects = _rejects
-    return all_files
 
 _needs_pyq_corpus = not (mode == '--status' or (mode or '').startswith('--synthesise'))
 
@@ -726,9 +759,11 @@ if _needs_pyq_corpus:
             "the PYQ paper corpus itself now requires Drive.")
 
     try:
-        pyq_doc_paths = collect_drive_docx_recursive(pyq_drive_folder_id)
+        pyq_doc_paths, pyq_rejects = collect_pyq_papers(pyq_drive_folder_id)
         print(f"Google Drive: found {len(pyq_doc_paths)} PYQ .docx file(s)")
         print(f"  Folder ID: {pyq_drive_folder_id}")
+        for _r in pyq_rejects:
+            print(f"  REJECTED: {_r.get('name')} — {_r.get('reason')}")
     except Exception as e:
         raise SystemExit(
             f"HARD STOP: Google Drive error while listing the PYQ folder: {e}\n"
@@ -740,7 +775,7 @@ elif pyq_drive_folder_id:
     # report accurate Drive counts. Non-fatal on error since these modes don't
     # depend on it.
     try:
-        pyq_doc_paths = collect_drive_docx_recursive(pyq_drive_folder_id)
+        pyq_doc_paths, pyq_rejects = collect_pyq_papers(pyq_drive_folder_id)
     except Exception as e:
         print(f"NOTE: Google Drive error while listing PYQ folder "
               f"(non-fatal for {mode!r}): {e}")
@@ -780,13 +815,37 @@ print(f"  PYQ papers    : {len(pyq_doc_paths)}  (source: Google Drive)")
 print(f"  Exam pattern  : {len(exam_pattern_paths)}")
 print(f"  Analysis docs : {len(analysis_doc_paths)}")
 
-# No-PYQ path: valid when Drive was correctly provided and searched, but this
-# exam genuinely has zero PYQ papers available (a real PYQ-less exam, not a
-# Drive-access problem — that case already HARD STOPPED above).
+# ── EC-P39 — AN EMPTY LISTING IS NOT A ZERO-PYQ EXAM ─────────────────────
+# GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. Until v2.50.0 this block rewrote
+# mode to '--synthesise ALL' whenever the listing came back empty. That made a
+# BROKEN LISTING indistinguishable from a PYQ-less exam — and the listing WAS
+# broken (D1, the 'items' key), so the step proceeded to synthesis and shipped a
+# complete, green, F2-footered deliverable in which every subtopic was a zero-PYQ
+# scaffold. Step 6 blueprinted it and Step 7 generated every question from
+# training knowledge, for an exam with 22 years of papers in the Drive folder the
+# operator had just supplied.
+#
+# The operator supplying a PYQ link IS the assertion that papers exist. Zero
+# usable papers from a supplied link is therefore a TRANSPORT diagnosis, never a
+# corpus fact. A genuinely PYQ-less exam is requested EXPLICITLY with
+# '--synthesise ALL'; it is never inferred.
 if not pyq_available and not (mode or '').startswith('--synthesise') and mode != '--status':
-    print("INFO: No PYQ .docx files found in the Drive folder. "
-          "Proceeding to --synthesise with absent entries.")
-    mode = '--synthesise ALL'
+    raise SystemExit(
+        "HARD STOP — the PYQ Drive folder yielded ZERO usable papers (EC-P39).\n"
+        f"  folder id      : {pyq_drive_folder_id}\n"
+        f"  entries seen   : {len(pyq_doc_paths) + len(pyq_rejects)}\n"
+        f"  rejected       : {len(pyq_rejects)}"
+        + ("".join(f"\n                     - {r.get('name')}: {r.get('reason')}"
+                   for r in pyq_rejects) if pyq_rejects else "")
+        + "\n\nThis is NOT treated as a PYQ-less exam and Step 5 will NOT fall through to\n"
+          "synthesis: doing so silently produces a deliverable of zero-PYQ scaffolds that\n"
+          "Steps 6 and 7 then build an entire paper from training knowledge alone.\n\n"
+          "Check, in order:\n"
+          "  1. PHASE A ran and DRIVE_LISTING_CACHE holds every page of every folder;\n"
+          "  2. the Drive link points at the folder holding the sorted .docx papers;\n"
+          "  3. the rejects above — a native Google Doc or legacy .doc is not usable.\n"
+          "If this exam GENUINELY has no PYQ corpus, say so explicitly:\n"
+          "  PYQExtract --synthesise ALL")
 
 # Load prior progress
 progress = load_progress(exam_code)
@@ -1505,6 +1564,10 @@ else:
  Progress        : [fresh start | resuming — [N] papers done, [K] Qs]
  Minimum coverage: [mandatory_5yr — 5 years required (NON-NEGOTIABLE) | no_pyq | no_year_info]
  Available years : [list of all years found in Drive/uploads]
+ Transport       : channel=[spill|inline]  ([probed this session | reused from
+                   _meta._transport — EC-X5])
+                   drive lane this session=[N] | carried for context=[N] |
+                   upload lane (over DRIVE_CAP)=[N] | sessions needed=~[N]
  Conflicts       : [None | e.g. options_count: 2025=4, 2023=3 → using 4]
  Status          : [Ready | HALTED — reason]
  =================================="
@@ -4511,6 +4574,31 @@ def _derive_collision_domain(entry):
     return entry.get('collision_domain') or _derive_axes(entry)['collision_domain']
 
 
+# ── PROVENANCE STAMPS — ONE DEFINITION (v2.50.0) ─────────────────────────────
+# These three strings are the ONLY place this spec's version appears in emitted
+# output. Until v2.50.0 the same number was hand-copied into five scattered lines,
+# and it drifted at four separate releases (CHANGELOG v2.14/v2.15/v2.17/v2.47) and
+# again at the v2.49.1 -> v2.50.0 bump, where it blocked release 2026.08.15.8: the
+# header said v2.50 while every section_rules.md and subtopic_manifest.json would
+# have been stamped "produced by v2.49", on every run of every exam, with the
+# artefacts persisting into Steps 6 and 7.
+#
+# THEY ARE DELIBERATELY LITERAL, NOT DERIVED. mock_sync_audit MS-3 STAMP-PARITY
+# verifies them by scanning this file's fences for the three patterns below and
+# comparing each against the header's major.minor. Building them from an f-string
+# would leave MS-3 with nothing to match: the check would report 0 issues while
+# verifying nothing — a check-shaped hole of exactly the kind C6-PRE was added to
+# close one level up. One literal per pattern is the smallest form MS-3 can still
+# police, and MS-3 now also fails if any of the three disappears.
+#
+# ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
+# The illustrative copy inside write_subtopic_manifest's docstring documents the
+# OUTPUT shape and is checked by MS-3 too, so keep it in step.
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.50'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.50'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.50'
+
+
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
     """
     BUG-A25 fix: output to /mnt/user-data/outputs/ for present_files access.
@@ -4534,7 +4622,7 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
     # ── CATEGORY C: exam-level header (auto-detected — not hardcoded) ─────────
     lines = [
         f'# {exam_code}_section_rules.md',
-        f'# Generated by Framework_MockTestAnalyse v2.49',
+        f'# Generated by {GENERATED_BY_STAMP}',
         f'# DO NOT edit manually -- regenerate via: PYQExtract {exam_code} --synthesise ALL',
         f'# Download this file from chat → upload to {exam_code} project Files/Knowledge section.',
         '',
@@ -4606,7 +4694,7 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
         f'nat_tolerance: {meta.get("nat_tolerance", "0")}',
         f'nat_instruction: {meta.get("nat_instruction", "Enter your answer as a numerical value.")}',
         f'total_sections: {len(set(e["section"] for e in entries))}',
-        f'framework_version: v2.49',  # v2.47: was hardcoded v2.23 — a recurring stamp-drift class (see CHANGELOG v2.14/v2.15/v2.17); no consumer parses it (verified), keep honest anyway
+        f'{FRAMEWORK_VERSION_STAMP}',  # v2.50.0: was five hand-copied literals — a five-times-recurred stamp-drift class (CHANGELOG v2.14/v2.15/v2.17/v2.47, and again at the v2.49.1->v2.50.0 bump, which blocked release 2026.08.15.8). Now ONE definition; no consumer parses it (verified), keep honest anyway
         '',
     ]
 
@@ -5351,7 +5439,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     {
       "exam_code": "...",
       "manifest_version": "1.0",
-      "generated_by": "Framework_MockTestAnalyse v2.49",
+      "generated_by": "Framework_MockTestAnalyse v2.50",
       "id_recipe": "<section_prefix>.<topic_slug>.<subtopic_slug> via slugify v2.4",
       "subtopics": {
          "<subtopic_id>": {
@@ -5397,7 +5485,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     manifest = {
         'exam_code': exam_code,
         'manifest_version': '1.0',
-        'generated_by': 'Framework_MockTestAnalyse v2.49',
+        'generated_by': FRAMEWORK_STAMP,
         'id_recipe': '<section_prefix>.<topic_slug>.<subtopic_slug>; section_prefix=word-initials (gir/ga/qa/ec), slugify v2.4',
         'subtopics': {},
         'alternation_groups': {},
@@ -5620,7 +5708,7 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
     manifest = {
         'exam_code': exam_code,
         'manifest_version': '1.0',
-        'generated_by': 'Framework_MockTestAnalyse v2.49 (rebuild_from_section_rules)',
+        'generated_by': f'{FRAMEWORK_STAMP} (rebuild_from_section_rules)',
         'id_recipe': '<section_prefix>.<topic_slug>.<subtopic_slug>; slugify v2.4',
         'subtopics': {},
         'alternation_groups': {},
@@ -6446,6 +6534,218 @@ EC-16: THREE-AXIS CLASSIFICATION (v2.23 — see AXIS CLASSIFIER v1.0)
 
 ## §8 — BATCH EXECUTION AND SESSION FLOW
 
+### S8-0 — TRANSPORT PREFLIGHT (runs ONCE per session, BEFORE the first batch)
+
+```
+GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. Step 5 had no channel probe, no
+transport plan, no context budget and no persistence of the transport verdict —
+while being the one step in the framework that is inherently multi-session.
+
+PHASE A — MODEL TURNS. CLASS T. Never python. In order:
+
+  A1. Google Drive:search_files(query="parentId = '<folder_id>'", pageSize=100)
+      Paginate to exhaustion; recurse into every sub-folder the response reports.
+      MERGE every page of a folder into one {"files": [...]} and cache it under
+      that folder's OWN id. Write DRIVE_LISTING_CACHE. Never cache only page 1 —
+      a lost tail is a missing year that §1-6 cannot see (EC-X16).
+
+  A2. CHANNEL PROBE — download exactly ONE paper: the SMALLEST by fileSize.
+      Then OBSERVE YOUR OWN TURN: did the tool hand back a REFERENCE TO A FILE,
+      or the BYTES THEMSELVES? That is `arrived_inline`. It is a fact about what
+      you received, not an inference.
+
+      NEVER classify by listing a directory to see whether a spill file appeared.
+      EC-P35 forbids it and the reason is measured: the spill directory differs
+      between deployments of the SAME connector, and one deployment has no such
+      directory at all. A path-hardcoding probe reports 'inline' on a working
+      spill channel and sends a fully fetchable corpus to manual upload, on every
+      exam, forever — silently. That is worse than the defect the probe exists to
+      catch.
+
+      SKIP the probe entirely when _meta._transport.channel is already recorded
+      (EC-X5), and when mode is --status or --synthesise (EC-X14) — those modes
+      read no papers and must not pay a probe's context.
+
+  A3. Download every paper this SESSION's plan admits (see plan_transport below).
+      Record, per file, WHATEVER CAME BACK — a spill path in any directory, or an
+      inline payload. Do not normalise, relocate or unwrap it: corpus_io owns
+      every shape the connector emits, and a spec-side extraction is a second
+      definition that will drift (EC-X11, EC-X12).
+
+PHASE B — PYTHON. Inject resolvers over results that ALREADY EXIST. No tool call
+occurs below this line.
+```
+
+```python
+# ── S8-0 TRANSPORT PREFLIGHT ─────────────────────────────────────────────────
+# GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. Ported in CONTRACT from
+# Framework_PYQCount S5-0, with four Step-5-specific deviations (P4a–P4e below)
+# that exist because Step 4 is a SINGLE-session script step and Step 5 is a
+# MULTI-session batched step. Porting S5-0 verbatim would be wrong here.
+
+SESSION_INLINE_BUDGET = bc.INLINE_BUDGET_CHARS // 2
+# P4c / EC-P36 — CHARGE THE PAYLOAD TWICE ON AN INLINE CHANNEL.
+# bc.INLINE_BUDGET_CHARS prices INBOUND characters only: partition_by_transport
+# sums bc.base64_cost_chars against it. On an inline channel Step 5 pays that cost
+# a SECOND time, because the model receives the base64 in the tool result and must
+# then RE-EMIT it into a python block for stage_drive_payload to decode. There is
+# no third route — the container's egress allowlist contains no Google domain, so
+# python cannot fetch the bytes itself.
+# Halving here rather than changing bc.INLINE_BUDGET_CHARS is deliberate: the
+# shared constant is Step 4's too, and mutating it would silently re-partition a
+# step this GAP does not touch. This is a DERIVED value, never a literal — the
+# threshold still has exactly one definition, exactly as DRIVE_CAP does.
+
+
+def probe_drive_channel(probe_paper, probe_payload, arrived_inline, work_dir):
+    """Classify the Drive channel from ONE real download, and PROVE it decodes.
+
+    Identical contract to Framework_PYQCount S5-0. `arrived_inline` is the model's
+    OBSERVATION about its own turn (PHASE A step A2), never a filesystem test.
+
+    The probe PROVES the lane rather than predicting it: the payload is staged
+    through the same engine path the whole run will use, so a channel that
+    classifies cleanly but cannot produce verified bytes fails here, at paper 1,
+    instead of at paper 12. Any TransportFallback propagates to the caller, which
+    routes the corpus to the upload lane per EC-P35 / EC-X20.
+    """
+    local_path = corpus_io.stage_drive_payload(probe_payload, probe_paper, work_dir)
+    channel = 'inline' if arrived_inline else 'spill'
+    print(f"\n  S8-0 CHANNEL PROBE — {probe_paper['name']} "
+          f"({probe_paper['fileSize']:,} bytes)")
+    print(f"    Verified bytes on disk : {local_path}")
+    print(f"    Channel                : {channel.upper()}"
+          + ("  — payloads arrive in context; the Drive lane is bounded by context"
+             if channel == 'inline' else
+             "   — payloads land on disk; the Drive lane costs no context"))
+    return {'channel': channel, 'probe_paper': probe_paper['name'],
+            'probe_local_path': local_path}
+
+
+def plan_transport(pending_recency_sorted, channel, session_budget, batch_size):
+    """Decide what THIS SESSION fetches. Print it BEFORE the first batch.
+
+    P4d / EC-X21 — THE INPUT MUST ALREADY BE RECENCY-SORTED. bc.partition_by_transport
+    admits papers in the order it receives them until the budget would be exceeded,
+    and corpus_io.collect_corpus_files returns DRIVE LISTING order. Measured on the
+    22-paper IIT_JAM_MATHEMATICS corpus, same papers, same budget, only the order
+    changed:
+        partitioned BEFORE the recency sort -> 2017, 2021, 2014   (185,892 chars)
+        partitioned AFTER  the recency sort -> 2026, 2025, 2024   (189,156 chars)
+    That is not cosmetic. S8-1's whole processing-order rationale is that an early
+    stop must leave section_rules.md reflecting the MOST RECENT patterns, and §1-6
+    requires the latest five years. Partitioning the raw listing order on an inline
+    channel can leave the §1-6 required set permanently unreached while the operator
+    watches papers arrive successfully. Always sort first.
+
+    P4a — ON AN INLINE CHANNEL STEP 5 DOES NOT ROUTE THE CORPUS TO UPLOAD.
+    EC-P35's Step-4 resolution is "route the WHOLE corpus to the upload lane",
+    which is right for a step that must finish in one session and wrong here.
+    Step 5 already has BATCH_SIZE 3, a mandatory BATCH STOP and a documented
+    Option B (download analysis_progress.json, open a fresh chat) — AND A FRESH
+    CHAT RESETS THE CONTEXT BUDGET. So the budget is applied PER SESSION and the
+    remainder is carried to the next session, not demanded as manual uploads. The
+    upload lane stays the fallback for a paper that cannot fit even one session's
+    budget, or that exceeds bc.DRIVE_CAP.
+
+    `batch_size` is passed in rather than read from the module-level BATCH_SIZE, which
+    S8-1 defines AFTER this section. A forward reference would be a name this spec's own
+    checkers cannot resolve, and this GAP is about instructions the CI cannot read.
+    Callers pass BATCH_SIZE; it still has exactly one definition, in S8-1.
+    """
+    part = bc.partition_by_transport(pending_recency_sorted, channel=channel,
+                                     inline_budget=session_budget)
+    admitted, carried = part['auto'], part['deferred_for_context']
+    oversize = [p for p in part['upload'] if (p.get('fileSize') or 0) > bc.DRIVE_CAP]
+    print(f"\n  TRANSPORT PLAN  (channel: {part['channel']})")
+    print(f"    Pending this corpus : {len(pending_recency_sorted)} paper(s)")
+    print(f"    Drive lane, session : {len(admitted)} paper(s) fetch automatically")
+    if part['channel'] == 'inline':
+        sessions = -(-len(pending_recency_sorted) // max(1, len(admitted))) if admitted else 0
+        print(f"    Context cost        : {part['inline_chars']:,} of "
+              f"{session_budget:,} chars admitted "
+              f"(bc.INLINE_BUDGET_CHARS // 2 — charged twice, EC-P36)")
+        print(f"    Carried to later    : {len(carried)} paper(s) deferred FOR CONTEXT, "
+              f"not for size — EC-P36/EC-X9")
+        print(f"    Sessions needed     : ~{sessions} — continue via Option B in a "
+              f"FRESH chat, which resets the budget (EC-P37). These papers are NOT "
+              f"manual uploads.")
+    if oversize:
+        plan = bc.upload_batch_plan(len(oversize), batch_size)
+        print(f"    Upload lane         : {len(oversize)} paper(s) exceed the "
+              f"{bc.DRIVE_CAP:,}-byte connector cap — chat accepts "
+              f"{bc.CHAT_FILE_LIMIT} files per conversation, so "
+              f"{plan['chats_needed']} chat session(s).")
+        print(f"    Permanent fix for those: run PYQCompress on them once and replace "
+              f"them in Drive.")
+    # P4e — PYQCompress is the remedy for SIZE and for nothing else. On this GAP the
+    # papers are 40-49 KB against a 10 MiB cap, 213x under; recommending compression
+    # for a channel or context deferral sends the operator to do work that cannot
+    # help. Never print it under EC-P35/EC-P36 deferrals.
+    return part
+
+
+def acquire_paper(paper_ref, drive_payloads, resolver, work_dir, needs_upload):
+    """S8-1 batch-loop acquisition. Returns a local path, or None -> upload lane.
+
+    THIS IS THE ACQUISITION CONTRACT AND IT LIVES IN A ```python FENCE ON PURPOSE.
+    Every AST check in the repo skips a fence that does not compile; the CLASS T
+    stubs of this very file sat in one until v2.50.0, which is why C6 reported zero
+    findings against two live violations for the whole life of the defect.
+
+    `resolver` performs no tool call — it is a lookup over payloads PHASE A already
+    materialised — so this function raises no NameError and cannot reach the
+    connector. Every failure arrives as TransportFallback and degrades to the upload
+    lane; a transport failure is NEVER fatal to the run.
+    """
+    if paper_ref['source'] != 'gdrive':
+        return paper_ref['path']
+    try:
+        return corpus_io.fetch_drive_docx(resolver, paper_ref, work_dir)
+    except corpus_io.TransportFallback as exc:
+        print(f"    ! Drive fetch unavailable — {exc}")
+        print(f"    → routing to upload lane: {paper_ref['name']}")
+        needs_upload.append(paper_ref)
+        return None
+
+
+def read_transport_verdict(progress):
+    """EC-X5 / EC-X7 — reuse a recorded channel; probe only when there is none.
+
+    Returns the recorded verdict dict, or None when this is a fresh corpus or a
+    pre-patch progress file. A pre-patch file is VALID INPUT and is never discarded:
+    the absent key simply means "probe as if fresh, then record".
+    """
+    return (progress.get('_meta') or {}).get('_transport')
+
+
+def record_transport(progress, verdict, admitted, carried, oversize):
+    """P4b — persist the verdict in _meta so a resumed session cannot re-decide.
+
+    Step 5 is 8 sessions minimum on a 22-paper corpus. Without this, every session
+    re-decides transport from scratch and re-probes, paying one paper's context each
+    time. _meta is already serialised by save_progress and load_progress already
+    selects the most-advanced copy by _meta.papers_processed, so this needs no new
+    handling anywhere.
+    """
+    meta = progress.setdefault('_meta', {})
+    prev = meta.get('_transport') or {}
+    if prev.get('channel') and prev['channel'] != verdict['channel']:
+        # EC-P38 / EC-X6 — a transition is legitimate (a resumed session may be on a
+        # different deployment) but it is NEVER silent.
+        print(f"  ! TRANSPORT CHANNEL CHANGED: {prev['channel']} -> "
+              f"{verdict['channel']}. Recorded; continuing.")
+    meta['_transport'] = {
+        'channel': verdict['channel'],
+        'probe_paper': verdict.get('probe_paper'),
+        'session_budget': SESSION_INLINE_BUDGET,
+        'papers_admitted': [p['id'] for p in admitted],
+        'deferred_context': [p['id'] for p in carried],
+        'deferred_size': [p['id'] for p in oversize],
+    }
+    return meta['_transport']
+```
+
 ### S8-1 — Batch design
 
 ```
@@ -6496,8 +6796,18 @@ After ALL papers are processed (last batch):
   6. No separate session needed
 
 Session flow:
-  Session 1: reads Drive folder → sorts all papers recency-first → processes batch #1-3
-             (most recent 3 papers, latest year first) → delivers progress.json → shows Options A/B
+  Session 1: PHASE A (S8-0): the MODEL lists the Drive folder in its own turns and
+             caches it → PROBES the channel on ONE paper (or reuses _meta._transport)
+             → sorts all papers recency-first → plan_transport() PRINTS the plan →
+             the MODEL downloads the payloads the plan admits and passes them to
+             run_batch_loop as drive_payloads → processes batch #1-3 (most recent 3
+             papers, latest year first) → delivers progress.json → shows Options A/B
+
+             The download step is NOT optional and NOT implicit. Until v2.50.0 this
+             line read simply "reads Drive folder → sorts → processes", with no step
+             in which payloads were materialised — so run_batch_loop's drive_payloads
+             parameter had no producer anywhere in the spec, defaulted to {}, and the
+             entire corpus routed to manual upload on every run of every exam.
   Session 2 option A: user says "continue" in same session → processes #4-6 → shows Options A/B
   Session 2 option B: user downloads progress.json from chat → uploads to [ExamCode]
              project knowledge (replacing prior version) → opens fresh chat →
@@ -6614,7 +6924,27 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
     # A missing entry raises TransportFallback, which corpus_io already routes to the
     # UPLOAD LANE. That is the correct degradation and it is LOUD: the operator is
     # asked for the paper by name. Nothing halts.
-    drive_payloads = drive_payloads or {}
+    #
+    # v2.50.0 (GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION). This line used to read
+    # `drive_payloads = drive_payloads or {}`. That default is the whole defect: the
+    # parameter had NO PRODUCER anywhere in this spec — S8-1's session flow never
+    # mentioned it, PHASE A was described only in a prose comment with no named
+    # contract, and there is no call site to supply it — so it could only ever be {},
+    # drive_resolver raised TransportFallback for EVERY paper, and the ENTIRE corpus
+    # routed to manual upload on EVERY run of EVERY exam. An empty container behind a
+    # correctly-injected resolver is invisible to C6 and to C7 alike; C9 now fails the
+    # build for it.
+    #
+    # Fail loudly instead, exactly as v2.39 does for the vision_pending accumulator a
+    # few hundred lines up — same failure shape, same remedy, same wording.
+    if drive_payloads is None:
+        raise RuntimeError(
+            "run_batch_loop: drive_payloads not supplied. PHASE A (S8-0) must "
+            "materialise the payload for every paper this session's transport plan "
+            "admits, and pass them in as {file_id: payload_or_spill_path}. Defaulting "
+            "to {} would silently route the entire corpus to the manual upload lane — "
+            "the exact failure GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION removes. "
+            "Pass {} EXPLICITLY if this session is intentionally upload-only.")
 
     def drive_resolver(file_id):
         if file_id not in drive_payloads:
@@ -6669,25 +6999,19 @@ def run_batch_loop(pyq_doc_paths, exam_code, time_per_q, marks_per_q,
             paper_id  = make_paper_id(paper_ref['name'])
             print(f"  Processing: {paper_ref['name']}")
 
-            # ── Fetch (v2.29) ────────────────────────────────────────────────
-            # NEVER call the connector unguarded. Verified before this version: ZERO
-            # try/except existed around any Drive call in the entire 31-file corpus, so
-            # a paper above the 10 MiB connector cap terminated the whole run.
+            # ── Fetch (v2.29; v2.50.0 delegates to the S8-0 contract) ────────
+            # NEVER call the connector unguarded, and never from python at all.
+            # acquire_paper() is defined in S8-0 in a ```python fence the CI can
+            # parse — v2.49.1 carried this code inline here and an equivalent copy of
+            # it lived in a fence that did not compile, so no static check in the repo
+            # could read the step's single most load-bearing instruction.
             # EVERY failure — size, permission, network, malformed envelope, unknown —
-            # degrades to the UPLOAD LANE. That is what makes this correct even if the
-            # connector's cap changes later: correctness depends on the fallback being
+            # degrades to the UPLOAD LANE. Correctness depends on the fallback being
             # taken, not on the predicted partition being right.
-            if paper_ref['source'] == 'gdrive':
-                try:
-                    local_path = corpus_io.fetch_drive_docx(
-                        drive_resolver, paper_ref, '/home/claude/pyq_temp')
-                except corpus_io.TransportFallback as exc:
-                    print(f"    ! Drive fetch unavailable — {exc}")
-                    print(f"    → routing to upload lane: {paper_ref['name']}")
-                    needs_upload.append(paper_ref)
-                    continue
-            else:
-                local_path = paper_ref['path']
+            local_path = acquire_paper(paper_ref, drive_payloads, drive_resolver,
+                                       DRIVE_WORKDIR, needs_upload)
+            if local_path is None:
+                continue
 
             process_pyq_paper(local_path, paper_id, exam_code,
                                time_per_q, marks_per_q, options_count,
@@ -6864,6 +7188,11 @@ After each batch of 3 papers, Claude prints in chat:
  Cumulative progress : [done] / [total] papers
  Subtopics with data: [N] observed | [N] inferred | [N] absent
  Total Qs accumulated: [N]
+
+ Transport this batch: channel=[spill|inline]
+   fetched from Drive : [N]
+   uploaded to chat   : [N]
+   budget consumed    : [N] / [SESSION_INLINE_BUDGET] chars   (inline channel only)
 
  Data quality snapshot:
    OMML issues   : [N] questions with failed OMML nodes (if any)
@@ -7368,7 +7697,16 @@ def is_already_processed(paper_id, progress):
     "last_updated"    : "[ISO-datetime]",
     "papers_processed": ["[ExamCode]_2024_Shift1", "[ExamCode]_2024_Shift2"],
     "years_processed" : [2019, 2020, 2021, 2022, 2023, 2024],
-    "total_questions" : 0
+    "total_questions" : 0,
+
+    "_transport": {
+      "channel"          : "inline",
+      "probe_paper"      : "[ExamCode]_15-Feb-2026_Sorted_Q1-Q60.docx",
+      "session_budget"   : 100000,
+      "papers_admitted"  : ["[file_id]"],
+      "deferred_context" : ["[file_id]"],
+      "deferred_size"    : []
+    }
   },
   "('[Section Name]', '[Topic]', '[Subtopic]')": [
     {
@@ -8147,6 +8485,18 @@ Step 5 is complete when ALL of the following hold:
 [23] Completeness invariant holds: manifest subtopic count >= taxonomy subtopic
      count. A manifest with FEWER subtopics than the taxonomy means taxonomy
      sync failed or was skipped — re-run Step 5 to fix.
+[24] S8-0 TRANSPORT PREFLIGHT ran (GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION):
+     the channel was PROBED on one paper or REUSED from _meta._transport — never
+     assumed and never inferred from a directory listing (EC-P35); the transport
+     plan was PRINTED BEFORE the first batch; _meta._transport is populated in
+     analysis_progress.json; and the inline partition ran AFTER
+     sort_papers_recency_first(), so the admitted set is the most recent N papers
+     (EC-X21). A run whose deliverables exist but whose _meta._transport is absent
+     was produced by a pre-v2.50.0 path and its Drive lane cannot be trusted.
+[25] The corpus was NOT silently emptied: pyq_doc_paths is non-empty, or the run
+     HARD STOPPED per EC-P39. Step 5 never rewrites mode to '--synthesise ALL'
+     because a listing came back empty — that path produced complete, green
+     deliverables of zero-PYQ scaffolds for exams with a full Drive corpus.
 
 MockCreate M1 MUST NOT start until [8] AND [9] both hold.
 ```
@@ -8497,4 +8847,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.49.1
+# END OF Framework_MockTestAnalyse v2.50.0

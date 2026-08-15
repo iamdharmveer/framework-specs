@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.15.7",
+  "framework_version": "2026.08.15.8",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -194,11 +194,11 @@
       "bytes": 91361
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "82b4aae511d22cffdca60a509a998f13f0a8a6388b2ca9b66345dbfe2b73feec",
-      "version_header": "# Framework_MockTestAnalyse v2.49.1 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.49.1",
-      "lines": 8500,
-      "bytes": 481583
+      "sha256": "019d12a4960b7683b9f0e962555f212a4122fbf2ee6d7907a5739d08decd083b",
+      "version_header": "# Framework_MockTestAnalyse v2.50.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.50.0",
+      "lines": 8850,
+      "bytes": 504240
     },
     "Framework_MockTestCreate.md": {
       "sha256": "34071d535e9673ae22134960a2f96b5d66486ec034de894013454c6e095c5f33",
@@ -264,18 +264,18 @@
       "bytes": 32771
     },
     "Framework_PYQCore.md": {
-      "sha256": "3fb31480196f640fdc98c46096d9524f1e21e6fc71d19679eb507a7f6c9fa9e3",
-      "version_header": "# Framework_PYQCore v1.3 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
-      "end_sentinel": "# END OF Framework_PYQCore v1.3",
-      "lines": 1767,
-      "bytes": 100059
+      "sha256": "ca5cc0c7114227b45c493621963d845fc552f5a7ee32d138e8e8c80067cfa611",
+      "version_header": "# Framework_PYQCore v1.4 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.4",
+      "lines": 1847,
+      "bytes": 106056
     },
     "Framework_PYQCount.md": {
-      "sha256": "6f174ec9c4546e8662bd0583c7d02c9ede84837c114f47a5e7cf31ac534c743a",
-      "version_header": "# Framework_PYQCount v1.3 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
-      "end_sentinel": "# END OF Framework_PYQCount v1.3",
-      "lines": 1364,
-      "bytes": 77069
+      "sha256": "caf14e519dee1940f30cf3a7ced48ab0af432b77aad7ed39b48ddb82bbaae3e0",
+      "version_header": "# Framework_PYQCount v1.4 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
+      "end_sentinel": "# END OF Framework_PYQCount v1.4",
+      "lines": 1388,
+      "bytes": 78902
     },
     "Framework_PYQDeliver.md": {
       "sha256": "3ddb812df80c6812f6c0c9af0fbef8999dd85fbf92dbdd2bdfe7531bbcdce22f",
@@ -313,11 +313,11 @@
       "bytes": 205657
     },
     "Framework_PYQScan.md": {
-      "sha256": "8fcf619f2288b0feab7e4da1c30db544ab1d48fa597decf72f099c0af781b0c7",
-      "version_header": "# Framework_PYQScan v1.1 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
-      "end_sentinel": "# END OF Framework_PYQScan v1.1",
-      "lines": 1736,
-      "bytes": 86126
+      "sha256": "13e9f56f655fa6555d9038bb168ba3a6dbed92119170c04ad8a895f18110d910",
+      "version_header": "# Framework_PYQScan v1.2 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
+      "end_sentinel": "# END OF Framework_PYQScan v1.2",
+      "lines": 1793,
+      "bytes": 89660
     },
     "Framework_PYQSort.md": {
       "sha256": "204965dcd1dd7de6ab48e67a5ad3cab8363ead9c663eee69564cc71c1c040eaa",
@@ -425,18 +425,18 @@
       "bytes": 21616
     },
     "spec_name_audit.py": {
-      "sha256": "42a30794fb3063008623f845f37f29df6954d29aeba8993f1138e242fad7c12d",
+      "sha256": "ea0b26e2e98a283347ff4466ab7bf58823a84c4a44345c3b654647507b81d88f",
       "version_header": "\"\"\"spec_name_audit.py v1.0 \u2014 cross-block undefined-name auditor for spec-inline python.",
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 519,
-      "bytes": 19057
+      "lines": 545,
+      "bytes": 20515
     },
     "mock_sync_audit.py": {
-      "sha256": "2f2f0ecb3e6b50b1468c61aca73bd289ecf63564f00d1621bc084c939bfa8647",
+      "sha256": "da386af7a856df8712ab87cc6172f8e58277ef9fca069d702f0411021576564a",
       "version_header": "\"\"\"mock_sync_audit.py v1.0 \u2014 cross-step sync auditor for the mock/test track.",
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 802,
-      "bytes": 38937
+      "lines": 832,
+      "bytes": 40912
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",
@@ -481,11 +481,11 @@
       "bytes": 24496
     },
     "LAW_REGISTRY.json": {
-      "sha256": "eb0238e97b0c9d0bf0ea792739b8d5a5ac5f4cd79b7e3f601ef0960865a63946",
+      "sha256": "0afe2d3cb91cd93eaa5a17e8b29c1265371144a0eda4df15514886abe20334ef",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 31,
-      "bytes": 2610
+      "lines": 38,
+      "bytes": 4746
     }
   }
 }

@@ -618,6 +618,228 @@ def c8_executable_source_coverage(path, findings, warnings):
                 f"— not inspectable by any AST check.")
 
 
+def governed_specs(root):
+    """Specs LAW_REGISTRY says EXECUTION-BOUNDARY-LAW governs. Empty when absent.
+
+    C6-PRE is scoped to these deliberately. Every spec in the corpus should ideally be
+    inspectable, but only a GOVERNED spec has a law delegating verification to a check
+    that a non-compiling fence can disarm — and that delegation is what turns an
+    unreadable fence from untidy into unverifiable.
+    """
+    import json as _json
+    reg = None
+    for cand in ([os.path.join(r, 'LAW_REGISTRY.json') for r in root]
+                 if isinstance(root, (list, tuple, set))
+                 else [os.path.join(root, 'LAW_REGISTRY.json')]):
+        if os.path.exists(cand):
+            try:
+                reg = _json.load(open(cand, encoding='utf-8'))
+                break
+            except (OSError, ValueError):
+                return set()
+    if reg is None:
+        return set()
+    law = (reg.get('laws') or {}).get('EXECUTION-BOUNDARY-LAW') or {}
+    return set(law.get('governs') or [])
+
+
+def _all_fences(path):
+    """Yield (start_line, tag, body) for EVERY fence, compiling or not."""
+    out, cur, start, tag = [], None, 0, ''
+    for i, line in enumerate(open(path, encoding='utf8').read().split('\n'), 1):
+        s = line.strip()
+        if s.startswith('```'):
+            if cur is None:
+                cur, start, tag = [], i, s
+            else:
+                out.append((start, tag, '\n'.join(cur)))
+                cur = None
+            continue
+        if cur is not None:
+            cur.append(line)
+    return out
+
+
+def c6pre_inspectability(path, findings, governed):
+    """C6-PRE — A GOVERNED SPEC MUST BE INSPECTABLE (EXECUTION-BOUNDARY LAW).
+
+    GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. C6 anchors on pass-bodied defs found
+    via any_python_blocks(), which yields ONLY fences that compile — deliberately, and
+    for a good reason. The consequence nobody priced: a CLASS T stub inside a fence
+    that does NOT compile is, to C6, a stub that does not exist. C6 then builds an
+    empty class_t set, returns early at `if not class_t: return`, and never reaches the
+    consumption sites — which live in the fence next door and compile fine.
+
+    Measured 2026-08-15 on Framework_MockTestAnalyse.md: the untagged fence spanning
+    lines 321-603 failed ast.parse at line 328 on an em-dash IN PROSE; both gdrive
+    stubs (lines 544, 554) lived in it; C6 reported 0 findings against two live
+    violations at lines 655 and 658, and audit_sync reported the law verified.
+
+      A check that can be structurally disarmed by the shape of its input is not a
+      check. It is a check-shaped hole.
+
+    So the law's precondition is verified BEFORE the law: for every spec the registry
+    governs, no CLASS marker may hide in a fence the inspector cannot read. This FAILS
+    the build; it is not a warning. C8 already emitted a correct WARN for that exact
+    line and it was one of 86, indistinguishable from the other 85.
+
+    Splitting the fence is the fix. Deleting the em-dash is not: the next prose line in
+    the same fence re-breaks it, and prose does not belong in a code fence at all.
+    """
+    if os.path.basename(path) not in governed:
+        return
+    for start, tag, body in _all_fences(path):
+        if not re.search(r'CLASS:\s*[JT]\b', body):
+            continue
+        try:
+            ast.parse(body)
+        except SyntaxError as exc:
+            findings.append(
+                f"[C6-PRE] {os.path.basename(path)}:{start}: this spec is GOVERNED by "
+                f"EXECUTION-BOUNDARY-LAW, but a 'CLASS: J/T' marker sits in a fence "
+                f"that does NOT parse as python ({exc.msg} at fence line {exc.lineno}, "
+                f"file line {start + (exc.lineno or 0)}). audit_callgraph inspects only "
+                f"fences that compile, so every CLASS marker in this fence is invisible "
+                f"to C6 — the law reports 0 findings on this file while it cannot "
+                f"actually be verified here. SPLIT the fence: prose in an untagged "
+                f"fence, code in a ```python fence that parses. Do NOT try to fix this "
+                f"by deleting non-ASCII characters; a non-ASCII character inside a `#` "
+                f"comment compiles fine, and the next prose line will re-break it.")
+
+
+def c9_unfilled_container(path, findings):
+    """C9 — UNFILLED INJECTION CONTAINER (EXECUTION-BOUNDARY LAW, producer half).
+
+    GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. The three existing checks cover the
+    injection SITE and nothing else:
+
+        C6  declared as CLASS T and passed anyway        -> fires
+        C7  not declared anywhere and passed             -> fires
+        C9  correctly declared, correctly injected, and  -> NOTHING FIRED
+            the container the resolver reads is never
+            filled by any producer in the spec
+
+    Framework_MockTestAnalyse v2.49.1 sat in that third state for its whole life. It
+    declared tagged CLASS T stubs and injected a bound `drive_resolver`, so C6 and C7
+    were both satisfied and correct. But the resolver read `drive_payloads`, a keyword
+    parameter defaulting to None and collapsed to {} on the next line, with NO PRODUCER
+    anywhere in the spec — no call site, no assignment, and a PHASE A described only in
+    a prose comment that the execution order never reached. It could only ever be
+    empty, so every paper raised TransportFallback and the entire corpus routed to
+    manual upload on every run of every exam.
+
+      C7 verifies that the injected NAME exists.
+      Nothing verified that the injected CONTAINER is ever FILLED.
+
+    A producer is one of exactly two things, and the second is what makes the rule
+    tight rather than advisory:
+      (a) an assignment in this spec's compiling python — a literal, a json.load(), an
+          engine call, anything that binds the name to a value; or
+      (b) a parameter WITH NO DEFAULT on the function that owns the resolver, so a
+          caller that forgets it gets a TypeError rather than an empty dict.
+
+    A parameter defaulting to None or {} is NOT a producer — that default IS the
+    defect. Neither is a prose fence: a protocol the CI cannot parse is a protocol it
+    cannot credit, which is the same rule C6-PRE enforces one level up.
+    """
+    base = os.path.basename(path)
+    for start, block in any_python_blocks(path):
+        try:
+            tree = ast.parse(block)
+        except SyntaxError:
+            continue
+
+        # ── who could FILL a container in this block ────────────────────────
+        real_assign, defaulted, no_default, guarded = set(), {}, set(), set()
+        for n in ast.walk(tree):
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                a = n.args
+                pos = list(a.posonlyargs) + list(a.args)
+                first_defaulted = len(pos) - len(a.defaults)
+                for i, arg in enumerate(pos):
+                    if i < first_defaulted:
+                        no_default.add(arg.arg)
+                    else:
+                        defaulted.setdefault(arg.arg, []).append(n.name)
+                for arg, dflt in zip(a.kwonlyargs, a.kw_defaults):
+                    (no_default.add(arg.arg) if dflt is None
+                     else defaulted.setdefault(arg.arg, []).append(n.name))
+            elif isinstance(n, ast.If):
+                # the FAIL-LOUDLY guard: `if name is None: raise ...`. A defaulted
+                # parameter whose absence RAISES cannot silently reach the resolver,
+                # so it is a legitimate producer contract — this is the shape
+                # Framework_MockTestAnalyse already uses for vision_pending.
+                t = n.test
+                if (isinstance(t, ast.Compare) and isinstance(t.left, ast.Name)
+                        and any(isinstance(o, (ast.Is, ast.IsNot)) for o in t.ops)
+                        and any(isinstance(x, ast.Raise) for x in ast.walk(n))):
+                    guarded.add(t.left.id)
+
+        for n in ast.walk(tree):
+            if not isinstance(n, ast.Assign):
+                continue
+            rhs = {x.id for x in ast.walk(n.value) if isinstance(x, ast.Name)}
+            for t in n.targets:
+                if not isinstance(t, ast.Name):
+                    continue
+                # `x = x or {}` is NOT a producer — it is the defect wearing an
+                # assignment's clothes: it binds the empty default and moves on.
+                # Nor is `y = a or {}` where `a` is itself a defaulted parameter.
+                if t.id in rhs or (rhs & set(defaulted)):
+                    continue
+                real_assign.add(t.id)
+
+        producers = real_assign | no_default | guarded
+
+        # ── resolvers handed to a documented injection point ────────────────
+        for n in ast.walk(tree):
+            if not isinstance(n, ast.Call):
+                continue
+            fname = getattr(n.func, 'attr', getattr(n.func, 'id', None))
+            idx = INJECTION_POINTS.get(fname)
+            if idx is None or len(n.args) <= idx:
+                continue
+            arg = n.args[idx]
+            if not isinstance(arg, ast.Name):
+                continue
+            for d in ast.walk(tree):
+                if isinstance(d, (ast.FunctionDef, ast.AsyncFunctionDef)) and d.name == arg.id:
+                    fn = d
+                elif (isinstance(d, ast.Assign) and isinstance(d.value, ast.Lambda)
+                      and any(isinstance(t, ast.Name) and t.id == arg.id
+                              for t in d.targets)):
+                    fn = d.value
+                else:
+                    continue
+                if isinstance(fn, ast.Lambda):
+                    local = {a2.arg for a2 in fn.args.args}
+                else:
+                    local = {a2.arg for a2 in list(fn.args.posonlyargs)
+                             + list(fn.args.args) + list(fn.args.kwonlyargs)}
+                container = None
+                for s in ast.walk(fn):
+                    if (isinstance(s, ast.Subscript) and isinstance(s.value, ast.Name)
+                            and s.value.id not in local):
+                        container = s.value.id
+                        break
+                if container is None or container in producers:
+                    continue
+                findings.append(
+                    f"[C9] {base}:{start + n.lineno - 1}: {fname}() is injected with "
+                    f"`{arg.id}`, which reads the container `{container}` — and nothing "
+                    f"in this spec ever FILLS it"
+                    + (f" (`{container}` is a parameter with a default, on "
+                       f"{', '.join(sorted(set(defaulted[container])))}, and its "
+                       f"absence is not guarded)" if container in defaulted else "")
+                    + ". A correctly-injected resolver over an empty container fails "
+                    "EVERY lookup, so every item degrades to the fallback lane on every "
+                    "run — invisible to C6 and C7, which only check the injection SITE. "
+                    "Fill it from this spec's own python, give it no default, or guard "
+                    "it with `if <name> is None: raise ...`. A bare default of None or "
+                    "{} is the defect, not the fix "
+                    "(GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION).")
+
+
 def c5_dangling_value(path, corpus_exe, findings):
     """A value captured into a dict literal that no consumer reads."""
     for _, code in python_blocks(path):
@@ -698,14 +920,18 @@ def main(argv):
             engine_funcs[node.name] = eng
 
     findings, warnings = [], []
+    _governed = governed_specs(
+        [os.path.dirname(os.path.abspath(s)) for s in specs] + [root])
     for s in specs:
         funcs = spec_functions(s)
         c1_required_arg(s, funcs, findings)
         c2_return_shape(s, funcs, findings)
         c3_branch_parity(s, funcs, findings)
+        c6pre_inspectability(s, findings, _governed)
         c6_model_agency_stubs(s, findings)
         c7_unbound_transport(s, findings)
         c8_executable_source_coverage(s, findings, warnings)
+        c9_unfilled_container(s, findings)
     if corpus_wide:
         imported = set()
         for sp in all_specs:
@@ -816,12 +1042,14 @@ def self_test():
     check("C8 fires on an injection-point call in an untagged fence",
           '[C8]' in out)
 
-    rc, out = probe("import corpus_io\n"
+    rc, out = probe("import corpus_io, json\n"
+                    "payloads = json.load(open('cache.json'))\n"
                     "resolver = lambda fid: payloads[fid]\n"
                     "x = corpus_io.fetch_drive_docx(resolver, p, d)\n")
     check("C7 silent when the argument is an assigned lambda", rc == 0)
 
-    rc, out = probe("import corpus_io\n"
+    rc, out = probe("import corpus_io, json\n"
+                    "payloads = json.load(open('cache.json'))\n"
                     "def resolver(fid):\n    return payloads[fid]\n"
                     "x = corpus_io.fetch_drive_docx(resolver, p, d)\n")
     check("C7 silent when the argument is a def", rc == 0)
@@ -835,9 +1063,10 @@ def self_test():
                         "paginated, per EC-P23).\n")
     check("C7 silent on prose with whitespace before '('", rc == 0)
 
-    rc, out = probe("import corpus_io\n"
+    rc, out = probe("import corpus_io, json\n"
                     "# historical defect, quoted deliberately:\n"
                     "#     corpus_io.fetch_drive_docx(gdrive_download_file, p, d)\n"
+                    "payloads = json.load(open('cache.json'))\n"
                     "resolver = lambda fid: payloads[fid]\n"
                     "y = corpus_io.fetch_drive_docx(resolver, p, d)\n")
     check("C7 silent on a commented-out historical example", rc == 0)
@@ -849,6 +1078,88 @@ def self_test():
                         "x = corpus_io.fetch_drive_docx(gdrive_download_file, p, d)\n```\n")
     check("C6 catches the declared-but-passed case C7 deliberately does not",
           rc == 1 and '[C6]' in out)
+
+    def probe_governed(markdown):
+        """C6-PRE is scoped to LAW_REGISTRY.governs, so the fixture needs a registry
+        naming it. Without one the check is correctly silent — which is itself the
+        first assertion below."""
+        import json as _json
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, "Framework_Fixture.md")
+        open(p, 'w', encoding='utf-8').write(
+            "# Framework_Fixture v1.0 — self-test fixture\n\n" + markdown)
+        _json.dump({"laws": {"EXECUTION-BOUNDARY-LAW": {
+            "governs": ["Framework_Fixture.md"],
+            "verified_by": ["audit_callgraph:C6"]}}},
+            open(os.path.join(d, 'LAW_REGISTRY.json'), 'w', encoding='utf-8'))
+        r = subprocess.run([sys.executable, here, p], capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    # ── C6-PRE / C9 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION ───────────
+    # THE REGRESSION. A CLASS T stub inside a fence that does not compile is, to C6,
+    # a stub that does not exist — so C6 returns early and never scans the call sites,
+    # which compile fine one fence away. That is how a dead Drive lane survived with
+    # four auditors green. The em-dash below is in PROSE, exactly as it was in the
+    # real defect; it is NOT the bug, the prose-inside-a-code-fence is.
+    _hidden = ("```\n"
+               "Trigger grammar \u2014 prose that cannot compile\n"
+               "def gdrive_search(q):\n"
+               "    \"\"\"CLASS: T \u2014 not executable python.\"\"\"\n"
+               "    pass  # CLASS: T\n"
+               "```\n")
+    rc, out = probe_governed(_hidden)
+    check("C6-PRE fires on a CLASS marker inside a NON-COMPILING fence of a "
+          "governed spec", rc == 1 and '[C6-PRE]' in out)
+
+    rc, out = probe(_hidden.replace('```\n', '', 1).replace('```\n', '', 1))
+    check("C6-PRE is silent when the spec is not governed by the registry",
+          '[C6-PRE]' not in out)
+
+    rc, out = probe_governed("```python\n"
+                             "def gdrive_search(q):\n"
+                             "    \"\"\"CLASS: T \u2014 not executable python.\"\"\"\n"
+                             "    pass  # CLASS: T\n"
+                             "```\n")
+    check("C6-PRE is silent once the CLASS marker sits in a fence that compiles",
+          rc == 0 and '[C6-PRE]' not in out)
+
+    rc, out = probe("import corpus_io\n"
+                    "def run(a, drive_payloads=None):\n"
+                    "    drive_payloads = drive_payloads or {}\n"
+                    "    def r(fid):\n"
+                    "        return drive_payloads[fid]\n"
+                    "    return corpus_io.fetch_drive_docx(r, a, '/t')\n")
+    check("C9 fires on a resolver over a container that has no producer",
+          rc == 1 and '[C9]' in out)
+
+    rc, out = probe("import corpus_io, json\n"
+                    "payloads = json.load(open('c.json'))\n"
+                    "def r(fid):\n    return payloads[fid]\n"
+                    "x = corpus_io.fetch_drive_docx(r, p, '/t')\n")
+    check("C9 is silent when the container is filled from json.load", rc == 0)
+
+    rc, out = probe("import corpus_io\n"
+                    "def mk(drive_payloads):\n"
+                    "    def r(fid):\n        return drive_payloads[fid]\n"
+                    "    return corpus_io.fetch_drive_docx(r, {}, '/t')\n")
+    check("C9 is silent when the container is a parameter with NO default", rc == 0)
+
+    rc, out = probe("import corpus_io\n"
+                    "def run(a, drive_payloads=None):\n"
+                    "    if drive_payloads is None:\n"
+                    "        raise RuntimeError('PHASE A must supply this')\n"
+                    "    def r(fid):\n        return drive_payloads[fid]\n"
+                    "    return corpus_io.fetch_drive_docx(r, a, '/t')\n")
+    check("C9 is silent when a defaulted container is guarded by a raising check",
+          rc == 0)
+
+    rc, out = probe("import corpus_io\n"
+                    "def go(a=None):\n"
+                    "    ghost = a or {}\n"
+                    "    r = lambda fid: ghost[fid]\n"
+                    "    return corpus_io.fetch_drive_docx(r, p, '/t')\n")
+    check("C9 sees through `y = <defaulted param> or {}` — an assignment is not a "
+          "producer when it only rebinds an empty default", rc == 1 and '[C9]' in out)
 
     r = subprocess.run([sys.executable, here], capture_output=True, text=True)
     check("live corpus passes the full-corpus run (C4 included)",

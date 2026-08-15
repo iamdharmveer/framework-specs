@@ -1,4 +1,13 @@
-# Framework_PYQCount v1.3 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.4 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.4 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (sibling fix, applied
+#   here per the LAW-PROPAGATION LAW rather than waiting for Step 4 to fail). THE BRIDGE
+#   showed a flat `list_fn` that ignores its folder_id argument. corpus_io.collect_corpus_files
+#   RECURSES into sub-folders, so on a year-subfoldered Drive folder that resolver returns
+#   the same entries for the sub-folder and the walk raises DuplicatePaperError — a HARD
+#   STOP blaming the operator's Drive for a defect in this contract. The cache is now
+#   keyed by folder id; a bare {'files': [...]} cache is still accepted, scoped to the
+#   root. Found by reading the engine while fixing Step 5, not by a failing run: a flat
+#   corpus never triggers it.
 # v1.3 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (EXECUTION-BOUNDARY
 #   LAW). S5-4 step 1 injected the bare name `gdrive_download_file` into
 #   corpus_io.fetch_drive_docx. That name was defined NOWHERE — no spec, no engine, no
@@ -146,9 +155,24 @@ def gdrive_download_file(file_id, local_path):
 # PHASE B (python): inject RESOLVERS — plain lookups over results that ALREADY EXIST.
 # A resolver performs no tool call, so it is ordinary, reachable, testable python:
 #
-#     drive_listing  = json.load(open(LISTING_CACHE))           # from PHASE A
+#     cache          = json.load(open(LISTING_CACHE))           # from PHASE A
 #     list_fn        = lambda fid, page_token=None: (
-#                          {'files': []} if page_token else drive_listing)
+#                          {'files': []} if page_token
+#                          else cache.get(fid, {'files': []}))
+#
+#     v1.4 — THE CACHE IS KEYED BY FOLDER ID. v1.3 wrote a flat lambda that ignored
+#     `fid` and returned the whole listing on every call. collect_corpus_files
+#     RECURSES: it calls list_fn again with each sub-folder's id, so a flat resolver
+#     hands the walker the SAME entries for the sub-folder, the sub-folder re-appears
+#     inside itself, and the paper is seen twice — surfacing as
+#     `DuplicatePaperError: two files resolve to the same paper identity`, a HARD STOP
+#     that blames the operator's Drive for a defect in this contract. Measured on a
+#     one-folder/one-paper fixture. A flat corpus never triggered it, which is exactly
+#     why it had to be found by reading the engine rather than by running the step.
+#     PHASE A therefore caches {folder_id: {'files': [...]}}, merging every page of a
+#     folder into one entry. A bare {'files': [...]} cache is still accepted for a FLAT
+#     folder, answered for the ROOT id only; any other id resolves to an empty page,
+#     which ends the walk cleanly.
 #     drive_payloads = {file_id: path_or_payload, ...}          # from PHASE A
 #     resolver       = lambda fid: drive_payloads[fid]
 #     local_path     = corpus_io.fetch_drive_docx(resolver, paper, WORK_DIR)
@@ -1361,4 +1385,4 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.3
+# END OF Framework_PYQCount v1.4

@@ -268,6 +268,27 @@ Stamp a clean version + changelog over everything shipped since the last seal.
   live injection-point call sits in a fence no AST check can read.
   (GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION.)
 
+  Two further holes, both found the hard way when Step 5's Drive lane turned out to have
+  been dead all along while every auditor was green
+  (GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION):
+
+  **C6-PRE — INSPECTABILITY.** `any_python_blocks()` yields only fences that COMPILE, by
+  design. So a CLASS T stub inside a fence that does not compile is, to C6, a stub that
+  does not exist: C6 builds an empty set, returns early, and never scans the consumption
+  sites — which sit in the fence next door and compile fine. Measured: an untagged fence
+  failing `ast.parse` on an **em-dash in prose** hid two stubs while two live violations
+  went unreported. For every spec `LAW_REGISTRY` governs, a CLASS marker in a
+  non-compiling fence now FAILS the build. *A check that can be structurally disarmed by
+  the shape of its input is not a check; it is a check-shaped hole.*
+
+  **C9 — UNFILLED INJECTION CONTAINER.** C6 catches "declared and passed"; C7 catches
+  "not declared and passed"; neither can see a *correct* injection over a container that
+  nothing ever fills. A resolver reading a keyword parameter that defaults to `None` and
+  collapses to `{}` fails every lookup, so every item degrades to the fallback lane on
+  every run. A producer is an assignment in compiling python, a parameter with no
+  default, or a defaulted parameter whose absence raises. **A bare default is the defect,
+  not the fix.**
+
 - **LAW-PROPAGATION LAW — a remediation that establishes a law must be applied to every
   spec the law governs, and the completeness of that application must be machine-checkable.**
 

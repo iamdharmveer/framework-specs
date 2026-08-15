@@ -1,4 +1,13 @@
-# Framework_PYQScan v1.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.2 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.2 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (D5).
+#   collect_row_files() was `files = []` … `pass  # Drive MCP calls` … `return files`:
+#   it returned an EMPTY LIST unconditionally, on every run of every exam, and its own
+#   comment cited "the same pattern as Step 5's S1-2 Drive path" — inheriting a pattern
+#   that was itself dead. Invisible to C6 twice over: the `pass` shares its body with
+#   other statements so it is not a pass-bodied stub, and it carried no CLASS tag. The
+#   listing now delegates to corpus_io.collect_corpus_files over a PHASE A cache keyed
+#   by folder id, and an empty result HARD STOPS with a transport diagnosis (EC-P39)
+#   instead of silently reporting a Row-file-less exam.
 # v1.1 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-2 Q_PATTERNS mirrors the engine's widened
 #   four-entry table (entries 3/4 = BARE-LABEL forms), updated atomically with
 #   blueprint_core, PYQSort S3-1 and MockTestAnalyse E-2. S3-2 now PERSISTS q_count and
@@ -329,6 +338,12 @@ def reconcile_stats(pairs):
 ```
 
 ```python
+import json
+import corpus_io                 # I/O shell — Drive listing, screening, pagination
+
+ROW_LISTING_CACHE = '/home/claude/row_drive_listing.json'
+
+
 def collect_row_files(drive_folder_id, cached_inventory=None):
     """
     Collect all Row file paths, grouped by year, from Google Drive.
@@ -353,12 +368,54 @@ def collect_row_files(drive_folder_id, cached_inventory=None):
             "files must be in Google Drive — the local upload fallback was removed "
             "(v2.16) to match Step 4 (PYQCount). Provide the Drive link and retry.")
 
-    files = []
-    # Use Google Drive MCP to list files recursively
-    # (same pattern as Step 5's S1-2 Drive path)
-    # v1.7: Filter .docx only (EC-P21: skip PDFs, images, Google Docs)
-    # Only files with mimeType = wordprocessingml.document
-    pass  # Drive MCP calls
+    # v1.2 (GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION). This block used to read:
+    #     files = []
+    #     pass  # Drive MCP calls
+    # `files` was initialised empty, the `pass` performed nothing, and the function
+    # returned [] UNCONDITIONALLY on every run of every exam. It carried the comment
+    # "same pattern as Step 5's S1-2 Drive path" — an explicit inheritance of a
+    # pattern that was itself defective. No auditor could see it: the `pass` sits in a
+    # body with other statements, so it is not a pass-bodied stub and C6 cannot anchor
+    # on it, and it carried no CLASS tag so C6's tagging case could not fire either.
+    #
+    # Fixed in the same wave as Step 5, deliberately. The gap report recommended a
+    # separate ticket; deferring a known-dead listing to a later ticket is precisely
+    # the partial remediation that produced this GAP in the first place.
+    #
+    # PHASE A (model, in its own turns, BEFORE this runs): call
+    # Google Drive:search_files(query="parentId = '<folder_id>'", pageSize=100),
+    # paginate to exhaustion, recurse into every sub-folder, merge each folder's pages
+    # into one {"files": [...]} and cache it under that folder's OWN id — a flat cache
+    # that ignores folder_id makes the recursive walk re-enter the sub-folder and raise
+    # a spurious DuplicatePaperError. Write it to ROW_LISTING_CACHE.
+    #
+    # PHASE B (python): a plain lookup over that cache. No tool call happens here.
+    with open(ROW_LISTING_CACHE, encoding='utf-8') as _fh:
+        _cached = json.load(_fh)
+    if isinstance(_cached, dict) and 'files' in _cached:
+        _cached = {drive_folder_id: _cached}          # flat cache: root folder only
+    def _list_fn(fid, page_token=None):
+        if page_token:
+            return {'files': []}                 # PHASE A merged every page already
+        return _cached.get(fid, {'files': []})
+
+    # corpus_io owns the walk: pagination to exhaustion, newest-first recursion,
+    # bc.screen_drive_entry on every entry, DuplicatePaperError on canonical-identity
+    # collisions, and the 'files'/'items'/bare-list plus 'title'/'name' normalisation
+    # this function used to have no answer for. Never re-implement it here.
+    files, _rejects = corpus_io.collect_corpus_files(_list_fn, drive_folder_id)
+    for _r in _rejects:
+        print(f"  REJECTED: {_r.get('name')} — {_r.get('reason')}")
+
+    if not files:
+        raise SystemExit(
+            "HARD STOP — the Row-file Drive folder yielded ZERO usable files "
+            "(EC-P39).\n"
+            f"  folder id    : {drive_folder_id}\n"
+            f"  rejected     : {len(_rejects)}\n"
+            "Check that PHASE A ran and ROW_LISTING_CACHE holds every page of every "
+            "folder, that the link points at the Row files, and the rejects above. An "
+            "empty listing is a TRANSPORT diagnosis, never a corpus fact.")
 
     # Extract year from filename
     for f in files:
@@ -1733,4 +1790,4 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.1
+# END OF Framework_PYQScan v1.2

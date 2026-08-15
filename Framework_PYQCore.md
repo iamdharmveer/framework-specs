@@ -1,4 +1,13 @@
-# Framework_PYQCore v1.3 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.4 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.4 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. §9 gains EC-P37
+#   (inline channel in a batched, multi-session step — the budget is per SESSION, a
+#   fresh chat resets it, halve it because an inline payload is charged twice, and
+#   partition only AFTER the recency sort), EC-P38 (channel transition on resume —
+#   persist and reuse the verdict, re-probe once on a first-acquisition failure, never
+#   flip silently) and EC-P39 (an empty listing is a TRANSPORT diagnosis, never a
+#   zero-PYQ exam — the one transport defect in the framework that produced a wrong
+#   ANSWER rather than a stall). EC-P35/EC-P36 now say explicitly that their
+#   single-session resolution does not apply to a batched step.
 # v1.3 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION. §9 gains EC-P35 (the
 #   Drive channel cannot reach the container) and EC-P36 (an inline channel exceeds the
 #   context budget). Neither condition is visible to size-based partitioning: measured
@@ -1331,6 +1340,77 @@ EC-P36: INLINE CHANNEL EXCEEDS THE CONTEXT BUDGET (2026-08-15)
   prevents a resumed session from re-deciding the lane mid-corpus.
   Never restate the budget as a literal. INLINE_BUDGET_CHARS has one definition
   in blueprint_core, exactly as DRIVE_CAP and CHAT_FILE_LIMIT do.
+
+  IN A MULTI-SESSION STEP (Step 5 PYQExtract) the resolution above is WRONG.
+  See EC-P37: the budget is per SESSION, a fresh chat resets it, and the overflow
+  is CARRIED to the next session rather than demanded as manual uploads.
+
+EC-P37: INLINE CHANNEL IN A BATCHED, MULTI-SESSION STEP (2026-08-15)
+  channel == 'inline' in a step that already stops at a batch boundary and resumes
+  in a fresh chat — Step 5 (PYQExtract), BATCH_SIZE 3, mandatory BATCH STOP, and a
+  documented Option B (download analysis_progress.json, open a fresh chat).
+  EC-P35/EC-P36's resolution — route the corpus to the upload lane — is correct for
+  a step that must complete in ONE session (Step 4) and wrong here, because A FRESH
+  CHAT RESETS THE CONTEXT BUDGET. Applying the single-session rule to Step 5 turns a
+  fully automatic multi-session run into 19 manual uploads on a 22-paper corpus.
+  Resolution: apply the budget PER SESSION.
+    admitted = bc.partition_by_transport(pending_recency_sorted, channel='inline',
+                                         inline_budget=SESSION_INLINE_BUDGET)['auto']
+  Process the admitted set, take the normal BATCH STOP, and instruct Option B. The
+  upload lane remains the fallback for a paper that cannot fit even ONE session's
+  budget, or that exceeds DRIVE_CAP — never the default for the corpus.
+  The budget is HALVED for an inline channel in such a step: INLINE_BUDGET_CHARS
+  prices INBOUND characters only, and the model pays that cost a SECOND time when it
+  re-emits the payload into a python block for stage_drive_payload to decode. There
+  is no third route — the container's egress allowlist contains no Google domain.
+  Halve it at the CALL SITE (bc.INLINE_BUDGET_CHARS // 2), never by editing the
+  shared constant: that constant is also Step 4's, and mutating it would silently
+  re-partition a step this rule does not govern.
+  A CONSEQUENCE THAT MUST NOT BE "FIXED": with the halved budget a session may admit
+  FEWER papers than BATCH_SIZE — measured on IIT_JAM_MATHEMATICS, one 45-50 KB paper
+  costs ~63,500 characters, so a session admits ONE paper. BATCH_SIZE is a pacing
+  CEILING, not a floor, and the run simply takes more sessions. Widening the budget to
+  reach BATCH_SIZE trades a longer run for a mid-batch context stall that the per-paper
+  save survives but the operator cannot interpret. On a SPILL channel this clause is
+  inert: context cost is zero, every pending paper is admitted, and pacing returns to
+  BATCH_SIZE alone.
+  ORDER IS LOAD-BEARING: partition only AFTER the recency sort. partition_by_transport
+  admits papers in the order it receives them, and corpus_io.collect_corpus_files
+  returns DRIVE LISTING order. Measured on IIT_JAM_MATHEMATICS — same 22 papers, same
+  budget, only the order changed: listing order admitted 2017/2021/2014 (185,892
+  chars), recency order admitted 2026/2025/2024 (189,156 chars). Partitioning the raw
+  listing order can leave the §1-6 required years permanently unreached while the
+  operator watches papers arrive successfully.
+
+EC-P38: CHANNEL TRANSITION ON RESUME (2026-08-15)
+  A step that spans sessions must not re-decide transport in each one. Persist the
+  verdict — Step 4 in count_progress.json._transport.channel, Step 5 in
+  analysis_progress.json._meta._transport — and REUSE it on resume. Re-probing costs
+  one paper's context every session for a fact that is a property of the deployment.
+  Exception: if the FIRST Drive-lane acquisition of a resumed session raises
+  TransportFallback, re-probe exactly ONCE and overwrite the record. A resumed session
+  may legitimately be running on a different deployment.
+  Every transition MUST print and MUST be recorded. A silent mid-corpus lane change
+  produces a run half of which was fetched under rules the other half was not.
+  A progress file written before the transport key existed is VALID INPUT: the absent
+  key means "probe as if fresh, then record". Never discard or invalidate it.
+
+EC-P39: AN EMPTY LISTING IS NOT A ZERO-PYQ EXAM (2026-08-15)
+  A step that has a legitimate zero-PYQ path — Step 5's Scenario B / '--synthesise
+  ALL' — must NEVER reach it by inference from an empty listing. An empty listing and
+  a PYQ-less exam are indistinguishable at that point, and the listing is exactly what
+  a transport defect empties.
+  Measured: Framework_MockTestAnalyse v2.49.1 read the wrong envelope key, got zero
+  papers from a 22-paper folder, rewrote mode to '--synthesise ALL', and shipped a
+  complete, green, F2-footered deliverable in which every subtopic was a zero-PYQ
+  scaffold. Step 6 blueprinted it and Step 7 generated every question from training
+  knowledge, for an exam with 22 years of papers in the folder the operator had just
+  supplied. This is the ONE transport defect in the framework that can produce a wrong
+  ANSWER rather than a stall — the "the failure is LOUD" mitigation does not hold here.
+  Detection: zero usable papers from an operator-supplied corpus link.
+  Resolution: HARD STOP with the transport diagnosis — report the entry count, the
+  reject list with reasons, and the PHASE A cache check. A genuinely PYQ-less exam is
+  requested EXPLICITLY by the operator; it is never inferred from an empty container.
 ```
 
 ---
@@ -1764,4 +1844,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.3
+# END OF Framework_PYQCore v1.4

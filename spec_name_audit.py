@@ -124,6 +124,32 @@ def _function_free_reads(fn):
             local.add(node.id)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             local.add(node.name)
+            # A NESTED function's own parameters are bound in ITS scope, not free reads
+            # of the enclosing block. Without this, every closure that uses its own
+            # arguments — `def make_x(cache):  def inner(fid, page_token=None): ...` —
+            # reported `fid` and `page_token` as unbound names of the outer block.
+            # Found 2026-08-15 while making Framework_MockTestAnalyse's S1-1 fence
+            # inspectable for the first time (GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION):
+            # the pattern had always been a false positive, and was simply never reached
+            # because the fences that contained it did not compile.
+            # Outer-scope names read inside the nested body still count, which is the
+            # whole point of the check and is unaffected.
+            if not isinstance(node, ast.ClassDef):
+                _a = node.args
+                for _p in _a.posonlyargs + _a.args + _a.kwonlyargs:
+                    local.add(_p.arg)
+                if _a.vararg:
+                    local.add(_a.vararg.arg)
+                if _a.kwarg:
+                    local.add(_a.kwarg.arg)
+        elif isinstance(node, ast.Lambda):
+            _a = node.args
+            for _p in _a.posonlyargs + _a.args + _a.kwonlyargs:
+                local.add(_p.arg)
+            if _a.vararg:
+                local.add(_a.vararg.arg)
+            if _a.kwarg:
+                local.add(_a.kwarg.arg)
         elif isinstance(node, ast.comprehension):
             local |= _target_names(node.target)
         elif isinstance(node, (ast.Import, ast.ImportFrom)):

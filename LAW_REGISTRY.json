@@ -6,7 +6,7 @@
   "laws": {
     "EXECUTION-BOUNDARY-LAW": {
       "gap": "GAP-2026-07-26-003",
-      "reaffirmed_by": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION",
+      "reaffirmed_by": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION",
       "stated_in": "CLAUDE.md",
       "requires": "A tool call cannot happen inside a running python process. Every spec performing a CLASS T operation must declare it as a tagged pass-bodied stub AND inject a RESOLVER over already-materialised results at every injection point. Never inject the CLASS T marker name itself, and never inject a name the spec does not bind.",
       "detect": "live_injection_point_call",
@@ -22,10 +22,17 @@
         "Framework_MockTestCreate.md"
       ],
       "verified_by": [
+        "audit_callgraph:C6-PRE",
         "audit_callgraph:C6",
         "audit_callgraph:C7",
-        "audit_callgraph:C8"
+        "audit_callgraph:C8",
+        "audit_callgraph:C9"
+      ],
+      "preconditions": [
+        "INSPECTABILITY. No 'CLASS: T' or 'CLASS: J' marker may appear inside a fence that fails ast.parse. audit_callgraph.any_python_blocks() yields only compiling fences BY DESIGN, so a marker in a non-compiling fence is — to C6 — a stub that does not exist: C6 builds an empty class_t set, returns early, and never scans the consumption sites, which compile fine one fence away. The law then reports 0 findings on a file it cannot verify. Measured 2026-08-15 on Framework_MockTestAnalyse.md: untagged fence 321-603 failed ast.parse at line 328 on an em-dash IN PROSE; both gdrive stubs lived in it; two live violations at lines 655 and 658 went unreported while four auditors were green. Enforced by audit_callgraph:C6-PRE. A check that can be structurally disarmed by the shape of its input is not a check; it is a check-shaped hole.",
+        "PRODUCER. A resolver injected at a documented injection point must read a container that something in the same spec actually FILLS — an assignment in compiling python, a parameter with no default, or a defaulted parameter whose absence raises. A bare default of None or {} is not a producer; it is the defect. C6 checks 'declared and passed', C7 checks 'not declared and passed', and neither can see a correct injection over an empty container. Enforced by audit_callgraph:C9."
       ]
     }
-  }
+  },
+  "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."
 }

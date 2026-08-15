@@ -1,5 +1,147 @@
 # Changelog
 
+## 2026.08.15.8 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION: Step 5's Drive lane was dead, and unlike Step 4 it could ship a wrong answer
+
+**P0. Step 5 (PYQExtract) could not acquire a single paper from Drive on any
+deployment, and — because an empty listing was indistinguishable from a PYQ-less exam —
+it did not stop. It synthesised.**
+
+Discovered on `IIT_JAM_MATHEMATICS` (22 papers, 981,911 bytes) at 2026.08.15.6;
+reproduced unchanged at 2026.08.15.7. Every number below was measured, not inferred.
+
+### Why this one is worse than its sibling
+
+GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION cost availability: Step 4 raised, halted at
+Task 1, and no wrong number was ever produced. **That mitigation does not hold here.**
+Step 5's listing read `results.get('items', [])` while the connector returns
+`{'files': [...]}` — engine: 22 papers, that line: `[]` — and the no-PYQ branch then
+rewrote `mode` to `'--synthesise ALL'`. A broken listing therefore became "this exam has
+no past papers", and Step 5 emitted a complete, green, F2-footered deliverable in which
+every subtopic was a zero-PYQ scaffold. Step 6 blueprinted it and Step 7 generated every
+question from training knowledge, for an exam with 22 years of papers in the Drive folder
+the operator had just supplied. **EC-P39 now forbids that fall-through: zero usable
+papers from an operator-supplied link is a TRANSPORT diagnosis and a HARD STOP. A
+PYQ-less exam is requested explicitly; it is never inferred from an empty container.**
+
+### The four defects in Step 5
+
+- **D1** the listing envelope key (above).
+- **D2** `collect_drive_docx_recursive` called `gdrive_search()` — a CLASS T marker —
+  from inside python and consumed the result. Executed literally that is
+  `None.get('items')`, reported to the operator as a Drive outage.
+- **D3** `run_batch_loop(..., drive_payloads=None)` → `drive_payloads or {}`, with **no
+  producer anywhere in the spec**: no call site, no assignment, and a PHASE A described
+  only in a prose comment the execution order never reached. It could only ever be
+  empty, so every paper raised `TransportFallback` and the whole corpus routed to manual
+  upload on every run of every exam.
+- **D4** no channel probe, no transport plan, no context budget and no persistence — in
+  the one step that is inherently multi-session (`BATCH_SIZE` 3, ~8 sessions here).
+
+### Why four auditors were green
+
+This file's CLASS T stubs sat in an **untagged fence spanning lines 321–603 that fails
+`ast.parse` at line 328 — on an em-dash in PROSE.** `any_python_blocks()` yields only
+compiling fences by design, so C6 built an empty stub set, returned early at
+`if not class_t: return`, and never reached the two live violations in the fence next
+door, which compiles fine. C7 was silent for a legitimate reason: the injected name
+`drive_resolver` *was* bound. **C7 verifies that the injected NAME exists; nothing
+verified that the injected CONTAINER is ever FILLED.**
+
+### Fix — specs
+
+- **MockTestAnalyse v2.49.1 → v2.50.0** (MINOR, not patch: a signature changes, a section
+  is added, a persisted schema key is added, two DoD items are added). The S1-1 fence is
+  split so the CLASS T stubs compile; the hand-rolled walker is deleted and the walk
+  delegates to `corpus_io.collect_corpus_files`; new **§S8-0 TRANSPORT PREFLIGHT**
+  (`probe_drive_channel` / `plan_transport` / `acquire_paper`) in a parseable fence;
+  `drive_payloads` fails loudly, mirroring v2.39's `vision_pending`; `_meta._transport`
+  persisted; transport lines in S1-5 and S8-3; §S8-7 schema and DoD [24]/[25].
+- **Four Step-5 deviations from PYQCount S5-0**, because Step 4 is single-session and
+  Step 5 is batched: the inline budget is applied **per session** and a fresh chat resets
+  it, so the remainder is CARRIED, never demanded as uploads (22 papers = ~8 automatic
+  sessions, 0 manual uploads, versus 19 uploads under a verbatim port); the budget is
+  **halved** because an inline payload is charged twice, inbound and re-emitted; the
+  partition runs **after** `sort_papers_recency_first` (measured: listing order admits
+  2017/2021/2014 at 185,892 chars, recency order admits 2026/2025/2024 at 189,156 — the
+  first can leave §1-6 permanently unreached); and PYQCompress is excluded from the
+  remedy text, since these papers are 213× UNDER the cap and the constraint is the channel.
+- **PYQCore v1.3 → v1.4** — EC-P37 (inline channel in a batched step), EC-P38 (channel
+  transition on resume), EC-P39 (an empty listing is not a zero-PYQ exam). EC-P35/P36 now
+  state that their single-session resolution does not apply to a batched step.
+- **PYQScan v1.1 → v1.2** — `collect_row_files` was `files = []` … `pass` … `return
+  files`: an unconditional `[]` on every run of every exam, citing "the same pattern as
+  Step 5's S1-2 Drive path". Fixed **in this wave, deliberately**: the gap report
+  recommended a separate ticket, and deferring a known-dead listing is exactly the
+  partial remediation that produced this GAP.
+- **PYQCount v1.3 → v1.4** — sibling fix applied per the LAW-PROPAGATION LAW rather than
+  waiting for Step 4 to fail. THE BRIDGE showed a flat `list_fn` that ignores its
+  `folder_id`; `collect_corpus_files` RECURSES, so on a year-subfoldered Drive folder
+  that resolver re-feeds the sub-folder its own entries and the walk raises
+  `DuplicatePaperError` — a HARD STOP blaming the operator's Drive for a defect in the
+  contract. The cache is now keyed by folder id. Found by reading the engine while
+  fixing Step 5; a flat corpus never triggers it.
+
+### Fix — CI (this is what stops the next partial remediation)
+
+- **C6-PRE — INSPECTABILITY GATE.** For every spec `LAW_REGISTRY` governs, a
+  `CLASS: T`/`CLASS: J` marker inside a fence that fails `ast.parse` FAILS the build.
+  C8 had emitted a correct WARN for that exact line — one of 86, indistinguishable from
+  the other 85.
+- **C9 — UNFILLED INJECTION CONTAINER.** A resolver at a documented injection point must
+  read a container something in the same spec fills: an assignment in compiling python, a
+  parameter with no default, or a defaulted parameter whose absence raises. A bare
+  default of `None`/`{}` is the defect. C9 sees through `x = x or {}`.
+- **LAW_REGISTRY** gains `preconditions` (inspectability, producer) and
+  `_on_partial_remediation`: a GAP remediated in one governed spec must be re-verified
+  against every spec in `governs` before it is closed, and the re-verification must be
+  the CI run, not a reading.
+- `CLAUDE.md` documents both checks. **No engine changes** — verified, not assumed:
+  `normalise_drive_listing` returns 22 correct records from the live envelope,
+  `collect_corpus_files` returns 22 papers / 0 rejects, and `stage_drive_payload` accepts
+  all five payload shapes including the exact MCP dict.
+
+### Also in this release — MS-3 stamp parity, and the hole under it
+
+The first cut of this release was **held at deploy**: `mock_sync_audit.py` MS-3
+STAMP-PARITY reported 6 issues and exit 1. The header had been bumped to v2.50 while
+five hand-copied provenance stamps inside the spec's fences still emitted v2.49 — so
+every exam's `section_rules.md` and `subtopic_manifest.json` would have carried
+provenance naming the wrong spec version, on every run, persisting into Steps 6 and 7.
+The same class had already drifted at v2.14, v2.15, v2.17 and v2.47; this was the fifth
+recurrence, and it surfaced only because a MINOR bump moves major.minor where a patch
+bump does not.
+
+- The five stamps now read from **one definition** (`FRAMEWORK_STAMP` /
+  `GENERATED_BY_STAMP` / `FRAMEWORK_VERSION_STAMP`), declared immediately above their
+  first consumer. A version bump changes the major.minor there and in the docstring
+  that documents the output shape — nowhere else in emitted code.
+- Those three constants are **deliberately literal, not derived**. MS-3 verifies
+  LITERAL stamps by scanning the file's fences; building them from an f-string would
+  leave the check nothing to match, so it would report 0 issues while verifying
+  nothing — the same check-shaped hole a non-compiling fence opened in
+  `audit_callgraph` C6, one level up.
+- **MS-3 hardened accordingly:** a pattern that matches NOTHING is now a finding in its
+  own right. Whoever removes the last literal of a form must restore one or delete the
+  pattern deliberately, in its own commit, with a stated reason. `mock_sync_audit`
+  self-test 28 → 29; both MS-3 fixtures now carry all three stamp forms.
+
+**Process note, recorded because it is the actual failure:** the first cut was verified
+against fifteen hand-picked checkers rather than against `.github/workflows/validate.yml`.
+`mock_sync_audit.py` and `notes_sync_audit.py` were never run, and `audit_specs_ext` was
+invoked as `Framework_*.md` instead of CI's `Framework_*.md *.py`. Verification must
+enumerate the workflow, never a remembered list.
+
+### Verification
+
+C6-PRE and C9 both fire on the unpatched `Framework_MockTestAnalyse.md` (exit 1) and are
+silent on the patched one. `audit_callgraph` self-test 15 → 23; `mock_sync_audit` 28 → 29.
+The **entire `validate.yml` sequence** was run in order: `gen_manifest`, `bootstrap`
+(45/45 VERIFIED), `validate_framework_md` (0 issues / 23 files), `check_triggers`,
+`notes_sync_audit` (0 findings), 17 engine self-tests, `spec_name_audit` (self-test +
+ratchet), `mock_sync_audit` (self-test + run), `audit_deep`, `audit_callgraph`,
+`audit_sync`, `audit_specs_ext Framework_*.md *.py` (**0 issues across 55 files**),
+`audit_seam`, and `audit_mutation --max-survivors 0`. All green.
+
 ## 2026.08.15.7 — hand-maintained counts in CLAUDE.md are now a build failure, not a review finding
 
 **Tooling + docs only. No spec, engine or manifest-tracked file changes behaviour.**
