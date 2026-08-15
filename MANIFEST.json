@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.15.3",
+  "framework_version": "2026.08.15.4",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -467,11 +467,11 @@
       "bytes": 105896
     },
     "notes_docx.py": {
-      "sha256": "2d31f4366f41ca21ca9e95be237341a759caea9f57b631e38d5da6be425a38c5",
+      "sha256": "66cd28c531bb4fc9bafae70becf90bdda677784bd4acfb2a7ddb17076c4c1fbc",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_docx.py \u2014 shared Notes document builder. Run with --self-test.\")",
-      "lines": 1747,
-      "bytes": 83080
+      "lines": 1838,
+      "bytes": 88528
     },
     "notes_sync_audit.py": {
       "sha256": "e0be461c3055cf46c2a102d99a2a7855516ab1c9643840c072bd206ada25be4d",

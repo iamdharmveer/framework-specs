@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026.08.15.4 — Rhythm sizes fixtured; the self-test count now reproduces everywhere
+
+Release-manager review of 2026.08.15.3 raised two findings, neither
+affecting shipped behaviour, both real and both closed here. No behaviour
+change in any engine or spec — self-test and changelog only.
+
+- **Two of the three gap sizes had no regression fixture** (the one that
+  matters). 2026.08.15.3's fixture pinned only the heading gap. Removing the
+  table→table branch left the suite GREEN, because `_has_content` is true for
+  a table and the text→table branch silently substituted a 3pt gap —
+  separation held, the SIZE was wrong, nothing noticed. The table→text
+  direction was never checked at all (the fixture tested only text→table
+  while the spec says "either direction"). Since SIZING is exactly what the
+  v1.5 pass exists for — v1.4 already guaranteed non-adjacency — a future
+  refactor could have reintroduced the owner-reported "tables hugging the
+  text" defect with CI green. `notes_docx.py` v1.5 → **v1.6**: the fixture
+  now classifies every spacer in a built document by its (left, right)
+  neighbour pair and asserts the exact size each pair requires, plus a
+  coverage assertion that every branch actually fires and a guard that the
+  three sizes stay distinct. **Verified by mutation: 8/8 rhythm mutations
+  now CAUGHT (each branch removed, each mis-sized, each constant changed,
+  the whole pass removed); before this release 4 of them survived.**
+- **The self-test count was environment-dependent.** The figure block ran 3
+  checks when the optional rendering dependency was importable and 1 when it
+  was not, so the identical tree printed 90 on one machine and 88 on
+  another — which is why the counts quoted in the two previous entries did
+  not reproduce for the release manager. The DORMANT branch now emits the
+  SAME NUMBER of checks as the live branch (the discipline the DORMANT gates
+  already follow: absence is reported, the shape of the report never
+  changes). Confirmed identical with and without the dependency:
+  **notes_docx self-test 95/95 in both.** The two prior entries are annotated
+  in place with the correction rather than silently rewritten.
+
+No spec change: `Framework_NotesCreate.md` v2.7.2's companion pin is
+`notes_docx >= v1.5`, which v1.6 satisfies, and no rule text moved.
+
 ## 2026.08.15.3 — The spacing rhythm (owner refinement, supersedes 2026.08.15.2 before deployment)
 
 The owner reviewed the 2026.08.15.2 rebuild and asked for further
@@ -15,7 +51,11 @@ release; 2026.08.15.2 was never deployed and is folded in.
   direction. Heading bars are detected by their L1/L2 shading — the slate
   data-table header row and the box colours can never be mistaken for one.
   parse() unchanged; W-3 byte-identical round trip preserved and
-  self-tested with the rhythm in place. Self-test 87 → 90.
+  self-tested with the rhythm in place. Self-test 87 → 90 — CORRECTION
+  (2026.08.15.4): those figures were ENVIRONMENT-DEPENDENT, measured with
+  the optional figure-rendering dependency present; on a machine without it
+  the same trees print 85 → 88. v1.6 removes the asymmetry, so every count
+  quoted from that release on reproduces everywhere.
 - `Framework_NotesCreate.md` v2.7.1 → **v2.7.2** — §4 tail rule upgraded to
   the full rhythm; the three sizes live ONLY in the engine constants
   (single authority; the spec restates no number). Companion notes_docx >=
@@ -45,7 +85,9 @@ spacer at all.
   already skips empty paragraphs); the W-3 build→parse→build byte-identical
   round trip is preserved and self-tested WITH the invariant. Verified on
   the field-reported document: 13 fused pairs before, 0 after. Self-test
-  85 → 87.
+  85 → 87 — CORRECTION (2026.08.15.4): environment-dependent figures, as
+  above; without the optional figure-rendering dependency the same trees
+  print 83 → 85.
 - `Framework_NotesCreate.md` v2.7.0 → **v2.7.1** — the §4 spacer sentence
   generalised to the universal invariant; companion notes_docx >= v1.4.
 

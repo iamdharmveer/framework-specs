@@ -1,5 +1,35 @@
 """
-notes_docx.py v1.5 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.6 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.6 — 2026-08-15 — RHYTHM SIZES FIXTURED + A REPRODUCIBLE SELF-TEST COUNT
+    (release-manager review of 2026.08.15.3; two findings, neither affecting
+    shipped behaviour, both closed here. No behaviour change in this
+    engine — self-test only.)
+      (1) TWO OF THE THREE GAP SIZES HAD NO REGRESSION FIXTURE. v1.5's
+          fixture pinned only the heading gap. Mutating the table->table
+          branch left the suite GREEN because _has_content is true for a
+          table, so the text->table branch silently substituted a 3pt gap —
+          separation held, the SIZE was wrong, nothing noticed; the
+          table->text direction was not checked at all (the v1.5 fixture
+          tested only text->table, while the spec says "either direction").
+          Sizing is precisely what this pass exists for — v1.4 already
+          guaranteed non-adjacency — so a refactor could have reintroduced
+          the owner-reported "tables hugging the text" defect with CI green.
+          The fixture now CLASSIFIES every spacer in a built document by its
+          (left kind, right kind) neighbour pair and asserts the exact size
+          each pair requires, plus a coverage assertion that every branch
+          actually fires in the fixture and a guard that the three sizes stay
+          distinct. Verified by mutation: 8/8 mutations of the rhythm (each
+          branch removed, each branch mis-sized, each constant changed, the
+          whole pass removed) are now CAUGHT; before, 4 survived.
+      (2) THE SELF-TEST COUNT WAS ENVIRONMENT-DEPENDENT. The figure block
+          ran 3 checks when matplotlib was importable and 1 when it was not,
+          so the same tree printed 90 here and 88 on a machine without it —
+          any absolute count quoted anywhere could not reproduce. The DORMANT
+          branch now emits the SAME NUMBER of checks as the live branch (the
+          discipline the DORMANT gates already follow: absence is reported,
+          the SHAPE of the report never changes), so the total is identical
+          in every environment.
 
 v1.5 — 2026-08-15 — THE SPACING RHYTHM (owner refinement of v1.4, same
     release wave; Framework_NotesCreate v2.7.2). v1.4 stopped tables from
@@ -1609,7 +1639,18 @@ def self_test():
               "(figure re-render stays idempotent)",
               document_xml(fa) == document_xml(fd))
     except ImportError:
-        check("figure round-trip (matplotlib absent — DORMANT)", True)
+        # v1.6: the DORMANT branch emits the SAME NUMBER of checks as the live
+        # branch, so this suite's total is IDENTICAL in every environment.
+        # Before, a machine without matplotlib printed two checks FEWER than
+        # one with it, so any absolute count quoted anywhere (a changelog line,
+        # a CI floor) could not reproduce. Same discipline as the DORMANT
+        # gates: absence is reported, but the SHAPE of the report never
+        # changes.
+        check("ROUND TRIP with figures (matplotlib absent — DORMANT)", True)
+        check("figure and mind map recovered by parse "
+              "(matplotlib absent — DORMANT)", True)
+        check("figure re-render idempotence (matplotlib absent — DORMANT)",
+              True)
 
     parsed = parse(out)
     check("parse recovers the unit name",
@@ -1692,32 +1733,82 @@ def self_test():
     build(m4, out5)
     check("v1.4: spacing invariant round-trips byte-identically (W-3)",
           document_xml(out4) == document_xml(out5))
-    # v1.5: the RHYTHM — sized gaps by context. Inspect the built body:
-    # every L2 bar gets the 9pt pre-gap; text -> table gets the 3pt gap.
+    # v1.5/v1.6: the RHYTHM — every gap SIZE pinned, in every direction.
+    # v1.5 fixtured only the heading gap: removing the table->table branch or
+    # the table->text branch left the suite green, because separation still
+    # happened at the WRONG size (_has_content is true for a table, so the
+    # text->table branch silently substituted a 3pt gap). Sizing is what this
+    # pass exists for — v1.4 already guaranteed non-adjacency — so the fixture
+    # below CLASSIFIES every spacer by its neighbour pair and asserts the
+    # exact size for each pair, which no single-branch mutation can satisfy.
     d4b = Document(out4)
     els = [c for c in d4b.element.body if c.tag in (qn("w:p"), qn("w:tbl"))]
+
     def _spacer_pt(el):
+        """Point size of an empty spacer paragraph; None if it isn't one."""
         if el.tag != qn("w:p") or _has_content(el):
             return None
         sz = el.find(".//" + qn("w:sz"))
         return int(sz.get(qn("w:val"))) // 2 if sz is not None else None
-    pre_heading, pre_table_after_text = [], []
+
+    def _kind(el):
+        if el.tag == qn("w:tbl"):
+            return "bar" if _is_heading_bar(el) else "tbl"
+        return "text" if _has_content(el) else "spacer"
+
+    # (left kind, right kind) -> the size the rhythm REQUIRES between them
+    RHYTHM = {("tbl", "bar"): SPACER_HEADING_PT,
+              ("text", "bar"): SPACER_HEADING_PT,
+              ("bar", "tbl"): SPACER_TABLE_PT,
+              ("tbl", "tbl"): SPACER_TABLE_PT,
+              ("text", "tbl"): SPACER_PARA_PT,
+              ("tbl", "text"): SPACER_PARA_PT,
+              ("bar", "text"): None}      # bars are followed by text directly
+    observed, wrong, unpaired = {}, [], []
     for i, el in enumerate(els):
-        if el.tag == qn("w:tbl") and _is_heading_bar(el) and i > 0:
-            pre_heading.append(_spacer_pt(els[i - 1]))
-        if (el.tag == qn("w:tbl") and not _is_heading_bar(el) and i > 0
-                and els[i - 1].tag == qn("w:p")
-                and _has_content(els[i - 1])):
-            pre_table_after_text.append("MISSING")
-    check("v1.5: every non-first heading bar carries the 9pt section gap",
-          pre_heading and all(p == SPACER_HEADING_PT for p in pre_heading))
-    check("v1.5: no table ever directly follows content text (the 3pt gap "
-          "is always inserted)", not pre_table_after_text)
+        if _kind(el) != "spacer":
+            continue
+        left = next((e for e in reversed(els[:i]) if _kind(e) != "spacer"), None)
+        right = next((e for e in els[i + 1:] if _kind(e) != "spacer"), None)
+        if left is None or right is None:
+            continue
+        pair = (_kind(left), _kind(right))
+        want = RHYTHM.get(pair, "unspecified")
+        got = _spacer_pt(el)
+        observed.setdefault(pair, set()).add(got)
+        if want != "unspecified" and want is not None and got != want:
+            wrong.append(f"{pair}: {got}pt, rhythm requires {want}pt")
+    # every pair that CAN occur in this fixture must actually have occurred,
+    # so a branch cannot go untested by simply never firing
+    for pair in (("tbl", "bar"), ("tbl", "tbl"), ("text", "tbl"),
+                 ("tbl", "text")):
+        if pair not in observed:
+            unpaired.append(str(pair))
+    check("v1.6: EVERY spacer carries the exact size its neighbour pair "
+          "requires (heading 9 / table 6 / text 3, both directions)"
+          + (" — " + "; ".join(wrong[:4]) if wrong else ""),
+          not wrong)
+    check("v1.6: the fixture actually exercises every rhythm branch "
+          "(no branch can hide behind a case that never occurs)"
+          + (" — missing " + ", ".join(unpaired) if unpaired else ""),
+          not unpaired)
+    check("v1.6: the table->table gap is pinned to SPACER_TABLE_PT",
+          observed.get(("tbl", "tbl")) == {SPACER_TABLE_PT})
+    check("v1.6: the table->text gap is pinned to SPACER_PARA_PT "
+          "(the direction v1.5 never checked)",
+          observed.get(("tbl", "text")) == {SPACER_PARA_PT})
+    check("v1.6: the text->table gap is pinned to SPACER_PARA_PT",
+          observed.get(("text", "tbl")) == {SPACER_PARA_PT})
+    check("v1.5: every non-first heading bar carries the section gap",
+          observed.get(("tbl", "bar")) == {SPACER_HEADING_PT})
     check("v1.5: heading-bar detection never mistakes a data-table header "
           "or a box",
           _is_heading_bar(els[0])            # the title bar
           and not any(_is_heading_bar(e) for e in els
                       if e.tag == qn("w:tbl") and not _is_heading_bar(e)))
+    check("v1.6: the three gap sizes are distinct (a rhythm needs three "
+          "levels; equal sizes would make two branches untestable)",
+          len({SPACER_HEADING_PT, SPACER_TABLE_PT, SPACER_PARA_PT}) == 3)
 
     # ---- strict flag ------------------------------------------------------
     try:

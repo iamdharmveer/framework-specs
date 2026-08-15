@@ -359,9 +359,9 @@
     },
     "notes_docx.py": {
       "end_sentinel": "    print(\"notes_docx.py — shared Notes document builder. Run with --self-test.\")",
-      "lines": 1747,
-      "sha256": "2d31f4366f41ca21ca9e95be237341a759caea9f57b631e38d5da6be425a38c5",
-      "size_bytes": 83080,
+      "lines": 1838,
+      "sha256": "66cd28c531bb4fc9bafae70becf90bdda677784bd4acfb2a7ddb17076c4c1fbc",
+      "size_bytes": 88528,
       "version_header": "\"\"\""
     },
     "notes_sync_audit.py": {
