@@ -584,14 +584,49 @@ def collect_corpus_files(list_fn, folder_id, recurse=True, require_size=True,
     return _papers, _rejects
 
 
+_B64_CHARS_ONLY = re.compile(r'^[A-Za-z0-9+/=\s]+$')
+
+
+def _decode_bare_base64(text):
+    """GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (P3b) — accept a BARE base64 string.
+
+    decode_drive_payload used to accept bytes, a spill path, a dict, a list and a JSON
+    string, but NOT a plain base64 string with no envelope around it. That shape is not
+    hypothetical: any staging protocol that writes a `.b64` sidecar, or a model that
+    hands over just the `content` field it read out of a spill file, produces exactly
+    it, and every one of them was rejected with a message that named three shapes and
+    not this one.
+
+    Ambiguity against the other accepted shapes is resolved by DECODING, not guessing:
+    a candidate is accepted only if it is long, contains base64 characters exclusively,
+    and decodes to bytes beginning PK\x03\x04. A spill path fails the length/charset
+    test (it contains '/' but also '.', and it exists on disk so it never reaches here);
+    a JSON envelope fails the charset test on '{'. Returns None — never raises — so the
+    caller keeps ownership of the error message.
+    """
+    if not isinstance(text, str):
+        return None
+    stripped = text.strip()
+    if len(stripped) <= 64 or not _B64_CHARS_ONLY.match(stripped):
+        return None
+    try:
+        raw = base64.b64decode(stripped)
+    except Exception:
+        return None
+    return raw if raw[:4] == b'PK\x03\x04' else None
+
+
 def decode_drive_payload(payload):
     """Turn whatever download_file_content returned into raw file bytes.
 
     The real contract is not what a one-line pseudocode wrapper suggests, and every
     execution of Steps 2b/4/5 has rediscovered it by trial and error:
 
-      * for any file of consequence the tool result EXCEEDS the context limit and is
-        spilled to a JSON file on disk, so `payload` may be a PATH;
+      * the tool result MAY be spilled to a file on disk instead of returned in the
+        turn, so `payload` may be a PATH. Whether it spills, and to which directory,
+        is a property of the DEPLOYMENT, not of the file size — measured 2026-08-15
+        on one 40,488-byte .docx: spilled in one deployment, returned inline in
+        another. Never assume either; this function accepts both;
       * that spilled JSON is a LIST whose [0]['text'] is itself a JSON STRING;
       * parsing that string yields {'id','title','mimeType','content'} where 'content'
         holds the base64 payload.
@@ -615,8 +650,12 @@ def decode_drive_payload(payload):
             try:
                 obj = json.loads(obj)
             except ValueError:
+                bare = _decode_bare_base64(obj)
+                if bare is not None:
+                    return bare
                 raise TransportFallback(
-                    'download payload is neither bytes, a spill-file path, nor JSON')
+                    'download payload is neither bytes, a spill-file path, bare '
+                    'base64, nor JSON')
 
     for _ in range(6):                                   # bounded unwrap; never loops
         if isinstance(obj, list):
@@ -665,14 +704,50 @@ def verify_downloaded_bytes(raw, expected_size=None, name=''):
     return True
 
 
+def stage_drive_payload(payload, paper, dest_dir):
+    """Decode + verify + persist an ALREADY-MATERIALISED Drive payload. No callable.
+
+    GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (P3a). Before this function the ONLY
+    verified route from a Drive payload to a file on disk was fetch_drive_docx, which
+    demands a `download_fn` callable. A caller in PHASE B already HOLDS the payload —
+    the model fetched it in its own turn — so satisfying that signature meant inventing
+    a callable, and the cheapest-looking invention is to pass the CLASS T marker name
+    itself. That is precisely the defect this GAP documents. Removing the incentive is
+    a stronger fix than documenting the trap.
+
+    Guarantees are identical to fetch_drive_docx: byte count equals the fileSize the
+    listing reported, PK\x03\x04 magic, and TransportFallback (never SystemExit) on
+    any failure so the caller degrades to the upload lane.
+
+    `payload` is whatever PHASE A produced for this paper — raw bytes, a spill-file
+    path in ANY directory, the parsed dict/list, an inner JSON string, or bare base64.
+    Returns the local path written.
+    """
+    name = paper.get('name', '<unnamed>')
+    raw = decode_drive_payload(payload)
+    verify_downloaded_bytes(raw, paper.get('fileSize'), name)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, os.path.basename(name))
+    with open(dest, 'wb') as fh:
+        fh.write(raw)
+    return dest
+
+
 def fetch_drive_docx(download_fn, paper, dest_dir):
     """Fetch one paper to disk. ANY failure raises TransportFallback — never SystemExit.
 
-    `download_fn(file_id)` is injected so the caller owns the connector call.
+    `download_fn(file_id)` is injected so the caller owns the connector call. It must be
+    a RESOLVER over results PHASE A already materialised — a plain lookup that performs
+    no tool call. Passing the name of a CLASS T marker instead is unreachable code: see
+    stage_drive_payload's docstring, GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, and
+    audit_callgraph C6/C7 which fail the build for it.
 
     Papers already known to exceed the connector cap are not attempted at all: the
     request is guaranteed to fail and would only add latency. Everything else is
     attempted, because the partition is predictive and a marginal file fetches fine.
+
+    This is a thin wrapper over stage_drive_payload: it adds the cap pre-check and the
+    guarded call, then delegates decode/verify/persist so both routes cannot diverge.
     """
     size = paper.get('fileSize')
     name = paper.get('name', '<unnamed>')
@@ -687,13 +762,7 @@ def fetch_drive_docx(download_fn, paper, dest_dir):
     except Exception as exc:                              # connector / auth / network
         raise TransportFallback(f'download of {name} failed: {exc}')
 
-    raw = decode_drive_payload(payload)
-    verify_downloaded_bytes(raw, size, name)
-    os.makedirs(dest_dir, exist_ok=True)
-    dest = os.path.join(dest_dir, os.path.basename(name))
-    with open(dest, 'wb') as fh:
-        fh.write(raw)
-    return dest
+    return stage_drive_payload(payload, paper, dest_dir)
 
 
 def resolve_uploaded_papers(expected_keys, upload_dir=DEFAULT_UPLOAD_DIR):
@@ -4471,6 +4540,63 @@ def self_test():
     check('opt_clean_bare_empty', clean_option_text('B.') == '')
     check('opt_clean_plain_untouched',
           clean_option_text('not an option') == 'not an option')
+
+    # ── GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION ────────────────────────────
+    # P3b: the six-shape decode matrix. Shape B (bare base64) was REJECTED before
+    # this release; every other shape must keep working byte-for-byte.
+    import base64 as _b64, tempfile
+    _docx = b'PK\x03\x04' + b'\x00' * 136
+    _b = _b64.b64encode(_docx).decode()
+    _paper = {'name': 'probe.docx', 'fileSize': len(_docx), 'id': 'FID'}
+    check('t_decode_A_bytes', decode_drive_payload(_docx) == _docx)
+    check('t_decode_B_bare_base64', decode_drive_payload(_b) == _docx)
+    check('t_decode_C_dict_content', decode_drive_payload({'content': _b}) == _docx)
+    check('t_decode_D_list_text',
+          decode_drive_payload([{'text': '{"content":"%s"}' % _b}]) == _docx)
+    check('t_decode_E_json_string',
+          decode_drive_payload('{"content":"%s"}' % _b) == _docx)
+    _spill = os.path.join(tempfile.mkdtemp(), 'spill.txt')
+    with open(_spill, 'w', encoding='utf-8') as _fh:
+        _fh.write('{"content":"%s","id":"FID","title":"probe.docx"}' % _b)
+    check('t_decode_F_spill_path', decode_drive_payload(_spill) == _docx)
+    # A spill path may live in ANY directory — the deployment chooses it, and the
+    # 2026-08-15 measurement found two different directories and one inline channel.
+    check('t_decode_F_any_directory', _spill.startswith(tempfile.gettempdir()))
+    # bare-base64 acceptance must not swallow genuine garbage
+    _bad = 0
+    for _junk in ('', 'not base64 at all!!', 'AAAA', _b64.b64encode(b'no magic').decode()):
+        try:
+            decode_drive_payload(_junk)
+        except TransportFallback:
+            _bad += 1
+    check('t_decode_rejects_non_docx', _bad == 4)
+
+    # P3a: stage_drive_payload gives a verified route to disk with NO callable.
+    _dest = tempfile.mkdtemp()
+    check('t_stage_writes_bytes',
+          open(stage_drive_payload({'content': _b}, _paper, _dest), 'rb').read() == _docx)
+    check('t_stage_accepts_spill_path',
+          open(stage_drive_payload(_spill, _paper, _dest), 'rb').read() == _docx)
+    _tr = 0
+    try:
+        stage_drive_payload({'content': _b64.b64encode(_docx[:100]).decode()},
+                            _paper, _dest)
+    except TransportFallback:
+        _tr = 1
+    check('t_stage_truncation_raises_fallback', _tr == 1)
+    # fetch_drive_docx must produce the IDENTICAL result through a resolver, because
+    # it is now a thin wrapper — the two routes can never drift apart again.
+    check('t_fetch_via_resolver_matches_stage',
+          open(fetch_drive_docx(lambda fid: {'content': _b}, _paper, _dest),
+               'rb').read() == _docx)
+    _cap = 0
+    try:
+        fetch_drive_docx(lambda fid: _docx,
+                         {'name': 'huge.docx', 'id': 'X',
+                          'fileSize': bc.DRIVE_CAP + 1}, _dest)
+    except TransportFallback:
+        _cap = 1
+    check('t_fetch_cap_precheck_still_fires', _cap == 1)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

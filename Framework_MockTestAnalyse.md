@@ -1,4 +1,14 @@
-# Framework_MockTestAnalyse v2.49.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.49.1 — Universal PYQ Pattern Extraction Engine
+# v2.49.1 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (invariant
+#   correction only; zero rule/functionality change). The CLASS T transport block
+#   asserted that a Drive result "for any file of consequence is spilled to a JSON file
+#   on disk rather than returned inline". MEASURED FALSE 2026-08-15: one 40,488-byte
+#   sorted paper spilled to a file in one deployment and returned inline in another,
+#   and the two spill directories differed. Delivery form is a property of the
+#   DEPLOYMENT, not of the file size; both shapes are accepted and the channel is now
+#   PROBED in Framework_PYQCount S5-0 (PYQCore EC-P35/EC-P36). This spec's resolver
+#   bridge was already correct and is unchanged — it is the reference implementation
+#   the PYQ counting path was missing for 20 days.
 # v2.49.0 — 2026-08-15 — GAP-2026-08-15-BAREQ (F-1 mirror + F-2 primary).
 #   E-2 Q_PATTERNS mirrors the engine's widened four-entry table: entries 3/4 are the
 #   BARE-LABEL forms, for a stem paragraph whose whole payload is <m:oMath>, a drawing,
@@ -515,11 +525,21 @@ SESSION_RE = build_session_re(session_keyword)
 #
 # CLASS: T — these are NOT python functions. They are the NAME of a tool call the
 # model performs IN ITS OWN TURN, before run_batch_loop() starts. The model calls the
-# Google Drive MCP tool, and the result — which for any file of consequence is spilled
-# to a JSON file on disk rather than returned inline — is INJECTED into python as a
-# resolver. corpus_io.decode_drive_payload() already accepts a spill-file PATH exactly
-# for this reason; that is the materialise-then-inject bridge, and it is the same
-# bridge S4-2 uses for vision.
+# Google Drive MCP tool, and the result — a spill-file PATH or an inline payload,
+# whichever that deployment produces — is INJECTED into python as a resolver.
+# corpus_io.decode_drive_payload() accepts BOTH, plus bytes, a dict, a list, an inner
+# JSON string and bare base64, exactly so the bridge never has to know which came
+# back; that is the materialise-then-inject bridge, and it is the same bridge S4-2
+# uses for vision.
+#
+# GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION — INVARIANT CORRECTION. This block used to
+# assert that the result "for any file of consequence is spilled to a JSON file on
+# disk rather than returned inline". MEASURED FALSE on 2026-08-15: one 40,488-byte
+# sorted paper spilled to a file in one deployment and came back inline in another,
+# and the two spill directories were not the same directory. Delivery form is a
+# property of the DEPLOYMENT, not of the file size. Never assume it and never test for
+# it by listing a directory — Framework_PYQCount S5-0 measures it on one paper, and
+# PYQCore EC-P35/EC-P36 carry the consequences.
 
 def gdrive_search(query, page_size=100, page_token=None):
     """CLASS: T — Google Drive MCP 'search_files'. NOT executable python.
@@ -535,8 +555,10 @@ def gdrive_download_file(file_id, local_path):
     """CLASS: T — Google Drive MCP 'download_file_content'. NOT executable python.
 
     The model calls Google Drive:download_file_content(fileId=file_id) in its own
-    turn. For any file of consequence the result EXCEEDS the context limit and is
-    spilled to a JSON file on disk, so what reaches python is a PATH, not bytes.
+    turn. The result is EITHER a spill-file path OR an inline payload — which one is a
+    property of the DEPLOYMENT, not of the file size, and it is MEASURED (see
+    Framework_PYQCount S5-0), never assumed. Record whatever came back; the resolver
+    carries it unchanged and decode_drive_payload accepts both.
     """
     pass  # CLASS: T — performed by the model between turns, never from python
 
@@ -8475,4 +8497,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.49.0
+# END OF Framework_MockTestAnalyse v2.49.1

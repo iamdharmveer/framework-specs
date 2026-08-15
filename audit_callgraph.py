@@ -63,6 +63,29 @@ REQUIRED_MARKERS = re.compile(
     r'callers should always pass|caller must pass|required for the gates|'
     r'REQUIRED\b)', re.I)
 
+# ── INJECTION POINTS (C7/C8) ─────────────────────────────────────────────────
+# GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION. An INJECTION POINT is an engine function
+# that takes a CALLABLE the caller owns, precisely because the operation behind it is
+# CLASS T — a tool call the model performs in its own turn. The argument must therefore
+# be a RESOLVER over results that already exist. Map: name -> positional index of the
+# injected argument.
+INJECTION_POINTS = {
+    'fetch_drive_docx':     0,   # download_fn / resolver
+    'collect_corpus_files': 0,   # list_fn
+}
+INJ_CALL_RE = re.compile(
+    r'\b(' + '|'.join(sorted(INJECTION_POINTS)) +
+    # No whitespace between the callee and '(' — real code never has it, and prose
+    # of the form "corpus_io.collect_corpus_files (recursive, paginated, per EC-P23)"
+    # does. That one rule removed the only false positive found during development.
+    r')\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,)]')
+ENGINE_CALL_RE = re.compile(
+    r'\b(?:corpus_io|bc|blueprint_core|reconcile_taxonomy|syllabus_provenance|'
+    r'notes_core|explain_engine|final_assembly|paper_pipeline|figural_core)\.\w+\(')
+BIND_RE = (r'(?:def\s+{n}\b|{n}\s*=|lambda[^:\n]*\b{n}\b|'
+           r'def\s+\w+\s*\([^)]*\b{n}\b|import\s+.*\b{n}\b|as\s+{n}\b|'
+           r'for\s+{n}\b|with\s+.*\bas\s+{n}\b)')
+
 # Helper-looking names inside engine self-tests — fixtures, not public API.
 FIXTURE_HINT = re.compile(r'^(fake|good|bad|boom|dup|wrong|drop|make_bad|_)', re.I)
 
@@ -419,6 +442,182 @@ def c6_model_agency_stubs(path, findings):
                     f"injected resolver.")
 
 
+def _blank_comment_lines(text):
+    """Replace every FULL-LINE comment with an empty line, preserving line numbers.
+
+    A spec legitimately QUOTES the defect it fixed — Framework_PYQCount v1.3 reproduces
+    the old `fetch_drive_docx(gdrive_download_file, ...)` call inside its CLASS T block
+    so a future reader can see the shape being forbidden. A commented-out call is
+    documentation, not a call site, and C7's text pass must not fire on it. Blanking
+    rather than deleting keeps reported line numbers honest.
+    """
+    return '\n'.join('' if ln.lstrip().startswith('#') else ln
+                      for ln in text.split('\n'))
+
+
+def _spec_bound_names(path):
+    """Every name a reader could resolve inside this spec's own python."""
+    names = set(dir(__builtins__)) | {
+        'corpus_io', 'bc', 'blueprint_core', 're', 'os', 'json', 'sys', 'math',
+        'Counter', 'Document', 'datetime', 'defaultdict', 'base64', 'self',
+    }
+    for _, block in any_python_blocks(path):
+        try:
+            tree = ast.parse(block)
+        except SyntaxError:
+            continue
+        for n in ast.walk(tree):
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                names.add(n.name)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    a = n.args
+                    for arg in list(a.args) + list(a.posonlyargs) + list(a.kwonlyargs):
+                        names.add(arg.arg)
+                    if a.vararg:
+                        names.add(a.vararg.arg)
+                    if a.kwarg:
+                        names.add(a.kwarg.arg)
+            elif isinstance(n, ast.Lambda):
+                for arg in n.args.args:
+                    names.add(arg.arg)
+            elif isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
+                names.add(n.id)
+            elif isinstance(n, (ast.Import, ast.ImportFrom)):
+                for al in n.names:
+                    names.add((al.asname or al.name).split('.')[0])
+            elif isinstance(n, ast.ExceptHandler) and n.name:
+                names.add(n.name)
+            elif isinstance(n, (ast.For, ast.comprehension)):
+                for t in ast.walk(n.target):
+                    if isinstance(t, ast.Name):
+                        names.add(t.id)
+    return names
+
+
+def c7_unbound_transport(path, findings):
+    """C7 — UNBOUND TRANSPORT ARGUMENT (EXECUTION-BOUNDARY LAW, coverage half).
+
+    GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION. C6 anchors on a pass-bodied `def`: it
+    asks "here is a stub — is it tagged, and is it consumed?". That detects a
+    MISLABELLED or MISUSED model-agency stub and structurally CANNOT detect a MISSING
+    one. Framework_PYQCount passed the name `gdrive_download_file` into
+    corpus_io.fetch_drive_docx while defining no stub at all, so there was no ast.Pass
+    to anchor to and C6 correctly reported 0 findings against its own contract. The
+    check was not broken; its COVERAGE MODEL was incomplete.
+
+    C7 closes it from the other side: for every call to a documented INJECTION POINT,
+    the injected argument must be BOUND somewhere in the same spec's own python. An
+    unbound transport name is a CLASS T tool call written as python — executed
+    literally it raises NameError, so the lane is unreachable on every run of every
+    exam.
+
+    C7 RUNS A TEXT PASS, NOT ONLY AN AST PASS. THIS IS THE CRUX. The real defect's call
+    site lived in an UNTAGGED fence that does not parse as python (it mixed prose,
+    box-drawing characters and indented pseudo-code), and every AST-based check in the
+    repo skips such a block in its entirety. An AST-only implementation of this very
+    check returns 0 findings on the very defect it was written for — verified both ways
+    during the investigation. Do not "simplify" this by deleting the text pass.
+
+    Together C6 and C7 are exhaustive over the injection surface:
+      declared but passed  -> C6      not declared and passed -> C7
+      resolver passed      -> both silent, which is the correct state.
+    """
+    seen = set()
+    bound = _spec_bound_names(path)
+    base = os.path.basename(path)
+
+    # (a) AST pass — parseable fences, precise argument positions.
+    for start, block in any_python_blocks(path):
+        try:
+            tree = ast.parse(block)
+        except SyntaxError:
+            continue
+        for n in ast.walk(tree):
+            if not isinstance(n, ast.Call):
+                continue
+            fn = n.func
+            name = getattr(fn, 'attr', getattr(fn, 'id', None))
+            idx = INJECTION_POINTS.get(name)
+            if idx is None or len(n.args) <= idx:
+                continue
+            arg = n.args[idx]
+            if isinstance(arg, ast.Name) and arg.id not in bound:
+                seen.add((name, arg.id, start + n.lineno - 1))
+
+    # (b) TEXT pass — every fence, tagged or not, parseable or not.
+    text = _blank_comment_lines(open(path, encoding='utf8').read())
+    for m in INJ_CALL_RE.finditer(text):
+        fn, arg = m.group(1), m.group(2)
+        if re.search(BIND_RE.format(n=re.escape(arg)), text):
+            continue
+        seen.add((fn, arg, text[:m.start()].count('\n') + 1))
+
+    for fn, arg, ln in sorted(seen, key=lambda t: t[2]):
+        findings.append(
+            f"[C7] {base}:{ln}: {fn}() is injected with `{arg}`, which is NEVER BOUND "
+            f"anywhere in this spec. An injection point requires a RESOLVER over "
+            f"already-materialised results; an unbound transport name is a "
+            f"model-agency (CLASS T) tool call written as python. Executed literally "
+            f"it raises NameError, so the lane is unreachable on every run of every "
+            f"exam. Declare it `# CLASS: T` AND pass a resolver — see "
+            f"Framework_MockTestAnalyse THE BRIDGE and Framework_PYQCount S5-0.")
+
+
+def c8_executable_source_coverage(path, findings, warnings):
+    """C8 — EXECUTABLE-SOURCE COVERAGE.
+
+    A contract the CI cannot read is a contract the CI cannot enforce. Framework_PYQCount
+    carried 36 fences of which 5 were ```python-tagged, and the acquisition contract —
+    the single most load-bearing instruction in the step — was in an untagged one. That
+    is why GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION survived a corpus-wide audit
+    reporting zero findings.
+
+    FAIL for the INJECTION SURFACE: a live (non-comment) call to a documented injection
+    point must sit in a fence that is tagged ```python AND parses. The surface is small
+    and the risk is proven, so this is enforced immediately rather than warned about.
+
+    WARN for the rest: any other routed-engine call in an untagged fence is reported but
+    does not fail the build — 28 such fences exist corpus-wide today and many are
+    legitimately prose. Promoting those to FAIL is a separate, deliberate migration.
+    """
+    base = os.path.basename(path)
+    lines = open(path, encoding='utf8').read().split('\n')
+    fences = [(i + 1, l.strip()) for i, l in enumerate(lines) if l.strip().startswith('```')]
+    for i in range(0, len(fences) - 1, 2):
+        open_ln, tag = fences[i]
+        close_ln = fences[i + 1][0]
+        body = '\n'.join(lines[open_ln:close_ln - 1])
+        live = _blank_comment_lines(body)
+        if tag == '```python':
+            try:
+                ast.parse(body)
+                continue                      # tagged and parses — fully inspectable
+            except SyntaxError as exc:
+                if INJ_CALL_RE.search(live):
+                    findings.append(
+                        f"[C8] {base}:{open_ln}: this fence is tagged ```python but "
+                        f"does NOT parse ({exc.msg}), and it contains a call to an "
+                        f"injection point. Every AST check skips it, so the contract "
+                        f"inside it is unenforceable. Fix the syntax.")
+                else:
+                    warnings.append(f"[C8-WARN] {base}:{open_ln}: ```python fence does "
+                                    f"not parse ({exc.msg}).")
+                continue
+        if INJ_CALL_RE.search(live):
+            findings.append(
+                f"[C8] {base}:{open_ln}: a live call to an injection point "
+                f"({', '.join(sorted({m[0] for m in INJ_CALL_RE.findall(live)}))}) sits "
+                f"in an UNTAGGED fence (closes at line {close_ln}). Every AST-based "
+                f"check in the repo skips it, which is exactly how "
+                f"GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION survived for 20 days. Move "
+                f"the contract into a ```python fence that parses, and leave prose "
+                f"here referring to it by name.")
+        elif ENGINE_CALL_RE.search(live):
+            warnings.append(
+                f"[C8-WARN] {base}:{open_ln}: routed-engine call in an untagged fence "
+                f"— not inspectable by any AST check.")
+
+
 def c5_dangling_value(path, corpus_exe, findings):
     """A value captured into a dict literal that no consumer reads."""
     for _, code in python_blocks(path):
@@ -498,13 +697,15 @@ def main(argv):
                 continue        # reachable from engine production code (either engine)
             engine_funcs[node.name] = eng
 
-    findings = []
+    findings, warnings = [], []
     for s in specs:
         funcs = spec_functions(s)
         c1_required_arg(s, funcs, findings)
         c2_return_shape(s, funcs, findings)
         c3_branch_parity(s, funcs, findings)
         c6_model_agency_stubs(s, findings)
+        c7_unbound_transport(s, findings)
+        c8_executable_source_coverage(s, findings, warnings)
     if corpus_wide:
         imported = set()
         for sp in all_specs:
@@ -517,6 +718,13 @@ def main(argv):
     print("=" * 78)
     print(f"AUDIT CALLGRAPH — {len(specs)} spec(s), {len(engine_funcs)} unreferenced engine candidate(s)")
     print("=" * 78)
+    if warnings:
+        print(f"\n{len(warnings)} C8 warning(s) — untagged fences carrying engine calls "
+              f"(reported, not failing):")
+        for w in warnings[:8]:
+            print("  " + w)
+        if len(warnings) > 8:
+            print(f"  ... and {len(warnings) - 8} more")
     if not findings:
         print("\n[OK] 0 findings — every documented-required parameter is supplied at "
               "every call site,\n     every multi-return function has one shape, and every "
@@ -576,6 +784,70 @@ def self_test():
     rc, out = probe("def analyse_thing(x):\n    pass\n\n"
                     "val = analyse_thing(5)\nprint(val + 1)\n")
     check("C6 fires on a pass-bodied stub whose return value is consumed",
+          rc == 1 and '[C6]' in out)
+
+    def probe_raw(markdown):
+        """Write an ARBITRARY spec body — needed for C7/C8, whose whole point is
+        fences that are untagged and/or do not parse."""
+        d = tempfile.mkdtemp()
+        p = os.path.join(d, "Framework_Fixture.md")
+        open(p, 'w', encoding='utf-8').write(
+            "# Framework_Fixture v1.0 — self-test fixture\n\n" + markdown)
+        r = subprocess.run([sys.executable, here, p], capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    # ── C7 / C8 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION ─────────────────
+    rc, out = probe("import corpus_io\n"
+                    "x = corpus_io.fetch_drive_docx(gdrive_download_file, p, d)\n")
+    check("C7 fires on an injection point receiving a name bound nowhere",
+          rc == 1 and '[C7]' in out)
+
+    # THE REGRESSION. An AST-only implementation returns 0 findings here, which is
+    # precisely why the live defect survived. If this fixture ever goes green with
+    # the text pass removed, C7 has been silently reduced to C6's blind spot.
+    rc, out = probe_raw("```\n"
+                        "  ACQUIRE the file:\n"
+                        "  \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\n"
+                        "      local_path = corpus_io.fetch_drive_docx(\n"
+                        "          gdrive_download_file, paper, dest)\n"
+                        "```\n")
+    check("C7 fires when the call site is in an UNTAGGED, NON-PARSEABLE fence",
+          rc == 1 and '[C7]' in out)
+    check("C8 fires on an injection-point call in an untagged fence",
+          '[C8]' in out)
+
+    rc, out = probe("import corpus_io\n"
+                    "resolver = lambda fid: payloads[fid]\n"
+                    "x = corpus_io.fetch_drive_docx(resolver, p, d)\n")
+    check("C7 silent when the argument is an assigned lambda", rc == 0)
+
+    rc, out = probe("import corpus_io\n"
+                    "def resolver(fid):\n    return payloads[fid]\n"
+                    "x = corpus_io.fetch_drive_docx(resolver, p, d)\n")
+    check("C7 silent when the argument is a def", rc == 0)
+
+    rc, out = probe("import corpus_io\n"
+                    "def go(list_fn):\n"
+                    "    return corpus_io.collect_corpus_files(list_fn, fid)\n")
+    check("C7 silent when the argument is a function parameter", rc == 0)
+
+    rc, out = probe_raw("Enumerate via corpus_io.collect_corpus_files (recursive, "
+                        "paginated, per EC-P23).\n")
+    check("C7 silent on prose with whitespace before '('", rc == 0)
+
+    rc, out = probe("import corpus_io\n"
+                    "# historical defect, quoted deliberately:\n"
+                    "#     corpus_io.fetch_drive_docx(gdrive_download_file, p, d)\n"
+                    "resolver = lambda fid: payloads[fid]\n"
+                    "y = corpus_io.fetch_drive_docx(resolver, p, d)\n")
+    check("C7 silent on a commented-out historical example", rc == 0)
+
+    rc, out = probe_raw("```python\ndef gdrive_download_file(fid, path):\n"
+                        "    \"\"\"CLASS: T — not executable python.\"\"\"\n"
+                        "    pass  # CLASS: T\n"
+                        "```\n\n```python\nimport corpus_io\n"
+                        "x = corpus_io.fetch_drive_docx(gdrive_download_file, p, d)\n```\n")
+    check("C6 catches the declared-but-passed case C7 deliberately does not",
           rc == 1 and '[C6]' in out)
 
     r = subprocess.run([sys.executable, here], capture_output=True, text=True)

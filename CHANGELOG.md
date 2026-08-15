@@ -1,5 +1,108 @@
 # Changelog
 
+## 2026.08.15.6 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION: Step 4 could not fetch a single paper from Drive, on any exam, for 20 days
+
+**P0 — AVAILABILITY, NOT CORRECTNESS. The Drive lane of PYQCount was unreachable on
+every run of every exam. The failure was LOUD, so no wrong number was ever produced —
+that is the only reason it was survivable, and it is not a mitigation.**
+
+Reported from `IIT_JAM_MATHEMATICS`, trigger `PYQCount PYQ: <drive folder>`, against
+framework 2026.08.15.3; reproduced unchanged at 2026.08.15.5.
+
+### The defect
+
+`Framework_PYQCount.md` S5-4 step 1 injected the bare name `gdrive_download_file` into
+`corpus_io.fetch_drive_docx`. **That name was defined nowhere** — not in the spec, not
+in any engine, not a builtin; it appeared exactly once in the whole file, at that call
+site. Executed literally it raises `NameError`, `fetch_drive_docx` converts that to
+`TransportFallback`, every paper routes to the upload lane, and Task 1 reports
+`0 of N papers read` and refuses to confirm.
+
+Measured on the reporting corpus: 22 papers, 986,230 bytes, **all 22 under `DRIVE_CAP`**,
+**0 of 22 acquired**, 22 manual uploads demanded across 2 chats.
+
+The gates behaved correctly throughout. S5-1a refused to confirm an inventory it could
+not read and S5-4a never ran, so this cost availability, never a wrong count.
+
+### Why it existed, and why nothing caught it
+
+This is **GAP-2026-07-26-003 applied to the PYQ counting path**. The identical fix —
+CLASS T declaration plus resolver bridge — shipped in `Framework_MockTestAnalyse` v2.37
+on 2026-07-26 and was never propagated here; `Framework_PYQAnalyse` was touched only for
+its two CLASS **J** stubs. On 2026-07-31 the `PYQAnalyse v2.29 -> PYQCount v1.0` split
+copied the unfixed text forward "content byte-identical", into a file that never
+mentions the GAP id.
+
+No auditor could see it. `audit_callgraph` C6 anchors on a pass-bodied `def`; PYQCount
+defined no stub, so there was nothing to anchor to and the corpus-wide run reported
+**0 findings**. Worse, the call site lived in an **untagged, non-parseable fence**
+(36 fences, 5 python-tagged; the acquisition contract was in none of them), which every
+AST-based check in the repo skips in its entirety.
+
+### The false invariant, and the fix that would have made things worse
+
+The corpus asserted in three places that a Drive result "for any file of consequence is
+spilled to a JSON file on disk rather than returned inline". **Measured false.** One
+40,488-byte sorted paper spilled to a file in one deployment and returned inline in
+another, and the two spill directories were not the same directory. Delivery form is a
+property of the DEPLOYMENT, not of the file size.
+
+A channel probe that classifies by listing a hardcoded spill directory therefore reports
+`inline` on a perfectly working spill channel and routes an entirely fetchable corpus to
+manual upload — on every exam, silently and permanently. That is a worse failure than the
+one it was added to catch. S5-0 classifies on what the tool call actually returned, and
+proves the lane by staging and verifying the probe payload through the same engine path
+the corpus will use.
+
+### Fix
+
+- **PYQCount v1.2 -> v1.3.** §5 opens with a CLASS T transport declaration and THE
+  BRIDGE, in a ` ```python ` fence the CI can read. S5-4 step 1 delegates to
+  `acquire_paper()`, also in a python fence, which injects a bound `resolver`. New
+  **S5-0 CHANNEL PROBE** measures the connector's delivery form on ONE paper — the
+  smallest — before Task 1, and records the verdict in
+  `count_progress.json._transport.channel` so a resumed session neither re-probes nor
+  switches lanes mid-corpus. `plan_transport()` now takes the channel, has no default,
+  and prints the plan unconditionally: v1.2 printed it only `if part['upload']`, so a
+  corpus that could not be fetched at all told the operator nothing before Task 1.
+  S5-8's "3 tool calls per session" corrected to 3 PHASES — it omitted the N connector
+  calls that ARE the acquisition, which is how an unreachable step looked solved.
+- **PYQCore v1.2 -> v1.3.** §9 gains **EC-P35** (Drive channel cannot reach the
+  container — not EC-P31, since the file is under the cap and the connector does not
+  refuse it) and **EC-P36** (inline channel exceeds the context budget). MINIMUM
+  COMPANION VERSIONS updated.
+- **MockTestAnalyse v2.49.0 -> v2.49.1.** Invariant correction only; its resolver bridge
+  was already correct and is unchanged.
+- **`corpus_io`**: new `stage_drive_payload()` — a verified route from an
+  already-materialised payload to disk with no `download_fn` to fabricate, which removes
+  the incentive that created this defect; `fetch_drive_docx` is now a thin wrapper over
+  it so the two routes cannot drift. `decode_drive_payload` accepts a bare base64 string
+  (previously rejected; disambiguated by decoding and checking `PK\x03\x04`, not by
+  guessing).
+- **`blueprint_core`**: `INLINE_BUDGET_CHARS`, `base64_cost_chars()`, and
+  `partition_by_transport(..., channel=)`. `channel='spill'` is the default and
+  reproduces the previous behaviour exactly, so unpatched callers are unaffected.
+  Size answers "will the connector refuse this file?"; it cannot answer "can the
+  connector put bytes on disk at all?" or "what will this corpus cost in context?".
+- **Tooling**: `audit_callgraph` gains **C7 (UNBOUND TRANSPORT ARGUMENT)** — which runs
+  a TEXT pass as well as an AST pass, because an AST-only pass returns zero findings on
+  the very defect it was written for — and **C8 (EXECUTABLE-SOURCE COVERAGE)**, FAIL for
+  the injection surface and WARN elsewhere (86 untagged fences carry engine calls today;
+  promoting those is a separate migration). Six new self-test fixtures, including the
+  untagged-non-parseable-fence regression.
+- **`LAW_REGISTRY.json`** (new, tracked in MANIFEST), enforced by `audit_sync`: every
+  spec listed under `governs` must satisfy its `verified_by` checks, and every spec that
+  PERFORMS a governed operation must be listed — the reverse direction a hand-maintained
+  list can never provide. `CLAUDE.md` gains the LAW-PROPAGATION LAW and the corollary
+  that an instruction a CI check must inspect has to live where the CI check can read it.
+
+### Verification
+
+`audit_callgraph` C7 and C8 both fire on the unpatched `Framework_PYQCount.md` (exit 1)
+and are silent on the patched one. Engine self-tests: `corpus_io` 322/322,
+`blueprint_core` 462/462, `audit_callgraph` 15/15, `audit_sync` 9/9. The six-shape decode
+matrix is now A-F all OK; shape B is the one that changed.
+
 ## 2026.08.15.5 — GAP-2026-08-15-BAREQ: a question whose stem was an equation did not exist, and 77% of stems lost their maths
 
 **P0 — SILENT DATA LOSS. Three live defects of one family: a paragraph's meaning was

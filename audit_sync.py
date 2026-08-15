@@ -27,7 +27,8 @@ def _self_test():
         d = tempfile.mkdtemp()
         for f in os.listdir(here):
             if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json',
-                                                   'VERSION', 'CHANGELOG.md'):
+                                                   'VERSION', 'CHANGELOG.md',
+                                                   'LAW_REGISTRY.json'):
                 shutil.copy(os.path.join(here, f), os.path.join(d, f))
         if mutate:
             mutate(d)
@@ -74,6 +75,33 @@ def _self_test():
         "\nSee Framework_Blueprint v99.99 for the schedule.\n"))
     check("VERSION-XREF fires on a forward reference to a version that "
           "does not exist", rc == 1 and 'VERSION-XREF' in out)
+
+    # ── GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (P7) ─────────────────────
+    def drop_from_governs(r):
+        pth = os.path.join(r, 'LAW_REGISTRY.json')
+        reg = json.load(open(pth, encoding='utf-8'))
+        law = reg['laws']['EXECUTION-BOUNDARY-LAW']
+        law['governs'] = [g for g in law['governs'] if g != 'Framework_PYQCount.md']
+        json.dump(reg, open(pth, 'w', encoding='utf-8'), indent=2)
+    rc, out = mutated(drop_from_governs)
+    check("LAW-COVERAGE fires when a spec performs a governed operation but is "
+          "absent from the registry",
+          rc == 1 and 'LAW-COVERAGE' in out and 'Framework_PYQCount.md' in out)
+
+    def break_the_law(r):
+        pth = os.path.join(r, 'Framework_PYQCount.md')
+        s = open(pth, encoding='utf-8').read().replace(
+            'return corpus_io.fetch_drive_docx(resolver, paper, work_dir)',
+            'return corpus_io.fetch_drive_docx(gdrive_download_file_selftest, '
+            'paper, work_dir)')
+        open(pth, 'w', encoding='utf-8').write(s)
+    rc, out = mutated(break_the_law)
+    check("LAW-VERIFY fires when a governed spec stops satisfying its verifier",
+          rc == 1 and 'LAW-VERIFY' in out)
+
+    rc, out = mutated(lambda r: os.remove(os.path.join(r, 'LAW_REGISTRY.json')))
+    check("LAW-REGISTRY fires when the registry is missing",
+          rc == 1 and 'LAW-REGISTRY' in out)
 
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
@@ -241,6 +269,91 @@ for r in readers:
         fld = m.group(1) or m.group(2)
         if fld not in bp:
             rec('BP-SCHEMA', f"{r}: reads blueprint['{fld}'] — not documented in Framework_Blueprint.md")
+
+# ── 8. LAW PROPAGATION REGISTRY (GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, P7) ──
+# The deepest cause of that GAP was not the undefined name. It was that a LAW was
+# remediated FILE BY FILE from a changelog list, so a path nobody listed kept the
+# defect, and a later "content byte-identical" split copied it into a brand-new file.
+# Nothing in the repo could answer the question "which specs must carry this law, and
+# do they all still carry it?" — so nothing noticed for 20 days.
+#
+# This check answers it in both directions, and the second direction is the one a
+# hand-maintained list can never provide:
+#   FORWARD  — every spec listed in 'governs' must still satisfy 'verified_by'.
+#   REVERSE  — every spec that PERFORMS the governed operation must be listed. A spec
+#              that performs it and is absent is a FAIL, so a new file (or a split
+#              half) cannot inherit the law's surface without inheriting its checks.
+_INJ_LIVE = re.compile(
+    r'\b(fetch_drive_docx|collect_corpus_files|stage_drive_payload)\(\s*'
+    r'[A-Za-z_][A-Za-z0-9_]*\s*[,)]')
+
+
+def _live_text(t):
+    """Full-line comments blanked. A spec is expected to QUOTE the defect it fixed;
+    a commented-out call is documentation, not a call site."""
+    return '\n'.join('' if ln.lstrip().startswith('#') else ln
+                      for ln in t.split('\n'))
+
+
+try:
+    _REG = json.load(open('LAW_REGISTRY.json', encoding='utf-8'))
+except FileNotFoundError:
+    _REG = None
+    rec('LAW-REGISTRY', "LAW_REGISTRY.json is missing. Every law the framework "
+                        "enforces must be machine-checkable; without the registry "
+                        "no check can tell whether a law reached every spec it "
+                        "governs (GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION P7).")
+except ValueError as _exc:
+    _REG = None
+    rec('LAW-REGISTRY', f"LAW_REGISTRY.json is not valid JSON: {_exc}")
+
+if _REG is not None:
+    if not _REG.get('laws'):
+        rec('LAW-REGISTRY', "LAW_REGISTRY.json declares no laws — an empty registry "
+                            "passes silently and is indistinguishable from no "
+                            "enforcement at all.")
+    for _law, _meta in sorted((_REG.get('laws') or {}).items()):
+        _governs = _meta.get('governs') or []
+        _verifiers = _meta.get('verified_by') or []
+        if not _verifiers:
+            rec('LAW-REGISTRY', f"{_law}: no 'verified_by' — a law with no verifier "
+                                f"is a comment, not a check.")
+        for _g in _governs:
+            if not os.path.exists(_g):
+                rec('LAW-REGISTRY', f"{_law}: governs '{_g}', which does not exist. "
+                                    f"A stale entry silently shrinks the law's reach.")
+        if _meta.get('detect') != 'live_injection_point_call':
+            rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
+                                f"{_meta.get('detect')!r}; audit_sync cannot derive "
+                                f"the performing set, so the REVERSE direction of "
+                                f"this law is unenforced.")
+            continue
+
+        # REVERSE — derive the performing set from the corpus, never from the list.
+        _performing = {f for f, t in TXT.items() if _INJ_LIVE.search(_live_text(t))}
+        for _f in sorted(_performing - set(_governs)):
+            rec('LAW-COVERAGE',
+                f"{_f} performs a {_law} operation (it calls a documented injection "
+                f"point) but is NOT listed in LAW_REGISTRY.json 'governs'. Add it, "
+                f"and make it satisfy {', '.join(_verifiers)}. This is the exact "
+                f"shape of GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION: a spec "
+                f"inherited a law's SURFACE without inheriting its CHECKS.")
+
+        # FORWARD — every governed spec must still pass its verifiers.
+        _cg = {v.split(':')[1] for v in _verifiers if v.startswith('audit_callgraph:')}
+        if _cg and os.path.exists('audit_callgraph.py'):
+            import subprocess as _sp
+            _targets = [g for g in _governs if os.path.exists(g)]
+            if _targets:
+                _r = _sp.run([sys.executable, 'audit_callgraph.py'] + _targets,
+                             capture_output=True, text=True)
+                if _r.returncode != 0:
+                    for _line in (_r.stdout + _r.stderr).split('\n'):
+                        if re.match(r'\s*\[C\d', _line):
+                            rec('LAW-VERIFY', f"{_law}: " + _line.strip()[:240])
+                    if not any(c == 'LAW-VERIFY' for c in ISSUES):
+                        rec('LAW-VERIFY', f"{_law}: audit_callgraph exited "
+                                          f"{_r.returncode} on the governed specs.")
 
 # ── REPORT ──────────────────────────────────────────────────────────────────
 total = sum(len(v) for v in ISSUES.values())

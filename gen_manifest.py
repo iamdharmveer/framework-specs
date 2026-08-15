@@ -23,6 +23,14 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               "notes_core.py", "notes_blueprint.py", "notes_audit.py",
               "notes_docx.py", "notes_sync_audit.py"]
 
+# GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (P7). The law-propagation registry is DATA
+# the CI enforces, so it needs the same byte-integrity guarantee as an engine: an
+# untracked registry can be gutted to `{"laws":{}}` and every law it enforces goes
+# quiet with nothing to notice. bootstrap.py applies header/sentinel checks only to
+# .md files, so a .json entry is verified by sha256 + line count, which is exactly
+# what is wanted here.
+TRACKED_JSON = ["LAW_REGISTRY.json"]
+
 def sha256(p):
     with open(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
@@ -48,6 +56,7 @@ def main():
 
     tracked = sorted(f for f in os.listdir(".") if f.endswith(".md") and f.startswith("Framework_"))
     tracked += [p for p in TRACKED_PY if os.path.exists(p)]
+    tracked += [p for p in TRACKED_JSON if os.path.exists(p)]
 
     files = {}
     for f in tracked:

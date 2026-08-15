@@ -1,4 +1,24 @@
-# Framework_PYQCount v1.2 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.3 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.3 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (EXECUTION-BOUNDARY
+#   LAW). S5-4 step 1 injected the bare name `gdrive_download_file` into
+#   corpus_io.fetch_drive_docx. That name was defined NOWHERE — no spec, no engine, no
+#   builtin — so executed literally it raised NameError, every paper fell through
+#   TransportFallback to the upload lane, and the Drive lane was unreachable on EVERY
+#   run of EVERY exam. Measured on IIT_JAM_MATHEMATICS (22 papers, all under
+#   DRIVE_CAP): 0 of 22 acquired, Task 1 unconfirmable, 22 manual uploads demanded.
+#   This is GAP-2026-07-26-003 applied to the PYQ counting path: the identical fix
+#   shipped in MockTestAnalyse v2.37 on 2026-07-26 and was never propagated here, and
+#   the 2026-07-31 split from PYQAnalyse v2.29 then copied the defect forward "content
+#   byte-identical" into a file that never mentions the GAP id. §5 now opens with a
+#   CLASS T transport declaration and THE BRIDGE, in a ```python fence so the CI can
+#   read it; S5-4 step 1 injects a bound resolver. New S5-0 CHANNEL PROBE measures the
+#   connector's delivery form on ONE paper before Task 1 — the "results always spill to
+#   disk" invariant is MEASURED FALSE (one 40,488-byte .docx spilled in one deployment
+#   and returned inline in another), so it is now probed, never assumed, and never
+#   inferred from a directory listing. S5-8's "3 tool calls per session" is corrected
+#   to 3 PHASES: it omitted the N connector calls that ARE the acquisition.
+#   audit_callgraph gains C7 (text pass — an AST-only pass cannot see this call site,
+#   which lives in an untagged, non-parseable fence) and C8.
 # v1.2 — 2026-08-15 — GAP-2026-08-15-BAREQ (R-3). The S5-1 mandatory gate and
 #   count_sorted_file() carried an inline r'^Q\.?\s*\d+' justified by an ASSUMPTION about
 #   PYQSort's output ("always outputs Q.<N> format") where a DELEGATION belongs, and
@@ -61,6 +81,219 @@ took Step 5 down on 2026-07-24 while looking untouched.
 
 Never restate a threshold here. DRIVE_CAP, SIZE_BUDGET and CHAT_FILE_LIMIT
 have one definition and every step imports it.
+```
+
+### S5-0 — GOOGLE DRIVE TRANSPORT: CLASS T DECLARATION, THE BRIDGE, CHANNEL PROBE
+
+```python
+# ── GOOGLE DRIVE — CLASS T TRANSPORT ─────────────────────────────────────────
+#
+# GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION. Until v1.3, S5-4 step 1 read:
+#
+#       local_path = corpus_io.fetch_drive_docx(
+#           gdrive_download_file, paper, '/home/claude/pyq_counts')
+#
+# and `gdrive_download_file` was defined in NO spec, NO engine and NO builtin. The
+# name appeared exactly once in this file — at that call site. Executed literally it
+# raises NameError; fetch_drive_docx converts that to TransportFallback; every paper
+# routes to the upload lane; Task 1 reports "0 of N papers read" and cannot confirm.
+# The Drive lane was therefore unreachable on EVERY run of EVERY exam, for 20 days,
+# with audit_callgraph reporting 0 findings the whole time.
+#
+# The failure is LOUD, so no wrong number was ever produced — this cost availability,
+# not correctness. That is the ONLY reason it was survivable. Do not treat loudness as
+# a mitigation: MockTestAnalyse v2.37 records the identical defect in the identical
+# shape, and the observability of the failure was the only variable between them.
+#
+# CLASS: T — these are NOT python functions. They are the NAME of a tool call the
+# model performs IN ITS OWN TURN, before count_pipeline.py runs. A tool call cannot
+# happen inside a running python process (CLAUDE.md, EXECUTION-BOUNDARY LAW), and the
+# container's egress allowlist contains no Google domain, so there is not even a
+# network fallback — a "just fetch it from python" proposal is refused on that basis.
+
+def gdrive_search(query, page_size=100, page_token=None):
+    """CLASS: T — Google Drive MCP 'search_files'. NOT executable python.
+
+    The model calls Google Drive:search_files(query="parentId = 'FOLDER_ID'",
+    pageSize=..., pageToken=...) in its own turn and materialises the listing before
+    any python runs. Returns [{id, title, mimeType, fileSize}]. Paginate to exhaustion
+    — a folder larger than one page silently loses its tail otherwise.
+    """
+    pass  # CLASS: T — performed by the model between turns, never from python
+
+
+def gdrive_download_file(file_id, local_path):
+    """CLASS: T — Google Drive MCP 'download_file_content'. NOT executable python.
+
+    The model calls Google Drive:download_file_content(fileId=file_id) in its own
+    turn. The result is EITHER a spill-file path OR an inline payload. WHICH ONE IS A
+    PROPERTY OF THE DEPLOYMENT, NOT OF THE FILE SIZE, and S5-0's probe measures it.
+    """
+    pass  # CLASS: T — performed by the model between turns, never from python
+
+
+# ── THE BRIDGE — the pattern EVERY CLASS T operation must follow ─────────────
+#
+# PHASE A (model, in its own turns, BEFORE any python):
+#     listing = gdrive_search("parentId = '<folder_id>'")   -> cache verbatim to disk
+#     probe   = gdrive_download_file(<smallest paper>)      -> S5-0 channel probe
+#     then, for each DRIVE-lane paper: gdrive_download_file(...)
+#     Record, per file, WHATEVER CAME BACK — a spill path or an inline payload.
+#     Do not normalise them, do not convert one into the other, and do not care which
+#     it is: corpus_io.decode_drive_payload accepts bytes, a spill path in ANY
+#     directory, a dict, a list, an inner JSON string, or bare base64.
+#
+# PHASE B (python): inject RESOLVERS — plain lookups over results that ALREADY EXIST.
+# A resolver performs no tool call, so it is ordinary, reachable, testable python:
+#
+#     drive_listing  = json.load(open(LISTING_CACHE))           # from PHASE A
+#     list_fn        = lambda fid, page_token=None: (
+#                          {'files': []} if page_token else drive_listing)
+#     drive_payloads = {file_id: path_or_payload, ...}          # from PHASE A
+#     resolver       = lambda fid: drive_payloads[fid]
+#     local_path     = corpus_io.fetch_drive_docx(resolver, paper, WORK_DIR)
+#
+# When PHASE A already holds the payload there is no callable to own at all, and
+# inventing one is what produced this GAP. Use the direct route instead:
+#
+#     local_path = corpus_io.stage_drive_payload(drive_payloads[paper['id']],
+#                                                paper, WORK_DIR)
+#
+# NEVER pass gdrive_search or gdrive_download_file themselves. They are CLASS T
+# markers, not callables. audit_callgraph C6 fails the build if a CLASS T stub's
+# return value is consumed; C7 fails the build if an injection point receives a name
+# that is not bound in this spec — including from an untagged fence, which is where
+# this defect lived and why an AST-only check could not see it.
+# ─────────────────────────────────────────────────────────────────────────────
+```
+
+```python
+# ── S5-0 CHANNEL PROBE — MEASURE THE CHANNEL, NEVER ASSUME IT ────────────────
+# Runs AFTER S5-1 enumeration and BEFORE S5-1a Task 1. Costs exactly ONE paper.
+import blueprint_core as bc      # Cluster H — pure acquisition decisions
+import corpus_io                 # I/O shell — Drive listing, guarded fetch, decode
+
+def probe_drive_channel(probe_paper, probe_payload, arrived_inline, work_dir):
+    """Classify the Drive channel from ONE real download, and PROVE it decodes.
+
+    WHY THIS EXISTS. Until v1.3 the corpus asserted, in three places, that "for any
+    real paper the connector's result EXCEEDS CONTEXT and spills to a JSON file on
+    disk". Measured 2026-08-15 on a single 40,488-byte sorted paper: one deployment
+    spilled it to a file, a second returned it inline with no spill file anywhere, and
+    the two spill directories were not the same directory. The invariant was false in
+    the only sense that matters — it was believed, and it was not checked.
+
+    WHAT IS CLASSIFIED, AND WHAT IS NOT. The channel does NOT select a mechanism: the
+    resolver already carries whatever PHASE A received, and decode_drive_payload
+    already accepts every shape either channel produces. The channel selects a COST
+    MODEL and nothing else:
+
+        'spill'  — the payload landed on disk. Context cost is ZERO. Drive lane.
+        'inline' — the payload arrived in the model's turn. Every paper costs
+                   ceil(bytes/3)*4 characters of context inbound, and again to
+                   persist. The lane is then bounded by CONTEXT, not by DRIVE_CAP.
+
+    HOW IT IS CLASSIFIED. `arrived_inline` is an OBSERVATION the model makes about its
+    own turn: did the tool hand back a reference to a file, or the bytes themselves?
+    That is a fact, not an inference. NEVER classify by listing a directory and
+    checking whether a spill file appeared in it: the spill directory is chosen by the
+    deployment, one deployment's directory does not exist in another, and a probe that
+    hardcodes a path reports 'inline' on a perfectly working spill channel — which
+    would route an entire fetchable corpus to manual upload on every exam. That is a
+    worse outcome than the defect this GAP fixes, and it is the reason this function
+    takes an observation rather than performing a filesystem test.
+
+    The probe also PROVES the lane rather than predicting it: the payload is staged
+    through the same engine path the corpus will use, so a channel that classifies
+    cleanly but cannot produce verified bytes fails here, at paper 1, instead of at
+    paper 12. Any TransportFallback propagates to the caller, which routes the whole
+    corpus to the upload lane per EC-P35.
+    """
+    local_path = corpus_io.stage_drive_payload(probe_payload, probe_paper, work_dir)
+    channel = 'inline' if arrived_inline else 'spill'
+    print(f"\n  S5-0 CHANNEL PROBE — {probe_paper['name']} "
+          f"({probe_paper['fileSize']:,} bytes)")
+    print(f"    Verified bytes on disk : {local_path}")
+    print(f"    Channel                : {channel.upper()}"
+          + ("  — payloads arrive in context; the Drive lane is bounded by context"
+             if channel == 'inline' else
+             "   — payloads land on disk; the Drive lane costs no context"))
+    return {'channel': channel, 'probe_paper': probe_paper['name'],
+            'probe_local_path': local_path}
+
+
+def plan_transport(sorted_papers, channel):
+    """Split the corpus into the Drive lane and the upload lane BEFORE fetching.
+
+    Predictive, not binding: the runtime fallback in S5-4 is what guarantees
+    correctness. A paper mispredicted here still completes, via upload.
+
+    `channel` comes from probe_drive_channel and has no default. A default would be a
+    guess about the deployment, and guessing is the entire defect class this GAP
+    closes. Print the plan even when nothing is deferred — before v1.3 the block was
+    printed only `if part['upload']`, so a corpus that could not be fetched at all
+    told the operator NOTHING before Task 1, defeating the stated purpose of S5-1.
+    """
+    part = bc.partition_by_transport(sorted_papers, channel=channel)
+    print(f"\n  TRANSPORT PLAN  (channel: {part['channel']})")
+    print(f"    Drive lane  : {len(part['auto'])} paper(s) fetch automatically")
+    print(f"    Upload lane : {len(part['upload'])} paper(s) must be uploaded to chat")
+    if part['channel'] == 'inline':
+        print(f"    Context cost: {part['inline_chars']:,} base64 chars admitted of a "
+              f"{part['inline_budget']:,} budget "
+              f"(bc.INLINE_BUDGET_CHARS); {len(part['deferred_for_context'])} paper(s) "
+              f"deferred to the upload lane for CONTEXT, not for size — EC-P36.")
+    if part['upload']:
+        plan = bc.upload_batch_plan(len(part['upload']), BATCH_SIZE_COUNTS)
+        print(f"    Chat accepts {bc.CHAT_FILE_LIMIT} files per conversation — "
+              f"{plan['papers_per_chat']} papers across {plan['batches_per_chat']} "
+              f"batches at BATCH_SIZE_COUNTS={BATCH_SIZE_COUNTS}, "
+              f"so {plan['chats_needed']} chat session(s) for the upload lane.")
+        oversize = [p for p in part['upload']
+                    if (p.get('fileSize') or 0) > bc.DRIVE_CAP]
+        if oversize:
+            print(f"    Permanent fix for the {len(oversize)} OVERSIZED paper(s): run "
+                  f"PYQCompress on them once and replace them in Drive — they then "
+                  f"fetch automatically for Steps 2b, 4 and 5. PYQCompress does NOT "
+                  f"help papers deferred for channel or context reasons (EC-P35/P36): "
+                  f"the constraint there is the channel, not the file size.")
+    return part
+
+
+def acquire_paper(paper, drive_payloads, resolver, work_dir, needs_upload):
+    """S5-4 step 1. Return a local path, or None when the paper needs an upload.
+
+    THIS IS THE ACQUISITION CONTRACT, AND IT LIVES IN A ```python FENCE ON PURPOSE.
+    Until v1.3 it lived as indented pseudo-code inside an UNTAGGED, non-parseable
+    fence, mixed with prose and box-drawing rules. Every AST-based check in the repo —
+    audit_callgraph C1-C6, audit_deep, validate_framework_md — skips such a block
+    entirely. The single most load-bearing instruction in Step 4, how the bytes are
+    obtained, was therefore the one instruction the CI was structurally unable to
+    read, and a call to an undefined name survived there for 20 days across a full
+    corpus audit that reported 0 findings.
+
+      A contract the CI cannot read is a contract the CI cannot enforce.
+      Executable contracts belong in ```python fences. audit_callgraph C8 enforces
+      this for every injection point.
+
+    NEVER call the connector from here. `resolver` is a plain lookup over payloads
+    PHASE A already materialised, so this function performs no tool call and raises no
+    NameError. Every failure — size, permission, malformed envelope, truncation,
+    unknown — arrives as TransportFallback and degrades to the upload lane. A
+    transport failure is NEVER fatal to the run.
+    """
+    if paper['id'] in drive_payloads:
+        try:
+            return corpus_io.fetch_drive_docx(resolver, paper, work_dir)
+        except corpus_io.TransportFallback as exc:
+            print(f"    ! Drive fetch unavailable — {exc}")
+            print(f"    → routing to upload lane: {paper['name']}")
+            needs_upload.append(paper)
+            return None
+    if paper.get('path'):
+        return paper['path']
+    needs_upload.append(paper)
+    return None
 ```
 
 ```python
@@ -166,26 +399,11 @@ def assert_no_session_duplicates(sorted_papers, session_keyword):
             + f"{bc.DRIVE_CAP:,}-byte Drive download cap.")
 
 
-def plan_transport(sorted_papers):
-    """Split the corpus into the Drive lane and the upload lane BEFORE fetching.
-
-    Predictive, not binding: the runtime fallback in S5-4 is what guarantees
-    correctness. A paper mispredicted here still completes, via upload.
-    """
-    part = bc.partition_by_transport(sorted_papers)
-    if part['upload']:
-        plan = bc.upload_batch_plan(len(part['upload']), BATCH_SIZE_COUNTS)
-        print(f"\n  TRANSPORT PLAN")
-        print(f"    Drive lane  : {len(part['auto'])} paper(s) fetch automatically")
-        print(f"    Upload lane : {len(part['upload'])} paper(s) exceed the "
-              f"{bc.DRIVE_CAP:,}-byte download cap and must be uploaded to chat")
-        print(f"    Chat accepts {bc.CHAT_FILE_LIMIT} files per conversation — "
-              f"{plan['papers_per_chat']} papers across {plan['batches_per_chat']} "
-              f"batches at BATCH_SIZE_COUNTS={BATCH_SIZE_COUNTS}, "
-              f"so {plan['chats_needed']} chat session(s) for the upload lane.")
-        print(f"    Permanent fix: run  PYQCompress  on those papers once and replace "
-              f"them in Drive — they then fetch automatically for Steps 2b, 4 and 5.")
-    return part
+# plan_transport() is DEFINED IN S5-0 above, with the channel parameter the probe
+# supplies. v1.2 defined it here with a size-only signature and printed the plan only
+# `if part['upload']`, so an unfetchable corpus printed NOTHING before Task 1. Do not
+# reintroduce a second definition: two transport planners is the drift this file's own
+# v2.21 note forbids for enumeration, and it applies identically here.
 ```
 
 ```
@@ -432,19 +650,22 @@ the durability unit. The batch-level save REMAINS as a redundant flush.
 For each batch of sorted PYQ files (up to 5 per batch):
 
   For each file in the batch:
-    1. ACQUIRE the file (v2.21 — never call the connector unguarded):
+    1. ACQUIRE the file — call acquire_paper(), DEFINED IN S5-0 as python.
+       If it returns None the paper went to the upload lane; skip to the next file.
 
-         if paper['source'] == 'gdrive':
-             try:
-                 local_path = corpus_io.fetch_drive_docx(
-                     gdrive_download_file, paper, '/home/claude/pyq_counts')
-             except corpus_io.TransportFallback as exc:
-                 print(f"    ! Drive fetch unavailable — {exc}")
-                 print(f"    → routing to upload lane: {paper['name']}")
-                 needs_upload.append(paper)
-                 continue
-         else:
-             local_path = paper['path']
+       v2.21 — never call the connector unguarded.
+       v1.3  — and never call it FROM PYTHON AT ALL. `resolver` and `drive_payloads`
+       come from THE BRIDGE in S5-0: PHASE A materialised every DRIVE-lane payload
+       before this loop starts, so acquisition here is a dict lookup and a decode,
+       not a tool call. Papers S5-0 assigned to the upload lane are never attempted.
+
+       This step used to carry its own inline copy of the acquisition code, in this
+       untagged prose fence, and that copy passed the undefined name
+       `gdrive_download_file` — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION. The code
+       now has ONE definition, in a fence the CI can parse. Do not paste a second copy
+       back into this block: an acquisition contract that lives in prose is invisible
+       to every static check in the repo, which is exactly how the defect survived a
+       corpus-wide audit that reported zero findings.
 
        EVERY failure — size, permission, network, malformed envelope, unknown —
        raises TransportFallback and degrades to the upload lane. A transport
@@ -988,8 +1209,39 @@ from then on.
 
 ```
 ═══════════════════════════════════════════════════════════════════════
-EXECUTION MODEL — Python script, 3 tool calls per session
+EXECUTION MODEL — 3 PHASES.  Tool calls = 3 + 1 listing + 1 probe + N drive papers
 ═══════════════════════════════════════════════════════════════════════
+
+v1.3 (GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION) corrects "3 tool calls per session".
+That accounting was wrong for any Drive-lane run: it counted create_file, bash_tool
+and delivery, and omitted the N connector calls the model must make IN ITS OWN TURNS
+to acquire the papers. Those calls are the dominant cost of the step and the entire
+subject of this GAP. Stating the cheap half as the whole cost is precisely what let an
+unreachable acquisition step look like a solved problem for 20 days.
+
+  PHASE A — MODEL TURNS (acquisition; CLASS T, never python)
+    A1. Google Drive:search_files(query="parentId = '<folder_id>'", pageSize=100)
+        → paginate to exhaustion → cache the listing VERBATIM to disk.
+    A2. S5-0 CHANNEL PROBE — download exactly ONE paper, the SMALLEST by fileSize
+        (cheapest probe; the channel is a property of the deployment, so one paper
+        settles it for all of them). Observe whether the result came back as a
+        reference to a file or as bytes in the turn, then run
+        probe_drive_channel(...) to PROVE it decodes and verifies.
+    A3. Branch on the S5-0 verdict, and print plan_transport() BEFORE Task 1:
+          channel 'spill'                            → Drive lane, no context cost.
+          channel 'inline', within INLINE_BUDGET_CHARS → Drive lane.
+          channel 'inline', over budget              → the overflow goes to the
+                upload lane with bc.upload_batch_plan arithmetic stated up front.
+    A4. Download every remaining DRIVE-lane paper. Record, per file, WHATEVER came
+        back — a spill path or an inline payload. Do not normalise them.
+  PHASE B — create_file: count_pipeline.py, injecting `list_fn` and `resolver`
+        (plain lookups over the PHASE A results). No connector call appears in it.
+  PHASE C — bash_tool: run it. Then Task 1 → user confirmation → counting.
+
+"3 tool calls" describes PHASES B and C only. Record the probe verdict in
+count_progress.json._transport.channel so a resumed session neither re-probes nor
+silently switches lanes mid-corpus.
+
 
 Phase B counting is a mechanical operation (heading parsing + Q-pattern
 matching) — NOT a judgment task. It MUST be executed via Python script,
@@ -1001,10 +1253,12 @@ PER-SESSION EXECUTION:
     1. Drive enumeration via corpus_io.collect_corpus_files (S5-1) — captures
        fileSize and mimeType, paginates, screens and reports every reject
     2. Sorted-file filter + both duplicate HARD STOPs (S5-1), then
-       bc.partition_by_transport + bc.upload_batch_plan
-    3. Task 1: acquire each file via corpus_io.fetch_drive_docx (guarded;
-       TransportFallback -> upload lane), parse with python-docx, count
-       Q-patterns, build inventory table
+       plan_transport(papers, channel) — which calls bc.partition_by_transport
+       with the S5-0 verdict and bc.upload_batch_plan
+    3. Task 1: acquire each file via corpus_io.fetch_drive_docx with the PHASE A
+       RESOLVER (guarded; TransportFallback -> upload lane), or via
+       corpus_io.stage_drive_payload when PHASE A already holds the payload;
+       parse with python-docx, count Q-patterns, build inventory table
     4. Heading parser functions (parse_taxonomy_level, is_taxonomy_heading,
        is_option, count_sorted_file — from S5-2, byte-identical)
     5. Batch counting loop (5/batch, accumulate counts_by_year)
@@ -1050,6 +1304,10 @@ DEPENDENCY: python-docx must be installed (pip install python-docx
 --break-system-packages). Google Drive MCP tools must be connected.
 corpus_io.py and blueprint_core.py must be routed to PYQCount in routes.json.
 
+DEPENDENCY (v1.3): `gdrive_search` and `gdrive_download_file` are CLASS T markers
+performed by the MODEL. Never import them, never pass them, never call them from
+python. python-docx and both engines are ordinary imports; the connector is not.
+
 ═══════════════════════════════════════════════════════════════════════
 THE DRIVE RETRIEVAL ENVELOPE (v2.21, DEFECT N) — DOCUMENTED, NOT REDISCOVERED
 ═══════════════════════════════════════════════════════════════════════
@@ -1058,12 +1316,25 @@ every previous execution rediscovered by trial and error, with a different
 improvisation each time. That is non-determinism in the hot path, and it is
 exactly the kind of interpretive gap the framework replaces with a function.
 
-For any real paper the connector's result EXCEEDS CONTEXT and spills to disk:
+The connector's result is EITHER a spill-file path OR an inline payload. WHICH ONE
+IS A PROPERTY OF THE DEPLOYMENT, NOT OF THE FILE SIZE, and S5-0 MEASURES it.
 
-  1. the tool result becomes a file under /mnt/user-data/tool_results/*.json
-  2. that file is a LIST; element [0]['text'] is itself a JSON STRING
-  3. parsing THAT string yields {id, title, mimeType, content}, where content
-     is base64 — the actual .docx bytes
+v1.2 and earlier asserted here that "for any real paper the result EXCEEDS CONTEXT and
+spills to a file under /mnt/user-data/tool_results/*.json". Measured 2026-08-15 on one
+40,488-byte sorted paper: one deployment spilled it to a file, a second returned it
+inline and created no spill file at all, and the two spill directories were different
+directories. Never hardcode a spill directory and never test for one — a probe that
+does reports 'inline' on a working spill channel and sends a fetchable corpus to
+manual upload on every exam.
+
+The shapes the payload can take, all of which decode_drive_payload accepts:
+
+  1. raw bytes
+  2. a spill-file path — in ANY directory the deployment chooses
+  3. a LIST whose element [0]['text'] is itself a JSON STRING
+  4. a dict {id, title, mimeType, content}, where content is base64
+  5. that inner JSON string on its own
+  6. bare base64 (accepted from the GAP-2026-08-15 release onward)
 
 ONE implementation handles every shape — raw bytes, a spill path, the parsed
 list or dict, or the inner JSON string:
@@ -1090,4 +1361,4 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.2
+# END OF Framework_PYQCount v1.3

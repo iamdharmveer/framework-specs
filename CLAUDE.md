@@ -235,6 +235,41 @@ Stamp a clean version + changelog over everything shipped since the last seal.
   python-labelled ones — the two Drive stubs that carried this defect for months lived
   in an unlabelled prose fence and were invisible to every static tool in the corpus.
 
+  C6 detects a MISLABELLED or MISUSED stub. It structurally cannot detect a **MISSING**
+  one: a spec that injects a transport name without ever defining it has no `def`, no
+  `ast.Pass`, and nothing for C6 to anchor to. **C7 — UNBOUND TRANSPORT ARGUMENT** closes
+  that half: every documented injection point must receive an argument BOUND in the same
+  spec. C7 runs a TEXT pass as well as an AST pass, because the defect it was written for
+  lived in an untagged, non-parseable fence that every AST check skips — an AST-only C7
+  returns zero findings on it. **C8 — EXECUTABLE-SOURCE COVERAGE** fails the build when a
+  live injection-point call sits in a fence no AST check can read.
+  (GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION.)
+
+- **LAW-PROPAGATION LAW — a remediation that establishes a law must be applied to every
+  spec the law governs, and the completeness of that application must be machine-checkable.**
+
+  A law enforced by a checklist is a law that will be re-broken by the next file split.
+  GAP-2026-07-26-003 was remediated file-by-file from a changelog list; the PYQ counting
+  path was not on that list, and five days later a "content byte-identical" split copied
+  the unfixed text into a new file that never mentions the GAP id. The Drive lane of Step
+  4 was then unreachable on every run of every exam for 20 days, while a corpus-wide audit
+  reported zero findings.
+
+  `LAW_REGISTRY.json`, enforced by `audit_sync.py`, answers the question nothing could
+  answer before, in BOTH directions: every spec listed under `governs` must still satisfy
+  its `verified_by` checks, and — the half a hand-maintained list can never supply — every
+  spec that PERFORMS the governed operation must be listed. A spec that performs it and is
+  absent is a FAIL, so a new file cannot inherit a law's SURFACE without inheriting its
+  CHECKS. **Any file split must re-run the registry against both halves before it is
+  committed.**
+
+  **Corollary: any instruction a CI check must inspect has to live where the CI check can
+  read it.** Executable contracts belong in ` ```python ` fences that parse; prose fences
+  are for prose. This does not contradict the Phase B rule above — Phase B is model
+  agency and must stay prose precisely because it must never compile. What must be
+  readable is the PYTHON SIDE of the boundary: the resolver, the injection, the guard.
+  (GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION.)
+
   **A CLASS T failure must be LOUD, and must NOT halt.** These are separate properties
   and the corpus conflated them. Drive and vision had the IDENTICAL defect; Drive was
   worked around for months and vision was not, purely because a Drive failure blocks

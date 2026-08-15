@@ -2887,6 +2887,16 @@ def extract_year_from_filename(path):
 DRIVE_CAP = 10 * 1024 * 1024          # 10,485,760 — connector refuses above this
 SIZE_BUDGET = 9 * 1024 * 1024         # 9,437,184 — governor target (10% margin)
 CHAT_FILE_LIMIT = 20                  # files per chat, hard platform limit
+INLINE_BUDGET_CHARS = 200_000         # GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION.
+                                      # Ceiling on how many base64 characters a Drive
+                                      # lane may cost CONTEXT when the connector hands
+                                      # payloads back in the model's turn instead of
+                                      # spilling them to disk. ~50k tokens inbound,
+                                      # about three average papers. Only consulted when
+                                      # channel == 'inline'; a spill channel costs zero
+                                      # context and is never bounded by it. One
+                                      # definition, imported everywhere — never restate
+                                      # the number in a spec.
 
 # Governor ladder: (tier, jpeg_quality, dpi_ceiling). dpi_ceiling None = no resize.
 # T4 is the FLOOR — never encode below q80 or below 200 DPI at display size.
@@ -2975,7 +2985,22 @@ def transport_status(file_size, budget=SIZE_BUDGET, cap=DRIVE_CAP):
     return 'OK'
 
 
-def partition_by_transport(papers, cap=DRIVE_CAP):
+def base64_cost_chars(n_bytes):
+    """Exact base64 expansion of n_bytes: ceil(n/3) * 4 characters.
+
+    Used to price an INLINE Drive channel, where every fetched byte is paid for in
+    CONTEXT rather than on disk. Not an estimate — base64 has no compression and no
+    variance, so this is the real inbound cost of a payload of that size.
+    """
+    try:
+        n = int(n_bytes)
+    except (TypeError, ValueError):
+        return 0
+    return 0 if n <= 0 else ((n + 2) // 3) * 4
+
+
+def partition_by_transport(papers, cap=DRIVE_CAP, channel='spill',
+                           inline_budget=INLINE_BUDGET_CHARS):
     """Split papers into the AUTO (Drive) lane and the UPLOAD lane BEFORE fetching.
 
     Partitioning on the CAP rather than on the governor budget is deliberate: a
@@ -2986,12 +3011,53 @@ def partition_by_transport(papers, cap=DRIVE_CAP):
     mispredicted still completes via upload instead of stopping the run.
 
     Each paper dict must carry 'fileSize'. Order is preserved.
+
+    THE CHANNEL DIMENSION (GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION)
+    Size was the only dimension this function modelled, and size answers exactly one
+    question: "will the connector refuse this file?" It cannot answer the second
+    question a transport plan has to answer — "what does moving these bytes COST?" On
+    a deployment that returns payloads in the model's turn the answer is context, and
+    a corpus that fits the cap 22 times over can still be unaffordable. The old
+    signature reported auto:22 / upload:0 for a corpus of which zero papers could be
+    afforded, so plan_transport() printed nothing and the operator learned the shape
+    of the run after the acquisition loop instead of before it.
+
+      channel='spill'  — payloads land on disk; context cost is zero. This reproduces
+                         the pre-2026-08-15 behaviour EXACTLY, which is why it is the
+                         default: an unpatched caller keeps its old semantics.
+      channel='inline' — payloads arrive in the turn. Papers are admitted to the Drive
+                         lane in listing order until their CUMULATIVE base64 cost would
+                         exceed inline_budget; the remainder goes to the upload lane.
+
+    The channel is MEASURED by a probe (Framework_PYQCount S5-0), never assumed and
+    never inferred from a directory listing — which directory a deployment spills to,
+    or whether it spills at all, differs between deployments of the same connector.
+
+    Returns {'auto': [...], 'upload': [...], 'channel': ..., 'inline_chars': int,
+             'inline_budget': int, 'deferred_for_context': [...]}.
     """
-    auto, upload = [], []
+    if channel not in ('spill', 'inline'):
+        raise AllocationError(
+            f"channel must be 'spill' or 'inline', got {channel!r}. It is measured by "
+            f"the S5-0 channel probe; there is no third state and no default guess.")
+    auto, upload, deferred = [], [], []
+    spent = 0
     for p in papers:
         size = p.get('fileSize')
-        (upload if (size is None or size > cap) else auto).append(p)
-    return {'auto': auto, 'upload': upload}
+        if size is None or size > cap:
+            upload.append(p)
+            continue
+        if channel == 'inline':
+            cost = base64_cost_chars(size)
+            if spent + cost > inline_budget:
+                upload.append(p)
+                deferred.append(p)
+                continue
+            spent += cost
+        auto.append(p)
+    return {'auto': auto, 'upload': upload, 'channel': channel,
+            'inline_chars': spent, 'inline_budget': inline_budget,
+            'deferred_for_context': deferred}
 
 
 def upload_batch_plan(n_upload, batch_size, chat_limit=CHAT_FILE_LIMIT):
@@ -4684,7 +4750,15 @@ def self_test():
     check('h_part_unknown_uploads', any(x['n'] == 'd' for x in _pt['upload']))
     check('h_part_no_loss', len(_pt['auto']) + len(_pt['upload']) == len(_ps))
     check('h_part_order_kept', [x['n'] for x in _pt['auto']] == ['b', 'c'])
-    check('h_part_empty', partition_by_transport([]) == {'auto': [], 'upload': []})
+    # GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION: the return now also carries the
+    # channel and its context arithmetic, so the empty case is asserted on the LANES
+    # plus the presence of the new keys rather than on an exact dict — an exact-dict
+    # assertion here is what would otherwise forbid ever reporting a transport plan.
+    _empty = partition_by_transport([])
+    check('h_part_empty', _empty['auto'] == [] and _empty['upload'] == [])
+    check('h_part_empty_reports_channel',
+          {'channel', 'inline_chars', 'inline_budget',
+           'deferred_for_context'} <= set(_empty))
 
     # batch planning — the 20-file chat ceiling is the binding constraint
     _b3 = upload_batch_plan(18, 3)
@@ -5262,6 +5336,41 @@ PYQ_IMAGE_ANALYSIS:
           'object_types' not in _corrupt.get('y', {}))
     check('v_parse_corrupt_unconstrained',
           figural_generation_profile(_corrupt.get('y', {}))['mode'] == 'unconstrained')
+
+    # ── GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION — channel-aware transport ──
+    _papers = [{'name': f'p{i}.docx', 'fileSize': 45_000} for i in range(22)]
+    _spill = partition_by_transport(_papers)
+    check('t_channel_default_is_spill', _spill['channel'] == 'spill')
+    check('t_spill_backward_compatible',
+          len(_spill['auto']) == 22 and _spill['upload'] == [])
+    check('t_spill_costs_no_context', _spill['inline_chars'] == 0)
+    _inline = partition_by_transport(_papers, channel='inline')
+    check('t_inline_bounds_the_drive_lane', len(_inline['auto']) < 22)
+    check('t_inline_remainder_goes_to_upload',
+          len(_inline['auto']) + len(_inline['upload']) == 22)
+    check('t_inline_never_exceeds_budget',
+          _inline['inline_chars'] <= INLINE_BUDGET_CHARS)
+    check('t_inline_deferred_is_reported',
+          _inline['deferred_for_context'] == _inline['upload'])
+    # a generous budget must leave the inline lane identical to the spill lane
+    _rich = partition_by_transport(_papers, channel='inline', inline_budget=10 ** 9)
+    check('t_inline_with_budget_matches_spill', len(_rich['auto']) == 22)
+    # the cap still binds regardless of channel
+    _big = [{'name': 'huge.docx', 'fileSize': DRIVE_CAP + 1}]
+    check('t_cap_binds_on_spill', partition_by_transport(_big)['upload'] == _big)
+    check('t_cap_binds_on_inline',
+          partition_by_transport(_big, channel='inline')['upload'] == _big)
+    check('t_missing_size_goes_to_upload',
+          len(partition_by_transport([{'name': 'x.docx'}])['upload']) == 1)
+    _bad_channel = 0
+    try:
+        partition_by_transport(_papers, channel='guess')
+    except AllocationError:
+        _bad_channel = 1
+    check('t_unknown_channel_raises', _bad_channel == 1)
+    check('t_base64_cost_exact', base64_cost_chars(986_230) == 1_314_976)
+    check('t_base64_cost_zero_safe',
+          base64_cost_chars(0) == 0 and base64_cost_chars(None) == 0)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

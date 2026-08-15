@@ -1,0 +1,31 @@
+{
+  "_purpose": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION, patch P7 — the class-level fix. A remediation that establishes a LAW must be applied to EVERY spec the law governs, and the completeness of that application must be MACHINE-CHECKABLE. GAP-2026-07-26-003 was remediated file-by-file from a changelog list; the PYQ counting path was not on that list; five days later a file split copied the unfixed text forward 'content byte-identical' into a file that never mentions the GAP id. A law enforced by a checklist is a law that will be re-broken by the next file split.",
+  "_enforced_by": "audit_sync.py. This file is DATA, not documentation: audit_sync hard-fails if it is missing, malformed, or out of step with the corpus.",
+  "_derived_not_declared": "The 'governs' list is CHECKED AGAINST THE CORPUS, never trusted. Any spec that performs a governed operation but is absent from 'governs' is a FAIL — that is the half a hand-maintained list can never provide, and it is the half that failed in July. Adding a spec to 'governs' does not exempt it from anything; it subscribes it to 'verified_by'.",
+  "_on_file_split": "Any file split MUST re-run audit_sync against BOTH halves before the split is committed. The 2026-07-31 PYQAnalyse v2.29 -> PYQCount v1.0 split is precisely how this defect entered production.",
+  "laws": {
+    "EXECUTION-BOUNDARY-LAW": {
+      "gap": "GAP-2026-07-26-003",
+      "reaffirmed_by": "GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION",
+      "stated_in": "CLAUDE.md",
+      "requires": "A tool call cannot happen inside a running python process. Every spec performing a CLASS T operation must declare it as a tagged pass-bodied stub AND inject a RESOLVER over already-materialised results at every injection point. Never inject the CLASS T marker name itself, and never inject a name the spec does not bind.",
+      "detect": "live_injection_point_call",
+      "detect_note": "A spec PERFORMS this operation when its text contains a live (non-comment) call to a documented injection point — audit_callgraph.INJECTION_POINTS. Commented-out historical examples do not count; a spec is expected to quote the defect it fixed.",
+      "governs": [
+        "Framework_MockTestAnalyse.md",
+        "Framework_PYQCount.md",
+        "Framework_PYQPrepare.md",
+        "Framework_PYQSort.md",
+        "Framework_PYQScan.md",
+        "Framework_PYQCompress.md",
+        "Framework_NotesBlueprint.md",
+        "Framework_MockTestCreate.md"
+      ],
+      "verified_by": [
+        "audit_callgraph:C6",
+        "audit_callgraph:C7",
+        "audit_callgraph:C8"
+      ]
+    }
+  }
+}

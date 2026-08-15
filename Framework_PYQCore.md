@@ -1,4 +1,13 @@
-# Framework_PYQCore v1.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.3 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.3 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION. §9 gains EC-P35 (the
+#   Drive channel cannot reach the container) and EC-P36 (an inline channel exceeds the
+#   context budget). Neither condition is visible to size-based partitioning: measured
+#   on IIT_JAM_MATHEMATICS, partition_by_transport returned auto:22 / upload:0 for a
+#   corpus of which ZERO papers were actually fetchable, so plan_transport() printed
+#   nothing and the operator learned the transport shape of the run AFTER the
+#   acquisition loop — the exact discovery EC-P31 and S5-1 exist to prevent. MINIMUM
+#   COMPANION VERSIONS now require the engines carrying stage_drive_payload(),
+#   bare-base64 decode and channel-aware partitioning.
 # v1.2 — 2026-08-15 — GAP-2026-08-15-BAREQ (R-3). Phase-B checklist TASK 1 no longer
 #   names a local regex: Q-counting uses bc.detect_question_start(), the same detector
 #   Steps 3 and 5 parse with. A checklist that tells the operator to reproduce a private
@@ -46,6 +55,18 @@
 
 # MINIMUM COMPANION VERSIONS (carried from Framework_PYQAnalyse v2.28 — FUNCTIONAL):
 # MINIMUM COMPANION VERSIONS (v2.28):
+#   corpus_io.py          >= the GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION build —
+#                                     stage_drive_payload() is the verified route from
+#                                     an ALREADY-MATERIALISED Drive payload to disk
+#                                     with no download_fn to fabricate, and
+#                                     decode_drive_payload() accepts bare base64.
+#                                     Older builds raise AttributeError at the first
+#                                     paper — loud, never a silent miscount.
+#   blueprint_core.py     >= the GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION build —
+#                                     partition_by_transport(..., channel=) and
+#                                     INLINE_BUDGET_CHARS. Older builds raise
+#                                     TypeError on the channel keyword at S5-0, before
+#                                     any paper is fetched — loud, and before Task 1.
 #   corpus_io.py          >= v1.4   — load_taxonomy() IS Task 2.5's loader and gate;
 #                                     Cluster K write_analysis_doc() IS S4-2,
 #                                     read_analysis_doc() IS Task 2.5's reader and
@@ -1270,6 +1291,46 @@ EC-P34: TRUNCATED DOWNLOAD (v2.21)
   mismatch — the paper then takes the upload lane like any other fetch failure.
   This is why DEFECT A (capturing fileSize) is a correctness fix and not merely
   a planning convenience: without the reported size there is nothing to compare.
+
+EC-P35: DRIVE CHANNEL CANNOT REACH THE CONTAINER (2026-08-15)
+  The connector cannot put bytes where python-docx must read them: it returns
+  payloads INLINE with no spill file, or the deployment blocks Google egress from
+  the container, or the connector is not connected at all.
+  This is NOT EC-P31. The file is UNDER DRIVE_CAP and the connector does not
+  refuse it, so size-based partitioning cannot see the condition at all —
+  measured on IIT_JAM_MATHEMATICS, bc.partition_by_transport returned auto:22 /
+  upload:0 for a corpus of which zero papers were fetchable.
+  Detection: the S5-0 CHANNEL PROBE. ONE paper, the smallest, before Task 1.
+  Resolution: route the WHOLE corpus to the upload lane at S5-1 and print the
+  bc.upload_batch_plan arithmetic before Task 1. NOT a hard stop. PYQCompress
+  does NOT help — the constraint is the channel, not the file size.
+  NEVER diagnose this per paper inside the acquisition loop: the condition is a
+  property of the DEPLOYMENT and is identical for every paper in the corpus.
+  NEVER diagnose it by listing a directory to see whether a spill file appeared.
+  Which directory a deployment spills to — or whether it spills at all — differs
+  between deployments of the SAME connector; measured 2026-08-15, one 40,488-byte
+  paper spilled to a file in one deployment and returned inline in another, and
+  the two spill directories were different directories. A probe that hardcodes a
+  path reports 'inline' on a working spill channel and sends an entirely
+  fetchable corpus to manual upload on every exam — a worse failure than the one
+  the probe was added to catch, because it is silent and permanent.
+
+EC-P36: INLINE CHANNEL EXCEEDS THE CONTEXT BUDGET (2026-08-15)
+  channel == 'inline' and the corpus is large. Each paper costs
+  bc.base64_cost_chars(fileSize) = ceil(bytes/3)*4 characters of context inbound,
+  and again to persist it, so the Drive lane is bounded by CONTEXT, not by
+  DRIVE_CAP. Measured: 22 papers / 986,230 bytes = 1,315,000 base64 characters
+  (~329k tokens inbound, ~658k with persistence).
+  Detection: the same S5-0 probe; the arithmetic is bc.base64_cost_chars summed
+  over the drive lane, compared against bc.INLINE_BUDGET_CHARS.
+  Resolution: bc.partition_by_transport(..., channel='inline') admits papers in
+  listing order until the budget would be exceeded and routes the remainder to
+  the upload lane, reporting them as deferred FOR CONTEXT, not for size.
+  Papers already counted are unaffected — the per-file save in S5-4 makes the
+  boundary safe — and _transport.channel recorded in count_progress.json
+  prevents a resumed session from re-deciding the lane mid-corpus.
+  Never restate the budget as a literal. INLINE_BUDGET_CHARS has one definition
+  in blueprint_core, exactly as DRIVE_CAP and CHAT_FILE_LIMIT do.
 ```
 
 ---
@@ -1703,4 +1764,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.2
+# END OF Framework_PYQCore v1.3
