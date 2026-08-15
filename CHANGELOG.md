@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026.08.15.1 — The Format Contract: figure vs text balance, decided by the exam's own history
+
+Reading a figure (V–I curve, ray diagram, potential well, phase diagram) is
+a separate skill from knowing the theory: a subtopic with perfect prose and
+zero figure practice is a gap wherever the exam asks figure-based questions.
+Approved owner proposal of 2026-08-15; derived ENTIRELY from evidence every
+bank already carries (the per-question figure flag + concept tags — no new
+field, no re-ingest, no grandfathering flag).
+
+Three owner rules: (1) BOTH formats attested → BOTH taught — HARD: at least
+one concept section pairing a rendered figure with a worked Example whose
+solution reads it; (2) frequency shapes EMPHASIS, never exclusion — each
+concept's lead Example follows its dominant format, the minority format
+keeps its guaranteed treatment, and ratios are never mirrored with counts
+(spread-not-count, applied to formats); (3) no evidence, no demand — a
+zero-figure slice never forces a figure.
+
+- `notes_core.py` v2.9 → **v2.10** — coverage_target_for gains format_mix
+  (unit-level figure/text counts) and format_by_concept (the per-tag
+  split). UNRESOLVED images and quarantined figure questions still count
+  (the student saw a figure; the contract reads the BANK). Self-test
+  180 → 186.
+- `notes_audit.py` v2.6 → **v2.7** — G-12 extended, NO new gate id (format
+  coverage IS coverage — the G-5/autopsy folding precedent): HARD
+  figure+Example pairing when figure evidence exists, detected purely from
+  block order (no model field, no builder change; the B8 mind map never
+  satisfies it); ADVISORY figure_concept_tags + figure_example_pairs for
+  §2A placement judgement. A target without format_mix skips the check —
+  additive, never retroactive. Self-test 124 → 130.
+- `Framework_NotesCreate.md` v2.6.2 → **v2.7.0** — §4 B3a gains FMT-1..3
+  (the three rules above, including the lead-format emphasis rule and the
+  100%-figure concept's one text Example as drift insurance).
+- `Framework_NotesAudit.md` v3.4.2 → **v3.5.0** — §5 G-12 format-contract
+  text, remediation via the standing §2A net-ADD licence (NA adds the
+  figure and the Example that reads it at the unit's next audit), §9 chat
+  line format disclosure.
+- `notes_sync_audit.py` — one self-test fixture anchor (companion pin).
+
+The document builder (notes_docx) is untouched — figures render through the
+existing F-4 rules; W-3 byte-identity and every other gate are unaffected.
+Rollout is the G-12 precedent: the rule applies at each unit's NEXT audit;
+delivered notes are untouched until then.
+
 ## 2026.08.14.3 — Integration hardening: adversarial review + 400-trial fuzz
 
 Owner asked for stronger verification than the line-by-line sweep. Three new

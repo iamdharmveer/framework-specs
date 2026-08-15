@@ -1,4 +1,25 @@
-# Framework_NotesCreate v2.6.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.7.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.7.0 — 2026-08-15 — THE FORMAT CONTRACT (figure vs text balance; owner
+#   decisions of the 2026-08-15 design session, approved proposal; pairs
+#   with Framework_NotesAudit v3.5.0 §5 G-12; notes_core >= v2.10,
+#   notes_audit >= v2.7). Reading a figure (V–I curve, ray diagram,
+#   potential well, phase diagram) is a SEPARATE skill from knowing the
+#   theory — a subtopic with perfect prose and zero figure practice is a
+#   gap wherever the exam asks figure-based questions. §4 B3a gains the
+#   FORMAT CONTRACT, derived entirely from evidence every bank already
+#   carries (the per-question figure flag + concept tags — no new field,
+#   no re-ingest): FMT-1 both formats attested -> both taught, with >= 1
+#   concept section PAIRING a rendered figure with an Example that reads
+#   it (HARD, G-12-enforced); FMT-2 frequency shapes EMPHASIS — the lead
+#   Example follows each concept's dominant format — never exclusion and
+#   never count-mirroring (spread-not-count, applied to formats); FMT-3 no
+#   evidence, no demand — a zero-figure slice never forces a figure. The
+#   old unit-level requires_figure ADVISORY is superseded by FMT-1's hard
+#   pairing where figure evidence exists (the advisory itself still rides
+#   in G-12 meta). Anatomy, colours, density, builder: all UNCHANGED —
+#   figures render through the existing F-4 rules. Rollout follows the
+#   G-12 precedent: applies at each unit's next audit; no grandfathering
+#   flag exists or is needed.
 # v2.6.2 — 2026-08-14 — ADVERSARIAL-REVIEW FIXES (independent fresh-eyes
 #   review + 400-trial property fuzz; pairs with notes_core v2.9,
 #   notes_audit v2.6, Framework_NotesAudit v3.4.2, Framework_NotesBlueprint
@@ -204,7 +225,9 @@
 #                           hand-rolls a paragraph, colour, border or line rule.
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
-#   notes_core.py >= v2.9 — fully-resolved filing + unresolved reporting +
+#   notes_core.py >= v2.10 — format_mix + format_by_concept in
+#                           coverage_target_for (§4 B3a's FORMAT CONTRACT,
+#                           v2.10); fully-resolved filing + unresolved reporting +
 #                           duplicate-name qualification (v2.9);
 #                           unit_order_from_registry (§4 B4a I-5's ONE
 #                           order-map builder, v2.8); plus
@@ -359,12 +382,46 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       an Example is justified only by an uncovered concept, scenario or
       type — never author a second Example of a scenario an existing one
       already teaches; N clones of one scenario satisfy any count while
-      teaching one thing. requires_figure in the target is ADVISORY:
-      prefer a figure-reading Example or concept figure where the PYQs
-      use figures. An empty bank slice returns the zero contract — the
-      TIER-3 "no examples where no evidence" rule is unchanged. NotesAudit
-      G-12 gates this same bank-derived contract on the shipped file, so
-      what NC authors to and what NA enforces cannot drift.
+      teaching one thing. An empty bank slice returns the zero contract —
+      the TIER-3 "no examples where no evidence" rule is unchanged.
+      NotesAudit G-12 gates this same bank-derived contract on the shipped
+      file, so what NC authors to and what NA enforces cannot drift.
+      THE FORMAT CONTRACT (v2.7.0 — owner decisions, 2026-08-15; reading a
+      figure is a SEPARATE skill from knowing the theory, and the exam's
+      own history decides where it is taught). The target carries
+      format_mix (the slice's figure/text question counts) and
+      format_by_concept (the same split per concept tag). Three rules:
+        FMT-1 BOTH ATTESTED -> BOTH TAUGHT (HARD). format_mix["figure"]
+              >= 1 means the unit's own PYQs used figures: author at least
+              ONE concept section that PAIRS a rendered figure (F-4 rules
+              apply in full) with a worked Example whose SOLUTION READS
+              the figure — slope, intercept, area, crossing, region — with
+              the distractor autopsy naming the classic misreadings. Text
+              practice is demanded by the existing type/spread rules as
+              ever. Seven perfect text Examples never substitute for the
+              figure skill — the same owner logic as types. G-12 enforces
+              the pairing mechanically (a concept block carrying a figure
+              content item AND >= 1 Example; the B8 mind map never
+              counts).
+        FMT-2 FREQUENCY SHAPES EMPHASIS, NEVER EXCLUSION. Per concept,
+              read format_by_concept: the LEAD Example — first, deepest —
+              follows the concept's DOMINANT format; the minority format
+              still gets its guaranteed treatment (its Example, or for a
+              figure-minority concept at least the Trap Box line naming
+              the known figure trick — misread slope, ignored axis scale).
+              NEVER mirror the ratio with counts: 7 text + 3 figure clones
+              add pages, not skill — spread-not-count applies to formats
+              exactly as it does to concepts. A 100%-figure concept leads
+              with the figure treatment and keeps one text Example as
+              cheap insurance (formats drift across years).
+        FMT-3 NO EVIDENCE, NO DEMAND. format_mix["figure"] == 0 never
+              forces a figure — unchanged discipline. An UNRESOLVED image
+              in the bank still counts as figure evidence (the student saw
+              a figure in the real exam); a quarantined figure question
+              still counts (the v3.3.1 rule — the contract reads the
+              BANK). Placement of the pairing among the figure-evidenced
+              concept tags (listed in G-12's meta) is SME judgement —
+              tags are free text and are never name-matched to sections.
   B4  KEY POINTS — exactly one box per concept, placed AFTER that concept's
       example stack, consolidating the concept.
   B4a INTEGRATION SECTIONS (v2.6.0 — where 2-3 subtopics meet in ONE
@@ -616,4 +673,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.6.2
+# END OF Framework_NotesCreate v2.7.0

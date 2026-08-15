@@ -1,5 +1,25 @@
 """
-notes_audit.py v2.6 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.7 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.7 — 2026-08-15 — G-12 FORMAT CONTRACT (figure vs text balance; owner
+    decisions of the 2026-08-15 design session; pairs with notes_core
+    v2.10, Framework_NotesAudit v3.5.0, Framework_NotesCreate v2.7.0).
+    gate_coverage extended, NO new gate id (format coverage IS coverage —
+    the same reasoning that folded the autopsy rules into G-5):
+      HARD — when the target's format_mix (v2.10) attests >= 1 figure-based
+      PYQ in the unit's slice, at least one concept section must PAIR a
+      rendered figure with a worked Example. Detected purely from block
+      order (a concept block with a figure content item AND >= 1 Example);
+      the B8 mind map is a different block type and never satisfies it.
+      ADVISORY — figure_concept_tags: the concept tags carrying figure
+      evidence (format_by_concept), for §2A judgement of WHERE the pairing
+      belongs; tags stay free text, never name-matched to sections. The
+      lead-format emphasis rule (NC §4 B3a) is authoring judgement, not a
+      regex. meta gains figure_example_pairs. A target WITHOUT format_mix
+      (hand-built or pre-v2.10) skips the format check — additive, never
+      retroactive; rollout follows the G-12 precedent (applies at each
+      unit's next audit; NA adds the missing figure Example itself under
+      the §2A net-ADD licence on the G-12 hard finding).
 
 v2.6 — 2026-08-14 — G-13 NAME-NORM PARITY + UNRESOLVED ADVISORY (independent
     adversarial review; pairs with notes_core v2.9, Framework_NotesAudit
@@ -860,18 +880,30 @@ def gate_orphan_terms(model, allowed=(), syllabus_terms=None):
 
 
 def gate_coverage(model, target):
-    """G-12 — COVERAGE (v2.4). target comes from
+    """G-12 — COVERAGE (v2.4; format contract v2.7). target comes from
     notes_core.coverage_target_for on the unit's bank slice.
 
     HARD (findings, blocking): every required_type appears in >= 1 Example;
     Examples span >= min_concepts_with_examples DISTINCT concept sections.
     An Example's concept is the nearest PRECEDING concept block — derived
     from block order like every number in the document, so the mapping can
-    never go stale and no new model field is needed.
+    never go stale and no new model field is needed. v2.7 FORMAT CONTRACT:
+    when the target carries format_mix with figure >= 1 (the unit's own
+    PYQs used figures), at least ONE concept section must PAIR a rendered
+    figure with a worked Example — the figure-reading skill demanded where
+    the exam attests it, detected purely from block order (a concept block
+    carrying a figure content item AND >= 1 Example). The mind map (B8) is
+    a different block type and never satisfies it. A target WITHOUT the
+    format_mix key (a hand-built or pre-v2.10 target) skips the format
+    check entirely — additive, never retroactive on old callers.
 
     ADVISORY (meta only, never blocks): requires_figure with no concept
     figure in the model; duplicate_suspects — concept sections carrying more
-    than one Example of the same qtype. Scenario diversity within a concept
+    than one Example of the same qtype; figure_concept_tags (v2.7) — the
+    concept tags whose own questions carry figure evidence
+    (format_by_concept), listed for §2A judgement of WHERE the pairing
+    belongs (tags are free text and never name-matched to sections — the
+    established G-12 discipline). Scenario diversity within a concept
     is NA's judgement (§2A), not a regex's.
 
     With target=None the gate reports DORMANT (the G-7a discipline): a
@@ -886,6 +918,7 @@ def gate_coverage(model, target):
     cur_concept, concept_names = None, {}
     concepts_hit, types_present, dup_counter = set(), set(), {}
     has_figure = False
+    concept_figs = set()
     for i, b in enumerate(model.get("blocks", [])):
         t = b.get("type")
         if t == "concept":
@@ -893,6 +926,7 @@ def gate_coverage(model, target):
             concept_names[i] = b.get("name", f"block {i}")
             if any(c.get("k") == "figure" for c in b.get("content", [])):
                 has_figure = True
+                concept_figs.add(i)
         elif t == "example":
             qt = (b.get("qtype") or "").upper()
             types_present.add(qt)
@@ -911,6 +945,17 @@ def gate_coverage(model, target):
             f"Examples span {len(concepts_hit)} distinct concept section(s) "
             f"but the unit's bank evidence requires {need} — concept SPREAD, "
             f"not example count, is the contract (section 4 B3a)")
+    # v2.7 FORMAT CONTRACT — hard only when the target carries the v2.10
+    # format_mix AND the slice attests figure evidence. Pairing = a concept
+    # section with BOTH a rendered figure and >= 1 Example.
+    fmt = target.get("format_mix")
+    paired = concepts_hit & concept_figs
+    if fmt and int(fmt.get("figure", 0)) >= 1 and not paired:
+        findings.append(
+            f"the unit's own bank attests {fmt['figure']} figure-based "
+            f"question(s) but no concept section pairs a rendered figure "
+            f"with a worked Example — figure-reading is a separate skill "
+            f"and the exam tests it here (section 4 B3a format contract)")
     dup_suspects = sorted(
         f"{concept_names.get(ci, ci)} carries {n} Examples of one type"
         for (ci, _qt), n in dup_counter.items() if n > 1)
@@ -921,7 +966,11 @@ def gate_coverage(model, target):
             "types_required": list(target.get("required_types", [])),
             "duplicate_suspects": dup_suspects,
             "figure_advisory": bool(target.get("requires_figure"))
-            and not has_figure}
+            and not has_figure,
+            "figure_example_pairs": len(paired),
+            "figure_concept_tags": sorted(
+                t for t, d in (target.get("format_by_concept") or {}).items()
+                if d.get("figure", 0) >= 1)}
     return (not findings, findings, meta)
 
 
@@ -1739,6 +1788,55 @@ def self_test():
           "(no examples where no evidence)",
           gate_coverage({"blocks": [{"type": "title", "name": "U"}]},
                         zero)[0])
+
+    # ---- v2.7: the format contract (figure vs text) ----------------------
+    def fmt_model(fig_in_concept, example_in_that_concept):
+        """One concept with an Example; optionally a figure in the SAME or
+        a SEPARATE (example-less) concept."""
+        blocks = [{"type": "title", "name": "U"},
+                  {"type": "concept", "name": "Main", "content":
+                   ([{"k": "figure", "path": "vi.png"}] if fig_in_concept
+                    and example_in_that_concept else
+                    [{"k": "bullet", "runs": T("core fact")}])},
+                  {"type": "example", "qtype": "MCQ", "stem": T("s"),
+                   "options": [T("a"), T("b"), T("c"), T("d")],
+                   "answer": "2"}]
+        if fig_in_concept and not example_in_that_concept:
+            blocks.append({"type": "concept", "name": "Figure Only",
+                           "content": [{"k": "figure", "path": "vi.png"}]})
+        return {"schema": notes_docx.SCHEMA, "exam_code": "EX",
+                "unit": {"name": "U", "tier": "TIER-2", "seq_in_topic": 1},
+                "blocks": blocks}
+    tgt_fig = {"required_types": ["MCQ"], "min_concepts_with_examples": 1,
+               "requires_figure": True, "pyq_count": 3,
+               "distinct_concept_tags": 1,
+               "format_mix": {"figure": 1, "text": 2},
+               "format_by_concept": {"ohm's law": {"figure": 1, "text": 2}}}
+    ok_fa, f_fa, m_fa = gate_coverage(fmt_model(True, True), tgt_fig)
+    check("format: figure attested + figure PAIRED with an Example -> pass",
+          ok_fa and m_fa["figure_example_pairs"] == 1
+          and m_fa["figure_concept_tags"] == ["ohm's law"])
+    ok_fb, f_fb, _ = gate_coverage(fmt_model(False, False), tgt_fig)
+    check("format: figure attested + NO figure anywhere -> HARD finding",
+          not ok_fb and any("figure-reading" in x for x in f_fb))
+    ok_fc, f_fc, _ = gate_coverage(fmt_model(True, False), tgt_fig)
+    check("format: a figure in an Example-less concept does NOT satisfy "
+          "the pairing", not ok_fc)
+    tgt_txt = dict(tgt_fig, format_mix={"figure": 0, "text": 3},
+                   requires_figure=False, format_by_concept={})
+    check("format: zero-figure slice never demands a figure",
+          gate_coverage(fmt_model(False, False), tgt_txt)[0])
+    tgt_legacy = {"required_types": ["MCQ"],
+                  "min_concepts_with_examples": 1,
+                  "requires_figure": True, "pyq_count": 3,
+                  "distinct_concept_tags": 1}
+    check("format: a pre-v2.10 target without format_mix skips the format "
+          "check (additive, never retroactive)",
+          gate_coverage(fmt_model(False, False), tgt_legacy)[0])
+    mm_model = fmt_model(False, False)
+    mm_model["blocks"].append({"type": "mindmap", "image": "map.png"})
+    check("format: the B8 mind map image never satisfies the pairing",
+          not gate_coverage(mm_model, tgt_fig)[0])
 
     # ---- v2.5: G-13 integration -----------------------------------------
     def integ_model(combines=None, integ_examples=1, core_after=False):

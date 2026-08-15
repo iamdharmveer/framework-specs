@@ -1,4 +1,23 @@
-# Framework_NotesAudit v3.4.2 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.5.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.5.0 — 2026-08-15 — G-12 FORMAT CONTRACT (figure vs text balance; owner
+#   decisions of the 2026-08-15 design session, approved proposal; pairs
+#   with Framework_NotesCreate v2.7.0 §4 B3a; notes_core >= v2.10,
+#   notes_audit >= v2.7). §5 G-12 extended — deliberately NO new gate id
+#   (format coverage IS coverage; the same reasoning that folded the
+#   distractor-autopsy rules into G-5, keeping notes_audit.GATES and this
+#   spec in one-to-one agreement). HARD: figure evidence in the unit's
+#   slice (format_mix, notes_core v2.10) -> at least one concept section
+#   pairs a rendered figure with a worked Example, detected purely from
+#   block order — no new model field, no builder change, W-3 and §0B P-4
+#   untouched; the B8 mind map never satisfies it. ADVISORY:
+#   figure_concept_tags (where the evidence sits, for §2A placement
+#   judgement) and figure_example_pairs. Lead-format emphasis (FMT-2) is
+#   §2A authoring judgement, never a block. Quarantined and
+#   UNRESOLVED-image figure questions still count (v3.3.1 discipline).
+#   Remediation: the standing §2A net-ADD licence on a G-12 hard finding —
+#   NA adds the figure and the Example that reads it. Rollout follows the
+#   G-12 precedent: applies at each unit's next audit; a target without
+#   format_mix skips the check (additive, never retroactive).
 # v3.4.2 — 2026-08-14 — ADVERSARIAL-REVIEW FIXES (independent fresh-eyes
 #   review + 400-trial property fuzz of the integration feature; pairs with
 #   notes_core v2.9, notes_audit v2.6, Framework_NotesCreate v2.6.2,
@@ -197,7 +216,10 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.9 — fully-resolved filing, unresolved reporting,
+#   notes_core.py  >= v2.10 — format_mix + format_by_concept in
+#                            coverage_target_for (§5 G-12's format
+#                            contract, v2.10); plus (v2.9)
+#                            fully-resolved filing, unresolved reporting,
 #                            display_norm (G-13's name matching), duplicate-
 #                            name qualification (all v2.9); plus
 #                            audit_questions_for (§2's certification set) +
@@ -219,7 +241,9 @@
 #                            guarantees; parse takes exam_code/tier (W-4). v1.3
 #                            adds the why_wrong/objective fields (§4 B3) that
 #                            parse recovers and the round trip preserves
-#   notes_audit.py >= v2.6 — display_norm Combines matching + unresolved
+#   notes_audit.py >= v2.7 — G-12 format-contract enforcement (the
+#                            figure+Example pairing, v2.7); plus (v2.6)
+#                            display_norm Combines matching + unresolved
 #                            advisory in gate_integration (v2.6); plus
 #                            SOLVABLE_KEY_CORRECTED, classify_key_conflict,
 #                            record_key_correction, quarantine, gate_line_rules,
@@ -648,8 +672,31 @@ pass.
       An Example's concept is the nearest preceding concept section,
       derived from block order exactly like the outline numbers — nothing
       new is stored or rendered, so W-3 and §0B P-4 are untouched.
+      THE FORMAT CONTRACT (v3.5.0, HARD; NC §4 B3a FMT-1..3): when the
+      target's format_mix attests >= 1 figure-based question in the slice,
+      at least ONE concept section must PAIR a rendered figure with a
+      worked Example — figure-reading is a separate skill and the exam
+      tests it here. The pairing is detected purely from block order (a
+      concept block carrying a figure content item AND >= 1 Example); the
+      B8 mind map is a different block type and NEVER satisfies it. WHERE
+      the pairing belongs among the figure-evidenced concepts is §2A
+      judgement, informed by the advisory figure_concept_tags below — tags
+      are free text and are never name-matched to sections (the standing
+      G-12 discipline). The lead-format emphasis rule (FMT-2) is authoring
+      judgement, not a regex — NA sharpens it under §2A, never blocks on
+      it. A quarantined figure question still counts toward format_mix
+      (the v3.3.1 rule: the contract reads the BANK), and an UNRESOLVED
+      image still counts (the student saw a figure in the real exam).
+      Remediation of a format finding is the §2A net-ADD licence exactly
+      as for any G-12 hard finding: NA adds the figure + the Example that
+      reads it. Rollout is the G-12 precedent — the rule applies at each
+      unit's NEXT audit; no grandfathering flag exists or is needed, and
+      a pre-v2.10 hand-built target without format_mix simply skips the
+      format check (additive, never retroactive).
       ADVISORY, in meta, never blocking: figure_advisory (the slice carries
-      stem figures but the model has no concept figure) and
+      stem figures but the model has no concept figure — subsumed by the
+      hard pairing wherever figure evidence exists, kept for meta
+      consumers), figure_concept_tags + figure_example_pairs (v3.5.0), and
       duplicate_suspects (a concept section with more than one Example of
       one type). The SEMANTIC half of the duplicate question — do two
       Examples teach the same scenario? — cannot be a regex and is §2A's
@@ -806,7 +853,9 @@ key-correction count with the JUDGEMENT-tier ones named individually (section
 3A), the quarantine list with reasons (section 4 L-4), any --accept-modified
 warning (section 0B P-3), the FIGURE_PENDING count, any DORMANT gate
 (section 5 G-7a; a dormant G-12 is a DEFECT, section 5 G-12), and the
-section 5 G-12 coverage line: concepts covered vs required, any
+section 5 G-12 coverage line: concepts covered vs required, the format
+line (v3.5.0 — figure evidence count, figure+Example pairs present, and
+any format finding remediated, named), any
 duplicate_suspects, the figure advisory if raised, and every G-12-driven
 Example replacement or licensed net ADD (section 2A) named individually —
 plus (v3.4.0) the section 5 G-13 integration line: fusions taught vs
@@ -823,4 +872,4 @@ the next NotesBlueprint run") and every ORPHANED-FILING deferral (§2 —
 
 ---
 
-# END OF Framework_NotesAudit v3.4.2
+# END OF Framework_NotesAudit v3.5.0

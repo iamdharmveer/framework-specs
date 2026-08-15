@@ -1,5 +1,32 @@
 """
-notes_core.py v2.9 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.10 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.10 — 2026-08-15 — THE FORMAT CONTRACT (figure vs text balance; owner
+    decisions of the 2026-08-15 design session, approved proposal; pairs
+    with Framework_NotesCreate v2.7.0 §4 B3a and Framework_NotesAudit
+    v3.5.0 §5 G-12; notes_audit >= v2.7). Reading a figure is a separate
+    skill from knowing the theory, and the exam's own history decides where
+    it must be taught. coverage_target_for gains two ADDITIVE fields,
+    derived entirely from data every bank already carries (the figure flag
+    + concept_tags — no new field, no re-ingest, no grandfathering needed;
+    the G-12 rollout precedent):
+      format_mix        — {"figure": n, "text": n} over the unit's slice.
+      format_by_concept — the same split per normalized concept_tag; NC
+                          picks each concept's LEAD Example format from it
+                          (frequency shapes EMPHASIS, never exclusion) and
+                          G-12 lists figure-evidenced tags advisory.
+    The three owner rules the fields encode: (1) BOTH formats attested ->
+    BOTH taught — the hard downstream demand is deliberately minimal, >= 1
+    concept section pairing a rendered figure with an Example whenever
+    format_mix["figure"] >= 1; (2) frequency shapes EMPHASIS, never
+    exclusion, and never count-mirroring (the spread-not-count decision
+    applied to formats); (3) no evidence, no demand — a zero-figure slice
+    never demands a figure. An UNRESOLVED image still counts as figure
+    evidence (the student saw a figure in the real exam); a quarantined
+    figure question still counts (the v3.3.1 discipline — the contract
+    reads the BANK). Callers passing hand-built targets without the new
+    keys are unaffected: the gate skips the format check when format_mix
+    is absent.
 
 v2.9 — 2026-08-14 — FULLY-RESOLVED FILING + ONE NAME NORM (independent
     adversarial review + 400-trial property fuzz of the integration feature;
@@ -1241,19 +1268,44 @@ def coverage_target_for(bank, subject, topic, subtopic, allowed_types=()):
     if not qs:
         return {"required_types": [], "min_concepts_with_examples": 0,
                 "requires_figure": False, "pyq_count": 0,
-                "distinct_concept_tags": 0}
+                "distinct_concept_tags": 0,
+                "format_mix": {"figure": 0, "text": 0},
+                "format_by_concept": {}}
     types = {str(q.get("type", "")).upper() for q in qs}
     types &= set(CANONICAL_TYPES)
     if allowed_types:
         types &= {str(t).upper() for t in allowed_types}
     tags = {" ".join(str(t).lower().split())
             for q in qs for t in (q.get("concept_tags") or ()) if str(t).strip()}
+    # v2.10 — THE FORMAT CONTRACT (owner decisions, 2026-08-15): the exam's
+    # own history decides the figure/text balance. format_mix counts the
+    # slice's figure-flagged vs text questions (bool(stem_figures), recorded
+    # since the bank existed — an UNRESOLVED image still counts: the student
+    # saw a figure in the real exam). format_by_concept is the same split per
+    # normalized concept_tag — NC §4 B3a reads it to pick each concept's LEAD
+    # Example format (frequency shapes EMPHASIS, never exclusion) and G-12
+    # lists its figure-evidenced tags advisory. The HARD demand downstream is
+    # deliberately minimal: format_mix["figure"] >= 1 -> the notes must pair
+    # >= 1 rendered figure with >= 1 Example in one concept section. No
+    # evidence, no demand — a zero-figure slice never demands a figure.
+    fmt = {"figure": sum(1 for q in qs if q.get("figure")),
+           "text": sum(1 for q in qs if not q.get("figure"))}
+    by_concept = {}
+    for q in qs:
+        for t in (q.get("concept_tags") or ()):
+            t = " ".join(str(t).lower().split())
+            if not t:
+                continue
+            d = by_concept.setdefault(t, {"figure": 0, "text": 0})
+            d["figure" if q.get("figure") else "text"] += 1
     return {"required_types": sorted(types),
             "min_concepts_with_examples": min(max(1, len(tags)),
                                               COVERAGE_CONCEPT_CEILING),
             "requires_figure": any(q.get("figure") for q in qs),
             "pyq_count": len(qs),
-            "distinct_concept_tags": len(tags)}
+            "distinct_concept_tags": len(tags),
+            "format_mix": fmt,
+            "format_by_concept": by_concept}
 
 
 def display_norm(s):
@@ -1693,7 +1745,46 @@ def self_test():
           coverage_target_for(b, "Physics", "Optics", "Nothing")
           == {"required_types": [], "min_concepts_with_examples": 0,
               "requires_figure": False, "pyq_count": 0,
-              "distinct_concept_tags": 0})
+              "distinct_concept_tags": 0,
+              "format_mix": {"figure": 0, "text": 0},
+              "format_by_concept": {}})
+    # ---- v2.10: the format contract --------------------------------------
+    tf = coverage_target_for(b, "Physics", "Optics", "Polarization")
+    check("format: unit mix counts figure vs text from the slice",
+          tf["format_mix"] == {"figure": 1, "text": 1})
+    bf = bank_new("EX")
+    bank_add_paper(bf, "kf", "2026-02-15", 2026, "..f..docx", 4)
+    for i, (tags, figs) in enumerate([(["Ohm's Law"], ["v_i.png"]),
+                                      (["Ohm's Law"], []),
+                                      (["ohm's  law"], []),
+                                      (["Resonance"], [])]):
+        bank_add_question(bf, dict(bank_id=f"F{i}", paper_key="kf",
+            exam_date="2026-02-15", exam_year=2026, q_no=i + 1, type="MCQ",
+            subject="S", topic="T", subtopic="ST", stem="s",
+            correct_answer="1", concept_tags=tags, stem_figures=figs))
+    tfc = coverage_target_for(bf, "S", "T", "ST")
+    check("format: per-concept split with tag normalization (frequency "
+          "shapes emphasis — 1 figure vs 2 text on one concept)",
+          tfc["format_by_concept"] == {"ohm's law": {"figure": 1, "text": 2},
+                                       "resonance": {"figure": 0, "text": 1}}
+          and tfc["format_mix"] == {"figure": 1, "text": 3})
+    check("format: UNRESOLVED image still counts as figure evidence",
+          coverage_target_for(
+              (lambda bb: (bank_add_question(bb, dict(bank_id="U1",
+                  paper_key="kf", exam_date="2026-02-15", exam_year=2026,
+                  q_no=9, type="MCQ", subject="S", topic="T", subtopic="SU",
+                  stem="s", correct_answer="1",
+                  stem_figures=["UNRESOLVED:rId9"])), bb)[1])(bf),
+              "S", "T", "SU")["format_mix"] == {"figure": 1, "text": 0})
+    check("format: deterministic",
+          tfc == coverage_target_for(bf, "S", "T", "ST"))
+    check("format: zero-figure slice demands nothing (no evidence, no "
+          "demand)",
+          coverage_target_for(bf, "S", "T", "SX")["format_mix"]
+          == {"figure": 0, "text": 0})
+    _bfp = tempfile.mktemp(suffix=".json"); bank_save(bf, _bfp)
+    check("format: survives a bank save/load round trip",
+          coverage_target_for(bank_load(_bfp), "S", "T", "ST") == tfc)
     bt = bank_new("EX")
     bank_add_paper(bt, "k1", "2026-02-15", 2026, "..x..docx", 1)
     for i, tags in enumerate([["Michaelis-Menten"], ["michaelis-menten "],
