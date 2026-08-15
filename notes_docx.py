@@ -1,5 +1,42 @@
 """
-notes_docx.py v1.3 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.5 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.5 — 2026-08-15 — THE SPACING RHYTHM (owner refinement of v1.4, same
+    release wave; Framework_NotesCreate v2.7.2). v1.4 stopped tables from
+    touching; the owner's review of the rebuilt document showed the rhythm
+    still cramped — tables hugging the bullet text above them, and section
+    bars starting with no visible break. All per-case spacing emission is
+    removed from the block loop; ONE deterministic post-assembly pass
+    (_apply_spacing_rhythm) now inserts every vertical gap, sized by
+    context: SPACER_HEADING_PT (9) before every L1/L2 bar so a section
+    visibly begins, SPACER_TABLE_PT (6) between any two tables, and
+    SPACER_PARA_PT (3) between running text and a table in either
+    direction. Heading bars are detected by their L1/L2 shading — the
+    slate data-table header and the box colours can never be mistaken for
+    one. Deterministic; parse() unchanged (spacers are empty paragraphs,
+    already skipped); the W-3 build->parse->build byte-identical round
+    trip is preserved and self-tested with the rhythm in place.
+
+v1.4 — 2026-08-15 — UNIVERSAL SPACING INVARIANT
+    (GAP-2026-08-15-ADJACENT-TABLES; field report from the first live NC
+    run — Framework_NotesCreate v2.7.1). Word renders two directly adjacent
+    tables MERGED, with zero visual gap — and nearly every element of these
+    notes IS a table: the title bar, every heading bar, every data table,
+    every coloured box. The v1.3 spacer rule covered only the box-after-box
+    case, so a data table touching a KEY POINTS box, a KEY POINTS box
+    touching the next heading bar, and a heading bar touching a table all
+    rendered fused (exactly the operator's screenshots). New post-assembly
+    pass _separate_adjacent_tables: after the whole body is emitted, the
+    standard spacer paragraph is inserted between EVERY remaining pair of
+    adjacent w:tbl elements — the invariant "no two tables are ever
+    adjacent" now holds for every block combination, current and future, by
+    construction, instead of per-case rules that miss cases. Deterministic;
+    the parser already skips empty paragraphs, so parse() is unchanged and
+    the W-3 build->parse->build byte-identical round trip is preserved.
+    Content model, validation, colours, numbering: all UNCHANGED — a
+    pre-v1.4 draft parses identically and simply gains the spacing on its
+    next rebuild (NA §0B P-4b treats the byte difference as the documented
+    builder-upgrade diagnostic, never a stop).
 
 v1.3 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE (Point 1;
     pairs with Framework_NotesCreate v2.4.0 §4 B3 and Framework_NotesAudit
@@ -651,13 +688,83 @@ def _add_picture(paragraph, image_path, index):
     return run
 
 
-def _spacer(doc):
-    """§4: adjacent boxes are ALWAYS separated so consecutive box tables never
-    merge visually. Emitted by the engine, never by the caller."""
+def _spacer(doc, size=6):
+    """§4: a sized empty paragraph — the only vertical-gap mechanism, since
+    tables cannot carry their own spacing. Emitted by the engine (the v1.5
+    _apply_spacing_rhythm pass), never by the caller."""
     p = doc.add_paragraph()
     _set_line_rule(p)
-    _style_run(p.add_run(""), size=6)
+    _style_run(p.add_run(""), size=size)
     return p
+
+
+# v1.5 — the three gap sizes of the SPACING RHYTHM (points). Single
+# authority; every vertical gap in a built document derives from these.
+SPACER_HEADING_PT = 9      # before every L1/L2 bar: a section visibly begins
+SPACER_TABLE_PT = 6        # between two tables (boxes, data tables)
+SPACER_PARA_PT = 3         # between running text and any table, either side
+
+
+def _is_heading_bar(tbl_el):
+    """A title/heading bar is a table whose first cell is shaded in the L1
+    navy or L2 teal (§6A). Data-table header rows use the slate
+    table_header fill and coloured boxes use BOX_COLORS, so neither can
+    ever be mistaken for a bar."""
+    shd = tbl_el.find(".//" + qn("w:shd"))
+    if shd is None:
+        return False
+    fill = (shd.get(qn("w:fill")) or "").upper()
+    return fill in (notes_core.LEVEL_COLORS["L1"].upper(),
+                    notes_core.LEVEL_COLORS["L2"].upper())
+
+
+def _has_content(p_el):
+    """A paragraph counts as content if it carries text, math or a drawing —
+    an empty spacer paragraph does not."""
+    for t in p_el.findall(".//" + qn("w:t")):
+        if (t.text or "").strip():
+            return True
+    return bool(p_el.findall(".//" + qn("m:oMath"))
+                or p_el.findall(".//" + qn("w:drawing")))
+
+
+def _apply_spacing_rhythm(doc):
+    """v1.4/v1.5 — THE SPACING RHYTHM (GAP-2026-08-15-ADJACENT-TABLES and
+    its refinement). Word renders two adjacent tables MERGED, and text
+    hugging a table reads cramped — nearly everything in these notes IS a
+    table (title bar, heading bars, data tables, every coloured box). This
+    pass runs once, after the whole body is assembled, and inserts a spacer
+    paragraph sized by context between the ORIGINAL neighbours:
+      - before every L1/L2 heading bar . SPACER_HEADING_PT (a section break
+        must be visible; never before the very first element)
+      - between two tables ............ SPACER_TABLE_PT
+      - between content text and a table (either direction)
+        ................................ SPACER_PARA_PT
+    Because every gap is inserted here — no per-case emission anywhere in
+    the block loop — the rhythm holds for every block combination, current
+    and future, by construction. Deterministic (same body -> same
+    spacers), and the parser skips empty paragraphs, so the W-3
+    build->parse->build byte-identical round trip is preserved."""
+    body = doc.element.body
+    originals = [el for el in body if el.tag in (qn("w:p"), qn("w:tbl"))]
+    prev = None
+    for el in originals:
+        gap = None
+        if el.tag == qn("w:tbl") and prev is not None:
+            if _is_heading_bar(el):
+                gap = SPACER_HEADING_PT
+            elif prev.tag == qn("w:tbl"):
+                gap = SPACER_TABLE_PT
+            elif _has_content(prev):
+                gap = SPACER_PARA_PT
+        elif (el.tag == qn("w:p") and prev is not None
+              and prev.tag == qn("w:tbl") and _has_content(el)):
+            gap = SPACER_PARA_PT
+        if gap:
+            p = _spacer(doc, size=gap)    # appended at the end of the body
+            body.remove(p._p)
+            el.addprevious(p._p)          # moved between the neighbours
+        prev = el
 
 
 def _emit_question(doc, block, title, *, with_explanation):
@@ -735,13 +842,11 @@ def build(model, out_path, *, strict=True):
     normal.font.name = BODY_FONT
     normal.font.size = Pt(BODY_PT)
 
-    prev_was_box = False
     figures = []
     for i, b in enumerate(model["blocks"]):
         t = b["type"]
-        is_box = t in ("example", "recall", "key_points", "trap")
-        if is_box and prev_was_box:
-            _spacer(doc)
+        # v1.5: NO per-case spacing here — every vertical gap is inserted by
+        # the single _apply_spacing_rhythm pass after assembly.
         if t == "title":
             # The name is rendered VERBATIM, not upper-cased. Framework_
             # NotesBlueprint §1A makes the manifest's display_name the exact
@@ -822,8 +927,9 @@ def build(model, out_path, *, strict=True):
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
             _add_picture(p, b["image"], len(figures) + 1)
             figures.append(b["image"])
-        prev_was_box = is_box
-
+    # v1.5: THE SPACING RHYTHM — every vertical gap in the document, in one
+    # deterministic pass (GAP-2026-08-15-ADJACENT-TABLES + refinement).
+    _apply_spacing_rhythm(doc)
     doc.save(out_path)
     return {"path": out_path, "blocks": len(model["blocks"]),
             "outline": outline, "figures": figures,
@@ -1540,6 +1646,78 @@ def self_test():
     kinds = [c.tag for c in d3.element.body if c.tag in (qn("w:p"), qn("w:tbl"))]
     check("§4: adjacent boxes are separated by a spacer paragraph",
           qn("w:p") in kinds)
+
+    # ---- v1.4: the UNIVERSAL spacing invariant ---------------------------
+    # The exact field-reported collisions: title bar -> heading bar, data
+    # table -> box, box -> heading bar, heading bar -> box. NO two w:tbl
+    # elements may EVER be adjacent in the built body.
+    collide = {"schema": SCHEMA, "exam_code": "EX",
+               "unit": {"name": "U", "tier": "TIER-2", "seq_in_topic": 1},
+               "blocks": [
+                   {"type": "title", "name": "U"},
+                   {"type": "concept", "name": "C1", "content": [
+                       {"k": "bullet", "runs": T("x")},
+                       {"k": "table", "headers": [T("A"), T("B")],
+                        "rows": [[T("1"), T("2")]]}]},
+                   {"type": "example", "qtype": "MCQ", "stem": T("s"),
+                    "options": [T("a"), T("b"), T("c"), T("d")],
+                    "answer": "2", "explanation": [T("e")],
+                    "why_wrong": [T("w1"), T("w2"), T("w3")],
+                    "objective": T("o")},
+                   {"type": "key_points", "bullets": [T("k")]},
+                   {"type": "concept", "name": "C2", "content": [
+                       {"k": "bullet", "runs": T("y")}]},
+                   {"type": "key_points", "bullets": [T("k2")]},
+                   {"type": "trap", "bullets": [T("t")]},
+                   {"type": "rapid",
+                    "formulae": [[T("Situation"), T("Form")], [T("f"), T("g")]],
+                    "associations": [[T("Trigger"), T("Move")],
+                                     [T("h"), T("i")]]},
+                   {"type": "recall", "qtype": "MCQ", "stem": T("r"),
+                    "options": [T("a"), T("b"), T("c"), T("d")],
+                    "answer": "1"}]}
+    out4 = tempfile.mktemp(suffix=".docx")
+    build(collide, out4)
+    d4 = Document(out4)
+    tags4 = [c.tag for c in d4.element.body
+             if c.tag in (qn("w:p"), qn("w:tbl"))]
+    adjacent = any(a == b == qn("w:tbl")
+                   for a, b in zip(tags4, tags4[1:]))
+    check("v1.4: NO two tables are ever adjacent anywhere in the body "
+          "(GAP-2026-08-15-ADJACENT-TABLES)", not adjacent)
+    # and the invariant survives the round trip byte-identically (W-3)
+    m4 = parse(out4, media_dir=tempfile.mkdtemp(), exam_code="EX",
+               tier="TIER-2")
+    out5 = tempfile.mktemp(suffix=".docx")
+    build(m4, out5)
+    check("v1.4: spacing invariant round-trips byte-identically (W-3)",
+          document_xml(out4) == document_xml(out5))
+    # v1.5: the RHYTHM — sized gaps by context. Inspect the built body:
+    # every L2 bar gets the 9pt pre-gap; text -> table gets the 3pt gap.
+    d4b = Document(out4)
+    els = [c for c in d4b.element.body if c.tag in (qn("w:p"), qn("w:tbl"))]
+    def _spacer_pt(el):
+        if el.tag != qn("w:p") or _has_content(el):
+            return None
+        sz = el.find(".//" + qn("w:sz"))
+        return int(sz.get(qn("w:val"))) // 2 if sz is not None else None
+    pre_heading, pre_table_after_text = [], []
+    for i, el in enumerate(els):
+        if el.tag == qn("w:tbl") and _is_heading_bar(el) and i > 0:
+            pre_heading.append(_spacer_pt(els[i - 1]))
+        if (el.tag == qn("w:tbl") and not _is_heading_bar(el) and i > 0
+                and els[i - 1].tag == qn("w:p")
+                and _has_content(els[i - 1])):
+            pre_table_after_text.append("MISSING")
+    check("v1.5: every non-first heading bar carries the 9pt section gap",
+          pre_heading and all(p == SPACER_HEADING_PT for p in pre_heading))
+    check("v1.5: no table ever directly follows content text (the 3pt gap "
+          "is always inserted)", not pre_table_after_text)
+    check("v1.5: heading-bar detection never mistakes a data-table header "
+          "or a box",
+          _is_heading_bar(els[0])            # the title bar
+          and not any(_is_heading_bar(e) for e in els
+                      if e.tag == qn("w:tbl") and not _is_heading_bar(e)))
 
     # ---- strict flag ------------------------------------------------------
     try:

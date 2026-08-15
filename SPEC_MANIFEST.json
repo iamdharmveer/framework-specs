@@ -57,11 +57,11 @@
       "version_header": "# Framework_NotesBlueprint v3.1.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)"
     },
     "Framework_NotesCreate.md": {
-      "end_sentinel": "# END OF Framework_NotesCreate v2.7.0",
-      "lines": 676,
-      "sha256": "e1c20de3238c016217f449c86f8e4618c7be3dcaa528fb814857b629e792f07d",
-      "size_bytes": 46553,
-      "version_header": "# Framework_NotesCreate v2.7.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
+      "end_sentinel": "# END OF Framework_NotesCreate v2.7.2",
+      "lines": 716,
+      "sha256": "c99293581032298de2a89fa5afa1515ff60aa3fc4a592c74445c2a8ea6f6a723",
+      "size_bytes": 49364,
+      "version_header": "# Framework_NotesCreate v2.7.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)"
     },
     "Framework_NotesDeliver.md": {
       "end_sentinel": "# END OF Framework_NotesDeliver v1.2.0",
@@ -359,9 +359,9 @@
     },
     "notes_docx.py": {
       "end_sentinel": "    print(\"notes_docx.py — shared Notes document builder. Run with --self-test.\")",
-      "lines": 1569,
-      "sha256": "c64cc1390ccd43c2bb6f5ecdf9498d209883db9848734034e74c80677e2af48b",
-      "size_bytes": 73172,
+      "lines": 1747,
+      "sha256": "2d31f4366f41ca21ca9e95be237341a759caea9f57b631e38d5da6be425a38c5",
+      "size_bytes": 83080,
       "version_header": "\"\"\""
     },
     "notes_sync_audit.py": {

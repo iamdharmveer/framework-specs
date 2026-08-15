@@ -1,5 +1,59 @@
 # Changelog
 
+## 2026.08.15.3 — The spacing rhythm (owner refinement, supersedes 2026.08.15.2 before deployment)
+
+The owner reviewed the 2026.08.15.2 rebuild and asked for further
+improvement: no-touching was fixed, but tables still hugged the bullet text
+above them and section bars started with no visible break. Deploy THIS
+release; 2026.08.15.2 was never deployed and is folded in.
+
+- `notes_docx.py` v1.4 → **v1.5** — all per-case spacing emission removed
+  from the block loop; ONE deterministic post-assembly pass
+  (`_apply_spacing_rhythm`) inserts every vertical gap, sized by context:
+  9pt before every L1/L2 heading bar (a section visibly begins), 6pt
+  between any two tables, 3pt between running text and a table in either
+  direction. Heading bars are detected by their L1/L2 shading — the slate
+  data-table header row and the box colours can never be mistaken for one.
+  parse() unchanged; W-3 byte-identical round trip preserved and
+  self-tested with the rhythm in place. Self-test 87 → 90.
+- `Framework_NotesCreate.md` v2.7.1 → **v2.7.2** — §4 tail rule upgraded to
+  the full rhythm; the three sizes live ONLY in the engine constants
+  (single authority; the spec restates no number). Companion notes_docx >=
+  v1.5.
+
+Existing drafts parse identically and gain the rhythm on their next
+rebuild; NA §0B P-4b reads the byte difference as the documented
+builder-upgrade diagnostic, never a stop.
+
+## 2026.08.15.2 — Universal spacing invariant (GAP-2026-08-15-ADJACENT-TABLES)
+
+Field report from the FIRST live NotesCreate run (IIT JAM Physics,
+Electrostatics): heading bars, data tables and coloured boxes rendered FUSED
+— zero visual gap. Root cause, confirmed in the delivered file's XML: Word
+merges two directly adjacent tables, nearly every element of these notes IS
+a table, and the v1.3 spacer rule covered only the box-after-box case — the
+13 other adjacencies in that document (data table → KEY POINTS box, box →
+next heading bar, heading bar → table, title bar → heading bar) had no
+spacer at all.
+
+- `notes_docx.py` v1.3 → **v1.4** — new post-assembly pass
+  `_separate_adjacent_tables`: after the whole body is emitted, the standard
+  spacer paragraph is inserted between EVERY remaining pair of adjacent
+  tables. The invariant "no two tables are ever adjacent" now holds for
+  every block combination — current and future — by construction, instead
+  of per-case rules that miss cases. Deterministic; parse() unchanged (it
+  already skips empty paragraphs); the W-3 build→parse→build byte-identical
+  round trip is preserved and self-tested WITH the invariant. Verified on
+  the field-reported document: 13 fused pairs before, 0 after. Self-test
+  85 → 87.
+- `Framework_NotesCreate.md` v2.7.0 → **v2.7.1** — the §4 spacer sentence
+  generalised to the universal invariant; companion notes_docx >= v1.4.
+
+Model, anatomy, colours, numbering, gates: all unchanged. Existing drafts
+parse identically and gain the spacing on their next rebuild; NA §0B P-4b
+reads the byte difference as the documented builder-upgrade diagnostic,
+never a stop.
+
 ## 2026.08.15.1 — The Format Contract: figure vs text balance, decided by the exam's own history
 
 Reading a figure (V–I curve, ray diagram, potential well, phase diagram) is

@@ -1,4 +1,29 @@
-# Framework_NotesCreate v2.7.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.7.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.7.2 — 2026-08-15 — THE SPACING RHYTHM (owner refinement of v2.7.1 in
+#   the same release wave; notes_docx v1.5). v2.7.1 stopped tables from
+#   touching; the owner's review of the rebuilt document showed the rhythm
+#   still cramped — tables hugging the bullet text above them and section
+#   bars starting with no visible break. The §4 tail rule is now the full
+#   SPACING RHYTHM: one deterministic post-assembly pass sizes every
+#   vertical gap by context (larger before L1/L2 bars, medium between
+#   tables, small between text and a table, either direction); the engine
+#   constants are the single authority. All per-case spacing emission is
+#   gone from the builder's block loop, so the rhythm holds for every
+#   block combination by construction. Model, parse(), W-3 byte-identity:
+#   unchanged. Companion: notes_docx >= v1.5.
+# v2.7.1 — 2026-08-15 — UNIVERSAL SPACING INVARIANT
+#   (GAP-2026-08-15-ADJACENT-TABLES; field report from the first live NC
+#   run: heading bars, data tables and boxes rendered FUSED, zero gap —
+#   Word merges directly adjacent tables and nearly every element of these
+#   notes is a table). The §4 spacer rule was the box-after-box special
+#   case; notes_docx v1.4 now guarantees the GENERAL invariant — no two
+#   tables are ever adjacent anywhere in the body, enforced by a
+#   post-assembly pass so it holds for every block combination, current
+#   and future, by construction. Model, anatomy, colours, numbering,
+#   parse(): all unchanged; W-3 byte-identity preserved. Existing drafts
+#   gain the spacing on their next rebuild (NA §0B P-4b reads the byte
+#   difference as the documented builder-upgrade diagnostic, never a
+#   stop). Companion: notes_docx >= v1.4.
 # v2.7.0 — 2026-08-15 — THE FORMAT CONTRACT (figure vs text balance; owner
 #   decisions of the 2026-08-15 design session, approved proposal; pairs
 #   with Framework_NotesAudit v3.5.0 §5 G-12; notes_core >= v2.10,
@@ -220,9 +245,11 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_docx.py >= v1.3 — the SHARED builder. NC constructs the .docx ONLY
+#   notes_docx.py >= v1.5 — the SHARED builder. NC constructs the .docx ONLY
 #                           through notes_docx.build (section 4A); it never
 #                           hand-rolls a paragraph, colour, border or line rule.
+#                           v1.5 carries the full SPACING RHYTHM (§4 tail —
+#                           context-sized gaps, one post-assembly pass);
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
 #   notes_core.py >= v2.10 — format_mix + format_by_concept in
@@ -519,8 +546,21 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
       concepts NEVER enter the mind map. The map answers "what does this
       subtopic contain", not "what does it connect to"; the Combines
       declaration already carries the connection in words.
-Adjacent boxes are always separated by a spacer paragraph so consecutive
-box tables never merge visually.
+THE SPACING RHYTHM (v2.7.2; supersedes v2.7.1's minimal invariant —
+GAP-2026-08-15-ADJACENT-TABLES and its owner-reviewed refinement): Word
+renders two directly adjacent tables MERGED, and nearly every element
+above IS a table (title bar, heading bars, data tables, every coloured
+box). The builder therefore inserts EVERY vertical gap itself, in one
+deterministic post-assembly pass (notes_docx v1.5 _apply_spacing_rhythm),
+sized by context: a LARGER gap before every L1/L2 heading bar (a section
+visibly begins), a MEDIUM gap between any two tables, and a SMALL gap
+between running text and a table in either direction. The three sizes are
+the engine constants SPACER_HEADING_PT / SPACER_TABLE_PT / SPACER_PARA_PT
+— the engine is the single authority; this spec deliberately restates no
+number. No two tables are ever adjacent, no table ever hugs the text
+above or below it, and the old "adjacent boxes are separated" rule is the
+box-after-box special case, subsumed. Emitted by the ENGINE, never
+authored in the model.
 TIER-3 units may ship B1–B2 + B4 + B6–B8 (no examples where no evidence) —
 plus, when a fusion files there, the B4a integration section(s) with their
 example stacks (§4 B4a I-7: the inbound fused questions ARE the evidence).
@@ -673,4 +713,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.7.0
+# END OF Framework_NotesCreate v2.7.2
