@@ -161,6 +161,13 @@
       "size_bytes": 74288,
       "version_header": "# Framework_ScopedBlueprint v1.8.0 — Universal Subject / Topic / Sub-Topic Test Blueprint"
     },
+    "LAW_REGISTRY.json": {
+      "end_sentinel": "}",
+      "lines": 31,
+      "sha256": "eb0238e97b0c9d0bf0ea792739b8d5a5ac5f4cd79b7e3f601ef0960865a63946",
+      "size_bytes": 2610,
+      "version_header": "{"
+    },
     "audit_callgraph.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
       "lines": 865,

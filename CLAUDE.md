@@ -11,15 +11,18 @@ repo root before running the gate.
 ## The safety gate (run for every deploy)
 1. `pip install python-docx`   (the validator's embedded self-test imports it)
 2. `python3 gen_manifest.py`   (rebuilds MANIFEST.json from the files on disk)
-3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED` (every tracked file; currently
-   **39/39** — 23 `Framework_*.md` + 16 engines. The count moves when a spec/engine is added or
-   retired; Steps 8 and 10 were retired in 2026.08.03.5, taking 2 specs with them,
-   `figural_vision.py` was added in 2026.08.03.6, `spec_source.py` in 2026.08.03.8, the
-   Notes pipeline (4 specs + `notes_core.py`/`notes_blueprint.py`/`notes_audit.py`) landed
-   2026-08-08, and PYQExplainAudit (PYQ-2) was retired in 2026.08.09.1, taking
-   `Framework_PYQExplainAudit.md` and `explain_audit_gate.py` with it.
-   NOTE: inside `/tmp/fw_effective` with a project override active this prints
-   `PARTIALLY VERIFIED — 32/33 ... 1 spec(s) PROJECT-UNVERIFIED` and exits 0. That is the
+3. `python3 bootstrap.py`      → must print `N/N ... VERIFIED`, where **N is whatever step 2
+   just reported**, not a number written down here. Step 2 rebuilds MANIFEST.json from the
+   files on disk and prints `MANIFEST.json written: v<version>, N files, T triggers`; step 3
+   must verify that same N. Compare the two lines against each other — that is the check.
+   Composition at 2026.08.15.6: 45 = 23 `Framework_*.md` + 21 engines + `LAW_REGISTRY.json`.
+   This line is orientation, NEVER the authority: a running total maintained by hand drifts
+   the moment a file is added, and this one did — it read `39/39 — 23 specs + 16 engines`
+   through six releases that changed both halves, which is the same hand-maintained-list
+   failure the LAW-PROPAGATION LAW below exists to remove. If the two printed numbers agree,
+   the gate has passed; if they disagree, a file is missing from the clone.
+   NOTE: inside `/tmp/fw_effective` with a project override active, bootstrap prints
+   `PARTIALLY VERIFIED — <N-k>/<N> ... k spec(s) PROJECT-UNVERIFIED` and exits 0. That is the
    correct, non-halting result, not a failure.)
 4. `python3 validate_framework_md.py Framework_*.md` → must print `0 issues`
    This includes the CORPUS-level checks (AA routes/skill sync, AB thin-core purity,
