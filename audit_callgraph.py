@@ -1075,6 +1075,71 @@ def self_test():
     rc, out = probe("def ok(a):\n    return a + 1\n\ny = ok(2)\n")
     check("clean fixture passes", rc == 0 and '0 findings' in out)
 
+    # ── C10 / C11 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION ──────────────────
+    # These two shipped in 2026.08.15.9 WITHOUT fixtures. Verified at the time by
+    # firing them against the real historical defect, which is strong evidence they
+    # worked THAT DAY and no evidence at all that a later edit will not silently
+    # neuter them. audit_mutation's own release policy: "a new gate ships with
+    # fixtures that kill its own mutants, or it does not ship." These are the
+    # mutants. Gut c10_budget_conservation or c11_cache_assertion to `return []`
+    # and the corresponding check below must FAIL.
+
+    def probe_raw(text):
+        d = tempfile.mkdtemp()
+        pth = os.path.join(d, "Framework_Fixture.md")
+        open(pth, 'w', encoding='utf-8').write(text)
+        r = subprocess.run([sys.executable, here, pth],
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    _C10_BAD = ("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                "A2. CHANNEL PROBE — download exactly ONE paper.\n\n"
+                "```python\npart = bc.partition_by_transport(papers, channel=channel)\n```\n")
+    rc, out = probe_raw(_C10_BAD)
+    check("C10 fires on a partition preceded by a CLASS T acquisition, no consumed=",
+          rc == 1 and '[C10]' in out)
+
+    _C10_OK = _C10_BAD.replace("channel=channel)", "channel=channel, consumed=0)")
+    rc, out = probe_raw(_C10_OK)
+    check("C10 silent once consumed= is passed explicitly",
+          '[C10]' not in out)
+
+    # A spec with NO acquisition must never be asked for consumed= — the parameter
+    # models a spender, and where nothing spends there is nothing to conserve.
+    rc, out = probe_raw("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                        "```python\npart = bc.partition_by_transport(papers, channel='spill')\n```\n")
+    check("C10 does not fire without a CLASS T acquisition in the same spec",
+          '[C10]' not in out)
+
+    _C11_BAD = ("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                "A1. Google Drive:search_files(query=...) then write DRIVE_LISTING_CACHE.\n\n"
+                "```python\ncreate_file(DRIVE_LISTING_CACHE, json.dumps(records))\n```\n")
+    rc, out = probe_raw(_C11_BAD)
+    check("C11 fires on a hand-written DRIVE_LISTING_CACHE",
+          rc == 1 and '[C11]' in out)
+
+    _C11_NOCOUNT = _C11_BAD.replace(
+        "create_file(DRIVE_LISTING_CACHE, json.dumps(records))",
+        "corpus_io.write_drive_listing(pages, DRIVE_LISTING_CACHE, fid)")
+    rc, out = probe_raw(_C11_NOCOUNT)
+    check("C11 fires when write_drive_listing is called without observed_count",
+          rc == 1 and '[C11]' in out and 'observed_count' in out)
+
+    _C11_OK = _C11_BAD.replace(
+        "create_file(DRIVE_LISTING_CACHE, json.dumps(records))",
+        "corpus_io.write_drive_listing(pages, DRIVE_LISTING_CACHE, fid, observed_count=n)")
+    rc, out = probe_raw(_C11_OK)
+    check("C11 silent when routed through the engine with observed_count",
+          '[C11]' not in out)
+
+    # A laws file NAMES the cache to legislate about it and owns no acquisition.
+    # Firing there would be a permanent false positive, and a gate that cannot be
+    # satisfied is a gate that gets switched off.
+    rc, out = probe_raw("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                        "EC-P41 governs DRIVE_LISTING_CACHE.\n")
+    check("C11 does not fire on a spec that only names the cache",
+          '[C11]' not in out)
+
     rc, out = probe('def load(path=None):\n'
                     '    """Callers should always pass path."""\n'
                     '    return path\n\nx = load()\n')

@@ -902,6 +902,43 @@ def self_test():
                   read=fake_reader({'Framework_MockTestAnalyse.md':
                                     _CODE + _S113_FIXED + _CHECKLIST
                                     + _QV19_OK}))))
+    # ── MS-12 / MS-13 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION ──────────────
+    # Shipped in 2026.08.15.9 without fixtures. Gut check_batch_ceiling or
+    # check_probe_selection to `return []` and the must-flag checks below must FAIL.
+    _MIME = 'BATCH_SIZE = 3\npartition_by_transport(p, channel=c)\n'
+    _floor = {'Framework_MockTestAnalyse.md':
+                  _MIME + 'MANDATORY AFTER EVERY BATCH OF 3:\n  1. save\n'}
+    check('ms12_floor_wording_flagged',
+          any('FLOOR' in x for x in check_batch_ceiling(read=fake_reader(_floor))))
+    _noec = {'Framework_MockTestAnalyse.md': _MIME + 'batch is min(3, admitted)\n'}
+    check('ms12_missing_EC-P37_flagged_on_a_transport_spec',
+          any('EC-P37' in x for x in check_batch_ceiling(read=fake_reader(_noec))))
+    _ok = {'Framework_MockTestAnalyse.md':
+               _MIME + 'BATCH_SIZE is a CEILING. See EC-P37.\n'}
+    check('ms12_clean_spec_silent',
+          check_batch_ceiling(read=fake_reader(_ok)) == [])
+    # A batched spec with NO context-bounded channel must not be asked for EC-P37 —
+    # it cannot admit fewer papers for that reason, and a gate that fires where it
+    # does not apply trains operators to ignore gates (v2.39).
+    _noxport = {'Framework_MockTestExplain.md': 'BATCH_SIZE = 4\nplain prose\n'}
+    check('ms12_silent_on_a_spec_with_no_transport',
+          check_batch_ceiling(read=fake_reader(_noxport)) == [])
+
+    _p_undecl = {'Framework_MockTestAnalyse.md':
+                     'A2. CHANNEL PROBE — download one paper.\n'}
+    check('ms13_undeclared_probe_paper_flagged',
+          any('probes' in x for x in check_probe_selection(read=fake_reader(_p_undecl))))
+    _p_nodev = {'Framework_MockTestAnalyse.md':
+                    'A2. CHANNEL PROBE — the SMALLEST by fileSize.\n'}
+    check('ms13_undeclared_divergence_flagged',
+          any('P4f' in x for x in check_probe_selection(read=fake_reader(_p_nodev))))
+    _p_ok = {'Framework_MockTestAnalyse.md':
+                 'A2. CHANNEL PROBE — admitted[0]. Deviation P4f declares the divergence.\n'}
+    check('ms13_declared_probe_rule_silent',
+          check_probe_selection(read=fake_reader(_p_ok)) == [])
+    check('ms13_silent_on_a_spec_with_no_probe',
+          check_probe_selection(read=fake_reader({'Framework_MockDeliver.md': 'no probe here'})) == [])
+
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

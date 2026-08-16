@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.15.9",
+  "framework_version": "2026.08.15.10",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -432,11 +432,11 @@
       "bytes": 20515
     },
     "mock_sync_audit.py": {
-      "sha256": "d700e424ff55bcd267c6da1b0d1c77644bf2af0ff83fb7c9982fbde9255b93e4",
+      "sha256": "83a438db2e6306e1fa5e28fbc3d653ff93a545476084d9cf0eda0f8bd849364e",
       "version_header": "\"\"\"mock_sync_audit.py v1.0 \u2014 cross-step sync auditor for the mock/test track.",
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 931,
-      "bytes": 46534
+      "lines": 968,
+      "bytes": 48903
     },
     "frequency_xlsx.py": {
       "sha256": "9c0062247375b57a8e945348eee63c788fb613915fbd6f11c3d791a7f5d59cdc",

@@ -455,6 +455,48 @@ def self_test():
     check("Y-CONFIG fires on a config read the input contract omits",
           rc == 1 and 'Y-CONFIG' in out and 'marks_default' in out)
 
+    # ── SPEC-BUDGET — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION ────────────────
+    # Shipped in 2026.08.15.9 without a fixture. Gut check_spec_budget to `return []`
+    # and the must-flag check below must FAIL. The gate needs routes.json in the same
+    # directory as the spec, so the fixture builds a miniature repo.
+    def probe_budget(spec_bytes, trigger='FixtureStep', sections=None,
+                     baseline_hack=None):
+        d = tempfile.mkdtemp()
+        name = "Framework_Big.md"
+        body = ("# Framework_Big v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+                "# §1 — WORK\n" + ("x" * spec_bytes) + "\n"
+                "# END OF Framework_Big v1.0.0\n")
+        open(os.path.join(d, name), 'w', encoding='utf-8').write(body)
+        json.dump({trigger: [name]},
+                  open(os.path.join(d, 'routes.json'), 'w', encoding='utf-8'))
+        if sections is not None:
+            json.dump({'files': {name: {'has_read_set': sections}}},
+                      open(os.path.join(d, 'SPEC_SECTIONS.json'), 'w', encoding='utf-8'))
+        r = subprocess.run([sys.executable, here, os.path.join(d, name)],
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000)
+    check("SPEC-BUDGET fires on an over-threshold route with no read set",
+          rc == 1 and '[SPEC-BUDGET]' in out)
+
+    rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, sections=True)
+    check("SPEC-BUDGET silent once the route declares a read set",
+          '[SPEC-BUDGET]' not in out)
+
+    rc, out = probe_budget(1000)
+    check("SPEC-BUDGET silent on a small route",
+          '[SPEC-BUDGET]' not in out)
+
+    # The ratchet must only ever be a DELETION list. A baselined trigger is exempt;
+    # a NEW trigger crossing the threshold is not, which is the whole guarantee.
+    rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='MockCreate')
+    check("SPEC-BUDGET exempts a baselined trigger",
+          '[SPEC-BUDGET]' not in out)
+    rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='BrandNewStep')
+    check("SPEC-BUDGET still fires for a trigger absent from the baseline",
+          rc == 1 and '[SPEC-BUDGET]' in out)
+
     # The live corpus itself must pass with the standard invocation
     # (specs + engines together, per the V-SCOPE contract).
     root = os.path.dirname(here) or '.'

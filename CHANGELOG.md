@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026.08.15.10 — the five gates shipped in .9 had no fixtures; every one of them survived deletion
+
+**Follow-up to GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, found in deployment review.**
+`C10`, `C11`, `MS-12`, `MS-13` and `SPEC-BUDGET` shipped in 2026.08.15.9 verified only
+by firing them against the real historical defect. That is strong evidence they worked
+THAT DAY and no evidence at all that a later edit would not silently neuter them.
+Proved by mutation rather than inferred: each check's finding emission was replaced with
+`return []` and its own suite re-run — `audit_callgraph` stayed 23/23, `mock_sync_audit`
+29/29, `audit_specs_ext` 6/6. **All five mutants survived.** Every one could have been
+deleted outright with CI green.
+
+This violates `audit_mutation`'s own release policy — *"a new gate ships with fixtures
+that kill its own mutants, or it does not ship"* — and it was not caught because
+`audit_mutation` targets `ENGINE_DEFAULT = 'audit_canonical.py'`, the EXAM auditor, and
+has never covered the repo auditors. That is why its count stayed 35/35 across a release
+that added five checks.
+
+**Fixed.** 14 fixtures added — must-flag AND must-not-flag for each gate, because a gate
+that fires where it does not apply is the same defect as one that never fires (v2.39:
+*"a gate that cannot fire correctly trains operators to ignore gates"*). Includes the
+ratchet contract for SPEC-BUDGET: a baselined trigger is exempt, a NEW trigger crossing
+the threshold is not. Self-tests: `audit_callgraph` 23 → **30**, `mock_sync_audit`
+29 → **37**, `audit_specs_ext` 6 → **11**. Re-mutated: **5/5 killed.**
+
+No behaviour change. No spec changes. No artefact changes. Nothing to re-run.
+
 ## 2026.08.15.9 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION: Step 5 spent an entire session reading its own specification and processed zero papers
 
 **P0. Two consecutive sessions on IIT_JAM_MATHEMATICS, 54 tool calls, 0 of 22 papers

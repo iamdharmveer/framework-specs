@@ -170,9 +170,9 @@
     },
     "audit_callgraph.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 1261,
-      "sha256": "e5c64a54390fdb220cfd6c04113bc3dba921a9555a66983e8c580e31f2b76dd7",
-      "size_bytes": 62913,
+      "lines": 1326,
+      "sha256": "5efddcf3f764bc3497ccefb2de6e85c06c5385dd9c314400792e350fd1ab1ea5",
+      "size_bytes": 66487,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_canonical.py": {
@@ -205,9 +205,9 @@
     },
     "audit_specs_ext.py": {
       "end_sentinel": "    sys.exit(main(args))",
-      "lines": 481,
-      "sha256": "2234c2429418bb394809350aded7d32ffb90e1c3f9c7ffd4b27e22892ac0dcd3",
-      "size_bytes": 24674,
+      "lines": 523,
+      "sha256": "efabd9c1f9fd6ef7bf41927bf6acf1a1a7b95c1ea6e7aea09e6c8ac6182e0313",
+      "size_bytes": 26968,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_sync.py": {
@@ -394,9 +394,9 @@
     },
     "mock_sync_audit.py": {
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 931,
-      "sha256": "d700e424ff55bcd267c6da1b0d1c77644bf2af0ff83fb7c9982fbde9255b93e4",
-      "size_bytes": 46534,
+      "lines": 968,
+      "sha256": "83a438db2e6306e1fa5e28fbc3d653ff93a545476084d9cf0eda0f8bd849364e",
+      "size_bytes": 48903,
       "version_header": "\"\"\"mock_sync_audit.py v1.0 — cross-step sync auditor for the mock/test track."
     }
   },
