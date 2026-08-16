@@ -215,6 +215,16 @@ def main():
                          'it buys nothing and adds contention — use --shard there.')
     ap.add_argument('--budget-file', default=AUDITOR_BUDGETS_FILE,
                     help='per-engine survivor budgets, ratcheted DOWN only')
+    ap.add_argument('--indices', default=None, metavar='I,J,K',
+                    help='test only these emission indices (0-based, as printed by '
+                         '--list). Sharding re-tests emissions already measured, which '
+                         'on a 63 s-per-mutant engine is the difference between '
+                         'finishing a measurement and abandoning it. Use this to work '
+                         'through the PENDING set, and to re-test one emission after '
+                         'adding a fixture for it. Like --shard, a partial run NEVER '
+                         'enforces a budget.')
+    ap.add_argument('--list', action='store_true',
+                    help='print every emission with its index and exit; nothing is run')
     ap.add_argument('--shard', default=None, metavar='K/N',
                     help='test only shard K of N (1-based), e.g. 2/4. audit_sync is '
                          '28 emissions at ~63 s each — ~30 min serial, ~4 min at '
@@ -263,7 +273,29 @@ def main():
 
     targets = find_targets(lines, tree, args.gate)
     total_targets = len(targets)
+    if args.list:
+        for i, (idx, fn, text) in enumerate(targets):
+            print(f'[{i:3}] L{idx + 1:<6} {fn:34} {text[:60]}')
+        print(f'{total_targets} emission(s) in {args.engine}')
+        sys.exit(0)
     shard_note = ''
+    if args.indices:
+        try:
+            want = {int(x) for x in args.indices.replace(' ', '').split(',') if x != ''}
+        except ValueError:
+            print(f'ERROR: --indices must be a comma-separated list of integers, '
+                  f'got {args.indices!r}')
+            sys.exit(2)
+        bad = sorted(i for i in want if not 0 <= i < total_targets)
+        if bad:
+            print(f'ERROR: index out of range for {total_targets} emissions: {bad}')
+            sys.exit(2)
+        targets = [t for i, t in enumerate(targets) if i in want]
+        shard_note = f'  (indices {sorted(want)} of {total_targets})'
+        if args.max_survivors is not None:
+            print('note: budget suppressed for a partial run '
+                  '(a subset cannot be compared against a whole-engine number)')
+            args.max_survivors = None
     if args.shard:
         try:
             k, n = (int(x) for x in args.shard.split('/'))

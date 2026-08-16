@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026.08.15.13 — audit_sync measurement continued: 9 of 28, and the survivors have a shape
+
+**`--indices I,J,K` and `--list` added.** `--shard` re-tests emissions already measured;
+on a 63 s-per-mutant engine that is the difference between finishing a measurement and
+abandoning it. `--indices` works through the PENDING set only, and re-tests a single
+emission after a fixture is added for it. `--list` prints the index map. Like `--shard`,
+a partial run NEVER enforces a budget and says so.
+
+**`audit_sync` — 9 of 28 emissions measured: 4 killed, 5 SURVIVED.**
+
+Killed: `ENGINE-API` L208 · `VERSION-XREF` L241 · `REL-SYNC` L253 ·
+`LAW-REGISTRY` L339 (file missing).
+
+Survived — findings no fixture can distinguish from silence:
+
+- `L218` `SKILL-INVENTORY` — SKILL.md's declared SPEC count vs the corpus
+- `L220` `SKILL-INVENTORY` — SKILL.md's declared ENGINE count vs the corpus
+- `L256` `INFO` — VERSION or CHANGELOG.md unreadable
+- `L263` `TRIGGER-SYNC` — a routes.json trigger SKILL.md never mentions
+- `L345` `LAW-REGISTRY` — LAW_REGISTRY.json is not valid JSON
+
+**THE SHAPE MATTERS MORE THAN THE COUNT.** All five are ERROR-PATH or DECLARED-COUNT
+findings: an unreadable file, an invalid JSON, a forgotten trigger, a hand-written
+number. The fixtures exercise the HAPPY corpus thoroughly and the DEGRADED corpus hardly
+at all. That says what the missing fixtures should DO, and it is already actionable
+before the remaining 19 are measured.
+
+**19 emissions still pending, itemised by index and check name in
+`MUTATION_BUDGETS.json`.** Still no budget for this engine: 9 of 28 is evidence of a
+coverage gap, not an estimate of the whole, and a number reached by extrapolation is the
+defect class this tool exists to catch. Report-only until a full run supplies a real
+total.
+
+**Measurement cost, recorded so nobody re-derives it:** ~63 s per self-test on a 1-core
+runner — ~126 s per mutant plus a 63 s baseline per invocation — against a ~250 s
+command wall, which admits ONE mutant per call. On a multi-core CI box the whole engine
+is a single ~4-minute command.
+
+No behaviour change to any gate. No spec changes. Nothing to re-run.
+
 ## 2026.08.15.12 — audit_sync partially measured; the parallelism claim in .11 was wrong
 
 **`--shard K/N` added.** `audit_sync` carries 28 finding emissions at ~63 s per

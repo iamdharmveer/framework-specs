@@ -38,17 +38,47 @@
   "_runner_note": "CORRECTION TO .11. That release documented --jobs as the remedy for audit_sync's ~30-minute run. Measured on the reference container: nproc = 1. The mutants are CPU-bound subprocesses, so on a single core parallelism buys nothing and adds contention — 7 mutants at --jobs 7 did not finish in 240 s, while ONE mutant at --jobs 1 took 140 s (63 s baseline + 63 s mutant + copy). --jobs is still correct on a multi-core CI runner and is where the 30 min -> 4 min claim comes from; it is not a universal remedy and .11 should not have written it as one. On a single core, use --shard.",
   "_partial_measurements": {
     "audit_sync.py": {
-      "status": "PARTIAL — 5 of 28 emissions measured, in bounded shards",
-      "killed": 2,
-      "survived": 3,
+      "status": "PARTIAL — 9 of 28 emissions measured (indices 0-8, 15, 16)",
+      "killed": 4,
+      "survived": 5,
       "confirmed_survivors": [
-        "L218 rec('SKILL-INVENTORY', ...) — SKILL.md's declared SPEC count vs the corpus",
-        "L220 rec('SKILL-INVENTORY', ...) — SKILL.md's declared ENGINE count vs the corpus",
-        "L345 rec('LAW-REGISTRY', ...) — LAW_REGISTRY.json is not valid JSON"
+        "idx 1  L218 SKILL-INVENTORY — SKILL.md's declared SPEC count vs the corpus",
+        "idx 2  L220 SKILL-INVENTORY — SKILL.md's declared ENGINE count vs the corpus",
+        "idx 5  L256 INFO            — VERSION or CHANGELOG.md unreadable",
+        "idx 6  L263 TRIGGER-SYNC    — a routes.json trigger SKILL.md never mentions",
+        "idx 16 L345 LAW-REGISTRY    — LAW_REGISTRY.json is not valid JSON"
       ],
       "why_no_budget_yet": "3 survivors in the first 5 emissions is real evidence of a coverage gap and is NOT an estimate of the whole. A budget derived by extrapolation would assert a number nobody measured, which is precisely the defect class this tool exists to catch. The key stays out of `engines` — report-only — until a full run supplies a real total.",
       "what_the_survivors_mean": "Each is a finding no fixture can distinguish from silence. The two SKILL-INVENTORY ones are notable: SKILL.md's declared counts are exactly the kind of hand-written number this corpus has watched drift before, and nothing currently proves the check that guards them still fires.",
-      "finish_it": "python3 audit_mutation.py --engine audit_sync.py --jobs 8   # ~4 min on a multi-core runner\npython3 audit_mutation.py --engine audit_sync.py --shard K/14 --jobs 1   # single core, 14 slices"
+      "finish_it": "python3 audit_mutation.py --engine audit_sync.py --jobs 8\n# or, one at a time, on a constrained runner:\npython3 audit_mutation.py --engine audit_sync.py --indices 9\npython3 audit_mutation.py --engine audit_sync.py --list   # index map",
+      "confirmed_killed": [
+        "idx 0  L208 ENGINE-API",
+        "idx 3  L241 VERSION-XREF",
+        "idx 4  L253 REL-SYNC",
+        "idx 15 L339 LAW-REGISTRY (file missing)"
+      ],
+      "pending_indices": "9-14, 17-27 (19 emissions)",
+      "pending_named": [
+        "9  L274 ROUTE-MISSING",
+        "10 L283 FILENAME-CHAIN",
+        "11 L289 ERA-SYNC",
+        "12 L292 ERA-SYNC",
+        "13 L295 ERA-SYNC",
+        "14 L308 BP-SCHEMA",
+        "17 L349 LAW-REGISTRY (no laws)",
+        "18 L356 LAW-REGISTRY (no verified_by)",
+        "19 L360 LAW-REGISTRY (governs a missing file)",
+        "20 L365 LAW-REGISTRY (unknown detect rule)",
+        "21 L393 LAW-COVERAGE",
+        "22 L411 LAW-VERIFY",
+        "23 L413 LAW-VERIFY",
+        "24 L454 DOC-COUNT (unreadable manifest)",
+        "25 L460 DOC-COUNT",
+        "26 L465 DOC-COUNT",
+        "27 L475 DOC-COUNT-IDIOM"
+      ],
+      "measurement_cost": "~63 s per self-test on a 1-core runner, so ~126 s per mutant plus a 63 s baseline per invocation. The reference container's command wall is ~250 s, which admits ONE mutant per call — 19 calls for the remainder. On a multi-core CI box the whole engine is one ~4-minute command.",
+      "pattern_so_far": "5 survivors in 9 emissions. Every one is an ERROR-PATH or DECLARED-COUNT finding: an unreadable file, an invalid JSON, a trigger SKILL.md forgot, a hand-written count. The fixtures exercise the HAPPY corpus thoroughly and the degraded corpus hardly at all — which is the shape worth knowing even before the remaining 19 are measured, because it says what the missing fixtures should DO rather than merely how many are missing."
     }
   }
 }
