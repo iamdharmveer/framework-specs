@@ -35,7 +35,8 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
 # sends a reduced read at ranges that no longer bound the sections they name. Tracking
 # it by sha256 means bootstrap.py fails the build the moment a spec is edited without
 # regenerating it, which is before anybody can read a wrong range.
-TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json"]
+TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json",
+                "MUTATION_BUDGETS.json"]
 
 def sha256(p):
     with open(p, "rb") as f:

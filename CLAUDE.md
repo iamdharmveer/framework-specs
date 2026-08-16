@@ -12,7 +12,7 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 46
+  MANIFEST.json files        : 47
   SPEC_MANIFEST.json entries : 57
   routes.json triggers       : 23
 ```
@@ -229,6 +229,19 @@ Stamp a clean version + changelog over everything shipped since the last seal.
 `seal_release` is the ONLY thing that bumps `VERSION` (satisfies "bump only when asked").
 
 ## Standing guardrails
+- **VERIFY-THE-VERIFIER LAW — a gate nobody mutates is a gate nobody has tested.**
+  `audit_mutation.py` neutralises each finding emission and re-runs that engine's own
+  self-test. A SURVIVING mutant means no fixture can tell a gate that reports the defect
+  from one that does not: the gate may be correct, nothing proves it is, and nothing
+  would notice if a future edit broke it. It covered `audit_canonical.py` only — so
+  release 2026.08.15.9 shipped five repo gates (C10, C11, MS-12, MS-13, SPEC-BUDGET) of
+  which EVERY ONE survived deletion, while the tool reported 35/35, 100%, throughout.
+  It was working perfectly on a target that excluded the thing that broke.
+  Now: run it on the REPO auditors too, with `MUTATION_BUDGETS.json` per engine. A
+  budget is a DEBT, never an allowance — the only legitimate edit is a decrease, and an
+  ABSENT key means report-only, never a guessed number. Serial and parallel runs must
+  agree; if they do not, the workdir lease is broken and every score is fiction.
+  GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, deployment review.
 - **SESSION-BUDGET LAW — a session has three finite resources, not one.**
   Payload characters and paper pacing were budgeted; SPECIFICATION-READ COST and
   TOOL-CALL COUNT were not, and on Step 5 the unbudgeted one was the larger.

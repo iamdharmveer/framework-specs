@@ -191,9 +191,9 @@
     },
     "audit_mutation.py": {
       "end_sentinel": "    main()",
-      "lines": 200,
-      "sha256": "59f051069cb7f55c61a2b587f0680be36c366070967f9337a5154bcd84b42151",
-      "size_bytes": 8320,
+      "lines": 344,
+      "sha256": "7a4d07acda82aa620992465f3aea4ccb9d917c69cfc6541deeff2752e7cfb3c7",
+      "size_bytes": 15384,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_seam.py": {
@@ -212,9 +212,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 480,
-      "sha256": "91bdf31eb822fa5b669fa83b8755565854636fb1d0343c80ec7fd58df82645db",
-      "size_bytes": 25229,
+      "lines": 488,
+      "sha256": "a89fb5b58cd7a01892cf0d3fce4c94cded2a2d44afe48bd8062173aab5da3222",
+      "size_bytes": 25888,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {

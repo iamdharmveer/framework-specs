@@ -29,8 +29,16 @@ def _self_test():
             # SPEC_MANIFEST.json joins this list for DOC-COUNT (2026.08.15.7):
             # a fixture corpus missing it cannot verify CLAUDE.md's declared counts,
             # so the clean-copy baseline would fail for a reason that is not a defect.
+            # SPEC_SECTIONS.json and MUTATION_BUDGETS.json join it for the SAME reason
+            # (2026.08.15.11): every tracked non-.md/.py artefact must be copied, or
+            # DOC-COUNT compares CLAUDE.md's declared total against a fixture corpus
+            # that is short by exactly the files this list forgot. The recurrence is
+            # the point — the list is hand-maintained and has now drifted twice, so
+            # anything added to gen_manifest.TRACKED_JSON must be added here too.
             if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json',
                                                    'SPEC_MANIFEST.json',
+                                                   'SPEC_SECTIONS.json',
+                                                   'MUTATION_BUDGETS.json',
                                                    'VERSION', 'CHANGELOG.md',
                                                    'LAW_REGISTRY.json'):
                 shutil.copy(os.path.join(here, f), os.path.join(d, f))

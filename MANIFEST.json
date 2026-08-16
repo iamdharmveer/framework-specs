@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.15.10",
+  "framework_version": "2026.08.15.11",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -493,6 +493,13 @@
       "end_sentinel": "}",
       "lines": 6335,
       "bytes": 173138
+    },
+    "MUTATION_BUDGETS.json": {
+      "sha256": "8778391c369b0f33bf327f6d1e310315f28e3503f9a234bbe200275de16c9e39",
+      "version_header": "{",
+      "end_sentinel": "}",
+      "lines": 35,
+      "bytes": 3393
     }
   }
 }

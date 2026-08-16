@@ -1,5 +1,46 @@
 # Changelog
 
+## 2026.08.15.11 — audit_mutation could not see the repo auditors, which is why five untested gates shipped
+
+**Follow-up to 2026.08.15.10.** `audit_mutation.py` reported 35/35 killed, 100%, through
+the release that added five gates every one of which survived deletion. It was not
+broken: `ENGINE_DEFAULT = 'audit_canonical.py'` is the EXAM auditor, and the REPO
+auditors were outside its universe entirely. **Nothing verified the verifiers.**
+
+Three things blocked it, none of them the mutation logic:
+
+1. `EMIT_RE` knew `bad.append(`-class names only; the repo auditors emit through
+   `problems.append(`, `add(...)` and `rec(...)`.
+2. Greenness was decided by `'PASS' in tail` — the `audit_canonical` banner. Every repo
+   auditor prints `"N passed, 0 failed"`, so the BASELINE check judged a healthy auditor
+   as failing and aborted with exit 2 before testing one mutant.
+3. Mutants ran in a bare tempdir holding a single file. A repo auditor READS THE CORPUS;
+   in an empty directory its live-corpus fixtures pass vacuously and every mutant
+   survives for the wrong reason.
+
+All three fixed. Added `--jobs` (serial is ~30 min for `audit_sync` alone — the
+difference between a gate CI runs and a gate CI skips) and `MUTATION_BUDGETS.json`,
+per engine so a new untested finding cannot hide inside the estate's inherited debt.
+
+**A race found and fixed during the work, worth recording because it nearly cost more
+than it saved.** Workdirs were first assigned by job index (`pool_dirs[n % njobs]`).
+That looks safe and is not: nothing pins job *i* to the worker that finished job
+*i − njobs*, so two concurrent mutants can share a directory and test each other's
+mutation. It reported **5 phantom survivors in `mock_sync_audit`** — fixtures that were
+already correct. Replaced with a queue lease, making the invariant structural rather
+than arithmetic. Serial and parallel now agree exactly: **27/27, 100%.**
+
+**Measured:** `audit_callgraph` 15/15 · `mock_sync_audit` 27/27 · `spec_name_audit` 1/1
+· `notes_sync_audit` 1/1 — all 100%. `audit_specs_ext` 9/13 and `audit_deep` 8/10; all
+six survivors are INHERITED and itemised in the budget file. **Every gate added by
+.9 and .10 is killed.** `audit_sync` is recorded as NOT MEASURED rather than guessed —
+28 emissions at ~63 s each exceeded the available window, and an absent key means
+report-only. A guessed budget asserts coverage nobody has evidence for, which is the
+defect class this tool exists to catch.
+
+New law in `CLAUDE.md`: **VERIFY-THE-VERIFIER**. No behaviour change to any gate; no
+spec changes; no artefact changes; nothing to re-run.
+
 ## 2026.08.15.10 — the five gates shipped in .9 had no fixtures; every one of them survived deletion
 
 **Follow-up to GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, found in deployment review.**
