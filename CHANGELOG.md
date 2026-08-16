@@ -1,5 +1,67 @@
 # Changelog
 
+## 2026.08.16.1 — every question inherited its taxonomy block's first exam position
+
+**GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION. `Framework_MockTestAnalyse` v2.51.0 →
+v2.52.0. EMITTED ARTEFACT VALUES CHANGE — this is NOT disclosure-only**, in contrast
+with 2026.08.15.14 which correctly declared no artefact changes.
+
+S3-2's inner body loop terminated only on a question start or a taxonomy heading. A
+PYQSort position label is **neither** — measured, `is_taxonomy_heading` fires on **0 of
+60** labels — so the label was absorbed as a stem continuation and the OUTER loop's
+`cur_date_label` branch became **unreachable** after the first question of each taxonomy
+block. Every question inherited that block's first exam position.
+
+**Measured** (IIT_JAM_MATHEMATICS, 3 papers, declared A=90 / B=30 / C=60): bands read
+**150 / 17 / 13**; `is_msq` **18** against 30; **179 of 180** stems carried embedded
+label text. After the fix: **90/30/60 exact, is_msq 30, 0 pollution**, holding to
+**884/884** across the full 22-paper corpus.
+
+**Consequence:** the v2.39 positional MSQ branch has **never fired as designed on any
+exam** — it consumes `question_type`, which consumes `original_q_num`.
+
+**Why it survived review:** E-10 `strip_variables` already scrubbed date labels from
+TEMPLATES, hiding the leak in the one artefact a reviewer inspects by eye, while
+`stem`, `stem_raw`, `original_q_num` and `question_type` stayed corrupt. Same shape as
+GAP-2026-08-15-BAREQ — producer and consumer sharing one blind spot.
+
+**Fix:** terminate the body loop at a position label, ABOVE the heading test, breaking
+WITHOUT advancing `i` so the outer loop re-examines and owns the assignment.
+`cur_date_label` keeps exactly one writer.
+
+**Defect-class sweep.** The raw literal `r'\[\d{1,2}-'` stood at THREE sites in that one
+spec. `bc.DATE_TAG_RE` has been the single definition since GAP-2026-07-26-001 and its
+own comment claims to have replaced the S3-2 copy — **it had not.** All three now
+delegate to new `bc.is_position_label()`. Zero raw literals remain in the file. A
+consolidation that is announced but not performed is worse than one never attempted:
+later readers trust the comment and stop looking, which is how the inner loop came to be
+written with no label terminator at all.
+
+**New QV-16** (FAIL, non-halting): one distinct `original_q_num` per question per paper.
+Vacuous PASS on a pre-v1.18 corpus. **Executed against the real 884-question
+IIT_JAM_MATHEMATICS artefact** — PASS clean, FAIL on a defect-injected copy.
+
+**Also fixed:** `bootstrap.py` returned `FINAL` for a fresh corpus, contradicting
+§S8-0b L6782. The first live run therefore did a FULL read on session 1 — both batches
+logged `spec_read_mode: full`. Now `NON-FINAL` with re-decision at A1b: **552,313 →
+307,102 B**. `FINAL` is retained for an UNREADABLE progress file, which is a corrupt
+state rather than a fresh one.
+
+**CHECK AO rejected the first version of the new fixture** — it asserted
+`is_position_label(x) == DATE_TAG_RE.match(...)`, inlining the function's own body. A
+tautology locks nothing. Replaced with a block-shape fixture asserting the requirement
+S3-2 depends on. Mutation-verified: always-True, always-False, drop-the-strip and the
+combined drop-anchor+search mutants are all KILLED. The single anchor and single
+match→search mutants are EQUIVALENT while the other holds, and are documented as such
+rather than papered over.
+
+**RE-RUN REQUIRED** for any exam sorted by PYQSort v1.18+ whose `marking_scheme`
+declares more than one `question_type`: `answer_cardinality` is wrong on some subtopics,
+so **Step 6 must re-run after Step 5**. Single-question-type exams and pre-v1.18 corpora
+are correctness-unaffected (stem pollution only). Triage script in the GAP document.
+IIT_JAM_MATHEMATICS was reprocessed in-session and is verified clean — 0 position
+mismatches in 720, distinct-position ratio 1.00 on all 22 papers, 0 label leakage.
+
 ## 2026.08.15.14 — 196,024 B of version history moved off the execution path
 
 **GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, Wave 2 (partial). Framework_PYQCore EC-P42.**

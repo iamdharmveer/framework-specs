@@ -77,10 +77,27 @@ def _session_class(progress_path, files_meta):
     session, reading too little can let a reduced read reach a writer.
     """
     if not progress_path or not os.path.exists(progress_path):
-        return "FINAL"
+        # FRESH CORPUS. GAP-2026-08-16, deployment review: this returned "FINAL", and
+        # the model correctly followed the printed class — so session 1 of the very
+        # first live run did a FULL read (552,313 B) when §S8-0b calls for the
+        # NON-FINAL set. Measured on IIT_JAM_MATHEMATICS: both batches logged
+        # spec_read_mode "full". The read-set fix did not engage on the session it was
+        # designed for. It caused no harm only because the direct lane (EC-P43) had
+        # removed all context pressure; on a connector-lane deployment session 1 would
+        # be back at the original stall.
+        # §S8-0b L6782 is the authority and says: "When no progress file exists the
+        # corpus has not been enumerated yet, so the count is unknown; decide the class
+        # immediately after PHASE A/A1b, which is the first moment it is knowable, and
+        # read the NON-FINAL set until then." bootstrap now prints that instead of
+        # contradicting it. The safe default is preserved where it belongs — an
+        # UNREADABLE or malformed progress file still returns FINAL, because that is a
+        # corrupt state rather than a fresh one.
+        return "NON-FINAL"
     try:
         prog = json.load(open(progress_path, encoding="utf-8"))
     except Exception:
+        # Unreadable/malformed progress file: FINAL. Reading too much costs a session;
+        # reading too little can let a reduced read reach a writer.
         return "FINAL"
     meta = prog.get("_meta") or {}
     done = len(meta.get("papers_processed") or [])
@@ -231,7 +248,12 @@ def main():
             print(f"  {'PRE-WORK READ BUDGET':<34} {tot_l:>6} lines  {tot_b:>9,} B  "
                   f"~{tot_b // 4:>8,} tok  ~{tot_bash} bash call(s)")
             print(f"  SESSION CLASS: {klass}")
-            if klass == "NON-FINAL":
+            if klass == "NON-FINAL" and not args.progress:
+                print("    FRESH CORPUS — the paper count is not knowable until PHASE A/A1b.")
+                print("    Read the NON-FINAL set now and re-decide the class there (§S8-0b).")
+                print("    If A1b shows papers_remaining <= BATCH_SIZE, escalate to a FULL read")
+                print("    BEFORE run_synthesise(). Escalation is MANDATORY and ONE-WAY.")
+            elif klass == "NON-FINAL":
                 print("    Reduced read is permitted: this session cannot clear the corpus, so it")
                 print("    never reaches synthesis, QV, the summary or the schema/xlsx writers.")
                 print("    ESCALATION IS MANDATORY AND ONE-WAY — if this session turns out to be")

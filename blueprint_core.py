@@ -2432,6 +2432,33 @@ MAX_HEADING_LEN = 300
 DATE_TAG_RE = re.compile(r'^\[\d{1,2}-')
 
 
+def is_position_label(text):
+    r"""True when this paragraph is a PYQSort date/position label. THE predicate.
+
+    GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION. DATE_TAG_RE has been the single
+    definition since GAP-2026-07-26-001, and the comment above it states that it
+    replaced "an inline literal in Framework_MockTestAnalyse S3-2's outer loop".
+    IT DID NOT. Measured at framework release 2026.08.15.14, the raw literal
+    r'\[\d{1,2}-' was still written out at THREE sites in that one spec — E-1
+    is_shift_tag, the S3-2 outer loop, and E-10 strip_variables — none of them
+    reaching this module. A consolidation that is announced but not performed is
+    worse than one never attempted: every later reader trusts the comment and stops
+    looking, which is exactly how the inner body loop came to be written without a
+    label terminator at all.
+
+    Exposing a PREDICATE rather than the compiled pattern is deliberate. A spec that
+    writes `bc.DATE_TAG_RE.match(t)` still owns the calling convention — whether to
+    strip, whether None is legal, whether a match object or a bool is wanted — and
+    those are the details that drift. One name, one contract, no arguments about it.
+
+    A label ALWAYS precedes the question it stamps and can never be part of the
+    previous question's body; S3-2's inner loop terminates on it for that reason.
+    """
+    if not text:
+        return False
+    return bool(DATE_TAG_RE.match(text.strip()))
+
+
 # ── GAP-2026-08-05-001 — TEXTLESS IS NOT EMPTY ───────────────────────────────
 # Paragraph.text is RUN text only. A paragraph holding ONLY a picture, an OMML
 # equation or an embedded OLE object returns '' and was therefore skipped by the
@@ -5410,6 +5437,66 @@ PYQ_IMAGE_ANALYSIS:
     except AllocationError:
         _bad_channel = 1
     check('t_unknown_channel_raises', _bad_channel == 1)
+    # ── GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION ──────────────────────
+    # The predicate must accept BOTH forms PYQSort CHECK 3 emits, tolerate the
+    # leading/trailing whitespace a paragraph carries, and reject anything that
+    # merely looks bracketed — a false positive here TERMINATES a question body
+    # early and silently truncates the stem, which is worse than the defect.
+    check('t_poslabel_with_session',
+          is_position_label('[12-Sep-2025 Shift 1]'))
+    check('t_poslabel_without_session', is_position_label('[02-May-2010]'))
+    check('t_poslabel_single_digit_day', is_position_label('[5-Jan-2024 Shift 1]'))
+    check('t_poslabel_stamped_position', is_position_label('[15-Feb-2026 Q.31]'))
+    check('t_poslabel_tolerates_padding', is_position_label('   [02-May-2010]  '))
+    check('t_poslabel_rejects_none_and_empty',
+          not is_position_label(None) and not is_position_label('')
+          and not is_position_label('   '))
+    check('t_poslabel_rejects_question_stem',
+          not is_position_label('Q.1 For each positive integer n, let'))
+    check('t_poslabel_rejects_option_line', not is_position_label('[1] first option'))
+    # ANCHORING IS THE REQUIREMENT, not an implementation detail. If the leading ^ ever
+    # leaves DATE_TAG_RE, S3-2 would terminate a question body on any stem that MENTIONS
+    # a label — truncating the stem and DISCARDING ITS OPTIONS, which is strictly worse
+    # than the defect this predicate was added to fix. Mutation-verified: dropping the ^
+    # is killed by these three and by nothing else in this suite.
+    # (Swapping .match for .search is an EQUIVALENT mutant while the ^ is present — no
+    # fixture can kill it, and none should pretend to. The ^ is what is under test.)
+    check('t_poslabel_rejects_midline_match',
+          not is_position_label('see [12-Sep-2025 Shift 1] above'))
+    check('t_poslabel_rejects_label_after_leading_text',
+          not is_position_label('Q.7 compare with [02-May-2010] and note'))
+    check('t_poslabel_anchored_not_searched',
+          not any(is_position_label(t) for t in
+                  ('the paper [15-Feb-2026 Q.1] states',
+                   'x = [1-2] interval, see [02-May-2010]',
+                   'ref: [5-Jan-2024 Shift 1]')))
+    # CHECK AO (GAP-2026-08-02) rejected the first version of this fixture, correctly:
+    # it asserted `is_position_label(x) == bool(DATE_TAG_RE.match(x.strip()))`, which
+    # INLINES the function's own body. A tautology cannot fail for any value of the
+    # predicate, so it locked nothing at all. What must be pinned is the REQUIREMENT
+    # the callers depend on, not the implementation that currently satisfies it.
+    #
+    # THE REQUIREMENT (Framework_MockTestAnalyse S3-2, GAP-2026-08-16-...-DATE-LABEL-
+    # POSITION): the inner body loop terminates on a label and MUST NOT terminate on
+    # anything else, because a false positive truncates a stem and drops its options —
+    # strictly worse than the defect being fixed. So the fixture is a BLOCK SHAPE and
+    # the verdict it must produce: one real PYQSort-stamped paper fragment, terminating
+    # at exactly the paragraphs that are labels and no others.
+    _frag = ['[15-Feb-2026 Q.1]',                       # label  -> terminate
+             'Q.1  For each positive integer n, let',   # stem   -> continue
+             '1. (x_n) and (y_n) are convergent.',      # option -> continue
+             '2. Only (x_n) is convergent.',            # option -> continue
+             '[15-Feb-2026 Q.2]',                       # label  -> terminate
+             'Q.2  Let f be continuous on [0,1].',      # stem   -> continue
+             'see [15-Feb-2026 Q.1] for context',       # prose  -> continue (mid-line)
+             '[1] a bracketed option label',            # option -> continue
+             '']                                        # blank  -> continue
+    check('t_poslabel_terminates_at_exactly_the_labels',
+          [i for i, t in enumerate(_frag) if is_position_label(t)] == [0, 4])
+    # And the count is what S3-2 relies on: one label per question in the fragment.
+    check('t_poslabel_one_per_question',
+          sum(1 for t in _frag if is_position_label(t))
+          == sum(1 for t in _frag if t.startswith('Q.')))
     check('t_base64_cost_exact', base64_cost_chars(986_230) == 1_314_976)
     check('t_base64_cost_zero_safe',
           base64_cost_chars(0) == 0 and base64_cost_chars(None) == 0)

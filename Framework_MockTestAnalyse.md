@@ -1,4 +1,39 @@
-# Framework_MockTestAnalyse v2.51.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.52.0 — Universal PYQ Pattern Extraction Engine
+# v2.52.0 — 2026-08-16 — GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION.
+#   MINOR bump: EMITTED ARTEFACT VALUES CHANGE. This is NOT disclosure-only — contrast
+#   v2.51.0, which correctly declared "NO ARTEFACT CHANGES".
+#   S3-2's inner body loop terminated only on a question start or a taxonomy heading. A
+#   PYQSort position label is NEITHER (measured: is_taxonomy_heading fires on 0 of 60
+#   labels), so the label was absorbed as a stem continuation and the OUTER loop's
+#   cur_date_label branch became UNREACHABLE after the first question of each taxonomy
+#   block. Every question inherited that block's FIRST exam position.
+#   MEASURED (IIT_JAM_MATHEMATICS, 3 papers, declared A=90/B=30/C=60): bands read
+#   150/17/13; is_msq 18 against 30; 179 of 180 stems carried embedded label text.
+#   After the fix: 90/30/60 exact, is_msq 30, 0 pollution; held to 884/884 across the
+#   full 22-paper corpus.
+#   CONSEQUENCE: the v2.39 (GAP-2026-08-13-E) positional MSQ branch has NEVER fired as
+#   designed on any exam — it consumes question_type, which consumes original_q_num.
+#   WHY IT SURVIVED REVIEW: E-10 strip_variables already scrubbed date labels from
+#   TEMPLATES, hiding the leak in the one artefact a reviewer inspects by eye, while
+#   stem/stem_raw/original_q_num/question_type stayed corrupt. Same shape as
+#   GAP-2026-08-15-BAREQ: producer and consumer shared one blind spot.
+#   FIX: terminate the body loop at a position label, ABOVE the heading test, breaking
+#   WITHOUT advancing i so the outer loop re-examines and owns the assignment —
+#   cur_date_label keeps exactly ONE writer.
+#   DEFECT-CLASS SWEEP: the raw literal r'\[\d{1,2}-' stood at THREE sites in this file
+#   (E-1 is_shift_tag, the S3-2 outer loop, and the new terminator). bc.DATE_TAG_RE has
+#   been the single definition since GAP-2026-07-26-001 and its own comment claims to
+#   have replaced the S3-2 copy — IT HAD NOT. All three now delegate to the new
+#   bc.is_position_label(); zero raw literals remain in this file.
+#   NEW QV-16 (FAIL, non-halting): one distinct original_q_num per question per paper.
+#   Vacuous PASS on a pre-v1.18 corpus. Verified against the real 884-question
+#   IIT_JAM_MATHEMATICS artefact — PASS clean, FAIL on a defect-injected copy.
+#   ALSO: bootstrap.py's fresh-corpus SESSION CLASS said FINAL, contradicting §S8-0b
+#   L6782; the first live run therefore did a FULL read on session 1. Corrected to
+#   NON-FINAL with re-decision at A1b. FINAL is retained for an UNREADABLE progress
+#   file, which is a corrupt state rather than a fresh one.
+#   RE-RUN REQUIRED for any exam sorted by PYQSort v1.18+ whose marking_scheme declares
+#   more than one question_type; Step 6 must re-run after Step 5.
 # v2.51.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (SESSION-BUDGET LAW).
 #   MINOR bump: a function signature changes, a section is added, a persisted key is
 #   renamed, and the batch contract's READING changes. Reference incident:
@@ -1415,8 +1450,12 @@ Helpers:
 
   def is_shift_tag(text):
       # Matches date-format shift tags like [09-Sep-2024 Shift 1] or [5-Jan-2024 Shift 1]
-      # v2.16 SYNC: \d{1,2} (not \d{2}) to match single-digit days — aligned with PYQAnalyse.
-      return bool(re.match(r'\[\d{1,2}-', text))
+      # v2.52.0 (GAP-2026-08-16-...-DATE-LABEL-POSITION): delegates to the engine.
+      # This was the THIRD copy of r'\[\d{1,2}-' in this one file. Three hand-kept
+      # copies of one rule is the drift class bc.DATE_TAG_RE was created to end, and
+      # a "v2.16 SYNC" comment aligning two of them by hand is the evidence that it
+      # had already cost a release once.
+      return bc.is_position_label(text)
 
   def parse_shift(text):
       # v2.16 RIGID-1: uses SESSION_RE (built from exam_config.json session_keyword)
@@ -2484,7 +2523,11 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         # v2.39 (GAP-2026-07-27-E): the label is RETAINED, not merely skipped. PYQSort
         # v1.18 stamps the original exam position into it, which is the only surviving
         # evidence of the MSQ band after Step 3's renumbering.
-        if re.match(r'\[\d{1,2}-', text):
+        # bc.is_position_label is THE predicate (bc.DATE_TAG_RE). The inline literal
+        # that stood here is the one bc.DATE_TAG_RE's own comment claims to have
+        # replaced at GAP-2026-07-26-001; it had not been. Writer (PYQSort) and reader
+        # (here) now share one definition, so they cannot drift apart again.
+        if bc.is_position_label(text):
             cur_date_label = text
             i += 1; continue
 
@@ -2525,6 +2568,33 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         while i < len(paras):
             nt = paras[i].text.strip()
             if not nt: i += 1; continue
+            # ── GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION ────────────────────
+            # A PYQSort position label ALWAYS precedes the next question and can never
+            # be part of THIS question's body. Terminating here — rather than absorbing
+            # it as a stem continuation — is what lets the OUTER loop refresh
+            # cur_date_label PER QUESTION. Without it the outer loop's label branch is
+            # UNREACHABLE after the first question of a taxonomy block, so every
+            # question in that block inherits the block's FIRST exam position and the
+            # label text is concatenated into the preceding stem.
+            # MEASURED (IIT_JAM_MATHEMATICS, 3 papers, declared A=90/B=30/C=60): bands
+            # read 150/17/13; is_msq 18 against 30; 179 of 180 stems carried embedded
+            # label text. After this line: 90/30/60 exact, is_msq 30, 0 pollution,
+            # holding to 884/884 across the full 22-paper corpus.
+            # WHY THE EXISTING TERMINATORS CANNOT CATCH IT: a label is not a question
+            # start, and is_taxonomy_heading() fires on 0 of 60 labels (measured). The
+            # loop was structurally incapable of stopping here; this is not tuning.
+            # THIS TEST MUST SIT ABOVE THE HEADING TEST. A label is definitionally not
+            # a heading, and evaluating it there would let a mis-inference increment
+            # QV-15's terminated_by_heading on a paragraph that can never be one.
+            # BREAK WITHOUT ADVANCING i. Control returns to the outer loop with i still
+            # on the label; the outer loop re-reads it, matches its own branch, assigns
+            # and advances. This mirrors the question-start break exactly and keeps
+            # cur_date_label at ONE writer. Termination is safe because both tests are
+            # the SAME engine predicate, so if the inner fires the outer necessarily
+            # fires — divergence is the only spin risk and one definition makes it
+            # unreachable. Cost: one redundant predicate call per question.
+            if bc.is_position_label(nt):
+                break
             # GAP-2026-07-26-001: nxt[i] is what stops a bold STEM CONTINUATION from
             # terminating its own question here. Without it the stem is truncated and
             # every option after this point is silently discarded.
@@ -4344,9 +4414,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.51'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.51'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.51'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.52'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.52'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.52'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
@@ -5189,7 +5259,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     {
       "exam_code": "...",
       "manifest_version": "1.0",
-      "generated_by": "Framework_MockTestAnalyse v2.51",
+      "generated_by": "Framework_MockTestAnalyse v2.52",
       "id_recipe": "<section_prefix>.<topic_slug>.<subtopic_slug> via slugify v2.4",
       "subtopics": {
          "<subtopic_id>": {
@@ -5889,7 +5959,7 @@ def format_entry(e):
 
 ---
 
-## §6 — QUALITY VERIFICATION (QV-1 through QV-12)
+## §6 — QUALITY VERIFICATION (QV-1 through QV-16)
 
 ```python
 def run_qv(entries, taxonomy, progress):
@@ -5950,6 +6020,53 @@ def run_qv(entries, taxonomy, progress):
     # jump between papers of the same exam is the earliest visible symptom of a Step-1
     # rendering change that newly exposes this class.
     results['_counter_questions_terminated_by_heading'] = len(_tbh)
+
+    # ── QV-16 — POSITION RESOLUTION INTEGRITY ────────────────────────────────
+    # GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION. The defect was invisible for its
+    # whole life because NO check compared the resolved positions against the paper
+    # that produced them. Every QV passed, nothing raised, nothing counted it, and the
+    # one artefact a reviewer inspects by eye — the template — had already been
+    # scrubbed of date labels by E-10 strip_variables, hiding the leak.
+    #
+    # THE INVARIANT: a v1.18+ sorted paper stamps EXACTLY ONE original position per
+    # question, so within one paper the resolved original_q_num values must be
+    # DISTINCT. Under the defect every question in a taxonomy block collapses onto the
+    # block's first position, and the collision count is the number of questions that
+    # inherited a stale label. This is a property of the OUTPUT, not of the parser, so
+    # it cannot share the parser's blind spot — which is the whole point (the same
+    # lesson as GAP-2026-08-15-BAREQ: input and output counted with one blind detector).
+    #
+    # VACUOUS PASS on a pre-v1.18 corpus, where parse_original_q_num returns None for
+    # every unstamped label and there is nothing to collide. That is correct, not a
+    # gap: such a corpus never had positional data to corrupt.
+    #
+    # FAIL, NOT HALT — the CLASS T convention. The papers are still extracted and the
+    # progress file is still written; the operator is told loudly that every positional
+    # consumer downstream (is_msq -> answer_cardinality -> Step 7's answer mechanism)
+    # is reading stale values, and can re-run from a clean progress file.
+    from collections import Counter as _Counter16   # local: each fence binds its own
+    _pos_by_paper = {}
+    for _k, _v in progress.items():
+        if not isinstance(_k, tuple):
+            continue
+        for _q in _v:
+            if _q.get('original_q_num') is not None:
+                _pos_by_paper.setdefault(_q.get('paper_id'), []).append(
+                    _q['original_q_num'])
+    _dupes = []
+    for _pid, _nums in _pos_by_paper.items():
+        if len(set(_nums)) != len(_nums):
+            _rep = [n for n, c in _Counter16(_nums).items() if c > 1]
+            _dupes.append(f'{_pid}: {len(_nums) - len(set(_nums))} collision(s), '
+                          f'e.g. {_rep[:3]}')
+    results['QV-16'] = (('FAIL', f'position collisions — every question in a taxonomy '
+                                 f'block inherited the block\'s first exam position: '
+                                 f'{_dupes[:3]}')
+                        if _dupes else
+                        ('PASS', f'{len(_pos_by_paper)} paper(s): one distinct '
+                                 f'original_q_num per question'
+                                 if _pos_by_paper else
+                                 'vacuous — pre-v1.18 corpus, no stamped positions'))
 
     # QV-2: Frequency% sums to 100 per subtopic
     bad = [e['subtopic'] for e in entries if e.get('PYQ_STEM_PATTERNS') and
@@ -6879,7 +6996,7 @@ After ALL papers are processed (last batch):
   1. Save final progress
   2. Enforce minimum year coverage check (§1-6) — HALT if not met
   3. Auto-run synthesis immediately
-  4. Run QV-1 through QV-12 (plus QV-5b)
+  4. Run QV-1 through QV-16 (plus QV-5b)
   5. Deliver section_rules.md + analysis_progress.json + analysis_summary.md
      as downloadable chat files via present_files (no Drive upload)
   6. No separate session needed
@@ -8332,7 +8449,7 @@ UNIVERSAL IN THIS SPEC (identical every exam):
   All 11 extraction rules (E-1 through E-11) with all bug fixes
   section_rules.md field names and schema
   Difficulty scoring (3 axes + marks scaling + v2.5 MSQ load term)
-  QV-1 through QV-12 checks (plus QV-5b for fixed_set validation)
+  QV-1 through QV-16 checks (plus QV-5b for fixed_set validation)
   EC-1 through EC-15 edge cases (plus EC-A statement-combination MSQ guard, v2.5)
   Progress JSON schema and delivery format
 
@@ -8987,4 +9104,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.51.0
+# END OF Framework_MockTestAnalyse v2.52.0

@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.12.1 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.51.0",
-      "lines": 8990,
-      "sha256": "487adedeac72ed78c1f6d7299fb028205fc8bed86f79f570490e87639ec383c9",
-      "size_bytes": 509381,
-      "version_header": "# Framework_MockTestAnalyse v2.51.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.52.0",
+      "lines": 9107,
+      "sha256": "71ee860d01d4506e0ccad77c7502283b7a5fadcc86a6e0e3fe7654eaa936dc30",
+      "size_bytes": 517918,
+      "version_header": "# Framework_MockTestAnalyse v2.52.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 5489,
-      "sha256": "cfdeb46610597239882e44ba537e71030402fe8c48612698aa735b37c34afeb5",
-      "size_bytes": 300484,
+      "lines": 5576,
+      "sha256": "ee63c2b31d65ab300b787290f8c2c38d82d8d2fc7f8ec0d8f0006f322b5ff2c4",
+      "size_bytes": 306293,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {

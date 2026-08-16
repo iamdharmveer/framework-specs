@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.15.14",
+  "framework_version": "2026.08.16.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -194,11 +194,11 @@
       "bytes": 85165
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "487adedeac72ed78c1f6d7299fb028205fc8bed86f79f570490e87639ec383c9",
-      "version_header": "# Framework_MockTestAnalyse v2.51.0 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.51.0",
-      "lines": 8990,
-      "bytes": 509381
+      "sha256": "71ee860d01d4506e0ccad77c7502283b7a5fadcc86a6e0e3fe7654eaa936dc30",
+      "version_header": "# Framework_MockTestAnalyse v2.52.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.52.0",
+      "lines": 9107,
+      "bytes": 517918
     },
     "Framework_MockTestCreate.md": {
       "sha256": "bf9f09368fa43c12e59b05afbd6ce1ff91bc81b696bb4685c4f96f789b4df440",
@@ -355,11 +355,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "cfdeb46610597239882e44ba537e71030402fe8c48612698aa735b37c34afeb5",
+      "sha256": "ee63c2b31d65ab300b787290f8c2c38d82d8d2fc7f8ec0d8f0006f322b5ff2c4",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 5489,
-      "bytes": 300484
+      "lines": 5576,
+      "bytes": 306293
     },
     "paper_pipeline.py": {
       "sha256": "9af50f405514457e7c84b92c682e1a954a4cc25dce66157b28af77190dec5aec",
@@ -488,11 +488,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "a6f37c9a3ce0991241a19f5c256282b973d057a92e55db7605a84674c2745ffb",
+      "sha256": "f0c6e6c9ff1c7ba9fccd1d9cfd92b665a9ba8e45bb431acc995f3cf3cda6ab50",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6335,
-      "bytes": 173060
+      "bytes": 173061
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "ac678cf86d9281b58e6d7109a7776f04883c1595de8b359fd2a9521ee006d784",
