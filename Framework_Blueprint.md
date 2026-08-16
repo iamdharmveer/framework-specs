@@ -30,137 +30,12 @@
 #   (12 new fixtures, including the exact Mock-10 wrong-distribution scenario from
 #   the gap analysis, mutation-verified: neutering the override makes the new tests
 #   fail/crash, confirming they are load-bearing, not decorative).
-# v1.47.0 — 2026-08-06 — GAP-2026-08-06-SEAM: DI was not in sync with FIGURAL.
-#   The rate->quota->schedule->rank chain was built for FIGURAL only; DI kept a
-#   render-time cap and its measured rate was discarded, so on a DI-heavy exam the
-#   COUNT was right and the DISTRIBUTION was not. Measurement and scheduling are now
-#   keyed BY CLASS, so DI and PASSAGE inherit the whole chain and a future class needs
-#   no release. New audit_seam.py cross-checks producer/consumer fields across steps.
-# v1.46.0 — 2026-08-06 — GAP-2026-08-06-EXAMDEP: exam-independence.
-#   Six defects invisible on the reference exam (46 figural subtopics vs a budget of
-#   4.4) and fatal on shapes it does not have: a hard-coded 1-figure-per-subtopic-per-
-#   mock cap (10 subtopics/25 figures delivered 10, forever); total_mocks read from a
-#   key nobody wrote, so the whole estate got a 15-mock series; quota keyed by display
-#   name when subtopic_id was absent, silently yielding ZERO figures; sorted() over
-#   mixed None/int paper keys crashing Step 5; the last DI any() existential; and the
-#   subject-merge fallback dropping the new keys.
-# v1.45.0 — 2026-08-06 — GAP-2026-08-06-IRREDUCIBLE: the exemption became the budget.
-#   v2.26 replaced `has_img = any(...)` with a rate and then decided REDUCIBILITY
-#   with a fresh any(). One question in a 22-year corpus made a subtopic permanently
-#   exempt, and irreducible grants pass even over budget by design. First real
-#   PYQExtract run: 21 of 133 subtopics exempt, 14.3 figures/mock against a budget
-#   of 5, 13 of 15 mocks over. Reducibility is now rate-based (figural_rate >= 0.50
-#   AND option_image_rate >= 0.50) -> 3 subtopics, 1.5 forced, 0 mocks over.
-#   Figures are now SCHEDULED at measured frequency rather than forced at render
-#   time, the audit band is the exam's own volatility, and per-mock targets follow
-#   the exam's observed shape. No feasibility halt exists or is needed.
-# v1.44.0 — 2026-08-06 — GAP-2026-08-06-AXIS1: a budget nothing spent.
-#   `format: FIGURAL` was a RENDERING IMPERATIVE with no cap while
-#   axis1_target_per_mock — written since blueprint v1.23 — was read by NOTHING.
-#   Two delivered mocks carried 26 and 30 figures against a budget of 4, and all
-#   24 machine gates certified them clean. Format now means ELIGIBILITY: how many
-#   are drawn is capped by the Axis-1 budget, which ones by measured figural_rate.
-#   Axis-3 had the identical unspent-budget defect and is fixed in the same release.
-#   Standing rule: any axis marked enforcement:"hard" MUST have a spender in Step 7
-#   and a gate in the auditor (A-AXIS-UNGATED). Absent-safe; no deployed exam moves
-#   until it is re-measured via PYQExtract -> MockBlueprint -> MockCreate.
-# v1.43.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
-#   B3's deliverable set drops from 6 files to 5: [ExamCode]_ExplainAuditLearnings.md is
-#   NO LONGER GENERATED (§13-6), because its only filler — canonical Step 10 — is retired.
-#   An ExplainAuditLearnings file already accumulated in an exam project STAYS VALID and is
-#   still loaded and obeyed by Step 9; never delete one.
-#   §13-7A is KEPT IN FULL: audit_canonical.py remains the single canonical auditor and B3
-#   still copies it verbatim to [ExamCode]_mock_test_audit.py. What changed is who runs it —
-#   Step 7 only, and optionally, which means an absent audit.py now leaves the paper with no
-#   machine gate at any step. Every "audited within tolerance at Step 8" advisory in this
-#   file is restated as "audited within tolerance by Step 7's audit.py"; the engine copy
-#   duty (blueprint_core.py + figural_core.py from $FW) moves from Step 8 to Step 7.
-#   EDITOR CAUTION added at the internal/canonical step map: this file uses "Step 8" for its
-#   own B3 sub-steps as well, and those must never be mass-replaced.
-#
-# v1.42.8 — 2026-08-02 — self-test count refresh only (107/107 -> 139/139).
-#   The five LIVE normative sites still quoted "the v2.13 canonical build prints
-#   107/107" as the expected auditor count. That was stale twice over (the canonical
-#   is v2.21.7 at 139/139) and misattributed the version. Historical changelog lines
-#   below are left EXACTLY as written — they record what was true at their release
-#   and are not restated. AUTH_GATE_FLOOR stays 35: the count is informational, the
-#   floor is the binding condition, and that is now stated at each site so the next
-#   count change does not require another sweep.
-# v1.42.7 — 2026-08-01 — self-test count refresh only (105/105 -> 107/107).
-# v1.42.6 — 2026-08-01 — self-test count refresh only (97/97 -> 107/107).
-# v1.42.5 — 2026-08-01 — self-test count refresh only (89/89 -> 107/107, D2+D4 vision
-#   fixtures). AUTH_GATE_FLOOR unchanged at 35.
-# v1.42.4 — 2026-08-01 — self-test count refresh only (78/78 -> 107/107, C1
-#   checkpoint fixtures). AUTH_GATE_FLOOR unchanged at 35.
-# v1.42.3 — 2026-08-01 — SELF-TEST COUNT REFRESH ONLY (documentation; zero rule
-#   change). audit_canonical.py gained five C5 fact-record fixtures at
-#   Framework_MockTestCreateAudit v2.14 (B3), so every §13-7A site stating the
-#   expected fixture-based count moves 73/73 -> 107/107. AUTH_GATE_FLOOR stays at
-#   35 — the floor gates DEPLOYED copies, and raising it would HARD STOP every
-#   un-refreshed exam.
-# v1.42.2 — 2026-08-01 — SELF-TEST COUNT REFRESH ONLY (documentation; zero rule
-#   change). The canonical auditor B3 ships (audit_canonical.py) gained eleven
-#   fixtures at Framework_MockTestCreateAudit v2.13
-#   (GAP-2026-08-01-FIGSPEC-TRANSPORT), so every §13-7A site that states the
-#   expected fixture-based count moves 61/61 -> 107/107. AUTH_GATE_FLOOR is
-#   UNCHANGED at 35 and is deliberately NOT raised: the floor gates the deployed
-#   copies, and raising it above their printed count would HARD STOP every
-#   un-refreshed exam. A v2.11 copy (51/51), a v2.12 copy (61/61) and a v2.13
-#   copy (107/107) all pass the floor, so the estate migrates exam by exam with
-#   zero downtime. B3 cardinality (6) and every generation rule are untouched.
-# v1.42.1 — 2026-08-01 — B3 STAYS AT 6 OUTPUTS; NO ENGINE PROVISIONING
-#   (post-deploy correction). v1.42 raised B3 to 8 by shipping blueprint_core.py +
-#   figural_core.py per exam. Wrong remedy: CLAUDE.md states engines live ONLY in
-#   the central repo and no per-project provisioning should ever be performed,
-#   because a project copy is a second unverified source that can go stale. Step 8
-#   P0 now copies both engines from the Step-0 verified clone ($FW) instead — the
-#   same pattern §S1-2b already uses for blueprint_core — so the B3 contract
-#   returns to 6 and no exam project needs touching. Superseded v1.42 entry:
-# v1.42 — 2026-08-01 — B3 SHIPS THE RUNTIME ENGINES (8 outputs, was 6)
-#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3). The canonical auditor delegates
-#   A-FIGPROFILE to blueprint_core and the 12 A-FIG* gates to figural_core, but
-#   NEITHER engine was ever copied into an exam project — not in the B3 output set,
-#   not in project knowledge, not named as a Step-8 input anywhere. B3 now copies
-#   both VERBATIM under their BARE names (a [ExamCode]_ prefix breaks the module
-#   import and silently disables the gates). Also corrected here: the B3 checklist
-#   still asserted "--self-test passed (13/13 PASS)", a stale reference to the
-#   RETIRED hollow MVP; it now asserts a FIXTURE-BASED N/N with N >= 35.
-# v1.41.2 — 2026-07-31 — §13-7A COPY SOURCE now audit_canonical.py (repo engine); the
-#   canonical auditor no longer requires opening Framework_MockTestCreateAudit.md
-#   mid-session. Behaviour identical (byte-identical script).
-# v1.41.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   825 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_Blueprint'. The current companion block, the
-#   v1.41 entry, and all structural notes remain in-file. Body byte-untouched.
-#   KEPT IN-FILE (not archived): the v1.9 rename entry below — it is the sole
-#   documentation of the accepted legacy blueprint field alias `msq_present`
-#   (renamed to `multi_present`), which Framework_MockTestCreate.md and
-#   Framework_MockTestCreateAudit.md still read as a fallback; audit_sync
-#   BP-SCHEMA requires the literal documented here.
-#   v1.9 — VOCABULARY UNIFICATION — PHASE 0 (rename only; NAT prep). Pure rename, no
-#           behaviour change: per-subtopic `answer_mode` -> `answer_cardinality`;
-#           blueprint flag `msq_present` -> `multi_present`. The section_rules reader and
-#           the blueprint consumers accept the OLD names as a fallback (existing
-#           section_rules/blueprint files keep working). Non-MSQ exams byte-identical to
-#           v1.8. Validated: AST clean; carry-through unchanged on old-name AND new-name
-#           inputs. Part of the Steps 0-4 single-vocabulary alignment (answer_type +
-#           answer_cardinality) that wires the Explain step's contract.
-#
 # MINIMUM COMPANION VERSIONS (v1.41):
 #   corpus_io.py          >= v1.4   — S2-2 loads via load_taxonomy()
 #                                     and asserts assert_taxonomy_lock(). v1.2 adds
 #                                     INGEST FORMS; v1.3 adds the lock gate.
 #   blueprint_core.py     — allocation core (Clusters A-C)
 #   paper_pipeline.py     — naming / numbering / registry plumbing
-#
-# v1.41 — 2026-07-26 — S2-2 LOADS THROUGH load_taxonomy(). Read and gate collapse to
-#         one call, and the taxonomy comes from approval_record.json where the record
-#         carries it rather than from a Word document. Step 6 is the worst place for a
-#         wrong taxonomy — the blueprint built from one is internally consistent,
-#         passes every BV check and is indistinguishable from a correct one at Steps
-#         7-11 — so removing the parse step here removes the largest remaining way to
-#         get one. Pre-1.3 records fall back to the doc, gated, and need no re-run.
-#         MINIMUM COMPANION: corpus_io.py >= v1.4.
 #
 # ═══════════════════════════════════════════════════════════════════════════
 # STEP NUMBER NOTE — CANONICAL PIPELINE MAPPING
@@ -245,6 +120,38 @@
 #   Same spec runs for 1-section exam or 6-section exam.
 #
 # VERSION HISTORY:
+#
+# RETAINED IN-FILE ON PURPOSE — DO NOT MOVE TO SPEC_HISTORY.md.
+#   The v1.9 entry below is the SOLE documentation of the accepted legacy
+#   blueprint field alias `msq_present` (renamed `multi_present`), which
+#   Framework_MockTestCreate.md still reads as a fallback. audit_sync BP-SCHEMA
+#   requires the literal to appear in THIS file. v1.41.1 kept it back for exactly
+#   this reason and said so; the 2026.08.15.14 extractor was mechanical and swept
+#   it out anyway, and BP-SCHEMA caught it. A marker is only a guard if the tool
+#   reading the file honours it.
+#   KEPT IN-FILE (not archived): the v1.9 rename entry below — it is the sole
+#   documentation of the accepted legacy blueprint field alias `msq_present`
+#   (renamed to `multi_present`), which Framework_MockTestCreate.md and
+#   Framework_MockTestCreateAudit.md still read as a fallback; audit_sync
+#   BP-SCHEMA requires the literal documented here.
+#   v1.9 — VOCABULARY UNIFICATION — PHASE 0 (rename only; NAT prep). Pure rename, no
+#           behaviour change: per-subtopic `answer_mode` -> `answer_cardinality`;
+#           blueprint flag `msq_present` -> `multi_present`. The section_rules reader and
+#           the blueprint consumers accept the OLD names as a fallback (existing
+#           section_rules/blueprint files keep working). Non-MSQ exams byte-identical to
+#           v1.8. Validated: AST clean; carry-through unchanged on old-name AND new-name
+#           inputs. Part of the Steps 0-4 single-vocabulary alignment (answer_type +
+#           answer_cardinality) that wires the Explain step's contract.
+#
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_Blueprint.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 ---
 
 ## §1 — SESSION START

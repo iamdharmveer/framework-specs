@@ -15,77 +15,6 @@
 #      blueprint containing the paper whose slug matches PAPER_SLUG (P1's own semantics,
 #      restated self-contained), and every downstream P10 check (FK, count, difficulty)
 #      now validates against the CORRECT blueprint for scoped papers too.
-# v1.24.0 — 2026-08-13 — CROSS-STEP SYNC AUDIT FIXES (Steps 5→11 handshake audit)
-#   Two desyncs found by a dedicated 3-pass producer↔consumer audit of the whole
-#   Step 5 → TestDeliver chain, both fixed in this file:
-#   1. GAP-2026-08-13-STALE-CREATE-COMPLETE-NAME — S2-1's trigger contract (FRESH
-#      prerequisite line + the HALT rule) still demanded a "Create_Complete" docx,
-#      a filename RETIRED at v1.21.0 that no step produces (this file's own header
-#      says so; Step 7 delivers [ExamCode]_[paper_slug]_Create.docx). Read literally,
-#      the HALT rule could never be satisfied — a session would refuse the valid
-#      _Create.docx upload forever. Both sites (and the S19-1 comment) now name
-#      _Create.docx. The operative P1 discovery always did.
-#   2. GAP-2026-08-13-EXPLAIN-N-SLUG-GATE — new P10/0: trigger-N ↔ uploaded-docx
-#      identity gate, the SAME assertion Step 11 (MockDeliver S1-2) already makes
-#      and Step 9 did NOT. P1 selects the BLUEPRINT by the uploaded docx's slug, but
-#      N comes from the trigger — and on a RESUMED SCOPED SERIES the blueprint's
-#      `mock` field is an ORDINAL (1..count) while the paper_id carries the OFFSET
-#      series number (ScopedBlueprint S2-4 paper_start), so a mistyped P[N] could
-#      silently bind a DIFFERENT paper's options_by_q/question_index to the uploaded
-#      paper and publish a mislabeled Explanation. P10/0 hard-stops on
-#      pp.paper_slug(trigger-N's paper_id) != the uploaded filename's slug.
-# v1.23 — 2026-08-10 — P10 REGISTRY-FK TRIPWIRE (GAP-2026-08-10-QINDEX-FK-
-#   ENFORCEMENT). New mandatory preflight P10: before ANY solving, validate this
-#   mock's registry.question_index against the blueprint (entry exists; count/
-#   coverage; every subtopic_id byte-exact in subtopic_list; every difficulty in
-#   difficulty_labels) AND check the registry's ledger↔index agreement. WHY HERE:
-#   three reference Step-7 sessions committed invented subtopic_ids that only
-#   detonated at Step 11's JOIN — after the full Explain effort had been spent —
-#   and one paper's question_index was silently LOST by a later registry write
-#   while the completion ledger still claimed it done. P10 catches both classes
-#   BEFORE Explain effort is spent: a defective index for THIS mock is a HARD
-#   STOP with per-Q findings (remedy: fix at Step 7 / patch the registry
-#   upstream, never inside Step 9); ledger gaps for OTHER papers are a loud WARN
-#   (they do not block this mock, but must be surfaced the first time any step
-#   sees them, not at those papers' deliveries). Companion to MockTestCreate
-#   v5.48.0 (S13-4 copy-by-reference + A-QINDEX) and MockDeliver v1.12.0.
-# v1.22 — 2026-08-10 — SHARED-ENGINE MATH-INTEGRITY GATE (GAP-2026-08-10-EXPLAIN-
-#   MATH-DEGRADE-SILENT, mirrored from Framework_PYQExplain v2.4). The shared
-#   explain_engine.py now compiles every ⟦MATH:…⟧ region inside ExplanationBlock.
-#   validate() and RAISES at construction on a Tier-3 grammar reject, so a region
-#   can no longer degrade to raw plain text at render. Because verify_explanations
-#   REPORTS such degrades through its RETURN value (ok, problems) — it does NOT
-#   raise — §18-1's verify_explanations line is now an explicit BLOCKING CONTRACT
-#   (assert ok is True AND problems == [] AND T3_STATS['failed'] empty). This
-#   pipeline authors math with the explicit helpers and bans LaTeX in prose (§11),
-#   so ⟦MATH:…⟧ regions are rare here, but the shared-engine gate and the §18
-#   contract apply. Engine self-test unchanged (62/62). Touched: §S5-2, §S18-1,
-#   header + END sentinel. Ships with the regenerated MANIFEST (engine sha changed).
-# v1.21.1 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED and explain_audit_gate.py
-#   REMOVED from the framework. Updated the two notes that said the gate module still
-#   survives / is still routed "for PYQExplainAudit" (no longer true). No rule change.
-# v1.21.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
-#   Step 9 now reads the Step-7 paper directly ([ExamCode]_Mock[N]_Create.docx) — the
-#   rectified _Create_Complete.docx no longer exists because no step produces it. Every
-#   claim of upstream certification, every escalation target, and every "Step 10 proves
-#   truth" clause is restated against what actually survives: Step 7's own gates upstream,
-#   and this step's §12 fidelity verification + §19 pre-delivery checklist downstream.
-#   ACCEPTED LOSS, stated once and not hidden: no independent re-derivation of any answer
-#   and no independent completion gate exist after this step. Step 9's self-checks are now
-#   TERMINAL for explanation correctness. The §24 learnings loop loses its producer and is
-#   demoted to an optional, manually-authored input.
-#
-# v1.20.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   401 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_MockTestExplain'. The current companion block, the
-#   v1.20 entry, and all structural notes remain in-file. Body byte-untouched.
-#
-# v1.20 — 2026-07-20 — FINAL QA FIX: EXAM_CODE CROSS-VALIDATION (twin of Framework_
-#   MockTestCreate v5.29, found during the same full line-by-line adversarial re-audit).
-#   P1's [ExamCode]*_blueprint.json glob is a PREFIX match — added an explicit
-#   bp['exam_code'] == [ExamCode] check immediately after pp.pick_blueprint returns,
-#   HALTING on mismatch instead of silently trusting the glob.
-#
 # ════════════════════════════════════════════════════════════════════════
 #
 # VERSION HISTORY:
@@ -151,6 +80,15 @@
 #   explanation needs is absent from the source files, the engine falls back to a
 #   STRUCTURAL default (English labels, numeric scheme, Latin terminators, the uniform
 #   option count) and logs it — it is NEVER hardcoded as an exam fact.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockTestExplain.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 # ════════════════════════════════════════════════════════════════════════
 # §0 — INPUT / OUTPUT CONTRACT (read before anything else)

@@ -18,50 +18,6 @@
 #   paper, never assumed, never fatal on failure).
 #   EC-P36/EC-P37 are unchanged and remain correct: they describe the connector lane,
 #   which stays the fallback whenever the direct lane is unavailable.
-# v1.4 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. §9 gains EC-P37
-#   (inline channel in a batched, multi-session step — the budget is per SESSION, a
-#   fresh chat resets it, halve it because an inline payload is charged twice, and
-#   partition only AFTER the recency sort), EC-P38 (channel transition on resume —
-#   persist and reuse the verdict, re-probe once on a first-acquisition failure, never
-#   flip silently) and EC-P39 (an empty listing is a TRANSPORT diagnosis, never a
-#   zero-PYQ exam — the one transport defect in the framework that produced a wrong
-#   ANSWER rather than a stall). EC-P35/EC-P36 now say explicitly that their
-#   single-session resolution does not apply to a batched step.
-# v1.3 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION. §9 gains EC-P35 (the
-#   Drive channel cannot reach the container) and EC-P36 (an inline channel exceeds the
-#   context budget). Neither condition is visible to size-based partitioning: measured
-#   on IIT_JAM_MATHEMATICS, partition_by_transport returned auto:22 / upload:0 for a
-#   corpus of which ZERO papers were actually fetchable, so plan_transport() printed
-#   nothing and the operator learned the transport shape of the run AFTER the
-#   acquisition loop — the exact discovery EC-P31 and S5-1 exist to prevent. MINIMUM
-#   COMPANION VERSIONS now require the engines carrying stage_drive_payload(),
-#   bare-base64 decode and channel-aware partitioning.
-# v1.2 — 2026-08-15 — GAP-2026-08-15-BAREQ (R-3). Phase-B checklist TASK 1 no longer
-#   names a local regex: Q-counting uses bc.detect_question_start(), the same detector
-#   Steps 3 and 5 parse with. A checklist that tells the operator to reproduce a private
-#   pattern is how a third Q-detection dialect stayed in production.
-# v1.1 — 2026-08-05 — GAP-2026-08-05-001. §6 DISCRIMINATOR rewritten: "next non-empty
-#   paragraph" -> "next CONTENT-BEARING BLOCK" with the four textless classes enumerated
-#   (image, equation, embedded object, TABLE) plus auto-numbering; the false invariant "a
-#   stem continuation NEVER is [followed by a date label]" corrected; DISCRIMINATOR 2
-#   (colour, per-FILE gate) added; the NAT impossibility stated explicitly. MINIMUM
-#   COMPANION VERSIONS now require the GAP-2026-08-05-001 engine and python-docx >= 1.1.0.
-# v1.0.2 — 2026-07-31 — HOST-NOTE HEADER DISAMBIGUATED (sync audit, ownership check).
-#   The scaffolding header '## §2-HOSTED — ...' matched the '^## §N' section-header
-#   pattern, so a tool locating §2 by header could resolve to this file's host note
-#   instead of Framework_PYQDraft.md, which owns §2. Renamed to 'HOSTED SECTION S2-3
-#   (from §2 ...)' so §-ownership is unique per file: §2 -> Draft; hosted S2-3 content
-#   here, unchanged and still byte-identical to v2.29. Scaffolding-only; zero rule change.
-# v1.0.1 — 2026-07-31 — ERA-SYNC SOURCING LINE (audit_sync). The split placed S2-3's
-#   prose mentions of OUT_OF_PATTERN in this file while the executable bc.OUT_OF_PATTERN
-#   call sites landed in Framework_PYQScan.md; audit_sync's per-file rule (any spec naming
-#   OUT_OF_PATTERN must source it from the engine) then fired on this file. Added an
-#   engine-sourcing comment to the S2-3 host note — scaffolding only, the hosted v2.29
-#   content remains byte-identical. Zero rule/functionality change.
-# v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
-#   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
-#   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
-#   monolith remains as a stub section map at Framework_PYQAnalyse.md (v3.0).
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -78,6 +34,15 @@
 #### §11 — EXAM-AGNOSTIC GUARANTEE → Framework_PYQCore.md
 #### §12 — DEFINITION OF DONE → Framework_PYQCore.md
 #### Every trigger loads its step file + Framework_PYQCore.md (routes.json). History: CHANGELOG.md
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQCore.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ---
 

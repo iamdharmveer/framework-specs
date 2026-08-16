@@ -25,172 +25,6 @@
 #   an orphaned sid are listed by bank_id — a deferred question must never
 #   silently lose its certification home (NA §2 discloses the same from
 #   its side). Companions: notes_core >= v2.9.
-# v3.1.0 — 2026-08-14 — INTEGRATION EVIDENCE IN THE BANK (owner decisions of
-#   the 2026-08-14 design session; pairs with Framework_NotesCreate v2.6.0
-#   §4 B4a and Framework_NotesAudit v3.4.0 §5 G-13; notes_core >= v2.7).
-#   Real exams fuse 2-3 subtopics in one question; the bank now RECORDS that
-#   evidence where it is seen — at ingest. §3B B-1 gains the OPTIONAL
-#   integration_partners field (schema notes-pyq-bank/1.2, additive; 1.0/1.1
-#   banks still load): the OTHER subtopics a question genuinely fuses, each
-#   in the canonical Subject::Topic::Sub Topic Name scope form (the same
-#   form the resolve convention teaches everywhere). Claude-as-SME tags it
-#   while reading the question — the header subtopic stays AUTHORITATIVE
-#   and untouched (§1.3; NB still never reclassifies); a partner is evidence
-#   ABOUT the question, not a re-filing OF it. bank_add_question validates:
-#   scope form only, own subtopic never a partner. WHERE the fusion is
-#   taught is not NB's decision: notes_core.integration_target_for files
-#   every fused question at the LATEST member of its fusion set in the
-#   persisted teaching order (backward-only by construction — NC §4 B4a
-#   authors to it, NA G-13 gates it). GRANDFATHERING: a bank with no
-#   integration_partners anywhere (written before 1.2) makes the contract
-#   DORMANT downstream — no re-ingest is forced; the next §7 bank refresh
-#   or new-paper append is the natural moment tags enter. No other field,
-#   count, role, tier or output changes.
-# v3.0.3 — 2026-08-12 — REGISTRY 2.1 SYNC (GAP-2026-08-12-NADOCX patch P3 of 3).
-#   NB creates the registry, and notes_core v2.4's registry_init now EMITS
-#   notes-registry/2.1 — additively: the 2.0 keys are untouched, 1.x/2.0 still
-#   load, and 2.1 adds the per-unit draft_ref (written by NC section 9A),
-#   final_ref and audit_summary (written by NA section 6). This spec still
-#   cited 2.0 in its companion block and in O-3, so the step that CREATES the
-#   artifact named an older schema than the engine it calls — the drift the
-#   SPEC-LOCK block exists to catch, one release after the flip. Corrected
-#   here, together with the PIPELINE POSITION line, which described NA as
-#   "audit + loop" and no longer matched Framework_NotesAudit v3.0.0, where NA
-#   also corrects, rebuilds and emits the unit's _Final.docx. Companion:
-#   notes_core >= v2.4. No behaviour change: notes_blueprint.py is untouched
-#   and notes-blueprint/2.0 is unchanged.
-# v3.0.2 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts; pairs
-#   with Framework_NotesCreate v2.2.1 and notes_core v2.1 SPEC-LOCK). §1A A-3
-#   now names notes_core.unit_code as the FORMATTER of the numeric code (the
-#   {EXAM}_S{s}_T{t}_ST{nn} pattern shown anywhere in this spec is the human
-#   rendering; the engine is the single authority, spec-lock-pinned). §5's tier
-#   bands and the §4 vocabularies are likewise spec-lock-pinned in notes_core.
-# v3.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW RESOLVE (three notes from the v3.0.0
-#   deployment verification).
-#   (1) "133/133 unverifiable from the repo": the manifest is a PROJECT artifact,
-#       so that validation is now a standing, REPRODUCIBLE preflight instead of a
-#       changelog claim: notes_blueprint.verify_manifest — CLI
-#       `python3 notes_blueprint.py --verify-manifest <path> [exam_code]` —
-#       loads the manifest (exam_code gate), asserts unique unit_codes + gapless
-#       ST numbering, sweeps ALL THREE resolution tiers across every subtopic,
-#       and checks filename uniqueness. §1A A-1 now runs it as the session
-#       preflight. Re-run against the live IIT_JAM_BIOTECHNOLOGY manifest at
-#       resolve time: 133 subtopics, 133/133 sid + scope + bare-name, VERDICT
-#       PASS — and anyone with the project file can re-verify with one command.
-#       Companion: notes_blueprint >= v2.1 (additive; v2.0 surface unchanged).
-#   (2) "breaking for mid-pipeline projects": intentional, now stated as the
-#       explicit MIGRATION block after §7 — one NB re-run per project, bank
-#       untouched (A-0 resumes; nothing re-downloads), and the previously
-#       UNSPECIFIED state carry-over across the key change (1.x unit_code keys ->
-#       sid keys) is specified: each 1.x unit's name resolves to its sid via
-#       notes_core.resolve_unit; states/notes_version/artifacts carry over;
-#       ambiguous/none resolutions are listed for the owner, never guessed.
-#   (3) "NB hard-stops without the Step-5 manifest": intentional and now stated
-#       plainly in the PREREQUISITE — Step 5 (PYQExtract) must have run for the
-#       exam BEFORE Notes; that ordering IS the single-vocabulary architecture.
-#       An exam that ran Notes before Step 5 completes Step 5 first, then takes
-#       the MIGRATION path.
-# v3.0.0 — 2026-08-10 — TAXONOMY CONSUMER (breaking; owner decision: ONE subtopic
-#   vocabulary across Test Creation and Notes Creation). The Step-5
-#   [ExamCode]_subtopic_manifest.json (the same file MockBlueprint consumes, whose
-#   human view is [ExamCode]_taxonomy.xlsx) is now the SINGLE SOURCE OF TRUTH for
-#   Notes unit identity. Step 5 itself is UNTOUCHED — Notes only consumes.
-#     (1) NEW §1A applies the Mock pipeline's Cross-Step Subtopic Contract
-#         (Framework_Blueprint RULES 1/2/2a) to Notes verbatim: every unit carries
-#         its manifest sid VERBATIM; resolution failure is a HARD STOP whose fix is
-#         upstream (re-run Step 5); NB NEVER mints, sequences, or fallback-creates
-#         an id — on ANY path, including evidence-added.
-#     (2) Unit names, section and topic are the manifest's EXACT BYTES; the
-#         syllabus's role shrinks to what §1.1 always said — the MASTER FILTER
-#         (in/out of scope, roles, tiers) — never a naming authority. §2 S-1
-#         rewritten; the summary gains a SYLLABUS-MATCH report.
-#     (3) The registry and blueprint are KEYED BY sid (schemas notes-registry/2.0
-#         — 2.1 as of notes_core v2.4, additive — and notes-blueprint/2.0). The numeric unit_code {EXAM}_S{s}_T{t}_ST{nn}
-#         survives as a DERIVED PRESENTATION attribute (B1 title number, F-1
-#         filename): numbers come from manifest row order via
-#         notes_core.assign_numbering and, once assigned, are PERSISTED — a Step-5
-#         re-run that inserts/reorders subtopics never renumbers an existing unit;
-#         new sids append with next numbers. The F-1 slug is notes_core.sid_slug
-#         (the sid's final component), so a delivered filename is visibly
-#         traceable to its taxonomy.xlsx row.
-#     (4) taxonomy_ref {path, sha256, subtopics, generated} over the manifest
-#         bytes is emitted beside bank_ref (notes_core.taxonomy_ref_for) and
-#         stored in blueprint + registry; verify_taxonomy_ref is the staleness
-#         link (NC §1.2 checks it; a changed manifest flips units STALE, §7).
-#     (5) Engine: notes_blueprint.build_blueprint_v2 (manifest-consuming) replaces
-#         build_blueprint in this spec's flow (the v1 builder remains in the
-#         engine for legacy reads only). Companions: notes_core >= v2.0,
-#         notes_blueprint >= v2.0. Engineering-session validation against the
-#         live IIT_JAM_BIOTECHNOLOGY manifest (a project artifact, not in this
-#         repo) is reproducible via the v3.0.1 --verify-manifest preflight.
-#     (6) NEW §7 rules: manifest-hash staleness, ORPHANED (a delivered unit whose
-#         sid left the manifest is reported, never deleted), and the BANK-MATCH
-#         report (bank triples that fail to norm-match any manifest triple —
-#         expected empty; nonzero exposes an upstream sorting anomaly).
-# v2.0.5 — 2026-08-10 — DELIVERY-FOOTER CONTRACT HONORED. v2.0.4 added
-#   present_files at every BATCH STOP but rendered no footer — a violation of
-#   Framework_DeliveryFooter §4-0 R1 ("a present_files call is always followed by
-#   the footer"), and the Notes pipeline had no §3 registry entry. A-7 now renders
-#   F1 (batch bar) after each non-final batch and F2 (4-cell NOTES bar, Next: NC)
-#   after the final delivery, per Framework_DeliveryFooter v1.18 (which now carries
-#   the NB/NC/NA/ND §3 entries, the NOTES bar, and the Notes §6 chain).
-# v2.0.4 — 2026-08-10 — POST-DEPLOY REVIEW. (B) O-2 no longer claims a "bank"
-#   provenance value the engine never writes — unit provenance is
-#   "syllabus"/"evidence-added"; only the pyq_count is bank-DERIVED, now stated as
-#   such. (D) the bank checkpoint is written to /mnt/user-data/outputs AND
-#   presented (present_files) at every BATCH STOP, and A-7 option B now tells the
-#   operator to DOWNLOAD that presented bank and re-upload it to project knowledge
-#   before a fresh-chat resume (the previous "already in project Files" was false —
-#   write_bank targets the working dir). A-0 makes the resume load explicit.
-#   Companion: notes_core >= v1.8 (stored subtopic_key is informational; reads
-#   recompute — a bank written by an older notes_core still joins correctly).
-# v2.0.3 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
-#   notes_core.subtopic_key now reuses syllabus_provenance.norm per component so
-#   bank counts join blueprint units across syllabus-vs-header label drift
-#   (& vs and, dash/unicode/slash-spacing). Prevents a real subtopic silently
-#   getting pyq_count=0 and the wrong tier. Companion: notes_core >= v1.7,
-#   +syllabus_provenance.py on the route. §1.3 updated.
-# v2.0.2 — 2026-08-10 — BATCH STOP law added to §3A (owner-selected cadence).
-#   The eager ingest now processes papers 3 at a time and PAUSES for user
-#   confirmation after each batch (A-7), mirroring PYQExtract /
-#   Framework_MockTestAnalyse: BATCH_SIZE = 3 is non-negotiable, and the response
-#   ENDS after each batch so the run never auto-advances in one turn. The A-6 bank
-#   checkpoint makes the pause resume-safe (reply 'continue', or re-trigger NB in
-#   a fresh chat — it resumes from the paper_keys already in the bank). Spec-only
-#   change; no engine surface moved.
-# v2.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIXES. (1) bank_ref is now actually
-#   EMITTED: NB builds the blueprint with bank_ref=notes_blueprint.bank_ref_for(
-#   bank_path) after writing the bank, so §6 O-2's staleness link is real and NC
-#   §1.2 can detect a blueprint/bank mismatch (notes_core.verify_bank_ref).
-#   (3) §3A-1 enumeration is reworded to the CLASS T bridge: Claude runs the
-#   paginated + recursive Google Drive:search_files walk IN ITS OWN TURN and
-#   passes collect_corpus_files a PLAIN-LOOKUP resolver over the materialised
-#   listing — never the tool marker (the defect audit_callgraph C6 exists to
-#   catch). §3A-3 download uses the same resolver idiom explicitly.
-# v2.0.0 — 2026-08-10 — INGEST BASE (breaking role change). NB is now the base
-#   of the Notes architecture: it performs the EAGER full-corpus ingest of every
-#   sorted-PYQ paper and emits a verified notes_pyq_bank.json (questions +
-#   options + verbatim correct_answers + verbatim explanations + a stem/solution
-#   figure split) that NC and NA consume READ-ONLY. Neither NC nor NA re-reads
-#   Drive again. Consequences of the six owner decisions locked 2026-08-10:
-#     (1) Drive images are read via corpus_io (the proven PYQExtract path):
-#         enumerate -> screen -> batch-of-3 download -> image extract -> vision
-#         read. No FIGURE_PENDING stem-only fallback for the normal run.
-#     (2/3) exam_date comes from the (stable) filename via
-#         notes_core.parse_exam_date_from_filename; nothing in the body carries it.
-#     (4) answers + explanations are read from the doc VERBATIM and never
-#         re-derived; NA runs permanently in ground-truth mode; KEY_FLAG dropped.
-#     (5) subtopic-wise pyq_count + recent-3-year counts are DERIVED from the
-#         bank (notes_core.derive_taxonomy_counts); the separate PYQ Analysis doc
-#         is no longer a prerequisite (optional cross-check only, §2 S-3).
-#     (6) image reads succeed (files < 10 MB); NB does NOT hard-stop on a per-
-#         image gate finding — it reports it. Only a corrupt ZIP or a truncated
-#         download (size mismatch) stops the affected paper, which then routes to
-#         the upload lane.
-# v1.1.0 — 2026-08-08 — REFINEMENT SUPPORT: allowed_question_types, explicit unit
-#   ordering (seq_in_topic), per-unit prose_ban_exemptions; registry schema 1.1.
-# v1.0.0 — 2026-08-08 — INITIAL RELEASE. Design locked + validated on the IIT JAM
-#   BT Enzyme Kinetics proof-of-concept (37/37 PYQ solvability). SourceMap folded in.
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
@@ -254,6 +88,15 @@
 #   §2 parsing), (c) Exam Pattern xlsx (Overview / Sections / Range tabs;
 #   Overview MUST carry a Level field). Sorted PYQ papers are located via §3 and
 #   ingested via §3A. A PYQ Analysis doc is OPTIONAL (cross-check only).
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_NotesBlueprint.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ## §1 — SCOPE RULES (locked)
 1. CURRENT syllabus is the MASTER FILTER. Out-of-syllabus PYQ subtopics are

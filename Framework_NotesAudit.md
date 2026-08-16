@@ -18,201 +18,6 @@
 #   NA adds the figure and the Example that reads it. Rollout follows the
 #   G-12 precedent: applies at each unit's next audit; a target without
 #   format_mix skips the check (additive, never retroactive).
-# v3.4.2 — 2026-08-14 — ADVERSARIAL-REVIEW FIXES (independent fresh-eyes
-#   review + 400-trial property fuzz of the integration feature; pairs with
-#   notes_core v2.9, notes_audit v2.6, Framework_NotesCreate v2.6.2,
-#   Framework_NotesBlueprint v3.1.1). Five fixes on this side:
-#     (1) §5 G-11 still said "ALL of the unit's bank questions" — the exact
-#         pre-v3.4.1 boundary v3.4.1 replaced; the terminal re-solve runs
-#         over the §2 CERTIFICATION SET (the same count-drift class as the
-#         MockTestAnalyse PART-B miss, caught one release later this time).
-#     (2) FILING MOVES ONLY ON FULLY-RESOLVED EVIDENCE (notes_core v2.9): a
-#         fused question moves off its header only when EVERY fusion-set
-#         member is a registry unit in the order map. An out-of-syllabus
-#         header's question can no longer leak INTO a certifiable unit's
-#         set, and a typo'd partner no longer under-files — the question
-#         stays at its header and the defect is REPORTED.
-#     (3) §5 G-13: UNRESOLVED evidence is ADVISORY (never a Combines demand
-#         naming an unresolvable subtopic); the Combines match now uses
-#         notes_core.display_norm — the subtopic_key component norm — so
-#         & / and / dash / NFKC drift between paper-header bytes and
-#         manifest names cannot produce a false blocking finding; the
-#         containment-residual ("Waves" inside "Matter Waves") is STATED,
-#         with the §2 inbound solve as the semantic net.
-#     (4) §2: DEFERRED disclosure gains the ORPHANED-FILING check — when the
-#         manifest is present, a deferred question whose filing unit's sid
-#         has left the manifest is disclosed as certification-pending, never
-#         silently dropped from the exam's coverage.
-#     (5) §9 chat line: unresolved-evidence and orphaned-filing disclosures.
-# v3.4.1 — 2026-08-14 — THE AUDIT BOUNDARY FOLLOWS FILING (line-by-line
-#   certification sweep of the v3.4.0 feature; pairs with notes_core v2.8,
-#   Framework_NotesCreate v2.6.1). Found by tracing ONE fused question
-#   through NB -> NC -> NA: v3.4.0 filed the fused question's TEACHING at
-#   the latest partner (G-13) but §2's closed-book solve still read the
-#   HEADER slice — so the EARLIER unit was asked to solve a question whose
-#   ingredients its own notes must not teach (backward-only, NC I-4): a
-#   guaranteed PARTIAL/NOT with no licensed remedy, looping toward a
-#   quarantine the question does not deserve. Meanwhile the FILING unit —
-#   whose integration section exists exactly to make that question solvable
-#   — never solved it closed-book at all: the certification instrument
-#   missed the very questions the feature exists for. §2 now audits the
-#   unit's CERTIFICATION SET, notes_core.audit_questions_for: the header
-#   slice MINUS fused questions DEFERRED to a later partner PLUS fused
-#   questions INBOUND from earlier slices — the filing decision is the SAME
-#   shared authority G-13's target uses, so where a fusion is taught and
-#   where it is solved can never disagree. IDENTICAL to the old slice for
-#   grandfathered banks: no change for any existing exam. Second fix, same
-#   sweep: unit_order was prose-only and built independently by NC and NA —
-#   the author/gate drift class. notes_core.unit_order_from_registry is now
-#   the ONE builder (ordinals = the persisted unit_code digits, NB §1A
-#   A-3); NC I-5 and §2 here both call it, neither hand-builds a map.
-#   coverage_target_for DELIBERATELY still reads the header slice (the
-#   v3.3.1 discipline: the contract reads the BANK's evidence; only the
-#   solve boundary follows filing). Deferred and inbound questions are
-#   DISCLOSED in the §9 chat line.
-# v3.4.0 — 2026-08-14 — G-13 INTEGRATION (in-subtopic Integration sections;
-#   owner decisions of the 2026-08-14 design session; pairs with
-#   Framework_NotesCreate v2.6.0 §4 B4a, Framework_NotesBlueprint v3.1.0 §3B
-#   B-1; notes_core >= v2.7, notes_audit >= v2.5). New gate G-13
-#   (notes_audit.gate_integration) against the unit's bank-derived
-#   INTEGRATION CONTRACT (notes_core.integration_target_for — latest-partner
-#   filing over the persisted teaching order, so the fusion is always taught
-#   where the student has met every ingredient). HARD when the bank attests
-#   a fusion for THIS unit: an integration section (a concept block whose
-#   FIRST bullet is the Combines declaration — the same
-#   derived-from-content discipline as every number in the document; no new
-#   model field, W-3 and §0B P-4 untouched) must name every partner, sit
-#   after every core concept, and carry >= 1 worked Example. DORMANT, never
-#   blocking: no target (bank-less caller) and the GRANDFATHERED case — a
-#   bank with no integration_partners anywhere predates notes-pyq-bank/1.2
-#   and could not attest a fusion; both are reported, and the grandfathered
-#   dormancy is a legitimate live-NA outcome (unlike G-12's). ADVISORY:
-#   unattested integration sections (SME bridge-justified, D-6). REMEDIATION
-#   ROUTING (§2A/§4): a G-13 finding is a PARTNER-HOMING gap — NA EXTENDS or
-#   ADDS the integration section (net-ADD licensed exactly like G-12's);
-#   it NEVER quarantines the fused question, because quarantine says "this
-#   stem is corrupt or mis-filed", not "the notes lack the partner bridge".
-#   G-11 runs G-13 with every other gate over the bytes that ship.
-# v3.3.1 — 2026-08-14 — QUARANTINE x COVERAGE EDGE STATED (line-by-line
-#   certification sweep). §5 G-12 now states explicitly what the engine
-#   already does: a QUARANTINED question (§4 L-4) still counts toward the
-#   coverage contract. coverage_target_for reads the BANK slice, and
-#   quarantine lives in the report, never in the bank — so quarantining a
-#   unit's only numeric item does not waive the numeric-Example requirement.
-#   That is deliberate: quarantine says "this one stem is corrupt or
-#   mis-filed", not "the syllabus stopped testing this type" — NA teaches the
-#   type from a FRESH scenario (§2A licenses the add on the G-12 finding).
-#   Prose only; no engine, gate or behaviour change.
-# v3.3.0 — 2026-08-13 — G-12 COVERAGE (Phase 2, Recommendations 3+4; pairs with
-#   Framework_NotesCreate v2.5.0 §4 B3a; notes_core >= v2.6, notes_audit >=
-#   v2.4). New BLOCKING gate G-12 (notes_audit.gate_coverage) against the
-#   unit's bank-derived coverage contract (notes_core.coverage_target_for):
-#   every question type the unit's OWN bank attests has >= 1 worked Example,
-#   and Examples span the required number of DISTINCT concept sections. The
-#   contract is deliberately CONCEPT SPREAD, never an example COUNT (owner
-#   decision, 2026-08-13): a count is satisfiable by clones of one scenario,
-#   which add pages and teach nothing new. An Example's concept is DERIVED
-#   from block order (nearest preceding concept block) — no new model field,
-#   no rendering change, W-3 untouched. Two ADVISORY signals ride in the
-#   gate's meta and never block: a bank-attested figure need with no concept
-#   figure in the model, and duplicate_suspects (a concept section carrying
-#   more than one Example of one type). Scenario diversity within a concept
-#   is §2A judgement, not regex: an Example teaching a scenario an existing
-#   Example already covers adds no coverage — NA REPLACES it with an
-#   uncovered scenario, never keeps both. Without a target G-12 reports
-#   DORMANT (the G-7a discipline). The spread clamp is
-#   notes_core.COVERAGE_CONCEPT_CEILING — the engine constant is the single
-#   authority; this spec deliberately restates no number.
-# v3.2.0 — 2026-08-13 — DISTRACTOR AUTOPSY + EDUCATIONAL OBJECTIVE ENFORCEMENT
-#   (Point 1; pairs with Framework_NotesCreate v2.4.0 §4 B3, notes_docx v1.3,
-#   notes_audit v2.3). G-5 (question format) now re-asserts, on the SHIPPED
-#   model, the two new B3 elements: every Example carries a one-line Educational
-#   Objective and one distractor-autopsy line per WRONG option (MCQ 3; MSQ
-#   4 − #correct; NAT >= 1 trap value), and a Recall carries NEITHER. This is
-#   deliberately folded into the EXISTING gate G-5 rather than a new identifier,
-#   so notes_audit.GATES and this spec stay in one-to-one agreement (the S-2
-#   sync check). notes_docx.validate_model gates the same contract at
-#   construction, so the two layers agree exactly as they do for D-1. The new
-#   text is document-facing and is scanned by G-4 like the rest of the file
-#   (Framework_NotesCreate §7). §2A's editable model now includes the why_wrong
-#   and objective fields — bounded improvement may sharpen a rationale or the
-#   Objective, but may not delete either (validate_model + G-5 would fail).
-# v3.1.0 — 2026-08-13 — LOSSLESS PARSE + TEXT AUTHORITY + ANCHORED G-9
-#   (GAP-2026-08-12-NAPARSE; owner decisions OD-1 and OD-2 of 2026-08-13).
-#   Four defects, all root-caused to test fixtures built from the simplest
-#   shape rather than the production shape; every one had a green self-test.
-#     (1) §2A's cycle now passes exam_code and tier into notes_docx.parse —
-#         F-6 bans them from the document, so the registry unit record is the
-#         only place they can come from (D-1b: without this, strict build
-#         raised for EVERY unit of EVERY exam). New write property W-4.
-#     (2) §0B gains P-4 PARSE FIDELITY: validate_model over the parsed draft
-#         HARD-STOPS before any solving if the parser lost anything the
-#         builder wrote (the permanent guard for the whole lossy-parse class;
-#         D-1 lost every pure-OMML option and re-typed MCQ items NAT).
-#     (3) §5 G-10 names notes_core.document_text as the ONLY text extractor —
-#         a bare tag strip welded "Answer: 1" to "2.10 MIND MAP" and failed
-#         correct documents on the standard tail anatomy (D-2).
-#     (4) §5 G-9 scans PROSE, never model JSON (D-3), scope pinned to
-#         stem/options/explanation with SPEED HACK excluded (OD-1), and runs
-#         DOMAIN-ANCHORED (OD-2 Design A): only syllabus-evidenced orphans
-#         report, so a clean unit yields ZERO findings and the gate is
-#         readable again.
-#   Companions rise to notes_core >= v2.5, notes_docx >= v1.2,
-#   notes_audit >= v2.2.
-# v3.0.0 — 2026-08-12 — NA BECOMES A WRITER (BREAKING; GAP-2026-08-12-NADOCX
-#   patch P2 of 2; owner decisions of the 2026-08-12 design session).
-#   Through v2.0.6 NA was a read-only certifier: it produced verdicts and
-#   routed every defect BACK to NC (§4 L-2), and §7 stated the audited file was
-#   "the SAME file ND ships — delivery never edits content". NA now VERIFIES,
-#   CORRECTS, IMPROVES and EMITS the student-facing document itself. The seven
-#   changes that follow, and why each one is load-bearing:
-#     (1) INPUT BY ATTACHMENT (§0A). The unit .docx arrives attached to the
-#         trigger message, never from Project Files. The bank, blueprint and
-#         registry stay in Project Files. Attachment removes the implicit
-#         guarantee that the file audited is the file NC produced, so §0B adds
-#         three HARD-STOP preflights — filename identity, exam-code
-#         cross-check, and sha256 against the registry's draft_ref.
-#     (2) REBUILD, NEVER PATCH XML (§2A). NA parses the draft to a
-#         notes_docx content model, edits the MODEL, and rebuilds through the
-#         SHARED builder. notes_docx.py exists because construction was prose
-#         until 2026-08-12: a writing NA hand-rolling paragraphs would have
-#         been a second implementation of the §6A colour map, the cascade, box
-#         styling, spacers, F-7 and the OMML conventions — the exact "one
-#         contract, two implementations" class the 2026-08-10 sweep closed.
-#     (3) KEY CORRECTION (§3A), superseding v2.0.0 owner decision 4a for the
-#         correction path. Where the notes-derived answer disagrees with the
-#         stored key, NA teaches the CORRECT method and answer instead of
-#         bending the notes to a wrong key. Two tiers: a bank that contradicts
-#         ITSELF is corrected silently; a bank that is internally consistent
-#         is still corrected but the correction is DISCLOSED in the chat.
-#         Without the tier split every disagreement would resolve in NA's
-#         favour and the ground-truth check would be decorative.
-#     (4) FOURTH VERDICT SOLVABLE_KEY_CORRECTED, counting toward the pass, so
-#         a corrected unit certifies without weakening the vacuous-pass floor.
-#     (5) NO .md REPORT (§6). The evidence moves into notes_registry.json as
-#         audit_summary. The report OBJECT stays: pass_for_unit operates on it
-#         and IS the vacuous-pass floor, so dropping the object would delete
-#         the certification rather than just the file.
-#     (6) NEW GATES (§5): G-7a visual layout (DORMANT without a renderer),
-#         G-7b OMML/figure line-rule geometry, G-8 answer integrity, G-9
-#         orphan terms, G-10 counter integrity, and G-11 the TERMINAL RE-GATE
-#         that certifies the BYTES THAT SHIP rather than the pre-patch draft.
-#     (7) ALWAYS DELIVER (§4/§9). NA emits exactly one file, always named by
-#         notes_core.notes_final_filename, in every outcome. A question that
-#         survives the loop is QUARANTINED, not shipped as a warning: nothing
-#         inside the document ever marks a defect (F-6/§7 unchanged).
-#   Companions: notes_core >= v2.4, notes_docx >= v1.1, notes_audit >= v2.0.
-# v2.0.6 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). §7's
-#   informal "[ExamCode]_<unit>.docx" now reads "the unit's F-1 filename".
-# v2.0.5 — 2026-08-10 — TAXONOMY SYNC (registry keyed by the Step-5 sid).
-# v2.0.4 — 2026-08-10 — CROSS-CHAT HANDOFF + STALE-REF FIX.
-# v2.0.3 — 2026-08-10 — POST-DEPLOY REVIEW (bank join recomputed from stored
-#   fields).
-# v2.0.2 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 3 (subtopic-join normalization).
-# v2.0.1 — 2026-08-10 — DEPLOYMENT-REVIEW FIX 2 (vacuous-pass floor wired).
-# v2.0.0 — 2026-08-10 — GROUND-TRUTH + BANK FIGURES.
-# v1.1.0 — 2026-08-08 — REFINEMENT GATES (G-4, G-5, G-6).
-# v1.0.0 — 2026-08-08 — INITIAL RELEASE.
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
@@ -269,6 +74,15 @@
 #   Unit state DRAFTED. The draft .docx is ATTACHED TO THE TRIGGER MESSAGE.
 #   notes_pyq_bank.json, notes_blueprint.json and notes_registry.json are in
 #   Project Files.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_NotesAudit.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ## §0 — TRIGGER AND UNIT RESOLUTION
 The trigger is:

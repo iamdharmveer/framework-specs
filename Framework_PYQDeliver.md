@@ -30,122 +30,8 @@
 #   PYQDeliver's own resolver instead of leaving it undetected there.
 #   Touched: §0 item 6 (dual-path import list), new §S2-2 TIER 0 section
 #   (before S2-2a), S2-2 diagram, S2-2e provenance, §10 §R1, END sentinel.
-# v1.11 — 2026-08-10 — DOC-CONSISTENCY: completes the v1.9 single-artifact sweep.
-#   v1.9 retired the render-source and made the delivered file the ONE artifact, and
-#   its changelog claimed it touched "§11 (done + invariants)" and the §7 "both
-#   artifacts" prose — but three LIVE lines were missed and still asserted the retired
-#   two-artifact model: the §7 C18 one-line summary ("on BOTH artifacts"), §11
-#   Definition-of-done item 11 ("machine-verified by C18 on both artifacts"), and the
-#   §11 hard invariant ("Both artifacts are schema-valid ..."). The gate_c18 code and
-#   the §7 body prose already validate exactly ONE delivered artifact, so behaviour was
-#   always correct; only these summary/invariant/done lines contradicted them, and no
-#   check catches prose drift. FIX: all three now name "the delivered artifact"
-#   (singular). No behaviour, gate, or delivered-byte change — documentation only.
-#   Surfaced in the 2026.08.10.1 deployment review; not introduced by v1.10.
-#   Touched: §7 C18 summary line, §11 done item 11, §11 hard invariant, END sentinel.
-# v1.10 — 2026-08-10 — PYQ REGISTRY IS NO LONGER A PROJECT-FILES DELIVERABLE.
-#   ROOT CAUSE of the reported cross-session gap: the registry
-#   ([ExamCode]_pyq_registry.json) was the ONLY PYQ-4 artifact whose usefulness
-#   depended on the operator MANUALLY uploading it back into the exam project's
-#   Files section (old S8-3) — /home/claude and outputs are chat-scoped and
-#   /mnt/project is read-only to the engine, so nothing else could persist it.
-#   Across the ~200-exam corpus that manual step was skipped routinely, so the NEXT
-#   paper's PYQ-4 ran in a fresh chat, found no registry, and — per the old §12
-#   case 11 — reset the corpus tally and dropped the duplicate-delivery guard
-#   SILENTLY. FIX: the registry is DEMOTED from a required Project-Files deliverable
-#   to an OPTIONAL, LOCAL-ONLY, absence-tolerant continuity aid. It is (1) NEVER
-#   badged Upload/Replace and NEVER presented as a file to manage in Project Files;
-#   (2) READ ONLY IF the operator voluntarily attaches one — absence is the normal,
-#   silent, expected state, never a WARN and never a nag; (3) CORRECTNESS-INDEPENDENT
-#   — producing the tagged portal file and passing C1–C18 never depends on it, and
-#   Definition-of-done no longer lists a registry update as a hard item; (4)
-#   BEST-EFFORT — when a prior registry IS attached PYQ-4 still updates it, may emit a
-#   LOCAL-ONLY copy, and the duplicate-delivery guard still fires; when none is
-#   attached the §R6 line reports current-paper-only totals neutrally. CONSEQUENCE:
-#   cross-chat corpus tracking becomes OPT-IN (attach the prior registry) instead of
-#   mandatory-upload; the portal deliverable is unchanged. Mirrors Framework_
-#   DeliveryFooter v1.16, which places *_pyq_registry.json in LOCAL_ONLY so the badge
-#   engine can never route it to Project Files on any step, for any exam. Touched:
-#   §0 outputs, §1 step 6, §3 step 3, §8 (open/S8-2/S8-3), §9 (items 2/6), §10 §R6,
-#   §11 done item 9, §12 cases 4 & 11, §13 S13-2 table, END sentinel.
-# v1.9 — 2026-08-09 — DELIVERED FILE NOW PRESERVES NATIVE OMML — the OMML→Unicode
-#   linearization (Rule 19) is RETIRED from the delivery path. ROOT CAUSE of the
-#   reported defect: §4-S4-2 named the RENDER-SOURCE artifact (every `<m:oMath>`
-#   flattened to a one-line Unicode text run by S6-1/Rule 19) as the delivered
-#   `_PYQ_Final.docx`. That silently DESTROYED all structured math — fractions,
-#   radicals, integrals/sums, matrices, sub/superscripts — in the portal file
-#   (measured on IIT JAM Physics 15-Feb-2026: 856 native `<m:oMath>` in the input,
-#   0 in the delivered file). The two-artifact design was justified (S4-1 Fact 1)
-#   by python-docx round-trip corruption — but PYQ-4 edits raw document.xml
-#   (unzip→XML→zip, §3) and NEVER round-trips through python-docx, so OMML already
-#   survives the pipeline byte-perfect: the INTEGRITY artifact proves it (gate C5:
-#   integrity OMML count == source). FIX: the INTEGRITY artifact (native OMML, tag
-#   blocks inserted, date/session tags removed, NO render transforms) is now THE
-#   delivered file. Rule 19 linearization is retired; the render-source is no longer
-#   built or delivered. The delivered file is therefore byte-identical to the input
-#   except for the two pipeline-mandated edits (§4A date-tag removal + §5 tag-block
-#   insertion). CONSEQUENCE: the render-only transforms Rule 21 (non-ASCII safe-font)
-#   and Rule 22 (underline recolor) no longer apply to the delivered file — content
-#   fidelity supersedes those portal-cosmetic transforms. Math preservation is now
-#   gated: C5 (unchanged) guards the delivered OMML count == source, and C11 is
-#   INVERTED from "zero OMML in render-source" to "delivered OMML count == source;
-#   zero linearization." Mirrors MockDeliver v1.11.0, which fixes the identical
-#   defect the same way. Touched: ZERO-MUTATION RULE, §0 outputs, §3, §4 (S4-1/S4-2),
-#   §6 (retired), §7 (C11 inverted; C14/C15 repurposed; "both artifacts" prose),
-#   §10 §R4/§R5, §11 (done + invariants), §12 case 7, §13 S13-1/S13-2, Appendix A.
-# v1.8 — 2026-08-09 — QUESTION TYPE IS NOW POSITION-BASED (three-tier), closing the
-#   section-determined-MSQ portal defect for real. SUPERSEDES the aborted v1.7 (never
-#   deployed). v1.7 tried to fix this by CONSUMING a `qtype` map it claimed PYQExplain
-#   had committed into pyq_explain_progress.json — but PYQExplain (§S7A-4) writes only
-#   _meta / q_to_classification / options_by_q / q_to_difficulty; there was no qtype key
-#   in the delivered sidecar, so v1.7's Tier 1 never fired and every question fell back to
-#   the same structural rule that returned 0 MSQ where 10 were expected. The v1.7 root-cause
-#   sentence ("PYQ-4 re-derived a type PYQExplain had already committed into the JSON") was
-#   simply false. TRUE ROOT CAUSE: Question Type was being read from section_rules
-#   `answer_cardinality`, a SUBTOPIC-scoped corpus statistic that cannot express
-#   SECTION-determined MSQ — on IIT JAM Physics 15-Feb-2026 every Section-B subtopic reads
-#   'single', so all 10 MSQ (Q31-40) mis-tagged as MCQ. FIX (mirrors the proven MockDeliver
-#   v1.7 precedent): S2-2 is now a three-tier resolver whose Tier 1 resolves Question Type
-#   POSITION-BASED from exam_config.marking_scheme[].question_type whenever marking_scheme
-#   carries more than one distinct question_type — the exam's OFFICIAL, section-scoped
-#   type-by-position, a field PYQ-4 already loads (§0 item 2). Tier 2 consumes PYQExplain's
-#   now-genuinely-delivered qtype (v2.3+); Tier 3 is the pre-v1.7 structural rule for
-#   single-type / subtopic-based exams. Deterministic; on IIT JAM Physics this yields
-#   exactly 30 MCQ / 10 MSQ / 20 NAT. Touched: §0 item 2 (third use) + item 8, §1 step 5,
-#   S2-1 row 4, S2-2 (rewritten), §10 §R1, S13-2 table. Paired with PYQExplain v2.3, which
-#   fixes P4 the same way and delivers qtype as a fourth map.
-# v1.6.2 — 2026-08-09 — PYQExplain v2.2.1 delivers the sidecar under the paper-identity stem
-#   [ExamCode]_[date]_[session]_pyq_explain_progress.json. §1/§0 now derive the expected sidecar
-#   name from the attached docx and load THAT — closing the same-Q_TOTAL collision where the
-#   §2-5 coverage gate (1..Q_TOTAL) would pass a wrong-paper map. Legacy bare names → WARN.
-# v1.6.1 — 2026-08-09 — PYQExplain v2.2 now DELIVERS pyq_explain_progress.json to outputs.
-#   Clarified §1/§0 that the sidecar (q_to_classification + options_by_q + q_to_difficulty)
-#   is attached alongside the _PYQ_Explanation.docx. No behaviour change — sourcing unchanged.
-# v1.6 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. PYQ-4 now takes PYQ-1's
-#   _PYQ_Explanation.docx as its STANDARD input (a legacy _Complete.docx is still
-#   accepted, unchanged, but is no longer produced), and reads pyq_explain_progress.json
-#   as the primary sidecar for q_to_classification / options_by_q / q_to_difficulty.
-#   COMPLEXITY Tier 1 (q_to_difficulty) is now PRODUCER-ONLY: PYQ-2's independent
-#   validation (§10A) is gone, so PYQ-4 consumes PYQ-1's assessed values directly after
-#   the same membership check (S2-3a). No gate, transform, or delivered byte changes.
-#   Edits retire the PYQ-2 input preference and cross-references. Touched: PIPELINE
-#   POSITION, §0/§1 input + sidecar priority, S2-3a note, §4A, §5-3, §7 C18 note,
-#   §10 §R7, §12 edge cases.
-# v1.5.2 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   197 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQDeliver'. The current companion block, the
-#   v1.5.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | PYQ-4 (PYQDeliver) | Exam-agnostic
 #
-# v1.5.1 — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
-#   read v1.2.1, several versions behind the header, so the last line of the file
-#   contradicted the first. Documentation only — not one line of behaviour changes. It went
-#   unnoticed because BOTH integrity tools were structurally blind to it:
-#   validate_framework_md.py Check C recognised only the '# END OF <name> vN' sentinel form
-#   and skipped the comparison entirely for the '**End of <name>.md (vN)**' form used here,
-#   while audit_specs_ext.py check_z_version reads the header from line 1 only. Check C now
-#   recognises both forms (validate_framework_md.py v3.1), so this cannot drift silently
-#   again.
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
 # ════════════════════════════════════════════════════════════════════════
@@ -155,6 +41,15 @@
 #   CONTENT PRESERVED, including native OMML math (v1.9: no linearization, no
 #   render transforms). This is the portal-facing counterpart to PYQ-3 (which
 #   produces the student-facing download).
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQDeliver.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 # ════════════════════════════════════════════════════════════════════════
 # PIPELINE POSITION (PYQ Explanation Pipeline)

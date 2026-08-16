@@ -8,123 +8,6 @@
 #   forms; scoped papers ({EXAM}_SUBJ_*/TOPIC_*/SUBTOPIC_* slugs) fell through to
 #   Upload/Replace. Added slug-agnostic suffix patterns (*_Create.docx, *_Explanation.docx,
 #   *_Final.docx, *_Q1to*.docx, *_audit_dossier.json, *_taxonomy.xlsx).
-# v1.20 — 2026-08-12 — NOTES HANDOFF BY ATTACHMENT (GAP-2026-08-12-NADOCX P2;
-#   pairs with Framework_NotesAudit v3.0.0 / NotesCreate v2.3.0 / NotesDeliver
-#   v1.2.0). The section 3 NC/NA/ND entries change: the notes .docx now moves
-#   between steps as a CHAT ATTACHMENT, not through Project Files, so its badge
-#   is "Use locally" at every step and the Next callout says to attach it. Only
-#   notes_registry.json is still filed — every step reads it from there, and it
-#   now carries draft_ref, final_ref and audit_summary (notes-registry/2.1).
-#   [ExamCode]_<unit>_Audit.md is REMOVED from ND's and NA's deliverable lists:
-#   NA no longer writes one. Filenames are the three engine authorities
-#   (notes_filename / notes_final_filename / notes_deliver_filename). The
-#   4-cell NOTES bar and every rendering rule are UNCHANGED — ND survives, so
-#   the pipeline is still 4 steps.
-# v1.19 — 2026-08-10 — NOTES CROSS-CHAT HANDOFF (supersedes v1.18's "NC/NA
-#   present nothing"). v1.18 marked NC and NA intermediate, which only holds if
-#   all four Notes steps run in ONE session — but the framework idiom is a new
-#   chat per step, so NC's draft .docx and NA's audited .docx must persist across
-#   chats exactly like NB's bank. NC and NA now PRESENT their handoff artifacts
-#   (draft / audited .docx + audit report + the updated registry) and render a
-#   footer, so their §6 next-step line actually prints. §3 NC/NA entries rewritten
-#   (F2, deliverables, Upload to Project Files); the §4-4 NOTES bar now applies to
-#   all four Notes F2 footers (NB=1, NC=2, NA=3, ND=4). Also: notes_pyq_bank.json
-#   is NAMED in the get_badge context-dependent note (its mid-batch checkpoint is
-#   Upload/Replace for a fresh-chat resume, Use locally for an in-session
-#   continue), resolving the §3-vs-get_badge disagreement. Additive to Step 1-11.
-# v1.18 — 2026-08-10 — NOTES PIPELINE INTEGRATED. The Notes pipeline
-#   (NB/NC/NA/ND) routes this footer but had ZERO §3 registry entries and no
-#   pipeline bar, so once NB began calling present_files (NB v2.0.4) it owed a
-#   footer it could not render. Added: §3 entries for NB/NC/NA/ND (NB and ND
-#   deliver + render a footer; NC/NA are intermediate and present no files, so
-#   render none — the contract binds only a present_files call); a 4-cell NOTES
-#   PIPELINE BAR in §4-4 for Notes F2 footers (the 11-cell Mock/PYQ bar never
-#   applies to Notes); and the Notes chain in §6. Additive only — no Step 1-11
-#   entry, badge, severity, F1/F2 shape, or §5 flowchart changed.
-# v1.17 — 2026-08-10 — LOCAL_ONLY PATTERN MADE AIRTIGHT. v1.16 added
-#   '*_pyq_registry.json', but get_badge() matches via endswith(pat) / fnmatch(*pat),
-#   so a BARE 'pyq_registry.json' with no '[ExamCode]_' prefix did NOT match and fell
-#   through to the upload/replace branch — the v1.16 "never routed to Project Files"
-#   guarantee was narrower than stated (the spec always names the file with a prefix,
-#   so it was not reachable in practice, but the guarantee should be exact). FIX: the
-#   pattern is now '*pyq_registry.json' (underscore dropped), which matches BOTH the
-#   prefixed and bare forms while still excluding the mock '_registry.json',
-#   'blueprint.json', and unrelated files (verified: zero false positives). Surfaced in
-#   the 2026.08.10.1 deployment review. Badge-only; no severity/F1/F2/flowchart change.
-# v1.16 — 2026-08-10 — PYQ REGISTRY IS LOCAL-ONLY (structural badge guarantee).
-#   Added '*_pyq_registry.json' to the §2 LOCAL_ONLY set so get_badge() can NEVER
-#   route the PYQ corpus tracker to Project Files on any step, for any exam — it
-#   always badges 📁 Use locally. Pairs with Framework_PYQDeliver v1.10, which demotes
-#   the registry from a required Project-Files deliverable to an OPTIONAL, absence-
-#   tolerant, local-only continuity aid (closing the silent cross-session reset that
-#   the routinely-skipped manual upload caused across the ~200-exam corpus). BADGE
-#   ONLY — no severity routing, no F1/F2 change, no §5 flowchart change; no condition
-#   may halt a run, and that is untouched.
-# v1.15 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. Updated the PYQ VOID_ITEM /
-#   CERTIFIED-DEGRADED (VISION) wording that named PYQ-2 as the reader of the voided-
-#   question list (now the human reviewer), and the v1.13 note that called PYQExplainAudit
-#   a still-live step (it is now also retired). F1/F2 shape, Q0/Q0b, severity unchanged.
-# v1.14 — 2026-08-03 — NEW §2A SPEC PROVENANCE DISCLOSURE (project-first specs).
-#   Specs are now PROJECT-FIRST: a Framework_*.md in an exam project's Files section
-#   overrides the repo copy and CANNOT be byte-verified. Every footer must now state
-#   whether the run used repo-verified specs or project overrides, naming them.
-#   DISCLOSURE ONLY — no severity routing, no AMBER/VOID_ITEM/BLOCKING change, no F1/F2
-#   change, no §5 flowchart change. No condition may halt a run, and that is untouched.
-#
-# v1.13 — 2026-08-03 — DEFECT FIX: this file still routed operators to the RETIRED steps.
-#   2026.08.03.5 retired canonical Steps 8 and 10 but left §2's step registry intact, so
-#   every Step 7 footer printed "NEXT STEP: Step 8: MockCreateAudit M[N]" and every Step 9
-#   footer printed "NEXT STEP: Step 10: MockExplainAudit M[N]" — triggers that no longer
-#   resolve. This file is routed to ALL triggers, so the defect printed on every delivery.
-#   FIXED: the STEP 8 and STEP 10 template blocks are removed, Step 7 -> Step 9 -> Step 11
-#   is the printed chain, and the §7 chain map matches. The pipeline bar STAYS at 11 cells.
-#   The three retired filenames stay in LOCAL_ONLY so pre-retirement files on disk badge
-#   correctly. ZERO CHANGE to §5 Q0b, to the v1.12 PYQ-1 VOID_ITEM producer clause, to any
-#   severity routing, or to F1/F2 shape: no colour or vision condition may halt a run.
-#
-# v1.12 — 2026-08-03 — §5 Q0b GAINS A SECOND PRODUCER: PYQExplain §13A VOID_ITEM.
-#   Q0b already fires on a MEASURED vision outage in the mock pipeline. PYQ-1 can
-#   now measure the same condition (Framework_PYQExplain v1.2 §13A-5) and had no
-#   amber path, so it HALTED instead — the one place the corpus rule 'a CLASS T
-#   failure must be LOUD and must NOT halt' (CLAUDE.md) was not applied. Same
-#   measured condition, same AMBER, one more producer. The PYQ wording NAMES the
-#   voided questions, because an unexplained question that is not named reads as
-#   an oversight and the human reviewer must be told where to look (PYQExplain RE-20).
-#   Zero change to F1/F2 shape, to Q0, to Q1, or to any severity routing:
-#   no colour or vision condition may halt a run, and that stays untouched.
-#
-# v1.11 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
-#   B3 final deliverables drop 6 -> 5 (ExplainAuditLearnings.md is no longer generated);
-#   the engine-copy duty moves from Step 8 to Step 7. The former audit-rule cross-reference
-#   is inlined because the spec that defined it no longer exists. No footer rule, severity, or
-#   AMBER/VOID_ITEM/BLOCKING routing changes: no colour condition may halt a run, and
-#   that is untouched here.
-#
-# v1.10 — 2026-08-01 — §5 Q0b: CERTIFIED-DEGRADED (VISION) forces F1 AMBER.
-#   A paper certified under a MEASURED vision outage (the retired audit-side rule on
-#   vision outage, now carried by Step 7's own handling) delivers, but must
-#   never render green: some figures were machine-checked and never eyeballed. — Universal Delivery Footer Contract
-# v1.9.1 — 2026-08-01 — B3 STAYS AT 6 FILES; ENGINES COME FROM THE CLONE
-#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING, post-deploy correction). v1.9 briefly
-#   raised B3 to 8 by shipping blueprint_core.py + figural_core.py per exam. That was
-#   the wrong remedy: CLAUDE.md states engines live ONLY in the central repo and no
-#   per-project provisioning should ever be performed, because a project copy is a
-#   second unverified source that can go stale. Step 8 P0 now copies both engines
-#   from the Step-0 verified clone ($FW) instead — the same pattern Blueprint §S1-2b
-#   already uses — so the delivery contract returns to 6 and no exam project needs
-#   touching. Superseded v1.9 entry:
-# v1.9 — 2026-08-01 — STEP 6 B3 DELIVERABLE LIST 6 -> 8 FILES
-#   (GAP-2026-08-01-FIGPROFILE-ENGINE-BINDING D2/D3). B3 now also delivers
-#   blueprint_core.py and figural_core.py under their BARE names. Step 8's auditor
-#   delegates A-FIGPROFILE to the former and the 12 A-FIG* gates to the latter, but
-#   until v1.9 neither engine ever reached an exam project. Bare names are
-#   mandatory: they are imported as Python modules and an [ExamCode]_ prefix breaks
-#   the import, silently reducing audit coverage. Absence is never fatal — the
-#   dependent gates report an explicit WARN skip and the audit still completes.
-# v1.8.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   79 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_DeliveryFooter'. The current companion block, the
-#   v1.8 entry, and all structural notes remain in-file. Body byte-untouched.
 # MockTestFramework | Cross-step | Exam-agnostic
 #
 # PURPOSE:
@@ -144,20 +27,15 @@
 #   "Follow Framework_DeliveryFooter.md for post-delivery footer rendering."
 #
 # VERSION HISTORY:
-#   v1.8 — 2026-07-26 — §5 QUALITY GATE: A FAILING CHECK FORCES AMBER
-#          (GAP-2026-07-26-003). A step could report a FAIL and still render the
-#          GREEN "Step Complete" footer, because §5 asked only whether the WORK was
-#          finished, never whether the RESULT was sound. That is what shipped the
-#          reference run: Step 5 finished all 22 papers with 153/153 figural
-#          questions unobserved and 45/45 FIGURAL subtopics carrying an empty
-#          object-type profile — and rendered F2 green.
-#          New Q0 runs BEFORE Q1: any FAIL from the step's own checks (Step 5
-#          QV-1..QV-14, Step 8 audit gates, Step 1 unobserved-image count) renders
-#          F1 AMBER with the failing check and its remedy named.
-#          WARN does NOT force amber — if it did, every run would turn amber and
-#          the signal would be lost again.
-#          THIS IS NOT A HALT: the step completes, every file is delivered, and the
-#          operator may proceed. Amber REPORTS; it does not block.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 ---
 
 ## §1 — FOOTER TYPES

@@ -2,96 +2,17 @@
 # v1.12.1 — 2026-08-13 — SYNC AUDIT ROUND 2: gate-count prose fix. §2 item 4 said "All 16
 #   audit gates" while §6 is headed "all 17 must PASS" and runs C1–C17 (C17 = NAT charset).
 #   Prose corrected to 17; no gate logic changed.
-# v1.12.0 — 2026-08-10 — LEDGER INTEGRITY CHECK + REMEDIATION CLASSIFIER
-#   (GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). Two changes, both to the FAILURE
-#   side of S1-2/S1-3 — the clean-path JOIN, the tagging pipeline, and every
-#   C-gate are byte-untouched.
-#   (1) S1-2 step 3 now ALSO runs a whole-registry ledger↔index agreement check:
-#       a paper listed in mocks_completed/papers_completed with NO question_index
-#       entry is a Class-A finding named as REGISTRY DATA LOSS (the entry was
-#       dropped by a later write), with remedy "re-run Step 7" — replacing the
-#       misleading suggestion that Step 7 was never run.
-#   (2) S1-3 build_tag_lookup now COLLECTS every unresolved question, CLASSIFIES
-#       each stale subtopic_id, and hard-stops with a per-question remediation
-#       report instead of failing on the first and printing "ensure both files
-#       are from the same run" (proven misleading: on the reference corpus both
-#       files WERE from the same run — the ids were invented at Step-7 write
-#       time). Classes: W1 = stale leaf exists on exactly ONE current subtopic
-#       (deterministic registry patch, printed ready-to-apply); W2 = leaf
-#       reworded, no verbatim match (candidate targets printed; HUMAN must
-#       confirm — never auto-applied); D = leaf matches MULTIPLE subtopics
-#       (all candidates printed; human decision). Companion to MockTestCreate
-#       v5.48.0 (S13-4 copy-by-reference + engine gate A-QINDEX) and
-#       MockTestExplain v1.23 (P10 tripwire), which together make reaching this
-#       classifier require multiple independent upstream failures.
-# v1.11.0 — 2026-08-09 — DELIVERED FILE NOW PRESERVES NATIVE OMML — the OMML→Unicode
-#   linearization (Rule 19) is RETIRED from the delivery path. ROOT CAUSE of the
-#   reported math-mutation defect: the "WHY THE RENDER-SOURCE DOCX IS SEPARATE"
-#   section + Phase 4/5 named the RENDER-SOURCE docx (every `<m:oMath>` flattened
-#   to a one-line Unicode text run by Rule 19) as the final delivered `_Final.docx`.
-#   That silently DESTROYED all structured math — fractions, radicals,
-#   integrals/sums, matrices, sub/superscripts — in every delivered mock paper.
-#   The two-artifact design was justified by python-docx round-trip corruption, but
-#   Step 11 edits raw `word/document.xml` (unzip→XML→zip) and NEVER round-trips
-#   through python-docx, so OMML already survives byte-perfect: the INTEGRITY
-#   artifact proves it (gate C5: integrity OMML count == source). FIX: Phase 4's
-#   transforms are retired and Phase 5 now delivers the INTEGRITY artifact (native
-#   OMML, tag blocks inserted, headers stripped, NO render transforms) as
-#   `_Final.docx`. The delivered file is byte-identical to the Step-9 Solutions
-#   input except for the pipeline-mandated tag-block insertion (and the safety-net
-#   header strip, which is normally a no-op). CONSEQUENCE: Rule 21 (non-ASCII
-#   safe-font) and Rule 22 (underline recolor) no longer apply to the delivered
-#   file — content fidelity supersedes those portal-cosmetic transforms. Math
-#   preservation is now gated: C5 (unchanged) plus C11 INVERTED from "zero OMML in
-#   render-source" to "delivered OMML count == source; zero linearization." Mirrors
-#   PYQDeliver v1.9, which fixes the identical defect the same way. Touched:
-#   ZERO-MUTATION RULE, the render-source rationale section, DEFINITION OF DONE
-#   (items 5/6/8), preflight step 7, Phase 4 (retired), Phase 5 (delivers
-#   integrity), §6 gates C11/C14/C15, the delivery report, the assembly checklist,
-#   the hard invariants, and Rule 19/21/22 headers (marked RETIRED).
-# v1.10.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
-#   No logic change: preflight already accepted the Step-9 [ExamCode]_[paper_slug]_
-#   Explanation.docx, and that is now the only input that exists. The _Complete filename
-#   is retained in the accept-regex purely so papers produced before this release still
-#   deliver. What DID change is every certification claim: tag values are Step-7-written,
-#   not Step-8-certified, and the pre-Q.1 SAFETY-NET is now a genuine net rather than a
-#   formality, because no A-HEADER gate runs upstream of it. Stated plainly and not
-#   hidden: the JOIN is still fully deterministic, but its inputs carry one fewer
-#   independent check than they did.
-#
-# v1.9.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   187 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_MockDeliver'. The current companion block, the
-#   v1.9 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
-#   v1.9 — 2026-07-20 — TEST* TRIGGERS + MULTI-BLUEPRINT SUPPORT (paper_pipeline.py
-#       integration). Adds TestDeliver P[N]
-#       as the primary trigger (works for mock AND every scoped tier via --level/--scope),
-#       keeping MockDeliver M[N] as a working alias (implicitly level='mock'). WHAT CHANGED:
-#         §1 S1-1 — new PRIMARY trigger TestDeliver P[N] [--level ...] [--scope ...];
-#           MockDeliver M[N] retained as the mock-only alias.
-#         §1 S1-2 — Solutions-docx filename acceptance generalised from Mock[N] to
-#           [paper_slug] (pp.paper_slug); blueprint verification now refers to the
-#           RESOLVED blueprint (§5 Phase 1), not an assumed single file.
-#         §5 Phase 1 — STRUCTURAL FIX: the old collision check HARD-STOPPED if more than
-#           one *_blueprint.json existed in project knowledge. That is now the NORMAL
-#           state once any scoped tier has been generated alongside the mock series, so
-#           this was blocking every scoped delivery. Replaced with: load every
-#           *_blueprint.json present, derive EXAM from them, parse paper_slug from the
-#           UPLOADED docx filename, then pp.pick_blueprint(blueprints, level=LEVEL,
-#           docx_slug=paper_slug) selects the ONE blueprint this delivery is for
-#           (PickError → HARD STOP, never a guess). registry.json collision check is
-#           UNCHANGED (still exactly one registry per project — the shared cross-tier
-#           ledger). paper_slug itself is now ALWAYS pp.paper_slug(paper_id) (zero-padded
-#           for a mock), replacing the old inline `f'Mock{N}' if ... else .replace(':','_')`
-#           — the render pipeline (§5 Phase 1 onward, e.g. render_out_path) already
-#           consumed the `paper_slug` variable from prior C3 work, so this fix propagates
-#           through unchanged.
-#       Shared logic (paper_slug, pick_blueprint) lives ONLY in paper_pipeline.py. Does
-#       not touch the C1–C17 gate logic, the NAT portal-grading charset validation, or any
-#       render/tagging logic.
 #
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockDeliver.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 ---
 
 # ★ ARCHITECTURAL DECISION — JOIN, NOT CLASSIFY

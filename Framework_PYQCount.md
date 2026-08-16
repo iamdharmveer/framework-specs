@@ -14,52 +14,6 @@
 #   (c) EC-P41 the listing is written and ASSERTED by corpus_io.write_drive_listing.
 #   (d) P4f divergence DECLARED: 'SMALLEST by fileSize' is correct HERE and wrong in
 #       Step 5. mock_sync_audit MS-13 requires both files to name the divergence.
-# v1.4 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (sibling fix, applied
-#   here per the LAW-PROPAGATION LAW rather than waiting for Step 4 to fail). THE BRIDGE
-#   showed a flat `list_fn` that ignores its folder_id argument. corpus_io.collect_corpus_files
-#   RECURSES into sub-folders, so on a year-subfoldered Drive folder that resolver returns
-#   the same entries for the sub-folder and the walk raises DuplicatePaperError — a HARD
-#   STOP blaming the operator's Drive for a defect in this contract. The cache is now
-#   keyed by folder id; a bare {'files': [...]} cache is still accepted, scoped to the
-#   root. Found by reading the engine while fixing Step 5, not by a failing run: a flat
-#   corpus never triggers it.
-# v1.3 — 2026-08-15 — GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (EXECUTION-BOUNDARY
-#   LAW). S5-4 step 1 injected the bare name `gdrive_download_file` into
-#   corpus_io.fetch_drive_docx. That name was defined NOWHERE — no spec, no engine, no
-#   builtin — so executed literally it raised NameError, every paper fell through
-#   TransportFallback to the upload lane, and the Drive lane was unreachable on EVERY
-#   run of EVERY exam. Measured on IIT_JAM_MATHEMATICS (22 papers, all under
-#   DRIVE_CAP): 0 of 22 acquired, Task 1 unconfirmable, 22 manual uploads demanded.
-#   This is GAP-2026-07-26-003 applied to the PYQ counting path: the identical fix
-#   shipped in MockTestAnalyse v2.37 on 2026-07-26 and was never propagated here, and
-#   the 2026-07-31 split from PYQAnalyse v2.29 then copied the defect forward "content
-#   byte-identical" into a file that never mentions the GAP id. §5 now opens with a
-#   CLASS T transport declaration and THE BRIDGE, in a ```python fence so the CI can
-#   read it; S5-4 step 1 injects a bound resolver. New S5-0 CHANNEL PROBE measures the
-#   connector's delivery form on ONE paper before Task 1 — the "results always spill to
-#   disk" invariant is MEASURED FALSE (one 40,488-byte .docx spilled in one deployment
-#   and returned inline in another), so it is now probed, never assumed, and never
-#   inferred from a directory listing. S5-8's "3 tool calls per session" is corrected
-#   to 3 PHASES: it omitted the N connector calls that ARE the acquisition.
-#   audit_callgraph gains C7 (text pass — an AST-only pass cannot see this call site,
-#   which lives in an untagged, non-parseable fence) and C8.
-# v1.2 — 2026-08-15 — GAP-2026-08-15-BAREQ (R-3). The S5-1 mandatory gate and
-#   count_sorted_file() carried an inline r'^Q\.?\s*\d+' justified by an ASSUMPTION about
-#   PYQSort's output ("always outputs Q.<N> format") where a DELEGATION belongs, and
-#   nothing enforced the assumption. That dialect matched strings the engine's table did
-#   not — a bare "Q.4" among them — so on IIT_JAM_MATHEMATICS 12-Feb-2017 this step
-#   counted 60 for a file Step 5 extracted as 56, attributing four questions to whatever
-#   subtopic happened to precede them. Both sites now call bc.detect_question_start();
-#   audit_deep's new INLINE-QREGEX check fails the build if a private copy returns.
-# v1.1 — 2026-08-05 — GAP-2026-08-05-001 (textless content is content). S5-2 now takes
-#   the BLOCK-level lookahead bc.sorted_body_lookahead(doc) and the per-FILE colour probe
-#   bc.heading_colour_available(paras); S5-4b CAUSE 1 split into 1a (gate absent) and 1b
-#   (gate present but DEFEATED), because 1a's remedy asked the operator to verify two
-#   already-true facts and re-run, which reproduced the halt forever.
-# v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
-#   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
-#   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
-#   monolith remains as a stub section map at Framework_PYQAnalyse.md (v3.0).
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -76,6 +30,15 @@
 #### §11 — EXAM-AGNOSTIC GUARANTEE → Framework_PYQCore.md
 #### §12 — DEFINITION OF DONE → Framework_PYQCore.md
 #### Every trigger loads its step file + Framework_PYQCore.md (routes.json). History: CHANGELOG.md
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQCount.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ---
 

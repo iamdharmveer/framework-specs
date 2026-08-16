@@ -15,35 +15,6 @@
 #   looking correct on screen. NEW CHECK 22 (WARN, 21 -> 22): producer/consumer
 #   Q-detection agreement — the <w:t>-only view vs the <w:t>+<m:t> view of the SAME
 #   document, the one construction a shared blind spot cannot satisfy.
-# v2.0 — 2026-08-07 — TIER-3 STRUCTURED MATH (GAP-2026-08-07-OMML, remedies M1/M2/M4/M5).
-#   Root cause (measured on IIT_JAM_MATHEMATICS 15-Feb-2026, 60 questions): S1-13
-#   emitted FLAT Unicode transcription, destroying 2-D math structure at capture
-#   time; Tier-2 regex reconstruction then recovered only digit fractions and √N.
-#   Result classes: letter-fraction flattening, ^/_ artefacts, inline big-operator
-#   limits, cases/matrix structures PARAPHRASED into prose (Q.11/14/17/33/34/36/
-#   37/49/52/56), hybrid-font islands, and the bare-label OMML option conflict.
-#   Fix: (M1) S1-13 now REQUIRES ⟦MATH:…⟧ LaTeX-lite regions for all structural
-#   math and BANS paraphrasing matrices/vectors/cases into prose, with declared
-#   STRUCT_FLAGS; (M2) new S3-5b deterministic LaTeX-lite→OMML compiler (fractions,
-#   radicals, scripts, n-ary with true operands, limLow, cases, matrices, sPre,
-#   stretchy delimiters, accents, \binom, Greek/symbol map; STRICT CORE with a
-#   FORGIVING BOUNDARY — a region the compiler rejects never halts the run and
-#   never ships silently: it is delivered as ordinary plain text — no colour,
-#   no highlight — and CHECK 20 quotes it verbatim for Ctrl+F, with the remedy
-#   in plain operator words, under an F1 AMBER footer);
-#   render_text_with_math() v2.0 dispatches Tier-3 regions first and
-#   keeps the v1.5 legacy path byte-compatible for plain segments; (M3, in
-#   corpus_io Cluster I) text_of() = w:t + m:t canonical accessor; CHECK 9 v2
-#   accepts bare "N." labels whose payload is <m:oMath> (producer mirror of S-1);
-#   (M4) CHECK 19 structure-residue, CHECK 20 region round-trip, CHECK 21 declared-
-#   structure fidelity — 18 -> 21 checks; (M5) S4-1: OMML runs keep the Word math
-#   font (Cambria Math italic), EXEMPT from the Arial rule.
-#   Verified: 60-question rebuild, 142/142 regions compiled, 21/21 checks, page-
-#   for-page structural render match against the source PDF.
-# v1.14.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   317 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQPrepare'. The current companion block, the
-#   v1.14 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | Step 1 (PYQPrepare) | Exam-agnostic
 #
 # PURPOSE:
@@ -131,56 +102,15 @@
 #   GATE, NEET, UPSC, CAT, Banking, RRB, state PSC, or any exam.
 #
 # VERSION HISTORY:
-#   v1.14 — 2026-07-29 — DI TABLE STRUCTURE, BLOCK COMPOSITION AND CELL CONTENT
-#           (GAP-2026-07-29-TBL). This spec could say what a table CONTAINS and never
-#           what a table IS. S1-12 CATEGORY 2 transcribed "a list of rows" and S4-3
-#           wrote cell.text into a rectangular add_table(), so a grouped header had
-#           exactly one representable form: squared into a grid and padded with empty
-#           strings. Measured on SSC_CGL_Tier1 09-Sep-2024 Shift 1 — Q.52 and Q.61 each
-#           lost a 4-column header span and a 2-row label span and gained 4 stray empty
-#           cells, while Q.74 passed because ITS header is flat. That is why the gap
-#           survived to v1.13: the worked example in S1-12 and in EC-P20b is flat too,
-#           so a model that cannot express a span was never once exercised against one.
-#           The delivered Row file carried 0 gridSpan and 0 vMerge elements and passed
-#           16/16 checks with a green F2 footer, because no check in this framework has
-#           ever compared a built table with its source.
-#           SECOND DEFECT, SAME FAMILY: S1-7 and S4-2 emitted one table PER OPTION, and
-#           two adjacent w:tbl siblings are FUSED into a single table by every Word
-#           engine. Measured: 19 tables as written came back from a Word-engine
-#           round-trip as 7. It is invisible in the emitted file — python-docx reports
-#           19 — which is why it went unnoticed for the life of the spec.
-#           Fix: (1) new S1-8a TABLE STRUCTURE CONTRACT — the TableSpec model, anchor
-#           cells with cs/rs, padding BANNED; a blank cell is now distinguishable from
-#           padding STRUCTURALLY rather than by heuristic.
-#           (2) S4-3 build_di_table DELEGATED to corpus_io (Cluster I) — HTML-style
-#           occupancy placement, cell.merge() strictly AFTER text placement (merge
-#           CONCATENATES: 'A'+'B' -> 'A\nB'), per-cell column widths, centred default.
-#           Two builders modelled one concept and both were flat; one model, one owner.
-#           (3) S1-6 and S1-11 scope EXTENDED to table cells — cells now render through
-#           render_text_with_math, so a fraction, a superscript or an underlined term
-#           inside a DI table is no longer silently flattened. That is the v1.3-v1.6
-#           math defect, relocated into tables and unaddressed until now.
-#           (4) new S1-8b BLOCK COMPOSITION — no two adjacent block tables; a figure-
-#           option SET is ONE table with one row per option, which is also the better
-#           match for the ALL-or-NONE rule in S1-7.
-#           (5) new S2-2 CALL A2b — text-layer tables are DETECTED and transcribed
-#           instead of being parsed as stem prose. S1-12 fires only on embedded images,
-#           so a vector-drawn DI table in a FORMAT A source never entered the table
-#           protocol at all.
-#           (6) new CHECK 17 (geometry equality, declared vs built), CHECK 17b (padding
-#           signature, legacy path only), CHECK 18 (no adjacent block tables).
-#           16 -> 18 checks.
-#           (7) new EC-P24 (table structure, 8 sub-scenarios) and EC-P25 (adjacent
-#           block tables). EC-P14 and EC-P20b rewritten; "preserve source data exactly"
-#           governed VALUES and was silently read as covering STRUCTURE.
-#           (8) an unrepresentable structure is REPORTED, never silently normalised —
-#           the EC-V8 / EC-P22 principle extended from images to tables.
-#           REQUIRES corpus_io with Cluster I table structure (normalise_table_spec,
-#           place_cells, build_di_table, read_table_spec, adjacent_table_pairs) AND the
-#           anchor-only _table_rows. Shipping the writer without the reader turns lost
-#           geometry into DUPLICATED header text in every consumer: python-docx
-#           row.cells returns one entry per GRID COLUMN and repeats the anchor for every
-#           covered position. The two halves ship together.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQPrepare.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 ---
 
 ## §1 — OUTPUT CONTRACT (immutable — all downstream steps depend on this)

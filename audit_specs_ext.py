@@ -138,8 +138,13 @@ SPEC_BUDGET_BYTES = 250_000
 #                              rather than once per paper; lower priority, still real.
 SPEC_BUDGET_BASELINE = {
     'MockBlueprint', 'MockCreate', 'TestCreate',
-    'PYQCount', 'PYQPrepare', 'PYQScan',
 }
+# RATCHETED DOWN at 2026.08.15.14 — the first deletions since the baseline was
+# created. PYQCount (253,145 -> 237,140 B), PYQPrepare (258,251 -> 242,871) and
+# PYQScan (260,072 -> 246,819) fell below SPEC_BUDGET_BYTES when the superseded
+# changelog entries moved to SPEC_HISTORY.md, so they no longer need an exemption
+# and now fail the build if they ever cross back. This is the mechanism working as
+# designed: a debt paid down, not an allowance widened.
 
 
 def check_v_sync(texts):

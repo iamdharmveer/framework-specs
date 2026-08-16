@@ -23,6 +23,25 @@ def _self_test():
                            cwd=root, capture_output=True, text=True)
         return r.returncode, r.stdout + r.stderr
 
+    def _tracked_nonspec():
+        """Every non-.md/.py artefact gen_manifest tracks, plus the release files.
+
+        Read from gen_manifest itself so the two can never disagree. Falls back to a
+        literal set only if gen_manifest is unimportable, which would be a broken
+        checkout rather than a drift.
+        """
+        base = {'routes.json', 'MANIFEST.json', 'VERSION', 'CHANGELOG.md'}
+        try:
+            import importlib
+            gm = importlib.import_module('gen_manifest')
+            base |= set(getattr(gm, 'TRACKED_JSON', []))
+            base |= set(getattr(gm, 'TRACKED_DOC', []))
+        except Exception:
+            base |= {'SPEC_MANIFEST.json', 'SPEC_SECTIONS.json',
+                     'MUTATION_BUDGETS.json', 'LAW_REGISTRY.json', 'SPEC_HISTORY.md'}
+        base.add('SPEC_MANIFEST.json')      # built by build_spec_manifest, not gen_manifest
+        return base
+
     def mutated(mutate=None):
         d = tempfile.mkdtemp()
         for f in os.listdir(here):
@@ -35,12 +54,15 @@ def _self_test():
             # that is short by exactly the files this list forgot. The recurrence is
             # the point — the list is hand-maintained and has now drifted twice, so
             # anything added to gen_manifest.TRACKED_JSON must be added here too.
-            if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json',
-                                                   'SPEC_MANIFEST.json',
-                                                   'SPEC_SECTIONS.json',
-                                                   'MUTATION_BUDGETS.json',
-                                                   'VERSION', 'CHANGELOG.md',
-                                                   'LAW_REGISTRY.json'):
+            # DERIVED FROM gen_manifest, NEVER HAND-LISTED (2026.08.15.14). This
+            # list drifted three times in six releases — SPEC_MANIFEST.json,
+            # then SPEC_SECTIONS.json + MUTATION_BUDGETS.json, then SPEC_HISTORY.md
+            # — and each time the symptom was identical: DOC-COUNT compared
+            # CLAUDE.md's declared total against a fixture corpus short by exactly
+            # the files this list forgot. Correcting the instance and not the class
+            # is the failure the LAW-PROPAGATION LAW exists to remove, so the class
+            # is removed here: whatever gen_manifest.py tracks, the fixture copies.
+            if f.endswith(('.md', '.py')) or f in _tracked_nonspec():
                 shutil.copy(os.path.join(here, f), os.path.join(d, f))
         if mutate:
             mutate(d)

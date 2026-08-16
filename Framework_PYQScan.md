@@ -8,19 +8,6 @@
 #   listing now delegates to corpus_io.collect_corpus_files over a PHASE A cache keyed
 #   by folder id, and an empty result HARD STOPS with a transport diagnosis (EC-P39)
 #   instead of silently reporting a Row-file-less exam.
-# v1.1 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-2 Q_PATTERNS mirrors the engine's widened
-#   four-entry table (entries 3/4 = BARE-LABEL forms), updated atomically with
-#   blueprint_core, PYQSort S3-1 and MockTestAnalyse E-2. S3-2 now PERSISTS q_count and
-#   q_count_method into every drive_file_inventory[] entry: the "MANDATORY GATE" computed
-#   a check-verified per-file count, displayed it and DISCARDED it, so the one number that
-#   would have caught this defect in two seconds (56 parsed vs 60 classified on
-#   IIT_JAM_MATHEMATICS 12-Feb-2017) existed, was correct, and was thrown away. NEW S3-3
-#   step 1b: assert len(classifications[paper]) == inventory[paper].q_count — HARD STOP on
-#   mismatch, WARN when the count came from a filename or the field is absent.
-# v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
-#   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
-#   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
-#   monolith remains as a stub section map at Framework_PYQAnalyse.md (v3.0).
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -37,6 +24,15 @@
 #### §11 — EXAM-AGNOSTIC GUARANTEE → Framework_PYQCore.md
 #### §12 — DEFINITION OF DONE → Framework_PYQCore.md
 #### Every trigger loads its step file + Framework_PYQCore.md (routes.json). History: CHANGELOG.md
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQScan.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ---
 

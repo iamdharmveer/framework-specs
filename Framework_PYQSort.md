@@ -12,16 +12,6 @@
 #   NEW CHECK 12 (HARD FAIL): the question-side twin of CHECK 11 — the <w:t> view and the
 #   <w:t>+<m:t> view of the delivered file must agree on every question start. §8 heading
 #   corrected from a stale "10 checks" (CHECK 11 was already live) to 12.
-# v1.19.0 — 2026-08-05 — GAP-2026-08-05-001. CHECK 11 DOWNSTREAM-PARSE ROUND TRIP added
-#   (HARD FAIL, D3/SG-5): PYQSort now re-reads its own delivered file with the DOWNSTREAM
-#   predicate and asserts inferred headings == emitted headings, plus the heading-colour
-#   styling assertion (SG-10). S6-2 LEVEL 3 parser line amended (SG-9): it mandated
-#   11pt Bold Navy #003366 and then told the parser "default -> level 3", i.e. to ignore
-#   the marker the same clause guarantees — the root cause of all three heading defects.
-# v1.18.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   307 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQSort'. The current companion block, the
-#   v1.18 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | Step 3 (PYQSort) | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS (v1.14):
@@ -127,39 +117,15 @@
 #   to Step 1 as the fix location — not a PYQSort bug.
 #
 # VERSION HISTORY:
-#   v1.18 — 2026-07-27 — THE ORIGINAL EXAM POSITION SURVIVES SORTING (GAP-2026-07-27-E).
-#           Step 3 renumbers questions into TAXONOMY order. That is correct and stays —
-#           but it destroyed the EXAM position, and nothing downstream could recover it.
-#           Step 5's MSQ detector had only the instruction phrase left to work from and
-#           measured 24 MSQ across 1,719 questions on an exam whose marking scheme
-#           reserves Q31-40 for MSQ (~10/paper, so ~120 in the current era alone).
-#           Section B was therefore under-represented corpus-wide, Step 6 under-allocated
-#           it and Step 7 under-produced MSQ — surfacing two steps later as unexplained
-#           Section B feasibility pressure in MockBlueprint.
 #
-#           This is the class of defect that CANNOT be fixed where it is observed. The
-#           information does not exist by the time Step 5 runs, so Step 5 had nothing to
-#           be smarter about. The fix belongs at the point of destruction.
-#
-#           CHANGE: the date label — rebuilt on every emit, never cloned, and already
-#           parsed by Step 5 — now carries a trailing " Q<N>" holding the original
-#           position. No new artefact, no new parser, no schema migration.
-#             * build_date_label_re(): the Q-part is OPTIONAL, so every sorted file
-#               produced before v1.18 still parses BYTE-IDENTICALLY. No exam is forced
-#               to re-sort; each gains positional typing when next sorted.
-#             * parse_original_q_num(): new. Kept SEPARATE from parse_date_label(),
-#               whose 4-tuple return is the sort key and is consumed positionally in
-#               several places — widening it would be a silent breaking change.
-#             * stamp_original_q_num(): new, IDEMPOTENT, so a re-emit cannot produce
-#               "[... Q37 Q37]".
-#             * Both DELEGATE to corpus_io Cluster Q (>= v1.9). Step 3 WRITES this stamp
-#               and Step 5 READS it — precisely the two-spec shape that produced the
-#               is_option drift v1.17 had to unwind, where each file's docstring asserted
-#               alignment with the other and both were wrong. One definition in the
-#               engine; drift impossible by construction, not asserted by comment.
-#           A None result means UNKNOWN — a pre-v1.18 file, or a position no band
-#           covers — and callers must never read it as position 0.
-#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQSort.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 ---
 
 ## §1 — SESSION START

@@ -38,6 +38,16 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
 TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json",
                 "MUTATION_BUDGETS.json"]
 
+# GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, Wave 2 (partial). SPEC_HISTORY.md holds the
+# superseded changelog entries moved out of the 20 routed specs — 196,024 B of defect
+# archaeology that an EXECUTING session used to pay for before it could do any work.
+# It is DELIBERATELY not named Framework_*: the glob above would auto-track it as a
+# spec, and it would then be validated as one, scanned for triggers, and eventually
+# routed. It is tracked HERE instead, so it gets the identical sha256 + header +
+# sentinel + line-count guarantee a spec gets, while being reachable from no trigger.
+# The narrative is load-bearing (v2.39) and must be verified, not merely kept.
+TRACKED_DOC = ["SPEC_HISTORY.md"]
+
 def sha256(p):
     with open(p, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
@@ -71,6 +81,7 @@ def main():
     tracked = sorted(f for f in os.listdir(".") if f.endswith(".md") and f.startswith("Framework_"))
     tracked += [p for p in TRACKED_PY if os.path.exists(p)]
     tracked += [p for p in TRACKED_JSON if os.path.exists(p)]
+    tracked += [p for p in TRACKED_DOC if os.path.exists(p)]
 
     files = {}
     for f in tracked:

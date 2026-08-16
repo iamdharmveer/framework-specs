@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026.08.15.14 — 196,024 B of version history moved off the execution path
+
+**GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, Wave 2 (partial). Framework_PYQCore EC-P42.**
+Every routed spec carried its entire version history in a comment block at the top of
+the file, so an EXECUTING session paid for the complete EDITORIAL record before it could
+do any work — **283,247 B across the 23 specs**, of which **196,024 B** is history of
+releases that already shipped.
+
+**Nothing is deleted.** The entries move VERBATIM into new `SPEC_HISTORY.md`, which is
+tracked in `MANIFEST.json` and verified by `bootstrap.py` with the identical
+sha256 + header + sentinel + line-count guarantee a spec gets, and is routed to NO
+trigger. The v2.39 record is explicit that the defect archaeology is why this corpus
+stopped regressing: it is load-bearing and must be VERIFIED, not merely kept. It is
+deliberately not named `Framework_*` — that glob would auto-track it as a spec, validate
+it as one, scan it for triggers, and eventually route it.
+
+**What stayed behind:** line 1 (the header `bootstrap.py` verifies), the CURRENT
+version's entry (`Z-VERSION` requires the highest changelog entry to equal the header),
+and every STRUCTURAL block — `MINIMUM COMPANION VERSIONS`, step-number notes, anything
+operational rather than historical. Only superseded entries moved. Each spec gains a
+pointer to its section in `SPEC_HISTORY.md`.
+
+**Route read cost, measured:**
+
+| trigger | was | now | saved |
+|---|--:|--:|--:|
+| `MockCreate` / `TestCreate` | 563,563 | 505,369 | 58,194 |
+| `PYQExtract` | 585,732 | 552,313 | 33,419 |
+| `MockBlueprint` | 420,074 | 401,254 | 18,820 |
+| `PYQCount` | 253,145 | **237,140** | 16,005 |
+| `PYQPrepare` | 258,251 | **242,871** | 15,380 |
+| `PYQScan` | 260,072 | **246,819** | 13,253 |
+
+**The SPEC-BUDGET ratchet drops from 6 routes to 3.** `PYQCount`, `PYQPrepare` and
+`PYQScan` fell below `SPEC_BUDGET_BYTES` and no longer need an exemption — they now FAIL
+the build if they cross back. First deletions since the baseline was created, and the
+mechanism working as designed: a debt paid down, not an allowance widened.
+
+`PYQExtract` on a NON-FINAL session is now **304,310 B** (552,313 full), so the two
+mechanisms compound: the read set skips half the file, and the half it does read is
+smaller.
+
+One dangling reference repaired: `Framework_MockTestAnalyse.md`'s step-number note said
+"the changelogs below (v2.0-v2.14)", which are no longer below.
+
+No behaviour change. No executable code moved. No artefact changes. Nothing to re-run.
+
 ## 2026.08.15.13 — audit_sync measurement continued: 9 of 28, and the survivors have a shape
 
 **`--indices I,J,K` and `--list` added.** `--shard` re-tests emissions already measured;

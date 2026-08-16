@@ -3,32 +3,8 @@
 #   [ExamCode]_[date]_[session]_pyq_explain_progress.json. §1/§0 now derive the expected sidecar
 #   name from the attached docx and load THAT (prevents a colliding sidecar from another paper
 #   silently supplying the classification map). Legacy bare names accepted with a WARN.
-# v1.5.1 — 2026-08-09 — PYQExplain v2.2 now DELIVERS pyq_explain_progress.json to outputs.
-#   Clarified §1/§0 that the sidecar is attached alongside the _PYQ_Explanation.docx (both
-#   are PYQExplain deliverables). No behaviour change — the sourcing priority is unchanged.
-# v1.5 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED. PYQ-3 now takes PYQ-1's
-#   _PYQ_Explanation.docx as its STANDARD input (a legacy _Complete.docx is still
-#   accepted, unchanged, but is no longer produced). q_to_classification is read from
-#   pyq_explain_progress.json as the primary sidecar. No runtime behaviour changes —
-#   PYQ-3 never audited; it formats whatever it is given. Edits retire the "certified by
-#   PYQ-2" framing (the input is now producer-certified by PYQ-1's self-audit, not independently
-#   audited) and the PYQ-2 cross-references. Touched: PURPOSE, ZERO-MUTATION rationale,
-#   §0/§1 input contract + map priority, §4, S7-2, §9/§10 notes, §12 edge cases.
-# v1.4.2 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   173 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQFormat'. The current companion block, the
-#   v1.4.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | PYQ-3 (PYQFormat) | Exam-agnostic
 #
-# v1.4.1 — 2026-07-25 — END-OF-FILE VERSION MARKER CORRECTED. The trailing sentinel still
-#   read v1.3, several versions behind the header, so the last line of the file contradicted
-#   the first. Documentation only — not one line of behaviour changes. It went unnoticed
-#   because BOTH integrity tools were structurally blind to it: validate_framework_md.py
-#   Check C recognised only the '# END OF <name> vN' sentinel form and skipped the
-#   comparison entirely for the '**End of <name>.md (vN)**' form used here, while
-#   audit_specs_ext.py check_z_version reads the header from line 1 only. Check C now
-#   recognises both forms (validate_framework_md.py v3.1), so this cannot drift silently
-#   again.
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
 # ════════════════════════════════════════════════════════════════════════
@@ -39,6 +15,15 @@
 #   job is purely visual: make it look beautiful for the student who downloads
 #   it. No content judgement, no re-derivation, no quality gate — PYQ-3 never
 #   audits; it presents whatever it is given.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQFormat.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 # ════════════════════════════════════════════════════════════════════════
 # PIPELINE POSITION (PYQ Explanation Pipeline)

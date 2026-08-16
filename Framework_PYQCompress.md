@@ -71,14 +71,15 @@
 #   the OOXML package. The same run handles an SSC Row file and a GATE Analysis doc.
 #
 # VERSION HISTORY:
-#   v1.1 — 2026-07-25 — SIZE GATE REMOVED. Every attached file is now compressed
-#          regardless of size (corpus_io v1.0.3 `always=True`); previously anything at or
-#          under SIZE_BUDGET was reported T0 and skipped. The operator selects what to
-#          compress by selecting what to attach. SIZE_BUDGET is unchanged and still
-#          governs the LADDER TARGET and the MARGINAL/BLOCKED verdicts — it is no longer
-#          an eligibility test. New EC-C1b covers the file that cannot be improved:
-#          corpus_io restores the original bytes and it is reported but not delivered,
-#          which stops CHECK 5 from hard-stopping the run on an already-optimal document.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQCompress.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 ---
 
 ## §1 — SESSION START

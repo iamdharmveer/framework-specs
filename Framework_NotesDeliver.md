@@ -19,31 +19,6 @@
 #         (section 3). Recorded here so the requirement is not rediscovered
 #         late.
 #   Companions: notes_core >= v2.3.
-# v1.1.3 — 2026-08-10 — DEFECT-CLASS SWEEP (single-authority contracts). §1.0's
-#   informal "[ExamCode]_<unit>.docx" now reads "the unit's F-1 filename" —
-#   Framework_NotesCreate F-1 (notes_core.notes_filename) is the single
-#   authority for notes filenames (§1.1 already deferred to F-1). Pairs with
-#   Framework_NotesCreate v2.2.1. Nothing else changed.
-# v1.1.2 — 2026-08-10 — TAXONOMY SYNC (Framework_NotesBlueprint v3.0.0). The
-#   registry key is the Step-5 manifest sid; an operator unit reference is
-#   resolved per Framework_NotesCreate section 0 (notes_core.resolve_unit — same
-#   taxonomy.xlsx convention). The §1.3 delivery line identifies the unit as
-#   <Sub Topic Name> (<sid>) alongside unit_code/notes_version. Companion:
-#   notes_core >= v2.0. Nothing else changed.
-# v1.1.1 — 2026-08-10 — CROSS-CHAT READ + REGISTRY. Made the fresh-chat handoff
-#   explicit: ND READS the audited .docx + _Audit.md + notes_registry.json from
-#   Project Files (NA uploaded them), and re-presents the updated registry
-#   (unit → DELIVERED) alongside the delivery so the state persists. Pairs with
-#   Framework_NotesAudit v2.0.4 / Framework_DeliveryFooter v1.19.
-# v1.1.0 — 2026-08-10 — POST-DEPLOY REVIEW. (1) ND is the delivery step but never
-#   said to present_files its artifacts and rendered no footer — so on mobile the
-#   delivered files were unreachable and the Framework_DeliveryFooter contract was
-#   unmet. §1 now present_files the notes .docx + audit report and renders the F2
-#   step-complete footer (4-cell NOTES bar "4 of 4"; Framework_DeliveryFooter
-#   v1.18 §3 ND entry). (2) Removed stale references the NA v2.0.0 changes left
-#   behind: KEY_FLAG is retired (NA owner decision 4a) and answer-mode "M-2" is
-#   gone (NA runs permanent ground-truth mode). Companion: notes_core >= v1.0.
-# v1.0.0 — 2026-08-08 — INITIAL RELEASE.
 # [ExamCode] project | Notes Step ND | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
@@ -64,6 +39,15 @@
 # PREREQUISITE:
 #   Unit state AUDITED_PASS. Units in any other state are refused with the
 #   state named (never silently skipped).
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_NotesDeliver.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ## §1 — DELIVERABLES
   0. INPUTS (fresh chat): the unit's _Final.docx from NA

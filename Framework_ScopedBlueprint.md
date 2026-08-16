@@ -5,35 +5,6 @@
 #   this spec changes. ACCEPTED LOSS: a scoped paper now receives no independent audit at
 #   any point — Step 7's own gates are terminal for it.
 #
-# v1.7.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   105 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_ScopedBlueprint'. The current companion block, the
-#   v1.7 entry, and all structural notes remain in-file. Body byte-untouched.
-#
-# v1.7 — 2026-07-21 — HARDENING PASS on v1.6 (line-by-line adversarial re-audit, 2 passes,
-#   found and fixed 3 real issues before any downstream reliance):
-#   (1) ENVELOPE COMPUTATION WAS NOT ACTUALLY GATED — S5-1's prose claimed "S5-1/S5-2 are
-#       SKIPPED entirely" under override_mode, but the v1.6 code had `ENVELOPE =
-#       scope_envelope()` as an unconditional top-level statement — true only in the sense
-#       that Branch B's math never READS ENVELOPE, not that it's never COMPUTED. Fixed:
-#       `ENVELOPE = scope_envelope() if not override_mode else None` (S5-2), and merged the
-#       former S5-3a/S5-3b into a single S5-3 with an explicit `if override_mode: ... else:
-#       ...` — mirroring the mock's own proven S7-5 unified-branch pattern exactly, so there
-#       is zero ambiguity about which branch runs and ENVELOPE is never touched in Branch B.
-#   (2) STALE DUPLICATE CLAIM IN §10 DoD ITEM 11 — a second, independent occurrence of
-#       "difficulty ... from the Step-5 outputs" (absolute, pre-v1.6 wording) survived in the
-#       Definition-of-Done checklist even after the same claim was corrected in the
-#       EXAM-AGNOSTIC GUARANTEE paragraph at the top of the file. Fixed: item 11 now states
-#       difficulty may come from Step-5 outputs OR the trigger override, matching the header.
-#   (3) NO CATCH-ALL FOR MALFORMED --difficulty VALUES — S1-1 defined 'progressive', a valid
-#       S:M:H ratio, and "neither given", but not a value that is neither (typo, wrong count
-#       of numbers, non-numeric). Added an explicit ERROR path naming the accepted formats.
-#   Verified: validate_framework_md.py 0 issues (24/24 AST-clean); both S5-3 branches
-#   extracted and literally executed against 5 edge cases (uniform override, full-bypass
-#   100:0:0, N=1, non-divisible Q rounding, N=200 uniformity, plus a Branch-A ramp regression
-#   and single-level-envelope degenerate case) — all assertions held, zero errors. Full
-#   before/after SHA256 diff of all 21 OTHER tracked files in the corpus confirmed untouched.
-#
 # ═══════════════════════════════════════════════════════════════════════════
 # WHAT THIS IS (and is NOT)
 #   IS  : an ALLOCATION spec — decides how many questions per in-scope subtopic per
@@ -130,6 +101,15 @@
 #   way, no exam-specific value is ever hardcoded in this spec.
 #
 # ═══════════════════════════════════════════════════════════════════════════
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_ScopedBlueprint.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 ## §1 — SESSION START
 

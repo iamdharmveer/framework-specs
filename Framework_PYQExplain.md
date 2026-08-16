@@ -3,185 +3,7 @@
 #   the literal "SELF-TEST: 62/62 PASS" while explain_engine.py prints 64/64 — a HALT on
 #   every session with a healthy engine. Converted to the FLOOR form (N/N PASS, N >= 62),
 #   the AUTH_GATE_FLOOR pattern; same for the --self-test-audit reader pin (>= 10).
-# v2.4 — 2026-08-10 — AUTHORING-TIME TIER-3 COMPILE GATE (GAP-2026-08-10-EXPLAIN-
-#   MATH-DEGRADE-SILENT). Root cause, measured on a real 60-Q paper: every formula
-#   was authored as a ⟦MATH:…⟧ region, but many used LaTeX outside the Tier-3
-#   grammar (\tfrac/\dfrac, \varepsilon, \vec r / \sqrt3 unbraced, \frac12,
-#   \left…\right, \begin{pmatrix}). t3_compile rejected them; per the no-halt render
-#   contract add_math_text DEGRADED each to plain text and RECORDED it in
-#   T3_STATS['failed'] — shipping raw LaTeX in the document. It was not caught
-#   because verify_explanations() REPORTS the degrade ledger through its RETURN
-#   value (ok, problems), not by raising, and the §18 self-audit consumed only
-#   whether the call raised. TWO GaPS, BOTH now closed, exam-agnostically:
-#   (E1 — the permanent fix) ExplanationBlock.validate() now COMPILES every
-#   ⟦MATH:…⟧ region via t3_compile and RAISES a ValueError on MathCompileError, so
-#   a malformed region fails at CONSTRUCTION and can never reach the renderer.
-#   validate() is the one universal chokepoint (every block, every step, BOTH
-#   pipelines, all exams, one explain_engine.py under MANDATE A) and it RAISES, so
-#   no producer harness can bypass it — mirrors the NAT fail-at-construction posture.
-#   (E2 — defence in depth) §18 gains an explicit BLOCKING contract + literal
-#   S18-1a HARD-STOP that asserts ok is True AND problems == [] AND T3_STATS
-#   ['failed'] is empty, converting the RETURNED ledger into a delivery-blocking
-#   condition. Engine self-test unchanged (62/62). Touched: §S5-2, §S11-1, new
-#   §S11-1a, §S18-1, new §S18-1a, header + END sentinel + SHARED_RULES_VERSION.
-#   ENGINE CHANGE (explain_engine.py): validate()'s per-sentence guard compiles
-#   regions and raises; ships with this release (MANIFEST regenerated).
-# v2.3 — 2026-08-09 — QUESTION TYPE RESOLVED POSITION-BASED + qtype DELIVERED as a
-#   fourth sidecar map. Until v2.2.1, P4 resolved Question Type ONLY from
-#   section_rules answer_cardinality (a subtopic-scoped corpus statistic), and the
-#   delivered pyq_explain_progress.json carried only three maps — no qtype. On
-#   section-determined-MSQ exams (IIT JAM, GATE, …) every subtopic in the MSQ section
-#   reads 'single', so P4 built those questions as MCQ and PYQ-4 had no per-question
-#   type to consume. P4 now has a Tier 1 that, when exam_config.marking_scheme carries
-#   >1 distinct question_type, resolves type POSITION-BASED from marking_scheme[].q_range
-#   (mirroring MockDeliver v1.7) — the "set explicitly" mechanism §5-1 names — falling
-#   back to the prior structural rule for single-type/subtopic-based exams. The resolved
-#   qtype is now RECORDED and DELIVERED (§S7A-4) as the fourth map and coverage-gated at
-#   S19-1 check 7. qtype is a structural type, MANDATE-0-safe. Consumed by PYQDeliver v1.8
-#   Tier 2. Touched: P4, §S7A-4, §S0-2, §19 S19-1, header + END sentinel.
-# v2.2.1 — 2026-08-09 — Fix two v2.2 deployment findings on the handoff delivery.
-#   (1) The handoff shipped under a BARE name (pyq_explain_progress.json) with no paper
-#   identity, so two papers' sidecars (same exam, different session) collided by filename
-#   and the wrong classification map could silently tag a portal. It is now delivered under
-#   the SAME [ExamCode]_[date]_[session] stem as the docx, and PYQ-3/PYQ-4 load the
-#   identity-matched name derived from the attached docx. (2) S19-1's shutil.copy ran before
-#   the checklist and would raise an uncaught FileNotFoundError if the source were missing,
-#   making check 6 unreachable; the copy is now guarded so a missing handoff lands as a clean
-#   S19-1 HARD STOP. Touched: S0-2, S19-1, S19-2.
-# v2.2 — 2026-08-09 — pyq_explain_progress.json PROMOTED to a delivered artifact.
-#   Since PYQ-2 retired (v2.1), this JSON is the SOLE metadata source for PYQ-3/PYQ-4,
-#   which run in a fresh chat where /home/claude is gone — yet PYQ-1 previously kept it
-#   internal, so the user had no way to carry it forward. It is now delivered to
-#   /mnt/user-data/outputs on the FINAL batch (100% coverage, all maps complete) as a
-#   first-class pipeline handoff. It carries only classification / option-counts /
-#   difficulty (NO answer keys — those stay in the never-delivered pyq_answer_keys.json),
-#   so it is MANDATE-0-safe. Touched: S0-2, S19-1 (gate now permits the one handoff on
-#   the final batch), S19-2 (present_files ships it).
-# v2.1 — 2026-08-09 — PYQExplainAudit (PYQ-2) RETIRED from the PYQ pipeline (operator
-#   decision). PYQ-1 is now the SOLE producer AND the FINAL self-certifier: its §18
-#   self-audit is the only certification this document receives, there is no downstream
-#   independent re-derivation or completion gate, and the official-answer-key cross-check
-#   (formerly PYQ-2 D4) no longer exists anywhere. Correctness now rests entirely on
-#   producer discipline (§7 derive-twice, RE-18 web-verify, §13/§13A view-every-image)
-#   plus the engine's write-time shape guarantees. PYQ-3 (PYQFormat) and PYQ-4 (PYQDeliver)
-#   now consume PYQ-1's _PYQ_Explanation.docx directly, with pyq_explain_progress.json as
-#   the SOLE metadata source. No algorithm, engine, ExplanationBlock field, gate, or
-#   delivered byte changes; the edits retire references to the removed auditor and the
-#   (now open) learnings feedback loop. Touched: PIPELINE POSITION, CORE PRINCIPLE,
-#   §7A recording note, §14 S14-4, §16, §17-3, §18-2, §20 §R8/§R11, §24, Appendix A.
-# v2.0 — 2026-08-07 — TIER-3 STRUCTURED MATH (GAP-2026-08-07-EXPLAIN-OMML, remedies E1–E4).
-#   Measured on IIT_JAM_PHYSICS 15-Feb-2026 explanations (60 Q, 56 affected):
-#   (a) the v1 OMML builders interpolated RAW text into m:num/m:den — schema-invalid
-#   XML every Word engine renders as an EMPTY ▯/▯ placeholder, while the verifier's
-#   itertext() reader happily read the bare text, so 12 destroyed fractions shipped
-#   under green checks (verifier had been loosened to match the producer's bug);
-#   (b) the §11 guard understood only digit/digit slashes, so generation evaded it
-#   with an ASCII dialect — 234 "÷" fractions, V_B underscores, x^b carets, √( ),
-#   combining-character A̅/E⃗ accents — all guard-invisible, all typographically wrong;
-#   (c) inherited upstream loss (pre-v2.0 Row files with missing symbols) was
-#   faithfully laundered, because the fidelity check compares output to its own input.
-#   Fix (all in explain_engine.py — MockTestExplain Step 9 inherits via MANDATE A):
-#   E1 builders _r()-wrap + XML-escape all content; verifier check 5 now REJECTS
-#   bare-text num/den (the loosened reader is reverted and locked the other way);
-#   E2 add_math_text v2.0 dispatches ⟦MATH:…⟧ regions through the SHARED Tier-3
-#   compiler (new repo module t3_mathcomp.py, byte-identical to PYQPrepare §S3-5b,
-#   drift-locked in the engine self-test) with the same no-halt/no-markup graceful
-#   degradation and verbatim Ctrl+F quoting; E3 guard_sentence bans the dialect
-#   (÷, ^, _x, √(, combining accents) with the region spelling as the named remedy,
-#   and is region-aware (\frac etc. are legal INSIDE regions); E4 new
-#   source_math_health() input check names upstream loss in plain words ("re-run
-#   Step 1 v2.0 first") before any explanation is generated. Verifier gains Tier-3
-#   structural integrity, rendered-dialect residue, and a region ledger + degrade
-#   report. Self-test 10 → 24 audit checks incl. a negative-proofed drift lock.
-# v1.2.1 — 2026-08-03 — REGRESSION REPAIR (one line; zero rule change).
-#   v1.2 was authored from a base predating 2026.08.03.5 and reintroduced a pointer to
-#   Framework_MockTestCreateAudit.md, a spec deleted in that release. Restated as
-#   audit_canonical.py, which is where the A-NAT-GRADE implementation actually lives.
-#   Every §13A figural pre-transcription rule, the P2a preflight, the VOID_ITEM/AMBER
-#   routing and the §R12 reporting shape introduced by v1.2 are UNTOUCHED.
-#
-# v1.2 — 2026-08-03 — §13A FIGURAL PRE-TRANSCRIPTION PASS (new capability).
-#   Figural images are VIEWED ONCE, at P2a, and persisted as TEXT. Every batch
-#   then reads the transcription instead of re-viewing the image.
-#
-#   THE DEFECT THIS REPAIRS. `view` is CLASS T (CLAUDE.md EXECUTION-BOUNDARY
-#   LAW) and an image held in context is not durable. PYQ-1 previously viewed
-#   each figure lazily, inside whichever batch contained it — so the LAST
-#   figural batch asked the image channel for a fresh render after a clone, a
-#   bootstrap, two specs read in full (RULE 2), and five prior batches. Measured
-#   in one session on pixel-verified non-blank files: early views returned
-#   perceptible content, later views on the SAME files returned empty payloads,
-#   and a retry did not recover. The failure then surfaced as a HALT inside
-#   Batch 1 rather than at preflight, and §13 offered no sanctioned path
-#   onward — the CERTIFIED-DEGRADED (VISION) route in DeliveryFooter §5 Q0b was
-#   scoped to Step 8 only.
-#
-#   THREE PROPERTIES, ALL NEW. (a) Vision is spent at the EARLIEST executable
-#   moment, when context is lightest. (b) What was seen becomes durable text on
-#   disk, so a figure is viewed exactly once per paper no matter how long the
-#   run or how many resumes it survives. (c) A dead image channel is detected at
-#   P2a in seconds, by measurement, instead of as a mid-batch halt.
-#
-#   IT NEVER HALTS. CLAUDE.md: "A CLASS T failure must be LOUD, and must NOT
-#   halt." An untranscribable figure makes its question VOID_ITEM and the run
-#   AMBER; the paper still completes, still delivers every other question, and
-#   still ships. BLOCKING is never emitted for a vision condition. This aligns
-#   PYQ-1 with the corpus rule that no rendering/observation condition may stop
-#   a paper, and DeliveryFooter v1.11 extends Q0b to carry the amber.
-#
-#   RE-11 IS NOT WEAKENED — IT IS MOVED EARLIER AND MADE AUDITABLE. A figural
-#   answer is still derived only from what was actually seen. What changes is
-#   that "what was seen" is now a recorded artefact a later step can inspect,
-#   rather than a claim about a context window nobody can re-examine. A question
-#   whose figure was never legibly seen now yields NO published answer, where
-#   before it yielded a halt (best case) or an unfalsifiable assertion (worst).
-#
-#   Zero changes to explain_engine.py (62/62 unchanged), the ExplanationBlock
-#   model, the delivered document, §12 byte-identity, or any existing gate.
-#   New engine: figural_vision.py (pure stdlib, Phase A/C only — it models no
-#   tool call and contains no CLASS T stub).
-#
-# v1.1.1 — 2026-07-31 — CHANGELOG RELOCATED (history-only; zero rule change).
-#   29 lines of version history and superseded companion blocks moved
-#   verbatim to CHANGELOG.md 'ARCHIVE — Framework_PYQExplain'. The current companion block, the
-#   v1.1 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | PYQ-1 (PYQExplain) | Exam-agnostic
-#
-# v1.1 — 2026-07-24 — §7A PER-QUESTION DIFFICULTY ASSESSMENT (new capability).
-#   PYQ-1 becomes the SINGLE PRODUCER of per-question difficulty for the PYQ
-#   pipeline. It emits `q_to_difficulty` into pyq_explain_progress.json; PYQ-2
-#   validates it; PYQ-4 consumes it as Tier 1 of its §2-3 resolver.
-#
-#   WHY HERE AND NOWHERE ELSE. Difficulty for a PYQ paper is a MEASUREMENT, not a
-#   choice: the exam body already wrote the questions, so the label must follow the
-#   content. Only a step that READS AND SOLVES a question can measure what it
-#   demands — and PYQ-1 is the only step in this pipeline that does. PYQ-4 tags
-#   from a document it never solves, which is why its Tier 2 keyword scorer
-#   (E-9) collapsed an entire IIT JAM Biotechnology paper to one label: 60 of 60
-#   questions "Easy", with E-9's computation axis at its floor for all 60. No
-#   keyword list fixes that, because a keyword list is exam-SPECIFIC and this
-#   framework serves ~200 exams.
-#
-#   NO NEW COGNITIVE WORK. §7A does not analyse anything. Every input it reads is
-#   an observation PYQ-1 has ALREADY made by the time it runs: the §6 class, the
-#   DEDUCTION step count it just built, the AXIOM principle count it just wrote,
-#   whether the §14 SPEED HACK gate passed, whether §7's two methods agreed, the
-#   §10a negative-phrasing scan, and the §5-1 qtype. The assessment is a pure
-#   function of those observations, evaluated by blueprint_core.assess_difficulty.
-#
-#   DETERMINISM CONTRACT. The scoring function is pure and deterministic: identical
-#   observations always yield the identical label. The observations themselves come
-#   from model derivation, so a FRESH PYQ-1 run on the same paper may observe a
-#   different step count and produce a different label. That is bounded and
-#   acceptable because the value is WRITTEN ONCE to the progress JSON and every
-#   downstream reader performs a pure lookup — PYQ-4 §S2-3d's guarantee that "no
-#   model judgment participates in tag resolution at PYQ-4 time" stays literally
-#   true. (v2.1: PYQ-2's independent check on this value is retired — the difficulty
-#   label is now producer-only.)
-#
-#   Zero changes to explain_engine.py. Zero changes to the ExplanationBlock model,
-#   the delivered document, or any existing gate. The assessment is metadata only
-#   and is NEVER rendered into the paper.
 #
 # ════════════════════════════════════════════════════════════════════════
 # PURPOSE
@@ -227,6 +49,15 @@
 #       → subtopic_manifest.json
 #   Same spec runs for SSC CGL, GATE, NEET, UPSC, CAT, CSIR, Banking, RRB, state
 #   PSC, or any exam with valid Step 1-5 outputs.
+#
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQExplain.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.
 
 # ════════════════════════════════════════════════════════════════════════
 # EXECUTION MODEL
