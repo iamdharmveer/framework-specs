@@ -2,7 +2,7 @@
   "_purpose": "Per-engine surviving-mutant budgets for audit_mutation.py. A surviving mutant is a finding NO fixture can distinguish from a finding that was never emitted: the gate may be correct, but nothing proves it is and nothing would notice if a future edit broke it.",
   "_policy": "A BUDGET IS A DEBT, NEVER AN ALLOWANCE. The only legitimate edit to a number here is a DECREASE. Raising one to make a release pass is the exact move this file exists to make visible — it converts 'we added an untested finding' from an invisible event into a reviewable diff. A new gate ships with fixtures that kill its own mutants, or it does not ship (spec §21).",
   "_why_this_file_exists": "GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, deployment review. Release 2026.08.15.9 added five gates — C10, C11, MS-12, MS-13, SPEC-BUDGET — and every one of them survived deletion with CI fully green. audit_mutation reported 35/35 killed, 100%, straight through that release, because ENGINE_DEFAULT was audit_canonical.py (the EXAM auditor) and the REPO auditors were outside its universe entirely. The tool was working perfectly on a target that did not include the thing that broke. One global number would have let a new untested finding hide inside the estate's inherited debt, so the budget is per engine.",
-  "_measured": "2026-08-16, release 2026.08.15.11, --jobs 6-8, verified serial==parallel on mock_sync_audit.",
+  "_measured": "2026-08-16, releases .11 and .12. Verified serial==parallel on mock_sync_audit. NOTE: --jobs helps ONLY on a multi-core runner; see _runner_note.",
   "engines": {
     "audit_callgraph.py": 0,
     "mock_sync_audit.py": 0,
@@ -24,12 +24,31 @@
     "_note": "All six are INHERITED, pre-dating this release. None belongs to a gate added by 2026.08.15.9 or .10: C10, C11, MS-12, MS-13 and SPEC-BUDGET are all killed."
   },
   "_unmeasured": {
-    "audit_sync.py": "NOT MEASURED — deliberately absent from `engines` rather than guessed. Its self-test is ~63 s and it carries 28 emissions, so a full run is ~30 min serial and exceeded the execution window available when this file was written. An absent key means REPORT ONLY: audit_mutation will score it and never fail the build on it. Measure it with `python3 audit_mutation.py --engine audit_sync.py --jobs 8`, then add the real number here. A guessed budget is worse than none — it would assert coverage nobody has evidence for, which is the same defect class this whole tool exists to catch.",
+    "audit_sync.py": "PARTIALLY measured — see _partial_measurements. Absent from `engines`, so report-only: audit_mutation scores it and never fails the build on it. Add the real number after a full run.",
     "audit_canonical.py": "Unchanged standing: pass --max-survivors explicitly, as before. Left out so this release cannot silently alter the exam auditor's existing gate."
   },
   "_usage": [
     "python3 audit_mutation.py --engine mock_sync_audit.py --jobs 8",
     "python3 audit_mutation.py --engine audit_specs_ext.py --jobs 8   # exits 1 above budget",
-    "python3 audit_mutation.py --engine audit_callgraph.py --gate c10_budget_conservation"
-  ]
+    "python3 audit_mutation.py --engine audit_callgraph.py --gate c10_budget_conservation",
+    "python3 audit_mutation.py --engine audit_sync.py --shard 3/14 --jobs 1   # one bounded slice",
+    "# A SHARDED RUN NEVER ENFORCES A BUDGET — a fraction of the survivors cannot be",
+    "# compared against a whole-engine number; audit_mutation suppresses it and says so."
+  ],
+  "_runner_note": "CORRECTION TO .11. That release documented --jobs as the remedy for audit_sync's ~30-minute run. Measured on the reference container: nproc = 1. The mutants are CPU-bound subprocesses, so on a single core parallelism buys nothing and adds contention — 7 mutants at --jobs 7 did not finish in 240 s, while ONE mutant at --jobs 1 took 140 s (63 s baseline + 63 s mutant + copy). --jobs is still correct on a multi-core CI runner and is where the 30 min -> 4 min claim comes from; it is not a universal remedy and .11 should not have written it as one. On a single core, use --shard.",
+  "_partial_measurements": {
+    "audit_sync.py": {
+      "status": "PARTIAL — 5 of 28 emissions measured, in bounded shards",
+      "killed": 2,
+      "survived": 3,
+      "confirmed_survivors": [
+        "L218 rec('SKILL-INVENTORY', ...) — SKILL.md's declared SPEC count vs the corpus",
+        "L220 rec('SKILL-INVENTORY', ...) — SKILL.md's declared ENGINE count vs the corpus",
+        "L345 rec('LAW-REGISTRY', ...) — LAW_REGISTRY.json is not valid JSON"
+      ],
+      "why_no_budget_yet": "3 survivors in the first 5 emissions is real evidence of a coverage gap and is NOT an estimate of the whole. A budget derived by extrapolation would assert a number nobody measured, which is precisely the defect class this tool exists to catch. The key stays out of `engines` — report-only — until a full run supplies a real total.",
+      "what_the_survivors_mean": "Each is a finding no fixture can distinguish from silence. The two SKILL-INVENTORY ones are notable: SKILL.md's declared counts are exactly the kind of hand-written number this corpus has watched drift before, and nothing currently proves the check that guards them still fires.",
+      "finish_it": "python3 audit_mutation.py --engine audit_sync.py --jobs 8   # ~4 min on a multi-core runner\npython3 audit_mutation.py --engine audit_sync.py --shard K/14 --jobs 1   # single core, 14 slices"
+    }
+  }
 }

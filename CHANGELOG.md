@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026.08.15.12 — audit_sync partially measured; the parallelism claim in .11 was wrong
+
+**`--shard K/N` added.** `audit_sync` carries 28 finding emissions at ~63 s per
+self-test — ~30 minutes serial, and beyond any CI step with a wall clock. Sharding makes
+a long engine measurable in bounded pieces instead of unmeasured forever. A sharded run
+NEVER enforces a budget and says so: a fraction of the survivors cannot be compared
+against a whole-engine number, and a shard printing "within budget" would be a lie.
+
+**Correction to .11.** That release documented `--jobs` as the remedy for the 30-minute
+run. Measured on the reference container: **`nproc` = 1**. The mutants are CPU-bound
+subprocesses, so on a single core parallelism buys nothing and adds contention — 7
+mutants at `--jobs 7` did not finish in 240 s, while ONE at `--jobs 1` took 140 s. The
+claim holds on a multi-core CI runner and is where the 30 min -> 4 min figure comes
+from; .11 should not have written it as universal. Corrected in the help text and in
+`MUTATION_BUDGETS.json`.
+
+**`audit_sync` — 5 of 28 emissions measured: 2 killed, 3 SURVIVED.** Confirmed untested
+findings:
+
+- `L218` `SKILL-INVENTORY` — SKILL.md's declared SPEC count against the corpus
+- `L220` `SKILL-INVENTORY` — SKILL.md's declared ENGINE count against the corpus
+- `L345` `LAW-REGISTRY` — LAW_REGISTRY.json is not valid JSON
+
+The two SKILL-INVENTORY survivors matter: SKILL.md's declared counts are exactly the
+hand-written numbers this corpus has watched drift before, and nothing currently proves
+the check guarding them still fires.
+
+**No budget is set for `audit_sync`.** 3 survivors in the first 5 emissions is real
+evidence of a coverage gap and is NOT an estimate of the whole. A budget by
+extrapolation would assert a number nobody measured — the defect class this tool exists
+to catch. The key stays out of `engines`, so the engine is scored and never fails the
+build, until a full run supplies a real total.
+
+No behaviour change to any gate. No spec changes. Nothing to re-run.
+
 ## 2026.08.15.11 — audit_mutation could not see the repo auditors, which is why five untested gates shipped
 
 **Follow-up to 2026.08.15.10.** `audit_mutation.py` reported 35/35 killed, 100%, through

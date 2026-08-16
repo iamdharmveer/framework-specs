@@ -207,13 +207,24 @@ def main():
                     help='CI budget; exit 1 if survivors exceed it')
     ap.add_argument('--quiet', action='store_true')
     ap.add_argument('--jobs', type=int, default=1,
-                    help='parallel mutants. Serial is ~40 min across the repo '
-                         'auditors (audit_sync alone is 63 s per self-test x 28 '
-                         'emissions); the mutants are independent subprocesses, '
-                         'so this is the difference between a gate CI runs and a '
-                         'gate CI skips.')
+                    help='parallel mutants. ONLY USEFUL ON A MULTI-CORE RUNNER. The '
+                         'mutants are CPU-bound subprocesses: measured on a 1-core '
+                         'container, 7 mutants at --jobs 7 did not finish in 240 s '
+                         'while ONE at --jobs 1 took 140 s. On a multi-core CI box '
+                         'this takes audit_sync from ~30 min to ~4 min; on one core '
+                         'it buys nothing and adds contention — use --shard there.')
     ap.add_argument('--budget-file', default=AUDITOR_BUDGETS_FILE,
                     help='per-engine survivor budgets, ratcheted DOWN only')
+    ap.add_argument('--shard', default=None, metavar='K/N',
+                    help='test only shard K of N (1-based), e.g. 2/4. audit_sync is '
+                         '28 emissions at ~63 s each — ~30 min serial, ~4 min at '
+                         '--jobs 8, and still beyond a CI step with a 5-minute wall. '
+                         'Sharding makes a long engine measurable in bounded pieces '
+                         'instead of unmeasured forever. A sharded run NEVER enforces '
+                         'a budget: a fraction of the survivors cannot be compared '
+                         'against a whole-engine number, and pretending otherwise '
+                         'would let a shard report "within budget" while the engine '
+                         'as a whole is not.')
     args = ap.parse_args()
 
     # A per-engine budget beats one global number: the estate's inherited
@@ -251,7 +262,24 @@ def main():
     print(f'baseline self-test: {tail}')
 
     targets = find_targets(lines, tree, args.gate)
-    print(f'finding emissions under test: {len(targets)}'
+    total_targets = len(targets)
+    shard_note = ''
+    if args.shard:
+        try:
+            k, n = (int(x) for x in args.shard.split('/'))
+            assert 1 <= k <= n
+        except Exception:
+            print(f'ERROR: --shard must be K/N with 1 <= K <= N, got {args.shard!r}')
+            sys.exit(2)
+        targets = [t for i, t in enumerate(targets) if i % n == (k - 1)]
+        shard_note = f'  (shard {k}/{n} of {total_targets})'
+        # A shard cannot enforce a whole-engine budget. Silently dropping it would be
+        # worse than refusing: the run would print "within budget" on a fraction.
+        if args.max_survivors is not None:
+            print(f'note: budget suppressed for a sharded run '
+                  f'(shard {k}/{n} cannot be compared against a whole-engine number)')
+            args.max_survivors = None
+    print(f'finding emissions under test: {len(targets)}' + shard_note
           + (f'  (restricted to {args.gate})' if args.gate else ''))
     print('=' * 78)
 
