@@ -1,4 +1,14 @@
-# Framework_PYQExplain v2.5 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.6 — Universal PYQ Explanation Generator
+# v2.6 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
+#   MINOR bump: a name is added to this file's executable surface. NO ARTEFACT CHANGES.
+#   This spec CALLED present_files() from compiling python while DEFINING it nowhere —
+#   a guaranteed NameError the moment that path executes as python. Five such call
+#   sites stood across four specs; spec_name_audit_baseline.json had accepted
+#   `present_files` as a known-unbound name in all four, which is why the ratchet
+#   reported OK for weeks. SAME SHAPE as D2 of
+#   GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, which fixed the instance and left the
+#   class standing. FIX: a CLASS: T stub is declared in this file, matching the
+#   corpus's per-file house pattern for CLASS T markers.
 # v2.5 — 2026-08-13 — GAP-2026-08-13-STALE-SELFTEST-PIN: the MANDATE-A engine gate pinned
 #   the literal "SELF-TEST: 62/62 PASS" while explain_engine.py prints 64/64 — a HALT on
 #   every session with a healthy engine. Converted to the FLOOR form (N/N PASS, N >= 62),
@@ -1454,6 +1464,29 @@ if fails:
 
 ## S19-2 — The present_files call (per batch; +handoff json on the FINAL batch)
 ```python
+def present_files(paths):
+    """CLASS: T — the chat file-delivery tool. NOT executable python.
+
+    GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), DEFECT-CLASS SWEEP.
+    This spec CALLED present_files() from compiling python while DEFINING it
+    nowhere — a guaranteed NameError the moment the path executes as python. Five
+    such call sites stood across four specs (Framework_MockTestAnalyse.md twice,
+    Framework_PYQScan.md, Framework_PYQExplain.md, Framework_MockTestExplain.md).
+    It reached production because spec_name_audit_baseline.json accepted
+    `present_files` as a known-unbound name in all four.
+
+    SAME SHAPE as D2 of GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, where
+    collect_drive_docx_recursive() called the CLASS T marker gdrive_search() from
+    python. That gap fixed the INSTANCE; the CLASS stood eleven days longer.
+
+    Declared per-spec, matching this corpus's CLASS T house pattern (gdrive_search
+    is declared in both Framework_MockTestAnalyse.md and Framework_PYQCount.md).
+    The F1/F2 footer contract is owned by Framework_DeliveryFooter.md.
+
+    The model performs the call in its own turn, after python returns. Nothing is
+    returned to python and NO call site may consume a result (C6).
+    """
+    pass  # CLASS: T — performed by the model between turns, never from python
 deliverables = [f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.docx']
 if FINAL_BATCH:                       # v2.2.1 — ship the identity-prefixed handoff at 100% coverage
     deliverables.append(f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_pyq_explain_progress.json')
@@ -1661,5 +1694,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.5
+# END OF Framework_PYQExplain v2.6
 # ════════════════════════════════════════════════════════════════════════

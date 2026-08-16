@@ -1,5 +1,85 @@
 # Changelog
 
+## 2026.08.16.2 — Step 5 synthesis could not emit an artefact, and had not since 5 August
+
+**GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE. `Framework_MockTestAnalyse` v2.52.0 →
+v2.53.0, `Framework_DeliveryFooter` v1.21 → v1.22, `Framework_PYQScan` v1.2 → v1.3,
+`Framework_PYQExplain` v2.5 → v2.6, `Framework_MockTestExplain` v1.25.0 → v1.26.0.
+EMITTED ARTEFACT VALUES CHANGE — one list is now ordered, and the version stamp moves.**
+
+Found while building the Wave 2 Part C regression harness, whose first task was to
+capture a byte-identical golden set from `--synthesise ALL` at v2.52.0. **There was no
+golden set to capture.** Executing the spec's own fenced python against the real
+884-question IIT_JAM_MATHEMATICS corpus raised `TypeError` before anything was written;
+neutralising that raised `NameError` four frames later. Every auditor was green.
+
+**D1 (P1) — `print_qv` could not read what `run_qv` returns.** `run_qv` returns ONE dict
+holding two kinds of entry; `print_qv` unpacked **every** value as `(status, detail)`.
+Release 2026.08.05.1 (v2.41.0) added
+`results['_counter_questions_terminated_by_heading'] = len(_tbh)` — an int, written
+unconditionally, "reported even when 0", and **read nowhere**. From that release:
+`TypeError: cannot unpack non-iterable int object`, raised **before**
+`write_section_rules`. **Eleven days, eleven minor versions, zero artefacts.** The dict's
+contract is now explicit and enforced: `QV-*` keys are checks and must be 2-tuples,
+`_`-prefixed keys are counters reported on their own line, anything else raises at its
+source naming the offending key.
+
+**D2 (P1) — `collections` used, imported nowhere.**
+`compute_section_axis_distribution` is module-qualified (`collections.defaultdict`,
+`collections.Counter`) but `import collections` appears **nowhere in the file** — every
+import is the `from collections import ...` form, which never binds the module name, and
+the sole `import collections as _c` is function-local to another function. `NameError` on
+every call since 2026.08.06.8 (v2.46.0). `write_section_rules` calls it, so
+`section_rules.md` was never written. Fixed with a function-local import.
+
+**D3 (P3) — `present_files()` called from python, defined nowhere.** Five call sites
+across four specs. **Same shape as D2 of GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION**,
+which fixed the instance and left the class standing. Swept: a `CLASS: T` stub is now
+declared in each calling spec, matching the corpus's per-file house pattern
+(`gdrive_search` is declared in both `Framework_MockTestAnalyse.md` and
+`Framework_PYQCount.md`). P3 only because `deliver_final` runs after all five artefacts
+are on disk.
+
+**D4 (P1 for reproducibility) — no Step 5 artefact was ever reproducible.** E-8
+`subtopic_option_format` returned `'all_observed': list(set(fmts))`. Set iteration order
+over `str` depends on `PYTHONHASHSEED`, which python randomises **per process**, and §14
+emits the list verbatim. **Measured:** two runs, identical code and corpus,
+`section_rules.md` identical at 433,260 bytes with a different sha256, differing at 34
+lines — one per subtopic. No diff between two runs could separate a real regression from
+hash-seed noise, so no byte-identity gate over this pipeline was constructible. Fixed
+with `sorted(set(...))`.
+
+**Why four auditors were green.** They read the spec as text or as an AST; **not one
+executes the synthesis path**. D1 needs `run_qv`'s value to reach `print_qv`; D2 needs
+`write_section_rules` to call `compute_section_axis_distribution`; D4 needs two
+processes.
+
+**Worse, and the real lesson: `spec_name_audit` DID detect D2 and D3.** `collections` and
+`present_files` were both sitting in `spec_name_audit_baseline.json`, accepted as
+known-unbound, so the ratchet reported OK. An untyped baseline cannot distinguish
+"legitimately bound elsewhere at runtime" from "guaranteed NameError". All five entries
+are gone; baseline **164 → 159**, by fix, not by suppression.
+
+**Budget discipline.** The D3 sweep pushed `routes.json[PYQScan]` from 246,819 B to
+252,675 B, over the 250,000 B threshold. A budget is a debt, never an allowance, so the
+spend was reversed rather than the threshold widened: the narrative moved to
+`SPEC_HISTORY.md` — the mechanism release 2026.08.15.14 established for this same file —
+and the route closed at **249,586 B**.
+
+**Verification.** bootstrap 48/48 VERIFIED; `validate_framework_md` 0 issues across 23
+specs; `audit_specs_ext` 0 across 56 files; `mock_sync_audit` all checks agree;
+`audit_callgraph` 0 findings; `audit_deep` 0 findings across 23 specs / 21 engines;
+`notes_sync_audit` 0; `spec_name_audit` OK. End-to-end against the real 884-question,
+22-paper corpus: all five artefacts emitted, QV clean (15 PASS, 4 WARN, 0 FAIL), and
+**byte-stable across `PYTHONHASHSEED` 3, 11 and 42**. The artefact diff against v2.52.0
+is exactly 70 lines: 34 now-sorted `option_format_all_observed` lists and 3 version-stamp
+lines. Nothing else moved.
+
+**Estate action.** Any exam that produced a `section_rules.md` after 2026-08-05 had its
+code path repaired **in-session by the executing model**, not by the spec, and that
+artefact is not reproducible from the spec as written. Re-run Step 5 for every such exam
+after this deploy, then re-run Step 6.
+
 ## 2026.08.16.1 — every question inherited its taxonomy block's first exam position
 
 **GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION. `Framework_MockTestAnalyse` v2.51.0 →

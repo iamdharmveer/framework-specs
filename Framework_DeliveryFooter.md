@@ -1,4 +1,10 @@
-# Framework_DeliveryFooter v1.21 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.22 — Universal Delivery Footer (F1/F2) Contract
+# v1.22 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
+#   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
+#   present_files() was CALLED from compiling python here while DEFINED nowhere — a
+#   guaranteed NameError; spec_name_audit_baseline.json had accepted it as
+#   known-unbound in all four affected specs, so the ratchet reported OK.
+#   FULL NARRATIVE: SPEC_HISTORY.md + CHANGELOG.md 2026.08.16.2.
 # v1.21 — 2026-08-13 — SYNC AUDIT ROUND 2: footer registry caught up with the steps.
 #   (1) GAP-2026-08-13-DELIVERY-COUNT-DRIFT (mirrored): §3's Step-5 final list said "5
 #   files" — no badge for exam_config.json (mandatory-when-generated since MockTestAnalyse
@@ -133,6 +139,39 @@ BADGE 3 — "Use locally"               (icon: 📁)
 ### Badge determination logic
 
 ```python
+# ── present_files — THE SINGLE DECLARATION ───────────────────────────────────
+# GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), DEFECT-CLASS SWEEP.
+#
+# This file already declares itself "the single source of truth — all spec files
+# reference it instead of embedding their own footer logic", and it is the ONLY
+# spec on all 23 routes in routes.json. So the delivery primitive is declared here
+# ONCE, and every spec that calls it inherits the declaration through its route.
+# One writer, exactly as bc.DATE_TAG_RE and cur_date_label are single-writer.
+#
+# WHAT WAS WRONG: present_files was CALLED from compiling python at five sites in
+# four specs — Framework_MockTestAnalyse.md (twice), Framework_PYQScan.md
+# (run_scan), Framework_PYQExplain.md (S19-2) and Framework_MockTestExplain.md
+# (S19-2) — and DEFINED in none of them. Each call is a guaranteed NameError the
+# moment that path executes as python.
+#
+# SAME SHAPE AS: D2 of GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, where
+# collect_drive_docx_recursive() called the CLASS T marker gdrive_search() from
+# python and consumed its result. That gap fixed the INSTANCE. The CLASS went
+# unswept for a day short of a fortnight. audit_callgraph C12, added in the same
+# release as this declaration, is route-aware and fails the build on a new one.
+
+def present_files(paths):
+    """CLASS: T — the chat file-delivery tool. NOT executable python.
+
+    GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), class sweep. Declared per-spec,
+    matching this corpus's CLASS T house pattern (gdrive_search is declared in both
+    Framework_MockTestAnalyse.md and Framework_PYQCount.md). The F1/F2 contract is
+    owned by Framework_DeliveryFooter.md. The model performs the call in its own
+    turn; nothing returns to python and no call site may consume a result (C6).
+    """
+    pass  # CLASS: T — performed by the model between turns, never from python
+
+
 # Pseudocode — Claude evaluates this mentally before rendering footer
 
 def get_badge(filename, step, is_first_run):

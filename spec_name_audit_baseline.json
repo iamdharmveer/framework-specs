@@ -52,7 +52,6 @@
   "UPLOADED_FILE_PATH"
  ],
  "Framework_MockTestAnalyse.md": [
-  "collections",
   "exam_code",
   "extract_presorted",
   "extract_year_from_filename",
@@ -70,7 +69,6 @@
   "option_label_format",
   "options_count",
   "partial_credit",
-  "present_files",
   "pyq_drive_folder_id",
   "run_img5b",
   "run_synthesise",
@@ -113,8 +111,7 @@
   "EXAM",
   "EXAMCODE",
   "N",
-  "PAPER_SLUG",
-  "present_files"
+  "PAPER_SLUG"
  ],
  "Framework_PYQCore.md": [
   "exam_code",
@@ -152,8 +149,7 @@
   "EXPECTED",
   "blocks",
   "cfg",
-  "out",
-  "present_files"
+  "out"
  ],
  "Framework_PYQFormat.md": [
   "SECTPR_ORDER",
@@ -178,7 +174,6 @@
  "Framework_PYQScan.md": [
   "MIN_PATTERN_SIZE",
   "bc",
-  "present_files",
   "reclassify_after_refinement",
   "run_refinement_pass"
  ],

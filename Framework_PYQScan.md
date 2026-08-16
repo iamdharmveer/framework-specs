@@ -1,13 +1,10 @@
-# Framework_PYQScan v1.2 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
-# v1.2 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (D5).
-#   collect_row_files() was `files = []` … `pass  # Drive MCP calls` … `return files`:
-#   it returned an EMPTY LIST unconditionally, on every run of every exam, and its own
-#   comment cited "the same pattern as Step 5's S1-2 Drive path" — inheriting a pattern
-#   that was itself dead. Invisible to C6 twice over: the `pass` shares its body with
-#   other statements so it is not a pass-bodied stub, and it carried no CLASS tag. The
-#   listing now delegates to corpus_io.collect_corpus_files over a PHASE A cache keyed
-#   by folder id, and an empty result HARD STOPS with a transport diagnosis (EC-P39)
-#   instead of silently reporting a Row-file-less exam.
+# Framework_PYQScan v1.3 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.3 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
+#   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
+#   It was CALLED from compiling python here while DEFINED nowhere — a guaranteed
+#   NameError; spec_name_audit_baseline.json had accepted it as known-unbound in all
+#   four affected specs, so the ratchet reported OK.
+#   FULL NARRATIVE: SPEC_HISTORY.md + CHANGELOG.md 2026.08.16.2.
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -1104,6 +1101,16 @@ PER-QUESTION CLASSIFICATION STORAGE (v1.7):
 ```
 
 ```python
+def present_files(paths):
+    """CLASS: T — the chat file-delivery tool. NOT executable python.
+
+    GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), class sweep. Declared per-spec,
+    matching this corpus's CLASS T house pattern (gdrive_search is declared in both
+    Framework_MockTestAnalyse.md and Framework_PYQCount.md). The F1/F2 contract is
+    owned by Framework_DeliveryFooter.md. The model performs the call in its own
+    turn; nothing returns to python and no call site may consume a result (C6).
+    """
+    pass  # CLASS: T — performed by the model between turns, never from python
 def run_scan(exam_code, progress, paper_queue, total_available):
     """Main scan loop — processes papers in batches."""
 
@@ -1786,4 +1793,4 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.2
+# END OF Framework_PYQScan v1.3

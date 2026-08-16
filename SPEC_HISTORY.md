@@ -2615,6 +2615,15 @@ Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQScan.md.
 
 ```
+# v1.2 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (D5).
+#   collect_row_files() was `files = []` … `pass  # Drive MCP calls` … `return files`:
+#   it returned an EMPTY LIST unconditionally, on every run of every exam, and its own
+#   comment cited "the same pattern as Step 5's S1-2 Drive path" — inheriting a pattern
+#   that was itself dead. Invisible to C6 twice over: the `pass` shares its body with
+#   other statements so it is not a pass-bodied stub, and it carried no CLASS tag. The
+#   listing now delegates to corpus_io.collect_corpus_files over a PHASE A cache keyed
+#   by folder id, and an empty result HARD STOPS with a transport diagnosis (EC-P39)
+#   instead of silently reporting a Row-file-less exam.
 # v1.1 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-2 Q_PATTERNS mirrors the engine's widened
 #   four-entry table (entries 3/4 = BARE-LABEL forms), updated atomically with
 #   blueprint_core, PYQSort S3-1 and MockTestAnalyse E-2. S3-2 now PERSISTS q_count and

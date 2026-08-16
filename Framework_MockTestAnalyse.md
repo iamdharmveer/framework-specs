@@ -1,4 +1,79 @@
-# Framework_MockTestAnalyse v2.52.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.53.0 — Universal PYQ Pattern Extraction Engine
+# v2.53.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE.
+#   MINOR bump: EMITTED ARTEFACT VALUES CHANGE (D4 orders one list), a function's
+#   contract is tightened (print_qv), and a defect CLASS is swept across four specs.
+#
+#   STEP 5 SYNTHESIS HAS NOT BEEN ABLE TO EMIT AN ARTEFACT SINCE 2026-08-05.
+#   Found while building the Wave 2 Part C regression harness: executing this file's
+#   own fenced python against the real 884-question IIT_JAM_MATHEMATICS corpus raised
+#   TypeError before anything was written; neutralising that raised NameError four
+#   frames later. Both unconditional, both corpus-independent, both on the single path
+#   every exam takes. Every auditor was green throughout.
+#
+#   D1 (P1) — print_qv could not read what run_qv returns. run_qv returns ONE dict
+#     holding two kinds of entry; print_qv unpacked EVERY value as (status, detail).
+#     v2.41.0 added results['_counter_questions_terminated_by_heading'] = len(_tbh),
+#     an int, unconditional, "reported even when 0" — written once, read nowhere.
+#     From that release: TypeError: cannot unpack non-iterable int object, raised
+#     BEFORE write_section_rules. 11 days, 11 minor versions, zero artefacts.
+#     FIX: the dict's contract is now explicit and ENFORCED — 'QV-*' keys are checks
+#     and must be 2-tuples; '_'-prefixed keys are counters, reported on their own
+#     line (preserving v2.41.0's intent, which was visibility, not check-hood);
+#     anything else raises AT ITS SOURCE naming the offending key.
+#
+#   D2 (P1) — `collections` used, imported nowhere. compute_section_axis_distribution
+#     is module-qualified (collections.defaultdict / collections.Counter) but
+#     `import collections` appears NOWHERE in this file — every import is the
+#     `from collections import ...` form, which never binds the module name.
+#     NameError on every call since v2.46.0 (2026-08-06). write_section_rules calls
+#     it, so section_rules.md was never written. FIX: function-local import, this
+#     file's dominant idiom.
+#
+#   D3 (P3) — present_files() called from python, defined nowhere. FIVE call sites
+#     across FOUR specs (this file twice, PYQScan, PYQExplain, MockTestExplain).
+#     SAME SHAPE as D2 of GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, which fixed
+#     the INSTANCE and left the CLASS standing. Swept now: a CLASS: T stub is
+#     declared in EACH calling spec, matching this corpus's established house
+#     pattern — gdrive_search and gdrive_download_file are each declared in both
+#     this file and Framework_PYQCount.md. Per-file declaration is deliberate: a
+#     pass-bodied marker has no logic to drift, and spec_name_audit is a PER-FILE
+#     auditor, so a declaration held only in a route peer would be invisible to it
+#     — which is how a route-level fix would have re-created the very blind spot
+#     this gap is about. Framework_DeliveryFooter.md keeps the F1/F2 contract and
+#     gains the same stub (it is on all 23 routes).
+#     P3 only because deliver_final runs AFTER all five artefacts are on disk.
+#
+#   D4 (P1 for reproducibility) — NO STEP 5 ARTEFACT WAS EVER REPRODUCIBLE.
+#     E-8 subtopic_option_format returned 'all_observed': list(set(fmts)). Set
+#     iteration order over str depends on PYTHONHASHSEED, randomised PER PROCESS,
+#     and §14 emits the list verbatim as option_format_all_observed. MEASURED: two
+#     runs, identical code and corpus, section_rules.md identical at 433,260 bytes
+#     with a different sha256, differing at 34 lines — one per subtopic. No diff
+#     between two runs could separate a real regression from hash-seed noise.
+#     FIX: sorted(set(...)). VERIFIED: all six artefacts now byte-stable across
+#     PYTHONHASHSEED 1, 7 and 99.
+#     THIS IS THE ONLY INTENDED ARTEFACT CHANGE IN THIS RELEASE — one list, sorted.
+#
+#   WHY FOUR AUDITORS WERE GREEN. bootstrap 48/48, audit_specs_ext 0, callgraph 0,
+#   audit_deep 0, validate_framework_md clean, mutation at budget — all pass with
+#   Step 5 unable to emit anything. They read the spec as TEXT or as an AST; not one
+#   EXECUTES the synthesis path. D1 needs run_qv's value to reach print_qv; D2 needs
+#   write_section_rules to call compute_section_axis_distribution; D4 needs two
+#   processes. All three are runtime facts.
+#   WORSE — AND THE REAL LESSON: spec_name_audit DID detect D2 and D3. `collections`
+#   and `present_files` were both sitting in spec_name_audit_baseline.json under this
+#   file, accepted as known-unbound, so the ratchet reported OK. An untyped baseline
+#   cannot distinguish "legitimately bound elsewhere at runtime" from "guaranteed
+#   NameError". Both entries are REMOVED in this release, and the baseline now
+#   carries a typed reason per entry so neither can be re-frozen silently.
+#   MECHANISM: audit_callgraph C12 (new, route-aware) fails the build on any name
+#   CALLED from compiling python that is neither bound on its route nor declared
+#   CLASS: T/J.
+#
+#   RE-RUN REQUIRED for every exam. Any exam that produced a section_rules.md after
+#   2026-08-05 had its code path repaired IN-SESSION by the executing model, not by
+#   this spec, and that artefact is not reproducible from the spec as written.
+#
 # v2.52.0 — 2026-08-16 — GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION.
 #   MINOR bump: EMITTED ARTEFACT VALUES CHANGE. This is NOT disclosure-only — contrast
 #   v2.51.0, which correctly declared "NO ARTEFACT CHANGES".
@@ -389,6 +464,35 @@ def gdrive_download_file(file_id, local_path):
     property of the DEPLOYMENT, not of the file size, and it is MEASURED (see
     Framework_PYQCount S5-0), never assumed. Record whatever came back; the resolver
     carries it unchanged and decode_drive_payload accepts both.
+    """
+    pass  # CLASS: T — performed by the model between turns, never from python
+
+
+def present_files(paths):
+    """CLASS: T — the chat file-delivery tool. NOT executable python.
+
+    GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), DEFECT-CLASS SWEEP.
+    §8 calls this twice — once per batch in the status block, once in
+    deliver_final — and it was DEFINED nowhere. Five call sites across four specs
+    (this file twice, Framework_PYQScan.md run_scan, Framework_PYQExplain.md
+    S19-2, Framework_MockTestExplain.md S19-2), each a guaranteed NameError the
+    moment that path executes as python.
+
+    SAME SHAPE as D2 of GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, where
+    collect_drive_docx_recursive() called the CLASS T marker gdrive_search() from
+    python. That gap fixed the INSTANCE and left the CLASS standing for another
+    eleven days. P3 rather than P1 only because deliver_final runs AFTER all five
+    artefacts are on disk: the run loses its delivery, not its work.
+
+    DECLARED PER-SPEC, deliberately: this corpus's CLASS T house pattern is
+    per-file self-containment — gdrive_search and gdrive_download_file are each
+    declared in BOTH this file and Framework_PYQCount.md. A pass-bodied marker has
+    no logic to drift, and per-file declaration is what keeps spec_name_audit, a
+    per-file auditor, able to see the binding at all. The F1/F2 footer contract for
+    this primitive remains owned by Framework_DeliveryFooter.md.
+
+    The model performs the call in its own turn, after python returns. Nothing is
+    returned to python and NO call site may consume a result (C6).
     """
     pass  # CLASS: T — performed by the model between turns, never from python
 
@@ -1855,13 +1959,33 @@ def subtopic_option_format(qs):
         by_year.setdefault(q.get('year', '?'), []).append(fmt)
     primary = Counter(fmts).most_common(1)[0][0]
     years   = sorted(by_year.keys())
+    # GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D4) — ARTEFACT NONDETERMINISM.
+    # `all_observed` was list(set(fmts)). Set iteration order for str elements
+    # depends on PYTHONHASHSEED, which python randomises PER PROCESS, so this list
+    # came out in a different order on every run. It is emitted verbatim by
+    # write_section_rules as `option_format_all_observed:` (§14), which means TWO
+    # runs of identical code over an identical corpus produced two different
+    # section_rules.md files — measured: same 433,260 bytes, different sha256,
+    # differing at 34 lines, one per subtopic.
+    #
+    # CONSEQUENCE: no Step 5 artefact was ever reproducible, so no diff between two
+    # runs could distinguish a real regression from hash-seed noise, and any
+    # byte-identity gate over this pipeline was impossible to build. That is why
+    # this is fixed HERE, in the release that establishes the Wave 2 Part C
+    # regression floor, rather than deferred: without it the floor cannot exist.
+    #
+    # WHY IT HID: a single process reuses one seed, so back-to-back runs inside one
+    # session agree with each other and look deterministic. Only a fresh process
+    # disagrees — and every real run is a fresh process.
+    #
+    # sorted() not list(): a stable, explicit, reviewable order.
     if not years:
         return {'primary':primary,'recent_format':primary,
-                'changed_recently':False,'all_observed':list(set(fmts))}
+                'changed_recently':False,'all_observed':sorted(set(fmts))}
     recent = Counter(by_year.get(years[-1], [])).most_common(1)
     rfmt   = recent[0][0] if recent else primary
     return {'primary':primary,'recent_format':rfmt,
-            'changed_recently':rfmt != primary,'all_observed':list(set(fmts))}
+            'changed_recently':rfmt != primary,'all_observed':sorted(set(fmts))}
 ```
 
 ### E-9 — Difficulty scoring (3-axis universal system)
@@ -3328,6 +3452,23 @@ def compute_section_axis_distribution(sec_entries, progress, mocks_per_window=10
             return 'DI'
         return 'TEXT'
 
+    # GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D2). These three lines are
+    # MODULE-QUALIFIED — `collections.X`, not the bare `Counter` used everywhere
+    # else in §5 — but `import collections` appears NOWHERE in this file. Every
+    # other import is the `from collections import ...` form, which binds
+    # `Counter` / `defaultdict` and never the module name; the sole
+    # `import collections as _c` (§8) is function-local to another function.
+    # So this function raised `NameError: name 'collections' is not defined`
+    # every time it ran, from v2.46.0 (2026-08-06) onward. write_section_rules
+    # calls it, so section_rules.md — the primary Step 5 artefact — was never
+    # written.
+    # WHY IT SURVIVED: spec_name_audit DID detect it. `collections` sits in
+    # spec_name_audit_baseline.json under this file, accepted as a known unbound
+    # name, so the ratchet reported OK. A baseline entry cannot distinguish "this
+    # name is legitimately bound elsewhere at runtime" from "this name is a
+    # guaranteed NameError" — see the typed-reason baseline added in this release.
+    # The import is function-local, matching this file's dominant idiom.
+    import collections
     _by_paper = collections.defaultdict(collections.Counter)   # cls -> paper -> n
     _by_sub = collections.defaultdict(collections.Counter)     # cls -> subtopic_id -> n
     _unkeyed = collections.Counter()                           # cls -> n
@@ -4414,9 +4555,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.52'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.52'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.52'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.53'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.53'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.53'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
@@ -5259,7 +5400,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     {
       "exam_code": "...",
       "manifest_version": "1.0",
-      "generated_by": "Framework_MockTestAnalyse v2.52",
+      "generated_by": "Framework_MockTestAnalyse v2.53",
       "id_recipe": "<section_prefix>.<topic_slug>.<subtopic_slug> via slugify v2.4",
       "subtopics": {
          "<subtopic_id>": {
@@ -6283,12 +6424,56 @@ def run_qv(entries, taxonomy, progress):
     return results
 
 def print_qv(results):
+    """Render run_qv()'s result mapping.
+
+    GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D1). run_qv returns ONE dict
+    carrying TWO kinds of entry, and this function used to unpack every value as
+    a (status, detail) pair:
+
+        for check,(status,detail) in results.items():
+
+    v2.41.0 added `results['_counter_questions_terminated_by_heading'] = len(_tbh)`
+    — an int, written unconditionally, "reported even when 0". From that release
+    this loop raised `TypeError: cannot unpack non-iterable int object` on EVERY
+    exam, and because run_synthesise calls print_qv BEFORE write_section_rules,
+    Step 5 emitted NOTHING for eleven days and eleven minor versions.
+
+    The counter was written once and read nowhere. The producer changed the dict's
+    contract and the consumer was never told — the same producer/consumer blind
+    spot as GAP-2026-08-15-BAREQ and GAP-2026-08-16-PYQEXTRACT-DATE-LABEL-POSITION.
+
+    THE CONTRACT IS NOW EXPLICIT AND ENFORCED, not merely tolerated:
+      * `QV-*` keys are CHECKS   -> value MUST be a (status, detail) 2-tuple.
+      * `_`-prefixed keys are COUNTERS -> scalar, reported on their own line, and
+        never mistaken for a check. This preserves v2.41.0's stated intent, which
+        was to make the counter VISIBLE, not to make it a check.
+      * Anything else raises immediately, naming the offending key, so a future
+        malformed check fails loudly at its source instead of presenting as an
+        unpackable int three frames from whatever produced it.
+    """
     print('\n=== Quality Verification Results ===')
     icons = {'PASS':'v','WARN':'!','FAIL':'X'}
     all_ok = True
-    for check,(status,detail) in results.items():
+    counters = {}
+    for check, value in results.items():
+        if check.startswith('_'):
+            counters[check] = value
+            continue
+        if not (isinstance(value, tuple) and len(value) == 2):
+            raise TypeError(
+                f"print_qv: check {check!r} must map to a (status, detail) "
+                f"2-tuple, got {type(value).__name__} {value!r}. A counter or "
+                f"other bookkeeping value must use a '_'-prefixed key so it is "
+                f"reported rather than unpacked (D1).")
+        status, detail = value
+        if status not in icons:
+            raise ValueError(
+                f"print_qv: check {check!r} has status {status!r}; expected one "
+                f"of {sorted(icons)}.")
         print(f'  {icons[status]} {check}: {status} -- {detail}')
         if status=='FAIL': all_ok = False
+    for name, value in counters.items():
+        print(f'  . {name.lstrip("_")}: {value}')
     print(f'\n{"All checks passed." if all_ok else "FAIL checks must be resolved."}')
     return all_ok
 ```
@@ -9104,4 +9289,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.52.0
+# END OF Framework_MockTestAnalyse v2.53.0
