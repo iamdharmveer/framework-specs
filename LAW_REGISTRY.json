@@ -32,6 +32,30 @@
         "INSPECTABILITY. No 'CLASS: T' or 'CLASS: J' marker may appear inside a fence that fails ast.parse. audit_callgraph.any_python_blocks() yields only compiling fences BY DESIGN, so a marker in a non-compiling fence is — to C6 — a stub that does not exist: C6 builds an empty class_t set, returns early, and never scans the consumption sites, which compile fine one fence away. The law then reports 0 findings on a file it cannot verify. Measured 2026-08-15 on Framework_MockTestAnalyse.md: untagged fence 321-603 failed ast.parse at line 328 on an em-dash IN PROSE; both gdrive stubs lived in it; two live violations at lines 655 and 658 went unreported while four auditors were green. Enforced by audit_callgraph:C6-PRE. A check that can be structurally disarmed by the shape of its input is not a check; it is a check-shaped hole.",
         "PRODUCER. A resolver injected at a documented injection point must read a container that something in the same spec actually FILLS — an assignment in compiling python, a parameter with no default, or a defaulted parameter whose absence raises. A bare default of None or {} is not a producer; it is the defect. C6 checks 'declared and passed', C7 checks 'not declared and passed', and neither can see a correct injection over an empty container. Enforced by audit_callgraph:C9."
       ]
+    },
+    "SESSION-BUDGET-LAW": {
+      "gap": "GAP-2026-08-16-STEP5-SESSION-EXHAUSTION",
+      "stated_in": "CLAUDE.md",
+      "requires": "A session has THREE finite resources, not one. The framework has always budgeted PAYLOAD CHARACTERS (bc.INLINE_BUDGET_CHARS) and PAPER PACING (BATCH_SIZE). It must also budget SPECIFICATION-READ COST and TOOL-CALL COUNT. Concretely: (1) any CLASS T acquisition performed before a context partition MUST be subtracted from that partition's budget via consumed=, and is charged even when it FAILS; (2) a probe must be productive — probe the item the plan will fetch anyway, not the cheapest; (3) a spec above the SPEC-BUDGET threshold must declare a FINAL/NON-FINAL read set, with escalation to a full read MANDATORY and ONE-WAY before any writer runs; (4) a listing transcribed by the model must be asserted against an independently declared count and HARD STOP on mismatch; (5) a partition that admits nothing must SAY SO, never print a sessions estimate computed from an empty set.",
+      "detect": "budget_spender_upstream_of_partition",
+      "detect_note": "A spec PERFORMS this operation when it calls bc.partition_by_transport in a file that also carries a CLASS T acquisition (CHANNEL PROBE / probe_drive_channel / probe_direct_egress), or when it writes DRIVE_LISTING_CACHE, or when its route's summed .md bytes exceed audit_specs_ext.SPEC_BUDGET_BYTES. Prose does not count: the call must be in executable source, per the corollary law that any instruction a CI check must inspect has to live where the CI check can read it.",
+      "governs": [
+        "Framework_MockTestAnalyse.md",
+        "Framework_PYQCount.md",
+        "Framework_PYQCore.md"
+      ],
+      "verified_by": [
+        "audit_callgraph:C10",
+        "audit_callgraph:C11",
+        "mock_sync_audit:MS-12",
+        "mock_sync_audit:MS-13",
+        "audit_specs_ext:SPEC-BUDGET"
+      ],
+      "preconditions": [
+        "DERIVED RANGES. The FINAL/NON-FINAL read set is computed by spec_sections.py from each spec's own headers into SPEC_SECTIONS.json, which gen_manifest.py regenerates and MANIFEST.json tracks by sha256. A hand-copied line number is a second definition of the file's own structure and drifts on the first edit that adds a paragraph; a STALE map is worse than no map, because it sends a reduced read at ranges that no longer bound the sections they name. bootstrap.py therefore fails the build the moment a spec is edited without regenerating the map.",
+        "SAFE DEFAULT. A spec with no declared read set is read IN FULL, and an undecidable session class resolves to FINAL. Reading too much costs a session; reading too little can let a reduced read reach a writer, which is the one failure mode this corpus has actually regressed on (v2.39).",
+        "THE PROBE IS CHARGED ON FAILURE. A probe that raised still consumed the context its bytes occupied. Charging only on success under-admits nothing and over-admits by a whole paper on exactly the runs that are already going wrong."
+      ]
     }
   },
   "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

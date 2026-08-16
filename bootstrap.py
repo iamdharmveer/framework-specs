@@ -65,9 +65,41 @@ def read_lines(path):
     with open(path, encoding="utf-8", newline="") as f:
         return [ln.rstrip("\n") for ln in f]
 
+def _session_class(progress_path, files_meta):
+    """FINAL vs NON-FINAL — Framework_MockTestAnalyse §S8-0b, Framework_PYQCore EC-P42.
+
+    THE AXIS IS NOT FRESH vs RESUME. A session executes the same code whether it is
+    session 1 or session 5; what decides which sections it reaches is whether it will
+    CLOSE THE BOOKS. Routing on fresh/resume would leave session 1 of every one of the
+    ~200 exams exactly as broken as the reference incident.
+
+    Unknown -> FINAL. The default must be the SAFE one: reading too much costs a
+    session, reading too little can let a reduced read reach a writer.
+    """
+    if not progress_path or not os.path.exists(progress_path):
+        return "FINAL"
+    try:
+        prog = json.load(open(progress_path, encoding="utf-8"))
+    except Exception:
+        return "FINAL"
+    meta = prog.get("_meta") or {}
+    done = len(meta.get("papers_processed") or [])
+    transport = meta.get("_transport") or {}
+    # Tolerate the pre-v2.51.0 key for one release (EC-P38: a pre-patch progress file
+    # is VALID INPUT and is never discarded).
+    planned = transport.get("papers_planned", transport.get("papers_admitted")) or []
+    deferred = transport.get("deferred_context") or []
+    total = meta.get("total_papers") or (done + len(planned) + len(deferred))
+    remaining = max(0, total - done)
+    return "NON-FINAL" if remaining > 3 else "FINAL"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--trigger", default=None, help="optional step trigger, e.g. MockDeliver")
+    ap.add_argument("--progress", default=None,
+                    help="path to [ExamCode]_analysis_progress.json — decides SESSION "
+                         "CLASS and prints the exact read plan (GAP-2026-08-16)")
     ap.add_argument("--manifest", default="MANIFEST.json")
     args = ap.parse_args()
 
@@ -160,7 +192,57 @@ def main():
         if entry:
             specs = [f for f in entry if f.endswith(".md")]
             engines = [f for f in entry if f.endswith(".py")]
-            print(f"Entry-point spec(s) for '{args.trigger}' — READ IN FULL: {specs}")
+            # ── GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / Fix A1 ─────────────────
+            # DISCLOSE THE COST BEFORE IT IS PAID. SKILL Rule 2 is a hard, unbounded
+            # obligation and nothing anywhere priced it: this line printed filenames
+            # only, MANIFEST.json carried the line count for integrity and never
+            # surfaced it as a cost, and no EC, DoD item or gate mentioned read cost
+            # at all. Measured on the reference incident: 40 of session 1's 50 tool
+            # calls and ~139,208 tokens went to satisfying Rule 2, and the step
+            # stalled before its first productive operation.
+            # This is a DISCLOSURE LINE, NOT A GATE — same precedent as
+            # Framework_DeliveryFooter §2A. It never blocks a run.
+            sec = {}
+            if os.path.exists("SPEC_SECTIONS.json"):
+                try:
+                    sec = json.load(open("SPEC_SECTIONS.json", encoding="utf-8"))
+                except Exception:
+                    sec = {}
+            sfiles = sec.get("files", {})
+            klass = _session_class(args.progress, files_meta)
+            print(f"\nEntry-point spec(s) for '{args.trigger}' — READ IN FULL "
+                  f"(subject to SESSION CLASS below):")
+            tot_l = tot_b = tot_v = tot_bash = 0
+            for f in specs:
+                meta, info = files_meta.get(f, {}), sfiles.get(f, {})
+                ln = info.get("lines") or meta.get("lines") or 0
+                by = info.get("bytes") or meta.get("bytes") or 0
+                use_b = (info.get("reduced_bytes", by)
+                         if klass == "NON-FINAL" and info.get("has_read_set") else by)
+                vc = -(-by // 16000) if by else 0
+                bc_ = max(1, -(-use_b // 150000)) if use_b else 0
+                tot_l += ln; tot_b += use_b; tot_v += vc; tot_bash += bc_
+                tag = ""
+                if klass == "NON-FINAL" and info.get("has_read_set"):
+                    tag = f"  [reduced from {by:,} B — {len(info.get('final_only_titles', []))} section(s) skipped]"
+                print(f"  {f:<34} {ln:>6} lines  {use_b:>9,} B  ~{use_b // 4:>8,} tok"
+                      f"  ~{bc_} bash call(s){tag}")
+            print(f"  {'-' * 96}")
+            print(f"  {'PRE-WORK READ BUDGET':<34} {tot_l:>6} lines  {tot_b:>9,} B  "
+                  f"~{tot_b // 4:>8,} tok  ~{tot_bash} bash call(s)")
+            print(f"  SESSION CLASS: {klass}")
+            if klass == "NON-FINAL":
+                print("    Reduced read is permitted: this session cannot clear the corpus, so it")
+                print("    never reaches synthesis, QV, the summary or the schema/xlsx writers.")
+                print("    ESCALATION IS MANDATORY AND ONE-WAY — if this session turns out to be")
+                print("    final, read the omitted sections BEFORE run_synthesise(). §S8-0b.")
+            else:
+                print("    FULL READ REQUIRED — no exception. This session may write section_rules.md.")
+            print(f"    Read with `sed -n 'A,Bp' <file>` in bash, NOT with view: measured in this")
+            print(f"    container, view truncates above ~16,000 chars INCLUDING ranged reads "
+                  f"(~{tot_v} calls);")
+            print(f"    bash returned 188,024 chars intact in one call (~{tot_bash} calls). "
+                  f"Ranges: SPEC_SECTIONS.json.")
             if engines:
                 print(f"Routed engine(s) for '{args.trigger}' — EXECUTE via `import` inside the "
                       f"spec's code blocks; do NOT read these into context: {engines}")

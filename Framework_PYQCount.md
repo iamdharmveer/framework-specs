@@ -1,4 +1,19 @@
-# Framework_PYQCount v1.4 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.5 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, propagated per the
+#   LAW-PROPAGATION LAW. Step 4 did not suffer the reference incident — it is
+#   single-session, so its probe cost amortises to zero and its spec is far under the
+#   SPEC-BUDGET threshold — but three of the four laws that incident produced govern any
+#   step performing a CLASS T acquisition before a partition, and a law that is applied
+#   in one file and not its sibling is how the PYQAnalyse->PYQCount split shipped an
+#   unfixed defect "content byte-identical" in the first place.
+#   (a) EC-P43 DIRECT EGRESS LANE added as A0, tried before the connector probe.
+#   (b) EC-P40 the probe is a SPENDER: plan_transport passes consumed= explicitly.
+#       Step 4 fetches the probe paper again in the same run, so the value is 0 and the
+#       reason is stated at the call site rather than left as an absent argument that
+#       audit_callgraph C10 cannot distinguish from an oversight.
+#   (c) EC-P41 the listing is written and ASSERTED by corpus_io.write_drive_listing.
+#   (d) P4f divergence DECLARED: 'SMALLEST by fileSize' is correct HERE and wrong in
+#       Step 5. mock_sync_audit MS-13 requires both files to name the divergence.
 # v1.4 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (sibling fix, applied
 #   here per the LAW-PROPAGATION LAW rather than waiting for Step 4 to fail). THE BRIDGE
 #   showed a flat `list_fn` that ignores its folder_id argument. corpus_io.collect_corpus_files
@@ -116,9 +131,15 @@ have one definition and every step imports it.
 #
 # CLASS: T — these are NOT python functions. They are the NAME of a tool call the
 # model performs IN ITS OWN TURN, before count_pipeline.py runs. A tool call cannot
-# happen inside a running python process (CLAUDE.md, EXECUTION-BOUNDARY LAW), and the
-# container's egress allowlist contains no Google domain, so there is not even a
-# network fallback — a "just fetch it from python" proposal is refused on that basis.
+# happen inside a running python process (CLAUDE.md, EXECUTION-BOUNDARY LAW). That is
+# a law about EXECUTION and it is unconditional: LISTING a folder is a connector
+# operation and can never be done from python, whatever the allowlist says.
+# The separate claim that "there is not even a network fallback" was measured on one
+# deployment and is NOT a framework property — EC-P43 adds a DOWNLOAD path in python
+# for link-shared files when egress permits it. Downloading and listing are different
+# operations: A0 may fetch bytes, A1 must still use the connector. A "just fetch it
+# from python" proposal for the LISTING is still refused, on the execution-boundary
+# ground above rather than on an allowlist that can change.
 
 def gdrive_search(query, page_size=100, page_token=None):
     """CLASS: T — Google Drive MCP 'search_files'. NOT executable python.
@@ -258,7 +279,13 @@ def plan_transport(sorted_papers, channel):
     printed only `if part['upload']`, so a corpus that could not be fetched at all
     told the operator NOTHING before Task 1, defeating the stated purpose of S5-1.
     """
-    part = bc.partition_by_transport(sorted_papers, channel=channel)
+    # EC-P40 / audit_callgraph C10 — the probe is a SPENDER and the argument is
+    # ALWAYS passed explicitly, never left to the default. Here the value is 0 and the
+    # reason is specific to this step: Step 4 is single-session and fetches the probe
+    # paper again in the same run, so its cost is amortised rather than lost. Omitting
+    # the argument would be indistinguishable from the Step-5 oversight this law
+    # exists to prevent, which is why C10 requires it to be written out.
+    part = bc.partition_by_transport(sorted_papers, channel=channel, consumed=0)
     print(f"\n  TRANSPORT PLAN  (channel: {part['channel']})")
     print(f"    Drive lane  : {len(part['auto'])} paper(s) fetch automatically")
     print(f"    Upload lane : {len(part['upload'])} paper(s) must be uploaded to chat")
@@ -1244,13 +1271,35 @@ subject of this GAP. Stating the cheap half as the whole cost is precisely what 
 unreachable acquisition step look like a solved problem for 20 days.
 
   PHASE A — MODEL TURNS (acquisition; CLASS T, never python)
+    A0. DIRECT EGRESS PROBE — PYTHON, NOT A TOOL CALL, AND IT COMES FIRST.
+        corpus_io.probe_direct_egress(candidate, work_dir). If it returns ok the
+        channel is 'direct': python fetched the bytes itself, nothing crossed the
+        turn, there is no context cost and the whole corpus is admissible. It NEVER
+        raises — ok=False is an ordinary state (folder not link-shared, or container
+        egress excludes Google) and the run falls through to A2 unchanged.
+        Framework_PYQCore EC-P43.
     A1. Google Drive:search_files(query="parentId = '<folder_id>'", pageSize=100)
-        → paginate to exhaustion → cache the listing VERBATIM to disk.
-    A2. S5-0 CHANNEL PROBE — download exactly ONE paper, the SMALLEST by fileSize
-        (cheapest probe; the channel is a property of the deployment, so one paper
-        settles it for all of them). Observe whether the result came back as a
-        reference to a file or as bytes in the turn, then run
-        probe_drive_channel(...) to PROVE it decodes and verifies.
+        → paginate to exhaustion → keep every raw page → then, IN PYTHON,
+        corpus_io.write_drive_listing(pages, cache_path, folder_id, observed_count)
+        where observed_count is the count YOU read off the connector response. It is
+        an INDEPENDENT number, so the comparison can fail. A short listing HARD STOPS
+        (EC-P41): EC-P39 catches zero and nothing caught 21-of-22. The records are
+        cached VERBATIM — write_drive_listing never reshapes them.
+    A2. S5-0 CHANNEL PROBE — reached ONLY when A0 returned ok=False.
+        Download exactly ONE paper, the SMALLEST by fileSize.
+
+        P4f DIVERGENCE, DECLARED. 'Smallest' is correct HERE and WRONG in Step 5.
+        Step 4 is single-session and fetches the whole corpus in the same run, so the
+        probe paper is fetched again anyway and the probe cost amortises to zero.
+        Framework_MockTestAnalyse §S8-0 is batched across ~8 sessions with a
+        recency-first admitted set, so the smallest paper is almost never fetched and
+        its payload is discarded — measured, 107,968 characters and 54% of the budget
+        for zero papers. It therefore probes admitted[0] instead. Neither file may
+        change its rule without changing this paragraph in both; mock_sync_audit MS-13
+        fails the build for a probe whose paper-selection rule is undeclared.
+
+        Observe whether the result came back as a reference to a file or as bytes in
+        the turn, then run probe_drive_channel(...) to PROVE it decodes and verifies.
     A3. Branch on the S5-0 verdict, and print plan_transport() BEFORE Task 1:
           channel 'spill'                            → Drive lane, no context cost.
           channel 'inline', within INLINE_BUDGET_CHARS → Drive lane.
@@ -1385,4 +1434,4 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.4
+# END OF Framework_PYQCount v1.5

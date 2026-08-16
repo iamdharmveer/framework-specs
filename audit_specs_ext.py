@@ -40,6 +40,7 @@ Exit code 0 iff zero issues. Pure stdlib.
 
 import re
 import sys
+import json
 import os
 from collections import Counter, defaultdict
 
@@ -112,6 +113,33 @@ def _is_delegation_adapter(body, art):
     pat_call = r'\breturn\s+[A-Za-z_][\w.]*\.' + re.escape(art) + r'\s*\('
     pat_alias = r'^\s*' + re.escape(art) + r'\s*=\s*[A-Za-z_][\w.]*\.' + re.escape(art) + r'\s*$'
     return bool(re.search(pat_call, body) or re.search(pat_alias, body, re.M))
+
+
+# Policy threshold (owner decision D1). Set where the corpus actually splits: every
+# PYQ-phase trigger is far below it; PYQExtract (556,834 B), MockCreate (~563,000) and
+# MockBlueprint (~420,000) are above it, and all three are batched multi-session steps.
+SPEC_BUDGET_BYTES = 250_000
+
+# RATCHET BASELINE — the same idiom as spec_name_audit_baseline.json. These routes are
+# already over the threshold at 2026.08.15.9 and are KNOWN, SCOPED and DEFERRED: the
+# read-set work for them is the next wave, and failing the build for them today would
+# block a release that fixes the step actually on fire. What the ratchet guarantees is
+# that NO NEW route may cross the threshold unnoticed, and that a route which has a
+# read set can never lose it — both of those still fail the build.
+#
+# THE ONLY LEGITIMATE EDIT TO THIS LIST IS A DELETION. Adding a name to silence a new
+# finding is the move this baseline exists to make visible, not to enable.
+#   MockCreate / TestCreate  — Framework_MockTestCreate.md, 8,089 lines / 510,969 B,
+#                              batched and multi-session: G-1 and G-4 apply unchanged.
+#   MockBlueprint            — Framework_Blueprint.md, 6,901 lines / 367,480 B.
+#   PYQPrepare/PYQScan/PYQCount — step file + Framework_PYQCore.md (now 1,993 lines
+#                              after EC-P40..EC-P43) + Framework_DeliveryFooter.md.
+#                              Single-session steps, so the cost is paid once per run
+#                              rather than once per paper; lower priority, still real.
+SPEC_BUDGET_BASELINE = {
+    'MockBlueprint', 'MockCreate', 'TestCreate',
+    'PYQCount', 'PYQPrepare', 'PYQScan',
+}
 
 
 def check_v_sync(texts):
@@ -295,6 +323,53 @@ def check_z_version(path, text):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+def check_spec_budget(paths):
+    """SPEC-BUDGET — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-1, EC-P42.
+
+    For every trigger in routes.json, report the summed byte cost of the .md files a
+    session must read before it may do anything, and FAIL when a route exceeds the
+    threshold with no read-set declared in SPEC_SECTIONS.json.
+
+    This is the check that did not exist. bootstrap.py printed filenames; MANIFEST.json
+    carried the line count for INTEGRITY and never surfaced it as a COST; no EC, no DoD
+    item and no gate mentioned read cost at all. Measured on PYQExtract: 556,834 B,
+    ~139,208 tokens, >=36 view calls, MANDATORY, every session, on the one step that is
+    inherently multi-session — 40 of 50 tool calls in the reference incident.
+
+    The threshold is a POLICY number, not a law of nature. It is set where the corpus
+    actually splits: every PYQ-phase trigger sits far below it; PYQExtract, MockCreate
+    and MockBlueprint sit above it and are all batched, multi-session steps. Raising it
+    to silence a finding is the wrong move and is why the reason is recorded here.
+    """
+    root = os.path.dirname(os.path.abspath(paths[0])) if paths else '.'
+    rp = os.path.join(root, 'routes.json')
+    sp = os.path.join(root, 'SPEC_SECTIONS.json')
+    if not os.path.exists(rp):
+        return
+    routes = {k: v for k, v in json.load(open(rp, encoding='utf-8')).items()
+              if not k.startswith('_')}
+    sections = (json.load(open(sp, encoding='utf-8')).get('files', {})
+                if os.path.exists(sp) else {})
+    for trig, entry in sorted(routes.items()):
+        mds = [f for f in entry if f.endswith('.md')]
+        total = 0
+        for f in mds:
+            fp = os.path.join(root, f)
+            if os.path.exists(fp):
+                total += os.path.getsize(fp)
+        if total <= SPEC_BUDGET_BYTES:
+            continue
+        covered = any(sections.get(f, {}).get('has_read_set') for f in mds)
+        if not covered and trig not in SPEC_BUDGET_BASELINE:
+            add('SPEC-BUDGET', f'routes.json[{trig}]',
+                f'pre-work read is {total:,} B (~{total // 4:,} tok) across {len(mds)} '
+                f'spec(s), above the {SPEC_BUDGET_BYTES:,} B threshold, and NO read set '
+                f'is declared in SPEC_SECTIONS.json. A session must pay this before it '
+                f'may do any work (EC-P42). Declare a FINAL/NON-FINAL read set for the '
+                f'largest spec on this route, or move its executable fences into a '
+                f'routed engine.')
+
+
 def main(paths):
     texts = {}
     for p in paths:
@@ -311,10 +386,11 @@ def main(paths):
         check_z_version(p, t)
     check_v_sync(texts)
     check_v_scope(texts, known)
+    check_spec_budget(paths)
 
     if not ISSUES:
         print(f"✅ audit_specs_ext: 0 issues across {len(texts)} file(s) "
-              f"[V-SYNC W-DECISION X-NUMBER Y-CONFIG Z-VERSION]")
+              f"[V-SYNC W-DECISION X-NUMBER Y-CONFIG Z-VERSION SPEC-BUDGET]")
         return 0
     by_file = defaultdict(list)
     for chk, f, msg in ISSUES:

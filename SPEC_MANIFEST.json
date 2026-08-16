@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.12.1 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.50.0",
-      "lines": 8850,
-      "sha256": "019d12a4960b7683b9f0e962555f212a4122fbf2ee6d7907a5739d08decd083b",
-      "size_bytes": 504240,
-      "version_header": "# Framework_MockTestAnalyse v2.50.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.51.0",
+      "lines": 9288,
+      "sha256": "2c1457a94d08c19140ab626e70d86bb4721b0579f7a010045609b7eaca96f6a5",
+      "size_bytes": 533138,
+      "version_header": "# Framework_MockTestAnalyse v2.51.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -92,18 +92,18 @@
       "version_header": "# Framework_PYQCompress v1.1.1 — Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
-      "end_sentinel": "# END OF Framework_PYQCore v1.4",
-      "lines": 1847,
-      "sha256": "ca5cc0c7114227b45c493621963d845fc552f5a7ee32d138e8e8c80067cfa611",
-      "size_bytes": 106056,
-      "version_header": "# Framework_PYQCore v1.4 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
+      "end_sentinel": "# END OF Framework_PYQCore v1.5",
+      "lines": 2002,
+      "sha256": "2ec29768abd01060a6b1ffe485292ec87e1c3c38efea119c91117b8aba6110f0",
+      "size_bytes": 117818,
+      "version_header": "# Framework_PYQCore v1.5 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
     },
     "Framework_PYQCount.md": {
-      "end_sentinel": "# END OF Framework_PYQCount v1.4",
-      "lines": 1388,
-      "sha256": "caf14e519dee1940f30cf3a7ced48ab0af432b77aad7ed39b48ddb82bbaae3e0",
-      "size_bytes": 78902,
-      "version_header": "# Framework_PYQCount v1.4 — PYQ Step 4 — Phase B Count Filling (§5)"
+      "end_sentinel": "# END OF Framework_PYQCount v1.5",
+      "lines": 1437,
+      "sha256": "1453d386cbac3ac0d85ac5541ac8be50e3833ffd46ac3d366b41ccada7f5f88e",
+      "size_bytes": 82733,
+      "version_header": "# Framework_PYQCount v1.5 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
       "end_sentinel": "**End of Framework_PYQDeliver.md (v1.12)**",
@@ -163,16 +163,16 @@
     },
     "LAW_REGISTRY.json": {
       "end_sentinel": "}",
-      "lines": 38,
-      "sha256": "0afe2d3cb91cd93eaa5a17e8b29c1265371144a0eda4df15514886abe20334ef",
-      "size_bytes": 4746,
+      "lines": 62,
+      "sha256": "0a3344adac9de5eeb6660fce15718c29788a97cc396f72582af895843e572f1a",
+      "size_bytes": 7784,
       "version_header": "{"
     },
     "audit_callgraph.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 1176,
-      "sha256": "6691941d585800b1a2e3d090b4a0d9262eb1cf4db354fd2499e9bf84bcac0e25",
-      "size_bytes": 58246,
+      "lines": 1261,
+      "sha256": "e5c64a54390fdb220cfd6c04113bc3dba921a9555a66983e8c580e31f2b76dd7",
+      "size_bytes": 62913,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_canonical.py": {
@@ -205,23 +205,23 @@
     },
     "audit_specs_ext.py": {
       "end_sentinel": "    sys.exit(main(args))",
-      "lines": 405,
-      "sha256": "a90146a8cbb469c418832d74af030c0c53a57618f6ece0b6fa53ca587debcbad",
-      "size_bytes": 20393,
+      "lines": 481,
+      "sha256": "2234c2429418bb394809350aded7d32ffb90e1c3f9c7ffd4b27e22892ac0dcd3",
+      "size_bytes": 24674,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 459,
-      "sha256": "bf5b10cdbeb29082708b793abf20f4595491bdab3690e335aff17236f640991c",
-      "size_bytes": 23884,
+      "lines": 480,
+      "sha256": "91bdf31eb822fa5b669fa83b8755565854636fb1d0343c80ec7fd58df82645db",
+      "size_bytes": 25229,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 5385,
-      "sha256": "d39d0388cb04bd0b7ed9d5505fa8b17a68cc5308b6f6945b911bca4a670e1a0c",
-      "size_bytes": 294321,
+      "lines": 5489,
+      "sha256": "cfdeb46610597239882e44ba537e71030402fe8c48612698aa735b37c34afeb5",
+      "size_bytes": 300484,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -254,9 +254,9 @@
     },
     "corpus_io.py": {
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 4612,
-      "sha256": "df096eef0009bd715cdb4bcd16155e07b4d02f4faddc78fb59b9f7875e6de27f",
-      "size_bytes": 236345,
+      "lines": 4969,
+      "sha256": "7c2586c3570823d8c3475873eba15e1fb0d2d3570e1d9b163615a4a179cc5dcf",
+      "size_bytes": 255149,
       "version_header": "\"\"\""
     },
     "explain_engine.py": {
@@ -394,9 +394,9 @@
     },
     "mock_sync_audit.py": {
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 832,
-      "sha256": "da386af7a856df8712ab87cc6172f8e58277ef9fca069d702f0411021576564a",
-      "size_bytes": 40912,
+      "lines": 931,
+      "sha256": "d700e424ff55bcd267c6da1b0d1c77644bf2af0ff83fb7c9982fbde9255b93e4",
+      "size_bytes": 46534,
       "version_header": "\"\"\"mock_sync_audit.py v1.0 — cross-step sync auditor for the mock/test track."
     }
   },

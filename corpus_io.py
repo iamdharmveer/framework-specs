@@ -389,6 +389,8 @@ import json
 import os
 import re
 import shutil
+import urllib.error
+import urllib.request
 import zipfile
 
 import blueprint_core as bc
@@ -415,6 +417,23 @@ class TransportFallback(CorpusError):
 
 class EnumerationError(CorpusError):
     """A Drive folder listing cannot be turned into a usable corpus."""
+
+
+class ListingIntegrityError(EnumerationError):
+    """HARD STOP — the cached folder listing does not match what Drive returned.
+
+    GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / EC-P41. EC-P39 already hard-stops on a
+    listing that yields ZERO usable papers, because zero is obviously wrong and every
+    operator notices it. A listing that yields SOME is not covered by it and is
+    strictly more dangerous: §1-6's coverage check reports success on whatever
+    survived, _meta.years_processed looks plausible, and the missing years are
+    invisible for the life of the exam — after which Step 6 blueprints and Step 7
+    generates on top of the gap.
+
+    This is deliberately NOT a TransportFallback. A fallback means "try another lane";
+    there is no other lane for a corpus you cannot enumerate correctly, and continuing
+    on a short listing is the failure this class exists to prevent.
+    """
 
 
 class DuplicatePaperError(EnumerationError):
@@ -763,6 +782,232 @@ def fetch_drive_docx(download_fn, paper, dest_dir):
         raise TransportFallback(f'download of {name} failed: {exc}')
 
     return stage_drive_payload(payload, paper, dest_dir)
+
+
+# ── DIRECT EGRESS LANE (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P43) ─────────
+# The connector lane charges an inline payload TWICE (EC-P36): once inbound in the
+# model's turn, once again when the model re-emits it into a python block, because the
+# container had no route to Google and python could not fetch the bytes itself. That
+# second charge is not a property of Drive — it is a property of the EGRESS ALLOWLIST.
+# When the container can reach drive.google.com and the folder is link-shared, python
+# downloads the file directly and NOTHING crosses the turn: cost zero, whole corpus in
+# one session.
+#
+# MEASURED 2026-08-16 against folder 12wamcvoQ4ucI69Rblj51zJmcTX6MeDNG:
+#   drive.google.com                 -> 302 to accounts.google.com (no proxy denial)
+#   uc?export=download&id=16QFONpQ…  -> 302 to drive.usercontent.google.com -> 200
+#   payload                          -> 47,627 bytes, 50 4b 03 04, Microsoft Word 2007+
+# 47,627 is byte-exact for IIT_JAM_MATHEMATICS_15-Feb-2026_Sorted_Q1-Q60.docx, so the
+# lane returned the RIGHT file, not merely A file.
+#
+# THIS LANE IS NEVER ASSUMED AND NEVER FATAL. It is proven per exam on a real paper
+# (probe_direct_egress), and every failure degrades to the connector lane exactly as it
+# works today. An exam whose Drive folder is not link-shared is not a broken exam.
+
+DIRECT_UC_URL = 'https://drive.google.com/uc?export=download&id={file_id}'
+DIRECT_CONFIRM_URL = ('https://drive.usercontent.google.com/download'
+                      '?id={file_id}&export=download&confirm=t')
+DIRECT_TIMEOUT_S = 45
+_DIRECT_UA = 'Mozilla/5.0 (compatible; ifas-framework-corpus-io)'
+
+
+def _http_get(url, timeout=DIRECT_TIMEOUT_S):
+    """Fetch one URL and return raw bytes. Stdlib only; no new dependency.
+
+    Every failure is converted to TransportFallback so the caller degrades rather than
+    stops. The egress proxy's own refusal is decoded explicitly, because
+    'HTTP 403' on drive.google.com reads like a Google permissions problem and is in
+    fact a Claude SETTINGS problem — an operator sent to the wrong place by a bad
+    diagnostic loses an afternoon.
+    """
+    req = urllib.request.Request(url, headers={'User-Agent': _DIRECT_UA})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read()
+    except urllib.error.HTTPError as exc:
+        deny = ''
+        try:
+            deny = exc.headers.get('x-deny-reason') or ''
+        except Exception:
+            deny = ''
+        if deny:
+            raise TransportFallback(
+                f'sandbox egress refused {url} ({deny}). This is the container '
+                f'allowlist, not Google: enable Settings -> Capabilities -> Code '
+                f'execution -> Domain allowlist. Falling back to the connector lane.')
+        raise TransportFallback(f'HTTP {exc.code} fetching {url}')
+    except Exception as exc:                       # DNS, TLS, timeout, proxy, reset
+        raise TransportFallback(f'direct fetch failed for {url}: {exc}')
+
+
+def fetch_drive_direct(paper, dest_dir, getter=None):
+    """Download ONE link-shared Drive paper straight into the container.
+
+    `getter(url) -> bytes` is injected so this is testable with no network and so the
+    transport mechanism has exactly one definition. Default is _http_get.
+
+    Two-hop by design. Drive answers `uc?export=download` with the file itself for
+    small objects, and with an HTML interstitial for objects large enough to trip the
+    virus-scan warning. Measured on this corpus the papers are 40-49 KB and the first
+    hop returns the bytes; the confirm hop exists so that a future oversized paper
+    degrades to a retry rather than to a silent HTML file on disk.
+
+    Guarantees are IDENTICAL to fetch_drive_docx and stage_drive_payload — byte count
+    equals the fileSize the listing reported, PK\\x03\\x04 magic, TransportFallback on
+    every failure — because they all delegate to verify_downloaded_bytes. A lane with
+    weaker proof than its siblings is a lane that will one day write an HTML login page
+    to disk under a .docx name and let §1-6 count it as a year.
+    """
+    get = getter or _http_get
+    name = paper.get('name', '<unnamed>')
+    file_id = paper.get('id')
+    if not file_id:
+        raise TransportFallback(f'no Drive file id for {name}')
+    size = paper.get('fileSize')
+    if size is not None and size > bc.DRIVE_CAP:
+        raise TransportFallback(
+            f'{name} is {size:,} bytes, above the {bc.DRIVE_CAP:,}-byte cap — '
+            'routing to the upload lane without attempting a download')
+
+    raw = get(DIRECT_UC_URL.format(file_id=file_id))
+    if not raw or raw[:4] != b'PK\x03\x04':
+        # Interstitial or quota page. One retry through the confirm endpoint, then stop
+        # guessing: a third shape is a Drive behaviour change and must surface loudly.
+        raw = get(DIRECT_CONFIRM_URL.format(file_id=file_id))
+
+    verify_downloaded_bytes(raw, size, name)
+    os.makedirs(dest_dir, exist_ok=True)
+    dest = os.path.join(dest_dir, os.path.basename(name))
+    with open(dest, 'wb') as fh:
+        fh.write(raw)
+    return dest
+
+
+def probe_direct_egress(paper, dest_dir, getter=None):
+    """PROVE the direct lane on a real paper. Never raises; never predicts.
+
+    Returns {'ok': bool, 'channel': 'direct'|None, 'path': str|None, 'reason': str}.
+
+    This follows the S5-0 doctrine exactly (Framework_PYQCount, GAP-2026-08-15): a
+    channel that classifies cleanly but cannot produce verified bytes must fail at
+    paper 1, not at paper 12. It differs from S5-0 in one way that matters — the probe
+    payload IS paper 1 (P4f), so a successful probe has already delivered a paper and
+    costs nothing at all, and a failed probe costs nothing either because the bytes
+    never entered the turn.
+
+    Deliberately never raises. Egress being unavailable is an ordinary, expected state
+    for an exam whose folder is not link-shared, and an exception here would turn a
+    routine fallback into an incident.
+    """
+    try:
+        path = fetch_drive_direct(paper, dest_dir, getter=getter)
+        return {'ok': True, 'channel': 'direct', 'path': path,
+                'reason': f"verified {paper.get('name', '')} on disk"}
+    except Exception as exc:
+        return {'ok': False, 'channel': None, 'path': None, 'reason': str(exc)}
+
+
+def write_drive_listing(pages, path, root_folder_id, observed_count):
+    """Merge the raw connector pages, ASSERT them, and persist DRIVE_LISTING_CACHE.
+
+    GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / EC-P41. Before this function the cache
+    was hand-transcribed: the model re-emitted every record of the connector response
+    into a create_file call — ~5,000 characters for 22 papers, ~23,000 for a
+    100-paper corpus, every record carrying a 33-character Drive id. A single mistyped
+    id yields either a fetch failure (loud, tolerable) or a successful fetch of a
+    DIFFERENT file (silent, catastrophic). A dropped record yields a short corpus,
+    which nothing anywhere compared against what Drive actually returned.
+
+    `pages` is the list of raw responses, one per page per folder, exactly as the
+    connector returned them. Records are merged VERBATIM and never reshaped —
+    normalise_drive_listing owns shape, downstream, and a second normaliser here would
+    be a second definition that will drift.
+
+    `observed_count` is the total the model declares from the connector response. It is
+    the whole point: it is an INDEPENDENT number, so the comparison can fail.
+
+    HARD STOPS (ListingIntegrityError, never TransportFallback):
+      - a record missing a non-empty id, name/title, or mimeType
+      - the same id appearing twice, within a page or across pages
+      - merged count != observed_count
+      - a nextPageToken present in the LAST supplied page (an unmerged tail, EC-X16)
+
+    REPORTS (never stops): the year span and any interior gaps. A genuinely missing
+    year is possible — an exam may not have been held — and only the operator can tell
+    that apart from a listing defect. Printing it before paper 1 is what makes the
+    difference visible while it is still cheap to act on.
+    """
+    if not isinstance(pages, (list, tuple)) or not pages:
+        raise ListingIntegrityError(
+            'write_drive_listing needs the list of raw connector pages; got '
+            f'{type(pages).__name__}. Pass every page of every folder, unmodified.')
+
+    merged, seen_ids = [], {}
+    for pg_i, page in enumerate(pages, 1):
+        items = page
+        if isinstance(page, dict):
+            items = page.get('files', page.get('items', []))
+        for rec in items or []:
+            if not isinstance(rec, dict):
+                raise ListingIntegrityError(
+                    f'page {pg_i} contains a non-record entry ({type(rec).__name__}). '
+                    'The cache must hold the connector records verbatim.')
+            rid = (rec.get('id') or '').strip()
+            rname = (rec.get('title') or rec.get('name') or '').strip()
+            rmime = (rec.get('mimeType') or '').strip()
+            if not rid or not rname or not rmime:
+                raise ListingIntegrityError(
+                    f'page {pg_i} has a record missing id/name/mimeType — HARD STOP.\n'
+                    f'  id       : {rid!r}\n  name     : {rname!r}\n'
+                    f'  mimeType : {rmime!r}\n'
+                    'A record this incomplete cannot be fetched and cannot be screened; '
+                    'silently dropping it is how a year disappears.')
+            if rid in seen_ids:
+                raise ListingIntegrityError(
+                    f'Drive id {rid} appears twice — HARD STOP.\n'
+                    f'  first  : {seen_ids[rid]}\n  second : {rname}\n'
+                    'Either a page was supplied twice or a sub-folder was walked into '
+                    'its own parent. Both make the count meaningless.')
+            seen_ids[rid] = rname
+            merged.append(rec)
+
+    tail = pages[-1]
+    if isinstance(tail, dict) and tail.get('nextPageToken'):
+        raise ListingIntegrityError(
+            'the last supplied page still carries a nextPageToken — HARD STOP '
+            '(EC-X16). Drive has more records than were merged. Paginate to '
+            'exhaustion and supply every page; a lost tail is a missing year that '
+            '§1-6 cannot see.')
+
+    try:
+        declared = int(observed_count)
+    except (TypeError, ValueError):
+        raise ListingIntegrityError(
+            f'observed_count must be an integer the model declares from the connector '
+            f'response, got {observed_count!r}. Without an independent number there is '
+            f'nothing for this gate to compare against.')
+    if len(merged) != declared:
+        raise ListingIntegrityError(
+            f'listing count mismatch — HARD STOP.\n'
+            f'  merged into the cache : {len(merged)}\n'
+            f'  declared from Drive   : {declared}\n'
+            f'  difference            : {declared - len(merged):+d}\n'
+            'A SHORT listing is worse than an empty one: EC-P39 catches zero, nothing '
+            'catches 21-of-22. §1-6 would report success on whatever survived and the '
+            'missing year would stay invisible for the life of this exam.')
+
+    os.makedirs(os.path.dirname(os.path.abspath(path)) or '.', exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as fh:
+        json.dump({'root_folder_id': root_folder_id, 'files': merged},
+                  fh, ensure_ascii=False, indent=2)
+
+    years = sorted({y for y in (bc.extract_year_from_filename(
+        r.get('title') or r.get('name') or '') for r in merged) if y})
+    gaps = ([y for y in range(years[0], years[-1] + 1) if y not in years]
+            if len(years) > 1 else [])
+    return {'path': path, 'count': len(merged), 'root_folder_id': root_folder_id,
+            'years': years, 'year_span': (years[0], years[-1]) if years else None,
+            'missing_years': gaps, 'files': merged}
 
 
 def resolve_uploaded_papers(expected_keys, upload_dir=DEFAULT_UPLOAD_DIR):
@@ -4597,6 +4842,118 @@ def self_test():
     except TransportFallback:
         _cap = 1
     check('t_fetch_cap_precheck_still_fires', _cap == 1)
+
+    # ── GAP-2026-08-16-STEP5-SESSION-EXHAUSTION ─────────────────────────────
+    # EC-P43 — DIRECT LANE. Tested with an injected getter: the lane must be provable
+    # without network, or it cannot be regression-tested in CI at all.
+    _direct_paper = {'id': 'FID1', 'name': 'direct.docx', 'fileSize': len(_docx)}
+    check('t_direct_fetch_writes_verified_bytes',
+          open(fetch_drive_direct(_direct_paper, _dest,
+                                  getter=lambda url: _docx), 'rb').read() == _docx)
+    _hops = []
+
+    def _interstitial(url):
+        _hops.append(url)
+        return _docx if 'usercontent' in url else b'<html>virus scan warning</html>'
+    check('t_direct_retries_through_confirm_endpoint',
+          open(fetch_drive_direct(_direct_paper, _dest,
+                                  getter=_interstitial), 'rb').read() == _docx
+          and len(_hops) == 2 and 'usercontent' in _hops[1])
+    _dt = 0
+    try:
+        fetch_drive_direct(_direct_paper, _dest,
+                           getter=lambda url: _docx[:len(_docx) // 2])
+    except TransportFallback:
+        _dt = 1
+    check('t_direct_truncation_raises_fallback', _dt == 1)
+    _dh = 0
+    try:
+        fetch_drive_direct(_direct_paper, _dest,
+                           getter=lambda url: b'<html>sign in</html>')
+    except TransportFallback:
+        _dh = 1
+    check('t_direct_html_never_reaches_disk', _dh == 1)
+    _dc = 0
+    try:
+        fetch_drive_direct({'id': 'X', 'name': 'huge.docx',
+                            'fileSize': bc.DRIVE_CAP + 1}, _dest,
+                           getter=lambda url: _docx)
+    except TransportFallback:
+        _dc = 1
+    check('t_direct_cap_precheck_fires', _dc == 1)
+    _dn = 0
+    try:
+        fetch_drive_direct({'name': 'no-id.docx'}, _dest, getter=lambda url: _docx)
+    except TransportFallback:
+        _dn = 1
+    check('t_direct_missing_id_raises', _dn == 1)
+    # The probe must NEVER raise — an unshared folder is an ordinary state, not an
+    # incident. A probe that throws turns a routine fallback into a halted run.
+    check('t_probe_ok_on_success',
+          probe_direct_egress(_direct_paper, _dest,
+                              getter=lambda url: _docx)['channel'] == 'direct')
+
+    def _boom(url):
+        raise RuntimeError('egress blocked')
+    _pr = probe_direct_egress(_direct_paper, _dest, getter=_boom)
+    check('t_probe_never_raises_on_failure',
+          _pr['ok'] is False and _pr['channel'] is None and 'egress' in _pr['reason'])
+
+    # EC-P41 — LISTING INTEGRITY. Every one of these must HARD STOP, and the happy
+    # path must still write the records verbatim.
+    def _rec(i, year, size=47_000):
+        return {'id': f'ID{i}', 'name': f'EXAM_15-Feb-{year}_Sorted_Q1-Q60.docx',
+                'mimeType': ('application/vnd.openxmlformats-officedocument'
+                             '.wordprocessingml.document'),
+                'fileSize': str(size)}
+    _lpath = os.path.join(_dest, 'pyq_drive_listing.json')
+    _ok = write_drive_listing([{'files': [_rec(1, 2024), _rec(2, 2025),
+                                          _rec(3, 2026)]}], _lpath, 'ROOT', 3)
+    check('t_listing_writes_and_counts', _ok['count'] == 3)
+    check('t_listing_records_are_verbatim',
+          json.load(open(_lpath))['files'][0] == _rec(1, 2024))
+    check('t_listing_reports_year_span', _ok['year_span'] == (2024, 2026))
+    check('t_listing_reports_no_false_gap', _ok['missing_years'] == [])
+    _gap = write_drive_listing([{'files': [_rec(1, 2023), _rec(2, 2026)]}],
+                               _lpath, 'ROOT', 2)
+    check('t_listing_reports_interior_gap',
+          _gap['missing_years'] == [2024, 2025])
+
+    def _stops(pages, count):
+        try:
+            write_drive_listing(pages, _lpath, 'ROOT', count)
+        except ListingIntegrityError:
+            return 1
+        return 0
+    check('t_listing_short_count_hard_stops',
+          _stops([{'files': [_rec(1, 2025), _rec(2, 2026)]}], 3) == 1)
+    check('t_listing_long_count_hard_stops',
+          _stops([{'files': [_rec(1, 2025), _rec(2, 2026)]}], 1) == 1)
+    check('t_listing_duplicate_id_hard_stops',
+          _stops([{'files': [_rec(1, 2025)]}, {'files': [_rec(1, 2026)]}], 2) == 1)
+    check('t_listing_missing_id_hard_stops',
+          _stops([{'files': [dict(_rec(1, 2025), id='')]}], 1) == 1)
+    check('t_listing_missing_name_hard_stops',
+          _stops([{'files': [dict(_rec(1, 2025), name='')]}], 1) == 1)
+    check('t_listing_missing_mime_hard_stops',
+          _stops([{'files': [dict(_rec(1, 2025), mimeType='')]}], 1) == 1)
+    check('t_listing_unmerged_tail_hard_stops',
+          _stops([{'files': [_rec(1, 2026)], 'nextPageToken': 'MORE'}], 1) == 1)
+    check('t_listing_non_integer_count_hard_stops',
+          _stops([{'files': [_rec(1, 2026)]}], 'twenty-two') == 1)
+    check('t_listing_empty_pages_hard_stops', _stops([], 0) == 1)
+    # The 'items' spelling and the bare list must merge exactly like 'files' — the
+    # connector has emitted all three and the gate must not care which.
+    check('t_listing_accepts_items_envelope',
+          write_drive_listing([{'items': [_rec(9, 2026)]}], _lpath, 'ROOT', 1)['count'] == 1)
+    check('t_listing_accepts_bare_list',
+          write_drive_listing([[_rec(8, 2026)]], _lpath, 'ROOT', 1)['count'] == 1)
+    # Multi-page merge: the case a hand transcription silently truncates.
+    check('t_listing_merges_pages',
+          write_drive_listing([{'files': [_rec(i, 2000 + i) for i in range(1, 101)],
+                                'nextPageToken': 'P2'},
+                               {'files': [_rec(i, 1900 + i) for i in range(101, 123)]}],
+                              _lpath, 'ROOT', 122)['count'] == 122)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

@@ -29,7 +29,13 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
 # quiet with nothing to notice. bootstrap.py applies header/sentinel checks only to
 # .md files, so a .json entry is verified by sha256 + line count, which is exactly
 # what is wanted here.
-TRACKED_JSON = ["LAW_REGISTRY.json"]
+# GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (Fix A). SPEC_SECTIONS.json is the read-set
+# map §S8-0b routes on. It holds LINE NUMBERS ONLY and never spec content, so it is a
+# read aid and not a second source of truth — but a STALE map is worse than no map: it
+# sends a reduced read at ranges that no longer bound the sections they name. Tracking
+# it by sha256 means bootstrap.py fails the build the moment a spec is edited without
+# regenerating it, which is before anybody can read a wrong range.
+TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json"]
 
 def sha256(p):
     with open(p, "rb") as f:
@@ -48,6 +54,13 @@ def linecount(p):
         return sum(1 for _ in f)
 
 def main():
+    # Regenerate the section map FIRST. If this ran after hashing, a run of
+    # gen_manifest.py would record the sha256 of the PREVIOUS map and the manifest
+    # would be born stale — the exact drift class this file exists to make impossible.
+    if os.path.exists("spec_sections.py"):
+        import subprocess
+        subprocess.run([sys.executable, "spec_sections.py"], check=True,
+                       stdout=subprocess.DEVNULL)
     if not os.path.exists("routes.json"):
         print("ERROR: routes.json not found", file=sys.stderr); sys.exit(2)
     routes = json.load(open("routes.json", encoding="utf-8"))

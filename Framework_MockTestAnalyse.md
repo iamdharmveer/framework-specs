@@ -1,4 +1,42 @@
-# Framework_MockTestAnalyse v2.50.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.51.0 — Universal PYQ Pattern Extraction Engine
+# v2.51.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (SESSION-BUDGET LAW).
+#   MINOR bump: a function signature changes, a section is added, a persisted key is
+#   renamed, and the batch contract's READING changes. Reference incident:
+#   IIT_JAM_MATHEMATICS, two consecutive sessions, 54 tool calls, ZERO of 22 papers
+#   processed. Three independent stalls, each sufficient alone:
+#     G-1/G-4 THE DOMINANT DEFECT IS NOT IN THE TRANSPORT CODE v2.50.0 REWROTE. The
+#       framework budgets payload characters (INLINE_BUDGET_CHARS) and paper pacing
+#       (BATCH_SIZE) and has never budgeted SPECIFICATION-READ COST or TOOL-CALL COUNT.
+#       Measured: this file 8,850 lines / 504,240 B / ~126,060 tok, plus
+#       Framework_DeliveryFooter — 556,834 B, ~139,208 tok, >=36 view calls, MANDATORY
+#       before any work under SKILL Rule 2. 40 of session 1's 50 tool calls went to
+#       reading the specification and the step stalled before its first productive
+#       operation. New §S8-0b routes the READ SET by SESSION CLASS (FINAL vs NON-FINAL,
+#       NOT fresh vs resume — routing on fresh/resume would leave session 1 of every
+#       exam exactly as broken), with mandatory one-way escalation before synthesis.
+#     G-2 THE PROBE WAS NEVER CHARGED. plan_transport computed the partition against
+#       the full budget as though the probe were free: probe 107,968 + admitted paper
+#       127,008 = 234,976 real chars against a 200,000 ceiling, printed as feasible.
+#       plan_transport gains probe_consumed and passes it to bc.partition_by_transport,
+#       which gains consumed=. Framework_PYQCore EC-P40.
+#     G-3 THE PROBE PAPER WAS THE SMALLEST, SO ITS PAYLOAD WAS DISCARDED. Step 5's
+#       admitted set is recency-first, so the smallest paper is almost never fetched.
+#       New deviation P4f: probe admitted[0] — the paper the plan will fetch anyway.
+#   Also: EC-P43 DIRECT EGRESS LANE tried FIRST (PHASE A/A0) — when the container can
+#   reach Drive and the folder is link-shared, python fetches the bytes itself, EC-P36's
+#   double charge disappears and the whole corpus fits one session; proven per exam on a
+#   real paper, never assumed, never fatal. A1 now routes the listing through
+#   corpus_io.write_drive_listing with an independently declared observed_count and
+#   HARD STOPS on a short listing (EC-P41) — a partial listing is worse than an empty
+#   one, which EC-P39 already caught. S8-1 restates BATCH_SIZE as a CEILING, not a
+#   floor, reconciling it with EC-P37 which had already settled the question. S8-3's
+#   template becomes variable-length. _meta._transport.papers_admitted is RENAMED
+#   papers_planned (it is written before the acquisition loop, so it is a forecast, not
+#   a fact) and gains session_log[] recording what each session actually consumed;
+#   readers MUST tolerate the old key for one release per EC-P38.
+#   NO ARTEFACT CHANGES. Every fix is additive, disclosure-only, or changes which paper
+#   is fetched first. No exam re-runs any step — except an exam whose listing was
+#   silently short, which now hard stops, which is the desired outcome.
 # v2.50.0 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION (EXECUTION-
 #   BOUNDARY LAW, Step 5). MINOR bump, not a patch: a function signature changes, a
 #   section is added, a persisted schema key is added and two DoD items are added.
@@ -213,7 +251,17 @@
 #   v2.39 entry, and all structural notes remain in-file. Body byte-untouched.
 # [ExamCode] project | Step 5 (PYQExtract) | Exam-agnostic
 #
-# MINIMUM COMPANION VERSIONS (v2.39):
+# MINIMUM COMPANION VERSIONS (v2.51.0):
+#   blueprint_core.py     >= the build carrying partition_by_transport(consumed=)
+#                           and channel='direct'. Against an older engine the
+#                           consumed= keyword raises TypeError at the plan call —
+#                           loud and immediate, which is the correct direction to
+#                           fail for a missing dependency.
+#   corpus_io.py          >= the build carrying probe_direct_egress(),
+#                           fetch_drive_direct() and write_drive_listing().
+#                           Absent => AttributeError at PHASE A/A0, before any
+#                           paper is touched and before anything is written.
+#   Framework_PYQCore.md  >= v1.5 (EC-P40, EC-P41, EC-P42, EC-P43).
 #   corpus_io.py          >= v1.9  — MUST carry (a) an IDEMPOTENT build_vision_queue()
 #                           that unions with the on-disk queue, and (b) Cluster Q:
 #                           parse_original_q_num(), stamp_original_q_num(),
@@ -1564,7 +1612,7 @@ else:
  Progress        : [fresh start | resuming — [N] papers done, [K] Qs]
  Minimum coverage: [mandatory_5yr — 5 years required (NON-NEGOTIABLE) | no_pyq | no_year_info]
  Available years : [list of all years found in Drive/uploads]
- Transport       : channel=[spill|inline]  ([probed this session | reused from
+ Transport       : channel=[direct|spill|inline]  ([probed this session | reused from
                    _meta._transport — EC-X5])
                    drive lane this session=[N] | carried for context=[N] |
                    upload lane (over DRIVE_CAP)=[N] | sessions needed=~[N]
@@ -4594,9 +4642,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.50'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.50'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.50'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.51'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.51'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.51'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
@@ -5439,7 +5487,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     {
       "exam_code": "...",
       "manifest_version": "1.0",
-      "generated_by": "Framework_MockTestAnalyse v2.50",
+      "generated_by": "Framework_MockTestAnalyse v2.51",
       "id_recipe": "<section_prefix>.<topic_slug>.<subtopic_slug> via slugify v2.4",
       "subtopics": {
          "<subtopic_id>": {
@@ -6541,15 +6589,67 @@ GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. Step 5 had no channel probe, no
 transport plan, no context budget and no persistence of the transport verdict —
 while being the one step in the framework that is inherently multi-session.
 
-PHASE A — MODEL TURNS. CLASS T. Never python. In order:
+GAP-2026-08-16-STEP5-SESSION-EXHAUSTION rewrites the ORDER of this phase. The
+v2.50.0 order listed the folder, probed the SMALLEST paper, then partitioned. All
+three of those steps were wrong in a way that only shows up together: the probe
+paper was not in the admitted set so its payload was discarded, the probe was
+never charged against the budget so the printed plan was arithmetic fiction, and
+the listing cache was hand-transcribed with nothing comparing it to what Drive
+returned. Measured: session 1 spent 107,968 real characters — 54% of the entire
+budget — to classify a channel, and processed zero papers.
+
+CHANNEL PRECEDENCE IS direct -> spill -> inline. Framework_PYQCore EC-P43.
+
+PHASE A — MODEL TURNS. CLASS T unless stated. In order:
+
+  A0. DIRECT EGRESS PROBE — PYTHON, NOT A TOOL CALL, AND IT COMES FIRST.
+      Call corpus_io.probe_direct_egress(candidate, work_dir) on the first
+      recency-sorted paper under bc.DRIVE_CAP (see A1b — the sort runs before
+      this). If it returns ok, the channel is 'direct': python fetched the bytes
+      itself, nothing crossed the turn, EC-P36's double charge does not exist,
+      `consumed` is 0, and EVERY paper under the cap is admissible in one session.
+      The probe NEVER raises; ok=False is an ordinary state, not an incident.
+
+      Two preconditions must both hold and NEITHER may be assumed: container
+      egress reaches drive.google.com, and the folder's General access is
+      "Anyone with the link". When either is absent the run falls through to A2
+      and behaves exactly as it did before this lane existed. An exam whose
+      folder is not link-shared is not a broken exam.
+
+      SKIP A0 when _meta._transport.channel is already recorded (EC-X5) and when
+      mode is --status or --synthesise (EC-X14).
 
   A1. Google Drive:search_files(query="parentId = '<folder_id>'", pageSize=100)
       Paginate to exhaustion; recurse into every sub-folder the response reports.
-      MERGE every page of a folder into one {"files": [...]} and cache it under
-      that folder's OWN id. Write DRIVE_LISTING_CACHE. Never cache only page 1 —
-      a lost tail is a missing year that §1-6 cannot see (EC-X16).
+      Keep EVERY raw page exactly as the connector returned it — do not reshape,
+      do not merge by hand, do not drop fields you think are unused.
 
-  A2. CHANNEL PROBE — download exactly ONE paper: the SMALLEST by fileSize.
+      Then, IN PYTHON, hand every page to
+        corpus_io.write_drive_listing(pages, DRIVE_LISTING_CACHE, folder_id,
+                                      observed_count=<the count YOU read off the
+                                      connector response>)
+      `observed_count` is the whole point of the gate: it is an INDEPENDENT number
+      you declare, so the comparison is capable of failing. A short listing HARD
+      STOPS (EC-P41) — it is worse than an empty one, because EC-P39 catches zero
+      and nothing at all caught 21-of-22 before this release. Never cache only
+      page 1: a lost tail is a missing year that §1-6 cannot see (EC-X16), and it
+      is now a hard stop rather than a silent loss.
+
+      The function also REPORTS the year span and any interior gaps. Print it.
+      It never stops on a gap — an exam may genuinely not have been held in a
+      year, and only the operator can tell that apart from a listing defect — but
+      it must be on screen BEFORE paper 1, while acting on it is still cheap.
+
+  A1b. collect_corpus_files -> sort_papers_recency_first. THE SORT RUNS BEFORE THE
+      PARTITION, ALWAYS (EC-X21, P4d). Measured: partitioning the raw listing
+      order admitted 2017/2021/2014; partitioning after the sort admitted
+      2026/2025/2024. On an inline channel the difference can leave §1-6's
+      required latest-five-years permanently unreached while the operator watches
+      papers arrive successfully.
+
+  A2. CONNECTOR CHANNEL PROBE — reached ONLY when A0 returned ok=False.
+      Download exactly ONE paper: `admitted[0]`, the FIRST RECENCY-SORTED PAPER
+      THE PLAN WILL FETCH ANYWAY (P4f below). Not the smallest.
       Then OBSERVE YOUR OWN TURN: did the tool hand back a REFERENCE TO A FILE,
       or the BYTES THEMSELVES? That is `arrived_inline`. It is a fact about what
       you received, not an inference.
@@ -6566,14 +6666,18 @@ PHASE A — MODEL TURNS. CLASS T. Never python. In order:
       (EC-X5), and when mode is --status or --synthesise (EC-X14) — those modes
       read no papers and must not pay a probe's context.
 
-  A3. Download every paper this SESSION's plan admits (see plan_transport below).
-      Record, per file, WHATEVER CAME BACK — a spill path in any directory, or an
-      inline payload. Do not normalise, relocate or unwrap it: corpus_io owns
-      every shape the connector emits, and a spec-side extraction is a second
-      definition that will drift (EC-X11, EC-X12).
+  A3. Download every REMAINING paper this SESSION's plan admits (see
+      plan_transport below). The probe payload is ALREADY one of them — pass it
+      into drive_payloads with the rest. Record, per file, WHATEVER CAME BACK — a
+      spill path in any directory, or an inline payload. Do not normalise,
+      relocate or unwrap it: corpus_io owns every shape the connector emits, and a
+      spec-side extraction is a second definition that will drift (EC-X11,
+      EC-X12).
 
-PHASE B — PYTHON. Inject resolvers over results that ALREADY EXIST. No tool call
-occurs below this line.
+PHASE B — PYTHON. Inject resolvers over results that ALREADY EXIST. No CLASS T
+tool call occurs below this line. (A0 is python and is therefore not a tool call
+at all; it is listed in PHASE A because it decides the channel, and the channel
+must be decided before anything is planned.)
 ```
 
 ```python
@@ -6588,17 +6692,94 @@ SESSION_INLINE_BUDGET = bc.INLINE_BUDGET_CHARS // 2
 # bc.INLINE_BUDGET_CHARS prices INBOUND characters only: partition_by_transport
 # sums bc.base64_cost_chars against it. On an inline channel Step 5 pays that cost
 # a SECOND time, because the model receives the base64 in the tool result and must
-# then RE-EMIT it into a python block for stage_drive_payload to decode. There is
-# no third route — the container's egress allowlist contains no Google domain, so
-# python cannot fetch the bytes itself.
+# then RE-EMIT it into a python block for stage_drive_payload to decode.
+# THIS DESCRIBES THE CONNECTOR LANE ONLY, AND IT IS NO LONGER THE ONLY LANE. Until
+# EC-P43 the statement here read "there is no third route — the container's egress
+# allowlist contains no Google domain". That was true of the deployment measured on
+# 2026-08-15 and is NOT a property of the framework: the allowlist is configurable.
+# When it reaches drive.google.com and the folder is link-shared, PHASE A/A0 fetches
+# the bytes in python, nothing crosses the turn, and neither this halving nor the
+# EC-P36 double charge applies. The halving below stays correct and mandatory
+# WHENEVER the channel is 'inline'; it is inert on 'direct' and on 'spill'.
 # Halving here rather than changing bc.INLINE_BUDGET_CHARS is deliberate: the
 # shared constant is Step 4's too, and mutating it would silently re-partition a
 # step this GAP does not touch. This is a DERIVED value, never a literal — the
 # threshold still has exactly one definition, exactly as DRIVE_CAP does.
 
 
+def acquire_listing(pages, cache_path, folder_id, observed_count):
+    """PHASE A / A1 — persist DRIVE_LISTING_CACHE through the engine, and ASSERT it.
+
+    `pages` is every RAW connector page for this folder, unmodified. `observed_count`
+    is the total the model declares from the connector response — an INDEPENDENT
+    number, which is the only reason the comparison is capable of failing.
+
+    A short listing HARD STOPS (ListingIntegrityError, EC-P41). It is deliberately not
+    a TransportFallback: a fallback means "try another lane", and there is no other
+    lane for a corpus that cannot be enumerated correctly. EC-P39 already caught zero;
+    nothing caught 21-of-22, and 21-of-22 is the dangerous one because §1-6 reports
+    success on whatever survived and the missing year stays invisible for the life of
+    the exam.
+
+    The year span and any interior gaps are REPORTED, never stopped on — an exam may
+    genuinely not have been held in a year and only the operator can tell that apart
+    from a listing defect. Printing it here puts it on screen before paper 1.
+    """
+    report = corpus_io.write_drive_listing(pages, cache_path, folder_id, observed_count)
+    print(f"\n  DRIVE LISTING  ({report['count']} record(s) cached, asserted against "
+          f"{observed_count} declared)")
+    if report['year_span']:
+        print(f"    Year span         : {report['year_span'][0]}-{report['year_span'][1]}")
+    if report['missing_years']:
+        print(f"    ! Interior gaps   : {report['missing_years']} — REPORT ONLY. An exam "
+              f"may not have been held in a year; confirm before Task 1.")
+    else:
+        print("    Interior gaps     : none")
+    return report
+
+
+def probe_transport(candidate, work_dir, recorded=None):
+    """PHASE A / A0 -> A2 — decide the channel. DIRECT FIRST, then the connector.
+
+    Returns (verdict_or_None, probe_consumed). A None verdict means the direct lane
+    was unavailable and the caller must run the connector probe (A2) on admitted[0].
+
+    EC-P43. The direct lane is PROVEN on a real paper and never predicted;
+    corpus_io.probe_direct_egress never raises, because an unshared folder or a
+    deployment without Google egress is an ORDINARY state and an exception here would
+    turn a routine fallback into a halted run.
+
+    EC-X5 / EC-P38 — a recorded verdict is REUSED, never re-probed, and `consumed` is
+    then 0. Re-probing costs one paper's context every session for a fact that is a
+    property of the deployment.
+    """
+    if recorded and recorded.get('channel'):
+        print(f"\n  TRANSPORT VERDICT REUSED — channel "
+              f"{recorded['channel'].upper()} (EC-X5); no probe this session.")
+        return recorded, 0
+    direct = corpus_io.probe_direct_egress(candidate, work_dir)
+    if direct['ok']:
+        print(f"\n  S8-0 A0 DIRECT EGRESS PROBE — {candidate['name']}")
+        print(f"    Verified bytes on disk : {direct['path']}")
+        print( "    Channel                : DIRECT — python fetched the bytes itself; "
+               "nothing crossed the turn, so the whole corpus is admissible (EC-P43)")
+        return {'channel': 'direct', 'probe_paper': candidate['name'],
+                'probe_local_path': direct['path']}, 0
+    print(f"\n  S8-0 A0 DIRECT EGRESS PROBE — unavailable: {direct['reason']}")
+    print( "    Falling back to the connector lane. This is an ordinary state, not a "
+           "failure: the run proceeds exactly as it did before EC-P43 existed.")
+    return None, 0
+
+
 def probe_drive_channel(probe_paper, probe_payload, arrived_inline, work_dir):
-    """Classify the Drive channel from ONE real download, and PROVE it decodes.
+    """Classify the CONNECTOR Drive channel from ONE real download, and PROVE it decodes.
+
+    REACHED ONLY WHEN THE DIRECT LANE IS UNAVAILABLE (PHASE A / A0, EC-P43). When
+    corpus_io.probe_direct_egress succeeded the channel is 'direct', this function is
+    never called, and probe_consumed is 0 — python holds verified bytes and nothing
+    crossed the turn.
+
+    `probe_paper` is admitted[0], NOT the smallest paper — see plan_transport's P4f.
 
     Identical contract to Framework_PYQCount S5-0. `arrived_inline` is the model's
     OBSERVATION about its own turn (PHASE A step A2), never a filesystem test.
@@ -6622,8 +6803,41 @@ def probe_drive_channel(probe_paper, probe_payload, arrived_inline, work_dir):
             'probe_local_path': local_path}
 
 
-def plan_transport(pending_recency_sorted, channel, session_budget, batch_size):
+def plan_transport(pending_recency_sorted, channel, session_budget, batch_size,
+                   probe_consumed=0):
     """Decide what THIS SESSION fetches. Print it BEFORE the first batch.
+
+    P4f — PROBE PAPER SELECTION DIVERGES FROM STEP 4, ON PURPOSE.
+    Framework_PYQCount S5-0 probes the SMALLEST paper. That is correct THERE: Step 4 is
+    single-session and fetches the whole corpus in the same run, so the probe cost is
+    amortised to zero. Step 5 is batched across ~8 sessions and its admitted set is
+    recency-first, so the smallest paper is almost never the one being fetched — its
+    payload is decoded, proven, and thrown away.
+    Measured on IIT_JAM_MATHEMATICS: probing the smallest (10-Feb-2013, 40,488 B) spent
+    107,968 real characters, 54% of INLINE_BUDGET_CHARS, on a paper the admitted set
+    does not contain, and session 1 processed ZERO papers. Probing admitted[0]
+    (15-Feb-2026, 47,627 B) proves the lane AND delivers paper 1 for the same
+    characters, so probe_consumed is 0 — the payload is not waste, it is paper 1.
+    v2.50.0 inherited "SMALLEST" verbatim when S8-0 was ported in CONTRACT from S5-0;
+    the four documented deviations P4a-P4e covered budget, persistence, halving,
+    partition ordering and the PYQCompress text, and probe-paper selection was never
+    reviewed. mock_sync_audit MS-13 now fails the build for a spec that carries a
+    channel probe without declaring its probe-paper rule and any divergence.
+
+    P4g / EC-P40 — THE PROBE IS A SPENDER, NOT A FREE CLASSIFIER.
+    `probe_consumed` is budget ALREADY SPENT in this session before this partition is
+    computed. Before it existed the partition was computed against the FULL budget as
+    though the probe were free: probe 107,968 + admitted paper 127,008 = 234,976 real
+    characters against a 200,000 ceiling, and this function printed "1 paper(s) fetch
+    automatically". Values:
+        probe ran this session, connector lane  -> bc.base64_cost_chars(probe fileSize)
+        probe reused from _meta._transport      -> 0            (EC-X5 / EC-P38)
+        probe re-run on resume                  -> charged in THAT session (EC-P38)
+        probe raised TransportFallback          -> STILL CHARGED — the bytes arrived
+        channel 'spill' or 'direct'             -> 0, and the parameter is inert
+        probe IS admitted[0] (P4f)              -> 0, the payload is paper 1
+    audit_callgraph C10 fails the build for a partition call preceded by a CLASS T
+    acquisition without a non-defaulted consumed=.
 
     P4d / EC-X21 — THE INPUT MUST ALREADY BE RECENCY-SORTED. bc.partition_by_transport
     admits papers in the order it receives them until the budget would be exceeded,
@@ -6654,19 +6868,49 @@ def plan_transport(pending_recency_sorted, channel, session_budget, batch_size):
     Callers pass BATCH_SIZE; it still has exactly one definition, in S8-1.
     """
     part = bc.partition_by_transport(pending_recency_sorted, channel=channel,
-                                     inline_budget=session_budget)
+                                     inline_budget=session_budget,
+                                     consumed=probe_consumed)
     admitted, carried = part['auto'], part['deferred_for_context']
     oversize = [p for p in part['upload'] if (p.get('fileSize') or 0) > bc.DRIVE_CAP]
     print(f"\n  TRANSPORT PLAN  (channel: {part['channel']})")
+    if part['channel'] == 'inline':
+        # FIRST LINE, ALWAYS. The plan is not readable without knowing what was spent
+        # before it was computed, and a probe reported after the admission count reads
+        # as trivia rather than as the reason the count is what it is.
+        print(f"    Probe consumed      : {part['consumed']:,} of {session_budget:,} "
+              f"chars this session — EC-P40, EC-P36 double charge applies")
     print(f"    Pending this corpus : {len(pending_recency_sorted)} paper(s)")
     print(f"    Drive lane, session : {len(admitted)} paper(s) fetch automatically")
+    if part['channel'] == 'direct':
+        print(f"    Context cost        : 0 — python fetched the bytes itself over "
+              f"container egress; nothing crossed the turn (EC-P43)")
     if part['channel'] == 'inline':
-        sessions = -(-len(pending_recency_sorted) // max(1, len(admitted))) if admitted else 0
         print(f"    Context cost        : {part['inline_chars']:,} of "
-              f"{session_budget:,} chars admitted "
+              f"{part['effective_budget']:,} chars remaining after the probe "
               f"(bc.INLINE_BUDGET_CHARS // 2 — charged twice, EC-P36)")
         print(f"    Carried to later    : {len(carried)} paper(s) deferred FOR CONTEXT, "
               f"not for size — EC-P36/EC-X9")
+    if part['channel'] == 'inline' and not admitted:
+        # FIX F / G-9. `Sessions needed: ~0` while 22 papers pend is not merely wrong,
+        # it is inverted in meaning, and the v2.39 changelog records what that does:
+        # "a gate that cannot fire correctly trains operators to ignore gates."
+        _cheapest = min(pending_recency_sorted,
+                        key=lambda q: q.get('fileSize') or 0, default=None)
+        print("\n  ! TRANSPORT INFEASIBLE THIS SESSION (EC-P37 upload-lane fallback)")
+        print(f"    Session budget      : {session_budget:,} chars")
+        print(f"    Already consumed    : {part['consumed']:,} chars")
+        print(f"    Remaining           : {part['effective_budget']:,} chars")
+        if _cheapest is not None:
+            print(f"    Cheapest pending    : {_cheapest.get('name')} "
+                  f"({bc.base64_cost_chars(_cheapest.get('fileSize')):,} chars)")
+        print("    No paper fits this session's remaining budget. Per EC-P37 the upload")
+        print("    lane is the fallback for a paper that cannot fit even ONE session.")
+        print("    PYQCompress is NOT the remedy — these papers are far under DRIVE_CAP.")
+        print("    If this is a fresh chat and the number above is still zero, the direct")
+        print("    egress lane (EC-P43) is the fix: share the Drive folder as 'Anyone")
+        print("    with the link' and allow drive.google.com in the container egress.")
+    elif part['channel'] == 'inline':
+        sessions = -(-len(pending_recency_sorted) // max(1, len(admitted)))
         print(f"    Sessions needed     : ~{sessions} — continue via Option B in a "
               f"FRESH chat, which resets the budget (EC-P37). These papers are NOT "
               f"manual uploads.")
@@ -6735,28 +6979,171 @@ def record_transport(progress, verdict, admitted, carried, oversize):
         # different deployment) but it is NEVER silent.
         print(f"  ! TRANSPORT CHANNEL CHANGED: {prev['channel']} -> "
               f"{verdict['channel']}. Recorded; continuing.")
+    prev_log = prev.get('session_log') or []
     meta['_transport'] = {
         'channel': verdict['channel'],
         'probe_paper': verdict.get('probe_paper'),
         'session_budget': SESSION_INLINE_BUDGET,
-        'papers_admitted': [p['id'] for p in admitted],
+        # G-8. RENAMED from 'papers_admitted' in v2.51.0. This field is written BEFORE
+        # the acquisition loop runs, so it is a PLAN and never a result — in the
+        # reference incident it recorded the 2026 paper as 'admitted' although that
+        # paper was never fetched. No corruption followed, because run_batch_loop skips
+        # on _meta.papers_processed which save_progress writes per paper, but a forecast
+        # named as a fact is a trap for the next reader and for every gap investigation.
+        'papers_planned': [p['id'] for p in admitted],
+        # Readers MUST tolerate the old key for one release (EC-P38: a pre-patch
+        # progress file is VALID INPUT and is never discarded). Read it as
+        #     planned = t.get('papers_planned', t.get('papers_admitted', []))
         'deferred_context': [p['id'] for p in carried],
         'deferred_size': [p['id'] for p in oversize],
+        'session_log': prev_log,
     }
     return meta['_transport']
+
+
+def log_session(progress, session_index, spec_read_mode, probe_run, chars_consumed,
+                papers_fetched, papers_processed, ended_at):
+    """Append what this session ACTUALLY did. Additive; a pre-patch file stays valid.
+
+    GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-8. Nothing recorded whether the probe
+    ran, how many characters were really consumed, whether the spec was read in full or
+    reduced, or whether the session ended at a batch boundary or at exhaustion. A
+    resumed session — and every future gap investigation — was blind to all of it, which
+    is why reconstructing the reference incident required the chat transcript rather
+    than the artefact the step itself produces.
+
+    `ended_at` is one of: 'batch_boundary', 'corpus_complete', 'session_exhausted'.
+    """
+    import datetime as _dt
+    t = progress.setdefault('_meta', {}).setdefault('_transport', {})
+    t.setdefault('session_log', []).append({
+        'session_index': session_index,
+        'started_utc': _dt.datetime.now(_dt.timezone.utc).isoformat(),
+        'spec_read_mode': spec_read_mode,        # 'full' | 'reduced'  (see §S8-0b)
+        'probe_run': bool(probe_run),
+        'chars_consumed': int(chars_consumed or 0),
+        'papers_fetched': list(papers_fetched or []),
+        'papers_processed': list(papers_processed or []),
+        'ended_at': ended_at,
+    })
+    return t['session_log']
+```
+
+### S8-0b — SESSION CLASS AND READ SET (runs at STEP 0, before any spec is read)
+
+```
+GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-1, G-4. Framework_PYQCore EC-P42.
+
+THE DEFECT THIS CLOSES. SKILL Rule 2 mandates reading every routed .md IN FULL before
+any work. For trigger PYQExtract that is this file (8,850 lines / 504,240 B) plus
+Framework_DeliveryFooter.md (929 / 52,594): 556,834 B, ~139,208 tokens, >=36 view
+calls, MANDATORY, every session. In the reference incident 40 of session 1's 50 tool
+calls and 63% of the context window were spent before the first paper was touched, and
+the step stalled immediately before its first productive operation. Over a 22-session
+run that is ~3.06M tokens spent re-reading a file that is byte-identical every time and
+whose sha256 bootstrap.py has already verified.
+
+THE AXIS IS FINAL vs NON-FINAL. IT IS NOT FRESH vs RESUME.
+A session executes the same code whether it is session 1 or session 5. What decides
+which sections it reaches is whether it will CLOSE THE BOOKS. Routing on FRESH/RESUME
+would leave session 1 of every one of the ~200 exams exactly as broken as the incident.
+
+  NON-FINAL  papers_remaining > BATCH_SIZE
+             This session mathematically cannot clear the corpus, so it can never
+             enter run_synthesise(), §1-6's coverage check, QV, the summary format or
+             the schema/xlsx writers.
+             READ: §1 (S1-1, S1-2 and the resume load only), §2, §3, §4, §7, §8, §11
+                   + Framework_DeliveryFooter §2, §2A, §3, §4, §5
+             DO NOT READ: the header changelog block, §1-6, §5, §6, §9, §10, §12–§16
+             Measured read set: 232,228 B, ~58,000 tok — 47% of the file.
+
+  FINAL      papers_remaining <= BATCH_SIZE, OR mode is --synthesise ALL,
+             --synthesise [S], or --status
+             READ EVERYTHING. NO EXCEPTION.
+             Synthesis, QV and every writer run in this session, and a reduced read of
+             them is exactly the "paraphrased spec" failure the v2.39 changelog
+             documents: five sessions paraphrased the spec and silently repaired bugs;
+             the one session that executed the fences verbatim found a P0 no other
+             session hit.
+
+ESCALATION IS MANDATORY AND ONE-WAY.
+A session that begins NON-FINAL and discovers mid-run that it has cleared the corpus
+MUST read §1-6, §5, §6, §10, §12–§16 BEFORE run_synthesise() is entered. It may never
+synthesise, never run QV, and never write section_rules.md from a reduced read. There
+is no reverse direction: FINAL never downgrades to NON-FINAL.
+
+HOW TO DECIDE IT — AT STEP 0, BEFORE READING ANYTHING.
+The count comes from the progress file, which is small and is not a spec:
+    papers_remaining = len(all corpus papers) - len(_meta.papers_processed)
+`bootstrap.py --trigger PYQExtract --progress <analysis_progress.json>` prints the
+class, the byte/token/call cost of each read set, and the exact line ranges. When no
+progress file exists the corpus has not been enumerated yet, so the count is unknown;
+decide the class immediately after PHASE A / A1b, which is the first moment it is
+knowable, and read the NON-FINAL set until then.
+A stale project copy of analysis_progress.json is the v2.39 GAP-H scenario: decide from
+the copy load_progress() actually selects (most advanced by papers_processed), never
+the first one found.
+
+HOW TO READ IT — THE STRIDE MATTERS AS MUCH AS THE SET.
+Measured in this container: the view tool truncates output above ~16,000 characters
+INCLUDING explicitly ranged reads — the incident's first call, view [1,700], returned
+"< truncated lines 120-581 >" and cost three further calls to cover one 700-line
+window. A bash heredoc returned 188,024 characters intact in a single call.
+Read spec ranges with `sed -n 'START,ENDp' <file>` in bash. The NON-FINAL set is ~2
+calls; the FINAL set is ~4. The same content through view is 32-36. Context cost is
+identical either way — only the CALL COUNT changes, and tool calls are the resource
+that ran out first in the reference incident.
+
+Line ranges are GENERATED into SPEC_SECTIONS.json from this file's own '## §' and
+'### S' headers and hash-tracked in MANIFEST.json. They are NEVER hand-maintained here:
+a hand-copied line number is a second definition of the file's own structure and will
+drift on the first edit that adds a paragraph.
+
+WHAT THIS SECTION DOES NOT DO. It does not shrink the defect narrative, which stays in
+the repo unchanged — the v2.39 record proves it is load-bearing for editors. It moves
+the EDITORIAL record off the EXECUTION path; it does not delete it. It also does not
+change one byte of what any session WRITES: the artefacts are identical, so no exam
+re-runs any step because of this section.
 ```
 
 ### S8-1 — Batch design
 
 ```
-★★★ CRITICAL RULE — BATCH SIZE = 3, STRICTLY ENFORCED, NO EXCEPTIONS ★★★
+★★★ CRITICAL RULE — BATCH SIZE = 3 IS A CEILING, NOT A FLOOR ★★★
 
-BATCH_SIZE = 3  # papers per batch — NON-NEGOTIABLE. Cannot be changed by any instruction.
+BATCH_SIZE = 3  # MAXIMUM papers per batch — NON-NEGOTIABLE AS A MAXIMUM.
+                # Cannot be raised by any instruction.
 
-Processing 3 papers together in one go is MANDATORY.
-Analysing more than 3 papers without pausing for user confirmation is STRICTLY PROHIBITED.
-Analysing all files in one go without batching is STRICTLY PROHIBITED.
-No user instruction, no efficiency argument, no time pressure overrides this rule.
+Processing MORE than 3 papers without pausing for user confirmation is STRICTLY
+PROHIBITED — unchanged. Analysing all files in one go without batching is STRICTLY
+PROHIBITED. No user instruction, no efficiency argument, no time pressure overrides
+that ceiling.
+
+Processing FEWER than 3 is NORMAL AND IS NOT A VIOLATION. The batch is
+
+    batch = min(BATCH_SIZE, len(admitted_this_session))
+
+GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-6. This paragraph is new because the old
+wording read as a FLOOR ("Processing 3 papers together in one go is MANDATORY",
+"MANDATORY AFTER EVERY BATCH OF 3") while Framework_PYQCore EC-P37 had already settled
+the opposite and said so explicitly. A model or an operator reading only this file
+concluded that a 1-paper batch was a spec violation, and then either stalled asking for
+clarification or "fixed" it by widening the context budget — which EC-P37 forbids in
+terms, because it trades a longer run for a mid-batch context stall that the per-paper
+save survives but the operator cannot interpret.
+
+WHY A SESSION CAN ADMIT FEWER THAN 3 (Framework_PYQCore EC-P36/EC-P37):
+  channel 'direct' — payloads never cross the turn. Batch is 3 again. This is the
+                     normal case once the direct egress lane is available (EC-P43).
+  channel 'spill'  — payloads land on disk. Batch is 3 again.
+  channel 'inline' — the Drive lane is bounded by CONTEXT, not by DRIVE_CAP. Measured
+                     on IIT_JAM_MATHEMATICS one 45-50 KB paper costs ~63,500 inbound
+                     characters and is charged twice, so a session commonly admits ONE
+                     paper. The run simply takes more sessions. That is the designed
+                     behaviour, not a degraded one.
+A final batch of 1 or 2 remaining papers has always been legal and is unchanged.
+`admitted == []` is not a batch at all — §S8-0's TRANSPORT INFEASIBLE block reports it
+and the session ends without processing, having spent nothing it cannot account for.
 
 Why this rule is critical:
   1. Each batch delivers an incremental analysis_progress.json — user has a safe restore point.
@@ -6765,7 +7152,7 @@ Why this rule is critical:
    (large exams with many years × shifts can easily exceed 100 papers).
   4. Ensures the user is always in control and can stop/resume at any point.
 
-MANDATORY AFTER EVERY BATCH OF 3:
+MANDATORY AFTER EVERY BATCH (of 1, 2 or 3 — the list below is unchanged):
   1. Save updated progress to analysis_progress.json
   2. Deliver analysis_progress.json as downloadable chat file (present_files)
   3. Print batch summary (papers processed, cumulative count, subtopic coverage)
@@ -6796,12 +7183,38 @@ After ALL papers are processed (last batch):
   6. No separate session needed
 
 Session flow:
-  Session 1: PHASE A (S8-0): the MODEL lists the Drive folder in its own turns and
-             caches it → PROBES the channel on ONE paper (or reuses _meta._transport)
-             → sorts all papers recency-first → plan_transport() PRINTS the plan →
-             the MODEL downloads the payloads the plan admits and passes them to
-             run_batch_loop as drive_payloads → processes batch #1-3 (most recent 3
-             papers, latest year first) → delivers progress.json → shows Options A/B
+  Session 1: STEP 0 decides the SESSION CLASS and the READ SET before any spec is read
+             (§S8-0b) → PHASE A (S8-0), IN THIS ORDER:
+               A1  the MODEL lists the Drive folder in its own turns, keeps every RAW
+                   page, then acquire_listing() writes and ASSERTS the cache against an
+                   independently declared observed_count (HARD STOP on a short listing,
+                   EC-P41) and prints the year span and any gaps
+               A1b collect_corpus_files() → sort_papers_recency_first()
+                   THE SORT COMES BEFORE THE PROBE. It did not in v2.50.0, and it must
+                   now: under P4f the probe paper IS admitted[0], which does not exist
+                   until the recency sort has run. EC-X21 already required the sort
+                   before the PARTITION; P4f moves the same requirement earlier still.
+               A0  probe_transport() → corpus_io.probe_direct_egress() on the first
+                   recency-sorted paper under DRIVE_CAP. Success → channel 'direct',
+                   probe_consumed 0, nothing crossed the turn, whole corpus admissible
+                   (EC-P43). Failure is an ORDINARY state and falls through to A2.
+                   Skipped entirely when _meta._transport.channel is recorded (EC-X5)
+                   or the mode is --status / --synthesise (EC-X14).
+               A2  connector CHANNEL PROBE — only if A0 failed — on admitted[0], NOT
+                   the smallest (P4f) → probe_drive_channel() PROVES it decodes
+               A3  plan_transport(..., probe_consumed=...) PRINTS the plan. The probe
+                   is a SPENDER and is charged even when it failed (EC-P40). When
+                   nothing is admitted it prints TRANSPORT INFEASIBLE and NEVER a
+                   sessions estimate computed from an empty set.
+               A4  the MODEL downloads the REMAINING admitted payloads — the probe
+                   payload is already paper 1 — and passes them ALL to run_batch_loop
+                   as drive_payloads
+             → processes min(BATCH_SIZE, len(admitted)) papers, latest year first.
+               That is commonly ONE paper on an inline channel and exactly 3 on a
+               'direct' or 'spill' channel: BATCH_SIZE is a CEILING, not a floor
+               (S8-1, EC-P37). A 1-paper batch is NOT a spec violation.
+             → record_transport() persists the verdict → log_session() records what
+               this session ACTUALLY consumed → delivers progress.json → Options A/B
 
              The download step is NOT optional and NOT implicit. Until v2.50.0 this
              line read simply "reads Drive folder → sorts → processes", with no step
@@ -6873,7 +7286,11 @@ def sort_papers_recency_first(paper_list):
 
 
 def deliver_batch_summary(batch, progress, batch_num, papers_done, total_all, exam_code):
-    """Print per-batch delivery summary to chat. Called after each batch of 3 papers."""
+    """Print per-batch delivery summary to chat. Called after EVERY batch.
+
+    The batch is min(BATCH_SIZE, len(admitted_this_session)) — commonly ONE on an
+    inline channel (S8-1, EC-P37). Never assume three.
+    """
     meta       = progress.get('_meta', {})
     total_qs   = meta.get('total_questions', 0)
     n_observed = sum(1 for k,v in progress.items() if isinstance(k,tuple) and len(v)>=3)
@@ -7177,22 +7594,27 @@ def make_paper_id(filename):
 ### S8-3 — Batch delivery format
 
 ```
-After each batch of 3 papers, Claude prints in chat:
+After each batch, Claude prints in chat. The ✓ list is VARIABLE-LENGTH — ONE line per
+paper ACTUALLY processed, which is min(BATCH_SIZE, len(admitted_this_session)) and is
+commonly 1 on an inline channel (S8-1, EC-P37). Three lines are the ceiling, never a
+quota, and padding the list to three is a fabrication.
 
 "=== Batch [N] complete ===
  Papers processed this batch:
    ✓ [filename_1] | [Y] S[N] | [N] Qs | [N] groups | [N] figural imgs
-   ✓ [filename_2] | [Y] S[N] | [N] Qs | [N] groups | [N] figural imgs
-   ✓ [filename_3] | [Y] S[N] | [N] Qs | [N] groups | [N] figural imgs
+   [... one ✓ line per paper processed, 1 to BATCH_SIZE of them ...]
 
+ Batch size this session: [N] of ceiling [BATCH_SIZE] (channel=[direct|spill|inline])
  Cumulative progress : [done] / [total] papers
  Subtopics with data: [N] observed | [N] inferred | [N] absent
  Total Qs accumulated: [N]
 
- Transport this batch: channel=[spill|inline]
+ Transport this batch: channel=[direct|spill|inline]
    fetched from Drive : [N]
    uploaded to chat   : [N]
-   budget consumed    : [N] / [SESSION_INLINE_BUDGET] chars   (inline channel only)
+   probe consumed     : [N] chars   (inline channel only — EC-P40)
+   budget consumed    : [N] / [effective budget after probe] chars   (inline only)
+   spec read mode     : [full|reduced]   (§S8-0b session class)
 
  Data quality snapshot:
    OMML issues   : [N] questions with failed OMML nodes (if any)
@@ -7700,13 +8122,29 @@ def is_already_processed(paper_id, progress):
     "total_questions" : 0,
 
     "_transport": {
-      "channel"          : "inline",
+      "channel"          : "direct | spill | inline",
       "probe_paper"      : "[ExamCode]_15-Feb-2026_Sorted_Q1-Q60.docx",
       "session_budget"   : 100000,
-      "papers_admitted"  : ["[file_id]"],
+      "papers_planned"   : ["[file_id]"],
       "deferred_context" : ["[file_id]"],
-      "deferred_size"    : []
+      "deferred_size"    : [],
+      "session_log"      : [
+        { "session_index"    : 1,
+          "started_utc"      : "[ISO-8601 UTC]",
+          "spec_read_mode"   : "full | reduced",
+          "probe_run"        : true,
+          "chars_consumed"   : 0,
+          "papers_fetched"   : ["[file_id]"],
+          "papers_processed" : ["[paper_key]"],
+          "ended_at"         : "batch_boundary | corpus_complete | session_exhausted" }
+      ]
     }
+    // v2.51.0 — 'papers_admitted' was RENAMED 'papers_planned': record_transport writes
+    // it BEFORE the acquisition loop, so it is a FORECAST and never a result. Readers
+    // MUST tolerate the old key for one release (EC-P38 — a pre-patch progress file is
+    // VALID INPUT and is never discarded):
+    //     planned = t.get('papers_planned', t.get('papers_admitted', []))
+    // 'session_log' is purely additive; its absence means "written before v2.51.0".
   },
   "('[Section Name]', '[Topic]', '[Subtopic]')": [
     {
@@ -7896,7 +8334,7 @@ Generated: [datetime] | Papers: [N] | Questions: [N] | Years: [list]
 
 ## §11 — DELIVERY FORMAT
 
-### S11-1 — Mid-batch delivery (after each batch of 3 papers, more remain)
+### S11-1 — Mid-batch delivery (after each batch, more papers remain)
 
 ```
 PART A — Batch summary in chat:
@@ -8020,7 +8458,7 @@ This is an exhaustive, closed list — not a minimum. Creating or
 delivering any unauthorized file is a spec violation.
 
 ────────────────────────────────────────────────────────────────────
-PER-BATCH DELIVERY (after each batch of 3, more papers remain)
+PER-BATCH DELIVERY (after each batch — 1 to BATCH_SIZE papers — more remain)
 ────────────────────────────────────────────────────────────────────
 DELIVER (single present_files call):
   1. [ExamCode]_analysis_progress.json
@@ -8172,7 +8610,7 @@ When new PYQ papers arrive:
   1. Add new .docx files to your Google Drive PYQ folder (same folder used in original trigger).
   2. Run: PYQExtract PYQ: <<same Drive link>>
      → Skips already-processed papers automatically.
-     → Processes only new papers (in batches of 3).
+     → Processes only new papers (in batches of up to BATCH_SIZE; see S8-1 — it is a ceiling).
      → Auto-synthesises when all new papers are done.
      → Delivers refreshed section_rules.md.
   3. Download the updated section_rules.md from chat.
@@ -8847,4 +9285,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.50.0
+# END OF Framework_MockTestAnalyse v2.51.0

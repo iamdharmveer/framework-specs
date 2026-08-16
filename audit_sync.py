@@ -351,7 +351,9 @@ if _REG is not None:
             if not os.path.exists(_g):
                 rec('LAW-REGISTRY', f"{_law}: governs '{_g}', which does not exist. "
                                     f"A stale entry silently shrinks the law's reach.")
-        if _meta.get('detect') != 'live_injection_point_call':
+        _rule = _meta.get('detect')
+        if _rule not in ('live_injection_point_call',
+                         'budget_spender_upstream_of_partition'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -359,7 +361,26 @@ if _REG is not None:
             continue
 
         # REVERSE — derive the performing set from the corpus, never from the list.
-        _performing = {f for f, t in TXT.items() if _INJ_LIVE.search(_live_text(t))}
+        # The half a hand-maintained 'governs' list can never supply: a NEW spec, or
+        # the half of a split file, cannot inherit a law's SURFACE without inheriting
+        # its CHECKS. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION is exactly that shape.
+        if _rule == 'budget_spender_upstream_of_partition':
+            # GAP-2026-08-16-STEP5-SESSION-EXHAUSTION. A spec performs a SESSION-BUDGET
+            # operation when it partitions a context budget in a file that also
+            # acquires (so the acquisition is a spender), or when it writes the listing
+            # cache the model transcribes. Prose does not count — the corollary law is
+            # that anything a CI check must inspect has to live where it can read it.
+            _performing = set()
+            for _f, _t in TXT.items():
+                _live = _live_text(_t)
+                if ('partition_by_transport' in _live
+                        and any(k in _t for k in ('CHANNEL PROBE', 'probe_drive_channel',
+                                                  'probe_direct_egress'))):
+                    _performing.add(_f)
+                elif 'DRIVE_LISTING_CACHE' in _t and 'search_files' in _t:
+                    _performing.add(_f)
+        else:
+            _performing = {f for f, t in TXT.items() if _INJ_LIVE.search(_live_text(t))}
         for _f in sorted(_performing - set(_governs)):
             rec('LAW-COVERAGE',
                 f"{_f} performs a {_law} operation (it calls a documented injection "

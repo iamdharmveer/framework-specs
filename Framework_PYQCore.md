@@ -1,4 +1,23 @@
-# Framework_PYQCore v1.4 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.5 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (SESSION-BUDGET LAW).
+#   §9 gains four edge cases. The reference incident is IIT_JAM_MATHEMATICS PYQExtract:
+#   two consecutive sessions, 54 tool calls, ZERO of 22 papers processed, because three
+#   independent stalls each sufficient on their own were present at once.
+#   EC-P40 (the probe is a SPENDER, not a free classifier — a CLASS T acquisition
+#   performed BEFORE the partition must be subtracted from the budget, and is charged
+#   even when it fails, because the bytes arrived either way). EC-P41 (a PARTIAL
+#   listing is worse than an empty one — EC-P39 catches zero and nothing caught
+#   21-of-22; the transcription from connector response to DRIVE_LISTING_CACHE is the
+#   highest-risk step in the acquisition path and must be asserted against an
+#   independently declared count, with a HARD STOP). EC-P42 (SPECIFICATION-READ COST is
+#   a session resource — the framework priced payload characters and paper pacing but
+#   never priced reading its own specification, which on Step 5 is 556,834 B / ~139,208
+#   tok / >=36 view calls BEFORE any work). EC-P43 (the DIRECT EGRESS LANE — when the
+#   container can reach Drive and the folder is link-shared, python fetches the bytes
+#   itself and EC-P36's double charge disappears entirely; proven per exam on a real
+#   paper, never assumed, never fatal on failure).
+#   EC-P36/EC-P37 are unchanged and remain correct: they describe the connector lane,
+#   which stays the fallback whenever the direct lane is unavailable.
 # v1.4 — 2026-08-15 — GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION. §9 gains EC-P37
 #   (inline channel in a batched, multi-session step — the budget is per SESSION, a
 #   fresh chat resets it, halve it because an inline payload is charged twice, and
@@ -1355,14 +1374,24 @@ EC-P37: INLINE CHANNEL IN A BATCHED, MULTI-SESSION STEP (2026-08-15)
   fully automatic multi-session run into 19 manual uploads on a 22-paper corpus.
   Resolution: apply the budget PER SESSION.
     admitted = bc.partition_by_transport(pending_recency_sorted, channel='inline',
-                                         inline_budget=SESSION_INLINE_BUDGET)['auto']
+                                         inline_budget=SESSION_INLINE_BUDGET,
+                                         consumed=probe_consumed)['auto']
+  The `consumed=` argument was added by EC-P40 and is NOT optional here even though
+  the parameter has a default: this example is PRESCRIPTIVE, and an example that omits
+  it teaches exactly the pattern EC-P40 exists to forbid. Pass it explicitly and write
+  out the value even when it is 0 — an absent argument cannot be told apart from an
+  oversight, which is why audit_callgraph C10 requires it.
   Process the admitted set, take the normal BATCH STOP, and instruct Option B. The
   upload lane remains the fallback for a paper that cannot fit even ONE session's
   budget, or that exceeds DRIVE_CAP — never the default for the corpus.
   The budget is HALVED for an inline channel in such a step: INLINE_BUDGET_CHARS
   prices INBOUND characters only, and the model pays that cost a SECOND time when it
-  re-emits the payload into a python block for stage_drive_payload to decode. There
-  is no third route — the container's egress allowlist contains no Google domain.
+  re-emits the payload into a python block for stage_drive_payload to decode.
+  THIS PARAGRAPH DESCRIBES THE CONNECTOR LANE ONLY. EC-P43 added a third route: when
+  the container's egress allowlist DOES reach drive.google.com and the folder is
+  link-shared, python fetches the bytes itself, nothing crosses the turn, and neither
+  the halving nor the double charge applies at all. The halving remains correct and
+  mandatory whenever the channel is 'inline'; it is inert on 'direct' and 'spill'.
   Halve it at the CALL SITE (bc.INLINE_BUDGET_CHARS // 2), never by editing the
   shared constant: that constant is also Step 4's, and mutating it would silently
   re-partition a step this rule does not govern.
@@ -1411,6 +1440,132 @@ EC-P39: AN EMPTY LISTING IS NOT A ZERO-PYQ EXAM (2026-08-15)
   Resolution: HARD STOP with the transport diagnosis — report the entry count, the
   reject list with reasons, and the PHASE A cache check. A genuinely PYQ-less exam is
   requested EXPLICITLY by the operator; it is never inferred from an empty container.
+
+EC-P40: THE PROBE IS A SPENDER, NOT A FREE CLASSIFIER (2026-08-16)
+  Any step that performs a CLASS T acquisition BEFORE computing a context partition
+  MUST subtract that acquisition from the budget the partition is computed against.
+  A probe downloads a real paper. On an inline channel those bytes occupy context
+  exactly as a corpus paper's do. Modelling the probe as a classification act and not
+  as a spender makes the printed plan arithmetic fiction.
+  Measured on IIT_JAM_MATHEMATICS, session budget 100,000 (INLINE_BUDGET_CHARS // 2,
+  EC-P37): probe on the smallest paper (40,488 B) cost 53,984 inbound and 107,968 real
+  characters after the EC-P36 double charge; the admitted paper (47,627 B) cost a
+  further 127,008. Total 234,976 against a 200,000 ceiling — infeasible by 34,976 —
+  and plan_transport printed "1 paper(s) fetch automatically / 63,504 of 100,000 chars
+  admitted" because bc.partition_by_transport had no parameter for budget already
+  spent. The session processed ZERO papers.
+  Detection: a CLASS T acquisition appearing upstream of a partition call whose
+  `consumed` argument is absent or defaulted. audit_callgraph C10 fails the build.
+  Resolution: pass `consumed=`. Its value is the probe's base64 cost when the probe RAN
+  in this session; 0 when the verdict was reused from _meta._transport (EC-P38);
+  charged in the session where a re-probe happens; and — this is the case that is
+  always got wrong — STILL CHARGED WHEN THE PROBE FAILED, because the bytes arrived
+  and cost context regardless of what the caller then decided about them. It is inert
+  on channels where no payload crosses the turn.
+  A consequence that must not be "fixed": once the probe is charged, a session can
+  legitimately admit NOTHING. That is the honest answer, and the step must report it as
+  TRANSPORT INFEASIBLE rather than printing a sessions estimate computed from an empty
+  admitted set. Widening the budget to make the number look better is forbidden by
+  EC-P37.
+  Best resolution: make the probe productive rather than merely cheap — probe the paper
+  the plan was going to fetch anyway, so `consumed` is 0 because the payload is not
+  waste, it is paper 1. See Framework_MockTestAnalyse §S8-0 P4f.
+
+EC-P41: A PARTIAL LISTING IS WORSE THAN AN EMPTY ONE (2026-08-16)
+  EC-P39 hard-stops on a listing that yields ZERO usable papers. A listing that yields
+  SOME is not covered by it and is strictly more dangerous. Zero is obviously wrong and
+  every operator notices it. Twenty-one of twenty-two is invisible: §1-6's coverage
+  check reports success on whatever survived, _meta.years_processed looks plausible,
+  and the missing year stays hidden for the life of the exam — after which Step 6
+  blueprints and Step 7 generates on top of the gap.
+  The transcription from connector response to DRIVE_LISTING_CACHE is performed by the
+  MODEL and is therefore the highest-risk operation in the entire acquisition path. For
+  22 papers it is ~5,000 characters of hand-copied JSON, each record carrying a
+  33-character Drive id; for a 100-paper corpus it is ~23,000. A single mistyped id
+  yields either a fetch failure (loud, tolerable) or a successful fetch of a DIFFERENT
+  file (silent, catastrophic).
+  Five causes, four of which are not the model's doing: Drive pagination (a dropped
+  nextPageToken silently loses everything past record 100 — EC-X16); year sub-folders
+  not walked; Google-native types carrying no fileSize; legitimately screened-out
+  non-.docx entries being dropped without being NAMED (v2.29 rule); and transcription
+  error. Only the last is removed by having an engine write the cache.
+  Detection: merged record count != the count the model declares from the connector
+  response; any record missing a non-empty id, name/title or mimeType; a duplicate id
+  within or across pages; a nextPageToken still present in the last supplied page.
+  Resolution: HARD STOP, via corpus_io.write_drive_listing(pages, path, root_folder_id,
+  observed_count). It is deliberately NOT a TransportFallback: a fallback means "try
+  another lane", and there is no other lane for a corpus that cannot be enumerated
+  correctly. audit_callgraph C11 fails the build for a spec that writes the cache by
+  any other route.
+  REPORTED, never stopped: the year span and any interior gaps. A genuinely missing
+  year is possible — an exam may not have been held — and only the operator can tell
+  that apart from a listing defect. It is printed BEFORE paper 1, while acting on it is
+  still cheap.
+
+EC-P42: SPECIFICATION-READ COST IS A SESSION RESOURCE (2026-08-16)
+  The framework budgets payload characters (INLINE_BUDGET_CHARS) and paper pacing
+  (BATCH_SIZE). It has never budgeted the cost of READING ITS OWN SPECIFICATION, and
+  that cost is now the largest single consumer of a Step 5 session.
+  Measured: SKILL Rule 2 mandates reading every routed .md IN FULL before any work.
+  For trigger PYQExtract that is Framework_MockTestAnalyse.md (8,850 lines / 504,240 B)
+  plus Framework_DeliveryFooter.md (929 / 52,594) = 556,834 B, ~139,208 tokens, >=36
+  view calls. In the reference incident 40 of session 1's 50 tool calls and 63% of the
+  context window were spent before the first paper was touched. Over a 22-session run
+  that is ~3.06M tokens re-reading a file whose sha256 bootstrap.py has already
+  verified and which is byte-identical every time.
+  Two distinct resources are exhausted and only one is visible: TOOL CALLS and CONTEXT.
+  Detection: a trigger whose routed .md files sum above the SPEC-BUDGET threshold
+  declared in audit_specs_ext, with no read-set routing declared in the spec.
+  Resolution, in order of leverage:
+    (a) READ SET BY SESSION CLASS. A session that cannot clear the corpus never
+        executes the synthesis, QV, summary or schema sections, so it must not read
+        them. See Framework_MockTestAnalyse §S8-0b. Ranges are GENERATED from each
+        spec's own headers into SPEC_SECTIONS.json, never hand-maintained.
+    (b) READ IN BASH-SIZED STRIDES. Measured in the container: the view tool truncates
+        output above ~16,000 characters INCLUDING ranged reads, while a bash heredoc
+        returned 188,024 characters intact. Reading a spec through `sed -n` costs ~4
+        calls where view costs ~32. Context cost is identical; only the call count
+        changes, and the call count is a resource in its own right.
+    (c) MOVE EXECUTABLE FENCES INTO ROUTED ENGINES. 3,532 of this corpus's largest
+        spec's lines are executable python that the model reads AND THEN RE-EMITS. An
+        engine is imported, never read. This is the permanent closure and is scoped
+        separately.
+  ESCALATION IS MANDATORY AND ONE-WAY. A session that begins on a reduced read and
+  discovers mid-run that it is final MUST read the omitted sections BEFORE synthesis.
+  A reduced read must never reach a writer. The prohibition exists because the one
+  documented way this corpus has regressed is a session acting on a partial or
+  paraphrased spec.
+
+EC-P43: THE DIRECT EGRESS LANE (2026-08-16)
+  EC-P36's double charge is not a property of Drive. It is a property of the CONTAINER
+  EGRESS ALLOWLIST. The payload is charged twice only because python had no route to
+  Google, so the model had to receive the base64 in its turn and re-emit it for
+  staging. When the container can reach drive.google.com and the folder is
+  link-shared, python downloads the file itself and NOTHING crosses the turn: context
+  cost zero, and the whole corpus becomes admissible in one session.
+  Measured 2026-08-16 against folder 12wamcvoQ4ucI69Rblj51zJmcTX6MeDNG:
+  drive.google.com answered 302 to accounts.google.com with no x-deny-reason (so the
+  request reached Google, not a proxy refusal); uc?export=download&id=16QFONpQ… issued
+  one redirect to drive.usercontent.google.com and returned 200; the payload was 47,627
+  bytes beginning 50 4b 03 04 and identified as Microsoft Word 2007+. 47,627 is
+  byte-exact for IIT_JAM_MATHEMATICS_15-Feb-2026_Sorted_Q1-Q60.docx, so the lane
+  returned the RIGHT file, not merely a file.
+  THE LANE IS PROVEN, NEVER PREDICTED, AND NEVER FATAL. It is probed per exam on a real
+  paper through corpus_io.probe_direct_egress, which never raises. An exam whose Drive
+  folder is not link-shared, or a deployment whose allowlist excludes Google, is an
+  ORDINARY state and not an incident: the run falls back to the connector lane and
+  behaves exactly as it did before this edge case existed. Two preconditions must both
+  hold and neither may be assumed — container egress to drive.google.com, and General
+  access = "Anyone with the link" on the folder.
+  Proof obligations are IDENTICAL to every other lane — byte count equal to the
+  fileSize the listing reported, PK\x03\x04 magic, TransportFallback on any failure —
+  because all three routes delegate to corpus_io.verify_downloaded_bytes. A lane with
+  weaker proof than its siblings is a lane that will one day write an HTML login page
+  to disk under a .docx name and let §1-6 count it as a year.
+  Channel precedence is direct -> spill -> inline, and the verdict is persisted in
+  _meta._transport.channel exactly as EC-P38 requires. bc.partition_by_transport
+  cost-models 'direct' identically to 'spill'; the two differ only in MECHANISM, which
+  is corpus_io's business and never the cost model's.
 ```
 
 ---
@@ -1844,4 +1999,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.4
+# END OF Framework_PYQCore v1.5

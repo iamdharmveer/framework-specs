@@ -869,6 +869,89 @@ def c5_dangling_value(path, corpus_exe, findings):
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+def c10_budget_conservation(path, findings):
+    """C10 — BUDGET CONSERVATION. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-2.
+
+    Any spec that performs a CLASS T acquisition and then calls
+    bc.partition_by_transport MUST pass a non-defaulted `consumed=`. This is the budget
+    analogue of C9: C9 fails the build for a correctly-injected container that is never
+    FILLED; C10 fails it for a correctly-injected budget whose SPENDER is not counted.
+
+    Measured on the reference incident: probe 107,968 + admitted paper 127,008 =
+    234,976 real characters against a 200,000 ceiling, and plan_transport printed
+    "1 paper(s) fetch automatically / 63,504 of 100,000 chars admitted" because the
+    partition was computed as though the probe were free. No existing check could see
+    it — C6/C7/C9 all reason about call-site SHAPE and producer EXISTENCE, and none of
+    them reasons about arithmetic.
+
+    The argument must be WRITTEN OUT even when its value is 0 (Framework_PYQCount does
+    exactly that, with the reason at the call site). An omitted argument is
+    indistinguishable from an oversight, which is the whole point.
+    """
+    src = executable_source(path)
+    if 'partition_by_transport' not in src:
+        return
+    text = open(path, encoding='utf8').read()
+    acquires = any(k in text for k in
+                   ('CHANNEL PROBE', 'probe_drive_channel', 'probe_direct_egress'))
+    if not acquires:
+        return
+    for m in re.finditer(r'partition_by_transport\s*\(', src):
+        depth, i = 1, m.end()
+        while i < len(src) and depth:
+            depth += (src[i] == '(') - (src[i] == ')')
+            i += 1
+        call = src[m.end():i - 1]
+        if 'consumed' not in call:
+            findings.append(
+                f"[C10] {os.path.basename(path)}: partition_by_transport() is called in "
+                f"a spec that performs a CLASS T acquisition, but no `consumed=` is "
+                f"passed. The probe is a SPENDER (Framework_PYQCore EC-P40): its bytes "
+                f"occupy the same budget the partition is computed against, and are "
+                f"charged even when the probe FAILS. Pass consumed= explicitly — write "
+                f"it out even when the value is 0, because an omitted argument cannot "
+                f"be told apart from an oversight.")
+
+
+def c11_cache_assertion(path, findings):
+    """C11 — CACHE ASSERTION. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-5.
+
+    Any spec that writes DRIVE_LISTING_CACHE must route through
+    corpus_io.write_drive_listing with an observed_count. Hand-transcribing the
+    connector response into a create_file call is ~5,000 characters for 22 papers and
+    ~23,000 for a 100-paper corpus, every record carrying a 33-character Drive id. A
+    mistyped id fetches a DIFFERENT file silently; a dropped record yields a SHORT
+    corpus, which EC-P39 does not catch because it only fires on zero. Nothing
+    anywhere compared the cache against what the connector actually returned.
+    """
+    text = open(path, encoding='utf8').read()
+    if 'DRIVE_LISTING_CACHE' not in text:
+        return
+    # A shared-laws file NAMES the cache in order to legislate about it; it does not
+    # WRITE one. Framework_PYQCore states EC-P41 and owns no acquisition, so firing
+    # there would be a permanent false positive — and a gate that cannot be satisfied
+    # is a gate that gets switched off. Only a spec that actually performs the Drive
+    # listing is in scope, which is exactly the spec whose transcription is at risk.
+    if 'search_files' not in text:
+        return
+    src = executable_source(path)
+    if 'write_drive_listing' not in src:
+        findings.append(
+            f"[C11] {os.path.basename(path)}: writes DRIVE_LISTING_CACHE but never "
+            f"calls corpus_io.write_drive_listing from executable code. The listing "
+            f"must be asserted against an independently declared observed_count and "
+            f"HARD STOP on a mismatch (Framework_PYQCore EC-P41) — a partial listing "
+            f"is worse than an empty one, because §1-6 reports success on whatever "
+            f"survived and the missing year stays invisible for the life of the exam.")
+        return
+    if 'observed_count' not in src:
+        findings.append(
+            f"[C11] {os.path.basename(path)}: calls write_drive_listing without an "
+            f"observed_count. The count is the entire gate: it must be an INDEPENDENT "
+            f"number declared from the connector response, or the comparison cannot "
+            f"fail.")
+
+
 def main(argv):
     root = os.path.dirname(os.path.abspath(__file__))
     all_specs = sorted(glob.glob(os.path.join(root, 'Framework_*.md')))
@@ -932,6 +1015,8 @@ def main(argv):
         c7_unbound_transport(s, findings)
         c8_executable_source_coverage(s, findings, warnings)
         c9_unfilled_container(s, findings)
+        c10_budget_conservation(s, findings)
+        c11_cache_assertion(s, findings)
     if corpus_wide:
         imported = set()
         for sp in all_specs:

@@ -2679,7 +2679,7 @@ def detect_question_start(text):
 
 
 def is_bare_q_label(text):
-    """Q-number when this line is NOTHING BUT a question label, else None.
+    r"""Q-number when this line is NOTHING BUT a question label, else None.
 
     The structural twin of detect_question_start(): that answers "does a question
     start here", this answers "does a question start here with an EMPTY <w:t>
@@ -3000,7 +3000,7 @@ def base64_cost_chars(n_bytes):
 
 
 def partition_by_transport(papers, cap=DRIVE_CAP, channel='spill',
-                           inline_budget=INLINE_BUDGET_CHARS):
+                           inline_budget=INLINE_BUDGET_CHARS, consumed=0):
     """Split papers into the AUTO (Drive) lane and the UPLOAD lane BEFORE fetching.
 
     Partitioning on the CAP rather than on the governor budget is deliberate: a
@@ -3022,24 +3022,64 @@ def partition_by_transport(papers, cap=DRIVE_CAP, channel='spill',
     afforded, so plan_transport() printed nothing and the operator learned the shape
     of the run after the acquisition loop instead of before it.
 
+      channel='direct' — python fetched the bytes itself over the container's egress
+                         (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P43). Nothing
+                         passes through the model's turn, so context cost is zero and
+                         the whole corpus is admissible in one session. Cost-modelled
+                         identically to 'spill'; the two differ only in MECHANISM, and
+                         mechanism is corpus_io's business, not this function's.
       channel='spill'  — payloads land on disk; context cost is zero. This reproduces
                          the pre-2026-08-15 behaviour EXACTLY, which is why it is the
                          default: an unpatched caller keeps its old semantics.
       channel='inline' — payloads arrive in the turn. Papers are admitted to the Drive
                          lane in listing order until their CUMULATIVE base64 cost would
-                         exceed inline_budget; the remainder goes to the upload lane.
+                         exceed the budget; the remainder goes to the upload lane.
 
     The channel is MEASURED by a probe (Framework_PYQCount S5-0), never assumed and
     never inferred from a directory listing — which directory a deployment spills to,
     or whether it spills at all, differs between deployments of the same connector.
 
+    THE PROBE IS A SPENDER (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P40)
+    `consumed` is budget ALREADY SPENT in this session before the partition is computed
+    — in practice the channel probe, which downloads a real paper. Until this parameter
+    existed the partition was computed against the FULL budget as though the probe were
+    free, so on the reference corpus it printed a feasible plan for work costing 117%
+    of the budget. Measured: probe 107,968 + admitted paper 127,008 = 234,976 real
+    characters against 200,000. The plan was arithmetic fiction and the session
+    processed zero papers.
+
+    `consumed` is charged EVEN WHEN THE PROBE FAILED — the bytes arrived and occupied
+    context regardless of what the caller then decided about them. It is inert on
+    'spill' and 'direct', where no payload crosses the turn at all. It is never
+    negative; a negative value is a caller bug, not a discount, and raises.
+
+    When `consumed` >= `inline_budget` there is no budget left for any paper: every
+    size-eligible paper is deferred for CONTEXT (not for size) and 'auto' is empty. The
+    caller must report that condition rather than printing a sessions estimate — see
+    Framework_MockTestAnalyse §S8-0 plan_transport, which prints TRANSPORT INFEASIBLE
+    and suppresses "Sessions needed" whenever 'auto' is empty.
+
     Returns {'auto': [...], 'upload': [...], 'channel': ..., 'inline_chars': int,
-             'inline_budget': int, 'deferred_for_context': [...]}.
+             'inline_budget': int, 'consumed': int, 'effective_budget': int,
+             'deferred_for_context': [...]}.
     """
-    if channel not in ('spill', 'inline'):
+    if channel not in ('spill', 'inline', 'direct'):
         raise AllocationError(
-            f"channel must be 'spill' or 'inline', got {channel!r}. It is measured by "
-            f"the S5-0 channel probe; there is no third state and no default guess.")
+            f"channel must be 'spill', 'inline' or 'direct', got {channel!r}. It is "
+            f"measured by the S5-0 channel probe; there is no fourth state and no "
+            f"default guess.")
+    try:
+        consumed = int(consumed or 0)
+    except (TypeError, ValueError):
+        raise AllocationError(f'consumed must be an integer, got {consumed!r}')
+    if consumed < 0:
+        raise AllocationError(
+            f'consumed must not be negative, got {consumed}. Budget already spent is '
+            f'never a discount on the budget that remains.')
+
+    charged = (channel == 'inline')
+    effective = max(0, inline_budget - consumed) if charged else inline_budget
+
     auto, upload, deferred = [], [], []
     spent = 0
     for p in papers:
@@ -3047,9 +3087,9 @@ def partition_by_transport(papers, cap=DRIVE_CAP, channel='spill',
         if size is None or size > cap:
             upload.append(p)
             continue
-        if channel == 'inline':
+        if charged:
             cost = base64_cost_chars(size)
-            if spent + cost > inline_budget:
+            if spent + cost > effective:
                 upload.append(p)
                 deferred.append(p)
                 continue
@@ -3057,6 +3097,8 @@ def partition_by_transport(papers, cap=DRIVE_CAP, channel='spill',
         auto.append(p)
     return {'auto': auto, 'upload': upload, 'channel': channel,
             'inline_chars': spent, 'inline_budget': inline_budget,
+            'consumed': consumed if charged else 0,
+            'effective_budget': effective,
             'deferred_for_context': deferred}
 
 
@@ -5371,6 +5413,68 @@ PYQ_IMAGE_ANALYSIS:
     check('t_base64_cost_exact', base64_cost_chars(986_230) == 1_314_976)
     check('t_base64_cost_zero_safe',
           base64_cost_chars(0) == 0 and base64_cost_chars(None) == 0)
+
+    # ── GAP-2026-08-16-STEP5-SESSION-EXHAUSTION ─────────────────────────────
+    # EC-P43 — the DIRECT lane costs no context, so it must admit exactly what
+    # 'spill' admits. Any divergence means a cost model leaked into a mechanism.
+    _22 = [{'name': f'p{i}.docx', 'fileSize': 47_627} for i in range(22)]
+    check('t_direct_admits_whole_corpus',
+          len(partition_by_transport(_22, channel='direct')['auto']) == 22)
+    check('t_direct_matches_spill',
+          partition_by_transport(_22, channel='direct')['auto']
+          == partition_by_transport(_22, channel='spill')['auto'])
+    check('t_direct_still_honours_cap',
+          partition_by_transport(_big, channel='direct')['upload'] == _big)
+    check('t_direct_reports_zero_chars',
+          partition_by_transport(_22, channel='direct')['inline_chars'] == 0)
+
+    # EC-P40 — the probe is a SPENDER. These four cases are the whole contract.
+    _probe_cost = base64_cost_chars(47_627)                      # 63,504
+    check('t_consumed_default_is_backward_compatible',
+          partition_by_transport(_22, channel='inline', inline_budget=100_000)['auto']
+          == partition_by_transport(_22, channel='inline', inline_budget=100_000,
+                                    consumed=0)['auto'])
+    check('t_consumed_reduces_admission',
+          len(partition_by_transport(_22, channel='inline', inline_budget=200_000,
+                                     consumed=_probe_cost)['auto'])
+          < len(partition_by_transport(_22, channel='inline',
+                                       inline_budget=200_000)['auto']))
+    _exhausted = partition_by_transport(_22, channel='inline',
+                                        inline_budget=100_000, consumed=100_000)
+    check('t_consumed_at_budget_admits_nothing', _exhausted['auto'] == [])
+    check('t_consumed_at_budget_defers_for_context',
+          len(_exhausted['deferred_for_context']) == 22)
+    check('t_consumed_over_budget_does_not_go_negative',
+          partition_by_transport(_22, channel='inline', inline_budget=100_000,
+                                 consumed=999_999)['effective_budget'] == 0)
+    check('t_consumed_inert_on_spill',
+          len(partition_by_transport(_22, channel='spill',
+                                     consumed=999_999)['auto']) == 22)
+    check('t_consumed_inert_on_direct',
+          len(partition_by_transport(_22, channel='direct',
+                                     consumed=999_999)['auto']) == 22)
+    check('t_consumed_reported_zero_when_inert',
+          partition_by_transport(_22, channel='direct',
+                                 consumed=999_999)['consumed'] == 0)
+    _neg = 0
+    try:
+        partition_by_transport(_22, channel='inline', consumed=-1)
+    except AllocationError:
+        _neg = 1
+    check('t_negative_consumed_raises', _neg == 1)
+    _bad_consumed = 0
+    try:
+        partition_by_transport(_22, channel='inline', consumed='lots')
+    except AllocationError:
+        _bad_consumed = 1
+    check('t_non_integer_consumed_raises', _bad_consumed == 1)
+    # The incident, reproduced as arithmetic: 100,000-char session budget, probe on the
+    # smallest paper (40,488 B -> 53,984 chars), then the 2026 paper (63,504 chars).
+    # Pre-patch this printed "1 paper admitted"; it must now admit none and say so.
+    _incident = partition_by_transport(
+        [{'name': '2026.docx', 'fileSize': 47_627}], channel='inline',
+        inline_budget=100_000, consumed=base64_cost_chars(40_488))
+    check('t_incident_is_now_reported_infeasible', _incident['auto'] == [])
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

@@ -517,6 +517,103 @@ def check_delivery_set_parity(read=_read):
     return problems
 
 
+
+# ── MS-12 ───────────────────────────────────────────────────────────────
+# BATCH-CEILING. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-6, a pure
+# cross-file desync. Framework_PYQCore EC-P37 settled the question in terms —
+# "BATCH_SIZE is a pacing CEILING, not a floor", with the measurement that an
+# inline session commonly admits ONE paper — while Framework_MockTestAnalyse
+# S8-1 still read as a floor ("Processing 3 papers together in one go is
+# MANDATORY", "MANDATORY AFTER EVERY BATCH OF 3") and S8-3 hardcoded exactly
+# three checkmark lines. A model or an operator reading only the step file
+# concluded that a 1-paper batch was a spec violation, and then either stalled
+# for clarification or "fixed" it by widening the context budget — which EC-P37
+# forbids, because it trades a longer run for a mid-batch context stall the
+# per-paper save survives but the operator cannot interpret.
+FLOOR_PATTERNS = [
+    (r'MANDATORY AFTER EVERY BATCH OF 3',
+     "asserts a batch FLOOR ('MANDATORY AFTER EVERY BATCH OF 3')"),
+    (r'Processing 3 papers together in one go is MANDATORY',
+     "asserts a batch FLOOR ('Processing 3 papers together in one go is MANDATORY')"),
+    (r'BATCH SIZE = 3, STRICTLY ENFORCED, NO EXCEPTIONS',
+     "asserts a batch FLOOR ('STRICTLY ENFORCED, NO EXCEPTIONS' without a ceiling "
+     "qualifier)"),
+]
+
+
+def check_batch_ceiling(read=_read):
+    """Every spec naming BATCH_SIZE must read it as a CEILING and cite EC-P37."""
+    problems = []
+    for name in SPECS:
+        try:
+            text = read(name)
+        except FileNotFoundError:
+            continue
+        if 'BATCH_SIZE' not in text:
+            continue
+        for pat, why in FLOOR_PATTERNS:
+            # A line QUOTING the old wording in order to explain why it was wrong is
+            # not an assertion of it. Without this the fix for the defect trips the
+            # gate written to catch the defect, and the only way to pass would be to
+            # delete the explanation — which is how a corpus loses its defect record.
+            for m in re.finditer(pat, text):
+                line = text[text.rfind('\n', 0, m.start()) + 1:
+                             text.find('\n', m.end())]
+                if '"' in line or 'read as a FLOOR' in line:
+                    continue
+                problems.append(f'{name}: {why} — EC-P37 says it is a ceiling')
+                break
+        # EC-P37 is about admission on a CONTEXT-BOUNDED channel. A batched step with
+        # no transport concept cannot admit fewer papers than its batch size for that
+        # reason, so demanding the citation there is noise — and the v2.39 record is
+        # explicit that a gate firing where it does not apply trains operators to
+        # ignore gates. Scope the citation requirement to transport-bearing specs.
+        transport_bound = any(k in text for k in (
+            'partition_by_transport', 'CHANNEL PROBE', 'inline_budget'))
+        if transport_bound and 'EC-P37' not in text:
+            problems.append(
+                f'{name}: names BATCH_SIZE and carries a context-bounded transport '
+                f'channel, but never references EC-P37 — which is where the '
+                f'ceiling-not-floor rule and its measurement live. A reader of this '
+                f'file alone would conclude a 1-paper batch is a violation.')
+    return problems
+
+
+# ── MS-13 ───────────────────────────────────────────────────────────────
+# PROBE-SELECTION. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-3. S8-0 was
+# "ported in CONTRACT from Framework_PYQCount S5-0 with four Step-5-specific
+# deviations", and probe-paper selection was not among the four — so "download
+# the SMALLEST by fileSize" came across verbatim into a step whose admitted set
+# is recency-first, where the smallest paper is almost never fetched and its
+# payload is decoded, proven and thrown away. Measured: 107,968 characters, 54%
+# of the whole budget, for zero papers. An inherited rule that is right in the
+# source file and wrong in the destination is invisible to every other check in
+# this repo, so the rule must be DECLARED wherever a probe exists.
+def check_probe_selection(read=_read):
+    """A spec with a channel probe must declare its probe-paper rule + divergence."""
+    problems = []
+    targets = SPECS + ['Framework_PYQCount.md']
+    for name in targets:
+        try:
+            text = read(name)
+        except FileNotFoundError:
+            continue
+        if 'CHANNEL PROBE' not in text:
+            continue
+        if not re.search(r'SMALLEST by fileSize|admitted\[0\]', text):
+            problems.append(
+                f'{name}: carries a CHANNEL PROBE but never states which paper it '
+                f'probes. Silent inheritance of a sibling step\'s rule is exactly how '
+                f'"SMALLEST" reached a recency-first step.')
+        if 'P4f' not in text:
+            problems.append(
+                f'{name}: carries a CHANNEL PROBE but does not name deviation P4f, '
+                f'which is where the Step-4/Step-5 divergence in probe-paper selection '
+                f'is declared. Both files must name it, so neither can change its rule '
+                f'without the other noticing.')
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -529,6 +626,8 @@ ALL_CHECKS = [
     ('MS-9 FOOTER-STEP5', check_footer_step5),
     ('MS-10 VERSION-PINS', check_version_pins),
     ('MS-11 DELIVERY-SET-PARITY', check_delivery_set_parity),
+    ('MS-12 BATCH-CEILING', check_batch_ceiling),
+    ('MS-13 PROBE-SELECTION', check_probe_selection),
 ]
 
 

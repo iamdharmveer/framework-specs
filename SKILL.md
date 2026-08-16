@@ -71,10 +71,40 @@ cd /tmp/fw_effective
 1. If Step 0 prints "HARD STOP" or exits non-zero, STOP — generate nothing.
 2. After it succeeds, open the spec in /tmp/fw_effective (the resolved corpus: the verified
    clone with any project specs laid over it) that matches the step the user asked for
-   (e.g. "MockDeliver M1" -> Framework_MockDeliver.md; PYQDraft/PYQScan/PYQApprove/PYQCount each load their step file PLUS Framework_PYQCore.md — run
-   `python3 bootstrap.py --trigger <Step>` to print the entry files split by role) and READ IT IN FULL — the read-in-full rule applies to .md SPEC files ONLY; .py ENGINE files in the route are EXECUTED via `import` inside the spec's code blocks and must NOT be read into context — every line to
+   (e.g. "MockDeliver M1" -> Framework_MockDeliver.md; PYQDraft/PYQScan/PYQApprove/PYQCount each load their step file PLUS Framework_PYQCore.md) and READ IT IN FULL — the read-in-full rule applies to .md SPEC files ONLY; .py ENGINE files in the route are EXECUTED via `import` inside the spec's code blocks and must NOT be read into context — every line to
    its "# END OF ..." sentinel. Some specs are thousands of lines (Blueprint ~6400) — read
    all pages, never a partial.
+
+2a. RUN `python3 bootstrap.py --trigger <Step> --progress <the exam's *_analysis_progress.json,
+   if one exists>` FIRST. It prints the entry files split by role AND the PRE-WORK READ
+   BUDGET — lines, bytes, tokens, calls — AND the SESSION CLASS. Do not start reading
+   before you have seen that block. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION: this rule
+   was a hard, unbounded obligation that nothing anywhere priced, and on PYQExtract it
+   costs 556,834 B / ~139,208 tok / >=36 view calls BEFORE any work. In the reference
+   incident 40 of a session's 50 tool calls went to satisfying this rule and ZERO of 22
+   papers were processed. Framework_PYQCore EC-P42.
+
+2b. READ WITH `sed -n 'START,ENDp' <file>` IN BASH, NOT WITH `view`. Measured in the
+   container: `view` truncates output above ~16,000 characters INCLUDING explicitly
+   ranged reads — a view [1,700] on a 57-bytes/line spec returns "< truncated lines
+   120-581 >" and costs three more calls to cover one window — while a bash heredoc
+   returned 188,024 characters intact in a single call. Same context cost, ~10x fewer
+   tool calls, and tool calls are a resource that runs out. Read in sequential,
+   non-overlapping ranges and never re-read a range you already hold.
+
+2c. SESSION CLASS decides the READ SET, and only for a spec that declares one
+   (SPEC_SECTIONS.json says which; today that is Framework_MockTestAnalyse.md). Any spec
+   with no declared read set is read IN FULL — the default is always the whole file.
+     FINAL      -> read everything, no exception. This session may write the final
+                   artefacts, and synthesising from a reduced read is exactly the
+                   "paraphrased spec" failure the corpus has regressed on before.
+     NON-FINAL  -> read the ranges bootstrap prints. Sections a non-final session can
+                   never execute are skipped. Measured: 529,438 -> 257,723 B.
+   ESCALATION IS MANDATORY AND ONE-WAY. If a session begins NON-FINAL and discovers
+   mid-run that it has cleared the corpus, it MUST read the omitted sections BEFORE
+   synthesis. It may never write a final artefact from a reduced read. FINAL never
+   downgrades. Line ranges come from SPEC_SECTIONS.json, which is GENERATED from each
+   spec's own headers and verified by bootstrap — never hand-copied into a chat.
 3. Read blueprint.json / registry.json / per-exam files from /mnt/project (the project's
    own files), exactly as the specs describe.
 4. Before presenting any output, confirm /tmp/fw/.verified exists AND that the

@@ -12,7 +12,7 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 45
+  MANIFEST.json files        : 46
   SPEC_MANIFEST.json entries : 57
   routes.json triggers       : 23
 ```
@@ -229,6 +229,20 @@ Stamp a clean version + changelog over everything shipped since the last seal.
 `seal_release` is the ONLY thing that bumps `VERSION` (satisfies "bump only when asked").
 
 ## Standing guardrails
+- **SESSION-BUDGET LAW — a session has three finite resources, not one.**
+  Payload characters and paper pacing were budgeted; SPECIFICATION-READ COST and
+  TOOL-CALL COUNT were not, and on Step 5 the unbudgeted one was the larger.
+  (1) A CLASS T acquisition performed before a context partition is subtracted from that
+  partition's budget via `consumed=`, and is charged EVEN WHEN IT FAILS — the bytes
+  arrived regardless. (2) A probe must be productive: probe the item the plan will fetch
+  anyway, never the cheapest, unless the step is single-session and refetches it.
+  (3) A route above `audit_specs_ext.SPEC_BUDGET_BYTES` must declare a FINAL/NON-FINAL
+  read set; escalation to a full read is MANDATORY and ONE-WAY before any writer runs;
+  ranges are GENERATED into `SPEC_SECTIONS.json`, never hand-copied. (4) A listing
+  transcribed by the model is asserted against an independently declared count and HARD
+  STOPS on mismatch. (5) A partition that admits nothing SAYS SO — it never prints a
+  sessions estimate computed from an empty set. Verified by C10, C11, MS-12, MS-13 and
+  SPEC-BUDGET. GAP-2026-08-16-STEP5-SESSION-EXHAUSTION.
 - **EXECUTION-BOUNDARY LAW — a tool call cannot happen inside a running Python process.**
   Every operation in a spec is exactly one of:
 
