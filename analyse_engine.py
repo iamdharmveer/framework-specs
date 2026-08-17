@@ -5015,6 +5015,152 @@ def self_test():
                                          and 'years' in _tpl[0]) else None
     check('template_years_are_sorted', _tyears is not None and _tyears == sorted(_tyears))
 
+    # ══ B5 GUARD FIXTURES — the six raise->pass survivors ═════════════════
+    # WHY THESE FIRST. A guard is a HARD STOP: "this taxonomy is corrupt, refuse to
+    # continue". Delete one and nothing crashes — the run accepts bad data and emits a
+    # confident, wrong artefact. That is the most expensive failure shape in this
+    # corpus, and until now the suite could not tell whether any of these six alarms
+    # were still connected. Each fixture below removes exactly that doubt.
+    import copy as _cp
+
+    _GE = [{'subtopic_id': 'RA.SEQ.CONV', 'section': 'Real Analysis', 'topic': 'Seq',
+            'subtopic': 'Convergence', 'PYQ_STEM_PATTERNS': [], 'format': 'TEXT',
+            'observed_count': 3},
+           {'subtopic_id': 'RA.SEQ.DIV', 'section': 'Real Analysis', 'topic': 'Seq',
+            'subtopic': 'Divergence', 'PYQ_STEM_PATTERNS': [], 'format': 'TEXT',
+            'observed_count': 2}]
+
+    def _with_overrides(**ov):
+        """Set the module override cache directly — no filesystem, so this runs
+        identically in every environment (the GAP-2026-08-17-B4-ENV-SKEW lesson)."""
+        base = {'template_sets': None, 'template_sets_by_section': {},
+                'subtopic_overrides': {}, 'subtopic_merges': []}
+        base.update(ov)
+        globals()['_OVERRIDES'] = base
+
+    def _expect_hard_stop(name, fn, *args, **ov):
+        _with_overrides(**ov)
+        try:
+            fn(*args)
+            check(name, False)                       # no raise = the alarm is gone
+        except SystemExit:
+            check(name, True)
+        except Exception:
+            check(name, False)                       # wrong exception is not the guard
+        finally:
+            globals()['_OVERRIDES'] = None
+
+    # OV-4 — a merge group with fewer than two members is meaningless
+    _expect_hard_stop('OV4_merge_group_under_two_hard_stops',
+                      apply_subtopic_merges, _cp.deepcopy(_GE), 'ZZEXAM',
+                      subtopic_merges=[['RA.SEQ.CONV']])
+    # OV-3 — merging an id that does not exist would silently drop a real subtopic
+    _expect_hard_stop('OV3_merge_unknown_id_hard_stops',
+                      apply_subtopic_merges, _cp.deepcopy(_GE), 'ZZEXAM',
+                      subtopic_merges=[['RA.SEQ.CONV', 'NOPE.ID']])
+    # OV-4b — overlapping groups: two merges competing to own one id
+    _expect_hard_stop('OV4b_overlapping_merge_groups_hard_stop',
+                      apply_subtopic_merges, _cp.deepcopy(_GE), 'ZZEXAM',
+                      subtopic_merges=[['RA.SEQ.CONV', 'RA.SEQ.DIV'],
+                                       ['RA.SEQ.CONV', 'RA.SEQ.DIV']])
+    # OV-1 — an override key matching no subtopic_id is a curator typo that would
+    # otherwise apply to nothing, silently
+    _expect_hard_stop('OV1_unknown_override_key_hard_stops',
+                      stamp_mechanic_axes, _cp.deepcopy(_GE), 'ZZEXAM',
+                      subtopic_overrides={'NOPE.ID': {'mechanic': 'x'}})
+    # OV-6 — template_sets_by_section naming a section that does not exist
+    _expect_hard_stop('OV6_unknown_section_hard_stops',
+                      stamp_mechanic_axes, _cp.deepcopy(_GE), 'ZZEXAM',
+                      template_sets_by_section={'No Such Section': ['verbal']})
+
+    # ── The two BARE re-raises: absent vs unreadable Analysis doc ─────────────
+    # v2.31: an unreadable or unapproved Analysis doc is NEVER a WARN. It is not a
+    # source that happened to contribute nothing — it is the WRONG TAXONOMY, and every
+    # id minted from it is wrong. `raise->pass` here converts that into a silent
+    # downgrade, which is precisely the fault the v2.31 comment says had to survive two
+    # independent downgrades to be seen at all.
+    import corpus_io as _cio
+    _orig_lt = _cio.load_taxonomy
+
+    def _raise_doc_error(msg):
+        def _f(**_k):
+            raise _cio.AnalysisDocError(msg)
+        return _f
+    try:
+        _cio.load_taxonomy = _raise_doc_error('doc is present but unreadable')
+        try:
+            _extract_taxonomy_tuples_from_analysis_doc('/nonexistent/x.docx')
+            check('unreadable_analysis_doc_reraises', False)
+        except _cio.AnalysisDocError:
+            check('unreadable_analysis_doc_reraises', True)
+        except Exception:
+            check('unreadable_analysis_doc_reraises', False)
+        # ...and the ONE benign case must still be benign, or the guard is just noise
+        _cio.load_taxonomy = _raise_doc_error('no Analysis doc found')
+        try:
+            check('absent_analysis_doc_is_benign',
+                  _extract_taxonomy_tuples_from_analysis_doc('/nonexistent/x.docx') == [])
+        except Exception:
+            check('absent_analysis_doc_is_benign', False)
+    finally:
+        _cio.load_taxonomy = _orig_lt
+
+    # ── OV-3b: a merge group spanning two sections ───────────────────────────
+    # Merging across sections would move a subtopic into a section it was never
+    # observed in, and every Step 6/7 join on section+id would then be wrong.
+    _GE2 = _cp.deepcopy(_GE)
+    _GE2[1]['section'] = 'Linear Algebra'
+    _expect_hard_stop('OV3b_merge_across_sections_hard_stops',
+                      apply_subtopic_merges, _GE2, 'ZZEXAM',
+                      subtopic_merges=[['RA.SEQ.CONV', 'RA.SEQ.DIV']])
+
+    # ── EC-M17: an overrides file declaring the WRONG exam_code ──────────────
+    # Applying another exam's overrides is the quietest possible corruption: valid
+    # JSON, plausible keys, entirely the wrong exam. Uses search_dirs so it runs in
+    # any environment.
+    _tmp2 = _tf.mkdtemp(prefix='ae_ovcode_')
+    try:
+        with open(_os.path.join(_tmp2, 'ZZCODE_mechanic_overrides.json'),
+                  'w', encoding='utf-8') as _fh:
+            _fh.write('{"exam_code": "SOME_OTHER_EXAM", "subtopic_overrides": {}}')
+        globals()['_OVERRIDES'] = None
+        try:
+            load_mechanic_overrides('ZZCODE', search_dirs=(_tmp2,))
+            check('ECM17_wrong_exam_code_hard_stops', False)
+        except SystemExit:
+            check('ECM17_wrong_exam_code_hard_stops', True)
+        except Exception:
+            check('ECM17_wrong_exam_code_hard_stops', False)
+    finally:
+        globals()['_OVERRIDES'] = None
+        _sh.rmtree(_tmp2, ignore_errors=True)
+
+    # ── v2.31: taxonomy_sync_entries must RE-RAISE on an unreadable Analysis doc ─
+    # This is the second of the two bare re-raises, and the one with the longest
+    # history: the old code caught this fault HERE and inside the extractor, so it had
+    # to survive two independent downgrades to be seen at all. raise->pass restores
+    # exactly that double-downgrade.
+    import glob as _glob_mod
+    _orig_glob = _glob_mod.glob
+    _orig_extract = globals()['_extract_taxonomy_tuples_from_analysis_doc']
+    try:
+        _glob_mod.glob = lambda _p: (['/nonexistent/ZZSYNC_analysis.docx']
+                                     if '/mnt/project/' in str(_p) else [])
+
+        def _boom(_path):
+            raise _cio.AnalysisDocError('present but unreadable')
+        globals()['_extract_taxonomy_tuples_from_analysis_doc'] = _boom
+        try:
+            taxonomy_sync_entries([], 'ZZSYNC')
+            check('sync_unreadable_analysis_doc_reraises', False)
+        except _cio.AnalysisDocError:
+            check('sync_unreadable_analysis_doc_reraises', True)
+        except Exception:
+            check('sync_unreadable_analysis_doc_reraises', False)
+    finally:
+        _glob_mod.glob = _orig_glob
+        globals()['_extract_taxonomy_tuples_from_analysis_doc'] = _orig_extract
+
     # ── export surface: the stubs in the spec import exactly these ────────
     check('all_exports_exist', all(n in globals() for n in __all__))
 
@@ -5027,7 +5173,7 @@ def self_test():
     # A count is the cheapest possible oracle for "did anything vanish?". If a future
     # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
     # then visible in the diff, which is the whole point.
-    EXPECTED_CHECKS = 67
+    EXPECTED_CHECKS = 77
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(

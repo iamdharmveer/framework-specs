@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026.08.17.5 — every hard stop in the Step 5 engine now has a fixture proving it is connected
+
+**`analyse_engine.py` self-test 68 → 78. Mutation budget 28 → 22, RATCHETED DOWN.
+NO ARTEFACT VALUES CHANGE.**
+
+A guard is a HARD STOP — *"this taxonomy is corrupt, refuse to continue."* Delete one and
+**nothing crashes**: the run accepts bad data and emits a confident, wrong artefact. That
+is the most expensive failure shape in this corpus, and until now the suite could not tell
+whether any of these alarms were still wired up. The `raise->pass` mutants proved it: six
+of them survived, meaning six alarms could be deleted with the tests still green.
+
+**All six are now killed, plus three more of the same class found while writing them:**
+
+| guard | what it prevents |
+|---|---|
+| OV-4 | a merge group with <2 members |
+| OV-3 | merging a `subtopic_id` that does not exist — silently drops a real subtopic |
+| OV-4b | two merge groups competing to own one id |
+| OV-1 | an override key matching no `subtopic_id` — a curator typo that applies to nothing |
+| OV-6 | `template_sets_by_section` naming a section that does not exist |
+| §5 re-raise | an unreadable Analysis doc treated as absent |
+| **OV-3b** *(new)* | a merge spanning two sections — every Step 6/7 join on section+id would be wrong |
+| **EC-M17** *(new)* | an overrides file declaring the WRONG exam_code — valid JSON, plausible keys, entirely the wrong exam |
+| **v2.31 sync re-raise** *(new)* | the fault whose own comment records that it "had to survive two independent downgrades to be seen at all" |
+
+**Fixtures use no filesystem where possible** — `_OVERRIDES` is set directly, and the two
+that need a file use `tempfile.mkdtemp()` with `search_dirs`. That is the
+GAP-2026-08-17-B4-ENV-SKEW lesson applied from the start rather than after CI caught it.
+
+**Score: 25.0% → 41.7% → 56.0%** (12/48 → 20/48 → 28/50).
+
+**22 survive, all ordering.** A large subset is artefact-visible and already caught by the
+golden set (`write_section_rules`, `write_subtopic_manifest`,
+`compute_section_axis_distribution`); CI cannot run that oracle because the repo carries no
+corpus, so the self-test needs a synthetic entries fixture. The rest sit inside
+error-message f-strings where only word order changes — **likely** equivalent mutants, each
+to be confirmed individually and not assumed.
+
+**The standing rule is still not met** — an engine ships with fixtures that kill its own
+mutants — and stays open until this is 0 or every remainder is proven equivalent. The
+budget records 22 so it can only fall further.
+
 ## 2026.08.17.4 — the mutation gate is now reproducible: TWO defects, both mine
 
 Two independent sources of non-reproducibility in the B4 gate. **Both fixed, belt and

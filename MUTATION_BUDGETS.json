@@ -10,7 +10,7 @@
     "notes_sync_audit.py": 0,
     "audit_specs_ext.py": 4,
     "audit_deep.py": 2,
-    "analyse_engine.py": 28
+    "analyse_engine.py": 22
   },
   "_survivor_inventory": {
     "audit_specs_ext.py": [
@@ -24,12 +24,11 @@
     ],
     "_note": "All six are INHERITED, pre-dating this release. None belongs to a gate added by 2026.08.15.9 or .10: C10, C11, MS-12, MS-13 and SPEC-BUDGET are all killed.",
     "analyse_engine.py": [
-      "MEASURED 2026-08-17. First run 12/48 killed (25.0%). After the B4 fixture batch (self-test 55 -> 65 assertions) 20/48 killed (41.7%). 28 survive.",
-      "THIS IS DEBT, NOT AN ALLOWANCE, AND IT DOES NOT MEET THE STANDING RULE that a new engine ships with fixtures that kill its own mutants. It is recorded at its measured value so it can only be ratcheted DOWN.",
-      "21x sorted->list — ordering. A LARGE SUBSET IS ARTEFACT-VISIBLE AND ALREADY CAUGHT BY THE GOLDEN SET (write_section_rules, write_subtopic_manifest, compute_section_axis_distribution): mutating them changes section_rules.md. CI cannot run that oracle because the repo carries no corpus, so the self-test must learn to cover them. The remainder sit inside error-message f-strings (e.g. print_qv's sorted(icons), load_mechanic_overrides' sorted(_badsec)) where only message word order changes — likely EQUIVALENT MUTANTS, but each must be confirmed one at a time and NOT assumed.",
-      "6x raise->pass — HARD-STOP guards in apply_subtopic_merges (2), stamp_mechanic_axes OV-1/OV-6 (2), _extract_taxonomy_tuples_from_analysis_doc (1), taxonomy_sync_entries (1). Each needs an entries/override fixture that trips the guard. These are the highest-value survivors: a removed HARD STOP is silent acceptance of a corrupt taxonomy, which is the failure class Step 5 has paid for most.",
-      "1x startswith->False — rebuild_subtopic_manifest_from_section_rules' indent test, which needs a section_rules.md fixture to parse.",
-      "NEXT: the six raise->pass guards first (highest value, smallest fixtures), then a synthetic entries corpus in the self-test to cover the writer sorts, then confirm the f-string ordering mutants equivalent one by one."
+      "MEASURED 2026-08-17. 25.0% (12/48) at first run -> 41.7% (20/48) after the B4 ordering fixtures -> 56.0% (28/50) after the B5 guard fixtures. Budget 28 -> 22, RATCHETED DOWN.",
+      "ALL SIX raise->pass GUARD SURVIVORS ARE NOW KILLED, plus three more of the same class found while writing them (OV-3b merge across sections, EC-M17 wrong exam_code, and the taxonomy_sync_entries re-raise). A guard is a HARD STOP: delete one and nothing crashes, the run accepts corrupt data and emits a confident wrong artefact. That doubt is now removed for every hard stop in the engine.",
+      "22 survive, ALL of them sorted->list ordering. A large subset is artefact-visible and already caught by the golden set (write_section_rules, write_subtopic_manifest, compute_section_axis_distribution) — CI cannot run that oracle because the repo carries no corpus, so the self-test needs a synthetic entries fixture to cover the writers. The remainder sit inside error-message f-strings where only word order changes: LIKELY equivalent mutants, each to be confirmed individually and NOT assumed.",
+      "STILL DEBT: the standing rule (an engine ships with fixtures that kill its own mutants) is not met until this reaches 0 or every remaining mutant is proven equivalent.",
+      "NEXT: synthetic entries fixture for the writer sorts, then the f-string mutants one by one."
     ]
   },
   "_unmeasured": {
