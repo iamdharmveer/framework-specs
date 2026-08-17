@@ -49,6 +49,7 @@
   ],
   "PYQExtract": [
     "Framework_MockTestAnalyse.md",
+    "analyse_engine.py",
     "blueprint_core.py",
     "syllabus_provenance.py",
     "corpus_io.py",

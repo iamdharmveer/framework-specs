@@ -20,6 +20,11 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               "figural_core.py", "figural_vision.py", "audit_canonical.py",
               "spec_source.py", "spec_name_audit.py", "mock_sync_audit.py",
               "frequency_xlsx.py",
+              # Wave 2 Part C B2 (2026-08-17). Step 5's §2/§4 extraction primitives.
+              # Tracked from the release it first ships in: an engine bootstrap does not
+              # checksum is an engine any project can silently diverge on, which is the
+              # whole reason §16 moved to frequency_xlsx.py under the same tracking.
+              "analyse_engine.py",
               "notes_core.py", "notes_blueprint.py", "notes_audit.py",
               "notes_docx.py", "notes_sync_audit.py"]
 

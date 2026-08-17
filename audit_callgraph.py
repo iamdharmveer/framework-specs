@@ -309,6 +309,22 @@ def c4_dead_engine(engine_funcs, corpus_exe, findings):
     import os as _os
     if _os.path.exists('audit_canonical.py'):
         corpus_exe = corpus_exe + '\n' + open('audit_canonical.py', encoding='utf-8').read()
+    # Wave 2 Part C B2 (2026-08-17). SAME REASON, SAME SHAPE as audit_canonical.py
+    # above: analyse_engine.py holds Framework_MockTestAnalyse.md's §2/§4 code, whose
+    # engine calls were spec-embedded before extraction and remain runtime-reachable —
+    # the spec imports these functions and calls them, so bc/corpus_io calls inside
+    # them are reached exactly as before. Without this, extracting code CORRECTLY makes
+    # five live blueprint_core/corpus_io functions read as dead (measured: C4 went 0 ->
+    # 5 findings on derive_image_roles, gates_passed, merge_vision_observations,
+    # verify_images and vision_profile, none of which changed).
+    # NOTE ON WHY THIS WIDENING IS SAFE AND THE Y-IMGGATE ONE WAS NOT. C4 matches a
+    # CALL SITE — `name(` or a delegation alias — so adding a file adds only real call
+    # sites. Y-IMGGATE matches a NAME ANYWHERE IN TEXT, so widening its corpus to the
+    # routed engines would have made it pass on the mere presence of a string in
+    # corpus_io.py and gone vacuous estate-wide. Precise checks may follow the code;
+    # presence checks may not.
+    if _os.path.exists('analyse_engine.py'):
+        corpus_exe = corpus_exe + '\n' + open('analyse_engine.py', encoding='utf-8').read()
     for name, src in sorted(engine_funcs.items()):
         if re.search(r'\b' + re.escape(name) + r'\s*\(', corpus_exe):
             continue

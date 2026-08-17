@@ -12,7 +12,7 @@ repo root before running the gate.
 
 ```
 FRAMEWORK COUNTS
-  MANIFEST.json files        : 48
+  MANIFEST.json files        : 49
   SPEC_MANIFEST.json entries : 57
   routes.json triggers       : 23
 ```
@@ -115,6 +115,7 @@ the bytes are the intended bytes, never that the code is reachable):
 - `python3 notes_core.py --self-test`  (Notes pipeline shared core — its density/OMML/prose gates lock NA verdicts)
 - `python3 notes_blueprint.py --self-test`  (Notes Step NB — its output locks notes_blueprint.json + registry)
 - `python3 notes_audit.py --self-test`  (Notes Step NA — is_pass gates DRAFTED → AUDITED_PASS)
+- `python3 analyse_engine.py --self-test`  (Step 5 §2/§4 extraction primitives — its E-8 fixture pins the sorted `all_observed` that makes section_rules.md reproducible)
 - `t3_mathcomp.py` has NO `--self-test` of its own and must not grow one. Its body is a
   BYTE-IDENTICAL copy of `Framework_PYQPrepare.md` §S3-5b (single source, two consumers),
   and `python3 explain_engine.py --self-test-audit` carries the T3-DRIFT-LOCK that fails

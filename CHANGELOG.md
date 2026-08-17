@@ -1,5 +1,72 @@
 # Changelog
 
+## 2026.08.17.1 — Wave 2 Part C, Batch 2: §2 and §4 move into a routed engine
+
+**`Framework_MockTestAnalyse` v2.53.1 → v2.53.2 (PATCH), NEW `analyse_engine.py`.
+NO ARTEFACT VALUES CHANGE** — all six IIT_JAM_MATHEMATICS artefacts verified
+byte-identical against the golden set captured from deployed 2026.08.16.3, across
+`PYTHONHASHSEED` 1, 17, 2029 and 7.
+
+The 14 python fences of §2 (universal extraction primitives E-1..E-11) and §4 (vision
+aggregation) — **700 lines, 33 definitions, ZERO top-level session-flow statements** —
+moved **VERBATIM** into `analyse_engine.py`. Verified: all 14 fence bodies are
+byte-identical in the engine and **no copy remains in the spec**. One writer. Each fence
+is replaced by a stub that retains the contract and imports the names, exactly as §16 was
+replaced when its code moved to `frequency_xlsx.py`.
+
+**PATCH, not MINOR, following the §16 precedent** (v2.39.1 → v2.39.2): moving code
+verbatim into a routed engine changes no emitted value. Holding the major.minor also
+holds `FRAMEWORK_STAMP` at v2.53, so MS-3 stays satisfied and the artefacts are
+*literally* unchanged rather than changed-by-one-stamp-line.
+
+**The boundary was chosen by the CALL GRAPH, not by section number.** Measured: §2+§4
+needs nothing from any other extractable section; **§2+§3+§4 does not close**, because
+§3's `process_pyq_paper` calls §5's `tag_axes` and an engine's globals inherit nothing
+from the spec; and §3+§5+§6 needs 16 names from §2. So §2+§4 shipped first and §3+§5+§6
+becomes B3. This corrects the batch plan as originally written.
+
+**The engine is self-contained, proven by `symtable`.** A free-name analysis of §2+§4
+*inside the spec* reports nothing missing, because §1 imports `re` / `bc` / `corpus_io` /
+`Counter` / `SequenceMatcher` at module scope and every later fence inherits them — the
+same inheritance that hid GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE D2 for ten days. An
+engine inherits nothing. Three dependencies surfaced only when the module was actually
+imported (`bc`, `Counter`, `sys`); Python's own `symtable` now confirms zero free globals.
+
+**Self-test: 42 assertions, all pinned to measured contracts.** Including the E-8
+`all_observed` sorting that makes `section_rules.md` reproducible — and the fixture spans
+**three distinct option formats**, because a sorted one-element list proves nothing. The
+D4 mutant (`sorted(set(...))` reverted to `list(set(...))`) is **killed under all 8 hash
+seeds tested**.
+
+**Two auditor consequences — one fixed, one deliberately rejected.**
+
+- `audit_callgraph` **C4** reported five live `blueprint_core`/`corpus_io` functions as
+  dead (`derive_image_roles`, `gates_passed`, `merge_vision_observations`,
+  `verify_images`, `vision_profile`) because their call sites moved into the engine.
+  `analyse_engine.py` is now a C4 call-site source — the same treatment, with the same
+  stated reason, that `audit_canonical.py` already carried after an earlier extraction.
+  Mutation-tested: C4 still fires on a genuinely dead export.
+- Validator **Y-IMGGATE** fired for the same reason. Widening it was built,
+  mutation-tested and **REJECTED**: Y-IMGGATE matches a NAME ANYWHERE IN TEXT, and
+  `corpus_io.py` and `blueprint_core.py` both contain those names, so widening its corpus
+  would have made the gate **vacuous for nearly every spec in the estate**. The accounting
+  contract is retained in the §2 stub instead, keeping the check at exactly its original
+  strength. **A call-site check may follow the code into an engine; a presence check may
+  not.**
+
+**Also corrected:** `SKILL.md` declared "10 routed engine scripts" against **15 actually
+routed** — stale by five *before* this batch. `MUTATION_BUDGETS.json` named this exact
+risk and recorded that nothing proved the guarding check still fires. It had drifted. Now
+16 and matching. `CLAUDE.md` file count 48 → 49 and the new engine's self-test registered.
+
+**Verification.** bootstrap **49/49**; `validate_framework_md` 0 / 23; `audit_specs_ext`
+0 / 57; `mock_sync_audit` all agree; `audit_callgraph` 0; `audit_deep` 0 (23 specs, 22
+engines); `notes_sync_audit` 0; `spec_name_audit` OK; `check_triggers` 23;
+`analyse_engine --self-test` 42/42.
+
+**Remaining:** B3 moves §3+§5+§6 (3,882 lines, the bulk). After it, this spec keeps only
+§1 and §8 — the session and CLASS: T tool-call code that genuinely cannot move.
+
 ## 2026.08.16.3 — three auditors were reading 60% of the python they reported on
 
 **GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS + GAP-2026-08-16-BASELINE-SUPPRESSED-NAMEERRORS.

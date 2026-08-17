@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.16.3",
+  "framework_version": "2026.08.17.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -52,6 +52,7 @@
     ],
     "PYQExtract": [
       "Framework_MockTestAnalyse.md",
+      "analyse_engine.py",
       "blueprint_core.py",
       "syllabus_provenance.py",
       "corpus_io.py",
@@ -194,11 +195,11 @@
       "bytes": 85165
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "2f0760fff305fa6df2c01554b8c2a73842d9738c9ece864bee812ccb102d36b3",
-      "version_header": "# Framework_MockTestAnalyse v2.53.1 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.1",
-      "lines": 9355,
-      "bytes": 534135
+      "sha256": "8101eb0aa1d90a30272782d98a485984ad355efdf5f1641559087c6af4837859",
+      "version_header": "# Framework_MockTestAnalyse v2.53.2 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.2",
+      "lines": 8882,
+      "bytes": 512202
     },
     "Framework_MockTestCreate.md": {
       "sha256": "bf9f09368fa43c12e59b05afbd6ce1ff91bc81b696bb4685c4f96f789b4df440",
@@ -445,6 +446,13 @@
       "lines": 695,
       "bytes": 35405
     },
+    "analyse_engine.py": {
+      "sha256": "e73633d961d81664b182796e36619f543874814b1b3afec923ece72387e42d1c",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
+      "lines": 936,
+      "bytes": 49428
+    },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
       "version_header": "\"\"\"",
@@ -488,11 +496,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "8dc7734e1259de8ad7bcbb7261e8bd595e06dc152af97d4ebeceba9561c38a1f",
+      "sha256": "eb80c549347e210dc7773bb85dc450d6b3348ed7915ed4439b9c17fa9398e125",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6335,
-      "bytes": 173070
+      "bytes": 173059
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "ac678cf86d9281b58e6d7109a7776f04883c1595de8b359fd2a9521ee006d784",
