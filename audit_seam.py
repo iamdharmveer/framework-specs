@@ -76,12 +76,32 @@ PRODUCERS = {'Framework_MockTestAnalyse.md': 'Step5',
              # v1.1: the Step-7 engine (released 2026.08.12.11) persists the
              # per-mock axis snapshots (reg['axis1_paper']/reg['axis3_paper']
              # via setdefault). Omitting it made both fields ORPHAN-READ.
-             'final_assembly.py': 'Step7-engine'}
+             'final_assembly.py': 'Step7-engine',
+             # WAVE 2 PART C (2026-08-17). Step 5's §2/§3/§4/§5/§6 implementation moved
+             # out of Framework_MockTestAnalyse.md into analyse_engine.py, so every
+             # field whose WRITER moved became invisible to this auditor and five
+             # fields reported ORPHAN-READ: count_by_subtopic_by_class, di_reducible,
+             # figural_rate, per_paper_mean_by_class, per_paper_observed_by_class.
+             # Measured as PURE RELOCATION — occurrence counts identical before and
+             # after, e.g. figural_rate 14 in the old spec, 14 in the engine, 0 left
+             # behind. Same class release 2026.08.17.1 already fixed once for
+             # audit_callgraph C4, and this auditor did not receive the same widening.
+             'analyse_engine.py': 'Step5-engine',
+             # corpus_io.figural_consistency() WRITES image_not_figural and
+             # figural_no_image, which run_img5b reads. Both sides were previously
+             # invisible — the write because corpus_io was unregistered, the read
+             # because Framework_MockTestAnalyse.md is a PRODUCER here and never a
+             # CONSUMER — so the field never appeared at all and the seam went
+             # unchecked. Registering the engine surfaced the read; registering its
+             # real writer is the honest completion, NOT an ALLOW entry, because
+             # nothing about this pair is legitimately one-sided.
+             'corpus_io.py': 'io-engine'}
 CONSUMERS = {'Framework_Blueprint.md': 'Step6',
              'Framework_MockTestCreate.md': 'Step7',
              'blueprint_core.py': 'engine',
              'audit_canonical.py': 'audit',
-             'final_assembly.py': 'Step7-engine'}
+             'final_assembly.py': 'Step7-engine',
+             'analyse_engine.py': 'Step5-engine'}
 
 # Fields legitimately written by one side only. Each needs a REASON, so the list cannot
 # quietly become a place to bury real findings.

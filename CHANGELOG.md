@@ -50,9 +50,39 @@ render, not unpack; a malformed check must raise naming the key) and four `sessi
 assertions, one of which proves the injected regex is actually used by giving a different
 answer for a different keyword. Both new mutants killed.
 
-**Verification.** bootstrap 49/49; `validate_framework_md` 0 / 23; `audit_specs_ext` 0 /
-57; `mock_sync_audit` all agree; `audit_callgraph` 0; `audit_deep` 0; `notes_sync_audit`
-0; `spec_name_audit` OK; `check_triggers` 23; `analyse_engine --self-test` 55/55.
+**`audit_seam.py` — CAUGHT BY CI, NOT BY ME.** The first cut of this release was
+rejected at deploy: `audit_seam.py` reported 5 ORPHAN-READ findings
+(`count_by_subtopic_by_class`, `di_reducible`, `figural_rate`,
+`per_paper_mean_by_class`, `per_paper_observed_by_class`) and its self-test failed on
+"live repo is seam-clean". **I had never run it.** My sweep covered ten auditors chosen
+from memory; `.github/workflows/validate.yml` runs fifteen gates plus `audit_mutation`,
+and I had verified against my list instead of against CI's.
+
+The auditor was right and the moved code was not defective: `audit_seam.py` identifies
+producers and consumers from hardcoded five-file maps, `analyse_engine.py` was in
+neither, so every field whose writer moved lost its visible producer. Occurrence counts
+confirm pure relocation — `figural_rate` 14 in the old spec, 14 in the engine, 0 left
+behind. **This is the same class release 2026.08.17.1 already fixed once for
+`audit_callgraph` C4**, with a comment saying that without the widening "extracting code
+CORRECTLY makes five live functions read as dead". B3 repeated the extraction at four
+times the scale and `audit_seam` never received the same treatment.
+
+Registering `analyse_engine.py` in both maps cleared those five and surfaced two more —
+`figural_no_image` and `image_not_figural`, read by `run_img5b` and **written by
+`corpus_io.figural_consistency()`**. `corpus_io.py` was in neither map, so before the
+extraction *both* sides were invisible and the field never appeared at all: the seam had
+never been checked. Registering its real writer is the honest completion, **not an ALLOW
+entry**, because nothing about that pair is legitimately one-sided. Result: 0 findings
+across 53 fields, up from 51. Mutation-tested — removing `figural_rate` from the engine
+still fires ORPHAN-READ.
+
+**Verification — now against CI's actual gate list, read from `validate.yml` rather than
+recalled.** bootstrap 49/49; `validate_framework_md` 0 / 23; `check_triggers` 23;
+`notes_sync_audit` 0 and its five engine self-tests; `final_assembly` 103/103;
+`spec_name_audit` 23/23 + baseline OK; `mock_sync_audit` 37/37 + all agree; `audit_deep`
+10/10 + 0 findings; `audit_callgraph` 0; `audit_sync` 12/12; `audit_specs_ext` 11/11 + 0
+/ 57; **`audit_seam` 14/14 + 0 / 53**; **`audit_mutation --max-survivors 0`: 35 findings
+under test, 35 killed, 0 survived, 100%**; `analyse_engine --self-test` 55/55.
 
 ## 2026.08.17.1 — Wave 2 Part C, Batch 2: §2 and §4 move into a routed engine
 

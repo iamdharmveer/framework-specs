@@ -41,6 +41,21 @@
 #   use run_batch_loop. A parse gate over all 42 fences now runs alongside the artefact
 #   assertion; byte-identical output is necessary and NOT sufficient.
 #
+#   audit_seam.py — CAUGHT AT DEPLOY, NOT BY ME. The first cut of this release was
+#   rejected: audit_seam reported 5 ORPHAN-READ findings because it identifies producers
+#   and consumers from hardcoded five-file maps and analyse_engine.py was in neither, so
+#   every field whose writer moved lost its visible producer. Pure relocation — figural_rate
+#   14 in the old spec, 14 in the engine, 0 left behind. SAME CLASS release 2026.08.17.1
+#   already fixed once for audit_callgraph C4; this batch repeated the extraction at four
+#   times the scale and audit_seam did not receive the same widening.
+#   Registering the engine surfaced two more, figural_no_image and image_not_figural,
+#   whose real writer is corpus_io.figural_consistency() — unregistered, so BOTH sides
+#   had been invisible and that seam had never actually been checked. Its writer is now
+#   registered too: the honest completion, not an ALLOW entry.
+#   ROOT CAUSE OF THE MISS: I verified against ten auditors recalled from memory.
+#   .github/workflows/validate.yml runs fifteen gates plus audit_mutation. The gate list
+#   is now read from validate.yml, not remembered.
+#
 #   MS-3 STAMP-PARITY. The three emitted-stamp literals moved into the engine, so MS-3 —
 #   a PRESENCE check over this file's fences — reported it could match nothing, the
 #   disarmed state its own comment names. Fixed the way MS-3 asks: one literal per

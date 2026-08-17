@@ -23,9 +23,9 @@
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.3",
-      "lines": 5144,
-      "sha256": "00f7d30622b5a513e6672cb389264e4a6f0ab6cb4f3a43280fb497214d5c9842",
-      "size_bytes": 293542,
+      "lines": 5159,
+      "sha256": "9247a72731a48cccfc3cb8a3e27e87d7f028844193eeba1bb15c8181fa7a575e",
+      "size_bytes": 294699,
       "version_header": "# Framework_MockTestAnalyse v2.53.3 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
@@ -198,9 +198,9 @@
     },
     "audit_seam.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 301,
-      "sha256": "9e9033334c3040987c393d1ffaaf84ca9acb07af6b487ea3d03ec7f336b27932",
-      "size_bytes": 16798,
+      "lines": 321,
+      "sha256": "1231463cf11c19fff3972e47c2c15d64a6447544d955b21114132f50afdb54f9",
+      "size_bytes": 18342,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_specs_ext.py": {
