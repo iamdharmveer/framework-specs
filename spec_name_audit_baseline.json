@@ -1,193 +1,536 @@
 {
- "Framework_Blueprint.md": [
-  "AXIS2_CAP_BY_ID",
-  "AXIS_DIST_BY_EXAM_SECTION",
-  "AXIS_DIST_BY_SECTION",
-  "EXAM",
-  "MANDATORY_GROUPS",
-  "MANDATORY_IDS",
-  "MANIFEST_IDS",
-  "MAX_RARE_PER_MOCK",
-  "MIN_COUNTS",
-  "N_mocks",
-  "S",
-  "_apply_equal_distribution",
-  "all_done_mocks",
-  "all_subs_in_section",
-  "analysis_taxonomy",
-  "batch_end",
-  "batch_mocks",
-  "batch_range",
-  "batch_start",
-  "blueprint",
-  "bp",
-  "excel",
-  "excel_years",
-  "fail",
-  "flag",
-  "math",
-  "nonrare_subs_by_section",
-  "note",
-  "preflight_mandate_ravg_check",
-  "progressive_mode",
-  "rare_subs_by_section",
-  "read_field",
-  "recent_years",
-  "registry",
-  "resolve_subtopic_id",
-  "sections",
-  "subtopic_data",
-  "total_qs",
-  "user_bands",
-  "warn",
-  "zp_slot"
+ "Framework_Blueprint.md": {
+  "AXIS2_CAP_BY_ID": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "AXIS_DIST_BY_EXAM_SECTION": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "AXIS_DIST_BY_SECTION": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "EXAM": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "resolve_subtopic_id() L6673"
+  },
+  "MANDATORY_GROUPS": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "MANDATORY_IDS": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "MANIFEST_IDS": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "MAX_RARE_PER_MOCK": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "MIN_COUNTS": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "N_mocks": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "S": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "_apply_equal_distribution": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "all_done_mocks": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "all_subs_in_section": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "analysis_taxonomy": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "batch_end": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "batch_mocks": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "batch_range": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "batch_start": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "blueprint": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "bp": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "excel": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "excel_years": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "fail": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "flag": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "math": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "nonrare_subs_by_section": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "note": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "preflight_mandate_ravg_check": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "progressive_mode": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "rare_subs_by_section": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "read_field": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "recent_years": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "registry": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "resolve_subtopic_id": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "sections": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "subtopic_data": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "total_qs": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "user_bands": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "warn": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "zp_slot": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_DeliveryFooter.md": {
+  "file_exists_in_project": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "fnmatch": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_MockDeliver.md": {
+  "LEVEL": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "MOCK_NUMBER": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "UPLOADED_FILE_PATH": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_MockTestAnalyse.md": {
+  "exam_code": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "extract_presorted": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "extract_year_from_filename": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "get_vision_candidates": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "load_progress": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "msq_allow_aota": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "msq_instruction": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "msq_instruction_hi": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "msq_k": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "msq_k_mode": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "nat_answer_type": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "nat_instruction": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "nat_tolerance": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "option_label_format": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "options_count": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "partial_credit": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "pyq_drive_folder_id": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "run_img5b": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "run_synthesise": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "save_progress": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "sort_papers_recency_first": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "tag_axes": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_MockTestCreate.md": {
+  "LEVEL": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "N": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "N_alloc": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "SCOPE_SUBJECT": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "SCOPE_TOPIC": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "SR": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "_add_image_para": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "_mm_mask": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "batch_questions": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "build_question": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "generate_subtopic() L3245"
+  },
+  "canonical": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "generate_subtopic() L3208"
+  },
+  "capable_ids": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "cloze_linked_qs": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "context_store": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "counts": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "cross_mock_duplicate": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "generate_subtopic() L3252"
+  },
+  "doc": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "draw_fn": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "flag": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "controlled_reuse() L3360"
+  },
+  "invent_distinct_scenario": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "scenario_iterator() L3428"
+  },
+  "mock_presentation_ledger": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "generate_subtopic() L3225"
+  },
+  "mock_scenario_ledger": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "generate_subtopic() L3209"
+  },
+  "passage_linked_qs": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "passes_quality_gates": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "generate_subtopic() L3256"
+  },
+  "png_path": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "qnum": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "subtopic_data": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "weighted_patterns": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "scenario_iterator() L3425"
+  },
+  "widen_scenario_space": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "generate_subtopic() L3288"
+  }
+ },
+ "Framework_MockTestExplain.md": {
+  "EXAM": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "EXAMCODE": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "N": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "PAPER_SLUG": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQCore.md": {
+  "exam_code": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "files_for_present": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "mode": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQCount.md": {
+  "BATCH_SIZE_COUNTS": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "Counter": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "confirmed_total": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "counted": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "re": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQDeliver.md": {
+  "Q_TOTAL": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "difficulty_labels": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "exam_config": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "marking_scheme": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "q": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "qtype_map": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQDraft.md": {
+  "AnchoringGateFailure": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "classify_style": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "emissions": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "group_topic_map": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "syllabus_subjects": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "syllabus_total": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "taxonomy": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQExplain.md": {
+  "CLEAN_ROW_FILE": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "DATE_SESSION": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "EXAM": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "EXPECTED": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "blocks": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "cfg": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "out": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQFormat.md": {
+  "SECTPR_ORDER": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "ftr_rid": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "hdr_rid": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "namespace_selfcheck": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "sectPr": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "set_child_multi": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQPrepare.md": {
+  "MATH_CLOSE": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "MATH_OPEN": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "MathCompileError": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "OxmlElement": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "WORK_DIR": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "_REGION_RE": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "_T3_STATS": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "qn": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "set_font": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "t3_compile": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQScan.md": {
+  "MIN_PATTERN_SIZE": {
+   "reason": "GRANDFATHERED_MUST_FIX",
+   "site": "check_dimensional_splits() L1555"
+  },
+  "bc": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "reclassify_after_refinement": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "run_refinement_pass": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_PYQSort.md": {
+  "approval_record": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "re_embed_images": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "Framework_ScopedBlueprint.md": {
+  "e": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "excel_by_key": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "excel_years": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "override_mode": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "override_pct": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "trigger": {
+   "reason": "forward_ref_or_session_global"
+  },
+  "valid_years": {
+   "reason": "forward_ref_or_session_global"
+  }
+ },
+ "_grandfathered": [
+  "Framework_Blueprint.md: EXAM \u2014 read in resolve_subtopic_id() L6673",
+  "Framework_MockTestCreate.md: build_question \u2014 read in generate_subtopic() L3245",
+  "Framework_MockTestCreate.md: canonical \u2014 read in generate_subtopic() L3208",
+  "Framework_MockTestCreate.md: cross_mock_duplicate \u2014 read in generate_subtopic() L3252",
+  "Framework_MockTestCreate.md: flag \u2014 read in controlled_reuse() L3360",
+  "Framework_MockTestCreate.md: invent_distinct_scenario \u2014 read in scenario_iterator() L3428",
+  "Framework_MockTestCreate.md: mock_presentation_ledger \u2014 read in generate_subtopic() L3225",
+  "Framework_MockTestCreate.md: mock_scenario_ledger \u2014 read in generate_subtopic() L3209",
+  "Framework_MockTestCreate.md: passes_quality_gates \u2014 read in generate_subtopic() L3256",
+  "Framework_MockTestCreate.md: weighted_patterns \u2014 read in scenario_iterator() L3425",
+  "Framework_MockTestCreate.md: widen_scenario_space \u2014 read in generate_subtopic() L3288",
+  "Framework_PYQScan.md: MIN_PATTERN_SIZE \u2014 read in check_dimensional_splits() L1555"
  ],
- "Framework_DeliveryFooter.md": [
-  "file_exists_in_project",
-  "fnmatch"
- ],
- "Framework_MockDeliver.md": [
-  "LEVEL",
-  "MOCK_NUMBER",
-  "UPLOADED_FILE_PATH"
- ],
- "Framework_MockTestAnalyse.md": [
-  "exam_code",
-  "extract_presorted",
-  "extract_year_from_filename",
-  "get_vision_candidates",
-  "load_progress",
-  "msq_allow_aota",
-  "msq_instruction",
-  "msq_instruction_hi",
-  "msq_k",
-  "msq_k_mode",
-  "n_vision",
-  "nat_answer_type",
-  "nat_instruction",
-  "nat_tolerance",
-  "option_label_format",
-  "options_count",
-  "partial_credit",
-  "pyq_drive_folder_id",
-  "run_img5b",
-  "run_synthesise",
-  "save_progress",
-  "sort_papers_recency_first",
-  "tag_axes"
- ],
- "Framework_MockTestCreate.md": [
-  "LEVEL",
-  "N",
-  "N_alloc",
-  "SCOPE_SUBJECT",
-  "SCOPE_TOPIC",
-  "SR",
-  "_add_image_para",
-  "_mm_mask",
-  "batch_questions",
-  "build_question",
-  "canonical",
-  "capable_ids",
-  "cloze_linked_qs",
-  "context_store",
-  "counts",
-  "cross_mock_duplicate",
-  "doc",
-  "draw_fn",
-  "flag",
-  "invent_distinct_scenario",
-  "mock_presentation_ledger",
-  "mock_scenario_ledger",
-  "passage_linked_qs",
-  "passes_quality_gates",
-  "png_path",
-  "qnum",
-  "subtopic_data",
-  "weighted_patterns",
-  "widen_scenario_space"
- ],
- "Framework_MockTestExplain.md": [
-  "EXAM",
-  "EXAMCODE",
-  "N",
-  "PAPER_SLUG"
- ],
- "Framework_PYQCore.md": [
-  "exam_code",
-  "files_for_present",
-  "mode"
- ],
- "Framework_PYQCount.md": [
-  "BATCH_SIZE_COUNTS",
-  "Counter",
-  "confirmed_total",
-  "counted",
-  "re"
- ],
- "Framework_PYQDeliver.md": [
-  "Q_TOTAL",
-  "difficulty_labels",
-  "exam_config",
-  "marking_scheme",
-  "q",
-  "qtype_map"
- ],
- "Framework_PYQDraft.md": [
-  "AnchoringGateFailure",
-  "classify_style",
-  "emissions",
-  "group_topic_map",
-  "syllabus_subjects",
-  "syllabus_total",
-  "taxonomy"
- ],
- "Framework_PYQExplain.md": [
-  "CLEAN_ROW_FILE",
-  "DATE_SESSION",
-  "EXAM",
-  "EXPECTED",
-  "blocks",
-  "cfg",
-  "out"
- ],
- "Framework_PYQFormat.md": [
-  "SECTPR_ORDER",
-  "ftr_rid",
-  "hdr_rid",
-  "namespace_selfcheck",
-  "sectPr",
-  "set_child_multi"
- ],
- "Framework_PYQPrepare.md": [
-  "MATH_CLOSE",
-  "MATH_OPEN",
-  "MathCompileError",
-  "OxmlElement",
-  "WORK_DIR",
-  "_REGION_RE",
-  "_T3_STATS",
-  "qn",
-  "set_font",
-  "t3_compile"
- ],
- "Framework_PYQScan.md": [
-  "MIN_PATTERN_SIZE",
-  "bc",
-  "reclassify_after_refinement",
-  "run_refinement_pass"
- ],
- "Framework_PYQSort.md": [
-  "approval_record",
-  "re_embed_images"
- ],
- "Framework_ScopedBlueprint.md": [
-  "e",
-  "excel_by_key",
-  "excel_years",
-  "override_mode",
-  "override_pct",
-  "trigger",
-  "valid_years"
- ]
+ "_policy": "A name READ inside a function this spec CALLS may NEVER be baselined. --write-baseline refuses to create such an entry. The only exception is GRANDFATHERED_MUST_FIX, which must be placed BY HAND, is listed below, and can only be removed \u2014 never added by tooling.",
+ "_schema": "TYPED BASELINE v2 \u2014 every entry carries a reason. See spec_name_audit.py REASONS."
 }

@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.12.1 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.0",
-      "lines": 9292,
-      "sha256": "ab5e9c757d42acc8b8d2241ff1fc015b4c16a66a2dd37fcc2cf425ce90d373bd",
-      "size_bytes": 529648,
-      "version_header": "# Framework_MockTestAnalyse v2.53.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.1",
+      "lines": 9355,
+      "sha256": "2f0760fff305fa6df2c01554b8c2a73842d9738c9ece864bee812ccb102d36b3",
+      "size_bytes": 534135,
+      "version_header": "# Framework_MockTestAnalyse v2.53.1 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -170,9 +170,9 @@
     },
     "audit_callgraph.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 1326,
-      "sha256": "5efddcf3f764bc3497ccefb2de6e85c06c5385dd9c314400792e350fd1ab1ea5",
-      "size_bytes": 66487,
+      "lines": 1334,
+      "sha256": "78fa094ca129245cbad71e81d75677d9e4f38a60a2c26f7bbf337d248763cc80",
+      "size_bytes": 67087,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_canonical.py": {
@@ -184,9 +184,9 @@
     },
     "audit_deep.py": {
       "end_sentinel": "sys.exit(1 if tot else 0)",
-      "lines": 346,
-      "sha256": "47e4dcdc496ef6a073c717774c2d28142a6af19fbecbc18e0df8900b794adefe",
-      "size_bytes": 18901,
+      "lines": 383,
+      "sha256": "6d9f885647b6c24c1418b43b1b245ea9a193fbb0bfb42997acad63292fed5a29",
+      "size_bytes": 21390,
       "version_header": "\"\"\"audit_deep.py — checks NOT covered by validate_framework_md.py or audit_sync.py."
     },
     "audit_mutation.py": {
@@ -212,9 +212,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 510,
-      "sha256": "6b34a2617ab286470b9470f9ff8e8d8054513a045483e3faa6c0c69b15519fe5",
-      "size_bytes": 27066,
+      "lines": 545,
+      "sha256": "866864a151dbac83d1bf8349cc7c5d6255055af97921f74a0ed42718a2ad19d7",
+      "size_bytes": 29448,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {
@@ -387,9 +387,9 @@
     },
     "spec_name_audit.py": {
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 545,
-      "sha256": "ea0b26e2e98a283347ff4466ab7bf58823a84c4a44345c3b654647507b81d88f",
-      "size_bytes": 20515,
+      "lines": 823,
+      "sha256": "4a0210b8d2b554aed2f1958051d68a03c75249fb8be16c8615c6fae792af2072",
+      "size_bytes": 35013,
       "version_header": "\"\"\"spec_name_audit.py v1.0 — cross-block undefined-name auditor for spec-inline python."
     },
     "mock_sync_audit.py": {

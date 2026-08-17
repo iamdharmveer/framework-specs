@@ -1,4 +1,32 @@
-# Framework_MockTestAnalyse v2.53.0 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.53.1 — Universal PYQ Pattern Extraction Engine
+# v2.53.1 — 2026-08-16 — GAP-2026-08-16-BASELINE-SUPPRESSED-NAMEERRORS (D5, D6).
+#   PATCH bump: two guaranteed NameErrors are fixed. NO ARTEFACT VALUES CHANGE and the
+#   v2.53 stamps are deliberately untouched — verified byte-identical against the
+#   IIT_JAM_MATHEMATICS golden set captured from deployed 2026.08.16.2.
+#
+#   BOTH WERE SUPPRESSED BY spec_name_audit_baseline.json, and both survived the very
+#   release that fixed D2/D3 — because `--write-baseline` re-freezes whatever is
+#   currently unbound, including defects the previous release introduced. A ratchet
+#   wired to a working detector, with a switch in between that accepts everything the
+#   detector finds, is not a ratchet. That switch is closed in this release.
+#
+#   D5 — process_pyq_paper() raised NameError on `n_vision`, on EVERY paper of EVERY
+#     exam, unguarded, on its second-to-last statement, after all work was done and
+#     before `return questions, linked_groups` could run. `n_vision` is a LOCAL of
+#     run_batch_loop() in §8. So Step 5's EXTRACTION phase was broken too, not only
+#     synthesis. The per-paper figural count is len(vision_candidates); §8's n_vision
+#     is the BATCH queue size and was never the right number here.
+#
+#   D6 — run_qv() read `options_count`, a SESSION parameter bound nowhere at module
+#     scope. QV-15's comprehension only EVALUATES it when _tbh is non-empty — that is,
+#     when at least one question WAS terminated by an inferred heading. So QV-15 raised
+#     EXACTLY when it had something to report and passed silently when it did not: a
+#     check that crashes only on the defect it exists to detect, and reads as a clean
+#     PASS on every corpus that never triggers it. IIT_JAM_MATHEMATICS has 0 such
+#     questions, which is the ONLY reason the v2.53.0 certification run survived it.
+#     Now read from progress._meta.options_count, the parameter's persisted home, with
+#     the documented safe default of 4.
+#
 # v2.53.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE.
 #   MINOR bump: EMITTED ARTEFACT VALUES CHANGE (D4 orders one list), a function's
 #   contract is tightened (print_qv), and a defect CLASS is swept across four specs.
@@ -2383,8 +2411,21 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
     if year and year not in meta['years_processed']:
         meta['years_processed'].append(year)
 
+    # GAP-2026-08-16-BASELINE-SUPPRESSED-NAMEERRORS (D5). This line read `n_vision`,
+    # which is a LOCAL of run_batch_loop() in §8 — bound nowhere in this function, this
+    # section, or at module scope. process_pyq_paper() therefore raised
+    # `NameError: name 'n_vision' is not defined` on its second-to-last statement, on
+    # EVERY paper of EVERY exam, unguarded, after all the work was done and before
+    # `return questions, linked_groups` could run.
+    # It survived because spec_name_audit DETECTED it and `n_vision` sat in
+    # spec_name_audit_baseline.json as an accepted unbound name — the same untyped
+    # baseline that hid D2/D3 in GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE.
+    # The per-paper figural count is len(vision_candidates); §8's n_vision is the
+    # BATCH-level queue size and was never the right number here. "queued" not
+    # "analysed": Phase B does the analysis, this is Phase A accumulation.
     print(f"  {os.path.basename(docx_path)}: {len(questions)} Qs, "
-          f"{len(linked_groups)} linked groups, {n_vision} figural images analysed")
+          f"{len(linked_groups)} linked groups, "
+          f"{len(vision_candidates)} figural image(s) queued for vision")
     return questions, linked_groups
 ```
 
@@ -6144,9 +6185,31 @@ def run_qv(entries, taxonomy, progress):
     # heading). So for NAT the assertion is on COLOUR: in a file whose date-label probe
     # passed, a body terminated by a non-navy inferred heading is a misread by definition.
     _tbh   = [e for e in entries if e.get('terminated_by_heading')]
+    # GAP-2026-08-16-BASELINE-SUPPRESSED-NAMEERRORS (D6). `options_count` is a SESSION
+    # parameter detected at S1-3; it is bound nowhere at module scope, so run_qv read a
+    # free name. The comprehension only EVALUATES it when _tbh is non-empty — i.e. when
+    # at least one question was terminated by an inferred heading — so QV-15 raised
+    # NameError EXACTLY when it had something to report, and passed silently when it
+    # did not. A check that crashes only on the defect it exists to detect is worse
+    # than absent: it reads as a clean PASS on every corpus that does not trigger it.
+    # IIT_JAM_MATHEMATICS has 0 such questions, which is the only reason the v2.53.0
+    # certification run survived this line.
+    # progress._meta.options_count is the parameter's persisted home (written at S1-3,
+    # present in every schema_version >= 2.0 corpus). Default 4 matches the documented
+    # safe default at §1 ("mixed or ambiguous -> options_count = 4").
+    # Coerced, not merely defaulted. `<` between int and str raises TypeError, so a
+    # hand-edited exam_config or a pre-2.0 corpus carrying "4" would reproduce the exact
+    # crash this fix removes. Every non-numeric or absent value falls back to the
+    # documented safe default of 4 (§1: "mixed or ambiguous -> options_count = 4").
+    try:
+        _options_count = int((progress.get('_meta') or {}).get('options_count') or 4)
+    except (TypeError, ValueError):
+        _options_count = 4
+    if _options_count < 1:
+        _options_count = 4
     _short = [e for e in _tbh
               if e.get('has_options', True)
-              and len(e.get('options') or []) < options_count]
+              and len(e.get('options') or []) < _options_count]
     _nat_bad = [e for e in _tbh
                 if not e.get('has_options', True)
                 and e.get('colour_available')
@@ -9289,4 +9352,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.53.0
+# END OF Framework_MockTestAnalyse v2.53.1

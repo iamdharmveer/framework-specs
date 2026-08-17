@@ -137,7 +137,44 @@ ENG={m:open(m+'.py',encoding='utf-8').read() for m in _TRACKED
      if os.path.exists(m+'.py')}
 I=defaultdict(list)
 def rec(c,m): I[c].append(m)
-def blocks(t): return re.findall(r"```python\n(.*?)```",t,re.S)
+# GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS: dedent each fence before it is
+# parsed. MEASURED 2026-08-16: this extractor yielded 147 blocks across five
+# specs and 61 of them failed ast.parse purely on uniform leading whitespace,
+# so 41% of the python it appeared to audit was silently discarded.
+# textwrap.dedent strips only the COMMON prefix and adds/removes no line, so
+# nested code is untouched and every line number stays valid.
+def blocks(t):
+    """Return the dedented source of every ```python fence.
+
+    GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS. The dedent is the fix. A fence whose ```
+    marker and body are BOTH indented yields uniformly-indented source, which
+    ast.parse rejects as "unexpected indent", so the caller's try/except discarded it
+    in silence. MEASURED across five specs: 61 of 147 blocks — 41% of the python this
+    auditor appeared to be checking. textwrap.dedent strips only the COMMON prefix and
+    adds or removes no line, so nested code is unaffected and every line number stays
+    valid. Verified over all 259 fences in the corpus: nothing that parsed before
+    stopped parsing, and no fence changed line count.
+
+    KNOWN REMAINING LIMIT — 2 of 147 blocks, DELIBERATELY NOT FIXED HERE.
+    The non-greedy `(.*?)` ends the capture at the FIRST ``` in the body, so a fence
+    containing a triple backtick inside a docstring is cut mid-string
+    (Framework_MockTestAnalyse.md's S8-1 batch-loop acquisition block truncates at its
+    line 250). A line-based scanner keyed on the fence markers fixes it and was built
+    and measured — it takes this extractor to 146/146 — but it surfaces three
+    pre-existing XSPEC-DRIFT findings (acquire_paper, plan_transport,
+    probe_drive_channel differ between Framework_MockTestAnalyse.md and
+    Framework_PYQCount.md), and this auditor has no exemption mechanism: its own
+    self-test asserts the live corpus reports `findings: 0`.
+    Two of those three are INTENTIONAL step divergence — probe_drive_channel differs
+    only in its step label (S8-0 vs S5-0), and Step 5's plan_transport carries the
+    v2.51.0 SESSION-BUDGET LAW that Step 4 never received. Whether Step 4 SHOULD
+    receive it is a real open question under the LAW-PROPAGATION LAW, and it is a
+    behavioural decision about Step 4 for every exam in the estate — not something to
+    settle inside a fence-extraction fix. Tracked as backlog; see the GAP doc.
+    """
+    import textwrap
+    return [textwrap.dedent(b) for b in
+            re.findall(r"```python\n(.*?)```", t, re.S)]
 def fingerprint(fn):
     fn=ast.parse(ast.unparse(fn)).body[0]
     if (fn.body and isinstance(fn.body[0], ast.Expr)

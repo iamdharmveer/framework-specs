@@ -48,6 +48,7 @@ Exit code 1 if any finding is raised.
 """
 
 import ast
+import textwrap
 import glob
 import os
 import re
@@ -104,7 +105,7 @@ def python_blocks(path):
             cur, start = [], i
             continue
         if s == '```' and cur is not None:
-            out.append((start, '\n'.join(cur)))
+            out.append((start, textwrap.dedent('\n'.join(cur))))
             cur = None
             continue
         if cur is not None:
@@ -343,7 +344,14 @@ def any_python_blocks(path):
             if cur is None:
                 cur, start = [], i
             else:
-                src = '\n'.join(cur)
+                # GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS. Dedent BEFORE the parse
+                # probe. A fence whose ``` marker and body are both indented is
+                # uniformly-indented source, which ast.parse rejects as "unexpected
+                # indent" — so this function's own compiles-as-python test failed on
+                # it and the block was dropped. That is the C6 blind spot one level
+                # down: C6 was taught to look past the ```python LABEL in
+                # GAP-2026-08-15, but not past the INDENT.
+                src = textwrap.dedent('\n'.join(cur))
                 try:
                     ast.parse(src)
                     out.append((start, src))

@@ -1,5 +1,134 @@
 # Changelog
 
+## 2026.08.16.3 — three auditors were reading 60% of the python they reported on
+
+**GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS + GAP-2026-08-16-BASELINE-SUPPRESSED-NAMEERRORS.
+`Framework_MockTestAnalyse` v2.53.0 → v2.53.1 (PATCH), `audit_callgraph.py`,
+`audit_deep.py`, `audit_sync.py`, `spec_name_audit.py`, `spec_name_audit_baseline.json`.
+NO ARTEFACT VALUES CHANGE** — verified byte-identical against the IIT_JAM_MATHEMATICS
+golden set captured from deployed 2026.08.16.2, across `PYTHONHASHSEED` 1, 17 and 2029.
+
+Found while starting Wave 2 Part C Batch 2. The extraction scope analysis kept
+disagreeing with `spec_name_audit`, and the disagreement was the finding.
+
+**A. Three auditors silently skipped every indented fence.** A fence whose ``` marker
+AND body are both indented — a step block nested under a numbered heading — yields
+uniformly-indented source, which `ast.parse` rejects as "unexpected indent". Measured
+across five specs:
+
+| extractor | blocks | parsed | skipped |
+|---|---|---|---|
+| `audit_callgraph.python_blocks` | 146 | 87 | **59** |
+| `audit_deep.blocks` / `audit_sync.blocks` | 147 | 86 | **61** |
+| `validate_framework_md` | 144 | 144 | 0 |
+| `spec_name_audit` | 146 | 146 | 0 |
+
+`audit_callgraph` was discarding **40%** of the python it appeared to audit.
+`Framework_MockTestCreate.md` — Step 7, the question generator — held 53 of the skipped
+fences, including blocks of 254 and 257 lines. This is the C6 blind spot one level down:
+GAP-2026-08-15 taught C6 to look past the ```python LABEL; nothing taught it to look
+past the INDENT. `validate_framework_md` (strips the marker's own indent) and
+`spec_name_audit` (already dedents) were never affected — which is precisely why the
+disagreement between them and the others was detectable at all.
+
+FIX: `textwrap.dedent` at each extractor's single fence-assembly point. **No spec bytes
+changed.** dedent strips only the COMMON prefix and adds or removes no line, so nested
+code is untouched and every reported line number stays valid. Coverage after:
+`python_blocks` 87→146, `any_python_blocks` 92→151, `audit_deep`/`audit_sync` 86→145.
+All three auditors report the SAME findings with 40% more code visible — the hidden
+fences were clean; they had simply never been checked.
+
+**B. The baseline was still suppressing guaranteed NameErrors — including two the
+previous release introduced.**
+
+- **D5** — `process_pyq_paper()` read `n_vision`, a LOCAL of `run_batch_loop()` in §8.
+  Unguarded, on the second-to-last statement, on EVERY paper of EVERY exam, after all
+  the work was done and before `return questions, linked_groups`. Step 5's EXTRACTION
+  phase was broken too, not only synthesis.
+- **D6** — `run_qv()` read `options_count`, a session parameter bound nowhere at module
+  scope. QV-15's comprehension only evaluates it when `_tbh` is non-empty — when at
+  least one question WAS terminated by an inferred heading. **QV-15 raised exactly when
+  it had something to report and passed silently when it did not.** IIT_JAM_MATHEMATICS
+  has zero such questions, which is the only reason 2026.08.16.2's certification run
+  survived it.
+
+Both sat in `spec_name_audit_baseline.json`, and both survived the release that fixed
+D2/D3, because `--write-baseline` re-freezes whatever is currently unbound — including
+defects the previous release introduced.
+
+**THE MECHANISM FIX. The baseline is now typed, and one class cannot enter it.** Every
+entry carries a reason from a closed vocabulary. A name READ inside a function the spec
+CALLS may never be baselined: `--write-baseline` refuses, names each one with its
+function and line, and exits without writing. The only exception is
+`GRANDFATHERED_MUST_FIX`, which must be placed BY HAND, is listed in the baseline's own
+`_grandfathered` block, and can only ever be removed.
+
+Getting the refusal's precision right mattered: the first cut flagged 37 names, most of
+them legitimate forward references (`tag_axes`, `extract_presorted`, `save_progress`).
+`audit_text` models SEQUENTIAL binding, which is correct for top-level statements and
+wrong for function bodies that do not run until every fence has executed. `classify()`
+now also requires the name to be bound nowhere at module scope in ANY fence. A refusal
+rule that cries wolf on 37 names is one somebody switches off.
+
+**12 grandfathered, all named in the baseline** — 10 in `Framework_MockTestCreate.md`
+(`generate_subtopic`, `controlled_reuse`, `scenario_iterator`: `build_question`,
+`canonical`, `cross_mock_duplicate`, `flag`, `invent_distinct_scenario`,
+`mock_presentation_ledger`, `mock_scenario_ledger`, `passes_quality_gates`,
+`weighted_patterns`, `widen_scenario_space`), plus `EXAM` in `Framework_Blueprint.md`
+and `MIN_PATTERN_SIZE` in `Framework_PYQScan.md`. Several read like model-performed
+operations that should be `CLASS: T`/`J` stubs rather than python calls. **Not fixed in
+this release** — deliberately out of scope; they are now visible, signed for, and can
+only shrink.
+
+**FOUND IN FINAL PRE-DEPLOY REVIEW — three bugs in the typed baseline itself.** The
+first cut of the mechanism silently destroyed the record it exists to keep, which is
+the defect class this release is about, inside the file that fixes it:
+
+1. `data[f] = entry` overwrote grandfathered names accumulated via `setdefault`, so a
+   single successful `--write-baseline` **dropped all 12 signed-for entries** and the
+   next `--check-baseline` failed on them as NEW findings.
+2. `load_baseline` strips `_`-prefixed keys, so the same write **erased `_schema`,
+   `_policy` and the entire `_grandfathered` record**.
+3. `main()` called `.values()` on the `None` a refusal returns — an `AttributeError`
+   traceback burying the refusal message that had just been printed.
+
+All three are fixed, and all three are now **pinned by self-tests** (16/16 → 23/23) on a
+purpose-built fixture spec, so the round trip cannot regress. `--write-baseline` also
+now reports how many `GRANDFATHERED_MUST_FIX` entries it carried.
+
+**ALSO HARDENED.** `options_count` is coerced with `int()` inside a try/except rather
+than merely defaulted: `<` between `int` and `str` raises `TypeError`, so a hand-edited
+exam_config or a pre-2.0 corpus carrying `"4"` would have reproduced the exact QV-15
+crash this release removes. Verified across 13 shapes — int, str, float, None, 0,
+negative, list, absent, `_meta` absent, `_meta: null` — all resolve to a usable count.
+`--check-baseline` now exits 2 with a diagnosis on a missing or malformed baseline
+instead of a traceback, because an unreadable baseline is indistinguishable from an
+empty one and treating it as empty would silently accept every finding in the corpus.
+
+**KNOWN LIMIT, DELIBERATELY NOT FIXED.** 2 of 147 blocks still evade
+`audit_deep`/`audit_sync`: the non-greedy `(.*?)` ends the capture at the first ``` in
+the body, truncating a fence whose docstring contains a triple backtick
+(`Framework_MockTestAnalyse.md`'s S8-1 acquisition block, cut at its line 250). A
+line-based scanner was built and measured — it takes the extractor to 146/146 — but it
+surfaces three pre-existing `XSPEC-DRIFT` findings (`acquire_paper`, `plan_transport`,
+`probe_drive_channel` differ between `Framework_MockTestAnalyse.md` and
+`Framework_PYQCount.md`), and `audit_deep` has no exemption mechanism: its own self-test
+asserts the live corpus reports `findings: 0`. Two of the three are INTENTIONAL step
+divergence — `probe_drive_channel` differs only in its step label (S8-0 vs S5-0), and
+Step 5's `plan_transport` carries the v2.51.0 SESSION-BUDGET LAW that Step 4 never
+received. **Whether Step 4 should receive it is a real open question under the
+LAW-PROPAGATION LAW and a behavioural decision about Step 4 for every exam in the
+estate** — not something to settle inside a fence-extraction fix. Tracked as backlog.
+
+**Verification.** bootstrap 48/48 at 2026.08.16.3; `validate_framework_md` 0 issues / 23
+specs; `audit_specs_ext` 0 / 56; `mock_sync_audit` all agree; `audit_callgraph` 0 and
+self-test 30/30; `audit_deep` 0 and self-test 10/10; `audit_sync` self-test 12/12;
+`notes_sync_audit` 0; `spec_name_audit` OK (158 baselined) and self-test 23/23;
+`check_triggers` 23. Engine self-tests unchanged and green: blueprint_core 490/490,
+corpus_io 347/347, explain_engine 64/64, reconcile_taxonomy 69/69, figural_vision 46/46,
+spec_source 27/27, notes_core 186, notes_blueprint 31, notes_audit 130. Golden set: all
+six artefacts byte-identical across `PYTHONHASHSEED` 1, 17, 2029 and 7.
+
 ## 2026.08.16.2 — Step 5 synthesis could not emit an artefact, and had not since 5 August
 
 **GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE. `Framework_MockTestAnalyse` v2.52.0 →

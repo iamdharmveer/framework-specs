@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.16.2",
+  "framework_version": "2026.08.16.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -194,11 +194,11 @@
       "bytes": 85165
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "ab5e9c757d42acc8b8d2241ff1fc015b4c16a66a2dd37fcc2cf425ce90d373bd",
-      "version_header": "# Framework_MockTestAnalyse v2.53.0 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.0",
-      "lines": 9292,
-      "bytes": 529648
+      "sha256": "2f0760fff305fa6df2c01554b8c2a73842d9738c9ece864bee812ccb102d36b3",
+      "version_header": "# Framework_MockTestAnalyse v2.53.1 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.1",
+      "lines": 9355,
+      "bytes": 534135
     },
     "Framework_MockTestCreate.md": {
       "sha256": "bf9f09368fa43c12e59b05afbd6ce1ff91bc81b696bb4685c4f96f789b4df440",
@@ -425,11 +425,11 @@
       "bytes": 21616
     },
     "spec_name_audit.py": {
-      "sha256": "ea0b26e2e98a283347ff4466ab7bf58823a84c4a44345c3b654647507b81d88f",
+      "sha256": "4a0210b8d2b554aed2f1958051d68a03c75249fb8be16c8615c6fae792af2072",
       "version_header": "\"\"\"spec_name_audit.py v1.0 \u2014 cross-block undefined-name auditor for spec-inline python.",
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 545,
-      "bytes": 20515
+      "lines": 823,
+      "bytes": 35013
     },
     "mock_sync_audit.py": {
       "sha256": "83a438db2e6306e1fa5e28fbc3d653ff93a545476084d9cf0eda0f8bd849364e",
@@ -488,7 +488,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "707b9c5b1469369fe72fd7460bb3518e45314ec338b4317840edacfd2192042f",
+      "sha256": "8dc7734e1259de8ad7bcbb7261e8bd595e06dc152af97d4ebeceba9561c38a1f",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6335,
