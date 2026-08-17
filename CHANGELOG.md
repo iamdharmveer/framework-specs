@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026.08.17.4 — GAP-2026-08-17-B4-ENV-SKEW: the gate disagreed with itself across environments
+
+**`analyse_engine.py` self-test 65 → 67. NO ARTEFACT VALUES CHANGE. Fixes the CI failure
+that 2026.08.17.3 shipped.**
+
+2026.08.17.3 added the pipeline mutation gate and then failed on it. Local: baseline 65
+checks, 20 killed / 28 survived. GitHub runner: baseline **64** checks, 19 killed / **29**
+survived — over the declared budget of 28, so `main` and `production` went red.
+
+**Exactly one mutant differed**: `load_mechanic_overrides` `raise->pass`. The assertion
+that kills it wrote its fixture into `/mnt/project`, which is writable in the dev
+container and **not** on the runner. `_wrote` stayed `False` and the assertion was
+**silently skipped** — so the suite printed "0 failed" in both places while running a
+different number of checks, and the budget of 28 was measured in an environment where the
+assertion runs. It could never gate one where it does not.
+
+**The budget was NOT raised to 29.** `MUTATION_BUDGETS.json` says it in its own words:
+*"A BUDGET IS A DEBT, NEVER AN ALLOWANCE. The only legitimate edit to a number here is a
+DECREASE."* Editing the number to make a build pass is precisely the move that file exists
+to make visible in a diff.
+
+**Three fixes, in increasing order of generality:**
+
+1. `load_mechanic_overrides(exam_code, search_dirs=None)` — additive, defaulting to the
+   documented discovery order, so production behaviour is byte-for-byte unchanged. The
+   EC-M18 hard stop was **untestable** without it: the only way to reach that branch is a
+   malformed file in one of two absolute paths, and neither is writable in CI. **A guard
+   that cannot be exercised in the environment that gates the build is not guarded.** Same
+   injection remedy as `session_re` in B3.
+2. The fixture now writes to `tempfile.mkdtemp()` and resets the `_OVERRIDES` module
+   cache, with **no `if` guard**. This was the third version of this fixture: v1 used a
+   fixed path and concurrent mutants raced on it (28 here, 29 there); v2 made the filename
+   process-unique and kept the directory, fixing the concurrency half and leaving the
+   environment half standing. A second conditional assertion,
+   `template_years_are_sorted`, was found one line away and made unconditional too.
+3. **META-ASSERTION: the suite now verifies it ran every check it contains.** A skipped
+   assertion is indistinguishable, in the printed result, from a passing one — that is the
+   whole defect. `EXPECTED_CHECKS` makes any future add or remove a deliberate, visible
+   diff. Verified: deleting one assertion fails the suite.
+
+**Verified in both environments.** Simulating the runner by blocking writes to `/mnt`:
+**67 passed, 0 failed** — identical to the writable case. Previously 65 vs 64. Mutation
+gate: 20 killed / 28 survived on three consecutive runs, within budget.
+
+The 28 survivors and the plan to reduce them are unchanged from 2026.08.17.3.
+
 ## 2026.08.17.3 — Wave 2 Part C, Batch 4: the pipeline mutation gate, and what it found
 
 **NEW mutation model in `audit_mutation.py`. `analyse_engine.py` self-test 55 → 65.

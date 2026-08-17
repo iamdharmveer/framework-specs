@@ -2443,16 +2443,29 @@ def _is_verbal(section, fmt):
 _OVERRIDES = None
 _MERGE_LOG = []          # populated by apply_subtopic_merges(); read by write_analysis_summary()
 
-def load_mechanic_overrides(exam_code):
+OVERRIDE_SEARCH_DIRS = ('/mnt/project/', '/mnt/user-data/uploads/')
+
+
+def load_mechanic_overrides(exam_code, search_dirs=None):
     """Discovery: /mnt/project/, then /mnt/user-data/uploads/.
     Absent               → all defaults (legacy family selection; SPEC-1 still applies).
-    Present + malformed  → FAIL (EC-M18).  exam_code mismatch → FAIL (EC-M17)."""
+    Present + malformed  → FAIL (EC-M18).  exam_code mismatch → FAIL (EC-M17).
+
+    search_dirs is ADDITIVE AND DEFAULTS TO THE DOCUMENTED ORDER, so production
+    behaviour is byte-for-byte unchanged. It exists because the EC-M18 hard stop was
+    UNTESTABLE without it: the only way to reach that branch is to place a malformed
+    file in one of two absolute paths, and on a GitHub runner neither is writable. The
+    fixture silently skipped, the guard's mutant survived there and died here, and the
+    mutation budget measured 28 locally against 29 in CI — a gate that disagreed with
+    itself across environments (GAP-2026-08-17-B4-ENV-SKEW).
+    A guard that cannot be exercised in the environment that gates the build is not
+    guarded. Injection is the same remedy applied to session_re in B3."""
     global _OVERRIDES
     if _OVERRIDES is not None:
         return _OVERRIDES
     _OVERRIDES = {'template_sets': None, 'template_sets_by_section': {},
                   'subtopic_overrides': {}, 'subtopic_merges': []}
-    for d in ('/mnt/project/', '/mnt/user-data/uploads/'):
+    for d in (search_dirs or OVERRIDE_SEARCH_DIRS):
         path = os.path.join(d, f'{exam_code}_mechanic_overrides.json')
         if not os.path.exists(path):
             continue
@@ -4896,6 +4909,8 @@ def self_test():
     except TypeError as exc:
         check('print_qv_rejects_a_malformed_check', 'QV-2' in str(exc))
 
+    import os as _os
+
     # ══ B4 MUTATION FIXTURES ═════════════════════════════════════════════
     # Each of these was written to KILL a specific surviving mutant found by
     # `audit_mutation.py --engine analyse_engine.py`. The first run scored 25%
@@ -4933,41 +4948,38 @@ def self_test():
     check('detect_is_msq_positive',
           detect_is_msq('Which of the following are correct?', ['a', 'b', 'c', 'd']) is True)
 
-    # ── load_mechanic_overrides: malformed JSON must HARD STOP, not be skipped ─
-    # raise->pass here would let a corrupt override file silently apply NO overrides,
-    # mislabelling every mechanic — a wrong answer, not an error.
-    # THE FILENAME IS PROCESS-UNIQUE ON PURPOSE. The first version used a fixed name
-    # under /mnt/project, which every concurrent mutant shared: they raced on the same
-    # file and the gate reported 28 survivors on one machine and 29 on another. A
-    # mutation gate that returns a different number each run is worse than no gate —
-    # people learn to re-run it until it is green.
-    import os as _os
-    _tag = f'ZZMUT{_os.getpid()}'
-    _dir = '/mnt/project'
-    _bad = _os.path.join(_dir, f'{_tag}_mechanic_overrides.json')
-    _wrote = False
+    # ── load_mechanic_overrides: malformed JSON must HARD STOP ────────────────
+    # UNCONDITIONAL, AND IN A DIRECTORY THAT ALWAYS EXISTS.
+    # Two earlier versions of this fixture were environment-dependent and each produced
+    # a mutation gate that disagreed with itself:
+    #   v1 wrote to a FIXED path under /mnt/project — concurrent mutants raced on one
+    #      file: 28 survivors on one machine, 29 on another.
+    #   v2 made the filename process-unique but kept the directory. /mnt/project is
+    #      writable in the dev container and NOT on the GitHub runner, so the whole
+    #      assertion was SKIPPED there: baseline 65 locally, 64 in CI, and the
+    #      load_mechanic_overrides raise->pass mutant died here and survived there.
+    #      The budget of 28 was measured where the assertion runs and could not gate an
+    #      environment where it does not (GAP-2026-08-17-B4-ENV-SKEW).
+    # tempfile.mkdtemp() is writable everywhere, and search_dirs points the function at
+    # it. NO `if` GUARD: a conditional assertion is one that can vanish silently, which
+    # is the whole defect above.
+    import tempfile as _tf, shutil as _sh
+    _tmpd = _tf.mkdtemp(prefix='ae_selftest_')
     try:
-        _os.makedirs(_dir, exist_ok=True)
-        with open(_bad, 'w', encoding='utf-8') as _fh:
+        with open(_os.path.join(_tmpd, 'ZZMUT_mechanic_overrides.json'),
+                  'w', encoding='utf-8') as _fh:
             _fh.write('{ this is not json')
-        _wrote = True
-    except OSError:
-        pass
-    if _wrote:
+        globals()['_OVERRIDES'] = None          # module-level cache; must not leak
         try:
-            load_mechanic_overrides(_tag)
+            load_mechanic_overrides('ZZMUT', search_dirs=(_tmpd,))
             check('bad_overrides_json_hard_stops', False)
         except SystemExit:
             check('bad_overrides_json_hard_stops', True)
         except Exception:
             check('bad_overrides_json_hard_stops', False)
-        finally:
-            try:
-                _os.remove(_bad)
-            except OSError:
-                pass
-    # If the sandbox is read-only the assertion is SKIPPED, not passed: counting an
-    # unrun check as a pass is how a suite drifts into proving nothing.
+    finally:
+        globals()['_OVERRIDES'] = None
+        _sh.rmtree(_tmpd, ignore_errors=True)
 
     # ── _compute_structural_changes: year ordering ───────────────────────────
     _sc = [{'section': 'S', 'topic': 'T', 'subtopic': 'U', 'observed_count': 3,
@@ -4983,12 +4995,36 @@ def self_test():
            {'stem': 'Find x when a=5', 'year': 2024, 'num': 3}]
     _tpl = generate_templates(_tq, 'quantitative')
     check('generate_templates_returns_patterns', isinstance(_tpl, list) and len(_tpl) >= 1)
-    if _tpl and isinstance(_tpl[0], dict) and 'years' in _tpl[0]:
-        check('template_years_are_sorted',
-              list(_tpl[0]['years']) == sorted(_tpl[0]['years']))
+    # UNCONDITIONAL. The previous form was `if _tpl and ... 'years' in _tpl[0]:`, which
+    # silently disappears the day the pattern shape changes — the same vanishing-check
+    # defect as the overrides fixture above, one line apart.
+    check('template_pattern_has_years',
+          bool(_tpl) and isinstance(_tpl[0], dict) and 'years' in _tpl[0])
+    _tyears = list(_tpl[0]['years']) if (_tpl and isinstance(_tpl[0], dict)
+                                         and 'years' in _tpl[0]) else None
+    check('template_years_are_sorted', _tyears is not None and _tyears == sorted(_tyears))
 
     # ── export surface: the stubs in the spec import exactly these ────────
     check('all_exports_exist', all(n in globals() for n in __all__))
+
+    # ── META-ASSERTION: THE SUITE MUST HAVE RUN EVERY CHECK IT CONTAINS ──────
+    # GAP-2026-08-17-B4-ENV-SKEW. A conditional assertion that silently skips is
+    # indistinguishable, in the printed result, from one that passed: the suite said
+    # "0 failed" in both environments while running 65 checks here and 64 in CI. The
+    # mutation gate then measured two different budgets and CI went red on a release
+    # whose code was correct.
+    # A count is the cheapest possible oracle for "did anything vanish?". If a future
+    # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
+    # then visible in the diff, which is the whole point.
+    EXPECTED_CHECKS = 66
+    total = passed + len(fails)
+    if total != EXPECTED_CHECKS:
+        fails.append(
+            f'suite_ran_every_check (ran {total}, expected {EXPECTED_CHECKS} — an '
+            f'assertion was SKIPPED or added without updating EXPECTED_CHECKS; a '
+            f'skipped check is not a passing one)')
+    else:
+        passed += 1
 
     print(f"analyse_engine self-test: {passed} passed, {len(fails)} failed"
           + ("  — " + "; ".join(fails) if fails else ""))

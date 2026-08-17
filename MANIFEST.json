@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.17.3",
+  "framework_version": "2026.08.17.4",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -447,11 +447,11 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "12d352c87a398fa5012373101d61bc7d0bea9ad29486f4f842202e0a2ce0629b",
+      "sha256": "0f3c51267cc584851a65ee10af56992d960a5d26741d46b8b11c89401fe699b7",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
-      "lines": 5002,
-      "bytes": 289996
+      "lines": 5038,
+      "bytes": 292650
     },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
