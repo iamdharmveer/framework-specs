@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.17.2",
+  "framework_version": "2026.08.17.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -447,11 +447,11 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "94aaf61d421b29df661e4db5df7a3b2e8d4109bb8256f826e5955443d3cba3bf",
+      "sha256": "12d352c87a398fa5012373101d61bc7d0bea9ad29486f4f842202e0a2ce0629b",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
-      "lines": 4911,
-      "bytes": 284860
+      "lines": 5002,
+      "bytes": 289996
     },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
@@ -503,11 +503,11 @@
       "bytes": 173045
     },
     "MUTATION_BUDGETS.json": {
-      "sha256": "ac678cf86d9281b58e6d7109a7776f04883c1595de8b359fd2a9521ee006d784",
+      "sha256": "3f3f044b53caa0642eae271e037d6f68cac20133b509e98ec25f67d039b8a2dd",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 84,
-      "bytes": 7175
+      "lines": 94,
+      "bytes": 9703
     },
     "SPEC_HISTORY.md": {
       "sha256": "6ed5212e0407829fab21d3d2868b910767bf2486cb5852b448f612c5860f0a3e",

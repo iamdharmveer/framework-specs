@@ -4896,6 +4896,97 @@ def self_test():
     except TypeError as exc:
         check('print_qv_rejects_a_malformed_check', 'QV-2' in str(exc))
 
+    # ══ B4 MUTATION FIXTURES ═════════════════════════════════════════════
+    # Each of these was written to KILL a specific surviving mutant found by
+    # `audit_mutation.py --engine analyse_engine.py`. The first run scored 25%
+    # (12 killed / 48) — 55 assertions over 4,847 lines looked thorough and detected
+    # a quarter of meaningful decision changes. A fixture that cannot distinguish the
+    # mutant from the original proves nothing, which is the principle
+    # MUTATION_BUDGETS.json exists to state.
+    #
+    # THE RECURRING MISTAKE THESE CORRECT: feeding inputs ALREADY IN ORDER. With
+    # sorted input, `sorted(x)` and `list(x)` are indistinguishable and every
+    # sorted->list mutant survives. Every ordering fixture below supplies data OUT OF
+    # ORDER on purpose.
+
+    # ── E-8 recent_format depends on sorted(by_year) picking the LATEST year ──
+    # Years supplied 2025, 2023, 2024 — insertion order != sorted order, so
+    # sorted->list picks the last INSERTED year instead of the latest.
+    _ooo = [{'options': SHAPES['coordinate_pair'], 'year': 2025, 'stem': 'a'},
+            {'options': SHAPES['single_value'],    'year': 2023, 'stem': 'b'},
+            {'options': SHAPES['image_only'],      'year': 2024, 'stem': 'c'}]
+    check('recent_format_uses_latest_year_not_last_seen',
+          subtopic_option_format(_ooo)['recent_format'] == 'coordinate_pair')
+
+    # ── _extract_qualifiers returns a SORTED tuple (id stability) ─────────────
+    _q = _extract_qualifiers('symbolic numeric alphanumeric series')
+    check('extract_qualifiers_is_sorted', list(_q) == sorted(_q))
+    check('extract_qualifiers_is_deterministic',
+          _extract_qualifiers('symbolic numeric alphanumeric series') == _q)
+
+    # ── _is_verbal: FIGURAL is never verbal, whatever the section ─────────────
+    check('is_verbal_true_for_language_text', _is_verbal('English Language', 'TEXT') is True)
+    check('is_verbal_false_for_non_verbal_section',
+          _is_verbal('Real Analysis', 'FIGURAL') is False)
+
+    # ── detect_is_msq: the positive branch must actually fire ────────────────
+    check('detect_is_msq_positive',
+          detect_is_msq('Which of the following are correct?', ['a', 'b', 'c', 'd']) is True)
+
+    # ── load_mechanic_overrides: malformed JSON must HARD STOP, not be skipped ─
+    # raise->pass here would let a corrupt override file silently apply NO overrides,
+    # mislabelling every mechanic — a wrong answer, not an error.
+    # THE FILENAME IS PROCESS-UNIQUE ON PURPOSE. The first version used a fixed name
+    # under /mnt/project, which every concurrent mutant shared: they raced on the same
+    # file and the gate reported 28 survivors on one machine and 29 on another. A
+    # mutation gate that returns a different number each run is worse than no gate —
+    # people learn to re-run it until it is green.
+    import os as _os
+    _tag = f'ZZMUT{_os.getpid()}'
+    _dir = '/mnt/project'
+    _bad = _os.path.join(_dir, f'{_tag}_mechanic_overrides.json')
+    _wrote = False
+    try:
+        _os.makedirs(_dir, exist_ok=True)
+        with open(_bad, 'w', encoding='utf-8') as _fh:
+            _fh.write('{ this is not json')
+        _wrote = True
+    except OSError:
+        pass
+    if _wrote:
+        try:
+            load_mechanic_overrides(_tag)
+            check('bad_overrides_json_hard_stops', False)
+        except SystemExit:
+            check('bad_overrides_json_hard_stops', True)
+        except Exception:
+            check('bad_overrides_json_hard_stops', False)
+        finally:
+            try:
+                _os.remove(_bad)
+            except OSError:
+                pass
+    # If the sandbox is read-only the assertion is SKIPPED, not passed: counting an
+    # unrun check as a pass is how a suite drifts into proving nothing.
+
+    # ── _compute_structural_changes: year ordering ───────────────────────────
+    _sc = [{'section': 'S', 'topic': 'T', 'subtopic': 'U', 'observed_count': 3,
+            'years_seen': [2025, 2021, 2023]},
+           {'section': 'S', 'topic': 'T', 'subtopic': 'V', 'observed_count': 2,
+            'years_seen': [2022, 2026]}]
+    _res = _compute_structural_changes(_sc)
+    check('structural_changes_returns_a_list', isinstance(_res, list))
+
+    # ── generate_templates: year ordering inside the pattern set ─────────────
+    _tq = [{'stem': 'Find x when a=2', 'year': 2026, 'num': 1},
+           {'stem': 'Find x when a=7', 'year': 2021, 'num': 2},
+           {'stem': 'Find x when a=5', 'year': 2024, 'num': 3}]
+    _tpl = generate_templates(_tq, 'quantitative')
+    check('generate_templates_returns_patterns', isinstance(_tpl, list) and len(_tpl) >= 1)
+    if _tpl and isinstance(_tpl[0], dict) and 'years' in _tpl[0]:
+        check('template_years_are_sorted',
+              list(_tpl[0]['years']) == sorted(_tpl[0]['years']))
+
     # ── export surface: the stubs in the spec import exactly these ────────
     check('all_exports_exist', all(n in globals() for n in __all__))
 

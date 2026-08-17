@@ -110,3 +110,14 @@ jobs:
         # catch every mutant. --max-survivors 0 == a gate whose test cannot
         # detect its own deletion fails the build.
         run: if [ -f audit_mutation.py ]; then python3 audit_mutation.py --quiet --max-survivors 0; fi
+      - name: Mutation audit — Step 5 pipeline engine (Wave 2 Part C B4)
+        # analyse_engine.py computes values rather than emitting findings, so the
+        # auditor mutation model found 0 targets and the largest engine in the repo
+        # was outside the gate. --kind pipeline mutates decision points instead.
+        # The budget is read from MUTATION_BUDGETS.json and is DEBT: it may only
+        # ever be lowered. Raising it to make a build pass is the move this file
+        # exists to make visible in a diff.
+        run: |
+          if [ -f audit_mutation.py ] && [ -f analyse_engine.py ]; then
+            python3 audit_mutation.py --engine analyse_engine.py --quiet
+          fi

@@ -113,6 +113,108 @@ EMIT_RE = re.compile(
 )
 
 
+# ─────────────────── PIPELINE ENGINES (Wave 2 Part C B4) ────────────────────
+# audit_mutation was built for AUDITORS: it neutralises a FINDING EMISSION and asks
+# whether a fixture notices. Pointed at analyse_engine.py — 4,847 lines of Step 5
+# pipeline — it reports `0 emission(s)`, because a pipeline does not emit findings; it
+# computes values. So the corpus's largest new engine sat OUTSIDE the mutation gate
+# while CI reported 100%.
+#
+# That is precisely the failure this file's own budget doc describes: "The tool was
+# working perfectly on a target that did not include the thing that broke."
+#
+# A pipeline's equivalent of a neutralised gate is a DECISION SILENTLY CHANGED. The
+# rules below are not a generic operator sweep — each one reproduces a defect class
+# this corpus has ACTUALLY SHIPPED, which is why the gate is worth its runtime:
+#
+#   sorted( -> list(        GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE D4. Set order over
+#                           str depends on PYTHONHASHSEED, so section_rules.md was never
+#                           reproducible: same 433,260 bytes, different sha256, 34 lines
+#                           differing. A fixture must span >1 value or it proves nothing.
+#   raise -> pass           Guard removal. extract_shift_from_filename() raises when
+#                           session_re is missing rather than guessing a keyword; a
+#                           silent default mislabels every paper's shift — a WRONG
+#                           ANSWER, not an error. Same shape as the v2.39 vision_pending
+#                           accumulator guard.
+#   .startswith( -> False   Branch removal. print_qv routes '_'-prefixed keys to the
+#                           counter line instead of unpacking them; losing that branch
+#                           IS defect D1, which stopped Step 5 emitting anything for
+#                           eleven days.
+#   return True -> False    Predicate inversion on a gate's verdict.
+#
+# --deep adds the generic operator flips (and/or, </<=, ==/!=): 451 further targets,
+# ~7 minutes, and many are equivalent mutants. Useful on demand, deliberately NOT the
+# CI gate — a slow gate with a high equivalent-mutant rate is one people learn to skip.
+PIPELINE_RULES = [
+    ('sorted->list',        re.compile(r'\bsorted\('),        'list('),
+    ('raise->pass',         re.compile(r'^(\s*)raise\b'),      '\\1pass  #'),
+    ('startswith->False',   re.compile(r'\.startswith\('),     None),
+    ('returnTrue->False',   re.compile(r'^(\s*)return True\b'), '\\1return False'),
+]
+PIPELINE_DEEP = [
+    ('and->or',   re.compile(r'\band\b'), 'or'),
+    ('or->and',   re.compile(r'\bor\b'),  'and'),
+    ('lt->le',    re.compile(r'(?<![<>=!])<(?!=)'), '<='),
+    ('eq->ne',    re.compile(r'(?<![<>=!])==(?!=)'), '!='),
+]
+
+
+def find_pipeline_targets(lines, tree, only_gate=None, deep=False):
+    """Decision points whose silent change is a real defect class."""
+    rules = PIPELINE_RULES + (PIPELINE_DEEP if deep else [])
+    out = []
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith('#'):
+            continue
+        fn = enclosing_function(tree, i + 1)
+        if only_gate and fn != only_gate:
+            continue
+        # NEVER MUTATE THE TEST SCAFFOLDING. A mutated assertion fails trivially and
+        # scores as KILLED, inflating the result while proving nothing about the code
+        # the fixture is supposed to guard. Mirrors the existing self_test/test_/_test
+        # exclusion the auditor path already applies.
+        if fn.startswith(('self_test', 'test_', '_test')):
+            continue
+        for label, rx, repl in rules:
+            if not rx.search(line):
+                continue
+            # VALIDATE THE MUTATION AT FIND TIME. A rule can match a line and still
+            # produce no change (e.g. `sorted(` inside an f-string the sub does not
+            # reach). Listing such a target and discovering it later means the run
+            # either crashes or, worse, banks it as KILLED without ever mutating
+            # anything — a survivor counted as a kill is the one outcome this whole
+            # tool exists to prevent.
+            if mutate_pipeline(lines, i, label) is None:
+                continue
+            out.append((i, fn, f'[{label}] {stripped[:70]}', label))
+            break
+    return out
+
+
+def mutate_pipeline(lines, idx, label):
+    """Apply the rule that matched, producing a semantically different pipeline."""
+    mut = lines[:]
+    line = mut[idx]
+    for lab, rx, repl in PIPELINE_RULES + PIPELINE_DEEP:
+        if lab != label:
+            continue
+        if lab == 'startswith->False':
+            # Neutralise the CONDITION, not the call: `if k.startswith('_'):` -> `if False:`
+            mut[idx] = re.sub(r'\b[\w\.\[\]\'\"]+\.startswith\([^)]*\)', 'False', line)
+        elif lab == 'raise->pass':
+            ind = len(line) - len(line.lstrip())
+            mut[idx] = ' ' * ind + 'pass  # MUTANT (raise removed)'
+        else:
+            mut[idx] = rx.sub(repl, line, count=1)
+        break
+    if mut[idx] == line:                      # rule did not bite; skip rather than lie
+        return None
+    if not mut[idx].rstrip().endswith('# MUTANT (raise removed)'):
+        mut[idx] = mut[idx].rstrip() + '  # MUTANT'
+    return '\n'.join(mut)
+
+
 def enclosing_function(tree, lineno):
     """Innermost function containing this line, for reporting."""
     best = None
@@ -201,6 +303,15 @@ def make_workdir(engine, repo_root):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--engine', default=ENGINE_DEFAULT)
+    ap.add_argument('--kind', choices=('auditor', 'pipeline'), default=None,
+                    help='auditor: mutate finding emissions (default for auditors). '
+                         'pipeline: mutate decision points — for engines that compute '
+                         'values rather than emit findings. Auto-detected when omitted: '
+                         'an engine with zero emissions is treated as a pipeline, so a '
+                         'new engine can never silently score 0/0 = 100%.')
+    ap.add_argument('--deep', action='store_true',
+                    help='pipeline only: add generic operator flips (and/or, </<=, '
+                         '==/!=). ~7 min and many equivalent mutants; not the CI gate.')
     ap.add_argument('--gate', default=None,
                     help='restrict to one function, e.g. gate_dossier')
     ap.add_argument('--max-survivors', type=int, default=None,
@@ -271,12 +382,36 @@ def main():
         sys.exit(2)
     print(f'baseline self-test: {tail}')
 
-    targets = find_targets(lines, tree, args.gate)
+    # KIND SELECTION. Auto-detect deliberately: an engine with zero finding emissions
+    # is a PIPELINE, and treating it as an auditor is how analyse_engine.py — 4,847
+    # lines, the largest engine in the corpus — scored `0 emission(s)` and sat outside
+    # the gate while CI reported 100%. Zero targets must never read as success.
+    kind = args.kind
+    emission_targets = find_targets(lines, tree, args.gate)
+    if kind is None:
+        kind = 'auditor' if emission_targets else 'pipeline'
+    if kind == 'pipeline':
+        targets = [(i, fn, text) for i, fn, text, _lab in
+                   find_pipeline_targets(lines, tree, args.gate, deep=args.deep)]
+        labels = {i: lab for i, _fn, _t, lab in
+                  find_pipeline_targets(lines, tree, args.gate, deep=args.deep)}
+        unit = 'decision point'
+    else:
+        targets = emission_targets
+        labels = {}
+        unit = 'emission'
     total_targets = len(targets)
+    if total_targets == 0:
+        print(f'NO {unit.upper()}S FOUND in {args.engine} (kind={kind}).')
+        print('A mutation run with nothing to mutate is not a pass. Either the engine '
+              'is mis-classified\n(try --kind pipeline / --kind auditor) or the rules '
+              'do not fit it — say so in\nMUTATION_BUDGETS.json rather than banking a '
+              'vacuous 100%.')
+        sys.exit(1)
     if args.list:
         for i, (idx, fn, text) in enumerate(targets):
             print(f'[{i:3}] L{idx + 1:<6} {fn:34} {text[:60]}')
-        print(f'{total_targets} emission(s) in {args.engine}')
+        print(f'{total_targets} {unit}(s) in {args.engine}')
         sys.exit(0)
     shard_note = ''
     if args.indices:
@@ -311,11 +446,13 @@ def main():
             print(f'note: budget suppressed for a sharded run '
                   f'(shard {k}/{n} cannot be compared against a whole-engine number)')
             args.max_survivors = None
-    print(f'finding emissions under test: {len(targets)}' + shard_note
+    print(f'targets under test: {len(targets)}' + shard_note
           + (f'  (restricted to {args.gate})' if args.gate else ''))
     print('=' * 78)
 
     def mutate(idx):
+        if kind == 'pipeline':
+            return mutate_pipeline(lines, idx, labels.get(idx, ''))
         mut = lines[:]
         indent = len(mut[idx]) - len(mut[idx].lstrip())
         # Preserve any trailing `continue`/`break` so control flow still type-checks;
