@@ -1,6 +1,43 @@
 # Changelog
 
-## 2026.08.17.4 — GAP-2026-08-17-B4-ENV-SKEW: the gate disagreed with itself across environments
+## 2026.08.17.4 — the mutation gate is now reproducible: TWO defects, both mine
+
+Two independent sources of non-reproducibility in the B4 gate. **Both fixed, belt and
+braces.** `analyse_engine.py` self-test 65 → 68, `audit_mutation.py` pins the seed.
+**NO ARTEFACT VALUES CHANGE.** Budget stays **28** — it was never raised.
+
+### Defect 2 (found second, deeper): the score was a coin flip
+
+`analyse_engine.py:451` `'all_observed': sorted(set(fmts))`. Its killers used a
+**three-element** set of strings. Set iteration order over `str` depends on
+`PYTHONHASHSEED`, randomised per process, and `audit_mutation.run_self_test` passed no
+`env=`, so every mutant drew a fresh seed. Measured over 40 fresh processes: **the mutant
+survived 8 — 20%.** All 19 other killed mutants were deterministic.
+
+**This is worse than a wrong number: it makes the budget unstatable.** 28 was too low one
+run in five, and 29 would be an INCREASE, which `MUTATION_BUDGETS.json` forbids in its own
+words. **There is no lawful number for a nondeterministic gate — the nondeterminism has to
+go, not be renumbered.**
+
+The irony is on the record: that fixture's own comment documents this exact hazard for
+`section_rules.md` (D4) and then relied on a three-element set, where accidental sorted
+order is about a one-in-six event.
+
+**Both remedies applied, deliberately:**
+1. **`PYTHONHASHSEED` pinned** for every mutant subprocess (`--hash-seed`, default `0`;
+   pass `random` to sweep on purpose). Makes the score reproducible **by construction** —
+   the VERIFY-THE-VERIFIER serial==parallel clause, generalised from processes to runs.
+2. **Fixture widened to six formats, supplied in reverse-sorted order.** At three elements
+   accidental sorted order is ~1/6; at six it is ~1/720.
+
+Two, not one, so the check stays honest if someone later removes the pin: the pin makes
+the SCORE reproducible, the width makes the CHECK true under any seed.
+
+**Verified by repetition, not by three runs:** the L451 mutant now survives **0 of 40**
+random-seed processes (was 8/40). Full gate: **28 survivors on 4 consecutive random-seed
+runs and 3 pinned runs** — 7 for 7.
+
+### Defect 1: GAP-2026-08-17-B4-ENV-SKEW — the gate disagreed with itself across environments
 
 **`analyse_engine.py` self-test 65 → 67. NO ARTEFACT VALUES CHANGE. Fixes the CI failure
 that 2026.08.17.3 shipped.**

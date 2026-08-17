@@ -4813,15 +4813,26 @@ def self_test():
     # subtopic (GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE D4). Set iteration order
     # over str depends on PYTHONHASHSEED, which python randomises PER PROCESS, so a
     # single process cannot see the defect and back-to-back runs look deterministic.
-    qs = [{'options': SHAPES['single_value'], 'year': 2023},
-          {'options': SHAPES['coordinate_pair'], 'year': 2024},
-          {'options': SHAPES['image_only'], 'year': 2025}]
+    # SIX formats, supplied in REVERSE-SORTED order. GAP-2026-08-17-B4-MUTATION-FLAKE:
+    # this fixture used THREE elements, and `list(set(...))` over three strings comes
+    # out already sorted roughly one run in six — so the sorted->list mutant SURVIVED
+    # 8 of 40 fresh processes and the budget was unstatable (28 too low one run in
+    # five; 29 would be an increase, which the budget file forbids). At six elements
+    # accidental sorted order is ~1/720, and with PYTHONHASHSEED pinned by
+    # audit_mutation it is not a coin flip at all. Belt and braces, deliberately:
+    # the pin makes the SCORE reproducible, the width makes the CHECK honest under any
+    # seed — so this fixture still fails if someone later removes the pin.
+    # The irony this replaces is on the record: the comment right below documents
+    # exactly this hazard for section_rules.md and then relied on a three-element set.
+    _six = ['word_form_number', 'single_value', 'roman_label',
+            'letter_cluster', 'image_only', 'coordinate_pair']
+    qs = [{'options': SHAPES[f], 'year': 2020 + i} for i, f in enumerate(_six)]
     fmt = subtopic_option_format(qs)
-    check('all_observed_spans_three_formats', len(fmt['all_observed']) == 3)
+    check('all_observed_spans_six_formats', len(fmt['all_observed']) == 6)
     check('all_observed_is_sorted', fmt['all_observed'] == sorted(fmt['all_observed']))
-    check('all_observed_exact',
-          fmt['all_observed'] == ['coordinate_pair', 'image_only', 'single_value'])
-    check('recent_format_is_the_latest_year', fmt['recent_format'] == 'image_only')
+    check('all_observed_exact', fmt['all_observed'] == sorted(_six))
+    check('all_observed_not_in_insertion_order', fmt['all_observed'] != _six)
+    check('recent_format_is_the_latest_year', fmt['recent_format'] == 'coordinate_pair')
     check('changed_recently_true_when_latest_differs',
           fmt['changed_recently'] is True)
     empty = subtopic_option_format([])
@@ -5016,7 +5027,7 @@ def self_test():
     # A count is the cheapest possible oracle for "did anything vanish?". If a future
     # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
     # then visible in the diff, which is the whole point.
-    EXPECTED_CHECKS = 66
+    EXPECTED_CHECKS = 67
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(

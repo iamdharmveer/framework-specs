@@ -271,10 +271,37 @@ def is_green(returncode, tail):
     return False
 
 
-def run_self_test(path, cwd):
+# PYTHONHASHSEED IS PINNED FOR EVERY MUTANT. GAP-2026-08-17-B4-MUTATION-FLAKE.
+# Without it each mutant subprocess draws a FRESH random seed, so any fixture whose
+# oracle depends on set-iteration order scores differently run to run. Measured on
+# analyse_engine.py L451 (`'all_observed': sorted(set(fmts))`): the mutant survived
+# 8 of 40 fresh processes — 20% — because with a three-element string set
+# `list(set(...))` comes out already sorted often enough to satisfy the assertion.
+#
+# THE CONSEQUENCE IS WORSE THAN A WRONG NUMBER: it makes the BUDGET UNSTATABLE. 28 was
+# too low one run in five, and 29 would be an INCREASE, which MUTATION_BUDGETS.json
+# forbids in its own words. There is no lawful number for a nondeterministic gate —
+# the nondeterminism has to go, not be renumbered.
+#
+# A fixed seed makes the score reproducible BY CONSTRUCTION, which is what the
+# VERIFY-THE-VERIFIER LAW's serial==parallel clause asks for, generalised from
+# processes to runs. This does NOT hide real ordering defects: the fixtures that
+# detect them compare against an explicitly sorted expectation, so they fail under
+# ANY seed. Pinning removes the coin-flip, not the check — and
+# `--hash-seed random` is available to re-introduce the sweep deliberately.
+HASH_SEED_DEFAULT = '0'
+
+
+def run_self_test(path, cwd, hash_seed=HASH_SEED_DEFAULT):
+    env = dict(os.environ)
+    if str(hash_seed) == 'random':
+        env.pop('PYTHONHASHSEED', None)
+    else:
+        env['PYTHONHASHSEED'] = str(hash_seed)
     try:
         r = subprocess.run([sys.executable, path, '--self-test'],
-                           capture_output=True, text=True, cwd=cwd, timeout=900)
+                           capture_output=True, text=True, cwd=cwd, timeout=900,
+                           env=env)
     except subprocess.TimeoutExpired:
         return False, 'TIMEOUT'          # timeout counts as KILLED
     tail = r.stdout.strip().split('\n')[-1] if r.stdout.strip() else ''
@@ -309,6 +336,10 @@ def main():
                          'values rather than emit findings. Auto-detected when omitted: '
                          'an engine with zero emissions is treated as a pipeline, so a '
                          'new engine can never silently score 0/0 = 100%.')
+    ap.add_argument('--hash-seed', default=HASH_SEED_DEFAULT,
+                    help="PYTHONHASHSEED for every mutant subprocess. Pinned by "
+                         "default so the score is reproducible; pass 'random' to "
+                         "deliberately sweep seeds and expose order-dependent fixtures.")
     ap.add_argument('--deep', action='store_true',
                     help='pipeline only: add generic operator flips (and/or, </<=, '
                          '==/!=). ~7 min and many equivalent mutants; not the CI gate.')
@@ -374,7 +405,7 @@ def main():
     tmp = make_workdir(args.engine, repo_root)
     ref = os.path.join(tmp, os.path.basename(args.engine))
     open(ref, 'w', encoding='utf-8').write(base)
-    green, tail = run_self_test(ref, tmp)
+    green, tail = run_self_test(ref, tmp, args.hash_seed)
     if not green:
         print('ERROR: the UNMUTATED engine does not pass its own self-test.')
         print(f'       last line: {tail}')
@@ -484,7 +515,7 @@ def main():
         try:
             pth = os.path.join(workdir, os.path.basename(args.engine))
             open(pth, 'w', encoding='utf-8').write(mutate(idx))
-            still_green, _ = run_self_test(pth, workdir)
+            still_green, _ = run_self_test(pth, workdir, args.hash_seed)
             open(pth, 'w', encoding='utf-8').write(base)   # restore before release
             return idx, still_green
         finally:

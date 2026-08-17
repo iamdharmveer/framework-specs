@@ -447,11 +447,11 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "0f3c51267cc584851a65ee10af56992d960a5d26741d46b8b11c89401fe699b7",
+      "sha256": "e2027daaed2315e2b5c8e132c83693f0465881793a7464c81bf83c2341ad28ae",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
-      "lines": 5038,
-      "bytes": 292650
+      "lines": 5049,
+      "bytes": 293625
     },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
