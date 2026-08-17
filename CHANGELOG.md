@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026.08.17.6 — subtopic_id stability: the ordering bug that would break every cross-step join
+
+**`analyse_engine.py` self-test 78 → 86. Mutation budget 22 → 20, RATCHETED DOWN.
+NO ARTEFACT VALUES CHANGE.**
+
+`build_section_prefix_map` is called with `sorted({sections})` from **three** places —
+`mint_subtopic_ids`, `stamp_mechanic_axes`, `run_qv`. When two section names collide on a
+prefix the map appends a counter (`ra`, `ra2`, `ra3`), so **which** section gets the bare
+prefix is decided by iteration order. Replace `sorted(` with `list(` and that follows
+`PYTHONHASHSEED` instead of the alphabet: *Real Algebra* is `ra` on one run and `ra2` on
+the next.
+
+**`subtopic_id` is the key every later step joins on** — Step 6 blueprints against it,
+Step 7 generates against it, the manifest is indexed by it. Non-deterministic ids do not
+fail loudly. They silently fail to *match*, which is the D4 defect class one level up from
+ordering inside a file.
+
+Fixtures use **four colliding sections supplied out of alphabetical order** — the mutant
+would have to reproduce the alphabet by luck, 1 chance in 24. `mint_subtopic_ids` and
+`stamp_mechanic_axes`'s `collision_domain` are now killed, plus the no-years branch of
+`subtopic_option_format` (a separate return path the year-bearing fixture never reached)
+and `generate_templates`' year list.
+
+**Score 56.0% → 60.0%** (28/50 → 30/50).
+
+**20 survive, in three groups.** (a) **Writer paths** — `write_section_rules`,
+`write_subtopic_manifest`, `compute_section_axis_distribution`, `synthesise_subtopic` and
+others: all artefact-visible and already caught by the golden set, which CI cannot run
+without a corpus. The next batch is a synthetic entries corpus driving the writers end to
+end, which should take most of these at once. (b) **Error-message f-strings** — six sites
+where only the word order inside a diagnostic changes; likely equivalent mutants, each to
+be confirmed individually and **not assumed**. (c) One parser branch needing a
+`section_rules.md` fixture.
+
+Progress was slower than the guard batch: nine fixtures for two kills, because the
+remaining ordering defects live behind the writers rather than in directly-callable pure
+functions. That is the honest reason the next batch needs a corpus fixture rather than
+more point assertions.
+
 ## 2026.08.17.5 — every hard stop in the Step 5 engine now has a fixture proving it is connected
 
 **`analyse_engine.py` self-test 68 → 78. Mutation budget 28 → 22, RATCHETED DOWN.

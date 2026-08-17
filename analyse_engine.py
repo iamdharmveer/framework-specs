@@ -5161,6 +5161,85 @@ def self_test():
         _glob_mod.glob = _orig_glob
         globals()['_extract_taxonomy_tuples_from_analysis_doc'] = _orig_extract
 
+    # ══ B6 ORDERING FIXTURES — subtopic_id stability ══════════════════════
+    # THE MOST CONSEQUENTIAL SURVIVOR IN THE SET. build_section_prefix_map is called
+    # with sorted({sections}) from THREE places — mint_subtopic_ids, stamp_mechanic_axes
+    # and run_qv. When two section names collide on a prefix the map appends a counter
+    # (ra, ra2, ra3...), so WHICH section gets the bare prefix is decided by iteration
+    # order. Replace sorted( with list( and the assignment follows PYTHONHASHSEED
+    # instead of the alphabet: `Real Algebra` is `ra` on one run and `ra2` on the next.
+    #
+    # subtopic_id is the key EVERY later step joins on — Step 6 blueprints against it,
+    # Step 7 generates against it, the manifest is indexed by it. Non-deterministic ids
+    # do not fail loudly; they silently fail to match, which is the D4 defect class one
+    # level up from ordering inside a file.
+    #
+    # FOUR colliding sections, supplied out of alphabetical order. The mutant would have
+    # to reproduce the alphabet by luck: 1 chance in 24.
+    _SECS = ['Real Analysis', 'Real Algebra', 'Real Arithmetic', 'Real Applications']
+    _PMAP = build_section_prefix_map(sorted(set(_SECS)))
+    check('prefix_collision_resolves_alphabetically',
+          _PMAP == {'Real Algebra': 'ra', 'Real Analysis': 'ra2',
+                    'Real Applications': 'ra3', 'Real Arithmetic': 'ra4'})
+    _IDE = [{'section': _s, 'topic': 'T', 'subtopic': f'S{_i}', 'observed_count': _i + 1,
+             'years_seen': [2024], 'PYQ_STEM_PATTERNS': [], 'format': 'TEXT'}
+            for _i, _s in enumerate(_SECS)]
+    _minted = _cp.deepcopy(_IDE)
+    mint_subtopic_ids(_minted)
+    _bysec = {e['section']: e['subtopic_id'].split('.')[0] for e in _minted}
+    check('subtopic_id_prefix_is_alphabetical_not_hash_order',
+          _bysec == {'Real Algebra': 'ra', 'Real Analysis': 'ra2',
+                     'Real Applications': 'ra3', 'Real Arithmetic': 'ra4'})
+    # ...and minting the SAME entries in a different input order must give the SAME ids,
+    # because a subtopic_id that depends on how the papers happened to be read is a
+    # cross-step join that breaks for reasons no one can reproduce.
+    _minted2 = _cp.deepcopy(_IDE[::-1])
+    mint_subtopic_ids(_minted2)
+    check('subtopic_ids_are_input_order_independent',
+          {e['section']: e['subtopic_id'] for e in _minted2}
+          == {e['section']: e['subtopic_id'] for e in _minted})
+
+    # ── generate_templates: the year list inside a pattern ───────────────────
+    # Four years supplied out of order; sorted output is 1-in-24 by luck.
+    _tq = [{'stem': 'Find x when a=2', 'year': 2026, 'num': 1},
+           {'stem': 'Find y when b=3', 'year': 2021, 'num': 2},
+           {'stem': 'Find z when c=4', 'year': 2024, 'num': 3},
+           {'stem': 'Find x when a=9', 'year': 2023, 'num': 4}]
+    _tp = generate_templates(_tq, 'quantitative')
+    check('template_years_span_four', bool(_tp) and len(_tp[0].get('years', [])) == 4)
+    check('template_years_exact_sorted',
+          bool(_tp) and list(_tp[0]['years']) == [2021, 2023, 2024, 2026])
+
+    # ── stamp_mechanic_axes: collision_domain comes from the same prefix map ─
+    # form_key uniqueness is asserted PER collision_domain, so a domain that changes
+    # between runs silently moves the goalposts of that invariant.
+    _st = _cp.deepcopy(_IDE)
+    mint_subtopic_ids(_st)
+    globals()['_OVERRIDES'] = None
+    try:
+        import io as _io2, contextlib as _cl2
+        with _cl2.redirect_stdout(_io2.StringIO()):
+            stamp_mechanic_axes(_st, 'ZZEXAM')
+    finally:
+        globals()['_OVERRIDES'] = None
+    check('collision_domain_follows_alphabetical_prefix',
+          {e['section']: e.get('collision_domain') for e in _st}
+          == {'Real Algebra': 'ra', 'Real Analysis': 'ra2',
+              'Real Applications': 'ra3', 'Real Arithmetic': 'ra4'})
+
+    # ── subtopic_option_format: the NO-YEARS branch has its own sorted(set()) ─
+    # Questions carrying no 'year' take a different return path (L447), which the
+    # year-bearing fixture above never reaches. Four formats: 1-in-24 by luck.
+    _noyear = [{'options': SHAPES['single_value']},
+               {'options': SHAPES['coordinate_pair']},
+               {'options': SHAPES['image_only']},
+               {'options': SHAPES['roman_label']}]
+    _nf = subtopic_option_format(_noyear)
+    check('no_year_branch_all_observed_sorted',
+          _nf['all_observed'] == ['coordinate_pair', 'image_only',
+                                  'roman_label', 'single_value'])
+    check('no_year_branch_not_changed_recently', _nf['changed_recently'] is False)
+
     # ── export surface: the stubs in the spec import exactly these ────────
     check('all_exports_exist', all(n in globals() for n in __all__))
 
@@ -5173,7 +5252,7 @@ def self_test():
     # A count is the cheapest possible oracle for "did anything vanish?". If a future
     # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
     # then visible in the diff, which is the whole point.
-    EXPECTED_CHECKS = 77
+    EXPECTED_CHECKS = 85
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(

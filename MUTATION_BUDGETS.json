@@ -10,7 +10,7 @@
     "notes_sync_audit.py": 0,
     "audit_specs_ext.py": 4,
     "audit_deep.py": 2,
-    "analyse_engine.py": 22
+    "analyse_engine.py": 20
   },
   "_survivor_inventory": {
     "audit_specs_ext.py": [
@@ -24,11 +24,13 @@
     ],
     "_note": "All six are INHERITED, pre-dating this release. None belongs to a gate added by 2026.08.15.9 or .10: C10, C11, MS-12, MS-13 and SPEC-BUDGET are all killed.",
     "analyse_engine.py": [
-      "MEASURED 2026-08-17. 25.0% (12/48) at first run -> 41.7% (20/48) after the B4 ordering fixtures -> 56.0% (28/50) after the B5 guard fixtures. Budget 28 -> 22, RATCHETED DOWN.",
-      "ALL SIX raise->pass GUARD SURVIVORS ARE NOW KILLED, plus three more of the same class found while writing them (OV-3b merge across sections, EC-M17 wrong exam_code, and the taxonomy_sync_entries re-raise). A guard is a HARD STOP: delete one and nothing crashes, the run accepts corrupt data and emits a confident wrong artefact. That doubt is now removed for every hard stop in the engine.",
-      "22 survive, ALL of them sorted->list ordering. A large subset is artefact-visible and already caught by the golden set (write_section_rules, write_subtopic_manifest, compute_section_axis_distribution) — CI cannot run that oracle because the repo carries no corpus, so the self-test needs a synthetic entries fixture to cover the writers. The remainder sit inside error-message f-strings where only word order changes: LIKELY equivalent mutants, each to be confirmed individually and NOT assumed.",
-      "STILL DEBT: the standing rule (an engine ships with fixtures that kill its own mutants) is not met until this reaches 0 or every remaining mutant is proven equivalent.",
-      "NEXT: synthetic entries fixture for the writer sorts, then the f-string mutants one by one."
+      "MEASURED 2026-08-17. 25.0% (12/48) -> 41.7% (20/48) -> 56.0% (28/50) -> 60.0% (30/50). Budget 28 -> 22 -> 20, RATCHETED DOWN each time.",
+      "B6 killed the SUBTOPIC_ID STABILITY class. build_section_prefix_map is called with sorted({sections}) from three places; when two section names collide on a prefix the map appends a counter (ra, ra2, ra3), so WHICH section gets the bare prefix is decided by iteration order. Under list() that follows PYTHONHASHSEED instead of the alphabet: Real Algebra is ra on one run and ra2 on the next. subtopic_id is the key EVERY later step joins on, so non-deterministic ids do not fail loudly, they silently fail to MATCH. Fixtures use FOUR colliding sections out of alphabetical order — 1 chance in 24 of passing by luck. mint_subtopic_ids and stamp_mechanic_axes collision_domain: killed.",
+      "20 survive, all sorted->list. THREE GROUPS:",
+      "  (a) WRITER PATHS — write_section_rules (2), write_subtopic_manifest (2), compute_section_axis_distribution (3), synthesise_subtopic, _compute_structural_changes, generate_templates pattern order, run_qv prefix map. ALL are artefact-visible and already caught by the golden set; CI cannot run that oracle because the repo carries no corpus. NEXT BATCH: a synthetic entries corpus driving the writers end to end and asserting the emitted text, which should take most of these at once.",
+      "  (b) ERROR-MESSAGE f-STRINGS — apply_subtopic_merges L2664, load_mechanic_overrides L2483/L2488, print_qv L4744, stamp_mechanic_axes L2699, run_qv L4610. Only the word order inside a diagnostic changes. LIKELY EQUIVALENT MUTANTS, but each must be confirmed individually and NOT assumed — that assumption is exactly what a budget is for.",
+      "  (c) rebuild_subtopic_manifest_from_section_rules L4066 startswith — needs a section_rules.md fixture to parse.",
+      "STILL DEBT: the standing rule is not met until this reaches 0 or every remainder is proven equivalent."
     ]
   },
   "_unmeasured": {
