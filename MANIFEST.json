@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.17.1",
+  "framework_version": "2026.08.17.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -195,11 +195,11 @@
       "bytes": 85165
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "8101eb0aa1d90a30272782d98a485984ad355efdf5f1641559087c6af4837859",
-      "version_header": "# Framework_MockTestAnalyse v2.53.2 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.2",
-      "lines": 8882,
-      "bytes": 512202
+      "sha256": "00f7d30622b5a513e6672cb389264e4a6f0ab6cb4f3a43280fb497214d5c9842",
+      "version_header": "# Framework_MockTestAnalyse v2.53.3 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.3",
+      "lines": 5144,
+      "bytes": 293542
     },
     "Framework_MockTestCreate.md": {
       "sha256": "bf9f09368fa43c12e59b05afbd6ce1ff91bc81b696bb4685c4f96f789b4df440",
@@ -447,11 +447,11 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "e73633d961d81664b182796e36619f543874814b1b3afec923ece72387e42d1c",
+      "sha256": "94aaf61d421b29df661e4db5df7a3b2e8d4109bb8256f826e5955443d3cba3bf",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
-      "lines": 936,
-      "bytes": 49428
+      "lines": 4911,
+      "bytes": 284860
     },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
@@ -496,11 +496,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "eb80c549347e210dc7773bb85dc450d6b3348ed7915ed4439b9c17fa9398e125",
+      "sha256": "bce10800802e512ee54b3f2b12477e049f7c72730f8b567370d4556a54a80141",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6335,
-      "bytes": 173059
+      "bytes": 173045
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "ac678cf86d9281b58e6d7109a7776f04883c1595de8b359fd2a9521ee006d784",

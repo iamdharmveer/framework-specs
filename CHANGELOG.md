@@ -1,5 +1,59 @@
 # Changelog
 
+## 2026.08.17.2 — Wave 2 Part C, Batch 3: §3, §5 and §6 move into the engine — extraction complete
+
+**`Framework_MockTestAnalyse` v2.53.2 → v2.53.3 (PATCH). NO ARTEFACT VALUES CHANGE** —
+all six IIT_JAM_MATHEMATICS artefacts byte-identical against the golden set from deployed
+2026.08.17.1, across `PYTHONHASHSEED` 1, 17, 2029 and 7.
+
+The 8 python fences of §3 (document pipeline), §5 (synthesis engine) and §6
+(QV-1..QV-16) — **3,882 lines, 95 definitions, zero top-level session-flow statements** —
+moved into `analyse_engine.py`. Seven of eight are byte-identical; the eighth is modified
+by design for the `session_re` injection. No copy remains in the spec.
+
+**This completes the extraction begun in B2.** `Framework_MockTestAnalyse.md` goes from
+6,667 python lines to **~2,050** — only §1 (session start, CLASS: T Drive tool calls, 31
+top-level flow statements) and §8 (batch orchestration, the model-turn loop). Neither can
+move: they *are* the session, not library code. The model no longer reads 4,582 lines of
+implementation into context and re-emits it.
+
+**SESSION_RE — the one session global in the whole scope, and the only behavioural
+change across both batches.** §1 builds it from `exam_config.json`'s `session_keyword`;
+`extract_shift_from_filename()` read it as a module global. An engine inherits nothing,
+so it is now injected — `extract_shift_from_filename(path, session_re=None)` raising if
+omitted, threaded through `process_pyq_paper`, with §8's three call sites passing
+`session_re=SESSION_RE`. **A parameter, not module state, deliberately:** a
+`configure()`-style global would let a caller that forgot use a STALE regex from a
+previous exam — a wrong answer rather than an error. Mutation-tested: replacing the raise
+with a silent default fails the self-test.
+
+**Masked dependencies surfaced again.** Analysed inside the spec, §3+§5+§6 appeared to
+need only §2's names; imported as a module it also needed `json` and `os`, which §1 had
+been supplying through the shared namespace — the same inheritance that hid `collections`
+for ten days. `symtable` now confirms the engine has **zero free globals**.
+
+**A bug the golden set could not see.** Threading `session_re` into §8 introduced a double
+comma, breaking that fence's `ast.parse`. **The golden set still passed** — the broken
+fence was silently skipped and `--synthesise ALL` does not use `run_batch_loop`. A parse
+gate over all 42 fences now runs alongside the artefact assertion. Byte-identical output
+is necessary and **not sufficient**.
+
+**MS-3 STAMP-PARITY.** The three emitted-stamp literals moved into the engine, so MS-3 — a
+presence check over the spec's fences — reported it could match nothing, the disarmed
+state its own comment names. Fixed the way MS-3 asks: one literal per pattern retained in
+the §5 stub, with the cross-file sync rule stated. Widening MS-3 was **not** done, for the
+same reason Y-IMGGATE was not widened in B2. **A call-site check may follow the code into
+an engine; a presence check may not.**
+
+**Engine self-test 42 → 55**, including the QV contract D1 broke (a counter key must
+render, not unpack; a malformed check must raise naming the key) and four `session_re`
+assertions, one of which proves the injected regex is actually used by giving a different
+answer for a different keyword. Both new mutants killed.
+
+**Verification.** bootstrap 49/49; `validate_framework_md` 0 / 23; `audit_specs_ext` 0 /
+57; `mock_sync_audit` all agree; `audit_callgraph` 0; `audit_deep` 0; `notes_sync_audit`
+0; `spec_name_audit` OK; `check_triggers` 23; `analyse_engine --self-test` 55/55.
+
 ## 2026.08.17.1 — Wave 2 Part C, Batch 2: §2 and §4 move into a routed engine
 
 **`Framework_MockTestAnalyse` v2.53.1 → v2.53.2 (PATCH), NEW `analyse_engine.py`.
