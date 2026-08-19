@@ -810,10 +810,25 @@ class ExplanationBlock:
             raise ValueError(f'Q{self.q}: selected {sel} not a non-empty subset of 1..{n}')
         if self.qtype == 'mcq' and len(sel) != 1:
             raise ValueError(f'Q{self.q}: mcq must select exactly one option, got {sel}')
-        # DEDUCTION last step must bind EVERY selected option (word-bounded label).
+        # DEDUCTION last step must bind EVERY selected option (label-bounded).
+        # v2.5 (GAP-2026-08-19-UNSATISFIABLE-LABEL-BINDING): the trailing guard was
+        # \b, which requires a WORD character on one side of the boundary. A label
+        # ENDING in a non-word character — '(A)', '[A]', 'A)', any parenthesised or
+        # bracketed custom scheme — can therefore NEVER satisfy it, whatever the
+        # author writes. The check was UNSATISFIABLE for such an exam: every block
+        # raised at construction and no paper could be produced at all. This spec
+        # advertises custom label schemes, and real section_rules files declare
+        # option_label_format '(A)/(B)/(C)/(D)', so the case is reachable, not
+        # theoretical. Found by executing the pipeline across an exam-shape matrix;
+        # no amount of reading the code or the spec surfaced it.
+        # FIX: (?!\w) — "the label is not immediately continued by another word
+        # character". Identical behaviour for word-final labels (D, iv, 1) and it
+        # still prevents the Option 1 / Option 10 confusion the self-test locks,
+        # because there the next character IS a word character. For labels ending
+        # in punctuation it is now satisfiable, which \b never was.
         for i in sorted(sel):
             lab = cfg.option_label(i)
-            if not re.search(rf'\b{re.escape(opt_label)}\s+{re.escape(lab)}\b', last, re.I):
+            if not re.search(rf'\b{re.escape(opt_label)}\s+{re.escape(lab)}(?!\w)', last, re.I):
                 raise ValueError(f'Q{self.q}: DEDUCTION last step must bind '
                                  f'{opt_label!r} {lab} (word-bounded)')
         # WHY WRONG: keys == exactly the NON-selected options.
@@ -1364,7 +1379,14 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
                         problems.append(f'Q{q}: DEDUCTION last line does not bind value {b.ca!r}')
                 else:
                     need = [f'{opt_word} {cfg.option_label(i)}' for i in sorted(b.ca_set())]
-                    miss = [n for n in need if not re.search(rf'{re.escape(n)}\b', last)]
+                    # v2.5 — SAME FIX AS validate() (GAP-2026-08-19-UNSATISFIABLE-
+                    # LABEL-BINDING), applied at the SECOND site. The construction-time
+                    # check and this post-render verifier each carried their own copy of
+                    # the trailing \b, so fixing one left the other unsatisfiable and the
+                    # exam still could not ship — construction passed, verification
+                    # failed. Two sites, one defect: the exam-shape matrix caught the
+                    # second only because it runs the whole pipeline, not just validate().
+                    miss = [n for n in need if not re.search(rf'{re.escape(n)}(?!\w)', last)]
                     if miss:
                         problems.append(f'Q{q}: DEDUCTION last line missing binding {miss}')
         # 3. wrong-section coverage from render
@@ -2143,6 +2165,61 @@ def self_test():
     # 40 rels resolution: clean build has no dangling image rIds (A3)
     okrel, _ = verify_fidelity(oF, sF, cfgF)
     check('RELS-RESOLVE', okrel and not (_embed_ids(oF) - _rel_ids(oF)))
+
+    # ══ v2.5 LABEL BINDING (GAP-2026-08-19-UNSATISFIABLE-LABEL-BINDING) ═══════
+    # A custom label_scheme ending in a NON-WORD character must be BINDABLE. The
+    # old trailing \b made these schemes unsatisfiable — every block raised at
+    # construction, so the exam could not be explained at all.
+    _cfgL = EngineConfig(r'^Q\.?\s*(\d+)', r'^(\([A-Z]\))', 4,
+                         label_scheme=['(A)', '(B)', '(C)', '(D)'])
+    def _lblblk(last):
+        return ExplanationBlock(q=1, ca=4, cfg=_cfgL,
+            axiom=['A governing principle.'],
+            deduction=['A first step.', last],
+            why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'],
+                       3: ['unit_error - c.']})
+    check('LABEL-PAREN-BINDS', _lblblk('The answer is Option (D).').validate() is True)
+    check('LABEL-PAREN-MIDSENTENCE',
+          _lblblk('That makes Option (D) the answer.').validate() is True)
+    # A WRONG label must still fail — the fix must not make the check vacuous.
+    check('LABEL-PAREN-WRONG-STILL-FAILS',
+          _raises(lambda: _lblblk('The answer is Option (B).').validate()))
+    # The prefix-confusion lock must survive for numeric schemes (1 vs 10).
+    _cfg10 = EngineConfig(r'^Q\.?\s*(\d+)', r'^(\d+)[.\)]', 12)
+    def _blk10(last):
+        return ExplanationBlock(q=1, ca=1, cfg=_cfg10,
+            axiom=['A governing principle.'],
+            deduction=['A first step.', last],
+            why_wrong={k: [f'value_swap - {k}.'] for k in range(2, 13)})
+    check('LABEL-NUMERIC-PREFIX-LOCK-HELD',
+          _blk10('The answer is Option 1.').validate() is True
+          and _raises(lambda: _blk10('The answer is Option 10.').validate()))
+    # Bracketed and trailing-paren schemes bind too.
+    for _sch, _lab in ((['[A]', '[B]', '[C]', '[D]'], '[D]'),
+                       (['A)', 'B)', 'C)', 'D)'], 'D)')):
+        _c = EngineConfig(r'^Q\.?\s*(\d+)', r'^(.)', 4, label_scheme=_sch)
+        ExplanationBlock(q=1, ca=4, cfg=_c, axiom=['A principle.'],
+            deduction=['A step.', f'The answer is Option {_lab}.'],
+            why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'],
+                       3: ['unit_error - c.']}).validate()
+    check('LABEL-BRACKET-AND-TRAILING-PAREN', True)
+    # END-TO-END: a paren-scheme paper must survive BUILD + all three verifiers.
+    # The construction fix alone was not enough — verify_explanations carried its own
+    # copy of the same trailing-\b test, so the exam still could not ship.
+    _lsrc = os.path.join(tempfile.gettempdir(), 'st_lblsrc.docx')
+    _lout = os.path.join(tempfile.gettempdir(), 'st_lblout.docx')
+    _ld = Document()
+    _ld.add_paragraph('Q.1  Which option is correct')
+    for _lb in ('(A)', '(B)', '(C)', '(D)'):
+        _ld.add_paragraph(f'{_lb} choice')
+    _ld.add_paragraph(''); _ld.save(_lsrc)
+    _lb1 = _lblblk('The answer is Option (D).')
+    build_interleaved_docx(_lsrc, [_lb1], _lout, _cfgL)
+    _lf, _ = verify_fidelity(_lout, _lsrc, _cfgL)
+    _ls, _ = verify_structure(_lout, [_lb1], _cfgL)
+    _le, _lep = verify_explanations(_lout, [_lb1], _cfgL)
+    check('LABEL-PAREN-E2E-ALL-VERIFIERS', _lf and _ls and _le)
+
 
     # ══ v2.4 COVERAGE BANNER (GAP-2026-08-19-INTERIM-ARTEFACT-UNLABELLED) ═════
     _bsrc = os.path.join(tempfile.gettempdir(), 'st_bansrc.docx')

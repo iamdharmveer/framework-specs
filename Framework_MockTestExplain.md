@@ -1,4 +1,28 @@
-# Framework_MockTestExplain v1.33.0
+# Framework_MockTestExplain v1.34.0
+# v1.34.0 — 2026-08-19 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT (paired with
+#   PYQExplain v2.12, engine v2.5). SPEC-ONLY here; the paired ENGINE release fixes a
+#   separate, unrelated label defect found the same way (see explain_engine v2.5).
+#   THE DEFECT. section_rules declares `option_label_format` in TWO places — the
+#   CATEGORY C header and every per-SECTION block — and P5 compared NEITHER. It checked
+#   option COUNT, question TYPE and Q_TOTAL, and it checked opt_re against label_scheme,
+#   but the declared label FORMAT was never compared against itself. A real exam config
+#   was found carrying `(A)/(B)/(C)/(D)` in the header and `1/2/3/4` in all FOUR of its
+#   section blocks. The run did not halt. It silently took the header, and every option
+#   in the paper was printed with the wrong label.
+#   WHY IT IS SILENT AND TOTAL. The two values come from DIFFERENT generators: the header
+#   is written from OBSERVED PYQ papers, the per-section values from per-section
+#   synthesis. Re-running the PYQ analysis can change the header alone and leave every
+#   section untouched. Nothing else in the run looks wrong — counts match, types match,
+#   the paper renders cleanly — so there is no second symptom to notice.
+#   THE FIX. P5 now compares the header against EVERY section and the sections against
+#   each other, and HALTs on any disagreement, printing every declared value with its
+#   location. Resolution by precedence is explicitly forbidden: "Surface, do not guess"
+#   already governed this step and the missing comparison was the only reason it could.
+#   SCOPE, NOT OVERCLAIMED. Labels are PRINTED by the generation step; this step reads
+#   them. Halting here cannot un-print an already-generated paper — it stops an
+#   explanation run from cementing wrong labels and sends the author to fix the config
+#   and regenerate. The same comparison belongs upstream in generation; that this one is
+#   downstream is a reason to surface loudly, never a reason to resolve silently.
 # v1.33.0 — 2026-08-19 — GAP-2026-08-19-DOMAIN-LEAK-IN-UNIVERSAL-RULES (paired with
 #   PYQExplain v2.11). SPEC-ONLY, no engine change, NO rule weakened — every obligation
 #   added in v1.31.0/v1.32.0 still binds. What changes is that four of them were written
@@ -709,6 +733,25 @@
       Also verify opt_re and label_scheme DESCRIBE THE SAME LABELS — both digits, or both
       A–D, or both i–iv, etc.; a digit opt_re paired with an alpha label_scheme is a config
       drift that mis-parses every option → HALT. Surface, do not guess.
+      OPTION-LABEL FORMAT COHERENCE (v1.34.0 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT).
+      section_rules declares `option_label_format` in TWO PLACES: once in the CATEGORY C
+      header, and once per SECTION block. COMPARE THEM ALL. If the header disagrees with
+      ANY section, or two sections disagree with each other → HALT, printing every
+      declared value with its location. DO NOT resolve it by precedence, and above all do
+      not silently prefer the header — that is exactly the guess this step forbids.
+      WHY THIS IS ITS OWN CHECK. The option count and question type were already compared
+      above; the LABEL FORMAT was not, and it is generated from a different source: the
+      header is written from OBSERVED PYQ papers, while the per-section values come from
+      per-section synthesis. Re-running the PYQ analysis can therefore change the header
+      alone and leave every section untouched, producing a file that contradicts itself
+      with no other symptom. The failure is silent and total: every option in the paper
+      carries the wrong label, every explanation binds against it, and NOTHING else in the
+      run looks wrong — the counts match, the types match, the paper renders.
+      SCOPE, stated honestly: the labels are PRINTED by the generation step, and this step
+      only reads them. Halting here does not un-print a paper already generated — it stops
+      an explanation run from cementing the wrong labels and tells the author to fix the
+      config and regenerate. The same comparison belongs in the generation step; that this
+      one is downstream is a reason to surface loudly, not a reason to guess.
   P6  RESUME (only on `resume` / `continue`): reload progress.json + answer_keys.json
       + the pickled blocks, rebuild the Solutions docx from the clean source + all
       blocks so far, run §18 self-audit on it, THEN proceed to the next batch (RE-19).
@@ -2401,5 +2444,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.33.0
+# END OF Framework_MockTestExplain v1.34.0
 # ════════════════════════════════════════════════════════════════════════

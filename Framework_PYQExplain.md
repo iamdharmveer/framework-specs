@@ -1,4 +1,13 @@
-# Framework_PYQExplain v2.11 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.12 — Universal PYQ Explanation Generator
+# v2.12 — 2026-08-19 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT (paired with
+#   MockTestExplain v1.34.0, engine v2.5). SPEC-ONLY. P6's conflict check compared
+#   Q_TOTAL, option count, question type and opt_re-vs-label_scheme, but never compared
+#   the DECLARED `option_label_format` values against each other — and section_rules
+#   declares that value once in the CATEGORY C header and once per SECTION block, from
+#   two different generators. A header/section disagreement therefore passed silently and
+#   every option carried the wrong label. P6 now compares all declarations and HALTs on
+#   any disagreement, printing each value with its location. See MockTestExplain v1.34.0
+#   for the full incident record.
 # v2.11 — 2026-08-19 — GAP-2026-08-19-DOMAIN-LEAK-IN-UNIVERSAL-RULES (paired with
 #   MockTestExplain v1.33.0). SPEC-ONLY, no engine change, no rule weakened. The four
 #   rules added in v2.9/v2.10 were written in one domain's vocabulary inside an
@@ -540,6 +549,25 @@ PYQExplain
   P6  CONFLICT CHECK: if section_rules and exam_config disagree on Q_TOTAL,
       option count, or question type → HALT (a drifted config corrupts every block).
       Also verify opt_re and label_scheme describe the SAME LABELS.
+      OPTION-LABEL FORMAT COHERENCE (v2.12 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT).
+      section_rules declares `option_label_format` in TWO PLACES: once in the CATEGORY C
+      header, and once per SECTION block. COMPARE THEM ALL. If the header disagrees with
+      ANY section, or two sections disagree with each other → HALT, printing every
+      declared value with its location. DO NOT resolve it by precedence, and above all do
+      not silently prefer the header — that is exactly the guess this step forbids.
+      WHY THIS IS ITS OWN CHECK. The option count and question type were already compared
+      above; the LABEL FORMAT was not, and it is generated from a different source: the
+      header is written from OBSERVED PYQ papers, while the per-section values come from
+      per-section synthesis. Re-running the PYQ analysis can therefore change the header
+      alone and leave every section untouched, producing a file that contradicts itself
+      with no other symptom. The failure is silent and total: every option in the paper
+      carries the wrong label, every explanation binds against it, and NOTHING else in the
+      run looks wrong — the counts match, the types match, the paper renders.
+      SCOPE, stated honestly: the labels are PRINTED by the generation step, and this step
+      only reads them. Halting here does not un-print a paper already generated — it stops
+      an explanation run from cementing the wrong labels and tells the author to fix the
+      config and regenerate. The same comparison belongs in the generation step; that this
+      one is downstream is a reason to surface loudly, not a reason to guess.
 
   P7  PRINT THE SESSION STATUS DASHBOARD (all data now available from P2-P6):
 ```
@@ -2208,5 +2236,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.11
+# END OF Framework_PYQExplain v2.12
 # ════════════════════════════════════════════════════════════════════════
