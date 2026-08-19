@@ -1,4 +1,18 @@
-# Framework_PYQExplain v2.7 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.8 — Universal PYQ Explanation Generator
+# v2.8 — 2026-08-19 — GAP-2026-08-19-STALE-PIN-SWEEP (paired with MockTestExplain v1.30.0).
+#   SPEC-ONLY, no engine change. Same CLASS as the paired release: an exact self-test
+#   count written into prose is correct only until the next fixture is added, and this
+#   file carried two such sites after v2.7 de-pinned only the §R1 report line.
+#   D1 — §21 DEFINITION OF DONE HARD-PINNED THE ENGINE COUNT. Item 1 read "engine
+#   62/62" while the engine prints 78/78 — the failure mode of
+#   GAP-2026-08-13-STALE-SELFTEST-PIN, in the place that fix (v2.5, which converted the
+#   P0 gate) never reached. Converted to floor form.
+#   D2 — THE ENGINE-CAPABILITY REFERENCE WAS INTERNALLY INCONSISTENT. Two adjacent
+#   lines described the same engine's two self-tests in two different conventions:
+#   `--self-test` pinned "62/62 PASS" while `--self-test-audit` correctly used the
+#   floor form "N >= 10". Both now use floor form.
+#   NEW §21-0 states the rule as a RULE, matching MockTestExplain §21-0 verbatim in
+#   substance, so the two explanation specs cannot drift apart on it.
 # v2.7 — 2026-08-19 — GAP-2026-08-19-PYQEXPLAIN-NO-REPRESENTATION-ROUTER. SPEC-ONLY:
 #   no engine change. PYQ-1 shares explain_engine.py with TestExplain, so since engine
 #   v2.2/v2.3 it has SILENTLY INHERITED the Tier-3 notation guard and the figure-emission
@@ -1807,7 +1821,29 @@ present_files(deliverables)
 # ════════════════════════════════════════════════════════════════════════
 # §21 — DEFINITION OF DONE / HARD INVARIANTS
 # ════════════════════════════════════════════════════════════════════════
-  1.  Pre-flight P0-P10 passed; engine 62/62; config built from section_rules.
+  0.  (v2.8) NO EXACT SELF-TEST OR VERSION COUNT IS EVER WRITTEN INTO PRESCRIPTIVE
+      TEXT IN THIS SPEC — not in a gate, not in a dashboard template, not in a report
+      field, not in a checklist. Every such reference is EITHER floor form
+      ("N/N PASS with N >= 62")
+      where it gates, OR read from what actually ran where it reports. RATIONALE: an
+      exact count is correct only until the next fixture is added, and this shape has
+      been fixed repeatedly one instance at a time — GAP-2026-08-13-STALE-SELFTEST-PIN
+      (the P0 gate, v2.5), v2.7 (the §R1 report line), and v2.8 (§21 and the
+      engine-capability reference). Fixing the instance and leaving the class is what
+      let it recur. Engine INTEGRITY is proved by bootstrap.py's sha256, never by a
+      count. Identical in substance to MockTestExplain §21-0: one rule across both
+      explanation specs, which share the engine this rule is about.
+      SCOPE — PRESCRIPTIVE TEXT ONLY. This governs text that INSTRUCTS: gates,
+      dashboard and report templates, checklists, definition-of-done items. It does
+      NOT govern the HISTORICAL RECORD. A changelog entry, or an explanatory note
+      describing a defect that was fixed, MUST be able to quote the stale value it is
+      about — "this line carried 62/62 while the engine printed 78/78" is the evidence
+      that makes the fix reviewable, and stripping it would leave a rule with no
+      account of why it exists. The test is not whether a number appears; it is
+      whether the number TELLS A SESSION WHAT TO DO. If it does, it is floor form or
+      read-what-ran. If it merely records what once was, it stays.
+  1.  Pre-flight P0-P10 passed; engine --self-test printed "N/N PASS" with N == total
+      and N >= 62 (floor form, §21-0); config built from section_rules.
   2.  Every question explained (zero sampling); every validate() clean.
   3.  Every answer derived two ways; disagreements resolved 2-of-3 +
       DERIVATION-CONFIDENCE. Zero guesses. Typed correctly (mcq/msq/nat).
@@ -1885,7 +1921,8 @@ present_files(deliverables)
 #       explain_engine.py   (delivered alongside this spec)
 #   It is COMPLETE, working, universal, and byte-identical across all exams
 #   and across both the mock and PYQ pipelines. Self-tests:
-#     --self-test       → "SELF-TEST: 62/62 PASS" (core, required at P0)
+#     --self-test       → "SELF-TEST: N/N PASS", N == total and N >= 62 (core, required
+#                          at P0; v2.8 floor form — §21-0, no exact count)
 #     --self-test-audit → "AUDIT-SELF-TEST: N/N PASS", N >= 10 (reader round-trip; v2.5 floor form)
 #   (v2.1: the companion gate explain_audit_gate.py and PYQExplainAudit (PYQ-2) were
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
@@ -1957,5 +1994,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.7
+# END OF Framework_PYQExplain v2.8
 # ════════════════════════════════════════════════════════════════════════

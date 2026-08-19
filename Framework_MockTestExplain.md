@@ -1,4 +1,25 @@
-# Framework_MockTestExplain v1.29.0
+# Framework_MockTestExplain v1.30.0
+# v1.30.0 — 2026-08-19 — GAP-2026-08-19-STALE-PIN-SWEEP (paired with PYQExplain v2.8).
+#   SPEC-ONLY, no engine change. A CLASS SWEEP, not four incidents: v1.29.0 de-pinned
+#   the §R1 report line and stopped, leaving the SAME defect standing in every other
+#   place a count was written into prose. GAP-2026-08-13-STALE-SELFTEST-PIN fixed the
+#   P1 gate in v1.25.0 and left the class standing too — this is the third time this
+#   shape has been fixed instance-by-instance, so it is fixed by RULE here (§21-0).
+#   D1 — §21 DEFINITION OF DONE HARD-PINNED THE ENGINE COUNT. Item 1 read "engine
+#   --self-test 62/62" under a heading that says "ANY violation = do NOT deliver". The
+#   engine prints 78/78. On a literal reading the Definition of Done could NEVER be
+#   satisfied — the exact failure mode of GAP-2026-08-13-STALE-SELFTEST-PIN, in the one
+#   place that fix never reached. Converted to floor form.
+#   D2 — THE P2 DASHBOARD TEMPLATE PRESCRIBED PRINTING "[62/62 PASS]". A template is
+#   an instruction: it told every session to print a count that has been wrong since the
+#   engine grew past 62 fixtures. Now prints what the engine actually reported.
+#   D3 — THE P2 DASHBOARD HEADER SAID "MockExplain v1.20" at spec v1.29.0. Now reads
+#   the version from this file's own header.
+#   D4 — STALE FACTUAL COUNT. P1's explanatory note asserted "it prints 64/64 today";
+#   it prints 78/78. Any such assertion is stale the moment a fixture is added, so the
+#   count is removed rather than corrected.
+#   NEW §21-0 states the rule the three previous fixes each implied but never wrote
+#   down, so the next fixture addition cannot reopen this.
 # v1.29.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-FIGURAL-DOMAIN-BLINDNESS. SPEC-ONLY:
 #   no engine change, no artefact-shape change. Four defects found by auditing what
 #   v1.27.0/v1.28.0 did NOT touch. The router fixed what an explanation EMITS; these
@@ -528,20 +549,24 @@
       solving (v1.25, GAP-2026-08-13-STALE-SELFTEST-PIN: the FLOOR form, the
       same AUTH_GATE_FLOOR pattern Steps 6/7 use for the audit copy — the
       previous exact "62/62" pin made every session HALT on a HEALTHY engine
-      the moment it grew fixtures; it prints 64/64 today. bootstrap.py's
-      sha256 verification is what proves engine integrity, not the count). THEN LOAD LEARNINGS (§24): via
+      the moment it grew fixtures, and the fixture count has risen repeatedly
+      since. NO EXACT COUNT IS WRITTEN INTO PRESCRIPTIVE TEXT ANYWHERE IN THIS
+      SPEC (§21-0 — the historical record may still quote one):
+      bootstrap.py's sha256 verification is what proves engine integrity, not
+      the count). THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (legacy/manual — v1.21.0) and
       [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT, and index every
       AL/EX rule by defect_code. These OVERRIDE this spec on conflict (§24). When a
-      learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10; currently 26/26) to
+      learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10) to
       confirm the cross-step readers. Absent on mock 1 by design — proceed. Any load/self-test
       failure → HALT.
   P2  STATUS DASHBOARD (print every turn, before any solving):
 ```text
-      === MockExplain v1.20 — Session Status ===
+      === MockExplain [spec version from this file's header] — Session Status ===
       Spec / section_rules / blueprint / manifest / registry : [loaded]
-      explain_engine.py --self-test                          : [62/62 PASS]
+      explain_engine.py --self-test                          : [the N/N PASS line
+                                                               the engine printed]
       Exam config (CATEGORY C)  : options=[k or per-section map] · labels=[scheme] ·
                                   q_re=[..] · opt_re=[..] · lang=[..] · terminators=[..]
       Level / Medium             : [level] · [medium]  (from exam_config via CATEGORY C)
@@ -1898,7 +1923,28 @@ Step 9 uses BOTH footer types:
 # ════════════════════════════════════════════════════════════════════════
 # §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
 # ════════════════════════════════════════════════════════════════════════
-  1.  Pre-flight P0–P9 passed; engine --self-test 62/62; N in mocks_completed; config built.
+  0.  (v1.30.0) NO EXACT SELF-TEST OR VERSION COUNT IS EVER WRITTEN INTO PRESCRIPTIVE
+      TEXT IN THIS SPEC — not in a gate, not in a dashboard template, not in a report
+      field, not in a checklist. Every such reference is EITHER floor form
+      ("N/N PASS with N >= 62")
+      where it gates, OR read from what actually ran where it reports. RATIONALE: an
+      exact count is correct only until the next fixture is added, and this shape has
+      now been fixed three times one instance at a time — GAP-2026-08-13-STALE-SELFTEST-
+      PIN (the P1 gate, v1.25.0), v1.29.0 (the §R1 report line), and v1.30.0 (§21, the
+      dashboard, an explanatory aside). Fixing the instance and leaving the class is
+      what let it recur. Engine INTEGRITY is proved by bootstrap.py's sha256, never by
+      a count; a count only ever proves how many fixtures exist today.
+      SCOPE — PRESCRIPTIVE TEXT ONLY. This governs text that INSTRUCTS: gates,
+      dashboard and report templates, checklists, definition-of-done items. It does
+      NOT govern the HISTORICAL RECORD. A changelog entry, or an explanatory note
+      describing a defect that was fixed, MUST be able to quote the stale value it is
+      about — "this line carried 62/62 while the engine printed 78/78" is the evidence
+      that makes the fix reviewable, and stripping it would leave a rule with no
+      account of why it exists. The test is not whether a number appears; it is
+      whether the number TELLS A SESSION WHAT TO DO. If it does, it is floor form or
+      read-what-ran. If it merely records what once was, it stays.
+  1.  Pre-flight P0–P9 passed; engine --self-test printed "N/N PASS" with N == total
+      and N >= 62 (floor form, §21-0); N in mocks_completed; config built.
   2.  Every question explained (zero sampling); every ExplanationBlock.validate() clean.
   2b. (v1.29.0) Every figural question carries a decided FAMILY (§13-1); every question
       carries a §6A representation verdict; §R1 reports the spec version and engine
@@ -2087,5 +2133,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.29.0
+# END OF Framework_MockTestExplain v1.30.0
 # ════════════════════════════════════════════════════════════════════════
