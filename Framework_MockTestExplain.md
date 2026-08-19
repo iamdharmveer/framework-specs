@@ -1,4 +1,32 @@
-# Framework_MockTestExplain v1.28.0
+# Framework_MockTestExplain v1.29.0
+# v1.29.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-FIGURAL-DOMAIN-BLINDNESS. SPEC-ONLY:
+#   no engine change, no artefact-shape change. Four defects found by auditing what
+#   v1.27.0/v1.28.0 did NOT touch. The router fixed what an explanation EMITS; these
+#   fix how a question is READ and how the run REPORTS itself.
+#   D1 — §13 SPOKE ONLY REASONING-PUZZLE. S13-1/S13-4 named "mirror/water image, paper
+#   folding, cube net, space orientation" and defined the figural AXIOM as "the visual
+#   rule (rotation / reflection / element add-remove / count / net-folding)". That is the
+#   SSC/CAT non-verbal vocabulary. It is CORRECT for those exams and USELESS for a drawn
+#   molecular structure, an MO diagram or a titration curve: a session reading §13 for a
+#   chemistry stem was told to look for rotation and folding. §13 is now split into a
+#   SHARED gate (detect/extract/view — unchanged, it was always domain-neutral) and TWO
+#   named FAMILIES, transformation-puzzle and scientific-diagram, with the reading
+#   protocol each actually needs. No exam loses anything: the puzzle family is the old
+#   text preserved verbatim in substance.
+#   D2 — §6 HAD NO CLASS FOR STRUCTURAL OR DERIVATIONAL REASONING. S6-1 classed by
+#   exam shape (vocab / grammar / formal-logic / figural) so a Claisen rearrangement
+#   landed in C-FIGURAL and a multi-step derivation in C-COMPUTATIONAL. Class decides
+#   which SECTION LEADS — a different job from §6A, which decides what is EMITTED — so
+#   the gap was not covered by the router. C-STRUCTURAL and C-DERIVATIONAL added.
+#   D3 — §6A-3 PROMISED A REPORT LINE §20 DID NOT DEFINE. §6A-3 states "The §20 report
+#   states the distribution" while §R3 listed no such field: a dangling cross-reference
+#   that would be satisfied by nobody. §R3 now carries the representation distribution
+#   and the degrade ledger.
+#   D4 — §R1 PROVENANCE WAS STALE. It printed "spec v1.13 · engine 62/62" against a
+#   spec at v1.28.0 and an engine at 78/78. NOT a halt risk — the GATES were converted
+#   to FLOOR form in v1.25.0 (GAP-2026-08-13-STALE-SELFTEST-PIN) and remain floor-form
+#   here — but a provenance line that misreports its own versions defeats the purpose of
+#   provenance. §R1 now reads both values from what actually ran, pinning neither.
 # v1.28.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-REPRESENTATION-EMISSION (figures LIVE).
 #   MINOR bump, paired with explain_engine v2.3. v1.27.0 shipped the §6A router
 #   RECORD-ONLY, deliberately: verdicts first, emission after review. This release
@@ -364,6 +392,11 @@
           incomplete solve — raise the bar before concluding a defect (§17).
   RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option names an error type
           that ACTUALLY produces that option's value/content; no template, ever (§15).
+  RE-11b: FIGURAL FAMILY IS DECIDED, NOT ASSUMED (v1.29.0). Every figural question is
+          classed TRANSFORMATION-PUZZLE or SCIENTIFIC-DIAGRAM before solving (§13-1), and
+          read by that family's protocol (§13-4a / §13-4b). A scientific figure read as a
+          pose puzzle loses the domain content entirely; when mixed or unclear, read it
+          as SCIENTIFIC-DIAGRAM (the stricter reading never damages a puzzle).
   RE-13b: REPRESENTATION IS ROUTED, NOT ASSUMED (v1.27.0). Every question runs the
           §6A router after derivation and before writing. PROSE is the default and a
           visual must EARN its place on the §14 two-part test; the verdict is recorded
@@ -799,6 +832,9 @@
   [ ] Negative phrasing scanned (config triggers; default NOT/EXCEPT/INCORRECT/FALSE) → §10a
   [ ] Composite options scanned (Both/Only/All of the above/None of the above)   → §10b
   [ ] Figural? → every image extracted, role-bound, and VIEWED before solving     (§13)
+  [ ] Figural? → FAMILY decided (transformation-puzzle / scientific-diagram) and the
+      matching protocol used; for scientific-diagram, decisive features TRANSCRIBED
+      before solving and NONE inferred from what would make an option work  (§13-1/4b)
   [ ] Answer derived from first principles AND a second independent method        (§7)
   [ ] Methods agree (else DERIVATION-CONFIDENCE) and land on exactly the answer:
       one option (mcq) · the full correct set (msq) · the single value/range (nat) (§7)
@@ -839,7 +875,9 @@
   | C-VOCAB-ITEM     | synonym/antonym/idiom/one-word/spelling     | AXIOM = the sense/register under test; WHY WRONG = the one nuance each near-miss gets wrong; 2–3 lines total |
   | C-GRAMMAR        | error-spotting/improvement/voice/narration/jumble | DEDUCTION = re-derive the correct form; each WHY WRONG = the one rule violated |
   | C-LINKED         | member of a shared-stimulus group (RC/cloze/DI/puzzle) | POINT to the licensing line in the stimulus ("the passage states … → answer"); do NOT re-argue it |
-  | C-FIGURAL        | answer is/depends on a figure (§13)          | AXIOM = the visual rule; DEDUCTION traces the VISIBLE transformation; WHY WRONG = the visual difference per wrong figure |
+  | C-FIGURAL        | answer is/depends on a figure (§13)          | Family-dependent (§13-1). TRANSFORMATION-PUZZLE: AXIOM = the visual rule, DEDUCTION traces the VISIBLE transformation, WHY WRONG = the visual difference (§13-4a). SCIENTIFIC-DIAGRAM: AXIOM = the domain principle, DEDUCTION reads the figure as notation then solves, WHY WRONG = the domain error (§13-4b) |
+  | C-STRUCTURAL     | v1.29.0 — the answer turns on CONNECTIVITY, a site of reaction, spatial/stereochemical arrangement, symmetry or an enumeration over structures (products, isomers, environments), whether or not a figure is present | DEDUCTION leads and is a TRANSFORMATION CHAIN: starting arrangement → the change and WHERE it happens → resulting arrangement → why that one. AXIOM = the selectivity or structural principle governing the change. Enumerations state the generating rule, then the de-duplication (symmetry, equivalence), then the count — never a bare number. Pairs naturally with a §6A STRUCTURE_GRAPH verdict, but the class holds even when the router says PROSE |
+  | C-DERIVATIONAL   | v1.29.0 — a MULTI-STEP chain where each step feeds the next (a relation is manipulated before use, several relations compose, or a limit/boundary case is taken) — distinct from C-COMPUTATIONAL, which substitutes into ONE known relation | DEDUCTION leads and shows the CHAIN: governing relation → what is eliminated or substituted at each step → the result, every step rendered as ⟦MATH:⟧ math (§11 S11-1c). AXIOM = the relation the chain starts from, plus the condition that licenses it. Each WHY WRONG names the ONE step at which that option's route diverges |
   | C-MATRIX/MATCH   | match-the-column / matrix                    | DEDUCTION = re-derive every pair; isolate the one fully-correct option |
   | C-MULTI-SELECT   | MSQ — more than one correct option (section_rules answer_cardinality == 'multi') | DEDUCTION = a truth-verdict line per option, then state the full correct SET; WHY WRONG = why each NON-selected option fails; CA line lists the set |
   | C-NUMERICAL-INPUT| NAT — typed numerical answer, NO options (section_rules answer_type == 'numerical') | DEDUCTION leads to the VALUE (last step contains it); AXIOM = formula+units; COMMON PITFALLS replace WHY WRONG (the wrong VALUES students compute + the slip for each); CA line shows the value (+ tolerance range if the exam allows one) |
@@ -1413,10 +1451,27 @@
 ## S13-1 — Detect figural questions structurally
   A question is figural if its region contains a <w:drawing> in the STEM or in any
   OPTION (read from the docx XML) — plus section_rules figural cues and registry
-  figural_manifests[]. Two shapes, handled distinctly: IMAGE-IN-STEM (a diagram to
-  reason about) and IMAGE-AS-OPTIONS (each option is itself a figure — series, analogy,
-  odd-one-out, mirror/water image, paper folding, embedded figures, counting figures,
-  cube net, space orientation).
+  figural_manifests[]. Two PLACEMENTS, handled distinctly: IMAGE-IN-STEM (a figure to
+  reason about) and IMAGE-AS-OPTIONS (each option is itself a figure).
+
+  AND — v1.29.0 — TWO FAMILIES, which decide HOW the figure is READ. Placement and
+  family are independent: either family can appear in either placement.
+    • TRANSFORMATION-PUZZLE — the figure carries no domain meaning; the answer lies in
+      a geometric or set operation on abstract marks. Series, analogy, odd-one-out,
+      mirror/water image, paper folding, cube net, embedded/counting figures, space
+      orientation. (Typical of reasoning sections: SSC, CAT, IBPS, police/defence.)
+    • SCIENTIFIC-DIAGRAM — the figure DENOTES something, and the answer depends on what
+      it denotes, never on its pose on the page. Molecular structures and reaction
+      schemes, stereochemical projections (Fischer/Newman/chair/wedge-dash), orbital and
+      energy-level diagrams, circuits, ray diagrams, free-body and vector diagrams,
+      graphs, spectra, titration curves, maps, anatomical and biological diagrams,
+      apparatus schematics. (Typical of subject papers: JAM, GATE, NEET, JEE, boards.)
+  DECIDING THE FAMILY: read section_rules figural cues and the subtopic; if the marks
+  in the figure have NAMES in the syllabus (an element symbol, a bond, an axis label, an
+  orbital, a component), it is SCIENTIFIC-DIAGRAM. Abstract shapes with no such naming
+  are TRANSFORMATION-PUZZLE. When genuinely mixed, read it as SCIENTIFIC-DIAGRAM: the
+  stricter reading (§13-4b) never damages a puzzle, whereas reading a structure as a
+  puzzle loses the chemistry entirely — the failure this split exists to prevent.
 
 ## S13-2 — Extract, role-bind, view (the gate before solving)
   Extract the actual image bytes from the docx media parts, render them, and bind each
@@ -1436,14 +1491,49 @@
   absent (it is chat-scoped) → derive without it; the strip re-audit waives the manifest
   requirement (§12-3).
 
-## S13-4 — Write what is visible; never anomaly-for-figural
-  AXIOM = the visual rule (rotation / reflection / element add-remove / count /
-  net-folding). DEDUCTION traces the VISIBLE transformation step by step to the chosen
-  option, citing concrete features. WHY WRONG names, per wrong option-figure, the
-  specific visual difference. (v1.13: no separate figure-description line is rendered —
-  the figure itself sits in the question region above; the images are still VIEWED
+## S13-4 — Write what is visible; never anomaly-for-figural (BOTH families)
+  Common to both: DEDUCTION cites CONCRETE features actually visible, never a generic
+  gesture at "the figure". WHY WRONG names, per wrong option-figure, the specific
+  difference that makes it wrong. (v1.13: no separate figure-description line is
+  rendered — the figure sits in the question region above; images are still VIEWED
   before solving, §13-2 / RE-11.) anomaly is NEVER used merely because options are
   images — a figural question always has a derivable answer once viewed.
+
+## S13-4a — TRANSFORMATION-PUZZLE family (unchanged behaviour)
+  AXIOM = the visual rule (rotation / reflection / element add-remove / count /
+  net-folding). DEDUCTION traces the VISIBLE transformation step by step to the chosen
+  option. This is the pre-v1.29.0 protocol, preserved: for a genuine reasoning puzzle
+  it was correct and stays correct.
+
+## S13-4b — SCIENTIFIC-DIAGRAM family (v1.29.0)
+  AXIOM = the DOMAIN PRINCIPLE the figure is testing — never "the visual rule". The
+  figure is notation for a fact, so the governing fact is the axiom.
+  READ THE FIGURE AS NOTATION, IN THIS ORDER, BEFORE SOLVING:
+    1. IDENTIFY what is drawn, in the domain's own terms (which compound, which circuit,
+       which quantity on which axis, which orbital set).
+    2. TRANSCRIBE the decisive features EXACTLY: bonds and bond orders, charges, wedge/
+       dash direction, ring size, substituent identity and position, atom numbering,
+       stereo-descriptors, reagent ORDER above/below the arrow, axis labels and units,
+       component values, arrow directions, occupancy.
+    3. Only then SOLVE, from that transcription.
+  THE PROHIBITION THAT MATTERS MOST: never infer an unreadable feature from whatever
+  would make an option work. A figure read backwards from a plausible answer produces a
+  confident, wrong, unfalsifiable explanation. If a decisive feature cannot be read,
+  re-view at higher resolution; if it still cannot be read, HALT-AND-ESCALATE (§17) —
+  this is exactly the §13-3 render-defect path, not a case for judgement.
+  POSE IS NOT MEANING. A scientific figure means the same thing rotated, reflected or
+  redrawn. Two structures drawn differently may be the SAME compound; two drawn
+  identically apart from one wedge may be DIFFERENT compounds. Never reason from
+  page-orientation, and never treat a redrawing as a transformation — that is the
+  §13-4a reflex misapplied, and it is wrong here.
+  PRESERVE THE QUESTION'S OWN REPRESENTATION. If the stem poses a Fischer projection,
+  reason in Fischer; a Newman stays Newman; a chair stays chair. Translating between
+  representations adds a conversion step the question never asked for and imports its
+  own error. Convert ONLY when the conversion IS the thing being tested.
+  WHY WRONG for this family names the DOMAIN error (§9's scientific types —
+  regiochemistry_error, stereochemistry_error, electron_count_error, symmetry_error,
+  wrong_condition, …), never a merely visual difference: "the double bond is at C3
+  rather than C2" is the explanation; "the shape differs" is not.
 
 # ════════════════════════════════════════════════════════════════════════
 # §14 — SPEED HACK INCLUSION GATE (derivation-driven; omit, never fake)
@@ -1640,6 +1730,8 @@
       DEDUCTION (§11 S11-1c). A missing verdict is a BLOCKING FAIL — an unrouted
       question silently reverts to the pre-v1.27.0 prose-only default, which is the
       defect this router exists to remove.
+  [ ] REPRESENTATION DISTRIBUTION + DEGRADE LEDGER captured for this batch's questions,
+      ready for §R3; an empty ledger recorded AS empty, never omitted            (§20 R3)
   [ ] FIGURE LANDING (v1.28.0): verify_explanations confirms every block's declared
       figures rendered — declared N, landed N, per question. A mismatch is a BLOCKING
       FAIL; a figure dropped by §6A-4 degrade is REMOVED from the block (so declared
@@ -1762,13 +1854,33 @@ Step 9 uses BOTH footer types:
 # ════════════════════════════════════════════════════════════════════════
 # §20 — END-OF-MOCK REPORT (after the FINAL batch's confirmation; MANDATE-0 safe)
 # ════════════════════════════════════════════════════════════════════════
-  §R1 PROVENANCE: mock N · registry state · blueprint reference · spec v1.13 · engine
-      62/62 · timestamp · EngineConfig (option count(s), label scheme, language,
+  §R1 PROVENANCE: mock N · registry state · blueprint reference · THIS spec's version
+      as read from its own header · the engine self-test line EXACTLY as the engine
+      printed it · timestamp · EngineConfig (option count(s), label scheme, language,
       terminators) actually used.
+      v1.29.0 — BOTH VERSIONS ARE READ, NEVER PINNED. This line previously carried the
+      literal "spec v1.13 · engine 62/62" and was still carrying it at spec v1.28.0 /
+      engine 78/78, misreporting the very thing provenance exists to record. Any exact
+      count written here goes stale the moment a fixture is added — the same failure
+      mode as GAP-2026-08-13-STALE-SELFTEST-PIN, which is why the GATES are floor-form
+      (§18, "N/N PASS with N >= 62"). A report line is not a gate and must not become
+      one: report what ran, assert nothing.
   §R2 VERDICT: SHIP (delivered) / HALTED (escalation) — first line, unambiguous.
   §R3 COVERAGE: Q_TOTAL/Q_TOTAL explained · question-type split (mcq/msq/nat counts) ·
       SPEED HACK count (Q-numbers) · OMML object count in explanations · per-class
       derived-answer distribution (counts only).
+      REPRESENTATION (v1.29.0 — the §6A-3 distribution this line was promised to carry):
+        • verdict counts across PROSE / EQUATION / TABLE / STRUCTURE_GRAPH /
+          LEVEL_DIAGRAM / DATA_PLOT, plus the Q-numbers for every non-PROSE verdict.
+        • figures declared vs figures landed (must be equal — §18 blocks otherwise).
+        • DEGRADE LEDGER: every §6A-4 step-down, with the Q-number, the requirement
+          asked for, what it degraded to, and WHY (renderer absent / preflight failed /
+          §6A-5 validation mismatch). An EMPTY ledger is stated explicitly as empty —
+          a silent absence and a clean run must not look identical.
+      A distribution that is 100% PROSE on a diagram-heavy paper, or one that emits a
+      figure for nearly every question, is the signal this line exists to surface: both
+      mean the §6A-1 two-part test is not being applied. Report the counts; do not
+      editorialise.
   §R4 SELF-AUDIT (§18): verify_fidelity / verify_structure / math-render / count
       invariants / strip-re-audit / coverage assertion — all clean (real engine STDOUT,
       content-free).
@@ -1788,6 +1900,9 @@ Step 9 uses BOTH footer types:
 # ════════════════════════════════════════════════════════════════════════
   1.  Pre-flight P0–P9 passed; engine --self-test 62/62; N in mocks_completed; config built.
   2.  Every question explained (zero sampling); every ExplanationBlock.validate() clean.
+  2b. (v1.29.0) Every figural question carries a decided FAMILY (§13-1); every question
+      carries a §6A representation verdict; §R1 reports the spec version and engine
+      self-test line AS READ, pinning neither.
   3.  Every answer independently derived two ways; disagreements resolved 2-of-3 +
       DERIVATION-CONFIDENCE; zero guesses. Each block typed correctly (mcq/msq/nat) and
       the answer bound accordingly (one option / the full set / the value+range).
@@ -1972,5 +2087,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.28.0
+# END OF Framework_MockTestExplain v1.29.0
 # ════════════════════════════════════════════════════════════════════════

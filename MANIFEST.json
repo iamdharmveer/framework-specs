@@ -209,11 +209,11 @@
       "bytes": 462437
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "a5f86c77a5a7cf610cf29f9113cc7532288e7ff2f50546dc958eee0072daf564",
-      "version_header": "# Framework_MockTestExplain v1.28.0",
+      "sha256": "41d0f8d08dd5d5b8d9dc13112743faffe0eebbdc99b527e7c36275cf635a0c63",
+      "version_header": "# Framework_MockTestExplain v1.29.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1976,
-      "bytes": 153334
+      "lines": 2091,
+      "bytes": 163759
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -496,11 +496,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "d388d21ab86010b1c9e42eb2530b6f877416f5eeee2d8a3e62b3dc46a6ccb5e1",
+      "sha256": "5867400c278cdf01d4d74a9c41e367794681a1be3ffb97f4cc43b182b99d4f96",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 6391,
-      "bytes": 174690
+      "lines": 6405,
+      "bytes": 175097
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "f60af3196199ca4d59e0da338aa58c4fc4cff5aaf43a4f61174bc337785d29e7",
