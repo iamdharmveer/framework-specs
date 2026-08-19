@@ -1,4 +1,36 @@
-# Framework_MockTestExplain v1.26.0
+# Framework_MockTestExplain v1.27.0
+# v1.27.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-MATH-NOTATION + REPRESENTATION ROUTER.
+#   MINOR bump: §11 grammar is DOCUMENTED and §9 gains scientific error types; no
+#   existing artefact shape changes. TWO defects, one root cause.
+#   D1 — §11 BANNED THE SYNTAX ITS OWN COMPILER REQUIRES. S11-1 listed "\\frac",
+#   "\\sqrt" and "$…$" as banned LaTeX while t3_compile handles \\frac{}{},
+#   \\sqrt{}, K_{sp}, E_{cell}^{0} and \\Delta_{o} CORRECTLY, and S18 recorded the
+#   consequence in its own words: "bans LaTeX in prose (§11), so ⟦MATH:⟧ regions
+#   are rare here". An executing session therefore read §11, concluded that math
+#   notation was forbidden, and VERBALISED arithmetic instead — measured on a
+#   60-question chemistry paper: 105 verbalised phrases ("divided by" x18,
+#   "square root of" x9, "raised to the power" x3) against 6 OMML nodes in the
+#   whole document, every one of them in the two pure-mathematics questions and
+#   NONE in any science question. The prose-only texture was the spec working as
+#   written, not a generation failure. S11-1 now documents the grammar that
+#   actually compiles and confines the LaTeX ban to PROSE, where it belongs.
+#   D2 — THE COMPILER VALIDATES GRAMMAR, NEVER NOTATION. guard_sentence exempts
+#   ⟦MATH:⟧ bodies from every prose guard on the stated grounds that the compiler
+#   checks them. It does not: a bare _ / ^ binds exactly ONE preceding character
+#   and unknown words pass through as literal text, so Delta_o rendered "Delt aₒ",
+#   K_sp rendered "Kₛp" and sqrt(x) rendered as flat text — SILENTLY, with every
+#   gate green. explain_engine v2.2 adds t3_notation_guard (authoring-time, fail-
+#   at-construction, remedy named in the message) and the self-test locks it in
+#   BOTH directions. t3_mathcomp.py is deliberately NOT touched — it is byte-
+#   locked to Framework_PYQPrepare §S3-5b by the self-test drift lock.
+#   D3 — REPRESENTATION SELECTION WAS NOT A PIPELINE STAGE. §6 classed questions
+#   by exam-shape (vocab/grammar/formal-logic) with no class for structural or
+#   derivational reasoning, and ExplanationBlock has no field able to carry a
+#   figure, so a structural explanation could only DESCRIBE what a scheme would
+#   show. New §6A REPRESENTATION ROUTER makes the choice explicit and — critically
+#   — makes PROSE the default that visuals must EARN, on the proven §14 SPEED HACK
+#   "omit, never fake" pattern. Emission is staged for the engine work; the router
+#   verdict is recorded and reported from this version.
 # v1.26.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
 #   MINOR bump: a name is added to this file's executable surface. NO ARTEFACT CHANGES.
 #   This spec CALLED present_files() from compiling python while DEFINING it nowhere —
@@ -301,6 +333,11 @@
           incomplete solve — raise the bar before concluding a defect (§17).
   RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option names an error type
           that ACTUALLY produces that option's value/content; no template, ever (§15).
+  RE-13b: REPRESENTATION IS ROUTED, NOT ASSUMED (v1.27.0). Every question runs the
+          §6A router after derivation and before writing. PROSE is the default and a
+          visual must EARN its place on the §14 two-part test; the verdict is recorded
+          per question and reported (§20). Quantitative steps render as ⟦MATH:⟧ math,
+          never as verbalised arithmetic (§11 S11-1c).
   RE-14 : SPEED HACK ONLY WHEN GENUINELY FASTER. Emit iff a structurally-different route
           reaches the same CA with materially less work; otherwise OMIT — never pad (§14).
   RE-15 : NO TEMPLATES / GLYPHS / FAKE-CITES / METACOMMENTARY / BANNED BLOCKS. Engine-
@@ -643,7 +680,8 @@
 
   Each batch response does EXACTLY this, in order, then ENDS:
     A. Read batch_plan[k] from progress.json. Solve ONLY those questions (§7 derive +
-       second-method verify; §13 view images; §6 class-adaptive write). No look-ahead.
+       second-method verify; §13 view images; §6A ROUTE THE REPRESENTATION; §6
+       class-adaptive write). No look-ahead.
     B. Build each ExplanationBlock and call .validate() immediately (fail-at-construction).
     C. CUMULATIVE WHOLE-PAPER BUILD: build_interleaved_docx(CLEAN_SOURCE, ALL_BLOCKS_1..k,
        out, cfg). ALL blocks from batch 1 through k — never batch-k-only (this is why the
@@ -737,6 +775,10 @@
   [ ] AXIOM states a TRUTH, not the task; no restatement of the question
   [ ] DEDUCTION last step binds the answer: "Option L(ca)" (mcq) · every selected
       "Option L(i)" (msq) · the value string (nat); each step shows its value
+  [ ] §6A representation router RUN; verdict recorded; PROSE unless the two-part
+      test passed; any degrade disclosed                                          (§6A)
+  [ ] every quantitative step rendered as ⟦MATH:⟧ math, NOT verbalised arithmetic (§11 S11-1c)
+  [ ] every ⟦MATH:⟧ body uses braced scripts and backslash names (\Delta, \sqrt)  (§11 S11-1b)
   [ ] SPEED HACK present IFF a genuinely shorter route was found; else omitted     (§14)
   [ ] WHY WRONG covers exactly the non-selected options, each first sentence naming an
       error type (§9) that ACTUALLY produces it (mcq/msq); NAT uses COMMON PITFALLS —
@@ -783,6 +825,88 @@
   not read like a maths proof; a maths answer must not read like an essay; an RC answer
   cites the line rather than re-deriving the passage. The lead section is chosen by the
   question's class (S6-1), not by its position in the paper.
+
+# ════════════════════════════════════════════════════════════════════════
+# §6A — REPRESENTATION ROUTER (v1.27.0 — exam-agnostic, domain-configured)
+# ════════════════════════════════════════════════════════════════════════
+#   Representation selection is now an EXPLICIT pipeline stage, run once per
+#   question AFTER the answer is derived and verified (§7) and BEFORE any
+#   explanation prose is written. Before v1.27.0 it was not a stage at all, so
+#   every explanation defaulted to prose regardless of what the question was
+#   about — a structural transformation could only be DESCRIBED, never shown.
+#   The router is EXAM-AGNOSTIC: it names no exam and no subject. It emits a
+#   REQUIREMENT; which renderer satisfies that requirement is read at runtime
+#   from the exam's own section_rules.md (CATEGORY C), exactly as option labels
+#   and language already are. An exam whose section_rules declares no renderer
+#   gets PROSE and EQUATION only and behaves EXACTLY as it did before this
+#   version — deploying the router cannot regress an exam that does not opt in.
+
+## S6A-1 — PROSE IS THE DEFAULT. A VISUAL IS EARNED, NEVER ISSUED.
+  This is the load-bearing rule; read it before the table. The router's default
+  verdict is PROSE, and every richer representation must EARN its place by the
+  same two-part test §14 already applies to SPEED HACK ("omit, never fake"):
+    1. DECISIVE — the answer turns on a relationship that prose states less
+       clearly than the representation would (connectivity, spatial arrangement,
+       occupancy, a computed chain, a data shape).
+    2. NOT REDUNDANT — the representation carries information the surrounding
+       sentences do not already carry. Re-drawing what the stem already shows,
+       or illustrating a recall fact, fails this half.
+  BOTH must pass, else PROSE. A recall question ("which metal catalyses this
+  industrial process") takes PROSE and stops — manufacturing a diagram for it is
+  the failure mode this rule exists to prevent, and across 200 exams it is the
+  difference between a clearer document and a bloated one.
+  MINIMUM SUFFICIENT REPRESENTATION: where two representations both pass, take
+  the simpler. Never draw a mechanism where a transformation arrow suffices;
+  never draw every intermediate when one selectivity-determining step decides it.
+
+## S6A-2 — The requirement vocabulary (what the router emits)
+  | Requirement          | Emit when the answer turns on …                        |
+  |----------------------|--------------------------------------------------------|
+  | PROSE                | a fact, a definition, or a short causal chain (DEFAULT) |
+  | EQUATION             | a calculation — governing relation, substitution, value |
+  | TABLE                | independent criteria tested across several candidates   |
+  | STRUCTURE_GRAPH      | connectivity / stereochemistry / a transformation       |
+  | LEVEL_DIAGRAM        | occupancy, energy ordering, or state splitting          |
+  | DATA_PLOT            | the shape of a graph, spectrum, or titration curve      |
+  EQUATION is satisfied by §11's ⟦MATH:⟧ regions and is ALWAYS available — it
+  needs no renderer and no configuration. TABLE is native docx. The last three
+  require a renderer declared in section_rules; absent one, the router degrades
+  (§6A-4).
+
+## S6A-3 — Record the verdict on every question
+  The router's verdict is recorded per question in progress.json as
+  representation_verdict, with the two-part test's outcome. This is what makes
+  the choice auditable rather than implicit: a paper whose every question
+  demanded a figure, or whose every question refused one, is visible as a
+  pattern instead of discovered by reading. The §20 report states the
+  distribution. NOTE (v1.27.0): the router RECORDS and REPORTS from this
+  version; figure EMISSION lands with the ExplanationBlock representation field
+  in the paired engine release. Recording first is deliberate — it lets the
+  routing decisions be reviewed against real papers before any figure ships.
+
+## S6A-4 — Degrade LOUDLY, never silently, and never HALT
+  If a required renderer is unavailable, or a rendered artefact fails its
+  validation gate (§6A-5), the router steps DOWN one requirement — toward
+  EQUATION, then PROSE — and the explanation still ships. A missing renderer
+  must never halt a paper mid-run. But the degrade is DISCLOSED: recorded in
+  progress.json, listed in the §20 report, and named in the delivery footer.
+  Silent degradation is the worse failure: it makes quality vary invisibly
+  between runs of the same spec, which is undiagnosable from the artefact.
+
+## S6A-5 — A rendered artefact must be PROVED, not trusted
+  Any generated figure carries a validation record, and a figure that fails its
+  gate is never shipped (it degrades per §6A-4). The gate is renderer-specific
+  and declared with the renderer in section_rules, but the CONTRACT is fixed:
+  the artefact must be re-derived from the rendered output and compared against
+  what was intended, not merely inspected. A structural renderer, for example,
+  re-parses the drawn structure and compares a canonical identifier — molecular
+  formula alone is insufficient, since two different answers commonly share one
+  formula and a formula check would pass a swapped structure. Renderers must be
+  DETERMINISTIC: the same question re-rendered must produce identical bytes, or
+  no byte-level audit downstream can mean anything.
+  WHAT THE GATE DOES NOT PROVE — state this plainly rather than over-claim. The
+  gate proves the drawn artefact matches what was requested. It cannot prove the
+  request was right; that judgement stays with the derive-twice protocol (§7).
 
 # ════════════════════════════════════════════════════════════════════════
 # §7 — ANSWER DERIVATION & VERIFICATION (no key delivered — derive it)
@@ -1019,6 +1143,22 @@
   | rounding_trap         | correct calculation, wrong rounding                          |
   | polarity_flip         | a true statement called false / false called true (neg. stem)|
 
+  SCIENTIFIC / STRUCTURAL TYPES (v1.27.0). The eleven types above are shaped for
+  aptitude papers and force a science distractor into an ill-fitting label — a
+  regiochemistry slip logged as "off_by_one" tells the learner nothing. These are
+  additive; the ban on writing a WHY WRONG line with NO type is unchanged.
+
+  | Error type            | When it applies                                              |
+  |-----------------------|--------------------------------------------------------------|
+  | wrong_condition       | right transformation, wrong stated condition (work-up, solvent, pH, temperature, order of addition) |
+  | regiochemistry_error  | correct reaction at the wrong position / site                |
+  | stereochemistry_error | wrong configuration, or some stereocentres inverted not all  |
+  | mechanism_confusion   | a different mechanism's product (substitution for elimination, etc.) |
+  | electron_count_error  | miscounted electrons / occupancy / oxidation state           |
+  | symmetry_error        | equivalence or a mirror plane wrongly asserted or missed     |
+  | overgeneralised_rule  | a valid rule applied outside its stated validity domain      |
+  | concept_reversal      | the governing relationship applied in reverse                |
+
   Unknown patterns default to the closest type; never write a WHY WRONG line without one.
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1078,10 +1218,60 @@
   explicitly with the helpers — an end-of-sentence fraction ("= 3/4." — add a trailing
   word), a consecutive-year slash ("2025/26" → use en-dash "2025–26"; a genuine n/(n+1)
   fraction whose denominator is NOT year+1 is left alone), a vulgar glyph (½ ¾ ⅓ … ⅒) or
-  the Unicode fraction slash (U+2044), or any LaTeX ("\frac", "\sqrt", "$…$"). Units km/h,
-  m/s are letter/letter and are left as text. Exponents, surds, trig, n-ary and stacked
-  formulae use the explicit helpers (frac, sup, sqrt, nary, omath) → true OMML nodes, not
-  Unicode approximations.
+  the Unicode fraction slash (U+2044), or bare LaTeX written directly INTO PROSE
+  ("\frac", "\sqrt", "$…$"). Units km/h, m/s are letter/letter and are left as text.
+  Exponents, surds, trig, n-ary and stacked formulae use the explicit helpers (frac, sup,
+  sqrt, nary, omath) → true OMML nodes, not Unicode approximations.
+
+  SCOPE OF THE LaTeX BAN — READ THIS BEFORE CONCLUDING MATH IS FORBIDDEN (v1.27.0).
+  The ban above applies to RAW PROSE ONLY. It does NOT apply inside a ⟦MATH:…⟧ region,
+  where backslash notation is the CORRECT and REQUIRED spelling. Reading the ban as
+  global is the documented cause of GAP-2026-08-19-EXPLAIN-MATH-NOTATION: sessions
+  concluded that notation was unsafe and VERBALISED arithmetic instead ("0.0591 divided
+  by 2", "the square root of 32 divided by 4", "2 raised to the power 2"). That is a
+  DEFECT, not a house style. Quantitative work is written as MATH.
+
+## S11-1b — The ⟦MATH:…⟧ Tier-3 grammar (authoritative; what actually compiles)
+  A ⟦MATH:…⟧ region is compiled by t3_mathcomp.t3_compile and becomes ONE <m:oMath>.
+  Regions may sit inline mid-sentence or stand as their own display line. The grammar
+  below is VERIFIED against the shipped compiler — use it verbatim.
+
+  | Need               | WRITE THIS              | NEVER THIS   | Because                    |
+  |--------------------|-------------------------|--------------|----------------------------|
+  | fraction           | \frac{0.05912}{2}       | 0.05912/2    | / stays flat text          |
+  | radical            | \sqrt{3RT/M}            | sqrt(3RT/M)  | compiles to literal text   |
+  | subscript          | K_{sp}                  | K_sp         | binds ONE char → "Kₛp"     |
+  | superscript        | x^{10}                  | x^10         | binds ONE char             |
+  | both               | E_{cell}^{0}            | E_cell^0     | → "E_c el l^0"             |
+  | Greek              | \Delta_{o} · \theta     | Delta_o      | → "Delt aₒ"                |
+  | n-ary              | \int_{0}^{\infty}       | int_0^infty  | → "in t₀^i nfty"           |
+  | over/vector        | \bar{A} · \vec{E}       | bar(A)       | literal text               |
+
+  THE ONE RULE THAT REMOVES ALL AMBIGUITY: **every sub/superscript is BRACED, always.**
+  An unbraced script cannot be judged mechanically — "_2SO" in H_{2}SO_{4} is a correct
+  one-character subscript while "_2g" in t_{2g} is a wrong two-character one, and the two
+  are indistinguishable. Bracing everything removes the guess. Unicode symbols (Δ, θ, ℏ)
+  may be used DIRECTLY and need no backslash; it is the ASCII NAME that must be escaped.
+
+  ENFORCEMENT (engine v2.2). guard_sentence now runs t3_notation_guard over every
+  ⟦MATH:⟧ body and RAISES at AUTHORING time — at block construction, not at render —
+  naming the exact remedy. Before v2.2 the compiler checked GRAMMAR but never NOTATION,
+  so all four wrong spellings above shipped SILENTLY with every gate green. Note the
+  division of responsibility: t3_mathcomp.py is byte-locked to Framework_PYQPrepare
+  §S3-5b by the engine self-test drift lock and is NEVER edited from this side — the
+  guard lives in explain_engine.py, which is the consumer.
+
+## S11-1c — When quantitative work MUST be rendered as math (not prose)
+  If a step performs a calculation, it is written as a ⟦MATH:⟧ region. Verbalised
+  arithmetic is a DEFECT. Concretely, any DEDUCTION step that states a governing
+  relation, substitutes values, or reports a computed result carries the relation, the
+  substitution and the result as math — the reader must be able to CHECK the arithmetic,
+  which prose denies them.
+    WRITE : the governing relation, then the substitution, then the value, each its own
+            ⟦MATH:⟧ line — e.g. ⟦MATH:E = E^{0} - \frac{0.05912}{n}\log Q⟧
+    NEVER : "the coefficient is 0.0591 volts divided by 2, that is 0.02955 volts"
+  A purely qualitative explanation (a recall fact, a mechanism in words) needs no math
+  and must not manufacture any — S11-1c is a floor on quantitative work, never a quota.
 
 ## S11-2 — Post-write verification (every batch)
   After writing, verify_explanations() re-parses the RENDERED docx and re-confirms every
@@ -1359,8 +1549,16 @@
       BLOCKING FAIL — present_files FORBIDDEN. A run that checks only "did the call raise"
       is NON-CONFORMING. (As of 2026.08.10.3 ExplanationBlock.validate() also compiles any
       ⟦MATH:⟧ region and RAISES at construction, so this ledger is normally empty; the
-      assertion is the second gate. This pipeline authors math via the explicit helpers and
-      bans LaTeX in prose (§11), so ⟦MATH:⟧ regions are rare here, but the contract holds.)
+      assertion is the second gate. v1.27.0 CORRECTION: the parenthetical that stood here
+      previously — "so ⟦MATH:⟧ regions are rare here" — was itself the defect. It read as
+      licence to avoid math, and sessions duly verbalised arithmetic instead. ⟦MATH:⟧
+      regions are NORMAL and EXPECTED wherever a question is quantitative (§11 S11-1c),
+      and engine v2.2's t3_notation_guard rejects mis-compiling notation at construction.)
+  [ ] §6A router verdict present for EVERY question in this batch; every degrade
+      disclosed in the report; zero verbalised-arithmetic steps in a quantitative
+      DEDUCTION (§11 S11-1c). A missing verdict is a BLOCKING FAIL — an unrouted
+      question silently reverts to the pre-v1.27.0 prose-only default, which is the
+      defect this router exists to remove.
   [ ] count invariants: image / table / OMML / question / option counts == Step-7 input
   [ ] strip-and-re-audit: questions-only copy passes the Step-7 auditor identically (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
@@ -1688,5 +1886,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.26.0
+# END OF Framework_MockTestExplain v1.27.0
 # ════════════════════════════════════════════════════════════════════════

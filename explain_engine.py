@@ -305,6 +305,61 @@ def has_inline_fraction(text):
     masked = _UNIT_SLASH.sub('', text)
     return any(p.search(masked) for p in _FRAC_PATS)
 
+# ── v2.2 (GAP-2026-08-19-EXPLAIN-MATH-NOTATION) — TIER-3 NOTATION GUARD ────
+# THE HOLE THIS CLOSES: guard_sentence deliberately exempts every ⟦MATH:…⟧ body
+# from every prose guard, on the stated grounds that "the compiler validates
+# them". The compiler validates GRAMMAR, never NOTATION. t3_compile binds a bare
+# _ / ^ to exactly ONE preceding character and passes unknown words through as
+# literal text, so it SILENTLY mis-renders ordinary scientific notation and
+# NEVER raises — the output ships clean and reads wrong:
+#     Delta_o   -> "Delt" + a_o   (reads "Delt aₒ", not Δₒ)
+#     K_sp      -> K_s  + "p"     (reads "Kₛp",     not K_sp)
+#     E_cell^0  -> E_c + "el" + l^0
+#     sqrt(x)   -> literal text, no radical
+# Each has a spelling the SHIPPED compiler already handles perfectly —
+# \Delta_{o}, K_{sp}, E_{cell}^{0}, \sqrt{x} — verified against t3_mathcomp.
+# This guard rejects the mis-compiling spelling at AUTHORING time and names the
+# exact remedy. It is a NOTATION check only: it adds no grammar, changes no
+# compiler behaviour, and t3_mathcomp.py is NOT touched — that file is byte-
+# locked to Framework_PYQPrepare §S3-5b by the self-test drift lock and must
+# never be edited from this side.
+_T3_GREEK = ('alpha','beta','gamma','delta','epsilon','zeta','eta','theta',
+             'iota','kappa','lambda','mu','nu','xi','omicron','rho','sigma',
+             'tau','upsilon','phi','chi','psi','omega')
+# A Greek NAME spelled without its backslash. NOTE: \b is unusable here because
+# '_' is a regex word character, so \bDelta\b does NOT match inside 'Delta_o' —
+# the exact bug this guard exists to catch. Explicit letter lookarounds instead.
+_T3_BARE_GREEK = re.compile(
+    r'(?<![A-Za-z\\])(' + '|'.join(_T3_GREEK) + r')(?![A-Za-z])', re.I)
+# EVERY sub/superscript must be braced. A bare script is ambiguous by nature:
+# '_2SO' in H_2SO_4 is correct (one-char sub) while '_2g' in t_2g is wrong
+# (two-char sub) and the two are indistinguishable mechanically. Requiring
+# braces everywhere removes the ambiguity instead of guessing at intent.
+_T3_BARE_SUBSUP = re.compile(r'[_^](?!\{)')
+# Function words that only compile with a backslash and braces.
+_T3_BARE_FUNC = re.compile(
+    r'(?<!\\)\b(sqrt|int|sum|prod|lim|frac|bar|vec|hat)\s*[({_^]')
+
+def t3_notation_guard(body, ctx=''):
+    """Reject ⟦MATH:…⟧ notation that t3_compile mis-renders SILENTLY.
+    Raises ValueError naming the exact remedy; returns body unchanged on success."""
+    where = f' in {ctx}' if ctx else ''
+    m = _T3_BARE_GREEK.search(body)
+    if m:
+        raise ValueError(
+            f'⟦MATH:⟧ bare Greek name {m.group(1)!r}{where} compiles to literal '
+            f'letters, not a symbol — write \\{m.group(1)}: {body[:60]!r}')
+    m = _T3_BARE_FUNC.search(body)
+    if m:
+        raise ValueError(
+            f'⟦MATH:⟧ function {m.group(1)!r}{where} without a backslash compiles '
+            f'to literal text — write \\{m.group(1)}{{…}}: {body[:60]!r}')
+    if _T3_BARE_SUBSUP.search(body):
+        raise ValueError(
+            f'⟦MATH:⟧ unbraced sub/superscript{where} binds only ONE character in '
+            f'the compiler — brace every script, e.g. K_{{sp}} not K_sp: {body[:60]!r}')
+    return body
+
 def guard_sentence(text, cfg=None):
     """Validate one student-facing sentence. Raises ValueError on any breach.
     Returns the text unchanged on success. `cfg` (optional) supplies language-
@@ -325,6 +380,10 @@ def guard_sentence(text, cfg=None):
     _stripped = T3_REGION_RE.sub('', s_full)
     if T3_OPEN in _stripped or T3_CLOSE in _stripped:
         raise ValueError(f'unbalanced ⟦MATH:⟧ delimiters in: {s_full[:60]!r}')
+    # v2.2 — the compiler checks GRAMMAR but not NOTATION: every ⟦MATH:⟧ body is
+    # checked here for spellings that compile silently to the WRONG symbol.
+    for _t3m in T3_REGION_RE.finditer(s_full):
+        t3_notation_guard(_t3m.group(1))
     s = T3_REGION_RE.sub('\u2202M\u2202', s_full)   # ∂M∂ placeholder — delimiter-free
     # v2.0 — ASCII-math dialect is BANNED in prose. The v1 guard only understood
     # digit/digit slashes, so generation evaded it with ÷, carets, V_B
@@ -1893,6 +1952,36 @@ def self_test():
     # 40 rels resolution: clean build has no dangling image rIds (A3)
     okrel, _ = verify_fidelity(oF, sF, cfgF)
     check('RELS-RESOLVE', okrel and not (_embed_ids(oF) - _rel_ids(oF)))
+
+    # ══ v2.2 TIER-3 NOTATION GUARD (GAP-2026-08-19-EXPLAIN-MATH-NOTATION) ═════
+    # Each MIS-COMPILING spelling must RAISE; each CORRECT spelling must PASS.
+    # These lock the guard against regression in BOTH directions — a guard that
+    # only ever raises is as broken as one that never does.
+    _T3_BAD = ('Delta_{o}', 'K_sp', 'E_cell^0', 'sqrt(3RT/M)', 'H_2SO_4',
+               'theta', 'x^10', 'int_{0}^{1}')
+    _T3_GOOD = ('\\Delta_{o}', 'K_{sp}', 'E_{cell}^{0}', '\\sqrt{3RT/M}',
+                'H_{2}SO_{4}', '\\theta', 'x^{10}', '\\frac{0.05912}{2}',
+                'V_{B} = \\frac{\u210f}{2m\u0394x}', '\\bar{A}\\vec{E}', '10^{-2}')
+    check('T3-NOTATION-REJECTS-BAD',
+          all(_raises(lambda b=b: guard_sentence(f'Value \u27e6MATH:{b}\u27e7 here.'))
+              for b in _T3_BAD))
+    check('T3-NOTATION-ACCEPTS-GOOD',
+          all(guard_sentence(f'Value \u27e6MATH:{g}\u27e7 here.') for g in _T3_GOOD))
+    # The guard must fire on the REGION BODY only — never on ordinary prose that
+    # merely contains a Greek word or an underscore outside a math region.
+    check('T3-NOTATION-PROSE-UNTOUCHED',
+          guard_sentence('The delta between the two theta values is small.')
+          and guard_sentence('Beta decay converts a neutron into a proton.'))
+    # A notation breach must be caught at AUTHORING time (block construction),
+    # not merely degraded at render time.
+    def _notation_block():
+        ExplanationBlock(
+            q=1, ca=1, cfg=cfg,
+            axiom=['The splitting is \u27e6MATH:Delta_o\u27e7 for this ion.'],
+            deduction=['First step here.', 'The answer is Option A.'],
+            why_wrong={2: ['value_swap - wrong.'], 3: ['sign_error - wrong.'],
+                       4: ['unit_error - wrong.']}).validate()
+    check('T3-NOTATION-FAILS-AT-CONSTRUCTION', _raises(_notation_block))
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)
