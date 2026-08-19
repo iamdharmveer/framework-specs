@@ -37,10 +37,10 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1890,
-      "sha256": "4f5e9d121b420245ef71e2d3ac21046f0e0332142f1fb724dffc25a065f63dce",
-      "size_bytes": 147116,
-      "version_header": "# Framework_MockTestExplain v1.27.0"
+      "lines": 1976,
+      "sha256": "a5f86c77a5a7cf610cf29f9113cc7532288e7ff2f50546dc958eee0072daf564",
+      "size_bytes": 153334,
+      "version_header": "# Framework_MockTestExplain v1.28.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -261,9 +261,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 2494,
-      "sha256": "4bb2fda77206992c6f22506234e328957443b7251da07d73d8bf63ee24ea9108",
-      "size_bytes": 138955,
+      "lines": 2711,
+      "sha256": "02f7ce5c9fdb9659a7022b54b69d7c8ec1efda6fc9dfca28e564017085b047b2",
+      "size_bytes": 151701,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {

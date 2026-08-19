@@ -209,11 +209,11 @@
       "bytes": 462437
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "4f5e9d121b420245ef71e2d3ac21046f0e0332142f1fb724dffc25a065f63dce",
-      "version_header": "# Framework_MockTestExplain v1.27.0",
+      "sha256": "a5f86c77a5a7cf610cf29f9113cc7532288e7ff2f50546dc958eee0072daf564",
+      "version_header": "# Framework_MockTestExplain v1.28.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1890,
-      "bytes": 147116
+      "lines": 1976,
+      "bytes": 153334
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -342,11 +342,11 @@
       "bytes": 130156
     },
     "explain_engine.py": {
-      "sha256": "4bb2fda77206992c6f22506234e328957443b7251da07d73d8bf63ee24ea9108",
+      "sha256": "02f7ce5c9fdb9659a7022b54b69d7c8ec1efda6fc9dfca28e564017085b047b2",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')",
-      "lines": 2494,
-      "bytes": 138955
+      "lines": 2711,
+      "bytes": 151701
     },
     "t3_mathcomp.py": {
       "sha256": "49bc3a4b78454f03dffa900a81f62bdf7a230f7be1458a38e6189a0202aab8dd",
@@ -496,11 +496,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "c9e8aa50a82b33ffb6993a9719d216a488c42f10f7e6a558e762034c415dfc58",
+      "sha256": "d388d21ab86010b1c9e42eb2530b6f877416f5eeee2d8a3e62b3dc46a6ccb5e1",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 6384,
-      "bytes": 174476
+      "lines": 6391,
+      "bytes": 174690
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "f60af3196199ca4d59e0da338aa58c4fc4cff5aaf43a4f61174bc337785d29e7",

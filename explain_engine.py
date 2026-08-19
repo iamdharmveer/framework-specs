@@ -574,6 +574,62 @@ def _emit_plain(paragraph, text, bold=False, color=None, preserve=False):
         _run(paragraph, tail, bold, color)
 
 # ───────────────────────────── block model ─────────────────────────────────
+# ── v2.3 (GAP-2026-08-19-EXPLAIN-REPRESENTATION-EMISSION) — FIGURES ────────
+# A validated container for ONE explanation-side figure. The §6A-5 contract in
+# Framework_MockTestExplain applies verbatim: a figure is PROVED, not trusted.
+#   path        — rendered PNG on disk (the renderer's output).
+#   width_in    — display width in inches (0.5..7.0; the printable column).
+#   validation  — the §6A-5 record, REQUIRED, a dict carrying at least:
+#                   renderer  : str  (which renderer produced it)
+#                   intended  : str  (canonical identifier of what was requested)
+#                   derived   : str  (canonical identifier re-derived from output)
+#                   match     : True (derived == intended; False NEVER ships)
+#                 A structural renderer puts canonical SMILES in intended/derived;
+#                 a level-diagram renderer puts the computed occupancy string.
+#                 Molecular formula alone is INSUFFICIENT (two different answers
+#                 commonly share one formula) — the identifier must be canonical.
+#   after_step  — 0-based count of DEDUCTION sentences rendered BEFORE this
+#                 figure (clamped to the deduction length). Default 1: the
+#                 figure follows the first deduction sentence, which names what
+#                 the reader is about to see.
+# DESIGN INVARIANT — THE FIGURE PARAGRAPH CARRIES NO TEXT. The strict reader
+# keeps an explanation paragraph only when it has display text or math source, so
+# a text-free drawing paragraph is INVISIBLE to parse_solution_blocks and the
+# round-trip needs no changes. There is deliberately NO caption paragraph: the
+# surrounding DEDUCTION prose describes the figure (it must — §6A-1 requires the
+# figure to be non-redundant WITH that prose, and prose readable without it).
+class RepresentationFigure:
+    def __init__(self, path, width_in=6.0, validation=None, after_step=1):
+        self.path = str(path)
+        self.width_in = float(width_in)
+        self.validation = dict(validation or {})
+        self.after_step = int(after_step)
+
+    def validate(self, ctx=''):
+        import os as _os
+        w = f'{ctx}: ' if ctx else ''
+        if not _os.path.isfile(self.path):
+            raise ValueError(f'{w}figure file missing: {self.path!r}')
+        if not (0.5 <= self.width_in <= 7.0):
+            raise ValueError(f'{w}figure width_in {self.width_in} outside 0.5..7.0')
+        v = self.validation
+        for k in ('renderer', 'intended', 'derived', 'match'):
+            if k not in v:
+                raise ValueError(f'{w}figure validation record missing {k!r} '
+                                 f'(§6A-5: a figure is proved, not trusted)')
+        if v['match'] is not True:
+            raise ValueError(f'{w}figure validation match is not True — a figure '
+                             f'whose derived identifier differs from the intended '
+                             f'one NEVER ships (§6A-5); degrade per §6A-4 instead')
+        if not str(v['intended']).strip() or not str(v['derived']).strip():
+            raise ValueError(f'{w}figure validation intended/derived empty')
+        if str(v['intended']) != str(v['derived']):
+            raise ValueError(f'{w}figure validation intended != derived but match '
+                             f'claims True — inconsistent record')
+        if self.after_step < 0:
+            raise ValueError(f'{w}figure after_step must be >= 0')
+        return True
+
 class ExplanationBlock:
     """Validated container for one question's explanation. validate() raises on
     any structural breach BEFORE the block can be written (fail-at-construction).
@@ -590,7 +646,7 @@ class ExplanationBlock:
                 replaces why_wrong (there are no options to reject)."""
     def __init__(self, q, ca=None, axiom=None, deduction=None, speed_hack=None,
                  why_wrong=None, anomaly=None, cfg=None,
-                 qtype=None, ca_range=None, common_pitfalls=None):
+                 qtype=None, ca_range=None, common_pitfalls=None, figures=None):
         self.q = int(q)
         self.cfg = cfg or EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
         self.ca = ca
@@ -600,6 +656,8 @@ class ExplanationBlock:
         self.speed_hack = list(speed_hack) if speed_hack else None
         self.why_wrong = dict(why_wrong or {})
         self.common_pitfalls = dict(common_pitfalls or {})
+        # v2.3 — explanation-side figures (list[RepresentationFigure], may be []).
+        self.figures = list(figures or [])
         self.anomaly = anomaly
         # infer question type if not given
         if qtype is None:
@@ -726,6 +784,16 @@ class ExplanationBlock:
                     raise ValueError(f'Q{self.q}: ca_range {self.ca_range} not lo<=hi')
             return True
 
+        # v2.3 — figures are validated for EVERY question type, before the
+        # type-specific machinery: each must be a RepresentationFigure whose
+        # §6A-5 record proves it (file exists, identifiers canonical and equal,
+        # match True). Raises at construction — a bad figure never renders.
+        for i, fg in enumerate(self.figures):
+            if not isinstance(fg, RepresentationFigure):
+                raise ValueError(f'Q{self.q}: figures[{i}] is not a '
+                                 f'RepresentationFigure')
+            fg.validate(ctx=f'Q{self.q} figures[{i}]')
+
         # MCQ / MSQ share the option machinery.
         n = cfg.expected_options(self.q)
         if not n or n < 1:
@@ -782,9 +850,52 @@ def _header_para(cfg, key, before=240, after=120):
     return _new_para(cfg, 'hdr', text=txt, before=before, after=after,
                      bold=True, color=cfg.colors['hdr'], math=False)
 
-def _block_paragraphs(cfg, blk):
+def _figure_para(doc_part, fig):
+    """v2.3 — build a standalone, CENTERED <w:p> holding ONE inline picture and
+    NO text (the invariant that keeps figures invisible to the strict reader).
+    The image part + relationship are registered on doc_part, so verify_fidelity's
+    dangling-rId check (A3) resolves. EMU: 914400 per inch."""
+    rid, image = doc_part.get_or_add_image(fig.path)
+    cx = int(fig.width_in * 914400)
+    # preserve aspect ratio from the image's native size
+    try:
+        cy = int(cx * (image.px_height / image.px_width))
+    except Exception:
+        cy = cx
+    p = OxmlElement('w:p')
+    ppr = OxmlElement('w:pPr')
+    sp = OxmlElement('w:spacing')
+    sp.set(qn('w:before'), '80'); sp.set(qn('w:after'), '80')
+    jc = OxmlElement('w:jc'); jc.set(qn('w:val'), 'center')
+    ppr.append(sp); ppr.append(jc); p.append(ppr)
+    did = abs(hash((fig.path, rid))) % 2147483647 or 1
+    drawing_xml = (
+        '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        '<w:drawing xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">'
+        f'<wp:inline distT="0" distB="0" distL="0" distR="0">'
+        f'<wp:extent cx="{cx}" cy="{cy}"/>'
+        f'<wp:docPr id="{did}" name="RepresentationFigure"/>'
+        '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
+        '<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+        '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">'
+        f'<pic:nvPicPr><pic:cNvPr id="{did}" name="RepresentationFigure"/>'
+        '<pic:cNvPicPr/></pic:nvPicPr>'
+        '<pic:blipFill>'
+        f'<a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="{rid}"/>'
+        '<a:stretch><a:fillRect/></a:stretch></pic:blipFill>'
+        '<pic:spPr><a:xfrm><a:off x="0" y="0"/>'
+        f'<a:ext cx="{cx}" cy="{cy}"/></a:xfrm>'
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr>'
+        '</pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>')
+    p.append(parse_xml(drawing_xml))
+    return p
+
+def _block_paragraphs(cfg, blk, doc_part=None):
     """Render one ExplanationBlock to an ordered list of <w:p> elements, shaped to
-    the question type (mcq / msq / nat)."""
+    the question type (mcq / msq / nat). v2.3: when doc_part is given and the
+    block carries figures, each figure is emitted as a text-free centred picture
+    paragraph after its after_step-th DEDUCTION sentence; without doc_part
+    (legacy callers) figures are SKIPPED, never half-rendered."""
     # v2.1 — blocks lifted by the reader from an already-shipped doc re-emit their
     # verbatim content faithfully (a pre-v2.0 plain-text fraction is kept as text,
     # not raised on). Author-constructed blocks (Step 9 / self-test) keep the
@@ -820,9 +931,20 @@ def _block_paragraphs(cfg, blk):
         out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
                              color=cfg.colors['sent'], preserve=pres))
     out.append(_header_para(cfg, 'deduction'))
-    for s in blk.deduction:
+    # v2.3 — figures interleave with DEDUCTION sentences at their after_step
+    # positions (clamped). Figure paragraphs carry NO text by invariant.
+    _figs_at = {}
+    if doc_part is not None and getattr(blk, 'figures', None):
+        for _fg in blk.figures:
+            _pos = min(max(_fg.after_step, 0), len(blk.deduction))
+            _figs_at.setdefault(_pos, []).append(_fg)
+    for _fg in _figs_at.get(0, ()):
+        out.append(_figure_para(doc_part, _fg))
+    for _si, s in enumerate(blk.deduction, start=1):
         out.append(_new_para(cfg, 'sent', text=s, before=0, after=120,
                              color=cfg.colors['sent'], preserve=pres))
+        for _fg in _figs_at.get(_si, ()):
+            out.append(_figure_para(doc_part, _fg))
     if blk.speed_hack:
         out.append(_header_para(cfg, 'speed_hack'))
         for s in blk.speed_hack:
@@ -921,7 +1043,7 @@ def build_interleaved_docx(source_path, blocks, out_path, cfg):
         later = [q_start[n] for n in nums if q_start[n] > start]
         end = (min(later) - 1) if later else (len(children) - 1)
         cursor = children[end]               # last element of this question's region
-        for pel in _block_paragraphs(cfg, blk):
+        for pel in _block_paragraphs(cfg, blk, doc_part=doc.part):
             cursor.addnext(pel)
             cursor = pel
     doc.save(out_path)
@@ -1130,6 +1252,23 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
     expected = sorted(set(expected_qs))
     doc = Document(out_path)
 
+    # v2.3 — count drawings per EXPLANATION region (question regions excluded):
+    # walked once here so the figure-landing check below is O(doc), not O(q*doc).
+    _expl_drawings = {}
+    _cur = 0; _in_expl = False
+    _ca_low = cfg.labels['correct_answer'].lower()
+    for _p in doc.paragraphs:
+        _t = _p.text.strip()
+        _mq = cfg.q_re.match(_t)
+        if _mq:
+            _cur = int(_mq.group(1)); _in_expl = False; continue
+        if _cur and _t.lower().startswith(_ca_low + ':'):
+            _in_expl = True; continue
+        if _cur and _in_expl:
+            _nd = sum(1 for _ in _p._p.iter(qn('w:drawing')))
+            if _nd:
+                _expl_drawings[_cur] = _expl_drawings.get(_cur, 0) + _nd
+
     ca_label = cfg.labels['correct_answer']
     opt_word = cfg.labels['option']
     H = {k: f"{cfg.markers.get(k, '')} {cfg.labels.get(k, k)}".strip()
@@ -1163,6 +1302,17 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
         b = by_q.get(q)
         if q not in segs:
             problems.append(f'Q{q}: no rendered explanation found'); continue
+        # v2.3 — FIGURE LANDING (GAP-2026-08-19-EXPLAIN-REPRESENTATION-EMISSION):
+        # a block that declares figures must have EXACTLY that many drawing
+        # paragraphs rendered in its explanation region. A missing drawing means
+        # the render path silently skipped a figure (e.g. a legacy caller without
+        # doc_part) — the §6A-4 rule is degrade LOUDLY, so silence is a FAIL here.
+        _blk_figs = len(getattr(by_q[q], 'figures', []) or [])
+        _got_figs = _expl_drawings.get(q, 0)
+        if _blk_figs != _got_figs:
+            problems.append(f'Q{q}: figure landing mismatch — block declares '
+                            f'{_blk_figs} figure(s), explanation region renders '
+                            f'{_got_figs}')
         lines = segs[q]
         texts = [t for t, _, _, _ in lines]
         srcs = [s for _, _, s, _ in lines]
@@ -1952,6 +2102,73 @@ def self_test():
     # 40 rels resolution: clean build has no dangling image rIds (A3)
     okrel, _ = verify_fidelity(oF, sF, cfgF)
     check('RELS-RESOLVE', okrel and not (_embed_ids(oF) - _rel_ids(oF)))
+
+    # ══ v2.3 FIGURE EMISSION (GAP-2026-08-19-EXPLAIN-REPRESENTATION-EMISSION) ═
+    _figpng = os.path.join(tempfile.gettempdir(), 'st_fig.png')
+    open(_figpng, 'wb').write(_tiny_png().getvalue())
+    _VREC = {'renderer': 'selftest', 'intended': 'C=C(C)CC',
+             'derived': 'C=C(C)CC', 'match': True}
+    def _figblk(figs, q=1):
+        return ExplanationBlock(q=q, ca=4, cfg=cfg,
+            axiom=['A governing principle stated once.'],
+            deduction=['The first step names what the figure shows.',
+                       'The second step completes it, giving Option 4.'],
+            why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'],
+                       3: ['unit_error - c.']},
+            figures=figs)
+    # FIG-VALIDATE-GOOD: a proved figure constructs and validates.
+    _fg = RepresentationFigure(_figpng, 4.0, dict(_VREC))
+    check('FIG-VALIDATE-GOOD', _figblk([_fg]).validate() is True)
+    # FIG-REJECTS: every §6A-5 breach fails AT CONSTRUCTION (validate), each for
+    # its own reason — no record, match False, inconsistent record, missing file,
+    # bad width, and a non-RepresentationFigure object.
+    check('FIG-REJECTS-NO-RECORD', _raises(
+        lambda: _figblk([RepresentationFigure(_figpng, 4.0, {})]).validate()))
+    check('FIG-REJECTS-MATCH-FALSE', _raises(
+        lambda: _figblk([RepresentationFigure(_figpng, 4.0,
+            {'renderer': 't', 'intended': 'A', 'derived': 'B',
+             'match': False})]).validate()))
+    check('FIG-REJECTS-INCONSISTENT', _raises(
+        lambda: _figblk([RepresentationFigure(_figpng, 4.0,
+            {'renderer': 't', 'intended': 'A', 'derived': 'B',
+             'match': True})]).validate()))
+    check('FIG-REJECTS-MISSING-FILE', _raises(
+        lambda: _figblk([RepresentationFigure(
+            _figpng + '.absent', 4.0, dict(_VREC))]).validate()))
+    check('FIG-REJECTS-BAD-WIDTH', _raises(
+        lambda: _figblk([RepresentationFigure(_figpng, 9.0,
+                                              dict(_VREC))]).validate()))
+    check('FIG-REJECTS-WRONG-TYPE', _raises(
+        lambda: _figblk(['not-a-figure']).validate()))
+    # FIG-E2E on a FIGURAL SOURCE: the sample paper already carries images inside
+    # question regions; a declared explanation figure must land, all three gates
+    # must pass, fidelity must still hold (question-region media untouched), and
+    # the region drawing counter must NOT confuse stem images with explanation
+    # figures.
+    _fsrc = os.path.join(tempfile.gettempdir(), 'st_figsrc.docx')
+    _fout = os.path.join(tempfile.gettempdir(), 'st_figout.docx')
+    _cfgG = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
+    _make_sample_paper(_fsrc, _cfgG, nq=6)
+    _gb = _figblk([RepresentationFigure(_figpng, 4.0, dict(_VREC),
+                                        after_step=1)], q=1)
+    build_interleaved_docx(_fsrc, [_gb], _fout, _cfgG)
+    _okf, _ = verify_fidelity(_fout, _fsrc, _cfgG)
+    _oks, _ = verify_structure(_fout, [_gb], _cfgG, expected_qs=[1])
+    _oke, _pe = verify_explanations(_fout, [_gb], _cfgG, expected_qs=[1])
+    check('FIG-E2E-GATES', _okf and _oks and _oke)
+    # FIG-READER-INVISIBLE: the figure paragraph carries no text, so the strict
+    # reader reproduces the block WITHOUT it and deduction count is unchanged.
+    _rb = parse_solution_blocks(_fout, _cfgG, expected_qs=[1])
+    check('FIG-READER-INVISIBLE',
+          len(_rb[1].deduction) == 2 and not getattr(_rb[1], 'figures', []))
+    # FIG-SILENT-SKIP-CAUGHT: a doc built WITHOUT the declared figure fails the
+    # landing check LOUDLY (§6A-4: never silent).
+    _nb = _figblk([], q=1)
+    build_interleaved_docx(_fsrc, [_nb], _fout, _cfgG)
+    _nb.figures = [RepresentationFigure(_figpng, 4.0, dict(_VREC))]
+    _okn, _pn = verify_explanations(_fout, [_nb], _cfgG, expected_qs=[1])
+    check('FIG-SILENT-SKIP-CAUGHT',
+          not _okn and any('figure landing mismatch' in p for p in _pn))
 
     # ══ v2.2 TIER-3 NOTATION GUARD (GAP-2026-08-19-EXPLAIN-MATH-NOTATION) ═════
     # Each MIS-COMPILING spelling must RAISE; each CORRECT spelling must PASS.

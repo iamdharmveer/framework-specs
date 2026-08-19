@@ -1,4 +1,35 @@
-# Framework_MockTestExplain v1.27.0
+# Framework_MockTestExplain v1.28.0
+# v1.28.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-REPRESENTATION-EMISSION (figures LIVE).
+#   MINOR bump, paired with explain_engine v2.3. v1.27.0 shipped the §6A router
+#   RECORD-ONLY, deliberately: verdicts first, emission after review. This release
+#   turns emission ON. What lands:
+#   1. ExplanationBlock gains `figures` (list[RepresentationFigure]); each figure
+#      carries the §6A-5 validation record and FAILS AT CONSTRUCTION on any breach
+#      (no record, match False, inconsistent identifiers, missing file, width
+#      outside 0.5..7.0 in). A figure is proved, not trusted.
+#   2. Render path: figures interleave with DEDUCTION sentences at their
+#      after_step position as CENTRED, TEXT-FREE picture paragraphs. The no-text
+#      invariant is load-bearing: the strict reader keeps an explanation
+#      paragraph only when it has display text or math source, so figure
+#      paragraphs are INVISIBLE to parse_solution_blocks and the round-trip is
+#      unchanged by design (self-test FIG-READER-INVISIBLE). There is NO caption
+#      paragraph — the surrounding DEDUCTION prose describes the figure (§6A-1
+#      already requires the prose to be readable without it).
+#   3. verify_explanations gains the FIGURE-LANDING check: a block that declares
+#      N figures must render EXACTLY N drawing paragraphs in its explanation
+#      region. A silent skip (e.g. a legacy caller without doc_part) is a
+#      BLOCKING FAIL — §6A-4's degrade-LOUDLY rule applied to the render path
+#      itself (self-test FIG-SILENT-SKIP-CAUGHT).
+#   4. verify_fidelity needs NO change and gets none: question-region signatures
+#      exclude the explanation region, source-media MD5s are one-directional, and
+#      new image parts register real rIds so the dangling-rId check (A3) passes.
+#      Locked by FIG-E2E-GATES on a figural sample paper (stem images present),
+#      proving stem drawings and explanation drawings are never conflated.
+#   5. §6A-6 (NEW) defines the renderer execution contract: renderers are
+#      declared per-exam in section_rules CATEGORY C, executed by the session at
+#      solve time, and every artefact ships with its validation record. No new
+#      engine file, no routes.json change: rendering is session-executed spec
+#      work (the Step-7 figural precedent), and t3_mathcomp.py stays untouched.
 # v1.27.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-MATH-NOTATION + REPRESENTATION ROUTER.
 #   MINOR bump: §11 grammar is DOCUMENTED and §9 gains scientific error types; no
 #   existing artefact shape changes. TWO defects, one root cause.
@@ -735,6 +766,7 @@
   | why_wrong       | dict{int:list}       | MCQ/MSQ only: keys == exactly the NON-selected options; each names an error type that reproduces the option (§15) |
   | common_pitfalls | dict{val:list}       | NAT only: ≥1 wrong-VALUE entry; each names the slip that yields that value (the NAT analogue of WHY WRONG) |
   | anomaly         | str/None             | INTERNAL escalation flag only — NEVER rendered to a student (§17) |
+  | figures         | list[RepresentationFigure] | v2.3, may be empty. Each carries the §6A-5 validation record (renderer/intended/derived/match) and fails validate() on any breach; rendered as text-free centred picture paragraphs interleaved into DEDUCTION at after_step (§6A-6) |
 
   Option index → displayed label is via cfg.option_label() (numeric / alpha / roman /
   custom — read from CATEGORY C), so a paper labelled A·B·C·D shows "Correct Answer: A"
@@ -879,10 +911,10 @@
   the choice auditable rather than implicit: a paper whose every question
   demanded a figure, or whose every question refused one, is visible as a
   pattern instead of discovered by reading. The §20 report states the
-  distribution. NOTE (v1.27.0): the router RECORDS and REPORTS from this
-  version; figure EMISSION lands with the ExplanationBlock representation field
-  in the paired engine release. Recording first is deliberate — it lets the
-  routing decisions be reviewed against real papers before any figure ships.
+  distribution. HISTORY: v1.27.0 shipped this router RECORD-ONLY so routing
+  decisions could be reviewed before any figure shipped; v1.28.0 (paired with
+  engine v2.3) turns EMISSION ON — a STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT
+  verdict now renders through §6A-6 and ships inside the explanation region.
 
 ## S6A-4 — Degrade LOUDLY, never silently, and never HALT
   If a required renderer is unavailable, or a rendered artefact fails its
@@ -907,6 +939,55 @@
   WHAT THE GATE DOES NOT PROVE — state this plainly rather than over-claim. The
   gate proves the drawn artefact matches what was requested. It cannot prove the
   request was right; that judgement stays with the derive-twice protocol (§7).
+
+## S6A-6 — Renderer execution contract (v1.28.0 — emission is LIVE)
+  WHO RENDERS: the executing session, at solve time, inside this step — the same
+  model Step 7 uses for its figural questions. There is NO renderer engine file
+  and no routes.json change: rendering is spec-directed session work, and the
+  ENGINE's job is confined to what an engine can guarantee (emission mechanics,
+  the §6A-5 record check at construction, and the landing check at verify time).
+
+  WHAT IS DECLARED WHERE. The exam's section_rules.md CATEGORY C may carry a
+  `representation_renderers` block naming, per requirement, the library and the
+  §6A-5 identifier discipline, e.g.:
+      STRUCTURE_GRAPH : rdkit    — identifier = CANONICAL SMILES round-trip
+                                   (render from SMILES; re-parse the intended
+                                   SMILES; compare canonical forms — formula
+                                   comparison alone is a §6A-5 violation)
+      LEVEL_DIAGRAM   : matplotlib — identifier = the computed occupancy /
+                                   ordering string, restated from the drawn data
+      DATA_PLOT       : matplotlib — identifier = the plotted series' defining
+                                   parameters
+  ABSENT the block, the router degrades those verdicts to EQUATION/PROSE per
+  §6A-4 — loudly, in the report — and the exam behaves exactly as pre-v1.27.0.
+
+  DEPENDENCIES ARE PREFLIGHT WORK, NEVER MID-BATCH DISCOVERIES. P0 installs any
+  library the exam's declared renderers name (pip, --break-system-packages, same
+  pattern as matplotlib in Step 0) and RECORDS the preflight result in the §3
+  dashboard. An install that fails does not halt: the affected requirement
+  degrades per §6A-4 for the WHOLE run, disclosed up front, so quality never
+  varies silently between batches.
+
+  MECHANICS (engine v2.3, for the session's use):
+    RepresentationFigure(path, width_in, validation, after_step)
+      — validation is the §6A-5 record: renderer, intended, derived, match.
+      — after_step: 0-based count of DEDUCTION sentences before the figure;
+        default 1, so the sentence ABOVE the figure names what it shows.
+    ExplanationBlock(..., figures=[...]) — validate() raises on any §6A-5 breach.
+  RENDERING RULES the session must hold to:
+    • DETERMINISM — same question, same bytes on re-render (§6A-5); seed or
+      canonicalise anything stochastic.
+    • ONE figure carries ONE decisive relationship. Two relationships = either
+      two figures or (better) the simpler §6A-1 representation.
+    • The figure paragraph carries NO text (engine-enforced invariant); every
+      label the reader needs is drawn INSIDE the figure; the adjacent DEDUCTION
+      sentence states what the figure decides.
+    • Width 0.5..7.0 in; default 6.0 for a full-column scheme, ~4.0 for a
+      single-panel diagram.
+  FAILURE PATHS, all loud: a failed render or failed §6A-5 comparison → drop the
+  figure, degrade the verdict per §6A-4, record it; a declared-but-unrendered
+  figure at verify time → BLOCKING figure-landing FAIL (§18). No path ships an
+  unproved image, and no path hides a skipped one.
 
 # ════════════════════════════════════════════════════════════════════════
 # §7 — ANSWER DERIVATION & VERIFICATION (no key delivered — derive it)
@@ -1559,6 +1640,11 @@
       DEDUCTION (§11 S11-1c). A missing verdict is a BLOCKING FAIL — an unrouted
       question silently reverts to the pre-v1.27.0 prose-only default, which is the
       defect this router exists to remove.
+  [ ] FIGURE LANDING (v1.28.0): verify_explanations confirms every block's declared
+      figures rendered — declared N, landed N, per question. A mismatch is a BLOCKING
+      FAIL; a figure dropped by §6A-4 degrade is REMOVED from the block (so declared
+      == landed == the degraded count) AND disclosed in the report, never left
+      declared-but-missing.
   [ ] count invariants: image / table / OMML / question / option counts == Step-7 input
   [ ] strip-and-re-audit: questions-only copy passes the Step-7 auditor identically (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
@@ -1886,5 +1972,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.27.0
+# END OF Framework_MockTestExplain v1.28.0
 # ════════════════════════════════════════════════════════════════════════
