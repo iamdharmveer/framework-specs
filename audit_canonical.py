@@ -2958,7 +2958,9 @@ def _block_has_image(b):
 # That contradicts this framework's own doctrine, stated at §5 and in CLAUDE.md:
 # "NO DEPENDENCY CONDITION MAY EVER HALT A RUN" and "Silence is the defect; a
 # halt is not the remedy." Graceful degradation was granted to blueprint_core, to
-# figural_core, to all thirteen figure gates and to every colour condition — and
+# figural_core, to all seventeen figure gates (thirteen through v5.54; +G-FIGFIT,
+# +G-FIGCOLLIDE, +G-FIGOPTWINDOW, +W-FIGFITPX at v5.55) and to every colour
+# condition — and
 # denied to the one dependency whose absence is fatal.
 #
 # THE DANGER, AND HOW IT IS CLOSED. A third stamp state is an obvious cheat

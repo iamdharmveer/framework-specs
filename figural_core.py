@@ -172,6 +172,19 @@ FIG_MIN_STROKE_PT = 1.4
 # mode a purely arithmetic gate cannot see, so it is bounded at the producer.
 FIG_MIN_DATA_DISPLAY_IN = 3.0
 MIN_PLOT_AREA_FRAC = 0.18   # plot area / canvas area; below this = degenerate
+# v5.55 GAP-2026-08-19-FIGFIT. G-FIGDEGEN's 18% floor catches a COLLAPSED plot
+# area. It does not catch a figure that merely wastes its page allocation, and
+# the delivered corpus sat between the two: median problem-figure ink bbox was
+# 29.6% of canvas area — clear of 18%, and drawing a molecule at roughly half
+# the linear size its 4.0 in slot paid for. The fitter now maximises fill, so a
+# figure below this floor means the fitter did not run or was overridden.
+# CALIBRATED, NOT ASPIRATIONAL. Delivered corpus (pre-fix) median 29.6%,
+# range 21.4-78.0%. Post-fix, shared-window option sets measure 0.43-0.55
+# and single figures higher; the union window of an option set is by
+# definition larger than any one option, so a floor calibrated on single
+# figures would fire on every correctly-uniform set. 0.45 clears every
+# conformant post-fix measurement and still catches the shipped waste.
+MIN_CONTENT_FILL_FRAC = 0.45
 
 # --- label floors, AT DISPLAY SIZE -------------------------------------------
 ONPAGE_FLOOR_PT = {
@@ -244,11 +257,22 @@ SEVERITY = {
     # answer-cue leaks — void the ITEM, never the run
     "G-FIGMONO":    "VOID_ITEM",
     "G-FIGOPTUNIF": "VOID_ITEM",
+    # v5.55: an overprinted label makes the option unreadable, and an option
+    # set drawn at divergent scales is a size cue. Both void the ITEM.
+    "G-FIGCOLLIDE":   "VOID_ITEM",
+    "G-FIGOPTWINDOW": "VOID_ITEM",
     # renderer-contract regressions on v5.33+ output
     "G-FIGSCALE":   "BLOCKING",
     "G-FIGLABEL":   "BLOCKING",
     "G-FIGDPI":     "BLOCKING",
     "G-FIGDEGEN":   "BLOCKING",
+    # v5.55. BLOCKING is safe here for the reason the other four are: on
+    # v5.55+ output the renderer GUARANTEES the property, so a firing means
+    # someone removed the fitter. EC-V18 downgrades it to AMBER for every
+    # pre-v5.55 figure (no fit record), so ~200 existing exams keep auditing
+    # and delivering untouched while still reporting the defect loudly.
+    "G-FIGFIT":     "BLOCKING",
+    "W-FIGFITPX":   "AMBER",
 }
 NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGACCENT", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO")
 
@@ -272,6 +296,10 @@ AUDIT_GATE_ID = {
     "G-FIGLABEL":   "A-FIGLABEL",
     "G-FIGDPI":     "A-FIGDPI",
     "G-FIGDEGEN":   "A-FIGDEGEN",
+    "G-FIGFIT":       "A-FIGFIT",
+    "G-FIGCOLLIDE":   "A-FIGCOLLIDE",
+    "G-FIGOPTWINDOW": "A-FIGOPTWINDOW",
+    "W-FIGFITPX":     "A-FIGFITPX",
 }
 
 
@@ -342,7 +370,7 @@ class FiguralError(AssertionError):
 # =============================================================================
 def make_figure_spec(question, fig_class, display_in, series=None, axes=None,
                      key_mode="none", target_onpage_pt=ONPAGE_TARGET_PT,
-                     role="problem"):
+                     role="problem", canvas_aspect=None):
     """Build the sidecar record. Gates cross-check this against the PNG.
 
     A spec that declares two hues while the PNG contains one is a HARD failure —
@@ -376,10 +404,22 @@ def make_figure_spec(question, fig_class, display_in, series=None, axes=None,
         "target_onpage_pt": float(target_onpage_pt),
         "display_in": float(display_in),
         "png_dpi": FIGURAL_DPI,
+        # v5.55. Canvas aspect (h/w) is a DECLARED figure property, no longer
+        # a hardcoded 0.72. None keeps the historical default, so every
+        # un-regenerated exam is unaffected; a portrait structure may declare
+        # its own. Measured motivation: q27 of the reference paper used 33% of
+        # its canvas width and 97% of its height inside a 0.72 landscape box.
+        "canvas_aspect": (None if canvas_aspect is None
+                          else max(FIG_CANVAS_ASPECT_MIN,
+                                   min(FIG_CANVAS_ASPECT_MAX,
+                                       float(canvas_aspect)))),
         # filled in by render_figure()
         "png_px": None,
         "font_pt_native": None,
         "placement_scale": None,
+        # v5.55 — written by fit_and_deconflict(); read by G-FIGFIT /
+        # G-FIGCOLLIDE / G-FIGOPTWINDOW. Absent == legacy (EC-V18).
+        "fit": None,
     }
 
 
@@ -431,8 +471,12 @@ def figure_style(spec):
     fp = _font_plan(spec)
     d = float(spec["display_in"])
     h = FIG_NATIVE_HEADROOM
+    # v5.55: the 0.72 is the DEFAULT, not the law. It stays the default so
+    # every existing exam renders exactly as before; a spec may declare its
+    # own, and render_option_set() gives one aspect to a whole option set.
+    asp = spec.get("canvas_aspect") or FIG_CANVAS_ASPECT_DEFAULT
     return {
-        "figure.figsize": (d * h, d * h * 0.72),
+        "figure.figsize": (d * h, d * h * asp),
         "figure.dpi": FIGURAL_DPI,
         "savefig.dpi": FIGURAL_DPI,
         "font.size": fp["font.size"],
@@ -456,9 +500,12 @@ def figure_style(spec):
     }
 
 
-def render_figure(draw_fn, out_path, spec, palette=None):
+def render_figure(draw_fn, out_path, spec, palette=None, window=None):
     """
     draw_fn(ax, series, palette) -> None.  Draws ONE visual unit.
+    window : v5.55 — an explicit (x0, y0, x1, y1) DATA window to draw in,
+        overriding the fitter's own. render_option_set() passes the union
+        window of an option set here so every option shares one scale.
     spec : from make_figure_spec(). MUTATED with the measured artefact facts.
     palette : v5.46 — optional hue list overriding OKABE_ITO (the plumbing
         Q7b.1 promised; exam_config wiring stays RESERVED until a rich-colour
@@ -483,9 +530,30 @@ def render_figure(draw_fn, out_path, spec, palette=None):
     palette = ["#000000"] * len(base) if mono else base
     style = figure_style(spec)
 
+    # v5.55 FULL BLEED. Classes with no ticks, no axis titles and no legend
+    # have nothing for constrained_layout to reserve margin FOR, and that
+    # reserved margin was measured at 35% of every option canvas width — the
+    # frame sat at 252 of 390 px and the molecule inside it smaller again.
+    full_bleed = (spec["class"] in FULL_BLEED_CLASSES
+                  or spec.get("role") == "option")
     with plt.rc_context(style):
-        fig, ax = plt.subplots(constrained_layout=True)
+        if full_bleed:
+            fig, ax = plt.subplots(constrained_layout=False)
+            fig.subplots_adjust(left=0.0, right=1.0, top=1.0, bottom=0.0)
+            ax.set_axis_off()
+        else:
+            fig, ax = plt.subplots(constrained_layout=True)
         draw_fn(ax, spec["series"], palette)
+        # THE SAFETY NET (v5.55). Measure what was actually drawn, separate
+        # overprinted labels, and fit the data window so every mark clears
+        # the frame. Runs for every class: a data figure can overprint a
+        # legend on a curve exactly as a structure overprints two labels.
+        rec = fit_and_deconflict(fig, ax, spec, window=window)
+        if full_bleed:
+            # The frame is the RENDERER's, drawn last, above every artist.
+            draw_frame(ax)
+        rec["data_window"] = [float(ax.get_xlim()[0]), float(ax.get_ylim()[0]),
+                              float(ax.get_xlim()[1]), float(ax.get_ylim()[1])]
         fig.savefig(out_path, dpi=FIGURAL_DPI, facecolor="white",
                     transparent=False)
         plt.close(fig)
@@ -601,6 +669,485 @@ def coloured_fraction(png_path):
     rgb = a[..., :3].astype(int)
     sat = rgb.max(2) - rgb.min(2)
     return float(((sat > 25) & vis).sum()) / max(int(vis.sum()), 1)
+
+
+# =============================================================================
+# LAYOUT FIT + LABEL DECONFLICT  (v5.55 — GAP-2026-08-19-FIGFIT)
+#
+# WHY THIS EXISTS. Through v5.54 every figure gate in this engine measured
+# METADATA — canvas pixels, DPI, placement scale, requested font points,
+# declared hues. NOTHING measured WHERE THE INK LANDED. The consequence,
+# measured on IIT_JAM_CHEMISTRY Mock01 (42 delivered drawings):
+#     • 3 of 24 option canvases had ink OUTSIDE the drawn frame (up to 4.06%
+#       of the image's ink) — atom labels hanging off the left edge, so the
+#       frame reads as cutting the structure in half;
+#     • 10 of 24 option canvases had content within 12 px (0.04 in) of the
+#       frame, several with a white label bbox punching a visible hole in it;
+#     • label-on-label collisions (two CH3 groups overprinted) on Newman
+#       projections, unreadable at the 1.3 in display size;
+#     • the frame occupied 252 of 390 canvas px (64.6% of width), and the ink
+#       inside it a fraction of that again — median problem-figure ink bbox was
+#       29.6% of its canvas area, so ~70% of every figure's page area was white;
+#     • one problem figure (q27) used 33% of the canvas width and 97% of its
+#       height, because the canvas aspect was hardcoded 0.72 landscape while
+#       the molecule was portrait.
+# EVERY ONE OF THOSE FIGURES PASSED EVERY GATE. They were conformant and
+# unreadable, which is the exact failure shape CLAUDE.md calls out: the defect
+# was SILENT.
+#
+# THE ROOT CAUSE IS ARCHITECTURAL, NOT COSMETIC. draw_fn is authored per
+# question at generation time. Layout correctness was therefore delegated to
+# hand-written drawing code, once per question, across ~200 exams, with no
+# safety net and no measurement. Authoring discipline does not scale to that;
+# a renderer-side invariant does. This block is that invariant: after draw_fn
+# returns and BEFORE the artefact is saved, the renderer measures every
+# artist's true rendered extent, resolves label collisions, fits the data
+# window so all ink sits inside the frame with a mandated clearance, and
+# records what it did into the FigureSpec so the gates can check it as
+# ARITHMETIC (Q9.6 doctrine — never as pixel connected components).
+#
+# THE FRAME BELONGS TO THE RENDERER. Through v5.54 draw_fn drew its own border
+# box, so a label with a white bbox drawn afterwards could erase a segment of
+# it. The frame is now drawn HERE, last, at axes-fraction coordinates with
+# zorder above every content artist. A label can no longer punch a hole in it,
+# and it can no longer land in the middle of the canvas leaving a dead margin.
+# =============================================================================
+
+# Ink must clear the frame by this much AT DISPLAY SIZE. 0.05 in at 300 dpi is
+# 15 px on the native canvas — comfortably above the 1.4 pt frame stroke (5.8
+# px) so the clearance is visible, not merely arithmetic.
+FIG_MIN_CLEARANCE_IN = 0.05
+# Label-to-label and label-to-stroke breathing room at display size.
+FIG_LABEL_PAD_IN = 0.020
+# A label may be nudged this far from its authored anchor before the renderer
+# stops moving it and reports a residual instead. Beyond this the label is no
+# longer identifying the atom/vertex it was attached to, and a silently
+# re-attached label is worse than a reported collision.
+FIG_LABEL_MAX_SHIFT_IN = 0.10
+# Relaxation passes. Measured: chemistry option canvases converge in 2-4.
+FIG_FIT_MAX_PASSES = 8
+# Residual overlap tolerated between two label boxes, as a fraction of the
+# smaller box's area. Antialiased glyph boxes touch at 0 penetration; 2% is
+# below visual detectability at 300 dpi and above float noise.
+FIG_COLLIDE_TOL = 0.02
+# Canvas aspect (height/width). The 0.72 of v5.33-v5.54 is retained as the
+# DEFAULT so every un-regenerated exam renders byte-comparably, but it is no
+# longer hardcoded: the fitter may propose a content-driven aspect within this
+# band, and an option SET always shares one.
+FIG_CANVAS_ASPECT_DEFAULT = 0.72
+FIG_CANVAS_ASPECT_MIN = 0.55
+FIG_CANVAS_ASPECT_MAX = 1.30
+# Classes whose axes carry no ticks/titles and must therefore fill the canvas
+# edge to edge. constrained_layout's default margins are pure waste for these
+# and were most of the 64.6% frame-to-canvas ratio measured above.
+FULL_BLEED_CLASSES = ("option_canvas", "reasoning_glyph")
+
+
+def _renderer(fig):
+    fig.canvas.draw()
+    return fig.canvas.get_renderer()
+
+
+def _visible_artists(ax):
+    """Every artist that puts ink on an option/schematic canvas.
+
+    Deliberately NOT ax.get_children() wholesale: the axes patch (background)
+    and the spines are container chrome, not content, and including them makes
+    the content bbox always exactly the axes bbox — which is how a fit check
+    can be written and still measure nothing.
+    """
+    out = []
+    for t in list(ax.texts):
+        if t.get_visible() and (t.get_text() or "").strip():
+            out.append(("text", t))
+    for ln in list(ax.lines):
+        if ln.get_visible():
+            out.append(("stroke", ln))
+    for p in list(ax.patches):
+        if p.get_visible() and not getattr(p, "_fc_is_frame", False):
+            out.append(("stroke", p))
+    for c in list(ax.collections):
+        if c.get_visible():
+            out.append(("stroke", c))
+    for im in list(ax.images):
+        if im.get_visible():
+            out.append(("stroke", im))
+    return out
+
+
+def _extent(a, rend):
+    try:
+        bb = a.get_window_extent(renderer=rend)
+    except TypeError:
+        bb = a.get_window_extent()
+    except Exception:
+        return None
+    if bb is None or bb.width <= 0 or bb.height <= 0:
+        return None
+    return bb
+
+
+def _union_display_bbox(ax, rend):
+    from matplotlib.transforms import Bbox
+    boxes = []
+    for _kind, a in _visible_artists(ax):
+        bb = _extent(a, rend)
+        if bb is not None:
+            boxes.append(bb)
+    if not boxes:
+        return None
+    return Bbox.union(boxes)
+
+
+def _pad_bbox(bb, pad):
+    from matplotlib.transforms import Bbox
+    return Bbox.from_extents(bb.x0 - pad, bb.y0 - pad, bb.x1 + pad, bb.y1 + pad)
+
+
+def _overlap_frac(b1, b2):
+    """Intersection area / smaller area. 0.0 when disjoint."""
+    ix = min(b1.x1, b2.x1) - max(b1.x0, b2.x0)
+    iy = min(b1.y1, b2.y1) - max(b1.y0, b2.y0)
+    if ix <= 0 or iy <= 0:
+        return 0.0
+    inter = ix * iy
+    small = max(min(b1.width * b1.height, b2.width * b2.height), 1e-9)
+    return float(inter / small)
+
+
+def _move_text_display(t, dx, dy):
+    """Translate a Text by (dx, dy) DISPLAY px through its own transform.
+
+    Works for transData, transAxes or a blended transform without the caller
+    needing to know which — the label stays in whatever space its author
+    anchored it in, which is what keeps it attached to its atom when the data
+    window is subsequently rescaled.
+    """
+    tr = t.get_transform()
+    x, y = tr.transform(t.get_position())
+    nx, ny = tr.inverted().transform((x + dx, y + dy))
+    t.set_position((float(nx), float(ny)))
+
+
+def _axes_display_box(ax, rend):
+    return ax.get_window_extent(renderer=rend)
+
+
+def content_data_window(ax, rend, pad_px=0.0):
+    """Union of every artist's RENDERED extent, expressed in DATA coordinates.
+
+    This is the measurement the engine did not previously take. A text's extent
+    is font-metric dependent and cannot be derived from the data it annotates,
+    which is precisely why an author-side rule ("place labels 0.18 units out")
+    cannot guarantee fit and a renderer-side measurement can.
+    """
+    bb = _union_display_bbox(ax, rend)
+    if bb is None:
+        return None
+    bb = _pad_bbox(bb, pad_px)
+    inv = ax.transData.inverted()
+    (x0, y0) = inv.transform((bb.x0, bb.y0))
+    (x1, y1) = inv.transform((bb.x1, bb.y1))
+    return (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+
+
+def apply_data_window(ax, win, box_aspect):
+    """Set xlim/ylim to a window that CONTAINS win and matches the axes box
+    aspect exactly, so an equal-aspect axes needs no further adjustment and
+    matplotlib never silently re-expands a limit behind the fitter's back."""
+    x0, y0, x1, y1 = win
+    cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+    hw = max((x1 - x0) / 2.0, 1e-9)
+    hh = max((y1 - y0) / 2.0, 1e-9)
+    # Grow the deficient axis so window aspect == axes box aspect.
+    if hh / hw < box_aspect:
+        hh = hw * box_aspect
+    else:
+        hw = hh / box_aspect
+    ax.set_xlim(cx - hw, cx + hw)
+    ax.set_ylim(cy - hh, cy + hh)
+    return (cx - hw, cy - hh, cx + hw, cy + hh)
+
+
+def _collisions(ax, rend, pad_px):
+    """(count, worst_frac, [(text, dx, dy), ...]) for text-vs-text and
+    text-vs-stroke overprints, with the push vector each text needs."""
+    items = _visible_artists(ax)
+    texts = [(a, _extent(a, rend)) for k, a in items if k == "text"]
+    texts = [(a, b) for a, b in texts if b is not None]
+    strokes = [(a, _extent(a, rend)) for k, a in items if k == "stroke"]
+    strokes = [(a, b) for a, b in strokes if b is not None]
+
+    push = {}
+    worst = 0.0
+    count = 0
+    for i in range(len(texts)):
+        ai, bi = texts[i]
+        pi = _pad_bbox(bi, pad_px)
+        for j in range(i + 1, len(texts)):
+            aj, bj = texts[j]
+            pj = _pad_bbox(bj, pad_px)
+            f = _overlap_frac(pi, pj)
+            if f <= 0.0:
+                continue
+            count += 1
+            worst = max(worst, _overlap_frac(bi, bj))
+            dx = (pi.x0 + pi.x1) / 2 - (pj.x0 + pj.x1) / 2
+            dy = (pi.y0 + pi.y1) / 2 - (pj.y0 + pj.y1) / 2
+            n = (dx * dx + dy * dy) ** 0.5 or 1.0
+            # penetration depth along each axis, halved: both labels move.
+            ox = (min(pi.x1, pj.x1) - max(pi.x0, pj.x0)) / 2.0
+            oy = (min(pi.y1, pj.y1) - max(pi.y0, pj.y0)) / 2.0
+            step = max(min(ox, oy), 1.0)
+            ux, uy = dx / n, dy / n
+            push[ai] = (push.get(ai, (0.0, 0.0))[0] + ux * step,
+                        push.get(ai, (0.0, 0.0))[1] + uy * step)
+            push[aj] = (push.get(aj, (0.0, 0.0))[0] - ux * step,
+                        push.get(aj, (0.0, 0.0))[1] - uy * step)
+    # A label sitting on a bond is legitimate ONLY when it masks it (white
+    # bbox). Anything else is an overprint; push it clear of the stroke's
+    # bounding box along the shorter escape.
+    for ai, bi in texts:
+        if _has_mask_bbox(ai):
+            continue
+        pi = _pad_bbox(bi, pad_px)
+        for aj, bj in strokes:
+            f = _overlap_frac(pi, bj)
+            if f <= FIG_COLLIDE_TOL:
+                continue
+            count += 1
+            worst = max(worst, f)
+            ox = min(pi.x1, bj.x1) - max(pi.x0, bj.x0)
+            oy = min(pi.y1, bj.y1) - max(pi.y0, bj.y0)
+            if ox < oy:
+                sgn = 1.0 if (pi.x0 + pi.x1) >= (bj.x0 + bj.x1) else -1.0
+                d = (sgn * ox, 0.0)
+            else:
+                sgn = 1.0 if (pi.y0 + pi.y1) >= (bj.y0 + bj.y1) else -1.0
+                d = (0.0, sgn * oy)
+            push[ai] = (push.get(ai, (0.0, 0.0))[0] + d[0],
+                        push.get(ai, (0.0, 0.0))[1] + d[1])
+    return count, worst, push
+
+
+def _has_mask_bbox(t):
+    bb = t.get_bbox_patch()
+    if bb is None:
+        return False
+    fc = bb.get_facecolor()
+    try:
+        return float(fc[3]) > 0.5
+    except Exception:
+        return True
+
+
+def draw_frame(ax, lw=None):
+    """The option/glyph border box. Drawn by the RENDERER, last, at the canvas
+    edge, above every content artist. Never by draw_fn — a draw_fn-owned frame
+    is what a later white-bbox label punched a hole through."""
+    from matplotlib.patches import Rectangle
+    r = Rectangle((0.0, 0.0), 1.0, 1.0, transform=ax.transAxes, fill=False,
+                  lw=(lw or FIG_MIN_STROKE_PT), edgecolor="black",
+                  zorder=10000, clip_on=False)
+    r._fc_is_frame = True
+    ax.add_patch(r)
+    return r
+
+
+def _expand_label_ring(ax, rend, factor):
+    """ESCALATION. Move every label radially outward from the content centroid
+    by `factor`, preserving relative geometry.
+
+    Lateral repulsion cannot separate two labels that are nearly COLLINEAR with
+    the figure centre — the eclipsed-Newman case, where front and rear
+    substituents sit at the same angle by construction. Pushing them apart
+    tangentially needs more travel than FIG_LABEL_MAX_SHIFT_IN allows, and
+    raising that cap would let a label detach from the atom it names. Moving the
+    whole ring outward increases the arc length between neighbours without
+    changing which bond any label points down, so no label ever changes meaning.
+    The window fitter then rescales, so the figure does not grow on the page.
+    """
+    texts = [a for k, a in _visible_artists(ax) if k == "text"]
+    if not texts:
+        return 0
+    xs, ys = [], []
+    for t in texts:
+        bb = _extent(t, rend)
+        if bb is None:
+            continue
+        xs.append((bb.x0 + bb.x1) / 2.0)
+        ys.append((bb.y0 + bb.y1) / 2.0)
+    if not xs:
+        return 0
+    cx, cy = sum(xs) / len(xs), sum(ys) / len(ys)
+    n = 0
+    for t in texts:
+        bb = _extent(t, rend)
+        if bb is None:
+            continue
+        tx, ty = (bb.x0 + bb.x1) / 2.0, (bb.y0 + bb.y1) / 2.0
+        _move_text_display(t, (tx - cx) * (factor - 1.0), (ty - cy) * (factor - 1.0))
+        n += 1
+    return n
+
+
+def fit_and_deconflict(fig, ax, spec, *, window=None):
+    """The safety net. Returns the fit record (also written into spec['fit']).
+
+    ORDER MATTERS. Deconflict first would move labels against a window that is
+    about to change; fit first would fit a layout that is about to move. The
+    loop alternates and converges on both, and it STOPS on residual rather than
+    forcing a label past FIG_LABEL_MAX_SHIFT_IN — a label dragged off its atom
+    to satisfy a gate is a wrong figure that passes, which is the failure this
+    whole block exists to end.
+    """
+    dpi = float(fig.get_dpi())
+    clear_px = FIG_MIN_CLEARANCE_IN * dpi * float(spec.get("fit_scale_ref", 1.0))
+    pad_px = FIG_LABEL_PAD_IN * dpi
+    max_shift_px = FIG_LABEL_MAX_SHIFT_IN * dpi
+
+    rend = _renderer(fig)
+    abox = _axes_display_box(ax, rend)
+    box_aspect = (abox.height / abox.width) if abox.width else 1.0
+
+    shifted = {}
+    passes = 0
+    coll_before = None
+    coll_now = 0
+    worst = 0.0
+
+    for passes in range(1, FIG_FIT_MAX_PASSES + 1):
+        rend = _renderer(fig)
+        # (1) FIT. Scale the data window by exactly the factor that makes the
+        #     rendered content, plus 2x the clearance, fit the axes box. Text
+        #     extents do NOT scale with the window (font size is in points), so
+        #     this is not a similarity transform and one pass is not a proof —
+        #     the loop re-measures. It converges in 2-4 passes on the reference
+        #     chemistry set; FIG_FIT_MAX_PASSES bounds the pathological case.
+        if window is not None:
+            apply_data_window(ax, window, box_aspect)
+        else:
+            abox = _axes_display_box(ax, rend)
+            ubb = _union_display_bbox(ax, rend)
+            if ubb is None:
+                break
+            sx = (ubb.width + 2.0 * clear_px) / max(abox.width, 1e-9)
+            sy = (ubb.height + 2.0 * clear_px) / max(abox.height, 1e-9)
+            k = max(sx, sy)
+            inv = ax.transData.inverted()
+            (cx, cy) = inv.transform(((ubb.x0 + ubb.x1) / 2.0,
+                                      (ubb.y0 + ubb.y1) / 2.0))
+            x0, x1 = ax.get_xlim()
+            y0, y1 = ax.get_ylim()
+            hw = abs(x1 - x0) / 2.0 * k
+            hh = abs(y1 - y0) / 2.0 * k
+            apply_data_window(ax, (cx - hw, cy - hh, cx + hw, cy + hh), box_aspect)
+        # (2) DECONFLICT — measured label repulsion.
+        rend = _renderer(fig)
+        n, w, push = _collisions(ax, rend, pad_px)
+        if coll_before is None:
+            coll_before = n
+        coll_now, worst = n, w
+        moved_any = False
+        for t, (dx, dy) in push.items():
+            sxx, syy = shifted.get(t, (0.0, 0.0))
+            nx, ny = sxx + dx, syy + dy
+            if (nx * nx + ny * ny) ** 0.5 > max_shift_px:
+                continue                      # residual — reported, not forced
+            _move_text_display(t, dx, dy)
+            shifted[t] = (nx, ny)
+            moved_any = True
+        # (3) CONVERGED? Both properties must hold on the SAME measurement, or
+        #     the fitter reports what it achieved rather than what it attempted.
+        rend = _renderer(fig)
+        abox = _axes_display_box(ax, rend)
+        ubb = _union_display_bbox(ax, rend)
+        ok_clear = ubb is not None and min(
+            ubb.x0 - abox.x0, ubb.y0 - abox.y0,
+            abox.x1 - ubb.x1, abox.y1 - ubb.y1) >= clear_px - 0.5
+        if ok_clear and not moved_any:
+            break
+
+    # ESCALATION (v5.55). Lateral repulsion has converged or given up. If
+    # labels are still overprinted, expand the label ring in bounded steps and
+    # re-run the lateral pass after each. Bounded and deterministic: three 10%
+    # steps, then stop and REPORT. The gate voids the item rather than the
+    # renderer inventing a layout nobody authored.
+    ring = 1.0
+    for _step in range(3):
+        rend = _renderer(fig)
+        n_now, _w, _p = _collisions(ax, rend, pad_px)
+        if n_now == 0:
+            break
+        ring *= 1.10
+        _expand_label_ring(ax, rend, 1.10)
+        for _ in range(3):
+            rend = _renderer(fig)
+            abox = _axes_display_box(ax, rend)
+            ubb = _union_display_bbox(ax, rend)
+            if ubb is None:
+                break
+            sx = (ubb.width + 2.0 * clear_px) / max(abox.width, 1e-9)
+            sy = (ubb.height + 2.0 * clear_px) / max(abox.height, 1e-9)
+            k = max(sx, sy)
+            inv = ax.transData.inverted()
+            (cx, cy) = inv.transform(((ubb.x0 + ubb.x1) / 2.0,
+                                      (ubb.y0 + ubb.y1) / 2.0))
+            x0, x1 = ax.get_xlim()
+            y0, y1 = ax.get_ylim()
+            hw = abs(x1 - x0) / 2.0 * k
+            hh = abs(y1 - y0) / 2.0 * k
+            apply_data_window(ax, (cx - hw, cy - hh, cx + hw, cy + hh), box_aspect)
+            if window is not None:
+                apply_data_window(ax, window, box_aspect)
+                break
+            if abs(k - 1.0) < 0.005:
+                break
+        rend = _renderer(fig)
+        _n, _w, push2 = _collisions(ax, rend, pad_px)
+        for t, (dx, dy) in push2.items():
+            sxx, syy = shifted.get(t, (0.0, 0.0))
+            nx, ny = sxx + dx, syy + dy
+            if (nx * nx + ny * ny) ** 0.5 > max_shift_px:
+                continue
+            _move_text_display(t, dx, dy)
+            shifted[t] = (nx, ny)
+
+    # Final measured truth, after the loop.
+    rend = _renderer(fig)
+    if window is not None:
+        apply_data_window(ax, window, box_aspect)
+        rend = _renderer(fig)
+    coll_now, worst, _ = _collisions(ax, rend, pad_px)
+    abox = _axes_display_box(ax, rend)
+    ubb = _union_display_bbox(ax, rend)
+    if ubb is not None:
+        clear = min(ubb.x0 - abox.x0, ubb.y0 - abox.y0,
+                    abox.x1 - ubb.x1, abox.y1 - ubb.y1)
+        fill = (ubb.width * ubb.height) / max(abox.width * abox.height, 1e-9)
+    else:
+        clear, fill = 0.0, 0.0
+    max_shift = max([(x * x + y * y) ** 0.5 for x, y in shifted.values()] or [0.0])
+
+    rec = {
+        "passes": passes,
+        "clearance_in": round(float(clear) / dpi, 4),
+        "clearance_floor_in": FIG_MIN_CLEARANCE_IN,
+        "content_fill_frac": round(float(fill), 4),
+        "collisions_before": int(coll_before or 0),
+        "collisions_after": int(coll_now),
+        "worst_overlap_frac": round(float(worst), 4),
+        "collide_tol": FIG_COLLIDE_TOL,
+        "label_shift_max_in": round(float(max_shift) / dpi, 4),
+        "label_shift_cap_in": FIG_LABEL_MAX_SHIFT_IN,
+        "box_aspect": round(float(box_aspect), 4),
+        "ring_expansion": round(float(ring), 3),
+        "engine": "fit_and_deconflict/v5.55",
+    }
+    rec["status"] = ("OK" if (clear >= clear_px * 0.999
+                              and coll_now == 0) else "RESIDUAL")
+    spec["fit"] = rec
+    return rec
 
 
 # =============================================================================
@@ -890,6 +1437,205 @@ def g_figglyph(spec, png_path=None):
     return []
 
 
+def g_figfit(spec):
+    """HARD, arithmetic (Q10). Did the ink land inside the frame?
+
+    Reads the fit record the renderer wrote. It is NOT a pixel gate, for the
+    same reason G-FIGLABEL is not: the renderer already holds the exact
+    rendered extents, and re-deriving them from pixels re-introduces the
+    superscript/subscript bias Q9.6 documents. figural_core.g_figfit_pixels()
+    is the WARN-level cross-check.
+    """
+    f = spec.get("fit")
+    if f is None:
+        if is_legacy(spec):
+            return []                      # EC-V18 — pre-v5.55 output is silent
+        return ["G-FIGFIT: no fit record; renderer did not run "
+                "fit_and_deconflict(). Every label position is unverified."]
+    c = float(f.get("clearance_in", -1.0))
+    floor = float(f.get("clearance_floor_in", FIG_MIN_CLEARANCE_IN))
+    out = []
+    if c < 0:
+        out.append(f"G-FIGFIT: ink lies OUTSIDE the frame by "
+                   f"{abs(c):.3f} in — the frame cuts through the drawing.")
+    elif c + 1e-6 < floor:
+        out.append(f"G-FIGFIT: ink-to-frame clearance {c:.3f} in is below the "
+                   f"{floor:.3f} in floor; the drawing touches its own border.")
+    # For a shared-window option SET the per-option fill is legitimately below
+    # the floor — the window is the UNION, so only the largest option fills it.
+    # The floor is therefore evaluated on the SET. Gating it per option would
+    # fire on every correctly-uniform option set, which is how a fill gate ends
+    # up disabled and the waste ships anyway.
+    fill = float(f.get("set_fill_frac") if f.get("window_shared")
+                 else f.get("content_fill_frac", 0.0))
+    if fill and fill < MIN_CONTENT_FILL_FRAC:
+        out.append(f"G-FIGFIT: content fills {fill:.1%} of the canvas "
+                   f"(floor {MIN_CONTENT_FILL_FRAC:.0%}); the figure is mostly "
+                   f"white space and is being displayed far smaller than its "
+                   f"page allocation.")
+    return out
+
+
+def g_figcollide(spec):
+    """VOID_ITEM (Q11). Two labels overprinted, or a label over a stroke it does
+    not mask. An option a candidate cannot read is not a degraded option, it is
+    an unanswerable one — so the ITEM is void and regenerated. The RUN never
+    halts (CLAUDE.md: silence is the defect; a halt is not the remedy)."""
+    f = spec.get("fit")
+    if f is None:
+        return [] if is_legacy(spec) else [
+            "G-FIGCOLLIDE: no fit record; label overprints unverifiable."]
+    n = int(f.get("collisions_after", 0))
+    if n == 0:
+        return []
+    return [f"G-FIGCOLLIDE: {n} unresolved label overprint(s); worst overlap "
+            f"{float(f.get('worst_overlap_frac', 0.0)):.1%} of the smaller "
+            f"label box (tolerance {float(f.get('collide_tol', FIG_COLLIDE_TOL)):.1%}). "
+            f"Labels were nudged up to {float(f.get('label_shift_max_in', 0.0)):.3f} in "
+            f"(cap {float(f.get('label_shift_cap_in', FIG_LABEL_MAX_SHIFT_IN)):.3f} in) "
+            f"and could not be separated: redraw this figure with fewer or "
+            f"shorter labels, or a larger display width."]
+
+
+def g_figfit_pixels(spec, png_path):
+    """WARN cross-check on the SAVED artefact: ink outside the drawn frame.
+
+    Kept advisory for the Q9.6 reason — it is a pixel statistic and inherits
+    every pixel statistic's bias — but it is the check that reproduces the
+    shipped defect from the delivered file alone, with no sidecar, which is
+    what makes ~200 legacy exams auditable without re-rendering them.
+    """
+    np = _try_import("numpy")
+    Image = _try_import("PIL.Image")
+    if np is None or Image is None:
+        return ["W-FIGFITPX: DORMANT — numpy/Pillow unavailable. " + PIP_INSTALL]
+    a = np.array(Image.open(png_path).convert("L")).astype(int)
+    ink = a < 160
+    if not ink.any():
+        return []
+    rowfrac = ink.mean(1)
+    colfrac = ink.mean(0)
+    brows = np.where(rowfrac > 0.6)[0]
+    bcols = np.where(colfrac > 0.6)[0]
+    if len(brows) < 2 or len(bcols) < 2:
+        return []                       # no frame drawn — nothing to be outside
+    t, b = int(brows.min()), int(brows.max())
+    l, r = int(bcols.min()), int(bcols.max())
+    out = ink.copy()
+    out[max(t - 2, 0):b + 3, max(l - 2, 0):r + 3] = False
+    n_out = int(out.sum())
+    if n_out == 0:
+        return []
+    return [f"W-FIGFITPX: {n_out} px ({n_out / float(ink.sum()):.2%} of the ink) "
+            f"lies outside the drawn frame in {os.path.basename(png_path)}."]
+
+
+def g_figoptwindow(specs):
+    """VOID_ITEM. Every option of a question must be drawn in the SAME data
+    window on the SAME canvas.
+
+    This is a correctness gate, not a tidiness one. When each option is fitted
+    independently, a small molecule is magnified to fill its box and a large one
+    is shrunk — so relative size, which in a structure question is MEANING,
+    becomes an artefact of the renderer, and any option drawn at a visibly
+    different scale is an answer cue. Q7b.6 already forbids a differing style
+    budget; this closes the same hole on geometry.
+    """
+    if len(specs) < 2:
+        return []
+    wins = []
+    canv = set()
+    for s in specs:
+        f = s.get("fit") or {}
+        w = f.get("data_window")
+        if w is None:
+            if is_legacy(s):
+                return []
+            return ["G-FIGOPTWINDOW: option set has no recorded data window; "
+                    "options were fitted independently."]
+        wins.append([round(float(v), 6) for v in w])
+        canv.add(tuple(s.get("png_px") or ()))
+    if len({tuple(w) for w in wins}) != 1:
+        return [f"G-FIGOPTWINDOW: options were drawn in {len({tuple(w) for w in wins})} "
+                f"different data windows; relative size is not comparable across "
+                f"the option set and scale differences read as an answer cue."]
+    if len(canv) != 1:
+        return [f"G-FIGOPTWINDOW: option canvases differ: {sorted(canv)}."]
+    return []
+
+
+def render_option_set(draw_fns, out_paths, specs, palette=None):
+    """Render a question's WHOLE option set in ONE shared, fitted window.
+
+    Two passes by necessity: the common window cannot be known until every
+    option has been drawn and measured once. Pass 1 fits each option alone and
+    records its content window; pass 2 re-renders all of them in the UNION of
+    those windows, so every option shares one canvas, one scale and one frame.
+
+    This is the API S10-8 must call for figural options. render_figure() on its
+    own is correct for a problem figure and INSUFFICIENT for an option set,
+    because a per-option fit is exactly what makes the scales diverge.
+    """
+    if not (len(draw_fns) == len(out_paths) == len(specs)):
+        raise FiguralError("G-FIGOPTWINDOW: draw_fns, out_paths and specs must "
+                           "be the same length (one entry per option).")
+    if len(specs) < 2:
+        raise FiguralError("G-FIGOPTWINDOW: an option set needs >=2 options.")
+    wins = []
+    for fn, p, s in zip(draw_fns, out_paths, specs):
+        render_figure(fn, p, s, palette=palette)
+        w = (s.get("fit") or {}).get("data_window")
+        if w:
+            wins.append(w)
+    if not wins:
+        return specs
+    common = (min(w[0] for w in wins), min(w[1] for w in wins),
+              max(w[2] for w in wins), max(w[3] for w in wins))
+    # v5.55. The canvas ASPECT comes from the content, not from a constant.
+    # A 0.72 landscape canvas given portrait content wastes the width and
+    # squeezes the height — measured on the reference paper as a figure using
+    # 33% of its canvas width and 97% of its height. One aspect for the whole
+    # SET, so uniformity (Q4 / G-FIGOPTUNIF) is preserved by construction.
+    cw = max(common[2] - common[0], 1e-9)
+    ch = max(common[3] - common[1], 1e-9)
+    asp = max(FIG_CANVAS_ASPECT_MIN, min(FIG_CANVAS_ASPECT_MAX, ch / cw))
+    for s in specs:
+        s["canvas_aspect"] = round(float(asp), 4)
+    # Pass 2, with a bounded re-expansion. A shared window is applied AS GIVEN,
+    # so an option whose labels moved during its own deconflict pass can still
+    # sit closer to the frame than the floor. The window is then grown for ALL
+    # options by the single worst factor — never per option, because a per-option
+    # correction is exactly the scale divergence G-FIGOPTWINDOW exists to stop.
+    for _ in range(6):
+        for fn, p, s in zip(draw_fns, out_paths, specs):
+            render_figure(fn, p, s, palette=palette, window=common)
+        deficit = 0.0
+        for s in specs:
+            f = s.get("fit") or {}
+            c = float(f.get("clearance_in", FIG_MIN_CLEARANCE_IN))
+            deficit = max(deficit, FIG_MIN_CLEARANCE_IN - c)
+        if deficit <= 1e-4:
+            break
+        # grow the window so the worst option gains `deficit` inches on each side
+        w = common[2] - common[0]
+        h = common[3] - common[1]
+        gx = max(deficit / max(float(specs[0]["display_in"]), 1e-9) * w * 3.0,
+                 0.004 * w)
+        gy = gx * (h / max(w, 1e-9))
+        common = (common[0] - gx, common[1] - gy, common[2] + gx, common[3] + gy)
+    set_fill = max([float((s.get("fit") or {}).get("content_fill_frac", 0.0))
+                    for s in specs] or [0.0])
+    for s in specs:
+        if s.get("fit"):
+            s["fit"]["window_shared"] = True
+            s["fit"]["set_fill_frac"] = round(set_fill, 4)
+            s["fit"]["status"] = ("OK" if (s["fit"]["clearance_in"] + 1e-4
+                                           >= FIG_MIN_CLEARANCE_IN
+                                           and s["fit"]["collisions_after"] == 0)
+                                  else "RESIDUAL")
+    return specs
+
+
 def audit_figure(spec, png_path, descr=None):
     """Run every gate. Returns (hard_failures, warnings)."""
     hard = []
@@ -897,6 +1643,8 @@ def audit_figure(spec, png_path, descr=None):
     hard += g_figdegen(spec, png_path)
     hard += g_figscale(spec, png_path)
     hard += g_figlabel(spec)
+    hard += g_figfit(spec)                 # v5.55 Q10 — ink inside the frame
+    hard += g_figcollide(spec)             # v5.55 Q11 — no overprinted labels
     hard += g_figcolour(spec, png_path)
     hard += g_figaccent(spec, png_path)
     hard += g_figmono(spec, png_path)
@@ -905,6 +1653,7 @@ def audit_figure(spec, png_path, descr=None):
     hard += g_figglyph(spec, png_path)
     warn = []
     warn += g_figlabel_pixels(spec, png_path)
+    warn += g_figfit_pixels(spec, png_path)   # v5.55 — legacy-auditable
     warn += g_figalt(descr)
     return hard, warn
 
@@ -1215,7 +1964,10 @@ def self_test():
               for v in AUDIT_GATE_ID.values()))
     check("audit_gate_id_maps_a_finding",
           audit_gate_id("G-FIGCOLOUR: 0.000% coloured") == "A-FIGCOLOUR")
-    check("gate_count_is_thirteen", len(SEVERITY) == 13)  # v5.46: +G-FIGACCENT
+    # v5.55: 13 -> 17 (+G-FIGFIT, +G-FIGCOLLIDE, +G-FIGOPTWINDOW, +W-FIGFITPX).
+    # The count is asserted, not hardcoded in prose, so a gate added without a
+    # severity cannot ship silently at the default.
+    check("gate_count_is_seventeen", len(SEVERITY) == 17)
     # Every id a gate can EMIT must be registered. The alt-text gate once
     # emitted "W-FIGALT" while SEVERITY keyed "G-FIGALT", so a real alt-text
     # failure mapped to no catalogue gate and was reported under an id the audit
@@ -1267,6 +2019,90 @@ def self_test():
           FIG_OPT_DISPLAY_IN == 1.3 and gspec["placed_in"] == 1.3)
     check("four_option_stack_fits_a_page",
           4 * FIG_OPT_DISPLAY_IN < 9.0)
+
+    # ---- v5.55 GAP-2026-08-19-FIGFIT regression fixtures -------------------
+    # CLAUDE.md: "that self-test MUST contain a fixture that fails on the defect
+    # it was written for. A regression test that passes on the broken code tests
+    # nothing." D6-D11 reproduce the SHIPPED defects measured on
+    # IIT_JAM_CHEMISTRY Mock01 and assert the new gates catch them.
+
+    # D6 — ink outside the frame (Q3 opt A: 4.06% of the ink beyond the border).
+    _outside = dict(gspec)
+    _outside["fit"] = {"clearance_in": -0.031, "clearance_floor_in": 0.05,
+                       "content_fill_frac": 0.62, "collisions_after": 0,
+                       "worst_overlap_frac": 0.0}
+    check("D6_figfit_catches_ink_outside_frame",
+          any("OUTSIDE the frame" in f for f in g_figfit(_outside)))
+
+    # D7 — content touching the frame (10 of 24 delivered canvases, < 0.04 in).
+    _touch = dict(gspec)
+    _touch["fit"] = {"clearance_in": 0.008, "clearance_floor_in": 0.05,
+                     "content_fill_frac": 0.62, "collisions_after": 0,
+                     "worst_overlap_frac": 0.0}
+    check("D7_figfit_catches_content_touching_frame",
+          any("below the" in f for f in g_figfit(_touch)))
+
+    # D8 — wasted page allocation (delivered median ink bbox 29.6% of canvas).
+    _waste = dict(gspec)
+    _waste["fit"] = {"clearance_in": 0.09, "clearance_floor_in": 0.05,
+                     "content_fill_frac": 0.296, "collisions_after": 0,
+                     "worst_overlap_frac": 0.0}
+    check("D8_figfit_catches_wasted_canvas",
+          any("white space" in f for f in g_figfit(_waste)))
+
+    # D9 — CH3 printed on top of CH3 (Q11 opts C and D).
+    _coll = dict(gspec)
+    _coll["fit"] = {"clearance_in": 0.09, "clearance_floor_in": 0.05,
+                    "content_fill_frac": 0.62, "collisions_after": 2,
+                    "worst_overlap_frac": 0.97, "collide_tol": FIG_COLLIDE_TOL,
+                    "label_shift_max_in": 0.10, "label_shift_cap_in": 0.10}
+    check("D9_figcollide_catches_overprinted_labels", g_figcollide(_coll) != [])
+    check("D9_figcollide_is_void_item_never_blocking",
+          SEVERITY["G-FIGCOLLIDE"] == "VOID_ITEM"
+          and triage(g_figcollide(_coll), _coll)["BLOCKING"] == [])
+
+    # D10 — options fitted independently: divergent scales are an answer cue.
+    _a = dict(gspec); _a["fit"] = {"data_window": [0, 0, 1, 1]}
+    _b = dict(gspec); _b["fit"] = {"data_window": [0, 0, 2, 2]}
+    check("D10_figoptwindow_catches_divergent_scale",
+          g_figoptwindow([_a, _b]) != [])
+    _c = dict(gspec); _c["fit"] = {"data_window": [0, 0, 1, 1]}
+    check("D10_figoptwindow_passes_a_shared_window",
+          g_figoptwindow([_a, _c]) == [])
+
+    # D11 — EC-V18: pre-v5.55 output has no fit record and MUST stay silent, or
+    # ~200 existing exams fail their next audit on a gate that did not exist
+    # when they were rendered.
+    check("D11_legacy_spec_is_silent_under_figfit", g_figfit({}) == [])
+    check("D11_legacy_spec_is_silent_under_figcollide", g_figcollide({}) == [])
+    _nofit = dict(gspec); _nofit["fit"] = None
+    check("D11_new_output_without_fit_record_is_loud",
+          (not is_legacy(_nofit)) and g_figfit(_nofit) != [])
+    check("D11_figfit_blocking_downgrades_for_legacy",
+          triage(["G-FIGFIT: ink lies OUTSIDE the frame by 0.031 in."],
+                 {})["BLOCKING"] == [])
+
+    # D12 — the fitter actually repairs a real overflow. Not a mocked record:
+    # this renders a draw_fn that puts a label far outside the authored window
+    # (the shipped shape) and asserts the saved artefact clears the frame.
+    if _have("matplotlib"):
+        _fp = os.path.join(tempfile.mkdtemp(), "q1_opt1.png")
+
+        def _runaway(ax, series, palette):
+            ax.plot([0, 1], [0, 1], color="#000000", lw=FIG_MIN_STROKE_PT)
+            ax.text(3.4, 3.4, "OH", fontsize=10, color=palette[0])
+            ax.text(-2.6, -2.2, "CH$_3$", fontsize=10, color=palette[0])
+
+        _rs = make_figure_spec(1, "option_canvas", FIG_OPT_DISPLAY_IN,
+                               role="option")
+        render_figure(_runaway, _fp, _rs)
+        check("D12_fitter_brings_runaway_labels_inside_the_frame",
+              g_figfit(_rs) == [] or "OUTSIDE" not in " ".join(g_figfit(_rs)))
+        check("D12_fit_record_is_written", (_rs.get("fit") or {}).get("engine")
+              == "fit_and_deconflict/v5.55")
+        check("D12_renderer_frame_is_not_overprinted",
+              g_figfit_pixels(_rs, _fp) == [])
+        check("D12_placement_scale_is_still_one", _rs["placement_scale"] == 1.0)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

@@ -270,6 +270,9 @@
   "draw_fn": {
    "reason": "forward_ref_or_session_global"
   },
+  "draw_fns": {
+   "reason": "forward_ref_or_session_global"
+  },
   "flag": {
    "reason": "GRANDFATHERED_MUST_FIX",
    "site": "controlled_reuse() L3360"
@@ -285,6 +288,9 @@
   "mock_scenario_ledger": {
    "reason": "GRANDFATHERED_MUST_FIX",
    "site": "generate_subtopic() L3209"
+  },
+  "opt_paths": {
+   "reason": "forward_ref_or_session_global"
   },
   "passage_linked_qs": {
    "reason": "forward_ref_or_session_global"

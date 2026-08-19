@@ -1,4 +1,33 @@
-# Framework_MockTestCreate v5.54.1
+# Framework_MockTestCreate v5.55
+# v5.55 — 2026-08-19 — GAP-2026-08-19-FIGFIT: FIGURE LAYOUT IS NOW MEASURED, NOT ASSUMED
+#   Every figure gate from v5.33 to v5.54 measured METADATA — canvas pixels, DPI,
+#   placement scale, REQUESTED font points, DECLARED hues, alt text. Nothing measured
+#   WHERE THE INK LANDED. Measured on the reference delivery (IIT_JAM_CHEMISTRY Mock01,
+#   42 drawings): 3 of 24 option canvases carried ink OUTSIDE the drawn frame (worst
+#   4.06% of the image's ink); 10 of 24 had content within 12 px (0.04 in) of it, some
+#   with a white label bbox punching a visible hole THROUGH the border stroke; two
+#   option canvases printed CH3 on top of CH3; the frame occupied 252 of 390 canvas px
+#   (64.6% of width) and the median problem figure's ink covered 29.6% of its canvas,
+#   so ~70% of every figure's page allocation was white space; and one portrait
+#   structure used 33% of its canvas width against 97% of its height inside the
+#   hardcoded 0.72 landscape aspect. EVERY ONE OF THOSE FIGURES PASSED EVERY GATE.
+#   ROOT CAUSE IS ARCHITECTURAL. draw_fn is authored per question at generation time,
+#   so layout correctness was delegated to hand-written drawing code, once per
+#   question, across ~200 exams, with no safety net and no measurement. Authoring
+#   discipline does not scale to that; a renderer-side invariant does.
+#   THE FIX, in four parts: (1) S10-7 Q10 FIT CONTRACT — the renderer measures every
+#   artist's rendered extent and fits the data window so all ink clears the frame by
+#   FIG_MIN_CLEARANCE_IN; (2) S10-7 Q11 LABEL DECONFLICT — measured label repulsion,
+#   capped so a label is never silently dragged off the atom it names, with a bounded
+#   ring-expansion escalation; (3) S10-7 Q12 + S10-8 — an option SET renders in ONE
+#   shared window on ONE canvas via render_option_set(), and the FRAME belongs to the
+#   renderer, drawn last above every artist, at the canvas edge; (4) S10-7C — a domain
+#   drawing contract, because a layout engine cannot separate labels that are
+#   superimposed by definition (eclipsed Newman) and must not pretend otherwise.
+#   New gates: G-FIGFIT (BLOCKING on v5.55+ output, AMBER for legacy under EC-V18),
+#   G-FIGCOLLIDE (VOID_ITEM), G-FIGOPTWINDOW (VOID_ITEM), W-FIGFITPX (AMBER, and the
+#   only one auditable from a delivered .docx with no sidecar — which is what makes
+#   ~200 existing exams auditable without re-rendering them).
 # v5.54.1 — 2026-08-13 — SYNC AUDIT ROUND 2: three prose desyncs fixed (no logic change)
 #   (1) S13-6 + DoD said "EXACTLY TWO files", contradicting the dossier-conditional 3-file
 #   closed set R-DELIVER/S13-7/G-DELIVERY-SET already agree on; both sites now state the
@@ -4221,11 +4250,15 @@
 
   A figural question is generated and emitted as DISCRETE images, never a
   composite panel. The generator:
-    1. Builds geometry vector-first and renders each visual unit separately via
-       render_figural_image() (§10-S10-7): one PNG for the problem/series
-       figure(s); one PNG per option on a uniform square canvas; all at
-       FIGURAL_DPI=300, lossless, no baked-in question text, reference lines drawn
-       as real geometry.
+    1. Builds geometry vector-first (honouring the S10-7C drawing contract) and
+       renders the problem figure via figural_core.render_figure() and the WHOLE
+       OPTION SET via figural_core.render_option_set() (§10-S10-7 Q12) — one PNG
+       for the problem/series figure(s); one PNG per option, all options on one
+       uniform canvas in one shared data window; all at FIGURAL_DPI=300,
+       lossless, no baked-in question text, reference lines drawn as real
+       geometry, and the border box drawn by the RENDERER (Q10.4), never by
+       draw_fn. v5.55: rendering an option set by looping the single-figure
+       helper is a G-FIGOPTWINDOW defect.
     2. Places them via add_figural_question() (§10-S10-8): Q.N-first stem text,
        the problem image(s), then the N option images stacked SINGLE-COLUMN, each
        bound 1:1 to its "i." label (one option image per line; never two on a
@@ -5112,6 +5145,29 @@
                                 # arithmetic. At 300 dpi the supersample bought
                                 # nothing and halved every label.
   FIG_MIN_STROKE_PT      = 1.4  # minimum line width
+  # v5.55 — the layout contract. These are what make Q10/Q11/Q12 checkable.
+  FIG_MIN_CLEARANCE_IN   = 0.05 # ink-to-frame clearance AT DISPLAY SIZE. 15 px at
+                                # 300 dpi — comfortably above the 1.4 pt frame
+                                # stroke (5.8 px), so the clearance is VISIBLE and
+                                # not merely arithmetic.
+  FIG_LABEL_PAD_IN       = 0.020# label-to-label / label-to-stroke breathing room
+  FIG_LABEL_MAX_SHIFT_IN = 0.10 # how far the deconflicter may nudge a label from
+                                # its authored anchor. Beyond this the label no
+                                # longer identifies the atom it was attached to,
+                                # and a silently re-attached label is a WRONG
+                                # figure that PASSES — strictly worse than a
+                                # reported collision. The cap is the whole reason
+                                # G-FIGCOLLIDE can be trusted.
+  FIG_COLLIDE_TOL        = 0.02 # residual overlap tolerated, as a fraction of the
+                                # smaller label box
+  FIG_FIT_MAX_PASSES     = 8    # measured: chemistry option sets converge in 2-4
+  MIN_CONTENT_FILL_FRAC  = 0.45 # CALIBRATED, not aspirational. Delivered corpus
+                                # median 29.6%; post-fix shared-window option sets
+                                # measure 0.40-0.55. A floor set on single figures
+                                # would fire on every correctly-uniform SET.
+  FIG_CANVAS_ASPECT_DEFAULT = 0.72  # was hardcoded in figure_style(); now the
+                                    # DEFAULT only, so every un-regenerated exam
+                                    # renders exactly as before.
   ```
 
   QUALITY RULES (all mandatory — each is checked at view-tool verification):
@@ -5146,11 +5202,29 @@
         distinct canvas sizes across 31 delivered problem figures, S wandering
         0.495–0.666. Use `constrained_layout=True`, which gives the same good
         margins with a size that is known before the file is written.
-    Q4. UNIFORM OPTION CANVAS. All N option images of a question share ONE square
-        canvas size. Do NOT tight-crop options (tight crop yields non-uniform
-        sizes). Fix the axes to [0,1]×[0,1], equal aspect, axis off, draw an
-        explicit border box, and save with a fixed pad. (The problem figure MAY be
-        a different, wider unit and MAY use a tight bbox.)
+    Q4. UNIFORM OPTION CANVAS (v5.55 — restated; the word "square" is REMOVED).
+        All N option images of a question share ONE canvas size AND ONE data
+        window. Do NOT tight-crop options (tight crop yields non-uniform sizes).
+        v5.55 corrects two things this rule got wrong:
+          (a) IT SAID "SQUARE" AND THE ENGINE NEVER WAS. figure_style() has
+              hardcoded figsize = (d, d x 0.72) since v5.33, so every delivered
+              option canvas measured 390 x 280 px while this rule demanded a
+              square. Spec and engine contradicted each other for four releases
+              and no gate could fire, because no gate read either. The invariant
+              that actually matters is UNIFORMITY ACROSS THE SET — a size or
+              scale difference between options is an answer cue (Q7b.6) — never
+              squareness. The canvas ASPECT is now derived from the content and
+              shared by the whole set (Q12).
+          (b) FIXING THE AXES TO [0,1]x[0,1] IS THE DEFECT, NOT THE CONTRACT. A
+              fixed window cannot know how wide a rendered label is — text extent
+              is font-metric dependent and is not derivable from the data it
+              annotates — so an author-side rule ("place labels 0.18 units out")
+              can never guarantee fit. That is exactly how 3 of 24 delivered
+              option canvases put ink outside their own frame. The window is now
+              MEASURED and fitted by the renderer (Q10).
+        The border box is drawn by the RENDERER, never by draw_fn (Q10.4).
+        (The problem figure MAY be a different, wider unit; it MUST NOT use a
+        tight bbox — Q3.)
     Q5. NO QUESTION CHROME IN PIXELS. The stem, caption, instruction, and the
         option numbers (1/2/3/4) are DOCUMENT TEXT, never inside a raster.
         INTRINSIC figure annotations ARE allowed (mirror-line endpoints M/N,
@@ -5260,14 +5334,27 @@
                        colour and accessibility condition lives here:
                        G-FIGCOLOUR, G-FIGCVD, G-FIGSERIES, G-FIGGLYPH,
                        G-FIGALT, W-FIGLABELPX.
-          VOID_ITEM  — the rendering leaks an ANSWER CUE, so this QUESTION is
-                       invalid: G-FIGMONO (colour in a reasoning glyph),
-                       G-FIGOPTUNIF (option canvases not uniform). Drop or
+          VOID_ITEM  — the rendering leaks an ANSWER CUE or is unreadable, so
+                       this QUESTION is invalid: G-FIGMONO (colour in a
+                       reasoning glyph), G-FIGOPTUNIF (option canvases not
+                       uniform), and from v5.55 G-FIGCOLLIDE (labels
+                       overprinted — an option a candidate cannot read is not
+                       a degraded option, it is an unanswerable one) and
+                       G-FIGOPTWINDOW (options drawn at divergent scales, so
+                       relative size — which in a structure question is
+                       MEANING — became a renderer artefact). Drop or
                        regenerate the single question. The paper continues.
                        Never halts the run.
           BLOCKING   — reserved for RENDERER-CONTRACT REGRESSION on v5.33+
                        output only: G-FIGSCALE, G-FIGLABEL, G-FIGDPI,
-                       G-FIGDEGEN. These are safe to block ONLY because they are
+                       G-FIGDEGEN, and from v5.55 G-FIGFIT. G-FIGFIT is safe to
+                       block for the same reason the other four are: on v5.55+
+                       output the renderer GUARANTEES the property, so a firing
+                       means someone removed the fitter. EC-V18 downgrades it to
+                       AMBER for every pre-v5.55 figure (no fit record), so ~200
+                       existing exams keep auditing and delivering untouched
+                       while still reporting the defect loudly. These are safe to
+                       block ONLY because they are
                        unfireable by construction — verified 0 firings across
                        144 figures spanning 1.3–7.5 in, 2–8 series and four
                        label sets including full scientific notation. A firing
@@ -5312,7 +5399,77 @@
            papers hardest. The pixel statistic is retained as a WARN-level
            cross-check only (`figural_core.g_figlabel_pixels`).
 
-  RENDER HELPER — WHICH ONE (v5.33).
+    Q10. FIT CONTRACT (v5.55 — new). THE INK MUST LAND INSIDE THE FRAME.
+        1. After draw_fn returns and BEFORE the artefact is saved, the renderer
+           MEASURES every visible artist's rendered extent (matplotlib
+           get_window_extent) and fits the data window so the union of those
+           extents clears the axes box on every side by >= FIG_MIN_CLEARANCE_IN
+           at DISPLAY size. This is figural_core.fit_and_deconflict(), called
+           from render_figure(). It is not optional and not per-class.
+        2. The fit also MAXIMISES fill: the window is scaled by exactly the
+           factor that makes content + 2 x clearance meet the axes box, so a
+           figure occupies the page area it was allocated. The delivered corpus
+           averaged 29.6% — a molecule drawn at roughly half the linear size its
+           4.0 in slot paid for, which is most of why labels were illegible.
+           Floor MIN_CONTENT_FILL_FRAC, evaluated on the SET for a shared-window
+           option set (the union window is by definition larger than any single
+           option; gating per option would fire on every conformant set).
+        3. Text extents do NOT scale with the data window — font size is in
+           points — so one pass is not a proof. The fitter re-measures and
+           iterates, bounded by FIG_FIT_MAX_PASSES, and RECORDS what it achieved
+           rather than asserting what it attempted.
+        4. THE FRAME BELONGS TO THE RENDERER. draw_fn MUST NOT draw the option
+           border box. Through v5.54 it did, so a label with a white masking
+           bbox drawn afterwards erased a segment of the border — the visible
+           white gap in the delivered frames. figural_core.draw_frame() now
+           draws it LAST, at axes-fraction coordinates, at the canvas edge, with
+           zorder above every content artist. A label can no longer punch a hole
+           in it, and it can no longer float in the middle of the canvas leaving
+           a dead margin (measured: the frame held 64.6% of the canvas width).
+        5. GATED BY ARITHMETIC, NOT PIXELS. G-FIGFIT reads the fit record in the
+           FigureSpec sidecar, for the reason Q9.6 gives: the renderer already
+           holds the exact extents, and re-deriving them from pixels
+           re-introduces the superscript/subscript bias. W-FIGFITPX is the
+           WARN-level pixel cross-check, and is the ONLY figure gate that works
+           on a delivered .docx with no sidecar — which is what makes the
+           existing ~200 exams auditable without re-rendering them.
+    Q11. LABEL DECONFLICT (v5.55 — new). NO LABEL MAY OVERPRINT ANOTHER.
+        1. The renderer detects text-vs-text and text-vs-stroke overprints from
+           measured extents and separates them by repulsion, alternating with
+           the Q10 fit until both hold on the SAME measurement.
+        2. A label may be nudged at most FIG_LABEL_MAX_SHIFT_IN from its
+           authored anchor. THIS CAP IS THE POINT. A label dragged far enough to
+           satisfy a gate is no longer naming the atom it was attached to — a
+           wrong figure that passes, which is strictly worse than a reported
+           collision. When the cap binds, the renderer STOPS and REPORTS.
+        3. A label sitting ON a stroke is legitimate ONLY when it masks it (an
+           opaque bbox behind an atom label is standard chemical drawing).
+           Anything else is an overprint.
+        4. ESCALATION, bounded: if lateral repulsion cannot separate labels that
+           are nearly COLLINEAR with the figure centre, the whole label ring is
+           expanded outward about the content centroid in three 10% steps. This
+           increases arc length between neighbours without changing which bond
+           any label points down, so no label changes meaning, and the Q10 fit
+           rescales so the figure does not grow on the page. After three steps
+           the renderer stops and reports.
+        5. Residual overprints fail G-FIGCOLLIDE at VOID_ITEM. The question is
+           regenerated; the RUN NEVER HALTS (CLAUDE.md: silence is the defect;
+           a halt is not the remedy).
+    Q12. ONE WINDOW PER OPTION SET (v5.55 — new). Every option of a question is
+        rendered in the SAME data window on the SAME canvas, via
+        figural_core.render_option_set(). Two passes are structurally necessary:
+        the common window is not knowable until every option has been drawn and
+        measured once.
+        WHY THIS IS A CORRECTNESS GATE, NOT A TIDINESS ONE. Fitted
+        independently, a small molecule is magnified to fill its box and a large
+        one shrunk, so RELATIVE SIZE — which in a structure question is meaning —
+        becomes an artefact of the renderer, and any option drawn at a visibly
+        different scale is an answer cue. Q7b.6 already forbids a differing style
+        budget; Q12 closes the identical hole on geometry. Gate G-FIGOPTWINDOW
+        (VOID_ITEM). render_figure() alone is correct for a PROBLEM figure and
+        INSUFFICIENT for an option set.
+
+  RENDER HELPER — WHICH ONE (v5.33; option sets amended v5.55).
     Classes `data_series`, `data_single`, `schematic` route to
     `figural_core.render_figure()`. Classes `reasoning_glyph` and
     `option_canvas` (when the parent is a reasoning glyph) use
@@ -5328,7 +5485,19 @@
     fc.render_figure(draw_fn, png_path, spec)   # MUTATES spec with png_px,
                                                 # png_dpi, placed_in,
                                                 # placement_scale, font_pt_native
+                                                # and (v5.55) spec['fit']
     fc.write_spec_sidecar(spec, png_path)       # the audit reads this
+    ```
+    OPTION SETS USE render_option_set(), NOT render_figure() IN A LOOP (Q12):
+    ```python
+    import figural_core as fc
+
+    opt_specs = [fc.make_figure_spec(qnum, "option_canvas",
+                                     fc.FIG_OPT_DISPLAY_IN, role="option")
+                 for _ in draw_fns]
+    fc.render_option_set(draw_fns, opt_paths, opt_specs)   # ONE shared window
+    for _s, _p in zip(opt_specs, opt_paths):
+        fc.write_spec_sidecar(_s, _p)
     ```
     `render_figure()` reads the saved artefact back and records what actually
     happened. The audit then verifies the figure WITHOUT looking at it: colour
@@ -5405,6 +5574,45 @@
       if len(sizes) != 1:
           raise AssertionError(f"G-FIGURAL option canvases not uniform: {sizes}")
   ```
+
+## S10-7C — DOMAIN DRAWING CONTRACT (v5.55 — new)
+
+  WHY A LAYOUT ENGINE IS NOT ENOUGH. Q10/Q11 measure and repair what draw_fn
+  produced. They cannot repair a drawing whose labels are superimposed BY
+  DEFINITION. The reference case: an ECLIPSED Newman projection places front and
+  rear substituents at the same dihedral angle, so their labels coincide, and no
+  amount of nudging separates them within FIG_LABEL_MAX_SHIFT_IN. Measured: with
+  the rear bonds drawn at a 14 deg offset, 1-2 residual overprints survive every
+  escalation step and G-FIGCOLLIDE correctly voids the item. At 30 deg, all four
+  options of the reference question resolve to ZERO collisions and pass
+  G-FIGFIT, G-FIGCOLLIDE and G-FIGOPTWINDOW together.
+
+  The arithmetic is not exam-specific and is worth stating once. On a 1.3 in
+  option canvas at 300 dpi, an 8-10 pt "CH3" glyph run is ~33-41 px wide. Six
+  substituents on a ring of ~106 px radius sit ~106 px apart when STAGGERED (60
+  deg) and ~26 px apart at a 14 deg eclipse offset. 26 < 41, so the collision is
+  geometric certainty, not bad luck.
+
+  THE CONTRACT — mandatory for any draw_fn that carries text labels:
+    C1. NEVER draw the option border box. It is the renderer's (Q10.4).
+    C2. NEVER hand-fix the axis limits and never call bbox_inches="tight".
+        The window is the fitter's (Q10.1). A draw_fn that sets its own limits
+        is asserting a fit it did not measure.
+    C3. Two labels MUST NOT be placed at an angular separation that is smaller
+        than their own rendered width at the radius used. In practice, for a
+        radial label ring: separate by >= 25 deg, OR place the inner group on a
+        radius >= 1.35x the outer group's.
+    C4. Eclipsed / syn-periplanar conformers are drawn with the REAR bonds
+        offset by 25-30 deg — the universal textbook convention, and the only
+        one that keeps both substituents visible. Never at 0 deg.
+    C5. An atom label that lies over a bond MUST carry an opaque mask bbox
+        (that is what makes it a label and not an overprint — Q11.3).
+    C6. Take accent ink from the `palette` argument, never a hardcoded hue
+        (Q7b.8 authoring contract — restated here because this is the section
+        an author reads before drawing).
+  A draw_fn that honours C1-C6 needs no repair; the fitter then only maximises
+  fill. A draw_fn that does not is repaired where possible and REPORTED where
+  not. Neither path can ship a silent defect, which is the whole objective.
 
 ## S10-8 — FIGURAL PLACEMENT (v4.0 — single-column, label-bound; was a v1.0 stub)
 
@@ -5517,11 +5725,19 @@
 
       add_blank_separator(doc)                       # R13
 
-  # USAGE (per figural question, from S8-6):
-  #   prob = render_figural_image(draw_problem, kind="problem")
-  #   opts = [render_figural_image(lambda ax: draw_option(ax, k), kind="option")
-  #           for k in range(n_options)]
-  #   add_figural_question(doc, q.num, q.stem, [prob], opts)
+  # USAGE (per figural question, from S8-6) — v5.55: the option set is rendered
+  # by render_option_set(), NOT by a loop over the single-figure helper. A loop
+  # fits each option independently, which is exactly the scale divergence Q12
+  # and G-FIGOPTWINDOW exist to stop.
+  #   import figural_core as fc
+  #   pspec = fc.make_figure_spec(q.num, "schematic", fc.FIG_PROBLEM_DISPLAY_IN)
+  #   fc.render_figure(draw_problem, f"q{q.num}_problem.png", pspec)
+  #   ospecs = [fc.make_figure_spec(q.num, "option_canvas",
+  #                                 fc.FIG_OPT_DISPLAY_IN, role="option")
+  #             for _ in draw_options]
+  #   fc.render_option_set(draw_options, opt_paths, ospecs)
+  #   add_figural_question(doc, q.num, q.stem, [prob_png], opt_pngs,
+  #                        problem_specs=[pspec], option_specs=ospecs)
   ```
 
   SINGLE-COLUMN INVARIANT: because every option image is added in its own
@@ -7386,7 +7602,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.54.1
+# END OF Framework_MockTestCreate v5.55
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
