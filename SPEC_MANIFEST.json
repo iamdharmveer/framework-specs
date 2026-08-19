@@ -15,11 +15,11 @@
       "version_header": "# Framework_DeliveryFooter v1.22 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
-      "end_sentinel": "# END OF Framework_MockDeliver v1.12.1",
-      "lines": 1757,
-      "sha256": "528cd6b90215d9c360ee160a54168f3617bf127daee58a398e3c1c33d8a77c2e",
-      "size_bytes": 85165,
-      "version_header": "# Framework_MockDeliver v1.12.1 — Universal Mock Test Tagger & Delivery Engine"
+      "end_sentinel": "# END OF Framework_MockDeliver v1.12.2",
+      "lines": 1771,
+      "sha256": "ee252725a8dde8e106e81feebfbbd780c2802998f582bdb6baa9f6366504286e",
+      "size_bytes": 86356,
+      "version_header": "# Framework_MockDeliver v1.12.2 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.3",

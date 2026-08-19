@@ -1,4 +1,18 @@
-# Framework_MockDeliver v1.12.1 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.12.2 — Universal Mock Test Tagger & Delivery Engine
+# v1.12.2 — 2026-08-19 — GAP-2026-08-19-UNCHECKED-END-MARKER-DRIFT. PATCH: prose-only,
+#   no gate, no logic, no artefact change. This file is the ONLY spec in the corpus
+#   carrying TWO end-of-document markers: the canonical `# END OF ...` sentinel that
+#   MANIFEST.json pins and bootstrap.py verifies, AND a prose marker
+#   `*End of Framework_MockDeliver vX (body)*` closing the body section. At the
+#   v1.12.1 bump the SENTINEL was updated and the PROSE marker was not, leaving the file
+#   declaring two different versions of itself.
+#   ROOT CAUSE, worth naming: the marker that is CHECKED cannot drift, so only the
+#   UNCHECKED one did. A corpus sweep confirms this is a single instance and not a
+#   class — 21 end-markers across 21 specs, 20 correct, and every other spec carries
+#   exactly one marker, which is the checked one. The durable fix is therefore not a
+#   new rule but the removal of the redundant second version string: the prose marker
+#   now closes the body WITHOUT restating a version, so there is no second version
+#   string left to drift. The canonical sentinel remains the single source.
 # v1.12.1 — 2026-08-13 — SYNC AUDIT ROUND 2: gate-count prose fix. §2 item 4 said "All 16
 #   audit gates" while §6 is headed "all 17 must PASS" and runs C1–C17 (C17 = NAT charset).
 #   Prose corrected to 17; no gate logic changed.
@@ -1719,7 +1733,7 @@ when in position-based mode. No warning is logged; this is not a data-quality si
 
 ---
 
-*End of Framework_MockDeliver v1.12.0 (body)*
+*End of Framework_MockDeliver (body) — version is declared once, in the header and the closing sentinel.*
 
 *Four hard invariants: (1) NEVER linearize OMML — deliver native `<m:oMath>`
 byte-for-byte; the delivered docx's OMML count MUST equal the source (gates
@@ -1754,4 +1768,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.12.1
+# END OF Framework_MockDeliver v1.12.2

@@ -188,11 +188,11 @@
       "bytes": 45391
     },
     "Framework_MockDeliver.md": {
-      "sha256": "528cd6b90215d9c360ee160a54168f3617bf127daee58a398e3c1c33d8a77c2e",
-      "version_header": "# Framework_MockDeliver v1.12.1 \u2014 Universal Mock Test Tagger & Delivery Engine",
-      "end_sentinel": "# END OF Framework_MockDeliver v1.12.1",
-      "lines": 1757,
-      "bytes": 85165
+      "sha256": "ee252725a8dde8e106e81feebfbbd780c2802998f582bdb6baa9f6366504286e",
+      "version_header": "# Framework_MockDeliver v1.12.2 \u2014 Universal Mock Test Tagger & Delivery Engine",
+      "end_sentinel": "# END OF Framework_MockDeliver v1.12.2",
+      "lines": 1771,
+      "bytes": 86356
     },
     "Framework_MockTestAnalyse.md": {
       "sha256": "9247a72731a48cccfc3cb8a3e27e87d7f028844193eeba1bb15c8181fa7a575e",
@@ -496,7 +496,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "25021a5489558b494287dc0cb407b2f7fc2b302c248f318f07911e334eb50b78",
+      "sha256": "1ad4f108d58f3febb3233ac0b1bca30e652967aa409fa1ddc369742316b530da",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6468,

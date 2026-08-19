@@ -1281,276 +1281,276 @@
       ]
     },
     "Framework_MockDeliver.md": {
-      "sha256": "528cd6b90215d9c360ee160a54168f3617bf127daee58a398e3c1c33d8a77c2e",
-      "lines": 1758,
-      "bytes": 85165,
-      "est_tokens": 21291,
+      "sha256": "ee252725a8dde8e106e81feebfbbd780c2802998f582bdb6baa9f6366504286e",
+      "lines": 1772,
+      "bytes": 86356,
+      "est_tokens": 21589,
       "view_calls": 6,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 85165,
-      "reduced_est_tokens": 21291,
+      "reduced_bytes": 86356,
+      "reduced_est_tokens": 21589,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## S1-1 — Trigger parsing",
-          "start": 174,
-          "end": 194,
+          "start": 188,
+          "end": 208,
           "lines": 21,
           "bytes": 909
         },
         {
           "title": "## S1-2 — Preflight (HARD STOP on any failure)",
-          "start": 195,
-          "end": 253,
+          "start": 209,
+          "end": 267,
           "lines": 59,
           "bytes": 3312
         },
         {
           "title": "## S1-3 — Build the tag-value lookup table",
-          "start": 254,
-          "end": 465,
+          "start": 268,
+          "end": 479,
           "lines": 212,
           "bytes": 10908
         },
         {
           "title": "## S2-1 — Document-level layout",
-          "start": 466,
-          "end": 476,
+          "start": 480,
+          "end": 490,
           "lines": 11,
           "bytes": 443
         },
         {
           "title": "## S2-2 — Per-question block structure (interleaved Solutions format)",
-          "start": 477,
-          "end": 511,
+          "start": 491,
+          "end": 525,
           "lines": 35,
           "bytes": 1462
         },
         {
           "title": "## S3-1 — Tag field definitions",
-          "start": 512,
-          "end": 521,
+          "start": 526,
+          "end": 535,
           "lines": 10,
           "bytes": 767
         },
         {
           "title": "## S3-2 — Question Type resolution",
-          "start": 522,
-          "end": 523,
+          "start": 536,
+          "end": 537,
           "lines": 2,
           "bytes": 38
         },
         {
           "title": "### S3-2a — Resolution mode selection (v1.7)",
-          "start": 524,
-          "end": 542,
+          "start": 538,
+          "end": 556,
           "lines": 19,
           "bytes": 1164
         },
         {
           "title": "### S3-2b — Subtopic-based resolution table (used when NOT position-based)",
-          "start": 543,
-          "end": 551,
+          "start": 557,
+          "end": 565,
           "lines": 9,
           "bytes": 254
         },
         {
           "title": "## S3-3 — Tag field order (fixed — never changes)",
-          "start": 552,
-          "end": 566,
+          "start": 566,
+          "end": 580,
           "lines": 15,
           "bytes": 427
         },
         {
           "title": "## S3-4 — Pre-tagging validation",
-          "start": 567,
-          "end": 597,
+          "start": 581,
+          "end": 611,
           "lines": 31,
           "bytes": 883
         },
         {
           "title": "## S4-1 — Paragraph classification",
-          "start": 598,
-          "end": 663,
+          "start": 612,
+          "end": 677,
           "lines": 66,
           "bytes": 2727
         },
         {
           "title": "## S4-2 — Header detection (exam-agnostic — SAFETY-NET, v1.2)",
-          "start": 664,
-          "end": 697,
+          "start": 678,
+          "end": 711,
           "lines": 34,
           "bytes": 1396
         },
         {
           "title": "## S4-3 — Tag block paragraph builder",
-          "start": 698,
-          "end": 752,
+          "start": 712,
+          "end": 766,
           "lines": 55,
           "bytes": 2670
         },
         {
           "title": "## S4-4 — DocPr ID reassignment",
-          "start": 753,
-          "end": 765,
+          "start": 767,
+          "end": 779,
           "lines": 13,
           "bytes": 212
         },
         {
           "title": "## Phase 1 — Parse input docx and build tag lookup",
-          "start": 766,
-          "end": 855,
+          "start": 780,
+          "end": 869,
           "lines": 90,
           "bytes": 4347
         },
         {
           "title": "## Phase 2 — Build integrity body",
-          "start": 856,
-          "end": 890,
+          "start": 870,
+          "end": 904,
           "lines": 35,
           "bytes": 1668
         },
         {
           "title": "## Phase 3 — Assemble integrity docx",
-          "start": 891,
-          "end": 932,
+          "start": 905,
+          "end": 946,
           "lines": 42,
           "bytes": 2311
         },
         {
           "title": "## Phase 3.5 — Content-integrity gate (all must PASS before rendering)",
-          "start": 933,
-          "end": 939,
+          "start": 947,
+          "end": 953,
           "lines": 7,
           "bytes": 236
         },
         {
           "title": "## Phase 4 — Prepare the delivered tree (v1.11.0 — render transforms RETIRED)",
-          "start": 940,
-          "end": 960,
+          "start": 954,
+          "end": 974,
           "lines": 21,
           "bytes": 874
         },
         {
           "title": "## Phase 5 — Assemble and deliver the docx (native OMML preserved)",
-          "start": 961,
-          "end": 1193,
+          "start": 975,
+          "end": 1207,
           "lines": 233,
           "bytes": 12053
         },
         {
           "title": "## Rule 19 — OMML → Selectable Unicode Text — RETIRED",
-          "start": 1194,
-          "end": 1337,
+          "start": 1208,
+          "end": 1351,
           "lines": 144,
           "bytes": 6339
         },
         {
           "title": "## Rule 22 — Question-Stem Underline → Red FF0000",
-          "start": 1338,
-          "end": 1388,
+          "start": 1352,
+          "end": 1402,
           "lines": 51,
           "bytes": 1848
         },
         {
           "title": "## Rule 21 — Symbol-Safe Re-Font (v1.3 — multi-font, per-codepoint)",
-          "start": 1389,
-          "end": 1566,
+          "start": 1403,
+          "end": 1580,
           "lines": 178,
           "bytes": 7525
         },
         {
           "title": "## EC-1 — Solutions docx is questions-only (the guaranteed, normal case)",
-          "start": 1567,
-          "end": 1574,
+          "start": 1581,
+          "end": 1588,
           "lines": 8,
           "bytes": 446
         },
         {
           "title": "## EC-2 — Solutions docx has pre-Q.1 header paragraphs (UPSTREAM REGRESSION — safety-net)",
-          "start": 1575,
-          "end": 1585,
+          "start": 1589,
+          "end": 1599,
           "lines": 11,
           "bytes": 774
         },
         {
           "title": "## EC-3 — Exam with MSQ questions",
-          "start": 1586,
-          "end": 1596,
+          "start": 1600,
+          "end": 1610,
           "lines": 11,
           "bytes": 600
         },
         {
           "title": "## EC-4 — Exam with NAT questions",
-          "start": 1597,
-          "end": 1607,
+          "start": 1611,
+          "end": 1621,
           "lines": 11,
           "bytes": 565
         },
         {
           "title": "## EC-5 — Zero OMML in source docx",
-          "start": 1608,
-          "end": 1614,
+          "start": 1622,
+          "end": 1628,
           "lines": 7,
           "bytes": 296
         },
         {
           "title": "## EC-6 — Missing question_index for mock N",
-          "start": 1615,
-          "end": 1620,
+          "start": 1629,
+          "end": 1634,
           "lines": 6,
           "bytes": 232
         },
         {
           "title": "## EC-7 — Subtopic mismatch between registry and blueprint",
-          "start": 1621,
-          "end": 1627,
+          "start": 1635,
+          "end": 1641,
           "lines": 7,
           "bytes": 329
         },
         {
           "title": "## EC-8 — Difficulty label not in canonical set",
-          "start": 1628,
-          "end": 1633,
+          "start": 1642,
+          "end": 1647,
           "lines": 6,
           "bytes": 220
         },
         {
           "title": "## EC-9 — Table or drawing element before Q.1",
-          "start": 1634,
-          "end": 1640,
+          "start": 1648,
+          "end": 1654,
           "lines": 7,
           "bytes": 285
         },
         {
           "title": "## EC-10 — Blank separator paragraph between header and Q.1",
-          "start": 1641,
-          "end": 1646,
+          "start": 1655,
+          "end": 1660,
           "lines": 6,
           "bytes": 259
         },
         {
           "title": "## EC-11 — Namespace preservation (v1.3 — the root-cause guard)",
-          "start": 1647,
-          "end": 1656,
+          "start": 1661,
+          "end": 1670,
           "lines": 10,
           "bytes": 615
         },
         {
           "title": "## EC-12 — Non-ASCII codepoint covered by no installed font (v1.3)",
-          "start": 1657,
-          "end": 1665,
+          "start": 1671,
+          "end": 1679,
           "lines": 9,
           "bytes": 522
         },
         {
           "title": "## EC-13 — Position-based exam where subtopic-level type disagrees with position-level type (v1.7)",
-          "start": 1666,
-          "end": 1758,
+          "start": 1680,
+          "end": 1772,
           "lines": 93,
-          "bytes": 5715
+          "bytes": 5777
         }
       ]
     },
