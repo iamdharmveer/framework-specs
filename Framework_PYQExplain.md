@@ -1,4 +1,12 @@
-# Framework_PYQExplain v2.10 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.11 — Universal PYQ Explanation Generator
+# v2.11 — 2026-08-19 — GAP-2026-08-19-DOMAIN-LEAK-IN-UNIVERSAL-RULES (paired with
+#   MockTestExplain v1.33.0). SPEC-ONLY, no engine change, no rule weakened. The four
+#   rules added in v2.9/v2.10 were written in one domain's vocabulary inside an
+#   exam-agnostic spec: §7-0a/§7-0b listed domain-specific conditions and assumptions as
+#   though universal, §7-5 made domain-specific checks MANDATORY, and §8-0a banned
+#   domain-specific quantities. Rules are now stated neutrally, lists are ILLUSTRATIVE and
+#   read from the exam's own material, and every §7-5 check is CONDITIONAL ON
+#   APPLICABILITY. See MockTestExplain v1.33.0 for the full record.
 # v2.10 — 2026-08-19 — GAP-2026-08-19-CONDITIONAL-CORRECTNESS (paired with
 #   MockTestExplain v1.32.0). SPEC-ONLY. Same four rules, so both explanation paths hold
 #   one standard; see MockTestExplain v1.32.0 for the full incident record.
@@ -846,10 +854,16 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   actually supplies them. NEVER apply a remembered name while ignoring its conditions —
   that is how a confident, fluent, WRONG answer gets produced, because the recalled name
   is right and only the conditions differ.
-  CAPTURE, where the stem states them: solvent · temperature · pressure · pH · concentration
-  · catalyst · light · applied potential · ligand · atmosphere · ORDER of reagents ·
-  WORK-UP · state/phase · what is held constant.
-  The reference case: an ozonolysis question turns entirely on the WORK-UP. The same
+  CAPTURE every qualifier the stem attaches to the situation. WHICH qualifiers exist is
+  DOMAIN-DEPENDENT and is read from the exam's own material (section_rules CATEGORY C
+  cues + the subtopic), never assumed from this list. TYPICAL, NOT EXHAUSTIVE, and NOT a
+  requirement that any of these appear: the ORDER in which things are applied · what is
+  held constant · the stated regime or range of validity · the environment or medium ·
+  any explicitly given rate, level, setting or state · the post-process or clean-up step.
+  A paper in a domain where none of these apply simply captures nothing here and the rule
+  costs it nothing.
+  REFERENCE CASE (one domain, illustrating the shape — the failure is universal): an
+  ozonolysis question turns entirely on the WORK-UP. The same
   substrate and the same ozone give an aldehyde under a reductive work-up and a carboxylic
   acid under an oxidative one. A solver who recalls "ozonolysis cleaves the double bond"
   and stops has recalled a true statement and will still answer wrongly half the time.
@@ -860,10 +874,12 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   the SOLVER. They are different obligations and neither substitutes for the other.
 
 ## S7-0b — ASSUMPTION LEDGER (v2.10)
-  Record every approximation the derivation leans on, at the moment it is used. Typical:
-  ideal-gas behaviour · activity ~ concentration · dilute solution · complete dissociation
-  · negligible autoionisation · the small-x approximation · spin-only magnetic moment ·
-  ground state only · 298 K · standard state · frictionless/lossless · non-relativistic.
+  Record every approximation the derivation leans on, at the moment it is used. WHICH
+  approximations are conventional is DOMAIN- AND LEVEL-DEPENDENT; the exam's own material
+  establishes them. ILLUSTRATIVE ONLY, across domains, and no item here is expected of any
+  particular paper: an idealised model substituted for the real one · a small quantity
+  neglected · a limiting or standard condition assumed · a second-order effect ignored ·
+  a value taken at its reference state.
   THREE CASES, and only the third reaches the reader:
     1. The STEM supplies the assumption -> use it, no comment needed.
     2. It is the settled convention at this exam's level and does NOT change the answer
@@ -956,18 +972,26 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   Derive-twice (§7-1) catches a DIFFERENT-ANSWER error. It does NOT catch a CONSISTENT
   error: both routes can share one unit slip, one log base, one power of ten. These checks
   are orthogonal to it and are run on the final value before the block is written.
-    [ ] UNITS — the result carries the unit the question asked for, and the working is
-        dimensionally consistent throughout (not merely at the end).
-    [ ] CONVERSIONS — every unit converted where the formula demands it; temperature in
-        KELVIN wherever the relation requires absolute temperature.
-    [ ] MAGNITUDE — the power of ten is sane for the quantity. A pH of 47, a rate constant
-        of 10^40, a bond length of 3 metres are arithmetic slips, not results.
-    [ ] LOGARITHM BASE — base 10 versus natural, matching the constant used with it. This
-        single confusion silently rescales by 2.303.
-    [ ] SIGN — the sign matches the physical direction (released/absorbed, spontaneous/
-        non-spontaneous, oxidation/reduction).
-    [ ] STOICHIOMETRY — the mole ratio comes from the BALANCED relation, and the equation
-        was balanced before it was used.
+  EACH CHECK IS CONDITIONAL ON APPLICABILITY. A check whose subject the question does not
+  contain is NOT APPLICABLE and is not a failure — a pure-arithmetic item has no units to
+  verify, a word problem no conversion. Never manufacture a check to satisfy the list, and
+  never treat a non-applicable check as a defect. The parenthetical examples span domains
+  and are ILLUSTRATIVE ONLY.
+    [ ] UNITS (if the answer carries one) — the result carries the unit the question asked
+        for, and the working is dimensionally consistent throughout, not merely at the end.
+    [ ] CONVERSIONS (if any quantity is expressed in more than one unit) — every quantity
+        converted where the relation demands it, including any ABSOLUTE-SCALE requirement
+        the relation imposes on a scaled quantity.
+    [ ] MAGNITUDE — the order of magnitude is sane for what the quantity IS. A bounded
+        quantity outside its bounds, or a length in the wrong power of ten, is an
+        arithmetic slip, not a result.
+    [ ] LOG / EXPONENT BASE (if a logarithm or exponential appears) — the base matches the
+        constant used alongside it; a mismatched base silently rescales the whole answer.
+    [ ] SIGN / DIRECTION (if the quantity is signed or directional) — the sign matches the
+        direction the question defines (gain vs loss, forward vs reverse, in vs out).
+    [ ] DEFINING RATIO (if the domain fixes one) — any conserved or defining ratio comes
+        from the relation that DEFINES it, and that relation was balanced, normalised or
+        otherwise completed BEFORE it was used.
     [ ] PRECISION — the answer is rounded exactly as the question asked, and no further.
         Rounding is applied ONCE, at the end, never to an intermediate that is then reused.
   A check that FAILS sends the question back to §7-1, never to a patched number.
@@ -1116,9 +1140,13 @@ label = assess_difficulty(
   defect: an elimination explanation asserted the major product forms "in about 70
   percent yield" — a figure the stem never gave, the syllabus never fixes, and no step
   derived. It reads as authoritative and is unfalsifiable by the learner.
-  BANNED unless supplied or derived: product yields and percentages, selectivity
-  ratios, equilibrium/rate constants, exact bond angles and lengths, spectral
-  positions, industrial temperatures and pressures.
+  BANNED unless supplied or derived — stated as a SHAPE, since the specific quantities
+  are domain-dependent: any efficiency, yield or success rate; any ratio between competing
+  outcomes; any tabulated constant; any exact measured magnitude, position or setting; any
+  real-world operating figure. ILLUSTRATIVE ACROSS DOMAINS, not a checklist to match
+  against: a reaction yield, a market share, a population figure, a material property, a
+  historical date, a device rating. If the paper's domain has no such quantities, the rule
+  simply never fires.
   THE TEST — ask of every number: "where would a student LOOK to check this?" If the
   answer is not the stem, the syllabus, or a line above it, delete it. Deleting costs
   nothing: "the terminal alkene predominates" carries the entire teaching point that
@@ -1645,6 +1673,8 @@ print(fv.vision_report_line(report))
   So every SPEED HACK states — in the shortcut itself, not in a caveat afterwards — the
   CONDITIONS under which it is safe. The scope is part of the shortcut, not an apology
   attached to it.
+  The example below is from one domain; the SHAPE is what transfers — an unscoped rule
+  states an outcome, a scoped one states the outcome AND the situation that triggers it.
     NEVER : "a bulky base always gives the less substituted alkene"
     WRITE : "when two beta-sites compete and the base is hindered, check the less
              substituted alkene FIRST"
@@ -2178,5 +2208,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.10
+# END OF Framework_PYQExplain v2.11
 # ════════════════════════════════════════════════════════════════════════
