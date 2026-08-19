@@ -1334,10 +1334,251 @@ Current-version entry remains in Framework_MockTestCreate.md.
 
 ## Framework_MockTestExplain.md
 
-Moved from the file header at framework release 2026.08.15.14.
+Moved from the file header at framework release 2026.08.15.14; entries
+v1.25.0–v1.34.0 moved VERBATIM at framework release 2026.08.19.1 (the
+MockExplain/TestExplain route crossed the EC-P42 SPEC-BUDGET threshold).
 Current-version entry remains in Framework_MockTestExplain.md.
 
 ```
+# v1.34.0 — 2026-08-19 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT (paired with
+#   PYQExplain v2.12, engine v2.5). SPEC-ONLY here; the paired ENGINE release fixes a
+#   separate, unrelated label defect found the same way (see explain_engine v2.5).
+#   THE DEFECT. section_rules declares `option_label_format` in TWO places — the
+#   CATEGORY C header and every per-SECTION block — and P5 compared NEITHER. It checked
+#   option COUNT, question TYPE and Q_TOTAL, and it checked opt_re against label_scheme,
+#   but the declared label FORMAT was never compared against itself. A real exam config
+#   was found carrying `(A)/(B)/(C)/(D)` in the header and `1/2/3/4` in all FOUR of its
+#   section blocks. The run did not halt. It silently took the header, and every option
+#   in the paper was printed with the wrong label.
+#   WHY IT IS SILENT AND TOTAL. The two values come from DIFFERENT generators: the header
+#   is written from OBSERVED PYQ papers, the per-section values from per-section
+#   synthesis. Re-running the PYQ analysis can change the header alone and leave every
+#   section untouched. Nothing else in the run looks wrong — counts match, types match,
+#   the paper renders cleanly — so there is no second symptom to notice.
+#   THE FIX. P5 now compares the header against EVERY section and the sections against
+#   each other, and HALTs on any disagreement, printing every declared value with its
+#   location. Resolution by precedence is explicitly forbidden: "Surface, do not guess"
+#   already governed this step and the missing comparison was the only reason it could.
+#   SCOPE, NOT OVERCLAIMED. Labels are PRINTED by the generation step; this step reads
+#   them. Halting here cannot un-print an already-generated paper — it stops an
+#   explanation run from cementing wrong labels and sends the author to fix the config
+#   and regenerate. The same comparison belongs upstream in generation; that this one is
+#   downstream is a reason to surface loudly, never a reason to resolve silently.
+# v1.33.0 — 2026-08-19 — GAP-2026-08-19-DOMAIN-LEAK-IN-UNIVERSAL-RULES (paired with
+#   PYQExplain v2.11). SPEC-ONLY, no engine change, NO rule weakened — every obligation
+#   added in v1.31.0/v1.32.0 still binds. What changes is that four of them were written
+#   in ONE domain's vocabulary while sitting in an EXAM-AGNOSTIC spec that serves every
+#   exam in the corpus.
+#   THE DEFECT. §7-0a listed conditions as "solvent · pH · catalyst · ligand · WORK-UP";
+#   §7-0b listed assumptions as "ideal-gas · activity ~ concentration · spin-only";
+#   §7-5 made "temperature in KELVIN" and "STOICHIOMETRY — the mole ratio comes from the
+#   BALANCED relation" MANDATORY checks; §8-0a banned "bond angles, spectral positions,
+#   industrial temperatures". Read by an aptitude, language or reasoning paper, those are
+#   not merely irrelevant — §7-5 in particular demanded checks that CANNOT be satisfied or
+#   even understood, so a conformant paper in another domain could not pass its own
+#   checklist. That breaches the EXAM-AGNOSTIC GUARANTEE at the top of this file.
+#   THE FIX, following the convention the corpus already uses elsewhere ("config triggers;
+#   default NOT/EXCEPT/INCORRECT/FALSE"): the RULE is stated in domain-neutral terms, the
+#   LIST is marked ILLUSTRATIVE and read from the exam's own material, and every §7-5
+#   check is explicitly CONDITIONAL ON APPLICABILITY — a check whose subject the question
+#   does not contain is NOT APPLICABLE and is NOT a failure. Domain examples are retained
+#   deliberately, because a rule with no worked instance is hard to apply, but each is now
+#   labelled as one domain illustrating a universal shape.
+#   WHY IT HAPPENED, recorded so it is not repeated: these four rules were written from a
+#   chemistry incident, and the incident's vocabulary travelled into the rule. Every
+#   earlier release in this series was audited for exam-independence by absence of exam
+#   NAMES and counts — a test that these passed, because a domain leak carries neither.
+# v1.32.0 — 2026-08-19 — GAP-2026-08-19-CONDITIONAL-CORRECTNESS (paired with PYQExplain
+#   v2.10). SPEC-ONLY, no engine change. Four rules covering the same underlying failure:
+#   an answer that is RIGHT IN GENERAL and WRONG HERE, because a condition, an
+#   assumption, a unit or a scope was never made explicit. Derive-twice does not catch
+#   this class — both routes can share the same silent premise.
+#   D1 — §7-0a CONDITION CAPTURE. Nothing required the SOLVER to read back the conditions
+#   a remembered result depends on. §9's `wrong_condition` names this failure in a
+#   DISTRACTOR only, which is a different obligation — the same error-type-standing-in-
+#   for-a-rule confusion that let two defects survive an earlier audit. Reference case:
+#   ozonolysis, where the WORK-UP alone decides between an aldehyde and a carboxylic acid.
+#   D2 — §7-0b ASSUMPTION LEDGER. Ideal gas, activity ~ concentration, small-x, spin-only,
+#   298 K, standard state. Three cases; only an assumption that MATERIALLY changes the
+#   answer reaches the reader, and it may never contradict the stem.
+#   D3 — §7-5 NUMERICAL VERIFICATION. Derive-twice catches a DIFFERENT-answer error, never
+#   a CONSISTENT one: both routes can share one unit slip, one log base, one power of ten.
+#   Seven orthogonal checks — units, conversions/kelvin, magnitude, log base, sign,
+#   stoichiometry, precision — run on the final value. A failure returns to §7-1, never to
+#   a patched number.
+#   D4 — §14-3b SHORTCUT VALIDITY DOMAIN. §14 tested whether a shortcut was DISTINCT and
+#   FASTER, never whether it was SCOPED. A SPEED HACK is the line a student memorises, so
+#   an unscoped one is the most damaging sentence in the block. Distinct from §8-0b:
+#   "a bulky base usually gives the less substituted alkene" is calibrated (passes §8-0b)
+#   and still unscoped (fails §14-3b) because it never says WHEN to reach for it.
+# v1.31.0 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-CONTENT-DISCIPLINE (paired with
+#   PYQExplain v2.9, engine v2.4). Three defects that were IDENTIFIED at the start of
+#   this work, survived every release since, and were nearly closed out unfixed: an
+#   internal audit reported them CLOSED on loose keyword matches that hit adjacent
+#   text. A test that can only pass is not a test.
+#   D1 — NO RULE AGAINST INVENTED PRECISION. A delivered explanation asserted a major
+#   product forms "in about 70 percent yield" — a figure the stem never supplied, the
+#   syllabus never fixes, and no step derived. Nothing in this spec forbade it. The
+#   earlier audit passed this on §9's `overgeneralised_rule`, which is a DISTRACTOR
+#   error type describing how a wrong OPTION fails — it says nothing about what the
+#   explanation itself may assert. NEW §8-0a: every number traces to the stem, a
+#   syllabus constant, or a shown derivation; nothing else may be written.
+#   D2 — NO RULE AGAINST ABSOLUTE LANGUAGE. The same explanation said a bulky base
+#   "cannot approach" the hindered hydrogens. It demonstrably can; it is disfavoured,
+#   and the question turns entirely on the competition between two ACCESSIBLE
+#   pathways — so the absolute destroyed the reasoning being taught. Zero rules
+#   existed. NEW §8-0b: absolutes are reserved for claims absolute in the subject's
+#   own terms; tendencies take calibrated language.
+#   D3 — THE ARTEFACT DID NOT DECLARE ITS OWN STATE. Coverage was announced only in
+#   the chat progress line (§S19-3), so the FILE said nothing. A legitimate mid-run
+#   Batch-1 artefact carrying 10 of 60 explanations is byte-indistinguishable from a
+#   finished paper once it leaves the conversation — and in the reference incident it
+#   was reviewed as finished, the review's central complaint being the 50 questions
+#   the batch had not yet reached. NEW §12-4 + engine v2.4 set_coverage_banner().
+#   ENGINE SUPPORT WAS REQUIRED FOR D3, AND THAT WAS VERIFIED BEFORE THE RULE WAS
+#   WRITTEN: with a banner present, verify_fidelity still PASSES (it sits outside
+#   every question region) but strip_solutions leaves it, so the questions-only copy
+#   diverges from the Step-7 source and the §12-3 re-audit FAILS. Engine v2.4 strips
+#   it; five self-tests lock presence, gate-neutrality, stripping, idempotence and
+#   removal (83/83).
+# v1.30.0 — 2026-08-19 — GAP-2026-08-19-STALE-PIN-SWEEP (paired with PYQExplain v2.8).
+#   SPEC-ONLY, no engine change. A CLASS SWEEP, not four incidents: v1.29.0 de-pinned
+#   the §R1 report line and stopped, leaving the SAME defect standing in every other
+#   place a count was written into prose. GAP-2026-08-13-STALE-SELFTEST-PIN fixed the
+#   P1 gate in v1.25.0 and left the class standing too — this is the third time this
+#   shape has been fixed instance-by-instance, so it is fixed by RULE here (§21-0).
+#   D1 — §21 DEFINITION OF DONE HARD-PINNED THE ENGINE COUNT. Item 1 read "engine
+#   --self-test 62/62" under a heading that says "ANY violation = do NOT deliver". The
+#   engine prints 78/78. On a literal reading the Definition of Done could NEVER be
+#   satisfied — the exact failure mode of GAP-2026-08-13-STALE-SELFTEST-PIN, in the one
+#   place that fix never reached. Converted to floor form.
+#   D2 — THE P2 DASHBOARD TEMPLATE PRESCRIBED PRINTING "[62/62 PASS]". A template is
+#   an instruction: it told every session to print a count that has been wrong since the
+#   engine grew past 62 fixtures. Now prints what the engine actually reported.
+#   D3 — THE P2 DASHBOARD HEADER SAID "MockExplain v1.20" at spec v1.29.0. Now reads
+#   the version from this file's own header.
+#   D4 — STALE FACTUAL COUNT. P1's explanatory note asserted "it prints 64/64 today";
+#   it prints 78/78. Any such assertion is stale the moment a fixture is added, so the
+#   count is removed rather than corrected.
+#   NEW §21-0 states the rule the three previous fixes each implied but never wrote
+#   down, so the next fixture addition cannot reopen this.
+# v1.29.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-FIGURAL-DOMAIN-BLINDNESS. SPEC-ONLY:
+#   no engine change, no artefact-shape change. Four defects found by auditing what
+#   v1.27.0/v1.28.0 did NOT touch. The router fixed what an explanation EMITS; these
+#   fix how a question is READ and how the run REPORTS itself.
+#   D1 — §13 SPOKE ONLY REASONING-PUZZLE. S13-1/S13-4 named "mirror/water image, paper
+#   folding, cube net, space orientation" and defined the figural AXIOM as "the visual
+#   rule (rotation / reflection / element add-remove / count / net-folding)". That is the
+#   SSC/CAT non-verbal vocabulary. It is CORRECT for those exams and USELESS for a drawn
+#   molecular structure, an MO diagram or a titration curve: a session reading §13 for a
+#   chemistry stem was told to look for rotation and folding. §13 is now split into a
+#   SHARED gate (detect/extract/view — unchanged, it was always domain-neutral) and TWO
+#   named FAMILIES, transformation-puzzle and scientific-diagram, with the reading
+#   protocol each actually needs. No exam loses anything: the puzzle family is the old
+#   text preserved verbatim in substance.
+#   D2 — §6 HAD NO CLASS FOR STRUCTURAL OR DERIVATIONAL REASONING. S6-1 classed by
+#   exam shape (vocab / grammar / formal-logic / figural) so a Claisen rearrangement
+#   landed in C-FIGURAL and a multi-step derivation in C-COMPUTATIONAL. Class decides
+#   which SECTION LEADS — a different job from §6A, which decides what is EMITTED — so
+#   the gap was not covered by the router. C-STRUCTURAL and C-DERIVATIONAL added.
+#   D3 — §6A-3 PROMISED A REPORT LINE §20 DID NOT DEFINE. §6A-3 states "The §20 report
+#   states the distribution" while §R3 listed no such field: a dangling cross-reference
+#   that would be satisfied by nobody. §R3 now carries the representation distribution
+#   and the degrade ledger.
+#   D4 — §R1 PROVENANCE WAS STALE. It printed "spec v1.13 · engine 62/62" against a
+#   spec at v1.28.0 and an engine at 78/78. NOT a halt risk — the GATES were converted
+#   to FLOOR form in v1.25.0 (GAP-2026-08-13-STALE-SELFTEST-PIN) and remain floor-form
+#   here — but a provenance line that misreports its own versions defeats the purpose of
+#   provenance. §R1 now reads both values from what actually ran, pinning neither.
+# v1.28.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-REPRESENTATION-EMISSION (figures LIVE).
+#   MINOR bump, paired with explain_engine v2.3. v1.27.0 shipped the §6A router
+#   RECORD-ONLY, deliberately: verdicts first, emission after review. This release
+#   turns emission ON. What lands:
+#   1. ExplanationBlock gains `figures` (list[RepresentationFigure]); each figure
+#      carries the §6A-5 validation record and FAILS AT CONSTRUCTION on any breach
+#      (no record, match False, inconsistent identifiers, missing file, width
+#      outside 0.5..7.0 in). A figure is proved, not trusted.
+#   2. Render path: figures interleave with DEDUCTION sentences at their
+#      after_step position as CENTRED, TEXT-FREE picture paragraphs. The no-text
+#      invariant is load-bearing: the strict reader keeps an explanation
+#      paragraph only when it has display text or math source, so figure
+#      paragraphs are INVISIBLE to parse_solution_blocks and the round-trip is
+#      unchanged by design (self-test FIG-READER-INVISIBLE). There is NO caption
+#      paragraph — the surrounding DEDUCTION prose describes the figure (§6A-1
+#      already requires the prose to be readable without it).
+#   3. verify_explanations gains the FIGURE-LANDING check: a block that declares
+#      N figures must render EXACTLY N drawing paragraphs in its explanation
+#      region. A silent skip (e.g. a legacy caller without doc_part) is a
+#      BLOCKING FAIL — §6A-4's degrade-LOUDLY rule applied to the render path
+#      itself (self-test FIG-SILENT-SKIP-CAUGHT).
+#   4. verify_fidelity needs NO change and gets none: question-region signatures
+#      exclude the explanation region, source-media MD5s are one-directional, and
+#      new image parts register real rIds so the dangling-rId check (A3) passes.
+#      Locked by FIG-E2E-GATES on a figural sample paper (stem images present),
+#      proving stem drawings and explanation drawings are never conflated.
+#   5. §6A-6 (NEW) defines the renderer execution contract: renderers are
+#      declared per-exam in section_rules CATEGORY C, executed by the session at
+#      solve time, and every artefact ships with its validation record. No new
+#      engine file, no routes.json change: rendering is session-executed spec
+#      work (the Step-7 figural precedent), and t3_mathcomp.py stays untouched.
+# v1.27.0 — 2026-08-19 — GAP-2026-08-19-EXPLAIN-MATH-NOTATION + REPRESENTATION ROUTER.
+#   MINOR bump: §11 grammar is DOCUMENTED and §9 gains scientific error types; no
+#   existing artefact shape changes. TWO defects, one root cause.
+#   D1 — §11 BANNED THE SYNTAX ITS OWN COMPILER REQUIRES. S11-1 listed "\\frac",
+#   "\\sqrt" and "$…$" as banned LaTeX while t3_compile handles \\frac{}{},
+#   \\sqrt{}, K_{sp}, E_{cell}^{0} and \\Delta_{o} CORRECTLY, and S18 recorded the
+#   consequence in its own words: "bans LaTeX in prose (§11), so ⟦MATH:⟧ regions
+#   are rare here". An executing session therefore read §11, concluded that math
+#   notation was forbidden, and VERBALISED arithmetic instead — measured on a
+#   60-question chemistry paper: 105 verbalised phrases ("divided by" x18,
+#   "square root of" x9, "raised to the power" x3) against 6 OMML nodes in the
+#   whole document, every one of them in the two pure-mathematics questions and
+#   NONE in any science question. The prose-only texture was the spec working as
+#   written, not a generation failure. S11-1 now documents the grammar that
+#   actually compiles and confines the LaTeX ban to PROSE, where it belongs.
+#   D2 — THE COMPILER VALIDATES GRAMMAR, NEVER NOTATION. guard_sentence exempts
+#   ⟦MATH:⟧ bodies from every prose guard on the stated grounds that the compiler
+#   checks them. It does not: a bare _ / ^ binds exactly ONE preceding character
+#   and unknown words pass through as literal text, so Delta_o rendered "Delt aₒ",
+#   K_sp rendered "Kₛp" and sqrt(x) rendered as flat text — SILENTLY, with every
+#   gate green. explain_engine v2.2 adds t3_notation_guard (authoring-time, fail-
+#   at-construction, remedy named in the message) and the self-test locks it in
+#   BOTH directions. t3_mathcomp.py is deliberately NOT touched — it is byte-
+#   locked to Framework_PYQPrepare §S3-5b by the self-test drift lock.
+#   D3 — REPRESENTATION SELECTION WAS NOT A PIPELINE STAGE. §6 classed questions
+#   by exam-shape (vocab/grammar/formal-logic) with no class for structural or
+#   derivational reasoning, and ExplanationBlock has no field able to carry a
+#   figure, so a structural explanation could only DESCRIBE what a scheme would
+#   show. New §6A REPRESENTATION ROUTER makes the choice explicit and — critically
+#   — makes PROSE the default that visuals must EARN, on the proven §14 SPEED HACK
+#   "omit, never fake" pattern. Emission is staged for the engine work; the router
+#   verdict is recorded and reported from this version.
+# v1.26.0 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
+#   MINOR bump: a name is added to this file's executable surface. NO ARTEFACT CHANGES.
+#   This spec CALLED present_files() from compiling python while DEFINING it nowhere —
+#   a guaranteed NameError the moment that path executes as python. Five such call
+#   sites stood across four specs; spec_name_audit_baseline.json had accepted
+#   `present_files` as a known-unbound name in all four, which is why the ratchet
+#   reported OK for weeks. SAME SHAPE as D2 of
+#   GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, which fixed the instance and left the
+#   class standing. FIX: a CLASS: T stub is declared in this file, matching the
+#   corpus's per-file house pattern for CLASS T markers.
+# v1.25.0 — 2026-08-13 — SYNC AUDIT ROUND 2 (fresh-lens re-audit of Steps 5→11)
+#   1. GAP-2026-08-13-STALE-SELFTEST-PIN (HALT-class). P1 pinned the engine gate at the
+#      literal "SELF-TEST: 62/62 PASS" (3 sites; + "10/10" for --self-test-audit, 2 sites)
+#      while explain_engine.py actually prints 64/64 (26/26 audit) — so EVERY Explain
+#      session following P1 literally HALTed on a healthy engine. All 5 sites converted to
+#      the FLOOR form ("N/N PASS with N >= 62 / >= 10"), the same AUTH_GATE_FLOOR pattern
+#      Steps 6/7 already use — integrity is bootstrap.py's sha256 job, not a count pin's.
+#   2. GAP-2026-08-13-P10-SCOPED-BLUEPRINT (behavioral). P10 loaded the hardcoded
+#      f'{EXAM}_blueprint.json' (the MOCK blueprint) though P1 selects among ALL
+#      {EXAM}*_blueprint.json by the uploaded docx's slug — so for a SCOPED paper the
+#      v1.24 P10/0 gate compared the scoped docx against the mock blueprint (unconditional
+#      false HARD STOP), or crashed if no mock blueprint existed: the gate could never
+#      pass for the resumed-scoped papers it was written about. P10 now selects the
+#      blueprint containing the paper whose slug matches PAPER_SLUG (P1's own semantics,
+#      restated self-contained), and every downstream P10 check (FK, count, difficulty)
+#      now validates against the CORRECT blueprint for scoped papers too.
 # v1.24.0 — 2026-08-13 — CROSS-STEP SYNC AUDIT FIXES (Steps 5→11 handshake audit)
 #   Two desyncs found by a dedicated 3-pass producer↔consumer audit of the whole
 #   Step 5 → TestDeliver chain, both fixed in this file:

@@ -177,6 +177,22 @@ _META_RE = re.compile(
     r'\bon reflection\b',
     re.I)
 
+# v2.6 (GAP-2026-08-19-EXPLANATION-EXECUTION-INTEGRITY, D1) — INTERNAL ERROR-
+# TAXONOMY TOKENS ARE METADATA, NEVER STUDENT TEXT. The §9 error type exists so a
+# WHY WRONG line is a real diagnosis; it was never meant to be RENDERED. In the
+# reference incident a delivered 60-question paper opened every WHY WRONG entry
+# with the raw snake_case token ('regiochemistry_error: the para phenol ...'),
+# because the spec asked the first line to "name" the type and nothing separated
+# the internal name from the visible sentence. The diagnosis is recorded in
+# progress state; the visible line states the same content in natural language.
+# Any taxonomy token in a student-facing sentence now raises at write time.
+_INTERNAL_TAG_RE = re.compile(
+    r'\b(?:value_swap|sign_error|unit_error|off_by_one|partial_truth|'
+    r'process_confusion|reversed_relationship|name_swap|formula_error|'
+    r'rounding_trap|polarity_flip|wrong_condition|regiochemistry_error|'
+    r'stereochemistry_error|mechanism_confusion|electron_count_error|'
+    r'symmetry_error|overgeneralised_rule|concept_reversal)\b')
+
 # digit/digit fraction with a negative lookahead so a trailing '.' (decimal) does
 # NOT match — that leftover then trips has_inline_fraction (EX13, intentional).
 _SIMPLE_FRAC = re.compile(r'(?<![\w/.])(\d+)\s*/\s*(\d+)(?![\d.\w/])')
@@ -417,6 +433,15 @@ def guard_sentence(text, cfg=None):
     m_meta = meta_re.search(s)
     if m_meta:
         raise ValueError(f'metacommentary {m_meta.group(0)!r} in: {s[:60]!r}')
+    # v2.6 D1 — the §9 diagnosis is INTERNAL metadata: record the token in
+    # progress state; write the visible line in natural language (§9/§15).
+    m_tag = _INTERNAL_TAG_RE.search(s)
+    if m_tag:
+        raise ValueError(
+            f'internal error-taxonomy token {m_tag.group(0)!r} in student-facing '
+            f'text — the diagnosis is metadata, never rendered; state the error '
+            f'in natural language and record the token internally (§9/§15): '
+            f'{s[:60]!r}')
     for tp in banned_templates:
         if tp in low:
             raise ValueError(f'template sentence {tp!r} in: {s[:60]!r}')
@@ -603,6 +628,14 @@ def _emit_plain(paragraph, text, bold=False, color=None, preserve=False):
 # round-trip needs no changes. There is deliberately NO caption paragraph: the
 # surrounding DEDUCTION prose describes the figure (it must — §6A-1 requires the
 # figure to be non-redundant WITH that prose, and prose readable without it).
+# v2.6 D3 — the §6A router's requirement vocabulary. A block may carry its
+# routed verdict; a VISUAL verdict with no figure raises (routing without
+# emission is the defect §6A exists to remove — a §6A-4 degrade must record
+# the DEGRADED requirement, never the original).
+REPRESENTATION_VERDICTS = ('PROSE', 'EQUATION', 'TABLE',
+                           'STRUCTURE_GRAPH', 'LEVEL_DIAGRAM', 'DATA_PLOT')
+_VISUAL_VERDICTS = ('STRUCTURE_GRAPH', 'LEVEL_DIAGRAM', 'DATA_PLOT')
+
 class RepresentationFigure:
     def __init__(self, path, width_in=6.0, validation=None, after_step=1):
         self.path = str(path)
@@ -651,7 +684,8 @@ class ExplanationBlock:
                 replaces why_wrong (there are no options to reject)."""
     def __init__(self, q, ca=None, axiom=None, deduction=None, speed_hack=None,
                  why_wrong=None, anomaly=None, cfg=None,
-                 qtype=None, ca_range=None, common_pitfalls=None, figures=None):
+                 qtype=None, ca_range=None, common_pitfalls=None, figures=None,
+                 representation_verdict=None):
         self.q = int(q)
         self.cfg = cfg or EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
         self.ca = ca
@@ -663,6 +697,10 @@ class ExplanationBlock:
         self.common_pitfalls = dict(common_pitfalls or {})
         # v2.3 — explanation-side figures (list[RepresentationFigure], may be []).
         self.figures = list(figures or [])
+        # v2.6 D3 — the §6A router verdict for this question (optional; None for
+        # a legacy caller). When set, validate() enforces verdict↔emission
+        # coherence: a visual verdict requires >=1 figure on this block.
+        self.representation_verdict = representation_verdict
         self.anomaly = anomaly
         # infer question type if not given
         if qtype is None:
@@ -714,10 +752,27 @@ class ExplanationBlock:
                         f'at render.')
         if self.anomaly is not None:
             # anomaly is an INTERNAL escalation signal in Step 9 (never published).
+            # v2.6: figures are student content too — an anomaly block carries none.
             if any([self.axiom, self.deduction, self.why_wrong,
-                    self.speed_hack, self.common_pitfalls]):
+                    self.speed_hack, self.common_pitfalls, self.figures]):
                 raise ValueError(f'Q{self.q}: anomaly block must carry no student content')
             return True
+        # v2.6 D3 — ROUTER↔EMISSION COHERENCE (§6A-3/§6A-4). The reference
+        # incident: a structure-heavy paper carried 46 stem images and only 2
+        # explanation figures — the router classified, the renderer shipped
+        # prose. A recorded VISUAL verdict now requires the figure it promised;
+        # a degrade records the degraded requirement instead.
+        if self.representation_verdict is not None:
+            _rv = str(self.representation_verdict)
+            if _rv not in REPRESENTATION_VERDICTS:
+                raise ValueError(f'Q{self.q}: representation_verdict {_rv!r} not '
+                                 f'in {REPRESENTATION_VERDICTS}')
+            if _rv in _VISUAL_VERDICTS and not self.figures:
+                raise ValueError(
+                    f'Q{self.q}: representation_verdict {_rv} declared but the '
+                    f'block carries no figure — emit the routed visual or record '
+                    f'the DEGRADED requirement as the verdict (§6A-3/§6A-4); '
+                    f'routing without emission is the defect this gate removes')
         # AXIOM + DEDUCTION are common to all three types.
         if len(self.axiom) < 1:
             raise ValueError(f'Q{self.q}: AXIOM empty')
@@ -732,6 +787,16 @@ class ExplanationBlock:
                 raise ValueError(f'Q{self.q}: SPEED HACK present but empty')
             for s in self.speed_hack:
                 g(s)
+        # v2.6 D4 — figures are validated for EVERY question type. Since v2.3
+        # this loop sat AFTER the NAT branch's return, so the "every question
+        # type" its comment promised excluded NAT: a NAT block's figures were
+        # never validated at construction. Moved above the type split.
+        for i, fg in enumerate(self.figures):
+            if not isinstance(fg, RepresentationFigure):
+                raise ValueError(f'Q{self.q}: figures[{i}] is not a '
+                                 f'RepresentationFigure')
+            fg.validate(ctx=f'Q{self.q} figures[{i}]')
+
         last = self.deduction[-1]
         opt_label = cfg.labels["option"]
 
@@ -789,16 +854,6 @@ class ExplanationBlock:
                     raise ValueError(f'Q{self.q}: ca_range {self.ca_range} not lo<=hi')
             return True
 
-        # v2.3 — figures are validated for EVERY question type, before the
-        # type-specific machinery: each must be a RepresentationFigure whose
-        # §6A-5 record proves it (file exists, identifiers canonical and equal,
-        # match True). Raises at construction — a bad figure never renders.
-        for i, fg in enumerate(self.figures):
-            if not isinstance(fg, RepresentationFigure):
-                raise ValueError(f'Q{self.q}: figures[{i}] is not a '
-                                 f'RepresentationFigure')
-            fg.validate(ctx=f'Q{self.q} figures[{i}]')
-
         # MCQ / MSQ share the option machinery.
         n = cfg.expected_options(self.q)
         if not n or n < 1:
@@ -831,6 +886,18 @@ class ExplanationBlock:
             if not re.search(rf'\b{re.escape(opt_label)}\s+{re.escape(lab)}(?!\w)', last, re.I):
                 raise ValueError(f'Q{self.q}: DEDUCTION last step must bind '
                                  f'{opt_label!r} {lab} (word-bounded)')
+        # v2.6 D2 — the AXIOM states the transferable principle; the answer
+        # binding belongs to the DEDUCTION's last step (§8-2). An AXIOM that
+        # names an option has leaked the conclusion into the principle.
+        for _s_ax in self.axiom:
+            for _i in range(1, n + 1):
+                _lab = cfg.option_label(_i)
+                if re.search(rf'\b{re.escape(opt_label)}\s+{re.escape(_lab)}(?!\w)',
+                             _s_ax, re.I):
+                    raise ValueError(
+                        f'Q{self.q}: AXIOM names {opt_label!r} {_lab} — the '
+                        f'AXIOM states the transferable principle; answer '
+                        f'binding belongs to the DEDUCTION last step (§8-2)')
         # WHY WRONG: keys == exactly the NON-selected options.
         expected = set(range(1, n + 1)) - sel
         if set(self.why_wrong.keys()) != expected:
@@ -1423,6 +1490,12 @@ def verify_explanations(out_path, blocks, cfg, expected_qs=None):
             if meta_re.search(t) or any(x in lw for x in b_templates) \
                or any(x in lw for x in b_fakecites):
                 problems.append(f'Q{q}: rendered banned phrase in {t[:40]!r}')
+            # v2.6 D1 read-back — the write-time guard is the primary gate; this
+            # re-scan of the RENDERED bytes is the belt to that braces.
+            _mtag = _INTERNAL_TAG_RE.search(t)
+            if _mtag:
+                problems.append(f'Q{q}: rendered internal error-taxonomy token '
+                                f'{_mtag.group(0)!r} in {t[:40]!r}')
             if has_inline_fraction(_mp):
                 problems.append(f'Q{q}: rendered inline fraction in {t[:40]!r}')
             if sentence_count(_mp, cfg.sentence_terminators) != 1:
@@ -1691,9 +1764,9 @@ def self_test():
         axiom=['The sum of a group equals its average times its count.'],
         deduction=['Total is 9 times 43 = 387.',
                    'Remaining average is 235 over 5 = 47, which is Option 1.'],
-        why_wrong={2: ['Option 2 uses 12 not 13 (off_by_one).'],
-                   3: ['Option 3 shifts by four not three (off_by_one).'],
-                   4: ['Option 4 drops the letter rule (partial_truth).']},
+        why_wrong={2: ['Option 2 uses 12 not 13, one count short.'],
+                   3: ['Option 3 shifts by four not three places.'],
+                   4: ['Option 4 drops the letter rule midway.']},
         cfg=cfg)
     check('B-VALID', good.validate())
     # 14 DEDUCTION must bind Option N
@@ -1803,9 +1876,9 @@ def self_test():
             deduction=['First derived step gives a value.',
                        f'Final value maps to Option 1 for question {q}.'],
             speed_hack=['A genuinely shorter elimination route here.'],
-            why_wrong={2:['Option 2 swaps a value (value_swap).'],
-                       3:['Option 3 mis-signs a term (sign_error).'],
-                       4:['Option 4 covers only part (partial_truth).']},
+            why_wrong={2:['Option 2 uses the right value for the wrong quantity.'],
+                       3:['Option 3 subtracts the term that must be added.'],
+                       4:['Option 4 satisfies one condition and misses the other.']},
             cfg=cfg))
     n = build_interleaved_docx(src, blocks, out, cfg)
     check('BUILD-N', n == 4)
@@ -1842,7 +1915,7 @@ def self_test():
         axiom=['A principle stated as a truth here.'],
         deduction=['Eliminating Option 10 and Option 11 narrows the field.',
                    'Only the first choice survives, which is Option 1.'],
-        why_wrong={k: [f'Option {k} fails one condition (partial_truth).']
+        why_wrong={k: [f'Option {k} fails one stated condition here.']
                    for k in range(2, 13)}).validate()
     check('B-BIND-WB-OK', okbind)
     def _bind_bad():
@@ -1851,7 +1924,7 @@ def self_test():
                 axiom=['A principle stated as a truth here.'],
                 deduction=['A first step yields a value.',
                            'The survivor is Option 10 only here.'],   # ca=1 but binds Option 10
-                why_wrong={k: [f'Option {k} fails one condition (partial_truth).']
+                why_wrong={k: [f'Option {k} fails one stated condition here.']
                            for k in range(2, 13)}).validate()
             return False
         except ValueError:
@@ -1864,10 +1937,10 @@ def self_test():
     b5 = [ExplanationBlock(q=q, ca=2, cfg=cfg5,
         axiom=['A principle stated as a truth here.'],
         deduction=['A first step yields a value.', f'The value maps to Option 2 for item {q}.'],
-        why_wrong={1:['Option 1 swaps a value (value_swap).'],
-                   3:['Option 3 mis-signs a term (sign_error).'],
-                   4:['Option 4 covers only part (partial_truth).'],
-                   5:['Option 5 rounds wrongly (rounding_trap).']}) for q in [1, 2]]
+        why_wrong={1:['Option 1 uses the right value for the wrong quantity.'],
+                   3:['Option 3 subtracts the term that must be added.'],
+                   4:['Option 4 satisfies one condition and misses the other.'],
+                   5:['Option 5 rounds at an intermediate step.']}) for q in [1, 2]]
     n5 = build_interleaved_docx(s5, b5, o5, cfg5)
     okf5, _ = verify_fidelity(o5, s5, cfg5)
     oks5, _ = verify_structure(o5, b5, cfg5, expected_qs=[1, 2])
@@ -1882,9 +1955,9 @@ def self_test():
     bL = [ExplanationBlock(q=1, ca=1, cfg=cfgL,
         axiom=['A principle stated as a truth here.'],
         deduction=['A first step yields a value.', 'The value maps to Option 1 here.'],
-        why_wrong={2:['Option 2 swaps a value (value_swap).'],
-                   3:['Option 3 mis-signs a term (sign_error).'],
-                   4:['Option 4 covers only part (partial_truth).']})]
+        why_wrong={2:['Option 2 uses the right value for the wrong quantity.'],
+                   3:['Option 3 subtracts the term that must be added.'],
+                   4:['Option 4 satisfies one condition and misses the other.']})]
     build_interleaved_docx(sL, bL, oL, cfgL)
     oksL, _ = verify_structure(oL, bL, cfgL, expected_qs=[1])
     okfL, _ = verify_fidelity(oL, sL, cfgL)
@@ -1928,8 +2001,8 @@ def self_test():
         axiom=['The mean equals the total over the count here.'],
         deduction=['The total is 235 over a count of five.',
                    'Dividing gives the value 47 as the answer.'],
-        common_pitfalls={'235': ['Forgetting to divide leaves 235 (process_confusion).'],
-                         '9.4': ['Dividing by the wrong count gives 9.4 (value_swap).']})
+        common_pitfalls={'235': ['Forgetting to divide leaves 235 unchanged.'],
+                         '9.4': ['Dividing by the wrong count gives 9.4 instead.']})
     nat_ok = natblk.validate()
     nN = build_interleaved_docx(sN, [natblk], oN, cfgN)
     okfN, _ = verify_fidelity(oN, sN, cfgN)
@@ -1976,8 +2049,8 @@ def self_test():
         axiom=['Each statement is judged independently here.'],
         deduction=['Statement one holds and statement three holds.',
                    'The correct set is Option 1 and Option 3 here.'],
-        why_wrong={2: ['Option 2 fails one condition (partial_truth).'],
-                   4: ['Option 4 inverts the relation (reversed_relationship).']})
+        why_wrong={2: ['Option 2 fails one stated condition here.'],
+                   4: ['Option 4 inverts the relation being tested.']})
     msq_ok = msq.validate()
     nM = build_interleaved_docx(sM, [msq], oM, cfgM)
     okfM, _ = verify_fidelity(oM, sM, cfgM)
@@ -2034,9 +2107,9 @@ def self_test():
     albl = ExplanationBlock(q=1, ca=1, cfg=cfgAl,
         axiom=['A principle stated as a truth here.'],
         deduction=['A first step yields a value.', 'The value maps to Option A here.'],
-        why_wrong={2: ['Option B swaps a value (value_swap).'],
-                   3: ['Option C mis-signs a term (sign_error).'],
-                   4: ['Option D covers only part (partial_truth).']})
+        why_wrong={2: ['Option B uses the right value for the wrong quantity.'],
+                   3: ['Option C subtracts the term that must be added.'],
+                   4: ['Option D satisfies one condition and misses the other.']})
     al_ok = albl.validate()
     build_interleaved_docx(sAl, [albl], oAl, cfgAl)
     docAlo = Document(oAl)
@@ -2079,9 +2152,9 @@ def self_test():
         axiom=['A figural series applies one fixed transformation at every step.'],
         deduction=['Tracing the rotation forward predicts the next figure.',
                    'That predicted figure matches Option 1 here.'],
-        why_wrong={2:['Option 2 rotates the wrong way (reversed_relationship).'],
-                   3:['Option 3 over-rotates by one step (off_by_one).'],
-                   4:['Option 4 changes the wrong element (process_confusion).']})
+        why_wrong={2:['Option 2 rotates the opposite way.'],
+                   3:['Option 3 over-rotates by one full step.'],
+                   4:['Option 4 changes the wrong element of the pair.']})
     figblk.validate()
     build_interleaved_docx(sF, [figblk], oF, cfgF)
     okfF, _ = verify_fidelity(oF, sF, cfgF)                 # question-region image preserved
@@ -2121,9 +2194,9 @@ def self_test():
     pblk = ExplanationBlock(q=1, ca=1, cfg=cfgP,
         axiom=['A truth with its reason stated here.'],
         deduction=['A first step yields a value here.', 'That value is Option 1 here.'],
-        why_wrong={2: ['Option 2 swaps a value (value_swap).'],
-                   3: ['Option 3 mis-signs a term (sign_error).'],
-                   4: ['Option 4 covers only part (partial_truth).']})
+        why_wrong={2: ['Option 2 uses the right value for the wrong quantity.'],
+                   3: ['Option 3 subtracts the term that must be added.'],
+                   4: ['Option 4 satisfies one condition and misses the other.']})
     build_interleaved_docx(sP, [pblk], oP, cfgP)
     clean_ok, _ = verify_explanations(oP, [pblk], cfgP)
     # tamper: inject a banned glyph into a rendered explanation paragraph
@@ -2176,8 +2249,8 @@ def self_test():
         return ExplanationBlock(q=1, ca=4, cfg=_cfgL,
             axiom=['A governing principle.'],
             deduction=['A first step.', last],
-            why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'],
-                       3: ['unit_error - c.']})
+            why_wrong={1: ['A value swapped - a.'], 2: ['A sign flipped - b.'],
+                       3: ['A unit slipped - c.']})
     check('LABEL-PAREN-BINDS', _lblblk('The answer is Option (D).').validate() is True)
     check('LABEL-PAREN-MIDSENTENCE',
           _lblblk('That makes Option (D) the answer.').validate() is True)
@@ -2190,7 +2263,7 @@ def self_test():
         return ExplanationBlock(q=1, ca=1, cfg=_cfg10,
             axiom=['A governing principle.'],
             deduction=['A first step.', last],
-            why_wrong={k: [f'value_swap - {k}.'] for k in range(2, 13)})
+            why_wrong={k: [f'A value swapped - {k}.'] for k in range(2, 13)})
     check('LABEL-NUMERIC-PREFIX-LOCK-HELD',
           _blk10('The answer is Option 1.').validate() is True
           and _raises(lambda: _blk10('The answer is Option 10.').validate()))
@@ -2200,8 +2273,8 @@ def self_test():
         _c = EngineConfig(r'^Q\.?\s*(\d+)', r'^(.)', 4, label_scheme=_sch)
         ExplanationBlock(q=1, ca=4, cfg=_c, axiom=['A principle.'],
             deduction=['A step.', f'The answer is Option {_lab}.'],
-            why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'],
-                       3: ['unit_error - c.']}).validate()
+            why_wrong={1: ['A value swapped - a.'], 2: ['A sign flipped - b.'],
+                       3: ['A unit slipped - c.']}).validate()
     check('LABEL-BRACKET-AND-TRAILING-PAREN', True)
     # END-TO-END: a paren-scheme paper must survive BUILD + all three verifiers.
     # The construction fix alone was not enough — verify_explanations carried its own
@@ -2230,7 +2303,7 @@ def self_test():
     _bb = ExplanationBlock(q=1, ca=4, cfg=_cfgB,
         axiom=['A governing principle stated once.'],
         deduction=['The first step.', 'The second step gives Option 4.'],
-        why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'], 3: ['unit_error - c.']})
+        why_wrong={1: ['A value swapped - a.'], 2: ['A sign flipped - b.'], 3: ['A unit slipped - c.']})
     build_interleaved_docx(_bsrc, [_bb], _bout, _cfgB)
     set_coverage_banner(_bout, _cfgB, 'Batch 1 of 6 - Q1..Q1 explained of 6. NOT FINAL.')
     _btxt = [p.text for p in Document(_bout).paragraphs]
@@ -2270,8 +2343,8 @@ def self_test():
             axiom=['A governing principle stated once.'],
             deduction=['The first step names what the figure shows.',
                        'The second step completes it, giving Option 4.'],
-            why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'],
-                       3: ['unit_error - c.']},
+            why_wrong={1: ['A value swapped - a.'], 2: ['A sign flipped - b.'],
+                       3: ['A unit slipped - c.']},
             figures=figs)
     # FIG-VALIDATE-GOOD: a proved figure constructs and validates.
     _fg = RepresentationFigure(_figpng, 4.0, dict(_VREC))
@@ -2353,9 +2426,105 @@ def self_test():
             q=1, ca=1, cfg=cfg,
             axiom=['The splitting is \u27e6MATH:Delta_o\u27e7 for this ion.'],
             deduction=['First step here.', 'The answer is Option A.'],
-            why_wrong={2: ['value_swap - wrong.'], 3: ['sign_error - wrong.'],
-                       4: ['unit_error - wrong.']}).validate()
+            why_wrong={2: ['A value swapped - wrong.'], 3: ['A sign flipped - wrong.'],
+                       4: ['A unit slipped - wrong.']}).validate()
     check('T3-NOTATION-FAILS-AT-CONSTRUCTION', _raises(_notation_block))
+
+    # ══ v2.6 EXECUTION-INTEGRITY GUARDS (GAP-2026-08-19-EXPLANATION-EXECUTION-
+    #    INTEGRITY) — each guard locked in BOTH directions. ════════════════════
+    # D1 — an internal error-taxonomy token in student text RAISES ...
+    check('TAG-LEAK-RAISES', _raises(
+        lambda: guard_sentence('regiochemistry_error: the para product forms here.')))
+    check('TAG-LEAK-RAISES-PARENTHETICAL', _raises(
+        lambda: guard_sentence('Option 2 swaps a value (value_swap) here.')))
+    # ... while natural-language diagnosis PASSES (no token, same content).
+    check('TAG-FREE-PASSES', bool(
+        guard_sentence('Option 2 uses the right value for the wrong quantity.')))
+    # ... and the block-level chokepoint fires too (validate(), not just the
+    # bare guard) — the path every real explanation takes.
+    check('TAG-LEAK-FAILS-AT-CONSTRUCTION', _raises(
+        lambda: ExplanationBlock(q=1, ca=1, cfg=cfg,
+            axiom=['The rule under test is stated here.'],
+            deduction=['A first step yields a value.',
+                       'The value maps to Option 1 here.'],
+            why_wrong={2: ['partial_truth: this misses one condition.'],
+                       3: ['Option 3 subtracts the term that must be added.'],
+                       4: ['Option 4 satisfies one condition and misses the other.']}
+            ).validate()))
+    # D1 read-back — a token in the RENDERED bytes is caught by
+    # verify_explanations even if the writer path were bypassed.
+    _tagdir = tempfile.mkdtemp()
+    _tagsrc = os.path.join(_tagdir, 's.docx'); _tagout = os.path.join(_tagdir, 'o.docx')
+    _make_sample_paper(_tagsrc, cfg, nq=1)
+    _tagblk = ExplanationBlock(q=1, ca=1, cfg=cfg,
+        axiom=['The rule under test is stated here.'],
+        deduction=['A first step yields a value.', 'The value maps to Option 1 here.'],
+        why_wrong={2: ['Option 2 uses the right value for the wrong quantity.'],
+                   3: ['Option 3 subtracts the term that must be added.'],
+                   4: ['Option 4 satisfies one condition and misses the other.']})
+    build_interleaved_docx(_tagsrc, [_tagblk], _tagout, cfg)
+    _tagdoc = Document(_tagout)
+    for _tp in _tagdoc.paragraphs:
+        if _tp.text.startswith('Option 2 uses the right value'):
+            _tp.runs[0].text = 'sign_error: ' + _tp.runs[0].text
+            break
+    _tagdoc.save(_tagout)
+    _tok, _tpr = verify_explanations(_tagout, [_tagblk], cfg, expected_qs=[1])
+    check('TAG-READBACK-CAUGHT',
+          not _tok and any('error-taxonomy token' in p for p in _tpr))
+    # D2 — an AXIOM naming an option RAISES; the same AXIOM without it passes
+    # (the clean shape is every other fixture in this file).
+    check('AXIOM-OPTION-LEAK-RAISES', _raises(
+        lambda: ExplanationBlock(q=1, ca=1, cfg=cfg,
+            axiom=['The rule always selects Option 1 in such cases.'],
+            deduction=['A first step yields a value.',
+                       'The value maps to Option 1 here.'],
+            why_wrong={2: ['Option 2 uses the right value for the wrong quantity.'],
+                       3: ['Option 3 subtracts the term that must be added.'],
+                       4: ['Option 4 satisfies one condition and misses the other.']}
+            ).validate()))
+    # D3 — a VISUAL verdict with no figure RAISES; the same verdict with its
+    # figure passes; PROSE with no figure passes; an unknown verdict RAISES.
+    def _vblk(verdict, figs):
+        return ExplanationBlock(q=1, ca=4, cfg=cfg,
+            axiom=['A governing principle stated once.'],
+            deduction=['The first step names what the figure shows.',
+                       'The second step completes it, giving Option 4.'],
+            why_wrong={1: ['A value swapped - a.'], 2: ['A sign flipped - b.'],
+                       3: ['A unit slipped - c.']},
+            figures=figs, representation_verdict=verdict)
+    check('VERDICT-VISUAL-NO-FIG-RAISES',
+          _raises(lambda: _vblk('STRUCTURE_GRAPH', []).validate()))
+    check('VERDICT-VISUAL-WITH-FIG-PASSES',
+          _vblk('STRUCTURE_GRAPH',
+                [RepresentationFigure(_figpng, 4.0, dict(_VREC))]).validate() is True)
+    check('VERDICT-PROSE-NO-FIG-PASSES', _vblk('PROSE', []).validate() is True)
+    check('VERDICT-UNKNOWN-RAISES',
+          _raises(lambda: _vblk('DIAGRAM', []).validate()))
+    # D4 — a NAT block's bad figure now fails at construction (before v2.6 the
+    # figure loop sat after NAT's return and never ran for NAT).
+    _cfgNF = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4,
+                          options_by_q={1: 0})
+    check('NAT-FIG-VALIDATED', _raises(
+        lambda: ExplanationBlock(q=1, ca='47', cfg=_cfgNF, qtype='nat',
+            axiom=['The mean equals the sum over the count here.'],
+            deduction=['Divide the total by the count here.',
+                       'The value is 47 here.'],
+            common_pitfalls={'235': ['Forgetting to divide leaves 235 unchanged.']},
+            figures=[RepresentationFigure(_figpng, 4.0, {})]).validate()))
+    # ... and a NAT block with a PROVED figure validates (the positive lock).
+    check('NAT-FIG-GOOD-PASSES',
+          ExplanationBlock(q=1, ca='47', cfg=_cfgNF, qtype='nat',
+            axiom=['The mean equals the sum over the count here.'],
+            deduction=['Divide the total by the count here.',
+                       'The value is 47 here.'],
+            common_pitfalls={'235': ['Forgetting to divide leaves 235 unchanged.']},
+            figures=[RepresentationFigure(_figpng, 4.0, dict(_VREC))]
+            ).validate() is True)
+    # ... and an anomaly block carrying a figure RAISES (figures are content).
+    check('ANOMALY-FIG-RAISES', _raises(
+        lambda: ExplanationBlock(q=1, anomaly='no defensible answer', cfg=cfg,
+            figures=[RepresentationFigure(_figpng, 4.0, dict(_VREC))]).validate()))
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)
@@ -2676,37 +2845,37 @@ def self_test_audit():
     roundtrip(cfg4, [ExplanationBlock(q=1, ca=3, cfg=cfg4,
         axiom=['The mean equals the sum over the count here.'],
         deduction=['Divide 235/5 to get the value here.', 'The result is Option 3 here.'],
-        why_wrong={1: ['Option 1 swaps a value (value_swap).'],
-                   2: ['Option 2 mis-signs the term (sign_error).'],
-                   4: ['Option 4 covers only part (partial_truth).']})], 1, 'RT-MCQ-FRAC')
+        why_wrong={1: ['Option 1 uses the right value for the wrong quantity.'],
+                   2: ['Option 2 subtracts the term that must be added.'],
+                   4: ['Option 4 satisfies one condition and misses the other.']})], 1, 'RT-MCQ-FRAC')
     cfgA = EngineConfig(r'^Q\.?\s*(\d+)', r'^([A-D])[.\)]', 4, label_scheme='alpha_upper')
     roundtrip(cfgA, [ExplanationBlock(q=1, ca={1, 3}, cfg=cfgA,
         axiom=['A statement is valid when both halves hold here.'],
         deduction=['Statement one holds and three holds here.', 'So Option A and Option C are correct here.'],
-        why_wrong={2: ['Option B passes one test but fails another (partial_truth).'],
-                   4: ['Option D fails the parity test (process_confusion).']})], 1, 'RT-MSQ-ALPHA')
+        why_wrong={2: ['Option B passes one test but fails another test.'],
+                   4: ['Option D fails the parity test outright.']})], 1, 'RT-MSQ-ALPHA')
     cfgN = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', None, options_by_q={1: 0})
     roundtrip(cfgN, [ExplanationBlock(q=1, ca='47', cfg=cfgN, ca_range=(46.5, 47.5),
         axiom=['The rate equals distance over time here.'],
         deduction=['Compute the quotient step here.', 'The value is 47 here.'],
-        common_pitfalls={'235': ['Forgetting to divide leaves 235 (process_confusion).'],
-                         '9': ['Dividing by the wrong count gives 9 (value_swap).']})], 1, 'RT-NAT-RANGE-PITFALL')
+        common_pitfalls={'235': ['Forgetting to divide leaves 235 unchanged.'],
+                         '9': ['Dividing by the wrong count gives 9 instead.']})], 1, 'RT-NAT-RANGE-PITFALL')
     cfgR = EngineConfig(r'^Q\.?\s*(\d+)', r'^(i{1,3}|iv)[.\)]', 4, label_scheme='roman_lower')
     roundtrip(cfgR, [ExplanationBlock(q=1, ca=2, cfg=cfgR,
         axiom=['A tangent meets the radius at a right angle here.'],
         deduction=['Apply the perpendicular property here.', 'This gives Option ii here.'],
-        why_wrong={1: ['Option i confuses radius with diameter (value_swap).'],
-                   3: ['Option iii mis-reads the chord (process_confusion).'],
-                   4: ['Option iv drops a factor of two (off_by_one).']})], 1, 'RT-MCQ-ROMAN')
+        why_wrong={1: ['Option i confuses radius with diameter outright.'],
+                   3: ['Option iii mis-reads the chord length.'],
+                   4: ['Option iv drops a factor of two entirely.']})], 1, 'RT-MCQ-ROMAN')
     # regression lock for the m:num/m:den itertext fix: a REAL fraction must pass
     import tempfile as _t, os as _o
     _c = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
     _b = ExplanationBlock(q=1, ca=1, cfg=_c,
         axiom=['The mean equals the sum over the count here.'],
         deduction=['Divide 235/5 to reach the value here.', 'The result is Option 1 here.'],
-        why_wrong={2: ['Option 2 swaps a value (value_swap).'],
-                   3: ['Option 3 mis-signs a term (sign_error).'],
-                   4: ['Option 4 covers only part (partial_truth).']})
+        why_wrong={2: ['Option 2 uses the right value for the wrong quantity.'],
+                   3: ['Option 3 subtracts the term that must be added.'],
+                   4: ['Option 4 satisfies one condition and misses the other.']})
     _d = _t.mkdtemp(); _s = _o.path.join(_d, 's.docx'); _oo = _o.path.join(_d, 'o.docx')
     _dd = Document(); _dd.add_paragraph('Q.1 stem')
     for _x in range(1, 5): _dd.add_paragraph(f'{_x}. opt')
@@ -2819,8 +2988,8 @@ def self_test_audit():
     _bn = ExplanationBlock(q=1, ca='0.75', cfg=_cn,
         axiom=['The probability equals favourable over total here.'],
         deduction=['Count 3 favourable of 4 here.', 'The value is 0.75 here.'],
-        common_pitfalls={'1/2': ['An even split gives 1/2 here (process_confusion).'],
-                         '4/3': ['Inverting gives 4/3 here (reversed_relationship).']})
+        common_pitfalls={'1/2': ['An even split gives 1/2 here instead.'],
+                         '4/3': ['Inverting gives 4/3 here by mistake.']})
     _dn = _t.mkdtemp(); _sn = _o.path.join(_dn, 's.docx'); _on = _o.path.join(_dn, 'o.docx')
     _dc = Document(); _dc.add_paragraph('Q.1 stem'); _dc.add_paragraph(''); _dc.save(_sn)
     build_interleaved_docx(_sn, [_bn], _on, _cn)

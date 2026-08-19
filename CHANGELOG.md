@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026.08.19.1 — Explanation execution integrity: gates for four defects a delivered paper proved
+
+**Framework_MockTestExplain v1.34.0 → v1.35.0 · Framework_PYQExplain v2.12 → v2.13
+(SHARED_RULES_VERSION 1.1 → 1.2) · explain_engine.py v2.5 → v2.6 (self-test 89 → 102).
+GAP-2026-08-19-EXPLANATION-EXECUTION-INTEGRITY. No artefact SHAPES change; four
+classes of defective CONTENT that previously shipped under green gates now cannot.**
+
+A delivered 60-question paper was audited end to end. Every defect traced to the same
+root: a rule that *advised* what only a gate can enforce.
+
+**D1 — internal error-taxonomy tokens rendered to students.** All 40 WHY WRONG entries
+and all 20 NAT pitfalls opened with the raw snake_case token (`regiochemistry_error:
+...`) — the spec asked the first line to "name an error type" and the §9 taxonomy is
+itself snake_case, so obeying it literally printed machine metadata into a learner
+document. The diagnosis is now INTERNAL metadata (recorded per option in progress
+state); the visible line delivers it in natural language. The engine raises at write
+time on any taxonomy token in student-facing text **and** re-scans the rendered bytes
+at verify time. All engine fixtures de-tokenised to match.
+
+**D2 — routing without emission.** 46 question-region images, TWO explanation figures,
+on a structure-heavy paper with declared renderers; structure-decisive DEDUCTIONs ended
+at "the structure drawn in Option N". New §6A-1b (structure-answer presumption: PROSE
+needs a recorded justification); the router verdict is now passed INTO the block
+(`representation_verdict`) and a visual verdict with zero figures **raises at
+construction**; a §6A-4 degrade records the DEGRADED requirement, never the original.
+
+**D3 — SPEED HACK on 56 of 60 (93%).** Per-question omit-by-default with no aggregate
+measurement. New §14-5: eligibility recorded per question, inclusion rate reported in
+§R3, and an all-hack batch re-runs the §14-1 test before §18 — a tripwire, never a
+quota.
+
+**D4 — two reasoning disciplines with no rule.** §7-6 decisive-claim consistency (a
+right answer with mutually contradictory intermediate claims is invalid; repair returns
+to §7-1, never to patched prose) and §7-0c enumeration-before-formula (inventory →
+independence → generate → de-duplicate → count; a closed-form only after the
+independence it assumes is verified). Both domain-neutral per the v1.33.0 convention.
+
+**Engine findings while writing the fixtures:** the v2.3 figure-validation loop sat
+AFTER the NAT branch's `return`, so NAT figures were **never validated** at
+construction — moved above the type split (NAT-FIG-VALIDATED); anomaly blocks now
+reject figures as student content (ANOMALY-FIG-RAISES); an AXIOM naming an option
+label raises (AXIOM-OPTION-LEAK-RAISES — binding is the DEDUCTION's job, §8-2). Also
+removed PYQExplain MANDATE A's stale "currently 64/64" aside (the §21-0 class).
+
+13 new self-tests lock every new guard in both directions.
+
 ## 2026.08.17.6 — subtopic_id stability: the ordering bug that would break every cross-step join
 
 **`analyse_engine.py` self-test 78 → 86. Mutation budget 22 → 20, RATCHETED DOWN.

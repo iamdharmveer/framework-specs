@@ -1,4 +1,34 @@
-# Framework_PYQExplain v2.12 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.13 — Universal PYQ Explanation Generator
+# v2.13 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-EXECUTION-INTEGRITY (paired with
+#   MockTestExplain v1.35.0, engine v2.6). Same four defects, same fixes, so both
+#   explanation paths hold one standard; see MockTestExplain v1.35.0 for the full
+#   incident record (a delivered 60-question paper, audited).
+#   D1 — the §9 error type becomes INTERNAL metadata: still mandatory, recorded per
+#   wrong option / pitfall in progress state, and the visible line delivers the same
+#   diagnosis in natural language — never the snake_case token. Engine v2.6 raises at
+#   write time on any taxonomy token in student-facing text and re-scans the rendered
+#   bytes at verify time.
+#   D2 — NEW §6A-1b structure-answer presumption + verdict↔emission coherence: when
+#   the verified answer IS a structure, STRUCTURE_GRAPH is presumed and PROSE needs a
+#   recorded justification; §6A-3 passes the verdict INTO the block (engine v2.6
+#   representation_verdict) and a visual verdict with zero figures raises; a §6A-4
+#   degrade records the DEGRADED requirement. PYQ-SPECIFIC: VOID_ITEM WINS — §6A-2b
+#   forbids any generated figure for a VOID_ITEM, so the presumption is void for it
+#   by construction.
+#   D3 — NEW §14-5: SPEED-HACK eligibility recorded per question, the inclusion RATE
+#   reported in §R3, and an all-hack batch re-runs the §14-1 test before §18 — a
+#   tripwire, never a quota (reference incident: a hack on 56 of 60 questions).
+#   D4 — NEW §7-0c enumeration-before-formula and §7-6 decisive-claim consistency
+#   (a right answer with contradictory reasoning is invalid; repair returns to §7-1,
+#   never to patched prose). Both domain-neutral per the v2.11 convention.
+#   RE-6d added; RE-13 restated in both files; SHARED_RULES_VERSION 1.1 → 1.2.
+#   ALSO: the stale "currently 64/64" aside in MANDATE A is removed — the §21-0
+#   class (an exact count asserted in prose is wrong from the next fixture on; the
+#   engine prints a higher count today and the gate is floor-form anyway).
+#   ENGINE FINDINGS (v2.6, from writing its fixtures): the v2.3/v2.7 figure-validation
+#   loop sat AFTER the NAT branch's return, so NAT figures were never validated at
+#   construction — moved above the type split; anomaly blocks now reject figures as
+#   student content; an AXIOM naming an option label raises (§8-2).
 # v2.12 — 2026-08-19 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT (paired with
 #   MockTestExplain v1.34.0, engine v2.5). SPEC-ONLY. P6's conflict check compared
 #   Q_TOTAL, option count, question type and opt_re-vs-label_scheme, but never compared
@@ -248,7 +278,7 @@
 #       "HARD STOP (MANDATE A): explain_engine.py not found. PYQExplain cannot
 #        build explanations without it. Upload it to the project or reload the
 #        framework, then re-run."
-#   Self-tests: `python3 explain_engine.py --self-test` → "SELF-TEST: N/N PASS", N >= 62 (v2.5 floor form; currently 64/64)
+#   Self-tests: `python3 explain_engine.py --self-test` → "SELF-TEST: N/N PASS", N >= 62 (v2.5 floor form; §21-0 — no exact count is written here)
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE B — BATCH-OR-HALT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -347,14 +377,21 @@
           checks — units, conversions/kelvin, magnitude, log base, sign, stoichiometry,
           precision — which derive-twice cannot catch because both routes can share one
           silent slip.
+  RE-6d : CLAIMS CONSISTENT; ENUMERATE BEFORE FORMULA (v2.13). Decisive
+          intermediate claims are listed and mutually consistent before writing (§7-6)
+          — a right answer with contradictory reasoning is invalid; and a counting
+          question is derived inventory-first, a closed-form only after the
+          independence it assumes is verified (§7-0c).
   RE-14b: SHORTCUTS ARE SCOPED (v2.10). Every SPEED HACK states the conditions under
           which it is safe, inside the shortcut (§14-3b). Unscopable in one clause → OMIT.
   RE-9b : SUPPORTED VALUES ONLY (v2.9). Every number traces to the stem, a syllabus
           constant, or a shown derivation (§8-0a).
   RE-9c : CALIBRATED LANGUAGE (v2.9). Absolutes only for claims absolute in the
           subject's own terms; tendencies take calibrated terms (§8-0b).
-  RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option names an error type
-          that ACTUALLY produces that option's value/content; no template, ever (§15).
+  RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option carries a §9
+          diagnosis — recorded internally, rendered in natural language, never as the
+          raw snake_case token (engine v2.6 raises) — that ACTUALLY produces that
+          option's value/content; no template, ever (§9/§15).
   RE-14 : SPEED HACK ONLY WHEN GENUINELY FASTER. Emit iff a structurally-different
           route reaches the same CA with materially less work; otherwise OMIT (§14).
   RE-15 : NO TEMPLATES / GLYPHS / FAKE-CITES / METACOMMENTARY / BANNED BLOCKS.
@@ -681,6 +718,7 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   | common_pitfalls | dict{val:list}       | NAT only: ≥1 wrong-VALUE entry        |
   | anomaly         | str/None             | INTERNAL escalation flag               |
   | figures         | list[RepresentationFigure] | v2.7, may be empty. Each carries the §6A-5 validation record (renderer/intended/derived/match) and fails validate() on any breach; rendered as text-free centred picture paragraphs interleaved into DEDUCTION at after_step (§6A-6) |
+  | representation_verdict | str/None      | v2.6, optional. The §6A router verdict (PROSE / EQUATION / TABLE / STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT). When set, a VISUAL verdict with zero figures raises at validate() — verdict↔emission coherence (§6A-3); after a §6A-4 degrade the block carries the DEGRADED requirement |
 
   Option index → displayed label is via cfg.option_label() (RE-10).
 
@@ -689,7 +727,9 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   Correct Answer line = INDEX/VALUE ONLY (no option text). DEDUCTION ≥2 steps;
   last binds the answer. WHY WRONG keys == exactly the non-selected options
   (MCQ/MSQ); NAT uses common_pitfalls (≥1) and MUST NOT carry why_wrong.
-  OMML for every fraction. One sentence per paragraph. Zero banned content.
+  OMML for every fraction. One sentence per paragraph. Zero banned content, zero
+  internal error-taxonomy tokens in any rendered sentence (§9, v2.6), and no AXIOM
+  naming an option label (§8-2, v2.6).
   Every ⟦MATH:…⟧ region COMPILES at validate() time (t3_compile) — a region the
   Tier-3 grammar rejects RAISES at construction, so it can never degrade to raw
   text at render (§S11-1a; 2026.08.10.3). A breach raises in
@@ -710,20 +750,27 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   [ ] Figural? → FAMILY decided (transformation-puzzle / scientific-diagram); for
       scientific-diagram, decisive features taken from the transcription and NONE
       inferred from what would make an option work                    (§13-1 / §13-4b)
-  [ ] §6A representation router RUN; verdict recorded; PROSE unless the two-part test
-      passed; VOID_ITEM → never a generated figure; any degrade disclosed         (§6A)
+  [ ] §6A representation router RUN; verdict recorded AND passed into the block
+      (engine coherence — a visual verdict requires its figure); PROSE unless the
+      two-part test passed; §6A-1b structure-answer questions either emit
+      STRUCTURE_GRAPH or record the PROSE justification; VOID_ITEM → never a
+      generated figure; any degrade disclosed                                     (§6A)
   [ ] Class identified (§6); the right section LEADS
   [ ] Conditions READ BACK and checked before applying a remembered result (§7-0a)
   [ ] Material assumptions ledgered; any that changes the answer is STATED (§7-0b)
   [ ] Quantitative? → §7-5 checks pass (units · kelvin · magnitude · log base ·
       sign · stoichiometry · precision)                                     (§7-5)
+  [ ] Counting question? → inventory → independence → generate → de-duplicate →
+      count; a closed-form only after independence is verified              (§7-0c)
+  [ ] Decisive intermediate claims LISTED and mutually consistent            (§7-6)
   [ ] SPEED HACK, if present, states when it is safe                       (§14-3b)
   [ ] Every number traces to stem / syllabus constant / shown derivation   (§8-0a)
   [ ] No absolute used for a tendency; no tendency for a real absolute      (§8-0b)
   [ ] AXIOM states a TRUTH, not the task; no restatement
   [ ] DEDUCTION last step binds the answer
   [ ] SPEED HACK present IFF genuinely shorter route found           (§14)
-  [ ] WHY WRONG covers exactly the non-selected options (§15)
+  [ ] WHY WRONG covers exactly the non-selected options, each first sentence
+      delivering its §9 diagnosis in natural language (token internal)       (§15)
   [ ] DIFFICULTY assessed from this question's own derivation      → §7A
   [ ] Applicable learnings routed (§24)
   [ ] block.validate() called immediately after construction
@@ -792,6 +839,31 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   MINIMUM SUFFICIENT REPRESENTATION: where two representations both pass, take the
   simpler. Never draw a mechanism where a transformation arrow suffices.
 
+## S6A-1b — STRUCTURE-ANSWER PRESUMPTION (v2.13)
+  §6A-1's default is inverted for ONE narrow shape: the question whose verified
+  ANSWER IS a structure — the CA option is itself a drawn figure
+  (IMAGE-AS-OPTIONS, §13-1), or the question is C-STRUCTURAL and the answer is
+  the identity of a transformed arrangement. For that shape the decisive
+  relationship is BY CONSTRUCTION one that prose states less clearly than the
+  representation, so the two-part test is PRESUMED PASSED for STRUCTURE_GRAPH.
+  Routing such a question to PROSE anyway is permitted ONLY with a RECORDED
+  justification (in progress state, next to the verdict) stating where the
+  DEDUCTION prose itself carries each decisive feature — the change, the
+  position at which it happens, and the resulting arrangement. A terminal
+  identification that only POINTS ("the structure drawn in Option N") carries
+  none of them and never satisfies this.
+  VOID_ITEM WINS (§6A-2b): a VOID_ITEM question never generates a figure — no
+  answer is published for it at all (§13A-5) — so this presumption is void for
+  a VOID_ITEM by construction; its verdict stays PROSE with reason VOID_ITEM.
+  REFERENCE INCIDENT (mock path, same engine and same router): a structure-heavy
+  paper shipped 46 question-region images and 2 explanation figures, its
+  structure-decisive DEDUCTIONs ending at the pointer sentence. On a REAL past
+  paper the stakes are higher still: the exam body drew the answer, and an
+  explanation that only points at it teaches nothing the paper did not already
+  show. The presumption is still not a quota: a question whose deciding feature
+  is fully stated in one prose clause records that justification and ships
+  prose legitimately.
+
 ## S6A-2 — The requirement vocabulary (what the router emits)
   | Requirement          | Emit when the answer turns on …                        |
   |----------------------|--------------------------------------------------------|
@@ -821,12 +893,20 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   Recorded per question in progress state as representation_verdict, with the two-part
   test's outcome, so the choice is auditable rather than implicit: a paper whose every
   question demanded a figure, or whose every question refused one, becomes visible as a
-  pattern instead of discovered by reading. §R3 states the distribution.
+  pattern instead of discovered by reading. §R3 states the distribution. (v2.13) The
+  verdict is ALSO passed into the ExplanationBlock (engine v2.6
+  representation_verdict), which enforces verdict↔emission coherence at construction:
+  a STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT verdict with zero figures raises;
+  after a §6A-4 degrade the block carries the DEGRADED requirement, never the
+  original.
 
 ## S6A-4 — Degrade LOUDLY, never silently, and never HALT
   If a required renderer is unavailable, or a rendered artefact fails its validation
   gate (§6A-5), step DOWN one requirement — toward EQUATION, then PROSE — and ship the
-  explanation anyway. A missing renderer must never halt a paper mid-run. But the
+  explanation anyway. A missing renderer must never halt a paper mid-run. (v2.13) The
+  RECORDED verdict — in progress state AND on the block — becomes the DEGRADED
+  requirement, with the reason, never the original: engine v2.6 raises on a visual
+  verdict with no figure, so an un-updated verdict cannot even construct. But the
   degrade is DISCLOSED: recorded in progress state, listed in §R3, named in the delivery
   footer. Silent degradation is the worse failure — it makes quality vary invisibly
   between runs of the same spec, which is undiagnosable from the artefact.
@@ -917,6 +997,26 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
        assumption is not a fact; presenting it as one hides the choice from the learner.
   An assumption may never CONTRADICT something the stem supplies. If it must, the stem
   wins and the conflict is an ambiguity signal (§17).
+
+## S7-0c — ENUMERATION BEFORE FORMULA (v2.13)
+  A counting question is never OPENED from a closed-form ceiling. The order is
+  fixed: 1. INVENTORY the generating elements the count runs over; 2. CLASSIFY
+  each element; 3. TEST INDEPENDENCE — whether every element genuinely varies
+  freely of the others; 4. GENERATE the possibilities under the constraints
+  actually present; 5. DE-DUPLICATE under every equivalence that applies
+  (symmetry, relabelling, indistinguishability); 6. COUNT. A closed-form
+  (a k^n or factorial shape) is legitimate ONLY AFTER step 3 verified the
+  independence it assumes — and the DEDUCTION then shows the inventory and the
+  de-duplication, never just the formula (the C-STRUCTURAL enumeration shape,
+  §6-1, is this rule's rendered form).
+  WHY. A ceiling formula applied first FEELS like a derivation and is the single
+  most common wrong path in enumeration: it silently asserts an independence
+  that step 3 would have refuted. ILLUSTRATIVE, one domain showing the
+  universal shape: stereoisomer counting — the 2-to-the-n ceiling holds only
+  for independent stereogenic elements, and dependent elements, internal
+  compensation and symmetry each defeat it; the same failure shape appears in
+  arrangement counting under symmetry and in state counting over
+  indistinguishable members. The rule is the ORDER, not the domain.
 
 ## S7-1 — Derive-twice (RE-6)
 
@@ -1023,6 +1123,31 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
     [ ] PRECISION — the answer is rounded exactly as the question asked, and no further.
         Rounding is applied ONCE, at the end, never to an intermediate that is then reused.
   A check that FAILS sends the question back to §7-1, never to a patched number.
+
+## S7-6 — DECISIVE-CLAIM CONSISTENCY (every question, v2.13)
+  Derive-twice (§7-1) compares final ANSWERS; the §7-5 checks audit the final
+  VALUE. Neither reads the reasoning. This check does: before any prose is
+  written, LIST the decisive intermediate claims the DEDUCTION will assert —
+  the claims the answer actually turns on — and check them against each other:
+    [ ] LOGICAL — no claim asserts what another denies.
+    [ ] COUNT / NUMERIC — an element one claim excludes is not counted by a
+        later one; totals equal their stated parts.
+    [ ] SIGN / DIRECTION — a direction argued qualitatively is the direction
+        the arithmetic then applies.
+    [ ] CONSERVATION / BALANCE — whatever the domain conserves is conserved
+        across the chain, not merely in the final line.
+    [ ] IDENTITY — the object one claim establishes is the object later claims
+        use, not a silently substituted variant.
+  AN EXPLANATION WHOSE DECISIVE CLAIMS CANNOT ALL BE TRUE IS INVALID EVEN WHEN
+  ITS FINAL ANSWER MATCHES the derived one: answer agreement can HIDE invalid
+  reasoning, and a learner re-walking the chain inherits the contradiction — on
+  a REAL past paper it also misstates the reasoning the exam actually tested.
+  ILLUSTRATIVE, one domain showing the shape: "this centre is not an
+  independent stereogenic element" followed by a count that treats it as one —
+  the keyed answer can still come out right, and the explanation is still
+  wrong. A failed check returns to §7-1 — the SOLVER re-derives; the
+  contradiction is never patched in the prose (patching the sentence that
+  exposed it leaves the reasoning it exposed).
 
 # ════════════════════════════════════════════════════════════════════════
 # §7A — PER-QUESTION DIFFICULTY ASSESSMENT (v1.1)
@@ -1235,7 +1360,10 @@ label = assess_difficulty(
   subtopic is read from section_rules (RE-9). A forced second sentence is how
   restatement creeps in; one dense sentence is preferred when it fully states the
   rule AND its reason.
-  Enforced: ≥1 sentence, one-per-paragraph, banned-phrase scan (engine); "truth
+  THE AXIOM NEVER NAMES AN OPTION LABEL (v2.13) — binding the answer is the
+  DEDUCTION last step's job (§8-3); an AXIOM naming one has leaked the conclusion
+  into the principle. Enforced: ≥1 sentence, one-per-paragraph, banned-phrase
+  scan, no option reference in the AXIOM (engine v2.6); "truth
   not task", "why not just what", correctness by discipline (§18 self-audit).
 
 ## S8-3 — DEDUCTION
@@ -1266,8 +1394,9 @@ label = assess_difficulty(
   Role: where most learning happens — the SPECIFIC error a student commits to land
   on a wrong choice, inoculating against that exact mistake. Standard (the anti-
   template contract, §15): keys = exactly the NON-selected options (for MSQ, every
-  option not in the correct set); 1–2 DENSE lines each; the first line names an
-  error type (§9) that ACTUALLY produces that option's value/content (back-derive
+  option not in the correct set); 1–2 DENSE lines each; the first line DELIVERS its §9 diagnosis in natural
+  language — the type itself is recorded internally (§9), never rendered — and
+  must ACTUALLY produce that option's value/content (back-derive
   the distractor — "if a student did X they get exactly this option"); the line
   also carries the corrected value ("13 × 3 = 39, not 36"). No two wrong options
   share an explanation. For negative stems the true options are "a TRUE statement,
@@ -1275,12 +1404,14 @@ label = assess_difficulty(
   reason is a web-confirmed fact.
   NAT analogue — COMMON PITFALLS: a NAT question has no options to reject, so this
   section lists the wrong VALUES a student most commonly computes, ≥1, each headed
-  by the value and naming the slip that yields it ("forgetting to divide leaves
-  235 — process_confusion"; "dividing by the wrong count gives 9.4 — value_swap").
+  by the value and naming the slip that yields it in natural language ("forgetting
+  to divide leaves 235 unchanged"; "dividing by the wrong count gives 9.4
+  instead"), the §9 type recorded internally.
   Same anti-template discipline: each pitfall must reproduce a real wrong value.
   Enforced: key set (mcq/msq) or ≥1 value-keyed pitfall (nat) + ≥1 sentence +
-  error-type token + banned templates/glyphs (engine); reproduces-the-wrong-answer
-  + factual truth by discipline (§18 self-audit).
+  ZERO internal taxonomy tokens in rendered text (engine v2.6) + banned
+  templates/glyphs (engine); diagnosis recorded internally +
+  reproduces-the-wrong-answer + factual truth by discipline (§18 self-audit).
 
 # NOTE: Figural questions no longer emit any FIGURE section; the rendered order
 #   for EVERY question type is Correct Answer → ⬛ AXIOM → ⬛ DEDUCTION →
@@ -1324,6 +1455,20 @@ label = assess_difficulty(
   | overgeneralised_rule  | a valid rule applied outside its validity domain  |
   | concept_reversal      | the governing relationship applied in reverse     |
 
+  INTERNAL DIAGNOSIS, NATURAL RENDERING (v2.13). The error type is METADATA.
+  It is still MANDATORY — every wrong option / pitfall is diagnosed with exactly
+  one §9 type, recorded per option in progress state (alongside the derived
+  answer in pyq_answer_keys.json / pyq_explain_progress state) — but the
+  snake_case token NEVER appears in student-facing text. The visible first line
+  DELIVERS the diagnosis in the subject's own natural language ("this is the
+  para product, formed only when both ortho positions are blocked"), never as a
+  machine label ("regiochemistry_error: ..."). REFERENCE INCIDENT: a delivered
+  60-question paper opened all 40 WHY WRONG entries and all 20 NAT pitfalls with
+  the raw token — obeying the old "first line names an error type" literally.
+  ENFORCED: engine v2.6 raises at write time on any §9 token in a rendered
+  sentence and re-scans the rendered bytes at verify time; the reproduce check
+  (§15-2) is unchanged and still binds in full.
+
 # ════════════════════════════════════════════════════════════════════════
 # §10 — SPECIAL-CASE PROTOCOLS
 # ════════════════════════════════════════════════════════════════════════
@@ -1332,7 +1477,8 @@ label = assess_difficulty(
 ## S10a — Negative stem
   Trigger: stem contains NOT / EXCEPT / INCORRECT / FALSE (configurable).
   DEDUCTION gives a truth-verdict for EVERY option, then isolates the target.
-  WHY WRONG states each option is TRUE (hence NOT the answer) — polarity_flip.
+  WHY WRONG states each option is TRUE (hence NOT the answer); polarity_flip is
+  recorded internally (§9), never rendered.
 
 ## S10b — Composite options
   Trigger: "Both 1 and 2", "All of the above", "None of the above" (configurable).
@@ -1547,7 +1693,8 @@ label = assess_difficulty(
   §13-4a reflex misapplied, and it is wrong here.
   PRESERVE THE QUESTION'S OWN REPRESENTATION. Fischer stays Fischer; Newman stays
   Newman; chair stays chair. Convert ONLY when the conversion IS what is being tested.
-  WHY WRONG for this family names the DOMAIN error (§9's scientific types), never a
+  WHY WRONG for this family names the DOMAIN error (§9's scientific types —
+  INTERNAL names, recorded per §9 and never rendered), never a
   merely visual difference: "the double bond is at C3 rather than C2" is the
   explanation; "the shape differs" is not.
 
@@ -1722,6 +1869,23 @@ print(fv.vision_report_line(report))
   SPEED HACK — omit it. An empty or generic SPEED HACK is a defect — caught by
   producer discipline (§18), since (v2.1) no downstream audit follows.
 
+## S14-5 — ELIGIBILITY IS RECORDED; THE DISTRIBUTION IS A TRIPWIRE (v2.13)
+  For EVERY question, record the §14-1 outcome in progress state next to the
+  representation verdict: {distinct_method, genuinely_faster, scoped} and the
+  include/omit decision. §R3 reports the inclusion RATE alongside the count.
+  WHY. The two-part test binds per question and nothing measured the aggregate,
+  so inclusion pressure compounded invisibly: the reference paper carried a
+  SPEED HACK on 56 of 60 questions — 93 percent — several of them restating the
+  DEDUCTION in fewer words, a §14-1 part-1 failure each. A per-question rule
+  with no distribution check is how a paper drifts to hack-everywhere while
+  every individual decision felt defensible.
+  THE TRIPWIRE, never a quota: if EVERY question in a batch carries a SPEED
+  HACK, re-run the §14-1 test on each of them before §18. A hack that fails its
+  re-audit is REMOVED (omit, never fake); a genuinely shortcut-rich batch —
+  they exist — survives its re-audit unchanged and ships as it stood. No target
+  rate exists in either direction; §16-1's pattern-matching cause is what an
+  all-hack batch signals, and a re-test is the proportionate response.
+
 # ════════════════════════════════════════════════════════════════════════
 # §15 — WHY WRONG / COMMON PITFALLS ANTI-TEMPLATE STANDARD (the diagnosis contract)
 # ════════════════════════════════════════════════════════════════════════
@@ -1737,7 +1901,9 @@ print(fv.vision_report_line(report))
   the rule is violated by definition.
 
 ## S15-2 — Four hard requirements per wrong option / value
-  1. NAME the error type (§9) in the first line — a diagnosis, not a dismissal.
+  1. DIAGNOSE with exactly one §9 error type — recorded internally (§9) while the
+     first line delivers that diagnosis in natural language: a diagnosis, not a
+     dismissal, and never the raw token (engine v2.6 raises on one).
   2. The named error must ACTUALLY produce that option/value (the reproduce check):
      back-derive the distractor — "if a student did X they get exactly this
      option/value." If no such mistake can be found, the question is not yet
@@ -1864,6 +2030,14 @@ print(fv.vision_report_line(report))
       LaTeX. (As of 2026.08.10.3 validate() also compiles regions and RAISES at
       construction, §S11-1a, so this ledger should always be empty; the assertion
       is the second gate that guarantees it.)
+  [ ] §6A router verdict present for EVERY question in this batch AND carried on
+      each block (engine coherence — a visual verdict requires its figure, a §6A-4
+      degrade carries the degraded requirement); every §6A-1b structure-answer
+      question either emits STRUCTURE_GRAPH or its PROSE justification is
+      recorded; every degrade disclosed for §R3                             (§6A)
+  [ ] SPEED-HACK ELIGIBILITY recorded per question (§14-5); if every question in
+      this batch carries a SPEED HACK, the §14-1 re-audit was run and any hack
+      failing it removed BEFORE this checklist                            (§14-5)
   [ ] count invariants: image / table / OMML / question / option counts == Row file
   [ ] strip-and-re-audit: questions-only copy passes (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
@@ -2019,7 +2193,9 @@ present_files(deliverables)
       assert nothing.
   §R2 VERDICT: SHIP (delivered) / HALTED.
   §R3 COVERAGE: Q_TOTAL/Q_TOTAL explained · question-type split (mcq/msq/nat) ·
-      SPEED HACK count · OMML count · per-class distribution.
+      SPEED HACK count AND inclusion rate (Q-numbers; §14-5 — a near-total rate on
+      a mixed-class paper is the §16-1 pattern-matching signal; report it, do not
+      editorialise) · OMML count · per-class distribution.
       REPRESENTATION (v2.7 — the §6A-3 distribution):
         • verdict counts across PROSE / EQUATION / TABLE / STRUCTURE_GRAPH /
           LEVEL_DIAGRAM / DATA_PLOT, plus Q-numbers for every non-PROSE verdict.
@@ -2028,6 +2204,8 @@ present_files(deliverables)
           asked for, what it degraded to, and WHY (renderer absent / preflight failed /
           §6A-5 validation mismatch / VOID_ITEM per §6A-2b). An EMPTY ledger is stated
           explicitly as empty — a silent absence and a clean run must not look identical.
+        • §6A-1b structure-answer questions routed to PROSE, each with its recorded
+          justification (Q-numbers; an empty list stated as empty).
       A distribution that is 100% PROSE on a diagram-heavy paper, or one emitting a
       figure for nearly every question, is the signal this line exists to surface: both
       mean the §6A-1 two-part test is not being applied. Report counts; do not editorialise.
@@ -2089,13 +2267,19 @@ present_files(deliverables)
   2.  Every question explained (zero sampling); every validate() clean.
   3.  Every answer derived two ways; disagreements resolved 2-of-3 +
       DERIVATION-CONFIDENCE. Zero guesses. Typed correctly (mcq/msq/nat).
+  3b. (v2.13) Decisive intermediate claims mutually consistent on every question
+      (§7-6); every counting answer derived inventory-first, closed-form only
+      after verified independence (§7-0c).
   4.  Every figural question's images extracted, role-bound, VIEWED ONCE at
       P2a (§13A) and persisted; every figural answer traceable to an OK
       transcription, or the question recorded as VOID_ITEM.
   5.  Every CA/factual option web-verified with a recorded source.
-  6.  WHY WRONG keys == exactly non-selected; error type REPRODUCES option.
-      NAT: ≥1 pitfall. No template/glyph/fake-cite.
+  6.  WHY WRONG keys == exactly non-selected; the §9 diagnosis (recorded
+      internally, rendered in natural language — never the raw token, v2.13)
+      REPRODUCES the option. NAT: ≥1 pitfall. No template/glyph/fake-cite.
   7.  SPEED HACK present IFF genuinely faster; never padded.
+  7b. (v2.13) SPEED HACK eligibility recorded per question; any all-hack batch
+      re-audited per §14-5 before delivery.
   8.  Every fraction OMML; well-formed; no year-range artefact.
   9.  FIDELITY: whole question region byte-identical to Row file source.
   10. Self-audit (§18) clean every batch; coverage assertion holds.
@@ -2170,7 +2354,14 @@ present_files(deliverables)
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
-# SHARED_RULES_VERSION: 1.1 (2026-08-10)
+# SHARED_RULES_VERSION: 1.2 (2026-08-19)
+#
+# SHARED-RULES BUMP (v1.2, 2026-08-19): GAP-2026-08-19-EXPLANATION-EXECUTION-
+#   INTEGRITY changed shared §4–§18 sections in BOTH files — §6A (S6A-1b + verdict
+#   coherence), §7 (S7-0c, S7-6), §9 (internal diagnosis, natural rendering),
+#   §14 (S14-5), §15 (S15-2 item 1), §18 and §21 — and added RE-6d / restated
+#   RE-13 in both. MockTestExplain v1.35.0 == PYQExplain v2.13 on every shared
+#   rule; the §6A-1b VOID_ITEM precedence is the one recorded PYQ-side sharpening.
 #
 # DELIBERATE PYQ-ONLY DIVERGENCE (v1.2, 2026-08-03) — RECORDED, NOT DRIFT.
 #   §13A (figural pre-transcription pass) is NEW and is NOT mirrored in
@@ -2236,5 +2427,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.12
+# END OF Framework_PYQExplain v2.13
 # ════════════════════════════════════════════════════════════════════════
