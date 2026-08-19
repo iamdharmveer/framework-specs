@@ -1,4 +1,35 @@
-# Framework_PYQExplain v2.6 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.7 — Universal PYQ Explanation Generator
+# v2.7 — 2026-08-19 — GAP-2026-08-19-PYQEXPLAIN-NO-REPRESENTATION-ROUTER. SPEC-ONLY:
+#   no engine change. PYQ-1 shares explain_engine.py with TestExplain, so since engine
+#   v2.2/v2.3 it has SILENTLY INHERITED the Tier-3 notation guard and the figure-emission
+#   surface (RepresentationFigure / ExplanationBlock.figures) — capability with nothing
+#   directing its use. Result: every PYQ document stayed prose-only while the Mock path
+#   gained schemes, orbital diagrams and rendered equations. This release closes that.
+#   NOTE ON SCOPE — §11 IS ALREADY CORRECT HERE AND IS NOT TOUCHED. PYQ-1's S11-1 has
+#   always documented the ⟦MATH:…⟧ grammar properly and has always said "guards are
+#   region-aware: \\frac inside a region is legal; the _BANNED_LATEX list applies to prose
+#   outside regions only". The §11 defect fixed in MockTestExplain v1.27.0 never existed
+#   in this file. Verbalised arithmetic is therefore NOT a documented-cause defect here;
+#   §6A-2's EQUATION requirement simply makes the existing rule explicit at routing time.
+#   D1 — NO REPRESENTATION ROUTER. New §6A, adapted to PYQ (NOT copied): PROSE is the
+#   default and a visual is EARNED on the §14 two-part test; renderers are declared per
+#   exam in section_rules; degrade is loud. Two PYQ-specific rules that do not exist in
+#   the Mock spec: (a) the router runs AFTER §13A transcription, so a figural question is
+#   routed from what was actually SEEN, never from the stem text; (b) a VOID_ITEM figure
+#   FORBIDS a generated STRUCTURE_GRAPH for that question — no answer is published for a
+#   VOID_ITEM at all (§13A-5), so drawing a structure for one would be manufacturing
+#   content from an untranscribable source, the precise thing RE-11 forbids.
+#   D2 — §6 HAD NO STRUCTURAL OR DERIVATIONAL CLASS. C-STRUCTURAL and C-DERIVATIONAL
+#   added; C-FIGURAL made family-aware.
+#   D3 — §13 WAS BLIND TO SCIENTIFIC FIGURES. S13-4 defined the figural AXIOM as "the
+#   visual rule" — the reasoning-puzzle vocabulary. Split into §13-4a
+#   (transformation-puzzle, preserved) and §13-4b (scientific-diagram). PYQ papers are
+#   REAL past papers, so this is the more consequential half of the split here: a JAM or
+#   GATE stem figure is essentially always a scientific diagram.
+#   D4 — §9 forced science distractors into aptitude labels; eight scientific error types
+#   added.
+#   D5 — §R1 PROVENANCE WAS STALE ("spec v1.1 · engine 62/62" against v2.6 / 78/78) and
+#   §R3 had no representation line. Both fixed; the GATES stay floor-form (P0, v2.5).
 # v2.6 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
 #   MINOR bump: a name is added to this file's executable surface. NO ARTEFACT CHANGES.
 #   This spec CALLED present_files() from compiling python while DEFINING it nowhere —
@@ -248,6 +279,14 @@
   RE-12 : ONE DEFENSIBLE ANSWER ASSUMED. PYQ papers are published by exam bodies and
           are expected to have exactly one defensible answer. A suspicion otherwise is
           most likely an incomplete solve — raise the bar before concluding a defect (§17).
+  RE-11b: FIGURAL FAMILY IS DECIDED, NOT ASSUMED (v2.7). Every figural question is
+          classed TRANSFORMATION-PUZZLE or SCIENTIFIC-DIAGRAM before solving (§13-1) and
+          read by that family's protocol (§13-4a / §13-4b), from the §13A transcription.
+          When mixed or unclear, read it as SCIENTIFIC-DIAGRAM.
+  RE-13a: REPRESENTATION IS ROUTED, NOT ASSUMED (v2.7). Every question runs the §6A
+          router after derivation and before writing. PROSE is the default; a visual is
+          EARNED on the §14 two-part test. A VOID_ITEM figure can never produce a
+          generated figure (§6A-2b). Verdicts are recorded and reported (§R3).
   RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option names an error type
           that ACTUALLY produces that option's value/content; no template, ever (§15).
   RE-14 : SPEED HACK ONLY WHEN GENUINELY FASTER. Emit iff a structurally-different
@@ -342,6 +381,12 @@ PYQExplain
       "SELF-TEST: N/N PASS" with N == total AND N >= 62 (MANDATE A; v2.5 —
       GAP-2026-08-13-STALE-SELFTEST-PIN: floor form, the exact 62/62 pin HALTed
       every session once the engine grew to 64). If absent or stale → HARD STOP.
+      v2.7 — RENDERER PREFLIGHT (§6A-6). If the exam's section_rules declares a
+      `representation_renderers` block, install each named library HERE (pip,
+      --break-system-packages) and RECORD the outcome for the P7 dashboard. A failed
+      install NEVER halts: the affected requirement degrades for the WHOLE run per
+      §6A-4, disclosed up front, so quality never varies silently between batches. No
+      declared block → nothing to install, and the router uses PROSE/EQUATION only.
 
   P1  LOAD PROJECT KNOWLEDGE.
       Load from /mnt/project (project knowledge):
@@ -550,6 +595,7 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   | why_wrong       | dict{int:list}       | MCQ/MSQ: keys == non-selected options  |
   | common_pitfalls | dict{val:list}       | NAT only: ≥1 wrong-VALUE entry        |
   | anomaly         | str/None             | INTERNAL escalation flag               |
+  | figures         | list[RepresentationFigure] | v2.7, may be empty. Each carries the §6A-5 validation record (renderer/intended/derived/match) and fails validate() on any breach; rendered as text-free centred picture paragraphs interleaved into DEDUCTION at after_step (§6A-6) |
 
   Option index → displayed label is via cfg.option_label() (RE-10).
 
@@ -576,6 +622,11 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   [ ] Answer derived from first principles AND a second method       (§7)
   [ ] Methods agree (else DERIVATION-CONFIDENCE)                     (§7)
   [ ] Factual content web-verified with a recorded source            (RE-18)
+  [ ] Figural? → FAMILY decided (transformation-puzzle / scientific-diagram); for
+      scientific-diagram, decisive features taken from the transcription and NONE
+      inferred from what would make an option work                    (§13-1 / §13-4b)
+  [ ] §6A representation router RUN; verdict recorded; PROSE unless the two-part test
+      passed; VOID_ITEM → never a generated figure; any degrade disclosed         (§6A)
   [ ] Class identified (§6); the right section LEADS
   [ ] AXIOM states a TRUTH, not the task; no restatement
   [ ] DEDUCTION last step binds the answer
@@ -601,11 +652,131 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   | C-FACTUAL        | factual-recall / encyclopedic              | AXIOM leads (the fact) |
   | C-VOCAB-ITEM     | word/term meaning; grammar                 | AXIOM defines the term |
   | C-LINKED         | RC / cloze / DI passage-dependent          | DEDUCTION = stimulus → answer |
-  | C-FIGURAL        | image-based stem or options                | AXIOM = visual rule   |
+  | C-FIGURAL        | image-based stem or options                | Family-dependent (§13-1). TRANSFORMATION-PUZZLE: AXIOM = the visual rule (§13-4a). SCIENTIFIC-DIAGRAM: AXIOM = the domain principle; DEDUCTION reads the figure as notation, then solves (§13-4b) |
+  | C-STRUCTURAL     | v2.7 — answer turns on CONNECTIVITY, reaction site, spatial/stereochemical arrangement, symmetry, or an enumeration over structures | DEDUCTION leads as a TRANSFORMATION CHAIN: starting arrangement → the change and WHERE → resulting arrangement → why that one. AXIOM = the governing selectivity/structural principle. Enumerations state the generating rule, then the de-duplication, then the count — never a bare number |
+  | C-DERIVATIONAL   | v2.7 — a MULTI-STEP chain where each step feeds the next (relations composed, manipulated before use, or a limit taken) — distinct from C-COMPUTATIONAL, which substitutes into ONE relation | DEDUCTION leads and shows the CHAIN, every step as ⟦MATH:⟧ math (§11). AXIOM = the relation the chain starts from plus the condition licensing it. Each WHY WRONG names the ONE step where that option diverges |
   | C-MULTI-SELECT   | answer_cardinality == 'multi'              | DEDUCTION = per-option verdict |
   | C-NUMERICAL-INPUT| NAT — typed numerical answer               | DEDUCTION = computation chain |
 
   A question may carry more than one facet (e.g. C-FIGURAL + C-COMPUTATIONAL).
+
+# ════════════════════════════════════════════════════════════════════════
+# §6A — REPRESENTATION ROUTER (v2.7 — exam-agnostic, domain-configured)
+# ════════════════════════════════════════════════════════════════════════
+#   Representation selection is an EXPLICIT stage, run once per question AFTER the
+#   answer is derived and verified (§7) and BEFORE any explanation prose is written.
+#   Same contract as TestExplain §6A — one router across both explanation steps, so a
+#   learner sees the same standard whether a question came from a mock or a past paper.
+#   ADAPTED, NOT COPIED. Three things differ in PYQ and are stated here, not inherited:
+#     • There is NO registry and NO figural_manifest. Nothing recorded what a source
+#       figure was SUPPOSED to be, so there is nothing to cross-check a reading against.
+#     • Figures are transcribed ONCE per paper at P2a (§13A) into
+#       pyq_figural_vision.json. The router therefore runs AFTER that transcription and
+#       is fed by it (§6A-2b).
+#     • A paper may contain VOID_ITEM figures — untranscribable ones, for which §13A-5
+#       already forbids publishing any answer. §6A-2b makes the matching figure rule
+#       explicit.
+#   The router is EXAM-AGNOSTIC: it names no exam and no subject. It emits a
+#   REQUIREMENT; which renderer satisfies it is read at runtime from the exam's own
+#   section_rules.md (CATEGORY C). An exam declaring no renderer gets PROSE and EQUATION
+#   only and behaves EXACTLY as it did before this version, so deploying the router
+#   cannot regress an exam that does not opt in.
+
+## S6A-1 — PROSE IS THE DEFAULT. A VISUAL IS EARNED, NEVER ISSUED.
+  The load-bearing rule; read it before the table. The default verdict is PROSE, and a
+  richer representation must EARN its place on the same two-part test §14 applies to
+  SPEED HACK ("omit, never fake"):
+    1. DECISIVE — the answer turns on a relationship prose states less clearly than the
+       representation would (connectivity, spatial arrangement, occupancy, a computed
+       chain, a data shape).
+    2. NOT REDUNDANT — it carries information the surrounding sentences do not. Re-drawing
+       what the stem already shows, or illustrating a recall fact, fails this half.
+  BOTH must pass, else PROSE. A recall question takes PROSE and stops.
+  PYQ SHARPENS THE REDUNDANCY HALF. The source figure is a REAL exam figure and it sits
+  in the question region above the explanation, byte-identical (§12). Re-drawing it is
+  redundant BY CONSTRUCTION. A generated figure earns its place here only by showing
+  something the exam's own figure does NOT: the transformation it undergoes, the
+  electron occupancy it implies, the comparison that decides between options.
+  MINIMUM SUFFICIENT REPRESENTATION: where two representations both pass, take the
+  simpler. Never draw a mechanism where a transformation arrow suffices.
+
+## S6A-2 — The requirement vocabulary (what the router emits)
+  | Requirement          | Emit when the answer turns on …                        |
+  |----------------------|--------------------------------------------------------|
+  | PROSE                | a fact, a definition, or a short causal chain (DEFAULT) |
+  | EQUATION             | a calculation — governing relation, substitution, value |
+  | TABLE                | independent criteria tested across several candidates   |
+  | STRUCTURE_GRAPH      | connectivity / stereochemistry / a transformation       |
+  | LEVEL_DIAGRAM        | occupancy, energy ordering, or state splitting          |
+  | DATA_PLOT            | the shape of a graph, spectrum, or titration curve      |
+  EQUATION is satisfied by §11's ⟦MATH:…⟧ regions and is ALWAYS available — it needs no
+  renderer and no configuration; §11 already governs its spelling and is unchanged by
+  this version. TABLE is native docx. The last three need a declared renderer (§6A-6);
+  absent one, the router degrades (§6A-4).
+
+## S6A-2b — PYQ ORDERING AND THE VOID_ITEM PROHIBITION (v2.7, PYQ-only)
+  ORDER: for a figural question the router runs AFTER the §13A transcription is read,
+  never before. Routing from stem text alone would decide what to draw without knowing
+  what the exam actually drew — RE-11's failure in a new costume.
+  VOID_ITEM: if the question's §13A record is VOID_ITEM (MISSING / EMPTY / THIN /
+  STALE), the router MUST NOT emit STRUCTURE_GRAPH, LEVEL_DIAGRAM or DATA_PLOT for it.
+  §13A-5 already forbids publishing an ANSWER for such a question; generating a figure
+  from an untranscribable source would manufacture content from nothing — exactly what
+  RE-11 forbids — and would look authoritative while resting on no observation. Record
+  the verdict as PROSE with reason VOID_ITEM, and let §R12 carry it as it already does.
+
+## S6A-3 — Record the verdict on every question
+  Recorded per question in progress state as representation_verdict, with the two-part
+  test's outcome, so the choice is auditable rather than implicit: a paper whose every
+  question demanded a figure, or whose every question refused one, becomes visible as a
+  pattern instead of discovered by reading. §R3 states the distribution.
+
+## S6A-4 — Degrade LOUDLY, never silently, and never HALT
+  If a required renderer is unavailable, or a rendered artefact fails its validation
+  gate (§6A-5), step DOWN one requirement — toward EQUATION, then PROSE — and ship the
+  explanation anyway. A missing renderer must never halt a paper mid-run. But the
+  degrade is DISCLOSED: recorded in progress state, listed in §R3, named in the delivery
+  footer. Silent degradation is the worse failure — it makes quality vary invisibly
+  between runs of the same spec, which is undiagnosable from the artefact.
+
+## S6A-5 — A rendered artefact must be PROVED, not trusted
+  Every generated figure carries a validation record; one that fails its gate is never
+  shipped (it degrades per §6A-4). The gate is renderer-specific and declared with the
+  renderer, but the CONTRACT is fixed: re-derive the artefact from the rendered output
+  and compare it against what was intended — do not merely inspect it. A structural
+  renderer re-parses the drawn structure and compares a CANONICAL identifier; molecular
+  formula alone is insufficient, since two different answers commonly share one formula
+  and a formula check would pass a swapped structure. Renderers must be DETERMINISTIC:
+  the same question re-rendered must produce identical bytes.
+  NOTE THE ASYMMETRY WITH §13-3. The source figure has no manifest to check against —
+  that is why §13-3 says VIEW and derive, with no cross-check. This gate is the
+  opposite case and is fully checkable: WE generated the artefact, so we know exactly
+  what was intended and can prove the output matches it. The absence of a source
+  cross-check is no reason to relax an output gate that is available.
+  WHAT THE GATE DOES NOT PROVE: it proves the drawn artefact matches what was requested.
+  It cannot prove the request was right; that stays with derive-twice (§7).
+
+## S6A-6 — Renderer execution contract
+  WHO RENDERS: the executing session, at solve time. No renderer engine file and no
+  routes.json change — rendering is spec-directed session work, and the ENGINE's job
+  stays confined to emission mechanics, the §6A-5 record check at construction, and the
+  figure-landing check at verify time (explain_engine v2.3, shared with TestExplain).
+  DECLARED WHERE: the exam's section_rules.md CATEGORY C may carry a
+  `representation_renderers` block naming, per requirement, the library and the §6A-5
+  identifier discipline (e.g. STRUCTURE_GRAPH : rdkit, identifier = canonical SMILES
+  round-trip). ABSENT the block, those verdicts degrade per §6A-4.
+  DEPENDENCIES ARE PREFLIGHT WORK. P0 installs any library the declared renderers name
+  and RECORDS the result in the P7 dashboard. A failed install does not halt: the
+  affected requirement degrades for the WHOLE run, disclosed up front, so quality never
+  varies silently between batches.
+  MECHANICS: RepresentationFigure(path, width_in, validation, after_step) and
+  ExplanationBlock(..., figures=[...]); validate() raises on any §6A-5 breach. Figure
+  paragraphs carry NO text (engine-enforced) — every label the reader needs is drawn
+  INSIDE the figure, and the adjacent DEDUCTION sentence states what it decides. Width
+  0.5..7.0 in; ~6.0 for a full-column scheme, ~4.0 for a single panel.
+  FAILURE PATHS, all loud: failed render or failed §6A-5 comparison → drop the figure,
+  degrade, record it; declared-but-unrendered at verify time → BLOCKING figure-landing
+  FAIL. No path ships an unproved image, and no path hides a skipped one.
 
 # ════════════════════════════════════════════════════════════════════════
 # §7 — DERIVATION PROTOCOL (derive-twice, never guess)
@@ -929,6 +1100,22 @@ label = assess_difficulty(
   | rounding_trap         | correct calculation, wrong rounding               |
   | polarity_flip         | true↔false (negative stem)                        |
 
+  SCIENTIFIC / STRUCTURAL TYPES (v2.7). The eleven above are aptitude-shaped and force a
+  science distractor into an ill-fitting label — a regiochemistry slip logged as
+  "off_by_one" teaches the learner nothing. Additive; the ban on a WHY WRONG line with
+  NO type is unchanged.
+
+  | Error type            | When it applies                                   |
+  |-----------------------|---------------------------------------------------|
+  | wrong_condition       | right transformation, wrong stated condition (work-up, solvent, pH, temperature, order of addition) |
+  | regiochemistry_error  | correct reaction at the wrong position/site       |
+  | stereochemistry_error | wrong configuration, or some stereocentres inverted not all |
+  | mechanism_confusion   | a different mechanism's product                   |
+  | electron_count_error  | miscounted electrons / occupancy / oxidation state |
+  | symmetry_error        | equivalence or a mirror plane wrongly asserted or missed |
+  | overgeneralised_rule  | a valid rule applied outside its validity domain  |
+  | concept_reversal      | the governing relationship applied in reverse     |
+
 # ════════════════════════════════════════════════════════════════════════
 # §10 — SPECIAL-CASE PROTOCOLS
 # ════════════════════════════════════════════════════════════════════════
@@ -1052,7 +1239,29 @@ label = assess_difficulty(
 
 ## S13-1 — Detect figural questions structurally
   A question is figural if its region contains a <w:drawing> in the STEM or in
-  any OPTION. Two shapes: IMAGE-IN-STEM and IMAGE-AS-OPTIONS.
+  any OPTION. Two PLACEMENTS: IMAGE-IN-STEM and IMAGE-AS-OPTIONS.
+
+  AND — v2.7 — TWO FAMILIES, which decide HOW the figure is READ. Placement and family
+  are independent; either family can appear in either placement.
+    • TRANSFORMATION-PUZZLE — the figure carries no domain meaning; the answer lies in a
+      geometric or set operation on abstract marks. Series, analogy, odd-one-out,
+      mirror/water image, paper folding, cube net, embedded/counting figures, space
+      orientation. (Reasoning sections: SSC, CAT, IBPS, police/defence.)
+    • SCIENTIFIC-DIAGRAM — the figure DENOTES something, and the answer depends on what
+      it denotes, never on its pose on the page. Molecular structures and reaction
+      schemes, stereochemical projections (Fischer/Newman/chair/wedge-dash), orbital and
+      energy-level diagrams, circuits, ray diagrams, free-body and vector diagrams,
+      graphs, spectra, titration curves, maps, anatomical diagrams, apparatus schematics.
+      (Subject papers: JAM, GATE, NEET, JEE, boards.)
+  DECIDING THE FAMILY: read section_rules figural cues and the subtopic; if the marks in
+  the figure have NAMES in the syllabus (an element symbol, a bond, an axis label, an
+  orbital, a component), it is SCIENTIFIC-DIAGRAM. Abstract shapes with no such naming
+  are TRANSFORMATION-PUZZLE. When genuinely mixed, read it as SCIENTIFIC-DIAGRAM: the
+  stricter reading never damages a puzzle, whereas reading a structure as a puzzle loses
+  the domain content entirely.
+  PYQ NOTE: these are REAL past papers, so in a subject paper the scientific family is
+  the overwhelming default — and the §13A transcription (not the raw stem) is what the
+  family judgement and the reading are made from.
 
 ## S13-2 — Extract, role-bind, view
   Extract image bytes, render them, bind each to its role, VIEW each before
@@ -1070,9 +1279,44 @@ label = assess_difficulty(
   registry stated what the figure was SUPPOSED to contain; the transcription
   records only what was actually seen.
 
-## S13-4 — Write what is visible
-  AXIOM = the visual rule. DEDUCTION traces the VISIBLE transformation.
-  WHY WRONG names, per wrong option-figure, the specific visual difference.
+## S13-4 — Write what is visible (BOTH families)
+  Common to both: DEDUCTION cites CONCRETE features actually present in the §13A
+  transcription, never a generic gesture at "the figure". WHY WRONG names, per wrong
+  option-figure, the specific difference that makes it wrong.
+
+## S13-4a — TRANSFORMATION-PUZZLE family (unchanged behaviour)
+  AXIOM = the visual rule (rotation / reflection / element add-remove / count /
+  net-folding). DEDUCTION traces the VISIBLE transformation step by step to the chosen
+  option. This is the pre-v2.7 protocol, preserved: for a genuine reasoning puzzle it
+  was correct and stays correct.
+
+## S13-4b — SCIENTIFIC-DIAGRAM family (v2.7)
+  AXIOM = the DOMAIN PRINCIPLE the figure is testing — never "the visual rule". The
+  figure is notation for a fact, so the governing fact is the axiom.
+  READ THE FIGURE AS NOTATION, IN THIS ORDER, BEFORE SOLVING:
+    1. IDENTIFY what is drawn, in the domain's own terms.
+    2. TRANSCRIBE the decisive features EXACTLY: bonds and bond orders, charges,
+       wedge/dash direction, ring size, substituent identity and position, atom
+       numbering, stereo-descriptors, reagent ORDER above/below the arrow, axis labels
+       and units, component values, arrow directions, occupancy.
+    3. Only then SOLVE, from that transcription.
+  For PYQ these features come from pyq_figural_vision.json (§13A-4); if a decisive
+  feature is absent from the transcription it was NOT SEEN, and the question is a
+  VOID_ITEM (§13A-5) — not a case for judgement.
+  THE PROHIBITION THAT MATTERS MOST: never infer an unreadable feature from whatever
+  would make an option work. A figure read backwards from a plausible answer produces a
+  confident, wrong, unfalsifiable explanation — and on a REAL past paper it also
+  misrepresents what the exam actually asked.
+  POSE IS NOT MEANING. A scientific figure means the same thing rotated, reflected or
+  redrawn. Two structures drawn differently may be the SAME compound; two drawn
+  identically apart from one wedge may be DIFFERENT compounds. Never reason from
+  page-orientation, and never treat a redrawing as a transformation — that is the
+  §13-4a reflex misapplied, and it is wrong here.
+  PRESERVE THE QUESTION'S OWN REPRESENTATION. Fischer stays Fischer; Newman stays
+  Newman; chair stays chair. Convert ONLY when the conversion IS what is being tested.
+  WHY WRONG for this family names the DOMAIN error (§9's scientific types), never a
+  merely visual difference: "the double bond is at C3 rather than C2" is the
+  explanation; "the shape differs" is not.
 
 # ════════════════════════════════════════════════════════════════════════
 # §13A — FIGURAL PRE-TRANSCRIPTION PASS (v1.2; MATERIALISE-THEN-INJECT)
@@ -1507,11 +1751,30 @@ present_files(deliverables)
 # ════════════════════════════════════════════════════════════════════════
 # §20 — END-OF-PAPER REPORT (after the FINAL batch; MANDATE-0 safe)
 # ════════════════════════════════════════════════════════════════════════
-  §R1 PROVENANCE: paper [date] [session] · spec v1.1 · engine 62/62 · timestamp ·
+  §R1 PROVENANCE: paper [date] [session] · THIS spec's version as read from its own
+      header · the engine self-test line EXACTLY as the engine printed it · timestamp ·
       EngineConfig (option count(s), label scheme, language, terminators).
+      v2.7 — BOTH VERSIONS ARE READ, NEVER PINNED. This line carried the literal
+      "spec v1.1 · engine 62/62" while the spec stood at v2.6 and the engine printed
+      78/78, misreporting the very thing provenance exists to record. Any exact count
+      written here goes stale the moment a fixture is added — the same failure mode as
+      GAP-2026-08-13-STALE-SELFTEST-PIN, which is why the GATE at P0 is floor form
+      (N >= 62). A report line is not a gate and must not become one: report what ran,
+      assert nothing.
   §R2 VERDICT: SHIP (delivered) / HALTED.
   §R3 COVERAGE: Q_TOTAL/Q_TOTAL explained · question-type split (mcq/msq/nat) ·
       SPEED HACK count · OMML count · per-class distribution.
+      REPRESENTATION (v2.7 — the §6A-3 distribution):
+        • verdict counts across PROSE / EQUATION / TABLE / STRUCTURE_GRAPH /
+          LEVEL_DIAGRAM / DATA_PLOT, plus Q-numbers for every non-PROSE verdict.
+        • figures declared vs figures landed (must be equal — §18 blocks otherwise).
+        • DEGRADE LEDGER: every §6A-4 step-down with the Q-number, the requirement
+          asked for, what it degraded to, and WHY (renderer absent / preflight failed /
+          §6A-5 validation mismatch / VOID_ITEM per §6A-2b). An EMPTY ledger is stated
+          explicitly as empty — a silent absence and a clean run must not look identical.
+      A distribution that is 100% PROSE on a diagram-heavy paper, or one emitting a
+      figure for nearly every question, is the signal this line exists to surface: both
+      mean the §6A-1 two-part test is not being applied. Report counts; do not editorialise.
   §R4 SELF-AUDIT (§18): verify_fidelity / verify_structure / math-render /
       count invariants / strip-re-audit / coverage — all clean.
   §R5 DERIVATION-CONFIDENCE: every Q where methods initially disagreed.
@@ -1694,5 +1957,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.6
+# END OF Framework_PYQExplain v2.7
 # ════════════════════════════════════════════════════════════════════════

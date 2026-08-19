@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 1698,
-      "sha256": "64d5a1f5c1f734d43027cd0f54ee18d9663ea3c2234cb5e804d172b72caf01ce",
-      "size_bytes": 114796,
-      "version_header": "# Framework_PYQExplain v2.6 — Universal PYQ Explanation Generator"
+      "lines": 1961,
+      "sha256": "05335b82272e5978bf0f836bb19b5b3ec417f2de52b38e50fda6f2caae7fb702",
+      "size_bytes": 136150,
+      "version_header": "# Framework_PYQExplain v2.7 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",

@@ -293,11 +293,11 @@
       "bytes": 45903
     },
     "Framework_PYQExplain.md": {
-      "sha256": "64d5a1f5c1f734d43027cd0f54ee18d9663ea3c2234cb5e804d172b72caf01ce",
-      "version_header": "# Framework_PYQExplain v2.6 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "05335b82272e5978bf0f836bb19b5b3ec417f2de52b38e50fda6f2caae7fb702",
+      "version_header": "# Framework_PYQExplain v2.7 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 1698,
-      "bytes": 114796
+      "lines": 1961,
+      "bytes": 136150
     },
     "Framework_PYQFormat.md": {
       "sha256": "e7710a2d865a2ed0c622b9130684d1760cac896b17259910059583df69708e91",
@@ -496,11 +496,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "5867400c278cdf01d4d74a9c41e367794681a1be3ffb97f4cc43b182b99d4f96",
+      "sha256": "3825742de83da8ef4bfb029041aa7758e9009c9cade309a0376a040494aeb9ac",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 6405,
-      "bytes": 175097
+      "lines": 6468,
+      "bytes": 176886
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "f60af3196199ca4d59e0da338aa58c4fc4cff5aaf43a4f61174bc337785d29e7",
