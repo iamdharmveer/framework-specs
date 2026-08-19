@@ -1,4 +1,27 @@
-# Framework_MockTestExplain v1.31.0
+# Framework_MockTestExplain v1.32.0
+# v1.32.0 — 2026-08-19 — GAP-2026-08-19-CONDITIONAL-CORRECTNESS (paired with PYQExplain
+#   v2.10). SPEC-ONLY, no engine change. Four rules covering the same underlying failure:
+#   an answer that is RIGHT IN GENERAL and WRONG HERE, because a condition, an
+#   assumption, a unit or a scope was never made explicit. Derive-twice does not catch
+#   this class — both routes can share the same silent premise.
+#   D1 — §7-0a CONDITION CAPTURE. Nothing required the SOLVER to read back the conditions
+#   a remembered result depends on. §9's `wrong_condition` names this failure in a
+#   DISTRACTOR only, which is a different obligation — the same error-type-standing-in-
+#   for-a-rule confusion that let two defects survive an earlier audit. Reference case:
+#   ozonolysis, where the WORK-UP alone decides between an aldehyde and a carboxylic acid.
+#   D2 — §7-0b ASSUMPTION LEDGER. Ideal gas, activity ~ concentration, small-x, spin-only,
+#   298 K, standard state. Three cases; only an assumption that MATERIALLY changes the
+#   answer reaches the reader, and it may never contradict the stem.
+#   D3 — §7-5 NUMERICAL VERIFICATION. Derive-twice catches a DIFFERENT-answer error, never
+#   a CONSISTENT one: both routes can share one unit slip, one log base, one power of ten.
+#   Seven orthogonal checks — units, conversions/kelvin, magnitude, log base, sign,
+#   stoichiometry, precision — run on the final value. A failure returns to §7-1, never to
+#   a patched number.
+#   D4 — §14-3b SHORTCUT VALIDITY DOMAIN. §14 tested whether a shortcut was DISTINCT and
+#   FASTER, never whether it was SCOPED. A SPEED HACK is the line a student memorises, so
+#   an unscoped one is the most damaging sentence in the block. Distinct from §8-0b:
+#   "a bulky base usually gives the less substituted alkene" is calibrated (passes §8-0b)
+#   and still unscoped (fails §14-3b) because it never says WHEN to reach for it.
 # v1.31.0 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-CONTENT-DISCIPLINE (paired with
 #   PYQExplain v2.9, engine v2.4). Three defects that were IDENTIFIED at the start of
 #   this work, survived every release since, and were nearly closed out unfixed: an
@@ -453,6 +476,16 @@
           visual must EARN its place on the §14 two-part test; the verdict is recorded
           per question and reported (§20). Quantitative steps render as ⟦MATH:⟧ math,
           never as verbalised arithmetic (§11 S11-1c).
+  RE-6b : CONDITIONS BEFORE RECALL (v1.32.0). Every condition a remembered result depends
+          on is read back from the stem and checked before the result is applied (§7-0a);
+          material assumptions are ledgered (§7-0b). A stated condition the DEDUCTION
+          never uses is a misread signal, not a spare part.
+  RE-6c : NUMERICAL VERIFICATION (v1.32.0). Every quantitative answer passes the §7-5
+          checks — units, conversions/kelvin, magnitude, log base, sign, stoichiometry,
+          precision — which derive-twice cannot catch because both routes can share one
+          silent slip.
+  RE-14b: SHORTCUTS ARE SCOPED (v1.32.0). Every SPEED HACK states the conditions under
+          which it is safe, inside the shortcut (§14-3b). Unscopable in one clause → OMIT.
   RE-9b : SUPPORTED VALUES ONLY (v1.31.0). Every number traces to the stem, a syllabus
           constant, or a shown derivation (§8-0a). No invented yields, ratios, constants,
           angles or conditions.
@@ -901,6 +934,12 @@
       one option (mcq) · the full correct set (msq) · the single value/range (nat) (§7)
   [ ] Factual content web-verified with a recorded source                         (RE-18)
   [ ] Class identified (§6); the right section LEADS; the rest compressed to one dense line
+  [ ] Conditions the stem supplies READ BACK and checked before applying any
+      remembered result; every stated condition actually used or re-read       (§7-0a)
+  [ ] Material assumptions ledgered; any that changes the answer is STATED     (§7-0b)
+  [ ] Quantitative? → §7-5 checks pass (units · kelvin · magnitude · log base ·
+      sign · stoichiometry · precision)                                        (§7-5)
+  [ ] SPEED HACK, if present, states the conditions under which it is safe    (§14-3b)
   [ ] Every number traces to stem / syllabus constant / shown derivation      (§8-0a)
   [ ] No absolute used for a tendency; no tendency used for a real absolute   (§8-0b)
   [ ] AXIOM states a TRUTH, not the task; no restatement of the question
@@ -1094,6 +1133,40 @@
 # §7 — ANSWER DERIVATION & VERIFICATION (no key delivered — derive it)
 # ════════════════════════════════════════════════════════════════════════
 
+## S7-0a — CAPTURE THE CONDITIONS BEFORE APPLYING ANY REMEMBERED RESULT (v1.32.0)
+  A named reaction, standard formula or remembered result is a CONDITIONAL claim. Before
+  applying one, read back from the stem every condition it depends on, and check the stem
+  actually supplies them. NEVER apply a remembered name while ignoring its conditions —
+  that is how a confident, fluent, WRONG answer gets produced, because the recalled name
+  is right and only the conditions differ.
+  CAPTURE, where the stem states them: solvent · temperature · pressure · pH · concentration
+  · catalyst · light · applied potential · ligand · atmosphere · ORDER of reagents ·
+  WORK-UP · state/phase · what is held constant.
+  The reference case: an ozonolysis question turns entirely on the WORK-UP. The same
+  substrate and the same ozone give an aldehyde under a reductive work-up and a carboxylic
+  acid under an oxidative one. A solver who recalls "ozonolysis cleaves the double bond"
+  and stops has recalled a true statement and will still answer wrongly half the time.
+  A condition the stem supplies but the DEDUCTION never uses is a warning sign: examiners
+  supply conditions because they DISCRIMINATE. If a stated condition changed nothing in
+  the reasoning, re-read the question before proceeding.
+  CROSS-STEP: §9's `wrong_condition` names this failure in a DISTRACTOR. This rule governs
+  the SOLVER. They are different obligations and neither substitutes for the other.
+
+## S7-0b — ASSUMPTION LEDGER (v1.32.0)
+  Record every approximation the derivation leans on, at the moment it is used. Typical:
+  ideal-gas behaviour · activity ~ concentration · dilute solution · complete dissociation
+  · negligible autoionisation · the small-x approximation · spin-only magnetic moment ·
+  ground state only · 298 K · standard state · frictionless/lossless · non-relativistic.
+  THREE CASES, and only the third reaches the reader:
+    1. The STEM supplies the assumption -> use it, no comment needed.
+    2. It is the settled convention at this exam's level and does NOT change the answer
+       -> use it silently.
+    3. It MATERIALLY affects the answer -> STATE IT in the explanation, in the step that
+       relies on it. A number that would differ under a different, equally defensible
+       assumption is not a fact; presenting it as one hides the choice from the learner.
+  An assumption may never CONTRADICT something the stem supplies. If it must, the stem
+  wins and the conflict is an ambiguity signal (§17).
+
 ## S7-1 — Derive-twice, never guess (every question, no exception — RE-6)
 
   1. FIRST PRINCIPLES: derive the answer using the correct method for the class.
@@ -1215,6 +1288,26 @@
   independently (anti-drift by design). Three independent copies computing the SAME
   deterministic function on the SAME true inputs is the intended redundancy (matches Step
   8's own pinned-copy pattern); three DIFFERENT implementations would not be.
+
+## S7-5 — NUMERICAL VERIFICATION (every quantitative answer, v1.32.0)
+  Derive-twice (§7-1) catches a DIFFERENT-ANSWER error. It does NOT catch a CONSISTENT
+  error: both routes can share one unit slip, one log base, one power of ten. These checks
+  are orthogonal to it and are run on the final value before the block is written.
+    [ ] UNITS — the result carries the unit the question asked for, and the working is
+        dimensionally consistent throughout (not merely at the end).
+    [ ] CONVERSIONS — every unit converted where the formula demands it; temperature in
+        KELVIN wherever the relation requires absolute temperature.
+    [ ] MAGNITUDE — the power of ten is sane for the quantity. A pH of 47, a rate constant
+        of 10^40, a bond length of 3 metres are arithmetic slips, not results.
+    [ ] LOGARITHM BASE — base 10 versus natural, matching the constant used with it. This
+        single confusion silently rescales by 2.303.
+    [ ] SIGN — the sign matches the physical direction (released/absorbed, spontaneous/
+        non-spontaneous, oxidation/reduction).
+    [ ] STOICHIOMETRY — the mole ratio comes from the BALANCED relation, and the equation
+        was balanced before it was used.
+    [ ] PRECISION — the answer is rounded exactly as the question asked, and no further.
+        Rounding is applied ONCE, at the end, never to an intermediate that is then reused.
+  A check that FAILS sends the question back to §7-1, never to a patched number.
 
 # ════════════════════════════════════════════════════════════════════════
 # §8 — SECTION QUALITY STANDARDS (the highest-standard contract per section)
@@ -1699,6 +1792,27 @@
   (strike every option failing one cheap test before doing the full per-option check) —
   include it when that cheap test genuinely removes options for free. This falls out of
   the TEST (§14-1/§14-2), never from hardcoded section ranges.
+
+## S14-3b — EVERY SHORTCUT CARRIES ITS VALIDITY DOMAIN (v1.32.0)
+  A SPEED HACK is the line a student memorises. That is what makes it useful and what
+  makes an unscoped one the most damaging sentence in the block: it is recalled verbatim,
+  under time pressure, in a question where its conditions do not hold.
+  So every SPEED HACK states — in the shortcut itself, not in a caveat afterwards — the
+  CONDITIONS under which it is safe. The scope is part of the shortcut, not an apology
+  attached to it.
+    NEVER : "a bulky base always gives the less substituted alkene"
+    WRITE : "when two beta-sites compete and the base is hindered, check the less
+             substituted alkene FIRST"
+  Note the difference from §8-0b. That rule bans stating a tendency as an absolute; this
+  one requires the SCOPE to be present at all. "A bulky base usually gives the less
+  substituted alkene" satisfies §8-0b and still fails here — it is calibrated but
+  unscoped, so it never tells the student WHEN to reach for it.
+  A SHORTCUT THAT CANNOT BE SCOPED IN ONE CLAUSE IS NOT A SHORTCUT. If stating the
+  conditions takes longer than the DEDUCTION, the honest outcome is to OMIT (§14-1) —
+  the §14 default has always been omit, never fake, and an over-broad shortcut is a
+  species of fake.
+  THE TEST: read the shortcut alone, stripped of the question. Could a student apply it
+  to a question where it is WRONG and never notice? If yes, it is unscoped — fix or omit.
 
 ## S14-4 — The honesty guard
   If you cannot state the SPECIFIC lever that saves SPECIFIC work, there is no SPEED HACK
@@ -2241,5 +2355,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.31.0
+# END OF Framework_MockTestExplain v1.32.0
 # ════════════════════════════════════════════════════════════════════════

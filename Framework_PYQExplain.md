@@ -1,4 +1,12 @@
-# Framework_PYQExplain v2.9 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.10 — Universal PYQ Explanation Generator
+# v2.10 — 2026-08-19 — GAP-2026-08-19-CONDITIONAL-CORRECTNESS (paired with
+#   MockTestExplain v1.32.0). SPEC-ONLY. Same four rules, so both explanation paths hold
+#   one standard; see MockTestExplain v1.32.0 for the full incident record.
+#   §7-0a CONDITION CAPTURE · §7-0b ASSUMPTION LEDGER · §7-5 NUMERICAL VERIFICATION ·
+#   §14-3b SHORTCUT VALIDITY DOMAIN.
+#   PYQ SHARPENS §7-0a: these are REAL past papers, so a condition the stem supplies was
+#   put there by the examining body to DISCRIMINATE. A stated condition that changed
+#   nothing in the derivation is strong evidence the question was misread.
 # v2.9 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-CONTENT-DISCIPLINE (paired with
 #   MockTestExplain v1.31.0, engine v2.4). Same three defects, same fixes, so the two
 #   explanation paths hold one standard. See MockTestExplain v1.31.0 for the full
@@ -314,6 +322,16 @@
           router after derivation and before writing. PROSE is the default; a visual is
           EARNED on the §14 two-part test. A VOID_ITEM figure can never produce a
           generated figure (§6A-2b). Verdicts are recorded and reported (§R3).
+  RE-6b : CONDITIONS BEFORE RECALL (v2.10). Every condition a remembered result depends
+          on is read back from the stem and checked before the result is applied (§7-0a);
+          material assumptions are ledgered (§7-0b). A stated condition the DEDUCTION
+          never uses is a misread signal, not a spare part.
+  RE-6c : NUMERICAL VERIFICATION (v2.10). Every quantitative answer passes the §7-5
+          checks — units, conversions/kelvin, magnitude, log base, sign, stoichiometry,
+          precision — which derive-twice cannot catch because both routes can share one
+          silent slip.
+  RE-14b: SHORTCUTS ARE SCOPED (v2.10). Every SPEED HACK states the conditions under
+          which it is safe, inside the shortcut (§14-3b). Unscopable in one clause → OMIT.
   RE-9b : SUPPORTED VALUES ONLY (v2.9). Every number traces to the stem, a syllabus
           constant, or a shown derivation (§8-0a).
   RE-9c : CALIBRATED LANGUAGE (v2.9). Absolutes only for claims absolute in the
@@ -659,6 +677,11 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   [ ] §6A representation router RUN; verdict recorded; PROSE unless the two-part test
       passed; VOID_ITEM → never a generated figure; any degrade disclosed         (§6A)
   [ ] Class identified (§6); the right section LEADS
+  [ ] Conditions READ BACK and checked before applying a remembered result (§7-0a)
+  [ ] Material assumptions ledgered; any that changes the answer is STATED (§7-0b)
+  [ ] Quantitative? → §7-5 checks pass (units · kelvin · magnitude · log base ·
+      sign · stoichiometry · precision)                                     (§7-5)
+  [ ] SPEED HACK, if present, states when it is safe                       (§14-3b)
   [ ] Every number traces to stem / syllabus constant / shown derivation   (§8-0a)
   [ ] No absolute used for a tendency; no tendency for a real absolute      (§8-0b)
   [ ] AXIOM states a TRUTH, not the task; no restatement
@@ -817,6 +840,40 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
 #   Same derive-twice contract as the mock pipeline. DERIVATION-CONFIDENCE for
 #   disagreements. NAT portal grading value via derive_nat_grading().
 
+## S7-0a — CAPTURE THE CONDITIONS BEFORE APPLYING ANY REMEMBERED RESULT (v2.10)
+  A named reaction, standard formula or remembered result is a CONDITIONAL claim. Before
+  applying one, read back from the stem every condition it depends on, and check the stem
+  actually supplies them. NEVER apply a remembered name while ignoring its conditions —
+  that is how a confident, fluent, WRONG answer gets produced, because the recalled name
+  is right and only the conditions differ.
+  CAPTURE, where the stem states them: solvent · temperature · pressure · pH · concentration
+  · catalyst · light · applied potential · ligand · atmosphere · ORDER of reagents ·
+  WORK-UP · state/phase · what is held constant.
+  The reference case: an ozonolysis question turns entirely on the WORK-UP. The same
+  substrate and the same ozone give an aldehyde under a reductive work-up and a carboxylic
+  acid under an oxidative one. A solver who recalls "ozonolysis cleaves the double bond"
+  and stops has recalled a true statement and will still answer wrongly half the time.
+  A condition the stem supplies but the DEDUCTION never uses is a warning sign: examiners
+  supply conditions because they DISCRIMINATE. If a stated condition changed nothing in
+  the reasoning, re-read the question before proceeding.
+  CROSS-STEP: §9's `wrong_condition` names this failure in a DISTRACTOR. This rule governs
+  the SOLVER. They are different obligations and neither substitutes for the other.
+
+## S7-0b — ASSUMPTION LEDGER (v2.10)
+  Record every approximation the derivation leans on, at the moment it is used. Typical:
+  ideal-gas behaviour · activity ~ concentration · dilute solution · complete dissociation
+  · negligible autoionisation · the small-x approximation · spin-only magnetic moment ·
+  ground state only · 298 K · standard state · frictionless/lossless · non-relativistic.
+  THREE CASES, and only the third reaches the reader:
+    1. The STEM supplies the assumption -> use it, no comment needed.
+    2. It is the settled convention at this exam's level and does NOT change the answer
+       -> use it silently.
+    3. It MATERIALLY affects the answer -> STATE IT in the explanation, in the step that
+       relies on it. A number that would differ under a different, equally defensible
+       assumption is not a fact; presenting it as one hides the choice from the learner.
+  An assumption may never CONTRADICT something the stem supplies. If it must, the stem
+  wins and the conflict is an ambiguity signal (§17).
+
 ## S7-1 — Derive-twice (RE-6)
 
   For every question: derive the answer from first principles (Method 1), then
@@ -894,6 +951,26 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
 
   PINNED: byte-identical to Framework_MockTestCreate.md §S7-NEW-C and
   audit_canonical.py's A-NAT-GRADE implementation.
+
+## S7-5 — NUMERICAL VERIFICATION (every quantitative answer, v2.10)
+  Derive-twice (§7-1) catches a DIFFERENT-ANSWER error. It does NOT catch a CONSISTENT
+  error: both routes can share one unit slip, one log base, one power of ten. These checks
+  are orthogonal to it and are run on the final value before the block is written.
+    [ ] UNITS — the result carries the unit the question asked for, and the working is
+        dimensionally consistent throughout (not merely at the end).
+    [ ] CONVERSIONS — every unit converted where the formula demands it; temperature in
+        KELVIN wherever the relation requires absolute temperature.
+    [ ] MAGNITUDE — the power of ten is sane for the quantity. A pH of 47, a rate constant
+        of 10^40, a bond length of 3 metres are arithmetic slips, not results.
+    [ ] LOGARITHM BASE — base 10 versus natural, matching the constant used with it. This
+        single confusion silently rescales by 2.303.
+    [ ] SIGN — the sign matches the physical direction (released/absorbed, spontaneous/
+        non-spontaneous, oxidation/reduction).
+    [ ] STOICHIOMETRY — the mole ratio comes from the BALANCED relation, and the equation
+        was balanced before it was used.
+    [ ] PRECISION — the answer is rounded exactly as the question asked, and no further.
+        Rounding is applied ONCE, at the end, never to an intermediate that is then reused.
+  A check that FAILS sends the question back to §7-1, never to a patched number.
 
 # ════════════════════════════════════════════════════════════════════════
 # §7A — PER-QUESTION DIFFICULTY ASSESSMENT (v1.1)
@@ -1561,6 +1638,27 @@ print(fv.vision_report_line(report))
   often the most shortcut-rich. MSQ (C-MULTI-SELECT): the classic shortcut is
   eliminate-by-the-most-discriminating-property.
 
+## S14-3b — EVERY SHORTCUT CARRIES ITS VALIDITY DOMAIN (v2.10)
+  A SPEED HACK is the line a student memorises. That is what makes it useful and what
+  makes an unscoped one the most damaging sentence in the block: it is recalled verbatim,
+  under time pressure, in a question where its conditions do not hold.
+  So every SPEED HACK states — in the shortcut itself, not in a caveat afterwards — the
+  CONDITIONS under which it is safe. The scope is part of the shortcut, not an apology
+  attached to it.
+    NEVER : "a bulky base always gives the less substituted alkene"
+    WRITE : "when two beta-sites compete and the base is hindered, check the less
+             substituted alkene FIRST"
+  Note the difference from §8-0b. That rule bans stating a tendency as an absolute; this
+  one requires the SCOPE to be present at all. "A bulky base usually gives the less
+  substituted alkene" satisfies §8-0b and still fails here — it is calibrated but
+  unscoped, so it never tells the student WHEN to reach for it.
+  A SHORTCUT THAT CANNOT BE SCOPED IN ONE CLAUSE IS NOT A SHORTCUT. If stating the
+  conditions takes longer than the DEDUCTION, the honest outcome is to OMIT (§14-1) —
+  the §14 default has always been omit, never fake, and an over-broad shortcut is a
+  species of fake.
+  THE TEST: read the shortcut alone, stripped of the question. Could a student apply it
+  to a question where it is WRONG and never notice? If yes, it is unscoped — fix or omit.
+
 ## S14-4 — The honesty guard
   If you cannot state the SPECIFIC lever that saves SPECIFIC work, there is no
   SPEED HACK — omit it. An empty or generic SPEED HACK is a defect — caught by
@@ -2080,5 +2178,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.9
+# END OF Framework_PYQExplain v2.10
 # ════════════════════════════════════════════════════════════════════════
