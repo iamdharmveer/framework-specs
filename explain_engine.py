@@ -87,6 +87,11 @@ class EngineConfig:
         }
         self.labels.setdefault('common_pitfalls', 'COMMON PITFALLS')
         self.labels.setdefault('accepted_range', 'accepted range')
+        # v2.4 — COVERAGE BANNER (GAP-2026-08-19-INTERIM-ARTEFACT-UNLABELLED).
+        # Language-configurable like every other label. The banner is a
+        # DOCUMENT-LEVEL line stating how much of the paper is explained; it is
+        # NOT part of any question region and NOT part of any explanation block.
+        self.labels.setdefault('coverage_banner', 'COVERAGE')
         self.markers = markers or {
             'axiom': '\u2b1b', 'deduction': '\u2b1b',
             'speed_hack': '\u26a1', 'why_wrong': '\u274c', 'common_pitfalls': '\u274c',
@@ -1518,17 +1523,53 @@ def source_math_health(path, cfg):
     return warns
 
 # ───────────────────────────── strip for re-audit ──────────────────────────
+def set_coverage_banner(out_path, cfg, text):
+    """v2.4 — write (or replace) the DOCUMENT-LEVEL coverage banner as the first
+    body paragraph, so an interim artefact declares its own state wherever it
+    travels. GAP-2026-08-19-INTERIM-ARTEFACT-UNLABELLED: coverage was announced
+    only in chat, so a partially-explained paper forwarded to a third party was
+    indistinguishable from a finished one.
+
+    Safe by construction against all three gates:
+      • verify_fidelity  — the banner is outside every question region, and
+        question regions are what that gate compares.
+      • strip_solutions  — removes it (below), so the questions-only copy stays
+        byte-equal to the Step-7 source and the §12-3 re-audit still passes.
+      • MANDATE 0        — the CALLER supplies the text and must keep it
+        content-free (counts and Q-ranges only, never stem/answer text).
+    Idempotent: re-running replaces the existing banner rather than stacking."""
+    doc = Document(out_path)
+    body = doc.element.body
+    prefix = cfg.labels['coverage_banner']
+    for child in list(body.iterchildren()):
+        if child.tag == qn('w:p'):
+            t = ''.join(x.text or '' for x in child.iter(qn('w:t'))).strip()
+            if t.startswith(prefix):
+                child.getparent().remove(child)
+    if text:
+        p = _new_para(cfg, 'banner', text=f'{prefix}: {text}', before=0, after=160,
+                      bold=True, color=cfg.colors.get('hdr'), math=False)
+        body.insert(0, p)
+    doc.save(out_path)
+    return out_path
+
 def strip_solutions(out_path, stripped_path, cfg):
     """Produce a questions-only copy (every appended explanation paragraph
-    removed) so the Step-2 paper auditor sees ONLY the paper (Conflict-3)."""
+    removed) so the Step-2 paper auditor sees ONLY the paper (Conflict-3).
+    v2.4: the document-level coverage banner is removed here too — it is
+    framework-added, not paper content, so leaving it would make the stripped
+    copy differ from the Step-7 source and fail the §12-3 re-audit."""
     doc = Document(out_path)
     body = doc.element.body
     ca_label = cfg.labels['correct_answer'].lower()
+    banner_prefix = cfg.labels['coverage_banner'].lower()
     in_expl = False
     to_remove = []
     for child in list(body.iterchildren()):
         if child.tag == qn('w:p'):
             txt = ''.join(t.text or '' for t in child.iter(qn('w:t'))).strip()
+            if txt.lower().startswith(banner_prefix):
+                to_remove.append(child); continue
             if cfg.q_re.match(txt):
                 in_expl = False
             elif txt.lower().startswith(ca_label + ':'):
@@ -2102,6 +2143,45 @@ def self_test():
     # 40 rels resolution: clean build has no dangling image rIds (A3)
     okrel, _ = verify_fidelity(oF, sF, cfgF)
     check('RELS-RESOLVE', okrel and not (_embed_ids(oF) - _rel_ids(oF)))
+
+    # ══ v2.4 COVERAGE BANNER (GAP-2026-08-19-INTERIM-ARTEFACT-UNLABELLED) ═════
+    _bsrc = os.path.join(tempfile.gettempdir(), 'st_bansrc.docx')
+    _bout = os.path.join(tempfile.gettempdir(), 'st_banout.docx')
+    _bstr = os.path.join(tempfile.gettempdir(), 'st_banstr.docx')
+    _cfgB = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
+    _make_sample_paper(_bsrc, _cfgB, nq=6)
+    _bb = ExplanationBlock(q=1, ca=4, cfg=_cfgB,
+        axiom=['A governing principle stated once.'],
+        deduction=['The first step.', 'The second step gives Option 4.'],
+        why_wrong={1: ['value_swap - a.'], 2: ['sign_error - b.'], 3: ['unit_error - c.']})
+    build_interleaved_docx(_bsrc, [_bb], _bout, _cfgB)
+    set_coverage_banner(_bout, _cfgB, 'Batch 1 of 6 - Q1..Q1 explained of 6. NOT FINAL.')
+    _btxt = [p.text for p in Document(_bout).paragraphs]
+    check('BANNER-PRESENT-FIRST', _btxt and _btxt[0].startswith(
+        _cfgB.labels['coverage_banner']))
+    # The banner must not disturb the gates the paper already passes.
+    _okbf, _ = verify_fidelity(_bout, _bsrc, _cfgB)
+    _okbs, _ = verify_structure(_bout, [_bb], _cfgB, expected_qs=[1])
+    _okbe, _ = verify_explanations(_bout, [_bb], _cfgB, expected_qs=[1])
+    check('BANNER-GATES-UNAFFECTED', _okbf and _okbs and _okbe)
+    # STRIP MUST REMOVE IT — otherwise the questions-only copy differs from the
+    # Step-7 source and the §12-3 re-audit fails. This is the whole reason the
+    # banner needed engine support rather than spec text alone.
+    strip_solutions(_bout, _bstr, _cfgB)
+    _sp = [p.text for p in Document(_bstr).paragraphs]
+    _op = [p.text for p in Document(_bsrc).paragraphs]
+    check('BANNER-STRIPPED-CLEAN', _sp == _op)
+    # Idempotent: re-setting replaces, never stacks.
+    set_coverage_banner(_bout, _cfgB, 'Batch 2 of 6 - Q1..Q2 explained of 6. NOT FINAL.')
+    _b2 = [p.text for p in Document(_bout).paragraphs]
+    check('BANNER-IDEMPOTENT',
+          sum(1 for t in _b2 if t.startswith(_cfgB.labels['coverage_banner'])) == 1
+          and 'Batch 2 of 6' in _b2[0])
+    # Removable (final delivery may drop it).
+    set_coverage_banner(_bout, _cfgB, None)
+    _b3 = [p.text for p in Document(_bout).paragraphs]
+    check('BANNER-REMOVABLE',
+          not any(t.startswith(_cfgB.labels['coverage_banner']) for t in _b3))
 
     # ══ v2.3 FIGURE EMISSION (GAP-2026-08-19-EXPLAIN-REPRESENTATION-EMISSION) ═
     _figpng = os.path.join(tempfile.gettempdir(), 'st_fig.png')

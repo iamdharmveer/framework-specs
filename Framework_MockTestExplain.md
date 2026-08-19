@@ -1,4 +1,34 @@
-# Framework_MockTestExplain v1.30.0
+# Framework_MockTestExplain v1.31.0
+# v1.31.0 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-CONTENT-DISCIPLINE (paired with
+#   PYQExplain v2.9, engine v2.4). Three defects that were IDENTIFIED at the start of
+#   this work, survived every release since, and were nearly closed out unfixed: an
+#   internal audit reported them CLOSED on loose keyword matches that hit adjacent
+#   text. A test that can only pass is not a test.
+#   D1 — NO RULE AGAINST INVENTED PRECISION. A delivered explanation asserted a major
+#   product forms "in about 70 percent yield" — a figure the stem never supplied, the
+#   syllabus never fixes, and no step derived. Nothing in this spec forbade it. The
+#   earlier audit passed this on §9's `overgeneralised_rule`, which is a DISTRACTOR
+#   error type describing how a wrong OPTION fails — it says nothing about what the
+#   explanation itself may assert. NEW §8-0a: every number traces to the stem, a
+#   syllabus constant, or a shown derivation; nothing else may be written.
+#   D2 — NO RULE AGAINST ABSOLUTE LANGUAGE. The same explanation said a bulky base
+#   "cannot approach" the hindered hydrogens. It demonstrably can; it is disfavoured,
+#   and the question turns entirely on the competition between two ACCESSIBLE
+#   pathways — so the absolute destroyed the reasoning being taught. Zero rules
+#   existed. NEW §8-0b: absolutes are reserved for claims absolute in the subject's
+#   own terms; tendencies take calibrated language.
+#   D3 — THE ARTEFACT DID NOT DECLARE ITS OWN STATE. Coverage was announced only in
+#   the chat progress line (§S19-3), so the FILE said nothing. A legitimate mid-run
+#   Batch-1 artefact carrying 10 of 60 explanations is byte-indistinguishable from a
+#   finished paper once it leaves the conversation — and in the reference incident it
+#   was reviewed as finished, the review's central complaint being the 50 questions
+#   the batch had not yet reached. NEW §12-4 + engine v2.4 set_coverage_banner().
+#   ENGINE SUPPORT WAS REQUIRED FOR D3, AND THAT WAS VERIFIED BEFORE THE RULE WAS
+#   WRITTEN: with a banner present, verify_fidelity still PASSES (it sits outside
+#   every question region) but strip_solutions leaves it, so the questions-only copy
+#   diverges from the Step-7 source and the §12-3 re-audit FAILS. Engine v2.4 strips
+#   it; five self-tests lock presence, gate-neutrality, stripping, idempotence and
+#   removal (83/83).
 # v1.30.0 — 2026-08-19 — GAP-2026-08-19-STALE-PIN-SWEEP (paired with PYQExplain v2.8).
 #   SPEC-ONLY, no engine change. A CLASS SWEEP, not four incidents: v1.29.0 de-pinned
 #   the §R1 report line and stopped, leaving the SAME defect standing in every other
@@ -423,6 +453,12 @@
           visual must EARN its place on the §14 two-part test; the verdict is recorded
           per question and reported (§20). Quantitative steps render as ⟦MATH:⟧ math,
           never as verbalised arithmetic (§11 S11-1c).
+  RE-9b : SUPPORTED VALUES ONLY (v1.31.0). Every number traces to the stem, a syllabus
+          constant, or a shown derivation (§8-0a). No invented yields, ratios, constants,
+          angles or conditions.
+  RE-9c : CALIBRATED LANGUAGE (v1.31.0). Absolutes only for claims absolute in the
+          subject's own terms; tendencies take calibrated terms (§8-0b). Applies to
+          WHY WRONG as much as to AXIOM.
   RE-14 : SPEED HACK ONLY WHEN GENUINELY FASTER. Emit iff a structurally-different route
           reaches the same CA with materially less work; otherwise OMIT — never pad (§14).
   RE-15 : NO TEMPLATES / GLYPHS / FAKE-CITES / METACOMMENTARY / BANNED BLOCKS. Engine-
@@ -865,6 +901,8 @@
       one option (mcq) · the full correct set (msq) · the single value/range (nat) (§7)
   [ ] Factual content web-verified with a recorded source                         (RE-18)
   [ ] Class identified (§6); the right section LEADS; the rest compressed to one dense line
+  [ ] Every number traces to stem / syllabus constant / shown derivation      (§8-0a)
+  [ ] No absolute used for a tendency; no tendency used for a real absolute   (§8-0b)
   [ ] AXIOM states a TRUTH, not the task; no restatement of the question
   [ ] DEDUCTION last step binds the answer: "Option L(ca)" (mcq) · every selected
       "Option L(i)" (msq) · the value string (nat); each step shows its value
@@ -1187,6 +1225,48 @@
 #   facts fails the content floor (v1.21.0: the no-restatement rule is enforced by the
 #   writer alone — no audit step re-reads it).
 
+## S8-0 — TWO CONTENT DISCIPLINES THAT BIND EVERY SECTION (vv1.31.0)
+  These govern AXIOM, DEDUCTION, SPEED HACK and WHY WRONG / COMMON PITFALLS alike.
+  Both were found in a delivered chemistry paper and both had NO rule against them.
+
+### S8-0a — SUPPORTED VALUES ONLY (no invented precision)
+  EVERY number an explanation asserts must come from ONE of exactly three places:
+    1. the STEM (or its figure/table), 2. a constant the syllabus establishes, or
+    3. a value DERIVED in the explanation itself, with the derivation shown.
+  A number from none of those is INVENTED and must not be written. The reference
+  defect: an elimination explanation asserted the major product forms "in about 70
+  percent yield" — a figure the stem never gave, the syllabus never fixes, and no step
+  derived. It reads as authoritative and is unfalsifiable by the learner.
+  BANNED unless supplied or derived: product yields and percentages, selectivity
+  ratios, equilibrium/rate constants, exact bond angles and lengths, spectral
+  positions, industrial temperatures and pressures.
+  THE TEST — ask of every number: "where would a student LOOK to check this?" If the
+  answer is not the stem, the syllabus, or a line above it, delete it. Deleting costs
+  nothing: "the terminal alkene predominates" carries the entire teaching point that
+  "forms in about 70 percent yield" was pretending to add.
+  QUALITATIVE CLAIMS ARE NOT EXEMPT. "Much faster", "far more stable" are comparative
+  claims; state the comparison's BASIS (the structural or energetic reason), not a
+  magnitude the explanation cannot support.
+
+### S8-0b — CALIBRATED LANGUAGE (a tendency is not an impossibility)
+  Real systems express TENDENCIES. Stating a tendency as an absolute teaches a false
+  rule that fails the student the first time they meet the exception.
+  Reserve ABSOLUTES — impossible, forbidden, never, always, cannot — for claims that
+  are absolute in the subject's own terms: a conservation law, a symmetry-forbidden
+  process, a definition, a mathematical impossibility.
+  Use CALIBRATED terms for everything else: predominates, is favoured, is disfavoured,
+  is the minor pathway, is sterically hindered, is slower under these conditions.
+  The reference defect: "a bulky base CANNOT approach the shielded hydrogens" — it
+  demonstrably can, it is simply disfavoured, and the whole question turns on a
+  competition between two accessible pathways. Writing it as impossible destroys the
+  very reasoning the question tests.
+  WHY WRONG IS NOT EXEMPT — arguably it matters more there. A distractor is usually
+  wrong because it is DISFAVOURED or MISAPPLIED, not because it is impossible; saying
+  a plausible option "cannot" happen leaves the student unable to see why anyone chose
+  it. Name the condition under which it WOULD be right, then why it is not right here.
+  A GENUINE absolute must still be stated absolutely — hedging a real impossibility is
+  the same failure in the other direction.
+
 ## S8-1 — Correct Answer
   Role: the one line the student trusts absolutely; the most dangerous line in the
   pipeline. Standard: INDEX/VALUE ONLY, in the paper's own label scheme, no option text —
@@ -1465,6 +1545,31 @@
   • COUNT INVARIANTS: output question count, options/question, image count, table count
     and OMML count == the Step-7 input exactly. v1.21.0: nothing re-verifies these
     counts downstream — this per-batch check is the only one that runs.
+
+## S12-4 — INTERIM COVERAGE BANNER (vv1.31.0 — the artefact declares its own state)
+  EVERY delivered .docx carries a DOCUMENT-LEVEL coverage banner as its first line,
+  written via explain_engine.set_coverage_banner() (engine v2.4).
+  WHY THIS EXISTS. Coverage was announced only in the chat progress line, so the FILE
+  said nothing about itself. A partially-explained paper — a legitimate mid-run
+  artefact under the batch law — is byte-for-byte indistinguishable from a finished
+  one the moment it leaves the conversation. In the reference incident a Batch-1 file
+  carrying 10 of 60 explanations was reviewed by a third party as a completed
+  document, and the review's central complaint was simply the 50 questions the batch
+  had not reached yet. The chat line was correct and did not travel with the file.
+  CONTENT — MANDATE-0 SAFE, counts and ranges ONLY, never stem or answer text:
+    interim : "Batch k of K - Q[a]..Q[b] explained of [Q_TOTAL]. NOT FINAL - further
+               batches pending."
+    final   : "Complete - all [Q_TOTAL] questions explained."
+  The banner is REPLACED each batch, never stacked (set_coverage_banner is
+  idempotent), and the final batch overwrites the interim wording.
+  WHY IT NEEDED ENGINE SUPPORT, not spec text alone: a banner is framework-added
+  content, not paper content, so strip_solutions() MUST remove it — otherwise the
+  questions-only copy differs from the Step-7 source and the §12-3 re-audit fails.
+  That was verified empirically before this rule was written: with the banner present
+  and unstripped, verify_fidelity still PASSES (the banner sits outside every question
+  region) while the strip comparison FAILS. Engine v2.4 strips it; the self-test
+  BANNER-STRIPPED-CLEAN locks that, and BANNER-GATES-UNAFFECTED locks that fidelity,
+  structure and explanation verification are all undisturbed by its presence.
 
 # ════════════════════════════════════════════════════════════════════════
 # §13 — FIGURAL DEEP-ANALYSIS PROTOCOL (view every image — no exception)
@@ -1762,6 +1867,9 @@
       FAIL; a figure dropped by §6A-4 degrade is REMOVED from the block (so declared
       == landed == the degraded count) AND disclosed in the report, never left
       declared-but-missing.
+  [ ] COVERAGE BANNER set for this batch via set_coverage_banner(); wording states
+      batch k of K and the explained range; strip_solutions still yields a copy
+      byte-equal to the Step-7 source (§12-4 / §12-3)
   [ ] count invariants: image / table / OMML / question / option counts == Step-7 input
   [ ] strip-and-re-audit: questions-only copy passes the Step-7 auditor identically (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
@@ -2133,5 +2241,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.30.0
+# END OF Framework_MockTestExplain v1.31.0
 # ════════════════════════════════════════════════════════════════════════
