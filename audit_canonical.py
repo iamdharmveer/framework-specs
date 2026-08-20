@@ -15,6 +15,12 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.14 — 2026-08-20 — GAP-2026-08-20-AUDITOR-OPTN-DIAGNOSIS (run-report F4). A-OPTN
+# run without --registry on a NAT-bearing paper still FAILS (ND6: no contract, no
+# certificate) but now SAYS so — 'NOT ASSESSABLE without the option contract … re-run
+# with --registry --blueprint --rules --manifest --mockN' — instead of the plain
+# 'wrong count: Q41:0 …' that was indistinguishable from a defective paper. Verdict
+# LEVEL unchanged; only the diagnosis. Fixtures 3b.
 # v2.6 — adds the S5-1A COMPLETION GATE (--audit-state): after Part A, validates
 # the Phase-2 audit_state ledger (C1-C7) and the on-disk evidence artefacts each
 # stamp names, so a skipped/collapsed Phase 2 fails LOUDLY instead of shipping.
@@ -821,8 +827,30 @@ def gate_options(blocks, src):
         nonempty = [x for x in texts if x]
         if len(nonempty) == oc and len(set(nonempty)) != oc:
             bad_uni.append(f'Q{b.qnum}')
-    (_ok if not bad_n else _fail)('A-OPTN',
-        f'every Q has {oc} options.' if not bad_n else 'wrong count: ' + _flist(bad_n))
+    # v2.14 (GAP-2026-08-20-AUDITOR-OPTN-DIAGNOSIS, run-report F4). Without
+    # --registry there is no options_by_q, so NAT questions are NOT skipped and
+    # this gate FAILS on every one of them. That FAIL is DELIBERATE (ND6: a run
+    # that cannot see the option contract must not certify a NAT paper) and it
+    # stays a FAIL — but it was indistinguishable from a defective paper: an
+    # operator spot-checking a clean 60-question paper saw "A-OPTN FAIL: Q41..Q60
+    # wrong count" and nothing else. The verdict now SAYS which case it is.
+    # Only a ZERO-option Q is ambiguous without the contract (NAT renders 0;
+    # a short MCQ renders some). A paper with no zero-option Qs keeps the plain
+    # 'wrong count' verdict — it is short options, contract or not.
+    _no_contract = (not obq) and any(x.endswith(':0') for x in bad_n)
+    _zero_only = _no_contract and all(x.endswith(':0') for x in bad_n)
+    if _no_contract:
+        _msg = ('NOT ASSESSABLE without the option contract — no --registry '
+                'supplied, so per-question expected counts (options_by_q) are '
+                'unknown; ' + ('every flagged Q renders 0 options, the NAT shape' if
+                _zero_only else 'some flagged Qs render 0 options (NAT shape), '
+                'others too few') + '. Re-run '
+                'with --registry --blueprint --rules --manifest --mockN (the S13-4c '
+                're-sweep invocation). Flagged: ' + _flist(bad_n))
+        _fail('A-OPTN', _msg)
+    else:
+        (_ok if not bad_n else _fail)('A-OPTN',
+            f'every Q has {oc} options.' if not bad_n else 'wrong count: ' + _flist(bad_n))
     (_ok if not bad_lab else _fail)('A-OPTLABEL',
         'labels match format.' if not bad_lab else 'bad label family: ' + _flist(bad_lab))
     (_ok if not bad_ord else _fail)('A-OPTORDER',
@@ -3814,6 +3842,28 @@ def self_test():
     p = _mini_doc(tmp, b_3opt); _reset()
     _t, bl = parse_blocks(Document(p)); gate_options(bl, _src_stub(tq=1))
     check('A-OPTN-catch', any(c == 'A-OPTN' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 3b. v2.14 F4 — A-OPTN without --registry on a NAT-shaped Q: still FAIL
+    #     (ND6, never silent), but the verdict names the missing contract and the
+    #     re-sweep invocation; WITH the contract the same Q passes; a genuinely
+    #     short MCQ keeps the plain 'wrong count' wording.
+    def b_nat_q(d): _add_q(d, 1, opts=())
+    p = _mini_doc(tmp, b_nat_q); _reset()
+    _t, bl = parse_blocks(Document(p)); gate_options(bl, _src_stub(tq=1))
+    _r = [(l, m) for l, c, m in RESULTS if c == 'A-OPTN']
+    check('A-OPTN-no-contract-still-fails', _r and _r[0][0] == 'FAIL')
+    check('A-OPTN-no-contract-names-registry',
+          _r and 'NOT ASSESSABLE' in _r[0][1] and '--registry' in _r[0][1]
+          and 'NAT shape' in _r[0][1])
+    _reset(); _sc = _src_stub(tq=1); _sc['options_by_q'] = {'1': 0}
+    gate_options(bl, _sc)
+    check('A-OPTN-with-contract-passes',
+          any(c == 'A-OPTN' and l == 'OK' for l, c, _ in RESULTS))
+    _reset(); _t, bl3 = parse_blocks(Document(_mini_doc(tmp, b_3opt)))
+    gate_options(bl3, _src_stub(tq=1))
+    check('A-OPTN-short-mcq-keeps-plain-wording',
+          any(c == 'A-OPTN' and l == 'FAIL' and 'wrong count' in m
+              and 'NOT ASSESSABLE' not in m for l, c, m in RESULTS))
 
     # 4. A-OPTUNIQUE catches duplicate options
     def b_dupopt(d): _add_q(d, 1, opts=('Same', 'Same', 'B', 'C'))

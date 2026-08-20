@@ -1804,7 +1804,8 @@
   • STRIP-AND-RE-AUDIT: strip_solutions() produces a questions-only copy; the Step-7
     paper auditor runs on THAT (never the combined doc — running it raw scans
     explanation prose as paper content and false-alarms). It must pass identically to
-    the Step-7 input.
+    the Step-7 input. INVOKE IT WITH THE FULL CONTRACT — --registry --blueprint
+    --rules --manifest --mockN — or A-OPTN fails NOT ASSESSABLE on every NAT Q (F4).
   • COUNT INVARIANTS: output question count, options/question, image count, table count
     and OMML count == the Step-7 input exactly. v1.21.0: nothing re-verifies these
     counts downstream — this per-batch check is the only one that runs.

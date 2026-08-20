@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026.08.20.6 — GAP-2026-08-20-AUDITOR-OPTN-DIAGNOSIS: A-OPTN says when it cannot assess
+
+**`audit_canonical.py` v2.14 (self-test 248 -> 252), `Framework_MockTestExplain.md` §12-3 one
+sentence (version unchanged, v1.36.0).** Run-report F4.
+
+### The defect
+Run without `--registry`, the exam auditor has no `options_by_q`, so NAT questions are not
+skipped and A-OPTN reports `FAIL wrong count: Q41:0 … Q60:0` on a clean paper — the same
+message a defective paper would produce. The FAIL itself is deliberate (ND6: a run that cannot
+see the option contract must not certify a NAT paper); the indistinguishability was the defect.
+
+### What changed
+- A-OPTN keeps FAIL but, when zero-option questions are flagged and no contract was supplied,
+  the verdict reads `NOT ASSESSABLE without the option contract — no --registry … re-run with
+  --registry --blueprint --rules --manifest --mockN`. A genuinely short MCQ keeps the plain
+  `wrong count` wording; with the contract the same paper passes.
+- §12-3 (MockTestExplain) names the full invocation for the strip re-audit.
+- 4 fixtures. Exam projects receive the new wording when Step 6 next copies the auditor, or by
+  replacing `[ExamCode]_mock_test_audit.py` with this file.
+
+### Evidence
+Mock 01 questions-only docx: bare run → `NOT ASSESSABLE … every flagged Q renders 0 options, the
+NAT shape`; full-contract run → `A-OPTN ok, every Q has 4 options`, RESULT PASS.
+
 ## 2026.08.20.5 — GAP-2026-08-20-FIGURAL-INK-CENSUS: the figure census must agree with the pixels
 
 **`figural_core.py` v5.55 -> v5.57 engine tag (self-test 103 -> 117), `Framework_MockTestCreate`

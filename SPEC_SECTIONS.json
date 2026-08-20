@@ -2905,15 +2905,15 @@
       ]
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "05f5b045b08087e1c0cad08b96a0dc06ba9e7161fb3b6857dbf1c7050e73d401",
-      "lines": 2619,
-      "bytes": 204175,
-      "est_tokens": 51043,
+      "sha256": "40d8f5d0141748f1773b5e0bf6c0bdcb12857c11042b0aecc3f138cf634dfebe",
+      "lines": 2620,
+      "bytes": 204322,
+      "est_tokens": 51080,
       "view_calls": 13,
       "bash_calls": 2,
       "has_read_set": false,
-      "reduced_bytes": 204175,
-      "reduced_est_tokens": 51043,
+      "reduced_bytes": 204322,
+      "reduced_est_tokens": 51080,
       "reduced_bash_calls": 2,
       "final_only_titles": [],
       "sections": [
@@ -3298,203 +3298,203 @@
         {
           "title": "## S12-3 — Two independent confirmations (beyond the fidelity diff)",
           "start": 1803,
-          "end": 1811,
-          "lines": 9,
-          "bytes": 593
+          "end": 1812,
+          "lines": 10,
+          "bytes": 740
         },
         {
           "title": "## S12-4 — INTERIM COVERAGE BANNER (vv1.31.0 — the artefact declares its own state)",
-          "start": 1812,
-          "end": 1843,
+          "start": 1813,
+          "end": 1844,
           "lines": 32,
           "bytes": 2637
         },
         {
           "title": "## S13-1 — Detect figural questions structurally",
-          "start": 1844,
-          "end": 1868,
+          "start": 1845,
+          "end": 1869,
           "lines": 25,
           "bytes": 1914
         },
         {
           "title": "## S13-2 — Extract, role-bind, view (the gate before solving)",
-          "start": 1869,
-          "end": 1875,
+          "start": 1870,
+          "end": 1876,
           "lines": 7,
           "bytes": 423
         },
         {
           "title": "## S13-3 — Derive from the images, NOT the manifest",
-          "start": 1876,
-          "end": 1886,
+          "start": 1877,
+          "end": 1887,
           "lines": 11,
           "bytes": 788
         },
         {
           "title": "## S13-4 — Write what is visible; never anomaly-for-figural (BOTH families)",
-          "start": 1887,
-          "end": 1894,
+          "start": 1888,
+          "end": 1895,
           "lines": 8,
           "bytes": 572
         },
         {
           "title": "## S13-4a — TRANSFORMATION-PUZZLE family (unchanged behaviour)",
-          "start": 1895,
-          "end": 1900,
+          "start": 1896,
+          "end": 1901,
           "lines": 6,
           "bytes": 355
         },
         {
           "title": "## S13-4b — SCIENTIFIC-DIAGRAM family (v1.29.0)",
-          "start": 1901,
-          "end": 1938,
+          "start": 1902,
+          "end": 1939,
           "lines": 38,
           "bytes": 3064
         },
         {
           "title": "## S14-1 — The two-part test (BOTH must pass, else omit)",
-          "start": 1939,
-          "end": 1957,
+          "start": 1940,
+          "end": 1958,
           "lines": 19,
           "bytes": 1410
         },
         {
           "title": "## S14-2 — The operational proxy (applied per question at solve time)",
-          "start": 1958,
-          "end": 1962,
+          "start": 1959,
+          "end": 1963,
           "lines": 5,
           "bytes": 336
         },
         {
           "title": "## S14-3 — Where shortcuts live vs do not",
-          "start": 1963,
-          "end": 1976,
+          "start": 1964,
+          "end": 1977,
           "lines": 14,
           "bytes": 1075
         },
         {
           "title": "## S14-3b — EVERY SHORTCUT CARRIES ITS VALIDITY DOMAIN (v1.32.0)",
-          "start": 1977,
-          "end": 1999,
+          "start": 1978,
+          "end": 2000,
           "lines": 23,
           "bytes": 1658
         },
         {
           "title": "## S14-4 — The honesty guard",
-          "start": 2000,
-          "end": 2004,
+          "start": 2001,
+          "end": 2005,
           "lines": 5,
           "bytes": 266
         },
         {
           "title": "## S14-5 — ELIGIBILITY IS RECORDED; THE DISTRIBUTION IS A TRIPWIRE (v1.35.0)",
-          "start": 2005,
-          "end": 2031,
+          "start": 2006,
+          "end": 2032,
           "lines": 27,
           "bytes": 2314
         },
         {
           "title": "## S15-1 — The rule that kills templating",
-          "start": 2032,
-          "end": 2038,
+          "start": 2033,
+          "end": 2039,
           "lines": 7,
           "bytes": 404
         },
         {
           "title": "## S15-2 — Four hard requirements per wrong option / value",
-          "start": 2039,
-          "end": 2053,
+          "start": 2040,
+          "end": 2054,
           "lines": 15,
           "bytes": 1072
         },
         {
           "title": "## S15-3 — Class- and type-specific shape (never generic across types)",
-          "start": 2054,
-          "end": 2081,
+          "start": 2055,
+          "end": 2082,
           "lines": 28,
           "bytes": 2381
         },
         {
           "title": "## S16-1 — The causes",
-          "start": 2082,
-          "end": 2087,
+          "start": 2083,
+          "end": 2088,
           "lines": 6,
           "bytes": 335
         },
         {
           "title": "## S16-2 — The defences (none weakens as the mock lengthens)",
-          "start": 2088,
-          "end": 2118,
+          "start": 2089,
+          "end": 2119,
           "lines": 31,
           "bytes": 2701
         },
         {
           "title": "## S17-1 — The burden of proof is inverted (RE-12)",
-          "start": 2119,
-          "end": 2127,
+          "start": 2120,
+          "end": 2128,
           "lines": 9,
           "bytes": 647
         },
         {
           "title": "## S17-2 — \"Wrong\" must be specific and reproducible",
-          "start": 2128,
-          "end": 2133,
+          "start": 2129,
+          "end": 2134,
           "lines": 6,
           "bytes": 393
         },
         {
           "title": "## S17-3 — Step 9 does NOT fix, and almost never declares",
-          "start": 2134,
-          "end": 2143,
+          "start": 2135,
+          "end": 2144,
           "lines": 10,
           "bytes": 674
         },
         {
           "title": "## S17-4 — Why this cannot become lazy defect-calling",
-          "start": 2144,
-          "end": 2157,
+          "start": 2145,
+          "end": 2158,
           "lines": 14,
           "bytes": 1234
         },
         {
           "title": "## S18-1 — The checklist (all must hold before present_files — MANDATE D)",
-          "start": 2158,
-          "end": 2225,
+          "start": 2159,
+          "end": 2226,
           "lines": 68,
           "bytes": 5344
         },
         {
           "title": "## S18-2 — THERE IS NO INDEPENDENT GATE (v1.21.0 — stated, not hidden)",
-          "start": 2226,
-          "end": 2247,
+          "start": 2227,
+          "end": 2248,
           "lines": 22,
           "bytes": 1841
         },
         {
           "title": "## S19-1 — Pre-delivery checklist (MANDATORY before present_files)",
-          "start": 2248,
-          "end": 2273,
+          "start": 2249,
+          "end": 2274,
           "lines": 26,
           "bytes": 1363
         },
         {
           "title": "## S19-2 — The single present_files call (per batch)",
-          "start": 2274,
-          "end": 2301,
+          "start": 2275,
+          "end": 2302,
           "lines": 28,
           "bytes": 1489
         },
         {
           "title": "## S19-3 — Progress line + confirmation request (ENDS the turn — MANDATE B)",
-          "start": 2302,
-          "end": 2308,
+          "start": 2303,
+          "end": 2309,
           "lines": 7,
           "bytes": 526
         },
         {
           "title": "## S19-4 — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 2309,
-          "end": 2619,
+          "start": 2310,
+          "end": 2620,
           "lines": 311,
           "bytes": 25211
         }
