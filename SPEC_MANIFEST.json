@@ -170,9 +170,9 @@
     },
     "audit_callgraph.py": {
       "end_sentinel": "    sys.exit(main(sys.argv))",
-      "lines": 1481,
-      "sha256": "1aa11ea1a93d82e443b154c673ab8818a1c4b8fe4015966ec500e5f648604f40",
-      "size_bytes": 76265,
+      "lines": 1567,
+      "sha256": "4332d5c49b7852d2f414ba7cb4214f2998a8d38859c9f80b197d94b392518534",
+      "size_bytes": 81776,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_canonical.py": {

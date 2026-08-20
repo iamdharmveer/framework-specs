@@ -1,5 +1,84 @@
 # Changelog
 
+## 2026.08.20.7 — audit_callgraph C8 was reporting 60 valid fences as unparseable
+
+**`audit_callgraph.py` only.** No spec changes, no engine changes, **no artefact values
+change** — verified byte-identical against the golden set from deployed `2026.08.19.3`.
+
+### The defect
+
+`c8_fence_discipline` parsed the **raw** fence body:
+
+    ast.parse(body)
+
+Every other extractor in this corpus dedents first — `python_blocks()`, four functions
+above it in the same file, does — which is why C1–C6 were never blind. C8 alone did not,
+so a fence whose ` ``` ` marker and body are BOTH indented raised `unexpected indent` and
+C8 declared it uninspectable.
+
+**Measured on deployed `2026.08.20.6`: 60 fences failed C8's raw parse, and ALL 60 parse
+once dedented.** 55 of them are in `Framework_MockTestCreate.md`.
+
+That is **60 of this check's 89 warnings — two thirds of its entire output, every one of
+them false.** A warning list that is two thirds noise is a warning list nobody reads,
+which is the failure mode C8 exists to prevent. After the fix: **89 → 29 warnings, zero
+parse failures, 0 findings.** The 29 that remain are the real signal — untagged fences
+carrying routed-engine calls — and they are now legible.
+
+### It was also a latent false build failure
+
+Fifteen lines below the parse, a fence that fails to parse **and** carries an
+injection-point call is not a warning but a **blocking** finding that says *"Fix the
+syntax."* Zero of the 60 carry such a call today, so the build was green by luck. Adding
+one engine call to any of those 55 Step-7 fences would have failed the build and sent the
+author to fix syntax that was already correct.
+
+### Correction: I reported this as 2 fences, not 60
+
+The pending-issues list I produced before this batch said C8 emitted *"two false parse
+warnings"*. It emits **sixty**. The printed output caps at 8 warnings with `... and 81
+more`, and I counted what was printed instead of what was counted.
+
+This is the same error as the "four auditors" claim corrected in `2026.08.20.3`: reading
+a truncated sample and reporting it as the whole. Twice now the mistake has been trusting
+a display rather than a measurement. The fix both times was to run the numbers separately
+and print them — which is what the tables in this entry are.
+
+### Fixtures
+
+Four, crossing the two axes that matter — indented vs genuinely broken, with vs without an
+injection-point call:
+
+| fixture | asserts |
+|---|---|
+| indented, valid | C8 does **not** warn |
+| indented, valid, **carries an engine call** | C8 does **not** block — the latent false failure |
+| genuinely broken | C8 **still warns** |
+| genuinely broken, carries an engine call | C8 **still blocks** with "Fix the syntax" |
+
+Verified against the unfixed code: reverting the dedent turns the first two red and the
+warning count back to 89. The last two pass either way, which is the point — the dedent
+must not switch the check off.
+
+Writing them surfaced that `INJ_CALL_RE` requires a well-formed identifier as the first
+argument (deliberately, so prose like `corpus_io.collect_corpus_files (recursive,
+paginated)` cannot trip it), so the broken-with-a-call fixture puts the breakage on a
+separate line from the call.
+
+Also corrected: the C8 docstring's hand-written "28 such fences exist corpus-wide today"
+was stale at 29, and it looked stable only because the real signal was buried under false
+parse failures. It is now labelled as scale rather than as a gate.
+
+### Verification
+
+bootstrap **51/51** at `2026.08.20.7`; `audit_callgraph` **38/38** self-test and 0
+findings; `audit_deep` 20/20 and 0 findings; `audit_sync` 14/14; `audit_specs_ext` 12/12
+and 0 issues; `audit_seam` 0 findings / 53 fields; `validate_framework_md` 0 issues / 23
+files; `spec_name_audit` 23/23 and baseline clean; `mock_sync_audit` 37/37;
+`transport_core` 49/49; `analyse_engine` 116/116; auditor mutation 0 survivors; pipeline
+mutation `transport_core` 0 and `analyse_engine` 1 (proven equivalent); golden set **6/6
+IDENTICAL**.
+
 ## 2026.08.20.6 — GAP-2026-08-20-AUDITOR-OPTN-DIAGNOSIS: A-OPTN says when it cannot assess
 
 **`audit_canonical.py` v2.14 (self-test 248 -> 252), `Framework_MockTestExplain.md` §12-3 one

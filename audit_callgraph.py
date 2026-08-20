@@ -610,8 +610,16 @@ def c8_executable_source_coverage(path, findings, warnings):
     and the risk is proven, so this is enforced immediately rather than warned about.
 
     WARN for the rest: any other routed-engine call in an untagged fence is reported but
-    does not fail the build — 28 such fences exist corpus-wide today and many are
-    legitimately prose. Promoting those to FAIL is a separate, deliberate migration.
+    does not fail the build — 29 such fences exist corpus-wide today (measured
+    2026-08-20; the figure is hand-written and will drift, so treat it as scale, not as
+    a gate) and many are legitimately prose. Promoting those to FAIL is a separate,
+    deliberate migration.
+
+    THE WARNING LIST WAS TWO THIRDS NOISE UNTIL 2026.08.20.7. C8 parsed the RAW fence
+    body while every other extractor here dedents, so 60 perfectly valid fences were
+    reported as unparseable — 89 warnings of which only 29 were real. The count above
+    looked like it had barely moved since the check shipped because the real signal was
+    buried under false parse failures. See the dedent comment in the body.
     """
     base = os.path.basename(path)
     lines = open(path, encoding='utf8').read().split('\n')
@@ -623,7 +631,30 @@ def c8_executable_source_coverage(path, findings, warnings):
         live = _blank_comment_lines(body)
         if tag == '```python':
             try:
-                ast.parse(body)
+                # DEDENT BEFORE PARSING (GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS,
+                # last instance, closed 2026-08-20). Every other extractor in this
+                # corpus dedents — python_blocks() four functions above this one does,
+                # which is why C1-C6 were never blind. C8 alone parsed the RAW body, so
+                # a fence whose ``` marker and body are BOTH indented raised
+                # "unexpected indent" and C8 declared it uninspectable.
+                #
+                # MEASURED on deployed 2026.08.20.6: 60 fences failed C8's raw parse and
+                # ALL 60 parse once dedented — 55 of them in Framework_MockTestCreate.md.
+                # That is 60 of this check's 89 warnings, two thirds of its output, every
+                # one of them false. A warning list that is two thirds noise is a warning
+                # list nobody reads, which is the failure mode this whole check exists to
+                # prevent.
+                #
+                # IT WAS ALSO A LATENT FALSE BUILD FAILURE. Fifteen lines below, a fence
+                # that fails to parse AND contains an injection-point call is not a
+                # warning but a BLOCKING finding that says "Fix the syntax." Zero of the
+                # 60 carry such a call today, so the build is green by luck; adding one
+                # engine call to any of them would have failed the build and sent the
+                # author to fix syntax that was already correct.
+                #
+                # textwrap.dedent strips only the COMMON prefix and adds or removes no
+                # line, so nested code is untouched and every line number stays valid.
+                ast.parse(textwrap.dedent(body))
                 continue                      # tagged and parses — fully inspectable
             except SyntaxError as exc:
                 if INJ_CALL_RE.search(live):
@@ -1346,6 +1377,61 @@ def self_test():
           rc == 1 and '[C7]' in out)
     check("C8 fires on an injection-point call in an untagged fence",
           '[C8]' in out)
+
+    # ── C8 AND THE DEDENT (GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS, last instance) ──
+    # C8 parsed the RAW fence body while every other extractor in this file dedents.
+    # A fence whose ``` marker and body are BOTH indented therefore raised "unexpected
+    # indent" and C8 declared it uninspectable. MEASURED on deployed 2026.08.20.6: 60
+    # fences, ALL 60 valid once dedented, 55 of them in Framework_MockTestCreate.md —
+    # two thirds of this check's entire warning output, every one of them false.
+    #
+    # The four fixtures below are the two axes that matter, crossed: indented vs
+    # genuinely broken, and with vs without an injection-point call. Only the
+    # genuinely-broken ones may speak, and only the broken-WITH-a-call one may BLOCK.
+    _INDENTED_OK = ("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                    "  ```python\n"
+                    "  import corpus_io\n"
+                    "  x = 1\n"
+                    "  ```\n")
+    rc, out = probe_raw(_INDENTED_OK)
+    check("C8 does NOT warn on an INDENTED fence that is valid python",
+          'does not parse' not in out)
+
+    # The latent false BUILD FAILURE. Fifteen lines into c8, a fence that fails to parse
+    # AND carries an injection-point call is a BLOCKING finding saying "Fix the syntax."
+    # Before the dedent, this input failed the build on syntax that was already correct.
+    # Zero of the 60 live fences carried such a call, so the build was green by luck.
+    _INDENTED_OK_CALL = ("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                         "  ```python\n"
+                         "  import corpus_io\n"
+                         "  local_path = corpus_io.fetch_drive_docx(resolver, p, d)\n"
+                         "  ```\n")
+    rc, out = probe_raw(_INDENTED_OK_CALL)
+    check("C8 does NOT block an INDENTED valid fence that carries an engine call",
+          '[C8]' not in out and 'Fix the syntax' not in out)
+
+    # ...and the check must still SPEAK on real breakage, or the dedent has simply
+    # switched it off. A trailing comma in a call is broken at any indentation.
+    _REALLY_BROKEN = ("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                      "```python\n"
+                      "x = foo(,,)\n"
+                      "```\n")
+    rc, out = probe_raw(_REALLY_BROKEN)
+    check("C8 still warns on a genuinely unparseable ```python fence",
+          'does not parse' in out)
+
+    # The call must be WELL-FORMED for INJ_CALL_RE to see it — that regex requires a
+    # real identifier as the first argument, precisely so prose like
+    # "corpus_io.collect_corpus_files (recursive, paginated)" cannot trip it. So the
+    # breakage goes on a SEPARATE line: a valid injection call, an unparseable fence.
+    _REALLY_BROKEN_CALL = ("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                           "```python\n"
+                           "local_path = corpus_io.fetch_drive_docx(resolver, p, d)\n"
+                           "x = foo(,,)\n"
+                           "```\n")
+    rc, out = probe_raw(_REALLY_BROKEN_CALL)
+    check("C8 still BLOCKS a broken fence that carries an injection-point call",
+          rc == 1 and '[C8]' in out and 'Fix the syntax' in out)
 
     rc, out = probe("import corpus_io, json\n"
                     "payloads = json.load(open('cache.json'))\n"
