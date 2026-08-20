@@ -503,14 +503,30 @@ def exact_fill(quotas, col_targets):
 # ════════════════════════════════════════════════════════════════════════════
 
 def section_axis2_pool_caps(section_name, id_list, cap_by_id, manifest_ids):
-    """§7-7 ``_section_axis2_pool_caps``. VERBATIM.
+    """§7-7 ``_section_axis2_pool_caps``.
 
     Union of Axis-2 capability across a section/scope's subtopic ids (used for
-    guarantee feasibility). Only ids whose manifest section matches are counted.
+    guarantee feasibility). CONTRACT: ``id_list`` arrives ALREADY scoped to
+    ``section_name`` — the §7-7 fence builds pyq_ids/zp_ids via
+    subtopic_in_section() (Subject → OTS-section bridge), and ScopedBlueprint
+    passes its scope's own ids. Ids absent from ``manifest_ids`` are skipped.
+
+    GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE: this function used to RE-filter
+    the pre-scoped list with ``manifest_ids[sid]['section'] == section_name`` —
+    a raw string comparison joining the taxonomy Subject namespace (manifest
+    'section' holds Subject names, e.g. 'Organic Chemistry') against the OTS
+    section-label namespace ('Section A'). On any exam whose
+    ``sections[].subjects`` maps multiple Subjects into one section the two
+    namespaces never intersect, so the comparison was always False and the
+    capability union came back EMPTY — every guarantee silently reported
+    'unsatisfiable'. The fence's own subtopic_in_section() fixed this exact
+    namespace bug at spec v1.35 (BUG 2); these engine-side re-filters were
+    missed. ``section_name`` is retained for signature stability and error
+    context; it no longer filters.
     """
     caps = set()
     for sid in id_list:
-        if manifest_ids.get(sid, {}).get("section") == section_name:
+        if sid in manifest_ids:
             caps |= set(cap_by_id.get(sid, ["DIRECT"]))
     return caps
 
@@ -887,15 +903,21 @@ def derive_axis_schedule(section_name, axis_dist, sec_qs,
 
 
 def axis1_feasibility(section_name, axis1_target_per_mock, pyq_ids, manifest_ids):
-    """§7-7 ``axis1_feasibility``. VERBATIM. ADVISORY (WARN, never HALT).
+    """§7-7 ``axis1_feasibility``. ADVISORY (WARN, never HALT).
 
     Compare the Axis-1 (stimulus) per-paper target against the formats actually
     available among this section/scope's PYQ subtopics. Returns the list of target
     formats with no capable PYQ subtopic ([] == fully feasible).
+    CONTRACT: ``pyq_ids`` arrives ALREADY scoped to ``section_name`` (see
+    section_axis2_pool_caps — same GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE
+    record: the old wrong-namespace re-filter emptied ``avail`` on every
+    sections[].subjects exam, flagging every targeted format unreachable).
+    Ids absent from ``manifest_ids`` are skipped; ``section_name`` is retained
+    for signature stability and error context, it no longer filters.
     """
     avail = set()
     for sid in pyq_ids:
-        if manifest_ids.get(sid, {}).get("section") == section_name:
+        if sid in manifest_ids:
             avail.add(manifest_ids[sid].get("format", "TEXT"))
     unreachable = [fmt for fmt, cnt in axis1_target_per_mock.items()
                    if cnt > 0 and fmt not in avail]
@@ -3877,6 +3899,43 @@ def self_test():
     check('axis1_feasibility',
           axis1_feasibility('SEC', {'TEXT': 20, 'FIGURAL': 5}, ['ST01'],
                             {'ST01': {'section': 'SEC', 'format': 'TEXT'}}) == ['FIGURAL'])
+
+    # ── GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE regression pack ────────────
+    # The defect shape: manifest 'section' holds taxonomy SUBJECT names while the
+    # caller passes the OTS section LABEL. The old raw '==' re-filter therefore
+    # excluded EVERY id on a sections[].subjects exam (IIT JAM shape: 'Section A'
+    # vs 'Organic Chemistry'), emptying caps/avail. Lists arrive pre-scoped by
+    # the fence's subtopic_in_section(); the engine must not re-filter them in
+    # the wrong namespace.
+    _nk_manifest = {'ST01': {'section': 'Organic Chemistry',  'format': 'TEXT'},
+                    'ST02': {'section': 'Physical Chemistry', 'format': 'FIGURAL'}}
+    # 1 — caps computed across a pre-scoped mixed-Subject list under an OTS label
+    #     (old code: {} — every guarantee then reported 'unsatisfiable').
+    check('AXIS-SECTIONKEY-N1-caps-cross-namespace',
+          section_axis2_pool_caps('Section A', ['ST01', 'ST02'],
+                                  {'ST01': ['MATCH'], 'ST02': ['ASSERTION']},
+                                  _nk_manifest) == {'MATCH', 'ASSERTION'})
+    # 2 — avail computed likewise; a targeted+capable format is NOT flagged
+    #     (old code: avail empty → both TEXT and FIGURAL flagged unreachable).
+    check('AXIS-SECTIONKEY-N1-avail-cross-namespace',
+          axis1_feasibility('Section A', {'TEXT': 20, 'FIGURAL': 5},
+                            ['ST01', 'ST02'], _nk_manifest) == [])
+    # 3 — a genuinely absent format is still flagged (the advisory still works).
+    check('AXIS-SECTIONKEY-N1-missing-format-still-flagged',
+          axis1_feasibility('Section A', {'PASSAGE': 3, 'TEXT': 10},
+                            ['ST01', 'ST02'], _nk_manifest) == ['PASSAGE'])
+    # 4 — ids absent from manifest_ids are SKIPPED, never crash, in both
+    #     functions (the retained defensive behaviour of the old .get chain).
+    check('AXIS-SECTIONKEY-missing-id-skipped',
+          section_axis2_pool_caps('Section A', ['ST01', 'GHOST'],
+                                  {'ST01': ['MATCH']}, _nk_manifest) == {'MATCH'}
+          and axis1_feasibility('Section A', {'TEXT': 1}, ['GHOST'],
+                                _nk_manifest) == ['TEXT'])
+    # 5 — cap_by_id default: an in-manifest id with no capability entry counts
+    #     as DIRECT (unchanged from the old code's ["DIRECT"] default).
+    check('AXIS-SECTIONKEY-cap-default-direct',
+          section_axis2_pool_caps('Section A', ['ST02'], {}, _nk_manifest)
+          == {'DIRECT'})
 
     # ── GAP-2026-08-12-AXIS-PREFLIGHT regression pack ────────────────────────
     # Real-world trigger (Mock-10 root-cause gap analysis §5.5/§13 row 2): a mock can

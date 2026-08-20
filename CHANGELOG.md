@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026.08.19.2 — Axis section-key raw-compare fix (blueprint_core, estate-wide)
+
+**Framework_Blueprint v1.48.0 → v1.49.0 · blueprint_core.py (self-test 490 → 495).
+GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE. Engine-side only; no fence code changes,
+no signature changes, no artefact shape changes.**
+
+`section_axis2_pool_caps()` and `axis1_feasibility()` re-filtered their already
+section-scoped id lists with `manifest_ids[sid]['section'] == section_name` — a raw
+string comparison joining the taxonomy **Subject** namespace (the manifest `section`
+field holds Subject names, e.g. "Organic Chemistry") against the **OTS section-label**
+namespace ("Section A"). On any exam whose `sections[].subjects` maps multiple
+Subjects into one section, the namespaces never intersect: the Axis-2 capability
+union came back EMPTY (every guarantee-mode class silently `unsatisfiable`) and the
+Axis-1 `avail` set came back EMPTY (every targeted format flagged unreachable).
+1:1 section↔Subject exams were unaffected — which is why the defect stayed silent.
+Verified live on the IIT JAM manifest: old code → EMPTY caps + both formats falsely
+unreachable; fixed code → 5 real capabilities, clean advisory.
+
+Spec v1.35 "BUG 2" fixed the same namespace join in the fence's `subtopic_in_section()`;
+the two engine-side re-filters were missed then. The re-filter is now REMOVED — the
+contract (already true at both real call sites) is that id lists arrive PRE-SCOPED by
+the fence; missing-id skip and the `DIRECT` capability default are retained. Locked by
+the 5-fixture `AXIS-SECTIONKEY-*` regression pack.
+
 ## 2026.08.19.1 — Explanation execution integrity: gates for four defects a delivered paper proved
 
 **Framework_MockTestExplain v1.34.0 → v1.35.0 · Framework_PYQExplain v2.12 → v2.13

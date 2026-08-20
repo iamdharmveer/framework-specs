@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.19.1",
+  "framework_version": "2026.08.19.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -174,11 +174,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "8526c60e3fc37e25c82c065d80adc9183e4821af06f4064fa23fea09b8df32ee",
-      "version_header": "# Framework_Blueprint v1.48.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.48.0",
-      "lines": 6808,
-      "bytes": 359929
+      "sha256": "2ba4b80f8b5eda05f65951e87532d1eafec85ab28c8db0bb81c696910ebeca36",
+      "version_header": "# Framework_Blueprint v1.49.0 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.49.0",
+      "lines": 6838,
+      "bytes": 362267
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "244dad867462a981ecb0acd33d1a46e67030b996f76c4367cbbaf8cff65b74f9",
@@ -356,11 +356,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "ee63c2b31d65ab300b787290f8c2c38d82d8d2fc7f8ec0d8f0006f322b5ff2c4",
+      "sha256": "46d1661a97f4fbca64fd27585812a386ba6258dcc93bd44f0498faff004ed74e",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 5576,
-      "bytes": 306293
+      "lines": 5635,
+      "bytes": 310282
     },
     "paper_pipeline.py": {
       "sha256": "9af50f405514457e7c84b92c682e1a954a4cc25dce66157b28af77190dec5aec",
@@ -496,7 +496,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "35ae108f91ef38f76fe97f24e02238f417c76e3862f50afb2a97c311bf66f3ce",
+      "sha256": "59d9379bf6a0d6ad4b9ce40c49181dbdd9e687bb72d36cca23b5e552ebde7cba",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6643,

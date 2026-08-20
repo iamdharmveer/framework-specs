@@ -1,4 +1,27 @@
-# Framework_Blueprint v1.48.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.49.0 — Universal Mock Test Blueprint Generator
+# v1.49.0 — 2026-08-19 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE (engine-side fix,
+#   blueprint_core.py; no fence code changes). section_axis2_pool_caps() and
+#   axis1_feasibility() RE-filtered their already section-scoped id lists with
+#   ``manifest_ids[sid]['section'] == section_name`` — a raw string comparison joining
+#   the taxonomy Subject namespace (the manifest 'section' field holds Subject names,
+#   e.g. 'Organic Chemistry') against the OTS section-label namespace ('Section A').
+#   On any exam whose sections[].subjects maps multiple Subjects into one section the
+#   two namespaces never intersect, so the re-filter excluded EVERY id: the Axis-2
+#   capability union came back EMPTY (every guarantee-mode class silently reported
+#   'unsatisfiable' — shortfall accepted, never generated) and axis1_feasibility's
+#   ``avail`` came back EMPTY (every targeted format flagged unreachable, target
+#   steered best-effort against a false advisory). Exams with 1:1 section↔Subject
+#   configs were unaffected — which is exactly why the defect stayed silent.
+#   HISTORY RHYME: spec v1.35 BUG 2 fixed this same namespace join in the fence's own
+#   subtopic_in_section() ('==' → list membership via sections_for_subtopic); the two
+#   engine-side re-filters were missed then. FIX: the re-filter is REMOVED — the
+#   contract (already true at both real call sites: this file's §7-7 fence builds
+#   pyq_ids/zp_ids via subtopic_in_section(), ScopedBlueprint passes its scope's own
+#   ids) is that id lists arrive PRE-SCOPED; ids absent from manifest_ids are still
+#   skipped; signatures unchanged (section_name retained for stability/context).
+#   Locked by a 5-fixture regression pack (AXIS-SECTIONKEY-*) proving cross-namespace
+#   caps/avail, still-flagged genuine absences, missing-id skip, and the DIRECT
+#   default. blueprint_core self-test 490 → 495.
 # v1.48.0 — 2026-08-12 — GAP-2026-08-12-AXIS3-MECHLOCK: PYQ-measured axis3 target
 #   could directly CONTRADICT the exam's own marking_scheme on any exam that locks a
 #   mechanism (question_type) to a fixed Q-range by position (e.g. Q1-30 declared
@@ -2987,6 +3010,13 @@ import blueprint_core as bc   # ENGINE (mandated in S1-2b)
 # (bc.derive_axis_schedule), and the Axis-1 advisory (bc.axis1_feasibility). Only the
 # two functions the build loop calls DIRECTLY are aliased below; the other two are
 # called INTERNALLY by bc.derive_axis_schedule, so they need no alias here.
+#
+# PRE-SCOPED CONTRACT (v1.49.0, GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE): the
+# pyq_ids/zp_ids built below via subtopic_in_section() are the ONLY section scoping —
+# bc.section_axis2_pool_caps and bc.axis1_feasibility no longer re-filter by the
+# manifest 'section' field (Subject namespace), which on sections[].subjects exams
+# never matched the OTS label passed as section_name and silently emptied every
+# capability/availability set.
 #
 # PATTERN-ERA NORMALISATION (v1.36 — behaviour change, engine-side, exam-agnostic):
 # AXIS_DIST_BY_SECTION holds REAL per-paper class averages measured on the PYQ corpus,
@@ -6805,4 +6835,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.48.0
+# END OF Framework_Blueprint v1.49.0
