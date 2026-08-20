@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.19.3",
+  "framework_version": "2026.08.20.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -195,11 +195,11 @@
       "bytes": 86356
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "9247a72731a48cccfc3cb8a3e27e87d7f028844193eeba1bb15c8181fa7a575e",
-      "version_header": "# Framework_MockTestAnalyse v2.53.3 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.3",
-      "lines": 5159,
-      "bytes": 294699
+      "sha256": "a894d6e892a6d8ccc89b72600f93395ff853a0f87ccedd4bf3372d3eb4af1532",
+      "version_header": "# Framework_MockTestAnalyse v2.53.4 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.4",
+      "lines": 5249,
+      "bytes": 301350
     },
     "Framework_MockTestCreate.md": {
       "sha256": "155b8821c04fbf25962ac0ed188b195f7ddcdece557cb580824c5e5d3b0c56aa",
@@ -447,11 +447,11 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "04bb4a067d4dc925ac572b39935b07dd293c77e5293fb36b122c1833f72ba1b2",
+      "sha256": "2c2a0515985315a9e7631ef101cce1c01a214888e8ec64cf034a22a5677ed41f",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
-      "lines": 5274,
-      "bytes": 306119
+      "lines": 5730,
+      "bytes": 334059
     },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
@@ -496,18 +496,18 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "a740d211800703aa84b75ebdb434ccfd6e45ccd53bacf61d2e41e46d4079d4e8",
+      "sha256": "567bbd03981984548f9a180599d3e1b7718ae2d4d90a4894b7da7950eb53859a",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6643,
       "bytes": 182001
     },
     "MUTATION_BUDGETS.json": {
-      "sha256": "f60af3196199ca4d59e0da338aa58c4fc4cff5aaf43a4f61174bc337785d29e7",
+      "sha256": "5669df85a8fb6d4ac380a34d87ede3969217de2fb45cfdb74126dd3fcf8a59d9",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 95,
-      "bytes": 9948
+      "lines": 97,
+      "bytes": 11933
     },
     "SPEC_HISTORY.md": {
       "sha256": "70338b1f9283e0b32a7116b7b9e5b64e1893103b67d789971a9c7d253c150dcd",

@@ -10,7 +10,7 @@
     "notes_sync_audit.py": 0,
     "audit_specs_ext.py": 4,
     "audit_deep.py": 2,
-    "analyse_engine.py": 20
+    "analyse_engine.py": 1
   },
   "_survivor_inventory": {
     "audit_specs_ext.py": [
@@ -22,15 +22,17 @@
     "audit_deep.py": [
       "2 inherited emissions — see `python3 audit_mutation.py --engine audit_deep.py`"
     ],
-    "_note": "All six are INHERITED, pre-dating this release. None belongs to a gate added by 2026.08.15.9 or .10: C10, C11, MS-12, MS-13 and SPEC-BUDGET are all killed.",
+    "_note": "audit_mutation.py gained its own --self-test in B7 and validate.yml now runs it as a blocking step BEFORE the gates it guards. It had none — the one tool whose entire job is proving other tests are connected. The cost was measured: the scaffolding exclusion tested only the INNERMOST enclosing function, so a `sorted(` inside a NESTED test helper's DOCSTRING was listed as a live target and counted as a surviving mutant of the production engine. A false target is not harmless — it puts a phantom in a file whose whole value is that its numbers are real debt. All six are INHERITED, pre-dating this release. None belongs to a gate added by 2026.08.15.9 or .10: C10, C11, MS-12, MS-13 and SPEC-BUDGET are all killed.",
     "analyse_engine.py": [
-      "MEASURED 2026-08-17. 25.0% (12/48) -> 41.7% (20/48) -> 56.0% (28/50) -> 60.0% (30/50). Budget 28 -> 22 -> 20, RATCHETED DOWN each time.",
-      "B6 killed the SUBTOPIC_ID STABILITY class. build_section_prefix_map is called with sorted({sections}) from three places; when two section names collide on a prefix the map appends a counter (ra, ra2, ra3), so WHICH section gets the bare prefix is decided by iteration order. Under list() that follows PYTHONHASHSEED instead of the alphabet: Real Algebra is ra on one run and ra2 on the next. subtopic_id is the key EVERY later step joins on, so non-deterministic ids do not fail loudly, they silently fail to MATCH. Fixtures use FOUR colliding sections out of alphabetical order — 1 chance in 24 of passing by luck. mint_subtopic_ids and stamp_mechanic_axes collision_domain: killed.",
-      "20 survive, all sorted->list. THREE GROUPS:",
-      "  (a) WRITER PATHS — write_section_rules (2), write_subtopic_manifest (2), compute_section_axis_distribution (3), synthesise_subtopic, _compute_structural_changes, generate_templates pattern order, run_qv prefix map. ALL are artefact-visible and already caught by the golden set; CI cannot run that oracle because the repo carries no corpus. NEXT BATCH: a synthetic entries corpus driving the writers end to end and asserting the emitted text, which should take most of these at once.",
-      "  (b) ERROR-MESSAGE f-STRINGS — apply_subtopic_merges L2664, load_mechanic_overrides L2483/L2488, print_qv L4744, stamp_mechanic_axes L2699, run_qv L4610. Only the word order inside a diagnostic changes. LIKELY EQUIVALENT MUTANTS, but each must be confirmed individually and NOT assumed — that assumption is exactly what a budget is for.",
-      "  (c) rebuild_subtopic_manifest_from_section_rules L4066 startswith — needs a section_rules.md fixture to parse.",
-      "STILL DEBT: the standing rule is not met until this reaches 0 or every remainder is proven equivalent."
+      "MEASURED 2026-08-20 (B7). 25.0% (12/48) -> 41.7% -> 56.0% -> 60.0% (30/50) -> 97.9% (47/48). Budget 28 -> 22 -> 20 -> 1, RATCHETED DOWN every time, NEVER raised.",
+      "B7 killed 19 of the 20. Nine of them lived in FIVE FUNCTIONS THE SUITE HAD NEVER CALLED — synthesise_subtopic, compute_section_axis_distribution, write_section_rules, write_subtopic_manifest, rebuild_subtopic_manifest_from_section_rules. The blocker was mechanical, not editorial: each writes to a hardcoded '/mnt/user-data/outputs/', absent on a CI runner, so no fixture COULD call them. An additive out_dir=None (default unchanged; no production call site touched, no artefact moved) removed it — the same remedy search_dirs applied after GAP-2026-08-17-B4-ENV-SKEW.",
+      "The fixture is a new SHAPE: a small corpus driven end to end, assertions reading the emitted artefacts back. Adversarial by construction — 4 sections colliding on one prefix out of alphabetical order (1 in 24), 4 papers with all-different figural counts so the per-paper series is a permutation detector (1 in 24), 4 years whose set order is not their sorted order. A fixture whose values are all equal cannot see an ordering defect; that is how nine survived a suite of 86 checks.",
+      "TWO REAL DEFECTS FELL OUT OF THE MEASUREMENT, which is the argument for the gate's runtime:",
+      "  D7 — subtopic_option_format used q.get('year','?'), putting a str into a dict of int keys that the next line sorts. ONE year-less question raised TypeError inside synthesise_subtopic, which runs for EVERY subtopic: a hard stop of Step 5, invisible on the reference corpus because every IIT_JAM_MATHEMATICS question carries a year. The same sentinel made that function's own no-years guard unreachable — which is why its mutant survived while a fixture NAMED for that branch passed. Both facts were true at once and only one reading explains both: the fixture never reached the line it was named after.",
+      "  QV-13 was HALF A GATE — it re-derived form_key to detect drift and discarded the freshly-derived collision_domain, though identity is the PAIR and the uniqueness test buckets by that pair. B6 pinned mint_subtopic_ids and stamp_mechanic_axes; the GATE that notices when they drift was not pinned. Found because the mutant that hash-orders its prefix map SURVIVED: nothing downstream read the result. Now both halves are compared, with the same curator-override escape hatch.",
+      "The five 'error message' survivors were NOT written off as equivalent. Each enumerates a SET inside a hard stop, so the same corrupt overrides file refuses in different words on every run — a curator cannot diff two runs or grep for a known message. D4 applies to what the operator READS, not only to what the writers EMIT. Each is now asserted verbatim with >=3 members.",
+      "1 SURVIVES, PROVEN EQUIVALENT, documented at its own site: _compute_structural_changes `years_seen = sorted(set(...))`. It is read on four lines and every one is order-invariant — truthiness, max(), min(), len(). No fixture can kill it, so none is faked; the sorted() stays so that the day an order-dependent read is added the ordering is already right. If that day comes, the comment at the site is the thing to delete and the mutant becomes killable.",
+      "STANDING RULE MET for this engine: every survivor is either killed or PROVEN equivalent."
     ]
   },
   "_unmeasured": {

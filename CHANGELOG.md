@@ -1,5 +1,113 @@
 # Changelog
 
+## 2026.08.20.1 — Wave 2 Part C, Batch 7: the writers enter the mutation gate, and defect D7
+
+**Framework_MockTestAnalyse v2.53.3 -> v2.53.4 (PATCH), analyse_engine.py, audit_mutation.py,
+MUTATION_BUDGETS.json, validate.yml.** NO ARTEFACT VALUES CHANGE — all six
+IIT_JAM_MATHEMATICS artefacts verified byte-identical against a golden set captured from
+**deployed 2026.08.19.3**, across `PYTHONHASHSEED` 1/17/2029/7.
+
+**Pipeline mutation survivors 20 -> 1. Score 60.0% -> 97.9%. Engine self-test 86 -> 116
+checks.** The budget ratchets 20 -> 1 and, as always, was never raised.
+
+### D7 — one question with no year crashed the whole synthesis
+
+`subtopic_option_format()` bucketed formats with `by_year.setdefault(q.get('year', '?'), ...)`
+and sorted those keys on the next line. The `'?'` sentinel puts a `str` into a dict whose
+other keys are `int`, so the moment a corpus held BOTH a year-bearing question and a
+year-less one:
+
+    TypeError: '<' not supported between instances of 'str' and 'int'
+
+raised inside `synthesise_subtopic()`, which runs for EVERY subtopic. A hard stop of Step 5,
+in the same family as D1/D2/D6, invisible on the reference corpus because every
+IIT_JAM_MATHEMATICS question happens to carry a year. Across ~200 exams a single failed year
+extraction is not an edge case.
+
+The same sentinel had a second effect: it made the function's own `if not years:` guard
+UNREACHABLE — `by_year` gained a key for every question, so `years` was never empty. Year-less
+questions are now excluded from the RECENCY vote only (they cannot inform which option format
+is most recent), which fixes the crash and restores that guard to its intended job.
+Equivalence is exact where it matters: with every question carrying a year the buckets are
+unchanged; with none carrying one the old path returned `recent_format == primary` and
+`changed_recently == False`, which is what the restored guard returns.
+
+**How D7 was found matters more than D7.** The mutation gate reported that branch's `sorted(`
+as a SURVIVING MUTANT while a fixture named `no_year_branch_all_observed_sorted`, added one
+release earlier, passed. Both were true at once, and only one reading explains both: the
+fixture never reached the line it was named after. A fixture that passes without executing
+the code it claims to cover is worse than no fixture — it also consumes the suspicion that
+would have found the defect.
+
+### The writers were untested for a mechanical reason, not an editorial one
+
+Nine of the twenty survivors lived in five functions the suite had NEVER CALLED —
+`synthesise_subtopic`, `compute_section_axis_distribution`, `write_section_rules`,
+`write_subtopic_manifest`, `rebuild_subtopic_manifest_from_section_rules`. Each writes to a
+hardcoded `/mnt/user-data/outputs/`, which does not exist on a CI runner, so no fixture
+**could** call them. An additive `out_dir=None` (default unchanged, no production call site
+touched, no artefact moved) removes the blocker — the same remedy `search_dirs` applied after
+GAP-2026-08-17-B4-ENV-SKEW. An `if os.path.isdir(...)` guard around the fixture would not do:
+a guarded assertion is a dormant one, and a dormant assertion is where a survivor hides while
+CI reports green.
+
+The fixture is a new shape. B5 and B6 asserted on directly-callable pure functions; these
+defects live BEHIND the writers, so a small corpus is driven end to end and the assertions
+read the emitted artefacts back. It is adversarial by construction: four sections colliding
+on one prefix supplied out of alphabetical order (1 in 24), four papers whose figural counts
+are all different so the per-paper series is a permutation detector rather than a bag of
+equal numbers (1 in 24), and four years whose set-iteration order is not their sorted order.
+A fixture whose values are all equal cannot see an ordering defect at all.
+
+### QV-13 was half a gate
+
+It is named MECHANIC IDENTITY INTEGRITY, and identity is the PAIR
+`(collision_domain, form_key)` — the uniqueness test buckets by exactly that pair. QV-13
+re-derived `form_key` to detect drift and discarded the freshly-derived `collision_domain`, so
+a drifted domain passed unnoticed while the check that exists to catch drift reported PASS.
+Not hypothetical: `build_section_prefix_map` assigns colliding prefixes by iteration order,
+the defect 2026.08.17.6 fixed in `mint_subtopic_ids` and `stamp_mechanic_axes`. Those two were
+pinned; the gate that notices when they drift was not. Found because the mutant that
+hash-orders QV-13's prefix map SURVIVED — nothing downstream read the result. Both halves are
+now compared, with the same curator-override escape hatch `form_key` already had.
+
+### Diagnostic text is part of the contract
+
+Five survivors were a `sorted(...)` inside a hard-stop message. The tempting verdict is
+"equivalent mutant — only word order in an error changes". It is not: each enumerates a SET,
+so the same corrupt overrides file refuses in different words on every run. A curator cannot
+diff two runs, cannot grep a log for a known message, and cannot tell a second fault from the
+same fault re-ordered. Artefact nondeterminism (D4) applies to what the operator READS, not
+only to what the writers EMIT. Each is now asserted verbatim, with three or more members —
+a two-element set is a coin flip.
+
+### The watcher gained a watcher
+
+`audit_mutation.py` — the gate whose entire job is proving other tests are connected — had no
+`--self-test`, and `validate.yml` never ran one. The cost showed up in this batch: a `sorted(`
+inside a NESTED test helper's DOCSTRING was listed as a live target and counted as a surviving
+mutant of the production engine. The scaffolding exclusion tested only the innermost enclosing
+frame, so a helper defined inside `self_test` was fair game. It now tests the whole enclosing
+chain, ships ten fixtures plus a meta-assertion, and runs as a blocking CI step **before** the
+gate it guards. Function spans are cached per tree in the same change: the two helpers are
+called per line, and walking a 50,000-node AST for each of ~5,700 lines took the target scan
+from minutes to 0.16 s.
+
+### The one survivor is proven equivalent, not deferred
+
+`_compute_structural_changes`'s `years_seen = sorted(set(...))` is read on four lines and every
+one is order-invariant — truthiness, `max()`, `min()`, `len()`. No fixture can kill it, so none
+is faked; the proof lives in a comment at the site. The `sorted()` stays, so that the day an
+order-dependent read is added the ordering is already right rather than newly broken.
+**The standing rule is now met for this engine: every survivor is killed or PROVEN equivalent.**
+
+### Verification
+
+bootstrap 49/49 at 2026.08.20.1; `validate_framework_md` 0 issues / 23 files;
+`audit_seam` 0 findings / 53 fields; `audit_deep` 0; `audit_callgraph` 0; `audit_specs_ext`
+0 / 57 files; `spec_name_audit` baseline clean; auditor mutation 100% / 0 survivors;
+pipeline mutation 1/1 within budget; golden set 6/6 IDENTICAL across four hash seeds.
+
 ## 2026.08.19.3 — Learnings filename seam: one file, three names, unified
 
 **Framework_Blueprint v1.49.0 → v1.50.0 · Framework_MockTestCreate v5.55 → v5.56.

@@ -174,7 +174,10 @@ def find_pipeline_targets(lines, tree, only_gate=None, deep=False):
         # scores as KILLED, inflating the result while proving nothing about the code
         # the fixture is supposed to guard. Mirrors the existing self_test/test_/_test
         # exclusion the auditor path already applies.
-        if fn.startswith(('self_test', 'test_', '_test')):
+        # B7 (2026-08-20): the WHOLE enclosing chain, not just the innermost frame —
+        # a helper defined inside self_test is scaffolding too. See
+        # enclosing_function_chain() for the measurement that forced this.
+        if is_test_scaffolding(tree, i + 1):
             continue
         for label, rx, repl in rules:
             if not rx.search(line):
@@ -215,16 +218,57 @@ def mutate_pipeline(lines, idx, label):
     return '\n'.join(mut)
 
 
+def _function_spans(tree):
+    """[(start, end, name)] for every def in the tree, computed ONCE per tree.
+
+    The two helpers below are called PER LINE. Walking the whole AST each time is
+    ~5,700 lines against ~50,000 nodes on analyse_engine.py, for each of two queries —
+    the target scan alone then runs for minutes before a single mutant is compiled.
+    Same answers, one walk. Cached on the tree itself rather than in a dict keyed by
+    id(): a CPython id is reused after the object is collected, and a stale span list
+    silently mis-attributes every line in the next file scanned.
+    """
+    spans = getattr(tree, '_fn_spans', None)
+    if spans is None:
+        spans = [(n.lineno, n.end_lineno or n.lineno, n.name)
+                 for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]
+        tree._fn_spans = spans
+    return spans
+
+
 def enclosing_function(tree, lineno):
     """Innermost function containing this line, for reporting."""
-    best = None
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
-            end = node.end_lineno or node.lineno
-            if node.lineno <= lineno <= end:
-                if best is None or node.lineno > best.lineno:
-                    best = node
-    return best.name if best else '<module>'
+    hits = [(st, n) for st, en, n in _function_spans(tree) if st <= lineno <= en]
+    return max(hits)[1] if hits else '<module>'
+
+
+def enclosing_function_chain(tree, lineno):
+    """EVERY function containing this line, outermost first.
+
+    The scaffolding exclusion tests the innermost name only, which is wrong for a
+    HELPER DEFINED INSIDE a test. `_expect_hard_stop_text` lives inside `self_test`, is
+    pure scaffolding, and its name starts with neither `self_test` nor `test_` nor
+    `_test`. Measured 2026-08-20: a `sorted(` inside that helper's DOCSTRING was listed
+    as a pipeline target and reported as a surviving mutant of the engine. It is not a
+    mutant of anything — it is a sentence.
+
+    A false target is not a harmless one. It inflates the survivor count, so a budget
+    that is supposed to be pure debt carries a phantom, and the next person to read the
+    inventory spends their time hunting a defect that does not exist. Worse, a nested
+    helper that DOES contain a decision would be mutated, and the resulting broken
+    fixture would score as KILLED — a fake kill, the one outcome this file exists to
+    prevent (see `_why_this_file_exists` in MUTATION_BUDGETS.json).
+
+    So the whole chain is tested, not just the innermost frame.
+    """
+    return [n for _, n in sorted((st, n) for st, en, n in _function_spans(tree)
+                                 if st <= lineno <= en)]
+
+
+def is_test_scaffolding(tree, lineno):
+    """True when ANY enclosing function is a test — including a nested helper."""
+    return any(n.startswith(('self_test', 'test_', '_test'))
+               for n in enclosing_function_chain(tree, lineno))
 
 
 def find_targets(lines, tree, only_gate=None):
@@ -568,5 +612,106 @@ def main():
     sys.exit(0)
 
 
+def self_test():
+    """WATCH THE WATCHER (B7, 2026-08-20).
+
+    Every other blocking gate in validate.yml runs its own --self-test first, on the
+    stated principle that a gate which can silently go blind is not a gate. This one
+    never had one — and it is the gate whose whole job is to prove that other tests
+    are connected. The B7 batch found the consequence: a `sorted(` in a nested test
+    helper's DOCSTRING was listed as a real mutation target and counted as a surviving
+    mutant of the production engine.
+
+    The fixtures below mutate a small in-memory source rather than the corpus, so they
+    run in any environment and in milliseconds (GAP-2026-08-17-B4-ENV-SKEW: a fixture
+    that needs a writable /mnt is a fixture that skips in CI).
+    """
+    passed, fails = 0, []
+
+    def check(name, ok):
+        nonlocal passed
+        if ok:
+            passed += 1
+        else:
+            fails.append(name)
+
+    SRC = '''
+def production(xs):
+    return sorted(set(xs))
+
+def self_test():
+    def _helper(a):
+        """A docstring mentioning sorted( in prose."""
+        return sorted(a)
+    def _expect(name, fn):
+        return sorted(fn())
+    return _helper([2, 1]) == _expect('x', lambda: [1, 2])
+
+def test_thing():
+    return sorted([3, 1])
+'''
+    lines = SRC.split('\n')
+    tree = ast.parse(SRC)
+    targets = find_pipeline_targets(lines, tree)
+    names = {fn for _, fn, _, _ in targets}
+
+    # 1. The production function IS a target.
+    check('production_sorted_is_a_target', 'production' in names)
+    # 2. A top-level test function is NOT.
+    check('top_level_test_excluded', 'test_thing' not in names)
+    # 3. NEITHER is a helper NESTED inside a test — the B7 defect. Before the fix
+    #    `_helper` and `_expect` were both live targets.
+    check('nested_test_helper_excluded',
+          '_helper' not in names and '_expect' not in names)
+    # 4. ...and the chain helper says why, so a future reader can see the rule.
+    _hline = next(i + 1 for i, l in enumerate(lines) if 'docstring mentioning' in l)
+    check('chain_reports_outer_test_frame',
+          'self_test' in enclosing_function_chain(tree, _hline))
+    check('is_test_scaffolding_true_for_nested_helper',
+          is_test_scaffolding(tree, _hline))
+    _pline = next(i + 1 for i, l in enumerate(lines) if 'return sorted(set(xs))' in l)
+    check('is_test_scaffolding_false_for_production', not is_test_scaffolding(tree, _pline))
+
+    # 5. Exactly one target survives the exclusion — a count, so a future rule that
+    #    accidentally excludes production code fails here rather than reporting a
+    #    flattering score.
+    check('exactly_one_live_target', len(targets) == 1)
+
+    # 6. A rule that matches a line but cannot change it must NOT be listed. This is
+    #    the find-time validation added in B4; without it a no-op target is banked as
+    #    KILLED, which is a survivor counted as a kill.
+    check('no_op_mutation_is_not_listed',
+          mutate_pipeline(['x = 1'], 0, 'sorted->list') is None)
+    # 7. ...and a rule that DOES bite produces a genuinely different source.
+    _mut = mutate_pipeline(['y = sorted(z)'], 0, 'sorted->list')
+    check('real_mutation_changes_the_source',
+          _mut is not None and 'list(z)' in _mut and 'sorted(' not in _mut)
+    # 8. raise->pass neutralises the guard while keeping the block syntactically valid.
+    _rmut = mutate_pipeline(['    raise SystemExit("no")'], 0, 'raise->pass')
+    check('raise_mutation_keeps_block_valid',
+          _rmut is not None and _rmut.strip().startswith('pass'))
+
+    # 9. The span cache must not leak between trees — a stale list would attribute
+    #    every line of the next file to the previous file's functions.
+    _t2 = ast.parse('def other():\n    return sorted([1])\n')
+    check('span_cache_is_per_tree',
+          {n for _, _, n in _function_spans(_t2)} == {'other'})
+
+    # META-ASSERTION, same contract as analyse_engine's: a skipped check is not a
+    # passing one.
+    EXPECTED = 11
+    total = passed + len(fails)
+    if total != EXPECTED:
+        fails.append(f'suite_ran_every_check (ran {total}, expected {EXPECTED})')
+    else:
+        passed += 1
+
+    print(f'audit_mutation self-test: {passed} passed, {len(fails)} failed'
+          + ('  — ' + '; '.join(fails) if fails else ''))
+    return not fails
+
+
 if __name__ == '__main__':
+    if '--self-test' in sys.argv:
+        sys.exit(0 if self_test() else 1)
     main()

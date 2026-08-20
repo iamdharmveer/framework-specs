@@ -105,6 +105,12 @@ jobs:
             python3 audit_seam.py --self-test
             python3 audit_seam.py
           fi
+      - name: Mutation auditor self-test (B7 — watch the watcher)
+        # The gate whose job is proving other tests are connected had no test of its
+        # own. B7 found the cost: a `sorted(` inside a NESTED test helper's docstring
+        # was listed as a live mutation target and counted as a surviving mutant of the
+        # production engine. Milliseconds, no filesystem, runs before the gate it guards.
+        run: if [ -f audit_mutation.py ]; then python3 audit_mutation.py --self-test; fi
       - name: Mutation audit (gate tests must kill every mutant)
         # ~4 minutes: mutates the engine gates and requires the self-tests to
         # catch every mutant. --max-survivors 0 == a gate whose test cannot

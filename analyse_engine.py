@@ -419,7 +419,32 @@ def subtopic_option_format(qs):
     fmts = [classify_option_format(q.get('options', [])) for q in qs]
     by_year = {}
     for q, fmt in zip(qs, fmts):
-        by_year.setdefault(q.get('year', '?'), []).append(fmt)
+        # DEFECT D7 (found 2026-08-17 by the B7 mutation batch; see the note below).
+        # WAS: by_year.setdefault(q.get('year', '?'), []).append(fmt)
+        #
+        # The '?' sentinel put a str into a dict whose other keys are ints, and the very
+        # next line sorts those keys. So ONE question missing a year — one failed year
+        # extraction anywhere in a subtopic — raised
+        #     TypeError: '<' not supported between instances of 'str' and 'int'
+        # inside synthesise_subtopic, which runs for EVERY subtopic. That is a hard stop
+        # of the whole synthesis, in the same family as D1/D2/D6 and invisible on the
+        # reference corpus, where every question happens to carry a year.
+        #
+        # The sentinel also made the `if not years:` guard below UNREACHABLE: by_year
+        # gained a key for every question, so `years` was never empty and the branch the
+        # author wrote for a year-less corpus could never run. Dropping year-less
+        # questions from the RECENCY vote (they cannot inform which format is most
+        # recent) both fixes the crash and restores that guard to its intended job.
+        #
+        # NO ARTEFACT MOVES. With every question carrying a year — the reference corpus
+        # and the golden set — by_year is unchanged. With NO question carrying a year the
+        # old path returned recent_format = Counter(all fmts).most_common(1) == primary
+        # and changed_recently == False, which is exactly what the restored guard returns.
+        # The only behaviour that changes is the mixed case, and that case used to crash.
+        _y7 = q.get('year')
+        if _y7 is None:
+            continue
+        by_year.setdefault(_y7, []).append(fmt)
     primary = Counter(fmts).most_common(1)[0][0]
     years   = sorted(by_year.keys())
     # GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D4) — ARTEFACT NONDETERMINISM.
@@ -2316,6 +2341,18 @@ def _compute_structural_changes(entries):
 
     for e in entries:
         subtopic = e['subtopic']
+        # PROVEN EQUIVALENT MUTANT (B7, 2026-08-20). `sorted -> list` here is the one
+        # surviving pipeline mutant in this engine, and it survives because it CANNOT
+        # change behaviour: `years_seen` is read on exactly four lines below and every
+        # one of them is order-invariant — truthiness, max(), min(), len(). There is no
+        # fixture that could kill it, so none is written; inventing an assertion that
+        # only appears to cover it would be worse than the honest entry in
+        # MUTATION_BUDGETS.json.
+        #
+        # The sorted() STAYS. It costs nothing, and the day someone adds an
+        # order-dependent read (a first/last, a slice, an emitted list) the ordering is
+        # already correct rather than newly broken. If that day comes, this comment is
+        # the thing to delete — and the mutant becomes killable, which is the point.
         years_seen = sorted(set(
             y for p in e.get('PYQ_STEM_PATTERNS', [])
             for y in p.get('years', []) if isinstance(y, int)
@@ -2444,6 +2481,28 @@ _OVERRIDES = None
 _MERGE_LOG = []          # populated by apply_subtopic_merges(); read by write_analysis_summary()
 
 OVERRIDE_SEARCH_DIRS = ('/mnt/project/', '/mnt/user-data/uploads/')
+
+# ── ARTEFACT OUTPUT DIRECTORY (Wave 2 Part C B7) ─────────────────────────────
+# The four writers downstream hardcoded '/mnt/user-data/outputs/'. That is correct in the
+# session sandbox and ABSENT on a CI runner, which is why every one of them sat outside
+# the mutation gate: a fixture that calls them cannot open the file, so no fixture called
+# them, so nine surviving mutants lived in code no test had ever executed.
+#
+# GAP-2026-08-17-B4-ENV-SKEW is the precedent and the warning. There the fix was
+# `search_dirs=None` on load_mechanic_overrides — additive, default unchanged, and the
+# assertion moved from "silently skipped when /mnt is unwritable" to "runs everywhere".
+# The same shape applies here. An `if os.path.isdir(...)` guard around the fixture would
+# NOT do: a guarded assertion is a dormant assertion, and a dormant assertion is exactly
+# where a mutation survivor hides while CI reports green.
+#
+# DEFAULT IS UNCHANGED. Every production call site omits out_dir and writes precisely
+# where it wrote before, so no artefact moves and the golden set is untouched.
+OUTPUT_DIR = '/mnt/user-data/outputs'
+
+
+def _artefact_path(out_dir, filename):
+    """Resolve an artefact path under out_dir, falling back to the session sandbox."""
+    return os.path.join(out_dir or OUTPUT_DIR, filename)
 
 
 def load_mechanic_overrides(exam_code, search_dirs=None):
@@ -2815,7 +2874,7 @@ GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.53'
 FRAMEWORK_VERSION_STAMP = 'framework_version: v2.53'
 
 
-def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
+def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_dir=None):
     """
     BUG-A25 fix: output to /mnt/user-data/outputs/ for present_files access.
     v2.3 NEW: writes EXAM_STRUCTURE header block (CATEGORY C) when exam_meta provided.
@@ -2831,7 +2890,7 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None):
     progress: the full progress dict (needed for per-question option_label aggregation).
     """
     from datetime import datetime
-    out  = f'/mnt/user-data/outputs/{exam_code}_section_rules.md'
+    out  = _artefact_path(out_dir, f'{exam_code}_section_rules.md')
     meta = exam_meta or {}
     progress = progress or {}   # v2.15: safe fallback for label aggregation
 
@@ -3498,7 +3557,7 @@ def _extract_taxonomy_tuples_from_analysis_doc(docx_path):
     return list(doc['triples'])
 
 
-def write_taxonomy_xlsx(manifest, exam_code):
+def write_taxonomy_xlsx(manifest, exam_code, out_dir=None):
     """v2.24 — Emit [ExamCode]_taxonomy.xlsx: a plain, human-readable list of
     Subject | Topic | Sub Topic Name | Sub Topic Id | Upload Order (one row per
     sub-topic, in MANIFEST ORDER), so the Step-6 operator can pick scope values
@@ -3606,7 +3665,7 @@ def write_taxonomy_xlsx(manifest, exam_code):
         hw.cell(row=i, column=1, value=text).font = Font(name='Arial', size=11, bold=bold)
     hw.column_dimensions['A'].width = 100
 
-    out = f'/mnt/user-data/outputs/{exam_code}_taxonomy.xlsx'
+    out = _artefact_path(out_dir, f'{exam_code}_taxonomy.xlsx')
     wb.save(out)
     print(f'Written: {out} ({len(rows)} sub-topics — human-readable taxonomy for Step 6)')
     return out
@@ -3633,7 +3692,7 @@ def write_taxonomy_xlsx(manifest, exam_code):
 #       an exam whose order is already frozen is none — its numbering was
 #       taken from syllabus order at first extraction and stands.
 def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
-                            frequency_scope='all', exam_config=None):
+                            frequency_scope='all', exam_config=None, out_dir=None):
     """
     v2.4 — Write [ExamCode]_subtopic_manifest.json: the AUTHORITATIVE id↔name
     registry and the formal cross-step contract artifact.
@@ -3694,7 +3753,7 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
     fully reproducible from the section_rules FILE alone — no ephemeral entry state.
     """
     import json, re
-    out = f'/mnt/user-data/outputs/{exam_code}_subtopic_manifest.json'
+    out = _artefact_path(out_dir, f'{exam_code}_subtopic_manifest.json')
     meta = exam_meta or {}
     overrides = meta.get('section_prefix_overrides', {})
 
@@ -3897,11 +3956,11 @@ def write_subtopic_manifest(entries, exam_code, exam_meta=None, progress=None,
           f'{len(manifest["mandatory_groups"])} group-presence, '
           f'{len(manifest["cadence_windows"])} cadence, '
           f'{len(manifest["min_counts"])} min-count)')
-    write_taxonomy_xlsx(manifest, exam_code)   # v2.24 — human-readable companion
+    write_taxonomy_xlsx(manifest, exam_code, out_dir)   # v2.24 — human-readable companion
     return out
 
 
-def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
+def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code, out_dir=None):
     """v2.10 — Reconstruct a COMPLETE subtopic_manifest.json from an existing
     section_rules.md ALONE (no source PYQ, no in-memory entries). This is the
     supported path to (re)generate a MISSING or INCOMPLETE manifest — e.g. a project
@@ -4073,7 +4132,7 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
         if block:
             manifest['axis_distribution'][sec_name] = block
 
-    out = f'/mnt/user-data/outputs/{exam_code}_subtopic_manifest.json'
+    out = _artefact_path(out_dir, f'{exam_code}_subtopic_manifest.json')
     with open(out, 'w', encoding='utf-8') as f:
         json.dump(manifest, f, indent=2, ensure_ascii=False)
     print(f'Rebuilt: {out} ({len(manifest["subtopics"])} ids, '
@@ -4087,7 +4146,7 @@ def rebuild_subtopic_manifest_from_section_rules(section_rules_path, exam_code):
               f'SKIPPED (cannot be joined by Step 6/7): {id_less[:8]}'
               f'{" ..." if len(id_less) > 8 else ""}. Mint ids in Step 5 or add them, '
               f'then re-run rebuild.')
-    write_taxonomy_xlsx(manifest, exam_code)   # v2.24 — human-readable companion
+    write_taxonomy_xlsx(manifest, exam_code, out_dir)   # v2.24 — human-readable companion
     return out
 
 
@@ -4596,13 +4655,34 @@ def run_qv(entries, taxonomy, progress):
         if not e.get('subtopic_id') or e.get('form_key') is None:
             continue
         _tpl = ' '.join(p.get('template','') for p in e.get('PYQ_STEM_PATTERNS', []))
-        _fk  = derive_mechanic(e['section'], e.get('subtopic') or e.get('sub_type_label',''),
-                               e.get('sub_type_label'), _tpl, e.get('format','TEXT'),
-                               e['subtopic_id'], _po)['form_key']
+        _mech = derive_mechanic(e['section'], e.get('subtopic') or e.get('sub_type_label',''),
+                                e.get('sub_type_label'), _tpl, e.get('format','TEXT'),
+                                e['subtopic_id'], _po)
+        _fk  = _mech['form_key']
         # a curator override legitimately makes the stamped value differ from a bare
         # derivation; only flag when NO override explains it.
         _ov  = (_OVERRIDES or {}).get('subtopic_overrides', {}).get(e['subtopic_id'], {})
         if _fk != e['form_key'] and 'form_key' not in _ov and e['form_key'] != slugify(e['subtopic_id']):
+            nondet.append(e['subtopic_id'])
+        # ── B7: COLLISION_DOMAIN IS THE OTHER HALF OF THE IDENTITY ───────────
+        # This gate is named MECHANIC IDENTITY INTEGRITY, and identity is the PAIR
+        # (collision_domain, form_key) — the uniqueness test three lines below buckets
+        # by exactly that pair. Until now the gate re-derived form_key and threw the
+        # freshly-derived collision_domain away, so a drifted domain passed unnoticed
+        # while the check that was supposed to catch drift reported PASS.
+        #
+        # That is not hypothetical. build_section_prefix_map assigns colliding prefixes
+        # (ra, ra2, ra3) by iteration order, which is the exact defect B6 fixed in
+        # mint_subtopic_ids and stamp_mechanic_axes. Those two were pinned; the GATE
+        # that exists to notice when they drift was not. It also made `_po` above dead
+        # computation, which is how the mutation run found this: the mutant that
+        # hash-orders `_po` survived, because nothing downstream read the result.
+        #
+        # Same override escape hatch as form_key: a curator who sets collision_domain
+        # deliberately is not drift.
+        if (_mech['collision_domain'] != e.get('collision_domain')
+                and 'collision_domain' not in _ov
+                and e.get('collision_domain') is not None):
             nondet.append(e['subtopic_id'])
     dom = _dd(lambda: _dd(list))
     for e in entries:
@@ -5050,6 +5130,31 @@ def self_test():
         finally:
             globals()['_OVERRIDES'] = None
 
+    def _expect_hard_stop_text(name, want, fn, *args, **ov):
+        """As _expect_hard_stop, but the MESSAGE must match EXACTLY.
+
+        B7 — DIAGNOSTIC TEXT IS PART OF THE CONTRACT. Five surviving mutants were a
+        `sorted(...)` inside a hard-stop f-string, and the tempting verdict is
+        "equivalent mutant — only the word order inside an error changes". It is not.
+        Every one of those messages enumerates a SET, so under list() the SAME corrupt
+        override file produces a differently-worded refusal on every run. A curator
+        cannot diff two runs, cannot grep a log for a known message, and cannot tell a
+        second distinct fault from the same fault re-ordered. Artefact nondeterminism
+        (D4) applies to what the operator READS, not only to what the writers EMIT.
+        So the text is asserted rather than assumed — and with three-or-more members
+        each time, because a two-element set is a coin flip.
+        """
+        _with_overrides(**ov)
+        try:
+            fn(*args)
+            check(name, False)                       # no raise = the alarm is gone
+        except SystemExit as _ex:
+            check(name, str(_ex) == want)
+        except Exception:
+            check(name, False)
+        finally:
+            globals()['_OVERRIDES'] = None
+
     # OV-4 — a merge group with fewer than two members is meaningless
     _expect_hard_stop('OV4_merge_group_under_two_hard_stops',
                       apply_subtopic_merges, _cp.deepcopy(_GE), 'ZZEXAM',
@@ -5113,6 +5218,83 @@ def self_test():
     _expect_hard_stop('OV3b_merge_across_sections_hard_stops',
                       apply_subtopic_merges, _GE2, 'ZZEXAM',
                       subtopic_merges=[['RA.SEQ.CONV', 'RA.SEQ.DIV']])
+
+    # ── B7: the five diagnostic messages that enumerate a set ────────────────
+    # OV-3 across FOUR sections, supplied out of alphabetical order, so the message
+    # is a 1-in-24 permutation detector rather than a coin flip.
+    _GE4 = [dict(_e, subtopic_id=f'S{_i}.T.X', section=_s)
+            for _i, _s in enumerate(['Real Analysis', 'Real Algebra',
+                                     'Real Arithmetic', 'Real Applications'])
+            for _e in (_GE[0],)]
+    _expect_hard_stop_text(
+        'OV3b_span_message_lists_sections_alphabetically',
+        "FAIL: subtopic_merges group ['S0.T.X', 'S1.T.X', 'S2.T.X', 'S3.T.X'] spans "
+        "sections ['Real Algebra', 'Real Analysis', 'Real Applications', "
+        "'Real Arithmetic']",
+        apply_subtopic_merges, _cp.deepcopy(_GE4), 'ZZEXAM',
+        subtopic_merges=[['S0.T.X', 'S1.T.X', 'S2.T.X', 'S3.T.X']])
+
+    # OV-1 prints one line PER unknown key before the hard stop, and that loop is
+    # `for u in sorted(unknown)`. Under list() a curator fixing four typos reads them
+    # in a different order every run and cannot tell the list apart from a new fault.
+    _with_overrides(subtopic_overrides={_k: {'mechanic': 'x'} for _k in
+                                        ('ZED.ID', 'ALPHA.ID', 'MID.ID', 'BETA.ID')})
+    _ov1buf = _io7b = None
+    try:
+        import io as _io1b, contextlib as _cl1b
+        _ov1buf = _io1b.StringIO()
+        try:
+            with _cl1b.redirect_stdout(_ov1buf):
+                stamp_mechanic_axes(_cp.deepcopy(_GE), 'ZZEXAM')
+            check('OV1_lists_unknown_keys_alphabetically', False)   # no raise
+        except SystemExit:
+            _ov1keys = [_l.split("override key ")[1].split(" matches")[0]
+                        for _l in _ov1buf.getvalue().split('\n') if 'override key ' in _l]
+            check('OV1_lists_unknown_keys_alphabetically',
+                  _ov1keys == ["'ALPHA.ID'", "'BETA.ID'", "'MID.ID'", "'ZED.ID'"])
+    finally:
+        globals()['_OVERRIDES'] = None
+
+    # OV-5 / OV-5b: an overrides file naming template sets that do not exist. Both
+    # messages list the offending values; both were surviving mutants.
+    _tmp5 = _tf.mkdtemp(prefix='ae_ovsets_')
+    for _nm5, _body5, _want5 in (
+        ('OV5_template_sets_message_is_sorted',
+         '{"exam_code": "ZZSET", "template_sets": ["zeta", "alpha", "mu", "beta"]}',
+         "template_sets has unknown values ['alpha', 'beta', 'mu', 'zeta']"),
+        ('OV5b_template_sets_by_section_message_is_sorted',
+         '{"exam_code": "ZZSET", "template_sets_by_section": '
+         '{"Sec A": ["zeta", "alpha", "mu", "beta"]}}',
+         "template_sets_by_section['Sec A'] has unknown values "
+         "['alpha', 'beta', 'mu', 'zeta'] (check case/whitespace)"),
+    ):
+        with open(_os.path.join(_tmp5, 'ZZSET_mechanic_overrides.json'),
+                  'w', encoding='utf-8') as _fh5:
+            _fh5.write(_body5)
+        globals()['_OVERRIDES'] = None
+        try:
+            load_mechanic_overrides('ZZSET', search_dirs=(_tmp5,))
+            check(_nm5, False)                       # no raise = the alarm is gone
+        except SystemExit as _ex5:
+            check(_nm5, str(_ex5).endswith(_want5))
+        except Exception:
+            check(_nm5, False)
+        finally:
+            globals()['_OVERRIDES'] = None
+
+    # print_qv: an unknown status names the legal vocabulary. Four icons, and the
+    # operator is expected to compare that list against what they wrote.
+    try:
+        import io as _iopq, contextlib as _clpq
+        with _clpq.redirect_stdout(_iopq.StringIO()):
+            print_qv({'QV-X': ('MAYBE', 'detail')})
+        check('print_qv_status_vocabulary_is_sorted', False)        # no raise
+    except ValueError as _expq:
+        check('print_qv_status_vocabulary_is_sorted',
+              str(_expq).endswith("expected one of "
+                                  "['FAIL', 'PASS', 'WARN']."))
+    except Exception:
+        check('print_qv_status_vocabulary_is_sorted', False)
 
     # ── EC-M17: an overrides file declaring the WRONG exam_code ──────────────
     # Applying another exam's overrides is the quietest possible corruption: valid
@@ -5227,9 +5409,15 @@ def self_test():
           == {'Real Algebra': 'ra', 'Real Analysis': 'ra2',
               'Real Applications': 'ra3', 'Real Arithmetic': 'ra4'})
 
-    # ── subtopic_option_format: the NO-YEARS branch has its own sorted(set()) ─
-    # Questions carrying no 'year' take a different return path (L447), which the
-    # year-bearing fixture above never reaches. Four formats: 1-in-24 by luck.
+    # ── subtopic_option_format: the NO-YEARS branch, and DEFECT D7 ────────────
+    # B6 added these two checks believing they reached the no-years return. They did
+    # not: the old `q.get('year', '?')` gave every year-less question the key '?', so
+    # `years` was ['?'] — truthy — and the branch stayed unreachable. The mutation gate
+    # said so plainly by leaving that line's mutant ALIVE while the fixture passed, and
+    # a fixture that passes without reaching the code it names is worse than no fixture.
+    # That trail led to D7: the same sentinel mixed str and int keys in a dict whose keys
+    # are sorted on the next line, so ONE year-less question crashed synthesis outright.
+    # Four formats here: 1-in-24 that a hash-ordered list reproduces the alphabet.
     _noyear = [{'options': SHAPES['single_value']},
                {'options': SHAPES['coordinate_pair']},
                {'options': SHAPES['image_only']},
@@ -5239,6 +5427,274 @@ def self_test():
           _nf['all_observed'] == ['coordinate_pair', 'image_only',
                                   'roman_label', 'single_value'])
     check('no_year_branch_not_changed_recently', _nf['changed_recently'] is False)
+    check('no_year_branch_recent_format_falls_back_to_primary',
+          _nf['recent_format'] == _nf['primary'])
+    # D7 REGRESSION GUARD — a MIXED corpus. Under the old sentinel this raised
+    # TypeError from sorted({2021, '?'}); it must now read the recency vote from the
+    # year-bearing questions alone and ignore the year-less one.
+    _mixed = [{'options': SHAPES['single_value'], 'year': 2019},
+              {'options': SHAPES['single_value'], 'year': 2019},
+              {'options': SHAPES['coordinate_pair'], 'year': 2024},
+              {'options': SHAPES['image_only']}]
+    _mf = subtopic_option_format(_mixed)
+    check('d7_mixed_year_corpus_does_not_crash', _mf['primary'] == 'single_value')
+    check('d7_recency_vote_ignores_year_less_questions',
+          _mf['recent_format'] == 'coordinate_pair' and _mf['changed_recently'] is True)
+    check('d7_year_less_question_still_counted_in_all_observed',
+          _mf['all_observed'] == ['coordinate_pair', 'image_only', 'single_value'])
+
+    # ══ B7 — THE WRITER CORPUS ═══════════════════════════════════════════════
+    # Nine of the twenty surviving mutants lived in five functions this suite had
+    # NEVER CALLED: synthesise_subtopic, compute_section_axis_distribution,
+    # write_section_rules, write_subtopic_manifest and
+    # rebuild_subtopic_manifest_from_section_rules. They were untested for a
+    # mechanical reason, not a judgement one — each writes to
+    # '/mnt/user-data/outputs/', which does not exist on a CI runner, so no fixture
+    # could call them. That is why B7 begins with `out_dir` (see OUTPUT_DIR above)
+    # rather than with assertions: the environment was the blocker.
+    #
+    # This fixture is a different SHAPE from every fixture before it. B5 and B6
+    # asserted on directly-callable pure functions; the remaining ordering defects
+    # live behind the writers, where the observable is EMITTED TEXT. So the corpus is
+    # driven end to end — questions -> synthesise_subtopic -> write_section_rules ->
+    # write_subtopic_manifest -> rebuild — and the assertions read the artefacts back.
+    #
+    # THE CORPUS IS ADVERSARIAL BY CONSTRUCTION, not merely representative:
+    #   - FOUR sections colliding on the prefix `ra`, supplied out of alphabetical
+    #     order — 1 chance in 24 that a hash-ordered map reproduces the alphabet.
+    #   - FOUR papers whose FIGURAL counts are all DIFFERENT (1/2/3/4), so the
+    #     per-paper series is a permutation detector rather than a bag of equal
+    #     numbers — again 1 in 24.
+    #   - FOUR years whose set-iteration order is NOT their sorted order
+    #     (list({2021,2023,2024,2026}) == [2024,2026,2021,2023]).
+    # A fixture whose values are all equal cannot see an ordering defect at all; that
+    # is precisely how these nine survived a suite of eighty-six checks.
+    import copy as _cp7, io as _io7, contextlib as _cl7, json as _js7, tempfile as _tf7
+    _W7SECS = ['Real Analysis', 'Real Algebra', 'Real Arithmetic', 'Real Applications']
+    _W7PAPERS = [(2026, 'S1'), (2021, 'S2'), (2024, 'S1'), (2023, 'S3')]
+    _W7FIG = {2021: 1, 2023: 2, 2024: 3, 2026: 4}
+
+    def _w7q(sec, topic, sub, year, shift, num, img='none'):
+        return {'section': sec, 'topic': topic, 'subtopic': sub, 'year': year,
+                'shift': shift, 'num': num, 'q_num': num, 'question_type': 'MCQ',
+                'stem': f'Find x in {sub} case {num}', 'answer': '1',
+                'options': ['1', '2', '3', '4'], 'option_label': '1/2/3/4',
+                'format': 'TEXT', 'difficulty': {'level': 'Medium'}, 'image_role': img}
+
+    _w7prog, _w7n = {}, 0
+    for _s7 in _W7SECS:
+        for _j7 in range(2):
+            _qs7 = []
+            for (_y7, _sh7) in _W7PAPERS:
+                _w7n += 1
+                _qs7.append(_w7q(_s7, f'T{_j7}', f'{_s7} Sub {_j7}', _y7, _sh7, _w7n))
+                if _j7 == 0:                       # only Sub 0 carries figures
+                    for _k7 in range(_W7FIG[_y7]):
+                        _w7n += 1
+                        _qs7.append(_w7q(_s7, f'T{_j7}', f'{_s7} Sub {_j7}',
+                                         _y7, _sh7, _w7n, img='essential'))
+            _w7prog[(_s7, f'T{_j7}', f'{_s7} Sub {_j7}')] = _qs7
+
+    _w7buf = _io7.StringIO()
+    with _cl7.redirect_stdout(_w7buf):
+        _w7ent = [synthesise_subtopic(_k7[0], _k7[1], _k7[2], _v7, _w7prog)
+                  for _k7, _v7 in _w7prog.items()]
+
+    # synthesise_subtopic L1793 — the year list carried into every stem pattern.
+    # These years are the observation window Step 6 reads back.
+    check('synth_pattern_years_sorted_not_set_order',
+          all(list(_p7.get('years', [])) == [2021, 2023, 2024, 2026]
+              for _e7 in _w7ent for _p7 in _e7['PYQ_STEM_PATTERNS']
+              if _p7.get('years')))
+
+    # compute_section_axis_distribution L1652 / L1730 / L1754. The per-paper SERIES is
+    # what Step 6 turns into a quota; a permuted series assigns a paper's figural count
+    # to a different paper, so the MEAN survives unchanged and every individual target
+    # is wrong — the silent-wrong-answer shape, not a crash.
+    with _cl7.redirect_stdout(_w7buf):
+        _w7ax = compute_section_axis_distribution(
+            [_e7 for _e7 in _w7ent if _e7['section'] == _W7SECS[0]], _w7prog)
+    check('axis_recent_years_descending',
+          _w7ax['recent_years'] == [2026, 2024, 2023, 2021])
+    check('axis_figural_series_follows_sorted_papers',
+          _w7ax['figural_per_paper_observed'] == [1, 2, 3, 4])
+    check('axis_per_class_series_matches_figural_series',
+          _w7ax['per_paper_observed_by_class'].get('FIGURAL') == [1, 2, 3, 4])
+    check('axis_n_papers_recent_is_four', _w7ax['n_papers_recent'] == 4)
+
+    _w7dir = _tf7.mkdtemp()
+    _w7meta = {'papers_analysed': 4, 'questions_analysed': _w7n,
+               'years_covered': [2021, 2023, 2024, 2026],
+               'generation_date': '2026-08-17', 'options_count': 4}
+    _w7cfg = {'exam_code': 'ZZW7', 'total_questions': 999,
+              'sections': [{'name': 'Paper', 'q_range': [1, 999], 'q_count': 999}]}
+    with _cl7.redirect_stdout(_w7buf):
+        _w7rules = write_section_rules(_cp7.deepcopy(_w7ent), 'ZZW7', exam_meta=_w7meta,
+                                       progress=_w7prog, out_dir=_w7dir)
+    _w7txt = io_open_utf8(_w7rules).read()
+
+    # write_section_rules L2991 / L3008 — both sorts are BY DESCENDING observed_count,
+    # so the emitted sub_types_observed list and the per-entry blocks come out in
+    # frequency order, which is the order Step 6 reads as significance.
+    _w7subs = [_l7.strip()[2:] for _l7 in _w7txt.split('\n')
+               if _l7.startswith('  - ') and 'Sub ' in _l7]
+    check('section_rules_lists_subtypes_by_descending_count',
+          _w7subs == [f'{_s7} Sub {_j7} (n={14 if _j7 == 0 else 4})'
+                      for _s7 in _W7SECS for _j7 in (0, 1)])
+    check('section_rules_emits_all_four_sections',
+          sum(1 for _l7 in _w7txt.split('\n') if _l7.startswith('=== SECTION: ')) == 4)
+    check('section_rules_carries_axis_distribution',
+          _w7txt.count('  recent_years: [2026, 2024, 2023, 2021]') == 4)
+
+    # write_subtopic_manifest L3829 / L3846. The entries are deliberately UNSTAMPED so
+    # the id-minting fallback runs — that precondition is asserted, because a future
+    # change that mints earlier would leave this fixture green while testing nothing.
+    check('w7_entries_are_unstamped_so_id_fallback_runs',
+          all('subtopic_id' not in _e7 for _e7 in _w7ent))
+    with _cl7.redirect_stdout(_w7buf):
+        _w7mpath = write_subtopic_manifest(_cp7.deepcopy(_w7ent), 'ZZW7',
+                                           exam_meta=_w7meta, progress=_w7prog,
+                                           exam_config=_w7cfg, out_dir=_w7dir)
+    _w7man = _js7.loads(io_open_utf8(_w7mpath).read())
+    check('manifest_ids_use_alphabetical_prefix_map',
+          sorted(_w7man['subtopics']) == [
+              'ra.t0.real_algebra_sub_0', 'ra.t1.real_algebra_sub_1',
+              'ra2.t0.real_analysis_sub_0', 'ra2.t1.real_analysis_sub_1',
+              'ra3.t0.real_applications_sub_0', 'ra3.t1.real_applications_sub_1',
+              'ra4.t0.real_arithmetic_sub_0', 'ra4.t1.real_arithmetic_sub_1'])
+    check('manifest_pattern_eras_papers_in_sorted_order',
+          list(_w7man['pattern_eras']['papers']) ==
+          ['2021|S2', '2023|S3', '2024|S1', '2026|S1'])
+
+    # rebuild_subtopic_manifest_from_section_rules L4088 — the dedent test that ends the
+    # axis_distribution block. Neutralise it and the parser stops on the first sub-line,
+    # so the rebuilt manifest carries an EMPTY axis_distribution: a Step 6 run against a
+    # rebuilt manifest would silently lose every target rather than fail.
+    with _cl7.redirect_stdout(_w7buf):
+        _w7rb = rebuild_subtopic_manifest_from_section_rules(_w7rules, 'ZZW7R',
+                                                             out_dir=_w7dir)
+    _w7rbm = _js7.loads(io_open_utf8(_w7rb).read())
+    check('rebuild_recovers_axis_distribution_for_every_section',
+          sorted(_w7rbm['axis_distribution']) == sorted(_W7SECS))
+    check('rebuild_axis_block_keeps_all_eight_keys',
+          all(sorted(_v7) == ['axis1_per_paper', 'axis2_audit_mode', 'axis2_per_paper',
+                              'axis3_per_paper', 'mocks_per_window', 'n_papers_recent',
+                              'negative_rate', 'recent_years']
+              for _v7 in _w7rbm['axis_distribution'].values()))
+    check('rebuild_recovers_every_subtopic_id',
+          sorted(_w7rbm['subtopics']) == sorted(_w7man['subtopics']))
+
+    # ── generate_templates L528: `years` decides the RECENCY WINDOW ───────────
+    # last2 = set(years[-2:]). Under list() the "two most recent years" become two
+    # arbitrary years, which flips `deprecated` and `confidence` on every pattern —
+    # Step 6 reads `deprecated` as "do not generate from this pattern any more", so a
+    # permuted window retires the live patterns and revives the dead ones. No error is
+    # raised anywhere; the mock is simply built from the wrong decade.
+    _gt = generate_templates(
+        [{'stem': 'Find the limit of the sequence a_n as n tends to 2',
+          'year': 2021, 'num': 1, 'options': ['1', '2', '3', '4']},
+         {'stem': 'Find the limit of the sequence a_n as n tends to 3',
+          'year': 2023, 'num': 2, 'options': ['1', '2', '3', '4']},
+         {'stem': 'Evaluate the integral of f over the interval 4',
+          'year': 2024, 'num': 3, 'options': ['1', '2', '3', '4']},
+         {'stem': 'Evaluate the integral of f over the interval 5',
+          'year': 2026, 'num': 4, 'options': ['1', '2', '3', '4']}], 'reasoning')
+    _gtby = {tuple(_p['years']): _p for _p in _gt}
+    check('recency_window_is_the_two_LATEST_years',
+          sorted(_gtby) == [(2021, 2023), (2024, 2026)]
+          and _gtby[(2024, 2026)]['confidence'] == 'observed_recent'
+          and _gtby[(2024, 2026)]['deprecated'] is False
+          and _gtby[(2021, 2023)]['deprecated'] is True)
+
+    # generate_templates L562 — the rounding-deficit top-up. Three equal clusters give
+    # 33+33+33 = 99, so the branch runs and hands the spare point to the largest
+    # remainder. It had never been reached: every earlier fixture summed to 100.
+    _gtd = generate_templates(
+        [{'stem': 'Alpha alpha alpha one two three', 'year': 2024, 'num': 1,
+          'options': ['1', '2', '3', '4']},
+         {'stem': 'Beta beta beta four five six seven', 'year': 2024, 'num': 2,
+          'options': ['1', '2', '3', '4']},
+         {'stem': 'Gamma gamma gamma eight nine ten eleven', 'year': 2024, 'num': 3,
+          'options': ['1', '2', '3', '4']}], 'reasoning')
+    check('rounding_deficit_tops_up_to_exactly_100',
+          [_p['frequency'] for _p in _gtd] == [34, 33, 33])
+
+    # synthesise_subtopic L1793 — the FIGURAL fallback, reached only when no question
+    # yields a text skeleton. Its `years` is the sole year record such a subtopic has.
+    _fbe = synthesise_subtopic('S', 'T', 'U',
+                               [{'year': _y7f, 'num': _i7f, 'stem': '',
+                                 'options': ['1', '2', '3', '4'],
+                                 'image_role': 'essential',
+                                 'difficulty': {'level': 'Medium'}}
+                                for _i7f, _y7f in enumerate((2026, 2021, 2024, 2023))], {})
+    check('figural_fallback_pattern_years_are_sorted',
+          [_p['years'] for _p in _fbe['PYQ_STEM_PATTERNS']] == [[2021, 2023, 2024, 2026]])
+
+    # ── run_qv: QV-13, the mechanic-identity gate ────────────────────────────
+    # L4615 — QV-13 re-derives every form_key and compares it against the stamped one.
+    # That derivation needs the SAME prefix map the stamp used; hash-order it and the
+    # gate reports every subtopic as nondeterministic. The gate would then be crying
+    # wolf on correct data, which is how a FAIL gate gets switched off.
+    _qvent = _cp7.deepcopy(_w7ent)
+    with _cl7.redirect_stdout(_w7buf):
+        mint_subtopic_ids(_qvent)
+        globals()['_OVERRIDES'] = None
+        try:
+            stamp_mechanic_axes(_qvent, 'ZZQV')
+        finally:
+            globals()['_OVERRIDES'] = None
+        _qvres = run_qv(_qvent, {_s7: [{'topic': f'T{_j7}', 'subtopic': f'{_s7} Sub {_j7}'}
+                                       for _j7 in range(2)] for _s7 in _W7SECS},
+                        {'_meta': {}})
+    check('qv13_passes_on_correctly_stamped_entries', _qvres['QV-13'][0] == 'PASS')
+
+    # ...and the SAME entries with one collision_domain nudged off its derived value
+    # must FAIL. This is the assertion that makes `_po` load-bearing: without it the
+    # gate computes a prefix map and ignores it, and the mutant that hash-orders that
+    # map survives — which is precisely how this hole was found.
+    _driftent = _cp7.deepcopy(_qvent)
+    _driftent[0]['collision_domain'] = 'zz_drifted'
+    globals()['_OVERRIDES'] = None
+    with _cl7.redirect_stdout(_w7buf):
+        _driftres = run_qv(_driftent, {}, {'_meta': {}})
+    check('qv13_detects_collision_domain_drift',
+          _driftres['QV-13'][0] == 'FAIL'
+          and _driftent[0]['subtopic_id'] in _driftres['QV-13'][1])
+    # A curator who sets collision_domain deliberately is not drift — the escape hatch
+    # must work, or the gate becomes unusable on any exam with an override.
+    globals()['_OVERRIDES'] = {
+        'template_sets': None, 'template_sets_by_section': {}, 'subtopic_merges': [],
+        'subtopic_overrides': {_driftent[0]['subtopic_id']:
+                               {'collision_domain': 'zz_drifted'}}}
+    try:
+        with _cl7.redirect_stdout(_w7buf):
+            _okres = run_qv(_cp7.deepcopy(_driftent), {}, {'_meta': {}})
+    finally:
+        globals()['_OVERRIDES'] = None
+    check('qv13_honours_explicit_collision_domain_override',
+          _okres['QV-13'][0] == 'PASS')
+
+    # L4632 — and when form_keys DO collide, the report names the colliding ids. Four
+    # of them, out of alphabetical order. stamp_mechanic_axes hard-stops on a collision,
+    # so these entries are hand-built: run_qv is the second line of defence and has to
+    # be tested as one.
+    _colent = [{'subtopic_id': _i7c, 'section': 'Real Analysis', 'topic': 'T',
+                'subtopic': f'Sub {_k7c}', 'sub_type_label': f'Sub {_k7c}',
+                'format': 'TEXT', 'observed_count': 2, 'concept_group': 'c',
+                'PYQ_STEM_PATTERNS': [{'id': 'P1', 'template': f'template number {_k7c}',
+                                       'years': [2024], 'frequency': 100, 'raw_count': 3,
+                                       'confidence': 'observed', 'deprecated': False}],
+                'form_key': 'dup_key', 'collision_domain': 'ra',
+                'question_mechanic': 'm', 'axis2_capability': {},
+                'observed_axis2': {}, 'presentation_family': 'x'}
+               for _k7c, _i7c in enumerate(['ra.zeta', 'ra.alpha', 'ra.mid', 'ra.beta'])]
+    globals()['_OVERRIDES'] = None
+    with _cl7.redirect_stdout(_w7buf):
+        _colres = run_qv(_colent, {}, {'_meta': {}})
+    check('qv13_collision_report_lists_ids_alphabetically',
+          _colres['QV-13'][0] == 'FAIL' and
+          "collisions=[\"ra:dup_key=['ra.alpha', 'ra.beta', 'ra.mid', 'ra.zeta']\"]"
+          in _colres['QV-13'][1])
 
     # ── export surface: the stubs in the spec import exactly these ────────
     check('all_exports_exist', all(n in globals() for n in __all__))
@@ -5252,7 +5708,7 @@ def self_test():
     # A count is the cheapest possible oracle for "did anything vanish?". If a future
     # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
     # then visible in the diff, which is the whole point.
-    EXPECTED_CHECKS = 85
+    EXPECTED_CHECKS = 115
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(

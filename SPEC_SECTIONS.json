@@ -1555,12 +1555,12 @@
       ]
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "9247a72731a48cccfc3cb8a3e27e87d7f028844193eeba1bb15c8181fa7a575e",
-      "lines": 5160,
-      "bytes": 294699,
-      "est_tokens": 73674,
+      "sha256": "a894d6e892a6d8ccc89b72600f93395ff853a0f87ccedd4bf3372d3eb4af1532",
+      "lines": 5250,
+      "bytes": 301350,
+      "est_tokens": 75337,
       "view_calls": 19,
-      "bash_calls": 2,
+      "bash_calls": 3,
       "has_read_set": true,
       "reduced_bytes": 214447,
       "reduced_est_tokens": 53611,
@@ -1594,526 +1594,526 @@
       "sections": [
         {
           "title": "## §1 — SESSION START",
-          "start": 356,
-          "end": 360,
+          "start": 446,
+          "end": 450,
           "lines": 5,
           "bytes": 184
         },
         {
           "title": "### S1-1 — Trigger parsing and ExamCode detection",
-          "start": 361,
-          "end": 685,
+          "start": 451,
+          "end": 775,
           "lines": 325,
           "bytes": 17380
         },
         {
           "title": "### S1-2 — File inventory",
-          "start": 686,
-          "end": 902,
+          "start": 776,
+          "end": 992,
           "lines": 217,
           "bytes": 12449
         },
         {
           "title": "### S1-3 — Auto-detect all parameters from Exam Pattern + PYQ papers",
-          "start": 903,
-          "end": 1234,
+          "start": 993,
+          "end": 1324,
           "lines": 332,
           "bytes": 21186
         },
         {
           "title": "### S1-3a — Config-derived parameter overrides (NEW v2.18)",
-          "start": 1235,
-          "end": 1299,
+          "start": 1325,
+          "end": 1389,
           "lines": 65,
           "bytes": 3377
         },
         {
           "title": "### S1-3b — Store auto-detected params in _meta (NEW v2.3)",
-          "start": 1300,
-          "end": 1353,
+          "start": 1390,
+          "end": 1443,
           "lines": 54,
           "bytes": 3923
         },
         {
           "title": "### S1-3c — §1-6 Minimum year coverage check (runs at session start)",
-          "start": 1354,
-          "end": 1401,
+          "start": 1444,
+          "end": 1491,
           "lines": 48,
           "bytes": 2564
         },
         {
           "title": "### S1-4 — Load subtopic taxonomy",
-          "start": 1402,
-          "end": 1579,
+          "start": 1492,
+          "end": 1669,
           "lines": 178,
           "bytes": 9573
         },
         {
           "title": "### S1-5 — Verification summary",
-          "start": 1580,
-          "end": 1613,
+          "start": 1670,
+          "end": 1703,
           "lines": 34,
           "bytes": 1977
         },
         {
           "title": "## §1-6 — MINIMUM YEAR COVERAGE RULE (NON-NEGOTIABLE — CRITICAL)",
-          "start": 1614,
-          "end": 1685,
+          "start": 1704,
+          "end": 1775,
           "lines": 72,
           "bytes": 3917
         },
         {
           "title": "## §2 — UNIVERSAL EXTRACTION ENGINE: E-1 THROUGH E-11",
-          "start": 1686,
-          "end": 1690,
+          "start": 1776,
+          "end": 1780,
           "lines": 5,
           "bytes": 177
         },
         {
           "title": "### E-1 — Hierarchy reading",
-          "start": 1691,
-          "end": 1740,
+          "start": 1781,
+          "end": 1830,
           "lines": 50,
           "bytes": 2178
         },
         {
           "title": "### E-2 — Question detection",
-          "start": 1741,
-          "end": 1756,
+          "start": 1831,
+          "end": 1846,
           "lines": 16,
           "bytes": 707
         },
         {
           "title": "### E-3 — Option detection",
-          "start": 1757,
-          "end": 1772,
+          "start": 1847,
+          "end": 1862,
           "lines": 16,
           "bytes": 756
         },
         {
           "title": "### E-4 — Image extraction and mapping",
-          "start": 1773,
-          "end": 1812,
+          "start": 1863,
+          "end": 1902,
           "lines": 40,
           "bytes": 2287
         },
         {
           "title": "### E-5 — OMML formula extraction",
-          "start": 1813,
-          "end": 1828,
+          "start": 1903,
+          "end": 1918,
           "lines": 16,
           "bytes": 735
         },
         {
           "title": "### E-6 — NOTE/instruction block detection",
-          "start": 1829,
-          "end": 1844,
+          "start": 1919,
+          "end": 1934,
           "lines": 16,
           "bytes": 805
         },
         {
           "title": "### E-7 — Linked group detection",
-          "start": 1845,
-          "end": 1860,
+          "start": 1935,
+          "end": 1950,
           "lines": 16,
           "bytes": 734
         },
         {
           "title": "### E-8 — Option format classification (12 types)",
-          "start": 1861,
-          "end": 1876,
+          "start": 1951,
+          "end": 1966,
           "lines": 16,
           "bytes": 766
         },
         {
           "title": "### E-9 — Difficulty scoring (3-axis universal system)",
-          "start": 1877,
-          "end": 1898,
+          "start": 1967,
+          "end": 1988,
           "lines": 22,
           "bytes": 1072
         },
         {
           "title": "### E-10 — Template generation (subject-aware variable stripping)",
-          "start": 1899,
-          "end": 1925,
+          "start": 1989,
+          "end": 2015,
           "lines": 27,
           "bytes": 1420
         },
         {
           "title": "### E-11 — Wrong option structure classification (11 types)",
-          "start": 1926,
-          "end": 1943,
+          "start": 2016,
+          "end": 2033,
           "lines": 18,
           "bytes": 770
         },
         {
           "title": "## §3 — DOCUMENT PROCESSING PIPELINE",
-          "start": 1944,
-          "end": 1945,
+          "start": 2034,
+          "end": 2035,
           "lines": 2,
           "bytes": 41
         },
         {
           "title": "### S3-1 — Per-paper pipeline",
-          "start": 1946,
-          "end": 1961,
+          "start": 2036,
+          "end": 2051,
           "lines": 16,
           "bytes": 672
         },
         {
           "title": "### S3-1c — IMG-6 VISION LIVENESS PROBE (v2.34, mandatory)",
-          "start": 1962,
-          "end": 2023,
+          "start": 2052,
+          "end": 2113,
           "lines": 62,
           "bytes": 3860
         },
         {
           "title": "### S3-1d — QV-13 IMAGE INTEGRITY REPORT (v2.29)",
-          "start": 2024,
-          "end": 2066,
+          "start": 2114,
+          "end": 2156,
           "lines": 43,
           "bytes": 1967
         },
         {
           "title": "### S3-2 — Presorted extraction (the only extraction mode)",
-          "start": 2067,
-          "end": 2083,
+          "start": 2157,
+          "end": 2173,
           "lines": 17,
           "bytes": 850
         },
         {
           "title": "## §4 — VISION ANALYSIS FOR FIGURAL QUESTIONS",
-          "start": 2084,
-          "end": 2088,
+          "start": 2174,
+          "end": 2178,
           "lines": 5,
           "bytes": 201
         },
         {
           "title": "### S4-1 — When to run",
-          "start": 2089,
-          "end": 2106,
+          "start": 2179,
+          "end": 2196,
           "lines": 18,
           "bytes": 764
         },
         {
           "title": "### S4-2 — Vision analysis: the THREE-PHASE contract (v2.37)",
-          "start": 2107,
-          "end": 2137,
+          "start": 2197,
+          "end": 2227,
           "lines": 31,
           "bytes": 1769
         },
         {
           "title": "### S4-2a — PHASE A (python): queue the work",
-          "start": 2138,
-          "end": 2165,
+          "start": 2228,
+          "end": 2255,
           "lines": 28,
           "bytes": 1345
         },
         {
           "title": "### S4-2b — PHASE B (MODEL, IN-TURN): view the sheets",
-          "start": 2166,
-          "end": 2212,
+          "start": 2256,
+          "end": 2302,
           "lines": 47,
           "bytes": 2499
         },
         {
           "title": "### S4-2c — PHASE C (python): merge observations back",
-          "start": 2213,
-          "end": 2229,
+          "start": 2303,
+          "end": 2319,
           "lines": 17,
           "bytes": 729
         },
         {
           "title": "### S4-3 — Integration into paper processing pipeline",
-          "start": 2230,
-          "end": 2246,
+          "start": 2320,
+          "end": 2336,
           "lines": 17,
           "bytes": 944
         },
         {
           "title": "### S4-4 — Aggregate per subtopic (unchanged logic, fully automated)",
-          "start": 2247,
-          "end": 2264,
+          "start": 2337,
+          "end": 2354,
           "lines": 18,
           "bytes": 732
         },
         {
           "title": "## §5 — SYNTHESIS ENGINE",
-          "start": 2265,
-          "end": 2266,
+          "start": 2355,
+          "end": 2356,
           "lines": 2,
           "bytes": 29
         },
         {
           "title": "### S5-1 — Pre-synthesis check",
-          "start": 2267,
-          "end": 2298,
+          "start": 2357,
+          "end": 2388,
           "lines": 32,
           "bytes": 1923
         },
         {
           "title": "### S5-2 — Per-subtopic synthesis",
-          "start": 2299,
-          "end": 2313,
+          "start": 2389,
+          "end": 2403,
           "lines": 15,
           "bytes": 1174
         },
         {
           "title": "### S5-3 — Write section_rules.md",
-          "start": 2314,
-          "end": 2332,
+          "start": 2404,
+          "end": 2422,
           "lines": 19,
           "bytes": 1753
         },
         {
           "title": "## §6 — QUALITY VERIFICATION (QV-1 through QV-16)",
-          "start": 2333,
-          "end": 2349,
+          "start": 2423,
+          "end": 2439,
           "lines": 17,
           "bytes": 637
         },
         {
           "title": "## §7 — EDGE CASES (EC-1 through EC-15)",
-          "start": 2350,
-          "end": 2453,
+          "start": 2440,
+          "end": 2543,
           "lines": 104,
           "bytes": 5557
         },
         {
           "title": "## §8 — BATCH EXECUTION AND SESSION FLOW",
-          "start": 2454,
-          "end": 2455,
+          "start": 2544,
+          "end": 2545,
           "lines": 2,
           "bytes": 45
         },
         {
           "title": "### S8-0 — TRANSPORT PREFLIGHT (runs ONCE per session, BEFORE the first batch)",
-          "start": 2456,
-          "end": 2902,
+          "start": 2546,
+          "end": 2992,
           "lines": 447,
           "bytes": 26920
         },
         {
           "title": "### S8-0b — SESSION CLASS AND READ SET (runs at STEP 0, before any spec is read)",
-          "start": 2903,
-          "end": 2979,
+          "start": 2993,
+          "end": 3069,
           "lines": 77,
           "bytes": 4775
         },
         {
           "title": "### S8-1 — Batch design",
-          "start": 2980,
-          "end": 3102,
+          "start": 3070,
+          "end": 3192,
           "lines": 123,
           "bytes": 7971
         },
         {
           "title": "### S8-2 — Main execution loop",
-          "start": 3103,
-          "end": 3464,
+          "start": 3193,
+          "end": 3554,
           "lines": 362,
           "bytes": 20991
         },
         {
           "title": "### S8-3 — Batch delivery format",
-          "start": 3465,
-          "end": 3508,
+          "start": 3555,
+          "end": 3598,
           "lines": 44,
           "bytes": 1895
         },
         {
           "title": "### S8-4 — Auto-synthesise on completion (no separate final session)",
-          "start": 3509,
-          "end": 3965,
+          "start": 3599,
+          "end": 4055,
           "lines": 457,
           "bytes": 25259
         },
         {
           "title": "### S8-5 — Resume logic (between sessions)",
-          "start": 3966,
-          "end": 3982,
+          "start": 4056,
+          "end": 4072,
           "lines": 17,
           "bytes": 640
         },
         {
           "title": "### S8-7 — Progress JSON schema (reference)",
-          "start": 3983,
-          "end": 4042,
+          "start": 4073,
+          "end": 4132,
           "lines": 60,
           "bytes": 2525
         },
         {
           "title": "### S8-8 — Save and load functions",
-          "start": 4043,
-          "end": 4113,
+          "start": 4133,
+          "end": 4203,
           "lines": 71,
           "bytes": 3601
         },
         {
           "title": "### S8-9 — When --synthesise flag is still useful",
-          "start": 4114,
-          "end": 4143,
+          "start": 4204,
+          "end": 4233,
           "lines": 30,
           "bytes": 1328
         },
         {
           "title": "## §9 — STATUS DASHBOARD",
-          "start": 4144,
-          "end": 4168,
+          "start": 4234,
+          "end": 4258,
           "lines": 25,
           "bytes": 675
         },
         {
           "title": "## §10 — ANALYSIS SUMMARY FORMAT",
-          "start": 4169,
-          "end": 4205,
+          "start": 4259,
+          "end": 4295,
           "lines": 37,
           "bytes": 1047
         },
         {
           "title": "## §11 — DELIVERY FORMAT",
-          "start": 4206,
-          "end": 4207,
+          "start": 4296,
+          "end": 4297,
           "lines": 2,
           "bytes": 29
         },
         {
           "title": "### S11-1 — Mid-batch delivery (after each batch, more papers remain)",
-          "start": 4208,
-          "end": 4237,
+          "start": 4298,
+          "end": 4327,
           "lines": 30,
           "bytes": 1181
         },
         {
           "title": "### S11-2 — Final delivery (last batch processed → auto-synthesis complete)",
-          "start": 4238,
-          "end": 4319,
+          "start": 4328,
+          "end": 4409,
           "lines": 82,
           "bytes": 3981
         },
         {
           "title": "### S11-3 — DELIVERABLE SET CONTRACT (CLOSED)",
-          "start": 4320,
-          "end": 4404,
+          "start": 4410,
+          "end": 4494,
           "lines": 85,
           "bytes": 5719
         },
         {
           "title": "### S11-4 — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 4405,
-          "end": 4420,
+          "start": 4495,
+          "end": 4510,
           "lines": 16,
           "bytes": 637
         },
         {
           "title": "## §12 — INTEGRATION WITH STEP 7 (MockCreate)",
-          "start": 4421,
-          "end": 4422,
+          "start": 4511,
+          "end": 4512,
           "lines": 2,
           "bytes": 50
         },
         {
           "title": "### S12-1 — How Step 7 reads section_rules.md",
-          "start": 4423,
-          "end": 4474,
+          "start": 4513,
+          "end": 4564,
           "lines": 52,
           "bytes": 2001
         },
         {
           "title": "### S12-2 — Update protocol",
-          "start": 4475,
-          "end": 4496,
+          "start": 4565,
+          "end": 4586,
           "lines": 22,
           "bytes": 790
         },
         {
           "title": "## §13 — EXAM-AGNOSTIC GUARANTEE",
-          "start": 4497,
-          "end": 4526,
+          "start": 4587,
+          "end": 4616,
           "lines": 30,
           "bytes": 1244
         },
         {
           "title": "## §14 — SECTION_RULES.MD SCHEMA REFERENCE",
-          "start": 4527,
-          "end": 4748,
+          "start": 4617,
+          "end": 4838,
           "lines": 222,
           "bytes": 16595
         },
         {
           "title": "## DEFINITION OF DONE — Step 5 (PYQExtract)",
-          "start": 4749,
-          "end": 4981,
+          "start": 4839,
+          "end": 5071,
           "lines": 233,
           "bytes": 15278
         },
         {
           "title": "## §16-1 — DATA AGGREGATION FROM PROGRESS JSON",
-          "start": 4982,
-          "end": 4993,
+          "start": 5072,
+          "end": 5083,
           "lines": 12,
           "bytes": 428
         },
         {
           "title": "## §16-2 — DERIVED METRICS COMPUTATION",
-          "start": 4994,
-          "end": 5005,
+          "start": 5084,
+          "end": 5095,
           "lines": 12,
           "bytes": 406
         },
         {
           "title": "## §16-3 — XLSX SHEET SPECIFICATIONS",
-          "start": 5006,
-          "end": 5039,
+          "start": 5096,
+          "end": 5129,
           "lines": 34,
           "bytes": 1210
         },
         {
           "title": "## §16-4 — XLSX GENERATION CODE",
-          "start": 5040,
-          "end": 5051,
+          "start": 5130,
+          "end": 5141,
           "lines": 12,
           "bytes": 382
         },
         {
           "title": "## §16-5 — SHEET WRITER: SUMMARY DASHBOARD",
-          "start": 5052,
-          "end": 5063,
+          "start": 5142,
+          "end": 5153,
           "lines": 12,
           "bytes": 393
         },
         {
           "title": "## §16-6 — SHEET WRITER: MASTER DATA",
-          "start": 5064,
-          "end": 5075,
+          "start": 5154,
+          "end": 5165,
           "lines": 12,
           "bytes": 381
         },
         {
           "title": "## §16-7 — SHEET WRITER: TOPIC ANALYSIS",
-          "start": 5076,
-          "end": 5087,
+          "start": 5166,
+          "end": 5177,
           "lines": 12,
           "bytes": 387
         },
         {
           "title": "## §16-8 — SHEET WRITER: TREND ANALYSIS & PER-SECTION",
-          "start": 5088,
-          "end": 5099,
+          "start": 5178,
+          "end": 5189,
           "lines": 12,
           "bytes": 424
         },
         {
           "title": "## §16-9 — XLSX VALIDATION",
-          "start": 5100,
-          "end": 5120,
+          "start": 5190,
+          "end": 5210,
           "lines": 21,
           "bytes": 957
         },
         {
           "title": "## §16-10 — FREQUENCY XLSX EDGE CASES",
-          "start": 5121,
-          "end": 5160,
+          "start": 5211,
+          "end": 5250,
           "lines": 40,
           "bytes": 2132
         }
