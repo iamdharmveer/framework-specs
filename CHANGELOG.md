@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026.08.19.3 — Learnings filename seam: one file, three names, unified
+
+**Framework_Blueprint v1.49.0 → v1.50.0 · Framework_MockTestCreate v5.55 → v5.56.
+GAP-2026-08-19-LEARNINGS-FILENAME-SEAM. Spec-only; no engine changes, no schema
+changes, no artefact content changes.**
+
+The learnings file carried THREE names across the estate: Blueprint Step 6 generated
+`[ExamCode]_ExplainLearnings.md`; MockTestCreate Step 7 (GAP-07) loaded
+`{EXAM}_ExplainLearnings.md`; MockTestExplain/PYQExplain P1 load
+`[ExamCode]_EXPLAIN_LEARNINGS_v*.md` (parse_learnings, S24 frozen schema). On every
+exam the Step-6 stub never matched Step 9's glob — the mechanism the stub exists to
+seed was dead on arrival — and an exam adopting the CORRECT versioned name silently
+lost Step 7's load instead. No auditor covers filename seams (audit_seam tracks JSON
+fields), so only reading both ends together could catch it; found by the operator on
+the IIT JAM project.
+
+Unified on the S24 convention: Step 6 now generates
+`[ExamCode]_EXPLAIN_LEARNINGS_v1.md` with an S24-compatible header (S13-5 rewritten;
+15 inventory/delivery/upload sites renamed); Step 7 copies and loads the versioned
+glob, highest version wins, keeps its `BANNED:`/`VERIFIED DEFECT:` marker extraction,
+and prints a one-line MIGRATION warning when only a legacy-named file exists — loud,
+never silent. Also corrected stale prose claiming Step 4/Step 9 "fills/appends" the
+file: no step writes it (automatic producer retired at Explain v1.21.0, S24-4); it is
+human-authored and rules accumulate.
+
 ## 2026.08.19.2 — Axis section-key raw-compare fix (blueprint_core, estate-wide)
 
 **Framework_Blueprint v1.48.0 → v1.49.0 · blueprint_core.py (self-test 490 → 495).

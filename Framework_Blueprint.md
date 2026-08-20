@@ -1,4 +1,22 @@
-# Framework_Blueprint v1.49.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.50.0 — Universal Mock Test Blueprint Generator
+# v1.50.0 — 2026-08-19 — GAP-2026-08-19-LEARNINGS-FILENAME-SEAM (paired with
+#   MockTestCreate v5.56). ONE file carried THREE names across the estate: this spec's
+#   Step 6 generated [ExamCode]_ExplainLearnings.md; MockTestCreate Step 7 (GAP-07)
+#   loaded {EXAM}_ExplainLearnings.md; MockTestExplain/PYQExplain P1 load
+#   [ExamCode]_EXPLAIN_LEARNINGS_v*.md via parse_learnings (the S24 frozen schema).
+#   CONSEQUENCE, every exam: the Step-6 stub never matched Step 9's glob, so the
+#   learnings mechanism the stub exists to seed was dead on arrival — and an exam that
+#   adopted the CORRECT versioned name silently lost Step 7's GAP-07 load instead. No
+#   auditor covers filename seams (audit_seam tracks JSON fields), so only a human
+#   reading both ends could catch it. FIX — one name, one schema, both ends:
+#   Step 6 now generates [ExamCode]_EXPLAIN_LEARNINGS_v1.md with an S24-compatible
+#   header (S13-5 rewritten); every inventory/delivery/upload list renamed (15 sites).
+#   STALE-PROSE also corrected: RS-8 claimed the file is "appended after every Step 4
+#   session" and S13-5 claimed "Step 9 fills" — no step writes it (Explain v1.21.0
+#   retired the automatic producer, S24-4); it is human-authored, EX-rules accumulate,
+#   the _v suffix advances only on an S24 schema change. MockTestCreate v5.56 loads the
+#   versioned glob (highest version), keeps its BANNED:/VERIFIED DEFECT: extraction,
+#   and prints a one-line migration warning when only a legacy-named file exists.
 # v1.49.0 — 2026-08-19 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE (engine-side fix,
 #   blueprint_core.py; no fence code changes). section_axis2_pool_caps() and
 #   axis1_feasibility() RE-filtered their already section-scoped id lists with
@@ -120,7 +138,7 @@
 #   [ExamCode]_blueprint.xlsx           — human review (5 sheets)
 #   [ExamCode]_blueprint.json           — authoritative allocation data
 #   [ExamCode]_registry.json            — empty registry template
-#   [ExamCode]_ExplainLearnings.md      — empty template for Step 9 (MockExplain)
+#   [ExamCode]_EXPLAIN_LEARNINGS_v1.md  — EX-rule template (S24 schema; Steps 7 & 9 load)
 #   [ExamCode]_mock_test_audit.py       — canonical audit script (run by Step 7; v1.43.0)
 #
 # PROJECT SETUP:
@@ -133,7 +151,7 @@
 #   From Step 0: [ExamCode]_section_rules.md  — per-subtopic PYQ pattern reference
 #   From Step 1: [ExamCode]_blueprint.json    — mock allocation plan
 #                [ExamCode]_registry.json     — dedup tracking template
-#                [ExamCode]_ExplainLearnings.md
+#                [ExamCode]_EXPLAIN_LEARNINGS_v1.md
 #                [ExamCode]_mock_test_audit.py — audit script (run by Step 7; v1.43.0)
 #
 # EXAM-AGNOSTIC GUARANTEE:
@@ -3610,9 +3628,19 @@ Step 5  Generate registry.json (§12) — PRESERVED ACROSS SERIES (v1.34 REDESIG
               if figural_present; di_present adds no field (self-containment rule).
             — byte-identical to pre-v1.33 output.
 
-Step 6  Generate [ExamCode]_ExplainLearnings.md:
+Step 6  Generate [ExamCode]_EXPLAIN_LEARNINGS_v1.md (v1.50.0 — the S24 convention;
+        the legacy name [ExamCode]_ExplainLearnings.md matched NO consumer's glob):
           # [ExamCode] — [exam_name] MockExplain Learnings
-          (header only — Step 4 fills content)
+          #
+          # [ExamCode]_EXPLAIN_LEARNINGS_v1.md — EX-rules, human-authored guardrails
+          # (Framework_MockTestExplain LEARNINGS CONSUMPTION CONTRACT, S24-1 frozen
+          # schema). Loaded by Step 7
+          # (BANNED:/VERIFIED DEFECT: markers) and Steps 9/PYQExplain P1
+          # (parse_learnings) via the _v* glob; highest version wins. Rules
+          # ACCUMULATE — never delete, only Supersede. The _v suffix advances only
+          # on an incompatible S24 schema change, never when rules are added.
+          (nothing else — HUMAN-AUTHORED; no step fills it. The automatic producer
+          was retired at Explain v1.21.0, S24-4.)
 
 Step 7  RETIRED (v1.43.0) — [ExamCode]_ExplainAuditLearnings.md is no longer generated.
           Its only filler, canonical Step 10 (MockExplainAudit), is retired. An existing
@@ -3661,14 +3689,14 @@ Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
 
         present_files with all 5 output files (ref §11 S11-3):
           Order: blueprint.xlsx, blueprint.json, registry.json,
-                 ExplainLearnings.md, mock_test_audit.py
+                 EXPLAIN_LEARNINGS_v1.md, mock_test_audit.py
 
         CHECKLIST before calling present_files:
           ☐ §15-CHECKLIST items XLSX-1 through XLSX-5 all passed
           ☐ [ExamCode]_blueprint.xlsx  exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_blueprint.json  exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_registry.json   exists at /mnt/user-data/outputs/
-          ☐ [ExamCode]_ExplainLearnings.md        exists at /mnt/user-data/outputs/
+          ☐ [ExamCode]_EXPLAIN_LEARNINGS_v1.md    exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_mock_test_audit.py          exists at /mnt/user-data/outputs/
           ☐ mock_test_audit.py --self-test passed FIXTURE-BASED, N/N with
             N >= AUTH_GATE_FLOOR (35); the CURRENT canonical build prints 139/139
@@ -4768,7 +4796,7 @@ PART B — present_files with all 5 output files (MANDATORY — in this exact or
   1. [ExamCode]_blueprint.xlsx          ← FINAL version with all mock allocations
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
-  4. [ExamCode]_ExplainLearnings.md
+  4. [ExamCode]_EXPLAIN_LEARNINGS_v1.md
   5. [ExamCode]_mock_test_audit.py      ← audit script (run by Step 7; v1.43.0)
 
   NOT DELIVERED — blueprint_core.py / figural_core.py (v2.12.1). Step 7 copies both
@@ -4796,7 +4824,7 @@ PART C — Handoff message (concise):
    Upload to [ExamCode] project knowledge:
      ✓ [ExamCode]_blueprint.json
      ✓ [ExamCode]_registry.json
-     ✓ [ExamCode]_ExplainLearnings.md
+     ✓ [ExamCode]_EXPLAIN_LEARNINGS_v1.md
      ✓ [ExamCode]_mock_test_audit.py
 
    Keep locally (do NOT upload to project):
@@ -4852,7 +4880,7 @@ User requests batch regeneration (before B3 OR after B3):
   If B3 was already completed (files previously delivered):
     After batch re-generation: re-run B3 → all 5 output files re-delivered.
     User must replace all 4 non-xlsx Step 1 files in [ExamCode] project knowledge:
-    (blueprint.json, registry.json, ExplainLearnings.md, mock_test_audit.py)
+    (blueprint.json, registry.json, EXPLAIN_LEARNINGS_v1.md, mock_test_audit.py)
     Do NOT delete section_rules.md — it is from Step 0 and is not regenerated by Step 1.
 
 User requests B3 re-run (no batch changes):
@@ -5042,7 +5070,9 @@ RS-8  : Registry is a SEPARATE file. Never embedded in blueprint.json.
          Different lifecycles:
            blueprint.json           : read-only after Step 1 (never modified by Steps 2–6)
            registry.json            : fully replaced after every Step 2 session
-           ExplainLearnings.md      : appended after every Step 4 session
+           EXPLAIN_LEARNINGS_v1.md  : human-authored EX-rules accumulate; no step
+                                      writes it (automatic producer retired at
+                                      Explain v1.21.0, S24-4)
 
 RS-9  : Registry schema fixed at Step 1 B3. Step 2 only ADDS entries to
          existing arrays and POPULATES subfields within content_tracking{}.
@@ -5113,7 +5143,7 @@ All 5 files use [ExamCode] as prefix. ExamCode = alphanumeric + underscore only.
 [ExamCode]_blueprint.xlsx
 [ExamCode]_blueprint.json
 [ExamCode]_registry.json
-[ExamCode]_ExplainLearnings.md
+[ExamCode]_EXPLAIN_LEARNINGS_v1.md
 [ExamCode]_mock_test_audit.py
 
 REPO ENGINES ARE NOT B3 DELIVERABLES (v2.12.1). blueprint_core.py and
@@ -5170,20 +5200,23 @@ Lifecycle: Fully replaced after every Step 7 (MockCreate) session (RS-10).
            Step 2 outputs updated registry. User replaces in project.
 ```
 
-### S13-5 — ExplainLearnings.md (empty template — Step 9 fills)
+### S13-5 — EXPLAIN_LEARNINGS_v1.md (S24 EX-rule template — human-authored; v1.50.0)
 
 ```
-Content at Step 1:
-  # [ExamCode] — [exam_name] MockExplain Learnings
+Content at Step 1 (the exact Step-6 template above): filename
+[ExamCode]_EXPLAIN_LEARNINGS_v1.md, the S24-compatible header, no rules yet.
 
-  (nothing else — Step 9 fills content as sessions run)
+  Example first line: # SSC_CGL_TIER1 — SSC CGL Tier 1 MockExplain Learnings
 
-  Example: # SSC_CGL_TIER1 — SSC CGL Tier 1 MockExplain Learnings
-
-Purpose  : Stores exam-specific learnings from Step 9 (MockExplain) sessions.
-           Cross-mock feedback on explanation quality patterns.
+Purpose  : Human-authored EX-rule guardrails (Framework_MockTestExplain
+           LEARNINGS CONSUMPTION CONTRACT, S24-1 frozen schema). Cross-mock
+           feedback on explanation quality.
 Upload   : YES — uploaded to [ExamCode] project knowledge.
-Lifecycle: Appended by Step 9 as patterns accumulate. Never fully replaced.
+Lifecycle: HUMAN-AUTHORED; no step writes it (the automatic producer was retired
+           at Explain v1.21.0, S24-4). Rules ACCUMULATE — never delete, only
+           Supersede. Step 7 additionally honours explicit BANNED:/VERIFIED
+           DEFECT: markers inside a rule body. The _v suffix advances only on an
+           incompatible S24 schema change; consumers load the highest version.
 ```
 
 ### S13-6 — ExplainAuditLearnings.md — RETIRED (v1.43.0)
@@ -5312,7 +5345,7 @@ B3 delivers all 5 files in ONE present_files call (final delivery):
   1. [ExamCode]_blueprint.xlsx           ← FINAL version; user reviews allocation
   2. [ExamCode]_blueprint.json
   3. [ExamCode]_registry.json
-  4. [ExamCode]_ExplainLearnings.md
+  4. [ExamCode]_EXPLAIN_LEARNINGS_v1.md
   5. [ExamCode]_mock_test_audit.py       ← audit script (run by Step 7; v1.43.0)
 
 The repo engines (blueprint_core.py, figural_core.py) are NOT delivered here —
@@ -5337,7 +5370,7 @@ Step C: Upload to [ExamCode] project knowledge (5 Step-1 output files + 1 Step-0
         = 5 total; do NOT upload the xlsx):
           ✓ [ExamCode]_blueprint.json          ← Step 1 output
           ✓ [ExamCode]_registry.json           ← Step 1 output
-          ✓ [ExamCode]_ExplainLearnings.md     ← Step 1 output
+          ✓ [ExamCode]_EXPLAIN_LEARNINGS_v1.md ← Step 1 output
           ✓ [ExamCode]_mock_test_audit.py      ← Step 1 output (run by Step 7)
           ✓ [ExamCode]_section_rules.md        ← Step 0 output (PYQExtract)
         NOTE (v2.12.1): do NOT upload blueprint_core.py or figural_core.py. Engines
@@ -6835,4 +6868,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.49.0
+# END OF Framework_Blueprint v1.50.0

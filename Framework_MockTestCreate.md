@@ -1,4 +1,17 @@
-# Framework_MockTestCreate v5.55
+# Framework_MockTestCreate v5.56
+# v5.56 — 2026-08-19 — GAP-2026-08-19-LEARNINGS-FILENAME-SEAM (paired with Blueprint
+#   v1.50.0). The GAP-07 learnings load read {EXAM}_ExplainLearnings.md — the legacy
+#   name Blueprint Step 6 generated — while Step 9's loader globs
+#   [ExamCode]_EXPLAIN_LEARNINGS_v*.md (S24 schema). One file, three names estate-wide:
+#   the Step-6 stub never reached Step 9, and an exam adopting the correct versioned
+#   name silently lost THIS step's load. FIX: S1's copy and S3's load now glob
+#   {EXAM}_EXPLAIN_LEARNINGS_v*.md and read the HIGHEST version (same rule as
+#   parse_learnings); the BANNED:/VERIFIED DEFECT: extraction is unchanged (an EX-rule
+#   author may include those markers for Step-7 enforcement; S24 prose fields are
+#   Step-9 authoring guidance, not generation bans). A project carrying ONLY the
+#   legacy-named file still loads it, with a printed one-line migration warning to
+#   rename — loud, never silent (§16 exam-agnostic mandate: the convention is single;
+#   the legacy path exists only to not strand pre-v5.56 projects mid-series).
 # v5.55 — 2026-08-19 — GAP-2026-08-19-FIGFIT: FIGURE LAYOUT IS NOW MEASURED, NOT ASSUMED
 #   Every figure gate from v5.33 to v5.54 measured METADATA — canvas pixels, DPI,
 #   placement scale, REQUESTED font points, DECLARED hues, alt text. Nothing measured
@@ -181,7 +194,7 @@
   Step 5 (PYQExtract)  → produces [ExamCode]_section_rules.md
   Step 6 (MockBlueprint) → produces [ExamCode]_blueprint.json,
                                [ExamCode]_registry.json (empty template),
-                               [ExamCode]_ExplainLearnings.md,
+                               [ExamCode]_EXPLAIN_LEARNINGS_v1.md,
                                [ExamCode]_mock_test_audit.py
   THIS STEP — Step 7 (MockCreate) → produces [ExamCode]_Mock[N]_Create.docx,
                                updated [ExamCode]_registry.json
@@ -740,11 +753,19 @@
   if os.path.exists(fig_src):
       shutil.copy(fig_src, f'/home/claude/{EXAM}_fig_manifest.json')
 
-  # OPTIONAL — ExplainLearnings (v2.0 GAP-07 fix):
-  for learn_file in [f'{EXAM}_ExplainLearnings.md']:
-      src = f'/mnt/project/{learn_file}'
-      if os.path.exists(src):
-          shutil.copy(src, f'/home/claude/{learn_file}')
+  # OPTIONAL — EXPLAIN_LEARNINGS (v2.0 GAP-07 fix; v5.56 filename seam fix):
+  # One name estate-wide: {EXAM}_EXPLAIN_LEARNINGS_v*.md (S24 convention, highest
+  # version wins — same rule as Step 9's parse_learnings). Legacy-named file
+  # loads with a MIGRATION warning; never silently ignored.
+  import glob
+  learn_srcs = sorted(glob.glob(f'/mnt/project/{EXAM}_EXPLAIN_LEARNINGS_v*.md'))
+  legacy_src = f'/mnt/project/{EXAM}_ExplainLearnings.md'
+  if learn_srcs:
+      shutil.copy(learn_srcs[-1], f'/home/claude/{os.path.basename(learn_srcs[-1])}')
+  elif os.path.exists(legacy_src):
+      shutil.copy(legacy_src, f'/home/claude/{EXAM}_ExplainLearnings.md')
+      print(f'MIGRATION: {EXAM}_ExplainLearnings.md uses the legacy name — rename to '
+            f'{EXAM}_EXPLAIN_LEARNINGS_v1.md so Step 9 loads it too (v5.56 seam fix).')
   ```
 
 ## S3-2 — Select and load the blueprint — read ALL fields (v2.0 GAP-02 fix; v5.28 pp.pick_blueprint)
@@ -1014,13 +1035,17 @@
       return _alias.get(sched_key, sched_key)
   ```
 
-  LOAD ExplainLearnings for quality constraints (GAP-07 fix):
+  LOAD EXPLAIN_LEARNINGS for quality constraints (GAP-07 fix; v5.56 filename seam fix):
   ```python
   learnings_bans = []  # Extra banned patterns from prior Explain sessions
-  for learn_file in [f'/home/claude/{EXAM}_ExplainLearnings.md']:
+  import glob
+  _lf = sorted(glob.glob(f'/home/claude/{EXAM}_EXPLAIN_LEARNINGS_v*.md')) \
+        or [f'/home/claude/{EXAM}_ExplainLearnings.md']   # legacy fallback (S1 warned)
+  for learn_file in [_lf[-1]]:
       if os.path.exists(learn_file):
           content = open(learn_file, encoding='utf-8').read()
-          # Extract BANNED/VERIFIED DEFECT entries and add to generation bans
+          # Extract explicit BANNED/VERIFIED DEFECT markers (an EX-rule author may
+          # include them for Step-7 enforcement; S24 prose fields are Step-9 guidance)
           bans = re.findall(r'(?:BANNED|VERIFIED DEFECT):\s*(.+)', content)
           learnings_bans.extend(bans)
   # learnings_bans added to quality gate checks during generation
@@ -7602,7 +7627,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.55
+# END OF Framework_MockTestCreate v5.56
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
