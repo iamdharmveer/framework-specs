@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7759,
-      "sha256": "bc72db663db7d8d817c2d31f895d17d6167bb740f04ca6c3b042c1cba669cd3d",
-      "size_bytes": 483981,
-      "version_header": "# Framework_MockTestCreate v5.57"
+      "lines": 7804,
+      "sha256": "46dae3aac09b2078cfe0994caf9383a74e90e35ae25f714f05685ad99a4cbec0",
+      "size_bytes": 487775,
+      "version_header": "# Framework_MockTestCreate v5.58"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 5635,
-      "sha256": "46d1661a97f4fbca64fd27585812a386ba6258dcc93bd44f0498faff004ed74e",
-      "size_bytes": 310282,
+      "lines": 5676,
+      "sha256": "f8983d47ace82efa4ea43ad160df71b9cdb15927a40119dd8294745ffec51373",
+      "size_bytes": 313185,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {

@@ -1,5 +1,81 @@
 # Changelog
 
+## 2026.08.20.8 — GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL
+
+**Framework_MockTestCreate.md v5.57 -> v5.58 · blueprint_core.py (+2 fixtures, 495 -> 497)**
+
+A paper whose blueprint predates Blueprint v1.45 renders **zero figures against a real
+Axis-1 budget, on every mock, silently.** Found during the S3-17b pre-flight of
+`TestCreate P1` on IIT_JAM_CHEMISTRY, before Batch 1 — not from a delivered paper.
+
+**Root cause, reproduced.** `S7-NEW-B0` reads the per-mock figural schedule and guards it:
+
+```python
+this_mock = figural_slots[(N - 1) % len(figural_slots)] if figural_slots else None
+```
+
+with its own comment promising *"Empty schedule (pre-v1.45 blueprint) => fall through to
+the v5.41 ranking below, so every un-remeasured exam keeps its current behaviour
+exactly."* But for an empty quota `bc.schedule_figural_slots` returns
+`[{}, {}, ... x n]` — a **truthy list of empty dicts**, never `[]`. The sentinel
+therefore never fires; the per-mock filter runs with an empty allowance;
+`_left.get(sid, 0) > 0` is false for every candidate; and the entire figural-capable
+set is discarded **before** `rank_figural_candidates`, **before** `axis_grant_figural`,
+and **before** the irreducible exemption. No gate fires, because from every gate's point
+of view the generator simply chose to render text.
+
+**Measured** (IIT_JAM_CHEMISTRY Mock 01, blueprint v1.35, `axis1_figural_quota = {}`):
+
+| Section | capable slots | survive filter | granted | Axis-1 FIGURAL budget |
+| --- | ---: | ---: | ---: | ---: |
+| A | 21 | 0 | 0 | 9 |
+| B | 5 | 0 | 0 | 3 |
+| C | 14 | 0 | 0 | 6 |
+
+A-AXIS1 would report an 18-figure shortfall on **every mock of a 20-mock series**, with
+the generator structurally unable to comply — the permanent-failure shape v5.43 exists
+to remove, reintroduced by its own guard.
+
+**This is v5.57 one layer up.** G-FIGINK found a census that measured a *declared*
+extent instead of where ink landed. This is a sentinel that measured a *declared*
+property — the list is non-empty — instead of the actual *content* — the schedule
+carries slots. Same class, same remedy: ask the artefact, not the wrapper.
+
+**Fix — two independent layers.**
+
+1. **Producer.** `blueprint_core.schedule_figural_slots` returns `[]` when
+   `not any(out)`, so "no schedule" is falsy and every caller's plain truthiness test
+   is correct by construction. `any(out)` is exact: a mock entry is truthy iff it holds
+   at least one slot.
+2. **Consumer.** Both call sites in `Framework_MockTestCreate.md` test `any(...)`, not
+   truthiness. The **DI fork at S4-7** carried the identical bug by copy and is fixed in
+   the same release — latent only because every exam to hand has a DI budget of 0,
+   exactly as the v5.45 DI scheduling defect was. **PASSAGE inherits that fork's shape**
+   via `axis1_*_by_class`, so the sentinel had to be corrected before that class ships.
+
+**Blast radius.** The only production consumers of the changed return shape are the two
+spec sites above, both guarded. `derive_axis_schedule` does not call it. Every other
+reference is inside `self_test`.
+
+**Regression evidence.**
+- 400 randomised exam shapes with a populated quota (1–25 subtopics, 3–25 mocks,
+  varied bands/capacities): **0 behavioural differences**. No exam with a measured
+  quota moves by one figure.
+- Only the "nothing scheduled" case changes, and it changes from *truthy-but-empty*
+  (silently strips every candidate) to *falsy* (falls through as documented).
+- Patched behaviour on the reference blueprint: 21/5/14 capable -> 9/3/6 granted,
+  exactly the budget.
+
+**New fixtures.** `FIGSCHED-empty-quota-is-falsy`, `FIGSCHED-populated-quota-unchanged`.
+`EXAMDEP-no-mock-over-band` was iterating `range(15)` — asserting the *return shape*
+while claiming to assert the *band invariant* — and is now `range(len(_sl))`. The same
+confusion in miniature as the defect it guards.
+
+**Gates.** bootstrap 51/51 · validate_framework_md 0 issues / 23 files · audit_callgraph
+0 findings · spec_name_audit ratchet unchanged (31 known names, line shift only) ·
+blueprint_core 497/497 · figural_core 117/117 · paper_pipeline 72/72 · final_assembly
+103/103 · corpus_io 347/347 · audit_canonical 252/252.
+
 ## 2026.08.20.7 — audit_callgraph C8 was reporting 60 valid fences as unparseable
 
 **`audit_callgraph.py` only.** No spec changes, no engine changes, **no artefact values

@@ -1407,6 +1407,27 @@ def schedule_figural_slots(quota, targets, band=None, n_mocks=None, capacity=Non
             m = min(cand, key=lambda k: (-(ceil[k] - load[k]), k))
             out[m][sid] = out[m].get(sid, 0) + 1
             load[m] += 1
+    # GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL. "No schedule" MUST be
+    # FALSY. Every caller guards this call with `if <slots> else None` and its
+    # own comment promises "empty schedule (pre-v1.45 blueprint) => fall through,
+    # so every un-remeasured exam keeps its current behaviour exactly". But a
+    # quota of {} produced `[{}, {}, ... x n]` — a TRUTHY list of empty dicts —
+    # so the sentinel never fired, the caller's per-mock filter ran against an
+    # empty allowance, and EVERY figural-capable slot was stripped before the
+    # ranking or the budget was ever consulted. Measured on IIT_JAM_CHEMISTRY
+    # Mock 01 (blueprint v1.35, quota {}): 21/5/14 capable slots -> 0/0/0
+    # survivors against an Axis-1 FIGURAL budget of 9/3/6. The paper would ship
+    # ZERO figures and fail A-AXIS1 shortfall on every mock, forever, with the
+    # generator structurally unable to comply.
+    # SAME DEFECT CLASS AS G-FIGINK (v5.57) ONE LAYER UP: the guard measured a
+    # DECLARED property (the list is non-empty) instead of the actual CONTENT
+    # (the schedule carries slots). Fixed at the producer so no caller — present
+    # or future, spec-side or engine-side — can get the sentinel wrong again.
+    # `any(out)` is exact: a mock entry is truthy iff it holds >=1 slot, so this
+    # returns [] iff NOTHING was scheduled anywhere. A populated quota is
+    # untouched, byte-for-byte.
+    if not any(out):
+        return []
     return out
 
 
@@ -4282,6 +4303,19 @@ def self_test():
     check('EXAMDEP-membership-test-still-works',
           all(('a' in v) == (v.get('a', 0) > 0) for v in _sc))
 
+    # GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL. "No schedule" must be FALSY, so a
+    # caller's documented `if <slots> else None` fall-through actually fires. Before the
+    # fix an empty quota returned [{}, {}, ... x n] and every caller silently stripped
+    # its whole figural-capable set instead of falling through to the ranking + budget.
+    check('FIGSCHED-empty-quota-is-falsy',
+          schedule_figural_slots({}, [9] * 20, 0, capacity={'a': 3}) == []
+          and schedule_figural_slots(None, [9] * 20, 0) == []
+          and schedule_figural_slots({'a': 0}, [9] * 20, 0) == [])
+    # ... and a POPULATED quota is untouched: still one entry per mock, all slots placed.
+    _ne = schedule_figural_slots({'a': 4}, [2] * 6, 0, capacity={'a': 2})
+    check('FIGSCHED-populated-quota-unchanged',
+          len(_ne) == 6 and sum(v.get('a', 0) for v in _ne) == 4 and any(_ne))
+
     # (C) MOCK COUNT is a property of the exam. It was read from a manifest key nobody
     #     wrote, so every exam in the estate silently got a 15-mock series.
     for _nm in (5, 10, 15, 30, 50):
@@ -4313,8 +4347,15 @@ def self_test():
         _cp = {k: 10 for k in _cnt}
         _sl = schedule_figural_slots(figural_quota(_cnt, 15, _mean, capacity=_cp),
                                      _sr, _bd, capacity=_cp)
+        # GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL: iterate over what the
+        # scheduler ACTUALLY returned, not a hard-coded 15. The 'zero-figure'
+        # shape now correctly returns [] (nothing was scheduled, so no mock can
+        # be over band, vacuously) and this fixture was asserting the RETURN
+        # SHAPE while claiming to assert the BAND INVARIANT. Same confusion, in
+        # miniature, as the defect it now guards: measure the artefact, not the
+        # wrapper. A populated quota is unaffected — len(_sl) is 15 there.
         check(f'EXAMDEP-no-mock-over-band[{_lbl}]',
-              all(sum(_sl[m].values()) <= _sr[m] + _bd for m in range(15)))
+              all(sum(_sl[m].values()) <= _sr[m] + _bd for m in range(len(_sl))))
 
     # (E) RESOURCE GUARD. total_mocks comes from a JSON file another step wrote, so a
     #     typo is a real input. Unclamped, figural_target_series(obs, 2**40) allocates a

@@ -1,4 +1,33 @@
-# Framework_MockTestCreate v5.57
+# Framework_MockTestCreate v5.58
+# v5.58 — 2026-08-20 — GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL (blueprint_core
+#   +1 fixture). A paper whose blueprint predates Blueprint v1.45 renders ZERO figures
+#   against a real Axis-1 budget, on every mock, silently. S7-NEW-B0 reads the per-mock
+#   figural schedule and guards it `if figural_slots else None`, with the promise "empty
+#   schedule (pre-v1.45 blueprint) => fall through ... every un-remeasured exam keeps its
+#   current behaviour exactly". ROOT CAUSE, reproduced: for an empty quota
+#   bc.schedule_figural_slots returns `[{}, {}, ... x n]` — a TRUTHY list of EMPTY dicts,
+#   never []. The sentinel therefore never fires, the per-mock filter runs with an empty
+#   allowance, `_left.get(sid, 0) > 0` is false for every candidate, and the whole
+#   figural-capable set is discarded BEFORE rank_figural_candidates and BEFORE
+#   axis_grant_figural — so neither the ranking nor the budget nor the irreducible
+#   exemption is ever consulted, and no gate fires because the generator "chose" text.
+#   MEASURED (IIT_JAM_CHEMISTRY Mock 01, blueprint v1.35, axis1_figural_quota={}):
+#   capable 21/5/14 by section -> 0/0/0 granted, against an Axis-1 FIGURAL budget of
+#   9/3/6. A-AXIS1 would report an 18-figure shortfall on every mock of the series with
+#   the generator structurally unable to comply — the permanent-failure shape v5.43
+#   exists to remove, reintroduced by its own guard.
+#   THIS IS THE v5.57 DEFECT ONE LAYER UP. G-FIGINK found a census that measured a
+#   DECLARED extent instead of where ink landed; this is a sentinel that measured a
+#   DECLARED property (the list is non-empty) instead of the actual CONTENT (the
+#   schedule carries slots). Same class, same remedy: ask the artefact, not the wrapper.
+#   FIX, two independent layers: (1) PRODUCER — blueprint_core.schedule_figural_slots
+#   returns [] when `not any(out)`, so "no schedule" is FALSY and every caller's plain
+#   truthiness test is correct by construction (a populated quota is byte-identical);
+#   (2) CONSUMER — both call sites in this spec test `any(...)`, not truthiness. The DI
+#   fork at S4-7 carried the identical bug by copy and is fixed in the same release; it
+#   was latent only because every exam to hand has a DI budget of 0, and PASSAGE
+#   inherits that fork's shape via axis1_*_by_class, so it had to be fixed before that
+#   class ships. NO exam with a measured quota changes by one figure.
 # v5.57 — 2026-08-20 — GAP-2026-08-20-FIGURAL-INK-CENSUS (figural_core v5.57, self-test
 #   103 -> 117). A delivered paper carried a problem figure whose substituent bond ran
 #   off the canvas with no label, and — found by the new gate on the same paper — FIVE
@@ -2201,11 +2230,17 @@
                              (axis_schedule.get(sec_name) or {})
                                  .get('axis1_observed_by_class', {}).get('DI')),
                          capacity=_cap)
-                     this_mock_di = di_slots[(N - 1) % len(di_slots)] if di_slots else None
+                     this_mock_di = di_slots[(N - 1) % len(di_slots)] if any(di_slots) else None
 
                  A subtopic absent from this_mock_di renders TEXT this mock. Empty
                  schedule (pre-v1.47 blueprint) ⇒ cap-only, i.e. exactly today's
                  behaviour, so no deployed exam moves until it is re-measured.
+                 v5.58 (GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL): `any(di_slots)`,
+                 not `di_slots`. This fork was written by copying the FIGURAL fork and
+                 inherited its sentinel bug verbatim — the DI budget is 0 on every exam
+                 to hand, so it was latent, exactly as the v5.45 DI scheduling defect
+                 was. PASSAGE inherits this fork's shape via axis1_*_by_class, so the
+                 correct sentinel has to be fixed HERE, before that class is released.
                  PASSAGE inherits the identical treatment via axis1_*_by_class['PASSAGE']
                  — the point of keying by class is that the next class needs no release.
 
@@ -3951,7 +3986,17 @@
       capacity=_cap)
   # Empty schedule (pre-v1.45 blueprint) ⇒ fall through to the v5.41 ranking below, so
   # every un-remeasured exam keeps its current behaviour exactly.
-  this_mock = figural_slots[(N - 1) % len(figural_slots)] if figural_slots else None
+  # v5.58 (GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL) — THE TEST IS `any()`, NOT
+  # TRUTHINESS. bc.schedule_figural_slots returned `[{}, {}, ... x n]` for an empty
+  # quota: a TRUTHY list carrying NOTHING. `if figural_slots` therefore passed, the
+  # filter below ran with an empty allowance, and every capable slot was stripped
+  # before rank_figural_candidates or axis_grant_figural ever saw it — 0 figures
+  # against a real budget, on every pre-v1.45 blueprint in the estate, silently.
+  # The engine now returns [] (blueprint_core, same release) so plain truthiness is
+  # already correct; `any()` is kept here as the SECOND layer, because this comment's
+  # promise must hold against ANY scheduler that returns a per-mock list — the
+  # producer fix and the consumer fix are deliberately independent.
+  this_mock = figural_slots[(N - 1) % len(figural_slots)] if any(figural_slots) else None
   if this_mock is not None:
       # this_mock is {subtopic_id: n_figures} (v1.46, was a set) — take AT MOST that many
       # slots per subtopic, in the ranked order established below.
@@ -7676,7 +7721,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.57
+# END OF Framework_MockTestCreate v5.58
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
