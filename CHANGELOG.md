@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026.08.20.4 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS: an explanation must be safe to LEARN, not only correct to READ
+
+**`Framework_MockTestExplain` v1.35.0 -> v1.36.0, `Framework_PYQExplain` v2.13 -> v2.14,
+`explain_engine.py` v2.6 -> v2.7 (self-test 102 -> 131, audit 26/26). SHARED_RULES_VERSION
+1.2 -> 1.3. No other spec, engine, route or trigger changes.**
+
+### The defect
+A delivered 60-question paper passed every §18 gate with every answer correct and still
+carried ~17 sentences that are true for the item and FALSE for its nearest neighbour in
+the same class ("an electron-withdrawing substituent directs meta" — halogens; "a Grignard
+gives an alcohol one carbon richer"; "a stable carbonylate can be quoted as eighteen
+electrons"; "identical halves always collapse into a meso form"; "cannot be titrated
+directly at all"), plus "The seductive half is …" on 10 of 10 MSQ WHY WRONG blocks — a
+phrase the spec's own §15-3 wording mandated. Answer-level gates are blind to this by
+construction. Root cause, again: rules that ADVISED (§8-0b, §14-3b, §8-2 "transferable")
+what only a gate and a recorded artefact can enforce.
+
+### What changed (domain-neutral; the incident's chemistry is labelled illustration only)
+- **NEW §7-7 TRANSFER-SAFETY PROTOCOL** — scope → epistemic type → nearest-neighbour test
+  at the exam's level → repair by MECHANISM (never "usually", never an exception list) →
+  `transfer_record` on the block, shape-validated at construction.
+- **§8-0b is a GATE**: engine v2.7 raises on an undeclared universal (always / never /
+  cannot / at all / regardless of / …) in AXIOM, SPEED HACK, WHY WRONG, COMMON PITFALLS;
+  a kept absolute is DECLARED with its reason (`absolutes_justified`). Measured before
+  shipping: the first pattern (with only/every/exactly) flagged 98 sentences on the
+  reference paper, ~80 % plain quantifiers — dropped. The shipped pattern flags 23
+  universals + 19 psychology phrases, every one actionable.
+- **§8-2** epistemic type + scope-in-sentence; **§8-3** topic minimum-concept components
+  (subject data); **§8-4 / §14-1 part 3** TRANSFER-SAFE; **§14-5** four-field record.
+- **§15-3 MSQ** rewritten OPTION → WRONG FEATURE → DECISIVE CORRECTION; old wording
+  WITHDRAWN; learner-psychology templates banned in the engine.
+- **NEW §6A-1c** representation ALIGNMENT (prose inventory for spatial / occupancy /
+  topology / handedness decisions); **NEW §6A-3b** distribution tripwire; **CONFORMER**
+  verdict (run-report F3).
+- **§24** loads a SUBJECT-level `[Subject]_EXPLAIN_LEARNINGS_v*.md` (same frozen schema,
+  same `parse_learnings`) — the curated neighbour library, exam-convention classes and
+  minimum-concept components are written ONCE PER SUBJECT; precedence exam > subject >
+  spec. **§24-5** defect codes. `strip_solutions` now GCs orphaned media (run-report F2).
+- Student-facing format unchanged and LOCKED: AXIOM · DEDUCTION · (SPEED HACK) ·
+  WHY WRONG / COMMON PITFALLS.
+
+### Evidence
+Engine v2.7 run over the delivered `IIT_JAM_CHEMISTRY_Mock01_Explanation.docx` via
+`parse_solution_blocks`: 28 of 60 blocks now fail construction (19 psychology phrases,
+23 universals); the §7-7 / §6A-1c / §14-1-part-3 findings are protocol-level and are
+seeded as rules in `CHEMISTRY_EXPLAIN_LEARNINGS_v1.md` (project file, not repo).
+
 ## 2026.08.20.3 — Wave 2 Part C, Batch 9: the Drive transport contract becomes testable
 
 **NEW `transport_core.py` (17th routed engine), `Framework_MockTestAnalyse` v2.53.4 ->

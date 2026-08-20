@@ -1,4 +1,20 @@
-# Framework_MockTestExplain v1.35.0
+# Framework_MockTestExplain v1.36.0
+# v1.36.0 — 2026-08-20 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS (paired with
+#   PYQExplain v2.14, engine v2.7). A DELIVERED 60-question paper passed every §18
+#   gate with every answer correct and still carried ~17 sentences TRUE FOR THE ITEM,
+#   FALSE FOR ITS NEAREST NEIGHBOUR ("electron-withdrawing → meta" vs halogens; "one
+#   carbon richer"; "stable carbonylate = 18e"; "always a meso form"; "cannot … at
+#   all"), plus "The seductive half is …" on 10/10 MSQ blocks — mandated by §15-3's
+#   own wording. Answer-level gates are blind to this. ROOT CAUSE as in v1.35.0:
+#   §8-0b / §14-3b / §8-2 ADVISED what only a gate enforces; §6A tested PRESENCE, not
+#   ALIGNMENT. FIXES (domain-neutral): NEW §7-7 TRANSFER-SAFETY PROTOCOL (scope →
+#   type → neighbour test → repair by MECHANISM → recorded transfer_record); §8-2
+#   epistemic type; §8-3 minimum components (subject data); §8-0b a GATE (kept
+#   absolutes declared; plain quantifiers NOT gated — 80% false positives measured);
+#   §14-1 three-part + §14-5 four fields; §15-3 MSQ rewritten, old wording WITHDRAWN,
+#   psychology phrases engine-banned; NEW §6A-1c ALIGNMENT, §6A-3b tripwire,
+#   CONFORMER (F3); §24 SUBJECT-level learnings file + §24-5 codes; §5/§18/§R3/§21
+#   hooks; engine fixes F2. SHARED_RULES 1.2→1.3. Student format LOCKED.
 # v1.35.0 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-EXECUTION-INTEGRITY (paired with
 #   PYQExplain v2.13, engine v2.6). Four defects, one root cause, found by auditing a
 #   DELIVERED 60-question paper: each traced to a rule that ADVISED what only a gate
@@ -384,11 +400,14 @@
           onto another. Descriptive/essay questions are out of scope and flagged (§22).
   RE-22 : LOAD & APPLY LEARNINGS. At P1, load the accumulated learnings —
           [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (v1.21.0: legacy/manually-authored — its
-          Step-10 producer no longer exists; still READ when present) and
-          [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) — via parse_learnings, and
-          OBEY every applicable rule while authoring (§24). Learnings OVERRIDE this spec on
-          conflict (content only — never coverage/§18, RE-0); they accumulate across mocks
-          (never deleted, superseded only by an explicit annotation). Absent on mock 1 by
+          Step-10 producer no longer exists; still READ when present),
+          [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) and, v1.36.0,
+          [Subject]_EXPLAIN_LEARNINGS_v*.md (subject-level guardrails shared by every
+          exam in the subject — the curated neighbour library §7-7 tests against) — via
+          parse_learnings, and OBEY every applicable rule while authoring (§24).
+          Learnings OVERRIDE this spec on conflict (content only — never coverage/§18,
+          RE-0; exam file > subject file > spec); they accumulate across mocks (never
+          deleted, superseded only by an explicit annotation). Absent on mock 1 by
           design — proceed without them.
 
 # ════════════════════════════════════════════════════════════════════════
@@ -492,8 +511,11 @@
       the count). THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (legacy/manual — v1.21.0) and
-      [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT, and index every
-      AL/EX rule by defect_code. These OVERRIDE this spec on conflict (§24). When a
+      [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT — and, v1.36.0,
+      the SUBJECT-level [Subject]_EXPLAIN_LEARNINGS_v*.md (subject code from
+      section_rules CATEGORY C `subject_code`, upper-cased) IF PRESENT — and index every
+      AL/EX rule by defect_code (precedence exam > subject > spec). Record in the
+      dashboard whether the subject file was found: §7-7 neighbours come from it. These OVERRIDE this spec on conflict (§24). When a
       learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10) to
       confirm the cross-step readers. Absent on mock 1 by design — proceed. Any load/self-test
       failure → HALT.
@@ -780,7 +802,10 @@
   | common_pitfalls | dict{val:list}       | NAT only: ≥1 wrong-VALUE entry; each names the slip that yields that value (the NAT analogue of WHY WRONG) |
   | anomaly         | str/None             | INTERNAL escalation flag only — NEVER rendered to a student (§17) |
   | figures         | list[RepresentationFigure] | v2.3, may be empty. Each carries the §6A-5 validation record (renderer/intended/derived/match) and fails validate() on any breach; rendered as text-free centred picture paragraphs interleaved into DEDUCTION at after_step (§6A-6) |
-  | representation_verdict | str/None      | v2.6, optional. The §6A router verdict (PROSE / EQUATION / TABLE / STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT). When set, a VISUAL verdict with zero figures raises at validate() — verdict↔emission coherence (§6A-3); after a §6A-4 degrade the block carries the DEGRADED requirement |
+  | representation_verdict | str/None      | v2.6, optional. The §6A router verdict (PROSE / EQUATION / TABLE / STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT / CONFORMER v2.7). When set, a VISUAL verdict with zero figures raises at validate() — verdict↔emission coherence (§6A-3); after a §6A-4 degrade the block carries the DEGRADED requirement |
+
+  | absolutes_justified | dict{str:str}  | v2.7. {sentence: reason} for each absolute KEPT in AXIOM / SPEED HACK / WHY WRONG / COMMON PITFALLS; an undeclared universal there raises at validate() (§8-0b). Reason = why it is absolute in the subject's own terms |
+  | transfer_record | list[dict]/None  | v2.7, REQUIRED by this spec on every block (§7-7). One entry per claim {section, claim, epistemic_type, scope, neighbour_tested, outcome}; shape-validated: AXIOM needs an AXIOM entry, SPEED HACK a SPEED_HACK entry, no QUESTION_SPECIFIC in AXIOM, no OPTION_SET_SHORTCUT outside SPEED_HACK |
 
   Option index → displayed label is via cfg.option_label() (numeric / alpha / roman /
   custom — read from CATEGORY C), so a paper labelled A·B·C·D shows "Correct Answer: A"
@@ -805,7 +830,11 @@
   2026.08.10.3, validate() also COMPILES any ⟦MATH:…⟧ Tier-3 region (t3_compile) and
   RAISES at construction on a grammar reject, so such a region can never degrade to
   raw text at render; this pipeline normally builds math with the explicit helpers
-  (§11), so regions are rare here, but the gate applies to the shared engine.
+  (§11), so regions are rare here, but the gate applies to the shared engine. (v1.36.0) Engine v2.7 adds three write-time gates: an
+  UNDECLARED UNIVERSAL in AXIOM / SPEED HACK / WHY WRONG / COMMON PITFALLS raises
+  (§8-0b; keep one by declaring it in absolutes_justified); a LEARNER-PSYCHOLOGY
+  template raises (§15-3); a supplied transfer_record is shape-validated (§7-7).
+  DEDUCTION is not absolute-gated — item-specific working, governed by §7-7.
 
 ## S5-3 — PER-QUESTION CHECKLIST (tick every item before constructing the block)
 
@@ -833,7 +862,21 @@
   [ ] Decisive intermediate claims LISTED and mutually consistent               (§7-6)
   [ ] SPEED HACK, if present, states the conditions under which it is safe    (§14-3b)
   [ ] Every number traces to stem / syllabus constant / shown derivation      (§8-0a)
-  [ ] No absolute used for a tendency; no tendency used for a real absolute   (§8-0b)
+  [ ] No absolute used for a tendency; no tendency used for a real absolute;
+      every KEPT absolute declared with its reason (engine gate, v2.7)         (§8-0b)
+  [ ] TRANSFER SAFETY: every AXIOM claim and every SPEED HACK typed, scoped,
+      tested on its nearest neighbour at this exam's level, repaired by
+      MECHANISM where it failed; transfer_record built and passed to the block (§7-7)
+  [ ] AXIOM epistemic type recorded; a MODEL_DEPENDENT or EXAM_CONVENTION rule
+      carries its qualifier INSIDE the sentence; item-specific facts are in
+      DEDUCTION, not AXIOM                                                     (§8-2)
+  [ ] Topic MINIMUM-CONCEPT components (loaded subject learnings, §24) present
+      in the DEDUCTION for every archetype the question belongs to             (§8-3)
+  [ ] REPRESENTATION ALIGNMENT: the chosen representation, or the prose, shows
+      the deciding relation; a spatial / occupancy / topology / handedness
+      decision in PROSE carries its explicit inventory                        (§6A-1c)
+  [ ] WHY WRONG / COMMON PITFALLS refute the CONTENT; zero learner-psychology
+      narration (engine gate, v2.7)                                            (§15-3)
   [ ] AXIOM states a TRUTH, not the task; no restatement of the question
   [ ] DEDUCTION last step binds the answer: "Option L(ca)" (mcq) · every selected
       "Option L(i)" (msq) · the value string (nat); each step shows its value
@@ -894,7 +937,7 @@
   question's class (S6-1), not by its position in the paper.
 
 # ════════════════════════════════════════════════════════════════════════
-# §6A — REPRESENTATION ROUTER (v1.27.0 — exam-agnostic, domain-configured)
+# §6A — REPRESENTATION ROUTER (v1.27.0 — exam-agnostic, domain-configured; §6A-1c / §6A-3b v1.36.0)
 # ════════════════════════════════════════════════════════════════════════
 #   Representation selection is now an EXPLICIT pipeline stage, run once per
 #   question AFTER the answer is derived and verified (§7) and BEFORE any
@@ -946,6 +989,31 @@
   is fully stated in one prose clause records that justification and ships
   prose legitimately.
 
+
+## S6A-1c — ALIGNMENT: THE REPRESENTATION MUST SHOW THE DECIDING RELATION (v1.36.0)
+  §6A-1 tests DECISIVE and NOT REDUNDANT. Both can pass while the learner never
+  SEES what the answer turned on: the product drawn, the selectivity-deciding
+  intermediate in prose; a terminal/bridging count with no picture of which is
+  which; a projection argued without saying which carbon is in front. So a
+  THIRD question is asked of every verdict, PROSE included, once the DEDUCTION
+  is drafted: does the representation — or the prose — make the ANSWER-DECIDING
+  relation visible? A present-but-misaligned representation fails
+  (REP_PRESENT_BUT_NOT_ALIGNED) and is re-routed, never captioned over.
+  WHEN THE DECISION IS SPATIAL, PROSE NEEDS AN EXPLICIT INVENTORY. If the answer
+  turns on arrangement in space, occupancy, topology (which elements bridge) or
+  handedness, PROSE is valid ONLY when the DEDUCTION carries what a drawing would:
+    • a projection → the viewing direction and the front/rear identity stated
+      before any staggered/eclipsed or anti/gauche claim is made;
+    • an occupancy-decided answer → the occupancy stated level by level ("the
+      lower set holds six, the upper set none"), not only the conclusion;
+    • a topology count → the elements listed by role ("four bridge, six are
+      terminal: two on each outer centre, one on each inner one");
+    • a handedness-decided count → each geometric form named and tested for a
+      mirror plane separately, the chiral one stated as a pair.
+  Absent that inventory the verdict is a visual one the router under-fired on,
+  and it is re-routed (§6A-2). Not a quota: a deciding relation fully stated in
+  one prose clause keeps PROSE and records that it did.
+
 ## S6A-2 — The requirement vocabulary (what the router emits)
   | Requirement          | Emit when the answer turns on …                        |
   |----------------------|--------------------------------------------------------|
@@ -955,10 +1023,13 @@
   | STRUCTURE_GRAPH      | connectivity / stereochemistry / a transformation       |
   | LEVEL_DIAGRAM        | occupancy, energy ordering, or state splitting          |
   | DATA_PLOT            | the shape of a graph, spectrum, or titration curve      |
+  | CONFORMER            | (v1.36.0) HOW atoms are arranged at a given rotation — a projection (Newman / sawhorse / chair), which a constitution renderer cannot express; visual, requires its figure (run-report F3) |
   EQUATION is satisfied by §11's ⟦MATH:⟧ regions and is ALWAYS available — it
-  needs no renderer and no configuration. TABLE is native docx. The last three
-  require a renderer declared in section_rules; absent one, the router degrades
-  (§6A-4).
+  needs no renderer and no configuration. TABLE is native docx. The last four
+  require a renderer declared in section_rules (CONFORMER is drawn with the
+  LEVEL_DIAGRAM library — a projection is a 2-D template with labelled bonds —
+  and its §6A-5 identifier is the dihedral/occupant string restated from the
+  drawn data); absent one, the router degrades (§6A-4).
 
 ## S6A-3 — Record the verdict on every question
   The router's verdict is recorded per question in progress.json as
@@ -974,6 +1045,16 @@
   decisions could be reviewed before any figure shipped; v1.28.0 (paired with
   engine v2.3) turns EMISSION ON — a STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT
   verdict now renders through §6A-6 and ships inside the explanation region.
+
+
+## S6A-3b — THE DISTRIBUTION IS A TRIPWIRE, AS §14-5 IS FOR SPEED HACK (v1.36.0)
+  The reference paper routed ZERO TABLE on four candidate-comparison questions
+  and ZERO LEVEL_DIAGRAM on three occupancy-decided ones, renderer live: each
+  verdict defensible, the aggregate an under-firing router. So, per batch,
+  before §18: if every candidate-comparison or every occupancy-/arrangement-
+  decided question routed PROSE, re-run §6A-1 / §6A-1c on each. Survivors ship
+  as they stood; failures are re-routed. No target rate; a paper with no such
+  questions trips nothing.
 
 ## S6A-4 — Degrade LOUDLY, never silently, and never HALT
   If a required renderer is unavailable, or a rendered artefact fails its
@@ -1291,6 +1372,51 @@
   contradiction is never patched in the prose (patching the sentence that
   exposed it leaves the reasoning it exposed).
 
+## S7-7 — TRANSFER-SAFETY PROTOCOL (every AXIOM and every SPEED HACK, v1.36.0)
+  An explanation is read twice: to check THIS answer, and later, on a
+  DIFFERENT question, as a remembered rule. §7-1 to §7-6 prove the first
+  reading; nothing proved the second. A statement can be correct for the item
+  and a FALSE GENERAL RULE — true for the stem's substrate, false for its
+  nearest neighbour — and every answer-level gate is blind to it because the
+  answer was right. This protocol runs BEFORE AXIOM / SPEED HACK prose is
+  written and its result is RECORDED, as §7-6 and §14-5 record theirs.
+  FOR EVERY TRANSFERABLE CLAIM — each AXIOM sentence, each SPEED HACK, and any
+  WHY WRONG / COMMON PITFALLS line phrased as a general rule:
+    1. STATE THE INTENDED SCOPE. What class of situations is this claim meant to
+       cover? A claim with no statable scope is not yet a claim (GEN_SCOPE_UNDEFINED).
+    2. TYPE IT (§8-2): SCIENTIFIC_GENERAL_RULE · MODEL_DEPENDENT_RULE ·
+       EXAM_CONVENTION · QUESTION_SPECIFIC_INFERENCE · OPTION_SET_SHORTCUT.
+    3. NAME THE NEAREST LEGITIMATE NEIGHBOUR — the closest member of the same
+       apparent class, AT THE TARGET EXAM'S LEVEL, that a learner would meet next.
+       The curated neighbours for the subject come from the loaded learnings
+       (§24, the subject-level file); a neighbour the session generates itself is
+       admissible only when no curated one applies, and is recorded as such.
+    4. TEST the claim on that neighbour. Still true → SAFE.
+    5. FALSE on the neighbour → REPAIR BY RETURNING TO THE MECHANISM, never by
+       hedging: name the actual effect, class or condition that makes the claim
+       true where it is true (NARROWED); or, if the fact is really about THIS
+       item only, move it into the DEDUCTION (MOVED_TO_DEDUCTION); or, for a
+       SPEED HACK, omit it (OMITTED, §14-1 part 3). Inserting "usually" is NOT a
+       repair (it satisfies §8-0b and still teaches nothing about WHEN); listing
+       every exception is NOT a repair either (§8-2 — the AXIOM does not get
+       longer as the fix).
+  THE RECORD (progress state + engine v2.7 `transfer_record`, shape-validated):
+  one entry per claim {section, claim, epistemic_type, scope, neighbour_tested,
+  outcome}; an AXIOM without an AXIOM entry or a SPEED HACK without a SPEED_HACK
+  entry cannot construct; no QUESTION_SPECIFIC in AXIOM, no OPTION_SET_SHORTCUT
+  outside SPEED HACK. The engine proves the protocol RAN; judging the neighbour
+  stays with discipline, as §6A-5 proves the artefact and not the request.
+  ILLUSTRATIVE, one domain, the PROCEDURE is the rule: AXIOM "an electron-
+  withdrawing substituent directs meta"; neighbour at this level, chlorobenzene
+  (withdrawing, ortho/para); claim fails; repair by mechanism — "a substituent
+  that withdraws by resonance destabilises the ortho and para intermediates
+  more than the meta one, so it directs meta" — true for item and neighbour,
+  the halogen case excluded for a stated reason. Same shape in the reference
+  paper: "one carbon richer" (non-methyl Grignards), "stable carbonylate = 18
+  electrons" (stable 16e/17e), "identical halves always give a meso form".
+  CROSS-STEP: §9's `overgeneralised_rule` names this failure in a DISTRACTOR;
+  this rule governs the SOLVER'S OWN AXIOM (the §7-0a / `wrong_condition` pair).
+
 # ════════════════════════════════════════════════════════════════════════
 # §8 — SECTION QUALITY STANDARDS (the highest-standard contract per section)
 # ════════════════════════════════════════════════════════════════════════
@@ -1345,6 +1471,17 @@
   it. Name the condition under which it WOULD be right, then why it is not right here.
   A GENUINE absolute must still be stated absolutely — hedging a real impossibility is
   the same failure in the other direction.
+  (v1.36.0) NOW A GATE, NOT ADVICE. "cannot be titrated directly at all", "gives no
+  turbidity at all", "always collapses into a meso form" passed every check
+  because nothing read the sentence's modality. Engine v2.7 raises on an
+  undeclared universal (always · never · cannot · impossible · at all ·
+  regardless of · irrespective of · no matter · whatever the · universally ·
+  without exception · in all cases) in AXIOM, SPEED HACK, WHY WRONG, COMMON
+  PITFALLS. To KEEP one, declare the sentence in absolutes_justified with why it
+  is absolute in the subject's own terms — a declaration, not a ban. Plain
+  quantifiers ("only two ions", "every formula unit", "exactly 208") are NOT
+  gated: measured four-fifths false positives, and declaration spam is worse
+  than no gate. Per-language pattern: EngineConfig(absolute_terms_re=...).
 
 ## S8-1 — Correct Answer
   Role: the one line the student trusts absolutely; the most dangerous line in the
@@ -1381,6 +1518,19 @@
   into the principle. Enforced: ≥1 sentence, one-per-paragraph, banned-phrase scan,
   no option reference in the AXIOM (engine v2.6); "truth not task",
   "why not just what", correctness by discipline alone (v1.21.0).
+  EPISTEMIC TYPE AND SCOPE-IN-SENTENCE (v1.36.0). Every AXIOM carries one recorded
+  type (§7-7): SCIENTIFIC_GENERAL_RULE — stands once scoped; MODEL_DEPENDENT_RULE —
+  names its model INSIDE the sentence ("spin-only", "using the radius-ratio rule",
+  "for an ideal gas"); EXAM_CONVENTION — usable, phrased so the learner can tell
+  ("under standard Lucas-test conditions"); QUESTION_SPECIFIC_INFERENCE — DEDUCTION
+  only; OPTION_SET_SHORTCUT — SPEED HACK only. The qualifier is part of the rule,
+  not a caveat after it (the §14-3b posture).
+  Which conventions the exam expects is read from the subject learnings (§24)
+  and section_rules CATEGORY C `exam_conventions`, never assumed. PRESERVE THE
+  EXAM'S NOTATION: an older-convention option is still the keyed option; the
+  DEDUCTION teaches the cleaner form without an answer conflict.
+  THE AXIOM DOES NOT GET LONGER AS THE FIX: a failed claim is repaired by a
+  narrower MECHANISM, never by an appended exception list ("… usually … except").
 
 ## S8-3 — DEDUCTION
   Role: the reproducible spine — AXIOM → answer with every intermediate value shown, so
@@ -1392,6 +1542,14 @@
   line (full lane) — both served by one block. Enforced: ≥2 steps + last-binds-Option-N
   + OMML + one-per-paragraph + zero glyphs (engine); chain completeness + arithmetic
   truth by derive-twice + back-substitution (no second reader — v1.21.0).
+  TOPIC MINIMUM-CONCEPT COMPONENTS (v1.36.0). Compression also teaches false rules:
+  a ligand-field geometry reduced to "a strong ligand pairs the electrons"; alkyl
+  activation explained as lone-pair resonance; a capacity maximum without its
+  fixed-total-concentration condition. For each archetype the subject learnings
+  file (§24) lists the SEMANTIC COMPONENTS a DEDUCTION must state before its
+  conclusion — a minimum, not a template. §5-3 ticks every component for every
+  archetype present. WHICH archetypes exist is SUBJECT DATA; this spec only
+  requires that a loaded list is satisfied.
 
 ## S8-4 — SPEED HACK
   Role: exam-craft — a genuinely shorter route to the SAME answer, for time pressure;
@@ -1401,7 +1559,12 @@
   encouragement ("do it mentally", "obvious with practice") is banned — that is a
   platitude, not a hack. Inclusion is decided per question by §14; if no honest shortcut
   exists the block is OMITTED, never padded. Enforced: if present, binds the same CA
-  (engine); "genuinely faster, not cosmetic" by discipline alone (v1.21.0).
+  (engine); "genuinely faster, not cosmetic" by discipline alone (v1.21.0). (v1.36.0) A third requirement joins the
+  two: the shortcut is TRANSFER-SAFE (§14-1 part 3) — it passed the §7-7 neighbour
+  test, it is not weaker than a one-line exact method, and an option-dependent
+  trick is phrased as ELIMINATION ("strike every option whose sign is negative"),
+  never as a law of the subject. A hack that works only because of the options
+  shown is OPTION_SET_SHORTCUT and says so in its own wording.
 
 ## S8-5 — WHY WRONG (mcq / msq) · COMMON PITFALLS (nat)
   Role: where most learning happens — the SPECIFIC error a student commits to land on a
@@ -1781,6 +1944,16 @@
   2. GENUINELY FASTER: it removes at least one full computation, or reaches the answer by
      checking one feature instead of resolving all, or lets the student stop before the
      formal solve completes. A one-step saving on a five-step solve does not qualify.
+  3. TRANSFER-SAFE (v1.36.0): read alone, stripped of the question, the shortcut survives
+     the §7-7 neighbour test at this exam's level; it does not replace a one-line
+     exact method with a weaker heuristic (SPD_SHORTCUT_WEAKER_THAN_EXACT_METHOD);
+     it does not work merely by accident of the options shown — and where it IS
+     option-dependent, it is phrased as option ELIMINATION, never as a rule of the
+     subject; and no common, examinable, answer-reversing exception stands
+     unqualified (SPD_COMMON_EXCEPTION_UNQUALIFIED). "No aromatic ring → least
+     acidic", "stable carbonylate = 18 electrons", "identical halves → meso" each
+     passed parts 1–2 and fail part 3. ALL THREE must pass (title kept for
+     cross-reference; the test is three-part).
 
 ## S14-2 — The operational proxy (applied per question at solve time)
   "Could a trained student pick the correct option WITHOUT performing the full DEDUCTION
@@ -1844,7 +2017,8 @@
   re-audit is REMOVED (omit, never fake); a genuinely shortcut-rich batch —
   they exist — survives its re-audit unchanged and ships as it stood. No target
   rate exists in either direction; §16-1's pattern-matching cause is what an
-  all-hack batch signals, and a re-test is the proportionate response.
+  all-hack batch signals, and a re-test is the proportionate response. (v1.36.0) The record carries FOUR fields {distinct_method,
+  genuinely_faster, scoped, transfer_safe}; §R3 reports hacks OMITTED on part 3.
 
 # ════════════════════════════════════════════════════════════════════════
 # §15 — WHY WRONG / COMMON PITFALLS ANTI-TEMPLATE STANDARD (the diagnosis contract)
@@ -1882,10 +2056,17 @@
   ACTUALLY is (the corrected fact). Negative stem → "TRUE, therefore not the answer"
   (never "incorrect"). Composite → the exact component that breaks it. Vocab → the
   precise nuance missed. RC → the passage line that REFUTES the option.
-  MSQ → lead with the SEDUCTIVE HALF (the cheap test the distractor passes, which makes a
-  hasty solver select it), then the test it fails — so the line teaches the trap, not just
-  the verdict; two distractors that fail "the same way" must still differ in WHICH half
-  seduces ("passes the 3 test, fails the 2 test" vs "passes the 2 test, fails the 3 test").
+  MSQ → OPTION → the WRONG FEATURE or ASSUMPTION → the DECISIVE CORRECTION (v1.36.0): name
+  the test the statement passes and the test it fails, as CONTENT — "it shares the
+  metal and the d count, and differs in the ligand field, which pairs every electron
+  in one complex and leaves two unpaired in the other" — so the line teaches the trap
+  as a property of the subject, not of the learner. Two distractors that fail "the
+  same way" must still differ in WHICH test they pass. THE PREVIOUS WORDING ("lead
+  with the SEDUCTIVE HALF … a hasty solver") is WITHDRAWN: obeyed literally it opened
+  10 of 10 MSQ blocks with "The seductive half is …", narration that proves nothing.
+  A distractor is refuted by the subject; a thought process may be named only where
+  the §9 diagnosis IS a known misconception, stated as the mechanism producing the
+  option. Engine v2.7 raises on the phrases (DST_UNSUPPORTED_LEARNER_PSYCHOLOGY).
   NAT (COMMON PITFALLS) → head each entry with the wrong VALUE a student computes, name the
   slip that yields exactly it, and carry the contrast to the correct value.
   Density without thinness: 1–2 lines, each carrying a required fact; one informative line
@@ -2027,7 +2208,13 @@
       Q1..last(batch k) — no fewer, no more; a collapsed or look-ahead run fails HERE
       (this is the producer-side mechanical scope check; RE-0 forbids waiving it)
   [ ] learnings coverage (§24): every question's applicable AL/EX rules were routed; no
-      loaded rule for a present class was silently skipped
+      loaded rule for a present class was silently skipped; the SUBJECT-level file, when
+      present in the project, was loaded and its neighbour library used by §7-7
+  [ ] TRANSFER-SAFETY RECORD (v1.36.0) present for EVERY question (§7-7) and
+      passed into its block; every AXIOM typed; zero QUESTION_SPECIFIC claims
+      in an AXIOM; zero kept absolutes undeclared
+  [ ] REPRESENTATION ALIGNMENT (§6A-1c) recorded; §6A-3b tripwire evaluated
+  [ ] SPEED HACK part-3 outcomes recorded (§14-5 four-field record)
 ```
   Any item open → fix, re-build, re-audit. present_files is FORBIDDEN until ALL hold.
   Why verify_explanations exists alongside verify_structure: the latter re-validates the
@@ -2167,6 +2354,12 @@ Step 9 uses BOTH footer types:
       figure for nearly every question, is the signal this line exists to surface: both
       mean the §6A-1 two-part test is not being applied. Report the counts; do not
       editorialise.
+      TRANSFER SAFETY (v1.36.0 — the §7-7 distribution): AXIOM epistemic-type counts ·
+        claims NARROWED / MOVED_TO_DEDUCTION · SPEED HACKs OMITTED on §14-1 part 3 ·
+        kept absolutes (count of declared sentences) · neighbours drawn from the
+        curated library vs session-generated (counts; a library-absent run says so).
+      ALIGNMENT (§6A-1c): questions re-routed by the §6A-3b tripwire (Q-numbers;
+        an empty list stated as empty).
   §R4 SELF-AUDIT (§18): verify_fidelity / verify_structure / math-render / count
       invariants / strip-re-audit / coverage assertion — all clean (real engine STDOUT,
       content-free).
@@ -2216,6 +2409,10 @@ Step 9 uses BOTH footer types:
   3b. (v1.35.0) Decisive intermediate claims mutually consistent on every question
       (§7-6); every counting answer derived inventory-first, closed-form only after
       verified independence (§7-0c).
+  3c. (v1.36.0) Every AXIOM and every SPEED HACK transfer-tested and recorded (§7-7);
+      a claim that fails its neighbour test never ships unrepaired; every kept
+      absolute declared (§8-0b); every representation aligned to the deciding
+      relation (§6A-1c); zero learner-psychology narration (§15-3).
   4.  Every figural question's images extracted, role-bound, VIEWED; answer from the
       images, not the manifest (no FIGURE section is rendered — v1.13).
   5.  Every CA/factual option web-verified with a recorded source.
@@ -2304,6 +2501,14 @@ Step 9 uses BOTH footer types:
 #       auto-generated by Step 10; now legacy + manually authored.
 #     • [ExamCode]_EXPLAIN_LEARNINGS_v*.md — EX-rules, human-authored guardrails (the
 #       hard-won manual fixes). Same mechanism, same precedence.
+#     • [Subject]_EXPLAIN_LEARNINGS_v*.md (v1.36.0) — SUBJECT-LEVEL guardrails, same
+#       schema, same parser, one file copied unchanged into every exam project of that
+#       subject (e.g. CHEMISTRY_EXPLAIN_LEARNINGS_v1.md). It carries the §7-7 curated
+#       neighbour library, the exam-convention classes and the §8-3 minimum-concept
+#       components: subject knowledge fixed once per subject, never once per exam.
+#       Subject code from section_rules CATEGORY C `subject_code` (fallback
+#       blueprint.subject), upper-cased. Absent file → nothing loaded, nothing
+#       lost. Precedence: exam file > subject file > this spec.
 #   Neither exists on mock 1 by design (nothing has been reviewed yet). Their ABSENCE is
 #   normal and never a HALT; their PRESENCE is loaded and obeyed.
 #
@@ -2364,6 +2569,15 @@ Step 9 uses BOTH footer types:
 #   rule by hand SHOULD follow the same threshold and schema so the consumer keeps parsing
 #   the file, but nothing enforces it.
 #
+# ── S24-5 — DEFECT CODES INTRODUCED BY v1.36.0 (routing keys for new rules) ─────────────
+#   §24 ROUTING KEYS for the transfer-safety family: OVERGENERALISED-AXIOM ·
+#   UNSAFE-SPEED-HACK (§14-1 part 3) · UNJUSTIFIED-ABSOLUTE (§8-0b) ·
+#   EXAM-CONVENTION-AS-LAW · CONCEPT-MINIMUM-MISSING (§8-3) ·
+#   REPRESENTATION-MISALIGNED (§6A-1c) · LEARNER-PSYCHOLOGY (§15-3) ·
+#   NEIGHBOUR-LIBRARY (a curated neighbour family: Pattern = the unsafe
+#   generalisation, Prevention rule = the safe scope, Verification = the canonical
+#   counterexamples — the §7-7 library in the frozen schema, no new parser).
+#
 # ════════════════════════════════════════════════════════════════════════
 # APPENDIX A — UNIVERSAL EXAM-AGNOSTIC explain_engine.py (MANDATE A) — SINGLE SOURCE
 # ════════════════════════════════════════════════════════════════════════
@@ -2400,5 +2614,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.35.0
+# END OF Framework_MockTestExplain v1.36.0
 # ════════════════════════════════════════════════════════════════════════

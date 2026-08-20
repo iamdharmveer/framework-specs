@@ -26,6 +26,40 @@
 #
 # This file is embedded verbatim in Appendix A of Framework_MockTestExplain.md.
 # It is the canonical copy; never patch it by hand — regenerate from the spec.
+#
+# v2.7 — 2026-08-20 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS (paired with
+#   MockTestExplain v1.36.0 / PYQExplain v2.14). A delivered 60-question paper
+#   was answer-correct on every item and still carried ~17 sentences a learner
+#   could memorise and be failed by on the next related item: AXIOMs stating a
+#   class-level rule the question's own neighbours break, SPEED HACKs that work
+#   only for the options shown, unjustified absolutes, and learner-psychology
+#   boilerplate mandated by the old §15-3 MSQ wording. Root cause: §8-0b and
+#   §14-3b ADVISED what only a gate can enforce. What the engine can prove is
+#   now gated here; the rest is the §7-7 protocol with a recorded artefact.
+#   (a) ABSOLUTE-TERM GATE — an unqualified universal (always/never/cannot/
+#       at all/regardless of/impossible/…) in AXIOM, SPEED HACK, WHY WRONG or COMMON
+#       PITFALLS raises at construction unless the block DECLARES that sentence in
+#       absolutes_justified with a reason (definition / conservation law /
+#       mathematical property / symmetry-forbidden). Plain quantifiers ('only
+#       two ions', 'every formula unit', 'exactly 208') are NOT gated — measured
+#       on a delivered paper they were 80 percent false positives.
+#       Configurable per language via EngineConfig(absolute_terms_re=...).
+#   (b) LEARNER-PSYCHOLOGY TEMPLATES banned in student text ('the seductive half',
+#       'the student thinks', 'a hasty solver', 'invites the reading', …): a
+#       distractor is refuted chemically/mathematically, never by guessing at
+#       the learner's mind (§15-3 rewritten; §9 DST).
+#   (c) transfer_record — OPTIONAL per-block metadata (the §7-7 artefact): one
+#       entry per transferable claim {section, claim, epistemic_type, scope,
+#       neighbour_tested, outcome}. Shape-validated when supplied: every AXIOM
+#       needs >=1 AXIOM entry, a SPEED HACK needs >=1 SPEED_HACK entry, a
+#       QUESTION_SPECIFIC claim may never sit in AXIOM, an OPTION_SET_SHORTCUT
+#       may sit only in SPEED_HACK, every claim names its neighbour and outcome.
+#   (d) CONFORMER added to the §6A-2 vocabulary (visual verdict; requires a
+#       figure, exactly like STRUCTURE_GRAPH) — closes Step-9 run-report F3.
+#   (e) strip_solutions now garbage-collects the media parts its removed figure
+#       paragraphs referenced, so the stripped copy is byte-comparable, not
+#       merely text-comparable, to the Step-7 source (run-report F2).
+#   NO existing guard is weakened; every new gate ships with fixtures below.
 
 import re, sys, hashlib, base64
 from docx import Document
@@ -60,7 +94,8 @@ class EngineConfig:
                  label_scheme='numeric', sentence_terminators='.!?',
                  options_by_q=None,
                  banned_blocks=None, banned_templates=None,
-                 banned_fakecites=None, metacommentary_re=None):
+                 banned_fakecites=None, metacommentary_re=None,
+                 absolute_terms_re=None):
         self.q_re = re.compile(q_pattern)            # e.g. r'^Q\.?\s*(\d+)' or r'^Q(\d+)\.'
         self.opt_re = re.compile(opt_pattern)        # e.g. r'^([1-9])[.\)]' or r'^([A-D])[.\)]'
         self._uniform = int(options_count) if options_count is not None else None
@@ -114,6 +149,10 @@ class EngineConfig:
         self.banned_fakecites = tuple(banned_fakecites) if banned_fakecites is not None else _BANNED_FAKECITE
         self.metacommentary_re = (re.compile(metacommentary_re, re.I)
                                   if metacommentary_re is not None else _META_RE)
+        # v2.7 — language-configurable absolute-term pattern (§8-0b gate). Non-
+        # English exams pass their own; None = the English default.
+        self.absolute_terms_re = (re.compile(absolute_terms_re, re.I)
+                                  if absolute_terms_re is not None else _ABSOLUTE_TERMS_RE)
 
     def expected_options(self, q):
         """Option count expected for question q. 0 means NAT (no options).
@@ -162,7 +201,96 @@ _BANNED_BLOCKS = ('REMEMBER', 'EXAM CONNECTION')
 _BANNED_TEMPLATE = (
     'this option is wrong', 'this is a common misconception', "doesn't match the answer",
     'is incorrect as it doesn', 'this option is incorrect', 'simply wrong',
+    # v2.7 (b) — learner-psychology speculation. A WHY WRONG line proves the
+    # chemical / mathematical contradiction; it does not narrate the learner's
+    # mind. The old §15-3 MSQ wording ('lead with the SEDUCTIVE HALF') produced
+    # this phrase on 10 of 10 MSQ blocks in the reference paper.
+    'the seductive half', 'the seductive part', 'the student thinks',
+    'the student assumes', 'a student might think', 'the solver assumes',
+    'a solver assumes', 'the solver thinks', 'a hasty solver', 'a careless solver',
+    'invites the reading', 'the reader who remembers', 'the reader who',
+    'tempts the student', 'tempts a student', 'the trap here is that the student',
 )
+
+# v2.7 (a) — ABSOLUTE TERMS. §8-0b reserves absolutes for claims that are
+# absolute in the subject's own terms (a definition, a conservation law, a
+# mathematical impossibility). Everything else is a TENDENCY, and a tendency
+# stated as an absolute is the single most transferable way to teach a false
+# rule. The gate is a DECLARATION gate, not a ban: the author may keep an
+# absolute by listing the sentence in ExplanationBlock(absolutes_justified=
+# {sentence: reason}) — which forces the judgement to be made consciously and
+# leaves it on the record. Scoping clauses are excluded because they are the
+# form §14-3b ASKS for: 'only when X' / 'only under Y' / 'only if Z' state a
+# validity domain, they do not overstate one. 'exactly' followed by a number
+# or a math placeholder is arithmetic, not a universal claim.
+_ABSOLUTE_TERMS_RE = re.compile(
+    r'\b(?:always|never|cannot|impossible|universally|without exception|'
+    r'in all cases|in every case|at all|regardless of|irrespective of|'
+    r'no matter (?:how|what|which|where)|whatever the|whichever the)\b', re.I)
+# NOT in the default set, by measurement: 'only', 'every', 'exactly'. Run over
+# a delivered 60-question paper, those three flagged 81 sentences of which ~78
+# were plain quantifiers ("only two ions", "for every formula unit", "exactly
+# 208") — an 80-percent false-positive rate that would have been answered with
+# declaration spam, the exact failure §8-0b exists to prevent. The universal-
+# claim shape above ("always", "never", "regardless of", "at all") flagged 21
+# sentences of which every one was either a transfer-unsafe universal or a
+# genuine absolute worth declaring. A per-exam override may widen the set.
+
+def find_absolute(text, pattern=None):
+    """Return the first unqualified absolute term in a student-facing sentence,
+    or None. ⟦MATH:…⟧ regions and preserved-OMML tokens are masked first so a
+    symbol body can never trip a prose rule."""
+    pat = pattern if pattern is not None else _ABSOLUTE_TERMS_RE
+    s = _OPAQUE_MATH_RE.sub('\u2202M\u2202', str(text))
+    s = T3_REGION_RE.sub('\u2202M\u2202', s)
+    m = pat.search(s)
+    return m.group(0) if m else None
+
+# v2.7 (c) — epistemic types a transferable claim may carry (§8-2 / §7-7).
+TRANSFER_EPISTEMIC_TYPES = ('SCIENTIFIC_GENERAL_RULE', 'MODEL_DEPENDENT_RULE',
+                            'EXAM_CONVENTION', 'QUESTION_SPECIFIC_INFERENCE',
+                            'OPTION_SET_SHORTCUT')
+TRANSFER_OUTCOMES = ('SAFE', 'NARROWED', 'MOVED_TO_DEDUCTION', 'OMITTED')
+TRANSFER_SECTIONS = ('AXIOM', 'SPEED_HACK', 'WHY_WRONG', 'COMMON_PITFALLS', 'DEDUCTION')
+
+def validate_transfer_record(record, axiom_present=True, speed_hack_present=False,
+                             ctx=''):
+    """Shape-validate a §7-7 transfer record. Raises ValueError on breach.
+    A record is a list of claim dicts. This proves the PROTOCOL WAS RUN and its
+    outcome recorded; it cannot prove the neighbour test was judged correctly —
+    that stays with the §7-7 discipline, exactly as §6A-5 proves the drawn
+    artefact and not the request."""
+    if not isinstance(record, (list, tuple)) or not record:
+        raise ValueError(f'{ctx}: transfer_record must be a non-empty list of claims')
+    need = ('section', 'claim', 'epistemic_type', 'scope', 'neighbour_tested', 'outcome')
+    seen = set()
+    for i, c in enumerate(record):
+        if not isinstance(c, dict):
+            raise ValueError(f'{ctx}: transfer_record[{i}] is not a dict')
+        for k in need:
+            if not str(c.get(k, '')).strip():
+                raise ValueError(f'{ctx}: transfer_record[{i}] missing {k!r}')
+        sec = c['section']; et = c['epistemic_type']; oc = c['outcome']
+        if sec not in TRANSFER_SECTIONS:
+            raise ValueError(f'{ctx}: transfer_record[{i}] section {sec!r} not in {TRANSFER_SECTIONS}')
+        if et not in TRANSFER_EPISTEMIC_TYPES:
+            raise ValueError(f'{ctx}: transfer_record[{i}] epistemic_type {et!r} not in {TRANSFER_EPISTEMIC_TYPES}')
+        if oc not in TRANSFER_OUTCOMES:
+            raise ValueError(f'{ctx}: transfer_record[{i}] outcome {oc!r} not in {TRANSFER_OUTCOMES}')
+        if sec == 'AXIOM' and et == 'QUESTION_SPECIFIC_INFERENCE' and oc not in ('MOVED_TO_DEDUCTION', 'OMITTED'):
+            raise ValueError(f'{ctx}: transfer_record[{i}] — a QUESTION_SPECIFIC_INFERENCE '
+                             f'may not stand in AXIOM; move it to DEDUCTION (§8-2)')
+        if et == 'OPTION_SET_SHORTCUT' and sec != 'SPEED_HACK' and oc not in ('OMITTED',):
+            raise ValueError(f'{ctx}: transfer_record[{i}] — an OPTION_SET_SHORTCUT may '
+                             f'stand only in SPEED HACK (§8-2 / §14-1 part 3)')
+        seen.add(sec)
+    if axiom_present and 'AXIOM' not in seen:
+        raise ValueError(f'{ctx}: transfer_record carries no AXIOM claim — every AXIOM '
+                         f'is tested for transfer safety (§7-7)')
+    if speed_hack_present and 'SPEED_HACK' not in seen:
+        raise ValueError(f'{ctx}: SPEED HACK present but transfer_record carries no '
+                         f'SPEED_HACK claim (§14-1 part 3)')
+    return True
 _BANNED_FAKECITE = (
     'official key', 'official answer', 'official solution', 'the answer key says',
     'as per the official', 'per the official key',
@@ -632,9 +760,12 @@ def _emit_plain(paragraph, text, bold=False, color=None, preserve=False):
 # routed verdict; a VISUAL verdict with no figure raises (routing without
 # emission is the defect §6A exists to remove — a §6A-4 degrade must record
 # the DEGRADED requirement, never the original).
+# v2.7 (d) — CONFORMER: a projection (Newman / sawhorse / chair) depicts HOW
+# atoms are arranged at a given rotation, which a constitution renderer cannot
+# express (run-report F3). Visual: it requires its figure like the other three.
 REPRESENTATION_VERDICTS = ('PROSE', 'EQUATION', 'TABLE',
-                           'STRUCTURE_GRAPH', 'LEVEL_DIAGRAM', 'DATA_PLOT')
-_VISUAL_VERDICTS = ('STRUCTURE_GRAPH', 'LEVEL_DIAGRAM', 'DATA_PLOT')
+                           'STRUCTURE_GRAPH', 'LEVEL_DIAGRAM', 'DATA_PLOT', 'CONFORMER')
+_VISUAL_VERDICTS = ('STRUCTURE_GRAPH', 'LEVEL_DIAGRAM', 'DATA_PLOT', 'CONFORMER')
 
 class RepresentationFigure:
     def __init__(self, path, width_in=6.0, validation=None, after_step=1):
@@ -685,7 +816,8 @@ class ExplanationBlock:
     def __init__(self, q, ca=None, axiom=None, deduction=None, speed_hack=None,
                  why_wrong=None, anomaly=None, cfg=None,
                  qtype=None, ca_range=None, common_pitfalls=None, figures=None,
-                 representation_verdict=None):
+                 representation_verdict=None, absolutes_justified=None,
+                 transfer_record=None):
         self.q = int(q)
         self.cfg = cfg or EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
         self.ca = ca
@@ -701,6 +833,10 @@ class ExplanationBlock:
         # a legacy caller). When set, validate() enforces verdict↔emission
         # coherence: a visual verdict requires >=1 figure on this block.
         self.representation_verdict = representation_verdict
+        # v2.7 (a) — {sentence: reason} declaring each absolute the author KEEPS.
+        self.absolutes_justified = dict(absolutes_justified or {})
+        # v2.7 (c) — the §7-7 transfer-safety record (optional; shape-validated).
+        self.transfer_record = list(transfer_record) if transfer_record else None
         self.anomaly = anomaly
         # infer question type if not given
         if qtype is None:
@@ -796,6 +932,48 @@ class ExplanationBlock:
                 raise ValueError(f'Q{self.q}: figures[{i}] is not a '
                                  f'RepresentationFigure')
             fg.validate(ctx=f'Q{self.q} figures[{i}]')
+
+        # v2.7 (a) — ABSOLUTE-TERM DECLARATION GATE (§8-0b made enforceable).
+        # Covers the sections a learner MEMORISES (AXIOM, SPEED HACK) and the
+        # ones they REMEMBER as reasons (WHY WRONG, COMMON PITFALLS). DEDUCTION
+        # is item-specific working and is governed by the §7-7 protocol instead.
+        _abs_re = getattr(cfg, 'absolute_terms_re', _ABSOLUTE_TERMS_RE)
+        def _abs_gate(section, sents):
+            for _s in sents:
+                _hit = find_absolute(_s, _abs_re)
+                if _hit is None:
+                    continue
+                _why = self.absolutes_justified.get(_s)
+                if not (_why and str(_why).strip()):
+                    raise ValueError(
+                        f'Q{self.q}: {section} states an unqualified absolute '
+                        f'{_hit!r} — a tendency written as an absolute teaches a '
+                        f'false rule (§8-0b / §7-7). Either narrow it (name the '
+                        f'mechanism or the condition: "only when …", "under these '
+                        f'conditions …"), or, if it IS absolute in the subject\'s own '
+                        f'terms (definition / conservation law / mathematical '
+                        f'property), declare it in absolutes_justified with that '
+                        f'reason: {_s[:70]!r}')
+        _abs_gate('AXIOM', self.axiom)
+        if self.speed_hack:
+            _abs_gate('SPEED HACK', self.speed_hack)
+        for _k, _ss in self.why_wrong.items():
+            _abs_gate(f'WHY WRONG {_k}', _ss)
+        for _k, _ss in self.common_pitfalls.items():
+            _abs_gate(f'COMMON PITFALLS {_k}', _ss)
+        for _decl in self.absolutes_justified:
+            if _decl not in self.axiom and _decl not in self.deduction and \
+               _decl not in (self.speed_hack or []) and \
+               not any(_decl in _v for _v in self.why_wrong.values()) and \
+               not any(_decl in _v for _v in self.common_pitfalls.values()):
+                raise ValueError(f'Q{self.q}: absolutes_justified declares a sentence '
+                                 f'that is not in the block: {_decl[:70]!r}')
+        # v2.7 (c) — §7-7 transfer record, shape-validated when supplied.
+        if self.transfer_record is not None:
+            validate_transfer_record(self.transfer_record,
+                                     axiom_present=bool(self.axiom),
+                                     speed_hack_present=bool(self.speed_hack),
+                                     ctx=f'Q{self.q}')
 
         last = self.deduction[-1]
         opt_label = cfg.labels["option"]
@@ -1675,6 +1853,19 @@ def strip_solutions(out_path, stripped_path, cfg):
             to_remove.append(child)
     for el in to_remove:
         el.getparent().remove(el)
+    # v2.7 (e) — garbage-collect media parts that the removed explanation
+    # figures referenced. Before this, the stripped copy held every explanation
+    # image as an orphaned part (39 media against the source's 36 in the
+    # reference run): text-identical to the source, byte-different from it.
+    _still = set()
+    for _blip in doc.element.body.iter('{http://schemas.openxmlformats.org/drawingml/2006/main}blip'):
+        _rid = _blip.get(qn('r:embed')) or _blip.get(qn('r:link'))
+        if _rid:
+            _still.add(_rid)
+    _IMG = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image'
+    for _rid, _rel in list(doc.part.rels.items()):
+        if _rel.reltype == _IMG and _rid not in _still:
+            doc.part.drop_rel(_rid)
     doc.save(stripped_path)
     return stripped_path
 
@@ -2150,6 +2341,8 @@ def self_test():
     docF.add_paragraph(''); docF.save(sF)
     figblk = ExplanationBlock(q=1, ca=1, cfg=cfgF,
         axiom=['A figural series applies one fixed transformation at every step.'],
+        absolutes_justified={'A figural series applies one fixed transformation at every step.':
+                             'definition of a figural series'},
         deduction=['Tracing the rotation forward predicts the next figure.',
                    'That predicted figure matches Option 1 here.'],
         why_wrong={2:['Option 2 rotates the opposite way.'],
@@ -2525,6 +2718,114 @@ def self_test():
     check('ANOMALY-FIG-RAISES', _raises(
         lambda: ExplanationBlock(q=1, anomaly='no defensible answer', cfg=cfg,
             figures=[RepresentationFigure(_figpng, 4.0, dict(_VREC))]).validate()))
+
+    # ── v2.7 GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS fixtures ───────────
+    def _blk27(**kw):
+        base = dict(q=1, ca=1, cfg=cfg,
+            axiom=['A governing relation links the two quantities here.'],
+            deduction=['A first step yields a value.', 'The value maps to Option 1 here.'],
+            why_wrong={2: ['Option 2 uses the right value for the wrong quantity.'],
+                       3: ['Option 3 subtracts the term that is added.'],
+                       4: ['Option 4 satisfies one condition and misses the other.']})
+        base.update(kw)
+        return ExplanationBlock(**base)
+    # (a) absolute gate — AXIOM
+    check('ABS-AXIOM-RAISES', _raises(lambda: _blk27(
+        axiom=['Electron-withdrawing groups always direct the attack to the meta position.']).validate()))
+    check('ABS-AXIOM-DECLARED-OK', _blk27(
+        axiom=['Mass number never changes in a beta emission.'],
+        absolutes_justified={'Mass number never changes in a beta emission.':
+                             'conservation of nucleon number'}).validate() is True)
+    check('ABS-SCOPING-CLAUSE-OK', _blk27(
+        axiom=['The rule applies only when the two beta sites compete and the base is hindered.']).validate() is True)
+    check('ABS-QUANTIFIER-NOT-GATED', _blk27(
+        axiom=['The salt releases exactly three ions, only two of which are chloride, for every formula unit.']).validate() is True)
+    check('ABS-REGARDLESS-RAISES', _raises(lambda: _blk27(
+        axiom=['Translation carries three quadratic terms regardless of how the molecule is built.']).validate()))
+    check('ABS-CANNOT-RAISES', _raises(lambda: _blk27(
+        axiom=['A primary alcohol cannot react under these conditions.']).validate()))
+    check('ABS-AT-ALL-RAISES', _raises(lambda: _blk27(
+        why_wrong={2: ['Dissolved oxygen cannot be titrated directly at all.'],
+                   3: ['Option 3 subtracts the term that is added.'],
+                   4: ['Option 4 satisfies one condition and misses the other.']}).validate()))
+    check('ABS-SPEEDHACK-RAISES', _raises(lambda: _blk27(
+        speed_hack=['A molecule with identical halves always collapses one pair into a meso form, giving Option 1.']).validate()))
+    check('ABS-DEDUCTION-NOT-GATED', _blk27(
+        deduction=['Beta emission never changes the mass number here.',
+                   'The value maps to Option 1 here.']).validate() is True)
+    check('ABS-DECLARED-ABSENT-RAISES', _raises(lambda: _blk27(
+        absolutes_justified={'A sentence not in the block never appears.': 'definition'}).validate()))
+    check('ABS-MATH-REGION-MASKED', find_absolute('The ratio is ⟦MATH:\\frac{a}{b}⟧ under these conditions.') is None)
+    check('ABS-NAT-PITFALL-RAISES', _raises(lambda: ExplanationBlock(q=1, ca='6', cfg=EngineConfig(
+        r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 0), qtype='nat',
+        axiom=['Terminal and bridging roles are counted separately here.'],
+        deduction=['Four hydrogens bridge.', 'The remaining count is 6.'],
+        common_pitfalls={'4': ['A primary alcohol never clouds the reagent at all.']}).validate()))
+    # per-language override replaces the default pattern
+    _cfg_abs = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, absolute_terms_re=r'\bsiempre\b')
+    check('ABS-CONFIG-OVERRIDE', _raises(lambda: _blk27(cfg=_cfg_abs,
+        axiom=['La regla siempre se cumple aqui.']).validate()) and
+        _blk27(cfg=_cfg_abs, axiom=['This rule always holds here.']).validate() is True)
+    # (b) learner-psychology templates
+    check('PSYCH-TEMPLATE-RAISES', _raises(lambda: _blk27(
+        why_wrong={2: ['The seductive half is that both share one metal ion.'],
+                   3: ['Option 3 subtracts the term that is added.'],
+                   4: ['Option 4 satisfies one condition and misses the other.']}).validate()))
+    check('PSYCH-TEMPLATE-GUARD', _raises(lambda: guard_sentence('A hasty solver picks this because it looks symmetric.')))
+    # (c) transfer record
+    _TR_OK = [{'section': 'AXIOM', 'claim': 'back-donation lowers the C-O stretch',
+               'epistemic_type': 'SCIENTIFIC_GENERAL_RULE', 'scope': 'isoelectronic carbonyls',
+               'neighbour_tested': 'a carbonyl with a different ligand set', 'outcome': 'NARROWED'}]
+    check('TR-OK', _blk27(transfer_record=_TR_OK).validate() is True)
+    check('TR-EMPTY-RAISES', _raises(lambda: _blk27(transfer_record=[]).validate() if False else
+                                     validate_transfer_record([], ctx='Q1')))
+    check('TR-MISSING-FIELD-RAISES', _raises(lambda: _blk27(transfer_record=[
+        {'section': 'AXIOM', 'claim': 'x', 'epistemic_type': 'SCIENTIFIC_GENERAL_RULE',
+         'scope': 's', 'outcome': 'SAFE'}]).validate()))
+    check('TR-BAD-TYPE-RAISES', _raises(lambda: _blk27(transfer_record=[
+        dict(_TR_OK[0], epistemic_type='FOLKLORE')]).validate()))
+    check('TR-QSPEC-IN-AXIOM-RAISES', _raises(lambda: _blk27(transfer_record=[
+        dict(_TR_OK[0], epistemic_type='QUESTION_SPECIFIC_INFERENCE', outcome='SAFE')]).validate()))
+    check('TR-QSPEC-MOVED-OK', _blk27(transfer_record=[
+        dict(_TR_OK[0], epistemic_type='QUESTION_SPECIFIC_INFERENCE', outcome='MOVED_TO_DEDUCTION')]).validate() is True)
+    check('TR-OPTSET-OUTSIDE-SH-RAISES', _raises(lambda: _blk27(transfer_record=[
+        dict(_TR_OK[0], epistemic_type='OPTION_SET_SHORTCUT', outcome='SAFE')]).validate()))
+    check('TR-NO-AXIOM-CLAIM-RAISES', _raises(lambda: _blk27(transfer_record=[
+        dict(_TR_OK[0], section='WHY_WRONG')]).validate()))
+    check('TR-SH-WITHOUT-CLAIM-RAISES', _raises(lambda: _blk27(
+        speed_hack=['Check the sign first, a move that suits any cell quoted as a diagram, giving Option 1.'],
+        transfer_record=_TR_OK).validate()))
+    check('TR-SH-WITH-CLAIM-OK', _blk27(
+        speed_hack=['Check the sign first, a move that suits any cell quoted as a diagram, giving Option 1.'],
+        transfer_record=_TR_OK + [{'section': 'SPEED_HACK', 'claim': 'sign first',
+            'epistemic_type': 'OPTION_SET_SHORTCUT', 'scope': 'when both signs are offered',
+            'neighbour_tested': 'a cell whose options share a sign', 'outcome': 'SAFE'}]).validate() is True)
+    # (d) CONFORMER verdict: visual, requires a figure
+    check('CONFORMER-NO-FIG-RAISES', _raises(lambda: _blk27(representation_verdict='CONFORMER').validate()))
+    check('CONFORMER-WITH-FIG-OK', _blk27(representation_verdict='CONFORMER', ca=4,
+        deduction=['The first step names what the figure shows.', 'The second step completes it, giving Option 4.'],
+        why_wrong={1: ['A value swapped - a.'], 2: ['A sign flipped - b.'], 3: ['A unit slipped - c.']},
+        figures=[RepresentationFigure(_figpng, 4.0, dict(_VREC))]).validate() is True)
+    # (e) strip_solutions media GC: a figure-bearing paper strips back to the
+    # source's media count, not source + explanation figures.
+    _gcdir = tempfile.mkdtemp()
+    _gcsrc = os.path.join(_gcdir, 's.docx'); _gcout = os.path.join(_gcdir, 'o.docx')
+    _gcstr = os.path.join(_gcdir, 'st.docx')
+    _make_sample_paper(_gcsrc, cfg, nq=1)
+    build_interleaved_docx(_gcsrc, [_blk27(ca=4,
+        deduction=['The first step names what the figure shows.', 'The second step completes it, giving Option 4.'],
+        why_wrong={1: ['A value swapped - a.'], 2: ['A sign flipped - b.'], 3: ['A unit slipped - c.']},
+        figures=[RepresentationFigure(_figpng, 4.0, dict(_VREC))],
+        representation_verdict='STRUCTURE_GRAPH')], _gcout, cfg)
+    strip_solutions(_gcout, _gcstr, cfg)
+    def _n_media(pth):
+        import zipfile
+        with zipfile.ZipFile(pth) as _z:
+            return sum(1 for _n in _z.namelist() if _n.startswith('word/media/'))
+    check('STRIP-MEDIA-GC', _n_media(_gcout) == _n_media(_gcsrc) + 1 and
+                            _n_media(_gcstr) == _n_media(_gcsrc))
+    _okgc, _ = verify_fidelity(_gcout, _gcsrc, cfg)
+    check('STRIP-MEDIA-GC-FIDELITY-KEPT', _okgc)
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)
