@@ -47,6 +47,30 @@ from collections import Counter, defaultdict
 ISSUES = []
 
 
+
+def _fenced_python(text):
+    """Every ```python fence, line-scanned.
+
+    GAP-2026-08-20. The non-greedy regex this replaces ended its capture at the FIRST
+    ``` in the body, so a fence containing a triple backtick inside a docstring was cut
+    mid-string and the remainder was discarded by the caller's parse guard. It hid
+    Framework_MockTestAnalyse.md's entire S8-1 Drive transport contract from every
+    check in this file. Same fix as audit_deep.py and audit_sync.py, same release.
+    """
+    out, cur = [], None
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if cur is None:
+            if stripped == '```python':
+                cur = []
+            continue
+        if stripped == '```':
+            out.append('\n'.join(cur))
+            cur = None
+        else:
+            cur.append(line)
+    return out
+
 def add(check, path, msg):
     ISSUES.append((check, os.path.basename(path), msg))
 
@@ -58,7 +82,7 @@ def _extract_named_defs(text):
     """{func_name: body} for every top-level `def` in any python fence or raw .py."""
     out = {}
     # raw python file OR fenced blocks — normalise to a list of code strings
-    blocks = re.findall(r'```python\n(.*?)\n```', text, re.S)
+    blocks = _fenced_python(text)
     if not blocks:
         blocks = [text]
     for b in blocks:
@@ -70,7 +94,7 @@ def _extract_named_defs(text):
 def _extract_named_assigns(text):
     """{CONST_NAME: rhs} for module-level `NAME = re.compile(...)`-style assigns."""
     out = {}
-    blocks = re.findall(r'```python\n(.*?)\n```', text, re.S) or [text]
+    blocks = _fenced_python(text) or [text]
     for b in blocks:
         for m in re.finditer(r'^([A-Z][A-Z0-9_]+)\s*=\s*(re\.compile\(.*?\)|.+?)$',
                              b, re.S | re.M):
@@ -272,7 +296,7 @@ def check_y_config(path, text):
         return
     # A `.get('field', default)` inside a python fence is self-declaring: the
     # default IS the contract. Only prose/pseudo-code reads need a §0 entry.
-    for blk in re.findall(r'```python\n(.*?)\n```', text, re.S):
+    for blk in _fenced_python(text):
         for f in re.findall(r"exam_config\.get\(['\"](\w+)['\"]\s*,", blk):
             reads.discard(f)
     # Declaration zone = the input contract (§0) plus explicit declaration lines
@@ -512,6 +536,24 @@ def self_test():
                        capture_output=True, text=True)
     check("live corpus passes the standard md+py invocation",
           r.returncode == 0 and '0 issues' in r.stdout)
+
+    # GAP-2026-08-20 — the fence the old regex could not read. A block that does not
+    # parse is skipped, and a skipped block produces no findings, so this file scanned
+    # Framework_MockTestAnalyse.md's S8-1 Drive transport contract for months while
+    # reporting 0 issues over code it had never seen. Pinned so a revert to a regex
+    # fails HERE rather than restoring the blindness and looking green.
+    import ast as _ast7, textwrap as _tw7
+    _s81 = set()
+    for _b in _fenced_python(open(os.path.join(os.path.dirname(here) or '.',
+                                               'Framework_MockTestAnalyse.md'),
+                                  encoding='utf-8').read()):
+        try:
+            _s81 |= {n.name for n in _ast7.parse(_tw7.dedent(_b)).body
+                     if isinstance(n, _ast7.FunctionDef)}
+        except SyntaxError:
+            pass
+    check("line scanner reads the S8-1 Drive transport fence the regex truncated",
+          {'acquire_paper', 'plan_transport', 'probe_drive_channel'} <= _s81)
 
     print(f"audit_specs_ext self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

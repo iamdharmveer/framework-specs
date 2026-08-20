@@ -1,5 +1,100 @@
 # Changelog
 
+## 2026.08.20.2 — the auditors could not read the Drive transport contract, and reported 0 findings
+
+**audit_deep.py, audit_sync.py, audit_specs_ext.py, validate_framework_md.py,
+gen_manifest.py, new XSPEC_DIVERGENCE_BASELINE.json.** No spec changes, no engine
+changes, **no artefact values change** — verified byte-identical against the golden set
+from deployed `2026.08.19.3`.
+
+### The defect
+
+Four auditors extracted fenced python with a non-greedy regex:
+
+    re.findall(r'```python\n(.*?)```', text, re.S)
+
+`(.*?)` ends the capture at the **first** ``` in the body. Framework_MockTestAnalyse.md's
+S8-1 batch-loop acquisition fence contains a triple backtick inside a docstring, so the
+capture was cut mid-string, the remainder did not parse, and each caller's `try/except
+SyntaxError: continue` discarded it **in silence**.
+
+Nothing failed. The auditors simply never read the code — and a block that is never read
+produces no findings, so the reports said `findings: 0` and `0 issues` over the entire
+Step 5 Drive transport contract. This is the same failure shape as
+GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS, which fixed the *indentation* half of it and
+documented this half as a known remaining limit.
+
+**Measured on the deployed corpus:** regex 261 of 264 fences parse, line scanner 263 of
+263. **+388 parseable python lines and 12 functions enter the audited set**, including
+every function in the Step 5 transport block — `acquire_listing`, `acquire_paper`,
+`log_session`, `make_paper_id`, `plan_transport`, `probe_drive_channel`,
+`probe_transport`, `read_transport_verdict`, `record_transport`.
+
+### Why the fix waited, and what actually unblocked it
+
+The line scanner was built and measured **months ago** and then withdrawn, because
+switching it on surfaced three XSPEC-DRIFT findings and `audit_deep` had nowhere to
+record that they were intentional. Its own self-test asserts the live corpus reports
+`findings: 0`, so there was no way to ship a true statement.
+
+That was the wrong trade: it bought a clean report by keeping the auditor blind. The
+docstring recorded the blocker as an open behavioural question — *should Step 4 receive
+the v2.51.0 SESSION-BUDGET LAW?* — but that question had **already been answered**, in
+`Framework_PYQCount v1.5`, which propagated three of the four laws from
+GAP-2026-08-16-STEP5-SESSION-EXHAUSTION and declared the fourth out of scope with its
+reason on the record: Step 4 is single-session, so its probe cost amortises to zero, and
+its route is under `SPEC_BUDGET_BYTES`. **Re-verified today:** PYQCount route 239,599 B
+against the 250,000 B threshold. The rationale holds, with 10,401 B (4.2%) of headroom —
+recorded in the baseline note, because if PYQCount ever crosses that threshold the fourth
+law becomes live for Step 4 and the entry must be re-reviewed rather than extended.
+
+So the real blocker was never the Step 4 decision. It was a **missing exemption
+mechanism**, and that is what this release adds.
+
+### XSPEC_DIVERGENCE_BASELINE.json — a ratchet, deliberately stricter than its siblings
+
+Three functions legitimately differ between Step 4 and Step 5:
+
+| function | reason | why |
+|---|---|---|
+| `probe_drive_channel` | `step_label_only` | docstrings are already stripped by `fingerprint()`, so the only difference left is the printed banner — `S5-0` vs `S8-0` |
+| `acquire_paper` | `declared_step_divergence` | different acquisition models: Step 4 keys off a pre-materialised payload map, Step 5 off a source-tagged batch reference |
+| `plan_transport` | `declared_law_scope` | Step 5 carries the SESSION-BUDGET LAW and the P4d/P4f/P4g deviations; Step 4 declares them out of scope, with reasons |
+
+An entry pins the **fingerprint of both bodies**. Change either side and the exemption
+goes `XSPEC-BASELINE-STALE` and fails the build, because what was reviewed is no longer
+what is in the file. An entry whose divergence has **disappeared** also fails, so a
+dormant exemption cannot lie in wait for the next divergence of the same name. The reason
+must come from a closed vocabulary; free text fails.
+
+**There is no writer.** `audit_deep.py --print-divergence-baseline` prints a candidate to
+stdout for a human to paste, so every entry lands as a reviewable diff. A `--write` flag
+is exactly how `spec_name_audit` re-froze two defects it had just fixed
+(Framework_MockTestAnalyse v2.53.1, D5/D6); that switch is deliberately not built.
+
+The file is added to `gen_manifest.TRACKED_JSON`, so `bootstrap.py` checksum-verifies it
+like every other ratchet. A file that suppresses findings and is not tracked is the most
+attractive file in the repo to widen quietly.
+
+### Watching the watcher
+
+`audit_deep` self-test 10 -> 17 checks, with a meta-assertion. Six of the new fixtures
+exist purely to prove the suppression mechanism cannot suppress anything it was not
+reviewed for: a changed body goes stale, an unknown reason fails, a dormant entry fails,
+**deleting the baseline resurfaces all three divergences**, and the printer does not
+write. `audit_sync` 12 -> 13 and `audit_specs_ext` 11 -> 12 each gain the fixture that
+pins the scanner itself — so a future "simplification" back to a regex fails there,
+instead of restoring the blindness and looking green.
+
+### Verification
+
+bootstrap **50/50** at `2026.08.20.2`; `validate_framework_md` 0 issues / 23 files;
+`audit_deep` 17/17 self-test and 0 findings; `audit_sync` 13/13; `audit_specs_ext` 12/12
+and 0 issues / 57 files; `audit_callgraph` 30/30; `audit_seam` 14/14 and 0 findings / 53
+fields; `spec_name_audit` 23/23 and baseline clean; `mock_sync_audit` 37/37;
+`audit_mutation --self-test` 12/12; `analyse_engine --self-test` 116/116; auditor mutation
+0 survivors; pipeline mutation 1 survivor within budget; golden set **6/6 IDENTICAL**.
+
 ## 2026.08.20.1 — Wave 2 Part C, Batch 7: the writers enter the mutation gate, and defect D7
 
 **Framework_MockTestAnalyse v2.53.3 -> v2.53.4 (PATCH), analyse_engine.py, audit_mutation.py,

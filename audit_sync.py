@@ -3,6 +3,49 @@ Does not test behaviour; tests whether the 11 steps AGREE with each other."""
 import ast, json, os, re, sys
 from collections import defaultdict
 
+# GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS: dedent each fence before it is
+# parsed. MEASURED 2026-08-16: this extractor yielded 147 blocks across five
+# specs and 61 of them failed ast.parse purely on uniform leading whitespace,
+# so 41% of the python it appeared to audit was silently discarded.
+# textwrap.dedent strips only the COMMON prefix and adds/removes no line, so
+# nested code is untouched and every line number stays valid.
+def blocks(t):
+    """Return the dedented source of every ```python fence.
+
+    GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS. The dedent is the fix. A fence whose ```
+    marker and body are BOTH indented yields uniformly-indented source, which
+    ast.parse rejects as "unexpected indent", so the caller's try/except discarded it
+    in silence. MEASURED across five specs: 61 of 147 blocks — 41% of the python this
+    auditor appeared to be checking. textwrap.dedent strips only the COMMON prefix and
+    adds or removes no line, so nested code is unaffected and every line number stays
+    valid. Verified over all 259 fences in the corpus: nothing that parsed before
+    stopped parsing, and no fence changed line count.
+
+    THE REGEX IS GONE (2026-08-20). The non-greedy `(.*?)` ended the capture at the
+    FIRST ``` in the body, so a fence containing a triple backtick inside a docstring
+    was cut mid-string. That truncated Framework_MockTestAnalyse.md's S8-1 batch-loop
+    acquisition fence — the whole Drive transport contract — into something that did
+    not parse, so the caller's try/except discarded it and this auditor scanned code it
+    had never read. Same fix, same release and same reasoning as audit_deep.py; see
+    XSPEC_DIVERGENCE_BASELINE.json for the exemption mechanism that unblocked it there.
+    Measured on the deployed corpus: regex 261 of 264 fences parse, line scanner
+    263 of 263.
+    """
+    import textwrap
+    out, cur = [], None
+    for line in t.split('\n'):
+        stripped = line.strip()
+        if cur is None:
+            if stripped == '```python':
+                cur = []
+            continue
+        if stripped == '```':
+            out.append(textwrap.dedent('\n'.join(cur)))
+            cur = None
+        else:
+            cur.append(line)
+    return out
+
 def _self_test():
     """GAP-2026-08-14-AUDITOR-SELFTESTS. Script-style auditor, so fixtures run
     it as a SUBPROCESS against a mutated corpus copy and assert each check
@@ -162,6 +205,26 @@ def _self_test():
     check("DOC-COUNT-IDIOM fires when a live count is hand-written back into prose",
           rc == 1 and 'DOC-COUNT-IDIOM' in out)
 
+    # ── The fence the old regex could not read (2026-08-20) ──────────────────
+    # Framework_MockTestAnalyse.md's S8-1 acquisition fence contains a triple backtick
+    # inside a docstring, so the non-greedy `(.*?)` cut it mid-string and the entire
+    # Drive transport contract parsed as nothing — silently, because a block that does
+    # not parse is skipped and a skipped block produces no findings. Nothing failed;
+    # the auditor simply never read it. This pins the scanner so a future
+    # "simplification" back to a regex fails HERE, instead of restoring the blindness
+    # and looking green.
+    import ast as _ast
+    _s81 = set()
+    for _b in blocks(open(os.path.join(here, 'Framework_MockTestAnalyse.md'),
+                          encoding='utf-8').read()):
+        try:
+            _s81 |= {n.name for n in _ast.parse(_b).body
+                     if isinstance(n, _ast.FunctionDef)}
+        except SyntaxError:
+            pass
+    check("line scanner reads the S8-1 Drive transport fence the regex truncated",
+          {'acquire_paper', 'plan_transport', 'probe_drive_channel'} <= _s81)
+
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
     return not fails
@@ -179,44 +242,6 @@ if os.path.exists(_sp):
     skill_txt = open(_sp, encoding='utf-8').read()
 def rec(cat, msg): ISSUES[cat].append(msg)
 
-# GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS: dedent each fence before it is
-# parsed. MEASURED 2026-08-16: this extractor yielded 147 blocks across five
-# specs and 61 of them failed ast.parse purely on uniform leading whitespace,
-# so 41% of the python it appeared to audit was silently discarded.
-# textwrap.dedent strips only the COMMON prefix and adds/removes no line, so
-# nested code is untouched and every line number stays valid.
-def blocks(t):
-    """Return the dedented source of every ```python fence.
-
-    GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS. The dedent is the fix. A fence whose ```
-    marker and body are BOTH indented yields uniformly-indented source, which
-    ast.parse rejects as "unexpected indent", so the caller's try/except discarded it
-    in silence. MEASURED across five specs: 61 of 147 blocks — 41% of the python this
-    auditor appeared to be checking. textwrap.dedent strips only the COMMON prefix and
-    adds or removes no line, so nested code is unaffected and every line number stays
-    valid. Verified over all 259 fences in the corpus: nothing that parsed before
-    stopped parsing, and no fence changed line count.
-
-    KNOWN REMAINING LIMIT — 2 of 147 blocks, DELIBERATELY NOT FIXED HERE.
-    The non-greedy `(.*?)` ends the capture at the FIRST ``` in the body, so a fence
-    containing a triple backtick inside a docstring is cut mid-string
-    (Framework_MockTestAnalyse.md's S8-1 batch-loop acquisition block truncates at its
-    line 250). A line-based scanner keyed on the fence markers fixes it and was built
-    and measured — it takes this extractor to 146/146 — but it surfaces three
-    pre-existing XSPEC-DRIFT findings (acquire_paper, plan_transport,
-    probe_drive_channel differ between Framework_MockTestAnalyse.md and
-    Framework_PYQCount.md), and this auditor has no exemption mechanism: its own
-    self-test asserts the live corpus reports `findings: 0`.
-    Two of those three are INTENTIONAL step divergence — probe_drive_channel differs
-    only in its step label (S8-0 vs S5-0), and Step 5's plan_transport carries the
-    v2.51.0 SESSION-BUDGET LAW that Step 4 never received. Whether Step 4 SHOULD
-    receive it is a real open question under the LAW-PROPAGATION LAW, and it is a
-    behavioural decision about Step 4 for every exam in the estate — not something to
-    settle inside a fence-extraction fix. Tracked as backlog; see the GAP doc.
-    """
-    import textwrap
-    return [textwrap.dedent(b) for b in
-            re.findall(r"```python\n(.*?)```", t, re.S)]
 def public(mod):
     try:
         src = open(mod + '.py', encoding='utf-8').read()

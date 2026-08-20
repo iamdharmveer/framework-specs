@@ -121,6 +121,30 @@ PIPELINE = {
     'NotesAudit': 'NA', 'NotesDeliver': 'ND',
 }
 
+
+def _fenced_python(text):
+    """Every ```python fence, line-scanned.
+
+    GAP-2026-08-20. The non-greedy regex this replaces ended its capture at the FIRST
+    ``` in the body, so a fence containing a triple backtick inside a docstring was cut
+    mid-string and the remainder was discarded by the caller's parse guard. It hid
+    Framework_MockTestAnalyse.md's entire S8-1 Drive transport contract from every
+    check in this file. Same fix as audit_deep.py and audit_sync.py, same release.
+    """
+    out, cur = [], None
+    for line in text.split('\n'):
+        stripped = line.strip()
+        if cur is None:
+            if stripped == '```python':
+                cur = []
+            continue
+        if stripped == '```':
+            out.append('\n'.join(cur))
+            cur = None
+        else:
+            cur.append(line)
+    return out
+
 def validate(path, all_texts=None):
     """all_texts: optional {basename: text} for every file in the current batch run,
     including this one. When provided (batch mode, 2+ files), RA-N and MANDATE X
@@ -887,7 +911,7 @@ def check_ag_shared_artefact_readers(all_texts):
     for fname, text in sorted(all_texts.items()):
         if not fname.endswith('.md'):
             continue
-        for block in re.findall(r'```python\n(.*?)```', text, re.S):
+        for block in _fenced_python(text):
             if not opener.search(block):
                 continue
             if not any(tok in block for tok in AG_ARTEFACTS['Analysis']):

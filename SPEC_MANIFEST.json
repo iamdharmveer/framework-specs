@@ -184,9 +184,9 @@
     },
     "audit_deep.py": {
       "end_sentinel": "sys.exit(1 if tot else 0)",
-      "lines": 383,
-      "sha256": "6d9f885647b6c24c1418b43b1b245ea9a193fbb0bfb42997acad63292fed5a29",
-      "size_bytes": 21390,
+      "lines": 602,
+      "sha256": "c2538e732b7398301e78a5d1235e4ae30666a517248f77c357ad7ba48129aa33",
+      "size_bytes": 32393,
       "version_header": "\"\"\"audit_deep.py — checks NOT covered by validate_framework_md.py or audit_sync.py."
     },
     "audit_mutation.py": {
@@ -205,16 +205,16 @@
     },
     "audit_specs_ext.py": {
       "end_sentinel": "    sys.exit(main(args))",
-      "lines": 528,
-      "sha256": "f28f3ea72dea6695a95ff0bacbcbb1e369c2aad11ac5f2420f4109c3d3230e07",
-      "size_bytes": 27389,
+      "lines": 570,
+      "sha256": "a5edcd4695e70638b791991f764b8fd4a4b31d34c096542b639ed44628e89b31",
+      "size_bytes": 29199,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 545,
-      "sha256": "866864a151dbac83d1bf8349cc7c5d6255055af97921f74a0ed42718a2ad19d7",
-      "size_bytes": 29448,
+      "lines": 570,
+      "sha256": "3580780ea0aa7a82d4b1bb358533736a593b0273c2f9bbbfee22ee6cf477747f",
+      "size_bytes": 30304,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {
@@ -359,9 +359,9 @@
     },
     "validate_framework_md.py": {
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2254,
-      "sha256": "82143339be7e512fb5710d2f07262a2cb575263b4ffae7f53395ff947390f90c",
-      "size_bytes": 130156,
+      "lines": 2278,
+      "sha256": "ff4550d730b3baffb042fea2002ab76b53089f943b77885a7044c9226643e0e0",
+      "size_bytes": 130984,
       "version_header": "#!/usr/bin/env python3"
     },
     "notes_docx.py": {

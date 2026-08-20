@@ -40,8 +40,13 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
 # sends a reduced read at ranges that no longer bound the sections they name. Tracking
 # it by sha256 means bootstrap.py fails the build the moment a spec is edited without
 # regenerating it, which is before anybody can read a wrong range.
+# XSPEC_DIVERGENCE_BASELINE.json joins this list at 2026.08.20.2 for the same reason
+# MUTATION_BUDGETS.json is on it: it is a RATCHET, and a ratchet that is not checksum-
+# verified can be edited without leaving the trace bootstrap.py refuses to start on.
+# It SUPPRESSES audit_deep findings, which makes it the single most attractive file in
+# the repo to widen quietly.
 TRACKED_JSON = ["LAW_REGISTRY.json", "SPEC_SECTIONS.json",
-                "MUTATION_BUDGETS.json"]
+                "MUTATION_BUDGETS.json", "XSPEC_DIVERGENCE_BASELINE.json"]
 
 # GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, Wave 2 (partial). SPEC_HISTORY.md holds the
 # superseded changelog entries moved out of the 20 routed specs — 196,024 B of defect

@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.20.1",
+  "framework_version": "2026.08.20.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -335,11 +335,11 @@
       "bytes": 72487
     },
     "validate_framework_md.py": {
-      "sha256": "82143339be7e512fb5710d2f07262a2cb575263b4ffae7f53395ff947390f90c",
+      "sha256": "ff4550d730b3baffb042fea2002ab76b53089f943b77885a7044c9226643e0e0",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2254,
-      "bytes": 130156
+      "lines": 2278,
+      "bytes": 130984
     },
     "explain_engine.py": {
       "sha256": "072e34ecaf53f8ed25379937d3beb3c1a94756ac25c2f805d7fa28253f60a973",
@@ -508,6 +508,13 @@
       "end_sentinel": "}",
       "lines": 97,
       "bytes": 11933
+    },
+    "XSPEC_DIVERGENCE_BASELINE.json": {
+      "sha256": "9fd4794d1a91dc9ce23c175096d4dc925a8e8daf159945c1b070cf927b6aed43",
+      "version_header": "{",
+      "end_sentinel": "}",
+      "lines": 35,
+      "bytes": 4382
     },
     "SPEC_HISTORY.md": {
       "sha256": "70338b1f9283e0b32a7116b7b9e5b64e1893103b67d789971a9c7d253c150dcd",

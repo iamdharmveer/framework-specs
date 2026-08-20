@@ -13,6 +13,63 @@ tell the two apart trains its readers to ignore it."""
 import ast, json, os, re, sys
 from collections import defaultdict
 
+DIVERGENCE_BASELINE_FILE = 'XSPEC_DIVERGENCE_BASELINE.json'
+
+# GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS: dedent each fence before it is
+# parsed. MEASURED 2026-08-16: this extractor yielded 147 blocks across five
+# specs and 61 of them failed ast.parse purely on uniform leading whitespace,
+# so 41% of the python it appeared to audit was silently discarded.
+# textwrap.dedent strips only the COMMON prefix and adds/removes no line, so
+# nested code is untouched and every line number stays valid.
+def blocks(t):
+    """Return the dedented source of every ```python fence.
+
+    GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS. The dedent is the fix. A fence whose ```
+    marker and body are BOTH indented yields uniformly-indented source, which
+    ast.parse rejects as "unexpected indent", so the caller's try/except discarded it
+    in silence. MEASURED across five specs: 61 of 147 blocks — 41% of the python this
+    auditor appeared to be checking. textwrap.dedent strips only the COMMON prefix and
+    adds or removes no line, so nested code is unaffected and every line number stays
+    valid. Verified over all 259 fences in the corpus: nothing that parsed before
+    stopped parsing, and no fence changed line count.
+
+    THE REGEX IS GONE (2026-08-20). The non-greedy `(.*?)` ended the capture at the
+    FIRST ``` in the body, so a fence containing a triple backtick inside a docstring
+    was cut mid-string. That truncated Framework_MockTestAnalyse.md's S8-1 batch-loop
+    acquisition block — `acquire_paper`, `plan_transport`, `probe_drive_channel`, the
+    entire Drive transport contract — into something that did not parse, so the
+    caller's try/except discarded it and this auditor reported `findings: 0` over code
+    it had never read. Measured on the deployed corpus: regex 261 of 264 fences parse,
+    line scanner 263 of 263.
+
+    A line-based scanner keyed on the fence markers was built and measured MONTHS
+    earlier and then WITHDRAWN, because switching it on surfaced three XSPEC-DRIFT
+    findings and this auditor had nowhere to record that they were intentional. That
+    was the wrong trade: it kept a clean report by keeping the auditor blind. The
+    exemption mechanism now exists (XSPEC_DIVERGENCE_BASELINE.json, and it is a
+    ratchet — see load_divergence_baseline), so the scanner ships.
+
+    The scanner takes the fence markers literally: a line whose STRIP is exactly
+    ```python opens, a line whose strip is exactly ``` closes. An unterminated fence
+    at EOF is dropped rather than swallowing the rest of the file.
+    """
+    import textwrap
+    out, cur = [], None
+    for line in t.split('\n'):
+        stripped = line.strip()
+        if cur is None:
+            if stripped == '```python':
+                cur = []
+            continue
+        if stripped == '```':
+            out.append(textwrap.dedent('\n'.join(cur)))
+            cur = None
+        else:
+            cur.append(line)
+    return out
+
+
+
 def _self_test():
     """GAP-2026-08-14-AUDITOR-SELFTESTS. This auditor is a top-to-bottom script,
     so fixtures run it as a SUBPROCESS against a mutated copy of the corpus and
@@ -37,7 +94,11 @@ def _self_test():
 
     def corpus_copy(dst):
         for f in os.listdir(here):
-            if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json'):
+            # XSPEC_DIVERGENCE_BASELINE.json must travel with the corpus, or the
+            # "clean copy passes" fixture measures a corpus WITHOUT the declared
+            # divergences and reports three findings that the real run does not have.
+            if f.endswith(('.md', '.py')) or f in ('routes.json', 'MANIFEST.json',
+                                                   DIVERGENCE_BASELINE_FILE):
                 shutil.copy(os.path.join(here, f), os.path.join(dst, f))
         return dst
 
@@ -111,12 +172,119 @@ def _self_test():
     check("XSPEC-DRIFT fires on the same public function defined differently "
           "in two specs", rc == 1 and 'XSPEC-DRIFT' in out)
 
+    # ══ THE DIVERGENCE RATCHET (2026-08-20) ══════════════════════════════
+    # This mechanism SUPPRESSES findings, so it is the most dangerous code in the
+    # file: every fixture below exists to prove it cannot suppress anything it was
+    # not reviewed for. An exemption mechanism without these is just a mute button.
+    import json as _js
+
+    def _base(root):
+        return _js.load(open(os.path.join(root, DIVERGENCE_BASELINE_FILE),
+                             encoding='utf-8'))
+
+    def _put(root, data):
+        with open(os.path.join(root, DIVERGENCE_BASELINE_FILE), 'w',
+                  encoding='utf-8') as fh:
+            _js.dump(data, fh, indent=2, ensure_ascii=False)
+
+    # 1. THE FENCE THE REGEX COULD NOT READ. Framework_MockTestAnalyse.md's S8-1
+    #    acquisition fence contains a triple backtick inside a docstring, so the old
+    #    non-greedy regex cut it mid-string and the whole Drive transport contract
+    #    parsed as nothing. This asserts the scanner now reaches all three functions —
+    #    without it, a future "simplification" back to a regex would restore the
+    #    blindness AND look green, because a blind auditor reports no findings.
+    _s81 = {n for b in blocks(open(os.path.join(here, 'Framework_MockTestAnalyse.md'),
+                                   encoding='utf-8').read())
+            for n in _names_in(b)}
+    check("line scanner reads the S8-1 Drive transport fence the regex truncated",
+          {'acquire_paper', 'plan_transport', 'probe_drive_channel'} <= _s81)
+
+    # 2. An UNDECLARED divergence must still fail. (The xdrift fixture above already
+    #    proves this with the baseline present, which is the point: a populated
+    #    baseline does not weaken the check for names it does not list.)
+
+    # 3. A declared divergence whose BODY CHANGED must go STALE, not stay silent.
+    #    This is the difference between a ratchet and a mute button.
+    def _stale_fp(r):
+        d = _base(r)
+        d['plan_transport']['files']['Framework_PYQCount.md'] = '0' * 16
+        _put(r, d)
+    rc, out = mutated(_stale_fp)
+    check("XSPEC-BASELINE-STALE fires when a declared body no longer matches",
+          rc == 1 and 'XSPEC-BASELINE-STALE' in out and 'plan_transport' in out)
+
+    # 4. A reason outside the closed vocabulary must fail. A free-text reason is how a
+    #    closed vocabulary becomes a comment field.
+    def _bad_reason(r):
+        d = _base(r)
+        d['acquire_paper']['reason'] = 'because it is fine'
+        _put(r, d)
+    rc, out = mutated(_bad_reason)
+    check("XSPEC-BASELINE-STALE fires on a reason outside the closed vocabulary",
+          rc == 1 and 'XSPEC-BASELINE-STALE' in out and 'acquire_paper' in out)
+
+    # 5. An exemption for a divergence that NO LONGER EXISTS must fail, so it cannot
+    #    lie dormant and silently cover the next divergence of that name.
+    def _dormant(r):
+        d = _base(r)
+        d['zz_selftest_never_diverged'] = {
+            'files': {'Framework_PYQSort.md': 'dead', 'Framework_PYQCount.md': 'dead'},
+            'reason': 'step_label_only', 'note': 'fixture'}
+        _put(r, d)
+    rc, out = mutated(_dormant)
+    check("XSPEC-BASELINE-STALE fires on a dormant exemption",
+          rc == 1 and 'zz_selftest_never_diverged' in out)
+
+    # 6. DELETING the baseline must resurface all three real divergences. If it does
+    #    not, the suppression is coming from somewhere else and the file is decorative.
+    def _drop(r):
+        os.remove(os.path.join(r, DIVERGENCE_BASELINE_FILE))
+    rc, out = mutated(_drop)
+    check("removing the baseline resurfaces every declared divergence",
+          rc == 1 and out.count('XSPEC-DRIFT') >= 1
+          and all(n in out for n in ('acquire_paper', 'plan_transport',
+                                     'probe_drive_channel')))
+
+    # 7. The printer must never write. A writer is how spec_name_audit re-froze two
+    #    defects it had just fixed.
+    def _print_only(r):
+        before = open(os.path.join(r, DIVERGENCE_BASELINE_FILE), encoding='utf-8').read()
+        subprocess.run([sys.executable, os.path.join(r, 'audit_deep.py'),
+                        '--print-divergence-baseline'],
+                       cwd=r, capture_output=True, text=True)
+        after = open(os.path.join(r, DIVERGENCE_BASELINE_FILE), encoding='utf-8').read()
+        if before != after:
+            append(r, 'Framework_PYQSort.md', '\nzz_printer_wrote_the_baseline\n')
+    rc, out = mutated(_print_only)
+    check("--print-divergence-baseline does NOT write the file",
+          'zz_printer_wrote_the_baseline' not in out)
+
+    # META-ASSERTION: a skipped check is not a passing one.
+    EXPECTED = 16
+    _total = passed + len(fails)
+    if _total != EXPECTED:
+        fails.append(f"suite_ran_every_check (ran {_total}, expected {EXPECTED})")
+    else:
+        passed += 1
+
     print(f"audit_deep self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))
     return not fails
 
+
+def _names_in(src):
+    """Top-level function names in a source block; {} when it does not parse."""
+    try:
+        return {n.name for n in ast.parse(src).body if isinstance(n, ast.FunctionDef)}
+    except SyntaxError:
+        return set()
+
 if __name__ == '__main__' and '--self-test' in sys.argv:
     sys.exit(0 if _self_test() else 1)
+
+# --print-divergence-baseline: emit a CANDIDATE for a human to paste. It never writes.
+# Every entry must therefore arrive as a reviewable diff carrying a reason and a note.
+_PRINT_DIVERGENCE = '--print-divergence-baseline' in sys.argv
 
 SPECS=sorted(f for f in os.listdir('.') if f.startswith('Framework_') and f.endswith('.md'))
 TXT={f:open(f,encoding='utf-8').read() for f in SPECS}
@@ -137,44 +305,47 @@ ENG={m:open(m+'.py',encoding='utf-8').read() for m in _TRACKED
      if os.path.exists(m+'.py')}
 I=defaultdict(list)
 def rec(c,m): I[c].append(m)
-# GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS: dedent each fence before it is
-# parsed. MEASURED 2026-08-16: this extractor yielded 147 blocks across five
-# specs and 61 of them failed ast.parse purely on uniform leading whitespace,
-# so 41% of the python it appeared to audit was silently discarded.
-# textwrap.dedent strips only the COMMON prefix and adds/removes no line, so
-# nested code is untouched and every line number stays valid.
-def blocks(t):
-    """Return the dedented source of every ```python fence.
+# ── DECLARED CROSS-SPEC DIVERGENCE (2026-08-20) ──────────────────────────────
+# Two specs may legitimately define the same function differently: Step 4 and Step 5
+# both perform a CLASS T Drive acquisition, and their contracts genuinely differ (see
+# Framework_PYQCount v1.5 and Framework_MockTestAnalyse v2.51.0, where the divergences
+# are declared in prose and enforced by mock_sync_audit MS-13).
+#
+# THIS FILE IS A RATCHET, NOT AN ALLOWANCE, and it is deliberately stricter than the
+# other baselines in this repo: an entry pins the sha256 of BOTH bodies. Change either
+# side and the exemption goes STALE and FAILS THE BUILD, because the thing that was
+# reviewed and declared intentional is no longer the thing in the file. A name-only
+# suppression would let real drift accumulate for ever underneath a decision made once.
+#
+# THERE IS NO WRITER. `--print-divergence-baseline` prints a candidate to stdout for a
+# human to paste, so every entry arrives as a reviewable diff. A --write flag is how
+# spec_name_audit re-froze two defects it had just fixed (v2.53.1, D5/D6); that switch
+# is not built here.
+DIVERGENCE_REASONS = {
+    'step_label_only':
+        'bodies differ only in a printed step identifier (S5-x vs S8-x)',
+    'declared_step_divergence':
+        'the steps genuinely differ and BOTH specs name the divergence in prose',
+    'declared_law_scope':
+        'a law applies to one step and is declared out of scope for the other, '
+        'with the reason stated in the spec that does not carry it',
+}
 
-    GAP-2026-08-16-AUDITOR-FENCE-BLINDNESS. The dedent is the fix. A fence whose ```
-    marker and body are BOTH indented yields uniformly-indented source, which
-    ast.parse rejects as "unexpected indent", so the caller's try/except discarded it
-    in silence. MEASURED across five specs: 61 of 147 blocks — 41% of the python this
-    auditor appeared to be checking. textwrap.dedent strips only the COMMON prefix and
-    adds or removes no line, so nested code is unaffected and every line number stays
-    valid. Verified over all 259 fences in the corpus: nothing that parsed before
-    stopped parsing, and no fence changed line count.
 
-    KNOWN REMAINING LIMIT — 2 of 147 blocks, DELIBERATELY NOT FIXED HERE.
-    The non-greedy `(.*?)` ends the capture at the FIRST ``` in the body, so a fence
-    containing a triple backtick inside a docstring is cut mid-string
-    (Framework_MockTestAnalyse.md's S8-1 batch-loop acquisition block truncates at its
-    line 250). A line-based scanner keyed on the fence markers fixes it and was built
-    and measured — it takes this extractor to 146/146 — but it surfaces three
-    pre-existing XSPEC-DRIFT findings (acquire_paper, plan_transport,
-    probe_drive_channel differ between Framework_MockTestAnalyse.md and
-    Framework_PYQCount.md), and this auditor has no exemption mechanism: its own
-    self-test asserts the live corpus reports `findings: 0`.
-    Two of those three are INTENTIONAL step divergence — probe_drive_channel differs
-    only in its step label (S8-0 vs S5-0), and Step 5's plan_transport carries the
-    v2.51.0 SESSION-BUDGET LAW that Step 4 never received. Whether Step 4 SHOULD
-    receive it is a real open question under the LAW-PROPAGATION LAW, and it is a
-    behavioural decision about Step 4 for every exam in the estate — not something to
-    settle inside a fence-extraction fix. Tracked as backlog; see the GAP doc.
-    """
-    import textwrap
-    return [textwrap.dedent(b) for b in
-            re.findall(r"```python\n(.*?)```", t, re.S)]
+def _fp_hash(text):
+    import hashlib
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]
+
+
+def load_divergence_baseline(path=DIVERGENCE_BASELINE_FILE):
+    """{name: {'files': {file: fp_hash}, 'reason': str, 'note': str}} or {}."""
+    if not os.path.exists(path):
+        return {}
+    try:
+        raw = json.load(open(path, encoding='utf-8'))
+    except Exception:
+        return {}
+    return {k: v for k, v in raw.items() if not k.startswith('_')}
 def fingerprint(fn):
     fn=ast.parse(ast.unparse(fn)).body[0]
     if (fn.body and isinstance(fn.body[0], ast.Expr)
@@ -204,13 +375,61 @@ for f,t in TXT.items():
         except SyntaxError: continue
         for n in tree.body:
             if isinstance(n,ast.FunctionDef): glob[n.name][f]=fingerprint(n)
+DIVERGENCE = load_divergence_baseline()
 for name,byfile in glob.items():
     # A leading-underscore name is a FILE-PRIVATE helper by convention; two specs may
     # legitimately use the same private name for unrelated jobs (verified: _norm normalises
     # a Format string in one spec and math dashes in another). Not drift, a name collision.
     if name.startswith('_'): continue
     if len(byfile)>1 and len(set(byfile.values()))>1:
-        rec('XSPEC-DRIFT',f"'{name}' defined differently in {sorted(byfile)}")
+        entry = DIVERGENCE.get(name)
+        if entry is None:
+            rec('XSPEC-DRIFT',f"'{name}' defined differently in {sorted(byfile)}")
+            continue
+        # DECLARED — but only for the EXACT bodies that were reviewed. Recompute both
+        # sides and compare. A stale entry is its own finding, never a pass: silently
+        # extending a once-reviewed exemption over newly-changed code is the failure
+        # mode every baseline in this repo was written to prevent.
+        want = entry.get('files') or {}
+        have = {f: _fp_hash(fp) for f, fp in byfile.items()}
+        if entry.get('reason') not in DIVERGENCE_REASONS:
+            rec('XSPEC-BASELINE-STALE',
+                f"'{name}' declared with unknown reason {entry.get('reason')!r} — "
+                f"legal reasons: {sorted(DIVERGENCE_REASONS)}")
+        elif have != want:
+            rec('XSPEC-BASELINE-STALE',
+                f"'{name}' is declared as an intentional divergence, but the bodies "
+                f"CHANGED since it was reviewed (declared {want}, found {have}). "
+                f"Re-review the divergence and update {DIVERGENCE_BASELINE_FILE}, or "
+                f"delete the entry if the functions should now agree.")
+if _PRINT_DIVERGENCE:
+    cand = {'_schema': 'name -> {files: {spec: fingerprint_hash}, reason, note}',
+            '_policy': ('THE ONLY LEGITIMATE EDIT IS A DELETION. An entry pins the '
+                        'sha256 of BOTH bodies; change either side and it goes STALE '
+                        'and fails the build. There is no writer — this candidate is '
+                        'printed for a human to paste, so every entry lands as a '
+                        'reviewable diff.'),
+            '_reasons': DIVERGENCE_REASONS}
+    for _n, _bf in sorted(glob.items()):
+        if _n.startswith('_'):
+            continue
+        if len(_bf) > 1 and len(set(_bf.values())) > 1:
+            cand[_n] = {'files': {f: _fp_hash(fp) for f, fp in sorted(_bf.items())},
+                        'reason': '<one of _reasons>',
+                        'note': '<where the divergence is declared, and why>'}
+    print(json.dumps(cand, indent=2, ensure_ascii=False))
+    sys.exit(0)
+
+for name in sorted(DIVERGENCE):
+    # An exemption for a divergence that no longer exists is dead weight that will
+    # silently cover a FUTURE divergence of the same name. The only legitimate edit to
+    # this file is a deletion, so the auditor asks for that deletion out loud.
+    byfile = glob.get(name, {})
+    if not (len(byfile) > 1 and len(set(byfile.values())) > 1):
+        rec('XSPEC-BASELINE-STALE',
+            f"'{name}' is declared in {DIVERGENCE_BASELINE_FILE} but no longer "
+            f"diverges. DELETE the entry — a dormant exemption will silently cover "
+            f"the next divergence of this name.")
 
 # ── 4 JSON artefact write/read parity (field must be produced SOMEWHERE) ───
 CORPUS="\n".join(TXT.values())+"\n".join(ENG.values())
