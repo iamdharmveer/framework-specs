@@ -537,23 +537,34 @@ def self_test():
     check("live corpus passes the standard md+py invocation",
           r.returncode == 0 and '0 issues' in r.stdout)
 
-    # GAP-2026-08-20 — the fence the old regex could not read. A block that does not
-    # parse is skipped, and a skipped block produces no findings, so this file scanned
-    # Framework_MockTestAnalyse.md's S8-1 Drive transport contract for months while
-    # reporting 0 issues over code it had never seen. Pinned so a revert to a regex
-    # fails HERE rather than restoring the blindness and looking green.
-    import ast as _ast7, textwrap as _tw7
-    _s81 = set()
-    for _b in _fenced_python(open(os.path.join(os.path.dirname(here) or '.',
-                                               'Framework_MockTestAnalyse.md'),
-                                  encoding='utf-8').read()):
-        try:
-            _s81 |= {n.name for n in _ast7.parse(_tw7.dedent(_b)).body
-                     if isinstance(n, _ast7.FunctionDef)}
-        except SyntaxError:
-            pass
-    check("line scanner reads the S8-1 Drive transport fence the regex truncated",
-          {'acquire_paper', 'plan_transport', 'probe_drive_channel'} <= _s81)
+    # ── The fence SHAPE the old regex could not read (2026-08-20) ────────────
+    # Written at 2026.08.20.2 against corpus CONTENT, naming three functions in
+    # Framework_MockTestAnalyse.md's S8-1 fence. Batch 9 extracted that fence one
+    # release later and the fixture went RED for a reason unrelated to the scanner.
+    # Keyed to the SHAPE instead: an INLINE nested marker inside a docstring, which is
+    # what the corpus contained and what the non-greedy regex ended its capture on.
+    _tricky = ('```python\n'
+               'def outer(a):\n'
+               '    """This contract lives in a ```python fence ON PURPOSE."""\n'
+               '    return a + 1\n'
+               '\n'
+               'def after_the_marker(b):\n'
+               '    return b * 2\n'
+               '```\n')
+    _got = _fenced_python(_tricky)
+    check("line scanner does not truncate a fence at an inline nested marker",
+          len(_got) == 1 and 'after_the_marker' in _got[0])
+    # NO "the old regex truncates" COUNTERPART HERE, and the reason is a correction.
+    # MEASURED 2026-08-20 against the pre-extraction spec: this file's pattern was
+    # r'```python\n(.*?)\n```' — it required a NEWLINE before the closing marker, so the
+    # inline ``` inside a docstring never matched it and 42 of 42 fences parsed. THIS
+    # FILE WAS NEVER BLIND. The three that were are audit_deep.py, audit_sync.py and
+    # validate_framework_md.py, whose pattern ended at a bare ```.
+    # Release 2026.08.20.2 said "four auditors". That was wrong, and it is corrected in
+    # the 2026.08.20.3 changelog rather than quietly left standing. Switching this file
+    # to the shared scanner is still right — one extractor, one behaviour — but it
+    # fixed nothing here, and a fixture asserting otherwise would be a fixture asserting
+    # a property this file never lacked.
 
     print(f"audit_specs_ext self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

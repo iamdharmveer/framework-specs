@@ -25,6 +25,11 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               # checksum is an engine any project can silently diverge on, which is the
               # whole reason §16 moved to frequency_xlsx.py under the same tracking.
               "analyse_engine.py",
+              # WAVE 2 PART C BATCH 9 (2026-08-20). Step 5's §S8-0 Drive acquisition and
+              # transport planning. Tracked here so bootstrap.py checksum-verifies it
+              # like every other routed engine: it decides which papers a session
+              # fetches, and an unverified copy could change that silently.
+              "transport_core.py",
               "notes_core.py", "notes_blueprint.py", "notes_audit.py",
               "notes_docx.py", "notes_sync_audit.py"]
 

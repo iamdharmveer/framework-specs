@@ -116,6 +116,22 @@ jobs:
         # catch every mutant. --max-survivors 0 == a gate whose test cannot
         # detect its own deletion fails the build.
         run: if [ -f audit_mutation.py ]; then python3 audit_mutation.py --quiet --max-survivors 0; fi
+      - name: Step 5 transport engine self-test (Wave 2 Part C B9)
+        # transport_core.py decides WHICH PAPERS A SESSION FETCHES. Its 49 fixtures
+        # inject every dependency by swapping module globals — no filesystem, no
+        # connector — so the suite runs identically here and on a runner
+        # (GAP-2026-08-17-B4-ENV-SKEW: a fixture that needs /mnt is a fixture that
+        # SKIPS, and a skipped assertion reads exactly like a passing one).
+        run: if [ -f transport_core.py ]; then python3 transport_core.py --self-test; fi
+      - name: Mutation audit — Step 5 transport engine (Wave 2 Part C B9)
+        # Small surface by nature — mostly straight-line reporting and delegation — so
+        # the budget is 0 and the fixtures, not the mutants, are what hold this file.
+        # Kept as a gate anyway: audit_mutation exits 1 on ZERO targets, so this engine
+        # can never silently bank a vacuous 0/0 = 100% the way analyse_engine.py did.
+        run: |
+          if [ -f audit_mutation.py ] && [ -f transport_core.py ]; then
+            python3 audit_mutation.py --engine transport_core.py --quiet
+          fi
       - name: Mutation audit — Step 5 pipeline engine (Wave 2 Part C B4)
         # analyse_engine.py computes values rather than emitting findings, so the
         # auditor mutation model found 0 targets and the largest engine in the repo

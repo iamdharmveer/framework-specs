@@ -325,6 +325,15 @@ def c4_dead_engine(engine_funcs, corpus_exe, findings):
     # presence checks may not.
     if _os.path.exists('analyse_engine.py'):
         corpus_exe = corpus_exe + '\n' + open('analyse_engine.py', encoding='utf-8').read()
+    # Wave 2 Part C B9 (2026-08-20). Same reason a third time: transport_core.py holds
+    # §S8-0's Drive acquisition code, and its corpus_io calls — write_drive_listing,
+    # probe_direct_egress, stage_drive_payload, fetch_drive_docx — were spec-embedded
+    # before extraction. Omitting it would report four live corpus_io functions as dead
+    # the moment this release lands, which is the third occurrence of a class the two
+    # comments above already describe. The rule is now settled: an extraction that moves
+    # call sites must register the destination as a C4 source in the same release.
+    if _os.path.exists('transport_core.py'):
+        corpus_exe = corpus_exe + '\n' + open('transport_core.py', encoding='utf-8').read()
     for name, src in sorted(engine_funcs.items()):
         if re.search(r'\b' + re.escape(name) + r'\s*\(', corpus_exe):
             continue
@@ -959,21 +968,89 @@ def c11_cache_assertion(path, findings):
     if 'search_files' not in text:
         return
     src = executable_source(path)
+
+    # DELEGATION THROUGH A ROUTED ENGINE (Wave 2 Part C B9, 2026-08-20).
+    # C11 is a PRESENCE check — `'write_drive_listing' not in src` — and the rule this
+    # corpus settled when Y-IMGGATE was NOT widened is that a presence check may not
+    # simply follow the code into an engine: the mere occurrence of a string in a .py
+    # file would satisfy it, estate-wide and for ever.
+    #
+    # So the delegate is VERIFIED rather than trusted. When the spec calls the engine's
+    # acquire_listing() instead of corpus_io.write_drive_listing() directly, the gate
+    # re-runs itself against that engine function's own body: it must call
+    # write_drive_listing AND pass observed_count. Gut the engine and this still fails,
+    # which is the property that distinguishes a delegation from a hole.
     if 'write_drive_listing' not in src:
-        findings.append(
-            f"[C11] {os.path.basename(path)}: writes DRIVE_LISTING_CACHE but never "
-            f"calls corpus_io.write_drive_listing from executable code. The listing "
-            f"must be asserted against an independently declared observed_count and "
-            f"HARD STOP on a mismatch (Framework_PYQCore EC-P41) — a partial listing "
-            f"is worse than an empty one, because §1-6 reports success on whatever "
-            f"survived and the missing year stays invisible for the life of the exam.")
-        return
+        deleg = _c11_delegate_body(src)
+        # The delegate must itself CALL write_drive_listing. Checking only that a
+        # delegate exists would accept a gutted one — and `observed_count` appears in
+        # its PARAMETER LIST, so the count check below passes on a body that does
+        # nothing. Measured while writing the fixture: the gutted-engine mutant
+        # survived until this line existed.
+        if deleg is None or 'write_drive_listing' not in deleg:
+            findings.append(
+                f"[C11] {os.path.basename(path)}: writes DRIVE_LISTING_CACHE but never "
+                f"calls corpus_io.write_drive_listing from executable code. The listing "
+                f"must be asserted against an independently declared observed_count and "
+                f"HARD STOP on a mismatch (Framework_PYQCore EC-P41) — a partial listing "
+                f"is worse than an empty one, because §1-6 reports success on whatever "
+                f"survived and the missing year stays invisible for the life of the exam.")
+            return
+        # Only the CALL is inspected for the count, not the signature: a parameter named
+        # observed_count that is never passed on is exactly the defect being hunted.
+        _m = re.search(r'write_drive_listing\s*\(([^)]*)\)', deleg)
+        src = _m.group(1) if _m else ''
     if 'observed_count' not in src:
         findings.append(
             f"[C11] {os.path.basename(path)}: calls write_drive_listing without an "
             f"observed_count. The count is the entire gate: it must be an INDEPENDENT "
             f"number declared from the connector response, or the comparison cannot "
             f"fail.")
+
+
+# The one delegation C11 accepts, named explicitly rather than pattern-matched: a spec
+# may route its listing through transport_core.acquire_listing(). Anything else is not a
+# delegation, it is an absent assertion.
+_C11_DELEGATES = {'acquire_listing': ('transport_core.py', 'acquire_listing')}
+
+
+def _c11_delegate_body(spec_src):
+    """Source of the routed-engine function this spec delegates its listing to.
+
+    Returns None when the spec calls no known delegate, or when the delegate cannot be
+    read — an unreadable delegate is NOT a pass. Returning None sends the caller down
+    the failure path, which is the correct direction to fail for a missing dependency.
+    """
+    import ast as _ast
+    for call, (mod, fn) in _C11_DELEGATES.items():
+        # A CALL SITE or an IMPORT BINDING both count, and the import is the honest
+        # form here. MEASURED 2026-08-20 against the pre-extraction spec: there has
+        # NEVER been a static `acquire_listing(` call site in a python fence, before or
+        # after this extraction — C11 was satisfied by the presence of the function's
+        # DEFINITION, whose body contains the write_drive_listing call. That is not an
+        # oversight in the spec: acquire_listing takes `pages`, the raw connector pages
+        # the MODEL holds in its own turn, so the invocation is composed at runtime from
+        # the S8-1 instructions and cannot exist statically. Demanding a static call site
+        # would be a gate no correct spec could satisfy.
+        # KNOWN LIMIT, stated rather than hidden: this proves the asserting path is BOUND
+        # and that it really asserts. It does not prove the session invoked it — nothing
+        # static can, across a CLASS T boundary.
+        bound = (re.search(r'\b' + re.escape(call) + r'\s*\(', spec_src)
+                 or re.search(r'^\s*' + re.escape(call) + r'\s*,', spec_src, re.M)
+                 or re.search(r'import[^\n]*\b' + re.escape(call) + r'\b', spec_src))
+        if not bound:
+            continue
+        if not os.path.exists(mod):
+            return None
+        try:
+            tree = _ast.parse(open(mod, encoding='utf-8').read())
+        except SyntaxError:
+            return None
+        for node in tree.body:
+            if isinstance(node, _ast.FunctionDef) and node.name == fn:
+                return _ast.unparse(node)
+        return None
+    return None
 
 
 def main(argv):
@@ -1155,6 +1232,60 @@ def self_test():
     rc, out = probe_raw(_C11_OK)
     check("C11 silent when routed through the engine with observed_count",
           '[C11]' not in out)
+
+    # ── C11 DELEGATION THROUGH A ROUTED ENGINE (Wave 2 Part C B9) ────────────
+    # C11 is a PRESENCE check, and the Y-IMGGATE precedent says a presence check may
+    # NOT simply follow the code into an engine — the bare occurrence of a string in a
+    # .py file would satisfy it for ever. So the delegate is VERIFIED, and these three
+    # fixtures are what make that claim testable rather than decorative.
+    _C11_DELEG = ("# Framework_Fixture v1.0 — self-test fixture\n\n"
+                  "A1. Google Drive:search_files(query=...) then write DRIVE_LISTING_CACHE.\n\n"
+                  "```python\nfrom transport_core import acquire_listing\n```\n")
+
+    def probe_with_engine(spec_text, engine_src):
+        d = tempfile.mkdtemp()
+        pth = os.path.join(d, "Framework_Fixture.md")
+        open(pth, 'w', encoding='utf-8').write(spec_text)
+        open(os.path.join(d, 'transport_core.py'), 'w', encoding='utf-8').write(engine_src)
+        r = subprocess.run([sys.executable, here, pth], cwd=d,
+                           capture_output=True, text=True)
+        return r.returncode, r.stdout + r.stderr
+
+    _GOOD_ENGINE = ("import corpus_io\n\n"
+                    "def acquire_listing(pages, cache_path, folder_id, observed_count):\n"
+                    "    return corpus_io.write_drive_listing(pages, cache_path, "
+                    "folder_id, observed_count)\n")
+    rc, out = probe_with_engine(_C11_DELEG, _GOOD_ENGINE)
+    check("C11 accepts delegation to an engine that really asserts",
+          '[C11]' not in out)
+
+    # GUT THE DELEGATE and the gate must fail. Without this, "delegation" is a hole
+    # with a comment on it.
+    _GUTTED = ("def acquire_listing(pages, cache_path, folder_id, observed_count):\n"
+               "    return {'count': 0}\n")
+    rc, out = probe_with_engine(_C11_DELEG, _GUTTED)
+    check("C11 fires when the delegate does not call write_drive_listing",
+          rc == 1 and '[C11]' in out)
+
+    # The delegate that calls write_drive_listing but drops the independent count is
+    # the SAME defect one level down — the count is the entire gate.
+    _NOCOUNT_ENGINE = ("import corpus_io\n\n"
+                       "def acquire_listing(pages, cache_path, folder_id, n):\n"
+                       "    return corpus_io.write_drive_listing(pages, cache_path, "
+                       "folder_id)\n")
+    rc, out = probe_with_engine(_C11_DELEG, _NOCOUNT_ENGINE)
+    check("C11 fires when the delegate drops observed_count",
+          rc == 1 and '[C11]' in out and 'observed_count' in out)
+
+    # A MISSING delegate is not a pass. An unreadable dependency must fail loudly, in
+    # the same direction every other missing-companion check in this corpus fails.
+    d_nom = tempfile.mkdtemp()
+    p_nom = os.path.join(d_nom, "Framework_Fixture.md")
+    open(p_nom, 'w', encoding='utf-8').write(_C11_DELEG)
+    r_nom = subprocess.run([sys.executable, here, p_nom], cwd=d_nom,
+                           capture_output=True, text=True)
+    check("C11 fires when the delegate engine is absent entirely",
+          r_nom.returncode == 1 and '[C11]' in (r_nom.stdout + r_nom.stderr))
 
     # A laws file NAMES the cache to legislate about it and owns no acquisition.
     # Firing there would be a permanent false positive, and a gate that cannot be

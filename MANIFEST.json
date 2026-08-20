@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.20.2",
+  "framework_version": "2026.08.20.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -53,6 +53,7 @@
     "PYQExtract": [
       "Framework_MockTestAnalyse.md",
       "analyse_engine.py",
+      "transport_core.py",
       "blueprint_core.py",
       "syllabus_provenance.py",
       "corpus_io.py",
@@ -195,11 +196,11 @@
       "bytes": 86356
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "a894d6e892a6d8ccc89b72600f93395ff853a0f87ccedd4bf3372d3eb4af1532",
-      "version_header": "# Framework_MockTestAnalyse v2.53.4 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.4",
-      "lines": 5249,
-      "bytes": 301350
+      "sha256": "502c973e6ebfd1782b69e3c54e388dd8fad2f6f485512bf4a55b8685adf2b6cb",
+      "version_header": "# Framework_MockTestAnalyse v2.53.5 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.5",
+      "lines": 4996,
+      "bytes": 286913
     },
     "Framework_MockTestCreate.md": {
       "sha256": "155b8821c04fbf25962ac0ed188b195f7ddcdece557cb580824c5e5d3b0c56aa",
@@ -453,6 +454,13 @@
       "lines": 5730,
       "bytes": 334059
     },
+    "transport_core.py": {
+      "sha256": "c24b516dabfeb17be5f20c76e090582554dd7d24acae465572ef83ff3fb4bcb5",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    print('transport_core.py \u2014 Step 5 Drive acquisition engine. Run with --self-test.')",
+      "lines": 705,
+      "bytes": 42052
+    },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
       "version_header": "\"\"\"",
@@ -496,25 +504,25 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "567bbd03981984548f9a180599d3e1b7718ae2d4d90a4894b7da7950eb53859a",
+      "sha256": "968c195dc5250b796bf5653ef7351f4b31605a13ca9c2c8ad6c571dbcee1dfda",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6643,
-      "bytes": 182001
+      "bytes": 182002
     },
     "MUTATION_BUDGETS.json": {
-      "sha256": "5669df85a8fb6d4ac380a34d87ede3969217de2fb45cfdb74126dd3fcf8a59d9",
+      "sha256": "3177973be8cc9d249fbf48ef711c1c670270402b5e49b0a33bb2380c851cc705",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 97,
-      "bytes": 11933
+      "lines": 105,
+      "bytes": 14074
     },
     "XSPEC_DIVERGENCE_BASELINE.json": {
-      "sha256": "9fd4794d1a91dc9ce23c175096d4dc925a8e8daf159945c1b070cf927b6aed43",
+      "sha256": "2fa09fe7dc0cda319ec7b5b34b1c1816b0707620cc18c891282a65e1445f088b",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 35,
-      "bytes": 4382
+      "lines": 45,
+      "bytes": 6107
     },
     "SPEC_HISTORY.md": {
       "sha256": "70338b1f9283e0b32a7116b7b9e5b64e1893103b67d789971a9c7d253c150dcd",

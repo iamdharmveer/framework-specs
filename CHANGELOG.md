@@ -1,5 +1,149 @@
 # Changelog
 
+## 2026.08.20.3 — Wave 2 Part C, Batch 9: the Drive transport contract becomes testable
+
+**NEW `transport_core.py` (17th routed engine), `Framework_MockTestAnalyse` v2.53.4 ->
+v2.53.5 (PATCH), audit_deep.py, audit_callgraph.py, audit_seam.py, gen_manifest.py,
+routes.json, SKILL.md, XSPEC_DIVERGENCE_BASELINE.json, MUTATION_BUDGETS.json,
+validate.yml.** **NO ARTEFACT VALUES CHANGE** — all six IIT_JAM_MATHEMATICS artefacts
+verified byte-identical against the golden set from deployed `2026.08.19.3`.
+
+### What moved
+
+One fence: 346 lines, 8 functions, **zero top-level session-flow statements** —
+`acquire_listing`, `probe_transport`, `probe_drive_channel`, `plan_transport`,
+`acquire_paper`, `read_transport_verdict`, `record_transport`, `log_session`, plus the
+derived constant `SESSION_INLINE_BUDGET`. Spec python **2,352 -> 2,051 lines**.
+
+`gdrive_search` and `gdrive_download_file` did NOT move. They are CLASS T markers —
+operations the model performs in its own turn — and an engine cannot perform a tool
+call. Every function that moved takes the *result* of a CLASS T operation as an
+argument, which is precisely what made the boundary clean.
+
+### Why this was possible only now
+
+The fence was invisible. It carries a triple backtick inside a docstring, and until
+`2026.08.20.2` three auditors extracted fenced python with a non-greedy regex that ended
+at the first such marker — so it was cut mid-string, failed to parse, and was discarded
+by each caller's parse guard. Nothing failed; the tools never read the Drive transport
+contract, and code that is never read produces no findings.
+
+The line scanner made it readable. This release makes it **testable**: 49 self-test
+fixtures and a mutation gate, neither of which can exist for code inside a fence.
+
+### The golden set does not cover this, and that is stated rather than implied
+
+`run_synthesise` — the path `--synthesise ALL` exercises — calls **no** function in this
+block. The golden set proves the synthesis is unchanged and proves nothing about the
+transport. What stands in its place:
+
+- **The extraction is byte-verbatim.** The divergence baseline's fingerprints for
+  `plan_transport`, `acquire_paper` and `probe_drive_channel` are IDENTICAL before and
+  after the move (`126dbd7a526ee853`, `85be24c4409cc162`, `baae150953be0c7f`) — the
+  refactor proving itself, with a number rather than an assurance.
+- **49 fixtures** that inject every dependency by swapping module globals: no
+  filesystem, no connector, so the suite runs identically in CI
+  (GAP-2026-08-17-B4-ENV-SKEW).
+- **Pipeline mutation 3/3, budget 0.** Small surface by nature — mostly straight-line
+  reporting and delegation. `--deep` is reported in MUTATION_BUDGETS.json at 70 targets
+  / 56 survivors / 20.0%, recorded rather than omitted so that 3/3 cannot be misread as
+  "fully covered".
+
+### Correction to 2026.08.20.2: it was three auditors, not four
+
+The previous release said four auditors were blind to this fence. **Three were.**
+Measured against the pre-extraction spec while writing this batch's fixtures:
+
+| pattern | files | result on the S8-1 fence |
+|---|---|---|
+| `` r'```python\n(.*?)```' `` | `audit_deep.py`, `audit_sync.py`, `validate_framework_md.py` | **1 of 42 fences failed to parse** |
+| `` r'```python\n(.*?)\n```' `` | `audit_specs_ext.py` | 42 of 42 parsed — never blind |
+
+`audit_specs_ext.py` required a NEWLINE before the closing marker, so the inline ```` ``` ````
+inside the docstring never matched it. It was switched to the shared scanner anyway —
+one extractor, one behaviour across the corpus — but that change fixed nothing there,
+and the claim that it did was wrong. The correction is recorded in the file itself, next
+to the fixture that would otherwise have asserted a property it never lacked.
+
+The error came from measuring the corpus-wide fence total (261/264 -> 263/263) and
+attributing it to every file that carried a regex, instead of measuring each pattern
+separately. A number that is right in aggregate can still be wrong about every
+individual it names.
+
+### The declared Step 4 divergence nearly died in the refactor
+
+`Framework_PYQCount` S5-0 defines its own `probe_drive_channel`, `plan_transport` and
+`acquire_paper`; the divergence is intentional and pinned in
+`XSPEC_DIVERGENCE_BASELINE.json`. When this batch landed, **all three entries reported
+"no longer diverges" and demanded deletion** — the ratchet built one release earlier was
+right that something had changed and wrong about what. Deleting them would have let an
+extraction quietly retire the only check watching those pairs.
+
+Three corrections followed, each found by a fixture rather than by reading:
+
+1. **audit_deep now reads engine definitions as well as spec fences** for the baseline
+   check, so a divergence does not stop existing when one side is extracted.
+2. **New check `XSPEC-ENGINE-DRIFT`** — a spec that defines a function a routed engine
+   also defines, differently, without being a delegating adapter. Measured at
+   introduction: 10 non-adapter copies corpus-wide, one surviving the adapter exemption
+   (`omath`, semantically identical to `explain_engine.omath` and differing only in a
+   parameter name). It is entered as `inherited_pre_existing` debt — **entered, not used
+   as a reason to withhold the check**, because withholding is exactly what kept the
+   line scanner off for months.
+3. **Every baseline entry is now validated by iterating the declarations**, not the
+   findings. The first version validated inside the XSPEC-DRIFT loop, which only runs
+   for names in 2+ specs — so the moment one side moved to an engine, the fingerprint
+   pin stopped being checked at all while the file still looked authoritative. A pin
+   that is only checked when the finding would have fired anyway is not a pin.
+
+### C11 was being satisfied by a definition, not a call
+
+`audit_callgraph` C11 requires that a spec writing `DRIVE_LISTING_CACHE` routes through
+`corpus_io.write_drive_listing` with an independent `observed_count`. It fired the moment
+this code moved — and investigating why exposed that **there has never been a static
+`acquire_listing(` call site in a python fence, before or after this release**. C11 was
+satisfied by the presence of the function's *definition*, whose body contains the call.
+
+That is not a spec defect: `acquire_listing` takes the raw connector pages the model
+holds in its own turn, so the invocation is composed at runtime and cannot exist
+statically. Demanding a static call site would be a gate no correct spec could satisfy.
+
+C11 now accepts a **verified delegation**: the spec must bind the engine's
+`acquire_listing`, and that function's own body must call `write_drive_listing` and pass
+`observed_count`. Four fixtures hold it — gut the delegate, drop the count, or remove the
+engine entirely, and the gate fails. The known limit is stated in the code: this proves
+the asserting path is bound and really asserts; nothing static can prove the session
+invoked it, across a CLASS T boundary.
+
+The delegate-verification logic shipped with a bug that its own fixture caught before
+release: checking only that a delegate *existed* accepted a gutted one, because
+`observed_count` appears in the parameter list. The gate now inspects the call, not the
+signature.
+
+### A fixture keyed to corpus content goes dormant when the corpus moves
+
+`2026.08.20.2` added a fixture asserting the scanner reads the S8-1 fence, naming its
+three functions. One release later this batch extracted that fence and the fixture went
+red for a reason unrelated to the scanner. It is now **synthetic** — it builds the
+problem shape itself and additionally asserts that the old regex *does* truncate the same
+input, so it cannot pass against a property nothing ever lacked.
+
+Writing it surfaced a residual limit in the line scanner: a nested marker alone on its
+own line would still close a fence early. Measured across all 23 specs: **zero fences
+fail to parse**, so it is unreachable today, and it is now documented in the code rather
+than left to be rediscovered.
+
+### Verification
+
+bootstrap **51/51** at `2026.08.20.3`; `audit_deep` **20/20** self-test and 0 findings;
+`audit_callgraph` **34/34** and 0 findings; `audit_seam` 0 findings / 53 fields;
+`audit_sync` 13/13; `audit_specs_ext` 12/12 and 0 issues; `validate_framework_md` 0
+issues / 23 files; `spec_name_audit` 23/23 and baseline clean; `mock_sync_audit` 37/37;
+`transport_core --self-test` **49/49** (identical with `/mnt` blanked);
+`analyse_engine --self-test` 116/116; auditor mutation 0 survivors; pipeline mutation
+`analyse_engine` 1 (proven equivalent) and `transport_core` 0; golden set **6/6
+IDENTICAL**.
+
 ## 2026.08.20.2 — the auditors could not read the Drive transport contract, and reported 0 findings
 
 **audit_deep.py, audit_sync.py, audit_specs_ext.py, validate_framework_md.py,

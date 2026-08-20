@@ -52,6 +52,15 @@ def blocks(t):
     The scanner takes the fence markers literally: a line whose STRIP is exactly
     ```python opens, a line whose strip is exactly ``` closes. An unterminated fence
     at EOF is dropped rather than swallowing the rest of the file.
+
+    KNOWN LIMIT, STATED RATHER THAN HIDDEN. A nested marker ALONE ON ITS OWN LINE
+    inside a docstring would still close the fence early. The regex failed on the
+    INLINE shape (``` appearing mid-sentence in prose), which is the shape the corpus
+    actually contains and the one that hid the Drive transport contract; this scanner
+    handles that. MEASURED 2026-08-20 across all 23 specs: zero fences fail to parse,
+    so the residual case is not reachable today. If it ever is, the symptom is a fence
+    that stops parsing — loud, not silent — and the fix is docstring-aware tracking.
+    That is markdown parsing, and it is not worth building against zero occurrences.
     """
     import textwrap
     out, cur = [], None
@@ -187,17 +196,37 @@ def _self_test():
                   encoding='utf-8') as fh:
             _js.dump(data, fh, indent=2, ensure_ascii=False)
 
-    # 1. THE FENCE THE REGEX COULD NOT READ. Framework_MockTestAnalyse.md's S8-1
-    #    acquisition fence contains a triple backtick inside a docstring, so the old
-    #    non-greedy regex cut it mid-string and the whole Drive transport contract
-    #    parsed as nothing. This asserts the scanner now reaches all three functions —
-    #    without it, a future "simplification" back to a regex would restore the
-    #    blindness AND look green, because a blind auditor reports no findings.
-    _s81 = {n for b in blocks(open(os.path.join(here, 'Framework_MockTestAnalyse.md'),
-                                   encoding='utf-8').read())
-            for n in _names_in(b)}
-    check("line scanner reads the S8-1 Drive transport fence the regex truncated",
-          {'acquire_paper', 'plan_transport', 'probe_drive_channel'} <= _s81)
+    # 1. THE FENCE SHAPE THE REGEX COULD NOT READ — a SYNTHETIC fixture.
+    #    The first version of this check asserted against the live corpus, naming three
+    #    functions in Framework_MockTestAnalyse.md's S8-1 fence. One release later that
+    #    fence was extracted into transport_core.py and the fixture went RED for a reason
+    #    that had nothing to do with the scanner. A fixture keyed to corpus CONTENT
+    #    measures the corpus; one keyed to the SHAPE measures the code. This builds the
+    #    shape, so it cannot go dormant or false-fail when the corpus moves again.
+    #
+    #    The shape is an INLINE nested marker — ``` mid-sentence inside a docstring —
+    #    which is what the corpus actually contained and what the non-greedy regex ended
+    #    its capture on.
+    _tricky = ('```python\n'
+               'def outer(a):\n'
+               '    """This contract lives in a ```python fence ON PURPOSE."""\n'
+               '    return a + 1\n'
+               '\n'
+               'def after_the_marker(b):\n'
+               '    return b * 2\n'
+               '```\n')
+    _got = blocks(_tricky)
+    check("scanner returns ONE block for a fence with an inline nested marker",
+          len(_got) == 1)
+    check("scanner does not truncate at the inline marker",
+          bool(_got) and 'after_the_marker' in _got[0])
+    check("the recovered block parses and yields BOTH functions",
+          bool(_got) and _names_in(_got[0]) == {'outer', 'after_the_marker'})
+    # ...and the OLD regex must demonstrably fail the same input, or this fixture is
+    # asserting a property nothing ever lacked.
+    _old = [b for b in re.findall(r"```python\n(.*?)```", _tricky, re.S)]
+    check("the regex this replaced DOES truncate the same input",
+          bool(_old) and 'after_the_marker' not in _old[0])
 
     # 2. An UNDECLARED divergence must still fail. (The xdrift fixture above already
     #    proves this with the baseline present, which is the point: a populated
@@ -209,6 +238,7 @@ def _self_test():
         d = _base(r)
         d['plan_transport']['files']['Framework_PYQCount.md'] = '0' * 16
         _put(r, d)
+
     rc, out = mutated(_stale_fp)
     check("XSPEC-BASELINE-STALE fires when a declared body no longer matches",
           rc == 1 and 'XSPEC-BASELINE-STALE' in out and 'plan_transport' in out)
@@ -235,15 +265,18 @@ def _self_test():
     check("XSPEC-BASELINE-STALE fires on a dormant exemption",
           rc == 1 and 'zz_selftest_never_diverged' in out)
 
-    # 6. DELETING the baseline must resurface all three real divergences. If it does
+    # 6. DELETING the baseline must resurface every declared divergence. If it does
     #    not, the suppression is coming from somewhere else and the file is decorative.
+    #    After batch 9 these three are SPEC-vs-ENGINE pairs, so the finding class is
+    #    XSPEC-ENGINE-DRIFT rather than XSPEC-DRIFT — and that is precisely why check
+    #    3b exists: without it, extracting one side of a declared pair would have
+    #    silently retired the exemption AND the thing it exempted.
     def _drop(r):
         os.remove(os.path.join(r, DIVERGENCE_BASELINE_FILE))
     rc, out = mutated(_drop)
     check("removing the baseline resurfaces every declared divergence",
-          rc == 1 and out.count('XSPEC-DRIFT') >= 1
-          and all(n in out for n in ('acquire_paper', 'plan_transport',
-                                     'probe_drive_channel')))
+          rc == 1 and all(n in out for n in ('acquire_paper', 'plan_transport',
+                                             'probe_drive_channel', 'omath')))
 
     # 7. The printer must never write. A writer is how spec_name_audit re-froze two
     #    defects it had just fixed.
@@ -260,7 +293,7 @@ def _self_test():
           'zz_printer_wrote_the_baseline' not in out)
 
     # META-ASSERTION: a skipped check is not a passing one.
-    EXPECTED = 16
+    EXPECTED = 19
     _total = passed + len(fails)
     if _total != EXPECTED:
         fails.append(f"suite_ran_every_check (ran {_total}, expected {EXPECTED})")
@@ -329,6 +362,9 @@ DIVERGENCE_REASONS = {
     'declared_law_scope':
         'a law applies to one step and is declared out of scope for the other, '
         'with the reason stated in the spec that does not carry it',
+    'inherited_pre_existing':
+        'a divergence that PRE-DATES the check that found it, entered as debt so the '
+        'check could ship. NOT a judgement that the divergence is correct',
 }
 
 
@@ -375,6 +411,31 @@ for f,t in TXT.items():
         except SyntaxError: continue
         for n in tree.body:
             if isinstance(n,ast.FunctionDef): glob[n.name][f]=fingerprint(n)
+# THE BASELINE READS ENGINES TOO (Wave 2 Part C B9, 2026-08-20).
+# XSPEC-DRIFT compares SPEC against SPEC, which is right: it exists to catch the same
+# instruction copied into two step files and then edited in one. The declared-divergence
+# baseline needs a wider view, because a divergence does not stop existing when one side
+# is extracted into an engine — it stops being VISIBLE.
+#
+# Measured this release: moving Step 5's Drive transport into transport_core.py made all
+# three entries report "no longer diverges", one release after the ratchet was built. The
+# ratchet was right that something had changed and wrong about what: `plan_transport`
+# still differs from Framework_PYQCount's copy, exactly as declared. Had the entries
+# simply been deleted, this refactor would have quietly retired the only check watching
+# those three pairs — an extraction silently buying itself an exemption, which is the
+# move every baseline in this repo exists to make visible.
+glob_all = defaultdict(dict)
+for _f, _byfile in glob.items():
+    glob_all[_f].update(_byfile)
+for _mod, _src in ENG.items():
+    try:
+        _tree = ast.parse(_src)
+    except SyntaxError:
+        continue
+    for _n in _tree.body:
+        if isinstance(_n, ast.FunctionDef):
+            glob_all[_n.name][_mod + '.py'] = fingerprint(_n)
+
 DIVERGENCE = load_divergence_baseline()
 for name,byfile in glob.items():
     # A leading-underscore name is a FILE-PRIVATE helper by convention; two specs may
@@ -382,26 +443,8 @@ for name,byfile in glob.items():
     # a Format string in one spec and math dashes in another). Not drift, a name collision.
     if name.startswith('_'): continue
     if len(byfile)>1 and len(set(byfile.values()))>1:
-        entry = DIVERGENCE.get(name)
-        if entry is None:
+        if name not in DIVERGENCE:
             rec('XSPEC-DRIFT',f"'{name}' defined differently in {sorted(byfile)}")
-            continue
-        # DECLARED — but only for the EXACT bodies that were reviewed. Recompute both
-        # sides and compare. A stale entry is its own finding, never a pass: silently
-        # extending a once-reviewed exemption over newly-changed code is the failure
-        # mode every baseline in this repo was written to prevent.
-        want = entry.get('files') or {}
-        have = {f: _fp_hash(fp) for f, fp in byfile.items()}
-        if entry.get('reason') not in DIVERGENCE_REASONS:
-            rec('XSPEC-BASELINE-STALE',
-                f"'{name}' declared with unknown reason {entry.get('reason')!r} — "
-                f"legal reasons: {sorted(DIVERGENCE_REASONS)}")
-        elif have != want:
-            rec('XSPEC-BASELINE-STALE',
-                f"'{name}' is declared as an intentional divergence, but the bodies "
-                f"CHANGED since it was reviewed (declared {want}, found {have}). "
-                f"Re-review the divergence and update {DIVERGENCE_BASELINE_FILE}, or "
-                f"delete the entry if the functions should now agree.")
 if _PRINT_DIVERGENCE:
     cand = {'_schema': 'name -> {files: {spec: fingerprint_hash}, reason, note}',
             '_policy': ('THE ONLY LEGITIMATE EDIT IS A DELETION. An entry pins the '
@@ -410,8 +453,16 @@ if _PRINT_DIVERGENCE:
                         'printed for a human to paste, so every entry lands as a '
                         'reviewable diff.'),
             '_reasons': DIVERGENCE_REASONS}
-    for _n, _bf in sorted(glob.items()):
+    # NEW spec-vs-spec divergences, plus REFRESHED fingerprints for names already
+    # declared — an entry goes stale when either side is edited OR when one side is
+    # extracted into an engine, and both need the same paste-a-diff workflow.
+    _named = set(load_divergence_baseline())
+    for _n, _bf in sorted(glob_all.items()):
         if _n.startswith('_'):
+            continue
+        _spec_only = glob.get(_n, {})
+        _new_drift = len(_spec_only) > 1 and len(set(_spec_only.values())) > 1
+        if not (_new_drift or _n in _named):
             continue
         if len(_bf) > 1 and len(set(_bf.values())) > 1:
             cand[_n] = {'files': {f: _fp_hash(fp) for f, fp in sorted(_bf.items())},
@@ -420,16 +471,103 @@ if _PRINT_DIVERGENCE:
     print(json.dumps(cand, indent=2, ensure_ascii=False))
     sys.exit(0)
 
+# ── 3b CROSS-BOUNDARY drift: a SPEC copy of a name a routed ENGINE defines ──
+# XSPEC-DRIFT compares spec against spec, so the moment one side of a shared function
+# is extracted into an engine the pair stops being watched. That is not hypothetical:
+# batch 9 extracted Step 5's Drive transport and all three declared divergences
+# immediately reported "no longer diverges".
+#
+# ADAPTERS ARE EXEMPT BY CONSTRUCTION, not by list. A spec-side copy whose entire body
+# forwards to the engine (`return bc.<name>(...)`) has nothing to drift from — check 5
+# already uses that test, and reusing it here is what keeps this from firing on every
+# correctly-delegated function in the estate. MEASURED at introduction: 10 non-adapter
+# copies corpus-wide, of which 7 pre-date this release.
+#
+# Those 7 are entered in XSPEC_DIVERGENCE_BASELINE.json as inherited debt rather than
+# used as a reason to withhold the check. Withholding is what happened to the line
+# scanner for months — a clean report bought by keeping the auditor blind — and this
+# batch exists because that trade was wrong.
+_ADAPTER_PREFIXES = ('bc', 'blueprint_core', 'corpus_io', 'cio', 'ee', 'tc',
+                     'transport_core', 'explain_engine', 't3_mathcomp')
+
+
+def _is_delegating_adapter(node):
+    body = [x for x in node.body if not (isinstance(x, ast.Expr)
+                                         and isinstance(x.value, ast.Constant))]
+    if len(body) != 1:
+        return False
+    src = ast.unparse(node)
+    return any(f'{p}.{node.name}' in src for p in _ADAPTER_PREFIXES)
+
+
+_spec_nonadapter = defaultdict(dict)
+for f, t in TXT.items():
+    for b in blocks(t):
+        try:
+            tree = ast.parse(b)
+        except SyntaxError:
+            continue
+        for n in tree.body:
+            if isinstance(n, ast.FunctionDef) and not _is_delegating_adapter(n):
+                _spec_nonadapter[n.name][f] = fingerprint(n)
+_engine_defs = defaultdict(dict)
+for _mod, _src in ENG.items():
+    try:
+        _tree = ast.parse(_src)
+    except SyntaxError:
+        continue
+    for _n in _tree.body:
+        if isinstance(_n, ast.FunctionDef):
+            _engine_defs[_n.name][_mod + '.py'] = fingerprint(_n)
+
+for name in sorted(set(_spec_nonadapter) & set(_engine_defs)):
+    if name.startswith('_'):
+        continue
+    pair = dict(_spec_nonadapter[name])
+    pair.update(_engine_defs[name])
+    if len(set(pair.values())) < 2:
+        continue                                  # identical bodies are not drift
+    if name in DIVERGENCE:
+        continue                                  # declared; pinned by the check below
+    rec('XSPEC-ENGINE-DRIFT',
+        f"'{name}' is defined in {sorted(_spec_nonadapter[name])} AND differently in "
+        f"{sorted(_engine_defs[name])}, and the spec copy is not a delegating adapter. "
+        f"Either delegate to the engine, or declare the divergence with a reason in "
+        f"{DIVERGENCE_BASELINE_FILE}.")
+
+# EVERY BASELINE ENTRY IS VALIDATED HERE, iterating the BASELINE rather than the
+# findings. The first version validated inside the XSPEC-DRIFT loop, which only runs
+# for names defined in 2+ SPECS — so the moment batch 9 extracted one side into an
+# engine, the fingerprint pin stopped being checked at all while the file still looked
+# authoritative. A pin that is only checked when the finding would have fired anyway is
+# not a pin. Iterating the declarations is the only version that cannot go quiet.
 for name in sorted(DIVERGENCE):
+    entry = DIVERGENCE[name]
+    byfile = glob_all.get(name, {})
     # An exemption for a divergence that no longer exists is dead weight that will
     # silently cover a FUTURE divergence of the same name. The only legitimate edit to
     # this file is a deletion, so the auditor asks for that deletion out loud.
-    byfile = glob.get(name, {})
     if not (len(byfile) > 1 and len(set(byfile.values())) > 1):
         rec('XSPEC-BASELINE-STALE',
             f"'{name}' is declared in {DIVERGENCE_BASELINE_FILE} but no longer "
             f"diverges. DELETE the entry — a dormant exemption will silently cover "
             f"the next divergence of this name.")
+        continue
+    # DECLARED — but only for the EXACT bodies that were reviewed. A stale entry is its
+    # own finding, never a pass: silently extending a once-reviewed exemption over
+    # newly-changed code is the failure mode every baseline in this repo prevents.
+    want = entry.get('files') or {}
+    have = {f: _fp_hash(fp) for f, fp in byfile.items()}
+    if entry.get('reason') not in DIVERGENCE_REASONS:
+        rec('XSPEC-BASELINE-STALE',
+            f"'{name}' declared with unknown reason {entry.get('reason')!r} — "
+            f"legal reasons: {sorted(DIVERGENCE_REASONS)}")
+    elif have != want:
+        rec('XSPEC-BASELINE-STALE',
+            f"'{name}' is declared as an intentional divergence, but the bodies "
+            f"CHANGED since it was reviewed (declared {want}, found {have}). "
+            f"Re-review the divergence and update {DIVERGENCE_BASELINE_FILE}, or "
+            f"delete the entry if the functions should now agree.")
 
 # ── 4 JSON artefact write/read parity (field must be produced SOMEWHERE) ───
 CORPUS="\n".join(TXT.values())+"\n".join(ENG.values())

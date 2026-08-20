@@ -10,7 +10,8 @@
     "notes_sync_audit.py": 0,
     "audit_specs_ext.py": 4,
     "audit_deep.py": 2,
-    "analyse_engine.py": 1
+    "analyse_engine.py": 1,
+    "transport_core.py": 0
   },
   "_survivor_inventory": {
     "audit_specs_ext.py": [
@@ -33,6 +34,13 @@
       "The five 'error message' survivors were NOT written off as equivalent. Each enumerates a SET inside a hard stop, so the same corrupt overrides file refuses in different words on every run — a curator cannot diff two runs or grep for a known message. D4 applies to what the operator READS, not only to what the writers EMIT. Each is now asserted verbatim with >=3 members.",
       "1 SURVIVES, PROVEN EQUIVALENT, documented at its own site: _compute_structural_changes `years_seen = sorted(set(...))`. It is read on four lines and every one is order-invariant — truthiness, max(), min(), len(). No fixture can kill it, so none is faked; the sorted() stays so that the day an order-dependent read is added the ordering is already right. If that day comes, the comment at the site is the thing to delete and the mutant becomes killable.",
       "STANDING RULE MET for this engine: every survivor is either killed or PROVEN equivalent."
+    ],
+    "transport_core.py": [
+      "MEASURED 2026-08-20 at introduction (Wave 2 Part C batch 9): 3 pipeline targets, 3 KILLED, 100.0%, budget 0.",
+      "THE SMALL TARGET COUNT IS THE HONEST HEADLINE. This block is mostly straight-line reporting plus delegation into blueprint_core and corpus_io, so it holds few DECISION POINTS for the pipeline model to mutate. 3/3 is a real measurement, not a vacuous one — audit_mutation exits 1 on zero targets precisely so a new engine cannot bank 0/0 = 100% — but it is a measurement of a small surface, and 49 self-test fixtures rather than 3 mutants are what actually hold this file.",
+      "WHAT THE FIXTURES HOLD THAT MUTATION CANNOT REACH: that a short listing HARD STOPS instead of falling back (there is no other lane for a corpus that cannot be enumerated); that probe_consumed genuinely reduces the admitted set (EC-P40 — the reference incident printed '1 paper(s) fetch automatically' for 234,976 chars against a 200,000 ceiling); that the partition follows INPUT order, so a caller who forgets the recency sort admits the wrong years silently (EC-X21); that an infeasible session says so instead of reporting 'Sessions needed: ~0'; that a fetch failure lands the paper in needs_upload rather than dropping it; and that record_transport never wipes a prior session's log.",
+      "BUDGET IS 0 AND MUST STAY 0. This engine decides WHICH PAPERS A SESSION FETCHES for ~200 exams. It has no inherited debt and must never acquire any.",
+      "MEASURED AND REPORTED, NOT GATED: `--deep` (the generic operator sweep — and/or, </<=, ==/!=) finds 70 targets and 56 survivors, 20.0%. That number is recorded here rather than omitted, because 3/3 on the standard model could otherwise read as 'this engine is fully covered' when what it really means is 'the standard model finds three decision points here'. The deep sweep is not the gate — its own documentation says it produces many equivalent mutants and a slow gate with a high false-positive rate is one people learn to skip — but a survivor count no one has seen is worse than one nobody gates on."
     ]
   },
   "_unmeasured": {

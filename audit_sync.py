@@ -205,25 +205,30 @@ def _self_test():
     check("DOC-COUNT-IDIOM fires when a live count is hand-written back into prose",
           rc == 1 and 'DOC-COUNT-IDIOM' in out)
 
-    # ── The fence the old regex could not read (2026-08-20) ──────────────────
-    # Framework_MockTestAnalyse.md's S8-1 acquisition fence contains a triple backtick
-    # inside a docstring, so the non-greedy `(.*?)` cut it mid-string and the entire
-    # Drive transport contract parsed as nothing — silently, because a block that does
-    # not parse is skipped and a skipped block produces no findings. Nothing failed;
-    # the auditor simply never read it. This pins the scanner so a future
-    # "simplification" back to a regex fails HERE, instead of restoring the blindness
-    # and looking green.
-    import ast as _ast
-    _s81 = set()
-    for _b in blocks(open(os.path.join(here, 'Framework_MockTestAnalyse.md'),
-                          encoding='utf-8').read()):
-        try:
-            _s81 |= {n.name for n in _ast.parse(_b).body
-                     if isinstance(n, _ast.FunctionDef)}
-        except SyntaxError:
-            pass
-    check("line scanner reads the S8-1 Drive transport fence the regex truncated",
-          {'acquire_paper', 'plan_transport', 'probe_drive_channel'} <= _s81)
+    # ── The fence SHAPE the old regex could not read (2026-08-20) ────────────
+    # This fixture was written at 2026.08.20.2 against corpus CONTENT — it named the
+    # three functions in Framework_MockTestAnalyse.md's S8-1 fence. One release later
+    # batch 9 extracted that fence into transport_core.py and the fixture went RED for
+    # a reason that had nothing to do with the scanner. A fixture keyed to content
+    # measures the corpus; one keyed to the SHAPE measures the code. This builds the
+    # shape — an INLINE nested marker, ``` mid-sentence inside a docstring, which is
+    # what the corpus actually contained and what the non-greedy regex ended on.
+    _tricky = ('```python\n'
+               'def outer(a):\n'
+               '    """This contract lives in a ```python fence ON PURPOSE."""\n'
+               '    return a + 1\n'
+               '\n'
+               'def after_the_marker(b):\n'
+               '    return b * 2\n'
+               '```\n')
+    _got = blocks(_tricky)
+    check("line scanner does not truncate a fence at an inline nested marker",
+          len(_got) == 1 and 'after_the_marker' in _got[0])
+    # ...and the regex this replaced must demonstrably fail the same input, or the
+    # fixture asserts a property nothing ever lacked.
+    _old = re.findall(r"```python\n(.*?)```", _tricky, re.S)
+    check("the regex this replaced DOES truncate the same input",
+          bool(_old) and 'after_the_marker' not in _old[0])
 
     print(f"audit_sync self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

@@ -95,13 +95,21 @@ PRODUCERS = {'Framework_MockTestAnalyse.md': 'Step5',
              # unchecked. Registering the engine surfaced the read; registering its
              # real writer is the honest completion, NOT an ALLOW entry, because
              # nothing about this pair is legitimately one-sided.
-             'corpus_io.py': 'io-engine'}
+             'corpus_io.py': 'io-engine',
+             # WAVE 2 PART C BATCH 9 (2026-08-20). Step 5's §S8-0 Drive transport block
+             # moved out of Framework_MockTestAnalyse.md into transport_core.py, and its
+             # _meta._transport writer (record_transport / log_session) moved with it.
+             # Registering it here is the same completion analyse_engine.py needed after
+             # batch 3: a field whose WRITER moves into an unregistered engine reads as
+             # ORPHAN-READ, which is a finding about the auditor, not about the field.
+             'transport_core.py': 'Step5-transport'}
 CONSUMERS = {'Framework_Blueprint.md': 'Step6',
              'Framework_MockTestCreate.md': 'Step7',
              'blueprint_core.py': 'engine',
              'audit_canonical.py': 'audit',
              'final_assembly.py': 'Step7-engine',
-             'analyse_engine.py': 'Step5-engine'}
+             'analyse_engine.py': 'Step5-engine',
+             'transport_core.py': 'Step5-transport'}
 
 # Fields legitimately written by one side only. Each needs a REASON, so the list cannot
 # quietly become a place to bury real findings.
