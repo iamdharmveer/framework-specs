@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7710,
-      "sha256": "155b8821c04fbf25962ac0ed188b195f7ddcdece557cb580824c5e5d3b0c56aa",
-      "size_bytes": 479946,
-      "version_header": "# Framework_MockTestCreate v5.56"
+      "lines": 7759,
+      "sha256": "bc72db663db7d8d817c2d31f895d17d6167bb740f04ca6c3b042c1cba669cd3d",
+      "size_bytes": 483981,
+      "version_header": "# Framework_MockTestCreate v5.57"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -268,9 +268,9 @@
     },
     "figural_core.py": {
       "end_sentinel": "    print(\"figural_core.py — shared figure renderer + gates. Run with --self-test.\")",
-      "lines": 2117,
-      "sha256": "fe612de62b834475a3f6b947e1f9b85d957722e88678823e881fb848af1ed7bf",
-      "size_bytes": 97750,
+      "lines": 2446,
+      "sha256": "75ea312e9f40652407c1f700184d25f6b8f206156a43d110b319cc48e1fdc765",
+      "size_bytes": 115521,
       "version_header": "\"\"\""
     },
     "figural_vision.py": {

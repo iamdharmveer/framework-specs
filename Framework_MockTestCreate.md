@@ -1,4 +1,24 @@
-# Framework_MockTestCreate v5.56
+# Framework_MockTestCreate v5.57
+# v5.57 — 2026-08-20 — GAP-2026-08-20-FIGURAL-INK-CENSUS (figural_core v5.57, self-test
+#   103 -> 117). A delivered paper carried a problem figure whose substituent bond ran
+#   off the canvas with no label, and — found by the new gate on the same paper — FIVE
+#   option canvases whose horizontal substituent bond was clipped at the frame. Every
+#   Step-7 gate had passed. ROOT CAUSE, reproduced: the v5.55 fitter measures a CENSUS
+#   of artists and G-FIGFIT is arithmetic over that record; the census (a) rejected
+#   any artist whose extent had zero height or width — an axis-parallel bond drawn as
+#   a Patch (the `ax.annotate('', xy, xytext, arrowprops)` idiom) is exactly that — and
+#   (b) never looked inside an Annotation for its arrow_patch, nor at ax.artists /
+#   tables / legend. Ink the census could not see was windowed out and CLIPPED, the
+#   record said clearance OK, and the arithmetic gate was correct about an incomplete
+#   input. The v5.55 run-report finding "gates measured declared metadata rather than
+#   where ink landed" recurred one level up — at stroke PRESENCE. FIX: (1) the census
+#   keeps degenerate extents (padded by stroke width) and walks Annotation arrows,
+#   ax.artists, tables and legend; (2) the fit record now carries content_bbox_px /
+#   axes_bbox_px / axis_on; (3) NEW Q13 gate G-FIGINK (BLOCKING on v5.57+ axis-off
+#   renders; W-FIGINK AMBER on axis-on renders and, in its frame-edge form, on LEGACY
+#   framed canvases — the form that found the five shipped options without a
+#   re-render). Q10's "arithmetic, not pixels" stands: G-FIGINK asks only whether ink
+#   lies OUTSIDE the measured box, a question the extent bias cannot false-positive.
 # v5.56 — 2026-08-19 — GAP-2026-08-19-LEARNINGS-FILENAME-SEAM (paired with Blueprint
 #   v1.50.0). The GAP-07 learnings load read {EXAM}_ExplainLearnings.md — the legacy
 #   name Blueprint Step 6 generated — while Step 9's loader globs
@@ -5493,6 +5513,35 @@
         budget; Q12 closes the identical hole on geometry. Gate G-FIGOPTWINDOW
         (VOID_ITEM). render_figure() alone is correct for a PROBLEM figure and
         INSUFFICIENT for an option set.
+    Q13. THE CENSUS MUST AGREE WITH THE PIXELS (v5.57 — new). Q10 is arithmetic over
+        the fit record, and it is only as good as the artist census that fed it. The
+        census is now complete by construction (degenerate extents kept, Annotation
+        arrows, ax.artists, tables and legend walked) and the fit record carries the
+        measured content box in saved-pixel coordinates (fit.content_bbox_px,
+        axes_bbox_px, axis_on). Gate G-FIGINK then reads the SAVED PNG and asks one
+        question: does any content ink lie OUTSIDE the box the fitter measured?
+        1. WHY THIS DOES NOT REOPEN Q10.5. The Q9.6 extent bias makes a measured box
+           LARGER than the ink, never smaller, so "ink outside the measured box" can
+           never be a bias artefact. It is strictly evidence of a render path the
+           census did not see — which is the only way the shipped defect can arise.
+        2. SEVERITY. BLOCKING on an axis-OFF render (every schematic, option canvas
+           and glyph): no chrome can exist inside the axes box there, so outside
+           ink is a defect. AMBER (W-FIGINK) on an axis-ON render, where gridlines
+           and minor ticks may legitimately sit inside; the comparison is confined
+           to the axes-box interior minus the spine band in both cases.
+        3. LEGACY. A pre-v5.57 render carries no content_bbox_px. On a FRAMED canvas
+           the same check runs in its edge form — content ink inside the
+           FIG_MIN_CLEARANCE_IN band the v5.55 fitter guaranteed clear — as AMBER,
+           the EC-V18 posture. Unframed legacy renders are silent. This is what
+           makes the ~200 delivered exams auditable for the defect: on the
+           reference paper it flagged five option canvases and nothing else.
+        4. draw_fn RULES THAT FOLLOW. A bond may be drawn by any idiom; the census
+           now sees all of them. But a draw_fn MUST NOT call ax.set_aspect() —
+           the fitter owns window and aspect through apply_data_window(), and an
+           author-set aspect insets the axes box inside the canvas so the frame no
+           longer sits at the canvas edge.
+        5. REPAIR IS A RE-RENDER. A flagged figure is never patched; the question's
+           figures are regenerated under v5.57 and re-gated.
 
   RENDER HELPER — WHICH ONE (v5.33; option sets amended v5.55).
     Classes `data_series`, `data_single`, `schematic` route to
@@ -7627,7 +7676,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.56
+# END OF Framework_MockTestCreate v5.57
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

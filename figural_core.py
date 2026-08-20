@@ -273,6 +273,12 @@ SEVERITY = {
     # and delivering untouched while still reporting the defect loudly.
     "G-FIGFIT":     "BLOCKING",
     "W-FIGFITPX":   "AMBER",
+    # v5.57 — census-vs-pixel agreement. BLOCKING for the reason G-FIGFIT is:
+    # on v5.57+ output the census is complete by construction, so ink outside
+    # the measured box means a render path the census does not see — the
+    # exact shape that shipped Q44. Legacy (no content_bbox_px) is silent.
+    "G-FIGINK":     "BLOCKING",
+    "W-FIGINK":     "AMBER",       # v5.57 — the same check on an axis-ON render
 }
 NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGACCENT", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO")
 
@@ -297,6 +303,8 @@ AUDIT_GATE_ID = {
     "G-FIGDPI":     "A-FIGDPI",
     "G-FIGDEGEN":   "A-FIGDEGEN",
     "G-FIGFIT":       "A-FIGFIT",
+    "G-FIGINK":       "A-FIGINK",
+    "W-FIGINK":       "A-FIGINKPX",
     "G-FIGCOLLIDE":   "A-FIGCOLLIDE",
     "G-FIGOPTWINDOW": "A-FIGOPTWINDOW",
     "W-FIGFITPX":     "A-FIGFITPX",
@@ -755,23 +763,63 @@ def _visible_artists(ax):
     and the spines are container chrome, not content, and including them makes
     the content bbox always exactly the axes bbox — which is how a fit check
     can be written and still measure nothing.
+
+    v5.57 GAP-2026-08-20-FIGURAL-INK-CENSUS. Through v5.56 the census read
+    ax.texts / ax.lines / ax.patches / ax.collections / ax.images and dropped
+    any Text whose string was empty. Two kinds of ink were therefore INVISIBLE
+    to the fitter: (a) an Annotation's ARROW — `ax.annotate('', xy=A, xytext=B,
+    arrowprops=...)` is a common bond/arrow idiom, its arrow_patch is a CHILD
+    of the Annotation (never in ax.patches), and the empty string removed the
+    Annotation itself; (b) anything reached only through ax.artists / tables /
+    legend. The fitter then centred the window on the ink it could see and
+    CLIPPED the rest at the frame, recorded clearance >= floor, status OK, and
+    every gate stayed green — a substituent bond ran off the canvas with no
+    label (delivered paper, Q44). The census now walks the axes' children and
+    adds an Annotation's arrow_patch explicitly; g_figink() (below) then proves
+    on the SAVED PIXELS that no ink lies outside what the census measured.
     """
     out = []
+    seen = set()
+
+    def _add(kind, a):
+        if id(a) in seen:
+            return
+        seen.add(id(a))
+        out.append((kind, a))
+
+    chrome = {id(ax.patch)} | {id(sp) for sp in ax.spines.values()} | \
+             {id(ax.xaxis), id(ax.yaxis)}
     for t in list(ax.texts):
-        if t.get_visible() and (t.get_text() or "").strip():
-            out.append(("text", t))
+        if not t.get_visible():
+            continue
+        if (t.get_text() or "").strip():
+            _add("text", t)
+        # v5.57 — an Annotation's arrow is ink even when its text is empty.
+        ap = getattr(t, "arrow_patch", None)
+        if ap is not None and ap.get_visible():
+            _add("stroke", ap)
     for ln in list(ax.lines):
         if ln.get_visible():
-            out.append(("stroke", ln))
+            _add("stroke", ln)
     for p in list(ax.patches):
         if p.get_visible() and not getattr(p, "_fc_is_frame", False):
-            out.append(("stroke", p))
+            _add("stroke", p)
     for c in list(ax.collections):
         if c.get_visible():
-            out.append(("stroke", c))
+            _add("stroke", c)
     for im in list(ax.images):
         if im.get_visible():
-            out.append(("stroke", im))
+            _add("stroke", im)
+    # v5.57 — everything else a draw_fn can attach (ax.artists: AnnotationBbox,
+    # OffsetImage, free Line2D/Text added via add_artist on older matplotlib;
+    # tables; a legend). Chrome is excluded by identity, never by type.
+    for a in list(getattr(ax, "artists", [])) + list(getattr(ax, "tables", [])):
+        if a is not None and a.get_visible() and id(a) not in chrome \
+                and not getattr(a, "_fc_is_frame", False):
+            _add("stroke", a)
+    lg = getattr(ax, "legend_", None)
+    if lg is not None and lg.get_visible():
+        _add("stroke", lg)
     return out
 
 
@@ -782,8 +830,25 @@ def _extent(a, rend):
         bb = a.get_window_extent()
     except Exception:
         return None
-    if bb is None or bb.width <= 0 or bb.height <= 0:
+    if bb is None or (bb.width <= 0 and bb.height <= 0):
         return None
+    if bb.width <= 0 or bb.height <= 0:
+        # v5.57 — a DEGENERATE box is still ink. A Patch's extent is its path,
+        # with no stroke width added, so an axis-parallel bond drawn as a
+        # FancyArrowPatch (the annotate idiom) reports zero height and was
+        # rejected here outright — which is how the census lost it. Pad by
+        # half the stroke width in pixels and keep it.
+        from matplotlib.transforms import Bbox
+        try:
+            lw_pt = float(a.get_linewidth())
+        except Exception:
+            lw_pt = 1.0
+        try:
+            dpi = float(a.figure.dpi)
+        except Exception:
+            dpi = 100.0
+        pad = max(lw_pt * dpi / 72.0 / 2.0, 0.5)
+        bb = Bbox.from_extents(bb.x0 - pad, bb.y0 - pad, bb.x1 + pad, bb.y1 + pad)
     return bb
 
 
@@ -1142,10 +1207,27 @@ def fit_and_deconflict(fig, ax, spec, *, window=None):
         "label_shift_cap_in": FIG_LABEL_MAX_SHIFT_IN,
         "box_aspect": round(float(box_aspect), 4),
         "ring_expansion": round(float(ring), 3),
-        "engine": "fit_and_deconflict/v5.55",
+        "engine": "fit_and_deconflict/v5.57",
     }
     rec["status"] = ("OK" if (clear >= clear_px * 0.999
                               and coll_now == 0) else "RESIDUAL")
+    # v5.57 — the census box and the axes box in SAVED-PIXEL coordinates
+    # (origin top-left, FIGURAL_DPI), so g_figink() can compare what the
+    # fitter MEASURED against where ink actually LANDED without re-deriving
+    # any extent from pixels. Saved px = display px * (FIGURAL_DPI / fig.dpi).
+    try:
+        k = float(FIGURAL_DPI) / dpi
+        fh = float(fig.get_figheight()) * dpi
+        def _px(bb):
+            return [round(bb.x0 * k, 1), round((fh - bb.y1) * k, 1),
+                    round(bb.x1 * k, 1), round((fh - bb.y0) * k, 1)]
+        rec["content_bbox_px"] = _px(ubb) if ubb is not None else None
+        rec["axes_bbox_px"] = _px(abox)
+        rec["axis_on"] = bool(getattr(ax, "axison", True))
+    except Exception:
+        rec["content_bbox_px"] = None
+        rec["axes_bbox_px"] = None
+        rec["axis_on"] = True
     spec["fit"] = rec
     return rec
 
@@ -1530,6 +1612,141 @@ def g_figfit_pixels(spec, png_path):
             f"lies outside the drawn frame in {os.path.basename(png_path)}."]
 
 
+FIG_INK_TOL_PX = 4          # anti-aliasing + stroke-cap allowance, saved px
+FIG_INK_EDGE_FRAC = 0.03    # frame detection: only within this band of an edge
+
+
+def _ink_mask_and_frame(a, np):
+    """Ink mask (L < 160) with any RENDERER FRAME removed. The frame is the
+    near-solid rows/cols lying within FIG_INK_EDGE_FRAC of a canvas edge —
+    restricted to the edge band so a long horizontal bond or a ring edge in
+    the interior is never mistaken for a frame (W-FIGFITPX's looser rule did
+    exactly that on a benzene ring)."""
+    ink = a < 160
+    h, w = ink.shape
+    bh, bw = max(2, int(h * FIG_INK_EDGE_FRAC)), max(2, int(w * FIG_INK_EDGE_FRAC))
+    rowfrac = ink.mean(1); colfrac = ink.mean(0)
+    frame_rows = [r for r in range(h) if rowfrac[r] > 0.6 and (r < bh or r >= h - bh)]
+    frame_cols = [c for c in range(w) if colfrac[c] > 0.6 and (c < bw or c >= w - bw)]
+    content = ink.copy()
+
+    def _grow(idx, frac, n):
+        # Strip the frame line AND its anti-aliased tail: walk outward from
+        # each frame row/col while the ink fraction stays above 15%.
+        out = set()
+        for i in idx:
+            out.add(i)
+            j = i - 1
+            while j >= 0 and frac[j] > 0.15:
+                out.add(j); j -= 1
+            j = i + 1
+            while j < n and frac[j] > 0.15:
+                out.add(j); j += 1
+        return out
+
+    for r in _grow(frame_rows, rowfrac, h):
+        content[max(r - 1, 0):r + 2, :] = False
+    for c in _grow(frame_cols, colfrac, w):
+        content[:, max(c - 1, 0):c + 2] = False
+    return ink, content, bool(frame_rows or frame_cols)
+
+
+def g_figink(spec, png_path):
+    """HARD (v5.57, GAP-2026-08-20-FIGURAL-INK-CENSUS). Does every inked pixel
+    lie inside the box the fitter MEASURED?
+
+    G-FIGFIT is arithmetic over the fit record and is correct whenever its
+    INPUT — the artist census — is complete. It cannot detect an incomplete
+    census: ink the census never saw is ink the record never mentions, and the
+    record says OK. This gate closes that by comparing the census box written
+    at render time (fit.content_bbox_px) against the ink actually present in
+    the saved PNG. It is NOT a pixel re-derivation of clearance (the Q9.6
+    objection): the only question asked is "is there ink OUTSIDE the measured
+    box?", and the superscript/subscript extent bias only ever makes the census
+    box LARGER than the ink, so it can never produce a false positive here.
+    Legacy output (no content_bbox_px) is silent, as every v5.57+ gate is for
+    pre-v5.57 renders (EC-V18)."""
+    np = _try_import("numpy")
+    Image = _try_import("PIL.Image")
+    if np is None or Image is None:
+        return ["G-FIGINK: DORMANT — numpy/Pillow unavailable. " + PIP_INSTALL]
+    f = (spec or {}).get("fit") or {}
+    box = f.get("content_bbox_px")
+    try:
+        a = np.array(Image.open(png_path).convert("L")).astype(int)
+    except Exception as e:
+        return [f"G-FIGINK: DORMANT — cannot read {os.path.basename(png_path)}: {e}"]
+    ink, content, _framed = _ink_mask_and_frame(a, np)
+    if not content.any():
+        return []
+    h, w = content.shape
+    if not box:
+        # LEGACY (pre-v5.57 render, no census box). The edge form of the same
+        # check works on a FRAMED canvas alone: there the axes box IS the
+        # canvas, the v5.55 fitter guaranteed the census box cleared it by
+        # FIG_MIN_CLEARANCE_IN on every side, so content ink inside that band
+        # is ink the census never saw. AMBER (W-FIGINK), the EC-V18 posture,
+        # and it is what makes the ~200 delivered exams auditable for this
+        # defect without re-rendering: on the reference paper it flagged five
+        # option canvases whose horizontal substituent bond ran into the frame.
+        if not _framed:
+            return []
+        rows = np.where(content.any(1))[0]; cols = np.where(content.any(0))[0]
+        dpi = float((spec or {}).get("png_dpi") or FIGURAL_DPI)
+        band = int(FIG_MIN_CLEARANCE_IN * dpi) - FIG_INK_TOL_PX
+        margin = int(min(cols.min(), rows.min(), w - 1 - cols.max(), h - 1 - rows.max()))
+        if margin >= band:
+            return []
+        side = ["left", "top", "right", "bottom"][int(np.argmin(
+            [cols.min(), rows.min(), w - 1 - cols.max(), h - 1 - rows.max()]))]
+        return [f"W-FIGINK: content ink lies {margin} px from the {side} frame "
+                f"(clearance floor {band + FIG_INK_TOL_PX} px) in "
+                f"{os.path.basename(png_path)} — a pre-v5.57 render whose census "
+                f"missed a stroke (typically an axis-parallel bond drawn as an "
+                f"annotation arrow); the stroke is clipped at the frame. "
+                f"Re-render under v5.57."]
+    # The census measures CONTENT, never chrome (ticks, tick labels, axis
+    # titles, spines live outside or on the axes box by design — G-FIGFIT's
+    # own docstring). So the comparison is confined to the axes-box INTERIOR.
+    # On an axis-OFF render (every schematic / option / glyph, the class that
+    # shipped Q44) no chrome can exist inside it and the gate is HARD. On an
+    # axis-ON render gridlines and minor ticks may legitimately sit inside, so
+    # the spine band is excluded and the finding is AMBER (W-FIGINK).
+    axis_on = bool(f.get("axis_on", True))
+    abox = f.get("axes_bbox_px")
+    if abox:
+        ax0, ay0, ax1, ay1 = abox
+        shrink = 3 if axis_on else 0
+        keep = np.zeros_like(content)
+        keep[max(int(ay0) + shrink, 0):min(int(ay1) - shrink + 1, h),
+             max(int(ax0) + shrink, 0):min(int(ax1) - shrink + 1, w)] = True
+        content = content & keep
+        if not content.any():
+            return []
+    gid = "W-FIGINK" if axis_on else "G-FIGINK"
+    x0, y0, x1, y1 = box
+    t = FIG_INK_TOL_PX
+    lo_x, lo_y = max(int(x0 - t), 0), max(int(y0 - t), 0)
+    hi_x, hi_y = min(int(x1 + t) + 1, w), min(int(y1 + t) + 1, h)
+    outside = content.copy()
+    outside[lo_y:hi_y, lo_x:hi_x] = False
+    n_out = int(outside.sum())
+    if n_out == 0:
+        return []
+    rows = np.where(outside.any(1))[0]; cols = np.where(outside.any(0))[0]
+    sides = []
+    if cols.max() >= hi_x: sides.append("right")
+    if cols.min() < lo_x: sides.append("left")
+    if rows.min() < lo_y: sides.append("top")
+    if rows.max() >= hi_y: sides.append("bottom")
+    return [f"{gid}: {n_out} px of ink ({n_out / float(content.sum()):.1%}) lie "
+            f"OUTSIDE the content box the fitter measured "
+            f"({', '.join(sides) or 'interior'}) in {os.path.basename(png_path)} — "
+            f"the artist census missed a render path (an Annotation arrow, an "
+            f"add_artist() child, a table or legend); the fitter windowed that "
+            f"ink out and may have CLIPPED it at the frame."]
+
+
 def g_figoptwindow(specs):
     """VOID_ITEM. Every option of a question must be drawn in the SAME data
     window on the SAME canvas.
@@ -1644,6 +1861,8 @@ def audit_figure(spec, png_path, descr=None):
     hard += g_figscale(spec, png_path)
     hard += g_figlabel(spec)
     hard += g_figfit(spec)                 # v5.55 Q10 — ink inside the frame
+    _ink = g_figink(spec, png_path)        # v5.57 — census == pixels
+    hard += [x for x in _ink if x.startswith("G-FIGINK") and "DORMANT" not in x]
     hard += g_figcollide(spec)             # v5.55 Q11 — no overprinted labels
     hard += g_figcolour(spec, png_path)
     hard += g_figaccent(spec, png_path)
@@ -1653,6 +1872,7 @@ def audit_figure(spec, png_path, descr=None):
     hard += g_figglyph(spec, png_path)
     warn = []
     warn += g_figlabel_pixels(spec, png_path)
+    warn += [x for x in _ink if not (x.startswith("G-FIGINK") and "DORMANT" not in x)]
     warn += g_figfit_pixels(spec, png_path)   # v5.55 — legacy-auditable
     warn += g_figalt(descr)
     return hard, warn
@@ -1967,7 +2187,7 @@ def self_test():
     # v5.55: 13 -> 17 (+G-FIGFIT, +G-FIGCOLLIDE, +G-FIGOPTWINDOW, +W-FIGFITPX).
     # The count is asserted, not hardcoded in prose, so a gate added without a
     # severity cannot ship silently at the default.
-    check("gate_count_is_seventeen", len(SEVERITY) == 17)
+    check("gate_count_is_nineteen", len(SEVERITY) == 19)
     # Every id a gate can EMIT must be registered. The alt-text gate once
     # emitted "W-FIGALT" while SEVERITY keyed "G-FIGALT", so a real alt-text
     # failure mapped to no catalogue gate and was reported under an id the audit
@@ -2099,10 +2319,119 @@ def self_test():
         check("D12_fitter_brings_runaway_labels_inside_the_frame",
               g_figfit(_rs) == [] or "OUTSIDE" not in " ".join(g_figfit(_rs)))
         check("D12_fit_record_is_written", (_rs.get("fit") or {}).get("engine")
-              == "fit_and_deconflict/v5.55")
+              == "fit_and_deconflict/v5.57")
         check("D12_renderer_frame_is_not_overprinted",
               g_figfit_pixels(_rs, _fp) == [])
         check("D12_placement_scale_is_still_one", _rs["placement_scale"] == 1.0)
+
+    # D13 — v5.57 GAP-2026-08-20-FIGURAL-INK-CENSUS. Reproduces the shipped
+    # Q44 shape: a ring plus a substituent bond drawn with the empty-text
+    # annotate idiom. Through v5.56 the census never saw the bond, the window
+    # was symmetric about the ring, the bond was clipped at the frame, the fit
+    # record said OK and no gate fired. The fixtures assert (a) the census now
+    # sees the arrow, (b) the saved artefact carries the whole bond, (c) G-FIGINK
+    # is silent on a conformant render, (d) G-FIGINK FIRES when ink is forced
+    # outside the measured box, (e) legacy specs stay silent.
+    if _have("matplotlib") and _have("numpy") and _have("PIL.Image"):
+        import numpy as _np
+        from PIL import Image as _Im
+
+        def _ring(ax):
+            pts = [(math.cos(math.radians(60 * i)), math.sin(math.radians(60 * i)))
+                   for i in range(7)]
+            ax.plot([p[0] for p in pts], [p[1] for p in pts],
+                    color="#000000", lw=FIG_MIN_STROKE_PT)
+            ax.set_axis_off()          # as every Step-7 schematic draw_fn does
+            # (no set_aspect: the fitter owns the window/aspect — apply_data_window)
+
+        def _q44_shape(ax, series, palette):
+            _ring(ax)
+            ax.annotate("", xy=(1.0, 0.0), xytext=(1.55, 0.0),
+                        arrowprops=dict(arrowstyle="-", color=palette[0],
+                                        lw=FIG_MIN_STROKE_PT))
+
+        _d13 = os.path.join(tempfile.mkdtemp(), "q44_problem.png")
+        _s13 = make_figure_spec(44, "schematic", 4.0, series=[], axes={})
+        _s13["role"] = "problem"
+        render_figure(_q44_shape, _d13, _s13)
+        _w13 = _s13["fit"]["data_window"]
+        check("D13_census_sees_annotation_arrow",
+              _w13[2] > 1.5 and (_w13[2] - 1.0) > (-_w13[0] - 1.0) + 0.2)
+        _a13 = _np.array(_Im.open(_d13).convert("L"))
+        _ink13, _c13, _ = _ink_mask_and_frame(_a13, _np)
+        _cols13 = _np.where(_c13.any(0))[0]
+        check("D13_bond_not_clipped_at_frame",
+              _cols13.max() < _a13.shape[1] - 1 - FIG_INK_TOL_PX)
+        check("D13_figink_silent_on_conformant_render", g_figink(_s13, _d13) == [])
+        check("D13_fit_record_carries_content_bbox_px",
+              isinstance(_s13["fit"].get("content_bbox_px"), list)
+              and len(_s13["fit"]["content_bbox_px"]) == 4)
+        # (d) force the defect: a window that windows the bond out.
+        _d13b = os.path.join(tempfile.mkdtemp(), "q44_clipped.png")
+        _s13b = make_figure_spec(44, "schematic", 4.0, series=[], axes={})
+        _s13b["role"] = "problem"
+        render_figure(_q44_shape, _d13b, _s13b, window=(-1.3, -1.0, 1.3, 1.0))
+        # the census box is now the full (clipped) content; shrink it to what a
+        # blind census would have recorded (the ring only) and the gate must fire.
+        _bb = list(_s13b["fit"]["content_bbox_px"])
+        _ax0, _ay0, _ax1, _ay1 = _s13b["fit"]["axes_bbox_px"]
+        _s13b["fit"]["content_bbox_px"] = [_bb[0], _bb[1],
+                                           _bb[0] + 0.78 * (_bb[2] - _bb[0]), _bb[3]]
+        _f13 = g_figink(_s13b, _d13b)
+        check("D13_figink_fires_on_ink_outside_measured_box",
+              len(_f13) == 1 and "OUTSIDE" in _f13[0] and "right" in _f13[0])
+        check("D13_figink_is_blocking_on_new_output",
+              triage(_f13, _s13b)["BLOCKING"] == _f13)
+        check("D13_figink_legacy_unframed_is_silent", g_figink({}, _d13b) == []
+              and g_figink({"fit": {"clearance_in": 0.06}}, _d13b) == [])
+        # legacy FRAMED canvas with a clipped stroke: AMBER edge form fires;
+        # a clean legacy framed canvas stays silent.
+        _d13e = os.path.join(tempfile.mkdtemp(), "q1_opt_legacy.png")
+        _s13e = make_figure_spec(1, "option_canvas", FIG_OPT_DISPLAY_IN, role="option")
+        render_figure(_q44_shape, _d13e, _s13e, window=(-1.3, -1.0, 1.3, 1.0))
+        _leg_e = {"png_dpi": FIGURAL_DPI, "fit": {"clearance_in": 0.06}}
+        _f13e = g_figink(_leg_e, _d13e)
+        check("D13_legacy_framed_clip_is_amber",
+              len(_f13e) == 1 and _f13e[0].startswith("W-FIGINK")
+              and "right" in _f13e[0] and triage(_f13e, {})["BLOCKING"] == [])
+        check("D13_figink_maps_to_audit_id",
+              audit_gate_id("G-FIGINK: x") == "A-FIGINK"
+              and audit_gate_id("W-FIGINK: x") == "A-FIGINKPX")
+        # axis-ON render (ticks, spines are legitimate chrome): the same
+        # forced clip is reported AMBER, never BLOCKING, and chrome alone
+        # never fires.
+        def _q44_axis_on(ax, series, palette):
+            _q44_shape(ax, series, palette)
+            ax.set_axis_on()
+        _d13d = os.path.join(tempfile.mkdtemp(), "q44_axis_on.png")
+        _s13d = make_figure_spec(44, "schematic", 4.0, series=[], axes={})
+        _s13d["role"] = "problem"
+        render_figure(_q44_axis_on, _d13d, _s13d)
+        check("D13_axis_on_chrome_never_fires", g_figink(_s13d, _d13d) == [])
+        _bbd = list(_s13d["fit"]["content_bbox_px"])
+        _s13d["fit"]["content_bbox_px"] = [_bbd[0], _bbd[1],
+                                           _bbd[0] + 0.78 * (_bbd[2] - _bbd[0]), _bbd[3]]
+        _f13d = g_figink(_s13d, _d13d)
+        check("D13_axis_on_clip_is_amber_not_blocking",
+              len(_f13d) == 1 and _f13d[0].startswith("W-FIGINK")
+              and triage(_f13d, _s13d)["BLOCKING"] == []
+              and triage(_f13d, _s13d)["AMBER"] == _f13d)
+        _hd, _wd = audit_figure(_s13d, _d13d, "x")
+        check("D13_audit_figure_routes_w_figink_to_warn",
+              not any("FIGINK" in x for x in _hd) and any("W-FIGINK" in x for x in _wd))
+        # (f) a framed option render with a real label stays clean end to end.
+        def _opt_shape(ax, series, palette):
+            _ring(ax)
+            ax.plot([1.0, 1.5], [0.0, 0.0], color=palette[0], lw=FIG_MIN_STROKE_PT)
+            ax.text(1.6, 0.0, "COOH", color=palette[0], fontsize=10, va="center")
+        _d13c = os.path.join(tempfile.mkdtemp(), "q1_opt1.png")
+        _s13c = make_figure_spec(1, "option_canvas", FIG_OPT_DISPLAY_IN, role="option")
+        render_figure(_opt_shape, _d13c, _s13c)
+        _h13c, _ = audit_figure(_s13c, _d13c, "ring with carboxyl")
+        check("D13_legacy_framed_clean_is_silent", g_figink(_leg_e, _d13c) == [])
+        check("D13_framed_option_with_label_is_silent_under_figink",
+              [x for x in _h13c if "FIGINK" in x] == []
+              and (_s13c["fit"].get("content_bbox_px") or [0, 0, 0, 0])[2] > 300)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

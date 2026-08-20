@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026.08.20.5 — GAP-2026-08-20-FIGURAL-INK-CENSUS: the figure census must agree with the pixels
+
+**`figural_core.py` v5.55 -> v5.57 engine tag (self-test 103 -> 117), `Framework_MockTestCreate`
+v5.56 -> v5.57.** No other spec, engine, route or trigger changes.
+
+### The defect
+Delivered paper IIT_JAM_CHEMISTRY Mock 01: Q44's problem figure drew a substituent bond that ran
+off the canvas with no label (run-report F1), and — found by the new gate on the same paper —
+five option canvases (Q5 ×4, Q36 ×1) whose horizontal substituent bond was clipped at the frame.
+Every Step-7 gate passed. Reproduced: the fitter's artist census REJECTED any artist with a
+zero-height/width extent (an axis-parallel bond drawn as a Patch via `ax.annotate('', …)`) and
+never looked inside an Annotation for its arrow. Invisible ink was windowed out and clipped;
+the fit record said OK; G-FIGFIT — arithmetic over that record — was right about a wrong input.
+
+### What changed
+- `_visible_artists` walks Annotation arrows, `ax.artists`, tables, legend; `_extent` keeps
+  degenerate boxes padded by stroke width instead of discarding them.
+- Fit record gains `content_bbox_px`, `axes_bbox_px`, `axis_on` (engine tag `fit_and_deconflict/v5.57`).
+- **NEW gate G-FIGINK** (BLOCKING, axis-off renders) / **W-FIGINK** (AMBER: axis-on renders, and
+  the frame-edge form on legacy framed canvases). Audit ids A-FIGINK / A-FIGINKPX. Spec Q13.
+- 14 new fixtures including a faithful reproduction of the shipped shape.
+
+### Evidence
+Gate run over all 39 figures in the delivered docx (legacy form): fires on exactly the five
+defective option canvases, silent on the other 34. Self-test fixture reproduces the v5.55
+symmetric-window clipping and asserts v5.57 renders the whole bond.
+
 ## 2026.08.20.4 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS: an explanation must be safe to LEARN, not only correct to READ
 
 **`Framework_MockTestExplain` v1.35.0 -> v1.36.0, `Framework_PYQExplain` v2.13 -> v2.14,
