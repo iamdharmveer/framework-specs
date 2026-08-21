@@ -1,5 +1,86 @@
 # Changelog
 
+## 2026.08.21.2 — explanation provenance: the first paper under v1.36.0 passed every gate and published a wrong key
+
+**`explain_engine.py` v2.7→v2.8, `paper_pipeline.py` v5.38→v5.39, `final_assembly.py`
+→v5.55, `corpus_io.py` v1.11→v1.12, `Framework_MockTestExplain.md` v1.36.0→v1.37.0,
+`Framework_PYQExplain.md` v2.14→v2.15, `Framework_MockTestCreate.md` v5.58→v5.59,
+`SPEC_HISTORY.md` (v1.36.0 / v2.14 entries moved verbatim). SHARED_RULES 1.3→1.4.**
+GAP-2026-08-21-EXPLANATION-PROVENANCE. Exam-agnostic throughout; chemistry content
+lives only in the project-side `CHEMISTRY_EXPLAIN_LEARNINGS_v2.md`.
+
+### What the reference paper showed (IIT_JAM_CHEMISTRY Mock 01, Step 9 under v1.36.0)
+
+1. **A wrong published key.** Q47 was CREATED as salicylic acid with key 2 and
+   EXPLAINED with key 1: the hand-drawn structure was read as phenol + ketone +
+   alcohol, both derive-twice routes shared the misread, and Step 7 — which held the
+   opposite key — was by design never consulted. `figural_manifests.object_types` was
+   empty, so §13-3's manifest cross-check had nothing to compare.
+2. **Invented WHY WRONG / PITFALL provenance.** 24 hedged lines on 15 questions ("or
+   otherwise …", "perhaps by …", "or a similar …"), nine asserting FALSE arithmetic
+   (2.2 + 9.4 "gives 7.2"; 693 "is 1/k"; rms/average "near 1.414"). §15-2's own sentence
+   "a real path always exists … go solve it" forced a path to be invented.
+3. **Transfer safety self-attested.** 0 NARROWED across 60 AXIOMs while the loaded
+   subject library already named buffer dilution, Markovnikov mechanism and Winkler
+   intermediates — all three shipped overgeneralised. The lookup was discipline.
+4. **ASCII formulae.** Zero sub/superscript runs in 71 pages of explanations.
+
+Root cause, all four: gates proved a protocol was DECLARED, not DONE.
+
+### The fixes
+
+- **KEY COMMITMENTS (Create S13-4 / Explain §7-8).** `fa.commit_registry(answer_key=…)`
+  writes `registry.key_commitments[paper_id]` — salted sha256 of every canonical answer
+  (mcq `2` · msq `2,3` · NAT grading string). No plaintext anywhere Step 9 reads. Step 9
+  hashes its OWN derived answers and compares (`explain_engine.reconcile_key_commitments`).
+  New regcheck gate `G-KEYCOMMIT`. Zero new operator files — the registry was already
+  uploaded. A mismatch is resolved IN-RUN (§17-3: RESOLVED_SELF / RESOLVED_SOURCE /
+  DEFECT); **the paper never halts**; only a PROVEN question defect is reported with a
+  regeneration line (§17-4). Pre-v5.59 registries: `key_status UNAVAILABLE`, never refused.
+- **SEMANTIC OBJECTS (Create S7-NEW-B2 / Explain §13-2b).** Every generated figure
+  registers what it depicts (`paper_pipeline.validate_semantic_object`; STRUCTURE carries
+  canonical SMILES) → `figural_manifests[].semantic_objects`. A STRUCTURE figure is now
+  RENDERED FROM ITS SMILES (`corpus_io.structure_draw_fn` inside `figural_core.
+  render_figure` — verified to pass the v5.57 census and G-FIGINK unchanged), so the image
+  and its registration are one artefact. Step 9 transcribes every viewed figure to its
+  canonical form BEFORE solving, rdkit-sanitises it, and compares (`semantic_objects_agree`).
+- **ERROR PROVENANCE (§15-2 rewritten; engine gate).** Per wrong option / value:
+  `VERIFIED_ERROR_PATH` (the engine RECOMPUTES the expression and refuses the block unless
+  it reproduces the target at its precision — `DST_UNVERIFIED_NUMERICAL_ORIGIN`) or
+  `DIRECT_CONTRADICTION`. Hedged wording banned (`DST_HEDGED_PROVENANCE`; 24 hits / 0
+  false positives on the reference paper). "A real path always exists" WITHDRAWN. No
+  pitfall quota.
+- **TRANSFER SAFETY MADE MECHANICAL (§7-7 step 3).** `transfer_record` mandatory for an
+  authored block; library rules carry `**Triggers:**` (§24-1b); a family that fires on an
+  AXIOM / SPEED HACK must be cited as `neighbour_source CURATED:<code>`
+  (`GEN_CANONICAL_EXCEPTION_MISSED`); `transfer_tripwire` flags the all-SAFE shape.
+- **FORMULA TYPOGRAPHY (§8-0c).** `normalise_formula_text` at construction (element
+  subscripts, ion charges, orbital / hybrid labels, π/σ; `⟦MATH:⟧` masked; locants such as
+  C2–C3 left alone); `FMT_UNFORMATTED_FORMULA` on the residue. Per-exam switch.
+- **§6A-1b-ii** count-of-visual-objects presumption; **`--scan-risk <docx>`** migration scan
+  for earlier papers (hedge / absolute / formula markers; never regex-patched).
+
+### Thin-core note
+`paper_pipeline.py` stays stdlib-only (CHECK AB): the rdkit canonicaliser lives in
+`corpus_io.py` (Create route) and, byte-identical, in `explain_engine.py` (Explain route)
+under a CROSS-FILE SYNC RULE, and is INJECTED into `paper_pipeline.semantic_objects_agree`.
+
+### Verification
+explain_engine **167/167** + audit **26/26** (36 new fixtures, including the Q17 / Q52
+false-arithmetic shapes and a Q47-shaped key mismatch); paper_pipeline **90/90**;
+final_assembly **112/112** (asserts no plaintext answer in the registry); corpus_io
+**352/352**; figural_core **117/117** unchanged; validate_framework_md 0 issues;
+MockExplain route **248,567 B** (under the 250,000 B SPEC-BUDGET gate after moving the
+v1.36.0 entry to SPEC_HISTORY — 1,433 B of headroom; a declared FINAL/NON-FINAL read set
+for this route is the durable remedy and is scheduled as its own release).
+
+### Follow-ups recorded, not half-done
+- Step 7 single-question regeneration trigger (the §17-4 "one copy-paste line") does not
+  exist yet; until it does, a §17-4 DEFECT is reported with its evidence for a targeted
+  TestCreate re-run.
+- Explanation-side renderers for enumerated objects (§6A-1b-ii: resonance sets, fac/mer)
+  beyond STRUCTURE_GRAPH are declared per exam in section_rules; none added here.
+
 ## 2026.08.21.1 — audit_sync fully measured: half the gate was unproven, and six checks had never run at all
 
 **`audit_sync.py`, `SKILL.md`, `mocktestframework_SKILL.md`, `MUTATION_BUDGETS.json`.**

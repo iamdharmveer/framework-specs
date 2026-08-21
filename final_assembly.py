@@ -13,6 +13,20 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v5.55 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with MockTestCreate v5.59,
+    paper_pipeline v5.39, explain_engine v2.8). commit_registry() now also writes
+      * registry['key_commitments'][paper_id]  — salted sha256 of every canonical
+        answer (paper_pipeline.seal_key_commitments), built from the answer_key
+        sidecar passed as `answer_key`; the plaintext never enters the registry.
+        Step 9 re-derives, hashes its OWN answers and compares — the Q47 class
+        (Step 7 key 2, Step 9 published 1, nobody compared) cannot recur silently.
+      * figural_manifests[].semantic_objects {q: [obj, ...]} — what each figure
+        DEPICTS in machine-readable form (fig_manifest questions[q].semantic_objects),
+        shape-validated through paper_pipeline.validate_semantic_object.
+    Both are ADDITIVE registry fields; an older registry without them is read
+    unchanged by every consumer (EC-V18). regcheck() requires key_commitments for
+    the paper being committed when an answer_key was supplied.
+
     Source anchors (Framework_MockTestCreate.md, pre-extraction v5.52.0):
       commit_registry ......... §13 S13-4  (registry update protocol)
       regcheck ................ §13 S13-REGCHECK (schema completeness + G-COMMIT-COMPLETE)
@@ -187,7 +201,7 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                      di_manifest=None, fig_manifest=None, figure_specs=None,
                      axis1_snapshots=None, axis3_snapshots=None,
                      framework_repo_commit=None, spec_source_report=None,
-                     timestamp=None):
+                     timestamp=None, answer_key=None):
     """Registry update protocol (v2.0 GAP-03 + GAP-04 fix; v5.48.0 QINDEX-FK
     enforcement; v5.52 idempotency — see module docstring deviation 4;
     v5.54 same-series dedupe + axis snapshot persistence — see the module
@@ -302,8 +316,29 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                              for q, v in fig_manifest.get('questions', {}).items()
                              if v.get('subtopic_id')},
             "figure_specs": figure_specs or {},
+            # v5.55 — machine-readable identity of every generated figure.
+            "semantic_objects": _validated_semantic_objects(fig_manifest),
         })
         reg['figural_manifests'] = fg
+
+    # ── v5.55 KEY COMMITMENTS (additive; replace-by-paper_id) ───────────────
+    if answer_key is not None:
+        import paper_pipeline as _pp
+        _ans = (answer_key or {}).get('answers', answer_key) or {}
+        _cm = concept_map or (answer_key or {}).get('concept_map', {}) or {}
+        _canon = {}
+        for _q, _v in _ans.items():
+            _qt = (_cm.get(str(_q)) or {}).get('qtype') or (
+                'nat' if isinstance(_v, float) or
+                ((_cm.get(str(_q)) or {}).get('answer_type') == 'numerical') else
+                'msq' if isinstance(_v, (list, tuple, set)) else 'mcq')
+            if _qt == 'nat':
+                # the committed string is the PORTAL GRADING VALUE Step 9 re-derives
+                # (S7-NEW-C), never a float repr
+                _gv = (_cm.get(str(_q)) or {}).get('nat_grading_value')
+                _v = _gv if _gv not in (None, '') else _v
+            _canon[int(_q)] = _pp.canonical_answer(_qt, _v)
+        reg.setdefault('key_commitments', {})[paper_id] = _pp.seal_key_commitments(paper_id, _canon)
 
     # ── Question metadata index (v5.2, Contract_QuestionMetadataIndex v1.0) ─
     concept_map = concept_map or {}
@@ -427,6 +462,35 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     return {'ok': True, 'fails': [], 'registry': reg, 'paper_id': paper_id}
 
 
+def _validated_semantic_objects(fig_manifest):
+    """v5.55 — {q: [semantic objects]} from fig_manifest questions[q].semantic_objects,
+    each shape-validated (paper_pipeline.validate_semantic_object) and, for a
+    STRUCTURE/REACTION, canonicalised through rdkit when available so the
+    registry carries the canonical form. Raises ValueError on a malformed object
+    — a figure whose identity cannot be stated is not committed."""
+    import paper_pipeline as _pp
+    out = {}
+    for q, v in (fig_manifest or {}).get('questions', {}).items():
+        objs = v.get('semantic_objects') or []
+        if not objs:
+            continue
+        clean = []
+        for i, o in enumerate(objs):
+            _pp.validate_semantic_object(o, ctx=f'Q{q} semantic_objects[{i}]')
+            o = dict(o)
+            if o['kind'] in ('STRUCTURE', 'REACTION'):
+                import corpus_io as _cio                 # Create-route rdkit home
+                canon, reason = _cio.canonical_structure(o['canonical'])
+                if canon is None and reason != 'rdkit_unavailable':
+                    raise ValueError(f'Q{q} semantic_objects[{i}]: canonical {o["canonical"]!r} '
+                                     f'rejected — {reason}')
+                if canon is not None:
+                    o['canonical'] = canon
+            clean.append(o)
+        out[str(q)] = clean
+    return out
+
+
 # ══════════════════════════════════════════════════════════════════════════
 # S13-REGCHECK — regcheck()
 # ══════════════════════════════════════════════════════════════════════════
@@ -496,7 +560,8 @@ def _duplicate_commit_problems(reg, m):
     return problems
 
 
-def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None):
+def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None, paper_id=None,
+             require_key_commitments=False):
     """Registry schema-completeness gate (v3.5) + G-COMMIT-COMPLETE
     (v5.52, GAP-2026-08-12-S13-COMMIT-COMPLETE). Pure — does not mutate
     `registry`; caller does I/O (see Framework_MockTestCreate.md §13 for the
@@ -573,6 +638,24 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None):
                           "the blueprint's mocks[] declaration for this number), "
                           "re-run S13-4 in FULL, then re-run S13-REGCHECK. "
                           "Do NOT deliver."]}
+
+    # v5.55 (GAP-2026-08-21-EXPLANATION-PROVENANCE) — a paper committed with an
+    # answer key must carry its key commitments, or Step 9 has nothing to
+    # reconcile against and the wrong-published-key class is open again.
+    if require_key_commitments:
+        _pid = paper_id or f"MOCK:M{int(N):02d}"
+        _kc = (reg.get('key_commitments') or {}).get(_pid) or {}
+        _nq = len(((concept_map or {}) if isinstance(concept_map, dict) else {}) or {})
+        if not _kc.get('entries') or (_nq and len(_kc['entries']) != _nq):
+            return {'ok': False, 'registry': reg, 'healed': missing_top + missing_ct,
+                    'warnings': [],
+                    'fails': [f"HARD STOP (G-KEYCOMMIT): registry.key_commitments[{_pid!r}] "
+                              f"carries {len(_kc.get('entries', {}))} entries, expected "
+                              f"{_nq or '>=1'}. S13-4 must be run with answer_key=<the "
+                              f"answer_key sidecar> so every question's canonical answer is "
+                              f"committed (paper_pipeline.seal_key_commitments). Step 9 "
+                              f"reconciles its derived answers against these; without them "
+                              f"a wrong published key is undetectable. Do NOT deliver."]}
 
     warnings = [f"mock {m}: {', '.join(_commit_problems(reg, m))}"
                for m in reg.get('mocks_completed', [])
@@ -1243,6 +1326,72 @@ def self_test():
                        lambda: predelivery_checklist('/restricted',
                            docx_name='x', reg_name='y', regcheck_ok=True, qindex_ok=True,
                            listdir=permission_listdir, exists=lambda p: False)['ok'] is False)
+
+    # ── v5.55 key commitments + semantic objects ──────────────────────────
+    _ak = {'answers': {'1': 2, '2': [1, 3], '3': 3.09},
+           'concept_map': {'1': {'qtype': 'mcq'}, '2': {'qtype': 'msq'},
+                           '3': {'qtype': 'nat', 'nat_grading_value': '3.09'}}}
+    r_k = commit_registry(mini_registry(), mini_pending(), bp1, 1,
+                          paper_id='MOCK:M01', batches_completed=3,
+                          axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=False,
+                          concept_map=mini_cm(), answer_key=_ak)
+    _kc = r_k['registry'].get('key_commitments', {}).get('MOCK:M01')
+    check('commit_key_commitments_written', bool(_kc) and set(_kc['entries']) == {'1', '2', '3'})
+    import paper_pipeline as _ppt
+    check('commit_key_commitments_verify_roundtrip',
+          _ppt.verify_key_commitments(_kc, {1: '2', 2: '1,3', 3: '3.09'}, 'MOCK:M01')['matched'] == [1, 2, 3])
+    check('commit_key_commitments_no_plaintext',
+          '"answers"' not in __import__('json').dumps(r_k['registry']) and
+          all(len(e['h']) == 64 for e in _kc['entries'].values()))
+    check('commit_key_commitments_absent_without_key',
+          'key_commitments' not in r1['registry'])
+    _fm = {'questions': {'47': {'image_hashes': ['h'], 'object_type': 'structure',
+                                'subtopic_id': 'ex.a',
+                                'semantic_objects': [{'role': 'problem', 'kind': 'STRUCTURE',
+                                                      'name': 'salicylic acid',
+                                                      'canonical': 'Oc1ccccc1C(O)=O',
+                                                      'descriptor': {}}]}}}
+    r_f = commit_registry(mini_registry(), mini_pending(), bp1, 1,
+                          paper_id='MOCK:M01', batches_completed=3,
+                          axis2_window_counts={}, passage_present=False,
+                          di_present=False, figural_present=True,
+                          concept_map=mini_cm(), fig_manifest=_fm)
+    _so = r_f['registry']['figural_manifests'][0].get('semantic_objects', {})
+    check('commit_semantic_objects_written', '47' in _so and _so['47'][0]['kind'] == 'STRUCTURE')
+    import corpus_io as _ciot
+    _canon_ok = _ciot.canonical_structure('OC(=O)c1ccccc1O')[1] == 'ok'
+    check('commit_semantic_objects_canonicalised',
+          (not _canon_ok) or _so['47'][0]['canonical'] == _ciot.canonical_structure('OC(=O)c1ccccc1O')[0])
+    def _bad_sem():
+        _fm2 = {'questions': {'47': {'image_hashes': ['h'], 'subtopic_id': 'ex.a',
+                                     'semantic_objects': [{'role': 'problem', 'kind': 'STRUCTURE',
+                                                           'name': 'x', 'canonical': '',
+                                                           'descriptor': {}}]}}}
+        commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                        batches_completed=3, axis2_window_counts={}, passage_present=False,
+                        di_present=False, figural_present=True, concept_map=mini_cm(),
+                        fig_manifest=_fm2)
+        return True
+    try:
+        _bad_sem(); check('commit_semantic_objects_malformed_raises', False)
+    except ValueError:
+        check('commit_semantic_objects_malformed_raises', True)
+
+    _rc_bad = regcheck(r1['registry'], bp1, N=1, concept_map=mini_cm(), paper_id='MOCK:M01',
+                       require_key_commitments=True)
+    check('regcheck_keycommit_gate_fails_without_commitments', _rc_bad['ok'] is False
+          and 'G-KEYCOMMIT' in _rc_bad['fails'][0])
+    _ak3 = {'answers': {'1': 1, '2': 2, '3': 3},
+            'concept_map': {k: {'qtype': 'mcq'} for k in ('1', '2', '3')}}
+    r_k3 = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
+                           batches_completed=3, axis2_window_counts={}, passage_present=False,
+                           di_present=False, figural_present=False, concept_map=mini_cm(),
+                           answer_key=_ak3)
+    _rc_ok = regcheck(r_k3['registry'], bp1, N=1, concept_map=mini_cm(), paper_id='MOCK:M01',
+                      require_key_commitments=True)
+    check('regcheck_keycommit_gate_passes_with_commitments',
+          not any('G-KEYCOMMIT' in f for f in _rc_ok.get('fails', [])))
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

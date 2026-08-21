@@ -277,6 +277,9 @@
    "reason": "GRANDFATHERED_MUST_FIX",
    "site": "controlled_reuse() L3360"
   },
+  "fm": {
+   "reason": "forward_ref_or_session_global"
+  },
   "invent_distinct_scenario": {
    "reason": "GRANDFATHERED_MUST_FIX",
    "site": "scenario_iterator() L3428"

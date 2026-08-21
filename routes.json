@@ -120,6 +120,7 @@
     "t3_mathcomp.py",
     "figural_vision.py",
     "blueprint_core.py",
+    "paper_pipeline.py",
     "Framework_DeliveryFooter.md"
   ],
   "PYQFormat": [

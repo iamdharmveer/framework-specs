@@ -1,197 +1,22 @@
-# Framework_PYQExplain v2.14 — Universal PYQ Explanation Generator
-# v2.14 — 2026-08-20 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS (paired with
-#   MockTestExplain v1.36.0, engine v2.7). Same defect class, same fixes, so both
-#   explanation paths hold one standard; see MockTestExplain v1.36.0 for the full
-#   incident record (a delivered 60-question paper, answer-correct on every item,
-#   carrying ~17 sentences true for the item and false for its nearest neighbour).
-#   NEW §7-7 transfer-safety protocol (scope → type → neighbour test → repair by
-#   mechanism → recorded transfer_record); §8-2 epistemic type + scope-in-sentence;
-#   §8-3 topic minimum-concept components (subject data); §8-0b is now an engine
-#   gate (undeclared universal raises; kept absolutes declared); §14-1 three-part
-#   (TRANSFER-SAFE), §14-5 four-field record; §15-3 MSQ wording WITHDRAWN and
-#   rewritten (learner-psychology boilerplate banned by the engine); NEW §6A-1c
-#   representation alignment + §6A-3b distribution tripwire; CONFORMER verdict;
-#   §24 loads the SUBJECT-level [Subject]_EXPLAIN_LEARNINGS_v*.md (same schema,
-#   same parser; precedence exam > subject > spec) + §24-5 defect codes; §5-1/
-#   §5-2/§5-3, §18, §R3, §21 hooks. Student-facing format unchanged and LOCKED.
-#   SHARED_RULES_VERSION 1.2 → 1.3.
-# v2.13 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-EXECUTION-INTEGRITY (paired with
-#   MockTestExplain v1.35.0, engine v2.6). Same four defects, same fixes, so both
-#   explanation paths hold one standard; see MockTestExplain v1.35.0 for the full
-#   incident record (a delivered 60-question paper, audited).
-#   D1 — the §9 error type becomes INTERNAL metadata: still mandatory, recorded per
-#   wrong option / pitfall in progress state, and the visible line delivers the same
-#   diagnosis in natural language — never the snake_case token. Engine v2.6 raises at
-#   write time on any taxonomy token in student-facing text and re-scans the rendered
-#   bytes at verify time.
-#   D2 — NEW §6A-1b structure-answer presumption + verdict↔emission coherence: when
-#   the verified answer IS a structure, STRUCTURE_GRAPH is presumed and PROSE needs a
-#   recorded justification; §6A-3 passes the verdict INTO the block (engine v2.6
-#   representation_verdict) and a visual verdict with zero figures raises; a §6A-4
-#   degrade records the DEGRADED requirement. PYQ-SPECIFIC: VOID_ITEM WINS — §6A-2b
-#   forbids any generated figure for a VOID_ITEM, so the presumption is void for it
-#   by construction.
-#   D3 — NEW §14-5: SPEED-HACK eligibility recorded per question, the inclusion RATE
-#   reported in §R3, and an all-hack batch re-runs the §14-1 test before §18 — a
-#   tripwire, never a quota (reference incident: a hack on 56 of 60 questions).
-#   D4 — NEW §7-0c enumeration-before-formula and §7-6 decisive-claim consistency
-#   (a right answer with contradictory reasoning is invalid; repair returns to §7-1,
-#   never to patched prose). Both domain-neutral per the v2.11 convention.
-#   RE-6d added; RE-13 restated in both files; SHARED_RULES_VERSION 1.1 → 1.2.
-#   ALSO: the stale "currently 64/64" aside in MANDATE A is removed — the §21-0
-#   class (an exact count asserted in prose is wrong from the next fixture on; the
-#   engine prints a higher count today and the gate is floor-form anyway).
-#   ENGINE FINDINGS (v2.6, from writing its fixtures): the v2.3/v2.7 figure-validation
-#   loop sat AFTER the NAT branch's return, so NAT figures were never validated at
-#   construction — moved above the type split; anomaly blocks now reject figures as
-#   student content; an AXIOM naming an option label raises (§8-2).
-# v2.12 — 2026-08-19 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT (paired with
-#   MockTestExplain v1.34.0, engine v2.5). SPEC-ONLY. P6's conflict check compared
-#   Q_TOTAL, option count, question type and opt_re-vs-label_scheme, but never compared
-#   the DECLARED `option_label_format` values against each other — and section_rules
-#   declares that value once in the CATEGORY C header and once per SECTION block, from
-#   two different generators. A header/section disagreement therefore passed silently and
-#   every option carried the wrong label. P6 now compares all declarations and HALTs on
-#   any disagreement, printing each value with its location. See MockTestExplain v1.34.0
-#   for the full incident record.
-# v2.11 — 2026-08-19 — GAP-2026-08-19-DOMAIN-LEAK-IN-UNIVERSAL-RULES (paired with
-#   MockTestExplain v1.33.0). SPEC-ONLY, no engine change, no rule weakened. The four
-#   rules added in v2.9/v2.10 were written in one domain's vocabulary inside an
-#   exam-agnostic spec: §7-0a/§7-0b listed domain-specific conditions and assumptions as
-#   though universal, §7-5 made domain-specific checks MANDATORY, and §8-0a banned
-#   domain-specific quantities. Rules are now stated neutrally, lists are ILLUSTRATIVE and
-#   read from the exam's own material, and every §7-5 check is CONDITIONAL ON
-#   APPLICABILITY. See MockTestExplain v1.33.0 for the full record.
-# v2.10 — 2026-08-19 — GAP-2026-08-19-CONDITIONAL-CORRECTNESS (paired with
-#   MockTestExplain v1.32.0). SPEC-ONLY. Same four rules, so both explanation paths hold
-#   one standard; see MockTestExplain v1.32.0 for the full incident record.
-#   §7-0a CONDITION CAPTURE · §7-0b ASSUMPTION LEDGER · §7-5 NUMERICAL VERIFICATION ·
-#   §14-3b SHORTCUT VALIDITY DOMAIN.
-#   PYQ SHARPENS §7-0a: these are REAL past papers, so a condition the stem supplies was
-#   put there by the examining body to DISCRIMINATE. A stated condition that changed
-#   nothing in the derivation is strong evidence the question was misread.
-# v2.9 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-CONTENT-DISCIPLINE (paired with
-#   MockTestExplain v1.31.0, engine v2.4). Same three defects, same fixes, so the two
-#   explanation paths hold one standard. See MockTestExplain v1.31.0 for the full
-#   incident record.
-#   D1 — NEW §8-0a SUPPORTED VALUES ONLY: every number traces to the stem, a syllabus
-#   constant, or a shown derivation. PYQ SHARPENS THIS: these are REAL past papers, so
-#   an invented yield or constant does not merely mislead — it misrepresents what the
-#   examining body actually asked and what it supplied.
-#   D2 — NEW §8-0b CALIBRATED LANGUAGE: absolutes reserved for claims absolute in the
-#   subject's own terms; tendencies take calibrated terms.
-#   D3 — NEW §12-4 INTERIM COVERAGE BANNER via engine v2.4 set_coverage_banner(), so a
-#   mid-run artefact declares its own state wherever it travels. strip_solutions()
-#   removes it, keeping the questions-only copy byte-equal to the Row file source.
-# v2.8 — 2026-08-19 — GAP-2026-08-19-STALE-PIN-SWEEP (paired with MockTestExplain v1.30.0).
-#   SPEC-ONLY, no engine change. Same CLASS as the paired release: an exact self-test
-#   count written into prose is correct only until the next fixture is added, and this
-#   file carried two such sites after v2.7 de-pinned only the §R1 report line.
-#   D1 — §21 DEFINITION OF DONE HARD-PINNED THE ENGINE COUNT. Item 1 read "engine
-#   62/62" while the engine prints 78/78 — the failure mode of
-#   GAP-2026-08-13-STALE-SELFTEST-PIN, in the place that fix (v2.5, which converted the
-#   P0 gate) never reached. Converted to floor form.
-#   D2 — THE ENGINE-CAPABILITY REFERENCE WAS INTERNALLY INCONSISTENT. Two adjacent
-#   lines described the same engine's two self-tests in two different conventions:
-#   `--self-test` pinned "62/62 PASS" while `--self-test-audit` correctly used the
-#   floor form "N >= 10". Both now use floor form.
-#   NEW §21-0 states the rule as a RULE, matching MockTestExplain §21-0 verbatim in
-#   substance, so the two explanation specs cannot drift apart on it.
-# v2.7 — 2026-08-19 — GAP-2026-08-19-PYQEXPLAIN-NO-REPRESENTATION-ROUTER. SPEC-ONLY:
-#   no engine change. PYQ-1 shares explain_engine.py with TestExplain, so since engine
-#   v2.2/v2.3 it has SILENTLY INHERITED the Tier-3 notation guard and the figure-emission
-#   surface (RepresentationFigure / ExplanationBlock.figures) — capability with nothing
-#   directing its use. Result: every PYQ document stayed prose-only while the Mock path
-#   gained schemes, orbital diagrams and rendered equations. This release closes that.
-#   NOTE ON SCOPE — §11 IS ALREADY CORRECT HERE AND IS NOT TOUCHED. PYQ-1's S11-1 has
-#   always documented the ⟦MATH:…⟧ grammar properly and has always said "guards are
-#   region-aware: \\frac inside a region is legal; the _BANNED_LATEX list applies to prose
-#   outside regions only". The §11 defect fixed in MockTestExplain v1.27.0 never existed
-#   in this file. Verbalised arithmetic is therefore NOT a documented-cause defect here;
-#   §6A-2's EQUATION requirement simply makes the existing rule explicit at routing time.
-#   D1 — NO REPRESENTATION ROUTER. New §6A, adapted to PYQ (NOT copied): PROSE is the
-#   default and a visual is EARNED on the §14 two-part test; renderers are declared per
-#   exam in section_rules; degrade is loud. Two PYQ-specific rules that do not exist in
-#   the Mock spec: (a) the router runs AFTER §13A transcription, so a figural question is
-#   routed from what was actually SEEN, never from the stem text; (b) a VOID_ITEM figure
-#   FORBIDS a generated STRUCTURE_GRAPH for that question — no answer is published for a
-#   VOID_ITEM at all (§13A-5), so drawing a structure for one would be manufacturing
-#   content from an untranscribable source, the precise thing RE-11 forbids.
-#   D2 — §6 HAD NO STRUCTURAL OR DERIVATIONAL CLASS. C-STRUCTURAL and C-DERIVATIONAL
-#   added; C-FIGURAL made family-aware.
-#   D3 — §13 WAS BLIND TO SCIENTIFIC FIGURES. S13-4 defined the figural AXIOM as "the
-#   visual rule" — the reasoning-puzzle vocabulary. Split into §13-4a
-#   (transformation-puzzle, preserved) and §13-4b (scientific-diagram). PYQ papers are
-#   REAL past papers, so this is the more consequential half of the split here: a JAM or
-#   GATE stem figure is essentially always a scientific diagram.
-#   D4 — §9 forced science distractors into aptitude labels; eight scientific error types
-#   added.
-#   D5 — §R1 PROVENANCE WAS STALE ("spec v1.1 · engine 62/62" against v2.6 / 78/78) and
-#   §R3 had no representation line. Both fixed; the GATES stay floor-form (P0, v2.5).
-# v2.6 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
-#   MINOR bump: a name is added to this file's executable surface. NO ARTEFACT CHANGES.
-#   This spec CALLED present_files() from compiling python while DEFINING it nowhere —
-#   a guaranteed NameError the moment that path executes as python. Five such call
-#   sites stood across four specs; spec_name_audit_baseline.json had accepted
-#   `present_files` as a known-unbound name in all four, which is why the ratchet
-#   reported OK for weeks. SAME SHAPE as D2 of
-#   GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, which fixed the instance and left the
-#   class standing. FIX: a CLASS: T stub is declared in this file, matching the
-#   corpus's per-file house pattern for CLASS T markers.
-# v2.5 — 2026-08-13 — GAP-2026-08-13-STALE-SELFTEST-PIN: the MANDATE-A engine gate pinned
-#   the literal "SELF-TEST: 62/62 PASS" while explain_engine.py prints 64/64 — a HALT on
-#   every session with a healthy engine. Converted to the FLOOR form (N/N PASS, N >= 62),
-#   the AUTH_GATE_FLOOR pattern; same for the --self-test-audit reader pin (>= 10).
-# [ExamCode] project | PYQ-1 (PYQExplain) | Exam-agnostic
-#
-# ════════════════════════════════════════════════════════════════════════
-# PURPOSE
-# ════════════════════════════════════════════════════════════════════════
-#   Take a PYQ Row file (.docx, Step 1 output) from Google Drive, INDEPENDENTLY
-#   DERIVE the answer to every question, and INTERLEAVE a perfect, highest-standard
-#   explanation after each question — without altering one byte of the original paper.
-#   Emit [ExamCode]_[date]_[session]_PYQ_Explanation.docx: a 100%-explained, zero-
-#   defect learner-facing solution document for that exam sitting.
-#
-# ════════════════════════════════════════════════════════════════════════
-# PIPELINE POSITION (PYQ Explanation Pipeline)
-# ════════════════════════════════════════════════════════════════════════
-#   PHASE 1 — Already completed (shared with Mock/Test pipeline):
-#     Step 1  PYQPrepare    → Row file (Q.1-Q.N, original exam order) → Google Drive
-#     Step 2  PYQDraft/Scan/Approve → taxonomy, exam_config.json → project
-#     Step 3  PYQSort       → Sorted PYQ docs → Google Drive
-#     Step 5  PYQExtract    → section_rules.md + subtopic_manifest.json → project
-#
-#   PHASE 2 — PYQ Explanation (this pipeline):
-#     PYQ-1  PYQExplain      → [ExamCode]_[date]_[session]_PYQ_Explanation.docx  ← THIS STEP
-#     PYQ-3  PYQFormat       → [ExamCode]_[date]_[session]_PYQ_Formatted.docx  (student)
-#     PYQ-4  PYQDeliver      → [ExamCode]_[date]_[session]_PYQ_Final.docx       (portal)
-#     (PYQ-2 PYQExplainAudit was RETIRED in v2.1. PYQ-3 and PYQ-4 are INDEPENDENT —
-#     both take PYQ-1's _PYQ_Explanation.docx directly, neither depends on the other.)
-#
-#   PYQ-1 runs in the [ExamCode] project (exam-specific). It runs AFTER Steps 1-5
-#   have produced section_rules.md, subtopic_manifest.json, and exam_config.json.
-#
-# ════════════════════════════════════════════════════════════════════════
-# EXAM-AGNOSTIC GUARANTEE
-# ════════════════════════════════════════════════════════════════════════
-#   This spec contains ZERO hardcoded exam values. No section name, no subtopic,
-#   no question count, no time/marks figure, no option count, no option label, no
-#   language, no figural type, no block label is hardcoded. Every such value is READ
-#   at runtime from:
-#     • question/option counts, Q total → Row file scan + exam_config.json
-#     • per-subtopic patterns, wrong_option_structure, fixed option sets,
-#       OMML_required, option label format, language, block labels/markers, figural
-#       object/transformation types, escape tokens, passage word ranges
-#       → section_rules.md (CATEGORY C header + CATEGORY A/B blocks)
-#     • subtopic_id join key, subtopic names
-#       → subtopic_manifest.json
-#   Same spec runs for SSC CGL, GATE, NEET, UPSC, CAT, CSIR, Banking, RRB, state
-#   PSC, or any exam with valid Step 1-5 outputs.
-#
+# Framework_PYQExplain v2.15 — Universal PYQ Explanation Generator
+# v2.15 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
+#   MockTestExplain v1.37.0, engine v2.8). Same defect class, same fixes, so both
+#   explanation paths hold one standard; see MockTestExplain v1.37.0 for the
+#   incident record (a delivered paper with a wrong published key on a misread
+#   structure, 24 hedged / nine arithmetically false WHY WRONG lines, a curated
+#   library loaded and never consulted, ASCII formulae throughout). PYQ-side: §13-2b
+#   SEMANTIC-OBJECT transcription folds into the §13A pre-transcription pass (a
+#   STRUCTURE is transcribed to SMILES and rdkit-sanitised; no registered object
+#   exists for a PYQ, so the transcription stands alone); §15-2 REWRITTEN (two
+#   provenance modes, engine RECOMPUTES, hedges banned, old wording WITHDRAWN, no
+#   pitfall quota); §7-7 step 3 MECHANICAL (Triggers + tripwire); §8-0c FORMULA
+#   TYPOGRAPHY; §6A-1b-ii; RE-13 amended, RE-24 new; §18/§21/§24 hooks. §7-8 KEY
+#   RECONCILIATION is MOCK-ONLY (a PYQ has no Step-7 commitment; D4 unchanged).
+#   SHARED_RULES_VERSION 1.3 → 1.4.
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_PYQExplain.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
-#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42), and
+#   v2.14 at 2026.08.21.2:
 #   an EXECUTING session paid for the whole EDITORIAL record before it could do
 #   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
 #   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
@@ -404,10 +229,11 @@
           constant, or a shown derivation (§8-0a).
   RE-9c : CALIBRATED LANGUAGE (v2.9). Absolutes only for claims absolute in the
           subject's own terms; tendencies take calibrated terms (§8-0b).
-  RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option carries a §9
-          diagnosis — recorded internally, rendered in natural language, never as the
-          raw snake_case token (engine v2.6 raises) — that ACTUALLY produces that
-          option's value/content; no template, ever (§9/§15).
+  RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES — AND NEVER INVENTS (v2.15). Each
+          wrong option carries a §9 diagnosis (internal; rendered in natural language,
+          never the raw token) in ONE of two modes: a VERIFIED path the engine has
+          RECOMPUTED and that reproduces the option, or a DIRECT CONTRADICTION that
+          claims no path (§15-2). Hedged provenance is engine-banned. No guess, ever.
   RE-14 : SPEED HACK ONLY WHEN GENUINELY FASTER. Emit iff a structurally-different
           route reaches the same CA with materially less work; otherwise OMIT (§14).
   RE-15 : NO TEMPLATES / GLYPHS / FAKE-CITES / METACOMMENTARY / BANNED BLOCKS.
@@ -429,6 +255,8 @@
           where the run was least certain: MANDATORY, never abbreviated, never skipped.
   RE-21 : QUESTION-TYPE-AWARE. Resolve each question as mcq / msq / nat from config
           (§6, §3 P3) and shape the block accordingly (§5).
+  RE-24 : FORMULA TYPOGRAPHY IS ENGINE-APPLIED (v2.15, §8-0c): notation in student prose
+          is normalised to Unicode sub/superscripts at construction; residue raises.
   RE-22 : LOAD & APPLY LEARNINGS. At P1, load accumulated learnings files — the
           exam's files AND, v2.14, the subject-level [Subject]_EXPLAIN_LEARNINGS_v*.md
           shared by every exam in the subject (the curated neighbour library §7-7
@@ -904,6 +732,12 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   prose legitimately.
 
 
+## S6A-1b-ii — COUNT-OF-VISUAL-OBJECTS PRESUMPTION (v2.15)
+  When the ANSWER IS A COUNT OF VISUAL OBJECTS (resonance contributors, isomers, fac/mer,
+  bridging bonds, orbital occupancies, competing products, distinct sites) §6A-1b
+  applies AND the figure must SHOW THE ENUMERATED OBJECTS, not the starting structure
+  alone. PROSE stays legal with a recorded justification.
+
 ## S6A-1c — ALIGNMENT: THE REPRESENTATION MUST SHOW THE DECIDING RELATION (v2.14)
   §6A-1 tests DECISIVE and NOT REDUNDANT. Both can pass while the learner never
   SEES what the answer turned on: the product drawn, the selectivity-deciding
@@ -1240,9 +1074,13 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
        EXAM_CONVENTION · QUESTION_SPECIFIC_INFERENCE · OPTION_SET_SHORTCUT.
     3. NAME THE NEAREST LEGITIMATE NEIGHBOUR — the closest member of the same
        apparent class, AT THE TARGET EXAM'S LEVEL, that a learner would meet next.
-       The curated neighbours for the subject come from the loaded learnings
-       (§24, the subject-level file); a neighbour the session generates itself is
-       admissible only when no curated one applies, and is recorded as such.
+       v2.15 — THE LOOKUP IS MECHANICAL. Each curated rule carries **Triggers:**
+       (§24-1b). A trigger firing on the claim's sentence makes that rule's canonical
+       counterexamples THE neighbour; the record cites neighbour_source
+       CURATED:<rule-code>, and the engine refuses an AXIOM / SPEED HACK that matches a
+       family it did not cite (GEN_CANONICAL_EXCEPTION_MISSED). GENERATED is admissible
+       ONLY where no trigger fires. P1 builds the table: explain_engine.
+       triggers_from_learnings([all parsed files]) → EngineConfig(learnings_triggers=…).
     4. TEST the claim on that neighbour. Still true → SAFE.
     5. FALSE on the neighbour → REPAIR BY RETURNING TO THE MECHANISM, never by
        hedging: name the actual effect, class or condition that makes the claim
@@ -1268,6 +1106,9 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   electrons" (stable 16e/17e), "identical halves always give a meso form".
   CROSS-STEP: §9's `overgeneralised_rule` names this failure in a DISTRACTOR;
   this rule governs the SOLVER'S OWN AXIOM (the §7-0a / `wrong_condition` pair).
+  TRIPWIRE (v2.15): explain_engine.transfer_tripwire fires when ≥20 AXIOM claims carry
+  0 NARROWED / MOVED_TO_DEDUCTION; it obliges a recorded SECOND PASS over every AXIOM
+  before §18 (§R3).
 
 # ════════════════════════════════════════════════════════════════════════
 # §7A — PER-QUESTION DIFFICULTY ASSESSMENT (v1.1)
@@ -1458,6 +1299,13 @@ label = assess_difficulty(
   quantifiers ("only two ions", "every formula unit", "exactly 208") are NOT
   gated: measured four-fifths false positives, and declaration spam is worse
   than no gate. Per-language pattern: EngineConfig(absolute_terms_re=...).
+
+## S8-0c — FORMULA TYPOGRAPHY (v2.15 — RE-24; engine-applied)
+  Engine v2.8 normalises every student sentence at construction (normalise_formula_
+  text: element subscripts, ion charges, orbital / hybrid labels, π/σ; ⟦MATH:⟧
+  untouched; LOCANTS such as C2–C3 left alone) and raises FMT_UNFORMATTED_FORMULA on
+  the residue. Write what it will not rewrite (η⁵-C₅H₅, ²³²Th) in Unicode or ⟦MATH:⟧.
+  Per-exam switch: section_rules CATEGORY C `formula_typography: false`.
 
 ## S8-1 — Correct Answer
   Role: the one line the student trusts absolutely; the most dangerous line in the
@@ -1910,6 +1758,15 @@ for it in items:
        printed values, shading, counts. Transcribe what is THERE; do not solve
        the question and do not interpret it — interpretation happens at solve
        time, from this text.
+       v2.15 — §13-2b SEMANTIC OBJECT. Where the figure is a typed object
+       (paper_pipeline.SEMANTIC_KINDS) ALSO write its machine-readable form:
+       a STRUCTURE as SMILES, a REACTION as reaction SMILES, a NEWMAN / FISCHER /
+       MO_DIAGRAM / COORDINATION as its descriptor, with parse_confidence
+       HIGH / MEDIUM / LOW. At solve time every STRUCTURE is passed through
+       explain_engine.canonical_structure: a SMILES rdkit rejects is a MISREAD
+       (re-view once; still rejected → VOID_ITEM per §13A-5). LOW confidence on
+       an answer-critical figure → re-view; still LOW → DERIVATION-CONFIDENCE.
+       Never reason from pixels directly; reason from the object.
     3. If the payload comes back blank or unreadable, retry that item ONCE. If
        it is still blank, write an EMPTY string for it and move on. Do not
        guess, do not infer the figure from the surrounding stem text, and do
@@ -2073,10 +1930,19 @@ print(fv.vision_report_line(report))
   1. DIAGNOSE with exactly one §9 error type — recorded internally (§9) while the
      first line delivers that diagnosis in natural language: a diagnosis, not a
      dismissal, and never the raw token (engine v2.6 raises on one).
-  2. The named error must ACTUALLY produce that option/value (the reproduce check):
-     back-derive the distractor — "if a student did X they get exactly this
-     option/value." If no such mistake can be found, the question is not yet
-     understood → go solve it; a generic line is forbidden.
+  2. PROVENANCE BEFORE EXPLANATION (v2.15 — REWRITTEN; engine v2.8 gate). Two modes,
+     recorded per wrong option / value in ExplanationBlock(error_provenance=…):
+       MODE A — VERIFIED_ERROR_PATH: name the wrong operation AND give the engine an
+         arithmetic expression (`recompute`) with the `target`; the block is REFUSED
+         unless the result reproduces the target at its own precision (DST_UNVERIFIED_
+         NUMERICAL_ORIGIN). A non-numeric target records the wrong CONTENT produced and
+         `matches_target: true` after checking it IS this option. Only MODE A may say
+         "doing X gives Y".
+       MODE B — DIRECT_CONTRADICTION: no path claimed; the line states why the option /
+         value contradicts the correct relation. DEFAULT when no path verifies.
+     THE PREVIOUS WORDING — "a real path always exists … go solve it" — IS WITHDRAWN
+     (see MockTestExplain §15-2 for the incident). Hedged provenance ("or otherwise /
+     perhaps by / or a similar") is engine-banned here (DST_HEDGED_PROVENANCE).
   3. CARRY the corrected value — what the right step gives instead ("13 × 3 = 39,
      not 36"; for NAT, "…, not 90"). The explicit contrast is mandatory.
   4. NO two wrong options/values share wording; NO banned template sentences.
@@ -2093,7 +1959,9 @@ print(fv.vision_report_line(report))
   for the incident; engine v2.7 raises on learner-psychology boilerplate
   (DST_UNSUPPORTED_LEARNER_PSYCHOLOGY).
   NAT (COMMON PITFALLS) → head each entry with the wrong VALUE, name the slip that
-  yields exactly it, and carry the contrast to the correct value.
+  yields exactly it (MODE A, recomputed) or the contradiction (MODE B), and carry the
+  contrast to the correct value. NO QUOTA (v2.15): ≥1 entry; a second only when a
+  second VERIFIED path exists, never for symmetry.
   Density without thinness: 1–2 lines, each carrying a required fact.
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2222,6 +2090,10 @@ print(fv.vision_report_line(report))
       into its block; every AXIOM typed; zero kept absolutes undeclared
   [ ] REPRESENTATION ALIGNMENT (§6A-1c) recorded; §6A-3b tripwire evaluated
   [ ] SPEED HACK part-3 outcomes recorded (§14-5 four-field record)
+  [ ] (v2.15) SEMANTIC OBJECTS (§13-2b / §13A-3): every typed figure's transcription
+      persisted, every STRUCTURE rdkit-sanitised · ERROR PROVENANCE mode counts captured
+      (§15-2) · transfer_tripwire evaluated, second pass recorded if fired (§7-7) ·
+      §6A-1b-ii Qs emit the enumerated objects or carry a recorded justification
   [ ] figural coverage (§13A): every figural Q in this batch either
       carries an OK transcription or is a recorded VOID_ITEM — never
       a figural answer with no transcription behind it
@@ -2454,6 +2326,9 @@ present_files(deliverables)
   3c. (v2.14) Every AXIOM and SPEED HACK transfer-tested and recorded (§7-7); every
       kept absolute declared (§8-0b); representations aligned (§6A-1c); zero
       learner-psychology narration (§15-3).
+  3d. (v2.15) Every typed figure transcribed to its semantic object and sanitised
+      (§13-2b); error_provenance engine-validated on every wrong option / value
+      (§15-2); curated families cited (§7-7); typography engine-applied (§8-0c).
   3b. (v2.13) Decisive intermediate claims mutually consistent on every question
       (§7-6); every counting answer derived inventory-first, closed-form only
       after verified independence (§7-0c).
@@ -2517,6 +2392,17 @@ present_files(deliverables)
 #       cased. Precedence on conflict: exam files > subject file > this spec.
 #   None exist on the first PYQ paper by design. Absence is normal, never a HALT.
 
+# ── S24-1b — THE **Triggers:** FIELD (v2.15 — additive; the frozen schema still parses) ──
+#   A rule MAY carry `**Triggers:** term, term, re:<regex>` — comma-separated phrases
+#   (case-insensitive, whole-word) or raw regexes. parse_learnings reads it into
+#   rules[].triggers; triggers_from_learnings compiles the table; the engine uses it
+#   for §7-7 step 3. Every NEIGHBOUR-LIBRARY rule SHOULD carry one.
+#
+# ── S24-6 — DEFECT CODES INTRODUCED BY v2.15 ─────────────────────────────────────────
+#   SEMANTIC-MISREAD · UNVERIFIED-PROVENANCE · HEDGED-PROVENANCE · LIBRARY-NOT-CITED ·
+#   FORMULA-TYPOGRAPHY · MINIMUM-SPECIFICITY · FORMULA-OXIDATION-STATE ·
+#   SITE-SET-CONFLATION · CAUSAL-CONFLATION (definitions: subject library).
+#
 # ── S24-5 — DEFECT CODES INTRODUCED BY v2.14 (routing keys for new rules) ─────────────
 #   §24 ROUTING KEYS for the transfer-safety family: OVERGENERALISED-AXIOM ·
 #   UNSAFE-SPEED-HACK (§14-1 part 3) · UNJUSTIFIED-ABSOLUTE (§8-0b) ·
@@ -2556,7 +2442,15 @@ present_files(deliverables)
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
-# SHARED_RULES_VERSION: 1.3 (2026-08-20)
+# SHARED_RULES_VERSION: 1.4 (2026-08-21)
+#
+# SHARED-RULES BUMP (v1.4, 2026-08-21): GAP-2026-08-21-EXPLANATION-PROVENANCE changed
+#   shared §4–§18 sections in BOTH files — §6A (S6A-1b-ii), §7 (S7-7 step 3 mechanical
+#   + tripwire), §8 (S8-0c), §13 (S13-2b; PYQ-side folded into §13A-3), §15 (S15-2
+#   rewritten, S15-3 NAT quota), §18, §21 and §24 (S24-1b Triggers, S24-6) — amended
+#   RE-13 and added RE-24 in both. MOCK-ONLY: §7-8 KEY RECONCILIATION, §17-3/§17-4
+#   in-run resolution, RE-23 (a PYQ has no Step-7 commitment; its RE-16 is unchanged).
+#   MockTestExplain v1.37.0 == PYQExplain v2.15 on every shared rule.
 #
 # SHARED-RULES BUMP (v1.3, 2026-08-20): GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS
 #   changed shared §4–§18 sections in BOTH files — §5-1/§5-2/§5-3, §6A (S6A-1c,
@@ -2637,5 +2531,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.14
+# END OF Framework_PYQExplain v2.15
 # ════════════════════════════════════════════════════════════════════════

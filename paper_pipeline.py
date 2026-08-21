@@ -12,6 +12,21 @@ Concerns:
   6. apply_mock_offset(blueprint, registry) — cross-slot mock renumbering (relabel post-pass)
   7. registry_guard(new, existing)        — refuse to overwrite a populated registry
   8. list_papers(blueprints, registry)    — TestList helper: inventory every paper + status
+ 10. canonical_answer / seal_key_commitments / verify_key_commitments / resolve_commitment
+                                          — v5.39 KEY COMMITMENTS (GAP-2026-08-21-EXPLANATION-
+                                            PROVENANCE): Step 7 commits a salted hash of every
+                                            canonical answer into registry.key_commitments; Step 9
+                                            re-derives, hashes its OWN answers and compares. Step 9
+                                            never reads a plaintext key; a mismatch is resolved
+                                            in-run by the Explain spec (§17 v1.37.0), never halted.
+ 11. validate_semantic_object / semantic_objects_agree
+                                          — v5.39 FIGURE SEMANTIC OBJECTS: every generated figure
+                                            registers what it DEPICTS in machine-readable form
+                                            (kind STRUCTURE carries a canonical SMILES). The rdkit-
+                                            backed canonicaliser and the SMILES renderer live in
+                                            corpus_io.py (Create route) and explain_engine.py
+                                            (Explain route) and are INJECTED here — thin-core stays
+                                            stdlib-only (CHECK AB).
 
 Design invariants this enforces:
   * paper_id is globally unique and scope-qualified → no collision across types or slots.
@@ -566,6 +581,53 @@ def _self_test():
     # uses — the auditor imports the core, never the reverse. One red suite on
     # divergence is the requirement; two would cost thin-core purity.
 
+    # ── v5.39 KEY COMMITMENTS + SEMANTIC OBJECTS ─────────────────────────────
+    ck('KEY-canonical-mcq', canonical_answer('mcq', 2) == '2')
+    ck('KEY-canonical-msq-sorted', canonical_answer('msq', [3, 1]) == '1,3'
+       and canonical_answer('msq', {2, 3}) == '2,3')
+    ck('KEY-canonical-nat-string', canonical_answer('nat', '3.09') == '3.09'
+       and canonical_answer('nat', '0') == '0')
+    _kc = seal_key_commitments('MOCK:M01', {1: '2', 47: '2', 45: '3.09'},
+                               salts={1: 'aa', 47: 'bb', 45: 'cc'})
+    ck('KEY-seal-shape', _kc['schema'] == 1 and set(_kc['entries']) == {'1', '47', '45'}
+       and len(_kc['entries']['1']['h']) == 64)
+    ck('KEY-seal-deterministic', _kc == seal_key_commitments('MOCK:M01', {1: '2', 47: '2', 45: '3.09'},
+                                                             salts={1: 'aa', 47: 'bb', 45: 'cc'}))
+    ck('KEY-seal-salted', seal_key_commitments('MOCK:M01', {1: '2'})['entries']['1']['h']
+       != seal_key_commitments('MOCK:M01', {1: '2'})['entries']['1']['h'])
+    _vr = verify_key_commitments(_kc, {1: '2', 47: '1', 45: '3.09', 60: '18'}, 'MOCK:M01')
+    ck('KEY-verify-split', _vr == {'matched': [1, 45], 'mismatched': [47], 'missing': [60]})
+    ck('KEY-verify-paper-bound', verify_key_commitments(_kc, {1: '2'}, 'MOCK:M02')['mismatched'] == [1])
+    ck('KEY-resolve-probe', resolve_commitment(_kc, 47, ['1', '2', '3', '4'], 'MOCK:M01') == '2'
+       and resolve_commitment(_kc, 47, ['1', '3'], 'MOCK:M01') is None
+       and resolve_commitment(_kc, 99, ['1'], 'MOCK:M01') is None)
+    ck('KEY-verify-empty', verify_key_commitments({}, {1: '2'}, 'MOCK:M01') ==
+       {'matched': [], 'mismatched': [], 'missing': [1]})
+    _so = {'role': 'problem', 'kind': 'STRUCTURE', 'name': 'salicylic acid',
+           'canonical': 'OC(=O)c1ccccc1O', 'descriptor': {'acidic_sites': 2}}
+    def ck_raises(name, fn):
+        try:
+            fn(); ck(name, False)
+        except ValueError:
+            ck(name, True)
+    ck('SEM-valid', validate_semantic_object(_so))
+    ck_raises('SEM-structure-needs-canonical',
+            lambda: validate_semantic_object(dict(_so, canonical='')))
+    ck_raises('SEM-bad-role', lambda: validate_semantic_object(dict(_so, role='figure 1')))
+    ck_raises('SEM-bad-kind', lambda: validate_semantic_object(dict(_so, kind='PICTURE')))
+    ck('SEM-option-role', validate_semantic_object(dict(_so, role='option:3')))
+    ck('SEM-agree-string', semantic_objects_agree(_so, dict(_so))[0]
+       and not semantic_objects_agree(_so, dict(_so, canonical='O=C(C)c1ccccc1O'))[0])
+    _fake = lambda sm: ({'OC(=O)c1ccccc1O': 'X', 'Oc1ccccc1C(O)=O': 'X',
+                         'O=C(C)c1ccccc1O': 'Y'}.get(sm), 'ok')
+    ck('SEM-agree-injected-canon',
+       semantic_objects_agree(_so, dict(_so, canonical='Oc1ccccc1C(O)=O'), canon=_fake)[0]
+       and not semantic_objects_agree(_so, dict(_so, canonical='O=C(C)c1ccccc1O'), canon=_fake)[0])
+    ck('SEM-agree-descriptor', semantic_objects_agree(
+        {'kind': 'NEWMAN', 'descriptor': {'dihedral': 0}}, {'kind': 'NEWMAN', 'descriptor': {'dihedral': 0}})[0]
+       and not semantic_objects_agree({'kind': 'NEWMAN', 'descriptor': {'dihedral': 0}},
+                                      {'kind': 'NEWMAN', 'descriptor': {'dihedral': 60}})[0])
+
     # v5.38 (GAP-2026-08-03-BANNER) — THE BANNER IS THE LAST THING COMPUTED.
     # It previously sat mid-function, so the 13 LABELFMT fixtures appended after
     # it ran OUTSIDE the count: reintroducing THIS release's own defect printed a
@@ -705,6 +767,116 @@ def resolve_option_label(fmt):
             f"those in round brackets) — this is NEVER guessed at.")
     return (template, _tok_family)
 
+
+# ── 10. KEY COMMITMENTS (v5.39, GAP-2026-08-21-EXPLANATION-PROVENANCE) ────────────
+KEY_COMMITMENT_SCHEMA = 1
+
+def canonical_answer(qtype, value):
+    """The ONE string both steps hash. mcq -> '2'; msq -> '2,3' (sorted, comma,
+    no spaces); nat -> the portal grading string exactly as derive_nat_grading
+    produced it ('484', '3.09', '0.414-0.416') — never a float repr."""
+    if qtype == 'msq':
+        vals = value if isinstance(value, (list, tuple, set, frozenset)) else [value]
+        return ','.join(str(int(v)) for v in sorted(int(x) for x in vals))
+    if qtype == 'nat':
+        return str(value).strip()
+    return str(int(value)) if not isinstance(value, str) else value.strip()
+
+def key_commitment(paper_id, q, canonical, salt):
+    import hashlib
+    return hashlib.sha256(f'{paper_id}|{int(q)}|{salt}|{canonical}'.encode('utf-8')).hexdigest()
+
+def seal_key_commitments(paper_id, answers, salts=None):
+    """answers: {q: canonical_answer_string}. Returns the registry block
+    {'schema': 1, 'alg': 'sha256', 'entries': {str(q): {'salt': hex, 'h': hex}}}.
+    Deterministic when salts are supplied (tests); random 16-byte salts otherwise."""
+    import secrets
+    entries = {}
+    for q, canon in answers.items():
+        salt = (salts or {}).get(q, (salts or {}).get(str(q))) or secrets.token_hex(16)
+        entries[str(int(q))] = {'salt': salt, 'h': key_commitment(paper_id, q, str(canon), salt)}
+    return {'schema': KEY_COMMITMENT_SCHEMA, 'alg': 'sha256', 'entries': entries}
+
+def verify_key_commitments(commitments, derived, paper_id):
+    """derived: {q: canonical_answer_string} from the EXPLAINING step. Returns
+    {'matched': [q], 'mismatched': [q], 'missing': [q]} (missing = derived but
+    never committed). Pure; never raises on a mismatch."""
+    ents = (commitments or {}).get('entries', {})
+    out = {'matched': [], 'mismatched': [], 'missing': []}
+    for q in sorted(int(x) for x in derived):
+        e = ents.get(str(q))
+        if not e:
+            out['missing'].append(q); continue
+        if key_commitment(paper_id, q, str(derived[q] if q in derived else derived[str(q)]),
+                          e['salt']) == e['h']:
+            out['matched'].append(q)
+        else:
+            out['mismatched'].append(q)
+    return out
+
+def resolve_commitment(commitments, q, candidates, paper_id):
+    """The in-run resolution probe: which of `candidates` (canonical strings) the
+    committed hash for q accepts, or None. Used ONLY after a mismatch, to learn
+    what Step 7 intended without a plaintext key ever existing."""
+    e = (commitments or {}).get('entries', {}).get(str(int(q)))
+    if not e:
+        return None
+    for c in candidates or []:
+        if key_commitment(paper_id, q, str(c), e['salt']) == e['h']:
+            return str(c)
+    return None
+
+# ── 11. FIGURE SEMANTIC OBJECTS (v5.39) ──────────────────────────────────────────
+SEMANTIC_KINDS = ('STRUCTURE', 'REACTION', 'NEWMAN', 'FISCHER', 'MO_DIAGRAM',
+                  'ORBITAL_BOXES', 'COORDINATION', 'PLOT', 'TABLE', 'GEOMETRY', 'GENERIC')
+SEMANTIC_ROLE_RE = None
+
+def validate_semantic_object(obj, ctx=''):
+    """Shape-validate one semantic object:
+      {role: 'problem' | 'problem:<i>' | 'option:<label>', kind: SEMANTIC_KINDS,
+       name: str (human-readable identity), canonical: str|None, descriptor: dict}
+    kind STRUCTURE/REACTION MUST carry canonical (SMILES; reaction SMILES for
+    REACTION). Raises ValueError on breach."""
+    import re as _re
+    if not isinstance(obj, dict):
+        raise ValueError(f'{ctx}: semantic object is not a dict')
+    role = str(obj.get('role', ''))
+    if not _re.match(r'^(problem(:\d+)?|option:\S+)$', role):
+        raise ValueError(f'{ctx}: semantic object role {role!r} must be problem, '
+                         f'problem:<i> or option:<label>')
+    kind = obj.get('kind')
+    if kind not in SEMANTIC_KINDS:
+        raise ValueError(f'{ctx}: semantic object kind {kind!r} not in {SEMANTIC_KINDS}')
+    if not str(obj.get('name', '')).strip():
+        raise ValueError(f'{ctx}: semantic object needs name (what the figure depicts)')
+    if kind in ('STRUCTURE', 'REACTION') and not str(obj.get('canonical', '')).strip():
+        raise ValueError(f'{ctx}: semantic object kind {kind} needs canonical (SMILES / '
+                         f'reaction SMILES) — a structure with no machine-readable '
+                         f'identity cannot be reconciled by the explaining step')
+    if not isinstance(obj.get('descriptor', {}), dict):
+        raise ValueError(f'{ctx}: semantic object descriptor must be a dict')
+    return True
+
+def semantic_objects_agree(a, b, canon=None):
+    """Identity test between two semantic objects (or two canonical strings).
+    `canon` is an injected canonicaliser (smiles) -> (canonical|None, reason) —
+    corpus_io.canonical_structure on the Create route, explain_engine.
+    canonical_structure on the Explain route; paper_pipeline itself stays
+    thin-core (CHECK AB) and, with canon=None, compares strings. Non-structure
+    kinds compare their descriptor dicts. Returns (agree: bool, detail: str)."""
+    ca = a.get('canonical') if isinstance(a, dict) else a
+    cb = b.get('canonical') if isinstance(b, dict) else b
+    ka = a.get('kind') if isinstance(a, dict) else 'STRUCTURE'
+    if ka in ('STRUCTURE', 'REACTION') or not isinstance(a, dict):
+        if canon is not None:
+            na, ra = canon(ca); nb, rb = canon(cb)
+            if na is not None and nb is not None:
+                return na == nb, f'canonical {na!r} vs {nb!r}'
+            if ra != 'rdkit_unavailable' or rb != 'rdkit_unavailable':
+                return False, f'{ra}; {rb}'
+        return str(ca).strip() == str(cb).strip(), 'string compare'
+    da = (a or {}).get('descriptor', {}); db = (b or {}).get('descriptor', {})
+    return da == db, 'descriptor compare'
 
 # ── 9. question_index FK validation + registry ledger integrity (v2026.08.10 —
 #       GAP-2026-08-10-QINDEX-FK-ENFORCEMENT). Pure: data in, data out.

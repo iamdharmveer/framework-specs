@@ -1,4 +1,30 @@
-# Framework_MockTestCreate v5.58
+# Framework_MockTestCreate v5.59
+# v5.59 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paper_pipeline v5.39,
+#   final_assembly v5.55, corpus_io v1.12; paired with MockTestExplain v1.37.0 / engine
+#   v2.8). A delivered Mock 01 was CREATED with key 2 on a figural question (salicylic
+#   acid: carboxyl + phenol) and EXPLAINED with key 1 — Step 9 misread the hand-drawn
+#   structure, both its derivations shared the misread, and nothing compared the two
+#   steps because the key never leaves Step 7 by design. Two creation-side gaps made
+#   that silent: (1) the registry carried no trace of the key Step 7 held, so no
+#   downstream step could reconcile against it without seeing plaintext; (2) a
+#   chemical structure was drawn by HAND-PLACED bonds (`cd.ring_pts`, `cd.bond`) with
+#   NO machine-readable record of what it depicted — figural_manifests.object_types was
+#   empty and Step 9's §13-3 manifest cross-check had nothing to compare. FIXES:
+#   (a) KEY COMMITMENTS — S13-4 passes the answer_key sidecar to fa.commit_registry
+#       (answer_key=…) which writes registry.key_commitments[paper_id] = salted sha256
+#       of every canonical answer (mcq '2' · msq '2,3' · NAT grading string). No
+#       plaintext enters the registry; Step 9 hashes its OWN derived answers and
+#       compares (Explain §7-8). S13-REGCHECK gate G-KEYCOMMIT refuses a commit without
+#       them. ZERO new operator deliverables — the registry is already uploaded.
+#   (b) SEMANTIC OBJECTS — NEW S7-NEW-B2: every generated figure registers what it
+#       DEPICTS (paper_pipeline.validate_semantic_object; kind STRUCTURE / REACTION
+#       carries canonical SMILES) in fig_manifest questions[q].semantic_objects; S13-4
+#       commits them to figural_manifests[].semantic_objects. A STRUCTURE figure is
+#       RENDERED FROM ITS SMILES through corpus_io.structure_draw_fn inside
+#       figural_core.render_figure (verified: passes the v5.57 fit census and G-FIGINK
+#       unchanged) — the image and its registration are ONE artefact, so a figure can
+#       no longer disagree with its own identity. Hand-placed bonds for a STRUCTURE are
+#       a G-FIGSEM defect. EC-V18: a registry without either field is read unchanged.
 # v5.58 — 2026-08-20 — GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL (blueprint_core
 #   +1 fixture). A paper whose blueprint predates Blueprint v1.45 renders ZERO figures
 #   against a real Axis-1 budget, on every mock, silently. S7-NEW-B0 reads the per-mock
@@ -2413,6 +2439,9 @@
   [ ] G-KPAT:     No run of 3+ identical consecutive answers.
   [ ] G-CONT:     No question content visible in this chat response. (MANDATE 0)
   [ ] G-KEY:      answer_key.json has an entry for every Q in this batch.
+  [ ] G-FIGSEM:   (v5.59) every rendered figural Q in this batch carries a validated
+                  semantic object per role; STRUCTURE/REACTION roles rendered via
+                  corpus_io.structure_draw_fn (S7-NEW-B2).
   [ ] G-PROG:     progress.json written if this batch had PASSAGE Qs.
   [ ] G-DEDUP:    Each new stem checked against registry_snapshot (L1/L2).
   [ ] G-CONCEPTDUP: No scenario_key repeats anywhere in this mock (DOUBT-3 RULE B).
@@ -2497,7 +2526,7 @@
                   enforcement is the audit.py A-MATCH-TABLE (STEP B); this item is the
                   no-audit fallback. HARD FAIL — re-emit via add_match_table().
 
-  All 41 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 42 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
@@ -4075,6 +4104,43 @@
     NEVER mark as "Image will be added later."
     A question is either a real image (Option A) or a real text replacement (Option B).
     Nothing in between. HARD STOP if a text placeholder is found before delivery.
+
+## S7-NEW-B2 — SEMANTIC-OBJECT REGISTRATION (v5.59 — every generated figure; HARD)
+
+  A figure that cannot say what it depicts cannot be reconciled by any later step.
+  IMMEDIATELY after a figure renders (OPTION A, any image_role), register one
+  semantic object PER ROLE (problem, problem:<i>, option:<label>) in
+  fig_manifest questions[str(qnum)].semantic_objects:
+  ```python
+  import paper_pipeline as pp, corpus_io as cio
+  obj = {'role': 'problem',                  # 'problem' | 'problem:<i>' | 'option:<label>'
+         'kind': 'STRUCTURE',                # pp.SEMANTIC_KINDS — STRUCTURE · REACTION ·
+                                             # NEWMAN · FISCHER · MO_DIAGRAM · ORBITAL_BOXES ·
+                                             # COORDINATION · PLOT · TABLE · GEOMETRY · GENERIC
+         'name': 'salicylic acid',           # human-readable identity
+         'canonical': 'OC(=O)c1ccccc1O',     # STRUCTURE/REACTION: SMILES (MANDATORY);
+                                             # other kinds: None
+         'descriptor': {'acidic_sites': 2}}  # typed facts the answer turns on
+  pp.validate_semantic_object(obj, ctx=f'Q{qnum}')          # raises on a malformed object
+  fm['questions'][str(qnum)].setdefault('semantic_objects', []).append(obj)
+  ```
+  STRUCTURE / REACTION FIGURES ARE RENDERED FROM THEIR CANONICAL FORM. The draw_fn
+  passed to figural_core.render_figure / render_option_set for such a role is
+  `cio.structure_draw_fn(obj['canonical'])` — rdkit rasterises the molecule inside
+  the axes, the frame and every v5.57 gate apply unchanged, and `draw.canonical`
+  is what gets registered. Hand-placed bonds (ring_pts / bond / substituent
+  helpers) for a STRUCTURE role are a G-FIGSEM HARD FAIL: that is exactly the
+  drawing whose carboxyl was read as a ketone because nothing recorded otherwise.
+  A SMILES rdkit rejects (valence / syntax) never renders — fix the molecule.
+  Other kinds register a descriptor the explaining step can compare (a NEWMAN's
+  front/back substituents and dihedral; an MO_DIAGRAM's occupancy by level; a
+  COORDINATION's ligand set and arrangement). GENERIC is the floor, never the
+  default for a kind the list names.
+  GATE G-FIGSEM (S12, batch + Final Assembly): every rendered figural Q carries
+  ≥1 validated semantic object per role; every STRUCTURE/REACTION role's canonical
+  canonicalises through cio.canonical_structure; its PNG was produced by
+  structure_draw_fn (fig spec engine tag). EC-V18: exams whose figures are not typed
+  objects register GENERIC with a descriptor — nothing halts for lack of chemistry.
 
 ## S7-24 — QA mandatory-topic tracking (v4.9 — exam-agnostic; names removed)
 
@@ -6679,7 +6745,11 @@
   # Per-Q concept_map the sidecar accumulated (S7-NEW-A) — fa.commit_registry uses this to
   # build question_index and to run the v5.48.0 FK check (COPY-BY-REFERENCE against the
   # blueprint's own subtopic_id strings).
-  _cm = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json')).get('concept_map', {})
+  _akd = json.load(open(f'/home/claude/{EXAM}_M{N}_answer_key.json'))
+  _cm = _akd.get('concept_map', {})
+  # v5.59 — the WHOLE sidecar goes to commit_registry so it can write
+  # registry.key_commitments[paper_id] (salted hashes; the plaintext `answers` never
+  # enters the registry — fa.commit_registry's own self-test asserts that).
 
   # DI manifest (v5.42, GAP-2026-08-06-DI) — absent-safe: no di_present ⇒ no key ⇒ A-AXIS1
   # reports DI unestablished, as today.
@@ -6719,7 +6789,8 @@
       passage_present=passage_present, di_present=di_present, figural_present=figural_present,
       concept_map=_cm, passage_linked_qs=passage_linked_qs, cloze_linked_qs=cloze_linked_qs,
       di_manifest=_di_manifest, fig_manifest=_fig_manifest, figure_specs=_figure_specs,
-      axis1_snapshots=_ax1, axis3_snapshots=_ax3)
+      axis1_snapshots=_ax1, axis3_snapshots=_ax3,
+      answer_key=_akd)                      # v5.59 — key commitments (S13-4 / Explain §7-8)
   if not _commit['ok']:
       raise SystemExit(_commit['fails'][0])
   registry = _commit['registry']
@@ -6766,7 +6837,8 @@
   except Exception:
       _km, _msq_meta = {}, {}
 
-  _rc = fa.regcheck(registry, bp, N=N, concept_map=_km, msq_meta=_msq_meta)
+  _rc = fa.regcheck(registry, bp, N=N, concept_map=_km, msq_meta=_msq_meta,
+                    paper_id=paper_id, require_key_commitments=True)   # v5.59 G-KEYCOMMIT
   if not _rc['ok']:
       raise SystemExit(_rc['fails'][0])
   registry = _rc['registry']
@@ -7133,6 +7205,13 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   options_by_q (v4.7): { "N": { "q": expected_option_count } } — per-mock, per-question
   expected option count. 0 marks a NAT question (no options). Written by S13-REGCHECK;
   consumed by Step 9 (Explain) to resolve each question's TYPE (mcq/msq/nat).
+  key_commitments (v5.59): { "<paper_id>": { schema: 1, alg: "sha256",
+  entries: { "q": { salt, h } } } } — h = sha256(paper_id|q|salt|canonical_answer).
+  Written by S13-4 (fa.commit_registry answer_key=…); consumed by Step 9 §7-8, which
+  hashes its OWN derived answers and compares. NEVER plaintext. Gate: G-KEYCOMMIT.
+  figural_manifests[].semantic_objects (v5.59): { "q": [ {role, kind, name, canonical,
+  descriptor} ] } — what each generated figure depicts (S7-NEW-B2); consumed by Step 9
+  §13-2b. Both ADDITIVE; older registries read unchanged (EC-V18).
   section_names (v4.8): list of declared section names for this exam, from blueprint
   sections[].section_name. Written by S13-REGCHECK; consumed by the embedded G-SECTIONHDR
   gate and audit.py A-SECHDR to flag stray section-name headers in the paper body.
@@ -7721,7 +7800,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.58
+# END OF Framework_MockTestCreate v5.59
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

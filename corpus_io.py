@@ -1,6 +1,13 @@
 """
-corpus_io.py v1.11 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.12 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
+
+v1.12 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE. Adds canonical_structure()
+    (rdkit canonical isomeric SMILES + valence sanitisation; (None, reason) never raise)
+    and structure_draw_fn() (a figural_core draw_fn that renders a STRUCTURE figure FROM
+    its SMILES, so the image and its registered semantic object are one artefact —
+    MockTestCreate v5.59 S7-NEW-B2). Lives here because paper_pipeline is thin-core
+    (CHECK AB) and may not import rdkit even lazily.
 
 v1.11 — 2026-07-29 — CLUSTER I RECORDED + ITS MISSING FIXTURES (debt closure).
 
@@ -4136,6 +4143,60 @@ def adjacent_table_pairs(doc):
     return pairs
 
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHEMICAL STRUCTURE IDENTITY + RENDERING (v1.12, GAP-2026-08-21-EXPLANATION-PROVENANCE)
+# Create-route home of the rdkit-backed helpers. paper_pipeline (thin core) carries
+# the pure semantic-object schema and INJECTS canonical_structure here; explain_engine
+# carries a byte-identical canonical_structure for the Explain route. CROSS-FILE SYNC
+# RULE: `canonical_structure` in corpus_io.py and explain_engine.py must stay identical.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def canonical_structure(smiles):
+    """Canonical isomeric SMILES via rdkit, with valence sanitisation. Returns
+    (canonical|None, reason); reason == 'ok' | 'rdkit_unavailable' | a parse
+    error. NEVER raises — the caller decides what an unavailable rdkit means."""
+    try:
+        from rdkit import Chem
+        from rdkit import RDLogger
+        RDLogger.DisableLog('rdApp.*')
+    except Exception:
+        return None, 'rdkit_unavailable'
+    try:
+        mol = Chem.MolFromSmiles(str(smiles), sanitize=True)
+    except Exception as e:
+        return None, f'parse_error: {e}'
+    if mol is None:
+        return None, 'parse_error: rdkit rejected the SMILES (valence / syntax)'
+    return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True), 'ok'
+
+
+def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0)):
+    """A figural_core draw_fn (ax, series, palette) that rasterises `smiles` with
+    rdkit into the axes. The image IS the semantic object: what is registered is
+    what was drawn (MockTestCreate v5.59 S7-NEW-B2). Raises ValueError if rdkit
+    rejects the SMILES or is unavailable — a STRUCTURE figure is never hand-drawn."""
+    canon, reason = canonical_structure(smiles)
+    if canon is None:
+        raise ValueError(f'structure_draw_fn: cannot render {smiles!r}: {reason}')
+    from rdkit import Chem
+    from rdkit.Chem.Draw import rdMolDraw2D
+    import numpy as _np
+    from PIL import Image as _Image
+    mol = Chem.MolFromSmiles(smiles)
+    d = rdMolDraw2D.MolDraw2DCairo(int(px[0]), int(px[1]))
+    d.drawOptions().clearBackground = False
+    rdMolDraw2D.PrepareAndDrawMolecule(d, mol)
+    d.FinishDrawing()
+    arr = _np.asarray(_Image.open(io.BytesIO(d.GetDrawingText())).convert('RGBA'))
+
+    def draw(ax, series=None, palette=None):
+        ax.imshow(arr, extent=extent)
+        ax.set_xlim(extent[0], extent[1]); ax.set_ylim(extent[2], extent[3])
+        ax.axis('off')
+    draw.canonical = canon
+    return draw
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # SELF-TEST
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -4954,6 +5015,24 @@ def self_test():
                                 'nextPageToken': 'P2'},
                                {'files': [_rec(i, 1900 + i) for i in range(101, 123)]}],
                               _lpath, 'ROOT', 122)['count'] == 122)
+
+    # ── v1.12 chemical identity + SMILES renderer ─────────────────────────
+    _c1, _r1 = canonical_structure('OC(=O)c1ccccc1O')
+    if _r1 == 'ok':
+        check('chem_canonical_equivalent', _c1 == canonical_structure('Oc1ccccc1C(O)=O')[0])
+        check('chem_canonical_distinct', _c1 != canonical_structure('O=C(C)c1ccccc1O')[0])
+        check('chem_valence_reject', canonical_structure('C(C)(C)(C)(C)C')[0] is None)
+        try:
+            structure_draw_fn('C(C)(C)(C)(C)C'); check('chem_drawfn_rejects_bad', False)
+        except ValueError:
+            check('chem_drawfn_rejects_bad', True)
+        try:
+            _df = structure_draw_fn('OC(=O)c1ccccc1O')
+            check('chem_drawfn_canonical', _df.canonical == _c1 and callable(_df))
+        except Exception as _e:
+            check('chem_drawfn_canonical', 'No module' in str(_e))
+    else:
+        check('chem_rdkit_absent_is_soft', _c1 is None and _r1 == 'rdkit_unavailable')
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

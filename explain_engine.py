@@ -27,6 +27,63 @@
 # This file is embedded verbatim in Appendix A of Framework_MockTestExplain.md.
 # It is the canonical copy; never patch it by hand — regenerate from the spec.
 #
+# v2.8 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
+#   MockTestExplain v1.37.0 / PYQExplain v2.15 / MockTestCreate v5.59 /
+#   paper_pipeline v5.39 / final_assembly v5.55). A delivered 60-question paper
+#   passed every v2.7 gate and still (1) PUBLISHED A WRONG KEY on a figural
+#   item — the structure was misread, both derive-twice routes shared the
+#   misread, and the step that CREATED the question (which held the opposite
+#   key) was never consulted; (2) carried 24 hedged WHY WRONG / COMMON
+#   PITFALLS lines on 15 questions ("or otherwise …", "perhaps by …", "or a
+#   similar …") of which at least nine asserted arithmetic that is FALSE —
+#   §15-2's "a real path always exists" forced a path to be invented where
+#   none existed; (3) reported 0 NARROWED transfer claims across 60 AXIOMs
+#   while the loaded subject library already named the families that were
+#   overgeneralised — the library was loaded and never consulted, because the
+#   lookup was by discipline; (4) rendered every chemical formula in prose as
+#   ASCII ("[V(CO)6]-", "sp3d", "pi*") — zero sub/superscript runs in 71
+#   pages — because nothing gated formula typography. What the engine can
+#   prove is now gated here:
+#   (a) ERROR PROVENANCE (§15-2 rewritten). Every WHY WRONG option and every
+#       COMMON PITFALL value carries an error_provenance record: mode
+#       VERIFIED_ERROR_PATH (the wrong operation is RECOMPUTED by the engine
+#       from an arithmetic expression and must reproduce the target at the
+#       target's own precision) or DIRECT_CONTRADICTION (no path is claimed;
+#       the line states why the option contradicts the correct relation). A
+#       claimed path that does not reproduce its target raises
+#       DST_UNVERIFIED_NUMERICAL_ORIGIN; a missing record raises
+#       DST_NO_PROVENANCE. HEDGED provenance language is banned in those two
+#       sections (DST_HEDGED_PROVENANCE) — measured on the reference paper:
+#       24 hits, 0 false positives. No pitfall quota: >=1 stays, a second is
+#       never required.
+#   (b) transfer_record is MANDATORY for an authored block (a read-back
+#       block, _preserved, is exempt as it always was). Each entry may name
+#       neighbour_source CURATED:<rule-code> | GENERATED. EngineConfig carries
+#       learnings_triggers (built from the loaded learnings' **Triggers:**
+#       field by triggers_from_learnings); when a trigger fires on an AXIOM /
+#       SPEED HACK sentence and no entry for that section cites that rule,
+#       construction raises GEN_CANONICAL_EXCEPTION_MISSED. A GENERATED
+#       neighbour is legal only where no trigger fires. transfer_tripwire()
+#       reports a run whose AXIOM claims were all SAFE (the self-attestation
+#       shape) so the spec can demand the recorded second pass.
+#   (c) FORMULA TYPOGRAPHY. normalise_formula_text() rewrites ASCII chemical
+#       / orbital notation to Unicode sub- and superscripts at construction
+#       (⟦MATH:⟧ regions and ⟦M:⟧ tokens are never touched; single
+#       letter+digit locants such as C2, C3 are deliberately left alone); the
+#       residual gate raises FMT_UNFORMATTED_FORMULA on what the normaliser
+#       could not safely rewrite. Per-exam switch: EngineConfig(
+#       formula_typography=False).
+#   (d) reconcile_key_commitments(): Step 7 (MockTestCreate v5.59) commits a
+#       salted hash of every canonical answer into registry.key_commitments;
+#       Step 9 recomputes from its OWN derived answers and compares. Step 9
+#       never sees a plaintext key; a mismatch is a KEY_CONFLICT that the spec
+#       resolves IN-RUN (§17 v1.37.0), never a halt.
+#   (e) scan_risk_markers() / --scan-risk: marks an existing Explanation docx
+#       by provenance-hedge, absolute-term and unformatted-formula markers so
+#       earlier papers can be queued for regeneration (never regex-patched).
+#   Switches: EngineConfig(provenance_gates=False) is for LEGACY fixtures and
+#   read-back only; a production EngineConfig never sets it. NO existing gate
+#   is weakened; every new gate ships with fixtures below.
 # v2.7 — 2026-08-20 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS (paired with
 #   MockTestExplain v1.36.0 / PYQExplain v2.14). A delivered 60-question paper
 #   was answer-correct on every item and still carried ~17 sentences a learner
@@ -80,6 +137,7 @@ def _int_to_roman(n):
     return out
 
 class EngineConfig:
+    DEFAULT_PROVENANCE_GATES = True   # v2.8 — flipped ONLY inside self_test for legacy fixtures
     """Runtime exam parameters. NOTHING here is an exam fact baked into code —
     every value is passed in by the spec from blueprint.json / section_rules.md.
     The constructor defaults are STRUCTURAL fallbacks (English labels, 4 numeric
@@ -95,7 +153,19 @@ class EngineConfig:
                  options_by_q=None,
                  banned_blocks=None, banned_templates=None,
                  banned_fakecites=None, metacommentary_re=None,
-                 absolute_terms_re=None):
+                 absolute_terms_re=None,
+                 provenance_gates=None, learnings_triggers=None,
+                 formula_typography=True):
+        # v2.8 — provenance_gates: the authoring-time mandatory gates (error
+        # provenance, transfer_record, formula residual). None -> the module
+        # default (True). Only legacy self-test fixtures and read-back paths
+        # turn it off; a production config never does.
+        self.provenance_gates = (EngineConfig.DEFAULT_PROVENANCE_GATES
+                                 if provenance_gates is None else bool(provenance_gates))
+        # v2.8 — [(rule_code, compiled_regex), ...] from triggers_from_learnings().
+        self.learnings_triggers = list(learnings_triggers or [])
+        # v2.8 — formula typography normaliser + residual gate (per-exam switch).
+        self.formula_typography = bool(formula_typography)
         self.q_re = re.compile(q_pattern)            # e.g. r'^Q\.?\s*(\d+)' or r'^Q(\d+)\.'
         self.opt_re = re.compile(opt_pattern)        # e.g. r'^([1-9])[.\)]' or r'^([A-D])[.\)]'
         self._uniform = int(options_count) if options_count is not None else None
@@ -253,6 +323,378 @@ TRANSFER_EPISTEMIC_TYPES = ('SCIENTIFIC_GENERAL_RULE', 'MODEL_DEPENDENT_RULE',
 TRANSFER_OUTCOMES = ('SAFE', 'NARROWED', 'MOVED_TO_DEDUCTION', 'OMITTED')
 TRANSFER_SECTIONS = ('AXIOM', 'SPEED_HACK', 'WHY_WRONG', 'COMMON_PITFALLS', 'DEDUCTION')
 
+# v2.8 — neighbour provenance for a §7-7 claim.
+TRANSFER_NEIGHBOUR_SOURCE_RE = re.compile(r'^(?:GENERATED|CURATED:[A-Za-z0-9][A-Za-z0-9_.-]*)$')
+
+# v2.8 (a) — HEDGED PROVENANCE. A WHY WRONG / COMMON PITFALLS line either
+# states ONE verified wrong path or states the contradiction; it never offers
+# a menu of guesses. These phrases are the fingerprint of an invented path.
+# Measured on the reference paper: 24 hits on 15 questions, 0 false positives.
+_HEDGE_RE = re.compile(
+    r'\b(?:or otherwise|otherwise mis\w*|or a similar|perhaps|some other|something|'
+    r'or mistakenly|mishandl\w*|miscombination|or by some|by an incomplete|'
+    r'in some way|one way or another|or the like)\b|-style\b', re.I)
+
+def find_hedge(text):
+    """First hedged-provenance phrase in a student-facing sentence, or None."""
+    s = _OPAQUE_MATH_RE.sub('\u2202M\u2202', str(text))
+    s = T3_REGION_RE.sub('\u2202M\u2202', s)
+    m = _HEDGE_RE.search(s)
+    return m.group(0) if m else None
+
+PROVENANCE_MODES = ('VERIFIED_ERROR_PATH', 'DIRECT_CONTRADICTION')
+
+_SAFE_EVAL_NAMES = None
+def _safe_eval(expr):
+    """Evaluate a pure arithmetic expression (numbers, + - * / ** %, parentheses,
+    math.* functions and constants). Anything else raises ValueError."""
+    global _SAFE_EVAL_NAMES
+    import math, ast
+    if _SAFE_EVAL_NAMES is None:
+        _SAFE_EVAL_NAMES = {k: getattr(math, k) for k in dir(math) if not k.startswith('_')}
+        _SAFE_EVAL_NAMES.update({'abs': abs, 'round': round, 'min': min, 'max': max})
+    s = str(expr).strip().replace('^', '**').replace('\u00d7', '*').replace('\u2212', '-')
+    try:
+        tree = ast.parse(s, mode='eval')
+    except SyntaxError as e:
+        raise ValueError(f'recompute expression does not parse: {s!r} ({e})')
+    ok = (ast.Expression, ast.BinOp, ast.UnaryOp, ast.Constant, ast.Call,
+          ast.Name, ast.Load, ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow, ast.Mod,
+          ast.USub, ast.UAdd, ast.FloorDiv, ast.Tuple)
+    for node in ast.walk(tree):
+        if not isinstance(node, ok):
+            raise ValueError(f'recompute expression uses a disallowed construct '
+                             f'{type(node).__name__}: {s!r}')
+        if isinstance(node, ast.Name) and node.id not in _SAFE_EVAL_NAMES:
+            raise ValueError(f'recompute expression names an unknown symbol {node.id!r}: {s!r}')
+        if isinstance(node, ast.Call) and not (isinstance(node.func, ast.Name)
+                                               and node.func.id in _SAFE_EVAL_NAMES):
+            raise ValueError(f'recompute expression calls a disallowed function: {s!r}')
+    try:
+        return float(eval(compile(tree, '<recompute>', 'eval'), {'__builtins__': {}},
+                          dict(_SAFE_EVAL_NAMES)))
+    except Exception as e:
+        raise ValueError(f'recompute expression failed to evaluate: {s!r} ({e})')
+
+_NUM_RE = re.compile(r'[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?')
+def _parse_target_number(target):
+    """The numeric value of a target and its displayed decimal precision, or
+    (None, None) for a non-numeric target."""
+    s = str(target).strip().replace('\u2212', '-').replace(',', '')
+    m = _NUM_RE.fullmatch(s)
+    if not m:
+        return None, None
+    prec = len(s.split('.')[1]) if '.' in s and 'e' not in s.lower() else 0
+    return float(s), prec
+
+def numbers_match(recomputed, target):
+    """The reproduce test (§15-2 v1.37.0): equal after rounding to the target's
+    own displayed precision, or within 0.5 percent when the target is an
+    integer-looking value that the question itself rounded."""
+    tv, prec = _parse_target_number(target)
+    if tv is None:
+        return False
+    r = float(recomputed)
+    if round(r, prec) == round(tv, prec):
+        return True
+    return tv != 0 and abs(r - tv) / abs(tv) <= 0.005
+
+def validate_error_provenance(record, keys, section, ctx=''):
+    """Shape + reproduce-validate the v2.8 error_provenance mapping for one
+    block. `keys` are the WHY WRONG option indices (mcq/msq) or the COMMON
+    PITFALLS value strings (nat). Raises ValueError on breach."""
+    if not isinstance(record, dict):
+        raise ValueError(f'{ctx}: error_provenance must be a dict keyed by wrong option / value')
+    want = {str(k) for k in keys}
+    have = {str(k) for k in record}
+    if have != want:
+        raise ValueError(f'{ctx}: DST_NO_PROVENANCE — error_provenance keys {sorted(have)} '
+                         f'!= {section} keys {sorted(want)} (one record per wrong '
+                         f'option / value, no more, no fewer)')
+    for k in keys:
+        e = record.get(k, record.get(str(k)))
+        if not isinstance(e, dict):
+            raise ValueError(f'{ctx}: error_provenance[{k!r}] is not a dict')
+        mode = e.get('mode')
+        if mode not in PROVENANCE_MODES:
+            raise ValueError(f'{ctx}: error_provenance[{k!r}].mode {mode!r} not in {PROVENANCE_MODES}')
+        if mode == 'DIRECT_CONTRADICTION':
+            if not str(e.get('contradiction', '')).strip():
+                raise ValueError(f'{ctx}: error_provenance[{k!r}] DIRECT_CONTRADICTION needs '
+                                 f'a non-empty contradiction (why the option/value is '
+                                 f'inconsistent with the correct relation)')
+            for bad in ('recompute', 'wrong_operation'):
+                if str(e.get(bad, '')).strip():
+                    raise ValueError(f'{ctx}: error_provenance[{k!r}] DIRECT_CONTRADICTION '
+                                     f'must not claim a {bad} — if a path is claimed, '
+                                     f'verify it (VERIFIED_ERROR_PATH)')
+            continue
+        # VERIFIED_ERROR_PATH
+        if not str(e.get('wrong_operation', '')).strip():
+            raise ValueError(f'{ctx}: error_provenance[{k!r}] VERIFIED_ERROR_PATH needs '
+                             f'wrong_operation (the mistake, in words)')
+        target = e.get('target', k if section == 'COMMON PITFALLS' else None)
+        if target is None or str(target).strip() == '':
+            raise ValueError(f'{ctx}: error_provenance[{k!r}] VERIFIED_ERROR_PATH needs target '
+                             f'(the option value / content the path must reproduce)')
+        tv, _prec = _parse_target_number(target)
+        if section == 'COMMON PITFALLS':
+            kv, _ = _parse_target_number(k)
+            if kv is not None and tv is not None and not numbers_match(tv, k):
+                raise ValueError(f'{ctx}: error_provenance[{k!r}].target {target!r} is not '
+                                 f'the pitfall value {k!r}')
+        if tv is not None:
+            if not str(e.get('recompute', '')).strip():
+                raise ValueError(f'{ctx}: error_provenance[{k!r}] — numeric target {target!r} '
+                                 f'needs recompute (an arithmetic expression the engine '
+                                 f'evaluates); a path that is not recomputed is a guess')
+            val = _safe_eval(e['recompute'])
+            if not numbers_match(val, target):
+                raise ValueError(f'{ctx}: DST_UNVERIFIED_NUMERICAL_ORIGIN — '
+                                 f'error_provenance[{k!r}] recompute {e["recompute"]!r} = '
+                                 f'{val:.6g} does not reproduce target {target!r}; either '
+                                 f'find the operation that does, or write the line as a '
+                                 f'DIRECT_CONTRADICTION')
+            e['recomputed'] = val
+        else:
+            if not str(e.get('recomputed', '')).strip():
+                raise ValueError(f'{ctx}: error_provenance[{k!r}] — non-numeric target '
+                                 f'{str(target)[:40]!r} needs recomputed (the wrong content '
+                                 f'the stated operation produces, in words)')
+            if e.get('matches_target') is not True:
+                raise ValueError(f'{ctx}: error_provenance[{k!r}] — non-numeric path must '
+                                 f'declare matches_target=True after checking the produced '
+                                 f'content IS this option; otherwise use DIRECT_CONTRADICTION')
+    return True
+
+# v2.8 (c) — FORMULA TYPOGRAPHY. Deliberately conservative: rewrite only the
+# shapes that are unambiguous in any subject, leave locants (C2, C3, N1) and
+# bare single-letter+digit tokens alone, never touch ⟦MATH:⟧ / ⟦M:⟧.
+_SUB = str.maketrans('0123456789', '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089')
+_SUP = str.maketrans('0123456789+-', '\u2070\u00b9\u00b2\u00b3\u2074\u2075\u2076\u2077\u2078\u2079\u207a\u207b')
+_ELEMENTS = set("""H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu
+Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd
+Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th
+Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og""".split())
+# a chemical token: brackets/parens/elements/digits/charge, >=2 element symbols
+_CHEM_TOKEN_RE = re.compile(r'(?<![\w\u2080-\u2089\u2070-\u2079\-])'
+                            r'([\[(]?[A-Z][A-Za-z0-9()\[\]]*(?:[+\-\u2212])?)'
+                            r'(?![\w\u2080-\u2089])')
+_DIATOMIC = {'H2', 'O2', 'N2', 'F2', 'Cl2', 'Br2', 'I2', 'O3', 'P4', 'S8'}
+_ELEM_DIGIT_RE = re.compile(r'([A-Z][a-z]?|\))(\d+)')
+_CHARGE_TAIL_RE = re.compile(r'(\]|\)|[A-Za-z\u2080-\u2089])(\d*)([+\-\u2212])$')
+_ION_RE = re.compile(r'(?<![\w\u2080-\u2089])([A-Z][a-z]?)(\d?)([+\-\u2212])(?![\w\u2080-\u2089])')  # Fe3+, Cl-
+_HYBRID_RE = re.compile(r'\bsp(\d)(?:d(\d)?)?\b')
+_SUBSHELL_RE = re.compile(r'\b([1-7])([spdf])(\d{1,2})\b')
+_T2G_RE = re.compile(r'\bt2g(\d{0,2})(?=eg|\b)')
+_EG_RE = re.compile(r'(?<![A-Za-z])eg(\d{1,2})\b')
+_DCOUNT_RE = re.compile(r'\b([df])(\d{1,2})\b(?=\s+(?:ion|metal|configuration|system|complex|centre|center|case|species|electron|count|cation|state))')
+_GREEK = (('pi*', '\u03c0*'), ('sigma*', '\u03c3*'), ('pi-', '\u03c0-'), ('sigma-', '\u03c3-'))
+
+def _fmt_chem_token(tok):
+    syms = re.findall(r'[A-Z][a-z]?', tok)
+    if not syms or not all(s in _ELEMENTS for s in syms):
+        return tok
+    if not re.search(r'\d|[+\-\u2212]', tok):
+        return tok                      # no digit and no charge — nothing to format
+    multi = tok[0] in '[(' or len(syms) >= 2
+    if not multi and tok not in _DIATOMIC and not re.search(r'[+\-\u2212]$', tok):
+        return tok                      # single element + digit = a locant (C2) — leave
+    if tok in _DIATOMIC:
+        return tok[:-1] + tok[-1].translate(_SUB)
+    m = _CHARGE_TAIL_RE.search(tok)
+    charge, body = '', tok
+    if m:
+        # after ] or ) or in a single-element ion the digits are the CHARGE
+        # magnitude (]4-, Fe3+); after an element in a multi-element ion they
+        # are a SUBSCRIPT (NH4+ -> NH4 + charge '+').
+        if m.group(1) in '])' or not multi:
+            charge = (m.group(2) + m.group(3)).replace('\u2212', '-').translate(_SUP)
+            body = tok[:m.start(2)]
+        else:
+            charge = m.group(3).replace('\u2212', '-').translate(_SUP)
+            body = tok[:m.start(3)]
+    body = _ELEM_DIGIT_RE.sub(lambda mm: mm.group(1) + mm.group(2).translate(_SUB), body)
+    return body + charge
+
+def normalise_formula_text(text):
+    """Rewrite ASCII chemical / orbital notation to Unicode sub/superscripts.
+    Idempotent; ⟦MATH:⟧ regions and preserved tokens are masked; single-letter
+    locants (C2, C3) are left alone."""
+    s = str(text)
+    masks = []
+    def _mask(m):
+        masks.append(m.group(0)); return f'\u2202{len(masks)-1}\u2202'
+    s = T3_REGION_RE.sub(_mask, s)
+    s = _OPAQUE_MATH_RE.sub(_mask, s)
+    for a, b in _GREEK:
+        s = s.replace(a, b)
+    s = _CHEM_TOKEN_RE.sub(lambda m: _fmt_chem_token(m.group(1)), s)
+    s = _ION_RE.sub(lambda m: (m.group(1) + (m.group(2) + m.group(3)).replace('\u2212', '-')
+                               .translate(_SUP)) if m.group(1) in _ELEMENTS else m.group(0), s)
+    s = _HYBRID_RE.sub(lambda m: 'sp' + m.group(1).translate(_SUP)
+                       + (('d' + (m.group(2) or '').translate(_SUP)) if 'd' in m.group(0) else ''), s)
+    s = _SUBSHELL_RE.sub(lambda m: m.group(1) + m.group(2) + m.group(3).translate(_SUP), s)
+    s = _T2G_RE.sub(lambda m: 't\u2082g' + m.group(1).translate(_SUP), s)
+    s = _EG_RE.sub(lambda m: 'eg' + m.group(1).translate(_SUP), s)
+    s = _DCOUNT_RE.sub(lambda m: m.group(1) + m.group(2).translate(_SUP), s)
+    def _unmask(m):
+        return masks[int(m.group(1))]
+    return re.sub(r'\u2202(\d+)\u2202', _unmask, s)
+
+# residual shapes the normaliser refused to touch but which are unmistakably
+# formulae: a bracketed/parenthesised formula with a plain digit, an ion with
+# a plain charge, an sp-hybrid or orbital label with plain digits.
+_UNFORMATTED_RE = re.compile(
+    '\\[[A-Za-z()0-9\\-\u03b7\u00b9\u00b2\u00b3\u2070-\u2079\u2080-\u2089]*[A-Z][a-z]?\\)?\\d[A-Za-z()0-9\\-]*\\]|'
+    r'\b[A-Z][a-z]?\d[+-](?![\w])|\bsp\d|\bt2g\b|\b[1-7][spdf]\d\b')
+
+def find_unformatted_formula(text):
+    s = _OPAQUE_MATH_RE.sub('\u2202M\u2202', str(text))
+    s = T3_REGION_RE.sub('\u2202M\u2202', s)
+    m = _UNFORMATTED_RE.search(s)
+    return m.group(0) if m else None
+
+# v2.8 (b) — curated-neighbour triggers.
+def triggers_from_learnings(parsed):
+    """[(rule_code, compiled_regex)] from a parse_learnings() result (or a list
+    of them). A rule contributes when it carries a **Triggers:** field: comma-
+    separated terms; a term that starts with 're:' is a raw regex, anything
+    else is matched as a case-insensitive phrase."""
+    out = []
+    srcs = parsed if isinstance(parsed, (list, tuple)) else [parsed]
+    for p in srcs:
+        for r in (p or {}).get('rules', []):
+            t = r.get('triggers')
+            if not t or r.get('superseded'):
+                continue
+            pats = []
+            for term in re.split(r'\s*[,;\n]\s*', str(t).strip()):
+                if not term:
+                    continue
+                pats.append(term[3:] if term.startswith('re:') else
+                            r'(?<!\w)' + re.escape(term).replace(r'\ ', r'\s+') + r'(?!\w)')
+            if pats:
+                out.append((r['code'], re.compile('|'.join(pats), re.I)))
+    return out
+
+def find_trigger_hits(sentences, triggers):
+    """{rule_code: first_matching_phrase} over a list of sentences."""
+    hits = {}
+    for s in sentences or []:
+        s2 = T3_REGION_RE.sub(' ', _OPAQUE_MATH_RE.sub(' ', str(s)))
+        for code, rx in triggers or []:
+            if code in hits:
+                continue
+            m = rx.search(s2)
+            if m:
+                hits[code] = m.group(0)
+    return hits
+
+def transfer_tripwire(blocks, min_claims=20):
+    """§7-7 v1.37.0 tripwire: a run whose AXIOM claims are ALL SAFE is the
+    self-attestation shape. Returns (fired: bool, summary: dict)."""
+    n = safe = narrowed = moved = 0
+    for b in (blocks.values() if isinstance(blocks, dict) else blocks):
+        for e in (getattr(b, 'transfer_record', None) or []):
+            if e.get('section') != 'AXIOM':
+                continue
+            n += 1
+            oc = e.get('outcome')
+            safe += oc == 'SAFE'; narrowed += oc == 'NARROWED'; moved += oc == 'MOVED_TO_DEDUCTION'
+    fired = n >= min_claims and (narrowed + moved) == 0
+    return fired, {'axiom_claims': n, 'safe': safe, 'narrowed': narrowed,
+                   'moved_to_deduction': moved, 'fired': fired}
+
+def canonical_answer_of_block(blk):
+    """The canonical answer string Step 7 committed (paper_pipeline.canonical_answer):
+    mcq -> '2'; msq -> '2,3'; nat -> the grading string (lo-hi for a range)."""
+    if blk.qtype == 'nat':
+        if blk.ca_range is not None and blk.ca is None:
+            return format_nat_range(blk.ca_range[0], blk.ca_range[1])
+        return str(blk.ca).strip()
+    if blk.qtype == 'msq':
+        return ','.join(str(i) for i in sorted(blk.ca_set()))
+    return str(blk.ca)
+
+def canonical_structure(smiles):
+    """Canonical isomeric SMILES via rdkit, with valence sanitisation. Returns
+    (canonical|None, reason); reason == 'ok' | 'rdkit_unavailable' | a parse
+    error. NEVER raises — the caller decides what an unavailable rdkit means."""
+    try:
+        from rdkit import Chem
+        from rdkit import RDLogger
+        RDLogger.DisableLog('rdApp.*')
+    except Exception:
+        return None, 'rdkit_unavailable'
+    try:
+        mol = Chem.MolFromSmiles(str(smiles), sanitize=True)
+    except Exception as e:
+        return None, f'parse_error: {e}'
+    if mol is None:
+        return None, 'parse_error: rdkit rejected the SMILES (valence / syntax)'
+    return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True), 'ok'
+
+def semantic_objects_agree(mine, theirs):
+    """v2.8 — §13-2b: paper_pipeline.semantic_objects_agree with this module's
+    rdkit canonicaliser injected (the Explain-route home of the impure dep)."""
+    import paper_pipeline as pp
+    return pp.semantic_objects_agree(mine, theirs, canon=canonical_structure)
+
+def reconcile_key_commitments(blocks, registry, paper_id):
+    """v2.8 (d) — compare Step 9's derived answers against Step 7's committed
+    hashes (registry['key_commitments'][paper_id]). Returns a dict:
+    {'available': bool, 'matched': [q], 'mismatched': [q], 'uncommitted': [q],
+     'candidates': {q: <which candidate canonical the commitment matches, if any>}}.
+    Never raises on a mismatch — §17 v1.37.0 resolves in-run."""
+    import paper_pipeline as pp
+    com = (registry or {}).get('key_commitments', {}).get(paper_id)
+    out = {'available': bool(com), 'matched': [], 'mismatched': [], 'uncommitted': [],
+           'candidates': {}}
+    if not com:
+        return out
+    derived = {}
+    for q, b in (blocks.items() if isinstance(blocks, dict) else ((b.q, b) for b in blocks)):
+        if getattr(b, 'anomaly', None) is None:
+            derived[int(q)] = canonical_answer_of_block(b)
+    res = pp.verify_key_commitments(com, derived, paper_id)
+    out['matched'] = res['matched']; out['mismatched'] = res['mismatched']
+    out['uncommitted'] = res['missing']
+    for q in res['mismatched']:
+        b = blocks[q] if isinstance(blocks, dict) else next(x for x in blocks if x.q == q)
+        n = b.cfg.expected_options(q) or 0
+        cands = [str(i) for i in range(1, n + 1)] if b.qtype == 'mcq' else []
+        out['candidates'][q] = pp.resolve_commitment(com, q, cands, paper_id)
+    return out
+
+_RISK_ABS_RE = _ABSOLUTE_TERMS_RE
+def scan_risk_markers(path, cfg):
+    """v2.8 (e) — migration scan over an existing Explanation docx. Returns
+    {q: {'hedge': [...], 'absolute': [...], 'formula': [...]}} for questions
+    carrying any marker; a question with none is omitted."""
+    import copy
+    _cfg = copy.copy(cfg)
+    _cfg.formula_typography = False          # read the text AS SHIPPED, un-normalised
+    _cfg.provenance_gates = False
+    blocks = parse_solution_blocks(path, _cfg)
+    out = {}
+    for q, b in sorted(blocks.items()):
+        rec = {'hedge': [], 'absolute': [], 'formula': []}
+        ww = [s for v in b.why_wrong.values() for s in v] + \
+             [s for v in b.common_pitfalls.values() for s in v]
+        for s in ww:
+            h = find_hedge(s)
+            if h: rec['hedge'].append(h)
+        for s in b.axiom + (b.speed_hack or []) + ww:
+            a = find_absolute(s, getattr(cfg, 'absolute_terms_re', None))
+            if a: rec['absolute'].append(a)
+        for s in b.axiom + b.deduction + (b.speed_hack or []) + ww:
+            f = find_unformatted_formula(s)
+            if f: rec['formula'].append(f)
+        if any(rec.values()):
+            out[q] = rec
+    return out
+
 def validate_transfer_record(record, axiom_present=True, speed_hack_present=False,
                              ctx=''):
     """Shape-validate a §7-7 transfer record. Raises ValueError on breach.
@@ -277,6 +719,10 @@ def validate_transfer_record(record, axiom_present=True, speed_hack_present=Fals
             raise ValueError(f'{ctx}: transfer_record[{i}] epistemic_type {et!r} not in {TRANSFER_EPISTEMIC_TYPES}')
         if oc not in TRANSFER_OUTCOMES:
             raise ValueError(f'{ctx}: transfer_record[{i}] outcome {oc!r} not in {TRANSFER_OUTCOMES}')
+        _ns = c.get('neighbour_source')
+        if _ns is not None and not TRANSFER_NEIGHBOUR_SOURCE_RE.match(str(_ns)):
+            raise ValueError(f'{ctx}: transfer_record[{i}] neighbour_source {_ns!r} must be '
+                             f'GENERATED or CURATED:<rule-code>')
         if sec == 'AXIOM' and et == 'QUESTION_SPECIFIC_INFERENCE' and oc not in ('MOVED_TO_DEDUCTION', 'OMITTED'):
             raise ValueError(f'{ctx}: transfer_record[{i}] — a QUESTION_SPECIFIC_INFERENCE '
                              f'may not stand in AXIOM; move it to DEDUCTION (§8-2)')
@@ -817,16 +1263,25 @@ class ExplanationBlock:
                  why_wrong=None, anomaly=None, cfg=None,
                  qtype=None, ca_range=None, common_pitfalls=None, figures=None,
                  representation_verdict=None, absolutes_justified=None,
-                 transfer_record=None):
+                 transfer_record=None, error_provenance=None):
         self.q = int(q)
         self.cfg = cfg or EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
         self.ca = ca
         self.ca_range = ca_range
-        self.axiom = list(axiom or [])
-        self.deduction = list(deduction or [])
-        self.speed_hack = list(speed_hack) if speed_hack else None
-        self.why_wrong = dict(why_wrong or {})
-        self.common_pitfalls = dict(common_pitfalls or {})
+        # v2.8 (c) — formula typography is applied at construction to every
+        # student-facing sentence (idempotent; math regions masked), so an
+        # ASCII formula can never reach the renderer. absolutes_justified keys
+        # are normalised the same way so declarations still match.
+        _nf = (normalise_formula_text if (self.cfg.formula_typography) else (lambda s: s))
+        self.axiom = [_nf(s) for s in (axiom or [])]
+        self.deduction = [_nf(s) for s in (deduction or [])]
+        self.speed_hack = [_nf(s) for s in speed_hack] if speed_hack else None
+        self.why_wrong = {k: [_nf(s) for s in v] for k, v in dict(why_wrong or {}).items()}
+        self.common_pitfalls = {k: [_nf(s) for s in v]
+                                for k, v in dict(common_pitfalls or {}).items()}
+        absolutes_justified = {_nf(k): v for k, v in dict(absolutes_justified or {}).items()}
+        # v2.8 (a) — {wrong option index | pitfall value: provenance record}.
+        self.error_provenance = dict(error_provenance or {})
         # v2.3 — explanation-side figures (list[RepresentationFigure], may be []).
         self.figures = list(figures or [])
         # v2.6 D3 — the §6A router verdict for this question (optional; None for
@@ -969,11 +1424,66 @@ class ExplanationBlock:
                 raise ValueError(f'Q{self.q}: absolutes_justified declares a sentence '
                                  f'that is not in the block: {_decl[:70]!r}')
         # v2.7 (c) — §7-7 transfer record, shape-validated when supplied.
+        # v2.8 (b) — MANDATORY for an authored block under provenance_gates; a
+        # read-back block (_preserved) carries no metadata and is exempt.
+        _authoring = bool(getattr(cfg, 'provenance_gates', True)) and \
+            not getattr(self, '_preserved', False)
+        if self.transfer_record is None and _authoring:
+            raise ValueError(
+                f'Q{self.q}: transfer_record missing — the §7-7 transfer-safety '
+                f'protocol must RUN and be RECORDED for every authored block '
+                f'(one entry per AXIOM sentence, one per SPEED HACK); an '
+                f'explanation with no record has not been tested on its neighbour')
         if self.transfer_record is not None:
             validate_transfer_record(self.transfer_record,
                                      axiom_present=bool(self.axiom),
                                      speed_hack_present=bool(self.speed_hack),
                                      ctx=f'Q{self.q}')
+        if _authoring and getattr(cfg, 'learnings_triggers', None):
+            # v2.8 (b) — a curated-library family named in AXIOM / SPEED HACK
+            # text must be the neighbour actually tested; GENERATED is legal
+            # only where no trigger fires.
+            for _sec, _sents in (('AXIOM', self.axiom), ('SPEED_HACK', self.speed_hack or [])):
+                _hits = find_trigger_hits(_sents, cfg.learnings_triggers)
+                if not _hits:
+                    continue
+                _cited = {str(e.get('neighbour_source', ''))[len('CURATED:'):]
+                          for e in (self.transfer_record or [])
+                          if e.get('section') == _sec and
+                          str(e.get('neighbour_source', '')).startswith('CURATED:')}
+                _missed = [c for c in _hits if c not in _cited]
+                if _missed:
+                    raise ValueError(
+                        f'Q{self.q}: GEN_CANONICAL_EXCEPTION_MISSED — {_sec} text matches the '
+                        f'curated library family {_missed[0]} (trigger {_hits[_missed[0]]!r}) '
+                        f'but no transfer_record entry for {_sec} cites '
+                        f'neighbour_source CURATED:{_missed[0]}; test the claim on that '
+                        f'rule\'s canonical neighbours and record it (§7-7 step 3)')
+        # v2.8 (c) — residual formula gate (what the normaliser would not touch).
+        if _authoring and getattr(cfg, 'formula_typography', True):
+            for _sec, _sents in (('AXIOM', self.axiom), ('DEDUCTION', self.deduction),
+                                 ('SPEED HACK', self.speed_hack or []),
+                                 *[(f'WHY WRONG {k}', v) for k, v in self.why_wrong.items()],
+                                 *[(f'COMMON PITFALLS {k}', v) for k, v in self.common_pitfalls.items()]):
+                for _s in _sents:
+                    _bad = find_unformatted_formula(_s)
+                    if _bad:
+                        raise ValueError(
+                            f'Q{self.q}: FMT_UNFORMATTED_FORMULA — {_sec} carries an ASCII '
+                            f'formula {_bad!r} the typography normaliser could not rewrite '
+                            f'safely; write it with Unicode sub/superscripts or as a '
+                            f'⟦MATH:⟧ region: {_s[:70]!r}')
+        # v2.8 (a) — HEDGED PROVENANCE is banned where a wrong path is named.
+        for _k, _ss in (list(self.why_wrong.items()) + list(self.common_pitfalls.items())
+                        if _authoring else []):
+            for _s in _ss:
+                _h = find_hedge(_s)
+                if _h:
+                    raise ValueError(
+                        f'Q{self.q}: DST_HEDGED_PROVENANCE — a WHY WRONG / COMMON PITFALLS '
+                        f'line offers an unverified alternative path ({_h!r}); state ONE '
+                        f'verified path or the direct contradiction, never a menu of '
+                        f'guesses (§15-2): {_s[:70]!r}')
 
         last = self.deduction[-1]
         opt_label = cfg.labels["option"]
@@ -1030,6 +1540,10 @@ class ExplanationBlock:
                 lo, hi = self.ca_range
                 if not (lo <= hi):
                     raise ValueError(f'Q{self.q}: ca_range {self.ca_range} not lo<=hi')
+            if _authoring:
+                validate_error_provenance(self.error_provenance,
+                                          [str(k) for k in self.common_pitfalls],
+                                          'COMMON PITFALLS', ctx=f'Q{self.q}')
             return True
 
         # MCQ / MSQ share the option machinery.
@@ -1086,6 +1600,9 @@ class ExplanationBlock:
                 raise ValueError(f'Q{self.q}: WHY WRONG option {k} empty')
             for s in sents:
                 g(s)
+        if _authoring:
+            validate_error_provenance(self.error_provenance, list(self.why_wrong),
+                                      'WHY WRONG', ctx=f'Q{self.q}')
         return True
 
 # ───────────────────────── paragraph construction ──────────────────────────
@@ -1910,6 +2427,11 @@ def self_test():
             fn(); return False
         except ValueError:
             return True
+    # v2.8 — the pre-v2.8 fixtures below construct blocks without the now-
+    # mandatory provenance metadata; they test OTHER gates and stay byte-
+    # unchanged. The module default is flipped for their duration only and
+    # restored before the v2.8 fixtures, which run under the production default.
+    EngineConfig.DEFAULT_PROVENANCE_GATES = False
     cfg = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
 
     # 1 guard: banned glyph
@@ -2827,6 +3349,178 @@ def self_test():
     _okgc, _ = verify_fidelity(_gcout, _gcsrc, cfg)
     check('STRIP-MEDIA-GC-FIDELITY-KEPT', _okgc)
 
+    # ───────────── v2.8 — GAP-2026-08-21-EXPLANATION-PROVENANCE fixtures ─────────────
+    EngineConfig.DEFAULT_PROVENANCE_GATES = True
+    cfg8 = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4)
+    v8_tr = [{'section': 'AXIOM', 'claim': 'c', 'epistemic_type': 'SCIENTIFIC_GENERAL_RULE',
+            'scope': 's', 'neighbour_tested': 'n', 'outcome': 'SAFE',
+            'neighbour_source': 'GENERATED'}]
+    def v8_mcq(**kw):
+        base = dict(q=1, ca=2, cfg=cfg8,
+                    axiom=['A first-order half-life is ln 2 over k.'],
+                    deduction=['Substituting k gives 100 s.', 'So the answer is Option 2.'],
+                    why_wrong={1: ['Halving k doubles the half-life to 200 s, not 100 s.'],
+                               3: ['Reading 693 as the half-life reports the digits of ln 2 scaled, not 100 s.'],
+                               4: ['A value of 50 s would need a rate constant twice the stated one.']},
+                    transfer_record=v8_tr,
+                    error_provenance={
+                        1: {'mode': 'VERIFIED_ERROR_PATH', 'wrong_operation': 'used k/2',
+                            'recompute': '0.693/(6.93e-3/2)', 'target': '200'},
+                        3: {'mode': 'DIRECT_CONTRADICTION',
+                            'contradiction': '693 is neither ln2/k nor 1/k at this k'},
+                        4: {'mode': 'VERIFIED_ERROR_PATH', 'wrong_operation': 'used 2k',
+                            'recompute': '0.693/(2*6.93e-3)', 'target': '50'}})
+        base.update(kw); return ExplanationBlock(**base)
+    # 1 a fully-provenanced block validates
+    try: check('V28-PROV-OK', v8_mcq().validate())
+    except ValueError as e: check('V28-PROV-OK', False); print('   V28-PROV-OK:', e)
+    # 2 a claimed path that does not reproduce its target raises (the Q17/Q23/Q52 shape)
+    check('V28-PROV-FALSE-PATH', _raises(lambda: v8_mcq(error_provenance={
+        1: {'mode': 'VERIFIED_ERROR_PATH', 'wrong_operation': 'added without halving',
+            'recompute': '2.2+9.4', 'target': '7.2'},
+        3: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'},
+        4: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'}}).validate()))
+    # 3 missing record raises
+    check('V28-PROV-MISSING', _raises(lambda: v8_mcq(error_provenance={}).validate()))
+    # 4 a record for an option that is not wrong raises
+    check('V28-PROV-EXTRAKEY', _raises(lambda: v8_mcq(error_provenance={
+        1: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'},
+        2: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'},
+        3: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'},
+        4: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'}}).validate()))
+    # 5 DIRECT_CONTRADICTION that smuggles a recompute raises
+    check('V28-PROV-DIRECT-NOPATH', _raises(lambda: v8_mcq(error_provenance={
+        1: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x', 'recompute': '1+1'},
+        3: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'},
+        4: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'}}).validate()))
+    # 6 recompute with a disallowed construct is refused (no code execution)
+    check('V28-PROV-SAFEEVAL', _raises(lambda: _safe_eval('__import__("os").system("x")')))
+    check('V28-PROV-SAFEEVAL2', abs(_safe_eval('sqrt(3/2)*395') - 483.77) < 0.01)
+    # 7 precision: target 484 accepts 483.77 (integer-rounded target)
+    check('V28-NUMMATCH', numbers_match(483.77, '484') and not numbers_match(558, '484')
+          and numbers_match(3.085, '3.09') and not numbers_match(11.6, '7.2'))
+    # 8 hedged provenance language raises (24 hits on the reference paper)
+    for v8_ph in ('or otherwise mishandling the power of ten', 'perhaps by pairing early',
+                'or a similar miscombination', 'n(n+2)+something style over-counting'):
+        check(f'V28-HEDGE[{v8_ph[:12]}]', _raises(lambda v8_ph=v8_ph: v8_mcq(
+            why_wrong={1: [f'Using k/2 {v8_ph} gives 200 s, not 100 s.'],
+                       3: ['Reading 693 reports ln 2 scaled, not 100 s.'],
+                       4: ['A value of 50 s would need twice the stated k.']}).validate()))
+    check('V28-HEDGE-CLEAN', find_hedge('Using n = 1 instead of 2 doubles the term to 0.2368 V.') is None)
+    # 9 NAT pitfalls: key IS the target; one pitfall is enough; false arithmetic raises
+    def v8_nat(**kw):
+        cfg_n = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, options_by_q={5: 0})
+        base = dict(q=5, ca='484', cfg=cfg_n, qtype='nat',
+                    axiom=['The rms to most-probable speed ratio is a fixed number.'],
+                    deduction=['Multiplying 395 by 1.2247 gives 483.77.', 'Rounded, the answer is 484.'],
+                    common_pitfalls={'323': ['Dividing by 1.2247 instead of multiplying gives 323, not 484.']},
+                    transfer_record=v8_tr,
+                    error_provenance={'323': {'mode': 'VERIFIED_ERROR_PATH',
+                                              'wrong_operation': 'divided by sqrt(3/2)',
+                                              'recompute': '395/sqrt(3/2)'}})
+        base.update(kw); return ExplanationBlock(**base)
+    try: check('V28-NAT-PROV-OK', v8_nat().validate())
+    except ValueError as e: check('V28-NAT-PROV-OK', False); print('   V28-NAT-PROV-OK:', e)
+    check('V28-NAT-PROV-FALSE', _raises(lambda: v8_nat(
+        common_pitfalls={'558': ['Using the rms to average ratio near 1.414 gives 558, not 484.']},
+        error_provenance={'558': {'mode': 'VERIFIED_ERROR_PATH',
+                                  'wrong_operation': 'used rms/avg ratio',
+                                  'recompute': '395*sqrt(3*pi/8)'}}).validate()))
+    check('V28-NAT-PROV-TARGETMISMATCH', _raises(lambda: v8_nat(
+        error_provenance={'323': {'mode': 'VERIFIED_ERROR_PATH', 'wrong_operation': 'x',
+                                  'recompute': '395/sqrt(3/2)', 'target': '330'}}).validate()))
+    # 10 transfer_record mandatory for an authored block; read-back exempt
+    check('V28-TR-MANDATORY', _raises(lambda: v8_mcq(transfer_record=None).validate()))
+    v8_rb = v8_mcq(transfer_record=None, error_provenance=None); v8_rb._preserved = True
+    try: check('V28-TR-READBACK-EXEMPT', v8_rb.validate())
+    except ValueError as e: check('V28-TR-READBACK-EXEMPT', False); print('   readback:', e)
+    check('V28-TR-SOURCE-SHAPE', _raises(lambda: v8_mcq(transfer_record=[dict(v8_tr[0],
+        neighbour_source='FROM MEMORY')]).validate()))
+    # 11 curated triggers: a family named in the AXIOM must be the neighbour cited
+    v8_lrn = parse_learnings('# X\n\n## EX-CHEM-007 — Buffer\n\n**Defect code:** NEIGHBOUR-LIBRARY\n\n'
+                           '**Pattern:** p\n\n**Prevention rule:** r\n\n**Triggers:** buffer, '
+                           'Henderson, re:pH\\s+depends\\s+only\n\n**Verification:** v\n')
+    v8_trig = triggers_from_learnings(v8_lrn)
+    check('V28-TRIG-PARSE', v8_lrn['rules'][0]['triggers'].startswith('buffer') and len(v8_trig) == 1)
+    cfg_t = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, learnings_triggers=v8_trig)
+    v8_ax_b = ['A buffer resists pH change because the ratio sets the pH.']
+    check('V28-TRIG-MISSED', _raises(lambda: v8_mcq(cfg=cfg_t, axiom=v8_ax_b).validate()))
+    try:
+        check('V28-TRIG-CITED', v8_mcq(cfg=cfg_t, axiom=v8_ax_b, transfer_record=[dict(v8_tr[0],
+            neighbour_source='CURATED:EX-CHEM-007', outcome='NARROWED')]).validate())
+    except ValueError as e: check('V28-TRIG-CITED', False); print('   cited:', e)
+    try: check('V28-TRIG-NOHIT-GENERATED', v8_mcq(cfg=cfg_t).validate())
+    except ValueError as e: check('V28-TRIG-NOHIT-GENERATED', False); print('   nohit:', e)
+    # 12 tripwire
+    v8_fired, v8_sm = transfer_tripwire([v8_mcq(q=i) for i in range(1, 25)])
+    check('V28-TRIPWIRE-FIRES', v8_fired and v8_sm['axiom_claims'] == 24)
+    check('V28-TRIPWIRE-QUIET', not transfer_tripwire([v8_mcq(q=i) for i in range(1, 5)])[0])
+    # 13 formula typography: normaliser + residual gate + idempotence + locants untouched
+    v8_n = normalise_formula_text('Across [V(CO)6]-, Cr(CO)6 and [Mn(CO)6]+ the CO pi* orbitals; '
+                                'Fe3+ is d5 ion, sp3d2, t2g3eg2, NH4+, C2-C3 bond, H2O, Option 2.')
+    check('V28-FMT-NORM', '[V(CO)\u2086]\u207b' in v8_n and 'Fe\u00b3\u207a' in v8_n and 'sp\u00b3d\u00b2' in v8_n
+          and 't\u2082g\u00b3eg\u00b2' in v8_n and 'NH\u2084\u207a' in v8_n and 'C2-C3' in v8_n
+          and 'H\u2082O' in v8_n and 'Option 2' in v8_n and '\u03c0*' in v8_n and 'd\u2075 ion' in v8_n)
+    check('V28-FMT-IDEMPOTENT', normalise_formula_text(v8_n) == v8_n)
+    check('V28-FMT-MATHMASK', normalise_formula_text('see \u27e6MATH:H2O\u27e7 here') == 'see \u27e6MATH:H2O\u27e7 here')
+    v8_blk = v8_mcq(deduction=['The ion [Fe(CN)6]4- is low-spin.', 'So the answer is Option 2.'])
+    check('V28-FMT-APPLIED-AT-INIT', '[Fe(CN)\u2086]\u2074\u207b' in v8_blk.deduction[0])
+    check('V28-FMT-RESIDUAL', find_unformatted_formula('[(eta5-C5H5)Mn(CO)3] is 18e') is not None
+          and find_unformatted_formula('[Fe(CN)\u2086]\u2074\u207b') is None)
+    cfg_f = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4, formula_typography=False)
+    check('V28-FMT-SWITCH', '[V(CO)6]-' in v8_mcq(cfg=cfg_f, deduction=['Take [V(CO)6]-.',
+                                                                       'Answer Option 2.']).deduction[0])
+    # 14 key reconciliation round-trip against paper_pipeline
+    try:
+        import paper_pipeline as _pp
+        v8_com = _pp.seal_key_commitments('MOCK:M01', {1: '2', 5: '484', 7: '2,3'})
+        v8_b1 = v8_mcq(); v8_b5 = v8_nat()
+        v8_b7 = v8_mcq(q=7, ca={2, 3}, qtype='msq',
+                   deduction=['x.', 'So the set is Option 2, Option 3.'],
+                   why_wrong={1: ['a.'], 4: ['b.']},
+                   error_provenance={1: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'},
+                                     4: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'}})
+        v8_r = reconcile_key_commitments({1: v8_b1, 5: v8_b5, 7: v8_b7}, {'key_commitments': {'MOCK:M01': v8_com}}, 'MOCK:M01')
+        check('V28-KEY-MATCH', v8_r['available'] and v8_r['matched'] == [1, 5, 7] and not v8_r['mismatched'])
+        v8_b1b = v8_mcq(ca=3, deduction=['x.', 'So the answer is Option 3.'],
+                    why_wrong={1: ['a.'], 2: ['b.'], 4: ['c.']},
+                    error_provenance={k: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': 'x'} for k in (1, 2, 4)})
+        v8_r2 = reconcile_key_commitments({1: v8_b1b}, {'key_commitments': {'MOCK:M01': v8_com}}, 'MOCK:M01')
+        check('V28-KEY-MISMATCH', v8_r2['mismatched'] == [1] and v8_r2['candidates'][1] == '2')
+        check('V28-KEY-ABSENT', not reconcile_key_commitments({1: v8_b1}, {}, 'MOCK:M01')['available'])
+    except Exception as e:
+        check('V28-KEY-MATCH', False); print('   key reconcile:', repr(e))
+    # 14b semantic-object agreement through the injected canonicaliser
+    v8_so = {'role': 'problem', 'kind': 'STRUCTURE', 'name': 'salicylic acid',
+             'canonical': 'OC(=O)c1ccccc1O', 'descriptor': {}}
+    if canonical_structure('C')[1] == 'ok':
+        check('V28-SEM-AGREE', semantic_objects_agree(v8_so, dict(v8_so, canonical='Oc1ccccc1C(O)=O'))[0]
+              and not semantic_objects_agree(v8_so, dict(v8_so, canonical='O=C(C)c1ccccc1O'))[0]
+              and canonical_structure('C(C)(C)(C)(C)C')[0] is None)
+    else:
+        check('V28-SEM-AGREE', semantic_objects_agree(v8_so, dict(v8_so))[0])
+    # 15 scan-risk over a rendered doc finds the markers
+    try:
+        import tempfile, os
+        v8_d = tempfile.mkdtemp(); v8_s = os.path.join(v8_d, 's.docx'); v8_o = os.path.join(v8_d, 'o.docx')
+        v8_doc = Document(); v8_doc.add_paragraph('Q.1 stem')
+        for v8_i in range(1, 5): v8_doc.add_paragraph(f'{v8_i}. opt')
+        v8_doc.save(v8_s)
+        EngineConfig.DEFAULT_PROVENANCE_GATES = False
+        v8_legacy = ExplanationBlock(q=1, ca=2, cfg=EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4,
+                                                              formula_typography=False),
+            axiom=['Ions always pair in [Fe(CN)6]4- complexes.'],
+            deduction=['x.', 'So the answer is Option 2.'],
+            why_wrong={1: ['Perhaps by halving k this gives 200 s.'], 3: ['b.'], 4: ['c.']},
+            absolutes_justified={'Ions always pair in [Fe(CN)6]4- complexes.': 'fixture'})
+        build_interleaved_docx(v8_s, [v8_legacy], v8_o, v8_legacy.cfg)
+        EngineConfig.DEFAULT_PROVENANCE_GATES = True
+        v8_sc = scan_risk_markers(v8_o, EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', 4))
+        check('V28-SCANRISK', 1 in v8_sc and v8_sc[1]['hedge'] and v8_sc[1]['absolute'] and v8_sc[1]['formula'])
+    except Exception as e:
+        EngineConfig.DEFAULT_PROVENANCE_GATES = True
+        check('V28-SCANRISK', False); print('   scan-risk:', repr(e))
+
     passed = sum(1 for _, ok in results if ok)
     total = len(results)
     for name, ok in results:
@@ -3094,6 +3788,7 @@ def parse_learnings(path):
             'pattern': field('Pattern'),
             'prevention': field('Prevention rule') or field('Rule'),
             'verification': field('Verification'),
+            'triggers': field('Triggers'),          # v2.8 — curated-neighbour trigger terms
             'superseded': bool(field('Supersedes')),
         })
     by_defect = {}
@@ -3108,6 +3803,9 @@ def self_test_audit():
     the read-back block reproduces the source, across mcq/msq/nat, numeric/alpha/
     roman labels, OMML fractions. Run with --self-test-audit."""
     import tempfile, os
+    # v2.8 — reader round-trips carry no authoring metadata by design; the
+    # fixtures below are legacy-shaped and run with the authoring gates off.
+    EngineConfig.DEFAULT_PROVENANCE_GATES = False
     res = []
     def chk(name, cond): res.append((name, bool(cond)))
     def roundtrip(cfg, blocks, nq, tag):
@@ -3326,6 +4024,7 @@ def self_test_audit():
     passed = sum(1 for _, ok in res if ok); total = len(res)
     for nm, ok in res:
         if not ok: print(f'  AUDIT-FAIL: {nm}')
+    EngineConfig.DEFAULT_PROVENANCE_GATES = True
     print(f'AUDIT-SELF-TEST: {passed}/{total} PASS')
     return passed == total
 
@@ -3334,5 +4033,15 @@ if __name__ == '__main__':
         sys.exit(0 if self_test_audit() else 1)
     if '--self-test' in sys.argv:
         sys.exit(0 if self_test() else 1)
+    if len(sys.argv) >= 3 and sys.argv[1] == '--scan-risk':
+        # v2.8 (e): python3 explain_engine.py --scan-risk <Explanation.docx> [opt_count]
+        import json as _j
+        _n = int(sys.argv[3]) if len(sys.argv) > 3 else 4
+        _cfg = EngineConfig(r'^Q\.?\s*(\d+)', r'^([1-9])[.\)]', _n, provenance_gates=False)
+        _res = scan_risk_markers(sys.argv[2], _cfg)
+        print(_j.dumps({'questions_flagged': len(_res), 'detail': _res}, indent=1,
+                       ensure_ascii=False))
+        sys.exit(0)
     print('explain_engine.py — universal exam-agnostic. '
-          '--self-test (core) or --self-test-audit (Step-5 reader round-trip).')
+          '--self-test (core) or --self-test-audit (Step-5 reader round-trip); '
+          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')

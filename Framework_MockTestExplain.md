@@ -1,20 +1,18 @@
-# Framework_MockTestExplain v1.36.0
-# v1.36.0 — 2026-08-20 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS (paired with
-#   PYQExplain v2.14, engine v2.7). A DELIVERED 60-question paper passed every §18
-#   gate with every answer correct and still carried ~17 sentences TRUE FOR THE ITEM,
-#   FALSE FOR ITS NEAREST NEIGHBOUR ("electron-withdrawing → meta" vs halogens; "one
-#   carbon richer"; "stable carbonylate = 18e"; "always a meso form"; "cannot … at
-#   all"), plus "The seductive half is …" on 10/10 MSQ blocks — mandated by §15-3's
-#   own wording. Answer-level gates are blind to this. ROOT CAUSE as in v1.35.0:
-#   §8-0b / §14-3b / §8-2 ADVISED what only a gate enforces; §6A tested PRESENCE, not
-#   ALIGNMENT. FIXES (domain-neutral): NEW §7-7 TRANSFER-SAFETY PROTOCOL (scope →
-#   type → neighbour test → repair by MECHANISM → recorded transfer_record); §8-2
-#   epistemic type; §8-3 minimum components (subject data); §8-0b a GATE (kept
-#   absolutes declared; plain quantifiers NOT gated — 80% false positives measured);
-#   §14-1 three-part + §14-5 four fields; §15-3 MSQ rewritten, old wording WITHDRAWN,
-#   psychology phrases engine-banned; NEW §6A-1c ALIGNMENT, §6A-3b tripwire,
-#   CONFORMER (F3); §24 SUBJECT-level learnings file + §24-5 codes; §5/§18/§R3/§21
-#   hooks; engine fixes F2. SHARED_RULES 1.2→1.3. Student format LOCKED.
+# Framework_MockTestExplain v1.37.0
+# v1.37.0 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
+#   PYQExplain v2.15, engine v2.8, MockTestCreate v5.59, paper_pipeline v5.39,
+#   final_assembly v5.55). The first v1.36.0 paper passed every §18 gate and (1)
+#   PUBLISHED A WRONG KEY on a figural item (structure misread; Step 7, holding the
+#   opposite key, was by design never consulted); (2) carried 24 hedged WHY WRONG /
+#   PITFALL lines, nine with FALSE arithmetic — §15-2's "a real path always exists"
+#   forced invention; (3) 0 NARROWED over 60 AXIOMs while the loaded library named
+#   the overgeneralised families; (4) every prose formula ASCII. ROOT CAUSE: gates
+#   proved a protocol was DECLARED, not DONE. FIXES: §7-8 KEY RECONCILIATION (hash
+#   commitments, resolved IN-RUN); §13-2b SEMANTIC-OBJECT RECONCILIATION; §15-2
+#   REWRITTEN (two modes, engine RECOMPUTES, hedges banned, no quota); §7-7 step 3
+#   MECHANICAL (Triggers + tripwire); §8-0c TYPOGRAPHY; §6A-1b-ii; §17 REWRITTEN
+#   (never halt); RE-1/13/16 amended, RE-23/24 new; §18/§20/§21/§24 hooks.
+#   SHARED_RULES 1.3→1.4.
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockTestExplain.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.08.15.14, and again at 2026.08.19.1 (v1.25.0–v1.34.0 — the
@@ -39,7 +37,11 @@
                                             rc_manifests[] cross-checks + dedup context +
                                             options_by_q[str(N)] (v1.3: per-question expected
                                             option count, 0=NAT — the mandatory question-type
-                                            wiring; see P3)
+                                            wiring; see P3) + v1.37.0: key_commitments[paper_id]
+                                            (salted HASHES of Step 7's canonical answers — §7-8;
+                                            never a plaintext key) + figural_manifests[]
+                                            .semantic_objects (what each generated figure
+                                            DEPICTS, machine-readable — §13-2b)
 
   ALREADY IN PROJECT KNOWLEDGE (from the PYQ-phase steps; required):
     3. [ExamCode]_section_rules.md        — per-subtopic rules + CATEGORY-C exam params
@@ -50,7 +52,8 @@
 
   NOT DELIVERED (Step 9 must do without these — by design):
     ✗ any answer key. Step 7 holds a key internally and never delivers it.
-       Step 9 re-derives all answers independently (§7).
+       Step 9 re-derives all answers independently (§7), THEN reconciles its
+       derived answers against Step 7's hash commitments (§7-8, v1.37.0).
     ✗ internal Step-7 sidecars (answer_key.json, concept_map, audit ledger).
        The figural/RC maps Step 9 needs are in registry.json and re-extracted at P3.
 
@@ -198,6 +201,9 @@
           rule on content — RE-22 / §24 — but never to reduce coverage or skip §18.)
   RE-1  : NO INHERITED KEY. Step 7 delivers no key; derive every answer
           independently (§7). Step 9 is the first step to publish a learner key.
+          v1.37.0: blind derivation is then RECONCILED against Step 7's hash
+          commitments (§7-8) — two independent solvers that disagree are the
+          strongest signal the pipeline has, and v1.36.0 discarded it.
   RE-2  : NO CONTENT IN CHAT. = MANDATE 0. The Solutions docx is the only home.
   RE-3  : APPEND-ONLY. Never modify, re-type, re-encode or re-create any question
           region (stem / option / image / table / matrix / chart / OMML). Only append
@@ -227,10 +233,11 @@
   RE-12 : ONE DEFENSIBLE ANSWER ASSUMED. Step 7 built one defensible answer; expect
           exactly one defensible answer. A suspicion otherwise is most likely an
           incomplete solve — raise the bar before concluding a defect (§17).
-  RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES. Each wrong option carries a §9
-          diagnosis — recorded internally, rendered in natural language, never as the
-          raw snake_case token (engine v2.6 raises) — that ACTUALLY produces that
-          option's value/content; no template, ever (§9/§15).
+  RE-13 : WHY WRONG DIAGNOSES, NEVER DISMISSES — AND NEVER INVENTS (v1.37.0). Each
+          wrong option carries a §9 diagnosis (internal; rendered in natural language,
+          never the raw token) in ONE of two modes: a VERIFIED path the engine has
+          RECOMPUTED and that reproduces the option, or a DIRECT CONTRADICTION that
+          claims no path (§15-2). Hedged provenance is engine-banned. No guess, ever.
   RE-11b: FIGURAL FAMILY IS DECIDED, NOT ASSUMED (v1.29.0). Every figural question is
           classed TRANSFORMATION-PUZZLE or SCIENTIFIC-DIAGRAM before solving (§13-1), and
           read by that family's protocol (§13-4a / §13-4b). A scientific figure read as a
@@ -266,9 +273,11 @@
           reaches the same CA with materially less work; otherwise OMIT — never pad (§14).
   RE-15 : NO TEMPLATES / GLYPHS / FAKE-CITES / METACOMMENTARY / BANNED BLOCKS. Engine-
           enforced at write time; the writer must not even attempt them.
-  RE-16 : HALT-AND-ESCALATE, NEVER FIX. A genuine, reproduced defect HALTS the run and is
-          escalated to the author for a Step 7 re-run of that question; Step 9 never edits
-          question content and never publishes a guessed key (§17).
+  RE-16 : RESOLVE IN-RUN, NEVER FIX CONTENT, NEVER HALT THE PAPER (v1.37.0). A key
+          conflict or figure/object disagreement runs §17-3 INSIDE the session; the paper
+          always completes; no key ships that did not survive §17-3; only a PROVEN
+          defect (§17-4) is reported for targeted regeneration; the operator never
+          adjudicates.
   RE-17 : FIDELITY EVERY BATCH. The whole question region must be byte-identical to the
           Step-7 source, verified after every batch — not once at the end (§12, §18).
   RE-18 : WEB-VERIFY FACTS. Every current-affairs / general-knowledge fact and every factual
@@ -285,6 +294,11 @@
           correct set with WHY WRONG over the non-selected, nat binds a value (+ optional
           range) with COMMON PITFALLS in place of WHY WRONG. Never force one type's shape
           onto another. Descriptive/essay questions are out of scope and flagged (§22).
+  RE-23 : KEY RECONCILIATION (v1.37.0). Every derived answer is hashed and compared with
+          Step 7's commitment (§7-8) before its block ships; a mismatch enters §17-3; the
+          outcome is recorded per question (§R10).
+  RE-24 : FORMULA TYPOGRAPHY IS ENGINE-APPLIED (v1.37.0, §8-0c): notation in student prose
+          is normalised to Unicode sub/superscripts at construction; residue raises.
   RE-22 : LOAD & APPLY LEARNINGS. At P1, load the accumulated learnings —
           [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (v1.21.0: legacy/manually-authored — its
           Step-10 producer no longer exists; still READ when present),
@@ -402,7 +416,9 @@
       the SUBJECT-level [Subject]_EXPLAIN_LEARNINGS_v*.md (subject code from
       section_rules CATEGORY C `subject_code`, upper-cased) IF PRESENT — and index every
       AL/EX rule by defect_code (precedence exam > subject > spec). Record in the
-      dashboard whether the subject file was found: §7-7 neighbours come from it. These OVERRIDE this spec on conflict (§24). When a
+      dashboard whether the subject file was found: §7-7 neighbours come from it.
+      v1.37.0 — triggers = explain_engine.triggers_from_learnings([all parsed files]) →
+      EngineConfig(learnings_triggers=triggers) at P3 (§7-7 step 3, §24-1b). These OVERRIDE this spec on conflict (§24). When a
       learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10) to
       confirm the cross-step readers. Absent on mock 1 by design — proceed. Any load/self-test
       failure → HALT.
@@ -418,6 +434,8 @@
       Marking ranges             : [N] range(s) · marks=[list] · neg=[list]  (from marking_scheme)
       Question types present     : [mcq C · msq M · nat T]  (per blueprint/section_rules)
       Answer key                 : NONE by design — Step 9 derives all [Q_TOTAL]
+      Key commitments / semantic objects / triggers : [k entries] · [m Qs] · [t families]
+                                   (each OR absent — §7-8 / §13-2b / §7-7)
       Learnings loaded           : [k AL-rules · m EX-rules · v_j] OR [none — mock 1 by design]
       Paper (Mock N)             : [X bytes · Q_TOTAL questions · K images · T tables]
       Figural manifest / RC manifest : [found in registry] OR [absent — derive visually]
@@ -448,7 +466,9 @@
       an INT q; EngineConfig now normalises options_by_q keys to int on construction, so the
       map may be passed straight from registry.json with no key conversion (a str/int miss
       would otherwise silently mis-type every NAT question as mcq — the NAT-STRKEY self-test
-      locks this). The registry map is the
+      locks this). v1.37.0: the SAME EngineConfig carries learnings_triggers (P1) and
+      formula_typography (CATEGORY C, default true); provenance_gates is NEVER set — a
+      session passing provenance_gates=False is NON-CONFORMING. The registry map is the
       per-question AUTHORITY; the section_rules answer_type is the per-subtopic EXPLICIT hint
       the PYQ-phase config now specifies — they must agree (a NAT subtopic's questions are exactly the
       options_by_q==0 questions). If the registry lacks options_by_q (a pre-v4.7 paper),
@@ -877,6 +897,12 @@
   prose legitimately.
 
 
+## S6A-1b-ii — COUNT-OF-VISUAL-OBJECTS PRESUMPTION (v1.37.0)
+  When the ANSWER IS A COUNT OF VISUAL OBJECTS (resonance contributors, isomers, fac/mer,
+  bridging bonds, orbital occupancies, competing products, distinct sites) §6A-1b
+  applies AND the figure must SHOW THE ENUMERATED OBJECTS, not the starting structure
+  alone. PROSE stays legal with a recorded justification.
+
 ## S6A-1c — ALIGNMENT: THE REPRESENTATION MUST SHOW THE DECIDING RELATION (v1.36.0)
   §6A-1 tests DECISIVE and NOT REDUNDANT. Both can pass while the learner never
   SEES what the answer turned on: the product drawn, the selectivity-deciding
@@ -1275,9 +1301,12 @@
        EXAM_CONVENTION · QUESTION_SPECIFIC_INFERENCE · OPTION_SET_SHORTCUT.
     3. NAME THE NEAREST LEGITIMATE NEIGHBOUR — the closest member of the same
        apparent class, AT THE TARGET EXAM'S LEVEL, that a learner would meet next.
-       The curated neighbours for the subject come from the loaded learnings
-       (§24, the subject-level file); a neighbour the session generates itself is
-       admissible only when no curated one applies, and is recorded as such.
+       v1.37.0 — THE LOOKUP IS MECHANICAL. Each curated rule carries **Triggers:**
+       (§24-1b). A trigger firing on the claim's sentence makes that rule's canonical
+       counterexamples THE neighbour; the record cites neighbour_source
+       CURATED:<rule-code>, and the engine refuses an AXIOM / SPEED HACK that matches a
+       family it did not cite (GEN_CANONICAL_EXCEPTION_MISSED). GENERATED is admissible
+       ONLY where no trigger fires.
     4. TEST the claim on that neighbour. Still true → SAFE.
     5. FALSE on the neighbour → REPAIR BY RETURNING TO THE MECHANISM, never by
        hedging: name the actual effect, class or condition that makes the claim
@@ -1303,6 +1332,23 @@
   electrons" (stable 16e/17e), "identical halves always give a meso form".
   CROSS-STEP: §9's `overgeneralised_rule` names this failure in a DISTRACTOR;
   this rule governs the SOLVER'S OWN AXIOM (the §7-0a / `wrong_condition` pair).
+  TRIPWIRE (v1.37.0): explain_engine.transfer_tripwire fires when ≥20 AXIOM claims carry
+  0 NARROWED / MOVED_TO_DEDUCTION (the reference shape: 60 "SAFE on first try", seven
+  unsafe); it obliges a recorded SECOND PASS over every AXIOM before §18 (§R12).
+
+## S7-8 — KEY RECONCILIATION (every question, v1.37.0 — RE-23)
+  Two independent solvers disagreeing is the most valuable check this pipeline can
+  run; until v1.37.0 it never ran. MECHANISM (paper_pipeline v5.39): Step 7 writes
+  registry.key_commitments[paper_id].entries[q] = {salt, h = sha256(paper_id|q|salt|
+  canonical)}, canonical = '2' (mcq) · '2,3' (msq) · the NAT grading string. No
+  plaintext exists anywhere Step 9 reads.
+  THE PROTOCOL (per batch, after §7-1..§7-7, before §18): rec = explain_engine.
+  reconcile_key_commitments(blocks, registry, paper_id). MATCHED → key_status MATCH.
+  MISMATCHED → §17-3 for that question (rec.candidates[q] names the canonical the
+  commitment accepts; mcq probed over all labels, msq/nat over the resolver's own
+  alternatives). UNCOMMITTED (pre-v5.59 registry) → key_status UNAVAILABLE, proceed,
+  say so in the dashboard and §R10 — never refused. key_status per question ∈ MATCH ·
+  RESOLVED_SELF · RESOLVED_SOURCE · UNAVAILABLE · DEFECT; unset cannot ship (§18).
 
 # ════════════════════════════════════════════════════════════════════════
 # §8 — SECTION QUALITY STANDARDS (the highest-standard contract per section)
@@ -1369,6 +1415,14 @@
   quantifiers ("only two ions", "every formula unit", "exactly 208") are NOT
   gated: measured four-fifths false positives, and declaration spam is worse
   than no gate. Per-language pattern: EngineConfig(absolute_terms_re=...).
+
+## S8-0c — FORMULA TYPOGRAPHY (v1.37.0 — RE-24; engine-applied)
+  Reference paper: 71 pages, zero sub/superscript runs in explanations. Engine v2.8
+  normalises every student sentence at construction (normalise_formula_text: element
+  subscripts, ion charges, orbital / hybrid labels, π/σ; ⟦MATH:⟧ untouched; LOCANTS
+  such as C2–C3 left alone) and raises FMT_UNFORMATTED_FORMULA on the residue. Write
+  what it will not rewrite (η⁵-C₅H₅, ²³²Th) in Unicode or ⟦MATH:⟧. Per-exam switch:
+  section_rules CATEGORY C `formula_typography: false`.
 
 ## S8-1 — Correct Answer
   Role: the one line the student trusts absolutely; the most dangerous line in the
@@ -1761,6 +1815,21 @@
   before deriving. The binding matters: an unbound view can derive the right shape but
   key the wrong index.
 
+## S13-2b — SEMANTIC-OBJECT RECONCILIATION (v1.37.0 — BEFORE solving)
+  Never reason from pixels directly. For every viewed image FIRST transcribe what it
+  depicts in the machine-readable form of its kind (paper_pipeline.SEMANTIC_KINDS:
+  STRUCTURE as SMILES, REACTION as reaction SMILES, others as typed descriptors) with
+  parse_confidence HIGH / MEDIUM / LOW, persisted in progress state. THEN:
+    • registry.figural_manifests[].semantic_objects[q] present (Step 7 v5.59+) →
+      paper_pipeline.semantic_objects_agree(mine, theirs) per role. AGREE → solve
+      from the object. DISAGREE → re-view and re-transcribe ONCE with the registered
+      name known; still DISAGREE → §17-3. The registered object is a CROSS-CHECK as
+      the manifest always was; pixels still win when §17-3's proof says so.
+    • absent (older paper, PYQ) → the transcription stands alone; rdkit sanitisation
+      (paper_pipeline.canonical_structure) still runs on every STRUCTURE — a SMILES
+      rdkit rejects is a misread. LOW confidence on an answer-critical figure →
+      re-view; still LOW → DERIVATION-CONFIDENCE (§R5).
+
 ## S13-3 — Derive from the images, NOT the manifest
   figural_manifests[].answer_position records what Step 7 INTENDED to draw — a render
   bug is exactly what produces a wrong figure, so the manifest is a CROSS-CHECK, never a
@@ -1928,12 +1997,23 @@
   1. DIAGNOSE with exactly one §9 error type — recorded internally (§9) while the
      first line delivers that diagnosis in natural language: a diagnosis, not a
      dismissal, and never the raw token (engine v2.6 raises on one).
-  2. The named error must ACTUALLY produce that option/value (the reproduce check):
-     back-derive the distractor — "if a student did X they get exactly this option/value."
-     If no such mistake can be found, the question is not yet understood → go solve it; a
-     generic line is forbidden. (Distractors are not random — Step 7 built each from a
-     specific error path; for NAT, the common wrong values come from specific slips, so a
-     real path always exists.)
+  2. PROVENANCE BEFORE EXPLANATION (v1.37.0 — REWRITTEN; engine v2.8 gate). Two modes,
+     recorded per wrong option / value in ExplanationBlock(error_provenance=…):
+       MODE A — VERIFIED_ERROR_PATH: name the wrong operation AND give the engine an
+         arithmetic expression (`recompute`) with the `target`; the block is REFUSED
+         unless the result reproduces the target at its own precision (DST_UNVERIFIED_
+         NUMERICAL_ORIGIN). A non-numeric target records the wrong CONTENT produced and
+         `matches_target: true` after checking it IS this option. Only MODE A may say
+         "doing X gives Y".
+       MODE B — DIRECT_CONTRADICTION: no path claimed; the line states why the option /
+         value contradicts the correct relation ("uses n = 1, but two electrons are
+         transferred, so the correction is twice too large"). DEFAULT when no path
+         verifies.
+     THE PREVIOUS WORDING — "a real path always exists … go solve it" — IS WITHDRAWN:
+     obeyed literally it produced "2.2 + 9.4 without halving gives 7.2" (11.6), "693 is
+     1/k" (144), "rms/average near 1.414" (1.085) and 24 hedged lines ("or otherwise /
+     perhaps by / or a similar") — now engine-banned here (DST_HEDGED_PROVENANCE). When
+     a path does not verify, MODE B is the correct line, not a better-sounding MODE A.
   3. CARRY the corrected value — what the right step gives instead ("13 × 3 = 39, not 36";
      for NAT, "…, not 90"). The explicit contrast to the correct answer is mandatory, not
      optional.
@@ -1956,7 +2036,9 @@
   the §9 diagnosis IS a known misconception, stated as the mechanism producing the
   option. Engine v2.7 raises on the phrases (DST_UNSUPPORTED_LEARNER_PSYCHOLOGY).
   NAT (COMMON PITFALLS) → head each entry with the wrong VALUE a student computes, name the
-  slip that yields exactly it, and carry the contrast to the correct value.
+  slip that yields exactly it (MODE A, recomputed) or the contradiction (MODE B), and
+  carry the contrast to the correct value. NO QUOTA (v1.37.0): ≥1 entry; a second only
+  when a second VERIFIED path exists, never for symmetry.
   Density without thinness: 1–2 lines, each carrying a required fact; one informative line
   beats two padded ones, but a line carrying none of the required facts fails the content
   floor.
@@ -2019,17 +2101,35 @@
   "computed value 47 matches no option under any stated rounding"). A claim that cannot
   be reproduced is not a defect — it is a Step-9 error; go solve the question.
 
-## S17-3 — Step 9 does NOT fix, and almost never declares
-  Per RE-16, Step 9 NEVER edits question content (that is Step 7's job) and NEVER
-  publishes a guessed key. The two outcomes:
-  • COMMON (still the usual case): what looked wrong was an incomplete solve → solve it
-    properly and write the explanation. No defect.
-  • RARE: after §17-1/§17-2, there is provably no single defensible answer → set the
-    INTERNAL anomaly flag (never rendered, §5-1), HALT the run, and ESCALATE TO THE AUTHOR
-    with the reproduced evidence, naming the question and the derivation. The author
-    re-runs Step 7 for that question. Step 9 never overrides unilaterally.
+## S17-3 — RESOLUTION PROTOCOL (v1.37.0 — in-run; the paper never halts)
+  Entered on a §7-8 mismatch, a §13-2b disagreement, or a §17-1 suspicion; run
+  INSIDE the session, each step recorded in progress.json:
+    1. RE-READ stem and every option to the end; re-merge OMML.
+    2. Figural → re-extract, re-VIEW, re-transcribe with the registered NAME known
+       (§13-2b); rdkit sanitisation.
+    3. A THIRD and a FOURTH independent derivation, one being back-substitution of
+       EVERY option / the committed candidate (§7-8).
+    4. Web-verify any fact the disagreement turns on (§7-2), source recorded.
+  OUTCOMES (exactly one, recorded as key_status — §7-8):
+    (a) RESOLVED_SELF — Step 9 was wrong (the usual case): correct the block,
+        continue. No operator action.
+    (b) RESOLVED_SOURCE — a reproduced derivation that ALSO agrees with the registered
+        semantic object and web-verified facts proves Step 7's key wrong while the
+        question is sound: publish the proven answer, write [ExamCode]_Mock[N]_
+        key_corrections.json (MockDeliver reads it), report in §R10. No operator action.
+    (c) DEFECT — §17-4.
+  Step 9 never edits content (RE-3) and never publishes a key that did not survive
+  steps 1–4.
 
-## S17-4 — Why this cannot become lazy defect-calling
+## S17-4 — A PROVEN QUESTION DEFECT (v1.37.0 — reported, never adjudicated by the operator)
+  When steps 1–4 show the QUESTION is defective — the figure contradicts its own
+  registered object, or two answers are provably defensible as printed — that block
+  carries the INTERNAL anomaly flag (never rendered), the paper COMPLETES for every
+  other question, and §R7 lists the defect with its evidence plus ONE copy-paste
+  regeneration line for that question. The operator runs it; nothing is judged by
+  hand. v5.59's creation-time gate (structure drawn FROM its SMILES) makes (c) rare.
+
+## S17-5 — Why this cannot become lazy defect-calling
   The escalation path is deliberately EXPENSIVE (reproduced derivation + halt + bounce to
   the author for a Step 7 re-run), while solving is the path of least resistance. The
   cheap escape that drove the bad reflex no longer exists. v1.21.0: no downstream step
@@ -2103,6 +2203,11 @@
       in an AXIOM; zero kept absolutes undeclared
   [ ] REPRESENTATION ALIGNMENT (§6A-1c) recorded; §6A-3b tripwire evaluated
   [ ] SPEED HACK part-3 outcomes recorded (§14-5 four-field record)
+  [ ] (v1.37.0) KEY RECONCILIATION run (§7-8): every Q carries key_status, zero
+      MISMATCHED unresolved · SEMANTIC OBJECTS (§13-2b): every transcription persisted
+      and compared · ERROR PROVENANCE mode counts captured (§15-2) · transfer_tripwire
+      evaluated, second pass recorded if fired (§7-7) · §6A-1b-ii Qs emit the
+      enumerated objects or carry a recorded justification
 ```
   Any item open → fix, re-build, re-audit. present_files is FORBIDDEN until ALL hold.
   Why verify_explanations exists alongside verify_structure: the latter re-validates the
@@ -2255,12 +2360,20 @@ Step 9 uses BOTH footer types:
       reading diverged from the manifest, with the resolution (Q-numbers + reason class).
   §R6 FACT SOURCES: every web-verified fact with source URL + verification date
       (author-facing; never echoed to chat).
-  §R7 ESCALATIONS (§17): every Q where no single defensible answer was found, with the
-      reproduced evidence — these block SHIP and bounce to the author for a Step 7 re-run.
+  §R7 DEFECTS (§17-4, v1.37.0): every Q proven defective, with the reproduced evidence
+      and the ONE regeneration line the operator runs — the paper still SHIPS for
+      every other question; §R2 reads SHIP WITH DEFECTS [Q-numbers].
   §R8 AUTHOR HANDOFF (RE-20): what was derived, what was web-verified, what is model-
       derived, where to look hardest — the record a human reviewer needs, since no gate
       reads it (§18-2). State: review the docx IN MICROSOFT WORD (§11-3).
   §R9 LIMITATIONS (§22).
+  §R10 KEY RECONCILIATION (§7-8): commitments available y/n · key_status counts ·
+      Q-numbers for every non-MATCH with the §17-3 step that resolved it ·
+      key_corrections.json written y/n.
+  §R11 ERROR PROVENANCE (§15-2): lines by mode (VERIFIED_ERROR_PATH · DIRECT_
+      CONTRADICTION) · hedge-ban hits at construction · pitfalls per NAT Q.
+  §R12 SEMANTIC OBJECTS (§13-2b): registered · agreed first / after re-transcription ·
+      LOW confidence · §7-7 tripwire fired y/n and second-pass outcome.
 
 # ════════════════════════════════════════════════════════════════════════
 # §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
@@ -2324,7 +2437,12 @@ Step 9 uses BOTH footer types:
   13. present_files called exactly once per batch, only after §18 clean (MANDATE D).
   14. Report (§20) built from real STDOUT + findings; MANDATE-0 safe; author handoff printed.
   15. No question/answer/solution content ever printed in chat (MANDATE 0).
-  16. Any genuine, reproduced defect HALTED-and-ESCALATED to the author; content never edited.
+  16. (v1.37.0) Any conflict RESOLVED IN-RUN per §17-3 with its steps recorded; the paper
+      never halted; content never edited; a proven defect reported per §17-4 with its
+      regeneration line; no published key that failed §17-3.
+  19. (v1.37.0) key_status recorded per Q (§7-8); every figural transcription persisted
+      and compared (§13-2b); error_provenance engine-validated (§15-2); curated families
+      cited (§7-7); typography engine-applied (§8-0c).
   17. Learnings loaded at P1 (EXPLAIN_AUDIT_LEARNINGS + EXPLAIN_LEARNINGS, if present) and
       every question's applicable AL/EX rules routed and obeyed (§24); on mock 1 their
       absence is recorded, not an error.
@@ -2457,6 +2575,18 @@ Step 9 uses BOTH footer types:
 #   rule by hand SHOULD follow the same threshold and schema so the consumer keeps parsing
 #   the file, but nothing enforces it.
 #
+# ── S24-1b — THE **Triggers:** FIELD (v1.37.0 — additive; the frozen schema still parses) ──
+#   A rule MAY carry `**Triggers:** term, term, re:<regex>` — comma-separated phrases
+#   (case-insensitive, whole-word) or raw regexes. parse_learnings reads it into
+#   rules[].triggers; triggers_from_learnings compiles the table; the engine uses it
+#   for §7-7 step 3. A rule without Triggers is loaded and obeyed exactly as before but
+#   is NOT mechanically enforced — every NEIGHBOUR-LIBRARY rule SHOULD carry one.
+#
+# ── S24-6 — DEFECT CODES INTRODUCED BY v1.37.0 ─────────────────────────────────────────
+#   KEY-CONFLICT · SEMANTIC-MISREAD · UNVERIFIED-PROVENANCE · HEDGED-PROVENANCE ·
+#   LIBRARY-NOT-CITED · FORMULA-TYPOGRAPHY · MINIMUM-SPECIFICITY · FORMULA-OXIDATION-
+#   STATE · SITE-SET-CONFLATION · CAUSAL-CONFLATION (definitions: subject library).
+#
 # ── S24-5 — DEFECT CODES INTRODUCED BY v1.36.0 (routing keys for new rules) ─────────────
 #   §24 ROUTING KEYS for the transfer-safety family: OVERGENERALISED-AXIOM ·
 #   UNSAFE-SPEED-HACK (§14-1 part 3) · UNJUSTIFIED-ABSOLUTE (§8-0b) ·
@@ -2502,5 +2632,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.36.0
+# END OF Framework_MockTestExplain v1.37.0
 # ════════════════════════════════════════════════════════════════════════
