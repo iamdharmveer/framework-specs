@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.20.9",
+  "framework_version": "2026.08.21.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -511,11 +511,11 @@
       "bytes": 183323
     },
     "MUTATION_BUDGETS.json": {
-      "sha256": "3177973be8cc9d249fbf48ef711c1c670270402b5e49b0a33bb2380c851cc705",
+      "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 105,
-      "bytes": 14074
+      "lines": 67,
+      "bytes": 12632
     },
     "XSPEC_DIVERGENCE_BASELINE.json": {
       "sha256": "2fa09fe7dc0cda319ec7b5b34b1c1816b0707620cc18c891282a65e1445f088b",

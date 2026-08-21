@@ -212,9 +212,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 575,
-      "sha256": "0cae2d87e2acfc41d6bd55f5ac8df598dd4d96a89eb3db74db5c01ee76560024",
-      "size_bytes": 30647,
+      "lines": 740,
+      "sha256": "4ea98f204283aa54a1bfa567cbeaf723484d2ab640b81e4e6ac991d71355b1cc",
+      "size_bytes": 41267,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {

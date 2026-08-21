@@ -205,6 +205,133 @@ def _self_test():
     check("DOC-COUNT-IDIOM fires when a live count is hand-written back into prose",
           rc == 1 and 'DOC-COUNT-IDIOM' in out)
 
+    # ══ B12 (2026-08-21) — THE THIRTEEN UNMEASURED EMISSIONS ═════════════════
+    # The first FULL mutation measurement of this auditor (28 emissions; the prior
+    # record was 9, from 2026.08.15.13) found 13 survivors — near half the gate was
+    # unproven. Six of them shared one cause: every SKILL.md-dependent check read the
+    # file from a session mount that exists on no CI runner, so those branches had
+    # never executed in the environment that gates the build. The fixtures below give
+    # every previously-unproven emission a mutant-killer. Each mutates a corpus COPY
+    # and asserts the finding fires — the same mutate-and-expect-red pattern as the
+    # rest of this suite.
+
+    def replace(root, fname, old, new):
+        q = os.path.join(root, fname)
+        t = open(q, encoding='utf-8').read()
+        assert old in t, f'fixture stale: {old[:40]!r} not in {fname}'
+        open(q, 'w', encoding='utf-8').write(t.replace(old, new))
+
+    def remove(root, fname):
+        os.remove(os.path.join(root, fname))
+
+    # L305 — SKILL-INVENTORY, routed-engine count.
+    rc, out = mutated(lambda r: replace(r, 'SKILL.md',
+        'All 17 routed engine scripts', 'All 99 routed engine scripts'))
+    check("SKILL-INVENTORY fires on a wrong routed-engine count",
+          rc == 1 and 'SKILL-INVENTORY' in out and '99' in out)
+
+    # L307 — SKILL-INVENTORY, tracked-but-never-routed count. This exact claim WAS
+    # stale on the live corpus (said 3, reality 6) the day the check was revived —
+    # proof the parity matters, preserved here as the fixture's shape.
+    rc, out = mutated(lambda r: replace(r, 'SKILL.md',
+        'plus the 6 tracked-but-never-routed', 'plus the 2 tracked-but-never-routed'))
+    check("SKILL-INVENTORY fires on a wrong tracked-not-routed count",
+          rc == 1 and 'SKILL-INVENTORY' in out and 'tracked-but' in out)
+
+    # ...and the re-point tripwire: reword the inventory line entirely and the check
+    # must SAY it can no longer verify, not silently match nothing. That silent
+    # no-match is exactly how the previous regex died.
+    rc, out = mutated(lambda r: replace(r, 'SKILL.md',
+        'All 17 routed engine scripts, plus the 6 tracked-but-never-routed',
+        'Seventeen engines ride along, and some other scripts too'))
+    check("SKILL-INVENTORY fires when the inventory line is reworded away",
+          rc == 1 and 'no longer carries' in out)
+
+    # L343 — INFO when VERSION/CHANGELOG is unreadable. An INFO is still an emission:
+    # a release-sync check that skips SILENTLY is the ENV-SKEW shape.
+    rc, out = mutated(lambda r: remove(r, 'VERSION'))
+    check("INFO fires when VERSION is unreadable (release sync skipped LOUDLY)",
+          'release sync not checked' in out)
+
+    # L350 — TRIGGER-SYNC, forward: a routed trigger SKILL.md never mentions.
+    rc, out = mutated(lambda r: replace(r, 'SKILL.md', 'PYQCompress', 'PYQSquash'))
+    check("TRIGGER-SYNC fires on a routed trigger missing from SKILL.md",
+          rc == 1 and "trigger 'PYQCompress' not mentioned" in out)
+
+    # L353 — TRIGGER-SYNC, reverse: SKILL.md naming a trigger that routes nowhere.
+    # (PYQSquash from the same mutation matches the trigger-shaped regex.)
+    check("TRIGGER-SYNC fires on a SKILL.md trigger routes.json lacks",
+          "'PYQSquash' but routes.json has no such trigger" in out)
+
+    # L355 — the not-readable INFO. With the B12 loader this branch means the repo
+    # carries NO copy at all — which must be said, not skipped.
+    rc, out = mutated(lambda r: (remove(r, 'SKILL.md'),
+                                 remove(r, 'mocktestframework_SKILL.md')))
+    check("INFO fires when no SKILL.md copy exists anywhere",
+          'SKILL.md not readable' in out)
+
+    # L376 — ERA-SYNC: nobody writes pattern_eras. Neutralise the writer's mention.
+    # (The producer string now lives in Framework_Blueprint.md — the Step 5 writer
+    # moved into analyse_engine.py at Wave 2 Part C, so the spec-side mention that
+    # keeps this check satisfied is the Blueprint consumer contract.)
+    rc, out = mutated(lambda r: replace(r, 'Framework_Blueprint.md',
+        'pattern_eras', 'zz_pattern_eras_gone'))
+    check("ERA-SYNC fires when no spec writes manifest['pattern_eras']",
+          rc == 1 and "no spec writes manifest['pattern_eras']" in out)
+
+    # L379 — ERA-SYNC: frequency_scope used with no --frequency-scope flag declared.
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQSort.md',
+        '\nThis step also honours frequency_scope when present.\n'))
+    check("ERA-SYNC fires on frequency_scope without a declared trigger flag",
+          rc == 1 and 'declares no --frequency-scope' in out)
+
+    # L382 — ERA-SYNC: OUT_OF_PATTERN not sourced from the engine.
+    # PYQSort already sources bc.OUT_OF_PATTERN, so a mutation there cannot trip the
+    # per-file test — measured while writing this fixture. PYQApprove carries neither
+    # spelling, so it isolates exactly the condition.
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQApprove.md',
+        '\nRows tagged OUT_OF_PATTERN are excluded here.\n'))
+    check("ERA-SYNC fires on OUT_OF_PATTERN not sourced from bc",
+          rc == 1 and 'without sourcing it from the engine' in out)
+
+    # L395 — BP-SCHEMA: a reader consuming a blueprint field the writer never documents.
+    rc, out = mutated(lambda r: append(r, 'Framework_MockTestCreate.md',
+        "\n```python\nzz = bp['zz_phantom_field']\n```\n"))
+    check("BP-SCHEMA fires on an undocumented blueprint field read",
+          rc == 1 and 'zz_phantom_field' in out)
+
+    # L432 — LAW-REGISTRY: the registry exists but is not JSON. Distinct from the
+    # already-proven missing-file emission: corruption must not read as absence.
+    rc, out = mutated(lambda r: open(os.path.join(r, 'LAW_REGISTRY.json'), 'w',
+                                     encoding='utf-8').write('{not json'))
+    check("LAW-REGISTRY fires on a corrupt registry file",
+          rc == 1 and 'not valid JSON' in out)
+
+    # L498 — LAW-VERIFY: a governed spec that fails its declared verifier. The
+    # mutation plants a C10 violation (a partition downstream of a CLASS T
+    # acquisition, no consumed=) in a spec EXECUTION-BOUNDARY/SESSION-BUDGET governs,
+    # then requires the finding to be relayed AS a LAW-VERIFY line — the whole point
+    # of the registry is that the law's verdict surfaces here, not only in the
+    # verifier's own run.
+    rc, out = mutated(lambda r: append(r, 'Framework_PYQCount.md',
+        '\nA2. CHANNEL PROBE — download exactly ONE paper.\n\n'
+        '```python\npart = bc.partition_by_transport(papers, channel=channel)\n```\n'))
+    # The DETAIL is asserted, not just the category. LAW-VERIFY has two emissions:
+    # the per-finding relay (which carries the verifier's own [C10] line) and a
+    # catch-all fallback ("audit_callgraph exited 1"). A fixture that only asks for
+    # the category passes with the relay deleted, because the fallback still speaks —
+    # measured: that mutant survived the first B12 run at 28/29. The [C10] tag exists
+    # only in the relayed line, so this kills exactly that mutant.
+    check("LAW-VERIFY relays a verifier failure on a governed spec",
+          rc == 1 and 'LAW-VERIFY' in out and '[C10]' in out)
+
+    # L541 — DOC-COUNT when the manifests are unreadable. A count that cannot be
+    # verified must fail the build, not pass vacuously: DOC-COUNT exists precisely
+    # because unverified counts drift.
+    rc, out = mutated(lambda r: remove(r, 'SPEC_MANIFEST.json'))
+    check("DOC-COUNT fires when a manifest needed for verification is unreadable",
+          rc == 1 and 'could not read a manifest' in out)
+
     # ── The fence SHAPE the old regex could not read (2026-08-20) ────────────
     # This fixture was written at 2026.08.20.2 against corpus CONTENT — it named the
     # three functions in Framework_MockTestAnalyse.md's S8-1 fence. One release later
@@ -241,10 +368,25 @@ SPECS = sorted(f for f in os.listdir('.') if f.startswith('Framework_') and f.en
 TXT = {f: open(f, encoding='utf-8').read() for f in SPECS}
 ROUTES = json.load(open('routes.json'))
 ISSUES = defaultdict(list)
+# ── SKILL.md — REPO ROOT FIRST (B12, 2026-08-21) ────────────────────────────
+# This loader read ONLY '/mnt/skills/user/mock-test-framework/SKILL.md' — a session-
+# sandbox mount that exists on NO CI runner. So SKILL-INVENTORY and both TRIGGER-SYNC
+# directions never executed in the environment that gates the build; they ran only in
+# an interactive session that happened to have the skill mounted, and the 'SKILL.md
+# not readable' INFO printed everywhere else looked routine enough that nobody asked
+# why a parity check against a file THE REPO ITSELF CARRIES needed a mount to run.
+# Same class as GAP-2026-08-17-B4-ENV-SKEW: a check that silently skips in the gating
+# environment is indistinguishable from one that passes. Found by the B12 full
+# mutation measurement — all six SKILL-dependent emissions survived, including the
+# fallback INFO itself, which is the signature of a branch that never runs.
+# The repo copy is authoritative: it is version-controlled beside the routes.json it
+# must agree with. The mount stays as a last resort for environments with no clone.
 skill_txt = None
-_sp = '/mnt/skills/user/mock-test-framework/SKILL.md'
-if os.path.exists(_sp):
-    skill_txt = open(_sp, encoding='utf-8').read()
+for _sp in ('SKILL.md', 'mocktestframework_SKILL.md',
+            '/mnt/skills/user/mock-test-framework/SKILL.md'):
+    if os.path.exists(_sp):
+        skill_txt = open(_sp, encoding='utf-8').read()
+        break
 def rec(cat, msg): ISSUES[cat].append(msg)
 
 def public(mod):
@@ -296,15 +438,38 @@ for f, t in TXT.items():
 
 # ── 1b. SKILL.md claimed inventory vs reality ───────────────────────────────
 if skill_txt:
-    mspec = re.search(r'The\s+(\d+)\s+framework specs and\s+(\d+)\s+engine scripts', skill_txt)
+    # The claims that ACTUALLY exist in SKILL.md, not the sentence this check was
+    # written against. The old regex looked for 'The N framework specs and M engine
+    # scripts' — that phrasing left SKILL.md at some point and the check matched
+    # nothing thereafter, a silent no-op even where the file WAS readable. Checking a
+    # quote nobody maintains is checking nothing; these two phrases are the live
+    # inventory line, and if they are ever reworded this check must be re-pointed —
+    # which the mspec-is-None branch below now says out loud instead of passing.
+    mspec = re.search(r'All\s+(\d+)\s+routed engine scripts, plus the\s+(\d+)\s+'
+                      r'tracked-but-never-routed', skill_txt)
     if mspec:
-        claim_s, claim_e = int(mspec.group(1)), int(mspec.group(2))
-        real_s = len(SPECS)
-        real_e = len({f for v in ROUTES.values() for f in v if f.endswith('.py')})
-        if claim_s != real_s:
-            rec('SKILL-INVENTORY', f"SKILL.md claims {claim_s} specs, corpus has {real_s}")
-        if claim_e != real_e:
-            rec('SKILL-INVENTORY', f"SKILL.md claims {claim_e} engine scripts, routes.json routes {real_e}")
+        claim_routed, claim_unrouted = int(mspec.group(1)), int(mspec.group(2))
+        _routed = {f for v in ROUTES.values() for f in v if f.endswith('.py')}
+        real_routed = len(_routed)
+        try:
+            _tracked = {k for k in json.load(open('MANIFEST.json',
+                        encoding='utf-8'))['files'] if k.endswith('.py')}
+            real_unrouted = len(_tracked - _routed)
+        except (OSError, ValueError, KeyError):
+            real_unrouted = None
+        if claim_routed != real_routed:
+            rec('SKILL-INVENTORY', f"SKILL.md claims {claim_routed} routed engine "
+                                   f"scripts, routes.json routes {real_routed}")
+        if real_unrouted is not None and claim_unrouted != real_unrouted:
+            rec('SKILL-INVENTORY', f"SKILL.md claims {claim_unrouted} tracked-but-"
+                                   f"never-routed scripts, MANIFEST.json minus "
+                                   f"routes.json gives {real_unrouted}")
+    else:
+        rec('SKILL-INVENTORY', "SKILL.md no longer carries the 'All N routed engine "
+                               "scripts, plus the M tracked-but-never-routed' line "
+                               "this check verifies. Re-point the check at the new "
+                               "phrasing — an inventory claim nobody checks is how "
+                               "the last one went stale by three engines.")
 
 # ── 2. VERSION CROSS-REFERENCE SYNC ─────────────────────────────────────────
 CUR = {}

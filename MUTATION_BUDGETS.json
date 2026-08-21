@@ -11,7 +11,8 @@
     "audit_specs_ext.py": 4,
     "audit_deep.py": 2,
     "analyse_engine.py": 1,
-    "transport_core.py": 0
+    "transport_core.py": 0,
+    "audit_sync.py": 0
   },
   "_survivor_inventory": {
     "audit_specs_ext.py": [
@@ -41,10 +42,16 @@
       "WHAT THE FIXTURES HOLD THAT MUTATION CANNOT REACH: that a short listing HARD STOPS instead of falling back (there is no other lane for a corpus that cannot be enumerated); that probe_consumed genuinely reduces the admitted set (EC-P40 — the reference incident printed '1 paper(s) fetch automatically' for 234,976 chars against a 200,000 ceiling); that the partition follows INPUT order, so a caller who forgets the recency sort admits the wrong years silently (EC-X21); that an infeasible session says so instead of reporting 'Sessions needed: ~0'; that a fetch failure lands the paper in needs_upload rather than dropping it; and that record_transport never wipes a prior session's log.",
       "BUDGET IS 0 AND MUST STAY 0. This engine decides WHICH PAPERS A SESSION FETCHES for ~200 exams. It has no inherited debt and must never acquire any.",
       "MEASURED AND REPORTED, NOT GATED: `--deep` (the generic operator sweep — and/or, </<=, ==/!=) finds 70 targets and 56 survivors, 20.0%. That number is recorded here rather than omitted, because 3/3 on the standard model could otherwise read as 'this engine is fully covered' when what it really means is 'the standard model finds three decision points here'. The deep sweep is not the gate — its own documentation says it produces many equivalent mutants and a slow gate with a high false-positive rate is one people learn to skip — but a survivor count no one has seen is worse than one nobody gates on."
+    ],
+    "audit_sync.py": [
+      "MEASURED IN FULL 2026-08-21 (B12): 29 emissions, 29 KILLED, 100.0%. Budget 0. The first full measurement of this auditor — the prior record (2026.08.15.13) covered 9 of 28 and was itself stale by two file revisions.",
+      "THE FIRST FULL RUN FOUND 13 SURVIVORS (53.6%), and six shared one cause: every SKILL.md-dependent check read the file from '/mnt/skills/user/mock-test-framework/', a session mount that exists on NO CI runner — so SKILL-INVENTORY and both TRIGGER-SYNC directions had never executed in the environment that gates the build. The surviving fallback INFO ('SKILL.md not readable') was the tell: a branch that never runs cannot be killed. Same class as GAP-2026-08-17-B4-ENV-SKEW. The loader now reads the repo-root SKILL.md first.",
+      "SKILL-INVENTORY was DOUBLY dead: even with the file readable, its regex matched a sentence ('The N framework specs and M engine scripts') that left SKILL.md long ago — a silent no-op. Re-pointed at the claims that exist, with a tripwire emission that fires if the phrasing is ever reworded again (which is why targets went 28 -> 29). The revived check fired ON ITS FIRST LIVE RUN: SKILL.md claimed 3 tracked-but-never-routed scripts against a reality of 6.",
+      "ONE REDUNDANT-EMISSION LESSON, preserved: the per-finding LAW-VERIFY relay survived the first re-measurement because the catch-all fallback two lines below also emits LAW-VERIFY, so a category-only assertion passed either way. The fixture now asserts the relayed [C10] detail, which only the specific emission carries. A fixture must distinguish the emission it guards from its neighbours, or the pair protects each other from testing.",
+      "RUNTIME NOTE for future measurement: the self-test doubled (14 -> 28 fixtures, each a full-corpus subprocess), so a full mutation run is ~29 x ~2.5 min. Use --indices to re-test single emissions after a fixture edit; a full re-run is a background afternoon, not a CI step."
     ]
   },
   "_unmeasured": {
-    "audit_sync.py": "PARTIALLY measured — see _partial_measurements. Absent from `engines`, so report-only: audit_mutation scores it and never fails the build on it. Add the real number after a full run.",
     "audit_canonical.py": "Unchanged standing: pass --max-survivors explicitly, as before. Left out so this release cannot silently alter the exam auditor's existing gate."
   },
   "_usage": [
@@ -56,50 +63,5 @@
     "# compared against a whole-engine number; audit_mutation suppresses it and says so."
   ],
   "_runner_note": "CORRECTION TO .11. That release documented --jobs as the remedy for audit_sync's ~30-minute run. Measured on the reference container: nproc = 1. The mutants are CPU-bound subprocesses, so on a single core parallelism buys nothing and adds contention — 7 mutants at --jobs 7 did not finish in 240 s, while ONE mutant at --jobs 1 took 140 s (63 s baseline + 63 s mutant + copy). --jobs is still correct on a multi-core CI runner and is where the 30 min -> 4 min claim comes from; it is not a universal remedy and .11 should not have written it as one. On a single core, use --shard.",
-  "_partial_measurements": {
-    "audit_sync.py": {
-      "status": "PARTIAL — 9 of 28 emissions measured (indices 0-8, 15, 16)",
-      "killed": 4,
-      "survived": 5,
-      "confirmed_survivors": [
-        "idx 1  L218 SKILL-INVENTORY — SKILL.md's declared SPEC count vs the corpus",
-        "idx 2  L220 SKILL-INVENTORY — SKILL.md's declared ENGINE count vs the corpus",
-        "idx 5  L256 INFO            — VERSION or CHANGELOG.md unreadable",
-        "idx 6  L263 TRIGGER-SYNC    — a routes.json trigger SKILL.md never mentions",
-        "idx 16 L345 LAW-REGISTRY    — LAW_REGISTRY.json is not valid JSON"
-      ],
-      "why_no_budget_yet": "3 survivors in the first 5 emissions is real evidence of a coverage gap and is NOT an estimate of the whole. A budget derived by extrapolation would assert a number nobody measured, which is precisely the defect class this tool exists to catch. The key stays out of `engines` — report-only — until a full run supplies a real total.",
-      "what_the_survivors_mean": "Each is a finding no fixture can distinguish from silence. The two SKILL-INVENTORY ones are notable: SKILL.md's declared counts are exactly the kind of hand-written number this corpus has watched drift before, and nothing currently proves the check that guards them still fires.",
-      "finish_it": "python3 audit_mutation.py --engine audit_sync.py --jobs 8\n# or, one at a time, on a constrained runner:\npython3 audit_mutation.py --engine audit_sync.py --indices 9\npython3 audit_mutation.py --engine audit_sync.py --list   # index map",
-      "confirmed_killed": [
-        "idx 0  L208 ENGINE-API",
-        "idx 3  L241 VERSION-XREF",
-        "idx 4  L253 REL-SYNC",
-        "idx 15 L339 LAW-REGISTRY (file missing)"
-      ],
-      "pending_indices": "9-14, 17-27 (19 emissions)",
-      "pending_named": [
-        "9  L274 ROUTE-MISSING",
-        "10 L283 FILENAME-CHAIN",
-        "11 L289 ERA-SYNC",
-        "12 L292 ERA-SYNC",
-        "13 L295 ERA-SYNC",
-        "14 L308 BP-SCHEMA",
-        "17 L349 LAW-REGISTRY (no laws)",
-        "18 L356 LAW-REGISTRY (no verified_by)",
-        "19 L360 LAW-REGISTRY (governs a missing file)",
-        "20 L365 LAW-REGISTRY (unknown detect rule)",
-        "21 L393 LAW-COVERAGE",
-        "22 L411 LAW-VERIFY",
-        "23 L413 LAW-VERIFY",
-        "24 L454 DOC-COUNT (unreadable manifest)",
-        "25 L460 DOC-COUNT",
-        "26 L465 DOC-COUNT",
-        "27 L475 DOC-COUNT-IDIOM"
-      ],
-      "measurement_cost": "~63 s per self-test on a 1-core runner, so ~126 s per mutant plus a 63 s baseline per invocation. The reference container's command wall is ~250 s, which admits ONE mutant per call — 19 calls for the remainder. On a multi-core CI box the whole engine is one ~4-minute command.",
-      "pattern_so_far": "5 survivors in 9 emissions. Every one is an ERROR-PATH or DECLARED-COUNT finding: an unreadable file, an invalid JSON, a trigger SKILL.md forgot, a hand-written count. The fixtures exercise the HAPPY corpus thoroughly and the degraded corpus hardly at all — which is the shape worth knowing even before the remaining 19 are measured, because it says what the missing fixtures should DO rather than merely how many are missing."
-    }
-  },
   "_pipeline_kind": "audit_mutation gained a second mutation model in Wave 2 Part C B4. It was built for AUDITORS — it neutralises a FINDING EMISSION and asks whether a fixture notices. Pointed at analyse_engine.py (4,847 lines of Step 5 pipeline) it reported '0 emission(s)', because a pipeline computes values rather than emitting findings. The corpus's largest new engine therefore sat OUTSIDE the gate while CI reported 100% — the exact shape _why_this_file_exists already describes: 'The tool was working perfectly on a target that did not include the thing that broke.' --kind pipeline mutates DECISION POINTS instead, and kind is auto-detected so an engine with zero targets now EXITS 1 rather than banking a vacuous 100%."
 }

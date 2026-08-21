@@ -1,5 +1,65 @@
 # Changelog
 
+## 2026.08.21.1 — audit_sync fully measured: half the gate was unproven, and six checks had never run at all
+
+**`audit_sync.py`, `SKILL.md`, `mocktestframework_SKILL.md`, `MUTATION_BUDGETS.json`.**
+No spec changes, no engine changes, **no artefact values change** — verified
+byte-identical against the golden set from deployed `2026.08.19.3`.
+
+### The measurement
+
+`audit_sync` is a blocking CI gate whose mutation coverage had never been fully
+measured: the record was 9 of 28 emissions, from `2026.08.15.13`, two file revisions
+stale. The first full run on current code: **28 emissions (as then counted), 13
+survivors, 53.6%** — nearly half the gate unproven. After this release: **29 emissions,
+29 killed, 100.0%, budget 0.** `audit_sync.py` moves out of `_unmeasured` and into the
+enforced `engines` table.
+
+### What the survivors pointed at — three real defects, one lesson
+
+**1. Six checks had never executed in any gating environment (ENV-SKEW).** Every
+SKILL.md-dependent check — SKILL-INVENTORY and both TRIGGER-SYNC directions — read the
+file from `/mnt/skills/user/mock-test-framework/SKILL.md`, a session mount that exists
+on no CI runner. The tell was in the survivor list itself: the fallback INFO
+*"SKILL.md not readable"* also survived, and a fallback that cannot be killed is a
+branch that never runs. The loader now reads the repo-root `SKILL.md` first (it is
+version-controlled beside the `routes.json` it must agree with), the mount last.
+
+**2. SKILL-INVENTORY was doubly dead.** Even where the file was readable, its regex
+matched *"The N framework specs and M engine scripts"* — a sentence that left SKILL.md
+long ago. A check against a quote nobody maintains is a check against nothing. It is
+re-pointed at the claims that actually exist (`All N routed engine scripts, plus the M
+tracked-but-never-routed`), and rewording that line now trips a dedicated emission
+instead of silently matching nothing — which is why the target count went 28 → 29.
+
+**3. The revived check fired on its first live run.** SKILL.md claimed **3**
+tracked-but-never-routed scripts; the manifest-minus-routes reality is **6** — the three
+baseline auditors joined later and the sentence was never updated. Both SKILL copies now
+name all six. Three releases of drift, caught the day the check came back to life: the
+strongest argument available that it should have been alive all along.
+
+**4. The redundant-emission lesson.** After thirteen new fixtures, one mutant still
+survived: deleting the per-finding LAW-VERIFY relay left the catch-all fallback two
+lines below still emitting a LAW-VERIFY line, so a category-only assertion passed either
+way. The fixture now asserts the relayed `[C10]` detail that only the specific emission
+carries. **A fixture must distinguish the emission it guards from its neighbours, or the
+pair protects each other from testing.**
+
+### Fixtures
+
+Thirteen new mutate-and-expect-red fixtures — one per previously-unproven emission —
+plus the reword tripwire. Self-test **14 → 28 checks**, all passing. Runtime roughly
+doubles (~4 min), noted in `MUTATION_BUDGETS.json`: a full mutation re-run of this
+auditor is ~29 × 2.5 min and is an on-demand measurement, not a CI step; `--indices`
+re-tests a single emission after a fixture edit.
+
+### Verification
+
+bootstrap **51/51** at `2026.08.21.1`; `audit_sync` live run 0 findings (the revived
+checks pass against the corrected SKILL.md) and self-test 28/28; mutation
+**29/29 killed, 100.0%**; all other auditors and self-tests green; golden set **6/6
+IDENTICAL**.
+
 ## 2026.08.20.9 — two routes were 287 bytes from failing the build
 
 **`Framework_MockTestExplain.md`, `Framework_DeliveryFooter.md`, `SPEC_HISTORY.md`
