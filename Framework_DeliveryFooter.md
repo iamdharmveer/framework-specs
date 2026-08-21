@@ -5,35 +5,6 @@
 #   guaranteed NameError; spec_name_audit_baseline.json had accepted it as
 #   known-unbound in all four affected specs, so the ratchet reported OK.
 #   FULL NARRATIVE: SPEC_HISTORY.md + CHANGELOG.md 2026.08.16.2.
-# v1.21 — 2026-08-13 — SYNC AUDIT ROUND 2: footer registry caught up with the steps.
-#   (1) GAP-2026-08-13-DELIVERY-COUNT-DRIFT (mirrored): §3's Step-5 final list said "5
-#   files" — no badge for exam_config.json (mandatory-when-generated since MockTestAnalyse
-#   v2.24.9) and none for taxonomy.xlsx (v2.24), which therefore fell through to an Upload
-#   badge for an xlsx this spec itself marks unreadable. List now matches S11-3's derived
-#   set. (2) GAP-2026-08-13-FOOTER-SCOPED-PATTERNS: §2 LOCAL_ONLY only knew Mock*_ name
-#   forms; scoped papers ({EXAM}_SUBJ_*/TOPIC_*/SUBTOPIC_* slugs) fell through to
-#   Upload/Replace. Added slug-agnostic suffix patterns (*_Create.docx, *_Explanation.docx,
-#   *_Final.docx, *_Q1to*.docx, *_audit_dossier.json, *_taxonomy.xlsx).
-# MockTestFramework | Cross-step | Exam-agnostic
-#
-# PURPOSE:
-#   Define the visual delivery footer that Claude renders after every
-#   present_files call in the 11-step pipeline. Two footer types exist:
-#   mid-step (amber) and step-complete (green). This file is the single
-#   source of truth — all spec files reference it instead of embedding
-#   their own footer logic.
-#
-# SCOPE:
-#   Steps 1–11 (all pipeline steps, all exams, all projects).
-#   This file is uploaded to the MockTestFramework project AND to each
-#   [ExamCode] project so it is available in project knowledge everywhere.
-#
-# REFERENCED BY:
-#   Every Framework_*.md file's delivery section references this spec:
-#   "Follow Framework_DeliveryFooter.md for post-delivery footer rendering."
-#
-# VERSION HISTORY:
-#
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):

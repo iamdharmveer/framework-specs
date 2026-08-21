@@ -146,10 +146,41 @@ Current-version entry remains in Framework_Blueprint.md.
 
 ## Framework_DeliveryFooter.md
 
-Moved from the file header at framework release 2026.08.15.14.
+Moved from the file header at framework release 2026.08.15.14; entry v1.21
+at framework release 2026.08.20.9 — this file rides on ALL 23 routes, so
+every byte in its header is paid by every session of every step.
 Current-version entry remains in Framework_DeliveryFooter.md.
 
 ```
+# v1.21 — 2026-08-13 — SYNC AUDIT ROUND 2: footer registry caught up with the steps.
+#   (1) GAP-2026-08-13-DELIVERY-COUNT-DRIFT (mirrored): §3's Step-5 final list said "5
+#   files" — no badge for exam_config.json (mandatory-when-generated since MockTestAnalyse
+#   v2.24.9) and none for taxonomy.xlsx (v2.24), which therefore fell through to an Upload
+#   badge for an xlsx this spec itself marks unreadable. List now matches S11-3's derived
+#   set. (2) GAP-2026-08-13-FOOTER-SCOPED-PATTERNS: §2 LOCAL_ONLY only knew Mock*_ name
+#   forms; scoped papers ({EXAM}_SUBJ_*/TOPIC_*/SUBTOPIC_* slugs) fell through to
+#   Upload/Replace. Added slug-agnostic suffix patterns (*_Create.docx, *_Explanation.docx,
+#   *_Final.docx, *_Q1to*.docx, *_audit_dossier.json, *_taxonomy.xlsx).
+# MockTestFramework | Cross-step | Exam-agnostic
+#
+# PURPOSE:
+#   Define the visual delivery footer that Claude renders after every
+#   present_files call in the 11-step pipeline. Two footer types exist:
+#   mid-step (amber) and step-complete (green). This file is the single
+#   source of truth — all spec files reference it instead of embedding
+#   their own footer logic.
+#
+# SCOPE:
+#   Steps 1–11 (all pipeline steps, all exams, all projects).
+#   This file is uploaded to the MockTestFramework project AND to each
+#   [ExamCode] project so it is available in project knowledge everywhere.
+#
+# REFERENCED BY:
+#   Every Framework_*.md file's delivery section references this spec:
+#   "Follow Framework_DeliveryFooter.md for post-delivery footer rendering."
+#
+# VERSION HISTORY:
+#
 # v1.20 — 2026-08-12 — NOTES HANDOFF BY ATTACHMENT (GAP-2026-08-12-NADOCX P2;
 #   pairs with Framework_NotesAudit v3.0.0 / NotesCreate v2.3.0 / NotesDeliver
 #   v1.2.0). The section 3 NC/NA/ND entries change: the notes .docx now moves
@@ -1335,11 +1366,126 @@ Current-version entry remains in Framework_MockTestCreate.md.
 ## Framework_MockTestExplain.md
 
 Moved from the file header at framework release 2026.08.15.14; entries
-v1.25.0–v1.34.0 moved VERBATIM at framework release 2026.08.19.1 (the
-MockExplain/TestExplain route crossed the EC-P42 SPEC-BUDGET threshold).
+v1.25.0–v1.34.0 moved VERBATIM at framework release 2026.08.19.1, and
+v1.35.0 at framework release 2026.08.20.9 (both times the
+MockExplain/TestExplain route had reached the EC-P42 SPEC-BUDGET
+threshold — 287 B of headroom remained at the second move).
 Current-version entry remains in Framework_MockTestExplain.md.
 
 ```
+# v1.35.0 — 2026-08-19 — GAP-2026-08-19-EXPLANATION-EXECUTION-INTEGRITY (paired with
+#   PYQExplain v2.13, engine v2.6). Four defects, one root cause, found by auditing a
+#   DELIVERED 60-question paper: each traced to a rule that ADVISED what only a gate
+#   can enforce — prompt policy treated as enforcement.
+#   D1 — INTERNAL ERROR-TAXONOMY TOKENS RENDERED TO STUDENTS. Every WHY WRONG entry in
+#   the reference paper opened with the raw snake_case token ('regiochemistry_error:
+#   the para phenol ...'; 40 option entries + 20 NAT pitfalls). CAUSE: §9/§15-2 asked
+#   the first line to "name an error type" and nothing separated the internal name
+#   from the rendered sentence — the §9 taxonomy is itself snake_case, so obeying the
+#   rule literally printed machine metadata into a learner document. FIX: the §9
+#   diagnosis is METADATA — still mandatory, recorded per wrong option/pitfall in
+#   progress state — and the visible line states the same content in natural language.
+#   Engine v2.6 raises at write time on any taxonomy token in student-facing text AND
+#   re-scans the rendered bytes at verify time, so the leak cannot ship by either path.
+#   D2 — ROUTING WITHOUT EMISSION. The same paper carried 46 question-region images
+#   and TWO explanation figures, on a structure-heavy paper whose section_rules
+#   declared renderers; structure-decisive DEDUCTIONs ended at "the structure drawn in
+#   Option N". The §6A router classified and the renderer shipped prose — the defect
+#   §6A exists to remove, standing because verdict and emission were never tied
+#   together. FIX: NEW §6A-1b (structure-answer presumption: when the verified answer
+#   IS a structure, STRUCTURE_GRAPH is presumed and PROSE requires a recorded
+#   justification naming where the prose carries each decisive feature); §6A-3 now
+#   passes the verdict INTO the block and engine v2.6 enforces coherence — a visual
+#   verdict with zero figures raises at construction; a §6A-4 degrade records the
+#   DEGRADED requirement, never the original.
+#   D3 — SPEED HACK ON 56 OF 60. §14's omit-by-default held per question and nothing
+#   measured the AGGREGATE, so inclusion pressure won 93% of the paper, several
+#   "hacks" restating the DEDUCTION (a §14-1 part-1 failure each). FIX: NEW §14-5 —
+#   eligibility recorded per question (distinct/faster/scoped), the inclusion RATE
+#   reported in §R3, and a batch at 100% inclusion re-runs the §14-1 test per question
+#   before §18. A TRIPWIRE, never a quota: a genuinely shortcut-rich batch survives
+#   its re-audit unchanged.
+#   D4 — TWO REASONING DISCIPLINES WITH NO RULE. (a) A correct final answer can carry
+#   mutually incompatible intermediate claims — derive-twice compares ANSWERS, §7-5
+#   audits the final VALUE, neither reads the reasoning: NEW §7-6 decisive-claim
+#   consistency — an explanation whose claims cannot all be true is invalid even when
+#   the answer matches; repair returns to §7-1, never to patched prose. (b) Counting
+#   questions were OPENED from a closed-form ceiling before the elements it assumes
+#   independent were inventoried: NEW §7-0c enumeration-before-formula. Both stated
+#   domain-neutrally per the v1.33.0 convention; the incident's domain appears only as
+#   a labelled illustration. RE-6d added; RE-13 restated (diagnosis internal, rendered
+#   naturally); §5-1/§5-2/§5-3, §18, §R3 and §21 carry the matching hooks.
+#   ALSO (engine v2.6, found while writing its fixtures): the v2.3 figure-validation
+#   loop sat AFTER the NAT branch's return, so a NAT block's figures were NEVER
+#   validated at construction — moved above the type split (NAT-FIG-VALIDATED locks
+#   it); an anomaly block now rejects figures as student content; an AXIOM naming an
+#   option label raises (§8-2 — binding is the DEDUCTION's job).
+# ════════════════════════════════════════════════════════════════════════
+#
+# VERSION HISTORY:
+# ════════════════════════════════════════════════════════════════════════
+# PURPOSE
+# ════════════════════════════════════════════════════════════════════════
+#   Take the .docx produced by Step 7 and the frozen registry.json,
+#   INDEPENDENTLY DERIVE the answer to every Question, and INTERLEAVE a perfect,
+#   highest-standard explanation after each question — without altering one byte of
+#   the paper. Emit [ExamCode]_Mock[N]_Explanation.docx: a 100%-explained, zero-defect
+#   learner-facing solution document, plus an author handoff report.
+#
+# ════════════════════════════════════════════════════════════════════════
+# PIPELINE POSITION
+# ════════════════════════════════════════════════════════════════════════
+#   Step 5 (PYQExtract)   → [ExamCode]_section_rules.md + _subtopic_manifest.json
+#   Step 6 (MockBlueprint) → [ExamCode]_blueprint.json + _registry.json (template)
+#   Step 7 (MockCreate)    → [ExamCode]_Mock[N]_Create.docx
+#                                  [ExamCode]_registry.json (written at Final Assembly —
+#                                  FROZEN for every step after Step 7)
+#   THIS STEP — Step 9 (MockExplain) → [ExamCode]_Mock[N]_Explanation.docx (interleaved explanations)
+#   C3 (v1.15): in every [ExamCode]_Mock[N]_*.docx name above, "Mock[N]" is the paper_slug of the
+#   paper being processed — "Mock[N]" for a mock (byte-identical), else the scoped paper_id with
+#   ":"→"_" (e.g. SUBJ_Physics_03), derived from blueprint.mocks[N].paper_id (fallback MOCK:M{N:02d}).
+#   Read the input under, and write the output under, that same paper_slug. No registry writes here.
+#   Step 11 (MockDeliver)
+#
+#   Steps 5–11 all run in the [ExamCode] project (exam-specific). Step 9 runs directly
+#   after Step 7 and directly before Step 11. There is no audit step on either side:
+#   nothing re-derives these answers after this step, so §12 and §19 are terminal.
+#
+# ════════════════════════════════════════════════════════════════════════
+# EXAM-AGNOSTIC GUARANTEE
+# ════════════════════════════════════════════════════════════════════════
+#   This spec contains ZERO hardcoded exam values. It names no section, no subtopic,
+#   no question count, no time/marks figure, no option count, no section family, no
+#   language, no figural type, no block label. Every such value is READ at runtime:
+#     • question/section counts, q_ranges, options-count, difficulty schedule
+#       → blueprint.json
+#     • per-subtopic patterns, wrong_option_structure, fixed option sets, OMML_required,
+#       option label format, language, block labels/markers, figural object/transformation
+#       types, escape tokens, passage word ranges
+#       → section_rules.md (CATEGORY C header + CATEGORY A/B blocks)
+#     • subtopic_id join key, mandatory-every-mock list, alternation groups
+#       → subtopic_manifest.json
+#     • per-mock figural_manifests[] + rc_manifests[] (cross-checks only, never keys)
+#       → registry.json
+#   SCOPE — what "exam-independent" means here, stated precisely (no over-claim):
+#   Step 9 explains OBJECTIVE papers and supports, per question, all three objective
+#   answer formats found across these exams:
+#     • MCQ — single correct option (the common case; e.g. SSC, IBPS, NEET, CLAT).
+#     • MSQ — multiple correct options, scored as a set (e.g. GATE multi-select).
+#     • NAT — numerical-answer-type with NO options, optionally with a tolerance
+#       range (e.g. GATE / JEE numerical-input questions).
+#   It also handles, from config (never hardcoded): per-SECTION option counts (a paper
+#   that is 4-option in one section and 5-option in another), alphabetic / roman /
+#   custom option labels (A·B·C·D, i·ii·iii, …) as well as numeric, and language-
+#   specific sentence terminators (e.g. the Devanagari danda '।'). With valid
+#   upstream outputs (Steps 5–7) it therefore covers SSC CGL, GATE (incl. NAT/MSQ), NEET, IBPS,
+#   UPSC CSAT, CAT and regional/other-language exams. OUT OF SCOPE by nature: purely
+#   DESCRIPTIVE / essay papers (e.g. UPSC Mains), which have no options and no single
+#   keyed answer — the objective block model does not apply (see §22). If a value an
+#   explanation needs is absent from the source files, the engine falls back to a
+#   STRUCTURAL default (English labels, numeric scheme, Latin terminators, the uniform
+#   option count) and logs it — it is NEVER hardcoded as an exam fact.
+#
 # v1.34.0 — 2026-08-19 — GAP-2026-08-19-SILENT-LABEL-FORMAT-CONFLICT (paired with
 #   PYQExplain v2.12, engine v2.5). SPEC-ONLY here; the paired ENGINE release fixes a
 #   separate, unrelated label defect found the same way (see explain_engine v2.5).

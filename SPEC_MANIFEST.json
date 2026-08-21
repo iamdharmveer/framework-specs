@@ -9,9 +9,9 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 846,
-      "sha256": "244dad867462a981ecb0acd33d1a46e67030b996f76c4367cbbaf8cff65b74f9",
-      "size_bytes": 45391,
+      "lines": 817,
+      "sha256": "ff643f919108f0c030bf00578112408fb98eb295a551fe6744dddba9f0870930",
+      "size_bytes": 43817,
       "version_header": "# Framework_DeliveryFooter v1.22 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
@@ -37,9 +37,9 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2619,
-      "sha256": "40d8f5d0141748f1773b5e0bf6c0bdcb12857c11042b0aecc3f138cf634dfebe",
-      "size_bytes": 204322,
+      "lines": 2506,
+      "sha256": "7a558232c76f0d95c0ecb7bdf503ca9dd563f1f37a23b1c3983ca87fe9e986c8",
+      "size_bytes": 194900,
       "version_header": "# Framework_MockTestExplain v1.36.0"
     },
     "Framework_NotesAudit.md": {

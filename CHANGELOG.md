@@ -1,5 +1,67 @@
 # Changelog
 
+## 2026.08.20.9 — two routes were 287 bytes from failing the build
+
+**`Framework_MockTestExplain.md`, `Framework_DeliveryFooter.md`, `SPEC_HISTORY.md`
+(editorial move only — no spec version bumps, no rule changes, no engine changes, no
+artefact changes).**
+
+### The condition
+
+EC-P42's SPEC-BUDGET gate fails the build when a route's pre-work read crosses
+250,000 B with no declared read set. Measured on deployed `2026.08.20.8`:
+
+| route | size | headroom |
+|---|---|---|
+| MockExplain / TestExplain | 249,713 B | **287 B** |
+| PYQScan | 249,586 B | **414 B** |
+
+Neither route is in `SPEC_BUDGET_BASELINE`, so one more changelog paragraph in
+`Framework_MockTestExplain.md` — ~300 B — would have turned the next release red. Three
+MockTestExplain/MockTestCreate releases landed in the previous 24 hours, so this was a
+matter of days.
+
+### The fix — the mechanism, third use
+
+Superseded changelog entries move VERBATIM to `SPEC_HISTORY.md`, exactly as at
+`2026.08.15.14` (first use) and `2026.08.19.1` (second use — the same MockExplain route,
+at the same threshold). Nothing is deleted; `SPEC_HISTORY.md` is tracked in
+`MANIFEST.json` and verified by `bootstrap.py` exactly as a spec is.
+
+- `Framework_MockTestExplain.md` v1.35.0 entry → SPEC_HISTORY (9,422 B). The v1.36.0
+  current entry stays.
+- `Framework_DeliveryFooter.md` v1.21 entry → SPEC_HISTORY (1,574 B). This file rides on
+  **all 23 routes**, so every byte in its header is paid by every session of every step —
+  the single highest-leverage line in the corpus for this gate.
+
+### After
+
+| route | size | headroom |
+|---|---|---|
+| MockExplain / TestExplain | 238,717 B | **11,283 B** |
+| PYQScan | 248,012 B | **1,988 B** |
+
+Every other route also gained 1,574 B from the DeliveryFooter move.
+
+### Stated plainly: PYQScan is a stay of execution, not a cure
+
+PYQScan's three files carry ONLY current-version entries — there is nothing left to move.
+1,988 B is less than one typical PYQCore MINOR entry (v1.5's is 3,247 B), so the next law
+propagated into `Framework_PYQCore.md` trips this gate again. The durable remedy is the
+one the gate's own message names: declare a FINAL/NON-FINAL read set for the route's
+largest spec, as PYQExtract has. That is a design task, not an editorial one, and it is
+recorded as pending rather than half-done here. The same applies to PYQPrepare
+(6,244 B of headroom).
+
+### This recurrence was predicted
+
+`2026.08.19.1`'s move note says the MockExplain route "crossed the EC-P42 SPEC-BUDGET
+threshold". One day and one release later it was 287 B from crossing again. A route whose
+active spec is under heavy development will keep consuming its headroom; the mechanism
+works, but it is a ratchet that must be operated. A standing rule worth adopting: any
+release that grows a routed spec should re-check its route's headroom in the same
+release, which takes one command.
+
 ## 2026.08.20.8 — GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL
 
 **Framework_MockTestCreate.md v5.57 -> v5.58 · blueprint_core.py (+2 fixtures, 495 -> 497)**

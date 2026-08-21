@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.20.8",
+  "framework_version": "2026.08.20.9",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -182,11 +182,11 @@
       "bytes": 365112
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "244dad867462a981ecb0acd33d1a46e67030b996f76c4367cbbaf8cff65b74f9",
+      "sha256": "ff643f919108f0c030bf00578112408fb98eb295a551fe6744dddba9f0870930",
       "version_header": "# Framework_DeliveryFooter v1.22 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 846,
-      "bytes": 45391
+      "lines": 817,
+      "bytes": 43817
     },
     "Framework_MockDeliver.md": {
       "sha256": "ee252725a8dde8e106e81feebfbbd780c2802998f582bdb6baa9f6366504286e",
@@ -210,11 +210,11 @@
       "bytes": 487775
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "40d8f5d0141748f1773b5e0bf6c0bdcb12857c11042b0aecc3f138cf634dfebe",
+      "sha256": "7a558232c76f0d95c0ecb7bdf503ca9dd563f1f37a23b1c3983ca87fe9e986c8",
       "version_header": "# Framework_MockTestExplain v1.36.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 2619,
-      "bytes": 204322
+      "lines": 2506,
+      "bytes": 194900
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -504,11 +504,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "63d344a681343ff962f0a511abc42e8ebe1af90ee79ea101ed7a136e7c8b4aad",
+      "sha256": "2717114ee357414c493288d0ae00171899d2061a28891c0d7411ae958ba0a133",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6685,
-      "bytes": 183342
+      "bytes": 183323
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "3177973be8cc9d249fbf48ef711c1c670270402b5e49b0a33bb2380c851cc705",
@@ -525,11 +525,11 @@
       "bytes": 6107
     },
     "SPEC_HISTORY.md": {
-      "sha256": "70338b1f9283e0b32a7116b7b9e5b64e1893103b67d789971a9c7d253c150dcd",
+      "sha256": "f325523f3141202c5e61b8f9919063e993df89395f2235dbcd7d71742fa7d4ac",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "# END OF SPEC_HISTORY v1.0",
-      "lines": 2973,
-      "bytes": 222234
+      "lines": 3119,
+      "bytes": 233494
     }
   }
 }
