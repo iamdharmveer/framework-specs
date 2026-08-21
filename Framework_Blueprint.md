@@ -1,4 +1,12 @@
-# Framework_Blueprint v1.50.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.51.0 — Universal Mock Test Blueprint Generator
+# v1.51.0 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (paired with
+#   MockTestCreate v5.60 / blueprint_core Cluster E2c). S7-3 gains V5: every band's
+#   resolved Q counts must be honestly authorable on the exam's shape — the bottom
+#   difficulty band is capacity-bound by the shared rubric's MSQ/NAT qtype floors
+#   (bc.difficulty_feasibility), while Medium/Hard stay uncapped and the user's
+#   ratio remains the law for counts. The default 25:25:50 path runs the same check.
+#   Errors name the achievable maximum; nothing is silently clamped. Vacuous pass
+#   for non-position-typed exams and non-3-band vocabularies (Cluster-E2 contract).
 # v1.50.0 — 2026-08-19 — GAP-2026-08-19-LEARNINGS-FILENAME-SEAM (paired with
 #   MockTestCreate v5.56). ONE file carried THREE names across the estate: this spec's
 #   Step 6 generated [ExamCode]_ExplainLearnings.md; MockTestCreate Step 7 (GAP-07)
@@ -2901,6 +2909,24 @@ User provides bands. Claude validates (DR-8):
   V2: No overlaps — no mock assigned to two bands
   V3: Each band's percentages sum to 100% (whole numbers only)
   V4: All Q counts resolve to valid integers (via largest-remainder — S7-4)
+  V5: (v1.51.0 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS) Each band's resolved
+      Q counts are HONESTLY AUTHORABLE on this exam's shape. The user's ratio is
+      the law for HOW MANY — a deliberately hard series is fully supported, and
+      Medium/Hard are never capped (any position can be authored up). The one
+      structural bound is the BOTTOM band: the shared rubric's qtype floors
+      (blueprint_core Cluster E2c) make it unreachable on MSQ/NAT positions, so
+      per mock:  bc.difficulty_feasibility({'simple': S, 'medium': M, 'hard': H},
+      qtype_by_q, difficulty_labels) must return {} — where qtype_by_q maps every
+      position via marking_scheme q_ranges (an exam without position typing or a
+      non-3-band vocabulary passes vacuously, the Cluster-E2 fall-through).
+      On a shortfall the error NAMES the achievable maximum:
+        "Band '[name]' asks for [S] '[Easy]' questions in mocks [range], but this
+         exam's shape holds at most [cap] ([n_mcq] MCQ positions; MSQ/NAT can
+         never be bottom-band work). Resubmit with '[Easy]' <= [cap]."
+      The SAME check runs on the DEFAULT 25:25:50 path (S7-5): a default is not
+      an exemption — an all-NAT exam's default Easy count is just as impossible
+      as a user-supplied one, and Step 7's own S3 feasibility gate (MockTestCreate
+      v5.60) would otherwise hard-stop 20 mocks later, on every mock, forever.
 
 If any validation fails:
   List ALL failures. Ask user to resubmit entire band definition.
@@ -2952,6 +2978,11 @@ for m in range(1, N_mocks + 1):
     else:
         band_name             = 'Standard'
         s_pct, m_pct, h_pct  = 25, 25, 50   # default
+        # v1.51.0 — the default mix passes V5 (S7-3) like any user band: convert
+        # via S7-4, run bc.difficulty_feasibility against this exam's qtype map,
+        # and on a shortfall STOP and ask the user for a mix with the bottom
+        # band <= the named achievable maximum. Never silently clamp: the user
+        # owns the ratio; the framework owns telling the truth about the shape.
 
     simple, medium, hard = difficulty_counts(total_qs, s_pct, m_pct, h_pct)
 
@@ -6868,4 +6899,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.50.0
+# END OF Framework_Blueprint v1.51.0

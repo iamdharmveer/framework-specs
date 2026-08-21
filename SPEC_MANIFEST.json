@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.50.0",
-      "lines": 6871,
-      "sha256": "bf8357b4aab040e3ecfc817da523d7346e4dbdd1190481c5cc647ed83b6c0bfe",
-      "size_bytes": 365112,
-      "version_header": "# Framework_Blueprint v1.50.0 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.51.0",
+      "lines": 6902,
+      "sha256": "b4eb857f1f08b618f59ce3c1ab24565fe9b51bd8dee80b925c5c6c2700d8565d",
+      "size_bytes": 367595,
+      "version_header": "# Framework_Blueprint v1.51.0 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -30,17 +30,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 7883,
-      "sha256": "373b0af60ceef38d3103c2e74525b0eb0b2c09ee60935d90b716fedddebd1dad",
-      "size_bytes": 493842,
-      "version_header": "# Framework_MockTestCreate v5.59"
+      "lines": 8049,
+      "sha256": "8b387fc36ae0ff6c2f8fc786832484a94db836fda55dad6194a9f8163825bee0",
+      "size_bytes": 505936,
+      "version_header": "# Framework_MockTestCreate v5.60"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
       "lines": 2636,
-      "sha256": "6390b765acaebfefc81df77f6479e6e6bc788a8b3b409cf2a25166ac207160b6",
-      "size_bytes": 204750,
-      "version_header": "# Framework_MockTestExplain v1.37.0"
+      "sha256": "fea56cac0d03e5f792415a5fa031ea63f14d06563dea2ef1d449b8330e354520",
+      "size_bytes": 204518,
+      "version_header": "# Framework_MockTestExplain v1.38.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2535,
-      "sha256": "83052aa8ad5f6d78da8095aeb3abdd2b6fa3c5deb9c0223f583ae84ede2183de",
-      "size_bytes": 179032,
-      "version_header": "# Framework_PYQExplain v2.15 — Universal PYQ Explanation Generator"
+      "lines": 2557,
+      "sha256": "4eeb9a18a72d1193dfe8c36884f6ec890b419719aee3ce18836f033cd7a4cfff",
+      "size_bytes": 180577,
+      "version_header": "# Framework_PYQExplain v2.16 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",
@@ -177,9 +177,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7293,
-      "sha256": "817f5d1b68eb13ffc7df2c638f787a127cf0fcbe2b5d6aa464e2c48b467a7a66",
-      "size_bytes": 401956,
+      "lines": 7421,
+      "sha256": "c93734cbd19a83638c897be5bca9a719d553dd70dfa82e148002826826810d9a",
+      "size_bytes": 409762,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 5676,
-      "sha256": "f8983d47ace82efa4ea43ad160df71b9cdb15927a40119dd8294745ffec51373",
-      "size_bytes": 313185,
+      "lines": 5955,
+      "sha256": "754cfc11a6cf8bbd6474954dfc77a5496efdc21c2c1ac634d24b24397c6b0248",
+      "size_bytes": 328367,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -331,9 +331,9 @@
     },
     "routes.json": {
       "end_sentinel": "}",
-      "lines": 173,
-      "sha256": "9451bac606c3bc32babdd87c09fc2957f2ee0938aad6ceb9130e3eeb3fecf619",
-      "size_bytes": 4004,
+      "lines": 175,
+      "sha256": "ffd41a7f26e7afc1b224838a21d219f64ad82a499a8388f89c59e3ed1b2829a1",
+      "size_bytes": 3753,
       "version_header": "{"
     },
     "spec_source.py": {
@@ -380,9 +380,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 1406,
-      "sha256": "6f3b816a1bbbf644d6abeb06b74f1909c7fd43a7a17bb5a947fe43259766fc6b",
-      "size_bytes": 83364,
+      "lines": 1414,
+      "sha256": "a45961a29bfda1376394ef4a8335be5baa9c4948e1bf8c1a80d7495b3171a415",
+      "size_bytes": 83993,
       "version_header": "\"\"\""
     },
     "spec_name_audit.py": {

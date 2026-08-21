@@ -360,7 +360,15 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
             "subtopic_id": _bp_by_id[concept_map[qn]["subtopic_id"]]["subtopic_id"],
             "section": _bp_by_id[concept_map[qn]["subtopic_id"]].get("section"),
             "subtopic": _bp_by_id[concept_map[qn]["subtopic_id"]].get("subtopic"),
-            "difficulty": concept_map[qn].get("difficulty")}
+            "difficulty": concept_map[qn].get("difficulty"),
+            # v1.6 (GAP-2026-08-21-DIFFICULTY-STICKER-LABELS): the derivation
+            # observations behind the label — deduction_steps / axiom_concepts /
+            # question_class / speed_hack_exists / is_negative / qtype — recorded
+            # at authoring (S7 CHECK 3c) and carried verbatim so the audit can
+            # recompute label == assess_difficulty(obs) forever. None for a
+            # legacy concept_map: the audit's check 8 then skips, never false-
+            # fails, while its structural-floor check 7 still runs on the label.
+            "difficulty_obs": concept_map[qn].get("difficulty_obs")}
            for qn in sorted(concept_map, key=int)]
     _qindex_cert = {"blueprint_version": bp.get("blueprint_version"),
                     "subtopic_set_hash": hashlib.sha256("\n".join(sorted(

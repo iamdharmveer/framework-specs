@@ -1,29 +1,11 @@
-# Framework_MockTestExplain v1.37.0
-# v1.37.0 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
-#   PYQExplain v2.15, engine v2.8, MockTestCreate v5.59, paper_pipeline v5.39,
-#   final_assembly v5.55). The first v1.36.0 paper passed every §18 gate and (1)
-#   PUBLISHED A WRONG KEY on a figural item (structure misread; Step 7, holding the
-#   opposite key, was by design never consulted); (2) carried 24 hedged WHY WRONG /
-#   PITFALL lines, nine with FALSE arithmetic — §15-2's "a real path always exists"
-#   forced invention; (3) 0 NARROWED over 60 AXIOMs while the loaded library named
-#   the overgeneralised families; (4) every prose formula ASCII. ROOT CAUSE: gates
-#   proved a protocol was DECLARED, not DONE. FIXES: §7-8 KEY RECONCILIATION (hash
-#   commitments, resolved IN-RUN); §13-2b SEMANTIC-OBJECT RECONCILIATION; §15-2
-#   REWRITTEN (two modes, engine RECOMPUTES, hedges banned, no quota); §7-7 step 3
-#   MECHANICAL (Triggers + tripwire); §8-0c TYPOGRAPHY; §6A-1b-ii; §17 REWRITTEN
-#   (never halt); RE-1/13/16 amended, RE-23/24 new; §18/§20/§21/§24 hooks.
-#   SHARED_RULES 1.3→1.4.
-# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockTestExplain.md".
-#   Entries for superseded versions were moved there VERBATIM at framework
-#   release 2026.08.15.14, and again at 2026.08.19.1 (v1.25.0–v1.34.0 — the
-#   MockExplain/TestExplain route had crossed the EC-P42 SPEC-BUDGET threshold)
-#   (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
-#   an EXECUTING session paid for the whole EDITORIAL record before it could do
-#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
-#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
-#   was deleted. The entry for the CURRENT version stays above, because
-#   Z-VERSION requires the highest changelog entry to equal the header.
-
+# Framework_MockTestExplain v1.38.0
+# v1.38.0 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (MOCK-ONLY; pairs
+#   MockTestCreate v5.60). New §7A-M: Step 9 re-scores every question on the shared
+#   rubric (blueprint_core.assess_difficulty) at THIS exam's level and reports
+#   agreement with Step 7's labels (dashboard + §R10). Report-only; sticker wins.
+#   Resolves the §7A divergence note (same RUBRIC, different mechanisms; PYQExplain
+#   v2.16). No shared §4–§18 rule modified; SHARED_RULES stays 1.4. Superseded
+#   v1.37.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42, 2026.08.20.9 discipline).
 # ════════════════════════════════════════════════════════════════════════
 # §0 — INPUT / OUTPUT CONTRACT (read before anything else)
 # ════════════════════════════════════════════════════════════════════════
@@ -1350,6 +1332,32 @@
   say so in the dashboard and §R10 — never refused. key_status per question ∈ MATCH ·
   RESOLVED_SELF · RESOLVED_SOURCE · UNAVAILABLE · DEFECT; unset cannot ship (§18).
 
+## §7A-M — ADVISORY DIFFICULTY RE-MEASURE (MOCK-ONLY, v1.38.0 — REPORT, NEVER BLOCK)
+
+  Counterpart of PYQExplain §7A under the adopted contract: both pipelines share
+  the RUBRIC (blueprint_core.assess_difficulty) with different MECHANISMS. Mock
+  difficulty is a SPECIFICATION enforced at authoring (MockTestCreate v5.60
+  CHECK 3c / G-DIFF; audited by A-QINDEX 7/8), so Step 9 never re-decides a
+  label — THE STICKER WINS. But only Step 9 re-derives every question
+  INDEPENDENTLY, so it is the one honest cross-check of Step 7's evidence.
+
+  MECHANISM (per question, zero extra solving): after §7-8, record what §7-1's
+  derive-twice pass revealed, in the SAME observation shape Step 7 stores as
+  difficulty_obs (CHECK 3c is the single source for the shape); compute _lab9 =
+  blueprint_core.assess_difficulty(..., derivation_confidence per §7-1
+  agreement); compare to question_index[q].difficulty. LEVEL ANCHOR: count
+  steps/concepts for a competent candidate OF THIS EXAM (blueprint `level` +
+  the subtopic's PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge is
+  recall (0 steps), never steps — Step 9's count stays commensurable with
+  Step 7's rather than a granularity artefact.
+
+  REPORT (the whole output): dashboard "§7A-M: k/n agree"; §R10 "DIFFICULTY
+  RE-MEASURE (advisory): agree X/[total]; disagreements: Q[n] label=[L]
+  re-measured=[M], ...". Disagreements NEVER block, edit the registry, or
+  change an explanation; a large count is OPERATOR signal (§24 learnings —
+  suspect Step 7's obs capture or a drifted regeneration). DORMANT (one §R10
+  line) when the entry has no difficulty labels, the vocabulary is not 3-band,
+  or blueprint_core is unavailable.
 # ════════════════════════════════════════════════════════════════════════
 # §8 — SECTION QUALITY STANDARDS (the highest-standard contract per section)
 # ════════════════════════════════════════════════════════════════════════
@@ -2494,13 +2502,10 @@ Step 9 uses BOTH footer types:
 # ════════════════════════════════════════════════════════════════════════
 # §24 — LEARNINGS CONSUMPTION CONTRACT (consumer-only since v1.21.0)
 # ════════════════════════════════════════════════════════════════════════
-#   v1.21.0 — THE AUTOMATIC PRODUCER IS GONE. Step 10 was this loop's producer: it distilled
-#   the defects it had to FIX into reusable AL-rules so the same mistake was not authored
-#   again. With Step 10 retired, NOTHING generates AL-rules automatically any more. This
-#   section remains as the CONSUMER half only: any AL-rule file already accumulated stays
-#   valid and is still loaded and obeyed, and new rules may be added BY HAND by the author.
-#   The schema below is frozen so existing files keep parsing; there is no producer half to
-#   keep pinned to it.
+#   v1.21.0 — NO AUTOMATIC PRODUCER (Step 10 retired): this section is the CONSUMER
+#   half only. Accumulated AL-rule files stay valid, loaded and obeyed; new rules are
+#   added BY HAND. Schema below frozen so existing files keep parsing. (Retirement
+#   narrative: SPEC_HISTORY.md, this spec's section — EC-P42.)
 #
 #   TWO learnings files, both loaded at P1, both exam-agnostic, both OVERRIDE this spec:
 #     • [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md — AL-rules ("Audit Learning"). Formerly
@@ -2610,14 +2615,9 @@ Step 9 uses BOTH footer types:
 #   "SELF-TEST: N/N PASS", N >= 62 (core, required at P1) and `--self-test-audit` →
 #   "AUDIT-SELF-TEST: N/N PASS", N >= 10 (reader round-trip; v1.25 floor form).
 #
-#   WHY THE LISTING WAS REMOVED (v1.12): through v1.11 the full engine was reproduced
-#   verbatim in this Appendix AND in the (now retired) ExplainAudit spec's Appendix A "for
-#   self-containment" — but a reproduced copy and the standalone can silently DESYNC, and
-#   the v1.8/v1.9 changelog records that this ALREADY happened once (the embedded copy
-#   lagged the standalone's step-number + code fixes). A single canonical copy removes
-#   that failure mode — the same multi-copy-drift fix the retired audit steps applied
-#   to their auditors. The framework linter (validate_framework_md.py) runs
-#   explain_engine.py's `--self-test` directly.
+#   The framework linter (validate_framework_md.py) runs explain_engine.py's
+#   `--self-test` directly. (v1.12 removal rationale — the embedded-copy desync
+#   history: SPEC_HISTORY.md, this spec's section — EC-P42.)
 #
 #   COMPANION GATE (v1.21.1 — REMOVED): explain_audit_gate.py has been deleted from the
 #   framework. Its sole remaining consumer, PYQExplainAudit (PYQ-2), was retired, so no
@@ -2632,5 +2632,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.37.0
+# END OF Framework_MockTestExplain v1.38.0
 # ════════════════════════════════════════════════════════════════════════

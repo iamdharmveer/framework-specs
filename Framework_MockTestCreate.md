@@ -1,4 +1,37 @@
-# Framework_MockTestCreate v5.59
+# Framework_MockTestCreate v5.60
+# v5.60 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (blueprint_core
+#   Cluster E2c, final_assembly v1.6, audit_canonical v2.15, Blueprint v1.51.0,
+#   TestExplain §7A-M, PYQExplain divergence note resolved). THE DEFECT, measured on
+#   IIT_JAM_CHEMISTRY M01: the difficulty quota said HOW MANY of each band but nothing
+#   defined WHAT a band meant, so labels were slot names — 14/60 agreed with the shared
+#   Tier-1 rubric (bc.assess_difficulty), at least 32 'Hard' labels sat on questions
+#   that measure Medium, and 4 'Easy' labels sat on MSQ/NAT positions where the
+#   rubric's qtype floor makes that band unreachable. Every count-based gate (G-QINDEX,
+#   A-QINDEX 1-6, K-BAL) passed, because every gate measured the DISTRIBUTION, not the
+#   QUESTIONS — the same defect class as G-FIGINK and the axis sentinel: the declared
+#   property, not the artefact. THE FIX — one scale, four layers, user ratio untouched:
+#   the trigger/band ratio remains the LAW for counts (deliberately hard series stay
+#   fully supported); bc.assess_difficulty becomes the DEFINITION of the label on both
+#   pipelines (the §7A divergence note's adopted contract: same RUBRIC, different
+#   mechanisms). (1) S3 builds difficulty_plan via bc.assign_difficulty_bands —
+#   deterministic, seed-rotated per mock, bottom band only on positions whose floor
+#   allows it — after bc.difficulty_feasibility HARD STOPS any count the exam shape
+#   cannot honestly hold (with the achievable maximum named). (2) CHECK 3c / G-DIFF:
+#   author TO the band via bc.difficulty_authoring_profile, record difficulty_obs from
+#   the derivation already performed for the sidecar, and accept only when
+#   bc.verify_difficulty_obs(label, obs) agrees — MAX_DIFF_TRIES=6, then a quota-
+#   preserving band-swap escape, then HARD STOP; a label an evidence contradicts never
+#   ships. (3) write_q_to_sidecar carries difficulty_obs (keyword-only, NO default —
+#   the v5.52 argument) into concept_map; final_assembly v1.6 carries it into
+#   registry.question_index. (4) A-QINDEX check 7 FAILs bottom-band labels on MSQ/NAT
+#   positions on EVERY registry (zero-judgment, catches legacy data), check 8
+#   recomputes label == rubric(obs) on evidence-bearing entries via the same engine
+#   call as G-DIFF so gate and audit cannot drift. DORMANCY: no difficulty_schedule
+#   entry or a non-3-band vocabulary ⇒ plan None, G-DIFF off, pre-v5.60 behaviour
+#   byte-for-byte; legacy registries without obs skip check 8 and keep check 7.
+#   LEVEL ANCHOR: step/concept units are level-relative (bp_level + the subtopic's
+#   PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge = recall (0 steps),
+#   so one rubric serves grade-10 through post-graduation with honest labels.
 # v5.59 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paper_pipeline v5.39,
 #   final_assembly v5.55, corpus_io v1.12; paired with MockTestExplain v1.37.0 / engine
 #   v2.8). A delivered Mock 01 was CREATED with key 2 on a figural question (salicylic
@@ -1108,6 +1141,49 @@
           return {'simple': difficulty_labels[0], 'medium': difficulty_labels[1],
                   'hard': difficulty_labels[2]}.get(sched_key, _alias.get(sched_key, sched_key))
       return _alias.get(sched_key, sched_key)
+
+  # v5.60 — THE DIFFICULTY PLAN (GAP-2026-08-21-DIFFICULTY-STICKER-LABELS).
+  # SCHEDULE-FIRST survives intact: the user's trigger/band ratio is the LAW for
+  # HOW MANY questions sit in each band, exactly as before — including deliberately
+  # hard series. What changes is that the band is now an AUTHORING TARGET with a
+  # definition (bc.assess_difficulty, the same Tier-1 rubric PYQ-1 uses), not a
+  # sticker: WHICH positions may take the bottom band is floor-constrained, and
+  # every accepted question must MEASURE as its band from its own recorded
+  # derivation (S7 CHECK 3c / G-DIFF). Measured driver: M01 shipped 45 'Hard'
+  # labels on quota alone; 14/60 agreed with the rubric; 4 'Easy' labels sat on
+  # MSQ/NAT positions the rubric cannot reach. Every count-based gate passed.
+  import blueprint_core as bc           # S1-2b engine (single source of truth)
+  _qtype_by_q = {q: {'MCQ': 'mcq', 'MSQ': 'msq', 'NAT': 'nat'}
+                    .get(str(_type_for_q(q)).strip().upper(), 'mcq')
+                 for q in range(1, total_questions + 1)}
+  difficulty_plan = None                       # {q: canonical label} | None = dormant
+  if diff_entry and len(difficulty_labels) == 3:
+      _dcounts = {'simple': n_simple, 'medium': n_medium, 'hard': n_hard}
+      _dshort = bc.difficulty_feasibility(_dcounts, _qtype_by_q, difficulty_labels)
+      if _dshort:
+          _lab, _d = next(iter(_dshort.items()))
+          raise SystemExit(
+              f"HARD STOP (S3 difficulty feasibility, v5.60): the schedule asks for "
+              f"{_d['requested']} '{_lab}' questions but this exam's shape can honestly "
+              f"hold at most {_d['max_achievable']} — the shared rubric's qtype floor "
+              f"makes '{_lab}' unreachable on MSQ/NAT positions (an options-free or "
+              f"choose-all mechanic is never bottom-band work). Re-run Step 6 with "
+              f"'{_lab}' <= {_d['max_achievable']} for this mock (any Medium/Hard "
+              f"split is unrestricted), or drop position-based typing. Do NOT relabel "
+              f"around this.")
+      # Deterministic, floor-honouring, seed-rotated per mock so the bottom band
+      # doesn't sit on the same positions in every paper of the series.
+      difficulty_plan = bc.assign_difficulty_bands(_dcounts, _qtype_by_q,
+                                                   difficulty_labels, seed=N)
+      difficulty_plan = {q: lab for q, lab in difficulty_plan.items()}
+      # Persisted as batch_state.json['difficulty_plan'] = {str(q): label} alongside
+      # the rest of the S3 state (same write, same file) so `continue` resumes the
+      # identical plan and the CHECK 3c band-swap escape can update it in place.
+  # DORMANT (difficulty_plan is None) when the exam declares no difficulty_schedule
+  # entry for this mock OR a non-3-band vocabulary — the documented fall-through of
+  # every Cluster-E2 function. Dormant means: no plan, no G-DIFF, labels assigned
+  # exactly as pre-v5.60 (and A-QINDEX checks 7/8 stay proportionate: 7 needs a
+  # marking_scheme, 8 needs recorded obs).
   ```
 
   LOAD EXPLAIN_LEARNINGS for quality constraints (GAP-07 fix; v5.56 filename seam fix):
@@ -3194,6 +3270,87 @@
         3-pass verify, option quality, etc.
         if any fails → REJECT and regenerate.
 
+      CHECK 3c — DIFFICULTY CONFORMANCE (G-DIFF, v5.60 — skipped only when
+        difficulty_plan is None, the documented dormant state):
+        The slot's band is difficulty_plan[q]. AUTHOR TO THE BAND from the start:
+        bc.difficulty_authoring_profile(band, qtype, difficulty_labels) names the
+        class facets, deduction-step range and concept count that provably land
+        in the band — write the question AND its solution inside that profile
+        (a bottom-band slot is recall/one-principle and NEVER computational or
+        figural; a top-band slot is a genuinely long or multi-concept
+        derivation — more Hard in the trigger means AUTHORING harder questions,
+        never renaming easier ones).
+        While deriving the answer for the sidecar (the derivation already
+        happens — §S7-NEW-A), RECORD the observations the derivation revealed:
+          difficulty_obs = {'question_class': [facet, ...],   # incl. C-FIGURAL
+                            'deduction_steps': <int>,          # steps actually needed
+                            'axiom_concepts': <int>,           # distinct principles
+                            'speed_hack_exists': <bool>,
+                            'is_negative': <bool>,             # NOT/EXCEPT polarity
+                            'qtype': 'mcq'|'msq'|'nat'}
+        Count honestly — steps a competent candidate needs, not padding; the
+        count is evidence, and A-QINDEX check 8 re-runs the same arithmetic on
+        it forever.
+        LEVEL ANCHOR (v5.60) — the UNIT of the count is level-relative even
+        though the rubric's arithmetic is universal: a "step" is one reasoning
+        move for a competent candidate OF THIS EXAM (bp_level, S3-2 — grade-10
+        through post-graduation), and the exam's ASSUMED PREREQUISITE KNOWLEDGE
+        is recall (0 steps), NEVER steps. What a grade-12 candidate must reason
+        through, a post-graduate candidate simply knows — so the same physical
+        question legitimately scores lower on a higher-level exam. Calibrate
+        the granularity against the subtopic's PYQ_DIFFICULTY_CALIBRATION
+        examples (section_rules — real step counts from THIS exam's own
+        papers). Counting a question in a lower level's step-units inflates
+        every score and mislabels the whole paper for its audience; Step 9's
+        §7A-M re-count at the same anchor is the cross-check that exposes it.
+        THE GATE: ok, measured = bc.verify_difficulty_obs(difficulty_plan[q],
+        difficulty_obs, difficulty_labels). If not ok:
+          → REJECT. Regenerate TOWARD the band using the profile (add or remove
+            derivation load; change class facets). Bound: MAX_DIFF_TRIES = 6
+            per slot, counted separately from MAX_SCENARIO_TRIES.
+          → BAND-SWAP ESCAPE (after MAX_DIFF_TRIES): if another not-yet-accepted
+            slot q' exists in the SAME section with difficulty_plan[q'] ==
+            measured and difficulty_min_band allows this slot's band at q',
+            swap the two plan entries (quota unchanged, floors re-checked) and
+            accept; update batch_state['difficulty_plan']. Otherwise HARD STOP
+            naming q, the band, the measured label and the six profiles tried —
+            never accept a question whose label its own evidence contradicts.
+        On ACCEPT: pass difficulty=difficulty_plan[q] AND difficulty_obs to
+        write_q_to_sidecar — the label and its evidence travel together into
+        registry.question_index (S13-4) and are what A-QINDEX checks 7/8 and
+        Step 9's advisory re-measure (TestExplain §7A-M) verify downstream.
+
+        THE GATE, executable (called once per slot when difficulty_plan is set;
+        `diff_tries` is the batch_state.json['_diff_tries'] dict, persisted with
+        the rest of the S3 state):
+        ```python
+        def g_diff_gate(q, band, qtype, difficulty_obs, difficulty_labels,
+                        diff_tries):
+            """Returns 'ACCEPT' | 'RETRY' | 'SWAP_OR_STOP' for this candidate."""
+            import blueprint_core as bc          # S1-2b engine (already on sys.path)
+            MAX_DIFF_TRIES = 6
+            profile = bc.difficulty_authoring_profile(band, qtype,
+                                                      difficulty_labels)
+            # profile is None ONLY for a bottom-band MSQ/NAT slot, which the S3
+            # plan can never produce (floors) — None here means the plan was
+            # modified outside bc.assign_difficulty_bands: a tamper HARD STOP,
+            # never a skip.
+            if profile is None:
+                raise SystemExit(f"HARD STOP (G-DIFF, v5.60): no authoring "
+                                 f"profile for band {band!r} at Q{q} ({qtype}) "
+                                 f"— rebuild the difficulty_plan.")
+            # (the candidate was authored INSIDE `profile`, its answer derived,
+            #  and difficulty_obs recorded from that derivation — shape above)
+            ok_d, measured = bc.verify_difficulty_obs(band, difficulty_obs,
+                                                      difficulty_labels)
+            if ok_d:
+                return 'ACCEPT'
+            diff_tries[str(q)] = diff_tries.get(str(q), 0) + 1
+            if diff_tries[str(q)] < MAX_DIFF_TRIES:
+                return 'RETRY'          # regenerate toward `band`, per profile['note']
+            return 'SWAP_OR_STOP'       # band-swap escape, else HARD STOP (rules above)
+        ```
+
       Only when CHECK 1, 1b, 2, 3 all PASS:
         ACCEPT the question.
         mock_scenario_ledger.add(candidate.scenario_key)
@@ -3849,7 +4006,12 @@
                           nat_instr_in_stem=False,
                           nat_grading_type=None, nat_grading_value=None,
                           stem_precision=None,
-                          subtopic_id, difficulty):
+                          subtopic_id, difficulty, difficulty_obs):
+      # v5.60 (GAP-2026-08-21-DIFFICULTY-STICKER-LABELS): difficulty_obs is
+      # keyword-only with NO default, on the v5.52 argument exactly — a default
+      # would let a call site silently persist a label with no evidence, which
+      # is the defect itself. Dormant runs (difficulty_plan is None) pass
+      # difficulty_obs=None explicitly and A-QINDEX check 8 skips those entries.
       # v4.5: correct_pos is an int for single-answer Qs and a SORTED list[int] (the
       # correct set S) for MSQ (answer_cardinality=='multi'). The sidecar stores it verbatim.
       # v4.7: for a NAT question (answer_type=='numerical') the stored answer is the typed
@@ -3884,6 +4046,10 @@
           # Complexity label (schedule-first, from blueprint.difficulty_labels). NEVER in docx.
           "subtopic_id": subtopic_id,
           "difficulty": difficulty,
+          # v5.60 — the derivation evidence behind the label (CHECK 3c). Carried
+          # verbatim into registry.question_index by final_assembly v1.6 so the
+          # audit can recompute label == assess_difficulty(obs) forever.
+          "difficulty_obs": difficulty_obs,
           "concept_group": concept_group,
           "scenario_key": scenario_key,
           "subtopic_class": subtopic_class,          # CLASS1..CLASS4
@@ -7800,7 +7966,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.59
+# END OF Framework_MockTestCreate v5.60
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

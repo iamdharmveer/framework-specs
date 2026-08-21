@@ -15,6 +15,14 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.15 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS. A-QINDEX gains
+#   check 7 (STRUCTURAL FLOOR — the bottom difficulty band on an MSQ/NAT position is
+#   provably-wrong data under the shared rubric's qtype floors; FAILs on every
+#   registry, legacy included) and check 8 (OBS CONSISTENCY — label must equal
+#   bc.verify_difficulty_obs of its own recorded derivation evidence; evidence-
+#   bearing entries only, legacy entries skip, engine-unavailable degrades to WARN).
+#   Measured driver: IIT_JAM_CHEMISTRY M01 — 14/60 labels agreed with the rubric,
+#   4 'Easy' labels sat on MSQ/NAT positions, and every count-based gate passed.
 # v2.14 — 2026-08-20 — GAP-2026-08-20-AUDITOR-OPTN-DIAGNOSIS (run-report F4). A-OPTN
 # run without --registry on a NAT-bearing paper still FAILS (ND6: no contract, no
 # certificate) but now SAYS so — 'NOT ASSESSABLE without the option contract … re-run
@@ -3740,6 +3748,68 @@ def gate_qindex(src):
                     got[d] += 1
             if got != want:
                 fails.append(f'difficulty distribution {got} != schedule quota {want}')
+    # ── GAP-2026-08-21-DIFFICULTY-STICKER-LABELS — checks 7 + 8 ─────────────
+    # Check 7 — STRUCTURAL FLOOR (zero-judgment; runs on EVERY registry, old or
+    # new). The rubric's qtype floors make the bottom band unreachable for an
+    # MSQ/NAT position (floor class 3 + unavoidable steps term = score 4). A
+    # bottom-band label on such a position is provably-wrong data regardless of
+    # content, era, or exam — measured live on IIT_JAM_CHEMISTRY M01, where 4 of
+    # 6 'Easy' labels sat on MSQ/NAT positions and every gate passed. qtype per
+    # position comes from the blueprint's own marking_scheme; an exam without
+    # position typing (single-type paper, or no marking_scheme) is uncapped for
+    # MCQ and fully capped for a pure MSQ/NAT paper, exactly as authoring is.
+    if len(canon) == 3:
+        _ms = bp.get('marking_scheme') or []
+        def _qt_at(qn):
+            for _m in _ms:
+                _r = _m.get('q_range') or []
+                if len(_r) == 2 and min(_r) <= qn <= max(_r):
+                    return str(_m.get('question_type') or '').strip().lower()
+            return None
+        _floor_bad = []
+        for x in qs:
+            if x.get('difficulty') == canon[0]:
+                _t = _qt_at(int(x.get('q', -1)))
+                if _t in ('msq', 'nat'):
+                    _floor_bad.append(f"Q{x.get('q')}({_t.upper()})")
+        if _floor_bad:
+            fails.append(
+                f"check 7 (structural floor): '{canon[0]}' label on MSQ/NAT "
+                f"position(s) {_flist(_floor_bad)} — the rubric floor makes "
+                f"that band unreachable there; the label is provably wrong "
+                f"whatever the question says. Fix the Step-7 band plan "
+                f"(bc.assign_difficulty_bands honours the floors) and re-run.")
+        # Check 8 — OBS CONSISTENCY (evidence-bearing registries only). A
+        # v5.60+ Step 7 records the derivation observations behind each label;
+        # the label must equal the rubric applied to its own evidence. Engine-
+        # verified via bc.verify_difficulty_obs so this file and G-DIFF can
+        # never drift apart. Legacy entries (obs absent) are SKIPPED — their
+        # protection is check 7 — and a run without the engine on sys.path
+        # degrades to a WARN, never a false FAIL.
+        _obs_qs = [x for x in qs if isinstance(x.get('difficulty_obs'), dict)
+                   and x.get('difficulty_obs')]
+        if _obs_qs:
+            try:
+                import blueprint_core as _bc
+                _obs_bad = []
+                for x in _obs_qs:
+                    _okc, _meas = _bc.verify_difficulty_obs(
+                        x.get('difficulty'), x.get('difficulty_obs'), canon)
+                    if not _okc:
+                        _obs_bad.append(f"Q{x.get('q')}(label={x.get('difficulty')}"
+                                        f"!=measured={_meas})")
+                if _obs_bad:
+                    fails.append(
+                        f"check 8 (obs consistency): label contradicts its own "
+                        f"recorded derivation evidence on {_flist(_obs_bad)} — "
+                        f"assess_difficulty(difficulty_obs) disagrees. The label "
+                        f"is a conclusion from evidence, not a slot name; fix "
+                        f"the Step-7 capture or the question and regenerate.")
+            except ImportError:
+                _warn('A-QINDEX',
+                      f'check 8 dormant — blueprint_core not importable in this '
+                      f'run; {len(_obs_qs)} evidence-bearing entries not '
+                      f're-verified (check 7 still enforced)')
     if fails:
         _fail('A-QINDEX', '; '.join(fails))
     else:
@@ -4399,6 +4469,64 @@ def self_test():
 
     check('A-QINDEX-quota-fails-when-schedule-exists-but-not-for-this-mock',
           [l for l, _, _ in _q_run_no_entry_for_mock()] == ['FAIL'])
+
+    # ── GAP-2026-08-21-DIFFICULTY-STICKER-LABELS — checks 7 + 8 ─────────────
+    # THE DEFECT, measured: labels were slot names, not conclusions. 45 of 60
+    # questions stamped 'Hard' on quota alone; 4 'Easy' stamps sat on MSQ/NAT
+    # positions where the rubric floor makes that band unreachable. Every
+    # count-based check above passed. Ships WITH fixtures from day one.
+    _QBP7 = dict(_QBP, marking_scheme=[
+        {'q_range': [1, 1], 'question_type': 'MCQ'},
+        {'q_range': [2, 2], 'question_type': 'NAT'}])
+
+    def _q_run7(qs):
+        _reset()
+        gate_qindex({'total_questions': 2, 'blueprint': _QBP7,
+                     'registry': _q_reg(qs), '_mockN': 1})
+        return [(l, c, m) for l, c, m in RESULTS if c == 'A-QINDEX']
+
+    # Easy on the NAT position: FAIL, naming the question and its qtype.
+    _q_fl = _q_run7([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Hard'},
+                     {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Easy'}])
+    check('A-QINDEX-floor-easy-on-nat-FAILS',
+          [l for l, _, _ in _q_fl] == ['FAIL'] and 'Q2(NAT)' in _q_fl[0][2]
+          and 'check 7' in _q_fl[0][2])
+    # Easy on the MCQ position with Hard on NAT: clean.
+    check('A-QINDEX-floor-easy-on-mcq-certifies',
+          [l for l, _, _ in _q_run7(
+              [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy'},
+               {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard'}])]
+          == ['OK'])
+    # No marking_scheme (legacy blueprint): check 7 has no position typing to
+    # consult and must stay dormant — the original _QBP clean run already covers
+    # this, but assert it against an Easy label explicitly.
+    check('A-QINDEX-floor-dormant-without-marking-scheme',
+          [l for l, _, _ in _q_run(_q_reg(_QCLEAN))] == ['OK'])
+    # Check 8: label contradicted / confirmed by its own recorded evidence.
+    _obs_easy = {'question_class': 'C-FACTUAL', 'deduction_steps': 2,
+                 'axiom_concepts': 1, 'speed_hack_exists': False,
+                 'is_negative': False, 'qtype': 'mcq'}
+    _q_o1 = _q_run7([{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Hard',
+                      'difficulty_obs': _obs_easy},
+                     {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard'}])
+    check('A-QINDEX-obs-mismatch-FAILS',
+          [l for l, _, _ in _q_o1] == ['FAIL'] and 'check 8' in _q_o1[0][2]
+          and 'Q1(label=Hard!=measured=Easy)' in _q_o1[0][2])
+    check('A-QINDEX-obs-match-certifies',
+          [l for l, _, _ in _q_run7(
+              [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Easy',
+                'difficulty_obs': _obs_easy},
+               {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Hard',
+                'difficulty_obs': {'question_class': None, 'deduction_steps': 3,
+                                   'axiom_concepts': 2, 'speed_hack_exists': False,
+                                   'is_negative': False, 'qtype': 'nat'}}])]
+          == ['OK'])
+    # Legacy entries (no obs) skip check 8 silently — check 7 is their guard.
+    check('A-QINDEX-obs-legacy-entries-skip',
+          [l for l, _, _ in _q_run7(
+              [{'q': 1, 'subtopic_id': 'PHY.MECH.NEWTON', 'difficulty': 'Hard'},
+               {'q': 2, 'subtopic_id': 'PHY.MECH.WORK', 'difficulty': 'Medium'}])]
+          == ['OK'])
 
     # DORMANCY IS A CONTRACT, not an accident: ~200 exams hold a Step-6 copy of
     # this auditor and invoke it without the new flags. Dormant must stay OK, and

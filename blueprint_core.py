@@ -2074,6 +2074,184 @@ def assess_difficulty(question_class, deduction_steps, axiom_concepts,
     return HARD
 
 
+# ── Cluster E2c — DIFFICULTY CONFORMANCE (v1.13, GAP-2026-08-21-DIFFICULTY-
+#    STICKER-LABELS). The mock pipeline's quota said HOW MANY of each band but
+#    nothing defined WHAT a band meant, so Step 7 stamped slot names onto
+#    questions (measured on IIT_JAM_CHEMISTRY M01: 14/60 labels agreed with the
+#    Tier-1 rubric; 4 labels were structurally impossible). These helpers put
+#    the SCHEDULE, the AUTHORING and the AUDIT on the ONE existing scale —
+#    assess_difficulty — so a label becomes a conclusion from recorded evidence.
+#    All are pure, deterministic, exam-agnostic, and return None/{} degradation
+#    on the same non-3-band contract as assess_difficulty.
+
+def difficulty_min_band(qtype, difficulty_labels):
+    """The FLOOR band a question at a position of this qtype can honestly reach.
+
+    Derived from the rubric's own arithmetic, not restated: the qtype floor class
+    (msq→C-MULTI-SELECT 3, nat→C-NUMERICAL-INPUT 3) plus the unavoidable
+    steps term (engine minimum 2 deduction steps → +1) puts every MSQ/NAT at
+    score ≥ 4 = the middle band. An MCQ can be authored factual/2-step
+    (score 1) → the bottom band. None on a non-3-band vocabulary.
+    """
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return None
+    qt = str(qtype or '').strip().lower()
+    floor_class = _QTYPE_FLOOR_CLASS.get(qt)
+    base = CLASS_BASELINE.get(floor_class, 0) if floor_class else 0
+    min_score = base + 1                      # + the unavoidable steps>=2 term
+    if min_score <= DIFFICULTY_EASY_MAX:
+        return difficulty_labels[0]
+    if min_score <= DIFFICULTY_MEDIUM_MAX:
+        return difficulty_labels[1]
+    return difficulty_labels[2]
+
+
+def difficulty_feasibility(counts, qtype_by_q, difficulty_labels):
+    """Can this mock's band counts be honestly authored on this exam's shape?
+
+    counts      {'simple': S, 'medium': M, 'hard': H} (schedule keys) or a dict
+                keyed by the canonical labels themselves. Missing keys = 0.
+    qtype_by_q  {q:'mcq'|'msq'|'nat'} for every position of the mock.
+    Returns {} when feasible, else {label: {'requested': r, 'max_achievable': m}}.
+    {} (vacuous pass) on a non-3-band vocabulary — same fall-through as the rubric.
+
+    Only the BOTTOM band is capacity-bound (an MSQ/NAT position can never be
+    authored down to it — difficulty_min_band). Any position can be authored UP
+    (more steps, more concepts), so the middle and top bands are never capped.
+    Sum mismatches are the caller's existing S3-9-style checks, not re-checked here.
+    """
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return {}
+    easy_lab = difficulty_labels[0]
+    req = _as_int((counts or {}).get('simple', (counts or {}).get(easy_lab, 0)))
+    cap = sum(1 for t in (qtype_by_q or {}).values()
+              if difficulty_min_band(t, difficulty_labels) == easy_lab)
+    if req > cap:
+        return {easy_lab: {'requested': req, 'max_achievable': cap}}
+    return {}
+
+
+def assign_difficulty_bands(counts, qtype_by_q, difficulty_labels, seed=0):
+    """Deterministic band-per-question plan honouring the structural floors.
+
+    Fills the quota EXACTLY: bottom-band slots land only on positions whose
+    floor allows them (spread evenly, rotated by `seed` for cross-mock variety),
+    middle-band slots spread evenly over the remainder, everything else top band.
+    Returns {q: label}. Raises ValueError when counts don't sum to the position
+    count or the plan is infeasible (call difficulty_feasibility first for a
+    diagnosable message). None on a non-3-band vocabulary.
+    """
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return None
+    EASY, MEDIUM, HARD = difficulty_labels
+    qs = sorted(int(q) for q in (qtype_by_q or {}))
+    nE = _as_int((counts or {}).get('simple', (counts or {}).get(EASY, 0)))
+    nM = _as_int((counts or {}).get('medium', (counts or {}).get(MEDIUM, 0)))
+    nH = _as_int((counts or {}).get('hard', (counts or {}).get(HARD, 0)))
+    if nE + nM + nH != len(qs):
+        raise ValueError(f"difficulty counts {nE}+{nM}+{nH} != {len(qs)} positions")
+    if difficulty_feasibility(counts, qtype_by_q, difficulty_labels):
+        raise ValueError("infeasible bottom-band count — run difficulty_feasibility")
+    ok_easy = [q for q in qs
+               if difficulty_min_band(qtype_by_q[q], difficulty_labels) == EASY]
+    plan = {}
+    def _spread(pool, n, rot):
+        """n indices spread evenly over pool, rotated deterministically."""
+        if n <= 0 or not pool:
+            return []
+        step = len(pool) / n
+        return [pool[(int(i * step) + rot) % len(pool)] for i in range(n)]
+    # Even spread can collide on the same index after rotation only when
+    # n > len(pool), which feasibility already excludes for EASY and the sum
+    # check excludes elsewhere; dedupe defensively by walking forward.
+    def _place(pool, n, rot, label):
+        taken = []
+        want = _spread(pool, n, rot)
+        free = set(pool)
+        for cand in want:
+            c = cand
+            while c not in free:                      # deterministic forward walk
+                c = pool[(pool.index(c) + 1) % len(pool)]
+            free.discard(c); taken.append(c); plan[c] = label
+        return taken
+    _place(ok_easy, nE, _as_int(seed) % max(1, len(ok_easy) or 1), EASY)
+    rem = [q for q in qs if q not in plan]
+    _place(rem, nM, _as_int(seed) % max(1, len(rem) or 1), MEDIUM)
+    for q in qs:
+        plan.setdefault(q, HARD)
+    return plan
+
+
+def difficulty_authoring_profile(band, qtype, difficulty_labels):
+    """The observation targets that make assess_difficulty land IN `band` for a
+    question of `qtype`. An AUTHORING INSTRUCTION, derived from (and proven
+    against, in self_test) the rubric's arithmetic — never a parallel scale.
+
+    Returns {'classes': [...], 'steps': (lo, hi), 'concepts': (lo, hi),
+             'avoid_negative': bool, 'note': str} or None (unknown band /
+    non-3-band vocabulary). derivation_confidence is 'full' at authoring by
+    definition — the author wrote the answer — and speed_hack adds only on
+    steps>=4 derivations, so profiles keep clear of that edge except for the
+    top band, where it helps.
+    """
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return None
+    EASY, MEDIUM, HARD = difficulty_labels
+    qt = str(qtype or '').strip().lower()
+    if band == EASY:
+        if qt in _QTYPE_FLOOR_CLASS:
+            return None                        # structurally impossible — floor
+        return {'classes': ['C-FACTUAL', 'C-VOCAB-ITEM', 'C-FORMAL-LOGIC'],
+                'steps': (2, 2), 'concepts': (1, 1), 'avoid_negative': True,
+                'note': 'recall/one-principle; NEVER computational or figural '
+                        '(their baseline alone exceeds the bottom band)'}
+    if band == MEDIUM:
+        if qt in _QTYPE_FLOOR_CLASS:
+            return {'classes': [], 'steps': (2, 2), 'concepts': (1, 2),
+                    'avoid_negative': True,
+                    'note': 'direct application: the qtype floor already pays '
+                            'the baseline; keep the derivation to 2 steps'}
+        return {'classes': ['C-COMPUTATIONAL', 'C-FORMAL-LOGIC', 'C-FIGURAL'],
+                'steps': (2, 4), 'concepts': (1, 2), 'avoid_negative': True,
+                'note': 'standard single-thread application; cap total score '
+                        'at 5 (e.g. computational 2 + steps-3 term 2 + 1 concept)'}
+    if band == HARD:
+        if qt in _QTYPE_FLOOR_CLASS:
+            return {'classes': [], 'steps': (3, 6), 'concepts': (2, 4),
+                    'avoid_negative': False,
+                    'note': 'floor 3 + steps>=3 (+2) + concepts>=2 (+1) = 6; '
+                            'longer derivations and shortcuts only raise it'}
+        return {'classes': ['C-COMPUTATIONAL', 'C-LINKED', 'C-FIGURAL'],
+                'steps': (5, 8), 'concepts': (2, 4), 'avoid_negative': False,
+                'note': 'multi-concept, genuinely long: steps>=5 (+3) with '
+                        'concepts>=2 (+1) on a class-2 baseline = 6; or '
+                        'steps 3-4 with concepts>=3'}
+    return None
+
+
+def verify_difficulty_obs(label, obs, difficulty_labels):
+    """label == assess_difficulty(recorded observations)? The ONE check both the
+    generation gate (G-DIFF) and the audit (A-QINDEX check 8) run, so they can
+    never drift apart. obs keys: question_class/facets, deduction_steps,
+    axiom_concepts, speed_hack_exists, is_negative, qtype
+    (derivation_confidence defaults 'full' — the author derived the answer).
+    Returns (ok: bool, measured: str|None). (True, None) on a non-3-band
+    vocabulary or an unusable obs dict — the documented fall-through, never a
+    false FAIL on a legacy registry.
+    """
+    if not isinstance(obs, dict) or not obs:
+        return (True, None)
+    measured = assess_difficulty(
+        obs.get('question_class', obs.get('facets')),
+        obs.get('deduction_steps'), obs.get('axiom_concepts'),
+        bool(obs.get('speed_hack_exists')),
+        obs.get('derivation_confidence', 'full'),
+        bool(obs.get('is_negative')), obs.get('qtype'), difficulty_labels)
+    if measured is None:
+        return (True, None)
+    return (measured == label, measured)
+
+
 def structural_difficulty(q, marking_scheme, difficulty_labels):
     """TIER 1.5 — difficulty from the exam body's own MARKING STRUCTURE.
 
@@ -4841,6 +5019,107 @@ def self_test():
     check('e2_assess_nonfinite_steps',
           assess_difficulty('C-FACTUAL', float('inf'), float('nan'), False,
                             'full', False, 'mcq', _L) == _L[0])
+
+    # ── Cluster E2c: difficulty conformance (v1.13) ──────────────────────────
+    # Floors derive from the rubric, never restate it.
+    check('e2c_floor_mcq_bottom', difficulty_min_band('mcq', _L) == _L[0])
+    check('e2c_floor_msq_nat_middle',
+          difficulty_min_band('msq', _L) == _L[1]
+          and difficulty_min_band('nat', _L) == _L[1]
+          and difficulty_min_band('NAT ', _L) == _L[1]          # case/space tolerant
+          and difficulty_min_band(None, _L) == _L[0])           # unknown = uncapped
+    check('e2c_floor_non3band_none',
+          difficulty_min_band('mcq', ['Lo', 'Hi']) is None
+          and difficulty_min_band('nat', None) is None)
+    # The floor claim is PROVEN against the rubric: no observation combination at
+    # engine-minimum authoring puts an msq/nat below the middle band.
+    check('e2c_floor_proven_by_rubric',
+          all(assess_difficulty(cls, 2, 1, False, 'full', False, qt, _L) != _L[0]
+              for qt in ('msq', 'nat')
+              for cls in (None, 'C-FACTUAL', 'C-VOCAB-ITEM', 'C-FORMAL-LOGIC')))
+    _qt60 = {q: ('mcq' if q <= 30 else 'msq' if q <= 40 else 'nat')
+             for q in range(1, 61)}
+    check('e2c_feas_ok',
+          difficulty_feasibility({'simple': 6, 'medium': 9, 'hard': 45}, _qt60, _L) == {})
+    check('e2c_feas_easy_capped',
+          difficulty_feasibility({'simple': 31, 'medium': 9, 'hard': 20}, _qt60, _L)
+          == {_L[0]: {'requested': 31, 'max_achievable': 30}})
+    check('e2c_feas_all_nat_zero_easy',
+          difficulty_feasibility({'simple': 1, 'medium': 5, 'hard': 4},
+                                 {q: 'nat' for q in range(1, 11)}, _L)
+          == {_L[0]: {'requested': 1, 'max_achievable': 0}})
+    check('e2c_feas_canonical_label_keys',
+          difficulty_feasibility({_L[0]: 31, _L[1]: 9, _L[2]: 20}, _qt60, _L)
+          == {_L[0]: {'requested': 31, 'max_achievable': 30}})
+    check('e2c_feas_non3band_vacuous',
+          difficulty_feasibility({'simple': 99}, _qt60, ['Lo', 'Hi']) == {})
+    # Placement: exact quota, floors honoured, deterministic, seed-rotates.
+    _pl = assign_difficulty_bands({'simple': 6, 'medium': 9, 'hard': 45}, _qt60, _L, seed=1)
+    from collections import Counter as _C
+    check('e2c_assign_exact_quota',
+          _C(_pl.values()) == _C({_L[0]: 6, _L[1]: 9, _L[2]: 45}))
+    check('e2c_assign_floors_honoured',
+          all(_qt60[q] == 'mcq' for q, lab in _pl.items() if lab == _L[0]))
+    check('e2c_assign_deterministic',
+          _pl == assign_difficulty_bands({'simple': 6, 'medium': 9, 'hard': 45},
+                                         _qt60, _L, seed=1))
+    check('e2c_assign_seed_rotates',
+          _pl != assign_difficulty_bands({'simple': 6, 'medium': 9, 'hard': 45},
+                                         _qt60, _L, seed=2))
+    _err = 0
+    try:
+        assign_difficulty_bands({'simple': 1, 'medium': 1, 'hard': 1}, _qt60, _L)
+    except ValueError:
+        _err += 1
+    try:
+        assign_difficulty_bands({'simple': 31, 'medium': 9, 'hard': 20}, _qt60, _L)
+    except ValueError:
+        _err += 1
+    check('e2c_assign_rejects_bad_counts', _err == 2)
+    check('e2c_assign_non3band_none',
+          assign_difficulty_bands({'simple': 1}, _qt60, ['Lo', 'Hi']) is None)
+    check('e2c_assign_all_easy_all_mcq',
+          _C(assign_difficulty_bands({'simple': 10, 'medium': 0, 'hard': 0},
+                                     {q: 'mcq' for q in range(1, 11)}, _L).values())
+          == _C({_L[0]: 10}))
+    # Every authoring profile PROVABLY lands in its band at its canonical point.
+    def _mid(t):
+        return (t[0] + t[1]) // 2
+    _prof_ok = True
+    for _band in _L:
+        for _qtp in ('mcq', 'msq', 'nat'):
+            _pr = difficulty_authoring_profile(_band, _qtp, _L)
+            if _pr is None:
+                _prof_ok &= (_band == _L[0] and _qtp in ('msq', 'nat'))
+                continue
+            for _st in (_pr['steps'][0], _mid(_pr['steps']), _pr['steps'][1]):
+                for _co in (_pr['concepts'][0], _pr['concepts'][1]):
+                    _cls = (_pr['classes'] or [None])[0]
+                    _got = assess_difficulty(_cls, _st, _co, False, 'full',
+                                             False, _qtp, _L)
+                    _prof_ok &= (_got == _band)
+    check('e2c_profiles_proven_in_band', _prof_ok)
+    check('e2c_profile_easy_msq_impossible',
+          difficulty_authoring_profile(_L[0], 'msq', _L) is None
+          and difficulty_authoring_profile(_L[0], 'nat', _L) is None)
+    check('e2c_profile_unknown_none',
+          difficulty_authoring_profile('Bogus', 'mcq', _L) is None
+          and difficulty_authoring_profile(_L[2], 'mcq', ['Lo', 'Hi']) is None)
+    # verify_difficulty_obs: the ONE shared check.
+    _obs_h = {'question_class': 'C-COMPUTATIONAL', 'deduction_steps': 5,
+              'axiom_concepts': 2, 'speed_hack_exists': False,
+              'is_negative': False, 'qtype': 'mcq'}
+    check('e2c_verify_match', verify_difficulty_obs(_L[2], _obs_h, _L) == (True, _L[2]))
+    check('e2c_verify_mismatch',
+          verify_difficulty_obs(_L[0], _obs_h, _L) == (False, _L[2]))
+    check('e2c_verify_legacy_passthrough',
+          verify_difficulty_obs(_L[2], None, _L) == (True, None)
+          and verify_difficulty_obs(_L[2], {}, _L) == (True, None)
+          and verify_difficulty_obs(_L[2], _obs_h, ['Lo', 'Hi']) == (True, None))
+    check('e2c_verify_facets_alias',
+          verify_difficulty_obs(_L[2], {'facets': ['C-COMPUTATIONAL'],
+                                        'deduction_steps': 5, 'axiom_concepts': 2,
+                                        'qtype': 'mcq'}, _L)[0] is True)
     # Non-finite / non-positive marks are excluded from the gradient entirely.
     _ms_inf = [{'q_range': [1, 10], 'question_type': 'MCQ', 'correct_marks': 'inf'},
                {'q_range': [11, 20], 'question_type': 'MCQ', 'correct_marks': 2.0},

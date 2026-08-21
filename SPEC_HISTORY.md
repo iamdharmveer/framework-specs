@@ -1365,6 +1365,64 @@ Current-version entry remains in Framework_MockTestCreate.md.
 
 ## Framework_MockTestExplain.md
 
+Entry v1.37.0 and two in-section narrations moved at framework release 2026.08.21.3
+(EC-P42 route budget — MockExplain/TestExplain crossed 250,000 B; SPEC-BUDGET gate).
+Current-version entry remains in Framework_MockTestExplain.md.
+
+```
+# v1.37.0 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
+#   PYQExplain v2.15, engine v2.8, MockTestCreate v5.59, paper_pipeline v5.39,
+#   final_assembly v5.55). The first v1.36.0 paper passed every §18 gate and (1)
+#   PUBLISHED A WRONG KEY on a figural item (structure misread; Step 7, holding the
+#   opposite key, was by design never consulted); (2) carried 24 hedged WHY WRONG /
+#   PITFALL lines, nine with FALSE arithmetic — §15-2's "a real path always exists"
+#   forced invention; (3) 0 NARROWED over 60 AXIOMs while the loaded library named
+#   the overgeneralised families; (4) every prose formula ASCII. ROOT CAUSE: gates
+#   proved a protocol was DECLARED, not DONE. FIXES: §7-8 KEY RECONCILIATION (hash
+#   commitments, resolved IN-RUN); §13-2b SEMANTIC-OBJECT RECONCILIATION; §15-2
+#   REWRITTEN (two modes, engine RECOMPUTES, hedges banned, no quota); §7-7 step 3
+#   MECHANICAL (Triggers + tripwire); §8-0c TYPOGRAPHY; §6A-1b-ii; §17 REWRITTEN
+#   (never halt); RE-1/13/16 amended, RE-23/24 new; §18/§20/§21/§24 hooks.
+#   SHARED_RULES 1.3→1.4.
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_MockTestExplain.md".
+#   Entries for superseded versions were moved there VERBATIM at framework
+#   release 2026.08.15.14, and again at 2026.08.19.1 (v1.25.0–v1.34.0 — the
+#   MockExplain/TestExplain route had crossed the EC-P42 SPEC-BUDGET threshold)
+#   (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
+#   an EXECUTING session paid for the whole EDITORIAL record before it could do
+#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
+#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
+#   was deleted. The entry for the CURRENT version stays above, because
+#   Z-VERSION requires the highest changelog entry to equal the header.```
+
+In-section narration moved from §24 (operational summary retained in-spec):
+
+```
+#   v1.21.0 — THE AUTOMATIC PRODUCER IS GONE. Step 10 was this loop's producer: it distilled
+#   the defects it had to FIX into reusable AL-rules so the same mistake was not authored
+#   again. With Step 10 retired, NOTHING generates AL-rules automatically any more. This
+#   section remains as the CONSUMER half only: any AL-rule file already accumulated stays
+#   valid and is still loaded and obeyed, and new rules may be added BY HAND by the author.
+#   The schema below is frozen so existing files keep parsing; there is no producer half to
+#   keep pinned to it.
+#
+```
+
+In-section narration moved from the Appendix (operational facts retained in-spec):
+
+```
+#   WHY THE LISTING WAS REMOVED (v1.12): through v1.11 the full engine was reproduced
+#   verbatim in this Appendix AND in the (now retired) ExplainAudit spec's Appendix A "for
+#   self-containment" — but a reproduced copy and the standalone can silently DESYNC, and
+#   the v1.8/v1.9 changelog records that this ALREADY happened once (the embedded copy
+#   lagged the standalone's step-number + code fixes). A single canonical copy removes
+#   that failure mode — the same multi-copy-drift fix the retired audit steps applied
+#   to their auditors. The framework linter (validate_framework_md.py) runs
+#   explain_engine.py's `--self-test` directly.
+#
+```
+
+
 # v1.36.0 — 2026-08-20 — GAP-2026-08-20-TRANSFER-SAFE-EXPLANATIONS (paired with
 #   PYQExplain v2.14, engine v2.7). A DELIVERED 60-question paper passed every §18
 #   gate with every answer correct and still carried ~17 sentences TRUE FOR THE ITEM,

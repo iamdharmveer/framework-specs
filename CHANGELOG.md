@@ -1,5 +1,80 @@
 # Changelog
 
+## 2026.08.21.3 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS
+
+**MockTestCreate v5.59 -> v5.60 · Blueprint v1.50.0 -> v1.51.0 · MockTestExplain
+v1.37.0 -> v1.38.0 · PYQExplain v2.15 -> v2.16 (note-only) · blueprint_core
+(+ Cluster E2c, 520 fixtures) · final_assembly v1.6 (112) · audit_canonical v2.15 (258)**
+
+**The defect, measured.** The difficulty quota said HOW MANY questions per band; nothing
+anywhere defined WHAT a band meant on the mock side. Step 7's assignment was schedule-
+first by design, so labels were slot names. On IIT_JAM_CHEMISTRY M01 (60 questions,
+quota 6/9/45): **14/60 labels agreed** with the shared Tier-1 rubric
+(`bc.assess_difficulty`, the PYQ pipeline's own scale); at least 32 'Hard' labels sat on
+questions measuring Medium; **4 of the 6 'Easy' labels sat on MSQ/NAT positions where the
+rubric's qtype floors make that band unreachable by any content whatsoever.** Every
+count-based gate — G-QINDEX, A-QINDEX 1-6, K-BAL — passed, because every gate measured
+the DISTRIBUTION, never the QUESTIONS. Same class as G-FIGINK and the axis sentinel: the
+declared property, not the artefact. Complexity tags reach students at Step 11; this was
+caught before any delivery.
+
+**The fix — one scale, four layers. The user's ratio stays the law.**
+The trigger/band ratio remains the sole source of the counts — deliberately hard series
+are fully supported, and Medium/Hard are never capped (any position can be authored UP).
+What changes is that a band now has a definition, an authoring procedure, and an audit:
+
+1. **Blueprint S7-3 V5** — every requested mix (user bands AND the 25:25:50 default) is
+   validated against the exam's shape: the bottom band is capacity-bound by the MSQ/NAT
+   floors (`bc.difficulty_feasibility`); errors name the achievable maximum; nothing is
+   silently clamped.
+2. **MockTestCreate S3 + CHECK 3c (G-DIFF)** — `bc.assign_difficulty_bands` builds a
+   deterministic, seed-rotated, floor-honouring band plan; each question is authored TO
+   its band (`bc.difficulty_authoring_profile` — every profile proven in-band by fixture);
+   the derivation already performed for the sidecar is recorded as `difficulty_obs`; the
+   question is accepted only when `bc.verify_difficulty_obs(label, obs)` agrees.
+   MAX_DIFF_TRIES=6, then a quota-preserving band-swap escape, then HARD STOP. More Hard
+   in the trigger now means authoring longer, multi-concept questions — never renaming.
+3. **Evidence travels** — `write_q_to_sidecar(difficulty_obs=...)` (keyword-only, no
+   default: the v5.52 argument) -> concept_map -> `final_assembly` v1.6 ->
+   `registry.question_index`.
+4. **audit_canonical v2.15** — A-QINDEX **check 7** (zero-judgment structural floor:
+   bottom-band label on an MSQ/NAT position FAILS on every registry, legacy included)
+   and **check 8** (label must equal the rubric applied to its own recorded evidence,
+   via the SAME engine call as G-DIFF, so gate and audit cannot drift; legacy entries
+   without obs skip; engine-unavailable degrades to WARN). **TestExplain §7A-M** re-
+   measures advisorily from Step 9's independent derivation — report-only, sticker wins.
+   **PYQExplain's v1.1 divergence note is RESOLVED** exactly as it instructed: shared
+   RUBRIC, different mechanisms; §7A not copied; SHARED_RULES stays 1.4.
+
+**Dormancy (the estate contract).** No `difficulty_schedule` entry or a non-3-band
+vocabulary ⇒ plan None, G-DIFF off, pre-v5.60 behaviour byte-for-byte. Check 7 needs a
+`marking_scheme`; check 8 needs recorded obs. No legacy exam false-fails; provably-wrong
+legacy labels (floor violations) DO fail at their next audit, by design.
+
+**Deploy-gate fix (same release, after SPEC-BUDGET blocked the first bundle).**
+`audit_specs_ext.py` [SPEC-BUDGET] failed MockExplain/TestExplain: v1.38.0 grew the
+route's pre-work read to 251,571 B (> 250,000, EC-P42). Fixed by the 2026.08.20.9
+discipline — superseded v1.37.0 entry plus two in-section narrations (§24 producer
+retirement, Appendix v1.12 removal rationale) moved **verbatim** to `SPEC_HISTORY.md`;
+every operational sentence retained in-spec; §7A-M compacted. Route now 248,335 B
+(+1,665 headroom, near PYQScan's). `audit_specs_ext.py` is added to this builder's
+standard pre-ship gate so routed-spec growth fails at build time (the 2026.08.20.9
+process note, now adopted). **LEVEL ANCHOR** added in the same bundle (CHECK 3c +
+§7A-M): the rubric's arithmetic is universal but its UNIT is level-relative — a step
+is one reasoning move for a competent candidate OF THIS EXAM (bp_level), assumed
+prerequisite knowledge is recall (0 steps), granularity calibrated against the
+subtopic's PYQ_DIFFICULTY_CALIBRATION — so one rubric labels grade-10 through
+post-graduation honestly, and the same physical question legitimately scores lower
+on a higher-level exam.
+
+**Evidence.** blueprint_core 520/520 (+23: floors proven against the rubric, not
+restated; every authoring profile proven to land in its band; placement quota-exact,
+deterministic, seed-rotating, floor-honouring, ValueError on infeasible/bad sums;
+verify round-trips incl. legacy pass-through). audit_canonical 258/258 (+6: floor FAIL
+naming Q and qtype, floor clean pass, dormant-without-marking-scheme, obs mismatch FAIL
+naming label!=measured, obs match pass, legacy skip). final_assembly 112/112,
+paper_pipeline 90/90. M01's registry now FAILs A-QINDEX (checks 7+8) — correctly.
+
 ## 2026.08.21.2 — explanation provenance: the first paper under v1.36.0 passed every gate and published a wrong key
 
 **`explain_engine.py` v2.7→v2.8, `paper_pipeline.py` v5.38→v5.39, `final_assembly.py`

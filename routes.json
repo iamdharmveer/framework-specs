@@ -1,173 +1,175 @@
 {
-  "PYQPrepare": [
-    "Framework_PYQPrepare.md",
-    "blueprint_core.py",
-    "corpus_io.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQDraft": [
-    "Framework_PYQDraft.md",
-    "Framework_PYQCore.md",
-    "blueprint_core.py",
-    "syllabus_provenance.py",
-    "corpus_io.py",
-    "reconcile_taxonomy.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQScan": [
-    "Framework_PYQScan.md",
-    "Framework_PYQCore.md",
-    "blueprint_core.py",
-    "syllabus_provenance.py",
-    "corpus_io.py",
-    "reconcile_taxonomy.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQApprove": [
-    "Framework_PYQApprove.md",
-    "Framework_PYQCore.md",
-    "blueprint_core.py",
-    "reconcile_taxonomy.py",
-    "syllabus_provenance.py",
-    "corpus_io.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQSort": [
-    "Framework_PYQSort.md",
-    "blueprint_core.py",
-    "corpus_io.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQCount": [
-    "Framework_PYQCount.md",
-    "Framework_PYQCore.md",
-    "blueprint_core.py",
-    "syllabus_provenance.py",
-    "corpus_io.py",
-    "reconcile_taxonomy.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQExtract": [
-    "Framework_MockTestAnalyse.md",
-    "analyse_engine.py",
-    "transport_core.py",
-    "blueprint_core.py",
-    "syllabus_provenance.py",
-    "corpus_io.py",
-    "frequency_xlsx.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "MockBlueprint": [
-    "Framework_Blueprint.md",
-    "blueprint_core.py",
-    "paper_pipeline.py",
-    "corpus_io.py",
-    "syllabus_provenance.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "ScopedBlueprint": [
-    "Framework_ScopedBlueprint.md",
-    "blueprint_core.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "MockCreate": [
-    "Framework_MockTestCreate.md",
-    "blueprint_core.py",
-    "figural_core.py",
-    "paper_pipeline.py",
-    "final_assembly.py",
-    "corpus_io.py",
-    "Framework_DeliveryFooter.md",
-    "t3_mathcomp.py"
-  ],
-  "TestCreate": [
-    "Framework_MockTestCreate.md",
-    "blueprint_core.py",
-    "figural_core.py",
-    "paper_pipeline.py",
-    "final_assembly.py",
-    "corpus_io.py",
-    "Framework_DeliveryFooter.md",
-    "t3_mathcomp.py"
-  ],
-  "MockExplain": [
-    "Framework_MockTestExplain.md",
-    "explain_engine.py",
-    "t3_mathcomp.py",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "TestExplain": [
-    "Framework_MockTestExplain.md",
-    "explain_engine.py",
-    "t3_mathcomp.py",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "MockDeliver": [
-    "Framework_MockDeliver.md",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "TestDeliver": [
-    "Framework_MockDeliver.md",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQExplain": [
-    "Framework_PYQExplain.md",
-    "explain_engine.py",
-    "t3_mathcomp.py",
-    "figural_vision.py",
-    "blueprint_core.py",
-    "paper_pipeline.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQFormat": [
-    "Framework_PYQFormat.md",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQDeliver": [
-    "Framework_PYQDeliver.md",
-    "blueprint_core.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "PYQCompress": [
-    "Framework_PYQCompress.md",
-    "blueprint_core.py",
-    "corpus_io.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "NotesBlueprint": [
-    "Framework_NotesBlueprint.md",
-    "notes_core.py",
-    "syllabus_provenance.py",
-    "notes_blueprint.py",
-    "corpus_io.py",
-    "blueprint_core.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "NotesCreate": [
-    "Framework_NotesCreate.md",
-    "notes_core.py",
-    "syllabus_provenance.py",
-    "notes_docx.py",
-    "t3_mathcomp.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "NotesAudit": [
-    "Framework_NotesAudit.md",
-    "notes_core.py",
-    "syllabus_provenance.py",
-    "notes_audit.py",
-    "notes_docx.py",
-    "t3_mathcomp.py",
-    "Framework_DeliveryFooter.md"
-  ],
-  "NotesDeliver": [
-    "Framework_NotesDeliver.md",
-    "notes_core.py",
-    "syllabus_provenance.py",
-    "Framework_DeliveryFooter.md"
-  ]
+ "PYQPrepare": [
+  "Framework_PYQPrepare.md",
+  "blueprint_core.py",
+  "corpus_io.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQDraft": [
+  "Framework_PYQDraft.md",
+  "Framework_PYQCore.md",
+  "blueprint_core.py",
+  "syllabus_provenance.py",
+  "corpus_io.py",
+  "reconcile_taxonomy.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQScan": [
+  "Framework_PYQScan.md",
+  "Framework_PYQCore.md",
+  "blueprint_core.py",
+  "syllabus_provenance.py",
+  "corpus_io.py",
+  "reconcile_taxonomy.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQApprove": [
+  "Framework_PYQApprove.md",
+  "Framework_PYQCore.md",
+  "blueprint_core.py",
+  "reconcile_taxonomy.py",
+  "syllabus_provenance.py",
+  "corpus_io.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQSort": [
+  "Framework_PYQSort.md",
+  "blueprint_core.py",
+  "corpus_io.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQCount": [
+  "Framework_PYQCount.md",
+  "Framework_PYQCore.md",
+  "blueprint_core.py",
+  "syllabus_provenance.py",
+  "corpus_io.py",
+  "reconcile_taxonomy.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQExtract": [
+  "Framework_MockTestAnalyse.md",
+  "analyse_engine.py",
+  "transport_core.py",
+  "blueprint_core.py",
+  "syllabus_provenance.py",
+  "corpus_io.py",
+  "frequency_xlsx.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "MockBlueprint": [
+  "Framework_Blueprint.md",
+  "blueprint_core.py",
+  "paper_pipeline.py",
+  "corpus_io.py",
+  "syllabus_provenance.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "ScopedBlueprint": [
+  "Framework_ScopedBlueprint.md",
+  "blueprint_core.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "MockCreate": [
+  "Framework_MockTestCreate.md",
+  "blueprint_core.py",
+  "figural_core.py",
+  "paper_pipeline.py",
+  "final_assembly.py",
+  "corpus_io.py",
+  "Framework_DeliveryFooter.md",
+  "t3_mathcomp.py"
+ ],
+ "TestCreate": [
+  "Framework_MockTestCreate.md",
+  "blueprint_core.py",
+  "figural_core.py",
+  "paper_pipeline.py",
+  "final_assembly.py",
+  "corpus_io.py",
+  "Framework_DeliveryFooter.md",
+  "t3_mathcomp.py"
+ ],
+ "MockExplain": [
+  "Framework_MockTestExplain.md",
+  "explain_engine.py",
+  "blueprint_core.py",
+  "t3_mathcomp.py",
+  "paper_pipeline.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "TestExplain": [
+  "Framework_MockTestExplain.md",
+  "explain_engine.py",
+  "blueprint_core.py",
+  "t3_mathcomp.py",
+  "paper_pipeline.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "MockDeliver": [
+  "Framework_MockDeliver.md",
+  "paper_pipeline.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "TestDeliver": [
+  "Framework_MockDeliver.md",
+  "paper_pipeline.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQExplain": [
+  "Framework_PYQExplain.md",
+  "explain_engine.py",
+  "t3_mathcomp.py",
+  "figural_vision.py",
+  "blueprint_core.py",
+  "paper_pipeline.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQFormat": [
+  "Framework_PYQFormat.md",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQDeliver": [
+  "Framework_PYQDeliver.md",
+  "blueprint_core.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "PYQCompress": [
+  "Framework_PYQCompress.md",
+  "blueprint_core.py",
+  "corpus_io.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "NotesBlueprint": [
+  "Framework_NotesBlueprint.md",
+  "notes_core.py",
+  "syllabus_provenance.py",
+  "notes_blueprint.py",
+  "corpus_io.py",
+  "blueprint_core.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "NotesCreate": [
+  "Framework_NotesCreate.md",
+  "notes_core.py",
+  "syllabus_provenance.py",
+  "notes_docx.py",
+  "t3_mathcomp.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "NotesAudit": [
+  "Framework_NotesAudit.md",
+  "notes_core.py",
+  "syllabus_provenance.py",
+  "notes_audit.py",
+  "notes_docx.py",
+  "t3_mathcomp.py",
+  "Framework_DeliveryFooter.md"
+ ],
+ "NotesDeliver": [
+  "Framework_NotesDeliver.md",
+  "notes_core.py",
+  "syllabus_provenance.py",
+  "Framework_DeliveryFooter.md"
+ ]
 }

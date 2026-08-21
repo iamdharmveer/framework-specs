@@ -5,1149 +5,1149 @@
   "bash_safe_chars": 150000,
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "bf8357b4aab040e3ecfc817da523d7346e4dbdd1190481c5cc647ed83b6c0bfe",
-      "lines": 6872,
-      "bytes": 365112,
-      "est_tokens": 91278,
+      "sha256": "b4eb857f1f08b618f59ce3c1ab24565fe9b51bd8dee80b925c5c6c2700d8565d",
+      "lines": 6903,
+      "bytes": 367595,
+      "est_tokens": 91898,
       "view_calls": 23,
       "bash_calls": 3,
       "has_read_set": false,
-      "reduced_bytes": 365112,
-      "reduced_est_tokens": 91278,
+      "reduced_bytes": 367595,
+      "reduced_est_tokens": 91898,
       "reduced_bash_calls": 3,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## §1 — SESSION START",
-          "start": 198,
-          "end": 201,
+          "start": 206,
+          "end": 209,
           "lines": 4,
           "bytes": 99
         },
         {
           "title": "### ══════════════════════════════════════════════════════════════",
-          "start": 202,
-          "end": 202,
+          "start": 210,
+          "end": 210,
           "lines": 1,
           "bytes": 191
         },
         {
           "title": "### INPUT DOCUMENTS ARE THE SOLE SOURCE OF TRUTH — MEMORY PROHIBITION",
-          "start": 203,
-          "end": 203,
+          "start": 211,
+          "end": 211,
           "lines": 1,
           "bytes": 72
         },
         {
           "title": "### ══════════════════════════════════════════════════════════════",
-          "start": 204,
-          "end": 230,
+          "start": 212,
+          "end": 238,
           "lines": 27,
           "bytes": 1290
         },
         {
           "title": "### ═══════════════════════════════════════════════════════════════",
-          "start": 231,
-          "end": 232,
+          "start": 239,
+          "end": 240,
           "lines": 2,
           "bytes": 195
         },
         {
           "title": "### S1-1 — Trigger parsing",
-          "start": 233,
-          "end": 262,
+          "start": 241,
+          "end": 270,
           "lines": 30,
           "bytes": 1457
         },
         {
           "title": "### S1-2 — File inventory",
-          "start": 263,
-          "end": 298,
+          "start": 271,
+          "end": 306,
           "lines": 36,
           "bytes": 1190
         },
         {
           "title": "### S1-2b — Allocation engine mandate (blueprint_core.py — HARD STOP)",
-          "start": 299,
-          "end": 360,
+          "start": 307,
+          "end": 368,
           "lines": 62,
           "bytes": 3518
         },
         {
           "title": "### S1-3 — ExamCode collision check",
-          "start": 361,
-          "end": 375,
+          "start": 369,
+          "end": 383,
           "lines": 15,
           "bytes": 570
         },
         {
           "title": "### S1-4 — ExamCode match verification",
-          "start": 376,
-          "end": 399,
+          "start": 384,
+          "end": 407,
           "lines": 24,
           "bytes": 1001
         },
         {
           "title": "### S1-5 — Format column check",
-          "start": 400,
-          "end": 422,
+          "start": 408,
+          "end": 430,
           "lines": 23,
           "bytes": 1028
         },
         {
           "title": "### S1-6 — Verification summary output",
-          "start": 423,
-          "end": 449,
+          "start": 431,
+          "end": 457,
           "lines": 27,
           "bytes": 927
         },
         {
           "title": "### S1-7 — Session continuity (resuming from prior B2 session)",
-          "start": 450,
-          "end": 484,
+          "start": 458,
+          "end": 492,
           "lines": 35,
           "bytes": 1570
         },
         {
           "title": "## §2 — INPUT PROCESSING",
-          "start": 485,
-          "end": 488,
+          "start": 493,
+          "end": 496,
           "lines": 4,
           "bytes": 99
         },
         {
           "title": "### S2-1 — Reading exam structure (from exam_config.json or Exam Pattern document)",
-          "start": 489,
-          "end": 605,
+          "start": 497,
+          "end": 613,
           "lines": 117,
           "bytes": 6824
         },
         {
           "title": "### S2-1b — Build the Section↔Subject mapping resolver (v1.32 FIX D)",
-          "start": 606,
-          "end": 711,
+          "start": 614,
+          "end": 719,
           "lines": 106,
           "bytes": 5972
         },
         {
           "title": "### S2-2 — Reading Analysis Word Document(s)",
-          "start": 712,
-          "end": 866,
+          "start": 720,
+          "end": 874,
           "lines": 155,
           "bytes": 8923
         },
         {
           "title": "### S2-3 — Reading the Frequency Excel",
-          "start": 867,
-          "end": 1061,
+          "start": 875,
+          "end": 1069,
           "lines": 195,
           "bytes": 12627
         },
         {
           "title": "### S2-4 — Missing document fallback routing",
-          "start": 1062,
-          "end": 1078,
+          "start": 1070,
+          "end": 1086,
           "lines": 17,
           "bytes": 774
         },
         {
           "title": "## §3 — FREQUENCY CALCULATION",
-          "start": 1079,
-          "end": 1083,
+          "start": 1087,
+          "end": 1091,
           "lines": 5,
           "bytes": 157
         },
         {
           "title": "### S3-1 — Identify recency years",
-          "start": 1084,
-          "end": 1110,
+          "start": 1092,
+          "end": 1118,
           "lines": 27,
           "bytes": 1244
         },
         {
           "title": "### S3-2 — Recency-weighted average formula",
-          "start": 1111,
-          "end": 1144,
+          "start": 1119,
+          "end": 1152,
           "lines": 34,
           "bytes": 1630
         },
         {
           "title": "### S3-3 — Pooled average (reference only — never used in allocation)",
-          "start": 1145,
-          "end": 1168,
+          "start": 1153,
+          "end": 1176,
           "lines": 24,
           "bytes": 783
         },
         {
           "title": "### S3-4 — Edge cases",
-          "start": 1169,
-          "end": 1196,
+          "start": 1177,
+          "end": 1204,
           "lines": 28,
           "bytes": 1188
         },
         {
           "title": "### S2-2c — Re-key subtopics from taxonomy Subject to OTS section (v1.35 BUG 3 FIX)",
-          "start": 1197,
-          "end": 1232,
+          "start": 1205,
+          "end": 1240,
           "lines": 36,
           "bytes": 1743
         },
         {
           "title": "### S3-5 — Zero-PYQ classification",
-          "start": 1233,
-          "end": 1266,
+          "start": 1241,
+          "end": 1274,
           "lines": 34,
           "bytes": 1914
         },
         {
           "title": "### S3-6 — Importance classification (reference only)",
-          "start": 1267,
-          "end": 1287,
+          "start": 1275,
+          "end": 1295,
           "lines": 21,
           "bytes": 906
         },
         {
           "title": "## §4 — ALLOCATION ALGORITHM",
-          "start": 1288,
-          "end": 1319,
+          "start": 1296,
+          "end": 1327,
           "lines": 32,
           "bytes": 1850
         },
         {
           "title": "### S4-1 — Per-section setup",
-          "start": 1320,
-          "end": 1377,
+          "start": 1328,
+          "end": 1385,
           "lines": 58,
           "bytes": 3026
         },
         {
           "title": "### S4-1b — BV-10 MECHANIC FEASIBILITY GATE (v1.24 — the no-deadlock guarantee)",
-          "start": 1378,
-          "end": 1558,
+          "start": 1386,
+          "end": 1566,
           "lines": 181,
           "bytes": 9394
         },
         {
           "title": "### S4-2 — Compute quota per subtopic (SA-3 + SA-16)",
-          "start": 1559,
-          "end": 1689,
+          "start": 1567,
+          "end": 1697,
           "lines": 131,
           "bytes": 7285
         },
         {
           "title": "### S4-3 — Rare vs non-rare classification (SA-5)",
-          "start": 1690,
-          "end": 1712,
+          "start": 1698,
+          "end": 1720,
           "lines": 23,
           "bytes": 1052
         },
         {
           "title": "### S4-4 — Phase 1: Pre-schedule rare subtopics",
-          "start": 1713,
-          "end": 1785,
+          "start": 1721,
+          "end": 1793,
           "lines": 73,
           "bytes": 3207
         },
         {
           "title": "### S4-5 — Phase 2: Even-spread allocation for non-rare subtopics",
-          "start": 1786,
-          "end": 1988,
+          "start": 1794,
+          "end": 1996,
           "lines": 203,
           "bytes": 10841
         },
         {
           "title": "### S4-5b — EXACT MATRIX FILL for non-rare subtopics (SANCTIONED v1.25 — 0% F1 drift)",
-          "start": 1989,
-          "end": 2049,
+          "start": 1997,
+          "end": 2057,
           "lines": 61,
           "bytes": 3936
         },
         {
           "title": "### S4-6 — Column-fix (SA-9 + SA-13)",
-          "start": 2050,
-          "end": 2106,
+          "start": 2058,
+          "end": 2114,
           "lines": 57,
           "bytes": 2309
         },
         {
           "title": "### S4-7 — Frequency accuracy check (SA-12)",
-          "start": 2107,
-          "end": 2134,
+          "start": 2115,
+          "end": 2142,
           "lines": 28,
           "bytes": 852
         },
         {
           "title": "### S4-8 — Algorithm invariants (must hold at all times)",
-          "start": 2135,
-          "end": 2185,
+          "start": 2143,
+          "end": 2193,
           "lines": 51,
           "bytes": 2539
         },
         {
           "title": "## §5 — ZERO-PYQ ROTATION",
-          "start": 2186,
-          "end": 2196,
+          "start": 2194,
+          "end": 2204,
           "lines": 11,
           "bytes": 449
         },
         {
           "title": "### S5-0 — Global initialisation (run once before section loop)",
-          "start": 2197,
-          "end": 2205,
+          "start": 2205,
+          "end": 2213,
           "lines": 9,
           "bytes": 415
         },
         {
           "title": "### S5-1 — MAX_ZERO calculation (ZP-3)",
-          "start": 2206,
-          "end": 2254,
+          "start": 2214,
+          "end": 2262,
           "lines": 49,
           "bytes": 2074
         },
         {
           "title": "### S5-2 — Alphabetical sort + rotation schedule (ZP-4 + ZP-11)",
-          "start": 2255,
-          "end": 2299,
+          "start": 2263,
+          "end": 2307,
           "lines": 45,
           "bytes": 1554
         },
         {
           "title": "### S5-3 — Write ZP entries to mock_alloc and verify column sum (ZP-7)",
-          "start": 2300,
-          "end": 2317,
+          "start": 2308,
+          "end": 2325,
           "lines": 18,
           "bytes": 827
         },
         {
           "title": "### S5-4 — Verification (runs as BV-8 in B3 — not immediately after S5-3)",
-          "start": 2318,
-          "end": 2351,
+          "start": 2326,
+          "end": 2359,
           "lines": 34,
           "bytes": 1166
         },
         {
           "title": "### S5-5 — Summary: what §5 produces",
-          "start": 2352,
-          "end": 2371,
+          "start": 2360,
+          "end": 2379,
           "lines": 20,
           "bytes": 896
         },
         {
           "title": "## §6 — FORMAT FLAG DETECTION",
-          "start": 2372,
-          "end": 2382,
+          "start": 2380,
+          "end": 2390,
           "lines": 11,
           "bytes": 550
         },
         {
           "title": "### ══════════════════════════════════════════════════════════════",
-          "start": 2383,
-          "end": 2383,
+          "start": 2391,
+          "end": 2391,
           "lines": 1,
           "bytes": 191
         },
         {
           "title": "### GOLDEN RULE — FORMAT IS CLASSIFICATION ONLY, NEVER EXCLUSION",
-          "start": 2384,
-          "end": 2384,
+          "start": 2392,
+          "end": 2392,
           "lines": 1,
           "bytes": 67
         },
         {
           "title": "### ══════════════════════════════════════════════════════════════",
-          "start": 2385,
-          "end": 2471,
+          "start": 2393,
+          "end": 2479,
           "lines": 87,
           "bytes": 5118
         },
         {
           "title": "### ═══════════════════════════════════════════════════════════════",
-          "start": 2472,
-          "end": 2473,
+          "start": 2480,
+          "end": 2481,
           "lines": 2,
           "bytes": 195
         },
         {
           "title": "### S6-1 — Read and normalize Format values (v1.32 FIX A — MANIFEST-AUTHORITATIVE)",
-          "start": 2474,
-          "end": 2557,
+          "start": 2482,
+          "end": 2565,
           "lines": 84,
           "bytes": 4122
         },
         {
           "title": "### S6-1b — Excel Format cross-check (v1.32 FIX A — ADVISORY ONLY, manifest wins)",
-          "start": 2558,
-          "end": 2603,
+          "start": 2566,
+          "end": 2611,
           "lines": 46,
           "bytes": 2375
         },
         {
           "title": "### S6-2 — Set exam-level flags",
-          "start": 2604,
-          "end": 2757,
+          "start": 2612,
+          "end": 2765,
           "lines": 154,
           "bytes": 9565
         },
         {
           "title": "### S6-3 — Per-subtopic Format stored in working data",
-          "start": 2758,
-          "end": 2785,
+          "start": 2766,
+          "end": 2793,
           "lines": 28,
           "bytes": 1467
         },
         {
           "title": "### S6-4 — Registry schema impact",
-          "start": 2786,
-          "end": 2800,
+          "start": 2794,
+          "end": 2808,
           "lines": 15,
           "bytes": 727
         },
         {
           "title": "### S6-5 — B1 delivery: Format flag summary",
-          "start": 2801,
-          "end": 2821,
+          "start": 2809,
+          "end": 2829,
           "lines": 21,
           "bytes": 679
         },
         {
           "title": "## §7 — DIFFICULTY SCHEDULE",
-          "start": 2822,
-          "end": 2832,
+          "start": 2830,
+          "end": 2840,
           "lines": 11,
           "bytes": 406
         },
         {
           "title": "### S7-1 — Default difficulty (no trigger flag)",
-          "start": 2833,
-          "end": 2855,
+          "start": 2841,
+          "end": 2863,
           "lines": 23,
           "bytes": 884
         },
         {
           "title": "### S7-2 — Custom uniform override (--difficulty E:M:H)",
-          "start": 2856,
-          "end": 2881,
+          "start": 2864,
+          "end": 2889,
           "lines": 26,
           "bytes": 882
         },
         {
           "title": "### S7-3 — Progressive override (--difficulty progressive)",
-          "start": 2882,
-          "end": 2912,
-          "lines": 31,
-          "bytes": 1157
+          "start": 2890,
+          "end": 2938,
+          "lines": 49,
+          "bytes": 2575
         },
         {
           "title": "### S7-4 — Converting percentages to Q counts (DR-6)",
-          "start": 2913,
-          "end": 2925,
+          "start": 2939,
+          "end": 2951,
           "lines": 13,
           "bytes": 603
         },
         {
           "title": "### S7-5 — Build difficulty_schedule[]",
-          "start": 2926,
-          "end": 2986,
-          "lines": 61,
-          "bytes": 2537
+          "start": 2952,
+          "end": 3017,
+          "lines": 66,
+          "bytes": 2937
         },
         {
           "title": "### S7-6 — What difficulty schedule does NOT do",
-          "start": 2987,
-          "end": 3012,
+          "start": 3018,
+          "end": 3043,
           "lines": 26,
           "bytes": 1452
         },
         {
           "title": "### S7-7 — Build axis_schedule[] (v1.23 — THREE-AXIS format-distribution target)",
-          "start": 3013,
-          "end": 3177,
+          "start": 3044,
+          "end": 3208,
           "lines": 165,
           "bytes": 10914
         },
         {
           "title": "### S7-8 — What axis_schedule does NOT do (v1.23)",
-          "start": 3178,
-          "end": 3194,
+          "start": 3209,
+          "end": 3225,
           "lines": 17,
           "bytes": 1129
         },
         {
           "title": "## §8 — BATCH EXECUTION",
-          "start": 3195,
-          "end": 3199,
+          "start": 3226,
+          "end": 3230,
           "lines": 5,
           "bytes": 133
         },
         {
           "title": "### S8-1 — Batch overview",
-          "start": 3200,
-          "end": 3216,
+          "start": 3231,
+          "end": 3247,
           "lines": 17,
           "bytes": 701
         },
         {
           "title": "### S8-2 — B1: Build blueprint skeleton",
-          "start": 3217,
-          "end": 3357,
+          "start": 3248,
+          "end": 3388,
           "lines": 141,
           "bytes": 9332
         },
         {
           "title": "### S8-3 — B2: Generate mock allocations (one batch = 10 mocks)",
-          "start": 3358,
-          "end": 3491,
+          "start": 3389,
+          "end": 3522,
           "lines": 134,
           "bytes": 8311
         },
         {
           "title": "### S8-4 — B2 Phase 1 note: positions recomputed from deterministic formula",
-          "start": 3492,
-          "end": 3507,
+          "start": 3523,
+          "end": 3538,
           "lines": 16,
           "bytes": 643
         },
         {
           "title": "### S8-5 — B3: Final validation + generate all output files",
-          "start": 3508,
-          "end": 3713,
+          "start": 3539,
+          "end": 3744,
           "lines": 206,
           "bytes": 12958
         },
         {
           "title": "### S8-6 — Between B2 sessions (user action required)",
-          "start": 3714,
-          "end": 3736,
+          "start": 3745,
+          "end": 3767,
           "lines": 23,
           "bytes": 883
         },
         {
           "title": "### S8-7 — Re-generating a specific batch",
-          "start": 3737,
-          "end": 3756,
+          "start": 3768,
+          "end": 3787,
           "lines": 20,
           "bytes": 822
         },
         {
           "title": "## §9 — VALIDATION GATES",
-          "start": 3757,
-          "end": 3777,
+          "start": 3788,
+          "end": 3808,
           "lines": 21,
           "bytes": 1012
         },
         {
           "title": "### S9-0A — BV-0A: Subtopic completeness check (runs at END of B1, before blueprint.json v1 written)",
-          "start": 3778,
-          "end": 3846,
+          "start": 3809,
+          "end": 3877,
           "lines": 69,
           "bytes": 3548
         },
         {
           "title": "### S9-0 — BV-0: Sequence enforcement",
-          "start": 3847,
-          "end": 3862,
+          "start": 3878,
+          "end": 3893,
           "lines": 16,
           "bytes": 541
         },
         {
           "title": "### S9-1 — BV-1: Column sums",
-          "start": 3863,
-          "end": 3884,
+          "start": 3894,
+          "end": 3915,
           "lines": 22,
           "bytes": 742
         },
         {
           "title": "### S9-2 — BV-2: Every rare subtopic appears in its scheduled positions",
-          "start": 3885,
-          "end": 3903,
+          "start": 3916,
+          "end": 3934,
           "lines": 19,
           "bytes": 760
         },
         {
           "title": "### S9-3 — BV-3: Frequency accuracy (warning per batch, strict at final)",
-          "start": 3904,
-          "end": 3927,
+          "start": 3935,
+          "end": 3958,
           "lines": 24,
           "bytes": 937
         },
         {
           "title": "### S9-4 — BV-4: Max rare Qs per mock per section",
-          "start": 3928,
-          "end": 3941,
+          "start": 3959,
+          "end": 3972,
           "lines": 14,
           "bytes": 582
         },
         {
           "title": "### S9-5 — BV-5: Zero-PYQ cumulative count ≤ MAX_ZERO",
-          "start": 3942,
-          "end": 3953,
+          "start": 3973,
+          "end": 3984,
           "lines": 12,
           "bytes": 416
         },
         {
           "title": "### S9-6 — BV-6: No negative allocation",
-          "start": 3954,
-          "end": 3964,
+          "start": 3985,
+          "end": 3995,
           "lines": 11,
           "bytes": 329
         },
         {
           "title": "### S9-6b — BV-10: Two-tier same-form / mechanic guard (MANDATE 7 — v1.24)",
-          "start": 3965,
-          "end": 4038,
+          "start": 3996,
+          "end": 4069,
           "lines": 74,
           "bytes": 4769
         },
         {
           "title": "### S9-7 — BV-7: Full cross-batch validation (runs in B3 only)",
-          "start": 4039,
-          "end": 4109,
+          "start": 4070,
+          "end": 4140,
           "lines": 71,
           "bytes": 3528
         },
         {
           "title": "### S9-8 — BV-8: Zero-PYQ final count (runs in B3 only)",
-          "start": 4110,
-          "end": 4134,
+          "start": 4141,
+          "end": 4165,
           "lines": 25,
           "bytes": 925
         },
         {
           "title": "### S9-9 — BV-9: Reporting format",
-          "start": 4135,
-          "end": 4163,
+          "start": 4166,
+          "end": 4194,
           "lines": 29,
           "bytes": 1460
         },
         {
           "title": "### S9-10 — Failure response protocol (v1.24: stochastic vs structural)",
-          "start": 4164,
-          "end": 4187,
+          "start": 4195,
+          "end": 4218,
           "lines": 24,
           "bytes": 1382
         },
         {
           "title": "### S9-11 — BV-9B: Batch coverage check (runs per B2 batch — Option C)",
-          "start": 4188,
-          "end": 4235,
+          "start": 4219,
+          "end": 4266,
           "lines": 48,
           "bytes": 2230
         },
         {
           "title": "### S9-12 — BV-AXIS: axis schedule integrity + feasibility report (runs in B3)",
-          "start": 4236,
-          "end": 4346,
+          "start": 4267,
+          "end": 4377,
           "lines": 111,
           "bytes": 7350
         },
         {
           "title": "### S9-13 — Validation / test plan for v1.32 FIX A/D/E (DoD, non-blocking documentation)",
-          "start": 4347,
-          "end": 4401,
+          "start": 4378,
+          "end": 4432,
           "lines": 55,
           "bytes": 3229
         },
         {
           "title": "## §10 — MISSING DOCUMENT HANDLING",
-          "start": 4402,
-          "end": 4407,
+          "start": 4433,
+          "end": 4438,
           "lines": 6,
           "bytes": 255
         },
         {
           "title": "### S10-0 — Consolidated message protocol (MD-1 + MD-2)",
-          "start": 4408,
-          "end": 4435,
+          "start": 4439,
+          "end": 4466,
           "lines": 28,
           "bytes": 1059
         },
         {
           "title": "### S10-3 — Source priority matrix (MD-3)",
-          "start": 4436,
-          "end": 4470,
+          "start": 4467,
+          "end": 4501,
           "lines": 35,
           "bytes": 1996
         },
         {
           "title": "### S10-4 — Missing Exam Pattern (MD-4)",
-          "start": 4471,
-          "end": 4495,
+          "start": 4502,
+          "end": 4526,
           "lines": 25,
           "bytes": 940
         },
         {
           "title": "### S10-5 — Missing ALL Analysis docs (MD-5)",
-          "start": 4496,
-          "end": 4514,
+          "start": 4527,
+          "end": 4545,
           "lines": 19,
           "bytes": 786
         },
         {
           "title": "### S10-6 — Missing ONE subject's Analysis doc (MD-6)",
-          "start": 4515,
-          "end": 4533,
+          "start": 4546,
+          "end": 4564,
           "lines": 19,
           "bytes": 835
         },
         {
           "title": "### S10-7 — Missing Frequency Excel (MD-7)",
-          "start": 4534,
-          "end": 4564,
+          "start": 4565,
+          "end": 4595,
           "lines": 31,
           "bytes": 1598
         },
         {
           "title": "### S10-8 — Missing BOTH Analysis docs AND Excel (MD-8)",
-          "start": 4565,
-          "end": 4583,
+          "start": 4596,
+          "end": 4614,
           "lines": 19,
           "bytes": 674
         },
         {
           "title": "### S10-9 — Incomplete Analysis doc (MD-9)",
-          "start": 4584,
-          "end": 4602,
+          "start": 4615,
+          "end": 4633,
           "lines": 19,
           "bytes": 846
         },
         {
           "title": "### S10-10 — Missing Excel year column (MD-10)",
-          "start": 4603,
-          "end": 4613,
+          "start": 4634,
+          "end": 4644,
           "lines": 11,
           "bytes": 337
         },
         {
           "title": "### S10-11 — Partial Format column in Excel (MD-11) — ADVISORY ONLY (v1.32 FIX A)",
-          "start": 4614,
-          "end": 4636,
+          "start": 4645,
+          "end": 4667,
           "lines": 23,
           "bytes": 1262
         },
         {
           "title": "### S10-12 — All assumptions in Paper Structure sheet (MD-12)",
-          "start": 4637,
-          "end": 4656,
+          "start": 4668,
+          "end": 4687,
           "lines": 20,
           "bytes": 930
         },
         {
           "title": "## §11 — DELIVERY FORMAT",
-          "start": 4657,
-          "end": 4660,
+          "start": 4688,
+          "end": 4691,
           "lines": 4,
           "bytes": 107
         },
         {
           "title": "### S11-1 — B1 delivery (BD-1)",
-          "start": 4661,
-          "end": 4727,
+          "start": 4692,
+          "end": 4758,
           "lines": 67,
           "bytes": 3779
         },
         {
           "title": "### S11-2 — B2 delivery (BD-2)",
-          "start": 4728,
-          "end": 4784,
+          "start": 4759,
+          "end": 4815,
           "lines": 57,
           "bytes": 3107
         },
         {
           "title": "### S11-3 — B3 delivery (BD-3)",
-          "start": 4785,
-          "end": 4842,
+          "start": 4816,
+          "end": 4873,
           "lines": 58,
           "bytes": 2536
         },
         {
           "title": "### S11-4 — Summary table format rules",
-          "start": 4843,
-          "end": 4866,
+          "start": 4874,
+          "end": 4897,
           "lines": 24,
           "bytes": 975
         },
         {
           "title": "### S11-5 — Re-generate batch or re-run B3",
-          "start": 4867,
-          "end": 4897,
+          "start": 4898,
+          "end": 4928,
           "lines": 31,
           "bytes": 1398
         },
         {
           "title": "## §12 — REGISTRY SCHEMA",
-          "start": 4898,
-          "end": 4902,
+          "start": 4929,
+          "end": 4933,
           "lines": 5,
           "bytes": 154
         },
         {
           "title": "### S12-1 — Universal fields (always present, every exam)",
-          "start": 4903,
-          "end": 4971,
+          "start": 4934,
+          "end": 5002,
           "lines": 69,
           "bytes": 4103
         },
         {
           "title": "### S12-2 — Conditional fields (added only when detected)",
-          "start": 4972,
-          "end": 4994,
+          "start": 5003,
+          "end": 5025,
           "lines": 23,
           "bytes": 878
         },
         {
           "title": "### S12-3 — Complete registry.json examples",
-          "start": 4995,
-          "end": 5055,
+          "start": 5026,
+          "end": 5086,
           "lines": 61,
           "bytes": 1671
         },
         {
           "title": "### S12-4 — Registry schema rules",
-          "start": 5056,
-          "end": 5108,
+          "start": 5087,
+          "end": 5139,
           "lines": 53,
           "bytes": 2956
         },
         {
           "title": "### S12-5 — How Step 2 populates the registry",
-          "start": 5109,
-          "end": 5133,
+          "start": 5140,
+          "end": 5164,
           "lines": 25,
           "bytes": 922
         },
         {
           "title": "## §13 — OUTPUT FILES",
-          "start": 5134,
-          "end": 5137,
+          "start": 5165,
+          "end": 5168,
           "lines": 4,
           "bytes": 93
         },
         {
           "title": "### S13-1 — File naming convention",
-          "start": 5138,
-          "end": 5166,
+          "start": 5169,
+          "end": 5197,
           "lines": 29,
           "bytes": 1276
         },
         {
           "title": "### S13-2 — blueprint.xlsx (human review only)",
-          "start": 5167,
-          "end": 5181,
+          "start": 5198,
+          "end": 5212,
           "lines": 15,
           "bytes": 723
         },
         {
           "title": "### S13-3 — blueprint.json (authoritative — read-only after Step 1)",
-          "start": 5182,
-          "end": 5191,
+          "start": 5213,
+          "end": 5222,
           "lines": 10,
           "bytes": 433
         },
         {
           "title": "### S13-4 — registry.json (empty template — Step 2 populates)",
-          "start": 5192,
-          "end": 5202,
+          "start": 5223,
+          "end": 5233,
           "lines": 11,
           "bytes": 453
         },
         {
           "title": "### S13-5 — EXPLAIN_LEARNINGS_v1.md (S24 EX-rule template — human-authored; v1.50.0)",
-          "start": 5203,
-          "end": 5221,
+          "start": 5234,
+          "end": 5252,
           "lines": 19,
           "bytes": 968
         },
         {
           "title": "### S13-6 — ExplainAuditLearnings.md — RETIRED (v1.43.0)",
-          "start": 5222,
-          "end": 5237,
+          "start": 5253,
+          "end": 5268,
           "lines": 16,
           "bytes": 874
         },
         {
           "title": "### S13-7A — mock_test_audit.py (auto-generated — run by Step 7)",
-          "start": 5238,
-          "end": 5340,
+          "start": 5269,
+          "end": 5371,
           "lines": 103,
           "bytes": 6243
         },
         {
           "title": "### S13-7 — present_files delivery order",
-          "start": 5341,
-          "end": 5359,
+          "start": 5372,
+          "end": 5390,
           "lines": 19,
           "bytes": 727
         },
         {
           "title": "### S13-8 — Project upload instructions",
-          "start": 5360,
-          "end": 5392,
+          "start": 5391,
+          "end": 5423,
           "lines": 33,
           "bytes": 1653
         },
         {
           "title": "### S13-9 — Re-running Step 1 (replacing all files)",
-          "start": 5393,
-          "end": 5417,
+          "start": 5424,
+          "end": 5448,
           "lines": 25,
           "bytes": 1242
         },
         {
           "title": "### S13-10 — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 5418,
-          "end": 5431,
+          "start": 5449,
+          "end": 5462,
           "lines": 14,
           "bytes": 577
         },
         {
           "title": "## §14 — BLUEPRINT JSON SCHEMA",
-          "start": 5432,
-          "end": 5436,
+          "start": 5463,
+          "end": 5467,
           "lines": 5,
           "bytes": 157
         },
         {
           "title": "### S14-1 — Top-level structure",
-          "start": 5437,
-          "end": 5612,
+          "start": 5468,
+          "end": 5643,
           "lines": 176,
           "bytes": 12401
         },
         {
           "title": "### S14-2 — sections[] — top-level section definitions",
-          "start": 5613,
-          "end": 5657,
+          "start": 5644,
+          "end": 5688,
           "lines": 45,
           "bytes": 1662
         },
         {
           "title": "### S14-3 — difficulty_schedule[] — one entry per mock",
-          "start": 5658,
-          "end": 5684,
+          "start": 5689,
+          "end": 5715,
           "lines": 27,
           "bytes": 1027
         },
         {
           "title": "### S14-3b — axis_schedule{} — one entry per section (v1.23, THREE-AXIS)",
-          "start": 5685,
-          "end": 5758,
+          "start": 5716,
+          "end": 5789,
           "lines": 74,
           "bytes": 5135
         },
         {
           "title": "### S14-4 — zero_pyq_rotation{} — alphabetical rotation order",
-          "start": 5759,
-          "end": 5796,
+          "start": 5790,
+          "end": 5827,
           "lines": 38,
           "bytes": 1410
         },
         {
           "title": "### S14-5 — mocks[] — one entry per mock",
-          "start": 5797,
-          "end": 5823,
+          "start": 5828,
+          "end": 5854,
           "lines": 27,
           "bytes": 750
         },
         {
           "title": "### S14-6 — section object within each mock",
-          "start": 5824,
-          "end": 5850,
+          "start": 5855,
+          "end": 5881,
           "lines": 27,
           "bytes": 890
         },
         {
           "title": "### S14-7 — subtopic_allocation object",
-          "start": 5851,
-          "end": 5885,
+          "start": 5882,
+          "end": 5916,
           "lines": 35,
           "bytes": 1475
         },
         {
           "title": "### S14-8 — Field types and conventions",
-          "start": 5886,
-          "end": 5904,
+          "start": 5917,
+          "end": 5935,
           "lines": 19,
           "bytes": 886
         },
         {
           "title": "## §15 — XLS SHEET STRUCTURES  ← LOCKED SPEC — PERMANENT RULES",
-          "start": 5905,
-          "end": 5923,
+          "start": 5936,
+          "end": 5954,
           "lines": 19,
           "bytes": 1582
         },
         {
           "title": "### S15-0 — Color coding (applies to all sheets)",
-          "start": 5924,
-          "end": 5951,
+          "start": 5955,
+          "end": 5982,
           "lines": 28,
           "bytes": 1035
         },
         {
           "title": "### S15-1 — Sheet 1: Paper Structure",
-          "start": 5952,
-          "end": 5980,
+          "start": 5983,
+          "end": 6011,
           "lines": 29,
           "bytes": 1023
         },
         {
           "title": "### S15-2 — Sheet 2: Blueprint  ← MAIN ALLOCATION GRID",
-          "start": 5981,
-          "end": 6036,
+          "start": 6012,
+          "end": 6067,
           "lines": 56,
           "bytes": 3216
         },
         {
           "title": "### S15-3 — Sheet 3: Summary Stats",
-          "start": 6037,
-          "end": 6069,
+          "start": 6068,
+          "end": 6100,
           "lines": 33,
           "bytes": 1418
         },
         {
           "title": "### S15-4 — Sheet 4: Difficulty Schedule",
-          "start": 6070,
-          "end": 6104,
+          "start": 6101,
+          "end": 6135,
           "lines": 35,
           "bytes": 1538
         },
         {
           "title": "### S15-5 — Sheet 5: Phase 0 Verification",
-          "start": 6105,
-          "end": 6141,
+          "start": 6136,
+          "end": 6172,
           "lines": 37,
           "bytes": 1352
         },
         {
           "title": "### S15-CHECKLIST — Mandatory pre-delivery self-verification",
-          "start": 6142,
-          "end": 6177,
+          "start": 6173,
+          "end": 6208,
           "lines": 36,
           "bytes": 2116
         },
         {
           "title": "## §16 — EDGE CASE CHECKLIST",
-          "start": 6178,
-          "end": 6182,
+          "start": 6209,
+          "end": 6213,
           "lines": 5,
           "bytes": 158
         },
         {
           "title": "### EC-1: N_mocks = 1",
-          "start": 6183,
-          "end": 6209,
+          "start": 6214,
+          "end": 6240,
           "lines": 27,
           "bytes": 1227
         },
         {
           "title": "### EC-2: All subtopics in a section have same r_avg",
-          "start": 6210,
-          "end": 6222,
+          "start": 6241,
+          "end": 6253,
           "lines": 13,
           "bytes": 548
         },
         {
           "title": "### EC-3: All subtopics in a section have r_avg = 0",
-          "start": 6223,
-          "end": 6258,
+          "start": 6254,
+          "end": 6289,
           "lines": 36,
           "bytes": 1587
         },
         {
           "title": "### EC-4: Single subtopic in a section",
-          "start": 6259,
-          "end": 6278,
+          "start": 6290,
+          "end": 6309,
           "lines": 20,
           "bytes": 745
         },
         {
           "title": "### EC-5: Format value normalization edge cases",
-          "start": 6279,
-          "end": 6307,
+          "start": 6310,
+          "end": 6338,
           "lines": 29,
           "bytes": 1210
         },
         {
           "title": "### EC-6: ExamCode collision",
-          "start": 6308,
-          "end": 6328,
+          "start": 6339,
+          "end": 6359,
           "lines": 21,
           "bytes": 930
         },
         {
           "title": "### EC-7: Files uploaded after trigger is typed",
-          "start": 6329,
-          "end": 6347,
+          "start": 6360,
+          "end": 6378,
           "lines": 19,
           "bytes": 721
         },
         {
           "title": "### EC-8: Excel sheet name variations",
-          "start": 6348,
-          "end": 6367,
+          "start": 6379,
+          "end": 6398,
           "lines": 20,
           "bytes": 770
         },
         {
           "title": "### EC-9: Exam with 5+ sections",
-          "start": 6368,
-          "end": 6384,
+          "start": 6399,
+          "end": 6415,
           "lines": 17,
           "bytes": 767
         },
         {
           "title": "### EC-10: Memory conflicts with input documents on subtopic scope or Format",
-          "start": 6385,
-          "end": 6420,
+          "start": 6416,
+          "end": 6451,
           "lines": 36,
           "bytes": 1676
         },
         {
           "title": "### EC-11: Batch coverage feasibility — too many subtopics for batch window",
-          "start": 6421,
-          "end": 6468,
+          "start": 6452,
+          "end": 6499,
           "lines": 48,
           "bytes": 2196
         },
         {
           "title": "## DEFINITION OF DONE — Step 6 (MockBlueprint)",
-          "start": 6469,
-          "end": 6525,
+          "start": 6500,
+          "end": 6556,
           "lines": 57,
           "bytes": 3811
         },
         {
           "title": "## S2-MANIFEST — Manifest load + contract gate (run at B1 session start)",
-          "start": 6526,
-          "end": 6633,
+          "start": 6557,
+          "end": 6664,
           "lines": 108,
           "bytes": 7050
         },
         {
           "title": "## S2-MANIFEST-COMPLETENESS — Taxonomy coverage pre-flight (v1.21, run after S2-MANIFEST)",
-          "start": 6634,
-          "end": 6741,
+          "start": 6665,
+          "end": 6772,
           "lines": 108,
           "bytes": 6321
         },
         {
           "title": "## S4-MANDATE — Build-time mandate enforcement (guarantees D09/D10/D11/D12 class)",
-          "start": 6742,
-          "end": 6834,
+          "start": 6773,
+          "end": 6865,
           "lines": 93,
           "bytes": 6224
         },
         {
           "title": "## S-IDWRITE — Emitting ids into the JSON (where build_section_obj runs)",
-          "start": 6835,
-          "end": 6844,
+          "start": 6866,
+          "end": 6875,
           "lines": 10,
           "bytes": 627
         },
         {
           "title": "## DoD additions (v1.7)",
-          "start": 6845,
-          "end": 6872,
+          "start": 6876,
+          "end": 6903,
           "lines": 28,
           "bytes": 1894
         }
@@ -2120,1425 +2120,1432 @@
       ]
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "373b0af60ceef38d3103c2e74525b0eb0b2c09ee60935d90b716fedddebd1dad",
-      "lines": 7884,
-      "bytes": 493842,
-      "est_tokens": 123460,
-      "view_calls": 31,
+      "sha256": "8b387fc36ae0ff6c2f8fc786832484a94db836fda55dad6194a9f8163825bee0",
+      "lines": 8050,
+      "bytes": 505936,
+      "est_tokens": 126484,
+      "view_calls": 32,
       "bash_calls": 4,
       "has_read_set": false,
-      "reduced_bytes": 493842,
-      "reduced_est_tokens": 123460,
+      "reduced_bytes": 505936,
+      "reduced_est_tokens": 126484,
       "reduced_bash_calls": 4,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## S1-1 — Pipeline position",
-          "start": 267,
-          "end": 281,
+          "start": 300,
+          "end": 314,
           "lines": 15,
           "bytes": 803
         },
         {
           "title": "## S1-2 — Sources of truth (strict priority order)",
-          "start": 282,
-          "end": 291,
+          "start": 315,
+          "end": 324,
           "lines": 10,
           "bytes": 471
         },
         {
           "title": "## S1-3 — Exam-agnostic guarantee",
-          "start": 292,
-          "end": 297,
+          "start": 325,
+          "end": 330,
           "lines": 6,
           "bytes": 198
         },
         {
           "title": "## S1-4 — Memory prohibition",
-          "start": 298,
-          "end": 308,
+          "start": 331,
+          "end": 341,
           "lines": 11,
           "bytes": 798
         },
         {
           "title": "## S2-1 — Trigger formats",
-          "start": 309,
-          "end": 344,
+          "start": 342,
+          "end": 377,
           "lines": 36,
           "bytes": 2228
         },
         {
           "title": "## S2-2 — Universal Absolute Rules table",
-          "start": 345,
-          "end": 625,
+          "start": 378,
+          "end": 658,
           "lines": 281,
           "bytes": 22104
         },
         {
           "title": "## S7-NEW-C — NAT portal grading value derivation (v5.25, locked DJ rules)",
-          "start": 626,
-          "end": 776,
+          "start": 659,
+          "end": 809,
           "lines": 151,
           "bytes": 9814
         },
         {
           "title": "## S3-1 — File path management and copy protocol",
-          "start": 777,
-          "end": 845,
+          "start": 810,
+          "end": 878,
           "lines": 69,
           "bytes": 3319
         },
         {
           "title": "## S3-2 — Select and load the blueprint — read ALL fields (v2.0 GAP-02 fix; v5.28 pp.pick_blueprint)",
-          "start": 846,
-          "end": 1128,
-          "lines": 283,
-          "bytes": 16496
+          "start": 879,
+          "end": 1204,
+          "lines": 326,
+          "bytes": 19592
         },
         {
           "title": "## S3-3 — Load section_rules.md — read ALL fields",
-          "start": 1129,
-          "end": 1142,
+          "start": 1205,
+          "end": 1218,
           "lines": 14,
           "bytes": 695
         },
         {
           "title": "## S3-4 — Load registry.json — integrity check (non-blocking)",
-          "start": 1143,
-          "end": 1208,
+          "start": 1219,
+          "end": 1284,
           "lines": 66,
           "bytes": 3214
         },
         {
           "title": "## S3-5 — Registry snapshot",
-          "start": 1209,
-          "end": 1243,
+          "start": 1285,
+          "end": 1319,
           "lines": 35,
           "bytes": 1904
         },
         {
           "title": "## S3-6 — ExamCode cross-verification",
-          "start": 1244,
-          "end": 1254,
+          "start": 1320,
+          "end": 1330,
           "lines": 11,
           "bytes": 340
         },
         {
           "title": "## S3-7 — Blueprint version compatibility check",
-          "start": 1255,
-          "end": 1273,
+          "start": 1331,
+          "end": 1349,
           "lines": 19,
           "bytes": 843
         },
         {
           "title": "## S3-8 — Subtopic join via subtopic_id (v3.4 — CONTRACT GATE, replaces string-match)",
-          "start": 1274,
-          "end": 1348,
+          "start": 1350,
+          "end": 1424,
           "lines": 75,
           "bytes": 3898
         },
         {
           "title": "## S3-9 — Section allocation sum verification",
-          "start": 1349,
-          "end": 1361,
+          "start": 1425,
+          "end": 1437,
           "lines": 13,
           "bytes": 438
         },
         {
           "title": "## S3-10 — Audit script self-test (Layer 2 — when audit.py exists)",
-          "start": 1362,
-          "end": 1378,
+          "start": 1438,
+          "end": 1454,
           "lines": 17,
           "bytes": 612
         },
         {
           "title": "## S3-11 — Read structural changes and deprecated formats",
-          "start": 1379,
-          "end": 1396,
+          "start": 1455,
+          "end": 1472,
           "lines": 18,
           "bytes": 987
         },
         {
           "title": "## S3-12 — Read none_of_above_permitted per section",
-          "start": 1397,
-          "end": 1406,
+          "start": 1473,
+          "end": 1482,
           "lines": 10,
           "bytes": 596
         },
         {
           "title": "## S3-13 — Build answer position budget (PRE-Q1 — v2.0 GAP-08 fix)",
-          "start": 1407,
-          "end": 1547,
+          "start": 1483,
+          "end": 1623,
           "lines": 141,
           "bytes": 7968
         },
         {
           "title": "## S3-14 — Initialise answer key sidecar (v2.0 GAP-18 fix)",
-          "start": 1548,
-          "end": 1588,
+          "start": 1624,
+          "end": 1664,
           "lines": 41,
           "bytes": 2496
         },
         {
           "title": "## S3-15 — Build SC manifest",
-          "start": 1589,
-          "end": 1592,
+          "start": 1665,
+          "end": 1668,
           "lines": 4,
           "bytes": 111
         },
         {
           "title": "## S3-16 — Build batch plan → write batch_state.json",
-          "start": 1593,
-          "end": 1645,
+          "start": 1669,
+          "end": 1721,
           "lines": 53,
           "bytes": 2100
         },
         {
           "title": "## S3-17 — Mandatory subtopic + alternation pre-check (v3.4 — manifest-driven)",
-          "start": 1646,
-          "end": 1724,
+          "start": 1722,
+          "end": 1800,
           "lines": 79,
           "bytes": 4028
         },
         {
           "title": "## S3-17b — Axis-1/Axis-3 pre-flight feasibility (advisory, v5.50/v5.51 — GAP-2026-08-12-AXIS-PREFLIGHT / GAP-2026-08-12-AXIS3-PREFLIGHT)",
-          "start": 1725,
-          "end": 1820,
+          "start": 1801,
+          "end": 1896,
           "lines": 96,
           "bytes": 6411
         },
         {
           "title": "## S3-18 — Display session start summary + batch plan",
-          "start": 1821,
-          "end": 1903,
+          "start": 1897,
+          "end": 1979,
           "lines": 83,
           "bytes": 5495
         },
         {
           "title": "## S3-19 — HARD STOP conditions",
-          "start": 1904,
-          "end": 1956,
+          "start": 1980,
+          "end": 2032,
           "lines": 53,
           "bytes": 3519
         },
         {
           "title": "## S4-1 — What a batch is (precise definition)",
-          "start": 1957,
-          "end": 1971,
+          "start": 2033,
+          "end": 2047,
           "lines": 15,
           "bytes": 663
         },
         {
           "title": "## S4-2 — Batch plan computation (the ONLY source of batch boundaries)",
-          "start": 1972,
-          "end": 1995,
+          "start": 2048,
+          "end": 2071,
           "lines": 24,
           "bytes": 995
         },
         {
           "title": "## S4-3 — batch_state.json schema (the batch processing brain)",
-          "start": 1996,
-          "end": 2040,
+          "start": 2072,
+          "end": 2116,
           "lines": 45,
           "bytes": 1874
         },
         {
           "title": "## S4-4 — The Batch Stop Law (B-1 through B-8 — ARCHITECTURAL, NON-NEGOTIABLE)",
-          "start": 2041,
-          "end": 2081,
+          "start": 2117,
+          "end": 2157,
           "lines": 41,
           "bytes": 2085
         },
         {
           "title": "## S4-5 — Pre-batch self-check (MANDATORY before generating any batch)",
-          "start": 2082,
-          "end": 2109,
+          "start": 2158,
+          "end": 2185,
           "lines": 28,
           "bytes": 1681
         },
         {
           "title": "## S4-6 — The continue contract (exact behaviour)",
-          "start": 2110,
-          "end": 2132,
+          "start": 2186,
+          "end": 2208,
           "lines": 23,
           "bytes": 949
         },
         {
           "title": "## S4-7 — Per-batch delivery protocol (the 6 steps — execute in order)",
-          "start": 2133,
-          "end": 2340,
+          "start": 2209,
+          "end": 2416,
           "lines": 208,
           "bytes": 13580
         },
         {
           "title": "## S4-8 — Cross-batch persistence",
-          "start": 2341,
-          "end": 2376,
+          "start": 2417,
+          "end": 2452,
           "lines": 36,
           "bytes": 2012
         },
         {
           "title": "## S4-9 — Final batch → Final Assembly (the ONE auto-advance that IS allowed)",
-          "start": 2377,
-          "end": 2391,
+          "start": 2453,
+          "end": 2467,
           "lines": 15,
           "bytes": 708
         },
         {
           "title": "## S4-10 — File naming convention",
-          "start": 2392,
-          "end": 2410,
+          "start": 2468,
+          "end": 2486,
           "lines": 19,
           "bytes": 1134
         },
         {
           "title": "## S4-11 — Manual Gate Checklist (Layer 1 — used when audit.py absent)",
-          "start": 2411,
-          "end": 2531,
+          "start": 2487,
+          "end": 2607,
           "lines": 121,
           "bytes": 8676
         },
         {
           "title": "## S4-12 — Session recovery / resume (v3.0)",
-          "start": 2532,
-          "end": 2560,
+          "start": 2608,
+          "end": 2636,
           "lines": 29,
           "bytes": 1589
         },
         {
           "title": "## S4-13 — Batch processing failure modes and their fixes (reference table)",
-          "start": 2561,
-          "end": 2580,
+          "start": 2637,
+          "end": 2656,
           "lines": 20,
           "bytes": 1585
         },
         {
           "title": "## S5-1 — Pre-allocation (built at S3-13, before Q1)",
-          "start": 2581,
-          "end": 2586,
+          "start": 2657,
+          "end": 2662,
           "lines": 6,
           "bytes": 272
         },
         {
           "title": "## S5-2 — K-BAL targets",
-          "start": 2587,
-          "end": 2592,
+          "start": 2663,
+          "end": 2668,
           "lines": 6,
           "bytes": 182
         },
         {
           "title": "## S5-3 — Fixed-set exclusion",
-          "start": 2593,
-          "end": 2597,
+          "start": 2669,
+          "end": 2673,
           "lines": 5,
           "bytes": 188
         },
         {
           "title": "## S5-4 — Difficulty interleaving",
-          "start": 2598,
-          "end": 2601,
+          "start": 2674,
+          "end": 2677,
           "lines": 4,
           "bytes": 114
         },
         {
           "title": "## S5-5 — Running monitor",
-          "start": 2602,
-          "end": 2606,
+          "start": 2678,
+          "end": 2682,
           "lines": 5,
           "bytes": 157
         },
         {
           "title": "## S5-6 — K-BAL fix protocol (v2.0 — only for fixable WARN)",
-          "start": 2607,
-          "end": 2617,
+          "start": 2683,
+          "end": 2693,
           "lines": 11,
           "bytes": 733
         },
         {
           "title": "## S6-0 — dedup_partition priority rule",
-          "start": 2618,
-          "end": 2622,
+          "start": 2694,
+          "end": 2698,
           "lines": 5,
           "bytes": 177
         },
         {
           "title": "## S6-1 through S6-12 — (identical to v1.0 — see full v1.0 text)",
-          "start": 2623,
-          "end": 2646,
+          "start": 2699,
+          "end": 2722,
           "lines": 24,
           "bytes": 1629
         },
         {
           "title": "## S6-3b — ALLOCATION COUNT + INTRA-MOCK SCENARIO UNIQUENESS (DOUBT-3, v3.3)",
-          "start": 2647,
-          "end": 3230,
-          "lines": 584,
-          "bytes": 38059
+          "start": 2723,
+          "end": 3387,
+          "lines": 665,
+          "bytes": 43593
         },
         {
           "title": "## S6-9 — Cross-mock variant rotation (v4.4 — exam-agnostic; config-driven)",
-          "start": 3231,
-          "end": 3292,
+          "start": 3388,
+          "end": 3449,
           "lines": 62,
           "bytes": 3599
         },
         {
           "title": "## S7-0 — section_rules.md parsing protocol (v1.0 — unchanged)",
-          "start": 3293,
-          "end": 3297,
+          "start": 3450,
+          "end": 3454,
           "lines": 5,
           "bytes": 162
         },
         {
           "title": "## S7-1 through S7-31 — (see full v1.0 for all rules)",
-          "start": 3298,
-          "end": 3301,
+          "start": 3455,
+          "end": 3458,
           "lines": 4,
           "bytes": 90
         },
         {
           "title": "## S7-CONCEPT — Per-subtopic generation with scenario + presentation uniqueness (DOUBT-3 v3.3 / DOUBT-4 v3.8)",
-          "start": 3302,
-          "end": 3674,
+          "start": 3459,
+          "end": 3831,
           "lines": 373,
           "bytes": 25596
         },
         {
           "title": "## S7-AXIS — Option-3 joint (difficulty × Axis-2) solve orchestration (v5.14)",
-          "start": 3675,
-          "end": 3829,
+          "start": 3832,
+          "end": 3986,
           "lines": 155,
           "bytes": 10404
         },
         {
           "title": "## S7-NEW-A — Per-question answer key sidecar write (v2.0 GAP-18 fix; v3.3 concept map; v5.52 mandatory concept_map)",
-          "start": 3830,
-          "end": 3940,
-          "lines": 111,
-          "bytes": 7498
+          "start": 3987,
+          "end": 4106,
+          "lines": 120,
+          "bytes": 8186
         },
         {
           "title": "## S7-NEW-B — Figural generation mandate (v2.0 GAP-12 fix; v5.37 budget-gated)",
-          "start": 3941,
-          "end": 4107,
+          "start": 4107,
+          "end": 4273,
           "lines": 167,
           "bytes": 10355
         },
         {
           "title": "## S7-NEW-B2 — SEMANTIC-OBJECT REGISTRATION (v5.59 — every generated figure; HARD)",
-          "start": 4108,
-          "end": 4144,
+          "start": 4274,
+          "end": 4310,
           "lines": 37,
           "bytes": 2618
         },
         {
           "title": "## S7-24 — QA mandatory-topic tracking (v4.9 — exam-agnostic; names removed)",
-          "start": 4145,
-          "end": 4178,
+          "start": 4311,
+          "end": 4344,
           "lines": 34,
           "bytes": 2099
         },
         {
           "title": "## S7-31 — GIR mandatory-subtopic tracking (v4.9 — exam-agnostic; names removed)",
-          "start": 4179,
-          "end": 4206,
+          "start": 4345,
+          "end": 4372,
           "lines": 28,
           "bytes": 1896
         },
         {
           "title": "## S8-1 — TEXT question generator (unchanged from v1.0)",
-          "start": 4207,
-          "end": 4208,
+          "start": 4373,
+          "end": 4374,
           "lines": 2,
           "bytes": 59
         },
         {
           "title": "## S8-2 — PASSAGE (RC) generator (unchanged from v1.0)",
-          "start": 4209,
-          "end": 4211,
+          "start": 4375,
+          "end": 4377,
           "lines": 3,
           "bytes": 117
         },
         {
           "title": "## S8-3 — PASSAGE (Cloze) generator (unchanged from v1.0)",
-          "start": 4212,
-          "end": 4214,
+          "start": 4378,
+          "end": 4380,
           "lines": 3,
           "bytes": 123
         },
         {
           "title": "## S8-4 — DI table question generator (v2.0 GAP-06 fix)",
-          "start": 4215,
-          "end": 4333,
+          "start": 4381,
+          "end": 4499,
           "lines": 119,
           "bytes": 5993
         },
         {
           "title": "## S8-5 — DI chart generator (v5.33 — was an EMPTY TITLE from v1.0 to v5.32)",
-          "start": 4334,
-          "end": 4404,
+          "start": 4500,
+          "end": 4570,
           "lines": 71,
           "bytes": 3389
         },
         {
           "title": "## S8-6 — FIGURAL generator (v4.0 — decomposed; see S7-NEW-B + §10-S10-7/S10-8)",
-          "start": 4405,
-          "end": 4426,
+          "start": 4571,
+          "end": 4592,
           "lines": 22,
           "bytes": 1435
         },
         {
           "title": "## S8-7 through S8-9 — (unchanged from v1.0)",
-          "start": 4427,
-          "end": 4441,
+          "start": 4593,
+          "end": 4607,
           "lines": 15,
           "bytes": 1185
         },
         {
           "title": "## SC-1 — The self-containment invariant (applies to ALL questions)",
-          "start": 4442,
-          "end": 4449,
+          "start": 4608,
+          "end": 4615,
           "lines": 8,
           "bytes": 460
         },
         {
           "title": "## SC-2 — What counts as a \"shared stimulus\" (CLASS 4 detection → §6)",
-          "start": 4450,
-          "end": 4462,
+          "start": 4616,
+          "end": 4628,
           "lines": 13,
           "bytes": 804
         },
         {
           "title": "## SC-3 — DELIVERY CONTRACT: Model A (DEFAULT) — stimulus duplicated per member",
-          "start": 4463,
-          "end": 4512,
+          "start": 4629,
+          "end": 4678,
           "lines": 50,
           "bytes": 3168
         },
         {
           "title": "## SC-4 — DELIVERY CONTRACT: Model B (CONDITIONAL) — engine-native passage group",
-          "start": 4513,
-          "end": 4531,
+          "start": 4679,
+          "end": 4697,
           "lines": 19,
           "bytes": 1241
         },
         {
           "title": "## SC-5 — Cloze-specific self-containment",
-          "start": 4532,
-          "end": 4540,
+          "start": 4698,
+          "end": 4706,
           "lines": 9,
           "bytes": 500
         },
         {
           "title": "## SC-6 — Image / table reuse exemption WITHIN a linked group",
-          "start": 4541,
-          "end": 4550,
+          "start": 4707,
+          "end": 4716,
           "lines": 10,
           "bytes": 643
         },
         {
           "title": "## SC-7 — Self-containment self-check (run during S4-7 STEP A, per batch)",
-          "start": 4551,
-          "end": 4574,
+          "start": 4717,
+          "end": 4740,
           "lines": 24,
           "bytes": 1686
         },
         {
           "title": "## S10-0 — MANDATORY: per-question concept_map capture (v5.52, GAP-2026-08-12-S10-CONCEPTMAP-MANDATE)",
-          "start": 4575,
-          "end": 4607,
+          "start": 4741,
+          "end": 4773,
           "lines": 33,
           "bytes": 2058
         },
         {
           "title": "## S10-1 — Question format rules (v2.0 GAP-14 + GAP-15 fixes)",
-          "start": 4608,
-          "end": 4640,
+          "start": 4774,
+          "end": 4806,
           "lines": 33,
           "bytes": 1526
         },
         {
           "title": "## S10-2 — UNDERLINE-SPAN CONTRACT (v4.1 — executable; replaces the v1.0 stub)",
-          "start": 4641,
-          "end": 4743,
+          "start": 4807,
+          "end": 4909,
           "lines": 103,
           "bytes": 5660
         },
         {
           "title": "## S10-3 — Python helpers (v2.0 — Calibri enforced)",
-          "start": 4744,
-          "end": 4894,
+          "start": 4910,
+          "end": 5060,
           "lines": 151,
           "bytes": 7917
         },
         {
           "title": "## S10-4 — OMML library (complete — see v1.0 for full implementation)",
-          "start": 4895,
-          "end": 5145,
+          "start": 5061,
+          "end": 5311,
           "lines": 251,
           "bytes": 14265
         },
         {
           "title": "## S10-LINKED — linked-member emission (v3.7 — Q.N-FIRST ordered block)",
-          "start": 5146,
-          "end": 5230,
+          "start": 5312,
+          "end": 5396,
           "lines": 85,
           "bytes": 4304
         },
         {
           "title": "## S10-5, S10-6, S10-9, S10-10 — (unchanged from v1.0 — see v1.0 for full spec)",
-          "start": 5231,
-          "end": 5232,
+          "start": 5397,
+          "end": 5398,
           "lines": 2,
           "bytes": 85
         },
         {
           "title": "## S10-6A — FIGURE CLASS TAXONOMY (v5.33 — new, GAP-2026-07-29-FIG-R2 §7.1)",
-          "start": 5233,
-          "end": 5264,
+          "start": 5399,
+          "end": 5430,
           "lines": 32,
           "bytes": 2221
         },
         {
           "title": "## S10-7 — FIGURAL IMAGE-QUALITY CONTRACT (v5.33 — colour, labels, scale)",
-          "start": 5265,
-          "end": 5762,
+          "start": 5431,
+          "end": 5928,
           "lines": 498,
           "bytes": 33941
         },
         {
           "title": "## S10-7C — DOMAIN DRAWING CONTRACT (v5.55 — new)",
-          "start": 5763,
-          "end": 5801,
+          "start": 5929,
+          "end": 5967,
           "lines": 39,
           "bytes": 2513
         },
         {
           "title": "## S10-8 — FIGURAL PLACEMENT (v4.0 — single-column, label-bound; was a v1.0 stub)",
-          "start": 5802,
-          "end": 5936,
+          "start": 5968,
+          "end": 6102,
           "lines": 135,
           "bytes": 7141
         },
         {
           "title": "## S10-8A — FIGURAL STEM placement helper (v5.13 — stem_only variant)",
-          "start": 5937,
-          "end": 5994,
+          "start": 6103,
+          "end": 6160,
           "lines": 58,
           "bytes": 3272
         },
         {
           "title": "## S11-1 — Format",
-          "start": 5995,
-          "end": 6001,
+          "start": 6161,
+          "end": 6167,
           "lines": 7,
           "bytes": 144
         },
         {
           "title": "## S11-2 — Incremental build (v2.0 GAP-18 fix — one write per question)",
-          "start": 6002,
-          "end": 6007,
+          "start": 6168,
+          "end": 6173,
           "lines": 6,
           "bytes": 244
         },
         {
           "title": "## S11-3 — Source logging for ALL GA facts (not just CA)",
-          "start": 6008,
-          "end": 6013,
+          "start": 6174,
+          "end": 6179,
           "lines": 6,
           "bytes": 260
         },
         {
           "title": "## S11-4 — Answer key NEVER in docx (v2.0 GAP-17 — detection added)",
-          "start": 6014,
-          "end": 6045,
+          "start": 6180,
+          "end": 6211,
           "lines": 32,
           "bytes": 1607
         },
         {
           "title": "## S11-5 — K-INT verification (v5.4 — MSQ/NAT-aware)",
-          "start": 6046,
-          "end": 6072,
+          "start": 6212,
+          "end": 6238,
           "lines": 27,
           "bytes": 1275
         },
         {
           "title": "## S11-6 — Answer key correspondence gate",
-          "start": 6073,
-          "end": 6081,
+          "start": 6239,
+          "end": 6247,
           "lines": 9,
           "bytes": 693
         },
         {
           "title": "## S12-0 — Zero-Warning Policy (unchanged)",
-          "start": 6082,
-          "end": 6085,
+          "start": 6248,
+          "end": 6251,
           "lines": 4,
           "bytes": 94
         },
         {
           "title": "## GATE ADDITIONS / CHANGES (v2.0):",
-          "start": 6086,
-          "end": 6701,
+          "start": 6252,
+          "end": 6867,
           "lines": 616,
           "bytes": 39410
         },
         {
           "title": "## S13-1 — Final Assembly trigger (unchanged)",
-          "start": 6702,
-          "end": 6703,
+          "start": 6868,
+          "end": 6869,
           "lines": 2,
           "bytes": 49
         },
         {
           "title": "## S13-2 — Complete gate sweep (all 80 gates)",
-          "start": 6704,
-          "end": 6705,
+          "start": 6870,
+          "end": 6871,
           "lines": 2,
           "bytes": 49
         },
         {
           "title": "## S13-3 — Post-mock concept audit (unchanged)",
-          "start": 6706,
-          "end": 6707,
+          "start": 6872,
+          "end": 6873,
           "lines": 2,
           "bytes": 50
         },
         {
           "title": "## S13-4 — Registry update protocol (v2.0 GAP-03 + GAP-04 fix; v5.53 — extracted to final_assembly.py)",
-          "start": 6708,
-          "end": 6810,
+          "start": 6874,
+          "end": 6976,
           "lines": 103,
           "bytes": 6445
         },
         {
           "title": "## S13-REGCHECK — Registry schema-completeness gate (v3.5 — runs after S13-4 commit; v5.53 — extracted)",
-          "start": 6811,
-          "end": 6867,
+          "start": 6977,
+          "end": 7033,
           "lines": 57,
           "bytes": 2851
         },
         {
           "title": "## S13-QINDEX — Question-index gate execution (v5.2 — G-QINDEX; runs after S13-REGCHECK; v5.53 — extracted)",
-          "start": 6868,
-          "end": 6906,
+          "start": 7034,
+          "end": 7072,
           "lines": 39,
           "bytes": 2503
         },
         {
           "title": "## S13-4b — TIER-A AUDIT DOSSIER (v5.35; consumer restated v5.36) — DELIVERED AS RECORD",
-          "start": 6907,
-          "end": 6964,
+          "start": 7073,
+          "end": 7130,
           "lines": 58,
           "bytes": 3446
         },
         {
           "title": "## S13-4c — DOSSIER-FED RE-SWEEP (v5.40 — the wiring, restored)",
-          "start": 6965,
-          "end": 7044,
+          "start": 7131,
+          "end": 7210,
           "lines": 80,
           "bytes": 4839
         },
         {
           "title": "## S13-5 — Registry integrity check (unchanged)",
-          "start": 7045,
-          "end": 7046,
+          "start": 7211,
+          "end": 7212,
           "lines": 2,
           "bytes": 51
         },
         {
           "title": "## S13-6 — THE DELIVERABLE SET IS CLOSED (v3.5 — read before delivering)",
-          "start": 7047,
-          "end": 7075,
+          "start": 7213,
+          "end": 7241,
           "lines": 29,
           "bytes": 1758
         },
         {
           "title": "## S13-7 — Pre-delivery checklist (v3.5 — MANDATORY before present_files; v5.53 — extracted)",
-          "start": 7076,
-          "end": 7119,
+          "start": 7242,
+          "end": 7285,
           "lines": 44,
           "bytes": 2441
         },
         {
           "title": "## S13-8 — Deliver (v3.5 — the SINGLE present_files call)",
-          "start": 7120,
-          "end": 7131,
+          "start": 7286,
+          "end": 7297,
           "lines": 12,
           "bytes": 533
         },
         {
           "title": "## S13-9 — Handoff message (v3.5 — print after present_files, then END)",
-          "start": 7132,
-          "end": 7159,
+          "start": 7298,
+          "end": 7325,
           "lines": 28,
           "bytes": 1216
         },
         {
           "title": "## S13-9A — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 7160,
-          "end": 7180,
+          "start": 7326,
+          "end": 7346,
           "lines": 21,
           "bytes": 1276
         },
         {
           "title": "## S14-1 — Universal fields (v2.0 GAP-04 fix — added fields)",
-          "start": 7181,
-          "end": 7222,
+          "start": 7347,
+          "end": 7388,
           "lines": 42,
           "bytes": 2170
         },
         {
           "title": "## S14-2 through S14-5 — (unchanged from v1.0 — see v1.0 for full spec)",
-          "start": 7223,
-          "end": 7236,
+          "start": 7389,
+          "end": 7402,
           "lines": 14,
           "bytes": 1553
         },
         {
           "title": "## S17-1 — Complete DoD checklist (v2.0 additions marked *; v3.0 marked **)",
-          "start": 7237,
-          "end": 7347,
+          "start": 7403,
+          "end": 7513,
           "lines": 111,
           "bytes": 7282
         },
         {
           "title": "## S17-2 — Downstream handoff (v5.36: to Step 9; mechanism unchanged from v1.0)",
-          "start": 7348,
-          "end": 7884,
+          "start": 7514,
+          "end": 8050,
           "lines": 537,
           "bytes": 40305
         }
       ]
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "6390b765acaebfefc81df77f6479e6e6bc788a8b3b409cf2a25166ac207160b6",
+      "sha256": "fea56cac0d03e5f792415a5fa031ea63f14d06563dea2ef1d449b8330e354520",
       "lines": 2637,
-      "bytes": 204750,
-      "est_tokens": 51187,
+      "bytes": 204518,
+      "est_tokens": 51129,
       "view_calls": 13,
       "bash_calls": 2,
       "has_read_set": false,
-      "reduced_bytes": 204750,
-      "reduced_est_tokens": 51187,
+      "reduced_bytes": 204518,
+      "reduced_est_tokens": 51129,
       "reduced_bash_calls": 2,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## S0-1 — INPUTS (what Step 9 is given)",
-          "start": 31,
-          "end": 59,
+          "start": 13,
+          "end": 41,
           "lines": 29,
           "bytes": 2096
         },
         {
           "title": "## S0-2 — OUTPUTS (what Step 9 delivers)",
-          "start": 60,
-          "end": 317,
+          "start": 42,
+          "end": 299,
           "lines": 258,
           "bytes": 21964
         },
         {
           "title": "## S1-1 — Sources of truth (strict priority order)",
-          "start": 318,
-          "end": 331,
+          "start": 300,
+          "end": 313,
           "lines": 14,
           "bytes": 969
         },
         {
           "title": "## S1-2 — Memory prohibition",
-          "start": 332,
-          "end": 341,
+          "start": 314,
+          "end": 323,
           "lines": 10,
           "bytes": 743
         },
         {
           "title": "## S2-1 — Trigger formats",
-          "start": 342,
-          "end": 366,
+          "start": 324,
+          "end": 348,
           "lines": 25,
           "bytes": 1458
         },
         {
           "title": "## S2-2 — Mock/paper-number resolution (do this BEFORE loading questions)",
-          "start": 367,
-          "end": 514,
+          "start": 349,
+          "end": 496,
           "lines": 148,
           "bytes": 12383
         },
         {
           "title": "## P10 — REGISTRY-FK TRIPWIRE (v1.23 — MANDATORY, runs after P9, before any solving)",
-          "start": 515,
-          "end": 626,
+          "start": 497,
+          "end": 608,
           "lines": 112,
           "bytes": 7513
         },
         {
           "title": "## S4-1 — EXPLAIN_BATCH_SIZE",
-          "start": 627,
-          "end": 632,
+          "start": 609,
+          "end": 614,
           "lines": 6,
           "bytes": 283
         },
         {
           "title": "## S4-2 — The frozen batch plan (built once at P4, the authority for the whole run)",
-          "start": 633,
-          "end": 641,
+          "start": 615,
+          "end": 623,
           "lines": 9,
           "bytes": 546
         },
         {
           "title": "## S4-3 — Atomic linked groups (the one flexibility)",
-          "start": 642,
-          "end": 651,
+          "start": 624,
+          "end": 633,
           "lines": 10,
           "bytes": 610
         },
         {
           "title": "## S4-4 — One batch = one response (the continue contract)",
-          "start": 652,
-          "end": 677,
+          "start": 634,
+          "end": 659,
           "lines": 26,
           "bytes": 2013
         },
         {
           "title": "## S4-5 — The four anti-overrun guards (why all-at-once cannot happen)",
-          "start": 678,
-          "end": 696,
+          "start": 660,
+          "end": 678,
           "lines": 19,
           "bytes": 1581
         },
         {
           "title": "## S5-1 — Fields (shaped by the question type: mcq · msq · nat)",
-          "start": 697,
-          "end": 720,
+          "start": 679,
+          "end": 702,
           "lines": 24,
           "bytes": 3489
         },
         {
           "title": "## S5-2 — Hard structural guards (engine, write-time — position-independent)",
-          "start": 721,
-          "end": 745,
+          "start": 703,
+          "end": 727,
           "lines": 25,
           "bytes": 1945
         },
         {
           "title": "## S5-3 — PER-QUESTION CHECKLIST (tick every item before constructing the block)",
-          "start": 746,
-          "end": 814,
+          "start": 728,
+          "end": 796,
           "lines": 69,
           "bytes": 5632
         },
         {
           "title": "## S6-1 — The classes and what each makes the explanation LEAD with",
-          "start": 815,
-          "end": 837,
+          "start": 797,
+          "end": 819,
           "lines": 23,
           "bytes": 4333
         },
         {
           "title": "## S6-2 — Class-adaptive leading (the \"to the point\" principle)",
-          "start": 838,
-          "end": 860,
+          "start": 820,
+          "end": 842,
           "lines": 23,
           "bytes": 1882
         },
         {
           "title": "## S6A-1 — PROSE IS THE DEFAULT. A VISUAL IS EARNED, NEVER ISSUED.",
-          "start": 861,
-          "end": 878,
+          "start": 843,
+          "end": 860,
           "lines": 18,
           "bytes": 1267
         },
         {
           "title": "## S6A-1b — STRUCTURE-ANSWER PRESUMPTION (v1.35.0)",
-          "start": 879,
-          "end": 899,
+          "start": 861,
+          "end": 881,
           "lines": 21,
           "bytes": 1347
         },
         {
           "title": "## S6A-1b-ii — COUNT-OF-VISUAL-OBJECTS PRESUMPTION (v1.37.0)",
-          "start": 900,
-          "end": 905,
+          "start": 882,
+          "end": 887,
           "lines": 6,
           "bytes": 381
         },
         {
           "title": "## S6A-1c — ALIGNMENT: THE REPRESENTATION MUST SHOW THE DECIDING RELATION (v1.36.0)",
-          "start": 906,
-          "end": 929,
+          "start": 888,
+          "end": 911,
           "lines": 24,
           "bytes": 1758
         },
         {
           "title": "## S6A-2 — The requirement vocabulary (what the router emits)",
-          "start": 930,
-          "end": 946,
+          "start": 912,
+          "end": 928,
           "lines": 17,
           "bytes": 1422
         },
         {
           "title": "## S6A-3 — Record the verdict on every question",
-          "start": 947,
-          "end": 962,
+          "start": 929,
+          "end": 944,
           "lines": 16,
           "bytes": 1070
         },
         {
           "title": "## S6A-3b — THE DISTRIBUTION IS A TRIPWIRE, AS §14-5 IS FOR SPEED HACK (v1.36.0)",
-          "start": 963,
-          "end": 971,
+          "start": 945,
+          "end": 953,
           "lines": 9,
           "bytes": 581
         },
         {
           "title": "## S6A-4 — Degrade LOUDLY, never silently, and never HALT",
-          "start": 972,
-          "end": 983,
+          "start": 954,
+          "end": 965,
           "lines": 12,
           "bytes": 850
         },
         {
           "title": "## S6A-5 — A rendered artefact must be PROVED, not trusted",
-          "start": 984,
-          "end": 998,
+          "start": 966,
+          "end": 980,
           "lines": 15,
           "bytes": 1076
         },
         {
           "title": "## S6A-6 — Renderer execution contract (v1.28.0 — emission is LIVE)",
-          "start": 999,
-          "end": 1051,
+          "start": 981,
+          "end": 1033,
           "lines": 53,
           "bytes": 3721
         },
         {
           "title": "## S7-0a — CAPTURE THE CONDITIONS BEFORE APPLYING ANY REMEMBERED RESULT (v1.32.0)",
-          "start": 1052,
-          "end": 1076,
+          "start": 1034,
+          "end": 1058,
           "lines": 25,
           "bytes": 1956
         },
         {
           "title": "## S7-0b — ASSUMPTION LEDGER (v1.32.0)",
-          "start": 1077,
-          "end": 1093,
+          "start": 1059,
+          "end": 1075,
           "lines": 17,
           "bytes": 1174
         },
         {
           "title": "## S7-0c — ENUMERATION BEFORE FORMULA (v1.35.0)",
-          "start": 1094,
-          "end": 1113,
+          "start": 1076,
+          "end": 1095,
           "lines": 20,
           "bytes": 1376
         },
         {
           "title": "## S7-1 — Derive-twice, never guess (every question, no exception — RE-6)",
-          "start": 1114,
-          "end": 1127,
+          "start": 1096,
+          "end": 1109,
           "lines": 14,
           "bytes": 983
         },
         {
           "title": "## S7-2 — Facts are web-verified, never recalled (RE-18)",
-          "start": 1128,
-          "end": 1135,
+          "start": 1110,
+          "end": 1117,
           "lines": 8,
           "bytes": 423
         },
         {
           "title": "## S7-3 — Uniqueness expectation (RE-12)",
-          "start": 1136,
-          "end": 1144,
+          "start": 1118,
+          "end": 1126,
           "lines": 9,
           "bytes": 497
         },
         {
           "title": "## S7-4 — NAT portal grading value (v1.16, S7-NEW-C parity; NUMERICAL only)",
-          "start": 1145,
-          "end": 1235,
+          "start": 1127,
+          "end": 1217,
           "lines": 91,
           "bytes": 5199
         },
         {
           "title": "## S7-5 — NUMERICAL VERIFICATION (every quantitative answer, v1.32.0)",
-          "start": 1236,
-          "end": 1263,
+          "start": 1218,
+          "end": 1245,
           "lines": 28,
           "bytes": 2210
         },
         {
           "title": "## S7-6 — DECISIVE-CLAIM CONSISTENCY (every question, v1.35.0)",
-          "start": 1264,
-          "end": 1287,
+          "start": 1246,
+          "end": 1269,
           "lines": 24,
           "bytes": 1599
         },
         {
           "title": "## S7-7 — TRANSFER-SAFETY PROTOCOL (every AXIOM and every SPEED HACK, v1.36.0)",
-          "start": 1288,
-          "end": 1338,
+          "start": 1270,
+          "end": 1320,
           "lines": 51,
           "bytes": 3858
         },
         {
           "title": "## S7-8 — KEY RECONCILIATION (every question, v1.37.0 — RE-23)",
-          "start": 1339,
-          "end": 1361,
-          "lines": 23,
-          "bytes": 1961
+          "start": 1321,
+          "end": 1334,
+          "lines": 14,
+          "bytes": 1046
+        },
+        {
+          "title": "## §7A-M — ADVISORY DIFFICULTY RE-MEASURE (MOCK-ONLY, v1.38.0 — REPORT, NEVER BLOCK)",
+          "start": 1335,
+          "end": 1369,
+          "lines": 35,
+          "bytes": 2629
         },
         {
           "title": "## S8-0 — TWO CONTENT DISCIPLINES THAT BIND EVERY SECTION (vv1.31.0)",
-          "start": 1362,
-          "end": 1365,
+          "start": 1370,
+          "end": 1373,
           "lines": 4,
           "bytes": 239
         },
         {
           "title": "### S8-0a — SUPPORTED VALUES ONLY (no invented precision)",
-          "start": 1366,
-          "end": 1388,
+          "start": 1374,
+          "end": 1396,
           "lines": 23,
           "bytes": 1717
         },
         {
           "title": "### S8-0b — CALIBRATED LANGUAGE (a tendency is not an impossibility)",
-          "start": 1389,
-          "end": 1418,
+          "start": 1397,
+          "end": 1426,
           "lines": 30,
           "bytes": 2245
         },
         {
           "title": "## S8-0c — FORMULA TYPOGRAPHY (v1.37.0 — RE-24; engine-applied)",
-          "start": 1419,
-          "end": 1426,
+          "start": 1427,
+          "end": 1434,
           "lines": 8,
           "bytes": 569
         },
         {
           "title": "## S8-1 — Correct Answer",
-          "start": 1427,
-          "end": 1441,
+          "start": 1435,
+          "end": 1449,
           "lines": 15,
           "bytes": 1111
         },
         {
           "title": "## S8-2 — AXIOM",
-          "start": 1442,
-          "end": 1475,
+          "start": 1450,
+          "end": 1483,
           "lines": 34,
           "bytes": 2669
         },
         {
           "title": "## S8-3 — DEDUCTION",
-          "start": 1476,
-          "end": 1494,
+          "start": 1484,
+          "end": 1502,
           "lines": 19,
           "bytes": 1411
         },
         {
           "title": "## S8-4 — SPEED HACK",
-          "start": 1495,
-          "end": 1509,
+          "start": 1503,
+          "end": 1517,
           "lines": 15,
           "bytes": 1125
         },
         {
           "title": "## S8-5 — WHY WRONG (mcq / msq) · COMMON PITFALLS (nat)",
-          "start": 1510,
-          "end": 1595,
+          "start": 1518,
+          "end": 1603,
           "lines": 86,
           "bytes": 6869
         },
         {
           "title": "## S10a — Negative stem (the deadliest content trap)",
-          "start": 1596,
-          "end": 1606,
+          "start": 1604,
+          "end": 1614,
           "lines": 11,
           "bytes": 828
         },
         {
           "title": "## S10b — Composite options",
-          "start": 1607,
-          "end": 1614,
+          "start": 1615,
+          "end": 1622,
           "lines": 8,
           "bytes": 499
         },
         {
           "title": "## S10c — MSQ (multiple-select) and NAT (numerical-answer) protocols",
-          "start": 1615,
-          "end": 1641,
+          "start": 1623,
+          "end": 1649,
           "lines": 27,
           "bytes": 2309
         },
         {
           "title": "## S11-1 — The single funnel (write-time enforced)",
-          "start": 1642,
-          "end": 1661,
+          "start": 1650,
+          "end": 1669,
           "lines": 20,
           "bytes": 1511
         },
         {
           "title": "## S11-1b — The ⟦MATH:…⟧ Tier-3 grammar (authoritative; what actually compiles)",
-          "start": 1662,
-          "end": 1691,
+          "start": 1670,
+          "end": 1699,
           "lines": 30,
           "bytes": 2334
         },
         {
           "title": "## S11-1c — When quantitative work MUST be rendered as math (not prose)",
-          "start": 1692,
-          "end": 1703,
+          "start": 1700,
+          "end": 1711,
           "lines": 12,
           "bytes": 879
         },
         {
           "title": "## S11-2 — Post-write verification (every batch)",
-          "start": 1704,
-          "end": 1710,
+          "start": 1712,
+          "end": 1718,
           "lines": 7,
           "bytes": 499
         },
         {
           "title": "## S11-3 — The Word-native limit (disclosed, never misdiagnosed)",
-          "start": 1711,
-          "end": 1725,
+          "start": 1719,
+          "end": 1733,
           "lines": 15,
           "bytes": 1306
         },
         {
           "title": "## S12-1 — What is guaranteed byte-identical to the Step-7 source (verified EVERY batch)",
-          "start": 1726,
-          "end": 1735,
+          "start": 1734,
+          "end": 1743,
           "lines": 10,
           "bytes": 668
         },
         {
           "title": "## S12-2 — How (the architecture, not a promise)",
-          "start": 1736,
-          "end": 1743,
+          "start": 1744,
+          "end": 1751,
           "lines": 8,
           "bytes": 547
         },
         {
           "title": "## S12-3 — Two independent confirmations (beyond the fidelity diff)",
-          "start": 1744,
-          "end": 1753,
+          "start": 1752,
+          "end": 1761,
           "lines": 10,
           "bytes": 740
         },
         {
           "title": "## S12-4 — INTERIM COVERAGE BANNER (vv1.31.0 — the artefact declares its own state)",
-          "start": 1754,
-          "end": 1785,
+          "start": 1762,
+          "end": 1793,
           "lines": 32,
           "bytes": 2637
         },
         {
           "title": "## S13-1 — Detect figural questions structurally",
-          "start": 1786,
-          "end": 1810,
+          "start": 1794,
+          "end": 1818,
           "lines": 25,
           "bytes": 1914
         },
         {
           "title": "## S13-2 — Extract, role-bind, view (the gate before solving)",
-          "start": 1811,
-          "end": 1817,
+          "start": 1819,
+          "end": 1825,
           "lines": 7,
           "bytes": 423
         },
         {
           "title": "## S13-2b — SEMANTIC-OBJECT RECONCILIATION (v1.37.0 — BEFORE solving)",
-          "start": 1818,
-          "end": 1832,
+          "start": 1826,
+          "end": 1840,
           "lines": 15,
           "bytes": 1140
         },
         {
           "title": "## S13-3 — Derive from the images, NOT the manifest",
-          "start": 1833,
-          "end": 1843,
+          "start": 1841,
+          "end": 1851,
           "lines": 11,
           "bytes": 788
         },
         {
           "title": "## S13-4 — Write what is visible; never anomaly-for-figural (BOTH families)",
-          "start": 1844,
-          "end": 1851,
+          "start": 1852,
+          "end": 1859,
           "lines": 8,
           "bytes": 572
         },
         {
           "title": "## S13-4a — TRANSFORMATION-PUZZLE family (unchanged behaviour)",
-          "start": 1852,
-          "end": 1857,
+          "start": 1860,
+          "end": 1865,
           "lines": 6,
           "bytes": 355
         },
         {
           "title": "## S13-4b — SCIENTIFIC-DIAGRAM family (v1.29.0)",
-          "start": 1858,
-          "end": 1895,
+          "start": 1866,
+          "end": 1903,
           "lines": 38,
           "bytes": 3064
         },
         {
           "title": "## S14-1 — The two-part test (BOTH must pass, else omit)",
-          "start": 1896,
-          "end": 1914,
+          "start": 1904,
+          "end": 1922,
           "lines": 19,
           "bytes": 1410
         },
         {
           "title": "## S14-2 — The operational proxy (applied per question at solve time)",
-          "start": 1915,
-          "end": 1919,
+          "start": 1923,
+          "end": 1927,
           "lines": 5,
           "bytes": 336
         },
         {
           "title": "## S14-3 — Where shortcuts live vs do not",
-          "start": 1920,
-          "end": 1933,
+          "start": 1928,
+          "end": 1941,
           "lines": 14,
           "bytes": 1075
         },
         {
           "title": "## S14-3b — EVERY SHORTCUT CARRIES ITS VALIDITY DOMAIN (v1.32.0)",
-          "start": 1934,
-          "end": 1956,
+          "start": 1942,
+          "end": 1964,
           "lines": 23,
           "bytes": 1658
         },
         {
           "title": "## S14-4 — The honesty guard",
-          "start": 1957,
-          "end": 1961,
+          "start": 1965,
+          "end": 1969,
           "lines": 5,
           "bytes": 266
         },
         {
           "title": "## S14-5 — ELIGIBILITY IS RECORDED; THE DISTRIBUTION IS A TRIPWIRE (v1.35.0)",
-          "start": 1962,
-          "end": 1988,
+          "start": 1970,
+          "end": 1996,
           "lines": 27,
           "bytes": 2314
         },
         {
           "title": "## S15-1 — The rule that kills templating",
-          "start": 1989,
-          "end": 1995,
+          "start": 1997,
+          "end": 2003,
           "lines": 7,
           "bytes": 404
         },
         {
           "title": "## S15-2 — Four hard requirements per wrong option / value",
-          "start": 1996,
-          "end": 2021,
+          "start": 2004,
+          "end": 2029,
           "lines": 26,
           "bytes": 1945
         },
         {
           "title": "## S15-3 — Class- and type-specific shape (never generic across types)",
-          "start": 2022,
-          "end": 2051,
+          "start": 2030,
+          "end": 2059,
           "lines": 30,
           "bytes": 2538
         },
         {
           "title": "## S16-1 — The causes",
-          "start": 2052,
-          "end": 2057,
+          "start": 2060,
+          "end": 2065,
           "lines": 6,
           "bytes": 335
         },
         {
           "title": "## S16-2 — The defences (none weakens as the mock lengthens)",
-          "start": 2058,
-          "end": 2088,
+          "start": 2066,
+          "end": 2096,
           "lines": 31,
           "bytes": 2701
         },
         {
           "title": "## S17-1 — The burden of proof is inverted (RE-12)",
-          "start": 2089,
-          "end": 2097,
+          "start": 2097,
+          "end": 2105,
           "lines": 9,
           "bytes": 647
         },
         {
           "title": "## S17-2 — \"Wrong\" must be specific and reproducible",
-          "start": 2098,
-          "end": 2103,
+          "start": 2106,
+          "end": 2111,
           "lines": 6,
           "bytes": 393
         },
         {
           "title": "## S17-3 — RESOLUTION PROTOCOL (v1.37.0 — in-run; the paper never halts)",
-          "start": 2104,
-          "end": 2123,
+          "start": 2112,
+          "end": 2131,
           "lines": 20,
           "bytes": 1268
         },
         {
           "title": "## S17-4 — A PROVEN QUESTION DEFECT (v1.37.0 — reported, never adjudicated by the operator)",
-          "start": 2124,
-          "end": 2131,
+          "start": 2132,
+          "end": 2139,
           "lines": 8,
           "bytes": 601
         },
         {
           "title": "## S17-5 — Why this cannot become lazy defect-calling",
-          "start": 2132,
-          "end": 2145,
+          "start": 2140,
+          "end": 2153,
           "lines": 14,
           "bytes": 1234
         },
         {
           "title": "## S18-1 — The checklist (all must hold before present_files — MANDATE D)",
-          "start": 2146,
-          "end": 2218,
+          "start": 2154,
+          "end": 2226,
           "lines": 73,
           "bytes": 5744
         },
         {
           "title": "## S18-2 — THERE IS NO INDEPENDENT GATE (v1.21.0 — stated, not hidden)",
-          "start": 2219,
-          "end": 2240,
+          "start": 2227,
+          "end": 2248,
           "lines": 22,
           "bytes": 1841
         },
         {
           "title": "## S19-1 — Pre-delivery checklist (MANDATORY before present_files)",
-          "start": 2241,
-          "end": 2266,
+          "start": 2249,
+          "end": 2274,
           "lines": 26,
           "bytes": 1363
         },
         {
           "title": "## S19-2 — The single present_files call (per batch)",
-          "start": 2267,
-          "end": 2294,
+          "start": 2275,
+          "end": 2302,
           "lines": 28,
           "bytes": 1489
         },
         {
           "title": "## S19-3 — Progress line + confirmation request (ENDS the turn — MANDATE B)",
-          "start": 2295,
-          "end": 2301,
+          "start": 2303,
+          "end": 2309,
           "lines": 7,
           "bytes": 526
         },
         {
           "title": "## S19-4 — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 2302,
+          "start": 2310,
           "end": 2637,
-          "lines": 336,
-          "bytes": 27157
+          "lines": 328,
+          "bytes": 26473
         }
       ]
     },
@@ -4716,689 +4723,689 @@
       ]
     },
     "Framework_PYQExplain.md": {
-      "sha256": "83052aa8ad5f6d78da8095aeb3abdd2b6fa3c5deb9c0223f583ae84ede2183de",
-      "lines": 2536,
-      "bytes": 179032,
-      "est_tokens": 44758,
+      "sha256": "4eeb9a18a72d1193dfe8c36884f6ec890b419719aee3ce18836f033cd7a4cfff",
+      "lines": 2558,
+      "bytes": 180577,
+      "est_tokens": 45144,
       "view_calls": 12,
       "bash_calls": 2,
       "has_read_set": false,
-      "reduced_bytes": 179032,
-      "reduced_est_tokens": 44758,
+      "reduced_bytes": 180577,
+      "reduced_est_tokens": 45144,
       "reduced_bash_calls": 2,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## S0-1 — INPUTS (what PYQ-1 reads)",
-          "start": 45,
-          "end": 70,
+          "start": 52,
+          "end": 77,
           "lines": 26,
           "bytes": 1465
         },
         {
           "title": "## S0-2 — OUTPUTS (what PYQ-1 delivers)",
-          "start": 71,
-          "end": 270,
+          "start": 78,
+          "end": 277,
           "lines": 200,
           "bytes": 16676
         },
         {
           "title": "## S1-1 — Sources of truth (strict priority order)",
-          "start": 271,
-          "end": 292,
+          "start": 278,
+          "end": 299,
           "lines": 22,
           "bytes": 1405
         },
         {
           "title": "## S2-1 — Trigger format",
-          "start": 293,
-          "end": 498,
+          "start": 300,
+          "end": 505,
           "lines": 206,
           "bytes": 12860
         },
         {
           "title": "## S4-1 — EXPLAIN_BATCH_SIZE",
-          "start": 499,
-          "end": 502,
+          "start": 506,
+          "end": 509,
           "lines": 4,
           "bytes": 114
         },
         {
           "title": "## S4-2 — The frozen batch plan (built once at P4, the authority for the whole run)",
-          "start": 503,
-          "end": 512,
+          "start": 510,
+          "end": 519,
           "lines": 10,
           "bytes": 585
         },
         {
           "title": "## S4-3 — Atomic linked groups",
-          "start": 513,
-          "end": 521,
+          "start": 520,
+          "end": 528,
           "lines": 9,
           "bytes": 490
         },
         {
           "title": "## S4-4 — One batch = one response (the continue contract)",
-          "start": 522,
-          "end": 538,
+          "start": 529,
+          "end": 545,
           "lines": 17,
           "bytes": 1057
         },
         {
           "title": "## S4-5 — The four anti-overrun guards",
-          "start": 539,
-          "end": 552,
+          "start": 546,
+          "end": 559,
           "lines": 14,
           "bytes": 1012
         },
         {
           "title": "## S5-1 — Fields (shaped by the question type: mcq · msq · nat)",
-          "start": 553,
-          "end": 573,
+          "start": 560,
+          "end": 580,
           "lines": 21,
           "bytes": 2444
         },
         {
           "title": "## S5-2 — Hard structural guards (engine, write-time — position-independent)",
-          "start": 574,
-          "end": 592,
+          "start": 581,
+          "end": 599,
           "lines": 19,
           "bytes": 1178
         },
         {
           "title": "## S5-3 — PER-QUESTION CHECKLIST (tick every item before constructing the block)",
-          "start": 593,
-          "end": 651,
+          "start": 600,
+          "end": 658,
           "lines": 59,
           "bytes": 4414
         },
         {
           "title": "## S6-1 — The classes and what each makes the explanation LEAD with",
-          "start": 652,
-          "end": 690,
+          "start": 659,
+          "end": 697,
           "lines": 39,
           "bytes": 4066
         },
         {
           "title": "## S6A-1 — PROSE IS THE DEFAULT. A VISUAL IS EARNED, NEVER ISSUED.",
-          "start": 691,
-          "end": 708,
+          "start": 698,
+          "end": 715,
           "lines": 18,
           "bytes": 1307
         },
         {
           "title": "## S6A-1b — STRUCTURE-ANSWER PRESUMPTION (v2.13)",
-          "start": 709,
-          "end": 734,
+          "start": 716,
+          "end": 741,
           "lines": 26,
           "bytes": 1735
         },
         {
           "title": "## S6A-1b-ii — COUNT-OF-VISUAL-OBJECTS PRESUMPTION (v2.15)",
-          "start": 735,
-          "end": 740,
+          "start": 742,
+          "end": 747,
           "lines": 6,
           "bytes": 379
         },
         {
           "title": "## S6A-1c — ALIGNMENT: THE REPRESENTATION MUST SHOW THE DECIDING RELATION (v2.14)",
-          "start": 741,
-          "end": 764,
+          "start": 748,
+          "end": 771,
           "lines": 24,
           "bytes": 1756
         },
         {
           "title": "## S6A-2 — The requirement vocabulary (what the router emits)",
-          "start": 765,
-          "end": 779,
+          "start": 772,
+          "end": 786,
           "lines": 15,
           "bytes": 1279
         },
         {
           "title": "## S6A-2b — PYQ ORDERING AND THE VOID_ITEM PROHIBITION (v2.7, PYQ-only)",
-          "start": 780,
-          "end": 790,
+          "start": 787,
+          "end": 797,
           "lines": 11,
           "bytes": 842
         },
         {
           "title": "## S6A-3 — Record the verdict on every question",
-          "start": 791,
-          "end": 802,
+          "start": 798,
+          "end": 809,
           "lines": 12,
           "bytes": 725
         },
         {
           "title": "## S6A-3b — THE DISTRIBUTION IS A TRIPWIRE, AS §14-5 IS FOR SPEED HACK (v2.14)",
-          "start": 803,
-          "end": 811,
+          "start": 810,
+          "end": 818,
           "lines": 9,
           "bytes": 579
         },
         {
           "title": "## S6A-4 — Degrade LOUDLY, never silently, and never HALT",
-          "start": 812,
-          "end": 822,
+          "start": 819,
+          "end": 829,
           "lines": 11,
           "bytes": 823
         },
         {
           "title": "## S6A-5 — A rendered artefact must be PROVED, not trusted",
-          "start": 823,
-          "end": 839,
+          "start": 830,
+          "end": 846,
           "lines": 17,
           "bytes": 1308
         },
         {
           "title": "## S6A-6 — Renderer execution contract",
-          "start": 840,
-          "end": 867,
+          "start": 847,
+          "end": 874,
           "lines": 28,
           "bytes": 2298
         },
         {
           "title": "## S7-0a — CAPTURE THE CONDITIONS BEFORE APPLYING ANY REMEMBERED RESULT (v2.10)",
-          "start": 868,
-          "end": 892,
+          "start": 875,
+          "end": 899,
           "lines": 25,
           "bytes": 1954
         },
         {
           "title": "## S7-0b — ASSUMPTION LEDGER (v2.10)",
-          "start": 893,
-          "end": 909,
+          "start": 900,
+          "end": 916,
           "lines": 17,
           "bytes": 1172
         },
         {
           "title": "## S7-0c — ENUMERATION BEFORE FORMULA (v2.13)",
-          "start": 910,
-          "end": 929,
+          "start": 917,
+          "end": 936,
           "lines": 20,
           "bytes": 1374
         },
         {
           "title": "## S7-1 — Derive-twice (RE-6)",
-          "start": 930,
-          "end": 938,
+          "start": 937,
+          "end": 945,
           "lines": 9,
           "bytes": 459
         },
         {
           "title": "## S7-2 — Web-verify facts (RE-18)",
-          "start": 939,
-          "end": 944,
+          "start": 946,
+          "end": 951,
           "lines": 6,
           "bytes": 268
         },
         {
           "title": "## S7-3 — Uniqueness expectation (RE-12)",
-          "start": 945,
-          "end": 950,
+          "start": 952,
+          "end": 957,
           "lines": 6,
           "bytes": 288
         },
         {
           "title": "## S7-4 — NAT portal grading value",
-          "start": 951,
-          "end": 1007,
+          "start": 958,
+          "end": 1014,
           "lines": 57,
           "bytes": 2307
         },
         {
           "title": "## S7-5 — NUMERICAL VERIFICATION (every quantitative answer, v2.10)",
-          "start": 1008,
-          "end": 1035,
+          "start": 1015,
+          "end": 1042,
           "lines": 28,
           "bytes": 2208
         },
         {
           "title": "## S7-6 — DECISIVE-CLAIM CONSISTENCY (every question, v2.13)",
-          "start": 1036,
-          "end": 1060,
+          "start": 1043,
+          "end": 1067,
           "lines": 25,
           "bytes": 1681
         },
         {
           "title": "## S7-7 — TRANSFER-SAFETY PROTOCOL (every AXIOM and every SPEED HACK, v2.14)",
-          "start": 1061,
-          "end": 1119,
+          "start": 1068,
+          "end": 1126,
           "lines": 59,
           "bytes": 4650
         },
         {
           "title": "## S7A-1 — Exact position in the per-question flow",
-          "start": 1120,
-          "end": 1140,
+          "start": 1127,
+          "end": 1147,
           "lines": 21,
           "bytes": 1123
         },
         {
           "title": "## S7A-2 — The six observations (all already made — do not re-derive)",
-          "start": 1141,
-          "end": 1163,
+          "start": 1148,
+          "end": 1170,
           "lines": 23,
           "bytes": 1469
         },
         {
           "title": "## S7A-3 — The assessment call",
-          "start": 1164,
-          "end": 1190,
+          "start": 1171,
+          "end": 1197,
           "lines": 27,
           "bytes": 1270
         },
         {
           "title": "## S7A-4 — Recording",
-          "start": 1191,
-          "end": 1217,
+          "start": 1198,
+          "end": 1224,
           "lines": 27,
           "bytes": 1173
         },
         {
           "title": "## S7A-5 — What this measures, and what it does not",
-          "start": 1218,
-          "end": 1244,
+          "start": 1225,
+          "end": 1251,
           "lines": 27,
           "bytes": 1912
         },
         {
           "title": "## S8-0 — TWO CONTENT DISCIPLINES THAT BIND EVERY SECTION (vv2.9)",
-          "start": 1245,
-          "end": 1248,
+          "start": 1252,
+          "end": 1255,
           "lines": 4,
           "bytes": 236
         },
         {
           "title": "### S8-0a — SUPPORTED VALUES ONLY (no invented precision)",
-          "start": 1249,
-          "end": 1271,
+          "start": 1256,
+          "end": 1278,
           "lines": 23,
           "bytes": 1717
         },
         {
           "title": "### S8-0b — CALIBRATED LANGUAGE (a tendency is not an impossibility)",
-          "start": 1272,
-          "end": 1302,
+          "start": 1279,
+          "end": 1309,
           "lines": 31,
           "bytes": 2244
         },
         {
           "title": "## S8-0c — FORMULA TYPOGRAPHY (v2.15 — RE-24; engine-applied)",
-          "start": 1303,
-          "end": 1309,
+          "start": 1310,
+          "end": 1316,
           "lines": 7,
           "bytes": 496
         },
         {
           "title": "## S8-1 — Correct Answer",
-          "start": 1310,
-          "end": 1325,
+          "start": 1317,
+          "end": 1332,
           "lines": 16,
           "bytes": 1083
         },
         {
           "title": "## S8-2 — AXIOM",
-          "start": 1326,
-          "end": 1362,
+          "start": 1333,
+          "end": 1369,
           "lines": 37,
           "bytes": 2655
         },
         {
           "title": "## S8-3 — DEDUCTION",
-          "start": 1363,
-          "end": 1384,
+          "start": 1370,
+          "end": 1391,
           "lines": 22,
           "bytes": 1424
         },
         {
           "title": "## S8-4 — SPEED HACK",
-          "start": 1385,
-          "end": 1401,
+          "start": 1392,
+          "end": 1408,
           "lines": 17,
           "bytes": 1129
         },
         {
           "title": "## S8-5 — WHY WRONG (mcq / msq) · COMMON PITFALLS (nat)",
-          "start": 1402,
-          "end": 1485,
+          "start": 1409,
+          "end": 1492,
           "lines": 84,
           "bytes": 6418
         },
         {
           "title": "## S10a — Negative stem",
-          "start": 1486,
-          "end": 1491,
+          "start": 1493,
+          "end": 1498,
           "lines": 6,
           "bytes": 304
         },
         {
           "title": "## S10b — Composite options",
-          "start": 1492,
-          "end": 1495,
+          "start": 1499,
+          "end": 1502,
           "lines": 4,
           "bytes": 187
         },
         {
           "title": "## S10c — MSQ and NAT protocols",
-          "start": 1496,
-          "end": 1508,
+          "start": 1503,
+          "end": 1515,
           "lines": 13,
           "bytes": 1072
         },
         {
           "title": "## S11-1 — The single funnel (write-time enforced; v2.0)",
-          "start": 1509,
-          "end": 1528,
+          "start": 1516,
+          "end": 1535,
           "lines": 20,
           "bytes": 1417
         },
         {
           "title": "## S11-1a — AUTHORING-TIME COMPILE GATE (BLOCKING; 2026.08.10.3)",
-          "start": 1529,
-          "end": 1548,
+          "start": 1536,
+          "end": 1555,
           "lines": 20,
           "bytes": 1527
         },
         {
           "title": "## S11-2 — Post-write verification (every batch; v2.0)",
-          "start": 1549,
-          "end": 1558,
+          "start": 1556,
+          "end": 1565,
           "lines": 10,
           "bytes": 671
         },
         {
           "title": "## S11-2a — Input health (before generating; v2.0)",
-          "start": 1559,
-          "end": 1565,
+          "start": 1566,
+          "end": 1572,
           "lines": 7,
           "bytes": 451
         },
         {
           "title": "## S11-3 — The Word-native limit",
-          "start": 1566,
-          "end": 1575,
+          "start": 1573,
+          "end": 1582,
           "lines": 10,
           "bytes": 824
         },
         {
           "title": "## S12-1 — What is guaranteed byte-identical to the Row file source",
-          "start": 1576,
-          "end": 1582,
+          "start": 1583,
+          "end": 1589,
           "lines": 7,
           "bytes": 425
         },
         {
           "title": "## S12-2 — How",
-          "start": 1583,
-          "end": 1587,
+          "start": 1590,
+          "end": 1594,
           "lines": 5,
           "bytes": 253
         },
         {
           "title": "## S12-3 — Two independent confirmations (beyond the fidelity diff)",
-          "start": 1588,
-          "end": 1594,
+          "start": 1595,
+          "end": 1601,
           "lines": 7,
           "bytes": 451
         },
         {
           "title": "## S12-4 — INTERIM COVERAGE BANNER (vv2.9 — the artefact declares its own state)",
-          "start": 1595,
-          "end": 1627,
+          "start": 1602,
+          "end": 1634,
           "lines": 33,
           "bytes": 2732
         },
         {
           "title": "## S13-1 — Detect figural questions structurally",
-          "start": 1628,
-          "end": 1653,
+          "start": 1635,
+          "end": 1660,
           "lines": 26,
           "bytes": 1873
         },
         {
           "title": "## S13-2 — Extract, role-bind, view",
-          "start": 1654,
-          "end": 1661,
+          "start": 1661,
+          "end": 1668,
           "lines": 8,
           "bytes": 433
         },
         {
           "title": "## S13-3 — Derive from the images",
-          "start": 1662,
-          "end": 1669,
+          "start": 1669,
+          "end": 1676,
           "lines": 8,
           "bytes": 463
         },
         {
           "title": "## S13-4 — Write what is visible (BOTH families)",
-          "start": 1670,
-          "end": 1674,
+          "start": 1677,
+          "end": 1681,
           "lines": 5,
           "bytes": 281
         },
         {
           "title": "## S13-4a — TRANSFORMATION-PUZZLE family (unchanged behaviour)",
-          "start": 1675,
-          "end": 1680,
+          "start": 1682,
+          "end": 1687,
           "lines": 6,
           "bytes": 352
         },
         {
           "title": "## S13-4b — SCIENTIFIC-DIAGRAM family (v2.7)",
-          "start": 1681,
-          "end": 1724,
+          "start": 1688,
+          "end": 1731,
           "lines": 44,
           "bytes": 3311
         },
         {
           "title": "## S13A-1 — Applicability",
-          "start": 1725,
-          "end": 1730,
+          "start": 1732,
+          "end": 1737,
           "lines": 6,
           "bytes": 309
         },
         {
           "title": "## S13A-2 — PHASE A (python — deterministic)",
-          "start": 1731,
-          "end": 1746,
+          "start": 1738,
+          "end": 1753,
           "lines": 16,
           "bytes": 697
         },
         {
           "title": "## S13A-3 — PHASE B (model — IN-TURN tool calls; NOT a code block)",
-          "start": 1747,
-          "end": 1781,
+          "start": 1754,
+          "end": 1788,
           "lines": 35,
           "bytes": 2007
         },
         {
           "title": "## S13A-4 — PHASE C (python — deterministic; NEVER raises)",
-          "start": 1782,
-          "end": 1800,
+          "start": 1789,
+          "end": 1807,
           "lines": 19,
           "bytes": 971
         },
         {
           "title": "## S13A-5 — SEVERITY: AMBER and VOID_ITEM only; BLOCKING never",
-          "start": 1801,
-          "end": 1835,
+          "start": 1808,
+          "end": 1842,
           "lines": 35,
           "bytes": 2302
         },
         {
           "title": "## S14-1 — The two-part test (BOTH must pass, else omit)",
-          "start": 1836,
-          "end": 1850,
+          "start": 1843,
+          "end": 1857,
           "lines": 15,
           "bytes": 1033
         },
         {
           "title": "## S14-2 — The operational proxy (applied per question at solve time)",
-          "start": 1851,
-          "end": 1856,
+          "start": 1858,
+          "end": 1863,
           "lines": 6,
           "bytes": 338
         },
         {
           "title": "## S14-3 — Where shortcuts live vs do not",
-          "start": 1857,
-          "end": 1867,
+          "start": 1864,
+          "end": 1874,
           "lines": 11,
           "bytes": 747
         },
         {
           "title": "## S14-3b — EVERY SHORTCUT CARRIES ITS VALIDITY DOMAIN (v2.10)",
-          "start": 1868,
-          "end": 1890,
+          "start": 1875,
+          "end": 1897,
           "lines": 23,
           "bytes": 1656
         },
         {
           "title": "## S14-4 — The honesty guard",
-          "start": 1891,
-          "end": 1895,
+          "start": 1898,
+          "end": 1902,
           "lines": 5,
           "bytes": 266
         },
         {
           "title": "## S14-5 — ELIGIBILITY IS RECORDED; THE DISTRIBUTION IS A TRIPWIRE (v2.13)",
-          "start": 1896,
-          "end": 1921,
+          "start": 1903,
+          "end": 1928,
           "lines": 26,
           "bytes": 2118
         },
         {
           "title": "## S15-1 — The rule that kills templating",
-          "start": 1922,
-          "end": 1928,
+          "start": 1929,
+          "end": 1935,
           "lines": 7,
           "bytes": 404
         },
         {
           "title": "## S15-2 — Four hard requirements per wrong option / value",
-          "start": 1929,
-          "end": 1949,
+          "start": 1936,
+          "end": 1956,
           "lines": 21,
           "bytes": 1593
         },
         {
           "title": "## S15-3 — Class- and type-specific shape",
-          "start": 1950,
-          "end": 1972,
+          "start": 1957,
+          "end": 1979,
           "lines": 23,
           "bytes": 1869
         },
         {
           "title": "## S16-1 — The causes",
-          "start": 1973,
-          "end": 1978,
+          "start": 1980,
+          "end": 1985,
           "lines": 6,
           "bytes": 334
         },
         {
           "title": "## S16-2 — The defences (none weakens as the paper lengthens)",
-          "start": 1979,
-          "end": 2007,
+          "start": 1986,
+          "end": 2014,
           "lines": 29,
           "bytes": 2291
         },
         {
           "title": "## S17-1 — The burden of proof is STILL inverted (RE-12)",
-          "start": 2008,
-          "end": 2012,
+          "start": 2015,
+          "end": 2019,
           "lines": 5,
           "bytes": 292
         },
         {
           "title": "## S17-2 — \"Wrong\" must be specific and reproducible",
-          "start": 2013,
-          "end": 2015,
+          "start": 2020,
+          "end": 2022,
           "lines": 3,
           "bytes": 140
         },
         {
           "title": "## S17-3 — PYQ-1 does NOT fix (RE-16, adapted for PYQ)",
-          "start": 2016,
-          "end": 2045,
+          "start": 2023,
+          "end": 2052,
           "lines": 30,
           "bytes": 2133
         },
         {
           "title": "## S17-4 — Why this is different from mock pipeline defect handling",
-          "start": 2046,
-          "end": 2057,
+          "start": 2053,
+          "end": 2064,
           "lines": 12,
           "bytes": 1013
         },
         {
           "title": "## S18-1 — The checklist (all must hold before present_files — MANDATE D)",
-          "start": 2058,
-          "end": 2102,
+          "start": 2065,
+          "end": 2109,
           "lines": 45,
           "bytes": 3217
         },
         {
           "title": "## S18-1a — MATH-INTEGRITY GATE (literal, MANDATORY before present_files; 2026.08.10.3)",
-          "start": 2103,
-          "end": 2125,
+          "start": 2110,
+          "end": 2132,
           "lines": 23,
           "bytes": 1436
         },
         {
           "title": "## S18-2 — THIS IS THE ONLY GATE (v2.1 — PYQ-2 retired; stated, not hidden)",
-          "start": 2126,
-          "end": 2145,
+          "start": 2133,
+          "end": 2152,
           "lines": 20,
           "bytes": 1704
         },
         {
           "title": "## S19-1 — Pre-delivery checklist (MANDATORY before present_files)",
-          "start": 2146,
-          "end": 2188,
+          "start": 2153,
+          "end": 2195,
           "lines": 43,
           "bytes": 2357
         },
         {
           "title": "## S19-2 — The present_files call (per batch; +handoff json on the FINAL batch)",
-          "start": 2189,
-          "end": 2219,
+          "start": 2196,
+          "end": 2226,
           "lines": 31,
           "bytes": 1748
         },
         {
           "title": "## S19-3 — Progress line + confirmation request",
-          "start": 2220,
-          "end": 2225,
+          "start": 2227,
+          "end": 2232,
           "lines": 6,
           "bytes": 327
         },
         {
           "title": "## S19-4 — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 2226,
-          "end": 2414,
+          "start": 2233,
+          "end": 2421,
           "lines": 189,
           "bytes": 14999
         },
         {
           "title": "## S24-1 — What a rule carries (the pinned schema)",
-          "start": 2415,
-          "end": 2419,
+          "start": 2422,
+          "end": 2426,
           "lines": 5,
           "bytes": 274
         },
         {
           "title": "## S24-2 — How a rule is applied (per question, at solve time)",
-          "start": 2420,
-          "end": 2425,
+          "start": 2427,
+          "end": 2432,
           "lines": 6,
           "bytes": 380
         },
         {
           "title": "## S24-3 — Precedence & accumulation",
-          "start": 2426,
-          "end": 2536,
-          "lines": 111,
-          "bytes": 7944
+          "start": 2433,
+          "end": 2558,
+          "lines": 126,
+          "bytes": 8949
         }
       ]
     },

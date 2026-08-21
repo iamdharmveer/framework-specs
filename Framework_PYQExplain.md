@@ -1,4 +1,11 @@
-# Framework_PYQExplain v2.15 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.16 — Universal PYQ Explanation Generator
+# v2.16 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (note-only; §7A
+#   itself unchanged). The v1.1 DELIBERATE DIVERGENCE note's deferred mock-side
+#   difficulty treatment is RESOLVED under the adopted contract: both pipelines
+#   share the rubric (bc.assess_difficulty); mock side enforces it at authoring
+#   (MockTestCreate v5.60 G-DIFF), audits it mechanically (audit_canonical v2.15),
+#   and re-measures advisorily at Step 9 (TestExplain §7A-M). No shared §4-§18
+#   rule changed; SHARED_RULES_VERSION stays 1.4.
 # v2.15 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
 #   MockTestExplain v1.37.0, engine v2.8). Same defect class, same fixes, so both
 #   explanation paths hold one standard; see MockTestExplain v1.37.0 for the
@@ -2511,13 +2518,28 @@ present_files(deliverables)
 #   registry JOIN — content follows the label. Copying §7A into TestExplain would
 #   have Step 9 measure a value that Step 7 already fixed, with no specified rule
 #   for which wins; that reconciliation is a design decision, not a mirroring
-#   chore. The mock-side treatment is DEFERRED pending that decision.
+#   chore.
 #
-#   WHAT A FUTURE SESSION MUST DO. When the mock side is designed, revisit this
-#   note. If it adopts assess_difficulty (blueprint_core Cluster E2), the two
-#   pipelines will share the RUBRIC while keeping different mechanisms, and this
-#   divergence note should be replaced by whatever contract that design defines.
-#   Do NOT resolve it by blindly copying §7A across.
+#   RESOLVED (2026-08-21, GAP-2026-08-21-DIFFICULTY-STICKER-LABELS) — the adopted
+#   contract, exactly as this note asked: the two pipelines SHARE THE RUBRIC
+#   (blueprint_core.assess_difficulty, Cluster E2) while keeping different
+#   mechanisms, and §7A was NOT copied across.
+#     · PYQ side (this file, §7A): difficulty is a MEASUREMENT — unchanged.
+#     · Mock side: difficulty is a SPECIFICATION enforced AT AUTHORING —
+#       MockTestCreate v5.60 builds a floor-honouring band plan
+#       (bc.assign_difficulty_bands), authors each question TO its band
+#       (bc.difficulty_authoring_profile), and accepts it only when the recorded
+#       derivation evidence measures as the band (CHECK 3c / G-DIFF via
+#       bc.verify_difficulty_obs). Blueprint v1.51.0 validates every requested
+#       mix against the exam shape's rubric floors (S7-3 V5). audit_canonical
+#       v2.15 re-verifies label-vs-evidence mechanically forever (A-QINDEX 7/8).
+#     · Which wins: the STICKER WINS ON THE PAPER — because from v5.60 the
+#       sticker is a conclusion from evidence, not a slot name. TestExplain
+#       §7A-M (v1.38.0) re-measures ADVISORILY from Step 9's independent
+#       derivation and reports agreement; it never re-labels.
+#   No RE-* rule, no MANDATE and no shared §4-§18 rule changed on either side,
+#   so SHARED_RULES_VERSION is not bumped — the same reasoning this note has
+#   always recorded.
 #
 # Shared with: Framework_MockTestExplain.md
 # Counterpart file: Framework_MockTestExplain.md (mock/test pipeline)
@@ -2531,5 +2553,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.15
+# END OF Framework_PYQExplain v2.16
 # ════════════════════════════════════════════════════════════════════════
