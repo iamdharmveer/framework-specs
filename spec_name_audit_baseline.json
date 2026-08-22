@@ -9,10 +9,6 @@
   "AXIS_DIST_BY_SECTION": {
    "reason": "forward_ref_or_session_global"
   },
-  "EXAM": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "resolve_subtopic_id() L6673"
-  },
   "MANDATORY_GROUPS": {
    "reason": "forward_ref_or_session_global"
   },
@@ -429,10 +425,6 @@
   }
  },
  "Framework_PYQScan.md": {
-  "MIN_PATTERN_SIZE": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "check_dimensional_splits() L1555"
-  },
   "bc": {
    "reason": "forward_ref_or_session_global"
   },
@@ -474,10 +466,7 @@
    "reason": "forward_ref_or_session_global"
   }
  },
- "_grandfathered": [
-  "Framework_Blueprint.md: EXAM — read in resolve_subtopic_id() L6673",
-  "Framework_PYQScan.md: MIN_PATTERN_SIZE — read in check_dimensional_splits() L1555"
- ],
+ "_grandfathered": [],
  "_policy": "A name READ inside a function this spec CALLS may NEVER be baselined. --write-baseline refuses to create such an entry. The only exception is GRANDFATHERED_MUST_FIX, which must be placed BY HAND, is listed below, and can only be removed — never added by tooling.",
  "_schema": "TYPED BASELINE v2 — every entry carries a reason. See spec_name_audit.py REASONS."
 }

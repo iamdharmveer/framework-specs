@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026.08.22.4 — Release B: GAP-1A-STEP7-UNBOUND-NAMES closed (grandfathered list 12 -> 0) + ENV-SKEW fixture fix
+
+**Blueprint v1.51.1 -> v1.51.2 · PYQScan v1.3.2 -> v1.3.3 · audit_sync.py self-test
+27 -> 29 · spec_name_audit_baseline.json 147 -> 145, _grandfathered 2 -> 0 · no
+artefact moves (golden set 6/6)**
+
+**Framework_Blueprint.md `EXAM`** — bound at the top of the S2-MANIFEST fence with
+the MockTestCreate S3-1 house idiom (`EXAM = "[ExamCode]"  # from trigger`). It was
+read at S2-MANIFEST module scope (manifest_path + the not-found hard stop) and
+inside `resolve_subtopic_id()`'s branch-(c) hard-stop message — the latter a
+guaranteed NameError in a function the spec calls, grandfathered since 2026.08.16.3.
+One line binds all three reads.
+
+**Framework_PYQScan.md `MIN_PATTERN_SIZE`** — hoisted (with its documented pair
+`MIN_QUESTIONS_FOR_SPLIT`) from `run_refinement_pass()`'s locals to module scope in
+the same fence. `check_dimensional_splits()` is a module-level function reading
+`MIN_PATTERN_SIZE`, so EVERY call raised NameError — the D5 `n_vision` shape: the
+refinement pass has never completed its dimensional-split analysis on any corpus
+that reached it with >=15 questions in one subtopic. Values unchanged (15 / 3);
+proven by executing the hoisted fence and calling the function on a 16-question
+fixture (pre-fix: NameError; post-fix: runs). Route headroom after the hoist:
+PYQScan 248,883 B (+1,117) — still under threshold; the thinnest route in the
+corpus, watch it per the standing habit. NOTE (observed, no change): the function
+computes the mechanical clusters then defers subtopic NAMING to the model (the
+v2.13 judgment boundary) and returns None under pure execution; the call site
+treats None as "no split", which is the pre-existing contract.
+
+**audit_sync.py — the ENV-SKEW self-test fixture** ("INFO fires when no SKILL.md
+copy exists anywhere") failed in every session with
+`/mnt/skills/user/mock-test-framework/SKILL.md` mounted and passed in CI: the
+fixture removes both repo copies from its corpus COPY but cannot remove the
+session mount, so the loader's third fallback defeated it — GAP-2026-08-17-B4-
+ENV-SKEW, inverted (a fixture defeated by /mnt existing instead of skipped by
+/mnt missing). Remedy is the same as `search_dirs`/`out_dir`: the search list is
+now ENV-INJECTABLE (`AUDIT_SYNC_SKILL_PATHS`, os.pathsep-separated; default
+UNCHANGED — repo root first, mount last). The fixture constrains the surface to
+the two repo copies it removes, and a NEW watcher fixture proves the injection is
+honoured (a clean copy + a search list naming a nonexistent file must yield the
+same INFO) — if the env plumbing is ever removed, the watcher goes red rather
+than the suite going environment-dependent again. Self-test 27 -> 29; verified
+passing IN a mounted session (the environment that used to fail).
+
+**Baseline:** both remaining entries deleted (dict + `_grandfathered`).
+`_grandfathered` is now **empty** — every entry the 2026.08.16.3 typed-baseline
+mechanism forced into the open has been paid down by fix, none by suppression.
+
 ## 2026.08.22.3 — Release A: GAP-1A-STEP7-UNBOUND-NAMES (10 of 12 grandfathered NameErrors paid down)
 
 **MockTestCreate v5.61 -> v5.62 · spec_name_audit_baseline.json 157 -> 147 entries,

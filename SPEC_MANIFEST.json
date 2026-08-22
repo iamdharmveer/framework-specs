@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.51.1",
-      "lines": 6916,
-      "sha256": "3ffc18a75d6120f346117243a707c5f1c30864e24b8ee0f00872cde6da7fb3d8",
-      "size_bytes": 368359,
-      "version_header": "# Framework_Blueprint v1.51.1 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.51.2",
+      "lines": 6930,
+      "sha256": "9ab4e5da5ceddd37a86f657aa6e7a3e8cf847fd5916d8447e47ff87671393a96",
+      "size_bytes": 369392,
+      "version_header": "# Framework_Blueprint v1.51.2 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -141,11 +141,11 @@
       "version_header": "# Framework_PYQPrepare v2.1.1 — Universal PYQ Row File Generator"
     },
     "Framework_PYQScan.md": {
-      "end_sentinel": "# END OF Framework_PYQScan v1.3.2",
-      "lines": 1804,
-      "sha256": "22a8ca097697c7c9b71e4b6bef6c3efb8f683f32a57ab9142cdfc8fddf7eb580",
-      "size_bytes": 89891,
-      "version_header": "# Framework_PYQScan v1.3.2 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
+      "end_sentinel": "# END OF Framework_PYQScan v1.3.3",
+      "lines": 1819,
+      "sha256": "b2fe40e10db478755d7c30cb0ea3e86bdef5d3626a433b96bdda27d4fc701acf",
+      "size_bytes": 90970,
+      "version_header": "# Framework_PYQScan v1.3.3 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
     },
     "Framework_PYQSort.md": {
       "end_sentinel": "# END OF Framework_PYQSort v1.20.1",
@@ -212,9 +212,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 740,
-      "sha256": "4ea98f204283aa54a1bfa567cbeaf723484d2ab640b81e4e6ac991d71355b1cc",
-      "size_bytes": 41267,
+      "lines": 763,
+      "sha256": "23254f433ce0b5203d94776a3c1724c8addf45954497e0d193586498c880e035",
+      "size_bytes": 42860,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {

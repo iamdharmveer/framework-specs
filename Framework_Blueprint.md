@@ -1,4 +1,12 @@
-# Framework_Blueprint v1.51.1 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.51.2 — Universal Mock Test Blueprint Generator
+# v1.51.2 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES Release B (one-line binding;
+#   no rule changed). EXAM is now bound at the top of the S2-MANIFEST fence with the
+#   MockTestCreate S3-1 house idiom (EXAM = "[ExamCode]"  # from trigger). It was
+#   read at S2-MANIFEST module scope (manifest_path + the not-found hard stop) and
+#   inside resolve_subtopic_id()'s branch-(c) hard-stop message — the latter a
+#   guaranteed NameError in a function the spec calls, carried as
+#   GRANDFATHERED_MUST_FIX since 2026.08.16.3. Baseline entry deleted (dict +
+#   _grandfathered). Companion release: 2026.08.22.4.
 # v1.51.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: 2 code islands -> tagged fences (load_taxonomy, recency_split); V5 prose to no-paren form; superseded-entry hygiene none.
@@ -6579,6 +6587,12 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
   # Aliased so the resolution call sites below (slugify(dn) etc.) stay unchanged.
   slugify = bc.slugify
 
+  EXAM = "[ExamCode]"  # from trigger — the session substitutes the real exam code
+  # (v1.51.2: bound here per the MockTestCreate S3-1 house idiom. EXAM was read at
+  # the two module-scope sites below AND inside resolve_subtopic_id()'s hard-stop
+  # message — the last of which made it a guaranteed NameError in a function this
+  # spec calls, GRANDFATHERED_MUST_FIX in spec_name_audit_baseline.json until now.)
+
   manifest_path = f'/mnt/project/{EXAM}_subtopic_manifest.json'
   if not os.path.exists(manifest_path):
       raise SystemExit(
@@ -6913,4 +6927,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.51.1
+# END OF Framework_Blueprint v1.51.2

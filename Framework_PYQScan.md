@@ -1,4 +1,12 @@
-# Framework_PYQScan v1.3.2 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.3.3 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.3.3 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES Release B. MIN_PATTERN_SIZE
+#   (and its documented pair MIN_QUESTIONS_FOR_SPLIT) hoisted from
+#   run_refinement_pass()'s locals to module scope in the same fence:
+#   check_dimensional_splits() reads MIN_PATTERN_SIZE and is a module-level
+#   function, so EVERY call raised NameError — the refinement pass has never
+#   completed on any corpus that reached it with >=15 questions in a subtopic
+#   (the GAP-2026-08-16 D5 shape). Values unchanged (15 / 3); behaviour of a
+#   successful pass identical. Baseline entry deleted. Release: 2026.08.22.4.
 # v1.3.2 — 2026-08-22 — GAP-2026-08-22-SCANROUTE-HEADROOM (editorial; no rule
 #   changed). Superseded v1.3 entry moved VERBATIM to SPEC_HISTORY.md (the
 #   2026.08.15.14 discipline) — PYQScan-route SPEC-BUDGET headroom, flagged
@@ -1390,6 +1398,14 @@ ALGORITHM:
 ```
 
 ```python
+# v2.4 split thresholds — MODULE scope (v1.3.3). These were LOCALS of
+# run_refinement_pass, but check_dimensional_splits — a module-level function in
+# this same fence — reads MIN_PATTERN_SIZE, so every call raised NameError (the
+# GAP-2026-08-16 D5 `n_vision` shape; GRANDFATHERED_MUST_FIX until now). Hoisted
+# unchanged: both functions now read the same module globals, values identical.
+MIN_QUESTIONS_FOR_SPLIT = 15  # v2.4: raised from 5. Need substantial evidence before splitting.
+MIN_PATTERN_SIZE = 3          # v2.4: raised from 2. A pattern needs ≥3 Qs to justify a new subtopic.
+
 def run_refinement_pass(progress, classifications, exam_code):
     """
     Mandatory refinement pass — reviews all classified questions per subtopic,
@@ -1412,8 +1428,7 @@ def run_refinement_pass(progress, classifications, exam_code):
             subtopic_questions.setdefault(key, []).append(c)
 
     # 2. For each subtopic with enough data, check for splittable patterns
-    MIN_QUESTIONS_FOR_SPLIT = 15  # v2.4: raised from 5. Need substantial evidence before splitting.
-    MIN_PATTERN_SIZE = 3          # v2.4: raised from 2. A pattern needs ≥3 Qs to justify a new subtopic.
+    # (thresholds are module-scope constants above run_refinement_pass, v1.3.3)
 
     for (sec, top, sub), questions in subtopic_questions.items():
         if len(questions) < MIN_QUESTIONS_FOR_SPLIT:
@@ -1801,4 +1816,4 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.3.2
+# END OF Framework_PYQScan v1.3.3

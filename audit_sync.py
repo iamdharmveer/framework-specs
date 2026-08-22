@@ -61,9 +61,10 @@ def _self_test():
         else:
             fails.append(name)
 
-    def run_in(root):
+    def run_in(root, env=None):
+        _env = dict(os.environ, **env) if env else None
         r = subprocess.run([sys.executable, os.path.join(root, 'audit_sync.py')],
-                           cwd=root, capture_output=True, text=True)
+                           cwd=root, capture_output=True, text=True, env=_env)
         return r.returncode, r.stdout + r.stderr
 
     def _tracked_nonspec():
@@ -85,7 +86,7 @@ def _self_test():
         base.add('SPEC_MANIFEST.json')      # built by build_spec_manifest, not gen_manifest
         return base
 
-    def mutated(mutate=None):
+    def mutated(mutate=None, env=None):
         d = tempfile.mkdtemp()
         for f in os.listdir(here):
             # SPEC_MANIFEST.json joins this list for DOC-COUNT (2026.08.15.7):
@@ -109,7 +110,7 @@ def _self_test():
                 shutil.copy(os.path.join(here, f), os.path.join(d, f))
         if mutate:
             mutate(d)
-        rc, out = run_in(d)
+        rc, out = run_in(d, env=env)
         shutil.rmtree(d, ignore_errors=True)
         return rc, out
 
@@ -265,9 +266,21 @@ def _self_test():
 
     # L355 — the not-readable INFO. With the B12 loader this branch means the repo
     # carries NO copy at all — which must be said, not skipped.
+    _repo_only = {'AUDIT_SYNC_SKILL_PATHS':
+                  os.pathsep.join(('SKILL.md', 'mocktestframework_SKILL.md'))}
     rc, out = mutated(lambda r: (remove(r, 'SKILL.md'),
-                                 remove(r, 'mocktestframework_SKILL.md')))
+                                 remove(r, 'mocktestframework_SKILL.md')),
+                      env=_repo_only)
     check("INFO fires when no SKILL.md copy exists anywhere",
+          'SKILL.md not readable' in out)
+
+    # Watch the watcher: prove the override actually CONTROLS the search surface —
+    # on a CLEAN copy (repo SKILL.md present), a search list naming only a file
+    # that does not exist must produce the same INFO. If this fixture goes green
+    # with the env plumbing removed, the loader has stopped honouring the
+    # injection and the fixture above is back to being environment-dependent.
+    rc, out = mutated(env={'AUDIT_SYNC_SKILL_PATHS': 'no_such_skill_selftest.md'})
+    check("SKILL search-surface injection is honoured (override yields the INFO)",
           'SKILL.md not readable' in out)
 
     # L376 — ERA-SYNC: nobody writes pattern_eras. Neutralise the writer's mention.
@@ -381,9 +394,19 @@ ISSUES = defaultdict(list)
 # fallback INFO itself, which is the signature of a branch that never runs.
 # The repo copy is authoritative: it is version-controlled beside the routes.json it
 # must agree with. The mount stays as a last resort for environments with no clone.
+# The search list is ENV-INJECTABLE (AUDIT_SYNC_SKILL_PATHS, os.pathsep-separated)
+# so the self-test can constrain the search surface: the "no SKILL.md copy exists
+# anywhere" fixture removes both repo copies from its corpus COPY but cannot remove
+# the session mount, so in any session with /mnt/skills mounted the fixture failed
+# while CI (no mount) passed — the GAP-2026-08-17-B4-ENV-SKEW shape, inverted.
+# Injecting the list is the same remedy as search_dirs/out_dir. Default UNCHANGED.
+_skill_env = os.environ.get('AUDIT_SYNC_SKILL_PATHS')
+SKILL_SEARCH_PATHS = (tuple(q for q in _skill_env.split(os.pathsep) if q)
+                      if _skill_env is not None else
+                      ('SKILL.md', 'mocktestframework_SKILL.md',
+                       '/mnt/skills/user/mock-test-framework/SKILL.md'))
 skill_txt = None
-for _sp in ('SKILL.md', 'mocktestframework_SKILL.md',
-            '/mnt/skills/user/mock-test-framework/SKILL.md'):
+for _sp in SKILL_SEARCH_PATHS:
     if os.path.exists(_sp):
         skill_txt = open(_sp, encoding='utf-8').read()
         break
