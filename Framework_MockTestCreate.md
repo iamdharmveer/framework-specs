@@ -1,4 +1,28 @@
-# Framework_MockTestCreate v5.61
+# Framework_MockTestCreate v5.62
+# v5.62 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES (Wave: grandfathered-NameError
+#   payoff, Release A). The ten GRANDFATHERED_MUST_FIX names in generate_subtopic /
+#   controlled_reuse / pick_presentation / scenario_iterator — every one a guaranteed
+#   NameError under execution — are now bound, split by the EXECUTION-BOUNDARY LAW:
+#   REAL python where drift between sessions would corrupt persisted state
+#   (canonical: deterministic per-'|'-segment key normaliser feeding the RULE B/C
+#   ledgers in batch_state.json; flag: byte-identical to ScopedBlueprint's, XSPEC
+#   silent by identity; weighted_patterns: sorts on the fields Step 5 ACTUALLY emits
+#   — frequency/raw_count — and drops deprecated + 'absent'-placeholder entries), and
+#   pass-bodied CLASS: J stubs for the six judgment operations (build_question,
+#   cross_mock_duplicate, passes_quality_gates, invent_distinct_scenario,
+#   widen_scenario_space, derive_scenario_from_pattern) in a NEW column-0 fence —
+#   C6-PRE requires any fence carrying a model-agency marker to parse RAW, which an
+#   indented body never does. The two ledgers are bound at SESSION START in S3-1
+#   with an IDEMPOTENT init (globals().get) so a re-read after S4-12 rehydration
+#   cannot wipe a resumed session's state. CROSS-STEP SYNC FIX folded in:
+#   scenario_iterator read pk['operation']/pk['structural_shape'], two fields NO
+#   Step-5 producer has ever written (analyse_engine emits template/approach/
+#   frequency/raw_count/confidence/deprecated) — a guaranteed KeyError against every
+#   section_rules.md in the estate; the (operation, shape) pair is now DERIVED from
+#   the pattern text by derive_scenario_from_pattern (CLASS: J). Baseline: the ten
+#   entries deleted from spec_name_audit_baseline.json (dict + _grandfathered);
+#   147 baselined, 2 grandfathered remain (Blueprint EXAM, PYQScan
+#   MIN_PATTERN_SIZE — Release B). No engine changes. No artefact moves.
 # v5.61 — 2026-08-22 — GAP-2026-08-22-FIGASPECT-SELF-FULFILLING (figural_core, 124
 #   fixtures). The option-set canvas-aspect derivation was circular: it measured the
 #   union of pass-1 data_windows, which apply_data_window() had already inflated to the
@@ -828,6 +852,16 @@
   import shutil, os, json, re, glob
   from pathlib import Path
   EXAM = "[ExamCode]"  # from trigger
+
+  # Ledgers — session state (RULE B / RULE C). Initialised EMPTY here at session
+  # start, exactly as the §6-3 contract states; persisted to batch_state.json
+  # after every batch (S4-8a) and REHYDRATED by S4-12 step 4b on resume. The
+  # init is IDEMPOTENT (globals().get) so re-reading this fence after an S4-12
+  # rehydration cannot wipe a resumed session's state. Previously these two
+  # names were read in S4-8a/S4-12/§6-3 but bound NOWHERE
+  # (GRANDFATHERED_MUST_FIX, fixed v5.62).
+  mock_scenario_ledger     = globals().get('mock_scenario_ledger', set())
+  mock_presentation_ledger = globals().get('mock_presentation_ledger', set())
 
   # MANDATORY COPIES (non-blueprint) — HARD STOP if any missing:
   required = [
@@ -3477,14 +3511,121 @@
     RULE C: CLASS 2/3 questions sharing a CONCEPT_GROUP have distinct
             presentation_key, with ≥2 stem_format_variants when N≥3 (v3.8).
 
+```python
+# ── NAME BINDINGS (v5.62), part 2: MODEL-AGENCY STUBS ────────────────────────
+# The six judgment operations the generator loop consumes, previously read but
+# bound NOWHERE (GRANDFATHERED_MUST_FIX). Each is judgment the model performs
+# over data already in context — no tool call anywhere, so every stub is
+# CLASS J, and C6 permits python consumption of a J result (it degrades
+# gracefully: the model reads the spec as a reasoning task and produces the
+# value). This fence is column-0 ON PURPOSE: C6-PRE requires any fence carrying
+# a model-agency marker to parse RAW, and an indented body never does.
+
+def derive_scenario_from_pattern(pattern):
+    """Map ONE observed Step-5 pattern to this spec's scenario unit:
+    (cognitive_operation, structural_shape) — 'what the student DOES' plus
+    'the scenario structure', value-free (the RULE B derivation contract).
+    The pattern carries template/approach TEXT (that is all Step 5 emits);
+    naming the pair from that text is judgment, not a dict lookup."""
+    pass  # CLASS: J — judgment over pattern['template'] / pattern['approach'] already in context; no tool call.
+
+def build_question(subtopic_data, op, shape, section, **axes):
+    """Author ONE candidate question for (op, shape), honouring every axis in
+    `axes`: stem_format_variant, distractor_strategy, answer_cardinality,
+    prefer_negative (soft, v5.14), reuse (v5.22). MUST actually RENDER the
+    requested presentation (RENDER-CONSISTENCY, v3.9 G4) and populate the
+    v4.5 answer contract (correct_set / has_aota_option for 'multi';
+    nat_value for NAT). Returns the candidate object the CHECK loop vets."""
+    pass  # CLASS: J — question authoring is model generation over section_rules + the §6-3c menus; no tool call.
+
+def cross_mock_duplicate(candidate, registry_snapshot, l1_only=False):
+    """CHECK 2 — is this candidate a repeat of a PRIOR mock's question?
+    L1: verbatim/near-verbatim (Jaccard >= 0.75 on stem tokens, or MD5
+    match). L2: matching semantic tuple. l1_only=True (the controlled-reuse
+    path) keeps the L1 verbatim ban while bypassing L2 BY DESIGN — a fresh
+    surface of a known item is the point there."""
+    pass  # CLASS: J — judgment over the candidate + registry_snapshot already in context; the thresholds above are the contract.
+
+def passes_quality_gates(candidate, subtopic_data, section):
+    """CHECK 3 — ALL of: difficulty floor + G-DIFF band conformance (v5.60),
+    banned patterns, 3-pass verify, option quality,
+    verify_presentation_match() (v3.9 G4) and verify_answer() (R-ANSWER,
+    v4.5/v4.7). Any failure -> False -> the caller regenerates."""
+    pass  # CLASS: J — aggregate judgment; every sub-gate is specified in §7 / S7-NEW-A and applied by the model.
+
+def invent_distinct_scenario(subtopic_data):
+    """SOURCE 2 — invent ONE genuinely new (cognitive_operation,
+    structural_shape) beyond the observed seed set: fits the subtopic,
+    matches the slot's difficulty calibration, obeys every quality gate and
+    banned-pattern rule. Supply is unlimited — the PYQ pattern list is a
+    SEED, never a CEILING."""
+    pass  # CLASS: J — model invention from domain knowledge; no tool call.
+
+def widen_scenario_space(subtopic_data, exhausted_source):
+    """Return a REPLACEMENT scenario iterator over a genuinely WIDER space —
+    new operations/shapes the exhausted iterator never yielded. Never
+    re-yields a scenario_key already used this paper (CHECK 1 still vets
+    every candidate downstream)."""
+    pass  # CLASS: J — model invention; the retry loop consumes the result as an iterator.
+```
+
   ```python
-  # ledgers initialised at session start; persisted in batch_state.json across
-  # batches (see S4-12 resume): mock_scenario_ledger, mock_presentation_ledger.
+  # mock_scenario_ledger / mock_presentation_ledger are bound at SESSION START
+  # in S3-1 (idempotent init; S4-12 rehydrates on resume) — bound once, read
+  # everywhere, so the two inits cannot drift apart.
   MAX_SCENARIO_TRIES = 12   # safe bound only; supply is effectively infinite
   _WIDEN_EXHAUST     = 3     # B (v5.22): fruitless widenings for a narrow-FACTUAL subtopic
                             #   before its bounded (item × angle) universe is treated as drained
                             #   (decision c — empirical). Generative subtopics widen without limit.
   SPACING_GAP        = 8     # B: cumulative cross-tier spacing (papers) before an item may recur.
+
+  # ── NAME BINDINGS (v5.62), part 1: REAL python ──────────────────────────────
+  # canonical / flag / weighted_patterns were READ by generate_subtopic /
+  # controlled_reuse / pick_presentation / scenario_iterator and bound NOWHERE
+  # (GRANDFATHERED_MUST_FIX). They are DETERMINISTIC operations whose
+  # session-to-session drift would corrupt state persisted in batch_state.json /
+  # the registry (ledger keys, seed ordering, diagnostics), so they are real
+  # python here. The seven JUDGMENT names those same loops read are declared as
+  # tagged model-agency stubs in the column-0 fence BEFORE this one — this fence
+  # is indented and must stay free of model-agency markers (C6-PRE requires any
+  # fence carrying one to parse RAW, and an indented body never does).
+
+  def canonical(s):
+      """Deterministic key normaliser (the RULE B/C NORMALISATION contract:
+      lowercase, snake_case, strip) — applied PER '|' SEGMENT so
+      'Find Time | two pipes' and 'find_time|two_pipes' collide, exactly as
+      the ban requires. Keys built here persist across sessions
+      (batch_state.json concept_ledger / presentation_ledger), so this MUST
+      be real python: a model-judged normalisation could drift between
+      sessions and silently blind RULE B / RULE C to an earlier batch."""
+      parts = [re.sub(r'[^a-z0-9]+', '_', p.strip().lower()).strip('_')
+               for p in str(s).split('|')]
+      return '|'.join(parts)
+
+  # Non-fatal diagnostic helper — BYTE-IDENTICAL to Framework_ScopedBlueprint.md's
+  # (same name, same body, so XSPEC-DRIFT stays silent by identity, not exemption).
+  _FLAGS = []
+  def flag(msg):
+      _FLAGS.append(str(msg))
+      print(f"[FLAG] {msg}")
+
+  def weighted_patterns(patterns):
+      """SOURCE-1 seed ordering (S7-2): most common observed pattern first.
+
+      Sorts on the fields Step 5 ACTUALLY emits per pattern entry
+      (analyse_engine subtopic entry: frequency %, raw_count, confidence,
+      deprecated) — the previous contract read pk['operation'] /
+      pk['structural_shape'], two fields NO producer in the corpus has ever
+      written (see scenario_iterator, which now derives that pair from the
+      pattern instead of pretending it is stored). Skips entries carrying no
+      usable observed pattern: deprecated ones and the zero-PYQ placeholder
+      (confidence == 'absent'). Deterministic: equal weights preserve the
+      producer's emission order (sorted() is stable)."""
+      usable = [p for p in (patterns or [])
+                if not p.get('deprecated') and p.get('confidence') != 'absent']
+      return sorted(usable,
+                    key=lambda p: (-float(p.get('frequency', 0) or 0),
+                                   -int(p.get('raw_count', 0) or 0)))
 
   def generate_subtopic(subtopic_data, N, section, registry_snapshot, axis2_tracker=None):
       """
@@ -3728,8 +3869,14 @@
       return fmt, dstrs[0]   # menus large enough that this is never reached for real N
 
   def scenario_iterator(subtopic_data):
+      # v5.62 — a Step-5 pattern entry carries {template, approach, frequency,
+      # raw_count, confidence, deprecated, ...} and has NEVER carried
+      # 'operation'/'structural_shape'; reading those keys was a guaranteed
+      # KeyError against every section_rules.md the estate has ever produced.
+      # The (operation, shape) pair is DERIVED from the pattern's text — a
+      # judgment operation, declared in the tagged column-0 fence above.
       for pk in weighted_patterns(subtopic_data['PYQ_STEM_PATTERNS']):
-          yield (pk['operation'], pk['structural_shape'])
+          yield derive_scenario_from_pattern(pk)
       while True:
           yield invent_distinct_scenario(subtopic_data)  # NO upper limit
   ```
@@ -7997,7 +8144,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.61
+# END OF Framework_MockTestCreate v5.62
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

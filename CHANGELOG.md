@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026.08.22.3 — Release A: GAP-1A-STEP7-UNBOUND-NAMES (10 of 12 grandfathered NameErrors paid down)
+
+**MockTestCreate v5.61 -> v5.62 · spec_name_audit_baseline.json 157 -> 147 entries,
+_grandfathered 12 -> 2 · no engine changes · no artefact moves (golden set 6/6)**
+
+**The ten GRANDFATHERED_MUST_FIX names in Framework_MockTestCreate.md** — read by
+generate_subtopic / controlled_reuse / pick_presentation / scenario_iterator, bound
+NOWHERE, each a guaranteed NameError under execution — are now bound, split by the
+EXECUTION-BOUNDARY LAW. **Real python** (deterministic; session-to-session drift
+would corrupt state persisted in batch_state.json / the registry): `canonical`
+(per-'|'-segment lowercase/snake/strip normaliser feeding the RULE B/C ledger
+keys), `flag` (byte-identical to ScopedBlueprint's — XSPEC-DRIFT silent by
+identity, not exemption), `weighted_patterns` (sorts on the fields Step 5 ACTUALLY
+emits — frequency desc, raw_count tiebreak, sorted() stability preserving producer
+order — and drops `deprecated` + the zero-PYQ `'absent'` placeholder so a
+zero-PYQ subtopic goes straight to SOURCE 2). **CLASS: J stubs** for the six
+judgment operations (`build_question`, `cross_mock_duplicate`,
+`passes_quality_gates`, `invent_distinct_scenario`, `widen_scenario_space`,
+`derive_scenario_from_pattern`), declared in a NEW column-0 fence because C6-PRE
+requires any fence carrying a model-agency marker to parse RAW and the §6-3
+generator fence is indented (it has never raw-parsed). The stub fence PRECEDES the
+generator fence so every read follows its binding under the sequential model.
+**The two ledgers** are bound at SESSION START in S3-1 with an IDEMPOTENT init
+(`globals().get`) — a re-read after S4-12 rehydration cannot wipe a resumed
+session's state, and binding once in S3-1 (first read in file order is S4-8a
+L2438) means the init cannot drift.
+
+**Cross-step sync defect found during the evidence pass and fixed in the same
+release:** `scenario_iterator` read `pk['operation']` / `pk['structural_shape']`
+— two fields NO producer has ever written. The Step-5 pattern entry
+(analyse_engine `generate_templates` / `_absent_entry`) carries
+`template/approach/frequency/raw_count/confidence/deprecated/years/note_*`; the
+read was a guaranteed KeyError against every section_rules.md the estate has
+produced, invisible only because the model routes around it when performing the
+spec. The (operation, shape) pair is now DERIVED from the pattern text by
+`derive_scenario_from_pattern` (CLASS: J) — the contract now states what Step 5
+actually emits.
+
+**Baseline:** the ten entries deleted from both structures (per-file dict and
+`_grandfathered`) — deletions only, per policy. Remaining grandfathered: 2
+(Framework_Blueprint.md `EXAM`, Framework_PYQScan.md `MIN_PATTERN_SIZE` —
+Release B, 2026.08.22.4).
+
 ## 2026.08.22.2 — R3: GAP-2026-08-22-STEP9-READ-SET + GAP-2026-08-22-SCANROUTE-HEADROOM
 
 **MockTestExplain v1.38.0 -> v1.39.0 · spec_sections.py v2 (17 fixtures) · PYQScan

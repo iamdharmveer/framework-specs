@@ -228,14 +228,6 @@
   "batch_questions": {
    "reason": "forward_ref_or_session_global"
   },
-  "build_question": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "generate_subtopic() L3245"
-  },
-  "canonical": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "generate_subtopic() L3208"
-  },
   "capable_ids": {
    "reason": "forward_ref_or_session_global"
   },
@@ -248,10 +240,6 @@
   "counts": {
    "reason": "forward_ref_or_session_global"
   },
-  "cross_mock_duplicate": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "generate_subtopic() L3252"
-  },
   "doc": {
    "reason": "forward_ref_or_session_global"
   },
@@ -261,34 +249,14 @@
   "draw_fns": {
    "reason": "forward_ref_or_session_global"
   },
-  "flag": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "controlled_reuse() L3360"
-  },
   "fm": {
    "reason": "forward_ref_or_session_global"
-  },
-  "invent_distinct_scenario": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "scenario_iterator() L3428"
-  },
-  "mock_presentation_ledger": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "generate_subtopic() L3225"
-  },
-  "mock_scenario_ledger": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "generate_subtopic() L3209"
   },
   "opt_paths": {
    "reason": "forward_ref_or_session_global"
   },
   "passage_linked_qs": {
    "reason": "forward_ref_or_session_global"
-  },
-  "passes_quality_gates": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "generate_subtopic() L3256"
   },
   "png_path": {
    "reason": "forward_ref_or_session_global"
@@ -298,14 +266,6 @@
   },
   "subtopic_data": {
    "reason": "forward_ref_or_session_global"
-  },
-  "weighted_patterns": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "scenario_iterator() L3425"
-  },
-  "widen_scenario_space": {
-   "reason": "GRANDFATHERED_MUST_FIX",
-   "site": "generate_subtopic() L3288"
   }
  },
  "Framework_MockTestExplain.md": {
@@ -516,16 +476,6 @@
  },
  "_grandfathered": [
   "Framework_Blueprint.md: EXAM — read in resolve_subtopic_id() L6673",
-  "Framework_MockTestCreate.md: build_question — read in generate_subtopic() L3245",
-  "Framework_MockTestCreate.md: canonical — read in generate_subtopic() L3208",
-  "Framework_MockTestCreate.md: cross_mock_duplicate — read in generate_subtopic() L3252",
-  "Framework_MockTestCreate.md: flag — read in controlled_reuse() L3360",
-  "Framework_MockTestCreate.md: invent_distinct_scenario — read in scenario_iterator() L3428",
-  "Framework_MockTestCreate.md: mock_presentation_ledger — read in generate_subtopic() L3225",
-  "Framework_MockTestCreate.md: mock_scenario_ledger — read in generate_subtopic() L3209",
-  "Framework_MockTestCreate.md: passes_quality_gates — read in generate_subtopic() L3256",
-  "Framework_MockTestCreate.md: weighted_patterns — read in scenario_iterator() L3425",
-  "Framework_MockTestCreate.md: widen_scenario_space — read in generate_subtopic() L3288",
   "Framework_PYQScan.md: MIN_PATTERN_SIZE — read in check_dimensional_splits() L1555"
  ],
  "_policy": "A name READ inside a function this spec CALLS may NEVER be baselined. --write-baseline refuses to create such an entry. The only exception is GRANDFATHERED_MUST_FIX, which must be placed BY HAND, is listed below, and can only be removed — never added by tooling.",
