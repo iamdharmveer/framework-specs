@@ -1,4 +1,9 @@
-# Framework_Blueprint v1.51.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.51.1 — Universal Mock Test Blueprint Generator
+# v1.51.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 2 code islands -> tagged fences (load_taxonomy, recency_split); V5 prose to no-paren form; superseded-entry hygiene none.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v1.51.0 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (paired with
 #   MockTestCreate v5.60 / blueprint_core Cluster E2c). S7-3 gains V5: every band's
 #   resolved Q counts must be honestly authorable on the exam's shape — the bottom
@@ -721,18 +726,20 @@ def subtopic_in_section(sid, section_name):
 
 ```
 v1.39 (GAP-2026-07-25-002) — THE ANALYSIS DOC IS READ BY corpus_io, NOT BY PROSE.
-
-  import corpus_io                                 # ENGINE (routed to MockBlueprint)
-  taxonomy = corpus_io.load_taxonomy(step='MockBlueprint')   # v1.41 — ONE call
-  # -> {'taxonomy','triples','subjects','counts','fingerprint','ingest_form','source'}
-  #
-  # v1.41 — source selection, read and identity assertion in one call. The taxonomy
-  # is taken from approval_record.json where the record carries it
-  # (reconcile_taxonomy >= v1.3, schema >= 1.3) — JSON the platform stores
-  # byte-for-byte — and from the Analysis doc otherwise. On the preferred path Step 6
-  # parses no Word document at all. Exams approved before schema 1.3 fall back, fully
-  # gated, and need no re-run.
-
+```
+```python
+import corpus_io                                 # ENGINE (routed to MockBlueprint)
+taxonomy = corpus_io.load_taxonomy(step='MockBlueprint')   # v1.41 — ONE call
+# -> {'taxonomy','triples','subjects','counts','fingerprint','ingest_form','source'}
+#
+# v1.41 — source selection, read and identity assertion in one call. The taxonomy
+# is taken from approval_record.json where the record carries it
+# (reconcile_taxonomy >= v1.3, schema >= 1.3) — JSON the platform stores
+# byte-for-byte — and from the Analysis doc otherwise. On the preferred path Step 6
+# parses no Word document at all. Exams approved before schema 1.3 fall back, fully
+# gated, and need no re-run.
+```
+```
   v1.40 (GAP-2026-07-25-003 follow-up) — THE LOCK GATE. Reading the doc proves it
   agrees with ITSELF. It does not prove it is the doc PYQApprove APPROVED, and those
   are different claims — GAP-2026-07-25-002 Defect B satisfied the first while
@@ -1096,13 +1103,19 @@ This is the foundation of the entire allocation algorithm.
 NOT the 2 most recent calendar years.
 NOT years that exist as columns but have all-zero paper counts (exam not held that year).
 
-Algorithm:
-  valid_years = [year for year in excel_years
-                 if any(papers_in[year][S] > 0 for S in all_subtopics)]
-  recent_years, older_years = bc.split_recency(valid_years)   # ENGINE: last 2 vs earlier
-  #   (identical to sorted(valid_years)[-2:] / [:-2]; single source of truth)
+Algorithm — executable form below; weights: recent_years → 2×, older_years → 1×
+```
+```python
+import blueprint_core as bc
 
-  Weights: recent_years → 2×, older_years → 1×
+def recency_split(excel_years, papers_in, all_subtopics):
+    valid_years = [year for year in excel_years
+                   if any(papers_in[year][S] > 0 for S in all_subtopics)]
+    recent_years, older_years = bc.split_recency(valid_years)  # ENGINE: last 2 vs earlier
+    #   (identical to sorted(valid_years)[-2:] / [:-2]; single source of truth)
+    return valid_years, recent_years, older_years
+```
+```
 
 Example: Excel has columns 2019, 2020, 2022, 2024, 2025
   All years have Papers In > 0 → valid_years = [2019,2020,2022,2024,2025]
@@ -2915,8 +2928,9 @@ User provides bands. Claude validates (DR-8):
       Medium/Hard are never capped (any position can be authored up). The one
       structural bound is the BOTTOM band: the shared rubric's qtype floors
       (blueprint_core Cluster E2c) make it unreachable on MSQ/NAT positions, so
-      per mock:  bc.difficulty_feasibility({'simple': S, 'medium': M, 'hard': H},
-      qtype_by_q, difficulty_labels) must return {} — where qtype_by_q maps every
+      per mock: bc.difficulty_feasibility — called with the counts
+      {'simple': S, 'medium': M, 'hard': H}, qtype_by_q and difficulty_labels —
+      must return {} (empty) — where qtype_by_q maps every
       position via marking_scheme q_ranges (an exam without position typing or a
       non-3-band vocabulary passes vacuously, the Cluster-E2 fall-through).
       On a shortfall the error NAMES the achievable maximum:
@@ -6899,4 +6913,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.51.0
+# END OF Framework_Blueprint v1.51.1

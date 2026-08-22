@@ -148,13 +148,7 @@
   "exam_code": {
    "reason": "forward_ref_or_session_global"
   },
-  "extract_presorted": {
-   "reason": "forward_ref_or_session_global"
-  },
   "extract_year_from_filename": {
-   "reason": "forward_ref_or_session_global"
-  },
-  "get_vision_candidates": {
    "reason": "forward_ref_or_session_global"
   },
   "load_progress": {
@@ -196,9 +190,6 @@
   "pyq_drive_folder_id": {
    "reason": "forward_ref_or_session_global"
   },
-  "run_img5b": {
-   "reason": "forward_ref_or_session_global"
-  },
   "run_synthesise": {
    "reason": "forward_ref_or_session_global"
   },
@@ -206,9 +197,6 @@
    "reason": "forward_ref_or_session_global"
   },
   "sort_papers_recency_first": {
-   "reason": "forward_ref_or_session_global"
-  },
-  "tag_axes": {
    "reason": "forward_ref_or_session_global"
   }
  },
@@ -527,19 +515,19 @@
   }
  },
  "_grandfathered": [
-  "Framework_Blueprint.md: EXAM \u2014 read in resolve_subtopic_id() L6673",
-  "Framework_MockTestCreate.md: build_question \u2014 read in generate_subtopic() L3245",
-  "Framework_MockTestCreate.md: canonical \u2014 read in generate_subtopic() L3208",
-  "Framework_MockTestCreate.md: cross_mock_duplicate \u2014 read in generate_subtopic() L3252",
-  "Framework_MockTestCreate.md: flag \u2014 read in controlled_reuse() L3360",
-  "Framework_MockTestCreate.md: invent_distinct_scenario \u2014 read in scenario_iterator() L3428",
-  "Framework_MockTestCreate.md: mock_presentation_ledger \u2014 read in generate_subtopic() L3225",
-  "Framework_MockTestCreate.md: mock_scenario_ledger \u2014 read in generate_subtopic() L3209",
-  "Framework_MockTestCreate.md: passes_quality_gates \u2014 read in generate_subtopic() L3256",
-  "Framework_MockTestCreate.md: weighted_patterns \u2014 read in scenario_iterator() L3425",
-  "Framework_MockTestCreate.md: widen_scenario_space \u2014 read in generate_subtopic() L3288",
-  "Framework_PYQScan.md: MIN_PATTERN_SIZE \u2014 read in check_dimensional_splits() L1555"
+  "Framework_Blueprint.md: EXAM — read in resolve_subtopic_id() L6673",
+  "Framework_MockTestCreate.md: build_question — read in generate_subtopic() L3245",
+  "Framework_MockTestCreate.md: canonical — read in generate_subtopic() L3208",
+  "Framework_MockTestCreate.md: cross_mock_duplicate — read in generate_subtopic() L3252",
+  "Framework_MockTestCreate.md: flag — read in controlled_reuse() L3360",
+  "Framework_MockTestCreate.md: invent_distinct_scenario — read in scenario_iterator() L3428",
+  "Framework_MockTestCreate.md: mock_presentation_ledger — read in generate_subtopic() L3225",
+  "Framework_MockTestCreate.md: mock_scenario_ledger — read in generate_subtopic() L3209",
+  "Framework_MockTestCreate.md: passes_quality_gates — read in generate_subtopic() L3256",
+  "Framework_MockTestCreate.md: weighted_patterns — read in scenario_iterator() L3425",
+  "Framework_MockTestCreate.md: widen_scenario_space — read in generate_subtopic() L3288",
+  "Framework_PYQScan.md: MIN_PATTERN_SIZE — read in check_dimensional_splits() L1555"
  ],
- "_policy": "A name READ inside a function this spec CALLS may NEVER be baselined. --write-baseline refuses to create such an entry. The only exception is GRANDFATHERED_MUST_FIX, which must be placed BY HAND, is listed below, and can only be removed \u2014 never added by tooling.",
- "_schema": "TYPED BASELINE v2 \u2014 every entry carries a reason. See spec_name_audit.py REASONS."
+ "_policy": "A name READ inside a function this spec CALLS may NEVER be baselined. --write-baseline refuses to create such an entry. The only exception is GRANDFATHERED_MUST_FIX, which must be placed BY HAND, is listed below, and can only be removed — never added by tooling.",
+ "_schema": "TYPED BASELINE v2 — every entry carries a reason. See spec_name_audit.py REASONS."
 }

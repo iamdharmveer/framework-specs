@@ -1,4 +1,9 @@
-# Framework_PYQCount v1.5 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.5.1 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 9 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, propagated per the
 #   LAW-PROPAGATION LAW. Step 4 did not suffer the reference incident — it is
 #   single-session, so its probe cost amortises to zero and its spec is far under the
@@ -461,7 +466,7 @@ the batch counting loop (S5-4):
      read_file_content which may strip content).
   2. For each file: count total questions using the SAME detector as
      count_sorted_file(), which is the ENGINE detector:
-       bc.detect_question_start(para.text) is not None
+       bc.detect_question_start on para.text is not None
      GAP-2026-08-15-BAREQ (R-3). This step used to carry a private regex
      r'^Q\.?\s*\d+' justified by "PYQSort always outputs Q.<N> format" — an
      ASSUMPTION about another step's output where a DELEGATION belongs, and one
@@ -934,7 +939,7 @@ print("Taxonomy source: %s (%s)" % (doc['source'], doc['ingest_form']))
                   genuine subtopic heading occupy the IDENTICAL slot — the last text
                   block before a date label — and no positional rule can separate
                   them. This case is fixed ONLY by D6: confirm the walker computes
-                  bc.heading_colour_available(paras) once per file and passes it.
+                  bc.heading_colour_available on paras once per file and passes it.
              (iii) If the engine already carries both and the phantom persists,
                   escalate to the framework project WITH THE PAPER ATTACHED. Do not
                   work around it locally.
@@ -997,7 +1002,7 @@ That is not performable any more, for two independent reasons:
   • /mnt/project/ is READ-ONLY, so even the OOXML form could not be edited where
     it sits.
 The doc is therefore rebuilt from the taxonomy Task 2.5 already loaded plus the
-Task-2 verified counts, through corpus_io.write_analysis_doc(counts=), which has
+Task-2 verified counts, through corpus_io.write_analysis_doc (counts=...), which has
 accepted a counts map since v1.1.
 
 This is STRICTLY STRONGER than the rule it replaces. The writer derives the
@@ -1202,7 +1207,7 @@ The Drive lane is limited by CONTEXT (8-10 batches above). The upload lane is
 limited by something else entirely, and it binds much sooner: the platform
 accepts blueprint_core.CHAT_FILE_LIMIT files per conversation.
 
-  bc.upload_batch_plan(n_upload, BATCH_SIZE_COUNTS) returns
+  bc.upload_batch_plan with (n_upload, BATCH_SIZE_COUNTS) returns
     batches_per_chat = CHAT_FILE_LIMIT // BATCH_SIZE_COUNTS = 20 // 5 = 4
     papers_per_chat  = 4 x 5 = 20
     chats_needed     = ceil(n_upload / 20)
@@ -1235,7 +1240,7 @@ unreachable acquisition step look like a solved problem for 20 days.
 
   PHASE A — MODEL TURNS (acquisition; CLASS T, never python)
     A0. DIRECT EGRESS PROBE — PYTHON, NOT A TOOL CALL, AND IT COMES FIRST.
-        corpus_io.probe_direct_egress(candidate, work_dir). If it returns ok the
+        corpus_io.probe_direct_egress with (candidate, work_dir). If it returns ok the
         channel is 'direct': python fetched the bytes itself, nothing crossed the
         turn, there is no context cost and the whole corpus is admissible. It NEVER
         raises — ok=False is an ordinary state (folder not link-shared, or container
@@ -1243,7 +1248,7 @@ unreachable acquisition step look like a solved problem for 20 days.
         Framework_PYQCore EC-P43.
     A1. Google Drive:search_files(query="parentId = '<folder_id>'", pageSize=100)
         → paginate to exhaustion → keep every raw page → then, IN PYTHON,
-        corpus_io.write_drive_listing(pages, cache_path, folder_id, observed_count)
+        corpus_io.write_drive_listing with (pages, cache_path, folder_id, observed_count)
         where observed_count is the count YOU read off the connector response. It is
         an INDEPENDENT number, so the comparison can fail. A short listing HARD STOPS
         (EC-P41): EC-P39 catches zero and nothing caught 21-of-22. The records are
@@ -1314,13 +1319,13 @@ PER-SESSION EXECUTION:
     CALL 1 — create_file: Write count_finalize.py containing:
       1. Load count_progress.json
       2. Task 2: compute grand total, display breakdown, compare
-      3. Task 2.5 (S5-4b): corpus_io.load_taxonomy() — ONE call that selects the
+      3. Task 2.5 (S5-4b): corpus_io.load_taxonomy — ONE call that selects the
          taxonomy source, reads it and asserts identity against
          approval_record.json. Never a hand parser, never a bare Document(path)
          open, and never a separate gate call. Then the phantom / uncounted set
          comparison
       4. Task 3 (S5-5): merge counts onto the loaded taxonomy and REGENERATE via
-         corpus_io.write_analysis_doc(..., counts=), then read the result back and
+         corpus_io.write_analysis_doc with (..., counts=), then read the result back and
          assert the fingerprint is unchanged. Do NOT edit the doc in place — the
          runtime receives extracted text and /mnt/project/ is read-only
       5. The regenerated .docx is written to /mnt/user-data/outputs/ by
@@ -1375,7 +1380,7 @@ The shapes the payload can take, all of which decode_drive_payload accepts:
 ONE implementation handles every shape — raw bytes, a spill path, the parsed
 list or dict, or the inner JSON string:
 
-    raw = corpus_io.decode_drive_payload(payload)
+    raw = corpus_io.decode_drive_payload applied to the payload
 
 and corpus_io.fetch_drive_docx wraps decode with the two assertions that make
 truncation detectable:
@@ -1397,4 +1402,4 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.5
+# END OF Framework_PYQCount v1.5.1

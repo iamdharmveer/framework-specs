@@ -1,5 +1,54 @@
 # Changelog
 
+## 2026.08.21.4 — R1 HYGIENE: GAP-2026-08-21-C8-FENCE-BURNDOWN + baseline refresh
+
+**Editorial release — zero behavioural change.** Three items, all pre-existing:
+
+1. **XSPEC_DIVERGENCE_BASELINE.json — 4 stale entries re-reviewed and refreshed.** Each
+   divergence was re-diffed with the auditor's own extractor and confirmed unchanged in
+   shape: `probe_drive_channel` differs only in the S5-0/S8-0 banner; `acquire_paper`
+   keeps its two acquisition models; `plan_transport` keeps the session-budget-law scope
+   split; `omath` differs only in `*p` vs `*parts`. Fingerprints refreshed from
+   `--print-divergence-baseline`; reasons preserved; a dated re-review line appended to
+   each note. `audit_deep`: 4 findings -> **0**.
+2. **spec_name_audit_baseline.json** — the one FIXED entry
+   (`Framework_MockTestAnalyse.md: tag_axes`) removed. 157 -> 156 baselined, 0 new.
+3. **C8 fence burn-down — 30 -> 0.** audit_callgraph C8 reported routed-engine calls in
+   untagged fences; the display caps at 8 lines, so the true count (30, across 10 specs)
+   sat behind the cap. Every site remediated on the check's own design: call MENTIONS in
+   prose now use the documented no-paren form ("f with (args)" / bare name); the seven
+   genuine CODE islands are now tagged ```python fences, def-wrapped so every name binds
+   — `load_taxonomy` + `recency_split` (Blueprint), the sorted-doc helpers
+   (MockTestAnalyse, original signatures kept), `admit_this_session` (PYQCore),
+   `views_agree` (PYQPrepare), `resolve_era` (PYQScan), `inferred_headings` +
+   `question_views` (PYQSort) — all AST-inspectable by C1–C8 from this release on.
+   Specs bumped (patch, editorial): Blueprint v1.51.1 · MockTestAnalyse v2.53.6 ·
+   PYQApprove v1.0.1 · PYQCore v1.5.1 · PYQCount v1.5.1 · PYQDraft v1.0.1 ·
+   PYQPrepare v2.1.1 · PYQScan v1.3.1 · PYQSort v1.20.1.
+
+4. **audit_deep fingerprint v2 — GAP-2026-08-21-FINGERPRINT-ENV-DEPENDENCE (added after
+   the first bundle of this release was deploy-blocked).** The first bundle's baseline
+   refresh (item 1) was WRONG: v1's fingerprint hashed `ast.dump(ast.parse(ast.unparse(fn)))`,
+   and both `unparse` and `dump` vary across CPython versions — so the 4 "stale" entries the
+   builder saw on Python 3.12 were phantoms of the version mismatch, the original values were
+   correct for the deploy environment, and the "refresh" poisoned them with 3.12-only values.
+   The tell was ignored at review time: `transport_core.py` unchanged since 2026.08.20.3 yet
+   its fingerprint "moved" — an unchanged file whose fingerprint moves means the MEASURER
+   moved. Permanent fix, not a value restore: `fingerprint()` v2 hashes the TOKENIZED source
+   segment (comments/blank lines/indent depth dropped, docstring dropped, 3.12 FSTRING token
+   runs coalesced to the 3.11 single-STRING shape, token NAMES not numbers) — environment-
+   independent by construction, so the builder's green equals the deploy gate's green. Five
+   new self-test fixtures including a PINNED DIGEST that fails loudly on any future tokenizer
+   drift (24-check suite, meta-assertion updated). The stricter v2 hash surfaced one real
+   divergence v1's normalisation had masked — `sqrt` (spec vs explain_engine, line-wrap-only,
+   byte-equal OMML output) — reviewed and declared `inherited_pre_existing`, same class as
+   `omath`. Baseline regenerated under v2: 5 entries, all reasons/notes preserved,
+   `_fingerprint_algorithm` recorded, stale `_moved` prose corrected.
+
+**Gates.** audit_deep 0 (self-test 25/25) · audit_callgraph 0 findings, **0 C8 warnings** ·
+spec_name_audit 0 new (156 baselined) · audit_specs_ext all green incl. SPEC-BUDGET ·
+bootstrap 51/51 · validate_framework_md 0/23 · all engine self-tests unchanged.
+
 ## 2026.08.21.3 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS
 
 **MockTestCreate v5.59 -> v5.60 · Blueprint v1.50.0 -> v1.51.0 · MockTestExplain

@@ -1,4 +1,9 @@
-# Framework_MockTestAnalyse v2.53.5 — Universal PYQ Pattern Extraction Engine
+# Framework_MockTestAnalyse v2.53.6 — Universal PYQ Pattern Extraction Engine
+# v2.53.6 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: helpers fence tagged + def-wrapped (signatures unchanged); A0 prose to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v2.53.5 — 2026-08-20 — WAVE 2 PART C, BATCH 9. §S8-0 DRIVE TRANSPORT MOVES TO
 #   transport_core.py. PATCH bump: code moved VERBATIM into a routed engine changes no
 #   emitted value, and holding major.minor holds the emitted stamps at v2.53. NO
@@ -509,7 +514,7 @@ PYQ parameter (REQUIRED for paper-processing modes — v2.24.8, standardized wit
 Step 4/Step 2b; not needed for --status or --synthesise, which don't read the
 PYQ corpus):
   Format : PYQ: <<Google Drive folder URL>>
-  Parsing: pyq_drive_folder_id = corpus_io.parse_drive_folder_id(<the PYQ value>)
+  Parsing: pyq_drive_folder_id = corpus_io.parse_drive_folder_id applied to <the PYQ value>
            THE parser. Do NOT re-implement the regex here — a local copy is the
            drift pattern v2.27/v2.28 removed elsewhere, and the engine version also
            accepts a bare folder id and the /u/N/ account-scoped URL form, which the
@@ -1834,46 +1839,52 @@ There is no Mode B. If PYQ is not available for an exam, no .docx files
 are uploaded and Step 5 skips extraction entirely, writing absent entries
 from the taxonomy during --synthesise (see S1-2 no-PYQ path).
 
-```
-Helpers:
+```python
+# Helpers:
+import blueprint_core as bc
 
-  def is_shift_tag(text):
+def sorted_doc_helpers(SESSION_RE):
+    # SESSION_RE is built from exam_config.json session_keyword at S1 (v2.16 RIGID-1).
+
+    def is_shift_tag(text):
       # Matches date-format shift tags like [09-Sep-2024 Shift 1] or [5-Jan-2024 Shift 1]
       # v2.52.0 (GAP-2026-08-16-...-DATE-LABEL-POSITION): delegates to the engine.
       # This was the THIRD copy of r'\[\d{1,2}-' in this one file. Three hand-kept
       # copies of one rule is the drift class bc.DATE_TAG_RE was created to end, and
       # a "v2.16 SYNC" comment aligning two of them by hand is the evidence that it
       # had already cost a release once.
-      return bc.is_position_label(text)
+        return bc.is_position_label(text)
 
-  def parse_shift(text):
-      # v2.16 RIGID-1: uses SESSION_RE (built from exam_config.json session_keyword)
-      # instead of hardcoded 'Shift'. Works for Shift/Slot/Phase/Paper/Session.
-      m = SESSION_RE.search(text)
-      return f'S{m.group(1)}' if m else 'S1'
+    def parse_shift(text):
+        # v2.16 RIGID-1: uses SESSION_RE (built from exam_config.json session_keyword)
+        # instead of hardcoded 'Shift'. Works for Shift/Slot/Phase/Paper/Session.
+        m = SESSION_RE.search(text)
+        return f'S{m.group(1)}' if m else 'S1'
 
-  # parse_taxonomy_level() defined in S3-2.
-  # detect_question_start() defined in E-2.
+    return is_shift_tag, parse_shift
 
-Algorithm (pseudocode — full implementation in S3-2 extract_presorted()):
-  current_path  = []    # [section, topic, subtopic]
-  current_shift = 'S1'
-  paras, nxt = bc.sorted_body_lookahead(doc)     # GAP-2026-07-26-001 + -08-05-001
-  colour_ok  = bc.heading_colour_available(paras)   # D6 — once per FILE
-  for i, paragraph in enumerate(paras):
-      text = paragraph.text.strip()
-      if not text: continue
-      if is_taxonomy_heading(paragraph, nxt[i], colour_ok):
-          level, content = parse_taxonomy_level(text)
-          current_path = current_path[:level-1] + [content]
-      elif is_shift_tag(text):
-          current_shift = parse_shift(text)
-      else:
-          q_num = detect_question_start(text)
-          if q_num is not None:
-              tag_question(q_num, current_path, current_shift)
+# parse_taxonomy_level() defined in S3-2. detect_question_start() defined in E-2.
+# is_taxonomy_heading() defined in S3-2.
 
-  is_taxonomy_heading() and parse_taxonomy_level() are defined in S3-2.
+def walk_presorted(doc, is_shift_tag, parse_shift, is_taxonomy_heading,
+                   parse_taxonomy_level, detect_question_start, tag_question):
+    # Algorithm (full implementation in S3-2 extract_presorted()):
+    current_path  = []    # [section, topic, subtopic]
+    current_shift = 'S1'
+    paras, nxt = bc.sorted_body_lookahead(doc)     # GAP-2026-07-26-001 + -08-05-001
+    colour_ok  = bc.heading_colour_available(paras)   # D6 — once per FILE
+    for i, paragraph in enumerate(paras):
+        text = paragraph.text.strip()
+        if not text: continue
+        if is_taxonomy_heading(paragraph, nxt[i], colour_ok):
+            level, content = parse_taxonomy_level(text)
+            current_path = current_path[:level-1] + [content]
+        elif is_shift_tag(text):
+            current_shift = parse_shift(text)
+        else:
+            q_num = detect_question_start(text)
+            if q_num is not None:
+                tag_question(q_num, current_path, current_shift)
 ```
 
 ### E-2 — Question detection
@@ -2181,7 +2192,7 @@ FLAGS (reported, not silent):
   * figural_consistency mismatches     -> see IMG-5b below
 
 IMG-5b — FIGURAL CROSS-CHECK. After classification:
-  corpus_io.figural_consistency(mapping, q_formats, overrides=<INHERENTLY-VISUAL log>)
+  corpus_io.figural_consistency with (mapping, q_formats, overrides=<INHERENTLY-VISUAL log>)
 catches two faults with one assertion:
   * a question WITH an image not classified FIGURAL  -> image lost, or classifier missed it
   * a question classified FIGURAL with NO image      -> misclassification, unless it is an
@@ -2335,7 +2346,7 @@ FOR EACH sheet listed in vision_queue.json['sheets']:
        and use the SAME name for the same kind of thing across sheets.
 
   4. Write every observation to <VISION_WORKDIR>/vision_observations.json via
-     corpus_io.write_vision_observations(), as {"observations": [ ... ]}.
+     corpus_io.write_vision_observations, as {"observations": [ ... ]}.
 
 OMITTING A CELL IS A PROCEDURAL ERROR, NOT A SESSION VERDICT. Phase C counts an
 omitted cell as unobserved and QV-14 reports the true ratio. Re-running Phase B is
@@ -2612,7 +2623,7 @@ CHANNEL PRECEDENCE IS direct -> spill -> inline. Framework_PYQCore EC-P43.
 PHASE A — MODEL TURNS. CLASS T unless stated. In order:
 
   A0. DIRECT EGRESS PROBE — PYTHON, NOT A TOOL CALL, AND IT COMES FIRST.
-      Call corpus_io.probe_direct_egress(candidate, work_dir) on the first
+      Call corpus_io.probe_direct_egress with (candidate, work_dir) on the first
       recency-sorted paper under bc.DRIVE_CAP (see A1b — the sort runs before
       this). If it returns ok, the channel is 'direct': python fetched the bytes
       itself, nothing crossed the turn, EC-P36's double charge does not exist,
@@ -2634,7 +2645,7 @@ PHASE A — MODEL TURNS. CLASS T unless stated. In order:
       do not merge by hand, do not drop fields you think are unused.
 
       Then, IN PYTHON, hand every page to
-        corpus_io.write_drive_listing(pages, DRIVE_LISTING_CACHE, folder_id,
+        corpus_io.write_drive_listing with (pages, DRIVE_LISTING_CACHE, folder_id,
                                       observed_count=<the count YOU read off the
                                       connector response>)
       `observed_count` is the whole point of the gate: it is an INDEPENDENT number
@@ -2902,7 +2913,7 @@ Session flow:
                    now: under P4f the probe paper IS admitted[0], which does not exist
                    until the recency sort has run. EC-X21 already required the sort
                    before the PARTITION; P4f moves the same requirement earlier still.
-               A0  probe_transport() → corpus_io.probe_direct_egress() on the first
+               A0  probe_transport() → corpus_io.probe_direct_egress on the first
                    recency-sorted paper under DRIVE_CAP. Success → channel 'direct',
                    probe_consumed 0, nothing crossed the turn, whole corpus admissible
                    (EC-P43). Failure is an ORDINARY state and falls through to A2.
@@ -4993,4 +5004,4 @@ EC-F6: FORMAT DETECTION UNCERTAINTY (v2.24.6 FIX B — REVISED)
 
 # ════════════════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestAnalyse v2.53.5
+# END OF Framework_MockTestAnalyse v2.53.6

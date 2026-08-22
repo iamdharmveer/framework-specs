@@ -1,4 +1,9 @@
-# Framework_PYQScan v1.3 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.3.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.3.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: era-classification block -> tagged def resolve_era; 1 prose mention to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v1.3 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
 #   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
 #   It was CALLED from compiling python here while DEFINED nowhere — a guaranteed
@@ -512,7 +517,7 @@ any batch scanning (S3-5):
      reads through p.text as just "Q.N", and entries 1-2 require whitespace AFTER
      the digits, so they never matched it. The $ anchor admits ONLY a paragraph that
      is nothing but the label, so no option, cross-reference or heading can match.
-     PREFER bc.detect_question_start(text) over a local copy of this table — the
+     PREFER bc.detect_question_start on the text over a local copy of this table — the
      table is reproduced here for reading only, and audit_deep TABLE-PARITY proves
      it identical to the engine's.
      Mark each count as:
@@ -527,15 +532,20 @@ any batch scanning (S3-5):
 
       Call the ENGINE. Do NOT re-implement this logic here:
 
-        import blueprint_core as bc     # routed for PYQScan in routes.json
+```
+```python
+import blueprint_core as bc     # routed for PYQScan in routes.json
 
-        cfg_total, min_cfg_q, max_cfg_q = bc.exam_config_bounds(exam_config)
-        cfg_type = bc.type_resolver_from_config(exam_config)   # None if no marking_scheme
-        era = bc.classify_paper_era(
-                  observed_q_numbers,          # Q-numbers parsed from THIS file
-                  cfg_total, min_cfg_q, max_cfg_q,
-                  observed_types=observed_types,   # {q_num: 'MCQ'|'MSQ'|'NAT'} if detected
-                  cfg_type_for_q=cfg_type)
+def resolve_era(exam_config, observed_q_numbers, observed_types):
+    cfg_total, min_cfg_q, max_cfg_q = bc.exam_config_bounds(exam_config)
+    cfg_type = bc.type_resolver_from_config(exam_config)  # None if no marking_scheme
+    return bc.classify_paper_era(
+               observed_q_numbers,          # Q-numbers parsed from THIS file
+               cfg_total, min_cfg_q, max_cfg_q,
+               observed_types=observed_types,  # {q_num: 'MCQ'|'MSQ'|'NAT'} if detected
+               cfg_type_for_q=cfg_type)
+```
+```
 
       Returns exactly one of bc.PATTERN_ERAS:
         'current'    — same count, all Q-numbers in range, types agree with marking_scheme
@@ -1793,4 +1803,4 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.3
+# END OF Framework_PYQScan v1.3.1

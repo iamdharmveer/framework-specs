@@ -1,4 +1,9 @@
-# Framework_PYQSort v1.20.0 — Universal PYQ Sorter
+# Framework_PYQSort v1.20.1 — Universal PYQ Sorter
+# v1.20.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 2 code islands -> tagged fences (inferred_headings, question_views); 5 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v1.20.0 — 2026-08-15 — GAP-2026-08-15-BAREQ. S3-1 Q_PATTERNS mirrors the engine's
 #   widened four-entry table (entries 3/4 = BARE-LABEL forms). A stem whose whole payload
 #   is <m:oMath> reads through p.text as "Q.N", entries 1/2 require whitespace AFTER the
@@ -431,7 +436,7 @@ count — every other check in §8 compares this step's own reading against itse
            - the count from each side (e.g. "parsed 56, scan recorded 60")
            - the Q-numbers present in one and absent from the other
            - the paragraph index and first 40 characters of every paragraph whose
-             corpus_io.text_of() begins with a Q-label but whose p.text does not
+             corpus_io.text_of begins with a Q-label but whose p.text does not
              — that list IS the diagnosis, and it is exactly the four paragraphs
              GAP-2026-08-15-BAREQ lost on IIT_JAM_MATHEMATICS 12-Feb-2017.
          Then instruct: verify the framework is >= 2026.08.15.5 and re-run. Do NOT
@@ -1163,7 +1168,7 @@ LEVEL 3 (Subtopic):
   Styling: 11pt Bold Navy #003366   ← EMITTED UNCONDITIONALLY by make_heading_para()
   Parser:  Navy #003366 on the first non-empty run → level 3,
            WHEN the file's date-label colour probe passes
-           (bc.heading_colour_available(paras)); otherwise default → level 3.
+           (bc.heading_colour_available on paras); otherwise default → level 3.
 
   WHY THIS LINE CHANGED (GAP-2026-08-05-001 / SG-9). It read "Parser: default →
   level 3" — i.e. it MANDATED a machine-readable marker in the line above and then
@@ -1472,7 +1477,7 @@ def repair_orphan_options(body_elems):
     At emit time: if an option paragraph has no indent, force Pt(18) left indent.
     Accepts 4 forms: (a) Pt(18) indent, (b) table cell, (c) inline drawing,
     (d) OMML formula.
-    Uses corpus_io.is_option() — THE shared predicate. Image options included.
+    Uses corpus_io.is_option — THE shared predicate. Image options included.
     """
     NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
     for elem in body_elems:
@@ -1901,7 +1906,7 @@ CHECK 4 — OPTIONS INDENTED (NAT-aware)
   For NAT questions (has_options=False):
     0 option paragraphs expected — exempted from this check.
   mcq_count = total Q-count − nat_count.
-  Uses corpus_io.is_option() — THE shared predicate. Image options included.
+  Uses corpus_io.is_option — THE shared predicate. Image options included.
   Accept: (a) Pt(18) indent, (b) table cell, (c) inline drawing, (d) OMML formula.
 
 CHECK 5 — SEQUENTIAL NUMBERING
@@ -1944,12 +1949,20 @@ CHECK 11 — DOWNSTREAM-PARSE ROUND TRIP (GAP-2026-08-05-001, D3)   [HARD FAIL]
   parse it with the DOWNSTREAM predicate, i.e. the very blueprint_core functions
   Steps 4 and 5 will use:
 
-      paras, nxt = bc.sorted_body_lookahead(doc)
-      colour_ok  = bc.heading_colour_available(paras)
-      inferred   = { i: bc.parse_taxonomy_level(paras[i].text.strip())
-                     for i in range(len(paras))
-                     if bc.is_taxonomy_heading(paras[i], corpus_io.is_option,
-                                               nxt[i], colour_ok) }
+```
+```python
+import blueprint_core as bc
+import corpus_io
+
+def inferred_headings(doc):
+    paras, nxt = bc.sorted_body_lookahead(doc)
+    colour_ok  = bc.heading_colour_available(paras)
+    return {i: bc.parse_taxonomy_level(paras[i].text.strip())
+            for i in range(len(paras))
+            if bc.is_taxonomy_heading(paras[i], corpus_io.is_option,
+                                      nxt[i], colour_ok)}
+```
+```
       emitted    = the (index, level, name) set PYQSort itself wrote via
                    make_heading_para()
 
@@ -2000,12 +2013,18 @@ CHECK 12 — TEXT-LAYER / VISIBLE-TEXT Q AGREEMENT (GAP-2026-08-15-BAREQ)  [HARD
   way a shared blind spot cannot defeat: by reading the delivered file TWICE, through
   two different views, and comparing.
 
-      wt_view  = [i for i, p in enumerate(paras)
-                  if bc.detect_question_start(p.text) is not None]
-      vis_view = [i for i, p in enumerate(paras)
-                  if bc.detect_question_start(corpus_io.text_of(p)) is not None]
+```
+```python
+def question_views(paras):
+    wt_view  = [i for i, p in enumerate(paras)
+                if bc.detect_question_start(p.text) is not None]
+    vis_view = [i for i, p in enumerate(paras)
+                if bc.detect_question_start(corpus_io.text_of(p)) is not None]
+    return wt_view, vis_view
+```
+```
 
-  p.text is <w:t>-only — what Steps 4 and 5 will walk. corpus_io.text_of() is
+  p.text is <w:t>-only — what Steps 4 and 5 will walk. corpus_io.text_of is
   <w:t> + <m:t> — what a human reading the page sees. HARD FAIL if the two disagree,
   naming for each divergence the paragraph index, its first 80 characters, and which
   view saw a question start.
@@ -2394,7 +2413,7 @@ STEP 1 FORMAT CONTRACT (prerequisite):
 ☐ 22. Deliverable set closed: EXACTLY 1 file in present_files call
        (no scripts, no intermediates, no input files, no RAW_OUT)
 ☐ 23. Taxonomy SOURCE and ingest form identified and REPORTED in the S1-3
-       inventory, and the taxonomy loaded through corpus_io.load_taxonomy() —
+       inventory, and the taxonomy loaded through corpus_io.load_taxonomy —
        never by prose, never by a bare Document(path) open, never loaded twice
        in one step (EC-S20, EC-S21)
 
@@ -2495,4 +2514,4 @@ POST-DELIVERY FOOTER (MANDATORY after present_files):
 
 ---
 
-# END OF Framework_PYQSort v1.20.0
+# END OF Framework_PYQSort v1.20.1

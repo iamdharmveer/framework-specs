@@ -1,4 +1,9 @@
-# Framework_PYQCore v1.5 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.5.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: admission call -> tagged fence; 8 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (SESSION-BUDGET LAW).
 #   §9 gains four edge cases. The reference incident is IIT_JAM_MATHEMATICS PYQExtract:
 #   two consecutive sessions, 54 tool calls, ZERO of 22 papers processed, because three
@@ -764,8 +769,8 @@ QUESTION (second and subsequent paragraphs — STEM CONTINUATION):
     plus auto-numbered paragraphs whose visible "1." is rendered by Word and stored
     nowhere in the XML. When every block between a continuation and the next date
     label is of those classes, the continuation satisfies this test and becomes a
-    phantom subtopic. Use bc.sorted_body_lookahead(doc), never doc.paragraphs +
-    bc.next_nonempty_texts(), in any sorted-PYQ walker.
+    phantom subtopic. Use bc.sorted_body_lookahead on the doc, never doc.paragraphs +
+    bc.next_nonempty_texts, in any sorted-PYQ walker.
     A WARNING TO THE NEXT IMPLEMENTER: in a printed copy, a PDF export or a
     screenshot, those four textless option labels look identical to text ones. The
     difference is visible only in the XML. Do not diagnose this class from an image.
@@ -788,7 +793,7 @@ QUESTION (second and subsequent paragraphs — STEM CONTINUATION):
     PYQSort S6-2 mandates 11pt Bold Navy #003366 for every level-3 heading and
     make_heading_para() stamps <w:color> UNCONDITIONALLY, so any file PYQSort emitted
     carries it by construction, not by luck. Consult it via
-    bc.heading_colour_available(paras) -> bool, computed ONCE PER FILE and passed to
+    bc.heading_colour_available (paras -> bool), computed ONCE PER FILE and passed to
     is_taxonomy_heading(..., colour_available=). The probe reads the DATE LABELS, not
     the headings, because S6-2 mandates their colour too, CHECK 3 enforces it and
     EC-S10 guarantees one above every question.
@@ -810,8 +815,8 @@ QUESTION (second and subsequent paragraphs — STEM CONTINUATION):
                       paragraphs between"
     PYQSort CHECK 3 — HARD FAIL if date-label count != Q-count, or the position slips
     PYQSort EC-S10  — ValueError when a Q.N has no preceding date label
-  ENFORCED BY: blueprint_core.is_taxonomy_heading(para, is_option, next_text), with
-    next_text from blueprint_core.next_nonempty_texts(). Levels 1 and 2 are exempt —
+  ENFORCED BY: blueprint_core.is_taxonomy_heading with (para, is_option, next_text),
+    next_text from blueprint_core.next_nonempty_texts. Levels 1 and 2 are exempt —
     they carry an explicit prefix and are self-identifying.
   NOT a heading → skipped by is_taxonomy_heading() via the positional gate.
 ```
@@ -1310,13 +1315,13 @@ EC-P35: DRIVE CHANNEL CANNOT REACH THE CONTAINER (2026-08-15)
 
 EC-P36: INLINE CHANNEL EXCEEDS THE CONTEXT BUDGET (2026-08-15)
   channel == 'inline' and the corpus is large. Each paper costs
-  bc.base64_cost_chars(fileSize) = ceil(bytes/3)*4 characters of context inbound,
+  bc.base64_cost_chars — ceil(bytes/3)*4 characters of context inbound per fileSize,
   and again to persist it, so the Drive lane is bounded by CONTEXT, not by
   DRIVE_CAP. Measured: 22 papers / 986,230 bytes = 1,315,000 base64 characters
   (~329k tokens inbound, ~658k with persistence).
   Detection: the same S5-0 probe; the arithmetic is bc.base64_cost_chars summed
   over the drive lane, compared against bc.INLINE_BUDGET_CHARS.
-  Resolution: bc.partition_by_transport(..., channel='inline') admits papers in
+  Resolution: bc.partition_by_transport with (..., channel='inline') admits papers in
   listing order until the budget would be exceeded and routes the remainder to
   the upload lane, reporting them as deferred FOR CONTEXT, not for size.
   Papers already counted are unaffected — the per-file save in S5-4 makes the
@@ -1338,9 +1343,16 @@ EC-P37: INLINE CHANNEL IN A BATCHED, MULTI-SESSION STEP (2026-08-15)
   CHAT RESETS THE CONTEXT BUDGET. Applying the single-session rule to Step 5 turns a
   fully automatic multi-session run into 19 manual uploads on a 22-paper corpus.
   Resolution: apply the budget PER SESSION.
-    admitted = bc.partition_by_transport(pending_recency_sorted, channel='inline',
-                                         inline_budget=SESSION_INLINE_BUDGET,
-                                         consumed=probe_consumed)['auto']
+```
+```python
+import blueprint_core as bc
+
+def admit_this_session(pending_recency_sorted, SESSION_INLINE_BUDGET, probe_consumed):
+    return bc.partition_by_transport(pending_recency_sorted, channel='inline',
+                                     inline_budget=SESSION_INLINE_BUDGET,
+                                     consumed=probe_consumed)['auto']
+```
+```
   The `consumed=` argument was added by EC-P40 and is NOT optional here even though
   the parameter has a default: this example is PRESCRIPTIVE, and an example that omits
   it teaches exactly the pattern EC-P40 exists to forbid. Pass it explicitly and write
@@ -1457,7 +1469,7 @@ EC-P41: A PARTIAL LISTING IS WORSE THAN AN EMPTY ONE (2026-08-16)
   Detection: merged record count != the count the model declares from the connector
   response; any record missing a non-empty id, name/title or mimeType; a duplicate id
   within or across pages; a nextPageToken still present in the last supplied page.
-  Resolution: HARD STOP, via corpus_io.write_drive_listing(pages, path, root_folder_id,
+  Resolution: HARD STOP, via corpus_io.write_drive_listing with (pages, path, root_folder_id,
   observed_count). It is deliberately NOT a TransportFallback: a fallback means "try
   another lane", and there is no other lane for a corpus that cannot be enumerated
   correctly. audit_callgraph C11 fails the build for a spec that writes the cache by
@@ -1912,7 +1924,7 @@ Phase 0c:
 
 Phase B:
   ☐ TASK 1: Year-wise paper inventory displayed with per-paper Q counts
-  ☐ TASK 1: Q-counting uses bc.detect_question_start() — never a local regex
+  ☐ TASK 1: Q-counting uses bc.detect_question_start — never a local regex
          (GAP-2026-08-15-BAREQ R-3; count_sorted_file delegates to the same engine call)
   ☐ TASK 1: Per-file Q counts stored in task1_per_file for Task 2 diagnostic
   ☐ TASK 1: User confirmation received before counting begins
@@ -1964,4 +1976,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.5
+# END OF Framework_PYQCore v1.5.1

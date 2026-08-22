@@ -1,4 +1,9 @@
-# Framework_PYQDraft v1.0 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# Framework_PYQDraft v1.0.1 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 2 prose mentions to no-paren form (syllabus_provenance).
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
 #   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
 #   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
@@ -513,7 +518,7 @@ MAPPING RULES:
      (§7 NAME CONSISTENCY CONTRACT). No re-typing; copy from the taxonomy.
 
 Pass syllabus_subjects and syllabus_items to save_taxonomy_draft() (S2-4).
-Run syllabus_provenance.validate_provenance() BEFORE saving. HARD STOP on failure.
+Run syllabus_provenance.validate_provenance BEFORE saving. HARD STOP on failure.
 It is the ONLY implementation of these checks — do not re-implement it here.
 ```
 
@@ -546,7 +551,7 @@ It is the ONLY implementation of these checks — do not re-implement it here.
 
 ```
 DO NOT hand-emit the 9-field item records. Emit FOUR fields per item and let
-syllabus_provenance.build_items() derive the rest. A field that is DERIVED
+syllabus_provenance.build_items derive the rest. A field that is DERIVED
 cannot be emitted wrong; a field that is TYPED can be.
 
 PER ITEM emit exactly:
@@ -944,4 +949,4 @@ Print:
 
 ---
 
-# END OF Framework_PYQDraft v1.0
+# END OF Framework_PYQDraft v1.0.1

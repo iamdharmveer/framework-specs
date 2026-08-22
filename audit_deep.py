@@ -79,6 +79,92 @@ def blocks(t):
 
 
 
+def _fp_hash(text):
+    import hashlib
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]
+
+
+def fingerprint(fn, src):
+    """v2 (2026-08-21, GAP-2026-08-21-FINGERPRINT-ENV-DEPENDENCE) — ENVIRONMENT-STABLE.
+
+    v1 hashed ast.dump(ast.parse(ast.unparse(fn))). Both ast.unparse and ast.dump
+    change output across CPython versions (quote/format choices; fields such as
+    FunctionDef.type_params exist only from 3.12), so IDENTICAL FILE BYTES
+    fingerprinted differently in different environments. Measured consequence,
+    release 2026.08.21.4: a builder on 3.12 saw all four declared divergences as
+    STALE while the deploy environment saw them as current — the builder then
+    "refreshed" correct data into values valid only on 3.12, and the deploy gate
+    correctly blocked the release. transport_core.py had not changed since
+    2026.08.20.3; a fingerprint of an unchanged file that moves means the
+    MEASURER moved. The check must measure the artefact, not the interpreter.
+
+    v2 hashes the TOKENIZED SOURCE SEGMENT instead — never unparses, never dumps:
+      * COMMENT / NL / NEWLINE / INDENT / DEDENT / ENDMARKER tokens dropped, so
+        comments, blank lines and nesting depth do not affect the hash (the v1
+        insensitivity that matters, kept);
+      * the docstring (when the parsed body starts with one) dropped, as in v1;
+      * FSTRING_START/MIDDLE/END runs (3.12+) coalesced back into ONE synthetic
+        STRING token whose text is the verbatim source slice — byte-identical to
+        the single STRING token 3.11 emits for the same source, so both sides of
+        the 3.11/3.12 tokenizer change produce the same fingerprint;
+      * token TYPE NAMES (tokenize.tok_name), not numbers, so a renumbering
+        between versions cannot rotate hashes.
+    STRICTER THAN v1 on formatting: a quote-style or line-wrap edit now changes
+    the fingerprint and goes STALE for re-review. That is the correct direction
+    for a reviewed-exemption ratchet — what was reviewed is the SOURCE.
+    A pinned-digest self-test fixture makes any residual environment drift fail
+    the suite loudly instead of silently rotating every fingerprint again.
+    """
+    import tokenize, io as _io
+    seg = ast.get_source_segment(src, fn) or ''
+    raw = []
+    try:
+        for t in tokenize.generate_tokens(_io.StringIO(seg).readline):
+            name = tokenize.tok_name.get(t.type, str(t.type))
+            if name in ('COMMENT', 'NL', 'NEWLINE', 'INDENT', 'DEDENT',
+                        'ENDMARKER', 'ENCODING'):
+                continue
+            raw.append((name, t.string))
+    except (tokenize.TokenError, IndentationError, SyntaxError):
+        raw = [('RAW', seg)]
+    # Coalesce f-string token runs (3.12+) into one STRING token = the 3.11 shape.
+    toks, i = [], 0
+    while i < len(raw):
+        name, text = raw[i]
+        if name == 'FSTRING_START':
+            depth, buf = 1, [text]
+            i += 1
+            while i < len(raw) and depth:
+                n2, t2 = raw[i]
+                if n2 == 'FSTRING_START':
+                    depth += 1
+                elif n2 == 'FSTRING_END':
+                    depth -= 1
+                buf.append(t2)
+                i += 1
+            toks.append(('STRING', ''.join(buf)))
+            continue
+        toks.append((name, text))
+        i += 1
+    # Drop the docstring exactly when the AST says the body starts with one.
+    if (fn.body and isinstance(fn.body[0], ast.Expr)
+            and isinstance(fn.body[0].value, ast.Constant)
+            and isinstance(fn.body[0].value.value, str)):
+        depth = 0
+        for i, (name, text) in enumerate(toks):
+            if name == 'OP' and text in '([{':
+                depth += 1
+            elif name == 'OP' and text in ')]}':
+                depth -= 1
+            elif name == 'OP' and text == ':' and depth == 0:
+                for j in range(i + 1, len(toks)):
+                    if toks[j][0] == 'STRING':
+                        del toks[j]
+                        break
+                break
+    return '\x1f'.join(name + '\x1e' + text for name, text in toks)
+
+
 def _self_test():
     """GAP-2026-08-14-AUDITOR-SELFTESTS. This auditor is a top-to-bottom script,
     so fixtures run it as a SUBPROCESS against a mutated copy of the corpus and
@@ -122,6 +208,32 @@ def _self_test():
     def append(root, fname, text):
         with open(os.path.join(root, fname), 'a', encoding='utf-8') as f:
             f.write(text)
+
+    # ── fingerprint v2: environment-stability fixtures (GAP-2026-08-21-
+    #    FINGERPRINT-ENV-DEPENDENCE). These run IN-PROCESS, before the corpus
+    #    fixtures, because they pin the measuring instrument itself. ──────────
+    def _fp(src):
+        return _fp_hash(fingerprint(ast.parse(src).body[0], src))
+    _base = "def _fx(a, b):\n    total = a + b\n    return f'{total!r} ok'\n"
+    _docd = ("def _fx(a, b):\n    '''doc line.'''\n    total = a + b\n"
+             "    return f'{total!r} ok'\n")
+    _cmtd = ("def _fx(a, b):\n    # comment\n\n    total = a + b\n"
+             "    return f'{total!r} ok'   # tail\n")
+    _diff = "def _fx(a, b):\n    total = a - b\n    return f'{total!r} ok'\n"
+    check("fp2 docstring-insensitive", _fp(_base) == _fp(_docd))
+    check("fp2 comment/blank-insensitive", _fp(_base) == _fp(_cmtd))
+    check("fp2 different bodies differ", _fp(_base) != _fp(_diff))
+    # PINNED DIGEST — the whole point. Computed once, hard-coded. If ANY
+    # environment (a future tokenizer change, a different CPython) produces a
+    # different value for this fixed source, the suite fails LOUDLY here,
+    # instead of silently rotating every declared-divergence fingerprint the
+    # way v1 did between 3.11 and 3.12. The fixture source deliberately holds
+    # an f-string (the 3.11/3.12 tokenizer split the FSTRING coalescer exists
+    # for), a docstring, a comment and a blank line.
+    check("fp2 pinned digest is environment-stable",
+          _fp(_docd) == 'b6c41f3d5da1100a')
+    check("fp2 nested-fstring coalesces to one STRING token",
+          fingerprint(ast.parse(_base).body[0], _base).count('STRING') == 1)
 
     d0 = tempfile.mkdtemp(); corpus_copy(d0)
     rc, out = run_in(d0); shutil.rmtree(d0, ignore_errors=True)
@@ -293,7 +405,7 @@ def _self_test():
           'zz_printer_wrote_the_baseline' not in out)
 
     # META-ASSERTION: a skipped check is not a passing one.
-    EXPECTED = 19
+    EXPECTED = 24
     _total = passed + len(fails)
     if _total != EXPECTED:
         fails.append(f"suite_ran_every_check (ran {_total}, expected {EXPECTED})")
@@ -368,10 +480,6 @@ DIVERGENCE_REASONS = {
 }
 
 
-def _fp_hash(text):
-    import hashlib
-    return hashlib.sha256(text.encode('utf-8')).hexdigest()[:16]
-
 
 def load_divergence_baseline(path=DIVERGENCE_BASELINE_FILE):
     """{name: {'files': {file: fp_hash}, 'reason': str, 'note': str}} or {}."""
@@ -382,14 +490,6 @@ def load_divergence_baseline(path=DIVERGENCE_BASELINE_FILE):
     except Exception:
         return {}
     return {k: v for k, v in raw.items() if not k.startswith('_')}
-def fingerprint(fn):
-    fn=ast.parse(ast.unparse(fn)).body[0]
-    if (fn.body and isinstance(fn.body[0], ast.Expr)
-            and isinstance(fn.body[0].value, ast.Constant)
-            and isinstance(fn.body[0].value.value, str)):
-        fn.body = fn.body[1:] or [ast.Pass()]
-    return ast.dump(fn)
-
 # ── 2 DUPLICATE function defs within one spec, with DIFFERENT bodies ────────
 for f,t in TXT.items():
     seen=defaultdict(list)
@@ -398,7 +498,7 @@ for f,t in TXT.items():
         except SyntaxError: continue
         for n in tree.body:
             if isinstance(n,ast.FunctionDef):
-                seen[n.name].append(fingerprint(n))
+                seen[n.name].append(fingerprint(n, b))
     for name,bodies in seen.items():
         if len(bodies)>1 and len(set(bodies))>1:
             rec('DUP-DRIFT',f"{f}: '{name}' defined {len(bodies)}x with DIFFERENT bodies")
@@ -410,7 +510,7 @@ for f,t in TXT.items():
         try: tree=ast.parse(b)
         except SyntaxError: continue
         for n in tree.body:
-            if isinstance(n,ast.FunctionDef): glob[n.name][f]=fingerprint(n)
+            if isinstance(n,ast.FunctionDef): glob[n.name][f]=fingerprint(n, b)
 # THE BASELINE READS ENGINES TOO (Wave 2 Part C B9, 2026-08-20).
 # XSPEC-DRIFT compares SPEC against SPEC, which is right: it exists to catch the same
 # instruction copied into two step files and then edited in one. The declared-divergence
@@ -434,7 +534,7 @@ for _mod, _src in ENG.items():
         continue
     for _n in _tree.body:
         if isinstance(_n, ast.FunctionDef):
-            glob_all[_n.name][_mod + '.py'] = fingerprint(_n)
+            glob_all[_n.name][_mod + '.py'] = fingerprint(_n, _src)
 
 DIVERGENCE = load_divergence_baseline()
 for name,byfile in glob.items():
@@ -509,7 +609,7 @@ for f, t in TXT.items():
             continue
         for n in tree.body:
             if isinstance(n, ast.FunctionDef) and not _is_delegating_adapter(n):
-                _spec_nonadapter[n.name][f] = fingerprint(n)
+                _spec_nonadapter[n.name][f] = fingerprint(n, b)
 _engine_defs = defaultdict(dict)
 for _mod, _src in ENG.items():
     try:
@@ -518,7 +618,7 @@ for _mod, _src in ENG.items():
         continue
     for _n in _tree.body:
         if isinstance(_n, ast.FunctionDef):
-            _engine_defs[_n.name][_mod + '.py'] = fingerprint(_n)
+            _engine_defs[_n.name][_mod + '.py'] = fingerprint(_n, _src)
 
 for name in sorted(set(_spec_nonadapter) & set(_engine_defs)):
     if name.startswith('_'):

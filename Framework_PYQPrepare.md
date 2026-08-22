@@ -1,4 +1,9 @@
-# Framework_PYQPrepare v2.1 — Universal PYQ Row File Generator
+# Framework_PYQPrepare v2.1.1 — Universal PYQ Row File Generator
+# v2.1.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: two-view invariant -> tagged fence; 10 prose mentions to no-paren form.
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v2.1 — 2026-08-15 — GAP-2026-08-15-BAREQ (producer side). S1-4 contract rewritten: a
 #   bare "Q.N" stem — OMML-only, figure-only, or empty/corrupt — is a LAWFUL normalised
 #   form with a named reason, and "repairing" it by injecting filler ("Solve:") is now
@@ -549,7 +554,7 @@ left is NOT declared. Padding is therefore impossible to express, and a
 genuinely blank cell ({'t': ''} — the classic empty top-left corner) is
 distinguishable from padding STRUCTURALLY rather than by heuristic.
 
-GRID WIDTH IS COMPUTED, NEVER DECLARED, by corpus_io.place_cells(), which runs
+GRID WIDTH IS COMPUTED, NEVER DECLARED, by corpus_io.place_cells, which runs
 the standard HTML occupancy algorithm. A row that under-declares produces a
 'hole'; a row that over-declares produces an 'overlap'. Both are TRANSCRIPTION
 ERRORS and both are REPORTED (ValueError) — never silently normalised. Silent
@@ -775,7 +780,7 @@ HOW (v1.11 — THREE-PHASE, GAP-2026-07-26-003):
   against the images this step has already extracted. There is no separate probe:
   the images ARE the probe. If any of them comes back observed, vision works.
 
-    PHASE A (python)  corpus_io.build_vision_queue(items, VISION_WORKDIR, fresh=True)
+    PHASE A (python)  corpus_io.build_vision_queue with (items, VISION_WORKDIR, fresh=True)
                       — items are the extracted images, keyed (source_id, img_idx).
 
                       VISION_WORKDIR = '/home/claude/pyq_vision_prep'   (v1.13)
@@ -799,7 +804,7 @@ HOW (v1.11 — THREE-PHASE, GAP-2026-07-26-003):
                       Protocol verbatim as Framework_MockTestAnalyse S4-2b, except
                       that what is recorded is the CLASSIFICATION this protocol
                       needs (math / table / text / figure) plus figure_readable.
-    PHASE C (python)  bc.merge_vision_observations(queue['items'], observations)
+    PHASE C (python)  bc.merge_vision_observations with (queue['items'], observations)
                       — the only writer of image_clarity.
 
 ON `observed` — proceed to Phase A-IMAGE. Behaviour is exactly as v1.6 specified.
@@ -823,7 +828,7 @@ ON `unavailable` or `partial` — v1.11 REPLACES THE HALT.
      that is still an image can be transcribed later; a placeholder cannot be
      un-baked. This is what makes completing the run safe.
   4. Record image_clarity='vision_unavailable' for those images via
-     bc.merge_vision_observations() (Phase C is the only writer).
+     bc.merge_vision_observations (Phase C is the only writer).
   5. DELIVER the Row file, and state plainly in the delivery footer which images
      are pending. The footer renders F1 AMBER, never F2 green, because a FAIL or
      an unobserved-image count is present (Framework_DeliveryFooter §5).
@@ -914,14 +919,14 @@ def extract_source_images(docx_path, output_dir):
 ```
 
 ```
-    ACCOUNTING (v1.9): corpus_io.count_image_refs(docx_path) gives the number of
+    ACCOUNTING (v1.9): corpus_io.count_image_refs on docx_path gives the number of
     image references the package actually contains. Every one of them must end
     up either in the mapping or in the 'preamble' bucket. A shortfall means an
     image exists that this protocol will never classify — investigate before
     building, because the pipeline's fall-through would silently placeholder it.
 
     Vector parts (kind == 'vector') cannot be viewed directly. PHASE A handles this:
-    corpus_io.build_vision_queue() normalises every source internally (CMYK -> RGB,
+    corpus_io.build_vision_queue normalises every source internally (CMYK -> RGB,
     bounded, PNG) before tiling, and a part it cannot rasterise is queued and labelled
     [UNRENDERABLE] rather than dropped (EC-V8). Never view a raw source directly, or a
     vector/CMYK part reads as unreadable and is misclassified as VISUAL.
@@ -3075,7 +3080,7 @@ CHECK 9 — OPTIONS FORMAT (v2.0)
   r'^[1-5]\.\s*$' whose paragraph carries an <m:oMath> payload — an
   OMML-only option (e.g. a fraction or a column vector) is CANONICAL, the
   producer-side mirror of corpus_io's S-1 consumer rule (is_option with
-  para). Downstream text audits read corpus_io.text_of(), which
+  para). Downstream text audits read corpus_io.text_of, which
   concatenates <w:t> AND <m:t> (M3). WARN on anything else.
 
 CHECK 10 — OMML STRUCTURAL INTEGRITY
@@ -3163,7 +3168,7 @@ CHECK 17b — PADDING SIGNATURE (v1.14, advisory, legacy path only)
   legitimate and common table shape.
 
 CHECK 18 — NO FUSED BLOCKS (v1.14)
-  corpus_io.adjacent_table_pairs(doc) must be 0. Two adjacent block-level
+  corpus_io.adjacent_table_pairs on the doc must be 0. Two adjacent block-level
   <w:tbl> siblings are FUSED into one table by every Word engine (S1-8b),
   and the fusion is INVISIBLE in the emitted file — python-docx reports N
   tables where Word shows one. WARN with the pair count.
@@ -3201,10 +3206,18 @@ CHECK 22 — PRODUCER/CONSUMER Q-DETECTION AGREEMENT (v1.0, GAP-2026-08-15-BAREQ
   consumer, because it compares two DIFFERENT VIEWS of the same document:
     - p.text            — the <w:t>-only view, which is what Steps 3 and 5 walk
     - corpus_io.text_of — the <w:t> + <m:t> view, i.e. what a reader actually sees
-  For every paragraph, assert:
-      (bc.detect_question_start(p.text) is not None)
-      == (bc.detect_question_start(corpus_io.text_of(p)) is not None)
-  and assert the two views yield the SAME Q-count and the SAME Q-numbers.
+  For every paragraph, assert the invariant below, and assert the two views
+  yield the SAME Q-count and the SAME Q-numbers.
+```
+```python
+import blueprint_core as bc
+import corpus_io
+
+def views_agree(p):
+    return ((bc.detect_question_start(p.text) is not None)
+            == (bc.detect_question_start(corpus_io.text_of(p)) is not None))
+```
+```
   A disagreement means a question exists in the visible document that the
   downstream parser cannot see (or the reverse). That is silent data loss, and it
   is the exact shape that cost IIT_JAM_MATHEMATICS 12-Feb-2017 four questions with
@@ -4101,15 +4114,15 @@ PHASE A — INSPECT (1–3 tool calls):
     → Cross-check the mapping total against corpus_io.count_image_refs.
 
   CALL A3b (v1.11, MANDATORY before any classification): PHASE A + PHASE B
-    bash_tool: queue = corpus_io.build_vision_queue(items, VISION_WORKDIR, fresh=True)
+    bash_tool: queue = corpus_io.build_vision_queue with (items, VISION_WORKDIR, fresh=True)
       # VISION_WORKDIR = '/home/claude/pyq_vision_prep' — Step 1's own, NOT Step 5's
       # (v1.13; fresh=True needs corpus_io >= v1.10 — per-run scope, see S1-12)
       where items = [{'paper_id','q_num','srcs':[extracted image paths]}, ...]
     THEN, IN THIS TURN (PHASE B — prose protocol, S1-12; never a python call):
       view(<VISION_WORKDIR>/<sheet>) for each sheet in queue['sheets']
       record ONE observation per labelled cell, then
-      corpus_io.write_vision_observations(VISION_WORKDIR, observations)
-    bash_tool: bc.merge_vision_observations(queue['items'], observations)  (PHASE C)
+      corpus_io.write_vision_observations with (VISION_WORKDIR, observations)
+    bash_tool: bc.merge_vision_observations with (queue['items'], observations)  (PHASE C)
     → OBSERVED cells: classify exactly as v1.6 specified.
     → UNOBSERVED cells: leave the image untouched, assign NO placeholder, complete
       the run, state the count, render F1 amber. NO HALT.
@@ -4369,4 +4382,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQPrepare v2.1
+# END OF Framework_PYQPrepare v2.1.1

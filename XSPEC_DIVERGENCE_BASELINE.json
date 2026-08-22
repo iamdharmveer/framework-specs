@@ -1,45 +1,54 @@
 {
-  "_schema": "name -> {files: {spec OR engine -> fingerprint_hash}, reason, note}",
-  "_purpose": "Cross-spec function divergences that are INTENTIONAL and DECLARED. Read by audit_deep.py check 3 (XSPEC-DRIFT). Created 2026-08-20 so that the line-based fence scanner could ship: the previous regex extractor truncated Framework_MockTestAnalyse.md's S8-1 Drive transport fence at the first ``` inside a docstring, so acquire_paper / plan_transport / probe_drive_channel were never audited at all, and reporting `findings: 0` over unread code is not the same as having no findings.",
-  "_policy": "THE ONLY LEGITIMATE EDIT IS A DELETION. An entry pins the fingerprint of BOTH bodies; change either side and the exemption goes STALE and FAILS THE BUILD, because what was reviewed is no longer what is in the file. An entry whose divergence has disappeared also fails, so a dormant exemption cannot lie in wait for the next divergence of the same name. There is NO WRITER: `audit_deep.py --print-divergence-baseline` prints a candidate for a human to paste, so every entry arrives as a reviewable diff. A --write flag is exactly how spec_name_audit re-froze two defects it had just fixed (Framework_MockTestAnalyse v2.53.1, D5/D6); that switch is deliberately not built here.",
-  "_complements": "mock_sync_audit MS-13 already requires BOTH specs to NAME a probe-paper divergence in prose. This file records the same fact structurally, so the two checks fail independently: prose that stops matching the code fails MS-13, code that changes under a declared exemption fails XSPEC-BASELINE-STALE.",
-  "_reasons": {
-    "step_label_only": "bodies differ only in a printed step identifier (S5-x vs S8-x)",
-    "declared_step_divergence": "the steps genuinely differ and BOTH specs name the divergence in prose",
-    "declared_law_scope": "a law applies to one step and is declared out of scope for the other, with the reason stated in the spec that does not carry it",
-    "inherited_pre_existing": "a divergence that PRE-DATES the check that found it, entered as debt so the check could ship. NOT a judgement that the divergence is correct"
+ "_schema": "name -> {files: {spec OR engine -> fingerprint_hash}, reason, note}",
+ "_purpose": "Cross-spec function divergences that are INTENTIONAL and DECLARED. Read by audit_deep.py check 3 (XSPEC-DRIFT). Created 2026-08-20 so that the line-based fence scanner could ship: the previous regex extractor truncated Framework_MockTestAnalyse.md's S8-1 Drive transport fence at the first ``` inside a docstring, so acquire_paper / plan_transport / probe_drive_channel were never audited at all, and reporting `findings: 0` over unread code is not the same as having no findings.",
+ "_policy": "THE ONLY LEGITIMATE EDIT IS A DELETION. An entry pins the fingerprint of BOTH bodies; change either side and the exemption goes STALE and FAILS THE BUILD, because what was reviewed is no longer what is in the file. An entry whose divergence has disappeared also fails, so a dormant exemption cannot lie in wait for the next divergence of the same name. There is NO WRITER: `audit_deep.py --print-divergence-baseline` prints a candidate for a human to paste, so every entry arrives as a reviewable diff. A --write flag is exactly how spec_name_audit re-froze two defects it had just fixed (Framework_MockTestAnalyse v2.53.1, D5/D6); that switch is deliberately not built here.",
+ "_complements": "mock_sync_audit MS-13 already requires BOTH specs to NAME a probe-paper divergence in prose. This file records the same fact structurally, so the two checks fail independently: prose that stops matching the code fails MS-13, code that changes under a declared exemption fails XSPEC-BASELINE-STALE.",
+ "_reasons": {
+  "step_label_only": "bodies differ only in a printed step identifier (S5-x vs S8-x)",
+  "declared_step_divergence": "the steps genuinely differ and BOTH specs name the divergence in prose",
+  "declared_law_scope": "a law applies to one step and is declared out of scope for the other, with the reason stated in the spec that does not carry it",
+  "inherited_pre_existing": "a divergence that PRE-DATES the check that found it, entered as debt so the check could ship. NOT a judgement that the divergence is correct"
+ },
+ "_moved_2026_08_20_2": "Wave 2 Part C batch 9 moved Step 5's side of these three from Framework_MockTestAnalyse.md into transport_core.py. The FINGERPRINTS ARE UNCHANGED (85be24c4409cc162 / 126dbd7a526ee853 / baae150953be0c7f before and after), which is the extraction proving itself verbatim. audit_deep's baseline check reads engine definitions as well as spec fences precisely so that an extraction cannot dissolve a declared divergence: when this batch landed, all three entries reported 'no longer diverges' and demanded deletion — the ratchet was right that something changed and wrong about what, and deleting them would have retired the only check watching these pairs. Widening the view was the correct answer; deletion was the tempting one.",
+ "_fingerprint_algorithm": "v2 token-normalized (2026-08-21, GAP-2026-08-21-FINGERPRINT-ENV-DEPENDENCE): sha256 of the tokenized source segment — comments/blank lines/indent depth dropped, docstring dropped, FSTRING token runs coalesced to the 3.11 single-STRING shape, token NAMES not numbers. Environment-independent by construction; a pinned-digest fixture in audit_deep --self-test fails loudly on any drift. v1 (ast.unparse->ast.dump) varied across CPython versions: a 3.12 builder saw 4 phantom-stale entries that the deploy environment did not, 'refreshed' correct data into 3.12-only values, and release 2026.08.21.4 was correctly blocked at deploy. All fingerprints below are v2 values.",
+ "acquire_paper": {
+  "files": {
+   "Framework_PYQCount.md": "8c908bebc417e289",
+   "transport_core.py": "7098e57f498c4ef0"
   },
-  "probe_drive_channel": {
-    "files": {
-      "Framework_PYQCount.md": "79b4bae8d6b5cdd8",
-      "transport_core.py": "baae150953be0c7f"
-    },
-    "reason": "step_label_only",
-    "note": "Docstrings are already stripped by fingerprint(), so the ONLY remaining difference is the printed banner: Step 4 prints 'S5-0 CHANNEL PROBE', Step 5 prints 'S8-0 CHANNEL PROBE'. Step 5's docstring states 'Identical contract to Framework_PYQCount S5-0'. Merging the two would require one step to print the other's section id, which is worse than the divergence."
+  "reason": "declared_step_divergence",
+  "note": "Different acquisition models, not drift. Step 4 (single-session, whole corpus in one run) keys off `paper['id'] in drive_payloads` with a `paper.get('path')` fallback, because PHASE A materialised every payload up front. Step 5 (batched across ~8 sessions) keys off `paper_ref['source'] != 'gdrive'`, because its batch loop carries a source-tagged reference rather than a pre-materialised payload map. Both docstrings state the shared invariant that matters — `resolver` performs no tool call, and every failure degrades to the upload lane via TransportFallback rather than being fatal. Fingerprints regenerated 2026-08-21 under the v2 environment-stable algorithm (values differ from every earlier release by construction of the new algorithm, not by any body change; bodies re-diffed and unchanged in shape)."
+ },
+ "omath": {
+  "files": {
+   "Framework_MockTestCreate.md": "24583c10b609df67",
+   "explain_engine.py": "ad93188dd451068f"
   },
-  "acquire_paper": {
-    "files": {
-      "Framework_PYQCount.md": "225b37c42098546e",
-      "transport_core.py": "85be24c4409cc162"
-    },
-    "reason": "declared_step_divergence",
-    "note": "Different acquisition models, not drift. Step 4 (single-session, whole corpus in one run) keys off `paper['id'] in drive_payloads` with a `paper.get('path')` fallback, because PHASE A materialised every payload up front. Step 5 (batched across ~8 sessions) keys off `paper_ref['source'] != 'gdrive'`, because its batch loop carries a source-tagged reference rather than a pre-materialised payload map. Both docstrings state the shared invariant that matters — `resolver` performs no tool call, and every failure degrades to the upload lane via TransportFallback rather than being fatal."
+  "reason": "inherited_pre_existing",
+  "note": "Framework_MockTestCreate.md re-localises explain_engine.omath. The bodies are SEMANTICALLY IDENTICAL and differ only in the parameter name (`*p` vs `*parts`), so there is no defect today — which is exactly why it survived: nothing was watching, and two copies that already disagree cosmetically are how two copies come to disagree substantively. Entered as DEBT, not as approval. Surfaced by XSPEC-ENGINE-DRIFT at 2026.08.20.3; the fix is to make the spec copy a delegating adapter, and it belongs to the Step 7 wave that owns Framework_MockTestCreate.md, not to a Step 5 batch that has no golden set for that spec. Fingerprints regenerated 2026-08-21 under the v2 environment-stable algorithm (values differ from every earlier release by construction of the new algorithm, not by any body change; bodies re-diffed and unchanged in shape)."
+ },
+ "plan_transport": {
+  "files": {
+   "Framework_PYQCount.md": "74114b96896005d9",
+   "transport_core.py": "cf5dd6ed0e682f20"
   },
-  "plan_transport": {
-    "files": {
-      "Framework_PYQCount.md": "2eb07c6523cf20e1",
-      "transport_core.py": "126dbd7a526ee853"
-    },
-    "reason": "declared_law_scope",
-    "note": "Step 5's signature carries the v2.51.0 SESSION-BUDGET LAW (session_budget, batch_size, probe_consumed) and the P4d/P4f/P4g deviations; Step 4's does not. Framework_PYQCount v1.5 propagated THREE of the four laws from GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (EC-P43 direct egress, EC-P40 probe-as-spender with consumed= stated explicitly as 0, EC-P41 asserted listing) and declared the fourth OUT OF SCOPE with its reason on the record: Step 4 is single-session, so its probe cost amortises to zero, and its route is under SPEC_BUDGET_BYTES. RE-VERIFIED 2026-08-20: PYQCount route 239,599 B against the 250,000 B threshold, and Step 4 still fetches the probe paper again in the same run. Headroom is 10,401 B (4.2%) — if PYQCount ever crosses the threshold, the fourth law becomes live for Step 4 and this entry must be re-reviewed, not extended."
+  "reason": "declared_law_scope",
+  "note": "Step 5's signature carries the v2.51.0 SESSION-BUDGET LAW (session_budget, batch_size, probe_consumed) and the P4d/P4f/P4g deviations; Step 4's does not. Framework_PYQCount v1.5 propagated THREE of the four laws from GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (EC-P43 direct egress, EC-P40 probe-as-spender with consumed= stated explicitly as 0, EC-P41 asserted listing) and declared the fourth OUT OF SCOPE with its reason on the record: Step 4 is single-session, so its probe cost amortises to zero, and its route is under SPEC_BUDGET_BYTES. RE-VERIFIED 2026-08-20: PYQCount route 239,599 B against the 250,000 B threshold, and Step 4 still fetches the probe paper again in the same run. Headroom is 10,401 B (4.2%) — if PYQCount ever crosses the threshold, the fourth law becomes live for Step 4 and this entry must be re-reviewed, not extended. Fingerprints regenerated 2026-08-21 under the v2 environment-stable algorithm (values differ from every earlier release by construction of the new algorithm, not by any body change; bodies re-diffed and unchanged in shape)."
+ },
+ "probe_drive_channel": {
+  "files": {
+   "Framework_PYQCount.md": "83a0b57dc61eecfa",
+   "transport_core.py": "96304954a7eed856"
   },
-  "_moved_2026_08_20_2": "Wave 2 Part C batch 9 moved Step 5's side of these three from Framework_MockTestAnalyse.md into transport_core.py. The FINGERPRINTS ARE UNCHANGED (85be24c4409cc162 / 126dbd7a526ee853 / baae150953be0c7f before and after), which is the extraction proving itself verbatim. audit_deep's baseline check reads engine definitions as well as spec fences precisely so that an extraction cannot dissolve a declared divergence: when this batch landed, all three entries reported 'no longer diverges' and demanded deletion — the ratchet was right that something changed and wrong about what, and deleting them would have retired the only check watching these pairs. Widening the view was the correct answer; deletion was the tempting one.",
-  "omath": {
-    "files": {
-      "Framework_MockTestCreate.md": "a0368f42f9a29b4a",
-      "explain_engine.py": "2dbf233326c6045c"
-    },
-    "reason": "inherited_pre_existing",
-    "note": "Framework_MockTestCreate.md re-localises explain_engine.omath. The bodies are SEMANTICALLY IDENTICAL and differ only in the parameter name (`*p` vs `*parts`), so there is no defect today — which is exactly why it survived: nothing was watching, and two copies that already disagree cosmetically are how two copies come to disagree substantively. Entered as DEBT, not as approval. Surfaced by XSPEC-ENGINE-DRIFT at 2026.08.20.3; the fix is to make the spec copy a delegating adapter, and it belongs to the Step 7 wave that owns Framework_MockTestCreate.md, not to a Step 5 batch that has no golden set for that spec."
-  }
+  "reason": "step_label_only",
+  "note": "Docstrings are already stripped by fingerprint(), so the ONLY remaining difference is the printed banner: Step 4 prints 'S5-0 CHANNEL PROBE', Step 5 prints 'S8-0 CHANNEL PROBE'. Step 5's docstring states 'Identical contract to Framework_PYQCount S5-0'. Merging the two would require one step to print the other's section id, which is worse than the divergence. Fingerprints regenerated 2026-08-21 under the v2 environment-stable algorithm (values differ from every earlier release by construction of the new algorithm, not by any body change; bodies re-diffed and unchanged in shape)."
+ },
+ "sqrt": {
+  "files": {
+   "Framework_MockTestCreate.md": "c94f062e6ee2b838",
+   "explain_engine.py": "b3c1f3f3851615f3"
+  },
+  "reason": "inherited_pre_existing",
+  "note": "Framework_MockTestCreate.md re-localises explain_engine.sqrt. Bodies are SEMANTICALLY IDENTICAL (byte-equal OMML output); they differ only in where the implicit f-string concatenation is line-wrapped (2 lines vs 3). Invisible under the v1 unparse-normalised fingerprint; surfaced 2026-08-21 by the stricter v2 source-token fingerprint and reviewed the same day: no defect, same debt class as 'omath'."
+ }
 }

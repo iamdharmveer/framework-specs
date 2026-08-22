@@ -1,4 +1,9 @@
-# Framework_PYQApprove v1.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# Framework_PYQApprove v1.0.1 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
+#   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
+#   across the corpus, invisible behind an 8-line display cap. This file: 1 prose mention to no-paren form (write_analysis_doc).
+#   Call mentions in prose now use the documented no-paren form; genuine code is in
+#   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
 # v1.0 — 2026-07-31 — SPLIT FROM Framework_PYQAnalyse v2.29 (content byte-identical).
 #   Zero rule/functionality change. All §/S/EC IDs preserved verbatim. The
 #   pre-split changelog (v2.0-v2.29) lives in CHANGELOG.md; the superseded
@@ -408,7 +413,7 @@ INVOCATION (v2.24 — MANDATORY, not illustrative):
   path = generate_merged_analysis_doc(taxonomy, exam_code, section_order,
                                       counts={(subject, topic, subtopic): n, ...})
 
-  S4-2 delegates to corpus_io.write_analysis_doc(). Do NOT hand-build this document
+  S4-2 delegates to corpus_io.write_analysis_doc. Do NOT hand-build this document
   with docx-js or python-docx: it is the artefact four steps parse, it has exactly
   ONE writer, and that writer is paired with the reader by a round-trip assertion in
   corpus_io --self-test. A hand-built doc is unverified by construction.
@@ -656,4 +661,4 @@ this file forfeits the determinism guarantee.
 
 ---
 
-# END OF Framework_PYQApprove v1.0
+# END OF Framework_PYQApprove v1.0.1
