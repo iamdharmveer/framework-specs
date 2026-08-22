@@ -1,4 +1,16 @@
-# Framework_MockTestCreate v5.60
+# Framework_MockTestCreate v5.61
+# v5.61 — 2026-08-22 — GAP-2026-08-22-FIGASPECT-SELF-FULFILLING (figural_core, 124
+#   fixtures). The option-set canvas-aspect derivation was circular: it measured the
+#   union of pass-1 data_windows, which apply_data_window() had already inflated to the
+#   canvas aspect pass 1 rendered on — so square molecule sets stayed on the 0.72
+#   landscape default forever (measured live: hexagon set, true aspect 2/sqrt(3), derived
+#   0.69, set fill 41% < the 45% floor, G-FIGFIT BLOCKING a correct drawing), and an
+#   author-declared canvas_aspect was silently clobbered. Fix (Q12.1): the fitter records
+#   fit.content_window and fit.stroke_window (raw data-coordinate extents); the set
+#   aspect derives from zoom-invariant STROKE geometry (content, then window, fallback);
+#   a unanimous declared aspect is honoured exactly; pass 2 seeds from the content
+#   union. Same fixture now: aspect 1.1547 exact, fill 70%, gate clean. Single problem
+#   figures unchanged (declared or 0.72 default, as documented since v5.55).
 # v5.60 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (blueprint_core
 #   Cluster E2c, final_assembly v1.6, audit_canonical v2.15, Blueprint v1.51.0,
 #   TestExplain §7A-M, PYQExplain divergence note resolved). THE DEFECT, measured on
@@ -5790,6 +5802,25 @@
         budget; Q12 closes the identical hole on geometry. Gate G-FIGOPTWINDOW
         (VOID_ITEM). render_figure() alone is correct for a PROBLEM figure and
         INSUFFICIENT for an option set.
+        Q12.1. THE SET ASPECT COMES FROM STROKE GEOMETRY (v5.61,
+        GAP-2026-08-22-FIGASPECT-SELF-FULFILLING). v5.55-v5.60 "derived" the
+        set's canvas aspect from the union of pass-1 data_windows — but the
+        fitter had already inflated every window to the canvas aspect pass 1
+        rendered on, so the derivation returned the default it started from: a
+        square molecule set stayed on a 0.72 landscape canvas, filled 41% of it
+        (floor 45%), and G-FIGFIT BLOCKED a correct drawing; worse, an authored
+        canvas_aspect on the specs was silently clobbered, disabling the
+        documented workaround exactly where it was needed. From v5.61 the fit
+        record carries the raw ink extent (fit.content_window) and the
+        Text-excluded stroke extent (fit.stroke_window), both in DATA
+        coordinates; the set aspect is derived from the STROKE union (pure,
+        zoom-invariant geometry — a hexagon set derives 1.1547 = 2/sqrt(3)
+        exactly), falling back to content, then window, union only when no
+        stroke ink exists. A canvas_aspect declared IDENTICALLY on every spec
+        of the set is the author's decision and is honoured EXACTLY. Pass 2
+        seeds from the content union, never the pass-1 window union. Authoring
+        guidance unchanged: declare nothing and the canvas now genuinely
+        follows the structure's shape.
     Q13. THE CENSUS MUST AGREE WITH THE PIXELS (v5.57 — new). Q10 is arithmetic over
         the fit record, and it is only as good as the artist census that fed it. The
         census is now complete by construction (degenerate extents kept, Annotation
@@ -7966,7 +7997,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.60
+# END OF Framework_MockTestCreate v5.61
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

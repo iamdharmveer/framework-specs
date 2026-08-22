@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.21.4",
+  "framework_version": "2026.08.22.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -206,11 +206,11 @@
       "bytes": 287778
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "8b387fc36ae0ff6c2f8fc786832484a94db836fda55dad6194a9f8163825bee0",
-      "version_header": "# Framework_MockTestCreate v5.60",
+      "sha256": "ee7e762a5b21eed907a3fd2de99d25a5208da2dec46d4439d583237c1a2a9285",
+      "version_header": "# Framework_MockTestCreate v5.61",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8049,
-      "bytes": 505936
+      "lines": 8080,
+      "bytes": 508366
     },
     "Framework_MockTestExplain.md": {
       "sha256": "fea56cac0d03e5f792415a5fa031ea63f14d06563dea2ef1d449b8330e354520",
@@ -402,11 +402,11 @@
       "bytes": 20942
     },
     "figural_core.py": {
-      "sha256": "75ea312e9f40652407c1f700184d25f6b8f206156a43d110b319cc48e1fdc765",
+      "sha256": "1f563d310a7c35754230a7abae3f4d58b253476f617b86c34cd0a0e8b8ebbf91",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"figural_core.py \u2014 shared figure renderer + gates. Run with --self-test.\")",
-      "lines": 2446,
-      "bytes": 115521
+      "lines": 2604,
+      "bytes": 124942
     },
     "figural_vision.py": {
       "sha256": "585df46be615fb05415aa98dabe25658f48bfd2e8a4c1048fa2c23457ec7d692",
@@ -507,7 +507,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "daaa2de460855a529b949ef9e99085c5f6d68f253f3efdfb41f3abd5397b50fa",
+      "sha256": "0ea9284c2c1cb3715c6cb3276c9e0039aa33306eb86fc6ee03098a558781d0ea",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6748,

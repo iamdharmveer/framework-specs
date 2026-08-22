@@ -1,5 +1,37 @@
 # Changelog
 
+## 2026.08.22.1 — R2: GAP-2026-08-22-FIGASPECT-SELF-FULFILLING
+
+**figural_core (117 -> 124 fixtures) · Framework_MockTestCreate v5.60 -> v5.61 (Q12.1)**
+
+**The defect, reproduced live before any edit.** `render_option_set()` "derived" the
+set's canvas aspect from the union of pass-1 `data_window`s — but `apply_data_window()`
+had already inflated every one of those windows to the canvas aspect pass 1 rendered on,
+so the derivation returned the default it started from. A square hexagon option set
+(true aspect 2/√3 = 1.1547): derived **0.69**, set fill **41.4%** against the 45% floor,
+**G-FIGFIT BLOCKING a geometrically correct drawing**. Second bug in the same function:
+an author-declared `canvas_aspect` was silently overwritten by the circular derivation —
+the documented workaround was disabled exactly where it was needed. Same defect class as
+the axis sentinel and the difficulty stickers: the measurement trusted its own output.
+
+**The fix.** `fit_and_deconflict()` now records two raw data-coordinate extents:
+`fit.content_window` (all ink) and `fit.stroke_window` (Text-excluded — pure,
+zoom-invariant geometry, using the ink census's own kind tags). The set aspect derives
+from the STROKE union (content union for all-text sets, window union as the degenerate
+fallback), clamped to the existing band; a `canvas_aspect` declared identically on every
+spec is honoured exactly, never clobbered; pass 2 seeds from the content union so the
+pass-1 canvas shape cannot re-enter through the back door. Single problem figures are
+untouched (declared or 0.72 default, exactly as documented since v5.55).
+
+**Measured after fix, same fixture:** aspect **1.1547 exact** (2/√3), set fill
+**70.1%**, G-FIGFIT clean; declared 0.8 honoured at 0.8; wide chains clamp at 0.55;
+all-text sets fall back in-band. **Evidence:** 7 new fixtures pin the defect and the
+contract (`R2_square_strokes_get_square_canvas`, fill-floor, window nesting
+stroke⊆content⊆data, unanimous-declaration honoured, mixed-declaration falls through,
+wide clamp, text-only fallback); all 117 pre-existing fixtures unchanged and green —
+124/124. TestCreate P1's 18 figures no longer depend on per-question authoring
+discipline for canvas shape.
+
 ## 2026.08.21.4 — R1 HYGIENE: GAP-2026-08-21-C8-FENCE-BURNDOWN + baseline refresh
 
 **Editorial release — zero behavioural change.** Three items, all pre-existing:

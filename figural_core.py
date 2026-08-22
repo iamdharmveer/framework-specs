@@ -1228,6 +1228,49 @@ def fit_and_deconflict(fig, ax, spec, *, window=None):
         rec["content_bbox_px"] = None
         rec["axes_bbox_px"] = None
         rec["axis_on"] = True
+    # v5.61 (GAP-2026-08-22-FIGASPECT-SELF-FULFILLING) — the RAW ink extent in
+    # DATA coordinates, BEFORE any window inflation to the canvas aspect. This
+    # is the only extent from which a canvas aspect can honestly be derived:
+    # data_window has already been grown by apply_data_window() to match the
+    # axes box, so its shape always "confirms" whatever canvas it was rendered
+    # on. render_option_set() v5.60 derived the set aspect from the UNION of
+    # data_windows — a self-fulfilling loop that locked square molecule sets
+    # into the 0.72 landscape default forever (measured: hexagon option set,
+    # true content aspect ~1.0, derived 0.69, set fill 41% < the 45% floor,
+    # G-FIGFIT BLOCKING on a correct drawing).
+    try:
+        _cw = content_data_window(ax, rend)
+        rec["content_window"] = ([round(float(v), 6) for v in _cw]
+                                 if _cw is not None else None)
+    except Exception:
+        rec["content_window"] = None
+    # v5.61 — the STROKE window: the same union, Text artists excluded. A text
+    # extent in data coordinates scales with the zoom (font size is in points),
+    # so a content_window measured on one canvas over-reports the aspect a
+    # label-heavy figure would have on another. Stroke geometry is pure data —
+    # zoom-invariant — which makes it the one honest source for a canvas-shape
+    # decision. None when the figure is all text; the aspect derivation then
+    # falls back to content_window.
+    try:
+        # _visible_artists yields (kind, artist); the census already classifies
+        # text vs stroke ink, so the exclusion uses its tag, not isinstance.
+        _bbs = [_extent(a, rend) for kind, a in _visible_artists(ax)
+                if kind != "text"]
+        _bbs = [b for b in _bbs if b is not None]
+        if _bbs:
+            from matplotlib.transforms import Bbox as _Bbox
+            _u = _Bbox.union(_bbs)
+            inv = ax.transData.inverted()
+            (_x0, _y0) = inv.transform((_u.x0, _u.y0))
+            (_x1, _y1) = inv.transform((_u.x1, _u.y1))
+            rec["stroke_window"] = [round(float(min(_x0, _x1)), 6),
+                                    round(float(min(_y0, _y1)), 6),
+                                    round(float(max(_x0, _x1)), 6),
+                                    round(float(max(_y0, _y1)), 6)]
+        else:
+            rec["stroke_window"] = None
+    except Exception:
+        rec["stroke_window"] = None
     spec["fit"] = rec
     return rec
 
@@ -1798,26 +1841,61 @@ def render_option_set(draw_fns, out_paths, specs, palette=None):
                            "be the same length (one entry per option).")
     if len(specs) < 2:
         raise FiguralError("G-FIGOPTWINDOW: an option set needs >=2 options.")
-    wins = []
+    wins, cwins = [], []
     for fn, p, s in zip(draw_fns, out_paths, specs):
         render_figure(fn, p, s, palette=palette)
-        w = (s.get("fit") or {}).get("data_window")
-        if w:
-            wins.append(w)
+        f = s.get("fit") or {}
+        if f.get("data_window"):
+            wins.append(f["data_window"])
+        if f.get("content_window"):
+            cwins.append(f["content_window"])
     if not wins:
         return specs
-    common = (min(w[0] for w in wins), min(w[1] for w in wins),
-              max(w[2] for w in wins), max(w[3] for w in wins))
-    # v5.55. The canvas ASPECT comes from the content, not from a constant.
-    # A 0.72 landscape canvas given portrait content wastes the width and
-    # squeezes the height — measured on the reference paper as a figure using
-    # 33% of its canvas width and 97% of its height. One aspect for the whole
-    # SET, so uniformity (Q4 / G-FIGOPTUNIF) is preserved by construction.
-    cw = max(common[2] - common[0], 1e-9)
-    ch = max(common[3] - common[1], 1e-9)
-    asp = max(FIG_CANVAS_ASPECT_MIN, min(FIG_CANVAS_ASPECT_MAX, ch / cw))
+    # v5.61 (GAP-2026-08-22-FIGASPECT-SELF-FULFILLING). The canvas ASPECT comes
+    # from the CONTENT extent, never from the fitted window. v5.55-v5.60 derived
+    # it from the union of pass-1 data_windows — but apply_data_window() has
+    # already inflated every one of those to the canvas aspect pass 1 rendered
+    # on, so the "derivation" returned the default it started from: a square
+    # molecule set stayed in a 0.72 landscape canvas, filled 41% of it, and
+    # G-FIGFIT correctly BLOCKED a correct drawing. content_window is the raw
+    # ink extent in data coordinates and carries no such imprint. Precedence:
+    #   1. A canvas_aspect declared identically on EVERY spec of the set is the
+    #      author's decision and is honoured EXACTLY — v5.60 silently clobbered
+    #      it with the circular derivation, which disabled the documented
+    #      workaround precisely where it was needed.
+    #   2. Otherwise the aspect is derived from the union of content_windows,
+    #      clamped to the [FIG_CANVAS_ASPECT_MIN, FIG_CANVAS_ASPECT_MAX] band.
+    #   3. A set with no content_window at all (defensive; empty draws) keeps
+    #      the v5.60 window-union derivation rather than crashing.
+    # One aspect for the whole SET, so uniformity (Q4 / G-FIGOPTUNIF) is
+    # preserved by construction — unchanged.
+    swins = [f2 for f2 in
+             ((s.get("fit") or {}).get("stroke_window") for s in specs) if f2]
+    _decl = {s.get("canvas_aspect") for s in specs}
+    if len(_decl) == 1 and None not in _decl:
+        asp = float(_decl.pop())
+    else:
+        # Stroke union first: zoom-invariant pure geometry, so a square ring is
+        # a square whatever canvas pass 1 happened to render on. Content union
+        # (labels included) only when the set draws no strokes at all; window
+        # union only in the degenerate no-measurement case.
+        src = swins or cwins or wins
+        cu = (min(w[0] for w in src), min(w[1] for w in src),
+              max(w[2] for w in src), max(w[3] for w in src))
+        cw = max(cu[2] - cu[0], 1e-9)
+        ch = max(cu[3] - cu[1], 1e-9)
+        asp = max(FIG_CANVAS_ASPECT_MIN, min(FIG_CANVAS_ASPECT_MAX, ch / cw))
     for s in specs:
         s["canvas_aspect"] = round(float(asp), 4)
+    # Pass 2 seeds from the CONTENT union too: seeding from the pass-1 window
+    # union would re-import the pass-1 canvas shape through the back door. The
+    # clearance-deficit loop below grows it to the 0.05 in floor as before.
+    if cwins:
+        common = (min(w[0] for w in cwins), min(w[1] for w in cwins),
+                  max(w[2] for w in cwins), max(w[3] for w in cwins))
+    else:
+        common = (min(w[0] for w in wins), min(w[1] for w in wins),
+                  max(w[2] for w in wins), max(w[3] for w in wins))
     # Pass 2, with a bounded re-expansion. A shared window is applied AS GIVEN,
     # so an option whose labels moved during its own deconflict pass can still
     # sit closer to the frame than the floor. The window is then grown for ALL
@@ -2432,6 +2510,86 @@ def self_test():
         check("D13_framed_option_with_label_is_silent_under_figink",
               [x for x in _h13c if "FIGINK" in x] == []
               and (_s13c["fit"].get("content_bbox_px") or [0, 0, 0, 0])[2] > 300)
+
+        # ── R2 (v5.61, GAP-2026-08-22-FIGASPECT-SELF-FULFILLING) ────────────
+        # The defect, pinned: v5.60 derived the option-set canvas aspect from
+        # the union of pass-1 data_windows, which apply_data_window() had
+        # already inflated to the canvas pass 1 rendered on — so the derivation
+        # returned its own assumption. Measured on this exact fixture: a square
+        # hexagon set derived 0.69, filled 41% (< the 45% floor), and G-FIGFIT
+        # BLOCKED a correct drawing. The aspect now comes from zoom-invariant
+        # STROKE geometry; a unanimous author declaration is honoured exactly.
+        import math as _math
+        def _hexopt(tag):
+            def _d(ax, series, palette):
+                _pts = [( _math.cos(a), _math.sin(a))
+                        for a in [_math.pi / 6 + i * _math.pi / 3 for i in range(6)]]
+                for i in range(6):
+                    _x0, _y0 = _pts[i]; _x1, _y1 = _pts[(i + 1) % 6]
+                    ax.plot([_x0, _x1], [_y0, _y1], color="black", lw=2.0)
+                ax.text(0, 1.25, "CH3", ha="center", va="bottom", fontsize=9)
+                ax.text(1.15, 0, tag, ha="left", va="center", fontsize=9)
+            return _d
+        _r2d = tempfile.mkdtemp()
+        _r2s = [make_figure_spec(7, "option_canvas", FIG_OPT_DISPLAY_IN,
+                                 role="option") for _ in range(2)]
+        render_option_set([_hexopt("Cl"), _hexopt("Br")],
+                          [os.path.join(_r2d, f"r2_{i}.png") for i in range(2)],
+                          _r2s)
+        _asp = _r2s[0]["canvas_aspect"]
+        check("R2_square_strokes_get_square_canvas",
+              1.05 <= _asp <= 1.25 and _r2s[1]["canvas_aspect"] == _asp)
+        check("R2_square_set_fill_clears_floor",
+              _r2s[0]["fit"]["set_fill_frac"] >= MIN_CONTENT_FILL_FRAC
+              and not [x for x in g_figfit(_r2s[0]) if "fills" in x])
+        check("R2_fit_records_both_windows",
+              _r2s[0]["fit"].get("stroke_window") is not None
+              and _r2s[0]["fit"].get("content_window") is not None)
+        _sw, _cw2, _dw = (_r2s[0]["fit"]["stroke_window"],
+                          _r2s[0]["fit"]["content_window"],
+                          _r2s[0]["fit"]["data_window"])
+        check("R2_windows_nest_stroke_content_data",
+              _dw[0] <= _cw2[0] <= _sw[0] + 1e-6 and _dw[1] <= _cw2[1] <= _sw[1] + 1e-6
+              and _sw[2] - 1e-6 <= _cw2[2] <= _dw[2] and _sw[3] - 1e-6 <= _cw2[3] <= _dw[3])
+        # unanimous declaration: honoured EXACTLY, never clobbered (v5.60 bug 2)
+        _r2b = [make_figure_spec(7, "option_canvas", FIG_OPT_DISPLAY_IN,
+                                 role="option", canvas_aspect=0.8) for _ in range(2)]
+        render_option_set([_hexopt("F"), _hexopt("I")],
+                          [os.path.join(_r2d, f"r2b_{i}.png") for i in range(2)],
+                          _r2b)
+        check("R2_unanimous_declared_aspect_honoured",
+              all(x["canvas_aspect"] == 0.8 for x in _r2b))
+        # wide strokes clamp at the band floor; a non-unanimous declaration is
+        # NOT a set decision and falls through to content derivation
+        def _chain(tag):
+            def _d(ax, series, palette):
+                ax.plot([0, 8], [0, 0.6], color="black", lw=2.0)
+                ax.text(4, 0.75, tag, ha="center", fontsize=9)
+            return _d
+        _r2c = [make_figure_spec(8, "option_canvas", FIG_OPT_DISPLAY_IN,
+                                 role="option",
+                                 canvas_aspect=(0.9 if i == 0 else None))
+                for i in range(2)]
+        render_option_set([_chain("A"), _chain("B")],
+                          [os.path.join(_r2d, f"r2c_{i}.png") for i in range(2)],
+                          _r2c)
+        check("R2_wide_clamps_and_mixed_declaration_ignored",
+              _r2c[0]["canvas_aspect"] == FIG_CANVAS_ASPECT_MIN
+              and _r2c[1]["canvas_aspect"] == FIG_CANVAS_ASPECT_MIN)
+        # an all-text set has no strokes: content fallback, no crash, in-band
+        def _txt(tag):
+            def _d(ax, series, palette):
+                ax.text(0.5, 0.5, tag, ha="center", va="center", fontsize=11)
+            return _d
+        _r2e = [make_figure_spec(9, "option_canvas", FIG_OPT_DISPLAY_IN,
+                                 role="option") for _ in range(2)]
+        render_option_set([_txt("syn"), _txt("anti")],
+                          [os.path.join(_r2d, f"r2e_{i}.png") for i in range(2)],
+                          _r2e)
+        check("R2_textonly_set_falls_back_in_band",
+              FIG_CANVAS_ASPECT_MIN <= _r2e[0]["canvas_aspect"]
+              <= FIG_CANVAS_ASPECT_MAX
+              and _r2e[0]["fit"].get("stroke_window") is None)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
