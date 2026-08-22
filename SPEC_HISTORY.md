@@ -2540,6 +2540,32 @@ Current-version entry remains in Framework_PYQCompress.md.
 
 ## Framework_PYQCore.md
 
+Entry v1.5 moved at framework release 2026.08.22.2 (EC-P42 — PYQScan-route
+headroom, flagged +809 B by the 2026.08.21.4 deploy review). Current-version
+entry remains in Framework_PYQCore.md.
+
+```
+# v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (SESSION-BUDGET LAW).
+#   §9 gains four edge cases. The reference incident is IIT_JAM_MATHEMATICS PYQExtract:
+#   two consecutive sessions, 54 tool calls, ZERO of 22 papers processed, because three
+#   independent stalls each sufficient on their own were present at once.
+#   EC-P40 (the probe is a SPENDER, not a free classifier — a CLASS T acquisition
+#   performed BEFORE the partition must be subtracted from the budget, and is charged
+#   even when it fails, because the bytes arrived either way). EC-P41 (a PARTIAL
+#   listing is worse than an empty one — EC-P39 catches zero and nothing caught
+#   21-of-22; the transcription from connector response to DRIVE_LISTING_CACHE is the
+#   highest-risk step in the acquisition path and must be asserted against an
+#   independently declared count, with a HARD STOP). EC-P42 (SPECIFICATION-READ COST is
+#   a session resource — the framework priced payload characters and paper pacing but
+#   never priced reading its own specification, which on Step 5 is 556,834 B / ~139,208
+#   tok / >=36 view calls BEFORE any work). EC-P43 (the DIRECT EGRESS LANE — when the
+#   container can reach Drive and the folder is link-shared, python fetches the bytes
+#   itself and EC-P36's double charge disappears entirely; proven per exam on a real
+#   paper, never assumed, never fatal on failure).
+#   EC-P36/EC-P37 are unchanged and remain correct: they describe the connector lane,
+#   which stays the fallback whenever the direct lane is unavailable.
+```
+
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQCore.md.
 
@@ -3263,6 +3289,19 @@ Current-version entry remains in Framework_PYQPrepare.md.
 ```
 
 ## Framework_PYQScan.md
+
+Entry v1.3 moved at framework release 2026.08.22.2 (EC-P42 — PYQScan-route
+headroom, flagged +809 B by the 2026.08.21.4 deploy review). Current-version
+entry remains in Framework_PYQScan.md.
+
+```
+# v1.3 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
+#   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
+#   It was CALLED from compiling python here while DEFINED nowhere — a guaranteed
+#   NameError; spec_name_audit_baseline.json had accepted it as known-unbound in all
+#   four affected specs, so the ratchet reported OK.
+#   FULL NARRATIVE: SPEC_HISTORY.md + CHANGELOG.md 2026.08.16.2.
+```
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_PYQScan.md.

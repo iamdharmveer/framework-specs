@@ -1,15 +1,13 @@
-# Framework_PYQScan v1.3.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.3.2 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.3.2 — 2026-08-22 — GAP-2026-08-22-SCANROUTE-HEADROOM (editorial; no rule
+#   changed). Superseded v1.3 entry moved VERBATIM to SPEC_HISTORY.md (the
+#   2026.08.15.14 discipline) — PYQScan-route SPEC-BUDGET headroom, flagged
+#   +809 B by the 2026.08.21.4 deploy review. Directory and standing notes stay.
 # v1.3.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: era-classification block -> tagged def resolve_era; 1 prose mention to no-paren form.
 #   Call mentions in prose now use the documented no-paren form; genuine code is in
 #   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
-# v1.3 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
-#   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
-#   It was CALLED from compiling python here while DEFINED nowhere — a guaranteed
-#   NameError; spec_name_audit_baseline.json had accepted it as known-unbound in all
-#   four affected specs, so the ratchet reported OK.
-#   FULL NARRATIVE: SPEC_HISTORY.md + CHANGELOG.md 2026.08.16.2.
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -1803,4 +1801,4 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.3.1
+# END OF Framework_PYQScan v1.3.2

@@ -42,6 +42,15 @@ HEADER_RE = re.compile(r'^(#{2,3})\s+(\S.*?)\s*$')
 # by the '## §N' prefix of their own header so a renamed subsection cannot silently
 # fall out of the set. A section absent from this list is READ — the default is safe.
 FINAL_ONLY_PREFIXES = {
+    # v2 (2026-08-22, GAP-2026-08-22-STEP9-READ-SET): Step 9's closing sections.
+    # §21/§23/§24 are per-session law and stay in the NON-FINAL read; only the
+    # end-of-mock report, its §R9 disclosure input and the editorial appendix are
+    # FINAL-only. The reduction is deliberately small — the durable property is
+    # has_read_set, which covers the MockExplain/TestExplain route's SPEC-BUDGET
+    # by design instead of by residual headroom.
+    'Framework_MockTestExplain.md': (
+        '## §20', '## §22', '## APPENDIX A',
+    ),
     'Framework_MockTestAnalyse.md': (
         '## §1-6', '## §5', '## §6', '## §9', '## §10',
         '## §12', '## §13', '## §14', '## §15', '## §16',
@@ -212,6 +221,27 @@ def self_test():
     check('t_unclassified_spec_reads_in_full',
           read_plan(doc, 'Framework_PYQCore.md', 'NON-FINAL')
           == [(1, doc['files']['Framework_PYQCore.md']['lines'])])
+    # Step 9 (GAP-2026-08-22-STEP9-READ-SET): covered, small by design, and the
+    # skip list is EXACTLY the three declared sections — a fourth section
+    # appearing here means a header promotion leaked a span into the skip set.
+    me = 'Framework_MockTestExplain.md'
+    check('t_step9_has_a_read_set', doc['files'][me]['has_read_set'])
+    check('t_step9_reduced_is_smaller',
+          doc['files'][me]['reduced_bytes'] < doc['files'][me]['bytes'])
+    check('t_step9_skips_exactly_the_declared_sections',
+          sorted(t.split(' — ')[0] for t in doc['files'][me]['final_only_titles'])
+          == ['## APPENDIX A', '## §20', '## §22'])
+    check('t_step9_final_reads_everything',
+          read_plan(doc, me, 'FINAL') == [(1, doc['files'][me]['lines'])])
+    _keep9 = read_plan(doc, me, 'NON-FINAL')
+    def _covered9(title_prefix):
+        sp = next(x for x in doc['files'][me]['sections']
+                  if x['title'].startswith(title_prefix))
+        return any(a <= sp['start'] <= b for a, b in _keep9)
+    check('t_step9_nonfinal_keeps_the_per_session_law',
+          _covered9('## §21') and _covered9('## §23') and _covered9('## §24')
+          and _covered9('## FOOTER') and not _covered9('## §20')
+          and not _covered9('## §22') and not _covered9('## APPENDIX A'))
     check('t_sha_matches_disk',
           doc['files'][ma]['sha256'] == sha256_file(ma))
     print(f'SELF-TEST: {passed}/{total} PASS')

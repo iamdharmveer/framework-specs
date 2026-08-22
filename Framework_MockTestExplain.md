@@ -1,4 +1,13 @@
-# Framework_MockTestExplain v1.38.0
+# Framework_MockTestExplain v1.39.0
+# v1.39.0 — 2026-08-22 — GAP-2026-08-22-STEP9-READ-SET (EC-P42; deploy follow-up #2
+#   of 2026.08.21.2). New S0-3: FINAL vs NON-FINAL session class with a GENERATED
+#   read set — a NON-FINAL batch session skips §20 (end-of-mock report), §22 (its
+#   §R9 disclosure input) and APPENDIX A; escalation to a full read is mandatory and
+#   one-way before §20 runs. §20–§24, APPENDIX A and FOOTER banners promoted from
+#   '# ' to '## ' so spec_sections.py can address their spans (IDs unchanged; no
+#   consumer reads header levels — verified by corpus grep). Ranges live in
+#   SPEC_SECTIONS.json (has_read_set), hash-tracked, never hand-copied. The
+#   MockExplain/TestExplain route is now budget-covered by design, not by headroom.
 # v1.38.0 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (MOCK-ONLY; pairs
 #   MockTestCreate v5.60). New §7A-M: Step 9 re-scores every question on the shared
 #   rubric (blueprint_core.assess_difficulty) at THIS exam's level and reports
@@ -296,6 +305,45 @@
 # ════════════════════════════════════════════════════════════════════════
 # §1 — PIPELINE POSITION & SOURCES OF TRUTH
 # ════════════════════════════════════════════════════════════════════════
+
+## S0-3 — SESSION CLASS AND READ SET (v1.39.0 — decide at STEP 0, before any spec read)
+
+```
+Framework_PYQCore EC-P42; the Framework_MockTestAnalyse §S8-0b architecture, applied to
+Step 9. Deploy follow-up #2 of release 2026.08.21.2.
+
+THE AXIS IS FINAL vs NON-FINAL — never fresh vs resume. Every batch session runs the
+same per-question machinery, the same §21 invariants and the same S18/S19 per-batch
+delivery; what decides which sections it REACHES is whether it will close the mock.
+
+  NON-FINAL  the batch this session will deliver is NOT the last of the frozen batch
+             plan (S4-2). The end-of-mock report cannot run here.
+             READ: everything EXCEPT §20 (END-OF-MOCK REPORT), §22 (KNOWN
+             LIMITATIONS — disclosed in §20's §R9, nowhere else) and APPENDIX A
+             (engine provenance; editorial). §21, §23 and §24 are per-session law
+             and are ALWAYS read.
+  FINAL      the batch this session will deliver IS the last of the plan, OR the plan
+             is not yet known (fresh mock before P4 builds it), OR the trigger is a
+             re-run of a completed paper. READ EVERYTHING. NO EXCEPTION.
+             Unknown -> FINAL: reading too much costs context; reading too little can
+             let a reduced read reach the end-of-mock writer.
+
+ESCALATION IS MANDATORY AND ONE-WAY. A session that begins NON-FINAL and discovers
+mid-run that it will close the mock (a batch plan shrunk by atomic-group packing, a
+resumed run whose remaining batches all fit this session) MUST read §20, §22 and
+APPENDIX A BEFORE the end-of-mock report is entered. FINAL never downgrades.
+
+Line ranges are GENERATED into SPEC_SECTIONS.json from this file's own headers and
+hash-tracked in MANIFEST.json — never hand-maintained here. Read ranges with
+`sed -n 'START,ENDp'` in bash (the view tool truncates ~16,000 chars per call;
+SPEC_SECTIONS.json records both stride constants). `bootstrap.py --trigger MockExplain`
+prints the class, both read budgets and the exact ranges.
+
+WHAT THIS DOES NOT CHANGE. Not one byte of any artefact: the same explanations, the
+same gates, the same deliveries. It moves the CLOSING sections off the per-batch
+execution path — it does not shrink, soften or delete them.
+```
+
 
 ## S1-1 — Sources of truth (strict priority order)
 
@@ -2322,7 +2370,7 @@ Step 9 uses BOTH footer types:
 ```
 
 # ════════════════════════════════════════════════════════════════════════
-# §20 — END-OF-MOCK REPORT (after the FINAL batch's confirmation; MANDATE-0 safe)
+## §20 — END-OF-MOCK REPORT (after the FINAL batch's confirmation; MANDATE-0 safe)
 # ════════════════════════════════════════════════════════════════════════
   §R1 PROVENANCE: mock N · registry state · blueprint reference · THIS spec's version
       as read from its own header · the engine self-test line EXACTLY as the engine
@@ -2384,7 +2432,7 @@ Step 9 uses BOTH footer types:
       LOW confidence · §7-7 tripwire fired y/n and second-pass outcome.
 
 # ════════════════════════════════════════════════════════════════════════
-# §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
+## §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
 # ════════════════════════════════════════════════════════════════════════
   0.  (v1.30.0) NO EXACT SELF-TEST OR VERSION COUNT IS EVER WRITTEN INTO PRESCRIPTIVE
       TEXT IN THIS SPEC — not in a gate, not in a dashboard template, not in a report
@@ -2458,7 +2506,7 @@ Step 9 uses BOTH footer types:
       autonomous run waived the inter-batch PAUSE only, never the per-question review.
 
 # ════════════════════════════════════════════════════════════════════════
-# §22 — KNOWN LIMITATIONS & SCOPE (disclose in §R9 of every report)
+## §22 — KNOWN LIMITATIONS & SCOPE (disclose in §R9 of every report)
 # ════════════════════════════════════════════════════════════════════════
   • SCOPE: Step 9 explains OBJECTIVE papers — MCQ (single correct), MSQ (multiple
     correct), and NAT (typed numerical answer, no options), in any language/script and
@@ -2489,7 +2537,7 @@ Step 9 uses BOTH footer types:
     (v1.21.0); the engine proves shape, not pedagogy.
 
 # ════════════════════════════════════════════════════════════════════════
-# §23 — SUBTOPIC_ID CONTRACT (consumer role — v2.4 cross-step authority)
+## §23 — SUBTOPIC_ID CONTRACT (consumer role — v2.4 cross-step authority)
 # ════════════════════════════════════════════════════════════════════════
 #   Step 9 is a pure CONSUMER of the subtopic_id contract (the PYQ-phase steps mint; Step 5 enforces;
 #   Step 7 joins and is the last writer). Step 9 reads subtopic_manifest.json only to support
@@ -2500,7 +2548,7 @@ Step 9 uses BOTH footer types:
 #   specific values (PYQ-phase §15).
 
 # ════════════════════════════════════════════════════════════════════════
-# §24 — LEARNINGS CONSUMPTION CONTRACT (consumer-only since v1.21.0)
+## §24 — LEARNINGS CONSUMPTION CONTRACT (consumer-only since v1.21.0)
 # ════════════════════════════════════════════════════════════════════════
 #   v1.21.0 — NO AUTOMATIC PRODUCER (Step 10 retired): this section is the CONSUMER
 #   half only. Accumulated AL-rule files stay valid, loaded and obeyed; new rules are
@@ -2602,7 +2650,7 @@ Step 9 uses BOTH footer types:
 #   counterexamples — the §7-7 library in the frozen schema, no new parser).
 #
 # ════════════════════════════════════════════════════════════════════════
-# APPENDIX A — UNIVERSAL EXAM-AGNOSTIC explain_engine.py (MANDATE A) — SINGLE SOURCE
+## APPENDIX A — UNIVERSAL EXAM-AGNOSTIC explain_engine.py (MANDATE A) — SINGLE SOURCE
 # ════════════════════════════════════════════════════════════════════════
 #   v1.12 — the ~1000-line engine listing is NO LONGER re-embedded here. The engine has
 #   ONE canonical, runnable home:
@@ -2626,11 +2674,11 @@ Step 9 uses BOTH footer types:
 #   the whole mechanical certification this document gets.
 
 # ════════════════════════════════════════════════════════════════════════
-# FOOTER — this file is the canonical Step-9 spec. On any CONTENT conflict with a loaded
+## FOOTER — this file is the canonical Step-9 spec. On any CONTENT conflict with a loaded
 # learnings file — [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (legacy/manual, §24)
 # or [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) — that learnings
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.38.0
+# END OF Framework_MockTestExplain v1.39.0
 # ════════════════════════════════════════════════════════════════════════

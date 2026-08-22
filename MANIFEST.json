@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.22.1",
+  "framework_version": "2026.08.22.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -213,11 +213,11 @@
       "bytes": 508366
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "fea56cac0d03e5f792415a5fa031ea63f14d06563dea2ef1d449b8330e354520",
-      "version_header": "# Framework_MockTestExplain v1.38.0",
+      "sha256": "76a4f17afc54b8c62797584ae598f2e128fb941b9884a1792569c750f19e569a",
+      "version_header": "# Framework_MockTestExplain v1.39.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 2636,
-      "bytes": 204518
+      "lines": 2684,
+      "bytes": 207541
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -269,11 +269,11 @@
       "bytes": 32681
     },
     "Framework_PYQCore.md": {
-      "sha256": "73e04b18d04133a21d61976a2542723acd73a0707e3a623f46ef981859b55422",
-      "version_header": "# Framework_PYQCore v1.5.1 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
-      "end_sentinel": "# END OF Framework_PYQCore v1.5.1",
-      "lines": 1979,
-      "bytes": 115346
+      "sha256": "101a1435cae2037776c4a153a78b8cb07c9b3a4a0fcb5cae41b5612d227fe16b",
+      "version_header": "# Framework_PYQCore v1.5.2 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.5.2",
+      "lines": 1964,
+      "bytes": 114096
     },
     "Framework_PYQCount.md": {
       "sha256": "c66571038434443af590f868e1cb6ccf64c926f05b990b4bf33fa4cae516be96",
@@ -318,11 +318,11 @@
       "bytes": 200572
     },
     "Framework_PYQScan.md": {
-      "sha256": "1b84ddbb3f2fba0e3fbf19732b1fbb139e8fe4fe666d351cc79b66a5ecf670c5",
-      "version_header": "# Framework_PYQScan v1.3.1 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
-      "end_sentinel": "# END OF Framework_PYQScan v1.3.1",
-      "lines": 1806,
-      "bytes": 90028
+      "sha256": "22a8ca097697c7c9b71e4b6bef6c3efb8f683f32a57ab9142cdfc8fddf7eb580",
+      "version_header": "# Framework_PYQScan v1.3.2 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
+      "end_sentinel": "# END OF Framework_PYQScan v1.3.2",
+      "lines": 1804,
+      "bytes": 89891
     },
     "Framework_PYQSort.md": {
       "sha256": "a64cffd3b7602eb170b2f02857768fffed5da5f688f941f0a351119873264541",
@@ -507,11 +507,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "0ea9284c2c1cb3715c6cb3276c9e0039aa33306eb86fc6ee03098a558781d0ea",
+      "sha256": "90c749c20ee8bffa64c26204fc7d1c5d679871d475f66de92b99affbf0a78083",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 6748,
-      "bytes": 185231
+      "lines": 6808,
+      "bytes": 187285
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -528,11 +528,11 @@
       "bytes": 8204
     },
     "SPEC_HISTORY.md": {
-      "sha256": "c19d006a27f86acc5266916734e541b8fee378f2e8e5eae55f0fc9b200e5decb",
+      "sha256": "875ca81357e0de0b64df168a46414338bad224e0d061dab6ccd4216bb74a8a33",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "# END OF SPEC_HISTORY v1.0",
-      "lines": 3385,
-      "bytes": 253631
+      "lines": 3424,
+      "bytes": 256056
     }
   }
 }

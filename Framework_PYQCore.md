@@ -1,28 +1,13 @@
-# Framework_PYQCore v1.5.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.5.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.5.2 — 2026-08-22 — GAP-2026-08-22-SCANROUTE-HEADROOM (editorial; no rule
+#   changed). Superseded v1.5 entry moved VERBATIM to SPEC_HISTORY.md (the
+#   2026.08.15.14 discipline) — PYQScan-route SPEC-BUDGET headroom, flagged
+#   +809 B by the 2026.08.21.4 deploy review. Directory and standing notes stay.
 # v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: admission call -> tagged fence; 8 prose mentions to no-paren form.
 #   Call mentions in prose now use the documented no-paren form; genuine code is in
 #   tagged ```python fences, AST-inspectable by C1-C8, all names bound (def-wrapped).
-# v1.5 — 2026-08-16 — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION (SESSION-BUDGET LAW).
-#   §9 gains four edge cases. The reference incident is IIT_JAM_MATHEMATICS PYQExtract:
-#   two consecutive sessions, 54 tool calls, ZERO of 22 papers processed, because three
-#   independent stalls each sufficient on their own were present at once.
-#   EC-P40 (the probe is a SPENDER, not a free classifier — a CLASS T acquisition
-#   performed BEFORE the partition must be subtracted from the budget, and is charged
-#   even when it fails, because the bytes arrived either way). EC-P41 (a PARTIAL
-#   listing is worse than an empty one — EC-P39 catches zero and nothing caught
-#   21-of-22; the transcription from connector response to DRIVE_LISTING_CACHE is the
-#   highest-risk step in the acquisition path and must be asserted against an
-#   independently declared count, with a HARD STOP). EC-P42 (SPECIFICATION-READ COST is
-#   a session resource — the framework priced payload characters and paper pacing but
-#   never priced reading its own specification, which on Step 5 is 556,834 B / ~139,208
-#   tok / >=36 view calls BEFORE any work). EC-P43 (the DIRECT EGRESS LANE — when the
-#   container can reach Drive and the folder is link-shared, python fetches the bytes
-#   itself and EC-P36's double charge disappears entirely; proven per exam on a real
-#   paper, never assumed, never fatal on failure).
-#   EC-P36/EC-P37 are unchanged and remain correct: they describe the connector lane,
-#   which stays the fallback whenever the direct lane is unavailable.
 ## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29
 #### §1 — SESSION START → Framework_PYQCore.md
 #### §2 — PHASE 0a: TAXONOMY BUILDING (PYQDraft) → Framework_PYQDraft.md
@@ -1976,4 +1961,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.5.1
+# END OF Framework_PYQCore v1.5.2

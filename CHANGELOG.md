@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026.08.22.2 — R3: GAP-2026-08-22-STEP9-READ-SET + GAP-2026-08-22-SCANROUTE-HEADROOM
+
+**MockTestExplain v1.38.0 -> v1.39.0 · spec_sections.py v2 (17 fixtures) · PYQScan
+v1.3.1 -> v1.3.2 · PYQCore v1.5.1 -> v1.5.2 · SPEC_HISTORY.md**
+
+**Route 1 — MockExplain/TestExplain: covered by design, not by headroom (deploy
+follow-up #2 of 2026.08.21.2, Option B).** New **S0-3 SESSION CLASS AND READ SET**:
+the axis is FINAL vs NON-FINAL (never fresh/resume) — a batch session that will not
+close the mock skips exactly three sections: §20 (end-of-mock report — it cannot run
+there), §22 (its §R9 disclosure input) and APPENDIX A (editorial provenance). §21's
+invariants, §23 and §24 are per-session law and are always read. Escalation to the
+full read is MANDATORY and ONE-WAY before §20 runs; unknown class defaults to FINAL
+(the safe direction). The §20–§24/APPENDIX/FOOTER banners were promoted from '# ' to
+'## ' so `spec_sections.py` can address their spans — IDs unchanged, and a corpus grep
+confirmed no consumer reads header levels. Ranges are GENERATED into
+`SPEC_SECTIONS.json` (`has_read_set: true`, full 207,541 B / reduced 196,093 B),
+hash-tracked, never hand-copied; `bootstrap.py --trigger MockExplain` prints the
+class, both budgets and the exact ranges. The route can now grow past 250,000 B
+without ever re-tripping SPEC-BUDGET — the durable fix, not another trim.
+
+**Route 2 — PYQScan: headroom restored by the ratchet, read set deliberately NOT
+used.** Honest structural finding: `Framework_PYQScan.md` is a single-`## §3` file
+whose every subsection (init, collection, batch loop, convergence, refinement) runs
+in EVERY scan session — there is no meaningful FINAL-only content to skip, and
+re-levelling 13 cross-referenced headers for +809 B would be risk without value.
+Applied instead: the 2026.08.15.14 discipline — superseded v1.3 (452 B) and v1.5
+(1,565 B) entries moved VERBATIM to `SPEC_HISTORY.md`, the CROSS-FILE SECTION
+DIRECTORY and standing notes untouched (a first-cut extent that swallowed the
+directory was caught by H-XREF in this release's own gate run and corrected before
+staging). **Headroom +809 -> +2,196 B.**
+Long-term lever if the route grows again: move the S3-3/S3-5 code fences into a
+routed engine (recorded here, not improvised).
+
+**Evidence.** spec_sections 17/17 (5 new: covered, reduced-smaller, skip-list is
+EXACTLY the three declared titles, FINAL reads everything, NON-FINAL keeps
+§21/§23/§24/FOOTER and drops §20/§22/APPENDIX); audit_specs_ext SPEC-BUDGET green on
+both routes; all engine self-tests unchanged; zero artefact-affecting changes — no
+exam re-runs anything because of this release.
+
 ## 2026.08.22.1 — R2: GAP-2026-08-22-FIGASPECT-SELF-FULFILLING
 
 **figural_core (117 -> 124 fixtures) · Framework_MockTestCreate v5.60 -> v5.61 (Q12.1)**

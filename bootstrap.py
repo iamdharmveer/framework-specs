@@ -65,7 +65,15 @@ def read_lines(path):
     with open(path, encoding="utf-8", newline="") as f:
         return [ln.rstrip("\n") for ln in f]
 
-def _session_class(progress_path, files_meta):
+def _session_class(progress_path, files_meta, trigger=None):
+    # v2026.08.22.2 (GAP-2026-08-22-STEP9-READ-SET): Step 9's S0-3 law differs from
+    # Step 5's §S8-0b on the UNKNOWN case — a fresh mock has no frozen batch plan
+    # yet, and reading too little there can let a reduced read reach the end-of-mock
+    # writer, so unknown -> FINAL for MockExplain/TestExplain. Step 5's fresh-corpus
+    # NON-FINAL rule is unchanged.
+    if trigger in ('MockExplain', 'TestExplain') and (
+            not progress_path or not os.path.exists(progress_path)):
+        return 'FINAL'
     """FINAL vs NON-FINAL — Framework_MockTestAnalyse §S8-0b, Framework_PYQCore EC-P42.
 
     THE AXIS IS NOT FRESH vs RESUME. A session executes the same code whether it is
@@ -226,7 +234,7 @@ def main():
                 except Exception:
                     sec = {}
             sfiles = sec.get("files", {})
-            klass = _session_class(args.progress, files_meta)
+            klass = _session_class(args.progress, files_meta, trigger=args.trigger)
             print(f"\nEntry-point spec(s) for '{args.trigger}' — READ IN FULL "
                   f"(subject to SESSION CLASS below):")
             tot_l = tot_b = tot_v = tot_bash = 0
@@ -248,7 +256,8 @@ def main():
             print(f"  {'PRE-WORK READ BUDGET':<34} {tot_l:>6} lines  {tot_b:>9,} B  "
                   f"~{tot_b // 4:>8,} tok  ~{tot_bash} bash call(s)")
             print(f"  SESSION CLASS: {klass}")
-            if klass == "NON-FINAL" and not args.progress:
+            if (klass == "NON-FINAL" and not args.progress
+                    and args.trigger not in ("MockExplain", "TestExplain")):
                 print("    FRESH CORPUS — the paper count is not knowable until PHASE A/A1b.")
                 print("    Read the NON-FINAL set now and re-decide the class there (§S8-0b).")
                 print("    If A1b shows papers_remaining <= BATCH_SIZE, escalate to a FULL read")

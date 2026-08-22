@@ -37,10 +37,10 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2636,
-      "sha256": "fea56cac0d03e5f792415a5fa031ea63f14d06563dea2ef1d449b8330e354520",
-      "size_bytes": 204518,
-      "version_header": "# Framework_MockTestExplain v1.38.0"
+      "lines": 2684,
+      "sha256": "76a4f17afc54b8c62797584ae598f2e128fb941b9884a1792569c750f19e569a",
+      "size_bytes": 207541,
+      "version_header": "# Framework_MockTestExplain v1.39.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -92,11 +92,11 @@
       "version_header": "# Framework_PYQCompress v1.1.1 — Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
-      "end_sentinel": "# END OF Framework_PYQCore v1.5.1",
-      "lines": 1979,
-      "sha256": "73e04b18d04133a21d61976a2542723acd73a0707e3a623f46ef981859b55422",
-      "size_bytes": 115346,
-      "version_header": "# Framework_PYQCore v1.5.1 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
+      "end_sentinel": "# END OF Framework_PYQCore v1.5.2",
+      "lines": 1964,
+      "sha256": "101a1435cae2037776c4a153a78b8cb07c9b3a4a0fcb5cae41b5612d227fe16b",
+      "size_bytes": 114096,
+      "version_header": "# Framework_PYQCore v1.5.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
     },
     "Framework_PYQCount.md": {
       "end_sentinel": "# END OF Framework_PYQCount v1.5.1",
@@ -141,11 +141,11 @@
       "version_header": "# Framework_PYQPrepare v2.1.1 — Universal PYQ Row File Generator"
     },
     "Framework_PYQScan.md": {
-      "end_sentinel": "# END OF Framework_PYQScan v1.3.1",
-      "lines": 1806,
-      "sha256": "1b84ddbb3f2fba0e3fbf19732b1fbb139e8fe4fe666d351cc79b66a5ecf670c5",
-      "size_bytes": 90028,
-      "version_header": "# Framework_PYQScan v1.3.1 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
+      "end_sentinel": "# END OF Framework_PYQScan v1.3.2",
+      "lines": 1804,
+      "sha256": "22a8ca097697c7c9b71e4b6bef6c3efb8f683f32a57ab9142cdfc8fddf7eb580",
+      "size_bytes": 89891,
+      "version_header": "# Framework_PYQScan v1.3.2 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)"
     },
     "Framework_PYQSort.md": {
       "end_sentinel": "# END OF Framework_PYQSort v1.20.1",
