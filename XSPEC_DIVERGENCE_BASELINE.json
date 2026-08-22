@@ -19,14 +19,6 @@
   "reason": "declared_step_divergence",
   "note": "Different acquisition models, not drift. Step 4 (single-session, whole corpus in one run) keys off `paper['id'] in drive_payloads` with a `paper.get('path')` fallback, because PHASE A materialised every payload up front. Step 5 (batched across ~8 sessions) keys off `paper_ref['source'] != 'gdrive'`, because its batch loop carries a source-tagged reference rather than a pre-materialised payload map. Both docstrings state the shared invariant that matters — `resolver` performs no tool call, and every failure degrades to the upload lane via TransportFallback rather than being fatal. Fingerprints regenerated 2026-08-21 under the v2 environment-stable algorithm (values differ from every earlier release by construction of the new algorithm, not by any body change; bodies re-diffed and unchanged in shape)."
  },
- "omath": {
-  "files": {
-   "Framework_MockTestCreate.md": "24583c10b609df67",
-   "explain_engine.py": "ad93188dd451068f"
-  },
-  "reason": "inherited_pre_existing",
-  "note": "Framework_MockTestCreate.md re-localises explain_engine.omath. The bodies are SEMANTICALLY IDENTICAL and differ only in the parameter name (`*p` vs `*parts`), so there is no defect today — which is exactly why it survived: nothing was watching, and two copies that already disagree cosmetically are how two copies come to disagree substantively. Entered as DEBT, not as approval. Surfaced by XSPEC-ENGINE-DRIFT at 2026.08.20.3; the fix is to make the spec copy a delegating adapter, and it belongs to the Step 7 wave that owns Framework_MockTestCreate.md, not to a Step 5 batch that has no golden set for that spec. Fingerprints regenerated 2026-08-21 under the v2 environment-stable algorithm (values differ from every earlier release by construction of the new algorithm, not by any body change; bodies re-diffed and unchanged in shape)."
- },
  "plan_transport": {
   "files": {
    "Framework_PYQCount.md": "74114b96896005d9",
@@ -42,13 +34,5 @@
   },
   "reason": "step_label_only",
   "note": "Docstrings are already stripped by fingerprint(), so the ONLY remaining difference is the printed banner: Step 4 prints 'S5-0 CHANNEL PROBE', Step 5 prints 'S8-0 CHANNEL PROBE'. Step 5's docstring states 'Identical contract to Framework_PYQCount S5-0'. Merging the two would require one step to print the other's section id, which is worse than the divergence. Fingerprints regenerated 2026-08-21 under the v2 environment-stable algorithm (values differ from every earlier release by construction of the new algorithm, not by any body change; bodies re-diffed and unchanged in shape)."
- },
- "sqrt": {
-  "files": {
-   "Framework_MockTestCreate.md": "c94f062e6ee2b838",
-   "explain_engine.py": "b3c1f3f3851615f3"
-  },
-  "reason": "inherited_pre_existing",
-  "note": "Framework_MockTestCreate.md re-localises explain_engine.sqrt. Bodies are SEMANTICALLY IDENTICAL (byte-equal OMML output); they differ only in where the implicit f-string concatenation is line-wrapped (2 lines vs 3). Invisible under the v1 unparse-normalised fingerprint; surfaced 2026-08-21 by the stricter v2 source-token fingerprint and reviewed the same day: no defect, same debt class as 'omath'."
  }
 }

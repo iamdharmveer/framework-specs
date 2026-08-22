@@ -27,6 +27,19 @@ jobs:
           python3 gen_manifest.py
           git diff --exit-code MANIFEST.json \
             || (echo "::error::MANIFEST.json stale. Run gen_manifest.py and commit." && exit 1)
+      # ISSUE-2026.08.22.6-SPECMANIFESTSTALE: release 2026.08.22.6 shipped a bundle
+      # whose SPEC_MANIFEST.json still described the pre-edit audit_deep.py — every
+      # local gate was green because NOTHING in this workflow ran the freshness
+      # checks; CLAUDE.md's prose said "run --check in the gate" but the gate never
+      # existed here. Same class as GAP-2026-08-14-CI-AUDITOR-WIRING: a check that
+      # exists in the repo but never runs in the gating path is not a check. The
+      # deploy environment's own gate caught it; these two steps make the class
+      # impossible to land — and every session that follows the "run the gate list
+      # from validate.yml" law now inherits them mechanically.
+      - name: SPEC_MANIFEST must be current (tracks auditors/engines gen_manifest does not)
+        run: python3 build_spec_manifest.py --check
+      - name: SPEC_SECTIONS must be current (generated read-set ranges vs live spec headers)
+        run: python3 spec_sections.py --check
       - name: Whole-framework verify gate must pass
         run: python3 bootstrap.py
       - name: Framework markdown validator (if present)

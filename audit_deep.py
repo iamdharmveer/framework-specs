@@ -385,10 +385,19 @@ def _self_test():
     #    silently retired the exemption AND the thing it exempted.
     def _drop(r):
         os.remove(os.path.join(r, DIVERGENCE_BASELINE_FILE))
+    # v2026.08.22.6 (Item 1c): the expected names are READ FROM THE BASELINE
+    # ITSELF, never hardcoded. The previous tuple pinned 'omath' and went red the
+    # day Item 1c resolved that divergence for real — a fixture keyed to corpus
+    # CONTENT breaks when the corpus moves (WAVE2-PART-C rule: key to the SHAPE).
+    # The shape asserted here is the invariant that matters: EVERY entry the live
+    # baseline declares must resurface as a finding when the baseline is removed,
+    # and the set must be NON-EMPTY so an emptied baseline cannot vacuously pass.
+    _declared = [k for k in json.load(open(os.path.join(here,
+                     DIVERGENCE_BASELINE_FILE), encoding='utf-8'))
+                 if not k.startswith('_')]
     rc, out = mutated(_drop)
     check("removing the baseline resurfaces every declared divergence",
-          rc == 1 and all(n in out for n in ('acquire_paper', 'plan_transport',
-                                             'probe_drive_channel', 'omath')))
+          rc == 1 and bool(_declared) and all(n in out for n in _declared))
 
     # 7. The printer must never write. A writer is how spec_name_audit re-froze two
     #    defects it had just fixed.

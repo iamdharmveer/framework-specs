@@ -1,5 +1,63 @@
 # Changelog
 
+## 2026.08.22.6 — Item 1c: omath/sqrt delegation (XSPEC inherited debt paid down)
+
+**MockTestCreate v5.63 -> v5.64 · routes.json MockCreate/TestCreate +explain_engine.py ·
+XSPEC_DIVERGENCE_BASELINE.json: omath + sqrt DELETED (3 declared transport
+divergences remain) · audit_deep.py self-test fixture re-keyed to shape ·
+validate.yml + SPEC_MANIFEST/SPEC_SECTIONS freshness gates (deploy-gate
+correction) · no artefact moves (golden set 6/6)**
+
+The S10-4 OMML helpers `sqrt` and `omath` in Framework_MockTestCreate.md were
+re-localised copies of explain_engine's — byte-identical output, cosmetically
+drifted bodies (`*p` vs `*parts`; f-string line-wrapping) — surfaced by
+XSPEC-ENGINE-DRIFT at 2026.08.20.3 and entered as `inherited_pre_existing` debt
+with the fix already named: make the spec copy a delegating adapter, in the Step 7
+wave that owns the file. Done per the DELEGATION contract, in the strongest shape
+the contract allows: **assignment aliases** (`sqrt = explain_engine.sqrt`,
+`omath = explain_engine.omath`), so no spec-side FunctionDef exists at all — the
+engine is the single authority and there is nothing left to drift.
+`explain_engine.py` joins the MockCreate/TestCreate routes in routes.json, exactly
+as it sits on the MockExplain/TestExplain/PYQExplain routes; the routed-engine
+count in SKILL.md is unchanged (the script was already routed elsewhere).
+
+Byte-identity proven before the swap: the old spec bodies and the engine
+functions compared over 9 cases including None, empty string, pre-wrapped OMML
+pass-through and &/</> escaping — identical output on every case. The sibling
+helpers (`frac`, `sup`, `_r`, `_r_wrap`, `_esc`, `add_math`) are already
+fingerprint-identical to the engine (XSPEC silent by identity) and deliberately
+stay local — they carry no debt entry and are out of this item's scope.
+
+**Both XSPEC entries DELETED in the same release** — mandatory, not optional: the
+baseline's own stale rule fails the build on an entry whose divergence has
+disappeared. The file now holds only the three declared Step-4/Step-5 transport
+divergences (`acquire_paper`, `plan_transport`, `probe_drive_channel`).
+
+**Fixture repair found by the deploy simulation (second pass working as designed):**
+audit_deep's "removing the baseline resurfaces every declared divergence" fixture
+hardcoded 'omath' in its expected set and went red the moment Item 1c resolved that
+divergence for real — a fixture keyed to corpus CONTENT breaking when the corpus
+moves, the exact WAVE2-PART-C anti-pattern. Re-keyed to the SHAPE: the expected
+names are now read from the live baseline itself, every declared entry must
+resurface when the baseline is removed, and the set must be NON-EMPTY so an
+emptied baseline cannot vacuously pass. Self-test 25/25; the deletion-resurfaces
+guarantee now survives every future baseline deletion without edits.
+
+**DEPLOY-GATE CORRECTION (pre-deploy; production never moved).** The first cut of
+this bundle failed the deploy environment's `build_spec_manifest.py --check`:
+SPEC_MANIFEST.json still described the pre-edit audit_deep.py (9ab9d97f/840/45,137
+vs the shipped 96682888/849/45,795) — build_spec_manifest.py was run BEFORE the
+fixture repair and never re-run after it, and no gate in the verification sweep
+would have caught that because validate.yml carried neither freshness check.
+CLAUDE.md's prose said "run --check in the gate"; the gate did not exist — the
+GAP-2026-08-14-CI-AUDITOR-WIRING class, one manifest over. PERMANENT FIX in this
+same release: `build_spec_manifest.py --check` and `spec_sections.py --check` are
+now BLOCKING steps in validate.yml, so CI, every deploy simulation, and every
+session that follows the "gates from validate.yml" law inherit them mechanically;
+a stale tracked-file manifest can no longer leave a working copy green. Proven in
+both directions: current tree exits 0; re-staling the audit_deep.py entry on a
+copy exits 1 naming the file.
+
 ## 2026.08.22.5 — Item 1b: MockCreate/TestCreate read set (the MockTestExplain S0-3 precedent applied to Step 7)
 
 **MockTestCreate v5.62 -> v5.63 · spec_sections.py v2 -> v3 · bootstrap.py class law ·

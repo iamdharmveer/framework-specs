@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.22.5",
+  "framework_version": "2026.08.22.6",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -81,6 +81,7 @@
       "final_assembly.py",
       "corpus_io.py",
       "Framework_DeliveryFooter.md",
+      "explain_engine.py",
       "t3_mathcomp.py"
     ],
     "TestCreate": [
@@ -91,6 +92,7 @@
       "final_assembly.py",
       "corpus_io.py",
       "Framework_DeliveryFooter.md",
+      "explain_engine.py",
       "t3_mathcomp.py"
     ],
     "MockExplain": [
@@ -206,11 +208,11 @@
       "bytes": 287778
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "ab5e695601fa25394dc60cf00e634b7e2c3a2af2e0e8cd130cf980a644786019",
-      "version_header": "# Framework_MockTestCreate v5.63",
+      "sha256": "60fc2b14564ff03a60c7526b6fd5aa687aa9a41a0443f2d1e975a467c0183459",
+      "version_header": "# Framework_MockTestCreate v5.64",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8290,
-      "bytes": 522182
+      "lines": 8310,
+      "bytes": 523643
     },
     "Framework_MockTestExplain.md": {
       "sha256": "76a4f17afc54b8c62797584ae598f2e128fb941b9884a1792569c750f19e569a",
@@ -507,11 +509,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "8244cec36de674f8e3b3efe4b0b0c2a95d175b6d2370b2a351fb8cf34f1817ae",
+      "sha256": "f4f4c64a20543968d5d0af1f6825862e964a6b9c8c93da279c57ebf0ad543587",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6831,
-      "bytes": 188843
+      "bytes": 188845
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -521,11 +523,11 @@
       "bytes": 12632
     },
     "XSPEC_DIVERGENCE_BASELINE.json": {
-      "sha256": "f55475d55d6654987e4fd379da25f982fed8e56b96f00a4af59d9e8343ba179d",
+      "sha256": "4876320a6a3e68015b5c9597ea62ebda1861c3682d354bbce07437539b906606",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 54,
-      "bytes": 8204
+      "lines": 38,
+      "bytes": 6600
     },
     "SPEC_HISTORY.md": {
       "sha256": "875ca81357e0de0b64df168a46414338bad224e0d061dab6ccd4216bb74a8a33",

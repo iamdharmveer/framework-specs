@@ -1,4 +1,17 @@
-# Framework_MockTestCreate v5.63
+# Framework_MockTestCreate v5.64
+# v5.64 — 2026-08-22 — GAP-1C-OMATH-SQRT-DELEGATION (Item 1c). The S10-4 OMML
+#   helpers sqrt and omath were re-localised copies of explain_engine's — output
+#   byte-identical, bodies cosmetically drifted (*p vs *parts; f-string wrapping) —
+#   entered as inherited_pre_existing debt in XSPEC_DIVERGENCE_BASELINE.json at
+#   2026.08.20.3. Paid down per the DELEGATION contract: both are now assignment
+#   aliases (sqrt = explain_engine.sqrt; omath = explain_engine.omath), so no spec
+#   FunctionDef exists to drift and the engine is the single authority.
+#   explain_engine.py added to the MockCreate/TestCreate routes (routes.json),
+#   matching the MockExplain/TestExplain/PYQExplain precedent. Both baseline
+#   entries DELETED in the same release — the baseline's stale rule requires it.
+#   Byte-identity proven over 9 cases incl. None, empty, pre-wrapped OMML and
+#   escaping. frac/sup/_r/_r_wrap/_esc/add_math are already fingerprint-identical
+#   to the engine and stay local. No artefact moves.
 # v5.63 — 2026-08-22 — GAP-1B-STEP7-READ-SET (Item 1b; the MockTestExplain S0-3
 #   precedent applied to Step 7). NEW S1-0 — SESSION CLASS AND READ SET: the axis is
 #   FINAL vs NON-FINAL (never fresh/resume). A NON-FINAL batch session skips exactly
@@ -5303,10 +5316,17 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       return x if x.lstrip().startswith('<m:') else _r(x)
   def frac(n,d): return f'<m:f xmlns:m="{M}"><m:num>{_r_wrap(n)}</m:num><m:den>{_r_wrap(d)}</m:den></m:f>'
   def sup(b,e): return f'<m:sSup xmlns:m="{M}"><m:e>{_r_wrap(b)}</m:e><m:sup>{_r_wrap(e)}</m:sup></m:sSup>'
-  def sqrt(x): return (f'<m:rad xmlns:m="{M}"><m:radPr>'
-                       f'<m:degHide m:val="1"/></m:radPr><m:deg/>'
-                       f'<m:e>{_r_wrap(x)}</m:e></m:rad>')
-  def omath(*p): return f'<m:oMath xmlns:m="{M}">{"".join(p)}</m:oMath>'
+  # v5.64 — DELEGATION (Item 1c): sqrt and omath were re-localised copies of
+  # explain_engine's, semantically identical but cosmetically drifted (*p vs
+  # *parts; line-wrapping) — entered as inherited_pre_existing debt in
+  # XSPEC_DIVERGENCE_BASELINE.json at 2026.08.20.3, paid down here. The ENGINE
+  # is the single authority; the aliases below leave nothing to drift. Output is
+  # byte-identical: the engine closes over its own M/_r_wrap, which are
+  # byte-equal to the locals above. explain_engine.py is on this trigger's
+  # route (routes.json, v5.64) exactly as it is on the three Explain routes.
+  import explain_engine
+  sqrt  = explain_engine.sqrt
+  omath = explain_engine.omath
   def add_math(paragraph, omath_xml): paragraph._p.append(parse_xml(omath_xml))
   ```
 
@@ -8207,7 +8227,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.63
+# END OF Framework_MockTestCreate v5.64
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
