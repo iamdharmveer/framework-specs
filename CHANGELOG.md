@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026.08.22.5 — Item 1b: MockCreate/TestCreate read set (the MockTestExplain S0-3 precedent applied to Step 7)
+
+**MockTestCreate v5.62 -> v5.63 · spec_sections.py v2 -> v3 · bootstrap.py class law ·
+audit_specs_ext.py SPEC_BUDGET_BASELINE {MockBlueprint, MockCreate, TestCreate} ->
+{MockBlueprint} · no artefact moves (golden set 6/6)**
+
+**NEW S1-0 — SESSION CLASS AND READ SET in Framework_MockTestCreate.md.** The axis is
+FINAL vs NON-FINAL, never fresh/resume. A NON-FINAL batch session — one whose batch is
+not the last of the frozen plan (S3-16 / batch_state.json) — skips exactly the
+Final-Assembly family (S13-1..S13-9, S13-4b, S13-4c, S13-REGCHECK, S13-QINDEX) and the
+close-out pair (S17-1 DoD, S17-2 downstream handoff): every reference to those
+sections from the per-batch path was verified to be a "commits at Final Assembly"
+pointer, not per-batch execution. **S13-9A stays in every read** — the post-delivery
+footer is per-delivery law (F1 after every non-final batch) — as do all S4 batch law
+and every gate. FINAL = last planned batch OR plan unknown (fresh mock before S3-16)
+OR Final-Assembly re-run; unknown -> FINAL (the safe direction); escalation mandatory
+and ONE-WAY before S4-9 hands to Final Assembly.
+
+**Generated, never hand-copied.** spec_sections.py v3 adds the MockTestCreate
+FINAL_ONLY_PREFIXES — trailing spaces are load-bearing ('## S13-9 ' must not match
+'## S13-9A'; '## S13-4' deliberately matches 4/4b/4c, all Final-Assembly-only).
+Measured: full 522,182 B -> reduced 421,044 B (~25,000 tokens saved per NON-FINAL
+batch session, on the step that runs up to 10 batch sessions per mock).
+
+**bootstrap.py --trigger MockCreate/TestCreate** now decides the class from
+batch_state.json itself: FINAL iff the current plan entry is_final or remaining
+batches <= 1; fresh (no file) -> FINAL; malformed -> FINAL. Proven across the full
+matrix (fresh / mid-run / last-batch / malformed / TestCreate): mid-run prints the
+reduced 464,861 B route budget, every other case the full 565,999 B.
+
+**The exemption became an enforcement.** MockCreate and TestCreate DELETED from
+SPEC_BUDGET_BASELINE (audit_specs_ext.py) — deletions are that ratchet's only
+legitimate edit. Proven both directions: the gate is silent on the live corpus
+(covered by has_read_set), and stripping has_read_set from a corpus copy fails the
+build with [SPEC-BUDGET] under BOTH routes.json[MockCreate] and
+routes.json[TestCreate]. The self-test's "exempts a baselined trigger" fixture is
+repointed at MockBlueprint — the one remaining baselined trigger, and the next
+deletion.
+
 ## 2026.08.22.4 — Release B: GAP-1A-STEP7-UNBOUND-NAMES closed (grandfathered list 12 -> 0) + ENV-SKEW fixture fix
 
 **Blueprint v1.51.1 -> v1.51.2 · PYQScan v1.3.2 -> v1.3.3 · audit_sync.py self-test

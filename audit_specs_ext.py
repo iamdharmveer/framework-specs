@@ -161,8 +161,14 @@ SPEC_BUDGET_BYTES = 250_000
 #                              Single-session steps, so the cost is paid once per run
 #                              rather than once per paper; lower priority, still real.
 SPEC_BUDGET_BASELINE = {
-    'MockBlueprint', 'MockCreate', 'TestCreate',
+    'MockBlueprint',
 }
+# RATCHETED DOWN at 2026.08.22.5 (GAP-1B-STEP7-READ-SET): MockCreate and TestCreate
+# DELETED — Framework_MockTestCreate.md S1-0 declares a FINAL/NON-FINAL read set,
+# generated into SPEC_SECTIONS.json (has_read_set), so the route is covered BY
+# DESIGN and the gate below now ENFORCES it: if the read set is ever removed, the
+# route fails the build instead of silently re-inheriting an exemption. Only
+# MockBlueprint remains; its read set is the next deletion.
 # RATCHETED DOWN at 2026.08.15.14 — the first deletions since the baseline was
 # created. PYQCount (253,145 -> 237,140 B), PYQPrepare (258,251 -> 242,871) and
 # PYQScan (260,072 -> 246,819) fell below SPEC_BUDGET_BYTES when the superseded
@@ -519,7 +525,11 @@ def self_test():
 
     # The ratchet must only ever be a DELETION list. A baselined trigger is exempt;
     # a NEW trigger crossing the threshold is not, which is the whole guarantee.
-    rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='MockCreate')
+    # (repointed 2026.08.22.5: MockCreate left the baseline when Step 7 gained its
+    # read set; MockBlueprint is the remaining baselined trigger. When IT leaves,
+    # this fixture must move to a synthetic always-baselined name or be retired
+    # with the baseline itself.)
+    rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='MockBlueprint')
     check("SPEC-BUDGET exempts a baselined trigger",
           '[SPEC-BUDGET]' not in out)
     rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='BrandNewStep')

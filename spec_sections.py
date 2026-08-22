@@ -56,6 +56,18 @@ FINAL_ONLY_PREFIXES = {
         '## §12', '## §13', '## §14', '## §15', '## §16',
         '## DEFINITION OF DONE', '## HUMAN REVIEW', '## SUGGESTED', '## STATISTICS',
     ),
+    # v3 (2026-08-22, GAP-1B-STEP7-READ-SET): Step 7's Final-Assembly family and
+    # close-out pair. TRAILING SPACES ARE LOAD-BEARING: '## S13-9 ' must NOT match
+    # '## S13-9A' — the post-delivery footer is PER-DELIVERY law (F1 after every
+    # non-final batch) and stays in every read. '## S13-4' deliberately unguarded:
+    # it matches S13-4, S13-4b and S13-4c, all three Final-Assembly-only. All S4
+    # batch law, S13-9A and every gate section stay in the NON-FINAL read.
+    'Framework_MockTestCreate.md': (
+        '## S13-1 ', '## S13-2 ', '## S13-3 ', '## S13-4',
+        '## S13-REGCHECK', '## S13-QINDEX',
+        '## S13-5 ', '## S13-6 ', '## S13-7 ', '## S13-8 ', '## S13-9 ',
+        '## S17-1', '## S17-2',
+    ),
 }
 
 # Measured in the container, 2026-08-16. The view tool truncates output above ~16,000

@@ -74,6 +74,28 @@ def _session_class(progress_path, files_meta, trigger=None):
     if trigger in ('MockExplain', 'TestExplain') and (
             not progress_path or not os.path.exists(progress_path)):
         return 'FINAL'
+    # v2026.08.22.5 (GAP-1B-STEP7-READ-SET): Step 7's S1-0 law is the S0-3 shape,
+    # not the §S8-0b shape — a fresh mock has no frozen batch plan yet (S3-16 builds
+    # batch_state.json), and reading too little there can let a reduced read reach
+    # the Final-Assembly writers, so unknown -> FINAL. With a batch_state.json the
+    # plan itself decides: the session is FINAL iff the batch it will deliver is the
+    # plan's last (current entry is_final, or remaining batches <= 1). A malformed
+    # or schema-alien file is a corrupt state, not a fresh one -> FINAL.
+    if trigger in ('MockCreate', 'TestCreate'):
+        if not progress_path or not os.path.exists(progress_path):
+            return 'FINAL'
+        try:
+            bs = json.load(open(progress_path, encoding='utf-8'))
+            plan = bs['batch_plan']
+            done = set(bs.get('batches_completed') or [])
+            cur = bs.get('current_batch')
+            remaining = [b for b in plan if b.get('batch_id') not in done]
+            cur_entry = next((b for b in plan if b.get('batch_id') == cur), None)
+            if len(remaining) <= 1 or (cur_entry or {}).get('is_final'):
+                return 'FINAL'
+            return 'NON-FINAL'
+        except Exception:
+            return 'FINAL'
     """FINAL vs NON-FINAL — Framework_MockTestAnalyse §S8-0b, Framework_PYQCore EC-P42.
 
     THE AXIS IS NOT FRESH vs RESUME. A session executes the same code whether it is
@@ -257,7 +279,8 @@ def main():
                   f"~{tot_b // 4:>8,} tok  ~{tot_bash} bash call(s)")
             print(f"  SESSION CLASS: {klass}")
             if (klass == "NON-FINAL" and not args.progress
-                    and args.trigger not in ("MockExplain", "TestExplain")):
+                    and args.trigger not in ("MockExplain", "TestExplain",
+                                             "MockCreate", "TestCreate")):
                 print("    FRESH CORPUS — the paper count is not knowable until PHASE A/A1b.")
                 print("    Read the NON-FINAL set now and re-decide the class there (§S8-0b).")
                 print("    If A1b shows papers_remaining <= BATCH_SIZE, escalate to a FULL read")

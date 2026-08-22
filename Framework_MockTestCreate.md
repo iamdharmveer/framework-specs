@@ -1,4 +1,19 @@
-# Framework_MockTestCreate v5.62
+# Framework_MockTestCreate v5.63
+# v5.63 — 2026-08-22 — GAP-1B-STEP7-READ-SET (Item 1b; the MockTestExplain S0-3
+#   precedent applied to Step 7). NEW S1-0 — SESSION CLASS AND READ SET: the axis is
+#   FINAL vs NON-FINAL (never fresh/resume). A NON-FINAL batch session skips exactly
+#   the Final-Assembly family (S13-1..S13-9, S13-4b/4c, S13-REGCHECK, S13-QINDEX) and
+#   the close-out pair (S17-1 DoD, S17-2 downstream handoff) — every reference to
+#   those sections from the per-batch path is a "commits at Final Assembly" pointer,
+#   verified, not per-batch execution. S13-9A (F1 footer after EVERY batch) and all
+#   S4/gate law stay in every read. FINAL = last planned batch OR plan unknown
+#   (fresh mock before S3-16) OR Final-Assembly re-run; unknown -> FINAL, escalation
+#   mandatory and one-way BEFORE S4-9 hands to Final Assembly. Ranges GENERATED into
+#   SPEC_SECTIONS.json (spec_sections.py v3); bootstrap.py --trigger MockCreate
+#   decides the class from batch_state.json (is_final / remaining<=1). MockCreate
+#   and TestCreate DELETED from SPEC_BUDGET_BASELINE (audit_specs_ext.py) — the
+#   route is now covered by design (has_read_set), not by exemption; the ratchet
+#   keeps MockBlueprint only. No artefact moves.
 # v5.62 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES (Wave: grandfathered-NameError
 #   payoff, Release A). The ten GRANDFATHERED_MUST_FIX names in generate_subtopic /
 #   controlled_reuse / pick_presentation / scenario_iterator — every one a guaranteed
@@ -332,6 +347,54 @@
 # ════════════════════════════════════════════════════════════════════════
 # §1 — PIPELINE POSITION & SOURCES OF TRUTH
 # ════════════════════════════════════════════════════════════════════════
+
+## S1-0 — SESSION CLASS AND READ SET (v5.63 — decide at STEP 0, before any spec read)
+
+```
+Framework_PYQCore EC-P42; the Framework_MockTestAnalyse §S8-0b architecture and the
+Framework_MockTestExplain S0-3 precedent (v1.39.0), applied to Step 7.
+
+THE AXIS IS FINAL vs NON-FINAL — never fresh vs resume. Every batch session runs the
+same S3 loads, the same S4 batch law, the same per-question S6/S7/S8/S10 machinery,
+the same gates and the same S4-7 per-batch delivery (with its S13-9A footer); what
+decides which sections it REACHES is whether it will close the mock.
+
+  NON-FINAL  the batch this session will deliver is NOT the last of the frozen batch
+             plan (S3-16 / S4-2; batch_state.json batch_plan). Final Assembly cannot
+             run here.
+             READ: everything EXCEPT the Final-Assembly family — S13-1 through S13-9
+             (trigger, gate sweep, concept audit, registry update S13-4/4b/4c,
+             S13-REGCHECK, S13-QINDEX, integrity, closed set, pre-delivery checklist,
+             the single present_files, handoff) — and the close-out pair S17-1 (DoD)
+             and S17-2 (downstream handoff to Step 9). S13-9A (the post-delivery
+             footer) is PER-DELIVERY LAW — F1 after every non-final batch — and is
+             ALWAYS read, as are all S4 sections and every gate.
+  FINAL      the batch this session will deliver IS the last of the plan
+             (batch_plan[current].is_final, or remaining batches <= 1), OR the plan
+             is not yet known (fresh mock before S3-16 builds batch_state.json), OR
+             the trigger is a Final-Assembly re-run of a completed mock.
+             READ EVERYTHING. NO EXCEPTION.
+             Unknown -> FINAL: reading too much costs context; reading too little can
+             let a reduced read reach the Final-Assembly writers.
+
+ESCALATION IS MANDATORY AND ONE-WAY. A session that begins NON-FINAL and discovers
+mid-run that it will close the mock (a batch plan shrunk by packing, a resumed run
+whose remaining batches all fit this session) MUST read S13-1..S13-9, S13-REGCHECK,
+S13-QINDEX, S13-4b/4c, S17-1 and S17-2 BEFORE S4-9 hands over to Final Assembly.
+FINAL never downgrades.
+
+Line ranges are GENERATED into SPEC_SECTIONS.json from this file's own headers and
+hash-tracked in MANIFEST.json — never hand-maintained here. Read ranges with
+`sed -n 'START,ENDp'` in bash (the view tool truncates ~16,000 chars per call;
+SPEC_SECTIONS.json records both stride constants). `bootstrap.py --trigger MockCreate`
+(or TestCreate) prints the class, both read budgets and the skipped sections; pass
+`--progress [ExamCode]_M[N]_batch_state.json` so the class is decided from the frozen
+plan rather than defaulting.
+
+WHAT THIS DOES NOT CHANGE. Not one byte of any artefact: the same questions, the same
+gates, the same batch deliveries, the same Final Assembly. It moves the CLOSING
+sections off the per-batch execution path — it does not shrink, soften or delete them.
+```
 
 ## S1-1 — Pipeline position
 
@@ -8144,7 +8207,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.62
+# END OF Framework_MockTestCreate v5.63
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
