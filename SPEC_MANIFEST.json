@@ -92,18 +92,18 @@
       "version_header": "# Framework_PYQCompress v1.1.1 — Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
-      "end_sentinel": "# END OF Framework_PYQCore v1.5.2",
-      "lines": 1964,
-      "sha256": "101a1435cae2037776c4a153a78b8cb07c9b3a4a0fcb5cae41b5612d227fe16b",
-      "size_bytes": 114096,
-      "version_header": "# Framework_PYQCore v1.5.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
+      "end_sentinel": "# END OF Framework_PYQCore v1.6",
+      "lines": 1977,
+      "sha256": "74fef17f1493e7307a451886d1c96c5b541343aa8c89e3ba90b8158af2187f62",
+      "size_bytes": 115146,
+      "version_header": "# Framework_PYQCore v1.6 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)"
     },
     "Framework_PYQCount.md": {
-      "end_sentinel": "# END OF Framework_PYQCount v1.5.1",
-      "lines": 1405,
-      "sha256": "c66571038434443af590f868e1cb6ccf64c926f05b990b4bf33fa4cae516be96",
-      "size_bytes": 79973,
-      "version_header": "# Framework_PYQCount v1.5.1 — PYQ Step 4 — Phase B Count Filling (§5)"
+      "end_sentinel": "# END OF Framework_PYQCount v1.6",
+      "lines": 1437,
+      "sha256": "f00eaf9487fc95e661238d5f842052a0205801fc3d523f67e2ed47776990415b",
+      "size_bytes": 82616,
+      "version_header": "# Framework_PYQCount v1.6 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
       "end_sentinel": "**End of Framework_PYQDeliver.md (v1.12)**",

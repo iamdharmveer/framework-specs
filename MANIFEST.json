@@ -271,18 +271,18 @@
       "bytes": 32681
     },
     "Framework_PYQCore.md": {
-      "sha256": "101a1435cae2037776c4a153a78b8cb07c9b3a4a0fcb5cae41b5612d227fe16b",
-      "version_header": "# Framework_PYQCore v1.5.2 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
-      "end_sentinel": "# END OF Framework_PYQCore v1.5.2",
-      "lines": 1964,
-      "bytes": 114096
+      "sha256": "74fef17f1493e7307a451886d1c96c5b541343aa8c89e3ba90b8158af2187f62",
+      "version_header": "# Framework_PYQCore v1.6 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.6",
+      "lines": 1977,
+      "bytes": 115146
     },
     "Framework_PYQCount.md": {
-      "sha256": "c66571038434443af590f868e1cb6ccf64c926f05b990b4bf33fa4cae516be96",
-      "version_header": "# Framework_PYQCount v1.5.1 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
-      "end_sentinel": "# END OF Framework_PYQCount v1.5.1",
-      "lines": 1405,
-      "bytes": 79973
+      "sha256": "f00eaf9487fc95e661238d5f842052a0205801fc3d523f67e2ed47776990415b",
+      "version_header": "# Framework_PYQCount v1.6 \u2014 PYQ Step 4 \u2014 Phase B Count Filling (\u00a75)",
+      "end_sentinel": "# END OF Framework_PYQCount v1.6",
+      "lines": 1437,
+      "bytes": 82616
     },
     "Framework_PYQDeliver.md": {
       "sha256": "719bde6113c110c53b1367dcd5e0f00e00f894810dcd2625ea4f91e8c2214102",
@@ -509,11 +509,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "c42299e17bb619a8da02e86346cb30334ff79647360abf196051298e1cb0c8d5",
+      "sha256": "3a856148db0fec62c58e4dbb2408f1920e554f20b087b01c80e803d4bea3f0f5",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6922,
-      "bytes": 194577
+      "bytes": 194579
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",

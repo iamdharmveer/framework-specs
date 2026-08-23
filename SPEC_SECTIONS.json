@@ -4305,249 +4305,249 @@
       ]
     },
     "Framework_PYQCore.md": {
-      "sha256": "101a1435cae2037776c4a153a78b8cb07c9b3a4a0fcb5cae41b5612d227fe16b",
-      "lines": 1965,
-      "bytes": 114096,
-      "est_tokens": 28524,
+      "sha256": "74fef17f1493e7307a451886d1c96c5b541343aa8c89e3ba90b8158af2187f62",
+      "lines": 1978,
+      "bytes": 115146,
+      "est_tokens": 28786,
       "view_calls": 8,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 114096,
-      "reduced_est_tokens": 28524,
+      "reduced_bytes": 115146,
+      "reduced_est_tokens": 28786,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29",
-          "start": 11,
-          "end": 88,
+          "start": 18,
+          "end": 95,
           "lines": 78,
           "bytes": 5539
         },
         {
           "title": "## §1 — SESSION START",
-          "start": 89,
-          "end": 90,
+          "start": 96,
+          "end": 97,
           "lines": 2,
           "bytes": 26
         },
         {
           "title": "### S1-1 — Trigger parsing",
-          "start": 91,
-          "end": 129,
+          "start": 98,
+          "end": 136,
           "lines": 39,
           "bytes": 1669
         },
         {
           "title": "### S1-2 — File inventory",
-          "start": 130,
-          "end": 166,
+          "start": 137,
+          "end": 173,
           "lines": 37,
           "bytes": 1357
         },
         {
           "title": "## HOSTED SECTION S2-3 (from §2 — Draft taxonomy generation) — hosted here per §11",
-          "start": 167,
-          "end": 175,
+          "start": 174,
+          "end": 182,
           "lines": 9,
           "bytes": 633
         },
         {
           "title": "### S2-3 — Draft taxonomy generation",
-          "start": 176,
-          "end": 679,
+          "start": 183,
+          "end": 686,
           "lines": 504,
           "bytes": 28795
         },
         {
           "title": "## §6 — HEADING FORMAT CONTRACT",
-          "start": 680,
-          "end": 810,
+          "start": 687,
+          "end": 817,
           "lines": 131,
           "bytes": 7988
         },
         {
           "title": "## §7 — NAME CONSISTENCY CONTRACT",
-          "start": 811,
-          "end": 850,
+          "start": 818,
+          "end": 857,
           "lines": 40,
           "bytes": 1968
         },
         {
           "title": "## §8 — CLASSIFICATION RULES (Universal)",
-          "start": 851,
-          "end": 960,
+          "start": 858,
+          "end": 967,
           "lines": 110,
           "bytes": 6025
         },
         {
           "title": "## §9 — EDGE CASES",
-          "start": 961,
-          "end": 1534,
-          "lines": 574,
-          "bytes": 36360
+          "start": 968,
+          "end": 1546,
+          "lines": 579,
+          "bytes": 36760
         },
         {
           "title": "## §10 — DELIVERABLE SET CONTRACT",
-          "start": 1535,
-          "end": 1536,
+          "start": 1547,
+          "end": 1548,
           "lines": 2,
           "bytes": 38
         },
         {
           "title": "### S10-1 — Closed deliverable set (per mode)",
-          "start": 1537,
-          "end": 1642,
+          "start": 1549,
+          "end": 1654,
           "lines": 106,
           "bytes": 6596
         },
         {
           "title": "### S10-2 — Pre-delivery checklist (MANDATORY before every present_files call)",
-          "start": 1643,
-          "end": 1723,
+          "start": 1655,
+          "end": 1735,
           "lines": 81,
           "bytes": 2848
         },
         {
           "title": "### S10-3 — Delivery destinations (quick reference)",
-          "start": 1724,
-          "end": 1738,
+          "start": 1736,
+          "end": 1750,
           "lines": 15,
           "bytes": 666
         },
         {
           "title": "### S10-4 — Post-delivery footer (MANDATORY after every present_files call)",
-          "start": 1739,
-          "end": 1750,
+          "start": 1751,
+          "end": 1762,
           "lines": 12,
           "bytes": 439
         },
         {
           "title": "## §11 — EXAM-AGNOSTIC GUARANTEE",
-          "start": 1751,
-          "end": 1813,
+          "start": 1763,
+          "end": 1825,
           "lines": 63,
           "bytes": 3297
         },
         {
           "title": "## §12 — DEFINITION OF DONE",
-          "start": 1814,
-          "end": 1965,
-          "lines": 152,
-          "bytes": 8984
+          "start": 1826,
+          "end": 1978,
+          "lines": 153,
+          "bytes": 9080
         }
       ]
     },
     "Framework_PYQCount.md": {
-      "sha256": "c66571038434443af590f868e1cb6ccf64c926f05b990b4bf33fa4cae516be96",
-      "lines": 1406,
-      "bytes": 79973,
-      "est_tokens": 19993,
-      "view_calls": 5,
+      "sha256": "f00eaf9487fc95e661238d5f842052a0205801fc3d523f67e2ed47776990415b",
+      "lines": 1438,
+      "bytes": 82616,
+      "est_tokens": 20654,
+      "view_calls": 6,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 79973,
-      "reduced_est_tokens": 19993,
+      "reduced_bytes": 82616,
+      "reduced_est_tokens": 20654,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## CROSS-FILE SECTION DIRECTORY — all §/S/EC IDs unchanged from Framework_PYQAnalyse v2.29",
-          "start": 22,
-          "end": 49,
+          "start": 39,
+          "end": 66,
           "lines": 28,
           "bytes": 1768
         },
         {
           "title": "## §5 — PHASE B: COUNT FILLING (after all sorting done)",
-          "start": 50,
-          "end": 51,
+          "start": 67,
+          "end": 68,
           "lines": 2,
           "bytes": 60
         },
         {
           "title": "### S5-1 — Read sorted PYQ files from Drive",
-          "start": 52,
-          "end": 77,
+          "start": 69,
+          "end": 94,
           "lines": 26,
           "bytes": 1423
         },
         {
           "title": "### S5-0 — GOOGLE DRIVE TRANSPORT: CLASS T DECLARATION, THE BRIDGE, CHANNEL PROBE",
-          "start": 78,
-          "end": 453,
-          "lines": 376,
-          "bytes": 21945
+          "start": 95,
+          "end": 485,
+          "lines": 391,
+          "bytes": 23201
         },
         {
           "title": "### S5-1a — TASK 1: Pre-Count Confirmation Gate",
-          "start": 454,
-          "end": 509,
+          "start": 486,
+          "end": 541,
           "lines": 56,
           "bytes": 2929
         },
         {
           "title": "### S5-2 — Heading parser (Step 5 E-1 compatible)",
-          "start": 510,
-          "end": 616,
+          "start": 542,
+          "end": 648,
           "lines": 107,
           "bytes": 6327
         },
         {
           "title": "### S5-3 — Year extraction from sorted files",
-          "start": 617,
-          "end": 630,
+          "start": 649,
+          "end": 662,
           "lines": 14,
           "bytes": 423
         },
         {
           "title": "### S5-4 — Batch counting loop",
-          "start": 631,
-          "end": 748,
+          "start": 663,
+          "end": 780,
           "lines": 118,
           "bytes": 7157
         },
         {
           "title": "### S5-4a — TASK 2: Post-Count Accuracy Gate",
-          "start": 749,
-          "end": 814,
+          "start": 781,
+          "end": 846,
           "lines": 66,
           "bytes": 2807
         },
         {
           "title": "### S5-4b — TASK 2.5: Taxonomy Name Cross-Check",
-          "start": 815,
-          "end": 987,
+          "start": 847,
+          "end": 1019,
           "lines": 173,
           "bytes": 10554
         },
         {
           "title": "### S5-5 — TASK 3: Regenerate the Analysis doc with counts (arithmetic guarantee)",
-          "start": 988,
-          "end": 1104,
+          "start": 1020,
+          "end": 1136,
           "lines": 117,
           "bytes": 6481
         },
         {
           "title": "### S5-6 — Count progress JSON schema",
-          "start": 1105,
-          "end": 1156,
+          "start": 1137,
+          "end": 1188,
           "lines": 52,
           "bytes": 1821
         },
         {
           "title": "### S5-7 — Phase B session management",
-          "start": 1157,
-          "end": 1226,
+          "start": 1189,
+          "end": 1258,
           "lines": 70,
           "bytes": 3852
         },
         {
           "title": "### S5-8 — Phase B execution model",
-          "start": 1227,
-          "end": 1406,
+          "start": 1259,
+          "end": 1438,
           "lines": 180,
-          "bytes": 10675
+          "bytes": 10673
         }
       ]
     },

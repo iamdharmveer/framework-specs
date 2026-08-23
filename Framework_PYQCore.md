@@ -1,4 +1,11 @@
-# Framework_PYQCore v1.5.2 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.6 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT, companion
+#   wording per the LAW-PROPAGATION LAW (rule lives in Framework_PYQCount v1.6).
+#   S5-1's same-paper duplicate gate is re-keyed from (date, session) — whose
+#   regex required a session token PYQSort's session-less and _to_ filename forms
+#   never carry, leaving their re-sort duplicates silently double-counted — to
+#   the filename STEM before `_Sorted_` (dated stems only). EC-P30 and the §12
+#   Phase-B checklist now describe the stem key. No other rule changed.
 # v1.5.2 — 2026-08-22 — GAP-2026-08-22-SCANROUTE-HEADROOM (editorial; no rule
 #   changed). Superseded v1.5 entry moved VERBATIM to SPEC_HISTORY.md (the
 #   2026.08.15.14 discipline) — PYQScan-route SPEC-BUDGET headroom, flagged
@@ -1218,11 +1225,16 @@ EC-P29: NON-SORTED FILE IN DRIVE FOLDER
   Non-matching .docx files are skipped with a warning log.
   If ALL .docx files are non-matching → error: "No sorted files found."
 
-EC-P30: DUPLICATE SORTED FILE IN DRIVE FOLDER (v2.21 — now a HARD STOP)
-  Drive folder contains two sorted files for the same date+session (e.g.,
-  paper was re-sorted after a correction and both copies remain).
+EC-P30: DUPLICATE SORTED FILE IN DRIVE FOLDER (v2.21 HARD STOP; key widened v1.6)
+  Drive folder contains two sorted files for the same paper (e.g., the paper was
+  re-sorted after a correction and both copies remain).
   Resolution: HARD STOP naming both files with their sizes (S5-1
-  assert_no_session_duplicates). The operator deletes the superseded copy.
+  assert_no_session_duplicates, keyed on the filename STEM before `_Sorted_` —
+  GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT: the previous (date, session) key
+  required a session token that PYQSort's session-less and _to_ multi-date
+  filename forms never carry, so their re-sort duplicates were invisible and
+  double-counted; undated Multi_ stems stay excluded to avoid false stops on
+  genuinely different undated papers). The operator deletes the superseded copy.
   BEFORE v2.21 this kept the LARGER file, on the reasoning that it was more
   likely to have images intact. That rule became wrong in two independent ways:
     1. it selects by ACCIDENT. The two files differ in content — that is why
@@ -1914,8 +1926,9 @@ Phase B:
   ☐ TASK 1: Per-file Q counts stored in task1_per_file for Task 2 diagnostic
   ☐ TASK 1: User confirmation received before counting begins
   ☐ Sorted file filtering applied (*_Sorted_*.docx pattern)
-  ☐ Duplicate sorted file detection applied (same date+session dedup)
-  ☐ Multi-date files excluded from dedup
+  ☐ Duplicate sorted file detection applied (sorted-stem identity dedup —
+    session-ful, session-less and _to_ forms; v1.6)
+  ☐ Undated Multi_ stems excluded from dedup (dated _to_ stems included — v1.6)
   ☐ Non-sorted files skipped with warning log
   ☐ All sorted PYQ files from Drive processed (5 per batch max)
   ☐ Heading parser matches Step 5's parse_taxonomy_level() exactly
@@ -1942,7 +1955,7 @@ Phase B:
   ☐ TASK 4: Batch size = 5 papers per batch (BATCH_SIZE_COUNTS = 5)
   ☐ Enumeration captured fileSize + mimeType for every entry (S5-1)
   ☐ Every rejected entry printed with its reason — nothing dropped silently
-  ☐ Both duplicate classes clear: canonical identity and date+session (S5-1)
+  ☐ Both duplicate classes clear: canonical identity and sorted-stem (S5-1)
   ☐ Transport plan printed BEFORE Task 1, including chats_needed for the
      upload lane (S5-1 plan_transport / S5-7)
   ☐ Every Drive fetch guarded — TransportFallback routed to the upload lane,
@@ -1961,4 +1974,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.5.2
+# END OF Framework_PYQCore v1.6

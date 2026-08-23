@@ -1,4 +1,21 @@
-# Framework_PYQCount v1.5.1 — PYQ Step 4 — Phase B Count Filling (§5)
+# Framework_PYQCount v1.6 — PYQ Step 4 — Phase B Count Filling (§5)
+# v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT. S5-1's same-paper
+#   duplicate gate keyed on (date, session) and its regex REQUIRED the session token,
+#   while PYQSort's own filename contract legitimately emits SESSION-LESS names
+#   ([ExamCode]_DD-Mon-YYYY_Sorted_Q1-QN.docx) whenever a paper carries no session
+#   number, plus a _to_ multi-date form this gate explicitly skipped. For both, a
+#   re-sorted duplicate pair (..._Sorted_Q1-Q100.docx beside ..._Sorted_Q1-Q99.docx —
+#   this gate's own motivating example, written WITHOUT a session token) matched
+#   NOTHING: canonical identity cannot collapse differing Q-ranges, Task 1 and S5-4
+#   count both copies consistently so Task 2 balances, and the counts inflate
+#   SILENTLY — the class EC-P30 names the most dangerous. Verified by execution on a
+#   two-copy fixture: session-ful pair caught, session-less pair invisible. The key
+#   is now the filename STEM before `_Sorted_` (dated stems only), covering
+#   session-ful, session-less and _to_ forms with zero false positives; the undated
+#   Multi_ last-resort form stays out of scope (two genuinely different undated
+#   papers could share it) and is already visible as a year=None inventory row
+#   (EC-P8). Companion wording updated in Framework_PYQCore.md EC-P30 + §12 per the
+#   LAW-PROPAGATION LAW. No engine change; no other rule touched.
 # v1.5.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: 9 prose mentions to no-paren form.
@@ -366,44 +383,55 @@ def collect_sorted_papers(folder_id, list_fn):
 
 
 def assert_no_session_duplicates(sorted_papers, session_keyword):
-    """HARD STOP when two sorted files describe the same date + session.
+    """HARD STOP when two sorted files describe the same paper.
 
-    v2.21 — REPLACES "keep the LARGER file (more likely to have images intact)".
+    v1.6 (GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT) — REPLACES the (date, session)
+    key. That key's regex REQUIRED the session token, and PYQSort's filename contract
+    legitimately emits SESSION-LESS names whenever a paper carries no session number
+    — [ExamCode]_DD-Mon-YYYY_Sorted_Q1-QN.docx — plus a _to_ multi-date form this
+    gate explicitly skipped. For both, a re-sorted duplicate pair
+    (..._Sorted_Q1-Q100.docx beside ..._Sorted_Q1-Q99.docx — this gate's own
+    motivating example, which is written without a session token) matched NOTHING:
+    canonical identity cannot collapse differing Q-ranges, Task 1 and S5-4 count both
+    copies consistently so Task 2 balances, and the counts silently inflate — the
+    class EC-P30 names the most dangerous. Verified by execution on a two-copy
+    fixture before this fix: the session-ful pair was caught, the session-less pair
+    was invisible.
 
-    That rule is now wrong twice over:
-      1. Under the 10 MiB connector cap it selects precisely the copy that CANNOT
-         be fetched, converting a cosmetic duplicate into a blocked paper.
-      2. Phase B's standard is zero tolerance — S5-4a permits not one question
-         missing or extra. A re-sorted paper and the superseded copy it replaced
-         differ in content, so choosing between them silently CHANGES THE COUNTS.
-         Choosing by size chooses by accident.
-    The image-integrity reasoning behind the old tiebreak is also obsolete:
-    PYQSort v1.12 CHECK 10 gates image survival where the file is produced, so a
-    sorted file that lost a figure cannot be delivered in the first place.
+    THE KEY IS NOW THE FILENAME STEM — everything before `_Sorted_`, case-folded.
+    Two sorted files with one stem are one paper sorted twice, whatever their
+    Q-ranges say. The stem carries the session when there is one and the full date
+    range for _to_ files, so session-ful, session-less and multi-date forms are all
+    covered, and two shifts of one date can never false-positive. Stems with NO
+    parsable date (the Multi_ last-resort form for unparseable sources) are
+    excluded: two genuinely different undated papers could share that stem, and a
+    false HARD STOP that blames a correct Drive is worse than the residual risk —
+    such files already surface in the Task 1 inventory with year=None (EC-P8).
 
-    Canonical-identity duplicates ("X.docx" vs "X (1).docx") are caught earlier,
-    at enumeration, by corpus_io.collect_corpus_files. This catches the case
-    canonical identity cannot see: the same paper sorted twice under genuinely
-    different names, e.g. _Sorted_Q1-Q100.docx and _Sorted_Q1-Q99.docx.
+    v2.21's two grounds are unchanged and still bind: never resolve by size (under
+    the connector cap that picks the unfetchable copy; and choosing between two
+    differing files chooses the numbers by accident), and image integrity is
+    PYQSort CHECK 10's job, never a tiebreak here. Canonical-identity duplicates
+    ("X.docx" vs "X (1).docx") are still caught earlier, at enumeration, by
+    corpus_io.collect_corpus_files.
     """
-    # Multi-date files ("_to_") represent unique combined papers — excluded, as before.
-    pattern = re.compile(
-        r'(\d{1,2}-[A-Za-z]{3}-\d{4})_.*?' + re.escape(session_keyword) + r'-(\d+)_Sorted_',
-        re.I)
+    stem_re = re.compile(r'^(?P<stem>.+?)_Sorted_Q\d+-Q\d+\.docx$', re.I)
+    date_re = re.compile(r'\d{1,2}-[A-Za-z]{3}-\d{4}')
     groups = {}
     for p in sorted_papers:
-        if '_to_' in p['name']:
-            continue
-        m = pattern.search(p['name'])
+        m = stem_re.match(p['name'])
         if not m:
-            continue                      # no parsable date+session — nothing to compare
-        groups.setdefault((m.group(1).lower(), m.group(2)), []).append(p)
+            continue                      # not a sorted filename — S5-1 filtered already
+        stem = m.group('stem')
+        if not date_re.search(stem):
+            continue                      # undated Multi_ form — see docstring
+        groups.setdefault(stem.casefold(), []).append(p)
 
     clashes = {k: v for k, v in groups.items() if len(v) > 1}
     if clashes:
         lines = []
-        for (date, sess), files in sorted(clashes.items()):
-            lines.append(f"  {date} {session_keyword} {sess}:")
+        for stem, files in sorted(clashes.items()):
+            lines.append(f"  {stem}_Sorted_* :")
             for f in files:
                 sz = f.get('fileSize')
                 lines.append(f"    - {f['name']}" + (f"  ({sz:,} bytes)" if sz else ""))
@@ -412,9 +440,11 @@ def assert_no_session_duplicates(sorted_papers, session_keyword):
             + "\n".join(lines)
             + "\n\nDelete the superseded copy from Drive and re-run. This is NOT resolved "
               "automatically: the two files differ in content, so counting either one is a "
-              "decision about the numbers, and Phase B tolerates no error at all. Keeping "
-              "the larger file — the pre-v2.21 rule — would also pick the copy least likely "
-              "to fit under the "
+              "decision about the numbers, and Phase B tolerates no error at all. If these "
+              "are genuinely DIFFERENT papers of one date, they are missing their "
+            + f"{session_keyword} numbers — re-sort them so their names carry the session "
+              "and can tell them apart. Keeping the larger file — the pre-v2.21 rule — "
+              "would also pick the copy least likely to fit under the "
             + f"{bc.DRIVE_CAP:,}-byte Drive download cap.")
 
 
@@ -439,15 +469,17 @@ FILE FILTERING (prevent non-sorted files from contaminating counts):
   4. If 0 sorted files found → "No sorted PYQ files found in Drive folder.
      Sorted files must match pattern: *_Sorted_Q1-QN.docx"
 
-DUPLICATE DETECTION (prevent inflated or wrong counts) — v2.21, both HARD STOP:
+DUPLICATE DETECTION (prevent inflated or wrong counts) — both HARD STOP:
   a. CANONICAL IDENTITY — "X.docx" and "X (1).docx", or the same paper in two
      subfolders. Caught at enumeration by corpus_io.collect_corpus_files, which
      raises DuplicatePaperError naming both files.
-  b. SAME DATE + SESSION, different filenames — e.g. a paper re-sorted after a
+  b. SAME PAPER under different filenames — e.g. a paper re-sorted after a
      correction, leaving _Sorted_Q1-Q100.docx beside _Sorted_Q1-Q99.docx.
-     Caught by assert_no_session_duplicates(), which names both and stops.
-     Multi-date files (filename contains "_to_") are excluded from this check —
-     they represent unique combined papers, as before.
+     Caught by assert_no_session_duplicates(), keyed on the filename STEM
+     before `_Sorted_` (v1.6 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT), so
+     session-ful, session-less and _to_ multi-date forms are all covered.
+     Undated Multi_ stems are excluded — see the function's docstring.
+     It names both files and stops.
   Neither is resolved automatically. See EC-P30 for the reasoning.
 ```
 
@@ -1402,4 +1434,4 @@ Never hand-roll this decode in a generated count_pipeline.py.
 
 ---
 
-# END OF Framework_PYQCount v1.5.1
+# END OF Framework_PYQCount v1.6
