@@ -1,4 +1,16 @@
-# Framework_MockTestCreate v5.64
+# Framework_MockTestCreate v5.65
+# v5.65 — 2026-08-23 — HYGIENE-2026-08-23-STEP6-AUDIT companion (one dead fallback
+#   tier removed; NO behaviour change on any conforming exam). §2 R24's option-label
+#   chain read bp.get('option_label_format') — a blueprint key NO writer produces:
+#   Framework_Blueprint §14 writes option_label and documents it visibility-only
+#   (this step's authority is section_rules R10, with exam_config as override).
+#   The dead tier is the exact v1.38 class ("a silently dead fallback tier is worse
+#   than no tier — it looks like a supported override") and could never have been
+#   correct even if wired: option_label's value shape ("1/2/3/4") is a label LIST,
+#   not a '{i}.  {text}' TEMPLATE. Tier removed; the chain is now exam_config ->
+#   section_rules -> hardcoded default. section_rules always carries
+#   option_label_format (Step 5 CATEGORY C mandatory), so the removed tier was
+#   unreachable on every conforming exam — output byte-identical.
 # v5.64 — 2026-08-22 — GAP-1C-OMATH-SQRT-DELEGATION (Item 1c). The S10-4 OMML
 #   helpers sqrt and omath were re-localised copies of explain_engine's — output
 #   byte-identical, bodies cosmetically drifted (*p vs *parts; f-string wrapping) —
@@ -1175,8 +1187,11 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           _sr_label, _resolved_family = pp.resolve_option_label(_sr_label)
       except pp.LabelFormatError as e:
           raise SystemExit(f"HARD STOP: {e}")
+  # v5.65: the former bp.get('option_label_format') tier is REMOVED — no writer
+  # emits that blueprint key (Blueprint §14 writes option_label, visibility-only),
+  # so the tier could never fire; chain: exam_config -> section_rules -> default.
   OPTION_LABEL_FMT = _ecfg.get('option_label_format',
-                       _sr_label or bp.get('option_label_format', '{i}.  {text}'))
+                       _sr_label or '{i}.  {text}')
   # Regex for gate G-OPTLABEL built from the configured format:
   import re as _re_cfg
   _opt_prefix = OPTION_LABEL_FMT.split('{text}')[0].replace('{i}', r'\d+')
@@ -8227,7 +8242,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.64
+# END OF Framework_MockTestCreate v5.65
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

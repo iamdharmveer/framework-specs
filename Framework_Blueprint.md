@@ -1,4 +1,32 @@
-# Framework_Blueprint v1.54.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.55.0 — Universal Mock Test Blueprint Generator
+# v1.55.0 — 2026-08-23 — HYGIENE-2026-08-23-STEP6-AUDIT (line-by-line audit closure;
+#   no allocation rule, gate, schema, or artefact-shape changes). FIVE fixes:
+#   (1) DELIVERY-COUNT-DRIFT, 5th recurrence: §13-7 "All 6 must be present" and
+#   AUDIT_SCRIPT_TEMPLATE "Includes all 6 files" still counted the two engines
+#   v2.12.1 removed from B3 delivery — both now say 5, and the template's duplicate
+#   step "3." is renumbered "4.". (2) The main DoD's final item is renumbered
+#   ☐26 -> ☐30 (☐26 was used TWICE: main-DoD "no engine provisioning" vs the
+#   DoD-additions "S2-MANIFEST-COMPLETENESS") and its stale "Step 8 copies both"
+#   is corrected to Step 7 (Step 8 retired at v1.43.0; §8-5 Step 8B was already
+#   correct). (3) CFG PASSTHROUGH — the v1.38 dead-tier rule applied to the four
+#   tuning knobs: rare_threshold, max_rare_per_mock, max_per_mechanic_per_mock and
+#   batch_size_qs were read via bp.get() with defaults while §4-3 claimed
+#   "set rare_threshold in exam_config.json" — a path NOTHING implemented (the
+#   exact class v1.38 called "a silently dead fallback tier is worse than no
+#   tier"). S2-1 now copies each key VERBATIM from exam_config.json into
+#   blueprint.json top level WHEN PRESENT — never a fabricated default — and §14
+#   S14-1 declares all four as OPTIONAL. Absent keys leave every bp.get() default
+#   and all behaviour byte-identical on every deployed exam. (4) §8-2 Step 7's
+#   illustrative blueprint.json key list gains the fields §6/§14 already write
+#   (level, medium, marking_scheme, nat_*, difficulty_labels + the optional
+#   passthrough note) so the summary can no longer be misread as the schema.
+#   (5) §7-7 figural_capacity WRITER NOTE: no Step-5 writer emits max_q_per_mock
+#   yet, so capacity is 1 for every subtopic estate-wide (== the safe default)
+#   until GAP-2026-08-23-FIGCAPACITY-WRITER lands in MockTestAnalyse; the v1.46
+#   plumbing is live and absent-safe. Companion: Framework_MockTestCreate v5.65
+#   removes its own dead bp.get('option_label_format') fallback tier (Blueprint
+#   writes option_label, documented visibility-only, so that tier could never
+#   fire — and its value shape is a label list, not a format template).
 # v1.54.0 — 2026-08-23 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH (BV-AXIS gains the
 #   AXIS-TRUTH cross-check; paired with blueprint_core axis_truth_check, self-test
 #   520 -> 527; companion Framework_ScopedBlueprint v1.9.0). The parent defect was
@@ -678,6 +706,13 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
     executable resolver is defined at the end of this subsection, after both the
     PRIMARY and FALLBACK paths converge on a finished sections[] — never earlier,
     since the FALLBACK path builds sections[] differently and finishes later.
+
+  OPTIONAL TUNING PASSTHROUGHS (v1.55.0 — the v1.38 rule applied to the four
+  bp.get() tuning knobs): if exam_config.json carries any of rare_threshold,
+  max_rare_per_mock, max_per_mechanic_per_mock, batch_size_qs, copy the value
+  VERBATIM into blueprint.json top level at B1 Step 7. Emit a key ONLY when
+  exam_config carries it — never a fabricated default (absent keys leave every
+  bp.get() default and all behaviour byte-identical). Declared in §14 S14-1.
 
   Q-range validation (same checks as Step 2a — defensive re-check):
     Ranges must be: non-overlapping AND contiguous.
@@ -1837,8 +1872,9 @@ assert sum(quota.values()) == target_total, (
 # Default: 0.1 (subtopic appeared in fewer than 1-in-10 papers on average).
 # Exams with very few papers (e.g. 5 total) may need a lower threshold
 # to avoid classifying most subtopics as rare. Exams with 500+ papers
-# may want a higher threshold. Override: set rare_threshold in exam_config.json
-# or pass through blueprint.json.
+# may want a higher threshold. Override: set rare_threshold in exam_config.json —
+# S2-1 copies it into blueprint.json top level when present (v1.55.0 CFG
+# PASSTHROUGH, declared in §14 S14-1) — or set it at blueprint.json top level.
 RARE_THRESHOLD = float(bp.get('rare_threshold', 0.1))
 
 # Phase 1 pre-schedules rare subtopics to ensure they are spread across the series,
@@ -3301,6 +3337,11 @@ for section in sections:
     # figural-subtopic count (10 subtopics / 25 figures delivered 10, on every mock,
     # forever). Both are exam-independence defects, invisible on an exam like the
     # reference one where subtopics far outnumber the budget.
+    # WRITER NOTE (v1.55.0): NO Step-5 writer emits max_q_per_mock yet — verified
+    # estate-wide — so this map is 1 for every subtopic (== the safe default) until
+    # GAP-2026-08-23-FIGCAPACITY-WRITER lands in MockTestAnalyse. The plumbing
+    # below is live and absent-safe; capacity-starved exams keep the documented
+    # v1.46 pre-fix behaviour until the writer ships.
     _fig_capacity = {sid: max(1, int((MANIFEST_IDS.get(sid) or {}).get('max_q_per_mock', 1) or 1))
                      for sid in pyq_ids}
     # v1.49 (GAP-2026-08-12-AXIS3-MECHLOCK) — marking_scheme + this section's own
@@ -3433,6 +3474,12 @@ Step 7  Write blueprint.json v1:
         {
           exam_code, exam_name, blueprint_version, n_papers,
           total_mocks, total_questions,
+          level, medium, marking_scheme,          ← v1.19 (declared in §14 S14-1)
+          nat_present, nat_allowed, nat_contract, ← v1.10 (§6 S6-2 writes them)
+          difficulty_labels,                      ← v1.12 (§6 S6-2 writes it)
+          [+ OPTIONAL when exam_config carries them: font_name / font_size_pt /
+           di_header_color (v1.38); rare_threshold / max_rare_per_mock /
+           max_per_mechanic_per_mock / batch_size_qs (v1.55.0) — §14 S14-1]
           total_options,     ← number of options per Q (e.g. 4 for most MCQ exams).
                                Read from Step 0 auto-detected n_choices (S1-3a _meta field).
                                Default: 4. Step 2 reads via bp.get('total_options', 4).
@@ -5533,7 +5580,9 @@ At B3, Claude:
        51/51 and remains valid — the floor stays at 35 precisely so the estate can
        migrate exam by exam without an outage). A constant-print "N/N PASS" is
        REJECTED. If output differs or is not fixture-based → HALT. Do not deliver.
-  3. Includes all 6 files in the B3 present_files call.
+  4. Includes all 5 files in the B3 present_files call.
+     (v1.55.0: renumbered from a duplicate "3." and corrected from "6 files" —
+      stale since v2.12.1 removed the engines from delivery; §13-7 order applies.)
 
 WHY THE ENGINES SHIP (v2.12). Before v2.12 they did not, and the auditor's
 A-FIGPROFILE gate referenced blueprint_core without importing it — so every exam
@@ -5558,7 +5607,8 @@ The repo engines (blueprint_core.py, figural_core.py) are NOT delivered here —
 Step 7 copies them from the Step-0 verified clone itself (v2.12.1).
 
 If any file fails to create: HALT. Do not deliver partial set.
-All 6 must be present before calling present_files.
+All 5 must be present before calling present_files.
+(v1.55.0: was "6" — stale since v2.12.1 removed the two engines from B3 delivery.)
 
 See S13-1 for B1 and B2 present_files calls (intermediate deliveries).
 ```
@@ -5698,6 +5748,20 @@ di_header_color     : str  — OPTIONAL. Copied from exam_config.di_header_color
   Step 7's behaviour byte-identical to pre-v1.38. Emit a key ONLY when exam_config carries
   it — never emit a fabricated default, or the blueprint tier would start overriding
   section_rules, inverting the documented precedence order.
+OPTIONAL TUNING PASSTHROUGHS (v1.55.0 — same emit-only-when-carried law as the
+v1.38 presentation keys above; never emit a fabricated default):
+rare_threshold      : float — OPTIONAL. Copied verbatim from exam_config.rare_threshold
+                     when present; omitted when absent. Read by §4-3
+                     (bp.get default 0.1 — the rare/non-rare classification line).
+max_rare_per_mock   : int  — OPTIONAL. From exam_config when present. Read by §4-8
+                     INVARIANT 4 and BV-4 (bp.get default 2).
+max_per_mechanic_per_mock : dict — OPTIONAL. {family: cap} from exam_config when
+                     present. Read by §4-1b and BV-10b (default {} → cap 1 per family).
+batch_size_qs       : int  — OPTIONAL. From exam_config when present. Read by §4-1
+                     and §7-7 (bp.get default 10 — the B2 batch window). Changing it
+                     changes the Option-C coverage window; leave default unless the
+                     exam genuinely needs a different window (ref EC-11 option (a)).
+  Absent keys leave behaviour byte-identical to pre-v1.55.0 on every exam.
 blueprint_version   : str  — the blueprint.json SCHEMA version (the subtopic_id + paper_id
                      contract level), NOT the Framework_Blueprint spec-FILE version. Currently
                      "1.35". Step 7 GATES on it: MIN_BLUEPRINT_VERSION = (1, 7) (subtopic_id
@@ -6707,9 +6771,11 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
        139/139 (v2.21.7; informational — the binding condition is N >= AUTH_GATE_FLOOR);
        included in B3 present_files delivery.
        Collision check completed if prior script existed (EC-D1/D3).
-☐ 26. NO engine provisioning performed: blueprint_core.py and figural_core.py were
-       NOT delivered in B3 and NOT uploaded to the exam project (v2.12.1). Step 8
-       copies both from the Step-0 verified clone itself. A per-exam engine copy is
+☐ 30. NO engine provisioning performed: blueprint_core.py and figural_core.py were
+       NOT delivered in B3 and NOT uploaded to the exam project (v2.12.1). Step 7
+       copies both from the Step-0 verified clone itself (v1.55.0: renumbered from
+       a duplicate ☐26 — the DoD-additions list below already uses ☐26 for
+       S2-MANIFEST-COMPLETENESS — and "Step 8" corrected to Step 7, retired v1.43.0). A per-exam engine copy is
        a second, unverified source that can silently go stale (CLAUDE.md).
 ```
 
@@ -7074,4 +7140,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.54.0
+# END OF Framework_Blueprint v1.55.0

@@ -1,5 +1,53 @@
 # Changelog
 
+## 2026.08.23.3 — HYGIENE-2026-08-23-STEP6-AUDIT: Step 6 line-by-line audit closure
+
+**Framework_Blueprint v1.54.0 -> v1.55.0 · Framework_MockTestCreate v5.64 -> v5.65.
+No allocation rule, gate, schema, engine, or artefact-shape changes. All engines and
+gates byte-identical; behaviour byte-identical on every deployed exam.**
+
+A full line-by-line execution audit of the MockBlueprint route (spec read in full,
+all CI gates re-run, 12-point engine edge matrix executed, real-exam data validated,
+cross-step reader/writer greps both directions) found six documentation/dead-tier
+defects and zero allocation-affecting bugs:
+
+1. **DELIVERY-COUNT-DRIFT, 5th recurrence** — Blueprint §13-7 ("All 6 must be
+   present") and AUDIT_SCRIPT_TEMPLATE ("Includes all 6 files") still counted the
+   two engines v2.12.1 removed from B3 delivery. Both corrected to 5; the
+   template's duplicate step "3." renumbered "4.". DeliveryFooter v1.23's claim of
+   a completed class sweep was premature — these two sites remained.
+2. **Stale "Step 8"** in the Blueprint DoD engine-provisioning item (Step 8 retired
+   v1.43.0) corrected to Step 7; item renumbered ☐26 -> ☐30 to clear a duplicate
+   checklist number against the DoD-additions ☐26.
+3. **CFG PASSTHROUGH (v1.38 class)** — rare_threshold, max_rare_per_mock,
+   max_per_mechanic_per_mock, batch_size_qs were bp.get() readers with no writer,
+   while §4-3 claimed an exam_config override nothing implemented. S2-1 now copies
+   each key from exam_config.json into blueprint.json WHEN PRESENT (emit-only-when-
+   carried, exactly the v1.38 law); §14 S14-1 declares all four OPTIONAL.
+4. **§8-2 Step 7 key-list drift** — the illustrative blueprint.json list omitted
+   level/medium/marking_scheme/nat_*/difficulty_labels which §6 writes; added.
+5. **figural_capacity writer gap surfaced** — no Step-5 writer emits max_q_per_mock
+   anywhere in the estate, so §7-7 capacity is 1 for every subtopic (the safe
+   default). Documented in-fence; tracked as GAP-2026-08-23-FIGCAPACITY-WRITER for
+   a future MockTestAnalyse release (measurement design needed — not hygiene).
+6. **MockTestCreate dead bp tier** — bp.get('option_label_format') read a key no
+   writer produces (Blueprint writes option_label, visibility-only) and whose value
+   shape (label list) could never satisfy the template contract. Tier removed;
+   chain: exam_config -> section_rules -> default. Unreachable on every conforming
+   exam, so output is byte-identical.
+
+Audit positives (verified by execution, not inspection): blueprint_core 527/527,
+paper_pipeline 90/90, corpus_io 348/348, audit_canonical 258/258; difficulty_counts
+matches the S7-1 150-Q worked example exactly (37/38/75 incl. tie-break);
+exact_fill row/col/variance invariants hold and infeasibility raises;
+largest_remainder floors respected; axis_truth_check kills a mutated advisory;
+apply_mock_offset idempotency guard fires; rescale_to_total preserves minorities
+(85/10/5 @100 -> 51/6/3 @60); difficulty_feasibility vacuous-pass confirmed for
+untyped exams via the Step-7 every-position/'mcq'-default construction; the
+IIT_JAM_CHEMISTRY manifest (123 subtopics) resolves with zero missing formats,
+zero ambiguous names, full Section↔Subject coverage. Exam-agnosticism confirmed:
+no exam-conditional logic in any executable fence.
+
 ## 2026.08.23.2 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH: advisories must survive cross-examination against the data that would falsify them
 
 **Framework_Blueprint v1.53.0 -> v1.54.0 · Framework_ScopedBlueprint v1.8.1 -> v1.9.0 ·

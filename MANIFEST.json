@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.23.2",
+  "framework_version": "2026.08.23.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -180,11 +180,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "572b13d87aa51ca8d2b88aa31e4a9d8a202b3c2a158400cb2c5f041c80ab4ae6",
-      "version_header": "# Framework_Blueprint v1.54.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.54.0",
-      "lines": 7077,
-      "bytes": 379437
+      "sha256": "e18258a913fa8bf3f59157e47493210e947338c30cea51ab8a5ffbd282de8e98",
+      "version_header": "# Framework_Blueprint v1.55.0 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.55.0",
+      "lines": 7143,
+      "bytes": 384714
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "74bab55d24a974ff5d17813a830c7cac97efbc2cde2a162fb49b959e493e1264",
@@ -208,11 +208,11 @@
       "bytes": 291646
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "60fc2b14564ff03a60c7526b6fd5aa687aa9a41a0443f2d1e975a467c0183459",
-      "version_header": "# Framework_MockTestCreate v5.64",
+      "sha256": "7c9c61d500de207e8d1d0ca08cdbe5bdf96da0a17391756a535732650b29b5fd",
+      "version_header": "# Framework_MockTestCreate v5.65",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8310,
-      "bytes": 523643
+      "lines": 8325,
+      "bytes": 524828
     },
     "Framework_MockTestExplain.md": {
       "sha256": "76a4f17afc54b8c62797584ae598f2e128fb941b9884a1792569c750f19e569a",
@@ -516,7 +516,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "c7a1a9a38552aef977375444182a2fc7701d7490e4d09d1e79a78f9679a4e869",
+      "sha256": "9918345ce4f66cedbd9f64fa2cc9f0f7a0c04138fb8665118e2e140fb01cd3ed",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6925,
