@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.22.6",
+  "framework_version": "2026.08.22.7",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -180,11 +180,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "9ab4e5da5ceddd37a86f657aa6e7a3e8cf847fd5916d8447e47ff87671393a96",
-      "version_header": "# Framework_Blueprint v1.51.2 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.51.2",
-      "lines": 6930,
-      "bytes": 369392
+      "sha256": "d551c22aaf9afa8a1042d6e7883089e98fd6bfa4ae31b7f54426e55471a7bf0c",
+      "version_header": "# Framework_Blueprint v1.52.0 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.52.0",
+      "lines": 7005,
+      "bytes": 374015
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "ff643f919108f0c030bf00578112408fb98eb295a551fe6744dddba9f0870930",
@@ -509,11 +509,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "f4f4c64a20543968d5d0af1f6825862e964a6b9c8c93da279c57ebf0ad543587",
+      "sha256": "897019046e27b6afe6aabd3a75819ebff225e8e5bfa60f841607114d17b9855a",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 6831,
-      "bytes": 188845
+      "lines": 6922,
+      "bytes": 194575
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",

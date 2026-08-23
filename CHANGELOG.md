@@ -1,5 +1,49 @@
 # Changelog
 
+## 2026.08.22.7 — STEP6-READ-SET: MockBlueprint read set; SPEC_BUDGET_BASELINE retired to nothing
+
+**Blueprint v1.51.2 -> v1.52.0 · spec_sections.py v3 -> v4 · bootstrap.py class law ·
+audit_specs_ext.py: SPEC_BUDGET_BASELINE + exemption branch + fixture RETIRED
+(self-test 12 -> 11, gate now UNCONDITIONAL) · no artefact moves (golden set 6/6)**
+
+**NEW S0-READSET in Framework_Blueprint.md**, the S0-3 precedent applied to Step 6
+via the §8 batch model (B1 -> B2 x ceil(N/10) -> B3). NON-FINAL = a B2 batch
+session: blueprint.json valid and len(mocks) < total_mocks. It works ENTIRELY from
+blueprint.json state, so it skips the input phase (§2, §3, §6, §7, §10,
+S2-MANIFEST, S2-MANIFEST-COMPLETENESS) and the closing phase (§12, §13, §15, both
+DoD sections) — verified by forward AND reverse cross-reference sweeps: B2's own
+steps (S8-3) reference none of them; kept-section references into them are
+pointer-style, and BV-0A states in its own text that it RUNS IN B1. §5 stays in
+every read — zp_slot and MAX_ZERO are RECOMPUTED from §5-1/§5-2, explicitly not
+stored. §6's flags and §7's difficulty_schedule[] ARE stored (§14), so only their
+computation sections leave the read. FINAL = B1 (consumes every input AND delivers
+the §15 skeleton), B3, malformed, unknown — read everything; escalation mandatory
+and one-way, including when a §9 hard stop points into a skipped section.
+Measured: full 374,015 B -> reduced 195,098 B (47%); route budget 417,832 B ->
+238,915 B for every B2 session (~44,700 tokens saved per batch).
+
+**The S13-9A class, caught again before it shipped:** S13-10 (post-delivery
+footer) is PER-DELIVERY law — F1 fires after EVERY B2 batch — but sat inside §13,
+which the NON-FINAL class skips, and the span cascade cannot exclude a subsection
+from its parent. Fixed at the ROOT: the body moved VERBATIM to §11 S11-6 (delivery
+format — where it semantically belongs, read by every class), with a tombstone
+pointer left at S13-10. It was referenced nowhere else (verified by corpus grep).
+
+**bootstrap.py --trigger MockBlueprint --progress blueprint.json** decides the
+class from the file itself: no file -> FINAL (B1); mocks < total -> NON-FINAL;
+complete -> FINAL (B3); malformed -> FINAL. Proven across the full matrix; both
+B2 shapes (mid and last batch) print the reduced 238,915 B budget.
+
+**SPEC_BUDGET_BASELINE is retired, not emptied.** The ratchet went 3 -> 1 -> 0
+entries across three releases, and an empty suppression container is the most
+attractive thing in a repo to quietly refill — so the set, the exemption branch
+and the "exempts a baselined trigger" fixture are all DELETED. The SPEC-BUDGET
+gate is now UNCONDITIONAL: every over-threshold route must carry a generated read
+set, with exactly two lawful exits named in the finding text and no name-based
+third door. Proven both directions: live corpus silent (all three big routes
+covered by design); stripping Blueprint's has_read_set on a corpus copy fails the
+build.
+
 ## 2026.08.22.6 — Item 1c: omath/sqrt delegation (XSPEC inherited debt paid down)
 
 **MockTestCreate v5.63 -> v5.64 · routes.json MockCreate/TestCreate +explain_engine.py ·

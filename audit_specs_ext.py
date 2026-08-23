@@ -160,15 +160,15 @@ SPEC_BUDGET_BYTES = 250_000
 #                              after EC-P40..EC-P43) + Framework_DeliveryFooter.md.
 #                              Single-session steps, so the cost is paid once per run
 #                              rather than once per paper; lower priority, still real.
-SPEC_BUDGET_BASELINE = {
-    'MockBlueprint',
-}
-# RATCHETED DOWN at 2026.08.22.5 (GAP-1B-STEP7-READ-SET): MockCreate and TestCreate
-# DELETED — Framework_MockTestCreate.md S1-0 declares a FINAL/NON-FINAL read set,
-# generated into SPEC_SECTIONS.json (has_read_set), so the route is covered BY
-# DESIGN and the gate below now ENFORCES it: if the read set is ever removed, the
-# route fails the build instead of silently re-inheriting an exemption. Only
-# MockBlueprint remains; its read set is the next deletion.
+# SPEC_BUDGET_BASELINE — RETIRED at 2026.08.22.7 (STEP6-READ-SET). The ratchet
+# went {MockBlueprint, MockCreate, TestCreate} -> {MockBlueprint} (2026.08.22.5)
+# -> EMPTY, and an empty exemption set is not kept as code: a suppression
+# container with no members is the most attractive thing in the repo to quietly
+# refill. The SPEC-BUDGET gate below is now UNCONDITIONAL — every route above
+# SPEC_BUDGET_BYTES must carry a generated read set (has_read_set in
+# SPEC_SECTIONS.json). A future over-threshold route has exactly two lawful
+# exits, both named in the finding text: declare a read set, or move fences into
+# a routed engine. There is no third door.
 # RATCHETED DOWN at 2026.08.15.14 — the first deletions since the baseline was
 # created. PYQCount (253,145 -> 237,140 B), PYQPrepare (258,251 -> 242,871) and
 # PYQScan (260,072 -> 246,819) fell below SPEC_BUDGET_BYTES when the superseded
@@ -395,7 +395,7 @@ def check_spec_budget(paths):
         if total <= SPEC_BUDGET_BYTES:
             continue
         covered = any(sections.get(f, {}).get('has_read_set') for f in mds)
-        if not covered and trig not in SPEC_BUDGET_BASELINE:
+        if not covered:
             add('SPEC-BUDGET', f'routes.json[{trig}]',
                 f'pre-work read is {total:,} B (~{total // 4:,} tok) across {len(mds)} '
                 f'spec(s), above the {SPEC_BUDGET_BYTES:,} B threshold, and NO read set '
@@ -525,15 +525,12 @@ def self_test():
 
     # The ratchet must only ever be a DELETION list. A baselined trigger is exempt;
     # a NEW trigger crossing the threshold is not, which is the whole guarantee.
-    # (repointed 2026.08.22.5: MockCreate left the baseline when Step 7 gained its
-    # read set; MockBlueprint is the remaining baselined trigger. When IT leaves,
-    # this fixture must move to a synthetic always-baselined name or be retired
-    # with the baseline itself.)
-    rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='MockBlueprint')
-    check("SPEC-BUDGET exempts a baselined trigger",
-          '[SPEC-BUDGET]' not in out)
+    # (2026.08.22.7: the baseline-exemption fixture is RETIRED with the baseline
+    # itself — the exemption path no longer exists, so there is nothing to prove
+    # exempt. This fixture is the unconditional-gate proof: ANY over-threshold
+    # trigger without a read set fires, with no name-based escape.)
     rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='BrandNewStep')
-    check("SPEC-BUDGET still fires for a trigger absent from the baseline",
+    check("SPEC-BUDGET fires for any uncovered over-threshold trigger (no exemption path exists)",
           rc == 1 and '[SPEC-BUDGET]' in out)
 
     # The live corpus itself must pass with the standard invocation

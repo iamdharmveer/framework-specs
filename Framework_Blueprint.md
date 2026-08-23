@@ -1,4 +1,19 @@
-# Framework_Blueprint v1.51.2 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.52.0 — Universal Mock Test Blueprint Generator
+# v1.52.0 — 2026-08-22 — STEP6-READ-SET (the S0-3 precedent applied to Step 6;
+#   closes SPEC_BUDGET_BASELINE to empty). NEW S0-READSET: NON-FINAL = a B2 batch
+#   session (blueprint.json valid, len(mocks) < total_mocks) — it works entirely
+#   from blueprint.json state, so it skips the input phase (§2, §3, §6, §7, §10,
+#   S2-MANIFEST, S2-MANIFEST-COMPLETENESS) and the closing phase (§12, §13, §15,
+#   both DoD sections): ~162 KB, a 44% reduction, verified by forward AND reverse
+#   cross-reference sweeps (B2's own steps reference none of them; kept-section
+#   references into them are pointer-style, and BV-0A states it RUNS IN B1). §5
+#   stays — zp_slot/MAX_ZERO are recomputed from §5-1/§5-2, explicitly not stored.
+#   FINAL = B1, B3, malformed, unknown — read everything; escalation mandatory and
+#   one-way. Ranges GENERATED (spec_sections.py v4); bootstrap.py --trigger
+#   MockBlueprint decides the class from blueprint.json (mocks vs total_mocks).
+#   SPEC_BUDGET_BASELINE is now EMPTY and RETIRED with its exemption branch and
+#   fixture (audit_specs_ext.py): every route above threshold must carry a read
+#   set — there is no exemption left to widen.
 # v1.51.2 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES Release B (one-line binding;
 #   no rule changed). EXAM is now bound at the top of the S2-MANIFEST fence with the
 #   MockTestCreate S3-1 house idiom (EXAM = "[ExamCode]"  # from trigger). It was
@@ -215,6 +230,54 @@
 #   was deleted. The entry for the CURRENT version stays above, because
 #   Z-VERSION requires the highest changelog entry to equal the header.
 ---
+
+## S0-READSET — SESSION CLASS AND READ SET (v1.52.0 — decide at STEP 0, before any spec read)
+
+```
+Framework_PYQCore EC-P42; the Framework_MockTestExplain S0-3 precedent, applied to
+Step 6 via the §8 batch model (B1 -> B2 x ceil(N_mocks/10) -> B3).
+
+THE AXIS IS FINAL vs NON-FINAL. Step 6's input phase (B1) and closing phase (B3)
+each need sections no B2 batch ever executes; a B2 batch works ENTIRELY from
+blueprint.json state (S8-3 Step 1 reads it; subtopic lists, quota, zp_slot and
+assigned[] are all RECONSTRUCTED from it or recomputed from kept-section formulas).
+
+  NON-FINAL  a B2 batch session: blueprint.json exists, is valid, and
+             len(mocks) < total_mocks. This session generates one batch of
+             allocations and delivers updated blueprint.json (S11-2). It never
+             re-reads the input documents and never writes the closing outputs.
+             READ: §1 (incl. S1-7 resume), §4, §5 (zp_slot and MAX_ZERO are
+             RECOMPUTED from §5-1/§5-2 — not stored), §8, §9, §11, §14, §16,
+             S4-MANDATE, S-IDWRITE.
+             SKIP: the input phase — §2, §3, §6 (flags are STORED per §14:
+             passage_present/figural_present/di_present + subtopic formats), §7
+             (difficulty_schedule[] is STORED per mock, §14 S14-3), §10,
+             S2-MANIFEST, S2-MANIFEST-COMPLETENESS — and the closing phase — §12
+             (registry: "what B3 creates"), §13, §15, DEFINITION OF DONE, DoD
+             additions.
+  FINAL      B1 (no blueprint.json, or the trigger is a fresh build), OR B3
+             (len(mocks) == total_mocks), OR blueprint.json is malformed or
+             unreadable, OR the class cannot be decided.
+             READ EVERYTHING. NO EXCEPTION. B1 consumes every input section and
+             ALSO delivers the skeleton xlsx (§15) and blueprint.json v1 (§14);
+             B3 runs full validation and writes every closing output.
+
+ESCALATION IS MANDATORY AND ONE-WAY. A NON-FINAL session escalates — reads the
+skipped sections BEFORE proceeding — the moment any of these occurs: it will also
+run B3 in the same session; a §9 hard stop points into a skipped section (the
+BV-0A family and several messages reference §2/§3/§6 as the fix location); or any
+input document must be re-read or re-verified. FINAL never downgrades.
+
+Line ranges are GENERATED into SPEC_SECTIONS.json from this file's own headers —
+never hand-maintained here. Read ranges with `sed -n 'START,ENDp'` in bash.
+`bootstrap.py --trigger MockBlueprint --progress [ExamCode]_blueprint.json` prints
+the class and both read budgets; without --progress the class is FINAL (B1, the
+safe direction).
+
+WHAT THIS DOES NOT CHANGE. Not one byte of any artefact: the same skeleton, the
+same allocations, the same validation, the same five outputs. The input and
+closing phases simply leave the per-batch read path.
+```
 
 ## §1 — SESSION START
 
@@ -4948,6 +5011,24 @@ User requests B3 re-run (no batch changes):
   If BV-7/BV-8 fail: identify failing mocks → user must re-generate that B2 batch first.
 ```
 
+### S11-6 — Post-delivery footer (MANDATORY after every present_files call)
+
+```
+After every present_files call and any in-chat delivery report or handoff message,
+render the standardized visual delivery footer as the LAST element in the response.
+
+Follow Framework_DeliveryFooter.md for footer type selection (F1 mid-step / F2 step-complete),
+deliverable file badges (Upload / Replace / Use locally), and next-step reference.
+
+Step 6 uses BOTH footer types:
+  - F1 (amber) after B1 (2 files) and each B2 batch (1 file)
+  - F2 (green) after B3 final delivery (5 files)
+
+(Moved VERBATIM from S13-10 at v1.52.0: F1 is PER-DELIVERY law — it fires after
+every B2 batch — so it belongs in the delivery-format section every session class
+reads, not in §13, which the S0-READSET NON-FINAL class skips.)
+```
+
 ## §12 — REGISTRY SCHEMA
 
 What B3 creates in [ExamCode]_registry.json.
@@ -5468,18 +5549,12 @@ Partial replacement risks schema mismatch between registry and blueprint.
 All-or-nothing upload is required.
 ```
 
-### S13-10 — Post-delivery footer (MANDATORY after every present_files call)
+### S13-10 — Post-delivery footer — MOVED to §11 S11-6 (v1.52.0)
 
 ```
-After every present_files call and any in-chat delivery report or handoff message,
-render the standardized visual delivery footer as the LAST element in the response.
-
-Follow Framework_DeliveryFooter.md for footer type selection (F1 mid-step / F2 step-complete),
-deliverable file badges (Upload / Replace / Use locally), and next-step reference.
-
-Step 6 uses BOTH footer types:
-  - F1 (amber) after B1 (2 files) and each B2 batch (1 file)
-  - F2 (green) after B3 final delivery (5 files)
+PER-DELIVERY law (F1 fires after EVERY B2 batch) cannot live inside §13, which the
+S0-READSET NON-FINAL class skips — the body now sits in §11 DELIVERY FORMAT, which
+every session class reads. See S11-6.
 ```
 
 ## §14 — BLUEPRINT JSON SCHEMA
@@ -6927,4 +7002,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.51.2
+# END OF Framework_Blueprint v1.52.0

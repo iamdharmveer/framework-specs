@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.51.2",
-      "lines": 6930,
-      "sha256": "9ab4e5da5ceddd37a86f657aa6e7a3e8cf847fd5916d8447e47ff87671393a96",
-      "size_bytes": 369392,
-      "version_header": "# Framework_Blueprint v1.51.2 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.52.0",
+      "lines": 7005,
+      "sha256": "d551c22aaf9afa8a1042d6e7883089e98fd6bfa4ae31b7f54426e55471a7bf0c",
+      "size_bytes": 374015,
+      "version_header": "# Framework_Blueprint v1.52.0 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -205,9 +205,9 @@
     },
     "audit_specs_ext.py": {
       "end_sentinel": "    sys.exit(main(args))",
-      "lines": 591,
-      "sha256": "401aeecc032e49bdb649fa62084377e429b72bd81b40f5e02182d43780289a05",
-      "size_bytes": 30772,
+      "lines": 588,
+      "sha256": "398a72c4bbd8afcc084dee5b72bfa7c0265e26e24ef1fcafa9916f7c02b99c02",
+      "size_bytes": 30773,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_sync.py": {

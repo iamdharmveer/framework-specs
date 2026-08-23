@@ -68,6 +68,19 @@ FINAL_ONLY_PREFIXES = {
         '## S13-5 ', '## S13-6 ', '## S13-7 ', '## S13-8 ', '## S13-9 ',
         '## S17-1', '## S17-2',
     ),
+    # v4 (2026-08-22, STEP6-READ-SET): Step 6's input phase (B1-only) + closing
+    # phase (B3-only). TRAILING SPACES ARE LOAD-BEARING on the single-digit
+    # entries: '## §1 ' would be needed to exclude §10/§12/§13/§15/§16 if §1 were
+    # ever listed — it is NOT listed (S1-7 defines B2 resume). '## S2-MANIFEST'
+    # deliberately unguarded: it matches both S2-MANIFEST and
+    # S2-MANIFEST-COMPLETENESS, both B1-only. §5 is NOT here: B2 recomputes
+    # zp_slot/MAX_ZERO from §5-1/§5-2 (explicitly not stored in blueprint.json).
+    'Framework_Blueprint.md': (
+        '## §2 ', '## §3 ', '## §6 ', '## §7 ', '## §10 ',
+        '## §12 ', '## §13 ', '## §15 ',
+        '## S2-MANIFEST',
+        '## DEFINITION OF DONE', '## DoD additions',
+    ),
 }
 
 # Measured in the container, 2026-08-16. The view tool truncates output above ~16,000

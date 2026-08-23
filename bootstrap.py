@@ -81,6 +81,24 @@ def _session_class(progress_path, files_meta, trigger=None):
     # plan itself decides: the session is FINAL iff the batch it will deliver is the
     # plan's last (current entry is_final, or remaining batches <= 1). A malformed
     # or schema-alien file is a corrupt state, not a fresh one -> FINAL.
+    # v2026.08.22.7 (STEP6-READ-SET): Step 6's S0-READSET law. The progress
+    # artefact IS blueprint.json — no file means B1 (read everything, it consumes
+    # every input section AND delivers the skeleton per §14/§15); mocks complete
+    # means B3 (read everything, it writes every closing output); in between is a
+    # B2 batch, which works entirely from blueprint.json state -> NON-FINAL.
+    # Malformed or schema-alien -> FINAL (corrupt state, not a fresh one).
+    if trigger == 'MockBlueprint':
+        if not progress_path or not os.path.exists(progress_path):
+            return 'FINAL'
+        try:
+            bp = json.load(open(progress_path, encoding='utf-8'))
+            n_done = len(bp['mocks'])
+            n_total = int(bp['total_mocks'])
+            if n_total > 0 and n_done < n_total:
+                return 'NON-FINAL'
+            return 'FINAL'
+        except Exception:
+            return 'FINAL'
     if trigger in ('MockCreate', 'TestCreate'):
         if not progress_path or not os.path.exists(progress_path):
             return 'FINAL'
@@ -280,7 +298,8 @@ def main():
             print(f"  SESSION CLASS: {klass}")
             if (klass == "NON-FINAL" and not args.progress
                     and args.trigger not in ("MockExplain", "TestExplain",
-                                             "MockCreate", "TestCreate")):
+                                             "MockCreate", "TestCreate",
+                                             "MockBlueprint")):
                 print("    FRESH CORPUS — the paper count is not knowable until PHASE A/A1b.")
                 print("    Read the NON-FINAL set now and re-decide the class there (§S8-0b).")
                 print("    If A1b shows papers_remaining <= BATCH_SIZE, escalate to a FULL read")
