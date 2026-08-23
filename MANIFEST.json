@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.22.7",
+  "framework_version": "2026.08.22.8",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -201,11 +201,11 @@
       "bytes": 86356
     },
     "Framework_MockTestAnalyse.md": {
-      "sha256": "54a2861dc79ea9557d627e623d904db98ade1a62c720634b629c7f9bf24c870e",
-      "version_header": "# Framework_MockTestAnalyse v2.53.6 \u2014 Universal PYQ Pattern Extraction Engine",
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.6",
-      "lines": 5007,
-      "bytes": 287778
+      "sha256": "7fecc766863d4fc8b1c4064edddbfc2f4a44ac6aa87510fe667a31da87b423fc",
+      "version_header": "# Framework_MockTestAnalyse v2.54.0 \u2014 Universal PYQ Pattern Extraction Engine",
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.54.0",
+      "lines": 4941,
+      "bytes": 285521
     },
     "Framework_MockTestCreate.md": {
       "sha256": "60fc2b14564ff03a60c7526b6fd5aa687aa9a41a0443f2d1e975a467c0183459",
@@ -453,18 +453,18 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "2c2a0515985315a9e7631ef101cce1c01a214888e8ec64cf034a22a5677ed41f",
+      "sha256": "74bf1593dcca94024b8a758f108cd042aa9251b83fe5d80211abd908ccc6f3d6",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
       "lines": 5730,
-      "bytes": 334059
+      "bytes": 334135
     },
     "transport_core.py": {
-      "sha256": "c24b516dabfeb17be5f20c76e090582554dd7d24acae465572ef83ff3fb4bcb5",
+      "sha256": "5acc58b126ed9f9cf2c988ad4aea706ee228547f81c68dbe36b7e5668889d36e",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print('transport_core.py \u2014 Step 5 Drive acquisition engine. Run with --self-test.')",
-      "lines": 705,
-      "bytes": 42052
+      "lines": 879,
+      "bytes": 51082
     },
     "notes_core.py": {
       "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
@@ -509,7 +509,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "897019046e27b6afe6aabd3a75819ebff225e8e5bfa60f841607114d17b9855a",
+      "sha256": "eaccf9d67d5309c885f6d5a058c19ac5986c5747eaddb6e34a483be72a852920",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6922,

@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.12.2 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.53.6",
-      "lines": 5007,
-      "sha256": "54a2861dc79ea9557d627e623d904db98ade1a62c720634b629c7f9bf24c870e",
-      "size_bytes": 287778,
-      "version_header": "# Framework_MockTestAnalyse v2.53.6 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.54.0",
+      "lines": 4941,
+      "sha256": "7fecc766863d4fc8b1c4064edddbfc2f4a44ac6aa87510fe667a31da87b423fc",
+      "size_bytes": 285521,
+      "version_header": "# Framework_MockTestAnalyse v2.54.0 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",

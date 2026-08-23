@@ -50,6 +50,8 @@ Run `python3 transport_core.py --self-test` for the fixtures.
 import json
 import os
 import re
+import shutil
+import tempfile
 import sys
 
 import blueprint_core as bc
@@ -681,11 +683,90 @@ def self_test():
     check('record_transport_preserves_a_prior_session_log',
           len(prog2['_meta']['_transport']['session_log']) == 2)
 
+    # ── Item 3b (v2026.08.22.8): the six extracted Step-5 helpers ───────────────
+    # Each fixture is written to KILL the mutants audit_mutation raises on the new
+    # code (0-survivor budget): the IGNORECASE flag, the optional separator, the
+    # digit group, MONTH_MAP entries, the year/date/session ordering and its
+    # dateless-last branch, both cache shapes, the page_token and unknown-id
+    # branches, and the membership + missing-_meta paths.
+    sre = build_session_re('Shift')
+    check('session_re_matches_and_captures_digits',
+          sre.search('E_26-Sep-2025_Shift-2.docx').group(1) == '2')
+    check('session_re_ignorecase_flag_live',
+          bool(sre.search('e_shift-3')) and bool(sre.search('E_SHIFT-4')))
+    check('session_re_separator_optional_all_forms',
+          all(sre.search(t) for t in ('Shift-1', 'Shift_2', 'Shift 3', 'Shift4')))
+    check('session_re_requires_digits_and_escapes_keyword',
+          not sre.search('Shifty') and not build_session_re('S.t').search('Sxt-1'))
+
+    _tmp = tempfile.mkdtemp()
+    _cache = os.path.join(_tmp, 'cache.json')
+    _rec = lambda i, n: {'id': i, 'name': n, 'size': '9',
+                         'mimeType': 'application/vnd.openxmlformats-officedocument'
+                                     '.wordprocessingml.document'}
+    with open(_cache, 'w', encoding='utf-8') as fh:
+        json.dump({'files': [_rec('f1', 'E_26-Sep-2025_Shift-1.docx')]}, fh)
+    _fn = make_drive_list_fn(_cache, 'ROOT')
+    check('flat_cache_answers_root_only',
+          len(_fn('ROOT')['files']) == 1 and _fn('SUBFOLDER') == {'files': []})
+    check('page_token_returns_empty_page',
+          _fn('ROOT', page_token='tok') == {'files': []})
+    with open(_cache, 'w', encoding='utf-8') as fh:
+        json.dump({'ROOT': {'files': [_rec('f1', 'a.docx')]},
+                   'SUB':  {'files': [_rec('f2', 'b.docx')]}}, fh)
+    _fn2 = make_drive_list_fn(_cache, 'ROOT')
+    check('keyed_cache_scopes_each_id',
+          _fn2('ROOT')['files'][0]['id'] == 'f1'
+          and _fn2('SUB')['files'][0]['id'] == 'f2'
+          and _fn2('OTHER') == {'files': []})
+
+    _papers = [{'name': 'E_26-Sep-2025_Shift-2.docx'},
+               {'name': 'E_26-Sep-2025_Shift-1.docx'},
+               {'name': 'E_12-Sep-2025_Shift-1.docx'},
+               {'name': 'zzz_nodate.docx'},
+               {'name': 'aaa_nodate.docx'},
+               {'name': 'E_13-Aug-2021_Slot-2.docx'},
+               {'name': 'E_05-Oct-2021_Shift-1.docx'}]
+    _sorted = [x['name'] for x in sort_papers_recency_first(_papers, sre)]
+    check('recency_sort_full_order',
+          _sorted == ['E_26-Sep-2025_Shift-1.docx', 'E_26-Sep-2025_Shift-2.docx',
+                      'E_12-Sep-2025_Shift-1.docx', 'E_05-Oct-2021_Shift-1.docx',
+                      'E_13-Aug-2021_Slot-2.docx',
+                      'aaa_nodate.docx', 'zzz_nodate.docx'])
+    check('recency_sort_month_map_orders_oct_above_aug_within_year',
+          _sorted.index('E_05-Oct-2021_Shift-1.docx')
+          < _sorted.index('E_13-Aug-2021_Slot-2.docx'))
+    check('recency_sort_dateless_last_alphabetical',
+          _sorted[-2:] == ['aaa_nodate.docx', 'zzz_nodate.docx'])
+    check('recency_sort_session_ascending_within_same_date',
+          _sorted[0].endswith('Shift-1.docx') and _sorted[1].endswith('Shift-2.docx'))
+
+    check('make_paper_id_strips_dir_and_extension',
+          make_paper_id('/a/b/E_26-Sep-2025_Shift-1.docx') == 'E_26-Sep-2025_Shift-1'
+          and make_paper_id('plain.docx') == 'plain')
+    check('is_already_processed_membership_and_missing_meta',
+          is_already_processed('p1', {'_meta': {'papers_processed': ['p1', 'p2']}})
+          and not is_already_processed('p3', {'_meta': {'papers_processed': ['p1']}})
+          and not is_already_processed('p1', {})
+          and not is_already_processed('p1', {'_meta': {}}))
+
+    # collect_pyq_papers through the REAL corpus_io walker on the tmp cache —
+    # papers and rejects both exercised (an .exe record must be rejected, attached).
+    with open(_cache, 'w', encoding='utf-8') as fh:
+        json.dump({'files': [_rec('f1', 'E_26-Sep-2025_Shift-1.docx'),
+                             dict(_rec('f9', 'virus.exe'),
+                                  mimeType='application/octet-stream')]}, fh)
+    _pp, _rj = collect_pyq_papers('ROOT', _cache)
+    check('collect_pyq_papers_returns_papers_and_attached_rejects',
+          len(_pp) == 1 and _pp[0]['name'].endswith('.docx') and len(_rj) == 1)
+    shutil.rmtree(_tmp, ignore_errors=True)
+
+
     # ── META-ASSERTION ───────────────────────────────────────────────────────
     # A conditional assertion that silently skips is indistinguishable, in the printed
     # result, from one that passed (GAP-2026-08-17-B4-ENV-SKEW). A count is the
     # cheapest oracle for "did anything vanish?".
-    EXPECTED_CHECKS = 48
+    EXPECTED_CHECKS = 62
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(f'suite_ran_every_check (ran {total}, expected {EXPECTED_CHECKS} — '
@@ -698,6 +779,99 @@ def self_test():
           + ('  — ' + '; '.join(fails) if fails else ''))
     return not fails
 
+
+
+# ═══ FROM Framework_MockTestAnalyse.md §1/§S8, fences L698/L875/L912/L2956/L3308/L3824
+# (v2.53.6) — extracted at v2.54.0 (Item 3b). build_session_re, make_drive_list_fn,
+# make_paper_id, is_already_processed are VERBATIM. Two carry declared signature
+# changes, each forced by a session-scope closure an engine cannot hold:
+#   sort_papers_recency_first(paper_list, session_re) — the spec body closed over
+#     the session global SESSION_RE (built from exam_config.json's keyword); the
+#     spec keeps a one-line delegating adapter supplying it.
+#   collect_pyq_papers(folder_id, listing_cache) — the spec default was the session
+#     constant DRIVE_LISTING_CACHE; required here, defaulted in the spec adapter.
+#     The .last_rejects function attribute is DROPPED — read nowhere in the corpus
+#     (verified 2026-08-23); rejects stay ATTACHED via the returned tuple (v2.29).
+# ═════════════════════════════════════════════════════════════════════════════
+
+def build_session_re(keyword):
+    """Build dynamic regex for session/shift detection from the configurable keyword.
+    Matches: <keyword><optional separator><digits>
+    e.g. Shift-1, Slot_2, Phase 3, Session1, Paper-1"""
+    return re.compile(re.escape(keyword) + r'[-_\s]?(\d+)', re.IGNORECASE)
+
+
+def make_drive_list_fn(listing_cache, root_folder_id):
+    """PHASE B resolver over the PHASE A listing cache. Performs NO tool call.
+
+    Cache format — either of:
+        {"<folder_id>": {"files": [...]}, "<sub_id>": {"files": [...]}}   # keyed
+        {"files": [...]}                                                  # flat root
+
+    The flat form is answered for the ROOT id only; any other id resolves to an
+    empty page, which ends collect_corpus_files' recursive walk cleanly — a
+    resolver that ignores folder_id re-feeds a sub-folder its own entries and
+    surfaces as DuplicatePaperError (measured 2026-08-15)."""
+    with open(listing_cache, encoding='utf-8') as fh:
+        cached = json.load(fh)
+    if isinstance(cached, dict) and 'files' in cached:
+        cached = {root_folder_id: cached}          # flat cache: root folder only
+
+    def list_fn(folder_id, page_token=None):
+        if page_token:
+            return {'files': []}                   # PHASE A merged every page already
+        return cached.get(folder_id, {'files': []})
+
+    return list_fn
+
+
+def collect_pyq_papers(folder_id, listing_cache):
+    """Enumerate the PYQ corpus. Returns (papers, rejects) in DRIVE LISTING ORDER.
+
+    Listing order, NOT recency order — sort_papers_recency_first() owns recency,
+    and on an inline channel the transport partition MUST run after that sort
+    (S8-0 / EC-X21). Rejects are ATTACHED, never discarded (v2.29)."""
+    import corpus_io
+    list_fn = make_drive_list_fn(listing_cache, folder_id)
+    papers, rejects = corpus_io.collect_corpus_files(list_fn, folder_id)
+    return papers, rejects
+
+
+def sort_papers_recency_first(paper_list, session_re):
+    """Sort PYQ papers: latest year first, latest date within year first, then
+    session number ascending within the same date. Filenames without a
+    recognizable DD-Mon-YYYY date sort LAST, alphabetically.
+
+    session_re: the compiled session/shift regex (build_session_re(keyword));
+    the spec supplies its session-scope SESSION_RE via a delegating adapter."""
+    MONTH_MAP = {
+        'jan':1,'feb':2,'mar':3,'apr':4,'may':5,'jun':6,
+        'jul':7,'aug':8,'sep':9,'oct':10,'nov':11,'dec':12
+    }
+
+    def sort_key(paper):
+        name = paper['name']
+        date_m  = re.search(r'(\d{2})-([A-Za-z]{3})-(\d{4})', name)
+        shift_m = session_re.search(name)
+
+        if date_m:
+            day   = int(date_m.group(1))
+            month = MONTH_MAP.get(date_m.group(2).lower(), 0)
+            year  = int(date_m.group(3))
+            shift = int(shift_m.group(1)) if shift_m else 0
+            return (0, -year, -(month * 100 + day), shift, name)
+        return (1, 0, 0, 0, name.lower())
+
+    return sorted(paper_list, key=sort_key)
+
+
+def make_paper_id(filename):
+    """Stable unique ID from filename (without extension)."""
+    return os.path.splitext(os.path.basename(filename))[0]
+
+
+def is_already_processed(paper_id, progress):
+    return paper_id in progress.get('_meta',{}).get('papers_processed',[])
 
 if __name__ == '__main__':
     if '--self-test' in sys.argv:
