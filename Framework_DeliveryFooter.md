@@ -1,4 +1,18 @@
-# Framework_DeliveryFooter v1.22 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.23 — Universal Delivery Footer (F1/F2) Contract
+# v1.23 — 2026-08-23 — REGISTRY SYNC (Step 6 learnings filename; Step 5 tiers).
+#   MINOR bump: registry/prose only, NO logic changes, NO artefact changes beyond
+#   the filename the Step 6 footer badge table prints.
+#   * §3 STEP 6 B3 still listed [ExamCode]_ExplainLearnings.md; Blueprint v1.50.0
+#     generates [ExamCode]_EXPLAIN_LEARNINGS_v1.md, because the legacy name
+#     matched NO consumer's glob (Steps 7 and 9 load *_EXPLAIN_LEARNINGS_v*.md).
+#     The registry now names the file Step 6 actually emits — a footer that
+#     badges a filename no step produces sends the operator hunting for it.
+#   * §3 STEP 5 FINAL heading said "6 mandatory + taxonomy.xlsx when written",
+#     counting exam_config.json as mandatory while its own list line says
+#     "delivered only when generated". Restated as the two-tier set that
+#     MockTestAnalyse S11-3 and mock_sync_audit MS-11 enforce: 5 mandatory +
+#     2 conditional. Fourth recurrence of the delivery-count-drift class; this
+#     was the last site still carrying a fixed count.
 # v1.22 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
 #   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
 #   present_files() was CALLED from compiling python here while DEFINED nowhere — a
@@ -358,7 +372,9 @@ FOOTER TYPE: F1 (mid-step) after each non-final batch
 MID-STEP DELIVERABLES (per batch):
   [ExamCode]_analysis_progress.json  → Upload (1st batch) / Replace (subsequent)
 
-FINAL DELIVERABLES (6 mandatory + taxonomy.xlsx when written — v1.21,
+FINAL DELIVERABLES (5 mandatory + 2 conditional — exam_config.json when
+generated, taxonomy.xlsx when written; the two-tier set MockTestAnalyse S11-3
+enforces. v1.23 heading; the v1.21 note below is historical — v1.21,
 GAP-2026-08-13-DELIVERY-COUNT-DRIFT mirrored from MockTestAnalyse v2.47: this
 list said "5 files", predating BOTH the v2.24.9 exam_config addition and the
 v2.24 taxonomy companion, so exam_config had no badge and taxonomy.xlsx fell
@@ -392,7 +408,10 @@ B3 FINAL DELIVERABLES (5 files — per Blueprint v1.43.0):
   [ExamCode]_blueprint.xlsx          → Use locally (xlsx not readable by Claude)
   [ExamCode]_blueprint.json          → Replace in Project Files
   [ExamCode]_registry.json           → Upload to Project Files
-  [ExamCode]_ExplainLearnings.md     → Upload to Project Files
+  [ExamCode]_EXPLAIN_LEARNINGS_v1.md → Upload to Project Files
+    (v1.23: was listed as [ExamCode]_ExplainLearnings.md — a name Blueprint
+     v1.50.0 no longer emits because it matched no consumer's glob; Steps 7
+     and 9 load [ExamCode]_EXPLAIN_LEARNINGS_v*.md.)
   [ExamCode]_mock_test_audit.py      → Upload to Project Files (run by Step 7)
 
   NOTE (v2.12.1): the repo engines blueprint_core.py / figural_core.py are NOT

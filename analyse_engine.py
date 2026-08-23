@@ -550,7 +550,17 @@ def generate_templates(questions, strip_mode):
     """
     if not questions: return []
 
-    years = sorted(set(q.get('year', 2020) for q in questions))
+    # v2.54.1 (GAP-2026-08-23-STEP5-YEARLESS-TEMPLATES). q['year'] is stamped
+    # UNCONDITIONALLY at extraction (process_pyq_paper), so a paper whose filename
+    # carries no year stores year=None WITH THE KEY PRESENT — and .get's default
+    # never fires for a present key. sorted() over {int, None} raised TypeError
+    # inside synthesise_subtopic (which runs for EVERY subtopic): a hard stop of
+    # the whole synthesis for any corpus mixing dated and undated paper filenames.
+    # SAME FAMILY as D7, one function from D7's own fix, hidden by a dead default
+    # that only a key-ABSENT fixture shape could satisfy. Year-less questions drop
+    # out of the RECENCY basis only — exactly the rule subtopic_option_format
+    # already applies to its recency vote.
+    years = sorted({q.get('year') for q in questions if q.get('year') is not None})
     last2 = set(years[-2:]) if len(years) >= 2 else set(years)
 
     skeletons = []
@@ -559,7 +569,10 @@ def generate_templates(questions, strip_mode):
         skel = strip_variables(q['stem'], strip_mode)
         if not skel.strip(): continue
         weight = 2 if q.get('year') in last2 else 1
-        skeletons.append({'skel':skel, 'weight':weight, 'year':q.get('year', 2020)})
+        # v2.54.1: carry the true value (None allowed); the cluster 'years' set
+        # below filters it. The old 2020 default was dead for a present key and
+        # would have invented a fake year for an absent one.
+        skeletons.append({'skel':skel, 'weight':weight, 'year':q.get('year')})
 
     if not skeletons: return []
 
@@ -576,7 +589,7 @@ def generate_templates(questions, strip_mode):
         'skel'     : c[0]['skel'],
         'w_count'  : sum(i['weight'] for i in c),
         'raw_count': len(c),
-        'years'    : sorted(set(i['year'] for i in c)),
+        'years'    : sorted({i['year'] for i in c if i['year'] is not None}),
     } for c in clusters], key=lambda p: -p['w_count'])
 
     for p in pats_raw:
@@ -5429,6 +5442,36 @@ def self_test():
     check('no_year_branch_not_changed_recently', _nf['changed_recently'] is False)
     check('no_year_branch_recent_format_falls_back_to_primary',
           _nf['recent_format'] == _nf['primary'])
+
+    # ── generate_templates: PRODUCTION-SHAPE year=None (v2.54.1 regression) ──
+    # The D7-era fixtures modelled a year-less question as a dict WITHOUT the
+    # 'year' key; extraction stamps the key WITH None, and a .get default made
+    # the two shapes behave differently — which is how the sibling crash in
+    # generate_templates survived the D7 release. These pin the production shape.
+    _gt_mixed = [
+        {'stem': 'Find x when a=2', 'year': 2026, 'num': 1},
+        {'stem': 'Find x when a=7', 'year': None, 'num': 2},  # key PRESENT, None
+        {'stem': 'Find x when a=5', 'year': 2024, 'num': 3},
+    ]
+    try:
+        _gt1 = generate_templates(_gt_mixed, 'quantitative')
+        check('yearless_mixed_templates_no_crash', True)
+        check('yearless_mixed_years_exclude_none',
+              all(None not in p['years'] for p in _gt1))
+    except TypeError:
+        check('yearless_mixed_templates_no_crash', False)
+    _gt_all_none = [{'stem': 'Find x when a=2', 'year': None, 'num': 1},
+                    {'stem': 'Find y when b=3', 'year': None, 'num': 2}]
+    _gt2 = generate_templates(_gt_all_none, 'quantitative')
+    check('yearless_only_no_observed_recent',
+          all(p['confidence'] != 'observed_recent' and p['years'] == []
+              for p in _gt2))
+    check('yearless_only_not_deprecated',
+          all(not p['deprecated'] for p in _gt2))
+    _gt_dated = [{'stem': 'Find x when a=2', 'year': 2026, 'num': 1},
+                 {'stem': 'Find x when a=7', 'year': 2021, 'num': 2}]
+    check('dated_corpus_years_intact',
+          all(p['years'] for p in generate_templates(_gt_dated, 'quantitative')))
     # D7 REGRESSION GUARD — a MIXED corpus. Under the old sentinel this raised
     # TypeError from sorted({2021, '?'}); it must now read the recency vote from the
     # year-bearing questions alone and ignore the year-less one.
@@ -5708,7 +5751,7 @@ def self_test():
     # A count is the cheapest possible oracle for "did anything vanish?". If a future
     # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
     # then visible in the diff, which is the whole point.
-    EXPECTED_CHECKS = 115
+    EXPECTED_CHECKS = 120  # v2.54.1: +5 year=None production-shape fixtures
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(

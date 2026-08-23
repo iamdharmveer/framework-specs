@@ -10,10 +10,11 @@ project's Files section, THAT copy is authoritative for this run. GitHub supplie
 specs the project does not carry. Precedence is PER FILE — a project may override one spec
 and inherit the rest.
 
-ENGINES ARE REPO-ONLY. All 17 routed engine scripts, plus the 6 tracked-but-never-routed
+ENGINES ARE REPO-ONLY. All 17 routed engine scripts, plus the 7 tracked-but-never-routed
 scripts (validate_framework_md.py the CI validator; audit_canonical.py the canonical auditor
 that Step 6 copies to each exam and Step 7 runs as its self-audit; spec_source.py the
-resolver; and the three baseline auditors spec_name_audit.py, mock_sync_audit.py and
+resolver; run_ci_gates.py the CI-parity gate runner (GAP-2026-08-23-GATE-INVOCATION);
+and the three baseline auditors spec_name_audit.py, mock_sync_audit.py and
 notes_sync_audit.py), come ONLY from the verified clone. `/mnt/project` is never placed on `sys.path`,
 so a `.py` sitting in a project's Files section is never imported and editing one has no
 effect. `routes.json` and `MANIFEST.json` are likewise repo-only.

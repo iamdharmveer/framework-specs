@@ -97,6 +97,25 @@ jobs:
             python3 audit_sync.py --self-test
             python3 audit_sync.py
           fi
+      # GAP-2026-08-23-AUDITSYNC-FIXTURE-STALE (deploy block #3 of 2026-08-23).
+      # The deploy environment runs engine self-tests this workflow never listed,
+      # so a verification that executed this file VERBATIM was still a SUBSET of
+      # the deploy gate — and the block hid in the difference. A hand-maintained
+      # list would recreate the gap on the next engine; DISCOVERY closes it:
+      # every .py that advertises a --self-test entrypoint runs here, including
+      # engines added after this comment was written. Redundant with the
+      # dedicated steps above for a few engines — redundancy is cheap, a gap
+      # is not.
+      - name: Every advertised engine self-test passes (discovery-driven)
+        run: |
+          fails=""
+          for f in *.py; do
+            grep -q -- "--self-test" "$f" || continue
+            grep -qE "def self_test|_self_test" "$f" || continue
+            echo "== $f --self-test"
+            python3 "$f" --self-test || fails="$fails $f"
+          done
+          if [ -n "$fails" ]; then echo "SELF-TEST FAILURES:$fails"; exit 1; fi
       - name: Supplementary spec deep audit (V/W/X/Y/Z families)
         # Sync-rule parity needs the ENGINE side of every rule in the same
         # run, so the .py files are passed alongside the specs — specs alone

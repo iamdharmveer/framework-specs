@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 817,
-      "sha256": "ff643f919108f0c030bf00578112408fb98eb295a551fe6744dddba9f0870930",
-      "size_bytes": 43817,
-      "version_header": "# Framework_DeliveryFooter v1.22 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 836,
+      "sha256": "74bab55d24a974ff5d17813a830c7cac97efbc2cde2a162fb49b959e493e1264",
+      "size_bytes": 45227,
+      "version_header": "# Framework_DeliveryFooter v1.23 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.12.2",
@@ -22,11 +22,11 @@
       "version_header": "# Framework_MockDeliver v1.12.2 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.54.0",
-      "lines": 4941,
-      "sha256": "7fecc766863d4fc8b1c4064edddbfc2f4a44ac6aa87510fe667a31da87b423fc",
-      "size_bytes": 285521,
-      "version_header": "# Framework_MockTestAnalyse v2.54.0 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.54.1",
+      "lines": 5021,
+      "sha256": "42f10d1194fc26b00c475063713a66608ac1ddc95c167affb1a5cb3a9b3d5f10",
+      "size_bytes": 291646,
+      "version_header": "# Framework_MockTestAnalyse v2.54.1 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -205,16 +205,16 @@
     },
     "audit_specs_ext.py": {
       "end_sentinel": "    sys.exit(main(args))",
-      "lines": 588,
-      "sha256": "398a72c4bbd8afcc084dee5b72bfa7c0265e26e24ef1fcafa9916f7c02b99c02",
-      "size_bytes": 30773,
+      "lines": 600,
+      "sha256": "5752f17b1e387418e2cc574137928f5f813eb3200ad0aba543ade60d906853fd",
+      "size_bytes": 31770,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 869,
-      "sha256": "88ae16b8a20adb496f484c0c139e747293b6d8476874a4da7c3854d82a79a210",
-      "size_bytes": 48869,
+      "lines": 885,
+      "sha256": "61ae05847e8f977b68241c40ae291315075e73f11b746bb943015172a5a9875f",
+      "size_bytes": 49939,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {

@@ -87,6 +87,16 @@ def _session_class(progress_path, files_meta, trigger=None):
     # means B3 (read everything, it writes every closing output); in between is a
     # B2 batch, which works entirely from blueprint.json state -> NON-FINAL.
     # Malformed or schema-alien -> FINAL (corrupt state, not a fresh one).
+    # v2026.08.23 (GAP-2026-08-23-PYQSCAN-SPECBUDGET): one-shot triggers. PYQDraft
+    # and PYQApprove have no batch loop — their only session closes the books, and
+    # under the generic fresh-corpus rule below (no progress file -> NON-FINAL) that
+    # session would skip Framework_PYQCore.md's newly FINAL-only §11/§12 on the very
+    # run that must consult them. One-shot => FINAL, unconditionally. The batched
+    # PYQ routes are already safe both ways: a fresh PYQScan/PYQCount session is
+    # genuinely NON-FINAL, and any session holding a scan/count progress file falls
+    # to the schema-alien branch of the generic parser -> FINAL, the safe default.
+    if trigger in ('PYQDraft', 'PYQApprove'):
+        return 'FINAL'
     if trigger == 'MockBlueprint':
         if not progress_path or not os.path.exists(progress_path):
             return 'FINAL'

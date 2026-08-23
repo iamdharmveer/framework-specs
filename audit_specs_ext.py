@@ -583,6 +583,18 @@ if __name__ == '__main__':
         sys.exit(0 if self_test() else 1)
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
     if not args:
-        print(__doc__)
-        sys.exit(2)
+        # GAP-2026-08-23-GATE-INVOCATION. A bare `python3 audit_specs_ext.py` used to
+        # print the docstring and exit 2 — an invocation that AUDITS NOTHING. A
+        # release verification ran exactly that, its pipeline masked the rc, and the
+        # one red check in the bundle (SPEC-BUDGET on PYQScan) reached the deploy
+        # gate unseen. Same vacuous-pass family as the analyse_engine 0/0 mutation
+        # score this repo already refuses (validate.yml B9 note). A no-argument run
+        # now audits the standard corpus — the CI invocation — so the LAZIEST
+        # possible invocation and the strictest one are the same check.
+        import glob as _glob
+        here = os.path.dirname(os.path.abspath(__file__))
+        args = (sorted(_glob.glob(os.path.join(here, 'Framework_*.md')))
+                + sorted(_glob.glob(os.path.join(here, '*.py'))))
+        print(f'audit_specs_ext: no paths given — defaulting to the standard corpus '
+              f'({len(args)} file(s), the validate.yml invocation).')
     sys.exit(main(args))

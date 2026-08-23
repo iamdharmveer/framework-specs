@@ -81,6 +81,21 @@ FINAL_ONLY_PREFIXES = {
         '## S2-MANIFEST',
         '## DEFINITION OF DONE', '## DoD additions',
     ),
+    # v5 (2026-08-23, GAP-2026-08-23-PYQSCAN-SPECBUDGET): the PYQScan route sat 67 B
+    # under the 250,000 B SPEC-BUDGET line at 36e6ebf; DeliveryFooter v1.23 (+1,410 B,
+    # on all 23 routes) carried it over, and no spec on the route declared a read set —
+    # the gate's uncovered-route condition, found at DEPLOY. The margin was the defect:
+    # any growth in any of three specs re-breaches it, so the durable property is
+    # has_read_set, exactly as the MockTestExplain v2 note above says.
+    # §11 (EXAM-AGNOSTIC GUARANTEE) is a close-out attestation LIST — every rule it
+    # names lives in its own section, all of which stay in every read. §12 is the
+    # DEFINITION OF DONE checklist, consulted only by the session that closes the
+    # books. §10 is NOT here: it governs the per-batch present_files call of every
+    # NON-FINAL scan session. The hosted S2-3 is NOT here: it is PYQDraft's working
+    # law, and PYQDraft always reads FINAL (bootstrap one-shot rule, same GAP).
+    'Framework_PYQCore.md': (
+        '## §11', '## §12',
+    ),
 }
 
 # Measured in the container, 2026-08-16. The view tool truncates output above ~16,000
@@ -243,9 +258,18 @@ def self_test():
               for i in range(len(read_plan(doc, ma, 'NON-FINAL')) - 1)))
     # A spec with no declared read set must default to the WHOLE file. Defaulting to a
     # subset would silently under-read every spec nobody has classified yet.
+    # GAP-2026-08-23-AUDITSYNC-FIXTURE-STALE (same class, same release): this
+    # fixture named Framework_PYQCore.md as its unclassified example and broke
+    # the moment v5 classified it. The property under test is the DEFAULT — any
+    # spec with no read set reads in full — not any particular file, so the
+    # example is picked from whatever is unclassified NOW. If one day every
+    # spec is classified, the next(...) fails loudly and the fixture must be
+    # rebuilt on a synthetic spec, not deleted.
+    _uncls = next(n for n in sorted(doc['files'])
+                  if not doc['files'][n]['has_read_set'])
     check('t_unclassified_spec_reads_in_full',
-          read_plan(doc, 'Framework_PYQCore.md', 'NON-FINAL')
-          == [(1, doc['files']['Framework_PYQCore.md']['lines'])])
+          read_plan(doc, _uncls, 'NON-FINAL')
+          == [(1, doc['files'][_uncls]['lines'])])
     # Step 9 (GAP-2026-08-22-STEP9-READ-SET): covered, small by design, and the
     # skip list is EXACTLY the three declared sections — a fourth section
     # appearing here means a header promotion leaked a span into the skip set.

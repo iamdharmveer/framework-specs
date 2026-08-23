@@ -31,7 +31,15 @@ TRACKED_PY = ["validate_framework_md.py", "explain_engine.py",
               # fetches, and an unverified copy could change that silently.
               "transport_core.py",
               "notes_core.py", "notes_blueprint.py", "notes_audit.py",
-              "notes_docx.py", "notes_sync_audit.py"]
+              "notes_docx.py", "notes_sync_audit.py",
+              # GAP-2026-08-23-GATE-INVOCATION. The local gate runner executes
+              # .github/workflows/validate.yml's run blocks VERBATIM, so a release
+              # verification can no longer drift from CI by invoking an auditor with
+              # different arguments — the drift that let SPEC-BUDGET reach deploy.
+              # Tracked so bootstrap checksum-verifies the runner itself: an
+              # unverified runner could silently skip steps, which is the exact
+              # failure it exists to prevent.
+              "run_ci_gates.py"]
 
 # GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION (P7). The law-propagation registry is DATA
 # the CI enforces, so it needs the same byte-integrity guarantee as an engine: an

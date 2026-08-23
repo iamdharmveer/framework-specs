@@ -244,9 +244,25 @@ def _self_test():
     def remove(root, fname):
         os.remove(os.path.join(root, fname))
 
+    # GAP-2026-08-23-AUDITSYNC-FIXTURE-STALE: these three fixtures pinned the
+    # LIVE inventory literals ('All 17 ... plus the 6 ...') and crashed the
+    # release that took the tracked count 6 -> 7 — the exact content-keyed
+    # fixture class this file's own _fenced_python note legislates against, and
+    # the live check itself already avoids (it reads the counts with a regex).
+    # Keyed to the SHAPE now: extract the counts with the SAME regex the live
+    # check uses and build the mutation strings from what is actually there.
+    # Adding an engine never touches these fixtures again; only REWORDING the
+    # line does — and the third fixture exists to prove rewording fails loudly.
+    _inv = re.search(r'All\s+(\d+)\s+routed engine scripts, plus the\s+(\d+)\s+'
+                     r'tracked-but-never-routed',
+                     open(os.path.join(here, 'SKILL.md'), encoding='utf-8').read())
+    assert _inv, 'SKILL.md inventory line not found — fixtures cannot key to shape'
+    _live_routed  = f'All {_inv.group(1)} routed engine scripts'
+    _live_tracked = f'plus the {_inv.group(2)} tracked-but-never-routed'
+
     # L305 — SKILL-INVENTORY, routed-engine count.
     rc, out = mutated(lambda r: replace(r, 'SKILL.md',
-        'All 17 routed engine scripts', 'All 99 routed engine scripts'))
+        _live_routed, 'All 99 routed engine scripts'))
     check("SKILL-INVENTORY fires on a wrong routed-engine count",
           rc == 1 and 'SKILL-INVENTORY' in out and '99' in out)
 
@@ -254,7 +270,7 @@ def _self_test():
     # stale on the live corpus (said 3, reality 6) the day the check was revived —
     # proof the parity matters, preserved here as the fixture's shape.
     rc, out = mutated(lambda r: replace(r, 'SKILL.md',
-        'plus the 6 tracked-but-never-routed', 'plus the 2 tracked-but-never-routed'))
+        _live_tracked, 'plus the 2 tracked-but-never-routed'))
     check("SKILL-INVENTORY fires on a wrong tracked-not-routed count",
           rc == 1 and 'SKILL-INVENTORY' in out and 'tracked-but' in out)
 
@@ -262,7 +278,7 @@ def _self_test():
     # must SAY it can no longer verify, not silently match nothing. That silent
     # no-match is exactly how the previous regex died.
     rc, out = mutated(lambda r: replace(r, 'SKILL.md',
-        'All 17 routed engine scripts, plus the 6 tracked-but-never-routed',
+        f'{_live_routed}, {_live_tracked}',
         'Seventeen engines ride along, and some other scripts too'))
     check("SKILL-INVENTORY fires when the inventory line is reworded away",
           rc == 1 and 'no longer carries' in out)
