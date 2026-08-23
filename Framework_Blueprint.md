@@ -1,4 +1,21 @@
-# Framework_Blueprint v1.53.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.54.0 — Universal Mock Test Blueprint Generator
+# v1.54.0 — 2026-08-23 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH (BV-AXIS gains the
+#   AXIS-TRUTH cross-check; paired with blueprint_core axis_truth_check, self-test
+#   520 -> 527; companion Framework_ScopedBlueprint v1.9.0). The parent defect was
+#   found because a §7-7 advisory contradicted directly observable data — a
+#   121-subtopic taxonomy with 66 TEXT / 55 FIGURAL entries reported as containing
+#   neither — and NOTHING in the pipeline compared an advisory against the manifest
+#   that would falsify it. S9-12 now cross-examines each stored schedule's
+#   axis1_unreachable_formats (both contradiction directions) and
+#   guarantee_feasibility verdicts against a FIRST-PRINCIPLES recomputation
+#   (bc.axis_truth_check — deliberately never via axis1_feasibility /
+#   section_axis2_pool_caps, since a checker sharing the audited code path
+#   reproduces the audited corruption and passes vacuously) and HARD-FAILS on any
+#   contradiction: a corrupted instrument is structural corruption, not a format
+#   shortfall, and guards the class — any future defect that corrupts the
+#   advisories is caught at the first affected exam's B3 instead of by a human
+#   noticing a contradiction. Format shortfalls themselves remain advisory
+#   (Subtopic is hard #1), and no_pyq schedules stay SEC-8's territory.
 # v1.53.0 — 2026-08-23 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE closure (spec
 #   mandate + ratchet; no allocation rule, gate, schema, or output changes). §2-1
 #   FIX D now states the mandate EXTENDS ACROSS FUNCTION BOUNDARIES: passing an
@@ -3692,7 +3709,8 @@ Step 4  Run BV-8 (§9): zero-PYQ final count check.
         Each ZP subtopic must have exactly MAX_ZERO appearances.
         If BV-8 fails: HALT. Fix rotation. Return to Step 1.
 
-Step 4A Run BV-AXIS (§9 S9-12): axis_schedule integrity + feasibility report (v1.23).
+Step 4A Run BV-AXIS (§9 S9-12): axis_schedule integrity + feasibility report (v1.23)
+        + AXIS-TRUTH advisory-vs-manifest cross-check (v1.54).
         Hard-fails ONLY on a missing/malformed axis_schedule (a Blueprint bug); the
         format-mix feasibility (Axis-1/3, zp_only/unsatisfiable guarantees) is advisory —
         realized-vs-target proportion is audited within tolerance by Step 7's audit.py,
@@ -4390,7 +4408,9 @@ PURPOSE (v1.23): verify blueprint['axis_schedule'] is present and well-formed fo
 section, and REPORT axis feasibility. This gate is ADVISORY on the locked axes (Axis-1/3)
 and on 'unsatisfiable'/'zp_only' guarantees — because Subtopic is hard #1, Blueprint cannot
 force those; realized-vs-target proportion is audited within tolerance by Step 7's audit.py. It HARD-FAILS
-only on structural corruption (missing/malformed schedule), never on a format shortfall.
+only on structural corruption — a missing/malformed schedule, or an advisory the
+AXIS-TRUTH cross-check (v1.54.0) proves contradicts the manifest it summarises (a
+corrupted instrument is structural corruption too) — never on a format shortfall.
 
 Absent-safe: if the manifest predates Step 5 v2.23, every section's schedule has
 status='no_pyq' — BV-AXIS passes vacuously and prints "inert (no axis targets in manifest)".
@@ -4407,6 +4427,7 @@ both exist but failed to connect for THIS section.
 ```
 ```python
 def bv_axis(blueprint, sections):
+    import blueprint_core as bc          # AXIS-TRUTH recompute (v1.54.0)
     sched = blueprint.get('axis_schedule')
     if sched is None:
         fail("BV-AXIS FAIL: blueprint['axis_schedule'] missing. S7-7 must build it in B1.")
@@ -4474,6 +4495,23 @@ def bv_axis(blueprint, sections):
                     fail(f"BV-AXIS FAIL (AXIS-UNIT) [{name}]: {axis_key} sums to "
                          f"{sum(pp.values()):.3f}, not sec_qs={sec_qs_bv}. Step 8 scales these "
                          f"by the window; wrong units make every axis finding unclearable.")
+        # AXIS-TRUTH (v1.54.0, GAP-2026-08-23-AXIS-ADVISORY-TRUTH — parent gap
+        # §13 item 7): cross-examine the STORED advisories against the manifest
+        # that would falsify them. bc.axis_truth_check is a FIRST-PRINCIPLES
+        # recomputation that deliberately never calls the two functions that
+        # wrote the advisories — a checker sharing its subject's code path
+        # reproduces the subject's corruption and passes vacuously (the
+        # 2026-08-18 defect corrupted builder and advisory identically at the
+        # source). HARD FAIL on any contradiction: a contradicted advisory is a
+        # corrupt instrument, and the operator notes above, the report below,
+        # and any future A-AXIS2 gate all inherit it silently.
+        _tt_pyq = [x['subtopic_id'] for x in blueprint['subtopic_list']
+                   if x['section'] in subjects_for_section(name) and x['r_avg'] > 0]
+        _tt_zp = [x['subtopic_id'] for x in blueprint['subtopic_list']
+                  if x['section'] in subjects_for_section(name) and x['r_avg'] == 0]
+        for _tt_f in bc.axis_truth_check(s, _tt_pyq, _tt_zp, AXIS2_CAP_BY_ID,
+                                         MANIFEST_IDS):
+            fail(f"BV-AXIS FAIL (AXIS-TRUTH) [{name}]: {_tt_f}")
         # ADVISORY feasibility report (never fails the gate):
         unsat = [g for g, f in s['guarantee_feasibility'].items() if f == 'unsatisfiable']
         zponly= [g for g, f in s['guarantee_feasibility'].items() if f == 'zp_only']
@@ -7036,4 +7074,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.53.0
+# END OF Framework_Blueprint v1.54.0

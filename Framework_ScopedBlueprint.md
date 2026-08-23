@@ -1,4 +1,12 @@
-# Framework_ScopedBlueprint v1.8.1 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# Framework_ScopedBlueprint v1.9.0 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# v1.9.0 — 2026-08-23 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH (mock S9-12 parity;
+#   paired with blueprint_core axis_truth_check + Framework_Blueprint v1.54.0).
+#   §6-3 now cross-examines the derived axis_schedule's advisories
+#   (axis1_unreachable_formats, guarantee_feasibility) against the in-scope
+#   manifest via a first-principles recomputation BEFORE the schedule is stored,
+#   and HARD STOPS on any contradiction — a corrupted instrument must not be
+#   persisted into blueprint.json, where every downstream reader inherits it
+#   silently. Genuine format shortfalls remain flag-and-continue advisories.
 # v1.8.1 — 2026-08-23 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE follow-through
 #   (comment-only; no rule, gate, or output changes). The §6-3 rationale for
 #   scoped_manifest_ids still described the PRE-FIX engine ("the engine ... filters ids
@@ -1008,6 +1016,21 @@ axis_schedule['axis1_unreachable_formats'] = unreachable
 if unreachable:
     flag(f"Axis-1 formats targeted but absent among in-scope PYQ subtopics: {unreachable} "
          f"(shortfall reported, not forced — subtopic is hard #1).")
+
+# AXIS-TRUTH (v1.9.0, GAP-2026-08-23-AXIS-ADVISORY-TRUTH — mock S9-12 parity): before the
+# schedule is stored, cross-examine its advisories against the in-scope manifest via
+# bc.axis_truth_check — a FIRST-PRINCIPLES recomputation that deliberately never calls the
+# two functions that wrote them (a checker sharing the audited code path reproduces the
+# audited corruption and passes vacuously; the 2026-08-18 defect corrupted builder and
+# advisory identically at the source). A contradiction means the instrument is corrupt —
+# HARD STOP rather than flag, because a stored corrupt schedule poisons every downstream
+# reader of blueprint.json silently.
+_truth = bc.axis_truth_check(axis_schedule, pyq_ids, zp_ids, AXIS2_CAP_BY_ID,
+                             scoped_manifest_ids)
+if _truth:
+    raise SystemExit("HARD STOP (AXIS-TRUTH): the derived axis_schedule contradicts the "
+                     "in-scope manifest — corrupt instrument; refusing to store it. "
+                     "Findings: " + " | ".join(_truth))
 ```
 
 ### S6-4 — Partial-batch caveat + fabrication ban
@@ -1286,7 +1309,9 @@ strict-global uniqueness holds across all tiers:
          user-specified ratio; envelope is deliberately NOT checked (full bypass, S5-3 Branch B).
   ☐ 7.  FORMAT (§6): axis_schedule built via bc.derive_axis_schedule (subject verbatim;
          topic/subtopic axis-2 rescoped, axis-1/3 inherited; all axes normalised to Q);
-         axis1_unreachable_formats present; no fabrication of unsatisfiable formats.
+         axis1_unreachable_formats present; no fabrication of unsatisfiable formats;
+         AXIS-TRUTH cross-check passed pre-store (v1.9.0 — contradiction is a HARD
+         STOP, never a flag).
   ☐ 8.  MARKING (§7): single-tier used, or modal-by-span for a multi-tier subject (flagged).
   ☐ 9.  REGISTRY (§1-4/§2-4/§8-7): exam_code gate passed; old registry auto-migrated
          (snapshot retained); taxonomy-drift and completeness gates passed; paper_id numbering
@@ -1300,4 +1325,4 @@ strict-global uniqueness holds across all tiers:
          override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
 ```
 
-# END OF Framework_ScopedBlueprint v1.8.1 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
+# END OF Framework_ScopedBlueprint v1.9.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)

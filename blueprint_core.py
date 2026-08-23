@@ -27,6 +27,7 @@ PROVENANCE
       axis1_feasibility ........ §7-7
       axis1_mock_feasibility ... §7-7 (GAP-2026-08-12-AXIS-PREFLIGHT, NEW — v1.50)
       axis3_mock_feasibility ... §7-7 (GAP-2026-08-12-AXIS3-PREFLIGHT, NEW — v1.51)
+      axis_truth_check ......... §9 S9-12 (GAP-2026-08-23-AXIS-ADVISORY-TRUTH, NEW — v1.54)
       slugify .................. §17 S2-MANIFEST
     Source anchors (Framework_MockTestAnalyse.md v2.24.10 — Cluster E):
       score_difficulty ......... E-9  (3-axis universal difficulty scorer)
@@ -62,6 +63,7 @@ __all__ = [
     "axis3_mechanism_lock",
     "axis1_feasibility",
     "axis1_mock_feasibility",
+    "axis_truth_check",
     "axis3_mock_feasibility",
     "AXIS_WINDOW_YEARS",
     "AXIS_BAND_ABS",
@@ -1149,6 +1151,90 @@ AXIS_BAND_REL = 0.15    # … or ±15%, whichever is LARGER. A band, not an equa
 
 STIMULUS_CLASSES  = ("TEXT", "FIGURAL", "PASSAGE", "DI")     # Axis-1
 MECHANISM_CLASSES = ("MCQ", "MSQ", "NAT")                    # Axis-3
+
+def axis_truth_check(sched_entry, pyq_ids, zp_ids, cap_by_id, manifest_ids):
+    """§9 S9-12 AXIS-TRUTH (GAP-2026-08-23-AXIS-ADVISORY-TRUTH; parent record
+    GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE, gap-analysis §13 item 7).
+
+    Cross-examine a section's STORED axis advisories against the data that
+    would falsify them. Returns a list of contradiction findings ([] ==
+    consistent). The caller treats any finding as a HARD FAIL: a contradicted
+    advisory means the measurement instrument that wrote it is corrupt, and a
+    corrupt instrument is STRUCTURAL corruption, not a format shortfall.
+
+    FIRST-PRINCIPLES BY DESIGN — this function must NEVER call
+    axis1_feasibility() or section_axis2_pool_caps(). Those are the instruments
+    under audit. The 2026-08-18 defect corrupted BOTH of them identically at
+    the source; a checker that recomputes through the audited path reproduces
+    the corruption and passes vacuously — a green check that shares its
+    subject's code path is exactly what a hollow check looks like (the
+    audit_mutation lesson). The derivations below are therefore reimplemented
+    inline from the manifest and capability map directly. They MUST stay
+    semantically aligned with the primary functions: availability is the
+    'format' field with the 'TEXT' default over in-manifest pyq_ids; capability
+    is the union of cap_by_id with the ['DIRECT'] default over in-manifest ids;
+    verdict precedence is pyq_covered > zp_only > unsatisfiable; zero-count
+    targets are ignored. If a DELIBERATE change to a primary function fires
+    this check, resolve the divergence consciously in both places — that
+    forced conversation is the point of a cross-check.
+
+    Inputs mirror the §7-7 / ScopedBlueprint §6-3 build call: pyq_ids/zp_ids
+    arrive PRE-SCOPED by the caller (§2-1 FIX D — this function performs no
+    section join and takes no section name; ids absent from manifest_ids are
+    skipped, so a ghost id can never manufacture phantom availability).
+    sched_entry that is None or status != 'ok' returns [] — a no_pyq schedule
+    derives nothing, so there is nothing to contradict; the SEC-8 gate owns
+    that territory.
+    """
+    if not sched_entry or sched_entry.get('status') != 'ok':
+        return []
+    findings = []
+
+    # 1) Axis-1 — stored unreachable list vs first-principles availability.
+    avail = {(manifest_ids.get(sid) or {}).get('format', 'TEXT')
+             for sid in pyq_ids if sid in manifest_ids}
+    target = sched_entry.get('axis1_target_per_mock') or {}
+    expected_un = {f for f, c in target.items() if c > 0 and f not in avail}
+    stored_un = set(sched_entry.get('axis1_unreachable_formats') or [])
+    if stored_un != expected_un:
+        pess = sorted(stored_un - expected_un)
+        opt = sorted(expected_un - stored_un)
+        parts = []
+        if pess:
+            parts.append(
+                f"axis1_unreachable_formats claims {pess} unreachable, but the "
+                f"scoped PYQ subtopics demonstrably contain them (available "
+                f"formats: {sorted(avail)})")
+        if opt:
+            parts.append(
+                f"axis1_unreachable_formats omits {opt}, which the target "
+                f"demands (count > 0) and NO scoped PYQ subtopic can render")
+        findings.append(
+            "; ".join(parts) + " — the stored advisory contradicts the "
+            "manifest it summarises; the instrument that wrote it is corrupt.")
+
+    # 2) Axis-2 — stored guarantee verdicts vs first-principles capability unions.
+    def _union(ids):
+        u = set()
+        for sid in ids:
+            if sid in manifest_ids:
+                u |= set(cap_by_id.get(sid, ["DIRECT"]))
+        return u
+    pyq_caps, zp_caps = _union(pyq_ids), _union(zp_ids)
+    expected_feas = {g: ("pyq_covered" if g in pyq_caps
+                         else "zp_only" if g in zp_caps
+                         else "unsatisfiable")
+                     for g in (sched_entry.get('axis2_guarantee') or [])}
+    stored_feas = sched_entry.get('guarantee_feasibility') or {}
+    if stored_feas != expected_feas:
+        findings.append(
+            f"guarantee_feasibility is {stored_feas!r} but the capability map "
+            f"derives {expected_feas!r} (pyq caps={sorted(pyq_caps)}, zp caps="
+            f"{sorted(zp_caps)}) — a class marked 'unsatisfiable' while a "
+            f"capable subtopic is on file lets every Axis-2 shortfall be "
+            f"excused as unavoidable.")
+    return findings
+
 
 def _axis_int(v):
     """Total non-negative-integer coercion for the whole Axis cluster.
@@ -4135,6 +4221,56 @@ def self_test():
     check('AXIS-SECTIONKEY-cap-default-direct',
           section_axis2_pool_caps('Section A', ['ST02'], {}, _nk_manifest)
           == {'DIRECT'})
+
+    # ── GAP-2026-08-23-AXIS-ADVISORY-TRUTH regression pack ───────────────────
+    # The parent defect wrote advisories that contradicted the manifest they
+    # summarise, and nothing compared the two. axis_truth_check is that
+    # comparison, FIRST-PRINCIPLES (never via the audited functions). Fixtures
+    # cover: consistency, both contradiction directions on Axis-1, the Axis-2
+    # verdict flip that would excuse real shortfalls, dormancy, and the
+    # ghost-id / zero-count-target semantics shared with the primaries.
+    _tr_man = {'ST01': {'section': 'Organic Chemistry',  'format': 'TEXT'},
+               'ST02': {'section': 'Physical Chemistry', 'format': 'FIGURAL'},
+               'ZP01': {'section': 'Organic Chemistry',  'format': 'TEXT'}}
+    _tr_cap = {'ST01': ['DIRECT', 'MATCH'], 'ST02': ['DIRECT'],
+               'ZP01': ['SEQUENCE']}
+    _tr_ok = {'status': 'ok',
+              'axis1_target_per_mock': {'TEXT': 20, 'FIGURAL': 5},
+              'axis1_unreachable_formats': [],
+              'axis2_guarantee': ['SEQUENCE'],
+              'guarantee_feasibility': {'SEQUENCE': 'zp_only'}}
+    check('AXIS-TRUTH-consistent-schedule-passes',
+          axis_truth_check(_tr_ok, ['ST01', 'ST02'], ['ZP01'],
+                           _tr_cap, _tr_man) == [])
+    _tr_f = axis_truth_check(dict(_tr_ok,
+                                  axis1_unreachable_formats=['TEXT', 'FIGURAL']),
+                             ['ST01', 'ST02'], ['ZP01'], _tr_cap, _tr_man)
+    check('AXIS-TRUTH-false-pessimist-caught',
+          len(_tr_f) == 1 and 'demonstrably contain' in _tr_f[0])
+    _tr_f = axis_truth_check(dict(_tr_ok,
+                                  axis1_target_per_mock={'TEXT': 20, 'DI': 3}),
+                             ['ST01', 'ST02'], ['ZP01'], _tr_cap, _tr_man)
+    check('AXIS-TRUTH-false-optimist-caught',
+          len(_tr_f) == 1 and 'omits' in _tr_f[0] and 'DI' in _tr_f[0])
+    _tr_f = axis_truth_check(dict(_tr_ok,
+                                  guarantee_feasibility={'SEQUENCE':
+                                                         'unsatisfiable'}),
+                             ['ST01', 'ST02'], ['ZP01'], _tr_cap, _tr_man)
+    check('AXIS-TRUTH-guarantee-verdict-flip-caught',
+          len(_tr_f) == 1 and 'unsatisfiable' in _tr_f[0])
+    check('AXIS-TRUTH-dormant-on-no-pyq-and-none',
+          axis_truth_check({'status': 'no_pyq'}, ['ST01'], [],
+                           _tr_cap, _tr_man) == []
+          and axis_truth_check(None, ['ST01'], [], _tr_cap, _tr_man) == [])
+    check('AXIS-TRUTH-ghost-id-no-phantom-availability',
+          axis_truth_check(dict(_tr_ok, axis1_target_per_mock={'TEXT': 5},
+                                axis1_unreachable_formats=['TEXT'],
+                                axis2_guarantee=[], guarantee_feasibility={}),
+                           ['GHOST'], [], {}, {}) == [])
+    check('AXIS-TRUTH-zero-count-target-ignored',
+          axis_truth_check(dict(_tr_ok,
+                                axis1_target_per_mock={'TEXT': 25, 'DI': 0}),
+                           ['ST01', 'ST02'], ['ZP01'], _tr_cap, _tr_man) == [])
 
     # ── GAP-2026-08-12-AXIS-PREFLIGHT regression pack ────────────────────────
     # Real-world trigger (Mock-10 root-cause gap analysis §5.5/§13 row 2): a mock can

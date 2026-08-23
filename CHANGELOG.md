@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026.08.23.2 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH: advisories must survive cross-examination against the data that would falsify them
+
+**Framework_Blueprint v1.53.0 -> v1.54.0 · Framework_ScopedBlueprint v1.8.1 -> v1.9.0 ·
+blueprint_core.py +axis_truth_check (self-test 520 -> 527). No allocation rule, schema,
+or artefact-shape changes; one new HARD-FAIL class in BV-AXIS and one new pre-store HARD
+STOP in ScopedBlueprint §6-3.**
+
+The parent defect (GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE) was discovered by a HUMAN
+noticing that a §7-7 advisory contradicted directly observable data: a 121-subtopic
+taxonomy with 66 TEXT / 55 FIGURAL entries reported as containing no TEXT- and no
+FIGURAL-capable subtopic. Nothing in the pipeline compared an advisory against the
+manifest that would falsify it — the corrupted fields shipped inside blueprint.json under
+a green BV-AXIS, because BV-AXIS checked their SHAPE (keys, sums, units) and never their
+TRUTH. This release adds the missing comparison, gap-analysis §13 item 7, deliberately
+scoped out of the parent DoD so it could ship on its own.
+
+**bc.axis_truth_check(sched, pyq_ids, zp_ids, cap_by_id, manifest_ids)** recomputes, from
+first principles, what the two stored advisories must say — expected
+axis1_unreachable_formats from the scoped PYQ subtopics' actual format fields (both
+contradiction directions: a claimed-unreachable format the manifest demonstrably
+contains, AND an omitted format nothing can render), and expected guarantee_feasibility
+verdicts from the capability-map unions (pyq_covered > zp_only > unsatisfiable) — and
+returns the contradictions. FIRST-PRINCIPLES IS THE DESIGN, not an implementation detail:
+the function never calls axis1_feasibility or section_axis2_pool_caps, because the parent
+defect corrupted BOTH at the source, and a checker that recomputes through the audited
+path reproduces the corruption and passes vacuously — a green check sharing its subject's
+code path is exactly what a hollow check looks like (the audit_mutation lesson). The
+docstrings on both sides carry divergence pointers: a deliberate semantic change to a
+primary function that fires this check must be resolved consciously in both places.
+
+**Mock Step 6 (S9-12):** BV-AXIS runs the check per section after AXIS-SUM/AXIS-UNIT and
+HARD-FAILS on any finding — a contradicted advisory is a corrupt instrument, and a
+corrupt instrument is structural corruption, which was always BV-AXIS's hard-fail
+territory; format shortfalls themselves stay advisory (Subtopic is hard #1), and no_pyq
+schedules stay SEC-8's. **ScopedBlueprint (§6-3):** same check runs BEFORE the schedule
+is stored and HARD STOPS — a corrupt schedule persisted into blueprint.json poisons every
+downstream reader silently, so it is refused at the source.
+
+Locked by the 7-fixture AXIS-TRUTH pack: consistency, false-pessimist, false-optimist,
+guarantee-verdict flip, no_pyq/None dormancy, ghost-id phantom-availability, zero-count
+targets. Had this gate existed on 2026-08-18, the parent defect would have been a loud
+B3 HARD FAIL on the first affected exam instead of a human observation.
+
 ## 2026.08.23.1 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE: prevention layer closed (FIX D boundary clause + ENGINE-SECTIONJOIN ratchet + ScopedBlueprint rationale)
 
 **Framework_Blueprint v1.52.0 -> v1.53.0 · Framework_ScopedBlueprint v1.8.0 -> v1.8.1 ·

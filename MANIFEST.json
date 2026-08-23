@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.23.1",
+  "framework_version": "2026.08.23.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -180,11 +180,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "50c8fe4862363bba60a4475faa7e244627ff7cd2b4f86ca37c2f05c51a715a27",
-      "version_header": "# Framework_Blueprint v1.53.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.53.0",
-      "lines": 7039,
-      "bytes": 376539
+      "sha256": "572b13d87aa51ca8d2b88aa31e4a9d8a202b3c2a158400cb2c5f041c80ab4ae6",
+      "version_header": "# Framework_Blueprint v1.54.0 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.54.0",
+      "lines": 7077,
+      "bytes": 379437
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "ff643f919108f0c030bf00578112408fb98eb295a551fe6744dddba9f0870930",
@@ -334,11 +334,11 @@
       "bytes": 125414
     },
     "Framework_ScopedBlueprint.md": {
-      "sha256": "6f7a57a7403821c8da3b1851a04901670c18792d5f8157f44aaf7e21247e76e6",
-      "version_header": "# Framework_ScopedBlueprint v1.8.1 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
-      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.8.1 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
-      "lines": 1303,
-      "bytes": 73474
+      "sha256": "429a9ec47e2efe3f4dbaa2e6e0b6c103e5d70705491e1984163e39d70875a9b5",
+      "version_header": "# Framework_ScopedBlueprint v1.9.0 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.9.0 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
+      "lines": 1328,
+      "bytes": 75246
     },
     "validate_framework_md.py": {
       "sha256": "ff4550d730b3baffb042fea2002ab76b53089f943b77885a7044c9226643e0e0",
@@ -362,11 +362,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "754cfc11a6cf8bbd6474954dfc77a5496efdc21c2c1ac634d24b24397c6b0248",
+      "sha256": "6ab41a033e3a1a88892ea5e20a57f25c8eec2f0fe5abc5582ab7ec81d0ce0476",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 5955,
-      "bytes": 328367
+      "lines": 6091,
+      "bytes": 336175
     },
     "paper_pipeline.py": {
       "sha256": "d09c32aa6f1d5b0fd918a37eb13b475e448b8caa8b06d1bbdfb39ead2bc6b919",
@@ -509,11 +509,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "b3888a550210293e7c846f5d025d9068da11d774d758448d4efec9f275efd644",
+      "sha256": "c42299e17bb619a8da02e86346cb30334ff79647360abf196051298e1cb0c8d5",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6922,
-      "bytes": 194575
+      "bytes": 194577
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
