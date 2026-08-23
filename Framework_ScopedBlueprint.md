@@ -1,4 +1,12 @@
-# Framework_ScopedBlueprint v1.8.0 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# Framework_ScopedBlueprint v1.8.1 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# v1.8.1 — 2026-08-23 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE follow-through
+#   (comment-only; no rule, gate, or output changes). The §6-3 rationale for
+#   scoped_manifest_ids still described the PRE-FIX engine ("the engine ... filters ids
+#   by manifest[sid]['section'] == section_name") — false since the engine fix shipped
+#   with Framework_Blueprint v1.49.0, and exactly the mental model that produces the
+#   next instance of the defect class. Rewritten: the view is a retained defensive
+#   no-op under the engine's pre-scoped contract, and the raw-join "simplification" is
+#   named as the thing the new ENGINE-SECTIONJOIN audit fails the build on.
 # v1.8.0 — 2026-08-03 — AUDIT STEPS REMOVED (Steps 8 and 10 retired framework-wide).
 #   Pipeline listing updated to 6S -> 7 -> 9 -> 11; the one "audited downstream at Step 8"
 #   claim is restated against Step 7's audit.py. No allocation rule, gate, or output of
@@ -974,10 +982,14 @@ else:
 pyq_ids = [sid for sid in in_scope_ids if r_avg[sid] > 0]
 zp_ids  = [sid for sid in in_scope_ids if r_avg[sid] == 0]
 
-# The engine's Axis-2 pool-caps and Axis-1 feasibility filter ids by
-# manifest[sid]['section'] == section_name. The scoped section is the scope, so relabel the
-# in-scope ids' section to scope_label in a LOCAL view (never mutate the real manifest), and
-# pass section_name = scope_label so the filter matches every in-scope id (and only those).
+# Since the GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE engine fix (companion:
+# Framework_Blueprint v1.49.0), bc.section_axis2_pool_caps and bc.axis1_feasibility no
+# longer re-filter by manifest[sid]['section'] — they trust the caller's PRE-SCOPED id
+# list, which in_scope_ids already is. The relabelled LOCAL view below is therefore a
+# defensive no-op, retained deliberately: it keeps this call site correct against any
+# stale engine copy, and it never mutates the real manifest. Do NOT "simplify" it into
+# passing raw MANIFEST_IDS plus a re-filter — that is the exact join §2-1 FIX D forbids
+# and the ENGINE-SECTIONJOIN audit now fails the build on.
 scoped_manifest_ids = {sid: {**MANIFEST_IDS[sid], 'section': scope_label} for sid in in_scope_ids}
 
 axis_schedule = bc.derive_axis_schedule(
@@ -1288,4 +1300,4 @@ strict-global uniqueness holds across all tiers:
          override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
 ```
 
-# END OF Framework_ScopedBlueprint v1.8.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
+# END OF Framework_ScopedBlueprint v1.8.1 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)

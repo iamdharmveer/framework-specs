@@ -1,4 +1,16 @@
-# Framework_Blueprint v1.52.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.53.0 — Universal Mock Test Blueprint Generator
+# v1.53.0 — 2026-08-23 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE closure (spec
+#   mandate + ratchet; no allocation rule, gate, schema, or output changes). §2-1
+#   FIX D now states the mandate EXTENDS ACROSS FUNCTION BOUNDARIES: passing an
+#   unbridged MANIFEST_IDS to an engine that joins manifest 'section' against a
+#   section label is the same violation as writing the raw compare in-spec, with
+#   the two sanctioned patterns named — a no-join engine taking pre-resolved ids
+#   (bc.axis1_mock_feasibility form; the two v1.49.0-repaired functions now match
+#   it), or a bridged per-section local view. Enforcement moves from prose to a
+#   build gate: audit_sync gains ENGINE-SECTIONJOIN (AST-level Eq/NotEq detector
+#   over every engine .py, section['name'] operand shape included, content-
+#   anchored Subject-to-Subject allow-list, 3 subprocess fixtures). Companion:
+#   Framework_ScopedBlueprint v1.8.1 corrects §6-3's pre-fix rationale.
 # v1.52.0 — 2026-08-22 — STEP6-READ-SET (the S0-3 precedent applied to Step 6;
 #   closes SPEC_BUDGET_BASELINE to empty). NEW S0-READSET: NON-FINAL = a B2 batch
 #   session (blueprint.json valid, len(mocks) < total_mocks) — it works entirely
@@ -616,6 +628,28 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
     taxonomy Subject (e.g. exam_config section "MPSC Botany" vs. manifest Subject
     "Botany") — this disables axis scheduling (§7-7) and ALL mandate enforcement
     (§4-2/§17) with no error raised. The resolver makes that failure loud instead.
+
+    THE MANDATE EXTENDS ACROSS FUNCTION BOUNDARIES
+    (GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE): not writing the raw compare
+    yourself is NOT sufficient. Handing an unbridged MANIFEST_IDS to any function
+    that performs the join FOR you is the same defect one call frame down, and it
+    is invisible at the call site — two blueprint_core functions carried exactly
+    that join until the v1.49.0 companion release while §7-7's own call site
+    looked resolver-clean (ids via subtopic_in_section(), manifest raw).
+    Therefore, when passing manifest data to an engine alongside a section name:
+      (a) PREFER an engine that does not join at all — it trusts the caller's
+          pre-resolved id list (blueprint_core.axis1_mock_feasibility is the
+          reference form, and the two repaired functions now follow it); or
+      (b) if a join is unavoidable, pass a BRIDGED LOCAL VIEW, never the real map:
+              view = {sid: {**MANIFEST_IDS[sid], 'section': sec_name}
+                      for sid in MANIFEST_IDS if subtopic_in_section(sid, sec_name)}
+          built per section; NEVER mutate MANIFEST_IDS itself.
+    A spec that passes raw MANIFEST_IDS to a section-joining engine has not
+    satisfied FIX D, however clean its own comparisons look. Engine-side, the
+    prohibition is enforced mechanically: audit_sync's ENGINE-SECTIONJOIN rule
+    fails the build on any engine `==`/`!=` joining a manifest 'section' value
+    against a section-label variable (Subject-to-Subject sites are allow-listed
+    inline, with reasons).
 
     Preferred config (Step 2a, optional): exam_config.sections[].subjects: [...]
       — the explicit list of taxonomy Subjects that compose this OTS section.
@@ -7002,4 +7036,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.52.0
+# END OF Framework_Blueprint v1.53.0

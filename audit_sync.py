@@ -126,6 +126,25 @@ def _self_test():
     check("ENGINE-API fires on a call into an API that does not exist",
           rc == 1 and 'ENGINE-API' in out and 'no_such_fn_selftest' in out)
 
+    # ── ENGINE-SECTIONJOIN (GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE) ─────
+    rc, out = mutated(lambda r: append(r, 'paper_pipeline.py',
+        "\ndef _sj_probe(manifest_ids, sid, section_name):\n"
+        "    return manifest_ids.get(sid, {}).get('section') == section_name\n"))
+    check("ENGINE-SECTIONJOIN fires on .get('section') == section_name",
+          rc == 1 and 'ENGINE-SECTIONJOIN' in out and 'paper_pipeline.py' in out)
+
+    rc, out = mutated(lambda r: append(r, 'transport_core.py',
+        "\ndef _sj_probe2(mv, section):\n"
+        "    return mv['section'] != section['name']\n"))
+    check("ENGINE-SECTIONJOIN fires on the subscript != section['name'] variant",
+          rc == 1 and 'ENGINE-SECTIONJOIN' in out and 'transport_core.py' in out)
+
+    rc, out = mutated(lambda r: append(r, 'frequency_xlsx.py',
+        "\ndef _sj_probe3(v, section_name):\n"
+        "    return v['section'] == section_name\n"))
+    check("ENGINE-SECTIONJOIN allow-list is line-anchored, not file-wide",
+          rc == 1 and 'ENGINE-SECTIONJOIN' in out and 'frequency_xlsx.py' in out)
+
     def relsync(r):
         open(os.path.join(r, 'VERSION'), 'w', encoding='utf-8').write('9999.99.99.9\n')
     rc, out = mutated(relsync)
@@ -458,6 +477,93 @@ for f, t in TXT.items():
             for m in re.finditer(rf'\b{alias}\.([A-Za-z_][A-Za-z0-9_]*)', blk):
                 if m.group(1) not in names:
                     rec('ENGINE-API', f"{f}: {alias}.{m.group(1)} not found in {mod}.py")
+
+# ── 1a-SJ. ENGINE-SECTIONJOIN — the Section↔Subject namespace-join ratchet ──
+# GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE. Two blueprint_core functions joined
+# the manifest 'section' field (taxonomy SUBJECT namespace: "Organic Chemistry")
+# against an OTS section-label variable ("Section A") with a raw `==`. On every
+# exam that is not a 1:1 section↔Subject identity map the namespaces never
+# intersect, so the join matched NOTHING and both functions answered for an
+# empty subtopic pool — every Axis-2 guarantee 'unsatisfiable', every targeted
+# Axis-1 format 'unreachable' — with status still 'ok', so no gate fired.
+# Framework_Blueprint §2-1 FIX D has forbidden this join since v1.32, but FIX D
+# is prose in one spec: it constrains spec authors, not engine authors, and the
+# engines are the shared 200-project code. This rule is the missing enforcement:
+# the prohibition now FAILS THE BUILD, mechanically, on every engine .py.
+#
+# Detection is AST, not regex — a text regex misses reordered operands and
+# false-positives on the docstrings that (correctly) QUOTE the banned pattern
+# while narrating the fix. A finding is any Eq/NotEq Compare where one side
+# reads a 'section' key (x['section'] or x.get('section'[, d])) and the other
+# is a section-label-shaped identifier (sec/section[_name]/scope_label/*_label,
+# incl. attribute form) or the section['name'] subscript FIX D itself quotes.
+#
+# ALLOW-LIST — content-anchored (line text, never line numbers), one entry per
+# legitimate site, each with its reason. Both operands must live in the SAME
+# namespace for an entry to belong here.
+_SJ_ALLOW = {
+    'frequency_xlsx.py': (
+        # Subject-to-Subject: `section` iterates sorted({e['section'] ...}) —
+        # both operands are taxonomy Subjects drawn from the same data.
+        r"v\['section'\]\s*==\s*section(?!\w)",
+        # Subject-to-Subject: `sec` iterates the same per-section sheet loop.
+        r"e\['section'\]\s*==\s*sec(?!\w)",
+    ),
+}
+_SJ_ID = re.compile(
+    r"(?i)^(sec|section|sec_name|section_name|secname|sectionname|scope_label)$")
+
+def _sj_reads_section_key(node):
+    """x['section']  |  x.get('section')  |  x.get('section', default)"""
+    if isinstance(node, ast.Subscript):
+        s = node.slice
+        return isinstance(s, ast.Constant) and s.value == 'section'
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == 'get' and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and node.args[0].value == 'section')
+
+def _sj_is_section_label(node):
+    """A section-name-shaped identifier, or the section['name'] subscript that
+    FIX D's own forbidden example uses."""
+    if isinstance(node, ast.Name):
+        return bool(_SJ_ID.match(node.id)) or node.id.endswith('_label')
+    if isinstance(node, ast.Attribute):
+        return bool(_SJ_ID.match(node.attr)) or node.attr.endswith('_label')
+    if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+        s = node.slice
+        return (bool(_SJ_ID.match(node.value.id))
+                and isinstance(s, ast.Constant) and s.value == 'name')
+    return False
+
+for _sj_file in sorted(f for f in os.listdir('.') if f.endswith('.py')):
+    try:
+        _sj_src = open(_sj_file, encoding='utf-8').read()
+        _sj_tree = ast.parse(_sj_src)
+    except (SyntaxError, UnicodeDecodeError, OSError):
+        continue          # an unparseable engine is bootstrap/CI's finding, not ours
+    _sj_lines = _sj_src.split('\n')
+    for _sj_node in ast.walk(_sj_tree):
+        if not (isinstance(_sj_node, ast.Compare) and len(_sj_node.ops) == 1
+                and isinstance(_sj_node.ops[0], (ast.Eq, ast.NotEq))):
+            continue
+        _L, _R = _sj_node.left, _sj_node.comparators[0]
+        if not ((_sj_reads_section_key(_L) and _sj_is_section_label(_R))
+                or (_sj_reads_section_key(_R) and _sj_is_section_label(_L))):
+            continue
+        _sj_line = _sj_lines[_sj_node.lineno - 1].strip()
+        if any(re.search(_rx, _sj_line) for _rx in _SJ_ALLOW.get(_sj_file, ())):
+            continue
+        rec('ENGINE-SECTIONJOIN',
+            f"{_sj_file}:{_sj_node.lineno}: engine joins a manifest 'section' value "
+            f"(taxonomy SUBJECT) against a section-name variable (OTS LABEL): "
+            f"`{_sj_line[:90]}`. Framework_Blueprint §2-1 FIX D forbids this join — "
+            f"it matches NOTHING on every non-identity exam and fails SILENTLY. "
+            f"Trust the caller's pre-resolved id list (see "
+            f"blueprint_core.axis1_mock_feasibility for the sanctioned no-filter "
+            f"form) or require a bridged local view; if the site is genuinely "
+            f"Subject-to-Subject, add a content-anchored _SJ_ALLOW entry with the "
+            f"reason. Ref GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE.")
 
 # ── 1b. SKILL.md claimed inventory vs reality ───────────────────────────────
 if skill_txt:

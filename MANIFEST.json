@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.22.8",
+  "framework_version": "2026.08.23.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -180,11 +180,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "d551c22aaf9afa8a1042d6e7883089e98fd6bfa4ae31b7f54426e55471a7bf0c",
-      "version_header": "# Framework_Blueprint v1.52.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.52.0",
-      "lines": 7005,
-      "bytes": 374015
+      "sha256": "50c8fe4862363bba60a4475faa7e244627ff7cd2b4f86ca37c2f05c51a715a27",
+      "version_header": "# Framework_Blueprint v1.53.0 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.53.0",
+      "lines": 7039,
+      "bytes": 376539
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "ff643f919108f0c030bf00578112408fb98eb295a551fe6744dddba9f0870930",
@@ -334,11 +334,11 @@
       "bytes": 125414
     },
     "Framework_ScopedBlueprint.md": {
-      "sha256": "bcf3e8d672bb8051697a5d0461428b68aa057d0a52f62d49047a6216fa4482f7",
-      "version_header": "# Framework_ScopedBlueprint v1.8.0 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
-      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.8.0 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
-      "lines": 1291,
-      "bytes": 72487
+      "sha256": "6f7a57a7403821c8da3b1851a04901670c18792d5f8157f44aaf7e21247e76e6",
+      "version_header": "# Framework_ScopedBlueprint v1.8.1 \u2014 Universal Subject / Topic / Sub-Topic Test Blueprint",
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.8.1 (\u00a71\u2013\u00a710, adversarially verified; fixed-uniform difficulty override, hardened)",
+      "lines": 1303,
+      "bytes": 73474
     },
     "validate_framework_md.py": {
       "sha256": "ff4550d730b3baffb042fea2002ab76b53089f943b77885a7044c9226643e0e0",
@@ -509,7 +509,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "eaccf9d67d5309c885f6d5a058c19ac5986c5747eaddb6e34a483be72a852920",
+      "sha256": "b3888a550210293e7c846f5d025d9068da11d774d758448d4efec9f275efd644",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6922,

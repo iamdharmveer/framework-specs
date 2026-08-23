@@ -1,5 +1,50 @@
 # Changelog
 
+## 2026.08.23.1 — GAP-2026-08-18-AXIS-SECTIONKEY-RAWCOMPARE: prevention layer closed (FIX D boundary clause + ENGINE-SECTIONJOIN ratchet + ScopedBlueprint rationale)
+
+**Framework_Blueprint v1.52.0 -> v1.53.0 · Framework_ScopedBlueprint v1.8.0 -> v1.8.1 ·
+audit_sync.py +ENGINE-SECTIONJOIN (self-test 29 -> 32). No engine behaviour, allocation
+rule, gate semantics, schema, or artefact changes — this release closes the RECURRENCE
+layer of a defect whose engine fix shipped in 2026.08.19.2.**
+
+The 2026.08.19.2 fix removed the two raw Subject-vs-OTS-label joins from
+blueprint_core, but left the defect CLASS open on three fronts, now closed:
+
+**1. Enforcement was prose (root-cause Layer 4).** §2-1 FIX D forbids the join, but a
+spec sentence constrains only spec authors — the engines are the shared, 200-project
+code, and nothing failed a build that reintroduced the pattern there. audit_sync now
+carries ENGINE-SECTIONJOIN: an AST rule (never regex — docstrings legitimately QUOTE
+the banned pattern while narrating the fix) over every engine .py, flagging any
+Eq/NotEq that joins a manifest 'section' read (subscript or .get, either operand
+order) against a section-label-shaped identifier or the section['name'] subscript
+FIX D's own example uses. The two legitimate Subject-to-Subject sites
+(frequency_xlsx.py) are allow-listed by LINE CONTENT with reasons — line-number
+allow-lists rot, and a file-wide allow would exempt future defects in that file
+(proven by the third fixture, which plants a fresh violation in the allow-listed file
+and asserts it still fires). Corpus sweep at ship time: 2 allow-listed sites, 0
+findings. Three subprocess fixtures (mutated-corpus convention): .get()==section_name
+fires; ['section'] != section['name'] fires; allow-list stays line-anchored.
+
+**2. The spec mandate had a function-boundary hole (root-cause Layer 2).** §7-7's call
+site looked resolver-clean — ids via subtopic_in_section() — while handing the RAW
+manifest to an engine that redid the join wrongly one frame down. FIX D now says this
+out loud: the mandate extends across function boundaries; an unbridged manifest passed
+to a section-joining engine is the same violation. The two sanctioned patterns are
+named in the mandate: a no-join engine trusting pre-resolved ids
+(bc.axis1_mock_feasibility form), or a bridged per-section local view.
+
+**3. ScopedBlueprint §6-3 documented the pre-fix engine as current fact.** Its
+scoped_manifest_ids rationale still read "the engine ... filters ids by
+manifest[sid]['section'] == section_name" — false since the fix, and exactly the
+mental model that writes the next instance. Rewritten (comment-only): the view is a
+retained defensive no-op under the engine's pre-scoped contract, and the raw-join
+"simplification" is named as the thing ENGINE-SECTIONJOIN fails the build on.
+
+SPEC_HISTORY note: the GAP's permanent record already lives in Framework_Blueprint's
+v1.49.0 header entry and the 2026.08.19.2 changelog entry; per SPEC_HISTORY's own
+"moved, never duplicated" design it inherits the record when that entry migrates, so
+no out-of-band duplicate is added here.
+
 ## 2026.08.22.8 — Items 3a+3b: stamp dedup (artefact-changing, golden RE-CAPTURED) + transport-helper extraction
 
 **MockTestAnalyse v2.53.6 -> v2.54.0 · analyse_engine.py stamp fix · transport_core.py
