@@ -374,6 +374,17 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                 _v = _gv if _gv not in (None, '') else _v
             _canon[int(_q)] = _pp.canonical_answer(_qt, _v)
         reg.setdefault('key_commitments', {})[paper_id] = _pp.seal_key_commitments(paper_id, _canon)
+        # ── GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING — PENDING stamp ─────────
+        # Papers committed by this version carry a difficulty_gate record from
+        # birth. 'PENDING' means Step 9's gate has not yet run: Step 11 refuses
+        # to deliver it (Framework_MockDeliver S1-2 item 3b). A registry entry
+        # with NO difficulty_gate key is a LEGACY paper and delivers as before
+        # (operator decision 2026-08-24: old papers untouched). Overwritten by
+        # Step 9 with PASSED / FAILED / DISCLOSED; never edited elsewhere.
+        reg.setdefault('difficulty_gate', {})[paper_id] = {
+            'schema': 1, 'status': 'PENDING',
+            'threshold': 0.30, 'repair_rounds_used': 0}
+
 
     # ── Question metadata index (v5.2, Contract_QuestionMetadataIndex v1.0) ─
     concept_map = concept_map or {}

@@ -3821,6 +3821,28 @@ def gate_qindex(src):
                       f'check 8 dormant — blueprint_core not importable in this '
                       f'run; {len(_obs_qs)} evidence-bearing entries not '
                       f're-verified (check 7 still enforced)')
+        # ── GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING — check 9 ───────────────
+        # EVIDENCE-DIVERSITY FLOOR (anti profile-echo). Check 8 proves the
+        # label matches its own recorded evidence; it cannot see evidence that
+        # was COPIED from the authoring profile instead of counted — the v5.60
+        # residue, measured live on IIT_JAM_CHEMISTRY M01 (31/36 'Hard' entries
+        # carried the identical (6,3,False) tuple while check 8 passed 60/60).
+        # bc.difficulty_obs_diversity is the ONE implementation (bottom band
+        # and small bands exempt; legacy no-obs entries skipped), so this gate
+        # and any producer-side use can never drift apart. Engine-unavailable
+        # degrades to WARN, matching check 8.
+        if _obs_qs:
+            try:
+                import blueprint_core as _bc9
+                _div = _bc9.difficulty_obs_diversity(qs, canon)
+                if _div:
+                    fails.append('check 9 (evidence diversity): ' + ' | '.join(_div))
+            except ImportError:
+                _warn('A-QINDEX',
+                      f'check 9 dormant — blueprint_core not importable in this '
+                      f'run; evidence diversity not verified (checks 7 still '
+                      f'enforced)')
+
     if fails:
         _fail('A-QINDEX', '; '.join(fails))
     else:

@@ -6084,6 +6084,108 @@ PYQ_IMAGE_ANALYSIS:
     return passed == total
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Cluster E2d — DIFFICULTY GATE (GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING)
+# Fix 1: band-level reconciliation of Step-7 labels against Step-9's
+# independent re-derivation — the gate MockTestExplain §7A-M now ENFORCES
+# (blocking; ONE repair round via TestCreateRepair/TestExplainRepair; then
+# deliver-with-disclosure, never a stop). Fix 2: evidence-diversity floor
+# (anti profile-echo), shared by A-QINDEX check 9 so gate and audit cannot
+# drift. Pure functions: plain data in, dicts/strings out. No I/O.
+# ═══════════════════════════════════════════════════════════════════════════
+
+DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.30   # operator decision 2026-08-24
+DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 1      # operator decision 2026-08-24
+DIFFICULTY_OBS_MODAL_FRAC_MAX     = 0.60   # Fix 2 modal-signature ceiling
+DIFFICULTY_OBS_DIVERSITY_MIN_N    = 8      # Fix 2: smaller bands exempt
+
+
+def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
+                             max_disagree_frac=DIFFICULTY_GATE_MAX_DISAGREE_FRAC):
+    """Band-level reconciliation. labels_by_q: {q: Step-7 label}. measured_by_q:
+    {q: Step-9 re-measured label or None (None/absent = not measurable, skipped)}.
+    A band BLOCKS when disagreements EXCEED floor(max_disagree_frac * band_total)
+    — e.g. 36 Hard at 0.30 allows 10 disagreements and blocks at 11.
+    Returns {'verdict','threshold','bands','rework_qs'}; rework_qs lists the
+    disagreeing questions of OVER-LIMIT bands only (repairing agreeing bands
+    would churn accepted work). Deterministic, pure."""
+    bands = {}
+    for lab in difficulty_labels:
+        qs = sorted(q for q, l in labels_by_q.items() if l == lab)
+        assessed = [(q, measured_by_q.get(q)) for q in qs
+                    if measured_by_q.get(q) is not None]
+        disagree = sorted(q for q, m in assessed if m != lab)
+        total = len(qs)
+        allowed = int(max_disagree_frac * total)          # floor
+        bands[lab] = {'total': total, 'assessed': len(assessed),
+                      'agree': len(assessed) - len(disagree),
+                      'disagree': len(disagree), 'allowed': allowed,
+                      'over_limit': len(disagree) > allowed,
+                      'disagreeing_qs': disagree}
+    rework = sorted(q for lab, b in bands.items() if b['over_limit']
+                    for q in b['disagreeing_qs'])
+    return {'verdict': 'FAIL' if rework else 'PASS',
+            'threshold': max_disagree_frac, 'bands': bands, 'rework_qs': rework}
+
+
+def difficulty_obs_signature(obs):
+    """Canonical evidence signature for the diversity check: the load-bearing
+    numeric observations only. question_class is excluded on purpose — class
+    facets legitimately repeat within a band; the numbers should not."""
+    if not isinstance(obs, dict) or not obs:
+        return None
+    return (obs.get('deduction_steps'), obs.get('axiom_concepts'),
+            bool(obs.get('speed_hack_exists')))
+
+
+def difficulty_obs_diversity(questions, difficulty_labels,
+                             max_modal_frac=DIFFICULTY_OBS_MODAL_FRAC_MAX,
+                             min_n=DIFFICULTY_OBS_DIVERSITY_MIN_N):
+    """Fix 2 — evidence-diversity floor (anti profile-echo). `questions` are
+    question_index entries ({'q','difficulty','difficulty_obs',...}).
+    THE SIGNAL: N independently derived questions cannot produce near-identical
+    (steps, concepts, shortcut) measurements — a dominant identical tuple means
+    the authoring profile's passing values were ECHOED, not measured (measured
+    live: IIT_JAM_CHEMISTRY M01, 31/36 Hard identical at (6,3,False)).
+    EXEMPT: the bottom band — its authoring profile is a single point (steps
+    (2,2) × concepts (1,1)), so homogeneity there is REQUIRED by the rubric,
+    never suspicious. Bands with fewer than min_n evidence-bearing entries are
+    exempt (too small to distinguish echo from chance). Returns [] when clean,
+    else one failure string per offending band. Never raises on legacy entries
+    (no obs → entry skipped)."""
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return []
+    fails = []
+    for lab in difficulty_labels[1:]:                     # bottom band exempt
+        sigs, qs_by_sig = {}, {}
+        for x in questions:
+            if x.get('difficulty') != lab:
+                continue
+            s = difficulty_obs_signature(x.get('difficulty_obs'))
+            if s is None:
+                continue                                  # legacy entry — skip
+            sigs[s] = sigs.get(s, 0) + 1
+            qs_by_sig.setdefault(s, []).append(x.get('q'))
+        n = sum(sigs.values())
+        if n < min_n:
+            continue
+        modal_sig, modal_n = max(sigs.items(), key=lambda kv: kv[1])
+        if modal_n / n > max_modal_frac:
+            fails.append(
+                f"'{lab}' band: {modal_n}/{n} evidence tuples are the identical "
+                f"(steps={modal_sig[0]}, concepts={modal_sig[1]}, "
+                f"shortcut={modal_sig[2]}) — above the {max_modal_frac:.0%} "
+                f"diversity ceiling. Independently measured derivations do not "
+                f"repeat like this; the values appear COPIED from the authoring "
+                f"profile rather than counted from each question "
+                f"(Qs {','.join(str(q) for q in sorted(qs_by_sig[modal_sig])[:12])}"
+                f"{'…' if modal_n > 12 else ''}). Re-run Step 7 CHECK 3c with "
+                f"honest per-question counts.")
+    return fails
+
+
 if __name__ == '__main__':
     import sys
     if '--self-test' in sys.argv:

@@ -1,4 +1,9 @@
-# Framework_MockTestCreate v5.68
+# Framework_MockTestCreate v5.69
+# v5.69 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestExplain v1.42.0, MockDeliver
+#   v1.13.0). New §S16 repair mode: TestCreateRepair/MockCreateRepair P[N] Q…
+#   rewrites ONLY the gate's rework_qs, harder, at the same slots — label,
+#   quota, axes untouched; stem-supplied-relation rule enforced in repair
+#   CHECK 3c; surgical S13-4 update; '_Repaired' deliverable; keys re-sealed.
 # v5.68 — 2026-08-24 — GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION (paired with
 #   final_assembly v5.57, audit_seam v1.2). The SECOND instance of the v5.67 class,
 #   found by the cross-step field-contract sweep: the S13-4 axis snapshots were
@@ -8308,7 +8313,89 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.68
+
+# ════════════════════════════════════════════════════════════════════════
+# §S16 — REPAIR MODE (TestCreateRepair / MockCreateRepair, v5.69 —
+#         GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING)
+# ════════════════════════════════════════════════════════════════════════
+
+## S16-1 — Trigger and preflight
+
+  TRIGGER: `TestCreateRepair P[N] Q4 Q8 Q20 …` or `MockCreateRepair M[N] Q…`
+  (Q-list separators: spaces or commas; "Q4"/"4" both accepted).
+  ATTACH: the CURRENT question paper docx for paper N (this step's own
+  earlier deliverable). The registry and blueprint come from project
+  knowledge as always.
+
+  PREFLIGHT (HARD STOP on any failure — malformed-input stops are exempt
+  from the no-stop rule, which governs gate VERDICTS only):
+    P1  registry['difficulty_gate'][paper_id] exists, status == 'FAILED',
+        repair_rounds_used == 0. Absent → "This paper has no gate record —
+        run TestExplain P[N] first (or this is a legacy paper; deliver as
+        usual)." PASSED/DISCLOSED/consumed → name the correct next step.
+    P2  THE Q-LIST OF RECORD IS THE REGISTRY'S rework_qs — the operator's
+        typed list is a CONFIRMATION, not a selection. Empty typed list →
+        use rework_qs verbatim. Typed list ≠ subset of rework_qs → HARD
+        STOP naming the extras ("Q7 is not in the rework order — the gate
+        flagged only Q…"). Typed list a strict subset → HARD STOP: partial
+        repairs would leave the band over-limit by construction; repair all
+        of rework_qs in one run.
+    P3  The attached paper parses (§P3 machinery) and its stems hash-match
+        registry stem_texts for paper N (the operator attached the right
+        file and the right version).
+
+## S16-2 — Regeneration (the only questions touched are rework_qs)
+
+  For each q in rework_qs, run the FULL S7 single-question flow (scenario →
+  CHECK 1/1b/2/3/3c → sidecar) with these bindings:
+    band     = difficulty_plan-of-record = question_index[q].difficulty
+               (the label does not change; the QUESTION rises to it)
+    subtopic = question_index[q].subtopic_id (slot allocation unchanged —
+               quota, axis schedules, figural counts all stay intact)
+    qtype    = marking_scheme position type (unchanged)
+  CHECK 3c runs with the standing rules PLUS, in repair mode:
+    (a) STEM-SUPPLIED RELATION RULE (the reason most reworks exist): the
+        stem may not donate the governing relation of the asked quantity —
+        no "Given that ∫…", no quoting the formula whose recall/derivation
+        the steps count, no handing over a counted intermediate. If the
+        subtopic genuinely requires a supplied constant (physical data),
+        supply the CONSTANT, never the RELATION.
+    (b) the superseded question's semantic tuple joins the dedup set — the
+        repair must be a genuinely different (harder) question, not a
+        reworded twin.
+  Dedup, key derivation (§S7-NEW-A/C), figure generation (if the slot is
+  FIGURAL) all run exactly as in a normal S7 slot.
+
+## S16-3 — Commit and deliverable
+
+  S13-4 UPDATE SEMANTICS (surgical — the registry is shared state):
+    question_index[q]      → replaced entry (new difficulty_obs from the
+                             repair derivation; label unchanged)
+    stem_texts / question_hashes / semantic_tuples / semantic_usage
+                           → replaced at q's position
+    key_commitments[q]     → re-sealed for the new answer (fresh salt)
+    options_by_q, figural manifests, image phashes
+                           → updated for q only
+    difficulty_gate record → UNTOUCHED except adding
+                             'rework_stem_hashes': {q: sha256(old stem)}
+                             (written BEFORE overwriting stem_texts — §7A-R
+                             R3 verifies the repaired paper against these)
+    Every other question's data: byte-identical. The S13 ledger gains a
+    'repair' session_log entry (round 1, qs listed).
+  DELIVERABLE: the full re-assembled question paper docx (all 60 questions,
+  repaired ones spliced in place), same filename convention with
+  "_Repaired" suffix. The self-audit (S4-7 STEP B) runs on the repaired
+  docx exactly as on a fresh paper — including A-QINDEX checks 7/8/9.
+  PRINT (operator-facing, last lines of the run):
+      ════════════════════════════════════════════════════════════
+        REPAIR COMPLETE — [k] questions rewritten harder.
+        Next step: copy-paste this, attaching the repaired paper
+        + the previous explanation Word file:
+
+           TestExplainRepair P[N]
+      ════════════════════════════════════════════════════════════
+
+# END OF Framework_MockTestCreate v5.69
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

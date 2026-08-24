@@ -15,11 +15,11 @@
       "version_header": "# Framework_DeliveryFooter v1.24 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
-      "end_sentinel": "# END OF Framework_MockDeliver v1.12.2",
-      "lines": 1771,
-      "sha256": "ee252725a8dde8e106e81feebfbbd780c2802998f582bdb6baa9f6366504286e",
-      "size_bytes": 86356,
-      "version_header": "# Framework_MockDeliver v1.12.2 — Universal Mock Test Tagger & Delivery Engine"
+      "end_sentinel": "# END OF Framework_MockDeliver v1.13.0",
+      "lines": 1795,
+      "sha256": "0332d2ac5dc8807a8d39012f5ae807b9cad2f4dacab4bfc1c6525da096b81cbe",
+      "size_bytes": 87973,
+      "version_header": "# Framework_MockDeliver v1.13.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.54.1",
@@ -30,17 +30,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 8391,
-      "sha256": "11612f2d35e3a7e0684081d2e42fd1afe132e67c8313929bc46398730fb975e1",
-      "size_bytes": 529378,
-      "version_header": "# Framework_MockTestCreate v5.68"
+      "lines": 8478,
+      "sha256": "5ace5a8371806299ddc830ccd6855e18ff94b6fe2cdb36f2ee4ece70bfb68bef",
+      "size_bytes": 535024,
+      "version_header": "# Framework_MockTestCreate v5.69"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2788,
-      "sha256": "0905001770f28948c598e81982c653f0ecffa415715c55fe5133b8581e2c2d9c",
-      "size_bytes": 216734,
-      "version_header": "# Framework_MockTestExplain v1.41.0"
+      "lines": 2915,
+      "sha256": "d146f1d277fd651f9c5b2e4c4f9b932d31269013155c1b16139a4d3769f2d3ac",
+      "size_bytes": 224963,
+      "version_header": "# Framework_MockTestExplain v1.42.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -177,9 +177,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7453,
-      "sha256": "21d74a4f48df9a6a093917e56089580d8f6997669f207462555c59663137e208",
-      "size_bytes": 411985,
+      "lines": 7475,
+      "sha256": "751dae71472966cdf33dec13b9e7fbbc5b682f637986e90eec489c7a9cb13ed6",
+      "size_bytes": 413298,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 6091,
-      "sha256": "6ab41a033e3a1a88892ea5e20a57f25c8eec2f0fe5abc5582ab7ec81d0ce0476",
-      "size_bytes": 336175,
+      "lines": 6193,
+      "sha256": "217a70554cdaedd1927482d9a470b582532c0d02eec4ecdec680736349a5190d",
+      "size_bytes": 342122,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -331,9 +331,9 @@
     },
     "routes.json": {
       "end_sentinel": "}",
-      "lines": 177,
-      "sha256": "2ac0f312b6c7cb7b75045ec2e931c97784c6c2e40f791a527cadfce4167d564d",
-      "size_bytes": 4103,
+      "lines": 215,
+      "sha256": "72213018e0812ddc322f1adf8cd070abb99a26ace26ade5fc3cbfdecd1d272a6",
+      "size_bytes": 4652,
       "version_header": "{"
     },
     "spec_source.py": {
@@ -359,9 +359,9 @@
     },
     "validate_framework_md.py": {
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2278,
-      "sha256": "ff4550d730b3baffb042fea2002ab76b53089f943b77885a7044c9226643e0e0",
-      "size_bytes": 130984,
+      "lines": 2280,
+      "sha256": "8ce089ae4df6b86cadbf7940662dea86ad1933299219068531710bdb4f9e7a6b",
+      "size_bytes": 131094,
       "version_header": "#!/usr/bin/env python3"
     },
     "notes_docx.py": {
@@ -380,9 +380,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 1512,
-      "sha256": "2cd32dc3c5f2900145fabcfe081f47179533f0813ab3edbbf553660ba9ebae85",
-      "size_bytes": 90901,
+      "lines": 1523,
+      "sha256": "491584942659f5977a463c4baa5fb26466f851f91e596f20eef224cfd32d81b6",
+      "size_bytes": 91638,
       "version_header": "\"\"\""
     },
     "spec_name_audit.py": {

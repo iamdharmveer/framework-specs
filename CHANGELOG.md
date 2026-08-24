@@ -1,5 +1,58 @@
 # Changelog
 
+## 2026.08.24.5 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING: the difficulty label is now independently verified before delivery
+
+**Framework_MockTestExplain v1.41.0 -> v1.42.0 · Framework_MockTestCreate v5.68 -> v5.69 ·
+Framework_MockDeliver v1.12.2 -> v1.13.0 · blueprint_core +Cluster E2d · audit_canonical
++A-QINDEX check 9 · final_assembly +PENDING stamp · validate_framework_md +4 PIPELINE steps ·
+routes.json +4 triggers (27 total) · both SKILL descriptions updated. Engine self-tests
+527/527, 259/259, 117/117; check_triggers 27 consistent; bootstrap 52/52. Zero exam values.
+Legacy papers (no difficulty_gate record) deliver byte-identically to before.**
+
+THE DEFECT (v5.60 residue, measured on IIT_JAM_CHEMISTRY M01): Step 7 records
+difficulty_obs itself, under an exact quota, from an authoring profile that publishes the
+passing values — so G-DIFF and A-QINDEX check 8 verify arithmetic on numbers the session
+chose. Measured: 31/36 'Hard' entries carried the identical (steps=6, concepts=3,
+shortcut=False) tuple, every gate passed, and ~16/36 'Hard' questions solve in 2-4
+candidate steps. The one independent measurement in the corpus — Step 9's §7A-M, which
+re-derives every question blind to the plan — was advisory ("REPORT, NEVER BLOCK; THE
+STICKER WINS") and gated nothing.
+
+THE FIX — the sticker still wins per QUESTION; the band-level disagreement RATE now gates
+delivery (operator decisions of 2026-08-24, encoded as engine constants, never re-tuned
+inline): threshold 30 percent per band (blocks when disagreements exceed
+floor(0.30 x band size): 36 Hard blocks at 11) · exactly 1 repair round · after it,
+DELIVER WITH DISCLOSURE (one measured-difficulty footer line), never a stop · papers
+without a difficulty_gate record are legacy and are never gated retroactively.
+
+(1) MockTestExplain §7A-M is now the DIFFICULTY GATE: after the last batch it runs
+bc.evaluate_difficulty_gate over labels vs Step-9 measurements, writes
+registry['difficulty_gate'][paper_id] (status PASSED/FAILED + measured_by_q + rework_qs),
+and prints an operator verdict box carrying the EXACT next commands. A stem-supplied
+relation is NOT a step — Step 9 counts the question as the candidate meets it, which is
+how a scaffolded 'Hard' is exposed. New §7A-R repair mode (TestExplainRepair /
+MockExplainRepair) re-derives only the reworked questions, splices their explanation
+blocks in place, re-gates, and resolves to PASSED or DISCLOSED. (2) MockTestCreate gains
+§S16 (TestCreateRepair / MockCreateRepair P[N] Q...): rewrites ONLY the gate's rework_qs,
+harder, at the same slots — label, quota, axes, keys of untouched questions all preserved;
+the registry's rework order is the list of record (operator list is a confirmation);
+repair CHECK 3c bans donating the governing relation in the stem. (3) MockDeliver S1-2
+item 3b reads the registry verdict: PENDING/FAILED hard-stop reprinting the repair
+commands; PASSED delivers clean; DISCLOSED adds the footer line; ABSENT = legacy.
+(4) final_assembly stamps every newly committed paper 'PENDING' so a new paper can never
+pose as legacy. (5) audit_canonical A-QINDEX check 9 — the EVIDENCE-DIVERSITY FLOOR — is
+the machine tripwire for the echo itself: >60 percent identical (steps, concepts,
+shortcut) tuples in a band FAILs the paper (bottom band exempt — its profile is a single
+point; small bands and legacy no-obs entries exempt). bc.difficulty_obs_diversity is the
+one implementation, so producer and audit cannot drift. Acceptance: check 9 run against
+the real M01 registry FAILS it, naming the 31/36 tuples — the defect that shipped can no
+longer ship.
+
+Files: Framework_MockTestExplain.md, Framework_MockTestCreate.md, Framework_MockDeliver.md,
+blueprint_core.py, audit_canonical.py, final_assembly.py, validate_framework_md.py,
+routes.json, SKILL.md, mocktestframework_SKILL.md, VERSION, MANIFEST.json,
+SPEC_MANIFEST.json, SPEC_SECTIONS.json, CHANGELOG.md.
+
 ## 2026.08.24.4 — GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION: the second instance, and a gate that closes the class
 
 **final_assembly v5.56 -> v5.57 · audit_seam v1.1 -> v1.2 · Framework_MockTestCreate

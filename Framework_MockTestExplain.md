@@ -1,4 +1,11 @@
-# Framework_MockTestExplain v1.41.0
+# Framework_MockTestExplain v1.42.0
+# v1.42.0 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestCreate v5.69,
+#   MockDeliver v1.13.0, blueprint_core Cluster E2d, audit_canonical check 9,
+#   final_assembly PENDING stamp). §7A-M promoted from advisory to BLOCKING:
+#   band disagreement >30% (floor) blocks delivery and writes a rework order;
+#   new §7A-R repair mode (TestExplainRepair / MockExplainRepair) patches only
+#   the reworked questions, re-gates, and after the single permitted round
+#   resolves to PASSED or DISCLOSED — never a stop, never silent.
 # v1.41.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R3 (executable dry run; paired
 #   with final_assembly v5.56, audit_canonical v2.16, MockTestCreate v5.67). A harness
 #   drove ten synthetic exams through the REAL Step-7 writers and then Step 9's P1→P3→
@@ -511,7 +518,7 @@ execution path — it does not shrink, soften or delete them.
       Mode                       : [interactive — halt per batch] OR [autonomous — no pause, §MANDATE B]
       Output                     : /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx
       Renderer preflight (P1)    : [requirement → library → installed/absent → degrade?] per declared renderer, OR [none declared — PROSE/EQUATION only]
-      §7A-M difficulty re-measure: [k/n agree] OR [DORMANT — reason]  (advisory, §7A-M)
+      §7A-M difficulty gate       : [PASSED a+b+c/n] OR [FAILED — rework Q…] OR [DORMANT — reason]  (blocking, §7A-M)
       State                      : /home/claude (chat-scoped)
       Status                     : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted — reason]
 ```
@@ -1453,33 +1460,153 @@ execution path — it does not shrink, soften or delete them.
   (§17-3b, v1.40.0). key_status per question ∈ MATCH ·
   RESOLVED_SELF · RESOLVED_SOURCE · UNAVAILABLE · DEFECT; unset cannot ship (§18).
 
-## §7A-M — ADVISORY DIFFICULTY RE-MEASURE (MOCK-ONLY, v1.38.0 — REPORT, NEVER BLOCK)
+## §7A-M — DIFFICULTY GATE (MOCK-ONLY, v1.42.0 — BLOCKING, 1 REPAIR ROUND, THEN DISCLOSE)
 
-  Counterpart of PYQExplain §7A under the adopted contract: both pipelines share
-  the RUBRIC (blueprint_core.assess_difficulty) with different MECHANISMS. Mock
-  difficulty is a SPECIFICATION enforced at authoring (MockTestCreate v5.60
-  CHECK 3c / G-DIFF; audited by A-QINDEX 7/8), so Step 9 never re-decides a
-  label — THE STICKER WINS. But only Step 9 re-derives every question
-  INDEPENDENTLY, so it is the one honest cross-check of Step 7's evidence.
+  WAS advisory ("REPORT, NEVER BLOCK — THE STICKER WINS") until v1.42.0
+  (GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING). The v5.60 defect residue: Step 7
+  records difficulty_obs itself, under an exact quota, from a profile that
+  publishes the passing values — so check 8 verifies arithmetic on numbers the
+  session chose. Measured on IIT_JAM_CHEMISTRY M01: 31/36 'Hard' entries carried
+  the identical (6,3,False) tuple and every gate passed while ~16/36 'Hard'
+  questions solve in 2–4 candidate steps. Step 9 is the ONLY step that derives
+  every question independently, blind to the plan — so its measurement now
+  GATES delivery. Per-question the sticker still wins (two honest counters can
+  disagree by a step); the BAND-LEVEL disagreement RATE is what blocks.
+
+  OPERATOR CONTRACT (decisions of 2026-08-24, encoded in blueprint_core
+  Cluster E2d — never re-tuned inline):
+    threshold      bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.30 per band
+                   (blocks when disagreements EXCEED floor(0.30 × band size):
+                    6 Easy → blocks at 2 · 18 Medium → at 6 · 36 Hard → at 11)
+    repair rounds  bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 1
+    after round 1  DELIVER WITH DISCLOSURE — never a stop. The delivery footer
+                   states the measured band counts (MockDeliver §FOOTER-DG).
+    legacy papers  registry entries with NO difficulty_gate record are
+                   pre-gate papers and are NEVER gated retroactively.
 
   MECHANISM (per question, zero extra solving): after §7-8, record what §7-1's
   derive-twice pass revealed, in the SAME observation shape Step 7 stores as
   difficulty_obs (CHECK 3c is the single source for the shape); compute _lab9 =
   blueprint_core.assess_difficulty(..., derivation_confidence per §7-1
-  agreement); compare to question_index[q].difficulty. LEVEL ANCHOR: count
-  steps/concepts for a competent candidate OF THIS EXAM (blueprint `level` +
-  the subtopic's PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge is
-  recall (0 steps), never steps — Step 9's count stays commensurable with
-  Step 7's rather than a granularity artefact.
+  agreement). LEVEL ANCHOR unchanged: count steps/concepts for a competent
+  candidate OF THIS EXAM (blueprint `level` + the subtopic's
+  PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge is recall
+  (0 steps), never steps. A STEM-SUPPLIED RELATION IS NOT A STEP: work the stem
+  donates (a formula quoted verbatim, a counted quantity given, a named theorem
+  with its statement) is excluded from the candidate's count — Step 9 counts
+  the question AS THE CANDIDATE MEETS IT, which is precisely how it exposes a
+  scaffolded "Hard".
 
-  REPORT (the whole output): dashboard "§7A-M: k/n agree"; §R10 "DIFFICULTY
-  RE-MEASURE (advisory): agree X/[total]; disagreements: Q[n] label=[L]
-  re-measured=[M], ...". Disagreements NEVER block, edit the registry, or
-  change an explanation; a large count is OPERATOR signal (§24 learnings —
-  suspect Step 7's obs capture or a drifted regeneration). DORMANT (one §R10
-  line) when the entry has no difficulty labels, the vocabulary is not 3-band,
-  or blueprint_core is unavailable.
+  THE GATE (runs once, after the LAST batch of a full Step-9 run; DORMANT — one
+  §R10 line — when the entry has no difficulty labels, the vocabulary is not
+  3-band, blueprint_core is unavailable, or the registry entry has no
+  difficulty_gate record [legacy]):
+    labels_by_q   = {q: question_index[q].difficulty}
+    measured_by_q = {q: _lab9 or None}
+    gate = bc.evaluate_difficulty_gate(labels_by_q, measured_by_q,
+                                       difficulty_labels)
+    WRITE (registry, atomic with the S19 progress write):
+      registry['difficulty_gate'][paper_id] = {
+        'schema': 1,
+        'status': 'PASSED' if gate['verdict'] == 'PASS' else 'FAILED',
+        'threshold': gate['threshold'],
+        'repair_rounds_used': 0,
+        'bands':   {lab: {k: b[k] for k in
+                          ('total','assessed','agree','disagree','allowed',
+                           'over_limit')} for lab, b in gate['bands'].items()},
+        'measured_by_q': {str(q): m for q, m in measured_by_q.items()
+                          if m is not None},
+        'rework_qs': gate['rework_qs'],
+        'timestamp': <utc-now>}
+    The registry is the ONLY channel to Step 11 — the printed box is for the
+    operator, the record is for the machine; they must agree.
+
+  PRINT — VERDICT BOX (verbatim shape; the operator is non-technical, so the
+  box must contain the EXACT next command, ready to copy):
+
+    On PASS:
+      ════════════════════════════════════════════════════════════
+        DIFFICULTY GATE: ✅ PASSED — CLEARED FOR DELIVERY
+      ════════════════════════════════════════════════════════════
+        [Easy a/n] · [Medium b/m] · [Hard c/h] confirmed (all
+        within the 30% limit).
+        Next step:  TestDeliver P[N]   (or MockDeliver M[N])
+      ════════════════════════════════════════════════════════════
+
+    On FAIL:
+      ════════════════════════════════════════════════════════════
+        DIFFICULTY GATE: ❌ FAILED — DO NOT DELIVER THIS PAPER
+      ════════════════════════════════════════════════════════════
+        [band] band: [d] of [n] questions did not measure [band]
+        (allowed: up to [allowed]).           ← one line per failed band
+
+        WHAT THIS MEANS
+        Some questions labelled "[band]" are actually easier or
+        harder than the label. Students practising on this paper
+        would get a false picture of the exam.
+
+        WHAT TO DO — exactly two commands, in this order:
+
+        1) Copy-paste this, attaching the QUESTION PAPER Word file:
+
+           TestCreateRepair P[N] Q[a] Q[b] Q[c] ...
+
+        2) Then copy-paste this, attaching the REPAIRED question
+           paper + THIS explanation Word file:
+
+           TestExplainRepair P[N]
+
+        ⛔ DO NOT run TestDeliver / MockDeliver until you see
+           "✅ CLEARED FOR DELIVERY".
+      ════════════════════════════════════════════════════════════
+    (Mock-triggered runs print MockCreateRepair M[N] … / MockExplainRepair
+    M[N]; the Q-list is gate['rework_qs'] verbatim, in ascending order.)
+
+  Dashboard line (P2) becomes:
+      §7A-M difficulty gate      : [PASSED — a+b+c/n within 30%] OR
+                                   [FAILED — rework Q…] OR [DORMANT — reason]
+
+## §7A-R — REPAIR MODE (TestExplainRepair / MockExplainRepair, v1.42.0)
+
+  TRIGGER: `TestExplainRepair P[N]` or `MockExplainRepair M[N]`.
+  ATTACH:  (1) the REPAIRED question paper docx (TestCreateRepair output) and
+           (2) the PREVIOUS explanation docx (this step's earlier output).
+  PREFLIGHT (HARD STOP on any failure — these protect the operator from
+  repairing the wrong thing, so they stay hard even under the no-stop rule,
+  which governs the VERDICT, not malformed input):
+    R1  registry['difficulty_gate'][paper_id] exists with status 'FAILED' and
+        repair_rounds_used == 0. Absent → "Run TestExplain P[N] first."
+        Status PASSED/DISCLOSED → "Nothing to repair — next step:
+        TestDeliver P[N]." repair_rounds_used ≥ 1 → "The one repair round is
+        already used — next step: TestDeliver P[N] (delivers with disclosure)."
+    R2  Both attachments present and parse (P3 machinery).
+    R3  The repaired paper's stems differ from the previous paper's stems on
+        EXACTLY the rework_qs set (hash compare against registry stem_texts of
+        the superseded entries — S13-4 updated them at TestCreateRepair; the
+        check is against the PRE-repair snapshot difficulty_gate carries in
+        'rework_stem_hashes'). A repaired paper that changed OTHER questions,
+        or failed to change a listed one, is the wrong file — name the qs.
+  RUN: execute §4–§18 for the rework_qs ONLY (batching rules apply to that
+    subset); splice the regenerated per-question blocks into the previous
+    explanation docx, replacing the superseded blocks in place (block = the
+    question's full §2 structure); leave every other block byte-identical.
+  RE-GATE: update measured_by_q for the repaired qs only; re-run
+    bc.evaluate_difficulty_gate over the FULL maps; write the record with
+    repair_rounds_used = 1 and status:
+      PASS → 'PASSED'   — print the PASSED box (§7A-M shape).
+      FAIL → 'DISCLOSED' — the one round is spent; NO further loop and NO stop
+             (operator decision). Print:
+      ════════════════════════════════════════════════════════════
+        DIFFICULTY GATE: ⚠️ PROCEED WITH DISCLOSURE
+      ════════════════════════════════════════════════════════════
+        After 1 repair round: [Easy a/n] · [Medium b/m] · [Hard c/h]
+        confirmed. The paper MAY be delivered; the delivery footer
+        will state these measured counts so no reader is misled.
+        Next step:  TestDeliver P[N]
+      ════════════════════════════════════════════════════════════
+
 # ════════════════════════════════════════════════════════════════════════
+
 # §8 — SECTION QUALITY STANDARDS (the highest-standard contract per section)
 # ════════════════════════════════════════════════════════════════════════
 #   Governing rule across ALL sections — the DENSITY FLOOR (not a length floor):
@@ -2784,5 +2911,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.41.0
+# END OF Framework_MockTestExplain v1.42.0
 # ════════════════════════════════════════════════════════════════════════

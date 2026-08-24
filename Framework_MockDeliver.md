@@ -1,4 +1,9 @@
-# Framework_MockDeliver v1.12.2 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.13.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.13.0 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestExplain v1.42.0,
+#   MockTestCreate v5.69). S1-2 gains item 3b: delivery reads
+#   registry.difficulty_gate — PENDING/FAILED hard-stop with the exact next
+#   command; PASSED delivers clean; DISCLOSED delivers with one measured-
+#   difficulty footer line; ABSENT = legacy, delivers as before.
 # v1.12.2 — 2026-08-19 — GAP-2026-08-19-UNCHECKED-END-MARKER-DRIFT. PATCH: prose-only,
 #   no gate, no logic, no artefact change. This file is the ONLY spec in the corpus
 #   carrying TWO end-of-document markers: the canonical `# END OF ...` sentinel that
@@ -238,6 +243,25 @@ Parse:
    THEN, if no mock N entry in question_index → HARD STOP with the Class-A
    finding above when mock N is in the ledger (data loss — remedy: re-run
    Step 7 for Mock [N]); otherwise:
+   3b. DIFFICULTY GATE VERDICT (v1.13.0 — GAP-2026-08-24-DIFFICULTY-GATE-
+       BLOCKING). Read registry['difficulty_gate'][paper_id]:
+         ABSENT      → LEGACY paper (pre-gate). Deliver exactly as before —
+                       operator decision 2026-08-24: old papers untouched.
+         'PENDING'   → Step 9 never ran its gate. HARD STOP:
+                       "This paper has not passed the difficulty check.
+                        Run:  TestExplain P[N]   (attach the question paper)
+                        then return here."
+         'FAILED'    → HARD STOP, reprinting Step 9's two repair commands
+                       verbatim (TestCreateRepair P[N] Q… → TestExplainRepair
+                       P[N]) and the ⛔ DO-NOT-DELIVER line.
+         'PASSED'    → proceed; no extra footer text.
+         'DISCLOSED' → proceed; §FOOTER-DG adds ONE line to the delivery
+                       footer, built from bands:
+                       "Measured difficulty: Easy a/n · Medium b/m ·
+                        Hard c/h confirmed after 1 repair round."
+       The gate reads ONLY the registry — never the chat transcript — so a
+       skipped or re-ordered session cannot out-talk the record.
+
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
 
@@ -1768,4 +1792,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.12.2
+# END OF Framework_MockDeliver v1.13.0
