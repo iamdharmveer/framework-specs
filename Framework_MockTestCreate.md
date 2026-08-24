@@ -1,4 +1,14 @@
-# Framework_MockTestCreate v5.67
+# Framework_MockTestCreate v5.68
+# v5.68 — 2026-08-24 — GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION (paired with
+#   final_assembly v5.57, audit_seam v1.2). The SECOND instance of the v5.67 class,
+#   found by the cross-step field-contract sweep: the S13-4 axis snapshots were
+#   persisted as reg['axis1_paper'][str(N)] / reg['axis3_paper'][str(N)] — the paper
+#   ORDINAL — on a registry shared across series, so a scoped paper of the same
+#   ordinal silently destroyed the mock's snapshot (and two scoped series destroyed
+#   each other). The field exists to be a HISTORICAL LEDGER (v5.49); on any exam
+#   mixing mocks and scoped papers it had silently reverted to the rolling snapshot
+#   v5.49 fixed. Now paper_id-keyed, ordinal key MOCK-only — the options_by_q shape.
+#   Machine-checked from now on by audit_seam v1.2's KEY-SHAPE gate.
 # v5.67 — 2026-08-24 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION (paired with
 #   final_assembly v5.56, audit_canonical v2.16, MockTestExplain v1.41.0). The ND6
 #   contract keyed options_by_q by the paper ORDINAL ("N"); on the SHARED registry a
@@ -6,31 +16,7 @@
 #   Mock 1 hard-stopped after SUBJ:PHYS:01 was committed). options_by_q is now keyed
 #   by paper_id (authority) with the ordinal key retained for the MOCK series only.
 #   Spec text only — the writer is final_assembly.regcheck (S13-REGCHECK).
-# v5.66 — 2026-08-23 — GAP-2026-08-23-ECFG-LABEL-PARITY. The exam_config
-#   option_label_format tier — the FIRST tier of the v5.65 chain — was consumed
-#   VERBATIM: never passed through pp.resolve_option_label, never family-checked
-#   against what the auditor will classify. Two failures, both MEASURED on a
-#   synthetic exam against the live auditor: (1) a cross-family override
-#   (section_rules '1/2/3/4', exam_config alpha) renders (A)(B)(C)(D) per the
-#   documented override while audit_canonical.gate_options classifies family from
-#   section_rules ONLY (its L400 cat_c read; exam_config is never read by the
-#   auditor) — A-OPTLABEL 'bad label family' FAILED every question, exit 1, no CP
-#   repair: the exact GAP-2026-08-03-LABELFMT class v5.37 killed on the
-#   section_rules tier, still alive on the override tier. (2) a notation-form
-#   override ('A/B/C/D' instead of a template) carries no '{text}' placeholder,
-#   so the G-OPTLABEL regex builder and option rendering both operate on a
-#   non-template string. FIX (§3 S3-2 config block): the override now goes through
-#   the SAME resolver as the section_rules tier, its render family is derived from
-#   the resolved template's own token (option_label_family misclassifies template
-#   strings — the pass-through branch is NOT trusted for parity), and it is
-#   asserted equal to the family the auditor will classify: _resolved_family when
-#   section_rules declares a label, else 'num' (the auditor's own L400 default —
-#   an override with NO section_rules label is still audited against '1/2/3/4').
-#   Mismatch or unknown token = HARD STOP at PRE-GENERATION naming the conflict.
-#   Same-family punctuation overrides ('(1)' vs '1.') remain fully supported and
-#   byte-identical. DORMANT for every exam_config that omits option_label_format
-#   (the IIT_JAM_CHEMISTRY reference config omits it). No engine changes. No
-#   artefact moves.
+
 # v5.65 — 2026-08-23 — HYGIENE-2026-08-23-STEP6-AUDIT companion (one dead fallback
 #   tier removed; NO behaviour change on any conforming exam). §2 R24's option-label
 #   chain read bp.get('option_label_format') — a blueprint key NO writer produces:
@@ -4248,11 +4234,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   # per-mock conformance from this field — it had to be rebuilt from
   # `figural_manifests` instead, which happens to carry the same information for
   # Axis-1 (figural) but nothing equivalent exists for Axis-3 (mechanism). Fixed by
-  # nesting one more level, mirroring `options_by_q`'s `[str(N)] = ...` pattern
-  # exactly: `reg['axis1_paper'][str(N)][sec_name] = snap`. This is purely additive —
-  # a reader that only ever consumed the CURRENT mock's own commit (the common case)
-  # reads `reg['axis1_paper'][str(N)]` instead of `reg['axis1_paper']` and gets the
-  # identical per-section dict it always got; a reader that wants history now has it.
+  # nesting one more level, mirroring `options_by_q`'s pattern exactly. v5.68: BOTH
+  # fields are now keyed by PAPER_ID — `reg['axis1_paper'][paper_id][sec_name] = snap`
+  # — with the ordinal key `[str(N)]` written for the MOCK series ONLY. Keying by the
+  # ordinal alone was the v5.49 fix's own blind spot: the registry is SHARED across
+  # series (ScopedBlueprint §9), so MOCK:M01 and SUBJ:PHYS:01 both landed on key '1'
+  # and the later commit destroyed the earlier snapshot — the rolling-snapshot state
+  # v5.49 set out to end, restored silently on every exam that mixes tiers
+  # (GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION; measured, both mock-vs-scoped and
+  # scoped-vs-scoped). A reader that consumes the CURRENT paper's own commit reads
+  # `reg['axis1_paper'][paper_id]`; a reader that wants history has every paper.
   # v5.53.2 (GAP-2026-08-12-S7-AXIS-COUNTS-UNINIT, found by spec_name_audit.py):
   # `axis1_paper_counts` was subscript-assigned below and read at S7-NEW-B
   # (`axis1_paper_counts.get(sec_name, {})`) but INITIALISED NOWHERE in this file —
@@ -7285,7 +7276,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   # v5.54 (GAP-2026-08-12-AXISPAPER-PERSISTENCE): the S7-AXIS per-section snapshot
   # accumulators are threaded into the terminal commit here — commit_registry persists
-  # them as reg['axis1_paper'][str(N)] / reg['axis3_paper'][str(N)] (replace-by-mock,
+  # them as reg['axis1_paper'][paper_id] / reg['axis3_paper'][paper_id] (v5.68; the
+  # legacy [str(N)] key is also written for the MOCK series only — replace-by-paper,
   # idempotent). Read via globals().get, NOT bare names: on an exam whose blueprint
   # declares no axis feature the S7-AXIS block never runs, so the accumulators are
   # legitimately unbound here — that must mean "nothing to persist", never a NameError
@@ -8316,7 +8308,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.67
+# END OF Framework_MockTestCreate v5.68
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

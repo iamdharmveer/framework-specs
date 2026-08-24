@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+# audit_seam.py v1.2 — 2026-08-24 — KEY-SHAPE GATE (GAP-2026-08-24-AXIS-PAPER-SERIES-
+#   COLLISION). Two releases in a row shipped the SAME defect in different fields:
+#   options_by_q (v5.56) and axis1_paper/axis3_paper (v5.57) were both written as
+#   reg['<field>'][str(N)] — the paper ORDINAL — onto a registry that ScopedBlueprint
+#   §9 shares across series, so MOCK:M01 and SUBJ:PHYS:01 both landed on key '1' and
+#   the later commit silently destroyed the earlier paper's data. Both were found by
+#   hand (a dry-run harness, then a field-contract sweep); nothing in the corpus could
+#   see the class. This gate closes it: every per-paper container in PER_PAPER must be
+#   written under a paper_id key, and an ORDINAL-ONLY write FAILS the build. A third
+#   instance now cannot ship. RULE: a per-paper container may ALSO carry the ordinal
+#   key for the MOCK series (back-compat), but never ONLY the ordinal key.
 # audit_seam.py v1.1 — 2026-08-14 — WORLD-MAP REFRESH (GAP-2026-08-14-AXISPAPER-
 #   PERSISTENCE RESOLUTION). The 5 findings this auditor carried since the
 #   2026.08.12.x wave were not broken data — they were THIS FILE's map of the
@@ -182,6 +193,54 @@ def reads(txt):
     out |= {m.group(1) for m in re.finditer(r"_RE\s*=\s*re\.compile\(r?['\"].*?([a-z][a-z0-9_]{3,}):", txt)}
     return out
 
+# v1.2 — PER-PAPER CONTAINERS. Registry fields whose VALUE is one entry per PAPER.
+# The registry is SHARED across series (ScopedBlueprint §9), so an ordinal key ('1')
+# collides between MOCK:M01, SUBJ:PHYS:01 and SUBJ:CHEM:01. Each must be written under
+# a paper_id key; the ordinal key is permitted ALONGSIDE it (MOCK-series back-compat).
+PER_PAPER_CONTAINERS = ('options_by_q', 'axis1_paper', 'axis3_paper')
+
+_ORDINAL_WRITE = r"\[\s*str\(\s*(?:N|mock[a-z_]*)\s*\)\s*\]\s*="
+_PAPERID_WRITE = r"\[\s*_?[a-z0-9_]*p(?:aper_)?id[a-z0-9_]*\s*\]\s*="
+
+def key_shape_findings(root):
+    """FAIL any per-paper container written ONLY under a paper-ordinal key.
+
+    Alias-aware: the write may be inline (reg['f'][k] = v) or through a local
+    bound to the container (a = reg.setdefault('f', {}); a[k] = v) — the shape
+    final_assembly uses. Missing the aliased form would make this gate blind to
+    the very code it was written for, so both are resolved.
+    """
+    out = []
+    for fname in sorted(set(PRODUCERS) | set(CONSUMERS)):
+        txt = _read(os.path.join(root, fname))
+        if not txt:
+            continue
+        code = [l for l in txt.splitlines() if not l.lstrip().startswith('#')]
+        for field in PER_PAPER_CONTAINERS:
+            names = [rf"\w*\[\s*['\"]{field}['\"]\s*\]",
+                     rf"\w*\.setdefault\(\s*['\"]{field}['\"][^)]*\)"]
+            # locals bound to this container: `x = reg.setdefault('f', {})` / `= reg['f']`
+            aliases = set()
+            for l in code:
+                for n in names:
+                    m = re.search(rf"^\s*([A-Za-z_]\w*)\s*=\s*{n}\s*$", l)
+                    if m:
+                        aliases.add(m.group(1))
+            targets = list(names) + [rf"{re.escape(a)}" for a in sorted(aliases)]
+            assigns = [l for l in code
+                       if any(re.search(rf"{tg}\s*\[[^\]]*\]\s*=", l) for tg in targets)]
+            if not assigns:
+                continue
+            has_pid = any(re.search(_PAPERID_WRITE, l) for l in assigns)
+            has_ord = any(re.search(_ORDINAL_WRITE, l) for l in assigns)
+            if has_ord and not has_pid:
+                out.append((field, fname,
+                            'ORDINAL-ONLY per-paper key — collides across series on the '
+                            'shared registry (GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION); '
+                            'write [paper_id] as the authority'))
+    return out
+
+
 def main(argv):
     root = argv[1] if len(argv) > 1 else '.'
     scope = re.compile(argv[2]) if len(argv) > 2 else re.compile(
@@ -197,6 +256,7 @@ def main(argv):
 
     keys = sorted(k for k in (set(W) | set(R)) if scope.search(k))
     findings = []
+    ks = key_shape_findings(root)
     print(f"{'field':38s} {'written by':22s} {'read by':26s} verdict")
     print('-' * 100)
     for k in keys:
@@ -213,9 +273,16 @@ def main(argv):
             v = 'ok'
         print(f"{k:38s} {','.join(w) or '-':22s} {','.join(r) or '-':26s} {v}")
     print('-' * 100)
+    if ks:
+        print(f"[FAIL] {len(ks)} KEY-SHAPE finding(s) (v1.2) — a per-paper container "
+              f"keyed by ordinal is destroyed by the next paper of another series:")
+        for field, fname, why in ks:
+            print(f"    KEY-SHAPE      {field} in {fname}: {why}")
+        return 1
     if not findings:
         print(f"[OK] 0 seam findings across {len(keys)} field(s) — every cross-step field "
-              f"has both a producer and a consumer.")
+              f"has both a producer and a consumer; {len(PER_PAPER_CONTAINERS)} per-paper "
+              f"container(s) paper_id-keyed (v1.2 KEY-SHAPE).")
         return 0
     print(f"[FAIL] {len(findings)} seam finding(s) — a field with one side only is how "
           f"every 2026.08.06.x defect shipped:")
@@ -233,6 +300,34 @@ def self_test():
     commit note."""
     import io, shutil, tempfile, contextlib
     passed, fails = 0, []
+
+    def _ks_fixture():
+        """v1.2 KEY-SHAPE: the live corpus is clean, and REVERTING either fix
+        (paper_id write -> ordinal-only) must be caught. Watch the watcher."""
+        root = os.path.dirname(os.path.abspath(__file__))
+        if key_shape_findings(root):
+            return False, 'live corpus already has a KEY-SHAPE finding'
+        d = tempfile.mkdtemp()
+        for f in set(PRODUCERS) | set(CONSUMERS):
+            src = os.path.join(root, f)
+            if os.path.exists(src):
+                shutil.copy(src, os.path.join(d, f))
+        fa_p = os.path.join(d, 'final_assembly.py')
+        txt = open(fa_p, encoding='utf-8').read()
+        mutated = txt.replace("_a1[_axpid] = copy.deepcopy(dict(axis1_snapshots))",
+                              "_a1[str(N)] = copy.deepcopy(dict(axis1_snapshots))")
+        if mutated == txt:
+            return False, 'mutation anchor missing — final_assembly axis write changed shape?'
+        open(fa_p, 'w', encoding='utf-8').write(mutated)
+        got = key_shape_findings(d)
+        return (any(f == 'axis1_paper' for f, _, _ in got),
+                f'mutant findings={[f for f, _, _ in got]}')
+
+    _ks_ok, _ks_why = _ks_fixture()
+    if _ks_ok:
+        passed += 1
+    else:
+        fails.append(f'KEY-SHAPE-catches-ordinal-only-revert ({_ks_why})')
 
     def check(name, cond):
         nonlocal passed

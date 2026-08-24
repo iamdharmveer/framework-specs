@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026.08.24.4 — GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION: the second instance, and a gate that closes the class
+
+**final_assembly v5.56 -> v5.57 · audit_seam v1.1 -> v1.2 · Framework_MockTestCreate
+v5.67 -> v5.68. Engine self-tests 117/117 and seam 15/15 (four new fixtures). Zero exam
+values. Behaviour byte-identical on every mock-only registry — the ordinal key is still
+written and still read for the MOCK series.** Release 4 of the Step-9 audit.
+
+A cross-step field-contract sweep (every registry field's read/write key shape across
+23 specs and 17 engines) found a SECOND instance of the 2026.08.24.3 defect:
+`axis1_paper` / `axis3_paper` were written as `reg['axis1_paper'][str(N)]` — the paper
+ORDINAL — on a registry ScopedBlueprint §9 shares across series. Confirmed by execution,
+both directions: Mock 1 commits its snapshot, `SUBJ:PHYS:01` commits and the mock's is
+gone; `SUBJ:PHYS:01` then `SUBJ:CHEM:01` leaves only the second.
+
+Nothing reads these snapshots back today, so no run breaks and no wrong paper ships. The
+damage is to the audit trail: the field's whole purpose (v5.49,
+GAP-2026-08-12-AXISPAPER-HISTORY) is to be a historical LEDGER, and that release's own
+note says the pre-v5.49 field "was a rolling snapshot, not a ledger" — on any exam mixing
+mocks and scoped papers it had silently become one again. Fixed exactly as
+`options_by_q` was: `[paper_id]` is the authority for every series, `[str(N)]` is written
+for the MOCK series only.
+
+**The class is now machine-checked.** Two releases running shipped the same defect in
+different fields, both found by hand. audit_seam v1.2 adds a KEY-SHAPE gate: every
+per-paper container (`options_by_q`, `axis1_paper`, `axis3_paper`) must be written under
+a paper_id key, and an ordinal-only write FAILS the build. It is alias-aware (the write
+goes through a local bound to the container, which a naive matcher misses — that blind
+spot was caught by its own watch-the-watcher fixture before this release shipped), and it
+is proven to catch a revert of BOTH fixes: the axis write and the options_by_q write.
+
+Files: final_assembly.py, audit_seam.py, Framework_MockTestCreate.md, SPEC_HISTORY.md,
+VERSION, MANIFEST.json, SPEC_MANIFEST.json, SPEC_SECTIONS.json, CHANGELOG.md.
+
 ## 2026.08.24.3 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION + STEP9-AUDIT-R3: executable dry run of Step 9
 
 **final_assembly v5.55 -> v5.56 · audit_canonical v2.15 -> v2.16 · Framework_MockTestCreate

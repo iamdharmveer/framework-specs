@@ -739,6 +739,36 @@ Current-version entry remains in Framework_MockTestAnalyse.md.
 
 ## Framework_MockTestCreate.md
 
+Entry v5.66 moved at framework release 2026.08.24.4 (EC-P42; v5.68 supersedes).
+
+```
+# v5.66 — 2026-08-23 — GAP-2026-08-23-ECFG-LABEL-PARITY. The exam_config
+#   option_label_format tier — the FIRST tier of the v5.65 chain — was consumed
+#   VERBATIM: never passed through pp.resolve_option_label, never family-checked
+#   against what the auditor will classify. Two failures, both MEASURED on a
+#   synthetic exam against the live auditor: (1) a cross-family override
+#   (section_rules '1/2/3/4', exam_config alpha) renders (A)(B)(C)(D) per the
+#   documented override while audit_canonical.gate_options classifies family from
+#   section_rules ONLY (its L400 cat_c read; exam_config is never read by the
+#   auditor) — A-OPTLABEL 'bad label family' FAILED every question, exit 1, no CP
+#   repair: the exact GAP-2026-08-03-LABELFMT class v5.37 killed on the
+#   section_rules tier, still alive on the override tier. (2) a notation-form
+#   override ('A/B/C/D' instead of a template) carries no '{text}' placeholder,
+#   so the G-OPTLABEL regex builder and option rendering both operate on a
+#   non-template string. FIX (§3 S3-2 config block): the override now goes through
+#   the SAME resolver as the section_rules tier, its render family is derived from
+#   the resolved template's own token (option_label_family misclassifies template
+#   strings — the pass-through branch is NOT trusted for parity), and it is
+#   asserted equal to the family the auditor will classify: _resolved_family when
+#   section_rules declares a label, else 'num' (the auditor's own L400 default —
+#   an override with NO section_rules label is still audited against '1/2/3/4').
+#   Mismatch or unknown token = HARD STOP at PRE-GENERATION naming the conflict.
+#   Same-family punctuation overrides ('(1)' vs '1.') remain fully supported and
+#   byte-identical. DORMANT for every exam_config that omits option_label_format
+#   (the IIT_JAM_CHEMISTRY reference config omits it). No engine changes. No
+#   artefact moves.
+```
+
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_MockTestCreate.md.
 

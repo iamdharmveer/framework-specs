@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.24.3",
+  "framework_version": "2026.08.24.4",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -208,11 +208,11 @@
       "bytes": 291646
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "9d84ccbf5a4b67b57f4644088561c49a4d6406324b3285cecb2e49e67bc21056",
-      "version_header": "# Framework_MockTestCreate v5.67",
+      "sha256": "11612f2d35e3a7e0684081d2e42fd1afe132e67c8313929bc46398730fb975e1",
+      "version_header": "# Framework_MockTestCreate v5.68",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8399,
-      "bytes": 529986
+      "lines": 8391,
+      "bytes": 529378
     },
     "Framework_MockTestExplain.md": {
       "sha256": "0905001770f28948c598e81982c653f0ecffa415715c55fe5133b8581e2c2d9c",
@@ -376,11 +376,11 @@
       "bytes": 58910
     },
     "final_assembly.py": {
-      "sha256": "418ecd630c1f6fe3cf2b5a461eb465d31133f2c197b367f85822e7aa56d62280",
+      "sha256": "2cd32dc3c5f2900145fabcfe081f47179533f0813ab3edbbf553660ba9ebae85",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 1454,
-      "bytes": 86850
+      "lines": 1512,
+      "bytes": 90901
     },
     "corpus_io.py": {
       "sha256": "faec81fa3c4b70d4ad095a99c8899725db7093b023894caf416222b2cee90ebb",
@@ -516,7 +516,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "b6d89946ab21aa81b130fb857362190a3cced0e922d9f8b5158ee663505178cd",
+      "sha256": "41d4c5807f59758787a80740cb6e91e16ae66c7e8bdac59d4d37549def92f068",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6925,
@@ -537,11 +537,11 @@
       "bytes": 6600
     },
     "SPEC_HISTORY.md": {
-      "sha256": "546efbe71171c06d3546ed20938ddb3ea899e580c122986a544e85a95530bbbe",
+      "sha256": "b4e34c88df4dbf29a81b64eceb88cbfca792971599096bcaca2f1029d2f00010",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "# END OF SPEC_HISTORY v1.0",
-      "lines": 3462,
-      "bytes": 258213
+      "lines": 3492,
+      "bytes": 260235
     }
   }
 }

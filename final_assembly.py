@@ -13,6 +13,24 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v5.57 — GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION (paired with MockTestCreate
+    v5.68, audit_seam v1.2). THE SECOND INSTANCE OF THE v5.56 CLASS, found by the
+    cross-step field-contract sweep and confirmed by execution: axis1_paper /
+    axis3_paper were written as reg['axis1_paper'][str(N)] — the paper ORDINAL — on a
+    registry SHARED across series. Measured: Mock 1 commits {'1': {...TEXT 8}}, then
+    SUBJ:PHYS:01 commits and the mock's snapshot is GONE; two SCOPED series collide
+    with each other the same way (SUBJ:PHYS:01 then SUBJ:CHEM:01 leaves only the
+    second). Nothing reads these snapshots back today, so no run breaks and no wrong
+    paper ships — but the field's WHOLE PURPOSE (v5.49, GAP-2026-08-12-AXISPAPER-
+    HISTORY) is to be a historical LEDGER; that release's own note says the pre-v5.49
+    field "was a rolling snapshot, not a ledger", and on any exam mixing mocks and
+    scoped papers it silently became one again. FIX: identical to v5.56 —
+    [paper_id] is the AUTHORITY for every series; the legacy [str(N)] key is written
+    for the MOCK series ONLY (pre-v5.57 readers of a mock registry see exactly what
+    they always saw) and NEVER for a scoped paper. GATE: audit_seam v1.2's KEY-SHAPE
+    check now fails the build on any ordinal-only per-paper container, so the class is
+    machine-checked rather than swept for.
+
     v5.56 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION (paired with MockTestCreate
     v5.67, MockTestExplain v1.41.0, audit_canonical v2.16). regcheck() wrote
     registry['options_by_q'][str(N)] — keyed by the paper ORDINAL. The registry is
@@ -164,7 +182,8 @@ own scoped fix):
      nothing ever dumped, so the v5.49 mock-keyed history never actually
      reached disk. commit_registry() now takes optional `axis1_snapshots`/
      `axis3_snapshots` dicts ({section: snapshot}) and persists them as
-     reg['axis1_paper'][str(N)] / reg['axis3_paper'][str(N)] — replace-by-
+     reg['axis1_paper'][paper_id] / reg['axis3_paper'][paper_id] (v5.57;
+     plus the legacy [str(N)] key for the MOCK series only) — replace-by-
      mock, idempotent, deep-copied (purity), exactly the axis2_window_counts
      precedent. Absent/empty ⇒ no write ⇒ byte-identical behaviour for
      every exam without the axis feature. No engine consumes these fields
@@ -478,10 +497,22 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
     # per-mock field: [str(N)] keying = replace-by-mock = idempotent
     # (deviation 4's pattern; axis2_window_counts is the signature precedent).
     # Absent-safe: an exam with no axis feature passes nothing, writes nothing.
+    # v5.57 (GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION): paper_id-keyed AUTHORITY for
+    # every series; the ordinal key is MOCK-only (legacy readers) and is never written
+    # for a scoped paper — an ordinal key on a shared registry is exactly the write
+    # that destroyed the earlier paper's snapshot. Same shape as options_by_q (v5.56).
+    _axpid = paper_id or f"MOCK:M{int(N):02d}"
+    _ax_is_mock = _series_prefix(_axpid) == 'MOCK'
     if axis1_snapshots:
-        reg.setdefault('axis1_paper', {})[str(N)] = copy.deepcopy(dict(axis1_snapshots))
+        _a1 = reg.setdefault('axis1_paper', {})
+        _a1[_axpid] = copy.deepcopy(dict(axis1_snapshots))
+        if _ax_is_mock:
+            _a1[str(N)] = copy.deepcopy(dict(axis1_snapshots))
     if axis3_snapshots:
-        reg.setdefault('axis3_paper', {})[str(N)] = copy.deepcopy(dict(axis3_snapshots))
+        _a3 = reg.setdefault('axis3_paper', {})
+        _a3[_axpid] = copy.deepcopy(dict(axis3_snapshots))
+        if _ax_is_mock:
+            _a3[str(N)] = copy.deepcopy(dict(axis3_snapshots))
 
     return {'ok': True, 'fails': [], 'registry': reg, 'paper_id': paper_id}
 
@@ -1097,6 +1128,32 @@ def self_test():
                            axis1_snapshots=_snap1, axis3_snapshots=_snap3)
     check('axis1_snapshot_persisted_mock_keyed',
          r_ax['registry']['axis1_paper']['1'] == _snap1)
+    # v5.57 — paper_id key is the authority; a scoped paper of the SAME ordinal must
+    # not touch the mock's snapshot, and two scoped series must not touch each other.
+    check('axis_paper_id_keyed',
+         r_ax['registry']['axis1_paper'].get('MOCK:M01') == _snap1
+         and r_ax['registry']['axis3_paper'].get('MOCK:M01') == _snap3)
+    _ax_bpx = dict(bp1); _ax_bpx['mocks'] = [{'mock': 1, 'paper_id': 'SUBJ:PHYS:01'}]
+    _ax_reg = commit_registry(r_ax['registry'], mini_pending(), _ax_bpx, 1,
+                              paper_id='SUBJ:PHYS:01', batches_completed=1,
+                              axis2_window_counts={}, passage_present=False,
+                              di_present=False, figural_present=False,
+                              concept_map=mini_cm(),
+                              axis1_snapshots={'Section A': {'TEXT': 1}})['registry']
+    check('axis_scoped_does_not_clobber_mock',
+         _ax_reg['axis1_paper'].get('MOCK:M01') == _snap1
+         and _ax_reg['axis1_paper'].get('SUBJ:PHYS:01') == {'Section A': {'TEXT': 1}}
+         and _ax_reg['axis1_paper'].get('1') == _snap1)
+    _ax_bpy = dict(bp1); _ax_bpy['mocks'] = [{'mock': 1, 'paper_id': 'SUBJ:CHEM:01'}]
+    _ax_reg2 = commit_registry(_ax_reg, mini_pending(), _ax_bpy, 1,
+                               paper_id='SUBJ:CHEM:01', batches_completed=1,
+                               axis2_window_counts={}, passage_present=False,
+                               di_present=False, figural_present=False,
+                               concept_map=mini_cm(),
+                               axis1_snapshots={'Section A': {'TEXT': 2}})['registry']
+    check('axis_two_scoped_series_coexist',
+         _ax_reg2['axis1_paper'].get('SUBJ:PHYS:01') == {'Section A': {'TEXT': 1}}
+         and _ax_reg2['axis1_paper'].get('SUBJ:CHEM:01') == {'Section A': {'TEXT': 2}})
     check('axis3_snapshot_persisted_mock_keyed',
          r_ax['registry']['axis3_paper']['1'] == _snap3)
     # deep-copied, not aliased (purity)
@@ -1122,7 +1179,8 @@ def self_test():
                             axis1_snapshots={'Section A': {'TEXT': 9}},
                             axis3_snapshots=_snap3)
     check('axis_snapshot_replace_by_mock_idempotent',
-         r_ax2['registry']['axis1_paper'] == {'1': {'Section A': {'TEXT': 9}}})
+         r_ax2['registry']['axis1_paper'] == {'MOCK:M01': {'Section A': {'TEXT': 9}},
+                                              '1': {'Section A': {'TEXT': 9}}})
 
     # ── regcheck ─────────────────────────────────────────────────────────
     clean_reg = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='MOCK:M01',
