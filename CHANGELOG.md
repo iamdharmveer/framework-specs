@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026.08.24.6 — CHG-2026-08-24-FIG-NOLABEL + GAP-2026-08-24-MATH-RESIDUE-SHIPPED: no "Problem Figure:" label line; flat sub/superscript notation can no longer ship
+
+**Framework_MockTestCreate v5.69 -> v5.70 · audit_canonical v2.16 -> v2.17 (+A-SUBFLAT, +2
+fixtures, self-test 259 -> 261). Spec + one engine; no routes, no triggers, no blueprint or
+registry schema change. bootstrap 52/52; validate_framework_md 0 issues; check_triggers 27
+consistent; spec_name_audit 0 new; mock_sync/notes_sync OK; audit_deep 0 findings. Zero exam
+values — both fixes protect all ~200 exams. Operator request of 2026-08-24 (measured on the
+delivered IIT_JAM_CHEMISTRY Mock 01).**
+
+(1) FIG-NOLABEL. S10-8 add_figural_question / S10-8A add_figural_stem_question hardcoded
+problem_label="Problem Figure:" and emitted it before every problem image — 18 label
+paragraphs in the reference paper. The default is now None and the emission is guarded, so a
+figural block reads Q.N stem -> problem image(s) directly. Safe by construction: no gate
+reads the label (audit_canonical carries the string only as inert self-test fixture filler;
+G-FIGURAL-COMPOSITE counts IMAGES, never label paragraphs); the S12-NEW-13 cue regex keeps
+its "problem figure" alternative so pre-v5.70 papers still identify; an explicit
+caller-passed label still renders (call-compatible).
+
+(2) MATH-RESIDUE-SHIPPED. Q.12/Q.46 stems + all options shipped 0 OMML islands with
+flat-underscore orbital labels (plus a half-Unicode t2g-style form) while the SAME
+questions' Step-9 explanations carried 12 proper OMML islands — the S10-4 funnel existed
+and nothing enforced it: MC3 was WARN-and-deliver, the S4-11 checklist had no residue item,
+the auditor had no flat-subscript arm, and MATH_TRIGGER_RE missed the half-Unicode
+spelling. FIXES: MC3 splits severity — detected ASCII-dialect residue in a stem/option is
+NEW GATE G-MATH-RESIDUE (S12-NEW-30), a per-batch FIXABLE FAIL that forbids present_files
+(S12-0); t3 compile-failure fallbacks keep the v5.47 forgiving-boundary AMBER. S4-11 gains
+its 43rd item; STEP D report, S13-2 sweep, §17 DoD and §18 glossary register the gate
+(80 -> 81). MATH_TRIGGER_RE + the residue detector gain the half-Unicode subscript
+alternative (subscript digit + LOWERCASE letter — t2g/C2v labels; H2O-style single trailing
+subscripts stay plain per rule 2 — the case split that makes the pattern
+false-positive-free). Rule 3a gains explicit chemistry ⟦MATH:⟧ examples. Engine twin:
+audit_canonical v2.17 A-SUBFLAT (FAIL, scans stem AND options, unconditional like the caret
+arm) with A-SUBFLAT-catch / A-SUBFLAT-clean fixtures — the enforcement of record.
+
 ## 2026.08.24.5 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING: the difficulty label is now independently verified before delivery
 
 **Framework_MockTestExplain v1.41.0 -> v1.42.0 · Framework_MockTestCreate v5.68 -> v5.69 ·

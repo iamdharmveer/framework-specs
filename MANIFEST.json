@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.24.5",
+  "framework_version": "2026.08.24.6",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -246,11 +246,11 @@
       "bytes": 291646
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "5ace5a8371806299ddc830ccd6855e18ff94b6fe2cdb36f2ee4ece70bfb68bef",
-      "version_header": "# Framework_MockTestCreate v5.69",
+      "sha256": "5833d5ed18c6325d1624e1df1fcd22c826618279f99fc8fad31bb8560f18157a",
+      "version_header": "# Framework_MockTestCreate v5.70",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8478,
-      "bytes": 535024
+      "lines": 8586,
+      "bytes": 543440
     },
     "Framework_MockTestExplain.md": {
       "sha256": "d146f1d277fd651f9c5b2e4c4f9b932d31269013155c1b16139a4d3769f2d3ac",
@@ -456,11 +456,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "751dae71472966cdf33dec13b9e7fbbc5b682f637986e90eec489c7a9cb13ed6",
+      "sha256": "a5b61e423daaf1c3214f4e84249045aa28b08f8b1c8c50d95e2c006a5fdae7aa",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 7475,
-      "bytes": 413298
+      "lines": 7529,
+      "bytes": 416957
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
@@ -554,7 +554,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "ab6bae8fbd23cc35677938fb1d3b9c42a795134d966df6711d8ff36d6d4bc15e",
+      "sha256": "117ce39d44f0cbb21661cb23ad2cd116f7bcd0e7ccdbc30dfff0b3b8f6b43f0e",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6953,

@@ -1,4 +1,34 @@
-# Framework_MockTestCreate v5.69
+# Framework_MockTestCreate v5.70
+# v5.70 — 2026-08-24 — CHG-2026-08-24-FIG-NOLABEL + GAP-2026-08-24-MATH-RESIDUE-SHIPPED
+#   (paired with audit_canonical v2.17). Two operator-driven fixes, both measured on
+#   the delivered IIT_JAM_CHEMISTRY Mock 01 and both exam-agnostic (~200 exams).
+#   (1) NO "Problem Figure:" LABEL LINE. S10-8/S10-8A hardcoded the label as the
+#   problem_label DEFAULT and emitted it before every problem image — 18 label
+#   paragraphs in the reference paper. Default is now None and the emission is
+#   guarded, so a figural block reads Q.N stem -> problem image(s) directly. Safe by
+#   construction: no gate reads the label (audit_canonical carries the string only
+#   as inert self-test fixture filler; G-FIGURAL-COMPOSITE counts IMAGES, never
+#   label paragraphs), and the S12-NEW-13 cue regex keeps its 'problem figure'
+#   alternative so pre-v5.70 papers still identify. An explicit caller-passed
+#   label still renders (call-compatible, the render_figural_image `transparent`
+#   precedent).
+#   (2) FLAT SUB/SUPERSCRIPT NOTATION SHIPPED. Q.12/Q.46 stems+options carried
+#   0 OMML islands with literal-underscore orbital labels (plus one half-Unicode
+#   t2g-style form) while the SAME questions' Step-9 explanations carried 12
+#   proper OMML islands — the S10-4 funnel existed and NOTHING enforced it: MC3
+#   was WARN-and-deliver, the S4-11 checklist had no residue item, audit.py had
+#   no flat-subscript arm, and MATH_TRIGGER_RE missed the half-Unicode spelling.
+#   FIXES: MC3 SPLIT SEVERITY — detected ASCII-dialect residue in a stem/option is
+#   NEW GATE G-MATH-RESIDUE (S12-NEW-30), a per-batch FIXABLE FAIL that FORBIDS
+#   present_files (S12-0 Zero-Warning Policy); the t3 compile-failure fallback
+#   KEEPS the v5.47 forgiving-boundary AMBER. S4-11 gains its 43rd item; STEP D
+#   report, §13 sweep, §17 DoD and §18 glossary register the gate (80 -> 81).
+#   MATH_TRIGGER_RE and the residue detector gain the half-Unicode subscript
+#   alternative (a Unicode subscript digit followed by a LOWERCASE letter —
+#   t2g/C2v-style labels; H2O-style single trailing subscripts stay plain per
+#   rule 2, the case split that makes the pattern false-positive-free). Rule 3a
+#   gains explicit chemistry examples. Engine twin: audit_canonical v2.17 gate
+#   A-SUBFLAT (FAIL) + catch/clean self-test fixtures — the enforcement of record.
 # v5.69 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestExplain v1.42.0, MockDeliver
 #   v1.13.0). New §S16 repair mode: TestCreateRepair/MockCreateRepair P[N] Q…
 #   rewrites ONLY the gate's rework_qs, harder, at the same slots — label,
@@ -945,7 +975,8 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        §10-S10-4 (MATH_TRIGGER detector + render_mock_text ⟦MATH:⟧ funnel, with
        add_math_stem/emit_math_inline as the legacy segments API, +
        assert_not_math guard + the mock_math_residue_check post-build gate —
-       v5.47); the figural boundary is enforced in §10-S10-7
+       v5.47; v5.70: its detected residue is G-MATH-RESIDUE, a per-batch FIXABLE
+       FAIL); the figural boundary is enforced in §10-S10-7
        (render_figural_image calls assert_not_math). Enforced by gate
        G-MATH-RASTER (image name-contract) and the existing G-FRAC (slash text).
 # All checks mandatory. Q1 FORBIDDEN until every check passes.
@@ -2588,6 +2619,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
              R24 (configured font)        : PASS
              R5  (no answer key in docx) : PASS
              G-OPTLABEL (1.  format)     : PASS
+             G-MATH-RESIDUE (no flat math): PASS
              K-BAL (option spread)       : PASS [show running %]
              K-PAT (max run=2)           : PASS
              MANDATE 0 (no chat content) : PASS (self-check)
@@ -2708,6 +2740,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   inline <w:drawing> name matches q{N}_problem/opt{i}/stim — any
                   other name (e.g. q{N}_e1) is a rasterised expression. Built-up
                   math = OMML only (S10-4 add_math_stem). (R-MATH-OMML) HARD FAIL.
+  [ ] G-MATH-RESIDUE: (v5.70) mock_math_residue_check(cumulative docx)['blocking']
+                  is EMPTY — no flat x_y or half-Unicode (₂+lowercase) subscript,
+                  caret exponent, ÷-fraction, flat radical, letter fraction,
+                  combining accent, residual ⟦MATH:⟧ delimiter, or empty/schema-
+                  invalid OMML in any stem/option. Compile-fallback regions
+                  ('amber' / T3_STATS) route to the F1 AMBER footer, not FAIL.
+                  HARD FAIL — re-emit the named stem/option via render_mock_text
+                  with ⟦MATH:…⟧ (chemistry examples: S10-4 rule 3a).
   [ ] G-KBAL:     Each option 1/2/3/4 is 20-30% of Qs so far.
   [ ] G-KPAT:     No run of 3+ identical consecutive answers.
   [ ] G-CONT:     No question content visible in this chat response. (MANDATE 0)
@@ -2799,7 +2839,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   enforcement is the audit.py A-MATCH-TABLE (STEP B); this item is the
                   no-audit fallback. HARD FAIL — re-emit via add_match_table().
 
-  All 42 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 43 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
@@ -5443,21 +5483,33 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       return paragraph
 
   def mock_math_residue_check(docx_path):
-      """v5.47 (MC3) POST-BUILD MATH GATE — mandatory before delivery, WARN-and-
-      deliver (amber), never a halt. Scans the RENDERED docx and reports in
-      plain operator words: (a) ASCII-dialect residue in plain text — ÷ between
-      operands, caret exponents, k_B-style underscores, √( or √letter, letter
-      fractions (units masked), combining accents; (b) SCHEMA-INVALID fractions
-      (bare text in m:num/m:den — renders EMPTY in Word); (c) empty OMML
-      islands; (d) residual ⟦MATH:⟧ delimiters; (e) every degraded region,
-      quoted verbatim with the remedy. Any hit ⇒ F1 AMBER footer naming it."""
+      """v5.70 (MC3 → G-MATH-RESIDUE, GAP-2026-08-24-MATH-RESIDUE-SHIPPED) POST-BUILD
+      MATH GATE — mandatory before EVERY delivery (each batch's STEP B AND the S13-2
+      Final-Assembly sweep). SPLIT SEVERITY — supersedes the v5.47 blanket
+      WARN-and-deliver, which let flat-underscore orbital labels ship in stems with
+      0 OMML while the SAME questions' Step-9 explanations rendered correctly:
+        'blocking' — ASCII-dialect residue DETECTED in the rendered paper: ÷ between
+            operands, caret exponents, k_B-style underscores, HALF-UNICODE
+            subscripts (a Unicode subscript digit followed by a LOWERCASE letter —
+            t₂g, C₂v; H₂O-style single trailing subscripts stay plain per rule 2),
+            √( or √letter, letter fractions (units masked), combining accents,
+            residual ⟦MATH:⟧ delimiters, EMPTY OMML islands and SCHEMA-INVALID
+            fractions. These are FIXABLE FAILs (S12-0 Zero-Warning Policy):
+            present_files is FORBIDDEN until this list is EMPTY — re-emit each
+            named stem/option via render_mock_text() with ⟦MATH:…⟧ regions.
+            Gate id G-MATH-RESIDUE (S12-NEW-30); engine twin audit.py A-SUBFLAT.
+        'amber'    — t3 COMPILE-FAILURE fallbacks (T3_STATS['failed']): a region
+            that ENTERED the funnel and would not compile rendered as plain text.
+            This keeps the v5.47 strict-core/forgiving-boundary contract exactly:
+            WARN-and-deliver, F1 AMBER footer quoting each region verbatim.
+      Returns {'blocking': [...], 'amber': [...]}."""
       import re as _re
       from docx import Document as _D
       _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
       _Mns = M
       # v5.47.3 — masks are the SHARED _MM_* set (see the trigger block);
       # the gate holds no private copies.
-      probs = []
+      blocking, amber = [], []
       doc = _D(docx_path)
       failed_bodies = {b for b, _ in T3_STATS.get('failed', [])}
       for p in doc.paragraphs:
@@ -5465,34 +5517,38 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           if any(fb and fb in t for fb in failed_bodies):
               continue
           if T3_OPEN in t or T3_CLOSE in t:
-              probs.append(f'residual region delimiter in: {t.strip()[:60]!r}')
+              blocking.append(f'residual region delimiter in: {t.strip()[:60]!r}')
           st = _mm_mask(t)
           if _re.search(r'[\w)\]²³]\s*÷|÷\s*[\w(]', st):
-              probs.append(f'division-sign fraction in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
+              blocking.append(f'division-sign fraction in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
           if '^' in st:
-              probs.append(f'caret exponent in: {t.strip()[:60]!r} — use ⟦MATH:x^{{n}}⟧')
+              blocking.append(f'caret exponent in: {t.strip()[:60]!r} — use ⟦MATH:x^{{n}}⟧')
           if _re.search(r'(?<![A-Za-z0-9_])[A-Za-zψφχε]_(?=[A-Za-z0-9{{(])', st):
-              probs.append(f'flat subscript in: {t.strip()[:60]!r} — use ⟦MATH:k_{{B}}⟧')
+              blocking.append(f'flat subscript in: {t.strip()[:60]!r} — use ⟦MATH:k_{{B}}⟧')
+          if _re.search(r'[\u2080-\u2089][a-z]', st):
+              blocking.append(f'half-Unicode subscript in: {t.strip()[:60]!r} — use ⟦MATH:t_{{2g}}⟧ '
+                              '(subscript digit + lowercase letter is the flat dialect; '
+                              'H₂O-style single trailing subscripts stay plain, rule 2)')
           if _re.search(r'√\s*\(|√\s*[A-Za-zπλωεℏ]', st):
-              probs.append(f'flat radical in: {t.strip()[:60]!r} — use ⟦MATH:\\sqrt{{…}}⟧')
+              blocking.append(f'flat radical in: {t.strip()[:60]!r} — use ⟦MATH:\\sqrt{{…}}⟧')
           if _re.search(r'[A-Za-z\u0391-\u03c9ℏ²³)\]]\s*/\s*[0-9A-Za-z\u0391-\u03c9(√ℏ]', st):
-              probs.append(f'letter fraction left linear in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
+              blocking.append(f'letter fraction left linear in: {t.strip()[:60]!r} — use ⟦MATH:\\frac{{a}}{{b}}⟧')
           if _re.search(r'[\u0300-\u036f\u20d0-\u20ff]', st):
-              probs.append(f'combining-character accent in: {t.strip()[:60]!r} — use ⟦MATH:\\bar{{A}}⟧ / ⟦MATH:\\vec{{E}}⟧')
+              blocking.append(f'combining-character accent in: {t.strip()[:60]!r} — use ⟦MATH:\\bar{{A}}⟧ / ⟦MATH:\\vec{{E}}⟧')
           for om in p._element.iter('{%s}oMath' % _Mns):
               if not ''.join(x.text or '' for x in om.iter('{%s}t' % _Mns)).strip():
-                  probs.append('EMPTY OMML island (content lost) in: %r' % t.strip()[:50])
+                  blocking.append('EMPTY OMML island (content lost) in: %r' % t.strip()[:50])
               for f in om.iter('{%s}f' % _Mns):
                   for part in (f.find('{%s}num' % _Mns), f.find('{%s}den' % _Mns)):
                       if part is not None and ((part.text or '').strip() or not len(part)):
-                          probs.append('SCHEMA-INVALID fraction (bare text in num/den — '
-                                       'Word renders it EMPTY) in: %r' % t.strip()[:50])
+                          blocking.append('SCHEMA-INVALID fraction (bare text in num/den — '
+                                          'Word renders it EMPTY) in: %r' % t.strip()[:50])
       for body, reason in T3_STATS.get('failed', []):
           snip = body if len(body) <= 60 else body[:57] + '…'
-          probs.append('one maths expression could not be structured and was delivered '
+          amber.append('one maths expression could not be structured and was delivered '
                        f'as plain text: "{snip}" (reason: {reason}). Remedy: Ctrl+F the '
                        'quoted text, fix that ⟦MATH:⟧ spelling, rebuild.')
-      return probs
+      return {'blocking': blocking, 'amber': amber}
   ```
 
   Math rendering decision tree (in order — use FIRST applicable rule):
@@ -5507,13 +5563,23 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   3. Fractions (a/b stacked): MANDATORY OMML — ⟦MATH:\frac{a}{b}⟧ via
      render_mock_text() (or legacy frac(), now raw-arg-safe)
   3a. Subscripts (k_B, R_in, v_rms): MANDATORY OMML — ⟦MATH:k_{B}⟧
+      CHEMISTRY ORBITAL / STATE / SYMMETRY LABELS (v5.70 — the delivered-defect
+      class): t₂g → ⟦MATH:t_{2g}⟧ · e_g → ⟦MATH:e_{g}⟧ · d_xy → ⟦MATH:d_{xy}⟧ ·
+      d_z² → ⟦MATH:d_{z^{2}}⟧ · d_x²−y² → ⟦MATH:d_{x^{2}-y^{2}}⟧ · C₂v →
+      ⟦MATH:C_{2v}⟧. A HALF-UNICODE spelling (a Unicode subscript digit followed
+      by a LOWERCASE letter, e.g. t₂g typed with ₂) is the SAME flat dialect as
+      t_2g and is equally banned in plain text. Simple formulas with a single
+      trailing subscript digit (H₂O, N₂, CO₂ — the subscript followed by nothing
+      or an UPPERCASE element symbol) stay plain Unicode per rule 2.
   4. Nested radicals: MANDATORY OMML sqrt()
   5. Exponent+fraction: MANDATORY OMML
   6. Trig identities with fractions: MANDATORY OMML
   7. Raw LaTeX (\\frac, \\sqrt) OUTSIDE a ⟦MATH:⟧ region, ÷-fractions,
-     caret exponents, underscore subscripts, √(…) and combining-character
-     accents in prose: NEVER — every one is the ASCII dialect that
-     mock_math_residue_check() names; the legal spelling is a ⟦MATH:…⟧ region.
+     caret exponents, underscore subscripts, half-Unicode subscripts (t₂g typed
+     with ₂ — v5.70), √(…) and combining-character accents in prose: NEVER —
+     every one is the ASCII dialect that mock_math_residue_check() names; each is
+     a G-MATH-RESIDUE per-batch FIXABLE FAIL (v5.70); the legal spelling is a
+     ⟦MATH:…⟧ region.
 
   MATH-AS-OMML ROUTING CONTRACT (v4.3 — the executable home for rules 0/3-6).
   Before v4.3 the tree above stated the GOAL but there was no function to call:
@@ -5543,6 +5609,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       r"|(?:[A-Za-z]_[A-Za-z0-9{{(])"                     # subscript k_B (v5.47)
       r"|(?:[\w)\]]\s*÷|÷\s*[\w(])"                    # ÷-fraction (v5.47)
       r"|(?:[\u0300-\u036f\u20d0-\u20ff])"             # combining accent (v5.47)
+      r"|(?:[\u2080-\u2089][a-z])"                     # half-Unicode subscript t₂g/C₂v (v5.70)
   )
   # v5.47.3 — THE ONE SHARED MASK SET. Defined once; consumed by BOTH
   # needs_omml (authoring detection) and mock_math_residue_check (post-build
@@ -6373,7 +6440,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           cp.set('name', name)
 
   def add_figural_question(doc, qnum, stem, problem_pngs, option_pngs,
-                           problem_label="Problem Figure:",
+                           problem_label=None,
                            problem_specs=None, option_specs=None):
       """
       qnum         : int
@@ -6381,7 +6448,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       problem_pngs : [bytes] — 1+ problem/series images (geometry only)
       option_pngs  : [bytes] — EXACTLY n_options images, in option order, uniform
       Layout (R-FIGURAL / R14 / G-QNUM-FIRST):
-        Q.N stem  →  "Problem Figure:"  →  problem image(s)
+        Q.N stem  →  problem image(s)   (v5.70: NO label line by default)
                   →  for i in 1..N:  "i."  then ONE option image (own line)
                   →  blank separator
       v4.3: every emitted image is stamped with its canonical name (S10-7 Q8) —
@@ -6395,10 +6462,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       # LINE 1 — Q.N stem (BOLD, configured font) — Q.N FIRST, no image precedes it.
       add_question_stem(doc, qnum, stem)            # S10-3
 
-      # Problem figure(s): a text label (NOT baked into the image) + the image(s).
+      # Problem figure(s) (v5.70 CHG-2026-08-24-FIG-NOLABEL: NO label line by
+      # default — a label renders only when a caller explicitly passes one).
       if problem_pngs:
-          lab = doc.add_paragraph(); r = lab.add_run(problem_label)
-          r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
+          if problem_label:
+              lab = doc.add_paragraph(); r = lab.add_run(problem_label)
+              r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
           for k, pb in enumerate(problem_pngs, 1):
               _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN,
                               spec=problem_specs[k - 1] if problem_specs else None)
@@ -6449,14 +6518,14 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
   ```python
   def add_figural_stem_question(doc, qnum, stem, problem_pngs, text_options,
-                                problem_label="Problem Figure:"):
+                                problem_label=None):
       """
       qnum         : int
       stem         : str   — the question instruction (DOCUMENT text, Q.N-first)
       problem_pngs : [bytes] — 1+ problem/series images (geometry only, 300 DPI)
       text_options : [str]  — text option strings (NOT images)
       Layout (R-FIGURAL stem_only / R14 / G-QNUM-FIRST):
-        Q.N stem  →  "Problem Figure:"  →  problem image(s)
+        Q.N stem  →  problem image(s)   (v5.70: NO label line by default)
                   →  text options via add_text_options()
                   →  blank separator
       v5.13: new helper for the stem_only variant. Figural questions where only the
@@ -6469,9 +6538,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       # LINE 1 — Q.N stem (BOLD, configured font) — Q.N FIRST, no image precedes it.
       add_question_stem(doc, qnum, stem)                # S10-3
 
-      # Problem figure(s): a text label (NOT baked into the image) + the image(s).
-      lab = doc.add_paragraph(); r = lab.add_run(problem_label)
-      r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
+      # Problem figure(s) (v5.70 CHG-2026-08-24-FIG-NOLABEL: NO label line by
+      # default — a label renders only when a caller explicitly passes one).
+      if problem_label:
+          lab = doc.add_paragraph(); r = lab.add_run(problem_label)
+          r.bold = True; r.font.name = FONT_NAME; r.font.size = Pt(FONT_SIZE_PT)
       for k, pb in enumerate(problem_pngs, 1):
           _add_image_para(doc, pb, FIG_PROBLEM_DISPLAY_IN)
           nm = (f"q{qnum}_problem.png" if len(problem_pngs) == 1
@@ -6582,7 +6653,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   Q numbers in docx must exactly equal keys in answer_key.json.
 
 # ════════════════════════════════════════════════════════════════════════
-# §12 — GUARD SCRIPT (all 80 gates — 39 v1.0 baseline + 29 added since v1.0
+# §12 — GUARD SCRIPT (all 81 gates — 39 v1.0 baseline + 30 added since v1.0
 #        + 12 FIGURE CONFORMANCE added in v5.33 / Audit v2.11)
 # ════════════════════════════════════════════════════════════════════════
 
@@ -7063,6 +7134,23 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     from scratch, exactly as A-NAT-ANSWER does for the math value. EXAM-AGNOSTIC.
     Report: "G-NAT-GRADE: Q.[n] [charset/type/determinism problem]."
 
+  S12-NEW-30 — G-MATH-RESIDUE (v5.70 — ASCII-dialect math residue, HARD STOP per
+    batch AND at the S13-2 sweep): Enforces R-MATH-OMML's TEXT arm at delivery time
+    — the enforcement the funnel lacked (GAP-2026-08-24-MATH-RESIDUE-SHIPPED:
+    flat-underscore orbital labels shipped in stems/options with 0 OMML while the
+    SAME questions' Step-9 explanations rendered correctly; MC3 was WARN-only, the
+    S4-11 checklist had no residue item, and no auditor arm existed, so nothing
+    blocked). ALGORITHM: run mock_math_residue_check() (§10-S10-4) on the
+    cumulative docx at STEP B of every batch and again in the S13-2 sweep; ANY
+    entry in the returned 'blocking' list → FAIL, and present_files is FORBIDDEN
+    (B-7/R15) until it is empty. The 'amber' list (t3 compile fallbacks) routes to
+    the F1 AMBER footer per Framework_DeliveryFooter §5 — WARN-and-deliver,
+    unchanged from v5.47. Fixable: re-emit each named stem/option via
+    render_mock_text() with ⟦MATH:…⟧ regions (chemistry examples: S10-4 rule 3a).
+    Engine twin: audit.py A-SUBFLAT (audit_canonical v2.17) independently
+    re-derives the flat/half-Unicode subscript scan from the rendered docx, with
+    catch+clean self-test fixtures — the enforcement of record.
+
 
   S12-NEW-17 — G-MATH-RASTER (v4.3 — math-as-OMML routing, HARD STOP):
     Enforces R-MATH-OMML / §10-S10-4. Catches the M1 Q.55 defect where two
@@ -7159,6 +7247,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   (0-9.- charset, deterministic re-derivation via derive_nat_grading, S7-NEW-C). NUMERICAL-mode
   only, fully dormant when nat_present is false. Total gates: 69.
 
+  v5.70 adds G-MATH-RESIDUE (S12-NEW-30) — ASCII-dialect math residue in any
+  stem/option is a per-batch HARD FAIL; t3 compile-fallback regions stay AMBER.
+  Total gates: 70.
+
   S12-NEW-26 — G-QINDEX (v5.2 — question-index certification, HARD STOP; runs at Final
     Assembly; executable home S13-QINDEX, after S13-REGCHECK). Certifies the mock-N
     registry.question_index this session built (S13-4) — the per-question {subtopic_id,
@@ -7208,7 +7300,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 
 ## S13-1 — Final Assembly trigger (unchanged)
 
-## S13-2 — Complete gate sweep (all 80 gates)
+## S13-2 — Complete gate sweep (all 81 gates)
 
 ## S13-3 — Post-mock concept audit (unchanged)
 
@@ -7759,13 +7851,13 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   □ Final batch auto-ran Final Assembly in same response (S4-9)  **
   □ Every batch: Layer 1 STOP executed (separate response per batch)  *
   □ Every batch: Manual gate checklist (S4-11) completed if no audit.py  *
-  □ Final Assembly gate check passed (80 gates)  *
+  □ Final Assembly gate check passed (81 gates)  *
   □ (Issue 2b) group-presence (G-GROUPMANDATE) + min-count (G-MINCOUNT) verified for
     this mock; cadence left to Step 1 (cross-mock, not gated in Step 7)  *
   □ Audit STDOUT appended to every batch reply
 
   CONTENT QUALITY:
-  □ All 80 gates: PASS or NON-FIX-WARN  *
+  □ All 81 gates: PASS or NON-FIX-WARN  *
     (the 12 v5.33 FIGURE CONFORMANCE gates report AMBER / VOID_ITEM / BLOCKING
      per S10-7 Q8b; NO colour condition may halt a run, and EC-V18 downgrades
      every BLOCKING gate to AMBER for output with no FigureSpec sidecar)  *
@@ -7852,6 +7944,11 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     image; every inline <w:drawing> is a canonically-named figure/stimulus
     (q{N}_problem/opt{i}/stim), and all built-up math is OMML (R-MATH-OMML /
     §10-S10-4)  **
+  □ G-MATH-RESIDUE passed (v5.70): mock_math_residue_check 'blocking' list EMPTY
+    — no flat/half-Unicode subscript, caret, ÷-fraction, flat radical, letter
+    fraction, combining accent, residual ⟦MATH:⟧ delimiter, or empty/schema-
+    invalid OMML in any stem/option; compile-fallback 'amber' regions named in
+    the F1 footer (R-MATH-OMML / §10-S10-4 / S12-NEW-30)  **
   □ G-QINDEX passed (v5.2): registry.question_index has one {q, subtopic_id, difficulty}
     entry per question (q = 1..total_questions, sorted/unique/complete), every subtopic_id ∈
     blueprint.subtopic_list, every difficulty ∈ difficulty_labels, and the difficulty
@@ -7861,7 +7958,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 ## S17-2 — Downstream handoff (v5.36: to Step 9; mechanism unchanged from v1.0)
 
 # ════════════════════════════════════════════════════════════════════════
-# §18 — AUDIT GATE GLOSSARY (80 gates total — 39 v1.0 baseline + 29 tabled below
+# §18 — AUDIT GATE GLOSSARY (81 gates total — 39 v1.0 baseline + 30 tabled below
 #        + 12 FIGURE CONFORMANCE catalogued in audit_canonical.py)
 # ════════════════════════════════════════════════════════════════════════
 
@@ -8131,6 +8228,17 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   current exam declares it). Independently re-verified by audit.py A-HEADER (which strips the
   block rather than validating it).
 
+  v5.70 adds 1 new gate (→ 69), enforced per-batch (S4-11) and in the S13-2 sweep:
+
+  | Gate Code      | Checks                                                          | Fix? | Fix                                          |
+  |----------------|-----------------------------------------------------------------|------|----------------------------------------------|
+  | G-MATH-RESIDUE | No ASCII-dialect math residue (flat/half-Unicode subscript, caret, ÷, flat radical, letter fraction, accents, delimiters, empty OMML) in any stem/option | YES  | Re-emit via render_mock_text ⟦MATH:…⟧ (S10-4) |
+
+  G-MATH-RESIDUE (definition): see §12 S12-NEW-30. The 'blocking' list of
+  mock_math_residue_check() must be EMPTY before every present_files (per batch
+  AND at Final Assembly); the 'amber' list (t3 compile fallbacks) routes to the
+  F1 AMBER footer. Engine twin: audit.py A-SUBFLAT (audit_canonical v2.17).
+
 # ════════════════════════════════════════════════════════════════════════
 # §19 — EDGE-CASE CHECKLIST (v2.0 — additions marked *)
 # ════════════════════════════════════════════════════════════════════════
@@ -8395,7 +8503,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
            TestExplainRepair P[N]
       ════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestCreate v5.69
+# END OF Framework_MockTestCreate v5.70
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
@@ -8424,7 +8532,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #              render-consistency + verify_presentation_match; G-FORMATDUP selects
 #              by class (missing-key now caught); RULE C requires distinct visible
 #              stem_format. No new gate/rule — pure closure.
-# Total guard gates: 80 (see the §12 catalogue + §17 DoD, current through v5.33; the
+# Total guard gates: 81 (see the §12 catalogue + §17 DoD, current through v5.70; the
 #   per-batch/Final-Assembly gate set — MSQ gates dormant unless multi_present, NAT gates
 #   dormant unless nat_present; G-GROUPMANDATE/G-MINCOUNT dormant unless their manifest
 #   structure is non-empty; G-PREQ1 dormant only if EXAM_STRUCTURE declares paper_header_block)

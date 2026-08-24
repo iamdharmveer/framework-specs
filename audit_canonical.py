@@ -15,6 +15,21 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.17 — 2026-08-24 — GAP-2026-08-24-MATH-RESIDUE-SHIPPED (paired with
+#   Framework_MockTestCreate v5.70). NEW GATE A-SUBFLAT (FAIL) in the A-FRAC
+#   family: flat ASCII subscripts (single-letter symbol + underscore — e_g, d_xy,
+#   t_2g) and HALF-UNICODE subscripts (a Unicode subscript digit followed by a
+#   LOWERCASE letter — t₂g, C₂v) anywhere in a question block (stem OR options)
+#   are the flat dialect R-MATH-OMML bans; measured driver: IIT_JAM_CHEMISTRY M01
+#   Q.12/Q.46 shipped 0-OMML flat-underscore orbital labels and every machine gate
+#   passed, because no arm scanned for them. The lowercase-letter condition is the
+#   false-positive guard: H₂O/N₂/CO₂ (subscript then UPPERCASE element or nothing)
+#   stay legal plain Unicode. Scans the FULL block (options included — the M01
+#   defect lived in all four options), unconditional like the caret arm (a
+#   single-letter+underscore token has no legitimate prose reading; underline
+#   blanks '____' never match — the lookahead requires alnum). Two self-test
+#   fixtures: A-SUBFLAT-catch (planted flat + half-Unicode forms) and
+#   A-SUBFLAT-clean (H₂O formula must pass).
 # v2.16 — 2026-08-24 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION (paired with
 #   final_assembly v5.56). load_sources read registry.options_by_q[str(N)] — the
 #   ordinal key that a scoped paper of the same ordinal overwrites. Now reads the
@@ -734,6 +749,14 @@ MATH_TOKEN_NAME = re.compile(r'_(e\d+|eqn|expr|frac|math)\b', re.I)
 CANON_IMG_NAME = re.compile(r'^q\d+_(problem|opt\d+|stim)', re.I)
 ASCII_CARET = re.compile(r'[A-Za-z0-9]\s*\^\s*[0-9A-Za-z]')
 SLASH_FRAC  = re.compile(r'(?<![A-Za-z0-9])\d+\s*/\s*\d+(?![A-Za-z0-9])')
+# v2.17 (GAP-2026-08-24-MATH-RESIDUE-SHIPPED) — A-SUBFLAT signals. FLAT_SUB is the
+# single-letter-symbol underscore form (e_g, d_xy, t_2g; lookbehind excludes
+# word_word, lookahead excludes '____' blanks). UNI_SUB_RUN is the half-Unicode
+# form: subscript digit + LOWERCASE letter (t₂g, C₂v); H₂O/N₂ (uppercase or
+# nothing after the subscript) deliberately never match — legal per Step 7
+# S10-4 rule 2.
+FLAT_SUB    = re.compile(r'(?<![A-Za-z0-9_])[A-Za-z]_(?=[A-Za-z0-9{(])')
+UNI_SUB_RUN = re.compile(r'[\u2080-\u2089][a-z]')
 
 
 def gate_structure(blocks, src):
@@ -1836,16 +1859,29 @@ def gate_omml(doc, src, final):
 
 
 def gate_frac_ascii(blocks, src):
-    caret, slash = [], []
+    caret, slash, subflat = [], [], []
     omml_ctx = src['omml_required_present']
     for b in blocks:
         stem = block_stem_text(b)
+        # v2.17: A-SUBFLAT scans the FULL block (stem + options) — the measured
+        # defect (IIT_JAM_CHEMISTRY M01 Q.12) lived in all four option lines.
+        body = ' '.join(para_text(p) for p in b.paras)
         if ASCII_CARET.search(stem):
             caret.append(f'Q{b.qnum}')
         if omml_ctx and SLASH_FRAC.search(stem):
             slash.append(f'Q{b.qnum}')
+        if FLAT_SUB.search(body) or UNI_SUB_RUN.search(body):
+            subflat.append(f'Q{b.qnum}')
     (_ok if not caret else _fail)('A-FRAC',
         'no ASCII caret exponents.' if not caret else 'ASCII "^" exponent: ' + _flist(caret))
+    # v2.17 (GAP-2026-08-24-MATH-RESIDUE-SHIPPED): flat/half-Unicode subscript
+    # notation is the R-MATH-OMML flat dialect — FAIL, unconditional like the
+    # caret arm. MECHANICAL REMEDY: re-emit through Step 7 S10-4 render_mock_text
+    # with ⟦MATH:…⟧ (e.g. ⟦MATH:t_{2g}⟧, ⟦MATH:e_{g}⟧, ⟦MATH:d_{x^{2}-y^{2}}⟧).
+    (_ok if not subflat else _fail)('A-SUBFLAT',
+        'no flat/half-Unicode subscript notation.' if not subflat
+        else 'flat or half-Unicode subscript (e_g / d_xy / t\u2082g-style) in stem or options: '
+             + _flist(subflat))
     if slash:
         _warn('A-FRAC-SLASH', 'slash fraction in a math-context stem; R-MATH-OMML requires built-up structures as native OMML. MECHANICAL REMEDY: re-emit these stems through Step 7 S10-4 add_math_stem: '
               + _flist(slash))
@@ -4984,6 +5020,24 @@ def self_test():
     p = _mini_doc(tmp, b_caret); _reset()
     _t, bl = parse_blocks(Document(p)); gate_frac_ascii(bl, _src_stub(tq=1, omml=True))
     check('A-FRAC-catch', any(c == 'A-FRAC' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 10b. A-SUBFLAT catches flat AND half-Unicode subscript notation (v2.17)
+    def b_subflat(d):
+        d.add_paragraph('Q.1  The e_g set of a t\u2082g complex is which of the following?')
+        for i, o in enumerate(('d_xy', 'B', 'C', 'D'), 1):
+            d.add_paragraph(f'{i}.  {o}')
+    p = _mini_doc(tmp, b_subflat); _reset()
+    _t, bl = parse_blocks(Document(p)); gate_frac_ascii(bl, _src_stub(tq=1, omml=True))
+    check('A-SUBFLAT-catch', any(c == 'A-SUBFLAT' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 10c. A-SUBFLAT passes a clean block (H\u2082O single trailing subscript is legal)
+    def b_subclean(d):
+        d.add_paragraph('Q.1  How many moles of H\u2082O and CO\u2082 are formed in the reaction?')
+        for i in range(1, 5):
+            d.add_paragraph(f'{i}.  {i} mol')
+    p = _mini_doc(tmp, b_subclean); _reset()
+    _t, bl = parse_blocks(Document(p)); gate_frac_ascii(bl, _src_stub(tq=1, omml=True))
+    check('A-SUBFLAT-clean', not any(c == 'A-SUBFLAT' and l == 'FAIL' for l, c, _ in RESULTS))
 
     # 11. A-STIMORPHAN catches a passage-reference with no embedded stimulus
     def b_orphan(d):
