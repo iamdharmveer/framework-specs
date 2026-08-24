@@ -1,4 +1,29 @@
-# Framework_MockTestCreate v5.65
+# Framework_MockTestCreate v5.66
+# v5.66 — 2026-08-23 — GAP-2026-08-23-ECFG-LABEL-PARITY. The exam_config
+#   option_label_format tier — the FIRST tier of the v5.65 chain — was consumed
+#   VERBATIM: never passed through pp.resolve_option_label, never family-checked
+#   against what the auditor will classify. Two failures, both MEASURED on a
+#   synthetic exam against the live auditor: (1) a cross-family override
+#   (section_rules '1/2/3/4', exam_config alpha) renders (A)(B)(C)(D) per the
+#   documented override while audit_canonical.gate_options classifies family from
+#   section_rules ONLY (its L400 cat_c read; exam_config is never read by the
+#   auditor) — A-OPTLABEL 'bad label family' FAILED every question, exit 1, no CP
+#   repair: the exact GAP-2026-08-03-LABELFMT class v5.37 killed on the
+#   section_rules tier, still alive on the override tier. (2) a notation-form
+#   override ('A/B/C/D' instead of a template) carries no '{text}' placeholder,
+#   so the G-OPTLABEL regex builder and option rendering both operate on a
+#   non-template string. FIX (§3 S3-2 config block): the override now goes through
+#   the SAME resolver as the section_rules tier, its render family is derived from
+#   the resolved template's own token (option_label_family misclassifies template
+#   strings — the pass-through branch is NOT trusted for parity), and it is
+#   asserted equal to the family the auditor will classify: _resolved_family when
+#   section_rules declares a label, else 'num' (the auditor's own L400 default —
+#   an override with NO section_rules label is still audited against '1/2/3/4').
+#   Mismatch or unknown token = HARD STOP at PRE-GENERATION naming the conflict.
+#   Same-family punctuation overrides ('(1)' vs '1.') remain fully supported and
+#   byte-identical. DORMANT for every exam_config that omits option_label_format
+#   (the IIT_JAM_CHEMISTRY reference config omits it). No engine changes. No
+#   artefact moves.
 # v5.65 — 2026-08-23 — HYGIENE-2026-08-23-STEP6-AUDIT companion (one dead fallback
 #   tier removed; NO behaviour change on any conforming exam). §2 R24's option-label
 #   chain read bp.get('option_label_format') — a blueprint key NO writer produces:
@@ -1190,8 +1215,45 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # v5.65: the former bp.get('option_label_format') tier is REMOVED — no writer
   # emits that blueprint key (Blueprint §14 writes option_label, visibility-only),
   # so the tier could never fire; chain: exam_config -> section_rules -> default.
-  OPTION_LABEL_FMT = _ecfg.get('option_label_format',
-                       _sr_label or '{i}.  {text}')
+  # v5.66 (GAP-2026-08-23-ECFG-LABEL-PARITY) — THE OVERRIDE GOES THROUGH THE
+  # SAME RESOLVER. Family is derived from the resolved template's TOKEN (never
+  # from option_label_family on a template string — its pass-through branch
+  # falls back to 'num' for alpha/roman templates) and asserted equal to the
+  # family the auditor will classify from section_rules (or its '1/2/3/4'
+  # default when section_rules declares no label). Refuse at PRE-GENERATION —
+  # a guessed label reaches the delivered paper; this HARD STOP happens before Q1.
+  def _label_family_of_template(_tpl):
+      for _tk, _fm in (('{i}', 'num'),
+                       ('{alpha_upper}', 'alpha'), ('{alpha_lower}', 'alpha'),
+                       ('{roman_upper}', 'roman'), ('{roman_lower}', 'roman')):
+          if _tk in _tpl:
+              return _fm
+      return None
+  _ecfg_label = _ecfg.get('option_label_format')
+  if _ecfg_label:
+      try:
+          _ecfg_label, _ = pp.resolve_option_label(_ecfg_label)
+      except pp.LabelFormatError as e:
+          raise SystemExit(f"HARD STOP: {e}")
+      _ecfg_family = _label_family_of_template(_ecfg_label)
+      if _ecfg_family is None:
+          raise SystemExit(
+              "HARD STOP (ECFG-LABEL PARITY): exam_config option_label_format "
+              f"{_ecfg.get('option_label_format')!r} resolves to a template with no "
+              "recognised label token ({i}/{alpha_*}/{roman_*}) — it cannot be "
+              "rendered or audited. Declare a supported notation or template.")
+      _audit_family = _resolved_family or 'num'
+      if _ecfg_family != _audit_family:
+          raise SystemExit(
+              "HARD STOP (ECFG-LABEL PARITY): exam_config option_label_format "
+              f"renders {_ecfg_family!r} labels but the auditor will classify the "
+              f"{_audit_family!r} family from section_rules"
+              + ("" if _resolved_family else " (its '1/2/3/4' default — section_rules "
+                 "declares no option_label_format)")
+              + " — A-OPTLABEL would FAIL every question on a paper that obeys this "
+              "override, with no CP repair possible. Align section_rules (re-run "
+              "Step 5 or set its option_label_format) or drop the override.")
+  OPTION_LABEL_FMT = (_ecfg_label or _sr_label or '{i}.  {text}')
   # Regex for gate G-OPTLABEL built from the configured format:
   import re as _re_cfg
   _opt_prefix = OPTION_LABEL_FMT.split('{text}')[0].replace('{i}', r'\d+')
@@ -8242,7 +8304,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.65
+# END OF Framework_MockTestCreate v5.66
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

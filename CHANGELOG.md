@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026.08.23.4 — GAP-2026-08-23-ECFG-LABEL-PARITY: exam_config option-label override goes through the resolver, family-asserted against the auditor
+
+**Framework_MockTestCreate v5.65 -> v5.66. Spec-only; no engine, gate-count, schema,
+or artefact-shape changes. Behaviour byte-identical on every exam whose exam_config
+omits option_label_format (all conforming deployed exams, incl. the IIT_JAM_CHEMISTRY
+reference config) and on every same-family override.**
+
+The exam_config.option_label_format tier — the FIRST tier of the v5.65 chain
+(exam_config -> section_rules -> default) — was consumed VERBATIM: never passed
+through pp.resolve_option_label, never family-checked against what the auditor will
+classify. Two failures, both MEASURED against the live auditor on a synthetic exam:
+
+1. **Cross-family override** — section_rules '1/2/3/4', exam_config alpha: the paper
+   renders (A)(B)(C)(D) per the documented override, while
+   audit_canonical.gate_options classifies family from section_rules ONLY (its L400
+   cat_c read; the auditor never reads exam_config) — A-OPTLABEL 'bad label family'
+   FAILED every question, exit 1, MANDATE D blocked delivery, no CP repair possible.
+   This is the exact GAP-2026-08-03-LABELFMT class that v5.37 killed on the
+   section_rules tier, found still alive on the override tier.
+2. **Notation-form override** ('A/B/C/D' instead of a template) carries no '{text}'
+   placeholder, so the G-OPTLABEL regex builder and option rendering both operate on
+   a non-template string — accepted silently at config-read time.
+
+Fix (§3 S3-2 config block): the override now goes through the SAME resolver as the
+section_rules tier; its render family is derived from the resolved template's OWN
+token (option_label_family misclassifies template strings — the pass-through branch
+falls back to 'num' for alpha/roman templates, so it is NOT trusted for parity); and
+it is asserted equal to the family the auditor will classify: _resolved_family when
+section_rules declares a label, else 'num' (the auditor's own L400 default — an
+override with NO section_rules label is still audited against '1/2/3/4'). Mismatch or
+unknown token = HARD STOP at PRE-GENERATION naming both families, before Q1 — a
+guessed label reaches the delivered paper; this stop does not. Same-family
+punctuation overrides ('(1)' vs '1.') remain fully supported and byte-identical.
+
+Verified by execution: patched block extracted from the spec and run verbatim against
+the live engines over 9 fixtures (no-override, sr-absent default, same-family
+punctuation, cross-family notation, cross-family with sr ABSENT, garbage notation,
+wrong-family template, right-family template, roman/roman) — 9/9; empirical
+A-OPTLABEL reproduction on a mini docx confirms FAIL pre-fix / OK on the aligned
+family; validator clean (8,388 lines, 58/58 AST, gate count [80] unchanged,
+header=footer=changelog v5.66, Z-DELEGATION ran alongside engines); mutation audit on
+the corpus: 100.0%, 0 survivors; mock_sync 13/13; spec_name_audit baseline: 0 new.
+
+Release-process addition (ISSUE-2026.08.23-ECFGBUNDLECHANGELOGMISSING): the first cut
+of this bundle shipped VERSION 2026.08.23.4 with no CHANGELOG entry and was correctly
+BLOCKED by audit_sync REL-SYNC at the deploy gate — the pre-cut sanity list in the
+deploy notes did not include audit_sync.py, the same never-runs-in-preflight class as
+GAP-2026-08-14-CI-AUDITOR-WIRING and ISSUE-2026.08.22.6-SPECMANIFESTSTALE. Deploy
+notes now mandate `python3 run_ci_gates.py` from the staged checkout as the ONLY
+sanctioned pre-cut check — it executes validate.yml's own steps verbatim, so the
+pre-flight can never again be a hand-maintained subset that drifts from CI.
+
 ## 2026.08.23.3 — HYGIENE-2026-08-23-STEP6-AUDIT: Step 6 line-by-line audit closure
 
 **Framework_Blueprint v1.54.0 -> v1.55.0 · Framework_MockTestCreate v5.64 -> v5.65.
