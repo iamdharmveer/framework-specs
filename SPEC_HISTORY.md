@@ -1376,6 +1376,20 @@ Current-version entry remains in Framework_MockTestCreate.md.
 
 ## Framework_MockTestExplain.md
 
+Entry v1.39.0 moved at framework release 2026.08.24.3 (EC-P42; v1.41.0 supersedes).
+
+```
+# v1.39.0 — 2026-08-22 — GAP-2026-08-22-STEP9-READ-SET (EC-P42; deploy follow-up #2
+#   of 2026.08.21.2). New S0-3: FINAL vs NON-FINAL session class with a GENERATED
+#   read set — a NON-FINAL batch session skips §20 (end-of-mock report), §22 (its
+#   §R9 disclosure input) and APPENDIX A; escalation to a full read is mandatory and
+#   one-way before §20 runs. §20–§24, APPENDIX A and FOOTER banners promoted from
+#   '# ' to '## ' so spec_sections.py can address their spans (IDs unchanged; no
+#   consumer reads header levels — verified by corpus grep). Ranges live in
+#   SPEC_SECTIONS.json (has_read_set), hash-tracked, never hand-copied. The
+#   MockExplain/TestExplain route is now budget-covered by design, not by headroom.
+```
+
 Entry v1.38.0 moved at framework release 2026.08.24.1 (EC-P42 discipline; v1.40.0 supersedes).
 Current-version entry remains in Framework_MockTestExplain.md.
 

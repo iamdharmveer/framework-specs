@@ -1,4 +1,11 @@
-# Framework_MockTestCreate v5.66
+# Framework_MockTestCreate v5.67
+# v5.67 — 2026-08-24 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION (paired with
+#   final_assembly v5.56, audit_canonical v2.16, MockTestExplain v1.41.0). The ND6
+#   contract keyed options_by_q by the paper ORDINAL ("N"); on the SHARED registry a
+#   scoped paper with the same ordinal overwrote the mock's map (measured: Step 9 on
+#   Mock 1 hard-stopped after SUBJ:PHYS:01 was committed). options_by_q is now keyed
+#   by paper_id (authority) with the ordinal key retained for the MOCK series only.
+#   Spec text only — the writer is final_assembly.regcheck (S13-REGCHECK).
 # v5.66 — 2026-08-23 — GAP-2026-08-23-ECFG-LABEL-PARITY. The exam_config
 #   option_label_format tier — the FIRST tier of the v5.65 chain — was consumed
 #   VERBATIM: never passed through pp.resolve_option_label, never family-checked
@@ -7706,9 +7713,14 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   {mock, questions:[{q, subtopic_id, difficulty}]} at S13-4 (never in the docx), certified by
   G-QINDEX (S12-NEW-26 / S13-QINDEX). image_phashes, image_sources_used, session_log: MUST be
   present from Mock 1.
-  options_by_q (v4.7): { "N": { "q": expected_option_count } } — per-mock, per-question
-  expected option count. 0 marks a NAT question (no options). Written by S13-REGCHECK;
-  consumed by Step 9 (Explain) to resolve each question's TYPE (mcq/msq/nat).
+  options_by_q (v4.7; re-keyed v5.67): { "<paper_id>": { "q": expected_option_count } }
+  — per-PAPER, per-question expected option count, keyed by paper_id for EVERY series
+  (the authority). For the MOCK series the legacy ordinal key { "N": {...} } is ALSO
+  written (pre-v5.67 readers); it is NEVER written for a scoped paper, because the
+  registry is shared across series and a scoped ordinal on "N" overwrote the mock's map
+  (GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION). 0 marks a NAT question (no options).
+  Written by S13-REGCHECK (final_assembly.regcheck); consumed by Step 9 (Explain) P3 and
+  audit_canonical load_sources, both paper_id first, "N" second.
   key_commitments (v5.59): { "<paper_id>": { schema: 1, alg: "sha256",
   entries: { "q": { salt, h } } } } — h = sha256(paper_id|q|salt|canonical_answer).
   Written by S13-4 (fa.commit_registry answer_key=…); consumed by Step 9 §7-8, which
@@ -8304,7 +8316,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # STEP F + MANDATE 1 STEP 6 make that mechanically impossible.
 
 # ════════════════════════════════════════════════════════════════════════
-# END OF Framework_MockTestCreate v5.66
+# END OF Framework_MockTestCreate v5.67
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

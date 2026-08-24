@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026.08.24.3 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION + STEP9-AUDIT-R3: executable dry run of Step 9
+
+**final_assembly v5.55 -> v5.56 · audit_canonical v2.15 -> v2.16 · Framework_MockTestCreate
+v5.66 -> v5.67 · Framework_MockTestExplain v1.40.0 -> v1.41.0. Engine self-tests
+114/114 and 259/259 (two new fixtures). Zero exam values. Behaviour byte-identical
+for every mock-only registry: the ordinal options_by_q key is still written and still
+read for the MOCK series.** Release 3 of the Step-9 audit (R1 2026.08.24.1, R2 .2).
+
+A dry-run harness drove ten synthetic exams through the REAL Step-7 writers
+(final_assembly.commit_registry / regcheck, paper_pipeline.seal_key_commitments) and then
+Step 9's mechanics in spec order (P1 → P3 → P10 → S4-2 → S4-4 → §7-8 → §18 → S19-1) and
+Step 11's S1-2 preflight — 17 scenarios/probes pass, including the R1 fixes measured
+against execution (the pre-R1 S19-1 would have leaked on both `STATE`/`KEY` scenarios;
+the R1 P3 typing agrees with options_by_q on a position-based paper). Two defects that
+no reading of the spec could see:
+
+1. **options_by_q collided across series.** `regcheck` wrote `options_by_q[str(N)]`, the
+   paper ORDINAL; the registry is shared across series (ScopedBlueprint §9), so
+   `MOCK:M01` and `SUBJ:PHYS:01` both landed on key `'1'` and the later commit silently
+   overwrote the earlier map. Measured: Step 9 on Mock 1 hard-stopped at parse_paper
+   ("Q1 has 4 options, expected 0"); an overlapping shape would have mistyped NAT
+   questions with no error. Every other per-paper field had been re-keyed by paper_id
+   at v5.54/v5.55 — this one was left behind. Fix: `options_by_q[paper_id]` is the
+   authority for every series; `[str(N)]` is written for the MOCK series only, never for
+   a scoped paper. Readers (Explain P3, audit_canonical.load_sources) look up paper_id
+   first, str(N) second. Fixtures: `regcheck_scoped_options_by_q_no_collision`,
+   `OBQ-PAPERID-KEY-first-then-ordinal`.
+2. **Sibling-exam blueprint glob.** Explain P1 and P10 loaded `[ExamCode]*_blueprint.json`
+   and checked exam_code only AFTER pp.pick_blueprint; with EXAM_A and EXAM_AB in one
+   project, P1 raised a misleading "remove duplicate blueprints" and P10's `next(...)`
+   would have taken EXAM_AB's file (it sorts first). Both now filter exam_code before
+   selecting; the auditor's P10-parity fixture blueprint gained the exam_code every real
+   blueprint carries.
+
+Also: §15-2 now names the engine's error_provenance record fields for both modes.
+
+Files: final_assembly.py, audit_canonical.py, Framework_MockTestCreate.md,
+Framework_MockTestExplain.md, SPEC_HISTORY.md, VERSION, MANIFEST.json, SPEC_MANIFEST.json,
+SPEC_SECTIONS.json, CHANGELOG.md.
+
 ## 2026.08.24.2 — GAP-2026-08-24-STEP9-AUDIT-R2: scoped-paper next-step wording + Step 6S footer registry
 
 **Framework_DeliveryFooter v1.23 -> v1.24. Registry/prose only; no logic, badge, gate or

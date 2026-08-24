@@ -1,4 +1,20 @@
-# Framework_MockTestExplain v1.40.0
+# Framework_MockTestExplain v1.41.0
+# v1.41.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R3 (executable dry run; paired
+#   with final_assembly v5.56, audit_canonical v2.16, MockTestCreate v5.67). A harness
+#   drove ten synthetic exams through the REAL Step-7 writers and then Step 9's P1→P3→
+#   P10→S4-2→S4-4→§7-8→§18→S19-1 in spec order, then Step 11's preflight. Two defects
+#   no reading could see: (1) OPTIONS-BY-Q SERIES COLLISION — P3 read
+#   registry.options_by_q[str(N)], a paper-ORDINAL key that a scoped paper of the same
+#   ordinal overwrites on the shared registry (measured: Mock 1 hard-stopped at
+#   parse_paper after SUBJ:PHYS:01 was committed). P3 now reads the paper_id key first
+#   (final_assembly v5.56 authority), str(N) second with a WARN. (2) SIBLING-EXAM GLOB —
+#   P1 and P10 loaded every [ExamCode]*_blueprint.json and only checked exam_code AFTER
+#   pp.pick_blueprint; with EXAM_A and EXAM_AB in one project pick_blueprint raised first
+#   with a misleading "remove duplicate blueprints", and P10's own next(...) would have
+#   silently taken EXAM_AB's file (sorts first). Both now filter exam_code == [ExamCode]
+#   BEFORE selecting. Also §15-2 now names the engine's record fields for both provenance
+#   modes (the harness's first MODE B block was refused for a field the spec never named).
+#   Superseded v1.39.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
 # v1.40.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R1 (spec-only; no engine, gate-count,
 #   schema or artefact-shape change; zero exam values). Full-line audit of v1.39.0 against
 #   the routed engines, Step 7, Step 11 and PYQExplain. THREE run-breaking defects:
@@ -27,15 +43,6 @@
 #   S19-1 gated on SELF_AUDIT_CLEAN / COVERAGE_OK that nothing set — S4-4 D now sets them;
 #   §21 items 16/19/17/18 renumbered. Superseded v1.38.0 entry moved verbatim to
 #   SPEC_HISTORY.md (EC-P42).
-# v1.39.0 — 2026-08-22 — GAP-2026-08-22-STEP9-READ-SET (EC-P42; deploy follow-up #2
-#   of 2026.08.21.2). New S0-3: FINAL vs NON-FINAL session class with a GENERATED
-#   read set — a NON-FINAL batch session skips §20 (end-of-mock report), §22 (its
-#   §R9 disclosure input) and APPENDIX A; escalation to a full read is mandatory and
-#   one-way before §20 runs. §20–§24, APPENDIX A and FOOTER banners promoted from
-#   '# ' to '## ' so spec_sections.py can address their spans (IDs unchanged; no
-#   consumer reads header levels — verified by corpus grep). Ranges live in
-#   SPEC_SECTIONS.json (has_read_set), hash-tracked, never hand-copied. The
-#   MockExplain/TestExplain route is now budget-covered by design, not by headroom.
 # ════════════════════════════════════════════════════════════════════════
 # §0 — INPUT / OUTPUT CONTRACT (read before anything else)
 # ════════════════════════════════════════════════════════════════════════
@@ -444,13 +451,15 @@ execution path — it does not shrink, soften or delete them.
       docx-driven pp.pick_blueprint — twin of Step 7's resolver): discover the uploaded
       [ExamCode]_[paper_slug]_Create.docx, parse its paper_slug from the
       filename, load every [ExamCode]*_blueprint.json present (mock + any scoped),
-      import paper_pipeline as pp, and call
+      KEEP ONLY those whose exam_code == [ExamCode] exactly (v1.41.0 — the glob is a
+      PREFIX match and sweeps a sibling exam's file, e.g. EXAM_AB for EXAM_A; filtering
+      AFTER pp.pick_blueprint let it raise "matches 2 blueprints … remove duplicate
+      blueprints" on two perfectly valid files), import paper_pipeline as pp, and call
       pp.pick_blueprint(blueprints, level=LEVEL, docx_slug=paper_slug) to select the
       ONE blueprint that produced this paper (cross-checked against --level if given;
-      PickError → HARD STOP, never a guess). SAFETY CHECK: the [ExamCode]*_blueprint.json
-      glob is a PREFIX match — verify the selected blueprint's exam_code equals
-      [ExamCode] exactly; a mismatch is a HARD STOP (a different ExamCode's file may
-      have been swept in by the glob) → subtopic_manifest.json → registry.json →
+      PickError → HARD STOP, never a guess). SAFETY CHECK (kept as the second net):
+      verify the selected blueprint's exam_code equals [ExamCode] exactly; a mismatch
+      is a HARD STOP → subtopic_manifest.json → registry.json →
       explain_engine.py (from the Step-0 verified clone /tmp/fw ONLY — v1.40.0; a
       project-Files copy is never imported, MANDATE A). Copy the engine to /home/claude and run
       `python3 explain_engine.py --self-test` → MUST print
@@ -528,9 +537,15 @@ execution path — it does not shrink, soften or delete them.
       Q_TOTAL matches blueprint. Re-extract figural_manifests[] / rc_manifests[] from
       registry. Any fail → HALT with the specific check.
       v1.3 — options_by_q SOURCE (the mandatory NAT wiring, Step-7 ND6 contract): load the
-      per-question expected-option-count map from registry.json['options_by_q'][str(N)]
-      (Step 7 writes it at Final Assembly — 0 marks a NAT question, OPTIONS_COUNT marks an
-      option question) and pass it to EngineConfig(options_by_q=...). This is REQUIRED, not
+      per-question expected-option-count map from registry.json['options_by_q'] — v1.41.0
+      (GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION): look up the PAPER_ID key FIRST
+      (final_assembly v5.56 writes it for every series — the authority), and only if it is
+      absent fall back to the legacy ordinal key [str(N)] with a WARN naming the registry
+      as pre-v5.56 (the ordinal key is written for the MOCK series only; on a shared
+      registry a scoped paper of the same ordinal used to overwrite it — the dry-run
+      harness measured Mock 1 hard-stopping at parse_paper after SUBJ:PHYS:01 committed).
+      Step 7 writes it at Final Assembly — 0 marks a NAT question, OPTIONS_COUNT marks an
+      option question; pass it to EngineConfig(options_by_q=...). This is REQUIRED, not
       optional: EngineConfig.expected_options(q) reads this map and NEVER counts the rendered
       option paragraphs, so WITHOUT it a NAT question inherits the uniform count and is
       mis-resolved as mcq (or trips the count-invariant HALT). v1.3.1 — the registry's inner
@@ -606,6 +621,10 @@ execution path — it does not shrink, soften or delete them.
   # self-contained.
   _p10_bps = [_p10_json.load(open(_f, encoding='utf-8'))
               for _f in sorted(_p10_glob.glob(f'/mnt/project/{EXAM}*_blueprint.json'))]
+  # v1.41.0 (GAP-2026-08-24-STEP9-AUDIT-R3): the prefix glob sweeps a SIBLING exam's
+  # blueprint (EXAM_AB for EXAM_A) and 'EXAM_AB_' sorts BEFORE 'EXAM_A_', so the
+  # next(...) below took the wrong exam's file silently. Filter on exam_code first.
+  _p10_bps = [b for b in _p10_bps if b.get('exam_code') == EXAM]
   _p10_bp = next((b for b in _p10_bps if any(
       pp.paper_slug(mk.get('paper_id', f"MOCK:M{int(mk.get('mock', 0) or 0):02d}")) == PAPER_SLUG
       for mk in b.get('mocks', []))), None)
@@ -2114,7 +2133,15 @@ execution path — it does not shrink, soften or delete them.
      first line delivers that diagnosis in natural language: a diagnosis, not a
      dismissal, and never the raw token (engine v2.6 raises on one).
   2. PROVENANCE BEFORE EXPLANATION (v1.37.0 — REWRITTEN; engine v2.8 gate). Two modes,
-     recorded per wrong option / value in ExplanationBlock(error_provenance=…):
+     recorded per wrong option / value in ExplanationBlock(error_provenance=…). RECORD
+     SHAPE (v1.41.0 — the engine's own field names, validate_error_provenance):
+       {key: {'mode': 'VERIFIED_ERROR_PATH', 'wrong_operation': <str>, 'recompute':
+              <arithmetic expression>, 'target': <the option's value>}}  — numeric target;
+              or {'mode': 'VERIFIED_ERROR_PATH', 'wrong_operation': <str>,
+                  'matches_target': True} for a non-numeric target;
+       {key: {'mode': 'DIRECT_CONTRADICTION', 'contradiction': <non-empty str>}}.
+     A MODE B record without 'contradiction', or a MODE A record carrying no recompute,
+     is REFUSED at construction — the field names are part of the contract:
        MODE A — VERIFIED_ERROR_PATH: name the wrong operation AND give the engine an
          arithmetic expression (`recompute`) with the `target`; the block is REFUSED
          unless the result reproduces the target at its own precision (DST_UNVERIFIED_
@@ -2757,5 +2784,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.40.0
+# END OF Framework_MockTestExplain v1.41.0
 # ════════════════════════════════════════════════════════════════════════

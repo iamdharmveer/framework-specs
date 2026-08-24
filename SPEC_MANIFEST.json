@@ -30,17 +30,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 8387,
-      "sha256": "8d9a199777b51a2437169aed50ed3df6eaeeab5299ab7346086fe5672f772e26",
-      "size_bytes": 528984,
-      "version_header": "# Framework_MockTestCreate v5.66"
+      "lines": 8399,
+      "sha256": "9d84ccbf5a4b67b57f4644088561c49a4d6406324b3285cecb2e49e67bc21056",
+      "size_bytes": 529986,
+      "version_header": "# Framework_MockTestCreate v5.67"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2761,
-      "sha256": "b109433d15346dd64f0b3ca88a7cf9e00f6caf2b2b29e8d1af5bf797a4899269",
-      "size_bytes": 214391,
-      "version_header": "# Framework_MockTestExplain v1.40.0"
+      "lines": 2788,
+      "sha256": "0905001770f28948c598e81982c653f0ecffa415715c55fe5133b8581e2c2d9c",
+      "size_bytes": 216734,
+      "version_header": "# Framework_MockTestExplain v1.41.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -177,9 +177,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7421,
-      "sha256": "c93734cbd19a83638c897be5bca9a719d553dd70dfa82e148002826826810d9a",
-      "size_bytes": 409762,
+      "lines": 7453,
+      "sha256": "21d74a4f48df9a6a093917e56089580d8f6997669f207462555c59663137e208",
+      "size_bytes": 411985,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -380,9 +380,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 1414,
-      "sha256": "a45961a29bfda1376394ef4a8335be5baa9c4948e1bf8c1a80d7495b3171a415",
-      "size_bytes": 83993,
+      "lines": 1454,
+      "sha256": "418ecd630c1f6fe3cf2b5a461eb465d31133f2c197b367f85822e7aa56d62280",
+      "size_bytes": 86850,
       "version_header": "\"\"\""
     },
     "spec_name_audit.py": {

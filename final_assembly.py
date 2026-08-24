@@ -13,6 +13,22 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v5.56 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION (paired with MockTestCreate
+    v5.67, MockTestExplain v1.41.0, audit_canonical v2.16). regcheck() wrote
+    registry['options_by_q'][str(N)] — keyed by the paper ORDINAL. The registry is
+    SHARED across series (ScopedBlueprint §9), so MOCK:M01 and SUBJ:PHYS:01 both
+    landed on key '1' and the later commit silently overwrote the earlier map;
+    Step 9 on the overwritten paper then hard-stopped at parse_paper ('Q1 has 4
+    options, expected 0') or, on an overlapping shape, mistyped NAT questions with
+    NO error. MEASURED by the Step-9 dry-run harness (scenario S9/S9b). Every other
+    per-paper field (key_commitments, question_index, papers_completed) had been
+    re-keyed by paper_id at v5.54/v5.55; options_by_q was the one left behind.
+    FIX: options_by_q[paper_id] is now the AUTHORITY, written for every series; the
+    legacy options_by_q[str(N)] is still written for the MOCK series only (so a
+    pre-v5.56 reader of a mock registry sees exactly what it always saw) and is
+    NEVER written for a scoped paper (the collision path). Readers (Step 9 P3,
+    audit_canonical load_sources) look up paper_id first, str(N) second.
+
     v5.55 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with MockTestCreate v5.59,
     paper_pipeline v5.39, explain_engine v2.8). commit_registry() now also writes
       * registry['key_commitments'][paper_id]  — salted sha256 of every canonical
@@ -701,7 +717,14 @@ def regcheck(registry, bp, *, N, concept_map=None, msq_meta=None, paper_id=None,
     # self-heal spirit already applied to the _REQUIRED_TOP fields above.
     if not isinstance(reg.get('options_by_q'), dict):
         reg['options_by_q'] = {}
-    reg['options_by_q'][str(N)] = obq
+    # v5.56 (GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION): paper_id-keyed AUTHORITY
+    # for every series; the ordinal key survives for the MOCK series only (legacy
+    # readers), never for a scoped paper — a scoped ordinal on key str(N) is exactly
+    # the write that destroyed the mock's map.
+    _pid = paper_id or f"MOCK:M{int(N):02d}"
+    reg['options_by_q'][_pid] = obq
+    if _series_prefix(_pid) == 'MOCK':
+        reg['options_by_q'][str(N)] = obq
 
     reg['section_names'] = [(s.get('section_name') or s.get('name') or '').strip()
                             for s in bp.get('sections', [])
@@ -1111,6 +1134,23 @@ def self_test():
     check('regcheck_clean_no_warnings', rc_clean['warnings'] == [])
     check('regcheck_options_by_q_written',
          rc_clean['registry']['options_by_q']['1']['1'] == 4)
+    # v5.56 — options_by_q is paper_id-keyed; the ordinal key is MOCK-only and a
+    # scoped paper with the same ordinal must NOT touch the mock's map.
+    check('regcheck_options_by_q_paper_id_key',
+         rc_clean['registry']['options_by_q'].get('MOCK:M01', {}).get('1') == 4)
+    _sc_bpx = dict(bp1); _sc_bpx['mocks'] = [{'mock': 1, 'paper_id': 'SUBJ:PHYS:01'}]
+    _sc_cm = {'1': {'subtopic_id': 'ex.a', 'difficulty': 'Easy', 'answer_type': 'numerical'}}
+    _sc_reg = commit_registry(rc_clean['registry'], mini_pending(), _sc_bpx, 1,
+                              paper_id='SUBJ:PHYS:01', batches_completed=1,
+                              axis2_window_counts={}, passage_present=False,
+                              di_present=False, figural_present=False,
+                              concept_map=_sc_cm)['registry']
+    rc_scoped = regcheck(_sc_reg, _sc_bpx, N=1, concept_map=_sc_cm,
+                         msq_meta={'total_options': 4}, paper_id='SUBJ:PHYS:01')
+    _obq = rc_scoped['registry']['options_by_q']
+    check('regcheck_scoped_options_by_q_no_collision',
+         _obq.get('SUBJ:PHYS:01') == {'1': 0} and _obq.get('1', {}).get('1') == 4
+         and _obq.get('MOCK:M01', {}).get('1') == 4)
     check('regcheck_section_names_written',
          rc_clean['registry']['section_names'] == ['Section A'])
     check('regcheck_does_not_mutate_input', clean_reg['section_names'] == [])

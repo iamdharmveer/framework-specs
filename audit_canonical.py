@@ -15,6 +15,11 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.16 — 2026-08-24 — GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION (paired with
+#   final_assembly v5.56). load_sources read registry.options_by_q[str(N)] — the
+#   ordinal key that a scoped paper of the same ordinal overwrites. Now reads the
+#   paper_id key first (the v5.56 authority) and falls back to str(N) for a
+#   pre-v5.56 mock registry. Self-test fixture OBQ-PAPERID-KEY locks the order.
 # v2.15 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS. A-QINDEX gains
 #   check 7 (STRUCTURAL FLOOR — the bottom difficulty band on an MSQ/NAT position is
 #   provably-wrong data under the shared rubric's qtype floors; FAILs on every
@@ -617,8 +622,14 @@ def load_sources(args):
     # gates for NAT Qs; A-NAT-NOOPT then independently verifies each claimed-NAT Q truly
     # renders 0 options (and A-OPTN still fires if a claimed-MCQ Q renders 0) — so a
     # mislabelled options_by_q cannot let a defect through either direction. {} ⇒ inert.
-    src['options_by_q'] = {str(k): v for k, v in
-                           reg.get('options_by_q', {}).get(str(N), {}).items()}
+    # v2.16: paper_id key is the authority (final_assembly v5.56); str(N) is the
+    # legacy MOCK-series key and is consulted only when the paper_id key is absent.
+    _obq_all = reg.get('options_by_q', {}) if isinstance(reg.get('options_by_q'), dict) else {}
+    _obq_pid = (mock_entry or {}).get('paper_id', f"MOCK:M{int(N):02d}")
+    _obq_sel = _obq_all.get(_obq_pid)
+    if _obq_sel is None:
+        _obq_sel = _obq_all.get(str(N), {})
+    src['options_by_q'] = {str(k): v for k, v in (_obq_sel or {}).items()}
     # NAT config (blueprint nat_contract) — read where needed, never from a sidecar.
     nc = bp.get('nat_contract', {})
     src['nat_answer_type'] = nc.get('nat_answer_type', 'real')
@@ -4393,7 +4404,8 @@ def self_test():
     #   reaches it through _src_stub, whose registry and blueprint are {}, so all
     #   229 of them exercised the DORMANT branch and none the armed one. A gate
     #   that blocks SHIP needs a test that fails when the gate is removed.
-    _QBP = {'total_questions': 2, 'mocks': [{'mock': 1, 'paper_id': 'MOCK:M01'}],
+    _QBP = {'exam_code': 'E',   # v2.16: the P10 block filters on exam_code (Explain v1.41.0)
+            'total_questions': 2, 'mocks': [{'mock': 1, 'paper_id': 'MOCK:M01'}],
             'subtopic_list': [{'subtopic_id': 'PHY.MECH.NEWTON'},
                               {'subtopic_id': 'PHY.MECH.WORK'}],
             'difficulty_labels': ['Easy', 'Medium', 'Hard']}
@@ -5155,6 +5167,26 @@ def self_test():
     s = _src_stub(tq=1); s['nat_present'] = True; s['options_by_q'] = {'1': 0}
     gate_nat(bl, s)
     check('A-NAT-NOOPT-catch', any(c == 'A-NAT-NOOPT' and l == 'FAIL' for l, c, _ in RESULTS))
+
+    # 29b. OBQ-PAPERID-KEY (v2.16, GAP-2026-08-24-OPTIONS-BY-Q-SERIES-COLLISION):
+    # load_sources reads registry.options_by_q by paper_id FIRST (the final_assembly
+    # v5.56 authority) and falls back to the legacy ordinal key only when absent.
+    import types as _obq_types
+    _obq_dir = tempfile.mkdtemp()
+    _obq_bp = {'exam_code': 'E', 'total_questions': 2, 'sections': [], 'subtopic_list': [],
+               'marking_scheme': [], 'mocks': [{'mock': 1, 'paper_id': 'MOCK:M01'}]}
+    with open(os.path.join(_obq_dir, 'b.json'), 'w') as _fh: json.dump(_obq_bp, _fh)
+    _obq_args = _obq_types.SimpleNamespace(blueprint=os.path.join(_obq_dir, 'b.json'),
+                                           registry=os.path.join(_obq_dir, 'r.json'),
+                                           manifest=None, rules=None, key=None, mockN=1)
+    with open(_obq_args.registry, 'w') as _fh:
+        json.dump({'options_by_q': {'MOCK:M01': {'1': 0, '2': 4}, '1': {'1': 4, '2': 4}}}, _fh)
+    _obq_first = load_sources(_obq_args)['options_by_q']
+    with open(_obq_args.registry, 'w') as _fh:
+        json.dump({'options_by_q': {'1': {'1': 4, '2': 4}}}, _fh)
+    _obq_legacy = load_sources(_obq_args)['options_by_q']
+    check('OBQ-PAPERID-KEY-first-then-ordinal',
+          _obq_first == {'1': 0, '2': 4} and _obq_legacy == {'1': 4, '2': 4})
 
     # 30. A-NAT-NOOPT passes when the NAT Q renders zero options.
     def b_nat_noopts(d):
