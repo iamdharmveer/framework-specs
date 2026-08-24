@@ -9,10 +9,10 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 836,
-      "sha256": "74bab55d24a974ff5d17813a830c7cac97efbc2cde2a162fb49b959e493e1264",
-      "size_bytes": 45227,
-      "version_header": "# Framework_DeliveryFooter v1.23 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 868,
+      "sha256": "e47f7b7eb8f6ae145621caf047c9136c620ba4d2fb6b7b955b29509ca684c9e7",
+      "size_bytes": 47958,
+      "version_header": "# Framework_DeliveryFooter v1.24 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
       "end_sentinel": "# END OF Framework_MockDeliver v1.12.2",

@@ -1,5 +1,22 @@
 # Changelog
 
+## 2026.08.24.2 — GAP-2026-08-24-STEP9-AUDIT-R2: scoped-paper next-step wording + Step 6S footer registry
+
+**Framework_DeliveryFooter v1.23 -> v1.24. Registry/prose only; no logic, badge, gate or
+artefact change. Mock-paper footers render byte-identically except for the added scoped
+line under each next-step.** Release 2 of 2 of the Step-9 audit (R1 = 2026.08.24.1).
+
+§3 STEP 7 / 9 / 11, the §4-1 Step-11 variant and the §6 table named only the mock
+triggers, so a scoped paper's footer pointed at `MockExplain M[N]` / `MockDeliver M[N]`,
+whose `--level mock` alias hard-stops on a scoped docx at the slug gates
+(MockTestExplain S2-1, MockDeliver S1-2). Every next-step line now carries both forms and
+"Mock [N]" became "[paper_slug]". §3 also gained the missing STEP 6S (ScopedBlueprint)
+entry — the step rides this file on its route but had no deliverable / badge / next-step
+registry to follow. Superseded v1.22 entry moved verbatim to SPEC_HISTORY.md.
+
+Files: Framework_DeliveryFooter.md, SPEC_HISTORY.md, VERSION, MANIFEST.json,
+SPEC_MANIFEST.json, SPEC_SECTIONS.json, CHANGELOG.md.
+
 ## 2026.08.24.1 — GAP-2026-08-24-STEP9-AUDIT-R1: Step 9 line-by-line audit, release 1 of 2
 
 **Framework_MockTestExplain v1.39.0 -> v1.40.0. Spec-only; no engine, gate-count, schema,

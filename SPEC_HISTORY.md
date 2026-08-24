@@ -146,6 +146,17 @@ Current-version entry remains in Framework_Blueprint.md.
 
 ## Framework_DeliveryFooter.md
 
+Entry v1.22 moved at framework release 2026.08.24.2 (EC-P42; v1.24 supersedes).
+
+```
+# v1.22 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
+#   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
+#   present_files() was CALLED from compiling python here while DEFINED nowhere — a
+#   guaranteed NameError; spec_name_audit_baseline.json had accepted it as
+#   known-unbound in all four affected specs, so the ratchet reported OK.
+#   FULL NARRATIVE: SPEC_HISTORY.md + CHANGELOG.md 2026.08.16.2.
+```
+
 Moved from the file header at framework release 2026.08.15.14; entry v1.21
 at framework release 2026.08.20.9 — this file rides on ALL 23 routes, so
 every byte in its header is paid by every session of every step.

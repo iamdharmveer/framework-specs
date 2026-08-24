@@ -1,4 +1,16 @@
-# Framework_DeliveryFooter v1.23 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.24 — Universal Delivery Footer (F1/F2) Contract
+# v1.24 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R2: SCOPED-PAPER NEXT-STEP + 6S REGISTRY.
+#   MINOR bump: registry/prose only, NO logic changes, NO badge changes, NO artefact
+#   changes. Release 2 of the Step-9 audit (R1 = 2026.08.24.1).
+#   * §3 STEP 7 / 9 / 11, §4-1 Step-11 variant and §6 named ONLY the mock triggers
+#     (MockCreate M / MockExplain M / MockDeliver M) and "Mock [N]". A scoped paper
+#     (ScopedBlueprint → TestCreate P[N] → TestExplain P[N] → TestDeliver P[N]) got a
+#     footer pointing at a trigger whose --level mock alias would HARD STOP on its
+#     scoped docx (MockTestExplain S2-1 / MockDeliver S1-2 slug gates). Every next-step
+#     line now names both forms; "Mock [N]" → "[paper_slug]".
+#   * §3 had NO entry for Step 6S (ScopedBlueprint), which rides this file on its route
+#     and had no deliverable/badge/next-step registry to follow. Added.
+#   Superseded v1.22 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
 # v1.23 — 2026-08-23 — REGISTRY SYNC (Step 6 learnings filename; Step 5 tiers).
 #   MINOR bump: registry/prose only, NO logic changes, NO artefact changes beyond
 #   the filename the Step 6 footer badge table prints.
@@ -13,12 +25,6 @@
 #     MockTestAnalyse S11-3 and mock_sync_audit MS-11 enforce: 5 mandatory +
 #     2 conditional. Fourth recurrence of the delivery-count-drift class; this
 #     was the last site still carrying a fixed count.
-# v1.22 — 2026-08-16 — GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), CLASS SWEEP.
-#   MINOR bump: adds a CLASS: T stub for present_files(). NO ARTEFACT CHANGES.
-#   present_files() was CALLED from compiling python here while DEFINED nowhere — a
-#   guaranteed NameError; spec_name_audit_baseline.json had accepted it as
-#   known-unbound in all four affected specs, so the ratchet reported OK.
-#   FULL NARRATIVE: SPEC_HISTORY.md + CHANGELOG.md 2026.08.16.2.
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
@@ -424,6 +430,23 @@ B3 FINAL DELIVERABLES (5 files — per Blueprint v1.43.0):
 NEXT STEP  : Step 7: MockCreate M1
 
 ═══════════════════════════════════════════════════════════════════════
+STEP 6S — ScopedBlueprint (v1.24 — the scoped-paper twin of Step 6)
+═══════════════════════════════════════════════════════════════════════
+PARTS      : 1 per scope (single response, no batches)
+FOOTER TYPE: F2 (step-complete) — always. Pipeline bar: MAIN number 6 (6 of 11).
+
+DELIVERABLES ([SCOPETAG] = SUBJ_* / TOPIC_* / SUBTOPIC_*, as Framework_ScopedBlueprint
+              defines it in its EMIT section):
+  [ExamCode]_[SCOPETAG]_blueprint.json → Upload to Project Files
+  [ExamCode]_[SCOPETAG]_blueprint.xlsx → Use locally (xlsx not readable by Claude)
+  [ExamCode]_registry.json             → Upload to Project Files — ONLY when S8-7
+                                         seeded a fresh registry (no registry existed);
+                                         an existing registry is never re-delivered here.
+
+NEXT STEP  : Step 7: TestCreate P1 --level <subject|topic|subtopic> --scope <…>
+             (ensure Step 5 outputs are also in project Files)
+
+═══════════════════════════════════════════════════════════════════════
 STEP 7 — MockCreate
 ═══════════════════════════════════════════════════════════════════════
 PARTS      : Multiple batches per mock + final assembly
@@ -439,7 +462,9 @@ FINAL DELIVERABLES:
   [ExamCode]_registry.json           → Replace in Project Files
   [ExamCode]_M[N]_audit_dossier.json → Use locally (when S13-4b wrote one)
 
-NEXT STEP  : Step 9: MockExplain M[N]
+NEXT STEP  : Step 9: MockExplain M[N]   (mock paper)
+             Step 9: TestExplain P[N]   (scoped paper — v1.24; the M alias HARD-STOPs
+                                         on a scoped docx, MockTestExplain S2-1)
 
   (v1.13 — STEP 8 IS RETIRED. There is no MockCreateAudit / TestCreateAudit trigger.
    Step 7 hands the paper straight to Step 9. Never print "Step 8" as a next step.)
@@ -462,7 +487,9 @@ FINAL DELIVERABLES (same file, now fully explained):
 
 NOTE: registry.json is NOT delivered by Step 9 (frozen/read-only).
 
-NEXT STEP  : Step 11: MockDeliver M[N]
+NEXT STEP  : Step 11: MockDeliver M[N]  (mock paper)
+             Step 11: TestDeliver P[N]  (scoped paper — v1.24; MockDeliver S1-2 gates
+                                         the uploaded slug against the paper_slug)
 
   (v1.13 — STEP 10 IS RETIRED. There is no MockExplainAudit / TestExplainAudit
    trigger. Step 9 hands the Solutions docx straight to Step 11. Never print
@@ -478,8 +505,11 @@ FOOTER TYPE: F2 (step-complete) — always
 DELIVERABLES:
   [ExamCode]_Mock[N]_Final.docx     → Use locally
 
-NEXT STEP  : Pipeline complete for this mock.
-             For next mock: Step 7: MockCreate M[N+1]
+NEXT STEP  : Pipeline complete for this paper ([paper_slug]).
+             Next mock paper   : Step 7: MockCreate M[N+1]
+             Next scoped paper : Step 7: TestCreate P[N+1] (same --level/--scope), or
+                                 the series is complete when N == the scoped
+                                 blueprint's paper count (v1.24)
 
 ═══════════════════════════════════════════════════════════════════════
 NOTES PIPELINE (NB / NC / NA / ND)
@@ -624,8 +654,9 @@ Thank you! 🎯
 STEP 11 (last step) — replace the Next callout block with:
 
 ```
-> ### 🏁 Pipeline complete for [ExamCode] Mock [N]
-> Next mock: **Step 7 — MockCreate M[N+1]** in a new chat. Thank you!
+> ### 🏁 Pipeline complete for [ExamCode] [paper_slug]
+> Next paper: **Step 7 — MockCreate M[N+1]** (mock) / **TestCreate P[N+1]** (scoped series,
+> or "series complete" at its last paper) in a new chat. Thank you!
 >
 > `Pipeline  🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩🟩  11 of 11`
 ```
@@ -808,10 +839,11 @@ After Step 3   → Step 4: PYQCount
 After Step 4   → Step 5: PYQExtract
 After Step 5   → Step 6: MockBlueprint (if not already done)
 After Step 6   → Step 7: MockCreate M1
-After Step 7   → Step 9: MockExplain M[N]      (Step 8 retired — 2026.08.03.5)
-After Step 9   → Step 11: MockDeliver M[N]     (Step 10 retired — 2026.08.03.5)
-After Step 11  → Pipeline complete for Mock [N].
-                 Next mock: Step 7: MockCreate M[N+1]
+After Step 6S  → Step 7: TestCreate P1 --level … --scope …          (v1.24)
+After Step 7   → Step 9: MockExplain M[N] · TestExplain P[N] (scoped)   (Step 8 retired — 2026.08.03.5)
+After Step 9   → Step 11: MockDeliver M[N] · TestDeliver P[N] (scoped) (Step 10 retired — 2026.08.03.5)
+After Step 11  → Pipeline complete for [paper_slug].
+                 Next: Step 7: MockCreate M[N+1] (mock) · TestCreate P[N+1] (scoped series)
 
 NOTES PIPELINE (separate):
 After NB       → NC: NotesCreate (one subtopic at a time)

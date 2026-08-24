@@ -1245,127 +1245,127 @@
       ]
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "74bab55d24a974ff5d17813a830c7cac97efbc2cde2a162fb49b959e493e1264",
-      "lines": 837,
-      "bytes": 45227,
-      "est_tokens": 11306,
+      "sha256": "e47f7b7eb8f6ae145621caf047c9136c620ba4d2fb6b7b955b29509ca684c9e7",
+      "lines": 869,
+      "bytes": 47958,
+      "est_tokens": 11989,
       "view_calls": 3,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 45227,
-      "reduced_est_tokens": 11306,
+      "reduced_bytes": 47958,
+      "reduced_est_tokens": 11989,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## §1 — FOOTER TYPES",
-          "start": 32,
-          "end": 44,
+          "start": 38,
+          "end": 50,
           "lines": 13,
           "bytes": 670
         },
         {
           "title": "### F1 — Mid-step footer (amber/warning)",
-          "start": 45,
-          "end": 68,
+          "start": 51,
+          "end": 74,
           "lines": 24,
           "bytes": 980
         },
         {
           "title": "### F2 — Step-complete footer (green/success)",
-          "start": 69,
-          "end": 97,
+          "start": 75,
+          "end": 103,
           "lines": 29,
           "bytes": 1241
         },
         {
           "title": "## §2 — ACTION BADGES",
-          "start": 98,
-          "end": 103,
+          "start": 104,
+          "end": 109,
           "lines": 6,
           "bytes": 206
         },
         {
           "title": "### Badge types",
-          "start": 104,
-          "end": 123,
+          "start": 110,
+          "end": 129,
           "lines": 20,
           "bytes": 848
         },
         {
           "title": "### Badge determination logic",
-          "start": 124,
-          "end": 227,
+          "start": 130,
+          "end": 233,
           "lines": 104,
           "bytes": 5929
         },
         {
           "title": "## §3 — PER-STEP DELIVERABLE REGISTRY",
-          "start": 228,
-          "end": 563,
-          "lines": 336,
-          "bytes": 20995
+          "start": 234,
+          "end": 593,
+          "lines": 360,
+          "bytes": 22949
         },
         {
           "title": "## §4 — RENDERING CONTRACT",
-          "start": 564,
-          "end": 575,
+          "start": 594,
+          "end": 605,
           "lines": 12,
           "bytes": 655
         },
         {
           "title": "### §4-0 — Rendering rules (MANDATORY)",
-          "start": 576,
-          "end": 595,
+          "start": 606,
+          "end": 625,
           "lines": 20,
           "bytes": 1087
         },
         {
           "title": "### §4-1 — F2 step-complete footer (GREEN) — Markdown template",
-          "start": 596,
-          "end": 632,
-          "lines": 37,
-          "bytes": 991
+          "start": 626,
+          "end": 663,
+          "lines": 38,
+          "bytes": 1085
         },
         {
           "title": "### §4-2 — F1 mid-step footer (AMBER) — Markdown template",
-          "start": 633,
-          "end": 665,
+          "start": 664,
+          "end": 696,
           "lines": 33,
           "bytes": 896
         },
         {
           "title": "### §4-3 — Action badge text + icon",
-          "start": 666,
-          "end": 676,
+          "start": 697,
+          "end": 707,
           "lines": 11,
           "bytes": 379
         },
         {
           "title": "### §4-4 — Progress bars (deterministic — no guessing)",
-          "start": 677,
-          "end": 708,
+          "start": 708,
+          "end": 739,
           "lines": 32,
           "bytes": 1604
         },
         {
           "title": "## §5 — DECISION FLOWCHART",
-          "start": 709,
-          "end": 799,
+          "start": 740,
+          "end": 830,
           "lines": 91,
           "bytes": 5012
         },
         {
           "title": "## §6 — NEXT-STEP REFERENCE TABLE",
-          "start": 800,
-          "end": 826,
-          "lines": 27,
-          "bytes": 1129
+          "start": 831,
+          "end": 858,
+          "lines": 28,
+          "bytes": 1305
         },
         {
           "title": "## §7 — EXAM-AGNOSTIC GUARANTEE",
-          "start": 827,
-          "end": 837,
+          "start": 859,
+          "end": 869,
           "lines": 11,
           "bytes": 393
         }
