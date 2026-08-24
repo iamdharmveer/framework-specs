@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.23.4",
+  "framework_version": "2026.08.24.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -215,11 +215,11 @@
       "bytes": 528984
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "76a4f17afc54b8c62797584ae598f2e128fb941b9884a1792569c750f19e569a",
-      "version_header": "# Framework_MockTestExplain v1.39.0",
+      "sha256": "b109433d15346dd64f0b3ca88a7cf9e00f6caf2b2b29e8d1af5bf797a4899269",
+      "version_header": "# Framework_MockTestExplain v1.40.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 2684,
-      "bytes": 207541
+      "lines": 2761,
+      "bytes": 214391
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -516,11 +516,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "07128460fea58086eadeb96695d0855762fcc56f0818e5ce03009c745ad0d10a",
+      "sha256": "01fc8cc0d7b0e4c76794ba51522cebce9080f46c98469b334cd25f7295400fe6",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6925,
-      "bytes": 194675
+      "bytes": 194681
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -537,11 +537,11 @@
       "bytes": 6600
     },
     "SPEC_HISTORY.md": {
-      "sha256": "875ca81357e0de0b64df168a46414338bad224e0d061dab6ccd4216bb74a8a33",
+      "sha256": "82abff2ec28da984f6fe4e878665f964b4dd8fe01e6d11df46bb4a4c77711fa9",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "# END OF SPEC_HISTORY v1.0",
-      "lines": 3424,
-      "bytes": 256056
+      "lines": 3437,
+      "bytes": 256814
     }
   }
 }

@@ -1,4 +1,32 @@
-# Framework_MockTestExplain v1.39.0
+# Framework_MockTestExplain v1.40.0
+# v1.40.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R1 (spec-only; no engine, gate-count,
+#   schema or artefact-shape change; zero exam values). Full-line audit of v1.39.0 against
+#   the routed engines, Step 7, Step 11 and PYQExplain. THREE run-breaking defects:
+#   (1) S19-1 check 4 scanned the Solutions docx ITSELF for the BANNED substrings, so any
+#   scoped slug or exam code containing 'state'/'answer'/'key'/'source'/'progress' (e.g.
+#   TOPIC_…_SOLID_STATE_01) HARD-STOPPED every delivery — PYQExplain already excluded its
+#   expected files; Step 9 now scans present − {sol}. (2) §17-3(b) told Step 9 to write a
+#   PLAINTEXT key_corrections.json "which MockDeliver reads": MockDeliver has no reader
+#   (it preserves the docx 'Correct Answer:' line verbatim, C17 charset only), the file is
+#   banned by S19-1 checks 4 and 5, and it re-created the plaintext key the v1.37.0 hashing
+#   design removed. Dropped; RESOLVED_SOURCE now lives in progress.json + §R10 with an
+#   operator EX-rule prompt. (3) P3 typed mcq/msq/nat from per-subtopic section_rules only,
+#   while Step 7 v5.30 / Step 11 v1.7 / audit_canonical v2.9 switch to POSITION-BASED
+#   typing from marking_scheme when it declares >1 question_type — on such an exam every
+#   MSQ-range question was typed mcq. P3 now applies the same mode rule.
+#   DRIFT (each verified against the live engine): §13-2b named paper_pipeline.
+#   canonical_structure (lives in explain_engine; 'rdkit_unavailable' path now specified);
+#   MANDATE A / P1 / S0-1 allowed explain_engine.py from /mnt/project (engines are REPO-ONLY,
+#   sha256-verified — fallback removed); §16-2 still asserted a live Step 10 (retired
+#   v1.21.0); S7-4 claimed byte-identity with two copies that differ in docstrings (logic
+#   verified identical on 19 edge inputs — reworded to logic-identical); S0-2 / MANDATE 0 /
+#   P2 named the output Mock[N] where S19 uses [paper_slug]; §18-1 cited 'Step8_source' and
+#   '(§13)' for the §11 degrade ledger; §6A-3 / §R3 omitted CONFORMER from the visual
+#   verdicts the engine enforces; §6A-6 sent renderer preflight to 'P0' (trigger detection)
+#   — now an explicit P1 sub-step with its dashboard line, plus the §7A-M line P2 lacked;
+#   S19-1 gated on SELF_AUDIT_CLEAN / COVERAGE_OK that nothing set — S4-4 D now sets them;
+#   §21 items 16/19/17/18 renumbered. Superseded v1.38.0 entry moved verbatim to
+#   SPEC_HISTORY.md (EC-P42).
 # v1.39.0 — 2026-08-22 — GAP-2026-08-22-STEP9-READ-SET (EC-P42; deploy follow-up #2
 #   of 2026.08.21.2). New S0-3: FINAL vs NON-FINAL session class with a GENERATED
 #   read set — a NON-FINAL batch session skips §20 (end-of-mock report), §22 (its
@@ -8,13 +36,6 @@
 #   consumer reads header levels — verified by corpus grep). Ranges live in
 #   SPEC_SECTIONS.json (has_read_set), hash-tracked, never hand-copied. The
 #   MockExplain/TestExplain route is now budget-covered by design, not by headroom.
-# v1.38.0 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (MOCK-ONLY; pairs
-#   MockTestCreate v5.60). New §7A-M: Step 9 re-scores every question on the shared
-#   rubric (blueprint_core.assess_difficulty) at THIS exam's level and reports
-#   agreement with Step 7's labels (dashboard + §R10). Report-only; sticker wins.
-#   Resolves the §7A divergence note (same RUBRIC, different mechanisms; PYQExplain
-#   v2.16). No shared §4–§18 rule modified; SHARED_RULES stays 1.4. Superseded
-#   v1.37.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42, 2026.08.20.9 discipline).
 # ════════════════════════════════════════════════════════════════════════
 # §0 — INPUT / OUTPUT CONTRACT (read before anything else)
 # ════════════════════════════════════════════════════════════════════════
@@ -38,8 +59,9 @@
     3. [ExamCode]_section_rules.md        — per-subtopic rules + CATEGORY-C exam params
     4. [ExamCode]_blueprint.json          — sections[], q_range[], options-count, difficulty
     5. [ExamCode]_subtopic_manifest.json  — subtopic_id ↔ name + mandate/alternation data
-    6. explain_engine.py                  — the universal explanation engine; SAME file
-                                            in every exam project (MANDATORY — MANDATE A)
+    6. explain_engine.py                  — the universal explanation engine, taken ONLY
+                                            from the Step-0 verified clone (MANDATORY —
+                                            MANDATE A; never from project Files)
 
   NOT DELIVERED (Step 9 must do without these — by design):
     ✗ any answer key. Step 7 holds a key internally and never delivers it.
@@ -51,7 +73,9 @@
 ## S0-2 — OUTPUTS (what Step 9 delivers)
 
   CORE DELIVERABLE (every batch, via ONE present_files call — the WHOLE paper):
-    1. /mnt/user-data/outputs/[ExamCode]_Mock[N]_Explanation.docx
+    1. /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx
+       ([paper_slug] = pp.paper_slug(paper_id): "Mock[N]" zero-padded for a mock, else the
+       scoped slug — v1.40.0; S19-1/S19-2 already used it, this line said Mock[N])
        The complete paper: every question solved so far carries its interleaved
        explanation; every not-yet-solved question is byte-identical to the Step-7
        input (D4). The same file grows explanation-coverage each batch until 100%.
@@ -73,7 +97,7 @@
 #   answer, or explanation sentence in chat — not while solving, not in a finding,
 #   not in the report. Refer to a question ONLY as "Q.[n]" plus a code + a structural
 #   locator (e.g. "Q.47 — DEDUCTION binding missing"). The ONE content-bearing artefact —
-#   [ExamCode]_Mock[N]_Explanation.docx — is a FILE, not chat, and is the legitimate,
+#   [ExamCode]_[paper_slug]_Explanation.docx — is a FILE, not chat, and is the legitimate,
 #   intended home for answers + full worked solutions (its whole purpose is to publish
 #   them). Nothing changes for chat: the dashboard (§3), the report (§20) and every
 #   progress line stay content-free. The one permitted exception is web-search queries
@@ -90,22 +114,21 @@
 #   LaTeX, year-range slash, template sentence, fake citation, metacommentary, CA
 #   not bound, WHY-WRONG key mismatch, fidelity breach; v2.6 — internal
 #   error-taxonomy token in rendered text, AXIOM naming an option, a visual
-#   representation_verdict with no figure). If the file is absent from
-#   BOTH the framework clone (/tmp/fw) and the project Files (/mnt/project):
+#   representation_verdict with no figure). ENGINES ARE REPO-ONLY (v1.40.0, aligned
+#   with SKILL.md and bootstrap.py): the ONLY admissible copy is the one in the Step-0
+#   verified clone (/tmp/fw), whose sha256 bootstrap.py checked. A copy in the project
+#   Files (/mnt/project) is NEVER imported — /mnt/project is never placed on sys.path —
+#   because it carries no manifest entry and cannot be verified. If the file is absent
+#   from the verified clone:
 #     HARD STOP. Print:
-#       "HARD STOP (MANDATE A): explain_engine.py not found in the framework clone
-#        (/tmp/fw) or the [ExamCode] project Files (/mnt/project). Step 9 cannot build
-#        explanations without it. It ships with the framework repo (GitHub projects get
-#        it from the clone) — reload the framework (Step 0); or for a direct-upload
-#        project obtain it from Appendix A (the canonical runnable copy) and upload it,
-#        then re-run."
+#       "HARD STOP (MANDATE A): explain_engine.py not found in the verified framework
+#        clone (/tmp/fw). Step 9 cannot build explanations without it. Re-run Step 0;
+#        if the clone still lacks it the release is broken — do not substitute a copy
+#        from project Files or from memory."
 #   Appendix A points to the COMPLETE, working, exam-agnostic engine. Because it is
 #   UNIVERSAL and byte-identical for every exam, the file keeps the plain neutral name
-#   explain_engine.py in every project (NOT exam-prefixed — there is no per-exam
-#   variant to disambiguate, and a prefix would falsely imply exam-specificity). It
-#   ships with the framework repo, so a GitHub project finds it in the /tmp/fw clone
-#   (no upload needed); a direct-upload project uploads it once to /mnt/project and
-#   reuses the SAME file in every exam project. It self-tests with `--self-test`
+#   explain_engine.py (NOT exam-prefixed — there is no per-exam variant to
+#   disambiguate, and a prefix would falsely imply exam-specificity). It self-tests with `--self-test`
 #   (must print "SELF-TEST: N/N PASS" with N >= 62 — FLOOR form, v1.25: the exact
 #   62/62 pin HALTed every session once the engine grew to 64 fixtures).
 
@@ -428,8 +451,8 @@ execution path — it does not shrink, soften or delete them.
       glob is a PREFIX match — verify the selected blueprint's exam_code equals
       [ExamCode] exactly; a mismatch is a HARD STOP (a different ExamCode's file may
       have been swept in by the glob) → subtopic_manifest.json → registry.json →
-      explain_engine.py (from the framework clone /tmp/fw, else the project Files
-      /mnt/project). Copy the engine to /home/claude and run
+      explain_engine.py (from the Step-0 verified clone /tmp/fw ONLY — v1.40.0; a
+      project-Files copy is never imported, MANDATE A). Copy the engine to /home/claude and run
       `python3 explain_engine.py --self-test` → MUST print
       "SELF-TEST: N/N PASS" with N == total (all pass) AND N >= 62 before any
       solving (v1.25, GAP-2026-08-13-STALE-SELFTEST-PIN: the FLOOR form, the
@@ -452,6 +475,12 @@ execution path — it does not shrink, soften or delete them.
       learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10) to
       confirm the cross-step readers. Absent on mock 1 by design — proceed. Any load/self-test
       failure → HALT.
+      THEN RENDERER PREFLIGHT (v1.40.0 — the §6A-6 dependency install, given its P-step):
+      read section_rules CATEGORY C `representation_renderers`; for each declared
+      requirement pip-install its library (--break-system-packages, the Step-0 pattern),
+      import-test it, and record the result on the dashboard "Renderer preflight" line.
+      An install that fails does NOT halt: that requirement degrades per §6A-4 for the
+      WHOLE run, disclosed up front. No block declared → PROSE/EQUATION only, said so.
   P2  STATUS DASHBOARD (print every turn, before any solving):
 ```text
       === MockExplain [spec version from this file's header] — Session Status ===
@@ -471,7 +500,9 @@ execution path — it does not shrink, soften or delete them.
       Figural manifest / RC manifest : [found in registry] OR [absent — derive visually]
       Batch plan                 : [K batches · ceiling 10 · linked groups atomic]
       Mode                       : [interactive — halt per batch] OR [autonomous — no pause, §MANDATE B]
-      Output                     : /mnt/user-data/outputs/[ExamCode]_Mock[N]_Explanation.docx
+      Output                     : /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx
+      Renderer preflight (P1)    : [requirement → library → installed/absent → degrade?] per declared renderer, OR [none declared — PROSE/EQUATION only]
+      §7A-M difficulty re-measure: [k/n agree] OR [DORMANT — reason]  (advisory, §7A-M)
       State                      : /home/claude (chat-scoped)
       Status                     : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted — reason]
 ```
@@ -480,8 +511,19 @@ execution path — it does not shrink, soften or delete them.
       per-question/per-section map via options_by_q, with 0 marking NAT questions), the
       option LABEL SCHEME (numeric/alpha/roman/custom), the language SENTENCE TERMINATORS
       (e.g. add the Devanagari danda), and labels/markers. Resolve each question's TYPE
-      (mcq/msq/nat) from section_rules (answer_type=='numerical' → nat; answer_cardinality
-      =='multi' → msq; else mcq). parse_paper checks: questions ascending + contiguous
+      (mcq/msq/nat) by the SAME mode rule Step 7 (v5.30), Step 11 (v1.7) and
+      audit_canonical (v2.9) apply — v1.40.0, GAP-2026-08-24-STEP9-AUDIT-R1:
+        POSITION-BASED  — blueprint.marking_scheme[] declares > 1 distinct question_type
+                          → each question's type is the question_type of the marking_scheme
+                          range containing its number (MCQ→mcq, MSQ→msq, NAT/integer/
+                          numerical→nat). On such an exam the per-subtopic fields are
+                          UNRELIABLE by construction (a subtopic sits in both an MCQ and an
+                          MSQ range) and are NOT consulted for the type.
+        SUBTOPIC-BASED  — 0 or 1 distinct question_type (or no marking_scheme) → the
+                          pre-v1.40.0 rule: section_rules answer_type=='numerical' → nat;
+                          answer_cardinality=='multi' → msq; else mcq.
+      In BOTH modes options_by_q (below) remains the per-question NAT authority and must
+      agree with the resolved type; a disagreement is a config drift → P5 HALT. parse_paper checks: questions ascending + contiguous
       from 1; every question carries its EXPECTED option count (per-question, 0 for NAT);
       Q_TOTAL matches blueprint. Re-extract figural_manifests[] / rc_manifests[] from
       registry. Any fail → HALT with the specific check.
@@ -693,6 +735,10 @@ execution path — it does not shrink, soften or delete them.
     D. §18 SELF-AUDIT on the whole doc: validate() all blocks + verify_fidelity (byte-
        identical to source) + verify_structure (coverage == Q1..last(batch k), NO look-
        ahead) + math-render check. Any fail → fix, re-build, re-audit. Never deliver dirty.
+       When and only when every §18-1 item holds, set SELF_AUDIT_CLEAN = True and (for the
+       S4-5 guard-3 coverage assertion) COVERAGE_OK = True in the session — these are the
+       two flags S19-1 reads (v1.40.0; they were gated on but never assigned anywhere).
+       They are reset to False at the start of every batch.
     E. Flush state to /home/claude: progress.json (mark batch k done) + answer_keys.json
        (append this batch's CAs) + the pickled blocks. Stage NOTHING else to outputs.
     F. present_files(the single Solutions docx) — the whole paper (MANDATE D).
@@ -982,7 +1028,8 @@ execution path — it does not shrink, soften or delete them.
   pattern instead of discovered by reading. The §20 report states the
   distribution. (v1.35.0) The verdict is ALSO passed into the ExplanationBlock
   (engine v2.6 representation_verdict), which enforces verdict↔emission
-  coherence at construction: a STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT
+  coherence at construction: a STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT /
+  CONFORMER (v1.40.0 — the engine's _VISUAL_VERDICTS has carried CONFORMER since v2.7)
   verdict with zero figures raises; after a §6A-4 degrade the block carries the
   DEGRADED requirement, never the original. HISTORY: v1.27.0 shipped this router RECORD-ONLY so routing
   decisions could be reviewed before any figure shipped; v1.28.0 (paired with
@@ -1047,8 +1094,9 @@ execution path — it does not shrink, soften or delete them.
   ABSENT the block, the router degrades those verdicts to EQUATION/PROSE per
   §6A-4 — loudly, in the report — and the exam behaves exactly as pre-v1.27.0.
 
-  DEPENDENCIES ARE PREFLIGHT WORK, NEVER MID-BATCH DISCOVERIES. P0 installs any
-  library the exam's declared renderers name (pip, --break-system-packages, same
+  DEPENDENCIES ARE PREFLIGHT WORK, NEVER MID-BATCH DISCOVERIES. P1 (its RENDERER
+  PREFLIGHT sub-step — v1.40.0; this sentence said "P0", which is trigger detection and
+  installs nothing) installs any library the exam's declared renderers name (pip, --break-system-packages, same
   pattern as matplotlib in Step 0) and RECORDS the preflight result in the §3
   dashboard. An install that fails does not halt: the affected requirement
   degrades per §6A-4 for the WHOLE run, disclosed up front, so quality never
@@ -1257,9 +1305,14 @@ execution path — it does not shrink, soften or delete them.
       return ('decimal', _fmt_portal_number(value, precision=None))
   ```
 
-  PINNED: this function body MUST stay byte-identical to Framework_MockTestCreate.md
-  §S7-NEW-C and audit_canonical.py's A-NAT-GRADE implementation — never re-implemented
-  independently (anti-drift by design). Three independent copies computing the SAME
+  PINNED: this function body MUST stay LOGIC-IDENTICAL to Framework_MockTestCreate.md
+  §S7-NEW-C and audit_canonical.py's A-NAT-GRADE implementation (there named
+  _derive_nat_grading) — never re-implemented independently (anti-drift by design).
+  v1.40.0: "byte-identical" was the previous wording and was false — the three copies
+  differ in docstrings, error-message text and line wrapping; the LOGIC was verified
+  identical on 19 edge inputs (integral floats, -0.0, 1e-9 residue, ROUND_HALF_UP at a 5,
+  negative bound, lo>hi). Any change to the logic is made in all three copies in one
+  release and re-verified the same way. Three independent copies computing the SAME
   deterministic function on the SAME true inputs is the intended redundancy (matches Step
   8's own pinned-copy pattern); three DIFFERENT implementations would not be.
 
@@ -1377,7 +1430,8 @@ execution path — it does not shrink, soften or delete them.
   MISMATCHED → §17-3 for that question (rec.candidates[q] names the canonical the
   commitment accepts; mcq probed over all labels, msq/nat over the resolver's own
   alternatives). UNCOMMITTED (pre-v5.59 registry) → key_status UNAVAILABLE, proceed,
-  say so in the dashboard and §R10 — never refused. key_status per question ∈ MATCH ·
+  say so in the dashboard and §R10 — never refused. RESOLVED_SOURCE writes NO file
+  (§17-3b, v1.40.0). key_status per question ∈ MATCH ·
   RESOLVED_SELF · RESOLVED_SOURCE · UNAVAILABLE · DEFECT; unset cannot ship (§18).
 
 ## §7A-M — ADVISORY DIFFICULTY RE-MEASURE (MOCK-ONLY, v1.38.0 — REPORT, NEVER BLOCK)
@@ -1882,8 +1936,14 @@ execution path — it does not shrink, soften or delete them.
       name known; still DISAGREE → §17-3. The registered object is a CROSS-CHECK as
       the manifest always was; pixels still win when §17-3's proof says so.
     • absent (older paper, PYQ) → the transcription stands alone; rdkit sanitisation
-      (paper_pipeline.canonical_structure) still runs on every STRUCTURE — a SMILES
-      rdkit rejects is a misread. LOW confidence on an answer-critical figure →
+      (explain_engine.canonical_structure — v1.40.0: it lives in the ENGINE, not in
+      paper_pipeline; it never raises and returns (canonical|None, reason)) still runs on
+      every STRUCTURE — a 'parse_error' reason is a misread. A reason of
+      'rdkit_unavailable' (the P1 renderer preflight did not install it) is NOT a misread:
+      the transcription stands at its own parse_confidence, the omission is recorded once
+      in the dashboard and §R12, and an answer-critical STRUCTURE then carries
+      DERIVATION-CONFIDENCE (§R5). Only kinds the exam actually emits invoke this; an exam
+      with no STRUCTURE objects never touches rdkit. LOW confidence on an answer-critical figure →
       re-view; still LOW → DERIVATION-CONFIDENCE (§R5).
 
 ## S13-3 — Derive from the images, NOT the manifest
@@ -2125,10 +2185,11 @@ execution path — it does not shrink, soften or delete them.
   • UNIFORM MECHANICAL GUARANTEES: every engine guard fires identically on Q1 and Q97 —
     a write-time ValueError does not get lenient because the run is long.
   • DERIVE-TWICE HAS NO EXCEPTIONS (§7): no "confident by now, skip the check" path.
-  • STEP 10 IS THE INDEPENDENT NET: it re-reads EVERY explanation, zero sampling, not
-    trusting Step 9 — and runs batched too, so it cannot get lazy at Q60 either; v1.12,
-    it certifies with a runnable completion gate (CA1–CA7) so its own exhaustiveness is a
-    command result, not a self-report.
+  • THERE IS NO INDEPENDENT NET (v1.40.0 — this bullet previously described a live Step
+    10 re-reading every explanation with a CA1–CA7 gate; Step 10 was RETIRED at v1.21.0
+    and §18-2 says so). The §18 per-batch read-back of the WRITTEN document is the last
+    mechanical check this paper receives, and the §R8 handoff is the only record a human
+    reviewer gets. Neither may be softened on any batch (RE-0).
   The guarantee is not "I never write a weaker line" — it is "a weaker line CANNOT REACH
   THE STUDENT", caught at four independent layers that do not weaken with length.
 
@@ -2171,8 +2232,15 @@ execution path — it does not shrink, soften or delete them.
         continue. No operator action.
     (b) RESOLVED_SOURCE — a reproduced derivation that ALSO agrees with the registered
         semantic object and web-verified facts proves Step 7's key wrong while the
-        question is sound: publish the proven answer, write [ExamCode]_Mock[N]_
-        key_corrections.json (MockDeliver reads it), report in §R10. No operator action.
+        question is sound: publish the proven answer in the docx, record key_status =
+        RESOLVED_SOURCE with the proving §17-3 step and source reference in progress.json,
+        and report it in §R10. No file is written (v1.40.0 — the former key_corrections.json
+        had no consumer: MockDeliver preserves the docx 'Correct Answer:' line verbatim, and
+        a plaintext corrections file is exactly the artefact the §7-8 hashing design and
+        S19-1 checks 4/5 forbid). The registry commitment stays as written — it is frozen
+        here and no downstream step reads it as a key. No operator action for delivery;
+        the §R10 line is the operator's cue to add an EX-rule (§24) so Step 7 does not
+        repeat the error.
     (c) DEFECT — §17-4.
   Step 9 never edits content (RE-3) and never publishes a key that did not survive
   steps 1–4.
@@ -2202,7 +2270,7 @@ execution path — it does not shrink, soften or delete them.
 ## S18-1 — The checklist (all must hold before present_files — MANDATE D)
 ```text
   [ ] every block this run: ExplanationBlock.validate() clean (engine)
-  [ ] verify_fidelity(out, Step8_source): whole question region byte-identical, every
+  [ ] verify_fidelity(out, Step7_source): whole question region byte-identical, every
       image rId resolves to a relationship (no dangling embed) (§12)
   [ ] verify_structure(out, blocks, expected = Q1..last(batch k)): coverage exact,
       NO look-ahead, header order + CA binding intact (§4 / §5)
@@ -2212,7 +2280,7 @@ execution path — it does not shrink, soften or delete them.
       WHY-WRONG / COMMON-PITFALLS coverage, zero banned glyphs / metacommentary / templates
       / inline or vulgar fractions in rendered prose, one sentence per rendered paragraph,
       every OMML fraction well-formed with no year-range artefact, AND the Tier-3 degrade
-      ledger (§13). BLOCKING CONTRACT — the verifiers RETURN status, they do NOT raise:
+      ledger (§11 S11-2). BLOCKING CONTRACT — the verifiers RETURN status, they do NOT raise:
       assert ok is True AND problems == [] AND explain_engine.T3_STATS['failed'] is empty.
       A non-empty degrade ledger (a ⟦MATH:⟧ region that fell back to raw plain text) is a
       BLOCKING FAIL — present_files FORBIDDEN. A run that checks only "did the call raise"
@@ -2266,6 +2334,8 @@ execution path — it does not shrink, soften or delete them.
       enumerated objects or carry a recorded justification
 ```
   Any item open → fix, re-build, re-audit. present_files is FORBIDDEN until ALL hold.
+  All hold → SELF_AUDIT_CLEAN = True; coverage assertion passed → COVERAGE_OK = True
+  (S4-4 D; read by S19-1).
   Why verify_explanations exists alongside verify_structure: the latter re-validates the
   in-memory block OBJECTS, the former re-parses the RENDERED ARTIFACT. Trusting the build
   is not the same as verifying the output — a future renderer change or a build bug
@@ -2304,7 +2374,10 @@ out = '/mnt/user-data/outputs'
 sol = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
 present = set(os.listdir(out))
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
-leaked = [f for f in present if any(b in f.lower() for b in BANNED)]
+# v1.40.0: scan every file EXCEPT the Solutions docx. A scoped slug or exam code can
+# legitimately contain a banned substring (TOPIC_…_SOLID_STATE_01, …_STATE_PSC_…);
+# check 5 already asserts outputs == {sol}. PYQExplain S19-1 has the same exclusion.
+leaked = [f for f in present - {sol} if any(b in f.lower() for b in BANNED)]
 checks = [
     ('1 solutions docx in outputs',      os.path.exists(f'{out}/{sol}')),
     ('2 self-audit (S18) all clean',     bool(globals().get('SELF_AUDIT_CLEAN'))),
@@ -2391,7 +2464,8 @@ Step 9 uses BOTH footer types:
       derived-answer distribution (counts only).
       REPRESENTATION (v1.29.0 — the §6A-3 distribution this line was promised to carry):
         • verdict counts across PROSE / EQUATION / TABLE / STRUCTURE_GRAPH /
-          LEVEL_DIAGRAM / DATA_PLOT, plus the Q-numbers for every non-PROSE verdict.
+          LEVEL_DIAGRAM / DATA_PLOT / CONFORMER, plus the Q-numbers for every non-PROSE
+          verdict.
         • figures declared vs figures landed (must be equal — §18 blocks otherwise).
         • DEGRADE LEDGER: every §6A-4 step-down, with the Q-number, the requirement
           asked for, what it degraded to, and WHY (renderer absent / preflight failed /
@@ -2424,8 +2498,10 @@ Step 9 uses BOTH footer types:
       reads it (§18-2). State: review the docx IN MICROSOFT WORD (§11-3).
   §R9 LIMITATIONS (§22).
   §R10 KEY RECONCILIATION (§7-8): commitments available y/n · key_status counts ·
-      Q-numbers for every non-MATCH with the §17-3 step that resolved it ·
-      key_corrections.json written y/n.
+      Q-numbers for every non-MATCH with the §17-3 step that resolved it · for every
+      RESOLVED_SOURCE: Q-number, the proving step, the web-source reference, and ONE fixed
+      sentence: "Step 7's committed key for this question was proven wrong — consider an
+      EX-rule in [ExamCode]_EXPLAIN_LEARNINGS_v*.md (§24)". Never the answer value.
   §R11 ERROR PROVENANCE (§15-2): lines by mode (VERIFIED_ERROR_PATH · DIRECT_
       CONTRADICTION) · hedge-ban hits at construction · pitfalls per NAT Q.
   §R12 SEMANTIC OBJECTS (§13-2b): registered · agreed first / after re-transcription ·
@@ -2495,14 +2571,15 @@ Step 9 uses BOTH footer types:
   15. No question/answer/solution content ever printed in chat (MANDATE 0).
   16. (v1.37.0) Any conflict RESOLVED IN-RUN per §17-3 with its steps recorded; the paper
       never halted; content never edited; a proven defect reported per §17-4 with its
-      regeneration line; no published key that failed §17-3.
-  19. (v1.37.0) key_status recorded per Q (§7-8); every figural transcription persisted
+      regeneration line; no published key that failed §17-3; no key_corrections.json or
+      any other plaintext-key artefact written (v1.40.0).
+  17. (v1.37.0) key_status recorded per Q (§7-8); every figural transcription persisted
       and compared (§13-2b); error_provenance engine-validated (§15-2); curated families
       cited (§7-7); typography engine-applied (§8-0c).
-  17. Learnings loaded at P1 (EXPLAIN_AUDIT_LEARNINGS + EXPLAIN_LEARNINGS, if present) and
+  18. Learnings loaded at P1 (EXPLAIN_AUDIT_LEARNINGS + EXPLAIN_LEARNINGS, if present) and
       every question's applicable AL/EX rules routed and obeyed (§24); on mock 1 their
       absence is recorded, not an error.
-  18. No preference reduced coverage or waived §18 / the coverage assertion (RE-0); any
+  19. No preference reduced coverage or waived §18 / the coverage assertion (RE-0); any
       autonomous run waived the inter-batch PAUSE only, never the per-question review.
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2680,5 +2757,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.39.0
+# END OF Framework_MockTestExplain v1.40.0
 # ════════════════════════════════════════════════════════════════════════

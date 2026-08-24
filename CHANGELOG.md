@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026.08.24.1 — GAP-2026-08-24-STEP9-AUDIT-R1: Step 9 line-by-line audit, release 1 of 2
+
+**Framework_MockTestExplain v1.39.0 -> v1.40.0. Spec-only; no engine, gate-count, schema,
+or artefact-shape changes; zero exam values. Behaviour byte-identical for every mock paper
+on a single-question-type exam whose slug/exam code carries none of the S19-1 BANNED
+substrings — i.e. every run that could previously complete still completes identically.**
+
+A full-line audit of v1.39.0 against explain_engine / paper_pipeline / blueprint_core,
+Step 7, Step 11 and PYQExplain, with every framework gate green, still found three
+run-breaking defects the gates cannot see:
+
+1. **S19-1 check 4 hard-stopped on the Solutions docx itself.** The sidecar-leak scan ran
+   over every file in outputs, so a scoped slug or exam code containing `state`, `answer`,
+   `key`, `source` or `progress` (`TOPIC_…_SOLID_STATE_01`) could never deliver.
+   PYQExplain already excluded its expected files. Fix: scan `present - {sol}`.
+2. **§17-3(b) `key_corrections.json` was a dead, plaintext-key handoff.** MockDeliver has
+   no reader (it preserves the docx `Correct Answer:` line verbatim); S19-1 checks 4/5
+   ban the file; and it re-created the plaintext key the v1.37.0 salted-hash design
+   removed. Dropped. RESOLVED_SOURCE now lives in progress.json + §R10 with a fixed
+   operator prompt to add an EX-rule (§24). No downstream change needed — verified
+   by grep: the only other `key_corrections` in the corpus is the unrelated Notes pipeline.
+3. **P3 question typing was out of sync with Steps 7/11 and the auditor.** Those apply
+   POSITION-BASED typing from `marking_scheme` when it declares >1 `question_type`; Step 9
+   typed from per-subtopic section_rules only, so every MSQ-range question on such an exam
+   resolved mcq. P3 now applies the identical mode rule; options_by_q stays the NAT
+   authority in both modes.
+
+Drift fixed (each checked against the live engine): §13-2b module name for
+`canonical_structure` (+ the `rdkit_unavailable` path); MANDATE A / P1 / S0-1 engine
+fallback to project Files removed (engines are repo-only, sha256-verified); §16-2 stale
+live-Step-10 bullet; S7-4 "byte-identical" -> logic-identical (three copies verified equal
+on 19 edge inputs); S0-2 / MANDATE 0 / P2 output name -> `[paper_slug]`; §18-1
+`Step8_source` and `(§13)` cross-refs; CONFORMER added to §6A-3 / §R3; renderer preflight
+given a real P-step (P1) and dashboard line; §7A-M dashboard line added; S4-4 D / §18-1
+now SET the `SELF_AUDIT_CLEAN` / `COVERAGE_OK` flags S19-1 reads; §21 renumbered.
+
+Deferred to release 2 (cross-step, separate): DeliveryFooter Step-9 next-step wording for
+scoped papers (TestDeliver P[N]). Not changed by design: the NAT portal charset and the
+ROUND_HALF_UP tolerance-bound rounding, both pinned across Step 7 / Step 9 / audit_canonical.
+
+Files: Framework_MockTestExplain.md, SPEC_HISTORY.md (v1.38.0 entry moved verbatim),
+VERSION, MANIFEST.json, SPEC_MANIFEST.json, SPEC_SECTIONS.json, CHANGELOG.md.
+
 ## 2026.08.23.4 — GAP-2026-08-23-ECFG-LABEL-PARITY: exam_config option-label override goes through the resolver, family-asserted against the auditor
 
 **Framework_MockTestCreate v5.65 -> v5.66. Spec-only; no engine, gate-count, schema,

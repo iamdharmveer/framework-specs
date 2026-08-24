@@ -1365,6 +1365,19 @@ Current-version entry remains in Framework_MockTestCreate.md.
 
 ## Framework_MockTestExplain.md
 
+Entry v1.38.0 moved at framework release 2026.08.24.1 (EC-P42 discipline; v1.40.0 supersedes).
+Current-version entry remains in Framework_MockTestExplain.md.
+
+```
+# v1.38.0 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (MOCK-ONLY; pairs
+#   MockTestCreate v5.60). New §7A-M: Step 9 re-scores every question on the shared
+#   rubric (blueprint_core.assess_difficulty) at THIS exam's level and reports
+#   agreement with Step 7's labels (dashboard + §R10). Report-only; sticker wins.
+#   Resolves the §7A divergence note (same RUBRIC, different mechanisms; PYQExplain
+#   v2.16). No shared §4–§18 rule modified; SHARED_RULES stays 1.4. Superseded
+#   v1.37.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42, 2026.08.20.9 discipline).
+```
+
 Entry v1.37.0 and two in-section narrations moved at framework release 2026.08.21.3
 (EC-P42 route budget — MockExplain/TestExplain crossed 250,000 B; SPEC-BUDGET gate).
 Current-version entry remains in Framework_MockTestExplain.md.
