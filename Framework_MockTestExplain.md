@@ -1,4 +1,20 @@
-# Framework_MockTestExplain v1.42.0
+# Framework_MockTestExplain v1.43.0
+# v1.43.0 — 2026-08-24 — CHG-2026-08-24-NO-COVERAGE-BANNER (operator decision; paired with
+#   PYQExplain v2.17, SHARED_RULES_VERSION 1.4 → 1.5; NO engine change). The S12-4
+#   document-level coverage banner ("COVERAGE: Batch k of K …" / "COVERAGE: Complete -
+#   all [Q_TOTAL] questions explained.") is RETIRED from every delivered Explanation
+#   docx — interim AND final. Step 9 no longer calls explain_engine.set_coverage_banner();
+#   the delivered file's first non-blank body paragraph is Q.1. Two facts decided it:
+#   (1) the operator does not want a coverage line in the delivered document, and
+#   (2) Framework_MockDeliver S4-2 treats ANY non-blank paragraph before Q.1 as an
+#   upstream regression — detect_header_paras() strips it and raises a REGRESSION ALARM
+#   — so the final banner S12-4 mandated was exactly what Step 11 flagged. The §18-1
+#   checklist item is inverted (zero banner paragraphs; first non-blank paragraph is
+#   Q.1) so a stale-session banner can never ship. Coverage is still stated in chat
+#   (S19-3 progress line, F1/F2 footer) and asserted per batch (S4-5 guard 3) — nothing
+#   about coverage CHECKING changes, only the in-file announcement. Engine untouched:
+#   set_coverage_banner()/strip_solutions() and the BANNER-* fixtures stay (the
+#   function is simply never called; BANNER-REMOVABLE already licensed dropping it).
 # v1.42.0 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestCreate v5.69,
 #   MockDeliver v1.13.0, blueprint_core Cluster E2d, audit_canonical check 9,
 #   final_assembly PENDING stamp). §7A-M promoted from advisory to BLOCKING:
@@ -2007,30 +2023,26 @@ execution path — it does not shrink, soften or delete them.
     and OMML count == the Step-7 input exactly. v1.21.0: nothing re-verifies these
     counts downstream — this per-batch check is the only one that runs.
 
-## S12-4 — INTERIM COVERAGE BANNER (vv1.31.0 — the artefact declares its own state)
-  EVERY delivered .docx carries a DOCUMENT-LEVEL coverage banner as its first line,
-  written via explain_engine.set_coverage_banner() (engine v2.4).
-  WHY THIS EXISTS. Coverage was announced only in the chat progress line, so the FILE
-  said nothing about itself. A partially-explained paper — a legitimate mid-run
-  artefact under the batch law — is byte-for-byte indistinguishable from a finished
-  one the moment it leaves the conversation. In the reference incident a Batch-1 file
-  carrying 10 of 60 explanations was reviewed by a third party as a completed
-  document, and the review's central complaint was simply the 50 questions the batch
-  had not reached yet. The chat line was correct and did not travel with the file.
-  CONTENT — MANDATE-0 SAFE, counts and ranges ONLY, never stem or answer text:
-    interim : "Batch k of K - Q[a]..Q[b] explained of [Q_TOTAL]. NOT FINAL - further
-               batches pending."
-    final   : "Complete - all [Q_TOTAL] questions explained."
-  The banner is REPLACED each batch, never stacked (set_coverage_banner is
-  idempotent), and the final batch overwrites the interim wording.
-  WHY IT NEEDED ENGINE SUPPORT, not spec text alone: a banner is framework-added
-  content, not paper content, so strip_solutions() MUST remove it — otherwise the
-  questions-only copy differs from the Step-7 source and the §12-3 re-audit fails.
-  That was verified empirically before this rule was written: with the banner present
-  and unstripped, verify_fidelity still PASSES (the banner sits outside every question
-  region) while the strip comparison FAILS. Engine v2.4 strips it; the self-test
-  BANNER-STRIPPED-CLEAN locks that, and BANNER-GATES-UNAFFECTED locks that fidelity,
-  structure and explanation verification are all undisturbed by its presence.
+## S12-4 — NO COVERAGE BANNER (v1.43.0 — RETIRED; operator decision)
+  The delivered Explanation docx carries NO document-level coverage banner — not on an
+  interim batch, not on the final one. Step 9 NEVER calls
+  explain_engine.set_coverage_banner(); the delivered file's first non-blank body
+  paragraph is Q.1 (blank separators before it are fine). Because build_interleaved_docx
+  seeds the clean Step-7 source WHOLE every batch (S4-4 C), no banner can exist unless a
+  session writes one — §18-1 asserts that none does.
+  WHERE COVERAGE IS STATED INSTEAD (unchanged): the chat progress line (S19-3), the F1/F2
+  delivery footer (Framework_DeliveryFooter — "batch X of Y"), and the per-batch coverage
+  assertion (S4-5 guard 3 / §18). Only the in-file announcement is gone.
+  HISTORY (record, not instruction). v1.31.0 introduced the banner for
+  GAP-2026-08-19-INTERIM-ARTEFACT-UNLABELLED: a Batch-1 file carrying 10 of 60
+  explanations was reviewed by a third party as a finished document. The operator has
+  accepted that trade-off (2026-08-24): a partially-explained file forwarded outside the
+  chat is no longer self-labelled. The retirement also removes a cross-step conflict —
+  Framework_MockDeliver S4-2 strips every non-blank pre-Q.1 paragraph as an upstream
+  regression and alarms on it, so the mandated final banner was itself a Step-11 finding.
+  Engine v2.4's set_coverage_banner() / strip_solutions() banner handling and the
+  BANNER-* self-test fixtures are retained untouched (no engine change; the function is
+  simply unused by this step).
 
 # ════════════════════════════════════════════════════════════════════════
 # §13 — FIGURAL DEEP-ANALYSIS PROTOCOL (view every image — no exception)
@@ -2463,9 +2475,10 @@ execution path — it does not shrink, soften or delete them.
       FAIL; a figure dropped by §6A-4 degrade is REMOVED from the block (so declared
       == landed == the degraded count) AND disclosed in the report, never left
       declared-but-missing.
-  [ ] COVERAGE BANNER set for this batch via set_coverage_banner(); wording states
-      batch k of K and the explained range; strip_solutions still yields a copy
-      byte-equal to the Step-7 source (§12-4 / §12-3)
+  [ ] NO COVERAGE BANNER (v1.43.0 — §12-4): zero body paragraphs begin with
+      cfg.labels['coverage_banner']; the first non-blank body paragraph of the delivered
+      docx matches cfg.q_re (Q.1). A banner found → remove it (set_coverage_banner(out,
+      cfg, None)), re-build, re-audit — never ship it (Step 11 alarms on any pre-Q.1 line)
   [ ] count invariants: image / table / OMML / question / option counts == Step-7 input
   [ ] strip-and-re-audit: questions-only copy passes the Step-7 auditor identically (§12-3)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
@@ -2911,5 +2924,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.42.0
+# END OF Framework_MockTestExplain v1.43.0
 # ════════════════════════════════════════════════════════════════════════

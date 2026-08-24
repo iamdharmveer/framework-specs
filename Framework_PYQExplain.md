@@ -1,4 +1,16 @@
-# Framework_PYQExplain v2.16 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.17 — Universal PYQ Explanation Generator
+# v2.17 — 2026-08-24 — CHG-2026-08-24-NO-COVERAGE-BANNER (operator decision; paired with
+#   MockTestExplain v1.43.0; SHARED_RULES_VERSION 1.4 → 1.5; NO engine change). The
+#   S12-4 document-level coverage banner ("COVERAGE: …") is RETIRED from every delivered
+#   _PYQ_Explanation.docx — interim AND final. PYQ-1 no longer calls
+#   explain_engine.set_coverage_banner(); the delivered file's first non-blank body
+#   paragraph is Q.1. Same reasons as the mock side: the operator does not want a
+#   coverage line in the delivered document, and the downstream deliver step
+#   (Framework_PYQDeliver, detect_header_paras — same as MockDeliver S4-2) strips any
+#   non-blank pre-Q.1 paragraph and raises a regression alarm on it. A new §18-1 item
+#   asserts zero banner paragraphs before present_files. Coverage is still stated in
+#   chat (S19-3, F1/F2 footer) and asserted per batch (S4-5 guard 3) — only the in-file
+#   announcement is gone. Engine untouched (BANNER-* fixtures retained, function unused).
 # v2.16 — 2026-08-21 — GAP-2026-08-21-DIFFICULTY-STICKER-LABELS (note-only; §7A
 #   itself unchanged). The v1.1 DELIBERATE DIVERGENCE note's deferred mock-side
 #   difficulty treatment is RESOLVED under the adopted contract: both pipelines
@@ -1599,30 +1611,26 @@ label = assess_difficulty(
   • COUNT INVARIANTS: output question count, options/question, image count,
     table count and OMML count == the Row file input exactly.
 
-## S12-4 — INTERIM COVERAGE BANNER (vv2.9 — the artefact declares its own state)
-  EVERY delivered .docx carries a DOCUMENT-LEVEL coverage banner as its first line,
-  written via explain_engine.set_coverage_banner() (engine v2.4).
-  WHY THIS EXISTS. Coverage was announced only in the chat progress line, so the FILE
-  said nothing about itself. A partially-explained paper — a legitimate mid-run
-  artefact under the batch law — is byte-for-byte indistinguishable from a finished
-  one the moment it leaves the conversation. In the reference incident a Batch-1 file
-  carrying 10 of 60 explanations was reviewed by a third party as a completed
-  document, and the review's central complaint was simply the 50 questions the batch
-  had not reached yet. The chat line was correct and did not travel with the file.
-  CONTENT — MANDATE-0 SAFE, counts and ranges ONLY, never stem or answer text:
-    interim : "Batch k of K - Q[a]..Q[b] explained of [Q_TOTAL]. NOT FINAL - further
-               batches pending."
-    final   : "Complete - all [Q_TOTAL] questions explained."
-  The banner is REPLACED each batch, never stacked (set_coverage_banner is
-  idempotent), and the final batch overwrites the interim wording.
-  WHY IT NEEDED ENGINE SUPPORT, not spec text alone: a banner is framework-added
-  content, not paper content, so strip_solutions() MUST remove it — otherwise the
-  questions-only copy differs from the Step-7 source and the §12-3 re-audit fails.
-  That was verified empirically before this rule was written: with the banner present
-  and unstripped, verify_fidelity still PASSES (the banner sits outside every question
-  region) while the strip comparison FAILS. Engine v2.4 strips it; the self-test
-  BANNER-STRIPPED-CLEAN locks that, and BANNER-GATES-UNAFFECTED locks that fidelity,
-  structure and explanation verification are all undisturbed by its presence.
+## S12-4 — NO COVERAGE BANNER (v2.17 — RETIRED; operator decision)
+  The delivered _PYQ_Explanation.docx carries NO document-level coverage banner — not
+  on an interim batch, not on the final one. PYQ-1 NEVER calls
+  explain_engine.set_coverage_banner(); the delivered file's first non-blank body
+  paragraph is Q.1 (blank separators before it are fine). Because build_interleaved_docx
+  seeds the clean Row-file source WHOLE every batch (S4-4 C), no banner can exist unless
+  a session writes one — §18-1 asserts that none does.
+  WHERE COVERAGE IS STATED INSTEAD (unchanged): the chat progress line (S19-3), the F1/F2
+  delivery footer (Framework_DeliveryFooter — "batch X of Y"), and the per-batch coverage
+  assertion (S4-5 guard 3 / §18). Only the in-file announcement is gone.
+  HISTORY (record, not instruction). v2.9 introduced the banner for
+  GAP-2026-08-19-INTERIM-ARTEFACT-UNLABELLED: a Batch-1 file carrying 10 of 60
+  explanations was reviewed by a third party as a finished document. The operator has
+  accepted that trade-off (2026-08-24): a partially-explained file forwarded outside the
+  chat is no longer self-labelled. The retirement also removes a cross-step conflict —
+  Framework_PYQDeliver's detect_header_paras() (same net as MockDeliver S4-2) strips
+  every non-blank pre-Q.1 paragraph as an upstream regression and alarms on it, so the
+  mandated final banner was itself a deliver-step finding. Engine v2.4's
+  set_coverage_banner() / strip_solutions() banner handling and the BANNER-* self-test
+  fixtures are retained untouched (no engine change; the function is simply unused).
 
 # ════════════════════════════════════════════════════════════════════════
 # §13 — FIGURAL DEEP-ANALYSIS PROTOCOL (view every image — no exception)
@@ -2088,6 +2096,10 @@ print(fv.vision_report_line(report))
       failing it removed BEFORE this checklist                            (§14-5)
   [ ] count invariants: image / table / OMML / question / option counts == Row file
   [ ] strip-and-re-audit: questions-only copy passes (§12-3)
+  [ ] NO COVERAGE BANNER (v2.17 — §12-4): zero body paragraphs begin with
+      cfg.labels['coverage_banner']; the first non-blank body paragraph of the delivered
+      docx matches cfg.q_re (Q.1). A banner found → remove it (set_coverage_banner(out,
+      cfg, None)), re-build, re-audit — never ship it (the deliver step alarms on it)
   [ ] every CA fact web-verified with a recorded source (§7 / RE-18)
   [ ] derived answers flushed to pyq_answer_keys.json; CA three-way binding holds
   [ ] coverage assertion (S4-5 guard 3): exactly Q1..last(batch k)
@@ -2449,7 +2461,13 @@ present_files(deliverables)
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
-# SHARED_RULES_VERSION: 1.4 (2026-08-21)
+# SHARED_RULES_VERSION: 1.5 (2026-08-24)
+#
+# SHARED-RULES BUMP (v1.5, 2026-08-24): CHG-2026-08-24-NO-COVERAGE-BANNER changed one
+#   shared §4–§18 section in BOTH files — §12 (S12-4 retired: no document-level coverage
+#   banner, interim or final) — and added the matching §18-1 "NO COVERAGE BANNER" item
+#   in both. No RE-* rule and no MANDATE changed; no engine change.
+#   MockTestExplain v1.43.0 == PYQExplain v2.17 on every shared rule.
 #
 # SHARED-RULES BUMP (v1.4, 2026-08-21): GAP-2026-08-21-EXPLANATION-PROVENANCE changed
 #   shared §4–§18 sections in BOTH files — §6A (S6A-1b-ii), §7 (S7-7 step 3 mechanical
@@ -2553,5 +2571,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.16
+# END OF Framework_PYQExplain v2.17
 # ════════════════════════════════════════════════════════════════════════
