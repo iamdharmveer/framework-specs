@@ -15,6 +15,25 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.19 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestExplain v1.44.0,
+#   MockTestCreate v5.71, MockDeliver v1.14.0). NEW GATE A-DGATE: the
+#   registry.difficulty_gate record was read by four steps and written by three
+#   and audited by NOTHING — a TestCreateRepair session wrote repair_rounds_used=1
+#   on a still-FAILED record and the corruption surfaced only when a later
+#   preflight refused with the wrong remedy. A-DGATE certifies EVERY record in
+#   --registry: (1) (status, repair_rounds_used) is one of the six legal pairs
+#   (DG-INVARIANT: FAILED ⇒ 0); (2) DORMANT carries a recognised dormant_reason;
+#   (3) FAILED/DISCLOSED carry bands whose totals sum to blueprint.total_questions
+#   (when a blueprint is supplied); (4) FAILED carries a non-empty rework_qs
+#   within 1..total; (5) rework_stem_hashes, when present, keys exactly rework_qs and
+#   baseline_stem_hashes, when present, covers them;
+#   (6) a scoped paper_id is never PENDING (it is born DORMANT). Armed by
+#   --registry alone (the S13-4c re-sweep supplies it); dormant-but-reported
+#   otherwise. SELF-CONTAINED — the legal-state table is mirrored here, not
+#   imported, so the per-exam copy has zero new deps; the self-test asserts the
+#   mirror equals pp.DG_LEGAL_STATES when paper_pipeline is importable. Eight
+#   fixtures, one per FAIL arm, so the mutation auditor kills every mutant.
 # v2.18 — 2026-08-25 — GAP-2026-08-25-BLUEPRINT-PHASE1 DEF-06 (paired with
 #   Framework_Blueprint v1.56.0 §8-5 Step 8A). --self-test now PROBES
 #   `import blueprint_core` FIRST and ABORTS (exit 2, "SELF-TEST: ABORT") when the
@@ -3711,6 +3730,7 @@ def run_audit(args):
     _safe_gate('A-OPTDOMAIN', gate_optdomain, blocks, src)
     _safe_gate('A-HEADER', gate_header, doc, blocks, src)
     _safe_gate('A-QINDEX', gate_qindex, src)   # v2026.08.10 — engine FK gate; dormant unless --registry+--blueprint+--mockN
+    _safe_gate('A-DGATE', gate_dgate, src)     # v2.19 — difficulty_gate record legality; dormant unless --registry
     rc = print_results()
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
     if getattr(args, 'audit_state', None):
@@ -3892,6 +3912,81 @@ def gate_qindex(src):
     else:
         _ok('A-QINDEX', f'question_index FK-certified for {pid} '
                         f'({len(qs)} questions, all ids in blueprint)')
+
+
+# ── A-DGATE (v2.19 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER) ──────────────
+# MIRROR of paper_pipeline Cluster DG's legal table. Self-contained on purpose (the
+# per-exam copy runs with no engine beside it); the self-test asserts parity with
+# pp.DG_LEGAL_STATES whenever paper_pipeline is importable, so the two cannot drift.
+_DG_MAX_ROUNDS = 1
+_DG_LEGAL = {('PENDING', 0), ('FAILED', 0), ('DORMANT', 0), ('PASSED', 0),
+             ('PASSED', 1), ('DISCLOSED', 1)}
+_DG_DORMANT_REASONS = ('no_difficulty_labels', 'vocabulary_not_3_band',
+                       'blueprint_core_unavailable', 'scoped_paper')
+
+
+def gate_dgate(src):
+    """A-DGATE — certify every registry.difficulty_gate record. See the v2.19 header
+    entry for the six checks. FAIL names the paper_id and the exact field."""
+    reg = src.get('registry') or {}
+    if not reg:
+        _ok('A-DGATE', 'dormant (needs --registry; armed at Final Assembly re-sweep S13-4c)')
+        return
+    records = reg.get('difficulty_gate') or {}
+    if not records:
+        _ok('A-DGATE', 'no difficulty_gate records (legacy registry) — nothing to certify')
+        return
+    tq = (src.get('blueprint') or {}).get('total_questions') or src.get('total_questions')
+    bad = []
+    for pid, rec in records.items():
+        st = rec.get('status')
+        try:
+            n = int(rec.get('repair_rounds_used') or 0)
+        except (TypeError, ValueError):
+            n = -1
+        if (st, n) not in _DG_LEGAL:
+            bad.append(f"{pid}: ILLEGAL state status={st!r} repair_rounds_used={n} "
+                         f"(legal: PENDING/0 FAILED/0 DORMANT/0 PASSED/0 PASSED/1 DISCLOSED/1; "
+                         f"FAILED implies 0 — the round is unconsumed; run "
+                         f"`python3 final_assembly.py --dg-fleet-scan`)")
+            continue
+        if st == 'DORMANT' and rec.get('dormant_reason') not in _DG_DORMANT_REASONS:
+            bad.append(f"{pid}: DORMANT without a recognised dormant_reason "
+                         f"(got {rec.get('dormant_reason')!r})")
+        if st in ('FAILED', 'DISCLOSED'):
+            bands = rec.get('bands') or {}
+            if not bands:
+                bad.append(f"{pid}: status {st} but no bands recorded")
+            elif tq and sum(int((b or {}).get('total') or 0) for b in bands.values()) != int(tq):
+                bad.append(f"{pid}: band totals sum to "
+                             f"{sum(int((b or {}).get('total') or 0) for b in bands.values())}, "
+                             f"blueprint.total_questions is {tq}")
+        if st == 'FAILED':
+            rq = rec.get('rework_qs') or []
+            if not rq:
+                bad.append(f"{pid}: FAILED with an empty rework_qs — nothing to repair "
+                             f"is not a FAILED verdict")
+            elif tq and any(not (1 <= int(q) <= int(tq)) for q in rq):
+                bad.append(f"{pid}: rework_qs {rq} outside 1..{tq}")
+        snap = rec.get('rework_stem_hashes')
+        if snap:
+            _sk = set(str(q) for q in snap)
+            _rk = set(str(q) for q in (rec.get('rework_qs') or []))
+            if _sk != _rk:
+                bad.append(f"{pid}: rework_stem_hashes keys != rework_qs "
+                             f"(extra in snapshot: {_sk - _rk or '{}'}; "
+                             f"missing from snapshot: {_rk - _sk or '{}'})")
+        base = rec.get('baseline_stem_hashes')
+        if base and snap and not set(str(q) for q in snap) <= set(str(q) for q in base):
+            bad.append(f"{pid}: baseline_stem_hashes does not cover every rework_qs "
+                       f"question — the §S16-3 snapshot is partial")
+        if st == 'PENDING' and not str(pid).startswith('MOCK:'):
+            bad.append(f"{pid}: a SCOPED paper is PENDING — it is born DORMANT/scoped_paper "
+                         f"and can never be resolved by the MOCK-ONLY gate")
+    if bad:
+        _fail('A-DGATE', '; '.join(bad))
+    else:
+        _ok('A-DGATE', f'{len(records)} difficulty_gate record(s) in a legal state')
 
 
 def print_results():
@@ -4642,6 +4737,58 @@ def self_test():
           'gate_qindex' in _runner and "'A-QINDEX'" in _runner)
     check('A-QINDEX-runner-passes-_mockN-through',
           "src['_mockN'] = args.mockN" in _runner)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # A-DGATE (v2.19 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER)
+    #   One fixture per FAIL arm; the first is the incident verbatim.
+    def _dg_run(records, tq=2):
+        _reset()
+        gate_dgate({'registry': {'difficulty_gate': records}, 'blueprint': {'total_questions': tq}})
+        return [(l, c, m) for l, c, m in RESULTS if c == 'A-DGATE']
+    _DGB = {'Easy': {'total': 1, 'agree': 0}, 'Hard': {'total': 1, 'agree': 1}}
+    _DG_OK = {'MOCK:M01': {'status': 'FAILED', 'repair_rounds_used': 0, 'bands': _DGB,
+                           'rework_qs': [1], 'rework_stem_hashes': {'1': 'h'}},
+              'MOCK:M02': {'status': 'PASSED', 'repair_rounds_used': 1},
+              'SUBJ:X:01': {'status': 'DORMANT', 'repair_rounds_used': 0,
+                            'dormant_reason': 'scoped_paper'}}
+    check('A-DGATE-legal-set-certifies', [l for l, _, _ in _dg_run(_DG_OK)] == ['OK'])
+    _dg_inc = _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], repair_rounds_used=1)})
+    check('A-DGATE-incident-FAILED-1-FAILS', [l for l, _, _ in _dg_inc] == ['FAIL'] and 'ILLEGAL' in _dg_inc[0][2])
+    check('A-DGATE-dormant-without-reason-FAILS',
+          [l for l, _, _ in _dg_run({'M': {'status': 'DORMANT', 'repair_rounds_used': 0}})] == ['FAIL'])
+    check('A-DGATE-failed-without-bands-FAILS',
+          [l for l, _, _ in _dg_run({'M': {'status': 'FAILED', 'repair_rounds_used': 0, 'rework_qs': [1]}})] == ['FAIL'])
+    check('A-DGATE-band-total-mismatch-FAILS',
+          [l for l, _, _ in _dg_run({'MOCK:M01': _DG_OK['MOCK:M01']}, tq=5)] == ['FAIL'])
+    check('A-DGATE-failed-empty-rework-FAILS',
+          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_qs=[], rework_stem_hashes={})})] == ['FAIL'])
+    check('A-DGATE-rework-out-of-range-FAILS',
+          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_qs=[9], rework_stem_hashes={'9': 'h'})})] == ['FAIL'])
+    check('A-DGATE-snapshot-keys-mismatch-FAILS',
+          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_stem_hashes={'2': 'h'})})] == ['FAIL'])
+    check('A-DGATE-baseline-partial-FAILS',
+          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], baseline_stem_hashes={'2': 'h'})})] == ['FAIL'])
+    check('A-DGATE-baseline-full-certifies',
+          [l for l, _, _ in _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], baseline_stem_hashes={'1': 'h', '2': 'h'})})] == ['OK'])
+    check('A-DGATE-scoped-PENDING-FAILS',
+          [l for l, _, _ in _dg_run({'SUBJ:X:01': {'status': 'PENDING', 'repair_rounds_used': 0}})] == ['FAIL'])
+    check('A-DGATE-legacy-registry-OK', [l for l, _, _ in _dg_run({})] == ['OK'])
+    _reset(); gate_dgate({'registry': {}})
+    check('A-DGATE-unarmed-is-dormant-OK-and-says-so',
+          [(l, 'dormant' in m) for l, c, m in RESULTS if c == 'A-DGATE'] == [('OK', True)])
+    check('A-DGATE-is-wired-into-run_audit', 'gate_dgate' in _runner and "'A-DGATE'" in _runner)
+    try:
+        import paper_pipeline as _pp_dg
+        check('A-DGATE-mirror-equals-pp.DG_LEGAL_STATES',
+              set(_pp_dg.DG_LEGAL_STATES) == _DG_LEGAL
+              and tuple(_pp_dg.DG_DORMANT_REASONS) == _DG_DORMANT_REASONS
+              and _pp_dg.DG_MAX_REPAIR_ROUNDS == _DG_MAX_ROUNDS)
+        import blueprint_core as _bc_dg
+        check('A-DGATE-pp-constants-mirror-blueprint_core',
+              _bc_dg.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS == _pp_dg.DG_MAX_REPAIR_ROUNDS
+              and abs(_bc_dg.DIFFICULTY_GATE_MAX_DISAGREE_FRAC - _pp_dg.DG_DEFAULT_THRESHOLD) < 1e-9)
+    except ImportError:
+        check('A-DGATE-mirror-equals-pp.DG_LEGAL_STATES [paper_pipeline absent: skipped]', True)
 
     # QINDEX PARITY — gate_qindex is a deliberate second implementation of
     # paper_pipeline.validate_question_index (its docstring pins the reason: the

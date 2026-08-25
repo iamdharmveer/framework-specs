@@ -1,5 +1,57 @@
 # Changelog
 
+## 2026.08.25.3 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER: difficulty-gate record behind a single writer; legal state machine; DORMANT written; fleet heal
+
+**paper_pipeline v5.71 (+Cluster DG, self-test 90→144) · final_assembly v5.58 (117→120) ·
+audit_canonical v2.19 (+A-DGATE, 261→277) · Framework_MockTestExplain v1.43.0→v1.44.0 ·
+Framework_MockTestCreate v5.70→v5.71 · Framework_MockDeliver v1.13.0→v1.14.0 ·
+Framework_DeliveryFooter v1.24→v1.25. No routes, no triggers; difficulty_gate schema 1→2
+(auto-upgraded on first read). P0 — terminal deadlock, deterministic, every project.**
+
+THE DEFECT. `registry.difficulty_gate[paper_id]` (v1.42.0) was read by four steps and
+written by three as hand-built dicts across two specs and one engine, with no declared
+owner, no legal-state table, no write guard, no auditor and no recovery path. A
+TestCreateRepair session set `repair_rounds_used = 1` while `status` was still `FAILED`
+— a pair no step can produce on purpose (the only writer of `1`, §7A-R, writes it
+atomically with PASSED/DISCLOSED). §7A-R R1 read the counter alone → "go to
+TestDeliver"; MockDeliver 3b read the status alone → "go to CreateRepair";
+TestCreateRepair refused "consumed" → no exit. A completed 60-question paper and its
+explanation run were unrecoverable without a manual registry edit. Two defects of the
+same class fired WITHOUT any repair: final_assembly stamped every paper PENDING with no
+mock/scoped condition while §7A-M is MOCK-ONLY (every scoped paper undeliverable), and a
+DORMANT gate wrote nothing (every non-3-band exam undeliverable). `§FOOTER-DG` was
+referenced by MockDeliver and defined nowhere.
+
+THE FIX, three layers.
+(1) ENGINE — one writer. paper_pipeline Cluster DG: `dg_stamp_pending` (Step 7 birth;
+mock → PENDING/0, scoped → DORMANT/scoped_paper), `dg_write_verdict` (Step 9 only; the
+ONLY writer of status + counter, always together, validated against the six generated
+legal states, round-monotonic so a full re-explain cannot grant a second round, carries
+rework_stem_hashes/migrations forward), `dg_add_rework_snapshot` (Step 7-repair only;
+write-once; cannot touch status/counter). `(FAILED, 1)` is UNWRITABLE. `dg_preflight`
+opens every preflight: heals a corrupt pair per DG-INVARIANT (FAILED ⇒ 0) with a
+mandatory disclosure, raises on an unknown status. `dg_next_step` is the single source
+of every next-step command; `dg_deliver_decision` encodes Step 11's table;
+`dg_footer_lines` is §FOOTER-DG; `dg_stem_hash` / `dg_verify_repair` are the one R3
+digest (previously unspecified and contradictory); the §S16-3 snapshot now also carries a
+write-once `baseline_stem_hashes` for every question so R3 can prove no unflagged question
+was touched. A DORMANT re-run never erases a post-repair terminal verdict. `python3 final_assembly.py
+--dg-fleet-scan ROOT [--apply]` heals every *_registry.json with a .bak and a
+migrations[] trail (cohorts A/B of the gap).
+(2) SPEC — the state machine and DG-INVARIANT are declared in §7A-M; DORMANT is a
+written verdict with a reason; §7A-R branches on the state pair (R0→R1→R2→R3), the
+re-gate write is atomic/terminal/idempotent and logs session_log; §S16-3 carries a
+named ⛔ prohibition on both fields; §S16-1 gains P0; MockDeliver 3b validates first
+then branches on the pair, new DORMANT branch; DeliveryFooter defines §FOOTER-DG.
+(3) AUDIT — audit_canonical A-DGATE certifies every record (legal pair, dormant reason,
+band totals, rework_qs range, snapshot keys, no scoped PENDING), one fixture per FAIL
+arm; the mirror table is parity-checked against pp in the self-test.
+
+OPERATOR DECISIONS ENCODED (from the gap's §13.4): D1 scoped papers are DORMANT, not
+gated; D2 DORMANT delivers with a footer line; D3 heal at preflight with mandatory
+disclosure (never silent, never manual); D4 MAX_REPAIR_ROUNDS stays 1, table generated
+from it; D5 PENDING stays the mock birth state; D6 migrations[] is permanent.
+
 ## 2026.08.25.2 — GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION: max-compression governor + canonical output naming; bootstrap provisions the quantizer binaries
 
 **Framework_PYQCompress v1.1.1 -> v2.0.0 · corpus_io v1.13 · blueprint_core (+MAX_TIER,

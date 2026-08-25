@@ -1,4 +1,24 @@
-# Framework_MockTestCreate v5.70
+# Framework_MockTestCreate v5.71
+# v5.71 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestExplain v1.44.0,
+#   MockDeliver v1.14.0, DeliveryFooter v1.25, audit_canonical v2.19). P0. A
+#   TestCreateRepair session, while adding rework_stem_hashes at §S16-3, ALSO set
+#   repair_rounds_used=1 on the still-FAILED difficulty_gate record — a pair no step
+#   can produce on purpose — and deadlocked TestExplainRepair, TestDeliver and this
+#   step's own §S16-1 P1 ("consumed") with no exit. The only guard was the clause
+#   "UNTOUCHED except adding rework_stem_hashes", one line of prose next to this
+#   step's own `'round': 1` session_log entry and "REPAIR COMPLETE" print. FIX: §S16-3
+#   writes the snapshot ONLY through pp.dg_add_rework_snapshot (write-once; cannot
+#   touch status or the counter; refuses off a FAILED record) using the ONE shared
+#   digest pp.dg_stem_hash (raw first paragraph, label included — the algorithm §7A-R
+#   R3 also calls, previously unspecified and described two contradictory ways); a
+#   named ⛔ prohibition on both fields replaces the exception clause; §S16-1 gains P0
+#   = pp.dg_preflight (heals a corrupt record with mandatory disclosure, refuses an
+#   unknown status) and P1 branches on the state PAIR with every next step from
+#   pp.dg_next_step. Engine twin: final_assembly v5.58 stamps the birth record via
+#   pp.dg_stamp_pending (mock → PENDING, scoped → DORMANT/scoped_paper — every scoped
+#   paper was previously born PENDING and undeliverable). Superseded v5.59 entry moved
+#   verbatim to SPEC_HISTORY.md (EC-P42).
 # v5.70 — 2026-08-24 — CHG-2026-08-24-FIG-NOLABEL + GAP-2026-08-24-MATH-RESIDUE-SHIPPED
 #   (paired with audit_canonical v2.17). Two operator-driven fixes, both measured on
 #   the delivered IIT_JAM_CHEMISTRY Mock 01 and both exam-agnostic (~200 exams).
@@ -161,32 +181,6 @@
 #   LEVEL ANCHOR: step/concept units are level-relative (bp_level + the subtopic's
 #   PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge = recall (0 steps),
 #   so one rubric serves grade-10 through post-graduation with honest labels.
-# v5.59 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paper_pipeline v5.39,
-#   final_assembly v5.55, corpus_io v1.12; paired with MockTestExplain v1.37.0 / engine
-#   v2.8). A delivered Mock 01 was CREATED with key 2 on a figural question (salicylic
-#   acid: carboxyl + phenol) and EXPLAINED with key 1 — Step 9 misread the hand-drawn
-#   structure, both its derivations shared the misread, and nothing compared the two
-#   steps because the key never leaves Step 7 by design. Two creation-side gaps made
-#   that silent: (1) the registry carried no trace of the key Step 7 held, so no
-#   downstream step could reconcile against it without seeing plaintext; (2) a
-#   chemical structure was drawn by HAND-PLACED bonds (`cd.ring_pts`, `cd.bond`) with
-#   NO machine-readable record of what it depicted — figural_manifests.object_types was
-#   empty and Step 9's §13-3 manifest cross-check had nothing to compare. FIXES:
-#   (a) KEY COMMITMENTS — S13-4 passes the answer_key sidecar to fa.commit_registry
-#       (answer_key=…) which writes registry.key_commitments[paper_id] = salted sha256
-#       of every canonical answer (mcq '2' · msq '2,3' · NAT grading string). No
-#       plaintext enters the registry; Step 9 hashes its OWN derived answers and
-#       compares (Explain §7-8). S13-REGCHECK gate G-KEYCOMMIT refuses a commit without
-#       them. ZERO new operator deliverables — the registry is already uploaded.
-#   (b) SEMANTIC OBJECTS — NEW S7-NEW-B2: every generated figure registers what it
-#       DEPICTS (paper_pipeline.validate_semantic_object; kind STRUCTURE / REACTION
-#       carries canonical SMILES) in fig_manifest questions[q].semantic_objects; S13-4
-#       commits them to figural_manifests[].semantic_objects. A STRUCTURE figure is
-#       RENDERED FROM ITS SMILES through corpus_io.structure_draw_fn inside
-#       figural_core.render_figure (verified: passes the v5.57 fit census and G-FIGINK
-#       unchanged) — the image and its registration are ONE artefact, so a figure can
-#       no longer disagree with its own identity. Hand-placed bonds for a STRUCTURE are
-#       a G-FIGSEM defect. EC-V18: a registry without either field is read unchanged.
 # v5.58 — 2026-08-20 — GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL (blueprint_core
 #   +1 fixture). A paper whose blueprint predates Blueprint v1.45 renders ZERO figures
 #   against a real Axis-1 budget, on every mock, silently. S7-NEW-B0 reads the per-mock
@@ -8437,10 +8431,22 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
   PREFLIGHT (HARD STOP on any failure — malformed-input stops are exempt
   from the no-stop rule, which governs gate VERDICTS only):
-    P1  registry['difficulty_gate'][paper_id] exists, status == 'FAILED',
-        repair_rounds_used == 0. Absent → "This paper has no gate record —
-        run TestExplain P[N] first (or this is a legacy paper; deliver as
-        usual)." PASSED/DISCLOSED/consumed → name the correct next step.
+    P0  rec, disclosure = pp.dg_preflight(reg, paper_id, where='S16-1 P0')
+        (v5.71 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER). Runs FIRST.
+        A corrupt (status, repair_rounds_used) pair is healed per
+        DG-INVARIANT and disclosure is printed VERBATIM in chat (never
+        silent); the registry is persisted with the S16-3 commit. A
+        DGIllegalState (unknown status) is a HARD STOP — print its message
+        verbatim; never proceed on an illegal record.
+    P1  BRANCH ON THE STATE PAIR pp.dg_state(rec), never on one field.
+        Absent → "This paper has no gate record — run TestExplain P[N] first
+        (or this is a legacy paper; deliver as usual)."
+        ('FAILED', 0) → PROCEED.
+        Any other legal pair → "Nothing to repair — next step: " +
+        pp.dg_next_step(reg, paper_id, N, mock=<Mock* trigger>) — the SAME
+        function Step 9 and Step 11 print from, so this step can never name a
+        next step that refuses. (Legal pairs and the state machine:
+        MockTestExplain §7A-M "THE RECORD IS SINGLE-WRITER".)
     P2  THE Q-LIST OF RECORD IS THE REGISTRY'S rework_qs — the operator's
         typed list is a CONFIRMATION, not a selection. Empty typed list →
         use rework_qs verbatim. Typed list ≠ subset of rework_qs → HARD
@@ -8484,10 +8490,42 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     key_commitments[q]     → re-sealed for the new answer (fresh salt)
     options_by_q, figural manifests, image phashes
                            → updated for q only
-    difficulty_gate record → UNTOUCHED except adding
-                             'rework_stem_hashes': {q: sha256(old stem)}
-                             (written BEFORE overwriting stem_texts — §7A-R
-                             R3 verifies the repaired paper against these)
+    difficulty_gate record → pp.dg_add_rework_snapshot(reg, paper_id,
+                             {q: H(q) for q in rework_qs},
+                             all_stem_hashes={q: H(q) for q in 1..N})
+                             where H(q) = pp.dg_stem_hash(<old first-paragraph
+                             text of q, raw, "Q.<n>" label included>). The
+                             all-question baseline is what lets §7A-R R3 prove
+                             NO question outside rework_qs was touched;
+                             and NOTHING ELSE, called BEFORE stem_texts is
+                             overwritten (§7A-R R3 verifies the repaired
+                             paper against this PRE-repair snapshot). The
+                             helper is WRITE-ONCE — a re-run of this step
+                             returns the original snapshot and never hashes
+                             the already-repaired stems — and refuses unless
+                             the record is a legal FAILED state.
+
+      ⛔ THIS STEP NEVER WRITES `status` AND NEVER WRITES
+         `repair_rounds_used` — not by hand, not "defensively", not to mark
+         the round complete. Both belong to Step 9 alone
+         (Framework_MockTestExplain §7A-M / §7A-R), which writes them
+         TOGETHER in one atomic pp.dg_write_verdict call. Setting
+         repair_rounds_used here — however natural it looks next to this
+         step's own `'round': 1` session_log entry and its "REPAIR COMPLETE"
+         print — produced status=FAILED + rounds=1: a pair no step can
+         produce on purpose, which DEADLOCKED TestExplainRepair, TestDeliver
+         and TestCreateRepair with no exit and cost a completed 60-question
+         paper plus its full explanation run
+         (GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER). paper_pipeline
+         Cluster DG now enforces this mechanically: pp.dg_add_rework_snapshot
+         cannot touch either field, and pp.dg_write_verdict refuses the pair.
+         audit_canonical A-DGATE (armed by --registry at the S13-4c
+         re-sweep) FAILS the audit on any record outside the six legal
+         states.
+
+      NOTE — this step's `'round': 1` session_log entry counts THIS step's
+      regeneration runs. It is NOT the difficulty-gate repair-round counter
+      and the two are never reconciled with each other.
     Every other question's data: byte-identical. The S13 ledger gains a
     'repair' session_log entry (round 1, qs listed).
   DELIVERABLE: the full re-assembled question paper docx (all 60 questions,
@@ -8503,7 +8541,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
            TestExplainRepair P[N]
       ════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestCreate v5.70
+# END OF Framework_MockTestCreate v5.71
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

@@ -1,4 +1,18 @@
-# Framework_MockDeliver v1.13.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.14.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.14.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, MockTestExplain v1.44.0, MockTestCreate v5.71,
+#   DeliveryFooter v1.25). P0. S1-2 3b branched on `status` alone and ignored
+#   repair_rounds_used; §7A-R R1 branched on the counter alone and ignored status.
+#   On a corrupt (FAILED, 1) record each sent the operator to the other — no exit.
+#   3b now opens with pp.dg_preflight (heals a corrupt pair per DG-INVARIANT with a
+#   mandatory chat + footer disclosure; hard-stops on an unknown status), then acts
+#   on pp.dg_deliver_decision — the branch table is encoded once in the engine and
+#   every next-step command is pp.dg_next_step, the function Step 9 prints from.
+#   NEW branch ('DORMANT', 0) → deliver with a dormancy footer line: a dormant gate
+#   previously wrote nothing, the record stayed PENDING and every scoped paper /
+#   non-3-band exam was undeliverable. §FOOTER-DG (referenced since v1.13.0, defined
+#   nowhere) is now defined in DeliveryFooter v1.25 as pp.dg_footer_lines. Superseded
+#   v1.12.1 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
 # v1.13.0 — 2026-08-24 — GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING (paired with MockTestExplain v1.42.0,
 #   MockTestCreate v5.69). S1-2 gains item 3b: delivery reads
 #   registry.difficulty_gate — PENDING/FAILED hard-stop with the exact next
@@ -18,9 +32,6 @@
 #   new rule but the removal of the redundant second version string: the prose marker
 #   now closes the body WITHOUT restating a version, so there is no second version
 #   string left to drift. The canonical sentinel remains the single source.
-# v1.12.1 — 2026-08-13 — SYNC AUDIT ROUND 2: gate-count prose fix. §2 item 4 said "All 16
-#   audit gates" while §6 is headed "all 17 must PASS" and runs C1–C17 (C17 = NAT charset).
-#   Prose corrected to 17; no gate logic changed.
 # [ExamCode] project | Step 11 (MockDeliver) | Exam-agnostic
 #
 #
@@ -244,21 +255,49 @@ Parse:
    finding above when mock N is in the ledger (data loss — remedy: re-run
    Step 7 for Mock [N]); otherwise:
    3b. DIFFICULTY GATE VERDICT (v1.13.0 — GAP-2026-08-24-DIFFICULTY-GATE-
-       BLOCKING). Read registry['difficulty_gate'][paper_id]:
-         ABSENT      → LEGACY paper (pre-gate). Deliver exactly as before —
-                       operator decision 2026-08-24: old papers untouched.
-         'PENDING'   → Step 9 never ran its gate. HARD STOP:
-                       "This paper has not passed the difficulty check.
-                        Run:  TestExplain P[N]   (attach the question paper)
-                        then return here."
-         'FAILED'    → HARD STOP, reprinting Step 9's two repair commands
-                       verbatim (TestCreateRepair P[N] Q… → TestExplainRepair
-                       P[N]) and the ⛔ DO-NOT-DELIVER line.
-         'PASSED'    → proceed; no extra footer text.
-         'DISCLOSED' → proceed; §FOOTER-DG adds ONE line to the delivery
-                       footer, built from bands:
-                       "Measured difficulty: Easy a/n · Medium b/m ·
-                        Hard c/h confirmed after 1 repair round."
+       BLOCKING; v1.14.0 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER:
+       validate first, then branch on the STATE PAIR, all via paper_pipeline
+       Cluster DG — never a hand-written branch on one field).
+       FIRST:
+         rec, disclosure = pp.dg_preflight(reg, paper_id, where='S1-2 3b')
+       An illegal (status, repair_rounds_used) pair is healed per DG-INVARIANT
+       and disclosure['line'] is printed VERBATIM in chat; the healed registry
+       is re-presented with the deliverables (§FOOTER-DG also prints it from
+       rec['migrations']). A DGIllegalState (unknown status) HARD-STOPS with
+       its message verbatim. An illegal record must NEVER be silently read as
+       one of the branches below.
+       THEN:
+         d = pp.dg_deliver_decision(reg, paper_id, N, mock=<Mock* trigger>)
+       and act on it — d is the verdict, this table is what it encodes:
+         absent            → LEGACY paper (pre-gate). Deliver exactly as
+                             before — operator decision 2026-08-24.
+         ('PENDING',   0)  → HARD STOP: "This paper has not passed the
+                             difficulty check. Run: " + d['next_step'] + "
+                             then return here."
+         ('FAILED',    0)  → HARD STOP, printing d['next_step'] verbatim
+                             (TestCreateRepair P[N] Q… → TestExplainRepair
+                             P[N]) and the ⛔ DO-NOT-DELIVER line.
+         ('PASSED',    0)  → proceed; no extra footer text.
+         ('PASSED',    1)  → proceed; no extra footer text.
+         ('DISCLOSED', 1)  → proceed; §FOOTER-DG prints d['footer_lines']:
+                             "Measured difficulty: Easy a/n · Medium b/m ·
+                              Hard c/h confirmed after 1 repair round."
+         ('DORMANT',   0)  → PROCEED; §FOOTER-DG prints d['footer_lines']:
+                             "Difficulty gate: not applicable to this paper
+                              ([dormant_reason]) — labels are as planned at
+                              Step 7." NEW in v1.14.0: before this, a dormant
+                             gate wrote nothing, the record stayed PENDING and
+                             the paper could never be delivered (every scoped
+                             paper, every non-3-band exam, every session
+                             without blueprint_core).
+       These six pairs (plus absent) are the ONLY states pp.DG_LEGAL_STATES
+       admits; the
+       preflight guarantees no other reaches this table. `bands` is read ONLY
+       on DISCLOSED (a PENDING or DORMANT record legitimately carries none —
+       schema 2 makes the shape a function of status); dg_footer_lines already
+       honours that. d['next_step'] is pp.dg_next_step — the same function
+       Step 9 prints from — so the command printed here is one the named step
+       accepts.
        The gate reads ONLY the registry — never the chat transcript — so a
        skipped or re-ordered session cannot out-talk the record.
 
@@ -1792,4 +1831,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.13.0
+# END OF Framework_MockDeliver v1.14.0

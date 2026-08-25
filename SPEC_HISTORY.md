@@ -146,6 +146,25 @@ Current-version entry remains in Framework_Blueprint.md.
 
 ## Framework_DeliveryFooter.md
 
+Entry v1.23 moved at framework release 2026.08.25.3 (EC-P42; v1.25 supersedes).
+
+```
+# v1.23 — 2026-08-23 — REGISTRY SYNC (Step 6 learnings filename; Step 5 tiers).
+#   MINOR bump: registry/prose only, NO logic changes, NO artefact changes beyond
+#   the filename the Step 6 footer badge table prints.
+#   * §3 STEP 6 B3 still listed [ExamCode]_ExplainLearnings.md; Blueprint v1.50.0
+#     generates [ExamCode]_EXPLAIN_LEARNINGS_v1.md, because the legacy name
+#     matched NO consumer's glob (Steps 7 and 9 load *_EXPLAIN_LEARNINGS_v*.md).
+#     The registry now names the file Step 6 actually emits — a footer that
+#     badges a filename no step produces sends the operator hunting for it.
+#   * §3 STEP 5 FINAL heading said "6 mandatory + taxonomy.xlsx when written",
+#     counting exam_config.json as mandatory while its own list line says
+#     "delivered only when generated". Restated as the two-tier set that
+#     MockTestAnalyse S11-3 and mock_sync_audit MS-11 enforce: 5 mandatory +
+#     2 conditional. Fourth recurrence of the delivery-count-drift class; this
+#     was the last site still carrying a fixed count.
+```
+
 Entry v1.22 moved at framework release 2026.08.24.2 (EC-P42; v1.24 supersedes).
 
 ```
@@ -326,6 +345,14 @@ Current-version entry remains in Framework_DeliveryFooter.md.
 ```
 
 ## Framework_MockDeliver.md
+
+Entry v1.12.1 moved at framework release 2026.08.25.3 (EC-P42; v1.14.0 supersedes).
+
+```
+# v1.12.1 — 2026-08-13 — SYNC AUDIT ROUND 2: gate-count prose fix. §2 item 4 said "All 16
+#   audit gates" while §6 is headed "all 17 must PASS" and runs C1–C17 (C17 = NAT charset).
+#   Prose corrected to 17; no gate logic changed.
+```
 
 Moved from the file header at framework release 2026.08.15.14.
 Current-version entry remains in Framework_MockDeliver.md.
@@ -738,6 +765,37 @@ Current-version entry remains in Framework_MockTestAnalyse.md.
 ```
 
 ## Framework_MockTestCreate.md
+
+Entry v5.59 moved at framework release 2026.08.25.3 (EC-P42; v5.71 supersedes).
+
+```
+# v5.59 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paper_pipeline v5.39,
+#   final_assembly v5.55, corpus_io v1.12; paired with MockTestExplain v1.37.0 / engine
+#   v2.8). A delivered Mock 01 was CREATED with key 2 on a figural question (salicylic
+#   acid: carboxyl + phenol) and EXPLAINED with key 1 — Step 9 misread the hand-drawn
+#   structure, both its derivations shared the misread, and nothing compared the two
+#   steps because the key never leaves Step 7 by design. Two creation-side gaps made
+#   that silent: (1) the registry carried no trace of the key Step 7 held, so no
+#   downstream step could reconcile against it without seeing plaintext; (2) a
+#   chemical structure was drawn by HAND-PLACED bonds (`cd.ring_pts`, `cd.bond`) with
+#   NO machine-readable record of what it depicted — figural_manifests.object_types was
+#   empty and Step 9's §13-3 manifest cross-check had nothing to compare. FIXES:
+#   (a) KEY COMMITMENTS — S13-4 passes the answer_key sidecar to fa.commit_registry
+#       (answer_key=…) which writes registry.key_commitments[paper_id] = salted sha256
+#       of every canonical answer (mcq '2' · msq '2,3' · NAT grading string). No
+#       plaintext enters the registry; Step 9 hashes its OWN derived answers and
+#       compares (Explain §7-8). S13-REGCHECK gate G-KEYCOMMIT refuses a commit without
+#       them. ZERO new operator deliverables — the registry is already uploaded.
+#   (b) SEMANTIC OBJECTS — NEW S7-NEW-B2: every generated figure registers what it
+#       DEPICTS (paper_pipeline.validate_semantic_object; kind STRUCTURE / REACTION
+#       carries canonical SMILES) in fig_manifest questions[q].semantic_objects; S13-4
+#       commits them to figural_manifests[].semantic_objects. A STRUCTURE figure is
+#       RENDERED FROM ITS SMILES through corpus_io.structure_draw_fn inside
+#       figural_core.render_figure (verified: passes the v5.57 fit census and G-FIGINK
+#       unchanged) — the image and its registration are ONE artefact, so a figure can
+#       no longer disagree with its own identity. Hand-placed bonds for a STRUCTURE are
+#       a G-FIGSEM defect. EC-V18: a registry without either field is read unchanged.
+```
 
 Entry v5.66 moved at framework release 2026.08.24.4 (EC-P42; v5.68 supersedes).
 
@@ -1405,6 +1463,39 @@ Current-version entry remains in Framework_MockTestCreate.md.
 ```
 
 ## Framework_MockTestExplain.md
+
+Entry v1.40.0 moved at framework release 2026.08.25.3 (EC-P42; v1.44.0 supersedes).
+
+```
+# v1.40.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R1 (spec-only; no engine, gate-count,
+#   schema or artefact-shape change; zero exam values). Full-line audit of v1.39.0 against
+#   the routed engines, Step 7, Step 11 and PYQExplain. THREE run-breaking defects:
+#   (1) S19-1 check 4 scanned the Solutions docx ITSELF for the BANNED substrings, so any
+#   scoped slug or exam code containing 'state'/'answer'/'key'/'source'/'progress' (e.g.
+#   TOPIC_…_SOLID_STATE_01) HARD-STOPPED every delivery — PYQExplain already excluded its
+#   expected files; Step 9 now scans present − {sol}. (2) §17-3(b) told Step 9 to write a
+#   PLAINTEXT key_corrections.json "which MockDeliver reads": MockDeliver has no reader
+#   (it preserves the docx 'Correct Answer:' line verbatim, C17 charset only), the file is
+#   banned by S19-1 checks 4 and 5, and it re-created the plaintext key the v1.37.0 hashing
+#   design removed. Dropped; RESOLVED_SOURCE now lives in progress.json + §R10 with an
+#   operator EX-rule prompt. (3) P3 typed mcq/msq/nat from per-subtopic section_rules only,
+#   while Step 7 v5.30 / Step 11 v1.7 / audit_canonical v2.9 switch to POSITION-BASED
+#   typing from marking_scheme when it declares >1 question_type — on such an exam every
+#   MSQ-range question was typed mcq. P3 now applies the same mode rule.
+#   DRIFT (each verified against the live engine): §13-2b named paper_pipeline.
+#   canonical_structure (lives in explain_engine; 'rdkit_unavailable' path now specified);
+#   MANDATE A / P1 / S0-1 allowed explain_engine.py from /mnt/project (engines are REPO-ONLY,
+#   sha256-verified — fallback removed); §16-2 still asserted a live Step 10 (retired
+#   v1.21.0); S7-4 claimed byte-identity with two copies that differ in docstrings (logic
+#   verified identical on 19 edge inputs — reworded to logic-identical); S0-2 / MANDATE 0 /
+#   P2 named the output Mock[N] where S19 uses [paper_slug]; §18-1 cited 'Step8_source' and
+#   '(§13)' for the §11 degrade ledger; §6A-3 / §R3 omitted CONFORMER from the visual
+#   verdicts the engine enforces; §6A-6 sent renderer preflight to 'P0' (trigger detection)
+#   — now an explicit P1 sub-step with its dashboard line, plus the §7A-M line P2 lacked;
+#   S19-1 gated on SELF_AUDIT_CLEAN / COVERAGE_OK that nothing set — S4-4 D now sets them;
+#   §21 items 16/19/17/18 renumbered. Superseded v1.38.0 entry moved verbatim to
+#   SPEC_HISTORY.md (EC-P42).
+```
 
 Entry v1.39.0 moved at framework release 2026.08.24.3 (EC-P42; v1.41.0 supersedes).
 

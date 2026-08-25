@@ -1,4 +1,34 @@
-# Framework_MockTestExplain v1.43.0
+# Framework_MockTestExplain v1.44.0
+# v1.44.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestCreate v5.71,
+#   MockDeliver v1.14.0, DeliveryFooter v1.25, audit_canonical v2.19 A-DGATE).
+#   P0 DEADLOCK. registry.difficulty_gate[paper_id] was read by four steps and written
+#   by three (final_assembly, §7A-M, §7A-R) as hand-built dicts across two specs and
+#   one engine, with no owner, no legal-state table, no write guard, no auditor and
+#   no recovery path. A TestCreateRepair session set repair_rounds_used=1 on a
+#   still-FAILED record; §7A-R R1 read the counter alone ("round used → TestDeliver"),
+#   Step 11 read the status alone (FAILED → CreateRepair), TestCreateRepair refused
+#   ("consumed") — no exit; a finished 60-question paper + explanation run lost. Two
+#   more defects of the same class fired with NO repair: every SCOPED paper was born
+#   PENDING while §7A-M is MOCK-ONLY, and a DORMANT gate wrote nothing — both left
+#   PENDING forever, which Step 11 refuses. FIX: (1) the record is behind ONE writer,
+#   pp Cluster DG — dg_stamp_pending / dg_write_verdict / dg_add_rework_snapshot —
+#   each validating the (status, rounds) pair against the six generated legal states;
+#   (FAILED,1) is now UNWRITABLE. (2) The legal state machine and DG-INVARIANT
+#   (FAILED ⇒ 0) are declared in §7A-M. (3) Every preflight opens with
+#   pp.dg_preflight, which heals a corrupt record deterministically WITH a mandatory
+#   chat + footer disclosure and refuses an unknown status. (4) §7A-R branches on the
+#   state PAIR and every next-step string is pp.dg_next_step — the function Step 11
+#   prints from — so advice can never name a step that refuses. (5) DORMANT is a
+#   WRITTEN verdict with a reason (incl. scoped_paper); a scoped paper is born DORMANT.
+#   (6) The re-gate write is atomic/terminal/idempotent, logs a session_log entry, and
+#   is round-monotonic (a full re-explain cannot grant a second round). (7) R3 uses
+#   pp.dg_verify_repair against the pre-repair snapshot via the one shared digest
+#   pp.dg_stem_hash; the contradictory stem_texts clause is gone. (8) audit_canonical
+#   A-DGATE certifies every record; §S16-3 also snapshots every question so R3 proves
+#   nothing unflagged changed; `python3 final_assembly.py --dg-fleet-scan ROOT
+#   [--apply]` heals the ~200 existing registries with a .bak and a migrations trail.
+#   Superseded v1.40.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
 # v1.43.0 — 2026-08-24 — CHG-2026-08-24-NO-COVERAGE-BANNER (operator decision; paired with
 #   PYQExplain v2.17, SHARED_RULES_VERSION 1.4 → 1.5; NO engine change). The S12-4
 #   document-level coverage banner ("COVERAGE: Batch k of K …" / "COVERAGE: Complete -
@@ -38,34 +68,6 @@
 #   BEFORE selecting. Also §15-2 now names the engine's record fields for both provenance
 #   modes (the harness's first MODE B block was refused for a field the spec never named).
 #   Superseded v1.39.0 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
-# v1.40.0 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R1 (spec-only; no engine, gate-count,
-#   schema or artefact-shape change; zero exam values). Full-line audit of v1.39.0 against
-#   the routed engines, Step 7, Step 11 and PYQExplain. THREE run-breaking defects:
-#   (1) S19-1 check 4 scanned the Solutions docx ITSELF for the BANNED substrings, so any
-#   scoped slug or exam code containing 'state'/'answer'/'key'/'source'/'progress' (e.g.
-#   TOPIC_…_SOLID_STATE_01) HARD-STOPPED every delivery — PYQExplain already excluded its
-#   expected files; Step 9 now scans present − {sol}. (2) §17-3(b) told Step 9 to write a
-#   PLAINTEXT key_corrections.json "which MockDeliver reads": MockDeliver has no reader
-#   (it preserves the docx 'Correct Answer:' line verbatim, C17 charset only), the file is
-#   banned by S19-1 checks 4 and 5, and it re-created the plaintext key the v1.37.0 hashing
-#   design removed. Dropped; RESOLVED_SOURCE now lives in progress.json + §R10 with an
-#   operator EX-rule prompt. (3) P3 typed mcq/msq/nat from per-subtopic section_rules only,
-#   while Step 7 v5.30 / Step 11 v1.7 / audit_canonical v2.9 switch to POSITION-BASED
-#   typing from marking_scheme when it declares >1 question_type — on such an exam every
-#   MSQ-range question was typed mcq. P3 now applies the same mode rule.
-#   DRIFT (each verified against the live engine): §13-2b named paper_pipeline.
-#   canonical_structure (lives in explain_engine; 'rdkit_unavailable' path now specified);
-#   MANDATE A / P1 / S0-1 allowed explain_engine.py from /mnt/project (engines are REPO-ONLY,
-#   sha256-verified — fallback removed); §16-2 still asserted a live Step 10 (retired
-#   v1.21.0); S7-4 claimed byte-identity with two copies that differ in docstrings (logic
-#   verified identical on 19 edge inputs — reworded to logic-identical); S0-2 / MANDATE 0 /
-#   P2 named the output Mock[N] where S19 uses [paper_slug]; §18-1 cited 'Step8_source' and
-#   '(§13)' for the §11 degrade ledger; §6A-3 / §R3 omitted CONFORMER from the visual
-#   verdicts the engine enforces; §6A-6 sent renderer preflight to 'P0' (trigger detection)
-#   — now an explicit P1 sub-step with its dashboard line, plus the §7A-M line P2 lacked;
-#   S19-1 gated on SELF_AUDIT_CLEAN / COVERAGE_OK that nothing set — S4-4 D now sets them;
-#   §21 items 16/19/17/18 renumbered. Superseded v1.38.0 entry moved verbatim to
-#   SPEC_HISTORY.md (EC-P42).
 # ════════════════════════════════════════════════════════════════════════
 # §0 — INPUT / OUTPUT CONTRACT (read before anything else)
 # ════════════════════════════════════════════════════════════════════════
@@ -1476,7 +1478,7 @@ execution path — it does not shrink, soften or delete them.
   (§17-3b, v1.40.0). key_status per question ∈ MATCH ·
   RESOLVED_SELF · RESOLVED_SOURCE · UNAVAILABLE · DEFECT; unset cannot ship (§18).
 
-## §7A-M — DIFFICULTY GATE (MOCK-ONLY, v1.42.0 — BLOCKING, 1 REPAIR ROUND, THEN DISCLOSE)
+## §7A-M — DIFFICULTY GATE (MOCK-ONLY, v1.42.0 — BLOCKING, 1 REPAIR ROUND, THEN DISCLOSE; v1.44.0 — SINGLE-WRITER RECORD)
 
   WAS advisory ("REPORT, NEVER BLOCK — THE STICKER WINS") until v1.42.0
   (GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING). The v5.60 defect residue: Step 7
@@ -1500,6 +1502,45 @@ execution path — it does not shrink, soften or delete them.
     legacy papers  registry entries with NO difficulty_gate record are
                    pre-gate papers and are NEVER gated retroactively.
 
+  THE RECORD IS SINGLE-WRITER (v1.44.0 — GAP-2026-08-25-DIFFICULTY-GATE-
+  ROUND-COUNTER). registry['difficulty_gate'][paper_id] is machine-read by
+  Step 7-repair (§S16-1), this section, §7A-R and Step 11 (MockDeliver S1-2
+  3b). It is written ONLY through paper_pipeline Cluster DG — NEVER as a
+  hand-built dict, NEVER field-by-field:
+      pp.dg_stamp_pending      Step 7 (final_assembly) — birth only
+      pp.dg_write_verdict      THIS SECTION (rounds=0) and §7A-R (rounds=1) —
+                               the ONLY writer of `status` and
+                               `repair_rounds_used`, always TOGETHER
+      pp.dg_add_rework_snapshot Step 7-repair (§S16-3) — adds ONLY the
+                               pre-repair snapshot (rework_stem_hashes +
+                               baseline_stem_hashes), write-once
+  Every preflight that reads the record opens with pp.dg_preflight(reg,
+  paper_id, where) and every next-step string comes from pp.dg_next_step —
+  no spec restates the rule. The LEGAL STATE MACHINE (pp.DG_LEGAL_STATES,
+  generated from the round limit):
+      (absent)          legacy paper                     Step 11 DELIVERS
+      PENDING   / 0     born; gate has not run           Step 11 HARD STOP → TestExplain
+      PASSED    / 0     gate passed first time           Step 11 DELIVERS
+      FAILED    / 0     gate failed; ONE repair round    Step 11 HARD STOP → CreateRepair → ExplainRepair
+      PASSED    / 1     repaired; re-gate passed         Step 11 DELIVERS
+      DISCLOSED / 1     repaired; re-gate failed         Step 11 DELIVERS + §FOOTER-DG line
+      DORMANT   / 0     gate not applicable              Step 11 DELIVERS + dormancy line
+  DG-INVARIANT: a COMPLETED repair round resolves status away from FAILED in
+  the SAME atomic write that sets repair_rounds_used=1; therefore FAILED ⇒ 0,
+  and any other pair proves the counter was written out of contract and the
+  round is UNCONSUMED. pp.dg_preflight heals such a record deterministically
+  (one field) and RETURNS A DISCLOSURE that MUST be printed in chat and that
+  the delivery footer prints from rec['migrations']. Silent healing is
+  forbidden; disclosed healing is mandatory. An UNKNOWN status is never
+  healed — pp raises DGIllegalState and the run HARD-STOPS with its message.
+  HISTORY, so it is never rediscovered: a TestCreateRepair session set
+  repair_rounds_used=1 on a still-FAILED record (the field sat next to the
+  step's own `'round': 1` session_log entry and its "REPAIR COMPLETE" print);
+  §7A-R R1 then read the counter alone and sent the operator to TestDeliver,
+  Step 11 read the status alone and sent them back to TestCreateRepair, which
+  refused "consumed" — four triggers, no exit, a finished 60-question paper
+  and its full explanation run lost. One clause of prose was the only guard.
+
   MECHANISM (per question, zero extra solving): after §7-8, record what §7-1's
   derive-twice pass revealed, in the SAME observation shape Step 7 stores as
   difficulty_obs (CHECK 3c is the single source for the shape); compute _lab9 =
@@ -1513,27 +1554,63 @@ execution path — it does not shrink, soften or delete them.
   the question AS THE CANDIDATE MEETS IT, which is precisely how it exposes a
   scaffolded "Hard".
 
-  THE GATE (runs once, after the LAST batch of a full Step-9 run; DORMANT — one
-  §R10 line — when the entry has no difficulty labels, the vocabulary is not
-  3-band, blueprint_core is unavailable, or the registry entry has no
-  difficulty_gate record [legacy]):
+  PREFLIGHT (v1.44.0 — before the gate, before the first batch):
+      rec, disclosure = pp.dg_preflight(reg, paper_id, where='§7A-M')
+    If disclosure is not None: print disclosure['line'] verbatim in chat and
+    persist the registry with the S19 write — the record was corrupt and has
+    been healed per DG-INVARIANT; the run continues. rec is None for a LEGACY
+    paper (no record): the gate is DORMANT with reason legacy — write NOTHING
+    (a legacy paper is never gated retroactively; Step 11's ABSENT branch
+    delivers it). A DGIllegalState raised here (unknown status) is a HARD STOP:
+    print its message verbatim and stop.
+
+  DORMANCY IS A WRITTEN VERDICT, NEVER A SILENT SKIP (v1.44.0 —
+  GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER). The gate is DORMANT when ANY
+  of these holds; the reason string is the one pp.DG_DORMANT_REASONS carries:
+    • the question_index entry carries no difficulty labels → 'no_difficulty_labels'
+    • the difficulty vocabulary is not 3-band                → 'vocabulary_not_3_band'
+    • blueprint_core is unavailable in this session          → 'blueprint_core_unavailable'
+    • THE PAPER IS SCOPED (paper_id prefix ≠ 'MOCK') — this
+      section is MOCK-ONLY by title                          → 'scoped_paper'
+  In EVERY dormant case with a record present, Step 9 STILL WRITES:
+      pp.dg_write_verdict(reg, paper_id, status='DORMANT', rounds=0,
+                          dormant_reason=<reason>)
+  plus one §R10 line and the P2 dashboard line. (A scoped paper is ALREADY
+  born DORMANT/scoped_paper by final_assembly v5.58; the write here is the
+  same verdict and is idempotent. A pre-v5.58 scoped paper born PENDING is
+  resolved by exactly this write.)
+  WHY THIS IS MANDATORY. final_assembly stamps every mock 'PENDING' at
+  commit, and MockDeliver S1-2 3b HARD-STOPS on 'PENDING'. A gate that went
+  dormant WITHOUT writing left the paper PENDING forever and it could NEVER
+  be delivered. Measured before this fix: every scoped paper and every exam
+  with a non-3-band difficulty vocabulary was permanently undeliverable, in
+  every project, with no repair path — unnoticed because the fourth dormancy
+  cause (no record at all) is covered by Step 11's ABSENT branch.
+
+  THE GATE (runs once, after the LAST batch of a full Step-9 run, when NOT
+  dormant):
     labels_by_q   = {q: question_index[q].difficulty}
     measured_by_q = {q: _lab9 or None}
     gate = bc.evaluate_difficulty_gate(labels_by_q, measured_by_q,
                                        difficulty_labels)
-    WRITE (registry, atomic with the S19 progress write):
-      registry['difficulty_gate'][paper_id] = {
-        'schema': 1,
-        'status': 'PASSED' if gate['verdict'] == 'PASS' else 'FAILED',
-        'threshold': gate['threshold'],
-        'repair_rounds_used': 0,
-        'bands':   {lab: {k: b[k] for k in
-                          ('total','assessed','agree','disagree','allowed',
-                           'over_limit')} for lab, b in gate['bands'].items()},
-        'measured_by_q': {str(q): m for q, m in measured_by_q.items()
-                          if m is not None},
-        'rework_qs': gate['rework_qs'],
-        'timestamp': <utc-now>}
+    WRITE (registry, atomic with the S19 progress write) — via the single
+    writer, NEVER a hand-built dict:
+      pp.dg_write_verdict(reg, paper_id,
+          status='PASSED' if gate['verdict'] == 'PASS' else 'FAILED',
+          rounds=0, threshold=gate['threshold'],
+          bands={lab: {k: b[k] for k in ('total','assessed','agree',
+                       'disagree','allowed','over_limit')}
+                 for lab, b in gate['bands'].items()},
+          measured_by_q=measured_by_q, rework_qs=gate['rework_qs'])
+    pp.dg_write_verdict validates the resulting (status, repair_rounds_used)
+    pair against pp.DG_LEGAL_STATES before it returns, keeps the timestamp,
+    carries any rework_stem_hashes / baseline_stem_hashes / migrations
+    forward, and is
+    ROUND-MONOTONIC: a full re-run of this step on a paper whose repair round
+    is already spent keeps the spent count — a FAIL then resolves to
+    DISCLOSED/1, never FAILED/0 — so re-running TestExplain can never hand a
+    paper a second repair round. The verdict actually written (read it back
+    with pp.dg_state) is what the box below reports.
     The registry is the ONLY channel to Step 11 — the printed box is for the
     operator, the record is for the machine; they must agree.
 
@@ -1572,6 +1649,11 @@ execution path — it does not shrink, soften or delete them.
 
            TestExplainRepair P[N]
 
+        (v1.44.0: both lines are pp.dg_next_step(reg, paper_id, N,
+         mock=<trigger is Mock*>) VERBATIM — the same function Step 11
+         prints from, so the printed command can never be one the target
+         step refuses.)
+
         ⛔ DO NOT run TestDeliver / MockDeliver until you see
            "✅ CLEARED FOR DELIVERY".
       ════════════════════════════════════════════════════════════
@@ -1581,8 +1663,10 @@ execution path — it does not shrink, soften or delete them.
   Dashboard line (P2) becomes:
       §7A-M difficulty gate      : [PASSED — a+b+c/n within 30%] OR
                                    [FAILED — rework Q…] OR [DORMANT — reason]
+                                   (+ " · registry healed: <field> a→b" when
+                                    pp.dg_preflight returned a disclosure)
 
-## §7A-R — REPAIR MODE (TestExplainRepair / MockExplainRepair, v1.42.0)
+## §7A-R — REPAIR MODE (TestExplainRepair / MockExplainRepair, v1.42.0; v1.44.0 — STATE-PAIR PREFLIGHT, ATOMIC RE-GATE)
 
   TRIGGER: `TestExplainRepair P[N]` or `MockExplainRepair M[N]`.
   ATTACH:  (1) the REPAIRED question paper docx (TestCreateRepair output) and
@@ -1590,25 +1674,89 @@ execution path — it does not shrink, soften or delete them.
   PREFLIGHT (HARD STOP on any failure — these protect the operator from
   repairing the wrong thing, so they stay hard even under the no-stop rule,
   which governs the VERDICT, not malformed input):
-    R1  registry['difficulty_gate'][paper_id] exists with status 'FAILED' and
-        repair_rounds_used == 0. Absent → "Run TestExplain P[N] first."
-        Status PASSED/DISCLOSED → "Nothing to repair — next step:
-        TestDeliver P[N]." repair_rounds_used ≥ 1 → "The one repair round is
-        already used — next step: TestDeliver P[N] (delivers with disclosure)."
+    ORDER IS FIXED: R0 → R1 → R2 → R3. Registry legality is checked BEFORE
+    anything about the operator's files, because a corrupt registry makes
+    every downstream verdict meaningless and its remedy has nothing to do
+    with the attachments.
+    R0  rec, disclosure = pp.dg_preflight(reg, paper_id, where='§7A-R R0')
+        An ILLEGAL (status, repair_rounds_used) pair is NOT "a round already
+        used" — it is a CORRUPT REGISTRY, healed here per DG-INVARIANT (a
+        FAILED record's counter is reset to 0: the round is provably
+        unconsumed). If disclosure is not None: print disclosure['line']
+        verbatim in chat, persist the registry, and CONTINUE. A DGIllegalState
+        (unknown status) is a HARD STOP: print its message verbatim. Never
+        route the operator onward on an illegal record — the historical
+        failure was exactly that (FAILED + 1 → "go to TestDeliver" → Step 11
+        hard-stops on FAILED → TestCreateRepair refuses "consumed" → no exit).
+    R1  BRANCH ON THE STATE PAIR pp.dg_state(rec), never on one field. Every
+        next-step string is pp.dg_next_step(reg, paper_id, N, mock=<Mock*
+        trigger>) — the SAME function Step 11 prints from — never restated:
+          absent            → "This is a legacy paper (no gate record) —
+                               nothing to repair. Next step: " + next_step
+          ('PENDING',   0)  → "Run TestExplain P[N] first — the gate has not
+                               run. Next step: " + next_step
+          ('FAILED',    0)  → PROCEED (the one and only repair round).
+          ('PASSED',    0)  → "Nothing to repair — next step: " + next_step
+          ('PASSED',    1)  → "Already repaired and passed — next step: " + next_step
+          ('DISCLOSED', 1)  → "The one repair round is already used — next
+                               step: " + next_step + " (delivers with disclosure)."
+          ('DORMANT',   0)  → "This paper's gate is dormant ([dormant_reason])
+                               — nothing to repair. Next step: " + next_step
+        (No other pair can reach R1: R0 healed or refused it.)
     R2  Both attachments present and parse (P3 machinery).
-    R3  The repaired paper's stems differ from the previous paper's stems on
-        EXACTLY the rework_qs set (hash compare against registry stem_texts of
-        the superseded entries — S13-4 updated them at TestCreateRepair; the
-        check is against the PRE-repair snapshot difficulty_gate carries in
-        'rework_stem_hashes'). A repaired paper that changed OTHER questions,
-        or failed to change a listed one, is the wrong file — name the qs.
+    R3  Stem diff against the PRE-REPAIR SNAPSHOT ONLY, via the shared digest:
+          v = pp.dg_verify_repair(rec, {q: <first-paragraph text of q in the
+                                         REPAIRED paper, raw — see
+                                         pp.dg_stem_hash> for q in 1..N})
+        v['missing_snapshot'] → HARD STOP: "The repaired paper was produced
+          without §S16-3's snapshot — re-run TestCreateRepair P[N]." Never
+          fall back to registry.stem_texts (TestCreateRepair has already
+          overwritten it with the post-repair stems, and it is a flat
+          append-only list across all papers with no defined per-paper
+          offset).
+        v['ok'] is False → HARD STOP naming v['changed_unlisted'] ("changed
+          questions the gate did not flag: Q…" — detectable only when the
+          §S16-3 snapshot carries baseline_stem_hashes for every question;
+          v['extras_verifiable'] says whether it does; a pre-v5.71 snapshot
+          without it verifies the flagged questions only, and the run says
+          so in §R10) and/or v['unchanged_listed']
+          ("failed to change a flagged question: Q… — if ALL of rework_qs is
+          listed here you attached the PRE-repair paper by mistake"). It is
+          the wrong file.
+        pp.dg_stem_hash is the ONE digest (sha256 of the raw first paragraph
+        including the "Q.<n>" label, no normalisation); §S16-3 computes the
+        snapshot with the same function. Neither side implements its own.
   RUN: execute §4–§18 for the rework_qs ONLY (batching rules apply to that
     subset); splice the regenerated per-question blocks into the previous
     explanation docx, replacing the superseded blocks in place (block = the
     question's full §2 structure); leave every other block byte-identical.
   RE-GATE: update measured_by_q for the repaired qs only; re-run
-    bc.evaluate_difficulty_gate over the FULL maps; write the record with
-    repair_rounds_used = 1 and status:
+    bc.evaluate_difficulty_gate over the FULL maps; then ONE write, via the
+    single writer:
+      pp.dg_write_verdict(reg, paper_id,
+          status='PASSED' if gate['verdict'] == 'PASS' else 'DISCLOSED',
+          rounds=1, threshold=gate['threshold'], bands=<as §7A-M>,
+          measured_by_q=measured_by_q, rework_qs=gate['rework_qs'])
+    ATOMIC, TERMINAL, IDEMPOTENT (v1.44.0). The counter and the status are
+    written ONCE, TOGETHER, at the END of a successful re-gate, by that call.
+    NEVER increment repair_rounds_used on ENTRY, never in a separate write,
+    never by hand — an entry-time increment that crashes before the re-gate
+    reproduces the deadlocked (FAILED, 1) pair by a second route, and
+    pp.dg_write_verdict refuses that pair outright. A run that crashes
+    mid-repair therefore leaves (FAILED, 0) untouched and is simply RE-RUN:
+    safe, because TestCreateRepair's rework_stem_hashes snapshot is the
+    PRE-repair evidence and is carried forward unchanged by every re-gate.
+    SESSION LOG — in the SAME registry write, append the evidence trail:
+      reg.setdefault('session_log', []).append({
+          'step': 'TestExplainRepair' (or 'MockExplainRepair'),
+          'paper_id': paper_id, 'round': 1, 'verdict': gate['verdict'],
+          'qs': rec['rework_qs']   (the PRE-repair list read at R0 — NOT
+                                    the re-gate's new rework_qs),
+          'timestamp': <utc-now>,
+          'spec': 'Framework_MockTestExplain v1.44.0 §7A-R'})
+    Recovery does NOT depend on this entry (DG-INVARIANT makes the record
+    self-diagnosing); without it no later audit can reconstruct what ran.
+    Resulting status:
       PASS → 'PASSED'   — print the PASSED box (§7A-M shape).
       FAIL → 'DISCLOSED' — the one round is spent; NO further loop and NO stop
              (operator decision). Print:
@@ -1620,6 +1768,8 @@ execution path — it does not shrink, soften or delete them.
         will state these measured counts so no reader is misled.
         Next step:  TestDeliver P[N]
       ════════════════════════════════════════════════════════════
+    (the "Next step" line is pp.dg_next_step(...) verbatim; on a DISCLOSED
+     record it is guaranteed to be the Deliver trigger, which Step 11 accepts.)
 
 # ════════════════════════════════════════════════════════════════════════
 
@@ -2924,5 +3074,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.43.0
+# END OF Framework_MockTestExplain v1.44.0
 # ════════════════════════════════════════════════════════════════════════

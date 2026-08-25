@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.25.2",
+  "framework_version": "2026.08.25.3",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -225,18 +225,18 @@
       "bytes": 410485
     },
     "Framework_DeliveryFooter.md": {
-      "sha256": "e47f7b7eb8f6ae145621caf047c9136c620ba4d2fb6b7b955b29509ca684c9e7",
-      "version_header": "# Framework_DeliveryFooter v1.24 \u2014 Universal Delivery Footer (F1/F2) Contract",
+      "sha256": "a4958a655433c022d39df5914ce1f0ef1d588763698e2db373800488f7f6a097",
+      "version_header": "# Framework_DeliveryFooter v1.25 \u2014 Universal Delivery Footer (F1/F2) Contract",
       "end_sentinel": "```",
-      "lines": 868,
-      "bytes": 47958
+      "lines": 882,
+      "bytes": 48901
     },
     "Framework_MockDeliver.md": {
-      "sha256": "0332d2ac5dc8807a8d39012f5ae807b9cad2f4dacab4bfc1c6525da096b81cbe",
-      "version_header": "# Framework_MockDeliver v1.13.0 \u2014 Universal Mock Test Tagger & Delivery Engine",
-      "end_sentinel": "# END OF Framework_MockDeliver v1.13.0",
-      "lines": 1795,
-      "bytes": 87973
+      "sha256": "fc6f5dd0e07ba16bba3a29268c1e638aa7473d9d15dd37b22cf71d11c087d709",
+      "version_header": "# Framework_MockDeliver v1.14.0 \u2014 Universal Mock Test Tagger & Delivery Engine",
+      "end_sentinel": "# END OF Framework_MockDeliver v1.14.0",
+      "lines": 1834,
+      "bytes": 90782
     },
     "Framework_MockTestAnalyse.md": {
       "sha256": "42f10d1194fc26b00c475063713a66608ac1ddc95c167affb1a5cb3a9b3d5f10",
@@ -246,18 +246,18 @@
       "bytes": 291646
     },
     "Framework_MockTestCreate.md": {
-      "sha256": "5833d5ed18c6325d1624e1df1fcd22c826618279f99fc8fad31bb8560f18157a",
-      "version_header": "# Framework_MockTestCreate v5.70",
+      "sha256": "4efb17c1954966580fce1a0625ddd959d07bff56f01b21c15cadd8986145a8cb",
+      "version_header": "# Framework_MockTestCreate v5.71",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 8586,
-      "bytes": 543440
+      "lines": 8624,
+      "bytes": 545755
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "b1611d473e8299f259545611d136cd5d889e12a6f1446d88855507d595f5aee5",
-      "version_header": "# Framework_MockTestExplain v1.43.0",
+      "sha256": "ee2e9b03167ba96f0b88068ae7fbfcbe89f2e00a33d6a4d330adf84a435e785d",
+      "version_header": "# Framework_MockTestExplain v1.44.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 2928,
-      "bytes": 226170
+      "lines": 3078,
+      "bytes": 236699
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -407,18 +407,18 @@
       "bytes": 366286
     },
     "paper_pipeline.py": {
-      "sha256": "d09c32aa6f1d5b0fd918a37eb13b475e448b8caa8b06d1bbdfb39ead2bc6b919",
+      "sha256": "77c9da27f9ab35037affee0bb0c3ea54273e2e516b30f5a1e4819c54c7713efa",
       "version_header": "\"\"\"",
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 1051,
-      "bytes": 58910
+      "lines": 1692,
+      "bytes": 100001
     },
     "final_assembly.py": {
-      "sha256": "491584942659f5977a463c4baa5fb26466f851f91e596f20eef224cfd32d81b6",
+      "sha256": "185775bb7429bcf5650d96d26aacf00af126734fb6a22da98817be10b18a3ef1",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"final_assembly.py \u2014 Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 1523,
-      "bytes": 91638
+      "lines": 1613,
+      "bytes": 97522
     },
     "corpus_io.py": {
       "sha256": "06ae4408c7e34445bad8d5cafcb97ac749a35c0065a5eb08fb0fff13aa9fc4c9",
@@ -456,11 +456,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "793dbfd923282f19170a77e83ca8253587032468604b63dab0c4ca142b7cb8c6",
+      "sha256": "33b52ca0136387ac66bf1882d9c25cad739d68ab5ded18dd3bfe6051872e11be",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 7552,
-      "bytes": 418564
+      "lines": 7699,
+      "bytes": 428125
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
@@ -554,11 +554,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "08cd9f2118960e3351f9a8951a4bd4decf9bc2ddb54fab3bb5d15d6cf8838939",
+      "sha256": "c07a55784416452d12062fd6198f38f60adf3a17b7974371e36367b8f62794c5",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6960,
-      "bytes": 195693
+      "bytes": 195784
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -575,11 +575,11 @@
       "bytes": 6600
     },
     "SPEC_HISTORY.md": {
-      "sha256": "b4e34c88df4dbf29a81b64eceb88cbfca792971599096bcaca2f1029d2f00010",
+      "sha256": "3ce38c50f9bb17ff09c609880d08a06b6a88514a2015f0ac8dd63779df108c5a",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
       "end_sentinel": "# END OF SPEC_HISTORY v1.0",
-      "lines": 3492,
-      "bytes": 260235
+      "lines": 3583,
+      "bytes": 266559
     }
   }
 }

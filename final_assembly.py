@@ -13,6 +13,24 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v5.58 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with paper_pipeline
+    v5.71 Cluster DG, MockTestCreate v5.71, MockTestExplain v1.44.0, MockDeliver
+    v1.14.0, DeliveryFooter v1.25, audit_canonical v2.18 A-DGATE). The v5.56 PENDING
+    stamp was an inline dict literal — one of THREE hand-writers of
+    registry.difficulty_gate across two specs and this engine, with no legal-state
+    table and no write guard. Its own comment ("never edited elsewhere") was false:
+    MockTestCreate §S16-3 adds rework_stem_hashes, and a TestCreateRepair session
+    also set repair_rounds_used=1 on a still-FAILED record, deadlocking four triggers.
+    FIX: the stamp is now pp.dg_stamp_pending — the single CREATE path. Second
+    defect closed here (gap G-4): the stamp had no mock-vs-scoped condition, so
+    EVERY scoped paper was born PENDING while §7A-M is MOCK-ONLY and could never be
+    delivered. A scoped paper_id is now born DORMANT/scoped_paper (a legal, terminal,
+    deliverable state) and a mock is born PENDING exactly as before. Fixtures pin
+    both births, the legal-state check and the shape (schema 2, no bands on birth).
+    Also hosts the fleet scanner/healer CLI (--dg-fleet-scan ROOT [--apply]): the
+    thin core may not perform file I/O (CHECK AB), and this engine already imports
+    paper_pipeline and is routed only where paper_pipeline is (CHECK AI).
+
     v5.57 — GAP-2026-08-24-AXIS-PAPER-SERIES-COLLISION (paired with MockTestCreate
     v5.68, audit_seam v1.2). THE SECOND INSTANCE OF THE v5.56 CLASS, found by the
     cross-step field-contract sweep and confirmed by execution: axis1_paper /
@@ -374,16 +392,21 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
                 _v = _gv if _gv not in (None, '') else _v
             _canon[int(_q)] = _pp.canonical_answer(_qt, _v)
         reg.setdefault('key_commitments', {})[paper_id] = _pp.seal_key_commitments(paper_id, _canon)
-        # ── GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING — PENDING stamp ─────────
-        # Papers committed by this version carry a difficulty_gate record from
-        # birth. 'PENDING' means Step 9's gate has not yet run: Step 11 refuses
-        # to deliver it (Framework_MockDeliver S1-2 item 3b). A registry entry
+        # ── difficulty_gate birth stamp — SINGLE WRITER (v5.57,
+        #    GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER; was GAP-2026-08-24-
+        #    DIFFICULTY-GATE-BLOCKING's inline dict) ────────────────────────────
+        # OWNERSHIP: this is the ONLY place a record is CREATED, and it is created
+        # through paper_pipeline Cluster DG — never as a hand-built dict. A MOCK
+        # paper is born PENDING (Step 11 refuses it until Step 9's gate runs). A
+        # SCOPED paper is born DORMANT/scoped_paper: §7A-M is MOCK-ONLY, so a
+        # scoped paper stamped PENDING could never be resolved and was
+        # undeliverable in every project (gap defect G-4). After birth `status`
+        # and `repair_rounds_used` are written ONLY by Step 9 via
+        # pp.dg_write_verdict (together, atomically); TestCreateRepair may add
+        # ONLY rework_stem_hashes via pp.dg_add_rework_snapshot. A registry entry
         # with NO difficulty_gate key is a LEGACY paper and delivers as before
-        # (operator decision 2026-08-24: old papers untouched). Overwritten by
-        # Step 9 with PASSED / FAILED / DISCLOSED; never edited elsewhere.
-        reg.setdefault('difficulty_gate', {})[paper_id] = {
-            'schema': 1, 'status': 'PENDING',
-            'threshold': 0.30, 'repair_rounds_used': 0}
+        # (operator decision 2026-08-24: old papers untouched).
+        _pp.dg_stamp_pending(reg, paper_id)
 
 
     # ── Question metadata index (v5.2, Contract_QuestionMetadataIndex v1.0) ─
@@ -1510,14 +1533,81 @@ def self_test():
     check('regcheck_keycommit_gate_passes_with_commitments',
           not any('G-KEYCOMMIT' in f for f in _rc_ok.get('fails', [])))
 
+    # ── v5.58 GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER — birth stamp via the
+    #    single writer. A mock is born PENDING/0; a scoped paper is born
+    #    DORMANT/scoped_paper (deliverable — gap defect G-4); both are LEGAL states
+    #    by pp.DG_LEGAL_STATES; birth carries no bands (schema 2 shape).
+    _dg_m = r_k3['registry'].get('difficulty_gate', {}).get('MOCK:M01')
+    check('commit_difficulty_gate_mock_born_PENDING',
+          bool(_dg_m) and _ppt.dg_state(_dg_m) == ('PENDING', 0) and _ppt.dg_is_legal(_dg_m)
+          and _dg_m.get('schema') == _ppt.DG_SCHEMA and 'bands' not in _dg_m)
+    r_sc = commit_registry(mini_registry(), mini_pending(), bp1, 1, paper_id='SUBJ:PHYS:01',
+                           batches_completed=3, axis2_window_counts={}, passage_present=False,
+                           di_present=False, figural_present=False, concept_map=mini_cm(),
+                           answer_key=_ak3)
+    _dg_s = r_sc['registry'].get('difficulty_gate', {}).get('SUBJ:PHYS:01')
+    check('commit_difficulty_gate_scoped_born_DORMANT_deliverable',
+          bool(_dg_s) and _ppt.dg_state(_dg_s) == ('DORMANT', 0)
+          and _dg_s.get('dormant_reason') == 'scoped_paper'
+          and _ppt.dg_deliver_decision(r_sc['registry'], 'SUBJ:PHYS:01', 1, mock=False)['deliver'])
+    check('commit_difficulty_gate_absent_without_key',
+          'difficulty_gate' not in r1['registry'])
+
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
     return passed == total
 
 
+def dg_fleet_scan(root, apply=False, out=print):
+    """GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER §9 fleet scanner / healer — the
+    file-I/O wrapper around paper_pipeline.dg_fleet_heal (pure). Lives here because
+    this engine already owns the difficulty_gate BIRTH write and imports
+    paper_pipeline at module level. Scans every *_registry.json under root; with
+    apply=True heals per DG-INVARIANT, writes a .bak beside every changed file and
+    logs each change in the record's migrations[]. Never touches a record it cannot
+    interpret (unknown status → reported under 'escalate'). Returns the totals.
+        python3 final_assembly.py --dg-fleet-scan /path/to/projects            # report
+        python3 final_assembly.py --dg-fleet-scan /path/to/projects --apply    # heal"""
+    import glob
+    import json
+    import os
+    import shutil
+    tot = {'illegal': 0, 'healed': 0, 'stuck_scoped': 0, 'pending': 0, 'escalate': 0}
+    for path in sorted(glob.glob(os.path.join(root, '**', '*_registry.json'), recursive=True)):
+        try:
+            with open(path, encoding='utf-8') as fh:
+                reg = json.load(fh)
+        except (OSError, ValueError) as e:
+            out(f"[SKIP] {path}: {e}")
+            continue
+        r = pp.dg_fleet_heal(reg, apply=apply)
+        for pid, st, n, fld, fr, to in r['illegal']:
+            out(f"[ILLEGAL] {path} :: {pid} :: status={st!r} rounds={n} -> {fld} {fr}->{to}")
+        for pid, st, n in r['escalate']:
+            out(f"[ESCALATE] {path} :: {pid} :: status={st!r} rounds={n} -> NO AUTO-REPAIR")
+        for pid in r['stuck_scoped']:
+            out(f"[STUCK-SCOPED] {path} :: {pid} :: PENDING on a scoped paper -> DORMANT/scoped_paper")
+        for pid in r['pending']:
+            out(f"[PENDING] {path} :: {pid} :: gate not yet run (expected if TestExplain has not run)")
+        if r['changed']:
+            shutil.copy2(path, path + '.bak')
+            with open(path, 'w', encoding='utf-8') as fh:
+                json.dump(reg, fh, ensure_ascii=False, indent=1)
+            out(f"[HEALED] {path} (backup: {path}.bak)")
+        for k in tot:
+            tot[k] += len(r[k])
+    out("DG-FLEET-SCAN " + " ".join(f"{k}={v}" for k, v in tot.items()))
+    return tot
+
+
 if __name__ == '__main__':
     import sys
     if '--self-test' in sys.argv:
         sys.exit(0 if self_test() else 1)
+    if '--dg-fleet-scan' in sys.argv:
+        _i = sys.argv.index('--dg-fleet-scan')
+        _root = sys.argv[_i + 1] if len(sys.argv) > _i + 1 and not sys.argv[_i + 1].startswith('--') else '.'
+        _t = dg_fleet_scan(_root, apply='--apply' in sys.argv)
+        sys.exit(1 if (_t['illegal'] or _t['stuck_scoped'] or _t['escalate']) and '--apply' not in sys.argv else 0)
     print("final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.")

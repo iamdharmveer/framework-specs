@@ -1,4 +1,13 @@
-# Framework_DeliveryFooter v1.24 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.25 — Universal Delivery Footer (F1/F2) Contract
+# v1.25 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, MockDeliver v1.14.0, MockTestExplain v1.44.0).
+#   MINOR bump: registry/prose only, NO badge changes, NO artefact changes.
+#   * §3 STEP 11 gains §FOOTER-DG, which MockDeliver v1.13.0 referenced but no spec
+#     defined: the difficulty-gate disclosure lines are pp.dg_footer_lines(rec) —
+#     the measured-band line on DISCLOSED, the not-applicable line on DORMANT, and
+#     one healed-registry line per rec['migrations'] entry — so a corrected record
+#     is always disclosed in the delivered footer and never composed by hand.
+#   Superseded v1.23 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
 # v1.24 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R2: SCOPED-PAPER NEXT-STEP + 6S REGISTRY.
 #   MINOR bump: registry/prose only, NO logic changes, NO badge changes, NO artefact
 #   changes. Release 2 of the Step-9 audit (R1 = 2026.08.24.1).
@@ -11,20 +20,6 @@
 #   * §3 had NO entry for Step 6S (ScopedBlueprint), which rides this file on its route
 #     and had no deliverable/badge/next-step registry to follow. Added.
 #   Superseded v1.22 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
-# v1.23 — 2026-08-23 — REGISTRY SYNC (Step 6 learnings filename; Step 5 tiers).
-#   MINOR bump: registry/prose only, NO logic changes, NO artefact changes beyond
-#   the filename the Step 6 footer badge table prints.
-#   * §3 STEP 6 B3 still listed [ExamCode]_ExplainLearnings.md; Blueprint v1.50.0
-#     generates [ExamCode]_EXPLAIN_LEARNINGS_v1.md, because the legacy name
-#     matched NO consumer's glob (Steps 7 and 9 load *_EXPLAIN_LEARNINGS_v*.md).
-#     The registry now names the file Step 6 actually emits — a footer that
-#     badges a filename no step produces sends the operator hunting for it.
-#   * §3 STEP 5 FINAL heading said "6 mandatory + taxonomy.xlsx when written",
-#     counting exam_config.json as mandatory while its own list line says
-#     "delivered only when generated". Restated as the two-tier set that
-#     MockTestAnalyse S11-3 and mock_sync_audit MS-11 enforce: 5 mandatory +
-#     2 conditional. Fourth recurrence of the delivery-count-drift class; this
-#     was the last site still carrying a fixed count.
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md".
 #   Entries for superseded versions were moved there VERBATIM at framework
 #   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
@@ -510,6 +505,25 @@ NEXT STEP  : Pipeline complete for this paper ([paper_slug]).
              Next scoped paper : Step 7: TestCreate P[N+1] (same --level/--scope), or
                                  the series is complete when N == the scoped
                                  blueprint's paper count (v1.24)
+
+§FOOTER-DG — DIFFICULTY-GATE DISCLOSURE LINES (v1.25 — GAP-2026-08-25-DIFFICULTY-
+GATE-ROUND-COUNTER; referenced by MockDeliver since v1.13.0, defined here for the
+first time). Immediately after the Deliverables table of the Step 11 F2 footer,
+print EVERY string returned by
+    pp.dg_footer_lines(pp.dg_read(reg, paper_id))
+one per line, each prefixed "ℹ️ ". The engine is the ONLY source of these lines —
+never compose them by hand. The set it returns, by record state:
+    PASSED (0 or 1 rounds)  → nothing
+    DISCLOSED / 1           → "Measured difficulty: Easy a/n · Medium b/m · Hard c/h
+                               confirmed after 1 repair round."
+    DORMANT / 0             → "Difficulty gate: not applicable to this paper
+                               ([dormant_reason]) — labels are as planned at Step 7."
+    any record with a
+    migrations[] trail      → one "Difficulty-gate record healed (GAP-…): <field>
+                               a → b on <date>." line PER migration
+A legacy paper (no record) prints nothing. A HEALED registry is ALWAYS disclosed:
+a registry healed by pp.dg_preflight must never look identical to one that was
+always clean (MockTestExplain §6A-4: silent degradation is the worse failure).
 
 ═══════════════════════════════════════════════════════════════════════
 NOTES PIPELINE (NB / NC / NA / ND)
