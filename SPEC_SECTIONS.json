@@ -4227,115 +4227,115 @@
       ]
     },
     "Framework_PYQCompress.md": {
-      "sha256": "4251621ec40a8fb9caab9d6295f2d6bf6c26502a66a90591836d246c31e420da",
-      "lines": 671,
-      "bytes": 32681,
-      "est_tokens": 8170,
+      "sha256": "6d3b423f2d2c74d31be61d1bc61954333834f16221adb80a89dc00a39bab8d2a",
+      "lines": 782,
+      "bytes": 40620,
+      "est_tokens": 10155,
       "view_calls": 3,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 32681,
-      "reduced_est_tokens": 8170,
+      "reduced_bytes": 40620,
+      "reduced_est_tokens": 10155,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## §1 — SESSION START",
-          "start": 85,
-          "end": 86,
+          "start": 109,
+          "end": 110,
           "lines": 2,
           "bytes": 26
         },
         {
           "title": "### S1-1 — Trigger parsing",
-          "start": 87,
-          "end": 104,
+          "start": 111,
+          "end": 128,
           "lines": 18,
           "bytes": 663
         },
         {
           "title": "### S1-2 — Input inventory",
-          "start": 105,
-          "end": 164,
-          "lines": 60,
-          "bytes": 2572
+          "start": 129,
+          "end": 189,
+          "lines": 61,
+          "bytes": 2657
         },
         {
           "title": "## §2 — THE FILENAME RULE (HARD — read this before anything else)",
-          "start": 165,
-          "end": 206,
-          "lines": 42,
-          "bytes": 2320
+          "start": 190,
+          "end": 249,
+          "lines": 60,
+          "bytes": 3747
         },
         {
           "title": "## §3 — INPUT INTEGRITY (before any re-encode)",
-          "start": 207,
-          "end": 252,
+          "start": 250,
+          "end": 295,
           "lines": 46,
           "bytes": 2249
         },
         {
           "title": "## §4 — THE GOVERNOR",
-          "start": 253,
-          "end": 315,
-          "lines": 63,
-          "bytes": 3189
+          "start": 296,
+          "end": 394,
+          "lines": 99,
+          "bytes": 5460
         },
         {
           "title": "## §5 — SURVIVAL GATE (independent of the governor's own assert)",
-          "start": 316,
-          "end": 353,
+          "start": 395,
+          "end": 432,
           "lines": 38,
           "bytes": 1697
         },
         {
           "title": "## §6 — VERDICT AND REPORTING",
-          "start": 354,
-          "end": 395,
-          "lines": 42,
-          "bytes": 2197
+          "start": 433,
+          "end": 482,
+          "lines": 50,
+          "bytes": 2706
         },
         {
           "title": "## §7 — VALIDATION (5 checks — every one must PASS before delivery)",
-          "start": 396,
-          "end": 448,
-          "lines": 53,
-          "bytes": 2665
+          "start": 483,
+          "end": 537,
+          "lines": 55,
+          "bytes": 2812
         },
         {
           "title": "## §8 — EXECUTION MODEL",
-          "start": 449,
-          "end": 493,
+          "start": 538,
+          "end": 582,
           "lines": 45,
           "bytes": 1820
         },
         {
           "title": "## §9 — EDGE CASES",
-          "start": 494,
-          "end": 575,
-          "lines": 82,
-          "bytes": 4065
+          "start": 583,
+          "end": 674,
+          "lines": 92,
+          "bytes": 4885
         },
         {
           "title": "## §10 — EXAM-AGNOSTIC GUARANTEE",
-          "start": 576,
-          "end": 601,
-          "lines": 26,
-          "bytes": 1039
+          "start": 675,
+          "end": 702,
+          "lines": 28,
+          "bytes": 1171
         },
         {
           "title": "## §11 — DEFINITION OF DONE",
-          "start": 602,
-          "end": 630,
-          "lines": 29,
-          "bytes": 1488
+          "start": 703,
+          "end": 735,
+          "lines": 33,
+          "bytes": 1611
         },
         {
           "title": "## §12 — CRITICAL WARNINGS",
-          "start": 631,
-          "end": 671,
-          "lines": 41,
-          "bytes": 1833
+          "start": 736,
+          "end": 782,
+          "lines": 47,
+          "bytes": 2314
         }
       ]
     },

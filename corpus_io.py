@@ -1,6 +1,15 @@
 """
-corpus_io.py v1.12 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.13 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
+
+v1.13 — 2026-08-25 — GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION. optimize_docx gains
+    mode='max' (PYQCompress v2.0.0): a single governor pass at blueprint_core.MAX_TIER
+    (q82, 300-DPI ceiling AT DISPLAY SIZE) instead of walking TIER_LADDER, plus
+    palette quantization of PNG output via _quantize_png (pngquant binary when
+    installed, optipng on top when installed, PIL FASTOCTREE fallback — alpha-capable
+    on every path). Ladder callers unchanged: mode defaults to None and every existing
+    call site behaves byte-identically. Per-part and per-document no-growth guards
+    apply unchanged in max mode.
 
 v1.12 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE. Adds canonical_structure()
     (rdkit canonical isomeric SMILES + valence sanitisation; (None, reason) never raise)
@@ -1918,7 +1927,63 @@ def _normalise_mode(im):
     return im.convert('RGB'), False
 
 
-def _recode(raw, quality, dpi_ceiling, display_in):
+def _quantize_png(im):
+    """Palette-quantize one image to PNG bytes; never raises, never returns growth.
+
+    v1.13 — used by TMAX (mode='max') only. Tries the pngquant binary first (the
+    best quantizer for line art AND alpha-bearing images — the measured v2 corpus
+    used it), runs optipng -o3 on its output when that binary is present, and falls
+    back to PIL FASTOCTREE quantization (also alpha-capable) when neither binary is
+    installed. Always returns the SMALLEST successful encoding, or None when even a
+    plain PNG save fails (caller then routes through the normal path).
+    """
+    import shutil as _sh
+    import subprocess as _sp
+    import tempfile
+    Image = _need('PIL')
+
+    plain = io.BytesIO()
+    try:
+        im.save(plain, 'PNG', optimize=True)
+    except Exception:
+        return None
+    best = plain.getvalue()
+
+    if _sh.which('pngquant'):
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                q_src = os.path.join(td, 'in.png')
+                q_dst = os.path.join(td, 'out.png')
+                with open(q_src, 'wb') as fh:
+                    fh.write(best)
+                lo, hi = bc.PNG_QUANT_QUALITY
+                r = _sp.run(['pngquant', f'--quality={lo}-{hi}', '--speed', '1',
+                             '--strip', '--force', '--output', q_dst, q_src],
+                            capture_output=True, timeout=60)
+                if r.returncode == 0 and os.path.exists(q_dst):
+                    if _sh.which('optipng'):
+                        _sp.run(['optipng', '-o3', '-quiet', q_dst],
+                                capture_output=True, timeout=120)
+                    with open(q_dst, 'rb') as fh:
+                        cand = fh.read()
+                    if cand and len(cand) < len(best):
+                        best = cand
+                    return best
+        except Exception:
+            pass
+
+    try:
+        q = im.quantize(colors=bc.PNG_QUANT_COLORS, method=Image.FASTOCTREE)
+        out = io.BytesIO()
+        q.save(out, 'PNG', optimize=True)
+        if len(out.getvalue()) < len(best):
+            best = out.getvalue()
+    except Exception:
+        pass
+    return best
+
+
+def _recode(raw, quality, dpi_ceiling, display_in, quantize=False):
     """Re-encode one media part. Returns (bytes, ext, how) or (None, None, why)."""
     Image = _need('PIL')
     try:
@@ -1942,9 +2007,17 @@ def _recode(raw, quality, dpi_ceiling, display_in):
 
     out = io.BytesIO()
     if route == 'png':
+        if quantize:                                   # v1.13 — TMAX only
+            data = _quantize_png(im)
+            if data is not None:
+                return data, 'png', 'png/alpha+quant'
         im.save(out, 'PNG', optimize=True)
         return out.getvalue(), 'png', 'png/alpha'
     if route == 'png-lineart':
+        if quantize:                                   # v1.13 — TMAX only
+            data = _quantize_png(im)
+            if data is not None:
+                return data, 'png', 'png/lineart+quant'
         im.convert('P', palette=Image.ADAPTIVE, colors=256).save(out, 'PNG', optimize=True)
         return out.getvalue(), 'png', 'png/lineart'
     im.save(out, 'JPEG', quality=quality, optimize=True, progressive=True, subsampling=2)
@@ -1988,12 +2061,19 @@ def _no_gain_guard(src, dst, orig, report):
     return dict(report, no_gain=False)
 
 
-def optimize_docx(src, dst, budget=None, force_tier=None, always=False):
+def optimize_docx(src, dst, budget=None, force_tier=None, always=False, mode=None):
     """Bring `src` under `budget` using blueprint_core's deterministic tier ladder.
 
     Stops at the FIRST tier that meets the budget, so the least invasive change that
     works is the one applied. On the measured corpus every paper cleared at T1, meaning
     no image was downscaled at all and every pixel dimension was preserved.
+
+    v1.13 — mode='max' (PYQCompress v2.0.0) replaces the ladder walk with ONE pass at
+    blueprint_core.MAX_TIER: every raster is resampled to the MAX_TIER dpi ceiling at
+    its display size regardless of budget, and PNG output is palette-quantized
+    (_quantize_png). `budget` then only decides the returned ok flag and the
+    transport verdict — it never gates whether compression happens. mode=None (the
+    default) is byte-identical to the pre-v1.13 behaviour for every existing caller.
 
     Guarantees: never grows a part, never drops a part, never changes the part count.
     Returns (ok, report, log). ok=False means the ladder floor was reached and the file
@@ -2002,6 +2082,10 @@ def optimize_docx(src, dst, budget=None, force_tier=None, always=False):
 
     The caller MUST still run assert_docx_parity(); this function does not self-certify.
     """
+    if mode == 'max' and force_tier:
+        raise ValueError(
+            "optimize_docx: mode='max' and force_tier are mutually exclusive — "
+            "max mode has exactly one governor point (bc.MAX_TIER).")
     budget = bc.SIZE_BUDGET if budget is None else budget
     orig = os.path.getsize(src)
     # v1.0.3 — `always` runs the ladder regardless of input size. The ladder itself needs
@@ -2009,7 +2093,7 @@ def optimize_docx(src, dst, budget=None, force_tier=None, always=False):
     # the least invasive tier. NOTE for callers: force_tier is NOT a substitute — it pins
     # a single tier AND makes the final `return True` unconditional, so an oversized file
     # would stop at that tier, still over budget, and be reported as a success.
-    if orig <= budget and not force_tier and not always:
+    if orig <= budget and not force_tier and not always and mode != 'max':
         return True, {'tier': 'T0', 'bytes': orig, 'orig': orig, 'ratio': 1.0,
                       'quality': None, 'dpi_ceiling': None,
                       'note': 'already under budget — untouched'}, []
@@ -2017,7 +2101,8 @@ def optimize_docx(src, dst, budget=None, force_tier=None, always=False):
     display = media_display_inches(src)
     report, log = {}, []
 
-    for tier, quality, dpi in bc.TIER_LADDER:
+    ladder = (bc.MAX_TIER,) if mode == 'max' else bc.TIER_LADDER
+    for tier, quality, dpi in ladder:
         if force_tier and tier != force_tier:
             continue
         zin = zipfile.ZipFile(src)
@@ -2029,7 +2114,8 @@ def optimize_docx(src, dst, budget=None, force_tier=None, always=False):
             raw = zin.read(n)
             if MEDIA_RE.match(n):
                 base = os.path.basename(n)
-                data, ext, how = _recode(raw, quality, dpi, display.get(base, 0.0))
+                data, ext, how = _recode(raw, quality, dpi, display.get(base, 0.0),
+                                         quantize=(mode == 'max'))
                 if data is None or len(data) >= len(raw):
                     new, payload = n, raw                  # never grow a part
                     log.append((base, len(raw), len(raw), how + ' [kept]'))

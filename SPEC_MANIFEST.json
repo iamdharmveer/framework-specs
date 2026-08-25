@@ -85,11 +85,11 @@
       "version_header": "# Framework_PYQApprove v1.0.1 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)"
     },
     "Framework_PYQCompress.md": {
-      "end_sentinel": "# END OF Framework_PYQCompress v1.1.1",
-      "lines": 670,
-      "sha256": "4251621ec40a8fb9caab9d6295f2d6bf6c26502a66a90591836d246c31e420da",
-      "size_bytes": 32681,
-      "version_header": "# Framework_PYQCompress v1.1.1 — Universal Document Size Remediation"
+      "end_sentinel": "# END OF Framework_PYQCompress v2.0.0",
+      "lines": 781,
+      "sha256": "6d3b423f2d2c74d31be61d1bc61954333834f16221adb80a89dc00a39bab8d2a",
+      "size_bytes": 40620,
+      "version_header": "# Framework_PYQCompress v2.0.0 — Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
       "end_sentinel": "# END OF Framework_PYQCore v1.6",
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 6539,
-      "sha256": "66c9adebee6d614a9ca07729e728de3517ad4d74c26131db96f651392df1978e",
-      "size_bytes": 361058,
+      "lines": 6646,
+      "sha256": "9f9aeb1100dbc21781eec868408cfc45b6757f15b18595f8d27deebd975fd106",
+      "size_bytes": 366286,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -254,9 +254,9 @@
     },
     "corpus_io.py": {
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 5048,
-      "sha256": "faec81fa3c4b70d4ad095a99c8899725db7093b023894caf416222b2cee90ebb",
-      "size_bytes": 259538,
+      "lines": 5134,
+      "sha256": "06ae4408c7e34445bad8d5cafcb97ac749a35c0065a5eb08fb0fff13aa9fc4c9",
+      "size_bytes": 263647,
       "version_header": "\"\"\""
     },
     "explain_engine.py": {
