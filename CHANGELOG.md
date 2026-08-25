@@ -1,5 +1,38 @@
 # Changelog
 
+## 2026.08.25.2 — GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION: max-compression governor + canonical output naming; bootstrap provisions the quantizer binaries
+
+**Framework_PYQCompress v1.1.1 -> v2.0.0 · corpus_io v1.13 · blueprint_core (+MAX_TIER,
+PNG_QUANT_*, NAME_JUNK_TOKENS, canonical_output_name, canonical_paper_key; CLUSTER P retained,
+self-test 559/559) · corpus_io self-test 348/348 · bootstrap.py +ensure_compression_tools.
+Spec + two engines + the verifier; no routes, no triggers, no schema change. bootstrap 52/52;
+validate_framework_md 0 issues; check_triggers 27 consistent; full auditor + mutation suite
+green. Measured on a 22-paper live corpus before adoption. Two source deploys, sealed together.**
+
+(1) MAX COMPRESSION. PYQCompress's governor walked `blueprint_core.TIER_LADDER` and stopped at
+the first tier that fit the transport budget — so an under-budget file was NEVER downscaled,
+even with images embedded at 600-900 effective DPI inside a 1-2 inch display box (every
+pre-2015 scanned paper). PYQCompress now calls `corpus_io.optimize_docx(mode='max')`: ONE pass
+at `blueprint_core.MAX_TIER` (q82 / 300 DPI at display size, above the q80/200 T4 floor) with
+PNG output palette-quantized (pngquant -> optipng when installed, PIL FASTOCTREE fallback;
+alpha-capable on every path). Measured 90%+ reduction on pre-2015 scans (19.8 MB -> 1.1 MB),
+40-60% on 2021+ papers already at display resolution. Ladder callers (PYQSort S7-6) unchanged.
+
+(2) CANONICAL OUTPUT NAME. §2's byte-identical-filename rule is replaced by
+`blueprint_core.canonical_output_name`: `ExamCode_DD-Mon-YYYY[_ShiftN].docx` (Shift 1 emits no
+suffix; junk tokens such as `_IMAG` stripped; class decorations after the date survive
+verbatim). An unparseable name is a HARD STOP, never a guess; a batch-level canonical-collision
+gate (EC-C14) refuses two spellings of one paper. The operator instruction becomes
+upload-canonical-AND-trash-the-misnamed-original — the two names are DIFFERENT identities, and
+a second copy under a different name double-counts that paper's year in Steps 4 and 5.
+
+(3) BOOTSTRAP PROVISIONING (follow-up). `bootstrap.py` gains `ensure_compression_tools()`:
+best-effort `apt-get install pngquant optipng` AFTER the verify gate passes, scoped to
+compression triggers so every other step pays zero wall time. Provisioning only — no outcome
+changes the gate's exit code or the `.verified` contract; a failed install is a quality note,
+never a halt, because the PIL fallback keeps PYQCompress fully functional (~10-20% weaker on
+PNG-heavy papers). `bootstrap.py` is not MANIFEST-tracked, so it carries no manifest change.
+
 ## 2026.08.25.1 — GAP-2026-08-25-BLUEPRINT-PHASE1: Step 6 never halts on exam geometry; Phase-1 rare placement no longer end-clusters; Step 8A self-test runs in the clone
 
 **Framework_Blueprint v1.55.0 -> v1.56.0 · blueprint_core +CLUSTER P (+32 fixtures, self-test
