@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.55.0",
-      "lines": 7143,
-      "sha256": "e18258a913fa8bf3f59157e47493210e947338c30cea51ab8a5ffbd282de8e98",
-      "size_bytes": 384714,
-      "version_header": "# Framework_Blueprint v1.55.0 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.56.0",
+      "lines": 7470,
+      "sha256": "a9375e3d1df6e205ab641acad471c4c0dced7b3ec8eb300464acb38e8d346dbe",
+      "size_bytes": 410485,
+      "version_header": "# Framework_Blueprint v1.56.0 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -177,9 +177,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7529,
-      "sha256": "a5b61e423daaf1c3214f4e84249045aa28b08f8b1c8c50d95e2c006a5fdae7aa",
-      "size_bytes": 416957,
+      "lines": 7552,
+      "sha256": "793dbfd923282f19170a77e83ca8253587032468604b63dab0c4ca142b7cb8c6",
+      "size_bytes": 418564,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 6193,
-      "sha256": "217a70554cdaedd1927482d9a470b582532c0d02eec4ecdec680736349a5190d",
-      "size_bytes": 342122,
+      "lines": 6539,
+      "sha256": "66c9adebee6d614a9ca07729e728de3517ad4d74c26131db96f651392df1978e",
+      "size_bytes": 361058,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {

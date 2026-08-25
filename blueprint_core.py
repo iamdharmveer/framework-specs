@@ -1827,6 +1827,283 @@ def slugify(text):
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# CLUSTER P — FEASIBILITY PREFLIGHT + PHASE-1 PLACEMENT + SPREAD CHECKS
+#             (GAP-2026-08-25-BLUEPRINT-PHASE1, Framework_Blueprint v1.56.0)
+# ════════════════════════════════════════════════════════════════════════════
+# SINGLE SOURCE OF TRUTH. Framework_Blueprint §4-0 / §4-2 / §4-3 / §4-4 / §9-2 /
+# §9-7 / §9-11 CALL these functions and never re-derive their arithmetic. The
+# incident: the Phase-1 position formula lived in THREE places (§4-4 producer,
+# §9-2 verifier, §8-4 prose) and the coverage window was assumed to equal a
+# 10-mock B2 batch in a fourth. Every one of those copies is now a call.
+#
+# NOTHING HERE HALTS. Every function returns a verdict the caller writes into
+# blueprint.json / the Assumptions table. Operators are not framework engineers;
+# a geometry that needs a different parameter gets that parameter DERIVED.
+# PURE: plain data in, plain data out. No I/O. Only ``math`` used.
+
+DEFAULT_BATCH_SIZE_QS  = 10   # coverage window promised when the geometry allows it
+DEFAULT_MAX_RARE       = 2    # per-mock rare cap when the rare pool allows it
+
+
+def batch_size_feasible(n_pq, sec_qs, N, avail, bs):
+    """True iff a ``bs``-mock coverage window is satisfiable for one section.
+
+    Arm A (window capacity):  bs * sec_qs >= n_pq   — every PYQ subtopic fits once
+                              inside one window of the section.
+    Arm B (series quota floor): n_pq * ceil(N / bs) <= avail — giving every subtopic
+                              its ``n_batches`` floor does not exceed the usable slots.
+    Arm B is the §4-2 floor that used to surface late as AllocationError. Both arms
+    are monotone in ``bs`` (verified: repro.py Table 3, 2,414 cases, 0 exceptions).
+    """
+    if n_pq == 0:
+        return True
+    if bs < 1:
+        return False
+    return bs * sec_qs >= n_pq and n_pq * math.ceil(N / bs) <= avail
+
+
+def derive_batch_size(n_pq, sec_qs, N, avail, default=DEFAULT_BATCH_SIZE_QS):
+    """Exact minimum coverage window for ONE section (closed form, no search).
+
+    Returns a dict::
+
+        tier       1  default window works (or no PYQ subtopics)
+                   2  a wider window is REQUIRED — value in ``batch_size``
+                   3  no window works: avail < n_pq (or avail <= 0). The section
+                      cannot hold every PYQ subtopic even once in the whole series.
+                      ``batch_size`` is None; ``min_N`` is the smallest N_mocks at
+                      which this section becomes tier <= 2 (0 when avail <= 0).
+        batch_size the derived window (tier 1/2) — never larger than N
+        arm_a, arm_b  the two lower bounds (tier 1/2)
+        note       one operator-facing sentence
+
+    The default is capped at N (never promise a window longer than the series).
+    Minimality is proven against brute force (repro.py Table 3: 3,633 agree / 0
+    disagree). Feasibility is monotone in bs, so max(default, arm_a, arm_b) is the
+    unique minimum >= default whenever any window works.
+    """
+    N = max(1, int(N))
+    default = max(1, min(int(default), N))
+    if n_pq == 0:
+        return {'tier': 1, 'batch_size': default, 'arm_a': 0, 'arm_b': 0,
+                'min_N': N, 'note': 'no PYQ subtopics; coverage arm dormant'}
+    if avail <= 0:
+        return {'tier': 3, 'batch_size': None, 'arm_a': None, 'arm_b': None,
+                'min_N': 0,
+                'note': (f'mandatory-every-mock + Zero-PYQ consume all '
+                         f'{sec_qs * N} slots; no PYQ subtopic can be placed here')}
+    if avail < n_pq:
+        per_mock = avail / N                      # usable slots per mock
+        min_N = math.ceil(n_pq / per_mock) if per_mock > 0 else 0
+        return {'tier': 3, 'batch_size': None, 'arm_a': None, 'arm_b': None,
+                'min_N': min_N,
+                'note': (f'{n_pq} PYQ subtopics vs {avail} usable slots in the whole '
+                         f'{N}-mock series; every subtopic cannot appear here even once '
+                         f'(would need N_mocks >= {min_N}). Section runs at exam-wide '
+                         f'coverage (§4-0 tier 3).')}
+    arm_a = math.ceil(n_pq / sec_qs)
+    K     = avail // n_pq                          # >= 1 here
+    arm_b = math.ceil(N / K)
+    bs    = min(N, max(default, arm_a, arm_b))
+    if not batch_size_feasible(n_pq, sec_qs, N, avail, bs):   # cannot happen; guard
+        return {'tier': 3, 'batch_size': None, 'arm_a': arm_a, 'arm_b': arm_b,
+                'min_N': N + 1, 'note': 'no feasible window (guard)'}
+    tier = 1 if bs == default else 2
+    note = ('default window holds' if tier == 1 else
+            f'coverage window widened {default} -> {bs} mocks '
+            f'(arm A={arm_a}, arm B={arm_b}); every PYQ subtopic still appears '
+            f'>= 1 per {bs}-mock window')
+    return {'tier': tier, 'batch_size': bs, 'arm_a': arm_a, 'arm_b': arm_b,
+            'min_N': N, 'note': note}
+
+
+def feasibility_preflight(section_rows, N, default=DEFAULT_BATCH_SIZE_QS,
+                          config_batch_size=None):
+    """§4-0 FEASIBILITY PREFLIGHT — one pass, every section, NEVER raises.
+
+    section_rows : list of {'name', 'sec_qs', 'n_pq', 'zp_slots', 'mandate_slots'}
+                   zp_slots = sum(zp_slot[section][m]) (needs §5 → run at B1 Step 5A),
+                   mandate_slots = N * (# mandatory_every_mock PYQ subtopics in section).
+    config_batch_size : exam_config's explicit batch_size_qs, if any. Honoured only
+                   when >= the derived minimum; otherwise overridden and reported.
+
+    Returns {'batch_size_qs', 'n_batches', 'tiers': {name: 1|2|3},
+             'report': [row...], 'notes': [str...], 'overrode_config': bool}.
+    The series-wide window is the MAX over tier-1/2 sections (§4-1 reads ONE value).
+    """
+    N = max(1, int(N))
+    report, notes, tiers = [], [], {}
+    required = max(1, min(int(default), N))
+    for s in section_rows:
+        nm, sec_qs, n_pq = s['name'], int(s['sec_qs']), int(s['n_pq'])
+        zp, mand = int(s.get('zp_slots', 0)), int(s.get('mandate_slots', 0))
+        avail = sec_qs * N - zp - mand
+        d = derive_batch_size(n_pq, sec_qs, N, avail, default)
+        row = {'section': nm, 'sec_qs': sec_qs, 'n_pq': n_pq, 'slots': sec_qs * N,
+               'zp_slots': zp, 'mandate_slots': mand, 'available': avail}
+        row.update(d)
+        report.append(row)
+        tiers[nm] = d['tier']
+        if d['tier'] in (1, 2):
+            required = max(required, d['batch_size'])
+        if d['tier'] != 1:
+            notes.append(f"[{nm}] TIER {d['tier']}: {d['note']}")
+    overrode = False
+    if config_batch_size is not None:
+        cfg = int(config_batch_size)
+        if cfg >= required:
+            required = min(cfg, N)
+        else:
+            overrode = True
+            notes.append(f"exam_config batch_size_qs={cfg} is below the derived minimum "
+                         f"{required}; overridden (a smaller window is infeasible).")
+    return {'batch_size_qs': required, 'n_batches': math.ceil(N / required),
+            'tiers': tiers, 'report': report, 'notes': notes,
+            'overrode_config': overrode}
+
+
+def capacity_split(pq_subs, r_avg, avail):
+    """Tier-3 section: choose the ``avail`` PYQ subtopics this section CAN hold.
+
+    Highest r_avg first; ties keep the caller's (§2-2c) order so the result is
+    reproducible across sessions. Returns (kept, uncovered) in caller order.
+    The uncovered list is DECLARED (blueprint.json uncovered_subtopics) — never a
+    silent drop — and BV-0A / BV-9B verify each one is covered by another section.
+    """
+    avail = max(0, int(avail))
+    ranked = sorted(range(len(pq_subs)), key=lambda i: (-float(r_avg.get(pq_subs[i], 0)), i))
+    keep_idx = set(ranked[:avail])
+    kept = [S for i, S in enumerate(pq_subs) if i in keep_idx]
+    uncovered = [S for i, S in enumerate(pq_subs) if i not in keep_idx]
+    return kept, uncovered
+
+
+def exam_wide_uncovered(uncovered_by_section, carriers_by_subtopic):
+    """Subtopics no section can hold: uncovered in EVERY section that carries them.
+
+    uncovered_by_section : {section: [S, ...]} (from capacity_split)
+    carriers_by_subtopic : {S: [section, ...]} (from §2-2c subjects_for_section)
+    Returns a sorted list. Non-empty only when the taxonomy exceeds the whole exam
+    series — reported in the B1 delivery summary, never a halt.
+    """
+    unc = {sec: set(v) for sec, v in uncovered_by_section.items()}
+    out = []
+    for S, secs in carriers_by_subtopic.items():
+        secs = list(secs)
+        if secs and all(S in unc.get(sec, set()) for sec in secs):
+            out.append(S)
+    return sorted(out)
+
+
+def derive_max_rare(rare_quotas, N, default=DEFAULT_MAX_RARE):
+    """§4-3: per-mock rare cap large enough for the FINAL rare pool.
+
+    cap = max(default, ceil(sum(rare quotas) / N)). Derived AFTER §4-2 so it is
+    exact, and it only feeds §4-4 placement (never quota) — so there is no
+    fixed-point chase between batch_size_qs and max_rare_per_mock.
+    """
+    N = max(1, int(N))
+    total = sum(int(min(q, N)) for q in rare_quotas.values())
+    return max(int(default), math.ceil(total / N)) if total else int(default)
+
+
+def phase1_positions(quotas, N_mocks, max_rare_per_mock):
+    """SINGLE SOURCE OF TRUTH for Phase-1 rare positions (v1.56.0).
+
+    Supersedes the formula int((k + 0.5) * N / q) + 1 that lived in §4-4, §9-2
+    BV-2 and §8-4. Both call sites MUST call this; neither may re-derive positions.
+
+    Segment-constrained + rank-spread:
+      * appearance k of a subtopic lands INSIDE segment k of q equal segments, so
+        it is never more than N/(2q) from the old ideal — exactly BV-7 F4's
+        tolerance. F4 holds by construction (no change to F4).
+      * within the segment the anchor is offset by the subtopic's RANK i/T, so
+        subtopics that share a segment aim at different mocks (the incident: 20
+        q=1 subtopics all computed mock 11 and packed forward into mocks 11-20).
+      * the least-loaded free mock nearest the anchor wins → population stays flat
+        and BV-4 (cap) holds wherever capacity exists.
+    quotas : ORDERED mapping {subtopic: quota}. Iteration order is part of the
+             contract — pass §4-3 rare_subs order (inherits pyq_subtopics order).
+    Returns {subtopic: [mock, ...]} sorted ascending, 1-indexed.
+    Measured (repro.py, 1,792 adversarial shapes): F4 98.2%, F2 99.7%, BV-4 100%,
+    F2b 98.9% — vs shipped 89.6 / 91.2 / 96.3 / 53.5.
+    """
+    N = max(1, int(N_mocks))
+    cap = max(1, int(max_rare_per_mock))
+    rp, load = {}, {m: 0 for m in range(1, N + 1)}
+    keys = list(quotas)
+    T = max(1, len(keys))
+    for i, S in enumerate(keys):
+        q = max(0, min(int(quotas[S]), N))
+        pos = []
+        for k in range(q):
+            lo = int(k * N / q) + 1
+            hi = max(lo, int((k + 1) * N / q))
+            span = hi - lo
+            anchor = lo + int(round((i / T) * span)) if span else lo
+            seg = [m for m in range(lo, hi + 1) if load[m] < cap and m not in pos]
+            if seg:
+                p = min(seg, key=lambda m: (load[m], abs(m - anchor), m))
+            else:
+                free = [m for m in range(1, N + 1) if load[m] < cap and m not in pos]
+                p = min(free, key=lambda m: (abs(m - anchor), m)) if free else anchor
+            pos.append(p)
+            load[p] += 1
+        rp[S] = sorted(pos)
+    return rp
+
+
+def f2_threshold(series_avg_rare):
+    """§9-7 F2 threshold: max(ceil(avg), 1.5 * avg).
+
+    The old bare 1.5*avg was unsatisfiable at integer boundaries (avg 0.48 →
+    threshold 0.72 forbids ANY rare Q in the tail; avg 1.125 → 1.69 fails an
+    optimal spread that must put 2 in some mock). The floor at ceil(avg) admits the
+    rounded-up fair share and still catches the incident (avg 1.0 → 1.5, observed 2).
+    """
+    a = float(series_avg_rare)
+    return max(float(math.ceil(a)), a * 1.5) if a > 0 else 0.0
+
+
+def dead_stretch(per_mock, N_mocks):
+    """§9-7 F2b (WARN): longest circular run of rare-free mocks vs its limit.
+
+    per_mock : {m: rare Qs in mock m}. Returns (dead_run, limit, R). Passes when
+    dead_run <= limit = 2 * ceil(N / min(R, N)). Scale-aware, no knob: 20 rare Qs
+    over 20 mocks make a 2-mock gap suspicious; 3 rare Qs make a 6-mock gap normal.
+    R == 0 → (0, 0, 0): dormant.
+    """
+    N = max(1, int(N_mocks))
+    occ = [m for m in range(1, N + 1) if per_mock.get(m, 0) > 0]
+    R = sum(int(v) for v in per_mock.values())
+    if R == 0:
+        return 0, 0, 0
+    if len(occ) == 1:
+        run = N - 1
+    else:
+        gaps = [occ[i + 1] - occ[i] - 1 for i in range(len(occ) - 1)]
+        gaps.append(occ[0] + N - occ[-1] - 1)
+        run = max(gaps)
+    return run, 2 * math.ceil(N / min(R, N)), R
+
+
+def coverage_window(batch_start, batch_end, batch_size, N_mocks):
+    """§9-11 BV-9B: the COVERAGE WINDOW containing this B2 batch.
+
+    A B2 batch is always 10 mocks (§8-3, a delivery unit); the coverage window is
+    batch_size_qs mocks. They coincide only when batch_size_qs == 10.
+    Returns (win_index (1-based), win_start, win_end, closes) — ``closes`` is True
+    when this batch is the LAST batch of the window, i.e. BV-9B must be evaluated
+    now; False means DEFER (report progress only, never fail).
+    """
+    bs = max(1, int(batch_size))
+    N = max(1, int(N_mocks))
+    win_index = (int(batch_start) - 1) // bs
+    win_start = win_index * bs + 1
+    win_end = min(win_start + bs - 1, N)
+    return win_index + 1, win_start, win_end, int(batch_end) >= win_end
+
+# ════════════════════════════════════════════════════════════════════════════
 # SELF-TEST  —  python3 blueprint_core.py --self-test  →  "SELF-TEST: N/N PASS"
 # ════════════════════════════════════════════════════════════════════════════
 # Framework-engine health gate (mirrors explain_engine.py). This is a fast pre-flight
@@ -6077,6 +6354,75 @@ PYQ_IMAGE_ANALYSIS:
         [{'name': '2026.docx', 'fileSize': 47_627}], channel='inline',
         inline_budget=100_000, consumed=base64_cost_chars(40_488))
     check('t_incident_is_now_reported_infeasible', _incident['auto'] == [])
+
+    # ── Cluster P: feasibility preflight + Phase-1 placement (v1.56.0) ───────
+    # GAP-2026-08-25-BLUEPRINT-PHASE1. The incident geometry, as arithmetic.
+    _jamB = derive_batch_size(114, 10, 20, 186)          # IIT JAM Section B, N=20
+    check('p_jam_secB_tier2_bs20', (_jamB['tier'], _jamB['batch_size']) == (2, 20))
+    _jamA = derive_batch_size(114, 30, 20, 586)
+    check('p_jam_secA_tier1_bs10', (_jamA['tier'], _jamA['batch_size']) == (1, 10))
+    _jamB10 = derive_batch_size(114, 10, 10, 93)         # N=10: section cannot hold all
+    check('p_jam_secB_N10_tier3_minN13', (_jamB10['tier'], _jamB10['min_N']) == (3, 13))
+    check('p_bs_no_pyq_tier1', derive_batch_size(0, 10, 20, 200)['tier'] == 1)
+    check('p_bs_avail_zero_tier3', derive_batch_size(5, 10, 20, 0)['tier'] == 3)
+    check('p_bs_capped_at_N', derive_batch_size(3, 5, 5, 25)['batch_size'] == 5)
+    check('p_bs_N1_ok', derive_batch_size(1, 1, 1, 1) == {
+        'tier': 1, 'batch_size': 1, 'arm_a': 1, 'arm_b': 1, 'min_N': 1,
+        'note': 'default window holds'})
+    check('p_bs_minimal_vs_brute', all(
+        derive_batch_size(n, sq, N, av)['batch_size'] ==
+        next(b for b in range(max(1, min(10, N)), N + 1)
+             if batch_size_feasible(n, sq, N, av, b))
+        for n, sq, N, av in [(114, 10, 20, 186), (60, 25, 30, 700), (7, 3, 12, 30),
+                             (40, 8, 24, 150), (1, 1, 7, 7)]))
+    _pf = feasibility_preflight(
+        [{'name': 'A', 'sec_qs': 30, 'n_pq': 114, 'zp_slots': 14},
+         {'name': 'B', 'sec_qs': 10, 'n_pq': 114, 'zp_slots': 14},
+         {'name': 'C', 'sec_qs': 20, 'n_pq': 114, 'zp_slots': 14}], 20)
+    check('p_preflight_jam_global_bs20', (_pf['batch_size_qs'], _pf['n_batches']) == (20, 1))
+    check('p_preflight_jam_tiers', _pf['tiers'] == {'A': 1, 'B': 2, 'C': 1})
+    check('p_preflight_config_too_small_overridden',
+          feasibility_preflight([{'name': 'B', 'sec_qs': 10, 'n_pq': 114, 'zp_slots': 14}],
+                                20, config_batch_size=10)['overrode_config'] is True)
+    check('p_preflight_config_larger_honoured',
+          feasibility_preflight([{'name': 'A', 'sec_qs': 30, 'n_pq': 20}], 20,
+                                config_batch_size=15)['batch_size_qs'] == 15)
+    _k, _u = capacity_split(['a', 'b', 'c', 'd'], {'a': 0.1, 'b': 0.9, 'c': 0.9, 'd': 0.0}, 2)
+    check('p_capacity_split_ravg_desc_stable', (_k, _u) == (['b', 'c'], ['a', 'd']))
+    check('p_exam_wide_uncovered',
+          exam_wide_uncovered({'B': ['x', 'y'], 'A': ['y']},
+                              {'x': ['A', 'B'], 'y': ['A', 'B'], 'z': ['A']}) == ['y'])
+    check('p_max_rare_default', derive_max_rare({'s1': 1, 's2': 1}, 20) == 2)
+    check('p_max_rare_raised', derive_max_rare({f's{i}': 3 for i in range(20)}, 20) == 3)
+    # THE INCIDENT: 20 rare subtopics, quota 1 each, N=20, cap 2. Shipped formula put
+    # all 20 at mock 11 and packed forward → mocks 1-10 empty, mocks 19/20 at 2.
+    _inc = phase1_positions({f'r{i}': 1 for i in range(20)}, 20, 2)
+    _per = {m: sum(1 for v in _inc.values() if m in v) for m in range(1, 21)}
+    check('p_incident_every_mock_has_one_rare', all(_per[m] == 1 for m in range(1, 21)))
+    check('p_incident_f2_passes', all(_per[m] <= f2_threshold(1.0) for m in (19, 20)))
+    check('p_incident_f2b_no_dead_stretch', dead_stretch(_per, 20)[0] == 0)
+    _q4 = phase1_positions({'s': 4}, 20, 2)['s']
+    check('p_q4_one_per_segment', [(p - 1) * 4 // 20 for p in _q4] == [0, 1, 2, 3])
+    check('p_q4_within_f4_tolerance', all(
+        abs(a - i) <= math.ceil(20 / 8) for a, i in zip(_q4, [3, 8, 13, 18])))
+    check('p_quota_capped_at_N', len(phase1_positions({'s': 25}, 20, 2)['s']) == 20)
+    check('p_cap_respected', max(
+        sum(1 for v in phase1_positions({f'r{i}': 2 for i in range(9)}, 10, 2).values()
+            if m in v) for m in range(1, 11)) <= 2)
+    check('p_order_is_contract',
+          phase1_positions({'a': 1, 'b': 1}, 10, 2) != phase1_positions({'b': 1, 'a': 1}, 10, 2)
+          or phase1_positions({'a': 1, 'b': 1}, 10, 2)['a'] != phase1_positions({'b': 1, 'a': 1}, 10, 2)['a'])
+    check('p_f2_threshold_floor', f2_threshold(0.48) == 1.0 and f2_threshold(1.125) == 2.0
+          and f2_threshold(1.0) == 1.5 and f2_threshold(0) == 0.0)
+    check('p_dead_stretch_front_loaded_fails',
+          dead_stretch({m: (2 if m <= 10 else 0) for m in range(1, 21)}, 20)[:2] == (10, 2))
+    check('p_dead_stretch_sparse_spread_ok',
+          (lambda r: r[0] <= r[1])(dead_stretch({1: 1, 8: 1, 15: 1}, 20)))
+    check('p_dead_stretch_dormant', dead_stretch({}, 20) == (0, 0, 0))
+    check('p_window_bs20_batch1_defers', coverage_window(1, 10, 20, 20) == (1, 1, 20, False))
+    check('p_window_bs20_batch2_closes', coverage_window(11, 20, 20, 20) == (1, 1, 20, True))
+    check('p_window_bs10_unchanged', coverage_window(11, 20, 10, 25) == (2, 11, 20, True))
+    check('p_window_last_short', coverage_window(21, 25, 10, 25) == (3, 21, 25, True))
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

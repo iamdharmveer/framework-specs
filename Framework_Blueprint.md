@@ -1,4 +1,42 @@
-# Framework_Blueprint v1.55.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.56.0 — Universal Mock Test Blueprint Generator
+# v1.56.0 — 2026-08-25 — GAP-2026-08-25-BLUEPRINT-PHASE1 (paired with blueprint_core
+#   CLUSTER P, self-test 527 -> 559; audit_canonical v2.18). One MockBlueprint run halted
+#   three times on IIT_JAM_CHEMISTRY; seven defects, all exam-independent. NOTHING IN
+#   §4 HALTS ANY MORE — every geometry problem is DERIVED and REPORTED, never handed
+#   to the operator. (1) DEF-01 batch_size_qs was a constant (10) standing in for a
+#   computed quantity: any mechanism-partitioned exam (MCQ/MSQ/NAT sections that each
+#   carry the full taxonomy) breaks it whenever taxonomy > 10 x smallest section. New
+#   §4-0 FEASIBILITY PREFLIGHT (B1 Step 5A, after §5 so ZP slots are known) derives the
+#   exact minimum window per section (closed form, proven minimal vs brute force) and a
+#   three-tier verdict: 1 default holds / 2 window widened, one Assumptions row /
+#   3 the section cannot hold every subtopic even once in the whole series -> it keeps
+#   the highest-r_avg subtopics it can (bc.capacity_split) and the rest are DECLARED
+#   in blueprint.json uncovered_subtopics and guaranteed by the OTHER sections that
+#   carry them (coverage promise moves from per-section to per-exam for that section).
+#   Silent exclusion remains a BV-0A hard stop; declared exclusion is verified exam-wide
+#   (BV-0A Check 4, BV-9B). The EC-11 halt and its unparsed --batch_coverage flag are
+#   retired. (2) DEF-02 §4-4 Phase-1 stagger int((k+0.5)N/q)+1 has no subtopic term, so
+#   every q=1 rare subtopic computed the SAME mock and the forward-only conflict scan
+#   packed them into the tail (mocks 1-10 held ZERO rare Qs) — present since the first
+#   commit, masked by a resonance band rare_count ~ [N, 1.3N]; the §4-5 v1.13 offset fix
+#   was never back-ported and, measured, does not work here. Replaced by
+#   bc.phase1_positions (segment-constrained + rank-spread): F4 89.6->98.2%, F2
+#   91.2->99.7%, BV-4 96.3->100%, dead-stretch 53.5->98.9% over 1,792 adversarial
+#   shapes. (3) DEF-05 that formula lived in THREE places (§4-4, §9-2 BV-2, §8-4 prose);
+#   all three now CALL the engine. (4) DEF-03 BV-7 F2 threshold 1.5*avg was
+#   unsatisfiable at integer boundaries -> bc.f2_threshold = max(ceil(avg), 1.5*avg).
+#   (5) DEF-04 F2 inspected only the tail -> new F2b no-dead-stretch (WARN; ratchet
+#   after corpus replay). (6) DEF-07 BV-9B assumed window == 10-mock B2 batch -> scoped
+#   to the coverage window via bc.coverage_window, DEFERRED (never failed) until the
+#   window closes. (7) DEF-06 Step 8A ran the auditor self-test from the outputs
+#   directory where blueprint_core is absent by design (v2.12.1) -> 253/255; the
+#   self-test now runs INSIDE the clone and audit_canonical ABORTS rather than shed
+#   fixtures. max_rare_per_mock is derived in §4-3 from the FINAL rare pool (exact, no
+#   fixed-point chase with batch_size_qs). §14: batch_size_qs / max_rare_per_mock become
+#   REQUIRED+DERIVED (an exam_config value is honoured only if >= the derived minimum);
+#   + feasibility_tier, uncovered_subtopics, uncovered_exam_wide. F4 is unchanged (it
+#   was never the defect). Subject-partitioned exams derive tier 1 / bs 10 / cap 2 —
+#   byte-identical allocation for every exam that never hit the band.
 # v1.55.0 — 2026-08-23 — HYGIENE-2026-08-23-STEP6-AUDIT (line-by-line audit closure;
 #   no allocation rule, gate, schema, or artefact-shape changes). FIVE fixes:
 #   (1) DELIVERY-COUNT-DRIFT, 5th recurrence: §13-7 "All 6 must be present" and
@@ -710,9 +748,12 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
   OPTIONAL TUNING PASSTHROUGHS (v1.55.0 — the v1.38 rule applied to the four
   bp.get() tuning knobs): if exam_config.json carries any of rare_threshold,
   max_rare_per_mock, max_per_mechanic_per_mock, batch_size_qs, copy the value
-  VERBATIM into blueprint.json top level at B1 Step 7. Emit a key ONLY when
-  exam_config carries it — never a fabricated default (absent keys leave every
-  bp.get() default and all behaviour byte-identical). Declared in §14 S14-1.
+  VERBATIM into bp at THIS step (S2-1, v1.56.0 — so §4-0 / §4-3 can read the hint)
+  and write it to blueprint.json at B1 Step 7. Emit an OPTIONAL key ONLY when
+  exam_config carries it — never a fabricated default. v1.56.0: batch_size_qs and
+  max_rare_per_mock are then DERIVED (§4-0, §4-3) — the exam_config value is a lower
+  bound that is honoured when it is >= the derived minimum and overridden (with an
+  Assumptions row) when it is not; both are ALWAYS written. Declared in §14 S14-1.
 
   Q-range validation (same checks as Step 2a — defensive re-check):
     Ranges must be: non-overlapping AND contiguous.
@@ -1466,34 +1507,147 @@ Thresholds are fixed — not configurable per exam.
 ## §4 — ALLOCATION ALGORITHM
 
 The core of Step 1. Determines exactly how many Qs each subtopic gets in each mock.
-Three-phase algorithm:
-  Phase 0 (NEW): Batch-coverage pass — guarantees every PYQ subtopic appears
-                 at least once within every 10-mock batch window.
+Four-phase algorithm:
+  §4-0 (v1.56.0): FEASIBILITY PREFLIGHT — derives batch_size_qs, the per-section
+                 feasibility tier and (tier 3) the declared-uncovered list. NEVER halts.
+  Phase 0       : Batch-coverage pass — guarantees every PYQ subtopic appears
+                 at least once within every coverage window.
   Phase 1       : Pre-schedules rare subtopics (r_avg < RARE_THRESHOLD, default 0.1) evenly across series.
   Phase 2       : Fills remaining slots by even-spread for non-rare subtopics.
 
 BATCH COVERAGE GUARANTEE (Option C — architect decision):
-  Every PYQ subtopic (r_avg > 0) must appear ≥ 1 Q in EVERY 10-mock batch.
+  Every PYQ subtopic (r_avg > 0) must appear ≥ 1 Q in EVERY coverage window.
   This is a hard constraint — it overrides proportional frequency for low-r_avg subtopics.
   Accepted trade-off: rare subtopics appear more frequently than their PYQ r_avg suggests.
-  Purpose: student gets exposure to every subtopic in every 10-mock practice window.
+  Purpose: student gets exposure to every subtopic in every practice window.
+  v1.56.0 — the promise is PER SECTION for tier-1/2 sections and PER EXAM for a tier-3
+  section (one too small to hold its taxonomy even once): a subtopic the small section
+  cannot carry is guaranteed by another section that carries it, in the same window.
 
-BATCH WINDOW DEFINITION:
-  batch_size = bp.get('batch_size_qs', 10)  # read from blueprint; default 10 for most exams
-  Batch 1 = mocks  1-10, Batch 2 = mocks 11-20, ..., Batch K = mocks (K-1)*10+1 to K*10
-  Last batch may be smaller if N_mocks is not a multiple of 10 (handled in EC-11).
+COVERAGE WINDOW DEFINITION (v1.56.0 — DERIVED, not configured):
+  batch_size = bp['batch_size_qs']          # written by §4-0; REQUIRED (§14 S14-1)
+  Window 1 = mocks 1..bs, Window 2 = mocks bs+1..2bs, ...; last window may be shorter.
   n_batches = math.ceil(N_mocks / batch_size)
-
-FEASIBILITY PRE-CHECK runs inside §4-1 (per-section setup) before quota computation.
-  Full details and resolution options in EC-11 (§16).
+  The default window is 10 mocks and holds on every subject-partitioned exam. §4-0 widens
+  it only when a section's geometry makes 10 infeasible, and reports the change in the
+  Paper Structure Assumptions table. A B2 BATCH (§8-3) is always 10 mocks — it is a
+  delivery unit, deliberately independent of the coverage window (ref §9-11).
 
 # Requires: import math (for math.floor throughout §4)
 # AlgorithmError  = RuntimeError  (alias used for fatal algorithm failures)
 # ValidationError = ValueError    (alias used for data validation failures)
 # rare_subs_by_section    = {}    (populated in S4-3; used by §9 BV-4)
 # nonrare_subs_by_section = {}    (populated in S4-3)
-# batch_size = 10                 (fixed batch window — matches B2 batch size; set in §4-1)
+# batch_size = bp['batch_size_qs']   (DERIVED by §4-0 at B1 Step 5A; read in §4-1)
 # n_batches  = math.ceil(N_mocks / batch_size)  (set in §4-1)
+# feasibility_tier[section] / uncovered_subtopics[section]  (set in §4-0)
+
+### S4-0 — FEASIBILITY PREFLIGHT (v1.56.0 — runs at B1 Step 5A, after §5, before §4-1 and §7)
+
+```
+WHY: Until v1.55.0 batch_size_qs was a constant (10) that encoded an unstated assumption —
+"every section has at least taxonomy_size/10 questions per mock" — and §4-1 HALTED with
+EC-11 when it was false. It is false for the whole mechanism-partitioned exam family
+(sections split by MCQ/MSQ/NAT, every section carrying every subject): IIT_JAM_CHEMISTRY
+Section B is 10 Qs/mock and carries all 114 PYQ subtopics. Only Arm A of the constraint
+was even checked; Arm B (the §4-2 quota floor) escaped to a later AllocationError that
+did not name EC-11. The operator was then asked to choose a parameter the spec could
+have computed. There is exactly ONE correct minimum per exam; this section computes it.
+
+NOTHING HERE HALTS. Every outcome is a derived parameter plus a report row.
+
+WHEN: B1 Step 5A — AFTER §5 (zp_slot[section][m] must exist: ZP slots reduce the usable
+capacity) and BEFORE §4-1 (which reads batch_size) and §7-7 (which reads the window).
+```
+
+```python
+# §4-0 FEASIBILITY PREFLIGHT — arithmetic lives in the engine (bc.feasibility_preflight,
+# bc.derive_batch_size, bc.capacity_split, bc.exam_wide_uncovered). NEVER re-derive here.
+import blueprint_core as bc
+
+_rows = []
+for section in sections:
+    _mand = sum(1 for sid in MANDATORY_IDS
+                if sid in MANIFEST_IDS and subtopic_in_section(sid, section['name'])
+                and MANIFEST_IDS[sid]['display_name'] in pyq_subtopics[section])
+    _rows.append({'name': section['name'], 'sec_qs': section['total_qs'],
+                  'n_pq': len(pyq_subtopics[section]),
+                  'zp_slots': sum(zp_slot[section][m] for m in range(1, N_mocks + 1)),
+                  'mandate_slots': _mand * N_mocks})
+
+_pf = bc.feasibility_preflight(_rows, N_mocks,
+                               config_batch_size=bp.get('batch_size_qs'))   # S2-1 passthrough hint, if any
+
+bp['batch_size_qs']    = _pf['batch_size_qs']      # REQUIRED from v1.56.0 (§14 S14-1)
+bp['feasibility_tier'] = _pf['tiers']              # {section_name: 1|2|3}
+feasibility_report     = _pf['report']             # one row per section (Sheet 1 Assumptions)
+for _note in _pf['notes']:
+    warn(f"§4-0: {_note}")                         # each note also becomes an Assumptions row
+if _pf['overrode_config']:
+    warn("§4-0: exam_config batch_size_qs overridden — recorded in Assumptions table")
+
+# ── TIER 3: the section cannot hold every PYQ subtopic even once in N_mocks ─────
+# Keep the highest-r_avg subtopics that fit (avail of them, quota 1 each; the §4-2
+# floor for this section is 1, not n_batches). The remainder are DECLARED uncovered
+# for THIS SECTION ONLY and must be carried by another section (verified: BV-0A
+# Check 4 at B1, BV-9B exam-wide arm at B2). This is never a silent drop.
+uncovered_subtopics = {}
+section_alloc_subs  = {}          # section → PYQ subtopics §4 allocates (tier 3: the kept subset)
+for section in sections:
+    if bp['feasibility_tier'][section['name']] != 3:
+        continue
+    _row   = next(r for r in feasibility_report if r['section'] == section['name'])
+    _kept, _unc = bc.capacity_split(pyq_subtopics[section], r_avg, _row['available'])
+    section_alloc_subs[section] = _kept                # §4-1 allocates ONLY these
+    uncovered_subtopics[section['name']] = _unc        # quota 0 in this section
+    warn(f"§4-0 TIER 3 [{section['name']}]: {len(_unc)} PYQ subtopic(s) cannot fit in "
+         f"{_row['available']} usable slots; declared uncovered HERE and covered by other "
+         f"sections. Full per-section coverage needs N_mocks >= {_row['min_N']}.")
+for section in sections:
+    section_alloc_subs.setdefault(section, pyq_subtopics[section])   # tiers 1/2: all
+
+# carriers_by_subtopic: every OTS section whose re-keyed list (§2-2c) carries S
+carriers_by_subtopic = {}
+for section in sections:
+    for S in pyq_subtopics[section]:
+        carriers_by_subtopic.setdefault(S, []).append(section['name'])
+bp['uncovered_subtopics'] = uncovered_subtopics                     # {section: [S...]}
+bp['uncovered_exam_wide'] = bc.exam_wide_uncovered(uncovered_subtopics, carriers_by_subtopic)
+if bp['uncovered_exam_wide']:
+    # Only possible when the taxonomy exceeds the WHOLE exam series. Reported in the
+    # B1 delivery summary with the minimum N_mocks per section; still not a halt.
+    warn(f"§4-0: {len(bp['uncovered_exam_wide'])} subtopic(s) cannot be covered by ANY "
+         f"section in {N_mocks} mocks: {bp['uncovered_exam_wide']}")
+
+# FRAMEWORK-OWNER QUALITY SIGNAL (distinct from the operator-facing notes above):
+# a tier-3 section, or a tier-2 window that reaches N_mocks, cannot distinguish a
+# genuinely broad syllabus from an over-granular Step-5 split. Log for review:
+for r in feasibility_report:
+    if r['tier'] == 3 or (r['tier'] == 2 and r['batch_size'] == N_mocks):
+        warn(f"§4-0 REVIEW-SIGNAL [{r['section']}]: n_pq={r['n_pq']} sec_qs={r['sec_qs']} "
+             f"tier={r['tier']} — verify the Step-5 taxonomy granularity is intended.")
+```
+
+```
+TIER LADDER (replaces the EC-11 halt — see §16 EC-11):
+  Tier 1  derived window == default (10, capped at N_mocks). Nothing to report.
+  Tier 2  default < derived window <= N_mocks. Auto-set. ONE Assumptions row: old value,
+          new value, the section that forced it, the revised coverage promise.
+  Tier 3  available < n_pq (or available <= 0). Auto-split (above). Assumptions row +
+          blueprint.json uncovered_subtopics[section] + B1 summary line with min_N.
+
+EDGE CASES (all fixtures in blueprint_core --self-test, cluster P):
+  n_pq = 0 (all Zero-PYQ)          -> tier 1, arm dormant, no division by zero
+  N_mocks < 10                     -> window capped at N_mocks (never promise a window
+                                      longer than the series)
+  N_mocks = 1                      -> tier 1 if n_pq <= sec_qs else tier 3; n_batches = 1
+  mandates + ZP consume all slots  -> tier 3, dedicated note
+  sections needing different bs    -> series-wide bs = MAX over tier-1/2 sections
+                                      (§4-1 reads ONE value)
+  exam_config batch_size_qs < min  -> overridden to the derived minimum, Assumptions row
+  exam_config batch_size_qs >= min -> honoured (capped at N_mocks)
+  subject-partitioned exam         -> tier 1, bs 10 — allocation byte-identical to v1.55.0
+```
 
 ### S4-1 — Per-section setup
 
@@ -1504,33 +1658,26 @@ FEASIBILITY PRE-CHECK runs inside §4-1 (per-section setup) before quota computa
 
 AlgorithmError  = RuntimeError
 ValidationError = ValueError
+mock_alloc_by_section = {}   # v1.56.0: section → its mock_alloc (BV-9B exam-wide arm reads it)
 
-# Global constants for batch coverage (Option C)
-batch_size = bp.get('batch_size_qs', 10)         # read from blueprint; default 10
-n_batches  = math.ceil(N_mocks / batch_size)  # e.g., N_mocks=50 → n_batches=5
+# Global constants for batch coverage (Option C) — DERIVED by §4-0 (v1.56.0)
+batch_size = bp['batch_size_qs']              # REQUIRED; never a literal, never bp.get default
+n_batches  = math.ceil(N_mocks / batch_size)  # e.g., N_mocks=50, bs=10 → n_batches=5
 
 for section in sections:
     sec_qs = section['total_qs']   # Q count for this section per mock
     N      = N_mocks               # total mocks in series
 
-    # ── FEASIBILITY PRE-CHECK (Option C batch coverage) ───────────────────────
-    # Must run before quota computation. Halts immediately if infeasible.
-    # Full EC-11 documented in §16.
-    batch_slots = batch_size * sec_qs   # total Q slots available per batch per section
-    n_pq_subs   = len(pyq_subtopics[section])
-    if n_pq_subs > batch_slots:
-        raise AlgorithmError(
-            f"Section {section['name']}: Batch coverage guarantee (Option C) is INFEASIBLE. "
-            f"{n_pq_subs} PYQ subtopics > {batch_slots} batch slots "
-            f"({batch_size} mocks × {sec_qs} Qs/mock). "
-            f"Cannot guarantee every subtopic appears once per {batch_size}-mock window. "
-            f"Ref: EC-11 — options: (a) increase batch_size, "
-            f"(b) reduce subtopic count, (c) increase sec_qs."
-        )
+    # ── FEASIBILITY (v1.56.0) — already settled by §4-0. NO pre-check, NO halt here. ──
+    # The old Arm-A-only pre-check + EC-11 AlgorithmError is RETIRED. §4-0 derived the
+    # window from BOTH arms and, for a tier-3 section, chose section_alloc_subs.
+    sec_tier  = bp['feasibility_tier'][section['name']]
+    sec_floor = 1 if sec_tier == 3 else n_batches   # §4-2 quota floor for THIS section
     # ──────────────────────────────────────────────────────────────────────────
 
-    # Subtopics classified in §3-5
-    pq_subs = pyq_subtopics[section]          # r_avg > 0 — handled by §4
+    # Subtopics classified in §3-5, restricted by §4-0 for a tier-3 section
+    pq_subs = section_alloc_subs[section]     # r_avg > 0 — handled by §4 (tier 1/2: all)
+    # uncovered_subtopics[section] (tier 3 only) stay in mock_alloc at 0 — declared, not lost
     # zero_pyq_subtopics[section] handled entirely by §5 — not allocated here
 
     # v1.13: PRE-FLIGHT MANDATE vs r_avg CHECK (runs after §3, before §4-2)
@@ -1539,8 +1686,9 @@ for section in sections:
 
     # Initialize mock_alloc for ALL subtopics in section (PYQ + ZP)
     # so §5 can write ZP entries into mock_alloc without KeyError
-    all_subs = pq_subs + zero_pyq_subtopics[section]
+    all_subs = pyq_subtopics[section] + zero_pyq_subtopics[section]   # incl. declared-uncovered
     mock_alloc = {S: [0] * (N + 1) for S in all_subs}   # 1-indexed; index 0 unused
+    mock_alloc_by_section[section] = mock_alloc         # v1.56.0: per-section view (BV-9B exam-wide arm)
 
     # Denominator for scaled average
     section_total_r_avg = sum(r_avg[S] for S in pq_subs)
@@ -1803,14 +1951,15 @@ total_zp_slots = sum(zp_slot[section][m] for m in range(1, N + 1))
 target_total   = sec_qs * N - total_zp_slots
 
 # ── STEP 2: reserve mandate slots, set mandated quota, compute remaining budget ──
-# Set quota for mandated subtopics FIRST (at least their mandate, at least n_batches)
+# Set quota for mandated subtopics FIRST (at least their mandate, at least sec_floor)
+# sec_floor = n_batches (tier 1/2) or 1 (tier 3 — §4-1, v1.56.0)
 quota = {}
 for S in mandated_subs:
-    quota[S] = max(mandate_reserved[S], n_batches)
+    quota[S] = max(mandate_reserved[S], sec_floor)
 
 # IMPORTANT (v1.13): remaining_budget uses the ACTUAL quota assigned to mandated
-# subs (which includes the n_batches floor), not just mandate_reserved totals.
-# If n_batches > mandate_reserved for any sub, its quota is higher than reserved,
+# subs (which includes the sec_floor floor), not just mandate_reserved totals.
+# If sec_floor > mandate_reserved for any sub, its quota is higher than reserved,
 # and remaining_budget must reflect that — otherwise the deficit adjustment inherits
 # a systematic over-allocation that causes negative deficit.
 actual_mandated_total = sum(quota[S] for S in mandated_subs)
@@ -1825,14 +1974,14 @@ if remaining_budget < 0:
 # ── STEP 3: proportional r_avg split on remaining subtopics ───────────────────
 # Remaining subtopics share the remaining_budget proportionally by r_avg.
 # ENGINE: bc.proportional_split returns (pool_quota, pool_raw_total) for the
-# non-mandated pool (each ≥ n_batches; equal split when the pool's r_avg sums to 0).
+# non-mandated pool (each ≥ sec_floor; equal split when the pool's r_avg sums to 0).
 # Mandated quota was already set in STEP 2; merge the pool results in. STEP 3b below
 # adds mandated raw_total so the map covers all pq_subs before the deficit fix.
 # (Identical to the prior inlined split — verified vs it over 20k random inputs.)
 import blueprint_core as bc
 raw_total = {}
 _pool_quota, _pool_raw = bc.proportional_split(
-    non_mandated_subs, r_avg, remaining_budget, N, n_batches)
+    non_mandated_subs, r_avg, remaining_budget, N, sec_floor)
 quota.update(_pool_quota)
 raw_total.update(_pool_raw)
 
@@ -1847,18 +1996,19 @@ for S in mandated_subs:
 # ENGINE: bc.largest_remainder_fix adjusts `quota` IN PLACE to hit target_total
 # EXACTLY. deficit ≥ 0 → +1 to the highest fractional remainders (tie-break r_avg
 # desc); deficit < 0 → trim the smallest remainders, looping, NEVER below
-# max(n_batches, mandate floor). floors=mandate_reserved carries the per-subtopic
+# max(sec_floor, mandate floor). floors=mandate_reserved carries the per-subtopic
 # mandate floor (SA-16 + v1.13). It raises bc.AllocationError when the target is
 # unreachable (all subtopics at floor); we re-wrap that into the spec's AlgorithmError
 # with the section name + EC-11 pointer, preserving the original error contract.
 # (Identical to the prior inlined deficit loop — verified vs it over 20k random inputs.)
 try:
     bc.largest_remainder_fix(quota, pq_subs, raw_total, r_avg,
-                             target_total, n_batches, floors=mandate_reserved)
+                             target_total, sec_floor, floors=mandate_reserved)
 except bc.AllocationError as _e:
     raise AlgorithmError(
         f"Section {section['name']}: {_e} "
-        f"Ref: EC-11 feasibility check — should have caught this.")
+        f"Ref: §4-0 preflight — unreachable by construction (tier 3 sets "
+        f"len(pq_subs) == available, floor 1); if seen, the preflight inputs were wrong.")
 
 assert sum(quota.values()) == target_total, (
     f"Quota sum {sum(quota.values())} != target {target_total} — algorithm error"
@@ -1887,6 +2037,22 @@ nonrare_subs = [S for S in pq_subs if r_avg[S] >= RARE_THRESHOLD]
 # Store for §9 BV checks
 rare_subs_by_section[section]    = rare_subs
 nonrare_subs_by_section[section] = nonrare_subs
+
+# ── v1.56.0: DERIVE max_rare_per_mock from the FINAL rare pool (exact, no chase) ──
+# The cap only feeds §4-4 placement, never quota, so deriving it HERE (after §4-2)
+# is exact and one-directional: batch_size_qs → n_batches → quota → rare pool → cap.
+# max(default 2 / exam_config value, ceil(Σ quota[rare] / N)). Series-wide MAX across
+# sections so §4-8 INVARIANT 4 / BV-4 read ONE value. Prevents the §4-4 segment-spill
+# residual upstream (repro.py Table 4: every F4 residual clears at this cap).
+# default = the S2-1 passthrough hint (exam_config) if any, else 2; earlier sections'
+# raised value carries forward through bp so the result is the series-wide MAX.
+MAX_RARE_PER_MOCK = bc.derive_max_rare({S: quota[S] for S in rare_subs}, N,
+                                       default=int(bp.get('max_rare_per_mock', 2)))
+if MAX_RARE_PER_MOCK != int(bp.get('max_rare_per_mock', 2)):
+    warn(f"§4-3 [{section['name']}]: max_rare_per_mock raised "
+         f"{bp.get('max_rare_per_mock', 2)} → {MAX_RARE_PER_MOCK} (rare pool "
+         f"{sum(quota[S] for S in rare_subs)} placements / {N} mocks) — Assumptions row")
+bp['max_rare_per_mock'] = MAX_RARE_PER_MOCK          # REQUIRED from v1.56.0 (§14 S14-1)
 ```
 
 ### S4-4 — Phase 1: Pre-schedule rare subtopics
@@ -1907,42 +2073,33 @@ nonrare_subs_by_section[section] = nonrare_subs
 #   If any window is uncovered → inject one additional position in that window
 #   (at the window midpoint), and log a warning.
 
-rare_positions = {}   # S → list of mock indices (1-indexed) where S appears
+# v1.56.0 (GAP-2026-08-25-BLUEPRINT-PHASE1 DEF-02/DEF-05): positions come from ONE
+# engine function. The formula int((k + 0.5) * N / q) + 1 that used to live here (and in
+# §9-2 BV-2 and §8-4) had NO subtopic term — every q=1 rare subtopic computed the same
+# mock — and its forward-only conflict scan packed the collisions into the tail: on the
+# incident exam mocks 1-10 held ZERO rare Qs and mocks 19-20 held 2 each. The §4-5 v1.13
+# subtopic_offset fix was measured and does NOT work for Phase 1 (it drags placements
+# into the last decile) — do not back-port it.
+#
+# bc.phase1_positions is SEGMENT-CONSTRAINED + RANK-SPREAD: appearance k of a subtopic
+# lands inside segment k of q equal segments (so it is never more than N/(2q) from the
+# old ideal — exactly BV-7 F4's tolerance; F4 is unchanged and holds by construction),
+# the anchor inside the segment is offset by the subtopic's rank so subtopics sharing a
+# segment aim at different mocks, and the least-loaded free mock nearest the anchor wins.
+# ITERATION ORDER IS PART OF THE CONTRACT: pass rare_subs in §4-3 order (it inherits
+# pyq_subtopics order) — §9-2 BV-2 passes the SAME order and must reproduce these
+# positions exactly. Measured over 1,792 adversarial shapes (repro.py Table 1):
+# F4 98.2% (was 89.6), F2 99.7% (was 91.2), BV-4 100% (was 96.3), F2b 98.9% (was 53.5).
 
-for S in rare_subs:
-    # Cap quota at N: subtopic cannot appear more times than there are mocks
-    q = min(quota[S], N)
-    if q < quota[S]:
-        warn(f"Phase 1: {S} quota={quota[S]} > N_mocks={N}. Capping at {N}.")
+rare_positions = bc.phase1_positions(
+    {S: quota[S] for S in rare_subs}, N, MAX_RARE_PER_MOCK)   # {S: sorted [mock, ...]}
 
-    positions = []
+for S, positions in rare_positions.items():
+    if quota[S] > N:
+        warn(f"Phase 1: {S} quota={quota[S]} > N_mocks={N}. Capped at {N}.")
 
-    # Stagger positions evenly across series (SA-8: no end-clustering)
-    for k in range(q):
-        pos = int((k + 0.5) * N / q) + 1   # 1-indexed mock number
-        pos = min(pos, N)
-        positions.append(pos)
-
-    # Resolve conflicts: max MAX_RARE_PER_MOCK rare Qs per mock per section (SA-7)
-    for idx, pos in enumerate(positions):
-        rare_count_at_pos = sum(
-            1 for T in rare_subs if T != S and pos in rare_positions.get(T, [])
-        )
-        max_attempts = N
-        attempts     = 0
-        while rare_count_at_pos >= MAX_RARE_PER_MOCK and attempts < max_attempts:
-            pos = (pos % N) + 1     # advance cyclically within [1..N]
-            rare_count_at_pos = sum(
-                1 for T in rare_subs if T != S and pos in rare_positions.get(T, [])
-            )
-            attempts += 1
-        if attempts >= max_attempts:
-            warn(f"Phase 1: No conflict-free position for {S} appearance {idx+1}. "
-                 f"Placing at mock {pos} (rare count there = {rare_count_at_pos}).")
-        positions[idx] = pos
-
-    # BATCH COVERAGE VALIDATION for this rare subtopic (Option C)
-    # Every batch window must have at least one position
+    # BATCH COVERAGE VALIDATION for this rare subtopic (Option C) — unchanged
+    # Every coverage window must have at least one position
     for b in range(n_batches):
         b_start = b * batch_size + 1
         b_end   = min(b_start + batch_size - 1, N)
@@ -1952,12 +2109,12 @@ for S in rare_subs:
             midpoint = (b_start + b_end) // 2
             if midpoint not in positions:   # prevent double-counting
                 positions.append(midpoint)
-            warn(f"Phase 1: '{S}' had no appearance in batch window "
+                positions.sort()
+            warn(f"Phase 1: '{S}' had no appearance in coverage window "
                  f"{b+1} (mocks {b_start}-{b_end}). "
                  f"Injecting at mock {midpoint}. "
-                 f"Total appearances now = {len(positions)} (was {q}).")
+                 f"Total appearances now = {len(positions)} (was {quota[S]}).")
 
-    rare_positions[S] = positions
     for pos in positions:
         mock_alloc[S][pos] += 1   # += not = : handles rare case of same pos appearing twice
 ```
@@ -2327,10 +2484,10 @@ INVARIANT 3 — Every non-zero PYQ subtopic appears at least once (SA-4):
   Superseded in practice by INVARIANT 8 (n_batches >= 1 always).
 
 INVARIANT 4 — Max rare Qs per mock per section (SA-7):
-  MAX_RARE_PER_MOCK = int(bp.get('max_rare_per_mock', 2))   # configurable; default 2
+  MAX_RARE_PER_MOCK = int(bp['max_rare_per_mock'])   # DERIVED in §4-3 (v1.56.0); REQUIRED
   Σ mock_alloc[S][m] for S in rare_subs <= MAX_RARE_PER_MOCK for every mock m.
-  For sections with many rare subtopics relative to sec_qs, increase this value.
-  For small sections (sec_qs ≤ 5), consider reducing to 1.
+  = max(exam_config value or 2, ceil(rare placements / N_mocks)) — never hand-tuned.
+  An exam_config value below the derived minimum is raised and recorded (Assumptions).
 
 INVARIANT 5 — Quota sum matches target (SA-3):
   Σ quota[S] for S in pq_subs == sec_qs × N − total_zp_slots
@@ -2352,14 +2509,20 @@ INVARIANT 7 — Even spread / per-mock cap (SA-14):
   for low-quota subtopics. This is permitted and expected with Option C active.
 
 INVARIANT 8 — Batch coverage (Option C):
-  For every PYQ subtopic S (r_avg > 0) and every batch window b:
+  For every PYQ subtopic S (r_avg > 0) and every COVERAGE WINDOW b (batch_size_qs mocks,
+  DERIVED by §4-0 — NOT the 10-mock B2 batch unless batch_size_qs == 10):
     Σ mock_alloc[S][m] for m in [b_start..b_end] >= 1
   where b_start = b × batch_size + 1, b_end = min(b_start + batch_size - 1, N).
-  Checked by BV-9B per B2 batch (§9).
+  Scope (v1.56.0): PER SECTION for tier-1/2 sections. For a tier-3 section its
+  declared-uncovered subtopics (blueprint.json uncovered_subtopics[section]) satisfy
+  INVARIANT 8 EXAM-WIDE — in some OTHER section that carries them, same window.
+  Checked by BV-9B when a window CLOSES (§9-11), deferred otherwise.
   Guaranteed by:
-    quota[S] >= n_batches (§4-2)  → enough quota for one per batch
+    §4-0 preflight → batch_size_qs is feasible on BOTH arms for every tier-1/2 section
+    quota[S] >= sec_floor (§4-2)  → enough quota for one per window (tier 1/2)
     Phase 1 batch-coverage validation (§4-4) → rare subtopics covered
     Phase 0 batch-coverage pre-pass (§4-5) → nonrare subtopics covered
+    BV-0A Check 4 (§9-0A) → every declared-uncovered subtopic has a tier-1/2 carrier
 ```
 
 ## §5 — ZERO-PYQ ROTATION
@@ -3464,6 +3627,13 @@ Step 5  Zero-PYQ setup (§5): initialise global ZP containers (S5-0).
         Build rotation schedule for all N_mocks.
         Compute zp_slot[section][m] for all sections and mocks.
 
+Step 5A Feasibility preflight (§4-0, v1.56.0): bc.feasibility_preflight over every
+        section → bp['batch_size_qs'] (DERIVED), bp['feasibility_tier'], and for any
+        tier-3 section bc.capacity_split → bp['uncovered_subtopics'] /
+        bp['uncovered_exam_wide']. NEVER halts. Must run AFTER Step 5 (needs zp_slot)
+        and BEFORE Step 6 (§7-7 reads the window) and Step 8 (§4-1 reads batch_size).
+        Every tier-2/3 note is one row in the Paper Structure Assumptions table.
+
 Step 6  Difficulty schedule (§7): compute difficulty_schedule[] for all N_mocks.
         Apply default 25/25/50 or user override.
         (For progressive mode: user was already prompted for bands during S1-6
@@ -3477,9 +3647,11 @@ Step 7  Write blueprint.json v1:
           level, medium, marking_scheme,          ← v1.19 (declared in §14 S14-1)
           nat_present, nat_allowed, nat_contract, ← v1.10 (§6 S6-2 writes them)
           difficulty_labels,                      ← v1.12 (§6 S6-2 writes it)
+          batch_size_qs, max_rare_per_mock, feasibility_tier,   ← v1.56.0 REQUIRED, DERIVED
+          uncovered_subtopics, uncovered_exam_wide,              ← v1.56.0 (§4-0; §14 S14-1)
           [+ OPTIONAL when exam_config carries them: font_name / font_size_pt /
-           di_header_color (v1.38); rare_threshold / max_rare_per_mock /
-           max_per_mechanic_per_mock / batch_size_qs (v1.55.0) — §14 S14-1]
+           di_header_color (v1.38); rare_threshold /
+           max_per_mechanic_per_mock (v1.55.0) — §14 S14-1]
           total_options,     ← number of options per Q (e.g. 4 for most MCQ exams).
                                Read from Step 0 auto-detected n_choices (S1-3a _meta field).
                                Default: 4. Step 2 reads via bp.get('total_options', 4).
@@ -3707,14 +3879,19 @@ Step 8  ╔═══════════════════════
 
 ```
 Phase 1 rare subtopic positions are DETERMINISTIC — always reproducible from:
-  quota[S]  — recomputed in B2 Step 2 from blueprint['subtopic_list']
-  N_mocks   — from blueprint['total_mocks']
+  quota[S]            — recomputed in B2 Step 2 from blueprint['subtopic_list']
+  N_mocks             — from blueprint['total_mocks']
+  max_rare_per_mock   — from blueprint['max_rare_per_mock'] (derived, §4-3)
+  rare_subs ORDER     — §4-3 order (inherits pyq_subtopics order)
 
-Formula: position_k = int((k + 0.5) × N_mocks / quota[S]) + 1
+Function (v1.56.0): bc.phase1_positions({S: quota[S] for S in rare_subs}, N_mocks,
+                                        max_rare_per_mock)
+There is NO formula in this spec. The engine function is the only implementation;
+§4-4 (producer) and §9-2 BV-2 (verifier) both call it with the same ordered input.
 
 B2 does NOT store or read phase1_positions from blueprint.json.
-Positions recomputed fresh each session from quota and N_mocks.
-Same formula → same positions always. Consistent across re-generations.
+Positions recomputed fresh each session from quota, N_mocks and the cap.
+Same function + same ordered input → same positions always. Consistent across re-generations.
 
 Phase 2 is stateful: reads cumulative assigned[] (B2 Step 3) to compute remaining quota.
 ```
@@ -3879,17 +4056,29 @@ Step 8A Generate [ExamCode]_mock_test_audit.py (ref §13-7A):
           Write the CANONICAL auditor by copying, VERBATIM, the repo engine file
           audit_canonical.py (SINGLE SOURCE OF TRUTH since 2026-07-31;
           hash-tracked + bootstrap-verified; formerly a fenced block in the
-          retired CreateAudit spec). Simply:
-          `cp /tmp/fw/audit_canonical.py [ExamCode]_mock_test_audit.py`
-          No exam-specific edits (it self-parameterises at runtime).
-          VALIDATE: python3 [ExamCode]_mock_test_audit.py --self-test
+          retired CreateAudit spec).
+          VALIDATE FIRST, INSIDE THE VERIFIED CLONE (v1.56.0 — DEF-06):
+              cd /tmp/fw && python3 audit_canonical.py --self-test
             → MUST print "SELF-TEST: N/N PASS" with N >= 35 AND be FIXTURE-BASED
-              (builds docx fixtures; asserts each gate catches + passes; the v2.12
-              canonical build prints 139/139 at v2.21.7). A constant-print "N/N PASS" is REJECTED.
+              (builds docx fixtures; asserts each gate catches + passes). A
+              constant-print "N/N PASS" is REJECTED.
+              # WHY THE CLONE: audit_canonical checks 8 and 9 (A-QINDEX) import
+              # blueprint_core. Since 2026-08-21 two fixtures assert those verdicts.
+              # An outputs directory carries NO engine (v2.12.1, by design), so a
+              # COPY run there degrades: 253/255 with two A-QINDEX-obs failures —
+              # same bytes that print 261/261 in the clone. It is environmental,
+              # not stochastic; re-running never helps. audit_canonical v2.18 now
+              # ABORTS ("SELF-TEST: ABORT", exit 2) when the engine is absent
+              # rather than shedding fixtures, so a degraded run cannot pass as a
+              # gate failure. The clone is the ONLY context where the count is
+              # complete; do NOT compare a copy's count against it.
               # The COUNT is informational and moves every release; the BINDING
-              # condition is N >= AUTH_GATE_FLOOR, which is why the floor stays 35
-              # and older per-exam copies keep passing (v2.21.7, count-refresh).
-            If output differs or is not fixture-based → HALT. Regenerate and retry.
+              # condition is N >= AUTH_GATE_FLOOR (35) IN THE CLONE.
+            Only after this passes:
+              `cp /tmp/fw/audit_canonical.py [ExamCode]_mock_test_audit.py`
+            No exam-specific edits (it self-parameterises at runtime).
+            If the clone self-test fails or is not fixture-based → HALT (engine
+            defect, not exam data). If it prints ABORT you are not in the clone.
 
 Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
         blueprint_core.py or figural_core.py, and must not. CLAUDE.md is explicit:
@@ -3913,9 +4102,10 @@ Step 8B NO ENGINE PROVISIONING (v2.12.1 — corrected). B3 does NOT ship
           ☐ [ExamCode]_registry.json   exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_EXPLAIN_LEARNINGS_v1.md    exists at /mnt/user-data/outputs/
           ☐ [ExamCode]_mock_test_audit.py          exists at /mnt/user-data/outputs/
-          ☐ mock_test_audit.py --self-test passed FIXTURE-BASED, N/N with
-            N >= AUTH_GATE_FLOOR (35); the CURRENT canonical build prints 139/139
-            (v2.21.7). The count is informational and moves every release.
+          ☐ audit_canonical.py --self-test passed FIXTURE-BASED, N/N with
+            N >= AUTH_GATE_FLOOR (35), RUN INSIDE /tmp/fw (v1.56.0 — a copy in the
+            outputs directory prints ABORT; that is the wrong context, not a
+            failure). The count is informational and moves every release.
             (This line previously read "13/13 PASS" — a stale reference to the
              RETIRED hollow MVP, corrected at v2.12.)
           ☐ BV-7 passed for all N_mocks (§9-7)
@@ -4054,6 +4244,32 @@ for section in sections:
 BV-0A failure → B1 HALTS immediately. blueprint.json v1 is NOT written.
 Fix the inclusion error, then re-run from §3.
 
+CHECK 4 (v1.56.0 — runs at B1 Step 8, AFTER §4-0, before blueprint.json v1 is written):
+  DECLARED exclusion is permitted and VISIBLE; SILENT exclusion stays a hard stop.
+  §4-0 tier 3 gives a small section's lowest-r_avg subtopics quota 0 IN THAT SECTION
+  and lists them in blueprint['uncovered_subtopics'][section]. Each must be carried
+  by at least one tier-1/2 section (where INVARIANT 8 holds per window).
+
+```python
+for section in sections:
+    declared = set(bp.get('uncovered_subtopics', {}).get(section['name'], []))
+    silent   = {S for S in pyq_subtopics[section]
+                if S not in section_alloc_subs[section] and S not in declared}
+    if silent:
+        raise RuntimeError(f"BV-0A FAIL [{section['name']}]: {len(silent)} subtopic(s) "
+                           f"silently excluded from allocation: {sorted(silent)}")
+    for S in declared:
+        carriers = [sec for sec in sections if S in section_alloc_subs[sec]]
+        if not carriers and S not in bp.get('uncovered_exam_wide', []):
+            raise RuntimeError(f"BV-0A FAIL [{section['name']}]: '{S}' declared uncovered "
+                               f"but no other section allocates it and it is not in "
+                               f"uncovered_exam_wide — §4-0 bookkeeping error")
+    if declared:
+        warn(f"BV-0A INFO [{section['name']}]: {len(declared)} subtopic(s) declared uncovered "
+             f"here (§4-0 tier 3); each is carried by another section.")   # informational
+```
+  This distinction is the entire safety property of tier 3 — never soften it further.
+
 Print result in B1 structure summary (§11 S11-1):
   "BV-0A (Subtopic completeness): ✓ All [N] subtopics from Analysis doc present
    Format audit: TEXT=[n] | FIGURAL=[n] | PASSAGE=[n] | DI=[n]"
@@ -4103,9 +4319,14 @@ for m in batch_mocks:
 # Per-batch scope: only check mocks in THIS batch.
 # Phase 1 positions for future batches: no violation if not yet reached.
 
-for S in rare_subs_by_section[section]:   # per section
-    q = quota[S]
-    scheduled_positions = [int((k + 0.5) * N_mocks / q) + 1 for k in range(q)]
+# v1.56.0 (DEF-05): positions come from the SAME engine function §4-4 used, with the
+# SAME ordered input (rare_subs in §4-3 order). NEVER re-derive a formula here — the
+# previous inline copy of int((k+0.5)*N/q)+1 meant any §4-4 change failed BV-2 on
+# every exam.
+scheduled = bc.phase1_positions(
+    {S: quota[S] for S in rare_subs_by_section[section]},
+    N_mocks, int(blueprint['max_rare_per_mock']))
+for S, scheduled_positions in scheduled.items():   # per section
     for pos in scheduled_positions:
         if pos in batch_range:
             if mock_alloc[S][pos] == 0:
@@ -4258,23 +4479,56 @@ BV-7 re-runs BV-1 to BV-6 across ALL N_mocks.
 PLUS five cross-batch checks only possible with the full series view:
 
 F1 — Strict frequency tiers (SA-12):
-  For every PYQ-based subtopic S:
+  For every PYQ-based subtopic S with quota[S] > 0 (a subtopic in
+  blueprint['uncovered_subtopics'][section] has quota 0 in THAT section by §4-0
+  tier 3 — skip it here; its coverage is verified by BV-0A Check 4 + BV-9B):
     actual_total = Σ mock_alloc[S][m] for m in 1..N_mocks
     tier 1 (quota > 20): |actual - quota| / quota ≤ 0.02
     tier 2 (quota 5–20): |actual - quota| / quota ≤ 0.15
     tier 3 (quota 1–4):  |actual - quota| / quota ≤ 0.25
   fail if any subtopic exceeds its tier tolerance.
 
-F2 — No end-clustering of rare subtopics:
-  series_avg_rare = (Σ_S in rare_subs_by_section[section]
-                      Σ_m mock_alloc[S][m]) / N_mocks
-  last_10pct_mocks = range(int(0.9 * N_mocks) + 1, N_mocks + 1)
-  For each mock m in last_10pct_mocks:
-    rare_in_m = Σ mock_alloc[S][m] for S in rare_subs_by_section[section]
-    if rare_in_m > series_avg_rare * 1.5:
-      fail(f"F2: End-clustering in mock {m}: {rare_in_m} rare Qs > "
-           f"{series_avg_rare * 1.5:.1f} (1.5 × series avg)")
+```
 
+```python
+# F2 — No end-clustering of rare subtopics (threshold corrected v1.56.0 — DEF-03).
+# The bare 1.5*avg was unsatisfiable at integer boundaries: avg 0.48 → 0.72 forbade
+# ANY rare Q in the tail; avg 1.125 → 1.69 failed an optimal spread that must put 2 in
+# some mock. The ceil floor admits the rounded-up fair share and still catches the
+# incident (avg 1.0 → 1.5, observed 2 → FAIL). Shipped §4-4 scores 91.2% under it vs
+# 99.7% for the new placement — a correction, not a loosening. F2 and the §4-4
+# placement are a PACKAGE (rank-spread correctly moves placements toward the ends;
+# the old threshold penalised that).
+for section in sections:
+    rare_S = rare_subs_by_section[section]
+    series_avg_rare = sum(mock_alloc[S][m] for S in rare_S
+                          for m in range(1, N_mocks + 1)) / N_mocks
+    f2_threshold = bc.f2_threshold(series_avg_rare)   # = max(ceil(avg), 1.5 * avg)
+    last_10pct_mocks = range(int(0.9 * N_mocks) + 1, N_mocks + 1)
+    for m in last_10pct_mocks:
+        rare_in_m = sum(mock_alloc[S][m] for S in rare_S)
+        if rare_in_m > f2_threshold:
+            fail(f"F2: End-clustering in mock {m}: {rare_in_m} rare Qs > "
+                 f"{f2_threshold:.1f} (max(ceil(avg), 1.5 × series avg))")
+
+    # F2b — No dead stretch of rare subtopics (NEW v1.56.0 — DEF-04; WARN level).
+    # F2 asks only "is the tail overloaded?" — a series with every rare Q in mocks 1-10
+    # and none after, or bunched in mocks 6-15, PASSES F2. SA-8 intends "rare subtopics
+    # are distributed ACROSS the series". F2b measures that: the longest circular run of
+    # rare-free mocks vs a scale-aware limit 2 × ceil(N / min(R, N)) (no knob).
+    # WARN, NOT FAIL: separation is the widest of any check (53.5% shipped vs 98.9% new
+    # placement) but the limit was chosen empirically, not derived. Ship at WARN, review
+    # the distribution after the 200-exam corpus replay, then ratchet to FAIL (same
+    # treatment as BV-3 / BV-10b). This check is what caught centre-clustering in a
+    # rejected candidate placement; without it that candidate would have shipped.
+    per_mock = {m: sum(mock_alloc[S][m] for S in rare_S) for m in range(1, N_mocks + 1)}
+    dead_run, limit, R = bc.dead_stretch(per_mock, N_mocks)     # R == 0 → dormant
+    if R > 0 and dead_run > limit:
+        warn(f"F2b: longest rare-free stretch is {dead_run} mocks (limit {limit} for "
+             f"{R} rare Qs across {N_mocks} mocks). Rare subtopics are bunched.")
+```
+
+```
 F3 — Zero-PYQ rotation order correct:
   For each section:
     rotation = blueprint['zero_pyq_rotation'][section['name']]   # alphabetical list
@@ -4287,7 +4541,9 @@ F3 — Zero-PYQ rotation order correct:
       fail(f"F3: ZP rotation order wrong in section {section['name']}. "
            f"Expected: {expected_seq[:5]}... Got: {actual_seq[:5]}...")
 
-F4 — Phase 1 positions evenly spread:
+F4 — Phase 1 positions evenly spread (UNCHANGED at v1.56.0 — F4 was never the defect;
+     the ideal below is F4's REFERENCE definition only, not a placement formula —
+     placement is bc.phase1_positions, which satisfies F4 by construction):
   For each rare subtopic S with quota q:
     ideal_positions = [int((k + 0.5) * N_mocks / q) + 1 for k in range(q)]
     actual_positions = [m for m in range(1, N_mocks+1) if mock_alloc[S][m] > 0]
@@ -4403,49 +4659,78 @@ delivered table: acknowledge, fix entire batch, re-deliver.
 ### S9-11 — BV-9B: Batch coverage check (runs per B2 batch — Option C)
 
 ```
-PURPOSE: Verify INVARIANT 8 — every PYQ subtopic appears ≥ 1 Q in this batch window.
+PURPOSE: Verify INVARIANT 8 — every PYQ subtopic appears ≥ 1 Q in every COVERAGE WINDOW.
 Runs immediately after BV-1 to BV-6 pass, before delivery.
 
-SCOPE: Only the mocks in the CURRENT batch (batch_start to batch_end).
-A single B2 batch IS one complete batch window (10 mocks).
-Last batch may be smaller — still treated as a single window.
+SCOPE (v1.56.0 — DEF-07): the COVERAGE WINDOW is batch_size_qs mocks (DERIVED, §4-0).
+A B2 batch is ALWAYS 10 mocks (§8-3, a delivery unit). They coincide ONLY when
+batch_size_qs == 10. At batch_size_qs = 20, N = 20, batch 1 (mocks 1-10) is HALF a
+window; evaluating coverage against it reported 67/114 uncovered — a spurious failure
+of exactly the guarantee the wider window was derived to satisfy. BV-9B is therefore
+evaluated when a window CLOSES and DEFERRED (progress only, never a failure) otherwise.
+
+ARMS: PER-SECTION for the section's allocated subtopics (tier 1/2: all of them);
+EXAM-WIDE for a tier-3 section's declared-uncovered subtopics (they must appear in
+SOME section that carries them, inside the same window).
 
 ```python
 # batch_mocks = range(batch_start, batch_end + 1)  — the current B2 batch
-# batch_num   = math.ceil(batch_start / batch_size)  — e.g., mocks 1-10 → batch 1
+batch_size = int(blueprint['batch_size_qs'])
+win_index, win_start, win_end, closes = bc.coverage_window(
+    batch_start, batch_end, batch_size, N_mocks)
 
-batch_num = math.ceil(batch_start / batch_size)
-
-for section in sections:
-    uncovered_subs = []
-    for S in pyq_subtopics[section]:   # ALL PYQ subs (rare + nonrare)
-        appearances_in_batch = sum(mock_alloc[S][m] for m in batch_mocks)
-        if appearances_in_batch == 0:
-            uncovered_subs.append((S, r_avg[S]))
-
-    if uncovered_subs:
-        uncovered_subs.sort(key=lambda x: x[1])   # sort by r_avg for readability
-        fail(
-            f"BV-9B FAIL [{section['name']}]: {len(uncovered_subs)} subtopic(s) have "
-            f"ZERO appearances in batch {batch_num} (mocks {batch_start}-{batch_end}).\n"
-            f"Uncovered: {[s for s, _ in uncovered_subs]}\n\n"
-            f"FIX: Phase 0 pre-pass (§4-5) should have guaranteed coverage. "
-            f"Re-generate this batch from scratch (BV-10 protocol)."
-        )
+if not closes:
+    warn(f"BV-9B: DEFERRED — window {win_index} spans mocks {win_start}-{win_end}; "
+         f"this batch ends at {batch_end}. Coverage is evaluated when the window closes.")   # informational, never a fail
+else:
+    win_mocks = range(win_start, win_end + 1)
+    uncov_decl = blueprint.get('uncovered_subtopics', {})
+    for section in sections:
+        declared = set(uncov_decl.get(section['name'], []))
+        uncovered_subs = []
+        for S in pyq_subtopics[section]:   # ALL PYQ subs (rare + nonrare)
+            if S in declared:
+                continue                    # exam-wide arm below
+            if sum(mock_alloc[S][m] for m in win_mocks) == 0:
+                uncovered_subs.append((S, r_avg[S]))
+        if uncovered_subs:
+            uncovered_subs.sort(key=lambda x: x[1])   # sort by r_avg for readability
+            fail(
+                f"BV-9B FAIL [{section['name']}]: {len(uncovered_subs)} subtopic(s) have "
+                f"ZERO appearances in window {win_index} (mocks {win_start}-{win_end}).\n"
+                f"Uncovered: {[s for s, _ in uncovered_subs]}\n\n"
+                f"FIX: Phase 0 pre-pass (§4-5) should have guaranteed coverage. "
+                f"Re-generate this batch from scratch (BV-10 protocol)."
+            )
+    # EXAM-WIDE arm — declared-uncovered subtopics of tier-3 sections.
+    # mock_alloc_by_section[sec] = the per-section mock_alloc dict §4-1 built
+    # (B2: reconstructed from blueprint mocks[].sections[].subtopic_allocation).
+    exam_wide = set(blueprint.get('uncovered_exam_wide', []))
+    for sec_name, subs in uncov_decl.items():
+        missing = [S for S in subs if S not in exam_wide and not any(
+            sum(mock_alloc_by_section[sec][S][m] for m in win_mocks) > 0
+            for sec in sections if S in mock_alloc_by_section[sec])]
+        if missing:
+            fail(f"BV-9B FAIL [exam-wide for {sec_name}]: {len(missing)} declared-uncovered "
+                 f"subtopic(s) appear in NO section in window {win_index}: {missing}")
 ```
 
 BV-9B failure → same protocol as BV-1 to BV-6 failure (ref S9-10):
   Re-generate entire batch → re-validate → iterate until pass.
-  BV-9B failing after 3 attempts = EC-11 feasibility violation (too many subtopics).
+  BV-9B failing after 3 attempts = an engine/spec defect, NOT a feasibility problem:
+  §4-0 proved the window feasible on both arms before any allocation ran (v1.56.0 —
+  the old "EC-11 feasibility violation" reading can no longer occur).
 
 Print in B2 delivery summary:
-  "BV-9B (Batch coverage): ✓ All [N] PYQ subtopics present in batch [K]
+  "BV-9B (Batch coverage): ✓ All [N] PYQ subtopics present in window [K] (mocks a-b)
                               [Sec1Abbr]=[n]subs | [Sec2Abbr]=[n]subs | ... | [SecNAbbr]=[n]subs"
+  OR when deferred:
+  "BV-9B (Batch coverage): ⏳ window [K] (mocks a-b) closes at mock b — evaluated then"
+  OR on failure:
+  "BV-9B (Batch coverage): ✗ [section]: [n] subs missing — re-generating"
   (Section abbreviations derived dynamically from sections[].name — not hardcoded.
    Use short forms per §11-4: e.g. 'Quantitative Aptitude' → 'QA', 'Engineering Maths' → 'EM'.
    Number of pipe-separated entries = number of sections in the exam.)
-  OR on failure:
-  "BV-9B (Batch coverage): ✗ [section]: [n] subs missing — re-generating"
 ```
 
 ### S9-12 — BV-AXIS: axis schedule integrity + feasibility report (runs in B3)
@@ -4884,8 +5169,12 @@ Examples:
   Duplicate subtop  | 'Mirror Image' appeared twice  | Q counts merged, kept once     | Negligible
   Section ranges    | Exam pattern ambiguous         | User-confirmed inferred ranges | None after confirmation
   Missing Analysis  | QA doc not provided            | Excel taxonomy used for QA     | Names may differ
+  Coverage window   | Section B: 114 subtopics on 10 Qs/mock (§4-0 tier 2) | batch_size_qs 10 → 20 (derived) | Every subtopic ≥1 per 20-mock window, not per 10; axis-2 window = 20 papers
+  Rare cap          | Rare pool 60 placements / 20 mocks (§4-3)           | max_rare_per_mock 2 → 3 (derived) | ≤3 rare Qs per mock in that section
+  Section coverage  | Section B: 93 slots for 114 subtopics (§4-0 tier 3) | 21 lowest-r_avg subtopics quota 0 in B; carried by A and C | Full per-section coverage needs N_mocks ≥ 13
 
-Every fallback MUST have a corresponding assumption row.
+Every fallback MUST have a corresponding assumption row (v1.56.0: every §4-0 tier-2/3
+note and every §4-3 cap raise is one row — these replace the retired EC-11 halt).
 Rows added in real time as B1 processes each input — not retrospectively.
 ```
 
@@ -4929,6 +5218,11 @@ PART A — Structure summary in chat:
    BV-0A               : ✓ All [N] subtopics from Analysis doc accounted for
                           TEXT=[n] | FIGURAL=[n] | PASSAGE=[n] | DI=[n]
                           Silently excluded: 0 subtopics (none dropped).
+   Feasibility (§4-0)   : batch_size_qs=[bs] (derived; default 10) | max_rare_per_mock=[cap]
+                          [SecAbbr]=tier [1|2|3] | ... (one entry per section)
+                          Declared uncovered: [n] subtopics in [section] (carried by [sections])
+                            OR: none
+                          Min N_mocks for full per-section coverage: [min_N] (tier-3 only)
    Assumptions          : [None]
                          OR:
                            • [Category]: [brief description]
@@ -5045,9 +5339,9 @@ PART B — present_files with all 5 output files (MANDATORY — in this exact or
     ☐ blueprint.json len(mocks[]) == N_mocks
     ☐ registry.json has correct exam_code and empty arrays
     ☐ Both .md files contain header line only (# [ExamCode] ... Learnings)
-    ☐ mock_test_audit.py --self-test passed, FIXTURE-BASED, N/N with
-      N >= AUTH_GATE_FLOOR (35); the CURRENT canonical build prints 139/139
-      (v2.21.7). The count is informational and moves every release.
+    ☐ audit_canonical.py --self-test passed, FIXTURE-BASED, N/N with
+      N >= AUTH_GATE_FLOOR (35), RUN INSIDE /tmp/fw before copying (v1.56.0 —
+      §8-5 Step 8A). The count is informational and moves every release.
       A constant-print "N/N PASS" is REJECTED (it is the retired hollow-MVP
       signature — see audit_canonical.py --self-test).
     ☐ BV-7 and BV-8 both passed
@@ -5693,6 +5987,11 @@ Step 6 (MockBlueprint) and Step 7 (MockCreate).
   "blueprint_version"   : "1.35",
   "n_papers"            : 1,
   "total_mocks"         : N,
+  "batch_size_qs"       : 10,        // v1.56.0 REQUIRED, DERIVED by §4-0 (exact min window)
+  "max_rare_per_mock"   : 2,         // v1.56.0 REQUIRED, DERIVED by §4-3 (final rare pool)
+  "feasibility_tier"    : {"Section A": 1, "Section B": 2},   // v1.56.0 (§4-0)
+  "uncovered_subtopics" : {},        // v1.56.0 {section: [subtopic...]} — tier-3 only
+  "uncovered_exam_wide" : [],        // v1.56.0 subtopics NO section can hold in N_mocks
   "total_questions"     : Q,
   "total_options"       : 4,
   "option_label"        : "1/2/3/4",
@@ -5753,15 +6052,31 @@ v1.38 presentation keys above; never emit a fabricated default):
 rare_threshold      : float — OPTIONAL. Copied verbatim from exam_config.rare_threshold
                      when present; omitted when absent. Read by §4-3
                      (bp.get default 0.1 — the rare/non-rare classification line).
-max_rare_per_mock   : int  — OPTIONAL. From exam_config when present. Read by §4-8
-                     INVARIANT 4 and BV-4 (bp.get default 2).
+max_rare_per_mock   : int  — REQUIRED as of v1.56.0. DERIVED by §4-3 from the final
+                     rare pool: max(exam_config value or 2, ceil(rare placements / N)).
+                     An exam_config value is honoured only if >= the derived minimum;
+                     otherwise raised and recorded in the Assumptions table. Read by
+                     §4-4, §4-8 INVARIANT 4, §9-2 BV-2 and BV-4.
 max_per_mechanic_per_mock : dict — OPTIONAL. {family: cap} from exam_config when
                      present. Read by §4-1b and BV-10b (default {} → cap 1 per family).
-batch_size_qs       : int  — OPTIONAL. From exam_config when present. Read by §4-1
-                     and §7-7 (bp.get default 10 — the B2 batch window). Changing it
-                     changes the Option-C coverage window; leave default unless the
-                     exam genuinely needs a different window (ref EC-11 option (a)).
-  Absent keys leave behaviour byte-identical to pre-v1.55.0 on every exam.
+batch_size_qs       : int  — REQUIRED as of v1.56.0. DERIVED by §4-0 (the exact
+                     minimum feasible coverage window, default 10, capped at N_mocks).
+                     An exam_config value is honoured only if >= the derived minimum;
+                     otherwise overridden and recorded in the Assumptions table. Never
+                     silently accept a value that makes allocation infeasible. Read by
+                     §4-1, §4-4, §7-7 (axis-2 window), §9-11 and Step 7 (MockTestCreate
+                     reads it as the axis-2 window; final_assembly likewise).
+feasibility_tier    : dict — REQUIRED as of v1.56.0. {section_name: 1|2|3} (§4-0).
+uncovered_subtopics : dict — REQUIRED as of v1.56.0 ({} when no section is tier 3).
+                     {section_name: [subtopic, ...]} — subtopics with quota 0 in THAT
+                     section, each carried by another section. Consumed by BV-0A
+                     Check 4, BV-7 F1 (skip), BV-9B (exam-wide arm), Assumptions table.
+uncovered_exam_wide : list — REQUIRED as of v1.56.0 ([] normally). Subtopics no section
+                     can hold in N_mocks (taxonomy exceeds the whole series). Reported in
+                     the B1 summary with the minimum N_mocks per section; never a halt.
+  Absent OPTIONAL keys leave behaviour byte-identical to pre-v1.55.0 on every exam.
+  A subject-partitioned exam derives batch_size_qs=10, max_rare_per_mock=2, every
+  tier 1, uncovered_subtopics={} — its allocation is byte-identical to v1.55.0.
 blueprint_version   : str  — the blueprint.json SCHEMA version (the subtopic_id + paper_id
                      contract level), NOT the Framework_Blueprint spec-FILE version. Currently
                      "1.35". Step 7 GATES on it: MIN_BLUEPRINT_VERSION = (1, 7) (subtopic_id
@@ -6682,50 +6997,59 @@ If none of (a), (b), (c) apply → include the subtopic. Always.
 Ref: §1 Memory Prohibition, §6 GOLDEN RULE, §9 S9-0A BV-0A.
 ```
 
-### EC-11: Batch coverage feasibility — too many subtopics for batch window
+### EC-11: Batch coverage feasibility — too many subtopics for the coverage window
 
 ```
-TRIGGER:
-  n_pq_subs > batch_slots  (n_pq_subs = len(pyq_subtopics[section]),
-                              batch_slots = batch_size × sec_qs)
+v1.56.0 — THIS EDGE CASE NO LONGER HALTS. It is resolved by §4-0 FEASIBILITY PREFLIGHT.
 
-  Example: 62 subtopics in GIR, batch_size=10, sec_qs=25 → batch_slots=250.
-           62 ≤ 250 → FEASIBLE ✓
+TRIGGER (per section, either arm):
+  Arm A  batch_size × sec_qs < n_pq_subs            (window cannot hold every subtopic once)
+  Arm B  n_pq_subs × ceil(N_mocks / batch_size) > available
+         where available = sec_qs × N − zp_slots − mandate_slots
+         (giving every subtopic its per-window floor exceeds the usable series slots)
+  Pre-v1.56.0 only Arm A was checked; Arm B escaped to a late AllocationError.
 
-  Example (hypothetical overload): 300 subtopics in a section, batch_size=10,
-           sec_qs=25 → batch_slots=250. 300 > 250 → INFEASIBLE ✗
+WHEN IT OCCURS — corrected characterisation:
+  NOT "extremely subtopic-dense exams". The trigger is
+      taxonomy_size(section) > 10 × sec_qs
+  which is NORMAL for the mechanism-partitioned family (sections split by MCQ / MSQ / NAT,
+  every section carrying every subject: GATE, JAM, NET, PSU-style papers). For those the
+  condition reduces to total_taxonomy > 10 × min(sec_qs). IIT_JAM_CHEMISTRY: 114 PYQ
+  subtopics, Section B = 10 Qs/mock → 114 > 100 (Arm A) and 228 > 186 (Arm B) at N=20.
+  Subject-partitioned exams see only their own subjects per section and stay tier 1.
 
-WHEN IT OCCURS:
-  For typical MCQ exams (e.g., 25 Qs/section, 10-mock batches, ~60 subtopics/section),
-  this constraint is never triggered — batch_slots comfortably exceeds subtopic count.
-  It would trigger only for extremely subtopic-dense exams.
-  All values (Qs/section, batch size, subtopic count) are read from blueprint.json — not hardcoded.
+RESOLUTION (automatic — no operator choice, no re-trigger):
+  Tier 1  default 10-mock window works                → nothing to do
+  Tier 2  a wider window is REQUIRED                  → bc.derive_batch_size gives the exact
+          minimum (closed form; proven minimal vs brute force, monotone on both arms);
+          series-wide window = max over sections; ONE Assumptions row.
+          IIT_JAM_CHEMISTRY N=20 → Section B forces batch_size_qs = 20 (n_batches 1).
+  Tier 3  available < n_pq_subs — the section cannot hold every subtopic EVEN ONCE
+          in the whole series → bc.capacity_split keeps the `available` highest-r_avg
+          subtopics (quota 1 each, floor 1) and DECLARES the rest in
+          blueprint.json uncovered_subtopics[section]. Every declared subtopic is
+          guaranteed by another section that carries it (BV-0A Check 4, BV-9B
+          exam-wide arm). The B1 summary states min_N (the N_mocks at which the
+          section would be tier 2). IIT_JAM_CHEMISTRY N=10 → Section B: 93 slots for
+          114 subtopics → 21 declared uncovered in B, all present in A and C; min_N=13.
+          uncovered_exam_wide (a subtopic NO section can hold) is only possible when
+          the taxonomy exceeds the entire series; reported, not halted.
 
-ACTION ON TRIGGER (halt in §4-1 feasibility pre-check):
-  Raise AlgorithmError with message:
-    "Section [X]: Batch coverage guarantee (Option C) is INFEASIBLE.
-     [n_pq_subs] PYQ subtopics > [batch_slots] batch slots
-     ([batch_size] mocks × [sec_qs] Qs per mock).
-     Cannot guarantee every subtopic appears once per 10-mock window.
+WHY NOT A HALT: operators are not framework engineers. The only realistic answer to
+the old prompt was "(a) increase batch_size" — an auto-computable parameter — and
+option (c) (merge taxonomy) is a Step-5 rework the operator cannot perform. The old
+'--batch_coverage N' flag was never parsed by §8-2 S1-1 and is retired.
 
-     Options:
-       (a) Reduce batch_size requirement — accept ≥1 per N mocks instead of per 10.
-           Specify new window: 'MockBlueprint ... --batch_coverage N'
-       (b) Accept that very-low-quota subtopics appear once per series only
-           (revert to Option A/B coverage rules for those subtopics).
-       (c) Reduce subtopic count — merge very-rare subtopics into broader categories.
-     Please choose and re-trigger."
+FRAMEWORK-OWNER SIGNAL: tier 3, or tier 2 reaching batch_size = N_mocks, cannot
+distinguish a legitimately broad syllabus from an over-granular Step-5 split. §4-0
+logs a REVIEW-SIGNAL line (n_pq, sec_qs, tier) so that diagnostic value survives
+without stopping the operator.
 
-RESOLUTION:
-  User chooses one of the three options above.
-  Claude re-confirms before proceeding.
-  If user chooses (b): apply batch coverage only to subtopics with quota >= n_batches
-  naturally (i.e., don't force n_batches minimum on subtopics with very small raw_total).
-  Document the override in Paper Structure sheet.
-
-  NOTE: For typical MCQ exams (25 Qs/section, ~60 subtopics/section), EC-11 is not
-  expected to trigger: max subtopics << batch_slots (250) by a wide margin.
-  It would trigger only for extremely subtopic-dense sections.
+COUPLING (read before changing either): batch_size_qs → n_batches → §4-2 quota floor
+→ rare-pool size → §4-4 placement + max_rare_per_mock (§4-3). Widening the window
+HALVES the rare pool of a section and can move it into the band rare_count ≈ N_mocks
+where the pre-v1.56.0 §4-4 stagger end-clustered. The §4-0 derivation and the §4-4
+segment+rank placement ship as a package for this reason.
 ```
 
 ---
@@ -6752,13 +7076,16 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
 ☐ 6.  ZP rotation schedule complete for all N_mocks (§5-2)
 ☐ 7.  All N_mocks in blueprint['mocks'] (len == N_mocks)
 ☐ 8.  BV-1 to BV-6 AND BV-9B passed for every B2 batch (§9)
-       BV-9B: every PYQ subtopic appears ≥ 1 Q in each 10-mock batch window.
+       BV-9B: every PYQ subtopic appears ≥ 1 Q in each COVERAGE WINDOW (batch_size_qs
+       mocks, derived by §4-0); evaluated when the window closes, deferred otherwise.
 ☐ 8b. BV-10 feasibility gate (§4-1b) passed at B1: BV-10a form_key uniqueness proven
        satisfiable per collision_domain and every batch window (HALT-with-fix if not);
        BV-10b family soft-cap notes recorded. BV-10a/BV-10b clean on every B2 batch (§9-6b).
 ☐ 9.  BV-7 passed: full cross-batch validation (§9-7)
 ☐ 10. BV-8 passed: zero-PYQ final count exact (§9-8)
-☐ 11. All edge cases in §16 verified (including EC-11 feasibility check)
+☐ 11. All edge cases in §16 verified (EC-11 is resolved automatically by §4-0; its
+       tier, derived batch_size_qs / max_rare_per_mock and any declared-uncovered list
+       are recorded in blueprint.json and the Assumptions table — never a halt)
 ☐ 12. All assumptions documented in Paper Structure sheet (§10 S10-12)
 ☐ 13. All 5 output files generated and present_files called (§13-7)
 ☐ 14. Handoff message delivered (§11-3)
@@ -7140,4 +7467,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.55.0
+# END OF Framework_Blueprint v1.56.0

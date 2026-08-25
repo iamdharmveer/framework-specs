@@ -15,6 +15,14 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.18 — 2026-08-25 — GAP-2026-08-25-BLUEPRINT-PHASE1 DEF-06 (paired with
+#   Framework_Blueprint v1.56.0 §8-5 Step 8A). --self-test now PROBES
+#   `import blueprint_core` FIRST and ABORTS (exit 2, "SELF-TEST: ABORT") when the
+#   engine is not importable, instead of silently registering fewer fixtures and
+#   failing the two A-QINDEX obs fixtures (253/255 from an outputs directory vs
+#   261/261 inside the clone — same bytes). A shrinking fixture count was the real
+#   signal and nothing checked it; a degraded run is now impossible to mistake for
+#   a gate failure. Audit behaviour (WARN-degrade on checks 8/9) is unchanged.
 # v2.17 — 2026-08-24 — GAP-2026-08-24-MATH-RESIDUE-SHIPPED (paired with
 #   Framework_MockTestCreate v5.70). NEW GATE A-SUBFLAT (FAIL) in the A-FRAC
 #   family: flat ASCII subscripts (single-letter symbol + underscore — e_g, d_xy,
@@ -3955,6 +3963,21 @@ def _png_bytes(w=8, h=8):
 
 
 def self_test():
+    # v2.18 (GAP-2026-08-25-BLUEPRINT-PHASE1 DEF-06 / C8) — NEVER SHED FIXTURES SILENTLY.
+    # Checks 8 and 9 (A-QINDEX) delegate to blueprint_core and degrade to WARN when
+    # it is not importable. That is correct for an AUDIT. For the SELF-TEST it is
+    # not: the fixtures asserting those verdicts fail (253/255) and the run looks
+    # like a genuine gate failure. It is environmental — a copy of this file in an
+    # outputs directory has no engine beside it (v2.12.1, by design). Probe first
+    # and refuse to run a degraded self-test at all.
+    try:
+        import blueprint_core as _probe_bc  # noqa: F401
+    except ImportError:
+        print('SELF-TEST: ABORT — blueprint_core not importable; self-test invalid in '
+              'this context. Run it inside the verified clone: '
+              'cd /tmp/fw && python3 audit_canonical.py --self-test '
+              '(Framework_Blueprint §8-5 Step 8A). Nothing was tested.')
+        return 2
     passed = 0; total = 0; fails = []
     tmp = tempfile.mkdtemp()
     def check(name, cond):

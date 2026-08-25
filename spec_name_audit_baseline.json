@@ -18,9 +18,6 @@
   "MANIFEST_IDS": {
    "reason": "forward_ref_or_session_global"
   },
-  "MAX_RARE_PER_MOCK": {
-   "reason": "forward_ref_or_session_global"
-  },
   "MIN_COUNTS": {
    "reason": "forward_ref_or_session_global"
   },
@@ -467,6 +464,6 @@
   }
  },
  "_grandfathered": [],
- "_policy": "A name READ inside a function this spec CALLS may NEVER be baselined. --write-baseline refuses to create such an entry. The only exception is GRANDFATHERED_MUST_FIX, which must be placed BY HAND, is listed below, and can only be removed — never added by tooling.",
- "_schema": "TYPED BASELINE v2 — every entry carries a reason. See spec_name_audit.py REASONS."
+ "_policy": "A name READ inside a function this spec CALLS may NEVER be baselined. --write-baseline refuses to create such an entry. The only exception is GRANDFATHERED_MUST_FIX, which must be placed BY HAND, is listed below, and can only be removed \u2014 never added by tooling.",
+ "_schema": "TYPED BASELINE v2 \u2014 every entry carries a reason. See spec_name_audit.py REASONS."
 }

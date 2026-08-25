@@ -1,5 +1,68 @@
 # Changelog
 
+## 2026.08.25.1 — GAP-2026-08-25-BLUEPRINT-PHASE1: Step 6 never halts on exam geometry; Phase-1 rare placement no longer end-clusters; Step 8A self-test runs in the clone
+
+**Framework_Blueprint v1.55.0 -> v1.56.0 · blueprint_core +CLUSTER P (+32 fixtures, self-test
+527 -> 559) · audit_canonical v2.17 -> v2.18 (self-test 261/261 in clone; ABORT exit 2 outside
+it). Spec + two engines; no routes, no triggers; blueprint.json schema GAINS five keys
+(batch_size_qs / max_rare_per_mock become REQUIRED+DERIVED; feasibility_tier,
+uncovered_subtopics, uncovered_exam_wide new). bootstrap 52/52; validate_framework_md 0
+issues; check_triggers 27 consistent. Zero exam values — all seven defects are
+exam-independent and protect all ~200 exams. Discovered on IIT_JAM_CHEMISTRY
+`MockBlueprint 20 --difficulty 10:30:60`, which halted three times.**
+
+(1) DEF-01 batch_size_qs was a literal 10 encoding "every section has >= taxonomy/10 Qs per
+mock" — false for every mechanism-partitioned exam (MCQ/MSQ/NAT sections each carrying the
+full taxonomy; JAM Section B: 114 subtopics on 10 Qs/mock). §4-1 halted with EC-11 and asked
+the operator to pick a value the spec could compute; only Arm A was checked, Arm B escaped
+to a late AllocationError. NEW §4-0 FEASIBILITY PREFLIGHT (B1 Step 5A, after §5 so ZP slots
+are known) — bc.feasibility_preflight / bc.derive_batch_size: exact minimum window per
+section in closed form (monotone on both arms, minimal vs brute force over 6,000
+geometries, 0 disagreements), series-wide max, exam_config value honoured only if >= the
+minimum. Three tiers: 1 default holds; 2 window widened + one Assumptions row; 3 the
+section cannot hold every subtopic even once in N_mocks -> bc.capacity_split keeps the
+highest-r_avg subtopics it can and DECLARES the rest in blueprint.json
+uncovered_subtopics[section]; each is guaranteed by another section that carries it
+(coverage promise moves from per-section to per-exam for that section). BV-0A Check 4
+keeps silent exclusion a hard stop and verifies every declared one has a carrier. Nothing
+in §4 halts any more. EC-11 rewritten; its unparsed --batch_coverage flag retired.
+
+(2) DEF-02 §4-4 Phase-1 stagger int((k+0.5)N/q)+1 has no subtopic term: every q=1 rare
+subtopic computed the SAME mock and the forward-only conflict scan packed the collisions
+into the tail — mocks 1-10 held ZERO rare Qs on the incident exam. Unchanged since the
+first commit; masked by a resonance band rare_count ~ [N, 1.3N] at cap 2 (same exam passes
+at N=15 and 40, fails at 20 and 30). The §4-5 v1.13 subtopic_offset fix was measured for
+Phase 1 and does NOT work (drags placements into the last decile). REPLACED by
+bc.phase1_positions: segment-constrained (appearance k inside segment k -> never further
+than F4's tolerance from the old ideal, so F4 holds by construction and is UNCHANGED) +
+rank-spread anchor + least-loaded free mock. 1,792 adversarial shapes: F4 89.6 -> 98.2%,
+F2 91.2 -> 99.7%, BV-4 96.3 -> 100%, dead-stretch 53.5 -> 98.9%. Engine output identical
+to the measured reference on all 1,792. Iteration order (§4-3 rare_subs order) is part of
+the contract.
+
+(3) DEF-05 the formula lived in THREE places (§4-4, §9-2 BV-2, §8-4 prose); a §4-4 change
+alone would have failed BV-2 on every exam. All three now call the engine. (4) DEF-03 BV-7
+F2 threshold 1.5*avg was unsatisfiable at integer boundaries (avg 0.48 forbade any rare Q
+in the tail; avg 1.125 failed an optimal spread) -> bc.f2_threshold = max(ceil(avg),
+1.5*avg); still catches the incident (avg 1.0 -> 1.5, observed 2). (5) DEF-04 F2 inspected
+only the last 10% of mocks; front-loaded and middle-bunched series passed -> NEW F2b
+no-dead-stretch (bc.dead_stretch, WARN; ratchet to FAIL after corpus replay). (6) DEF-07
+BV-9B assumed the coverage window == a 10-mock B2 batch; at bs=20 batch 1 reported 67/114
+uncovered spuriously -> bc.coverage_window; BV-9B DEFERRED until the window closes, plus an
+exam-wide arm for declared-uncovered subtopics. (7) DEF-06 Step 8A ran the auditor
+self-test from the outputs directory, where blueprint_core is absent BY DESIGN (v2.12.1);
+checks 8/9 degrade to WARN there and their fixtures fail (253/255 vs 261/261 in the clone,
+same bytes; regression since 2026-08-21 when check 8 was added). Step 8A now validates
+INSIDE the clone before copying; audit_canonical v2.18 probes the import first and ABORTS
+rather than shedding fixtures, so a degraded run can never look like a gate failure.
+max_rare_per_mock is derived in §4-3 from the FINAL rare pool (exact; one-directional
+bs -> n_batches -> quota -> cap, no fixed-point chase). Subject-partitioned exams derive
+tier 1 / bs 10 / cap 2 -> allocation byte-identical to v1.55.0. Downstream: MockTestCreate
+and final_assembly read batch_size_qs from blueprint.json, so a derived window flows to
+the Step-7 axis-2 window (recorded in the Assumptions table). Reproduction harness
+repro.py (stdlib, seed 99) reproduces every figure; blueprint_core self-test reproduces the
+incident geometry as fixtures.
+
 ## 2026.08.24.6 — CHG-2026-08-24-FIG-NOLABEL + GAP-2026-08-24-MATH-RESIDUE-SHIPPED: no "Problem Figure:" label line; flat sub/superscript notation can no longer ship
 
 **Framework_MockTestCreate v5.69 -> v5.70 · audit_canonical v2.16 -> v2.17 (+A-SUBFLAT, +2

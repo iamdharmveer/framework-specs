@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.24.6",
+  "framework_version": "2026.08.25.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -218,11 +218,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "e18258a913fa8bf3f59157e47493210e947338c30cea51ab8a5ffbd282de8e98",
-      "version_header": "# Framework_Blueprint v1.55.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.55.0",
-      "lines": 7143,
-      "bytes": 384714
+      "sha256": "a9375e3d1df6e205ab641acad471c4c0dced7b3ec8eb300464acb38e8d346dbe",
+      "version_header": "# Framework_Blueprint v1.56.0 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.56.0",
+      "lines": 7470,
+      "bytes": 410485
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "e47f7b7eb8f6ae145621caf047c9136c620ba4d2fb6b7b955b29509ca684c9e7",
@@ -400,11 +400,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "217a70554cdaedd1927482d9a470b582532c0d02eec4ecdec680736349a5190d",
+      "sha256": "66c9adebee6d614a9ca07729e728de3517ad4d74c26131db96f651392df1978e",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 6193,
-      "bytes": 342122
+      "lines": 6539,
+      "bytes": 361058
     },
     "paper_pipeline.py": {
       "sha256": "d09c32aa6f1d5b0fd918a37eb13b475e448b8caa8b06d1bbdfb39ead2bc6b919",
@@ -456,11 +456,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "a5b61e423daaf1c3214f4e84249045aa28b08f8b1c8c50d95e2c006a5fdae7aa",
+      "sha256": "793dbfd923282f19170a77e83ca8253587032468604b63dab0c4ca142b7cb8c6",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 7529,
-      "bytes": 416957
+      "lines": 7552,
+      "bytes": 418564
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
@@ -554,11 +554,11 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "57cf88e25138c6ea1354e4237e322b82cf4fbca64353306df5211d36755117f6",
+      "sha256": "81cd1f2f751e883fa96825603146baa94a63415a472897d4a78407f671914c7d",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 6953,
-      "bytes": 195435
+      "lines": 6960,
+      "bytes": 195688
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
