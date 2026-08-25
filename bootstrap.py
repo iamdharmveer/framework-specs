@@ -65,6 +65,49 @@ def read_lines(path):
     with open(path, encoding="utf-8", newline="") as f:
         return [ln.rstrip("\n") for ln in f]
 
+def ensure_compression_tools(trigger):
+    """Best-effort provisioning of pngquant + optipng for TMAX (mode='max') runs.
+
+    v2026.08.25 (GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION, follow-up). The
+    Framework_PYQCompress v2.0.0 governor palette-quantizes PNG output through
+    corpus_io._quantize_png, which is strongest with the pngquant and optipng
+    binaries and degrades gracefully to PIL FASTOCTREE without them (~10-20%
+    weaker on PNG-heavy papers). The execution container resets every session,
+    so the binaries must be provisioned at bootstrap or they are never there.
+
+    THIS IS PROVISIONING, NOT VERIFICATION. It runs only AFTER the verify gate
+    has passed, it is scoped to compression triggers so every other step pays
+    zero wall time, and NO outcome here can change the gate's exit code or the
+    .verified contract — a failed install is a quality note, never a halt,
+    because the engine's PIL fallback keeps PYQCompress fully functional.
+    """
+    if trigger is not None and 'compress' not in trigger.lower():
+        return                      # not a compression session — silent, zero cost
+    import shutil as _sh
+    import subprocess as _sp
+    try:
+        missing = [t for t in ('pngquant', 'optipng') if not _sh.which(t)]
+        if not missing:
+            print("[tools] pngquant + optipng present — TMAX runs at full strength")
+            return
+        r = _sp.run(['apt-get', 'install', '-y', '-qq'] + missing,
+                    capture_output=True, timeout=180)
+        if r.returncode != 0:
+            _sp.run(['apt-get', 'update', '-qq'], capture_output=True, timeout=180)
+            r = _sp.run(['apt-get', 'install', '-y', '-qq'] + missing,
+                        capture_output=True, timeout=180)
+        still = [t for t in ('pngquant', 'optipng') if not _sh.which(t)]
+        if not still:
+            print(f"[tools] installed {' + '.join(missing)} — TMAX runs at full strength")
+        else:
+            print(f"[tools] could not install {' + '.join(still)} — PYQCompress will "
+                  f"run on the PIL fallback (correct output, ~10-20% weaker PNG "
+                  f"compression). NOT a failure; the run proceeds.")
+    except Exception as e:
+        print(f"[tools] provisioning skipped ({type(e).__name__}) — PYQCompress will "
+              f"run on the PIL fallback. NOT a failure; the run proceeds.")
+
+
 def _session_class(progress_path, files_meta, trigger=None):
     # v2026.08.22.2 (GAP-2026-08-22-STEP9-READ-SET): Step 9's S0-3 law differs from
     # Step 5's §S8-0b on the UNKNOWN case — a fresh mock has no frozen batch plan
@@ -332,6 +375,7 @@ def main():
         else:
             print(f"[note] trigger '{args.trigger}' not in advisory routes; "
                   f"read the spec whose header matches your step. All files are verified & present.")
+    ensure_compression_tools(args.trigger)
     print(".verified written. Read the needed spec(s) (.md) in full; engines (.py) are "
           "executed, not read.")
 
