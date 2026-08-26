@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.08.26.4 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM follow-up: repaired-paper filename accepted by Step 9; S19-0 split so `reg` is bound before §7A-M writes
+
+**Framework_MockTestExplain v1.46.0 -> v1.46.1 (prose only; no engine change).** Found by
+the release's own second-pass re-verification (filename-chain + fence-ordering sweep):
+(1) §7A-R attaches `[ExamCode]_[slug]_Create_Repaired.docx` but S2-1/P1 parsed the paper
+slug only from the `_Create.docx` form — a literal repair run would refuse its own input
+(the v1.24 "_Complete" class, one filename later). Both forms are now accepted; the
+repaired form ONLY on a *Repair trigger, and a fresh TestExplain on a _Repaired.docx is a
+HARD STOP. (2) v1.46.0's S19-0 bound `reg` / `persist_registry` / the project fingerprint in
+the DELIVERY fence, yet §7A-M's preflight writes `reg` before the first batch. S19-0 is now
+S19-0a (session start at P1, every turn incl. resume) + S19-0b (delivery decision); P1 runs
+S19-0a first. A 41-state executable dry run of both scenarios and every edge state
+(PENDING/FAILED/PASSED/DISCLOSED/DORMANT/legacy/corrupt-healed/scoped, write-once snapshot,
+pre-repair paper attached, unflagged question changed, registry not replaced) passes on the
+live engines.
+
 ## 2026.08.26.3 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM: every step that changes registry.json now delivers it (REGISTRY-HANDOFF-LAW); audit dossier internal; Step-9 report as a docx
 
 **P0, every exam.** registry.json is written by four mock-track steps (Step 7 Final Assembly,

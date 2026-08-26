@@ -1,4 +1,19 @@
-# Framework_MockTestExplain v1.46.0
+# Framework_MockTestExplain v1.46.1
+# v1.46.1 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM follow-up (prose only; paired
+#   with paper_pipeline v5.74). REPAIRED-PAPER FILENAME. §7A-R attaches the TestCreateRepair
+#   output, [ExamCode]_[paper_slug]_Create_Repaired.docx, and R2 says "parse (P3
+#   machinery)" — but S2-1 and P1 named ONLY the _Create.docx form when parsing the paper
+#   slug from the upload, so a literal repair run would refuse its own input (the v1.24
+#   "_Complete" class, one filename later). S2-1 / P1 / §7A-R R2 now accept BOTH forms
+#   and derive the slug by stripping whichever suffix is present; the repaired form is
+#   accepted ONLY on a *Repair trigger, and a fresh TestExplain on a _Repaired.docx is a
+#   HARD STOP (a re-judge after a repair runs on the same repaired paper via
+#   TestExplainRepair, never as a fresh explain). Found by the release's own
+#   filename-chain re-verification. ALSO: S19-0 is split — S19-0a (session start at P1:
+#   binds `reg`, the project fingerprint and persist_registry BEFORE §7A-M's preflight can
+#   write) and S19-0b (delivery decision) — v1.46.0 defined all of it in the delivery
+#   fence, so `reg`/persist_registry were unbound when §7A-M first needed them. No gate,
+#   band or block rule changes.
 # v1.46.0 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestCreate
 #   v5.73, MockDeliver v1.16.0, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH,
 #   explain_engine v2.9, final_assembly v5.60; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
@@ -508,7 +523,10 @@ execution path — it does not shrink, soften or delete them.
 
   Unclear trigger → ask ONE clarifying question. Never solve on ambiguous input.
   Trigger WITHOUT the matching [ExamCode]_[paper_slug]_Create.docx present → HALT, request
-  the upload. (v1.24: this and the FRESH line above said "Create_Complete" — a filename
+  the upload. (v1.46.1) On a TestExplainRepair / MockExplainRepair trigger the paper
+  attachment is [ExamCode]_[paper_slug]_Create_Repaired.docx (TestCreateRepair §S16-3
+  output) and is the ONLY accepted form; on any other trigger a _Create_Repaired.docx
+  upload is a HARD STOP ("a repaired paper is explained via TestExplainRepair P[N]"). (v1.24: this and the FRESH line above said "Create_Complete" — a filename
   RETIRED at v1.21.0 that no step produces (see the header note); a session following the
   old wording literally would refuse the valid _Create.docx upload forever. The operative
   P1 discovery always used _Create.docx; the trigger contract now says the same thing.)
@@ -540,10 +558,14 @@ execution path — it does not shrink, soften or delete them.
 # ════════════════════════════════════════════════════════════════════════
 
   P0  TRIGGER DETECTION (§2). Resolve N; pick FRESH / RESUME / STATUS / CONT.
-  P1  AUTO-LOAD (exact order): this spec → section_rules.md → BLUEPRINT (v1.19,
+  P1  AUTO-LOAD (exact order; v1.46.1 — run S19-0a FIRST in every turn, so `reg`,
+      persist_registry and the project fingerprint exist before anything below can
+      write the registry): this spec → section_rules.md → BLUEPRINT (v1.19,
       docx-driven pp.pick_blueprint — twin of Step 7's resolver): discover the uploaded
-      [ExamCode]_[paper_slug]_Create.docx, parse its paper_slug from the
-      filename, load every [ExamCode]*_blueprint.json present (mock + any scoped),
+      [ExamCode]_[paper_slug]_Create.docx — or, on a *Repair trigger only,
+      [ExamCode]_[paper_slug]_Create_Repaired.docx (v1.46.1) — parse its paper_slug
+      from the filename (strip the [ExamCode]_ prefix and whichever of the two
+      suffixes is present; the slug is identical either way), load every [ExamCode]*_blueprint.json present (mock + any scoped),
       KEEP ONLY those whose exam_code == [ExamCode] exactly (v1.41.0 — the glob is a
       PREFIX match and sweeps a sibling exam's file, e.g. EXAM_AB for EXAM_A; filtering
       AFTER pp.pick_blueprint let it raise "matches 2 blueprints … remove duplicate
@@ -1845,7 +1867,11 @@ execution path — it does not shrink, soften or delete them.
           ('DORMANT',   0)  → "This paper's gate is dormant ([dormant_reason])
                                — nothing to repair. Next step: " + next_step
         (No other pair can reach R1: R0 healed or refused it.)
-    R2  Both attachments present and parse (P3 machinery).
+    R2  Both attachments present and parse (P3 machinery): the
+        [ExamCode]_[paper_slug]_Create_Repaired.docx paper (S2-1 / P1 accept this
+        form on this trigger — v1.46.1) and the previous
+        [ExamCode]_[paper_slug]_Explanation.docx; both must carry the SAME
+        paper_slug as the trigger's paper N (P10/0 identity gate) or HARD STOP.
     R3  Stem diff against the PRE-REPAIR SNAPSHOT ONLY, via the shared digest:
           v = pp.dg_verify_repair(rec, {q: <first-paragraph text of q in the
                                          REPAIRED paper, raw — see
@@ -1924,7 +1950,7 @@ execution path — it does not shrink, soften or delete them.
   DELIVERABLES (v1.46.0 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM; this section had NO
     delivery contract through v1.45.1, so the re-gate verdict stayed in /home/claude and
     Step 11 kept reading (FAILED, 0) from the project). The CLOSED SET, one present_files
-    call, F2 footer, is pp.handoff_set('TestExplainRepair', …, final=True) — run S19-0 →
+    call, F2 footer, is pp.handoff_set('TestExplainRepair', …, final=True) — run S19-0b →
     S19-1 → S19-2 → S19-4 exactly as a final batch, with FINAL_BATCH = True and
     HANDOFF_STEP = 'TestExplainRepair' (or 'MockExplainRepair'):
       1. [ExamCode]_[paper_slug]_Explanation.docx — the previous explanation docx with
@@ -1937,7 +1963,7 @@ execution path — it does not shrink, soften or delete them.
          every other section reports the whole paper as it now stands) → Use locally
     The re-gate is ONE write (above); pp.registry_changed is therefore True on every
     successful repair run, and a run whose registry is unchanged has NOT re-gated — S19-0
-    HARD-STOPS it rather than deliver a stale verdict.
+    HARD-STOPS it rather than deliver a stale verdict (S19-0b).
 
 # ════════════════════════════════════════════════════════════════════════
 
@@ -2849,15 +2875,15 @@ execution path — it does not shrink, soften or delete them.
 # §19 — DELIVERY (incremental whole-paper; one present_files per batch)
 # ════════════════════════════════════════════════════════════════════════
 
-## S19-0 — REGISTRY WORKING COPY, THE ONE PERSIST POINT, AND THE HANDOFF DECISION (v1.46.0)
+## S19-0 — REGISTRY WORKING COPY, THE ONE PERSIST POINT, AND THE HANDOFF DECISION (v1.46.0; split v1.46.1)
   REGISTRY-HANDOFF-LAW (LAW_REGISTRY.json; verified by mock_sync_audit MS-14): a step that
   CHANGES registry.json DELIVERS registry.json, badge "Replace in Project Files", in the
   same present_files call as its primary artefact. Nothing in this step decides that by
   prose. The decision is a FINGERPRINT: the project copy as loaded vs the working copy
   this run is about to hand off (pp.registry_changed). Every registry write in this spec —
   §7A-M pp.dg_preflight healing, §7A-M pp.dg_write_verdict, §7A-R R0 healing, §7A-R
-  re-gate + session_log — is made on `reg` (the working copy) and persisted HERE and only
-  here; "the S19-0 write" is the name every one of those sections uses.
+  re-gate + session_log — is made on `reg` (the working copy bound at S19-0a) and is
+  followed IMMEDIATELY by persist_registry(reg); "the S19-0 write" is that call.
   WHY A FINGERPRINT. A legacy paper (no difficulty_gate record) writes nothing, so nothing
   is delivered and the footer says so; a gated run always writes a verdict, so the
   registry is always delivered; a healed record is delivered even when the gate went
@@ -2869,6 +2895,8 @@ execution path — it does not shrink, soften or delete them.
                     §7A-R run; False (or unset) otherwise.
     HANDOFF_STEP  = 'TestExplain' | 'MockExplain' | 'TestExplainRepair' |
                     'MockExplainRepair' — the trigger that started this run.
+
+### S19-0a — SESSION START (run at P1, EVERY turn including resume — before §7A-M's preflight)
 ```python
 import os, json, shutil
 import paper_pipeline as pp
@@ -2877,32 +2905,37 @@ REG_WORK    = f'/home/claude/{EXAMCODE}_registry.json'      # this run's working
 if not os.path.exists(REG_WORK):
     shutil.copy(REG_PROJECT, REG_WORK)                      # first turn of the run only
 _reg_fp_project = pp.registry_fingerprint(json.load(open(REG_PROJECT, encoding='utf-8')))
-# `reg` is the in-memory working copy every §7A-M / §7A-R write targets. Bind it here
-# once per turn; a resumed turn reloads what the previous turn persisted.
+# `reg` is the in-memory working copy every §7A-M / §7A-R write targets. A resumed
+# turn reloads what the previous turn persisted; nothing else ever rebinds it.
 reg = json.load(open(REG_WORK, encoding='utf-8'))
+HANDOFF_STEP = globals().get('HANDOFF_STEP') or 'TestExplain'
 
 def persist_registry(reg):
-    """THE S19-0 WRITE — the only json.dump of the registry in this step."""
+    """THE S19-0 WRITE — the only json.dump of the registry in this step. Call it
+    right after EVERY Cluster-DG write (§7A-M preflight/verdict, §7A-R R0/re-gate)."""
     json.dump(reg, open(REG_WORK, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
     return REG_WORK
+```
 
-HANDOFF_STEP = globals().get('HANDOFF_STEP') or 'TestExplain'
-FINAL_BATCH  = bool(globals().get('FINAL_BATCH'))
+### S19-0b — DELIVERY DECISION (run at the start of every delivery turn, before S19-1)
+```python
+FINAL_BATCH = bool(globals().get('FINAL_BATCH'))
+persist_registry(reg)                                       # idempotent; never reloads reg
 _sol    = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
 _report = f'{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPORT_SUFFIX}' if FINAL_BATCH else None
 _changed = pp.registry_changed(_reg_fp_project, reg)
 if HANDOFF_STEP.endswith('Repair') and not _changed:
-    raise SystemExit('HARD STOP (S19-0): a repair run must re-gate (one pp.dg_write_verdict) '
+    raise SystemExit('HARD STOP (S19-0b): a repair run must re-gate (one pp.dg_write_verdict) '
                      'before delivery — the registry is unchanged, so nothing is delivered.')
 HANDOFF = pp.handoff_set(HANDOFF_STEP, primary_docx=_sol, reg_name=f'{EXAMCODE}_registry.json',
                          registry_changed=_changed, final=FINAL_BATCH, report_docx=_report)
 if HANDOFF['registry_delivered']:
-    shutil.copy(persist_registry(reg), f'/mnt/user-data/outputs/{EXAMCODE}_registry.json')
+    shutil.copy(REG_WORK, f'/mnt/user-data/outputs/{EXAMCODE}_registry.json')
 ```
-  Run this block at the START of every delivery turn (before S19-1) — after the batch's
-  blocks are built and, on the final batch, after §7A-M has written its verdict into `reg`
-  and §20-R has written the report docx. HANDOFF['files'] is the closed set; nothing else
-  may sit in outputs.
+  Order on the FINAL batch: blocks built → §7A-M verdict written into `reg` +
+  persist_registry → §20-R writes the report docx → S19-0b → S19-1 → S19-2 → S19-4.
+  On a non-final batch: blocks built → S19-0b → S19-1 → S19-2 → S19-4. HANDOFF['files']
+  is the closed set; nothing else may sit in outputs.
 
 ## S19-1 — Pre-delivery checklist (MANDATORY before present_files)
 ```python
@@ -3094,7 +3127,7 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
                      REPORT_SECTIONS, meta_lines=REPORT_META)
 ```
   Run this AFTER §7A-M has written its verdict (so §R1's registry state is final) and
-  BEFORE S19-0 (which puts the file into the closed set).
+  BEFORE S19-0b (which puts the file into the closed set).
 
 # ════════════════════════════════════════════════════════════════════════
 ## §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
@@ -3350,5 +3383,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.46.0
+# END OF Framework_MockTestExplain v1.46.1
 # ════════════════════════════════════════════════════════════════════════

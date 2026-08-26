@@ -1,4 +1,10 @@
-# Deploy: REGISTRY-HANDOFF-LAW — release 2026.08.26.3
+# Deploy: REGISTRY-HANDOFF-LAW follow-up — release 2026.08.26.4
+
+**This release (.4) changes ONLY:** `Framework_MockTestExplain.md` (v1.46.1), `VERSION`,
+`CHANGELOG.md`, `DEPLOY_NOTES.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json`.
+See CHANGELOG 2026.08.26.4. Everything below describes .3, already on production.
+
+# (.3) Deploy: REGISTRY-HANDOFF-LAW — release 2026.08.26.3
 
 **Fixes:** `GAP-2026-08-26-REGISTRY-HANDOFF-SEAM` — four mock-track steps write
 `[ExamCode]_registry.json` and only one delivered it; MockTestExplain's own delivery
