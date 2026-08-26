@@ -34,6 +34,12 @@ Concerns:
                                             a FAILED record from the retired band-equality rule is
                                             routed to TestExplain (re-judge), never repaired;
                                             §FOOTER-DG shows an ungated band as "(not gated)".
+                                            v5.73 (2026-08-26, windows follow-up): a FRESH
+                                            round-0 verdict retires a pre-repair stem snapshot
+                                            whose rework set differs from the new verdict's
+                                            (superseded_snapshots) — a stale snapshot would make
+                                            §7A-R R3 accuse a correct repair and fail A-DGATE 5;
+                                            kept when the set is identical or the round is carried.
  11. validate_semantic_object / semantic_objects_agree
                                           — v5.39 FIGURE SEMANTIC OBJECTS: every generated figure
                                             registers what it DEPICTS in machine-readable form
@@ -719,6 +725,28 @@ def _self_test():
     ck_dg_raises('DG-WIN-OLD-FAILED-snapshot-refused', lambda: dg_add_rework_snapshot(_OLD, 'MOCK:M07', {2: 'a', 5: 'b'}))
     ck('DG-WIN-OLD-FAILED-still-legal-state', dg_is_legal(dg_read(_OLD, 'MOCK:M07'))
        and dg_preflight(_OLD, 'MOCK:M07', 'test')[1] is None)
+    # a fresh round-0 verdict over a FAILED/0 that already has a snapshot: the snapshot
+    # survives ONLY if the rework set is identical; otherwise it is retired (never stale)
+    _RS = {'difficulty_gate': {'MOCK:M08': {'status': 'FAILED', 'repair_rounds_used': 0, 'rework_qs': [1, 4],
+           'gate_rule': DG_RULE_WINDOWS, 'rework_stem_hashes': {'1': 'a', '4': 'b'}, 'baseline_stem_hashes': {'2': 'c'}}}}
+    _same = dg_write_verdict(dict(_RS), 'MOCK:M08', status='FAILED', rounds=0, bands=_bands, windows=_W,
+                             rework_qs=[4, 1], rework_directions={1: 'harder', 4: 'harder'})
+    ck('DG-SNAPSHOT-KEPT-same-rework-set', _same['rework_stem_hashes'] == {'1': 'a', '4': 'b'}
+       and 'superseded_snapshots' not in _same)
+    _rejudged = dg_write_verdict({'difficulty_gate': {'MOCK:M08': dict(_RS['difficulty_gate']['MOCK:M08'])}},
+                                 'MOCK:M08', status='PASSED', rounds=0, bands=_bands, windows=_W, rework_qs=[])
+    ck('DG-SNAPSHOT-RETIRED-on-rejudge', 'rework_stem_hashes' not in _rejudged and 'baseline_stem_hashes' not in _rejudged
+       and _rejudged['superseded_snapshots'][0]['rework_qs'] == ['1', '4'])
+    _diff = dg_write_verdict({'difficulty_gate': {'MOCK:M08': dict(_RS['difficulty_gate']['MOCK:M08'])}},
+                             'MOCK:M08', status='FAILED', rounds=0, bands=_bands, windows=_W,
+                             rework_qs=[1], rework_directions={1: 'harder'})
+    ck('DG-SNAPSHOT-RETIRED-different-set-then-fresh-snapshot', 'rework_stem_hashes' not in _diff
+       and dg_add_rework_snapshot({'difficulty_gate': {'MOCK:M08': _diff}}, 'MOCK:M08', {1: 'z'}) == {'1': 'z'})
+    _spent = {'difficulty_gate': {'MOCK:M08': {'status': 'DISCLOSED', 'repair_rounds_used': 1, 'rework_qs': [1],
+              'gate_rule': DG_RULE_WINDOWS, 'rework_stem_hashes': {'1': 'a', '4': 'b'}}}}
+    _carry = dg_write_verdict(_spent, 'MOCK:M08', status='PASSED', rounds=0, windows=_W, rework_qs=[])
+    ck('DG-SNAPSHOT-KEPT-on-carried-round', _carry['rework_stem_hashes'] == {'1': 'a', '4': 'b'}
+       and dg_state(_carry) == ('PASSED', 1))
     # THE INCIDENT: repair_rounds_used=1 with status FAILED must be UNWRITABLE
     ck_dg_raises('DG-REFUSE-FAILED-1', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED', rounds=1))
     ck_dg_raises('DG-REFUSE-PENDING-1', lambda: dg_write_verdict({}, 'MOCK:M09', status='PENDING', rounds=1))
@@ -1626,10 +1654,29 @@ def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=Non
     rec['timestamp'] = _dg_now()
     if carried is not None:
         rec['rounds_carried_from'] = carried
-    # Step-7-repair evidence and the audit trail survive every re-gate
+    # Step-7-repair evidence and the audit trail survive every re-gate ...
     for keep in ('rework_stem_hashes', 'baseline_stem_hashes', 'migrations'):
         if keep in prev:
             rec[keep] = prev[keep]
+    # ... EXCEPT that a FRESH round-0 verdict (a full §7A-M re-run, or the re-judge
+    # of a retired-rule record — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS) starts a
+    # new repair lineage. A pre-repair stem snapshot taken for the OLD rework set
+    # would (a) make §7A-R R3 falsely accuse a correct repair file of touching the
+    # wrong questions and (b) fail A-DGATE check 5 (snapshot keys ≠ rework_qs). It
+    # is kept only when the new verdict names EXACTLY the same rework set (the same
+    # order continues); otherwise it is retired to rec['superseded_snapshots'] and
+    # a later TestCreateRepair takes a fresh one. Never on a carried (spent) round:
+    # the repair evidence for that round stays intact.
+    if (carried is None and rounds == 0 and status in ('PASSED', 'FAILED')
+            and prev.get('rework_stem_hashes')):
+        _snap_keys = set(str(q) for q in prev['rework_stem_hashes'])
+        _new_keys = set(str(q) for q in (rec.get('rework_qs') or []))
+        if _snap_keys != _new_keys:
+            rec.pop('rework_stem_hashes', None)
+            rec.pop('baseline_stem_hashes', None)
+            rec['superseded_snapshots'] = list(prev.get('superseded_snapshots') or []) + [
+                {'rework_qs': sorted(_snap_keys, key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else 0, x)),
+                 'retired_at': _dg_now(), 'reason': 'fresh_round0_verdict_with_different_rework_set'}]
     reg.setdefault('difficulty_gate', {})[paper_id] = rec
     return rec
 

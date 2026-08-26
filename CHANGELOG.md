@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026.08.26.1 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up: stale pre-repair snapshot could fail delivery of a re-judged or partially-repaired paper
+
+**paper_pipeline v5.72 -> v5.73 · audit_canonical v2.19 -> v2.20 · Framework_MockTestExplain
+v1.45.0 -> v1.45.1. Two engines + one spec; no routes, triggers, gate-count or schema change.**
+
+Found in the post-deployment line review by driving the real IIT_JAM_CHEMISTRY registry (which
+carries a 32-question `rework_stem_hashes` snapshot from a 25.3-era TestCreateRepair) through the
+mandated re-judge path. `dg_write_verdict` carried the snapshot forward on EVERY write while
+A-DGATE check 5 required snapshot keys == rework_qs on EVERY status, so (a) `TestExplain M1`
+would have written PASSED/0 with an empty rework_qs beside a 32-key snapshot → A-DGATE FAIL at
+delivery, and the stale snapshot would have made §7A-R R3 accuse a correct repair file; (b) any
+repair that fixed some but not all questions (DISCLOSED/1 with a smaller remaining rework_qs)
+failed the audit on a legitimate paper. Fix: the writer retires a snapshot whose rework set
+differs from a FRESH round-0 verdict (kept when identical or when the round is carried;
+provenance in rec['superseded_snapshots']); the audit binds the snapshot to rework_qs only on a
+FAILED record, where R3 consumes it. paper_pipeline self-test 159 -> 163, audit_canonical
+277 -> 278. 2026.08.25.4 remains correct for every paper WITHOUT a prior snapshot.
+
 ## 2026.08.25.4 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: Step 9 difficulty gate judges per-band acceptance windows on the raw rubric score; bottom band not gated; threshold 0.30 → 0.35
 
 **Framework_MockTestExplain v1.44.0 -> v1.45.0 · Framework_MockTestCreate v5.71 -> v5.72 ·

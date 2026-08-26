@@ -1,4 +1,9 @@
-# Framework_MockTestExplain v1.45.0
+# Framework_MockTestExplain v1.45.1
+# v1.45.1 — 2026-08-26 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up (paired with
+#   paper_pipeline v5.73, audit_canonical v2.20). §7A-M: a fresh round-0 verdict retires a
+#   pre-repair stem snapshot taken for a different rework set (pp.dg_write_verdict), so the
+#   mandated re-judge of a retired-rule paper cannot leave a stale snapshot that would fail
+#   A-DGATE at delivery or make §7A-R R3 accuse a correct repair file. Prose + engine only.
 # v1.45.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (operator decision 2026-08-25;
 #   paired with blueprint_core Cluster E2 split + E2d, paper_pipeline v5.72, MockTestCreate
 #   v5.72, MockDeliver v1.15.0, DeliveryFooter v1.26). §7A-M's disagreement test moves from
@@ -1659,6 +1664,13 @@ execution path — it does not shrink, soften or delete them.
           scores_by_q=scores_by_q,
           rework_directions=gate['rework_directions'],
           windows=gate['windows'])
+    (v1.45.1) A fresh round-0 verdict starts a new repair lineage: if the
+    record carried a pre-repair stem snapshot (TestCreateRepair ran, then this
+    full step was re-run instead of TestExplainRepair — or a retired-rule
+    record is being re-judged) and the new rework set differs, the writer
+    retires that snapshot to rec['superseded_snapshots'] so §7A-R R3 can
+    never test a repair against the wrong questions; a later TestCreateRepair
+    takes a fresh one. Identical rework set → snapshot kept, order continues.
     (v1.45.0) The writer stamps rec['gate_rule'] = pp.DG_RULE_WINDOWS,
     stores measured_score_by_q and rework_directions ('harder' = the
     question measured BELOW its window; 'easier' = ABOVE it — Step 7 §S16
@@ -3158,5 +3170,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.45.0
+# END OF Framework_MockTestExplain v1.45.1
 # ════════════════════════════════════════════════════════════════════════

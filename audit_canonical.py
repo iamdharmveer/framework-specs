@@ -15,6 +15,12 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.20 — 2026-08-26 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up (paired with
+#   paper_pipeline v5.73). A-DGATE check 5 binds rework_stem_hashes to rework_qs ONLY
+#   on a FAILED record (where §7A-R R3 consumes it). A PASSED/DISCLOSED record after the
+#   repair round legitimately carries the round's snapshot beside a smaller or empty
+#   remaining rework_qs (partial-success repair); v2.19 wrongly failed those, and would
+#   have failed every retired-rule paper re-judged by TestExplain. +1 fixture (278).
 # v2.19 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
 #   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestExplain v1.44.0,
 #   MockTestCreate v5.71, MockDeliver v1.14.0). NEW GATE A-DGATE: the
@@ -26,7 +32,7 @@
 #   (DG-INVARIANT: FAILED ⇒ 0); (2) DORMANT carries a recognised dormant_reason;
 #   (3) FAILED/DISCLOSED carry bands whose totals sum to blueprint.total_questions
 #   (when a blueprint is supplied); (4) FAILED carries a non-empty rework_qs
-#   within 1..total; (5) rework_stem_hashes, when present, keys exactly rework_qs and
+#   within 1..total; (5) rework_stem_hashes, when present on a FAILED record, keys exactly rework_qs and
 #   baseline_stem_hashes, when present, covers them;
 #   (6) a scoped paper_id is never PENDING (it is born DORMANT). Armed by
 #   --registry alone (the S13-4c re-sweep supplies it); dormant-but-reported
@@ -3969,7 +3975,14 @@ def gate_dgate(src):
             elif tq and any(not (1 <= int(q) <= int(tq)) for q in rq):
                 bad.append(f"{pid}: rework_qs {rq} outside 1..{tq}")
         snap = rec.get('rework_stem_hashes')
-        if snap:
+        # Check 5 binds the snapshot to rework_qs only while the snapshot is CONSUMED —
+        # i.e. on a FAILED record (§7A-R R3 reads it). After the repair re-gate a
+        # PASSED/DISCLOSED record legitimately carries the round's snapshot while its
+        # rework_qs is the (possibly smaller, possibly empty) REMAINING set
+        # (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: a partial-success repair is not a
+        # data defect; pp.dg_write_verdict retires a stale snapshot on a fresh round-0
+        # verdict, so a FAILED record's snapshot always matches by construction).
+        if snap and st == 'FAILED':
             _sk = set(str(q) for q in snap)
             _rk = set(str(q) for q in (rec.get('rework_qs') or []))
             if _sk != _rk:
@@ -4752,6 +4765,13 @@ def self_test():
               'SUBJ:X:01': {'status': 'DORMANT', 'repair_rounds_used': 0,
                             'dormant_reason': 'scoped_paper'}}
     check('A-DGATE-legal-set-certifies', [l for l, _, _ in _dg_run(_DG_OK)] == ['OK'])
+    # partial-success repair: DISCLOSED/1 keeps the round's snapshot while rework_qs is the
+    # smaller remaining set; PASSED/1 keeps it with an empty rework_qs — both certify
+    check('A-DGATE-snapshot-unbound-after-repair',
+          [l for l, _, _ in _dg_run({'M': {'status': 'DISCLOSED', 'repair_rounds_used': 1, 'bands': _DGB,
+                                            'rework_qs': [1], 'rework_stem_hashes': {'1': 'h', '2': 'h'}}})] == ['OK']
+          and [l for l, _, _ in _dg_run({'M': {'status': 'PASSED', 'repair_rounds_used': 1, 'bands': _DGB,
+                                                'rework_qs': [], 'rework_stem_hashes': {'1': 'h', '2': 'h'}}})] == ['OK'])
     _dg_inc = _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], repair_rounds_used=1)})
     check('A-DGATE-incident-FAILED-1-FAILS', [l for l, _, _ in _dg_inc] == ['FAIL'] and 'ILLEGAL' in _dg_inc[0][2])
     check('A-DGATE-dormant-without-reason-FAILS',

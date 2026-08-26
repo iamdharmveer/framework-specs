@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.25.4",
+  "framework_version": "2026.08.26.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -253,11 +253,11 @@
       "bytes": 548380
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "cd5a23522ccfac1111bb694b70bf7c8ed40c37366378e3826806e9c3074991da",
-      "version_header": "# Framework_MockTestExplain v1.45.0",
+      "sha256": "0a4f822b4f8f44be724031d9aeff99f3b0ecf5c0da814d1c3c6bae351abab27a",
+      "version_header": "# Framework_MockTestExplain v1.45.1",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 3162,
-      "bytes": 242996
+      "lines": 3174,
+      "bytes": 243991
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -407,11 +407,11 @@
       "bytes": 390563
     },
     "paper_pipeline.py": {
-      "sha256": "3d2ce6f0df6854837eeae58b4c936396e14258f59dd6fab044a092ef69d353de",
+      "sha256": "d6089e1d47039313039cf4588fa908a3cb874377def0a4fd7790c34bccdbb981",
       "version_header": "\"\"\"",
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 1847,
-      "bytes": 111149
+      "lines": 1894,
+      "bytes": 115271
     },
     "final_assembly.py": {
       "sha256": "185775bb7429bcf5650d96d26aacf00af126734fb6a22da98817be10b18a3ef1",
@@ -456,11 +456,11 @@
       "bytes": 27029
     },
     "audit_canonical.py": {
-      "sha256": "33b52ca0136387ac66bf1882d9c25cad739d68ab5ded18dd3bfe6051872e11be",
+      "sha256": "254711782dc7ddeac17d811f63a3210740cae62b2850392185f0d66dcef1831a",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    main()",
-      "lines": 7699,
-      "bytes": 428125
+      "lines": 7719,
+      "bytes": 429961
     },
     "spec_source.py": {
       "sha256": "39c257207e48dcb34647b007844082c23c4a502e9459533a167485771df88925",
@@ -554,7 +554,7 @@
       "bytes": 7784
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "517706304dd465ab4fdf3f6ba1f7c30885d1c6a3a1123f4ca08f2fbbf2617b39",
+      "sha256": "43d8b1416dabab4865dc9992f1011cc906c01372c0bbf91cdaa80e65ab8b2543",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6960,
