@@ -712,6 +712,11 @@ def _self_test():
                  rounds=0, windows=_W, scores_by_q={1: 5.5}))
     ck('DG-WIN-score-coercion', dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0, windows=_W,
        scores_by_q={1: 5.0, 2: '4', 3: None, 4: True})['measured_score_by_q'] == {'1': 5, '2': 4})
+    ck('DG-WIN-CONSTANTS-pinned', DG_RULE_WINDOWS == 'windows'          # literal already on disk in every windowed record
+       and abs(DG_DEFAULT_THRESHOLD - 0.35) < 1e-12)                       # operator decision 2026-08-25
+    ck('DG-WIN-threshold-recorded', dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0, windows=_W,
+       threshold=0.4)['threshold'] == 0.4
+       and dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0, windows=_W)['threshold'] == DG_DEFAULT_THRESHOLD)
     ck('DG-WIN-PASSED-stamped', dg_is_windowed(dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0, windows=_W))
        and not dg_is_windowed(dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0))
        and not dg_is_windowed(None) and not dg_is_windowed({'status': 'PENDING'}))

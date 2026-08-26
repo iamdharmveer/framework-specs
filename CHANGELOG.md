@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026.08.26.2 — Test-strength release: mutation campaign over the windowed difficulty gate
+
+**blueprint_core (self-test 585 -> 587) · paper_pipeline (self-test 163 -> 165). Tests and
+manifest only — NO behaviour change; every engine function is byte-identical in its production
+body.** A 93-mutant campaign (operator/constant/branch flips over evaluate_difficulty_gate,
+_gate_allowed, _gate_score, _gate_lookup, _gate_windows, _label_interval, band_for_score,
+difficulty_score, difficulty_score_from_obs, dg_write_verdict, dg_is_windowed, dg_footer_lines,
+dg_next_step, dg_add_rework_snapshot, dg_deliver_decision and the five gate constants) killed 87;
+one survivor was an equivalent mutant; the other five were test gaps, now closed: a score of 0
+becoming "not measurable"; the per-band `gated` flag inverting on windowed bands; the recorded
+threshold not matching the value passed; DG_DEFAULT_THRESHOLD drifting from 0.35; and the
+'windows' gate_rule literal drifting (which would make every record already on disk read as
+non-windowed). Re-run: all 93 non-equivalent mutants plus 7 targeted window/threshold/lineage
+mutants are killed.
+
 ## 2026.08.26.1 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up: stale pre-repair snapshot could fail delivery of a re-judged or partially-repaired paper
 
 **paper_pipeline v5.72 -> v5.73 · audit_canonical v2.19 -> v2.20 · Framework_MockTestExplain

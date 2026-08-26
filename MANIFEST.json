@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.26.1",
+  "framework_version": "2026.08.26.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -400,18 +400,18 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "52bfeea292ce9c4373edcbcb373f845f9602b21408321b517dc959893e53f53e",
+      "sha256": "ca549fea80e50c60c7e8cf3481e2eb2258b7f1dc0591bc121db59c93e99699bb",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
-      "lines": 7079,
-      "bytes": 390563
+      "lines": 7084,
+      "bytes": 390971
     },
     "paper_pipeline.py": {
-      "sha256": "d6089e1d47039313039cf4588fa908a3cb874377def0a4fd7790c34bccdbb981",
+      "sha256": "53187f4b1a79ae22d4f1df0601d1060e3d7e563eddfc12f6c9600e3015675a7e",
       "version_header": "\"\"\"",
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 1894,
-      "bytes": 115271
+      "lines": 1899,
+      "bytes": 115771
     },
     "final_assembly.py": {
       "sha256": "185775bb7429bcf5650d96d26aacf00af126734fb6a22da98817be10b18a3ef1",

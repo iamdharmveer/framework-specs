@@ -6679,6 +6679,9 @@ PYQ_IMAGE_ANALYSIS:
           and _gate_allowed(0.35, 6) == 2 and _gate_allowed(0.35, 18) == 6
           and _gate_allowed(0.35, 36) == 12 and _gate_allowed(0.35, 20) == 7
           and _gate_allowed(-1, 10) == 0 and _gate_allowed('bad', 10) == 0)
+    check('e2d_gate_score_zero_is_a_score',
+          _gate_score(0) == 0 and _gate_score('0') == 0 and _gate_score(0.0) == 0
+          and evaluate_difficulty_gate({1: _L[1]}, {}, _L, scores_by_q={1: 0})['bands'][_L[1]]['disagree'] == 1)
     check('e2d_gate_score_coercion',
           _gate_score(5) == 5 and _gate_score('5') == 5 and _gate_score(5.0) == 5
           and _gate_score(5.5) is None and _gate_score(True) is None
@@ -6703,6 +6706,8 @@ PYQ_IMAGE_ANALYSIS:
                                      'allowed': 2, 'over_limit': False, 'disagreeing_qs': []}
           and _g['bands'][_L[1]]['allowed'] == 6 and _g['bands'][_L[2]]['allowed'] == 12
           and _g['bands'][_L[1]]['assessed'] == 18 and _g['bands'][_L[2]]['agree'] == 36)
+    check('e2d_gate_gated_flag_true_on_windowed_bands',
+          all(_g['bands'][l]['gated'] is True and _g['bands'][l]['window'] is not None for l in (_L[1], _L[2])))
     # bottom band is never gated — even if every Easy measures Hard
     _sc = dict(_sc_all_ok); _sc.update({q: 12 for q in range(1, 7)})
     _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc)

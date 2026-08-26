@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 7079,
-      "sha256": "52bfeea292ce9c4373edcbcb373f845f9602b21408321b517dc959893e53f53e",
-      "size_bytes": 390563,
+      "lines": 7084,
+      "sha256": "ca549fea80e50c60c7e8cf3481e2eb2258b7f1dc0591bc121db59c93e99699bb",
+      "size_bytes": 390971,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -317,9 +317,9 @@
     },
     "paper_pipeline.py": {
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 1894,
-      "sha256": "d6089e1d47039313039cf4588fa908a3cb874377def0a4fd7790c34bccdbb981",
-      "size_bytes": 115271,
+      "lines": 1899,
+      "sha256": "53187f4b1a79ae22d4f1df0601d1060e3d7e563eddfc12f6c9600e3015675a7e",
+      "size_bytes": 115771,
       "version_header": "\"\"\""
     },
     "reconcile_taxonomy.py": {
