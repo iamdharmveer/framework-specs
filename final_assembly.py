@@ -13,6 +13,13 @@ PROVENANCE
     prose a session had to re-type or faithfully re-derive every single mock;
     it is now importable, routed, self-tested code.
 
+    v5.60 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestCreate v5.73,
+    MockTestExplain v1.46.0, MockDeliver v1.16.0, DeliveryFooter v1.27,
+    paper_pipeline v5.74 Cluster RH, explain_engine v2.9). Operator decision
+    2026-08-26: the Tier-A audit dossier is NOT a deliverable. predelivery_checklist
+    now treats `_audit_dossier.json` as an internal sidecar (check 5) and the closed
+    set is ALWAYS {Create.docx, registry.json} (check 6). Additive; no commit,
+    regcheck or qindex logic touched.
     v5.58 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with paper_pipeline
     v5.71 Cluster DG, MockTestCreate v5.71, MockTestExplain v1.44.0, MockDeliver
     v1.14.0, DeliveryFooter v1.25, audit_canonical v2.18 A-DGATE). The v5.56 PENDING
@@ -849,12 +856,19 @@ def predelivery_checklist(outputs_dir, *, docx_name, reg_name, dossier_name=None
     checks.append(("3 registry schema complete", bool(regcheck_ok)))
     bad_ak = [f for f in staged if 'answer' in f.lower()]
     checks.append(("4 no answer-key file in outputs", len(bad_ak) == 0))
-    internal = ['_answer_key.json', '_fig_manifest.json', '_batch_state.json', '_progress.json']
+    # v5.60 (GAP-2026-08-26-REGISTRY-HANDOFF-SEAM, operator decision 2026-08-26): the
+    # Tier-A audit dossier is INTERNAL — written to /home/claude, consumed by the
+    # S13-4c re-sweep, never delivered. It joins the sidecar list, so a dossier in
+    # outputs is a LEAK (check 5) and the closed set is ALWAYS {docx, registry}
+    # (check 6). `dossier_name` is kept as an accepted keyword so every existing
+    # call site still compiles; it now names the file check 5 must NOT see.
+    internal = ['_answer_key.json', '_fig_manifest.json', '_batch_state.json',
+                '_progress.json', '_audit_dossier.json']
     leaked = [f for f in staged if any(m in f for m in internal)]
+    if dossier_name and dossier_name in staged and dossier_name not in leaked:
+        leaked.append(dossier_name)
     checks.append(("5 no internal sidecars in outputs", len(leaked) == 0))
     expected_set = {docx_name, reg_name}
-    if dossier_name and dossier_name in staged:
-        expected_set.add(dossier_name)
     checks.append((f"6 outputs == exactly the {len(expected_set)} deliverables",
                   staged == expected_set))
     checks.append(("7 question_index certified (G-QINDEX)", bool(qindex_ok)))
@@ -1429,14 +1443,24 @@ def self_test():
                                   qindex_ok=False, listdir=ld7, exists=ex7)
     check('predelivery_check7_qindex_not_ok', chk_7['checks'][6][1] is False)
 
-    # dossier-present-vs-absent variant of check 6
+    # v5.60 — the dossier is INTERNAL: staged in outputs it is a LEAK (check 5) and
+    # breaks the closed set (check 6); absent, the 2-file set is clean.
     files_dossier = files_ok | {'EX_M1_audit_dossier.json'}
     ld8, ex8 = fake_fs(files_dossier)
     chk_8 = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
                                   reg_name='EX_registry.json',
                                   dossier_name='EX_M1_audit_dossier.json',
                                   regcheck_ok=True, qindex_ok=True, listdir=ld8, exists=ex8)
-    check('predelivery_check6_dossier_present_and_expected', chk_8['ok'] is True)
+    check('predelivery_check5_dossier_in_outputs_is_a_leak', chk_8['checks'][4][1] is False)
+    check('predelivery_check6_dossier_breaks_closed_set', chk_8['checks'][5][1] is False
+          and chk_8['ok'] is False)
+    ld8b, ex8b = fake_fs(files_ok)
+    chk_8b = predelivery_checklist('/out', docx_name='EX_Mock01_Create.docx',
+                                   reg_name='EX_registry.json',
+                                   dossier_name='EX_M1_audit_dossier.json',
+                                   regcheck_ok=True, qindex_ok=True, listdir=ld8b, exists=ex8b)
+    check('predelivery_two_file_closed_set_clean', chk_8b['ok'] is True
+          and '2 deliverables' in chk_8b['checks'][5][0])
 
     # missing outputs_dir entirely does not crash (§ Angle 6 of the design's
     # adversarial review — first-run-before-makedirs case)

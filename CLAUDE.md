@@ -389,6 +389,16 @@ Stamp a clean version + changelog over everything shipped since the last seal.
   over-length subtopic name was written, locked, sorted, and then silently stopped being
   a heading — its questions attributed to the preceding subtopic, with zero orphans and
   conservation still passing.
+- **REGISTRY-HANDOFF LAW — a step that CHANGES `[ExamCode]_registry.json` DELIVERS it.**
+  Badge "Replace in Project Files", same present_files call as the step's primary artefact,
+  decided by `pp.registry_changed` (a fingerprint) fed to `pp.handoff_set` — never by a
+  per-step sentence. Four mock-track steps wrote the registry and one delivered it through
+  2026.08.26.2; the sentence "registry.json is NOT delivered (frozen)" survived in
+  MockTestExplain and DeliveryFooter for three releases after §7A-M started writing the
+  difficulty-gate verdict, so every gated paper was undeliverable by a literal run. Enforced
+  by `LAW_REGISTRY.json` REGISTRY-HANDOFF-LAW + `mock_sync_audit` MS-14 (writers must name
+  the badge and use pp.handoff_set; the frozen wording is banned in live text; every
+  Test*/Mock* trigger needs a DeliveryFooter §3 block). GAP-2026-08-26-REGISTRY-HANDOFF-SEAM.
 - Never edit or push `production` directly — only the `main:production` fast-forward.
 - Never force-push `production` without explicit authorization.
 - `.verified` is gitignored and must never be committed.

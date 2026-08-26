@@ -52,6 +52,13 @@ CHECKS (each compares one authority against another; none holds an opinion):
                       be <= that file's actual header version (a pin AHEAD
                       of the real file means the companion release never
                       shipped or the pin is fiction).
+  MS-14 REGISTRY-HANDOFF
+                      Every mock-track spec that calls a registry writer
+                      names [ExamCode]_registry.json → Replace in Project
+                      Files and builds its set via pp.handoff_set; the
+                      "frozen / NOT delivered" wording is banned in live
+                      text; every Test*/Mock* trigger in routes.json has a
+                      DeliveryFooter §3 block (REGISTRY-HANDOFF-LAW).
   MS-11 DELIVERY-SET-PARITY
                       MockTestAnalyse's Step-5 final delivery: the code's
                       unconditional/conditional deliverable sets (parsed from
@@ -73,6 +80,7 @@ validate_framework_md.py / notes_sync_audit.py / spec_name_audit.py).
 Stdlib only; MS-1 shells out to explain_engine.py in the same directory.
 """
 import os
+import json
 import re
 import subprocess
 import sys
@@ -614,6 +622,99 @@ def check_probe_selection(read=_read):
     return problems
 
 
+# ── MS-14 ───────────────────────────────────────────────────────────────
+# REGISTRY-HANDOFF (GAP-2026-08-26-REGISTRY-HANDOFF-SEAM; LAW_REGISTRY.json
+# REGISTRY-HANDOFF-LAW). Four mock-track steps WRITE registry.json; through
+# 2026.08.26.2 only one delivered it, and the sentence "registry.json is NOT
+# delivered (frozen)" survived three releases in Explain and the footer AFTER §7A-M
+# began writing the difficulty-gate verdict — so Step 11 read a stale project copy
+# and refused every gated paper, on every exam. Three assertions, all derived from
+# the corpus, none from a hand list:
+#   (a) WRITERS DELIVER. A spec whose LIVE text calls a registry writer
+#       (commit_registry( / dg_write_verdict( / dg_add_rework_snapshot() must (1) name
+#       [ExamCode]_registry.json with the Replace badge and (2) build its deliverable
+#       set through pp.handoff_set( — the mechanical decision, not prose.
+#   (b) THE FROZEN WORDING IS BANNED in live (non-comment) text of every mock-track
+#       spec: "registry.json is NOT delivered", "NOT re-synced (frozen)", "never
+#       re-delivered" and their variants. A changelog line (# …) may quote them.
+#   (c) EVERY MOCK-TRACK TRIGGER in routes.json (Test*/Mock*) has a DeliveryFooter §3
+#       block naming it, and the footer names the Replace badge for every writer step.
+_RH_WRITER_RE = re.compile(r'\b(commit_registry|dg_write_verdict|dg_add_rework_snapshot)\(')
+_RH_BANNED_RE = re.compile(
+    r'registry\.json\s+(?:is\s+)?NOT\s+(?:delivered|re-?synced)'
+    r'|registry(?:\.json)?\s+is\s+(?:FROZEN|frozen)\b'
+    r'|\(frozen(?:/read-only)?\)'
+    r'|never\s+re-?delivered')
+_RH_TRACK_SPECS = ['Framework_MockTestCreate.md', 'Framework_MockTestExplain.md',
+                   'Framework_MockDeliver.md', 'Framework_DeliveryFooter.md']
+_RH_REPLACE = 'Replace in Project Files'
+
+
+def _rh_live(text):
+    """Full-line comments and fenced-code comments blanked: a changelog entry may
+    quote the banned sentence it removed; a live sentence may not carry it."""
+    return '\n'.join('' if ln.lstrip().startswith('#') else ln for ln in text.split('\n'))
+
+
+def check_registry_handoff(read=_read, routes_read=None):
+    problems = []
+    # (a) writers deliver
+    for name in _RH_TRACK_SPECS:
+        try:
+            text = read(name)
+        except FileNotFoundError:
+            problems.append(f'{name}: missing — MS-14 has no ground truth for it')
+            continue
+        live = _rh_live(text)
+        if _RH_WRITER_RE.search(live):
+            if not (re.search(r'\[ExamCode\]_registry\.json', text) and _RH_REPLACE in text):
+                problems.append(
+                    f'{name}: calls a registry writer but never names '
+                    f'[ExamCode]_registry.json with the "{_RH_REPLACE}" badge — a step that '
+                    f'CHANGES the registry must DELIVER it (REGISTRY-HANDOFF-LAW).')
+            if 'pp.handoff_set(' not in live:
+                problems.append(
+                    f'{name}: calls a registry writer but never builds its deliverable set '
+                    f'through pp.handoff_set( — the handoff must be the fingerprint decision, '
+                    f'never a per-step sentence.')
+        # (b) banned wording
+        for m in _RH_BANNED_RE.finditer(live):
+            ln = live.count('\n', 0, m.start()) + 1
+            problems.append(
+                f'{name} L{ln}: live text says {m.group(0)!r} — the "registry is frozen / '
+                f'not delivered" wording is BANNED (it hid the seam for three releases).')
+    # (c) footer coverage of every mock-track trigger — single exit (CHECK AC)
+    routes, footer = None, None
+    try:
+        routes = json.loads(routes_read() if routes_read else read('routes.json'))
+    except FileNotFoundError:
+        problems.append('routes.json: missing — MS-14 cannot enumerate mock-track triggers')
+    try:
+        footer = read('Framework_DeliveryFooter.md')
+    except FileNotFoundError:
+        footer = None          # already reported under (a)
+    if routes is not None and footer is not None:
+        rsrc = routes.get('routes', routes)
+        triggers = [t for t in rsrc if isinstance(t, str)
+                    and (t.startswith('Test') or t.startswith('Mock'))
+                    and t not in ('MockBlueprint',)]
+        sec3 = footer[footer.find('## §3'):footer.find('## §4')] if '## §3' in footer else footer
+        for t in sorted(triggers):
+            if t not in sec3:
+                problems.append(
+                    f'Framework_DeliveryFooter.md §3: no deliverable block names trigger {t!r} — '
+                    f'a session running it has no deliverable list or badge to follow.')
+        for t in ('TestCreateRepair', 'TestExplainRepair'):
+            # the block BODY: from the rule line that closes the "STEP n-R — <t>" banner to
+            # the next banner (or end of §3).
+            blk = re.search(r'STEP [^\n]*' + t + r'[^\n]*\n═{10,}\n(.*?)(?=\n═{10,}|\Z)', sec3, re.S)
+            if blk and _RH_REPLACE not in blk.group(1):
+                problems.append(
+                    f'Framework_DeliveryFooter.md §3: the {t} block does not badge registry.json '
+                    f'"{_RH_REPLACE}" — the repair steps write the registry.')
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -628,6 +729,7 @@ ALL_CHECKS = [
     ('MS-11 DELIVERY-SET-PARITY', check_delivery_set_parity),
     ('MS-12 BATCH-CEILING', check_batch_ceiling),
     ('MS-13 PROBE-SELECTION', check_probe_selection),
+    ('MS-14 REGISTRY-HANDOFF', check_registry_handoff),
 ]
 
 
@@ -938,6 +1040,47 @@ def self_test():
           check_probe_selection(read=fake_reader(_p_ok)) == [])
     check('ms13_silent_on_a_spec_with_no_probe',
           check_probe_selection(read=fake_reader({'Framework_MockDeliver.md': 'no probe here'})) == [])
+
+    # ── MS-14 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM ────────────────────────
+    _rt = lambda: json.dumps({'TestCreate': [], 'TestExplain': [], 'TestCreateRepair': [],
+                              'TestExplainRepair': [], 'TestDeliver': [], 'PYQSort': []})
+    _ok_footer = ('## §3\n═══════════\nSTEP 7 — TestCreate\n═══════════\n body\n'
+                  '═══════════\nSTEP 7-R — TestCreateRepair\n═══════════\n  [ExamCode]_registry.json → '
+                  'Replace in Project Files\n═══════════\nSTEP 9 — TestExplain\n═══════════\n body\n'
+                  '═══════════\nSTEP 9-R — TestExplainRepair\n═══════════\n'
+                  '  registry.json → Replace in Project Files\n═══════════\nSTEP 11 — TestDeliver\n═══════════\n body\n## §4\n')
+    _ok = {'Framework_MockTestCreate.md': 'x = fa.commit_registry(r)\nhs = pp.handoff_set(\'TestCreate\')\n'
+                                          '[ExamCode]_registry.json → Replace in Project Files\n',
+           'Framework_MockTestExplain.md': 'pp.dg_write_verdict(reg)\nHANDOFF = pp.handoff_set(\'TestExplain\')\n'
+                                           '[ExamCode]_registry.json → Replace in Project Files\n'
+                                           '# changelog: registry.json is NOT delivered (frozen) was removed\n',
+           'Framework_MockDeliver.md': 'reads only\n',
+           'Framework_DeliveryFooter.md': _ok_footer}
+    check('ms14_clean_corpus_passes', check_registry_handoff(read=fake_reader(_ok), routes_read=_rt) == [])
+    _nobadge = dict(_ok); _nobadge['Framework_MockTestExplain.md'] = 'pp.dg_write_verdict(reg)\nHANDOFF = pp.handoff_set(\'TestExplain\')\n'
+    check('ms14_writer_without_replace_badge_flagged',
+          any('never names' in x for x in check_registry_handoff(read=fake_reader(_nobadge), routes_read=_rt)))
+    _nohs = dict(_ok); _nohs['Framework_MockTestCreate.md'] = 'fa.commit_registry(r)\n[ExamCode]_registry.json → Replace in Project Files\n'
+    check('ms14_writer_without_handoff_set_flagged',
+          any('pp.handoff_set(' in x for x in check_registry_handoff(read=fake_reader(_nohs), routes_read=_rt)))
+    _frozen = dict(_ok); _frozen['Framework_MockDeliver.md'] = 'NOTE: registry.json is NOT delivered by Step 9 (frozen/read-only).\n'
+    check('ms14_frozen_wording_flagged',
+          any('BANNED' in x for x in check_registry_handoff(read=fake_reader(_frozen), routes_read=_rt)))
+    _quoted = dict(_ok); _quoted['Framework_MockDeliver.md'] = '#   was: registry.json is NOT delivered (frozen)\nlive ok\n'
+    check('ms14_frozen_wording_in_comment_allowed',
+          check_registry_handoff(read=fake_reader(_quoted), routes_read=_rt) == [])
+    _nofoot = dict(_ok); _nofoot['Framework_DeliveryFooter.md'] = _ok_footer.replace('STEP 9-R — TestExplainRepair\n═══════════\n  registry.json → Replace in Project Files\n═══════════\n', '')
+    check('ms14_trigger_without_footer_block_flagged',
+          any("'TestExplainRepair'" in x for x in check_registry_handoff(read=fake_reader(_nofoot), routes_read=_rt)))
+    _repnobadge = dict(_ok); _repnobadge['Framework_DeliveryFooter.md'] = _ok_footer.replace('  registry.json → Replace in Project Files\n', '  registry.json → Use locally\n')
+    check('ms14_repair_block_without_replace_flagged',
+          any('TestExplainRepair block' in x for x in check_registry_handoff(read=fake_reader(_repnobadge), routes_read=_rt)))
+    _missing = dict(_ok); del _missing['Framework_MockDeliver.md']
+    check('ms14_missing_track_spec_flagged',
+          any('missing' in x for x in check_registry_handoff(read=fake_reader(_missing), routes_read=_rt)))
+    def _no_routes(): raise FileNotFoundError('routes.json')
+    check('ms14_missing_routes_flagged',
+          any('routes.json' in x for x in check_registry_handoff(read=fake_reader(_ok), routes_read=_no_routes)))
 
 
     print(f"SELF-TEST: {passed}/{total} PASS")

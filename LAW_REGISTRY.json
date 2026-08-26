@@ -56,6 +56,24 @@
         "SAFE DEFAULT. A spec with no declared read set is read IN FULL, and an undecidable session class resolves to FINAL. Reading too much costs a session; reading too little can let a reduced read reach a writer, which is the one failure mode this corpus has actually regressed on (v2.39).",
         "THE PROBE IS CHARGED ON FAILURE. A probe that raised still consumed the context its bytes occupied. Charging only on success under-admits nothing and over-admits by a whole paper on exactly the runs that are already going wrong."
       ]
+    },
+    "REGISTRY-HANDOFF-LAW": {
+      "gap": "GAP-2026-08-26-REGISTRY-HANDOFF-SEAM",
+      "stated_in": "Framework_DeliveryFooter.md §8; CLAUDE.md",
+      "requires": "A step that CHANGES [ExamCode]_registry.json DELIVERS it, badge 'Replace in Project Files', in the same present_files call as its primary artefact. The decision is pp.registry_changed (a fingerprint of the project copy vs the working copy) fed to pp.handoff_set — never a per-step sentence. The 'registry is frozen / not delivered' wording is banned in live spec text.",
+      "detect": "registry_writer_call",
+      "detect_note": "A spec PERFORMS this operation when its live (non-comment) text calls a registry writer: final_assembly.commit_registry(, pp.dg_write_verdict( or pp.dg_add_rework_snapshot(. Changelog lines quoting a call do not count.",
+      "governs": [
+        "Framework_MockTestCreate.md",
+        "Framework_MockTestExplain.md"
+      ],
+      "verified_by": [
+        "mock_sync_audit:MS-14"
+      ],
+      "preconditions": [
+        "WRITER SET IS DERIVED. paper_pipeline.RH_REGISTRY_WRITING_STEPS names the triggers; audit_sync derives the performing SPECS from the corpus text, so a new spec that calls a writer cannot inherit the surface without the MS-14 checks.",
+        "HISTORY. Through release 2026.08.26.2 four mock-track steps wrote the registry and one delivered it; MockTestExplain S19-1 HARD-STOPPED on a staged registry while §7A-M called the registry 'the ONLY channel to Step 11'. Every gated paper on every exam was undeliverable by a literal run."
+      ]
     }
   },
   "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."

@@ -1,4 +1,23 @@
-# Framework_MockTestCreate v5.72
+# Framework_MockTestCreate v5.73
+# v5.73 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestExplain
+#   v1.46.0, MockDeliver v1.16.0, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH,
+#   final_assembly v5.60, explain_engine v2.9; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
+#   mock_sync_audit MS-14). P0, every exam. registry.json is written by FOUR mock-track
+#   steps and only THIS step's Final Assembly told the operator to put it back; the
+#   §S16 repair mode rewrote stems, re-sealed keys and added the pre-repair snapshot,
+#   then listed ONLY the `_Repaired` docx as its deliverable — so the snapshot §7A-R R3
+#   depends on never reached the project and the repair pair dead-looped. FIX: (1) §S16-3
+#   gains a delivery contract — the closed set is pp.handoff_set('TestCreateRepair', …)
+#   = repaired docx + registry.json (Replace in Project Files), verified by
+#   pp.verify_handoff_outputs, one present_files call, F2 footer, handoff lines from
+#   pp.handoff_footer_lines. (2) OPERATOR DECISION 2026-08-26: the Tier-A audit dossier is
+#   NOT a deliverable. S13-4b writes it to /home/claude; S13-4c reads it there; it joins
+#   the DO-NOT-DELIVER list; S13-6 / S13-7 / S13-8 / S13-9 / R-DELIVER / G-DELIVERY-SET /
+#   §17 DoD all state the closed set as EXACTLY {Create.docx, registry.json} — the
+#   count-drift the v5.54.1 entry patched is gone because the set no longer varies.
+#   final_assembly.predelivery_checklist treats `_audit_dossier.json` as an internal
+#   sidecar (check 5) so a staged dossier is a LEAK, never a deliverable. No
+#   allocation, quota, axis, gate-count or generation change.
 # v5.72 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paired with MockTestExplain
 #   v1.45.0, MockDeliver v1.15.0, DeliveryFooter v1.26, blueprint_core Cluster E2d,
 #   paper_pipeline v5.72). §S16 repair mode becomes DIRECTION-AWARE: the windowed gate
@@ -486,6 +505,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                                [ExamCode]_mock_test_audit.py
   THIS STEP — Step 7 (MockCreate) → produces [ExamCode]_Mock[N]_Create.docx,
                                updated [ExamCode]_registry.json
+  THIS STEP, repair mode (§S16, TestCreateRepair) → [ExamCode]_Mock[N]_Create_Repaired.docx,
+                               updated [ExamCode]_registry.json (pre-repair snapshot)
+  REGISTRY-HANDOFF-LAW (v5.73): every step that CHANGES registry.json DELIVERS it, badge
+  "Replace in Project Files", in the same present_files call as its primary artefact —
+  decided by pp.registry_changed (a fingerprint), never by prose. Steps 7, 7-repair, 9,
+  9-repair are the writers; Step 11 reads it. LAW_REGISTRY.json / mock_sync_audit MS-14.
   Step 9 (MockExplain) → consumes outputs of this step (v5.36: directly — the former
                                Step 8 audit between them has been retired)
 
@@ -651,20 +676,18 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        — Options: configured font, configured size, normal weight.
        — Verify: scan all runs; if run.font.name not in [configured_font, None]: fix.
   R-DELIVER (v5.36, HARD STOP): Step 7 delivers EXACTLY the CLOSED SET at Final
-       Assembly and NOTHING else. The set is:
-         1. [ExamCode]_Mock[N]_Create.docx        — always
-         2. [ExamCode]_registry.json              — always
-         3. [ExamCode]_M[N]_audit_dossier.json    — when S13-4b wrote one (v5.35+;
-            absent on every pre-v5.35 mock, and the set is then exactly 2)
+       Assembly and NOTHING else. The set is the CLOSED pair below (v5.73):
+         1. [ExamCode]_Mock[N]_Create.docx        — always (scoped slug for a scoped paper)
+         2. [ExamCode]_registry.json              — always (Replace in Project Files)
        "EXACTLY" is the operative word in BOTH directions: nothing missing and
-       nothing extra. v5.35 added item 3 as a producer without widening S13-7
-       check 6, which still asserted a hardcoded set of 2 — so Step 7 HARD-STOPPED
-       at pre-delivery on every exam and every mock until v5.36. The gate now
-       DERIVES the expected set from what was actually written, so a future
-       producer change cannot silently disagree with the gate that guards it. Producing a standalone answer-key file (any format:
+       nothing extra. The Tier-A audit dossier ([ExamCode]_M[N]_audit_dossier.json)
+       is INTERNAL from v5.73 (operator decision 2026-08-26): S13-4b writes it to
+       /home/claude and S13-4c reads it there; staged in outputs it is a LEAK
+       (final_assembly.predelivery_checklist check 5). Because the set no longer
+       varies, the v5.35/v5.36/v5.54.1 count-drift class cannot recur. Producing a standalone answer-key file (any format:
        .docx/.pdf/.json/.txt) as a deliverable is forbidden with the same force
        as R5 (no answer key in the paper). Internal sidecars (answer_key.json,
-       fig_manifest.json, batch_state.json, progress.json) are NEVER delivered.
+       fig_manifest.json, batch_state.json, progress.json, audit_dossier.json) are NEVER delivered.
        The learner-facing answer key is a Step-4 (MockExplain) artefact, not
        a Step-7 one. Enforced by S13-6, S13-7, and gate G-DELIVERY-SET.
   R-LINKED (v3.6, HARD STOP): Every question must be SELF-CONTAINED for
@@ -7535,9 +7558,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   # ("Mock03", so the literal missed EVERY single-digit mock's actual file), and a
   # scoped paper's slug ("SUBJ_Physics_01") never matched at all — the md5 binding
   # below then FileNotFoundError'd instead of binding the dossier to its paper.
-  # (The DOSSIER's own name keeps its M{N} form: writer, S13-7 checker,
-  # DeliveryFooter and audit_canonical --dossier help all agree on it, and outputs/
-  # holds exactly one paper per session, so it cannot collide.)
+  # (The DOSSIER's own name keeps its M{N} form: writer, S13-4c reader and
+  # audit_canonical --dossier help all agree on it. v5.73: it lives in /home/claude —
+  # INTERNAL, never staged in outputs, never delivered.)
   _docx = f'/mnt/user-data/outputs/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
   _FACTS = ('subtopic_id', 'qtype', 'image_role', 'difficulty', 'stem_precision',
             'nat_grading_type', 'nat_grading_value', 'ca_range',
@@ -7557,13 +7580,15 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   # Belt and braces: never emit a judgment even by accident.
   assert not ({'answers', 'answer_verified', 'derived_answer'} & set(dossier)), \
       'TIER A carries FACTS only'
-  _out = f'/mnt/user-data/outputs/{EXAM}_M{N}_audit_dossier.json'
+  _out = f'/home/claude/{EXAM}_M{N}_audit_dossier.json'   # v5.73 — INTERNAL path
   json.dump(dossier, open(_out, 'w', encoding='utf-8'), indent=1, ensure_ascii=False)
   ```
 
-  DELIVERED alongside the paper and the registry. It is INERT for every downstream step
-  (Steps 9 and 11 neither read nor require it) and absent-safe: a pre-v5.35 paper simply
-  has none.
+  INTERNAL (v5.73, operator decision 2026-08-26 — was "DELIVERED alongside the paper"
+  from v5.35 to v5.72). Written to /home/claude, read by the S13-4c re-sweep in the same
+  session, NEVER copied to /mnt/user-data/outputs and NEVER passed to present_files.
+  It is INERT for every downstream step (Steps 9 and 11 neither read nor require it)
+  and absent-safe: a pre-v5.35 paper simply has none.
 
 ## S13-4c — DOSSIER-FED RE-SWEEP (v5.40 — the wiring, restored)
 
@@ -7585,7 +7610,7 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   ```
   python3 /home/claude/[ExamCode]_mock_test_audit.py \
       /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Create.docx \
-      --dossier /mnt/user-data/outputs/[ExamCode]_M[N]_audit_dossier.json \
+      --dossier /home/claude/[ExamCode]_M[N]_audit_dossier.json \
       --registry /home/claude/[ExamCode]_registry.json \
       --blueprint /mnt/project/[ExamCode]_blueprint.json \
       --mockN [N]
@@ -7650,20 +7675,19 @@ def widen_scenario_space(subtopic_data, exhausted_source):
 ## S13-6 — THE DELIVERABLE SET IS CLOSED (v3.5 — read before delivering)
 
   At Final Assembly, Step 7 delivers the CLOSED SET to the user, and NOTHING
-  ELSE — the two mandatory files below, plus [ExamCode]_M[N]_audit_dossier.json
-  when S13-4b wrote one (v5.35+; that is every normal run). This is an
-  exhaustive, closed list — not a minimum. (v5.54.1: this prose said "EXACTLY
-  TWO", contradicting the dossier-conditional 3-file set that R-DELIVER,
-  S13-7's derived expected set, and G-DELIVERY-SET all already agreed on —
-  the same count-drift class as GAP-2026-08-01-DELIVERY-SET-DRIFT.)
+  ELSE — EXACTLY the two files below. This is an exhaustive, closed list — not a
+  minimum. (v5.73: the dossier left the set by operator decision; the set no
+  longer varies, so the v5.54.1 count-drift cannot recur.)
 
-  DELIVER (mandatory, all via the SAME present_files call):
+  DELIVER (mandatory, both via the SAME present_files call):
     1. [ExamCode]_[paper_slug]_Create.docx  — the final paper ("Mock[N]"
                                               zero-padded for a mock; scoped slug otherwise)
+                                              → Use locally
     2. [ExamCode]_registry.json             — updated dedup/tracking registry
-    3. [ExamCode]_M[N]_audit_dossier.json   — when S13-4b wrote one
+                                              → Replace in Project Files (REGISTRY-HANDOFF-LAW)
 
   DO NOT DELIVER (internal — never passed to present_files):
+    ✗ [ExamCode]_M[N]_audit_dossier.json    — Tier-A dossier, /home/claude (S13-4b, v5.73)
     ✗ [ExamCode]_M[N]_answer_key.json       — internal sidecar (S3-14)
     ✗ any standalone answer-key file in ANY format (.docx/.pdf/.json/.txt)
     ✗ [ExamCode]_fig_manifest.json          — internal
@@ -7694,9 +7718,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   paper_slug = pp.paper_slug(paper_id)
   docx_name = f'{EXAM}_{paper_slug}_Create.docx'
   reg_name  = f'{EXAM}_registry.json'
-  # v5.36 (GAP-2026-08-01-DELIVERY-SET-DRIFT): the expected set is DERIVED from what
-  # S13-4b actually wrote (the dossier is only added if present), so a producer change
-  # and this gate can no longer disagree by construction.
+  # v5.73: the dossier is INTERNAL. dossier_name is still passed so check 5 names it
+  # explicitly as a LEAK if it was ever staged; the closed set is always {docx, registry}.
   dossier_name = f'{EXAM}_M{N}_audit_dossier.json'
 
   _pdc = fa.predelivery_checklist(
@@ -7714,11 +7737,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   ```
 
   Stage ONLY the deliverables in /mnt/user-data/outputs; keep every internal file
-  in /home/claude. Item 6 enforces the closed set, and DERIVES it from what was
-  actually written rather than hardcoding a count — v5.35 hardcoded 2 while S13-4b
-  wrote a 3rd file, and Step 7 hard-stopped on every exam until v5.36.
-  THE CLOSED SET (v5.36): the rectified docx + registry.json ALWAYS, plus
-  [ExamCode]_M[N]_audit_dossier.json when S13-4b wrote one. Nothing else, ever.
+  in /home/claude. Item 6 enforces the closed set.
+  THE CLOSED SET (v5.73): the rectified docx + registry.json. Nothing else, ever.
+  A staged [ExamCode]_M[N]_audit_dossier.json fails item 5 (internal sidecar leak).
 
 ## S13-8 — Deliver (v3.5 — the SINGLE present_files call)
 
@@ -7739,8 +7760,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   ```
   === MOCK [N] COMPLETE — Step 7 done ===
   Delivered (2 files):
-    • [ExamCode]_Mock[N]_Create.docx   — the mock paper
-    • [ExamCode]_registry.json           — updated registry
+    • [ExamCode]_Mock[N]_Create.docx   — the mock paper            → Use locally
+    • [ExamCode]_registry.json           — updated registry           → Replace in Project Files
 
   ⚠ REGISTRY HANDOFF — REQUIRED before generating the next mock:
     Replace registry.json in your [ExamCode] project knowledge with the one
@@ -7899,10 +7920,10 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   □ Audit report produced
 
   DELIVERY (v3.5 — closed contract):
-  □ The closed set delivered: final .docx + registry.json + audit_dossier when written (S13-6, R-DELIVER; v5.54.1 — was 'EXACTLY 2')  **
+  □ The closed set delivered: EXACTLY final .docx + registry.json (S13-6, R-DELIVER; v5.73 — the audit dossier is internal)  **
   □ registry.json staged in /mnt/user-data/outputs and present_files'd (S13-8)  **
   □ NO standalone answer-key file in any format delivered (R-DELIVER)  **
-  □ NO internal sidecar (answer_key/fig/batch_state/progress) delivered  **
+  □ NO internal sidecar (answer_key/fig/batch_state/progress/audit_dossier) delivered  **
   □ S13-7 pre-delivery 7-point checklist passed before present_files  **
   □ S13-REGCHECK passed: registry schema-complete (top + content_tracking)  **
   □ G-DELIVERY-SET passed in the Final-Assembly gate sweep  **
@@ -7987,7 +8008,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
   | Gate Code      | Checks                                          | Fix? | Fix                                  |
   |----------------|-------------------------------------------------|------|--------------------------------------|
-  | G-DELIVERY-SET | Outputs dir holds EXACTLY the closed set: docx + registry + audit_dossier when S13-4b wrote one (v5.36; was a hardcoded 2 and hard-stopped Step 7 once the dossier landed) | YES  | Remove stray/internal files; add reg |
+  | G-DELIVERY-SET | Outputs dir holds EXACTLY the closed set: docx + registry (v5.73 — the audit dossier is internal; the set no longer varies) | YES  | Remove stray/internal files; add reg |
 
   G-DELIVERY-SET (definition): at Final Assembly, /mnt/user-data/outputs must
   contain exactly { [ExamCode]_Mock[N]_Create.docx, [ExamCode]_registry.json }
@@ -8440,7 +8461,16 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
   PREFLIGHT (HARD STOP on any failure — malformed-input stops are exempt
   from the no-stop rule, which governs gate VERDICTS only):
-    P0  rec, disclosure = pp.dg_preflight(reg, paper_id, where='S16-1 P0')
+    P0  Load the PROJECT copy of the registry and fingerprint it BEFORE any write
+        (v5.73 — S16-3's handoff decision compares against this value):
+
+        ```python
+        import json
+        import paper_pipeline as pp
+        reg = json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))
+        _reg_fp_loaded = pp.registry_fingerprint(reg)
+        rec, disclosure = pp.dg_preflight(reg, paper_id, where='S16-1 P0')
+        ```
         (v5.71 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER). Runs FIRST.
         A corrupt (status, repair_rounds_used) pair is healed per
         DG-INVARIANT and disclosure is printed VERBATIM in chat (never
@@ -8561,21 +8591,68 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
       and the two are never reconciled with each other.
     Every other question's data: byte-identical. The S13 ledger gains a
     'repair' session_log entry (round 1, qs listed).
-  DELIVERABLE: the full re-assembled question paper docx (all 60 questions,
-  repaired ones spliced in place), same filename convention with
-  "_Repaired" suffix. The self-audit (S4-7 STEP B) runs on the repaired
-  docx exactly as on a fresh paper — including A-QINDEX checks 7/8/9.
-  PRINT (operator-facing, last lines of the run):
+  DELIVERABLES (v5.73 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM; the CLOSED SET,
+  one present_files call, F2 footer):
+    1. [ExamCode]_[paper_slug]_Create_Repaired.docx — the full re-assembled
+       question paper (every question, repaired ones spliced in place; same
+       slug rule as S13-7, "_Repaired" suffix)                → Use locally
+    2. [ExamCode]_registry.json — the registry this step just changed
+       (replaced stems/hashes/tuples, re-sealed key_commitments, updated
+       question_index[q], and the WRITE-ONCE pre-repair snapshot that §7A-R R3
+       verifies against)                                     → Replace in Project Files
+  WHY 2 IS NOT OPTIONAL. Through v5.72 this line named ONLY the docx. The
+  snapshot then lived in /home/claude, the project registry never received it,
+  TestExplainRepair R3 raised missing_snapshot → "re-run TestCreateRepair" →
+  whose P3 no longer hash-matched the (already repaired) paper: a dead loop on
+  every exam that ever reached a FAILED gate. REGISTRY-HANDOFF-LAW: a step that
+  CHANGES registry.json DELIVERS it. The decision is mechanical:
+
+  ```python
+  import os, json, shutil
+  import paper_pipeline as pp
+  # _reg_fp_loaded was taken at S16-1 P0 IMMEDIATELY after loading the project
+  # copy: _reg_fp_loaded = pp.registry_fingerprint(reg)
+  out = '/mnt/user-data/outputs'
+  repaired_name = f'{EXAM}_{pp.paper_slug(paper_id)}_Create_Repaired.docx'
+  reg_name = f'{EXAM}_registry.json'
+  json.dump(reg, open(f'/home/claude/{reg_name}', 'w'), indent=2, ensure_ascii=False)
+  hs = pp.handoff_set('TestCreateRepair', primary_docx=repaired_name, reg_name=reg_name,
+                      registry_changed=pp.registry_changed(_reg_fp_loaded, reg), final=True)
+  if not hs['registry_delivered']:
+      # S16-3 ALWAYS writes the snapshot; an unchanged registry here is a caller bug.
+      raise SystemExit('HARD STOP (S16-3): registry unchanged after a repair commit — '
+                       'pp.dg_add_rework_snapshot did not run; nothing is delivered.')
+  shutil.copy(f'/home/claude/{reg_name}', f'{out}/{reg_name}')
+  v = pp.verify_handoff_outputs(os.listdir(out), hs)
+  if not v['ok']:
+      raise SystemExit(f"HARD STOP (S16-3): outputs != closed set — missing {v['missing']}, "
+                       f"stray {v['stray']}. Fix, then re-run. Do NOT call present_files.")
+  print('S16-3: closed set verified —', hs['files'])
+  for _line in pp.handoff_footer_lines(hs):
+      print(_line)
+  ```
+  Then present_files([f'{out}/{repaired_name}', f'{out}/{reg_name}']) — ONE call, docx
+  first. No dossier, no sidecar, no per-batch file. The self-audit (S4-7 STEP B)
+  runs on the repaired docx exactly as on a fresh paper — including A-QINDEX
+  checks 7/8/9 — BEFORE this block.
+  PRINT (operator-facing, last lines of the run, then the F2 footer per
+  Framework_DeliveryFooter.md "STEP 7-R — TestCreateRepair"):
       ════════════════════════════════════════════════════════════
         REPAIR COMPLETE — [k] questions rewritten toward their labels
         ([k_h] harder · [k_e] easier).
+        Delivered (2 files):
+          • [ExamCode]_[paper_slug]_Create_Repaired.docx  → Use locally
+          • [ExamCode]_registry.json                      → Replace in Project Files
+        ⚠ REPLACE registry.json in Project Files NOW — TestExplainRepair
+          reads the pre-repair snapshot from the project copy and HARD-STOPS
+          (missing_snapshot) if you skip this.
         Next step: copy-paste this, attaching the repaired paper
         + the previous explanation Word file:
 
            TestExplainRepair P[N]
       ════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestCreate v5.72
+# END OF Framework_MockTestCreate v5.73
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

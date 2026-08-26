@@ -1,4 +1,17 @@
-# Framework_MockDeliver v1.15.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.16.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.16.0 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestExplain
+#   v1.46.0, MockTestCreate v5.73, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH).
+#   Two seam fixes, no gate change (still 17): (1) S1-2 3b said a HEALED registry "is
+#   re-presented with the deliverables" while §8 said "No other files are presented" —
+#   §8 now states the closed set as pp.handoff_set('TestDeliver', …): Final.docx always,
+#   plus registry.json (Replace in Project Files) ONLY when pp.registry_changed shows the
+#   preflight healed it — the one case this step changes the registry. (2) S1-2 item 3
+#   states the REGISTRY-HANDOFF-LAW precondition explicitly: the project copy IS the
+#   verdict; a PENDING/FAILED stop here on a paper whose Step 9 verdict box said PASSED
+#   means the operator did not REPLACE the registry Step 9 delivered — the stop message
+#   names that remedy before the re-run command. S1-2 also ignores a
+#   [ExamCode]_[slug]_Explain_Report.docx attached alongside the Solutions docx (Step 9
+#   v1.46.0 delivers one; it is inert here and never mistaken for the input).
 # v1.15.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paired with MockTestExplain
 #   v1.45.0, MockTestCreate v5.72, DeliveryFooter v1.26, paper_pipeline v5.72, blueprint_core
 #   Cluster E2d). S1-2 3b: the FAILED branch documents pp.dg_next_step's two outcomes — the
@@ -240,6 +253,9 @@ Parse:
    (v1.9: paper_slug is pp.paper_slug(paper_id) — "Mock[N]" zero-padded for a mock, else
    the scoped slug; parsed from the uploaded filename itself, §5 Phase 1.)
    If neither attached → HARD STOP: "Attach the Solutions docx for [N]."
+   (v1.16.0) A [ExamCode]_[paper_slug]_Explain_Report.docx attached alongside is the
+   Step-9 report (MockTestExplain S20-R) — IGNORE it; it is never the input and its
+   suffix can never match the two accepted names above.
 
 2. Verify the resolved blueprint (§5 Phase 1 — pp.pick_blueprint over every
    [ExamCode]*_blueprint.json in project knowledge, driven by the uploaded docx).
@@ -249,6 +265,17 @@ Parse:
    If exam_code missing → HARD STOP.
 
 3. Verify registry.json in project knowledge.
+   REGISTRY-HANDOFF-LAW precondition (v1.16.0): this step reads ONLY the project copy.
+   Every upstream step that changed the registry delivered it with the "Replace in
+   Project Files" badge (Step 7 Final Assembly, Step 7-R §S16-3, Step 9 §7A-M, Step 9-R
+   §7A-R). If 3b below stops on PENDING/FAILED although Step 9's verdict box said
+   PASSED (or DISCLOSED after a repair), the operator has NOT replaced the registry
+   Step 9 / 9-R delivered — say so FIRST, in these words, before the re-run command:
+     "The project registry does not carry the verdict Step 9 wrote. Replace
+      [ExamCode]_registry.json in Project Files with the copy Step 9 delivered,
+      then re-run TestDeliver P[N]. If you no longer have it, run: <d['next_step']>."
+   Also take the fingerprint BEFORE 3b (pp.registry_fingerprint) — §8 decides from it
+   whether a healed registry must be delivered.
    Read: question_index — find the mock N entry.
    v1.12.0 — FIRST run the ledger↔index agreement check over the WHOLE registry:
      claimed = papers_completed ∪ {f"MOCK:M{m:02d}" for m in mocks_completed}
@@ -269,8 +296,8 @@ Parse:
          rec, disclosure = pp.dg_preflight(reg, paper_id, where='S1-2 3b')
        An illegal (status, repair_rounds_used) pair is healed per DG-INVARIANT
        and disclosure['line'] is printed VERBATIM in chat; the healed registry
-       is re-presented with the deliverables (§FOOTER-DG also prints it from
-       rec['migrations']). A DGIllegalState (unknown status) HARD-STOPS with
+       is DELIVERED with the Final docx — Replace in Project Files — per §8 /
+       REGISTRY-HANDOFF-LAW (§FOOTER-DG also prints it from rec['migrations']). A DGIllegalState (unknown status) HARD-STOPS with
        its message verbatim. An illegal record must NEVER be silently read as
        one of the branches below.
        THEN:
@@ -882,6 +909,9 @@ if len(reg_matches) > 1:
         f"HARD STOP: Multiple registry files found: {reg_matches}\n"
         f"Only one [ExamCode]_registry.json should exist per project.")
 registry = json.load(open(reg_matches[0], encoding='utf-8'))
+# v1.16.0 (REGISTRY-HANDOFF-LAW): fingerprint the PROJECT copy before any preflight can
+# heal it; §8 decides from this whether a healed registry must be delivered (Replace).
+_reg_fp_loaded = pp.registry_fingerprint(registry)
 
 # BLUEPRINT DISCOVERY (v1.9, paper_pipeline.py): load EVERY *_blueprint.json present — the
 # mock blueprint AND any scoped ([ExamCode]_[SCOPETAG]_blueprint.json) blueprints. No
@@ -1598,8 +1628,32 @@ so Rule 22's `<w:color>` propagates automatically).
 Output file: `[ExamCode]_Mock[N]_Final.docx`
 Output path: `/mnt/user-data/outputs/[ExamCode]_Mock[N]_Final.docx`
 
-`present_files` is called immediately after all 17 checklist gates pass.
-No other files are presented.
+`present_files` is called immediately after all 17 checklist gates pass, with the
+CLOSED SET (v1.16.0 — REGISTRY-HANDOFF-LAW, paper_pipeline Cluster RH):
+
+```python
+import os, json, shutil
+import paper_pipeline as pp
+# _reg_fp_loaded was taken in Phase 1 immediately after `registry` was loaded, BEFORE
+# S1-2 3b's pp.dg_preflight could heal the record.
+_final_name = f'{EXAM}_{paper_slug}_Final.docx'
+_reg_name   = f'{EXAM}_registry.json'
+HANDOFF = pp.handoff_set('TestDeliver', primary_docx=_final_name, reg_name=_reg_name,
+                         registry_changed=pp.registry_changed(_reg_fp_loaded, registry), final=True)
+if HANDOFF['registry_delivered']:          # the ONE case Step 11 changes the registry: a heal
+    json.dump(registry, open(f'/home/claude/{_reg_name}', 'w', encoding='utf-8'),
+              indent=2, ensure_ascii=False)
+    shutil.copy(f'/home/claude/{_reg_name}', f'/mnt/user-data/outputs/{_reg_name}')
+_v = pp.verify_handoff_outputs(os.listdir('/mnt/user-data/outputs'), HANDOFF)
+if not _v['ok']:
+    raise SystemExit(f"HARD STOP (§8): outputs != closed set — missing {_v['missing']}, "
+                     f"stray {_v['stray']}. Do NOT call present_files.")
+for _line in pp.handoff_footer_lines(HANDOFF):
+    print(_line)
+```
+Then present_files([f'/mnt/user-data/outputs/{n}' for n in HANDOFF['files']]) — ONE
+call: the Final docx, plus registry.json ONLY when the preflight healed it. No other
+file is ever presented.
 
 **In-chat delivery report (printed after `present_files`):**
 
@@ -1649,8 +1703,9 @@ Output: [ExamCode]_Mock[N]_Final.docx
 **Post-delivery footer (MANDATORY after present_files):**
 After the present_files call and in-chat delivery report above, render the standardized
 visual delivery footer as the LAST element in the response. Follow Framework_DeliveryFooter.md
-for footer type (F2 step-complete — always for Step 11), file badge (Use locally for
-Final.docx), and next-step reference. Step 11 uses the special bottom text:
+for footer type (F2 step-complete — always for Step 11), file badges
+(pp.handoff_footer_lines(HANDOFF) verbatim: Use locally for Final.docx; Replace in Project
+Files for registry.json when a heal delivered it), and next-step reference. Step 11 uses the special bottom text:
 "Pipeline complete for [ExamCode] Mock [N]. Thank you!" (last step — no next step).
 For the next mock: "Step 7: MockCreate M[N+1]".
 
@@ -1848,4 +1903,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.15.0
+# END OF Framework_MockDeliver v1.16.0

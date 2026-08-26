@@ -1,4 +1,30 @@
-# Framework_MockTestExplain v1.45.1
+# Framework_MockTestExplain v1.46.0
+# v1.46.0 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestCreate
+#   v5.73, MockDeliver v1.16.0, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH,
+#   explain_engine v2.9, final_assembly v5.60; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
+#   mock_sync_audit MS-14). P0, every exam. §7A-M (v1.42.0+) writes the difficulty-gate
+#   verdict into registry.json and calls the registry "the ONLY channel to Step 11" —
+#   while S0-2, MANDATE D, S19-1 check 5 (`outputs == {Explanation.docx}`, a HARD STOP),
+#   §21 item 12 and DeliveryFooter §3 all still carried the pre-v1.42 "registry is frozen,
+#   never delivered" rule, and the "S19 write" §7A-M relied on was defined nowhere. Under
+#   a literal run the verdict lived only in /home/claude, the project copy stayed
+#   (PENDING, 0) and Step 11 refused the paper on EVERY exam; §7A-R had no delivery
+#   contract at all. Measured on the reference project: the registry reached the project
+#   only because a session broke its own S19-1 gate. FIX: (1) NEW S19-0 — the registry
+#   working copy, the ONE persist point every §7A-M / §7A-R write names, and the handoff
+#   decision pp.handoff_set('TestExplain', …) driven by pp.registry_changed (a fingerprint
+#   of the project copy vs the working copy) — never by prose. (2) S19-1 check 5 asserts
+#   outputs == that closed set (pp.verify_handoff_outputs); S19-2 presents exactly it; the
+#   final batch delivers Explanation.docx + registry.json (Replace in Project Files) +
+#   the NEW report docx. (3) OPERATOR DECISION 2026-08-26: the §20 END-OF-MOCK REPORT is
+#   ALSO written as [ExamCode]_[paper_slug]_Explain_Report.docx (explain_engine.
+#   build_report_docx, MANDATE 0 enforced at the writer) and delivered at the final batch;
+#   it is INERT downstream — Step 11 reads only registry.json + the Explanation docx —
+#   so no next step requires it. (4) §7A-R gains its delivery contract: same Explanation
+#   filename (spliced), registry.json (Replace), report docx (repair edition), F2 footer.
+#   (5) S0-1/S0-2, MANDATE D, S2-2, §21-12 rewritten to the law; every "frozen / NOT
+#   delivered" sentence is gone (MS-14 bans the wording corpus-wide). Every DG gate,
+#   window, band and block rule is unchanged.
 # v1.45.1 — 2026-08-26 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up (paired with
 #   paper_pipeline v5.73, audit_canonical v2.20). §7A-M: a fresh round-0 verdict retires a
 #   pre-repair stem snapshot taken for a different rework set (pp.dg_write_verdict), so the
@@ -92,10 +118,13 @@
 
 ## S0-1 — INPUTS (what Step 9 is given)
 
-  DELIVERED BY STEP 7 (the closed set; both already in the [ExamCode] project):
-    1. [ExamCode]_Mock[N]_Create.docx     — the paper to explain, exactly as Step 7
-                                            assembled and self-audited it
-    2. [ExamCode]_registry.json           — FROZEN; read for figural_manifests[] /
+  DELIVERED BY STEP 7 (the closed set):
+    1. [ExamCode]_Mock[N]_Create.docx     — ATTACHED to the trigger (P1 discovers it from
+                                            the upload filename); the paper to explain,
+                                            exactly as Step 7 assembled and self-audited it
+    2. [ExamCode]_registry.json           — from Project Files (the operator REPLACED it
+                                            there after Step 7 — REGISTRY-HANDOFF-LAW);
+                                            read for figural_manifests[] /
                                             rc_manifests[] cross-checks + dedup context +
                                             options_by_q[str(N)] (v1.3: per-question expected
                                             option count, 0=NAT — the mandatory question-type
@@ -123,12 +152,28 @@
 ## S0-2 — OUTPUTS (what Step 9 delivers)
 
   CORE DELIVERABLE (every batch, via ONE present_files call — the WHOLE paper):
-    1. /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx
+    1. /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx      → Use locally
        ([paper_slug] = pp.paper_slug(paper_id): "Mock[N]" zero-padded for a mock, else the
        scoped slug — v1.40.0; S19-1/S19-2 already used it, this line said Mock[N])
        The complete paper: every question solved so far carries its interleaved
        explanation; every not-yet-solved question is byte-identical to the Step-7
        input (D4). The same file grows explanation-coverage each batch until 100%.
+
+  FINAL-BATCH DELIVERABLES (v1.46.0 — the SAME present_files call as item 1; the set is
+  pp.handoff_set('TestExplain', …, final=True), CLOSED and machine-verified at S19-1):
+    2. [ExamCode]_registry.json          → Replace in Project Files — WHENEVER this run
+       changed it (§7A-M verdict PASSED/FAILED/DORMANT, or a pp.dg_preflight healing).
+       That is every gated run. REGISTRY-HANDOFF-LAW: the registry is the ONLY channel by
+       which the verdict reaches Step 11, and Step 11 reads ONLY the project copy. A
+       legacy paper (no gate record) changes nothing; then nothing is delivered and the
+       footer says "registry unchanged this run". Decided by pp.registry_changed — a
+       fingerprint — never by a per-step claim.
+    3. [ExamCode]_[paper_slug]_Explain_Report.docx  → Use locally — the §20 END-OF-MOCK
+       REPORT as a document (explain_engine.build_report_docx, §20-R). Operator decision
+       2026-08-26: the report is kept beside the Explanation docx, not only in chat. It is
+       INERT downstream: NO later step reads it (Step 11 consumes registry.json + the
+       Explanation docx only; its S1-2 attachment gate matches `_Explanation.docx`, which
+       this name never ends with).
 
   IN-CHAT (every batch): a STATUS DASHBOARD (§3 P2) + a per-batch progress line, then
   an explicit CONFIRMATION REQUEST that ENDS the turn (MANDATE B). At the final batch:
@@ -136,8 +181,10 @@
   (Q-numbers + codes + counts only — never stem/option/answer/solution text).
 
   NEVER delivered / never written: the Step-7 questions-only paper is NOT overwritten;
-  registry.json is NOT re-synced (frozen); no internal state file (progress.json,
-  answer_keys.json, the pickled blocks, the strip copy, montages) leaks to outputs.
+  registry.json is written ONLY through paper_pipeline Cluster DG (§7A-M / §7A-R) and
+  persisted ONLY at S19-0 — never edited field-by-field, never re-synced from any other
+  source; no internal state file (progress.json, answer_keys.json, the pickled blocks,
+  the strip copy, montages) leaks to outputs.
 
 # ════════════════════════════════════════════════════════════════════════
 # MANDATE 0 — NO QUESTION/ANSWER CONTENT IN CHAT (ABSOLUTE — ZERO EXCEPTIONS)
@@ -221,8 +268,10 @@
 #   no look-ahead) + math-render check. The delivered file is ALWAYS the complete
 #   paper (D4): explained-so-far interleaved + remainder identical to the Step-7
 #   input. A fragment containing only the batch's questions must NEVER be presented.
-#   /mnt/user-data/outputs holds ONLY the single Solutions docx; the WIP state lives
-#   in /home/claude across "continue" turns so nothing is lost.
+#   /mnt/user-data/outputs holds ONLY the closed set S19-0 decides — the Solutions docx
+#   on every batch, plus registry.json (when changed) and the report docx at the final
+#   batch (v1.46.0); the WIP state lives in /home/claude across "continue" turns so
+#   nothing is lost.
 
 # ════════════════════════════════════════════════════════════════════════
 # THE CORE PRINCIPLE — engine proves shape; discipline alone proves truth (v1.21.0)
@@ -474,7 +523,8 @@ execution path — it does not shrink, soften or delete them.
   registry.mocks_completed containing N for a mock on an older registry. If neither holds:
     HARD STOP: "registry.papers_completed = [...] does not contain paper_id [paper_id].
     Step 9 explains a paper Step 7 has completed; run Step 7 on it first."
-  registry is FROZEN here — this is a read-only alignment check, never a re-sync.
+  This is a read-only alignment check — nothing is written here; the only registry
+  writes in this step are §7A-M / §7A-R via Cluster DG, persisted at S19-0.
 
   DEFENSIVE INDEX ALIGNMENT (v1.5 — read-only; Contract_QuestionMetadataIndex v1.0):
   registry.question_index is a Step-7-written, FROZEN field that feeds Step 11's tags. Step 9
@@ -1609,8 +1659,9 @@ execution path — it does not shrink, soften or delete them.
   PREFLIGHT (v1.44.0 — before the gate, before the first batch):
       rec, disclosure = pp.dg_preflight(reg, paper_id, where='§7A-M')
     If disclosure is not None: print disclosure['line'] verbatim in chat and
-    persist the registry with the S19 write — the record was corrupt and has
-    been healed per DG-INVARIANT; the run continues. rec is None for a LEGACY
+    persist the registry with the S19-0 write — the record was corrupt and has
+    been healed per DG-INVARIANT; the run continues (the healed registry is then
+    DELIVERED at the final batch — pp.registry_changed sees the healing). rec is None for a LEGACY
     paper (no record): the gate is DORMANT with reason legacy — write NOTHING
     (a legacy paper is never gated retroactively; Step 11's ABSENT branch
     delivers it). A DGIllegalState raised here (unknown status) is a HARD STOP:
@@ -1652,8 +1703,8 @@ execution path — it does not shrink, soften or delete them.
     (threshold and windows are the engine defaults — NEVER passed inline;
      gate['dormant'] is True only on a non-3-band vocabulary, which the
      DORMANT rule above already routed elsewhere, so assert it is False.)
-    WRITE (registry, atomic with the S19 progress write) — via the single
-    writer, NEVER a hand-built dict:
+    WRITE (registry — the working copy, persisted by the S19-0 write in the same
+    turn as the progress write) — via the single writer, NEVER a hand-built dict:
       pp.dg_write_verdict(reg, paper_id,
           status='PASSED' if gate['verdict'] == 'PASS' else 'FAILED',
           rounds=0, threshold=gate['threshold'],
@@ -1687,7 +1738,11 @@ execution path — it does not shrink, soften or delete them.
     paper a second repair round. The verdict actually written (read it back
     with pp.dg_state) is what the box below reports.
     The registry is the ONLY channel to Step 11 — the printed box is for the
-    operator, the record is for the machine; they must agree.
+    operator, the record is for the machine; they must agree. Step 11 reads the
+    PROJECT copy, so the verdict reaches it ONLY if this run DELIVERS registry.json
+    and the operator REPLACES it in Project Files (S19-0 / S19-2 / S19-4 —
+    REGISTRY-HANDOFF-LAW, v1.46.0). A verdict written and not delivered is a
+    verdict Step 11 never sees.
 
   PRINT — VERDICT BOX (verbatim shape; the operator is non-technical, so the
   box must contain the EXACT next command, ready to copy):
@@ -1762,7 +1817,7 @@ execution path — it does not shrink, soften or delete them.
         used" — it is a CORRUPT REGISTRY, healed here per DG-INVARIANT (a
         FAILED record's counter is reset to 0: the round is provably
         unconsumed). If disclosure is not None: print disclosure['line']
-        verbatim in chat, persist the registry, and CONTINUE. A DGIllegalState
+        verbatim in chat, persist the registry (S19-0 write), and CONTINUE. A DGIllegalState
         (unknown status) is a HARD STOP: print its message verbatim. Never
         route the operator onward on an illegal record — the historical
         failure was exactly that (FAILED + 1 → "go to TestDeliver" → Step 11
@@ -1866,6 +1921,23 @@ execution path — it does not shrink, soften or delete them.
       ════════════════════════════════════════════════════════════
     (the "Next step" line is pp.dg_next_step(...) verbatim; on a DISCLOSED
      record it is guaranteed to be the Deliver trigger, which Step 11 accepts.)
+  DELIVERABLES (v1.46.0 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM; this section had NO
+    delivery contract through v1.45.1, so the re-gate verdict stayed in /home/claude and
+    Step 11 kept reading (FAILED, 0) from the project). The CLOSED SET, one present_files
+    call, F2 footer, is pp.handoff_set('TestExplainRepair', …, final=True) — run S19-0 →
+    S19-1 → S19-2 → S19-4 exactly as a final batch, with FINAL_BATCH = True and
+    HANDOFF_STEP = 'TestExplainRepair' (or 'MockExplainRepair'):
+      1. [ExamCode]_[paper_slug]_Explanation.docx — the previous explanation docx with
+         the rework_qs blocks replaced in place, SAME filename (Step 11's S1-2 gate
+         accepts exactly this name)                                → Use locally
+      2. [ExamCode]_registry.json — carries the re-gate verdict (PASSED/1 or DISCLOSED/1)
+         + the session_log entry                                   → Replace in Project Files
+      3. [ExamCode]_[paper_slug]_Explain_Report.docx — the §20 report regenerated as the
+         REPAIR EDITION (§R1 states "repair round 1"; §R3 lists the rework_qs re-explained;
+         every other section reports the whole paper as it now stands) → Use locally
+    The re-gate is ONE write (above); pp.registry_changed is therefore True on every
+    successful repair run, and a run whose registry is unchanged has NOT re-gated — S19-0
+    HARD-STOPS it rather than deliver a stale verdict.
 
 # ════════════════════════════════════════════════════════════════════════
 
@@ -2777,6 +2849,61 @@ execution path — it does not shrink, soften or delete them.
 # §19 — DELIVERY (incremental whole-paper; one present_files per batch)
 # ════════════════════════════════════════════════════════════════════════
 
+## S19-0 — REGISTRY WORKING COPY, THE ONE PERSIST POINT, AND THE HANDOFF DECISION (v1.46.0)
+  REGISTRY-HANDOFF-LAW (LAW_REGISTRY.json; verified by mock_sync_audit MS-14): a step that
+  CHANGES registry.json DELIVERS registry.json, badge "Replace in Project Files", in the
+  same present_files call as its primary artefact. Nothing in this step decides that by
+  prose. The decision is a FINGERPRINT: the project copy as loaded vs the working copy
+  this run is about to hand off (pp.registry_changed). Every registry write in this spec —
+  §7A-M pp.dg_preflight healing, §7A-M pp.dg_write_verdict, §7A-R R0 healing, §7A-R
+  re-gate + session_log — is made on `reg` (the working copy) and persisted HERE and only
+  here; "the S19-0 write" is the name every one of those sections uses.
+  WHY A FINGERPRINT. A legacy paper (no difficulty_gate record) writes nothing, so nothing
+  is delivered and the footer says so; a gated run always writes a verdict, so the
+  registry is always delivered; a healed record is delivered even when the gate went
+  DORMANT. No exam, no session and no future edit can re-introduce the old "frozen
+  registry" sentence — that wording is banned corpus-wide (MS-14) and the closed set is
+  asserted mechanically at S19-1 check 5.
+  Session flags the run sets in prose, exactly like SELF_AUDIT_CLEAN / COVERAGE_OK:
+    FINAL_BATCH   = True on the last batch of the frozen plan (S4-2) and on every
+                    §7A-R run; False (or unset) otherwise.
+    HANDOFF_STEP  = 'TestExplain' | 'MockExplain' | 'TestExplainRepair' |
+                    'MockExplainRepair' — the trigger that started this run.
+```python
+import os, json, shutil
+import paper_pipeline as pp
+REG_PROJECT = f'/mnt/project/{EXAMCODE}_registry.json'      # what Step 11 will read
+REG_WORK    = f'/home/claude/{EXAMCODE}_registry.json'      # this run's working copy
+if not os.path.exists(REG_WORK):
+    shutil.copy(REG_PROJECT, REG_WORK)                      # first turn of the run only
+_reg_fp_project = pp.registry_fingerprint(json.load(open(REG_PROJECT, encoding='utf-8')))
+# `reg` is the in-memory working copy every §7A-M / §7A-R write targets. Bind it here
+# once per turn; a resumed turn reloads what the previous turn persisted.
+reg = json.load(open(REG_WORK, encoding='utf-8'))
+
+def persist_registry(reg):
+    """THE S19-0 WRITE — the only json.dump of the registry in this step."""
+    json.dump(reg, open(REG_WORK, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
+    return REG_WORK
+
+HANDOFF_STEP = globals().get('HANDOFF_STEP') or 'TestExplain'
+FINAL_BATCH  = bool(globals().get('FINAL_BATCH'))
+_sol    = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
+_report = f'{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPORT_SUFFIX}' if FINAL_BATCH else None
+_changed = pp.registry_changed(_reg_fp_project, reg)
+if HANDOFF_STEP.endswith('Repair') and not _changed:
+    raise SystemExit('HARD STOP (S19-0): a repair run must re-gate (one pp.dg_write_verdict) '
+                     'before delivery — the registry is unchanged, so nothing is delivered.')
+HANDOFF = pp.handoff_set(HANDOFF_STEP, primary_docx=_sol, reg_name=f'{EXAMCODE}_registry.json',
+                         registry_changed=_changed, final=FINAL_BATCH, report_docx=_report)
+if HANDOFF['registry_delivered']:
+    shutil.copy(persist_registry(reg), f'/mnt/user-data/outputs/{EXAMCODE}_registry.json')
+```
+  Run this block at the START of every delivery turn (before S19-1) — after the batch's
+  blocks are built and, on the final batch, after §7A-M has written its verdict into `reg`
+  and §20-R has written the report docx. HANDOFF['files'] is the closed set; nothing else
+  may sit in outputs.
+
 ## S19-1 — Pre-delivery checklist (MANDATORY before present_files)
 ```python
 import os
@@ -2787,24 +2914,35 @@ out = '/mnt/user-data/outputs'
 sol = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
 present = set(os.listdir(out))
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
-# v1.40.0: scan every file EXCEPT the Solutions docx. A scoped slug or exam code can
+# v1.40.0: scan every file EXCEPT the deliverables. A scoped slug or exam code can
 # legitimately contain a banned substring (TOPIC_…_SOLID_STATE_01, …_STATE_PSC_…);
-# check 5 already asserts outputs == {sol}. PYQExplain S19-1 has the same exclusion.
-leaked = [f for f in present - {sol} if any(b in f.lower() for b in BANNED)]
+# check 5 already asserts outputs == the closed set. PYQExplain S19-1 has the same exclusion.
+leaked = [f for f in present - set(HANDOFF['files']) if any(b in f.lower() for b in BANNED)]
+# v1.46.0 — check 5 is the REGISTRY-HANDOFF-LAW gate: outputs must equal the closed set
+# S19-0 decided (docx every batch; + registry.json when changed; + report at the final
+# batch). Through v1.45.1 this line read `present == {sol}` and HARD-STOPPED any run that
+# staged the registry §7A-M had just written — the seam this release closes.
+_v = pp.verify_handoff_outputs(present, HANDOFF)
 checks = [
     ('1 solutions docx in outputs',      os.path.exists(f'{out}/{sol}')),
     ('2 self-audit (S18) all clean',     bool(globals().get('SELF_AUDIT_CLEAN'))),
     ('3 whole-paper coverage asserted',  bool(globals().get('COVERAGE_OK'))),
     ('4 no internal sidecar leaked',     not leaked),
-    ('5 outputs == exactly the solutions docx', present == {sol}),
+    ('5 outputs == the closed handoff set', _v['ok']),
+    ('6 report docx present on the final batch',
+     (not FINAL_BATCH) or os.path.exists(f'{out}/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPORT_SUFFIX}')),
 ]
 fails = [n for n, ok in checks if not ok]
 if fails:
-    raise SystemExit('HARD STOP (S19-1): ' + '; '.join(fails) +
-                     '. Fix, then re-run S19-1. Do NOT call present_files yet.')
+    raise SystemExit('HARD STOP (S19-1): ' + '; '.join(fails)
+                     + (f" — missing {_v['missing']}, stray {_v['stray']}" if not _v['ok'] else '')
+                     + '. Fix, then re-run S19-1. Do NOT call present_files yet.')
+for _line in pp.handoff_footer_lines(HANDOFF):
+    print(_line)
 ```
-  Stage ONLY the Solutions docx in outputs; keep the clean source + all state in
-  /home/claude. registry.json is NOT delivered (frozen; it already lives in the project).
+  Stage ONLY HANDOFF['files'] in outputs; keep the clean source + all state in
+  /home/claude. The registry travels ONLY when S19-0 found it changed (every gated run);
+  the report docx travels ONLY at the final batch.
 
 ## S19-2 — The single present_files call (per batch)
 ```python
@@ -2831,8 +2969,11 @@ def present_files(paths):
     returned to python and NO call site may consume a result (C6).
     """
     pass  # CLASS: T — performed by the model between turns, never from python
-present_files([f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'])
+present_files([f'/mnt/user-data/outputs/{name}' for name in HANDOFF['files']])
 ```
+  v1.46.0: the argument is HANDOFF['files'] in order — the Explanation docx first, then
+  registry.json when delivered, then the report docx at the final batch. ONE call. A
+  non-final batch therefore presents exactly the Explanation docx, as before.
 
 ## S19-3 — Progress line + confirmation request (ENDS the turn — MANDATE B)
   Print a MANDATE-0-safe line: "Batch k of K delivered — Q[a]..Q[b] explained; Q1..Q[b]
@@ -2848,11 +2989,15 @@ After every present_files call and any in-chat progress line (S19-3),
 render the standardized visual delivery footer as the LAST element in the response.
 
 Follow Framework_DeliveryFooter.md for footer type selection (F1 mid-step / F2 step-complete),
-deliverable file badges (Use locally — always for Explanation.docx), and next-step reference.
+deliverable file badges and next-step reference. The badges are pp.handoff_footer_lines(HANDOFF)
+VERBATIM (v1.46.0): Explanation.docx → Use locally; registry.json → Replace in Project Files
+(when delivered); Explain_Report.docx → Use locally (final batch); then HANDOFF['lines'].
 
 Step 9 uses BOTH footer types:
   - F1 (amber) after each non-final batch (same Explanation.docx, incrementally filled)
-  - F2 (green) after the final batch (same Explanation.docx, now fully explained)
+  - F2 (green) after the final batch (Explanation.docx fully explained + registry.json +
+    Explain_Report.docx — DeliveryFooter §3 "STEP 9"); §7A-R always renders F2
+    (DeliveryFooter §3 "STEP 9-R — TestExplainRepair").
 ```
 
 # ════════════════════════════════════════════════════════════════════════
@@ -2920,6 +3065,37 @@ Step 9 uses BOTH footer types:
   §R12 SEMANTIC OBJECTS (§13-2b): registered · agreed first / after re-transcription ·
       LOW confidence · §7-7 tripwire fired y/n and second-pass outcome.
 
+  §20-R — THE REPORT AS A DOCUMENT (v1.46.0 — operator decision 2026-08-26)
+  The §R1–§R12 report is printed in chat AND written as
+  [ExamCode]_[paper_slug]_Explain_Report.docx, delivered in the final batch's
+  present_files call (S19-0 adds it to the closed set). It is a record for the operator
+  and the human reviewer (§R8): NO downstream step reads it — Step 11 consumes
+  registry.json and the Explanation docx only, and its filename can never be mistaken for
+  the Explanation docx (different suffix). MANDATE 0 binds it exactly as it binds the
+  chat report: Q-numbers, codes, counts, source URLs — never a stem, option, answer or
+  solution sentence; explain_engine.build_report_docx REFUSES a line that declares an
+  answer, before any byte is written. On a §7A-R run the file is regenerated as the
+  REPAIR EDITION (§7A-R DELIVERABLES item 3).
+```python
+import explain_engine as ee
+
+def build_report_sections():
+    # CLASS: J — the session composes the §R1..§R12 lines from what actually ran
+    # (real STDOUT, real counts, real Q-numbers). Returns [(heading, [lines]), ...]
+    # in §R1..§R12 order; an empty section passes an empty list (rendered as
+    # "(empty — stated explicitly, never omitted)"), never omitted.
+    pass
+
+REPORT_SECTIONS = build_report_sections()
+REPORT_META = [f'Framework spec: Framework_MockTestExplain (as read from its own header)',
+               f'Paper: {EXAMCODE} {PAPER_SLUG} · trigger: {HANDOFF_STEP}']
+ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPORT_SUFFIX}',
+                     f'END-OF-MOCK REPORT — {EXAMCODE} {PAPER_SLUG}',
+                     REPORT_SECTIONS, meta_lines=REPORT_META)
+```
+  Run this AFTER §7A-M has written its verdict (so §R1's registry state is final) and
+  BEFORE S19-0 (which puts the file into the closed set).
+
 # ════════════════════════════════════════════════════════════════════════
 ## §21 — DEFINITION OF DONE / HARD INVARIANTS (ANY violation = do NOT deliver)
 # ════════════════════════════════════════════════════════════════════════
@@ -2978,7 +3154,11 @@ Step 9 uses BOTH footer types:
   11. Batched ≤ ceiling, one batch/response, HALT-for-confirmation each batch (interactive;
       autonomous waives the pause only); no look-ahead; the coverage assertion (§18) passed
       each batch; final batch also stopped before the report (MANDATE B).
-  12. registry.json NOT re-synced (frozen); no internal sidecar leaked to outputs.
+  12. (v1.46.0) registry.json written ONLY via Cluster DG, persisted ONLY at S19-0, and
+      DELIVERED (Replace in Project Files) whenever pp.registry_changed is True — the
+      final batch of every gated run and every §7A-R run; the report docx delivered at
+      the final batch; no internal sidecar leaked to outputs (S19-1 check 5 = the
+      closed handoff set).
   13. present_files called exactly once per batch, only after §18 clean (MANDATE D).
   14. Report (§20) built from real STDOUT + findings; MANDATE-0 safe; author handoff printed.
   15. No question/answer/solution content ever printed in chat (MANDATE 0).
@@ -3170,5 +3350,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.45.1
+# END OF Framework_MockTestExplain v1.46.0
 # ════════════════════════════════════════════════════════════════════════

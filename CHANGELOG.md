@@ -1,5 +1,48 @@
 # Changelog
 
+## 2026.08.26.3 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM: every step that changes registry.json now delivers it (REGISTRY-HANDOFF-LAW); audit dossier internal; Step-9 report as a docx
+
+**P0, every exam.** registry.json is written by four mock-track steps (Step 7 Final Assembly,
+Step 7-R §S16-3, Step 9 §7A-M, Step 9-R §7A-R) and only Step 7 told the operator to replace it
+in Project Files. MockTestExplain S0-2 / MANDATE D / S19-1 check 5 / §21-12 and DeliveryFooter
+§3 still said "registry.json is NOT delivered (frozen)" — three releases AFTER §7A-M started
+writing the difficulty-gate verdict and calling the registry "the ONLY channel to Step 11".
+Under a literal run the verdict stayed in /home/claude, the project copy stayed (PENDING, 0)
+and Step 11 refused every gated paper; the repair steps had no delivery contract at all, so
+the pre-repair snapshot §7A-R R3 needs never reached the project either (dead loop).
+
+**The law, machine-enforced.** `paper_pipeline v5.74` Cluster RH: `registry_fingerprint` /
+`registry_changed` / `handoff_set` / `verify_handoff_outputs` / `handoff_footer_lines` /
+`report_docx_name` (self-test 165 -> 183). The handoff decision is a fingerprint of the
+project copy vs the working copy — never prose. `LAW_REGISTRY.json` gains
+REGISTRY-HANDOFF-LAW (detect `registry_writer_call`, wired in `audit_sync.py` with a
+fixture); `mock_sync_audit.py` gains MS-14 REGISTRY-HANDOFF (writers must name the Replace
+badge and use pp.handoff_set; the frozen wording is banned in live text; every Test*/Mock*
+trigger in routes.json needs a DeliveryFooter §3 block; self-test 37 -> 46).
+
+**Specs.** MockTestExplain v1.45.1 -> v1.46.0: NEW S19-0 (registry working copy, the one
+persist point, the handoff decision), S19-1 check 5 = the closed handoff set, S19-2 presents
+it, §7A-R delivery contract, §20-R report docx, frozen wording removed. MockTestCreate v5.72
+-> v5.73: §S16-3 delivers the repaired paper + registry (Replace); the Tier-A audit dossier is
+INTERNAL (operator decision 2026-08-26) — closed set is Create.docx + registry.json
+everywhere (S13-4b/4c/6/7/8/9, R-DELIVER, G-DELIVERY-SET, DoD). DeliveryFooter v1.26 ->
+v1.27: Step 7 without dossier, Step 9 final = Explanation + registry (Replace) + report,
+NEW blocks STEP 7-R / STEP 9-R, Step 11 healed-registry line, repair rows in §6, NEW §8 law.
+MockDeliver v1.15.0 -> v1.16.0: §8 closed set via pp.handoff_set('TestDeliver'), S1-2 names
+the "replace the registry Step 9 delivered" remedy, ignores an attached report docx.
+
+**Engines.** `explain_engine v2.9`: `build_report_docx` / `read_report_docx` write the §20
+END-OF-MOCK REPORT as `[ExamCode]_[slug]_Explain_Report.docx` (MANDATE 0 enforced at the
+writer; self-test 167 -> 170). `final_assembly v5.60`: `_audit_dossier.json` is an internal
+sidecar in `predelivery_checklist`; closed set always {docx, registry} (120 -> 122).
+
+**Deliverables after this release.** TestCreate: Create.docx + registry.json (Replace).
+TestExplain final batch: Explanation.docx + registry.json (Replace) + Explain_Report.docx.
+TestCreateRepair: Create_Repaired.docx + registry.json (Replace). TestExplainRepair:
+Explanation.docx + registry.json (Replace) + Explain_Report.docx. TestDeliver: Final.docx
+(+ registry.json only when its preflight healed the record). No gate, band, window,
+allocation or generation logic changed.
+
 ## 2026.08.26.2 — Test-strength release: mutation campaign over the windowed difficulty gate
 
 **blueprint_core (self-test 585 -> 587) · paper_pipeline (self-test 163 -> 165). Tests and

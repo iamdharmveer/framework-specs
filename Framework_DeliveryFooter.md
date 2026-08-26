@@ -1,36 +1,16 @@
-# Framework_DeliveryFooter v1.26 — Universal Delivery Footer (F1/F2) Contract
-# v1.26 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paper_pipeline v5.72,
-#   MockDeliver v1.15.0, MockTestExplain v1.45.0). Prose only. §FOOTER-DG DISCLOSED
-#   example shows the windowed shape ("(not gated)" / "in window").
-# v1.25 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
-#   paper_pipeline v5.71 Cluster DG, MockDeliver v1.14.0, MockTestExplain v1.44.0).
-#   MINOR bump: registry/prose only, NO badge changes, NO artefact changes.
-#   * §3 STEP 11 gains §FOOTER-DG, which MockDeliver v1.13.0 referenced but no spec
-#     defined: the difficulty-gate disclosure lines are pp.dg_footer_lines(rec) —
-#     the measured-band line on DISCLOSED, the not-applicable line on DORMANT, and
-#     one healed-registry line per rec['migrations'] entry — so a corrected record
-#     is always disclosed in the delivered footer and never composed by hand.
-#   Superseded v1.23 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
-# v1.24 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R2: SCOPED-PAPER NEXT-STEP + 6S REGISTRY.
-#   MINOR bump: registry/prose only, NO logic changes, NO badge changes, NO artefact
-#   changes. Release 2 of the Step-9 audit (R1 = 2026.08.24.1).
-#   * §3 STEP 7 / 9 / 11, §4-1 Step-11 variant and §6 named ONLY the mock triggers
-#     (MockCreate M / MockExplain M / MockDeliver M) and "Mock [N]". A scoped paper
-#     (ScopedBlueprint → TestCreate P[N] → TestExplain P[N] → TestDeliver P[N]) got a
-#     footer pointing at a trigger whose --level mock alias would HARD STOP on its
-#     scoped docx (MockTestExplain S2-1 / MockDeliver S1-2 slug gates). Every next-step
-#     line now names both forms; "Mock [N]" → "[paper_slug]".
-#   * §3 had NO entry for Step 6S (ScopedBlueprint), which rides this file on its route
-#     and had no deliverable/badge/next-step registry to follow. Added.
-#   Superseded v1.22 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
-# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md".
-#   Entries for superseded versions were moved there VERBATIM at framework
-#   release 2026.08.15.14 (GAP-2026-08-16-STEP5-SESSION-EXHAUSTION, EC-P42):
-#   an EXECUTING session paid for the whole EDITORIAL record before it could do
-#   any work. SPEC_HISTORY.md is tracked in MANIFEST.json and verified by
-#   bootstrap.py exactly as this file is, and is routed to NO trigger. Nothing
-#   was deleted. The entry for the CURRENT version stays above, because
-#   Z-VERSION requires the highest changelog entry to equal the header.
+# Framework_DeliveryFooter v1.27 — Universal Delivery Footer (F1/F2) Contract
+# v1.27 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (MockTestCreate v5.73,
+#   MockTestExplain v1.46.0, MockDeliver v1.16.0, paper_pipeline v5.74 Cluster RH).
+#   NEW §8 REGISTRY-HANDOFF-LAW: a step that CHANGES registry.json DELIVERS it (Replace);
+#   badge lines are pp.handoff_footer_lines(HANDOFF) verbatim. §3: Step 7 no longer
+#   delivers the audit dossier (internal); Step 9 final delivers registry.json (Replace)
+#   + [ExamCode]_[slug]_Explain_Report.docx (the old "registry not delivered" note was
+#   wrong since MockTestExplain v1.42.0); NEW blocks STEP 7-R and STEP 9-R; Step 11
+#   delivers a healed registry. §6 gains the repair path. LOCAL_ONLY gains
+#   '*_Explain_Report.docx' and '*_Create_Repaired.docx'.
+# FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
+#   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
+#   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
 ---
 
 ## §1 — FOOTER TYPES
@@ -116,7 +96,8 @@ BADGE 2 — "Replace in Project Files"  (icon: 🔁)
   When   : File ALREADY exists in project Files (prior run or prior part).
   Example: Step 4 PYQCount re-delivering updated PYQ_Analysis.docx.
            Step 6 B2 re-delivering updated blueprint.json (B1 version exists).
-           Step 7 re-delivering updated registry.json after each batch.
+           Step 7 / 7-R / 9 / 9-R re-delivering the updated registry.json
+           (REGISTRY-HANDOFF-LAW, §8 — every step that changes it).
 
 BADGE 3 — "Use locally"               (icon: 📁)
   When   : File is NOT meant to be uploaded to project Files.
@@ -129,25 +110,11 @@ BADGE 3 — "Use locally"               (icon: 📁)
 
 ```python
 # ── present_files — THE SINGLE DECLARATION ───────────────────────────────────
-# GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3), DEFECT-CLASS SWEEP.
-#
-# This file already declares itself "the single source of truth — all spec files
-# reference it instead of embedding their own footer logic", and it is the ONLY
-# spec on all 23 routes in routes.json. So the delivery primitive is declared here
-# ONCE, and every spec that calls it inherits the declaration through its route.
-# One writer, exactly as bc.DATE_TAG_RE and cur_date_label are single-writer.
-#
-# WHAT WAS WRONG: present_files was CALLED from compiling python at five sites in
-# four specs — Framework_MockTestAnalyse.md (twice), Framework_PYQScan.md
-# (run_scan), Framework_PYQExplain.md (S19-2) and Framework_MockTestExplain.md
-# (S19-2) — and DEFINED in none of them. Each call is a guaranteed NameError the
-# moment that path executes as python.
-#
-# SAME SHAPE AS: D2 of GAP-2026-08-15-PYQEXTRACT-DRIVE-ACQUISITION, where
-# collect_drive_docx_recursive() called the CLASS T marker gdrive_search() from
-# python and consumed its result. That gap fixed the INSTANCE. The CLASS went
-# unswept for a day short of a fortnight. audit_callgraph C12, added in the same
-# release as this declaration, is route-aware and fails the build on a new one.
+# GAP-2026-08-16-STEP5-SYNTHESIS-UNRUNNABLE (D3). This file is on every route, so the
+# CLASS T delivery primitive is declared here ONCE and every spec inherits it. It had
+# been CALLED from compiling python at five sites in four specs and DEFINED nowhere
+# (a guaranteed NameError); audit_callgraph C12 fails the build on a new one. Full
+# narrative: SPEC_HISTORY.md / CHANGELOG.md 2026.08.16.2.
 
 def present_files(paths):
     """CLASS: T — the chat file-delivery tool. NOT executable python.
@@ -176,44 +143,30 @@ def get_badge(filename, step, is_first_run):
         'Mock*_Q1to*.docx',         # Step 7 per-batch cumulative paper
         'Mock*_Create.docx',        # Step 7 final
         'Mock*_Explanation.docx',     # Step 9 solutions (same file each batch)
-        # LEGACY (v1.13) — no step produces these any more (Steps 8/10 retired in
-        # 2026.08.03.5). Kept in LOCAL_ONLY so a pre-retirement file already on disk
-        # still gets the correct 'Use locally' badge and is never sent to project Files.
+        # LEGACY (v1.13; Steps 8/10 retired) — kept so a file already on disk still badges local.
         'Mock*_Create_Complete.docx',      # was Step 8 rectified
         'Mock*_audit_changelog.md',        # was Step 8 conditional
         'Mock*_Explanation_Complete.docx', # was Step 10 audited solutions
         'Mock*_Final.docx',        # Step 11 tagged final deliverable
-        # v1.21 (GAP-2026-08-13-FOOTER-SCOPED-PATTERNS): scoped papers name files
-        # {EXAM}_{paper_slug}_... where the slug is SUBJ_*/TOPIC_*/SUBTOPIC_* —
-        # the Mock* patterns above never matched them, so a scoped paper's docx
-        # fell through to an Upload/Replace badge. Suffix patterns cover every
-        # slug form (mock AND scoped) for the same three deliverable kinds.
+        # v1.21 (GAP-2026-08-13-FOOTER-SCOPED-PATTERNS): suffix patterns cover scoped slugs
+        # (SUBJ_*/TOPIC_*/SUBTOPIC_*) that the Mock* patterns above never matched.
         '*_Q1to*.docx',             # Step 7 per-batch cumulative (any slug)
         '*_Create.docx',            # Step 7 final (any slug)
         '*_Explanation.docx',       # Step 9 solutions (any slug)
         '*_Final.docx',             # Step 11 tagged final (any slug)
-        '*_audit_dossier.json',     # Step 7 Tier-A dossier (badged Use locally in §3)
+        '*_audit_dossier.json',     # Step 7 dossier — INTERNAL since v1.27 (kept for old files)
+        '*_Create_Repaired.docx',   # Step 7-R repaired paper (any slug) — v1.27
+        '*_Explain_Report.docx',    # Step 9 / 9-R END-OF-MOCK REPORT docx (any slug) — v1.27
         '*_taxonomy.xlsx',          # Step 5 id companion (xlsx — not Claude-readable)
         'analysis_summary.md',      # Step 5 final — human review audit trail
-        '*pyq_registry.json',       # PYQ-4 corpus tracker — LOCAL-ONLY (v1.16;
-                                    # pattern widened v1.17 to also catch a bare
-                                    # 'pyq_registry.json' with no [ExamCode]_ prefix).
-                                    # Optional, never uploaded/replaced in Project
-                                    # Files on any step or exam (Framework_PYQDeliver
-                                    # v1.10). Belt-and-suspenders: PYQ-4 also does not
-                                    # present it on the normal run.
+        '*pyq_registry.json',       # PYQ-4 corpus tracker — LOCAL-ONLY (v1.16/v1.17: bare name
+                                    # too; Framework_PYQDeliver v1.10 never uploads it)
     }
 
-    # CONTEXT-DEPENDENT FILES (not in LOCAL_ONLY — badge varies by delivery context):
-    #   analysis_progress.json:
-    #     Step 5 mid-step delivery → Upload/Replace in Project Files (session resume)
-    #     Step 5 final delivery    → Use locally (keep for future re-runs)
-    #   notes_pyq_bank.json (NB):
-    #     mid-batch checkpoint     → Upload/Replace in Project Files (fresh-chat
-    #                                resume, NB A-7 option B); Use locally if
-    #                                continuing in-session (option A)
-    #     final delivery           → Upload to Project Files (NC/NA consume it)
-    #   Claude determines the correct badge from §3 registry per step + context.
+    # CONTEXT-DEPENDENT (not in LOCAL_ONLY — badge per §3 registry + context):
+    #   analysis_progress.json: Step 5 mid-step → Upload/Replace; final → Use locally.
+    #   notes_pyq_bank.json (NB): mid-batch checkpoint → Upload/Replace (fresh-chat
+    #     resume, A-7 option B) or Use locally (in-session); final → Upload (NC/NA consume it).
     if any(filename.endswith(pat.replace('*', '')) or
            fnmatch(filename, f'*{pat}') for pat in LOCAL_ONLY):
         return 'local'
@@ -237,9 +190,8 @@ the next step to reference. [ExamCode] is the exam prefix throughout.
 ```
 §2A — SPEC PROVENANCE DISCLOSURE (v1.14 — MANDATORY, every footer)
 ═══════════════════════════════════════════════════════════════════════
-Specs are PROJECT-FIRST (2026.08.03.8): a Framework_*.md in the exam project's
-Files section overrides the repo copy. Such a spec CANNOT be byte-verified —
-MANIFEST.json describes the repo, so there is nothing to compare it against.
+Specs are PROJECT-FIRST (2026.08.03.8): a project-Files Framework_*.md overrides the
+repo copy and CANNOT be byte-verified (MANIFEST.json describes the repo).
 
 Step 0 prints a "SPEC SOURCE:" report. Carry its verdict into every footer:
 
@@ -252,14 +204,11 @@ Step 0 prints a "SPEC SOURCE:" report. Carry its verdict into every footer:
                    Integrity not verifiable; these may be stale or out of step
                    with the repo engines.
 
-THIS NEVER HALTS AND NEVER CHANGES SEVERITY. It is a DISCLOSURE line, not a
-gate: it does not set AMBER, does not emit VOID_ITEM or BLOCKING, and does not
-alter F1/F2 selection or the §5 flowchart. The framework rule that no condition
-may halt a run or hard-stop a paper is untouched. What it prevents is a run on
-an unverified spec being presented as if it were fully verified.
+THIS NEVER HALTS AND NEVER CHANGES SEVERITY: a DISCLOSURE line, not a gate (no
+AMBER, no VOID_ITEM/BLOCKING, no F1/F2 change). It only prevents a run on an
+unverified spec from being presented as fully verified.
 
-An [ORPHAN — NOT LOADED] line means the project holds a spec no trigger routes.
-It was ignored. Say so, and say it can be deleted from project Files.
+An [ORPHAN — NOT LOADED] line = a project spec no trigger routes; ignored — say it can be deleted.
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 1 — PYQPrepare
@@ -272,19 +221,15 @@ DELIVERABLES:
     (User uploads to [ExamCode] project Files or Google Drive PYQ folder)
 
 NEXT STEP  : Step 2a: PYQDraft
-NOTE       : Step 1 runs once per raw exam paper. If multiple papers exist,
-             user triggers Step 1 separately for each. After ALL papers are
-             converted to Row files, proceed to Step 2a.
+NOTE       : Step 1 runs once per raw paper (trigger separately for each); go to
+             Step 2a after ALL papers are converted.
 
 ═══════════════════════════════════════════════════════════════════════
 BADGE NOTE — FIRST-BATCH vs SUBSEQUENT-BATCH
 ═══════════════════════════════════════════════════════════════════════
-For batch-based steps (2b, 5, 6, 7, 9), the badge for a file depends
-on whether it already exists in project Files at the time of delivery.
-  - First batch delivering a file  → "Upload to Project Files"
-  - Subsequent batches (same file) → "Replace in Project Files"
-The badges shown below represent the TYPICAL case. Claude determines
-the actual badge at runtime using the §2 logic (check if file exists).
+For batch-based steps (2b, 5, 6, 7, 9): first batch delivering a file →
+"Upload to Project Files"; subsequent batches → "Replace in Project Files".
+Badges below are the TYPICAL case; the actual badge follows §2 at runtime.
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 2a — PYQDraft [ExamCode]
@@ -439,7 +384,8 @@ DELIVERABLES ([SCOPETAG] = SUBJ_* / TOPIC_* / SUBTOPIC_*, as Framework_ScopedBlu
   [ExamCode]_[SCOPETAG]_blueprint.xlsx → Use locally (xlsx not readable by Claude)
   [ExamCode]_registry.json             → Upload to Project Files — ONLY when S8-7
                                          seeded a fresh registry (no registry existed);
-                                         an existing registry is never re-delivered here.
+                                         an existing registry is left untouched here
+                                         (Step 6S does not change it — §8 law).
 
 NEXT STEP  : Step 7: TestCreate P1 --level <subject|topic|subtopic> --scope <…>
              (ensure Step 5 outputs are also in project Files)
@@ -455,17 +401,31 @@ MID-STEP DELIVERABLES (per batch — cumulative whole-paper):
   [ExamCode]_Mock[N]_Q1to[K].docx    → Use locally
   (K = last Q number in this batch; filename grows: Q1to10, Q1to20, ...)
 
-FINAL DELIVERABLES:
+FINAL DELIVERABLES (EXACTLY two — MockTestCreate S13-6, v5.73):
   [ExamCode]_Mock[N]_Create.docx   → Use locally
   [ExamCode]_registry.json           → Replace in Project Files
-  [ExamCode]_M[N]_audit_dossier.json → Use locally (when S13-4b wrote one)
+  (v1.27: [ExamCode]_M[N]_audit_dossier.json is INTERNAL — written to /home/claude,
+   never delivered. Operator decision 2026-08-26.)
 
 NEXT STEP  : Step 9: MockExplain M[N]   (mock paper)
              Step 9: TestExplain P[N]   (scoped paper — v1.24; the M alias HARD-STOPs
                                          on a scoped docx, MockTestExplain S2-1)
 
-  (v1.13 — STEP 8 IS RETIRED. There is no MockCreateAudit / TestCreateAudit trigger.
-   Step 7 hands the paper straight to Step 9. Never print "Step 8" as a next step.)
+  (v1.13 — Step 8 is RETIRED; never print it as a next step.)
+
+═══════════════════════════════════════════════════════════════════════
+STEP 7-R — TestCreateRepair / MockCreateRepair  (v1.27 — MockTestCreate §S16)
+═══════════════════════════════════════════════════════════════════════
+PARTS      : 1 (single response — only the gate's rework_qs are regenerated)
+FOOTER TYPE: F2 (step-complete) — always
+
+DELIVERABLES (CLOSED SET = pp.handoff_set('TestCreateRepair', …)):
+  [ExamCode]_[paper_slug]_Create_Repaired.docx → Use locally
+  [ExamCode]_registry.json                    → Replace in Project Files (carries the
+                                                 pre-repair snapshot §7A-R R3 needs)
+
+NEXT STEP  : Step 9-R: TestExplainRepair P[N] · MockExplainRepair M[N]  (attach the
+             repaired paper + the previous Explanation docx)
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 9 — MockExplain
@@ -480,19 +440,37 @@ DELIVERY MODEL: Whole-paper incremental (RE-8). Each batch delivers the
 MID-STEP DELIVERABLES (per batch — same file, incrementally filled):
   [ExamCode]_Mock[N]_Explanation.docx  → Use locally
 
-FINAL DELIVERABLES (same file, now fully explained):
-  [ExamCode]_Mock[N]_Explanation.docx  → Use locally
+FINAL DELIVERABLES (CLOSED SET = pp.handoff_set('TestExplain', …, final=True);
+MockTestExplain S19-0, v1.46.0):
+  [ExamCode]_Mock[N]_Explanation.docx     → Use locally   (now fully explained)
+  [ExamCode]_registry.json                → Replace in Project Files — whenever the run
+                                            changed it (every §7A-M verdict or healing; the
+                                            ONLY channel to Step 11). Legacy paper: unchanged
+                                            → not delivered, footer says so.
+  [ExamCode]_Mock[N]_Explain_Report.docx  → Use locally   (END-OF-MOCK REPORT as a document,
+                                            MockTestExplain S20-R; inert downstream)
 
-NOTE: registry.json is NOT delivered by Step 9 (frozen/read-only).
-
-NEXT STEP  : Step 11: MockDeliver M[N]  (mock paper)
+NEXT STEP  : Step 11: MockDeliver M[N]  (mock paper) — only on "✅ CLEARED FOR DELIVERY";
+             on ❌ FAILED → Step 7-R (the box prints both commands, pp.dg_next_step)
              Step 11: TestDeliver P[N]  (scoped paper — v1.24; MockDeliver S1-2 gates
                                          the uploaded slug against the paper_slug)
 
-  (v1.13 — STEP 10 IS RETIRED. There is no MockExplainAudit / TestExplainAudit
-   trigger. Step 9 hands the Solutions docx straight to Step 11. Never print
-   "Step 10" as a next step. v1.15: PYQExplainAudit (PYQ-2) is ALSO retired — PYQ-1
-   hands its _PYQ_Explanation.docx straight to PYQ-3/PYQ-4; there is no PYQ audit step.)
+  (v1.13 — Step 10 is RETIRED; v1.15 — PYQExplainAudit (PYQ-2) too. Never print
+   either as a next step.)
+
+═══════════════════════════════════════════════════════════════════════
+STEP 9-R — TestExplainRepair / MockExplainRepair  (v1.27 — MockTestExplain §7A-R)
+═══════════════════════════════════════════════════════════════════════
+PARTS      : 1 or more batches over the rework_qs only (batching rules apply)
+FOOTER TYPE: F2 (step-complete) — after the re-gate
+
+DELIVERABLES (CLOSED SET = pp.handoff_set('TestExplainRepair', …, final=True)):
+  [ExamCode]_[paper_slug]_Explanation.docx    → Use locally   (rework blocks spliced;
+                                                 SAME filename Step 11 accepts)
+  [ExamCode]_registry.json                    → Replace in Project Files (re-gate verdict)
+  [ExamCode]_[paper_slug]_Explain_Report.docx → Use locally   (REPAIR EDITION)
+
+NEXT STEP  : Step 11: TestDeliver P[N] · MockDeliver M[N]  (pp.dg_next_step)
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 11 — MockDeliver
@@ -502,6 +480,8 @@ FOOTER TYPE: F2 (step-complete) — always
 
 DELIVERABLES:
   [ExamCode]_Mock[N]_Final.docx     → Use locally
+  [ExamCode]_registry.json          → Replace in Project Files — ONLY when S1-2 3b
+                                       healed the record (pp.registry_changed, MockDeliver §8)
 
 NEXT STEP  : Pipeline complete for this paper ([paper_slug]).
              Next mock paper   : Step 7: MockCreate M[N+1]
@@ -772,10 +752,8 @@ After every present_files call, Claude evaluates:
       NO  → Q0b (v1.12): did the run that produced this paper report
             COMPLETION-GATE: DEGRADED (vision) — OR did PYQExplain (PYQ-1) record
             any VOID_ITEM in its §13A figural pre-transcription pass?
-            (Through v1.10 the first was Step 8's print; with Step 8 retired the
-            producing step — Step 7 — reports it. The second is
-            Framework_PYQExplain v1.2 §13A-5. Both are the SAME condition: an
-            image artefact measured as un-viewable, never assumed to be.)
+            (Step 7 reports the first since Step 8 retired; the second is
+            Framework_PYQExplain §13A-5. Same condition: an image measured un-viewable.)
 
             YES → Render F1 (AMBER). The paper IS certified and IS delivered, but a
                   measured vision outage meant some figures were machine-checked and
@@ -790,26 +768,15 @@ After every present_files call, Claude evaluates:
                    not be transcribed (§13A). Question(s) <list> carry NO derived
                    answer; every other question is fully explained.
                    Remedy: re-run PYQExplain on a session with a working view tool."
-                  Naming is mandatory: an unexplained question that is not named
-                  reads as an oversight, and the human reviewer has to be told where to look.
-                  A degraded certificate must NEVER render green — green is a claim
-                  that the artefact is fit to hand downstream, and a partially
-                  un-eyeballed paper is fit to SHIP but not fit to be called clean.
+                  Naming is mandatory (the reviewer must be told where to look).
+                  A degraded certificate must NEVER render green.
 
             NO  → continue to Q1.
 
-      WHY THIS EXISTS. A step could previously report a FAIL and still render
-      "Step Complete" in green. That is exactly what shipped the reference run:
-      153/153 figural questions unobserved, 45/45 FIGURAL subtopics with an empty
-      object-type profile, QV-9 PASS, and a green F2 footer. Green is a claim
-      that the artefact is fit to hand downstream; a FAIL means it is not.
-
-      THIS IS NOT A HALT. The step still COMPLETES, still delivers every file, and
-      the operator may still proceed. Amber reports; it does not block. The whole
-      point of the fix is that a failure is VISIBLE, not that work stops.
-
-      A WARN does NOT force amber — WARN is advisory and the distinction has to
-      stay meaningful, or every run turns amber and the signal is lost again.
+      WHY THIS EXISTS. A step could report a FAIL and still render green — the
+      reference run shipped 153/153 figural questions unobserved under a green F2.
+      THIS IS NOT A HALT: the step completes and delivers; amber reports, never
+      blocks. A WARN does NOT force amber (advisory — keep the distinction meaningful).
 
   Q1: Is this step's work FULLY complete?
       (All batches done, all parts done, final synthesis done if applicable)
@@ -861,6 +828,10 @@ After Step 6   → Step 7: MockCreate M1
 After Step 6S  → Step 7: TestCreate P1 --level … --scope …          (v1.24)
 After Step 7   → Step 9: MockExplain M[N] · TestExplain P[N] (scoped)   (Step 8 retired — 2026.08.03.5)
 After Step 9   → Step 11: MockDeliver M[N] · TestDeliver P[N] (scoped) (Step 10 retired — 2026.08.03.5)
+                 … when the §7A-M verdict is ✅ PASSED / DORMANT. On ❌ FAILED (v1.27):
+After Step 9 ❌ → Step 7-R: TestCreateRepair P[N] Q… · MockCreateRepair M[N] Q…
+After Step 7-R → Step 9-R: TestExplainRepair P[N] · MockExplainRepair M[N]
+After Step 9-R → Step 11: TestDeliver P[N] · MockDeliver M[N]   (PASSED/1 or DISCLOSED/1)
 After Step 11  → Pipeline complete for [paper_slug].
                  Next: Step 7: MockCreate M[N+1] (mock) · TestCreate P[N+1] (scoped series)
 
@@ -884,4 +855,29 @@ All deliverable lists are read from the step's own spec (§3 registry).
 The footer needs zero external tools, so it renders identically on any
 machine, any surface, for any team member — SSC CGL, GATE, NEET, UPSC,
 CAT, MPSC, or any exam.
+```
+
+---
+
+## §8 — REGISTRY-HANDOFF-LAW (v1.27 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM)
+
+```
+THE LAW. A step that CHANGES [ExamCode]_registry.json DELIVERS it, badge "Replace in
+Project Files", in the SAME present_files call as its primary artefact. The next step
+reads ONLY the project copy; an undelivered change is a change the pipeline never sees.
+
+WRITERS (paper_pipeline.RH_REGISTRY_WRITING_STEPS): TestCreate/MockCreate (Final Assembly
+commit), TestCreateRepair/MockCreateRepair (§S16-3 update + snapshot), TestExplain/
+MockExplain (§7A-M verdict / healing), TestExplainRepair/MockExplainRepair (§7A-R re-gate).
+READER: TestDeliver/MockDeliver (delivers the registry only when its preflight healed it).
+
+DECIDED BY pp.registry_changed(fingerprint_of_project_copy, working_copy) →
+pp.handoff_set(step, …) — the CLOSED set and the badge per file. The footer prints
+pp.handoff_footer_lines(HANDOFF) VERBATIM, then HANDOFF['lines'] ("REGISTRY HANDOFF
+(<step>): … REPLACE it in Project Files …" or "… registry unchanged this run …").
+Never composed by hand, never omitted, never decided by a per-step sentence.
+
+WHY A LAW. Through 2026.08.26.2 four steps wrote the registry, one delivered it, and
+every gated paper was undeliverable. mock_sync_audit MS-14 bans the old wording and
+requires the badge in every writer spec + a §3 block per trigger. LAW_REGISTRY.json.
 ```

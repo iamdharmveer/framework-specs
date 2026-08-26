@@ -146,6 +146,36 @@ Current-version entry remains in Framework_Blueprint.md.
 
 ## Framework_DeliveryFooter.md
 
+Entries v1.24–v1.26 moved at framework release 2026.08.26.3 (EC-P42; v1.27 supersedes;
+the PYQPrepare route's pre-work read crossed the SPEC-BUDGET threshold).
+
+```
+# v1.26 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paper_pipeline v5.72,
+#   MockDeliver v1.15.0, MockTestExplain v1.45.0). Prose only. §FOOTER-DG DISCLOSED
+#   example shows the windowed shape ("(not gated)" / "in window").
+# v1.25 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
+#   paper_pipeline v5.71 Cluster DG, MockDeliver v1.14.0, MockTestExplain v1.44.0).
+#   MINOR bump: registry/prose only, NO badge changes, NO artefact changes.
+#   * §3 STEP 11 gains §FOOTER-DG, which MockDeliver v1.13.0 referenced but no spec
+#     defined: the difficulty-gate disclosure lines are pp.dg_footer_lines(rec) —
+#     the measured-band line on DISCLOSED, the not-applicable line on DORMANT, and
+#     one healed-registry line per rec['migrations'] entry — so a corrected record
+#     is always disclosed in the delivered footer and never composed by hand.
+#   Superseded v1.23 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
+# v1.24 — 2026-08-24 — GAP-2026-08-24-STEP9-AUDIT-R2: SCOPED-PAPER NEXT-STEP + 6S REGISTRY.
+#   MINOR bump: registry/prose only, NO logic changes, NO badge changes, NO artefact
+#   changes. Release 2 of the Step-9 audit (R1 = 2026.08.24.1).
+#   * §3 STEP 7 / 9 / 11, §4-1 Step-11 variant and §6 named ONLY the mock triggers
+#     (MockCreate M / MockExplain M / MockDeliver M) and "Mock [N]". A scoped paper
+#     (ScopedBlueprint → TestCreate P[N] → TestExplain P[N] → TestDeliver P[N]) got a
+#     footer pointing at a trigger whose --level mock alias would HARD STOP on its
+#     scoped docx (MockTestExplain S2-1 / MockDeliver S1-2 slug gates). Every next-step
+#     line now names both forms; "Mock [N]" → "[paper_slug]".
+#   * §3 had NO entry for Step 6S (ScopedBlueprint), which rides this file on its route
+#     and had no deliverable/badge/next-step registry to follow. Added.
+#   Superseded v1.22 entry moved verbatim to SPEC_HISTORY.md (EC-P42).
+```
+
 Entry v1.23 moved at framework release 2026.08.25.3 (EC-P42; v1.25 supersedes).
 
 ```

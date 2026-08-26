@@ -196,6 +196,19 @@ def _self_test():
     check("LAW-VERIFY fires when a governed spec stops satisfying its verifier",
           rc == 1 and 'LAW-VERIFY' in out)
 
+    # ── GAP-2026-08-26-REGISTRY-HANDOFF-SEAM ─────────────────────────────────
+    def drop_rh_governs(r):
+        pth = os.path.join(r, 'LAW_REGISTRY.json')
+        reg = json.load(open(pth, encoding='utf-8'))
+        law = reg['laws']['REGISTRY-HANDOFF-LAW']
+        law['governs'] = [g for g in law['governs'] if g != 'Framework_MockTestExplain.md']
+        json.dump(reg, open(pth, 'w', encoding='utf-8'), indent=2)
+    rc, out = mutated(drop_rh_governs)
+    check("LAW-COVERAGE derives the REGISTRY-HANDOFF performing set from registry-writer "
+          "calls (a spec calling dg_write_verdict dropped from governs is flagged)",
+          rc == 1 and 'LAW-COVERAGE' in out and 'REGISTRY-HANDOFF-LAW' in out
+          and 'Framework_MockTestExplain.md' in out)
+
     rc, out = mutated(lambda r: os.remove(os.path.join(r, 'LAW_REGISTRY.json')))
     check("LAW-REGISTRY fires when the registry is missing",
           rc == 1 and 'LAW-REGISTRY' in out)
@@ -717,6 +730,8 @@ for r in readers:
 #   REVERSE  — every spec that PERFORMS the governed operation must be listed. A spec
 #              that performs it and is absent is a FAIL, so a new file (or a split
 #              half) cannot inherit the law's surface without inheriting its checks.
+_REG_WRITER_LIVE = re.compile(
+    r'\b(commit_registry|dg_write_verdict|dg_add_rework_snapshot)\(')
 _INJ_LIVE = re.compile(
     r'\b(fetch_drive_docx|collect_corpus_files|stage_drive_payload)\(\s*'
     r'[A-Za-z_][A-Za-z0-9_]*\s*[,)]')
@@ -758,7 +773,8 @@ if _REG is not None:
                                     f"A stale entry silently shrinks the law's reach.")
         _rule = _meta.get('detect')
         if _rule not in ('live_injection_point_call',
-                         'budget_spender_upstream_of_partition'):
+                         'budget_spender_upstream_of_partition',
+                         'registry_writer_call'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -784,6 +800,13 @@ if _REG is not None:
                     _performing.add(_f)
                 elif 'DRIVE_LISTING_CACHE' in _t and 'search_files' in _t:
                     _performing.add(_f)
+        elif _rule == 'registry_writer_call':
+            # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
+            # operation when its live text calls one of the three registry writers.
+            # The verifier (mock_sync_audit MS-14) then requires it to deliver the
+            # registry through pp.handoff_set with the Replace badge.
+            _performing = {f for f, t in TXT.items()
+                           if _REG_WRITER_LIVE.search(_live_text(t))}
         else:
             _performing = {f for f, t in TXT.items() if _INJ_LIVE.search(_live_text(t))}
         for _f in sorted(_performing - set(_governs)):

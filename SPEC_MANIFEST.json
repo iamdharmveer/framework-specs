@@ -9,17 +9,17 @@
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
-      "lines": 887,
-      "sha256": "792c988d7ad6dc6530b846da20d68b4732dce01c34465c18a770359fd8533ab7",
-      "size_bytes": 49314,
-      "version_header": "# Framework_DeliveryFooter v1.26 — Universal Delivery Footer (F1/F2) Contract"
+      "lines": 883,
+      "sha256": "c18b4fa38068e109f8642bb09c4ce8798f8d1960ef10e63f56c082616e6852de",
+      "size_bytes": 49343,
+      "version_header": "# Framework_DeliveryFooter v1.27 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
-      "end_sentinel": "# END OF Framework_MockDeliver v1.15.0",
-      "lines": 1851,
-      "sha256": "0144aace45bec4d5fa4ccc8329c2449148ebf3b16ceb0288a01ec8f3c655e5cf",
-      "size_bytes": 92181,
-      "version_header": "# Framework_MockDeliver v1.15.0 — Universal Mock Test Tagger & Delivery Engine"
+      "end_sentinel": "# END OF Framework_MockDeliver v1.16.0",
+      "lines": 1906,
+      "sha256": "04a0fb5f9395031fd206a9d9d2e955f4e92b1cb6807821864834dd2bc80c4e83",
+      "size_bytes": 96186,
+      "version_header": "# Framework_MockDeliver v1.16.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
       "end_sentinel": "# END OF Framework_MockTestAnalyse v2.54.1",
@@ -30,17 +30,17 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 8658,
-      "sha256": "81d94bcbfa68edb858ad4b9d699b82cdbbfe59e9146a1d9ce32ef537c2c0c914",
-      "size_bytes": 548380,
-      "version_header": "# Framework_MockTestCreate v5.72"
+      "lines": 8735,
+      "sha256": "a9479e57b6edd72a5620604d3ac10241fa29af8a4bc8994814405b644d7c873c",
+      "size_bytes": 553815,
+      "version_header": "# Framework_MockTestCreate v5.73"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 3174,
-      "sha256": "0a4f822b4f8f44be724031d9aeff99f3b0ecf5c0da814d1c3c6bae351abab27a",
-      "size_bytes": 243991,
-      "version_header": "# Framework_MockTestExplain v1.45.1"
+      "lines": 3354,
+      "sha256": "753e36782147cb71f4195c4fe9353bf03bbf9df8c115f706d2406c99ecbd02e2",
+      "size_bytes": 257218,
+      "version_header": "# Framework_MockTestExplain v1.46.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -163,9 +163,9 @@
     },
     "LAW_REGISTRY.json": {
       "end_sentinel": "}",
-      "lines": 62,
-      "sha256": "0a3344adac9de5eeb6660fce15718c29788a97cc396f72582af895843e572f1a",
-      "size_bytes": 7784,
+      "lines": 80,
+      "sha256": "c76aaaf14cfb7c860187820c6ed11ef91d5a451561561f6fea65e536d4992630",
+      "size_bytes": 9360,
       "version_header": "{"
     },
     "audit_callgraph.py": {
@@ -212,9 +212,9 @@
     },
     "audit_sync.py": {
       "end_sentinel": "sys.exit(1 if any(c != 'INFO' for c in ISSUES) else 0)",
-      "lines": 885,
-      "sha256": "61ae05847e8f977b68241c40ae291315075e73f11b746bb943015172a5a9875f",
-      "size_bytes": 49939,
+      "lines": 908,
+      "sha256": "ee2c26b0685f91b58d62d87d5e71da8ca2a154d335717f016b19737f2692e7a2",
+      "size_bytes": 51420,
       "version_header": "\"\"\"audit_sync.py — CROSS-STEP SYNCHRONISATION AUDIT."
     },
     "blueprint_core.py": {
@@ -261,9 +261,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 4047,
-      "sha256": "97f05bfc4c2612adfb7022ac38ba0b978dbf087a9ff6c501e0838aed1d84875a",
-      "size_bytes": 237609,
+      "lines": 4138,
+      "sha256": "2dbe39fc99f2e8bc9e43b3b9d6774f6ee603783acbb25bd04823e55fb7b3acff",
+      "size_bytes": 242440,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {
@@ -317,9 +317,9 @@
     },
     "paper_pipeline.py": {
       "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
-      "lines": 1899,
-      "sha256": "53187f4b1a79ae22d4f1df0601d1060e3d7e563eddfc12f6c9600e3015675a7e",
-      "size_bytes": 115771,
+      "lines": 2101,
+      "sha256": "8a326bbe57affe631ff18593c427fa186ebbb799950b79c62f30169b613a502f",
+      "size_bytes": 128894,
       "version_header": "\"\"\""
     },
     "reconcile_taxonomy.py": {
@@ -380,9 +380,9 @@
     },
     "final_assembly.py": {
       "end_sentinel": "    print(\"final_assembly.py — Step 7 Final Assembly engine. Run with --self-test.\")",
-      "lines": 1613,
-      "sha256": "185775bb7429bcf5650d96d26aacf00af126734fb6a22da98817be10b18a3ef1",
-      "size_bytes": 97522,
+      "lines": 1637,
+      "sha256": "1486c7d76df12fabf3e27e2d5a736877c208732f350338b8b0e2dd840e267643",
+      "size_bytes": 99323,
       "version_header": "\"\"\""
     },
     "spec_name_audit.py": {
@@ -394,9 +394,9 @@
     },
     "mock_sync_audit.py": {
       "end_sentinel": "    sys.exit(main(sys.argv[1:]))",
-      "lines": 968,
-      "sha256": "83a438db2e6306e1fa5e28fbc3d653ff93a545476084d9cf0eda0f8bd849364e",
-      "size_bytes": 48903,
+      "lines": 1111,
+      "sha256": "ca321c2060926bae43edcfedc8975cb577a4b85d54b95bd890d3606af1d904a9",
+      "size_bytes": 59036,
       "version_header": "\"\"\"mock_sync_audit.py v1.0 — cross-step sync auditor for the mock/test track."
     }
   },

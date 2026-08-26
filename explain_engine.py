@@ -23,10 +23,20 @@
 #   parse_solution_blocks(path, cfg)   — [STEP 5] read a Solutions docx back into blocks (inverse of build)
 #   self_test_audit()                  — [STEP 5] reader round-trip gate; run with --self-test-audit
 #   parse_learnings(path)              — [STEP 4] read an EXPLAIN(_AUDIT)_LEARNINGS md into structured rules (P10)
+#   build_report_docx(out, title, sections) / read_report_docx(path) — [v2.9] §20 END-OF-MOCK REPORT as a docx
 #
 # This file is embedded verbatim in Appendix A of Framework_MockTestExplain.md.
 # It is the canonical copy; never patch it by hand — regenerate from the spec.
 #
+# v2.9 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with
+#   MockTestExplain v1.46.0 / MockTestCreate v5.73 / MockDeliver v1.16.0 /
+#   DeliveryFooter v1.27 / paper_pipeline v5.74 Cluster RH / final_assembly
+#   v5.60). ADDITIVE: build_report_docx / read_report_docx write and read the
+#   Step-9 END-OF-MOCK REPORT (§20) as [ExamCode]_[slug]_Explain_Report.docx,
+#   delivered at the final batch beside the Explanation docx and the updated
+#   registry. MANDATE 0 is enforced at the writer (an explicit answer
+#   declaration raises before any byte is written). No existing gate, block
+#   field or docx output changes; Step 11 never reads the report.
 # v2.8 — 2026-08-21 — GAP-2026-08-21-EXPLANATION-PROVENANCE (paired with
 #   MockTestExplain v1.37.0 / PYQExplain v2.15 / MockTestCreate v5.59 /
 #   paper_pipeline v5.39 / final_assembly v5.55). A delivered 60-question paper
@@ -2343,6 +2353,66 @@ def set_coverage_banner(out_path, cfg, text):
     doc.save(out_path)
     return out_path
 
+# ── v2.9 (GAP-2026-08-26-REGISTRY-HANDOFF-SEAM) — END-OF-MOCK REPORT AS A DOCX ──
+REPORT_MANDATE0_RE = re.compile(r'(?i)\b(answer\s*[:=]|option\s+[A-D1-4]\s+is\s+correct)')
+REPORT_FONT = 'Arial'   # plain operator document; no exam value, no content of any question
+
+def build_report_docx(out_path, title, sections, meta_lines=()):
+    """Write the Step-9 END-OF-MOCK REPORT (§20) as a standalone .docx so the
+    operator keeps it beside the Explanation docx instead of scrolling chat.
+
+    title       document heading, e.g. 'END-OF-MOCK REPORT — EX Mock01'
+    meta_lines  optional short lines under the title (provenance, timestamp)
+    sections    ordered list of (heading, lines) — e.g. ('§R3 COVERAGE', [...]).
+                Every line is one paragraph. Lines are MANDATE-0 content: Q-numbers,
+                codes, counts, URLs — never a stem, option, answer or solution
+                sentence. A line matching REPORT_MANDATE0_RE (an explicit answer
+                declaration) raises ValueError BEFORE anything is written.
+
+    The file is INERT downstream — Step 11 reads only registry.json and the
+    Explanation docx (its filename ends _Explanation.docx; this one ends
+    _Explain_Report.docx, so the S1-2 attachment gate can never confuse them).
+    Returns out_path."""
+    from docx.shared import Pt
+    for hd, lines in sections:
+        for ln in lines:
+            if REPORT_MANDATE0_RE.search(str(ln)):
+                raise ValueError(f'MANDATE 0: report line under {hd!r} declares an answer '
+                                 f'— the report is content-free by contract')
+    doc = Document()
+    st = doc.styles['Normal']
+    st.font.name = REPORT_FONT
+    st.font.size = Pt(10)
+    doc.add_heading(title, level=1)
+    for ml in meta_lines:
+        doc.add_paragraph(str(ml))
+    for hd, lines in sections:
+        doc.add_heading(str(hd), level=2)
+        if not lines:
+            doc.add_paragraph('(empty — stated explicitly, never omitted)')
+        for ln in lines:
+            doc.add_paragraph(str(ln))
+    doc.save(out_path)
+    return out_path
+
+
+def read_report_docx(path):
+    """Inverse of build_report_docx for the self-test and any later audit:
+    returns {'title': str, 'sections': [(heading, [lines])]}."""
+    doc = Document(path)
+    title, secs, cur = None, [], None
+    for p in doc.paragraphs:
+        sty = p.style.name if p.style is not None else ''
+        if sty.startswith('Heading 1'):
+            title = p.text
+        elif sty.startswith('Heading 2'):
+            cur = (p.text, [])
+            secs.append(cur)
+        elif cur is not None:
+            cur[1].append(p.text)
+    return {'title': title, 'sections': secs}
+
+
 def strip_solutions(out_path, stripped_path, cfg):
     """Produce a questions-only copy (every appended explanation paragraph
     removed) so the Step-2 paper auditor sees ONLY the paper (Conflict-3).
@@ -3520,6 +3590,27 @@ def self_test():
     except Exception as e:
         EngineConfig.DEFAULT_PROVENANCE_GATES = True
         check('V28-SCANRISK', False); print('   scan-risk:', repr(e))
+
+    # v2.9 — END-OF-MOCK REPORT DOCX (GAP-2026-08-26-REGISTRY-HANDOFF-SEAM)
+    try:
+        import tempfile as _tf, os as _os
+        _rp = _os.path.join(_tf.mkdtemp(), 'EX_Mock01_Explain_Report.docx')
+        build_report_docx(_rp, 'END-OF-MOCK REPORT — EX Mock01',
+                          [('§R2 VERDICT', ['SHIP']),
+                           ('§R3 COVERAGE', ['60/60 explained', 'SPEED HACK on Q.3 Q.9']),
+                           ('§R5 DERIVATION-CONFIDENCE', [])],
+                          meta_lines=['Framework 2026.08.26.3'])
+        _rr = read_report_docx(_rp)
+        check('V29-REPORT-ROUNDTRIP', _rr['title'] == 'END-OF-MOCK REPORT — EX Mock01'
+              and [h for h, _ in _rr['sections']] == ['§R2 VERDICT', '§R3 COVERAGE',
+                                                     '§R5 DERIVATION-CONFIDENCE']
+              and _rr['sections'][1][1] == ['60/60 explained', 'SPEED HACK on Q.3 Q.9']
+              and _rr['sections'][2][1] == ['(empty — stated explicitly, never omitted)'])
+        check('V29-REPORT-NAME-DISJOINT', not _rp.endswith('_Explanation.docx'))
+        check('V29-REPORT-MANDATE0', _raises(lambda: build_report_docx(
+            _rp, 't', [('§R7', ['Q.4 answer: 3'])])))
+    except Exception as e:
+        check('V29-REPORT-ROUNDTRIP', False); print('   report:', repr(e))
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)

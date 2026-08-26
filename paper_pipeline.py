@@ -40,6 +40,16 @@ Concerns:
                                             (superseded_snapshots) — a stale snapshot would make
                                             §7A-R R3 accuse a correct repair and fail A-DGATE 5;
                                             kept when the set is identical or the round is carried.
+ 13. registry_fingerprint / registry_changed / handoff_set / verify_handoff_outputs /
+     handoff_footer_lines / report_docx_name (CLUSTER RH)
+                                          — v5.74 REGISTRY HANDOFF (GAP-2026-08-26-REGISTRY-
+                                            HANDOFF-SEAM): a step that CHANGES registry.json
+                                            DELIVERS it (Replace in Project Files) in the same
+                                            present_files call as its primary artefact. Decided
+                                            by fingerprint, never by prose; Steps 7, 7-repair,
+                                            9, 9-repair and 11 all build their closed deliverable
+                                            set here. Step 9's END-OF-MOCK REPORT gains a docx
+                                            form (report_docx_name) delivered at the final batch.
  11. validate_semantic_object / semantic_objects_agree
                                           — v5.39 FIGURE SEMANTIC OBJECTS: every generated figure
                                             registers what it DEPICTS in machine-readable form
@@ -307,6 +317,15 @@ def _self_test():
         else:
             f += 1
             _failed.append(name)
+
+    def _raises(fn, exc):
+        try:
+            fn()
+        except exc:
+            return True
+        except Exception:
+            return False
+        return False
 
     def ck_call(name, fn):
         """v5.38 — evaluate a fixture that MAY RAISE and count a raise as a
@@ -892,6 +911,67 @@ def _self_test():
        and dg_state(_fleet['difficulty_gate']['SUBJ:Chem:01']) == ('DORMANT', 0)
        and _fleet['difficulty_gate']['MOCK:M03']['status'] == 'WEIRD'
        and dg_state(_fleet['difficulty_gate']['MOCK:M02']) == ('PENDING', 0))
+
+    # ── CLUSTER RH (v5.74, GAP-2026-08-26-REGISTRY-HANDOFF-SEAM) ──────────────
+    _r0 = {'exam_code': 'EX', 'papers_completed': ['MOCK:M01'],
+           'difficulty_gate': {'MOCK:M01': {'status': 'PENDING', 'repair_rounds_used': 0}}}
+    _fp = registry_fingerprint(_r0)
+    ck('RH-fingerprint-key-order-invariant',
+       registry_fingerprint({'b': 1, 'a': [1, 2]}) == registry_fingerprint({'a': [1, 2], 'b': 1}))
+    ck('RH-unchanged', not registry_changed(_fp, dict(_r0)))
+    _r1 = {**_r0, 'difficulty_gate': {'MOCK:M01': {'status': 'PASSED', 'repair_rounds_used': 0}}}
+    ck('RH-changed-on-verdict', registry_changed(_fp, _r1))
+    ck('RH-report-name', report_docx_name('EX', 'MOCK:M01') == 'EX_Mock01_Explain_Report.docx'
+       and report_docx_name('EX', 'SUBJ:Physics:01') == 'EX_SUBJ_Physics_01_Explain_Report.docx')
+    # Step 9 final batch, verdict written: docx + registry(Replace) + report(local), in order
+    _hs = handoff_set('TestExplain', primary_docx='EX_Mock01_Explanation.docx',
+                      reg_name='EX_registry.json', registry_changed=True, final=True,
+                      report_docx='EX_Mock01_Explain_Report.docx')
+    ck('RH-explain-final-set', _hs['files'] == ['EX_Mock01_Explanation.docx', 'EX_registry.json',
+                                                'EX_Mock01_Explain_Report.docx']
+       and _hs['badges']['EX_registry.json'] == RH_BADGE_REPLACE
+       and _hs['badges']['EX_Mock01_Explain_Report.docx'] == RH_BADGE_LOCAL
+       and _hs['registry_delivered'] and any('REPLACE it in Project Files' in l for l in _hs['lines']))
+    # Step 9 non-final batch: the explanation docx ONLY
+    _hm = handoff_set('TestExplain', primary_docx='EX_Mock01_Explanation.docx',
+                      reg_name='EX_registry.json', registry_changed=False, final=False)
+    ck('RH-explain-midrun-only-docx', _hm['files'] == ['EX_Mock01_Explanation.docx']
+       and not _hm['registry_delivered'] and _hm['lines'] == [])
+    # legacy paper (no gate record): writing step, nothing changed — says so, delivers no registry
+    _hl = handoff_set('MockExplain', primary_docx='EX_Mock01_Explanation.docx',
+                      reg_name='EX_registry.json', registry_changed=False, final=True)
+    ck('RH-legacy-says-unchanged', _hl['files'] == ['EX_Mock01_Explanation.docx']
+       and any('registry unchanged this run' in l for l in _hl['lines']))
+    # a changed registry can NEVER be withheld: any changed → delivered (all 10 steps)
+    ck('RH-changed-always-delivered', all(
+        handoff_set(st, primary_docx='p.docx', reg_name='EX_registry.json',
+                    registry_changed=True)['registry_delivered'] for st in RH_MOCK_TRACK_STEPS))
+    # Step 11 healed record → registry travels; clean record → Final.docx only
+    ck('RH-deliver-healed', handoff_set('TestDeliver', primary_docx='EX_Mock01_Final.docx',
+       reg_name='EX_registry.json', registry_changed=True)['files'][1] == 'EX_registry.json')
+    ck('RH-deliver-clean', handoff_set('TestDeliver', primary_docx='EX_Mock01_Final.docx',
+       reg_name='EX_registry.json', registry_changed=False)['files'] == ['EX_Mock01_Final.docx'])
+    # Step 7 repair: repaired paper + registry (the snapshot §7A-R R3 needs)
+    _hr = handoff_set('TestCreateRepair', primary_docx='EX_Mock01_Create_Repaired.docx',
+                      reg_name='EX_registry.json', registry_changed=True)
+    ck('RH-create-repair-set', _hr['files'] == ['EX_Mock01_Create_Repaired.docx', 'EX_registry.json'])
+    ck('RH-unknown-step-raises', _raises(lambda: handoff_set('PYQSort', primary_docx='x',
+       reg_name='r', registry_changed=False), RHIllegalHandoff))
+    ck('RH-report-midrun-raises', _raises(lambda: handoff_set('TestExplain', primary_docx='x',
+       reg_name='r', registry_changed=False, final=False, report_docx='rep.docx'), RHIllegalHandoff))
+    ck('RH-extra-local-dedup', handoff_set('TestCreate', primary_docx='a.docx', reg_name='r.json',
+       registry_changed=True, extra_local=('a.docx', 'b.json'))['files'] == ['a.docx', 'r.json', 'b.json'])
+    _v = verify_handoff_outputs(['EX_Mock01_Explanation.docx', 'EX_registry.json',
+                                 'EX_Mock01_Explain_Report.docx'], _hs)
+    ck('RH-verify-ok', _v['ok'] and _v['missing'] == [] and _v['stray'] == [])
+    _v2 = verify_handoff_outputs(['EX_Mock01_Explanation.docx', 'EX_M1_progress.json'], _hs)
+    ck('RH-verify-missing-and-stray', not _v2['ok']
+       and _v2['missing'] == ['EX_Mock01_Explain_Report.docx', 'EX_registry.json']
+       and _v2['stray'] == ['EX_M1_progress.json'])
+    ck('RH-footer-lines', handoff_footer_lines(_hs)[1] == 'EX_registry.json → Replace in Project Files'
+       and len(handoff_footer_lines(_hs)) == 4)
+    ck('RH-writing-subset', RH_REGISTRY_WRITING_STEPS < RH_MOCK_TRACK_STEPS
+       and {'TestDeliver', 'MockDeliver'} == RH_MOCK_TRACK_STEPS - RH_REGISTRY_WRITING_STEPS)
 
     # v5.38 (GAP-2026-08-03-BANNER) — THE BANNER IS THE LAST THING COMPUTED.
     # It previously sat mid-function, so the 13 LABELFMT fixtures appended after
@@ -1892,6 +1972,128 @@ def dg_fleet_heal(reg, *, apply):
             else:
                 out['pending'].append(pid)
     return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CLUSTER RH — REGISTRY HANDOFF (v5.74, GAP-2026-08-26-REGISTRY-HANDOFF-SEAM)
+# ═══════════════════════════════════════════════════════════════════════════════
+# THE DEFECT. registry.json is the shared ledger every mock-track step reads, and
+# FOUR steps write it (Step 7 commit, Step 9 §7A-M verdict, Step 7-repair §S16-3
+# snapshot, Step 9-repair §7A-R re-gate). Only Step 7 was told to hand the updated
+# ledger back to the operator. Step 9's own delivery checklist HARD-STOPPED unless
+# outputs held exactly the Explanation docx, so the difficulty-gate verdict lived only
+# in /home/claude, the project copy stayed (PENDING, 0), and Step 11 refused the paper
+# forever — on every exam. The repair steps had no delivery contract at all, so the
+# pre-repair snapshot §7A-R R3 needs never reached the project either: a dead loop.
+# Measured on the reference project 2026-08-26: the project registry carried
+# difficulty_gate=(FAILED, 0) ONLY because a session broke its own S19-1 gate to move
+# the file back by hand.
+#
+# THE LAW (REGISTRY-HANDOFF-LAW, LAW_REGISTRY.json, verified by mock_sync_audit MS-14):
+#   A step that CHANGES registry.json DELIVERS registry.json, badge "Replace in
+#   Project Files", in the SAME present_files call as its primary artefact.
+# The decision is MECHANICAL — a fingerprint of the registry as loaded from the project
+# versus the registry the step is about to hand off — never a per-step prose claim, so
+# no exam and no step can opt out and no future edit can silently reintroduce the
+# "frozen" wording. A step that changed nothing (a legacy paper with no gate record)
+# delivers nothing and SAYS so. Pure functions only: the caller reads the files, this
+# cluster decides.
+RH_GAP_ID = 'GAP-2026-08-26-REGISTRY-HANDOFF-SEAM'
+RH_BADGE_REPLACE = 'Replace in Project Files'
+RH_BADGE_LOCAL = 'Use locally'
+RH_REPORT_SUFFIX = '_Explain_Report.docx'   # Step 9 END-OF-MOCK REPORT as a docx (final batch)
+# Every mock-track trigger that may call present_files. The WRITING subset is the set
+# of steps that own a registry writer (final_assembly.commit_registry, dg_write_verdict,
+# dg_add_rework_snapshot) — the audit derives the same set from the specs' live text.
+RH_MOCK_TRACK_STEPS = frozenset({
+    'TestCreate', 'MockCreate', 'TestCreateRepair', 'MockCreateRepair',
+    'TestExplain', 'MockExplain', 'TestExplainRepair', 'MockExplainRepair',
+    'TestDeliver', 'MockDeliver'})
+RH_REGISTRY_WRITING_STEPS = frozenset({
+    'TestCreate', 'MockCreate', 'TestCreateRepair', 'MockCreateRepair',
+    'TestExplain', 'MockExplain', 'TestExplainRepair', 'MockExplainRepair'})
+
+
+class RHIllegalHandoff(ValueError):
+    """A handoff request the law cannot honour (unknown step, report on a non-final
+    batch, a changed registry the caller tried to withhold). Always a caller bug."""
+
+
+def registry_fingerprint(reg):
+    """sha256 of the registry's canonical JSON (sorted keys, no whitespace). Two
+    registries with the same content fingerprint identically regardless of key
+    order or how they were serialised on disk."""
+    import hashlib as _h, json as _j
+    return _h.sha256(_j.dumps(reg, sort_keys=True, ensure_ascii=False,
+                              separators=(',', ':')).encode('utf-8')).hexdigest()
+
+
+def registry_changed(fingerprint_before, reg_after):
+    """True iff the registry the step will hand off differs from the one it loaded."""
+    return registry_fingerprint(reg_after) != fingerprint_before
+
+
+def report_docx_name(exam_code, paper_id):
+    """[ExamCode]_[paper_slug]_Explain_Report.docx — the Step 9 END-OF-MOCK REPORT as a
+    file. INERT downstream: Step 11 reads only registry.json + the Explanation docx."""
+    return f'{exam_code}_{paper_slug(paper_id)}{RH_REPORT_SUFFIX}'
+
+
+def handoff_set(step, *, primary_docx, reg_name, registry_changed, final=True,
+                report_docx=None, extra_local=()):
+    """Decide the CLOSED deliverable set for one present_files call.
+
+    step             one of RH_MOCK_TRACK_STEPS
+    primary_docx     the step's own artefact (paper / explanation / final docx)
+    reg_name         [ExamCode]_registry.json
+    registry_changed registry_changed(fp_loaded_from_project, reg_about_to_hand_off)
+    final            False for a non-final batch (Step 7 / Step 9 mid-run)
+    report_docx      Step 9 report docx name — final batch only
+    extra_local      any further 'Use locally' files the spec lists (closed set)
+
+    Returns {'files': [ordered], 'badges': {name: badge}, 'registry_delivered': bool,
+             'lines': [operator-facing lines]}. Raises RHIllegalHandoff on a request
+    the law cannot honour. NEVER silently drops a changed registry."""
+    if step not in RH_MOCK_TRACK_STEPS:
+        raise RHIllegalHandoff(f'{RH_GAP_ID}: unknown mock-track step {step!r}')
+    if report_docx and not final:
+        raise RHIllegalHandoff(f'{RH_GAP_ID}: the report docx is a FINAL-batch '
+                               f'deliverable; step {step} asked for it mid-run')
+    files, badges, lines = [primary_docx], {primary_docx: RH_BADGE_LOCAL}, []
+    if registry_changed:
+        files.append(reg_name)
+        badges[reg_name] = RH_BADGE_REPLACE
+        lines.append(f'REGISTRY HANDOFF ({step}): {reg_name} was updated by this step — '
+                     f'REPLACE it in Project Files before running the next step. '
+                     f'The next step reads ONLY the project copy.')
+    elif step in RH_REGISTRY_WRITING_STEPS and final:
+        lines.append(f'REGISTRY HANDOFF ({step}): registry unchanged this run — '
+                     f'nothing to replace in Project Files.')
+    if report_docx:
+        files.append(report_docx)
+        badges[report_docx] = RH_BADGE_LOCAL
+    for x in extra_local:
+        if x not in files:
+            files.append(x)
+            badges[x] = RH_BADGE_LOCAL
+    return {'files': files, 'badges': badges, 'registry_delivered': bool(registry_changed),
+            'lines': lines}
+
+
+def verify_handoff_outputs(staged_names, hs):
+    """Compare what is actually staged in outputs against the handoff set. Pure:
+    the caller passes os.listdir(). {'ok', 'missing', 'stray'} — a stray file is as
+    fatal as a missing one (the set is CLOSED; a leaked sidecar is a defect)."""
+    staged = set(staged_names)
+    expected = set(hs['files'])
+    return {'ok': staged == expected,
+            'missing': sorted(expected - staged), 'stray': sorted(staged - expected)}
+
+
+def handoff_footer_lines(hs):
+    """Footer lines, one per delivered file, badge included — DeliveryFooter renders
+    exactly these (never hand-composed), then hs['lines'] beneath them."""
+    return [f'{name} → {hs["badges"][name]}' for name in hs['files']] + list(hs['lines'])
 
 
 if __name__ == '__main__':
