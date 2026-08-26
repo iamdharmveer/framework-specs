@@ -1,4 +1,9 @@
-# Framework_PYQDeliver v1.12 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.13 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.13 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE. Complexity Tier 2 (E-9 keyword
+#   scoring) RETIRED with the scorer itself (MockTestAnalyse v2.55, blueprint_core): Tier 1
+#   (assessed) → Tier 1.5 (structural) → Tier 3 (default). The §2-3e mixed-provenance WARN now
+#   names Tier 3; R3 / EC-17 / EC-19 updated; the engine mandate requires only
+#   structural_difficulty. Operator decision 2026-08-27. No tagging or delivery change.
 # v1.12 — 2026-08-13 — TIER 0 ERA GUARD closes an era-blind Tier-1 defect surface
 #   (PROJECT OVERRIDE for IIT_JAM_BIOTECHNOLOGY; proposed upstream for the repo).
 #   ROOT CAUSE: S2-2a's Tier 1 is a literal, era-blind position lookup against
@@ -185,9 +190,8 @@ preserved exactly as the input carried them.
    clone (`/tmp/fw`, GitHub model) FIRST, falling back to the project Files
    (`/mnt/project`, direct-upload model) — either location satisfies the
    mandate, so GitHub-connected projects need no per-project engine upload.
-   Provides the Cluster E pure functions for Tier-2 Complexity resolution
-   (§2-3): `score_difficulty`, `determine_strip_mode`, `map_difficulty_level`
-   (Cluster E, Tier 2) and `structural_difficulty` (Cluster E2, Tier 1.5 — v1.5).
+   Provides `structural_difficulty` (Cluster E2, Tier 1.5 — v1.5) for Complexity
+   resolution (§2-3); the Cluster E Tier-2 functions are RETIRED (v1.13).
    ALSO PROVIDES (v1.12) the Cluster F pure functions for the Question Type
    TIER 0 era guard (§S2-2): `classify_paper_era`, `type_resolver_from_config`,
    `exam_config_bounds`. Reused, never reproduced (S13-1 anti-drift principle) —
@@ -284,9 +288,8 @@ Everything is derived from the attachment and project knowledge:
 5a. **blueprint_core.py**: resolve it dual-path — the framework clone
    (`/tmp/fw/blueprint_core.py`) FIRST, else the project Files
    (`/mnt/project/blueprint_core.py`) — and verify it exposes
-   `score_difficulty`, `determine_strip_mode`, `map_difficulty_level`,
-   `structural_difficulty`
-   (Cluster E). Absent from both, or missing a function → HARD STOP (§0 item 6).
+   `structural_difficulty` (Cluster E2; v1.13 — the Tier-2 Cluster E names are
+   retired and no longer required). Absent from both, or missing → HARD STOP (§0 item 6).
 
 6. **PYQ registry check (OPTIONAL)**: load `[ExamCode]_pyq_registry.json` ONLY if
    the operator voluntarily attached one. It is NOT a Project-Files artifact, so on
@@ -481,7 +484,7 @@ For each question q (first tier that yields a value wins):
 ```text
 TIER 1   — q_to_difficulty[q]           (progress JSON — PYQ-1 §7A assessment)
 TIER 1.5 — structural_difficulty(q)     (exam_config.marking_scheme[] structure)
-TIER 2   — E-9 score_difficulty(stem)   (blueprint_core.py — always computable)
+TIER 2   — RETIRED (v1.13 — GAP-2026-08-27-DIFFICULTY-PROFILE): E-9 keyword scorer deleted; falls through
 TIER 3   — difficulty_default            (exam_config, fallback "Medium")
 ```
 
@@ -492,10 +495,9 @@ WHY THE ORDER IS THIS AND NOT ANOTHER (v1.5 — do not reorder):
   vocabulary. Nothing below it can do that.
   Tier 1.5 reflects the exam body's design intent for a whole Q-range. It is
   uniform within a band by construction — a floor, not an assessment.
-  Tier 2 reads stem keywords. Its vocabulary is aptitude-calibrated, so for exams
-  outside that vocabulary it under-differentiates severely (measured: 60/60 at one
-  label on IIT JAM BT). It is retained because it is always computable and because
-  it is the scale Step 5's corpus statistics use — never because it is accurate.
+  Tier 2 (E-9 keyword scoring) is RETIRED (v1.13): a vocabulary scorer is not an
+  instrument (see item 19 below and MockTestAnalyse E-9). Nothing sits between
+  the structural floor and the safety net any more.
   Tier 3 is a safety net that should never fire on a normal run.
 
 ### S2-3a — Tier 1: q_to_difficulty (upstream assessment)
@@ -561,83 +563,16 @@ scheme already did. That is a floor worth having instead of a degenerate single
 label — and it is a reason to run PYQ-1 so Tier 1 can supersede it, not a reason
 to consider the paper assessed.
 
-### S2-3b — Tier 2: E-9 3-axis scoring (fallback path)
+### S2-3b — Tier 2: RETIRED (v1.13 — GAP-2026-08-27-DIFFICULTY-PROFILE)
 
-Import `blueprint_core.py` (Cluster E — the canonical shared copy of Step 5's
-E-9/E-10, under its CROSS-FILE SYNC RULE), resolved dual-path — the framework
-clone (`/tmp/fw`) FIRST, else the project Files (`/mnt/project`):
-
-```python
-import os, shutil, sys
-_engine_src = next((p for p in ('/tmp/fw/blueprint_core.py',
-                                '/mnt/project/blueprint_core.py')
-                    if os.path.exists(p)), None)
-if _engine_src is None:
-    raise SystemExit(
-        "HARD STOP (ENGINE MANDATE): blueprint_core.py not found in the framework "
-        "clone (/tmp/fw) or the project Files (/mnt/project). Reload the framework "
-        "(Step 0) or upload the engine, then re-run.")
-shutil.copy(_engine_src, '/home/claude/blueprint_core.py')
-sys.path.insert(0, '/home/claude')
-from blueprint_core import (score_difficulty, determine_strip_mode,
-                            map_difficulty_level, structural_difficulty)
-```
-
-```text
-strip_mode = determine_strip_mode(subject, topic, subtopic)
-               with subject/topic/subtopic from q_to_classification[q]
-is_msq     = (resolved Question Type for q == 'MSQ')   # §2-2, already computed
-marks      = PER-QUESTION, resolved by the §0 item 2 MARKS RESOLUTION ORDER:
-             (a) correct_marks of the marking_scheme entry whose q_range contains q;
-             (b) else marks_default if it is a positive number;
-             (c) else 1.
-             (v1.5 — was a single uniform exam_config.marks_default for the whole
-              paper. Never derive marks by any other route; see §0 item 2.)
-
-           OUT-OF-PATTERN MARKS WARNING (v1.3 — MANDATORY, never silent):
-           exam_config describes the CURRENT pattern. A PYQ paper from a previous era can
-           carry Q-numbers beyond every configured range, and those questions may have been
-           worth something quite different — a 4-mark legacy question silently delivered to
-           students as 1 mark is a real scoring error, not a rounding detail.
-           Before writing the tagged output, count the questions whose Q-number falls
-           outside every exam_config.sections[].q_range (equivalently: those Framework_
-           PYQSort v1.10 tagged with bc.OUT_OF_PATTERN). If that count is > 0, WARN:
-             "N question(s) in this paper fall outside the current exam pattern's
-              Q-number ranges (Q.x-Q.y). exam_config declares no marks for them, so each
-              is being tagged [marks] mark(s) by fallback. If this paper is from an earlier
-              pattern with different marks, correct them before publishing."
-           This is a WARN, not a HALT: delivering a legacy PYQ paper is legitimate and
-           common. Only the silence was wrong.
-               (v1.5 SUPERSEDES the v1.2-v1.4 note that "the PYQ pipeline does not
-                track per-question marks". It does: exam_config.marking_scheme[]
-                carries correct_marks per q_range and Steps 7/9/11 already read it.
-                The uniform value was a simplification, not a data limitation, and
-                it is withdrawn. For a genuinely uniform-marks exam the resolved
-                per-question value equals the old one, so nothing changes there.)
-result     = score_difficulty({'stem': stem_text, 'is_msq': is_msq},
-                              marks=marks, strip_mode=strip_mode)
-value      = map_difficulty_level(result['level'], difficulty_labels)
-```
-
-`stem_text` is the question's full stem: all `<w:t>` run text of the Q-stem
-region concatenated in document order, `.strip()`ed — the SAME text layer
-gates C2/C13 read. OMML content is not part of the text layer and therefore
-not visible to the V axis; this matches Step 5's own extraction behavior
-(parity by construction, documented, not a defect).
-
-`map_difficulty_level` applies the fixed Blueprint §7 S7-6 ordinal alias
-(Simple→labels[0], Medium→labels[1], Hard→labels[2]). It returns None —
-forcing Tier 3 — when `difficulty_labels` is not an exactly-3-label list:
-a 2- or 5-band custom vocabulary has no defensible correspondence to a
-3-level scorer, and PYQ-4 must not guess.
-
-`difficulty_labels` here is the §0 item 2 value INCLUDING its fallback:
-when exam_config.json (or the field) is absent/unusable, the defaulted
-['Easy','Medium','Hard'] keeps Tier 2 fully functional (MockDeliver
-parity) — a missing config degrades vocabulary, never per-Q resolution.
-Only a PRESENT custom non-3-label set forces Tier 3.
-
-If `value` is not None → record tier=2 for this q. Else fall to Tier 3.
+The E-9 keyword scorer (`blueprint_core.score_difficulty`) no longer exists in the
+corpus; PYQ-4 imports only `structural_difficulty` (Cluster E2) and the Cluster F
+Question-Type functions from `blueprint_core.py`. A question that Tier 1 (assessed,
+PYQExplain §7A) and Tier 1.5 (structural) both leave unresolved falls DIRECTLY to
+Tier 3. Difficulty on a delivered PYQ paper is therefore either MEASURED (Tier 1),
+the exam body's DESIGN INTENT (Tier 1.5), or the disclosed DEFAULT (Tier 3) — never
+a keyword guess presented as a label. `map_difficulty_level` / `determine_strip_mode`
+stay in the engine for other consumers; PYQ-4 does not call them.
 
 ### S2-3c — Tier 3: difficulty_default (safety net — v1.1 behavior)
 
@@ -679,21 +614,20 @@ MIXED-PROVENANCE WARN (v1.5 — MANDATORY, never silent). The degenerate check a
 only fires when the WHOLE paper lands on one label, and that misses a real case.
 An exam that mixes question types but has UNIFORM marks — MCQ and NAT both at the
 same marks, the shape used by several major entrance exams — resolves its NAT/MSQ
-questions at Tier 1.5 and drops every MCQ to Tier 2. The resulting distribution is
+questions at Tier 1.5 and drops every MCQ to Tier 3 (v1.13). The resulting distribution is
 NOT uniform, so the degenerate WARN stays quiet, and the paper ships with a
 Complexity column whose values came from two different instruments: one reading
-the marking structure, the other reading stem keywords. Those are not the same
+the marking structure, the other a paper-wide default. Those are not the same
 scale and must not be compared as though they were.
 
-Therefore: if Tier 2 resolved at least one question AND Tiers 1/1.5 together
+Therefore: if Tier 3 resolved at least one question AND Tiers 1/1.5 together
 resolved at least one other, WARN:
 
   "Complexity on this paper has MIXED PROVENANCE: N question(s) were resolved by
-   tier(s) <list> and M question(s) fell to Tier 2 (E-9 keyword scoring). These
-   are different instruments on different scales — a 'Medium' from the marking
-   structure and an 'Easy' from stem keywords are not comparable, and the Tier-2
-   questions were not measured at all unless this exam's stems use aptitude
-   vocabulary. Run PYQExplain (PYQ-1) so Tier 1 resolves the whole paper on one
+   tier(s) <list> and M question(s) fell to Tier 3 (difficulty_default). These
+   are different instruments — a 'Medium' from the marking structure and the
+   paper-wide default are not comparable, and the Tier-3 questions were not
+   measured at all. Run PYQExplain (PYQ-1) so Tier 1 resolves the whole paper on one
    instrument, then re-run PYQ-4."
 
 Both WARNs can fire together, and both are reported in §R3.
@@ -1201,11 +1135,11 @@ Printed in chat after present_files:
   Tier 3, §2-3e) and the per-label distribution of resolved Complexity values.
   Any Tier-1 validation WARNs and any Tier-3 fallbacks listed with q number and
   reason. Both §2-3e WARNs — degenerate-distribution and mixed-provenance — are
-  reported here when they fire, with the Q-numbers that fell to Tier 2.
+  reported here when they fire, with the Q-numbers that fell to Tier 3.
   When Tier 1.5 resolved any question, state plainly that those values are the
   exam body's per-band design intent and are uniform within a band (§2-3a1).
   EXPECTED on a paper WITH a PYQ-1 pass: Tier 1 = Q_TOTAL, all others 0.
-  EXPECTED on a paper WITHOUT one: Tier 1.5 and/or Tier 2 carry the paper, and
+  EXPECTED on a paper WITHOUT one: Tier 1.5 and/or Tier 3 carry the paper, and
   the report should say so rather than presenting the column as assessed.
 - **§R4 — Content fidelity (v1.9).** State the delivered `<m:oMath>` count and
   confirm it equals the source count (C5/C11) — i.e. native math preserved, zero
@@ -1345,8 +1279,8 @@ PYQ-4 is done when **all** hold:
     (Step 0) or uploads the current blueprint_core.py, then re-runs.
 
 17. **q_to_difficulty present but defective** (value missing for some q,
-    wrong type, or not in difficulty_labels) → per-q WARN + Tier-2
-    fallthrough (S2-3a). A defective Tier-1 map can never block delivery
+    wrong type, or not in difficulty_labels) → per-q WARN + fallthrough to
+    Tier 1.5 / Tier 3 (S2-3a; Tier 2 retired v1.13). A defective Tier-1 map can never block delivery
     and can never inject an out-of-vocabulary tag.
 
 18. **Non-3-label difficulty_labels** (2-band or 5-band custom set) →
@@ -1354,30 +1288,16 @@ PYQ-4 is done when **all** hold:
     WARNed, difficulty_default used (must itself be in the label set or
     C10 HARD STOPs). Deterministic; never guesses an ordinal mapping.
 
-19. **Exam whose stems are outside E-9's aptitude vocabulary** — science,
-    engineering, medical, humanities, and every theory/recall paper — reaching
-    Tier 2. v1.5 RECLASSIFIES this from "documented signal limit" to DEFECT
-    SURFACE. Measured on IIT JAM Biotechnology 15-Feb-2026 (60 Q, 30 MCQ /
-    10 MSQ / 20 NAT): E-9 scored C=1 for 60/60 and I=1 for 59/60, and the
-    delivered paper carried one label for every question. Calling that a
-    legitimate score was wrong — the negative-phrasing and MSQ terms do not
-    rescue it, because they move a question by one point on an axis sum that
-    never left its floor. Correct handling, in order:
-      (a) run PYQExplain (PYQ-1) so Tier 1 supplies assessed values — this is
-          the resolution, not a workaround, and it needs no PYQ-4 change;
-      (b) failing that, Tier 1.5 (§2-3a1) resolves any exam whose marking_scheme
-          has a marks gradient or a type mix, which covers most competitive
-          exams that field MSQ/NAT alongside MCQ;
-      (c) if the paper still resolves entirely on Tier 2, the §2-3e
-          degenerate-distribution WARN fires and the §R3 report must state that
-          per-question difficulty was not measured.
-    Do NOT attempt to fix this by extending E-9's keyword sets or adding a
-    strip_mode. Beyond the CROSS-FILE SYNC cost, `strip_variables` in
-    Framework_MockTestAnalyse.md branches on a closed set of five modes with no
-    else-branch: a sixth mode makes it a no-op passthrough, so Step 5's template
-    skeletons silently become verbatim stems and its whole pattern layer
-    collapses. A vocabulary list is also exam-SPECIFIC by nature and PYQ-4
-    serves ~200 exams.
+19. **Exam whose stems are outside E-9's aptitude vocabulary** — RESOLVED by
+    retirement (v1.13, GAP-2026-08-27-DIFFICULTY-PROFILE). The E-9 keyword scorer
+    was measured on IIT JAM Biotechnology 15-Feb-2026 scoring C=1 for 60/60 and
+    I=1 for 59/60, and on SSC CGL Tier-1 09-Sep-2024 disagreeing with the
+    derivation rubric by 40 points. It is deleted. Correct handling is now, in
+    order: (a) run PYQExplain (PYQ-1) so Tier 1 supplies assessed values — the
+    resolution; (b) failing that, Tier 1.5 resolves any exam whose marking_scheme
+    has a marks gradient or a type mix; (c) otherwise Tier 3 carries the paper,
+    the §2-3e mixed-provenance / degenerate WARNs fire and R3 states plainly that
+    the column is a default, not an assessment.
 
 20. **exam_config.marking_scheme absent or uniform** (legacy project, or an
     exam like a 200-question all-MCQ paper at one mark) → structural_difficulty
@@ -1430,9 +1350,9 @@ the input's original fonts/colours):
 These are NOT engine functions — they are standalone document-transform utilities
 from MockDeliver, reproduced in PYQ-4's pipeline script.
 
-EXCEPTION (v1.2): the Complexity Tier-2 functions (`score_difficulty`,
-`determine_strip_mode`, `map_difficulty_level`) are NOT reproduced in the
-pipeline script — they are IMPORTED from `blueprint_core.py`, resolved
+EXCEPTION (v1.2; v1.13 — now `structural_difficulty` only, the Tier-2 functions
+are retired): the engine function is NOT reproduced in the
+pipeline script — it is IMPORTED from `blueprint_core.py`, resolved
 dual-path (`/tmp/fw` first, else `/mnt/project` — §2-3b) (Cluster E, the
 canonical shared copy). Reproducing them inline would create a fourth copy
 of E-9 and is FORBIDDEN (anti-drift principle).
@@ -1491,4 +1411,4 @@ delivered file keeps the input's original fonts):
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.12)**
+**End of Framework_PYQDeliver.md (v1.13)**

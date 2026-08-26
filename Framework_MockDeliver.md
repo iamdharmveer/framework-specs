@@ -1,4 +1,9 @@
-# Framework_MockDeliver v1.16.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.17.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.17.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with Blueprint v1.57.0). S1-2
+#   item 3c / §FOOTER-DS: one delivery-footer line from blueprint.json['difficulty_source']
+#   (measured from k sittings | measured + operator-confirmed deviations | set by operator, no
+#   PYQ profile | set on the trigger); absent key → nothing (legacy). Defined HERE, not in
+#   DeliveryFooter, to keep the PYQPrepare route under its SPEC-BUDGET. No gate-count change.
 # v1.16.0 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestExplain
 #   v1.46.0, MockTestCreate v5.73, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH).
 #   Two seam fixes, no gate change (still 17): (1) S1-2 3b said a HEALED registry "is
@@ -344,6 +349,26 @@ Parse:
        accepts.
        The gate reads ONLY the registry — never the chat transcript — so a
        skipped or re-ordered session cannot out-talk the record.
+
+    3c. DIFFICULTY SOURCE LINE (v1.17.0 — GAP-2026-08-27-DIFFICULTY-PROFILE; §FOOTER-DS).
+       Read blueprint.json['difficulty_source'] (Blueprint v1.57.0 S7-0). ONE line,
+       printed as the last body line of the delivery footer, so a mix the operator
+       chose can never read as one the exam measured:
+         mode 'profile'            → "Difficulty mix: measured from [k] sittings of
+                                      this exam ([cycle labels])."
+         mode 'profile_confirmed'  → "Difficulty mix: measured from [k] sittings;
+                                      operator-confirmed deviations in [sections]."
+                                     ([k] = len(difficulty_source['cycles_used']);
+                                      [sections] = the distinct 'section' values of
+                                      difficulty_source['overrides_confirmed'], in
+                                      paper order.)
+         mode 'operator_no_pyq'    → "Difficulty mix: set by operator — no PYQ
+                                      profile available for this exam."
+         mode 'flag' / 'progressive' → "Difficulty mix: set by operator on the
+                                      trigger ([E:M:H | progressive bands])."
+         key absent (pre-v1.57.0 blueprint) → print nothing (legacy series).
+       Never invent a mode; a value outside this set is a data defect → HARD STOP
+       naming blueprint.json.
 
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
@@ -1903,4 +1928,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.16.0
+# END OF Framework_MockDeliver v1.17.0

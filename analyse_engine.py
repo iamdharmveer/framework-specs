@@ -66,7 +66,7 @@ __all__ = [
     'extract_and_map_images', 'enrich_paragraph_with_omml',
     'extract_note_block', 'classify_note_frequency', 'canonical_note_text',
     'detect_linked_groups', 'classify_option_format', 'subtopic_option_format',
-    'score_difficulty', 'determine_strip_mode', 'generate_templates',
+    'determine_strip_mode', 'generate_templates',
     'classify_wrong_option_structure',
     # §4 — vision aggregation
     'get_vision_candidates', 'apply_vision_observations', 'aggregate_figural',
@@ -477,20 +477,9 @@ def subtopic_option_format(qs):
 
 
 # ═══ FROM Framework_MockTestAnalyse.md §2, fence L2027-2039 (v2.53.1) — VERBATIM ═══
-def score_difficulty(q, marks=1, strip_mode='reasoning'):
-    """v2.30 — DELEGATED to blueprint_core Cluster E (GAP-2026-07-25-002).
-    This spec carried a byte-identical second copy of the engine's implementation.
-    Identical TODAY is not a mechanism for staying identical: the corpus has already
-    paid for that assumption once (PYQAnalyse v2.20, parse_taxonomy_level drifting
-    from Step 5's copy despite a comment in each demanding they match). One
-    definition, called from both places."""
-    import blueprint_core as bc      # local: this code block does not share the
-                                     # module-level alias bound in the S1-1 block
-    return bc.score_difficulty(q, marks=marks, strip_mode=strip_mode)
 
+# score_difficulty adapter RETIRED — GAP-2026-08-27-DIFFICULTY-PROFILE (see blueprint_core Cluster E header)
 
-
-# ═══ FROM Framework_MockTestAnalyse.md §2, fence L2047-2171 (v2.53.1) — VERBATIM ═══
 def determine_strip_mode(section, topic, subtopic):
     """v2.30 — DELEGATED to blueprint_core Cluster E (GAP-2026-07-25-002).
     Second copy removed; see score_difficulty above. The engine's version carries the
@@ -935,7 +924,7 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
         q_marks = marks_per_q.get('MCQ') or marks_per_q.get('mcq') or max(marks_per_q.values(), default=1)
         q['option_format']   = classify_option_format(q.get('options', []))
         q['paper_id']        = paper_id   # needed for max_per_paper/typical_per_paper computation
-        q['difficulty']      = score_difficulty(q, marks=q_marks, strip_mode=sm)
+        # q['difficulty'] (E-9 keyword scorer) RETIRED — GAP-2026-08-27-DIFFICULTY-PROFILE
         q['image_role']      = q_roles.get(q['num'], {}).get('role', 'none')
         q['linked_group_id'] = link_map.get(q['num'])
         q['year']            = year
@@ -1850,11 +1839,9 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
         p['approach']   = infer_approach(p['template'], mode, subtopic)
 
     opt_fmt   = subtopic_option_format(questions)
-    dg        = {'Simple':[],'Medium':[],'Hard':[]}
-    for q in questions:
-        dg[q.get('difficulty',{}).get('level','Medium')].append(q)
-    # BUG-B09 fix: store is_inferred flag in calibration dict
-    diff_cal  = {lv: build_diff_criteria(lv, qs, subtopic, mode) for lv, qs in dg.items()}
+    # PYQ_DIFFICULTY_CALIBRATION RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE): per-subtopic
+    # calibration is read by Step 7 / ScopedBlueprint from the difficulty profile
+    # (blueprint_core dp_calibration), measured by PYQExplain with the rubric.
     wrong_opt = classify_wrong_option_structure(questions)
 
     neg_ct  = sum(1 for q in questions if q.get('is_negative'))
@@ -2113,7 +2100,6 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
                                      'typical':round(sum(sw)/len(sw)) if sw else 0},
         'sub_type_label'         : subtopic,
         'PYQ_STEM_PATTERNS'      : patterns,
-        'PYQ_DIFFICULTY_CALIBRATION': diff_cal,
         'wrong_option_structure' : wrong_opt,
         'PYQ_NUMBER_RANGES'      : extract_number_ranges(questions, mode),
         'PYQ_CONTEXT_POOL'       : ctx_pool,
@@ -2179,10 +2165,6 @@ def _absent_entry(section, topic, subtopic):
         'PYQ_STEM_PATTERNS':[{'id':'P1','template':'(no PYQ observed)','approach':'(unknown)',
                                'frequency':100,'raw_count':0,'confidence':'absent',
                                'deprecated':False,'years':[],'note_block':'never','note_text':''}],
-        'PYQ_DIFFICULTY_CALIBRATION':{
-            'Simple':{'criteria':'(inferred)','is_inferred':True},
-            'Medium':{'criteria':'(inferred)','is_inferred':True},
-            'Hard':  {'criteria':'(inferred)','is_inferred':True}},
         'wrong_option_structure':{'type':'varied','description':'No PYQ data'},
         'PYQ_NUMBER_RANGES':None,'PYQ_CONTEXT_POOL':None,
         'PYQ_IMAGE_ANALYSIS':None,'PYQ_PASSAGE_STRUCTURE':None,
@@ -2193,17 +2175,8 @@ def _absent_entry(section, topic, subtopic):
         'axis2_capability':axis2_capability([], _fam, 'TEXT'),
     }
 
-def build_diff_criteria(level, qs, subtopic, mode):
-    """BUG-B09 fix: returns dict with is_inferred bool, not fragile string."""
-    if not qs:
-        return {'criteria':f'(inferred -- no {level} Qs observed in PYQ)',
-                'is_inferred':True}
-    sc   = [q.get('difficulty',{}) for q in qs[:3]]
-    avgC = round(sum(s.get('C',1) for s in sc)/len(sc), 1)
-    avgV = round(sum(s.get('V',1) for s in sc)/len(sc), 1)
-    ex   = qs[0]['stem'][:80] if qs[0].get('stem') else '(no example)'
-    return {'criteria': f'C~{avgC} steps, V~{avgV} complexity. Example: "{ex}..."',
-            'is_inferred': False}
+
+# build_diff_criteria RETIRED — GAP-2026-08-27-DIFFICULTY-PROFILE
 
 def infer_approach(template, mode, subtopic):
     t = template.lower(); u = subtopic.lower()
@@ -2882,9 +2855,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.54'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.54'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.54'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.55'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.55'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.55'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_dir=None):
@@ -2966,7 +2939,7 @@ def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_d
         # (registry.question_index: Step 6 seeds, Step 7 fills, Step 8 certifies, Step 11
         # renders). Default ['Easy','Medium','Hard']. ALIAS CONTRACT — do NOT conflate the
         # three pre-existing internal spellings:
-        #   • Step 5 PYQ_DIFFICULTY_CALIBRATION levels : Simple / Medium / Hard  (analysis)
+        #   • (Step 5 keyword difficulty levels RETIRED — GAP-2026-08-27-DIFFICULTY-PROFILE)
         #   • Step 6 difficulty_schedule COUNT keys     : simple / medium / hard  (per-mock counts)
         #   • canonical LABEL (this field, index/tags)  : Easy  / Medium / Hard
         # Fixed alias: simple→Easy, medium→Medium, hard→Hard. An exam may override this list
@@ -3311,11 +3284,6 @@ def make_zero_pyq_scaffold_entry(section, topic, subtopic):
                 'deprecated': False
             }
         ],
-        'PYQ_DIFFICULTY_CALIBRATION': {
-            'Simple': {'criteria': '(no PYQ data)', 'is_inferred': True},
-            'Medium': {'criteria': '(no PYQ data)', 'is_inferred': True},
-            'Hard':   {'criteria': '(no PYQ data)', 'is_inferred': True}
-        },
         'wrong_option_structure': {
             'type': 'same_category',
             'description': 'Options from the same conceptual category as the correct answer.'
@@ -4347,14 +4315,7 @@ def format_entry(e):
             _pos_int = int(_pos_str) if _pos_str.isdigit() else (ord(_pos_str.upper())-64)
             lines.append(f'      anchor_position: {_pos_int}')
         lines.append('')
-    # BUG-C01 fix (v2.3): is_inferred flag written alongside criteria
-    calib = e.get('PYQ_DIFFICULTY_CALIBRATION', {})
-    lines += ['PYQ_DIFFICULTY_CALIBRATION:']
-    for lv in ['Simple','Medium','Hard']:
-        c = calib.get(lv, {'criteria':'(inferred)','is_inferred':True})
-        inf_tag = ' [INFERRED]' if c.get('is_inferred', True) else ''
-        lines.append(f'  {lv}: "{c["criteria"]}"{inf_tag}')
-    lines.append('')
+    # PYQ_DIFFICULTY_CALIBRATION block RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE) — never written
     wo = e.get('wrong_option_structure', {})
     lines += ['wrong_option_structure:',
               f'  type: {wo.get("type","varied")}',
@@ -4559,12 +4520,9 @@ def run_qv(entries, taxonomy, progress):
     results['QV-2'] = ('FAIL' if bad else 'PASS',
                         f'Sums!=100: {bad[:3]}' if bad else 'All=100%')
 
-    # QV-3: BUG-B09 fix: check is_inferred bool, not string
-    gap = [f'{e["subtopic"]}.{lv}' for e in entries if e['observed_count']>=5
-           for lv in ['Simple','Medium','Hard']
-           if e.get('PYQ_DIFFICULTY_CALIBRATION',{}).get(lv,{}).get('is_inferred',True)]
-    results['QV-3'] = ('WARN' if gap else 'PASS',
-                        f'Missing diff: {gap[:5]}' if gap else 'OK')
+    # QV-3 RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE): difficulty calibration is no longer a
+    # Step-5 product; the key is kept so QV readers see a stable list.
+    results['QV-3'] = ('PASS', 'retired — difficulty calibration now lives in the difficulty profile')
 
     # QV-4/5: option_format and wrong_option_structure classified
     no_fmt = [e['subtopic'] for e in entries if not e.get('option_format')]
@@ -4933,14 +4891,9 @@ def self_test():
           empty['all_observed'] == [] and empty['changed_recently'] is False
           and empty['primary'] == 'single_value')
 
-    # ── E-9 difficulty scoring: the 3-axis C/I/V contract Step 6 reads ─────
-    d = score_difficulty({'stem': 'Compute 2+2.',
-                          'options': ['(A) 3', '(B) 4', '(C) 5', '(D) 6']})
-    check('score_difficulty_has_CIV_axes', all(k in d for k in ('C', 'I', 'V')))
-    check('score_difficulty_score_is_sum_of_axes',
-          d['score'] == d['C'] + d['I'] + d['V'])
-    check('score_difficulty_has_level_and_flags',
-          isinstance(d.get('level'), str) and isinstance(d.get('flags'), list))
+    # ── E-9 difficulty scoring RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE) ──
+    check('e9_scorer_retired', not hasattr(bc, 'score_difficulty') and 'score_difficulty' not in globals())
+    check('calibration_block_retired', 'PYQ_DIFFICULTY_CALIBRATION' not in open(__file__, encoding='utf-8').read().split('def write_section_rules(')[1].split('\ndef ')[0])
 
     # ── E-10 strip mode / templates ───────────────────────────────────────
     check('determine_strip_mode_quantitative_for_maths',
@@ -5751,7 +5704,7 @@ def self_test():
     # A count is the cheapest possible oracle for "did anything vanish?". If a future
     # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
     # then visible in the diff, which is the whole point.
-    EXPECTED_CHECKS = 120  # v2.54.1: +5 year=None production-shape fixtures
+    EXPECTED_CHECKS = 119  # v2.55: E-9 scorer retired (−3 fixtures, +2 retirement guards)
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(

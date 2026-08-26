@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.56.0",
-      "lines": 7470,
-      "sha256": "a9375e3d1df6e205ab641acad471c4c0dced7b3ec8eb300464acb38e8d346dbe",
-      "size_bytes": 410485,
-      "version_header": "# Framework_Blueprint v1.56.0 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.57.0",
+      "lines": 7632,
+      "sha256": "54514ac223e7a0b45663926840991fc29bb3646a54796bb5d2ab2333c13dd50e",
+      "size_bytes": 421722,
+      "version_header": "# Framework_Blueprint v1.57.0 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -15,32 +15,32 @@
       "version_header": "# Framework_DeliveryFooter v1.28 — Universal Delivery Footer (F1/F2) Contract"
     },
     "Framework_MockDeliver.md": {
-      "end_sentinel": "# END OF Framework_MockDeliver v1.16.0",
-      "lines": 1906,
-      "sha256": "04a0fb5f9395031fd206a9d9d2e955f4e92b1cb6807821864834dd2bc80c4e83",
-      "size_bytes": 96186,
-      "version_header": "# Framework_MockDeliver v1.16.0 — Universal Mock Test Tagger & Delivery Engine"
+      "end_sentinel": "# END OF Framework_MockDeliver v1.17.0",
+      "lines": 1931,
+      "sha256": "269e7106c8faf965e0e0fc70938fd7aa4ca6b3e3dac4b26262b1d813c58878d8",
+      "size_bytes": 98107,
+      "version_header": "# Framework_MockDeliver v1.17.0 — Universal Mock Test Tagger & Delivery Engine"
     },
     "Framework_MockTestAnalyse.md": {
-      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.54.1",
-      "lines": 5021,
-      "sha256": "42f10d1194fc26b00c475063713a66608ac1ddc95c167affb1a5cb3a9b3d5f10",
-      "size_bytes": 291646,
-      "version_header": "# Framework_MockTestAnalyse v2.54.1 — Universal PYQ Pattern Extraction Engine"
+      "end_sentinel": "# END OF Framework_MockTestAnalyse v2.55",
+      "lines": 5026,
+      "sha256": "c23eb91e96a8e9fda9640fe90d279c71d62bc1870e20e1dda62fd4cdadd0dbed",
+      "size_bytes": 292424,
+      "version_header": "# Framework_MockTestAnalyse v2.55 — Universal PYQ Pattern Extraction Engine"
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 8875,
-      "sha256": "f9391e0ec15305524310461ec120ad7bdf6d1b112b2c98f89d4a565e89fe314e",
-      "size_bytes": 564426,
-      "version_header": "# Framework_MockTestCreate v5.74"
+      "lines": 8913,
+      "sha256": "4ec60bdb9bc61012a0b79652547dece0654f6b92fcf6ea25a8ec4eea7ac6ae34",
+      "size_bytes": 567011,
+      "version_header": "# Framework_MockTestCreate v5.75"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 3396,
-      "sha256": "1c88b0a63e02a3ac4a52a4e7cc1988203b2952ac7067709c6b25b4888b08f195",
-      "size_bytes": 260680,
-      "version_header": "# Framework_MockTestExplain v1.46.2"
+      "lines": 3400,
+      "sha256": "fe97e1a254fd806815578566294e339740a1da4576a822173f49b1a043669e97",
+      "size_bytes": 261021,
+      "version_header": "# Framework_MockTestExplain v1.46.3"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.6 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.12)**",
-      "lines": 1494,
-      "sha256": "719bde6113c110c53b1367dcd5e0f00e00f894810dcd2625ea4f91e8c2214102",
-      "size_bytes": 80269,
-      "version_header": "# Framework_PYQDeliver v1.12 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.13)**",
+      "lines": 1414,
+      "sha256": "be87dc0ba1b187b70330f1d709438605dfb249e58fecb3db90f3bef41288f27f",
+      "size_bytes": 75674,
+      "version_header": "# Framework_PYQDeliver v1.13 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0.1",
@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2575,
-      "sha256": "7513a384b1932fb5ec6872149ef6680dc1eff070afc21462d843ae9c15c9ce9a",
-      "size_bytes": 182091,
-      "version_header": "# Framework_PYQExplain v2.17 — Universal PYQ Explanation Generator"
+      "lines": 2689,
+      "sha256": "3b0cd29d6c8adb911516cb8801529f5e0a03c9ec71d5db76a06882b9566695b4",
+      "size_bytes": 190052,
+      "version_header": "# Framework_PYQExplain v2.18 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",
@@ -155,11 +155,11 @@
       "version_header": "# Framework_PYQSort v1.20.1 — Universal PYQ Sorter"
     },
     "Framework_ScopedBlueprint.md": {
-      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.9.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)",
-      "lines": 1328,
-      "sha256": "429a9ec47e2efe3f4dbaa2e6e0b6c103e5d70705491e1984163e39d70875a9b5",
-      "size_bytes": 75246,
-      "version_header": "# Framework_ScopedBlueprint v1.9.0 — Universal Subject / Topic / Sub-Topic Test Blueprint"
+      "end_sentinel": "# END OF Framework_ScopedBlueprint v1.10.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)",
+      "lines": 1368,
+      "sha256": "3c3ab06b6eb7aa02bd76c8a17e0e6d5dd9cda9273a15c9f14422e168c6736202",
+      "size_bytes": 78267,
+      "version_header": "# Framework_ScopedBlueprint v1.10.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator"
     },
     "LAW_REGISTRY.json": {
       "end_sentinel": "}",
@@ -177,9 +177,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7719,
-      "sha256": "254711782dc7ddeac17d811f63a3210740cae62b2850392185f0d66dcef1831a",
-      "size_bytes": 429961,
+      "lines": 7843,
+      "sha256": "36743f1fec57975ea647468bd46fa179cd505b26081efb6f970c73963cbf9b59",
+      "size_bytes": 439518,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 7084,
-      "sha256": "ca549fea80e50c60c7e8cf3481e2eb2258b7f1dc0591bc121db59c93e99699bb",
-      "size_bytes": 390971,
+      "lines": 7729,
+      "sha256": "49f74f59904972a6662d45d212a75ffdc331fd1f04a7a788f1ca9c455b969ae9",
+      "size_bytes": 432197,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {

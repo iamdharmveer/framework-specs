@@ -15,6 +15,12 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.21 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster
+#   DP, Blueprint v1.57.0, PYQExplain v2.18). NEW gate A-DPROFILE: certifies the exam's
+#   difficulty profile (--profile: engine contract, score→band re-check under current edges,
+#   section map parity, excluded-vs-q_total) and blueprint.json difficulty_source (closed mode
+#   set, chosen mixes sum to 100, by_section sums = paper counts). Dormant without inputs.
+#   +14 fixtures. Nothing else changes.
 # v2.20 — 2026-08-26 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS follow-up (paired with
 #   paper_pipeline v5.73). A-DGATE check 5 binds rework_stem_hashes to rework_qs ONLY
 #   on a FAILED record (where §7A-R R3 consumes it). A PASSED/DISCLOSED record after the
@@ -430,6 +436,7 @@ def load_sources(args):
     src['registry']  = json.load(open(args.registry,  encoding='utf-8')) if args.registry  else {}
     src['manifest']  = json.load(open(args.manifest,  encoding='utf-8')) if args.manifest  else {}
     src['rules_txt'] = open(args.rules, encoding='utf-8').read() if args.rules else ''
+    src['profile']   = json.load(open(args.profile,  encoding='utf-8')) if getattr(args, 'profile', None) else {}
     bp = src['blueprint']
     src['total_questions'] = bp.get('total_questions')
     src['sections'] = bp.get('sections', [])
@@ -3737,6 +3744,7 @@ def run_audit(args):
     _safe_gate('A-HEADER', gate_header, doc, blocks, src)
     _safe_gate('A-QINDEX', gate_qindex, src)   # v2026.08.10 — engine FK gate; dormant unless --registry+--blueprint+--mockN
     _safe_gate('A-DGATE', gate_dgate, src)     # v2.19 — difficulty_gate record legality; dormant unless --registry
+    _safe_gate('A-DPROFILE', gate_dprofile, src)  # v2.21 — difficulty profile + blueprint difficulty_source
     rc = print_results()
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
     if getattr(args, 'audit_state', None):
@@ -3929,6 +3937,78 @@ _DG_LEGAL = {('PENDING', 0), ('FAILED', 0), ('DORMANT', 0), ('PASSED', 0),
              ('PASSED', 1), ('DISCLOSED', 1)}
 _DG_DORMANT_REASONS = ('no_difficulty_labels', 'vocabulary_not_3_band',
                        'blueprint_core_unavailable', 'scoped_paper')
+
+
+_DS_MODES = ('profile', 'profile_confirmed', 'operator_no_pyq', 'flag', 'progressive')
+
+
+def gate_dprofile(src):
+    """A-DPROFILE (v2.21 — GAP-2026-08-27-DIFFICULTY-PROFILE). Certifies (1) the exam's
+    difficulty profile, when given (--profile): engine contract (dp_check_profile —
+    schema, exam_code, labels, band edges), every stored score re-bands to its stored
+    band under the CURRENT edges, every stored section is a current section name, no
+    window paper's q_total differs from total_questions; and (2) blueprint.json's
+    difficulty_source, when present: mode in the closed set, chosen mix per section
+    sums to 100, difficulty_schedule[].by_section sums equal the paper-level counts.
+    Dormant (OK) when neither input is present. FAIL names the paper/section/field."""
+    import blueprint_core as _bc
+    bp = src.get('blueprint') or {}
+    prof = src.get('profile') or {}
+    if not prof and 'difficulty_source' not in bp:
+        _ok('A-DPROFILE', 'dormant (no --profile and no difficulty_source in blueprint)')
+        return
+    bad = []
+    labels = bp.get('difficulty_labels') or ['Easy', 'Medium', 'Hard']
+    exam_code = bp.get('exam_code') or (prof.get('_meta') or {}).get('exam_code')
+    tq = bp.get('total_questions') or src.get('total_questions')
+    sections = bp.get('sections') or src.get('sections') or None
+    if prof:
+        try:
+            _bc.dp_check_profile(prof, exam_code, labels)
+            secs = _bc.dp_validate_sections(sections, tq) if tq else []
+            names = set(_bc.dp_section_names(secs))
+            for key, paper in (prof.get('papers') or {}).items():
+                qs = paper.get('questions') or {}
+                if tq and paper.get('q_total') != tq:
+                    bad.append(f"profile paper {key}: q_total {paper.get('q_total')} != total_questions {tq} yet not excluded")
+                for q, rec in qs.items():
+                    if _bc.band_for_score(rec.get('score'), labels) != rec.get('band'):
+                        bad.append(f"profile paper {key} Q{q}: score {rec.get('score')} re-bands to "
+                                   f"{_bc.band_for_score(rec.get('score'), labels)!r}, stored {rec.get('band')!r}")
+                    if secs and rec.get('section') not in names:
+                        bad.append(f"profile paper {key} Q{q}: section {rec.get('section')!r} is not a current section")
+                    if secs and _bc.dp_section_of(q, secs) != rec.get('section'):
+                        bad.append(f"profile paper {key} Q{q}: stored section {rec.get('section')!r} != "
+                                   f"current map {_bc.dp_section_of(q, secs)!r}")
+            if prof.get('papers'):
+                _bc.dp_recommend(prof, {'exam_code': exam_code, 'total_questions': tq,
+                                        'sections': sections, 'difficulty_labels': labels})
+        except _bc.DPError as e:
+            bad.append(f'profile: {e}')
+    ds = bp.get('difficulty_source')
+    if ds is not None:
+        if not isinstance(ds, dict) or ds.get('mode') not in _DS_MODES:
+            bad.append(f"difficulty_source.mode {getattr(ds, 'get', lambda k: None)('mode')!r} not in {_DS_MODES}")
+        else:
+            for sec, pct in (ds.get('chosen_by_section') or {}).items():
+                if not isinstance(pct, dict) or sum(int(pct.get(l, 0)) for l in labels) != 100:
+                    bad.append(f"difficulty_source.chosen_by_section[{sec!r}] does not sum to 100")
+            for ov in ds.get('overrides_confirmed') or []:
+                if not {'section', 'band', 'recommended', 'chosen'} <= set(ov):
+                    bad.append(f'difficulty_source.overrides_confirmed entry malformed: {ov}')
+            if ds.get('mode') == 'profile' and ds.get('overrides_confirmed'):
+                bad.append("difficulty_source.mode 'profile' but overrides_confirmed is non-empty (should be 'profile_confirmed')")
+        for e in bp.get('difficulty_schedule') or []:
+            bs = e.get('by_section')
+            if bs:
+                for i, key in enumerate(('simple', 'medium', 'hard')):
+                    tot = sum(int(v.get(labels[i], v.get(key, 0))) for v in bs.values())
+                    if tot != int(e.get(key, -1)):
+                        bad.append(f"difficulty_schedule mock {e.get('mock')}: by_section {key} sum {tot} != {e.get(key)}")
+    if bad:
+        _fail('A-DPROFILE', '; '.join(bad[:8]) + (f' (+{len(bad) - 8} more)' if len(bad) > 8 else ''))
+    else:
+        _ok('A-DPROFILE', 'difficulty profile / difficulty_source consistent')
 
 
 def gate_dgate(src):
@@ -4797,6 +4877,49 @@ def self_test():
     check('A-DGATE-unarmed-is-dormant-OK-and-says-so',
           [(l, 'dormant' in m) for l, c, m in RESULTS if c == 'A-DGATE'] == [('OK', True)])
     check('A-DGATE-is-wired-into-run_audit', 'gate_dgate' in _runner and "'A-DGATE'" in _runner)
+    # ── A-DPROFILE (v2.21) ──
+    import blueprint_core as _bcp
+    _DL = ['Easy', 'Medium', 'Hard']
+    _DC = {'exam_code': 'EX', 'total_questions': 4, 'difficulty_labels': _DL,
+           'sections': [{'name': 'A', 'q_range': [1, 2]}, {'name': 'B', 'q_range': [3, 4]}]}
+    def _o(st, co): return {'question_class': 'C-COMPUTATIONAL', 'deduction_steps': st, 'axiom_concepts': co,
+                            'speed_hack_exists': False, 'derivation_confidence': 'full', 'is_negative': False,
+                            'qtype': 'mcq', 'subtopic_id': 'S'}
+    _P, _, _ = _bcp.dp_add_paper(None, source_file='EX_01-Jan-2025.docx', exam_config=_DC,
+                                 questions={1: _o(0, 1), 2: _o(3, 1), 3: _o(5, 3), 4: _o(5, 3)})
+    def _dp_run(profile, bp):
+        _reset(); gate_dprofile({'profile': profile, 'blueprint': bp}); return RESULTS[-1]
+    _BP = {'exam_code': 'EX', 'total_questions': 4, 'difficulty_labels': _DL, 'sections': _DC['sections']}
+    check('A-DPROFILE-dormant', _dp_run({}, {})[0] == 'OK' and 'dormant' in _dp_run({}, {})[2])
+    check('A-DPROFILE-clean-profile', _dp_run(_P, _BP)[0] == 'OK')
+    import copy as _cp
+    _Pbad = _cp.deepcopy(_P); _Pbad['papers']['01-Jan-2025']['questions']['1']['band'] = 'Hard'
+    check('A-DPROFILE-band-mismatch', _dp_run(_Pbad, _BP)[0] == 'FAIL' and 're-bands' in _dp_run(_Pbad, _BP)[2])
+    _Pbad = _cp.deepcopy(_P); _Pbad['papers']['01-Jan-2025']['questions']['3']['section'] = 'A'
+    check('A-DPROFILE-section-mismatch', _dp_run(_Pbad, _BP)[0] == 'FAIL' and 'current map' in _dp_run(_Pbad, _BP)[2])
+    _Pbad = _cp.deepcopy(_P); _Pbad['papers']['01-Jan-2025']['questions']['3']['section'] = 'Zeta'
+    check('A-DPROFILE-section-unknown', _dp_run(_Pbad, _BP)[0] == 'FAIL' and 'is not a current section' in _dp_run(_Pbad, _BP)[2])
+    _Pbad = _cp.deepcopy(_P); _Pbad['_meta']['exam_code'] = 'OTHER'
+    check('A-DPROFILE-foreign-profile', _dp_run(_Pbad, _BP)[0] == 'FAIL' and 'belongs to' in _dp_run(_Pbad, _BP)[2])
+    _Pbad = _cp.deepcopy(_P); _Pbad['papers']['01-Jan-2025']['q_total'] = 5
+    check('A-DPROFILE-qtotal-mismatch', _dp_run(_Pbad, _BP)[0] == 'FAIL')
+    _DS = {'mode': 'profile', 'chosen_by_section': {'A': {'Easy': 50, 'Medium': 50, 'Hard': 0}, 'B': {'Easy': 0, 'Medium': 0, 'Hard': 100}},
+           'overrides_confirmed': []}
+    _SCH = [{'mock': 1, 'simple': 1, 'medium': 1, 'hard': 2, 'by_section': {'A': {'Easy': 1, 'Medium': 1, 'Hard': 0}, 'B': {'Easy': 0, 'Medium': 0, 'Hard': 2}}}]
+    check('A-DPROFILE-source-clean', _dp_run({}, {**_BP, 'difficulty_source': _DS, 'difficulty_schedule': _SCH})[0] == 'OK')
+    check('A-DPROFILE-source-bad-mode', _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'guess'}})[0] == 'FAIL')
+    check('A-DPROFILE-source-sum', _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'chosen_by_section': {'A': {'Easy': 60, 'Medium': 50, 'Hard': 0}}}})[0] == 'FAIL')
+    check('A-DPROFILE-source-profile-with-overrides', _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'overrides_confirmed': [{'section': 'A', 'band': 'Hard', 'recommended': 0, 'chosen': 30}]}})[0] == 'FAIL')
+    check('A-DPROFILE-schedule-by-section-sum', _dp_run({}, {**_BP, 'difficulty_source': _DS,
+          'difficulty_schedule': [{**_SCH[0], 'hard': 1}]})[0] == 'FAIL')
+    check('A-DPROFILE-default-labels-and-exact-override-shape',
+          _dp_run(_P, {k: v for k, v in _BP.items() if k != 'difficulty_labels'})[0] == 'OK'          # labels default
+          and _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'profile_confirmed',
+                             'overrides_confirmed': [{'section': 'A', 'band': 'Hard', 'recommended': 0, 'chosen': 30}]}})[0] == 'OK'
+          and _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'profile_confirmed',
+                             'overrides_confirmed': [{'section': 'A', 'band': 'Hard', 'recommended': 0}]}})[0] == 'FAIL'
+          and _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'profile_confirmed', 'overrides_confirmed': None}})[0] == 'OK')
+    check('A-DPROFILE-is-wired-into-run_audit', 'gate_dprofile' in _runner and "'A-DPROFILE'" in _runner)
     try:
         import paper_pipeline as _pp_dg
         check('A-DGATE-mirror-equals-pp.DG_LEGAL_STATES',
@@ -7610,6 +7733,7 @@ def main():
     ap.add_argument('docx', nargs='?', help='the Mock[N]_Create.docx to audit')
     ap.add_argument('--blueprint'); ap.add_argument('--rules')
     ap.add_argument('--manifest');  ap.add_argument('--registry')
+    ap.add_argument('--profile', help='[ExamCode]_difficulty_profile.json (A-DPROFILE; v2.21)')
     ap.add_argument('--mockN', type=int)
     ap.add_argument('--final', action='store_true')
     ap.add_argument('--audit-state', dest='audit_state',

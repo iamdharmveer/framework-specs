@@ -34,9 +34,9 @@ PROVENANCE
                                  GATE-WINDOWS — Cluster E2 split + E2d window gate; frac 0.35)
       slugify .................. §17 S2-MANIFEST
     Source anchors (Framework_MockTestAnalyse.md v2.24.10 — Cluster E):
-      score_difficulty ......... E-9  (3-axis universal difficulty scorer)
+      score_difficulty ......... E-9  RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
       determine_strip_mode ..... E-10 (taxonomy → strip mode, RIGID-5 Hindi)
-      map_difficulty_level ..... NEW  (Blueprint §7 S7-6 fixed ordinal alias)
+      map_difficulty_level ..... RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
 
 THIN-CORE INVARIANT (enforced by validate_framework_md.py)
     This module is PURE. It performs no I/O, imports nothing exam-specific, and has
@@ -87,7 +87,6 @@ __all__ = [
     "axis_grant_figural",
     "rank_figural_candidates",
     "check_axis_conformance",
-    "parse_section_rules_difficulty",
     "parse_section_rules_field",
     "slugify",
     "OUT_OF_PATTERN",
@@ -115,9 +114,34 @@ __all__ = [
     "HEADING_NAVY",
     "first_run_colour",
     "heading_colour_available",
-    "score_difficulty",
+    "DPError",
+    "DP_SCHEMA",
+    "DP_CYCLES_WINDOW",
+    "DP_CYCLE_GAP_DAYS",
+    "DP_TOLERANCE_FRAC",
+    "DP_SECTIONLESS",
+    "DP_CONFIRM_WORD",
+    "DP_ACCEPT_WORD",
+    "DP_MAX_CALIBRATION_EXAMPLES",
+    "dp_iso_date",
+    "dp_parse_filename",
+    "dp_validate_sections",
+    "dp_section_of",
+    "dp_section_names",
+    "dp_new_profile",
+    "dp_check_profile",
+    "dp_add_paper",
+    "dp_cycles",
+    "dp_window",
+    "dp_round_pct",
+    "dp_recommend",
+    "dp_guardrail",
+    "dp_parse_mix_line",
+    "dp_stale_papers",
+    "dp_calibration",
+    "dp_counts_by_section",
+    "assign_difficulty_bands_by_section",
     "determine_strip_mode",
-    "map_difficulty_level",
     "DRIVE_CAP",
     "SIZE_BUDGET",
     "CHAT_FILE_LIMIT",
@@ -1756,47 +1780,10 @@ def check_axis_conformance(observed, target, irreducible=0, axis="axis1",
 # CLUSTER D — ID NORMALISATION + INPUT PARSING  (Framework_Blueprint.md §17 / Step-5 files)
 # ════════════════════════════════════════════════════════════════════════════
 
-def parse_section_rules_difficulty(text):
-    """Pure text parse of section_rules.md → {subtopic_id: {level: is_inferred_bool}}
-    for the three difficulty levels (Simple/Medium/Hard), read from each subtopic's
-    PYQ_DIFFICULTY_CALIBRATION block.
 
-    section_rules.md format (Step 5 writer): each subtopic block begins with a
-    ``subtopic_id: <id>`` line and contains::
-
-        PYQ_DIFFICULTY_CALIBRATION:
-          Simple: "criteria" [INFERRED]
-          Medium: "criteria"
-          Hard:   "criteria" [INFERRED]
-
-    A level carrying the ``[INFERRED]`` tag (or absent from the block entirely) →
-    is_inferred=True; a level WITHOUT the tag → is_inferred=False (observed in PYQ).
-    The scoped difficulty envelope (§5) is the set of levels with is_inferred=False.
-
-    Pure: text in, dict out. No I/O — the caller reads the file and passes its text.
-    Keyed by subtopic_id (the cross-step join key), so it aligns with the manifest.
-    """
-    result = {}
-    id_pat = re.compile(r'^[ \t]*subtopic_id:[ \t]*(\S+)[ \t]*$', re.M)
-    matches = list(id_pat.finditer(text or ''))
-    for i, m in enumerate(matches):
-        sid = m.group(1)
-        start = m.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-        block = text[start:end]
-        levels = {'Simple': True, 'Medium': True, 'Hard': True}   # default: all inferred
-        # Bound to the calibration block (writer appends a blank line after Hard); fall back
-        # to the whole subtopic block if the blank-line terminator is not found.
-        cal = re.search(r'PYQ_DIFFICULTY_CALIBRATION:[ \t]*\n(.*?)(?:\n[ \t]*\n|\Z)',
-                        block, re.S)
-        seg = cal.group(1) if cal else block
-        for lv in ('Simple', 'Medium', 'Hard'):
-            lvm = re.search(rf'^[ \t]*{lv}:[ \t]*(.*)$', seg, re.M)
-            if lvm:
-                levels[lv] = '[INFERRED]' in lvm.group(1)
-        result[sid] = levels
-    return result
-
+# parse_section_rules_difficulty — RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE): the
+# section_rules PYQ_DIFFICULTY_CALIBRATION block is no longer written by Step 5; per-
+# subtopic calibration now comes from the difficulty profile (Cluster DP dp_calibration).
 
 def parse_section_rules_field(text, field, default=None):
     """Pure text parse of section_rules.md → {subtopic_id: value} for a SINGLE named per-subtopic
@@ -2141,81 +2128,12 @@ def coverage_window(batch_start, batch_end, batch_size, N_mocks):
 # the MSQ load term — a threshold or flag change also requires a Step 8 review.
 # PURE: text + plain data in, plain data out. No I/O. Only ``re`` used.
 
-def score_difficulty(q, marks=1, strip_mode='reasoning'):
-    """
-    BUG-B07 fix: marks parameter USED in threshold scaling.
-    BUG-B08 fix: 'rate','find the','what is' gated to quantitative mode only.
-    BUG-A27 fix: decimal numbers included in V axis via float() conversion.
-    time_per_q_sec parameter removed — difficulty is C+I+V axis-based, not time-based.
-    Returns: {level, C, I, V, score, flags}
-    """
-    stem = q.get('stem', '')
 
-    # AXIS 1: Computation steps (C)
-    C = 1
-    if any(kw in stem.lower() for kw in
-           ['both','combined','together','compare','between two','ratio of two']):
-        C = 4
-    elif any(kw in stem.lower() for kw in
-             ['partial','remaining','after repay','multi-year',
-              'correct to two decimal']):
-        C = 3
-    # BUG-B08 fix: broad keywords only apply in quantitative mode
-    elif strip_mode == 'quantitative' and any(kw in stem.lower() for kw in
-             ['rate','find the','calculate','what is']):
-        C = 2
-
-    # AXIS 2: Indirection (I)
-    I = 1
-    if any(re.search(p, stem.lower()) for p in
-           [r'ratio of .+ to', r'find .+ if .+ together', r'compare .+ two']):
-        I = 3
-    elif any(re.search(p, stem.lower()) for p in
-             [r'if .+, find', r'such that', r'given that .+ find']):
-        I = 2
-
-    # AXIS 3: Value complexity (V)
-    V = 1
-    raw_nums = re.findall(r'\d+(?:,\d+)*(?:\.\d+)?', stem)
-    if raw_nums:
-        try:
-            # BUG-A27 fix: use float() so decimals like '22.5' are included
-            parsed = [float(n.replace(',', '')) for n in raw_nums]
-            max_v   = max(parsed)
-            has_dec = any('.' in n for n in raw_nums)
-            non_rnd = max_v > 50000 and int(max_v) % 100 != 0
-            if non_rnd or (max_v > 50000 and has_dec): V = 3
-            elif has_dec or max_v > 10000:              V = 2
-        except:
-            pass
-
-    score = C + I + V
-    flags = []
-    if re.search(r'\b(NOT|INCORRECT|EXCEPT|FALSE|WRONG)\b', stem):
-        score += 1; flags.append('negative_question')
-    # v2.5: MSQ cognitive-load term. A multi-select question forces independent
-    # evaluation of EVERY option (not "find the one right answer"), so it is
-    # strictly harder than its single-answer twin. +1, analogous to the negative_
-    # question term. Dormant for single-answer exams (is_msq is always False when
-    # multi_select_allowed=false). Step 8 B-DIFF mirrors this term for sync.
-    if q.get('is_msq'):
-        score += 1; flags.append('msq')
-
-    # Difficulty thresholds: score <= simple → Simple, <= medium → Medium, else Hard.
-    # Thresholds are universal — derived from the C+I+V axis system (min=3, max=10+).
-    # C+I+V=3 (all axes at minimum) = trivially Simple for any exam.
-    # C+I+V=10 (all axes at maximum) = Hard for any exam.
-    # marks scaling: 2-mark Qs take 2× time so the bar for 'Simple' shifts up by 1.
-    # These values are stable across exams because the axes are exam-agnostic.
-    simple_threshold = 4 + (marks - 1)   # score ≤ this → Simple
-    medium_threshold = 7 + (marks - 1)   # score ≤ this → Medium; else Hard
-
-    if score <= simple_threshold:   level = 'Simple'
-    elif score <= medium_threshold: level = 'Medium'
-    else:                           level = 'Hard'
-
-    return {'level':level, 'C':C, 'I':I, 'V':V, 'score':score, 'flags':flags}
-
+# score_difficulty (E-9 keyword scorer) — RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE).
+# Difficulty is measured ONLY by the derivation-observed rubric (Cluster E2
+# difficulty_score) at PYQExplain §7A and MockTestExplain §7A-M; the exam mix comes
+# from the difficulty profile (Cluster DP). A vocabulary-based scorer can never be
+# exam-agnostic and disagreed with the rubric by 40 points on a real paper.
 
 def determine_strip_mode(section, topic, subtopic):
     """
@@ -2265,25 +2183,9 @@ def determine_strip_mode(section, topic, subtopic):
     return 'reasoning'
 
 
-def map_difficulty_level(level, labels):
-    """Ordinal map from the E-9 vocabulary (Simple/Medium/Hard) to an exam's
-    ``difficulty_labels`` list. Same fixed alias as Framework_Blueprint.md
-    §7 S7-6 (simple→labels[0], medium→labels[1], hard→labels[2]).
 
-    Valid ONLY for exactly-3-label sets: a 2- or 5-band custom vocabulary has
-    no defensible ordinal correspondence to a 3-level scorer, so the caller
-    must fall back (PYQ-4 Tier 3) rather than guess. Returns None in that
-    case, and None for an unknown ``level`` value (defensive; E-9 can only
-    emit the three known levels).
-
-    Pure: strings + list in, string or None out. No I/O.
-    """
-    if not isinstance(labels, (list, tuple)) or len(labels) != 3:
-        return None
-    idx = {'Simple': 0, 'Medium': 1, 'Hard': 2}.get(level)
-    return labels[idx] if idx is not None else None
-
-
+# map_difficulty_level — RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE) with its only caller,
+# PYQDeliver Complexity Tier 2. The rubric emits exam labels directly (band_for_score).
 # ════════════════════════════════════════════════════════════════════════════
 # CLUSTER E2 — PYQ DIFFICULTY: DERIVATION-OBSERVED + STRUCTURAL
 #   (Framework_PYQExplain §7A / Framework_PYQDeliver §2-3a1)
@@ -2335,6 +2237,7 @@ _QTYPE_FLOOR_CLASS = {'msq': 'C-MULTI-SELECT', 'nat': 'C-NUMERICAL-INPUT'}
 # score <= MEDIUM_MAX → labels[1]; else labels[2].
 DIFFICULTY_EASY_MAX = 2
 DIFFICULTY_MEDIUM_MAX = 5
+
 
 
 def _as_int(value, default=0):
@@ -5400,26 +5303,8 @@ def self_test():
     check('slugify_basic', slugify('Time & Work') == 'time_work')
     check('slugify_dashes', slugify('Data\u2014Interpretation') == 'data_interpretation')
     check('slugify_empty', slugify(None) == '' and slugify('') == '')
-    _sr = ("=== SECTION: Physics ===\n"
-           "subtopic_id: physics.mech.kinematics\n"
-           "PYQ_DIFFICULTY_CALIBRATION:\n"
-           '  Simple: "s" [INFERRED]\n'
-           '  Medium: "m"\n'
-           '  Hard: "h"\n'
-           "\nwrong_option_structure:\n"
-           "subtopic_id: physics.mech.newton\n"
-           "PYQ_DIFFICULTY_CALIBRATION:\n"
-           '  Simple: "s" [INFERRED]\n'
-           '  Medium: "m" [INFERRED]\n'
-           '  Hard: "h" [INFERRED]\n\n')
-    _d = parse_section_rules_difficulty(_sr)
-    check('parse_sr_observed',
-          _d['physics.mech.kinematics'] == {'Simple': True, 'Medium': False, 'Hard': False})
-    check('parse_sr_all_inferred',
-          _d['physics.mech.newton'] == {'Simple': True, 'Medium': True, 'Hard': True})
-    check('parse_sr_empty', parse_section_rules_difficulty('') == {})
     check('parse_sr_field',
-          parse_section_rules_field(_sr, 'answer_type', 'option') == {} or True)
+          parse_section_rules_field("=== SECTION: Physics ===\n", 'answer_type', 'option') == {} or True)
     _srf = ("subtopic_id: a.b\nanswer_type: numerical\nanswer_cardinality: multi\n\n"
             "subtopic_id: c.d\nanswer_cardinality: single\n\n")
     _ft = parse_section_rules_field(_srf, 'answer_type', 'option')
@@ -5427,42 +5312,7 @@ def self_test():
     check('parse_sr_field_present', _ft['a.b'] == 'numerical' and _fc['a.b'] == 'multi')
     check('parse_sr_field_default', _ft['c.d'] == 'option' and _fc['c.d'] == 'single')
 
-    # ── Cluster E: PYQ difficulty scoring (E-9/E-10) ─────────────────────────
-    # Axis minimum: bare recall stem → C=1,I=1,V=1, score 3 → Simple
-    _d = score_difficulty({'stem': 'Who wrote the national anthem?'})
-    check('e9_min_simple', _d['level'] == 'Simple' and _d['score'] == 3
-          and (_d['C'], _d['I'], _d['V']) == (1, 1, 1))
-    # C axis top: 'compare' keyword → C=4
-    check('e9_C4', score_difficulty({'stem': 'Compare the two rates.'})['C'] == 4)
-    # C=2 gated to quantitative mode only (BUG-B08)
-    check('e9_C2_gate',
-          score_difficulty({'stem': 'Find the value of x.'}, strip_mode='reasoning')['C'] == 1
-          and score_difficulty({'stem': 'Find the value of x.'}, strip_mode='quantitative')['C'] == 2)
-    # I axis: 'if ..., find' pattern → I=2 ; 'such that' → I=2 ; ratio-of-to → I=3
-    check('e9_I2', score_difficulty({'stem': 'If x = 4, find y.'})['I'] == 2)
-    check('e9_I3', score_difficulty({'stem': 'The ratio of a to b is 2:3.'})['I'] == 3)
-    # V axis: decimal → V=2 (BUG-A27 float parse); large non-round → V=3
-    check('e9_V2_decimal', score_difficulty({'stem': 'A rod is 22.5 cm long.'})['V'] == 2)
-    check('e9_V3_nonround', score_difficulty({'stem': 'He invested 50,001 rupees.'})['V'] == 3)
-    # Negative flag: +1 and flagged
-    _n = score_difficulty({'stem': 'Which is NOT a prime?'})
-    check('e9_negative_flag', 'negative_question' in _n['flags'] and _n['score'] == 4)
-    # MSQ flag: +1, dormant when is_msq absent
-    check('e9_msq_flag',
-          score_difficulty({'stem': 'Pick all primes.', 'is_msq': True})['score'] == 4
-          and score_difficulty({'stem': 'Pick all primes.'})['score'] == 3)
-    # Threshold boundaries at marks=1: score 4 → Simple; 5 → Medium; 7 → Medium; 8 → Hard
-    check('e9_thr_simple_edge', score_difficulty({'stem': 'Which is NOT a prime?'})['level'] == 'Simple')
-    _m = score_difficulty({'stem': 'Which is NOT a prime?', 'is_msq': True})           # 3+1+1=5
-    check('e9_thr_medium_low', _m['level'] == 'Medium')
-    _h = score_difficulty({'stem': 'Compare the ratio of A to B if 50,001.5 is NOT round.',
-                           'is_msq': True})                                            # 4+3+3+1+1=12
-    check('e9_thr_hard', _h['level'] == 'Hard' and _h['score'] >= 8)
-    # marks scaling (BUG-B07): score 5 is Medium at marks=1 but Simple at marks=2
-    check('e9_marks_scaling',
-          score_difficulty({'stem': 'Which is NOT a prime?', 'is_msq': True}, marks=2)['level'] == 'Simple')
-    # Empty stem: degenerate but defined → Simple, no crash
-    check('e9_empty_stem', score_difficulty({})['level'] == 'Simple')
+    # ── Cluster E: strip modes (E-10). E-9 scorer RETIRED — see Cluster DP tests ──
     # E-10 strip modes: quantitative / english / logical / factual / default
     check('e10_quant', determine_strip_mode('Quantitative Aptitude', 'Arithmetic', 'Percentages') == 'quantitative')
     check('e10_quant_hindi', determine_strip_mode('\u0917\u0923\u093f\u0924', '', '') == 'quantitative')
@@ -5470,15 +5320,7 @@ def self_test():
     check('e10_logical', determine_strip_mode('Reasoning', 'Verbal', 'Syllogism') == 'logical')
     check('e10_factual', determine_strip_mode('General Awareness', 'History', 'Medieval India') == 'factual')
     check('e10_default', determine_strip_mode('Biology', 'Genetics', 'Mendel Laws') == 'reasoning')
-    # map_difficulty_level: 3-label ordinal alias; non-3 sets and unknown level → None
-    check('map_3', map_difficulty_level('Simple', ['Easy', 'Medium', 'Hard']) == 'Easy'
-          and map_difficulty_level('Medium', ['Easy', 'Medium', 'Hard']) == 'Medium'
-          and map_difficulty_level('Hard', ['L1', 'L2', 'L3']) == 'L3')
-    check('map_non3_none', map_difficulty_level('Medium', ['Basic', 'Advanced']) is None
-          and map_difficulty_level('Medium', ['A', 'B', 'C', 'D', 'E']) is None)
-    check('map_bad_level_none', map_difficulty_level('Extreme', ['Easy', 'Medium', 'Hard']) is None)
-    check('map_bad_type_none', map_difficulty_level('Medium', None) is None
-          and map_difficulty_level('Medium', 'EasyMediumHard') is None)
+    # map_difficulty_level RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE) — band_for_score emits labels
 
     # ── Cluster E2: derivation-observed (Tier 1) + structural (Tier 1.5) ─────
     _L = ['Easy', 'Medium', 'Hard']
@@ -6797,6 +6639,246 @@ PYQ_IMAGE_ANALYSIS:
           (lambda a, b: evaluate_difficulty_gate(a, {}, _L, scores_by_q=b) and a == _lab and b == _sc_all_ok)
           (dict(_lab), dict(_sc_all_ok)))
 
+    # ── Cluster DP: PYQ difficulty profile (GAP-2026-08-27-DIFFICULTY-PROFILE)
+    _SSC = {'exam_code': 'SSC_CGL_T1', 'total_questions': 100, 'difficulty_labels': _L,
+            'sections': [{'name': 'Reasoning', 'q_range': [1, 25]},
+                         {'name': 'General Awareness', 'q_range': [26, 50]},
+                         {'name': 'Quantitative Aptitude', 'q_range': [51, 75]},
+                         {'name': 'English', 'q_range': [76, 100]}]}
+    def _obs(score_hint, qtype='mcq', sub='R.A'):
+        # deterministic obs producing a wanted rubric score: use steps/concepts on C-COMPUTATIONAL
+        table = {0: ('C-FACTUAL', 0, 1), 1: ('C-FORMAL-LOGIC', 0, 1), 2: ('C-FORMAL-LOGIC', 2, 1),
+                 3: ('C-COMPUTATIONAL', 2, 1), 4: ('C-COMPUTATIONAL', 3, 1), 5: ('C-COMPUTATIONAL', 3, 2),
+                 6: ('C-COMPUTATIONAL', 5, 2), 7: ('C-COMPUTATIONAL', 5, 3)}
+        cls, st, co = table[score_hint]
+        return {'question_class': cls, 'deduction_steps': st, 'axiom_concepts': co,
+                'speed_hack_exists': False, 'derivation_confidence': 'full', 'is_negative': False,
+                'qtype': qtype, 'subtopic_id': sub, 'stem_snippet': 'x' * 200}
+    def _paper(mix_by_sec, n_sec=25):
+        """mix_by_sec: [(easy,med,hard) counts per section in order] → questions 1..100"""
+        qs = {}; q = 1
+        for e, m, h in mix_by_sec:
+            for _ in range(e): qs[q] = _obs(1); q += 1
+            for _ in range(m): qs[q] = _obs(4); q += 1
+            for _ in range(h): qs[q] = _obs(7); q += 1
+        return qs
+    check('dp_iso_date', dp_iso_date('09-Sep-2024') == '2024-09-09' and dp_iso_date('9-sep-2024') == '2024-09-09'
+          and dp_iso_date('2024-09-09') == '2024-09-09' and dp_iso_date('31-Feb-2024') is None
+          and dp_iso_date('Sep-2024') is None and dp_iso_date(None) is None)
+    _pf = dp_parse_filename('SSC_CGL_T1_09-Sep-2024_Shift_1.docx', 'SSC_CGL_T1')
+    check('dp_parse_filename', _pf == {'exam_code': 'SSC_CGL_T1', 'date': '2024-09-09', 'session': 'Shift_1',
+                                       'paper_key': '09-Sep-2024_Shift_1'}
+          and dp_parse_filename('IIT_JAM_CHEMISTRY_15-Feb-2026.docx')['paper_key'] == '15-Feb-2026'
+          and dp_parse_filename('SSC_CGL_T1_09-Sep-2024_Shift_1.docx', 'SSC_CHSL') is None
+          and dp_parse_filename('/x/y/SSC_CGL_T1_09-Sep-2024_Shift_1_pyq_explain_progress.json')['paper_key'] == '09-Sep-2024_Shift_1'
+          and dp_parse_filename('nodate.docx') is None and dp_parse_filename('') is None)
+    def _dperr(fn):
+        try:
+            fn(); return False
+        except DPError:
+            return True
+    check('dp_validate_sections', dp_validate_sections(None, 100) == [] and dp_validate_sections([], 100) == []
+          and [s['name'] for s in dp_validate_sections(_SSC['sections'], 100)] == ['Reasoning', 'General Awareness', 'Quantitative Aptitude', 'English']
+          and _dperr(lambda: dp_validate_sections([{'name': 'A', 'q_range': [1, 30]}, {'name': 'B', 'q_range': [30, 60]}], 60))
+          and _dperr(lambda: dp_validate_sections([{'name': 'A', 'q_range': [1, 30]}, {'name': 'B', 'q_range': [32, 60]}], 60))
+          and _dperr(lambda: dp_validate_sections([{'name': 'A', 'q_range': [1, 30]}], 60))
+          and _dperr(lambda: dp_validate_sections([{'name': 'A', 'q_range': [1, 30]}, {'name': 'A', 'q_range': [31, 60]}], 60))
+          and _dperr(lambda: dp_validate_sections([{'name': 'A', 'q_range': [1, 70]}], 60))
+          and _dperr(lambda: dp_validate_sections([{'name': 'A'}], 60)))
+    check('dp_section_of', dp_section_of(26, dp_validate_sections(_SSC['sections'], 100)) == 'General Awareness'
+          and dp_section_of('75', dp_validate_sections(_SSC['sections'], 100)) == 'Quantitative Aptitude'
+          and dp_section_of(101, dp_validate_sections(_SSC['sections'], 100)) is None
+          and dp_section_of(5, []) == DP_SECTIONLESS and dp_section_names([]) == [DP_SECTIONLESS])
+    check('dp_new_profile_and_check', dp_check_profile(dp_new_profile('X', _L), 'X', _L)['_meta']['schema'] == DP_SCHEMA
+          and _dperr(lambda: dp_new_profile('X', ['Lo', 'Hi']))
+          and _dperr(lambda: dp_check_profile(dp_new_profile('X', _L), 'Y', _L))
+          and _dperr(lambda: dp_check_profile(dp_new_profile('X', _L), 'X', ['A', 'B', 'C']))
+          and _dperr(lambda: dp_check_profile({'_meta': {'schema': 99, 'exam_code': 'X', 'difficulty_labels': _L}}, 'X', _L))
+          and _dperr(lambda: dp_check_profile('junk', 'X', _L)))
+    # the operator's scenario: Sep 2025 ×2 (8:92:0 reasoning), Jun 2024 ×1 (20:80:0), Jan 2024 ×1 (4:96:0)
+    P = None
+    for fn, mix in [('SSC_CGL_T1_09-Sep-2025_Shift_1.docx', [(2, 23, 0), (24, 1, 0), (5, 20, 0), (25, 0, 0)]),
+                    ('SSC_CGL_T1_12-Sep-2025_Shift_2.docx', [(2, 23, 0), (24, 1, 0), (5, 20, 0), (25, 0, 0)]),
+                    ('SSC_CGL_T1_20-Jun-2024_Shift_1.docx', [(5, 20, 0), (24, 1, 0), (5, 20, 0), (25, 0, 0)]),
+                    ('SSC_CGL_T1_15-Jan-2024_Shift_1.docx', [(1, 24, 0), (24, 1, 0), (5, 20, 0), (25, 0, 0)]),
+                    ('SSC_CGL_T1_10-Jul-2023_Shift_1.docx', [(0, 0, 25), (24, 1, 0), (5, 20, 0), (25, 0, 0)])]:
+        P, st, why = dp_add_paper(P, source_file=fn, exam_config=_SSC, questions=_paper(mix), written_by='t', now='2026-08-27T00:00:00Z')
+        assert st == 'added', why
+    check('dp_add_paper_is_pure', dp_add_paper(P, source_file='SSC_CGL_T1_09-Sep-2025_Shift_1.docx', exam_config=_SSC,
+                                               questions=_paper([(25, 0, 0)] * 4))[0] is not P
+          and P['papers']['09-Sep-2025_Shift_1']['questions']['3']['score'] == 4)
+    check('dp_add_paper_records', len(P['papers']) == 5 and P['papers']['09-Sep-2025_Shift_1']['q_total'] == 100
+          and P['papers']['09-Sep-2025_Shift_1']['questions']['1']['section'] == 'Reasoning'
+          and P['papers']['09-Sep-2025_Shift_1']['questions']['1']['band'] == _L[0]
+          and P['papers']['09-Sep-2025_Shift_1']['questions']['3']['score'] == 4
+          and len(P['papers']['09-Sep-2025_Shift_1']['questions']['1']['stem_snippet']) == 120
+          and P['summary_at_write']['cycles_used'] == ['Sep 2025', 'Jun 2024', 'Jan 2024'])
+    _cyc = dp_cycles(P)
+    check('dp_cycles_clustering', [c['label'] for c in _cyc] == ['Sep 2025', 'Jun 2024', 'Jan 2024', 'Jul 2023']
+          and _cyc[0]['papers'] == ['12-Sep-2025_Shift_2', '09-Sep-2025_Shift_1']
+          and [len(c['papers']) for c in dp_window(P)] == [2, 1, 1] and _cyc[0]['start'] == '2025-09-09')
+    R = dp_recommend(P, _SSC)
+    check('dp_recommend_equal_weight_cycles',
+          R['dormant'] is False and [c['label'] for c in R['cycles_used']] == ['Sep 2025', 'Jun 2024', 'Jan 2024']
+          and R['papers_used'] == 4
+          and R['by_section']['Reasoning']['pct'] == {_L[0]: 11, _L[1]: 89, _L[2]: 0}      # (8+20+4)/3 = 10.67 → 11
+          and R['by_section']['Reasoning']['n'] == 100
+          and [c['pct'][_L[0]] for c in R['by_section']['Reasoning']['cycles']] == [8, 20, 4]
+          and R['by_section']['English']['pct'] == {_L[0]: 100, _L[1]: 0, _L[2]: 0}
+          and R['by_section']['General Awareness']['pct'] == {_L[0]: 96, _L[1]: 4, _L[2]: 0}
+          and sum(R['paper_level']['pct'].values()) == 100 and R['paper_level']['n'] == 400)
+    # the 2023 all-Hard reasoning cycle is OUTSIDE the window → no effect; window=4 → it counts
+    R4 = dp_recommend(P, _SSC, window=4)
+    check('dp_window_is_the_rule', R4['by_section']['Reasoning']['pct'][_L[2]] == 25 and R['by_section']['Reasoning']['pct'][_L[2]] == 0)
+    # excluded paper: pattern change (90 questions) → excluded_papers, never in cycles
+    P2, st, why = dp_add_paper(P, source_file='SSC_CGL_T1_01-Oct-2025_Shift_3.docx', exam_config=_SSC,
+                               questions={q: _obs(1) for q in range(1, 91)})
+    check('dp_add_paper_excludes_pattern_change', st == 'excluded' and 'pattern' in why
+          and '01-Oct-2025_Shift_3' in P2['excluded_papers'] and '01-Oct-2025_Shift_3' not in P2['papers']
+          and [c['label'] for c in dp_cycles(P2)][0] == 'Sep 2025')
+    # re-explaining the same paper REPLACES it (idempotent); excluded then fixed → moves back
+    P3, st, _ = dp_add_paper(P2, source_file='SSC_CGL_T1_01-Oct-2025_Shift_3.docx', exam_config=_SSC, questions=_paper([(25, 0, 0)] * 4))
+    check('dp_add_paper_idempotent_and_unexclude', st == 'added' and '01-Oct-2025_Shift_3' in P3['papers']
+          and '01-Oct-2025_Shift_3' not in P3['excluded_papers'] and len(P3['papers']) == 6
+          and dp_cycles(P3)[0]['papers'][0] == '01-Oct-2025_Shift_3' and dp_cycles(P3)[0]['label'] == 'Sep–Oct 2025')
+    check('dp_add_paper_refusals',
+          _dperr(lambda: dp_add_paper(P, source_file='OTHER_09-Sep-2025_Shift_1.docx', exam_config=_SSC, questions=_paper([(25, 0, 0)] * 4)))
+          and _dperr(lambda: dp_add_paper(P, source_file='SSC_CGL_T1_x.docx', exam_config=_SSC, questions=_paper([(25, 0, 0)] * 4)))
+          and _dperr(lambda: dp_add_paper(P, source_file='SSC_CGL_T1_09-Sep-2025_Shift_9.docx', exam_config=_SSC, questions={**_paper([(25, 0, 0)] * 4), 7: {}}))
+          and _dperr(lambda: dp_add_paper(P, source_file='SSC_CGL_T1_09-Sep-2025_Shift_9.docx', exam_config=_SSC, questions={**_paper([(25, 0, 0)] * 4), 7: {**_obs(1), 'qtype': 'essay'}}))
+          and _dperr(lambda: dp_add_paper(P, source_file='SSC_CGL_T1_09-Sep-2025_Shift_9.docx', exam_config=_SSC, questions={'a': _obs(1)})))
+    # empty / dormant / sectionless / fewer than 3 cycles / same-day shifts / exact gap boundary
+    check('dp_recommend_dormant', dp_recommend(dp_new_profile('SSC_CGL_T1', _L), _SSC)['dormant'] is True
+          and dp_recommend(P, {**_SSC, 'difficulty_labels': ['Lo', 'Hi']})['dormant'] is True)
+    _NS = {'exam_code': 'NS', 'total_questions': 4, 'difficulty_labels': _L, 'sections': None}
+    Q, _, _ = dp_add_paper(None, source_file='NS_01-Jan-2025.docx', exam_config=_NS, questions={1: _obs(1), 2: _obs(4), 3: _obs(7), 4: _obs(7)})
+    Q, _, _ = dp_add_paper(Q, source_file='NS_02-Jan-2025_Shift_2.docx', exam_config=_NS, questions={1: _obs(1), 2: _obs(1), 3: _obs(1), 4: _obs(7)})
+    Q, _, _ = dp_add_paper(Q, source_file='NS_02-Apr-2025.docx', exam_config=_NS, questions={q: _obs(4) for q in range(1, 5)})
+    RQ = dp_recommend(Q, _NS)
+    # Jan cycle pooled 8 qs: 4 Easy, 1 Medium, 3 Hard = 50 / 12.5 / 37.5; Apr cycle: 0 / 100 / 0
+    # equal-weight mean = 25 / 56.25 / 18.75 → largest remainder → 25 / 56 / 19
+    check('dp_recommend_sectionless_two_cycles',
+          RQ['sections'] == [DP_SECTIONLESS] and [c['label'] for c in RQ['cycles_used']] == ['Apr 2025', 'Jan 2025']
+          and len(RQ['cycles_used'][1]['papers']) == 2
+          and RQ['by_section'][DP_SECTIONLESS]['pct'] == {_L[0]: 25, _L[1]: 56, _L[2]: 19})
+    # exact gap boundary: 60 days apart = same cycle; 61 = new cycle
+    G = None
+    for fn in ['NS_01-Jan-2025.docx', 'NS_02-Mar-2025.docx', 'NS_02-May-2025.docx']:   # 60 and 61 days
+        G, _, _ = dp_add_paper(G, source_file=fn, exam_config=_NS, questions={q: _obs(1) for q in range(1, 5)})
+    check('dp_cycle_gap_boundary', [len(c['papers']) for c in dp_cycles(G)] == [1, 2]
+          and [len(c['papers']) for c in dp_cycles(G, gap_days=61)] == [3]
+          and [len(c['papers']) for c in dp_recommend(G, {**_NS, 'cycle_gap_days': 61})['cycles_used']] == [3]
+          and _dperr(lambda: dp_cycles(G, gap_days=0)) and _dperr(lambda: dp_window(G, n=0)))
+    # a section with no explained question in the window → pct None, n 0 (Blueprint must ask)
+    _E2 = {**_NS, 'total_questions': 4, 'sections': [{'name': 'A', 'q_range': [1, 2]}, {'name': 'B', 'q_range': [3, 4]}]}
+    E, _, _ = dp_add_paper(None, source_file='NS_01-Jan-2025.docx', exam_config=_E2, questions={1: _obs(1), 2: _obs(4), 3: _obs(7), 4: _obs(7)})
+    RE = dp_recommend(E, _E2)
+    check('dp_recommend_per_section', RE['by_section']['A']['pct'] == {_L[0]: 50, _L[1]: 50, _L[2]: 0}
+          and RE['by_section']['B']['pct'] == {_L[0]: 0, _L[1]: 0, _L[2]: 100})
+    # sections changed since the paper was written (paper now maps to CURRENT sections)
+    RE2 = dp_recommend(E, {**_E2, 'sections': [{'name': 'Whole', 'q_range': [1, 4]}]})
+    check('dp_recommend_uses_current_sections', RE2['by_section']['Whole']['pct'] == {_L[0]: 25, _L[1]: 25, _L[2]: 50})
+    # guardrail
+    check('dp_guardrail', dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 28, _L[1]: 72, _L[2]: 0}, _L) == []
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 27, _L[1]: 73, _L[2]: 0}, _L)[0]['band'] == _L[0]
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 52, _L[1]: 48, _L[2]: 0}, _L) == []
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 53, _L[1]: 47, _L[2]: 0}, _L)[0]['allowed_max'] == 52
+          and dp_guardrail({_L[0]: 56, _L[1]: 44, _L[2]: 0}, {_L[0]: 40, _L[1]: 30, _L[2]: 30}, _L)[-1] ==
+              {'band': _L[2], 'recommended': 0, 'chosen': 30, 'allowed_min': 0, 'allowed_max': 0}
+          and dp_guardrail({_L[0]: 0, _L[1]: 0, _L[2]: 100}, {_L[0]: 0, _L[1]: 0, _L[2]: 100}, _L) == []
+          and dp_guardrail({_L[0]: 10, _L[1]: 90, _L[2]: 0}, {_L[0]: 0, _L[1]: 100, _L[2]: 0}, _L)[0]['allowed_min'] == 7
+          and dp_guardrail({_L[0]: 0, _L[1]: 90, _L[2]: 10}, {_L[0]: 0, _L[1]: 100, _L[2]: 0}, _L)[0]['band'] == _L[2]
+          and _dperr(lambda: dp_guardrail({}, {}, _L, frac=-1)))
+    # operator lines
+    _names = ['Reasoning', 'General Awareness', 'Quantitative Aptitude', 'English']
+    check('dp_parse_mix_line', dp_parse_mix_line('ok', _names) == (DP_ACCEPT_WORD, None)
+          and dp_parse_mix_line('Reasoning: 10:80:10', _names) == ('Reasoning', {_L[0]: 10, _L[1]: 80, _L[2]: 10})
+          and dp_parse_mix_line('general awareness = 96 4 0', _names)[0] == 'General Awareness'
+          and dp_parse_mix_line('English 100/0/0 %', _names)[1][_L[0]] == 100
+          and dp_parse_mix_line('20:50:30', [DP_SECTIONLESS])[0] == DP_SECTIONLESS
+          and dp_parse_mix_line('Paper: 20:50:30', ['Whole'])[0] == 'Whole'
+          and _dperr(lambda: dp_parse_mix_line('Reasoning: 10:80:20', _names))
+          and _dperr(lambda: dp_parse_mix_line('Maths: 10:80:10', _names))
+          and _dperr(lambda: dp_parse_mix_line('10:80:10', _names))
+          and _dperr(lambda: dp_parse_mix_line('Reasoning: ten:80:10', _names))
+          and _dperr(lambda: dp_parse_mix_line('', _names)))
+    # stale check
+    check('dp_stale_papers', dp_stale_papers(P, ['SSC_CGL_T1_30-Sep-2025_Shift_2.docx', 'SSC_CGL_T1_09-Sep-2025_Shift_1.docx',
+                                                 'SSC_CGL_T1_01-Jan-2020.docx', 'OTHER_30-Sep-2025.docx', 'junk.docx'], 'SSC_CGL_T1')
+          == ['30-Sep-2025_Shift_2']
+          and dp_stale_papers(dp_new_profile('SSC_CGL_T1', _L), ['SSC_CGL_T1_01-Jan-2020.docx'], 'SSC_CGL_T1') == ['01-Jan-2020'])
+    # calibration examples per subtopic from the window only
+    _cal = dp_calibration(P, 'R.A', _SSC)
+    check('dp_calibration', _cal[_L[2]]['observed'] is False and _cal[_L[2]]['count'] == 0     # 2023 all-Hard is outside window
+          and _cal[_L[1]]['observed'] is True and len(_cal[_L[1]]['examples']) == DP_MAX_CALIBRATION_EXAMPLES
+          and _cal[_L[1]]['examples'][0]['score'] == 4 and _cal[_L[1]]['examples'][0]['steps'] == 3
+          and dp_calibration(P, 'NOPE', _SSC)[_L[0]]['count'] == 0 and dp_calibration(None, 'R.A', _SSC)[_L[0]]['observed'] is False)
+    # counts by section + per-section plan (with NAT/MSQ floors)
+    _pcts = {s: {_L[0]: 20, _L[1]: 50, _L[2]: 30} for s in _names}
+    _cnt = dp_counts_by_section(_pcts, _SSC['sections'], 100, _L)
+    # 25 × 50% = 12.5 and 25 × 30% = 7.5 tie on remainder; the canonical apportioner breaks ties by key name → Hard gets the seat
+    check('dp_counts_by_section', all(sum(v.values()) == 25 for v in _cnt.values()) and _cnt['Reasoning'] == {_L[0]: 5, _L[1]: 12, _L[2]: 8}
+          and dp_counts_by_section({DP_SECTIONLESS: {_L[0]: 33, _L[1]: 33, _L[2]: 34}}, None, 10, _L)[DP_SECTIONLESS] == {_L[0]: 3, _L[1]: 3, _L[2]: 4}
+          and _dperr(lambda: dp_counts_by_section({'Reasoning': _pcts['Reasoning']}, _SSC['sections'], 100, _L))
+          and _dperr(lambda: dp_counts_by_section({s: {_L[0]: 50, _L[1]: 50, _L[2]: 50} for s in _names}, _SSC['sections'], 100, _L)))
+    _JAM = [{'name': 'A', 'q_range': [1, 30]}, {'name': 'B', 'q_range': [31, 40]}, {'name': 'C', 'q_range': [41, 60]}]
+    _qt = {q: ('mcq' if q <= 30 else 'msq' if q <= 40 else 'nat') for q in range(1, 61)}
+    _plan = assign_difficulty_bands_by_section({'A': {'simple': 6, 'medium': 9, 'hard': 15}, 'B': {'simple': 0, 'medium': 4, 'hard': 6},
+                                                'C': {_L[0]: 0, _L[1]: 5, _L[2]: 15}}, _qt, _JAM, _L)
+    check('assign_by_section_plan', len(_plan) == 60 and sum(1 for q in range(1, 31) if _plan[q] == _L[0]) == 6
+          and all(_plan[q] != _L[0] for q in range(31, 61)) and sum(1 for q in range(41, 61) if _plan[q] == _L[2]) == 15
+          and assign_difficulty_bands_by_section({DP_SECTIONLESS: {'simple': 1, 'medium': 1, 'hard': 1}}, {1: 'mcq', 2: 'mcq', 3: 'nat'}, None, _L)[3] != _L[0]
+          and assign_difficulty_bands_by_section({}, {}, None, ['Lo', 'Hi']) is None)
+    def _e(fn):
+        try:
+            fn(); return ''
+        except DPError as ex:
+            return str(ex)
+    check('assign_by_section_names_the_section',
+          "section 'B' asks for 1" in _e(lambda: assign_difficulty_bands_by_section(
+              {'A': {'simple': 6, 'medium': 9, 'hard': 15}, 'B': {'simple': 1, 'medium': 3, 'hard': 6}, 'C': {'simple': 0, 'medium': 5, 'hard': 15}}, _qt, _JAM, _L))
+          and "do not sum" in _e(lambda: assign_difficulty_bands_by_section(
+              {'A': {'simple': 6, 'medium': 9, 'hard': 14}, 'B': {'simple': 0, 'medium': 4, 'hard': 6}, 'C': {'simple': 0, 'medium': 5, 'hard': 15}}, _qt, _JAM, _L))
+          and "no difficulty counts for section 'C'" in _e(lambda: assign_difficulty_bands_by_section(
+              {'A': {'simple': 6, 'medium': 9, 'hard': 15}, 'B': {'simple': 0, 'medium': 4, 'hard': 6}}, _qt, _JAM, _L)))
+    # JSON round trip: the profile survives a save/load unchanged in meaning
+    import json as _json
+    _rt = _json.loads(_json.dumps(P))
+    check('dp_json_roundtrip', dp_recommend(_rt, _SSC)['by_section'] == R['by_section'] and dp_cycles(_rt) == _cyc)
+    from fractions import Fraction as _F
+    # mutant-killers: defaults, flagged confidence, explained_at, window/gap/tolerance edges, stale strictness
+    _NL = {'exam_code': 'NL', 'total_questions': 2, 'sections': None}            # no difficulty_labels → default vocabulary
+    _fl = {**_obs(4), 'derivation_confidence': 'flagged'}
+    NLp, _, _ = dp_add_paper(None, source_file='NL_05-May-2025.docx', exam_config=_NL, questions={1: _fl, 2: _obs(1)},
+                             now='2026-08-27T01:02:03Z', written_by='w')
+    check('dp_defaults_flagged_and_timestamps',
+          NLp['_meta']['difficulty_labels'] == ['Easy', 'Medium', 'Hard']
+          and NLp['papers']['05-May-2025']['questions']['1']['confidence'] == 'flagged'
+          and NLp['papers']['05-May-2025']['questions']['1']['score'] == 6                 # 4 + 2 for the flag
+          and NLp['papers']['05-May-2025']['explained_at'] == '2026-08-27T01:02:03Z'
+          and NLp['_meta']['written_by'] == 'w' and NLp['_meta']['updated_at'] == '2026-08-27T01:02:03Z'
+          and dp_calibration(NLp, 'R.A', _NL)['Hard']['count'] == 1
+          and dp_recommend(NLp, _NL)['by_section'][DP_SECTIONLESS]['pct'] == {'Easy': 50, 'Medium': 0, 'Hard': 50})
+    check('dp_edges_window_gap_tolerance',
+          [len(c['papers']) for c in dp_cycles(G, gap_days=1)] == [1, 1, 1]
+          and len(dp_window(G, n=1)) == 1
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 40, _L[1]: 60, _L[2]: 0}, _L, frac=0) == []
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 41, _L[1]: 59, _L[2]: 0}, _L, frac=0)[0]['band'] == _L[0])
+    check('dp_stale_same_date_sibling_not_stale',
+          dp_stale_papers(P, ['SSC_CGL_T1_12-Sep-2025_Shift_9.docx'], 'SSC_CGL_T1') == []            # same date as newest → sibling, not stale
+          and dp_stale_papers(P, ['SSC_CGL_T1_13-Sep-2025_Shift_1.docx'], 'SSC_CGL_T1') == ['13-Sep-2025_Shift_1']
+          and dp_stale_papers({'_meta': {}, 'papers': {}}, ['SSC_CGL_T1_13-Sep-2025_Shift_1.docx'], 'SSC_CGL_T1') == ['13-Sep-2025_Shift_1'])
+    check('dp_calibration_cap_is_three', DP_MAX_CALIBRATION_EXAMPLES == 3 and len(_cal[_L[1]]['examples']) == 3)
+    check('assign_by_section_names_the_cap',
+          "holds at most 0 (0 MCQ positions" in _e(lambda: assign_difficulty_bands_by_section(
+              {'A': {'simple': 6, 'medium': 9, 'hard': 15}, 'B': {'simple': 1, 'medium': 3, 'hard': 6}, 'C': {'simple': 0, 'medium': 5, 'hard': 15}}, _qt, _JAM, _L)))
+    check('dp_rounding_sums_to_100', all(sum(dp_round_pct({_L[0]: a, _L[1]: b, _L[2]: 100 - a - b}, _L).values()) == 100
+                                          for a in (_F(0), _F('10.5'), _F('33.3'), _F(100, 3), _F(50), _F('99.9'))
+                                          for b in (_F(0), _F('33.3'), _F(100, 3), _F('0.05')) if a + b <= 100)
+          and dp_round_pct({_L[0]: _F(50, 9), _L[1]: _F(275, 9), _L[2]: _F(575, 9)}, _L) == {_L[0]: 6, _L[1]: 30, _L[2]: 64}  # exact tie → key-name order
+          and dp_round_pct({_L[0]: 20, _L[1]: 50, _L[2]: 30}, _L) == {_L[0]: 20, _L[1]: 50, _L[2]: 30}
+          and _dperr(lambda: dp_round_pct({_L[0]: 20, _L[1]: 50, _L[2]: 31}, _L)))
+
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -7019,6 +7101,569 @@ def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
             'bands': bands, 'rework_qs': rework,
             'rework_directions': {q: directions[q] for q in rework},
             'dormant': False}
+
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# CLUSTER DP — PYQ DIFFICULTY PROFILE  (GAP-2026-08-27-DIFFICULTY-PROFILE)
+# ════════════════════════════════════════════════════════════════════════════
+#   The exam's own difficulty mix, MEASURED from its PYQ papers with the SAME
+#   rubric Steps 7 and 9 enforce (Cluster E2 difficulty_score), and the ONLY
+#   source of the Blueprint's default Easy:Medium:Hard split. Replaces the
+#   silent 25:25:50 default and the keyword scorer (E-9, retired).
+#
+#   FILE  [ExamCode]_difficulty_profile.json — written ONLY through
+#         dp_add_paper (PYQExplain, final batch), read by Blueprint / Scoped
+#         Blueprint / Step 7 through dp_* readers. Raw per-question observations
+#         are stored; every recommendation is RECOMPUTED at read time, so a rule
+#         change (window, gap, edges) never needs a re-explain.
+#   CYCLE one sitting of the exam (SSC CGL Tier-1 Sep-2025 = its 46 shifts;
+#         CSIR-NET Jun-2026 and Dec-2025 are two cycles). Found by DATE
+#         CLUSTERING: consecutive papers ≤ DP_CYCLE_GAP_DAYS apart share a cycle.
+#         No per-exam configuration; an exam-pattern override `cycle_gap_days`
+#         is honoured when present.
+#   MIX   per section (exam_config.sections q_range; sectionless exam = one
+#         'Paper' section): pool every explained question of a cycle → cycle
+#         percentages; average the latest DP_CYCLES_WINDOW cycles with EQUAL
+#         weight (a cycle with 5 explained shifts cannot outvote a cycle with 1);
+#         largest-remainder to whole percentages summing to 100.
+#   GUARD an operator override is accepted when each band lies within
+#         ±DP_TOLERANCE_FRAC of the recommended value (relative); a band the exam
+#         never has (0%) accepts only 0 without explicit CONFIRM.
+#   All functions are pure: data in, data out, deterministic, no I/O.
+
+DP_SCHEMA          = 1
+DP_CYCLES_WINDOW   = 3        # operator decision 2026-08-27: latest 3 sittings
+DP_CYCLE_GAP_DAYS  = 60       # consecutive papers further apart start a new cycle
+DP_TOLERANCE_FRAC  = 0.30     # operator decision 2026-08-27: ±30% relative
+DP_SECTIONLESS     = 'Paper'  # section name for an exam without sections
+DP_MAX_CALIBRATION_EXAMPLES = 3
+DP_CONFIRM_WORD    = 'CONFIRM'
+DP_ACCEPT_WORD     = 'OK'
+_DP_MONTHS = {m: i for i, m in enumerate(
+    ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'], 1)}
+
+
+class DPError(ValueError):
+    """A profile/exam_config contract violation. Raised, never silently absorbed:
+    a wrong difficulty mix wastes every student's practice."""
+
+
+def dp_iso_date(text):
+    """'09-Sep-2024' / '9-sep-2024' / '2024-09-09' → 'YYYY-MM-DD'. None when the
+    text is not a date in either form (the caller decides whether that is fatal)."""
+    import datetime as _dt
+    s = str(text or '').strip()
+    m = re.fullmatch(r'(\d{1,2})-([A-Za-z]{3})-(\d{4})', s)
+    if m:
+        mon = _DP_MONTHS.get(m.group(2).lower())
+        if not mon:
+            return None
+        try:
+            return _dt.date(int(m.group(3)), mon, int(m.group(1))).isoformat()
+        except ValueError:
+            return None
+    m = re.fullmatch(r'(\d{4})-(\d{2})-(\d{2})', s)
+    if m:
+        try:
+            return _dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3))).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
+def dp_parse_filename(filename, exam_code=None):
+    """'[ExamCode]_[DD-Mon-YYYY][_<session>].docx' → {'exam_code','date','session',
+    'paper_key'} or None. paper_key = 'DD-Mon-YYYY[_session]' exactly as PYQExplain's
+    DATE_SESSION. exam_code, when given, must match (case-sensitive) — the profile of
+    one exam must never absorb another exam's paper."""
+    base = str(filename or '').strip().split('/')[-1]
+    base = re.sub(r'\.(docx|pdf|json)$', '', base, flags=re.I)
+    m = re.match(r'^(.+?)_(\d{1,2}-[A-Za-z]{3}-\d{4})(?:_(.+))?$', base)
+    if not m:
+        return None
+    ec, date_txt, session = m.group(1), m.group(2), (m.group(3) or '')
+    if exam_code is not None and ec != exam_code:
+        return None
+    iso = dp_iso_date(date_txt)
+    if iso is None:
+        return None
+    session = re.sub(r'_pyq_explain_progress$', '', session)
+    return {'exam_code': ec, 'date': iso, 'session': session,
+            'paper_key': date_txt + (('_' + session) if session else '')}
+
+
+def dp_validate_sections(sections, total_questions):
+    """exam_config.sections → normalised [{'name','q_range':[a,b]}] sorted by a, or
+    [] for a sectionless exam. Raises DPError on overlap, gaps, names duplicated,
+    or ranges outside 1..total_questions: a section map that does not tile the
+    paper cannot give per-section quotas."""
+    tq = _as_int(total_questions)
+    if not sections:
+        return []
+    out = []
+    for s in sections:
+        if not isinstance(s, dict):
+            raise DPError(f'section entry is not a dict: {s!r}')
+        name = str(s.get('name') or '').strip()
+        rng = s.get('q_range')
+        if not name:
+            raise DPError(f'section without a name: {s!r}')
+        if not isinstance(rng, (list, tuple)) or len(rng) != 2:
+            raise DPError(f"section '{name}' has no q_range [start, end]")
+        a, b = _as_int(rng[0]), _as_int(rng[1])
+        if a < 1 or b < a or (tq and b > tq):
+            raise DPError(f"section '{name}' q_range {rng} is outside 1..{tq}")
+        out.append({'name': name, 'q_range': [a, b]})
+    out.sort(key=lambda x: x['q_range'][0])
+    names = [x['name'] for x in out]
+    if len(set(names)) != len(names):
+        raise DPError(f'duplicate section names: {names}')
+    pos = 1
+    for x in out:
+        a, b = x['q_range']
+        if a != pos:
+            raise DPError(f"sections do not tile the paper: expected a section to start at "
+                          f"Q{pos}, found '{x['name']}' starting at Q{a}")
+        pos = b + 1
+    if tq and pos != tq + 1:
+        raise DPError(f'sections end at Q{pos - 1} but the paper has {tq} questions')
+    return out
+
+
+def dp_section_of(q, sections):
+    """Section name for position q under a dp_validate_sections map; DP_SECTIONLESS
+    when the map is empty; None when q falls outside every range."""
+    if not sections:
+        return DP_SECTIONLESS
+    qi = _as_int(q)
+    for s in sections:
+        a, b = s['q_range']
+        if a <= qi <= b:
+            return s['name']
+    return None
+
+
+def dp_section_names(sections):
+    return [s['name'] for s in sections] if sections else [DP_SECTIONLESS]
+
+
+def dp_new_profile(exam_code, difficulty_labels):
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        raise DPError('difficulty profile needs an exactly-3-label vocabulary')
+    return {'_meta': {'schema': DP_SCHEMA, 'exam_code': str(exam_code),
+                      'difficulty_labels': list(difficulty_labels),
+                      'band_edges': {'easy_max': DIFFICULTY_EASY_MAX,
+                                     'medium_max': DIFFICULTY_MEDIUM_MAX},
+                      'written_by': '', 'updated_at': ''},
+            'papers': {}, 'excluded_papers': {}, 'summary_at_write': {}}
+
+
+def dp_check_profile(profile, exam_code, difficulty_labels):
+    """Refuse a profile that is not this exam's, not this vocabulary, not this
+    schema, or not these band edges. Returns the profile. Raises DPError with the
+    exact reason and the fix ('re-run PYQExplain')."""
+    if not isinstance(profile, dict) or not isinstance(profile.get('_meta'), dict):
+        raise DPError('difficulty profile is malformed (no _meta)')
+    m = profile['_meta']
+    if m.get('schema') != DP_SCHEMA:
+        raise DPError(f"difficulty profile schema {m.get('schema')!r} != engine {DP_SCHEMA}; "
+                      f"re-run PYQExplain to rewrite it")
+    if str(m.get('exam_code')) != str(exam_code):
+        raise DPError(f"difficulty profile belongs to {m.get('exam_code')!r}, not {exam_code!r}")
+    if list(m.get('difficulty_labels') or []) != list(difficulty_labels or []):
+        raise DPError(f"difficulty profile labels {m.get('difficulty_labels')} != exam_config "
+                      f"{list(difficulty_labels or [])}; re-run PYQExplain")
+    be = m.get('band_edges') or {}
+    if (be.get('easy_max'), be.get('medium_max')) != (DIFFICULTY_EASY_MAX, DIFFICULTY_MEDIUM_MAX):
+        raise DPError('difficulty profile was written under different band edges; re-run PYQExplain')
+    for k in ('papers', 'excluded_papers'):
+        if not isinstance(profile.get(k), dict):
+            raise DPError(f"difficulty profile has no '{k}' map")
+    return profile
+
+
+def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
+                 now=''):
+    """SINGLE WRITER. Add (or replace) one explained PYQ paper.
+
+    source_file  PYQExplain's attached Row filename → date / session / paper_key
+    exam_config  {'exam_code','total_questions','sections','difficulty_labels'}
+    questions    {q: obs} where obs carries the §7A six observations + 'qtype'
+                 + 'subtopic_id' + optional 'stem_snippet' (≤ 120 chars stored)
+    Per question the RAW rubric score (difficulty_score) and band are stored.
+    A paper whose question count differs from exam_config.total_questions, or
+    whose positions fall outside the section map, is recorded under
+    excluded_papers with the reason and NEVER enters the mix. Idempotent on
+    paper_key (re-explaining a paper replaces it). PURE: returns a NEW profile
+    object; the input is never mutated. Returns (profile, status, reason) with
+    status 'added' | 'excluded'."""
+    import copy as _copy
+    labels = list(exam_config.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    exam_code = str(exam_config.get('exam_code') or '')
+    if profile is None:
+        profile = dp_new_profile(exam_code, labels)
+    dp_check_profile(profile, exam_code, labels)
+    profile = _copy.deepcopy(profile)          # PURE: the caller's object is never mutated
+    pf = dp_parse_filename(source_file, exam_code)
+    if pf is None:
+        raise DPError(f"cannot parse '[ExamCode]_[DD-Mon-YYYY][_session]' from {source_file!r}")
+    key = pf['paper_key']
+    tq = _as_int(exam_config.get('total_questions'))
+    sections = dp_validate_sections(exam_config.get('sections'), tq)
+    qmap = {}
+    for q, obs in (questions or {}).items():
+        try:
+            qi = int(str(q).strip())
+        except (TypeError, ValueError):
+            raise DPError(f'question key {q!r} is not an integer')
+        if not isinstance(obs, dict):
+            raise DPError(f'Q{qi}: observation is not a dict')
+        qmap[qi] = obs
+    reason = None
+    if tq and len(qmap) != tq:
+        reason = f'paper has {len(qmap)} questions, exam_config.total_questions is {tq} (pattern differs)'
+    elif tq and sorted(qmap) != list(range(1, tq + 1)):
+        reason = f'question positions are not exactly 1..{tq}'
+    if reason:
+        profile['papers'].pop(key, None)
+        profile['excluded_papers'][key] = {'source_file': source_file, 'date': pf['date'],
+                                           'session': pf['session'], 'reason': reason}
+        _dp_refresh_summary(profile, exam_config, written_by, now)
+        return profile, 'excluded', reason
+    rec = {}
+    for qi, obs in sorted(qmap.items()):
+        sec = dp_section_of(qi, sections)
+        if sec is None:
+            raise DPError(f'Q{qi}: outside every section q_range')
+        score = difficulty_score_from_obs(obs)
+        if score is None:
+            raise DPError(f'Q{qi}: observation is empty')
+        band = band_for_score(score, labels)
+        qtype = str(obs.get('qtype') or 'mcq').strip().lower()
+        if qtype not in ('mcq', 'msq', 'nat'):
+            raise DPError(f'Q{qi}: qtype {qtype!r} not in mcq/msq/nat')
+        cls = obs.get('question_class', obs.get('facets'))
+        rec[str(qi)] = {
+            'section': sec, 'subtopic_id': str(obs.get('subtopic_id') or ''),
+            'qtype': qtype,
+            'class': [str(c) for c in cls] if isinstance(cls, (list, tuple)) else ([str(cls)] if cls else []),
+            'steps': _as_int(obs.get('deduction_steps')),
+            'concepts': _as_int(obs.get('axiom_concepts')),
+            'negative': bool(obs.get('is_negative')),
+            'confidence': 'flagged' if str(obs.get('derivation_confidence', 'full')).lower() == 'flagged' else 'full',
+            'speed_hack': bool(obs.get('speed_hack_exists')),
+            'score': score, 'band': band,
+            'stem_snippet': str(obs.get('stem_snippet') or '')[:120]}
+    profile['excluded_papers'].pop(key, None)
+    profile['papers'][key] = {'source_file': str(source_file).split('/')[-1], 'date': pf['date'],
+                              'session': pf['session'], 'q_total': len(rec),
+                              'explained_at': now or '', 'questions': rec}
+    _dp_refresh_summary(profile, exam_config, written_by, now)
+    return profile, 'added', None
+
+
+def _dp_refresh_summary(profile, exam_config, written_by, now):
+    profile['_meta']['written_by'] = written_by or profile['_meta'].get('written_by', '')
+    profile['_meta']['updated_at'] = now or profile['_meta'].get('updated_at', '')
+    try:
+        r = dp_recommend(profile, exam_config)
+        profile['summary_at_write'] = {
+            'note': 'advisory only — Blueprint recomputes from papers[]',
+            'cycles_used': [c['label'] for c in r['cycles_used']],
+            'by_section': {s: {k: v for k, v in d.items() if k in ('pct', 'n')}
+                           for s, d in r['by_section'].items()},
+            'paper_level': {k: v for k, v in r['paper_level'].items() if k in ('pct', 'n')}}
+    except DPError as e:
+        profile['summary_at_write'] = {'note': f'not computable: {e}'}
+
+
+def dp_cycles(profile, gap_days=None):
+    """Cycles (sittings) from paper dates, NEWEST FIRST. Consecutive papers (by date)
+    within `gap_days` of each other share a cycle. Each cycle: {'label', 'start',
+    'end', 'papers': [keys sorted by date desc]}. Excluded papers never form or
+    join a cycle."""
+    import datetime as _dt
+    gap = _as_int(gap_days) if gap_days is not None else DP_CYCLE_GAP_DAYS
+    if gap < 1:
+        raise DPError('cycle_gap_days must be >= 1')
+    rows = []
+    for key, p in (profile.get('papers') or {}).items():
+        iso = dp_iso_date(p.get('date'))
+        if iso is None:
+            raise DPError(f"paper {key!r} has no valid date")
+        rows.append((_dt.date.fromisoformat(iso), str(key)))
+    rows.sort()
+    cycles = []
+    for d, key in rows:
+        if cycles and (d - cycles[-1]['_end']).days <= gap:
+            cycles[-1]['_end'] = d
+            cycles[-1]['papers'].append(key)
+        else:
+            cycles.append({'_start': d, '_end': d, 'papers': [key]})
+    out = []
+    for c in reversed(cycles):
+        s, e = c['_start'], c['_end']
+        if (s.year, s.month) == (e.year, e.month):
+            lab = s.strftime('%b %Y')
+        elif s.year == e.year:
+            lab = f"{s.strftime('%b')}–{e.strftime('%b %Y')}"
+        else:
+            lab = f"{s.strftime('%b %Y')}–{e.strftime('%b %Y')}"
+        out.append({'label': lab, 'start': s.isoformat(), 'end': e.isoformat(),
+                    'papers': list(reversed(c['papers']))})
+    return out
+
+
+def dp_window(profile, n=None, gap_days=None):
+    n = _as_int(n) if n is not None else DP_CYCLES_WINDOW
+    if n < 1:
+        raise DPError('cycles window must be >= 1')
+    return dp_cycles(profile, gap_days)[:n]
+
+
+def _dp_pct_from_counts(counts, labels):
+    """{label: count} → {label: Fraction pct} (sum exactly 100) or None when n == 0.
+    EXACT arithmetic: a tie between two bands' remainders must be decided by the
+    tie rule, never by binary floating-point drift (5.555… vs 30.555…)."""
+    from fractions import Fraction
+    n = sum(counts.get(l, 0) for l in labels)
+    if n == 0:
+        return None
+    return {l: Fraction(100 * counts.get(l, 0), n) for l in labels}
+
+
+def dp_round_pct(pct, labels):
+    """Percentages (Fraction / int / float) → whole numbers summing to exactly 100.
+    Largest remainder computed EXACTLY (Fractions); ties broken by remainder DESC
+    then key name ASC — the corpus's S7-4 rule, identical to
+    largest_remainder_apportion but drift-free."""
+    from fractions import Fraction
+    raw = {}
+    for l in labels:
+        v = pct.get(l, 0)
+        raw[l] = v if isinstance(v, Fraction) else Fraction(str(v))
+    total = sum(raw.values())
+    if total != 100:
+        raise DPError(f'percentages must sum to 100 exactly; got {float(total)}')
+    floors = {l: int(raw[l]) for l in labels}          # Fractions are non-negative here
+    deficit = 100 - sum(floors.values())
+    order = sorted(labels, key=lambda l: (-(raw[l] - floors[l]), l))
+    for l in order[:deficit]:
+        floors[l] += 1
+    return floors
+
+
+def dp_recommend(profile, exam_config, window=None, gap_days=None):
+    """The recommendation Blueprint shows. Returns
+      {'dormant': bool, 'reason', 'cycles_used': [...], 'papers_used': int,
+       'by_section': {sec: {'pct': {label: int}, 'n': int, 'cycles': [{'label','pct','n'}]}},
+       'paper_level': {'pct': {...}, 'n': int, 'cycles': [...]},
+       'sections': [names]}
+    A section with NO explained question in the window has pct None ('n': 0):
+    Blueprint must ask the operator for that section. Equal weight per cycle."""
+    labels = list(exam_config.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    tq = _as_int(exam_config.get('total_questions'))
+    sections = dp_validate_sections(exam_config.get('sections'), tq)
+    names = dp_section_names(sections)
+    gap = gap_days if gap_days is not None else exam_config.get('cycle_gap_days')
+    if len(labels) != 3:
+        return {'dormant': True, 'reason': 'difficulty vocabulary is not 3-band',
+                'cycles_used': [], 'papers_used': 0, 'by_section': {}, 'paper_level': {},
+                'sections': names}
+    dp_check_profile(profile, exam_config.get('exam_code'), labels)
+    cycles = dp_window(profile, window, gap)
+    if not cycles:
+        return {'dormant': True, 'reason': 'no explained paper in the profile',
+                'cycles_used': [], 'papers_used': 0, 'by_section': {}, 'paper_level': {},
+                'sections': names}
+    per_cycle = []      # [(cycle, {sec: counts}, paper_counts)]
+    for c in cycles:
+        by_sec = {s: {l: 0 for l in labels} for s in names}
+        for key in c['papers']:
+            for q, rec in profile['papers'][key]['questions'].items():
+                sec = dp_section_of(q, sections)     # re-derived from CURRENT sections
+                if sec is None or sec not in by_sec:
+                    raise DPError(f"paper {key} Q{q} does not map to a current section")
+                band = band_for_score(_as_int(rec.get('score')), labels)   # CURRENT edges
+                by_sec[sec][band] += 1
+        per_cycle.append((c, by_sec))
+
+    def _aggregate(counts_per_cycle):
+        cyc = []
+        vals = []
+        for c, counts in counts_per_cycle:
+            p = _dp_pct_from_counts(counts, labels)
+            n = sum(counts.values())
+            cyc.append({'label': c['label'], 'papers': len(c['papers']), 'n': n,
+                        'pct': dp_round_pct(p, labels) if p else None})
+            if p:
+                vals.append(p)
+        if not vals:
+            return {'pct': None, 'n': 0, 'cycles': cyc}
+        mean = {l: sum(v[l] for v in vals) / len(vals) for l in labels}   # Fractions: exact
+        return {'pct': dp_round_pct(mean, labels), 'n': sum(x['n'] for x in cyc), 'cycles': cyc}
+
+    by_section = {s: _aggregate([(c, bs[s]) for c, bs in per_cycle]) for s in names}
+    paper_level = _aggregate([(c, {l: sum(bs[s][l] for s in names) for l in labels})
+                              for c, bs in per_cycle])
+    return {'dormant': False, 'reason': None, 'cycles_used': cycles,
+            'papers_used': sum(len(c['papers']) for c in cycles),
+            'by_section': by_section, 'paper_level': paper_level, 'sections': names}
+
+
+def dp_guardrail(recommended_pct, chosen_pct, labels, frac=None):
+    """Violations of the ±frac (relative) tolerance, per band. A recommended 0%
+    admits only 0. Returns [] when acceptable. Each violation:
+    {'band','recommended','chosen','allowed_min','allowed_max'}."""
+    f = float(DP_TOLERANCE_FRAC if frac is None else frac)
+    if f < 0:
+        raise DPError('tolerance must be >= 0')
+    out = []
+    for l in labels:
+        rec = _as_int(recommended_pct.get(l, 0))
+        ch = _as_int(chosen_pct.get(l, 0))
+        lo = int(math.floor(rec * (1 - f) + 1e-9)) if rec > 0 else 0
+        hi = min(100, int(math.ceil(rec * (1 + f) - 1e-9))) if rec > 0 else 0
+        if ch < lo or ch > hi:
+            out.append({'band': l, 'recommended': rec, 'chosen': ch,
+                        'allowed_min': lo, 'allowed_max': hi})
+    return out
+
+
+def dp_parse_mix_line(line, section_names, labels=None):
+    """One operator line → (section_name, {label: int pct}) or ('OK', None).
+    Accepts 'Reasoning: 10:80:10', 'Reasoning 10:80:10', 'Paper: 20/50/30',
+    'Reasoning = 10 80 10'. Section match is case-insensitive on the exam's own
+    names; a sectionless exam accepts 'Paper' or no section prefix at all.
+    Raises DPError naming the fault: unknown section, non-integers, sum != 100."""
+    labels = list(labels or ['Easy', 'Medium', 'Hard'])
+    s = str(line or '').strip()
+    if s.upper() == DP_ACCEPT_WORD:
+        return DP_ACCEPT_WORD, None
+    m = re.match(r'^(.*?)[\s:=]*(\d+)\s*[:/ ]\s*(\d+)\s*[:/ ]\s*(\d+)\s*%?\s*$', s)
+    if not m:
+        raise DPError(f"cannot read a mix from {line!r}: expected 'Section: E:M:H'")
+    sec_txt = m.group(1).strip().rstrip(':=').strip()
+    nums = [int(m.group(i)) for i in (2, 3, 4)]
+    if sum(nums) != 100:
+        raise DPError(f'percentages must sum to 100; got {nums[0]}+{nums[1]}+{nums[2]}={sum(nums)}')
+    if any(n < 0 for n in nums):
+        raise DPError('percentages must be >= 0')
+    names = list(section_names or [DP_SECTIONLESS])
+    if not sec_txt:
+        if len(names) == 1:
+            sec = names[0]
+        else:
+            raise DPError(f'this exam has sections {names}; prefix the line with the section name')
+    else:
+        match = [n for n in names if n.lower() == sec_txt.lower()]
+        if not match and len(names) == 1 and sec_txt.lower() == DP_SECTIONLESS.lower():
+            match = names
+        if not match:
+            raise DPError(f'unknown section {sec_txt!r}; this exam has {names}')
+        sec = match[0]
+    return sec, dict(zip(labels, nums))
+
+
+def dp_stale_papers(profile, scanned_filenames, exam_code):
+    """Scanned papers (PYQScan list) DATED AFTER the newest explained paper and not
+    themselves in the profile. Blueprint WARNS and continues (operator decision)."""
+    known = set(profile.get('papers') or {}) | set(profile.get('excluded_papers') or {})
+    dates = [dp_iso_date(p.get('date')) for p in (profile.get('papers') or {}).values()]
+    newest = max((d for d in dates if d), default=None)
+    out = []
+    for fn in scanned_filenames or []:
+        pf = dp_parse_filename(fn, exam_code)
+        if pf and pf['paper_key'] not in known and (newest is None or pf['date'] > newest):
+            out.append(pf['paper_key'])
+    return sorted(set(out))
+
+
+def dp_calibration(profile, subtopic_id, exam_config, window=None, gap_days=None):
+    """Per-band calibration examples for a subtopic from the window papers — the
+    rubric-based replacement for section_rules PYQ_DIFFICULTY_CALIBRATION.
+    Returns {label: {'observed': bool, 'count': int,
+                     'examples': [{'paper','q','steps','concepts','score','stem_snippet'}]}}
+    (examples capped at DP_MAX_CALIBRATION_EXAMPLES, highest score first)."""
+    labels = list(exam_config.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
+    gap = gap_days if gap_days is not None else exam_config.get('cycle_gap_days')
+    out = {l: {'observed': False, 'count': 0, 'examples': []} for l in labels}
+    if not profile or not subtopic_id:
+        return out
+    cycles = dp_window(profile, window, gap)
+    rows = []
+    for c in cycles:
+        for key in c['papers']:
+            for q, rec in profile['papers'][key]['questions'].items():
+                if rec.get('subtopic_id') == subtopic_id:
+                    band = band_for_score(_as_int(rec.get('score')), labels)
+                    rows.append((band, -_as_int(rec.get('score')), key, int(q), rec))
+    rows.sort(key=lambda r: (r[1], r[2], r[3]))
+    for band, _, key, q, rec in rows:
+        o = out[band]
+        o['observed'] = True
+        o['count'] += 1
+        if len(o['examples']) < DP_MAX_CALIBRATION_EXAMPLES:
+            o['examples'].append({'paper': key, 'q': q, 'steps': rec.get('steps'),
+                                  'concepts': rec.get('concepts'), 'score': rec.get('score'),
+                                  'stem_snippet': rec.get('stem_snippet', '')})
+    return out
+
+
+def dp_counts_by_section(pct_by_section, sections, total_questions, labels):
+    """{section: {label: pct}} → {section: {label: count}} on each section's size
+    (largest remainder); sums to the section size and, over all sections, to
+    total_questions. Raises DPError when a section is missing from pct_by_section."""
+    tq = _as_int(total_questions)
+    secs = dp_validate_sections(sections, tq)
+    sizes = {s['name']: s['q_range'][1] - s['q_range'][0] + 1 for s in secs} if secs else {DP_SECTIONLESS: tq}
+    out = {}
+    for name, size in sizes.items():
+        p = (pct_by_section or {}).get(name)
+        if not isinstance(p, dict):
+            raise DPError(f"no difficulty mix for section '{name}'")
+        if sum(_as_int(p.get(l, 0)) for l in labels) != 100:
+            raise DPError(f"section '{name}' percentages do not sum to 100")
+        raw = {l: size * _as_int(p.get(l, 0)) / 100 for l in labels}
+        ints = largest_remainder_apportion(raw, size)
+        out[name] = {l: int(ints.get(l, 0)) for l in labels}
+        assert sum(out[name].values()) == size
+    return out
+
+
+def assign_difficulty_bands_by_section(counts_by_section, qtype_by_q, sections,
+                                       difficulty_labels, seed=0):
+    """Per-section band plan: assign_difficulty_bands on each section's positions,
+    merged into one {q: label}. A section whose bottom-band count exceeds its MCQ
+    positions raises DPError NAMING the section and the achievable maximum (the
+    V5 feasibility message, per section)."""
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return None
+    EASY, MEDIUM, HARD = difficulty_labels
+    qs = {int(q): qt for q, qt in (qtype_by_q or {}).items()}
+    tq = max(qs) if qs else 0
+    secs = dp_validate_sections(sections, tq)
+    groups = {s['name']: list(range(s['q_range'][0], s['q_range'][1] + 1)) for s in secs} \
+        if secs else {DP_SECTIONLESS: sorted(qs)}
+    plan = {}
+    for i, (name, positions) in enumerate(groups.items()):
+        c = (counts_by_section or {}).get(name)
+        if not isinstance(c, dict):
+            raise DPError(f"no difficulty counts for section '{name}'")
+        counts = {'simple': _as_int(c.get('simple', c.get(EASY, 0))),
+                  'medium': _as_int(c.get('medium', c.get(MEDIUM, 0))),
+                  'hard': _as_int(c.get('hard', c.get(HARD, 0)))}
+        sub = {q: qs.get(q, 'mcq') for q in positions}
+        if sum(counts.values()) != len(sub):
+            raise DPError(f"section '{name}': counts {counts} do not sum to its {len(sub)} positions")
+        short = difficulty_feasibility(counts, sub, difficulty_labels)
+        if short:
+            n_mcq = sum(1 for q in sub if difficulty_min_band(sub[q], difficulty_labels) == EASY)
+            raise DPError(f"section '{name}' asks for {counts['simple']} '{EASY}' questions but holds "
+                          f"at most {n_mcq} ({n_mcq} MCQ positions; MSQ/NAT can never be bottom-band)")
+        plan.update(assign_difficulty_bands(counts, sub, difficulty_labels, seed=seed + i))
+    return plan
 
 
 def difficulty_obs_signature(obs):

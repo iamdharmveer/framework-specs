@@ -1,4 +1,16 @@
-# Framework_Blueprint v1.56.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.57.0 — Universal Mock Test Blueprint Generator
+# v1.57.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster
+#   DP, PYQExplain v2.18 S7A-6, MockTestAnalyse v2.55, MockTestCreate v5.75, MockDeliver
+#   v1.17.0, ScopedBlueprint v1.10.0, audit_canonical v2.21). NEW §7 S7-0:
+#   the DEFAULT Easy:Medium:Hard split is the exam's OWN measured mix per section, computed
+#   from [ExamCode]_difficulty_profile.json (latest 3 sittings by date clustering, equal
+#   weight, exact rounding), SHOWN and accepted with OK or replaced line by line; every
+#   deviation beyond ±30% (a band the exam never has: any value) needs the word CONFIRM;
+#   the silent 25:25:50 default is RETIRED. --difficulty exam / E:M:H / progressive kept,
+#   all guard-railed. S7-5 difficulty_schedule[] gains by_section counts (paper totals
+#   unchanged for legacy readers); blueprint.json gains difficulty_source (mode, sittings,
+#   confirmed overrides) that the delivery footer prints. No profile / dormant → operator
+#   types the mix, recorded as operator_no_pyq. Blueprint never re-tunes the engine constants.
 # v1.56.0 — 2026-08-25 — GAP-2026-08-25-BLUEPRINT-PHASE1 (paired with blueprint_core
 #   CLUSTER P, self-test 527 -> 559; audit_canonical v2.18). One MockBlueprint run halted
 #   three times on IIT_JAM_CHEMISTRY; seven defects, all exam-independent. NOTHING IN
@@ -432,10 +444,15 @@ Parse and validate:
               If > 100 → flag: "N_mocks = [X] is unusually large. Confirm to proceed."
               After confirmation → proceed normally.
 
-  --difficulty flag (optional):
-              Absent             → default 25:25:50 applied silently (no question asked)
-              --difficulty E:M:H → parse as whole-number percentages; validate in §7
-              --difficulty progressive → ask user to define bands after S1-6 (ref §7 S7-3)
+  --difficulty flag (optional; v1.57.0 — GAP-2026-08-27-DIFFICULTY-PROFILE):
+              Absent             → §7 S7-0: the exam's OWN measured mix is shown per
+                                   section and the operator types OK or their own lines.
+                                   NOTHING is applied silently (the 25:25:50 default is retired).
+              --difficulty exam  → accept the S7-0 recommendation without the OK prompt
+              --difficulty E:M:H → whole-number percentages applied to EVERY section;
+                                   validated in §7 (sum, floors) and guard-railed (S7-0)
+              --difficulty progressive → ask user to define bands after S1-6 (ref §7 S7-3);
+                                   each band guard-railed against the paper-level profile
               Unknown flag       → flag and ask user to correct
 ```
 
@@ -3163,25 +3180,156 @@ Else:
 
 ## §7 — DIFFICULTY SCHEDULE
 
-Determines Simple/Medium/Hard Q counts per mock and stores them
-in difficulty_schedule[] in blueprint.json.
+Determines Simple/Medium/Hard Q counts per mock — PER SECTION (v1.57.0) — and
+stores them in difficulty_schedule[] in blueprint.json.
 Completed entirely in B1 — never modified by B2.
+
+### S7-0 — The exam's own mix is the default (v1.57.0 — GAP-2026-08-27-DIFFICULTY-PROFILE)
+
+  WHY. Two "Graduation" exams measured 0% and 60% Hard on their own papers. A mix
+  the operator did not choose (the former silent 25:25:50) or chose without a
+  reference (30% Hard on an exam that never sets one) produces mocks that
+  misrepresent the exam — students practise questions that never appear. The
+  DEFAULT is therefore MEASURED from the exam's own PYQ papers, per section, and
+  every deviation is shown in one sentence and confirmed by the operator.
+
+  SOURCE. `[ExamCode]_difficulty_profile.json` in the project Files section —
+  written only by PYQExplain S7A-6 (engine blueprint_core Cluster DP). The
+  recommendation is computed HERE from the raw records: latest
+  bc.DP_CYCLES_WINDOW (3) sittings found by date clustering
+  (bc.DP_CYCLE_GAP_DAYS, 60), every explained paper of a sitting pooled, sittings
+  averaged with EQUAL weight, exact-fraction rounding to whole percentages. The
+  contract lives in the engine; this section never re-tunes it.
+
+```python
+import os, json
+import blueprint_core as bc                       # S1-2b engine
+# Bindings (S1-2 inventory): the exam code from the trigger, exam_config.json and the
+# Step-1 scan list — read here explicitly so this block is self-contained on resume.
+EXAM        = blueprint['exam_code']                                       # trigger ExamCode
+exam_config = json.load(open(f'/mnt/project/{EXAM}_exam_config.json', encoding='utf-8'))
+total_qs    = int(exam_config['total_questions'])
+try:
+    PAPERS_SCANNED_LIST = json.load(open(f'/mnt/project/{EXAM}_scan_progress.json',
+                                         encoding='utf-8')).get('papers_scanned_list') or []
+except Exception:
+    PAPERS_SCANNED_LIST = []                       # no scan list → nothing can be flagged stale
+_labels = blueprint.get('difficulty_labels') or exam_config.get('difficulty_labels') or ['Easy', 'Medium', 'Hard']
+PROFILE_CFG = {'exam_code': EXAM, 'total_questions': total_qs,
+               'sections': exam_config.get('sections'),
+               'cycle_gap_days': exam_config.get('cycle_gap_days'),
+               'difficulty_labels': _labels}
+SECTIONS = bc.dp_validate_sections(PROFILE_CFG['sections'], total_qs)   # DPError → HARD STOP: fix exam_config
+SECTION_NAMES = bc.dp_section_names(SECTIONS)                           # ['Paper'] when sectionless
+_pf_path = f'/mnt/project/{EXAM}_difficulty_profile.json'
+PROFILE, RECOMMEND = None, None
+if os.path.exists(_pf_path):
+    try:
+        PROFILE = bc.dp_check_profile(json.load(open(_pf_path, encoding='utf-8')), EXAM, _labels)
+        RECOMMEND = bc.dp_recommend(PROFILE, PROFILE_CFG)
+    except bc.DPError as _e:
+        raise SystemExit(f'HARD STOP (S7-0): {_e}')     # a foreign/stale-schema profile never shapes a paper
+STALE = bc.dp_stale_papers(PROFILE, PAPERS_SCANNED_LIST, EXAM) if PROFILE else []   # scan_progress papers_scanned_list
+# OUTPUTS of the S7-0 dialogue below (bound here so S7-5 can rely on them):
+chosen_by_section = {}          # {section: {label: int pct}} — filled by the OK / line loop
+difficulty_source = {'mode': None, 'profile_file': (f'{EXAM}_difficulty_profile.json' if PROFILE else None),
+                     'cycles_used': [c['label'] for c in (RECOMMEND or {}).get('cycles_used', [])],
+                     'papers_used': (RECOMMEND or {}).get('papers_used', 0), 'stale_papers': STALE,
+                     'recommended_by_section': {sec: (RECOMMEND or {}).get('by_section', {}).get(sec, {}).get('pct')
+                                                for sec in SECTION_NAMES},
+                     'chosen_by_section': chosen_by_section, 'overrides_confirmed': []}
+```
+
+  DISPLAY (always, before any mix is accepted). Section names are the exam's own.
+  A section whose recommendation is None (no explained question in the window)
+  prints "— no PYQ data —" and MUST be typed by the operator.
+
+    On a usable profile (RECOMMEND and not RECOMMEND['dormant']):
+      Difficulty mix recommended from your last [k] sittings
+      ([cycle labels, newest first; papers per sitting]):
+        Section                 Qs   Easy  Medium  Hard
+        [name]                 [n]   [E]%   [M]%   [H]%     ← one row per section
+        (per sitting, per section, the sitting's own mix is listed underneath so an
+         unusual year is visible before it is accepted)
+      [if STALE: "Note: [keys] are scanned but absent from the difficulty
+       profile — either not yet explained, or explained but that run's profile
+       was not uploaded. Not in this recommendation. Run (or re-run) PYQExplain
+       on them and upload the profile when convenient." — warn, continue]
+      Type OK to use this, or enter your own — one line per section:
+        [first section name]: E:M:H
+
+    On no profile (file absent) or a dormant one:
+      No PYQ difficulty profile exists for [EXAM]
+      ([reason: 'no papers explained yet' | 'difficulty vocabulary is not 3-band']).
+      Enter the difficulty mix per section — one line each:
+        [name]: Easy:Medium:Hard
+      Tip: for a new exam, the notification/pattern document is the best guide.
+      (No guardrail is possible; the structural checks below still apply.)
+
+  INPUT. `--difficulty exam` → the recommendation as shown (only on a usable
+  profile; else ERROR naming the fix). `--difficulty E:M:H` → that mix for every
+  section. `--difficulty progressive` → S7-3 bands (paper-level, guard-railed
+  against RECOMMEND['paper_level']). Otherwise read the operator's reply:
+  `bc.dp_parse_mix_line(line, SECTION_NAMES, _labels)` per line — 'OK' accepts
+  every recommended section (invalid when any section is None); a section line
+  sets that section; unknown section / non-integers / sum≠100 → the DPError text
+  is printed and the operator re-enters THAT line. Every section must end with a
+  mix; the loop does not exit early.
+
+  GUARDRAIL (per section, per band; also `--difficulty E:M:H`):
+    viol = bc.dp_guardrail(RECOMMEND['by_section'][sec]['pct'], chosen[sec], _labels)
+    For each violation print exactly:
+      "[sec] — [band]: you entered [chosen]%, your last [k] sittings had
+       [recommended]% (allowed [min]–[max]%). A mock with [chosen]% [band] here
+       would be [harder|easier|balanced differently] than the real exam;
+       students would practise questions that [never appear|do not reflect
+       it]. Type CONFIRM to keep [chosen]%, or enter a new value."
+    (Word choice: top band above its max, or bottom band below its min →
+     "harder"; top band below its min, or bottom band above its max → "easier";
+     the middle band → "balanced differently". "never appear" only when
+     recommended is 0%; otherwise "do not reflect it".) Exactly the word CONFIRM
+    (bc.DP_CONFIRM_WORD) keeps the value; anything else is parsed as a new line
+    and re-checked. A band the exam never has (recommended 0%) admits only 0
+    without CONFIRM — by design (operator decision 2026-08-27).
+
+  STRUCTURAL CHECKS (never confirmable): percentages sum to 100 (integers);
+  per-section counts via bc.dp_counts_by_section; per-section bottom-band cap via
+  bc.assign_difficulty_bands_by_section (V5 — the message names the section and
+  its MCQ-position cap). A failure returns the operator to that section's line.
+
+  RECORD (blueprint.json, §14) — the `difficulty_source` dict bound in the fence
+  above, completed here:
+    blueprint['difficulty_source'] = {
+      'mode': 'profile'           — OK, --difficulty exam, or operator lines that all
+                                    passed the guardrail without CONFIRM
+            | 'profile_confirmed' — at least one CONFIRM (overrides_confirmed non-empty)
+            | 'operator_no_pyq'   — no usable profile; every line typed
+            | 'flag'              — --difficulty E:M:H (guard-railed when a profile exists;
+                                    confirmations still listed in overrides_confirmed)
+            | 'progressive'       — S7-3 bands,
+      'profile_file': the profile's filename, or None when absent,
+      'cycles_used': [labels], 'papers_used': int,
+      'stale_papers': STALE,
+      'recommended_by_section': {sec: pct or None},
+      'chosen_by_section': {sec: pct},
+      'overrides_confirmed': [{'section', 'band', 'recommended', 'chosen'}] }
+  The delivery footer (MockDeliver §FOOTER-DS) prints one line from this record, so
+  a confirmed 30% Hard can never look like a measured one.
 
 # progressive_mode = True if trigger had '--difficulty progressive', else False
 # (set during trigger parsing in S1-1)
 #
 # blueprint = in-memory dict built in B1, serialized to blueprint.json at B1 Step 7 (§8-2)
 
-### S7-1 — Default difficulty (no trigger flag)
+### S7-1 — Default difficulty (no trigger flag) — v1.57.0: the PROFILE, never 25:25:50
 
 ```
 If no --difficulty flag in trigger:
-  Apply silently, no question asked:
-    Simple : 25% of total_qs (rounded via largest-remainder — ref S7-4)
-    Medium : 25% of total_qs
-    Hard   : 50% of total_qs
+  S7-0 runs: the measured per-section mix is SHOWN and the operator types OK or
+  their own lines. The former silent 25:25:50 is RETIRED — nothing is applied
+  unseen. (The worked examples below are kept for the S7-4 rounding rule only.)
 
-  All N_mocks get IDENTICAL counts.
+  All N_mocks get IDENTICAL counts (per section).
 
   Example (total_qs = 100):
     Simple = 25, Medium = 25, Hard = 50  (exact — no rounding needed)
@@ -3258,8 +3406,12 @@ User provides bands. Claude validates (DR-8):
         "Band '[name]' asks for [S] '[Easy]' questions in mocks [range], but this
          exam's shape holds at most [cap] ([n_mcq] MCQ positions; MSQ/NAT can
          never be bottom-band work). Resubmit with '[Easy]' <= [cap]."
-      The SAME check runs on the DEFAULT 25:25:50 path (S7-5): a default is not
-      an exemption — an all-NAT exam's default Easy count is just as impossible
+      V6: (v1.57.0 — GAP-2026-08-27-DIFFICULTY-PROFILE) when a usable profile
+      exists, each band's E:M:H is guard-railed against RECOMMEND['paper_level']
+      ['pct'] exactly as S7-0 describes (message, CONFIRM, overrides_confirmed);
+      difficulty_source.mode = 'progressive'.
+      The SAME V5 check runs on the S7-0 path (S7-5, per section): a recommended
+      mix is not an exemption — an all-NAT section's Easy count is just as impossible
       as a user-supplied one, and Step 7's own S3 feasibility gate (MockTestCreate
       v5.60) would otherwise hard-stop 20 mocks later, on every mock, forever.
 
@@ -3311,15 +3463,22 @@ for m in range(1, N_mocks + 1):
     if progressive_mode:
         band_name, s_pct, m_pct, h_pct = get_band_for_mock(m, user_bands)
     else:
-        band_name             = 'Standard'
-        s_pct, m_pct, h_pct  = 25, 25, 50   # default
-        # v1.51.0 — the default mix passes V5 (S7-3) like any user band: convert
-        # via S7-4, run bc.difficulty_feasibility against this exam's qtype map,
-        # and on a shortfall STOP and ask the user for a mix with the bottom
-        # band <= the named achievable maximum. Never silently clamp: the user
-        # owns the ratio; the framework owns telling the truth about the shape.
+        band_name = 'Standard'
+        # v1.57.0 — the per-section mix accepted in S7-0 (chosen_by_section). Paper-
+        # level s/m/h below are the SUMS of the per-section counts, so every reader
+        # of the old keys (Step 7 quota, K-BAL) sees the same totals as before.
+        by_section = bc.dp_counts_by_section(chosen_by_section, PROFILE_CFG['sections'],
+                                             total_qs, _labels)          # {sec: {label: count}}
+        s_pct = m_pct = h_pct = None
 
-    simple, medium, hard = difficulty_counts(total_qs, s_pct, m_pct, h_pct)
+    if progressive_mode:
+        simple, medium, hard = difficulty_counts(total_qs, s_pct, m_pct, h_pct)
+        by_section = None                     # paper-level bands (S7-3); Step 7 plans paper-wide
+    else:
+        simple = sum(v[_labels[0]] for v in by_section.values())
+        medium = sum(v[_labels[1]] for v in by_section.values())
+        hard   = sum(v[_labels[2]] for v in by_section.values())
+        assert simple + medium + hard == total_qs
 
     difficulty_schedule.append({
         'mock'   : m,
@@ -3327,6 +3486,7 @@ for m in range(1, N_mocks + 1):
         'simple' : simple,
         'medium' : medium,
         'hard'   : hard,
+        'by_section': by_section,             # v1.57.0: {section: {label: count}} | None
     })
 
 # Validate length
@@ -3336,6 +3496,7 @@ assert len(difficulty_schedule) == N_mocks, (
 
 # Store in blueprint (in-memory dict → serialized to blueprint.json at B1 Step 7)
 blueprint['difficulty_schedule'] = difficulty_schedule
+blueprint['difficulty_source']   = difficulty_source        # v1.57.0 — S7-0 RECORD
 
 # Also stored in Sheet 4 of blueprint.xlsx (ref §15-4):
 # IMPORTANT — TWO DIFFERENT REPRESENTATIONS:
@@ -3353,7 +3514,8 @@ blueprint['difficulty_schedule'] = difficulty_schedule
 ### S7-6 — What difficulty schedule does NOT do
 
 ```
-Difficulty schedule tells Step 2:  HOW MANY Simple/Medium/Hard Qs in this mock.
+Difficulty schedule tells Step 2:  HOW MANY Simple/Medium/Hard Qs in this mock — and,
+                                    since v1.57.0, HOW MANY PER SECTION (by_section).
 Difficulty schedule does NOT tell:  WHICH specific questions are Simple/Medium/Hard.
                                     WHICH subtopics get Simple vs Hard questions.
 
@@ -7467,4 +7629,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.56.0
+# END OF Framework_Blueprint v1.57.0

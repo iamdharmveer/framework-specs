@@ -1,4 +1,7 @@
-# Framework_MockTestExplain v1.46.2
+# Framework_MockTestExplain v1.46.3
+# v1.46.3 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (prose only): §7A-M's level-anchor
+#   text names the difficulty profile's calibration examples (bc.dp_calibration) in place of
+#   section_rules' retired PYQ_DIFFICULTY_CALIBRATION. No rule, gate or engine change.
 # v1.46.2 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (MockTestCreate v5.74; prose only).
 #   S2-1 / §7A-R R2: a [ExamCode]_[slug]_Create_Repaired_PARTIAL_[k]of[K].docx (Step 7-R's
 #   mid-batch cumulative paper) is REFUSED with "finish every repair batch — attach
@@ -1679,8 +1682,9 @@ execution path — it does not shrink, soften or delete them.
   band questions are still EXPLAINED in full and their obs still recorded
   (§7-8 runs for every question); only the GATE ignores them. LEVEL ANCHOR
   unchanged: count steps/concepts for a competent
-  candidate OF THIS EXAM (blueprint `level` + the subtopic's
-  PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge is recall
+  candidate OF THIS EXAM (blueprint `level` + the subtopic's calibration
+  examples from the exam's difficulty profile, bc.dp_calibration — v1.46.3);
+  assumed prerequisite knowledge is recall
   (0 steps), never steps. A STEM-SUPPLIED RELATION IS NOT A STEP: work the stem
   donates (a formula quoted verbatim, a counted quantity given, a named theorem
   with its statement) is excluded from the candidate's count — Step 9 counts
@@ -3392,5 +3396,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.46.2
+# END OF Framework_MockTestExplain v1.46.3
 # ════════════════════════════════════════════════════════════════════════

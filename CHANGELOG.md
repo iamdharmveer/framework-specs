@@ -1,5 +1,49 @@
 # Changelog
 
+## 2026.08.27.1 — GAP-2026-08-27-DIFFICULTY-PROFILE: the exam's own measured difficulty mix is the Blueprint default; keyword scorer retired
+
+**blueprint_core (NEW Cluster DP — dp_add_paper, dp_cycles/dp_window, dp_recommend, dp_guardrail,
+dp_parse_mix_line, dp_stale_papers, dp_calibration, dp_counts_by_section,
+assign_difficulty_bands_by_section, dp_check_profile/validate_sections/parse_filename; constants
+DP_CYCLES_WINDOW=3, DP_CYCLE_GAP_DAYS=60, DP_TOLERANCE_FRAC=0.30; score_difficulty,
+parse_section_rules_difficulty, map_difficulty_level RETIRED; self-test 587 → 598) ·
+analyse_engine (E-9 adapter, build_diff_criteria, PYQ_DIFFICULTY_CALIBRATION writer deleted; QV-3
+'retired'; stamps v2.55; 120) · audit_canonical v2.21 (NEW gate A-DPROFILE, --profile; 290) ·
+Framework_PYQExplain v2.18 · Framework_Blueprint v1.57.0 · Framework_MockTestCreate v5.75 ·
+Framework_MockTestExplain v1.46.3 · Framework_MockDeliver v1.17.0 · Framework_MockTestAnalyse v2.55 ·
+Framework_PYQDeliver v1.13 · Framework_ScopedBlueprint v1.10.0. Nine specs + three engines, one
+atomic release. No routes, triggers, gate-count or registry-schema change. Operator decisions
+2026-08-27; exam-agnostic by construction (~200 exams).**
+
+WHY. `MockBlueprint` applied 25:25:50 silently, and accepted any `--difficulty` without reference.
+Two "Graduation" exams measure 0% and 60% Hard on their own papers (SSC CGL Tier-1 vs IIT JAM
+Chemistry); `level` is a prose anchor and cannot carry that. Step 5's keyword scorer disagreed with
+the derivation rubric by 40 points on a real paper (95/5/0 vs 56/44/0). A mock built on either is a
+paper students should not practise on.
+
+(1) MEASURE ONCE. PYQExplain §7A already solves every PYQ and scores it with the rubric; it now
+records the raw score and observation record and, on the final batch, writes
+`[ExamCode]_difficulty_profile.json` through the single writer `bc.dp_add_paper` (pattern-changed
+papers recorded under excluded_papers with the reason — never a stop). The operator keeps ONE copy
+in the project Files section. (2) DEFAULT FROM THE EXAM. Blueprint §S7-0 computes the mix per
+section from the latest 3 SITTINGS (date clustering, ≤60 days), every explained paper of a sitting
+pooled, sittings averaged with EQUAL weight, exact-fraction rounding; shows it with each sitting's
+own mix; `OK` or one line per section; ±30% relative guardrail per band, a band the exam never has
+admits only 0 — anything else needs the exact word CONFIRM; structural checks (sum, per-section
+MCQ cap) never confirmable. No profile → operator types the mix, recorded `operator_no_pyq`.
+`difficulty_schedule[]` gains `by_section`; Step 7 plans per section; `difficulty_source` is
+recorded and the delivery footer prints one line from it (MockDeliver §FOOTER-DS). (3) RETIRE THE
+SECOND SCALE. The E-9 keyword scorer, section_rules `PYQ_DIFFICULTY_CALIBRATION`, PYQDeliver
+Complexity Tier 2 and ScopedBlueprint's section_rules envelope are gone; Step 7 / ScopedBlueprint
+read per-subtopic calibration examples from the profile (`bc.dp_calibration`). (4) CERTIFY. A-DPROFILE
+re-bands every stored score under the current edges and checks difficulty_source / by_section sums.
+
+VERIFIED: independent oracle (2,690 random exams, 0 mismatches — clustering, equal weight,
+exact rounding incl. remainder ties), mutation campaign (102 mutants, every non-equivalent one
+killed), golden scenarios (SSC 3-sitting example → Reasoning 11:89:0; JAM type-sections with
+NAT/MSQ floors; sectionless; new exam; pattern change; stale profile; every guardrail path),
+full CI gate ×3.
+
 ## 2026.08.26.5 — GAP-2026-08-26-REPAIR-BATCH-LAW: TestCreateRepair now obeys the Batch Stop Law
 
 **Framework_MockTestCreate v5.73 -> v5.74 · DeliveryFooter v1.27 -> v1.28 · MockTestExplain

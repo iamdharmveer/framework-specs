@@ -1,4 +1,12 @@
-# Framework_PYQExplain v2.17 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.18 — Universal PYQ Explanation Generator
+# v2.18 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster DP,
+#   Blueprint §S7-0, MockTestAnalyse E-9 retirement, PYQDeliver Tier-2 retirement, ScopedBlueprint
+#   §1-3/§5). §7A-3 records the raw rubric SCORE (bc.difficulty_score) and the observation
+#   record; S7A-4 writes q_to_difficulty_score + difficulty_obs beside q_to_difficulty; NEW
+#   S7A-6 writes [ExamCode]_difficulty_profile.json on the final batch through the single
+#   writer bc.dp_add_paper (pattern-changed papers recorded as excluded, never a stop);
+#   S19-1 check 8, S19-2 deliverable, §R13 report line. PYQ-side rule unchanged (measurement,
+#   no target); SHARED_RULES_VERSION unchanged (no RE-*/MANDATE/§4-§18 rule changed).
 # v2.17 — 2026-08-24 — CHG-2026-08-24-NO-COVERAGE-BANNER (operator decision; paired with
 #   MockTestExplain v1.43.0; SHARED_RULES_VERSION 1.4 → 1.5; NO engine change). The
 #   S12-4 document-level coverage banner ("COVERAGE: …") is RETIRED from every delivered
@@ -1183,29 +1191,41 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
 ## S7A-3 — The assessment call
 
 ```text
-from blueprint_core import assess_difficulty   # Cluster E2 — PURE, no I/O
+from blueprint_core import difficulty_score, band_for_score   # Cluster E2 — PURE, no I/O
 
-label = assess_difficulty(
-    question_class        = <§6 class facet(s)>,
-    deduction_steps       = <§8-3 step count>,
-    axiom_concepts        = <§8-2 principle count>,
-    speed_hack_exists     = <§14 gate verdict>,
-    derivation_confidence = 'flagged' if methods initially disagreed else 'full',
-    is_negative           = <§10a scan result>,
-    qtype                 = <'mcq' | 'msq' | 'nat'>,
-    difficulty_labels     = <exam_config.difficulty_labels, default Easy/Medium/Hard>,
-)
+obs = {                                   # v2.18 — the observation record is KEPT (S7A-4)
+    'question_class'        : <§6 class facet(s)>,
+    'deduction_steps'       : <§8-3 step count>,
+    'axiom_concepts'        : <§8-2 principle count>,
+    'speed_hack_exists'     : <§14 gate verdict>,
+    'derivation_confidence' : 'flagged' if methods initially disagreed else 'full',
+    'is_negative'           : <§10a scan result>,
+    'qtype'                 : <'mcq' | 'msq' | 'nat'>,
+    'subtopic_id'           : <§6 subtopic_id — the same value q_to_classification carries>,
+    'stem_snippet'          : <first 120 characters of the stem, plain text>,
+}
+score = difficulty_score(obs['question_class'], obs['deduction_steps'], obs['axiom_concepts'],
+                         obs['speed_hack_exists'], obs['derivation_confidence'],
+                         obs['is_negative'], obs['qtype'])          # int 0..12
+label = band_for_score(score, <exam_config.difficulty_labels, default Easy/Medium/Hard>)
 ```
 
-  `assess_difficulty` is a pure function: identical observations always return the
-  identical label, on every run and every model instance. PYQ-1 MUST NOT override,
+  `difficulty_score` / `band_for_score` are pure functions (`assess_difficulty` is
+  exactly their composition): identical observations always return the identical
+  score and label, on every run and every model instance. The SCORE is recorded
+  beside the label (v2.18 — GAP-2026-08-27-DIFFICULTY-PROFILE): it is what the
+  exam's difficulty profile (S7A-6) pools across papers, and it lets a later band-
+  edge change be applied without re-explaining a single paper. PYQ-1 MUST NOT override,
   round, smooth, or "balance" its output — there is no target distribution here.
   A paper legitimately skewed toward recall SHOULD come out skewed.
 
-  It returns `None` when `difficulty_labels` is not an exactly-3-label list (the
-  same contract as `map_difficulty_level`). On `None`: omit that question from
-  `q_to_difficulty` entirely — never write a `None` or a guessed value — and note
-  it once in §R11. PYQ-4 then resolves those questions on its own lower tiers.
+  `band_for_score` returns `None` when `difficulty_labels` is not an exactly-3-label
+  list (the same contract as `assess_difficulty`). On `None`: omit that question
+  from `q_to_difficulty` and `q_to_difficulty_score` entirely — never write a
+  `None` or a guessed value — and note it once in §R11. PYQ-4 then resolves those
+  questions on its own lower tiers. The observation record (`difficulty_obs`) is
+  still written for every question: the profile is DORMANT for such an exam, but
+  the evidence is kept.
 
 ## S7A-4 — Recording
 
@@ -1219,9 +1239,21 @@ label = assess_difficulty(
   "options_by_q": { "1": 4, "41": 0 },
   "qtype": { "1": "mcq", "31": "msq", "41": "nat" },
 
-  "q_to_difficulty": { "1": "Easy", "42": "Medium", "54": "Hard" }
+  "q_to_difficulty": { "1": "Easy", "42": "Medium", "54": "Hard" },
+
+  "q_to_difficulty_score": { "1": 1, "42": 4, "54": 7 },
+  "difficulty_obs": { "1": { "question_class": ["C-FACTUAL"], "deduction_steps": 0,
+                             "axiom_concepts": 1, "speed_hack_exists": false,
+                             "derivation_confidence": "full", "is_negative": false,
+                             "qtype": "mcq", "subtopic_id": "…", "stem_snippet": "…" } }
 }
 ```
+
+  * `q_to_difficulty_score` and `difficulty_obs` (v2.18) are written by the SAME
+    batch write as `q_to_difficulty`, so the three maps can never disagree on
+    coverage. `difficulty_obs` is the exact input S7A-3 scored — the profile
+    writer (S7A-6) re-scores it with the engine, so a hand-edited score can never
+    enter the profile.
 
   * Keys follow the SAME convention as every other per-question map: JSON object
     keys are strings; readers normalise to int.
@@ -1251,6 +1283,72 @@ label = assess_difficulty(
   correct for ~200 exams, and it is the property that E-9's keyword axes — where
   the vocabulary IS the instrument — can never have. Do not add subject-aware or
   vocabulary-aware terms to this assessment.
+
+## S7A-6 — The exam's difficulty profile (v2.18 — GAP-2026-08-27-DIFFICULTY-PROFILE)
+
+  PYQ-1 is the SINGLE PRODUCER of `[ExamCode]_difficulty_profile.json` — the
+  measured difficulty mix of this exam, pooled over its explained papers, from which
+  MockBlueprint derives its DEFAULT Easy:Medium:Hard split per section (Blueprint
+  §S7-0) and Step 7 / ScopedBlueprint read per-subtopic calibration examples. It
+  replaced the silent 25:25:50 Blueprint default and the retired keyword scorer
+  (Step 5 E-9). One file per exam; written ONLY through `bc.dp_add_paper`; every
+  recommendation is recomputed by the reader from the raw records, never stored
+  as a decision. The engine contract (window of the latest 3 sittings, 60-day
+  cycle clustering, equal weight per sitting, exact-fraction rounding) is
+  blueprint_core Cluster DP — never re-tuned inline.
+
+  WHEN: on the FINAL batch only (100% coverage), inside S19-1 before the checklist.
+  INPUT: the project's current `[ExamCode]_difficulty_profile.json` if present
+         (the operator keeps ONE copy in the project Files section and replaces it
+         after every PYQExplain run, before the next one); absent → a new profile
+         is started. Re-explaining a paper REPLACES its record (idempotent), so a
+         paper dropped by a missed upload is recovered by re-running it.
+  WRITE: `/mnt/user-data/outputs/[ExamCode]_difficulty_profile.json` — a deliverable
+         alongside the explanation docx and the handoff json (S19-2).
+
+```python
+import os, json, datetime as _dt
+import blueprint_core as bc
+_pf_name = f'{EXAM}_difficulty_profile.json'
+_pf_in   = f'/mnt/project/{_pf_name}'
+_profile = None
+if os.path.exists(_pf_in):
+    _profile = json.load(open(_pf_in, encoding='utf-8'))       # bc.dp_add_paper validates it
+_ec  = json.load(open(f'/mnt/project/{EXAM}_exam_config.json', encoding='utf-8'))
+_ec  = {'exam_code': EXAM, 'total_questions': _ec.get('total_questions'),
+        'sections': _ec.get('sections'), 'cycle_gap_days': _ec.get('cycle_gap_days'),
+        'difficulty_labels': _ec.get('difficulty_labels') or ['Easy', 'Medium', 'Hard']}
+_h   = json.load(open('/home/claude/pyq_explain_progress.json', encoding='utf-8'))
+_obs = _h.get('difficulty_obs') or {}
+if not _obs:
+    raise SystemExit('HARD STOP (S7A-6): difficulty_obs missing from the handoff — S7A-4 did not run')
+if len(_ec['difficulty_labels']) != 3:
+    # DORMANT exam (non-3-band vocabulary): the profile contract is 3-band; nothing is written,
+    # nothing is delivered, §R13 says DORMANT. The observations stay in the handoff json.
+    PROFILE_STATUS, PROFILE_REASON, PROFILE_SUMMARY = 'dormant', 'difficulty vocabulary is not 3-band', {}
+else:
+    try:
+        _profile, PROFILE_STATUS, PROFILE_REASON = bc.dp_add_paper(
+            _profile, source_file=os.path.basename(CLEAN_ROW_FILE), exam_config=_ec, questions=_obs,
+            written_by='PYQExplain v2.18 / blueprint_core Cluster DP',
+            now=_dt.datetime.now(_dt.timezone.utc).isoformat(timespec='seconds'))
+    except bc.DPError as _e:
+        raise SystemExit(f'HARD STOP (S7A-6): {_e}')       # a contract violation, never a silent skip
+    json.dump(_profile, open(f'/mnt/user-data/outputs/{_pf_name}', 'w', encoding='utf-8'),
+              indent=1, ensure_ascii=False)
+    PROFILE_SUMMARY = _profile.get('summary_at_write', {})
+```
+
+  * `PROFILE_STATUS == 'excluded'` is NOT a stop: the paper's question count or
+    positions do not match the CURRENT exam_config (pattern changed). The profile is
+    still written (the paper is recorded under `excluded_papers` with the reason)
+    and §R13 says so. A pattern change is a fact about the exam, not a defect.
+  * A DORMANT exam (non-3-band `difficulty_labels`) writes and delivers NO profile
+    (`PROFILE_STATUS == 'dormant'`); S19-1 check 8 and the S19-2 deliverable are
+    conditional on that status. The observations stay in the handoff json.
+  * The bare filename of the attached Row file is the paper identity
+    (`[ExamCode]_[DD-Mon-YYYY][_session]`); an unparsable name is the S1 HARD STOP
+    already in force, so it can never reach this block.
 
 # ════════════════════════════════════════════════════════════════════════
 # §8 — SECTION QUALITY STANDARDS (highest-standard contract per section)
@@ -2174,7 +2272,9 @@ FINAL_BATCH = bool(globals().get('FINAL_BATCH'))          # True only on the las
 # GUARDED (v2.2.1): a missing source is reported by check 6 as a clean HARD STOP, never a crash.
 if FINAL_BATCH and os.path.exists(src):
     shutil.copy(src, f'{out}/{prog}')
-expected = {sol, prog} if FINAL_BATCH else {sol}          # handoff ships ONLY at 100% coverage
+pfile = f'{EXAM}_difficulty_profile.json'                  # v2.18 — S7A-6 profile, final batch only
+_pf_due = FINAL_BATCH and globals().get('PROFILE_STATUS') != 'dormant'
+expected = ({sol, prog, pfile} if _pf_due else {sol, prog}) if FINAL_BATCH else {sol}
 present = set(os.listdir(out))
 # TRUE internal state must never leak; the one delivered handoff (in `expected`) is exempt.
 BANNED = ('answer', 'key', 'ledger', 'progress', 'state', 'pickle', 'stripped', 'source')
@@ -2199,11 +2299,15 @@ checks = [
     ('5 outputs == exactly the deliverables',   present == expected),
     ('6 handoff json present on final batch',   (not FINAL_BATCH) or os.path.exists(f'{out}/{prog}')),
     ('7 qtype map complete on final batch',     (not FINAL_BATCH) or _qtype_complete),
+    ('8 difficulty profile written on final batch (S7A-6)',
+                                                (not _pf_due) or os.path.exists(f'{out}/{pfile}')),
 ]
 fails = [n for n, ok in checks if not ok]
 if fails:
     raise SystemExit('HARD STOP (S19-1): ' + '; '.join(fails))
 ```
+  (S7A-6 runs immediately BEFORE this checklist on the final batch; the `pfile`
+  name above is the one it wrote.)
 
 ## S19-2 — The present_files call (per batch; +handoff json on the FINAL batch)
 ```python
@@ -2233,6 +2337,8 @@ def present_files(paths):
 deliverables = [f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_PYQ_Explanation.docx']
 if FINAL_BATCH:                       # v2.2.1 — ship the identity-prefixed handoff at 100% coverage
     deliverables.append(f'/mnt/user-data/outputs/{EXAM}_{DATE_SESSION}_pyq_explain_progress.json')
+    if globals().get('PROFILE_STATUS') != 'dormant':                                 # v2.18 — S7A-6
+        deliverables.append(f'/mnt/user-data/outputs/{EXAM}_difficulty_profile.json')
 present_files(deliverables)
 ```
 
@@ -2307,6 +2413,14 @@ present_files(deliverables)
        explicitly — a whole paper at one difficulty is a signal worth checking
        before delivery, not a result to pass along silently.
 
+  §R13 DIFFICULTY PROFILE (S7A-6, v2.18 — final batch only): PROFILE_STATUS
+       ('added' | 'excluded' | 'dormant', + PROFILE_REASON verbatim); the sittings the profile
+       now covers and its summary_at_write per section; and ONE operator line:
+       "Upload [ExamCode]_difficulty_profile.json to this project's Files section
+       (replace the old one) BEFORE the next PYQExplain run — each run starts from
+       the uploaded copy, so a run started on an older copy drops the papers
+       explained since (Blueprint will flag them as absent; re-run PYQExplain on
+       them to recover). MockBlueprint reads the profile from there."
   §R12 FIGURAL VISION (§13A, v1.2): artefacts extracted · artefacts transcribed
        OK · every VOID_ITEM question with its status (MISSING/EMPTY/THIN/STALE)
        and the stated remedy. Reported here and NOT in §R7 — a vision shortfall
@@ -2571,5 +2685,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.17
+# END OF Framework_PYQExplain v2.18
 # ════════════════════════════════════════════════════════════════════════

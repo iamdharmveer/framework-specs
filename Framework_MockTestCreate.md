@@ -1,4 +1,11 @@
-# Framework_MockTestCreate v5.74
+# Framework_MockTestCreate v5.75
+# v5.75 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with Blueprint v1.57.0,
+#   blueprint_core Cluster DP, MockTestAnalyse v2.55). S3: the difficulty plan is built PER
+#   SECTION when difficulty_schedule[N].by_section is present (bc.assign_difficulty_bands_by_
+#   section; paper-wide plan kept for progressive/legacy schedules); the optional difficulty
+#   profile is loaded and validated (bc.dp_check_profile). S7 CHECK 3c reads calibration
+#   examples from bc.dp_calibration instead of section_rules' retired PYQ_DIFFICULTY_
+#   CALIBRATION. Quotas, gates and repair unchanged.
 # v5.74 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (paired with DeliveryFooter v1.28;
 #   spec only, no engine change). §S16 repair mode regenerated EVERY rework_q in ONE
 #   response ("PARTS: 1") while the Batch Stop Law (S4-4, B-1..B-8) forbids exactly that
@@ -227,7 +234,7 @@
 #   entry or a non-3-band vocabulary ⇒ plan None, G-DIFF off, pre-v5.60 behaviour
 #   byte-for-byte; legacy registries without obs skip check 8 and keep check 7.
 #   LEVEL ANCHOR: step/concept units are level-relative (bp_level + the subtopic's
-#   PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge = recall (0 steps),
+#   calibration examples from the difficulty profile, v5.75); assumed prerequisite knowledge = recall (0 steps),
 #   so one rubric serves grade-10 through post-graduation with honest labels.
 # v5.58 — 2026-08-20 — GAP-2026-08-20-AXIS1-EMPTY-SCHEDULE-SENTINEL (blueprint_core
 #   +1 fixture). A paper whose blueprint predates Blueprint v1.45 renders ZERO figures
@@ -1447,9 +1454,36 @@ sections off the per-batch execution path — it does not shrink, soften or dele
               f"around this.")
       # Deterministic, floor-honouring, seed-rotated per mock so the bottom band
       # doesn't sit on the same positions in every paper of the series.
-      difficulty_plan = bc.assign_difficulty_bands(_dcounts, _qtype_by_q,
-                                                   difficulty_labels, seed=N)
+      # v5.75 (GAP-2026-08-27-DIFFICULTY-PROFILE): when the schedule carries PER-SECTION
+      # counts (Blueprint v1.57.0 S7-5 by_section — the exam's own mix per section), the
+      # plan is built section by section so a Reasoning question never borrows a
+      # General-Awareness slot; a DPError names the section and its MCQ cap. A schedule
+      # without by_section (progressive bands, or a pre-v1.57.0 blueprint) plans paper-wide
+      # exactly as before.
+      _by_sec = diff_entry.get('by_section')
+      if _by_sec:
+          try:
+              difficulty_plan = bc.assign_difficulty_bands_by_section(
+                  _by_sec, _qtype_by_q, _ecfg.get('sections'), difficulty_labels, seed=N)
+          except bc.DPError as _e:
+              raise SystemExit(f"HARD STOP (S3 per-section difficulty plan, v5.75): {_e}")
+      else:
+          difficulty_plan = bc.assign_difficulty_bands(_dcounts, _qtype_by_q,
+                                                       difficulty_labels, seed=N)
       difficulty_plan = {q: lab for q, lab in difficulty_plan.items()}
+      # v5.75: the profile for CHECK 3c calibration examples — optional, validated
+      import os as _os, json as _json
+      _pf_p = f'/mnt/project/{EXAM}_difficulty_profile.json'
+      PROFILE_CFG = {'exam_code': EXAM, 'total_questions': total_questions,
+                     'sections': _ecfg.get('sections'), 'cycle_gap_days': _ecfg.get('cycle_gap_days'),
+                     'difficulty_labels': difficulty_labels}
+      DIFFICULTY_PROFILE = None
+      if _os.path.exists(_pf_p):
+          try:
+              DIFFICULTY_PROFILE = bc.dp_check_profile(_json.load(open(_pf_p, encoding='utf-8')),
+                                                       EXAM, difficulty_labels)
+          except bc.DPError as _e:
+              raise SystemExit(f"HARD STOP (S3 difficulty profile, v5.75): {_e}")
       # Persisted as batch_state.json['difficulty_plan'] = {str(q): label} alongside
       # the rest of the S3 state (same write, same file) so `continue` resumes the
       # identical plan and the CHECK 3c band-swap escape can update it in place.
@@ -3581,9 +3615,13 @@ sections off the per-batch execution path — it does not shrink, soften or dele
         is recall (0 steps), NEVER steps. What a grade-12 candidate must reason
         through, a post-graduate candidate simply knows — so the same physical
         question legitimately scores lower on a higher-level exam. Calibrate
-        the granularity against the subtopic's PYQ_DIFFICULTY_CALIBRATION
-        examples (section_rules — real step counts from THIS exam's own
-        papers). Counting a question in a lower level's step-units inflates
+        the granularity against the subtopic's calibration examples from the
+        exam's DIFFICULTY PROFILE (v5.75 — bc.dp_calibration(DIFFICULTY_PROFILE,
+        subtopic_id, PROFILE_CFG): real questions of THIS exam with their
+        recorded step and concept counts, scored by the same rubric; loaded
+        once in S3 from /mnt/project/[ExamCode]_difficulty_profile.json,
+        None when absent — then no examples, the anchor rules alone apply).
+        Counting a question in a lower level's step-units inflates
         every score and mislabels the whole paper for its audience; Step 9's
         §7A-M re-count at the same anchor is the cross-check that exposes it.
         THE GATE: ok, measured = bc.verify_difficulty_obs(difficulty_plan[q],
@@ -8792,7 +8830,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
            TestExplainRepair P[N]
       ════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestCreate v5.74
+# END OF Framework_MockTestCreate v5.75
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

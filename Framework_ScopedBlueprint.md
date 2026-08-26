@@ -1,4 +1,12 @@
-# Framework_ScopedBlueprint v1.9.0 — Universal Subject / Topic / Sub-Topic Test Blueprint
+# Framework_ScopedBlueprint v1.10.0 — Universal Subject / Topic / Sub-Topic Test Blueprint Generator
+# v1.10.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster DP,
+#   PYQExplain v2.18, MockTestAnalyse v2.55). §1-3 loads the optional difficulty profile
+#   (bc.dp_check_profile) instead of section_rules' retired PYQ_DIFFICULTY_CALIBRATION; S5-1
+#   observed_levels() reads bc.dp_calibration (rubric-measured bands per subtopic; positional
+#   alias to Simple/Medium/Hard); new '--difficulty exam' fixed-uniform form uses the profile's
+#   paper-level mix. Default ramp and the S5-2 cascade unchanged. FIX: §1-3 resolves
+#   [ExamCode]_exam_config.json (the corpus convention) before the bare name — the bare-only
+#   read hard-stopped on every prefixed project.
 # v1.9.0 — 2026-08-23 — GAP-2026-08-23-AXIS-ADVISORY-TRUTH (mock S9-12 parity;
 #   paired with blueprint_core axis_truth_check + Framework_Blueprint v1.54.0).
 #   §6-3 now cross-examines the derived axis_schedule's advisories
@@ -157,6 +165,12 @@ Parse and validate the trigger:
                       (no auto-correct; user must re-enter). Values may include levels absent
                       from the scope's observed PYQ — proceed exactly as given, no warning,
                       no substitution (§5 S5-3 Branch B).
+                  (c) 'exam' (v1.10 — GAP-2026-08-27-DIFFICULTY-PROFILE): fixed-uniform override
+                      whose ratio is the exam's OWN paper-level mix from the difficulty profile
+                      (bc.dp_recommend(DIFFICULTY_PROFILE, PROFILE_CFG)['paper_level']['pct']).
+                      No profile in project Files, or a dormant one → ERROR: "'--difficulty exam'
+                      needs [ExamCode]_difficulty_profile.json (run PYQExplain on the latest
+                      sittings and upload it)." Otherwise identical to form (b).
                   Neither form given → default envelope-bounded ramp (§5 S5-1..S5-3, unchanged).
                   Value given but recognised as NEITHER 'progressive' NOR a well-formed 3-part
                   ratio (e.g. wrong count of numbers, non-numeric, empty) → ERROR:
@@ -254,9 +268,16 @@ def flag(msg):
     print(f"[FLAG] {msg}")
 
 # exam_config.json — REQUIRED (drives EXAM, the §7 marking, and the §8 top-level fields).
-cfg_path = '/mnt/project/exam_config.json'
+# v1.10.0 — the project convention is [ExamCode]_exam_config.json (Blueprint S1-2, PYQExplain P1,
+# MockTestCreate S3); the bare name is accepted as a fallback for older projects. Exactly one
+# prefixed file may exist — two would make EXAM ambiguous.
+import glob as _glob
+_cands = sorted(_glob.glob('/mnt/project/*_exam_config.json'))
+if len(_cands) > 1:
+    raise SystemExit(f"HARD STOP: several exam_config files in the project {_cands} — keep one.")
+cfg_path = _cands[0] if _cands else '/mnt/project/exam_config.json'
 if not os.path.exists(cfg_path):
-    raise SystemExit("HARD STOP: exam_config.json not found in the project. Step 5/2a must "
+    raise SystemExit("HARD STOP: [ExamCode]_exam_config.json not found in the project. Step 5/2a must "
                      "publish it before Step 6S. Upload it and re-run ScopedBlueprint.")
 exam_config = json.load(open(cfg_path, encoding='utf-8'))
 EXAM = exam_config['exam_code']
@@ -275,14 +296,31 @@ OBSERVED_AXIS2_BY_ID = {k: v.get('observed_axis2', {})           for k, v in MAN
 FORMAT_BY_ID         = {k: v.get('format', 'TEXT')               for k, v in MANIFEST_IDS.items()}
 slugify = bc.slugify   # engine slugify (byte-identical to Step 0 — id matching preserved)
 
-# section_rules.md — REQUIRED for §5 (difficulty envelope). The ENGINE parses its text into
-# {subtopic_id: {level: is_inferred}} (pure — no I/O in the engine; the file is read here).
+# section_rules.md — REQUIRED for question-type dispatch (below). v1.10 (GAP-2026-08-27-
+# DIFFICULTY-PROFILE): the §5 difficulty envelope no longer comes from section_rules (the
+# Step-5 PYQ_DIFFICULTY_CALIBRATION block is retired) but from the exam's DIFFICULTY PROFILE
+# written by PYQExplain S7A-6 — OPTIONAL here: absent → every subtopic is 'all inferred' and
+# the S5-2 cascade supplies the band exactly as for a Zero-PYQ subtopic (disclosed once).
 sr_path = f'/mnt/project/{EXAM}_section_rules.md'
 if not os.path.exists(sr_path):
-    raise SystemExit(f"HARD STOP: {EXAM}_section_rules.md not found. Step 5 must publish it "
-                     f"(§5 reads its PYQ_DIFFICULTY_CALIBRATION). Upload it and re-run.")
+    raise SystemExit(f"HARD STOP: {EXAM}_section_rules.md not found. Step 5 must publish it. "
+                     f"Upload it and re-run.")
 _sr_text = open(sr_path, encoding='utf-8').read()
-SECTION_RULES_DIFF = bc.parse_section_rules_difficulty(_sr_text)
+import json as _json
+_pf_path = f'/mnt/project/{EXAM}_difficulty_profile.json'
+_ec_cfg  = exam_config          # the ONE exam_config loaded above in this block — never a second read
+PROFILE_CFG = {'exam_code': EXAM, 'total_questions': _ec_cfg.get('total_questions'),
+               'sections': _ec_cfg.get('sections'), 'cycle_gap_days': _ec_cfg.get('cycle_gap_days'),
+               'difficulty_labels': _ec_cfg.get('difficulty_labels') or ['Easy', 'Medium', 'Hard']}
+DIFFICULTY_PROFILE = None
+PROFILE_NOTE = f'no {EXAM}_difficulty_profile.json in project Files — envelope from cascade only'
+if os.path.exists(_pf_path):
+    try:
+        DIFFICULTY_PROFILE = bc.dp_check_profile(_json.load(open(_pf_path, encoding='utf-8')),
+                                                 EXAM, PROFILE_CFG['difficulty_labels'])
+        PROFILE_NOTE = 'difficulty profile loaded'
+    except bc.DPError as _e:
+        raise SystemExit(f'HARD STOP: {_e}')     # a wrong/foreign profile must never shape a paper
 # Per-subtopic question-type dispatch fields (section_rules; mock parity). Step 11 tags scoped
 # papers by these, so subtopic_list MUST carry them or every question defaults to MCQ-single.
 ANSWER_TYPE = bc.parse_section_rules_field(_sr_text, 'answer_type', 'option')          # option|numerical
@@ -747,17 +785,19 @@ not a masked one; see S1-1 for the validated override_pct).
 
 ```python
 import blueprint_core as bc
-# SECTION_RULES_DIFF (loaded in §1-3 via bc.parse_section_rules_difficulty) is
-# {subtopic_id: {level: is_inferred_bool}} for Simple/Medium/Hard.
-# is_inferred == False ⇒ that level was OBSERVED in this subtopic's PYQ (its real band).
-# is_inferred == True  ⇒ inferred (no PYQ at that level). A Zero-PYQ subtopic (or one absent
-#                        from section_rules) has all three inferred → empty observed set →
-#                        the inheritance cascade (S5-2) supplies the band.
+# v1.10: observed levels come from the DIFFICULTY PROFILE (bc.dp_calibration — the window
+# papers' rubric-scored questions of this subtopic), positional: profile label i ↔ LEVELS[i].
+# 'observed' True → that band was MEASURED in this subtopic's PYQ. A Zero-PYQ subtopic, a
+# subtopic absent from the window, or no profile at all → empty observed set → the
+# inheritance cascade (S5-2) supplies the band. Same contract as before; one instrument.
 LEVELS = ['Simple', 'Medium', 'Hard']   # analysis vocabulary; canonical alias Easy/Medium/Hard
 
 def observed_levels(sid):
-    calib = SECTION_RULES_DIFF.get(sid, {})              # {level: is_inferred}; {} if absent
-    return {lv for lv in LEVELS if calib.get(lv, True) is False}
+    if DIFFICULTY_PROFILE is None:
+        return set()
+    cal = bc.dp_calibration(DIFFICULTY_PROFILE, sid, PROFILE_CFG)   # {label: {'observed', ...}}
+    labs = PROFILE_CFG['difficulty_labels']
+    return {LEVELS[i] for i, lab in enumerate(labs) if cal.get(lab, {}).get('observed')}
 ```
 
 ### S5-2 — Scope envelope with inheritance cascade (subtopic → topic → subject → default)
@@ -1325,4 +1365,4 @@ strict-global uniqueness holds across all tiers:
          override, v1.6) — either source is a legitimate exam-agnostic input, never a hardcode.
 ```
 
-# END OF Framework_ScopedBlueprint v1.9.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
+# END OF Framework_ScopedBlueprint v1.10.0 (§1–§10, adversarially verified; fixed-uniform difficulty override, hardened)
