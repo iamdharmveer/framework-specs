@@ -1,11 +1,11 @@
 {
   "files": {
     "Framework_Blueprint.md": {
-      "end_sentinel": "# END OF Framework_Blueprint v1.57.0",
-      "lines": 7632,
-      "sha256": "54514ac223e7a0b45663926840991fc29bb3646a54796bb5d2ab2333c13dd50e",
-      "size_bytes": 421722,
-      "version_header": "# Framework_Blueprint v1.57.0 — Universal Mock Test Blueprint Generator"
+      "end_sentinel": "# END OF Framework_Blueprint v1.57.1",
+      "lines": 7647,
+      "sha256": "3a046bb0b523b13e241c43c1e8d9a4039336ace28cca49303a4903e37c380ee9",
+      "size_bytes": 422931,
+      "version_header": "# Framework_Blueprint v1.57.1 — Universal Mock Test Blueprint Generator"
     },
     "Framework_DeliveryFooter.md": {
       "end_sentinel": "```",
@@ -106,11 +106,11 @@
       "version_header": "# Framework_PYQCount v1.6 — PYQ Step 4 — Phase B Count Filling (§5)"
     },
     "Framework_PYQDeliver.md": {
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.13)**",
-      "lines": 1414,
-      "sha256": "be87dc0ba1b187b70330f1d709438605dfb249e58fecb3db90f3bef41288f27f",
-      "size_bytes": 75674,
-      "version_header": "# Framework_PYQDeliver v1.13 — Universal PYQ Portal Tagger & Delivery Engine"
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.13.1)**",
+      "lines": 1419,
+      "sha256": "d160da89c19065a59575d75ef7acadc63d7f18ca2aabe25ec945690fed20dc5d",
+      "size_bytes": 76072,
+      "version_header": "# Framework_PYQDeliver v1.13.1 — Universal PYQ Portal Tagger & Delivery Engine"
     },
     "Framework_PYQDraft.md": {
       "end_sentinel": "# END OF Framework_PYQDraft v1.0.1",
@@ -220,8 +220,8 @@
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
       "lines": 7729,
-      "sha256": "49f74f59904972a6662d45d212a75ffdc331fd1f04a7a788f1ca9c455b969ae9",
-      "size_bytes": 432197,
+      "sha256": "fac926a3b16e82ff8a40ea84e8ce16b1fc098041b0215c6e134e164c49d719cf",
+      "size_bytes": 432268,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {

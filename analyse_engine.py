@@ -482,10 +482,10 @@ def subtopic_option_format(qs):
 
 def determine_strip_mode(section, topic, subtopic):
     """v2.30 — DELEGATED to blueprint_core Cluster E (GAP-2026-07-25-002).
-    Second copy removed; see score_difficulty above. The engine's version carries the
+    Second copy removed (GAP-2026-07-25-002). The engine's version carries the
     v2.16 RIGID-5 Devanagari terms, so delegating also means a Hindi-medium exam is
     classified by the same table everywhere rather than by whichever copy ran."""
-    import blueprint_core as bc      # local: see score_difficulty above
+    import blueprint_core as bc      # local: this block does not share the module alias
     return bc.determine_strip_mode(section, topic, subtopic)
 
 def strip_variables(stem, mode):

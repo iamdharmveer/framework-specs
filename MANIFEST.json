@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.27.1",
+  "framework_version": "2026.08.27.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -218,11 +218,11 @@
   },
   "files": {
     "Framework_Blueprint.md": {
-      "sha256": "54514ac223e7a0b45663926840991fc29bb3646a54796bb5d2ab2333c13dd50e",
-      "version_header": "# Framework_Blueprint v1.57.0 \u2014 Universal Mock Test Blueprint Generator",
-      "end_sentinel": "# END OF Framework_Blueprint v1.57.0",
-      "lines": 7632,
-      "bytes": 421722
+      "sha256": "3a046bb0b523b13e241c43c1e8d9a4039336ace28cca49303a4903e37c380ee9",
+      "version_header": "# Framework_Blueprint v1.57.1 \u2014 Universal Mock Test Blueprint Generator",
+      "end_sentinel": "# END OF Framework_Blueprint v1.57.1",
+      "lines": 7647,
+      "bytes": 422931
     },
     "Framework_DeliveryFooter.md": {
       "sha256": "ea91dc825a88d4ec660f8a9a69fb5a897cf758088865be63c25cc1c277d116a8",
@@ -323,11 +323,11 @@
       "bytes": 82616
     },
     "Framework_PYQDeliver.md": {
-      "sha256": "be87dc0ba1b187b70330f1d709438605dfb249e58fecb3db90f3bef41288f27f",
-      "version_header": "# Framework_PYQDeliver v1.13 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
-      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.13)**",
-      "lines": 1414,
-      "bytes": 75674
+      "sha256": "d160da89c19065a59575d75ef7acadc63d7f18ca2aabe25ec945690fed20dc5d",
+      "version_header": "# Framework_PYQDeliver v1.13.1 \u2014 Universal PYQ Portal Tagger & Delivery Engine",
+      "end_sentinel": "**End of Framework_PYQDeliver.md (v1.13.1)**",
+      "lines": 1419,
+      "bytes": 76072
     },
     "Framework_PYQDraft.md": {
       "sha256": "b45b1dcb84f8f7adb556787a3cb809a146eaf6bb4c4138ae2fc4b3f470c32a31",
@@ -400,11 +400,11 @@
       "bytes": 20650
     },
     "blueprint_core.py": {
-      "sha256": "49f74f59904972a6662d45d212a75ffdc331fd1f04a7a788f1ca9c455b969ae9",
+      "sha256": "fac926a3b16e82ff8a40ea84e8ce16b1fc098041b0215c6e134e164c49d719cf",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"blueprint_core.py \u2014 shared allocation core. Run with --self-test.\")",
       "lines": 7729,
-      "bytes": 432197
+      "bytes": 432268
     },
     "paper_pipeline.py": {
       "sha256": "8a326bbe57affe631ff18593c427fa186ebbb799950b79c62f30169b613a502f",
@@ -491,11 +491,11 @@
       "bytes": 35405
     },
     "analyse_engine.py": {
-      "sha256": "4470c826637f3e3760c3138ca51f3b904dd9de6140313ef776154e3097343933",
+      "sha256": "a618b5915090d4dffda5d3e4d53a1df196052ec52a7817743078abc61f705afc",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    print(\"analyse_engine.py \u2014 Step 5 shared extraction engine. Run with --self-test.\")",
       "lines": 5726,
-      "bytes": 334386
+      "bytes": 334395
     },
     "transport_core.py": {
       "sha256": "5acc58b126ed9f9cf2c988ad4aea706ee228547f81c68dbe36b7e5668889d36e",
@@ -554,7 +554,7 @@
       "bytes": 9360
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "aafac0dca6296f87f339e04139b9ed8a3d96cccc9e87474bc35ee539ca6dce82",
+      "sha256": "6a676a050deb32aeeb0af93d961897a9d69abdd0011bd322390dad65d7d70ddc",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 7010,

@@ -2112,8 +2112,8 @@ def coverage_window(batch_start, batch_end, batch_size, N_mocks):
 # ════════════════════════════════════════════════════════════════════════════
 # CLUSTER E — PYQ DIFFICULTY SCORING  (Framework_MockTestAnalyse.md E-9 / E-10)
 # ════════════════════════════════════════════════════════════════════════════
-# PROVENANCE: score_difficulty and determine_strip_mode are extracted VERBATIM
-# from Framework_MockTestAnalyse.md, sections E-9 (score_difficulty) and
+# PROVENANCE: determine_strip_mode is extracted VERBATIM from Framework_MockTestAnalyse.md
+# (E-10); score_difficulty (E-9) lived here until GAP-2026-08-27-DIFFICULTY-PROFILE retired it. Sections E-9 (retired) and
 # E-10 (determine_strip_mode). Extracted at v2.24.9; code byte-identical
 # through v2.24.10 (current) — the v2.24.10 bump was annotation-only.
 # ANCHORS ARE SECTION IDs, NOT LINE NUMBERS: line numbers shift whenever
@@ -2191,7 +2191,7 @@ def determine_strip_mode(section, topic, subtopic):
 #   (Framework_PYQExplain §7A / Framework_PYQDeliver §2-3a1)
 # ════════════════════════════════════════════════════════════════════════════
 # WHY THIS CLUSTER EXISTS
-#   Cluster E (E-9 score_difficulty) scores a question from KEYWORDS IN ITS STEM.
+#   Cluster E's E-9 keyword scorer (RETIRED 2026-08-27) scored a question from KEYWORDS IN ITS STEM.
 #   That vocabulary was calibrated on SSC/Banking aptitude papers, so for any exam
 #   whose stems do not use that vocabulary the C axis is pinned at its floor and
 #   every question collapses to one label. Measured on IIT JAM Biotechnology
@@ -2280,8 +2280,8 @@ def assess_difficulty(question_class, deduction_steps, axiom_concepts,
       difficulty_labels     list — exam vocabulary, ascending, e.g. ['Easy','Medium','Hard']
 
     Returns a member of ``difficulty_labels``, or None when ``difficulty_labels``
-    is not an exactly-3-label list. None is the SAME contract as
-    ``map_difficulty_level``: a 2- or 5-band custom vocabulary has no defensible
+    is not an exactly-3-label list. None is the Cluster-E2 fall-through contract:
+    a 2- or 5-band custom vocabulary has no defensible
     correspondence to a 3-band assessment, so the caller falls through rather
     than guessing.
 
@@ -5367,7 +5367,7 @@ def self_test():
           _ad('C-FACTUAL', 2, 1, labels=['L1', 'L2', 'L3']) == 'L1'
           and _ad('C-MULTI-SELECT', 3, 1, neg=True, qt='msq',
                   labels=['L1', 'L2', 'L3']) == 'L3')
-    # Non-3-band vocabulary → None (same contract as map_difficulty_level).
+    # Non-3-band vocabulary → None (the Cluster-E2 fall-through contract).
     check('e2_non3_none',
           _ad('C-FACTUAL', 2, 1, labels=['Basic', 'Advanced']) is None
           and _ad('C-FACTUAL', 2, 1, labels=None) is None)

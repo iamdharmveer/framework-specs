@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026.08.27.2 — Doc-sync follow-up to 2026.08.27.1: no statement in the corpus still describes the retired defaults
+
+**Framework_Blueprint v1.57.0 -> v1.57.1 · Framework_PYQDeliver v1.13 -> v1.13.1 · blueprint_core /
+analyse_engine comment-only. Prose and comments only; no rule, fence, engine body or file change;
+every self-test count unchanged.** A post-deployment corpus sweep for statements contradicting the
+deployed rule found: Blueprint's header usage line still advertised "default = 25:25:50 applied
+silently"; §15-4's Sheet-4 header rule still keyed on that default (now derived from the paper-level
+counts, with the per-section mix living in blueprint.json); the exam_config schema did not list the
+optional cycle_gap_days nor state that `level` scales no number; PYQDeliver S2-3b/EC-18 still named
+the retired map_difficulty_level; four engine comments referenced the retired E-9 scorer as live.
+All corrected. Pairing lines re-verified against every header.
+
 ## 2026.08.27.1 — GAP-2026-08-27-DIFFICULTY-PROFILE: the exam's own measured difficulty mix is the Blueprint default; keyword scorer retired
 
 **blueprint_core (NEW Cluster DP — dp_add_paper, dp_cycles/dp_window, dp_recommend, dp_guardrail,

@@ -1,4 +1,6 @@
-# Framework_PYQDeliver v1.13 — Universal PYQ Portal Tagger & Delivery Engine
+# Framework_PYQDeliver v1.13.1 — Universal PYQ Portal Tagger & Delivery Engine
+# v1.13.1 — 2026-08-27 — doc sync: S2-3b and EC-18 no longer name the retired
+#   map_difficulty_level. Prose only.
 # v1.13 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE. Complexity Tier 2 (E-9 keyword
 #   scoring) RETIRED with the scorer itself (MockTestAnalyse v2.55, blueprint_core): Tier 1
 #   (assessed) → Tier 1.5 (structural) → Tier 3 (default). The §2-3e mixed-provenance WARN now
@@ -571,8 +573,8 @@ Question-Type functions from `blueprint_core.py`. A question that Tier 1 (assess
 PYQExplain §7A) and Tier 1.5 (structural) both leave unresolved falls DIRECTLY to
 Tier 3. Difficulty on a delivered PYQ paper is therefore either MEASURED (Tier 1),
 the exam body's DESIGN INTENT (Tier 1.5), or the disclosed DEFAULT (Tier 3) — never
-a keyword guess presented as a label. `map_difficulty_level` / `determine_strip_mode`
-stay in the engine for other consumers; PYQ-4 does not call them.
+a keyword guess presented as a label. `map_difficulty_level` was retired with this tier;
+`determine_strip_mode` stays in the engine for Step 5 templating; PYQ-4 calls neither.
 
 ### S2-3c — Tier 3: difficulty_default (safety net — v1.1 behavior)
 
@@ -1283,10 +1285,13 @@ PYQ-4 is done when **all** hold:
     Tier 1.5 / Tier 3 (S2-3a; Tier 2 retired v1.13). A defective Tier-1 map can never block delivery
     and can never inject an out-of-vocabulary tag.
 
-18. **Non-3-label difficulty_labels** (2-band or 5-band custom set) →
-    `map_difficulty_level` returns None → Tier 3 for every question, each
-    WARNed, difficulty_default used (must itself be in the label set or
-    C10 HARD STOPs). Deterministic; never guesses an ordinal mapping.
+18. **Non-3-label difficulty_labels** (2-band or 5-band custom set) — PYQExplain
+    §7A writes no q_to_difficulty for such an exam (Tier 1 absent), Tier 1.5's
+    structural floor is defined on the 3-band rubric and returns None, so every
+    question resolves at Tier 3: difficulty_default, each WARNed (must itself be
+    in the label set or C10 HARD STOPs). Deterministic; never guesses an ordinal
+    mapping. (v1.13.1: `map_difficulty_level` no longer exists — the behaviour is
+    unchanged, the mechanism is Tier 1's absence.)
 
 19. **Exam whose stems are outside E-9's aptitude vocabulary** — RESOLVED by
     retirement (v1.13, GAP-2026-08-27-DIFFICULTY-PROFILE). The E-9 keyword scorer
@@ -1411,4 +1416,4 @@ delivered file keeps the input's original fonts):
 
 ---
 
-**End of Framework_PYQDeliver.md (v1.13)**
+**End of Framework_PYQDeliver.md (v1.13.1)**

@@ -1,4 +1,8 @@
-# Framework_Blueprint v1.57.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.57.1 — Universal Mock Test Blueprint Generator
+# v1.57.1 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE doc sync (prose only): the header usage
+#   line and §15-4 Sheet-4 header rule still described the retired silent 25:25:50 default;
+#   exam_config schema now lists the optional cycle_gap_days and states that `level` scales
+#   no number. No rule, fence, engine or file change.
 # v1.57.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster
 #   DP, PYQExplain v2.18 S7A-6, MockTestAnalyse v2.55, MockTestCreate v5.75, MockDeliver
 #   v1.17.0, ScopedBlueprint v1.10.0, audit_canonical v2.21). NEW §7 S7-0:
@@ -139,7 +143,8 @@
 #   resolved Q counts must be honestly authorable on the exam's shape — the bottom
 #   difficulty band is capacity-bound by the shared rubric's MSQ/NAT qtype floors
 #   (bc.difficulty_feasibility), while Medium/Hard stay uncapped and the user's
-#   ratio remains the law for counts. The default 25:25:50 path runs the same check.
+#   ratio remains the law for counts. The (then-)default 25:25:50 path ran the same check
+#   [that default is retired since v1.57.0 — S7-0].
 #   Errors name the achievable maximum; nothing is silently clamped. Vacuous pass
 #   for non-position-typed exams and non-3-band vocabularies (Cluster-E2 contract).
 # v1.50.0 — 2026-08-19 — GAP-2026-08-19-LEARNINGS-FILENAME-SEAM (paired with
@@ -269,8 +274,11 @@
 #   Trigger matching is case-insensitive.
 #   ExamCode read from exam_config.json in project knowledge (set during Step 2a PYQDraft).
 #   [N_mocks]   : positive integer > 0 (flag if > 100)
-#   --difficulty: optional; default = 25:25:50 (Easy:Medium:Hard) applied silently.
-#                 E:M:H must sum to 100. If not → ERROR.
+#   --difficulty: optional (v1.57.0). Absent → S7-0 (§7) shows the exam's OWN measured mix
+#                 per section (from [ExamCode]_difficulty_profile.json) and waits for OK or
+#                 the operator's lines — nothing is applied silently. 'exam' accepts that mix;
+#                 E:M:H applies one mix to every section (must sum to 100, guard-railed);
+#                 'progressive' asks for bands (guard-railed).
 #
 #   Examples:
 #     MockBlueprint 50
@@ -695,7 +703,11 @@ PRIMARY SOURCE (v1.19): exam_config.json from project knowledge.
                                  subjects (RECOMMENDED, v1.35 — auto-derived by Step 5 v2.24.9)}
     total_questions  : sum of all section q_counts
     marking_scheme[] : per-range {q_range, question_type, correct_marks, negative_marks}
-    level            : academic level (e.g., "Post Graduation", "Graduation")
+    level            : academic level (e.g., "Post Graduation", "Graduation") — a prose
+                       anchor for step counting only; it scales no number (v1.57.0)
+    cycle_gap_days   : OPTIONAL int (v1.57.0). Overrides blueprint_core.DP_CYCLE_GAP_DAYS
+                       (60) for sitting detection in the difficulty profile; omit for
+                       every exam whose sittings are ≥ 60 days apart (the norm)
     medium           : exam language (e.g., "English", "Hindi", "Bilingual")
     n_papers         : NOT in exam_config — infer from context or ask user.
                        Default: 1 (single-paper exam). Multi-paper exams (UPSC CSE)
@@ -6816,12 +6828,15 @@ Sheet name (EXACT): "Difficulty Schedule"
 Row 1 — Column headers (EXACT names, EXACT order — 6 columns):
   A : "Mock"
   B : "Band"
-  C : "Easy ([S]%)"      e.g., "Easy (15%)"  ← substitute actual S% from difficulty flag
-  D : "Medium ([M]%)"    e.g., "Medium (30%)" ← substitute actual M% from difficulty flag
-  E : "Hard ([H]%)"      e.g., "Hard (55%)"   ← substitute actual H% from difficulty flag
+  C : "Easy ([S]%)"      e.g., "Easy (15%)"  ← S% = paper-level percentage (below)
+  D : "Medium ([M]%)"    e.g., "Medium (30%)" ← M% likewise
+  E : "Hard ([H]%)"      e.g., "Hard (55%)"   ← H% likewise
   F : "Total"
-  For default difficulty (25:25:50): headers are "Easy (25%)", "Medium (25%)", "Hard (50%)".
-  For custom difficulty (e.g. 15:30:55): headers are "Easy (15%)", "Medium (30%)", "Hard (55%)".
+  v1.57.0: the paper-level percentages are DERIVED from difficulty_schedule[1]'s
+    simple/medium/hard counts (round(count × 100 / total_qs), largest remainder to
+    100) — the per-section mix lives in difficulty_schedule[].by_section and in
+    difficulty_source.chosen_by_section (blueprint.json), not in this sheet.
+  For a trigger mix (e.g. 15:30:55): headers are "Easy (15%)", "Medium (30%)", "Hard (55%)".
   For progressive difficulty: use the most common band's percentages in the header,
     or use generic "Easy (%)", "Medium (%)", "Hard (%)" if bands differ significantly.
 
@@ -7629,4 +7644,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.57.0
+# END OF Framework_Blueprint v1.57.1
