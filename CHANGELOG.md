@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026.08.26.5 — GAP-2026-08-26-REPAIR-BATCH-LAW: TestCreateRepair now obeys the Batch Stop Law
+
+**Framework_MockTestCreate v5.73 -> v5.74 · DeliveryFooter v1.27 -> v1.28 · MockTestExplain
+v1.46.1 -> v1.46.2. Spec only; no engine change.** §S16 repair mode regenerated every
+rework question in ONE response while S4-4 (B-1..B-8, "architectural, non-negotiable")
+forbids that for a fresh paper for the same reason — authoring quality decays with the
+number of questions per context; the reference paper's gate flagged 32. NEW S16-1b: the
+repair batch plan (rework_qs in batches of ≤ 10, `[ExamCode]_M[N]_repair_state.json`, one
+batch per response, S4-6 continue, `resume`), the pre-repair snapshot taken ONCE before the
+first regeneration on the registry working copy. Mid-batch deliverable is the cumulative
+`_Create_Repaired_PARTIAL_[k]of[K].docx` (F1) with the registry deliberately withheld —
+Step 9-R refuses the PARTIAL name, so a half-repaired paper can never be explained. The
+final batch runs S16-3 unchanged (`_Create_Repaired.docx` + registry Replace, F2). A list of
+≤ 10 is one batch and behaves exactly as before. S16-1b HARD-STOPS on: an attachment that is not exactly the paper's own
+`_Create.docx` (exact contract name, never a glob — a stray `_Repaired`/sibling upload is ignored), a paper whose
+stems do not cover every blueprint question, an empty rework_qs, a lost working registry
+mid-repair (never re-snapshotted from a half-repaired paper), and a `continue` after the
+last batch. Fence-executed simulation: 32-question repair (4 batches) and 3-question
+repair (1 batch), 24/24; the 8 edge cases above, 8/8; the 30-state two-scenario
+handoff simulation re-passes on the new specs. DeliveryFooter trimmed (v1.27 entry to
+SPEC_HISTORY) to keep the PYQPrepare route under SPEC-BUDGET.
+
 ## 2026.08.26.4 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM follow-up: repaired-paper filename accepted by Step 9; S19-0 split so `reg` is bound before §7A-M writes
 
 **Framework_MockTestExplain v1.46.0 -> v1.46.1 (prose only; no engine change).** Found by

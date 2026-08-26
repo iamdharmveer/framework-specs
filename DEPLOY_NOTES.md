@@ -1,3 +1,17 @@
+# Deploy: REPAIR-BATCH-LAW — release 2026.08.26.5
+
+**Files to commit (9):** `Framework_MockTestCreate.md` (v5.74), `Framework_DeliveryFooter.md`
+(v1.28), `Framework_MockTestExplain.md` (v1.46.2), `SPEC_HISTORY.md`, `VERSION`, `CHANGELOG.md`,
+`DEPLOY_NOTES.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json`. See CHANGELOG
+2026.08.26.5. Spec-only; no engine changes. Everything below is the historical .3/.4 note.
+
+**Operator change:** a TestCreateRepair with more than 10 flagged questions now runs in batches —
+reply `continue` between batches exactly as for TestCreate. Mid-batch you receive a
+`…_Create_Repaired_PARTIAL_kofK.docx` (keep locally, do NOT attach it to TestExplainRepair);
+the final batch delivers `…_Create_Repaired.docx` + `registry.json → Replace in Project Files`.
+
+---
+
 # Deploy: REGISTRY-HANDOFF-LAW follow-up — release 2026.08.26.4
 
 **This release (.4) changes ONLY:** `Framework_MockTestExplain.md` (v1.46.1), `VERSION`,

@@ -1,13 +1,12 @@
-# Framework_DeliveryFooter v1.27 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.28 — Universal Delivery Footer (F1/F2) Contract
+# v1.28 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (MockTestCreate v5.74): STEP 7-R
+#   batched — F1 per non-final batch with _Create_Repaired_PARTIAL_[k]of[K].docx
+#   (registry withheld), F2 at the final batch. LOCAL_ONLY gains the PARTIAL pattern.
 # v1.27 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (MockTestCreate v5.73,
-#   MockTestExplain v1.46.0, MockDeliver v1.16.0, paper_pipeline v5.74 Cluster RH).
-#   NEW §8 REGISTRY-HANDOFF-LAW: a step that CHANGES registry.json DELIVERS it (Replace);
-#   badge lines are pp.handoff_footer_lines(HANDOFF) verbatim. §3: Step 7 no longer
-#   delivers the audit dossier (internal); Step 9 final delivers registry.json (Replace)
-#   + [ExamCode]_[slug]_Explain_Report.docx (the old "registry not delivered" note was
-#   wrong since MockTestExplain v1.42.0); NEW blocks STEP 7-R and STEP 9-R; Step 11
-#   delivers a healed registry. §6 gains the repair path. LOCAL_ONLY gains
-#   '*_Explain_Report.docx' and '*_Create_Repaired.docx'.
+#   MockTestExplain v1.46.0, MockDeliver v1.16.0, paper_pipeline v5.74). NEW §8
+#   REGISTRY-HANDOFF-LAW; §3 Step 7 drops the dossier, Step 9 final delivers registry
+#   (Replace) + Explain_Report.docx, NEW STEP 7-R / 9-R, Step 11 delivers a healed
+#   registry; §6 repair path. Full text: SPEC_HISTORY.md.
 # FULL VERSION HISTORY: SPEC_HISTORY.md, section "Framework_DeliveryFooter.md" — superseded
 #   entries are moved there VERBATIM (EC-P42): this file rides on every route, so every
 #   header byte is paid by every session. The CURRENT entry stays above (Z-VERSION).
@@ -156,6 +155,7 @@ def get_badge(filename, step, is_first_run):
         '*_Final.docx',             # Step 11 tagged final (any slug)
         '*_audit_dossier.json',     # Step 7 dossier — INTERNAL since v1.27 (kept for old files)
         '*_Create_Repaired.docx',   # Step 7-R repaired paper (any slug) — v1.27
+        '*_Create_Repaired_PARTIAL_*.docx',  # Step 7-R mid-batch cumulative paper — v1.28
         '*_Explain_Report.docx',    # Step 9 / 9-R END-OF-MOCK REPORT docx (any slug) — v1.27
         '*_taxonomy.xlsx',          # Step 5 id companion (xlsx — not Claude-readable)
         'analysis_summary.md',      # Step 5 final — human review audit trail
@@ -414,12 +414,17 @@ NEXT STEP  : Step 9: MockExplain M[N]   (mock paper)
   (v1.13 — Step 8 is RETIRED; never print it as a next step.)
 
 ═══════════════════════════════════════════════════════════════════════
-STEP 7-R — TestCreateRepair / MockCreateRepair  (v1.27 — MockTestCreate §S16)
+STEP 7-R — TestCreateRepair / MockCreateRepair  (v1.27 — MockTestCreate §S16; batched v1.28)
 ═══════════════════════════════════════════════════════════════════════
-PARTS      : 1 (single response — only the gate's rework_qs are regenerated)
-FOOTER TYPE: F2 (step-complete) — always
+PARTS      : one batch (≤ 10 rework qs) per response — MockTestCreate S16-1b
+FOOTER TYPE: F1 (mid-step) after each non-final repair batch
+             F2 (step-complete) at the final batch
 
-DELIVERABLES (CLOSED SET = pp.handoff_set('TestCreateRepair', …)):
+MID-STEP DELIVERABLES (per non-final batch — cumulative, whole paper):
+  [ExamCode]_[paper_slug]_Create_Repaired_PARTIAL_[k]of[K].docx → Use locally
+  (registry WITHHELD until the final batch — S16-3; Step 9-R refuses the PARTIAL name)
+
+FINAL DELIVERABLES (CLOSED SET = pp.handoff_set('TestCreateRepair', …)):
   [ExamCode]_[paper_slug]_Create_Repaired.docx → Use locally
   [ExamCode]_registry.json                    → Replace in Project Files (carries the
                                                  pre-repair snapshot §7A-R R3 needs)
@@ -444,10 +449,9 @@ FINAL DELIVERABLES (CLOSED SET = pp.handoff_set('TestExplain', …, final=True);
 MockTestExplain S19-0, v1.46.0):
   [ExamCode]_Mock[N]_Explanation.docx     → Use locally   (now fully explained)
   [ExamCode]_registry.json                → Replace in Project Files — whenever the run
-                                            changed it (every §7A-M verdict or healing; the
-                                            ONLY channel to Step 11). Legacy paper: unchanged
-                                            → not delivered, footer says so.
-  [ExamCode]_Mock[N]_Explain_Report.docx  → Use locally   (END-OF-MOCK REPORT as a document,
+                                            changed it (every §7A-M verdict/healing; the ONLY
+                                            channel to Step 11). Legacy: unchanged → not delivered.
+  [ExamCode]_Mock[N]_Explain_Report.docx  → Use locally   (END-OF-MOCK REPORT docx,
                                             MockTestExplain S20-R; inert downstream)
 
 NEXT STEP  : Step 11: MockDeliver M[N]  (mock paper) — only on "✅ CLEARED FOR DELIVERY";
@@ -866,18 +870,14 @@ THE LAW. A step that CHANGES [ExamCode]_registry.json DELIVERS it, badge "Replac
 Project Files", in the SAME present_files call as its primary artefact. The next step
 reads ONLY the project copy; an undelivered change is a change the pipeline never sees.
 
-WRITERS (paper_pipeline.RH_REGISTRY_WRITING_STEPS): TestCreate/MockCreate (Final Assembly
-commit), TestCreateRepair/MockCreateRepair (§S16-3 update + snapshot), TestExplain/
-MockExplain (§7A-M verdict / healing), TestExplainRepair/MockExplainRepair (§7A-R re-gate).
-READER: TestDeliver/MockDeliver (delivers the registry only when its preflight healed it).
+WRITERS (paper_pipeline.RH_REGISTRY_WRITING_STEPS): Test/MockCreate (Final Assembly),
+Test/MockCreateRepair (§S16-3), Test/MockExplain (§7A-M), Test/MockExplainRepair (§7A-R).
+READER: Test/MockDeliver (delivers the registry only when its preflight healed it).
 
-DECIDED BY pp.registry_changed(fingerprint_of_project_copy, working_copy) →
-pp.handoff_set(step, …) — the CLOSED set and the badge per file. The footer prints
-pp.handoff_footer_lines(HANDOFF) VERBATIM, then HANDOFF['lines'] ("REGISTRY HANDOFF
-(<step>): … REPLACE it in Project Files …" or "… registry unchanged this run …").
-Never composed by hand, never omitted, never decided by a per-step sentence.
+DECIDED BY pp.registry_changed(project fingerprint, working copy) → pp.handoff_set(step, …)
+— the CLOSED set and badge per file. The footer prints pp.handoff_footer_lines(HANDOFF)
+VERBATIM, then HANDOFF['lines']. Never composed by hand, never decided by prose.
 
-WHY A LAW. Through 2026.08.26.2 four steps wrote the registry, one delivered it, and
-every gated paper was undeliverable. mock_sync_audit MS-14 bans the old wording and
-requires the badge in every writer spec + a §3 block per trigger. LAW_REGISTRY.json.
+WHY A LAW. Four steps wrote the registry, one delivered it, every gated paper was
+undeliverable. MS-14 bans the old wording; LAW_REGISTRY.json REGISTRY-HANDOFF-LAW.
 ```

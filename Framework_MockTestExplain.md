@@ -1,4 +1,8 @@
-# Framework_MockTestExplain v1.46.1
+# Framework_MockTestExplain v1.46.2
+# v1.46.2 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (MockTestCreate v5.74; prose only).
+#   S2-1 / §7A-R R2: a [ExamCode]_[slug]_Create_Repaired_PARTIAL_[k]of[K].docx (Step 7-R's
+#   mid-batch cumulative paper) is REFUSED with "finish every repair batch — attach
+#   _Create_Repaired.docx"; only the final _Create_Repaired.docx is a valid R2 input.
 # v1.46.1 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM follow-up (prose only; paired
 #   with paper_pipeline v5.74). REPAIRED-PAPER FILENAME. §7A-R attaches the TestCreateRepair
 #   output, [ExamCode]_[paper_slug]_Create_Repaired.docx, and R2 says "parse (P3
@@ -526,7 +530,12 @@ execution path — it does not shrink, soften or delete them.
   the upload. (v1.46.1) On a TestExplainRepair / MockExplainRepair trigger the paper
   attachment is [ExamCode]_[paper_slug]_Create_Repaired.docx (TestCreateRepair §S16-3
   output) and is the ONLY accepted form; on any other trigger a _Create_Repaired.docx
-  upload is a HARD STOP ("a repaired paper is explained via TestExplainRepair P[N]"). (v1.24: this and the FRESH line above said "Create_Complete" — a filename
+  upload is a HARD STOP ("a repaired paper is explained via TestExplainRepair P[N]").
+  A _Create_Repaired_PARTIAL_[k]of[K].docx (Step 7-R mid-batch paper, v1.46.2) is a HARD
+  STOP on EVERY trigger: "This is a partially repaired paper (batch [k] of [K]) — finish
+  every repair batch with 'continue', then attach [ExamCode]_[slug]_Create_Repaired.docx."
+  Match the suffix EXACTLY: `_Create_Repaired.docx` is accepted, `_Create_Repaired_PARTIAL_`
+  is not (no prefix match). (v1.24: this and the FRESH line above said "Create_Complete" — a filename
   RETIRED at v1.21.0 that no step produces (see the header note); a session following the
   old wording literally would refuse the valid _Create.docx upload forever. The operative
   P1 discovery always used _Create.docx; the trigger contract now says the same thing.)
@@ -3383,5 +3392,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.46.1
+# END OF Framework_MockTestExplain v1.46.2
 # ════════════════════════════════════════════════════════════════════════

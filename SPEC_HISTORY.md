@@ -146,6 +146,21 @@ Current-version entry remains in Framework_Blueprint.md.
 
 ## Framework_DeliveryFooter.md
 
+Full v1.27 entry (header carries the short form since v1.28 — SPEC-BUDGET on the PYQPrepare route):
+
+```
+# v1.27 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestCreate
+#   v5.73, MockTestExplain v1.46.0, MockDeliver v1.16.0, paper_pipeline v5.74 Cluster RH,
+#   explain_engine v2.9, final_assembly v5.60). NEW §8 REGISTRY-HANDOFF-LAW: a step that
+#   CHANGES registry.json DELIVERS it (Replace); badge lines are
+#   pp.handoff_footer_lines(HANDOFF) verbatim. §3: Step 7 no longer delivers the audit
+#   dossier (internal); Step 9 final delivers registry.json (Replace) +
+#   [ExamCode]_[slug]_Explain_Report.docx (the old "registry not delivered" note was wrong
+#   since MockTestExplain v1.42.0); NEW blocks STEP 7-R and STEP 9-R; Step 11 delivers a
+#   healed registry. §6 gains the repair path. LOCAL_ONLY gains '*_Explain_Report.docx' and
+#   '*_Create_Repaired.docx'.
+```
+
 Entries v1.24–v1.26 moved at framework release 2026.08.26.3 (EC-P42; v1.27 supersedes;
 the PYQPrepare route's pre-work read crossed the SPEC-BUDGET threshold).
 

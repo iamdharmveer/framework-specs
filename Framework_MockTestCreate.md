@@ -1,4 +1,24 @@
-# Framework_MockTestCreate v5.73
+# Framework_MockTestCreate v5.74
+# v5.74 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (paired with DeliveryFooter v1.28;
+#   spec only, no engine change). §S16 repair mode regenerated EVERY rework_q in ONE
+#   response ("PARTS: 1") while the Batch Stop Law (S4-4, B-1..B-8) forbids exactly that
+#   for a fresh paper — and for the same reason: generation quality decays with the
+#   number of questions authored in one context. The reference paper's gate flagged 32
+#   questions, i.e. more than a whole fresh batch three times over. FIX: NEW S16-1b — the
+#   REPAIR BATCH PLAN: rework_qs (ascending) are split into batches of at most
+#   MAX_BATCH_SIZE (S4-2's ceiling, 10), written to [ExamCode]_M[N]_repair_state.json;
+#   one batch per response, the S4-6 continue contract between batches, B-1..B-7 by
+#   reference, B-8's analogue = the final repair batch auto-advances to S16-3. The
+#   pre-repair snapshot is taken ONCE, at S16-1b, BEFORE the first regeneration, on the
+#   registry working copy. MID-BATCH DELIVERABLE: the cumulative paper as
+#   [ExamCode]_[slug]_Create_Repaired_PARTIAL_[k]of[K].docx (F1 footer) — a name Step 9-R
+#   REFUSES, so a half-repaired paper can never be explained; the registry is WITHHELD
+#   mid-batch by design (a partial registry beside a partial paper would let 9-R run on
+#   it). FINAL batch: S16-3 exactly as v5.73 — _Create_Repaired.docx + registry.json
+#   (Replace), F2. A rework list of ≤ 10 is a single batch and behaves exactly as before.
+#   S16-1 P0 now loads the WORKING copy on a continue/resume turn while the fingerprint
+#   is always the PROJECT copy's. `TestCreateRepair P[N] resume` rebuilds from
+#   repair_state.json (S4-12 analogue).
 # v5.73 — 2026-08-26 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM (paired with MockTestExplain
 #   v1.46.0, MockDeliver v1.16.0, DeliveryFooter v1.27, paper_pipeline v5.74 Cluster RH,
 #   final_assembly v5.60, explain_engine v2.9; LAW_REGISTRY REGISTRY-HANDOFF-LAW,
@@ -8455,6 +8475,9 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
   TRIGGER: `TestCreateRepair P[N] Q4 Q8 Q20 …` or `MockCreateRepair M[N] Q…`
   (Q-list separators: spaces or commas; "Q4"/"4" both accepted).
+  CONTINUE: the S4-6 continue triggers ("continue" / "go" / "next" …) between repair
+  batches (v5.74 — S16-1b). RESUME: `TestCreateRepair P[N] resume` (re-enter a repair
+  mid-way: reload [ExamCode]_M[N]_repair_state.json + the working registry, S16-1b).
   ATTACH: the CURRENT question paper docx for paper N (this step's own
   earlier deliverable). The registry and blueprint come from project
   knowledge as always.
@@ -8465,10 +8488,15 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
         (v5.73 — S16-3's handoff decision compares against this value):
 
         ```python
-        import json
+        import os, json, shutil
         import paper_pipeline as pp
-        reg = json.load(open(f'/mnt/project/{EXAM}_registry.json', encoding='utf-8'))
-        _reg_fp_loaded = pp.registry_fingerprint(reg)
+        REG_PROJECT = f'/mnt/project/{EXAM}_registry.json'        # what Step 9-R will read
+        REG_WORK    = f'/home/claude/{EXAM}_registry.json'        # this repair's working copy
+        _reg_fp_loaded = pp.registry_fingerprint(json.load(open(REG_PROJECT, encoding='utf-8')))
+        if not os.path.exists(REG_WORK):
+            shutil.copy(REG_PROJECT, REG_WORK)                    # first turn of the repair only
+        reg = json.load(open(REG_WORK, encoding='utf-8'))         # continue/resume: carries the
+                                                                  # S16-1b snapshot + batches done
         rec, disclosure = pp.dg_preflight(reg, paper_id, where='S16-1 P0')
         ```
         (v5.71 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER). Runs FIRST.
@@ -8502,11 +8530,98 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
         of rework_qs in one run.
     P3  The attached paper parses (§P3 machinery) and its stems hash-match
         registry stem_texts for paper N (the operator attached the right
-        file and the right version).
+        file and the right version). On a continue/resume turn the paper of
+        record is the cumulative repaired docx in /home/claude (S16-1b), not a
+        new attachment.
+
+## S16-1b — REPAIR BATCH PLAN + PRE-REPAIR SNAPSHOT (v5.74 — GAP-2026-08-26-REPAIR-BATCH-LAW)
+
+  THE LAW, RESTATED FOR REPAIR. S4-4 B-1..B-7 apply to a repair exactly as to a
+  fresh paper: a batch is at most MAX_BATCH_SIZE questions (S4-2's ceiling), ONE batch
+  per response, auto-advance BANNED, the next batch only on an S4-6 continue trigger,
+  present_files only after the batch passes gate checks. B-8's analogue: the FINAL
+  repair batch auto-advances to S16-3 in the same response. A rework list of ≤
+  MAX_BATCH_SIZE is one batch and the run is a single response, as it was in v5.73.
+  The plan is built ONCE (first turn) and read from the file on every later turn —
+  never recomputed, never "the last q + 1".
+
+  ```python
+  import os, json
+  import paper_pipeline as pp
+  MAX_BATCH_SIZE = 10                     # S4-2 ceiling — the same number, by reference
+  STATE = f'/home/claude/{EXAM}_M{N}_repair_state.json'
+  if not os.path.exists(STATE):           # FIRST TURN — plan + snapshot, once
+      # old_stems[q] = the raw first paragraph of q in the ATTACHED paper, "Q.<n>" label
+      # included — python-docx paragraph.text, the SAME extraction §7A-R R3 applies to the
+      # repaired paper, so both sides of pp.dg_stem_hash see identical bytes.
+      import re as _re
+      from docx import Document as _Doc
+      # The attachment is addressed by its EXACT contract name — never a glob — so a
+      # stray _Repaired / _PARTIAL / sibling-paper upload can never be picked up.
+      ATTACHED_PAPER = f'/mnt/user-data/uploads/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
+      if not os.path.exists(ATTACHED_PAPER):
+          raise SystemExit(f"HARD STOP (S16-1b): {os.path.basename(ATTACHED_PAPER)} is not "
+                           f"attached. Attach the CURRENT question paper for paper {N} (not a "
+                           f"_Repaired / _PARTIAL file) and re-trigger.")
+      _QRE = _re.compile(r'^\s*Q\.?\s*(\d+)\b')
+      old_stems = {}
+      for _para in _Doc(ATTACHED_PAPER).paragraphs:
+          _m = _QRE.match(_para.text)
+          if _m and int(_m.group(1)) not in old_stems:
+              old_stems[int(_m.group(1))] = _para.text
+      if sorted(old_stems) != list(range(1, int(bp['total_questions']) + 1)):
+          raise SystemExit(f"HARD STOP (S16-1b): the attached paper yields stems for "
+                           f"{len(old_stems)} questions, blueprint says "
+                           f"{bp['total_questions']} — the baseline snapshot must cover "
+                           f"EVERY question or §7A-R R3 cannot prove the repair touched "
+                           f"nothing else. Attach the complete paper.")
+      rework_qs = sorted(int(q) for q in rec['rework_qs'])
+      if not rework_qs:
+          raise SystemExit('HARD STOP (S16-1b): the gate record carries an empty rework_qs — '
+                           'nothing to repair; run pp.dg_next_step for the next step.')
+      batches = [rework_qs[i:i + MAX_BATCH_SIZE] for i in range(0, len(rework_qs), MAX_BATCH_SIZE)]
+      # PRE-REPAIR SNAPSHOT — write-once, BEFORE any stem is regenerated (§7A-R R3 evidence).
+      # old_stems[q] = the raw first paragraph of q in the attached paper, "Q.<n>" label
+      # included, for EVERY q in 1..total_questions (P3 parsed it).
+      pp.dg_add_rework_snapshot(reg, paper_id,
+                                {q: pp.dg_stem_hash(old_stems[q]) for q in rework_qs},
+                                all_stem_hashes={q: pp.dg_stem_hash(t) for q, t in old_stems.items()})
+      json.dump(reg, open(f'/home/claude/{EXAM}_registry.json', 'w', encoding='utf-8'),
+                indent=2, ensure_ascii=False)               # working copy only — NOT delivered yet
+      repair_state = {'exam_code': EXAM, 'mock_n': N, 'paper_id': paper_id,
+                      'rework_qs': rework_qs,
+                      'batches': [{'batch_id': i + 1, 'qs': b, 'is_final': i == len(batches) - 1}
+                                  for i, b in enumerate(batches)],
+                      'batches_completed': [], 'current_batch': 1, 'snapshot_taken': True}
+      json.dump(repair_state, open(STATE, 'w', encoding='utf-8'), indent=2)
+  repair_state = json.load(open(STATE, encoding='utf-8'))
+  # CONTINUE / RESUME GUARDS (B-1 analogue): the working registry must carry the
+  # snapshot S16-1b took on the first turn — a working copy lost between turns (fresh
+  # container, deleted /home/claude) cannot be re-snapshotted from a half-repaired paper.
+  _snap = (reg.get('difficulty_gate', {}).get(paper_id, {}) or {}).get('rework_stem_hashes') or {}
+  if set(_snap) != {str(q) for q in repair_state['rework_qs']}:
+      raise SystemExit(f"HARD STOP (S16-1b): repair_state.json exists but the working "
+                       f"registry has no pre-repair snapshot for {repair_state['rework_qs']}. "
+                       f"The working copy was lost mid-repair. Delete "
+                       f"{EXAM}_M{N}_repair_state.json, restore the PROJECT registry and "
+                       f"the ORIGINAL paper, and re-run TestCreateRepair P{N} from batch 1.")
+  if repair_state['current_batch'] > len(repair_state['batches']):
+      raise SystemExit(f"HARD STOP (S16-1b): every repair batch is already completed — "
+                       f"S16-3 has (or should have) delivered. Next step: "
+                       + pp.dg_next_step(reg, paper_id, N, mock=False))
+  _b = repair_state['batches'][repair_state['current_batch'] - 1]
+  BATCH_QS, REPAIR_FINAL = _b['qs'], _b['is_final']
+  K_TOTAL, K_NOW = len(repair_state['batches']), repair_state['current_batch']
+  print(f"REPAIR BATCH {K_NOW} of {K_TOTAL}: Q{' Q'.join(map(str, BATCH_QS))}"
+        f"{' (final)' if REPAIR_FINAL else ''}")
+  ```
+  Then S16-2 regenerates ONLY BATCH_QS. After the batch passes the self-audit
+  (S4-7 STEP B) the response delivers and ENDS per S16-3.
 
 ## S16-2 — Regeneration (the only questions touched are rework_qs)
 
-  For each q in rework_qs, run the FULL S7 single-question flow (scenario →
+  For each q in BATCH_QS (v5.74 — this batch's slice of rework_qs; every q in
+  rework_qs is reached across the batches), run the FULL S7 single-question flow (scenario →
   CHECK 1/1b/2/3/3c → sidecar) with these bindings:
     band     = difficulty_plan-of-record = question_index[q].difficulty
                (the label does not change; the QUESTION moves to it)
@@ -8545,6 +8660,26 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 
 ## S16-3 — Commit and deliverable
 
+  THE CUMULATIVE PAPER (v5.74): /home/claude/[ExamCode]_[paper_slug]_Create_Repaired.docx —
+  created on the first turn as a byte copy of the attached paper, then every batch's
+  regenerated questions are spliced into it in place. It persists across turns (S4-8
+  cross-batch persistence); the final turn copies it to outputs under the same name.
+  MID-BATCH (v5.74 — REPAIR_FINAL is False): after the batch's self-audit, splice the
+  regenerated questions into the cumulative repaired paper above, apply the
+  per-question registry updates below for THIS batch's qs on the WORKING copy, then
+  deliver ONLY the cumulative paper, named
+  [ExamCode]_[paper_slug]_Create_Repaired_PARTIAL_[k]of[K].docx (F1 amber footer,
+  DeliveryFooter §3 "STEP 7-R"). The registry is WITHHELD mid-batch BY DESIGN — this is
+  the one deliberate exception to "changed ⇒ delivered", and it is still the law's
+  intent: a registry beside a half-repaired paper would let Step 9-R run on that paper
+  (its R3 check would pass for the batches done and fail for the rest as "unchanged
+  listed"), so the working copy travels only with the COMPLETE paper. The PARTIAL name
+  is one Step 9-R's S2-1 REFUSES, so the same half-paper cannot be attached by mistake.
+  Then update repair_state.json (batches_completed += k, current_batch += 1 — B-6),
+  print "Repair batch [k] of [K] delivered — Q… rewritten. Type 'continue' for batch
+  [k+1]." and END the response (B-4). Nothing below runs on a non-final batch.
+
+  FINAL BATCH (REPAIR_FINAL is True) — everything below, in the same response (B-8):
   S13-4 UPDATE SEMANTICS (surgical — the registry is shared state):
     question_index[q]      → replaced entry (new difficulty_obs from the
                              repair derivation; label unchanged)
@@ -8553,20 +8688,23 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     key_commitments[q]     → re-sealed for the new answer (fresh salt)
     options_by_q, figural manifests, image phashes
                            → updated for q only
-    difficulty_gate record → pp.dg_add_rework_snapshot(reg, paper_id,
-                             {q: H(q) for q in rework_qs},
-                             all_stem_hashes={q: H(q) for q in 1..N})
-                             where H(q) = pp.dg_stem_hash(<old first-paragraph
-                             text of q, raw, "Q.<n>" label included>). The
-                             all-question baseline is what lets §7A-R R3 prove
-                             NO question outside rework_qs was touched;
-                             and NOTHING ELSE, called BEFORE stem_texts is
-                             overwritten (§7A-R R3 verifies the repaired
-                             paper against this PRE-repair snapshot). The
-                             helper is WRITE-ONCE — a re-run of this step
-                             returns the original snapshot and never hashes
-                             the already-repaired stems — and refuses unless
-                             the record is a legal FAILED state.
+    difficulty_gate record → ALREADY holds the pre-repair snapshot: S16-1b
+                             called pp.dg_add_rework_snapshot ONCE on the
+                             first turn, BEFORE any stem was regenerated
+                             (v5.74; v5.69–v5.73 took it here, which is
+                             equivalent only when the repair is one batch).
+                             H(q) = pp.dg_stem_hash(<old first-paragraph text
+                             of q, raw, "Q.<n>" label included>); the
+                             all-question baseline lets §7A-R R3 prove NO
+                             question outside rework_qs was touched. The
+                             helper is WRITE-ONCE — a re-run returns the
+                             original snapshot and never hashes repaired
+                             stems — and refuses unless the record is a legal
+                             FAILED state. Assert here that
+                             reg['difficulty_gate'][paper_id] carries
+                             rework_stem_hashes for every q in rework_qs;
+                             if not, HARD STOP: "snapshot missing — re-run
+                             TestCreateRepair P[N] from a fresh session".
 
       ⛔ THIS STEP NEVER WRITES `status` AND NEVER WRITES
          `repair_rounds_used` — not by hand, not "defensively", not to mark
@@ -8610,8 +8748,9 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   ```python
   import os, json, shutil
   import paper_pipeline as pp
-  # _reg_fp_loaded was taken at S16-1 P0 IMMEDIATELY after loading the project
-  # copy: _reg_fp_loaded = pp.registry_fingerprint(reg)
+  # _reg_fp_loaded was taken at S16-1 P0 from the PROJECT copy; `reg` is the working
+  # copy that carries the S16-1b snapshot and every batch's updates.
+  assert REPAIR_FINAL, 'S16-3 delivery runs on the FINAL repair batch only (S16-1b)'
   out = '/mnt/user-data/outputs'
   repaired_name = f'{EXAM}_{pp.paper_slug(paper_id)}_Create_Repaired.docx'
   reg_name = f'{EXAM}_registry.json'
@@ -8632,14 +8771,15 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
       print(_line)
   ```
   Then present_files([f'{out}/{repaired_name}', f'{out}/{reg_name}']) — ONE call, docx
-  first. No dossier, no sidecar, no per-batch file. The self-audit (S4-7 STEP B)
+  first. No dossier, no sidecar, no PARTIAL file (remove any *_Create_Repaired_PARTIAL_*
+  from outputs before S16-3's verify — pp.verify_handoff_outputs treats it as stray). The self-audit (S4-7 STEP B)
   runs on the repaired docx exactly as on a fresh paper — including A-QINDEX
   checks 7/8/9 — BEFORE this block.
   PRINT (operator-facing, last lines of the run, then the F2 footer per
   Framework_DeliveryFooter.md "STEP 7-R — TestCreateRepair"):
       ════════════════════════════════════════════════════════════
         REPAIR COMPLETE — [k] questions rewritten toward their labels
-        ([k_h] harder · [k_e] easier).
+        ([k_h] harder · [k_e] easier) across [K] batch(es).
         Delivered (2 files):
           • [ExamCode]_[paper_slug]_Create_Repaired.docx  → Use locally
           • [ExamCode]_registry.json                      → Replace in Project Files
@@ -8652,7 +8792,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
            TestExplainRepair P[N]
       ════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestCreate v5.73
+# END OF Framework_MockTestCreate v5.74
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
