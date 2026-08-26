@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026.08.25.4 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: Step 9 difficulty gate judges per-band acceptance windows on the raw rubric score; bottom band not gated; threshold 0.30 → 0.35
+
+**Framework_MockTestExplain v1.44.0 -> v1.45.0 · Framework_MockTestCreate v5.71 -> v5.72 ·
+Framework_MockDeliver v1.14.0 -> v1.15.0 · Framework_DeliveryFooter v1.25 -> v1.26 ·
+blueprint_core (Cluster E2 split: +difficulty_score, +band_for_score, +difficulty_score_from_obs;
+Cluster E2d: +DIFFICULTY_GATE_BAND_WINDOWS, DIFFICULTY_GATE_MAX_DISAGREE_FRAC 0.30 -> 0.35,
+evaluate_difficulty_gate(+scores_by_q, +band_windows); self-test 559 -> 585) · paper_pipeline
+v5.72 (Cluster DG: DG_DEFAULT_THRESHOLD 0.35, +DG_RULE_WINDOWS, +dg_is_windowed,
+dg_write_verdict(+scores_by_q, +rework_directions, +windows), dg_next_step / dg_deliver_decision /
+dg_add_rework_snapshot / dg_footer_lines window-aware; self-test 144 -> 159). Four specs + two
+engines; no routes, no triggers, no gate-count change, no schema bump (DG_SCHEMA stays 2 — the
+rule is stamped as rec['gate_rule']). Built on 2026.08.25.3's single-writer record. Operator
+decision 2026-08-25, exam-agnostic (~200 exams): keyed by band POSITION in each exam's own
+difficulty_labels, never by label text.**
+
+(1) WHAT COUNTS AS A DISAGREEMENT. v1.42.0–v1.44.0 compared band LABELS, so a top-band question
+that measured 5 (top of the middle band) was a disagreement and the six-slot bottom band failed on
+two misses — measured on IIT_JAM_CHEMISTRY M01 as 32/60 rework orders, most one point off. The
+gate now judges each label against a per-band acceptance WINDOW on `bc.difficulty_score` (the
+integer `assess_difficulty` always computed but never exposed): bottom band NOT gated (reported,
+never reworked); middle agrees at 2 ≤ score ≤ 6; top agrees at score ≥ 5. Authoring edges (2 / 5)
+unchanged; every gated window CONTAINS its authoring band (engine invariant), so a correctly
+authored question can never fail its own gate. A label-only caller falls back to the label's
+implied interval, which reproduces the old equality rule exactly — never more lenient.
+
+(2) THRESHOLD 0.35, floored exactly (Fractions) so 0.35 × n can never floor one too low through
+binary float drift. 18 middle → allows 6 / blocks at 7; 36 top → allows 12 / 13.
+
+(3) RECORD. Step 9 passes the gate's windows, scores and directions to pp.dg_write_verdict, which
+stores measured_score_by_q, windows, rework_directions ('harder' = below the window, 'easier' =
+above) and stamps gate_rule='windows'; it REFUSES a FAILED verdict without windows or without a
+direction for every rework q. MockTestCreate §S16 reads the direction (a middle-band question can
+now be too HARD) and asserts the rewrite's own CHECK 3c obs lands inside the window. A FAILED
+record WITHOUT the stamp (written by 2026.08.25.3 under the retired rule) is never repaired:
+pp.dg_next_step routes it to the Explain trigger, dg_add_rework_snapshot refuses it, and §7A-R R1,
+§S16 P1 and MockDeliver 3b all say so. Legacy papers (no record) untouched. A-DGATE unchanged —
+band totals still sum to total_questions because the ungated band is still reported.
+
+(4) FOOTER. dg_footer_lines shows an ungated band as "[n] (not gated)" and a gated band as
+"a/n in window" on a windowed DISCLOSED record; pre-window records print the fraction they were
+written under.
+
 ## 2026.08.25.3 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER: difficulty-gate record behind a single writer; legal state machine; DORMANT written; fleet heal
 
 **paper_pipeline v5.71 (+Cluster DG, self-test 90→144) · final_assembly v5.58 (117→120) ·

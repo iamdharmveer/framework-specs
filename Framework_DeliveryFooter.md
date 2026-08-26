@@ -1,4 +1,7 @@
-# Framework_DeliveryFooter v1.25 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.26 — Universal Delivery Footer (F1/F2) Contract
+# v1.26 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paper_pipeline v5.72,
+#   MockDeliver v1.15.0, MockTestExplain v1.45.0). Prose only. §FOOTER-DG DISCLOSED
+#   example shows the windowed shape ("(not gated)" / "in window").
 # v1.25 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
 #   paper_pipeline v5.71 Cluster DG, MockDeliver v1.14.0, MockTestExplain v1.44.0).
 #   MINOR bump: registry/prose only, NO badge changes, NO artefact changes.
@@ -514,8 +517,10 @@ print EVERY string returned by
 one per line, each prefixed "ℹ️ ". The engine is the ONLY source of these lines —
 never compose them by hand. The set it returns, by record state:
     PASSED (0 or 1 rounds)  → nothing
-    DISCLOSED / 1           → "Measured difficulty: Easy a/n · Medium b/m · Hard c/h
-                               confirmed after 1 repair round."
+    DISCLOSED / 1           → "Measured difficulty: [bottom] n (not gated) · [middle]
+                               b/m in window · [top] c/h in window confirmed after 1
+                               repair round." (v1.26 windowed record; a pre-window
+                               record prints plain a/n fractions)
     DORMANT / 0             → "Difficulty gate: not applicable to this paper
                                ([dormant_reason]) — labels are as planned at Step 7."
     any record with a

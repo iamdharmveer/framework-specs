@@ -1,4 +1,17 @@
-# Framework_MockTestExplain v1.44.0
+# Framework_MockTestExplain v1.45.0
+# v1.45.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (operator decision 2026-08-25;
+#   paired with blueprint_core Cluster E2 split + E2d, paper_pipeline v5.72, MockTestCreate
+#   v5.72, MockDeliver v1.15.0, DeliveryFooter v1.26). §7A-M's disagreement test moves from
+#   band-label EQUALITY to per-band ACCEPTANCE WINDOWS on the raw rubric score, read from
+#   bc.DIFFICULTY_GATE_BAND_WINDOWS by band POSITION (exam-agnostic): bottom band NOT gated;
+#   middle agrees at 2–6 inclusive; top agrees at ≥5. bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC
+#   0.30 → 0.35 (floor computed exactly). Step 9 records measured_score_by_q (bc.difficulty_
+#   score) beside measured_by_q and passes windows + rework_directions ('harder'/'easier')
+#   to pp.dg_write_verdict, which stamps gate_rule='windows'. A FAILED record WITHOUT that
+#   stamp (v1.42.0–v1.44.0 rule) is re-judged by re-running this step — §7A-R R1, Step 7
+#   §S16 P1 and pp.dg_next_step all route it there; it is never repaired. Verdict boxes and
+#   footer show the bottom band as "(not gated)". Single-writer/state-machine contract of
+#   v1.44.0 unchanged. Engine self-tests: blueprint_core 559 → 585, paper_pipeline 144 → 159.
 # v1.44.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
 #   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestCreate v5.71,
 #   MockDeliver v1.14.0, DeliveryFooter v1.25, audit_canonical v2.19 A-DGATE).
@@ -536,7 +549,7 @@ execution path — it does not shrink, soften or delete them.
       Mode                       : [interactive — halt per batch] OR [autonomous — no pause, §MANDATE B]
       Output                     : /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx
       Renderer preflight (P1)    : [requirement → library → installed/absent → degrade?] per declared renderer, OR [none declared — PROSE/EQUATION only]
-      §7A-M difficulty gate       : [PASSED a+b+c/n] OR [FAILED — rework Q…] OR [DORMANT — reason]  (blocking, §7A-M)
+      §7A-M difficulty gate       : [PASSED b+c/(m+h) within windows] OR [FAILED — rework Q…] OR [DORMANT — reason]  (blocking, §7A-M; bottom band not gated)
       State                      : /home/claude (chat-scoped)
       Status                     : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted — reason]
 ```
@@ -1478,7 +1491,7 @@ execution path — it does not shrink, soften or delete them.
   (§17-3b, v1.40.0). key_status per question ∈ MATCH ·
   RESOLVED_SELF · RESOLVED_SOURCE · UNAVAILABLE · DEFECT; unset cannot ship (§18).
 
-## §7A-M — DIFFICULTY GATE (MOCK-ONLY, v1.42.0 — BLOCKING, 1 REPAIR ROUND, THEN DISCLOSE; v1.44.0 — SINGLE-WRITER RECORD)
+## §7A-M — DIFFICULTY GATE (MOCK-ONLY, v1.42.0 — BLOCKING, 1 REPAIR ROUND, THEN DISCLOSE; v1.44.0 — SINGLE-WRITER RECORD; v1.45.0 — ACCEPTANCE WINDOWS)
 
   WAS advisory ("REPORT, NEVER BLOCK — THE STICKER WINS") until v1.42.0
   (GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING). The v5.60 defect residue: Step 7
@@ -1491,11 +1504,37 @@ execution path — it does not shrink, soften or delete them.
   GATES delivery. Per-question the sticker still wins (two honest counters can
   disagree by a step); the BAND-LEVEL disagreement RATE is what blocks.
 
-  OPERATOR CONTRACT (decisions of 2026-08-24, encoded in blueprint_core
-  Cluster E2d — never re-tuned inline):
-    threshold      bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.30 per band
-                   (blocks when disagreements EXCEED floor(0.30 × band size):
-                    6 Easy → blocks at 2 · 18 Medium → at 6 · 36 Hard → at 11)
+  v1.45.0 (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS, operator decision
+  2026-08-25) changes WHAT COUNTS AS A DISAGREEMENT. v1.42.0–v1.44.0 compared
+  band LABELS (Step-7 sticker == Step-9 band), so a one-point difference at a
+  band edge was a disagreement (a top-band question that measured 5 — top of
+  the middle band — counted against the paper) and the bottom band, six slots
+  wide, failed on two misses. Measured on IIT_JAM_CHEMISTRY M01: 32/60 rework
+  orders, most one point off. The gate now judges each label against an
+  ACCEPTANCE WINDOW on the RAW RUBRIC SCORE, and the bottom band is not gated.
+
+  OPERATOR CONTRACT (decisions of 2026-08-24 and 2026-08-25, encoded in
+  blueprint_core Cluster E2d — never re-tuned inline; read the constants):
+    threshold      bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.35 per band
+                   (blocks when disagreements EXCEED floor(0.35 × band size),
+                    computed exactly by the engine — no float drift:
+                    18 middle → allows 6, blocks at 7 · 36 top → allows 12,
+                    blocks at 13)
+    windows        bc.DIFFICULTY_GATE_BAND_WINDOWS = (None, (2, 6), (5, None))
+                   indexed by band POSITION in blueprint difficulty_labels
+                   (0 bottom · 1 middle · 2 top) — the same rule for every
+                   label vocabulary across ~200 exams:
+                     bottom band  NOT GATED — Step 9 does not evaluate it;
+                                  its questions never enter a rework order;
+                                  the record reports its total (gated=false)
+                     middle band  AGREES when 2 ≤ measured score ≤ 6 (inclusive)
+                     top band     AGREES when measured score ≥ 5
+                   Authoring edges (bc.DIFFICULTY_EASY_MAX=2, bc.DIFFICULTY_
+                   MEDIUM_MAX=5) are UNCHANGED: Step 7 still authors to the
+                   strict bands 0-2 / 3-5 / 6+; Step 9 grades with one point
+                   of tolerance. Every gated window contains its own authoring
+                   band (engine invariant, self-tested), so a correctly
+                   authored question can never fail its own gate.
     repair rounds  bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 1
     after round 1  DELIVER WITH DISCLOSURE — never a stop. The delivery footer
                    states the measured band counts (MockDeliver §FOOTER-DG).
@@ -1543,16 +1582,24 @@ execution path — it does not shrink, soften or delete them.
 
   MECHANISM (per question, zero extra solving): after §7-8, record what §7-1's
   derive-twice pass revealed, in the SAME observation shape Step 7 stores as
-  difficulty_obs (CHECK 3c is the single source for the shape); compute _lab9 =
-  blueprint_core.assess_difficulty(..., derivation_confidence per §7-1
-  agreement). LEVEL ANCHOR unchanged: count steps/concepts for a competent
+  difficulty_obs (CHECK 3c is the single source for the shape); compute
+    _score9 = bc.difficulty_score(question_class, deduction_steps,
+                                  axiom_concepts, speed_hack_exists,
+                                  derivation_confidence per §7-1 agreement,
+                                  is_negative, qtype)          # int 0..12
+    _lab9   = bc.band_for_score(_score9, difficulty_labels)    # label or None
+  BOTH are kept (v1.45.0): the SCORE is what the gate judges against the
+  windows; the LABEL is what footers and pre-window readers print. Bottom-
+  band questions are still EXPLAINED in full and their obs still recorded
+  (§7-8 runs for every question); only the GATE ignores them. LEVEL ANCHOR
+  unchanged: count steps/concepts for a competent
   candidate OF THIS EXAM (blueprint `level` + the subtopic's
   PYQ_DIFFICULTY_CALIBRATION); assumed prerequisite knowledge is recall
   (0 steps), never steps. A STEM-SUPPLIED RELATION IS NOT A STEP: work the stem
   donates (a formula quoted verbatim, a counted quantity given, a named theorem
   with its statement) is excluded from the candidate's count — Step 9 counts
   the question AS THE CANDIDATE MEETS IT, which is precisely how it exposes a
-  scaffolded "Hard".
+  scaffolded top-band question.
 
   PREFLIGHT (v1.44.0 — before the gate, before the first batch):
       rec, disclosure = pp.dg_preflight(reg, paper_id, where='§7A-M')
@@ -1588,20 +1635,36 @@ execution path — it does not shrink, soften or delete them.
   cause (no record at all) is covered by Step 11's ABSENT branch.
 
   THE GATE (runs once, after the LAST batch of a full Step-9 run, when NOT
-  dormant):
+  dormant). Maps are keyed by int q; the engine also accepts the registry's
+  str keys, so a map rebuilt from a reloaded record cannot miss a question
+  over a key type:
     labels_by_q   = {q: question_index[q].difficulty}
+    scores_by_q   = {q: _score9 or None}            # None = not measurable
     measured_by_q = {q: _lab9 or None}
     gate = bc.evaluate_difficulty_gate(labels_by_q, measured_by_q,
-                                       difficulty_labels)
+                                       difficulty_labels,
+                                       scores_by_q=scores_by_q)
+    (threshold and windows are the engine defaults — NEVER passed inline;
+     gate['dormant'] is True only on a non-3-band vocabulary, which the
+     DORMANT rule above already routed elsewhere, so assert it is False.)
     WRITE (registry, atomic with the S19 progress write) — via the single
     writer, NEVER a hand-built dict:
       pp.dg_write_verdict(reg, paper_id,
           status='PASSED' if gate['verdict'] == 'PASS' else 'FAILED',
           rounds=0, threshold=gate['threshold'],
-          bands={lab: {k: b[k] for k in ('total','assessed','agree',
-                       'disagree','allowed','over_limit')}
+          bands={lab: {k: b[k] for k in ('total','gated','window',
+                       'assessed','agree','disagree','allowed','over_limit')}
                  for lab, b in gate['bands'].items()},
-          measured_by_q=measured_by_q, rework_qs=gate['rework_qs'])
+          measured_by_q=measured_by_q, rework_qs=gate['rework_qs'],
+          scores_by_q=scores_by_q,
+          rework_directions=gate['rework_directions'],
+          windows=gate['windows'])
+    (v1.45.0) The writer stamps rec['gate_rule'] = pp.DG_RULE_WINDOWS,
+    stores measured_score_by_q and rework_directions ('harder' = the
+    question measured BELOW its window; 'easier' = ABOVE it — Step 7 §S16
+    reads which way to rewrite), and REFUSES a FAILED verdict without
+    windows or without a direction for every rework q (DGIllegalState — a
+    caller bug, hard stop, never a silent write).
     pp.dg_write_verdict validates the resulting (status, repair_rounds_used)
     pair against pp.DG_LEGAL_STATES before it returns, keeps the timestamp,
     carries any rework_stem_hashes / baseline_stem_hashes / migrations
@@ -1621,8 +1684,9 @@ execution path — it does not shrink, soften or delete them.
       ════════════════════════════════════════════════════════════
         DIFFICULTY GATE: ✅ PASSED — CLEARED FOR DELIVERY
       ════════════════════════════════════════════════════════════
-        [Easy a/n] · [Medium b/m] · [Hard c/h] confirmed (all
-        within the 30% limit).
+        [bottom]: [n] questions (not gated) · [middle] [b]/[m] in
+        window 2–6 · [top] [c]/[h] in window 5+ (all within the
+        35% limit).
         Next step:  TestDeliver P[N]   (or MockDeliver M[N])
       ════════════════════════════════════════════════════════════
 
@@ -1630,8 +1694,10 @@ execution path — it does not shrink, soften or delete them.
       ════════════════════════════════════════════════════════════
         DIFFICULTY GATE: ❌ FAILED — DO NOT DELIVER THIS PAPER
       ════════════════════════════════════════════════════════════
-        [band] band: [d] of [n] questions did not measure [band]
-        (allowed: up to [allowed]).           ← one line per failed band
+        [band] band: [d] of [n] questions measured outside its
+        window (allowed: up to [allowed]).    ← one line per failed band
+          too easy (rewrite harder): Q[a] Q[b] …    ← from rework_directions;
+          too hard (rewrite easier): Q[c] …          omit an empty line
 
         WHAT THIS MEANS
         Some questions labelled "[band]" are actually easier or
@@ -1658,15 +1724,16 @@ execution path — it does not shrink, soften or delete them.
            "✅ CLEARED FOR DELIVERY".
       ════════════════════════════════════════════════════════════
     (Mock-triggered runs print MockCreateRepair M[N] … / MockExplainRepair
-    M[N]; the Q-list is gate['rework_qs'] verbatim, in ascending order.)
+    M[N]; the Q-list is gate['rework_qs'] verbatim, in ascending order. The
+    bottom band never appears in a FAIL line — it is not gated.)
 
   Dashboard line (P2) becomes:
-      §7A-M difficulty gate      : [PASSED — a+b+c/n within 30%] OR
+      §7A-M difficulty gate      : [PASSED — b+c/(m+h) within windows, 35%] OR
                                    [FAILED — rework Q…] OR [DORMANT — reason]
                                    (+ " · registry healed: <field> a→b" when
                                     pp.dg_preflight returned a disclosure)
 
-## §7A-R — REPAIR MODE (TestExplainRepair / MockExplainRepair, v1.42.0; v1.44.0 — STATE-PAIR PREFLIGHT, ATOMIC RE-GATE)
+## §7A-R — REPAIR MODE (TestExplainRepair / MockExplainRepair, v1.42.0; v1.44.0 — STATE-PAIR PREFLIGHT, ATOMIC RE-GATE; v1.45.0 — WINDOWED RE-GATE)
 
   TRIGGER: `TestExplainRepair P[N]` or `MockExplainRepair M[N]`.
   ATTACH:  (1) the REPAIRED question paper docx (TestCreateRepair output) and
@@ -1695,7 +1762,15 @@ execution path — it does not shrink, soften or delete them.
                                nothing to repair. Next step: " + next_step
           ('PENDING',   0)  → "Run TestExplain P[N] first — the gate has not
                                run. Next step: " + next_step
-          ('FAILED',    0)  → PROCEED (the one and only repair round).
+          ('FAILED',    0)  → if pp.dg_is_windowed(rec): PROCEED (the one and
+                               only repair round). Else (v1.45.0 — the record
+                               was judged FAILED under the retired band-
+                               equality rule, GAP-2026-08-25-DIFFICULTY-GATE-
+                               WINDOWS): "This paper was judged under the old
+                               difficulty rule — nothing is repaired on its
+                               say-so. Next step: " + next_step (which is the
+                               Explain trigger: re-run it so the verdict is
+                               re-judged under the windows). HARD STOP.
           ('PASSED',    0)  → "Nothing to repair — next step: " + next_step
           ('PASSED',    1)  → "Already repaired and passed — next step: " + next_step
           ('DISCLOSED', 1)  → "The one repair round is already used — next
@@ -1730,13 +1805,21 @@ execution path — it does not shrink, soften or delete them.
     subset); splice the regenerated per-question blocks into the previous
     explanation docx, replacing the superseded blocks in place (block = the
     question's full §2 structure); leave every other block byte-identical.
-  RE-GATE: update measured_by_q for the repaired qs only; re-run
-    bc.evaluate_difficulty_gate over the FULL maps; then ONE write, via the
-    single writer:
+  RE-GATE: rebuild scores_by_q AND measured_by_q for the untouched qs from
+    the record's measured_score_by_q / measured_by_q (the engine accepts the
+    record's str keys) and update BOTH for the repaired qs only; re-run
+    bc.evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
+    scores_by_q=scores_by_q) over the FULL maps with the engine defaults;
+    then ONE write, via the single writer:
       pp.dg_write_verdict(reg, paper_id,
           status='PASSED' if gate['verdict'] == 'PASS' else 'DISCLOSED',
           rounds=1, threshold=gate['threshold'], bands=<as §7A-M>,
-          measured_by_q=measured_by_q, rework_qs=gate['rework_qs'])
+          measured_by_q=measured_by_q, rework_qs=gate['rework_qs'],
+          scores_by_q=scores_by_q,
+          rework_directions=gate['rework_directions'],
+          windows=gate['windows'])
+    (on DISCLOSED, rework_qs / rework_directions document what remains out of
+     window; no further repair command is printed.)
     ATOMIC, TERMINAL, IDEMPOTENT (v1.44.0). The counter and the status are
     written ONCE, TOGETHER, at the END of a successful re-gate, by that call.
     NEVER increment repair_rounds_used on ENTRY, never in a separate write,
@@ -1763,9 +1846,10 @@ execution path — it does not shrink, soften or delete them.
       ════════════════════════════════════════════════════════════
         DIFFICULTY GATE: ⚠️ PROCEED WITH DISCLOSURE
       ════════════════════════════════════════════════════════════
-        After 1 repair round: [Easy a/n] · [Medium b/m] · [Hard c/h]
-        confirmed. The paper MAY be delivered; the delivery footer
-        will state these measured counts so no reader is misled.
+        After 1 repair round: [bottom] [n] (not gated) · [middle]
+        [b]/[m] in window · [top] [c]/[h] in window. The paper MAY
+        be delivered; the delivery footer will state these measured
+        counts so no reader is misled.
         Next step:  TestDeliver P[N]
       ════════════════════════════════════════════════════════════
     (the "Next step" line is pp.dg_next_step(...) verbatim; on a DISCLOSED
@@ -3074,5 +3158,5 @@ Step 9 uses BOTH footer types:
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.44.0
+# END OF Framework_MockTestExplain v1.45.0
 # ════════════════════════════════════════════════════════════════════════

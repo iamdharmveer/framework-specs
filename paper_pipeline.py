@@ -27,6 +27,13 @@ Concerns:
                                             dg_preflight, every next-step string comes from
                                             dg_next_step, Step 11 decides via
                                             dg_deliver_decision, the footer from dg_footer_lines.
+                                            v5.72 (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS):
+                                            DG_DEFAULT_THRESHOLD 0.30 → 0.35; verdicts carry the
+                                            gate's windows / measured_score_by_q / rework_directions
+                                            and are stamped gate_rule='windows' (dg_is_windowed);
+                                            a FAILED record from the retired band-equality rule is
+                                            routed to TestExplain (re-judge), never repaired;
+                                            §FOOTER-DG shows an ungated band as "(not gated)".
  11. validate_semantic_object / semantic_objects_agree
                                           — v5.39 FIGURE SEMANTIC OBJECTS: every generated figure
                                             registers what it DEPICTS in machine-readable form
@@ -663,11 +670,55 @@ def _self_test():
     ck('DG-SCOPED-DELIVERABLE', dg_deliver_decision(_R, 'SUBJ:Physics:01', 1, mock=False)['deliver'])
     ck('DG-ISOLATION', dg_read(_R, 'MOCK:M01') == {'schema': DG_SCHEMA, 'status': 'PENDING',
        'threshold': DG_DEFAULT_THRESHOLD, 'repair_rounds_used': 0})
-    _bands = {'Easy': {'total': 6, 'assessed': 6, 'agree': 1, 'disagree': 5, 'allowed': 1, 'over_limit': True}}
+    # GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: verdicts carry the gate's windows; a
+    # FAILED verdict needs windows + a direction for every rework q.
+    _W = [None, [2, 6], [5, None]]
+    _bands = {'Easy': {'total': 6, 'gated': False, 'window': None, 'assessed': 0, 'agree': 0,
+                       'disagree': 0, 'allowed': 2, 'over_limit': False},
+              'Hard': {'total': 6, 'gated': True, 'window': [5, None], 'assessed': 6, 'agree': 1,
+                       'disagree': 5, 'allowed': 2, 'over_limit': True}}
+    _DIRS = {4: 'harder', 1: 'easier'}
     ck('DG-LEGAL-FAILED-0', dg_state(dg_write_verdict(_R, 'MOCK:M01', status='FAILED', rounds=0,
-       bands=_bands, measured_by_q={1: 'Easy', 2: None}, rework_qs=[4, 1])) == ('FAILED', 0)
+       bands=_bands, measured_by_q={1: 'Easy', 2: None}, rework_qs=[4, 1],
+       scores_by_q={1: 7, 2: None, 4: '3'}, rework_directions=_DIRS, windows=_W)) == ('FAILED', 0)
        and _R['difficulty_gate']['MOCK:M01']['rework_qs'] == [1, 4]
-       and _R['difficulty_gate']['MOCK:M01']['measured_by_q'] == {'1': 'Easy'})
+       and _R['difficulty_gate']['MOCK:M01']['measured_by_q'] == {'1': 'Easy'}
+       and _R['difficulty_gate']['MOCK:M01']['measured_score_by_q'] == {'1': 7, '4': 3}
+       and _R['difficulty_gate']['MOCK:M01']['rework_directions'] == {'4': 'harder', '1': 'easier'}
+       and _R['difficulty_gate']['MOCK:M01']['windows'] == _W
+       and _R['difficulty_gate']['MOCK:M01']['gate_rule'] == DG_RULE_WINDOWS
+       and dg_is_windowed(dg_read(_R, 'MOCK:M01')))
+    ck_dg_raises('DG-WIN-REFUSE-FAILED-no-windows', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+                 rounds=0, bands=_bands, rework_qs=[4], rework_directions={4: 'harder'}))
+    ck_dg_raises('DG-WIN-REFUSE-FAILED-no-directions', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+                 rounds=0, bands=_bands, rework_qs=[4], windows=_W))
+    ck_dg_raises('DG-WIN-REFUSE-partial-directions', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+                 rounds=0, bands=_bands, rework_qs=[4, 1], rework_directions={4: 'harder'}, windows=_W))
+    ck_dg_raises('DG-WIN-REFUSE-bad-direction', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+                 rounds=0, bands=_bands, rework_qs=[4], rework_directions={4: 'up'}, windows=_W))
+    ck_dg_raises('DG-WIN-REFUSE-bad-windows-shape', lambda: dg_write_verdict({}, 'MOCK:M09', status='PASSED',
+                 rounds=0, windows=[None, [2, 6]]))
+    ck_dg_raises('DG-WIN-REFUSE-bad-window-entry', lambda: dg_write_verdict({}, 'MOCK:M09', status='PASSED',
+                 rounds=0, windows=[None, 5, [5, None]]))
+    ck_dg_raises('DG-WIN-REFUSE-non-int-score', lambda: dg_write_verdict({}, 'MOCK:M09', status='PASSED',
+                 rounds=0, windows=_W, scores_by_q={1: 'x'}))
+    ck_dg_raises('DG-WIN-REFUSE-fractional-score', lambda: dg_write_verdict({}, 'MOCK:M09', status='PASSED',
+                 rounds=0, windows=_W, scores_by_q={1: 5.5}))
+    ck('DG-WIN-score-coercion', dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0, windows=_W,
+       scores_by_q={1: 5.0, 2: '4', 3: None, 4: True})['measured_score_by_q'] == {'1': 5, '2': 4})
+    ck('DG-WIN-PASSED-stamped', dg_is_windowed(dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0, windows=_W))
+       and not dg_is_windowed(dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0))
+       and not dg_is_windowed(None) and not dg_is_windowed({'status': 'PENDING'}))
+    # a FAILED record from the retired rule: re-judge, never repair, never deliver
+    _OLD = {'difficulty_gate': {'MOCK:M07': {'schema': 2, 'status': 'FAILED', 'repair_rounds_used': 0,
+                                            'rework_qs': [2, 5], 'bands': {'Hard': {'total': 2}}}}}
+    ck('DG-WIN-OLD-FAILED-next-is-explain', dg_next_step(_OLD, 'MOCK:M07', 7, mock=True).startswith('MockExplain M7')
+       and 'CreateRepair' not in dg_next_step(_OLD, 'MOCK:M07', 7, mock=True)
+       and dg_deliver_decision(_OLD, 'MOCK:M07', 7, mock=True)['deliver'] is False
+       and 'retired' in dg_deliver_decision(_OLD, 'MOCK:M07', 7, mock=True)['reason'])
+    ck_dg_raises('DG-WIN-OLD-FAILED-snapshot-refused', lambda: dg_add_rework_snapshot(_OLD, 'MOCK:M07', {2: 'a', 5: 'b'}))
+    ck('DG-WIN-OLD-FAILED-still-legal-state', dg_is_legal(dg_read(_OLD, 'MOCK:M07'))
+       and dg_preflight(_OLD, 'MOCK:M07', 'test')[1] is None)
     # THE INCIDENT: repair_rounds_used=1 with status FAILED must be UNWRITABLE
     ck_dg_raises('DG-REFUSE-FAILED-1', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED', rounds=1))
     ck_dg_raises('DG-REFUSE-PENDING-1', lambda: dg_write_verdict({}, 'MOCK:M09', status='PENDING', rounds=1))
@@ -691,7 +742,8 @@ def _self_test():
     ck('DG-R3-unchanged-listed-named', not _r3['ok'] and _r3['unchanged_listed'] == [1])
     ck('DG-R3-missing-snapshot', dg_verify_repair({'rework_qs': [1]}, {1: 'x'})['missing_snapshot'])
     # E20/E23: extras outside rework_qs are only detectable with the all-question baseline
-    _RB = {'difficulty_gate': {'MOCK:M01': {'status': 'FAILED', 'repair_rounds_used': 0, 'rework_qs': [1]}}}
+    _RB = {'difficulty_gate': {'MOCK:M01': {'status': 'FAILED', 'repair_rounds_used': 0, 'rework_qs': [1],
+                                            'gate_rule': DG_RULE_WINDOWS}}}
     dg_add_rework_snapshot(_RB, 'MOCK:M01', {1: dg_stem_hash('Q.1 old')},
                            all_stem_hashes={1: dg_stem_hash('Q.1 old'), 2: dg_stem_hash('Q.2 old')})
     _rb = dg_read(_RB, 'MOCK:M01')
@@ -720,7 +772,8 @@ def _self_test():
        dormant_reason='vocabulary_not_3_band')) == ('DORMANT', 0))
     # ROUND-MONOTONIC (E16): a full re-explain cannot grant a second round
     _R3 = {'difficulty_gate': {'MOCK:M01': dict(_v)}}
-    _re = dg_write_verdict(_R3, 'MOCK:M01', status='FAILED', rounds=0, bands=_bands)
+    _re = dg_write_verdict(_R3, 'MOCK:M01', status='FAILED', rounds=0, bands=_bands, windows=_W,
+                           rework_qs=[4], rework_directions={4: 'harder'})
     ck('DG-ROUND-MONOTONIC', dg_state(_re) == ('DISCLOSED', 1) and _re.get('rounds_carried_from') == 1)
     ck('DG-DORMANT-never-erases-terminal', dg_state(dg_write_verdict({'difficulty_gate': {'MOCK:M01': dict(_v)}},
        'MOCK:M01', status='DORMANT', rounds=0, dormant_reason='blueprint_core_unavailable')) == ('DISCLOSED', 1))
@@ -749,26 +802,39 @@ def _self_test():
     ck('DG-E17-missing-counter', dg_is_legal({'status': 'PASSED'}))
     # NEXT-STEP AGREES WITH STEP 11 (the mechanical G-3 guard): for every legal state
     # the step dg_next_step names is one whose own preflight accepts that state.
-    def _accepts(step, st):
-        return {'Deliver': st in DG_DELIVERABLE, 'Explain': st == 'PENDING',
-                'CreateRepair': st == 'FAILED'}[step]
+    # (windowed rule: TestExplain also accepts a FAILED record judged under the
+    #  retired rule — it re-judges it; TestCreateRepair accepts only a windowed FAILED.)
+    def _accepts(step, st, windowed):
+        return {'Deliver': st in DG_DELIVERABLE,
+                'Explain': st == 'PENDING' or (st == 'FAILED' and not windowed),
+                'CreateRepair': st == 'FAILED' and windowed}[step]
     _agree = True
     for (_st, _rn) in DG_LEGAL_STATES:
+      for _win in (True, False):
         _reg = {'difficulty_gate': {'MOCK:M05': {'status': _st, 'repair_rounds_used': _rn,
-                'rework_qs': [3], 'dormant_reason': 'scoped_paper'}}}
+                'rework_qs': [3], 'dormant_reason': 'scoped_paper',
+                **({'gate_rule': DG_RULE_WINDOWS} if _win else {})}}}
         _cmd = dg_next_step(_reg, 'MOCK:M05', 5, mock=False)
         _step = _cmd.split()[0].replace('Test', '')
-        _agree &= _accepts(_step, _st)
+        _agree &= _accepts(_step, _st, _win)
         _dec = dg_deliver_decision(_reg, 'MOCK:M05', 5, mock=False)
         _agree &= (_dec['deliver'] == (_st in DG_DELIVERABLE))
         _agree &= (_dec['next_step'] is None) == _dec['deliver']
     ck('DG-NEXTSTEP-AGREE', _agree)
     ck('DG-NEXTSTEP-FAILED-lists-qs', dg_next_step({'difficulty_gate': {'MOCK:M05': {'status': 'FAILED',
-       'repair_rounds_used': 0, 'rework_qs': [3, 8]}}}, 'MOCK:M05', 5, mock=True)
+       'repair_rounds_used': 0, 'rework_qs': [3, 8], 'gate_rule': DG_RULE_WINDOWS}}}, 'MOCK:M05', 5, mock=True)
        == 'MockCreateRepair M5 Q3 Q8\n   then: MockExplainRepair M5')
     # footer: shape is a function of status; migrations always disclosed
-    ck('DG-FOOTER-DISCLOSED', dg_footer_lines(_v)[0] == 'Measured difficulty: Easy 1/6 confirmed after 1 repair round.'
+    ck('DG-FOOTER-DISCLOSED-pre-window', dg_footer_lines(_v)[0]
+       == 'Measured difficulty: Easy 0/6 · Hard 1/6 confirmed after 1 repair round.'
        and len(dg_footer_lines(_v)) == 2)          # + the carried migration line
+    _vw = dg_write_verdict({'difficulty_gate': {'MOCK:M01': dict(dg_read(_R, 'MOCK:M01'))}}, 'MOCK:M01',
+                           status='DISCLOSED', rounds=1, bands=_bands, windows=_W)
+    ck('DG-FOOTER-DISCLOSED-windowed', dg_footer_lines(_vw)
+       == ['Measured difficulty: Easy 6 (not gated) · Hard 1/6 in window confirmed after 1 repair round.'])
+    ck('DG-FOOTER-DISCLOSED-windowed-missing-gated-key', 'in window' in dg_footer_lines(
+       {'status': 'DISCLOSED', 'repair_rounds_used': 1, 'gate_rule': DG_RULE_WINDOWS,
+        'bands': {'Medium': {'total': 3, 'agree': 2}}})[0])
     ck('DG-FOOTER-DORMANT', dg_footer_lines(dg_read(_R, 'SUBJ:Physics:01'))
        == ['Difficulty gate: not applicable to this paper (scoped_paper) — labels are as planned at Step 7.'])
     ck('DG-FOOTER-PASSED-none', dg_footer_lines({'status': 'PASSED', 'repair_rounds_used': 0}) == [])
@@ -1264,7 +1330,11 @@ def classify_unresolved(bad_ids, blueprint):
 
 DG_SCHEMA = 2                    # v2 = legal states declared; v1 records auto-upgrade
 DG_MAX_REPAIR_ROUNDS = 1         # MIRRORS bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS (self-test asserts parity)
-DG_DEFAULT_THRESHOLD = 0.30      # MIRRORS bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC  (self-test asserts parity)
+DG_DEFAULT_THRESHOLD = 0.35      # MIRRORS bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC  (self-test asserts parity)
+                                 # 0.30 → 0.35: operator decision 2026-08-25 (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS)
+DG_RULE_WINDOWS = 'windows'      # rec['gate_rule'] written by every verdict under the windowed rule;
+                                 # a FAILED record WITHOUT it was judged by the retired band-equality
+                                 # rule and is re-judged (TestExplain), never repaired — dg_is_windowed
 
 DG_DELIVERABLE = frozenset({'PASSED', 'DISCLOSED', 'DORMANT'})   # Step 11 may proceed
 DG_BLOCKING    = frozenset({'PENDING', 'FAILED'})                # Step 11 hard-stops
@@ -1439,8 +1509,19 @@ def dg_stamp_pending(reg, paper_id, threshold=DG_DEFAULT_THRESHOLD):
     return rec
 
 
+def dg_is_windowed(rec):
+    """True when a record's verdict was produced under the windowed rule
+    (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS): rec['gate_rule'] == DG_RULE_WINDOWS,
+    stamped by dg_write_verdict. PENDING/DORMANT/legacy/absent → False (nothing to
+    repair anyway). A FAILED record that is NOT windowed carries a rework list the
+    operator retired; dg_next_step routes it to TestExplain, dg_add_rework_snapshot
+    refuses it."""
+    return isinstance(rec, dict) and rec.get('gate_rule') == DG_RULE_WINDOWS
+
+
 def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=None,
-                     measured_by_q=None, rework_qs=None, dormant_reason=None):
+                     measured_by_q=None, rework_qs=None, dormant_reason=None,
+                     scores_by_q=None, rework_directions=None, windows=None):
     """Step 9 ONLY (§7A-M first gate: rounds=0; §7A-R re-gate: rounds=1). The ONLY
     writer of `status` and `repair_rounds_used` after birth, and it writes them
     TOGETHER — which is what makes (FAILED, 1) unreachable and DG-INVARIANT true.
@@ -1454,6 +1535,15 @@ def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=Non
     is already spent keeps the spent count, and a FAIL on a spent round resolves to
     DISCLOSED — a paper can never be handed a second repair round by re-running the
     full explain. The carry is recorded in rec['rounds_carried_from'].
+
+    WINDOWED RULE (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS): pass the gate result's
+    scores_by_q (raw rubric scores → 'measured_score_by_q'), rework_directions
+    ({q: 'harder'|'easier'} → Step 7 §S16 reads which way to rewrite) and windows
+    (gate['windows'], the per-position acceptance windows the verdict was judged
+    by). A PASSED/FAILED/DISCLOSED verdict carrying `windows` is stamped
+    rec['gate_rule'] = DG_RULE_WINDOWS; a FAILED verdict WITHOUT windows is refused
+    (the band-equality rule is retired — no new record may be written under it).
+    rework_directions must cover every rework q (a partial map is a caller bug).
 
     Raises DGIllegalState rather than write an illegal pair. NEVER build this dict by
     hand in a spec."""
@@ -1492,6 +1582,47 @@ def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=Non
         rec['measured_by_q'] = {str(q): m for q, m in measured_by_q.items() if m is not None}
     if rework_qs is not None:
         rec['rework_qs'] = sorted(int(q) for q in rework_qs)
+    if status in ('PASSED', 'FAILED', 'DISCLOSED'):
+        if windows is None:
+            if status == 'FAILED':
+                raise DGIllegalState(
+                    f"refusing to write a FAILED difficulty_gate verdict for {paper_id} "
+                    f"without `windows`: the band-equality rule is retired "
+                    f"(GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS); pass gate['windows'] "
+                    f"from bc.evaluate_difficulty_gate")
+        else:
+            if (not isinstance(windows, (list, tuple)) or len(windows) != 3
+                    or any(w is not None and (not isinstance(w, (list, tuple)) or len(w) != 2)
+                           for w in windows)):
+                raise DGIllegalState(f"windows must be the gate's 3-entry list of None|[lo, hi], "
+                                     f"got {windows!r}")
+            rec['windows'] = [None if w is None else [w[0], w[1]] for w in windows]
+            rec['gate_rule'] = DG_RULE_WINDOWS
+    if scores_by_q is not None:
+        _scores = {}
+        for q, v in scores_by_q.items():
+            if v is None or isinstance(v, bool):
+                continue                          # None = not measurable; bool is never a score
+            try:
+                _iv = int(v)
+                if isinstance(v, float) and v != _iv:
+                    raise ValueError
+            except (TypeError, ValueError, OverflowError):
+                raise DGIllegalState(f"measured score for Q{q} is not an integer: {v!r}")
+            _scores[str(q)] = _iv
+        rec['measured_score_by_q'] = _scores
+    if rework_directions is not None:
+        _dirs = {str(q): d for q, d in rework_directions.items()}
+        _bad = sorted(q for q, d in _dirs.items() if d not in ('harder', 'easier'))
+        if _bad:
+            raise DGIllegalState(f"rework_directions must be 'harder'|'easier'; bad: {_bad}")
+        _missing = sorted(set(str(q) for q in rec.get('rework_qs') or []) - set(_dirs))
+        if _missing:
+            raise DGIllegalState(f"rework_directions missing for rework_qs {_missing}")
+        rec['rework_directions'] = _dirs
+    elif status == 'FAILED' and rec.get('rework_qs'):
+        raise DGIllegalState(f"FAILED verdict for {paper_id} needs rework_directions for "
+                             f"{rec['rework_qs']} (windowed rule)")
     rec['timestamp'] = _dg_now()
     if carried is not None:
         rec['rounds_carried_from'] = carried
@@ -1518,6 +1649,12 @@ def dg_add_rework_snapshot(reg, paper_id, stem_hashes, all_stem_hashes=None):
     if dg_state(rec)[0] != 'FAILED' or not dg_is_legal(rec):
         raise DGIllegalState(f"rework snapshot may only be written on a legal FAILED record; "
                              f"{paper_id} is {dg_state(rec)}")
+    if not dg_is_windowed(rec):
+        raise DGIllegalState(
+            f"{paper_id} was judged FAILED under the retired band-equality rule "
+            f"(GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS); its rework list is not an order. "
+            f"Run TestExplain / MockExplain on this paper so the verdict is re-judged "
+            f"under the acceptance windows, then return here only if it still fails.")
     if rec.get('rework_stem_hashes'):
         return rec['rework_stem_hashes']                       # write-once no-op
     rec['rework_stem_hashes'] = {str(q): h for q, h in stem_hashes.items()}
@@ -1589,6 +1726,10 @@ def dg_next_step(reg, paper_id, n, *, mock):
         return f"{t}Deliver {p}{n}"
     if st == 'PENDING':
         return f"{t}Explain {p}{n}   (attach the question paper)"
+    if not dg_is_windowed(rec):
+        # FAILED under the retired band-equality rule: re-judge, never repair
+        return (f"{t}Explain {p}{n}   (attach the question paper — this paper was judged "
+                f"under the old difficulty rule; the verdict is re-judged under the windows)")
     qs = ' '.join(f"Q{q}" for q in rec.get('rework_qs') or [])
     return (f"{t}CreateRepair {p}{n} {qs}".rstrip()
             + f"\n   then: {t}ExplainRepair {p}{n}")
@@ -1612,7 +1753,9 @@ def dg_deliver_decision(reg, paper_id, n, *, mock):
                 'next_step': None, 'footer_lines': dg_footer_lines(rec)}
     return {'deliver': False, 'state': (st, r),
             'reason': ('Step 9 never ran its gate' if st == 'PENDING'
-                       else 'difficulty gate FAILED — repair round available'),
+                       else 'difficulty gate FAILED — repair round available' if dg_is_windowed(rec)
+                       else 'difficulty gate FAILED under the retired band-equality rule — '
+                            're-run the explain step to re-judge'),
             'next_step': dg_next_step(reg, paper_id, n, mock=mock), 'footer_lines': []}
 
 
@@ -1629,7 +1772,19 @@ def dg_footer_lines(rec):
     st, r = dg_state(rec)
     if st == 'DISCLOSED':
         bands = rec.get('bands') or {}
-        parts = [f"{lab} {b.get('agree', '?')}/{b.get('total', '?')}" for lab, b in bands.items()]
+        # windowed rule: an ungated band (gated False) prints its size and "(not gated)";
+        # a gated band prints agree/total "in window". Pre-window records keep the
+        # plain fraction they were written under.
+        parts = []
+        for lab, b in bands.items():
+            b = b or {}
+            if dg_is_windowed(rec):
+                if b.get('gated') is False:
+                    parts.append(f"{lab} {b.get('total', '?')} (not gated)")
+                else:
+                    parts.append(f"{lab} {b.get('agree', '?')}/{b.get('total', '?')} in window")
+            else:
+                parts.append(f"{lab} {b.get('agree', '?')}/{b.get('total', '?')}")
         lines.append("Measured difficulty: " + " · ".join(parts)
                      + f" confirmed after {r} repair round{'s' if r != 1 else ''}.")
     elif st == 'DORMANT':

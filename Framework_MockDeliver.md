@@ -1,4 +1,11 @@
-# Framework_MockDeliver v1.14.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.15.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.15.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paired with MockTestExplain
+#   v1.45.0, MockTestCreate v5.72, DeliveryFooter v1.26, paper_pipeline v5.72, blueprint_core
+#   Cluster E2d). S1-2 3b: the FAILED branch documents pp.dg_next_step's two outcomes — the
+#   repair pair for a windowed record, the Explain trigger for a FAILED record written under
+#   the retired band-equality rule (re-judged, never repaired); the DISCLOSED footer example
+#   shows the windowed shape ("(not gated)" / "in window"). No gate-count change (still 17);
+#   the single-writer contract of v1.14.0 unchanged.
 # v1.14.0 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
 #   paper_pipeline v5.71 Cluster DG, MockTestExplain v1.44.0, MockTestCreate v5.71,
 #   DeliveryFooter v1.25). P0. S1-2 3b branched on `status` alone and ignored
@@ -275,13 +282,23 @@ Parse:
                              difficulty check. Run: " + d['next_step'] + "
                              then return here."
          ('FAILED',    0)  → HARD STOP, printing d['next_step'] verbatim
-                             (TestCreateRepair P[N] Q… → TestExplainRepair
-                             P[N]) and the ⛔ DO-NOT-DELIVER line.
+                             and the ⛔ DO-NOT-DELIVER line. For a windowed
+                             record (pp.dg_is_windowed) that is the repair
+                             pair (TestCreateRepair P[N] Q… → TestExplainRepair
+                             P[N]); for a FAILED record WITHOUT the windows
+                             stamp (v1.15.0 — GAP-2026-08-25-DIFFICULTY-GATE-
+                             WINDOWS: judged under the retired band-equality
+                             rule) pp.dg_next_step returns the Explain trigger
+                             instead — the paper is re-judged, its old rework
+                             list is never reprinted. d['reason'] says which.
          ('PASSED',    0)  → proceed; no extra footer text.
          ('PASSED',    1)  → proceed; no extra footer text.
          ('DISCLOSED', 1)  → proceed; §FOOTER-DG prints d['footer_lines']:
-                             "Measured difficulty: Easy a/n · Medium b/m ·
-                              Hard c/h confirmed after 1 repair round."
+                             "Measured difficulty: [bottom] n (not gated) ·
+                              [middle] b/m in window · [top] c/h in window
+                              confirmed after 1 repair round." (windowed
+                             record; a pre-window record prints plain a/n
+                             fractions — DeliveryFooter §FOOTER-DG).
          ('DORMANT',   0)  → PROCEED; §FOOTER-DG prints d['footer_lines']:
                              "Difficulty gate: not applicable to this paper
                               ([dormant_reason]) — labels are as planned at
@@ -1831,4 +1848,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.14.0
+# END OF Framework_MockDeliver v1.15.0

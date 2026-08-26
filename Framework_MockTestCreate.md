@@ -1,4 +1,13 @@
-# Framework_MockTestCreate v5.71
+# Framework_MockTestCreate v5.72
+# v5.72 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS (paired with MockTestExplain
+#   v1.45.0, MockDeliver v1.15.0, DeliveryFooter v1.26, blueprint_core Cluster E2d,
+#   paper_pipeline v5.72). §S16 repair mode becomes DIRECTION-AWARE: the windowed gate
+#   record carries rework_directions ('harder' | 'easier') because the acceptance-window
+#   rule can flag a middle-band question as too HARD; S16-2 reads the direction per q and
+#   asserts the rewrite's own CHECK 3c obs lands inside the label's window before
+#   committing. S16-1 P1: a FAILED record without pp.dg_is_windowed (retired band-equality
+#   rule) is never repaired — the operator is sent to re-run TestExplain. Completion line
+#   reports harder/easier counts. No allocation, quota, axis, or gate-count change.
 # v5.71 — 2026-08-25 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER (paired with
 #   paper_pipeline v5.71 Cluster DG, final_assembly v5.58, MockTestExplain v1.44.0,
 #   MockDeliver v1.14.0, DeliveryFooter v1.25, audit_canonical v2.19). P0. A
@@ -8441,7 +8450,14 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
     P1  BRANCH ON THE STATE PAIR pp.dg_state(rec), never on one field.
         Absent → "This paper has no gate record — run TestExplain P[N] first
         (or this is a legacy paper; deliver as usual)."
-        ('FAILED', 0) → PROCEED.
+        ('FAILED', 0) → PROCEED only if pp.dg_is_windowed(rec) (v5.72 —
+        GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS). A FAILED record WITHOUT the
+        'windows' stamp was judged under the retired band-equality rule and
+        its rework_qs are NOT an order: HARD STOP with "This paper was judged
+        under the old difficulty rule — nothing is rewritten on its say-so.
+        Next step: " + pp.dg_next_step(...) (the Explain trigger, which re-
+        judges the verdict under the windows). pp.dg_add_rework_snapshot
+        refuses such a record too, so the stop cannot be bypassed.
         Any other legal pair → "Nothing to repair — next step: " +
         pp.dg_next_step(reg, paper_id, N, mock=<Mock* trigger>) — the SAME
         function Step 9 and Step 11 print from, so this step can never name a
@@ -8463,20 +8479,37 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   For each q in rework_qs, run the FULL S7 single-question flow (scenario →
   CHECK 1/1b/2/3/3c → sidecar) with these bindings:
     band     = difficulty_plan-of-record = question_index[q].difficulty
-               (the label does not change; the QUESTION rises to it)
+               (the label does not change; the QUESTION moves to it)
+    direction= rec['rework_directions'][str(q)] (v5.72): 'harder' — the
+               question measured BELOW its label's window (the common case);
+               'easier' — it measured ABOVE it (possible for a middle-band
+               question under the windowed rule). Missing for a listed q →
+               HARD STOP naming q (a windowed FAILED record always carries
+               it — pp.dg_write_verdict refuses to write one without).
+               The rewrite must land INSIDE the label's acceptance window
+               (bc.DIFFICULTY_GATE_BAND_WINDOWS by band position — middle
+               2–6, top ≥5) as measured by CHECK 3c's own obs: assert
+               bc.difficulty_score_from_obs(obs) lies in the window before
+               committing the slot, else redo the slot. CHECK 3c still
+               verifies the authored label against the strict authoring
+               bands (G-DIFF) exactly as for a fresh slot.
     subtopic = question_index[q].subtopic_id (slot allocation unchanged —
                quota, axis schedules, figural counts all stay intact)
     qtype    = marking_scheme position type (unchanged)
   CHECK 3c runs with the standing rules PLUS, in repair mode:
-    (a) STEM-SUPPLIED RELATION RULE (the reason most reworks exist): the
-        stem may not donate the governing relation of the asked quantity —
+    (a) STEM-SUPPLIED RELATION RULE (the reason most 'harder' reworks
+        exist): the stem may not donate the governing relation of the asked
+        quantity —
         no "Given that ∫…", no quoting the formula whose recall/derivation
         the steps count, no handing over a counted intermediate. If the
         subtopic genuinely requires a supplied constant (physical data),
         supply the CONSTANT, never the RELATION.
     (b) the superseded question's semantic tuple joins the dedup set — the
-        repair must be a genuinely different (harder) question, not a
-        reworded twin.
+        repair must be a genuinely different question (harder or easier per
+        direction), not a reworded twin.
+    (c) an 'easier' rework removes load, never content: drop a concept or a
+        derivation stage; do not hand over the governing relation in the
+        stem (rule (a) still binds) and do not change the subtopic.
   Dedup, key derivation (§S7-NEW-A/C), figure generation (if the slot is
   FIGURAL) all run exactly as in a normal S7 slot.
 
@@ -8534,14 +8567,15 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
   docx exactly as on a fresh paper — including A-QINDEX checks 7/8/9.
   PRINT (operator-facing, last lines of the run):
       ════════════════════════════════════════════════════════════
-        REPAIR COMPLETE — [k] questions rewritten harder.
+        REPAIR COMPLETE — [k] questions rewritten toward their labels
+        ([k_h] harder · [k_e] easier).
         Next step: copy-paste this, attaching the repaired paper
         + the previous explanation Word file:
 
            TestExplainRepair P[N]
       ════════════════════════════════════════════════════════════
 
-# END OF Framework_MockTestCreate v5.71
+# END OF Framework_MockTestCreate v5.72
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

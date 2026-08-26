@@ -28,6 +28,10 @@ PROVENANCE
       axis1_mock_feasibility ... §7-7 (GAP-2026-08-12-AXIS-PREFLIGHT, NEW — v1.50)
       axis3_mock_feasibility ... §7-7 (GAP-2026-08-12-AXIS3-PREFLIGHT, NEW — v1.51)
       axis_truth_check ......... §9 S9-12 (GAP-2026-08-23-AXIS-ADVISORY-TRUTH, NEW — v1.54)
+      difficulty_score / band_for_score / difficulty_score_from_obs /
+      DIFFICULTY_GATE_BAND_WINDOWS / evaluate_difficulty_gate(scores_by_q, band_windows)
+                                 MockTestExplain §7A-M / §7A-R (GAP-2026-08-25-DIFFICULTY-
+                                 GATE-WINDOWS — Cluster E2 split + E2d window gate; frac 0.35)
       slugify .................. §17 S2-MANIFEST
     Source anchors (Framework_MockTestAnalyse.md v2.24.10 — Cluster E):
       score_difficulty ......... E-9  (3-axis universal difficulty scorer)
@@ -2385,8 +2389,32 @@ def assess_difficulty(question_class, deduction_steps, axiom_concepts,
     """
     if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
         return None
-    EASY, MEDIUM, HARD = difficulty_labels
+    # GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: the arithmetic lives in
+    # difficulty_score() so Step 9's gate can read the RAW SCORE; this function
+    # is now exactly band_for_score(difficulty_score(...)). Semantics-identical
+    # to the pre-split body (self-test e2d_score_split_identity proves it over
+    # the full observation grid).
+    return band_for_score(
+        difficulty_score(question_class, deduction_steps, axiom_concepts,
+                         speed_hack_exists, derivation_confidence, is_negative,
+                         qtype),
+        difficulty_labels)
 
+
+def difficulty_score(question_class, deduction_steps, axiom_concepts,
+                     speed_hack_exists, derivation_confidence, is_negative,
+                     qtype):
+    """TIER 1 RAW SCORE on the 0..12 rubric scale — the integer assess_difficulty
+    converts to a band. Same observations, same arithmetic, no labels involved.
+
+    Exposed (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS) because Step 9's difficulty
+    gate judges each label against a per-band ACCEPTANCE WINDOW on this scale
+    (DIFFICULTY_GATE_BAND_WINDOWS), not against band equality — a band label
+    alone cannot say whether a middle-band measurement sat at 3 or at 5.
+
+    Deterministic and pure: plain data in, int out. Never raises on None/str/
+    float observations (coerced through _as_int exactly as before).
+    """
     # 1. Class baseline — the MAX over facets, never the sum. A question that is
     #    both C-FIGURAL and C-COMPUTATIONAL is not twice as hard as either.
     if question_class is None:
@@ -2435,11 +2463,41 @@ def assess_difficulty(question_class, deduction_steps, axiom_concepts,
     if speed_hack_exists and steps >= 4:
         score += 1
 
+    return score
+
+
+def band_for_score(score, difficulty_labels):
+    """Map a rubric score to the exam's band label via the authoring edges
+    (DIFFICULTY_EASY_MAX / DIFFICULTY_MEDIUM_MAX). None when the vocabulary is
+    not exactly 3 labels or the score is not an integer — the same fall-through
+    contract as assess_difficulty. Pure."""
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return None
+    if isinstance(score, bool) or not isinstance(score, int):
+        return None
+    EASY, MEDIUM, HARD = difficulty_labels
     if score <= DIFFICULTY_EASY_MAX:
         return EASY
     if score <= DIFFICULTY_MEDIUM_MAX:
         return MEDIUM
     return HARD
+
+
+def difficulty_score_from_obs(obs):
+    """Raw rubric score from a difficulty_obs dict (the CHECK 3c shape:
+    question_class/facets, deduction_steps, axiom_concepts, speed_hack_exists,
+    is_negative, qtype, optional derivation_confidence — default 'full', the
+    author derived the answer). None on a non-dict/empty obs — never raises on a
+    legacy entry. The obs-reading twin of verify_difficulty_obs, kept here so the
+    gate and the audit read one shape."""
+    if not isinstance(obs, dict) or not obs:
+        return None
+    return difficulty_score(
+        obs.get('question_class', obs.get('facets')),
+        obs.get('deduction_steps'), obs.get('axiom_concepts'),
+        bool(obs.get('speed_hack_exists')),
+        obs.get('derivation_confidence', 'full'),
+        bool(obs.get('is_negative')), obs.get('qtype'))
 
 
 # ── Cluster E2c — DIFFICULTY CONFORMANCE (v1.13, GAP-2026-08-21-DIFFICULTY-
@@ -2607,14 +2665,12 @@ def verify_difficulty_obs(label, obs, difficulty_labels):
     vocabulary or an unusable obs dict — the documented fall-through, never a
     false FAIL on a legacy registry.
     """
-    if not isinstance(obs, dict) or not obs:
+    # GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: one obs reader for the audit
+    # (this) and the gate (difficulty_score_from_obs) — same shape, same coercion.
+    score = difficulty_score_from_obs(obs)
+    if score is None:
         return (True, None)
-    measured = assess_difficulty(
-        obs.get('question_class', obs.get('facets')),
-        obs.get('deduction_steps'), obs.get('axiom_concepts'),
-        bool(obs.get('speed_hack_exists')),
-        obs.get('derivation_confidence', 'full'),
-        bool(obs.get('is_negative')), obs.get('qtype'), difficulty_labels)
+    measured = band_for_score(score, difficulty_labels)
     if measured is None:
         return (True, None)
     return (measured == label, measured)
@@ -6531,6 +6587,211 @@ PYQ_IMAGE_ANALYSIS:
     check('p_window_bs10_unchanged', coverage_window(11, 20, 10, 25) == (2, 11, 20, True))
     check('p_window_last_short', coverage_window(21, 25, 10, 25) == (3, 21, 25, True))
 
+    # ── Cluster E2d: difficulty gate windows (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS)
+    def _legacy_assess(cls, steps, concepts, hack, conf, neg, qt, labels):
+        # the pre-split assess_difficulty body, VERBATIM, as the identity oracle
+        if not isinstance(labels, (list, tuple)) or len(labels) != 3:
+            return None
+        E_, M_, H_ = labels
+        if cls is None:
+            fac = []
+        elif isinstance(cls, (list, tuple, set)):
+            fac = [str(c).strip().upper() for c in cls if c]
+        else:
+            fac = [str(cls).strip().upper()]
+        fc = _QTYPE_FLOOR_CLASS.get(str(qt or '').strip().lower())
+        if fc:
+            fac.append(fc)
+        sc = max(CLASS_BASELINE.get(f, _UNKNOWN_CLASS_BASELINE) for f in fac) if fac else _UNKNOWN_CLASS_BASELINE
+        st = _as_int(steps)
+        sc += 3 if st >= 5 else 2 if st >= 3 else 1 if st >= 2 else 0
+        co = _as_int(concepts)
+        sc += 2 if co >= 3 else 1 if co >= 2 else 0
+        if str(conf or '').strip().lower() == 'flagged':
+            sc += 2
+        if neg:
+            sc += 1
+        if hack and st >= 4:
+            sc += 1
+        return E_ if sc <= DIFFICULTY_EASY_MAX else M_ if sc <= DIFFICULTY_MEDIUM_MAX else H_
+    _grid_ok, _grid_n = True, 0
+    for _cls in (None, 'C-FACTUAL', 'C-FORMAL-LOGIC', 'C-COMPUTATIONAL',
+                 ['C-FIGURAL', 'C-COMPUTATIONAL'], 'C-MULTI-SELECT', 'X-UNKNOWN', ''):
+        for _st in (None, 0, 1, 2, 3, 4, 5, 9, '3', 2.0):
+            for _co in (None, 0, 1, 2, 3, 5):
+                for _hk in (False, True):
+                    for _cf in ('full', 'flagged', None):
+                        for _ng in (False, True):
+                            for _qt in ('mcq', 'msq', 'nat', None, 'NAT '):
+                                _grid_n += 1
+                                _want = _legacy_assess(_cls, _st, _co, _hk, _cf, _ng, _qt, _L)
+                                _sc = difficulty_score(_cls, _st, _co, _hk, _cf, _ng, _qt)
+                                if (assess_difficulty(_cls, _st, _co, _hk, _cf, _ng, _qt, _L) != _want
+                                        or band_for_score(_sc, _L) != _want
+                                        or not isinstance(_sc, int) or _sc < 0 or _sc > 12):
+                                    _grid_ok = False
+    check('e2d_score_split_identity', _grid_ok and _grid_n > 10000)
+    check('e2d_score_scale_bounds',
+          difficulty_score(None, 0, 0, False, 'full', False, 'mcq') == 1
+          and difficulty_score('C-FACTUAL', 0, 0, False, 'full', False, 'mcq') == 0
+          and difficulty_score('C-NUMERICAL-INPUT', 5, 3, True, 'flagged', True, 'nat') == 12)
+    check('e2d_band_for_score_edges',
+          band_for_score(DIFFICULTY_EASY_MAX, _L) == _L[0]
+          and band_for_score(DIFFICULTY_EASY_MAX + 1, _L) == _L[1]
+          and band_for_score(DIFFICULTY_MEDIUM_MAX, _L) == _L[1]
+          and band_for_score(DIFFICULTY_MEDIUM_MAX + 1, _L) == _L[2]
+          and band_for_score(3, ['Lo', 'Hi']) is None
+          and band_for_score(None, _L) is None and band_for_score(True, _L) is None
+          and band_for_score('3', _L) is None)
+    _obs = {'question_class': ['C-COMPUTATIONAL'], 'deduction_steps': 3,
+            'axiom_concepts': 2, 'speed_hack_exists': True, 'is_negative': False,
+            'qtype': 'mcq'}
+    check('e2d_score_from_obs_matches_verify',
+          difficulty_score_from_obs(_obs) == 5
+          and band_for_score(difficulty_score_from_obs(_obs), _L) == verify_difficulty_obs(_L[1], _obs, _L)[1]
+          and difficulty_score_from_obs(None) is None and difficulty_score_from_obs({}) is None
+          and difficulty_score_from_obs('x') is None)
+    # windows: shape, and every gated window CONTAINS its authoring band
+    _w = _gate_windows(DIFFICULTY_GATE_BAND_WINDOWS)
+    _auth = [(0, DIFFICULTY_EASY_MAX), (DIFFICULTY_EASY_MAX + 1, DIFFICULTY_MEDIUM_MAX),
+             (DIFFICULTY_MEDIUM_MAX + 1, None)]
+    check('e2d_windows_contain_authoring_bands',
+          len(_w) == 3 and _w[0] is None and _w[1] == (2, 6) and _w[2] == (5, None)
+          and all(w is None or (w[0] <= a[0] and (w[1] is None or (a[1] is not None and a[1] <= w[1])))
+                  for w, a in zip(_w, _auth)))
+    def _raises(fn):
+        try:
+            fn()
+            return False
+        except ValueError:
+            return True
+    check('e2d_windows_malformed_raise',
+          _raises(lambda: _gate_windows(None)) and _raises(lambda: _gate_windows([None, None]))
+          and _raises(lambda: _gate_windows((None, (6, 2), None)))
+          and _raises(lambda: _gate_windows((None, (-1, 2), None)))
+          and _raises(lambda: _gate_windows((None, 5, None)))
+          and _gate_windows((None, (None, 6), (5, None))) == (None, (0, 6), (5, None)))
+    # allowed = exact floor(frac × n) for every n, no float drift
+    from fractions import Fraction as _Fr
+    check('e2d_allowed_exact_floor',
+          all(_gate_allowed(0.35, n) == int(_Fr(35, 100) * n) for n in range(0, 601))
+          and all(_gate_allowed(0.30, n) == int(_Fr(30, 100) * n) for n in range(0, 601))
+          and _gate_allowed(0.35, 6) == 2 and _gate_allowed(0.35, 18) == 6
+          and _gate_allowed(0.35, 36) == 12 and _gate_allowed(0.35, 20) == 7
+          and _gate_allowed(-1, 10) == 0 and _gate_allowed('bad', 10) == 0)
+    check('e2d_gate_score_coercion',
+          _gate_score(5) == 5 and _gate_score('5') == 5 and _gate_score(5.0) == 5
+          and _gate_score(5.5) is None and _gate_score(True) is None
+          and _gate_score(None) is None and _gate_score(-1) is None
+          and _gate_score(float('nan')) is None and _gate_score('x') is None)
+    check('e2d_gate_lookup_key_types',
+          _gate_lookup({1: 'a'}, '1') == 'a' and _gate_lookup({'1': 'a'}, 1) == 'a'
+          and _gate_lookup({'q1': 'a'}, 'q1') == 'a' and _gate_lookup({}, 1) is None
+          and _gate_lookup(None, 1) is None and _gate_lookup({1: 'a'}, 'x') is None)
+    # the gate itself — windows, direction, ungated bottom band, thresholds
+    _lab = {q: _L[0] for q in range(1, 7)}
+    _lab.update({q: _L[1] for q in range(7, 25)})
+    _lab.update({q: _L[2] for q in range(25, 61)})
+    _sc_all_ok = {q: (1 if q <= 6 else 4 if q <= 24 else 7) for q in _lab}
+    _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc_all_ok)
+    check('e2d_gate_pass_clean',
+          _g['verdict'] == 'PASS' and _g['rework_qs'] == [] and _g['dormant'] is False
+          and _g['threshold'] == DIFFICULTY_GATE_MAX_DISAGREE_FRAC
+          and _g['windows'] == [None, [2, 6], [5, None]]
+          and _g['bands'][_L[0]] == {'total': 6, 'gated': False, 'window': None,
+                                     'assessed': 0, 'agree': 0, 'disagree': 0,
+                                     'allowed': 2, 'over_limit': False, 'disagreeing_qs': []}
+          and _g['bands'][_L[1]]['allowed'] == 6 and _g['bands'][_L[2]]['allowed'] == 12
+          and _g['bands'][_L[1]]['assessed'] == 18 and _g['bands'][_L[2]]['agree'] == 36)
+    # bottom band is never gated — even if every Easy measures Hard
+    _sc = dict(_sc_all_ok); _sc.update({q: 12 for q in range(1, 7)})
+    _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc)
+    check('e2d_gate_bottom_band_ignored', _g['verdict'] == 'PASS' and _g['rework_qs'] == [])
+    # middle window is INCLUSIVE 2..6: scores 2 and 6 agree, 1 and 7 disagree
+    _sc = dict(_sc_all_ok); _sc.update({7: 2, 8: 6, 9: 1, 10: 7})
+    _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc)
+    check('e2d_gate_middle_window_inclusive',
+          _g['verdict'] == 'PASS' and _g['bands'][_L[1]]['disagree'] == 2
+          and _g['bands'][_L[1]]['disagreeing_qs'] == [9, 10] and _g['rework_qs'] == [])
+    # top window is 5+ : 5 agrees, 4 disagrees (harder), and 12 agrees
+    _sc = dict(_sc_all_ok); _sc.update({25: 5, 26: 4, 27: 12})
+    _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc)
+    check('e2d_gate_top_window_5_plus',
+          _g['bands'][_L[2]]['disagreeing_qs'] == [26] and _g['verdict'] == 'PASS')
+    # threshold boundary: 12 disagreements in 36 pass, 13 fail — and rework lists ONLY the over-limit band
+    _sc = dict(_sc_all_ok); _sc.update({q: 4 for q in range(25, 37)}); _sc[7] = 1
+    _g12 = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc)
+    _sc[37] = 3
+    _g13 = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc)
+    check('e2d_gate_threshold_boundary',
+          _g12['verdict'] == 'PASS' and _g12['bands'][_L[2]]['disagree'] == 12
+          and _g13['verdict'] == 'FAIL' and _g13['bands'][_L[2]]['over_limit'] is True
+          and _g13['rework_qs'] == list(range(25, 38))
+          and 7 not in _g13['rework_qs']                 # middle band under limit → untouched
+          and all(_g13['rework_directions'][q] == 'harder' for q in range(25, 38)))
+    # direction 'easier' when a middle-band question measures above its window
+    _sc = dict(_sc_all_ok); _sc.update({q: 8 for q in range(7, 14)})
+    _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc)
+    check('e2d_gate_direction_easier',
+          _g['verdict'] == 'FAIL' and _g['rework_qs'] == list(range(7, 14))
+          and set(_g['rework_directions'].values()) == {'easier'})
+    # label-only fallback == the old band-equality rule (never more lenient)
+    _meas = {q: _lab[q] for q in _lab}; _meas.update({25: _L[1], 26: _L[1], 7: _L[0], 8: _L[2]})
+    _g = evaluate_difficulty_gate(_lab, _meas, _L)
+    check('e2d_gate_label_fallback_conservative',
+          _g['verdict'] == 'PASS' and _g['bands'][_L[2]]['disagreeing_qs'] == [25, 26]
+          and _g['bands'][_L[1]]['disagreeing_qs'] == [7, 8]
+          and _g['bands'][_L[1]]['assessed'] == 18 and _g['bands'][_L[2]]['assessed'] == 36)
+    # a raw score beats the label: measured label says Medium but score 5 sits in the top window
+    _g = evaluate_difficulty_gate(_lab, {25: _L[1]}, _L, scores_by_q={25: 5})
+    check('e2d_gate_score_overrides_label', _g['bands'][_L[2]]['disagree'] == 0)
+    # unassessed questions (no score, no label) are skipped, never counted either way
+    _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q={25: None})
+    check('e2d_gate_unassessed_skipped',
+          _g['verdict'] == 'PASS' and _g['bands'][_L[2]]['assessed'] == 0
+          and _g['bands'][_L[1]]['assessed'] == 0)
+    # registry (str) keys vs spec (int) keys — every combination reaches the same verdict
+    _lab_s = {str(q): v for q, v in _lab.items()}
+    _sc_s = {str(q): 4 for q in range(25, 38)}
+    _sc_s.update({str(q): v for q, v in _sc_all_ok.items() if q < 25})
+    _ga = evaluate_difficulty_gate(_lab_s, {}, _L, scores_by_q=_sc_s)
+    _gb = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc_s)
+    _gc = evaluate_difficulty_gate(_lab_s, {}, _L, scores_by_q={int(k): v for k, v in _sc_s.items()})
+    check('e2d_gate_key_type_agnostic',
+          _ga['verdict'] == _gb['verdict'] == _gc['verdict'] == 'FAIL'
+          and [int(q) for q in _ga['rework_qs']] == _gb['rework_qs'] == [int(q) for q in _gc['rework_qs']]
+          == list(range(25, 38)))
+    # empty band / empty paper / non-3-band vocabulary
+    _g = evaluate_difficulty_gate({1: _L[2]}, {}, _L, scores_by_q={1: 2})
+    check('e2d_gate_small_band_zero_allowed',
+          _g['verdict'] == 'FAIL' and _g['bands'][_L[2]]['allowed'] == 0
+          and _g['bands'][_L[1]]['total'] == 0 and _g['rework_qs'] == [1])
+    _g = evaluate_difficulty_gate({}, {}, _L)
+    check('e2d_gate_empty_paper', _g['verdict'] == 'PASS' and _g['rework_qs'] == [])
+    _g = evaluate_difficulty_gate(_lab, {}, ['Lo', 'Hi'], scores_by_q=_sc_all_ok)
+    check('e2d_gate_non3band_dormant',
+          _g['verdict'] == 'PASS' and _g['dormant'] is True and _g['rework_qs'] == [])
+    # custom label vocabulary: the rule is POSITIONAL, not name-based
+    _Lx = ['Level-1', 'Level-2', 'Level-3']
+    _labx = {q: _Lx[0] if q <= 6 else _Lx[1] if q <= 24 else _Lx[2] for q in range(1, 61)}
+    _scx = {q: 12 if q <= 6 else 4 if q <= 24 else 5 for q in range(1, 61)}
+    _g = evaluate_difficulty_gate(_labx, {}, _Lx, scores_by_q=_scx)
+    check('e2d_gate_positional_vocabulary',
+          _g['verdict'] == 'PASS' and _g['bands']['Level-1']['gated'] is False
+          and _g['bands']['Level-3']['agree'] == 36)
+    # explicit override of threshold and windows still honoured (repair-mode / audit callers)
+    _sc = dict(_sc_all_ok); _sc.update({q: 5 for q in range(25, 37)})
+    _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc, max_disagree_frac=0.30,
+                                  band_windows=(None, (3, 5), (6, None)))
+    check('e2d_gate_override_params',
+          _g['verdict'] == 'FAIL' and _g['bands'][_L[2]]['allowed'] == 10
+          and _g['bands'][_L[2]]['disagree'] == 12 and _g['threshold'] == 0.30)
+    check('e2d_gate_bad_windows_raise',
+          _raises(lambda: evaluate_difficulty_gate(_lab, {}, _L, band_windows=(None, (6, 2), None))))
+    check('e2d_gate_pure_no_mutation',
+          (lambda a, b: evaluate_difficulty_gate(a, {}, _L, scores_by_q=b) and a == _lab and b == _sc_all_ok)
+          (dict(_lab), dict(_sc_all_ok)))
+
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -6549,38 +6810,210 @@ PYQ_IMAGE_ANALYSIS:
 # drift. Pure functions: plain data in, dicts/strings out. No I/O.
 # ═══════════════════════════════════════════════════════════════════════════
 
-DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.30   # operator decision 2026-08-24
+DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.35   # operator decision 2026-08-25 (was 0.30)
 DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 1      # operator decision 2026-08-24
+
+# GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS — operator decision 2026-08-25.
+# Per-band ACCEPTANCE WINDOWS on the 0..12 rubric score, indexed by band
+# POSITION in the exam's difficulty_labels (0 = bottom, 1 = middle, 2 = top) so
+# the rule is identical for every label vocabulary across ~200 exams.
+#   None        → the band is NOT gated at Step 9 (bottom band: operator decision —
+#                 Step 9 does not evaluate it; its questions never enter rework).
+#   (lo, hi)    → a question labelled with this band AGREES when
+#                 lo <= measured score <= hi; hi=None means unbounded above.
+# The authoring edges (DIFFICULTY_EASY_MAX=2 / DIFFICULTY_MEDIUM_MAX=5) are NOT
+# changed by this: Step 7 still AUTHORS to the strict bands 0-2 / 3-5 / 6+; Step 9
+# GRADES with one point of tolerance. Invariant (self-test e2d_windows_contain_
+# authoring_bands): every gated window CONTAINS its own authoring band, so a
+# correctly authored question can never fail its own gate.
+DIFFICULTY_GATE_BAND_WINDOWS = (None, (2, 6), (5, None))
 DIFFICULTY_OBS_MODAL_FRAC_MAX     = 0.60   # Fix 2 modal-signature ceiling
 DIFFICULTY_OBS_DIVERSITY_MIN_N    = 8      # Fix 2: smaller bands exempt
 
 
+def _gate_lookup(mapping, q):
+    """Registry maps are JSON-keyed (str) while spec maps are int-keyed; a gate
+    that missed a question over a key type would silently skip it. Try the key
+    as given, then its str, then its int form."""
+    if not isinstance(mapping, dict):
+        return None
+    if q in mapping:
+        return mapping[q]
+    sq = str(q)
+    if sq in mapping:
+        return mapping[sq]
+    try:
+        iq = int(sq)
+    except (TypeError, ValueError):
+        return None
+    return mapping.get(iq)
+
+
+def _qkey(q):
+    """Stable ordering for question keys that may be int or numeric str
+    (registry JSON vs spec ints): numeric first by value, then the rest by text."""
+    sq = str(q).strip()
+    return (0, int(sq), '') if sq.isdigit() else (1, 0, sq)
+
+
+def _gate_score(value):
+    """Coerce a stored measured score (int, numeric str, float from JSON) to int;
+    None/bool/non-finite/negative → None (= not measurable)."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        if isinstance(value, float):
+            if value != value or value in (float('inf'), float('-inf')):
+                return None
+            if value != int(value):
+                return None
+        v = int(value)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return v if v >= 0 else None
+
+
+def _gate_allowed(max_disagree_frac, total):
+    """floor(frac × total) computed without float drift: 0.35 × 20 is
+    7.000000000000001 in binary floating point and 0.7 × 10 is 7.000000000000001,
+    but other products land just BELOW the integer and int() would then floor one
+    too low. Fractions make the floor exact for any decimal fraction."""
+    from fractions import Fraction
+    try:
+        f = Fraction(str(max_disagree_frac))
+    except (ValueError, ZeroDivisionError):
+        f = Fraction(0)
+    if f < 0:
+        f = Fraction(0)
+    return int(f * int(total))       # exact floor for non-negative rationals
+
+
+def _gate_windows(band_windows):
+    """Validate DIFFICULTY_GATE_BAND_WINDOWS-shaped input; a malformed window is a
+    CONFIGURATION error (never data) and raises so it cannot silently pass."""
+    if not isinstance(band_windows, (list, tuple)) or len(band_windows) != 3:
+        raise ValueError('band_windows must be a 3-tuple (one entry per band position)')
+    out = []
+    for w in band_windows:
+        if w is None:
+            out.append(None)
+            continue
+        if not isinstance(w, (list, tuple)) or len(w) != 2:
+            raise ValueError(f'band window must be None or (lo, hi): {w!r}')
+        lo, hi = w
+        lo = 0 if lo is None else int(lo)
+        hi = None if hi is None else int(hi)
+        if lo < 0 or (hi is not None and hi < lo):
+            raise ValueError(f'band window out of order: {w!r}')
+        out.append((lo, hi))
+    return tuple(out)
+
+
+def _label_interval(label, difficulty_labels):
+    """Conservative score interval implied by a band LABEL alone (the fallback
+    when a caller supplies no raw score): bottom 0..EASY_MAX, middle EASY_MAX+1..
+    MEDIUM_MAX, top MEDIUM_MAX+1..None. None for a label outside the vocabulary."""
+    if label == difficulty_labels[0]:
+        return (0, DIFFICULTY_EASY_MAX)
+    if label == difficulty_labels[1]:
+        return (DIFFICULTY_EASY_MAX + 1, DIFFICULTY_MEDIUM_MAX)
+    if label == difficulty_labels[2]:
+        return (DIFFICULTY_MEDIUM_MAX + 1, None)
+    return None
+
+
 def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
-                             max_disagree_frac=DIFFICULTY_GATE_MAX_DISAGREE_FRAC):
-    """Band-level reconciliation. labels_by_q: {q: Step-7 label}. measured_by_q:
-    {q: Step-9 re-measured label or None (None/absent = not measurable, skipped)}.
-    A band BLOCKS when disagreements EXCEED floor(max_disagree_frac * band_total)
-    — e.g. 36 Hard at 0.30 allows 10 disagreements and blocks at 11.
-    Returns {'verdict','threshold','bands','rework_qs'}; rework_qs lists the
-    disagreeing questions of OVER-LIMIT bands only (repairing agreeing bands
-    would churn accepted work). Deterministic, pure."""
-    bands = {}
-    for lab in difficulty_labels:
-        qs = sorted(q for q, l in labels_by_q.items() if l == lab)
-        assessed = [(q, measured_by_q.get(q)) for q in qs
-                    if measured_by_q.get(q) is not None]
-        disagree = sorted(q for q, m in assessed if m != lab)
+                             max_disagree_frac=DIFFICULTY_GATE_MAX_DISAGREE_FRAC,
+                             scores_by_q=None,
+                             band_windows=DIFFICULTY_GATE_BAND_WINDOWS):
+    """Band-level reconciliation of Step-7 labels against Step-9's independent
+    re-derivation (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS revision).
+
+    labels_by_q    {q: Step-7 label}                       (the paper's stickers)
+    measured_by_q  {q: Step-9 band label or None}          (kept for footers /
+                   legacy callers; None = not measurable)
+    scores_by_q    {q: Step-9 raw rubric score or None}    (bc.difficulty_score;
+                   the PREFERRED evidence — None/absent falls back to the label)
+    band_windows   per-POSITION acceptance windows, see DIFFICULTY_GATE_BAND_WINDOWS
+
+    PER QUESTION a labelled question AGREES when its measured score lies inside
+    the window of its label's band position. With no raw score the label is
+    used through its conservative implied interval (_label_interval): agree
+    only if that whole interval lies inside the window — which is exactly the
+    old band-equality rule, so a label-only caller is never judged more
+    leniently than before. A band whose window is None is NOT GATED: it is
+    reported (total, gated=False) and contributes nothing to rework. A
+    question with neither score nor measured label is "not assessed" and is
+    skipped, as before.
+
+    PER BAND the gate BLOCKS when disagreements EXCEED floor(max_disagree_frac
+    × band total) — e.g. 36 top-band questions at 0.35 allow 12 and block at
+    13. rework_qs lists the disagreeing questions of OVER-LIMIT bands only
+    (repairing agreeing bands would churn accepted work); rework_directions
+    says, per rework q, whether the question must move 'harder' (it measured
+    below its window) or 'easier' (above) — Step 7's repair mode reads it.
+
+    Non-3-band vocabulary → PASS with dormant=True (the spec prints its §R10
+    DORMANT line and writes no verdict). q keys may be int or str on any map
+    (registry JSON vs spec ints); windows are validated and a malformed one
+    raises — configuration, never data, must not pass silently.
+
+    Returns {'verdict','threshold','windows','bands','rework_qs',
+             'rework_directions','dormant'}. Deterministic, pure.
+    """
+    if not isinstance(difficulty_labels, (list, tuple)) or len(difficulty_labels) != 3:
+        return {'verdict': 'PASS', 'threshold': max_disagree_frac, 'windows': None,
+                'bands': {}, 'rework_qs': [], 'rework_directions': {},
+                'dormant': True, 'reason': 'difficulty vocabulary is not 3-band'}
+    windows = _gate_windows(band_windows)
+    labels_by_q = labels_by_q or {}
+    bands, directions = {}, {}
+    for pos, lab in enumerate(difficulty_labels):
+        win = windows[pos]
+        qs = sorted((q for q, l in labels_by_q.items() if l == lab), key=_qkey)
         total = len(qs)
-        allowed = int(max_disagree_frac * total)          # floor
-        bands[lab] = {'total': total, 'assessed': len(assessed),
-                      'agree': len(assessed) - len(disagree),
+        allowed = _gate_allowed(max_disagree_frac, total)
+        if win is None:
+            bands[lab] = {'total': total, 'gated': False, 'window': None,
+                          'assessed': 0, 'agree': 0, 'disagree': 0,
+                          'allowed': allowed, 'over_limit': False,
+                          'disagreeing_qs': []}
+            continue
+        lo, hi = win
+        assessed, disagree = 0, []
+        for q in qs:
+            sc = _gate_score(_gate_lookup(scores_by_q, q))
+            if sc is not None:
+                iv = (sc, sc)
+            else:
+                m = _gate_lookup(measured_by_q, q)
+                iv = _label_interval(m, difficulty_labels) if m is not None else None
+                if iv is None:
+                    continue                       # not assessed — skipped
+            assessed += 1
+            ilo, ihi = iv
+            below = ilo < lo                       # some mass under the window
+            above = hi is not None and (ihi is None or ihi > hi)
+            if below or above:
+                disagree.append(q)
+                # a label-only interval straddling both sides is treated as the
+                # side its centre of mass suggests: below wins (too easy is the
+                # measured failure class); a raw score is never on both sides.
+                directions[q] = 'harder' if below else 'easier'
+        bands[lab] = {'total': total, 'gated': True, 'window': [lo, hi],
+                      'assessed': assessed, 'agree': assessed - len(disagree),
                       'disagree': len(disagree), 'allowed': allowed,
                       'over_limit': len(disagree) > allowed,
                       'disagreeing_qs': disagree}
-    rework = sorted(q for lab, b in bands.items() if b['over_limit']
-                    for q in b['disagreeing_qs'])
+    rework = [q for lab in difficulty_labels
+              for q in bands[lab]['disagreeing_qs'] if bands[lab]['over_limit']]
+    rework = sorted(rework, key=_qkey)
     return {'verdict': 'FAIL' if rework else 'PASS',
-            'threshold': max_disagree_frac, 'bands': bands, 'rework_qs': rework}
+            'threshold': max_disagree_frac,
+            'windows': [list(w) if w else None for w in windows],
+            'bands': bands, 'rework_qs': rework,
+            'rework_directions': {q: directions[q] for q in rework},
+            'dormant': False}
 
 
 def difficulty_obs_signature(obs):
