@@ -26,7 +26,7 @@ PROVENANCE
     stamp was an inline dict literal — one of THREE hand-writers of
     registry.difficulty_gate across two specs and this engine, with no legal-state
     table and no write guard. Its own comment ("never edited elsewhere") was false:
-    MockTestCreate §S16-3 adds rework_stem_hashes, and a TestCreateRepair session
+    the (since retired) repair step added rework_stem_hashes, and one of its sessions
     also set repair_rounds_used=1 on a still-FAILED record, deadlocking four triggers.
     FIX: the stamp is now pp.dg_stamp_pending — the single CREATE path. Second
     defect closed here (gap G-4): the stamp had no mock-vs-scoped condition, so
@@ -409,8 +409,8 @@ def commit_registry(registry, pending, bp, N, *, paper_id, batches_completed,
         # scoped paper stamped PENDING could never be resolved and was
         # undeliverable in every project (gap defect G-4). After birth `status`
         # and `repair_rounds_used` are written ONLY by Step 9 via
-        # pp.dg_write_verdict (together, atomically); TestCreateRepair may add
-        # ONLY rework_stem_hashes via pp.dg_add_rework_snapshot. A registry entry
+        # pp.dg_write_verdict (together, atomically). (v5.76 / REPAIR-RETIRED-
+        # 2026-08-27: the repair steps and their snapshot writer are gone.) A registry entry
         # with NO difficulty_gate key is a LEGACY paper and delivers as before
         # (operator decision 2026-08-24: old papers untouched).
         _pp.dg_stamp_pending(reg, paper_id)

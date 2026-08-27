@@ -1,4 +1,13 @@
-# Framework_MockDeliver v1.17.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.18.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.18.0 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestCreate v5.76, MockTestExplain v1.47.0, DeliveryFooter
+#   v1.29). The four *Repair triggers are RETIRED and the difficulty gate DISCLOSES instead
+#   of blocking. S1-2 3b: the FAILED branch is GONE — 'FAILED' is a retired status that
+#   pp.dg_preflight heals to DISCLOSED/0 (disclosed, footer line from rec['migrations']);
+#   ('DISCLOSED', 0) PROCEEDS with the §FOOTER-DG measured-difficulty line; PENDING is the
+#   ONLY gate state this step refuses, and its remedy (pp.dg_next_step) is the Explain
+#   trigger. ('PASSED', 1) / ('DISCLOSED', 1) stay as LEGACY repaired papers. S1-2 item 3:
+#   the writer list is Step 7 and Step 9. No tagging or delivery rule changed.
 # v1.17.0 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with Blueprint v1.57.0). S1-2
 #   item 3c / §FOOTER-DS: one delivery-footer line from blueprint.json['difficulty_source']
 #   (measured from k sittings | measured + operator-confirmed deviations | set by operator, no
@@ -272,10 +281,10 @@ Parse:
 3. Verify registry.json in project knowledge.
    REGISTRY-HANDOFF-LAW precondition (v1.16.0): this step reads ONLY the project copy.
    Every upstream step that changed the registry delivered it with the "Replace in
-   Project Files" badge (Step 7 Final Assembly, Step 7-R §S16-3, Step 9 §7A-M, Step 9-R
-   §7A-R). If 3b below stops on PENDING/FAILED although Step 9's verdict box said
-   PASSED (or DISCLOSED after a repair), the operator has NOT replaced the registry
-   Step 9 / 9-R delivered — say so FIRST, in these words, before the re-run command:
+   Project Files" badge (Step 7 Final Assembly, Step 9 §7A-M — v1.18.0: the retired
+   repair steps no longer write it). If 3b below stops on PENDING although Step 9's
+   verdict box said PASSED or DISCLOSED, the operator has NOT replaced the registry
+   Step 9 delivered — say so FIRST, in these words, before the re-run command:
      "The project registry does not carry the verdict Step 9 wrote. Replace
       [ExamCode]_registry.json in Project Files with the copy Step 9 delivered,
       then re-run TestDeliver P[N]. If you no longer have it, run: <d['next_step']>."
@@ -313,24 +322,24 @@ Parse:
          ('PENDING',   0)  → HARD STOP: "This paper has not passed the
                              difficulty check. Run: " + d['next_step'] + "
                              then return here."
-         ('FAILED',    0)  → HARD STOP, printing d['next_step'] verbatim
-                             and the ⛔ DO-NOT-DELIVER line. For a windowed
-                             record (pp.dg_is_windowed) that is the repair
-                             pair (TestCreateRepair P[N] Q… → TestExplainRepair
-                             P[N]); for a FAILED record WITHOUT the windows
-                             stamp (v1.15.0 — GAP-2026-08-25-DIFFICULTY-GATE-
-                             WINDOWS: judged under the retired band-equality
-                             rule) pp.dg_next_step returns the Explain trigger
-                             instead — the paper is re-judged, its old rework
-                             list is never reprinted. d['reason'] says which.
+         ('DISCLOSED', 0)  → PROCEED (v1.18.0 — REPAIR-RETIRED-2026-08-27:
+                             the gate was not met and the paper is delivered
+                             with disclosure); §FOOTER-DG prints
+                             d['footer_lines']: "Measured difficulty: [bottom]
+                             n (not gated) · [middle] b/m in window · [top]
+                             c/h in window — the difficulty gate was not met;
+                             labels are as planned at Step 7." A record still
+                             carrying the RETIRED status 'FAILED' never
+                             reaches this table: pp.dg_preflight above healed
+                             it to this pair and its disclosure line was
+                             printed; §FOOTER-DG adds the healed-record line.
          ('PASSED',    0)  → proceed; no extra footer text.
-         ('PASSED',    1)  → proceed; no extra footer text.
-         ('DISCLOSED', 1)  → proceed; §FOOTER-DG prints d['footer_lines']:
-                             "Measured difficulty: [bottom] n (not gated) ·
-                              [middle] b/m in window · [top] c/h in window
-                              confirmed after 1 repair round." (windowed
-                             record; a pre-window record prints plain a/n
-                             fractions — DeliveryFooter §FOOTER-DG).
+         ('PASSED',    1)  → proceed (LEGACY repaired paper); no extra footer text.
+         ('DISCLOSED', 1)  → proceed (LEGACY repaired paper); §FOOTER-DG prints
+                             d['footer_lines']: "Measured difficulty: … confirmed
+                             after 1 repair round (legacy repair — the repair
+                             steps are retired)." (a pre-window record prints
+                             plain a/n fractions — DeliveryFooter §FOOTER-DG).
          ('DORMANT',   0)  → PROCEED; §FOOTER-DG prints d['footer_lines']:
                              "Difficulty gate: not applicable to this paper
                               ([dormant_reason]) — labels are as planned at
@@ -1928,4 +1937,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.17.0
+# END OF Framework_MockDeliver v1.18.0

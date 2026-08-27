@@ -22,32 +22,35 @@ Concerns:
  12. dg_* (CLUSTER DG)                   — v5.71 DIFFICULTY-GATE RECORD SINGLE WRITER
                                             (GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER):
                                             registry['difficulty_gate'][paper_id] is written
-                                            ONLY through dg_stamp_pending / dg_write_verdict /
-                                            dg_add_rework_snapshot, every preflight opens with
-                                            dg_preflight, every next-step string comes from
-                                            dg_next_step, Step 11 decides via
-                                            dg_deliver_decision, the footer from dg_footer_lines.
+                                            ONLY through dg_stamp_pending / dg_write_verdict,
+                                            every preflight opens with dg_preflight, every
+                                            next-step string comes from dg_next_step, Step 11
+                                            decides via dg_deliver_decision, the footer from
+                                            dg_footer_lines.
                                             v5.72 (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS):
                                             DG_DEFAULT_THRESHOLD 0.30 → 0.35; verdicts carry the
                                             gate's windows / measured_score_by_q / rework_directions
                                             and are stamped gate_rule='windows' (dg_is_windowed);
-                                            a FAILED record from the retired band-equality rule is
-                                            routed to TestExplain (re-judge), never repaired;
                                             §FOOTER-DG shows an ungated band as "(not gated)".
-                                            v5.73 (2026-08-26, windows follow-up): a FRESH
-                                            round-0 verdict retires a pre-repair stem snapshot
-                                            whose rework set differs from the new verdict's
-                                            (superseded_snapshots) — a stale snapshot would make
-                                            §7A-R R3 accuse a correct repair and fail A-DGATE 5;
-                                            kept when the set is identical or the round is carried.
+                                            v5.76 (REPAIR-RETIRED-2026-08-27, operator decision):
+                                            the four *Repair triggers are RETIRED. The gate
+                                            DISCLOSES, it never blocks: a gate that is not met
+                                            writes DISCLOSED/0 and Step 11 delivers with the
+                                            §FOOTER-DG line. Status 'FAILED' is retired — refused
+                                            by every writer, healed to DISCLOSED/0 on read with a
+                                            disclosed migration. PASSED/1 and DISCLOSED/1 (written
+                                            by the retired steps) stay read-legal and deliverable.
+                                            dg_add_rework_snapshot / dg_stem_hash /
+                                            dg_verify_repair are DELETED. PENDING is the only
+                                            blocking gate state; its remedy is TestExplain.
  13. registry_fingerprint / registry_changed / handoff_set / verify_handoff_outputs /
      handoff_footer_lines / report_docx_name (CLUSTER RH)
                                           — v5.74 REGISTRY HANDOFF (GAP-2026-08-26-REGISTRY-
                                             HANDOFF-SEAM): a step that CHANGES registry.json
                                             DELIVERS it (Replace in Project Files) in the same
                                             present_files call as its primary artefact. Decided
-                                            by fingerprint, never by prose; Steps 7, 7-repair,
-                                            9, 9-repair and 11 all build their closed deliverable
+                                            by fingerprint, never by prose; Steps 7, 9 and 11
+                                            all build their closed deliverable
                                             set here. Step 9's END-OF-MOCK REPORT gains a docx
                                             form (report_docx_name) delivered at the final batch.
  11. validate_semantic_object / semantic_objects_agree
@@ -669,9 +672,11 @@ def _self_test():
                                       {'kind': 'NEWMAN', 'descriptor': {'dihedral': 60}})[0])
 
     # ══════════════════════════════════════════════════════════════════════
-    # CLUSTER DG — v5.71 GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER
+    # CLUSTER DG — v5.71 GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER;
+    #              v5.76 REPAIR-RETIRED (operator decision 2026-08-27)
     #   Every fixture below fails on the defect it was written for; the mutation
-    #   auditor requires it. DG-REFUSE-FAILED-1 is the exact incident.
+    #   auditor requires it. DG-REFUSE-FAILED-* pin the retirement: no writer may
+    #   ever produce a blocking gate verdict again.
     def ck_dg_raises(name, fn):
         try:
             fn(); ck(name, False)
@@ -679,15 +684,19 @@ def _self_test():
             ck(name, True)
         except Exception as _e:                                    # noqa: BLE001
             ck(f'{name} [raised {type(_e).__name__}]', False)
-    # legal table: generated, six states at max_rounds=1, E18 shape at 2
-    ck('DG-LEGAL-SIX', sorted(DG_LEGAL_STATES) == [('DISCLOSED', 1), ('DORMANT', 0),
-       ('FAILED', 0), ('PASSED', 0), ('PASSED', 1), ('PENDING', 0)])
-    ck('DG-LEGAL-E18-generated', sorted(_dg_legal_states(2)) == [('DISCLOSED', 2),
-       ('DORMANT', 0), ('FAILED', 0), ('FAILED', 1), ('PASSED', 0), ('PASSED', 1),
-       ('PASSED', 2), ('PENDING', 0)])
+    # legal table: generated; six states at max_rounds=0 (four current + two legacy)
+    ck('DG-LEGAL-SIX', sorted(DG_LEGAL_STATES) == [('DISCLOSED', 0), ('DISCLOSED', 1),
+       ('DORMANT', 0), ('PASSED', 0), ('PASSED', 1), ('PENDING', 0)])
+    ck('DG-LEGAL-count', len(DG_LEGAL_STATES) == 6 and ('FAILED', 0) not in DG_LEGAL_STATES
+       and ('FAILED', 1) not in DG_LEGAL_STATES)
+    ck('DG-LEGAL-generated-no-legacy', sorted(_dg_legal_states(0, legacy_rounds=0)) ==
+       [('DISCLOSED', 0), ('DORMANT', 0), ('PASSED', 0), ('PENDING', 0)])
+    ck('DG-REPAIR-RETIRED-constants', DG_MAX_REPAIR_ROUNDS == 0 and DG_LEGACY_REPAIR_ROUNDS == 1
+       and DG_BLOCKING == frozenset({'PENDING'}) and 'FAILED' in DG_RETIRED_STATUSES
+       and 'FAILED' not in DG_STATUSES and DG_SCHEMA == 3)
     # (bc constant parity is asserted in audit_canonical --self-test, which imports
     #  both engines; the thin core may not import blueprint_core — CHECK AB.)
-    # the three writers round-trip every legal pair
+    # the two writers round-trip every current legal pair
     _R = {}
     ck('DG-STAMP-mock-PENDING', dg_state(dg_stamp_pending(_R, 'MOCK:M01')) == ('PENDING', 0))
     ck('DG-STAMP-scoped-DORMANT', dg_state(dg_stamp_pending(_R, 'SUBJ:Physics:01')) == ('DORMANT', 0)
@@ -695,17 +704,21 @@ def _self_test():
     ck('DG-SCOPED-DELIVERABLE', dg_deliver_decision(_R, 'SUBJ:Physics:01', 1, mock=False)['deliver'])
     ck('DG-ISOLATION', dg_read(_R, 'MOCK:M01') == {'schema': DG_SCHEMA, 'status': 'PENDING',
        'threshold': DG_DEFAULT_THRESHOLD, 'repair_rounds_used': 0})
+    # PENDING is the ONLY blocking state, and its remedy is the Explain trigger
+    ck('DG-PENDING-blocks-to-explain', dg_deliver_decision(_R, 'MOCK:M01', 1, mock=False)['deliver'] is False
+       and dg_next_step(_R, 'MOCK:M01', 1, mock=False).startswith('TestExplain P1')
+       and dg_next_step(_R, 'MOCK:M01', 1, mock=True).startswith('MockExplain M1'))
     # GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: verdicts carry the gate's windows; a
-    # FAILED verdict needs windows + a direction for every rework q.
+    # DISCLOSED verdict needs windows + a direction for every rework q.
     _W = [None, [2, 6], [5, None]]
     _bands = {'Easy': {'total': 6, 'gated': False, 'window': None, 'assessed': 0, 'agree': 0,
                        'disagree': 0, 'allowed': 2, 'over_limit': False},
               'Hard': {'total': 6, 'gated': True, 'window': [5, None], 'assessed': 6, 'agree': 1,
                        'disagree': 5, 'allowed': 2, 'over_limit': True}}
     _DIRS = {4: 'harder', 1: 'easier'}
-    ck('DG-LEGAL-FAILED-0', dg_state(dg_write_verdict(_R, 'MOCK:M01', status='FAILED', rounds=0,
+    ck('DG-LEGAL-DISCLOSED-0', dg_state(dg_write_verdict(_R, 'MOCK:M01', status='DISCLOSED', rounds=0,
        bands=_bands, measured_by_q={1: 'Easy', 2: None}, rework_qs=[4, 1],
-       scores_by_q={1: 7, 2: None, 4: '3'}, rework_directions=_DIRS, windows=_W)) == ('FAILED', 0)
+       scores_by_q={1: 7, 2: None, 4: '3'}, rework_directions=_DIRS, windows=_W)) == ('DISCLOSED', 0)
        and _R['difficulty_gate']['MOCK:M01']['rework_qs'] == [1, 4]
        and _R['difficulty_gate']['MOCK:M01']['measured_by_q'] == {'1': 'Easy'}
        and _R['difficulty_gate']['MOCK:M01']['measured_score_by_q'] == {'1': 7, '4': 3}
@@ -713,13 +726,17 @@ def _self_test():
        and _R['difficulty_gate']['MOCK:M01']['windows'] == _W
        and _R['difficulty_gate']['MOCK:M01']['gate_rule'] == DG_RULE_WINDOWS
        and dg_is_windowed(dg_read(_R, 'MOCK:M01')))
-    ck_dg_raises('DG-WIN-REFUSE-FAILED-no-windows', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+    # a not-met gate DELIVERS — the whole point of the retirement
+    ck('DG-DISCLOSED-0-DELIVERS', dg_deliver_decision(_R, 'MOCK:M01', 1, mock=False)['deliver'] is True
+       and dg_next_step(_R, 'MOCK:M01', 1, mock=False) == 'TestDeliver P1'
+       and dg_next_step(_R, 'MOCK:M01', 1, mock=True) == 'MockDeliver M1')
+    ck_dg_raises('DG-WIN-REFUSE-DISCLOSED-no-windows', lambda: dg_write_verdict({}, 'MOCK:M09', status='DISCLOSED',
                  rounds=0, bands=_bands, rework_qs=[4], rework_directions={4: 'harder'}))
-    ck_dg_raises('DG-WIN-REFUSE-FAILED-no-directions', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+    ck_dg_raises('DG-WIN-REFUSE-DISCLOSED-no-directions', lambda: dg_write_verdict({}, 'MOCK:M09', status='DISCLOSED',
                  rounds=0, bands=_bands, rework_qs=[4], windows=_W))
-    ck_dg_raises('DG-WIN-REFUSE-partial-directions', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+    ck_dg_raises('DG-WIN-REFUSE-partial-directions', lambda: dg_write_verdict({}, 'MOCK:M09', status='DISCLOSED',
                  rounds=0, bands=_bands, rework_qs=[4, 1], rework_directions={4: 'harder'}, windows=_W))
-    ck_dg_raises('DG-WIN-REFUSE-bad-direction', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED',
+    ck_dg_raises('DG-WIN-REFUSE-bad-direction', lambda: dg_write_verdict({}, 'MOCK:M09', status='DISCLOSED',
                  rounds=0, bands=_bands, rework_qs=[4], rework_directions={4: 'up'}, windows=_W))
     ck_dg_raises('DG-WIN-REFUSE-bad-windows-shape', lambda: dg_write_verdict({}, 'MOCK:M09', status='PASSED',
                  rounds=0, windows=[None, [2, 6]]))
@@ -739,112 +756,69 @@ def _self_test():
     ck('DG-WIN-PASSED-stamped', dg_is_windowed(dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0, windows=_W))
        and not dg_is_windowed(dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=0))
        and not dg_is_windowed(None) and not dg_is_windowed({'status': 'PENDING'}))
-    # a FAILED record from the retired rule: re-judge, never repair, never deliver
-    _OLD = {'difficulty_gate': {'MOCK:M07': {'schema': 2, 'status': 'FAILED', 'repair_rounds_used': 0,
-                                            'rework_qs': [2, 5], 'bands': {'Hard': {'total': 2}}}}}
-    ck('DG-WIN-OLD-FAILED-next-is-explain', dg_next_step(_OLD, 'MOCK:M07', 7, mock=True).startswith('MockExplain M7')
-       and 'CreateRepair' not in dg_next_step(_OLD, 'MOCK:M07', 7, mock=True)
-       and dg_deliver_decision(_OLD, 'MOCK:M07', 7, mock=True)['deliver'] is False
-       and 'retired' in dg_deliver_decision(_OLD, 'MOCK:M07', 7, mock=True)['reason'])
-    ck_dg_raises('DG-WIN-OLD-FAILED-snapshot-refused', lambda: dg_add_rework_snapshot(_OLD, 'MOCK:M07', {2: 'a', 5: 'b'}))
-    ck('DG-WIN-OLD-FAILED-still-legal-state', dg_is_legal(dg_read(_OLD, 'MOCK:M07'))
-       and dg_preflight(_OLD, 'MOCK:M07', 'test')[1] is None)
-    # a fresh round-0 verdict over a FAILED/0 that already has a snapshot: the snapshot
-    # survives ONLY if the rework set is identical; otherwise it is retired (never stale)
-    _RS = {'difficulty_gate': {'MOCK:M08': {'status': 'FAILED', 'repair_rounds_used': 0, 'rework_qs': [1, 4],
-           'gate_rule': DG_RULE_WINDOWS, 'rework_stem_hashes': {'1': 'a', '4': 'b'}, 'baseline_stem_hashes': {'2': 'c'}}}}
-    _same = dg_write_verdict(dict(_RS), 'MOCK:M08', status='FAILED', rounds=0, bands=_bands, windows=_W,
-                             rework_qs=[4, 1], rework_directions={1: 'harder', 4: 'harder'})
-    ck('DG-SNAPSHOT-KEPT-same-rework-set', _same['rework_stem_hashes'] == {'1': 'a', '4': 'b'}
-       and 'superseded_snapshots' not in _same)
-    _rejudged = dg_write_verdict({'difficulty_gate': {'MOCK:M08': dict(_RS['difficulty_gate']['MOCK:M08'])}},
-                                 'MOCK:M08', status='PASSED', rounds=0, bands=_bands, windows=_W, rework_qs=[])
-    ck('DG-SNAPSHOT-RETIRED-on-rejudge', 'rework_stem_hashes' not in _rejudged and 'baseline_stem_hashes' not in _rejudged
-       and _rejudged['superseded_snapshots'][0]['rework_qs'] == ['1', '4'])
-    _diff = dg_write_verdict({'difficulty_gate': {'MOCK:M08': dict(_RS['difficulty_gate']['MOCK:M08'])}},
-                             'MOCK:M08', status='FAILED', rounds=0, bands=_bands, windows=_W,
-                             rework_qs=[1], rework_directions={1: 'harder'})
-    ck('DG-SNAPSHOT-RETIRED-different-set-then-fresh-snapshot', 'rework_stem_hashes' not in _diff
-       and dg_add_rework_snapshot({'difficulty_gate': {'MOCK:M08': _diff}}, 'MOCK:M08', {1: 'z'}) == {'1': 'z'})
-    _spent = {'difficulty_gate': {'MOCK:M08': {'status': 'DISCLOSED', 'repair_rounds_used': 1, 'rework_qs': [1],
-              'gate_rule': DG_RULE_WINDOWS, 'rework_stem_hashes': {'1': 'a', '4': 'b'}}}}
-    _carry = dg_write_verdict(_spent, 'MOCK:M08', status='PASSED', rounds=0, windows=_W, rework_qs=[])
-    ck('DG-SNAPSHOT-KEPT-on-carried-round', _carry['rework_stem_hashes'] == {'1': 'a', '4': 'b'}
-       and dg_state(_carry) == ('PASSED', 1))
-    # THE INCIDENT: repair_rounds_used=1 with status FAILED must be UNWRITABLE
+    # THE RETIREMENT: no writer accepts FAILED, in any round, windowed or not
+    ck_dg_raises('DG-REFUSE-FAILED-0', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED', rounds=0,
+                 bands=_bands, windows=_W, rework_qs=[4], rework_directions={4: 'harder'}))
     ck_dg_raises('DG-REFUSE-FAILED-1', lambda: dg_write_verdict({}, 'MOCK:M09', status='FAILED', rounds=1))
+    ck_dg_raises('DG-REFUSE-rounds-1-minted', lambda: dg_write_verdict({}, 'MOCK:M09', status='PASSED', rounds=1))
+    ck_dg_raises('DG-REFUSE-DISCLOSED-1-minted', lambda: dg_write_verdict({}, 'MOCK:M09', status='DISCLOSED', rounds=1,
+                 bands=_bands, windows=_W))
     ck_dg_raises('DG-REFUSE-PENDING-1', lambda: dg_write_verdict({}, 'MOCK:M09', status='PENDING', rounds=1))
-    ck_dg_raises('DG-REFUSE-DISCLOSED-0', lambda: dg_write_verdict({}, 'MOCK:M09', status='DISCLOSED', rounds=0))
     ck_dg_raises('DG-REFUSE-DORMANT-1', lambda: dg_write_verdict({}, 'MOCK:M09', status='DORMANT', rounds=1, dormant_reason='scoped_paper'))
     ck_dg_raises('DG-DORMANT-REASON', lambda: dg_write_verdict({}, 'MOCK:M09', status='DORMANT', rounds=0))
     ck_dg_raises('DG-REFUSE-UNKNOWN-STATUS', lambda: dg_write_verdict({}, 'MOCK:M09', status='OK', rounds=0))
-    # snapshot: FAILED-only, write-once, no leak into status/counter
-    ck_dg_raises('DG-SNAPSHOT-STATE', lambda: dg_add_rework_snapshot(_R, 'SUBJ:Physics:01', {1: 'x'}))
-    ck_dg_raises('DG-SNAPSHOT-NO-RECORD', lambda: dg_add_rework_snapshot(_R, 'MOCK:M77', {1: 'x'}))
-    _h1 = dg_add_rework_snapshot(_R, 'MOCK:M01', {1: dg_stem_hash('Q.1 old'), 4: dg_stem_hash('Q.4 old')})
-    _h2 = dg_add_rework_snapshot(_R, 'MOCK:M01', {1: 'REPAIRED-HASH', 4: 'REPAIRED-HASH'})
-    ck('DG-SNAPSHOT-ONCE', _h1 == _h2 == _R['difficulty_gate']['MOCK:M01']['rework_stem_hashes']
-       and _h1['1'] == dg_stem_hash('Q.1 old'))
-    ck('DG-SNAPSHOT-NOLEAK', dg_state(dg_read(_R, 'MOCK:M01')) == ('FAILED', 0))
-    ck('DG-STEMHASH-PIN', dg_stem_hash('Q.1 x') == '378388b8f9cac200910e0f8ebbc73c6e13525760da0e5b6fc8bea75ddcaa9917'
-       and dg_stem_hash('Q.1 x') != dg_stem_hash('Q.1 x '))   # pinned digest locks the algorithm
-    # R3 as one call: exact set, extras, missing, no snapshot
-    ck('DG-R3-exact', dg_verify_repair(dg_read(_R, 'MOCK:M01'), {1: 'Q.1 new', 4: 'Q.4 new'})['ok'])
-    _r3 = dg_verify_repair(dg_read(_R, 'MOCK:M01'), {1: 'Q.1 old', 4: 'Q.4 new'})
-    ck('DG-R3-unchanged-listed-named', not _r3['ok'] and _r3['unchanged_listed'] == [1])
-    ck('DG-R3-missing-snapshot', dg_verify_repair({'rework_qs': [1]}, {1: 'x'})['missing_snapshot'])
-    # E20/E23: extras outside rework_qs are only detectable with the all-question baseline
-    _RB = {'difficulty_gate': {'MOCK:M01': {'status': 'FAILED', 'repair_rounds_used': 0, 'rework_qs': [1],
-                                            'gate_rule': DG_RULE_WINDOWS}}}
-    dg_add_rework_snapshot(_RB, 'MOCK:M01', {1: dg_stem_hash('Q.1 old')},
-                           all_stem_hashes={1: dg_stem_hash('Q.1 old'), 2: dg_stem_hash('Q.2 old')})
-    _rb = dg_read(_RB, 'MOCK:M01')
-    _e20 = dg_verify_repair(_rb, {1: 'Q.1 new', 2: 'Q.2 TAMPERED'})
-    ck('DG-R3-changed-unlisted-named', not _e20['ok'] and _e20['changed_unlisted'] == [2] and _e20['extras_verifiable'])
-    ck('DG-R3-baseline-exact-ok', dg_verify_repair(_rb, {1: 'Q.1 new', 2: 'Q.2 old'})['ok'])
-    _e23 = dg_verify_repair(_rb, {1: 'Q.1 old', 2: 'Q.2 old'})
-    ck('DG-R3-pre-repair-paper-attached', not _e23['ok'] and _e23['unchanged_listed'] == [1])
-    ck('DG-R3-baseline-write-once', dg_add_rework_snapshot(_RB, 'MOCK:M01', {1: 'x'}, all_stem_hashes={1: 'x', 2: 'x'})
-       == {'1': dg_stem_hash('Q.1 old')} and _rb['baseline_stem_hashes']['2'] == dg_stem_hash('Q.2 old'))
-    ck('DG-R3-baseline-carried-by-regate', 'baseline_stem_hashes' in
-       dg_write_verdict(_RB, 'MOCK:M01', status='PASSED', rounds=1))
-    # crash-safety (G-6): a §7A-R that dies before dg_write_verdict leaves (FAILED,0); re-run succeeds
-    _crash = {'difficulty_gate': {'MOCK:M01': dict(dg_read(_R, 'MOCK:M01'))}}
-    ck('DG-CRASH-SAFE', dg_state(dg_read(_crash, 'MOCK:M01')) == ('FAILED', 0)
-       and dg_preflight(_crash, 'MOCK:M01', 'test')[1] is None)
-    # the re-gate: atomic, carries the snapshot and migrations forward
-    _R2 = {'difficulty_gate': {'MOCK:M01': dict(dg_read(_R, 'MOCK:M01'), migrations=[{'gap': 'X'}])}}
-    _v = dg_write_verdict(_R2, 'MOCK:M01', status='DISCLOSED', rounds=1, bands=_bands)
-    ck('DG-LEGAL-DISCLOSED-1', dg_state(_v) == ('DISCLOSED', 1) and 'rework_stem_hashes' in _v
+    # inert legacy-repair fields and the migrations trail survive every re-gate, untouched
+    _R2 = {'difficulty_gate': {'MOCK:M01': dict(dg_read(_R, 'MOCK:M01'), migrations=[{'gap': 'X'}],
+                                                rework_stem_hashes={'1': 'a'}, baseline_stem_hashes={'2': 'b'},
+                                                superseded_snapshots=[{'rework_qs': ['3']}])}}
+    _v = dg_write_verdict(_R2, 'MOCK:M01', status='PASSED', rounds=0, windows=_W)
+    ck('DG-INERT-FIELDS-CARRIED', dg_state(_v) == ('PASSED', 0) and _v['rework_stem_hashes'] == {'1': 'a'}
+       and _v['baseline_stem_hashes'] == {'2': 'b'} and _v['superseded_snapshots'] == [{'rework_qs': ['3']}]
        and _v['migrations'] == [{'gap': 'X'}] and _v['schema'] == DG_SCHEMA)
-    ck('DG-LEGAL-PASSED-1', dg_state(dg_write_verdict({'difficulty_gate': {'MOCK:M01': dict(dg_read(_R, 'MOCK:M01'))}},
-       'MOCK:M01', status='PASSED', rounds=1)) == ('PASSED', 1))
     ck('DG-LEGAL-PASSED-0', dg_state(dg_write_verdict({}, 'MOCK:M02', status='PASSED', rounds=0)) == ('PASSED', 0))
     ck('DG-LEGAL-DORMANT-0', dg_state(dg_write_verdict({}, 'MOCK:M02', status='DORMANT', rounds=0,
        dormant_reason='vocabulary_not_3_band')) == ('DORMANT', 0))
-    # ROUND-MONOTONIC (E16): a full re-explain cannot grant a second round
-    _R3 = {'difficulty_gate': {'MOCK:M01': dict(_v)}}
-    _re = dg_write_verdict(_R3, 'MOCK:M01', status='FAILED', rounds=0, bands=_bands, windows=_W,
+    # LEGACY REPAIRED PAPERS (PASSED/1, DISCLOSED/1 written by the retired steps):
+    # read-legal, deliverable, and ROUND-MONOTONIC on a re-run (the spent count is carried)
+    _L1 = {'difficulty_gate': {'MOCK:M04': {'schema': 2, 'status': 'PASSED', 'repair_rounds_used': 1}}}
+    _L2 = {'difficulty_gate': {'MOCK:M04': {'schema': 2, 'status': 'DISCLOSED', 'repair_rounds_used': 1,
+                                            'bands': _bands}}}
+    ck('DG-LEGACY-REPAIRED-legal', dg_is_legal(dg_read(_L1, 'MOCK:M04')) and dg_is_legal(dg_read(_L2, 'MOCK:M04'))
+       and dg_preflight(_L1, 'MOCK:M04', 'test')[1] is None and dg_preflight(_L2, 'MOCK:M04', 'test')[1] is None
+       and dg_read(_L1, 'MOCK:M04')['schema'] == DG_SCHEMA)
+    ck('DG-LEGACY-REPAIRED-delivers', dg_deliver_decision(_L1, 'MOCK:M04', 4, mock=True)['deliver']
+       and dg_deliver_decision(_L2, 'MOCK:M04', 4, mock=True)['deliver']
+       and dg_next_step(_L2, 'MOCK:M04', 4, mock=True) == 'MockDeliver M4')
+    _re = dg_write_verdict(_L2, 'MOCK:M04', status='DISCLOSED', rounds=0, bands=_bands, windows=_W,
                            rework_qs=[4], rework_directions={4: 'harder'})
     ck('DG-ROUND-MONOTONIC', dg_state(_re) == ('DISCLOSED', 1) and _re.get('rounds_carried_from') == 1)
-    ck('DG-DORMANT-never-erases-terminal', dg_state(dg_write_verdict({'difficulty_gate': {'MOCK:M01': dict(_v)}},
-       'MOCK:M01', status='DORMANT', rounds=0, dormant_reason='blueprint_core_unavailable')) == ('DISCLOSED', 1))
-    ck('DG-ROUND-MONOTONIC-pass', dg_state(dg_write_verdict({'difficulty_gate': {'MOCK:M01': dict(_v)}},
-       'MOCK:M01', status='PASSED', rounds=0)) == ('PASSED', 1))
-    # migration: the LIVE incident record heals to (FAILED,0), disclosed, idempotent
+    ck('DG-ROUND-MONOTONIC-pass', dg_state(dg_write_verdict(dict(_L1), 'MOCK:M04', status='PASSED', rounds=0))
+       == ('PASSED', 1))
+    ck('DG-DORMANT-never-erases-terminal', dg_state(dg_write_verdict(dict(_L2), 'MOCK:M04', status='DORMANT',
+       rounds=0, dormant_reason='blueprint_core_unavailable')) == ('DISCLOSED', 1))
+    # migration: a RETIRED FAILED record (any counter) heals to DISCLOSED/0, disclosed, idempotent
     _live = {'difficulty_gate': {'MOCK:M01': {'schema': 1, 'status': 'FAILED', 'threshold': 0.3,
              'repair_rounds_used': 1, 'bands': _bands, 'rework_qs': [1, 2, 4],
              'timestamp': '2026-08-25T11:20:12+00:00', 'rework_stem_hashes': {'1': 'a', '2': 'b', '4': 'c'}}}}
     ck_dg_raises('DG-ASSERT-ILLEGAL-raises', lambda: dg_assert_legal(_live, 'MOCK:M01', 'test'))
     ck_dg_raises('DG-NEXTSTEP-ILLEGAL-raises', lambda: dg_next_step(_live, 'MOCK:M01', 1, mock=False))
+    ck_dg_raises('DG-DELIVER-ILLEGAL-raises', lambda: dg_deliver_decision(_live, 'MOCK:M01', 1, mock=False))
     _rec, _disc = dg_preflight(_live, 'MOCK:M01', 'test')
-    ck('DG-MIGRATE-F1', dg_state(_rec) == ('FAILED', 0) and _disc is not None
-       and _disc['from'] == 1 and _disc['to'] == 0 and 'HEALED' in _disc['line']
-       and _rec['migrations'][0]['gap'] == DG_GAP_ID and _rec['schema'] == DG_SCHEMA
-       and _rec['rework_stem_hashes'] == {'1': 'a', '2': 'b', '4': 'c'})
+    ck('DG-MIGRATE-FAILED-1', dg_state(_rec) == ('DISCLOSED', 0) and _disc is not None
+       and _disc['field'] == 'status' and _disc['from'] == 'FAILED' and _disc['to'] == 'DISCLOSED'
+       and 'HEALED' in _disc['line'] and 'RETIRED' in _disc['line']
+       and _rec['migrations'][0]['gap'] == DG_REPAIR_RETIRED_ID and _rec['schema'] == DG_SCHEMA
+       and _rec['rework_stem_hashes'] == {'1': 'a', '2': 'b', '4': 'c'} and _rec['bands'] == _bands)
+    ck('DG-MIGRATE-FAILED-0', dg_state(dg_preflight({'difficulty_gate': {'X': {'status': 'FAILED',
+       'repair_rounds_used': 0, 'gate_rule': DG_RULE_WINDOWS}}}, 'X', 't')[0]) == ('DISCLOSED', 0))
+    ck('DG-MIGRATE-FAILED-old-rule', dg_state(dg_preflight({'difficulty_gate': {'X': {'status': 'FAILED',
+       'repair_rounds_used': 0}}}, 'X', 't')[0]) == ('DISCLOSED', 0))     # retired band-equality rule: same heal
     ck('DG-MIGRATE-IDEMPOTENT', dg_migrate(_live, 'MOCK:M01') is None and len(_rec['migrations']) == 1)
-    ck('DG-MIGRATE-DISCLOSED-0', dg_migrate({'difficulty_gate': {'X': {'status': 'DISCLOSED', 'repair_rounds_used': 0}}}, 'X')['to'] == 1)
+    ck('DG-MIGRATE-healed-delivers', dg_deliver_decision(_live, 'MOCK:M01', 1, mock=False)['deliver']
+       and any('healed' in ln for ln in dg_deliver_decision(_live, 'MOCK:M01', 1, mock=False)['footer_lines']))
     ck('DG-MIGRATE-PASSED-clamp', dg_migrate({'difficulty_gate': {'X': {'status': 'PASSED', 'repair_rounds_used': 3}}}, 'X')['to'] == 1)
+    ck('DG-MIGRATE-DISCLOSED-clamp', dg_migrate({'difficulty_gate': {'X': {'status': 'DISCLOSED', 'repair_rounds_used': 2}}}, 'X')['to'] == 1)
+    ck('DG-MIGRATE-negative-counter', dg_migrate({'difficulty_gate': {'X': {'status': 'PASSED', 'repair_rounds_used': 'x'}}}, 'X')['to'] == 0)
     ck('DG-MIGRATE-PENDING-1', dg_migrate({'difficulty_gate': {'X': {'status': 'PENDING', 'repair_rounds_used': 1}}}, 'X')['to'] == 0)
     ck('DG-MIGRATE-DORMANT-1', dg_migrate({'difficulty_gate': {'X': {'status': 'DORMANT', 'repair_rounds_used': 2, 'dormant_reason': 'scoped_paper'}}}, 'X')['to'] == 0)
     ck_dg_raises('DG-MIGRATE-UNKNOWN', lambda: dg_migrate({'difficulty_gate': {'X': {'status': 'BOGUS'}}}, 'X'))
@@ -853,13 +827,10 @@ def _self_test():
        and dg_deliver_decision({}, 'MOCK:M01', 1, mock=True)['deliver'])
     ck('DG-E17-missing-counter', dg_is_legal({'status': 'PASSED'}))
     # NEXT-STEP AGREES WITH STEP 11 (the mechanical G-3 guard): for every legal state
-    # the step dg_next_step names is one whose own preflight accepts that state.
-    # (windowed rule: TestExplain also accepts a FAILED record judged under the
-    #  retired rule — it re-judges it; TestCreateRepair accepts only a windowed FAILED.)
-    def _accepts(step, st, windowed):
-        return {'Deliver': st in DG_DELIVERABLE,
-                'Explain': st == 'PENDING' or (st == 'FAILED' and not windowed),
-                'CreateRepair': st == 'FAILED' and windowed}[step]
+    # the step dg_next_step names is one whose own preflight accepts that state, and
+    # no next-step string can ever name a retired trigger.
+    def _accepts(step, st):
+        return {'Deliver': st in DG_DELIVERABLE, 'Explain': st == 'PENDING'}.get(step, False)
     _agree = True
     for (_st, _rn) in DG_LEGAL_STATES:
       for _win in (True, False):
@@ -868,46 +839,53 @@ def _self_test():
                 **({'gate_rule': DG_RULE_WINDOWS} if _win else {})}}}
         _cmd = dg_next_step(_reg, 'MOCK:M05', 5, mock=False)
         _step = _cmd.split()[0].replace('Test', '')
-        _agree &= _accepts(_step, _st, _win)
+        _agree &= _accepts(_step, _st) and 'Repair' not in _cmd
         _dec = dg_deliver_decision(_reg, 'MOCK:M05', 5, mock=False)
         _agree &= (_dec['deliver'] == (_st in DG_DELIVERABLE))
         _agree &= (_dec['next_step'] is None) == _dec['deliver']
     ck('DG-NEXTSTEP-AGREE', _agree)
-    ck('DG-NEXTSTEP-FAILED-lists-qs', dg_next_step({'difficulty_gate': {'MOCK:M05': {'status': 'FAILED',
-       'repair_rounds_used': 0, 'rework_qs': [3, 8], 'gate_rule': DG_RULE_WINDOWS}}}, 'MOCK:M05', 5, mock=True)
-       == 'MockCreateRepair M5 Q3 Q8\n   then: MockExplainRepair M5')
-    # footer: shape is a function of status; migrations always disclosed
-    ck('DG-FOOTER-DISCLOSED-pre-window', dg_footer_lines(_v)[0]
-       == 'Measured difficulty: Easy 0/6 · Hard 1/6 confirmed after 1 repair round.'
-       and len(dg_footer_lines(_v)) == 2)          # + the carried migration line
-    _vw = dg_write_verdict({'difficulty_gate': {'MOCK:M01': dict(dg_read(_R, 'MOCK:M01'))}}, 'MOCK:M01',
-                           status='DISCLOSED', rounds=1, bands=_bands, windows=_W)
-    ck('DG-FOOTER-DISCLOSED-windowed', dg_footer_lines(_vw)
-       == ['Measured difficulty: Easy 6 (not gated) · Hard 1/6 in window confirmed after 1 repair round.'])
+    # footer: shape is a function of status and round; migrations always disclosed
+    _d0 = dg_read(_R, 'MOCK:M01')                       # DISCLOSED/0, windowed
+    ck('DG-FOOTER-DISCLOSED-0-windowed', dg_footer_lines(_d0)
+       == ['Measured difficulty: Easy 6 (not gated) · Hard 1/6 in window — the difficulty gate '
+           'was not met; labels are as planned at Step 7.'])
+    ck('DG-FOOTER-DISCLOSED-0-pre-window', dg_footer_lines({'status': 'DISCLOSED', 'repair_rounds_used': 0,
+       'bands': _bands})[0].startswith('Measured difficulty: Easy 0/6 · Hard 1/6 — the difficulty gate was not met'))
+    ck('DG-FOOTER-DISCLOSED-1-legacy', dg_footer_lines(_re)
+       == ['Measured difficulty: Easy 6 (not gated) · Hard 1/6 in window confirmed after 1 repair round '
+           '(legacy repair — the repair steps are retired).'])
     ck('DG-FOOTER-DISCLOSED-windowed-missing-gated-key', 'in window' in dg_footer_lines(
-       {'status': 'DISCLOSED', 'repair_rounds_used': 1, 'gate_rule': DG_RULE_WINDOWS,
+       {'status': 'DISCLOSED', 'repair_rounds_used': 0, 'gate_rule': DG_RULE_WINDOWS,
         'bands': {'Medium': {'total': 3, 'agree': 2}}})[0])
     ck('DG-FOOTER-DORMANT', dg_footer_lines(dg_read(_R, 'SUBJ:Physics:01'))
        == ['Difficulty gate: not applicable to this paper (scoped_paper) — labels are as planned at Step 7.'])
-    ck('DG-FOOTER-PASSED-none', dg_footer_lines({'status': 'PASSED', 'repair_rounds_used': 0}) == [])
-    ck('DG-FOOTER-MIGRATION', any('healed' in ln for ln in dg_footer_lines(_rec)))
+    ck('DG-FOOTER-PASSED-none', dg_footer_lines({'status': 'PASSED', 'repair_rounds_used': 0}) == []
+       and dg_footer_lines({'status': 'PASSED', 'repair_rounds_used': 1}) == [])
+    ck('DG-FOOTER-MIGRATION', any('healed' in ln for ln in dg_footer_lines(_rec))
+       and any(DG_REPAIR_RETIRED_ID in ln for ln in dg_footer_lines(_rec)))
     ck('DG-FOOTER-PENDING-no-bands-KeyError', dg_footer_lines({'status': 'PENDING'}) == [])
-    # fleet heal: report vs apply, scoped PENDING cohort, escalation never touched
+    # fleet heal: report vs apply, retired FAILED cohort, scoped PENDING cohort, escalation never touched
     _fleet = {'difficulty_gate': {
         'MOCK:M01': {'status': 'FAILED', 'repair_rounds_used': 1, 'rework_qs': [1]},
         'MOCK:M02': {'status': 'PENDING', 'repair_rounds_used': 0},
+        'MOCK:M04': {'status': 'FAILED', 'repair_rounds_used': 0, 'gate_rule': DG_RULE_WINDOWS},
+        'MOCK:M05': {'status': 'DISCLOSED', 'repair_rounds_used': 1},
         'SUBJ:Chem:01': {'status': 'PENDING', 'repair_rounds_used': 0},
         'SUBJ:Chem:02': {'status': 'PENDING', 'repair_rounds_used': 1},
         'MOCK:M03': {'status': 'WEIRD', 'repair_rounds_used': 0}}}
     _rep = dg_fleet_heal(_fleet, apply=False)
-    ck('DG-FLEET-REPORT', [x[0] for x in _rep['illegal']] == ['MOCK:M01', 'SUBJ:Chem:02'] and _rep['pending'] == ['MOCK:M02']
+    ck('DG-FLEET-REPORT', [x[0] for x in _rep['illegal']] == ['MOCK:M01', 'MOCK:M04', 'SUBJ:Chem:02']
+       and _rep['pending'] == ['MOCK:M02']
        and _rep['stuck_scoped'] == ['SUBJ:Chem:01'] and [x[0] for x in _rep['escalate']] == ['MOCK:M03']
        and not _rep['changed'] and dg_state(_fleet['difficulty_gate']['MOCK:M01']) == ('FAILED', 1))
     _app = dg_fleet_heal(_fleet, apply=True)
-    ck('DG-FLEET-APPLY', _app['changed'] and sorted(_app['healed']) == ['MOCK:M01', 'SUBJ:Chem:01', 'SUBJ:Chem:02']
+    ck('DG-FLEET-APPLY', _app['changed']
+       and sorted(_app['healed']) == ['MOCK:M01', 'MOCK:M04', 'SUBJ:Chem:01', 'SUBJ:Chem:02']
        and dg_state(_fleet['difficulty_gate']['SUBJ:Chem:02']) == ('DORMANT', 0)
        and dg_fleet_heal(_fleet, apply=False)['illegal'] == [] and dg_fleet_heal(_fleet, apply=False)['stuck_scoped'] == []
-       and dg_state(_fleet['difficulty_gate']['MOCK:M01']) == ('FAILED', 0)
+       and dg_state(_fleet['difficulty_gate']['MOCK:M01']) == ('DISCLOSED', 0)
+       and dg_state(_fleet['difficulty_gate']['MOCK:M04']) == ('DISCLOSED', 0)
+       and dg_state(_fleet['difficulty_gate']['MOCK:M05']) == ('DISCLOSED', 1)      # legacy: untouched
        and dg_state(_fleet['difficulty_gate']['SUBJ:Chem:01']) == ('DORMANT', 0)
        and _fleet['difficulty_gate']['MOCK:M03']['status'] == 'WEIRD'
        and dg_state(_fleet['difficulty_gate']['MOCK:M02']) == ('PENDING', 0))
@@ -942,7 +920,7 @@ def _self_test():
                       reg_name='EX_registry.json', registry_changed=False, final=True)
     ck('RH-legacy-says-unchanged', _hl['files'] == ['EX_Mock01_Explanation.docx']
        and any('registry unchanged this run' in l for l in _hl['lines']))
-    # a changed registry can NEVER be withheld: any changed → delivered (all 10 steps)
+    # a changed registry can NEVER be withheld: any changed → delivered (all 6 steps)
     ck('RH-changed-always-delivered', all(
         handoff_set(st, primary_docx='p.docx', reg_name='EX_registry.json',
                     registry_changed=True)['registry_delivered'] for st in RH_MOCK_TRACK_STEPS))
@@ -951,10 +929,10 @@ def _self_test():
        reg_name='EX_registry.json', registry_changed=True)['files'][1] == 'EX_registry.json')
     ck('RH-deliver-clean', handoff_set('TestDeliver', primary_docx='EX_Mock01_Final.docx',
        reg_name='EX_registry.json', registry_changed=False)['files'] == ['EX_Mock01_Final.docx'])
-    # Step 7 repair: repaired paper + registry (the snapshot §7A-R R3 needs)
-    _hr = handoff_set('TestCreateRepair', primary_docx='EX_Mock01_Create_Repaired.docx',
-                      reg_name='EX_registry.json', registry_changed=True)
-    ck('RH-create-repair-set', _hr['files'] == ['EX_Mock01_Create_Repaired.docx', 'EX_registry.json'])
+    # v5.76: the retired repair triggers are UNKNOWN steps — a spec that still names one fails here
+    ck('RH-retired-repair-steps-refused', all(_raises(lambda st=st: handoff_set(st, primary_docx='x',
+       reg_name='r', registry_changed=True), RHIllegalHandoff)
+       for st in ('TestCreateRepair', 'MockCreateRepair', 'TestExplainRepair', 'MockExplainRepair')))
     ck('RH-unknown-step-raises', _raises(lambda: handoff_set('PYQSort', primary_docx='x',
        reg_name='r', registry_changed=False), RHIllegalHandoff))
     ck('RH-report-midrun-raises', _raises(lambda: handoff_set('TestExplain', primary_docx='x',
@@ -1395,45 +1373,53 @@ def classify_unresolved(bad_ids, blueprint):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CLUSTER DG — DIFFICULTY-GATE RECORD, SINGLE WRITER
-#            (v5.71 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER)
+#            (v5.71 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER;
+#             v5.76 — REPAIR-RETIRED, operator decision 2026-08-27)
 #
 # registry['difficulty_gate'][paper_id] is cross-step, machine-read state: written at
-# Step 7 (birth), Step 9 (§7A-M gate, §7A-R re-gate) and Step 7-repair (§S16-3
-# snapshot), READ by Step 7-repair, Step 9, Step 9-repair and Step 11. Before this
-# cluster the ownership rule existed only as one clause of English prose
-# (MockTestCreate §S16-3: "UNTOUCHED except adding rework_stem_hashes") with no guard
-# behind it. A TestCreateRepair session set repair_rounds_used = 1 while status was
-# still 'FAILED' — a pair no step can produce on purpose — and the four triggers that
-# read the record refused the same paper with no exit (a completed 60-question paper
-# and its full explanation run were unrecoverable without a manual registry edit).
+# Step 7 (birth) and Step 9 (§7A-M gate), READ by Step 9 and Step 11. Before v5.71 the
+# ownership rule existed only as one clause of English prose with no guard behind it;
+# a session wrote a (status, counter) pair no step could produce on purpose and four
+# triggers refused the same paper with no exit.
 #
 # FROM HERE NO SPEC MAY WRITE THIS RECORD BY HAND. Every mutation goes through the
-# three permitted writers below, each of which validates the resulting
+# two permitted writers below, each of which validates the resulting
 # (status, repair_rounds_used) pair against DG_LEGAL_STATES before returning. Same
 # posture as bc.DATE_TAG_RE / cur_date_label (Framework_DeliveryFooter §2): one
 # writer, mechanically enforced. paper_pipeline is the ONLY engine on all six routes
-# (TestCreate · TestCreateRepair · TestExplain · TestExplainRepair · TestDeliver and
-# their Mock* aliases), which is why the cluster lives here and not in blueprint_core.
+# (TestCreate · TestExplain · TestDeliver and their Mock* aliases), which is why the
+# cluster lives here and not in blueprint_core.
 #
-# LEGAL STATE MACHINE (the contract no spec declared before v5.71):
+# REPAIR-RETIRED (v5.76, operator decision 2026-08-27). The four repair triggers
+# (TestCreateRepair · MockCreateRepair · TestExplainRepair · MockExplainRepair —
+# MockTestCreate §S16 and MockTestExplain §7A-R) are RETIRED. The difficulty gate
+# REPORTS AND DISCLOSES; it never blocks delivery. A paper whose band-level
+# disagreement exceeds the threshold is written DISCLOSED/0 and Step 11 delivers it
+# with the §FOOTER-DG measured-difficulty line. The status 'FAILED' is RETIRED: no
+# writer accepts it, and a record still carrying it (written before this release) is
+# healed to DISCLOSED/0 by dg_preflight with a disclosed migration line.
+#
+# LEGAL STATE MACHINE (schema 3):
 #     S0  (absent)        legacy paper, pre-gate           Step 11: DELIVER
 #     S1  PENDING   / 0   born; gate has not run           Step 11: HARD STOP → TestExplain
-#     S2  PASSED    / 0   gate passed first time           Step 11: DELIVER
-#     S3  FAILED    / 0   gate failed; ONE repair round    Step 11: HARD STOP → CreateRepair → ExplainRepair
-#     S4  PASSED    / 1   repaired; re-gate passed         Step 11: DELIVER
-#     S5  DISCLOSED / 1   repaired; re-gate failed         Step 11: DELIVER + §FOOTER-DG line
-#     S6  DORMANT   / 0   gate not applicable              Step 11: DELIVER + dormancy line
+#     S2  PASSED    / 0   gate passed                      Step 11: DELIVER
+#     S3  DISCLOSED / 0   gate not met; disclosed          Step 11: DELIVER + §FOOTER-DG line
+#     S4  DORMANT   / 0   gate not applicable              Step 11: DELIVER + dormancy line
+#     L1  PASSED    / 1   LEGACY — repaired before v5.76   Step 11: DELIVER
+#     L2  DISCLOSED / 1   LEGACY — repaired before v5.76   Step 11: DELIVER + §FOOTER-DG line
+# L1/L2 are READ-legal for records the retired repair steps wrote; no writer creates
+# a new one (dg_write_verdict CARRIES a spent count forward, never mints one).
+# PENDING is the ONLY gate state Step 11 refuses, and its remedy is TestExplain.
 #
-# DG-INVARIANT. A COMPLETED repair round resolves status away from FAILED (to PASSED
-# or DISCLOSED) in the SAME atomic write that sets repair_rounds_used = 1. Therefore
-# status == 'FAILED' ⇒ repair_rounds_used MUST be 0; any other value proves the
-# counter was written out of contract and the round is UNCONSUMED. This is what makes
-# dg_migrate deterministic: the record alone fixes itself, no history needed.
+# DG-INVARIANT (v5.76 form). repair_rounds_used is 0 on every record a current
+# writer creates; a record with counter 1 is a legacy repaired paper and its status is
+# PASSED or DISCLOSED. Every other pair is out of contract and dg_migrate heals it
+# deterministically from the record alone — no history needed. An UNKNOWN status is
+# never healed; the run HARD-STOPS.
 #
 # ROUND-MONOTONIC. repair_rounds_used never decreases through a legal writer. A full
-# §7A-M re-gate on a paper whose round is already spent (a TestExplain re-run after a
-# repair) cannot hand the paper a second round: a FAIL verdict on a spent round
-# resolves to DISCLOSED/1, never FAILED/0. See dg_write_verdict.
+# §7A-M re-run on a legacy repaired paper keeps its spent count (PASSED/1 or
+# DISCLOSED/1), so a re-run cannot erase the fact that the paper was once repaired.
 #
 # Pure: mutates the dict handed in, performs no I/O (thin-core, CHECK AB). The
 # fleet-scan CLI (`python3 final_assembly.py --dg-fleet-scan ROOT [--apply]`) lives in the
@@ -1441,37 +1427,40 @@ def classify_unresolved(bad_ids, blueprint):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-DG_SCHEMA = 2                    # v2 = legal states declared; v1 records auto-upgrade
-DG_MAX_REPAIR_ROUNDS = 1         # MIRRORS bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS (self-test asserts parity)
+DG_SCHEMA = 3                    # v3 = repair retired; v1/v2 records auto-upgrade on read
+DG_MAX_REPAIR_ROUNDS = 0         # MIRRORS bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS (self-test asserts parity)
+                                 # 1 → 0: repair triggers retired (operator decision 2026-08-27)
+DG_LEGACY_REPAIR_ROUNDS = 1      # the round count the RETIRED repair steps wrote; read-legal only
 DG_DEFAULT_THRESHOLD = 0.35      # MIRRORS bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC  (self-test asserts parity)
                                  # 0.30 → 0.35: operator decision 2026-08-25 (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS)
-DG_RULE_WINDOWS = 'windows'      # rec['gate_rule'] written by every verdict under the windowed rule;
-                                 # a FAILED record WITHOUT it was judged by the retired band-equality
-                                 # rule and is re-judged (TestExplain), never repaired — dg_is_windowed
+DG_RULE_WINDOWS = 'windows'      # rec['gate_rule'] written by every verdict under the windowed rule
 
 DG_DELIVERABLE = frozenset({'PASSED', 'DISCLOSED', 'DORMANT'})   # Step 11 may proceed
-DG_BLOCKING    = frozenset({'PENDING', 'FAILED'})                # Step 11 hard-stops
+DG_BLOCKING    = frozenset({'PENDING'})                          # Step 11 hard-stops (gate never ran)
 DG_STATUSES    = DG_DELIVERABLE | DG_BLOCKING
+DG_RETIRED_STATUSES = frozenset({'FAILED'})   # v5.76: healed to DISCLOSED/0 on read, never written
 
 DG_DORMANT_REASONS = ('no_difficulty_labels', 'vocabulary_not_3_band',
                       'blueprint_core_unavailable', 'scoped_paper')
 
 DG_GAP_ID = 'GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER'
+DG_REPAIR_RETIRED_ID = 'REPAIR-RETIRED-2026-08-27'
 
 
-def _dg_legal_states(max_rounds):
-    """The legal (status, rounds) table, GENERATED from the round limit so raising
-    bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS later needs no table edit (edge case E18).
-    Rules: PENDING/FAILED/DORMANT admit only 0; DISCLOSED admits only max_rounds
-    (the round budget is exhausted by definition); PASSED admits 0..max_rounds."""
+def _dg_legal_states(max_rounds, legacy_rounds=DG_LEGACY_REPAIR_ROUNDS):
+    """The legal (status, rounds) table, GENERATED from the round limits.
+    Current writers: PENDING/DORMANT/DISCLOSED/PASSED admit 0..max_rounds (0 today).
+    Legacy repaired papers: PASSED and DISCLOSED also admit exactly legacy_rounds —
+    read-legal for records the retired repair steps wrote (L1/L2 above)."""
     legal = {('PENDING', 0): 'final_assembly.commit_registry (birth)',
              ('DORMANT', 0): 'final_assembly (scoped) / Step 9 §7A-M (dormant gate)'}
+    who = 'Step 9 Framework_MockTestExplain §7A-M'
     for r in range(0, max_rounds + 1):
-        who = 'Step 9 Framework_MockTestExplain §7A-M' if r == 0 else 'Step 9 Framework_MockTestExplain §7A-R'
         legal[('PASSED', r)] = who
-        if r < max_rounds:                    # FAILED with a round still available
-            legal[('FAILED', r)] = who
-    legal[('DISCLOSED', max_rounds)] = 'Step 9 Framework_MockTestExplain §7A-R'
+        legal[('DISCLOSED', r)] = who
+    if legacy_rounds > max_rounds:
+        legal[('PASSED', legacy_rounds)] = 'LEGACY — retired repair step (pre-v5.76)'
+        legal[('DISCLOSED', legacy_rounds)] = 'LEGACY — retired repair step (pre-v5.76)'
     return legal
 
 
@@ -1508,32 +1497,31 @@ def dg_is_legal(rec):
 
 
 def dg_diagnose_illegal(rec):
-    """Deterministic one-field repair for a corrupt record, resting on DG-INVARIANT.
-    Returns {'field','from','to','explanation','remedy'}; 'to' is None when the record
-    is uninterpretable (unknown status) — such a record is NEVER auto-repaired."""
+    """Deterministic repair for a corrupt or retired-status record. Returns
+    {'field','from','to','explanation','remedy'} — 'field' is 'status' for a retired
+    FAILED record (healed to DISCLOSED, counter reset to 0 in the same heal) and
+    'repair_rounds_used' for a counter out of range; 'to' is None when the record is
+    uninterpretable (unknown status) — such a record is NEVER auto-repaired."""
     st, n = dg_state(rec)
-    if st == 'FAILED' and not (0 <= n < DG_MAX_REPAIR_ROUNDS):
-        to = DG_MAX_REPAIR_ROUNDS - 1
-        return {'field': 'repair_rounds_used', 'from': n, 'to': to,
-                'explanation': (f"status is 'FAILED', which proves the final repair round never "
-                                f"COMPLETED (a completed final round writes PASSED or DISCLOSED "
-                                f"atomically with the counter). The counter was written "
-                                f"out of contract; a repair round is UNCONSUMED."),
-                'remedy': f"set repair_rounds_used to {to} — the repair round is intact."}
+    if st in DG_RETIRED_STATUSES:
+        return {'field': 'status', 'from': st, 'to': 'DISCLOSED',
+                'explanation': (f"status {st!r} is RETIRED ({DG_REPAIR_RETIRED_ID}): the repair "
+                                f"steps no longer exist, so a gate that is not met is a "
+                                f"DISCLOSED verdict, not a blocking one. The record's round-0 "
+                                f"measurement is the verdict of record."),
+                'remedy': "set status to DISCLOSED and repair_rounds_used to 0 — the paper "
+                          "delivers with the measured-difficulty footer line."}
     if st in ('PENDING', 'DORMANT') and n != 0:
         return {'field': 'repair_rounds_used', 'from': n, 'to': 0,
                 'explanation': (f"status is {st!r}: the gate never ran (PENDING) or does not "
                                 f"apply (DORMANT), so no repair round can have been used."),
                 'remedy': "set repair_rounds_used to 0."}
-    if st == 'DISCLOSED' and n != DG_MAX_REPAIR_ROUNDS:
-        return {'field': 'repair_rounds_used', 'from': n, 'to': DG_MAX_REPAIR_ROUNDS,
-                'explanation': (f"status DISCLOSED is only reachable after the "
-                                f"{DG_MAX_REPAIR_ROUNDS} permitted repair round(s)."),
-                'remedy': f"set repair_rounds_used to {DG_MAX_REPAIR_ROUNDS}."}
-    if st == 'PASSED' and not (0 <= n <= DG_MAX_REPAIR_ROUNDS):
-        return {'field': 'repair_rounds_used', 'from': n, 'to': DG_MAX_REPAIR_ROUNDS,
-                'explanation': f"PASSED admits 0..{DG_MAX_REPAIR_ROUNDS} only.",
-                'remedy': f"clamp repair_rounds_used to {DG_MAX_REPAIR_ROUNDS}."}
+    if st in ('PASSED', 'DISCLOSED') and not (0 <= n <= DG_LEGACY_REPAIR_ROUNDS):
+        to = DG_LEGACY_REPAIR_ROUNDS if n > DG_LEGACY_REPAIR_ROUNDS else 0
+        return {'field': 'repair_rounds_used', 'from': n, 'to': to,
+                'explanation': (f"{st} admits 0 (current writer) or "
+                                f"{DG_LEGACY_REPAIR_ROUNDS} (legacy repaired paper) only."),
+                'remedy': f"set repair_rounds_used to {to}."}
     return {'field': 'status', 'from': st, 'to': None,
             'explanation': f"status {st!r} is not one of {sorted(DG_STATUSES)}.",
             'remedy': ("NO AUTOMATIC REPAIR — an unknown status cannot be interpreted. "
@@ -1543,8 +1531,8 @@ def dg_diagnose_illegal(rec):
 
 def dg_assert_legal(reg, paper_id, where):
     """Strict form: returns the record (None for legacy) or raises DGIllegalState with
-    the exact one-field remedy. Use dg_preflight for the healing form every step
-    preflight calls; this is for auditors and tests."""
+    the exact remedy. Use dg_preflight for the healing form every step preflight
+    calls; this is for auditors and tests."""
     rec = dg_read(reg, paper_id)
     if rec is None or dg_is_legal(rec):
         return rec
@@ -1557,25 +1545,29 @@ def dg_assert_legal(reg, paper_id, where):
 
 
 def dg_migrate(reg, paper_id):
-    """Idempotent, in-place heal of a legacy/corrupt record. Returns a disclosure dict
-    (None if nothing needed healing) that the caller MUST surface in chat and that the
-    delivery footer prints (dg_footer_lines reads rec['migrations']). NEVER silent: a
-    healed registry that looks identical to a clean one is the failure mode this gap is
-    about. An unknown status RAISES — it is never guessed at."""
+    """Idempotent, in-place heal of a legacy/corrupt/retired-status record. Returns a
+    disclosure dict (None if nothing needed healing) that the caller MUST surface in
+    chat and that the delivery footer prints (dg_footer_lines reads rec['migrations']).
+    NEVER silent: a healed registry that looks identical to a clean one is the failure
+    mode this gap is about. An unknown status RAISES — it is never guessed at."""
     rec = dg_read(reg, paper_id)
     if rec is None:
         return None
     if dg_is_legal(rec):
         if rec.get('schema') != DG_SCHEMA:
-            rec['schema'] = DG_SCHEMA         # v1 → v2 shape upgrade only; values untouched
+            rec['schema'] = DG_SCHEMA         # shape upgrade only; values untouched
         return None
     fix = dg_diagnose_illegal(rec)
     if fix['to'] is None:
         raise DGIllegalState(f"difficulty_gate[{paper_id}]: {fix['explanation']} {fix['remedy']}")
     before = dg_state(rec)
+    gap = DG_REPAIR_RETIRED_ID if fix['field'] == 'status' else DG_GAP_ID
     rec[fix['field']] = fix['to']
+    if fix['field'] == 'status':
+        # a retired FAILED record: the verdict of record is its round-0 measurement
+        rec['repair_rounds_used'] = 0
     rec['schema'] = DG_SCHEMA
-    entry = {'gap': DG_GAP_ID, 'field': fix['field'], 'from': fix['from'],
+    entry = {'gap': gap, 'field': fix['field'], 'from': fix['from'],
              'to': fix['to'], 'at': _dg_now()}
     rec.setdefault('migrations', []).append(entry)
     if not dg_is_legal(rec):
@@ -1583,23 +1575,23 @@ def dg_migrate(reg, paper_id):
                              f"{dg_state(rec)} (was {before})")
     return {'paper_id': paper_id, 'field': fix['field'], 'from': fix['from'],
             'to': fix['to'], 'explanation': fix['explanation'], 'remedy': fix['remedy'],
-            'line': (f"⚠ REGISTRY HEALED ({DG_GAP_ID}): difficulty_gate[{paper_id}]."
+            'line': (f"⚠ REGISTRY HEALED ({gap}): difficulty_gate[{paper_id}]."
                      f"{fix['field']} {fix['from']} → {fix['to']}. {fix['explanation']}")}
 
 
 def dg_preflight(reg, paper_id, where):
-    """THE FIRST CALL of every preflight that reads the record (MockTestCreate §S16-1
-    P0, MockTestExplain §7A-M / §7A-R R0, MockDeliver S1-2 3b). Heals a corrupt record
-    per DG-INVARIANT with mandatory disclosure (operator decision D3 of the gap: the
-    repair is provably unique and the operator is non-technical), refuses an
-    uninterpretable one. Returns (rec_or_None, disclosure_or_None). The caller MUST
-    print disclosure['line'] when it is not None and MUST persist the registry."""
+    """THE FIRST CALL of every preflight that reads the record (MockTestExplain §7A-M,
+    MockDeliver S1-2 3b). Heals a corrupt or retired-status record with mandatory
+    disclosure (the repair is provably unique and the operator is non-technical),
+    refuses an uninterpretable one. Returns (rec_or_None, disclosure_or_None). The
+    caller MUST print disclosure['line'] when it is not None and MUST persist the
+    registry."""
     disclosure = dg_migrate(reg, paper_id)          # raises on unknown status
     rec = dg_assert_legal(reg, paper_id, where)     # cannot raise after a successful migrate
     return rec, disclosure
 
 
-# ── the three permitted writers ──────────────────────────────────────────────────
+# ── the two permitted writers ────────────────────────────────────────────────────
 def dg_stamp_pending(reg, paper_id, threshold=DG_DEFAULT_THRESHOLD):
     """final_assembly.commit_registry ONLY, at paper commit. The ONLY place a record is
     CREATED. A MOCK paper is born PENDING (Step 11 refuses it until Step 9's gate has
@@ -1608,8 +1600,7 @@ def dg_stamp_pending(reg, paper_id, threshold=DG_DEFAULT_THRESHOLD):
     could never be delivered (gap defect G-4 — measured on every scoped paper in every
     project). Writing the terminal verdict at birth makes a scoped paper deliverable
     even if a Step-9 session never touches the record. A fresh commit REPLACES any
-    prior record for the same paper_id: a regenerated paper is a new paper, and a
-    stale rework_stem_hashes snapshot from a previous cycle would falsely accuse it."""
+    prior record for the same paper_id: a regenerated paper is a new paper."""
     scoped = paper_prefix(paper_id) != 'MOCK'
     rec = {'schema': DG_SCHEMA,
            'status': 'DORMANT' if scoped else 'PENDING',
@@ -1625,60 +1616,68 @@ def dg_stamp_pending(reg, paper_id, threshold=DG_DEFAULT_THRESHOLD):
 def dg_is_windowed(rec):
     """True when a record's verdict was produced under the windowed rule
     (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS): rec['gate_rule'] == DG_RULE_WINDOWS,
-    stamped by dg_write_verdict. PENDING/DORMANT/legacy/absent → False (nothing to
-    repair anyway). A FAILED record that is NOT windowed carries a rework list the
-    operator retired; dg_next_step routes it to TestExplain, dg_add_rework_snapshot
-    refuses it."""
+    stamped by dg_write_verdict. PENDING/DORMANT/legacy/absent → False. dg_footer_lines
+    reads it to choose the "in window" / "(not gated)" wording over plain fractions."""
     return isinstance(rec, dict) and rec.get('gate_rule') == DG_RULE_WINDOWS
 
 
 def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=None,
                      measured_by_q=None, rework_qs=None, dormant_reason=None,
                      scores_by_q=None, rework_directions=None, windows=None):
-    """Step 9 ONLY (§7A-M first gate: rounds=0; §7A-R re-gate: rounds=1). The ONLY
-    writer of `status` and `repair_rounds_used` after birth, and it writes them
-    TOGETHER — which is what makes (FAILED, 1) unreachable and DG-INVARIANT true.
+    """Step 9 ONLY (§7A-M gate: rounds=0). The ONLY writer of `status` and
+    `repair_rounds_used` after birth, and it writes them TOGETHER.
 
-    TERMINAL AND ATOMIC (gap defect G-6): call ONCE, at the END of a successful gate
-    or re-gate, never on entry. A crashed repair therefore leaves (FAILED, 0) and is
-    simply re-run; rework_stem_hashes is carried forward untouched, so §7A-R R3 still
-    validates against the pre-repair snapshot.
+    TERMINAL AND ATOMIC: call ONCE, at the END of a successful gate, never on entry.
 
-    ROUND-MONOTONIC (edge case E16): a §7A-M re-run (rounds=0) on a record whose round
-    is already spent keeps the spent count, and a FAIL on a spent round resolves to
-    DISCLOSED — a paper can never be handed a second repair round by re-running the
-    full explain. The carry is recorded in rec['rounds_carried_from'].
+    REPAIR-RETIRED (v5.76): the verdict of a gate that is NOT met is 'DISCLOSED' —
+    `status='FAILED'` is refused (DGIllegalState), because no step exists to consume
+    it. `rounds` must be DG_MAX_REPAIR_ROUNDS (0); a spent legacy count is CARRIED.
+
+    ROUND-MONOTONIC: a §7A-M re-run on a legacy repaired record (PASSED/1 or
+    DISCLOSED/1) keeps the spent count, recorded in rec['rounds_carried_from'], so a
+    re-run cannot erase the fact that the paper was once repaired.
 
     WINDOWED RULE (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS): pass the gate result's
     scores_by_q (raw rubric scores → 'measured_score_by_q'), rework_directions
-    ({q: 'harder'|'easier'} → Step 7 §S16 reads which way to rewrite) and windows
-    (gate['windows'], the per-position acceptance windows the verdict was judged
-    by). A PASSED/FAILED/DISCLOSED verdict carrying `windows` is stamped
-    rec['gate_rule'] = DG_RULE_WINDOWS; a FAILED verdict WITHOUT windows is refused
+    ({q: 'harder'|'easier'} — the verdict box prints which way each flagged question
+    measured) and windows (gate['windows']). A verdict carrying `windows` is stamped
+    rec['gate_rule'] = DG_RULE_WINDOWS; a DISCLOSED verdict WITHOUT windows is refused
     (the band-equality rule is retired — no new record may be written under it).
     rework_directions must cover every rework q (a partial map is a caller bug).
 
+    Inert fields a retired repair step left on the record (rework_stem_hashes,
+    baseline_stem_hashes, superseded_snapshots) and the migrations trail are carried
+    forward untouched — never read, never stripped (stripping would be a silent
+    registry mutation).
+
     Raises DGIllegalState rather than write an illegal pair. NEVER build this dict by
     hand in a spec."""
+    if status in DG_RETIRED_STATUSES:
+        raise DGIllegalState(
+            f"status {status!r} is RETIRED ({DG_REPAIR_RETIRED_ID}) for {paper_id}: the "
+            f"difficulty gate discloses, it never blocks — write status='DISCLOSED'")
     if status not in DG_STATUSES:
         raise DGIllegalState(f"unknown difficulty_gate status {status!r} for {paper_id}; "
                              f"legal: {sorted(DG_STATUSES)}")
     if status == 'DORMANT' and dormant_reason not in DG_DORMANT_REASONS:
         raise DGIllegalState(f"DORMANT requires dormant_reason from {DG_DORMANT_REASONS}, "
                              f"got {dormant_reason!r}")
+    rounds = int(rounds)
+    if rounds != DG_MAX_REPAIR_ROUNDS:
+        raise DGIllegalState(
+            f"refusing to write difficulty_gate rounds={rounds} for {paper_id}: the current "
+            f"writer mints rounds={DG_MAX_REPAIR_ROUNDS} only ({DG_REPAIR_RETIRED_ID}); a "
+            f"legacy spent count is carried automatically, never passed")
     prev = dg_read(reg, paper_id) or {}
     prev_rounds = dg_state(prev)[1] if prev else 0
-    rounds = int(rounds)
     carried = None
-    if status == 'DORMANT' and prev_rounds >= DG_MAX_REPAIR_ROUNDS and dg_is_legal(prev):
-        # A post-repair terminal verdict (PASSED/1, DISCLOSED/1) is a quality finding;
+    if status == 'DORMANT' and prev_rounds > DG_MAX_REPAIR_ROUNDS and dg_is_legal(prev):
+        # A legacy post-repair verdict (PASSED/1, DISCLOSED/1) is a quality finding;
         # a later dormant re-run (e.g. blueprint_core missing in that session) must
         # not erase it. Idempotent no-op — the record is returned unchanged.
         return prev
-    if prev_rounds > rounds and status in ('PASSED', 'FAILED'):
+    if prev_rounds > rounds and status in ('PASSED', 'DISCLOSED') and dg_is_legal(prev):
         carried, rounds = prev_rounds, prev_rounds
-        if status == 'FAILED' and rounds >= DG_MAX_REPAIR_ROUNDS:
-            status = 'DISCLOSED'
     if (status, rounds) not in DG_LEGAL_STATES:
         raise DGIllegalState(
             f"refusing to write illegal difficulty_gate state ({status!r}, {rounds}) "
@@ -1695,11 +1694,11 @@ def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=Non
         rec['measured_by_q'] = {str(q): m for q, m in measured_by_q.items() if m is not None}
     if rework_qs is not None:
         rec['rework_qs'] = sorted(int(q) for q in rework_qs)
-    if status in ('PASSED', 'FAILED', 'DISCLOSED'):
+    if status in ('PASSED', 'DISCLOSED'):
         if windows is None:
-            if status == 'FAILED':
+            if status == 'DISCLOSED':
                 raise DGIllegalState(
-                    f"refusing to write a FAILED difficulty_gate verdict for {paper_id} "
+                    f"refusing to write a DISCLOSED difficulty_gate verdict for {paper_id} "
                     f"without `windows`: the band-equality rule is retired "
                     f"(GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS); pass gate['windows'] "
                     f"from bc.evaluate_difficulty_gate")
@@ -1733,119 +1732,29 @@ def dg_write_verdict(reg, paper_id, *, status, rounds, threshold=None, bands=Non
         if _missing:
             raise DGIllegalState(f"rework_directions missing for rework_qs {_missing}")
         rec['rework_directions'] = _dirs
-    elif status == 'FAILED' and rec.get('rework_qs'):
-        raise DGIllegalState(f"FAILED verdict for {paper_id} needs rework_directions for "
-                             f"{rec['rework_qs']} (windowed rule)")
+    elif status == 'DISCLOSED' and rec.get('rework_qs'):
+        raise DGIllegalState(f"DISCLOSED verdict for {paper_id} needs rework_directions for "
+                             f"{rec['rework_qs']} (windowed rule — the verdict box prints them)")
     rec['timestamp'] = _dg_now()
     if carried is not None:
         rec['rounds_carried_from'] = carried
-    # Step-7-repair evidence and the audit trail survive every re-gate ...
-    for keep in ('rework_stem_hashes', 'baseline_stem_hashes', 'migrations'):
+    # The audit trail and any inert legacy-repair fields survive every re-gate.
+    for keep in ('rework_stem_hashes', 'baseline_stem_hashes', 'superseded_snapshots',
+                 'migrations'):
         if keep in prev:
             rec[keep] = prev[keep]
-    # ... EXCEPT that a FRESH round-0 verdict (a full §7A-M re-run, or the re-judge
-    # of a retired-rule record — GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS) starts a
-    # new repair lineage. A pre-repair stem snapshot taken for the OLD rework set
-    # would (a) make §7A-R R3 falsely accuse a correct repair file of touching the
-    # wrong questions and (b) fail A-DGATE check 5 (snapshot keys ≠ rework_qs). It
-    # is kept only when the new verdict names EXACTLY the same rework set (the same
-    # order continues); otherwise it is retired to rec['superseded_snapshots'] and
-    # a later TestCreateRepair takes a fresh one. Never on a carried (spent) round:
-    # the repair evidence for that round stays intact.
-    if (carried is None and rounds == 0 and status in ('PASSED', 'FAILED')
-            and prev.get('rework_stem_hashes')):
-        _snap_keys = set(str(q) for q in prev['rework_stem_hashes'])
-        _new_keys = set(str(q) for q in (rec.get('rework_qs') or []))
-        if _snap_keys != _new_keys:
-            rec.pop('rework_stem_hashes', None)
-            rec.pop('baseline_stem_hashes', None)
-            rec['superseded_snapshots'] = list(prev.get('superseded_snapshots') or []) + [
-                {'rework_qs': sorted(_snap_keys, key=lambda x: (not x.isdigit(), int(x) if x.isdigit() else 0, x)),
-                 'retired_at': _dg_now(), 'reason': 'fresh_round0_verdict_with_different_rework_set'}]
     reg.setdefault('difficulty_gate', {})[paper_id] = rec
     return rec
-
-
-def dg_add_rework_snapshot(reg, paper_id, stem_hashes, all_stem_hashes=None):
-    """TestCreateRepair (MockTestCreate §S16-3) ONLY. Adds the PRE-repair stem
-    snapshot and NOTHING else — status and repair_rounds_used are byte-untouched.
-    WRITE-ONCE (gap defect G-8): a second call is a no-op returning the original,
-    because a re-run of TestCreateRepair would otherwise hash the ALREADY-REPAIRED
-    stems, destroy the evidence and make §7A-R R3 falsely accuse a correct file.
-    Refuses unless the record is exactly (FAILED, 0): a snapshot on any other state
-    means a repair is being attempted where none is owed."""
-    rec = dg_read(reg, paper_id)
-    if rec is None:
-        raise DGIllegalState(f"no difficulty_gate record for {paper_id} — run TestExplain first "
-                             f"(or this is a legacy paper; deliver as usual)")
-    if dg_state(rec)[0] != 'FAILED' or not dg_is_legal(rec):
-        raise DGIllegalState(f"rework snapshot may only be written on a legal FAILED record; "
-                             f"{paper_id} is {dg_state(rec)}")
-    if not dg_is_windowed(rec):
-        raise DGIllegalState(
-            f"{paper_id} was judged FAILED under the retired band-equality rule "
-            f"(GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS); its rework list is not an order. "
-            f"Run TestExplain / MockExplain on this paper so the verdict is re-judged "
-            f"under the acceptance windows, then return here only if it still fails.")
-    if rec.get('rework_stem_hashes'):
-        return rec['rework_stem_hashes']                       # write-once no-op
-    rec['rework_stem_hashes'] = {str(q): h for q, h in stem_hashes.items()}
-    if all_stem_hashes:
-        # PRE-repair digest of EVERY question (write-once, same call). This is what
-        # lets §7A-R R3 detect a question changed OUTSIDE rework_qs (gap case E20) —
-        # rework_stem_hashes alone can only prove the flagged ones changed.
-        rec['baseline_stem_hashes'] = {str(q): h for q, h in all_stem_hashes.items()}
-    return rec['rework_stem_hashes']
-
-
-# ── the shared stem digest (gap defect G-9): ONE implementation, both sides call it ──
-def dg_stem_hash(stem_paragraph_text):
-    """sha256 of the RAW first paragraph of a question region.
-    EXACT DEFINITION — TestCreateRepair (§S16-3) and TestExplainRepair (§7A-R R3) both
-    call THIS function, never their own:
-      • text = concatenation of every <w:t> descendant of the question's FIRST <w:p>,
-        in document order;
-      • the "Q.<n>" label is INCLUDED;
-      • NO whitespace normalisation, NO case folding, NO stripping;
-      • UTF-8 bytes, lowercase hex digest.
-    Verified 32/32 against the live IIT_JAM_CHEMISTRY Mock 1 snapshot (0/32 for every
-    normalised variant). The self-test pins the digest of a fixed string so the
-    algorithm cannot drift across releases."""
-    import hashlib                  # local: thin core (CHECK AB)
-    return hashlib.sha256(stem_paragraph_text.encode('utf-8')).hexdigest()
-
-
-def dg_verify_repair(rec, repaired_stem_texts_by_q):
-    """§7A-R R3 as one call. repaired_stem_texts_by_q: {q: first-paragraph text of the
-    REPAIRED paper}. Returns {'ok', 'changed', 'unchanged_listed', 'changed_unlisted',
-    'missing_snapshot'}; ok is True iff the changed set == rework_qs exactly. Compares
-    ONLY against rec['rework_stem_hashes'] (the pre-repair snapshot) — never against
-    registry.stem_texts, which TestCreateRepair has already overwritten."""
-    snap = rec.get('rework_stem_hashes') or {}
-    rework = sorted(int(q) for q in rec.get('rework_qs') or [])
-    if not snap:
-        return {'ok': False, 'changed': [], 'unchanged_listed': rework,
-                'changed_unlisted': [], 'missing_snapshot': True,
-                'extras_verifiable': False}
-    # baseline (every question) when the snapshot carries it; rework-only otherwise
-    base = dict(rec.get('baseline_stem_hashes') or {})
-    base.update(snap)
-    changed = sorted(int(q) for q, t in repaired_stem_texts_by_q.items()
-                     if str(q) in base and dg_stem_hash(t) != base[str(q)])
-    unchanged_listed = sorted(q for q in rework if q not in changed)
-    changed_unlisted = sorted(q for q in changed if q not in rework)
-    return {'ok': not unchanged_listed and not changed_unlisted and bool(rework),
-            'changed': changed, 'unchanged_listed': unchanged_listed,
-            'changed_unlisted': changed_unlisted, 'missing_snapshot': False,
-            'extras_verifiable': bool(rec.get('baseline_stem_hashes'))}
 
 
 # ── the single source for next-step advice (gap defect G-3) ─────────────────────
 def dg_next_step(reg, paper_id, n, *, mock):
     """The ONE place a next-step command is derived. Every spec that prints a next
-    command calls this instead of restating the rule, so §7A-R can never again send an
-    operator to a step that is guaranteed to refuse. Reads the SAME record Step 11
-    reads. Raises on an illegal record — call dg_preflight first."""
+    command calls this instead of restating the rule, so no spec can send an operator
+    to a step that is guaranteed to refuse. Reads the SAME record Step 11 reads.
+    Raises on an illegal record — call dg_preflight first. v5.76: only two answers
+    exist — the Deliver trigger (every deliverable state) or the Explain trigger
+    (PENDING: the gate never ran)."""
     t, p = ('Mock', 'M') if mock else ('Test', 'P')
     rec = dg_read(reg, paper_id)
     if rec is None:
@@ -1856,15 +1765,7 @@ def dg_next_step(reg, paper_id, n, *, mock):
     st, _ = dg_state(rec)
     if st in DG_DELIVERABLE:
         return f"{t}Deliver {p}{n}"
-    if st == 'PENDING':
-        return f"{t}Explain {p}{n}   (attach the question paper)"
-    if not dg_is_windowed(rec):
-        # FAILED under the retired band-equality rule: re-judge, never repair
-        return (f"{t}Explain {p}{n}   (attach the question paper — this paper was judged "
-                f"under the old difficulty rule; the verdict is re-judged under the windows)")
-    qs = ' '.join(f"Q{q}" for q in rec.get('rework_qs') or [])
-    return (f"{t}CreateRepair {p}{n} {qs}".rstrip()
-            + f"\n   then: {t}ExplainRepair {p}{n}")
+    return f"{t}Explain {p}{n}   (attach the question paper)"
 
 
 def dg_deliver_decision(reg, paper_id, n, *, mock):
@@ -1884,17 +1785,16 @@ def dg_deliver_decision(reg, paper_id, n, *, mock):
         return {'deliver': True, 'state': (st, r), 'reason': f'{st}/{r}',
                 'next_step': None, 'footer_lines': dg_footer_lines(rec)}
     return {'deliver': False, 'state': (st, r),
-            'reason': ('Step 9 never ran its gate' if st == 'PENDING'
-                       else 'difficulty gate FAILED — repair round available' if dg_is_windowed(rec)
-                       else 'difficulty gate FAILED under the retired band-equality rule — '
-                            're-run the explain step to re-judge'),
+            'reason': 'Step 9 never ran its gate',
             'next_step': dg_next_step(reg, paper_id, n, mock=mock), 'footer_lines': []}
 
 
 def dg_footer_lines(rec):
     """§FOOTER-DG: the ONLY source of the difficulty-gate footer lines (Framework_
-    DeliveryFooter §FOOTER-DG). Shape is a function of status (schema 2):
-      DISCLOSED   → measured band counts after the repair round (from bands)
+    DeliveryFooter §FOOTER-DG). Shape is a function of status (schema 3):
+      DISCLOSED/0 → measured band counts; the gate was not met and the paper is
+                    delivered with the labels as planned at Step 7
+      DISCLOSED/1 → measured band counts after the (legacy, retired) repair round
       DORMANT     → not-applicable line with the reason
       any + migrations → one healed-registry disclosure line per migration
     PASSED emits no gate line. Returns a list (possibly empty)."""
@@ -1917,8 +1817,13 @@ def dg_footer_lines(rec):
                     parts.append(f"{lab} {b.get('agree', '?')}/{b.get('total', '?')} in window")
             else:
                 parts.append(f"{lab} {b.get('agree', '?')}/{b.get('total', '?')}")
-        lines.append("Measured difficulty: " + " · ".join(parts)
-                     + f" confirmed after {r} repair round{'s' if r != 1 else ''}.")
+        if r == 0:
+            lines.append("Measured difficulty: " + " · ".join(parts)
+                         + " — the difficulty gate was not met; labels are as planned at Step 7.")
+        else:
+            lines.append("Measured difficulty: " + " · ".join(parts)
+                         + f" confirmed after {r} repair round{'s' if r != 1 else ''}"
+                         f" (legacy repair — the repair steps are retired).")
     elif st == 'DORMANT':
         lines.append(f"Difficulty gate: not applicable to this paper "
                      f"({rec.get('dormant_reason', 'unspecified')}) — labels are as planned at Step 7.")
@@ -1932,8 +1837,9 @@ def dg_footer_lines(rec):
 def dg_fleet_heal(reg, *, apply):
     """Scan one registry dict. Returns {'illegal': [...], 'healed': [...],
     'stuck_scoped': [...], 'pending': [...], 'escalate': [...], 'changed': bool}.
-    With apply=True, heals in place via dg_migrate (disclosed in rec['migrations'])
-    and converts a PENDING scoped paper to DORMANT/scoped_paper (cohort B of the gap).
+    With apply=True, heals in place via dg_migrate (disclosed in rec['migrations']) —
+    including every retired FAILED record → DISCLOSED/0 (v5.76 estate action) — and
+    converts a PENDING scoped paper to DORMANT/scoped_paper (cohort B of the gap).
     Unknown statuses are reported under 'escalate' and never touched."""
     out = {'illegal': [], 'healed': [], 'stuck_scoped': [], 'pending': [],
            'escalate': [], 'changed': False}
@@ -1957,7 +1863,8 @@ def dg_fleet_heal(reg, *, apply):
                 out['stuck_scoped'].append(pid)
                 if apply:
                     prev_keys = {k: v for k, v in rec.items()
-                                 if k in ('rework_stem_hashes', 'baseline_stem_hashes', 'migrations')}
+                                 if k in ('rework_stem_hashes', 'baseline_stem_hashes',
+                                          'superseded_snapshots', 'migrations')}
                     rec.clear()
                     rec.update({'schema': DG_SCHEMA, 'status': 'DORMANT',
                                 'threshold': DG_DEFAULT_THRESHOLD, 'repair_rounds_used': 0,
@@ -1978,13 +1885,13 @@ def dg_fleet_heal(reg, *, apply):
 # CLUSTER RH — REGISTRY HANDOFF (v5.74, GAP-2026-08-26-REGISTRY-HANDOFF-SEAM)
 # ═══════════════════════════════════════════════════════════════════════════════
 # THE DEFECT. registry.json is the shared ledger every mock-track step reads, and
-# FOUR steps write it (Step 7 commit, Step 9 §7A-M verdict, Step 7-repair §S16-3
-# snapshot, Step 9-repair §7A-R re-gate). Only Step 7 was told to hand the updated
+# several steps write it (Step 7 commit, Step 9 §7A-M verdict, and — until their
+# retirement in v5.76 — the two repair steps). Only Step 7 was told to hand the updated
 # ledger back to the operator. Step 9's own delivery checklist HARD-STOPPED unless
 # outputs held exactly the Explanation docx, so the difficulty-gate verdict lived only
 # in /home/claude, the project copy stayed (PENDING, 0), and Step 11 refused the paper
-# forever — on every exam. The repair steps had no delivery contract at all, so the
-# pre-repair snapshot §7A-R R3 needs never reached the project either: a dead loop.
+# forever — on every exam. The (since retired) repair steps had no delivery contract
+# at all, so their pre-repair snapshot never reached the project either: a dead loop.
 # Measured on the reference project 2026-08-26: the project registry carried
 # difficulty_gate=(FAILED, 0) ONLY because a session broke its own S19-1 gate to move
 # the file back by hand.
@@ -2006,12 +1913,10 @@ RH_REPORT_SUFFIX = '_Explain_Report.docx'   # Step 9 END-OF-MOCK REPORT as a doc
 # of steps that own a registry writer (final_assembly.commit_registry, dg_write_verdict,
 # dg_add_rework_snapshot) — the audit derives the same set from the specs' live text.
 RH_MOCK_TRACK_STEPS = frozenset({
-    'TestCreate', 'MockCreate', 'TestCreateRepair', 'MockCreateRepair',
-    'TestExplain', 'MockExplain', 'TestExplainRepair', 'MockExplainRepair',
-    'TestDeliver', 'MockDeliver'})
+    'TestCreate', 'MockCreate', 'TestExplain', 'MockExplain',
+    'TestDeliver', 'MockDeliver'})      # v5.76: the four *Repair triggers are RETIRED
 RH_REGISTRY_WRITING_STEPS = frozenset({
-    'TestCreate', 'MockCreate', 'TestCreateRepair', 'MockCreateRepair',
-    'TestExplain', 'MockExplain', 'TestExplainRepair', 'MockExplainRepair'})
+    'TestCreate', 'MockCreate', 'TestExplain', 'MockExplain'})
 
 
 class RHIllegalHandoff(ValueError):

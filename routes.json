@@ -173,43 +173,5 @@
   "notes_core.py",
   "syllabus_provenance.py",
   "Framework_DeliveryFooter.md"
- ],
- "TestCreateRepair": [
-  "Framework_MockTestCreate.md",
-  "blueprint_core.py",
-  "figural_core.py",
-  "paper_pipeline.py",
-  "final_assembly.py",
-  "corpus_io.py",
-  "Framework_DeliveryFooter.md",
-  "explain_engine.py",
-  "t3_mathcomp.py"
- ],
- "MockCreateRepair": [
-  "Framework_MockTestCreate.md",
-  "blueprint_core.py",
-  "figural_core.py",
-  "paper_pipeline.py",
-  "final_assembly.py",
-  "corpus_io.py",
-  "Framework_DeliveryFooter.md",
-  "explain_engine.py",
-  "t3_mathcomp.py"
- ],
- "TestExplainRepair": [
-  "Framework_MockTestExplain.md",
-  "explain_engine.py",
-  "blueprint_core.py",
-  "t3_mathcomp.py",
-  "paper_pipeline.py",
-  "Framework_DeliveryFooter.md"
- ],
- "MockExplainRepair": [
-  "Framework_MockTestExplain.md",
-  "explain_engine.py",
-  "blueprint_core.py",
-  "t3_mathcomp.py",
-  "paper_pipeline.py",
-  "Framework_DeliveryFooter.md"
  ]
 }

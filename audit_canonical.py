@@ -15,6 +15,14 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.22 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (paired with paper_pipeline v5.76,
+#   blueprint_core DIFFICULTY_GATE_MAX_REPAIR_ROUNDS 1 → 0). The four *Repair triggers
+#   are RETIRED and the difficulty gate discloses instead of blocking. A-DGATE: the
+#   legal mirror is PENDING/0 DORMANT/0 PASSED/0 DISCLOSED/0 plus the legacy repaired
+#   pairs PASSED/1 DISCLOSED/1; status 'FAILED' is RETIRED and FAILS with the fleet-scan
+#   remedy; a DISCLOSED/0 record carries bands (totals = total_questions) and a
+#   non-empty in-range rework_qs; the snapshot checks (old 5) are DROPPED — the
+#   snapshot fields are inert. Fixtures re-keyed (+3).
 # v2.21 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster
 #   DP, Blueprint v1.57.0, PYQExplain v2.18). NEW gate A-DPROFILE: certifies the exam's
 #   difficulty profile (--profile: engine contract, score→band re-check under current edges,
@@ -3928,12 +3936,15 @@ def gate_qindex(src):
                         f'({len(qs)} questions, all ids in blueprint)')
 
 
-# ── A-DGATE (v2.19 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER) ──────────────
+# ── A-DGATE (v2.19 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER; v2.22 — REPAIR-RETIRED) ──
 # MIRROR of paper_pipeline Cluster DG's legal table. Self-contained on purpose (the
 # per-exam copy runs with no engine beside it); the self-test asserts parity with
 # pp.DG_LEGAL_STATES whenever paper_pipeline is importable, so the two cannot drift.
-_DG_MAX_ROUNDS = 1
-_DG_LEGAL = {('PENDING', 0), ('FAILED', 0), ('DORMANT', 0), ('PASSED', 0),
+# v2.22 (REPAIR-RETIRED-2026-08-27): 'FAILED' is a RETIRED status — a record still
+# carrying it fails this gate with the fleet-scan remedy; PASSED/1 and DISCLOSED/1 are
+# legacy repaired papers (read-legal, never written again).
+_DG_MAX_ROUNDS = 0
+_DG_LEGAL = {('PENDING', 0), ('DORMANT', 0), ('PASSED', 0), ('DISCLOSED', 0),
              ('PASSED', 1), ('DISCLOSED', 1)}
 _DG_DORMANT_REASONS = ('no_difficulty_labels', 'vocabulary_not_3_band',
                        'blueprint_core_unavailable', 'scoped_paper')
@@ -4031,15 +4042,20 @@ def gate_dgate(src):
         except (TypeError, ValueError):
             n = -1
         if (st, n) not in _DG_LEGAL:
-            bad.append(f"{pid}: ILLEGAL state status={st!r} repair_rounds_used={n} "
-                         f"(legal: PENDING/0 FAILED/0 DORMANT/0 PASSED/0 PASSED/1 DISCLOSED/1; "
-                         f"FAILED implies 0 — the round is unconsumed; run "
-                         f"`python3 final_assembly.py --dg-fleet-scan`)")
+            if st == 'FAILED':
+                bad.append(f"{pid}: status 'FAILED' is RETIRED (REPAIR-RETIRED-2026-08-27: the "
+                           f"difficulty gate discloses, it never blocks) — heal to DISCLOSED/0 "
+                           f"with `python3 final_assembly.py --dg-fleet-scan ROOT --apply`")
+            else:
+                bad.append(f"{pid}: ILLEGAL state status={st!r} repair_rounds_used={n} "
+                           f"(legal: PENDING/0 DORMANT/0 PASSED/0 DISCLOSED/0 and the legacy "
+                           f"repaired pairs PASSED/1 DISCLOSED/1; run "
+                           f"`python3 final_assembly.py --dg-fleet-scan`)")
             continue
         if st == 'DORMANT' and rec.get('dormant_reason') not in _DG_DORMANT_REASONS:
             bad.append(f"{pid}: DORMANT without a recognised dormant_reason "
                          f"(got {rec.get('dormant_reason')!r})")
-        if st in ('FAILED', 'DISCLOSED'):
+        if st == 'DISCLOSED':
             bands = rec.get('bands') or {}
             if not bands:
                 bad.append(f"{pid}: status {st} but no bands recorded")
@@ -4047,32 +4063,18 @@ def gate_dgate(src):
                 bad.append(f"{pid}: band totals sum to "
                              f"{sum(int((b or {}).get('total') or 0) for b in bands.values())}, "
                              f"blueprint.total_questions is {tq}")
-        if st == 'FAILED':
+        if st == 'DISCLOSED' and n == 0:
+            # a fresh not-met gate names WHICH questions measured out of window (the
+            # verdict box and the footer print them); an empty list is a contradiction
             rq = rec.get('rework_qs') or []
             if not rq:
-                bad.append(f"{pid}: FAILED with an empty rework_qs — nothing to repair "
-                             f"is not a FAILED verdict")
+                bad.append(f"{pid}: DISCLOSED/0 with an empty rework_qs — a gate that is "
+                             f"not met names the out-of-window questions")
             elif tq and any(not (1 <= int(q) <= int(tq)) for q in rq):
                 bad.append(f"{pid}: rework_qs {rq} outside 1..{tq}")
-        snap = rec.get('rework_stem_hashes')
-        # Check 5 binds the snapshot to rework_qs only while the snapshot is CONSUMED —
-        # i.e. on a FAILED record (§7A-R R3 reads it). After the repair re-gate a
-        # PASSED/DISCLOSED record legitimately carries the round's snapshot while its
-        # rework_qs is the (possibly smaller, possibly empty) REMAINING set
-        # (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS: a partial-success repair is not a
-        # data defect; pp.dg_write_verdict retires a stale snapshot on a fresh round-0
-        # verdict, so a FAILED record's snapshot always matches by construction).
-        if snap and st == 'FAILED':
-            _sk = set(str(q) for q in snap)
-            _rk = set(str(q) for q in (rec.get('rework_qs') or []))
-            if _sk != _rk:
-                bad.append(f"{pid}: rework_stem_hashes keys != rework_qs "
-                             f"(extra in snapshot: {_sk - _rk or '{}'}; "
-                             f"missing from snapshot: {_rk - _sk or '{}'})")
-        base = rec.get('baseline_stem_hashes')
-        if base and snap and not set(str(q) for q in snap) <= set(str(q) for q in base):
-            bad.append(f"{pid}: baseline_stem_hashes does not cover every rework_qs "
-                       f"question — the §S16-3 snapshot is partial")
+        # rework_stem_hashes / baseline_stem_hashes / superseded_snapshots are INERT
+        # since v2.22 (written only by the retired repair steps; read by nothing) —
+        # their presence is tolerated and their shape is not audited.
         if st == 'PENDING' and not str(pid).startswith('MOCK:'):
             bad.append(f"{pid}: a SCOPED paper is PENDING — it is born DORMANT/scoped_paper "
                          f"and can never be resolved by the MOCK-ONLY gate")
@@ -4839,37 +4841,42 @@ def self_test():
         gate_dgate({'registry': {'difficulty_gate': records}, 'blueprint': {'total_questions': tq}})
         return [(l, c, m) for l, c, m in RESULTS if c == 'A-DGATE']
     _DGB = {'Easy': {'total': 1, 'agree': 0}, 'Hard': {'total': 1, 'agree': 1}}
-    _DG_OK = {'MOCK:M01': {'status': 'FAILED', 'repair_rounds_used': 0, 'bands': _DGB,
-                           'rework_qs': [1], 'rework_stem_hashes': {'1': 'h'}},
+    _DG_OK = {'MOCK:M01': {'status': 'DISCLOSED', 'repair_rounds_used': 0, 'bands': _DGB,
+                           'rework_qs': [1]},
               'MOCK:M02': {'status': 'PASSED', 'repair_rounds_used': 1},
+              'MOCK:M03': {'status': 'DISCLOSED', 'repair_rounds_used': 1, 'bands': _DGB,
+                           'rework_qs': [], 'rework_stem_hashes': {'1': 'h', '2': 'h'}},
+              'MOCK:M04': {'status': 'PASSED', 'repair_rounds_used': 0},
               'SUBJ:X:01': {'status': 'DORMANT', 'repair_rounds_used': 0,
                             'dormant_reason': 'scoped_paper'}}
     check('A-DGATE-legal-set-certifies', [l for l, _, _ in _dg_run(_DG_OK)] == ['OK'])
-    # partial-success repair: DISCLOSED/1 keeps the round's snapshot while rework_qs is the
-    # smaller remaining set; PASSED/1 keeps it with an empty rework_qs — both certify
-    check('A-DGATE-snapshot-unbound-after-repair',
-          [l for l, _, _ in _dg_run({'M': {'status': 'DISCLOSED', 'repair_rounds_used': 1, 'bands': _DGB,
-                                            'rework_qs': [1], 'rework_stem_hashes': {'1': 'h', '2': 'h'}}})] == ['OK']
-          and [l for l, _, _ in _dg_run({'M': {'status': 'PASSED', 'repair_rounds_used': 1, 'bands': _DGB,
-                                                'rework_qs': [], 'rework_stem_hashes': {'1': 'h', '2': 'h'}}})] == ['OK'])
-    _dg_inc = _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], repair_rounds_used=1)})
-    check('A-DGATE-incident-FAILED-1-FAILS', [l for l, _, _ in _dg_inc] == ['FAIL'] and 'ILLEGAL' in _dg_inc[0][2])
+    # inert legacy-repair fields on a CURRENT record never fail the gate (v2.22)
+    check('A-DGATE-inert-snapshot-tolerated',
+          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_stem_hashes={'2': 'h'},
+                                                baseline_stem_hashes={'9': 'h'},
+                                                superseded_snapshots=[{'rework_qs': ['3']}])})] == ['OK'])
+    # RETIRED status: every FAILED record fails, in every round, with the fleet-scan remedy
+    _dg_ret = _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], status='FAILED')})
+    check('A-DGATE-retired-FAILED-0-FAILS', [l for l, _, _ in _dg_ret] == ['FAIL']
+          and 'RETIRED' in _dg_ret[0][2] and '--dg-fleet-scan' in _dg_ret[0][2])
+    _dg_inc = _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], status='FAILED', repair_rounds_used=1)})
+    check('A-DGATE-incident-FAILED-1-FAILS', [l for l, _, _ in _dg_inc] == ['FAIL'] and 'RETIRED' in _dg_inc[0][2])
+    _dg_ill = _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], repair_rounds_used=2)})
+    check('A-DGATE-DISCLOSED-2-ILLEGAL-FAILS', [l for l, _, _ in _dg_ill] == ['FAIL'] and 'ILLEGAL' in _dg_ill[0][2])
+    check('A-DGATE-PENDING-1-ILLEGAL-FAILS',
+          [l for l, _, _ in _dg_run({'MOCK:M01': {'status': 'PENDING', 'repair_rounds_used': 1}})] == ['FAIL'])
     check('A-DGATE-dormant-without-reason-FAILS',
           [l for l, _, _ in _dg_run({'M': {'status': 'DORMANT', 'repair_rounds_used': 0}})] == ['FAIL'])
-    check('A-DGATE-failed-without-bands-FAILS',
-          [l for l, _, _ in _dg_run({'M': {'status': 'FAILED', 'repair_rounds_used': 0, 'rework_qs': [1]}})] == ['FAIL'])
+    check('A-DGATE-disclosed-without-bands-FAILS',
+          [l for l, _, _ in _dg_run({'M': {'status': 'DISCLOSED', 'repair_rounds_used': 0, 'rework_qs': [1]}})] == ['FAIL'])
     check('A-DGATE-band-total-mismatch-FAILS',
           [l for l, _, _ in _dg_run({'MOCK:M01': _DG_OK['MOCK:M01']}, tq=5)] == ['FAIL'])
-    check('A-DGATE-failed-empty-rework-FAILS',
-          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_qs=[], rework_stem_hashes={})})] == ['FAIL'])
+    check('A-DGATE-disclosed-0-empty-rework-FAILS',
+          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_qs=[])})] == ['FAIL'])
+    check('A-DGATE-disclosed-1-legacy-empty-rework-OK',
+          [l for l, _, _ in _dg_run({'M': _DG_OK['MOCK:M03']})] == ['OK'])
     check('A-DGATE-rework-out-of-range-FAILS',
-          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_qs=[9], rework_stem_hashes={'9': 'h'})})] == ['FAIL'])
-    check('A-DGATE-snapshot-keys-mismatch-FAILS',
-          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_stem_hashes={'2': 'h'})})] == ['FAIL'])
-    check('A-DGATE-baseline-partial-FAILS',
-          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], baseline_stem_hashes={'2': 'h'})})] == ['FAIL'])
-    check('A-DGATE-baseline-full-certifies',
-          [l for l, _, _ in _dg_run({'MOCK:M01': dict(_DG_OK['MOCK:M01'], baseline_stem_hashes={'1': 'h', '2': 'h'})})] == ['OK'])
+          [l for l, _, _ in _dg_run({'M': dict(_DG_OK['MOCK:M01'], rework_qs=[9])})] == ['FAIL'])
     check('A-DGATE-scoped-PENDING-FAILS',
           [l for l, _, _ in _dg_run({'SUBJ:X:01': {'status': 'PENDING', 'repair_rounds_used': 0}})] == ['FAIL'])
     check('A-DGATE-legacy-registry-OK', [l for l, _, _ in _dg_run({})] == ['OK'])

@@ -59,6 +59,11 @@ CHECKS (each compares one authority against another; none holds an opinion):
                       "frozen / NOT delivered" wording is banned in live
                       text; every Test*/Mock* trigger in routes.json has a
                       DeliveryFooter §3 block (REGISTRY-HANDOFF-LAW).
+  MS-15 RETIRED-TRIGGERS
+                      REPAIR-RETIRED-2026-08-27: the four *Repair triggers,
+                      their artefact names, spec sections and engine helpers
+                      appear in live spec text only beside a retirement
+                      notice, and never in routes.json / SKILL / PIPELINE.
   MS-11 DELIVERY-SET-PARITY
                       MockTestAnalyse's Step-5 final delivery: the code's
                       unconditional/conditional deliverable sets (parsed from
@@ -161,7 +166,12 @@ def _run_explain_engine(flag):
 
 
 # ── MS-2 ────────────────────────────────────────────────────────────────
-_RETIRED = ['Create_Complete']
+_RETIRED = ['Create_Complete',
+            # REPAIR-RETIRED-2026-08-27: the four repair triggers, their artefact names and
+            # their engine helpers may never reappear in executable/contract text.
+            'TestCreateRepair', 'MockCreateRepair', 'TestExplainRepair', 'MockExplainRepair',
+            '_Create_Repaired', 'repair_state.json',
+            'dg_add_rework_snapshot', 'dg_verify_repair', 'dg_stem_hash']
 _RETIRED_ALLOW = [
     ('Framework_DeliveryFooter.md', 'Mock*_Create_Complete.docx'),
 ]
@@ -704,14 +714,50 @@ def check_registry_handoff(read=_read, routes_read=None):
                 problems.append(
                     f'Framework_DeliveryFooter.md §3: no deliverable block names trigger {t!r} — '
                     f'a session running it has no deliverable list or badge to follow.')
-        for t in ('TestCreateRepair', 'TestExplainRepair'):
-            # the block BODY: from the rule line that closes the "STEP n-R — <t>" banner to
-            # the next banner (or end of §3).
-            blk = re.search(r'STEP [^\n]*' + t + r'[^\n]*\n═{10,}\n(.*?)(?=\n═{10,}|\Z)', sec3, re.S)
-            if blk and _RH_REPLACE not in blk.group(1):
-                problems.append(
-                    f'Framework_DeliveryFooter.md §3: the {t} block does not badge registry.json '
-                    f'"{_RH_REPLACE}" — the repair steps write the registry.')
+    return problems
+
+
+# ── MS-15 ───────────────────────────────────────────────────────────────
+_RT_TRIGGERS = ('TestCreateRepair', 'MockCreateRepair', 'TestExplainRepair', 'MockExplainRepair')
+_RT_LITERALS = _RT_TRIGGERS + ('_Create_Repaired', 'repair_state.json', '§S16', '§7A-R',
+                               'dg_add_rework_snapshot', 'dg_verify_repair', 'dg_stem_hash')
+_RT_NOTICE_RE = re.compile(r'retired', re.I)
+_RT_TRACK_FILES = ('routes.json', 'SKILL.md', 'mocktestframework_SKILL.md',
+                   'validate_framework_md.py')
+
+
+def check_retired_triggers(read=_read):
+    """REPAIR-RETIRED-2026-08-27 (operator decision). The four repair triggers, their
+    artefact names, their spec sections and their engine helpers are RETIRED. In the
+    LIVE text of every mock-track spec (full-line comments blanked — a changelog or
+    header note may recount the history) each literal may appear ONLY on a line that
+    carries a retirement notice (the word 'retired'). Anywhere else it is a live
+    instruction to a step that no longer exists — the exact way 'PYQExplainAudit'
+    and 'Create_Complete' survived their own retirements. routes.json, both SKILL
+    trigger lists and validate_framework_md.PIPELINE may not carry the trigger names
+    at all (check_triggers proves the three agree; this proves what they agree ON)."""
+    problems = []
+    for spec in SPECS:
+        try:
+            live = _rh_live(read(spec))
+        except FileNotFoundError:
+            continue
+        for i, line in enumerate(live.split('\n'), 1):
+            if _RT_NOTICE_RE.search(line):
+                continue
+            for lit in _RT_LITERALS:
+                if lit in line:
+                    problems.append(f"{spec} L{i}: retired repair literal '{lit}' in live text "
+                                    f"without a retirement notice: {line.strip()[:70]!r}")
+                    break
+    for name in _RT_TRACK_FILES:
+        try:
+            text = read(name)
+        except FileNotFoundError:
+            continue
+        for t in _RT_TRIGGERS:
+            if re.search(r"['\"]?" + t + r"['\"]?\s*[:,\]]", text) or (name.endswith('.md') and t in text):
+                problems.append(f"{name}: retired trigger {t!r} is still registered")
     return problems
 
 
@@ -730,6 +776,7 @@ ALL_CHECKS = [
     ('MS-12 BATCH-CEILING', check_batch_ceiling),
     ('MS-13 PROBE-SELECTION', check_probe_selection),
     ('MS-14 REGISTRY-HANDOFF', check_registry_handoff),
+    ('MS-15 RETIRED-TRIGGERS', check_retired_triggers),
 ]
 
 
@@ -1042,12 +1089,9 @@ def self_test():
           check_probe_selection(read=fake_reader({'Framework_MockDeliver.md': 'no probe here'})) == [])
 
     # ── MS-14 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM ────────────────────────
-    _rt = lambda: json.dumps({'TestCreate': [], 'TestExplain': [], 'TestCreateRepair': [],
-                              'TestExplainRepair': [], 'TestDeliver': [], 'PYQSort': []})
+    _rt = lambda: json.dumps({'TestCreate': [], 'TestExplain': [], 'TestDeliver': [], 'PYQSort': []})
     _ok_footer = ('## §3\n═══════════\nSTEP 7 — TestCreate\n═══════════\n body\n'
-                  '═══════════\nSTEP 7-R — TestCreateRepair\n═══════════\n  [ExamCode]_registry.json → '
-                  'Replace in Project Files\n═══════════\nSTEP 9 — TestExplain\n═══════════\n body\n'
-                  '═══════════\nSTEP 9-R — TestExplainRepair\n═══════════\n'
+                  '═══════════\nSTEP 9 — TestExplain\n═══════════\n body\n'
                   '  registry.json → Replace in Project Files\n═══════════\nSTEP 11 — TestDeliver\n═══════════\n body\n## §4\n')
     _ok = {'Framework_MockTestCreate.md': 'x = fa.commit_registry(r)\nhs = pp.handoff_set(\'TestCreate\')\n'
                                           '[ExamCode]_registry.json → Replace in Project Files\n',
@@ -1069,15 +1113,45 @@ def self_test():
     _quoted = dict(_ok); _quoted['Framework_MockDeliver.md'] = '#   was: registry.json is NOT delivered (frozen)\nlive ok\n'
     check('ms14_frozen_wording_in_comment_allowed',
           check_registry_handoff(read=fake_reader(_quoted), routes_read=_rt) == [])
-    _nofoot = dict(_ok); _nofoot['Framework_DeliveryFooter.md'] = _ok_footer.replace('STEP 9-R — TestExplainRepair\n═══════════\n  registry.json → Replace in Project Files\n═══════════\n', '')
+    _nofoot = dict(_ok); _nofoot['Framework_DeliveryFooter.md'] = _ok_footer.replace('STEP 11 — TestDeliver', 'STEP 11 — Deliver')
     check('ms14_trigger_without_footer_block_flagged',
-          any("'TestExplainRepair'" in x for x in check_registry_handoff(read=fake_reader(_nofoot), routes_read=_rt)))
-    _repnobadge = dict(_ok); _repnobadge['Framework_DeliveryFooter.md'] = _ok_footer.replace('  registry.json → Replace in Project Files\n', '  registry.json → Use locally\n')
-    check('ms14_repair_block_without_replace_flagged',
-          any('TestExplainRepair block' in x for x in check_registry_handoff(read=fake_reader(_repnobadge), routes_read=_rt)))
+          any("'TestDeliver'" in x for x in check_registry_handoff(read=fake_reader(_nofoot), routes_read=_rt)))
     _missing = dict(_ok); del _missing['Framework_MockDeliver.md']
     check('ms14_missing_track_spec_flagged',
           any('missing' in x for x in check_registry_handoff(read=fake_reader(_missing), routes_read=_rt)))
+
+    # ── MS-15 — REPAIR-RETIRED-2026-08-27 ───────────────────────────────────
+    _rt_ok = {'Framework_MockTestExplain.md': 'On a not-met gate the paper delivers.\n'
+                                              '# history: TestCreateRepair P[N] once ran here\n'
+                                              'TestExplainRepair was RETIRED on 2026-08-27; nothing to run.\n',
+              'routes.json': json.dumps({'TestCreate': [], 'TestExplain': []}),
+              'SKILL.md': 'description: ... TestCreate, TestExplain, TestDeliver ...\n',
+              'validate_framework_md.py': "PIPELINE = {'TestCreate': '7'}\n"}
+    check('ms15_clean_corpus_passes', check_retired_triggers(read=fake_reader(_rt_ok)) == [])
+    _rt_live = dict(_rt_ok); _rt_live['Framework_MockTestExplain.md'] = 'Next step: TestCreateRepair P[N] Q4 Q8\n'
+    check('ms15_live_trigger_flagged',
+          any("'TestCreateRepair'" in x and 'L1' in x for x in check_retired_triggers(read=fake_reader(_rt_live))))
+    _rt_art = dict(_rt_ok); _rt_art['Framework_MockDeliver.md'] = 'attach [ExamCode]_[slug]_Create_Repaired.docx\n'
+    check('ms15_live_artefact_name_flagged',
+          any("'_Create_Repaired'" in x for x in check_retired_triggers(read=fake_reader(_rt_art))))
+    _rt_helper = dict(_rt_ok); _rt_helper['Framework_MockTestCreate.md'] = 'pp.dg_add_rework_snapshot(reg, paper_id, h)\n'
+    check('ms15_live_helper_flagged',
+          any("'dg_add_rework_snapshot'" in x for x in check_retired_triggers(read=fake_reader(_rt_helper))))
+    _rt_sec = dict(_rt_ok); _rt_sec['Framework_DeliveryFooter.md'] = 'see MockTestCreate §S16 for the batch rule\n'
+    check('ms15_live_section_ref_flagged',
+          any("'§S16'" in x for x in check_retired_triggers(read=fake_reader(_rt_sec))))
+    _rt_comment = dict(_rt_ok); _rt_comment['Framework_MockDeliver.md'] = '#   v1.13.0: TestCreateRepair P[N] → TestExplainRepair\n'
+    check('ms15_comment_history_allowed', check_retired_triggers(read=fake_reader(_rt_comment)) == [])
+    _rt_routes = dict(_rt_ok); _rt_routes['routes.json'] = json.dumps({'TestCreate': [], 'MockExplainRepair': []})
+    check('ms15_routes_registration_flagged',
+          any('routes.json' in x and 'MockExplainRepair' in x for x in check_retired_triggers(read=fake_reader(_rt_routes))))
+    _rt_skill = dict(_rt_ok); _rt_skill['SKILL.md'] = 'description: ... TestCreate, TestCreateRepair, ...\n'
+    check('ms15_skill_registration_flagged',
+          any('SKILL.md' in x for x in check_retired_triggers(read=fake_reader(_rt_skill))))
+    _rt_pipe = dict(_rt_ok); _rt_pipe['validate_framework_md.py'] = "PIPELINE = {'TestCreate': '7', 'TestExplainRepair': '9'}\n"
+    check('ms15_pipeline_registration_flagged',
+          any('validate_framework_md.py' in x for x in check_retired_triggers(read=fake_reader(_rt_pipe))))
+    check('ms15_is_registered', any(n.startswith('MS-15') for n, _ in ALL_CHECKS))
     def _no_routes(): raise FileNotFoundError('routes.json')
     check('ms14_missing_routes_flagged',
           any('routes.json' in x for x in check_registry_handoff(read=fake_reader(_ok), routes_read=_no_routes)))

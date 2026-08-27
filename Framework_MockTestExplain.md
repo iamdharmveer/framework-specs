@@ -1,4 +1,21 @@
-# Framework_MockTestExplain v1.46.3
+# Framework_MockTestExplain v1.47.0
+# v1.47.0 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestCreate v5.76, MockDeliver v1.18.0, DeliveryFooter v1.29,
+#   audit_canonical v2.22). MINOR: a trigger and a section are removed. The four *Repair
+#   triggers are RETIRED and §7A-R (TestExplainRepair / MockExplainRepair) is DELETED —
+#   replaced by a retirement notice. THE DIFFICULTY GATE NOW DISCLOSES, IT NEVER BLOCKS:
+#   §7A-M writes status='DISCLOSED' (rounds=0) where it wrote 'FAILED', prints a
+#   ⚠️ PROCEED WITH DISCLOSURE box whose next step is the Deliver trigger
+#   (pp.dg_next_step), and Step 11 delivers the paper with the §FOOTER-DG measured-
+#   difficulty line. 'FAILED' is a retired status: pp.dg_write_verdict refuses it and
+#   pp.dg_preflight heals a pre-v1.47.0 FAILED record to DISCLOSED/0 with a disclosed
+#   migration line. PASSED/1 and DISCLOSED/1 (written by the retired repair step) stay
+#   legal and deliverable as LEGACY repaired papers; a re-run of this step on one carries
+#   the spent count (ROUND-MONOTONIC unchanged). S2-1: a _Create_Repaired*.docx upload is
+#   a HARD STOP on every trigger (rename a legacy repaired paper to _Create.docx; P3's
+#   stem hash-match against registry.stem_texts proves identity). S19-0b: the repair-run
+#   stop and HANDOFF_STEP's repair values are removed. PENDING is the ONLY blocking gate
+#   state and its remedy is this step. No explanation rule changed.
 # v1.46.3 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (prose only): §7A-M's level-anchor
 #   text names the difficulty profile's calibration examples (bc.dp_calibration) in place of
 #   section_rules' retired PYQ_DIFFICULTY_CALIBRATION. No rule, gate or engine change.
@@ -184,7 +201,7 @@
   FINAL-BATCH DELIVERABLES (v1.46.0 — the SAME present_files call as item 1; the set is
   pp.handoff_set('TestExplain', …, final=True), CLOSED and machine-verified at S19-1):
     2. [ExamCode]_registry.json          → Replace in Project Files — WHENEVER this run
-       changed it (§7A-M verdict PASSED/FAILED/DORMANT, or a pp.dg_preflight healing).
+       changed it (§7A-M verdict PASSED/DISCLOSED/DORMANT, or a pp.dg_preflight healing).
        That is every gated run. REGISTRY-HANDOFF-LAW: the registry is the ONLY channel by
        which the verdict reaches Step 11, and Step 11 reads ONLY the project copy. A
        legacy paper (no gate record) changes nothing; then nothing is delivered and the
@@ -203,7 +220,7 @@
   (Q-numbers + codes + counts only — never stem/option/answer/solution text).
 
   NEVER delivered / never written: the Step-7 questions-only paper is NOT overwritten;
-  registry.json is written ONLY through paper_pipeline Cluster DG (§7A-M / §7A-R) and
+  registry.json is written ONLY through paper_pipeline Cluster DG (§7A-M) and
   persisted ONLY at S19-0 — never edited field-by-field, never re-synced from any other
   source; no internal state file (progress.json, answer_keys.json, the pickled blocks,
   the strip copy, montages) leaks to outputs.
@@ -530,15 +547,15 @@ execution path — it does not shrink, soften or delete them.
 
   Unclear trigger → ask ONE clarifying question. Never solve on ambiguous input.
   Trigger WITHOUT the matching [ExamCode]_[paper_slug]_Create.docx present → HALT, request
-  the upload. (v1.46.1) On a TestExplainRepair / MockExplainRepair trigger the paper
-  attachment is [ExamCode]_[paper_slug]_Create_Repaired.docx (TestCreateRepair §S16-3
-  output) and is the ONLY accepted form; on any other trigger a _Create_Repaired.docx
-  upload is a HARD STOP ("a repaired paper is explained via TestExplainRepair P[N]").
-  A _Create_Repaired_PARTIAL_[k]of[K].docx (Step 7-R mid-batch paper, v1.46.2) is a HARD
-  STOP on EVERY trigger: "This is a partially repaired paper (batch [k] of [K]) — finish
-  every repair batch with 'continue', then attach [ExamCode]_[slug]_Create_Repaired.docx."
-  Match the suffix EXACTLY: `_Create_Repaired.docx` is accepted, `_Create_Repaired_PARTIAL_`
-  is not (no prefix match). (v1.24: this and the FRESH line above said "Create_Complete" — a filename
+  the upload. (v1.47.0 — REPAIR-RETIRED-2026-08-27) The ONLY accepted paper attachment
+  is [ExamCode]_[paper_slug]_Create.docx. Any upload whose name contains
+  `_Create_Repaired` (the artefact of the RETIRED repair step, with or without a
+  `_PARTIAL_` suffix) is a HARD STOP on EVERY trigger: "The repair steps are retired
+  (2026-08-27). If this is a previously repaired paper, rename it to
+  [ExamCode]_[paper_slug]_Create.docx and re-attach — P3's stem hash-match against
+  registry.stem_texts proves it is the paper of record." A retired trigger is itself a
+  HARD STOP with the same notice (TestExplainRepair / MockExplainRepair are retired) and
+  the next step from pp.dg_next_step. (v1.24: this and the FRESH line above said "Create_Complete" — a filename
   RETIRED at v1.21.0 that no step produces (see the header note); a session following the
   old wording literally would refuse the valid _Create.docx upload forever. The operative
   P1 discovery always used _Create.docx; the trigger contract now says the same thing.)
@@ -554,7 +571,7 @@ execution path — it does not shrink, soften or delete them.
     HARD STOP: "registry.papers_completed = [...] does not contain paper_id [paper_id].
     Step 9 explains a paper Step 7 has completed; run Step 7 on it first."
   This is a read-only alignment check — nothing is written here; the only registry
-  writes in this step are §7A-M / §7A-R via Cluster DG, persisted at S19-0.
+  writes in this step are §7A-M via Cluster DG, persisted at S19-0.
 
   DEFENSIVE INDEX ALIGNMENT (v1.5 — read-only; Contract_QuestionMetadataIndex v1.0):
   registry.question_index is a Step-7-written, FROZEN field that feeds Step 11's tags. Step 9
@@ -574,8 +591,8 @@ execution path — it does not shrink, soften or delete them.
       persist_registry and the project fingerprint exist before anything below can
       write the registry): this spec → section_rules.md → BLUEPRINT (v1.19,
       docx-driven pp.pick_blueprint — twin of Step 7's resolver): discover the uploaded
-      [ExamCode]_[paper_slug]_Create.docx — or, on a *Repair trigger only,
-      [ExamCode]_[paper_slug]_Create_Repaired.docx (v1.46.1) — parse its paper_slug
+      [ExamCode]_[paper_slug]_Create.docx (v1.47.0: the retired `_Create_Repaired`
+      form is refused on every trigger — S2-1) — parse its paper_slug
       from the filename (strip the [ExamCode]_ prefix and whichever of the two
       suffixes is present; the slug is identical either way), load every [ExamCode]*_blueprint.json present (mock + any scoped),
       KEEP ONLY those whose exam_code == [ExamCode] exactly (v1.41.0 — the glob is a
@@ -638,7 +655,7 @@ execution path — it does not shrink, soften or delete them.
       Mode                       : [interactive — halt per batch] OR [autonomous — no pause, §MANDATE B]
       Output                     : /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx
       Renderer preflight (P1)    : [requirement → library → installed/absent → degrade?] per declared renderer, OR [none declared — PROSE/EQUATION only]
-      §7A-M difficulty gate       : [PASSED b+c/(m+h) within windows] OR [FAILED — rework Q…] OR [DORMANT — reason]  (blocking, §7A-M; bottom band not gated)
+      §7A-M difficulty gate       : [PASSED b+c/(m+h) within windows] OR [DISCLOSED — out of window Q…] OR [DORMANT — reason]  (disclosing, never blocking, §7A-M; bottom band not gated)
       State                      : /home/claude (chat-scoped)
       Status                     : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted — reason]
 ```
@@ -1602,19 +1619,20 @@ execution path — it does not shrink, soften or delete them.
   orders, most one point off. The gate now judges each label against an
   ACCEPTANCE WINDOW on the RAW RUBRIC SCORE, and the bottom band is not gated.
 
-  OPERATOR CONTRACT (decisions of 2026-08-24 and 2026-08-25, encoded in
-  blueprint_core Cluster E2d — never re-tuned inline; read the constants):
+  OPERATOR CONTRACT (decisions of 2026-08-24, 2026-08-25 and 2026-08-27,
+  encoded in blueprint_core Cluster E2d — never re-tuned inline; read the
+  constants):
     threshold      bc.DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.35 per band
-                   (blocks when disagreements EXCEED floor(0.35 × band size),
-                    computed exactly by the engine — no float drift:
-                    18 middle → allows 6, blocks at 7 · 36 top → allows 12,
-                    blocks at 13)
+                   (the gate is NOT MET when disagreements EXCEED
+                    floor(0.35 × band size), computed exactly by the engine —
+                    no float drift: 18 middle → allows 6, not met at 7 ·
+                    36 top → allows 12, not met at 13)
     windows        bc.DIFFICULTY_GATE_BAND_WINDOWS = (None, (2, 6), (5, None))
                    indexed by band POSITION in blueprint difficulty_labels
                    (0 bottom · 1 middle · 2 top) — the same rule for every
                    label vocabulary across ~200 exams:
                      bottom band  NOT GATED — Step 9 does not evaluate it;
-                                  its questions never enter a rework order;
+                                  its questions never enter an out-of-window list;
                                   the record reports its total (gated=false)
                      middle band  AGREES when 2 ≤ measured score ≤ 6 (inclusive)
                      top band     AGREES when measured score ≥ 5
@@ -1624,50 +1642,46 @@ execution path — it does not shrink, soften or delete them.
                    of tolerance. Every gated window contains its own authoring
                    band (engine invariant, self-tested), so a correctly
                    authored question can never fail its own gate.
-    repair rounds  bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 1
-    after round 1  DELIVER WITH DISCLOSURE — never a stop. The delivery footer
-                   states the measured band counts (MockDeliver §FOOTER-DG).
+    repair rounds  bc.DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 0 (v1.47.0 — the repair
+                   steps are RETIRED, operator decision 2026-08-27)
+    gate not met   DELIVER WITH DISCLOSURE — never a stop, never a rewrite.
+                   The delivery footer states the measured band counts
+                   (MockDeliver §FOOTER-DG).
     legacy papers  registry entries with NO difficulty_gate record are
                    pre-gate papers and are NEVER gated retroactively.
 
   THE RECORD IS SINGLE-WRITER (v1.44.0 — GAP-2026-08-25-DIFFICULTY-GATE-
-  ROUND-COUNTER). registry['difficulty_gate'][paper_id] is machine-read by
-  Step 7-repair (§S16-1), this section, §7A-R and Step 11 (MockDeliver S1-2
-  3b). It is written ONLY through paper_pipeline Cluster DG — NEVER as a
-  hand-built dict, NEVER field-by-field:
+  ROUND-COUNTER; v1.47.0 — REPAIR-RETIRED-2026-08-27). registry['difficulty_gate']
+  [paper_id] is machine-read by this section and Step 11 (MockDeliver S1-2 3b).
+  It is written ONLY through paper_pipeline Cluster DG — NEVER as a hand-built
+  dict, NEVER field-by-field:
       pp.dg_stamp_pending      Step 7 (final_assembly) — birth only
-      pp.dg_write_verdict      THIS SECTION (rounds=0) and §7A-R (rounds=1) —
-                               the ONLY writer of `status` and
-                               `repair_rounds_used`, always TOGETHER
-      pp.dg_add_rework_snapshot Step 7-repair (§S16-3) — adds ONLY the
-                               pre-repair snapshot (rework_stem_hashes +
-                               baseline_stem_hashes), write-once
+      pp.dg_write_verdict      THIS SECTION (rounds=0) — the ONLY writer of
+                               `status` and `repair_rounds_used`, always TOGETHER
   Every preflight that reads the record opens with pp.dg_preflight(reg,
   paper_id, where) and every next-step string comes from pp.dg_next_step —
-  no spec restates the rule. The LEGAL STATE MACHINE (pp.DG_LEGAL_STATES,
-  generated from the round limit):
+  no spec restates the rule. THE GATE DISCLOSES, IT NEVER BLOCKS (operator
+  decision 2026-08-27): the repair steps are RETIRED and nothing is rewritten
+  on the gate's say-so. The LEGAL STATE MACHINE (pp.DG_LEGAL_STATES):
       (absent)          legacy paper                     Step 11 DELIVERS
       PENDING   / 0     born; gate has not run           Step 11 HARD STOP → TestExplain
-      PASSED    / 0     gate passed first time           Step 11 DELIVERS
-      FAILED    / 0     gate failed; ONE repair round    Step 11 HARD STOP → CreateRepair → ExplainRepair
-      PASSED    / 1     repaired; re-gate passed         Step 11 DELIVERS
-      DISCLOSED / 1     repaired; re-gate failed         Step 11 DELIVERS + §FOOTER-DG line
+      PASSED    / 0     gate passed                      Step 11 DELIVERS
+      DISCLOSED / 0     gate not met; disclosed          Step 11 DELIVERS + §FOOTER-DG line
       DORMANT   / 0     gate not applicable              Step 11 DELIVERS + dormancy line
-  DG-INVARIANT: a COMPLETED repair round resolves status away from FAILED in
-  the SAME atomic write that sets repair_rounds_used=1; therefore FAILED ⇒ 0,
-  and any other pair proves the counter was written out of contract and the
-  round is UNCONSUMED. pp.dg_preflight heals such a record deterministically
-  (one field) and RETURNS A DISCLOSURE that MUST be printed in chat and that
+      PASSED    / 1     LEGACY repaired (pre-v1.47.0)    Step 11 DELIVERS
+      DISCLOSED / 1     LEGACY repaired (pre-v1.47.0)    Step 11 DELIVERS + §FOOTER-DG line
+  PENDING is the ONLY blocking state; its remedy is this step. The status
+  'FAILED' is RETIRED: pp.dg_write_verdict refuses it, and pp.dg_preflight heals
+  a record still carrying it (written before v1.47.0, under either rule) to
+  DISCLOSED/0 and RETURNS A DISCLOSURE that MUST be printed in chat and that
   the delivery footer prints from rec['migrations']. Silent healing is
   forbidden; disclosed healing is mandatory. An UNKNOWN status is never
   healed — pp raises DGIllegalState and the run HARD-STOPS with its message.
-  HISTORY, so it is never rediscovered: a TestCreateRepair session set
-  repair_rounds_used=1 on a still-FAILED record (the field sat next to the
-  step's own `'round': 1` session_log entry and its "REPAIR COMPLETE" print);
-  §7A-R R1 then read the counter alone and sent the operator to TestDeliver,
-  Step 11 read the status alone and sent them back to TestCreateRepair, which
-  refused "consumed" — four triggers, no exit, a finished 60-question paper
-  and its full explanation run lost. One clause of prose was the only guard.
+  HISTORY, so it is never rediscovered: through v1.46.3 a FAILED verdict
+  blocked Step 11 and the only exit was a repair pair whose two steps each
+  read one field of this record; a session once wrote a pair no step could
+  produce and four triggers refused the same paper with no exit. The engine
+  cluster closed that; the retirement removes the exit's need to exist.
 
   MECHANISM (per question, zero extra solving): after §7-8, record what §7-1's
   derive-twice pass revealed, in the SAME observation shape Step 7 stores as
@@ -1741,7 +1755,7 @@ execution path — it does not shrink, soften or delete them.
     WRITE (registry — the working copy, persisted by the S19-0 write in the same
     turn as the progress write) — via the single writer, NEVER a hand-built dict:
       pp.dg_write_verdict(reg, paper_id,
-          status='PASSED' if gate['verdict'] == 'PASS' else 'FAILED',
+          status='PASSED' if gate['verdict'] == 'PASS' else 'DISCLOSED',
           rounds=0, threshold=gate['threshold'],
           bands={lab: {k: b[k] for k in ('total','gated','window',
                        'assessed','agree','disagree','allowed','over_limit')}
@@ -1750,28 +1764,25 @@ execution path — it does not shrink, soften or delete them.
           scores_by_q=scores_by_q,
           rework_directions=gate['rework_directions'],
           windows=gate['windows'])
-    (v1.45.1) A fresh round-0 verdict starts a new repair lineage: if the
-    record carried a pre-repair stem snapshot (TestCreateRepair ran, then this
-    full step was re-run instead of TestExplainRepair — or a retired-rule
-    record is being re-judged) and the new rework set differs, the writer
-    retires that snapshot to rec['superseded_snapshots'] so §7A-R R3 can
-    never test a repair against the wrong questions; a later TestCreateRepair
-    takes a fresh one. Identical rework set → snapshot kept, order continues.
+    (v1.47.0) A gate that is NOT met is 'DISCLOSED' — never 'FAILED' (retired;
+    the writer refuses it). rework_qs / rework_directions document which
+    questions measured outside their window and in which direction; they are
+    printed in the box below and are read by nothing else.
     (v1.45.0) The writer stamps rec['gate_rule'] = pp.DG_RULE_WINDOWS,
     stores measured_score_by_q and rework_directions ('harder' = the
-    question measured BELOW its window; 'easier' = ABOVE it — Step 7 §S16
-    reads which way to rewrite), and REFUSES a FAILED verdict without
+    question measured BELOW its window; 'easier' = ABOVE it — the box
+    below prints them), and REFUSES a DISCLOSED verdict without
     windows or without a direction for every rework q (DGIllegalState — a
     caller bug, hard stop, never a silent write).
     pp.dg_write_verdict validates the resulting (status, repair_rounds_used)
     pair against pp.DG_LEGAL_STATES before it returns, keeps the timestamp,
     carries any rework_stem_hashes / baseline_stem_hashes / migrations
     forward, and is
-    ROUND-MONOTONIC: a full re-run of this step on a paper whose repair round
-    is already spent keeps the spent count — a FAIL then resolves to
-    DISCLOSED/1, never FAILED/0 — so re-running TestExplain can never hand a
-    paper a second repair round. The verdict actually written (read it back
-    with pp.dg_state) is what the box below reports.
+    ROUND-MONOTONIC: a full re-run of this step on a LEGACY repaired paper
+    (PASSED/1 or DISCLOSED/1, written by the retired repair step) keeps the
+    spent count, so a re-run cannot erase the fact that the paper was once
+    repaired. The verdict actually written (read it back with pp.dg_state) is
+    what the box below reports.
     The registry is the ONLY channel to Step 11 — the printed box is for the
     operator, the record is for the machine; they must agree. Step 11 reads the
     PROJECT copy, so the verdict reaches it ONLY if this run DELIVERS registry.json
@@ -1792,191 +1803,53 @@ execution path — it does not shrink, soften or delete them.
         Next step:  TestDeliver P[N]   (or MockDeliver M[N])
       ════════════════════════════════════════════════════════════
 
-    On FAIL:
-      ════════════════════════════════════════════════════════════
-        DIFFICULTY GATE: ❌ FAILED — DO NOT DELIVER THIS PAPER
-      ════════════════════════════════════════════════════════════
-        [band] band: [d] of [n] questions measured outside its
-        window (allowed: up to [allowed]).    ← one line per failed band
-          too easy (rewrite harder): Q[a] Q[b] …    ← from rework_directions;
-          too hard (rewrite easier): Q[c] …          omit an empty line
-
-        WHAT THIS MEANS
-        Some questions labelled "[band]" are actually easier or
-        harder than the label. Students practising on this paper
-        would get a false picture of the exam.
-
-        WHAT TO DO — exactly two commands, in this order:
-
-        1) Copy-paste this, attaching the QUESTION PAPER Word file:
-
-           TestCreateRepair P[N] Q[a] Q[b] Q[c] ...
-
-        2) Then copy-paste this, attaching the REPAIRED question
-           paper + THIS explanation Word file:
-
-           TestExplainRepair P[N]
-
-        (v1.44.0: both lines are pp.dg_next_step(reg, paper_id, N,
-         mock=<trigger is Mock*>) VERBATIM — the same function Step 11
-         prints from, so the printed command can never be one the target
-         step refuses.)
-
-        ⛔ DO NOT run TestDeliver / MockDeliver until you see
-           "✅ CLEARED FOR DELIVERY".
-      ════════════════════════════════════════════════════════════
-    (Mock-triggered runs print MockCreateRepair M[N] … / MockExplainRepair
-    M[N]; the Q-list is gate['rework_qs'] verbatim, in ascending order. The
-    bottom band never appears in a FAIL line — it is not gated.)
-
-  Dashboard line (P2) becomes:
-      §7A-M difficulty gate      : [PASSED — b+c/(m+h) within windows, 35%] OR
-                                   [FAILED — rework Q…] OR [DORMANT — reason]
-                                   (+ " · registry healed: <field> a→b" when
-                                    pp.dg_preflight returned a disclosure)
-
-## §7A-R — REPAIR MODE (TestExplainRepair / MockExplainRepair, v1.42.0; v1.44.0 — STATE-PAIR PREFLIGHT, ATOMIC RE-GATE; v1.45.0 — WINDOWED RE-GATE)
-
-  TRIGGER: `TestExplainRepair P[N]` or `MockExplainRepair M[N]`.
-  ATTACH:  (1) the REPAIRED question paper docx (TestCreateRepair output) and
-           (2) the PREVIOUS explanation docx (this step's earlier output).
-  PREFLIGHT (HARD STOP on any failure — these protect the operator from
-  repairing the wrong thing, so they stay hard even under the no-stop rule,
-  which governs the VERDICT, not malformed input):
-    ORDER IS FIXED: R0 → R1 → R2 → R3. Registry legality is checked BEFORE
-    anything about the operator's files, because a corrupt registry makes
-    every downstream verdict meaningless and its remedy has nothing to do
-    with the attachments.
-    R0  rec, disclosure = pp.dg_preflight(reg, paper_id, where='§7A-R R0')
-        An ILLEGAL (status, repair_rounds_used) pair is NOT "a round already
-        used" — it is a CORRUPT REGISTRY, healed here per DG-INVARIANT (a
-        FAILED record's counter is reset to 0: the round is provably
-        unconsumed). If disclosure is not None: print disclosure['line']
-        verbatim in chat, persist the registry (S19-0 write), and CONTINUE. A DGIllegalState
-        (unknown status) is a HARD STOP: print its message verbatim. Never
-        route the operator onward on an illegal record — the historical
-        failure was exactly that (FAILED + 1 → "go to TestDeliver" → Step 11
-        hard-stops on FAILED → TestCreateRepair refuses "consumed" → no exit).
-    R1  BRANCH ON THE STATE PAIR pp.dg_state(rec), never on one field. Every
-        next-step string is pp.dg_next_step(reg, paper_id, N, mock=<Mock*
-        trigger>) — the SAME function Step 11 prints from — never restated:
-          absent            → "This is a legacy paper (no gate record) —
-                               nothing to repair. Next step: " + next_step
-          ('PENDING',   0)  → "Run TestExplain P[N] first — the gate has not
-                               run. Next step: " + next_step
-          ('FAILED',    0)  → if pp.dg_is_windowed(rec): PROCEED (the one and
-                               only repair round). Else (v1.45.0 — the record
-                               was judged FAILED under the retired band-
-                               equality rule, GAP-2026-08-25-DIFFICULTY-GATE-
-                               WINDOWS): "This paper was judged under the old
-                               difficulty rule — nothing is repaired on its
-                               say-so. Next step: " + next_step (which is the
-                               Explain trigger: re-run it so the verdict is
-                               re-judged under the windows). HARD STOP.
-          ('PASSED',    0)  → "Nothing to repair — next step: " + next_step
-          ('PASSED',    1)  → "Already repaired and passed — next step: " + next_step
-          ('DISCLOSED', 1)  → "The one repair round is already used — next
-                               step: " + next_step + " (delivers with disclosure)."
-          ('DORMANT',   0)  → "This paper's gate is dormant ([dormant_reason])
-                               — nothing to repair. Next step: " + next_step
-        (No other pair can reach R1: R0 healed or refused it.)
-    R2  Both attachments present and parse (P3 machinery): the
-        [ExamCode]_[paper_slug]_Create_Repaired.docx paper (S2-1 / P1 accept this
-        form on this trigger — v1.46.1) and the previous
-        [ExamCode]_[paper_slug]_Explanation.docx; both must carry the SAME
-        paper_slug as the trigger's paper N (P10/0 identity gate) or HARD STOP.
-    R3  Stem diff against the PRE-REPAIR SNAPSHOT ONLY, via the shared digest:
-          v = pp.dg_verify_repair(rec, {q: <first-paragraph text of q in the
-                                         REPAIRED paper, raw — see
-                                         pp.dg_stem_hash> for q in 1..N})
-        v['missing_snapshot'] → HARD STOP: "The repaired paper was produced
-          without §S16-3's snapshot — re-run TestCreateRepair P[N]." Never
-          fall back to registry.stem_texts (TestCreateRepair has already
-          overwritten it with the post-repair stems, and it is a flat
-          append-only list across all papers with no defined per-paper
-          offset).
-        v['ok'] is False → HARD STOP naming v['changed_unlisted'] ("changed
-          questions the gate did not flag: Q…" — detectable only when the
-          §S16-3 snapshot carries baseline_stem_hashes for every question;
-          v['extras_verifiable'] says whether it does; a pre-v5.71 snapshot
-          without it verifies the flagged questions only, and the run says
-          so in §R10) and/or v['unchanged_listed']
-          ("failed to change a flagged question: Q… — if ALL of rework_qs is
-          listed here you attached the PRE-repair paper by mistake"). It is
-          the wrong file.
-        pp.dg_stem_hash is the ONE digest (sha256 of the raw first paragraph
-        including the "Q.<n>" label, no normalisation); §S16-3 computes the
-        snapshot with the same function. Neither side implements its own.
-  RUN: execute §4–§18 for the rework_qs ONLY (batching rules apply to that
-    subset); splice the regenerated per-question blocks into the previous
-    explanation docx, replacing the superseded blocks in place (block = the
-    question's full §2 structure); leave every other block byte-identical.
-  RE-GATE: rebuild scores_by_q AND measured_by_q for the untouched qs from
-    the record's measured_score_by_q / measured_by_q (the engine accepts the
-    record's str keys) and update BOTH for the repaired qs only; re-run
-    bc.evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
-    scores_by_q=scores_by_q) over the FULL maps with the engine defaults;
-    then ONE write, via the single writer:
-      pp.dg_write_verdict(reg, paper_id,
-          status='PASSED' if gate['verdict'] == 'PASS' else 'DISCLOSED',
-          rounds=1, threshold=gate['threshold'], bands=<as §7A-M>,
-          measured_by_q=measured_by_q, rework_qs=gate['rework_qs'],
-          scores_by_q=scores_by_q,
-          rework_directions=gate['rework_directions'],
-          windows=gate['windows'])
-    (on DISCLOSED, rework_qs / rework_directions document what remains out of
-     window; no further repair command is printed.)
-    ATOMIC, TERMINAL, IDEMPOTENT (v1.44.0). The counter and the status are
-    written ONCE, TOGETHER, at the END of a successful re-gate, by that call.
-    NEVER increment repair_rounds_used on ENTRY, never in a separate write,
-    never by hand — an entry-time increment that crashes before the re-gate
-    reproduces the deadlocked (FAILED, 1) pair by a second route, and
-    pp.dg_write_verdict refuses that pair outright. A run that crashes
-    mid-repair therefore leaves (FAILED, 0) untouched and is simply RE-RUN:
-    safe, because TestCreateRepair's rework_stem_hashes snapshot is the
-    PRE-repair evidence and is carried forward unchanged by every re-gate.
-    SESSION LOG — in the SAME registry write, append the evidence trail:
-      reg.setdefault('session_log', []).append({
-          'step': 'TestExplainRepair' (or 'MockExplainRepair'),
-          'paper_id': paper_id, 'round': 1, 'verdict': gate['verdict'],
-          'qs': rec['rework_qs']   (the PRE-repair list read at R0 — NOT
-                                    the re-gate's new rework_qs),
-          'timestamp': <utc-now>,
-          'spec': 'Framework_MockTestExplain v1.44.0 §7A-R'})
-    Recovery does NOT depend on this entry (DG-INVARIANT makes the record
-    self-diagnosing); without it no later audit can reconstruct what ran.
-    Resulting status:
-      PASS → 'PASSED'   — print the PASSED box (§7A-M shape).
-      FAIL → 'DISCLOSED' — the one round is spent; NO further loop and NO stop
-             (operator decision). Print:
+    On a gate that is NOT met (status DISCLOSED):
       ════════════════════════════════════════════════════════════
         DIFFICULTY GATE: ⚠️ PROCEED WITH DISCLOSURE
       ════════════════════════════════════════════════════════════
-        After 1 repair round: [bottom] [n] (not gated) · [middle]
-        [b]/[m] in window · [top] [c]/[h] in window. The paper MAY
-        be delivered; the delivery footer will state these measured
-        counts so no reader is misled.
-        Next step:  TestDeliver P[N]
+        [band] band: [d] of [n] questions measured outside its
+        window (allowed: up to [allowed]).    ← one line per band over limit
+          measured too easy: Q[a] Q[b] …    ← from rework_directions;
+          measured too hard: Q[c] …          omit an empty line
+
+        WHAT THIS MEANS
+        Some questions labelled "[band]" measured easier or harder
+        than the label. The paper is still delivered: the delivery
+        footer will state these measured counts so no reader is
+        misled, and the labels stay as planned at Step 7. (The
+        repair steps were retired on 2026-08-27 — nothing is
+        rewritten on this verdict.)
+
+        Next step:  TestDeliver P[N]   (or MockDeliver M[N])
       ════════════════════════════════════════════════════════════
-    (the "Next step" line is pp.dg_next_step(...) verbatim; on a DISCLOSED
-     record it is guaranteed to be the Deliver trigger, which Step 11 accepts.)
-  DELIVERABLES (v1.46.0 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM; this section had NO
-    delivery contract through v1.45.1, so the re-gate verdict stayed in /home/claude and
-    Step 11 kept reading (FAILED, 0) from the project). The CLOSED SET, one present_files
-    call, F2 footer, is pp.handoff_set('TestExplainRepair', …, final=True) — run S19-0b →
-    S19-1 → S19-2 → S19-4 exactly as a final batch, with FINAL_BATCH = True and
-    HANDOFF_STEP = 'TestExplainRepair' (or 'MockExplainRepair'):
-      1. [ExamCode]_[paper_slug]_Explanation.docx — the previous explanation docx with
-         the rework_qs blocks replaced in place, SAME filename (Step 11's S1-2 gate
-         accepts exactly this name)                                → Use locally
-      2. [ExamCode]_registry.json — carries the re-gate verdict (PASSED/1 or DISCLOSED/1)
-         + the session_log entry                                   → Replace in Project Files
-      3. [ExamCode]_[paper_slug]_Explain_Report.docx — the §20 report regenerated as the
-         REPAIR EDITION (§R1 states "repair round 1"; §R3 lists the rework_qs re-explained;
-         every other section reports the whole paper as it now stands) → Use locally
-    The re-gate is ONE write (above); pp.registry_changed is therefore True on every
-    successful repair run, and a run whose registry is unchanged has NOT re-gated — S19-0
-    HARD-STOPS it rather than deliver a stale verdict (S19-0b).
+    (v1.47.0: the "Next step" line is pp.dg_next_step(reg, paper_id, N,
+     mock=<trigger is Mock*>) VERBATIM — the same function Step 11 prints
+     from; on a DISCLOSED record it is guaranteed to be the Deliver trigger,
+     which Step 11 accepts. The Q-lists are gate['rework_qs'] split by
+     gate['rework_directions'], ascending. The bottom band never appears in
+     an over-limit line — it is not gated. A DISCLOSED paper is NEVER held
+     back and NO retired trigger is ever printed.)
+
+  Dashboard line (P2) becomes:
+      §7A-M difficulty gate      : [PASSED — b+c/(m+h) within windows, 35%] OR
+                                   [DISCLOSED — out of window Q…] OR [DORMANT — reason]
+                                   (+ " · registry healed: <field> a→b" when
+                                    pp.dg_preflight returned a disclosure)
+
+## §7A-R — RETIRED (v1.47.0 — REPAIR-RETIRED-2026-08-27, operator decision)
+
+  The repair mode this section once defined is RETIRED: the two Step 9-R
+  triggers (Test*/Mock* …ExplainRepair) are retired, and with them the re-gate
+  and the pre-repair stem diff. The difficulty gate (§7A-M) reports and
+  discloses; it never blocks delivery. A session that receives one of the
+  retired triggers replies: "The Step 9-R repair trigger is retired
+  (2026-08-27). The difficulty gate no longer blocks — the next step is: " +
+  pp.dg_next_step(reg, paper_id, N, mock=<Mock* trigger>) (after
+  pp.dg_preflight, whose disclosure line is printed if any). Papers the retired
+  step already repaired (PASSED/1, DISCLOSED/1) are LEGACY: legal, deliverable,
+  and re-judged by a full run of this step exactly like any other paper
+  (ROUND-MONOTONIC keeps their count). History of the retired section:
+  SPEC_HISTORY.md (the retired section archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
 # ════════════════════════════════════════════════════════════════════════
 
@@ -2894,8 +2767,8 @@ execution path — it does not shrink, soften or delete them.
   same present_files call as its primary artefact. Nothing in this step decides that by
   prose. The decision is a FINGERPRINT: the project copy as loaded vs the working copy
   this run is about to hand off (pp.registry_changed). Every registry write in this spec —
-  §7A-M pp.dg_preflight healing, §7A-M pp.dg_write_verdict, §7A-R R0 healing, §7A-R
-  re-gate + session_log — is made on `reg` (the working copy bound at S19-0a) and is
+  §7A-M pp.dg_preflight healing, §7A-M pp.dg_write_verdict — is made on `reg` (the
+  working copy bound at S19-0a) and is
   followed IMMEDIATELY by persist_registry(reg); "the S19-0 write" is that call.
   WHY A FINGERPRINT. A legacy paper (no difficulty_gate record) writes nothing, so nothing
   is delivered and the footer says so; a gated run always writes a verdict, so the
@@ -2904,10 +2777,11 @@ execution path — it does not shrink, soften or delete them.
   registry" sentence — that wording is banned corpus-wide (MS-14) and the closed set is
   asserted mechanically at S19-1 check 5.
   Session flags the run sets in prose, exactly like SELF_AUDIT_CLEAN / COVERAGE_OK:
-    FINAL_BATCH   = True on the last batch of the frozen plan (S4-2) and on every
-                    §7A-R run; False (or unset) otherwise.
-    HANDOFF_STEP  = 'TestExplain' | 'MockExplain' | 'TestExplainRepair' |
-                    'MockExplainRepair' — the trigger that started this run.
+    FINAL_BATCH   = True on the last batch of the frozen plan (S4-2); False (or
+                    unset) otherwise.
+    HANDOFF_STEP  = 'TestExplain' | 'MockExplain' — the trigger that started this run
+                    (v1.47.0: the retired *ExplainRepair values are refused by
+                    pp.handoff_set — RHIllegalHandoff).
 
 ### S19-0a — SESSION START (run at P1, EVERY turn including resume — before §7A-M's preflight)
 ```python
@@ -2925,7 +2799,7 @@ HANDOFF_STEP = globals().get('HANDOFF_STEP') or 'TestExplain'
 
 def persist_registry(reg):
     """THE S19-0 WRITE — the only json.dump of the registry in this step. Call it
-    right after EVERY Cluster-DG write (§7A-M preflight/verdict, §7A-R R0/re-gate)."""
+    right after EVERY Cluster-DG write (§7A-M preflight/verdict)."""
     json.dump(reg, open(REG_WORK, 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
     return REG_WORK
 ```
@@ -2937,9 +2811,6 @@ persist_registry(reg)                                       # idempotent; never 
 _sol    = f'{EXAMCODE}_{PAPER_SLUG}_Explanation.docx'
 _report = f'{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPORT_SUFFIX}' if FINAL_BATCH else None
 _changed = pp.registry_changed(_reg_fp_project, reg)
-if HANDOFF_STEP.endswith('Repair') and not _changed:
-    raise SystemExit('HARD STOP (S19-0b): a repair run must re-gate (one pp.dg_write_verdict) '
-                     'before delivery — the registry is unchanged, so nothing is delivered.')
 HANDOFF = pp.handoff_set(HANDOFF_STEP, primary_docx=_sol, reg_name=f'{EXAMCODE}_registry.json',
                          registry_changed=_changed, final=FINAL_BATCH, report_docx=_report)
 if HANDOFF['registry_delivered']:
@@ -3042,8 +2913,7 @@ VERBATIM (v1.46.0): Explanation.docx → Use locally; registry.json → Replace 
 Step 9 uses BOTH footer types:
   - F1 (amber) after each non-final batch (same Explanation.docx, incrementally filled)
   - F2 (green) after the final batch (Explanation.docx fully explained + registry.json +
-    Explain_Report.docx — DeliveryFooter §3 "STEP 9"); §7A-R always renders F2
-    (DeliveryFooter §3 "STEP 9-R — TestExplainRepair").
+    Explain_Report.docx — DeliveryFooter §3 "STEP 9").
 ```
 
 # ════════════════════════════════════════════════════════════════════════
@@ -3120,8 +2990,7 @@ Step 9 uses BOTH footer types:
   the Explanation docx (different suffix). MANDATE 0 binds it exactly as it binds the
   chat report: Q-numbers, codes, counts, source URLs — never a stem, option, answer or
   solution sentence; explain_engine.build_report_docx REFUSES a line that declares an
-  answer, before any byte is written. On a §7A-R run the file is regenerated as the
-  REPAIR EDITION (§7A-R DELIVERABLES item 3).
+  answer, before any byte is written.
 ```python
 import explain_engine as ee
 
@@ -3202,7 +3071,7 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
       each batch; final batch also stopped before the report (MANDATE B).
   12. (v1.46.0) registry.json written ONLY via Cluster DG, persisted ONLY at S19-0, and
       DELIVERED (Replace in Project Files) whenever pp.registry_changed is True — the
-      final batch of every gated run and every §7A-R run; the report docx delivered at
+      final batch of every gated run; the report docx delivered at
       the final batch; no internal sidecar leaked to outputs (S19-1 check 5 = the
       closed handoff set).
   13. present_files called exactly once per batch, only after §18 clean (MANDATE D).
@@ -3396,5 +3265,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.46.3
+# END OF Framework_MockTestExplain v1.47.0
 # ════════════════════════════════════════════════════════════════════════

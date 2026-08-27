@@ -1,5 +1,64 @@
 # Changelog
 
+## 2026.08.27.3 — REPAIR-RETIRED-2026-08-27: the four *Repair triggers are retired; the difficulty gate discloses, it never blocks
+
+**paper_pipeline v5.75 -> v5.76 · Framework_MockTestCreate v5.75 -> v5.76 · Framework_MockTestExplain
+v1.46.3 -> v1.47.0 · Framework_MockDeliver v1.17.0 -> v1.18.0 · Framework_DeliveryFooter v1.28 ->
+v1.29 · audit_canonical v2.21 -> v2.22 · blueprint_core DIFFICULTY_GATE_MAX_REPAIR_ROUNDS 1 -> 0 ·
+final_assembly comment-only · mock_sync_audit +MS-15 · validate_framework_md PIPELINE −4 ·
+routes.json 27 -> 23 triggers · both SKILL descriptions. Self-tests: paper_pipeline 183 -> 174,
+audit_canonical 293, blueprint_core 598, final_assembly 122, mock_sync_audit 46 -> 55.
+check_triggers 23 consistent; bootstrap 52/52. Step 5 golden set 12/12 byte-identical
+(IIT_JAM_MATHEMATICS + IIT_JAM_CHEMISTRY, PYTHONHASHSEED 3/41). Zero exam values.**
+
+THE DECISION (operator, 2026-08-27). `TestCreateRepair`, `MockCreateRepair`, `TestExplainRepair`
+and `MockExplainRepair` are removed permanently, for every exam. They were never standalone
+steps: they were the ONLY exit from the difficulty gate's `FAILED/0` state (2026.08.24.5), so
+deleting them without changing the state machine would have made every gate-failing paper
+permanently undeliverable — by design instead of by accident, the deadlock class of
+GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER. The operator chose option A: THE GATE REPORTS AND
+DISCLOSES, IT NEVER BLOCKS.
+
+(1) **State machine (paper_pipeline Cluster DG, schema 3).** Legal pairs are PENDING/0, PASSED/0,
+DISCLOSED/0, DORMANT/0, plus the LEGACY repaired pairs PASSED/1 and DISCLOSED/1 (read-legal,
+deliverable, never written again — a re-run of Step 9 carries the spent count, ROUND-MONOTONIC
+unchanged). `FAILED` is a RETIRED status: `dg_write_verdict` refuses it, `dg_preflight` heals a
+record still carrying it (either rule, any counter) to DISCLOSED/0 with a disclosed migration
+line, and `dg_fleet_heal --apply` does the same estate-wide. `DG_BLOCKING = {PENDING}`;
+`dg_next_step` returns only the Deliver or the Explain trigger; `dg_add_rework_snapshot`,
+`dg_stem_hash`, `dg_verify_repair` are DELETED; `RH_MOCK_TRACK_STEPS` / `RH_REGISTRY_WRITING_STEPS`
+drop the four names (a spec that still names one gets `RHIllegalHandoff`). Inert fields the
+retired steps left on records (`rework_stem_hashes`, `baseline_stem_hashes`,
+`superseded_snapshots`) are carried forward, never read, never stripped.
+
+(2) **Step 9 (MockTestExplain §7A-M)** writes `DISCLOSED` where it wrote `FAILED`; the ❌ box
+becomes ⚠️ PROCEED WITH DISCLOSURE, lists the out-of-window questions by direction, and prints
+the Deliver trigger via `pp.dg_next_step`. §7A-R is DELETED (retirement notice; text archived
+in SPEC_HISTORY.md). S2-1 refuses every `_Create_Repaired*` upload on every trigger with the
+rename remedy. S19-0b loses the repair-run stop and the repair `HANDOFF_STEP` values.
+
+(3) **Step 7 (MockTestCreate)** §S16 (326 lines) is DELETED (retirement notice; archived
+verbatim in SPEC_HISTORY.md). Retiring it exposed a LATENT GAP the auditor had been credited
+for: Step 7's own Final Assembly never built its deliverable set through `pp.handoff_set` —
+§S16-3 was the only call in the file, so MS-14 passed on the repair step's behalf. S13-8 now
+builds and verifies the closed set through the engine exactly as Step 9 S19-0b does.
+
+(4) **Step 11 (MockDeliver S1-2 3b)** — the FAILED branch is gone; DISCLOSED/0 proceeds with
+the §FOOTER-DG line "… the difficulty gate was not met; labels are as planned at Step 7."
+DISCLOSED/1 prints "… confirmed after 1 repair round (legacy repair — the repair steps are
+retired)." **DeliveryFooter** §3 STEP 7-R / 9-R blocks deleted, §5 flow after Step 9 is ALWAYS
+Step 11, §8 writers are Step 7 / Step 9, the `_Create_Repaired*` LOCAL_ONLY patterns removed.
+
+(5) **Permanence.** `mock_sync_audit` MS-2 `_RETIRED` gains the four trigger names, the
+artefact names and the three deleted helpers (forbidden in fenced text outright); NEW **MS-15
+RETIRED-TRIGGERS** scans the LIVE text of every mock-track spec (comments blanked) and fails on
+any of those literals, `§S16` or `§7A-R` appearing without a retirement notice, and on any of
+the four names in routes.json / SKILL / PIPELINE (9 fixtures). `check_triggers` proves routes ==
+SKILL == PIPELINE. `audit_canonical` A-DGATE mirrors the new table (parity self-test against
+pp and bc) and FAILS any `FAILED` record with the fleet-scan remedy.
+
+ESTATE ACTION: see DEPLOY_NOTES.md. No re-run of any step is needed; the heal is read-side.
+
 ## 2026.08.27.2 — Doc-sync follow-up to 2026.08.27.1: no statement in the corpus still describes the retired defaults
 
 **Framework_Blueprint v1.57.0 -> v1.57.1 · Framework_PYQDeliver v1.13 -> v1.13.1 · blueprint_core /

@@ -1,4 +1,12 @@
-# Framework_DeliveryFooter v1.28 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.29 — Universal Delivery Footer (F1/F2) Contract
+# v1.29 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestCreate v5.76, MockTestExplain v1.47.0, MockDeliver
+#   v1.18.0). The four *Repair triggers are RETIRED: §3 blocks STEP 7-R and STEP 9-R are
+#   DELETED, §5 flow drops the repair lines (after Step 9 → Step 11 ALWAYS; the gate
+#   discloses, it never blocks), §8 writer list is Step 7 / Step 9, the two
+#   _Create_Repaired* patterns leave LOCAL_ONLY (no step produces them; a stray one is
+#   an unexpected file). §FOOTER-DG gains the DISCLOSED/0 line ("the difficulty gate was
+#   not met; labels are as planned at Step 7") and marks DISCLOSED/1 as a legacy repair.
 # v1.28 — 2026-08-26 — GAP-2026-08-26-REPAIR-BATCH-LAW (MockTestCreate v5.74): STEP 7-R
 #   batched — F1 per non-final batch with _Create_Repaired_PARTIAL_[k]of[K].docx
 #   (registry withheld), F2 at the final batch. LOCAL_ONLY gains the PARTIAL pattern.
@@ -95,7 +103,7 @@ BADGE 2 — "Replace in Project Files"  (icon: 🔁)
   When   : File ALREADY exists in project Files (prior run or prior part).
   Example: Step 4 PYQCount re-delivering updated PYQ_Analysis.docx.
            Step 6 B2 re-delivering updated blueprint.json (B1 version exists).
-           Step 7 / 7-R / 9 / 9-R re-delivering the updated registry.json
+           Step 7 / 9 re-delivering the updated registry.json
            (REGISTRY-HANDOFF-LAW, §8 — every step that changes it).
 
 BADGE 3 — "Use locally"               (icon: 📁)
@@ -154,9 +162,7 @@ def get_badge(filename, step, is_first_run):
         '*_Explanation.docx',       # Step 9 solutions (any slug)
         '*_Final.docx',             # Step 11 tagged final (any slug)
         '*_audit_dossier.json',     # Step 7 dossier — INTERNAL since v1.27 (kept for old files)
-        '*_Create_Repaired.docx',   # Step 7-R repaired paper (any slug) — v1.27
-        '*_Create_Repaired_PARTIAL_*.docx',  # Step 7-R mid-batch cumulative paper — v1.28
-        '*_Explain_Report.docx',    # Step 9 / 9-R END-OF-MOCK REPORT docx (any slug) — v1.27
+        '*_Explain_Report.docx',    # Step 9 END-OF-MOCK REPORT docx (any slug) — v1.27
         '*_taxonomy.xlsx',          # Step 5 id companion (xlsx — not Claude-readable)
         'analysis_summary.md',      # Step 5 final — human review audit trail
         '*pyq_registry.json',       # PYQ-4 corpus tracker — LOCAL-ONLY (v1.16/v1.17: bare name
@@ -414,25 +420,6 @@ NEXT STEP  : Step 9: MockExplain M[N]   (mock paper)
   (v1.13 — Step 8 is RETIRED; never print it as a next step.)
 
 ═══════════════════════════════════════════════════════════════════════
-STEP 7-R — TestCreateRepair / MockCreateRepair  (v1.27 — MockTestCreate §S16; batched v1.28)
-═══════════════════════════════════════════════════════════════════════
-PARTS      : one batch (≤ 10 rework qs) per response — MockTestCreate S16-1b
-FOOTER TYPE: F1 (mid-step) after each non-final repair batch
-             F2 (step-complete) at the final batch
-
-MID-STEP DELIVERABLES (per non-final batch — cumulative, whole paper):
-  [ExamCode]_[paper_slug]_Create_Repaired_PARTIAL_[k]of[K].docx → Use locally
-  (registry WITHHELD until the final batch — S16-3; Step 9-R refuses the PARTIAL name)
-
-FINAL DELIVERABLES (CLOSED SET = pp.handoff_set('TestCreateRepair', …)):
-  [ExamCode]_[paper_slug]_Create_Repaired.docx → Use locally
-  [ExamCode]_registry.json                    → Replace in Project Files (carries the
-                                                 pre-repair snapshot §7A-R R3 needs)
-
-NEXT STEP  : Step 9-R: TestExplainRepair P[N] · MockExplainRepair M[N]  (attach the
-             repaired paper + the previous Explanation docx)
-
-═══════════════════════════════════════════════════════════════════════
 STEP 9 — MockExplain
 ═══════════════════════════════════════════════════════════════════════
 PARTS      : Multiple batches (batch size from spec)
@@ -454,27 +441,14 @@ MockTestExplain S19-0, v1.46.0):
   [ExamCode]_Mock[N]_Explain_Report.docx  → Use locally   (END-OF-MOCK REPORT docx,
                                             MockTestExplain S20-R; inert downstream)
 
-NEXT STEP  : Step 11: MockDeliver M[N]  (mock paper) — only on "✅ CLEARED FOR DELIVERY";
-             on ❌ FAILED → Step 7-R (the box prints both commands, pp.dg_next_step)
+NEXT STEP  : Step 11: MockDeliver M[N]  (mock paper) — on ✅ PASSED, ⚠️ DISCLOSED or
+             DORMANT alike (v1.29: the gate discloses, it never blocks; the box
+             prints the Deliver trigger, pp.dg_next_step)
              Step 11: TestDeliver P[N]  (scoped paper — v1.24; MockDeliver S1-2 gates
                                          the uploaded slug against the paper_slug)
 
   (v1.13 — Step 10 is RETIRED; v1.15 — PYQExplainAudit (PYQ-2) too. Never print
    either as a next step.)
-
-═══════════════════════════════════════════════════════════════════════
-STEP 9-R — TestExplainRepair / MockExplainRepair  (v1.27 — MockTestExplain §7A-R)
-═══════════════════════════════════════════════════════════════════════
-PARTS      : 1 or more batches over the rework_qs only (batching rules apply)
-FOOTER TYPE: F2 (step-complete) — after the re-gate
-
-DELIVERABLES (CLOSED SET = pp.handoff_set('TestExplainRepair', …, final=True)):
-  [ExamCode]_[paper_slug]_Explanation.docx    → Use locally   (rework blocks spliced;
-                                                 SAME filename Step 11 accepts)
-  [ExamCode]_registry.json                    → Replace in Project Files (re-gate verdict)
-  [ExamCode]_[paper_slug]_Explain_Report.docx → Use locally   (REPAIR EDITION)
-
-NEXT STEP  : Step 11: TestDeliver P[N] · MockDeliver M[N]  (pp.dg_next_step)
 
 ═══════════════════════════════════════════════════════════════════════
 STEP 11 — MockDeliver
@@ -501,10 +475,14 @@ print EVERY string returned by
 one per line, each prefixed "ℹ️ ". The engine is the ONLY source of these lines —
 never compose them by hand. The set it returns, by record state:
     PASSED (0 or 1 rounds)  → nothing
-    DISCLOSED / 1           → "Measured difficulty: [bottom] n (not gated) · [middle]
-                               b/m in window · [top] c/h in window confirmed after 1
-                               repair round." (v1.26 windowed record; a pre-window
-                               record prints plain a/n fractions)
+    DISCLOSED / 0           → "Measured difficulty: [bottom] n (not gated) · [middle]
+                               b/m in window · [top] c/h in window — the difficulty
+                               gate was not met; labels are as planned at Step 7."
+                               (v1.29 — the gate discloses, it never blocks; a
+                               pre-window record prints plain a/n fractions)
+    DISCLOSED / 1           → "Measured difficulty: … confirmed after 1 repair round
+                               (legacy repair — the repair steps are retired)."
+                               (a LEGACY paper the retired repair step re-gated)
     DORMANT / 0             → "Difficulty gate: not applicable to this paper
                                ([dormant_reason]) — labels are as planned at Step 7."
     any record with a
@@ -832,10 +810,9 @@ After Step 6   → Step 7: MockCreate M1
 After Step 6S  → Step 7: TestCreate P1 --level … --scope …          (v1.24)
 After Step 7   → Step 9: MockExplain M[N] · TestExplain P[N] (scoped)   (Step 8 retired — 2026.08.03.5)
 After Step 9   → Step 11: MockDeliver M[N] · TestDeliver P[N] (scoped) (Step 10 retired — 2026.08.03.5)
-                 … when the §7A-M verdict is ✅ PASSED / DORMANT. On ❌ FAILED (v1.27):
-After Step 9 ❌ → Step 7-R: TestCreateRepair P[N] Q… · MockCreateRepair M[N] Q…
-After Step 7-R → Step 9-R: TestExplainRepair P[N] · MockExplainRepair M[N]
-After Step 9-R → Step 11: TestDeliver P[N] · MockDeliver M[N]   (PASSED/1 or DISCLOSED/1)
+                 … ALWAYS: PASSED, DISCLOSED (gate not met — delivered with the
+                 §FOOTER-DG line) or DORMANT. (v1.29: the Step 7-R / 9-R repair
+                 steps are retired — 2026-08-27.)
 After Step 11  → Pipeline complete for [paper_slug].
                  Next: Step 7: MockCreate M[N+1] (mock) · TestCreate P[N+1] (scoped series)
 
@@ -871,7 +848,7 @@ Project Files", in the SAME present_files call as its primary artefact. The next
 reads ONLY the project copy; an undelivered change is a change the pipeline never sees.
 
 WRITERS (paper_pipeline.RH_REGISTRY_WRITING_STEPS): Test/MockCreate (Final Assembly),
-Test/MockCreateRepair (§S16-3), Test/MockExplain (§7A-M), Test/MockExplainRepair (§7A-R).
+Test/MockExplain (§7A-M). (v1.29: the retired repair steps are no longer writers.)
 READER: Test/MockDeliver (delivers the registry only when its preflight healed it).
 
 DECIDED BY pp.registry_changed(project fingerprint, working copy) → pp.handoff_set(step, …)

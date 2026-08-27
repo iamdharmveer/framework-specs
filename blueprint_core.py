@@ -6626,7 +6626,7 @@ PYQ_IMAGE_ANALYSIS:
     check('e2d_gate_positional_vocabulary',
           _g['verdict'] == 'PASS' and _g['bands']['Level-1']['gated'] is False
           and _g['bands']['Level-3']['agree'] == 36)
-    # explicit override of threshold and windows still honoured (repair-mode / audit callers)
+    # explicit override of threshold and windows still honoured (audit callers)
     _sc = dict(_sc_all_ok); _sc.update({q: 5 for q in range(25, 37)})
     _g = evaluate_difficulty_gate(_lab, {}, _L, scores_by_q=_sc, max_disagree_frac=0.30,
                                   band_windows=(None, (3, 5), (6, None)))
@@ -6890,15 +6890,16 @@ PYQ_IMAGE_ANALYSIS:
 # ═══════════════════════════════════════════════════════════════════════════
 # Cluster E2d — DIFFICULTY GATE (GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING)
 # Fix 1: band-level reconciliation of Step-7 labels against Step-9's
-# independent re-derivation — the gate MockTestExplain §7A-M now ENFORCES
-# (blocking; ONE repair round via TestCreateRepair/TestExplainRepair; then
-# deliver-with-disclosure, never a stop). Fix 2: evidence-diversity floor
+# independent re-derivation — the gate MockTestExplain §7A-M REPORTS AND
+# DISCLOSES (REPAIR-RETIRED-2026-08-27, operator decision: the repair triggers
+# are retired; a gate that is not met writes DISCLOSED and the paper delivers
+# with the measured-difficulty footer line — never a stop). Fix 2: evidence-diversity floor
 # (anti profile-echo), shared by A-QINDEX check 9 so gate and audit cannot
 # drift. Pure functions: plain data in, dicts/strings out. No I/O.
 # ═══════════════════════════════════════════════════════════════════════════
 
 DIFFICULTY_GATE_MAX_DISAGREE_FRAC = 0.35   # operator decision 2026-08-25 (was 0.30)
-DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 1      # operator decision 2026-08-24
+DIFFICULTY_GATE_MAX_REPAIR_ROUNDS = 0      # 1 → 0: repair retired, operator decision 2026-08-27
 
 # GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS — operator decision 2026-08-25.
 # Per-band ACCEPTANCE WINDOWS on the 0..12 rubric score, indexed by band
@@ -7038,7 +7039,7 @@ def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
     13. rework_qs lists the disagreeing questions of OVER-LIMIT bands only
     (repairing agreeing bands would churn accepted work); rework_directions
     says, per rework q, whether the question must move 'harder' (it measured
-    below its window) or 'easier' (above) — Step 7's repair mode reads it.
+    below its window) or 'easier' (above) — the §7A-M verdict box prints it.
 
     Non-3-band vocabulary → PASS with dormant=True (the spec prints its §R10
     DORMANT line and writes no verdict). q keys may be int or str on any map

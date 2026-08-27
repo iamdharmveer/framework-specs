@@ -1,4 +1,16 @@
-# Framework_MockTestCreate v5.75
+# Framework_MockTestCreate v5.76
+# v5.76 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
+#   paper_pipeline v5.76, MockTestExplain v1.47.0, MockDeliver v1.18.0, DeliveryFooter v1.29,
+#   audit_canonical v2.22, blueprint_core DIFFICULTY_GATE_MAX_REPAIR_ROUNDS 1 → 0). The four
+#   *Repair triggers are RETIRED: §S16 (repair mode, batches, pre-repair snapshot,
+#   _Create_Repaired.docx, repair_state.json) is DELETED and replaced by a retirement
+#   notice; routes.json, SKILL and validate_framework_md.PIPELINE drop the triggers;
+#   pp.dg_add_rework_snapshot / dg_stem_hash / dg_verify_repair are deleted from the
+#   engine; mock_sync_audit MS-2/MS-15 forbid the names from ever returning. The
+#   difficulty gate now DISCLOSES (DISCLOSED/0) instead of blocking (FAILED/0) and no
+#   step rewrites a question on its say-so. This step's registry contract is unchanged:
+#   it CREATES the gate record at birth and never writes status/counter. No question
+#   generation rule changed; artefacts of a fresh MockCreate are byte-identical.
 # v5.75 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with Blueprint v1.57.0,
 #   blueprint_core Cluster DP, MockTestAnalyse v2.55). S3: the difficulty plan is built PER
 #   SECTION when difficulty_schedule[N].by_section is present (bc.assign_difficulty_bands_by_
@@ -532,12 +544,11 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                                [ExamCode]_mock_test_audit.py
   THIS STEP — Step 7 (MockCreate) → produces [ExamCode]_Mock[N]_Create.docx,
                                updated [ExamCode]_registry.json
-  THIS STEP, repair mode (§S16, TestCreateRepair) → [ExamCode]_Mock[N]_Create_Repaired.docx,
-                               updated [ExamCode]_registry.json (pre-repair snapshot)
   REGISTRY-HANDOFF-LAW (v5.73): every step that CHANGES registry.json DELIVERS it, badge
   "Replace in Project Files", in the same present_files call as its primary artefact —
-  decided by pp.registry_changed (a fingerprint), never by prose. Steps 7, 7-repair, 9,
-  9-repair are the writers; Step 11 reads it. LAW_REGISTRY.json / mock_sync_audit MS-14.
+  decided by pp.registry_changed (a fingerprint), never by prose. Steps 7 and 9 are the
+  writers (v5.76: the retired repair steps no longer exist); Step 11 reads it.
+  LAW_REGISTRY.json / mock_sync_audit MS-14.
   Step 9 (MockExplain) → consumes outputs of this step (v5.36: directly — the former
                                Step 8 audit between them has been retired)
 
@@ -7807,6 +7818,38 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         reg_path
     ])
 
+  THE SET IS DECIDED BY THE ENGINE, NOT BY THIS PROSE (v5.76 — REGISTRY-HANDOFF-LAW,
+  DeliveryFooter §8, mock_sync_audit MS-14). Before the call, build and verify the
+  closed set exactly as Step 9 does at S19-0b — commit_registry ALWAYS changes the
+  registry (it appends the paper), so the set is the two files above, every time:
+
+  ```python
+  import os, json
+  import paper_pipeline as pp
+  # `registry` is the committed copy (_commit['registry'], S13-4); the PROJECT copy is
+  # what the next step will read, so the fingerprint is taken from it. HANDOFF_STEP is
+  # the trigger that started this run — 'TestCreate' or 'MockCreate' (any other value,
+  # including a retired *Repair name, is refused by the engine: RHIllegalHandoff).
+  HANDOFF_STEP = globals().get('HANDOFF_STEP') or (
+      'MockCreate' if pp.paper_prefix(paper_id) == 'MOCK' else 'TestCreate')
+  _reg_proj = f'/mnt/project/{EXAM}_registry.json'          # S3-1 copied it to the working dir
+  _reg_fp_loaded = (pp.registry_fingerprint(json.load(open(_reg_proj, encoding='utf-8')))
+                    if os.path.exists(_reg_proj) else None)  # no project copy ⇒ everything is new
+  _hs = pp.handoff_set(HANDOFF_STEP,
+                       primary_docx=f'{EXAM}_{pp.paper_slug(paper_id)}_Create.docx',
+                       reg_name=f'{EXAM}_registry.json',
+                       registry_changed=pp.registry_changed(_reg_fp_loaded, registry), final=True)
+  if not _hs['registry_delivered']:
+      raise SystemExit('HARD STOP (S13-8): registry unchanged after Final Assembly — '
+                       'commit_registry did not run; nothing is delivered.')
+  _v = pp.verify_handoff_outputs(os.listdir('/mnt/user-data/outputs'), _hs)
+  if not _v['ok']:
+      raise SystemExit(f"HARD STOP (S13-8): outputs != closed set — missing {_v['missing']}, "
+                       f"stray {_v['stray']}. Fix, then re-run. Do NOT call present_files.")
+  for _line in pp.handoff_footer_lines(_hs):
+      print(_line)
+  ```
+
   This is the ONLY present_files call at Final Assembly. Do NOT call it once
   per file. Do NOT call it for any internal file. The per-batch habit of "one
   docx per present_files" does NOT apply here — Final Assembly ships TWO files.
@@ -8505,332 +8548,23 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 # ════════════════════════════════════════════════════════════════════════
 
 # ════════════════════════════════════════════════════════════════════════
-# §S16 — REPAIR MODE (TestCreateRepair / MockCreateRepair, v5.69 —
-#         GAP-2026-08-24-DIFFICULTY-GATE-BLOCKING)
+# §S16 — RETIRED (v5.76 — REPAIR-RETIRED-2026-08-27, operator decision)
 # ════════════════════════════════════════════════════════════════════════
+#   The repair mode this section once defined (the triggers TestCreateRepair /
+#   MockCreateRepair, the _Create_Repaired.docx artefact, the pre-repair stem
+#   snapshot and its engine helpers) is RETIRED. The difficulty gate
+#   (MockTestExplain §7A-M) reports and DISCLOSES; it never blocks delivery and
+#   nothing is ever rewritten on its say-so. A session that receives one of the
+#   retired triggers replies: "TestCreateRepair / MockCreateRepair are retired
+#   (2026-08-27). The difficulty gate no longer blocks — the next step is: " +
+#   pp.dg_next_step(reg, paper_id, N, mock=<Mock* trigger>) (after pp.dg_preflight,
+#   whose disclosure line is printed if any; the Deliver trigger on any judged
+#   paper, the Explain trigger on a PENDING one). Nothing is regenerated.
+#   This step writes registry.difficulty_gate ONLY at birth (pp.dg_stamp_pending,
+#   Final Assembly); it never touches `status` or `repair_rounds_used`.
+#   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-## S16-1 — Trigger and preflight
-
-  TRIGGER: `TestCreateRepair P[N] Q4 Q8 Q20 …` or `MockCreateRepair M[N] Q…`
-  (Q-list separators: spaces or commas; "Q4"/"4" both accepted).
-  CONTINUE: the S4-6 continue triggers ("continue" / "go" / "next" …) between repair
-  batches (v5.74 — S16-1b). RESUME: `TestCreateRepair P[N] resume` (re-enter a repair
-  mid-way: reload [ExamCode]_M[N]_repair_state.json + the working registry, S16-1b).
-  ATTACH: the CURRENT question paper docx for paper N (this step's own
-  earlier deliverable). The registry and blueprint come from project
-  knowledge as always.
-
-  PREFLIGHT (HARD STOP on any failure — malformed-input stops are exempt
-  from the no-stop rule, which governs gate VERDICTS only):
-    P0  Load the PROJECT copy of the registry and fingerprint it BEFORE any write
-        (v5.73 — S16-3's handoff decision compares against this value):
-
-        ```python
-        import os, json, shutil
-        import paper_pipeline as pp
-        REG_PROJECT = f'/mnt/project/{EXAM}_registry.json'        # what Step 9-R will read
-        REG_WORK    = f'/home/claude/{EXAM}_registry.json'        # this repair's working copy
-        _reg_fp_loaded = pp.registry_fingerprint(json.load(open(REG_PROJECT, encoding='utf-8')))
-        if not os.path.exists(REG_WORK):
-            shutil.copy(REG_PROJECT, REG_WORK)                    # first turn of the repair only
-        reg = json.load(open(REG_WORK, encoding='utf-8'))         # continue/resume: carries the
-                                                                  # S16-1b snapshot + batches done
-        rec, disclosure = pp.dg_preflight(reg, paper_id, where='S16-1 P0')
-        ```
-        (v5.71 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER). Runs FIRST.
-        A corrupt (status, repair_rounds_used) pair is healed per
-        DG-INVARIANT and disclosure is printed VERBATIM in chat (never
-        silent); the registry is persisted with the S16-3 commit. A
-        DGIllegalState (unknown status) is a HARD STOP — print its message
-        verbatim; never proceed on an illegal record.
-    P1  BRANCH ON THE STATE PAIR pp.dg_state(rec), never on one field.
-        Absent → "This paper has no gate record — run TestExplain P[N] first
-        (or this is a legacy paper; deliver as usual)."
-        ('FAILED', 0) → PROCEED only if pp.dg_is_windowed(rec) (v5.72 —
-        GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS). A FAILED record WITHOUT the
-        'windows' stamp was judged under the retired band-equality rule and
-        its rework_qs are NOT an order: HARD STOP with "This paper was judged
-        under the old difficulty rule — nothing is rewritten on its say-so.
-        Next step: " + pp.dg_next_step(...) (the Explain trigger, which re-
-        judges the verdict under the windows). pp.dg_add_rework_snapshot
-        refuses such a record too, so the stop cannot be bypassed.
-        Any other legal pair → "Nothing to repair — next step: " +
-        pp.dg_next_step(reg, paper_id, N, mock=<Mock* trigger>) — the SAME
-        function Step 9 and Step 11 print from, so this step can never name a
-        next step that refuses. (Legal pairs and the state machine:
-        MockTestExplain §7A-M "THE RECORD IS SINGLE-WRITER".)
-    P2  THE Q-LIST OF RECORD IS THE REGISTRY'S rework_qs — the operator's
-        typed list is a CONFIRMATION, not a selection. Empty typed list →
-        use rework_qs verbatim. Typed list ≠ subset of rework_qs → HARD
-        STOP naming the extras ("Q7 is not in the rework order — the gate
-        flagged only Q…"). Typed list a strict subset → HARD STOP: partial
-        repairs would leave the band over-limit by construction; repair all
-        of rework_qs in one run.
-    P3  The attached paper parses (§P3 machinery) and its stems hash-match
-        registry stem_texts for paper N (the operator attached the right
-        file and the right version). On a continue/resume turn the paper of
-        record is the cumulative repaired docx in /home/claude (S16-1b), not a
-        new attachment.
-
-## S16-1b — REPAIR BATCH PLAN + PRE-REPAIR SNAPSHOT (v5.74 — GAP-2026-08-26-REPAIR-BATCH-LAW)
-
-  THE LAW, RESTATED FOR REPAIR. S4-4 B-1..B-7 apply to a repair exactly as to a
-  fresh paper: a batch is at most MAX_BATCH_SIZE questions (S4-2's ceiling), ONE batch
-  per response, auto-advance BANNED, the next batch only on an S4-6 continue trigger,
-  present_files only after the batch passes gate checks. B-8's analogue: the FINAL
-  repair batch auto-advances to S16-3 in the same response. A rework list of ≤
-  MAX_BATCH_SIZE is one batch and the run is a single response, as it was in v5.73.
-  The plan is built ONCE (first turn) and read from the file on every later turn —
-  never recomputed, never "the last q + 1".
-
-  ```python
-  import os, json
-  import paper_pipeline as pp
-  MAX_BATCH_SIZE = 10                     # S4-2 ceiling — the same number, by reference
-  STATE = f'/home/claude/{EXAM}_M{N}_repair_state.json'
-  if not os.path.exists(STATE):           # FIRST TURN — plan + snapshot, once
-      # old_stems[q] = the raw first paragraph of q in the ATTACHED paper, "Q.<n>" label
-      # included — python-docx paragraph.text, the SAME extraction §7A-R R3 applies to the
-      # repaired paper, so both sides of pp.dg_stem_hash see identical bytes.
-      import re as _re
-      from docx import Document as _Doc
-      # The attachment is addressed by its EXACT contract name — never a glob — so a
-      # stray _Repaired / _PARTIAL / sibling-paper upload can never be picked up.
-      ATTACHED_PAPER = f'/mnt/user-data/uploads/{EXAM}_{pp.paper_slug(paper_id)}_Create.docx'
-      if not os.path.exists(ATTACHED_PAPER):
-          raise SystemExit(f"HARD STOP (S16-1b): {os.path.basename(ATTACHED_PAPER)} is not "
-                           f"attached. Attach the CURRENT question paper for paper {N} (not a "
-                           f"_Repaired / _PARTIAL file) and re-trigger.")
-      _QRE = _re.compile(r'^\s*Q\.?\s*(\d+)\b')
-      old_stems = {}
-      for _para in _Doc(ATTACHED_PAPER).paragraphs:
-          _m = _QRE.match(_para.text)
-          if _m and int(_m.group(1)) not in old_stems:
-              old_stems[int(_m.group(1))] = _para.text
-      if sorted(old_stems) != list(range(1, int(bp['total_questions']) + 1)):
-          raise SystemExit(f"HARD STOP (S16-1b): the attached paper yields stems for "
-                           f"{len(old_stems)} questions, blueprint says "
-                           f"{bp['total_questions']} — the baseline snapshot must cover "
-                           f"EVERY question or §7A-R R3 cannot prove the repair touched "
-                           f"nothing else. Attach the complete paper.")
-      rework_qs = sorted(int(q) for q in rec['rework_qs'])
-      if not rework_qs:
-          raise SystemExit('HARD STOP (S16-1b): the gate record carries an empty rework_qs — '
-                           'nothing to repair; run pp.dg_next_step for the next step.')
-      batches = [rework_qs[i:i + MAX_BATCH_SIZE] for i in range(0, len(rework_qs), MAX_BATCH_SIZE)]
-      # PRE-REPAIR SNAPSHOT — write-once, BEFORE any stem is regenerated (§7A-R R3 evidence).
-      # old_stems[q] = the raw first paragraph of q in the attached paper, "Q.<n>" label
-      # included, for EVERY q in 1..total_questions (P3 parsed it).
-      pp.dg_add_rework_snapshot(reg, paper_id,
-                                {q: pp.dg_stem_hash(old_stems[q]) for q in rework_qs},
-                                all_stem_hashes={q: pp.dg_stem_hash(t) for q, t in old_stems.items()})
-      json.dump(reg, open(f'/home/claude/{EXAM}_registry.json', 'w', encoding='utf-8'),
-                indent=2, ensure_ascii=False)               # working copy only — NOT delivered yet
-      repair_state = {'exam_code': EXAM, 'mock_n': N, 'paper_id': paper_id,
-                      'rework_qs': rework_qs,
-                      'batches': [{'batch_id': i + 1, 'qs': b, 'is_final': i == len(batches) - 1}
-                                  for i, b in enumerate(batches)],
-                      'batches_completed': [], 'current_batch': 1, 'snapshot_taken': True}
-      json.dump(repair_state, open(STATE, 'w', encoding='utf-8'), indent=2)
-  repair_state = json.load(open(STATE, encoding='utf-8'))
-  # CONTINUE / RESUME GUARDS (B-1 analogue): the working registry must carry the
-  # snapshot S16-1b took on the first turn — a working copy lost between turns (fresh
-  # container, deleted /home/claude) cannot be re-snapshotted from a half-repaired paper.
-  _snap = (reg.get('difficulty_gate', {}).get(paper_id, {}) or {}).get('rework_stem_hashes') or {}
-  if set(_snap) != {str(q) for q in repair_state['rework_qs']}:
-      raise SystemExit(f"HARD STOP (S16-1b): repair_state.json exists but the working "
-                       f"registry has no pre-repair snapshot for {repair_state['rework_qs']}. "
-                       f"The working copy was lost mid-repair. Delete "
-                       f"{EXAM}_M{N}_repair_state.json, restore the PROJECT registry and "
-                       f"the ORIGINAL paper, and re-run TestCreateRepair P{N} from batch 1.")
-  if repair_state['current_batch'] > len(repair_state['batches']):
-      raise SystemExit(f"HARD STOP (S16-1b): every repair batch is already completed — "
-                       f"S16-3 has (or should have) delivered. Next step: "
-                       + pp.dg_next_step(reg, paper_id, N, mock=False))
-  _b = repair_state['batches'][repair_state['current_batch'] - 1]
-  BATCH_QS, REPAIR_FINAL = _b['qs'], _b['is_final']
-  K_TOTAL, K_NOW = len(repair_state['batches']), repair_state['current_batch']
-  print(f"REPAIR BATCH {K_NOW} of {K_TOTAL}: Q{' Q'.join(map(str, BATCH_QS))}"
-        f"{' (final)' if REPAIR_FINAL else ''}")
-  ```
-  Then S16-2 regenerates ONLY BATCH_QS. After the batch passes the self-audit
-  (S4-7 STEP B) the response delivers and ENDS per S16-3.
-
-## S16-2 — Regeneration (the only questions touched are rework_qs)
-
-  For each q in BATCH_QS (v5.74 — this batch's slice of rework_qs; every q in
-  rework_qs is reached across the batches), run the FULL S7 single-question flow (scenario →
-  CHECK 1/1b/2/3/3c → sidecar) with these bindings:
-    band     = difficulty_plan-of-record = question_index[q].difficulty
-               (the label does not change; the QUESTION moves to it)
-    direction= rec['rework_directions'][str(q)] (v5.72): 'harder' — the
-               question measured BELOW its label's window (the common case);
-               'easier' — it measured ABOVE it (possible for a middle-band
-               question under the windowed rule). Missing for a listed q →
-               HARD STOP naming q (a windowed FAILED record always carries
-               it — pp.dg_write_verdict refuses to write one without).
-               The rewrite must land INSIDE the label's acceptance window
-               (bc.DIFFICULTY_GATE_BAND_WINDOWS by band position — middle
-               2–6, top ≥5) as measured by CHECK 3c's own obs: assert
-               bc.difficulty_score_from_obs(obs) lies in the window before
-               committing the slot, else redo the slot. CHECK 3c still
-               verifies the authored label against the strict authoring
-               bands (G-DIFF) exactly as for a fresh slot.
-    subtopic = question_index[q].subtopic_id (slot allocation unchanged —
-               quota, axis schedules, figural counts all stay intact)
-    qtype    = marking_scheme position type (unchanged)
-  CHECK 3c runs with the standing rules PLUS, in repair mode:
-    (a) STEM-SUPPLIED RELATION RULE (the reason most 'harder' reworks
-        exist): the stem may not donate the governing relation of the asked
-        quantity —
-        no "Given that ∫…", no quoting the formula whose recall/derivation
-        the steps count, no handing over a counted intermediate. If the
-        subtopic genuinely requires a supplied constant (physical data),
-        supply the CONSTANT, never the RELATION.
-    (b) the superseded question's semantic tuple joins the dedup set — the
-        repair must be a genuinely different question (harder or easier per
-        direction), not a reworded twin.
-    (c) an 'easier' rework removes load, never content: drop a concept or a
-        derivation stage; do not hand over the governing relation in the
-        stem (rule (a) still binds) and do not change the subtopic.
-  Dedup, key derivation (§S7-NEW-A/C), figure generation (if the slot is
-  FIGURAL) all run exactly as in a normal S7 slot.
-
-## S16-3 — Commit and deliverable
-
-  THE CUMULATIVE PAPER (v5.74): /home/claude/[ExamCode]_[paper_slug]_Create_Repaired.docx —
-  created on the first turn as a byte copy of the attached paper, then every batch's
-  regenerated questions are spliced into it in place. It persists across turns (S4-8
-  cross-batch persistence); the final turn copies it to outputs under the same name.
-  MID-BATCH (v5.74 — REPAIR_FINAL is False): after the batch's self-audit, splice the
-  regenerated questions into the cumulative repaired paper above, apply the
-  per-question registry updates below for THIS batch's qs on the WORKING copy, then
-  deliver ONLY the cumulative paper, named
-  [ExamCode]_[paper_slug]_Create_Repaired_PARTIAL_[k]of[K].docx (F1 amber footer,
-  DeliveryFooter §3 "STEP 7-R"). The registry is WITHHELD mid-batch BY DESIGN — this is
-  the one deliberate exception to "changed ⇒ delivered", and it is still the law's
-  intent: a registry beside a half-repaired paper would let Step 9-R run on that paper
-  (its R3 check would pass for the batches done and fail for the rest as "unchanged
-  listed"), so the working copy travels only with the COMPLETE paper. The PARTIAL name
-  is one Step 9-R's S2-1 REFUSES, so the same half-paper cannot be attached by mistake.
-  Then update repair_state.json (batches_completed += k, current_batch += 1 — B-6),
-  print "Repair batch [k] of [K] delivered — Q… rewritten. Type 'continue' for batch
-  [k+1]." and END the response (B-4). Nothing below runs on a non-final batch.
-
-  FINAL BATCH (REPAIR_FINAL is True) — everything below, in the same response (B-8):
-  S13-4 UPDATE SEMANTICS (surgical — the registry is shared state):
-    question_index[q]      → replaced entry (new difficulty_obs from the
-                             repair derivation; label unchanged)
-    stem_texts / question_hashes / semantic_tuples / semantic_usage
-                           → replaced at q's position
-    key_commitments[q]     → re-sealed for the new answer (fresh salt)
-    options_by_q, figural manifests, image phashes
-                           → updated for q only
-    difficulty_gate record → ALREADY holds the pre-repair snapshot: S16-1b
-                             called pp.dg_add_rework_snapshot ONCE on the
-                             first turn, BEFORE any stem was regenerated
-                             (v5.74; v5.69–v5.73 took it here, which is
-                             equivalent only when the repair is one batch).
-                             H(q) = pp.dg_stem_hash(<old first-paragraph text
-                             of q, raw, "Q.<n>" label included>); the
-                             all-question baseline lets §7A-R R3 prove NO
-                             question outside rework_qs was touched. The
-                             helper is WRITE-ONCE — a re-run returns the
-                             original snapshot and never hashes repaired
-                             stems — and refuses unless the record is a legal
-                             FAILED state. Assert here that
-                             reg['difficulty_gate'][paper_id] carries
-                             rework_stem_hashes for every q in rework_qs;
-                             if not, HARD STOP: "snapshot missing — re-run
-                             TestCreateRepair P[N] from a fresh session".
-
-      ⛔ THIS STEP NEVER WRITES `status` AND NEVER WRITES
-         `repair_rounds_used` — not by hand, not "defensively", not to mark
-         the round complete. Both belong to Step 9 alone
-         (Framework_MockTestExplain §7A-M / §7A-R), which writes them
-         TOGETHER in one atomic pp.dg_write_verdict call. Setting
-         repair_rounds_used here — however natural it looks next to this
-         step's own `'round': 1` session_log entry and its "REPAIR COMPLETE"
-         print — produced status=FAILED + rounds=1: a pair no step can
-         produce on purpose, which DEADLOCKED TestExplainRepair, TestDeliver
-         and TestCreateRepair with no exit and cost a completed 60-question
-         paper plus its full explanation run
-         (GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER). paper_pipeline
-         Cluster DG now enforces this mechanically: pp.dg_add_rework_snapshot
-         cannot touch either field, and pp.dg_write_verdict refuses the pair.
-         audit_canonical A-DGATE (armed by --registry at the S13-4c
-         re-sweep) FAILS the audit on any record outside the six legal
-         states.
-
-      NOTE — this step's `'round': 1` session_log entry counts THIS step's
-      regeneration runs. It is NOT the difficulty-gate repair-round counter
-      and the two are never reconciled with each other.
-    Every other question's data: byte-identical. The S13 ledger gains a
-    'repair' session_log entry (round 1, qs listed).
-  DELIVERABLES (v5.73 — GAP-2026-08-26-REGISTRY-HANDOFF-SEAM; the CLOSED SET,
-  one present_files call, F2 footer):
-    1. [ExamCode]_[paper_slug]_Create_Repaired.docx — the full re-assembled
-       question paper (every question, repaired ones spliced in place; same
-       slug rule as S13-7, "_Repaired" suffix)                → Use locally
-    2. [ExamCode]_registry.json — the registry this step just changed
-       (replaced stems/hashes/tuples, re-sealed key_commitments, updated
-       question_index[q], and the WRITE-ONCE pre-repair snapshot that §7A-R R3
-       verifies against)                                     → Replace in Project Files
-  WHY 2 IS NOT OPTIONAL. Through v5.72 this line named ONLY the docx. The
-  snapshot then lived in /home/claude, the project registry never received it,
-  TestExplainRepair R3 raised missing_snapshot → "re-run TestCreateRepair" →
-  whose P3 no longer hash-matched the (already repaired) paper: a dead loop on
-  every exam that ever reached a FAILED gate. REGISTRY-HANDOFF-LAW: a step that
-  CHANGES registry.json DELIVERS it. The decision is mechanical:
-
-  ```python
-  import os, json, shutil
-  import paper_pipeline as pp
-  # _reg_fp_loaded was taken at S16-1 P0 from the PROJECT copy; `reg` is the working
-  # copy that carries the S16-1b snapshot and every batch's updates.
-  assert REPAIR_FINAL, 'S16-3 delivery runs on the FINAL repair batch only (S16-1b)'
-  out = '/mnt/user-data/outputs'
-  repaired_name = f'{EXAM}_{pp.paper_slug(paper_id)}_Create_Repaired.docx'
-  reg_name = f'{EXAM}_registry.json'
-  json.dump(reg, open(f'/home/claude/{reg_name}', 'w'), indent=2, ensure_ascii=False)
-  hs = pp.handoff_set('TestCreateRepair', primary_docx=repaired_name, reg_name=reg_name,
-                      registry_changed=pp.registry_changed(_reg_fp_loaded, reg), final=True)
-  if not hs['registry_delivered']:
-      # S16-3 ALWAYS writes the snapshot; an unchanged registry here is a caller bug.
-      raise SystemExit('HARD STOP (S16-3): registry unchanged after a repair commit — '
-                       'pp.dg_add_rework_snapshot did not run; nothing is delivered.')
-  shutil.copy(f'/home/claude/{reg_name}', f'{out}/{reg_name}')
-  v = pp.verify_handoff_outputs(os.listdir(out), hs)
-  if not v['ok']:
-      raise SystemExit(f"HARD STOP (S16-3): outputs != closed set — missing {v['missing']}, "
-                       f"stray {v['stray']}. Fix, then re-run. Do NOT call present_files.")
-  print('S16-3: closed set verified —', hs['files'])
-  for _line in pp.handoff_footer_lines(hs):
-      print(_line)
-  ```
-  Then present_files([f'{out}/{repaired_name}', f'{out}/{reg_name}']) — ONE call, docx
-  first. No dossier, no sidecar, no PARTIAL file (remove any *_Create_Repaired_PARTIAL_*
-  from outputs before S16-3's verify — pp.verify_handoff_outputs treats it as stray). The self-audit (S4-7 STEP B)
-  runs on the repaired docx exactly as on a fresh paper — including A-QINDEX
-  checks 7/8/9 — BEFORE this block.
-  PRINT (operator-facing, last lines of the run, then the F2 footer per
-  Framework_DeliveryFooter.md "STEP 7-R — TestCreateRepair"):
-      ════════════════════════════════════════════════════════════
-        REPAIR COMPLETE — [k] questions rewritten toward their labels
-        ([k_h] harder · [k_e] easier) across [K] batch(es).
-        Delivered (2 files):
-          • [ExamCode]_[paper_slug]_Create_Repaired.docx  → Use locally
-          • [ExamCode]_registry.json                      → Replace in Project Files
-        ⚠ REPLACE registry.json in Project Files NOW — TestExplainRepair
-          reads the pre-repair snapshot from the project copy and HARD-STOPS
-          (missing_snapshot) if you skip this.
-        Next step: copy-paste this, attaching the repaired paper
-        + the previous explanation Word file:
-
-           TestExplainRepair P[N]
-      ════════════════════════════════════════════════════════════
-
-# END OF Framework_MockTestCreate v5.75
+# END OF Framework_MockTestCreate v5.76
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
