@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+# audit_seam.py v1.3 — 2026-08-28 — EXPLAIN-HALF + PROSE-READ WIDENING
+#   (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ). Five section_rules CATEGORY-C keys
+#   were read by consumer specs and produced by NOTHING, and this auditor — built for
+#   exactly that finding class — reported [OK] on a corpus it could not see, for TWO
+#   independent reasons, both fixed here:
+#     (a) WORLD MAP: Framework_MockTestExplain.md, Framework_PYQExplain.md and
+#         explain_engine.py were in neither PRODUCERS nor CONSUMERS, so any field read
+#         only by the Explain half of the pipeline was invisible. This is the v1.1
+#         staleness lesson recurring with the worse artefact: a false clean instead of
+#         a false finding. All three are now registered (explain_engine on BOTH sides,
+#         the analyse_engine treatment, so its internal fields do not drown the run).
+#     (b) READ IDIOM: reads() required Python syntax, but the Explain specs read
+#         CATEGORY-C config in PROSE with a backtick-quoted key near an anchor phrase —
+#         the correct idiom for spec-directed session work (§6A-6). A prose-read
+#         pattern is added; the scope filter is widened so those keys can surface.
+#   NOTE: the sibling gate validate_framework_md Check V covers the same class
+#   self-scopingly (producer key set derived from write_section_rules' own body) —
+#   ship both; each covers the other's staleness mode (LAW_REGISTRY
+#   _derived_not_declared).
 # audit_seam.py v1.2 — 2026-08-24 — KEY-SHAPE GATE (GAP-2026-08-24-AXIS-PAPER-SERIES-
 #   COLLISION). Two releases in a row shipped the SAME defect in different fields:
 #   options_by_q (v5.56) and axis1_paper/axis3_paper (v5.57) were both written as
@@ -113,14 +132,23 @@ PRODUCERS = {'Framework_MockTestAnalyse.md': 'Step5',
              # Registering it here is the same completion analyse_engine.py needed after
              # batch 3: a field whose WRITER moves into an unregistered engine reads as
              # ORPHAN-READ, which is a finding about the auditor, not about the field.
-             'transport_core.py': 'Step5-transport'}
+             'transport_core.py': 'Step5-transport',
+             # v1.3 — explain_engine populates its own dicts and reads them back;
+             # registered on BOTH sides (the analyse_engine v1.1 treatment) so its
+             # internal fields do not drown the run in false ORPHAN-READs.
+             'explain_engine.py': 'Step9-engine'}
 CONSUMERS = {'Framework_Blueprint.md': 'Step6',
              'Framework_MockTestCreate.md': 'Step7',
              'blueprint_core.py': 'engine',
              'audit_canonical.py': 'audit',
              'final_assembly.py': 'Step7-engine',
              'analyse_engine.py': 'Step5-engine',
-             'transport_core.py': 'Step5-transport'}
+             'transport_core.py': 'Step5-transport',
+             # v1.3 — the Explain half of the pipeline (GAP-2026-08-28-CATEGORY-C-
+             # ORPHAN-CONFIG-READ): any field read only here was invisible before.
+             'Framework_MockTestExplain.md': 'Step9',
+             'Framework_PYQExplain.md': 'PYQ-1',
+             'explain_engine.py': 'Step9-engine'}
 
 # Fields legitimately written by one side only. Each needs a REASON, so the list cannot
 # quietly become a place to bury real findings.
@@ -153,6 +181,19 @@ ALLOW = {
                             'auditability (covered/gap counts, GAP-2026-08-12-AXIS3-'
                             'MECHLOCK); consumed by report prose, never by field name — '
                             'same class as figural_denominator',
+    # v1.3 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ §6.4, operator decision D2
+    # (2026-08-28): both latent CATEGORY-C soft reads are CORRECT as they stand.
+    'paper_header_block':  'deliberate opt-in whose ABSENT state is the mandated default '
+                           '(MockTestCreate R8b: the ban is absolute for every present '
+                           'exam). Emitting it would imply an operator workflow that does '
+                           'not exist. Operator decision 2026-08-28 (D2).',
+    'formula_typography':  'per-exam opt-out whose DEFAULT (true) is the wanted behaviour '
+                           'on every exam (§S8-0c). Operator decision 2026-08-28 (D2): '
+                           'leave as is.',
+    'renderer':            'field of the §6A-5 validation record on a RepresentationFigure '
+                           '— written by self-test fixtures and validated at construction '
+                           'via a tuple membership check this model cannot see; engine-'
+                           'internal, never a cross-step contract — same class as di_rate.',
 }
 
 # HONEST LIMIT OF THIS CHECK, stated here so nobody reads a green run as more than it is.
@@ -191,6 +232,15 @@ def reads(txt):
     out |= {m.group(1) for m in re.finditer(r"\.get\(\s*['\"]([a-z][a-z0-9_]{3,})['\"]", txt)}
     out |= {m.group(1) for m in re.finditer(r"\[\s*['\"]([a-z][a-z0-9_]{3,})['\"]\s*\]", txt)}
     out |= {m.group(1) for m in re.finditer(r"_RE\s*=\s*re\.compile\(r?['\"].*?([a-z][a-z0-9_]{3,}):", txt)}
+    # v1.3 — spec-directed config read: an anchor phrase followed within 200 chars by a
+    # backtick-quoted key. Without this, a spec that reads config in PROSE (the correct
+    # idiom for spec-directed session work, §6A-6) is invisible to this auditor —
+    # GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ. The 200-char multi-line window is
+    # required: real read sites wrap across lines. A HISTORICAL mention of a retired
+    # key must be written WITHOUT backticks (the corpus convention), or it re-fires.
+    out |= {m.group(1) for m in re.finditer(
+        r"(?:CATEGORY\s+C|EXAM_STRUCTURE|section_rules(?:\.md)?)"
+        r"[\s\S]{0,200}?`([a-z][a-z0-9_]{3,})(?::[^`]*)?`", txt, re.I)}
     return out
 
 # v1.2 — PER-PAPER CONTAINERS. Registry fields whose VALUE is one entry per PAPER.
@@ -245,7 +295,12 @@ def main(argv):
     root = argv[1] if len(argv) > 1 else '.'
     scope = re.compile(argv[2]) if len(argv) > 2 else re.compile(
         r'figural|axis1|axis3|option_image|di_rate|di_q|di_reducible|'
-        r'by_class|target_series|total_mocks|observed_figural|unkeyed')
+        r'by_class|target_series|total_mocks|observed_figural|unkeyed|'
+        # v1.3 — CATEGORY-C config-key families (GAP-2026-08-28-CATEGORY-C-ORPHAN-
+        # CONFIG-READ): without these the prose-read widening finds the keys and the
+        # scope filter then hides them, which is the same blindness with extra steps.
+        r'renderer|subject_code|exam_convention|option_label|paper_header|'
+        r'formula_typography')
     W, R = collections.defaultdict(set), collections.defaultdict(set)
     for f, step in PRODUCERS.items():
         for k in writes(_read(os.path.join(root, f))):
@@ -382,6 +437,30 @@ def self_test():
         check("a read nothing writes fires ORPHAN-READ",
               rc == 1 and 'ORPHAN-READ' in out and 'figural_selftest_read' in out)
 
+    # v1.3 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ fixtures.
+    # 4b — CATCH: a prose CATEGORY-C read of a key nothing emits must fire
+    # ORPHAN-READ. This is the exact shape of the defect this version exists
+    # for, appended to an Explain spec (the consumer class that was invisible).
+    with tempfile.TemporaryDirectory() as d:
+        def prose_orphan_read(root):
+            with open(os.path.join(root, 'Framework_MockTestExplain.md'),
+                      'a', encoding='utf-8') as f:
+                f.write('\n  read section_rules CATEGORY C '
+                        '`renderer_selftest_orphan` before solving.\n')
+        rc, out = run_root(copy_seam_files(d, prose_orphan_read))
+        check("v1.3 CATCH: a prose CATEGORY-C read nothing emits fires ORPHAN-READ",
+              rc == 1 and 'ORPHAN-READ' in out and 'renderer_selftest_orphan' in out)
+    # 4c — CLEAN: a prose read of a key the producer DOES emit must pass.
+    # option_label_format is the standing true-positive control: read in the
+    # same prose idiom by both Explain specs, and emitted by write_section_rules.
+    check("v1.3 CLEAN: option_label_format (emitted + prose-read) verdict is ok",
+          re.search(r'option_label_format\s+\S.*\sok', run_root('.')[1]) is not None)
+    # 4d — the historical-mention convention: a retired key written WITHOUT
+    # backticks near an anchor is NOT a read (else every HISTORY note re-fires).
+    check("v1.3 convention: un-backticked historical mention is not a read",
+          'subject_code' not in reads(
+              'HISTORY: was read from section_rules CATEGORY C subject_code, retired.'))
+
     # 5 — regex units: every write/read form the model depends on.
     check("writes(): dict-literal form", 'axis1_k' in writes("x = {'axis1_k': 1}"))
     check("writes(): setdefault form (final_assembly's persistence path)",
@@ -389,6 +468,15 @@ def self_test():
     check("writes(): subscript-assign form", 'axis1_k' in writes("src['axis1_k'] = 1"))
     check("reads(): .get form", 'axis1_k' in reads("v = d.get('axis1_k', {})"))
     check("reads(): subscript form", 'axis1_k' in reads("v = d['axis1_k']"))
+    # v1.3 — the prose-read form, in all three anchor spellings and line-wrapped.
+    check("reads(): prose form, CATEGORY C anchor",
+          'axis1_k' in reads("read section_rules CATEGORY C `axis1_k` here"))
+    check("reads(): prose form, EXAM_STRUCTURE anchor",
+          'axis1_k' in reads("the === EXAM_STRUCTURE === block's `axis1_k` value"))
+    check("reads(): prose form, line-wrapped within 200 chars",
+          'axis1_k' in reads("read section_rules CATEGORY C\n      `axis1_k` before solving"))
+    check("reads(): prose form with inline value suffix",
+          'axis1_k' in reads("section_rules CATEGORY C `axis1_k: false` switch"))
 
     # 6 — ALLOW hygiene: an entry without a real reason is where findings
     # get buried; the file's own comment says so.
@@ -412,6 +500,20 @@ def self_test():
         cons_reads |= reads(_read(f))
     check("allow-guard: axis3_mechanism_lock still has no literal-name reader "
           "(report-only)", 'axis3_mechanism_lock' not in cons_reads)
+    # v1.3 — STANDING GUARDS for the D2 ALLOW entries: each stays honest only
+    # while its claim stays true of the corpus.
+    check("allow-guard: paper_header_block emitted by no producer except "
+          "audit_canonical's own internal findings dict "
+          "(D2: absent state is the mandated default)",
+          all('paper_header_block' not in writes(_read(f))
+              for f in PRODUCERS if f != 'audit_canonical.py'))
+    check("allow-guard: formula_typography still emitted by no producer "
+          "(D2: default true is the wanted behaviour)",
+          all('formula_typography' not in writes(_read(f)) for f in PRODUCERS))
+    check("allow-guard: the retired keys are no longer read ANYWHERE in prose "
+          "(the §6 fix holds; a reintroduction re-fires 4b's class)",
+          not any(k in cons_reads for k in
+                  ('representation_renderers', 'subject_code', 'exam_conventions')))
 
     print(f"audit_seam self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

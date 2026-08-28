@@ -1,5 +1,84 @@
 # Changelog
 
+## 2026.08.28.2 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ: a config key read by everything and produced by nothing is a permanent absent-path — the binding moves framework-side, the subject library is found by discovery, and a self-scoping gate closes the class
+
+**explain_engine v2.10 (+REPRESENTATION_RENDERERS, +resolve_learnings_files; self-tests
+170 -> 179) · Framework_MockTestExplain v1.47.0 -> v1.48.0 (P1 preflight + learnings
+discovery, P2 dashboard lines, §S6A-2, §S6A-5, §S6A-6 + HISTORY, §S8-2, §24) ·
+Framework_PYQExplain v2.18 -> v2.19 (same sections at P0/P1/P7, §S6A-2 stale "last
+three" -> four, +Renderer-preflight dashboard line, P1 load list finally names the
+subject file) · audit_seam v1.2 -> v1.3 (Explain half on the world map; prose-read
+pattern; scope widened; D2 ALLOW entries; self-tests 14 -> 25) ·
+validate_framework_md v3.1 -> v3.2 (NEW Check V SECTION_RULES CONFIG-KEY CONTRACT,
+self-scoping, + --self-test 9 fixtures). analyse_engine.write_section_rules() is
+byte-identical; no section_rules.md in the estate changes; NO exam is regenerated.
+Zero exam values.**
+
+THE GAP (silent-by-construction, estate-wide, disclosed at its own boundary but
+unliftable). Framework_MockTestExplain and Framework_PYQExplain read five keys from
+section_rules.md's === EXAM_STRUCTURE === block ("CATEGORY C") that no producer
+anywhere emits — write_section_rules() emits a fixed 31-key list, §14 lists no more,
+and no engine or artefact carries them. Three caused active harm on every exam,
+forever: representation_renderers (every STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT /
+CONFORMER verdict degraded per §6A-4 — §6A-1b's structure-answer presumption was
+correctly reached and immediately taken back down; on the reporting exam, 16
+structure-answer questions shipped as PROSE), subject_code (the
+[Subject]_EXPLAIN_LEARNINGS_v*.md subject library was unlocatable — the documented
+fallback blueprint.subject is a key blueprint.json has never carried — so §24's
+subject knowledge and §7-7's curated neighbours had NEVER loaded on any exam), and
+exam_conventions (§S8-2's EXAM_CONVENTION machinery had no configured input). Two are
+latent and CORRECT as they stand (operator decision D2): formula_typography (default
+true is the wanted behaviour) and paper_header_block (absent is the mandated default)
+— ALLOW-listed with recorded reasons, never emitted.
+
+Three auditors existed for exactly this class and all three missed it, each for a
+different structural reason: audit_seam <= v1.2 had neither Explain spec nor
+explain_engine in its world map AND its reads() saw only Python syntax (the specs read
+config in PROSE with a backtick-quoted key — the correct idiom for spec-directed
+session work); Check T matches structural markers only; Check U covers JSON artefacts
+only and excludes soft reads. A green run on a corpus a checker cannot see is worse
+than a false finding: a false finding gets investigated, a false clean does not.
+
+(1) **The binding is FRAMEWORK-OWNED (operator decision D1 forced the right
+question).** requirement -> library -> §6A-5 identifier states what the framework can
+draw and how each artefact is proved — a property of no exam. WHETHER a question uses
+a renderer is decided per question by §6A-1, which no declaration can override, so a
+non-scientific exam is byte-unchanged by the constant's presence. It now lives in
+explain_engine.REPRESENTATION_RENDERERS (all FOUR renderer-requiring requirements —
+CONFORMER included, drawn with the LEVEL_DIAGRAM library per §S6A-2). Every exam in
+the estate is fixed on its next Explain run with zero migration. A per-exam override
+is deliberately NOT built (D1); if ever needed, exam_config layers on with precedence
+exam_config -> constant.
+
+(2) **The subject library is found by DISCOVERY, never derivation** —
+resolve_learnings_files() partitions *_EXPLAIN_LEARNINGS_v*.md by the {ExamCode}_
+prefix; §24's own "one file copied unchanged into every exam project" makes the single
+non-exam file's presence the evidence. A wrong subject code loads the wrong subject
+library, which is worse than none — so >= 2 non-exam files -> abstain + WARN naming
+all candidates. The dashboards now NAME the loaded subject file and its rule count,
+so a mis-filed library is visible. PYQExplain's P1 load list, which never named the
+subject file at all, now lists it.
+
+(3) **exam_conventions is retired**; §S8-2 reads conventions solely from the subject
+library — its exam-convention classes are subject knowledge, fixed once per subject.
+"Never assumed" survives verbatim.
+
+(4) **The class is closed twice, because each gate covers the other's staleness
+mode.** validate_framework_md Check V derives the producer key set from
+write_section_rules()'s OWN BODY on every run — self-scoping, cannot go stale the way
+a hand-maintained map did (LAW_REGISTRY _derived_not_declared) — and abstains loudly
+(V-SCOPE) rather than guessing when the producer is missing or renamed. audit_seam
+v1.3 adds the Explain half to the world map and a prose-read pattern to reads(), so
+the ORPHAN-READ machinery finally sees the idiom the defect lived in. Both fire on
+the pre-fix corpus (measured: 3 findings each) and pass the post-fix corpus at 0.
+CONVENTION, now load-bearing: a LIVE CATEGORY-C read writes its key in backticks near
+an anchor phrase; a HISTORICAL mention of a retired key is written WITHOUT backticks.
+
+Related-but-separate finding filed the same day (NOT fixed here): per-exam auditor
+version drift — S13-4c's tripwire tests only for an A-QINDEX line and cannot detect
+"one release behind"; suggested gate: compare the per-exam copy's version header
+against MANIFEST.json's audit_canonical entry and WARN on mismatch.
+
 ## 2026.08.28.1 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED: placement is an engine function, a persisted plan and an auditor gate — never session improvisation
 
 **blueprint_core +Cluster Q (place_subtopics / min_possible_adjacent / audit_placement /

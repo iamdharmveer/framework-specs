@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-validate_framework_md.py v3.1 — Universal Framework .md Validator
+validate_framework_md.py v3.2 — Universal Framework .md Validator
 Replaces both the old Step-8-specific validator AND the universal validator.
 Runs universal checks on ANY framework .md file, PLUS auto-detects and runs
 extended checks when the file contains patterns that warrant them:
@@ -59,6 +59,28 @@ Checks (each reports PASS/issues):
      the exact defect class that caused P0.5 to HARD STOP on every valid exam
      (Framework_MockTestCreateAudit.md v2.6-v2.7.4). Only runs in batch mode (2+ files),
      since it is inherently a cross-file check; silently skipped for single-file runs.
+  V. SECTION_RULES CONFIG-KEY CONTRACT (v3.2 — GAP-2026-08-28-CATEGORY-C-ORPHAN-
+     CONFIG-READ) — directory-scoped. Every key a spec reads IN PROSE from
+     section_rules.md's === EXAM_STRUCTURE === block (doc-alias "CATEGORY C") must be
+     emitted by the sole producer, analyse_engine.write_section_rules(). A key read
+     but never written is an ORPHAN-CONFIG-READ: the consumer takes its absent-path
+     on every exam, forever — which is exactly how every STRUCTURE_GRAPH verdict in
+     the estate silently degraded to PROSE (representation_renderers) and how the
+     subject learnings library went permanently unloadable (subject_code). SELF-
+     SCOPING: the producer key set is derived from write_section_rules()'s own body
+     on every run, so this check cannot go stale the way a hand-maintained world map
+     can (LAW_REGISTRY _derived_not_declared; the failure mode audit_seam v1.0-v1.2
+     actually had). Sits exactly at the intersection Checks T (structural markers
+     only), U (JSON artefacts only, bare-indexed only) and audit_seam <= v1.2 (Python
+     reads only, Explain specs unmapped) all miss. The producer's own spec
+     (Framework_MockTestAnalyse.md) is excluded from the consumer scan — a self-
+     reference is documentation, not a cross-step read (and including it yields
+     three measured false positives). ALLOW-listed keys carry recorded reasons
+     (operator decision D2, 2026-08-28). Prose convention this check depends on: a
+     LIVE config read writes the key in backticks near an anchor phrase; a
+     HISTORICAL mention of a retired key must be written without backticks. NOTE:
+     distinct from audit_specs_ext.py's V-SCOPE family — different file, different
+     namespace; this is validate_framework_md's own Check V.
   U. JSON PRODUCER/CONSUMER FIELD CONTRACT (v2.8) — the same defect class as Check T,
      applied to blueprint.json/registry.json instead of literal text markers. Flags a
      bare-indexed d['field'] READ (not a `.get('field', default)` read, which is already
@@ -2078,6 +2100,156 @@ def _producer_tokens(all_texts, artifact_key):
                 tokens.add(norm)
     return producer_file, tokens
 
+# ── Check V — SECTION_RULES CONFIG-KEY CONTRACT ─────────────────────────────────────
+# (v3.2 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ; see the header entry for the
+# full rationale.) Directory-scoped: needs analyse_engine.py beside the specs.
+
+_V_PRODUCER_FILE = 'analyse_engine.py'
+_V_PRODUCER_FUNC = 'def write_section_rules('
+_V_PRODUCER_SPEC = 'Framework_MockTestAnalyse.md'   # self-refs are not cross-step reads
+
+_V_ANCHOR = r'(?:CATEGORY\s+C|EXAM_STRUCTURE|section_rules(?:\.md)?)'
+# A spec-directed config read: an anchor phrase followed within 200 chars by a
+# backtick-quoted key. The multi-line window is required — real read sites wrap.
+_V_CONSUMER_RE = re.compile(
+    _V_ANCHOR + r"[\s\S]{0,200}?`([a-z][a-z0-9_]{3,})(?::[^`]*)?`", re.I)
+
+# Keys legitimately read-without-producer. Each entry carries its recorded reason so
+# the list cannot quietly become a place to bury real findings (the audit_seam ALLOW
+# discipline). Operator decision D2 (2026-08-28), GAP-2026-08-28-CATEGORY-C-ORPHAN-
+# CONFIG-READ §6.4.
+_V_ALLOW = {
+    'paper_header_block': 'deliberate opt-in whose ABSENT state is the mandated default '
+                          '(MockTestCreate R8b: the ban is absolute for every present '
+                          'exam). Emitting it would imply an operator workflow that does '
+                          'not exist. Operator decision 2026-08-28 (D2).',
+    'formula_typography': 'per-exam opt-out whose DEFAULT (true) is the wanted behaviour '
+                          'on every exam (§S8-0c). Operator decision 2026-08-28 (D2): '
+                          'leave as is.',
+}
+
+
+def _v_producer_keys(directory):
+    """Keys write_section_rules() actually emits, derived from its own body."""
+    path = os.path.join(directory, _V_PRODUCER_FILE)
+    if not os.path.isfile(path):
+        return None
+    src = open(path, encoding='utf-8').read()
+    if _V_PRODUCER_FUNC not in src:
+        return None
+    body = src.split(_V_PRODUCER_FUNC, 1)[1]
+    nxt = body.find('\ndef ')
+    body = body[:nxt] if nxt > 0 else body
+    return {m.group(1) for m in re.finditer(r"f['\"]([a-z][a-z0-9_]{3,}):\s", body)}
+
+
+def check_v_config_key_contract(directory):
+    """Returns list of (who, msg). Empty when every consumer-read CATEGORY-C key has a
+    producer or a reasoned ALLOW entry. Missing producer file/function -> a single
+    V-SCOPE note (the check abstains rather than guessing)."""
+    issues = []
+    prod = _v_producer_keys(directory)
+    if prod is None:
+        return [(_V_PRODUCER_FILE,
+                 'V-SCOPE: producer file or write_section_rules() not found beside the '
+                 'specs — CONFIG-KEY contract UNVERIFIED in this run')]
+    cons = {}
+    for fn in sorted(os.listdir(directory)):
+        if not (fn.startswith('Framework_') and fn.endswith('.md')):
+            continue
+        if fn == _V_PRODUCER_SPEC:
+            continue
+        txt = open(os.path.join(directory, fn), encoding='utf-8').read()
+        for m in _V_CONSUMER_RE.finditer(txt):
+            cons.setdefault(m.group(1), set()).add(fn)
+    for k in sorted(cons):
+        if k in prod:
+            continue
+        if k in _V_ALLOW:
+            continue
+        issues.append((', '.join(sorted(cons[k])),
+                       f"ORPHAN-CONFIG-READ `{k}`: read from section_rules CATEGORY C "
+                       f"but emitted by NOTHING — not write_section_rules(), not §14, "
+                       f"not any engine. The consumer takes its absent-path on every "
+                       f"exam, forever. Emit it, retire the read, or ALLOW-list it "
+                       f"WITH a reason (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ)."))
+    return issues
+
+
+def _check_v_self_test():
+    """Catch/clean fixtures for Check V (watch-the-watcher). Synthetic corpus in a
+    tempdir — never mutates the live tree. Returns True iff all fixtures pass."""
+    import tempfile, shutil
+    results = []
+    def check(name, cond):
+        results.append((name, bool(cond)))
+
+    def build(dirpath, consumer_lines, emit_keys=('option_label_format', 'exam_code')):
+        with open(os.path.join(dirpath, _V_PRODUCER_FILE), 'w', encoding='utf-8') as f:
+            f.write('def write_section_rules(meta):\n    lines = [\n')
+            for k in emit_keys:
+                f.write(f"        f'{k}: {{meta}}',\n")
+            f.write('    ]\n    return lines\n\ndef other():\n    pass\n')
+        with open(os.path.join(dirpath, 'Framework_FixtureExplain.md'),
+                  'w', encoding='utf-8') as f:
+            f.write('# Framework_FixtureExplain v0.1\n' + consumer_lines + '\n')
+
+    d = tempfile.mkdtemp()
+    try:
+        # 1 CLEAN: a prose read of an emitted key passes.
+        build(d, 'read section_rules CATEGORY C `option_label_format` at P1.')
+        check('V-CLEAN emitted key passes', check_v_config_key_contract(d) == [])
+        # 2 CATCH: a prose read of an unemitted key fails and names it.
+        build(d, 'read section_rules CATEGORY C `fixture_orphan_key` at P1.')
+        iss = check_v_config_key_contract(d)
+        check('V-CATCH unemitted key fires and is named',
+              len(iss) == 1 and 'fixture_orphan_key' in iss[0][1]
+              and 'Framework_FixtureExplain.md' in iss[0][0])
+        # 3 NOT ORPHAN-WRITE: a producer key nobody reads must NOT fire here.
+        build(d, 'this spec reads nothing from CATEGORY C at all.')
+        check('V no finding for an unread producer key (that is ORPHAN-WRITE, '
+              'a different check)', check_v_config_key_contract(d) == [])
+        # 4 ALLOW: an allow-listed key passes even with no producer.
+        build(d, 'per-exam switch: section_rules CATEGORY C `formula_typography: false`.')
+        check('V allow-listed key passes', check_v_config_key_contract(d) == [])
+        # 5 CONVENTION: an un-backticked historical mention is not a read.
+        build(d, 'HISTORY: was read from section_rules CATEGORY C fixture_orphan_key; retired.')
+        check('V un-backticked historical mention is not a read',
+              check_v_config_key_contract(d) == [])
+        # 6 SELF-EXCLUSION: the producer's own spec never counts as a consumer.
+        build(d, 'this spec reads nothing from CATEGORY C at all.')
+        with open(os.path.join(d, _V_PRODUCER_SPEC), 'w', encoding='utf-8') as f:
+            f.write('# Framework_MockTestAnalyse v0.1\n'
+                    'emits section_rules CATEGORY C `collections` and `exam_meta` prose.\n')
+        check('V producer-spec self-reference excluded',
+              check_v_config_key_contract(d) == [])
+        # 7 SCOPE: producer absent -> single V-SCOPE abstention, never a guess.
+        os.remove(os.path.join(d, _V_PRODUCER_FILE))
+        iss = check_v_config_key_contract(d)
+        check('V abstains loudly without the producer',
+              len(iss) == 1 and 'V-SCOPE' in iss[0][1])
+        # 8 GATE FIRES ON DELETION: with the producer back but write_section_rules
+        # renamed, the check must abstain (never silently pass) — proving the gate
+        # cannot be structurally disarmed by the producer's shape drifting.
+        with open(os.path.join(d, _V_PRODUCER_FILE), 'w', encoding='utf-8') as f:
+            f.write('def write_other():\n    pass\n')
+        iss = check_v_config_key_contract(d)
+        check('V abstains loudly when write_section_rules() is gone',
+              len(iss) == 1 and 'V-SCOPE' in iss[0][1])
+        # 9 ALLOW hygiene: every entry carries a substantive recorded reason.
+        check('V every ALLOW entry carries a substantive reason',
+              all(isinstance(v, str) and len(v.strip()) >= 20 for v in _V_ALLOW.values()))
+    finally:
+        shutil.rmtree(d, ignore_errors=True)
+
+    passed = sum(1 for _, ok in results if ok)
+    for name, ok in results:
+        if not ok:
+            print(f'  FAIL: {name}')
+    print(f'SELF-TEST: {passed}/{len(results)} PASS')
+    return passed == len(results)
+
+
 def check_t_cross_file_contract(all_texts):
     """Batch-level: for every consumer's literal re.search()/re.match() applied against
     an artifact read via paths['KEY'], verify the literal pattern matches at least one of
@@ -2120,6 +2292,11 @@ def check_t_cross_file_contract(all_texts):
     return issues
 
 if __name__ == '__main__':
+    # v3.2 — watch-the-watcher entry for CI's discovery-driven self-test step:
+    # runs Check V's catch/clean fixtures (synthetic tempdir corpus; never touches
+    # the live tree) and exits. The file-validation CLI below is unchanged.
+    if '--self-test' in sys.argv:
+        sys.exit(0 if _check_v_self_test() else 1)
     if len(sys.argv) < 2:
         print('Usage: python3 validate_framework_md.py <file.md> [file2.md ...]')
         sys.exit(1)
@@ -2256,6 +2433,10 @@ if __name__ == '__main__':
                 ('AQ', 'SELF-TEST BANNER IS LAST',
                  check_aq_banner_is_last,
                  'no assertion runs after the banner that reports on it.'),
+                ('V', 'SECTION_RULES CONFIG-KEY CONTRACT',
+                 check_v_config_key_contract,
+                 'every consumer-read CATEGORY-C key has a producer or a reasoned '
+                 'ALLOW entry.'),
             ):
                 _iss = _fn(_d)
                 print(f'\n{"="*60}')

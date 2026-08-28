@@ -23,6 +23,8 @@
 #   parse_solution_blocks(path, cfg)   — [STEP 5] read a Solutions docx back into blocks (inverse of build)
 #   self_test_audit()                  — [STEP 5] reader round-trip gate; run with --self-test-audit
 #   parse_learnings(path)              — [STEP 4] read an EXPLAIN(_AUDIT)_LEARNINGS md into structured rules (P10)
+#   REPRESENTATION_RENDERERS           — [v2.10] the framework-owned requirement → renderer → §6A-5 identifier binding (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ)
+#   resolve_learnings_files(dir, code) — [v2.10] discovery-based exam/subject learnings partition (§24; no subject code derived)
 #   build_report_docx(out, title, sections) / read_report_docx(path) — [v2.9] §20 END-OF-MOCK REPORT as a docx
 #
 # This file is embedded verbatim in Appendix A of Framework_MockTestExplain.md.
@@ -335,6 +337,87 @@ TRANSFER_SECTIONS = ('AXIOM', 'SPEED_HACK', 'WHY_WRONG', 'COMMON_PITFALLS', 'DED
 
 # v2.8 — neighbour provenance for a §7-7 claim.
 TRANSFER_NEIGHBOUR_SOURCE_RE = re.compile(r'^(?:GENERATED|CURATED:[A-Za-z0-9][A-Za-z0-9_.-]*)$')
+
+# v2.10 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ.
+# The requirement → renderer → §6A-5 identifier-discipline binding.
+# FRAMEWORK-OWNED, not an exam property: it states what this framework can draw
+# and how each artefact is proved (§6A-5). WHETHER a given question uses any of
+# these is decided per question by the §6A-1 router, never by this table — so a
+# non-scientific exam is unaffected by its presence (§6A-1: "PROSE IS THE
+# DEFAULT. A VISUAL IS EARNED, NEVER ISSUED").
+# HISTORY: Explain specs v1.27.0/v2.7 through v1.47.0/v2.18 specified this
+# binding as a section_rules.md CATEGORY C representation_renderers block. No
+# producer anywhere ever emitted that key — not analyse_engine.write_section_rules(),
+# not Framework_MockTestAnalyse §14, not any engine — so every exam took the
+# absent-path and every STRUCTURE_GRAPH / LEVEL_DIAGRAM / DATA_PLOT / CONFORMER
+# verdict degraded per §6A-4, permanently. Moving the binding here fixes every
+# exam in the estate on the next Explain run with no section_rules change, no
+# analyse_engine change and no regeneration of any exam.
+# CONFORMER is included because §S6A-2 lists it as a renderer-requiring
+# requirement (v1.36.0/v2.14) and specifies it is drawn with the LEVEL_DIAGRAM
+# library (a projection is a 2-D template with labelled bonds).
+# A per-exam override is deliberately NOT built (operator decision D1,
+# 2026-08-28: "the system works it out always; never ask the operator"). If a
+# future exam genuinely needs one, layer an optional exam_config key with
+# precedence exam_config → this constant, without breaking this design.
+REPRESENTATION_RENDERERS = {
+    'STRUCTURE_GRAPH': {
+        'library': 'rdkit',
+        'identifier': 'CANONICAL SMILES round-trip — render from SMILES; re-parse '
+                      'the intended SMILES; compare canonical forms. Formula '
+                      'comparison alone is a §6A-5 violation.',
+    },
+    'LEVEL_DIAGRAM': {
+        'library': 'matplotlib',
+        'identifier': 'the computed occupancy / ordering string, restated from the '
+                      'drawn data',
+    },
+    'DATA_PLOT': {
+        'library': 'matplotlib',
+        'identifier': "the plotted series' defining parameters",
+    },
+    'CONFORMER': {
+        'library': 'matplotlib',
+        'identifier': 'the dihedral / occupant string, restated from the drawn data',
+    },
+}
+
+
+def resolve_learnings_files(project_dir, exam_code):
+    """Partition *_EXPLAIN_LEARNINGS_v*.md in project_dir into exam-level and
+    subject-level (v2.10 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ).
+
+    DISCOVERY, not derivation: §24 places exactly one subject file per project
+    ("one file copied unchanged into every exam project of that subject"), so
+    the non-{ExamCode}-prefixed file IS the subject file. No subject code is
+    derived or read from any config — the previous source (section_rules
+    CATEGORY C subject_code, fallback blueprint.subject) was never produced
+    by anything, so the subject library had never loaded on any exam. Zero
+    heuristics, zero operator input, cannot select the wrong subject.
+
+    Returns (exam_files, subject_file_or_None, warn_or_None):
+      * exam_files    — sorted list of files prefixed '{exam_code}_'
+      * subject_file  — the single non-exam file, or None if none present
+      * warn          — a message when >= 2 non-exam files are present; in that
+                        case subject_file is None (abstain — loading a wrong
+                        subject library is worse than loading none; §24's
+                        exam > subject > spec precedence bounds the damage).
+    NOTE: the glob matches the shared-suffix family only
+    (*_EXPLAIN_LEARNINGS_v*.md); *_EXPLAIN_AUDIT_LEARNINGS_v*.md and the
+    PYQ-specific families do NOT match it (their literal substring differs)
+    and keep their exam-prefixed globs unchanged.
+    """
+    import glob as _glob, os as _os
+    allf = sorted(_glob.glob(_os.path.join(project_dir, '*_EXPLAIN_LEARNINGS_v*.md')))
+    exam = [f for f in allf if _os.path.basename(f).startswith(exam_code + '_')]
+    other = [f for f in allf if not _os.path.basename(f).startswith(exam_code + '_')]
+    if len(other) > 1:
+        return exam, None, ('AMBIGUOUS: %d non-exam learnings files present (%s). '
+                            'Per §24 a project carries at most ONE subject file; '
+                            'none loaded. Remove the extras.'
+                            % (len(other),
+                               ', '.join(_os.path.basename(f) for f in other)))
+    return exam, (other[0] if other else None), None
 
 # v2.8 (a) — HEDGED PROVENANCE. A WHY WRONG / COMMON PITFALLS line either
 # states ONE verified wrong path or states the contradiction; it never offers
@@ -3611,6 +3694,64 @@ def self_test():
             _rp, 't', [('§R7', ['Q.4 answer: 3'])])))
     except Exception as e:
         check('V29-REPORT-ROUNDTRIP', False); print('   report:', repr(e))
+
+    # v2.10 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ fixtures.
+    # (a) The framework-owned renderer binding covers ALL FOUR renderer-requiring
+    # requirements from §S6A-2 and every entry carries a library and a §6A-5
+    # identifier discipline. Structural only — no import test here: CI's
+    # validator environment does not install rdkit, and an environment check
+    # belongs to the P-step RENDERER PREFLIGHT, which degrades per §6A-4
+    # instead of failing a build.
+    try:
+        check('V30-RENDERERS-COVER-S6A2',
+              set(REPRESENTATION_RENDERERS) ==
+              {'STRUCTURE_GRAPH', 'LEVEL_DIAGRAM', 'DATA_PLOT', 'CONFORMER'})
+        check('V30-RENDERERS-SHAPE',
+              all(isinstance(v.get('library'), str) and v['library'].strip()
+                  and isinstance(v.get('identifier'), str) and len(v['identifier']) > 20
+                  for v in REPRESENTATION_RENDERERS.values()))
+        check('V30-STRUCTURE-IS-ROUNDTRIP',
+              'round-trip' in REPRESENTATION_RENDERERS['STRUCTURE_GRAPH']['identifier'])
+        check('V30-CONFORMER-USES-LEVEL-LIB',
+              REPRESENTATION_RENDERERS['CONFORMER']['library'] ==
+              REPRESENTATION_RENDERERS['LEVEL_DIAGRAM']['library'])
+    except Exception as e:
+        # A deleted or emptied constant must produce NAMED failures and the
+        # banner, never a bare traceback: the failure has to be diagnosable
+        # from CI output alone (criterion 8, GAP-2026-08-28-CATEGORY-C-...).
+        check('V30-RENDERERS-COVER-S6A2', False)
+        print('   renderers:', repr(e))
+    # (b) Subject-library DISCOVERY (resolve_learnings_files).
+    try:
+        import tempfile as _tf30, os as _os30
+        _d30 = _tf30.mkdtemp()
+        def _w30(name):
+            with open(_os30.path.join(_d30, name), 'w', encoding='utf-8') as f:
+                f.write('## EX-1 \u2014 T\n**Defect code:** X\n')
+        _w30('EXAMX_EXPLAIN_LEARNINGS_v1.md')
+        _w30('EXAMX_EXPLAIN_AUDIT_LEARNINGS_v1.md')
+        ex, subj, warn = resolve_learnings_files(_d30, 'EXAMX')
+        check('V31-DISCOVERY-EXAM-ONLY',
+              len(ex) == 1 and subj is None and warn is None)
+        check('V31-DISCOVERY-AUDIT-FAMILY-EXCLUDED',
+              all('AUDIT' not in _os30.path.basename(f) for f in ex))
+        _w30('CHEMISTRY_EXPLAIN_LEARNINGS_v2.md')
+        ex, subj, warn = resolve_learnings_files(_d30, 'EXAMX')
+        check('V31-DISCOVERY-ONE-SUBJECT',
+              len(ex) == 1 and subj is not None
+              and _os30.path.basename(subj) == 'CHEMISTRY_EXPLAIN_LEARNINGS_v2.md'
+              and warn is None)
+        _w30('PHYSICS_EXPLAIN_LEARNINGS_v1.md')
+        ex, subj, warn = resolve_learnings_files(_d30, 'EXAMX')
+        check('V31-DISCOVERY-AMBIGUOUS-ABSTAINS',
+              subj is None and warn is not None and 'AMBIGUOUS' in warn
+              and 'CHEMISTRY_EXPLAIN_LEARNINGS_v2.md' in warn
+              and 'PHYSICS_EXPLAIN_LEARNINGS_v1.md' in warn)
+        ex, subj, warn = resolve_learnings_files(_tf30.mkdtemp(), 'EXAMX')
+        check('V31-DISCOVERY-EMPTY-PROJECT',
+              ex == [] and subj is None and warn is None)
+    except Exception as e:
+        check('V31-DISCOVERY-EXAM-ONLY', False); print('   discovery:', repr(e))
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)

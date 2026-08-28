@@ -1,4 +1,28 @@
-# Framework_MockTestExplain v1.47.0
+# Framework_MockTestExplain v1.48.0
+# v1.48.0 — 2026-08-28 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ (paired with
+#   explain_engine v2.10, Framework_PYQExplain v2.19, audit_seam v1.3,
+#   validate_framework_md v3.2). Three CATEGORY-C config keys this spec read were
+#   produced by NOTHING anywhere in the framework, so their absent-paths ran on every
+#   exam forever: representation_renderers (every STRUCTURE_GRAPH / LEVEL_DIAGRAM /
+#   DATA_PLOT / CONFORMER verdict degraded per §6A-4 — the §6A-1b structure-answer
+#   presumption was defeated on every exam, every time), subject_code (the
+#   [Subject]_EXPLAIN_LEARNINGS_v*.md library was unlocatable — its documented fallback
+#   blueprint.subject is a key blueprint.json has never carried — so §24's subject
+#   library and §7-7's curated neighbours had never loaded on any exam), and
+#   exam_conventions (§S8-2's EXAM_CONVENTION machinery had no configured input).
+#   FIX, exam-independent by construction, zero regeneration: (A) the requirement →
+#   library → §6A-5 identifier binding is FRAMEWORK-OWNED and now lives in
+#   explain_engine.REPRESENTATION_RENDERERS (§6A-6) — it states what the framework can
+#   draw, not a property of any exam; WHETHER a question uses a renderer stays a
+#   per-question §6A-1 decision, so non-scientific exams are byte-unchanged. (B)
+#   subject_code is RETIRED; the subject library is found by DISCOVERY
+#   (explain_engine.resolve_learnings_files — §24 places exactly ONE non-exam-prefixed
+#   *_EXPLAIN_LEARNINGS_v*.md per project, so its presence IS the evidence; >= 2 →
+#   abstain + WARN naming all candidates). (C) exam_conventions is RETIRED; §S8-2
+#   reads conventions from the subject library only, "never assumed" preserved. No
+#   section_rules.md schema change, no analyse_engine change, no exam regenerated.
+#   Gate for the class: validate_framework_md Check V (SECTION_RULES CONFIG-KEY
+#   CONTRACT) + audit_seam v1.3 prose-read widening.
 # v1.47.0 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
 #   paper_pipeline v5.76, MockTestCreate v5.76, MockDeliver v1.18.0, DeliveryFooter v1.29,
 #   audit_canonical v2.22). MINOR: a trigger and a section are removed. The four *Repair
@@ -618,22 +642,31 @@ execution path — it does not shrink, soften or delete them.
       the count). THEN LOAD LEARNINGS (§24): via
       explain_engine.parse_learnings, parse the highest-version
       [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (legacy/manual — v1.21.0) and
-      [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT — and, v1.36.0,
-      the SUBJECT-level [Subject]_EXPLAIN_LEARNINGS_v*.md (subject code from
-      section_rules CATEGORY C `subject_code`, upper-cased) IF PRESENT — and index every
-      AL/EX rule by defect_code (precedence exam > subject > spec). Record in the
-      dashboard whether the subject file was found: §7-7 neighbours come from it.
+      [ExamCode]_EXPLAIN_LEARNINGS_v*.md (human guardrails) IF PRESENT — and, v1.48.0
+      (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ), the SUBJECT-level
+      [Subject]_EXPLAIN_LEARNINGS_v*.md found by DISCOVERY, never by a derived or
+      configured subject code: call explain_engine.resolve_learnings_files(
+      '/mnt/project', ExamCode) — §24 places exactly ONE non-exam-prefixed
+      *_EXPLAIN_LEARNINGS_v*.md per project, so that file IS the subject file; >= 2
+      such files → abstain and WARN naming every candidate (load none — a wrong
+      subject library is worse than none); zero → nothing loaded, nothing lost —
+      and index every AL/EX rule by defect_code (precedence exam > subject > spec).
+      The dashboard "Learnings loaded" line NAMES the subject file and its rule
+      count (or states none/ambiguous): §7-7 neighbours come from it.
       v1.37.0 — triggers = explain_engine.triggers_from_learnings([all parsed files]) →
       EngineConfig(learnings_triggers=triggers) at P3 (§7-7 step 3, §24-1b). These OVERRIDE this spec on conflict (§24). When a
       learnings file is present, also run `--self-test-audit` (N/N PASS with N >= 10) to
       confirm the cross-step readers. Absent on mock 1 by design — proceed. Any load/self-test
       failure → HALT.
-      THEN RENDERER PREFLIGHT (v1.40.0 — the §6A-6 dependency install, given its P-step):
-      read section_rules CATEGORY C `representation_renderers`; for each declared
-      requirement pip-install its library (--break-system-packages, the Step-0 pattern),
-      import-test it, and record the result on the dashboard "Renderer preflight" line.
-      An install that fails does NOT halt: that requirement degrades per §6A-4 for the
-      WHOLE run, disclosed up front. No block declared → PROSE/EQUATION only, said so.
+      THEN RENDERER PREFLIGHT (v1.48.0 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ):
+      for each requirement in explain_engine.REPRESENTATION_RENDERERS, import-test its
+      library and record the outcome on the dashboard "Renderer preflight" line. Step 0
+      already installs the full set (SKILL Step 0: matplotlib pillow numpy scipy
+      fonttools rdkit), so this is normally a confirmation, not an install; pip
+      (--break-system-packages, the Step-0 pattern) only where an import fails. An
+      unavailable library NEVER halts: that requirement degrades per §6A-4 for the
+      WHOLE run, disclosed up front as a plain note (D4), so quality never varies
+      silently between batches. Nothing is read from section_rules for this.
   P2  STATUS DASHBOARD (print every turn, before any solving):
 ```text
       === MockExplain [spec version from this file's header] — Session Status ===
@@ -648,13 +681,13 @@ execution path — it does not shrink, soften or delete them.
       Answer key                 : NONE by design — Step 9 derives all [Q_TOTAL]
       Key commitments / semantic objects / triggers : [k entries] · [m Qs] · [t families]
                                    (each OR absent — §7-8 / §13-2b / §7-7)
-      Learnings loaded           : [k AL-rules · m EX-rules · v_j] OR [none — mock 1 by design]
+      Learnings loaded           : [k AL-rules · m EX-rules · v_j · subject=[filename · r rules] OR subject=none OR subject=AMBIGUOUS(n)] OR [none — mock 1 by design]
       Paper (Mock N)             : [X bytes · Q_TOTAL questions · K images · T tables]
       Figural manifest / RC manifest : [found in registry] OR [absent — derive visually]
       Batch plan                 : [K batches · ceiling 10 · linked groups atomic]
       Mode                       : [interactive — halt per batch] OR [autonomous — no pause, §MANDATE B]
       Output                     : /mnt/user-data/outputs/[ExamCode]_[paper_slug]_Explanation.docx
-      Renderer preflight (P1)    : [requirement → library → installed/absent → degrade?] per declared renderer, OR [none declared — PROSE/EQUATION only]
+      Renderer preflight (P1)    : [requirement → library → available/absent → degrade?] per explain_engine.REPRESENTATION_RENDERERS entry (framework-owned, v1.48.0 — never read from section_rules)
       §7A-M difficulty gate       : [PASSED b+c/(m+h) within windows] OR [DISCLOSED — out of window Q…] OR [DORMANT — reason]  (disclosing, never blocking, §7A-M; bottom band not gated)
       State                      : /home/claude (chat-scoped)
       Status                     : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted — reason]
@@ -1178,10 +1211,11 @@ execution path — it does not shrink, soften or delete them.
   | CONFORMER            | (v1.36.0) HOW atoms are arranged at a given rotation — a projection (Newman / sawhorse / chair), which a constitution renderer cannot express; visual, requires its figure (run-report F3) |
   EQUATION is satisfied by §11's ⟦MATH:⟧ regions and is ALWAYS available — it
   needs no renderer and no configuration. TABLE is native docx. The last four
-  require a renderer declared in section_rules (CONFORMER is drawn with the
-  LEVEL_DIAGRAM library — a projection is a 2-D template with labelled bonds —
-  and its §6A-5 identifier is the dihedral/occupant string restated from the
-  drawn data); absent one, the router degrades (§6A-4).
+  require a renderer bound in explain_engine.REPRESENTATION_RENDERERS (v1.48.0 —
+  framework-owned, §6A-6; CONFORMER is drawn with the LEVEL_DIAGRAM library — a
+  projection is a 2-D template with labelled bonds — and its §6A-5 identifier is
+  the dihedral/occupant string restated from the drawn data); a library its
+  preflight found unavailable degrades the requirement (§6A-4).
 
 ## S6A-3 — Record the verdict on every question
   The router's verdict is recorded per question in progress.json as
@@ -1224,7 +1258,8 @@ execution path — it does not shrink, soften or delete them.
 ## S6A-5 — A rendered artefact must be PROVED, not trusted
   Any generated figure carries a validation record, and a figure that fails its
   gate is never shipped (it degrades per §6A-4). The gate is renderer-specific
-  and declared with the renderer in section_rules, but the CONTRACT is fixed:
+  and bound with the renderer in explain_engine.REPRESENTATION_RENDERERS
+  (v1.48.0), but the CONTRACT is fixed:
   the artefact must be re-derived from the rendered output and compared against
   what was intended, not merely inspected. A structural renderer, for example,
   re-parses the drawn structure and compares a canonical identifier — molecular
@@ -1243,27 +1278,48 @@ execution path — it does not shrink, soften or delete them.
   ENGINE's job is confined to what an engine can guarantee (emission mechanics,
   the §6A-5 record check at construction, and the landing check at verify time).
 
-  WHAT IS DECLARED WHERE. The exam's section_rules.md CATEGORY C may carry a
-  `representation_renderers` block naming, per requirement, the library and the
-  §6A-5 identifier discipline, e.g.:
-      STRUCTURE_GRAPH : rdkit    — identifier = CANONICAL SMILES round-trip
-                                   (render from SMILES; re-parse the intended
-                                   SMILES; compare canonical forms — formula
-                                   comparison alone is a §6A-5 violation)
+  WHAT IS DECLARED WHERE (v1.48.0 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ).
+  The requirement → library → §6A-5 identifier binding is FRAMEWORK-OWNED and
+  lives in explain_engine.REPRESENTATION_RENDERERS. It is NOT an exam property
+  and is NOT read from section_rules: the binding states what this framework can
+  draw and how each artefact is proved, identical for every exam. WHETHER any
+  question uses a renderer is decided per question by §6A-1, which no
+  declaration can override — a non-scientific exam's router simply never
+  reaches a visual verdict, so the constant's presence changes nothing there.
+  The binding (engine constant, quoted for the reader; the CONSTANT is the
+  authority):
+      STRUCTURE_GRAPH : rdkit      — identifier = CANONICAL SMILES round-trip
+                                     (render from SMILES; re-parse the intended
+                                     SMILES; compare canonical forms — formula
+                                     comparison alone is a §6A-5 violation)
       LEVEL_DIAGRAM   : matplotlib — identifier = the computed occupancy /
-                                   ordering string, restated from the drawn data
+                                     ordering string, restated from the drawn data
       DATA_PLOT       : matplotlib — identifier = the plotted series' defining
-                                   parameters
-  ABSENT the block, the router degrades those verdicts to EQUATION/PROSE per
-  §6A-4 — loudly, in the report — and the exam behaves exactly as pre-v1.27.0.
+                                     parameters
+      CONFORMER       : matplotlib — identifier = the dihedral / occupant string,
+                                     restated from the drawn data (§6A-2: drawn
+                                     with the LEVEL_DIAGRAM library)
+  HISTORY: v1.27.0–v1.47.0 specified this block as section_rules CATEGORY C
+  representation_renderers. No producer ever emitted that key — not
+  analyse_engine.write_section_rules(), not Framework_MockTestAnalyse §14, not
+  any engine — so EVERY exam took the absent-path and every STRUCTURE_GRAPH /
+  LEVEL_DIAGRAM / DATA_PLOT / CONFORMER verdict degraded per §6A-4, permanently
+  (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ). A per-exam override is
+  deliberately NOT built (operator decision D1: the system works it out always);
+  if ever needed, an optional exam_config key can be layered with precedence
+  exam_config → constant without breaking this design.
 
   DEPENDENCIES ARE PREFLIGHT WORK, NEVER MID-BATCH DISCOVERIES. P1 (its RENDERER
-  PREFLIGHT sub-step — v1.40.0; this sentence said "P0", which is trigger detection and
-  installs nothing) installs any library the exam's declared renderers name (pip, --break-system-packages, same
-  pattern as matplotlib in Step 0) and RECORDS the preflight result in the §3
-  dashboard. An install that fails does not halt: the affected requirement
-  degrades per §6A-4 for the WHOLE run, disclosed up front, so quality never
-  varies silently between batches.
+  PREFLIGHT sub-step — v1.48.0; this sentence once said "P0", which is trigger
+  detection and installs nothing) import-tests the library of every
+  REPRESENTATION_RENDERERS requirement — Step 0 already installs the full set,
+  so this is normally a confirmation; pip (--break-system-packages, same pattern
+  as matplotlib in Step 0) only where an import fails — and RECORDS the
+  preflight result in the §3 dashboard. An unavailable library does not halt:
+  the affected requirement degrades per §6A-4 for the WHOLE run, disclosed up
+  front as a plain note, so quality never varies silently between batches.
+  After v1.48.0 there is no "block absent" state — there is nothing to be
+  absent; the only remaining degrade cause is a genuinely unavailable library.
 
   MECHANICS (engine v2.3, for the session's use):
     RepresentationFigure(path, width_in, validation, after_step)
@@ -1968,8 +2024,11 @@ execution path — it does not shrink, soften or delete them.
   ("under standard Lucas-test conditions"); QUESTION_SPECIFIC_INFERENCE — DEDUCTION
   only; OPTION_SET_SHORTCUT — SPEED HACK only. The qualifier is part of the rule,
   not a caveat after it (the §14-3b posture).
-  Which conventions the exam expects is read from the subject learnings (§24)
-  and section_rules CATEGORY C `exam_conventions`, never assumed. PRESERVE THE
+  Which conventions the exam expects is read from the subject learnings library
+  (§24) — its exam-convention classes are subject knowledge, fixed once per
+  subject (v1.48.0, GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ: the former
+  second source, section_rules CATEGORY C exam_conventions, was produced by
+  nothing and is retired) — never assumed. PRESERVE THE
   EXAM'S NOTATION: an older-convention option is still the keyed option; the
   DEDUCTION teaches the cleaner form without an answer conflict.
   THE AXIOM DOES NOT GET LONGER AS THE FIX: a failed claim is repaired by a
@@ -3150,9 +3209,18 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 #       subject (e.g. CHEMISTRY_EXPLAIN_LEARNINGS_v1.md). It carries the §7-7 curated
 #       neighbour library, the exam-convention classes and the §8-3 minimum-concept
 #       components: subject knowledge fixed once per subject, never once per exam.
-#       Subject code from section_rules CATEGORY C `subject_code` (fallback
-#       blueprint.subject), upper-cased. Absent file → nothing loaded, nothing
-#       lost. Precedence: exam file > subject file > this spec.
+#       RESOLVED BY DISCOVERY (v1.48.0, GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ):
+#       explain_engine.resolve_learnings_files(project_dir, ExamCode) partitions
+#       *_EXPLAIN_LEARNINGS_v*.md by the {ExamCode}_ prefix — the single non-exam-
+#       prefixed file IS the subject file (this contract's own "one file copied
+#       unchanged into every exam project" makes its presence the evidence; no
+#       subject code is derived, configured or read from anywhere — the former
+#       source, section_rules CATEGORY C subject_code, and its documented
+#       fallback blueprint.subject were both produced by nothing, so this library
+#       had never loaded on any exam). >= 2 non-exam files → abstain + WARN naming
+#       all candidates (none loaded). Absent file → nothing loaded, nothing
+#       lost. The P2 dashboard names the loaded subject file and its rule count.
+#       Precedence: exam file > subject file > this spec.
 #   Neither exists on mock 1 by design (nothing has been reviewed yet). Their ABSENCE is
 #   normal and never a HALT; their PRESENCE is loaded and obeyed.
 #
@@ -3265,5 +3333,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.47.0
+# END OF Framework_MockTestExplain v1.48.0
 # ════════════════════════════════════════════════════════════════════════

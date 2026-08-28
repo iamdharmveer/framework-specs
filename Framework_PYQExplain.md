@@ -1,4 +1,25 @@
-# Framework_PYQExplain v2.18 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.19 — Universal PYQ Explanation Generator
+# v2.19 — 2026-08-28 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ (paired with
+#   explain_engine v2.10, Framework_MockTestExplain v1.48.0, audit_seam v1.3,
+#   validate_framework_md v3.2). Three CATEGORY-C config keys this spec read were
+#   produced by NOTHING anywhere in the framework, so their absent-paths ran on every
+#   exam forever: representation_renderers (every STRUCTURE_GRAPH / LEVEL_DIAGRAM /
+#   DATA_PLOT / CONFORMER verdict degraded per §6A-4), subject_code (the
+#   [Subject]_EXPLAIN_LEARNINGS_v*.md subject library was unlocatable and had never
+#   loaded on any exam — worsened here by P1's load list never naming the subject
+#   file at all), and exam_conventions (§S8-2's EXAM_CONVENTION machinery had no
+#   configured input). FIX, exam-independent, zero regeneration: (A) the requirement →
+#   library → §6A-5 identifier binding is FRAMEWORK-OWNED in
+#   explain_engine.REPRESENTATION_RENDERERS (§6A-6); WHETHER a question uses a
+#   renderer stays a per-question §6A-1 decision, so non-scientific exams are
+#   byte-unchanged. (B) subject_code RETIRED; the subject library is found by
+#   DISCOVERY (explain_engine.resolve_learnings_files; >= 2 non-exam files → abstain +
+#   WARN) and P1 now loads it. (C) exam_conventions RETIRED; §S8-2 reads conventions
+#   from the subject library only, "never assumed" preserved. Also corrects §S6A-2's
+#   stale "last three" (CONFORMER made it four, v2.14). P7 dashboard gains a
+#   "Renderer preflight" line and names the loaded subject file. No section_rules.md
+#   schema change, no analyse_engine change, no exam regenerated. Gate for the class:
+#   validate_framework_md Check V + audit_seam v1.3.
 # v2.18 — 2026-08-27 — GAP-2026-08-27-DIFFICULTY-PROFILE (paired with blueprint_core Cluster DP,
 #   Blueprint §S7-0, MockTestAnalyse E-9 retirement, PYQDeliver Tier-2 retirement, ScopedBlueprint
 #   §1-3/§5). §7A-3 records the raw rubric SCORE (bc.difficulty_score) and the observation
@@ -358,12 +379,15 @@ PYQExplain
       "SELF-TEST: N/N PASS" with N == total AND N >= 62 (MANDATE A; v2.5 —
       GAP-2026-08-13-STALE-SELFTEST-PIN: floor form, the exact 62/62 pin HALTed
       every session once the engine grew to 64). If absent or stale → HARD STOP.
-      v2.7 — RENDERER PREFLIGHT (§6A-6). If the exam's section_rules declares a
-      `representation_renderers` block, install each named library HERE (pip,
-      --break-system-packages) and RECORD the outcome for the P7 dashboard. A failed
-      install NEVER halts: the affected requirement degrades for the WHOLE run per
-      §6A-4, disclosed up front, so quality never varies silently between batches. No
-      declared block → nothing to install, and the router uses PROSE/EQUATION only.
+      v2.19 — RENDERER PREFLIGHT (§6A-6, GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ).
+      For each requirement in explain_engine.REPRESENTATION_RENDERERS, import-test its
+      library HERE and RECORD the outcome for the P7 dashboard. Step 0 already installs
+      the full set (SKILL Step 0: matplotlib pillow numpy scipy fonttools rdkit), so
+      this is normally a confirmation; pip (--break-system-packages) only where an
+      import fails. An unavailable library NEVER halts: the affected requirement
+      degrades for the WHOLE run per §6A-4, disclosed up front as a plain note, so
+      quality never varies silently between batches. Nothing is read from
+      section_rules for this.
 
   P1  LOAD PROJECT KNOWLEDGE.
       Load from /mnt/project (project knowledge):
@@ -380,6 +404,15 @@ PYQExplain
         • [ExamCode]_PYQ_EXPLAIN_LEARNINGS_v*.md
         • [ExamCode]_EXPLAIN_AUDIT_LEARNINGS_v*.md (shared with mock pipeline)
         • [ExamCode]_EXPLAIN_LEARNINGS_v*.md (shared with mock pipeline)
+        • the SUBJECT-level [Subject]_EXPLAIN_LEARNINGS_v*.md (v2.19,
+          GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ) — found by DISCOVERY, never
+          by a derived or configured subject code: explain_engine.
+          resolve_learnings_files('/mnt/project', ExamCode) returns the single
+          non-{ExamCode}-prefixed *_EXPLAIN_LEARNINGS_v*.md as the subject file;
+          >= 2 such files → abstain and WARN naming every candidate (load none);
+          zero → nothing loaded, nothing lost. The P7 dashboard names the loaded
+          subject file and its rule count. Precedence: exam files > subject file
+          > this spec (§24).
 
   P2  BUILD EngineConfig AND PARSE ROW FILE.
 
@@ -490,7 +523,8 @@ Config             : q_re=[..] · opt_re=[..] · lang=[..] · terminators=[..]
 Level / Medium     : [level] · [medium]  (from exam_config)
 Question types     : [mcq C · msq M · nat T]  (from P4 resolution)
 Answer key         : NONE by design — PYQ-1 derives all [Q_TOTAL]
-Learnings loaded   : [k AL-rules · m EX-rules] OR [none — first paper]
+Learnings loaded   : [k AL-rules · m EX-rules · subject=[filename · r rules] OR subject=none OR subject=AMBIGUOUS(n)] OR [none — first paper]
+Renderer preflight : [requirement → library → available/absent → degrade?] per explain_engine.REPRESENTATION_RENDERERS entry (framework-owned, v2.19)
 Paper (Row file)   : [X bytes · Q_TOTAL questions · K images · T tables]
 Subtopic map       : [Q_TOTAL] questions classified · source: [Sorted file / taxonomy]
 Batch plan         : [K batches · ceiling 10 · linked groups atomic]
@@ -710,10 +744,13 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
 #       already forbids publishing any answer. §6A-2b makes the matching figure rule
 #       explicit.
 #   The router is EXAM-AGNOSTIC: it names no exam and no subject. It emits a
-#   REQUIREMENT; which renderer satisfies it is read at runtime from the exam's own
-#   section_rules.md (CATEGORY C). An exam declaring no renderer gets PROSE and EQUATION
-#   only and behaves EXACTLY as it did before this version, so deploying the router
-#   cannot regress an exam that does not opt in.
+#   REQUIREMENT; which renderer satisfies it is bound framework-side in
+#   explain_engine.REPRESENTATION_RENDERERS (v2.19, GAP-2026-08-28-CATEGORY-C-
+#   ORPHAN-CONFIG-READ — formerly specified as a section_rules CATEGORY C read that
+#   no producer ever emitted). The binding is identical for every exam; WHETHER any
+#   question uses a renderer is decided per question by §6A-1, so an exam whose
+#   router never reaches a visual verdict behaves EXACTLY as before and deploying
+#   the router cannot regress it.
 
 ## S6A-1 — PROSE IS THE DEFAULT. A VISUAL IS EARNED, NEVER ISSUED.
   The load-bearing rule; read it before the table. The default verdict is PROSE, and a
@@ -801,8 +838,10 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   | CONFORMER            | (v2.14) HOW atoms are arranged at a given rotation — a projection (Newman / sawhorse / chair), which a constitution renderer cannot express; visual, requires its figure (run-report F3) |
   EQUATION is satisfied by §11's ⟦MATH:…⟧ regions and is ALWAYS available — it needs no
   renderer and no configuration; §11 already governs its spelling and is unchanged by
-  this version. TABLE is native docx. The last three need a declared renderer (§6A-6);
-  absent one, the router degrades (§6A-4).
+  this version. TABLE is native docx. The last four (v2.19 — CONFORMER, added v2.14,
+  made the pre-v2.19 "three" stale) need a renderer bound in
+  explain_engine.REPRESENTATION_RENDERERS (§6A-6); a library its preflight found
+  unavailable degrades the requirement (§6A-4).
 
 ## S6A-2b — PYQ ORDERING AND THE VOID_ITEM PROHIBITION (v2.7, PYQ-only)
   ORDER: for a figural question the router runs AFTER the §13A transcription is read,
@@ -849,8 +888,8 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
 
 ## S6A-5 — A rendered artefact must be PROVED, not trusted
   Every generated figure carries a validation record; one that fails its gate is never
-  shipped (it degrades per §6A-4). The gate is renderer-specific and declared with the
-  renderer, but the CONTRACT is fixed: re-derive the artefact from the rendered output
+  shipped (it degrades per §6A-4). The gate is renderer-specific and bound with the
+  renderer in explain_engine.REPRESENTATION_RENDERERS (v2.19), but the CONTRACT is fixed: re-derive the artefact from the rendered output
   and compare it against what was intended — do not merely inspect it. A structural
   renderer re-parses the drawn structure and compares a CANONICAL identifier; molecular
   formula alone is insufficient, since two different answers commonly share one formula
@@ -869,14 +908,27 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   routes.json change — rendering is spec-directed session work, and the ENGINE's job
   stays confined to emission mechanics, the §6A-5 record check at construction, and the
   figure-landing check at verify time (explain_engine v2.3, shared with TestExplain).
-  DECLARED WHERE: the exam's section_rules.md CATEGORY C may carry a
-  `representation_renderers` block naming, per requirement, the library and the §6A-5
-  identifier discipline (e.g. STRUCTURE_GRAPH : rdkit, identifier = canonical SMILES
-  round-trip). ABSENT the block, those verdicts degrade per §6A-4.
-  DEPENDENCIES ARE PREFLIGHT WORK. P0 installs any library the declared renderers name
-  and RECORDS the result in the P7 dashboard. A failed install does not halt: the
-  affected requirement degrades for the WHOLE run, disclosed up front, so quality never
-  varies silently between batches.
+  DECLARED WHERE (v2.19 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ): the
+  requirement → library → §6A-5 identifier binding is FRAMEWORK-OWNED and lives in
+  explain_engine.REPRESENTATION_RENDERERS (STRUCTURE_GRAPH : rdkit — canonical SMILES
+  round-trip; LEVEL_DIAGRAM / DATA_PLOT / CONFORMER : matplotlib). It is NOT an exam
+  property and is NOT read from section_rules: it states what this framework can draw
+  and how each artefact is proved, identical for every exam; WHETHER any question uses
+  a renderer is decided per question by §6A-1, which no declaration can override.
+  HISTORY: v2.7–v2.18 specified this block as section_rules CATEGORY C
+  representation_renderers. No producer ever emitted that key — not
+  analyse_engine.write_section_rules(), not Framework_MockTestAnalyse §14, not any
+  engine — so EVERY exam took the absent-path and every visual verdict degraded per
+  §6A-4, permanently. A per-exam override is deliberately NOT built (operator
+  decision D1); if ever needed, an optional exam_config key layers on with
+  precedence exam_config → constant.
+  DEPENDENCIES ARE PREFLIGHT WORK. P0 import-tests the library of every
+  REPRESENTATION_RENDERERS requirement (Step 0 already installs the full set; pip only
+  on import failure) and RECORDS the result in the P7 dashboard. An unavailable
+  library does not halt: the affected requirement degrades for the WHOLE run,
+  disclosed up front as a plain note, so quality never varies silently between
+  batches. After v2.19 there is no "block absent" state — the only remaining degrade
+  cause is a genuinely unavailable library.
   MECHANICS: RepresentationFigure(path, width_in, validation, after_step) and
   ExplanationBlock(..., figures=[...]); validate() raises on any §6A-5 breach. Figure
   paragraphs carry NO text (engine-enforced) — every label the reader needs is drawn
@@ -1470,8 +1522,11 @@ else:
   ("under standard Lucas-test conditions"); QUESTION_SPECIFIC_INFERENCE — DEDUCTION
   only; OPTION_SET_SHORTCUT — SPEED HACK only. The qualifier is part of the rule,
   not a caveat after it (the §14-3b posture).
-  Which conventions the exam expects is read from the subject learnings (§24)
-  and section_rules CATEGORY C `exam_conventions`, never assumed. PRESERVE THE
+  Which conventions the exam expects is read from the subject learnings library
+  (§24) — its exam-convention classes are subject knowledge, fixed once per
+  subject (v2.19, GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ: the former
+  second source, section_rules CATEGORY C exam_conventions, was produced by
+  nothing and is retired) — never assumed. PRESERVE THE
   EXAM'S NOTATION: an older-convention option is still the keyed option; the
   DEDUCTION teaches the cleaner form without an answer conflict.
   THE AXIOM DOES NOT GET LONGER AS THE FIX: a failed claim is repaired by a
@@ -2521,8 +2576,14 @@ present_files(deliverables)
 #       schema, same parser, one file copied unchanged into every exam project of that
 #       subject (e.g. CHEMISTRY_EXPLAIN_LEARNINGS_v1.md). It carries the §7-7 curated
 #       neighbour library, the exam-convention classes and the §8-3 minimum-concept
-#       components. Subject code from section_rules CATEGORY C `subject_code`, upper-
-#       cased. Precedence on conflict: exam files > subject file > this spec.
+#       components. RESOLVED BY DISCOVERY (v2.19, GAP-2026-08-28-CATEGORY-C-ORPHAN-
+#       CONFIG-READ): explain_engine.resolve_learnings_files(project_dir, ExamCode)
+#       partitions *_EXPLAIN_LEARNINGS_v*.md by the {ExamCode}_ prefix — the single
+#       non-exam-prefixed file IS the subject file (no subject code is derived,
+#       configured or read from anywhere; the former source, section_rules CATEGORY C
+#       subject_code, was produced by nothing, so this library had never loaded on
+#       any exam). >= 2 non-exam files → abstain + WARN naming all candidates (none
+#       loaded). Precedence on conflict: exam files > subject file > this spec.
 #   None exist on the first PYQ paper by design. Absence is normal, never a HALT.
 
 # ── S24-1b — THE **Triggers:** FIELD (v2.15 — additive; the frozen schema still parses) ──
@@ -2685,5 +2746,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.18
+# END OF Framework_PYQExplain v2.19
 # ════════════════════════════════════════════════════════════════════════

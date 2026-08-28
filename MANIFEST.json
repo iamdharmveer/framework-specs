@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.28.1",
+  "framework_version": "2026.08.28.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -215,11 +215,11 @@
       "bytes": 571580
     },
     "Framework_MockTestExplain.md": {
-      "sha256": "4b8bb34f944067b8edd3efc9183f1356530961f85283092dae84e0423cce1cb1",
-      "version_header": "# Framework_MockTestExplain v1.47.0",
+      "sha256": "782ca7a8210a716bd0180129b181db8ad484833b15d393528f2af546a49efe6b",
+      "version_header": "# Framework_MockTestExplain v1.48.0",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 3269,
-      "bytes": 251787
+      "lines": 3337,
+      "bytes": 257208
     },
     "Framework_NotesAudit.md": {
       "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
@@ -299,11 +299,11 @@
       "bytes": 46366
     },
     "Framework_PYQExplain.md": {
-      "sha256": "3b0cd29d6c8adb911516cb8801529f5e0a03c9ec71d5db76a06882b9566695b4",
-      "version_header": "# Framework_PYQExplain v2.18 \u2014 Universal PYQ Explanation Generator",
+      "sha256": "d5ff3c1792b13aa41e7c2fd5dea212908fb83086d0893863d8c966d4daf3efc3",
+      "version_header": "# Framework_PYQExplain v2.19 \u2014 Universal PYQ Explanation Generator",
       "end_sentinel": "# \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550",
-      "lines": 2689,
-      "bytes": 190052
+      "lines": 2750,
+      "bytes": 194985
     },
     "Framework_PYQFormat.md": {
       "sha256": "e7710a2d865a2ed0c622b9130684d1760cac896b17259910059583df69708e91",
@@ -341,18 +341,18 @@
       "bytes": 78267
     },
     "validate_framework_md.py": {
-      "sha256": "ff4550d730b3baffb042fea2002ab76b53089f943b77885a7044c9226643e0e0",
+      "sha256": "458c6c4f33208cabd42fd2f523982015817d93d3e988237abe1207470b37665a",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "    sys.exit(1 if total else 0)",
-      "lines": 2278,
-      "bytes": 130984
+      "lines": 2459,
+      "bytes": 141341
     },
     "explain_engine.py": {
-      "sha256": "2dbe39fc99f2e8bc9e43b3b9d6774f6ee603783acbb25bd04823e55fb7b3acff",
+      "sha256": "b884924508f039e4253530031fcd01a8a8b41bd10b1b9fe4a35126cc6ef6f60d",
       "version_header": "#!/usr/bin/env python3",
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 4138,
-      "bytes": 242440
+      "lines": 4279,
+      "bytes": 250656
     },
     "t3_mathcomp.py": {
       "sha256": "49bc3a4b78454f03dffa900a81f62bdf7a230f7be1458a38e6189a0202aab8dd",
@@ -516,11 +516,11 @@
       "bytes": 9360
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "ddbb91ea208d45725908a1787b63a85b61dfb818f9a97a2d897109384ece0375",
+      "sha256": "e251565de478eed2896c2bd840cf82c1987aa91d6191641572bc8bde208773ac",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6989,
-      "bytes": 197079
+      "bytes": 197091
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",

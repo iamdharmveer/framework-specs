@@ -1,3 +1,49 @@
+# Deploy: GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ — release 2026.08.28.2
+
+**Files to commit (11):** `explain_engine.py` (v2.10), `Framework_MockTestExplain.md`
+(v1.48.0), `Framework_PYQExplain.md` (v2.19), `audit_seam.py` (v1.3),
+`validate_framework_md.py` (v3.2), `VERSION`, `CHANGELOG.md`, `DEPLOY_NOTES.md`,
+`MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json` (both Explain specs grew,
+so their section line spans moved; all three manifests machine-regenerated with the
+repo's own generators, never hand-edited). See CHANGELOG 2026.08.28.2.
+
+**NOT touched — this is the release's central property:** `analyse_engine.py` and
+`write_section_rules()` are byte-identical; `Framework_MockTestAnalyse.md` §14 is
+unchanged; **no `section_rules.md` anywhere in the estate changes and no exam is
+regenerated.** Every exam — including mid-series exams that cannot safely
+re-synthesise — is fixed on its next TestExplain / MockExplain / PYQExplain run after
+the repo updates.
+
+**Operator change (all ~200 exams): NONE.** Renderer bindings are framework-owned
+(explain_engine.REPRESENTATION_RENDERERS); the subject learnings library is found by
+discovery. New visible lines only: the P2/P7 dashboards' "Renderer preflight" entry
+now reports per-requirement availability from the constant, and "Learnings loaded"
+names the subject file and its rule count (or none / AMBIGUOUS(n)).
+
+**Estate action after deploy: one per-project cleanup where the workaround exists.**
+Any project that copied its subject library to an exam-prefixed name as a workaround
+(e.g. `IIT_JAM_CHEMISTRY_EXPLAIN_LEARNINGS_v2.md` duplicating
+`CHEMISTRY_EXPLAIN_LEARNINGS_v2.md`) must DELETE the duplicate after this release:
+under §24's highest-version-wins rule the exam-prefixed v2 outranks the genuine
+exam-level v1, so subject content would masquerade as exam content.
+
+**Acceptance evidence (measured on this release):** Check V — 3 ORPHAN-CONFIG-READ
+findings on the pre-fix corpus, 0 on this corpus, 9/9 self-test fixtures (incl. gate-
+fires-on-reintroduction and abstain-on-producer-rename); audit_seam v1.3 — same
+3 findings pre-fix, 0 post-fix, 25/25 self-test; explain_engine 179/179 (V30 fixtures
+fail the build if REPRESENTATION_RENDERERS loses a requirement or its §6A-5 shape);
+full validator batch 0 issues across 23 specs; audit_deep / audit_sync /
+audit_callgraph / mock_sync_audit / notes_sync_audit / spec_name_audit baseline /
+check_triggers / audit_specs_ext all green.
+
+**Non-scientific exams:** byte-identical behaviour — §6A-1's router never reaches a
+visual verdict there; the constant is inert by construction (criterion 9).
+
+**Rollback:** revert the commit. No artefact of any step changed shape; the fix's
+effects appear only at the next Explain run.
+
+---
+
 # Deploy: GAP-2026-08-28-PLACEMENT-UNSPECIFIED — release 2026.08.28.1
 
 **Files to commit (12):** `blueprint_core.py` (+Cluster Q), `audit_canonical.py` (v2.23),
