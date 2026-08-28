@@ -1,4 +1,29 @@
-# Framework_MockTestCreate v5.77
+# Framework_MockTestCreate v5.78
+# v5.78 — 2026-08-28 — GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM (paired with
+#   explain_engine v2.10's resolve_learnings_files, already on this trigger's route).
+#   v5.77's widened glob made a non-{EXAM}-prefixed learnings file VISIBLE (a real
+#   improvement over silent skipping) but its printed remedy — "rename it
+#   {EXAM}_EXPLAIN_LEARNINGS_v<N>.md" — contradicted the same-day Explain-side design
+#   (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ §6.2, operator decision D1): per the Explain specs' S24 contract
+#   the non-exam-prefixed *_EXPLAIN_LEARNINGS_v*.md IS the subject library, "one file
+#   copied unchanged into every exam project of that subject", and obeying the rename
+#   instruction re-plants the per-exam-copy workaround estate-wide (highest-version
+#   collision hazard included). Two same-day releases, two philosophies, one file
+#   family. FIX: Step 7 resolves by the SAME discovery contract Steps 9 / PYQ-1 use —
+#   the SUBJECT file is found by explain_engine.resolve_learnings_files (partition by
+#   the {EXAM}_ prefix), while the EXAM side keeps the exact v5.56 family glob
+#   {EXAM}_EXPLAIN_LEARNINGS_v*.md untouched — the helper's broader exam partition
+#   admits the {EXAM}_PYQ_EXPLAIN_LEARNINGS_v*.md family, whose basenames sort after
+#   the shared family, so consuming it here would silently swap families on any
+#   project that has run both pipelines (caught in pre-deploy review; never shipped).
+#   S3-1 stages the highest exam-family file AND the discovered subject file; S3-3
+#   extracts BANNED:/VERIFIED DEFECT: markers from BOTH (subject-library markers were
+#   previously unreachable by this step under ANY naming). >= 2 non-exam files →
+#   abstain + WARN naming the candidates (never a rename instruction). Legacy
+#   {EXAM}_ExplainLearnings.md fallback and its migration warning unchanged. Behaviour
+#   note: pre-v5.78 loaded exactly one file (highest exam version); v5.78 loads up to
+#   two (highest exam + subject) — marker extraction is additive, so an exam whose
+#   subject library carries no markers is byte-identical to pre-v5.78.
 # v5.77 — 2026-08-28 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED (paired with
 #   blueprint_core Cluster Q — place_subtopics / min_possible_adjacent /
 #   audit_placement — and audit_canonical v2.23 A-CLUSTER + --through-q).
@@ -1158,16 +1183,35 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   if os.path.exists(fig_src):
       shutil.copy(fig_src, f'/home/claude/{EXAM}_fig_manifest.json')
 
-  # OPTIONAL — EXPLAIN_LEARNINGS (v2.0 GAP-07 fix; v5.56 filename seam fix):
-  # One name estate-wide: {EXAM}_EXPLAIN_LEARNINGS_v*.md (S24 convention, highest
-  # version wins — same rule as Step 9's parse_learnings). Legacy-named file
-  # loads with a MIGRATION warning; never silently ignored.
+  # OPTIONAL — EXPLAIN_LEARNINGS (v2.0 GAP-07 fix; v5.56 filename seam fix; v5.78
+  # GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM). TWO resolutions, deliberately kept
+  # separate: (a) the EXAM side keeps the exact v5.56 family glob
+  # {EXAM}_EXPLAIN_LEARNINGS_v*.md, highest version wins — this glob structurally
+  # excludes the {EXAM}_PYQ_EXPLAIN_LEARNINGS_v*.md and
+  # {EXAM}_EXPLAIN_AUDIT_LEARNINGS_v*.md families (their basenames insert PYQ_/AUDIT_
+  # before the family suffix), and a broader partition MUST NOT replace it: the
+  # discovery helper's exam partition admits the PYQ family, whose basenames sort
+  # AFTER the shared family (P > E), so a [-1] pick there would silently swap in the
+  # wrong family's file on any project that has run both pipelines. (b) the SUBJECT
+  # side is resolved by DISCOVERY — the same explain_engine.resolve_learnings_files
+  # contract Steps 9 / PYQ-1 use (Explain-spec S24 contract: the single
+  # non-{EXAM}-prefixed *_EXPLAIN_LEARNINGS_v*.md IS the subject library; no rename
+  # is ever requested; >= 2 non-exam files → abstain + WARN, nothing subject-side
+  # staged). Legacy-named file loads with a MIGRATION warning; never silently ignored.
   import glob
+  import explain_engine as _ee
   learn_srcs = sorted(glob.glob(f'/mnt/project/{EXAM}_EXPLAIN_LEARNINGS_v*.md'))
-  legacy_src = f'/mnt/project/{EXAM}_ExplainLearnings.md'
+  _ignored_ex, _subj_file, _amb = _ee.resolve_learnings_files('/mnt/project', EXAM)
+  if _amb:
+      print(f"S3-1 WARN — {_amb}")
   if learn_srcs:
       shutil.copy(learn_srcs[-1], f'/home/claude/{os.path.basename(learn_srcs[-1])}')
-  elif os.path.exists(legacy_src):
+  if _subj_file:
+      shutil.copy(_subj_file, f'/home/claude/{os.path.basename(_subj_file)}')
+      print(f"S3-1 — subject learnings discovered (S24 contract, never renamed): "
+            f"{os.path.basename(_subj_file)}")
+  legacy_src = f'/mnt/project/{EXAM}_ExplainLearnings.md'
+  if not learn_srcs and os.path.exists(legacy_src):
       shutil.copy(legacy_src, f'/home/claude/{EXAM}_ExplainLearnings.md')
       print(f'MIGRATION: {EXAM}_ExplainLearnings.md uses the legacy name — rename to '
             f'{EXAM}_EXPLAIN_LEARNINGS_v1.md so Step 9 loads it too (v5.56 seam fix).')
@@ -1550,33 +1594,42 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # marking_scheme, 8 needs recorded obs).
   ```
 
-  LOAD EXPLAIN_LEARNINGS for quality constraints (GAP-07 fix; v5.56 filename seam fix):
+  LOAD EXPLAIN_LEARNINGS for quality constraints (GAP-07 fix; v5.56 filename seam
+  fix; v5.78 GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM):
   ```python
   learnings_bans = []  # Extra banned patterns from prior Explain sessions
+  # v5.78: DISCOVERY, never a rename instruction. The v5.77 WARN told the operator
+  # to rename a non-{EXAM}-prefixed file — but per the Explain specs' S24 contract that file IS the subject
+  # library, and renaming it per-exam re-plants the workaround the Explain-side fix
+  # retired (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ §6.2, decision D1). Step 7
+  # now uses the SAME SUBJECT resolution Steps 9 / PYQ-1 use: the exam-family file
+  # (exact v5.56 glob, unchanged) PLUS the discovered subject file — whose BANNED:/VERIFIED DEFECT:
+  # markers were unreachable by this step under any naming before v5.78. >= 2
+  # non-exam files → the helper abstains and S3-1 already WARNed; nothing loads
+  # from the subject side (a wrong subject library is worse than none).
   import glob
-  # v5.77 (GAP-2026-08-28-LEARNINGS-PREFIX-GLOB): glob EVERY *_EXPLAIN_
-  # LEARNINGS_v*.md and WARN loudly on a prefix that is not {EXAM}. The
-  # pre-v5.77 {EXAM}-only glob silently skipped a mis-prefixed file (e.g.
-  # CHEMISTRY_… missing IIT_JAM_) while the session still reported
-  # "learnings loaded" — a file that exists but is invisible is worse than
-  # one that is absent, because the report reads the same either way.
-  _lf_all = sorted(glob.glob('/home/claude/*_EXPLAIN_LEARNINGS_v*.md'))
-  for _f in _lf_all:
-      if not os.path.basename(_f).startswith(f'{EXAM}_'):
-          print(f"S3-3 WARN — learnings file {os.path.basename(_f)} does NOT "
-                f"carry the {EXAM}_ prefix and will NOT be loaded. If it "
-                f"belongs to this exam, rename it "
-                f"{EXAM}_EXPLAIN_LEARNINGS_v<N>.md in the project Files.")
-  _lf = sorted(f for f in _lf_all
-               if os.path.basename(f).startswith(f'{EXAM}_')) \
-        or [f'/home/claude/{EXAM}_ExplainLearnings.md']   # legacy fallback (S1 warned)
-  for learn_file in [_lf[-1]]:
+  import explain_engine as _ee
+  # Exam side: the exact v5.56 family glob (see the S3-1 comment for why the
+  # discovery helper's broader exam partition must not be used here — it admits
+  # the PYQ family, and a [-1] pick would swap families). Subject side: discovery.
+  _fam = sorted(glob.glob(f'/home/claude/{EXAM}_EXPLAIN_LEARNINGS_v*.md'))
+  _ignored_ex, _subj_file, _amb = _ee.resolve_learnings_files('/home/claude', EXAM)
+  _lf = ([_fam[-1]] if _fam else
+         [f'/home/claude/{EXAM}_ExplainLearnings.md'])   # legacy fallback (S3-1 warned)
+  if _subj_file:
+      _lf.append(_subj_file)
+  _loaded = []
+  for learn_file in _lf:
       if os.path.exists(learn_file):
           content = open(learn_file, encoding='utf-8').read()
           # Extract explicit BANNED/VERIFIED DEFECT markers (an EX-rule author may
           # include them for Step-7 enforcement; S24 prose fields are Step-9 guidance)
           bans = re.findall(r'(?:BANNED|VERIFIED DEFECT):\s*(.+)', content)
           learnings_bans.extend(bans)
+          _loaded.append(os.path.basename(learn_file))
+  print(f"S3-3 — learnings loaded for authoring bans: "
+        f"{', '.join(_loaded) if _loaded else 'none'} "
+        f"({len(learnings_bans)} BANNED/VERIFIED-DEFECT marker(s))")
   # learnings_bans added to quality gate checks during generation
   ```
 
@@ -8915,7 +8968,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   Final Assembly); it never touches `status` or `repair_rounds_used`.
 #   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-# END OF Framework_MockTestCreate v5.77
+# END OF Framework_MockTestCreate v5.78
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026.08.28.3 — GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM: one discovery contract for one file family — Step 7 stops instructing the estate to undo the Explain-side fix
+
+**Framework_MockTestCreate v5.77 -> v5.78 (S3-1 staging + S3-3 load resolve the
+SUBJECT learnings file via explain_engine.resolve_learnings_files — already on this
+trigger's route — while the EXAM side keeps the exact v5.56 family glob untouched;
+the v5.77 rename instruction is deleted; S3-3 prints the loaded set and marker
+count). No engine changes; no other spec changes. Zero exam values.**
+
+THE SEAM. Two same-day releases took opposite philosophies for *_EXPLAIN_LEARNINGS_v*.md.
+2026.08.28.1 (LEARNINGS-PREFIX-GLOB) made a non-{EXAM}-prefixed file visible to Step 7
+and printed the remedy "rename it {EXAM}_EXPLAIN_LEARNINGS_v<N>.md". 2026.08.28.2
+(CATEGORY-C-ORPHAN-CONFIG-READ §6.2, operator decision D1) established the opposite
+contract for Steps 9 / PYQ-1: the non-exam-prefixed file IS the subject library, found
+by discovery, never renamed — because the per-exam-copy workaround it retires carries a
+real highest-version collision hazard (an exam-prefixed copy of a subject v2 outranks a
+genuine exam-level v1 under S24 precedence). Left standing, v5.77's WARN prints on every
+mock run of every exam carrying a subject library and TEACHES operators to re-plant that
+workaround estate-wide; and any BANNED:/VERIFIED DEFECT: marker an author adds to a
+subject library is unreachable by Step 7 under ANY naming, silently.
+
+THE FIX. Step 7 resolves the SUBJECT file by the same discovery contract; the EXAM
+side keeps the exact v5.56 family glob {EXAM}_EXPLAIN_LEARNINGS_v*.md — pre-deploy
+review caught (and this release never shipped) a draft that consumed the helper's
+broader exam partition, which admits the {EXAM}_PYQ_EXPLAIN_LEARNINGS_v*.md family;
+its basenames sort after the shared family, so a [-1] pick there silently swaps
+families on any project that has run both pipelines. S3-1 stages the highest
+exam-family file AND the discovered subject file; S3-3 extracts markers from both
+and prints what loaded; >= 2 non-exam files -> abstain + WARN naming the candidates.
+Legacy {EXAM}_ExplainLearnings.md fallback and migration warning unchanged. Behaviour:
+pre-v5.78 loaded exactly one file; v5.78 loads up to two — marker extraction is
+additive, so any exam whose subject library carries no markers authors byte-identically
+to pre-v5.78 (measured on the reporting project: subject file discovered, 0 markers,
+identical authoring inputs).
+
+Deliberately NOT unified further: Step 7 keeps its narrow marker-extraction consumption
+(S24 prose fields remain Step-9 authoring guidance, not generation bans) — this release
+aligns RESOLUTION, not consumption.
+
 ## 2026.08.28.2 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ: a config key read by everything and produced by nothing is a permanent absent-path — the binding moves framework-side, the subject library is found by discovery, and a self-scoping gate closes the class
 
 **explain_engine v2.10 (+REPRESENTATION_RENDERERS, +resolve_learnings_files; self-tests

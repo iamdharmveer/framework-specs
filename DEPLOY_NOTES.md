@@ -1,3 +1,39 @@
+# Deploy: GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM — release 2026.08.28.3
+
+**Files to commit (7):** `Framework_MockTestCreate.md` (v5.78), `VERSION`,
+`CHANGELOG.md`, `DEPLOY_NOTES.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`,
+`SPEC_SECTIONS.json`. One spec section changed (S3-1 staging + S3-3 load): the SUBJECT
+file is resolved by the 2026.08.28.2 discovery helper (explain_engine.py is already
+on the TestCreate/MockCreate route); the EXAM side keeps the exact v5.56 family glob
+untouched. No engine changed. See CHANGELOG 2026.08.28.3.
+
+**Operator change (all ~200 exams): NONE.** The v5.77 "rename it {EXAM}_..." WARN is
+gone; a project's subject library is discovered and staged automatically. New visible
+line: "S3-3 — learnings loaded for authoring bans: <files> (<n> marker(s))".
+
+**Estate action after deploy: none.** No artefact changes shape. Any exam whose
+subject library carries no BANNED:/VERIFIED DEFECT: markers authors byte-identically
+to v5.77 (measured on the reporting project: 0 markers). Projects that already
+created an exam-prefixed COPY of their subject library should delete the copy (same
+guidance as 2026.08.28.2 — the S24 highest-version collision hazard).
+
+**Acceptance evidence:** full validator batch 0 issues across 23 specs (incl. the new
+S3 code blocks under Checks B/F/H and check_aj); Check V 0 findings; audit_seam 0
+findings / 25 self-test; audit_deep, audit_sync, audit_callgraph, audit_specs_ext,
+mock_sync_audit, spec_name_audit baseline, check_triggers all green; behavioral
+simulation of the new path verified on four project shapes (exam-only, subject-only,
+exam+subject, ambiguous-abstain).
+
+**Note for operators reading pre-2026.08.28.2 end-of-mock reports:** carried standing
+items claiming "representation_renderers absent from section_rules ... needs an
+upstream PYQExtract change" are STALE — that read was retired by 2026.08.28.2; nothing
+consumes the key. Disregard, and drop the item from the next report.
+
+**Rollback:** revert the commit. Resolution returns to the v5.77 glob + rename WARN;
+nothing else is affected.
+
+---
+
 # Deploy: GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ — release 2026.08.28.2
 
 **Files to commit (11):** `explain_engine.py` (v2.10), `Framework_MockTestExplain.md`
