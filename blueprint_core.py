@@ -33,6 +33,9 @@ PROVENANCE
                                  MockTestExplain §7A-M / §7A-R (GAP-2026-08-25-DIFFICULTY-
                                  GATE-WINDOWS — Cluster E2 split + E2d window gate; frac 0.35)
       slugify .................. §17 S2-MANIFEST
+      place_subtopics / min_possible_adjacent / audit_placement
+                                 MockTestCreate v5.77 S3-12b (GAP-2026-08-28-
+                                 PLACEMENT-UNSPECIFIED — Cluster Q, NEW)
     Source anchors (Framework_MockTestAnalyse.md v2.24.10 — Cluster E):
       score_difficulty ......... E-9  RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE)
       determine_strip_mode ..... E-10 (taxonomy → strip mode, RIGID-5 Hindi)
@@ -54,6 +57,10 @@ import re
 
 __all__ = [
     "AllocationError",
+    "PlacementError",
+    "min_possible_adjacent",
+    "place_subtopics",
+    "audit_placement",
     "split_recency",
     "compute_r_avg",
     "rescale_to_total",
@@ -1784,6 +1791,385 @@ def check_axis_conformance(observed, target, irreducible=0, axis="axis1",
 # parse_section_rules_difficulty — RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE): the
 # section_rules PYQ_DIFFICULTY_CALIBRATION block is no longer written by Step 5; per-
 # subtopic calibration now comes from the difficulty profile (Cluster DP dp_calibration).
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Cluster Q — QUESTION-NUMBER PLACEMENT (GAP-2026-08-28-PLACEMENT-UNSPECIFIED)
+# ═══════════════════════════════════════════════════════════════════════════
+# Deciding WHICH subtopic goes on WHICH question number was, before v5.77, one
+# prose sentence in Framework_MockTestCreate.md ("subtopics assigned to Q
+# positions in blueprint order") that is guaranteed non-conforming with R19
+# whenever any subtopic has q_count >= 2 — the normal case. MOCK:M01 noticed
+# and hand-repaired; MOCK:M02 did not and shipped a 3-in-a-row cluster with a
+# clean gate report. The transformation now lives here, beside the sibling
+# planners (assign_difficulty_bands, schedule_figural_slots,
+# axis_grant_figural), is persisted in batch_state['subtopic_by_qnum'], and is
+# gated by S3-12b (pre-flight) + G-CLUSTER (checklist) + A-CLUSTER (auditor).
+#
+# Construction is CONCEPT-GROUP-FIRST, which is what makes the S3-12b gate
+# ("achieved > floor => the engine failed, not the blueprint") safe to arm:
+#   1. the concept_group SKELETON is laid out by max-remaining greedy over cg
+#      unit counts, excluding the previous cg while any other is live — this
+#      greedy attains min_possible_adjacent() (verified in the self-test
+#      against brute-force minima for every multiset up to n=7);
+#   2. each skeleton slot is FILLED with a specific subtopic of that cg
+#      (max-remaining; avoiding the previous subtopic, a presentation_family
+#      run of 3, and the last two subjects where possible) — same-subtopic
+#      adjacency implies same-cg adjacency and the subtopic floor never
+#      exceeds the cg floor, so cg-first is consistent with R19 priority;
+#   3. a deterministic same-cg swap polish drives subtopic adjacency to its
+#      own floor without disturbing the cg-optimal skeleton.
+# The gap report's single-pass greedy reference can exceed the cg floor when
+# a concept_group spans several subtopics (cg G={a:2,b:2}, cg H={c:3} -> it
+# emits c a c b c a b: 1 cg-adjacency where 0 is achievable), which is why
+# this implementation replaces it rather than adopting it verbatim.
+#
+# A linked-stimulus block (groups[sid]=k>1) is ONE atomic unit of k
+# consecutive slots; adjacency and family runs are measured at unit
+# boundaries, so intra-block repetition is exempt (R19 / R-LINKED Model B).
+
+class PlacementError(Exception):
+    """Structurally impossible placement input (sum mismatch, bad linked
+    multiple, unsatisfiable pinned position). Never raised for inputs that
+    are merely hard — a dominant subtopic reports its unavoidable adjacency
+    instead of raising."""
+
+
+def min_possible_adjacent(counts):
+    """Proven lower bound on same-key adjacent pairs for ANY arrangement of a
+    multiset. n items, m = largest count: 0 if m <= ceil(n/2), else 2*m-n-1.
+    Public so the S3-12b pre-flight, G-CLUSTER and A-CLUSTER all quote the
+    SAME number instead of each inventing a tolerance."""
+    counts = [c for c in counts if c > 0]
+    n = sum(counts)
+    if n <= 1:
+        return 0
+    m = max(counts)
+    return 0 if m <= (n + 1) // 2 else 2 * m - n - 1
+
+
+def _cg_of(meta, sid):
+    # §7.3 degrade: absent concept_group falls back to subtopic_id, so R19(a)
+    # collapses to R19's base rule instead of silently disabling.
+    return (meta.get(sid) or {}).get('concept_group') or sid
+
+
+def _pf_of(meta, sid):
+    return (meta.get(sid) or {}).get('presentation_family') or None
+
+
+def _sub_of(meta, sid):
+    return (meta.get(sid) or {}).get('subject') or None
+
+
+def _lg_coerce(v):
+    # §7.3 degrade for linked_group_size: absent, null-like, or NON-NUMERIC
+    # values are 1 (no linked group) — never a naked ValueError. The contract
+    # is 'raises PlacementError only on structurally impossible inputs', and
+    # a garbage string in one manifest field is a data wart, not a structure.
+    try:
+        k = int(v)
+    except (TypeError, ValueError):
+        return 1
+    return k if k > 1 else 1
+
+
+def _unit_report(units, meta):
+    """Measurements over a UNIT sequence [(sid, length), ...] where a linked
+    block is one unit, so intra-block repetition is exempt (R19/R-LINKED)."""
+    sids = [u[0] for u in units]
+    adj_sub = [i for i in range(1, len(sids)) if sids[i] == sids[i - 1]]
+    adj_cg = [i for i in range(1, len(sids))
+              if _cg_of(meta, sids[i]) == _cg_of(meta, sids[i - 1])]
+    pf = [_pf_of(meta, s) for s in sids]
+    run = mx = 1 if pf else 0
+    for a, b in zip(pf, pf[1:]):
+        run = run + 1 if (a is not None and a == b) else 1
+        mx = max(mx, run)
+    subs = [_sub_of(meta, s) for s in sids]
+    srun = smx = 1 if subs else 0
+    for a, b in zip(subs, subs[1:]):
+        srun = srun + 1 if (a is not None and a == b) else 1
+        smx = max(smx, srun)
+    return adj_sub, adj_cg, mx, smx
+
+
+def place_subtopics(alloc, q_range, meta, *, seed=0, fixed=None, groups=None):
+    """Deterministic max-spread placement of subtopics onto question numbers.
+
+    alloc   {subtopic_id: q_count}  — exact; RULE A / G-ALLOC-SUBTOPIC.
+            Collapse duplicate blueprint allocation entries BEFORE calling.
+    q_range (lo, hi) inclusive; hi-lo+1 MUST equal sum(alloc.values())
+    meta    {subtopic_id: {'concept_group', 'presentation_family',
+                           'subject', 'linked_group_size'}} — every field
+            optional; §7.3 degradation applies (absent concept_group falls
+            back to subtopic_id; absent family/subject leaves that objective
+            dormant; nothing raises, nothing silently disables adjacency).
+    seed    int — the PAPER INDEX. Same inputs + same seed => identical
+            output, so `continue` and S4-12 resume reproduce the plan
+            exactly, while different papers in a series get different
+            arrangements.
+    fixed   {qnum: subtopic_id} — pinned positions, honoured verbatim
+            (length-1 units only; pinning into a linked block raises).
+    groups  {subtopic_id: k} — linked-stimulus group size; k>1 emits that
+            subtopic's questions as contiguous blocks of k (R-LINKED
+            Model B). Falls back to meta[sid]['linked_group_size'].
+
+    Returns (placement {qnum: subtopic_id}, report dict). The report's
+    'min_possible_adjacent' is the subtopic-unit floor;
+    'min_possible_adjacent_cg' is the concept_group floor that the S3-12b
+    pre-flight and A-CLUSTER compare achieved cg adjacency against.
+    Raises PlacementError only on structurally impossible inputs.
+    """
+    lo, hi = int(q_range[0]), int(q_range[1])
+    n = hi - lo + 1 if hi >= lo else 0
+    alloc = {k: int(v) for k, v in (alloc or {}).items() if int(v) > 0}
+    if sum(alloc.values()) != n:
+        raise PlacementError(
+            'alloc sums to %d, section holds %d' % (sum(alloc.values()), n))
+    fixed = {int(k): v for k, v in (fixed or {}).items()}
+    groups = dict(groups or {})
+    empty = {'adjacent_same_subtopic': [], 'adjacent_same_concept_group': [],
+             'max_presentation_family_run': 0, 'max_subject_run': 0,
+             'min_possible_adjacent': 0, 'min_possible_adjacent_cg': 0,
+             'counts_exact': True}
+    if not alloc:
+        return {}, dict(empty)
+
+    # ---- 1. emission units: a linked block of k slots is ONE atomic unit ---
+    bylen = {}
+    ucount = {}                       # sid -> number of UNITS
+    for sid in sorted(alloc):
+        c = alloc[sid]
+        k = _lg_coerce(groups.get(sid, (meta.get(sid) or {}).get(
+            'linked_group_size')))
+        if k > 1 and c % k:
+            raise PlacementError(
+                '%s: q_count %d is not a multiple of linked_group_size %d'
+                % (sid, c, k))
+        bylen[sid] = k
+        ucount[sid] = c // k
+    floor_sub = min_possible_adjacent(list(ucount.values()))
+    cg_units = {}                     # cg -> unit count
+    cg_members = {}                   # cg -> sorted [sid]
+    for sid, c in ucount.items():
+        cg = _cg_of(meta, sid)
+        cg_units[cg] = cg_units.get(cg, 0) + c
+        cg_members.setdefault(cg, []).append(sid)
+    for cg in cg_members:
+        cg_members[cg].sort()
+    floor_cg = min_possible_adjacent(list(cg_units.values()))
+
+    # deterministic seed rotation of tie-break ranks
+    def _ranks(keys):
+        keys = sorted(keys)
+        rot = int(seed) % max(1, len(keys))
+        keys = keys[rot:] + keys[:rot]
+        return {k: i for i, k in enumerate(keys)}
+
+    cg_rank = _ranks(cg_units)
+    sid_rank = _ranks(ucount)
+
+    def _rep_sid(cg, rem_sid):
+        """The cg's max-remaining subtopic — used as the cg's representative
+        for secondary (pf/subject) tie-breaks at skeleton time."""
+        return max(cg_members[cg],
+                   key=lambda s: (rem_sid.get(s, 0), -sid_rank[s]))
+
+    # ---- 2. concept-group SKELETON (provably floor-optimal greedy) ---------
+    rem_cg = dict(cg_units)
+    rem_sid = dict(ucount)
+    skeleton = []                     # list of cg keys, one per unit slot
+    filled = []                       # list of sids, parallel to skeleton
+    while sum(rem_cg.values()):
+        prev_sid = filled[-1] if filled else None
+        prev_cg = skeleton[-1] if skeleton else None
+        pf_run2 = (len(filled) >= 2
+                   and _pf_of(meta, filled[-1]) is not None
+                   and _pf_of(meta, filled[-1]) == _pf_of(meta, filled[-2]))
+        prev_pf = _pf_of(meta, prev_sid) if prev_sid else None
+        recent_sub = {_sub_of(meta, s) for s in filled[-2:]}
+        live = [g for g in rem_cg if rem_cg[g] > 0]
+        pool = [g for g in live if g != prev_cg] or live   # floor greedy core
+        # FLOOR GUARD (found by 5000-shape property fuzz, 2026-08-28): the
+        # optimality proof is for STRICT max-remaining selection excluding the
+        # previous cg — any tie-break, but never a non-maximal pick. Letting
+        # the pf/subject preferences choose a lower-count cg can defer a
+        # DOMINANT group until its excess is forced into a tail run (observed:
+        # 6 adjacent pairs against a floor of 2 on a 12-of-21-unit dominant).
+        # So the preferences below operate ONLY as tie-breakers among the
+        # max-remaining candidates; with the guard, the classical majority-
+        # scheduling argument applies verbatim and the exhaustive-minimum
+        # self-test re-proves floor attainment on every multiset to n<=7.
+        _mx = max(rem_cg[g] for g in pool)
+        pool = [g for g in pool if rem_cg[g] == _mx]
+        # secondary preferences — tie-break only, never below max-remaining
+        if pf_run2:
+            pool2 = [g for g in pool
+                     if _pf_of(meta, _rep_sid(g, rem_sid)) != prev_pf]
+            pool = pool2 or pool
+        pool3 = [g for g in pool
+                 if _sub_of(meta, _rep_sid(g, rem_sid)) not in recent_sub]
+        pool = pool3 or pool
+        cg = max(pool, key=lambda g: -cg_rank[g])
+        # ---- 3. fill the slot with a specific subtopic of that cg ----------
+        cand = [s for s in cg_members[cg] if rem_sid.get(s, 0) > 0]
+        cpool = [s for s in cand if s != prev_sid] or cand
+        _smx = max(rem_sid[s] for s in cpool)
+        cpool = [s for s in cpool if rem_sid[s] == _smx]   # tie-guard (as above)
+        if pf_run2:
+            c2 = [s for s in cpool if _pf_of(meta, s) != prev_pf]
+            cpool = c2 or cpool
+        c3 = [s for s in cpool if _sub_of(meta, s) not in recent_sub]
+        cpool = c3 or cpool
+        sid = max(cpool, key=lambda s: -sid_rank[s])
+        skeleton.append(cg)
+        filled.append(sid)
+        rem_cg[cg] -= 1
+        rem_sid[sid] -= 1
+
+    units = [(sid, bylen[sid]) for sid in filled]
+
+    # ---- 4. same-cg swap polish: subtopic adjacency down to its floor ------
+    # Swapping two units of the SAME cg cannot disturb the cg-optimal
+    # skeleton. Each accepted swap strictly reduces the count of same-subtopic
+    # unit adjacencies, so termination is immediate and bounded.
+    def _adj_sub_count(us):
+        return sum(1 for a, b in zip(us, us[1:]) if a[0] == b[0])
+    cur = _adj_sub_count(units)
+    guard = 0
+    while cur > floor_sub and guard < 5000:
+        guard += 1
+        improved = False
+        for i in range(1, len(units)):
+            if units[i][0] != units[i - 1][0]:
+                continue
+            for j in range(len(units)):
+                if j in (i, i - 1) or units[j][0] == units[i][0]:
+                    continue
+                if _cg_of(meta, units[j][0]) != _cg_of(meta, units[i][0]):
+                    continue
+                units[i], units[j] = units[j], units[i]
+                v = _adj_sub_count(units)
+                if v < cur:
+                    cur = v
+                    improved = True
+                    break
+                units[i], units[j] = units[j], units[i]
+            if improved:
+                break
+        if not improved:
+            break
+
+    # ---- 5. expand units to slots ------------------------------------------
+    slots = []
+    for sid, ln in units:
+        slots.extend([sid] * ln)
+    placement = {lo + i: sid for i, sid in enumerate(slots)}
+
+    # ---- 6. honour pinned positions (swap; length-1 units only) ------------
+    for q, sid in sorted(fixed.items()):
+        if q not in placement:
+            raise PlacementError('fixed position Q.%d outside section %d-%d'
+                                 % (q, lo, hi))
+        if placement[q] == sid:
+            continue
+        if bylen.get(sid, 1) > 1 or bylen.get(placement[q], 1) > 1:
+            raise PlacementError(
+                'fixed position Q.%d: pinning into/out of a linked block is '
+                'not supported' % q)
+        swap_q = next((r for r in sorted(placement) if placement[r] == sid
+                       and r not in fixed), None)
+        if swap_q is None:
+            raise PlacementError(
+                'fixed position Q.%d wants %s, none free to swap' % (q, sid))
+        placement[q], placement[swap_q] = placement[swap_q], placement[q]
+
+    # ---- 7. report (unit-level measures; RULE A verified on slots) ---------
+    final_units = []
+    i = lo
+    while i <= hi:
+        sid = placement[i]
+        ln = bylen.get(sid, 1)
+        final_units.append((sid, ln))
+        i += ln
+    adj_sub_u, adj_cg_u, pf_mx, sub_mx = _unit_report(final_units, meta)
+    qpos = []
+    acc = lo
+    for sid, ln in final_units:
+        qpos.append(acc)
+        acc += ln
+    got = {}
+    for sid in placement.values():
+        got[sid] = got.get(sid, 0) + 1
+    if got != alloc:
+        raise PlacementError('RULE A broken: %r != %r' % (got, alloc))
+    report = {
+        'adjacent_same_subtopic': [qpos[i] for i in adj_sub_u],
+        'adjacent_same_concept_group': [qpos[i] for i in adj_cg_u],
+        'max_presentation_family_run': pf_mx,
+        'max_subject_run': sub_mx,
+        'min_possible_adjacent': floor_sub,
+        'min_possible_adjacent_cg': floor_cg,
+        'counts_exact': True,
+    }
+    return placement, report
+
+
+def audit_placement(placement, sections, meta, groups=None):
+    """Audit a FROZEN {qnum(or str): subtopic_id} plan against R19 without
+    rewriting it (resume path: a paper with authored questions is never
+    re-placed; violations are REPORTED as a §R13 limitation, never a HARD
+    STOP). sections: [{'name', 'q_range'}]. Returns {section_name: report}
+    with the same keys place_subtopics() emits, so G-CLUSTER and A-CLUSTER
+    quote identical numbers for fresh and resumed papers alike."""
+    placement = {int(k): v for k, v in (placement or {}).items()}
+    groups = dict(groups or {})
+    reports = {}
+    for sec in sections or []:
+        lo, hi = int(sec['q_range'][0]), int(sec['q_range'][1])
+        seq = [placement[q] for q in range(lo, hi + 1) if q in placement]
+        if not seq:
+            reports[sec['name']] = {
+                'adjacent_same_subtopic': [], 'adjacent_same_concept_group': [],
+                'max_presentation_family_run': 0, 'max_subject_run': 0,
+                'min_possible_adjacent': 0, 'min_possible_adjacent_cg': 0,
+                'counts_exact': True}
+            continue
+        blen = {sid: _lg_coerce(groups.get(sid, (meta.get(sid) or {}).get(
+            'linked_group_size'))) for sid in set(seq)}
+        units = []
+        i = 0
+        while i < len(seq):
+            sid = seq[i]
+            j = i
+            while j < len(seq) and seq[j] == sid and j - i + 1 < blen.get(sid, 1):
+                j += 1
+            units.append((sid, j - i + 1))
+            i = j + 1
+        ucount = {}
+        for sid, _ln in units:
+            ucount[sid] = ucount.get(sid, 0) + 1
+        cgcount = {}
+        for sid, c in ucount.items():
+            cg = _cg_of(meta, sid)
+            cgcount[cg] = cgcount.get(cg, 0) + c
+        adj_sub_u, adj_cg_u, pf_mx, sub_mx = _unit_report(units, meta)
+        qpos = []
+        acc = lo
+        for sid, ln in units:
+            qpos.append(acc)
+            acc += ln
+        reports[sec['name']] = {
+            'adjacent_same_subtopic': [qpos[i] for i in adj_sub_u],
+            'adjacent_same_concept_group': [qpos[i] for i in adj_cg_u],
+            'max_presentation_family_run': pf_mx,
+            'max_subject_run': sub_mx,
+            'min_possible_adjacent': min_possible_adjacent(list(ucount.values())),
+            'min_possible_adjacent_cg': min_possible_adjacent(list(cgcount.values())),
+            'counts_exact': True,
+        }
+    return reports
+
 
 def parse_section_rules_field(text, field, default=None):
     """Pure text parse of section_rules.md → {subtopic_id: value} for a SINGLE named per-subtopic
@@ -6428,6 +6814,198 @@ PYQ_IMAGE_ANALYSIS:
     check('p_window_bs20_batch2_closes', coverage_window(11, 20, 20, 20) == (1, 1, 20, True))
     check('p_window_bs10_unchanged', coverage_window(11, 20, 10, 25) == (2, 11, 20, True))
     check('p_window_last_short', coverage_window(21, 25, 10, 25) == (3, 21, 25, True))
+
+
+    # ── Cluster Q: question-number placement (GAP-2026-08-28-PLACEMENT-UNSPECIFIED)
+    def _QM(ids, cg=None, pf=None, sub=None, lg=None):
+        return {s: {'concept_group': (cg or {}).get(s, s),
+                    'presentation_family': (pf or {}).get(s),
+                    'subject': (sub or {}).get(s),
+                    'linked_group_size': (lg or {}).get(s, 1)} for s in ids}
+    import itertools as _it, random as _rnd_mod
+    # q1 — the cg-skeleton greedy attains the EXHAUSTIVE minimum on every
+    # multiset up to n=7 (brute force), and equals the closed-form floor.
+    def _q_parts(n, k):
+        if k == 1:
+            yield (n,); return
+        for first in range(1, n - k + 2):
+            for rest in _q_parts(n - first, k - 1):
+                yield (first,) + rest
+    _q_ok = True
+    for _n in range(1, 8):
+        for _k in range(1, min(4, _n) + 1):
+            for _p in {tuple(sorted(pp)) for pp in _q_parts(_n, _k)}:
+                _alloc = {'k%d' % i: c for i, c in enumerate(_p)}
+                _pl, _rep = place_subtopics(_alloc, (1, _n), _QM(_alloc), seed=0)
+                _items = []
+                for _s, _c in _alloc.items():
+                    _items += [_s] * _c
+                _exh = min(sum(1 for a, b in zip(pp, pp[1:]) if a == b)
+                           for pp in set(_it.permutations(_items)))
+                if not (len(_rep['adjacent_same_subtopic'])
+                        == min_possible_adjacent(list(_p)) == _exh):
+                    _q_ok = False
+    check('q_greedy_attains_exhaustive_min_n<=7', _q_ok)
+    # q2 — the reference-defeating case: multi-subtopic concept_group must
+    # reach cg floor 0 (single-pass greedy emitted 1 here).
+    _pl, _rep = place_subtopics(
+        {'a': 2, 'b': 2, 'c': 3}, (1, 7),
+        {'a': {'concept_group': 'G'}, 'b': {'concept_group': 'G'},
+         'c': {'concept_group': 'H'}}, seed=0)
+    check('q_multi_subtopic_cg_at_floor0',
+          _rep['adjacent_same_concept_group'] == []
+          and _rep['min_possible_adjacent_cg'] == 0)
+    # q3 — dominant subtopic attains the proven floor, never raises
+    for _cts, _n, _fl in [({'a': 6, 'b': 2, 'c': 2}, 10, 1),
+                          ({'a': 9, 'b': 1}, 10, 7), ({'a': 5}, 5, 4)]:
+        _pl, _rep = place_subtopics(_cts, (1, _n), _QM(_cts), seed=0)
+        check('q_dominant_floor_%d' % _fl,
+              len(_rep['adjacent_same_subtopic']) == _fl
+              == _rep['min_possible_adjacent'])
+    # q4 — cross-subtopic concept_group separated as one key (floor 1 for
+    # cg counts [4,2] in 6)
+    _pl, _rep = place_subtopics({'x': 2, 'y': 2, 'z': 2}, (1, 6),
+                                _QM(['x', 'y', 'z'],
+                                    cg={'x': 'G', 'y': 'G', 'z': 'H'}), seed=0)
+    check('q_cross_subtopic_cg_floor',
+          len(_rep['adjacent_same_concept_group'])
+          == _rep['min_possible_adjacent_cg'] == 1)
+    # q5 — linked block contiguous, intra-block exempt
+    _pl, _rep = place_subtopics({'p': 4, 'q': 3, 'r': 3}, (1, 10),
+                                _QM(['p', 'q', 'r'], lg={'p': 4}),
+                                seed=0, groups={'p': 4})
+    _seq = [_pl[i] for i in range(1, 11)]
+    _idx = [i for i, s in enumerate(_seq) if s == 'p']
+    check('q_linked_block_contiguous',
+          _idx == list(range(_idx[0], _idx[0] + 4))
+          and _rep['adjacent_same_subtopic'] == [])
+    # q6 — q_count not a multiple of linked_group_size raises, never splits
+    try:
+        place_subtopics({'p': 5, 'q': 5}, (1, 10),
+                        _QM(['p', 'q'], lg={'p': 4}), groups={'p': 4})
+        check('q_bad_linked_multiple_raises', False)
+    except PlacementError:
+        check('q_bad_linked_multiple_raises', True)
+    # q7 — deterministic across shuffled dict order; q8 — seed varies
+    _alloc = {'s%d' % i: (3 if i == 0 else 1) for i in range(12)}
+    _base = None
+    _det = True
+    for _t in range(25):
+        _items = list(_alloc.items())
+        _rnd_mod.Random(_t).shuffle(_items)
+        _pl, _ = place_subtopics(dict(_items), (1, 14), _QM(_alloc), seed=7)
+        _s = tuple(_pl[i] for i in range(1, 15))
+        _base = _base or _s
+        _det = _det and (_s == _base)
+    check('q_deterministic_vs_dict_order', _det)
+    check('q_seed_varies_arrangement',
+          place_subtopics(_alloc, (1, 14), _QM(_alloc), seed=1)[0]
+          != place_subtopics(_alloc, (1, 14), _QM(_alloc), seed=2)[0])
+    # q9 — pinned position honoured
+    _pl, _ = place_subtopics({'a': 2, 'b': 2, 'c': 2}, (1, 6),
+                             _QM(['a', 'b', 'c']), seed=0, fixed={3: 'c'})
+    check('q_pinned_honoured', _pl[3] == 'c')
+    # q10 — RULE A exact + both floors attained on 150 random shared-cg
+    # multisets (the property the S3-12b HARD STOP depends on)
+    _ra = _fcg = _fsub = True
+    for _trial in range(150):
+        _r = _rnd_mod.Random(9000 + _trial)
+        _k = _r.randint(2, 8)
+        _alloc = {'x%d' % i: _r.randint(1, 4) for i in range(_k)}
+        _ncg = _r.randint(0, max(0, _k // 2))
+        _cg = {'x%d' % i: 'G%d' % _r.randint(0, _ncg) for i in range(_k)}
+        _n = sum(_alloc.values())
+        _pl, _rep = place_subtopics(_alloc, (1, _n),
+                                    _QM(_alloc, cg=_cg), seed=_trial)
+        _got = {}
+        for _sid in _pl.values():
+            _got[_sid] = _got.get(_sid, 0) + 1
+        _ra = _ra and (_got == _alloc)
+        _fcg = _fcg and (len(_rep['adjacent_same_concept_group'])
+                         <= _rep['min_possible_adjacent_cg'])
+        _fsub = _fsub and (len(_rep['adjacent_same_subtopic'])
+                           <= _rep['min_possible_adjacent'])
+    check('q_rule_a_exact_150_random', _ra)
+    check('q_cg_floor_attained_150_random', _fcg)
+    check('q_subtopic_floor_attained_150_random', _fsub)
+    # q11 — empty section; q12 — sum mismatch raises
+    check('q_empty_section', place_subtopics({}, (1, 0), {}, seed=0)[0] == {})
+    try:
+        place_subtopics({'a': 3}, (1, 5), _QM(['a']))
+        check('q_sum_mismatch_raises', False)
+    except PlacementError:
+        check('q_sum_mismatch_raises', True)
+    # q13 — presentation_family run capped; q14 — absent metadata degrades
+    _alloc = {'v%d' % i: 1 for i in range(6)}
+    _pl, _rep = place_subtopics(
+        _alloc, (1, 6),
+        _QM(_alloc, pf={'v%d' % i: ('F' if i < 4 else 'G')
+                        for i in range(6)}), seed=0)
+    check('q_pf_run_capped', _rep['max_presentation_family_run'] <= 3)
+    _pl, _rep = place_subtopics({'a': 3, 'b': 3}, (1, 6),
+                                {'a': {}, 'b': {}}, seed=0)
+    check('q_absent_metadata_degrades',
+          _rep['adjacent_same_subtopic'] == [])
+    # q15 — audit_placement flags a frozen blueprint-order defect (the
+    # MOCK:M02 shape: 3-count subtopic at Q.1-Q.3) without rewriting it,
+    # and passes a conforming plan
+    _rep = audit_placement({1: 's1', 2: 's1', 3: 's1', 4: 's2', 5: 's3'},
+                           [{'name': 'A', 'q_range': [1, 5]}],
+                           _QM(['s1', 's2', 's3']))
+    check('q_audit_flags_frozen_defect',
+          _rep['A']['adjacent_same_subtopic'] == [2, 3]
+          and _rep['A']['min_possible_adjacent'] == 0)
+    _rep = audit_placement({1: 's1', 2: 's2', 3: 's1', 4: 's3', 5: 's1'},
+                           [{'name': 'A', 'q_range': [1, 5]}],
+                           _QM(['s1', 's2', 's3']))
+    check('q_audit_passes_conforming_plan',
+          _rep['A']['adjacent_same_subtopic'] == []
+          and _rep['A']['adjacent_same_concept_group'] == [])
+
+    # Q-lg-coerce: garbage linked_group_size degrades to 1 (§7.3) in BOTH
+    # entry points — never a naked ValueError (contract: PlacementError only).
+    _qm_bad = {'a': {'linked_group_size': 'junk'}, 'b': {'linked_group_size': None}}
+    try:
+        _pl_bad, _rp_bad = place_subtopics({'a': 2, 'b': 2}, (1, 4), _qm_bad, seed=0)
+        _au_bad = audit_placement(_pl_bad, [{'name': 'S', 'q_range': [1, 4]}], _qm_bad)
+        check('Q-lg-coerce-garbage-degrades-to-1',
+              sorted(_pl_bad) == [1, 2, 3, 4] and _rp_bad['counts_exact']
+              and 'S' in _au_bad)
+    except Exception:
+        check('Q-lg-coerce-garbage-degrades-to-1', False)
+    # Q-lg-coerce-string-int: a NUMERIC STRING '2' is honoured as a real size
+    _qm_s = {'a': {'linked_group_size': '2'}}
+    _pl_s, _ = place_subtopics({'a': 2, 'b': 1, 'c': 1}, (1, 4), _qm_s, seed=0)
+    _apos = sorted(q for q, s in _pl_s.items() if s == 'a')
+    check('Q-lg-coerce-string-int-honoured',
+          len(_apos) == 2 and _apos[1] == _apos[0] + 1)
+
+    # Q-floor-guard: DOMINANT cg + interfering pf/subject metadata. Found by
+    # the 5000-shape property fuzz (2026-08-28): the secondary preferences
+    # dethroned the max-remaining pick and a 12-of-21-unit dominant group shed
+    # 6 adjacent pairs against a floor of 2. With the tie-guard the pick is
+    # always max-remaining and achieved == floor. This fixture is that exact
+    # shape, minimised: dominant D holds 6 of 10 units (floor 2*6-10-1 = 1)
+    # while every non-dominant unit carries metadata engineered to lure the
+    # pre-guard preferences (alternating families, colliding subjects).
+    _qfg_alloc = {'d1': 3, 'd2': 3, 'x1': 1, 'x2': 1, 'x3': 1, 'x4': 1}
+    _qfg_meta = {
+        'd1': {'concept_group': 'D', 'presentation_family': 'text', 'subject': 'S1'},
+        'd2': {'concept_group': 'D', 'presentation_family': 'figure', 'subject': 'S2'},
+        'x1': {'concept_group': 'X1', 'presentation_family': 'text', 'subject': 'S1'},
+        'x2': {'concept_group': 'X2', 'presentation_family': 'figure', 'subject': 'S2'},
+        'x3': {'concept_group': 'X3', 'presentation_family': 'text', 'subject': 'S1'},
+        'x4': {'concept_group': 'X4', 'presentation_family': 'figure', 'subject': 'S2'},
+    }
+    _qfg_ok = True
+    for _qfg_seed in range(24):
+        _qfg_pl, _qfg_rp = place_subtopics(_qfg_alloc, (1, 10), _qfg_meta,
+                                           seed=_qfg_seed)
+        if len(_qfg_rp['adjacent_same_concept_group']) > \
+                _qfg_rp['min_possible_adjacent_cg']:
+            _qfg_ok = False
+    check('Q-floor-guard-dominant-cg-under-metadata-lure', _qfg_ok
+          and _qfg_rp['min_possible_adjacent_cg'] == 1)
 
     # ── Cluster E2d: difficulty gate windows (GAP-2026-08-25-DIFFICULTY-GATE-WINDOWS)
     def _legacy_assess(cls, steps, concepts, hack, conf, neg, qt, labels):

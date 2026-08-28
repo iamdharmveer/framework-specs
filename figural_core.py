@@ -98,8 +98,11 @@ DEPENDENCIES = {
     "numpy":      "pixel arithmetic for colour and degeneracy gates",
     "scipy":      "advisory pixel label estimate only",
     "fontTools":  "glyph coverage / tofu detection only",
+    "rdkit":      "rasterise STRUCTURE/REACTION semantic objects (Create route: "
+                  "corpus_io.structure_draw_fn RAISES without it — "
+                  "GAP-2026-08-28-RDKIT-UNDECLARED)",
 }
-PIP_INSTALL = "pip install matplotlib pillow numpy scipy fonttools --break-system-packages"
+PIP_INSTALL = "pip install matplotlib pillow numpy scipy fonttools rdkit --break-system-packages"
 
 
 def _try_import(name):
@@ -135,6 +138,7 @@ def preflight():
         "available": have,
         "can_render": have["matplotlib"],
         "can_gate_pixels": have["PIL"] and have["numpy"],
+        "can_render_structures": have["rdkit"],
         "missing": sorted(m for m, ok in have.items() if not ok),
         "pip": PIP_INSTALL,
     }

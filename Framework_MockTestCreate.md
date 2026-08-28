@@ -1,4 +1,49 @@
-# Framework_MockTestCreate v5.76
+# Framework_MockTestCreate v5.77
+# v5.77 — 2026-08-28 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED (paired with
+#   blueprint_core Cluster Q — place_subtopics / min_possible_adjacent /
+#   audit_placement — and audit_canonical v2.23 A-CLUSTER + --through-q).
+#   THE GAP: this spec told every session what the finished paper must look
+#   like (R19) and what data it starts from (blueprint allocations) but never
+#   specified, implemented, persisted or verified the transformation between
+#   them. S3-18's one prose sentence — "subtopics assigned to Q positions in
+#   blueprint order" — is guaranteed non-conforming with R19 whenever any
+#   subtopic has q_count >= 2 (the normal case); MOCK:M01 noticed and
+#   hand-repaired, MOCK:M02 did not and shipped Q.1–Q.3 same-concept_group
+#   with a clean "all PASS" gate report, because G-CLUSTER was one of five
+#   S4-11 items with no auditor equivalent and STEP B presented the auditor
+#   as a substitute for the checklist. FIX, five parts: (1) NEW S3-12b builds
+#   the placement plan via bc.place_subtopics (deterministic, seeded by
+#   paper_index, concept-group-first, provably floor-optimal; linked-stimulus
+#   blocks atomic and R19-exempt inside) and arms a G-CLUSTER PRE-FLIGHT
+#   before Q.1 exists; (2) the plan is PERSISTED — batch_state gains
+#   subtopic_by_qnum + placement_report, S4-12 resume treats a populated plan
+#   as FROZEN (never re-placed; pre-fix papers are audited via
+#   bc.audit_placement and reported, never rewritten); (3) S3-13's two
+#   `except NameError` silent fallbacks are DELETED — a missing plan is a
+#   producer fault and HARD STOPs (an empty set silently put every MSQ/NAT
+#   question into the free answer pool and corrupted K-BAL paper-wide);
+#   (4) S3-18's blueprint-order sentence is DELETED and replaced by a pointer
+#   to the persisted plan; (5) S4-7 STEP B and B-7 change from either/or to
+#   BOTH auditor AND checklist (five items have no auditor equivalent), the
+#   S4-11 heading drops "used when audit.py absent", the checklist must be
+#   PRINTED from the item list (a report with fewer than 43 lines is itself a
+#   gate failure), and the auditor invocation is spelled out verbatim with
+#   --through-q so intermediate batches print RESULT: PASS instead of six
+#   structural FAILs (GAP-2026-08-28-AUDIT-PARTIAL-PAPER). ALSO:
+#   S3-3's EXPLAIN_LEARNINGS glob widened to *_EXPLAIN_LEARNINGS_v*.md with a
+#   loud WARN on a non-{EXAM} prefix (GAP-2026-08-28-LEARNINGS-PREFIX-GLOB);
+#   S3-19 gains a structure-renderer pre-flight HARD STOP and figural_core
+#   declares rdkit (GAP-2026-08-28-RDKIT-UNDECLARED); S13-4c passes
+#   --rules/--manifest so ship-time A-CLUSTER runs at full concept-group
+#   strength. S3-12b's middle branch is the pre-v5.77 UPGRADE PATH: authored
+#   questions frozen from the answer_key concept_map, the un-authored
+#   remainder placed fresh into each section's remaining contiguous range —
+#   adjacency on a resume is ALWAYS a §R13 disclosure and the only resume
+#   HARD STOPs are artefact-consistency faults. Allocation is summed from the
+#   RAW blueprint entries (S3-2's alloc_ids collapses duplicates by
+#   overwrite). Difficulty-plan
+#   figural-blindness (GAP-2026-08-28-DIFFICULTY-FIGURAL-BLIND) is NOT in
+#   this release — it moves the Axis-1 grant pass and gets its own change.
 # v5.76 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
 #   paper_pipeline v5.76, MockTestExplain v1.47.0, MockDeliver v1.18.0, DeliveryFooter v1.29,
 #   audit_canonical v2.22, blueprint_core DIFFICULTY_GATE_MAX_REPAIR_ROUNDS 1 → 0). The four
@@ -1509,7 +1554,21 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   ```python
   learnings_bans = []  # Extra banned patterns from prior Explain sessions
   import glob
-  _lf = sorted(glob.glob(f'/home/claude/{EXAM}_EXPLAIN_LEARNINGS_v*.md')) \
+  # v5.77 (GAP-2026-08-28-LEARNINGS-PREFIX-GLOB): glob EVERY *_EXPLAIN_
+  # LEARNINGS_v*.md and WARN loudly on a prefix that is not {EXAM}. The
+  # pre-v5.77 {EXAM}-only glob silently skipped a mis-prefixed file (e.g.
+  # CHEMISTRY_… missing IIT_JAM_) while the session still reported
+  # "learnings loaded" — a file that exists but is invisible is worse than
+  # one that is absent, because the report reads the same either way.
+  _lf_all = sorted(glob.glob('/home/claude/*_EXPLAIN_LEARNINGS_v*.md'))
+  for _f in _lf_all:
+      if not os.path.basename(_f).startswith(f'{EXAM}_'):
+          print(f"S3-3 WARN — learnings file {os.path.basename(_f)} does NOT "
+                f"carry the {EXAM}_ prefix and will NOT be loaded. If it "
+                f"belongs to this exam, rename it "
+                f"{EXAM}_EXPLAIN_LEARNINGS_v<N>.md in the project Files.")
+  _lf = sorted(f for f in _lf_all
+               if os.path.basename(f).startswith(f'{EXAM}_')) \
         or [f'/home/claude/{EXAM}_ExplainLearnings.md']   # legacy fallback (S1 warned)
   for learn_file in [_lf[-1]]:
       if os.path.exists(learn_file):
@@ -1799,6 +1858,197 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   any per-section/per-subtopic escape-token wording from section_rules (exam-
   agnostic) so G-OPTREF matches the exam's own phrasing.
 
+## S3-12b — Build the placement plan (subtopic → question number) — v5.77, MANDATORY
+
+  (GAP-2026-08-28-PLACEMENT-UNSPECIFIED. The gap report names this step
+  "S3-2b"; it is numbered S3-12b here because its inputs — mock_entry from
+  S3-2, MANIFEST_IDS from S3-8, paper_index from S3-4 — do not exist before
+  S3-8, and it MUST precede S3-13: on an exam without position-based typing
+  the answer budget's MSQ/NAT exclusions are derived from this plan.)
+
+  Runs for EVERY exam and EVERY paper, fresh or resumed. Not informational.
+  This is the single authoritative source of "which subtopic is Q.N"; every
+  consumer (S3-13 budget, S3-18 manifest, S7 generation, S13 question_index)
+  READS it and none recomputes it.
+
+  ```python
+  # Subtopic metadata for placement — from the S3-8 manifest join. Every field
+  # optional; §7.3 degradation applies inside the engine (absent concept_group
+  # -> subtopic_id; absent family/subject -> that objective dormant; a garbage
+  # linked_group_size -> 1). linked_group_size is read from MANIFEST_IDS by
+  # the engine itself via this meta — no separate groups map to keep in sync.
+  _meta_q = {}
+  for _sec in mock_entry.get('sections', []):
+      for _sa in _sec.get('subtopic_allocations', []):
+          _msid = _sa.get('subtopic_id')
+          if not _msid:
+              continue
+          _mrec = MANIFEST_IDS.get(_msid, {})
+          _meta_q[_msid] = {'concept_group': _mrec.get('concept_group'),
+                            'presentation_family': _mrec.get('presentation_family'),
+                            'subject': _mrec.get('section'),
+                            'linked_group_size': _mrec.get('linked_group_size')}
+
+  def _alloc_for(_sec_entry):
+      # SUM the RAW blueprint entries (E20): S3-2's alloc_ids is keyed by
+      # subtopic_id and therefore collapses duplicate allocation entries BY
+      # OVERWRITE — a blueprint carrying two entries for one id in one section
+      # would silently lose the first q_count there, and the loss would
+      # surface here as a misleading "allocation impossible" stop. Summing the
+      # raw list is exact for well-formed and duplicate-carrying blueprints
+      # alike (HS-2 already verified the raw sums against section sizes).
+      _a = {}
+      for _sa in _sec_entry.get('subtopic_allocations', []):
+          _asid = _sa.get('subtopic_id')
+          if _asid:
+              _a[_asid] = _a.get(_asid, 0) + int(_sa.get('q_count', 0) or 0)
+      return _a
+
+  _sec_entry_by_name = {s.get('section_name'): s
+                        for s in mock_entry.get('sections', [])}
+
+  bs_prev = {}
+  _bs_path = f'/home/claude/{EXAM}_M{N}_batch_state.json'
+  if os.path.exists(_bs_path):
+      bs_prev = json.load(open(_bs_path))
+
+  if bs_prev.get('subtopic_by_qnum') and bs_prev.get('batches_completed'):
+      # ── FROZEN (v5.77+ state): the plan was persisted at S3-16. Read it. ──
+      subtopic_by_qnum = {int(k): v
+                          for k, v in bs_prev['subtopic_by_qnum'].items()}
+      placement_report = bs_prev.get('placement_report') or {}
+      if not placement_report:
+          # belt: state written with a plan but no report — audit, never rebuild.
+          placement_report = bc.audit_placement(subtopic_by_qnum, sections, _meta_q)
+
+  elif bs_prev.get('batches_completed'):
+      # ── PRE-v5.77 MID-FLIGHT PAPER (§7.2 — the upgrade path). ──────────────
+      # batches exist but no plan was ever persisted. The AUTHORED questions
+      # are FROZEN — re-placing them would invalidate every question already
+      # written — and their subtopics are on record in the answer_key
+      # concept_map. The NOT-YET-AUTHORED positions have no assignment at all
+      # (the old spec deferred them to "blueprint order"), so the REMAINING
+      # allocation is placed fresh into the REMAINING contiguous range of each
+      # section (batches are strictly sequential, S4-2).
+      _ak_path = f'/home/claude/{EXAM}_M{N}_answer_key.json'
+      _cmap = {}
+      if os.path.exists(_ak_path):
+          _cmap = (json.load(open(_ak_path)).get('concept_map') or {})
+      _authored = {}
+      for _qs, _rec in _cmap.items():
+          _asid = (_rec or {}).get('subtopic_id')
+          if _asid:
+              _authored[int(_qs)] = _asid
+      if not _authored:
+          raise SystemExit(
+          "HARD STOP (S3-12b RESUME): batch_state says batches are complete "
+          "but the answer_key concept_map yields no q->subtopic map — the "
+          "authored questions cannot be frozen without it. This is data "
+          "corruption (missing/empty answer_key), not an adjacency finding; "
+          "restore the answer_key from the project Files and resume again.")
+      subtopic_by_qnum = dict(_authored)
+      for _s in sections:
+          _lo, _hi = int(_s['q_range'][0]), int(_s['q_range'][1])
+          _sect_auth = {}
+          for _q, _sid in _authored.items():
+              if _lo <= _q <= _hi:
+                  _sect_auth[_q] = _sid
+          _alloc_q = _alloc_for(_sec_entry_by_name.get(_s['name'], {}))
+          _remaining = dict(_alloc_q)
+          for _sid in _sect_auth.values():
+              _remaining[_sid] = _remaining.get(_sid, 0) - 1
+          if any(v < 0 for v in _remaining.values()):
+              raise SystemExit(
+              f"HARD STOP (S3-12b RESUME): section '{_s['name']}': the "
+              f"answer_key concept_map holds MORE questions of some subtopic "
+              f"than the blueprint allocates — the two artefacts disagree "
+              f"about what was built. Data corruption, not an adjacency "
+              f"finding; reconcile answer_key vs blueprint before resuming.")
+          _remaining = {k: v for k, v in _remaining.items() if v > 0}
+          _rem_lo = (max(_sect_auth) + 1) if _sect_auth else _lo
+          if sum(_remaining.values()) != _hi - _rem_lo + 1:
+              raise SystemExit(
+              f"HARD STOP (S3-12b RESUME): section '{_s['name']}': remaining "
+              f"allocation sums to {sum(_remaining.values())} but "
+              f"Q.{_rem_lo}-Q.{_hi} holds {_hi - _rem_lo + 1} position(s) — "
+              f"authored questions are not the contiguous prefix the Batch "
+              f"Stop Law guarantees, or the artefacts disagree. Data "
+              f"corruption, not an adjacency finding.")
+          if _remaining:
+              _pl, _ = bc.place_subtopics(_remaining, (_rem_lo, _hi), _meta_q,
+                                          seed=paper_index)
+              subtopic_by_qnum.update(_pl)
+      placement_report = bc.audit_placement(subtopic_by_qnum, sections, _meta_q)
+      for _sn, _rp in placement_report.items():
+          _adj = _rp['adjacent_same_concept_group']
+          if len(_adj) > _rp['min_possible_adjacent_cg']:
+              print(f"S3-12b NOTICE — resumed pre-v5.77 paper: section "
+                    f"'{_sn}' has {len(_adj)} adjacent same-concept_group "
+                    f"pair(s) at {_adj}. Authored questions are FROZEN (the "
+                    f"pairs come from the old blueprint-order placement or "
+                    f"sit on the authored/remaining boundary, which cannot "
+                    f"be re-arranged); record this as a §R13 limitation in "
+                    f"the delivery footer. NEVER a HARD STOP on a resume.")
+
+  else:
+      # ── FRESH PAPER: build the plan, one section at a time. ────────────────
+      subtopic_by_qnum = {}
+      placement_report = {}
+      for _s in sections:
+          _alloc_q = _alloc_for(_sec_entry_by_name.get(_s['name'], {}))
+          try:
+              _pl, _rp = bc.place_subtopics(_alloc_q, tuple(_s['q_range']),
+                                            _meta_q, seed=paper_index)
+          except bc.PlacementError as _e:
+              raise SystemExit(f"HARD STOP (S3-12b): section '{_s['name']}': "
+                               f"{_e} — the blueprint allocation is "
+                               f"structurally impossible for this section; "
+                               f"fix it at MockBlueprint, never by dropping "
+                               f"a question here.")
+          subtopic_by_qnum.update(_pl)
+          placement_report[_s['name']] = _rp
+
+      # G-CLUSTER PRE-FLIGHT — armed before Q.1 exists, never after 10 questions do.
+      for _sn, _rp in placement_report.items():
+          _floor = _rp['min_possible_adjacent_cg']
+          _got = len(_rp['adjacent_same_concept_group'])
+          if _got > _floor:
+              raise SystemExit(
+                  f"HARD STOP (S3-12b / G-CLUSTER): section '{_sn}' placement "
+                  f"leaves {_got} adjacent same-concept_group pair(s); {_floor} "
+                  f"is provably the minimum for this allocation "
+                  f"(bc.min_possible_adjacent over concept-group-aggregated "
+                  f"units). The placement engine failed, not the blueprint.")
+          if _floor > 0:
+              print(f"S3-12b NOTICE — section '{_sn}': {_floor} adjacent pair(s) "
+                    f"are MATHEMATICALLY UNAVOIDABLE for this allocation (one "
+                    f"concept group holds more than half the section). Placement "
+                    f"is optimal; G-CLUSTER and A-CLUSTER will accept exactly "
+                    f"{_floor}. To remove them, reduce that group's q_count at "
+                    f"MockBlueprint — never by dropping a question here.")
+  # (paper_index is the S3-4 session integer: == N for a mock, the numeric
+  # suffix of paper_id for a scoped paper — so a 20-paper series gets 20
+  # different arrangements from ONE blueprint, deterministically, and
+  # `continue` / S4-12 resume reproduce the plan byte-identically.)
+  ```
+
+  THE THREE BRANCHES, in law form: a paper WITH a persisted plan resumes on
+  it FROZEN; a pre-v5.77 paper WITH authored questions freezes them from the
+  answer_key concept_map and places only the un-authored remainder (adjacency
+  findings on it are §R13 DISCLOSURES, never stops — the only HARD STOPs on
+  a resume are artefact-consistency faults, where answer_key, batch_state and
+  blueprint disagree about what exists); a paper with NO authored questions
+  is placed fresh and gated by the G-CLUSTER pre-flight.
+
+  §7.3 METADATA DEGRADATION (never raises, never silently disables adjacency):
+  absent `concept_group` → falls back to subtopic_id (R19(a) collapses to the
+  base rule); absent `presentation_family` → that objective dormant for the
+  subtopic, never fabricated; absent `section` (subject) → rotation dormant;
+  absent or NON-NUMERIC `linked_group_size` → 1 (no linked group). A linked-
+  stimulus group (R-LINKED Model B) is emitted as one contiguous block and is
+  R19-exempt INSIDE the block; a `q_count` that is not a multiple of the
+  group size is a PlacementError, never a silent split.
+
 ## S3-13 — Build answer position budget (PRE-Q1 — v2.0 GAP-08 fix)
 
   CRITICAL: Budget MUST be built before Q1, not post-generation.
@@ -1897,10 +2147,13 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # v4.5: msq_positions = the set of Q numbers whose placed subtopic has
   # answer_cardinality=='multi'. Populated from the SAME subtopic→Q placement plan that
   # populates fixed_positions (whole-subtopic mode). Empty when blueprint multi_present is
-  # false ⇒ build_answer_budget behaves exactly as v4.4. Defensive: if the placement plan
-  # is not yet materialised at budget-build time, msq_positions stays empty and the MSQ
-  # builder simply does not consume its budget slot (it self-assigns the set), so K-BAL/
-  # K-PAT are never corrupted by a multi Q either way.
+  # false ⇒ build_answer_budget behaves exactly as v4.4.
+  # v5.77 — the v4.5 sentence that stood here ("if the placement plan is not yet
+  # materialised, msq_positions stays empty ... K-BAL/K-PAT are never corrupted either
+  # way") was FALSE and is retracted: an empty exclusion set puts every multi Q into the
+  # free answer pool and skews K-BAL paper-wide (GAP-2026-08-28-PLACEMENT-UNSPECIFIED).
+  # The plan is ALWAYS materialised — S3-12b runs before this step — and the reads
+  # below HARD STOP if it is not. The empty set below is an initialiser only.
   msq_positions = set()
   if multi_present:
       if _position_based_typing:
@@ -1910,11 +2163,17 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           msq_positions = {q for q in range(1, total_questions + 1) if _type_for_q(q) == 'MSQ'}
       else:
           multi_ids = {sid for sid, am in answer_cardinality_by_id.items() if am == 'multi'}
-          try:
-              # subtopic_by_qnum[q] = subtopic_id assigned to Q q (same map fixed_positions uses)
-              msq_positions = {q for q, sid in subtopic_by_qnum.items() if sid in multi_ids}
-          except NameError:
-              msq_positions = set()   # plan not materialised yet → MSQ Qs self-skip the budget
+          # v5.77 (GAP-2026-08-28-PLACEMENT-UNSPECIFIED FIX-3): the plan is
+          # AUTHORITATIVE and built at S3-12b. The pre-v5.77 `except NameError`
+          # fallback to an empty set silently put every MSQ question into the
+          # free answer pool and corrupted K-BAL for the whole paper on any
+          # exam without position-based typing. A missing plan is a producer
+          # fault, never a dormancy condition.
+          if not subtopic_by_qnum:
+              raise SystemExit("HARD STOP (S3-13): no placement plan. S3-12b "
+                               "must run before the answer budget — the MSQ "
+                               "exclusions are derived from placement.")
+          msq_positions = {q for q, sid in subtopic_by_qnum.items() if sid in multi_ids}
   # v4.7: nat_positions = the set of Q numbers whose placed subtopic has
   # answer_type=='numerical'. Same placement plan, same dormancy/defensive semantics as MSQ.
   # Empty when blueprint nat_present is false ⇒ budget identical to v4.6.
@@ -1925,10 +2184,12 @@ sections off the per-batch execution path — it does not shrink, soften or dele
           nat_positions = {q for q in range(1, total_questions + 1) if _type_for_q(q) == 'NAT'}
       else:
           nat_ids = {sid for sid, at in answer_type_by_id.items() if at == 'numerical'}
-          try:
-              nat_positions = {q for q, sid in subtopic_by_qnum.items() if sid in nat_ids}
-          except NameError:
-              nat_positions = set()   # plan not materialised yet → NAT Qs self-skip the budget
+          # v5.77 FIX-3 (same law as the MSQ read above): no plan ⇒ HARD STOP.
+          if not subtopic_by_qnum:
+              raise SystemExit("HARD STOP (S3-13): no placement plan. S3-12b "
+                               "must run before the answer budget — the NAT "
+                               "exclusions are derived from placement.")
+          nat_positions = {q for q, sid in subtopic_by_qnum.items() if sid in nat_ids}
   answer_budget = build_answer_budget(total_questions, sections,
                                       msq_positions=msq_positions,
                                       nat_positions=nat_positions)
@@ -2026,6 +2287,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       'cloze_linked_qs': [],
       'concept_ledger': [],          # v5.4 FIX: was missing from init (present in S4-3 schema)
       'presentation_ledger': [],     # v5.4 FIX: was missing from init (present in S4-3 schema)
+      'subtopic_by_qnum': {str(q): sid for q, sid in subtopic_by_qnum.items()},
+                                     # v5.77: AUTHORITATIVE placement plan from S3-12b.
+                                     # Every consumer reads it; none recomputes it.
+                                     # On resume it is FROZEN (S3-12b / S4-12).
+      'placement_report': placement_report,
+                                     # v5.77: {section_name: report} from
+                                     # bc.place_subtopics / bc.audit_placement — the
+                                     # evidence G-CLUSTER and A-CLUSTER both quote.
       'figural_qs': {}               # v5.13: {qnum_str: {subtopic_id, image_role, rendered: bool}}
                                       # Populated at S3-18 from the figural manifest scan.
                                       # At generation time: set rendered=true after
@@ -2259,8 +2528,10 @@ sections off the per-batch execution path — it does not shrink, soften or dele
     figural_qs[str(qnum)] = {subtopic_id, image_role, rendered: false}
 
   If figural_present is False: omit this table entirely.
-  The Q# assignment is determined by the subtopic's position within the
-  section's Q-range (subtopics assigned to Q positions in blueprint order).
+  The Q# assignment IS the placement plan built at S3-12b and persisted in
+  batch_state['subtopic_by_qnum']. This manifest READS it; it never computes
+  it (v5.77 — the pre-v5.77 "blueprint order" sentence here was guaranteed
+  non-conforming with R19 for any subtopic with q_count >= 2).
   This manifest is INFORMATIONAL — the authoritative format source remains
   section_rules format field per subtopic_id.
   ──────────────────────────────────────────────────
@@ -2348,6 +2619,20 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 #   A "batch" is at most 10 questions from a single section.
 #   After delivering a batch, Claude's response ENDS. The next batch begins
 #   only when the user sends "continue" / "go" / "next".
+  HS-16: (v5.77 — GAP-2026-08-28-RDKIT-UNDECLARED) STRUCTURE-RENDERER
+        PRE-FLIGHT. If ≥1 subtopic allocated to THIS paper has section_rules
+        format==FIGURAL, run figural_core.preflight() and require
+        preflight()['can_render_structures'] (rdkit importable). HARD STOP
+        with the exact install line — `pip install matplotlib pillow numpy
+        scipy fonttools rdkit --break-system-packages` — if it is False.
+        WHY BEFORE Q.1: corpus_io.structure_draw_fn RAISES when rdkit is
+        unavailable (a STRUCTURE figure is never hand-drawn), so a missing
+        renderer discovered at the first molecule aborts a paper mid-batch
+        after all of S3 passed; the Explain route's canonical_structure
+        degrades softly, which is exactly why only the Create route needs
+        this stop. rdkit is declared in figural_core.DEPENDENCIES and
+        installed by the SKILL Step 0 line from v5.77, so this stop fires
+        only in a genuinely broken environment. Non-figural papers: skip.
 
 ## S4-1 — What a batch is (precise definition)
 
@@ -2467,8 +2752,11 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        current_batch is incremented ONLY after present_files succeeds.
        This update is written to batch_state.json before the response ends.
 
-  B-7: present_files is FORBIDDEN until the batch passes gate checks
-       (Layer 2 audit script exit 0, OR Layer 1 manual checklist all-pass).
+  B-7: present_files is FORBIDDEN until the batch passes gate checks:
+       Layer 1 checklist all-pass, AND Layer 2 audit script exit 0 whenever
+       the audit script is available (v5.77 — was OR; five checklist items
+       have no auditor equivalent, so the auditor alone was strictly weaker
+       while being presented as interchangeable).
 
   B-8: The FINAL batch (is_final=True) is the ONLY batch that does NOT end
        with a continue prompt. It auto-triggers Final Assembly (§13) in the
@@ -2688,11 +2976,37 @@ sections off the per-batch execution path — it does not shrink, soften or dele
              Skipping it (using add_question_stem for all Qs regardless of format)
              is the root cause of the production figural defect.
 
-  STEP B — GATE CHECK:
-           If AUDIT_AVAILABLE: run audit script on cumulative docx → capture STDOUT.
-           If NOT: run the Manual Gate Checklist (S4-11).
-           If any fixable WARN/FAIL: fix it, re-run. Iterate to clean.
-           present_files is FORBIDDEN until clean (B-7).
+  STEP B — GATE CHECK (v5.77 — BOTH LAYERS, EVERY BATCH, no either/or):
+           1. Run the S4-11 Gate Checklist. ALWAYS — five of its items
+              (G-CLUSTER, G-ALTGROUP, G-GROUPMANDATE, G-MINCOUNT,
+              G-ALLOC-SUBTOPIC) have NO auditor equivalent, so an
+              auditor-only path is strictly weaker than the checklist.
+              (G-CLUSTER reads batch_state['placement_report'] and the
+              plan; it never re-derives adjacency by eye.)
+           2. If AUDIT_AVAILABLE, ALSO run the audit script on the
+              cumulative docx and capture STDOUT. The invocation is
+              MANDATED, not left to session judgement — working directory
+              /tmp/fw (or PYTHONPATH=/tmp/fw; the per-exam copy imports
+              engines from the verified clone):
+              ```
+              cd /tmp/fw && python3 /home/claude/[ExamCode]_mock_test_audit.py \
+                  /home/claude/<cumulative>.docx \
+                  --blueprint /mnt/project/[ExamCode]_blueprint.json \
+                  --rules /mnt/project/[ExamCode]_section_rules.md \
+                  --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
+                  --registry /mnt/project/[ExamCode]_registry.json \
+                  --profile /mnt/project/[ExamCode]_difficulty_profile.json \
+                  --key /home/claude/[ExamCode]_M[N]_answer_key.json \
+                  --mockN [N] --batch [B] --through-q [last Q in the docx]
+              ```
+              --through-q (v2.23) scopes the structural gates to the
+              questions that exist, so a healthy intermediate batch prints
+              RESULT: PASS and a FAIL means something (GAP-2026-08-28-
+              AUDIT-PARTIAL-PAPER). OMIT --through-q on the final batch /
+              Final Assembly re-sweep — a complete paper is audited whole.
+           3. If any fixable WARN/FAIL in EITHER layer: fix it, re-run
+              BOTH. Iterate to clean.
+           present_files is FORBIDDEN until BOTH layers are clean (B-7).
 
   STEP C — PERSIST STATE:
            If this batch contained PASSAGE questions: write progress.json (S4-8b).
@@ -2804,10 +3118,22 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   Progress (internal):   [ExamCode]_M[N]_progress.json
   Registry (delivered):  [ExamCode]_registry.json
 
-## S4-11 — Manual Gate Checklist (Layer 1 — used when audit.py absent)
+## S4-11 — Gate Checklist (Layer 1 — MANDATORY every batch)
 
-  When AUDIT_AVAILABLE is False, Claude runs these checks itself before
-  each batch delivery. All must PASS before present_files.
+  v5.77: the pre-v5.77 heading scoped this checklist to sessions without an
+  auditor ("used when audit.py absent") while STEP B offered the auditor as a
+  substitute — and five items here (G-CLUSTER, G-ALTGROUP, G-GROUPMANDATE,
+  G-MINCOUNT, G-ALLOC-SUBTOPIC) have NO auditor equivalent. That seam is how
+  a paper with a Q.1–Q.3 same-concept_group cluster shipped under an
+  "all PASS" report. This checklist runs EVERY batch; the auditor is Layer 2
+  and complements it, never replaces it.
+
+  EMISSION LAW (v5.77): the batch gate report PRINTS every item name below,
+  programmatically from this list — never from recall. A report with fewer
+  than 43 G-* lines is ITSELF a gate failure. (The incident report omitted 5
+  of 43 items; the only one of the five that inspects placement rather than
+  allocation — G-CLUSTER — was exactly the one that would have caught the
+  defect.)
 
   ```
   MANUAL GATE CHECKLIST — Batch [N] (cumulative docx):
@@ -2869,9 +3195,14 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   same presentation_key (stem_format_variant | distractor_strategy).
                   Different word/fact does NOT excuse an identical look. If a
                   CONCEPT_GROUP has ≥3 Qs, ≥2 stem formats appear. (RULE C) HARD FAIL.
-  [ ] G-CLUSTER:  No two same-CONCEPT_GROUP Qs adjacent; no contiguous run > 2
-                  from one PRESENTATION_FAMILY; each subtopic's N Qs spread across
-                  its section, not stacked. (R19 v3.8)
+  [ ] G-CLUSTER:  Read batch_state['subtopic_by_qnum'] + ['placement_report']
+                  (S3-12b): adjacent same-CONCEPT_GROUP pairs in the questions
+                  generated so far == the report's own list and <= its
+                  min_possible_adjacent_cg floor; no PRESENTATION_FAMILY run
+                  > 2 (<= 3 only where the report shows composition forces
+                  it); each subtopic's N Qs spread per the plan. Adjacency
+                  strictly inside a linked-stimulus block is EXEMPT. (R19
+                  v3.8; v5.77 — plan-quoting, promoted to auditor A-CLUSTER)
   [ ] G-FIGURAL-COMPOSITE: Every figural Q is correctly structured per its
                   image_role variant (v5.13). stem_and_options: problem image +
                   one separate image per option, single-column, 1:1 label binding.
@@ -2948,6 +3279,18 @@ sections off the per-batch execution path — it does not shrink, soften or dele
          - Rewrite batch_state.json.
     3. Load the existing cumulative docx as the base (do NOT regenerate prior Qs).
     4. Load answer_key.json (has all prior answers).
+    4a2. FROZEN-PLAN LAW (v5.77 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED §7.2):
+        subtopic_by_qnum and placement_report are read from batch_state and
+        NEVER re-derived on a resume — re-placing would invalidate every
+        question already authored. A pre-v5.77 batch_state (no plan fields)
+        is handled by S3-12b's middle branch: the AUTHORED questions are
+        frozen from the answer_key concept_map (q → subtopic_id), the
+        NOT-YET-AUTHORED remainder of each section is placed fresh into its
+        remaining contiguous range, the whole map is audited with
+        bc.audit_placement, and adjacency findings are reported as a §R13
+        limitation. Adjacency NEVER hard-stops a resume; the only resume
+        HARD STOPs are artefact-consistency faults (answer_key, batch_state
+        and blueprint disagreeing about what exists).
     4b. REHYDRATE THE LEDGERS (v3.9 G3 — mandatory, else resume can clone):
         mock_scenario_ledger     = set(bs.get('concept_ledger', []))
         mock_presentation_ledger = {tuple(s.split('||', 1))
@@ -7682,6 +8025,8 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       --dossier /home/claude/[ExamCode]_M[N]_audit_dossier.json \
       --registry /home/claude/[ExamCode]_registry.json \
       --blueprint /mnt/project/[ExamCode]_blueprint.json \
+      --rules /mnt/project/[ExamCode]_section_rules.md \
+      --manifest /mnt/project/[ExamCode]_subtopic_manifest.json \
       --mockN [N]
   ```
   ([paper_slug] = pp.paper_slug(paper_id) — "Mock01" for a mock, "SUBJ_Physics_01" for a
@@ -7701,6 +8046,12 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            # coexist with a clean audit log.
            '--registry', f'/home/claude/{EXAM}_registry.json',
            '--blueprint', f'/mnt/project/{EXAM}_blueprint.json',
+           # v5.77 — arm A-CLUSTER at FULL strength: without --rules/--manifest
+           # the gate has no concept_group/family metadata and degrades to
+           # subtopic-level adjacency only (safe, but weaker than the S3-12b
+           # pre-flight it is supposed to mirror at ship time).
+           '--rules', f'/mnt/project/{EXAM}_section_rules.md',
+           '--manifest', f'/mnt/project/{EXAM}_subtopic_manifest.json',
            '--mockN', str(N)],
           capture_output=True, text=True)
       print(_r.stdout)          # real STDOUT — never a paraphrase (B-7)
@@ -8564,7 +8915,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   Final Assembly); it never touches `status` or `repair_rounds_used`.
 #   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-# END OF Framework_MockTestCreate v5.76
+# END OF Framework_MockTestCreate v5.77
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

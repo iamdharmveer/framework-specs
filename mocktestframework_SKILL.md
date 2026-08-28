@@ -54,7 +54,7 @@ cd "$FW" && python3 bootstrap.py \
 # audit — every gate degrades to DORMANT-but-reported — but a Create step
 # CANNOT draw a figure without matplotlib, so install it here rather than
 # discover it as a traceback mid-paper.
-pip install matplotlib pillow numpy scipy fonttools --break-system-packages -q 2>/dev/null \
+pip install matplotlib pillow numpy scipy fonttools rdkit --break-system-packages -q 2>/dev/null \
   || echo "WARN: figure dependencies incomplete — run figural_core.preflight() and expect DORMANT figure gates."
 python3 -c "import figural_core as fc, json; print('FIGURE PREFLIGHT:', json.dumps(fc.preflight()['available']))" 2>/dev/null || true
 # ── PROJECT-FIRST SPEC RESOLUTION (2026.08.03.8) ────────────────────────────

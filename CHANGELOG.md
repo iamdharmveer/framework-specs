@@ -1,5 +1,124 @@
 # Changelog
 
+## 2026.08.28.1 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED: placement is an engine function, a persisted plan and an auditor gate — never session improvisation
+
+**blueprint_core +Cluster Q (place_subtopics / min_possible_adjacent / audit_placement /
+PlacementError) · Framework_MockTestCreate v5.76 -> v5.77 (NEW S3-12b; S3-13 NameError
+fallbacks deleted; batch_state +subtopic_by_qnum +placement_report; S3-18 blueprint-order
+sentence deleted; S4-7 STEP B and B-7 either/or -> BOTH; S4-11 heading + emission law;
+S4-12 frozen-plan law; S3-3 learnings glob widened + WARN; S3-19 +HS-16) ·
+audit_canonical v2.22 -> v2.23 (NEW GATE A-CLUSTER; --through-q partial-paper mode;
+--mockN int(None) guard) · figural_core DEPENDENCIES +rdkit, PIP_INSTALL +rdkit,
+preflight +can_render_structures · both SKILL Step-0 pip lines +rdkit.
+Self-tests: blueprint_core 598 -> 621, audit_canonical 293 -> 304; every other suite
+unchanged. Zero exam values.**
+
+THE GAP (P1, silent, exam-agnostic — fired on IIT_JAM_CHEMISTRY MOCK:M02). The spec told
+every session what the finished paper must look like (R19) and what data it starts from
+(blueprint allocations) but never specified, implemented, persisted or verified the
+transformation between them. S3-18's "subtopics assigned to Q positions in blueprint
+order" is guaranteed non-conforming whenever any subtopic has q_count >= 2 — the normal
+case, since allocation deliberately gives high-frequency subtopics more questions.
+MOCK:M01's session noticed and wrote an ad-hoc spread; MOCK:M02's followed the sentence
+literally and shipped Q.1-Q.3 same-concept_group under an "all PASS" report, because
+G-CLUSTER was one of five S4-11 items with no auditor equivalent and S4-7 STEP B offered
+the auditor as a substitute for the checklist. Same failure class as the A-QINDEX
+promotion: session-executed prose is unverifiable; only an engine that always runs plus
+an auditor gate that always checks is evidence.
+
+(1) **Engine (blueprint_core Cluster Q).** `place_subtopics(alloc, q_range, meta, *,
+seed, fixed, groups)` — deterministic (seed = paper_index; identical inputs reproduce the
+plan byte-for-byte for `continue`/resume, different papers in a series differ),
+CONCEPT-GROUP-FIRST (skeleton by max-remaining greedy over cg unit counts — attains the
+proven floor `min_possible_adjacent()`, verified against brute-force minima for every
+multiset to n=7 in the self-test — then per-cg subtopic fill, then a same-cg swap polish
+to the subtopic floor). The gap report's single-pass reference greedy can EXCEED the cg
+floor when a concept_group spans several subtopics (G={a:2,b:2}, H={c:3} -> c a c b c a b)
+and would have tripped its own pre-flight; the shipped construction cannot. Report carries
+BOTH floors (`min_possible_adjacent`, `min_possible_adjacent_cg`) so pre-flight, checklist
+and auditor quote one number. Linked-stimulus blocks are atomic units, R19-exempt inside;
+metadata degrades per §7.3 (absent concept_group -> subtopic_id; absent family/subject ->
+dormant objective; nothing raises, nothing silently disables adjacency).
+`audit_placement()` audits a FROZEN plan for the resume path.
+
+(2) **Spec (MockTestCreate v5.77).** NEW S3-12b builds the plan for every paper before
+the answer budget, arms the G-CLUSTER PRE-FLIGHT before Q.1 exists (achieved > floor =
+engine fault = HARD STOP; unavoidable floor > 0 = NOTICE naming the MockBlueprint remedy),
+and on resume treats a populated plan as FROZEN — pre-v5.77 mid-flight papers are audited
+with `bc.audit_placement` and reported as a §R13 limitation, NEVER re-placed and NEVER
+hard-stopped. batch_state persists `subtopic_by_qnum` + `placement_report`. S3-13's two
+`except NameError:` silent fallbacks are DELETED (an empty set silently put every MSQ and
+NAT question into the free answer pool and corrupted K-BAL paper-wide, with no warning).
+S4-7 STEP B and B-7: checklist AND auditor, both clean, every batch — five checklist items
+have no auditor equivalent, so the auditor-only branch was strictly weaker while being
+presented as interchangeable. S4-11: heading no longer scopes the checklist to
+auditor-absent sessions; the report must PRINT all 43 item names programmatically (fewer
+lines is itself a gate failure — the incident report omitted exactly the item that would
+have caught the defect).
+
+(3) **Auditor (audit_canonical v2.23).** NEW GATE A-CLUSTER — q->subtopic from --registry
+question_index (else --key concept_map), metadata from --manifest (else --rules blocks,
+with null-string normalisation), floors from blueprint_core: FAIL above the cg floor or on
+a presentation_family run > 3; WARN at run == 3 (R19(b) escape) and subject run > 3
+(secondary objective, reported not gated); linked-block interior exempt; dormant-but-
+reported without a source. Verified live: FAILs the MOCK:M02 shape naming Q.2/Q.3, PASSes
+the shipped hand-repaired MOCK:M01 registry (one truthful WARN: its Section B subject run
+is 4). --through-q N (GAP-2026-08-28-AUDIT-PARTIAL-PAPER): structural gates scope to 1..N,
+A-SECCOUNT prints "x/y (partial)" plus not-yet-reached names, per-paper-budget gates skip
+unfinished sections, A-QINDEX/A-DGATE report dormant — a healthy intermediate batch prints
+RESULT: PASS, so a FAIL means something instead of red being normal. --mockN int(None)
+TypeError guarded (GAP-2026-08-28-AUDIT-MOCKN-GUARD).
+
+(4) **rdkit (GAP-2026-08-28-RDKIT-UNDECLARED).** Declared in figural_core.DEPENDENCIES,
+added to PIP_INSTALL and both SKILL Step-0 lines, surfaced as
+preflight()['can_render_structures'], enforced by NEW HS-16 before Q.1 on any paper with a
+FIGURAL allocation — corpus_io.structure_draw_fn raises without it, and only the Create
+route raises (Explain degrades softly), which is exactly why it was invisible.
+
+(5) **Learnings glob (GAP-2026-08-28-LEARNINGS-PREFIX-GLOB).** S3-3 globs
+`*_EXPLAIN_LEARNINGS_v*.md` and WARNs loudly, by name, on any match whose prefix is not
+`{EXAM}` — a file that exists but is invisible is worse than one that is absent.
+
+**DEFERRED, deliberately:** GAP-2026-08-28-DIFFICULTY-FIGURAL-BLIND (the difficulty plan
+cannot see figural irreducibility; fixing it moves the Axis-1 grant pass from S7-NEW-B0 to
+S3 and re-orders the planning chain — a structural change that gets its own release rather
+than riding this one) and the S3-5b `\mathrm` grammar-table doc note (loud failure,
+`\text{}` covers it; lives in Framework_PYQPrepare and is not worth a version bump here).
+
+**Second-pass hardening (pre-deploy line-by-line review).** Four findings, all fixed
+and fixture-killed before release: (a) the S3-12b resume guard originally sent a
+pre-v5.77 MID-FLIGHT paper (batches complete, no persisted plan) down the FRESH branch
+— i.e. it would have re-placed a paper with authored questions, the one thing §7.2
+forbids; the middle branch above is the fix, and all seven of its branch/edge cases
+(fresh, frozen round-trip, real-M01-at-Q40 reconstruction with RULE A verified per
+section, concept_map overcount, non-contiguous prefix, missing answer_key, duplicate
+blueprint entries) are executed against the SHIPPED spec block verbatim. (b) S3-2's
+alloc_ids collapses duplicate blueprint allocation entries BY OVERWRITE, so S3-12b sums
+its allocation from the raw subtopic_allocations lists instead. (c) a non-numeric
+linked_group_size raised a naked ValueError in both place_subtopics and audit_placement,
+violating the "PlacementError only" contract — now §7.3-degrades to 1, with a numeric
+string ('2') still honoured as a real size. (d) in partial-paper mode with --mockN
+absent, A-CLUSTER's single-entry registry fallback could audit a DIFFERENT completed
+paper's plan — the live paper's concept_map now wins under --through-q, and registry
+records with a null subtopic_id are skipped rather than paired. (e) a 20,000-shape
+property fuzz (RULE A, coverage, cg-adjacency <= floor, dict-order determinism,
+builder/auditor agreement, prefix-audit stability) caught the one defect the 1,000-case
+suite had missed: the skeleton's pf/subject PREFERENCES could dethrone the max-remaining
+concept group, deferring a DOMINANT group until its excess forced a tail run (observed 6
+pairs against a floor of 2 on a 12-of-21-unit dominant). The optimality proof holds only
+for strict max-remaining selection, so the preferences are now TIE-BREAKERS among
+max-remaining candidates only — the fuzz is clean at 20,000 shapes, the engine provably
+ATTAINS the exhaustive-minimum floor on every multiset to n<=7 across seeds, and the
+minimised dominant-plus-metadata-lure shape is a permanent fixture. The stale v4.5
+rationale at S3-13 ("if the plan is not materialised ... K-BAL is never corrupted either
+way") is retracted in place — it was the licence for the exact silent corruption FIX-3
+closes.
+
+**Migration: none.** Delivered papers untouched (placement lives in batch_state +
+question_index, records of what was built). Mid-flight papers: S3-12b's resume branch
+freezes and audits, never rewrites — safe to deploy mid-series in all ~200 projects.
+Rollback: revert the commit; no artefact changed shape.
+
 ## 2026.08.27.3 — REPAIR-RETIRED-2026-08-27: the four *Repair triggers are retired; the difficulty gate discloses, it never blocks
 
 **paper_pipeline v5.75 -> v5.76 · Framework_MockTestCreate v5.75 -> v5.76 · Framework_MockTestExplain

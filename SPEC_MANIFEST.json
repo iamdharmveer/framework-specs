@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 8647,
-      "sha256": "37ebbb98d3115cd99a02b41191ed4b165296a4bd6f97b2f32620e1188afc84d2",
-      "size_bytes": 549259,
-      "version_header": "# Framework_MockTestCreate v5.76"
+      "lines": 8998,
+      "sha256": "3a16fcc3c180d48b41c7abd1afd430bd840db50017e17a23e49b7e28c5308b1a",
+      "size_bytes": 571580,
+      "version_header": "# Framework_MockTestCreate v5.77"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -177,9 +177,9 @@
     },
     "audit_canonical.py": {
       "end_sentinel": "    main()",
-      "lines": 7850,
-      "sha256": "8fcf2b2f25b9605a406fffaf77ab767d49027c9ffec948c7701da623442cc139",
-      "size_bytes": 440084,
+      "lines": 8270,
+      "sha256": "e869d0f9612505d7c2fbc009f239619045dd835dd92af431d859d9ec9d58fcf1",
+      "size_bytes": 462635,
       "version_header": "#!/usr/bin/env python3"
     },
     "audit_deep.py": {
@@ -219,9 +219,9 @@
     },
     "blueprint_core.py": {
       "end_sentinel": "    print(\"blueprint_core.py — shared allocation core. Run with --self-test.\")",
-      "lines": 7730,
-      "sha256": "6886e363a7de6b658187897572236138b7e35e0244ed5240c475b19fbb6c438a",
-      "size_bytes": 432383,
+      "lines": 8308,
+      "sha256": "1f1f7af1d69cfe2ffe66356a4da69a6d65c8c3362d58a5ed3a1cf6a88c9e2b76",
+      "size_bytes": 460752,
       "version_header": "\"\"\""
     },
     "build_spec_manifest.py": {
@@ -268,9 +268,9 @@
     },
     "figural_core.py": {
       "end_sentinel": "    print(\"figural_core.py — shared figure renderer + gates. Run with --self-test.\")",
-      "lines": 2604,
-      "sha256": "1f563d310a7c35754230a7abae3f4d58b253476f617b86c34cd0a0e8b8ebbf91",
-      "size_bytes": 124942,
+      "lines": 2608,
+      "sha256": "15ec0a02027490a017cb65d589a0c4e1c12a7ab8dd1bd2cb7efa234d73e7acaf",
+      "size_bytes": 125203,
       "version_header": "\"\"\""
     },
     "figural_vision.py": {

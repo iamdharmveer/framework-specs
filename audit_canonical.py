@@ -15,6 +15,32 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.23 — 2026-08-28 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED (paired with
+#   blueprint_core Cluster Q place_subtopics/min_possible_adjacent/audit_placement,
+#   Framework_MockTestCreate v5.77 S3-12b). NEW GATE A-CLUSTER: R19/G-CLUSTER
+#   promoted to the auditor exactly as G-QINDEX was promoted to A-QINDEX and for
+#   the same reason — a spec-inline checklist item is session-executed and its
+#   execution is unverifiable; MOCK:M02 shipped Q.1-Q.3 same-concept_group with a
+#   clean gate report because G-CLUSTER was one of five checklist items with no
+#   auditor equivalent. A-CLUSTER reads q->subtopic_id from --registry
+#   question_index (else --key concept_map), concept_group/presentation_family/
+#   linked_group_size from --manifest (else --rules per-subtopic blocks), and
+#   FAILs when adjacent same-concept_group pairs exceed blueprint_core.
+#   min_possible_adjacent() over the section's cg-aggregated allocation, or a
+#   presentation_family run exceeds 3; WARN at run == 3 (R19(b) escape) and at
+#   subject run > 3 (secondary objective, not an R19 rule); adjacency strictly
+#   inside a linked-stimulus block is exempt; dormant-but-reported without a
+#   subtopic source. PARTIAL-PAPER MODE (GAP-2026-08-28-AUDIT-PARTIAL-PAPER):
+#   new --through-q N scopes A-COUNT/A-SEQ to 1..N, clips section expectations
+#   (A-SECCOUNT reports 'x/y (partial)' for the section in progress; axis and
+#   MSQ/NAT expectation gates skip sections not yet complete), and A-QINDEX/
+#   A-DGATE report dormant (Final-Assembly gates) — so a healthy intermediate
+#   batch prints RESULT: PASS and a FAIL means something, instead of six
+#   structural FAILs training the operator to read red as normal.
+#   MOCKN GUARD (GAP-2026-08-28-AUDIT-MOCKN-GUARD): options_by_q legacy-key
+#   resolution no longer calls int(None) when --mockN is omitted; a docx audit
+#   without --mockN prints a NOTE naming the gates that stay dormant.
+#   Fixtures +11 (A-CLUSTER x7 incl. partial-mode source order, partial-mode x2, mockN-guard x1, key-source x1).
 # v2.22 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (paired with paper_pipeline v5.76,
 #   blueprint_core DIFFICULTY_GATE_MAX_REPAIR_ROUNDS 1 → 0). The four *Repair triggers
 #   are RETIRED and the difficulty gate discloses instead of blocking. A-DGATE: the
@@ -688,9 +714,13 @@ def load_sources(args):
     # v2.16: paper_id key is the authority (final_assembly v5.56); str(N) is the
     # legacy MOCK-series key and is consulted only when the paper_id key is absent.
     _obq_all = reg.get('options_by_q', {}) if isinstance(reg.get('options_by_q'), dict) else {}
-    _obq_pid = (mock_entry or {}).get('paper_id', f"MOCK:M{int(N):02d}")
-    _obq_sel = _obq_all.get(_obq_pid)
-    if _obq_sel is None:
+    # v2.23 (GAP-2026-08-28-AUDIT-MOCKN-GUARD): N is None whenever --mockN is
+    # omitted (the flag has no default and is not required); int(None) here was
+    # a live TypeError that killed the whole audit instead of one lookup.
+    _obq_pid = (mock_entry or {}).get('paper_id') or \
+               (f"MOCK:M{int(N):02d}" if N is not None else None)
+    _obq_sel = _obq_all.get(_obq_pid) if _obq_pid else None
+    if _obq_sel is None and N is not None:
         _obq_sel = _obq_all.get(str(N), {})
     src['options_by_q'] = {str(k): v for k, v in (_obq_sel or {}).items()}
     # NAT config (blueprint nat_contract) — read where needed, never from a sidecar.
@@ -738,6 +768,55 @@ def load_sources(args):
     # current section_rules declares it, so the pre-Q.1 body-block ban is absolute.
     src['paper_header_block'] = str(cat_c(rt, 'paper_header_block', '')).strip().lower() \
         in ('true', '1', 'yes', 'on')
+    # ── v2.23 PARTIAL-PAPER MODE (GAP-2026-08-28-AUDIT-PARTIAL-PAPER) ──────
+    # --through-q N: the cumulative docx is complete through Q.N. Scope every
+    # structural expectation to 1..N HERE, once, so every gate downstream
+    # measures against the partial truth instead of each inventing a scope:
+    #   * total_questions -> min(total, N)  (A-COUNT / A-SEQ)
+    #   * sections: clipped to 1..N; a section cut mid-range carries
+    #     '_partial': True (A-SECCOUNT prints 'x/y (partial)'; _axis_sections
+    #     and the MSQ/NAT expectation maps skip it — a per-paper budget cannot
+    #     be graded against a section that is not finished); sections entirely
+    #     beyond N are dropped and NAMED via src['through_q_dropped'].
+    #   * expected_multi/nat_by_section: kept only for sections fully within
+    #     1..N (position-based exams re-clip exactly by marking_scheme range).
+    # A-QINDEX and A-DGATE read src['through_q'] and report dormant — they are
+    # Final-Assembly gates (question_index is written at S13-4).
+    _thq = getattr(args, 'through_q', None)
+    src['through_q'] = _thq
+    src['through_q_dropped'] = []
+    if _thq:
+        if isinstance(src.get('total_questions'), int):
+            src['total_questions'] = min(src['total_questions'], _thq)
+        else:
+            src['total_questions'] = _thq
+        _clip = []
+        _complete = set()
+        for _s in (src.get('sections') or []):
+            try:
+                _lo, _hi = int(_s['q_range'][0]), int(_s['q_range'][1])
+            except (KeyError, TypeError, ValueError, IndexError):
+                _clip.append(_s)
+                continue
+            _nm = _s.get('name') or _s.get('section_name')
+            if _lo > _thq:
+                src['through_q_dropped'].append(str(_nm))
+                continue
+            if _hi <= _thq:
+                _complete.add(_nm)
+                _clip.append(_s)
+                continue
+            _s2 = dict(_s)
+            _s2['q_range'] = [_lo, _thq]
+            _s2['total_qs'] = _thq - _lo + 1
+            _s2['_partial'] = True
+            _s2['_full_total_qs'] = _s.get('total_qs', _hi - _lo + 1)
+            _clip.append(_s2)
+        src['sections'] = _clip
+        for _k in ('expected_multi_by_section', 'expected_nat_by_section'):
+            _m = src.get(_k) or {}
+            src[_k] = {sec: n for sec, n in _m.items() if sec in _complete}
+
     return src
 
 
@@ -809,14 +888,16 @@ UNI_SUB_RUN = re.compile(r'[\u2080-\u2089][a-z]')
 
 def gate_structure(blocks, src):
     tq = src['total_questions']
+    _part = ' [partial: through Q.%d]' % src['through_q'] \
+        if src.get('through_q') else ''
     nums = [b.qnum for b in blocks]
     if tq is not None:
         (_ok if len(blocks) == tq else _fail)(
-            'A-COUNT', f'{len(blocks)} question blocks (expected {tq}).')
+            'A-COUNT', f'{len(blocks)} question blocks (expected {tq}).{_part}')
         expected = set(range(1, tq + 1))
         got = set(nums)
         if got == expected:
-            _ok('A-SEQ', f'Q-numbers complete 1..{tq}.')
+            _ok('A-SEQ', f'Q-numbers complete 1..{tq}.{_part}')
         else:
             miss = sorted(expected - got); extra = sorted(got - expected)
             _fail('A-SEQ', f'missing={_flist(miss)} extra={_flist(extra)}.')
@@ -839,9 +920,20 @@ def gate_seccount(blocks, src):
         lo, hi = s['q_range']
         cnt = sum(1 for q in nums if lo <= q <= hi)
         if cnt != s.get('total_qs', hi - lo + 1):
-            bad.append(f"{s.get('name','?')}:{cnt}/{s.get('total_qs', hi-lo+1)}")
+            _tag = ' (partial)' if s.get('_partial') else ''
+            bad.append(f"{s.get('name','?')}:{cnt}/{s.get('total_qs', hi-lo+1)}{_tag}")
+    _pnote = ''
+    if src.get('through_q'):
+        _pp = [f"{s.get('name','?')}: "
+               f"{sum(1 for q in nums if s['q_range'][0] <= q <= s['q_range'][1])}"
+               f"/{s.get('_full_total_qs', s.get('total_qs'))} (partial)"
+               for s in secs if s.get('_partial')]
+        _dropped = src.get('through_q_dropped') or []
+        _pnote = (' ' + '; '.join(_pp) if _pp else '') + \
+                 ('; not yet reached: ' + ', '.join(_dropped) if _dropped else '')
     (_ok if not bad else _fail)('A-SECCOUNT',
-        'section counts match q_ranges.' if not bad else 'mismatch ' + '; '.join(bad))
+        ('section counts match q_ranges.' + _pnote) if not bad
+        else 'mismatch ' + '; '.join(bad) + _pnote)
 
 
 def _label_paras(block):
@@ -1155,6 +1247,12 @@ def _axis_sections(src):
             continue
         if hi < lo:
             bad.append(str(name))
+            continue
+        if sec.get('_partial'):
+            # v2.23 partial-paper mode: a per-paper axis budget cannot be
+            # graded against a section that is not finished — skip and NAME.
+            bad.append('%s (partial — not yet complete through --through-q)'
+                       % name)
             continue
         good.append((name, lo, hi))
     return good, bad
@@ -3752,6 +3850,7 @@ def run_audit(args):
     _safe_gate('A-HEADER', gate_header, doc, blocks, src)
     _safe_gate('A-QINDEX', gate_qindex, src)   # v2026.08.10 — engine FK gate; dormant unless --registry+--blueprint+--mockN
     _safe_gate('A-DGATE', gate_dgate, src)     # v2.19 — difficulty_gate record legality; dormant unless --registry
+    _safe_gate('A-CLUSTER', gate_cluster, src, blocks)  # v2.23 — R19 adjacency; dormant without a q->subtopic source
     _safe_gate('A-DPROFILE', gate_dprofile, src)  # v2.21 — difficulty profile + blueprint difficulty_source
     rc = print_results()
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
@@ -3787,6 +3886,11 @@ def gate_qindex(src):
     reg = src.get('registry') or {}
     bp  = src.get('blueprint') or {}
     N   = src.get('_mockN')
+    if src.get('through_q'):
+        _ok('A-QINDEX', 'dormant — partial-paper mode (--through-q): '
+                        'question_index is written at S13-4, after the last '
+                        'batch; armed at Final Assembly re-sweep S13-4c')
+        return
     if not reg or not bp or N is None:
         _ok('A-QINDEX', 'dormant (needs --registry + --blueprint + --mockN; '
                         'armed at Final Assembly re-sweep S13-4c)')
@@ -3936,6 +4040,185 @@ def gate_qindex(src):
                         f'({len(qs)} questions, all ids in blueprint)')
 
 
+# ── A-CLUSTER (v2.23 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED) ────────────────
+def gate_cluster(src, blocks):
+    """A-CLUSTER — R19/G-CLUSTER promoted to the auditor, exactly as G-QINDEX
+    was promoted to A-QINDEX and for the same reason: a spec-inline checklist
+    item is session-executed and its execution is unverifiable. MOCK:M02
+    shipped Q.1-Q.3 same-concept_group with a clean gate report because
+    G-CLUSTER was one of five S4-11 items with no auditor equivalent, and the
+    auditor-only branch of S4-7 STEP B was presented as interchangeable with
+    the checklist.
+
+    Sources (no paper_pipeline import — A-QINDEX's self-contained design):
+      q -> subtopic_id          registry.question_index[paper].questions[]
+                                (--registry [+--mockN]); else --key answer_key
+                                concept_map[q].subtopic_id (per-batch source)
+      subtopic_id -> concept_group / presentation_family / linked_group_size
+                                --manifest subtopics[sid] fields; else --rules
+                                per-subtopic 'field: value' lines
+    Verdicts:
+      FAIL   adjacent same-concept_group pairs exceed blueprint_core.
+             min_possible_adjacent() over the section's cg-aggregated
+             allocation (the S3-12b pre-flight quotes the SAME number)
+      FAIL   presentation_family run > 3
+      WARN   presentation_family run == 3 (R19(b) forced-composition escape)
+      WARN   subject run > 3 (secondary objective — NOT an R19 rule; two
+             sessions on one blueprint measured max runs of 1 and 4, so the
+             spread is reported even though it does not gate)
+      exempt adjacency strictly inside a linked-stimulus block (R-LINKED)
+      dormant — reported, never invented — when no q->subtopic source or no
+             section q_ranges are available, or blueprint_core is absent
+             (per-exam copy outside the verified clone; v2.12.1 by design).
+    Partial-paper mode: runs on the questions present — adjacency inside
+    1..N is fully determined by 1..N, so no scoping beyond load_sources'."""
+    secs = src.get('sections') or []
+    if not secs:
+        return _ok('A-CLUSTER', 'dormant — no blueprint sections '
+                                '(needs --blueprint for q_ranges)')
+    try:
+        import blueprint_core as bc
+    except ImportError:
+        return _warn('A-CLUSTER',
+                     'blueprint_core not importable beside this copy — floor '
+                     'arithmetic unavailable; run from the verified clone '
+                     '(cd /tmp/fw, or PYTHONPATH=/tmp/fw) for the full gate.')
+
+    # q -> subtopic_id. Source order: registry question_index first, --key
+    # concept_map second — EXCEPT in partial-paper mode (--through-q), where
+    # the concept_map wins when present: mid-flight the registry has no entry
+    # for THIS paper yet, and when --mockN is also absent the single-entry
+    # fallback below could pick a DIFFERENT completed paper's plan. The
+    # concept_map travels with the batch and is always the live paper.
+    q2s = {}
+    provenance = None
+    reg = src.get('registry') or {}
+    N = src.get('_mockN')
+    if src.get('through_q'):
+        for qs, rec in (src.get('concept_map') or {}).items():
+            sid = (rec or {}).get('subtopic_id')
+            if sid:
+                try:
+                    q2s[int(qs)] = sid
+                except (TypeError, ValueError):
+                    continue
+        if q2s:
+            provenance = 'answer_key concept_map (--key; partial-paper mode)'
+    qi = reg.get('question_index') or []
+    entry = None
+    if not q2s and isinstance(qi, list) and qi:
+        if N is not None:
+            _bp = src.get('blueprint') or {}
+            _tp = next((mk for mk in _bp.get('mocks', [])
+                        if mk.get('mock') == N), None)
+            pid = (_tp or {}).get('paper_id', 'MOCK:M%02d' % int(N))
+            entry = next((e for e in qi
+                          if e.get('paper_id', 'MOCK:M%02d'
+                                   % e.get('mock', -1)) == pid), None)
+        elif len(qi) == 1:
+            entry = qi[0]
+    if entry:
+        for qrec in entry.get('questions') or []:
+            _sid = qrec.get('subtopic_id')
+            if not _sid:
+                continue          # a null sid must not pair with another null
+            try:
+                q2s[int(qrec.get('q'))] = _sid
+            except (TypeError, ValueError):
+                continue
+        provenance = 'registry question_index %s' % entry.get('paper_id', '?')
+    if not q2s:
+        for qs, rec in (src.get('concept_map') or {}).items():
+            sid = (rec or {}).get('subtopic_id')
+            if sid:
+                try:
+                    q2s[int(qs)] = sid
+                except (TypeError, ValueError):
+                    continue
+        if q2s:
+            provenance = 'answer_key concept_map (--key)'
+    if not q2s:
+        return _ok('A-CLUSTER', 'dormant — no q->subtopic source (needs '
+                                '--registry question_index for this paper, '
+                                'or --key answer_key with concept_map); '
+                                'never invents a verdict')
+
+    # subtopic metadata: --manifest first, --rules per-subtopic blocks second.
+    # The rules-text parser returns STRINGS, and a block that spells an absent
+    # field as 'null'/'none'/'~' must degrade to None (a truthy 'null' shared
+    # by every subtopic reads as one presentation_family with a run the length
+    # of the section — the exact false-FAIL the live M01 registry exposed).
+    def _norm(v):
+        if isinstance(v, str) and v.strip().lower() in ('', 'null', 'none', '~'):
+            return None
+        return v
+    mf = ((src.get('manifest') or {}).get('subtopics')) or {}
+    rt = src.get('section_rules_text', '') or ''
+    cg_map = {sid: _norm((m or {}).get('concept_group')) for sid, m in mf.items()}
+    pf_map = {sid: _norm((m or {}).get('presentation_family')) for sid, m in mf.items()}
+    sub_map = {sid: _norm((m or {}).get('section')) for sid, m in mf.items()}
+    lg_map = {sid: _norm((m or {}).get('linked_group_size')) for sid, m in mf.items()}
+    if rt:
+        for field, tgt in (('concept_group', cg_map),
+                           ('presentation_family', pf_map),
+                           ('section', sub_map),
+                           ('linked_group_size', lg_map)):
+            for sid, val in (bc.parse_section_rules_field(rt, field)
+                             or {}).items():
+                if tgt.get(sid) in (None, ''):
+                    tgt[sid] = _norm(val)
+    meta = {sid: {'concept_group': cg_map.get(sid),
+                  'presentation_family': pf_map.get(sid),
+                  'subject': sub_map.get(sid),
+                  'linked_group_size': lg_map.get(sid)}
+            for sid in set(q2s.values())}
+    sections = [{'name': s.get('name') or s.get('section_name'),
+                 'q_range': s['q_range']} for s in secs
+                if isinstance(s.get('q_range'), (list, tuple))]
+    reports = bc.audit_placement(q2s, sections, meta)
+
+    fails, warns, notes = [], [], []
+    for sn, rep in reports.items():
+        adj = rep['adjacent_same_concept_group']
+        floor = rep['min_possible_adjacent_cg']
+        if len(adj) > floor:
+            offenders = []
+            for q in adj:
+                sid = q2s.get(q, '?')
+                cg = (meta.get(sid) or {}).get('concept_group') or sid
+                offenders.append('Q.%d/Q.%d repeat concept_group %r'
+                                 % (q - 1, q, cg))
+            fails.append('%s: %d adjacent same-concept_group pair(s) — %s; '
+                         'minimum achievable for this allocation is %d'
+                         % (sn, len(adj), '; '.join(offenders[:4]), floor))
+        elif floor > 0 and adj:
+            notes.append('%s: %d adjacent pair(s) at the proven floor %d '
+                         '(mathematically unavoidable for this allocation)'
+                         % (sn, len(adj), floor))
+        pfr = rep['max_presentation_family_run']
+        if pfr > 3:
+            fails.append('%s: presentation_family run of %d exceeds 3 '
+                         '(R19(b))' % (sn, pfr))
+        elif pfr == 3:
+            warns.append('%s: presentation_family run == 3 (R19(b) '
+                         'forced-composition escape used)' % sn)
+        sr = rep['max_subject_run']
+        if sr and sr > 3:
+            warns.append('%s: max same-subject run %d > 3 (secondary '
+                         'objective, not an R19 rule)' % (sn, sr))
+    if fails:
+        _fail('A-CLUSTER', ' | '.join(fails)
+              + (' [source: %s]' % provenance))
+    elif warns:
+        _warn('A-CLUSTER', ' | '.join(warns + notes)
+              + (' [source: %s]' % provenance))
+    else:
+        _ok('A-CLUSTER', 'R19 adjacency clean over %d question(s)%s '
+                         '[source: %s]'
+            % (len(q2s), ('; ' + '; '.join(notes)) if notes else '',
+               provenance))
+
+
 # ── A-DGATE (v2.19 — GAP-2026-08-25-DIFFICULTY-GATE-ROUND-COUNTER; v2.22 — REPAIR-RETIRED) ──
 # MIRROR of paper_pipeline Cluster DG's legal table. Self-contained on purpose (the
 # per-exam copy runs with no engine beside it); the self-test asserts parity with
@@ -4026,6 +4309,10 @@ def gate_dgate(src):
     """A-DGATE — certify every registry.difficulty_gate record. See the v2.19 header
     entry for the six checks. FAIL names the paper_id and the exact field."""
     reg = src.get('registry') or {}
+    if src.get('through_q'):
+        _ok('A-DGATE', 'dormant — partial-paper mode (--through-q): difficulty_gate '
+                       'records are a Step-9/Final-Assembly artefact; armed at S13-4c')
+        return
     if not reg:
         _ok('A-DGATE', 'dormant (needs --registry; armed at Final Assembly re-sweep S13-4c)')
         return
@@ -7730,6 +8017,133 @@ def self_test():
           all(mandate0_scan(x) for x in _leaky)
           and not any(mandate0_scan(x) for x in _clean))
 
+
+    # ── v2.23 fixtures: A-CLUSTER + partial-paper mode + mockN guard ────────
+    # (GAP-2026-08-28-PLACEMENT-UNSPECIFIED / -AUDIT-PARTIAL-PAPER / -AUDIT-
+    # MOCKN-GUARD). Registry-shaped inline data; no docx surface needed for
+    # A-CLUSTER — the gate reads sources, exactly like A-QINDEX/A-DGATE.
+    def _cl_src(q2s, sections, meta=None, mockN=9, cmap=False):
+        _qi = [{'mock': mockN, 'paper_id': 'MOCK:M%02d' % mockN,
+                'questions': [{'q': q, 'subtopic_id': s}
+                              for q, s in sorted(q2s.items())]}]
+        _mf = {'subtopics': {sid: dict(m) for sid, m in (meta or {}).items()}}
+        s = {'sections': sections,
+             'registry': ({} if cmap else {'question_index': _qi}),
+             'blueprint': {'mocks': [{'mock': mockN,
+                                      'paper_id': 'MOCK:M%02d' % mockN}]},
+             '_mockN': (None if cmap else mockN), 'manifest': _mf,
+             'section_rules_text': '', 'concept_map':
+                 ({str(q): {'subtopic_id': s_} for q, s_ in q2s.items()}
+                  if cmap else {})}
+        return s
+    _secA = [{'name': 'A', 'q_range': [1, 6]}]
+    # 1. clean spread paper -> OK
+    _reset()
+    gate_cluster(_cl_src({1: 'a', 2: 'b', 3: 'a', 4: 'c', 5: 'b', 6: 'c'},
+                         _secA), [])
+    check('A-CLUSTER-clean-pass',
+          any(c == 'A-CLUSTER' and l == 'OK' for l, c, _ in RESULTS))
+    # 2. the MOCK:M02 shape — blueprint-order 3-run — MUST FAIL naming Q.2/Q.3
+    _reset()
+    gate_cluster(_cl_src({1: 'a', 2: 'a', 3: 'a', 4: 'b', 5: 'c', 6: 'd'},
+                         _secA), [])
+    _r = [(l, m) for l, c, m in RESULTS if c == 'A-CLUSTER']
+    check('A-CLUSTER-3run-fails-naming-qs',
+          _r and _r[0][0] == 'FAIL' and 'Q.2' in _r[0][1] and 'Q.3' in _r[0][1]
+          and 'minimum achievable' in _r[0][1])
+    # 3. cross-subtopic concept_group collision (different subtopic_ids, one
+    #    concept_group, adjacent) MUST FAIL
+    _reset()
+    gate_cluster(_cl_src({1: 'x', 2: 'y', 3: 'z', 4: 'w', 5: 'z', 6: 'w'},
+                         _secA,
+                         meta={'x': {'concept_group': 'G'},
+                               'y': {'concept_group': 'G'},
+                               'z': {'concept_group': 'H'},
+                               'w': {'concept_group': 'I'}}), [])
+    check('A-CLUSTER-cross-subtopic-cg-fails',
+          any(c == 'A-CLUSTER' and l == 'FAIL' and "'G'" in m
+              for l, c, m in RESULTS))
+    # 4. linked-stimulus block: 4 consecutive same-subtopic Qs are EXEMPT
+    _reset()
+    gate_cluster(_cl_src({1: 'p', 2: 'p', 3: 'p', 4: 'p', 5: 'q', 6: 'r'},
+                         _secA,
+                         meta={'p': {'linked_group_size': 4}}), [])
+    check('A-CLUSTER-linked-block-exempt',
+          any(c == 'A-CLUSTER' and l == 'OK' for l, c, _ in RESULTS))
+    # 5. dominant subtopic AT the proven floor must NOT fire (floor for
+    #    {a:4, b:1} in 5 is 2*4-5-1 = 2); 6. ONE ABOVE the floor MUST fire
+    _reset()
+    gate_cluster(_cl_src({1: 'a', 2: 'a', 3: 'b', 4: 'a', 5: 'a'},
+                         [{'name': 'A', 'q_range': [1, 5]}]), [])
+    check('A-CLUSTER-dominant-at-floor-passes',
+          any(c == 'A-CLUSTER' and l == 'OK' and 'unavoidable' in m
+              for l, c, m in RESULTS))
+    _reset()
+    gate_cluster(_cl_src({1: 'a', 2: 'a', 3: 'a', 4: 'a', 5: 'b'},
+                         [{'name': 'A', 'q_range': [1, 5]}]), [])
+    check('A-CLUSTER-dominant-above-floor-fails',
+          any(c == 'A-CLUSTER' and l == 'FAIL' for l, c, _ in RESULTS))
+    # 6b. concept_map (--key) source path works when no registry is supplied
+    _reset()
+    gate_cluster(_cl_src({1: 'a', 2: 'a', 3: 'b'},
+                         [{'name': 'A', 'q_range': [1, 3]}], cmap=True), [])
+    check('A-CLUSTER-key-source-path',
+          any(c == 'A-CLUSTER' and l == 'FAIL' and 'concept_map' in m
+              for l, c, m in RESULTS))
+    # 6c. PARTIAL-PAPER MODE SOURCE ORDER: with --through-q, the live paper's
+    #     concept_map WINS over a registry whose only entry is a DIFFERENT
+    #     completed paper (the misattribution --mockN-less mid-flight risk).
+    _reset()
+    _mx = _cl_src({1: 'a', 2: 'a', 3: 'b'},
+                  [{'name': 'A', 'q_range': [1, 3]}], cmap=True)
+    _mx['registry'] = {'question_index': [
+        {'mock': 1, 'paper_id': 'MOCK:M01',
+         'questions': [{'q': 1, 'subtopic_id': 'z1'},
+                       {'q': 2, 'subtopic_id': 'z2'},
+                       {'q': 3, 'subtopic_id': 'z3'}]}]}
+    _mx['through_q'] = 3
+    gate_cluster(_mx, [])
+    check('A-CLUSTER-partial-prefers-live-concept-map',
+          any(c == 'A-CLUSTER' and l == 'FAIL'
+              and 'partial-paper mode' in m for l, c, m in RESULTS))
+    # 7. PARTIAL-PAPER MODE: a healthy 2-of-5 batch measured through Q.2 must
+    #    print structural PASS lines, not five FAILs
+    def _b_partial(d):
+        _add_q(d, 1); _add_q(d, 2)
+    _pp = _mini_doc(tmp, _b_partial)
+    _reset(); _t, _pbl = parse_blocks(Document(_pp))
+    _psrc = _src_stub(tq=2)
+    _psrc['through_q'] = 2
+    _psrc['sections'] = [{'name': 'A', 'q_range': [1, 2], 'total_qs': 2,
+                          '_partial': True, '_full_total_qs': 5}]
+    _psrc['through_q_dropped'] = ['B']
+    gate_structure(_pbl, _psrc); gate_seccount(_pbl, _psrc)
+    check('partial-mode-healthy-batch-passes',
+          not any(l == 'FAIL' for l, _, _ in RESULTS)
+          and any(c == 'A-SECCOUNT' and '(partial)' in m and 'B' in m
+                  for _, c, m in RESULTS))
+    # 8. PARTIAL-PAPER MODE with a real content defect (a missing Q) must FAIL
+    _reset()
+    gate_structure(_pbl, dict(_psrc, total_questions=3, through_q=3))
+    check('partial-mode-real-defect-fails',
+          any(c == 'A-COUNT' and l == 'FAIL' for l, c, _ in RESULTS))
+    # 9. mockN guard: the options_by_q legacy-key path with --mockN omitted
+    #    must not raise (was: TypeError int(None) at load_sources)
+    try:
+        _pid = None
+        _obq_all = {'MOCK:M07': {'1': 2}}
+        _N = None
+        _me = {}
+        _pid = (_me or {}).get('paper_id') or \
+               ('MOCK:M%02d' % int(_N) if _N is not None else None)
+        _sel = _obq_all.get(_pid) if _pid else None
+        if _sel is None and _N is not None:
+            _sel = _obq_all.get(str(_N), {})
+        check('mockN-guard-no-typeerror', _sel is None)
+    except TypeError:
+        check('mockN-guard-no-typeerror', False)
+
+
     print(f'SELF-TEST: {passed}/{total} PASS' if passed == total
           else f'SELF-TEST: {passed}/{total} PASS  (FAILURES: {fails})')
     return 0 if passed == total else 1
@@ -7742,6 +8156,12 @@ def main():
     ap.add_argument('--manifest');  ap.add_argument('--registry')
     ap.add_argument('--profile', help='[ExamCode]_difficulty_profile.json (A-DPROFILE; v2.21)')
     ap.add_argument('--mockN', type=int)
+    ap.add_argument('--through-q', dest='through_q', type=int,
+                    help='PARTIAL-PAPER MODE (v2.23): audit an intermediate batch '
+                         'as complete through Q.N — structural gates measure '
+                         'against 1..N, unreached sections are skipped-and-named, '
+                         'Final-Assembly gates (A-QINDEX, A-DGATE) report dormant. '
+                         'S4-7 STEP B passes the last Q of the cumulative docx.')
     ap.add_argument('--final', action='store_true')
     ap.add_argument('--audit-state', dest='audit_state',
                     help='Phase-3 COMPLETION GATE (S5-1A): validate the audit_state ledger '
