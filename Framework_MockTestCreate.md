@@ -1,4 +1,34 @@
-# Framework_MockTestCreate v5.78
+# Framework_MockTestCreate v5.79
+# v5.79 — 2026-08-28 — GAP-2026-08-28-MULTIPART-STEM-LAYOUT (estate-wide; exam-agnostic;
+#   a formatting-only change by operator ruling — no other standing issue is touched).
+#   PROBLEM: a stem carrying an enumerated sub-part series (reagent/procedure steps,
+#   test lists, statement sets, sentences-to-arrange, assertion–reason pairs) had no
+#   layout contract — the series shipped inline in one run-on paragraph, unreadable on
+#   one-question-per-screen portals — and sub-part LABELS were unconstrained: a
+#   digit-dot sub-part in one spacing EVADES the exam's strict OPTION_LABEL_RE while
+#   the exact-spacing form COLLIDES with it (G-NAT-NOOPT / G-OPTLABEL / R4 territory),
+#   and S12-NEW-2 flags the near-miss as a malformed option. The safe label set is
+#   EXAM-RELATIVE (option schemes span numeric/alpha/roman/custom across the estate)
+#   and SPACING-EXACT — exactly what session judgment gets wrong and a spec cannot.
+#   FIX, four parts: (1) NEW §10 S10-2b — MULTI-PART STEM LAYOUT CONTRACT: one BOLD
+#   continuation paragraph per sub-part; LABEL LAW (a) never a Q-number shape,
+#   (b) never THIS exam's own option-label scheme tested SPACING-INSENSITIVELY,
+#   (c) bare digit-dot/digit-paren banned under EVERY exam, (d) safe-ladder choice;
+#   MSQ/NAT instruction stays INSIDE the Q.N line (R14 anchors unchanged); canonical
+#   NAT order Q.N(context+instruction) → sub-parts → closing ask; MATCH excluded
+#   (lists stay REAL tables); linked-block sub-parts follow the non-numbered ask.
+#   (2) NEW S10-3 helpers add_stem_multipart + _subpart_label_violation — the LABEL
+#   LAW raises AT AUTHORING TIME, so a colliding paper cannot be BUILT, independent
+#   of every downstream gate. (3) S10-1 gains the MULTI-PART STEMS format rule.
+#   (4) S2-2 gains R-SUBPART; S4-11 gains its 44th item G-STEM-SUBPART (Layer-1-only,
+#   joining the no-auditor-twin items); normative checklist counts move 43→44.
+#   Existing gates G-QNUM-FIRST, G-OPTLABEL, G-NAT-NOOPT, R4, K-INT are UNCHANGED and
+#   act as independent backstops. Downstream Steps 9/11 need NO change: RE-3 /
+#   verify_fidelity (Step 9) and the byte-identical tagger (Step 11) are pass-through
+#   by design; MockDeliver §2 already documents "Q.N [bold stem text] — may span
+#   multiple paragraphs". FORWARD-ONLY: papers authored from v5.79 onward; the PYQ
+#   flow / Row files are UNTOUCHED by operator scope ruling (PYQPrepare owns that
+#   contract, not this spec).
 # v5.78 — 2026-08-28 — GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM (paired with
 #   explain_engine v2.10's resolve_learnings_files, already on this trigger's route).
 #   v5.77's widened glob made a non-{EXAM}-prefixed learnings file VISIBLE (a real
@@ -898,6 +928,19 @@ sections off the per-batch execution path — it does not shrink, soften or dele
        (error-spotting, sentence-improvement, fill-in-sentence) must also place the
        instruction and the sentence on SEPARATE paragraphs (§10-S10-2, generalised
        in v4.2 — no run-on). Enforced by §10-S10-2 layout + gate G-OPTREF.
+  R-SUBPART (v5.79, HARD STOP at authoring): A stem that carries TWO OR MORE
+       enumerated sub-parts (reagent/procedure steps, test lists, statement sets,
+       sentences-to-arrange, assertion–reason pairs — any labelled enumeration
+       that is neither the option set nor a MATCH list) renders ONE bold
+       continuation paragraph PER sub-part — never an inline run-on stem.
+       Sub-part labels obey the §10 S10-2b LABEL LAW: never a Q-number shape,
+       never THIS exam's own option-label scheme in ANY spacing, never a bare
+       digit-dot/digit-paren label under any exam. EXAM-AGNOSTIC by construction:
+       the collision test renders this exam's own labels via _option_label /
+       OPTION_LABEL_FMT — nothing hardcoded. Enforced by add_stem_multipart
+       (raises at authoring, §10 S10-3), layout §10 S10-2b, and checklist item
+       G-STEM-SUBPART (S4-11). MATCH lists remain REAL tables (G-MATCH-TABLE);
+       MSQ/NAT instructions remain inside the Q.N line (G-MSQ-INSTR/G-NAT-INSTR).
   R-ANSWER (v4.5, HARD STOP at generation — generalises v4.2 R-UNIQUE; single source
        of truth; the former audit-side mirror of this rule is retired — this is now the
        sole statement of it anywhere). The contract is parameterised by the
@@ -3183,7 +3226,7 @@ sections off the per-batch execution path — it does not shrink, soften or dele
 
   EMISSION LAW (v5.77): the batch gate report PRINTS every item name below,
   programmatically from this list — never from recall. A report with fewer
-  than 43 G-* lines is ITSELF a gate failure. (The incident report omitted 5
+  than 44 G-* lines is ITSELF a gate failure. (The incident report omitted 5
   of 43 items; the only one of the five that inspects placement rather than
   allocation — G-CLUSTER — was exactly the one that would have caught the
   defect.)
@@ -3313,8 +3356,15 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   renders its List columns as a REAL Word table, not plain text. Executable
                   enforcement is the audit.py A-MATCH-TABLE (STEP B); this item is the
                   no-audit fallback. HARD FAIL — re-emit via add_match_table().
+  [ ] G-STEM-SUBPART: (v5.79) Every multi-part stem in this batch (>=2
+                  enumerated sub-parts) renders ONE BOLD sub-part per paragraph
+                  via add_stem_multipart; NO sub-part line opens with a Q-number
+                  shape, a bare digit-dot/digit-paren label, or THIS exam's own
+                  option-label scheme in ANY spacing (S10-2b LABEL LAW); the
+                  MSQ/NAT instruction remains INSIDE the Q.N line; MATCH lists
+                  remain REAL tables, never sub-part lines. (S10-2b) HARD FAIL.
 
-  All 43 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 44 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
@@ -5650,6 +5700,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   BLANK SEPARATOR: one blank paragraph (add_paragraph()) after every Q's options.
   Q-NUMBER FORMAT: Q.<N>  [stem text] — dot between Q and number, two spaces.
 
+  MULTI-PART STEMS (v5.79): a stem with >=2 enumerated sub-parts renders ONE
+    BOLD continuation paragraph per sub-part via add_stem_multipart (S10-2b).
+    Sub-part labels obey the S10-2b LABEL LAW — never the Q-number shape, never
+    this exam's own option scheme in any spacing, never bare digit-dot/digit-paren.
+
 ## S10-2 — UNDERLINE-SPAN CONTRACT (v4.1 — executable; replaces the v1.0 stub)
 
   A question that asks about an UNDERLINED span must render that span as a REAL
@@ -5753,6 +5808,76 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         return p1, p2
     ```
 
+## S10-2b — MULTI-PART STEM LAYOUT CONTRACT (v5.79 — estate-wide, exam-agnostic)
+
+  WHAT QUALIFIES. A stem that presents TWO OR MORE enumerated sub-parts as a
+  series — reagent/procedure sequences, test or observation lists, statement
+  sets, sentences-to-arrange, assertion–reason pairs, or any other labelled
+  enumeration — where the sub-parts are NEITHER the option set NOR the lists
+  of a MATCH question.
+
+  LAYOUT (the S10-2 no-run-on principle, generalised):
+    1. Q.N-FIRST paragraph: lead-in/context, PLUS the MSQ select-instruction or
+       NAT numerical-entry instruction INSIDE this paragraph when applicable
+       (R14; G-MSQ-INSTR / G-NAT-INSTR — both anchors unchanged by this section).
+    2. ONE BOLD continuation paragraph PER sub-part, in order, configured
+       font/size (S10-1), rendered via add_stem_multipart (S10-3).
+    3. OPTIONAL closing-ask paragraph (bold) after the series. CANONICAL for
+       NAT count-the-series stems: context + instruction on the Q.N line, then
+       the sub-parts, then the closing ask — natural reading order preserved
+       while the instruction stays anchored to Q.N.
+    4. Options (if any) follow per R13; blank separator per G-BLANK.
+    LINKED (CLASS-4) blocks: sub-parts that belong to the specific ask are
+    emitted AFTER the non-numbered ask paragraph, inside the §9 Model A order.
+    FIGURAL blocks: sub-part paragraphs are document text and PRECEDE the
+    problem image(s).
+
+  LABEL LAW (the load-bearing rule — exam-agnostic and spacing-insensitive):
+    (a) A sub-part line NEVER opens with the Q-number shape (Q + '.' + digits,
+        any spacing). G-QNUM-FIRST guarantees exactly one Q.N paragraph per
+        block; this law keeps continuation lines invisible to that anchor.
+    (b) A sub-part line NEVER matches THIS exam's own option-label scheme,
+        tested SPACING-INSENSITIVELY. Spacing must never decide safety: a
+        one-space digit-dot evades a strict two-space OPTION_LABEL_RE while the
+        two-space form collides, and S12-NEW-2 flags the near-miss as a
+        malformed option. The test therefore strips ALL whitespace and compares
+        against the labels this exam ACTUALLY renders (_option_label for
+        positions 1..9) — numeric, alpha, roman or custom, nothing hardcoded.
+    (c) Bare digit-dot / digit-paren openings ("1.", "1)", "(1)") are BANNED in
+        sub-part lines under EVERY exam regardless of the configured scheme:
+        numeric families are the most common option scheme in the estate and
+        the near-miss spacings are ambiguous to every downstream consumer. A
+        sub-part whose content begins with a number ("2.5 g of NaOH ...") must
+        therefore carry its label first ("(ii) 2.5 g of NaOH ...").
+    (d) SAFE-LADDER selection (authoring guidance; label style stays free per
+        question within the law): prefer "(i)/(ii)/(iii)" roman-in-parens, then
+        "(A)/(B)/(C)" alpha-in-parens, then "A./B./C." alpha-dot, then worded
+        labels ("Step 1:", "Test 1:") — SKIPPING any rung that (b) rejects for
+        THIS exam. On a numeric-option exam all four rungs are safe; on a
+        roman-option exam rung 1 is skipped; on an alpha-option exam rungs 2–3
+        are skipped. The helper enforces (a)-(c) mechanically; (d) is a choice.
+
+  ENFORCEMENT MAP (four independent layers — any one alone stops a breach):
+    1. AUTHORING RAISE: add_stem_multipart validates every sub-part line AND
+       the optional closing ask against (a)-(c), and rejects empty sub-part
+       lines, RAISING before any paragraph exists. A colliding paper cannot
+       be BUILT.
+    2. EXISTING GATES (unchanged): G-QNUM-FIRST, G-OPTLABEL, G-NAT-NOOPT, R4
+       option counts, K-INT — a breach that somehow rendered would hard-fail
+       STEP B before present_files (B-7).
+    3. CHECKLIST: S4-11 item G-STEM-SUBPART, every batch, Layer 1 (no auditor
+       twin — joins the checklist-only items; the auditor's block/option
+       parsers are unaffected by construction and need no new gate).
+    4. DOWNSTREAM CONTRACTS (unchanged, pass-through): Step 9 RE-3 /
+       verify_fidelity and Step 11's byte-identical tagger propagate the layout
+       untouched; MockDeliver §2 already documents multi-paragraph stems.
+
+  SCOPE. Applies to every paper this spec authors (mock + scoped, every exam)
+  from v5.79 onward. FORWARD-ONLY: already-delivered papers keep their layout
+  (downstream fidelity gates make it permanent by design). The PYQ flow is
+  UNTOUCHED by operator scope ruling — Row-file layout is PYQPrepare's
+  contract, not this spec's.
+
 ## S10-3 — Python helpers (v2.0 — Calibri enforced)
 
   ```python
@@ -5823,6 +5948,55 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       run.font.name = FONT_NAME
       run.font.size = Pt(FONT_SIZE_PT)
       return p
+
+  def _subpart_label_violation(line):
+      """S10-2b LABEL LAW (a)-(c) test for ONE sub-part line. Returns a reason
+      string on violation, None when the line is safe. EXAM-AGNOSTIC: (b)
+      renders THIS exam's own labels via _option_label — numeric, alpha, roman
+      or custom — and compares with ALL whitespace stripped, so spacing can
+      never decide safety."""
+      import re as _re
+      if _re.match(r'^\s*Q\s*\.\s*\d+', line):
+          return "LABEL LAW (a): sub-part opens with a Q-number shape"
+      if _re.match(r'^\s*\(?\d+\s*[\.\)]', line):
+          return "LABEL LAW (c): bare digit-dot/digit-paren label (banned under every exam)"
+      probe = _re.sub(r'\s+', '', line)
+      for i in range(1, 10):
+          try:
+              lbl = _re.sub(r'\s+', '', _option_label(i))
+          except Exception:
+              break
+          if lbl and probe.startswith(lbl):
+              return ("LABEL LAW (b): sub-part opens with this exam's own "
+                      f"option label {_option_label(i)!r} (spacing-insensitive)")
+      return None
+
+  def add_stem_multipart(doc, qnum, lead_in, subparts, closing_ask=None,
+                         msq_instruction=None, nat_instruction=None):
+      """S10-2b renderer (v5.79). Q.N-first lead-in with the MSQ/NAT
+      instruction INSIDE it (R14 anchors), then ONE BOLD paragraph per
+      already-labelled sub-part, then the optional closing ask. RAISES at
+      authoring on any LABEL LAW breach — a colliding paper cannot be built
+      (S10-2b enforcement layer 1)."""
+      if len(subparts) < 2:
+          raise ValueError("S10-2b: add_stem_multipart requires >=2 sub-parts; "
+                           "use add_question_stem/add_stem_ml for plain stems")
+      instr = msq_instruction or nat_instruction
+      p0 = add_question_stem(doc, qnum, lead_in, msq_instruction=instr)
+      for line in subparts:
+          if not line or not line.strip():
+              raise ValueError("S10-2b: empty/whitespace-only sub-part line — "
+                               "always an authoring error, never rendered")
+          reason = _subpart_label_violation(line)
+          if reason:
+              raise ValueError(f"S10-2b {reason}: {line[:48]!r}")
+          add_stem_ml(doc, line, bold=True)            # S10-1: sub-parts BOLD
+      if closing_ask:
+          reason = _subpart_label_violation(closing_ask)
+          if reason:                                    # the ask is a stem line too
+              raise ValueError(f"S10-2b (closing ask) {reason}: {closing_ask[:48]!r}")
+          add_stem_ml(doc, closing_ask, bold=True)
+      return p0
 
   def add_standard_question(doc, qnum, stem, options, answer_cardinality='single',
                             section_rules_text='', language='english'):
@@ -8968,7 +9142,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   Final Assembly); it never touches `status` or `repair_rounds_used`.
 #   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-# END OF Framework_MockTestCreate v5.78
+# END OF Framework_MockTestCreate v5.79
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

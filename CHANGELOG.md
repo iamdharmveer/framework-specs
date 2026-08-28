@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026.08.28.4 — GAP-2026-08-28-MULTIPART-STEM-LAYOUT: multi-part stems render one bold sub-part per line, under an exam-relative, spacing-insensitive label law enforced at authoring time
+
+**Framework_MockTestCreate v5.78 -> v5.79 (NEW §10 S10-2b MULTI-PART STEM LAYOUT
+CONTRACT; NEW S10-3 helpers add_stem_multipart + _subpart_label_violation with
+authoring-time raises; S10-1 gains the MULTI-PART STEMS format rule; S2-2 gains
+R-SUBPART; S4-11 gains its 44th item G-STEM-SUBPART — normative checklist counts
+43->44). No engine changes; no other spec changes. Zero exam values.**
+
+THE GAP. A stem carrying an enumerated sub-part series (reagent/procedure steps, test
+lists, statement sets, sentences-to-arrange, assertion-reason pairs) had no layout
+contract: the series shipped inline in one run-on paragraph — cluttered on
+one-question-per-screen portals — and sub-part labels were unconstrained. The hazard is
+exam-relative and spacing-exact: a digit-dot sub-part in one spacing EVADES a strict
+two-space OPTION_LABEL_RE while the exact-spacing form COLLIDES with it
+(G-NAT-NOOPT / G-OPTLABEL / R4 territory), and S12-NEW-2 flags the near-miss as a
+malformed option. Option schemes span numeric/alpha/roman/custom across the estate, so
+no fixed "safe label" exists — the safe set must be computed against EACH exam's own
+scheme, which is exactly what session judgment gets wrong and a spec cannot.
+
+THE FIX. S10-2b states the layout (one BOLD continuation paragraph per sub-part;
+MSQ/NAT instruction stays INSIDE the Q.N line per the unchanged R14 anchors; canonical
+NAT order Q.N(context+instruction) -> sub-parts -> closing ask; MATCH lists stay REAL
+tables; linked-block sub-parts follow the non-numbered ask; figural sub-parts precede
+images) and the LABEL LAW: (a) never a Q-number shape, (b) never THIS exam's own
+option-label scheme tested SPACING-INSENSITIVELY (the test strips ALL whitespace and
+compares against the labels _option_label actually renders — nothing hardcoded),
+(c) bare digit-dot/digit-paren banned under EVERY exam, (d) safe-ladder guidance.
+add_stem_multipart RAISES at authoring on any breach — a colliding paper cannot be
+BUILT — with G-QNUM-FIRST / G-OPTLABEL / G-NAT-NOOPT / R4 / K-INT unchanged as
+independent backstops and G-STEM-SUBPART as the every-batch Layer-1 item (no auditor
+twin; joins the checklist-only items). Downstream needs NOTHING: Step 9
+RE-3/verify_fidelity and Step 11's byte-identical tagger are pass-through by design,
+and MockDeliver already documents multi-paragraph stems. FORWARD-ONLY from v5.79;
+the PYQ flow / Row files are untouched by operator scope ruling.
+
+VERIFIED AT RELEASE: validate_framework_md.py + audit_specs_ext.py clean corpus-wide;
+the shipped S10-3 helper text executed against four option-label schemes
+(1/2/3/4, A/B/C/D, (i)/(ii), (1)/(2)) — 9/9 exam-relativity assertions PASS (roman
+sub-parts safe on numeric exams and REFUSED on roman-option exams; digit forms and
+Q-shapes refused everywhere in every spacing); end-to-end docx build via the shipped
+helpers segments as exactly one Q.N paragraph per block with correct option counts.
+
 ## 2026.08.28.3 — GAP-2026-08-28-STEP7-SUBJECT-LEARNINGS-SEAM: one discovery contract for one file family — Step 7 stops instructing the estate to undo the Explain-side fix
 
 **Framework_MockTestCreate v5.77 -> v5.78 (S3-1 staging + S3-3 load resolve the

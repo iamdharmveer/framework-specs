@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 9051,
-      "sha256": "e383acd6a7db09f23d98ed15ce8944da4934bb6fa5086d1494e89d62574e32af",
-      "size_bytes": 575637,
-      "version_header": "# Framework_MockTestCreate v5.78"
+      "lines": 9225,
+      "sha256": "06f0f4d8d317ebf6b093348df21231189c30f4fc13679073e635006dc82291fd",
+      "size_bytes": 587262,
+      "version_header": "# Framework_MockTestCreate v5.79"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
