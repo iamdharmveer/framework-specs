@@ -1,6 +1,21 @@
 """
-corpus_io.py v1.13 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.14 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
+
+v1.14 — 2026-08-29 — GAP-2026-08-29-FIGURE-COLOUR-ROLES (MockTestCreate v5.80 S10-7C).
+    structure_draw_fn no longer draws with rdkit's DEFAULT atom palette — a value
+    that is unpinned across rdkit versions and fails WCAG 3.0:1 on Cl/S/F/P — but
+    with figural_core.ATOM_PALETTE (CPK hue families, TEXT-tier values, S/P black).
+    Three additive keywords: element_colours (default True), highlight_atoms /
+    highlight_bonds (opaque figural_core.HIGHLIGHT_COLOUR under the interrogated
+    site; a labelled heteroatom's highlight is carried by its incident bonds so
+    its symbol is never overprinted). The returned draw_fn exposes
+    .coloured_elements (the heteroatom symbols it colours) and
+    .set_element_colours(flag) so figural_core.render_option_set() can make ONE
+    element-colour decision for a whole option set (Q7b.14). Signature
+    order, .canonical, the imshow extent contract and every PYQ-side function are
+    byte-identical; an rdkit without updateAtomPalette degrades to its BW palette
+    and records draw.palette_note — never a halt.
 
 v1.13 — 2026-08-25 — GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION. optimize_docx gains
     mode='max' (PYQCompress v2.0.0): a single governor pass at blueprint_core.MAX_TIER
@@ -4257,11 +4272,20 @@ def canonical_structure(smiles):
     return Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True), 'ok'
 
 
-def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0)):
+def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0),
+                      element_colours=True, highlight_atoms=(), highlight_bonds=()):
     """A figural_core draw_fn (ax, series, palette) that rasterises `smiles` with
     rdkit into the axes. The image IS the semantic object: what is registered is
     what was drawn (MockTestCreate v5.59 S7-NEW-B2). Raises ValueError if rdkit
-    rejects the SMILES or is unavailable — a STRUCTURE figure is never hand-drawn."""
+    rejects the SMILES or is unavailable — a STRUCTURE figure is never hand-drawn.
+
+    v1.14 (MockTestCreate v5.80 S10-7C / Q7b.9 / Q7b.14): atoms are coloured from
+    figural_core.ATOM_PALETTE (never rdkit's default); `highlight_*` accent the
+    interrogated site in figural_core.HIGHLIGHT_COLOUR (opaque; atom highlights
+    redirected to its incident bonds, never under the symbol); `element_colours=False`
+    renders every atom black. The returned draw_fn carries .canonical,
+    .coloured_elements and .set_element_colours(flag); render_option_set() uses the
+    last two to keep heteroatom colour uniform across an option set."""
     canon, reason = canonical_structure(smiles)
     if canon is None:
         raise ValueError(f'structure_draw_fn: cannot render {smiles!r}: {reason}')
@@ -4269,18 +4293,94 @@ def structure_draw_fn(smiles, px=(900, 700), extent=(0.0, 9.0, 0.0, 7.0)):
     from rdkit.Chem.Draw import rdMolDraw2D
     import numpy as _np
     from PIL import Image as _Image
+    # DEPENDENCY DIRECTION (validator check AI): corpus_io is routed to every PYQ
+    # step, where figural_core is NOT loaded, so this module never imports it.
+    # The palette is read from figural_core ONLY IF the Create flow has already
+    # imported it in this process (S7-NEW-B2: `import figural_core as fc`
+    # precedes every render). Without it the structure renders BLACK-AND-WHITE
+    # — deterministic, never rdkit's default — and records draw.palette_note.
+    import sys as _sys
+    _fc = _sys.modules.get('figural_core')
+    if _fc is not None and hasattr(_fc, 'ATOM_PALETTE'):
+        _atom_pal, _coloured, _hl, _hl_mult = (_fc.ATOM_PALETTE, _fc.ATOM_COLOURED_SYMBOLS,
+                                               _fc.HIGHLIGHT_COLOUR, _fc.HIGHLIGHT_BOND_WIDTH_MULT)
+        _pal_note = None
+    else:
+        _atom_pal, _coloured, _hl, _hl_mult = {}, frozenset(), '#0072B2', 6
+        _pal_note = 'figural_core not loaded in this process — BW atom palette used'
     mol = Chem.MolFromSmiles(smiles)
-    d = rdMolDraw2D.MolDraw2DCairo(int(px[0]), int(px[1]))
-    d.drawOptions().clearBackground = False
-    rdMolDraw2D.PrepareAndDrawMolecule(d, mol)
-    d.FinishDrawing()
-    arr = _np.asarray(_Image.open(io.BytesIO(d.GetDrawingText())).convert('RGBA'))
+    present = {a.GetSymbol() for a in mol.GetAtoms()}
+    state = {'colours': bool(element_colours), 'note': _pal_note}
+    # Atom highlights are FILLED discs on every rdkit build tested (fillHighlights
+    # is not honoured for atoms), so a disc may sit only under an UNLABELLED
+    # carbon vertex; a labelled heteroatom's accent moves to its incident bonds
+    # so the symbol is never overprinted (Q7b.9 text contrast).
+    hl_atoms, hl_bonds = [], [int(i) for i in (highlight_bonds or ())]
+    _n_atoms = mol.GetNumAtoms()
+    _n_bonds = mol.GetNumBonds()
+    for i in hl_bonds:
+        if not (0 <= i < _n_bonds):
+            raise ValueError(f'structure_draw_fn: highlight_bonds index {i} outside '
+                             f'0..{_n_bonds - 1} for {smiles!r}')
+    for i in (highlight_atoms or ()):
+        if not (0 <= int(i) < _n_atoms):
+            raise ValueError(f'structure_draw_fn: highlight_atoms index {i} outside '
+                             f'0..{_n_atoms - 1} for {smiles!r}')
+        a = mol.GetAtomWithIdx(int(i))
+        if a.GetSymbol() == 'C' and not a.GetFormalCharge():
+            hl_atoms.append(int(i))
+        else:
+            hl_bonds += [b.GetIdx() for b in a.GetBonds() if b.GetIdx() not in hl_bonds]
+    hl_rgb = tuple(int(_hl[i:i + 2], 16) / 255.0 for i in (1, 3, 5))
+
+    def _raster():
+        d = rdMolDraw2D.MolDraw2DCairo(int(px[0]), int(px[1]))
+        o = d.drawOptions()
+        o.clearBackground = False
+        if state['colours'] and _atom_pal and hasattr(o, 'updateAtomPalette'):
+            o.updateAtomPalette({int(k): tuple(v) for k, v in _atom_pal.items()})
+            # anything not in the pinned map (S, P, metals, ...) is BLACK
+            _missing = {a.GetAtomicNum() for a in mol.GetAtoms()} - set(_atom_pal)
+            if _missing:
+                o.updateAtomPalette({int(k): (0.0, 0.0, 0.0) for k in _missing})
+        elif hasattr(o, 'useBWAtomPalette'):
+            o.useBWAtomPalette()
+            if state['colours'] and _atom_pal:
+                state['note'] = 'rdkit lacks updateAtomPalette — BW palette used'
+        elif state['colours'] and _atom_pal:
+            state['note'] = ('rdkit lacks atom-palette control — its default '
+                             'palette was used (report as an AMBER note)')
+        if hl_atoms or hl_bonds:
+            if hasattr(o, 'setHighlightColour'):
+                o.setHighlightColour(hl_rgb + (1.0,))
+            if hasattr(o, 'highlightBondWidthMultiplier'):
+                o.highlightBondWidthMultiplier = int(_hl_mult)
+        rdMolDraw2D.PrepareAndDrawMolecule(d, mol, highlightAtoms=hl_atoms,
+                                           highlightBonds=hl_bonds)
+        d.FinishDrawing()
+        return _np.asarray(_Image.open(io.BytesIO(d.GetDrawingText())).convert('RGBA'))
+
+    holder = {'arr': _raster()}
 
     def draw(ax, series=None, palette=None):
-        ax.imshow(arr, extent=extent)
+        ax.imshow(holder['arr'], extent=extent)
         ax.set_xlim(extent[0], extent[1]); ax.set_ylim(extent[2], extent[3])
         ax.axis('off')
+
+    def set_element_colours(flag):
+        flag = bool(flag)
+        if flag != state['colours']:
+            state['colours'] = flag
+            holder['arr'] = _raster()
+        draw.element_colours = state['colours']
+        draw.palette_note = state['note']
+
     draw.canonical = canon
+    draw.coloured_elements = frozenset(present & _coloured)
+    draw.element_colours = state['colours']
+    draw.highlight = {'atoms': hl_atoms, 'bonds': hl_bonds}
+    draw.set_element_colours = set_element_colours
+    draw.palette_note = state['note']
     return draw
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -5117,6 +5217,62 @@ def self_test():
             check('chem_drawfn_canonical', _df.canonical == _c1 and callable(_df))
         except Exception as _e:
             check('chem_drawfn_canonical', 'No module' in str(_e))
+        # ── v1.14 colour roles (MockTestCreate v5.80 S10-7C) ─────────────────
+        # BW fallback FIRST (figural_core deliberately not loaded yet).
+        try:
+            import sys as _sys0
+            if 'figural_core' not in _sys0.modules:
+                _bw = structure_draw_fn('CCO')
+                check('chem_drawfn_bw_when_figural_core_absent',
+                      _bw.palette_note is not None and _bw.coloured_elements == frozenset())
+            __import__('figural_core')            # the Create-flow condition (test only)
+            import numpy as _np
+            def _colour_px(a):
+                rgb = a[..., :3].astype(int); vis = a[..., 3] > 128
+                return int(((rgb.max(-1) - rgb.min(-1)) > 25)[vis].sum())
+            def _has_rgb(a, hexc):
+                want = tuple(int(hexc[i:i + 2], 16) for i in (1, 3, 5))
+                rgb = a[..., :3]
+                return bool(((rgb == want).all(-1) & (a[..., 3] > 128)).any())
+            _h = structure_draw_fn('CC=CC')                     # hydrocarbon
+            _e = structure_draw_fn('CCO')                       # alcohol
+            check('chem_drawfn_coloured_elements',
+                  _h.coloured_elements == frozenset() and _e.coloured_elements == frozenset({'O'}))
+            # the O symbol is drawn in the TEXT-tier vermillion, not rdkit red
+            _arr_e = [c.cell_contents for c in _e.__closure__
+                      if isinstance(c.cell_contents, dict) and 'arr' in c.cell_contents][0]['arr']
+            check('chem_drawfn_pinned_atom_palette',
+                  _has_rgb(_arr_e, '#C25604') and not _has_rgb(_arr_e, '#FF0000'))
+            _arr_h = [c.cell_contents for c in _h.__closure__
+                      if isinstance(c.cell_contents, dict) and 'arr' in c.cell_contents][0]['arr']
+            check('chem_drawfn_hydrocarbon_is_black', _colour_px(_arr_h) == 0)
+            _e.set_element_colours(False)
+            _arr_e2 = [c.cell_contents for c in _e.__closure__
+                       if isinstance(c.cell_contents, dict) and 'arr' in c.cell_contents][0]['arr']
+            check('chem_drawfn_set_element_colours_black',
+                  _colour_px(_arr_e2) == 0 and _e.element_colours is False)
+            _hl = structure_draw_fn('CC=CC', highlight_bonds=[1])
+            _arr_hl = [c.cell_contents for c in _hl.__closure__
+                       if isinstance(c.cell_contents, dict) and 'arr' in c.cell_contents][0]['arr']
+            check('chem_drawfn_highlight_accents_hydrocarbon',
+                  _colour_px(_arr_hl) > 0 and _has_rgb(_arr_hl, '#0072B2')
+                  and _hl.highlight == {'atoms': [], 'bonds': [1]})
+            _ha = structure_draw_fn('CC=CC', highlight_atoms=[0])
+            _arr_ha = [c.cell_contents for c in _ha.__closure__
+                       if isinstance(c.cell_contents, dict) and 'arr' in c.cell_contents][0]['arr']
+            check('chem_drawfn_highlight_atoms_draw',
+                  _has_rgb(_arr_ha, '#0072B2') and _ha.highlight['atoms'] == [0])
+            try:
+                structure_draw_fn('CCO', highlight_bonds=[9]); check('chem_drawfn_bad_highlight_is_valueerror', False)
+            except ValueError:
+                check('chem_drawfn_bad_highlight_is_valueerror', True)
+            _ho = structure_draw_fn('CCO', highlight_atoms=[2])           # the O
+            check('chem_drawfn_heteroatom_highlight_goes_to_bonds',
+                  _ho.highlight['atoms'] == [] and _ho.highlight['bonds'] == [1])
+            check('chem_drawfn_signature_additive',
+                  callable(structure_draw_fn('CCO', (300, 200), (0, 3, 0, 2))))
+        except Exception as _e2:
+            check('chem_drawfn_colour_roles', 'No module' in str(_e2))
     else:
         check('chem_rdkit_absent_is_soft', _c1 is None and _r1 == 'rdkit_unavailable')
 

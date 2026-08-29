@@ -1,3 +1,37 @@
+# Deploy: GAP-2026-08-29-FIGURE-COLOUR-ROLES — release 2026.08.29.1
+
+**Files to commit (9):** `figural_core.py`, `corpus_io.py` (v1.14),
+`Framework_MockTestCreate.md` (v5.80), `VERSION`, `CHANGELOG.md`, `DEPLOY_NOTES.md`,
+`MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json` (its read-set line ranges
+moved with the spec edit, so it is regenerated and shipped). Two engines and one spec
+changed.
+Engines are NOT `Framework_*.md`: deploy them on this explicit instruction only, after
+`python3 figural_core.py --self-test` (163/163) and `python3 corpus_io.py --self-test`
+(362/362) pass on the deployed bytes.
+
+**Operator change (all ~200 exams): NONE.** No project file, no exam_config, no
+section_rules change anywhere. `exam_config.figure_palette` was never wired and is now
+formally closed; an exam_config that carries the key is ignored, never an error.
+
+**What a Step 7 run does differently from this release on:** structures draw atoms from
+figural_core.ATOM_PALETTE (O #C25604, N #0072B2, halogens #158663, everything else
+black) instead of rdkit's default; an option set with divergent heteroatom sets renders
+all-black automatically; a stem/option that interrogates a colour renders monochrome;
+`fc.text_ink()` / `fc.fill_style()` are the authoring calls for coloured text and fills;
+new sidecars carry `colour_profile: 2`. Nothing else in the render, layout, sidecar
+schema, registry or footer changes.
+
+**What does NOT change:** every delivered paper; every PYQ step (corpus_io reads the
+palette from `sys.modules` and never imports figural_core — validator check AI proves the
+declared dependency sets are unchanged); Explain and Notes figures (separate GAPs, P2/P3);
+audit_canonical (unchanged — see CHANGELOG "KNOWN, NOT TOUCHED": the new gates are silent
+at Step 8 until the figure-gate emission GAP lands).
+
+**Rollback:** revert the three files; a sidecar written at v5.80 carries `colour_profile`
+which v5.79 ignores.
+
+---
+
 # Deploy: GAP-2026-08-29-DIFFICULTY-HARDER-PRESET + GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS — release 2026.08.29
 
 **Files to commit (10):** `blueprint_core.py`, `audit_canonical.py` (v2.24),

@@ -30,10 +30,10 @@
     },
     "Framework_MockTestCreate.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 9225,
-      "sha256": "06f0f4d8d317ebf6b093348df21231189c30f4fc13679073e635006dc82291fd",
-      "size_bytes": 587262,
-      "version_header": "# Framework_MockTestCreate v5.79"
+      "lines": 9392,
+      "sha256": "a575ebba6bf06a3146894e00c79213cc61b6f8f2bbe7adc3ff8c6ef205a27b31",
+      "size_bytes": 600088,
+      "version_header": "# Framework_MockTestCreate v5.80"
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
@@ -254,9 +254,9 @@
     },
     "corpus_io.py": {
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 5134,
-      "sha256": "06ae4408c7e34445bad8d5cafcb97ac749a35c0065a5eb08fb0fff13aa9fc4c9",
-      "size_bytes": 263647,
+      "lines": 5290,
+      "sha256": "b99bfa0a1768a1d8206dfd1fb0fec899b036fd8ce34608fc5c7401c6f9b5569a",
+      "size_bytes": 273239,
       "version_header": "\"\"\""
     },
     "explain_engine.py": {
@@ -268,9 +268,9 @@
     },
     "figural_core.py": {
       "end_sentinel": "    print(\"figural_core.py — shared figure renderer + gates. Run with --self-test.\")",
-      "lines": 2608,
-      "sha256": "15ec0a02027490a017cb65d589a0c4e1c12a7ab8dd1bd2cb7efa234d73e7acaf",
-      "size_bytes": 125203,
+      "lines": 3145,
+      "sha256": "4580b43b12203bf9261078e04e43af5209c3c2db4e213f558ce59708462988da",
+      "size_bytes": 154830,
       "version_header": "\"\"\""
     },
     "figural_vision.py": {

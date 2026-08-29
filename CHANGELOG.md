@@ -1,5 +1,75 @@
 # Changelog
 
+## 2026.08.29.1 — GAP-2026-08-29-FIGURE-COLOUR-ROLES: the eight Okabe-Ito hues gain ROLES (text / line-mark / fill) and the role is what is gated; rdkit structures draw from a pinned CVD-safe atom palette; an option set decides heteroatom colour once; a colour-interrogating question renders monochrome
+
+**figural_core (v5.80 constants ROLE_LINE / ROLE_TEXT / ROLE_FILL / FILL_TINTS / HATCHES /
+SERIES_CHROMATIC_CAP / ATOM_PALETTE / HIGHLIGHT_COLOUR; helpers text_ink, fill_style,
+colour_is_content, wcag_contrast; sidecar colour_profile=2 + text_colours / fills /
+colour_content / highlight / element_colours; gates G-FIGTEXTINK, G-FIGSERIESCAP,
+G-FIGFILLADJ, G-FIGCOLOURCONTENT (AMBER) and G-FIGOPTELEM (VOID_ITEM), all in
+NEVER_BLOCKING_ON_COLOUR and SILENT without colour_profile; render_option_set() makes one
+element-colour decision per set; render_figure() forces monochrome on colour_content;
+self-test 124 → 163) · corpus_io v1.14 (structure_draw_fn: figural_core.ATOM_PALETTE
+read from sys.modules — NEVER imported, so every PYQ route's declared dependency set is
+unchanged (validator AI) — additive keywords element_colours / highlight_atoms /
+highlight_bonds, draw.coloured_elements / .set_element_colours / .highlight /
+.palette_note; self-test 357 → 362) · Framework_MockTestCreate v5.80 (Q7b.1 closes the
+exam_config.figure_palette reservation — one palette, estate-wide; Q7b.9–Q7b.14; S10-7C
+C7–C9; S10-6A note; S7-NEW-B2 render call; the two live make_figure_spec templates pass
+colour_content). Zero exam values; zero per-exam change; no PYQ, Explain, Notes, Deliver,
+registry, route or trigger touched.**
+
+WHY. Measured 2026-08-29 against an externally produced 51-figure paper and the delivered
+IIT JAM CHEMISTRY Mock02: rdkit's DEFAULT atom palette (unpinned across versions; Cl 2.2:1,
+S 1.7:1, F 2.0:1, P 2.5:1 on white) was the only colour in our structures, so 9 of 38
+figures — every hydrocarbon — rendered 0.0000 % coloured and tripped G-FIGACCENT while
+heteroatom structures passed by accident; the low-contrast hues had no rule keeping them
+out of text; heteroatom colour could single out one option of a set; a colour-interrogating
+stem could be handed a figure showing the colour; nothing capped chromatic series although
+every published categorical palette falls to or below the CVD-separability floor from its
+5th hue (Petroff 2021, arXiv:2107.02270; reproduced in CAM02-UCS + Machado simulation).
+The standards applied: Okabe & Ito 2008 / Wong 2011 (hue set, unchanged), WCAG 2.x SC
+1.4.3 / 1.4.11 / 1.4.1 (the two contrast floors and "never colour alone"), Crameri 2020
+(continuous maps), CPK hue families (structures).
+
+ZERO-BREAK PROOF. OKABE_ITO, LINESTYLES, MARKERS, series_defaults() (still raises only
+above 8), every threshold and every pre-v5.80 gate are byte-identical — asserted by
+fixture C0. Every figure that exists today has no colour_profile and audits exactly as
+before (EC-V18 posture). No colour condition halts. Mutation: nine figural_core mutants
+(each new gate neutralised, the monochrome enforcement, the set decision, the
+audit_figure wiring, a severity promotion, and the series-colour blackening of a
+colour-content figure) and five corpus_io mutants (pinned palette, re-raster, atom/bond
+highlight, BW fallback) are each killed by a named fixture. FINAL REVIEW (2026-08-29,
+five independent methods: execution of the spec's own fences, malformed-sidecar fuzz,
+byte-identical audit of the 38 delivered Mock02 sidecars on both engines, prose-vs-
+engine token/number contract, pyflakes + warnings-as-errors + determinism) found and
+fixed: exact 35 % tints; black-alias text ink; non-dict / colour-less series entries;
+colour-word detector narrowed (silver/gold are element names, indicator/precipitate are
+chemistry vocabulary); rdkit palette-note when no palette API exists; and — found only
+by executing the S8-6 fence — a colour-content figure whose draw_fn takes ink from
+series[i]["colour"] (the template's own pattern) stayed coloured under palette-only
+blackening; render_figure() now hands such a draw_fn a black copy of its series while
+the declaration keeps its hues. Third pass (line-by-line read of every added line): the
+option-set decision could UPGRADE an author's deliberate element_colours=False to colour
+— now it only ever downgrades; colour_content was not propagated across an option set
+and a structure draw_fn (which blits a raster) ignored it — now render_option_set()
+spreads the flag and render_figure() asks the structure for black atoms; _declare()
+guards a foreign sidecar; a highlight index out of range raises the documented
+ValueError. Fixtures + mutants for each.
+
+KNOWN, NOT TOUCHED (separate GAPs): (1) audit_canonical prints verdict lines for 13
+figure gates only; the v5.55/v5.57 gates (G-FIGFIT, G-FIGCOLLIDE, G-FIGOPTWINDOW,
+G-FIGINK) and now the v5.80 gates are evaluated by figural_core.audit_figure() and then
+DROPPED at Step 8 — the v5.80 gates are therefore reported nowhere until that GAP lands.
+(2) g_figoptunif / g_figoptwindow are called only by self-tests. (3) corpus_io
+_is_line_art's 256-colour rule classes every antialiased figure as a photograph; mock
+figures survive only because they are RGBA (optimize_docx is not on the mock path).
+(4) A bare-imshow structure rendered outside S8-6 measures exactly 0.050 in clearance and
+trips G-FIGFIT on pristine v5.79 as well — pre-existing.
+
+FORWARD-ONLY. Delivered papers are never re-rendered; Mock 1..N of one exam may differ in
+atom colour until a figure-only re-render is requested.
+
 ## 2026.08.29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET + GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS: the Blueprint default is the exam's measured mix raised 30% by a framework preset; a question with no derived answer never excludes its paper from the difficulty profile
 
 **blueprint_core (Cluster DP — NEW dp_harder + DP_HARDER_FRAC=0.30, DP_EXAM_WORD='EXAM',

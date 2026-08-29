@@ -4,6 +4,26 @@ TestCreate / MockCreate (S8-5, S8-6, S10-6A, S10-7, S10-8) and their audits.
 
 Raised by GAP-2026-07-29-FIG-R2 and VERIFY-2026-07-29-FIG-R2.
 
+v5.80 — 2026-08-29 — GAP-2026-08-29-FIGURE-COLOUR-ROLES (estate-wide, exam-agnostic,
+render-time only; MockTestCreate S10-6A / S10-7 Q7b.9-Q7b.14 / S10-7C). The eight
+Okabe-Ito hues stay the ONLY hues in the estate; what is new is that every hue now has
+a ROLE and the role is what is gated: TEXT ink (WCAG 2.x 1.4.3, >= 4.5:1 on white —
+same hues, darkened), LINE/MARK ink (WCAG 1.4.11, >= 3.0:1), FILL-only hues (never as
+text or thin strokes; dark edge always; two touching fills differ by hatch or by
+luminance), a chromatic SERIES CAP of SERIES_CHROMATIC_CAP (every published palette
+falls below the CVD-separability floor from the 4th-5th hue — Petroff 2021, reproduced
+2026-08-29 in CAM02-UCS after Machado simulation), a pinned CVD-safe ATOM_PALETTE for
+rdkit structures (corpus_io.structure_draw_fn; rdkit's own default is unpinned,
+version-dependent and fails 3.0:1 on Cl/S/F/P), an opaque accent HIGHLIGHT for the
+interrogated site of a structure, option-set ELEMENT-COLOUR UNIFORMITY (heteroatom
+colour is used only when every option carries the same coloured-element set — else the
+whole set renders black, automatically), and a COLOUR-AS-CONTENT guard (a stem or option
+that interrogates a colour renders monochrome). Everything is ADDITIVE: OKABE_ITO,
+LINESTYLES, MARKERS, series_defaults(), every threshold and every pre-v5.80 gate are
+byte-identical; new sidecars carry colour_profile=2 and the five new gates are SILENT on
+any sidecar without it (EC-V18 posture), so every figure that exists today audits exactly
+as before. No colour condition halts — the new gates join NEVER_BLOCKING_ON_COLOUR.
+
 WHY THIS ENGINE EXISTS
 ----------------------
 Before this file the framework had exactly ONE figure helper,
@@ -74,6 +94,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 
 # =============================================================================
 # RUNTIME DEPENDENCIES — declared, checked, and never fatal in an audit
@@ -160,6 +181,59 @@ OKABE_ITO = [
 # printing and colour-blind readers even if the palette is overridden.
 LINESTYLES = ["-", "--", "-.", ":", (0, (3, 1, 1, 1)), (0, (5, 1)), "-", "--"]
 MARKERS = ["o", "s", "^", "D", "v", "P", "X", "*"]
+
+# ── v5.80 COLOUR ROLES (GAP-2026-08-29-FIGURE-COLOUR-ROLES) ──────────────────
+# Sidecar marker. Absent (None) == pre-v5.80 render: every role gate is silent.
+COLOUR_PROFILE = 2
+# LINE / MARK ink: the four Okabe-Ito hues that clear WCAG 1.4.11 (>= 3.0:1 on
+# white: 5.19, 3.87, 3.42, 3.06) plus black. Series ink and accents come from
+# here; series_defaults() already hands them out in this order.
+ROLE_LINE = tuple(OKABE_ITO[:4]) + ("#000000",)
+# TEXT ink: any coloured LABEL or ANNOTATION uses the same hue darkened in
+# CAM02-UCS until it clears WCAG 1.4.3 (>= 4.5:1 on white: 5.19, 4.54, 4.54,
+# 4.51). Blue and black already pass and map to themselves. Keys are the line
+# hues; text_ink() performs the mapping so authors never hand-pick a value.
+ROLE_TEXT = {
+    "#0072B2": "#0072B2",   # blue           5.19:1
+    "#D55E00": "#C25604",   # vermillion-T   4.54:1
+    "#009E73": "#158663",   # bluish-green-T 4.54:1
+    "#CC79A7": "#AB5D89",   # purple-T       4.51:1
+    "#000000": "#000000",
+}
+# FILL-only hues (contrast on white 2.25 / 2.31 / 1.32 — never text, never a
+# thin stroke). A fill ALWAYS carries a dark edge (Q7b.5 generalised) and two
+# touching fills must differ by hatch or by FILL_ADJ_MIN_LUMA (Q7b.11).
+ROLE_FILL = ("#56B4E9", "#E69F00", "#F0E442")
+# Derived tints — NOT new hues: bluish-green and purple at exactly 35% over
+# white (round(0.35*c + 0.65*255) per channel), pinned so every machine renders
+# the same bytes.
+FILL_TINTS = ("#A6DDCE", "#EDD0E0")
+FILLS = ROLE_FILL + FILL_TINTS
+HATCHES = ("", "//", "..", "xx", "\\\\")
+FILL_ADJ_MIN_LUMA = 30.0        # Rec.601 luma units (0-255); sky/orange differ by 4
+# Chromatic series per figure. The 5th hue of EVERY published categorical
+# palette (Okabe-Ito, Petroff 6/8/10, Tol) falls to or below the CVD floor.
+SERIES_CHROMATIC_CAP = 4
+# WCAG 2.x contrast floors against the mandated white background (Q2).
+WCAG_TEXT_MIN = 4.5
+WCAG_GRAPHIC_MIN = 3.0
+# rdkit atom palette (atomic number -> RGB 0-1). CPK HUE FAMILIES kept (O
+# red-family, N blue, halogens green-family); VALUES are the TEXT tier because
+# an atom symbol is text. Sulfur/phosphorus are black on purpose: no CVD-safe
+# hue renders "yellow"/"orange" text at 4.5:1. Consumed by
+# corpus_io.structure_draw_fn; any other structure renderer in the estate must
+# read THIS constant, never rdkit's default.
+ATOM_PALETTE = {
+    6: (0.0, 0.0, 0.0), 1: (0.0, 0.0, 0.0),
+    7: (0.0, 0.447, 0.698),                      # N  #0072B2
+    8: (0.761, 0.337, 0.016),                    # O  #C25604
+    9: (0.082, 0.525, 0.388), 17: (0.082, 0.525, 0.388),
+    35: (0.082, 0.525, 0.388), 53: (0.082, 0.525, 0.388),   # F Cl Br I #158663
+}
+ATOM_COLOURED_SYMBOLS = frozenset({"N", "O", "F", "Cl", "Br", "I"})
+# Opaque accent for the interrogated site of a structure (OKABE_ITO[0], 5.19:1).
+HIGHLIGHT_COLOUR = OKABE_ITO[0]
+HIGHLIGHT_BOND_WIDTH_MULT = 6
 
 # --- scale contract ----------------------------------------------------------
 FIGURAL_DPI = 300
@@ -258,7 +332,17 @@ SEVERITY = {
     "G-FIGALT":     "AMBER",
     "W-FIGLABELPX": "AMBER",
     "G-FIGGLYPH":   "AMBER",
+    # v5.80 colour roles — AMBER by construction (no fire-0 history; owner
+    # directive: no image-COLOUR condition ever halts). Silent on any sidecar
+    # without colour_profile.
+    "G-FIGTEXTINK":       "AMBER",
+    "G-FIGSERIESCAP":     "AMBER",
+    "G-FIGFILLADJ":       "AMBER",
+    "G-FIGCOLOURCONTENT": "AMBER",
     # answer-cue leaks — void the ITEM, never the run
+    # v5.80: a heteroatom colour present in only some options of a set is a
+    # colour/correctness correlation (Q7b.6) — the ITEM is void, never the run.
+    "G-FIGOPTELEM":       "VOID_ITEM",
     "G-FIGMONO":    "VOID_ITEM",
     "G-FIGOPTUNIF": "VOID_ITEM",
     # v5.55: an overprinted label makes the option unreadable, and an option
@@ -284,7 +368,9 @@ SEVERITY = {
     "G-FIGINK":     "BLOCKING",
     "W-FIGINK":     "AMBER",       # v5.57 — the same check on an axis-ON render
 }
-NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGACCENT", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO")
+NEVER_BLOCKING_ON_COLOUR = ("G-FIGCOLOUR", "G-FIGACCENT", "G-FIGCVD", "G-FIGSERIES", "G-FIGMONO",
+                            "G-FIGTEXTINK", "G-FIGSERIESCAP", "G-FIGFILLADJ",
+                            "G-FIGCOLOURCONTENT", "G-FIGOPTELEM")
 
 # Engine-side ids are G-* (hard) and W-* (advisory). The audit catalogue is A-*,
 # and Check M-GATE matches emitted gate names against A-* tokens in the spec
@@ -312,6 +398,12 @@ AUDIT_GATE_ID = {
     "G-FIGCOLLIDE":   "A-FIGCOLLIDE",
     "G-FIGOPTWINDOW": "A-FIGOPTWINDOW",
     "W-FIGFITPX":     "A-FIGFITPX",
+    # v5.80 colour roles
+    "G-FIGTEXTINK":       "A-FIGTEXTINK",
+    "G-FIGSERIESCAP":     "A-FIGSERIESCAP",
+    "G-FIGFILLADJ":       "A-FIGFILLADJ",
+    "G-FIGCOLOURCONTENT": "A-FIGCOLOURCONTENT",
+    "G-FIGOPTELEM":       "A-FIGOPTELEM",
 }
 
 
@@ -382,8 +474,17 @@ class FiguralError(AssertionError):
 # =============================================================================
 def make_figure_spec(question, fig_class, display_in, series=None, axes=None,
                      key_mode="none", target_onpage_pt=ONPAGE_TARGET_PT,
-                     role="problem", canvas_aspect=None):
+                     role="problem", canvas_aspect=None,
+                     colour_content=False, highlight=None):
     """Build the sidecar record. Gates cross-check this against the PNG.
+
+    v5.80: colour_content — True when colour_is_content(stem, options) says the
+    question interrogates a colour; the figure then renders monochrome
+    (render_figure() enforces it) and G-FIGCOLOURCONTENT checks it. highlight —
+    optional {"atoms": [...], "bonds": [...]} recorded for a structure whose
+    interrogated site is accented (corpus_io.structure_draw_fn); read by the
+    vision reconciliation and by G-FIGACCENT's message, never a leak on its own
+    because the STEM names the marked site.
 
     A spec that declares two hues while the PNG contains one is a HARD failure —
     this is the check that would have caught the monochrome defect on day one.
@@ -432,6 +533,18 @@ def make_figure_spec(question, fig_class, display_in, series=None, axes=None,
         # v5.55 — written by fit_and_deconflict(); read by G-FIGFIT /
         # G-FIGCOLLIDE / G-FIGOPTWINDOW. Absent == legacy (EC-V18).
         "fit": None,
+        # v5.80 colour roles. Absent on every pre-v5.80 sidecar -> the five
+        # role gates are silent (EC-V18 posture). text_colours / fills are
+        # DECLARED through text_ink() / fill_style() while draw_fn runs, so
+        # the gates read declarations (exact, reproducible) — the Q7b.3
+        # doctrine — never extracted pixels.
+        "colour_profile": COLOUR_PROFILE,
+        "text_colours": [],
+        "fills": [],
+        "colour_content": bool(colour_content),
+        "highlight": highlight,
+        # set by render_option_set(): "uniform" | "black" (set-wide decision)
+        "element_colours": None,
     }
 
 
@@ -537,7 +650,9 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
     import matplotlib.pyplot as plt
     from PIL import Image
 
-    mono = spec["class"] in MONO_REQUIRED
+    # v5.80: a question that interrogates a colour renders monochrome —
+    # colour IS the examinable content there, so showing it is a leak.
+    mono = spec["class"] in MONO_REQUIRED or bool(spec.get("colour_content"))
     base = list(palette) if palette else OKABE_ITO
     palette = ["#000000"] * len(base) if mono else base
     style = figure_style(spec)
@@ -555,7 +670,27 @@ def render_figure(draw_fn, out_path, spec, palette=None, window=None):
             ax.set_axis_off()
         else:
             fig, ax = plt.subplots(constrained_layout=True)
-        draw_fn(ax, spec["series"], palette)
+        global _CURRENT_SPEC
+        _CURRENT_SPEC = spec          # v5.80: text_ink()/fill_style() declare here
+        # v5.80 Q7b.13: a draw_fn takes series ink from series[i]["colour"]
+        # (the S8-6 template), not only from `palette`, so a colour-content
+        # figure hands the draw_fn a BLACK copy of its series. The DECLARED
+        # spec["series"] keeps its hues (G-FIGCVD reads declarations). Scoped
+        # to colour_content only — the pre-v5.80 reasoning_glyph path is
+        # untouched (G-FIGMONO keeps voiding a coloured glyph).
+        _series = spec["series"]
+        if spec.get("colour_content"):
+            _series = [({**x, "colour": "#000000"} if isinstance(x, dict) else x)
+                       for x in (_series or [])]
+            # A structure draw_fn blits a pre-rasterised array and reads neither
+            # palette nor series: ask it for black atoms directly.
+            _sec = getattr(draw_fn, "set_element_colours", None)
+            if callable(_sec):
+                _sec(False)
+        try:
+            draw_fn(ax, _series, palette)
+        finally:
+            _CURRENT_SPEC = None
         # THE SAFETY NET (v5.55). Measure what was actually drawn, separate
         # overprinted labels, and fit the data window so every mark clears
         # the frame. Runs for every class: a data figure can overprint a
@@ -1380,6 +1515,8 @@ def g_figlabel_pixels(spec, png_path):
 def g_figcolour(spec, png_path):
     if _class_of(spec) not in COLOUR_REQUIRED:
         return []
+    if spec.get("colour_content"):      # v5.80 Q7b.13: monochrome by design
+        return []
     frac = coloured_fraction(png_path)
     hues = dominant_hues(png_path)
     if frac is None or hues is None:
@@ -1412,6 +1549,8 @@ def g_figaccent(spec, png_path):
     silent for the ~200 pre-v5.33 exams.
     """
     if _class_of(spec) not in ACCENT_REQUIRED:
+        return []
+    if spec.get("colour_content"):      # v5.80 Q7b.13: monochrome by design
         return []
     frac = coloured_fraction(png_path)
     if frac is None:
@@ -1509,6 +1648,182 @@ def g_figcvd(spec, png_path=None):
                            f"{ib} {b} collapse for a deuteranope "
                            f"(sep {sep:.0f} < {DEUT_MIN_SEP:.0f}).")
     return out
+
+
+# =============================================================================
+# v5.80 COLOUR ROLES — helpers (authoring) and gates (audit)
+# =============================================================================
+_CURRENT_SPEC = None
+
+
+def _srgb_lum(h):
+    """WCAG 2.x relative luminance of a #RRGGBB on-screen colour."""
+    r, g, b = [int(h[i:i + 2], 16) / 255.0 for i in (1, 3, 5)]
+    lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+           for c in (r, g, b)]
+    return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+
+def wcag_contrast(h, background="#FFFFFF"):
+    """Contrast ratio (WCAG 2.x) of colour h against background; 1.0-21.0."""
+    l1, l2 = _srgb_lum(h.upper()), _srgb_lum(background.upper())
+    hi, lo = max(l1, l2), min(l1, l2)
+    return (hi + 0.05) / (lo + 0.05)
+
+
+def _declare(key, value, spec=None):
+    sp = spec if spec is not None else _CURRENT_SPEC
+    if not isinstance(sp, dict) or not isinstance(sp.get(key), list):
+        return                      # legacy / foreign sidecar: nothing to declare on
+    if value not in sp[key]:
+        sp[key].append(value)
+
+
+def text_ink(hue, spec=None):
+    """The TEXT-tier value of a palette hue (Q7b.9). Use for EVERY coloured
+    label/annotation: `ax.text(..., color=fc.text_ink(palette[0]))`. Records
+    the declaration on the spec being rendered so G-FIGTEXTINK can gate it.
+    An unknown hue is returned unchanged and declared as itself, so the gate
+    (not this helper) reports it."""
+    h = str(hue).strip().upper()
+    if h in ("K", "BLACK"):          # matplotlib aliases for black
+        h = "#000000"
+    out = ROLE_TEXT.get(h, h)
+    _declare("text_colours", out, spec)
+    return out
+
+
+def fill_style(k, spec=None, edge="#000000"):
+    """Fill k of a figure (Q7b.10/11): {facecolor, edgecolor, hatch, linewidth}
+    for bar()/fill_between()/Polygon(). Fill hues are FILL-only; every fill
+    carries a dark edge; hatch k gives the greyscale channel. Declared on the
+    spec being rendered so G-FIGFILLADJ can gate adjacency."""
+    k = int(k)
+    if k < 0 or k >= len(FILLS):
+        raise FiguralError(f"G-FIGFILLADJ: fill index {k} outside 0..{len(FILLS)-1}; "
+                           f"a figure with more fills than that must split.")
+    face, hatch = FILLS[k], HATCHES[k % len(HATCHES)]
+    _declare("fills", {"colour": face, "hatch": hatch}, spec)
+    return {"facecolor": face, "edgecolor": edge, "hatch": hatch,
+            "linewidth": 1.0}
+
+
+# Colour-as-content (Q7b.13). Word-bounded; possessive surnames (Green's,
+# Black's, Brown's) excluded. Only COLOUR vocabulary triggers: the colour words
+# themselves, "colour"/"colored"/"colorimetric", pigment, dye, chromophore,
+# litmus and flame test. Deliberately NOT included: element names that are also
+# colour words (silver, gold) and bare chemistry vocabulary (indicator,
+# precipitate, complex) — those interrogate a colour only when a colour word
+# accompanies them, and that word already matches. A false positive costs
+# nothing (monochrome is always a valid render); a needless one would strip
+# every AgNO3 question of its atom colours.
+_COLOUR_CONTENT_RE = re.compile(
+    r"\b(colou?r(?:ed|less|ful|s|ation|imet\w*)?|pigment\w*|dye\w*|chromophore\w*|"
+    r"flame[- ]test\w*|litmus|"
+    r"red|blue|green|yellow|violet|purple|orange|pink|brown|black|white|grey|gray|"
+    r"crimson|scarlet|magenta|cyan|indigo|turquoise|maroon)"
+    r"(?!['\u2019]s\b)\b", re.I)
+
+
+def colour_is_content(stem, options=()):
+    """True when the stem or an option asks about a colour — the figure must
+    then render monochrome (Q7b.13). Wide by design; see _COLOUR_CONTENT_RE."""
+    texts = [str(stem or "")] + [str(o or "") for o in (options or ())]
+    return any(_COLOUR_CONTENT_RE.search(t) for t in texts)
+
+
+def _profiled(spec):
+    return isinstance(spec, dict) and spec.get("colour_profile") is not None
+
+
+def g_figtextink(spec):
+    """v5.80 Q7b.9. Every DECLARED text colour must clear WCAG 1.4.3 on
+    white. Silent on a sidecar without colour_profile."""
+    if not _profiled(spec):
+        return []
+    out = []
+    for h in spec.get("text_colours") or []:
+        try:
+            c = wcag_contrast(h)
+        except Exception:
+            out.append(f"G-FIGTEXTINK: undecodable text colour {h!r}.")
+            continue
+        if c < WCAG_TEXT_MIN:
+            out.append(f"G-FIGTEXTINK: text colour {h} is {c:.2f}:1 on white "
+                       f"(floor {WCAG_TEXT_MIN}:1, WCAG 1.4.3). Use "
+                       f"fc.text_ink(hue) — the TEXT tier of the same hue.")
+    return out
+
+
+def g_figseriescap(spec):
+    """v5.80 Q7b.12. More than SERIES_CHROMATIC_CAP chromatic series on one
+    figure. Advisory: split the figure. Silent without colour_profile."""
+    if not _profiled(spec):
+        return []
+    n = sum(1 for s in (spec.get("series") or [])
+            if isinstance(s, dict)
+            and str(s.get("colour") or "").strip().upper()
+            not in ("", "#000000", "K", "BLACK"))
+    if n > SERIES_CHROMATIC_CAP:
+        return [f"G-FIGSERIESCAP: {n} chromatic series on one figure (cap "
+                f"{SERIES_CHROMATIC_CAP}). From the 5th hue every CVD-safe "
+                f"palette falls below its separability floor — split into panels."]
+    return []
+
+
+def g_figfilladj(spec):
+    """v5.80 Q7b.11. Any two DECLARED fills closer than FILL_ADJ_MIN_LUMA in
+    luma must differ in hatch (greyscale channel). Silent without
+    colour_profile. Reads declarations, never pixels (Q7b.3 doctrine)."""
+    if not _profiled(spec):
+        return []
+    fills = [f for f in (spec.get("fills") or []) if isinstance(f, dict)]
+    out = []
+    for i in range(len(fills)):
+        for j in range(i + 1, len(fills)):
+            a, b = fills[i], fills[j]
+            try:
+                dl = abs(_luma(_hex_rgb(a["colour"])) - _luma(_hex_rgb(b["colour"])))
+            except Exception:
+                continue
+            if dl < FILL_ADJ_MIN_LUMA and (a.get("hatch") or "") == (b.get("hatch") or ""):
+                out.append(f"G-FIGFILLADJ: fills {a['colour']} and {b['colour']} "
+                           f"differ by {dl:.0f} luma (< {FILL_ADJ_MIN_LUMA:.0f}) "
+                           f"and share hatch {a.get('hatch')!r}; in greyscale "
+                           f"they merge. Use fc.fill_style(k) with distinct k.")
+    return out
+
+
+def g_figcolourcontent(spec, png_path):
+    """v5.80 Q7b.13. A figure whose question interrogates a colour must be
+    monochrome in the PNG. Silent without colour_profile."""
+    if not _profiled(spec) or not spec.get("colour_content"):
+        return []
+    frac = coloured_fraction(png_path)
+    if frac is None:
+        return ["G-FIGCOLOURCONTENT: DORMANT — numpy/Pillow unavailable. " + PIP_INSTALL]
+    if frac >= ACCENT_MIN_FRAC:
+        return [f"G-FIGCOLOURCONTENT: {frac:.4%} coloured pixels on a figure whose "
+                f"stem/options interrogate a colour; colour is the examinable "
+                f"content here and the render must be monochrome."]
+    return []
+
+
+def g_figoptelem(specs):
+    """v5.80 Q7b.14 (set-level, like G-FIGOPTUNIF). Heteroatom colour in only
+    SOME options of a set correlates colour with content. render_option_set()
+    decides once for the whole set and writes element_colours on every spec;
+    this gate reports a set where the decisions disagree. Silent on a set
+    without colour_profile."""
+    if not specs or not all(_profiled(s) for s in specs):
+        return []
+    vals = {s.get("element_colours") for s in specs}
+    if len(vals) > 1:
+        return [f"G-FIGOPTELEM: element-colour decision differs across the option "
+                f"set ({sorted(str(v) for v in vals)}); heteroatom colour must be "
+                f"uniform (every option or none). Re-render through "
+                f"render_option_set()."]
+    return []
 
 
 def g_figalt(descr):
@@ -1845,6 +2160,37 @@ def render_option_set(draw_fns, out_paths, specs, palette=None):
                            "be the same length (one entry per option).")
     if len(specs) < 2:
         raise FiguralError("G-FIGOPTWINDOW: an option set needs >=2 options.")
+    # v5.80 Q7b.14: ONE element-colour decision for the whole set. A draw_fn
+    # made by corpus_io.structure_draw_fn exposes .coloured_elements (the set of
+    # heteroatom symbols it would colour) and .set_element_colours(flag). If
+    # the sets differ across options — e.g. three hydrocarbons and one alcohol
+    # — heteroatom colour would single out an option, so EVERY option renders
+    # black. Uniform sets keep their colours. Non-structure sets are untouched.
+    # Q7b.13 first: colour_content is a property of the QUESTION, so one option
+    # carrying it makes the whole set carry it (a set can never be half mono).
+    if any(s.get("colour_content") for s in specs):
+        for s in specs:
+            if "colour_content" in s:
+                s["colour_content"] = True
+    _elem = [getattr(fn, "coloured_elements", None) for fn in draw_fns]
+    if any(e is not None for e in _elem):
+        _sets = {frozenset(e) for e in _elem if e is not None}
+        _modes = {bool(getattr(fn, "element_colours", True)) for fn in draw_fns}
+        _uniform = (len(_sets) == 1 and all(e is not None for e in _elem)
+                    and len(_modes) == 1)
+        # The set decision only ever DOWNGRADES to black. An author who drew
+        # every option with element_colours=False is honoured, never recoloured.
+        if not _uniform or any(s.get("colour_content") for s in specs):
+            for fn in draw_fns:
+                _set = getattr(fn, "set_element_colours", None)
+                if callable(_set):
+                    _set(False)
+            _decision = "black"
+        else:
+            _decision = "black" if _modes == {False} else "uniform"
+        for s in specs:
+            if "element_colours" in s:
+                s["element_colours"] = _decision
     wins, cwins = [], []
     for fn, p, s in zip(draw_fns, out_paths, specs):
         render_figure(fn, p, s, palette=palette)
@@ -1952,6 +2298,10 @@ def audit_figure(spec, png_path, descr=None):
     hard += g_figseries(spec)
     hard += g_figcvd(spec, png_path)
     hard += g_figglyph(spec, png_path)
+    hard += g_figtextink(spec)              # v5.80 Q7b.9
+    hard += g_figseriescap(spec)            # v5.80 Q7b.12
+    hard += g_figfilladj(spec)              # v5.80 Q7b.11
+    hard += g_figcolourcontent(spec, png_path)   # v5.80 Q7b.13
     warn = []
     warn += g_figlabel_pixels(spec, png_path)
     warn += [x for x in _ink if not (x.startswith("G-FIGINK") and "DORMANT" not in x)]
@@ -2267,9 +2617,11 @@ def self_test():
     check("audit_gate_id_maps_a_finding",
           audit_gate_id("G-FIGCOLOUR: 0.000% coloured") == "A-FIGCOLOUR")
     # v5.55: 13 -> 17 (+G-FIGFIT, +G-FIGCOLLIDE, +G-FIGOPTWINDOW, +W-FIGFITPX).
+    # v5.57: 17 -> 19 (+G-FIGINK, +W-FIGINK). v5.80: 19 -> 24 (+G-FIGTEXTINK,
+    # +G-FIGSERIESCAP, +G-FIGFILLADJ, +G-FIGCOLOURCONTENT, +G-FIGOPTELEM).
     # The count is asserted, not hardcoded in prose, so a gate added without a
     # severity cannot ship silently at the default.
-    check("gate_count_is_nineteen", len(SEVERITY) == 19)
+    check("gate_count_is_twentyfour", len(SEVERITY) == 24)
     # Every id a gate can EMIT must be registered. The alt-text gate once
     # emitted "W-FIGALT" while SEVERITY keyed "G-FIGALT", so a real alt-text
     # failure mapped to no catalogue gate and was reported under an id the audit
@@ -2594,6 +2946,191 @@ def self_test():
               FIG_CANVAS_ASPECT_MIN <= _r2e[0]["canvas_aspect"]
               <= FIG_CANVAS_ASPECT_MAX
               and _r2e[0]["fit"].get("stroke_window") is None)
+
+    # ── v5.80 COLOUR ROLES (GAP-2026-08-29-FIGURE-COLOUR-ROLES) ──────────────
+    # C0. ADDITIVE BY CONSTRUCTION: nothing pre-v5.80 moved.
+    check("C0_okabe_ito_unchanged",
+          OKABE_ITO == ["#0072B2", "#D55E00", "#009E73", "#CC79A7",
+                        "#E69F00", "#56B4E9", "#F0E442", "#000000"])
+    check("C0_series_defaults_unchanged",
+          [x["colour"] for x in series_defaults(4)] == OKABE_ITO[:4]
+          and [x["linestyle"] for x in series_defaults(2)] == LINESTYLES[:2])
+    check("C0_new_sidecar_carries_profile",
+          make_figure_spec(1, "schematic", FIG_PROBLEM_DISPLAY_IN)["colour_profile"]
+          == COLOUR_PROFILE)
+    _legacy = {"class": "data_series", "series": series_defaults(6)}
+    check("C0_all_role_gates_silent_on_legacy",
+          g_figtextink({"text_colours": ["#F0E442"]}) == []
+          and g_figseriescap(_legacy) == []
+          and g_figfilladj({"fills": [{"colour": "#56B4E9", "hatch": ""},
+                                      {"colour": "#E69F00", "hatch": ""}]}) == []
+          and g_figcolourcontent({"colour_content": True}, p_acc) == []
+          and g_figoptelem([{"element_colours": "uniform"},
+                            {"element_colours": "black"}]) == [])
+    check("C0_new_gates_never_block",
+          all(SEVERITY[g] != "BLOCKING" and g in NEVER_BLOCKING_ON_COLOUR
+              for g in ("G-FIGTEXTINK", "G-FIGSERIESCAP", "G-FIGFILLADJ",
+                        "G-FIGCOLOURCONTENT", "G-FIGOPTELEM")))
+    # C1. TEXT tier (Q7b.9): every text value clears 4.5:1; the base line hues
+    #     other than blue do NOT — that is the defect the tier exists for.
+    check("C1_text_tier_clears_wcag_aa",
+          all(wcag_contrast(v) >= WCAG_TEXT_MIN for v in ROLE_TEXT.values()))
+    check("C1_line_hues_alone_fail_text_floor",
+          all(wcag_contrast(h) < WCAG_TEXT_MIN for h in OKABE_ITO[1:4]))
+    check("C1_line_hues_clear_graphic_floor",
+          all(wcag_contrast(h) >= WCAG_GRAPHIC_MIN for h in ROLE_LINE))
+    check("C1_fill_hues_are_fill_only",
+          all(wcag_contrast(h) < WCAG_GRAPHIC_MIN for h in ROLE_FILL))
+    _c1 = make_figure_spec(1, "schematic", FIG_PROBLEM_DISPLAY_IN)
+    _c1["text_colours"] = ["#D55E00"]
+    check("C1_bad_text_ink_is_caught",
+          any("G-FIGTEXTINK" in m for m in g_figtextink(_c1)))
+    _c1["text_colours"] = [text_ink("#D55E00", _c1)]
+    check("C1_text_ink_helper_passes", g_figtextink(_c1) == [])
+    check("C1_wiring_through_audit_figure",
+          any("G-FIGTEXTINK" in m for m in
+              audit_figure({**schem_acc, "text_colours": ["#D55E00"]}, p_acc)[0]))
+    # C1b. The helper DECLARES while draw_fn runs (the _CURRENT_SPEC channel).
+    _c1b = make_figure_spec(1, "schematic", FIG_PROBLEM_DISPLAY_IN,
+                            series=series_defaults(1))
+    _p1b = os.path.join(tmp, "c1b.png")
+    render_figure(lambda ax, s_, pal: (ax.plot([0, 1], [0, 1], color=pal[0]),
+                                       ax.text(0.5, 0.5, "k", color=text_ink(pal[0]))),
+                  _p1b, _c1b)
+    check("C1b_text_ink_declares_during_render",
+          _c1b["text_colours"] == ["#0072B2"] and _CURRENT_SPEC is None)
+    # C2. Series cap (Q7b.12): 5 chromatic fires, 4 passes, black never counts.
+    _c2 = make_figure_spec(2, "data_series", FIG_PROBLEM_DISPLAY_IN,
+                           series=series_defaults(5))
+    check("C2_fifth_chromatic_series_is_caught",
+          any("G-FIGSERIESCAP" in m for m in g_figseriescap(_c2)))
+    _c2["series"] = series_defaults(4)
+    check("C2_four_chromatic_pass", g_figseriescap(_c2) == [])
+    _c2["series"] = series_defaults(4) + [{"colour": "#000000"}]
+    check("C2_black_series_not_counted", g_figseriescap(_c2) == [])
+    # C3. Fill adjacency (Q7b.11): sky/orange are 4 luma apart — same hatch is
+    #     caught, distinct hatch passes; sky/yellow (55 apart) pass unhatched.
+    _c3 = make_figure_spec(3, "schematic", FIG_PROBLEM_DISPLAY_IN)
+    _c3["fills"] = [{"colour": "#56B4E9", "hatch": ""}, {"colour": "#E69F00", "hatch": ""}]
+    check("C3_equiluminant_fills_same_hatch_caught",
+          any("G-FIGFILLADJ" in m for m in g_figfilladj(_c3)))
+    _c3["fills"] = [{"colour": "#56B4E9", "hatch": ""}, {"colour": "#E69F00", "hatch": "//"}]
+    check("C3_distinct_hatch_passes", g_figfilladj(_c3) == [])
+    _c3["fills"] = [{"colour": "#56B4E9", "hatch": ""}, {"colour": "#F0E442", "hatch": ""}]
+    check("C3_luma_separated_fills_pass", g_figfilladj(_c3) == [])
+    _c3b = make_figure_spec(3, "schematic", FIG_PROBLEM_DISPLAY_IN)
+    _fs = fill_style(1, _c3b)
+    check("C3_fill_style_declares_and_edges",
+          _c3b["fills"] == [{"colour": "#E69F00", "hatch": "//"}]
+          and _fs["edgecolor"] == "#000000" and _fs["hatch"] == "//")
+    try:
+        fill_style(len(FILLS)); check("C3_fill_index_overflow_raises", False)
+    except FiguralError:
+        check("C3_fill_index_overflow_raises", True)
+    # C4. Colour-as-content (Q7b.13).
+    check("C4_detector_positive",
+          colour_is_content("Which complex is green?")
+          and colour_is_content("stem", ["a red precipitate", "x"])
+          and colour_is_content("The colour of the flame"))
+    check("C4_detector_negative",
+          not colour_is_content("Apply Green's theorem to the region")
+          and not colour_is_content("Greenhouse gases and redox potential")
+          and not colour_is_content("Find the equilibrium constant")
+          and not colour_is_content("silver nitrate gives a precipitate")
+          and not colour_is_content("an indicator species; the golden ratio"))
+    check("C1_text_ink_black_alias", text_ink("k") == "#000000"
+          and g_figtextink({"colour_profile": 2, "text_colours": [text_ink("black")]}) == [])
+    check("C2_series_without_colour_not_chromatic",
+          g_figseriescap({"colour_profile": 2, "series": [{}, {}, {}, {}, {}]}) == [])
+    check("C2_malformed_series_entries_never_raise",
+          g_figseriescap({"colour_profile": 2, "series": [None, "s", 3, {"colour": None}]}) == [])
+    check("C3_tints_are_exact_35pct_over_white",
+          FILL_TINTS == tuple("#%02X%02X%02X" % tuple(round(0.35 * c + 0.65 * 255)
+                              for c in _hex_rgb(h)) for h in (OKABE_ITO[2], OKABE_ITO[3])))
+    _c4 = make_figure_spec(4, "schematic", FIG_PROBLEM_DISPLAY_IN,
+                           series=series_defaults(1), colour_content=True)
+    _p4 = os.path.join(tmp, "c4.png")
+    render_figure(lambda ax, s_, pal: draw_schem(ax, s_, pal, pal[0]), _p4, _c4)
+    check("C4_colour_content_renders_monochrome",
+          coloured_fraction(_p4) < ACCENT_MIN_FRAC
+          and g_figcolourcontent(_c4, _p4) == []
+          and g_figaccent(_c4, _p4) == [])
+    # The S8-6 template draws from series[i]["colour"], NOT from palette —
+    # the defect execution-testing found on 2026-08-29: palette-only
+    # blackening left the figure coloured. Fixture reproduces exactly that.
+    _c4s = make_figure_spec(4, "data_series", FIG_PROBLEM_DISPLAY_IN,
+                            series=series_defaults(2), colour_content=True)
+    _p4s = os.path.join(tmp, "c4s.png")
+    render_figure(draw2, _p4s, _c4s)          # draw2 uses s["colour"]
+    check("C4_series_colour_draw_fn_renders_monochrome",
+          coloured_fraction(_p4s) < ACCENT_MIN_FRAC
+          and [x["colour"] for x in _c4s["series"]] == OKABE_ITO[:2]   # declaration kept
+          and g_figcolourcontent(_c4s, _p4s) == [] and g_figcvd(_c4s, _p4s) == [])
+    check("C4_coloured_render_on_colour_content_is_caught",
+          any("G-FIGCOLOURCONTENT" in m for m in g_figcolourcontent(_c4, p_acc)))
+    check("C4_data_series_exempt_from_colour_gate_when_content",
+          g_figcolour({**mono_spec, "colour_content": True}, mono_png) == [])
+    # C5. Option-set element uniformity (Q7b.14): the set decides ONCE.
+    def _fake_struct(elems, log):
+        def _d(ax, series=None, palette=None):
+            ax.plot([0, 1], [0, 1], color="#000000")
+        _d.coloured_elements = frozenset(elems)
+        _d.set_element_colours = lambda flag: log.append(flag)
+        return _d
+    _log = []
+    _c5 = [make_figure_spec(5, "option_canvas", FIG_OPT_DISPLAY_IN, role="option")
+           for _ in range(3)]
+    _c5d = os.path.join(tmp, "c5"); os.makedirs(_c5d, exist_ok=True)
+    render_option_set([_fake_struct({"O"}, _log), _fake_struct(set(), _log),
+                       _fake_struct({"O"}, _log)],
+                      [os.path.join(_c5d, f"o{i}.png") for i in range(3)], _c5)
+    check("C5_divergent_set_renders_black",
+          _log[:3] == [False, False, False]
+          and all(s_["element_colours"] == "black" for s_ in _c5))
+    _log2 = []
+    _c5u = [make_figure_spec(5, "option_canvas", FIG_OPT_DISPLAY_IN, role="option")
+            for _ in range(2)]
+    render_option_set([_fake_struct({"O", "N"}, _log2), _fake_struct({"N", "O"}, _log2)],
+                      [os.path.join(_c5d, f"u{i}.png") for i in range(2)], _c5u)
+    check("C5_uniform_set_keeps_colour",
+          _log2 == []                                  # never touched, never upgraded
+          and all(s_["element_colours"] == "uniform" for s_ in _c5u))
+    check("C5_gate_catches_disagreement",
+          any("G-FIGOPTELEM" in m for m in
+              g_figoptelem([{**_c5u[0], "element_colours": "uniform"},
+                            {**_c5u[1], "element_colours": "black"}]))
+          and g_figoptelem(_c5u) == [])
+    # An authored all-black set is honoured, never upgraded to colour.
+    _log3 = []
+    def _fake_black(elems, log):
+        d = _fake_struct(elems, log); d.element_colours = False; return d
+    _c5b = [make_figure_spec(5, "option_canvas", FIG_OPT_DISPLAY_IN, role="option")
+            for _ in range(2)]
+    render_option_set([_fake_black({"O"}, _log3), _fake_black({"O"}, _log3)],
+                      [os.path.join(_c5d, f"b{i}.png") for i in range(2)], _c5b)
+    check("C5_authored_black_set_never_upgraded",
+          _log3 == [] and all(s_["element_colours"] == "black" for s_ in _c5b))
+    # colour_content on ONE option spreads to the set and blacks every structure.
+    _log4 = []
+    _c5c = [make_figure_spec(5, "option_canvas", FIG_OPT_DISPLAY_IN, role="option",
+                             colour_content=(i == 1)) for i in range(2)]
+    render_option_set([_fake_struct({"O"}, _log4), _fake_struct({"O"}, _log4)],
+                      [os.path.join(_c5d, f"cc{i}.png") for i in range(2)], _c5c)
+    check("C5_colour_content_propagates_across_set",
+          all(s_["colour_content"] for s_ in _c5c) and False in _log4
+          and all(s_["element_colours"] == "black" for s_ in _c5c))
+    # a colour-content PROBLEM figure asks its structure draw_fn for black atoms
+    _log5 = []
+    _c5e = make_figure_spec(6, "schematic", FIG_PROBLEM_DISPLAY_IN,
+                            series=series_defaults(1), colour_content=True)
+    render_figure(_fake_struct({"O"}, _log5), os.path.join(tmp, "c5e.png"), _c5e)
+    check("C5_colour_content_blacks_structure_problem_figure", False in _log5)
+    check("C5_non_structure_set_untouched",
+          all(s_["element_colours"] is None for s_ in _r2e))
+    # C6. Atom palette: every coloured symbol is TEXT-tier and CVD-family-true.
+    check("C6_atom_palette_is_text_tier",
+          all(wcag_contrast("#%02X%02X%02X" % tuple(int(round(c * 255)) for c in v))
+              >= WCAG_TEXT_MIN for v in ATOM_PALETTE.values()))
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

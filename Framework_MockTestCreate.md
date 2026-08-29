@@ -1,4 +1,41 @@
-# Framework_MockTestCreate v5.79
+# Framework_MockTestCreate v5.80
+# v5.80 — 2026-08-29 — GAP-2026-08-29-FIGURE-COLOUR-ROLES (estate-wide; exam-agnostic;
+#   RENDER-TIME ONLY — Step 7 figures; no PYQ flow, no Explain flow, no Notes flow, no
+#   registry schema, no route and no trigger is touched; standing issues are NOT mixed in).
+#   PROBLEM (measured 2026-08-29 against a 51-figure externally-produced paper and the
+#   delivered IIT JAM CHEMISTRY Mock02): (1) corpus_io.structure_draw_fn drew atoms in
+#   rdkit's DEFAULT palette — unpinned across rdkit versions and failing WCAG 3.0:1 on
+#   Cl (2.2), S (1.7), F (2.0), P (2.5) — and ignored the `palette` argument Q7b.8/C6
+#   mandate, so every hydrocarbon structure (9 of 38 figures) rendered 0.0000% coloured
+#   and tripped G-FIGACCENT estate-wide while heteroatom structures passed by accident;
+#   (2) the three low-contrast Okabe-Ito hues (orange 2.25, sky 2.31, yellow 1.32) had no
+#   rule keeping them out of TEXT and thin strokes, and the four line hues (3.06-3.87)
+#   are below the 4.5:1 WCAG 1.4.3 floor that applies to any coloured LABEL;
+#   (3) heteroatom colour in an option set can single out the one option that carries
+#   the heteroatom — a Q7b.6 colour/correctness correlation nothing gated;
+#   (4) a question that interrogates a colour (complex, indicator, flame, precipitate)
+#   could be handed a figure showing that colour; (5) nothing capped chromatic series,
+#   although every published categorical palette (Okabe-Ito, Petroff 6/8/10, Tol)
+#   falls to or below the CVD-separability floor from its 5th hue (Petroff 2021,
+#   arXiv:2107.02270, reproduced in CAM02-UCS + Machado simulation 2026-08-29).
+#   FIX (figural_core, corpus_io v1.14, this spec Q7b.9-Q7b.14 / S10-7C C7-C9 / S10-6A):
+#   the eight Okabe-Ito hues stay the ONLY hues; each now has a ROLE and the role is
+#   gated — TEXT tier (same hues darkened to >= 4.5:1, via fc.text_ink), LINE/MARK
+#   (>= 3.0:1), FILL-only (dark edge always; touching fills differ by hatch or luma,
+#   via fc.fill_style), chromatic SERIES CAP 4, a pinned CVD-safe ATOM_PALETTE, an
+#   opaque accent HIGHLIGHT for the interrogated site of a structure, set-wide
+#   ELEMENT-COLOUR UNIFORMITY decided automatically by render_option_set(), and a
+#   COLOUR-AS-CONTENT guard (fc.colour_is_content -> monochrome render). Five new
+#   gates, AMBER/VOID_ITEM, all in NEVER_BLOCKING_ON_COLOUR, all SILENT on a sidecar
+#   without colour_profile (EC-V18 posture). The `exam_config.figure_palette`
+#   reservation of Q7b.1 is CLOSED: one palette, estate-wide, zero per-exam migration.
+#   ZERO-BREAK PROOF: OKABE_ITO, series_defaults(), every threshold and every pre-v5.80
+#   gate are byte-identical (figural_core fixture C0); every figure that exists today
+#   audits exactly as before; figural_core self-test 124 -> 163, corpus_io 357 -> 362,
+#   thirteen figural_core and five corpus_io mutants each killed by a fixture.
+#   FORWARD-ONLY: papers rendered from v5.80 onward. Delivered papers are never
+#   re-rendered; Mock 1..N of one exam may therefore differ in atom colour until a
+#   figure-only re-render is requested (S10-7 Q13).
 # v5.79 — 2026-08-28 — GAP-2026-08-28-MULTIPART-STEM-LAYOUT (estate-wide; exam-agnostic;
 #   a formatting-only change by operator ruling — no other standing issue is touched).
 #   PROBLEM: a stem carrying an enumerated sub-part series (reagent/procedure steps,
@@ -5188,7 +5225,10 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   ```
   STRUCTURE / REACTION FIGURES ARE RENDERED FROM THEIR CANONICAL FORM. The draw_fn
   passed to figural_core.render_figure / render_option_set for such a role is
-  `cio.structure_draw_fn(obj['canonical'])` — rdkit rasterises the molecule inside
+  `cio.structure_draw_fn(obj['canonical'])` (v5.80: plus `highlight_bonds=` /
+  `highlight_atoms=` when the stem names a site — S10-7C C9; atom colours come
+  from figural_core.ATOM_PALETTE, and an option set's heteroatom colour is decided
+  once by render_option_set(), Q7b.14) — rdkit rasterises the molecule inside
   the axes, the frame and every v5.57 gate apply unchanged, and `draw.canonical`
   is what gets registered. Hand-placed bonds (ring_pts / bond / substituent
   helpers) for a STRUCTURE role are a G-FIGSEM HARD FAIL: that is exactly the
@@ -5409,7 +5449,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
       chart : {'kind': 'line'|'bar'|'scatter'|'pie',
                'series': [{'label':..., 'x':[...], 'y':[...]}, ...],
                'axes'  : {'x': {'title':..., 'units':...},
-                          'y': {'title':..., 'units':...}}}
+                          'y': {'title':..., 'units':...}},
+               'stem'  : ...,  'options': [...]}   # v5.80 Q7b.13 (optional keys;
+                                                   # absent == not colour content)
       Returns the FigureSpec, having emitted the image into `doc`.
       """
       n = len(chart["series"])
@@ -5418,7 +5460,9 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                                  series=fc.series_defaults(n),
                                  axes=chart.get("axes", {}),
                                  key_mode="legend" if n >= 2 else "none",
-                                 role=role)
+                                 role=role,
+                                 colour_content=fc.colour_is_content(
+                                     chart.get("stem", ""), chart.get("options", ())))
       for s, src in zip(spec["series"], chart["series"]):
           s["label"] = src["label"]
 
@@ -6469,6 +6513,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
   A defaulted class is how a scientific data figure ended up on the geometry
   path in the first place.
 
+  v5.80 COLOUR ROLES. The palette column above names HUES; Q7b.9-Q7b.14 assign
+  each hue a ROLE (text / line-mark / fill) and gate the role. In short: any
+  coloured LABEL is drawn with `fc.text_ink(hue)`; any FILL with
+  `fc.fill_style(k)`; at most FOUR chromatic series per figure; a structure's
+  interrogated site is accented through `structure_draw_fn(highlight_*)`;
+  heteroatom colour across an option set is decided ONCE by render_option_set();
+  a question that interrogates a colour renders MONOCHROME (colour_content=True
+  on the FigureSpec, from `fc.colour_is_content(stem, options)`). None of this
+  changes which class a figure is or which pre-v5.80 gate applies to it.
+
   `reasoning_glyph` MUST remain monochrome. Colour in an abstract-reasoning item
   can leak the answer: if the correct option carries any distinct colour
   treatment the item is void. The single permitted exception is a designated
@@ -6620,14 +6674,17 @@ def widen_scenario_space(subtopic_data, exhausted_source):
         and is selected by the S10-6A class. `reasoning_glyph` and its option
         canvases remain monochrome under Q7b.7.
     Q7b. COLOUR AND REDUNDANT ENCODING (v5.33 — new).
-        1. Palette MUST be Okabe-Ito unless overridden by
-           `exam_config.figure_palette` (v5.46 STATUS: render_figure() now
-           accepts an optional palette= parameter — the engine plumbing exists —
-           but the exam_config wiring is RESERVED for a future rich-colour
-           release; until then every Step-7 render uses OKABE_ITO):
+        1. Palette MUST be Okabe-Ito, ESTATE-WIDE, with NO per-exam override
+           (v5.80 owner decision: the `exam_config.figure_palette` reservation
+           of v5.46 is CLOSED, never wired — a per-exam palette is a per-exam
+           migration, and the render_figure() palette= parameter remains ONLY
+           the internal plumbing render_option_set() uses to hand one palette
+           to a whole set). Every Step-7 render uses OKABE_ITO:
            #0072B2 #D55E00 #009E73 #CC79A7 #E69F00 #56B4E9 #F0E442 #000000
            (colour-blind safe across deuteranopia/protanopia/tritanopia, print
-           safe, 8 hues). Defined once in figural_core.OKABE_ITO.
+           safe, 8 hues). Defined once in figural_core.OKABE_ITO. v5.80 assigns
+           each hue a ROLE — Q7b.9-Q7b.14 below — and gates the role; the hue
+           set itself is unchanged and every pre-v5.80 clause stands as written.
         2. COLOUR MUST NEVER BE THE SOLE CARRIER OF MEANING. Every series MUST
            differ from every other series in at least ONE additional channel:
            line style, marker shape, or hatch pattern. This is what makes a
@@ -6686,6 +6743,83 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            monochrome under Q7b.7; option canvases of accent-class parents
            keep the identical style budget of Q7b.6. EC-V18: legacy figures
            with no FigureSpec sidecar are silent under this gate.
+        9. TEXT INK (v5.80 — GAP-2026-08-29-FIGURE-COLOUR-ROLES). A coloured
+           LABEL or ANNOTATION is text, and text on the mandated white ground
+           must clear WCAG 2.x SC 1.4.3 (>= 4.5:1). Only blue (5.19) and black
+           do; vermillion (3.87), bluish-green (3.42) and purple (3.06) clear
+           the 3.0:1 GRAPHICS floor (SC 1.4.11) and no more, and orange (2.25),
+           sky (2.31) and yellow (1.32) clear neither. Therefore: every coloured
+           text run in a draw_fn takes its colour from `fc.text_ink(hue)`, which
+           returns the SAME hue darkened in CAM02-UCS to the 4.5:1 floor
+           (figural_core.ROLE_TEXT: #C25604, #158663, #AB5D89; blue and black
+           map to themselves) and DECLARES it on the FigureSpec
+           (`text_colours`). Orange, sky and yellow are FILL-only (Q7b.10) and
+           may never be text or a stroke thinner than FIG_MIN_STROKE_PT. Gate
+           G-FIGTEXTINK reads the DECLARATIONS (exact and reproducible — the
+           Q7b.3 doctrine), never pixels; AMBER; silent on a sidecar without
+           `colour_profile`. Text colours need CONTRAST, not mutual
+           separability: the glyph ("O" vs "N") carries the meaning, so the
+           deuteranope clause of Q7b.3 applies to SERIES colours only.
+       10. FILLS (v5.80). A filled region (bar, band, Venn region, tissue
+           layer, shaded zone) uses `fc.fill_style(k)` — facecolor from
+           figural_core.FILLS (sky, orange, yellow, and two DERIVED tints
+           #A6DDCE / #EDD0E0 that are bluish-green and purple at exactly 35 %
+           over white, pinned so every machine renders the same bytes — NOT new
+           hues), a dark edge ALWAYS (Q7b.5 generalised from yellow to every
+           fill), and hatch k as the greyscale channel. Region fills, phase
+           bands and on-mark VALUE labels are permitted enrichment under this
+           clause; a figure TITLE, a concept name, a derived quantity or any
+           working inside the pixels remains a Q5 breach (that is what makes
+           an annotation-rich figure leak its answer).
+       11. ADJACENT FILLS (v5.80). Two fills that touch must differ by hatch
+           OR by >= FILL_ADJ_MIN_LUMA (30/255 Rec.601 luma): sky (158) and
+           orange (162) may touch only with a hatch; yellow (213) may touch
+           either without one. Gate G-FIGFILLADJ over the declared fills;
+           AMBER; silent without `colour_profile`.
+       12. SERIES CAP (v5.80). At most SERIES_CHROMATIC_CAP = 4 chromatic
+           series (blue, vermillion, bluish-green, purple — the four
+           series_defaults() already hands out first) plus black on ONE
+           figure. Reproduced 2026-08-29 with Petroff's metric: our first pair
+           scores 49 (the strongest opening pair of any palette tested); every
+           palette's 5th hue sits at or below the 12 floor. A 5th series goes
+           to a second panel (a second figure, S8-6). Gate G-FIGSERIESCAP,
+           advisory AMBER; series_defaults() still raises only above 8, so no
+           existing draw code changes behaviour.
+       13. COLOUR AS CONTENT (v5.80). When the stem or any option interrogates
+           a colour — any colour word, or colour / pigment / dye / chromophore /
+           litmus / flame-test vocabulary; `fc.colour_is_content(stem,
+           options)`, word-bounded, possessive surnames (Green's) excluded, and
+           element names that are also colour words (silver, gold) and bare
+           chemistry vocabulary (indicator, precipitate, complex) deliberately
+           NOT triggers — they interrogate a colour only when a colour word
+           accompanies them, and a needless trigger would strip every AgNO3
+           question of its atom colours — EVERY FigureSpec of that question
+           (problem, stim and each option canvas) is authored with
+           `colour_content=True`, and render_figure() forces a MONOCHROME
+           render: palette AND the series copy handed to the draw_fn are
+           black, and a structure draw_fn (which blits a raster and reads
+           neither) is asked for black atoms; render_option_set() spreads the
+           flag across a set so one option can never stay coloured. Colour IS
+           the examinable content there and showing it is a leak. G-FIGACCENT
+           and G-FIGCOLOUR are exempt for such a figure
+           (monochrome by design); gate G-FIGCOLOURCONTENT confirms the PNG is
+           monochrome; AMBER; silent without `colour_profile`.
+       14. ELEMENT-COLOUR UNIFORMITY (v5.80). Heteroatom colour in a STRUCTURE
+           option set is used ONLY when every option carries the same
+           coloured-element set; otherwise render_option_set() switches EVERY
+           option to black BEFORE pass 1 (structure_draw_fn exposes
+           `.coloured_elements` / `.set_element_colours`), and writes the
+           decision as `element_colours` ("uniform" | "black") on every spec.
+           The decision only ever DOWNGRADES: a set whose options were all
+           authored with `element_colours=False` is honoured as black, never
+           recoloured, and a set whose authored modes differ is black. Three
+           hydrocarbons and one alcohol therefore never render with one
+           vermillion O. Gate G-FIGOPTELEM (set-level, like G-FIGOPTUNIF)
+           reports a set whose decisions disagree: VOID_ITEM — an answer-cue
+           leak voids the ITEM, never the run — and it is in
+           NEVER_BLOCKING_ON_COLOUR like every colour gate. A problem figure
+           (no option set) keeps its heteroatom colours; a hatch or fill
+           vocabulary that differs across options is the same Q7b.6 breach.
     Q8. GEOMETRY ONLY + CANONICAL NAME (v4.3, R-MATH-OMML). The figural raster
         path renders GEOMETRIC FIGURES ONLY — never an algebraic/symbolic
         expression (those are OMML, §10-S10-4). Every emitted image MUST be named
@@ -6901,11 +7035,17 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     ```python
     import figural_core as fc
 
+    stem, options = "...", ["...", "..."]   # this question's stem and option texts
     spec = fc.make_figure_spec(qnum, "data_series", fc.FIG_PROBLEM_DISPLAY_IN,
                                series=fc.series_defaults(2),
                                axes={"x": {"title": ..., "units": ...},
                                      "y": {"title": ..., "units": ...}},
-                               key_mode="legend")
+                               key_mode="legend",
+                               # v5.80 Q7b.13 — a colour-interrogating stem
+                               # renders monochrome; always pass it.
+                               colour_content=fc.colour_is_content(stem, options))
+    # v5.80: inside draw_fn, coloured text -> fc.text_ink(palette[i]);
+    # fills -> ax.bar(..., **fc.fill_style(k)); <= 4 chromatic series (Q7b.12).
     fc.render_figure(draw_fn, png_path, spec)   # MUTATES spec with png_px,
                                                 # png_dpi, placed_in,
                                                 # placement_scale, font_pt_native
@@ -6916,8 +7056,11 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     ```python
     import figural_core as fc
 
+    stem, options = "...", ["...", "..."]   # this question's stem and option texts
     opt_specs = [fc.make_figure_spec(qnum, "option_canvas",
-                                     fc.FIG_OPT_DISPLAY_IN, role="option")
+                                     fc.FIG_OPT_DISPLAY_IN, role="option",
+                                     # v5.80 Q7b.13 — on EVERY spec of the question
+                                     colour_content=fc.colour_is_content(stem, options))
                  for _ in draw_fns]
     fc.render_option_set(draw_fns, opt_paths, opt_specs)   # ONE shared window
     for _s, _p in zip(opt_specs, opt_paths):
@@ -7034,7 +7177,31 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     C6. Take accent ink from the `palette` argument, never a hardcoded hue
         (Q7b.8 authoring contract — restated here because this is the section
         an author reads before drawing).
-  A draw_fn that honours C1-C6 needs no repair; the fitter then only maximises
+    C7. (v5.80) Every coloured TEXT run uses `fc.text_ink(hue)`; every fill
+        uses `fc.fill_style(k)`; orange, sky and yellow never appear as text or
+        thin strokes (Q7b.9-Q7b.11). A heat map or gradient uses the viridis
+        family only (perceptually uniform; rainbow/jet is banned — Crameri,
+        Shephard & Heron 2020).
+    C8. (v5.80) STRUCTURES: `cio.structure_draw_fn` is the ONLY structure
+        renderer and it colours atoms from figural_core.ATOM_PALETTE — CPK hue
+        FAMILIES kept (O red-family #C25604, N blue #0072B2, halogens
+        green-family #158663), VALUES at the TEXT tier because an atom symbol
+        is text, sulfur/phosphorus/metals BLACK because no CVD-safe hue renders
+        "yellow"/"orange" text at 4.5:1. Never rdkit's default palette (unpinned
+        across versions; fails 3.0:1 on Cl/S/F/P). An rdkit that lacks
+        updateAtomPalette degrades to its BW palette and records
+        `draw.palette_note` — never a halt.
+    C9. (v5.80) INTERROGATED SITE: when the stem refers to a marked bond or
+        centre ("the bond marked", "the carbon indicated"), pass
+        `highlight_bonds=` / `highlight_atoms=` to structure_draw_fn and record
+        the same dict as `highlight=` on the FigureSpec. The accent is OPAQUE
+        OKABE_ITO[0] under the site (5.19:1); a labelled heteroatom is accented
+        through its incident bonds so its symbol is never overprinted. The
+        highlight marks the site the STEM names — never the answer — and it is
+        what satisfies Q7b.8 for a hydrocarbon that otherwise has no coloured
+        atom. A hydrocarbon problem figure with no interrogated site keeps the
+        G-FIGACCENT AMBER note as the advisory it is.
+  A draw_fn that honours C1-C9 needs no repair; the fitter then only maximises
   fill. A draw_fn that does not is repaired where possible and REPORTED where
   not. Neither path can ship a silent defect, which is the whole objective.
 
@@ -9142,7 +9309,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   Final Assembly); it never touches `status` or `repair_rounds_used`.
 #   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-# END OF Framework_MockTestCreate v5.79
+# END OF Framework_MockTestCreate v5.80
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
