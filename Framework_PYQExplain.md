@@ -1,4 +1,17 @@
-# Framework_PYQExplain v2.19 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.20 — Universal PYQ Explanation Generator
+# v2.20 — 2026-08-29 — GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS (paired with blueprint_core
+#   Cluster DP dp_add_paper paper_positions/unscored_reasons, Blueprint v1.58.0 S7-0,
+#   audit_canonical v2.24). Two explained 60-question papers were EXCLUDED from an exam's
+#   difficulty profile because 1–2 questions carried no derived answer (a VOID_ITEM figure,
+#   a defective Row-file option set): the writer counted OBSERVATIONS against
+#   total_questions and read the shortfall as a pattern change. It was not — the paper had
+#   every position. S7A-6 now passes the handoff's `qtype` map keys as the paper's
+#   POSITIONS (the pattern test runs on those) and the new S7A-4 `difficulty_unscored`
+#   map {q: reason} for every position without an observation; such a question is
+#   recorded UNSCORED in the profile with its reason and left out of the arithmetic — it
+#   never excludes its paper and can never bias a mix (a gap shrinks the sample). Only a
+#   paper whose positions differ from the current pattern is excluded. §R13 states
+#   "added (scored/held; unscored Q list)". Exam-agnostic; no per-exam change.
 # v2.19 — 2026-08-28 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ (paired with
 #   explain_engine v2.10, Framework_MockTestExplain v1.48.0, audit_seam v1.3,
 #   validate_framework_md v3.2). Three CATEGORY-C config keys this spec read were
@@ -1294,6 +1307,8 @@ label = band_for_score(score, <exam_config.difficulty_labels, default Easy/Mediu
   "q_to_difficulty": { "1": "Easy", "42": "Medium", "54": "Hard" },
 
   "q_to_difficulty_score": { "1": 1, "42": 4, "54": 7 },
+  "difficulty_unscored": { "22": "Row-file defect: options 1 and 2 bind the same image",
+                           "35": "VOID_ITEM: figure not transcribable to publication confidence" },
   "difficulty_obs": { "1": { "question_class": ["C-FACTUAL"], "deduction_steps": 0,
                              "axiom_concepts": 1, "speed_hack_exists": false,
                              "derivation_confidence": "full", "is_negative": false,
@@ -1306,6 +1321,16 @@ label = band_for_score(score, <exam_config.difficulty_labels, default Easy/Mediu
     coverage. `difficulty_obs` is the exact input S7A-3 scored — the profile
     writer (S7A-6) re-scores it with the engine, so a hand-edited score can never
     enter the profile.
+
+  * `difficulty_unscored` (v2.20 — GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS): one
+    entry {q: reason} for EVERY position of the paper that has NO `difficulty_obs`
+    record — a VOID_ITEM figure (§13A-5), a Row-file defect (§R7), an exam-body
+    cancelled or defective question, or any other question with no derived answer.
+    The reason is the same sentence §R11 prints for the omission. Written in the
+    same batch write; a position may appear in `difficulty_obs` OR
+    `difficulty_unscored`, never both, and every `qtype` position is in exactly
+    one of them by the final batch. S7A-6 stores these under the profile paper's
+    `unscored` map so Blueprint can list them; they never enter the arithmetic.
 
   * Keys follow the SAME convention as every other per-question map: JSON object
     keys are strings; readers normalise to int.
@@ -1355,6 +1380,14 @@ label = band_for_score(score, <exam_config.difficulty_labels, default Easy/Mediu
          after every PYQExplain run, before the next one); absent → a new profile
          is started. Re-explaining a paper REPLACES its record (idempotent), so a
          paper dropped by a missed upload is recovered by re-running it.
+  POSITIONS vs SCORED (v2.20 — GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS): the
+         paper's POSITIONS are the handoff `qtype` map keys (every question the
+         paper has — S19-1 check 7 proves the map complete); the SCORED questions
+         are `difficulty_obs`. The pattern test (positions == 1..total_questions)
+         runs on POSITIONS. A position without an observation is passed as
+         UNSCORED with its `difficulty_unscored` reason and is recorded, listed,
+         and left out of the mix — it NEVER excludes the paper. A profile
+         written before v2.20 (no `q_scored`/`unscored` keys) reads unchanged.
   WRITE: `/mnt/user-data/outputs/[ExamCode]_difficulty_profile.json` — a deliverable
          alongside the explanation docx and the handoff json (S19-2).
 
@@ -1374,6 +1407,10 @@ _h   = json.load(open('/home/claude/pyq_explain_progress.json', encoding='utf-8'
 _obs = _h.get('difficulty_obs') or {}
 if not _obs:
     raise SystemExit('HARD STOP (S7A-6): difficulty_obs missing from the handoff — S7A-4 did not run')
+_positions = sorted(int(k) for k in (_h.get('qtype') or {}))     # v2.20: the paper's positions
+if not _positions:
+    raise SystemExit('HARD STOP (S7A-6): qtype map missing from the handoff — S7A-4 did not run')
+_unscored_reasons = _h.get('difficulty_unscored') or {}            # v2.20: {q: reason}, may be empty
 if len(_ec['difficulty_labels']) != 3:
     # DORMANT exam (non-3-band vocabulary): the profile contract is 3-band; nothing is written,
     # nothing is delivered, §R13 says DORMANT. The observations stay in the handoff json.
@@ -1382,7 +1419,8 @@ else:
     try:
         _profile, PROFILE_STATUS, PROFILE_REASON = bc.dp_add_paper(
             _profile, source_file=os.path.basename(CLEAN_ROW_FILE), exam_config=_ec, questions=_obs,
-            written_by='PYQExplain v2.18 / blueprint_core Cluster DP',
+            paper_positions=_positions, unscored_reasons=_unscored_reasons,
+            written_by='PYQExplain v2.20 / blueprint_core Cluster DP',
             now=_dt.datetime.now(_dt.timezone.utc).isoformat(timespec='seconds'))
     except bc.DPError as _e:
         raise SystemExit(f'HARD STOP (S7A-6): {_e}')       # a contract violation, never a silent skip
@@ -1391,10 +1429,13 @@ else:
     PROFILE_SUMMARY = _profile.get('summary_at_write', {})
 ```
 
-  * `PROFILE_STATUS == 'excluded'` is NOT a stop: the paper's question count or
-    positions do not match the CURRENT exam_config (pattern changed). The profile is
-    still written (the paper is recorded under `excluded_papers` with the reason)
-    and §R13 says so. A pattern change is a fact about the exam, not a defect.
+  * `PROFILE_STATUS == 'excluded'` is NOT a stop: the paper's POSITIONS do not
+    match the CURRENT exam_config (pattern changed), or no question at all carries a
+    derived answer. The profile is still written (the paper is recorded under
+    `excluded_papers` with the reason) and §R13 says so. A pattern change is a fact
+    about the exam, not a defect. A question WITHOUT a derived answer on a paper
+    whose positions DO match is never a reason to exclude (v2.20): it is stored under
+    the paper's `unscored` map and the paper is `added`.
   * A DORMANT exam (non-3-band `difficulty_labels`) writes and delivers NO profile
     (`PROFILE_STATUS == 'dormant'`); S19-1 check 8 and the S19-2 deliverable are
     conditional on that status. The observations stay in the handoff json.
@@ -2468,9 +2509,11 @@ present_files(deliverables)
        explicitly — a whole paper at one difficulty is a signal worth checking
        before delivery, not a result to pass along silently.
 
-  §R13 DIFFICULTY PROFILE (S7A-6, v2.18 — final batch only): PROFILE_STATUS
-       ('added' | 'excluded' | 'dormant', + PROFILE_REASON verbatim); the sittings the profile
-       now covers and its summary_at_write per section; and ONE operator line:
+  §R13 DIFFICULTY PROFILE (S7A-6, v2.20 — final batch only): PROFILE_STATUS
+       ('added' | 'excluded' | 'dormant', + PROFILE_REASON verbatim); on 'added' the
+       paper's scored/held counts and every UNSCORED question with its reason (e.g.
+       "added — 58/60 scored; unscored: Q.22 Row-file defect…, Q.35 VOID_ITEM…");
+       the sittings the profile now covers and its summary_at_write per section; and ONE operator line:
        "Upload [ExamCode]_difficulty_profile.json to this project's Files section
        (replace the old one) BEFORE the next PYQExplain run — each run starts from
        the uploaded copy, so a run started on an older copy drops the papers
@@ -2746,5 +2789,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.19
+# END OF Framework_PYQExplain v2.20
 # ════════════════════════════════════════════════════════════════════════

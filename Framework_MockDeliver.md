@@ -1,4 +1,10 @@
-# Framework_MockDeliver v1.18.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.19.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.19.0 — 2026-08-29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET (paired with Blueprint
+#   v1.58.0 S7-0, blueprint_core Cluster DP, audit_canonical v2.24). §FOOTER-DS item 3c
+#   gains the mode 'profile_harder' → "Difficulty mix: measured from [k] sittings
+#   ([labels]), raised 30% by framework preset." — the framework's own default is
+#   named as such, so it can never read as a measured mix nor as an operator
+#   deviation. One prose line; no gate change (still 17); no engine change.
 # v1.18.0 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
 #   paper_pipeline v5.76, MockTestCreate v5.76, MockTestExplain v1.47.0, DeliveryFooter
 #   v1.29). The four *Repair triggers are RETIRED and the difficulty gate DISCLOSES instead
@@ -359,10 +365,12 @@ Parse:
        The gate reads ONLY the registry — never the chat transcript — so a
        skipped or re-ordered session cannot out-talk the record.
 
-    3c. DIFFICULTY SOURCE LINE (v1.17.0 — GAP-2026-08-27-DIFFICULTY-PROFILE; §FOOTER-DS).
-       Read blueprint.json['difficulty_source'] (Blueprint v1.57.0 S7-0). ONE line,
-       printed as the last body line of the delivery footer, so a mix the operator
-       chose can never read as one the exam measured:
+    3c. DIFFICULTY SOURCE LINE (v1.19.0 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET; §FOOTER-DS).
+       Read blueprint.json['difficulty_source'] (Blueprint v1.58.0 S7-0). ONE line,
+       printed as the last body line of the delivery footer, so a framework preset, a
+       measured mix and an operator choice can never be mistaken for one another:
+         mode 'profile_harder'     → "Difficulty mix: measured from [k] sittings
+                                      ([cycle labels]), raised 30% by framework preset."
          mode 'profile'            → "Difficulty mix: measured from [k] sittings of
                                       this exam ([cycle labels])."
          mode 'profile_confirmed'  → "Difficulty mix: measured from [k] sittings;
@@ -376,6 +384,8 @@ Parse:
          mode 'flag' / 'progressive' → "Difficulty mix: set by operator on the
                                       trigger ([E:M:H | progressive bands])."
          key absent (pre-v1.57.0 blueprint) → print nothing (legacy series).
+         (The 30% in the 'profile_harder' line is bc.DP_HARDER_FRAC, printed as a
+          whole percentage; the sentence never carries an exam value.)
        Never invent a mode; a value outside this set is a data defect → HARD STOP
        naming blueprint.json.
 
@@ -1937,4 +1947,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.18.0
+# END OF Framework_MockDeliver v1.19.0

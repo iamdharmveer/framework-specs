@@ -15,6 +15,16 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.24 — 2026-08-29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET + GAP-2026-08-29-
+#   PROFILE-UNSCORED-QUESTIONS (paired with blueprint_core Cluster DP, Blueprint v1.58.0,
+#   PYQExplain v2.20, MockDeliver v1.19.0). A-DPROFILE: difficulty_source.mode gains
+#   'profile_harder' (the framework's +30% preset — never carries CONFIRM overrides, so
+#   overrides_confirmed must be empty, as for 'profile'); a profile paper's q_total is
+#   now its POSITION count and still must equal total_questions; NEW consistency checks
+#   on the additive paper keys — q_scored == len(questions), unscored keys disjoint from
+#   questions, every unscored position inside 1..total_questions, q_scored + len(unscored)
+#   == q_total (all skipped on a pre-v2.24 paper that lacks the keys). +8 fixtures.
+#   Nothing else changes.
 # v2.23 — 2026-08-28 — GAP-2026-08-28-PLACEMENT-UNSPECIFIED (paired with
 #   blueprint_core Cluster Q place_subtopics/min_possible_adjacent/audit_placement,
 #   Framework_MockTestCreate v5.77 S3-12b). NEW GATE A-CLUSTER: R19/G-CLUSTER
@@ -4233,7 +4243,7 @@ _DG_DORMANT_REASONS = ('no_difficulty_labels', 'vocabulary_not_3_band',
                        'blueprint_core_unavailable', 'scoped_paper')
 
 
-_DS_MODES = ('profile', 'profile_confirmed', 'operator_no_pyq', 'flag', 'progressive')
+_DS_MODES = ('profile', 'profile_harder', 'profile_confirmed', 'operator_no_pyq', 'flag', 'progressive')
 
 
 def gate_dprofile(src):
@@ -4241,9 +4251,11 @@ def gate_dprofile(src):
     difficulty profile, when given (--profile): engine contract (dp_check_profile —
     schema, exam_code, labels, band edges), every stored score re-bands to its stored
     band under the CURRENT edges, every stored section is a current section name, no
-    window paper's q_total differs from total_questions; and (2) blueprint.json's
-    difficulty_source, when present: mode in the closed set, chosen mix per section
-    sums to 100, difficulty_schedule[].by_section sums equal the paper-level counts.
+    window paper's q_total (its POSITION count, v2.24) differs from total_questions,
+    and (v2.24) q_scored / unscored are consistent with questions{}; and (2)
+    blueprint.json's difficulty_source, when present: mode in the closed set, chosen
+    mix per section sums to 100, no CONFIRM overrides under 'profile' or
+    'profile_harder', difficulty_schedule[].by_section sums equal the paper-level counts.
     Dormant (OK) when neither input is present. FAIL names the paper/section/field."""
     import blueprint_core as _bc
     bp = src.get('blueprint') or {}
@@ -4265,6 +4277,22 @@ def gate_dprofile(src):
                 qs = paper.get('questions') or {}
                 if tq and paper.get('q_total') != tq:
                     bad.append(f"profile paper {key}: q_total {paper.get('q_total')} != total_questions {tq} yet not excluded")
+                if 'q_scored' in paper or 'unscored' in paper:          # v2.24 additive keys (absent on older profiles)
+                    uns = paper.get('unscored')
+                    if not isinstance(uns, dict):
+                        bad.append(f"profile paper {key}: unscored is not a map")
+                        uns = {}
+                    if paper.get('q_scored') != len(qs):
+                        bad.append(f"profile paper {key}: q_scored {paper.get('q_scored')} != {len(qs)} scored questions")
+                    _dup = sorted(set(uns) & set(qs))
+                    if _dup:
+                        bad.append(f"profile paper {key}: Q{_dup[0]} is both scored and unscored")
+                    if tq:
+                        _out = [q for q in uns if not str(q).isdigit() or not 1 <= int(q) <= int(tq)]
+                        if _out:
+                            bad.append(f"profile paper {key}: unscored position {_out[0]!r} is outside 1..{tq}")
+                    if len(qs) + len(uns) != paper.get('q_total'):
+                        bad.append(f"profile paper {key}: scored {len(qs)} + unscored {len(uns)} != q_total {paper.get('q_total')}")
                 for q, rec in qs.items():
                     if _bc.band_for_score(rec.get('score'), labels) != rec.get('band'):
                         bad.append(f"profile paper {key} Q{q}: score {rec.get('score')} re-bands to "
@@ -4290,8 +4318,8 @@ def gate_dprofile(src):
             for ov in ds.get('overrides_confirmed') or []:
                 if not {'section', 'band', 'recommended', 'chosen'} <= set(ov):
                     bad.append(f'difficulty_source.overrides_confirmed entry malformed: {ov}')
-            if ds.get('mode') == 'profile' and ds.get('overrides_confirmed'):
-                bad.append("difficulty_source.mode 'profile' but overrides_confirmed is non-empty (should be 'profile_confirmed')")
+            if ds.get('mode') in ('profile', 'profile_harder') and ds.get('overrides_confirmed'):
+                bad.append(f"difficulty_source.mode {ds.get('mode')!r} but overrides_confirmed is non-empty (should be 'profile_confirmed')")
         for e in bp.get('difficulty_schedule') or []:
             bs = e.get('by_section')
             if bs:
@@ -5213,6 +5241,31 @@ def self_test():
           and _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'profile_confirmed',
                              'overrides_confirmed': [{'section': 'A', 'band': 'Hard', 'recommended': 0}]}})[0] == 'FAIL'
           and _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'profile_confirmed', 'overrides_confirmed': None}})[0] == 'OK')
+    # ── v2.24: profile_harder mode + unscored-question consistency ──
+    check('A-DPROFILE-harder-mode-clean', _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'profile_harder'}, 'difficulty_schedule': _SCH})[0] == 'OK')
+    check('A-DPROFILE-harder-mode-rejects-overrides',
+          _dp_run({}, {**_BP, 'difficulty_source': {**_DS, 'mode': 'profile_harder',
+                       'overrides_confirmed': [{'section': 'A', 'band': 'Hard', 'recommended': 0, 'chosen': 30}]}})[0] == 'FAIL')
+    _PU, _st, _ = _bcp.dp_add_paper(None, source_file='EX_01-Jan-2025.docx', exam_config=_DC,
+                                    questions={1: _o(0, 1), 2: _o(3, 1), 3: _o(5, 3)}, paper_positions=[1, 2, 3, 4],
+                                    unscored_reasons={4: 'void figure'})
+    check('A-DPROFILE-unscored-paper-clean', _st == 'added' and _dp_run(_PU, _BP)[0] == 'OK')
+    _Pbad = _cp.deepcopy(_PU); _Pbad['papers']['01-Jan-2025']['q_scored'] = 4
+    check('A-DPROFILE-unscored-qscored-mismatch', _dp_run(_Pbad, _BP)[0] == 'FAIL' and 'q_scored' in _dp_run(_Pbad, _BP)[2])
+    _Pbad = _cp.deepcopy(_PU); _Pbad['papers']['01-Jan-2025']['unscored'] = {'3': 'x'}
+    _Pbad2 = _cp.deepcopy(_PU); _Pbad2['papers']['01-Jan-2025']['unscored'] = {'9': 'x'}
+    _Pbad3 = _cp.deepcopy(_PU); _Pbad3['papers']['01-Jan-2025']['unscored'] = {}
+    check('A-DPROFILE-unscored-overlap-range-and-sum',
+          'both scored and unscored' in _dp_run(_Pbad, _BP)[2]
+          and 'outside 1..4' in _dp_run(_Pbad2, _BP)[2]
+          and '!= q_total' in _dp_run(_Pbad3, _BP)[2])
+    _Pold = _cp.deepcopy(_PU); _Pold['papers']['01-Jan-2025'].pop('q_scored'); _Pold['papers']['01-Jan-2025'].pop('unscored')
+    check('A-DPROFILE-pre-v2.24-paper-without-keys-passes', _dp_run(_Pold, _BP)[0] == 'OK')
+    # isolating fixtures (mutation-killers): each finding below is the ONLY one its fixture can raise
+    _Pold5 = _cp.deepcopy(_Pold); _Pold5['papers']['01-Jan-2025']['q_total'] = 5            # no v2.24 keys → only the q_total line
+    check('A-DPROFILE-qtotal-mismatch-isolated', _dp_run(_Pold5, _BP) == ('FAIL', 'A-DPROFILE', 'profile paper 01-Jan-2025: q_total 5 != total_questions 4 yet not excluded'))
+    _Pmap = _cp.deepcopy(_P); _Pmap['papers']['01-Jan-2025']['unscored'] = 'x'                # fully-scored paper → only the not-a-map line
+    check('A-DPROFILE-unscored-not-a-map-isolated', _dp_run(_Pmap, _BP) == ('FAIL', 'A-DPROFILE', 'profile paper 01-Jan-2025: unscored is not a map'))
     check('A-DPROFILE-is-wired-into-run_audit', 'gate_dprofile' in _runner and "'A-DPROFILE'" in _runner)
     try:
         import paper_pipeline as _pp_dg

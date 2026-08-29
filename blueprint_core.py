@@ -126,9 +126,11 @@ __all__ = [
     "DP_CYCLES_WINDOW",
     "DP_CYCLE_GAP_DAYS",
     "DP_TOLERANCE_FRAC",
+    "DP_HARDER_FRAC",
     "DP_SECTIONLESS",
     "DP_CONFIRM_WORD",
     "DP_ACCEPT_WORD",
+    "DP_EXAM_WORD",
     "DP_MAX_CALIBRATION_EXAMPLES",
     "dp_iso_date",
     "dp_parse_filename",
@@ -143,6 +145,8 @@ __all__ = [
     "dp_round_pct",
     "dp_recommend",
     "dp_guardrail",
+    "dp_guardrail_bounds",
+    "dp_harder",
     "dp_parse_mix_line",
     "dp_stale_papers",
     "dp_calibration",
@@ -7357,16 +7361,144 @@ PYQ_IMAGE_ANALYSIS:
     RE2 = dp_recommend(E, {**_E2, 'sections': [{'name': 'Whole', 'q_range': [1, 4]}]})
     check('dp_recommend_uses_current_sections', RE2['by_section']['Whole']['pct'] == {_L[0]: 25, _L[1]: 25, _L[2]: 50})
     # guardrail
-    check('dp_guardrail', dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 28, _L[1]: 72, _L[2]: 0}, _L) == []
-          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 27, _L[1]: 73, _L[2]: 0}, _L)[0]['band'] == _L[0]
-          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 52, _L[1]: 48, _L[2]: 0}, _L) == []
-          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 53, _L[1]: 47, _L[2]: 0}, _L)[0]['allowed_max'] == 52
-          and dp_guardrail({_L[0]: 56, _L[1]: 44, _L[2]: 0}, {_L[0]: 40, _L[1]: 30, _L[2]: 30}, _L)[-1] ==
+    # the ±30% arithmetic, pinned with frac=0.30 (the DEFAULT moved to ±50% on 2026-08-29)
+    check('dp_guardrail', dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 28, _L[1]: 72, _L[2]: 0}, _L, frac=0.30) == []
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 27, _L[1]: 73, _L[2]: 0}, _L, frac=0.30)[0]['band'] == _L[0]
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 52, _L[1]: 48, _L[2]: 0}, _L, frac=0.30) == []
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 53, _L[1]: 47, _L[2]: 0}, _L, frac=0.30)[0]['allowed_max'] == 52
+          and dp_guardrail({_L[0]: 56, _L[1]: 44, _L[2]: 0}, {_L[0]: 40, _L[1]: 30, _L[2]: 30}, _L, frac=0.30)[-1] ==
               {'band': _L[2], 'recommended': 0, 'chosen': 30, 'allowed_min': 0, 'allowed_max': 0}
-          and dp_guardrail({_L[0]: 0, _L[1]: 0, _L[2]: 100}, {_L[0]: 0, _L[1]: 0, _L[2]: 100}, _L) == []
-          and dp_guardrail({_L[0]: 10, _L[1]: 90, _L[2]: 0}, {_L[0]: 0, _L[1]: 100, _L[2]: 0}, _L)[0]['allowed_min'] == 7
-          and dp_guardrail({_L[0]: 0, _L[1]: 90, _L[2]: 10}, {_L[0]: 0, _L[1]: 100, _L[2]: 0}, _L)[0]['band'] == _L[2]
+          and dp_guardrail({_L[0]: 0, _L[1]: 0, _L[2]: 100}, {_L[0]: 0, _L[1]: 0, _L[2]: 100}, _L, frac=0.30) == []
+          and dp_guardrail({_L[0]: 10, _L[1]: 90, _L[2]: 0}, {_L[0]: 0, _L[1]: 100, _L[2]: 0}, _L, frac=0.30)[0]['allowed_min'] == 7
+          and dp_guardrail({_L[0]: 0, _L[1]: 90, _L[2]: 10}, {_L[0]: 0, _L[1]: 100, _L[2]: 0}, _L, frac=0.30)[0]['band'] == _L[2]
           and _dperr(lambda: dp_guardrail({}, {}, _L, frac=-1)))
+    # GAP-2026-08-29: the DEFAULT tolerance is ±50% relative (operator decision 2026-08-29)
+    check('dp_guardrail_default_is_50pct',
+          DP_TOLERANCE_FRAC == 0.50
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 20, _L[1]: 80, _L[2]: 0}, _L) == []          # 40 → 20..60
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 19, _L[1]: 81, _L[2]: 0}, _L)[0]['allowed_min'] == 20
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 60, _L[1]: 40, _L[2]: 0}, _L) == []
+          and dp_guardrail({_L[0]: 40, _L[1]: 60, _L[2]: 0}, {_L[0]: 61, _L[1]: 39, _L[2]: 0}, _L)[0]['allowed_max'] == 60
+          and dp_guardrail({_L[0]: 77, _L[1]: 22, _L[2]: 1}, {_L[0]: 38, _L[1]: 33, _L[2]: 29}, _L) ==            # RPSC shape
+              [{'band': _L[2], 'recommended': 1, 'chosen': 29, 'allowed_min': 0, 'allowed_max': 2}]
+          and dp_guardrail({_L[0]: 77, _L[1]: 22, _L[2]: 1}, {_L[0]: 100, _L[1]: 0, _L[2]: 0}, _L)[0]['band'] == _L[1]   # 22 → 11..33
+          and dp_guardrail({_L[0]: 0, _L[1]: 10, _L[2]: 90}, {_L[0]: 1, _L[1]: 9, _L[2]: 90}, _L)[0]['band'] == _L[0])  # 0% admits only 0
+    # GAP-2026-08-29-DIFFICULTY-HARDER-PRESET: Rule P — the worked operator examples, exactly
+    _H = lambda e, m, h: dp_harder({_L[0]: e, _L[1]: m, _L[2]: h}, _L)
+    check('dp_harder_rule_P',
+          DP_HARDER_FRAC == 0.30
+          and _H(77, 22, 1) == {_L[0]: 54, _L[1]: 38, _L[2]: 8}         # RPSC Botany, 3 sittings
+          and _H(7, 63, 30) == {_L[0]: 5, _L[1]: 46, _L[2]: 49}         # IIT JAM Section A
+          and _H(0, 0, 100) == {_L[0]: 0, _L[1]: 0, _L[2]: 100}         # IIT JAM Section B: nothing to move
+          and _H(0, 10, 90) == {_L[0]: 0, _L[1]: 7, _L[2]: 93}          # IIT JAM Section C: Easy 0 stays 0
+          and _H(8, 60, 32) == {_L[0]: 6, _L[1]: 44, _L[2]: 50}
+          and _H(0, 3, 97) == {_L[0]: 0, _L[1]: 2, _L[2]: 98}
+          and _H(30, 50, 20) == {_L[0]: 21, _L[1]: 44, _L[2]: 35}
+          and _H(40, 0, 60) == {_L[0]: 28, _L[1]: 0, _L[2]: 72}         # Medium never set → Easy skips straight to Hard
+          and _H(100, 0, 0) == {_L[0]: 100, _L[1]: 0, _L[2]: 0}         # nothing above is set → unchanged
+          and _H(0, 100, 0) == {_L[0]: 0, _L[1]: 100, _L[2]: 0}
+          and _H(50, 50, 0) == {_L[0]: 35, _L[1]: 65, _L[2]: 0}         # Hard never set → Medium keeps its share
+          and _H(41, 59, 0) == {_L[0]: 29, _L[1]: 71, _L[2]: 0}
+          and _H(1, 1, 98) == {_L[0]: 1, _L[1]: 1, _L[2]: 98}           # 0.3+0.3 moved: rounding keeps every band ≥ 0
+          and dp_harder(None, _L) is None
+          and dp_harder({_L[0]: 40, _L[1]: 60, _L[2]: 0}, _L, frac=0) == {_L[0]: 40, _L[1]: 60, _L[2]: 0}
+          and dp_harder({_L[0]: 40, _L[1]: 60, _L[2]: 0}, _L, frac=1) == {_L[0]: 0, _L[1]: 100, _L[2]: 0}
+          and _dperr(lambda: dp_harder({_L[0]: 40, _L[1]: 61, _L[2]: 0}, _L))
+          and _dperr(lambda: dp_harder({_L[0]: 40, _L[1]: 60, _L[2]: 0}, _L, frac=1.5))
+          and all(sum(_H(a, b, 100 - a - b).values()) == 100 and min(_H(a, b, 100 - a - b).values()) >= 0
+                  for a in range(0, 101, 7) for b in range(0, 101 - a, 9))
+          and all((_H(a, b, 100 - a - b)[_L[0]] == 0) == (a == 0) and (_H(a, b, 100 - a - b)[_L[1]] == 0) == (b == 0)
+                  for a in range(0, 101, 7) for b in range(0, 101 - a, 9) if not (a == 0 and b == 0))
+          and all(_H(a, b, 100 - a - b)[_L[2]] >= 100 - a - b for a in range(0, 101, 7) for b in range(0, 101 - a, 9)))
+    # the recommendation carries the preset beside the measured mix, per section and paper-level
+    check('dp_recommend_carries_harder',
+          R['by_section']['Reasoning']['harder'] == dp_harder(R['by_section']['Reasoning']['pct'], _L)
+          and R['paper_level']['harder'] == dp_harder(R['paper_level']['pct'], _L)
+          and R['by_section']['English']['harder'] == {_L[0]: 100, _L[1]: 0, _L[2]: 0}
+          and R['by_section']['Reasoning']['size'] == 100 and R['paper_level']['size'] == 400
+          and all(c['size'] == 25 * c['papers'] for c in R['by_section']['Reasoning']['cycles']))
+    # GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS: 58 scored of 60 positions is ADDED, never excluded
+    import json as _json
+    _JAM_CFG = {'exam_code': 'IIT_JAM_CHEMISTRY', 'total_questions': 60, 'difficulty_labels': _L,
+                'sections': [{'name': 'A', 'q_range': [1, 30]}, {'name': 'B', 'q_range': [31, 40]}, {'name': 'C', 'q_range': [41, 60]}]}
+    _jam_obs = {q: _obs(1 if q <= 10 else 4 if q <= 30 else 7) for q in range(1, 61) if q not in (22, 35)}
+    U, st, why = dp_add_paper(None, source_file='IIT_JAM_CHEMISTRY_02-Feb-2025.docx', exam_config=_JAM_CFG,
+                              questions=_jam_obs, paper_positions=range(1, 61),
+                              unscored_reasons={22: 'Row-file defect: options 1 and 2 bind the same image', '35': ''})
+    _up = U['papers'].get('02-Feb-2025', {})
+    check('dp_add_paper_unscored_is_added',
+          st == 'added' and why is None and '02-Feb-2025' not in U['excluded_papers']
+          and _up['q_total'] == 60 and _up['q_scored'] == 58 and len(_up['questions']) == 58
+          and _up['unscored'] == {'22': 'Row-file defect: options 1 and 2 bind the same image', '35': DP_UNSCORED_DEFAULT_REASON}
+          and '22' not in _up['questions'] and '35' not in _up['questions'])
+    RU = dp_recommend(U, _JAM_CFG)
+    check('dp_recommend_unscored_shrinks_sample_never_biases',
+          RU['dormant'] is False and RU['papers_used'] == 1
+          and RU['by_section']['A']['n'] == 29 and RU['by_section']['A']['size'] == 30
+          and RU['by_section']['B']['n'] == 9 and RU['by_section']['B']['size'] == 10
+          and RU['by_section']['C']['n'] == 20 and RU['paper_level']['n'] == 58 and RU['paper_level']['size'] == 60
+          and RU['by_section']['A']['pct'] == {_L[0]: 34, _L[1]: 66, _L[2]: 0}       # 10 Easy + 19 Medium of 29
+          and RU['by_section']['B']['pct'] == {_L[0]: 0, _L[1]: 0, _L[2]: 100}
+          and RU['cycles_used'][0]['q_total'] == 60 and RU['cycles_used'][0]['q_scored'] == 58
+          and RU['cycles_used'][0]['unscored'] == [('02-Feb-2025', '22'), ('02-Feb-2025', '35')])
+    # the pattern test runs on POSITIONS: 59 positions of 60 → excluded; 60 positions, 1 scored → added
+    U2, st2, why2 = dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                                 questions={q: _obs(4) for q in range(1, 60)}, paper_positions=range(1, 60))
+    U3, st3, _ = dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                              questions={7: _obs(4)}, paper_positions=range(1, 61))
+    U4, st4, why4 = dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                                 questions={}, paper_positions=range(1, 61))
+    check('dp_add_paper_pattern_test_is_on_positions',
+          st2 == 'excluded' and 'pattern' in why2 and '11-Feb-2024' in U2['excluded_papers']
+          and st3 == 'added' and U3['papers']['11-Feb-2024']['q_scored'] == 1 and len(U3['papers']['11-Feb-2024']['unscored']) == 59
+          and st4 == 'excluded' and 'no question carries' in why4
+          and dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                           questions={q: _obs(4) for q in range(1, 61)}, paper_positions=[str(q) for q in range(1, 61)])[1] == 'added'
+          and dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                           questions={q: _obs(4) for q in range(1, 61)}, paper_positions=list(range(1, 61)) + [30, 30])[1] == 'added'
+          and _dperr(lambda: dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                                          questions={61: _obs(4)}, paper_positions=range(1, 61)))
+          and _dperr(lambda: dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                                          questions={1: _obs(4)}, paper_positions=[1, 'x']))
+          and _dperr(lambda: dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG,
+                                          questions={1: _obs(4)}, paper_positions=range(1, 61), unscored_reasons={'q2': 'x'})))
+    # isolating fixture: a scored question outside the paper's positions is refused by THAT check alone
+    # (total_questions 0 and no sections, so neither the pattern test nor the section map can fire first)
+    check('dp_add_paper_scored_outside_positions_isolated',
+          _dperr(lambda: dp_add_paper(None, source_file='NS_01-Jan-2025.docx', exam_config={**_NS, 'total_questions': 0},
+                                      questions={3: _obs(1)}, paper_positions=[1, 2]))
+          and dp_add_paper(None, source_file='NS_01-Jan-2025.docx', exam_config={**_NS, 'total_questions': 0},
+                           questions={1: _obs(1)}, paper_positions=[1, 2])[1] == 'added')
+    # legacy callers (no paper_positions) are byte-identical to before: the scored set IS the paper
+    check('dp_add_paper_legacy_path_unchanged',
+          dp_add_paper(U, source_file='IIT_JAM_CHEMISTRY_11-Feb-2024.docx', exam_config=_JAM_CFG, questions=_jam_obs)[1] == 'excluded'
+          and P['papers']['09-Sep-2025_Shift_1']['q_scored'] == 100 and P['papers']['09-Sep-2025_Shift_1']['unscored'] == {}
+          and dp_recommend(_json.loads(_json.dumps(U)), _JAM_CFG)['by_section']['A']['n'] == 29)
+    # a profile written BEFORE 2026-08-29 (no q_scored / unscored keys) still reads: n falls back to len(questions)
+    _old = _json.loads(_json.dumps(U)); _old['papers']['02-Feb-2025'].pop('q_scored'); _old['papers']['02-Feb-2025'].pop('unscored')
+    check('dp_recommend_reads_pre_2026_08_29_profiles',
+          dp_recommend(_old, _JAM_CFG)['cycles_used'][0]['q_scored'] == 58
+          and dp_recommend(_old, _JAM_CFG)['cycles_used'][0]['unscored'] == []
+          and dp_check_profile(_old, 'IIT_JAM_CHEMISTRY', _L) is _old)
+    check('dp_guardrail_bounds',
+          dp_guardrail_bounds({_L[0]: 77, _L[1]: 22, _L[2]: 1}, _L) == {_L[0]: (38, 100), _L[1]: (11, 33), _L[2]: (0, 2)}
+          and dp_guardrail_bounds({_L[0]: 0, _L[1]: 10, _L[2]: 90}, _L) == {_L[0]: (0, 0), _L[1]: (5, 15), _L[2]: (45, 100)}
+          and dp_guardrail_bounds({_L[0]: 40, _L[1]: 60, _L[2]: 0}, _L, frac=0.30) == {_L[0]: (28, 52), _L[1]: (42, 78), _L[2]: (0, 0)}
+          and all(dp_guardrail(r, {l: v for l, v in r.items()}, _L) == []
+                  and all(dp_guardrail_bounds(r, _L)[l][0] <= r[l] <= dp_guardrail_bounds(r, _L)[l][1] for l in _L)
+                  for r in ({_L[0]: a, _L[1]: 100 - a, _L[2]: 0} for a in range(0, 101, 3)))
+          and _dperr(lambda: dp_guardrail_bounds({}, _L, frac=-0.1)))
+    check('dp_recommend_unscored_numeric_order',
+          [q for _, q in dp_recommend(dp_add_paper(None, source_file='NS_01-Jan-2025.docx', exam_config=_NS,
+                                                   questions={1: _obs(1)}, paper_positions=[1, 2, 3, 4], unscored_reasons={})[0], _NS)['cycles_used'][0]['unscored']] == ['2', '3', '4']
+          and [q for _, q in dp_recommend(dp_add_paper(None, source_file='NS_01-Jan-2025.docx', exam_config={**_NS, 'total_questions': 12},
+                                                       questions={1: _obs(1)}, paper_positions=range(1, 13))[0], {**_NS, 'total_questions': 12})['cycles_used'][0]['unscored']]
+              == [str(q) for q in range(2, 13)])
+    # operator words: OK = harder preset, EXAM = measured mix — both case-insensitive
+    check('dp_parse_mix_line_exam_word',
+          dp_parse_mix_line('exam', ['A', 'B']) == (DP_EXAM_WORD, None) and dp_parse_mix_line(' EXAM ', ['A', 'B']) == ('EXAM', None)
+          and dp_parse_mix_line('OK', ['A', 'B']) == ('OK', None) and DP_ACCEPT_WORD == 'OK' and DP_EXAM_WORD == 'EXAM'
+          and _dperr(lambda: dp_parse_mix_line('harder', ['A', 'B'])))
     # operator lines
     _names = ['Reasoning', 'General Awareness', 'Quantitative Aptitude', 'English']
     check('dp_parse_mix_line', dp_parse_mix_line('ok', _names) == (DP_ACCEPT_WORD, None)
@@ -7709,16 +7841,33 @@ def evaluate_difficulty_gate(labels_by_q, measured_by_q, difficulty_labels,
 #   GUARD an operator override is accepted when each band lies within
 #         ±DP_TOLERANCE_FRAC of the recommended value (relative); a band the exam
 #         never has (0%) accepts only 0 without explicit CONFIRM.
+#   HARDER (GAP-2026-08-29-DIFFICULTY-HARDER-PRESET) the framework's own
+#         "+DP_HARDER_FRAC harder" preset, per section: each band below the top
+#         moves DP_HARDER_FRAC of its share up to the NEXT band above that the
+#         exam actually sets (non-zero); a 0% band receives nothing and stays 0.
+#         Framework-owned: Blueprint shows it beside the measured mix as the
+#         default choice, records mode 'profile_harder', never asks CONFIRM for it.
+#   SCORED vs POSITIONS (GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS) a paper is
+#         accepted on its POSITIONS (every question the paper has, from the
+#         handoff qtype map) — the pattern test is positions == 1..total_questions.
+#         A position with no derived answer (void figure, defective row, cancelled
+#         question) is recorded under the paper's `unscored` map with its reason
+#         and simply left out of the arithmetic: a gap shrinks the sample, it can
+#         never bias the mix. Only a paper whose POSITIONS differ from the current
+#         pattern is excluded.
 #   All functions are pure: data in, data out, deterministic, no I/O.
 
 DP_SCHEMA          = 1
 DP_CYCLES_WINDOW   = 3        # operator decision 2026-08-27: latest 3 sittings
 DP_CYCLE_GAP_DAYS  = 60       # consecutive papers further apart start a new cycle
-DP_TOLERANCE_FRAC  = 0.30     # operator decision 2026-08-27: ±30% relative
+DP_TOLERANCE_FRAC  = 0.50     # operator decision 2026-08-29: ±50% relative (was 0.30, 2026-08-27)
+DP_HARDER_FRAC     = 0.30     # operator decision 2026-08-29: the "+30% harder" preset (Rule P)
 DP_SECTIONLESS     = 'Paper'  # section name for an exam without sections
 DP_MAX_CALIBRATION_EXAMPLES = 3
 DP_CONFIRM_WORD    = 'CONFIRM'
-DP_ACCEPT_WORD     = 'OK'
+DP_ACCEPT_WORD     = 'OK'     # accepts the HARDER preset (2026-08-29; was: the measured mix)
+DP_EXAM_WORD       = 'EXAM'   # accepts the measured mix exactly (2026-08-29)
+DP_UNSCORED_DEFAULT_REASON = 'no derived answer'
 _DP_MONTHS = {m: i for i, m in enumerate(
     ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'], 1)}
 
@@ -7863,20 +8012,31 @@ def dp_check_profile(profile, exam_code, difficulty_labels):
 
 
 def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
-                 now=''):
+                 now='', paper_positions=None, unscored_reasons=None):
     """SINGLE WRITER. Add (or replace) one explained PYQ paper.
 
     source_file  PYQExplain's attached Row filename → date / session / paper_key
     exam_config  {'exam_code','total_questions','sections','difficulty_labels'}
-    questions    {q: obs} where obs carries the §7A six observations + 'qtype'
-                 + 'subtopic_id' + optional 'stem_snippet' (≤ 120 chars stored)
+    questions    {q: obs} for every SCORED question — obs carries the §7A six
+                 observations + 'qtype' + 'subtopic_id' + optional 'stem_snippet'
+                 (≤ 120 chars stored)
+    paper_positions  (GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS) every question
+                 position the PAPER has — PYQExplain passes the handoff qtype map
+                 keys. The PATTERN TEST runs on these: len == total_questions and
+                 positions == 1..total_questions, else the paper is a pattern change
+                 and is excluded. A position absent from `questions` is UNSCORED
+                 (no derived answer: void figure, defective row, cancelled question)
+                 and is recorded under the paper's `unscored` map with its reason
+                 (unscored_reasons {q: text}, default DP_UNSCORED_DEFAULT_REASON) —
+                 it never enters the arithmetic and never excludes the paper.
+                 None (legacy callers) → the scored positions ARE the paper, which
+                 is the pre-2026-08-29 behaviour, byte-identical.
     Per question the RAW rubric score (difficulty_score) and band are stored.
-    A paper whose question count differs from exam_config.total_questions, or
-    whose positions fall outside the section map, is recorded under
-    excluded_papers with the reason and NEVER enters the mix. Idempotent on
-    paper_key (re-explaining a paper replaces it). PURE: returns a NEW profile
-    object; the input is never mutated. Returns (profile, status, reason) with
-    status 'added' | 'excluded'."""
+    A paper whose positions differ from the current pattern, or that scores no
+    question at all, is recorded under excluded_papers with the reason and NEVER
+    enters the mix. Idempotent on paper_key (re-explaining a paper replaces it).
+    PURE: returns a NEW profile object; the input is never mutated. Returns
+    (profile, status, reason) with status 'added' | 'excluded'."""
     import copy as _copy
     labels = list(exam_config.get('difficulty_labels') or ['Easy', 'Medium', 'Hard'])
     exam_code = str(exam_config.get('exam_code') or '')
@@ -7899,11 +8059,26 @@ def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
         if not isinstance(obs, dict):
             raise DPError(f'Q{qi}: observation is not a dict')
         qmap[qi] = obs
+    if paper_positions is None:
+        positions = sorted(qmap)                      # legacy: the scored questions ARE the paper
+    else:
+        positions = []
+        for p in paper_positions:
+            try:
+                positions.append(int(str(p).strip()))
+            except (TypeError, ValueError):
+                raise DPError(f'paper position {p!r} is not an integer')
+        positions = sorted(set(positions))
+        extra = sorted(set(qmap) - set(positions))
+        if extra:
+            raise DPError(f'Q{extra[0]}: scored question is not a position of this paper')
     reason = None
-    if tq and len(qmap) != tq:
-        reason = f'paper has {len(qmap)} questions, exam_config.total_questions is {tq} (pattern differs)'
-    elif tq and sorted(qmap) != list(range(1, tq + 1)):
+    if tq and len(positions) != tq:
+        reason = f'paper has {len(positions)} questions, exam_config.total_questions is {tq} (pattern differs)'
+    elif tq and positions != list(range(1, tq + 1)):
         reason = f'question positions are not exactly 1..{tq}'
+    elif not qmap:
+        reason = 'no question carries a derived answer (nothing to measure)'
     if reason:
         profile['papers'].pop(key, None)
         profile['excluded_papers'][key] = {'source_file': source_file, 'date': pf['date'],
@@ -7934,9 +8109,17 @@ def dp_add_paper(profile, *, source_file, exam_config, questions, written_by='',
             'speed_hack': bool(obs.get('speed_hack_exists')),
             'score': score, 'band': band,
             'stem_snippet': str(obs.get('stem_snippet') or '')[:120]}
+    _ur = {}
+    for q, why in (unscored_reasons or {}).items():
+        try:
+            _ur[int(str(q).strip())] = str(why or '').strip() or DP_UNSCORED_DEFAULT_REASON
+        except (TypeError, ValueError):
+            raise DPError(f'unscored question key {q!r} is not an integer')
+    unscored = {str(q): _ur.get(q, DP_UNSCORED_DEFAULT_REASON) for q in positions if q not in qmap}
     profile['excluded_papers'].pop(key, None)
     profile['papers'][key] = {'source_file': str(source_file).split('/')[-1], 'date': pf['date'],
-                              'session': pf['session'], 'q_total': len(rec),
+                              'session': pf['session'], 'q_total': len(positions),
+                              'q_scored': len(rec), 'unscored': unscored,
                               'explained_at': now or '', 'questions': rec}
     _dp_refresh_summary(profile, exam_config, written_by, now)
     return profile, 'added', None
@@ -7950,9 +8133,9 @@ def _dp_refresh_summary(profile, exam_config, written_by, now):
         profile['summary_at_write'] = {
             'note': 'advisory only — Blueprint recomputes from papers[]',
             'cycles_used': [c['label'] for c in r['cycles_used']],
-            'by_section': {s: {k: v for k, v in d.items() if k in ('pct', 'n')}
+            'by_section': {s: {k: v for k, v in d.items() if k in ('pct', 'harder', 'n', 'size')}
                            for s, d in r['by_section'].items()},
-            'paper_level': {k: v for k, v in r['paper_level'].items() if k in ('pct', 'n')}}
+            'paper_level': {k: v for k, v in r['paper_level'].items() if k in ('pct', 'harder', 'n', 'size')}}
     except DPError as e:
         profile['summary_at_write'] = {'note': f'not computable: {e}'}
 
@@ -8059,6 +8242,11 @@ def dp_recommend(profile, exam_config, window=None, gap_days=None):
     per_cycle = []      # [(cycle, {sec: counts}, paper_counts)]
     for c in cycles:
         by_sec = {s: {l: 0 for l in labels} for s in names}
+        c['q_total'] = sum(_as_int(profile['papers'][k].get('q_total')) for k in c['papers'])
+        c['q_scored'] = sum(_as_int(profile['papers'][k].get('q_scored', len(profile['papers'][k].get('questions') or {})))
+                            for k in c['papers'])
+        c['unscored'] = sorted(((k, str(q)) for k in c['papers'] for q in (profile['papers'][k].get('unscored') or {})),
+                               key=lambda kq: (kq[0], int(kq[1]) if str(kq[1]).isdigit() else 0, kq[1]))   # numeric Q order
         for key in c['papers']:
             for q, rec in profile['papers'][key]['questions'].items():
                 sec = dp_section_of(q, sections)     # re-derived from CURRENT sections
@@ -8068,24 +8256,32 @@ def dp_recommend(profile, exam_config, window=None, gap_days=None):
                 by_sec[sec][band] += 1
         per_cycle.append((c, by_sec))
 
-    def _aggregate(counts_per_cycle):
+    sizes = {s['name']: s['q_range'][1] - s['q_range'][0] + 1 for s in sections} if sections else {DP_SECTIONLESS: tq}
+
+    def _aggregate(counts_per_cycle, size):
+        # size = questions this section (or the paper) holds per paper; 'n' is the SCORED
+        # count that shaped the percentages, 'size' × papers is what the paper(s) held —
+        # Blueprint prints "n/size" so an unscored question is visible, never estimated.
         cyc = []
         vals = []
         for c, counts in counts_per_cycle:
             p = _dp_pct_from_counts(counts, labels)
             n = sum(counts.values())
             cyc.append({'label': c['label'], 'papers': len(c['papers']), 'n': n,
+                        'size': size * len(c['papers']),
                         'pct': dp_round_pct(p, labels) if p else None})
             if p:
                 vals.append(p)
         if not vals:
-            return {'pct': None, 'n': 0, 'cycles': cyc}
+            return {'pct': None, 'harder': None, 'n': 0, 'size': sum(x['size'] for x in cyc), 'cycles': cyc}
         mean = {l: sum(v[l] for v in vals) / len(vals) for l in labels}   # Fractions: exact
-        return {'pct': dp_round_pct(mean, labels), 'n': sum(x['n'] for x in cyc), 'cycles': cyc}
+        pct = dp_round_pct(mean, labels)
+        return {'pct': pct, 'harder': dp_harder(pct, labels), 'n': sum(x['n'] for x in cyc),
+                'size': sum(x['size'] for x in cyc), 'cycles': cyc}
 
-    by_section = {s: _aggregate([(c, bs[s]) for c, bs in per_cycle]) for s in names}
+    by_section = {s: _aggregate([(c, bs[s]) for c, bs in per_cycle], sizes[s]) for s in names}
     paper_level = _aggregate([(c, {l: sum(bs[s][l] for s in names) for l in labels})
-                              for c, bs in per_cycle])
+                              for c, bs in per_cycle], tq)
     return {'dormant': False, 'reason': None, 'cycles_used': cycles,
             'papers_used': sum(len(c['papers']) for c in cycles),
             'by_section': by_section, 'paper_level': paper_level, 'sections': names}
@@ -8095,23 +8291,71 @@ def dp_guardrail(recommended_pct, chosen_pct, labels, frac=None):
     """Violations of the ±frac (relative) tolerance, per band. A recommended 0%
     admits only 0. Returns [] when acceptable. Each violation:
     {'band','recommended','chosen','allowed_min','allowed_max'}."""
-    f = float(DP_TOLERANCE_FRAC if frac is None else frac)
-    if f < 0:
-        raise DPError('tolerance must be >= 0')
+    bounds = dp_guardrail_bounds(recommended_pct, labels, frac)
     out = []
     for l in labels:
         rec = _as_int(recommended_pct.get(l, 0))
         ch = _as_int(chosen_pct.get(l, 0))
-        lo = int(math.floor(rec * (1 - f) + 1e-9)) if rec > 0 else 0
-        hi = min(100, int(math.ceil(rec * (1 + f) - 1e-9))) if rec > 0 else 0
+        lo, hi = bounds[l]
         if ch < lo or ch > hi:
             out.append({'band': l, 'recommended': rec, 'chosen': ch,
                         'allowed_min': lo, 'allowed_max': hi})
     return out
 
 
+def dp_guardrail_bounds(recommended_pct, labels, frac=None):
+    """The allowed [min, max] per band for a TYPED override — the same arithmetic
+    dp_guardrail applies, exposed so Blueprint can PRINT the ranges before the
+    operator types anything. {band: (lo, hi)}; a recommended 0% is (0, 0)."""
+    f = float(DP_TOLERANCE_FRAC if frac is None else frac)
+    if f < 0:
+        raise DPError('tolerance must be >= 0')
+    out = {}
+    for l in labels:
+        rec = _as_int(recommended_pct.get(l, 0))
+        lo = int(math.floor(rec * (1 - f) + 1e-9)) if rec > 0 else 0
+        hi = min(100, int(math.ceil(rec * (1 + f) - 1e-9))) if rec > 0 else 0
+        out[l] = (lo, hi)
+    return out
+
+
+def dp_harder(pct, labels, frac=None):
+    """The framework's HARDER preset (GAP-2026-08-29-DIFFICULTY-HARDER-PRESET,
+    operator decision 2026-08-29 "Rule P"). For each band below the top, in
+    order, move `frac` (DP_HARDER_FRAC) of its MEASURED share up to the next
+    band above it that the exam actually sets (non-zero). A band the exam never
+    has (0%) receives nothing and stays 0 — the shift skips over it to the next
+    non-zero band; a band with no non-zero band above it keeps its share. Every
+    move is computed from the measured mix (not from a band's post-move value),
+    so the result is order-independent. Exact fractions; whole numbers summing to
+    100 (dp_round_pct). None in → None out. Raises DPError on a mix that does not
+    sum to 100 or a fraction outside 0..1."""
+    if pct is None:
+        return None
+    from fractions import Fraction
+    f = Fraction(str(DP_HARDER_FRAC if frac is None else frac))
+    if f < 0 or f > 1:
+        raise DPError('harder fraction must be within 0..1')
+    labels = list(labels)
+    src = {l: Fraction(_as_int(pct.get(l, 0))) for l in labels}
+    if sum(src.values()) != 100:
+        raise DPError(f'percentages must sum to 100; got {int(sum(src.values()))}')
+    out = dict(src)
+    for i, l in enumerate(labels[:-1]):
+        if src[l] == 0:
+            continue
+        tgt = next((u for u in labels[i + 1:] if src[u] > 0), None)
+        if tgt is None:
+            continue
+        mv = src[l] * f
+        out[l] -= mv
+        out[tgt] += mv
+    return dp_round_pct(out, labels)
+
+
 def dp_parse_mix_line(line, section_names, labels=None):
-    """One operator line → (section_name, {label: int pct}) or ('OK', None).
+    """One operator line → (section_name, {label: int pct}), ('OK', None) or
+    ('EXAM', None) — OK accepts the HARDER preset, EXAM the measured mix.
     Accepts 'Reasoning: 10:80:10', 'Reasoning 10:80:10', 'Paper: 20/50/30',
     'Reasoning = 10 80 10'. Section match is case-insensitive on the exam's own
     names; a sectionless exam accepts 'Paper' or no section prefix at all.
@@ -8120,6 +8364,8 @@ def dp_parse_mix_line(line, section_names, labels=None):
     s = str(line or '').strip()
     if s.upper() == DP_ACCEPT_WORD:
         return DP_ACCEPT_WORD, None
+    if s.upper() == DP_EXAM_WORD:
+        return DP_EXAM_WORD, None
     m = re.match(r'^(.*?)[\s:=]*(\d+)\s*[:/ ]\s*(\d+)\s*[:/ ]\s*(\d+)\s*%?\s*$', s)
     if not m:
         raise DPError(f"cannot read a mix from {line!r}: expected 'Section: E:M:H'")

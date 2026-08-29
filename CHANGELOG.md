@@ -1,5 +1,62 @@
 # Changelog
 
+## 2026.08.29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET + GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS: the Blueprint default is the exam's measured mix raised 30% by a framework preset; a question with no derived answer never excludes its paper from the difficulty profile
+
+**blueprint_core (Cluster DP — NEW dp_harder + DP_HARDER_FRAC=0.30, DP_EXAM_WORD='EXAM',
+DP_UNSCORED_DEFAULT_REASON, dp_guardrail_bounds; dp_add_paper gains paper_positions / unscored_reasons and
+records q_scored + unscored per paper; dp_recommend carries 'harder' and 'size' per
+section / paper-level and q_total / q_scored / unscored per cycle; dp_parse_mix_line
+accepts EXAM; DP_TOLERANCE_FRAC 0.30 → 0.50; self-test 621 → 633) · audit_canonical v2.24
+(A-DPROFILE: mode 'profile_harder', unscored-key consistency; 304 → 312) ·
+Framework_Blueprint v1.58.0 · Framework_PYQExplain v2.20 · Framework_MockDeliver v1.19.0.
+Zero exam values; zero per-exam change; every existing profile and blueprint reads unchanged.**
+
+THE GAPS. (1) Two explained 60-question IIT JAM papers were EXCLUDED from the exam's
+difficulty profile with "paper has 58 questions … (pattern differs)". The paper had 60;
+two questions carried no derived answer (a VOID_ITEM figure, a defective Row-file option
+set) and so had no observation. dp_add_paper counted OBSERVATIONS against
+total_questions and read the shortfall as a pattern change. The Blueprint's "last 3
+sittings" default therefore showed ONE sitting on that exam, and would on any exam whose
+paper ever has an unanswered, cancelled or unreadable question — which is most of the
+estate, some years. (2) The S7-0 default was the measured mix itself; the operator wants
+the framework's standard ABOVE the exam's, per section, with a band the exam never sets
+kept at 0, and wants both mixes and their question counts visible before accepting.
+
+THE FIXES. (1) PROFILE-UNSCORED-QUESTIONS: the pattern test runs on the paper's
+POSITIONS (PYQExplain S7A-6 passes the handoff qtype keys), never on the scored count. A
+position without an observation is UNSCORED — stored under the paper's `unscored` map
+with the reason PYQExplain S7A-4 now records in `difficulty_unscored` — and left out of
+the arithmetic: a gap shrinks the sample and can never bias a mix. Only a paper whose
+positions differ from the current pattern, or that scores nothing at all, is excluded.
+Legacy callers (no paper_positions) are byte-identical; profiles written before this
+release read unchanged (n falls back to len(questions)). (2) DIFFICULTY-HARDER-PRESET:
+bc.dp_harder implements the operator's Rule P — each band below the top moves 30% of its
+MEASURED share up to the next band the exam actually sets; a 0% band receives nothing
+and stays 0; Medium absent → Easy moves straight to Hard; nothing non-zero above → the
+share stays. Blueprint S7-0 prints, per section, "Exam (measured)" and bold "Ours (+30%
+harder)" as two rows, every cell "pct% (nQ)" from the SAME apportioner S7-5 uses, a bold
+Paper pair (sums of section counts) on a multi-section exam, per-sitting rows with
+"scored/held", the unscored list, a per-section guard-rail table, and the preset's
+ready-to-edit "[section]: E:M:H" lines. OK applies the preset (the default, recorded as
+difficulty_source.mode 'profile_harder', never a CONFIRM prompt); EXAM applies the
+measured mix; any typed value is guard-railed against the MEASURED mix at ±50% relative
+(engine default, was ±30%), a 0% band still admitting only 0 without CONFIRM.
+--difficulty harder / exam are the no-prompt forms. Sittings are the latest 3 regardless
+of age (operator decision). MockDeliver §FOOTER-DS names the preset in the footer.
+
+OPERATOR DECISIONS (2026-08-29): Rule P; OK = preset; Medium absent → Easy to Hard;
+count-match is the only paper-acceptance rule (no threshold); latest 3 sittings
+regardless of age; DP_HARDER_FRAC a framework constant; guard-rail vs measured mix at
+±50%; Option B layout; the two affected IIT JAM papers are NOT re-ingested by this
+release (spec/engine change only).
+
+VERIFIED AT RELEASE: run_ci_gates.py (the CI workflow verbatim) green; blueprint_core
+630/630 with the exact worked operator examples pinned (RPSC 77:22:1 → 54:38:8, IIT JAM
+7:63:30 → 5:46:49, 0:0:100 → 0:0:100, 0:10:90 → 0:7:93, 40:0:60 → 28:0:72) plus a
+0..100 sweep proving every preset sums to 100, keeps every 0% band at 0, and never
+lowers Hard; the 58/60 fixture FAILS on the pre-release engine (excluded) and PASSES
+after; audit_canonical 312/312; every A-DPROFILE mutant killed (100%); validate_framework_md 0 issues corpus-wide.
+
 ## 2026.08.28.4 — GAP-2026-08-28-MULTIPART-STEM-LAYOUT: multi-part stems render one bold sub-part per line, under an exam-relative, spacing-insensitive label law enforced at authoring time
 
 **Framework_MockTestCreate v5.78 -> v5.79 (NEW §10 S10-2b MULTI-PART STEM LAYOUT
