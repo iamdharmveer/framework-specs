@@ -1,4 +1,8 @@
-# Framework_PYQExplain v2.20 — Universal PYQ Explanation Generator
+# Framework_PYQExplain v2.21 — Universal PYQ Explanation Generator
+# v2.21 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (explain_engine v2.11,
+#   MockTestExplain v1.49.0, routes.json +figural_core/+corpus_io; SHARED_RULES 1.5 → 1.6).
+#   S6A-6 COLOUR: explanation figures draw with figural_core's constants via
+#   explain_engine.structure_draw / fc.text_ink / fc.fill_style. Additive; no re-render.
 # v2.20 — 2026-08-29 — GAP-2026-08-29-PROFILE-UNSCORED-QUESTIONS (paired with blueprint_core
 #   Cluster DP dp_add_paper paper_positions/unscored_reasons, Blueprint v1.58.0 S7-0,
 #   audit_canonical v2.24). Two explained 60-question papers were EXCLUDED from an exam's
@@ -917,8 +921,9 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   It cannot prove the request was right; that stays with derive-twice (§7).
 
 ## S6A-6 — Renderer execution contract
-  WHO RENDERS: the executing session, at solve time. No renderer engine file and no
-  routes.json change — rendering is spec-directed session work, and the ENGINE's job
+  WHO RENDERS: the executing session, at solve time. No renderer engine file — rendering
+  is spec-directed session work (v2.21: figural_core and corpus_io, Step 7's engines,
+  are routed here as the palette owner and structure renderer), and the ENGINE's job
   stays confined to emission mechanics, the §6A-5 record check at construction, and the
   figure-landing check at verify time (explain_engine v2.3, shared with TestExplain).
   DECLARED WHERE (v2.19 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ): the
@@ -936,7 +941,8 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   decision D1); if ever needed, an optional exam_config key layers on with
   precedence exam_config → constant.
   DEPENDENCIES ARE PREFLIGHT WORK. P0 import-tests the library of every
-  REPRESENTATION_RENDERERS requirement (Step 0 already installs the full set; pip only
+  REPRESENTATION_RENDERERS requirement — and, v2.21, `import figural_core, corpus_io`,
+  recording explain_engine.colour_contract()['available'] (S6A-6 COLOUR) — (Step 0 already installs the full set; pip only
   on import failure) and RECORDS the result in the P7 dashboard. An unavailable
   library does not halt: the affected requirement degrades for the WHOLE run,
   disclosed up front as a plain note, so quality never varies silently between
@@ -950,6 +956,46 @@ Status             : [Ready — Batch 1] OR [Resume — Batch k] OR [Halted]
   FAILURE PATHS, all loud: failed render or failed §6A-5 comparison → drop the figure,
   degrade, record it; declared-but-unrendered at verify time → BLOCKING figure-landing
   FAIL. No path ships an unproved image, and no path hides a skipped one.
+
+  COLOUR (v2.21 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING; shared rule, mirrored in
+  MockTestExplain S6A-6). An explanation figure draws with EXACTLY the constants a Step 7
+  question figure draws with — figural_core is the palette owner and is routed to
+  this trigger together with corpus_io (routes.json v2026.08.30.1). No library
+  default palette is ever used. Per requirement (the CONSTANT
+  explain_engine.REPRESENTATION_RENDERERS[...]['colour'] is the authority;
+  explain_engine.colour_contract() returns the live values):
+      STRUCTURE_GRAPH : draw = explain_engine.structure_draw(canonical_smiles,
+                        highlight_bonds=[...] / highlight_atoms=[...]) — the ONE
+                        call for structures: it loads figural_core FIRST and then
+                        runs corpus_io.structure_draw_fn (which reads the palette
+                        from the already-loaded module and never imports it, so a
+                        process that imported corpus_io alone would draw black-
+                        and-white with only draw.palette_note to say so); atoms from
+                        figural_core.ATOM_PALETTE (O #C25604, N #0072B2, halogens
+                        #158663, all else black), the DECISIVE site the adjacent
+                        DEDUCTION sentence names accented in
+                        figural_core.HIGHLIGHT_COLOUR; rasterise into a matplotlib axes
+                        (ax.axis('off')) and save at explain_engine.RENDER_DPI
+                        (300) for width_in. The §6A-5 identifier is draw.canonical;
+                        a non-None draw.palette_note is a §6A-4 degrade to RECORD.
+      LEVEL_DIAGRAM / DATA_PLOT / CONFORMER : series and accent ink from
+                        fc.OKABE_ITO[:4] + black, at most fc.SERIES_CHROMATIC_CAP
+                        chromatic series, each with its own linestyle/marker
+                        (fc.LINESTYLES / fc.MARKERS); every coloured LABEL through
+                        fc.text_ink(hue); every FILL through fc.fill_style(k);
+                        continuous data viridis only; opaque white background;
+                        300 dpi at width_in.
+  WHAT DOES NOT TRANSFER FROM STEP 7: an explanation EXPLAINS the answer, so the
+  Step-7 answer-leak rules (Q7b.13 colour-as-content monochrome, Q7b.14 option-set
+  element uniformity, S10-7 Q5 no-chrome) do NOT apply here — a solution may show
+  the colour it is explaining, and labels inside the figure remain REQUIRED by the
+  MECHANICS above. Determinism (§6A-5) is unchanged: the palette is a constant, so
+  the bytes are the same on every machine. figural_core.audit_figure() is NOT run on
+  explanation figures (they carry no FigureSpec); the §6A-5 record is their proof.
+  DEGRADE: if `import figural_core` or `import corpus_io` fails at P0 (impossible
+  on a verified clone; recorded anyway), figures render black-and-white with the
+  reason on the dashboard — never a library default, never a halt.
+
 
 # ════════════════════════════════════════════════════════════════════════
 # §7 — DERIVATION PROTOCOL (derive-twice, never guess)
@@ -2679,7 +2725,13 @@ present_files(deliverables)
 #    RETIRED and removed from the framework; PYQ-1 does not use them.)
 
 # ════════════════════════════════════════════════════════════════════════
-# SHARED_RULES_VERSION: 1.5 (2026-08-24)
+# SHARED_RULES_VERSION: 1.6 (2026-08-30)
+#
+# SHARED-RULES BUMP (v1.6, 2026-08-30): GAP-2026-08-30-EXPLAIN-COLOUR-BINDING added the
+# S6A-6 COLOUR clause (a §4-§18 rule) to BOTH files — MockTestExplain v1.49.0 and
+# PYQExplain v2.21 — binding every explanation figure to figural_core's constants.
+#
+# (previous) SHARED_RULES_VERSION: 1.5 (2026-08-24)
 #
 # SHARED-RULES BUMP (v1.5, 2026-08-24): CHG-2026-08-24-NO-COVERAGE-BANNER changed one
 #   shared §4–§18 section in BOTH files — §12 (S12-4 retired: no document-level coverage
@@ -2789,5 +2841,5 @@ present_files(deliverables)
 # loaded learnings file, that learnings file WINS (§24). A learnings rule NEVER
 # overrides coverage/§18/the batch law (RE-0). Deliver the full merged spec on
 # every edit — never a patch.
-# END OF Framework_PYQExplain v2.20
+# END OF Framework_PYQExplain v2.21
 # ════════════════════════════════════════════════════════════════════════

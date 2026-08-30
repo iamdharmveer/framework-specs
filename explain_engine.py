@@ -25,6 +25,8 @@
 #   parse_learnings(path)              — [STEP 4] read an EXPLAIN(_AUDIT)_LEARNINGS md into structured rules (P10)
 #   REPRESENTATION_RENDERERS           — [v2.10] the framework-owned requirement → renderer → §6A-5 identifier binding (GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ)
 #   resolve_learnings_files(dir, code) — [v2.10] discovery-based exam/subject learnings partition (§24; no subject code derived)
+#   colour_contract()                  — [v2.11] the LIVE figure-colour values from figural_core (palette owner); {'available': False} never halts (GAP-2026-08-30-EXPLAIN-COLOUR-BINDING)
+#   structure_draw(smiles, ...)        — [v2.11] the ONE structure renderer for explanation figures: loads the palette owner first, then corpus_io.structure_draw_fn (removes the import-order hazard)
 #   build_report_docx(out, title, sections) / read_report_docx(path) — [v2.9] §20 END-OF-MOCK REPORT as a docx
 #
 # This file is embedded verbatim in Appendix A of Framework_MockTestExplain.md.
@@ -338,6 +340,15 @@ TRANSFER_SECTIONS = ('AXIOM', 'SPEED_HACK', 'WHY_WRONG', 'COMMON_PITFALLS', 'DED
 # v2.8 — neighbour provenance for a §7-7 claim.
 TRANSFER_NEIGHBOUR_SOURCE_RE = re.compile(r'^(?:GENERATED|CURATED:[A-Za-z0-9][A-Za-z0-9_.-]*)$')
 
+# v2.11 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (paired with
+#   Framework_MockTestExplain v1.49.0, Framework_PYQExplain v2.21, routes.json:
+#   figural_core.py + corpus_io.py routed to MockExplain / TestExplain / PYQExplain).
+#   Explanation figures had NO colour contract: rdkit's default atom palette and
+#   matplotlib's Category-10 defaults, so a question drew a vermillion O and its
+#   explanation a pure-red one, and a PYQ solution a third. Each renderer entry now
+#   carries a 'colour' clause naming the framework-owned calls, and colour_contract()
+#   returns the live values from figural_core — no number is duplicated here.
+#   Additive: 'library' / 'identifier' and every §6A-5 mechanic are byte-identical.
 # v2.10 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ.
 # The requirement → renderer → §6A-5 identifier-discipline binding.
 # FRAMEWORK-OWNED, not an exam property: it states what this framework can draw
@@ -360,27 +371,89 @@ TRANSFER_NEIGHBOUR_SOURCE_RE = re.compile(r'^(?:GENERATED|CURATED:[A-Za-z0-9][A-
 # 2026-08-28: "the system works it out always; never ask the operator"). If a
 # future exam genuinely needs one, layer an optional exam_config key with
 # precedence exam_config → this constant, without breaking this design.
+# v2.11 (GAP-2026-08-30-EXPLAIN-COLOUR-BINDING, P2 of the figure-colour programme):
+# every renderer now carries a 'colour' clause. The PALETTE OWNER is figural_core
+# (Step 7's engine) — an explanation figure draws with exactly the constants a
+# question figure draws with, so a mock question, its explanation and a PYQ
+# solution never disagree on what an oxygen atom or a series looks like. The
+# clause names the framework-owned CALLS; colour_contract() returns the live
+# values from figural_core so nothing here duplicates a number.
+_COLOUR_STRUCTURE = ('corpus_io.structure_draw_fn — atoms from figural_core.ATOM_PALETTE '
+                     '(never rdkit\'s default); highlight_bonds/highlight_atoms for the '
+                     'DECISIVE site the adjacent sentence names (figural_core.HIGHLIGHT_COLOUR)')
+_COLOUR_CHART = ('figural_core role palette — series ink OKABE_ITO[:4] + black, at most '
+                 'SERIES_CHROMATIC_CAP chromatic series, redundant linestyle/marker; coloured '
+                 'text via figural_core.text_ink(); fills via figural_core.fill_style(); '
+                 'continuous data viridis only; opaque white; 300 dpi at width_in')
 REPRESENTATION_RENDERERS = {
     'STRUCTURE_GRAPH': {
         'library': 'rdkit',
         'identifier': 'CANONICAL SMILES round-trip — render from SMILES; re-parse '
                       'the intended SMILES; compare canonical forms. Formula '
                       'comparison alone is a §6A-5 violation.',
+        'colour': _COLOUR_STRUCTURE,
     },
     'LEVEL_DIAGRAM': {
         'library': 'matplotlib',
         'identifier': 'the computed occupancy / ordering string, restated from the '
                       'drawn data',
+        'colour': _COLOUR_CHART,
     },
     'DATA_PLOT': {
         'library': 'matplotlib',
         'identifier': "the plotted series' defining parameters",
+        'colour': _COLOUR_CHART,
     },
     'CONFORMER': {
         'library': 'matplotlib',
         'identifier': 'the dihedral / occupant string, restated from the drawn data',
+        'colour': _COLOUR_CHART,
     },
 }
+
+RENDER_DPI = 300          # v2.11: explanation figures render at Step 7's FIGURAL_DPI
+
+
+def colour_contract():
+    """v2.11 — the LIVE colour values an explanation figure must draw with, read
+    from figural_core (the palette owner; routed to every Explain trigger).
+    Returns {'available': False, 'reason': ...} when figural_core cannot be
+    imported — the session then draws BLACK-AND-WHITE and records the degrade
+    in the §3 dashboard; it never falls back to a library default palette."""
+    try:
+        import figural_core as fc
+    except Exception as exc:                     # never halts (§6A-4 posture)
+        return {'available': False, 'reason': f'figural_core unavailable: {exc}'}
+    out = {'available': True,
+           'okabe_ito': list(fc.OKABE_ITO),
+           'line_ink': list(getattr(fc, 'ROLE_LINE', fc.OKABE_ITO[:4] + ['#000000'])),
+           'text_tier': dict(getattr(fc, 'ROLE_TEXT', {})),
+           'fills': list(getattr(fc, 'FILLS', ())),
+           'hatches': list(getattr(fc, 'HATCHES', ())),
+           'series_cap': int(getattr(fc, 'SERIES_CHROMATIC_CAP', 4)),
+           'atom_palette': {int(k): tuple(v) for k, v in getattr(fc, 'ATOM_PALETTE', {}).items()},
+           'highlight': getattr(fc, 'HIGHLIGHT_COLOUR', fc.OKABE_ITO[0]),
+           'dpi': int(getattr(fc, 'FIGURAL_DPI', RENDER_DPI))}
+    return out
+
+
+def structure_draw(smiles, highlight_bonds=(), highlight_atoms=(), px=(1200, 864)):
+    """v2.11 — THE structure renderer for an explanation figure (S6A-6 COLOUR,
+    STRUCTURE_GRAPH). Loads the palette owner FIRST, then draws: corpus_io.
+    structure_draw_fn reads figural_core.ATOM_PALETTE from sys.modules and never
+    imports it, so a process that imported corpus_io alone would draw BLACK-AND-
+    WHITE with only draw.palette_note to say so. This wrapper removes that
+    ordering hazard; the spec names it and nothing else for structures.
+    Raises ValueError (as structure_draw_fn does) on an unrenderable SMILES;
+    a palette that could not be loaded is NOT an exception — draw.palette_note
+    carries the reason and the session records it (§6A-4 degrade, never silent)."""
+    cc = colour_contract()                      # imports figural_core if it can
+    import corpus_io as cio
+    draw = cio.structure_draw_fn(smiles, px=px, highlight_bonds=highlight_bonds,
+                                 highlight_atoms=highlight_atoms)
+    if not cc.get('available') and not getattr(draw, 'palette_note', None):
+        draw.palette_note = cc.get('reason', 'palette owner unavailable')
+    return draw
 
 
 def resolve_learnings_files(project_dir, exam_code):
@@ -3715,6 +3788,42 @@ def self_test():
         check('V30-CONFORMER-USES-LEVEL-LIB',
               REPRESENTATION_RENDERERS['CONFORMER']['library'] ==
               REPRESENTATION_RENDERERS['LEVEL_DIAGRAM']['library'])
+        # v2.11 — every renderer carries a colour clause naming the palette owner.
+        check('V31-RENDERERS-CARRY-COLOUR',
+              all(isinstance(v.get('colour'), str) and 'figural_core' in v['colour']
+                  for v in REPRESENTATION_RENDERERS.values()))
+        check('V31-STRUCTURE-COLOUR-IS-PINNED-PALETTE',
+              'structure_draw_fn' in REPRESENTATION_RENDERERS['STRUCTURE_GRAPH']['colour']
+              and 'ATOM_PALETTE' in REPRESENTATION_RENDERERS['STRUCTURE_GRAPH']['colour'])
+        check('V31-CHART-COLOUR-NAMES-TEXT-AND-FILL-CALLS',
+              all(k in REPRESENTATION_RENDERERS['DATA_PLOT']['colour']
+                  for k in ('text_ink', 'fill_style', 'viridis', 'SERIES_CHROMATIC_CAP')))
+        # v2.11 — the ordering hazard, reproduced: in a fresh process that has
+        # imported corpus_io but NOT figural_core, structure_draw() must still
+        # draw the pinned palette (it loads the owner itself).
+        try:
+            import subprocess as _sp, sys as _sys, os as _os
+            _sd_run = _sp.run([_sys.executable, '-c',
+                               'import corpus_io, explain_engine as ee\n'
+                               'd = ee.structure_draw("CCO")\n'
+                               'print(sorted(d.coloured_elements), d.palette_note)'],
+                              capture_output=True, text=True, timeout=120,
+                              cwd=_os.path.dirname(_os.path.abspath(__file__)))
+            check('V31-STRUCTURE-DRAW-LOADS-PALETTE-OWNER-FIRST',
+                  _sd_run.returncode == 0 and "['O'] None" in _sd_run.stdout)
+        except Exception:
+            check('V31-STRUCTURE-DRAW-LOADS-PALETTE-OWNER-FIRST', False)
+        _cc = colour_contract()
+        if _cc.get('available'):
+            import figural_core as _fc
+            check('V31-COLOUR-CONTRACT-IS-LIVE',
+                  _cc['okabe_ito'] == list(_fc.OKABE_ITO)
+                  and _cc['atom_palette'][8] == tuple(_fc.ATOM_PALETTE[8])
+                  and _cc['text_tier'] == dict(_fc.ROLE_TEXT)
+                  and _cc['dpi'] == _fc.FIGURAL_DPI == RENDER_DPI)
+        else:
+            check('V31-COLOUR-CONTRACT-DEGRADES-NEVER-HALTS',
+                  _cc.get('available') is False and 'reason' in _cc)
     except Exception as e:
         # A deleted or emptied constant must produce NAMED failures and the
         # banner, never a bare traceback: the failure has to be diagnosable

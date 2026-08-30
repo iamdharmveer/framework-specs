@@ -95,6 +95,8 @@
  "MockExplain": [
   "Framework_MockTestExplain.md",
   "explain_engine.py",
+  "corpus_io.py",
+  "figural_core.py",
   "blueprint_core.py",
   "t3_mathcomp.py",
   "paper_pipeline.py",
@@ -103,6 +105,8 @@
  "TestExplain": [
   "Framework_MockTestExplain.md",
   "explain_engine.py",
+  "corpus_io.py",
+  "figural_core.py",
   "blueprint_core.py",
   "t3_mathcomp.py",
   "paper_pipeline.py",
@@ -121,6 +125,8 @@
  "PYQExplain": [
   "Framework_PYQExplain.md",
   "explain_engine.py",
+  "corpus_io.py",
+  "figural_core.py",
   "t3_mathcomp.py",
   "figural_vision.py",
   "blueprint_core.py",

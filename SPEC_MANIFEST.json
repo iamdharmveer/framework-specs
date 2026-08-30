@@ -37,10 +37,10 @@
     },
     "Framework_MockTestExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 3337,
-      "sha256": "782ca7a8210a716bd0180129b181db8ad484833b15d393528f2af546a49efe6b",
-      "size_bytes": 257208,
-      "version_header": "# Framework_MockTestExplain v1.48.0"
+      "lines": 3395,
+      "sha256": "8528c9f12526e1193c9674d687e46984e3102f7607534c05acea9c68b09036a9",
+      "size_bytes": 261656,
+      "version_header": "# Framework_MockTestExplain v1.49.0"
     },
     "Framework_NotesAudit.md": {
       "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
@@ -121,10 +121,10 @@
     },
     "Framework_PYQExplain.md": {
       "end_sentinel": "# ════════════════════════════════════════════════════════════════════════",
-      "lines": 2793,
-      "sha256": "e99c02018709619b7b1c2c9bbfd52020e8948ddec2a3930b73ac3efa7e1d7ce9",
-      "size_bytes": 198475,
-      "version_header": "# Framework_PYQExplain v2.20 — Universal PYQ Explanation Generator"
+      "lines": 2845,
+      "sha256": "e72a491e95970f8e69e9616438c28c8e7a85aeb9ca3aa1a855aa48994ce769fe",
+      "size_bytes": 202360,
+      "version_header": "# Framework_PYQExplain v2.21 — Universal PYQ Explanation Generator"
     },
     "Framework_PYQFormat.md": {
       "end_sentinel": "**End of Framework_PYQFormat.md (v1.5.2)**",
@@ -261,9 +261,9 @@
     },
     "explain_engine.py": {
       "end_sentinel": "          '--scan-risk <docx> [options] marks an existing Explanation for regeneration.')",
-      "lines": 4279,
-      "sha256": "b884924508f039e4253530031fcd01a8a8b41bd10b1b9fe4a35126cc6ef6f60d",
-      "size_bytes": 250656,
+      "lines": 4388,
+      "sha256": "2b8d527b5762921ea91a7b80b3f20fcb39bbcb0313bee89403210069358f765b",
+      "size_bytes": 257956,
       "version_header": "#!/usr/bin/env python3"
     },
     "figural_core.py": {
@@ -331,9 +331,9 @@
     },
     "routes.json": {
       "end_sentinel": "}",
-      "lines": 177,
-      "sha256": "3e26402f352f1aa60578647fecc6eb2b1f068f309403eec1f8c55f7aa875b75a",
-      "size_bytes": 3800,
+      "lines": 183,
+      "sha256": "1fb6ef21b021dcd69069211e67fc55f3cf4d27cfeb40cf2e05b203afc311225d",
+      "size_bytes": 3917,
       "version_header": "{"
     },
     "spec_source.py": {

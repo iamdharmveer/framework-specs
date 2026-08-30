@@ -1,3 +1,22 @@
+# Deploy: GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (P2) — release 2026.08.30.1
+
+**Files to commit (10):** `explain_engine.py` (v2.11), `Framework_MockTestExplain.md` (v1.49.0),
+`Framework_PYQExplain.md` (v2.21), `routes.json`, `VERSION`, `CHANGELOG.md`, `DEPLOY_NOTES.md`,
+`MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json`. Deploy the engine on this explicit
+instruction only, after `python3 explain_engine.py --self-test` (184/184) on the deployed bytes.
+
+**Operator change (all ~200 exams): NONE.** The per-exam explain_engine copies are inert
+(engines run from the verified clone).
+
+**What changes:** from this release, a TestExplain / MockExplain / PYQExplain session renders
+every explanation figure with figural_core's constants (pinned atom palette, role palette,
+300 dpi) and records `colour_contract()['available']` on the preflight dashboard line.
+Nothing else in Step 9 / PYQ-1 changes; delivered solutions are not re-rendered.
+
+**Rollback:** revert the four content files.
+
+---
+
 # Deploy: GAP-2026-08-30-FITTER-ASPECT — release 2026.08.30
 
 **Files to commit (9):** `figural_core.py`, `audit_canonical.py` (v2.25),

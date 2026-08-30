@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026.08.30.1 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (P2): explanation figures draw with the same constants as question figures
+
+**explain_engine v2.10 -> v2.11 (each REPRESENTATION_RENDERERS entry carries a 'colour' clause
+naming the framework-owned calls; RENDER_DPI = 300; colour_contract() returns the LIVE values
+from figural_core and {'available': False} on failure — never a halt; structure_draw() is THE structure renderer for
+explanation figures — it loads the palette owner FIRST, closing the import-order hazard where a
+process that imported corpus_io alone drew black-and-white with only draw.palette_note to say
+so (fixture runs the hazard in a subprocess); fixtures V31-*; self-test 179 -> 184) · Framework_MockTestExplain v1.48.0 -> v1.49.0 and Framework_PYQExplain v2.20 ->
+v2.21 (S6A-6 COLOUR, a shared §4-§18 rule mirrored in both; P1/P0 preflight import-tests
+figural_core + corpus_io; SHARED_RULES_VERSION 1.5 -> 1.6) · routes.json (figural_core.py +
+corpus_io.py routed to MockExplain / TestExplain / PYQExplain — Step 7's engines reused as the
+palette owner and structure renderer, not a new renderer). Zero exam values. PYQExplain is
+touched BY DESIGN: a PYQ solution and a mock explanation must draw alike.**
+
+WHY. Explanation figures (§6A RepresentationFigure) had no colour contract at all — rdkit's
+default atom palette and matplotlib's Category-10 defaults — so after P1 (2026.08.29.1) a
+question drew a vermillion O, its explanation a pure-red one, and a PYQ solution a third.
+
+WHAT DOES NOT TRANSFER. Step 7's answer-leak rules (Q7b.13 colour-as-content monochrome,
+Q7b.14 option-set uniformity, S10-7 Q5 no-chrome) are explicitly NOT applied: an explanation
+shows what it explains, and in-figure labels remain required by S6A-6 MECHANICS.
+
+PROOF. The engine's own FIG-E2E fixtures (validate -> build_interleaved_docx -> verify_fidelity /
+verify_structure / verify_explanations -> reader round-trip) run on a COLOUR-clause figure in
+place of the placeholder: all pass and the image landed in the docx carries #C25604. Explanation
+STRUCTURE_GRAPH and DATA_PLOT rendered through the contract: oxygen pixels
+are exactly #C25604 (Step 7's value), rdkit red absent, highlight #0072B2 present, bytes
+identical on re-render; a Step 7 render of the same SMILES shares the palette. Validator 0
+issues on both Explain specs; explain_engine 183/183.
+
+ZERO-BREAK. §6A-1..§6A-5 and every §6A-5 mechanic byte-unchanged; non-visual questions
+untouched; existing explanation figures never re-rendered; corpus_io reads figural_core from
+sys.modules (never imports it) so PYQ steps that do not route figural_core are unchanged.
+
 ## 2026.08.30 — GAP-2026-08-30-FITTER-ASPECT: the figure fitter no longer forces a data-unit aspect on ordinary charts; G-FIGFIT tolerates half a pixel; Step 8 prints every figure gate and evaluates the set-level gates
 
 **figural_core (v5.81: apply_data_window() applies the window AS GIVEN on an 'auto' axes and

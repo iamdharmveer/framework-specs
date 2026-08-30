@@ -1,4 +1,18 @@
-# Framework_MockTestExplain v1.48.0
+# Framework_MockTestExplain v1.49.0
+# v1.49.0 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (paired with explain_engine
+#   v2.11, Framework_PYQExplain v2.21, routes.json: figural_core.py + corpus_io.py routed to
+#   MockExplain / TestExplain / PYQExplain; SHARED_RULES_VERSION 1.5 → 1.6). Explanation
+#   figures had NO colour contract — rdkit's default atom palette and matplotlib's
+#   Category-10 defaults — so a question (Step 7 v5.80, pinned palette) and its explanation
+#   disagreed on what an oxygen atom looks like, and a PYQ solution drew a third way.
+#   S6A-6 COLOUR binds every renderer to figural_core (the palette owner) through the same
+#   calls Step 7 uses (explain_engine.structure_draw -> corpus_io.structure_draw_fn, fc.text_ink,
+#   fc.fill_style); P1 renderer
+#   preflight import-tests those two engines and records it. Step-7 answer-leak rules
+#   (monochrome colour-content, option-set uniformity, no-chrome) are explicitly NOT
+#   transferred — an explanation shows what it explains. Additive: §6A-1..§6A-5, every
+#   §6A-5 mechanic and every non-visual question are byte-unchanged; existing explanation
+#   figures are never re-rendered.
 # v1.48.0 — 2026-08-28 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ (paired with
 #   explain_engine v2.10, Framework_PYQExplain v2.19, audit_seam v1.3,
 #   validate_framework_md v3.2). Three CATEGORY-C config keys this spec read were
@@ -660,7 +674,9 @@ execution path — it does not shrink, soften or delete them.
       failure → HALT.
       THEN RENDERER PREFLIGHT (v1.48.0 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ):
       for each requirement in explain_engine.REPRESENTATION_RENDERERS, import-test its
-      library and record the outcome on the dashboard "Renderer preflight" line. Step 0
+      library and record the outcome on the dashboard "Renderer preflight" line;
+      v1.49.0: ALSO `import figural_core, corpus_io` and record
+      explain_engine.colour_contract()['available'] on the same line (S6A-6 COLOUR). Step 0
       already installs the full set (SKILL Step 0: matplotlib pillow numpy scipy
       fonttools rdkit), so this is normally a confirmation, not an install; pip
       (--break-system-packages, the Step-0 pattern) only where an import fails. An
@@ -1273,10 +1289,12 @@ execution path — it does not shrink, soften or delete them.
 
 ## S6A-6 — Renderer execution contract (v1.28.0 — emission is LIVE)
   WHO RENDERS: the executing session, at solve time, inside this step — the same
-  model Step 7 uses for its figural questions. There is NO renderer engine file
-  and no routes.json change: rendering is spec-directed session work, and the
-  ENGINE's job is confined to what an engine can guarantee (emission mechanics,
-  the §6A-5 record check at construction, and the landing check at verify time).
+  model Step 7 uses for its figural questions. There is NO renderer engine file:
+  rendering is spec-directed session work, and the ENGINE's job is confined to
+  what an engine can guarantee (emission mechanics, the §6A-5 record check at
+  construction, and the landing check at verify time). v1.49.0: the palette
+  owner (figural_core) and the structure renderer (corpus_io) ARE routed to this
+  trigger — they are Step 7's engines, reused, not a new renderer.
 
   WHAT IS DECLARED WHERE (v1.48.0 — GAP-2026-08-28-CATEGORY-C-ORPHAN-CONFIG-READ).
   The requirement → library → §6A-5 identifier binding is FRAMEWORK-OWNED and
@@ -1341,6 +1359,46 @@ execution path — it does not shrink, soften or delete them.
   figure, degrade the verdict per §6A-4, record it; a declared-but-unrendered
   figure at verify time → BLOCKING figure-landing FAIL (§18). No path ships an
   unproved image, and no path hides a skipped one.
+
+  COLOUR (v1.49.0 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING; shared rule, mirrored in
+  PYQExplain S6A-6). An explanation figure draws with EXACTLY the constants a Step 7
+  question figure draws with — figural_core is the palette owner and is routed to
+  this trigger together with corpus_io (routes.json v2026.08.30.1). No library
+  default palette is ever used. Per requirement (the CONSTANT
+  explain_engine.REPRESENTATION_RENDERERS[...]['colour'] is the authority;
+  explain_engine.colour_contract() returns the live values):
+      STRUCTURE_GRAPH : draw = explain_engine.structure_draw(canonical_smiles,
+                        highlight_bonds=[...] / highlight_atoms=[...]) — the ONE
+                        call for structures: it loads figural_core FIRST and then
+                        runs corpus_io.structure_draw_fn (which reads the palette
+                        from the already-loaded module and never imports it, so a
+                        process that imported corpus_io alone would draw black-
+                        and-white with only draw.palette_note to say so); atoms from
+                        figural_core.ATOM_PALETTE (O #C25604, N #0072B2, halogens
+                        #158663, all else black), the DECISIVE site the adjacent
+                        DEDUCTION sentence names accented in
+                        figural_core.HIGHLIGHT_COLOUR; rasterise into a matplotlib axes
+                        (ax.axis('off')) and save at explain_engine.RENDER_DPI
+                        (300) for width_in. The §6A-5 identifier is draw.canonical;
+                        a non-None draw.palette_note is a §6A-4 degrade to RECORD.
+      LEVEL_DIAGRAM / DATA_PLOT / CONFORMER : series and accent ink from
+                        fc.OKABE_ITO[:4] + black, at most fc.SERIES_CHROMATIC_CAP
+                        chromatic series, each with its own linestyle/marker
+                        (fc.LINESTYLES / fc.MARKERS); every coloured LABEL through
+                        fc.text_ink(hue); every FILL through fc.fill_style(k);
+                        continuous data viridis only; opaque white background;
+                        300 dpi at width_in.
+  WHAT DOES NOT TRANSFER FROM STEP 7: an explanation EXPLAINS the answer, so the
+  Step-7 answer-leak rules (Q7b.13 colour-as-content monochrome, Q7b.14 option-set
+  element uniformity, S10-7 Q5 no-chrome) do NOT apply here — a solution may show
+  the colour it is explaining, and labels inside the figure remain REQUIRED by the
+  MECHANICS above. Determinism (§6A-5) is unchanged: the palette is a constant, so
+  the bytes are the same on every machine. figural_core.audit_figure() is NOT run on
+  explanation figures (they carry no FigureSpec); the §6A-5 record is their proof.
+  DEGRADE: if `import figural_core` or `import corpus_io` fails at P1 (impossible
+  on a verified clone; recorded anyway), figures render black-and-white with the
+  reason on the dashboard — never a library default, never a halt.
+
 
 # ════════════════════════════════════════════════════════════════════════
 # §7 — ANSWER DERIVATION & VERIFICATION (no key delivered — derive it)
@@ -3333,5 +3391,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.48.0
+# END OF Framework_MockTestExplain v1.49.0
 # ════════════════════════════════════════════════════════════════════════
