@@ -1,5 +1,20 @@
 """
-notes_core.py v2.10 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.11 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.11 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3 of the figure-colour
+    programme; pairs with Framework_NotesCreate v2.8.0 §6 F-4a and
+    Framework_NotesAudit v3.6.0 §1 / G-7a). NotesCreate figures (F-4 diagrams,
+    B8 mind map) had NO render recipe — no palette, no dpi, no size — and
+    NotesAudit's "re-render via figural_core" clause was non-executable as
+    routed. This engine now carries FIGURE_PALETTE: the SAME values Step 7's
+    figural_core draws with (Okabe-Ito hues, TEXT tier, FILLS, HATCHES, the
+    pinned ATOM_PALETTE, FIGURE_DPI 300), PINNED HERE by copy and locked by the
+    SPEC-LOCK tripwire plus a CI equality check against figural_core (the
+    self-test imports figural_core dynamically, test-only). Same numbers,
+    verified, NO runtime coupling: figural_core is NOT routed to Notes and its
+    13 mock gates never run here. Helpers figure_text_ink() / figure_fill_style()
+    / figure_structure_png() are the Notes-side calls the F-4a contract names.
+    Everything is ADDITIVE; no existing notes unit is re-rendered.
 
 v2.10 — 2026-08-15 — THE FORMAT CONTRACT (figure vs text balance; owner
     decisions of the 2026-08-15 design session, approved proposal; pairs
@@ -386,6 +401,122 @@ REGISTRY_SCHEMAS_ACCEPTED = ("notes-registry/1.0", "notes-registry/1.1",
 BLUEPRINT_SCHEMA = "notes-blueprint/2.0"
 BLUEPRINT_SCHEMAS_ACCEPTED = ("notes-blueprint/1.0", "notes-blueprint/1.1",
                               "notes-blueprint/1.2", "notes-blueprint/2.0")
+
+# ── v2.11 FIGURE PALETTE (GAP-2026-08-30-NOTES-FIGURE-CONTRACT) ──────────────
+# Pinned COPY of figural_core's figure constants (P1 2026.08.29.1). The Notes
+# route does not load figural_core; equality is enforced by the SPEC-LOCK
+# tripwire below and by the self-test's dynamic cross-check. Change ONLY by
+# changing figural_core first, then re-pinning here in the same release.
+FIGURE_PALETTE = {
+    "okabe_ito": ["#0072B2", "#D55E00", "#009E73", "#CC79A7",
+                  "#E69F00", "#56B4E9", "#F0E442", "#000000"],
+    "line_ink": ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#000000"],
+    "text_tier": {"#0072B2": "#0072B2", "#D55E00": "#C25604",
+                  "#009E73": "#158663", "#CC79A7": "#AB5D89",
+                  "#000000": "#000000"},
+    "fills": ["#56B4E9", "#E69F00", "#F0E442", "#A6DDCE", "#EDD0E0"],
+    "hatches": ["", "//", "..", "xx", "\\\\"],
+    "linestyles": ["-", "--", "-.", ":"],
+    "markers": ["o", "s", "^", "D"],
+    "series_cap": 4,
+    "highlight": "#0072B2",
+    "atom_palette": {6: (0.0, 0.0, 0.0), 1: (0.0, 0.0, 0.0),
+                     7: (0.0, 0.447, 0.698), 8: (0.761, 0.337, 0.016),
+                     9: (0.082, 0.525, 0.388), 17: (0.082, 0.525, 0.388),
+                     35: (0.082, 0.525, 0.388), 53: (0.082, 0.525, 0.388)},
+    "colormap": "viridis",
+}
+FIGURE_DPI = 300
+# Mind-map (B8) level fills: L1 sky, L2 orange, L3 yellow — fill hues only,
+# black labels (>= 9:1 on every fill), dark edge always.
+MINDMAP_LEVEL_FILLS = {"L1": 0, "L2": 1, "L3": 2}
+
+
+def figure_text_ink(hue):
+    """TEXT-tier value of a palette hue (F-4a): use for EVERY coloured label
+    inside a notes figure. Black aliases normalise; an unknown hue returns
+    itself (the author then owns its contrast)."""
+    h = str(hue).strip().upper()
+    if h in ("K", "BLACK"):
+        h = "#000000"
+    return FIGURE_PALETTE["text_tier"].get(h, h)
+
+
+def figure_fill_style(k, edge="#000000"):
+    """Fill k of a notes figure (F-4a): facecolor from FIGURE_PALETTE fills,
+    dark edge ALWAYS, hatch k as the greyscale channel."""
+    k = int(k)
+    fills, hatches = FIGURE_PALETTE["fills"], FIGURE_PALETTE["hatches"]
+    if k < 0 or k >= len(fills):
+        raise ValueError(f"figure_fill_style: fill index {k} outside 0..{len(fills) - 1}")
+    return {"facecolor": fills[k], "edgecolor": edge,
+            "hatch": hatches[k % len(hatches)], "linewidth": 1.0}
+
+
+def figure_structure_png(smiles, path, width_in=4.0, highlight_bonds=(),
+                         highlight_atoms=(), px=(1200, 864)):
+    """Render a molecular structure for a notes figure with the PINNED atom
+    palette (never rdkit's default) at FIGURE_DPI for width_in. Returns the
+    canonical SMILES (F-4a proof, like §6A-5) or raises ValueError. rdkit
+    absent -> ValueError('rdkit_unavailable'): the caller records it and the
+    figure is omitted (NC §6 F-4a: never a library-default render)."""
+    try:
+        from rdkit import Chem
+        from rdkit.Chem.Draw import rdMolDraw2D
+    except Exception:
+        raise ValueError("rdkit_unavailable")
+    if not (float(width_in) > 0):
+        raise ValueError(f"figure_structure_png: width_in must be > 0, got {width_in!r}")
+    mol = Chem.MolFromSmiles(str(smiles or "").strip())
+    if mol is None or mol.GetNumAtoms() == 0:      # '' parses to an EMPTY mol
+        raise ValueError(f"figure_structure_png: unparseable or empty SMILES {smiles!r}")
+    d = rdMolDraw2D.MolDraw2DCairo(int(px[0]), int(px[1]))
+    o = d.drawOptions()
+    pal = FIGURE_PALETTE["atom_palette"]
+    if hasattr(o, "updateAtomPalette"):
+        o.updateAtomPalette({int(k): tuple(v) for k, v in pal.items()})
+        missing = {a.GetAtomicNum() for a in mol.GetAtoms()} - set(pal)
+        if missing:
+            o.updateAtomPalette({int(k): (0.0, 0.0, 0.0) for k in missing})
+    elif hasattr(o, "useBWAtomPalette"):
+        o.useBWAtomPalette()
+    hl_b = [int(i) for i in (highlight_bonds or ())]
+    n_at, n_bd = mol.GetNumAtoms(), mol.GetNumBonds()
+    for i in hl_b:
+        if not (0 <= i < n_bd):
+            raise ValueError(f"figure_structure_png: highlight_bonds index {i} outside 0..{n_bd - 1}")
+    hl_a = []
+    for i in (highlight_atoms or ()):
+        if not (0 <= int(i) < n_at):
+            raise ValueError(f"figure_structure_png: highlight_atoms index {i} outside 0..{n_at - 1}")
+        a = mol.GetAtomWithIdx(int(i))
+        if a.GetSymbol() == "C" and not a.GetFormalCharge():
+            hl_a.append(int(i))
+        else:                       # labelled atom: accent its bonds, never its symbol
+            hl_b += [b.GetIdx() for b in a.GetBonds() if b.GetIdx() not in hl_b]
+    if hl_a or hl_b:
+        hh = FIGURE_PALETTE["highlight"]
+        rgb = tuple(int(hh[i:i + 2], 16) / 255.0 for i in (1, 3, 5))
+        if hasattr(o, "setHighlightColour"):
+            o.setHighlightColour(rgb + (1.0,))
+        if hasattr(o, "highlightBondWidthMultiplier"):
+            o.highlightBondWidthMultiplier = 6
+    rdMolDraw2D.PrepareAndDrawMolecule(d, mol, highlightAtoms=hl_a, highlightBonds=hl_b)
+    d.FinishDrawing()
+    from PIL import Image
+    import io as _io
+    im = Image.open(_io.BytesIO(d.GetDrawingText())).convert("RGBA")
+    bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
+    bg.alpha_composite(im)
+    out = bg.convert("RGB")
+    # resample so the file is FIGURE_DPI at width_in (F-4a)
+    target_w = int(round(width_in * FIGURE_DPI))
+    if out.size[0] != target_w:
+        out = out.resize((target_w, int(round(out.size[1] * target_w / out.size[0]))),
+                         Image.LANCZOS)
+    out.save(path, dpi=(FIGURE_DPI, FIGURE_DPI))
+    return Chem.MolToSmiles(mol)
+
 
 LEVEL_COLORS = {"L1": "1F4E79", "L2": "00838F", "L3": "6A1B9A",
                 "table_header": "44546A"}
@@ -2198,6 +2329,63 @@ def self_test():
     # they say nothing about what the spec text actually reads, which is why the
     # REVERSE half below exists and is what closes the defect this was written
     # for. Neither half alone catches "one contract, two implementations".
+    # v2.11 — FIGURE PALETTE is a pinned copy of figural_core's constants.
+    check("spec-lock: NC §6 F-4a figure palette (pinned copy)",
+          FIGURE_PALETTE["okabe_ito"][:4] == ["#0072B2", "#D55E00", "#009E73", "#CC79A7"]
+          and FIGURE_PALETTE["text_tier"]["#D55E00"] == "#C25604"
+          and FIGURE_PALETTE["fills"][3:] == ["#A6DDCE", "#EDD0E0"]
+          and FIGURE_PALETTE["series_cap"] == 4 and FIGURE_DPI == 300)
+    # CROSS-ENGINE EQUALITY (test-only dynamic import: figural_core is NOT
+    # routed to Notes and must never be imported at runtime here).
+    try:
+        _fc = __import__("figural_core")
+        check("spec-lock: figure palette EQUALS figural_core (P1 owner)",
+              FIGURE_PALETTE["okabe_ito"] == list(_fc.OKABE_ITO)
+              and FIGURE_PALETTE["line_ink"] == list(_fc.ROLE_LINE)
+              and FIGURE_PALETTE["text_tier"] == dict(_fc.ROLE_TEXT)
+              and FIGURE_PALETTE["fills"] == list(_fc.FILLS)
+              and FIGURE_PALETTE["hatches"] == list(_fc.HATCHES)
+              and FIGURE_PALETTE["linestyles"] == list(_fc.LINESTYLES[:4])
+              and FIGURE_PALETTE["markers"] == list(_fc.MARKERS[:4])
+              and FIGURE_PALETTE["series_cap"] == _fc.SERIES_CHROMATIC_CAP
+              and FIGURE_PALETTE["highlight"] == _fc.HIGHLIGHT_COLOUR
+              and {int(k): tuple(v) for k, v in FIGURE_PALETTE["atom_palette"].items()}
+                  == {int(k): tuple(v) for k, v in _fc.ATOM_PALETTE.items()}
+              and FIGURE_DPI == _fc.FIGURAL_DPI)
+    except ImportError:
+        check("spec-lock: figure palette EQUALS figural_core (P1 owner)", False)
+    check("F-4a helpers: text ink, fill style, overflow",
+          figure_text_ink("#D55E00") == "#C25604" and figure_text_ink("k") == "#000000"
+          and figure_fill_style(1)["hatch"] == "//" and figure_fill_style(1)["edgecolor"] == "#000000")
+    try:
+        figure_fill_style(9); check("F-4a fill overflow raises", False)
+    except ValueError:
+        check("F-4a fill overflow raises", True)
+    try:
+        import tempfile as _tf, os as _os
+        _p = _os.path.join(_tf.mkdtemp(), "st_struct.png")
+        _c = figure_structure_png("CCO", _p, width_in=4.0, highlight_atoms=[2])
+        from PIL import Image as _Im
+        _im = _Im.open(_p); _w, _h = _im.size
+        import numpy as _np
+        _a = _np.array(_im.convert("RGB"))
+        _has = lambda hx: (_a == _np.array([int(hx[i:i + 2], 16) for i in (1, 3, 5)])).all(-1).any()
+        check("F-4a structure: pinned palette, 300 dpi at width, deterministic canonical",
+              _c == "CCO" and _w == 1200 and abs(_im.info.get("dpi", (300, 300))[0] - 300) < 0.01
+              and _has("#C25604") and not _has("#FF0000") and _has("#0072B2"))
+        _p2 = _os.path.join(_tf.mkdtemp(), "st_struct2.png"); figure_structure_png("CCO", _p2, width_in=4.0, highlight_atoms=[2])
+        check("F-4a structure: identical bytes on re-render",
+              open(_p, "rb").read() == open(_p2, "rb").read())
+        try:
+            figure_structure_png("CCO", _p2, highlight_bonds=[9]); check("F-4a structure: bad highlight is ValueError", False)
+        except ValueError:
+            check("F-4a structure: bad highlight is ValueError", True)
+        try:
+            figure_structure_png("", _p2); check("F-4a structure: empty SMILES is ValueError", False)
+        except ValueError:
+            check("F-4a structure: empty SMILES is ValueError", True)
+    except ValueError as _e:
+        check("F-4a structure: rdkit absent is soft", str(_e) == "rdkit_unavailable")
     check("spec-lock: NC §6A level colours",
           LEVEL_COLORS == {"L1": "1F4E79", "L2": "00838F", "L3": "6A1B9A",
                            "table_header": "44546A"})

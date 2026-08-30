@@ -1,3 +1,22 @@
+# Deploy: GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3) — release 2026.08.30.2
+
+**Files to commit (11):** `notes_core.py` (v2.11), `notes_audit.py` (v2.8), `notes_sync_audit.py`
+(v1.1), `Framework_NotesCreate.md` (v2.8.0), `Framework_NotesAudit.md` (v3.6.0), `VERSION`,
+`CHANGELOG.md`, `DEPLOY_NOTES.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json`.
+Deploy the engines on this explicit instruction only, after `python3 notes_core.py --self-test`
+(194/194), `python3 notes_audit.py --self-test` (140/140) and `python3 notes_sync_audit.py
+--self-test` (19/19) pass on the deployed bytes.
+
+**Operator change (all ~200 exams): NONE.** No project file edit. Existing notes units keep
+their figures; NA never re-renders for colour; only units drafted from NotesCreate v2.8.0 use F-4a.
+
+**What you will SEE:** NotesCreate figures drawn to the F-4a recipe (pinned palette, 300 dpi);
+NA's G-7a line carries a figure_palette advisory (count only) on every unit.
+
+**Rollback:** revert the five content files.
+
+---
+
 # Deploy: GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (P2) — release 2026.08.30.1
 
 **Files to commit (10):** `explain_engine.py` (v2.11), `Framework_MockTestExplain.md` (v1.49.0),

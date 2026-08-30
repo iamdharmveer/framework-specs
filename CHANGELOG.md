@@ -1,5 +1,47 @@
 # Changelog
 
+## 2026.08.30.2 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3): notes figures get a render recipe — the same constants as question and explanation figures, pinned without runtime coupling
+
+**notes_core v2.10 -> v2.11 (FIGURE_PALETTE — a pinned COPY of figural_core's constants: Okabe-Ito
+hues, line ink, TEXT tier, fills, hatches, linestyles/markers, series cap 4, highlight, the pinned
+ATOM_PALETTE, viridis; FIGURE_DPI 300; MINDMAP_LEVEL_FILLS; helpers figure_text_ink /
+figure_fill_style / figure_structure_png; SPEC-LOCK tripwire + a self-test cross-check that imports
+figural_core DYNAMICALLY (test-only) and asserts equality field by field; self-test 186 -> 194) ·
+notes_audit v2.7 -> v2.8 (figure_palette_meta: an ADVISORY count of figures whose saturated ink lies
+outside FIGURE_PALETTE, attached to G-7a's meta — never a finding, never ok=False, never a re-render
+trigger; DORMANT without Pillow; self-test 130 -> 140) · notes_sync_audit v1.0 -> v1.1 (S-4's
+colour authority widened to FIGURE_PALETTE; two fixtures) · Framework_NotesCreate v2.7.2 -> v2.8.0
+(§6 F-4a FIGURE RENDER CONTRACT) · Framework_NotesAudit v3.5.0 -> v3.6.0 (§1 re-render clause names
+the F-4a recipe and states COLOUR ALONE IS NEVER A REASON; G-7a advisory). Zero exam values; no
+route, trigger, registry or other flow touched; figural_core is NOT routed to Notes.**
+
+WHY. F-4 diagrams and the B8 mind map had no render recipe at all — no palette, no dpi, no size —
+and NotesAudit's v3.0.0 "re-render via figural_core" clause named an engine that is not routed to
+NA. After P1/P2 a question, its explanation and its notes could draw the same oxygen atom three
+ways. Notes is teaching material: this is where a coherent visual language earns the most.
+
+DESIGN. Same numbers, CI-verified, no runtime coupling: figural_core's 13 mock gates never run on
+a notes figure (they cannot — no FigureSpec exists), and the mock flow's answer-leak rules do not
+transfer (notes SHOW the colour they teach; in-image labels stay required by F-4). §8 idempotence
+is protected by one rule: colour non-conformance is never a re-render trigger, so an AUDITED_PASS
+unit re-run after this release yields zero corrections and identical bytes.
+
+PROOF. notes_core cross-check equal to figural_core on every field; figure_structure_png draws
+#C25604 oxygen at 300 dpi, deterministic bytes; three notes_core mutants (pinned tier drifts,
+atom palette not applied, dpi drifts) and two notes_audit mutants (advisory detection removed,
+meta not attached, black-segment removed, pixel weighting reverted, viridis not admitted) killed;
+notes_sync_audit 0 findings with the F-4a hexes authorised and still firing on a hex in neither map.
+FINAL REVIEW: the advisory's first form flagged EVERY conformant figure (anti-aliased edge blends and
+a viridis map read as foreign). Distance is now to the palette->white and palette->black SEGMENTS,
+pixel-weighted, with the F-4a colormap admitted — verified clean on a conformant structure, a hatched
+chart and a viridis map, and still flagging rdkit's and matplotlib's defaults. figure_structure_png
+rejects width_in <= 0, out-of-range highlight indices AND an empty SMILES (rdkit returns an EMPTY
+molecule for '', not None — a blank image would have shipped) with ValueError. Independent checks: Notes
+engines run in a sandbox with figural_core absent (no runtime coupling, proven); an F-4a figure placed
+through notes_docx.build certifies under terminal_regate with the advisory clean and two re-gates
+byte-identical including the new meta (§8); malformed-docx / non-image / palette-mode fuzz never
+raises; pyflakes clean; -W error clean; identical structure bytes across two processes.
+
 ## 2026.08.30.1 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (P2): explanation figures draw with the same constants as question figures
 
 **explain_engine v2.10 -> v2.11 (each REPRESENTATION_RENDERERS entry carries a 'colour' clause

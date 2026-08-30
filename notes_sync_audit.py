@@ -1,5 +1,12 @@
 """
-notes_sync_audit.py v1.0 — CROSS-STEP SYNC AUDITOR for the Notes pipeline.
+notes_sync_audit.py v1.1 — CROSS-STEP SYNC AUDITOR for the Notes pipeline.
+
+v1.1 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3). S-4's colour
+    authority widens from LEVEL_COLORS/BOX_COLORS (document colours) to ALSO
+    include notes_core.FIGURE_PALETTE (figure colours: Okabe-Ito hues, TEXT
+    tier, fills, highlight) — NotesCreate §6 F-4a names figure hexes, and a
+    hex the spec names must have an engine authority, which these now do.
+    Fixture: a figure hex passes; a hex in neither map still fires.
 
 v1.0 — 2026-08-12 — GAP-2026-08-12-NOTESYNC.
 
@@ -236,6 +243,12 @@ def audit(root="."):
     engine_hex = set(nc_.LEVEL_COLORS.values())
     for fg, bg in nc_.BOX_COLORS.values():
         engine_hex |= {fg, bg}
+    # v1.1 — figure colours (NC §6 F-4a) have their own engine authority.
+    fp = getattr(nc_, "FIGURE_PALETTE", {}) or {}
+    for hx in (list(fp.get("okabe_ito", ())) + list(fp.get("fills", ()))
+               + list(fp.get("text_tier", {}).values()) + [fp.get("highlight", "")]):
+        if isinstance(hx, str) and hx.startswith("#") and len(hx) == 7:
+            engine_hex.add(hx[1:].upper())
     for k, s in text.items():
         for hexv in set(re.findall(r"\b[0-9A-F]{6}\b", s)):
             checked += 1
@@ -455,6 +468,12 @@ def self_test():
           fires("S-4", mutated("NC", "HARD CAP 25", "HARD CAP 40")))
     check("S-4 fires on a colour that is not in the engine map",
           fires("S-4", mutated("NC", "1F4E79", "1F4E7A")))
+    # v1.1 — a FIGURE hex (F-4a) is authorised by FIGURE_PALETTE; a hex in
+    # neither map still fires even inside the F-4a clause.
+    check("S-4 accepts a figure-palette hex named by NC §6 F-4a",
+          not fires("S-4", mutated("NC", "C25604", "C25604"), contains="C25604"))
+    check("S-4 still fires on a figure hex outside FIGURE_PALETTE",
+          fires("S-4", mutated("NC", "C25604", "C25605"), contains="C25605"))
     check("S-5 fires on a companion version higher than the engine",
           fires("S-5", mutated("NA", "notes_core.py  >= v2.10",
                                "notes_core.py  >= v9.9")))

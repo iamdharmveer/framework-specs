@@ -1,4 +1,12 @@
-# Framework_NotesAudit v3.5.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.6.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.6.0 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3; notes_audit v2.8,
+#   notes_core v2.11, Framework_NotesCreate v2.8.0 §6 F-4a). §1's v3.0.0 re-render clause
+#   named figural_core, which is NOT routed to NA — the clause was non-executable. It now
+#   names the F-4a recipe (notes_core), and states the one rule that protects §8's
+#   idempotence: COLOUR NON-CONFORMANCE IS NEVER A RE-RENDER TRIGGER. G-7a carries a
+#   figure-palette ADVISORY in meta (notes_audit.figure_palette_meta) — information for the
+#   next draft, never a finding, never ok=False. Additive; an AUDITED_PASS unit re-run after
+#   v3.6.0 still yields zero corrections and identical bytes.
 # v3.5.0 — 2026-08-15 — G-12 FORMAT CONTRACT (figure vs text balance; owner
 #   decisions of the 2026-08-15 design session, approved proposal; pairs
 #   with Framework_NotesCreate v2.7.0 §4 B3a; notes_core >= v2.10,
@@ -160,9 +168,16 @@ solution figures are part of the key, not the prompt) and views them with the
 stem. A stem figure recorded "UNRESOLVED:..." parks that question in
 report['figure_pending']; it never hard-stops the run.
 
-NEW in v3.0.0: NA MAY RE-RENDER a figure it judges improvable, via
-figural_core, subject to three conditions that keep section 8's idempotence
-real:
+NEW in v3.0.0 (amended v3.6.0): NA MAY RE-RENDER a figure it judges improvable
+for a LAYOUT or CONTENT reason (G-7a illegibility, G-7b geometry, a wrong
+label), rendering it to the NotesCreate §6 F-4a recipe with notes_core
+(figure_text_ink / figure_fill_style / figure_structure_png; figural_core is
+NOT routed here and is never imported), subject to three conditions that keep
+section 8's idempotence real. COLOUR ALONE IS NEVER A REASON: a figure whose
+only departure from F-4a is its palette (every unit drafted before v2.8.0) is
+LEFT AS IT IS — re-rendering it would change every hash the section-8 ledger
+records for it. G-7a reports palette conformance as an ADVISORY in meta
+(notes_audit.figure_palette_meta), for the next NotesCreate draft to act on.
   (a) the render must be DETERMINISTIC (fixed rcParams and DPI, no timestamp
       in the image metadata) — identical inputs must produce identical bytes;
   (b) each re-rendered figure's hash is recorded in audit_summary, and a
@@ -417,6 +432,11 @@ pass.
       it fits. G-7a is therefore a NON-MATH layout gate; equation geometry is
       G-7b's job. Without a renderer the gate degrades to DORMANT and is
       REPORTED as dormant — absence never halts an audit.
+      F-4a PALETTE ADVISORY (v3.6.0): G-7a's meta carries
+      notes_audit.figure_palette_meta(docx) — figures counted, figures whose
+      saturated ink lies outside notes_core.FIGURE_PALETTE, and a note. It is
+      information ONLY: never a finding, never ok=False, never a re-render
+      trigger (§1), DORMANT and reported without Pillow.
   G-7b OMML AND FIGURE GEOMETRY (notes_audit.gate_line_rules): every paragraph
       carrying an equation or an image must use an AUTO line rule. A fixed
       rule CLIPS the object while leaving it present in the XML, so G-2a
@@ -686,4 +706,4 @@ the next NotesBlueprint run") and every ORPHANED-FILING deferral (§2 —
 
 ---
 
-# END OF Framework_NotesAudit v3.5.0
+# END OF Framework_NotesAudit v3.6.0

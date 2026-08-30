@@ -1,5 +1,13 @@
 """
-notes_audit.py v2.7 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.8 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.8 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3). G-7a gains an
+    ADVISORY figure-palette meta: figure_palette_meta(docx_path) counts the
+    notes figures whose saturated ink falls outside notes_core.FIGURE_PALETTE
+    (tolerance 24/255 per channel). It is META ONLY — never a finding, never
+    ok=False, never a re-render trigger — because Framework_NotesAudit §1 makes
+    colour non-conformance a NON-trigger: re-rendering for colour would churn
+    every hash in the §8 idempotence ledger. DORMANT (reported) without Pillow.
 
 v2.7 — 2026-08-15 — G-12 FORMAT CONTRACT (figure vs text balance; owner
     decisions of the 2026-08-15 design session; pairs with notes_core
@@ -492,6 +500,77 @@ def preflight():
         any(os.path.exists(p) for p in ("/usr/bin/soffice",
                                         "/usr/bin/libreoffice")))
     return {"available": avail}
+
+
+def figure_palette_meta(docx_path, tol=24):
+    """v2.8 — ADVISORY ONLY (NA §1 / G-7a). For each word/media image, the set
+    of saturated colours (channel spread > 60) is compared with
+    notes_core.FIGURE_PALETTE (okabe_ito, text_tier values, fills, highlight)
+    within `tol` per channel. Returns {"figures", "off_palette", "dormant",
+    "note"}. A non-zero off_palette count is INFORMATION for the next
+    NotesCreate draft, not a defect of this unit."""
+    try:
+        from PIL import Image
+        import numpy as _np
+    except ImportError:
+        return {"figures": 0, "off_palette": 0, "dormant": True,
+                "note": "Pillow/numpy unavailable — palette advisory DORMANT"}
+    import io as _io, zipfile
+    pal = notes_core.FIGURE_PALETTE
+    hexes = set(pal["okabe_ito"]) | set(pal["text_tier"].values()) | set(pal["fills"]) | {pal["highlight"]}
+    allowed = _np.array([[int(h[i:i + 2], 16) for i in (1, 3, 5)] for h in hexes], dtype=float)
+    # The F-4a continuous colormap is palette too (viridis; 64 samples).
+    try:
+        import matplotlib
+        cmap = matplotlib.colormaps[pal.get("colormap", "viridis")]
+        allowed = _np.vstack([allowed, _np.array([cmap(t)[:3] for t in _np.linspace(0, 1, 64)]) * 255.0])
+    except Exception:
+        pass
+    _ends = (_np.array([255.0, 255.0, 255.0]), _np.array([0.0, 0.0, 0.0]))
+
+    def _dist_to_palette(cols):
+        """Distance of each colour to the nearest SEGMENT palette-colour -> white
+        or palette-colour -> black. Anti-aliasing blends a stroke toward the
+        background (white) or an adjacent black stroke (a highlight band under
+        a bond), so a conformant figure's edge pixels lie ON those segments; a
+        point test flagged every conformant figure (measured 2026-08-30)."""
+        c = cols[:, None, :].astype(float)            # (n,1,3)
+        a = allowed[None, :, :]                        # (1,m,3)
+        best = None
+        for end in _ends:
+            ab = end - a                               # (1,m,3)
+            t = ((c - a) * ab).sum(-1) / _np.maximum((ab * ab).sum(-1), 1e-9)
+            t = _np.clip(t, 0.0, 1.0)[..., None]
+            dd = _np.abs(c - (a + t * ab)).max(-1).min(-1)
+            best = dd if best is None else _np.minimum(best, dd)
+        return best                                    # (n,)
+    figs, off = 0, 0
+    try:
+        with zipfile.ZipFile(docx_path) as z:
+            names = [n for n in z.namelist() if n.startswith("word/media/")]
+            for n in names:
+                try:
+                    im = Image.open(_io.BytesIO(z.read(n))).convert("RGB")
+                except Exception:
+                    continue
+                figs += 1
+                a = _np.array(im).reshape(-1, 3).astype(int)
+                sat = a[(a.max(1) - a.min(1)) > 60]
+                if len(sat) == 0:
+                    continue
+                # PIXEL-weighted: thousands of one-pixel edge blends must not
+                # outvote the bulk ink (a unique-colour ratio did exactly that).
+                samp = sat[::max(1, len(sat) // 4000)]
+                d = _dist_to_palette(samp)
+                if (d > tol).mean() > 0.10:        # >10 % of saturated INK foreign
+                    off += 1
+    except Exception as exc:
+        return {"figures": figs, "off_palette": off, "dormant": True,
+                "note": f"palette advisory could not read the docx: {exc}"}
+    return {"figures": figs, "off_palette": off, "dormant": False,
+            "note": ("all notes figures on the F-4a palette" if not off else
+                     f"{off} of {figs} figure(s) carry colour outside the F-4a palette "
+                     f"— ADVISORY for the next draft; NEVER a re-render trigger (NA §1)")}
 
 
 def gate_anatomy(model):
@@ -1129,6 +1208,8 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
                                "audit)"]}
                  if not avail["libreoffice"] else
                  {"ok": True, "dormant": False, "findings": []})
+    # v2.8 — F-4a palette ADVISORY rides on G-7a's meta; it can never flip ok.
+    g["G-7a"]["meta"] = {"figure_palette": figure_palette_meta(docx_path)}
     ok_l, f_l, m_l = gate_line_rules(docx_path)
     g["G-7b"] = {"ok": ok_l, "findings": f_l, "meta": m_l}
     ok_a, f_a, m_a = gate_answer_integrity(model)
@@ -1608,6 +1689,11 @@ def self_test():
     check("G-7a degrades to DORMANT-but-reported without a renderer "
           "(absence never halts an audit)",
           gates["G-7a"]["ok"] is True)
+    # v2.8 — the F-4a palette advisory rides on G-7a's meta and never flips ok.
+    check("G-7a carries the figure-palette ADVISORY meta (v2.8), ok untouched",
+          isinstance(gates["G-7a"].get("meta", {}).get("figure_palette"), dict)
+          and "off_palette" in gates["G-7a"]["meta"]["figure_palette"]
+          and gates["G-7a"]["ok"] is True)
     gates_bad = terminal_regate(bad, m, tier="TIER-2", page_count=5,
                                expected_omml=1)
     check("terminal re-gate BLOCKS on the clipped file",
@@ -1955,6 +2041,103 @@ def self_test():
         {"k": "bullet", "runs": T("As shown in see 3.1 earlier.")})
     check("G-6 accepts a cross-reference that does resolve",
           gate_outline(live_ref)[0])
+
+    # ── v2.8 F-4a palette advisory (GAP-2026-08-30-NOTES-FIGURE-CONTRACT) ──
+    try:
+        import tempfile as _tf, io as _io, zipfile as _zf
+        from PIL import Image as _Im
+        def _docx_with(colour):
+            p = os.path.join(_tf.mkdtemp(), "pal.docx")
+            im = _Im.new("RGB", (60, 40), "white")
+            for x in range(10, 50):
+                for y in range(10, 30):
+                    im.putpixel((x, y), colour)
+            b = _io.BytesIO(); im.save(b, "PNG")
+            with _zf.ZipFile(p, "w") as z:
+                z.writestr("word/document.xml", "<w/>"); z.writestr("word/media/image1.png", b.getvalue())
+            return p
+        _on = figure_palette_meta(_docx_with((0, 114, 178)))        # #0072B2
+        _off = figure_palette_meta(_docx_with((255, 0, 0)))         # rdkit red
+        check("G-7a palette advisory: on-palette figure clean",
+              _on["figures"] == 1 and _on["off_palette"] == 0 and not _on["dormant"])
+        check("G-7a palette advisory: off-palette figure counted, never a finding",
+              _off["figures"] == 1 and _off["off_palette"] == 1 and "NEVER a re-render" in _off["note"])
+        # A CONFORMANT figure must be clean: anti-aliased thin strokes and a
+        # viridis map are ON palette (the point-only test flagged both).
+        try:
+            import matplotlib as _mpl; _mpl.use("Agg"); import matplotlib.pyplot as _plt
+            _f, _ax = _plt.subplots(figsize=(3, 2), dpi=200)
+            _ax.plot([0, 1, 2], [0, 1, 0], color=notes_core.FIGURE_PALETTE["line_ink"][0])
+            _ax.text(1, 0.5, "k", color=notes_core.figure_text_ink(notes_core.FIGURE_PALETTE["line_ink"][1]))
+            _b = _io.BytesIO(); _f.savefig(_b, format="png", dpi=200, facecolor="white"); _plt.close(_f)
+            _pc = os.path.join(_tf.mkdtemp(), "c.docx")
+            with _zf.ZipFile(_pc, "w") as z:
+                z.writestr("word/document.xml", "<w/>"); z.writestr("word/media/image1.png", _b.getvalue())
+            check("G-7a palette advisory: conformant anti-aliased chart is clean",
+                  figure_palette_meta(_pc)["off_palette"] == 0)
+            import numpy as _np2
+            _f, _ax = _plt.subplots(figsize=(3, 2), dpi=200)
+            _ax.imshow(_np2.linspace(0, 1, 48).reshape(6, 8), cmap="viridis")
+            _b = _io.BytesIO(); _f.savefig(_b, format="png", dpi=200, facecolor="white"); _plt.close(_f)
+            _pv = os.path.join(_tf.mkdtemp(), "v.docx")
+            with _zf.ZipFile(_pv, "w") as z:
+                z.writestr("word/document.xml", "<w/>"); z.writestr("word/media/image1.png", _b.getvalue())
+            check("G-7a palette advisory: viridis map is on palette",
+                  figure_palette_meta(_pv)["off_palette"] == 0)
+            # A conformant F-4a STRUCTURE (highlight band under black bonds) is clean,
+            # and rdkit's DEFAULT palette is still flagged.
+            try:
+                _ps = os.path.join(_tf.mkdtemp(), "s.png")
+                notes_core.figure_structure_png("OC(=O)c1ccccc1O", _ps, width_in=4.0, highlight_atoms=[8])
+                _pd = os.path.join(_tf.mkdtemp(), "s.docx")
+                with _zf.ZipFile(_pd, "w") as z:
+                    z.writestr("word/document.xml", "<w/>"); z.writestr("word/media/image1.png", open(_ps, "rb").read())
+                check("G-7a palette advisory: conformant F-4a structure is clean",
+                      figure_palette_meta(_pd)["off_palette"] == 0)
+                from rdkit import Chem as _Ch
+                from rdkit.Chem.Draw import rdMolDraw2D as _D2
+                _dd = _D2.MolDraw2DCairo(600, 400)
+                _D2.PrepareAndDrawMolecule(_dd, _Ch.MolFromSmiles("OC(=O)c1ccccc1O")); _dd.FinishDrawing()
+                _pr = os.path.join(_tf.mkdtemp(), "r.docx")
+                with _zf.ZipFile(_pr, "w") as z:
+                    z.writestr("word/document.xml", "<w/>"); z.writestr("word/media/image1.png", _dd.GetDrawingText())
+                check("G-7a palette advisory: rdkit default palette is flagged",
+                      figure_palette_meta(_pr)["off_palette"] == 1)
+            except ValueError:
+                pass                                   # rdkit absent: structure cases skipped
+        except ImportError:
+            pass
+        # ISOLATING FIXTURES for the two edge defences (each mutant alone
+        # survived the structure case, which both defences cover).
+        import numpy as _np3
+        def _docx_arr(arr):
+            p = os.path.join(_tf.mkdtemp(), "arr.docx")
+            b = _io.BytesIO(); _Im.fromarray(arr.astype("uint8"), "RGB").save(b, "PNG")
+            with _zf.ZipFile(p, "w") as z:
+                z.writestr("word/document.xml", "<w/>"); z.writestr("word/media/image1.png", b.getvalue())
+            return p
+        # (a) a palette block whose ink is MOSTLY blends toward BLACK (a highlight
+        #     band under bonds): only the black segment keeps it clean.
+        _blk = _np3.full((100, 100, 3), 255)
+        _blk[40:60, 40:60] = (0, 114, 178)
+        for k, f in enumerate(_np3.linspace(0.25, 0.75, 20)):
+            _blk[20 + k, 20:80] = _np3.array([0, 114, 178]) * (1 - f)     # toward black
+            _blk[80 - k, 20:80] = _np3.array([0, 114, 178]) * (1 - f)
+        check("G-7a palette advisory: blends toward black are on palette",
+              figure_palette_meta(_docx_arr(_blk))["off_palette"] == 0)
+        # (b) 50k px of palette ink + 500 one-pixel off-palette specks (ringing):
+        #     a unique-colour ratio calls that 96 % foreign; pixel weighting, 1 %.
+        _spk = _np3.full((300, 300, 3), 255); _spk[50:250, 50:300] = (194, 86, 4)
+        _rng = _np3.random.default_rng(3)
+        for i in range(500):
+            _spk[_rng.integers(0, 50), _rng.integers(0, 300)] = _rng.integers(60, 200, 3)
+        check("G-7a palette advisory: sparse specks are noise, not a breach",
+              figure_palette_meta(_docx_arr(_spk))["off_palette"] == 0)
+        check("G-7a palette advisory: unreadable docx is dormant, not a raise",
+              figure_palette_meta(os.path.join(_tf.mkdtemp(), "missing.docx"))["dormant"] is True)
+    except ImportError:
+        check("G-7a palette advisory: Pillow absent is dormant",
+              figure_palette_meta("x")["dormant"] is True)
 
     print(f"notes_audit self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

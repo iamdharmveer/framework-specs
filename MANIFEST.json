@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.30.1",
+  "framework_version": "2026.08.30.2",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -228,11 +228,11 @@
       "bytes": 261656
     },
     "Framework_NotesAudit.md": {
-      "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
-      "version_header": "# Framework_NotesAudit v3.5.0 \u2014 Notes Pipeline Step NA (Closed-Book Audit + Remediation)",
-      "end_sentinel": "# END OF Framework_NotesAudit v3.5.0",
-      "lines": 689,
-      "bytes": 44656
+      "sha256": "2874b04a09dfd7c459a5beca59538706c140da2f5c37d613c5e4608bb8f76d8f",
+      "version_header": "# Framework_NotesAudit v3.6.0 \u2014 Notes Pipeline Step NA (Closed-Book Audit + Remediation)",
+      "end_sentinel": "# END OF Framework_NotesAudit v3.6.0",
+      "lines": 709,
+      "bytes": 46308
     },
     "Framework_NotesBlueprint.md": {
       "sha256": "5a9bd1145582c72e6ba347b753a763acf7ee240841e145c347f65e49938fb0ee",
@@ -242,11 +242,11 @@
       "bytes": 35449
     },
     "Framework_NotesCreate.md": {
-      "sha256": "ad4e8ae0b352f49c2949697927cf738c078697dd0b3ef5d1855c8ff01de632b3",
-      "version_header": "# Framework_NotesCreate v2.7.2 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
-      "end_sentinel": "# END OF Framework_NotesCreate v2.7.2",
-      "lines": 494,
-      "bytes": 33104
+      "sha256": "b50a97f7284873dd17cf9524349d3a5dd3aff89ab3877fff5e673b99779cd61f",
+      "version_header": "# Framework_NotesCreate v2.8.0 \u2014 Notes Pipeline Step NC (Subtopic Notes Drafting)",
+      "end_sentinel": "# END OF Framework_NotesCreate v2.8.0",
+      "lines": 538,
+      "bytes": 36561
     },
     "Framework_NotesDeliver.md": {
       "sha256": "70473522693e9e5b6cd42f3de115dc52ac26736a663b89fbc212e989b5fad1a2",
@@ -473,11 +473,11 @@
       "bytes": 51082
     },
     "notes_core.py": {
-      "sha256": "0e95a24e26724aa1df1095a81717afa5677887a618c6e11aa90aa97cab42689f",
+      "sha256": "36a5889f44cbdd324f687624b61d9e68aba45f459cf4013c8b972d9bce846c8b",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_core.py \u2014 shared Notes pipeline core. Run with --self-test.\")",
-      "lines": 2388,
-      "bytes": 129205
+      "lines": 2576,
+      "bytes": 139547
     },
     "notes_blueprint.py": {
       "sha256": "b85c6a4caee4e78a5fa192faac217d86a81a5750c81d8669a6b6d78214558353",
@@ -487,11 +487,11 @@
       "bytes": 35542
     },
     "notes_audit.py": {
-      "sha256": "c88284e0ea76832cebe65ae649c7891b57dcb8ea88699733d0a55386c72004df",
+      "sha256": "9edf8ba61c72c47cd07a9c4c15b547dc65cdb43b8907eebdd242992698e1c8a3",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(\"notes_audit.py \u2014 Notes Step NA engine. Run with --self-test.\")",
-      "lines": 1968,
-      "bytes": 105896
+      "lines": 2151,
+      "bytes": 117028
     },
     "notes_docx.py": {
       "sha256": "66cd28c531bb4fc9bafae70becf90bdda677784bd4acfb2a7ddb17076c4c1fbc",
@@ -501,11 +501,11 @@
       "bytes": 88528
     },
     "notes_sync_audit.py": {
-      "sha256": "e0be461c3055cf46c2a102d99a2a7855516ab1c9643840c072bd206ada25be4d",
+      "sha256": "97759e6d832a21666ac0f2a5ed46a5ca1e460131ac05c0bbb5fe43e36b977246",
       "version_header": "\"\"\"",
       "end_sentinel": "                         as_json=\"--json\" in sys.argv) else 1)",
-      "lines": 521,
-      "bytes": 24496
+      "lines": 540,
+      "bytes": 25783
     },
     "run_ci_gates.py": {
       "sha256": "63267cca1917eea8ed2d6b90ced65a0f79147440942798b62fc0d26a6198b27e",
@@ -522,11 +522,11 @@
       "bytes": 9360
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "50237d55ba9a37ce0850834aed3d8f00a2f8fe3d53716ae6ec864697bb46ceb4",
+      "sha256": "53fc7a7c09d006a6dd74ca166fee1c0a510378b47f5bed850158c46c4eac4e3e",
       "version_header": "{",
       "end_sentinel": "}",
       "lines": 6996,
-      "bytes": 197449
+      "bytes": 197451
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",

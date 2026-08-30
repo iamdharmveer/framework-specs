@@ -3788,113 +3788,113 @@
       ]
     },
     "Framework_NotesAudit.md": {
-      "sha256": "91515c146dd1d28000ed9bb2b1d4a2795947bbe78130766a412047a5f0f10178",
-      "lines": 690,
-      "bytes": 44656,
-      "est_tokens": 11164,
+      "sha256": "2874b04a09dfd7c459a5beca59538706c140da2f5c37d613c5e4608bb8f76d8f",
+      "lines": 710,
+      "bytes": 46308,
+      "est_tokens": 11577,
       "view_calls": 3,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 44656,
-      "reduced_est_tokens": 11164,
+      "reduced_bytes": 46308,
+      "reduced_est_tokens": 11577,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## §0 — TRIGGER AND UNIT RESOLUTION",
-          "start": 87,
-          "end": 101,
+          "start": 95,
+          "end": 109,
           "lines": 15,
           "bytes": 726
         },
         {
           "title": "## §0A — INPUTS",
-          "start": 102,
-          "end": 112,
+          "start": 110,
+          "end": 120,
           "lines": 11,
           "bytes": 643
         },
         {
           "title": "## §0B — PREFLIGHT (three HARD STOPS, run before any solving)",
-          "start": 113,
-          "end": 154,
+          "start": 121,
+          "end": 162,
           "lines": 42,
           "bytes": 2785
         },
         {
           "title": "## §1 — FIGURES (read from the bank; no re-extraction)",
-          "start": 155,
-          "end": 174,
-          "lines": 20,
-          "bytes": 1211
+          "start": 163,
+          "end": 189,
+          "lines": 27,
+          "bytes": 1825
         },
         {
           "title": "## §2 — CLOSED-BOOK SOLVE PROTOCOL (ground-truth)",
-          "start": 175,
-          "end": 238,
+          "start": 190,
+          "end": 253,
           "lines": 64,
           "bytes": 4061
         },
         {
           "title": "## §2A — WRITE AUTHORITY (rebuild, never XML surgery)",
-          "start": 239,
-          "end": 303,
+          "start": 254,
+          "end": 318,
           "lines": 65,
           "bytes": 4257
         },
         {
           "title": "## §3 — PYQ PROTECTION (paraphrase rule)",
-          "start": 304,
-          "end": 310,
+          "start": 319,
+          "end": 325,
           "lines": 7,
           "bytes": 363
         },
         {
           "title": "## §3A — KEY CORRECTION (supersedes v2.0.0 owner decision 4a)",
-          "start": 311,
-          "end": 342,
+          "start": 326,
+          "end": 357,
           "lines": 32,
           "bytes": 1874
         },
         {
           "title": "## §4 — CONVERGENCE LOOP (self-contained; always ends in a delivered file)",
-          "start": 343,
-          "end": 363,
+          "start": 358,
+          "end": 378,
           "lines": 21,
           "bytes": 1297
         },
         {
           "title": "## §5 — MACHINE GATES",
-          "start": 364,
-          "end": 613,
-          "lines": 250,
-          "bytes": 17387
+          "start": 379,
+          "end": 633,
+          "lines": 255,
+          "bytes": 17735
         },
         {
           "title": "## §6 — REPORT AND STATE",
-          "start": 614,
-          "end": 631,
+          "start": 634,
+          "end": 651,
           "lines": 18,
           "bytes": 1125
         },
         {
           "title": "## §7 — CONTENT-STYLE BANS AND THE DOCUMENT ITSELF",
-          "start": 632,
-          "end": 638,
+          "start": 652,
+          "end": 658,
           "lines": 7,
           "bytes": 379
         },
         {
           "title": "## §8 — RUNS, STATE AND IDEMPOTENCE",
-          "start": 639,
-          "end": 650,
+          "start": 659,
+          "end": 670,
           "lines": 12,
           "bytes": 682
         },
         {
           "title": "## §9 — DELIVERY",
-          "start": 651,
-          "end": 690,
+          "start": 671,
+          "end": 710,
           "lines": 40,
           "bytes": 2304
         }
@@ -4014,113 +4014,113 @@
       ]
     },
     "Framework_NotesCreate.md": {
-      "sha256": "ad4e8ae0b352f49c2949697927cf738c078697dd0b3ef5d1855c8ff01de632b3",
-      "lines": 495,
-      "bytes": 33104,
-      "est_tokens": 8276,
+      "sha256": "b50a97f7284873dd17cf9524349d3a5dd3aff89ab3877fff5e673b99779cd61f",
+      "lines": 539,
+      "bytes": 36561,
+      "est_tokens": 9140,
       "view_calls": 3,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 33104,
-      "reduced_est_tokens": 8276,
+      "reduced_bytes": 36561,
+      "reduced_est_tokens": 9140,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## §0 — UNIT INPUT RESOLUTION (operator-facing; shared convention with NA/ND)",
-          "start": 77,
-          "end": 94,
+          "start": 87,
+          "end": 104,
           "lines": 18,
           "bytes": 1243
         },
         {
           "title": "## §1 — UNIT OF WORK AND INGEST (bank consumer; NC no longer reads Drive)",
-          "start": 95,
-          "end": 125,
+          "start": 105,
+          "end": 135,
           "lines": 31,
           "bytes": 2320
         },
         {
           "title": "## §2 — CONTENT AUTHORITY (SME MODE + CARVE-OUT)",
-          "start": 126,
-          "end": 133,
+          "start": 136,
+          "end": 143,
           "lines": 8,
           "bytes": 498
         },
         {
           "title": "## §3 — PYQ PROTECTION (paraphrase rule)",
-          "start": 134,
-          "end": 138,
+          "start": 144,
+          "end": 148,
           "lines": 5,
           "bytes": 269
         },
         {
           "title": "## §4 — DOCUMENT ANATOMY (v2 — 8 blocks, locked)",
-          "start": 139,
-          "end": 345,
+          "start": 149,
+          "end": 355,
           "lines": 207,
           "bytes": 14663
         },
         {
           "title": "## §4A — CONSTRUCTION (the shared builder is the single authority)",
-          "start": 346,
-          "end": 370,
+          "start": 356,
+          "end": 380,
           "lines": 25,
           "bytes": 1614
         },
         {
           "title": "## §5 — DENSITY SPEC (machine-gated in NA; constants in notes_core.py,",
-          "start": 371,
-          "end": 371,
+          "start": 381,
+          "end": 381,
           "lines": 1,
           "bytes": 74
         },
         {
           "title": "##      spec-lock-pinned — the constants are the single authority)",
-          "start": 372,
-          "end": 383,
+          "start": 382,
+          "end": 393,
           "lines": 12,
           "bytes": 673
         },
         {
           "title": "## §6 — FORMAT RULES",
-          "start": 384,
-          "end": 419,
-          "lines": 36,
-          "bytes": 2386
+          "start": 394,
+          "end": 463,
+          "lines": 70,
+          "bytes": 4941
         },
         {
           "title": "## §6A — OUTLINE NUMBERING AND LEVEL COLOUR MAP",
-          "start": 420,
-          "end": 439,
+          "start": 464,
+          "end": 483,
           "lines": 20,
           "bytes": 1243
         },
         {
           "title": "## §7 — CONTENT-STYLE BANS (machine-gated lexicon in notes_core.PROSE_BAN)",
-          "start": 440,
-          "end": 456,
+          "start": 484,
+          "end": 500,
           "lines": 17,
           "bytes": 1057
         },
         {
           "title": "## §8 — RUNS AND STATE",
-          "start": 457,
-          "end": 464,
+          "start": 501,
+          "end": 508,
           "lines": 8,
           "bytes": 475
         },
         {
           "title": "## §9 — DELIVERY / CROSS-CHAT HANDOFF (v2.3.0: the draft is ATTACHED, not filed)",
-          "start": 465,
-          "end": 480,
+          "start": 509,
+          "end": 524,
           "lines": 16,
           "bytes": 966
         },
         {
           "title": "## §9A — DRAFT PROVENANCE (draft_ref)",
-          "start": 481,
-          "end": 495,
+          "start": 525,
+          "end": 539,
           "lines": 15,
           "bytes": 694
         }

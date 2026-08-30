@@ -1,4 +1,14 @@
-# Framework_NotesCreate v2.7.2 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.8.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.8.0 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3 of the figure-colour
+#   programme; notes_core v2.11, notes_audit v2.8, Framework_NotesAudit v3.6.0). F-4
+#   figures and the B8 mind map had NO render recipe — no palette, no dpi, no size — so
+#   every notes figure was drawn from the model's judgement of the moment. §6 F-4a is the
+#   recipe: the SAME constants Step 7 / Step 9 draw with, PINNED in notes_core.FIGURE_PALETTE
+#   (a copy locked equal to figural_core by the SPEC-LOCK tripwire and a CI cross-check;
+#   figural_core is NOT routed here and its mock gates never run on notes). What does NOT
+#   transfer from the mock flow is stated in F-4a: notes TEACH, so colour-as-content is
+#   ALLOWED, in-image labels stay REQUIRED (F-4), and no answer-leak rule applies. Additive:
+#   every existing notes unit keeps its figures; only units drafted from v2.8.0 use F-4a.
 # v2.7.2 — 2026-08-15 — THE SPACING RHYTHM (owner refinement of v2.7.1 in
 #   the same release wave; notes_docx v1.5). v2.7.1 stopped tables from
 #   touching; the owner's review of the rebuilt document showed the rhythm
@@ -411,6 +421,40 @@ it emits, so a tall equation or image can never inherit a fixed rule and clip.
       image at the bottom; no caption paragraphs in the document; all
       symbol text inside figures uses mathtext structural scripts; no exam
       or question-type vocabulary anywhere in figure text.
+  F-4a FIGURE RENDER CONTRACT (v2.8.0 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT).
+      Every F-4 diagram and the B8 mind map is rendered by the session with
+      matplotlib (structures: notes_core.figure_structure_png) to THIS recipe:
+      (1) notes_core.FIGURE_DPI (300) at the display width, opaque white
+          background, PNG; identical inputs give identical bytes (NA §8).
+      (2) COLOUR comes ONLY from notes_core.FIGURE_PALETTE — the same values
+          Step 7 (figural_core) and Step 9 (explain_engine) draw with, pinned
+          here so the Notes route never loads figural_core: series and accent
+          ink from FIGURE_PALETTE['line_ink'] (four Okabe-Ito hues + black,
+          at most 'series_cap' = 4 chromatic series, each with its own
+          'linestyles'/'markers' entry — colour is never the only channel);
+          every coloured LABEL through notes_core.figure_text_ink(hue) (the
+          4.5:1 TEXT tier — F-4 labels are text); every FILL through
+          notes_core.figure_fill_style(k) (fill hue, dark edge always, hatch k
+          as the greyscale channel); continuous data on 'colormap' (viridis)
+          only. Never a matplotlib or rdkit default colour.
+      (3) STRUCTURES: notes_core.figure_structure_png(smiles, path, width_in,
+          highlight_bonds=, highlight_atoms=) — the pinned atom palette (O
+          #C25604, N #0072B2, halogens #158663, all else black), the concept's
+          decisive site highlighted; it returns the canonical SMILES, which the
+          session compares with the intended canonical form before the image
+          is placed (a mismatch drops the figure and is recorded). rdkit absent
+          -> ValueError('rdkit_unavailable'): the figure is omitted and noted,
+          never drawn by hand and never with a default palette.
+      (4) MIND MAP (B8): node fills by level through figure_fill_style(
+          notes_core.MINDMAP_LEVEL_FILLS[level]) — L1 sky, L2 orange, L3
+          yellow — black labels (>= 9:1 on every fill), edges black.
+      (5) WHAT DOES NOT TRANSFER FROM THE MOCK FLOW: notes TEACH. Colour that IS
+          the content (the colour of a complex, an indicator, a flame) is
+          SHOWN; labels inside the image stay REQUIRED (F-4); there are no
+          options, so no uniformity or leak rule applies; and figural_core's
+          gates never run on a notes figure. Palette conformance is reported
+          by NA only as an ADVISORY (G-7a meta) — never a defect of a shipped
+          unit, never a re-render trigger (NA §1).
   F-5 Language: English only, simple exam-coaching register.
   F-6 No version footer or pipeline metadata inside the document. Versions
       are chat-and-registry only.
@@ -491,4 +535,4 @@ and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.7.2
+# END OF Framework_NotesCreate v2.8.0
