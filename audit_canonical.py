@@ -15,6 +15,16 @@
 # section_rules.md / subtopic_manifest.json / registry.json. The SAME script
 # audits any exam with valid Step 0/1/2 outputs.
 #
+# v2.25 — 2026-08-30 — GAP-2026-08-30-FITTER-ASPECT (paired with figural_core v5.81,
+#   Framework_MockTestCreate v5.81). gate_images printed verdict lines for 13 figure
+#   gates and DROPPED the rest: G-FIGFIT / G-FIGCOLLIDE / G-FIGINK (v5.55/v5.57,
+#   BLOCKING-class) and the five v5.80 colour-role gates were evaluated by
+#   figural_core.audit_figure() and never reported — delivered Mock02 carried 16
+#   G-FIGFIT + 4 G-FIGINK findings Step 8 never printed. Eleven explicit
+#   _fig_verdict() lines added (roster 13 -> 24). The three SET-level gates
+#   (G-FIGOPTUNIF / G-FIGOPTWINDOW / G-FIGOPTELEM) had vacuous verdicts — nothing
+#   ever called them — and are now evaluated per question on the option set.
+#   Fixtures 56b/56c fail on v2.24.
 # v2.24 — 2026-08-29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET + GAP-2026-08-29-
 #   PROFILE-UNSCORED-QUESTIONS (paired with blueprint_core Cluster DP, Blueprint v1.58.0,
 #   PYQExplain v2.20, MockDeliver v1.19.0). A-DPROFILE: difficulty_source.mode gains
@@ -2437,6 +2447,7 @@ def gate_images(blocks, src, media_map):
         _amber, _void, _block = [], [], []
         _seen, _legacy_n = 0, 0
         _declared, _unusable = 0, 0
+        _opt_sets = {}          # v2.25: question -> [option FigureSpec, ...]
         for _blk in blocks:
             for _img in (getattr(_blk, 'images', None) or []):
                 _declared += 1
@@ -2469,6 +2480,10 @@ def gate_images(blocks, src, media_map):
                 _seen += 1
                 if _leg:
                     _legacy_n += 1
+                if (isinstance(_spec, dict) and str(_spec.get('role', '')).startswith('option')
+                        and _spec.get('question') is not None):
+                    # a spec without a question number cannot be placed in a set
+                    _opt_sets.setdefault(_spec.get('question'), []).append((_spec, _png))
                 # v2.13: carry (finding, legacy?) so a gate can distinguish
                 # "this v5.33+ render regressed" from "this pre-v5.33 render has
                 # no sidecar to check against" — see _fig_verdict.
@@ -2477,6 +2492,37 @@ def gate_images(blocks, src, media_map):
                 _block += [(_f, _leg) for _f in _t['BLOCKING']]
 
         # Emit one verdict per gate id, mapped engine G-*/W-* -> catalogue A-*.
+        # ── v2.25 (GAP-2026-08-30-FITTER-ASPECT): SET-LEVEL gates. G-FIGOPTUNIF,
+        # G-FIGOPTWINDOW and G-FIGOPTELEM take the whole option set of a
+        # question; audit_figure() is per figure and never emits them, so on
+        # v2.13-v2.24 their verdict lines were VACUOUS ("N conform" on a gate
+        # that had run on nothing). They are evaluated here, per question, on
+        # the same specs the per-figure pass read.
+        for _q, _pairs in sorted(_opt_sets.items(), key=lambda kv: str(kv[0])):
+            if len(_pairs) < 2:
+                continue
+            _sset = [p[0] for p in _pairs]
+            _spng = [p[1] for p in _pairs]
+            for _gname, _args in (('g_figoptunif', (_sset, _spng)),
+                                  ('g_figoptwindow', (_sset,)),
+                                  ('g_figoptelem', (_sset,))):
+                _gfn = getattr(fc, _gname, None)
+                if not callable(_gfn):
+                    continue
+                try:
+                    _sf = list(_gfn(*_args) or [])
+                    _st = fc.triage(_sf, _sset[0])
+                    _sl = bool(fc.is_legacy(_sset[0]))
+                except Exception as _se:
+                    # A set gate that cannot run is REPORTED on its own line —
+                    # never folded into the per-figure coverage counter.
+                    _amber.append((f'G-{_gname[2:].upper()}: set for Q{_q} could not be '
+                                   f'evaluated ({type(_se).__name__}: {_se})', False))
+                    continue
+                _amber += [(_f, _sl) for _f in _st['AMBER']]
+                _void += [(_f, _sl) for _f in _st['VOID_ITEM']]
+                _block += [(_f, _sl) for _f in _st['BLOCKING']]
+
         _by_gate = {}
         for _sev, _findings in (('BLOCKING', _block), ('VOID_ITEM', _void),
                                 ('AMBER', _amber)):
@@ -2573,6 +2619,21 @@ def gate_images(blocks, src, media_map):
         _fig_verdict('A-FIGCVD', _by_gate)
         _fig_verdict('A-FIGSERIES', _by_gate)
         _fig_verdict('A-FIGGLYPH', _by_gate)
+        # v2.25: the v5.55/v5.57 geometry gates and the v5.80 colour-role gates
+        # were evaluated by audit_figure() and then DROPPED here (no verdict
+        # line) from v5.55 (2026-08-19) to v2.24 — delivered papers carried
+        # BLOCKING-class G-FIGFIT / G-FIGINK findings Step 8 never printed.
+        _fig_verdict('A-FIGFIT', _by_gate)
+        _fig_verdict('A-FIGCOLLIDE', _by_gate)
+        _fig_verdict('A-FIGINK', _by_gate)
+        _fig_verdict('A-FIGINKPX', _by_gate)
+        _fig_verdict('A-FIGFITPX', _by_gate)
+        _fig_verdict('A-FIGOPTWINDOW', _by_gate)
+        _fig_verdict('A-FIGTEXTINK', _by_gate)
+        _fig_verdict('A-FIGSERIESCAP', _by_gate)
+        _fig_verdict('A-FIGFILLADJ', _by_gate)
+        _fig_verdict('A-FIGCOLOURCONTENT', _by_gate)
+        _fig_verdict('A-FIGOPTELEM', _by_gate)
         _fig_verdict('A-FIGALT', _by_gate)
         _fig_verdict('A-FIGLABELPX', _by_gate)
 
@@ -6389,10 +6450,24 @@ def self_test():
         FINDINGS = []
         @staticmethod
         def is_legacy(spec): return _StubFC.LEGACY
+        SETFINDINGS = []
+        SETRAISE = False
         @staticmethod
         def audit_figure(spec, png, descr=None): return (list(_StubFC.FINDINGS), [])
         @staticmethod
-        def audit_gate_id(f): return f.split(':')[0].strip()
+        def g_figoptunif(specs, png_paths=None):
+            if _StubFC.SETRAISE:
+                raise RuntimeError('boom')
+            return list(_StubFC.SETFINDINGS)
+        @staticmethod
+        def g_figoptwindow(specs): return []
+        @staticmethod
+        def g_figoptelem(specs): return []
+        @staticmethod
+        def audit_gate_id(f):
+            # v2.25: faithful to figural_core — an engine id G-X maps to catalogue A-X
+            _g = f.split(':')[0].strip()
+            return 'A-' + _g[2:] if _g.startswith('G-') or _g.startswith('W-') else _g
         @staticmethod
         def triage(findings, spec=None):
             sev = 'AMBER' if _StubFC.LEGACY else 'BLOCKING'
@@ -6401,8 +6476,9 @@ def self_test():
 
     _saved_fc = sys.modules.get('figural_core')
 
-    def _run_figgates(blks, specs=None, legacy=True, findings=()):
+    def _run_figgates(blks, specs=None, legacy=True, findings=(), setfindings=(), setraise=False):
         _StubFC.LEGACY = legacy; _StubFC.FINDINGS = list(findings)
+        _StubFC.SETFINDINGS = list(setfindings); _StubFC.SETRAISE = bool(setraise)
         sys.modules['figural_core'] = _StubFC
         s = _src_stub(tq=1)
         s['figure_specs'] = specs or {}
@@ -6414,7 +6490,12 @@ def self_test():
     _FIGGATES = ('A-FIGSCALE', 'A-FIGLABEL', 'A-FIGDPI', 'A-FIGDEGEN',
                  'A-FIGMONO', 'A-FIGOPTUNIF', 'A-FIGCOLOUR', 'A-FIGACCENT',
                  'A-FIGCVD',
-                 'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX')
+                 'A-FIGSERIES', 'A-FIGGLYPH', 'A-FIGALT', 'A-FIGLABELPX',
+                 # v2.25 — the eleven gates that were evaluated and dropped
+                 'A-FIGFIT', 'A-FIGCOLLIDE', 'A-FIGINK', 'A-FIGINKPX',
+                 'A-FIGFITPX', 'A-FIGOPTWINDOW', 'A-FIGTEXTINK',
+                 'A-FIGSERIESCAP', 'A-FIGFILLADJ', 'A-FIGCOLOURCONTENT',
+                 'A-FIGOPTELEM')
 
     # 53. BLOCK.IMAGES IS POPULATED — the fixture whose absence WAS the defect.
     #     Nothing in this suite had ever asserted that a block carries an image.
@@ -7141,6 +7222,38 @@ def self_test():
     check('FIGGATES-not-vacuous',
           all(any(c == g and '0 figure(s)' not in m for l, c, m in r)
               for g in _FIGGATES))
+
+    # 56b. v2.25 — A DROPPED GATE IS A DEFECT: a G-FIGFIT finding from
+    #      audit_figure() must surface as an A-FIGFIT FAIL line. On v2.13-v2.24
+    #      this fixture fails: the finding was collected and never printed.
+    r = _run_figgates(_b53, legacy=False, findings=['A-FIGFIT: ink lies OUTSIDE the frame by 0.1 in'])
+    check('FIGGATES-v555-geometry-finding-is-printed',
+          any(c == 'A-FIGFIT' and l == 'FAIL' and 'OUTSIDE' in m for l, c, m in r))
+    r = _run_figgates(_b53, legacy=False, findings=['A-FIGTEXTINK: text colour #D55E00 is 3.87:1'])
+    check('FIGGATES-v580-colour-finding-is-printed',
+          any(c == 'A-FIGTEXTINK' and l == 'FAIL' and '3.87' in m for l, c, m in r))
+    # 56c. v2.25 — SET-LEVEL gates run on the option set, not per figure.
+    _b56c = [Block(1)]
+    _b56c[0].images = [{'name': f'q1_opt{i}.png', 'rid': f'rId{i}', 'part': f'image{i}.png',
+                        'descr': 'x', 'path': _b53[0].images[0]['path']} for i in (1, 2)]
+    _s56c = {f'q1_opt{i}.png': {'question': 1, 'role': 'option', 'placement_scale': 1.0}
+             for i in (1, 2)}
+    r = _run_figgates(_b56c, specs=_s56c, legacy=False,
+                      setfindings=['A-FIGOPTUNIF: option 2 differs'])
+    check('FIGGATES-set-level-gate-evaluated-on-option-set',
+          any(c == 'A-FIGOPTUNIF' and l == 'FAIL' and 'differs' in m for l, c, m in r))
+    # 56d. A set gate that RAISES is reported under ITS OWN gate id (G-FIGOPTUNIF ->
+    #      A-FIGOPTUNIF), never under an unregistered id and never as coverage loss.
+    r = _run_figgates(_b56c, specs=_s56c, legacy=False, setraise=True)
+    check('FIGGATES-set-gate-exception-reported-on-own-line',
+          any(c == 'A-FIGOPTUNIF' and 'could not be evaluated' in m for l, c, m in r)
+          and not any('unusable' in m for l, c, m in r))
+    # 56e. Option specs with NO question number are never pooled into one set.
+    _s56e = {f'q1_opt{i}.png': {'role': 'option', 'placement_scale': 1.0} for i in (1, 2)}
+    r = _run_figgates(_b56c, specs=_s56e, legacy=False,
+                      setfindings=['A-FIGOPTUNIF: option 2 differs'])
+    check('FIGGATES-unnumbered-options-not-pooled',
+          not any(c == 'A-FIGOPTUNIF' and l == 'FAIL' for l, c, m in r))
 
     # 57. ROSTER INVARIANCE (§R15) — exactly ONE line per figure gate, with and
     #     without figures. Also locks out the duplicate second A-FIGDPI line the

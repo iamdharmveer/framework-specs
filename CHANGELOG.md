@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026.08.30 — GAP-2026-08-30-FITTER-ASPECT: the figure fitter no longer forces a data-unit aspect on ordinary charts; G-FIGFIT tolerates half a pixel; Step 8 prints every figure gate and evaluates the set-level gates
+
+**figural_core (v5.81: apply_data_window() applies the window AS GIVEN on an 'auto' axes and
+scales x/y by their own factors; aspect-locked axes byte-identical to v5.55; FIG_FIT_TOL_IN =
+0.5/FIGURAL_DPI replaces the 1e-6 tolerance in g_figfit; fixtures FA1-FA6; self-test 163 ->
+171) · audit_canonical v2.24 -> v2.25 (eleven explicit _fig_verdict lines — A-FIGFIT,
+A-FIGCOLLIDE, A-FIGINK, A-FIGINKPX, A-FIGFITPX, A-FIGOPTWINDOW, A-FIGTEXTINK, A-FIGSERIESCAP,
+A-FIGFILLADJ, A-FIGCOLOURCONTENT, A-FIGOPTELEM; roster 13 -> 24; set-level gates evaluated per
+question on the option set with their real signatures; a set gate that cannot run is reported
+on its own line, never folded into coverage; fixtures 56b-56e; self-test 312 -> 317) ·
+Framework_MockTestCreate v5.80 -> v5.81 (Q10.6-Q10.8). Zero exam values; no PYQ, Explain,
+Notes, Deliver, registry, route or trigger touched.**
+
+WHY. Rendering every figure family through the deployed v5.80 engine (2026-08-29 verification
+gallery) showed every unequal-range data chart collapsed into a sliver: apply_data_window()
+(v5.55, 2026-08-19) forced (y-range / x-range) in DATA UNITS to equal the axes box aspect on
+every axes. Correct for an aspect-locked axes; on a chart whose y spans 70 units and x spans 4
+it widened x ~17x. Unnoticed because delivered figures were structures (imshow, aspect-locked)
+and dimensionless plots. The same gallery showed G-FIGFIT failing "0.050 below 0.050" — a
+clearance the fitter had converged to within half a pixel, compared with 1e-6 tolerance; 16 of
+the 38 delivered Mock02 figures carried that false finding. And none of it had ever been
+printed at Step 8: audit_canonical emitted 13 figure-gate verdicts and dropped the rest.
+
+BEHAVIOUR CHANGE, STATED. (a) Charts on 'auto' axes render at their full allocation from this
+release on; structures/schematics are byte-identical (legacy audit of the 38 delivered Mock02
+figures: every finding identical EXCEPT the 16 false G-FIGFIT edge findings, which vanish).
+(b) Step 8 now prints eleven more figure-gate lines; on delivered Mock02 that surfaces one real
+finding — A-FIGINK on Q7 (ink outside the fitter's content box) — that had been evaluated and
+dropped since v5.57. Forward-only; delivered papers are not re-rendered.
+
+MUTANTS KILLED: apply_data_window aspect branch removed; per-axis scaling removed; tolerance
+reverted; locked-axes forcing removed (figural_core); A-FIGFIT verdict removed; A-FIGTEXTINK
+verdict removed; set-level evaluation removed; exception gate-id mis-slice; unnumbered-option pooling (audit_canonical); inversion not preserved; degenerate pad removed (figural_core).
+
 ## 2026.08.29.1 — GAP-2026-08-29-FIGURE-COLOUR-ROLES: the eight Okabe-Ito hues gain ROLES (text / line-mark / fill) and the role is what is gated; rdkit structures draw from a pinned CVD-safe atom palette; an option set decides heteroatom colour once; a colour-interrogating question renders monochrome
 
 **figural_core (v5.80 constants ROLE_LINE / ROLE_TEXT / ROLE_FILL / FILL_TINTS / HATCHES /

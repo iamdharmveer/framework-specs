@@ -1,3 +1,24 @@
+# Deploy: GAP-2026-08-30-FITTER-ASPECT — release 2026.08.30
+
+**Files to commit (9):** `figural_core.py`, `audit_canonical.py` (v2.25),
+`Framework_MockTestCreate.md` (v5.81), `VERSION`, `CHANGELOG.md`, `DEPLOY_NOTES.md`,
+`MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json`. Deploy the engines only on this
+explicit instruction, after `python3 figural_core.py --self-test` (171/171) and
+`python3 audit_canonical.py --self-test` (317/317) pass on the deployed bytes.
+
+**Operator change (all ~200 exams): NONE.** No project file, exam_config or section_rules edit.
+The per-exam `[ExamCode]_mock_test_audit.py` copies are inert (engines run from the verified
+clone); Step 6 of the next Blueprint refreshes them from this audit_canonical as usual.
+
+**What you will SEE from this release on:** (1) data charts fill their frame; (2) Step 8 prints
+24 figure-gate lines instead of 13 — expect previously-hidden G-FIGFIT / G-FIGCOLLIDE /
+G-FIGINK findings on papers that had them (delivered Mock02: one A-FIGINK FAIL on Q7); the
+16 false "0.050 below 0.050" G-FIGFIT findings disappear.
+
+**Rollback:** revert the three files.
+
+---
+
 # Deploy: GAP-2026-08-29-FIGURE-COLOUR-ROLES — release 2026.08.29.1
 
 **Files to commit (9):** `figural_core.py`, `corpus_io.py` (v1.14),

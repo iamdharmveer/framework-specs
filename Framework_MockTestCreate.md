@@ -1,4 +1,30 @@
-# Framework_MockTestCreate v5.80
+# Framework_MockTestCreate v5.81
+# v5.81 — 2026-08-30 — GAP-2026-08-30-FITTER-ASPECT (figural_core; audit_canonical v2.25;
+#   this spec Q10.6-Q10.8). THREE DEFECTS, found by rendering every figure family through
+#   the deployed v5.80 engine: (1) figural_core.apply_data_window() (v5.55) forced the data
+#   window's y/x ratio IN DATA UNITS to equal the axes box aspect on EVERY axes — right for
+#   an aspect-locked axes (set_aspect('equal'), imshow structures), wrong for an ordinary
+#   'auto' chart: y spanning 70 units against x spanning 4 widened x ~17x and collapsed
+#   the bars into a sliver (content fill 4 %, coloured ink 0.06 %). Every unequal-range
+#   data chart since 2026-08-19 rendered that way; it went unnoticed because delivered
+#   figures were structures and dimensionless plots. FIX: an 'auto' axes takes the window
+#   AS GIVEN and scales x and y by their OWN factors; an aspect-locked axes is byte-identical
+#   to v5.55. (2) G-FIGFIT compared a clearance the fitter converged to within half a pixel
+#   against the floor with 1e-6 tolerance, so 0.04993 in (printed "0.050") failed a 0.050
+#   floor on 16 of the 38 delivered Mock02 figures. FIX: FIG_FIT_TOL_IN = half a rendered
+#   pixel, the fitter's own criterion. (3) audit_canonical printed verdict lines for 13
+#   figure gates and DROPPED the rest: G-FIGFIT / G-FIGCOLLIDE / G-FIGINK (BLOCKING-class)
+#   and the five v5.80 colour gates were evaluated and never reported, and the three
+#   SET-level gates (G-FIGOPTUNIF / OPTWINDOW / OPTELEM) had never been called at all —
+#   their "N conform" lines were vacuous. FIX (v2.25): eleven explicit verdict lines
+#   (roster 13 -> 24) and per-question set evaluation. Delivered Mock02 now shows its one
+#   real G-FIGINK regression (Q7) that Step 8 had never printed. Zero exam values; no PYQ,
+#   Explain, Notes, Deliver, registry, route or trigger touched. figural_core self-test
+#   163 -> 171; audit_canonical 312 -> 317; six fitter and five auditor mutants killed.
+#   FINAL REVIEW (line-by-line): an 'auto' axis keeps its inversion (depth profiles) and a
+#   degenerate window is padded (FA6); a set gate that raises reports under ITS OWN id
+#   (G-FIGOPTUNIF, not a mis-sliced name) and option specs without a question number are
+#   never pooled into one set (fixtures 56d/56e).
 # v5.80 — 2026-08-29 — GAP-2026-08-29-FIGURE-COLOUR-ROLES (estate-wide; exam-agnostic;
 #   RENDER-TIME ONLY — Step 7 figures; no PYQ flow, no Explain flow, no Notes flow, no
 #   registry schema, no route and no trigger is touched; standing issues are NOT mixed in).
@@ -6943,6 +6969,26 @@ def widen_scenario_space(subtopic_data, exhausted_source):
            WARN-level pixel cross-check, and is the ONLY figure gate that works
            on a delivered .docx with no sidecar — which is what makes the
            existing ~200 exams auditable without re-rendering them.
+        6. ASPECT (v5.81 — GAP-2026-08-30-FITTER-ASPECT). The window's data-unit
+           aspect is forced to the axes box aspect ONLY on an aspect-locked axes
+           (set_aspect('equal') or a number; imshow() sets it — every structure
+           and schematic). On an 'auto' axes — every ordinary chart — the fitted
+           window is applied AS GIVEN and x and y are scaled by their OWN
+           factors: forcing a data-unit aspect there widened x ~17x on a chart
+           whose y spanned 70 units and x spanned 4, and collapsed the bars.
+           An author who needs a locked aspect on a chart sets it explicitly.
+        7. TOLERANCE (v5.81). The fitter converges to within half a rendered
+           pixel (its own `clear_px - 0.5` criterion); G-FIGFIT therefore
+           tolerates FIG_FIT_TOL_IN = 0.5 / FIGURAL_DPI below the floor, no
+           more. A clearance of 0.04993 in against a 0.050 in floor is a pass,
+           as it always rendered.
+        8. EVERY GATE IS PRINTED (v5.81 — audit_canonical v2.25). Step 8 emits
+           one verdict line per figure gate figural_core can raise — the 13
+           pre-v5.55 gates, G-FIGFIT / G-FIGCOLLIDE / G-FIGINK / W-FIGINK /
+           W-FIGFITPX / G-FIGOPTWINDOW, and the five v5.80 colour gates — and
+           evaluates the SET-level gates (G-FIGOPTUNIF, G-FIGOPTWINDOW,
+           G-FIGOPTELEM) per question on the option set. A gate that is
+           evaluated and not printed is the defect Step 8 exists to prevent.
     Q11. LABEL DECONFLICT (v5.55 — new). NO LABEL MAY OVERPRINT ANOTHER.
         1. The renderer detects text-vs-text and text-vs-stroke overprints from
            measured extents and separates them by repulsion, alternating with
@@ -9309,7 +9355,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   Final Assembly); it never touches `status` or `repair_rounds_used`.
 #   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-# END OF Framework_MockTestCreate v5.80
+# END OF Framework_MockTestCreate v5.81
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.

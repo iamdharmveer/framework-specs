@@ -4,6 +4,12 @@ TestCreate / MockCreate (S8-5, S8-6, S10-6A, S10-7, S10-8) and their audits.
 
 Raised by GAP-2026-07-29-FIG-R2 and VERIFY-2026-07-29-FIG-R2.
 
+v5.81 — 2026-08-30 — GAP-2026-08-30-FITTER-ASPECT. apply_data_window() forced a
+data-unit aspect on EVERY axes; an 'auto' chart now takes the window as given and
+scales x/y independently (aspect-locked axes byte-identical to v5.55). G-FIGFIT
+tolerates FIG_FIT_TOL_IN (half a rendered pixel) — the fitter's own convergence
+criterion — instead of 1e-6. Fixtures FA1-FA5.
+
 v5.80 — 2026-08-29 — GAP-2026-08-29-FIGURE-COLOUR-ROLES (estate-wide, exam-agnostic,
 render-time only; MockTestCreate S10-6A / S10-7 Q7b.9-Q7b.14 / S10-7C). The eight
 Okabe-Ito hues stay the ONLY hues in the estate; what is new is that every hue now has
@@ -263,6 +269,11 @@ MIN_PLOT_AREA_FRAC = 0.18   # plot area / canvas area; below this = degenerate
 # figures would fire on every correctly-uniform set. 0.45 clears every
 # conformant post-fix measurement and still catches the shipped waste.
 MIN_CONTENT_FILL_FRAC = 0.45
+# v5.81 (GAP-2026-08-30-FITTER-ASPECT): G-FIGFIT's floor is measured against a
+# clearance the fitter converged to within HALF A PIXEL (fit_and_deconflict's
+# own `clear_px - 0.5` criterion), so the gate tolerates the same half pixel.
+# With 1e-6 a clearance of 0.04993 in (rendered as 0.050) failed a 0.050 floor.
+FIG_FIT_TOL_IN = 0.5 / float(FIGURAL_DPI)
 
 # --- label floors, AT DISPLAY SIZE -------------------------------------------
 ONPAGE_FLOOR_PT = {
@@ -1055,11 +1066,40 @@ def content_data_window(ax, rend, pad_px=0.0):
     return (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
 
 
+def _aspect_locked(ax):
+    """True when the axes enforces a data-unit aspect (set_aspect('equal') or a
+    number; imshow() sets it). 'auto' — every ordinary chart — is NOT locked."""
+    try:
+        return ax.get_aspect() != "auto"
+    except Exception:
+        return True
+
+
 def apply_data_window(ax, win, box_aspect):
-    """Set xlim/ylim to a window that CONTAINS win and matches the axes box
-    aspect exactly, so an equal-aspect axes needs no further adjustment and
-    matplotlib never silently re-expands a limit behind the fitter's back."""
+    """Set xlim/ylim to a window that CONTAINS win.
+
+    ASPECT-LOCKED axes (schematics, imshow structures): the window is grown so
+    (y-range / x-range) in data units == the axes box aspect, so an equal-aspect
+    axes needs no further adjustment and matplotlib never silently re-expands a
+    limit behind the fitter's back. Unchanged since v5.55.
+
+    'auto' axes (v5.81 — GAP-2026-08-30-FITTER-ASPECT): the window is applied
+    AS GIVEN. Forcing a data-unit aspect on a chart whose y spans 70 units and
+    x spans 4 widened x by ~17x and collapsed the bars into a sliver — every
+    unequal-range data chart since v5.55. On an 'auto' axes matplotlib maps any
+    window onto the box, so there is nothing to force."""
     x0, y0, x1, y1 = win
+    if not _aspect_locked(ax):
+        lx, hx_ = min(x0, x1), max(x0, x1)
+        ly, hy_ = min(y0, y1), max(y0, y1)
+        if hx_ - lx < 1e-9:                 # degenerate window: never hand
+            lx, hx_ = lx - 1e-9, hx_ + 1e-9   # matplotlib identical limits
+        if hy_ - ly < 1e-9:
+            ly, hy_ = ly - 1e-9, hy_ + 1e-9
+        # An inverted axis (depth profiles, ranks) stays inverted.
+        ax.set_xlim((hx_, lx) if ax.xaxis_inverted() else (lx, hx_))
+        ax.set_ylim((hy_, ly) if ax.yaxis_inverted() else (ly, hy_))
+        return (lx, ly, hx_, hy_)
     cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
     hw = max((x1 - x0) / 2.0, 1e-9)
     hh = max((y1 - y0) / 2.0, 1e-9)
@@ -1238,13 +1278,16 @@ def fit_and_deconflict(fig, ax, spec, *, window=None):
             sx = (ubb.width + 2.0 * clear_px) / max(abox.width, 1e-9)
             sy = (ubb.height + 2.0 * clear_px) / max(abox.height, 1e-9)
             k = max(sx, sy)
+            # v5.81: an aspect-locked axes scales both axes by the same k (a
+            # similarity); an 'auto' chart scales each axis by its OWN factor.
+            kx, ky = (k, k) if _aspect_locked(ax) else (sx, sy)
             inv = ax.transData.inverted()
             (cx, cy) = inv.transform(((ubb.x0 + ubb.x1) / 2.0,
                                       (ubb.y0 + ubb.y1) / 2.0))
             x0, x1 = ax.get_xlim()
             y0, y1 = ax.get_ylim()
-            hw = abs(x1 - x0) / 2.0 * k
-            hh = abs(y1 - y0) / 2.0 * k
+            hw = abs(x1 - x0) / 2.0 * kx
+            hh = abs(y1 - y0) / 2.0 * ky
             apply_data_window(ax, (cx - hw, cy - hh, cx + hw, cy + hh), box_aspect)
         # (2) DECONFLICT — measured label repulsion.
         rend = _renderer(fig)
@@ -1294,13 +1337,16 @@ def fit_and_deconflict(fig, ax, spec, *, window=None):
             sx = (ubb.width + 2.0 * clear_px) / max(abox.width, 1e-9)
             sy = (ubb.height + 2.0 * clear_px) / max(abox.height, 1e-9)
             k = max(sx, sy)
+            # v5.81: an aspect-locked axes scales both axes by the same k (a
+            # similarity); an 'auto' chart scales each axis by its OWN factor.
+            kx, ky = (k, k) if _aspect_locked(ax) else (sx, sy)
             inv = ax.transData.inverted()
             (cx, cy) = inv.transform(((ubb.x0 + ubb.x1) / 2.0,
                                       (ubb.y0 + ubb.y1) / 2.0))
             x0, x1 = ax.get_xlim()
             y0, y1 = ax.get_ylim()
-            hw = abs(x1 - x0) / 2.0 * k
-            hh = abs(y1 - y0) / 2.0 * k
+            hw = abs(x1 - x0) / 2.0 * kx
+            hh = abs(y1 - y0) / 2.0 * ky
             apply_data_window(ax, (cx - hw, cy - hh, cx + hw, cy + hh), box_aspect)
             if window is not None:
                 apply_data_window(ax, window, box_aspect)
@@ -1902,7 +1948,7 @@ def g_figfit(spec):
     if c < 0:
         out.append(f"G-FIGFIT: ink lies OUTSIDE the frame by "
                    f"{abs(c):.3f} in — the frame cuts through the drawing.")
-    elif c + 1e-6 < floor:
+    elif c + FIG_FIT_TOL_IN < floor:      # v5.81: half a rendered pixel, not 1e-6
         out.append(f"G-FIGFIT: ink-to-frame clearance {c:.3f} in is below the "
                    f"{floor:.3f} in floor; the drawing touches its own border.")
     # For a shared-window option SET the per-option fill is legitimately below
@@ -2946,6 +2992,78 @@ def self_test():
               FIG_CANVAS_ASPECT_MIN <= _r2e[0]["canvas_aspect"]
               <= FIG_CANVAS_ASPECT_MAX
               and _r2e[0]["fit"].get("stroke_window") is None)
+
+    # ── v5.81 FITTER ASPECT (GAP-2026-08-30-FITTER-ASPECT) ──────────────────
+    # FA1. THE DEFECT: a bar chart with x in 0..3 and y in 0..60 on an 'auto'
+    #      axes collapsed to a sliver (content_fill 4%, coloured 0.06%) because
+    #      the window's data-unit aspect was forced to the box aspect.
+    def _bars(ax, series, pal):
+        xs = [0, 1, 2, 3]
+        ax.bar([x - 0.18 for x in xs], [45, 30, 60, 25], 0.36, color=pal[0])
+        ax.bar([x + 0.18 for x in xs], [38, 35, 52, 30], 0.36, color=pal[1])
+        ax.set_xticks(xs, list("ABCD")); ax.set_xlabel("Site"); ax.set_ylabel("Count")
+    _fa1 = make_figure_spec(40, "data_series", FIG_PROBLEM_DISPLAY_IN,
+                            series=series_defaults(2))
+    _pfa1 = os.path.join(tmp, "fa1.png")
+    render_figure(_bars, _pfa1, _fa1)
+    check("FA1_auto_axes_chart_not_squeezed",
+          _fa1["fit"]["content_fill_frac"] >= MIN_CONTENT_FILL_FRAC
+          and coloured_fraction(_pfa1) >= 0.005
+          and g_figfit(_fa1) == [])
+    # FA2. UNCHANGED for aspect-locked axes: the window is still grown to the
+    #      box aspect (the v5.55 contract schematics and imshow structures rely on).
+    import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as _plt
+    _f2, _a2 = _plt.subplots(figsize=(4, 3)); _a2.set_aspect("equal")
+    _w2 = apply_data_window(_a2, (0.0, 0.0, 10.0, 1.0), 0.75)
+    check("FA2_locked_axes_window_forced_to_box_aspect",
+          abs(((_w2[3] - _w2[1]) / (_w2[2] - _w2[0])) - 0.75) < 1e-9)
+    _f3, _a3 = _plt.subplots(figsize=(4, 3))
+    _w3 = apply_data_window(_a3, (0.0, 0.0, 10.0, 1.0), 0.75)
+    check("FA2_auto_axes_window_applied_as_given",
+          _w3 == (0.0, 0.0, 10.0, 1.0) and _a3.get_xlim() == (0.0, 10.0)
+          and _a3.get_ylim() == (0.0, 1.0))
+    _plt.close(_f2); _plt.close(_f3)
+    # FA3. G-FIGFIT tolerates half a rendered pixel, no more.
+    _ok = {**_fa1, "fit": {**_fa1["fit"], "clearance_in": FIG_MIN_CLEARANCE_IN - 0.0010,
+                            "clearance_floor_in": FIG_MIN_CLEARANCE_IN}}
+    _bad = {**_fa1, "fit": {**_fa1["fit"], "clearance_in": FIG_MIN_CLEARANCE_IN - 0.0040,
+                             "clearance_floor_in": FIG_MIN_CLEARANCE_IN}}
+    check("FA3_figfit_half_pixel_tolerance",
+          g_figfit(_ok) == [] and any("below the" in m for m in g_figfit(_bad)))
+    # FA4. A line chart with unequal ranges (years vs population) fills the box.
+    def _lines(ax, series, pal):
+        for i, s_ in enumerate(series):
+            ax.plot([1, 2, 3, 4, 5, 6], [20 + 12 * i + 10 * j for j in range(6)],
+                    color=s_["colour"], linestyle=s_["linestyle"], marker=s_["marker"])
+        ax.set_xlabel("Year"); ax.set_ylabel("Population")
+    _fa4 = make_figure_spec(41, "data_series", FIG_PROBLEM_DISPLAY_IN,
+                            series=series_defaults(2))
+    _pfa4 = os.path.join(tmp, "fa4.png"); render_figure(_lines, _pfa4, _fa4)
+    check("FA4_unequal_range_line_chart_fills_box",
+          _fa4["fit"]["content_fill_frac"] >= MIN_CONTENT_FILL_FRAC and g_figfit(_fa4) == [])
+
+    # FA6. An inverted 'auto' axis (depth profile) stays inverted through the fit;
+    #      a degenerate window never reaches matplotlib as identical limits.
+    _f6, _a6 = _plt.subplots(figsize=(4, 3)); _a6.invert_yaxis()
+    apply_data_window(_a6, (0.0, 0.0, 10.0, 25.0), 0.75)
+    check("FA6_inverted_auto_axis_preserved",
+          _a6.yaxis_inverted() and _a6.get_ylim() == (25.0, 0.0))
+    _w6 = apply_data_window(_a6, (5.0, 5.0, 5.0, 5.0), 0.75)
+    check("FA6_degenerate_window_padded", _w6[2] > _w6[0] and _w6[3] > _w6[1])
+    _plt.close(_f6)
+    # FA5. PER-AXIS SCALING on an 'auto' axes: ink that overflows the box
+    #      HORIZONTALLY only must widen x, and must NOT stretch y with it.
+    _f5, _a5 = _plt.subplots(figsize=(FIG_PROBLEM_DISPLAY_IN, FIG_PROBLEM_DISPLAY_IN * 0.72),
+                             dpi=FIGURAL_DPI)
+    _a5.plot([0, 1, 2, 3], [0, 1, 2, 3], color="#0072B2")
+    _a5.text(3.0, 1.5, "a long label sticking out of the right edge", fontsize=10)
+    _a5.set_xlim(0, 3); _a5.set_ylim(0, 3)
+    _fa5 = make_figure_spec(42, "data_single", FIG_PROBLEM_DISPLAY_IN, series=series_defaults(1))
+    fit_and_deconflict(_f5, _a5, _fa5)
+    _xw = _a5.get_xlim()[1] - _a5.get_xlim()[0]; _yw = _a5.get_ylim()[1] - _a5.get_ylim()[0]
+    check("FA5_auto_axes_scale_each_axis_independently",
+          _xw > 3.6 and _yw < 3.6)
+    _plt.close(_f5)
 
     # ── v5.80 COLOUR ROLES (GAP-2026-08-29-FIGURE-COLOUR-ROLES) ──────────────
     # C0. ADDITIVE BY CONSTRUCTION: nothing pre-v5.80 moved.
