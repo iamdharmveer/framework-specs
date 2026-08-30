@@ -1,4 +1,18 @@
-# Framework_PYQCompress v2.0.0 — Universal Document Size Remediation
+# Framework_PYQCompress v2.0.1 — Universal Document Size Remediation
+# v2.0.1 — 2026-08-30 — GAP-2026-08-30-LINEART-CLASSIFIER (corpus_io v1.15; no rule of
+#   this spec changes). EC-C6's line-art test was "<= 256 distinct colours" — measured
+#   2026-08-30, EVERY anti-aliased rendered figure (structures 553-1,705 colours, charts
+#   268-1,504) failed it and routed to JPEG unless it carried alpha, while a smooth
+#   gradient (exactly 256 colours) passed as line art. corpus_io._is_line_art() is now
+#   STRUCTURAL (corpus_io._is_line_art): line art when flat_fraction (pixels whose four
+#   neighbours are exactly equal; renders 0.78-0.98, photographs and scans 0.00) >=
+#   LINE_ART_FLAT_FRAC 0.60 OR mode_fraction (share of the single most common exact colour
+#   — a render's background; renders 0.39-0.99, photographs / scans / gradients <= 0.005)
+#   >= LINE_ART_MODE_FRAC 0.25. Either alone decides; the second catches a smoothly
+#   interpolated heat map whose axis text would ring under JPEG. Deterministic, bounded,
+#   NEAREST-resampled (explicit — Pillow's default filter changed across versions and a
+#   smoothing filter blurs the flatness being measured), numpy-less fallback to the old
+#   rule. EC-C5 (alpha wins) and EC-C7 (JPEG source wins) are unchanged.
 # v2.0.0 — 2026-08-25 — GAP-2026-08-18-PYQCOMPRESS-UNDERCOMPRESSION. Two load-bearing
 #   changes, measured on a 22-paper live corpus before adoption:
 #   (1) MAX COMPRESSION. The governor no longer walks TIER_LADDER stopping at the
@@ -622,8 +636,23 @@ EC-C5: TRANSPARENCY
   channel. Delegated to blueprint_core.classify_media_route; not decided here.
 
 EC-C6: LINE ART / DIAGRAMS
-  Few-colour images (diagrams, chemical structures, plots) route to PNG. JPEG would
+  Rendered figures (diagrams, chemical structures, plots) route to PNG. JPEG would
   ring on exactly the thin dark strokes and subscripts these figures consist of.
+  THE TEST (v2.0.1, corpus_io v1.15): STRUCTURAL, not a colour count —
+  corpus_io._is_line_art() measures two numbers and EITHER decides line art:
+    flat_fraction >= LINE_ART_FLAT_FRAC (0.60): the share of pixels whose four
+      neighbours are exactly equal. Anti-aliasing gives a render hundreds of colours
+      but leaves it mostly flat (measured 0.78-0.98); a photograph or a scan is
+      textured in every pixel (0.00).
+    mode_fraction >= LINE_ART_MODE_FRAC (0.25): the share of pixels of the single
+      most common exact colour — a render's background (measured 0.39-0.99); a
+      photograph, a scan or a gradient has no dominant exact colour (<= 0.005). This
+      is what keeps a smoothly interpolated heat map — mostly NOT flat, but with
+      axis text that would ring under JPEG — on PNG.
+  The sample is bounded (250k px) and NEAREST-resampled explicitly, so the verdict
+  is identical on every Pillow version. The pre-v2.0.1 "<= 256 colours" rule sent
+  every anti-aliased render to JPEG unless it had an alpha channel; it survives only
+  as the numpy-less fallback.
 
 EC-C7: ALREADY-JPEG SOURCE
   Re-encoding a JPEG as PNG BLOATS it — the source is already lossy, so PNG stores the
@@ -778,4 +807,4 @@ POST-DELIVERY:
 
 ---
 
-# END OF Framework_PYQCompress v2.0.0
+# END OF Framework_PYQCompress v2.0.1

@@ -1,6 +1,21 @@
 """
-corpus_io.py v1.14 — I/O shell for PYQ corpus acquisition, image integrity,
+corpus_io.py v1.15 — I/O shell for PYQ corpus acquisition, image integrity,
                     document size governance, tables and the Analysis doc.
+
+v1.15 — 2026-08-30 — GAP-2026-08-30-LINEART-CLASSIFIER. _is_line_art() classed an
+    image as line art by "<= 256 distinct colours". Measured 2026-08-30: EVERY
+    anti-aliased rendered figure in the estate has 300-1,900 colours (JAM structures
+    553-1,705; v5.81 charts 268-1,504; an externally rendered ecology paper 287-1,905)
+    and so routed to 'jpeg' (q82, chroma subsampling — the ringing on thin strokes
+    and subscripts Q2 bans) whenever it lacked an alpha channel; while a pure smooth
+    gradient (exactly 256 colours, no edges at all) routed to PNG as "line art".
+    Mock figures survived only because they are RGBA. The test is now STRUCTURAL:
+    the fraction of pixels whose four neighbours are exactly equal (flat regions).
+    Rendered figures measure 0.78-0.98; photographs and scans (sensor / JPEG
+    texture) 0.00; the gradient 0.00. LINE_ART_FLAT_FRAC = 0.60. Deterministic,
+    bounded (250k-pixel sample), numpy-backed with the old rule as the fallback
+    when numpy is absent. JPEG SOURCE STILL WINS (classify_media_route): nothing
+    already lossy is ever re-encoded as PNG. Every other function byte-identical.
 
 v1.14 — 2026-08-29 — GAP-2026-08-29-FIGURE-COLOUR-ROLES (MockTestCreate v5.80 S10-7C).
     structure_draw_fn no longer draws with rdkit's DEFAULT atom palette — a value
@@ -1909,8 +1924,66 @@ def media_display_inches(path):
     return widths
 
 
+LINE_ART_FLAT_FRAC = 0.60      # v1.15 — see _line_art_stats(); renders >= 0.78, photos 0.00
+LINE_ART_MODE_FRAC = 0.25      # v1.15 — dominant exact colour (a render's background):
+                               #         renders 0.39-0.99, photographs / scans / gradients <= 0.005
+
+
+def _sample_nearest(im, sample_cap):
+    """Bounded RGB sample. NEAREST is explicit: Pillow's default resize filter
+    changed across versions (NEAREST -> BICUBIC), and a smoothing filter blurs
+    the very flatness this test measures — NEAREST keeps exact pixel values, so
+    the verdict is identical on every Pillow version."""
+    Image = _need('PIL')
+    s = im.convert('RGB')
+    if s.size[0] * s.size[1] > sample_cap:
+        r = (sample_cap / float(s.size[0] * s.size[1])) ** 0.5
+        nearest = getattr(getattr(Image, 'Resampling', Image), 'NEAREST')
+        s = s.resize((max(1, int(s.size[0] * r)), max(1, int(s.size[1] * r))), nearest)
+    return s
+
+
+def _line_art_stats(im, sample_cap=250_000):
+    """v1.15 — (flat_fraction, mode_fraction) or None when numpy is unavailable.
+    flat_fraction: share of interior pixels whose 4-neighbours are EXACTLY equal —
+      rendered line art is mostly flat regions with hard edges; a photograph or a
+      scan carries texture in every pixel.
+    mode_fraction: share of pixels of the single most common exact colour — every
+      rendered figure has a dominant exact background (its margins), a photograph
+      or scan has none. Catches the one render class flatness misses: a smoothly
+      interpolated heat map, whose axis text would ring under JPEG.
+    Deterministic; the sample is bounded and NEAREST-resampled."""
+    try:
+        import numpy as _np
+    except ImportError:
+        return None
+    s = _sample_nearest(im, sample_cap)
+    a = _np.asarray(s).astype(int)
+    h, w = a.shape[0], a.shape[1]
+    if h < 3 or w < 3:
+        return 1.0, 1.0
+    c = a[1:-1, 1:-1]
+    differs = _np.zeros(c.shape[:2], dtype=bool)
+    for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+        n = a[1 + dy:h - 1 + dy, 1 + dx:w - 1 + dx]
+        differs |= (_np.abs(c - n).max(-1) > 0)
+    flat = float(1.0 - differs.mean())
+    packed = (a[..., 0] << 16) | (a[..., 1] << 8) | a[..., 2]
+    _, counts = _np.unique(packed, return_counts=True)
+    mode = float(counts.max() / float(h * w))
+    return flat, mode
+
+
 def _is_line_art(im, sample_cap=250_000):
-    """<=256 distinct colours => line art. Deterministic; work is bounded."""
+    """v1.15 — STRUCTURAL: line art when flat_fraction >= LINE_ART_FLAT_FRAC OR
+    mode_fraction >= LINE_ART_MODE_FRAC (either alone is decisive: photographs,
+    scans and gradients fail BOTH by two orders of magnitude). The pre-v1.15 rule
+    (<= 256 distinct colours) is kept ONLY as the numpy-less fallback: it called
+    every anti-aliased render a photograph and a smooth gradient line art."""
+    st = _line_art_stats(im, sample_cap)
+    if st is not None:
+        flat, mode = st
+        return flat >= LINE_ART_FLAT_FRAC or mode >= LINE_ART_MODE_FRAC
     s = im.convert('RGB')
     if s.size[0] * s.size[1] > sample_cap:
         r = (sample_cap / float(s.size[0] * s.size[1])) ** 0.5
@@ -4968,6 +5041,74 @@ def self_test():
     # bare-marker + OPT_PATTERNS cases, image-option path, Paragraph-vs-element
     # duality, clean_option_text stripping. The single shared predicate every
     # step delegates to finally has its own regression net.
+    # ── v1.15 line-art classifier (GAP-2026-08-30-LINEART-CLASSIFIER) ────────
+    try:
+        from PIL import Image as _LImg
+        import numpy as _lnp
+        import matplotlib as _lmpl; _lmpl.use('Agg'); import matplotlib.pyplot as _lplt
+        _lb = io.BytesIO(); _lf, _lax = _lplt.subplots(figsize=(3, 2), dpi=150)
+        for _i in range(3):
+            _lax.plot([0, 1, 2], [_i, _i + 1, _i], marker='o')
+        _lax.text(1, 1, 'k'); _lf.savefig(_lb, format='png', dpi=150, facecolor='white'); _lplt.close(_lf)
+        _chart = _LImg.open(io.BytesIO(_lb.getvalue())).convert('RGB')
+        check('lineart_antialiased_chart_is_line_art',
+              len(set(_chart.getdata())) > 256 and _is_line_art(_chart))   # old rule said photo
+        _rng = _lnp.random.default_rng(1)
+        _photo = _LImg.fromarray(_lnp.clip(_lnp.linspace(0, 255, 200)[None, :, None] * _lnp.ones((150, 1, 3))
+                                           + _rng.normal(0, 6, (150, 200, 3)), 0, 255).astype('uint8'))
+        check('lineart_noisy_photo_is_not', not _is_line_art(_photo))
+        _scan = _lnp.full((150, 200, 3), 245); _scan[60:66, 20:180] = 20
+        _scan = _LImg.fromarray(_lnp.clip(_scan + _rng.normal(0, 4, _scan.shape), 0, 255).astype('uint8'))
+        check('lineart_noisy_scan_is_not', not _is_line_art(_scan))
+        _grad = _LImg.fromarray((_lnp.linspace(0, 255, 256)[None, :, None] * _lnp.ones((100, 1, 3))).astype('uint8'))
+        check('lineart_smooth_gradient_is_not',
+              len(set(_grad.getdata())) <= 256 and not _is_line_art(_grad))   # old rule said line art
+        _flat = _LImg.new('RGB', (100, 80), 'white'); _flat.paste((0, 114, 178), (20, 20, 60, 50))
+        check('lineart_flat_render_is_line_art', _is_line_art(_flat) and _line_art_stats(_flat)[0] > 0.9)
+        # A smoothly interpolated heat map is mostly NOT flat, but its margins are
+        # a dominant exact background: line art by the mode criterion.
+        _hb = io.BytesIO(); _hf, _hax = _lplt.subplots(figsize=(3, 2), dpi=150)
+        _hax.imshow(_rng.random((6, 8)), interpolation='bicubic', aspect='auto')
+        _hf.savefig(_hb, format='png', dpi=150, facecolor='white'); _lplt.close(_hf)
+        _heat = _LImg.open(io.BytesIO(_hb.getvalue())).convert('RGB')
+        _hs = _line_art_stats(_heat)
+        check('lineart_smooth_heatmap_with_axes_is_line_art',
+              _hs[0] < LINE_ART_FLAT_FRAC and _hs[1] >= LINE_ART_MODE_FRAC and _is_line_art(_heat))
+        check('lineart_photo_scan_gradient_fail_both_criteria',
+              all(_line_art_stats(x)[0] < LINE_ART_FLAT_FRAC and _line_art_stats(x)[1] < LINE_ART_MODE_FRAC
+                  for x in (_photo, _scan, _grad)))
+        # Resampling is NEAREST and explicit: a 3000x2000 flat render sampled down keeps
+        # exact values (flat > 0.95), which a smoothing filter would blur at the edges.
+        _big = _LImg.new('RGB', (3000, 2000), 'white'); _big.paste((0, 114, 178), (500, 500, 2500, 1500))
+        check('lineart_large_image_sampled_nearest', _line_art_stats(_big)[0] > 0.95 and _is_line_art(_big))
+        check('lineart_quantised_render_is_line_art', _is_line_art(_chart.quantize(64)))
+        # ISOLATING FIXTURES (each defence alone must carry its case):
+        # (a) eight flat stripes of distinct colours — NO dominant background
+        #     (mode 0.125), fully flat: only the flat criterion keeps it PNG.
+        _st = _lnp.zeros((200, 400, 3), 'uint8')
+        for _i, _c in enumerate([(0, 114, 178), (213, 94, 0), (0, 158, 115), (204, 121, 167),
+                                 (230, 159, 0), (86, 180, 233), (240, 228, 66), (120, 120, 120)]):
+            _st[:, _i * 50:(_i + 1) * 50] = _c
+        _sts = _line_art_stats(_LImg.fromarray(_st))
+        check('lineart_flat_render_without_dominant_background',
+              _sts[1] < LINE_ART_MODE_FRAC and _sts[0] >= LINE_ART_FLAT_FRAC
+              and _is_line_art(_LImg.fromarray(_st)))
+        # (b) a 3000x2000 fine 1-px grid: NEAREST sampling keeps a white-dominant
+        #     image (mode 0.84); a smoothing resample blurs every line into
+        #     gradients (flat 0.00, mode 0.09) and would send a render to JPEG.
+        _gr = _lnp.full((2000, 3000, 3), 255, 'uint8'); _gr[::12, :] = 0; _gr[:, ::12] = 0
+        _grs = _line_art_stats(_LImg.fromarray(_gr))
+        check('lineart_fine_grid_survives_nearest_sampling',
+              _grs[1] >= LINE_ART_MODE_FRAC and _is_line_art(_LImg.fromarray(_gr)))
+        check('lineart_tiny_image_is_line_art', _is_line_art(_LImg.new('RGB', (2, 2), 'white')))
+        check('lineart_threshold_pinned', LINE_ART_FLAT_FRAC == 0.60 and LINE_ART_MODE_FRAC == 0.25)
+        # route contract unchanged: JPEG source still wins, alpha still wins.
+        check('lineart_route_jpeg_source_wins',
+              bc.classify_media_route('JPEG', False, True) == 'jpeg'
+              and bc.classify_media_route('PNG', True, False) == 'png'
+              and bc.classify_media_route('PNG', False, True) == 'png-lineart')
+    except ImportError:
+        check('lineart_numpy_absent_falls_back', True)
     check('opt_num_dot', is_option('1. speed of light'))
     check('opt_alpha_dot', is_option('B. mitochondria'))
     check('opt_paren_num', is_option('(3) 42'))

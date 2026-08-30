@@ -85,11 +85,11 @@
       "version_header": "# Framework_PYQApprove v1.0.1 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)"
     },
     "Framework_PYQCompress.md": {
-      "end_sentinel": "# END OF Framework_PYQCompress v2.0.0",
-      "lines": 781,
-      "sha256": "6d3b423f2d2c74d31be61d1bc61954333834f16221adb80a89dc00a39bab8d2a",
-      "size_bytes": 40620,
-      "version_header": "# Framework_PYQCompress v2.0.0 — Universal Document Size Remediation"
+      "end_sentinel": "# END OF Framework_PYQCompress v2.0.1",
+      "lines": 810,
+      "sha256": "9fdb05a5131e962524d5f6185fab0d835aa1566847bc2b9bf6c48a8d51bc1e10",
+      "size_bytes": 42936,
+      "version_header": "# Framework_PYQCompress v2.0.1 — Universal Document Size Remediation"
     },
     "Framework_PYQCore.md": {
       "end_sentinel": "# END OF Framework_PYQCore v1.6",
@@ -254,9 +254,9 @@
     },
     "corpus_io.py": {
       "end_sentinel": "          'Run with --self-test.')",
-      "lines": 5290,
-      "sha256": "b99bfa0a1768a1d8206dfd1fb0fec899b036fd8ce34608fc5c7401c6f9b5569a",
-      "size_bytes": 273239,
+      "lines": 5431,
+      "sha256": "a0ce6f711d7b14d97a13c076b3f4cd65c34fd1546e6ed0a0c87c41782cd9b405",
+      "size_bytes": 282347,
       "version_header": "\"\"\""
     },
     "explain_engine.py": {

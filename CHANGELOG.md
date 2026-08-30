@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026.08.30.3 — GAP-2026-08-30-LINEART-CLASSIFIER: the size governor's line-art test becomes structural
+
+**corpus_io v1.14 -> v1.15 (_is_line_art() measures (flat_fraction, mode_fraction); _is_line_art() =
+flat_fraction >= LINE_ART_FLAT_FRAC 0.60 OR mode_fraction >= LINE_ART_MODE_FRAC 0.25; explicit
+NEAREST resampling; numpy-less fallback to the old rule; fifteen fixtures incl. two isolating each
+criterion; self-test 362 -> 376) · Framework_PYQCompress
+v2.0.0 -> v2.0.1 (EC-C6 reworded; no rule changed). Zero exam values; no other engine, route or
+trigger touched.**
+
+WHY. _is_line_art() classed an image as line art by "<= 256 distinct colours". Measured on every
+rendered figure in hand: JAM structures 553-1,705 colours, v5.81 charts 268-1,504, an external
+ecology paper 287-1,905 — ALL failed the test and routed to JPEG (q82, chroma subsampling; the
+ringing on thin strokes and subscripts that S10-7 Q2 bans) whenever they lacked an alpha channel.
+A pure smooth gradient (exactly 256 colours, no edges) passed as line art. Mock figures survived
+only because they are RGBA, and optimize_docx runs only in PYQSort / PYQCompress today — a latent
+trap for any future RGB save or any generated figure entering a compression pass.
+
+THE TEST. flat_fraction = share of interior pixels whose four neighbours are exactly equal.
+Renders 0.78-0.98 (110 of 110 real figures in hand now classify as line art); photographs, scans
+and the gradient 0.00. Deterministic; bounded 250k-pixel sample. EC-C5 (alpha wins) and EC-C7
+(JPEG source wins — nothing already lossy is re-encoded as PNG) are untouched.
+
+FINAL REVIEW found two more cases and fixed them: a smoothly interpolated heat map with axes
+(flat 0.42) would have gone to JPEG — the mode_fraction criterion (its margins are a dominant
+exact background, 0.39; photographs/scans/gradients <= 0.005) keeps it PNG; and the sample resize
+relied on Pillow's default filter, which changed across versions and blurs flatness — now explicit
+NEAREST (a 3000x2000 fine grid: NEAREST mode 0.84 vs BICUBIC 0.09).
+
+MUTANTS KILLED: structural rule removed; flat threshold lowered; tolerant neighbour test; mode
+criterion removed; mode threshold lowered; flat criterion removed; resize filter left to BICUBIC.
+
 ## 2026.08.30.2 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3): notes figures get a render recipe — the same constants as question and explanation figures, pinned without runtime coupling
 
 **notes_core v2.10 -> v2.11 (FIGURE_PALETTE — a pinned COPY of figural_core's constants: Okabe-Ito

@@ -4256,113 +4256,113 @@
       ]
     },
     "Framework_PYQCompress.md": {
-      "sha256": "6d3b423f2d2c74d31be61d1bc61954333834f16221adb80a89dc00a39bab8d2a",
-      "lines": 782,
-      "bytes": 40620,
-      "est_tokens": 10155,
+      "sha256": "9fdb05a5131e962524d5f6185fab0d835aa1566847bc2b9bf6c48a8d51bc1e10",
+      "lines": 811,
+      "bytes": 42936,
+      "est_tokens": 10734,
       "view_calls": 3,
       "bash_calls": 1,
       "has_read_set": false,
-      "reduced_bytes": 40620,
-      "reduced_est_tokens": 10155,
+      "reduced_bytes": 42936,
+      "reduced_est_tokens": 10734,
       "reduced_bash_calls": 1,
       "final_only_titles": [],
       "sections": [
         {
           "title": "## §1 — SESSION START",
-          "start": 109,
-          "end": 110,
+          "start": 123,
+          "end": 124,
           "lines": 2,
           "bytes": 26
         },
         {
           "title": "### S1-1 — Trigger parsing",
-          "start": 111,
-          "end": 128,
+          "start": 125,
+          "end": 142,
           "lines": 18,
           "bytes": 663
         },
         {
           "title": "### S1-2 — Input inventory",
-          "start": 129,
-          "end": 189,
+          "start": 143,
+          "end": 203,
           "lines": 61,
           "bytes": 2657
         },
         {
           "title": "## §2 — THE FILENAME RULE (HARD — read this before anything else)",
-          "start": 190,
-          "end": 249,
+          "start": 204,
+          "end": 263,
           "lines": 60,
           "bytes": 3747
         },
         {
           "title": "## §3 — INPUT INTEGRITY (before any re-encode)",
-          "start": 250,
-          "end": 295,
+          "start": 264,
+          "end": 309,
           "lines": 46,
           "bytes": 2249
         },
         {
           "title": "## §4 — THE GOVERNOR",
-          "start": 296,
-          "end": 394,
+          "start": 310,
+          "end": 408,
           "lines": 99,
           "bytes": 5460
         },
         {
           "title": "## §5 — SURVIVAL GATE (independent of the governor's own assert)",
-          "start": 395,
-          "end": 432,
+          "start": 409,
+          "end": 446,
           "lines": 38,
           "bytes": 1697
         },
         {
           "title": "## §6 — VERDICT AND REPORTING",
-          "start": 433,
-          "end": 482,
+          "start": 447,
+          "end": 496,
           "lines": 50,
           "bytes": 2706
         },
         {
           "title": "## §7 — VALIDATION (5 checks — every one must PASS before delivery)",
-          "start": 483,
-          "end": 537,
+          "start": 497,
+          "end": 551,
           "lines": 55,
           "bytes": 2812
         },
         {
           "title": "## §8 — EXECUTION MODEL",
-          "start": 538,
-          "end": 582,
+          "start": 552,
+          "end": 596,
           "lines": 45,
           "bytes": 1820
         },
         {
           "title": "## §9 — EDGE CASES",
-          "start": 583,
-          "end": 674,
-          "lines": 92,
-          "bytes": 4885
+          "start": 597,
+          "end": 703,
+          "lines": 107,
+          "bytes": 5982
         },
         {
           "title": "## §10 — EXAM-AGNOSTIC GUARANTEE",
-          "start": 675,
-          "end": 702,
+          "start": 704,
+          "end": 731,
           "lines": 28,
           "bytes": 1171
         },
         {
           "title": "## §11 — DEFINITION OF DONE",
-          "start": 703,
-          "end": 735,
+          "start": 732,
+          "end": 764,
           "lines": 33,
           "bytes": 1611
         },
         {
           "title": "## §12 — CRITICAL WARNINGS",
-          "start": 736,
-          "end": 782,
+          "start": 765,
+          "end": 811,
           "lines": 47,
           "bytes": 2314
         }

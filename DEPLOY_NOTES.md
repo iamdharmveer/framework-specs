@@ -1,3 +1,17 @@
+# Deploy: GAP-2026-08-30-LINEART-CLASSIFIER — release 2026.08.30.3
+
+**Files to commit (8):** `corpus_io.py` (v1.15), `Framework_PYQCompress.md` (v2.0.1), `VERSION`,
+`CHANGELOG.md`, `DEPLOY_NOTES.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json`.
+Deploy the engine after `python3 corpus_io.py --self-test` (376/376) on the deployed bytes.
+
+**Operator change: NONE.** Behaviour change: from this release a PYQSort / PYQCompress pass keeps
+rendered figures as PNG (they were JPEG-encoded unless RGBA). Already-JPEG sources and alpha images
+route exactly as before. Delivered documents are not re-processed.
+
+**Rollback:** revert the two content files.
+
+---
+
 # Deploy: GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3) — release 2026.08.30.2
 
 **Files to commit (11):** `notes_core.py` (v2.11), `notes_audit.py` (v2.8), `notes_sync_audit.py`
