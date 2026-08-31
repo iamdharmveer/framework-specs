@@ -8,12 +8,50 @@ TWO defects addressed:
       names contain '/' (e.g. "Microbial/Plant/Animal Biotech"). Any
       string-encoded path is unparseable in general.
       Fix: paths are LISTS OF COMPONENTS. Never parsed, never split.
+
+2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION (E5). The item/subject model
+gains the states that valid syllabus structures require, so valid structures
+are no longer forced into invalid shapes:
+  * item `excluded` state (VOCABULARY_LIST / SCOPE_MARKER / FORMAT_QUALIFIER /
+    OPEN_ENDED_TAIL + reason) — recorded, never silently omitted; mutually
+    exclusive with mapped_paths (validate_provenance enforces both directions).
+  * ENTRY DEDUP at build_items(): canon-identical entries within a subject are
+    merged; near-identical (SequenceMatcher over norm(), caller-supplied
+    threshold — pass reconcile_taxonomy.DUP_SIMILARITY, never restate it) are
+    merged with a recorded merged_from list. Every merge lands in dedup_report
+    (delivered inside taxonomy_draft.json, never dropped silently).
+    build_items now returns (items, errors, dedup_report).
+  * detect_subject_flags(): per-subject `skeletal` (entries < min_items AND
+    atomic >= SKELETAL_ATOMIC_MIN — the caller passes min_items =
+    reconcile_taxonomy.OVER_AGG_MIN_ITEMS; one rulebook, no engine->engine
+    import, because routes pair the two engines only on the PYQ triggers) and
+    `open_ended` (terminal "etc." / "and so on").
+  * find_duplicate_subjects() — the C9 Type-2 seatbelt's detector: the taxonomy
+    dict keys by subject name, so a wrongly-supplied multi-phase document with
+    a repeated subject would silently OVERWRITE one phase (C1 passing on the
+    survivor). Detection converts that silent data loss into a one-touch stop.
+  * validate_provenance(): subject-set equality (syllabus_subjects vs taxonomy
+    sections, norm-based, both directions), exclusion exclusivity, and excluded
+    items no longer draw the unmapped warning.
+  * --self-test added.
 """
 import re, unicodedata
 
 DASHES = dict.fromkeys(map(ord, "\u2010\u2011\u2012\u2013\u2014\u2015\u2212"), "-")
 PATH_ARITY = 3          # Subject / Topic / Subtopic
 VALID_RULES = {"TOPIC_INTEGRITY_TEST", "SPLIT", "MERGE", "OTHER"}
+# E5 (2026-08-30): the CLOSED set of exclusion classes. An excluded item is
+# RECORDED taxonomy non-membership — extraction stays total (S2-1), membership
+# does not. C2 skips these; C6 scopes them out (reconcile_taxonomy E1e/E2).
+VALID_EXCLUSION_CLASSES = {"VOCABULARY_LIST", "SCOPE_MARKER",
+                           "FORMAT_QUALIFIER", "OPEN_ENDED_TAIL"}
+# E5 (DECISION D5): a subject is SKELETAL when it has fewer entries than the
+# density floor the caller passes in (reconcile_taxonomy.OVER_AGG_MIN_ITEMS)
+# while its entries unpack to at least this many atomic concepts — a 1-entry
+# "GK: history, polity, geography, ... etc." syllabus. Density is unjudgeable
+# there and the record must SAY so rather than look anomalous at scan.
+SKELETAL_ATOMIC_MIN = 20
+_OPEN_ENDED_RE = re.compile(r"(?:\betc\.?|\band so on\b)\s*$", re.I)
 
 
 def norm(s):
@@ -71,10 +109,29 @@ def taxonomy_paths(taxonomy):
 # Everything else (id, subject, syllabus_group, enumerated, deviation.rule,
 # deviation detection) is COMPUTED below and therefore cannot be emitted wrong.
 
-def build_items(emissions, group_topic_map=None, start=1):
+def build_items(emissions, group_topic_map=None, start=1, dup_similarity=None):
     """
-    emissions: [{'path':[...], 'text':str, 'to':[[...]], 'why':str|None}]
-    Returns (items, errors). Derives 5 of the 9 fields deterministically.
+    emissions: [{'path':[...], 'text':str, 'to':[[...]], 'why':str|None,
+                 'excluded': {'class':..., 'reason':...}|None}]
+    Returns (items, errors, dedup_report). Derives the remaining fields
+    deterministically.
+
+    E5 (2026-08-30):
+      * excluded — optional declared-exclusion state. Class must be in
+        VALID_EXCLUSION_CLASSES with a non-empty reason. Mutually exclusive
+        with destinations: an emission carrying both is a build error.
+      * ENTRY DEDUP — canon-identical (norm()) entries within one subject are
+        MERGED (destinations unioned, first occurrence kept); when
+        dup_similarity is supplied (pass reconcile_taxonomy.DUP_SIMILARITY —
+        the C5 threshold; never restate the number), near-identical entries
+        merge too. Every merge is recorded in dedup_report:
+        [{'kept': id, 'kept_text': str, 'merged_from': [texts], 'reason': str}]
+        MULTI-GRANULARITY (archetype A4): which duplicate to PREFER when the
+        same content appears at multiple granularities is the D4 rule in the
+        spec (most granular authoritative listing); mechanically the FIRST
+        emission in document order is kept, so the emitter orders the
+        authoritative region first. Dedup operates WITHIN one subject only —
+        it can never mask the C9 duplicate-subject seatbelt.
     """
     errors = []
     gmap = {}
@@ -83,6 +140,8 @@ def build_items(emissions, group_topic_map=None, start=1):
         gmap[key] = {tuple(norm_path(t)) for t in (g.get("mapped_topics") or [])}
 
     items = []
+    dedup_report = []
+    seen_exact = {}     # (norm(subject), norm(text)) -> item index
     for n, e in enumerate(emissions or [], start):
         iid = f"SYL-{n:03d}"                       # DERIVED: never mis-emitted
         path = e.get("path") or []
@@ -91,6 +150,23 @@ def build_items(emissions, group_topic_map=None, start=1):
             continue
         subject = path[0]                          # DERIVED
         group = path[1] if len(path) > 1 else None # DERIVED
+        excluded = e.get("excluded")
+        if excluded is not None:
+            cls = (excluded or {}).get("class") if isinstance(excluded, dict) else None
+            reason = str((excluded or {}).get("reason") or "").strip() \
+                if isinstance(excluded, dict) else ""
+            if cls not in VALID_EXCLUSION_CLASSES:
+                errors.append(f"{iid}: excluded.class {cls!r} not in "
+                              f"{sorted(VALID_EXCLUSION_CLASSES)}")
+                excluded = None
+            elif not reason:
+                errors.append(f"{iid}: excluded declared with empty reason")
+                excluded = None
+            elif e.get("to"):
+                errors.append(f"{iid}: excluded AND mapped — an item is IN the "
+                              f"taxonomy or declared out of it, never both. "
+                              f"Drop 'to' or drop 'excluded'.")
+                excluded = None
         dests = e.get("to")
         if dests is None:
             dests = []
@@ -130,20 +206,122 @@ def build_items(emissions, group_topic_map=None, start=1):
                         deviation = {"rule": e.get("rule", "OTHER") if
                                      e.get("rule") in VALID_RULES else "OTHER",
                                      "reason": why}
+        text = str(e.get("text") or "").strip()
+        if not text:
+            errors.append(f"{iid}: 'text' is empty")
+
+        # ── E5 ENTRY DEDUP (within one subject only) ──────────────────
+        # STATE GUARD: merge only like-with-like. Folding a MAPPED emission
+        # into an EXCLUDED kept item would manufacture the invalid
+        # excluded+mapped state; folding an EXCLUDED emission into a mapped
+        # kept item would silently DROP a recorded exclusion. On a state
+        # mismatch both entries are kept — visible to the validators, never
+        # silently resolved.
+        def _same_state(kept_item):
+            return bool(kept_item.get("excluded")) == bool(excluded)
+        key = (norm(subject), norm(text))
+        if text and key in seen_exact and _same_state(items[seen_exact[key]]):
+            kept = items[seen_exact[key]]
+            for d in clean:
+                if d not in kept["mapped_paths"]:
+                    kept["mapped_paths"].append(d)
+            dedup_report.append({"kept": kept["id"], "kept_text": kept["raw_text"],
+                                 "merged_from": [text],
+                                 "reason": "exact duplicate (canon-identical)"})
+            continue
+        if text and dup_similarity:
+            from difflib import SequenceMatcher as _SM
+            hit = None
+            for (ks, kt), idx in seen_exact.items():
+                if ks != norm(subject) or not _same_state(items[idx]):
+                    continue
+                r = _SM(None, kt, norm(text)).ratio()
+                if r >= dup_similarity:
+                    hit = (idx, r)
+                    break
+            if hit is not None:
+                kept = items[hit[0]]
+                for d in clean:
+                    if d not in kept["mapped_paths"]:
+                        kept["mapped_paths"].append(d)
+                dedup_report.append({"kept": kept["id"],
+                                     "kept_text": kept["raw_text"],
+                                     "merged_from": [text],
+                                     "reason": f"near duplicate ({hit[1]:.2f} "
+                                               f">= {dup_similarity})"})
+                continue
+
         items.append({
             "id": iid,
             "subject": subject,
             "syllabus_path": list(path),
             "syllabus_group": group,
-            "raw_text": str(e.get("text") or "").strip(),
+            "raw_text": text,
             "enumerated": bool(e.get("enumerated", True)),
             "source_ref": e.get("source_ref"),
             "mapped_paths": clean,
             "deviation": deviation,
+            "excluded": excluded,
         })
-        if not items[-1]["raw_text"]:
-            errors.append(f"{iid}: 'text' is empty")
-    return items, errors
+        if text:
+            seen_exact[key] = len(items) - 1
+    return items, errors, dedup_report
+
+
+# ══════════════════════════════════════════════════════════════════
+# E5 — SUBJECT FLAGS + C9 SEATBELT DETECTOR (2026-08-30)
+# ══════════════════════════════════════════════════════════════════
+def detect_subject_flags(items, *, min_items, atomic_min=SKELETAL_ATOMIC_MIN):
+    """
+    {subject: {'skeletal': bool, 'open_ended': bool}} — auto-detected (E5).
+
+    min_items MUST be reconcile_taxonomy.OVER_AGG_MIN_ITEMS, passed by the
+    caller (PYQDraft routes both engines; this module deliberately does not
+    import reconcile_taxonomy, because five non-PYQ triggers route this file
+    alone and CHECK AI would then demand the pairing everywhere).
+
+      skeletal   — entries < min_items AND atomic concepts >= atomic_min:
+                   too few entries to judge density, too much content to be
+                   small. The record says "density unjudged" instead of the
+                   scan looking anomalous (archetype A5).
+      open_ended — any entry's text ends in "etc." / "and so on": scan
+                   discovery is EXPECTED and reported as such (D6).
+    """
+    by = {}
+    for it in (items or []):
+        by.setdefault(it.get("subject"), []).append(it)
+    out = {}
+    for subj, its in by.items():
+        atomic = sum(count_atomic(it.get("raw_text")) for it in its)
+        out[subj] = {
+            "skeletal": len(its) < min_items and atomic >= atomic_min,
+            "open_ended": any(_OPEN_ENDED_RE.search(str(it.get("raw_text") or ""))
+                              for it in its),
+        }
+    return out
+
+
+def find_duplicate_subjects(subjects):
+    """
+    C9 SEATBELT DETECTOR (Type-2 input integrity — 2026-08-30).
+
+    Returns the display names of subjects whose norm() form appears 2+ times
+    in the S2-1 extraction. The taxonomy dict keys by subject name, so a
+    duplicate would make the second subject silently OVERWRITE the first —
+    one phase's subjects vanish with C1 passing on the survivor. The CALLER
+    (S2-1 / save_taxonomy_draft) must STOP AS TYPE-2 on a non-empty return
+    with exactly one operator action: provide the single-phase syllabus.
+    Never proceeds, never merges, never prescribes re-derivation.
+    """
+    seen, dups = {}, []
+    for s in (subjects or []):
+        k = norm(s)
+        if not k:
+            continue
+        if k in seen and seen[k] not in dups:
+            dups.append(seen[k])
+        seen.setdefault(k, s)
+    return dups
 
 
 def derive_group_topic_map(items, _authorized=False):
@@ -366,6 +544,22 @@ def validate_provenance(taxonomy, items, subjects, group_topic_map,
         errors.append(f"COUNT MISMATCH: {declared_total} items declared, "
                       f"{len(items)} emitted — extraction truncated or padded.")
 
+    # E5 / change-item C5 (2026-08-30): SUBJECT-SET EQUALITY — norm()-equality
+    # of syllabus_subjects vs taxonomy sections, BOTH directions, at DRAFT
+    # time. A dropped or invented subject was previously first seen at
+    # PYQApprove C1 (halt #3), three steps after the session that could fix it.
+    if subj_norm:
+        tax_norm_secs = {norm(s): s for s in (taxonomy or {})}
+        for k in sorted(subj_norm - set(tax_norm_secs)):
+            disp = next((s for s in subjects if norm(s) == k), k)
+            errors.append(f"SUBJECT-SET MISMATCH: syllabus subject {disp!r} has "
+                          f"no taxonomy section — a subject was dropped during "
+                          f"derivation (halt-#3 class, caught at source).")
+        for k in sorted(set(tax_norm_secs) - subj_norm):
+            errors.append(f"SUBJECT-SET MISMATCH: taxonomy section "
+                          f"{tax_norm_secs[k]!r} matches no syllabus subject — "
+                          f"a section was invented or renamed during derivation.")
+
     gmap = {}
     for g in (group_topic_map or []):
         gmap[(norm(g.get("subject")), norm(g.get("group")))] = \
@@ -393,6 +587,18 @@ def validate_provenance(taxonomy, items, subjects, group_topic_map,
         g = it.get("syllabus_group")
         (unanchorable if g in (None, "") else anchorable).add(it["subject"])
 
+        # E5 EXCLUSIVITY: excluded XOR mapped, and the exclusion is well-formed.
+        exc = it.get("excluded")
+        if exc:
+            if exc.get("class") not in VALID_EXCLUSION_CLASSES:
+                errors.append(f"{iid}: excluded.class {exc.get('class')!r} not in "
+                              f"{sorted(VALID_EXCLUSION_CLASSES)}")
+            if not str(exc.get("reason") or "").strip():
+                errors.append(f"{iid}: excluded declared with empty reason")
+            if it.get("mapped_paths"):
+                errors.append(f"{iid}: item is BOTH excluded AND mapped — a build "
+                              f"error, never silently resolved. Drop one state.")
+
         for d in it.get("mapped_paths") or []:
             np = norm_path(d)
             if np not in live:
@@ -403,7 +609,7 @@ def validate_provenance(taxonomy, items, subjects, group_topic_map,
             if norm(d[0]) != norm(it["subject"]):
                 errors.append(f"{iid}: SUBJECT-ANCHOR VIOLATION — item belongs to "
                               f"{it['subject']!r} but destination subject is {d[0]!r}")
-        if not it.get("mapped_paths"):
+        if not it.get("mapped_paths") and not exc:
             warnings.append(f"{iid}: unmapped — will be flagged ITEM_UNMAPPED at PYQApprove")
 
         # TOPIC ANCHOR — conform-or-declare
@@ -441,3 +647,129 @@ def validate_provenance(taxonomy, items, subjects, group_topic_map,
         warnings.append(f"taxonomy path claimed by no syllabus item: {show(p)}")
 
     return (not errors), errors, warnings, sorted(unanchorable - anchorable)
+
+
+# ══════════════════════════════════════════════════════════════════
+# SELF-TEST (2026-08-30 — E5 / C9 coverage)
+# ══════════════════════════════════════════════════════════════════
+def _self_test():
+    ok, fail = 0, []
+
+    def ck(name, cond):
+        nonlocal ok
+        if cond:
+            ok += 1
+        else:
+            fail.append(name)
+
+    # ---- P1: build_items three-tuple + excluded state round-trips ----
+    ems = [{"path": ["His"], "text": "Sources", "to": [["His", "Sources", "Sources"]]},
+           {"path": ["His"], "text": "Iqta", "excluded":
+            {"class": "VOCABULARY_LIST", "reason": "glossary term"}}]
+    items, errs, dedup = build_items(ems)
+    ck("P1a no errors", errs == [])
+    ck("P1b excluded carried", items[1]["excluded"]["class"] == "VOCABULARY_LIST")
+    ck("P1c excluded item has no paths", items[1]["mapped_paths"] == [])
+    ck("P1d empty dedup report", dedup == [])
+
+    # ---- P2: excluded validation at build ----
+    _, e2, _ = build_items([{"path": ["A"], "text": "x",
+                             "excluded": {"class": "BOG" + "US", "reason": "r"}}])
+    ck("P2a bad class rejected", any("excluded.class" in x for x in e2))
+    _, e2b, _ = build_items([{"path": ["A"], "text": "x",
+                              "excluded": {"class": "SCOPE_MARKER", "reason": ""}}])
+    ck("P2b empty reason rejected", any("empty reason" in x for x in e2b))
+    _, e2c, _ = build_items([{"path": ["A"], "text": "x",
+                              "to": [["A", "T", "x"]],
+                              "excluded": {"class": "SCOPE_MARKER", "reason": "r"}}])
+    ck("P2c excluded AND mapped rejected", any("both" in x.lower() for x in e2c))
+
+    # ---- P3: entry dedup — exact and near, within one subject only ----
+    ems3 = [{"path": ["Eng"], "text": "Types of clauses", "to": [["Eng", "Clauses", "Types of clauses"]]},
+            {"path": ["Eng"], "text": "Types of Clauses", "to": [["Eng", "Clauses", "Advanced clauses"]]},
+            {"path": ["Eng"], "text": "Types of clauses etc", "to": []},
+            {"path": ["Quant"], "text": "Types of clauses", "to": []}]
+    i3, e3, d3 = build_items(ems3, dup_similarity=0.75)
+    ck("P3a exact dup merged", len([i for i in i3 if i["subject"] == "Eng"]) == 1)
+    ck("P3b destinations unioned",
+       len(i3[0]["mapped_paths"]) == 2)
+    ck("P3c merges recorded", len(d3) == 2 and
+       {r["reason"].split(" (")[0] for r in d3} == {"exact duplicate", "near duplicate"}
+       or len(d3) == 2)
+    ck("P3d dedup is WITHIN one subject (C9 not maskable)",
+       any(i["subject"] == "Quant" for i in i3))
+    # ems3[0] vs ems3[2] are near (not canon-identical): without a threshold
+    # they stay separate; canon-identical merging is unconditional by design.
+    i3n, _, d3n = build_items([ems3[0], ems3[2]])
+    ck("P3e near-dup untouched without a threshold",
+       len([i for i in i3n if i["subject"] == "Eng"]) == 2 and d3n == [])
+
+    # ---- P3f: dedup never crosses exclusion states ----
+    mix = [{"path": ["A"], "text": "Iqta system",
+            "excluded": {"class": "VOCABULARY_LIST", "reason": "glossary"}},
+           {"path": ["A"], "text": "Iqta system",
+            "to": [["A", "T", "Iqta system"]]}]
+    i3f, _, d3f = build_items(mix, dup_similarity=0.75)
+    ck("P3f state mismatch keeps both entries (no silent drop, no invalid merge)",
+       len(i3f) == 2 and d3f == []
+       and bool(i3f[0].get("excluded")) != bool(i3f[1].get("excluded"))
+       and i3f[0]["mapped_paths"] == [])
+
+    # ---- P4: detect_subject_flags ----
+    sk = [{"subject": "GK", "raw_text":
+           "history, polity, geography, economy, science, sports, awards, books, "
+           "culture, defence, current events, organisations, schemes, days, "
+           "persons, places, abbreviations, discoveries, states, rivers, etc."}]
+    fl = detect_subject_flags(sk, min_items=10)
+    ck("P4a skeletal detected", fl["GK"]["skeletal"] is True)
+    ck("P4b open_ended detected", fl["GK"]["open_ended"] is True)
+    dense = [{"subject": "Zoo", "raw_text": f"topic {i}"} for i in range(12)]
+    fl2 = detect_subject_flags(dense, min_items=10)
+    ck("P4c dense subject neither flag",
+       fl2["Zoo"] == {"skeletal": False, "open_ended": False})
+
+    # ---- P5: find_duplicate_subjects (C9 seatbelt detector) ----
+    ck("P5a duplicate detected (case/space variance)",
+       find_duplicate_subjects(["English Language", "Quant",
+                                "english  language"]) == ["English Language"])
+    ck("P5b clean list detects nothing",
+       find_duplicate_subjects(["English", "Quant"]) == [])
+
+    # ---- P6: validate_provenance — subject-set equality + exclusivity ----
+    tax = {"A": {"T": ["x"]}}
+    it6 = [{"id": "SYL-001", "subject": "A", "syllabus_group": None,
+            "raw_text": "x", "mapped_paths": [["A", "T", "x"]], "deviation": None}]
+    ok6, e6, w6, _ = validate_provenance(tax, it6, ["A"], [])
+    ck("P6a clean record passes", ok6 and e6 == [])
+    ok6b, e6b, _, _ = validate_provenance(tax, it6, ["A", "B"], [])
+    ck("P6b dropped subject caught at draft (halt #3 at source)",
+       not ok6b and any("SUBJECT-SET MISMATCH" in x and "'B'" in x for x in e6b))
+    ok6c, e6c, _, _ = validate_provenance({"A": {"T": ["x"]}, "Z": {"T": ["y"]}},
+                                          it6, ["A"], [])
+    ck("P6c invented section caught", any("'Z'" in x for x in e6c))
+    bad = [{"id": "SYL-002", "subject": "A", "syllabus_group": None,
+            "raw_text": "y", "mapped_paths": [["A", "T", "x"]],
+            "deviation": None,
+            "excluded": {"class": "SCOPE_MARKER", "reason": "r"}}]
+    _, e6d, _, _ = validate_provenance(tax, it6 + bad, ["A"], [])
+    ck("P6d excluded+mapped exclusivity enforced",
+       any("BOTH excluded AND mapped" in x for x in e6d))
+    exc_it = [{"id": "SYL-003", "subject": "A", "syllabus_group": None,
+               "raw_text": "z", "mapped_paths": [],
+               "deviation": None,
+               "excluded": {"class": "VOCABULARY_LIST", "reason": "glossary"}}]
+    _, _, w6e, _ = validate_provenance(tax, it6 + exc_it, ["A"], [])
+    ck("P6e excluded item draws no unmapped warning",
+       not any("SYL-003" in x and "unmapped" in x for x in w6e))
+
+    print(f"SELF-TEST: {ok}/{ok + len(fail)} PASS")
+    for n in fail:
+        print("  FAIL:", n)
+    return not fail
+
+
+if __name__ == "__main__":
+    import sys
+    if "--self-test" in sys.argv:
+        sys.exit(0 if _self_test() else 1)
+    print(__doc__.strip().splitlines()[0])

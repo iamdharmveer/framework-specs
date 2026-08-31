@@ -1,4 +1,21 @@
-# Framework_PYQCore v1.6 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# Framework_PYQCore v1.7 — PYQ Analysis Shared Core (§1, S2-3, §6–§12)
+# v1.7 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. The GATE-AT-SOURCE
+#   LAW is added (registered in LAW_REGISTRY.json) and S2-3 is brought under it:
+#   (C1) the S2-3 "PROOF OF CORRECT TOPIC COUNT" self-check — stranded on the
+#   pre-v1.1 absolute rule while the engine moved to density, the RULEBOOK DRIFT
+#   that HELD RPSC_ZOOLOGY — now CITES reconcile_taxonomy.check_topic_density
+#   (both forms; constants live ONLY in the engine); (C2) the GROUPING rule
+#   gains the per-topic cap with the EC-P20 tie-break, and the Arithmetic worked
+#   example is REVISED per DECISION D8 (an example contradicting a blocking rule
+#   is the two-rulebook disease inside one file); (C3) Q-count-anchored topics
+#   are recorded and OUT of the over-aggregation domain (archetype A2 conflict
+#   dissolved); (C4) exclusions are RECORDED, never silently omitted (D3:
+#   automatic, recorded); (C5-C7) the draft-time ratio / name-shape / catch-all
+#   HARD STOPs on Claude's OWN output become bounded self-correction, the name
+#   gate enforces min(80, bc.MAX_HEADING_LEN) at write time, and STEP 3 gains
+#   the normative PRE-DELIVERY GATE (D3 order) with the FLAGGED-DELIVERY (AMBER)
+#   exit; §12 Phase 0a DoD gains the matching checklist lines. Superseded texts
+#   moved VERBATIM to SPEC_HISTORY.md (2026.08.15.14 discipline).
 # v1.6 — 2026-08-23 — GAP-2026-08-23-SESSIONLESS-DEDUP-BLINDSPOT, companion
 #   wording per the LAW-PROPAGATION LAW (rule lives in Framework_PYQCount v1.6).
 #   S5-1's same-paper duplicate gate is re-keyed from (date, session) — whose
@@ -180,6 +197,46 @@ For --counts mode:
 # constant as Framework_PYQSort v1.9 S2-2). Executable call sites live in
 # Framework_PYQScan.md S3-2a/S3-3b (RULE 4 OUT-OF-RANGE branch).
 
+### GATE-AT-SOURCE LAW (GAP-2026-08-30-TYPE1-HALT-ELIMINATION — registered in LAW_REGISTRY.json)
+
+```
+GATE-AT-SOURCE LAW (GAP-2026-08-30-TYPE1-HALT-ELIMINATION)
+
+1. Every structural check that any later step enforces on an artifact MUST be
+   executed by the step that CREATES that artifact, before delivery, inside a
+   bounded self-correction loop (detect -> fix the CAUSE -> re-check).
+2. A HARD STOP on Claude's own output is a spec violation of the same class as
+   asking the operator an academic question. The correct behavior is
+   self-correction (S2-3f pattern, generalized). Only input-integrity (Type-2)
+   failures may stop a run, and every Type-2 stop message MUST name exactly one
+   operator action.
+3. ONE RULEBOOK: every structural threshold and check has exactly ONE
+   implementation, in a routed engine. Specs CITE the engine function and
+   constants; they never restate values. A spec-embedded duplicate of an engine
+   check is the drift defect this law exists to close.
+4. SELF-CORRECTION BOUNDS: maximum reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS
+   rounds per gate; each round MUST consume the previous round's specific
+   findings (constraint-carrying retries; blind retries are prohibited — a
+   repeated identical fix in the next round is prohibited too, which is the
+   anti-oscillation guard). On exhaustion: deliver with status AMBER per the
+   FLAGGED-DELIVERY rule (Framework_PYQDraft S2-3f) — never a dead-end stop,
+   never a silent green. Rationale in the record: a LOUDLY-FLAGGED imperfection
+   beats a halt, and beats a silent imperfection ("silent degradation is the
+   worse failure"). The MPPSC anti-over-split evidence above bounds the fix
+   direction: splitting to satisfy density must still pass Q3, so C4/C5 remain
+   the over-split backstops.
+5. Every auto-correction and every AMBER exit is recorded in the artifact's
+   telemetry (telemetry: [{check, round, action, before, after}]) and carried
+   into the approval record. Silent self-correction is prohibited: a fix that
+   is not recorded is indistinguishable from a rule that never fired.
+
+Enforcement: the over-aggregation check is reconcile_taxonomy.check_topic_density
+— one implementation, three call sites (PYQDraft pre-delivery gate, PYQScan S3-1
+tripwire, PYQApprove C6 backstop). audit_specs_ext H-SELFSTOP polices rule 2's
+retired phrasings; LAW_REGISTRY.json binds this law to every spec whose live
+text performs the gate.
+```
+
 ### S2-3 — Draft taxonomy generation
 
 ```
@@ -242,11 +299,32 @@ For each subject in the syllabus:
 
   GROUPING is allowed ONLY for syllabus items that are sub-operations of
   a single concept where the exam never tests them independently:
-    Example: "Percentage, Ratio, Average, Interest, P&L, Discount,
-             Partnership, Mixture, SDT, Time & Work, Pipes & Cisterns"
-             → Topic "Arithmetic" with each item as a subtopic.
+
+    PER-TOPIC CAP (v1.7 — the deterministic tie-break between this
+    allowance and EC-P20): a grouped Topic may not absorb
+    reconcile_taxonomy.OVER_AGG_PER_TOPIC_CAP or more enumerated syllabus
+    items UNLESS that Topic is Q-count-anchored (see WHEN SYLLABUS ASSIGNS
+    QUESTION COUNTS). At or above the cap, the group MUST be split into
+    2+ Topics per EC-P20: the items are the Topics. Anchoring on the
+    S2-3e gate is easiest to satisfy with a 1:1 group→topic map — zero
+    deviations to declare — which is EXACTLY the shape the density check
+    rejects; the cap removes that path of least resistance.
+
+    Example (D8 — REVISED; the pre-v1.7 single-Topic form is in
+    SPEC_HISTORY.md): "Percentage, Ratio, Average, Interest, P&L,
+             Discount, Partnership, Mixture, SDT, Time & Work,
+             Pipes & Cisterns" — 11 enumerated items, ABOVE the cap for
+             one Topic. Split per EC-P20 into cohesive Topics, e.g.:
+             Topic "Percentage, Ratio & Averages" (Percentage; Ratio;
+             Average), Topic "Commercial Arithmetic" (Interest; P&L;
+             Discount; Partnership; Mixture), Topic "Time-based
+             Arithmetic" (SDT; Time & Work; Pipes & Cisterns) — each
+             grouped item still a named Subtopic, no Topic at the cap.
+             Retaining a single "Arithmetic" Topic is legal ONLY when the
+             exam pattern itself Q-count-anchors that block.
     Example: "Triangle centres, Congruence, Similarity, Circles,
-             Quadrilaterals" → Topic "Geometry" with each item as a subtopic.
+             Quadrilaterals" → Topic "Geometry" with each item as a subtopic
+             (below the cap — the allowance stands unchanged there).
     Counter-example: "Spot the Error" and "Sentence Improvement" must be
              SEPARATE Topics — distinct question types.
 
@@ -297,10 +375,19 @@ For each subject in the syllabus:
       Diagrams" — one concept, one subtopic, no sub-items in syllabus).
   ═══════════════════════════════════════════════════════════════════
 
-  PROOF OF CORRECT TOPIC COUNT (self-check):
-    After Topic derivation, count the Topics per section.
-    If a section has ≤ 4 Topics but the syllabus listed 10+ items → Topics
-    are over-aggregated. Re-derive. The syllabus items ARE the Topics.
+  PROOF OF CORRECT TOPIC COUNT (self-check — v1.7, GATE-AT-SOURCE):
+    After Topic derivation, run the SUBJECT-DENSITY form of
+    reconcile_taxonomy.check_topic_density (it needs only the S2-1 item
+    counts and the derived topic list — both available at this point).
+    BOTH forms (subject density + per-topic cap) run again at the
+    PRE-DELIVERY GATE (STEP 3), because the per-topic form measures MAPPED
+    item counts and cannot execute before S2-3e mapping emission.
+    SEQUENCING IS NORMATIVE: subject form after Step 1; both forms at
+    pre-delivery. A spec that asks the per-topic form to run pre-mapping
+    asks for a vacuous check (the INV-8 class).
+    The constants live ONLY in the engine. Any finding → over-aggregated →
+    self-correct per the GATE-AT-SOURCE LAW: split the NAMED topics along
+    their syllabus items (the syllabus items ARE the Topics) and re-check.
 
   ═══════════════════════════════════════════════════════════════════
   CATCH-ALL / RESIDUAL TOPIC PROHIBITION (MANDATORY):
@@ -336,9 +423,14 @@ For each subject in the syllabus:
       "other", "miscellaneous", "misc", "remaining", "additional",
       "general topics", "catch-all", "residual"
 
-    SELF-CHECK: after completing Topic derivation for a section,
-    scan all Topic names against the banned patterns. If ANY match
-    → HARD STOP. Re-derive those items as individual Topics.
+    SELF-CHECK (v1.7 — GATE-AT-SOURCE, self-correcting): after completing
+    Topic derivation for a section, scan all Topic names against the
+    banned patterns. Any match → self-correct IN THIS SESSION: derive the
+    residual bin's items as individual named Topics (the fix IS the rule's
+    own prescription) and re-scan, within the law's round bound. Record
+    the correction in telemetry. The prohibition itself is unchanged and
+    unconditional; only the response moved from stop to fix. The pre-v1.7
+    stop text is in SPEC_HISTORY.md.
   ═══════════════════════════════════════════════════════════════════
 
   ═══════════════════════════════════════════════════════════════════
@@ -366,7 +458,18 @@ For each subject in the syllabus:
 
 ```python
 # Steps 1-3 name-quality gates (v-bump). Pure, deterministic, high-precision.
+# v1.7 (halt #5): the HARD length bound is ONE bound from ONE source —
+# min(80, bc.MAX_HEADING_LEN). The pre-v1.7 bare ">80 chars" was a SECOND
+# bound beside the engine's heading limit: two bounds, two places, the same
+# drift disease as C6's. 80 is this gate's own high-precision label bound
+# (a real syllabus label is never longer); MAX_HEADING_LEN is the engine's
+# survival bound (a name at or past it silently stops being a heading
+# downstream). Enforcing min() of the two AT WRITE TIME means no name can
+# ever reach PYQApprove's name-length backstop from the Draft path.
 import re, unicodedata
+import blueprint_core as bc
+
+_NAME_HARD_LEN = min(80, bc.MAX_HEADING_LEN)
 
 def canon_name(s):
     """D6-2/D5-6: canonical form for COMPARING/COUNTING subtopic names so trivial drift
@@ -387,6 +490,18 @@ _STEM_PHRASE = re.compile(
     r'\b(the average (number|value|of)|the value of x\b|is equal to\b|how many|of the following (is|are)\b'
     r'|printed by|find the value)\b', re.I)
 
+# v1.7: THE catch-all banned-pattern list, encoded ONCE beside the gates that
+# enforce it (the prose CATCH-ALL PROHIBITION above is its statement; this is
+# its single implementation — PYQDraft's self-checks and PYQScan's
+# gate_scan_name both call it).
+_CATCH_ALL_BANNED = re.compile(
+    r'^(other(s| sub-?topics)?|miscellaneous|misc\.?|general'
+    r'|additional topics|remaining topics)$', re.I)
+
+def catch_all_name_match(name):
+    """True when a Topic/Subtopic name IS a banned catch-all / residual bin."""
+    return bool(_CATCH_ALL_BANNED.match((name or '').strip()))
+
 def question_shape_verdict(name):
     """D6-1: is this 'subtopic' actually a raw question string? Returns (verdict, reason).
     verdict ∈ {'OK','HARD','WARN'}. HIGH-PRECISION: HARD only on signals a real syllabus
@@ -396,8 +511,10 @@ def question_shape_verdict(name):
         return ('HARD', 'empty name')
     if n.endswith('?'):
         return ('HARD', "ends with '?' — a question stem, not a label")
-    if len(n) > 80:
-        return ('HARD', f'{len(n)} chars — far longer than any taxonomy label')
+    if len(n) > _NAME_HARD_LEN:
+        return ('HARD', f'{len(n)} chars — past min(80, bc.MAX_HEADING_LEN); a name '
+                        f'this long is no taxonomy label and cannot survive the '
+                        f'heading round trip')
     if _INTERROGATIVE.match(n):
         return ('HARD', 'begins with an interrogative — a question stem')
     if _STEM_PHRASE.search(n) and len(n.split()) >= 6:
@@ -407,12 +524,16 @@ def question_shape_verdict(name):
     return ('OK', '')
 ```
 
-    SELF-CHECK (runs after subtopic derivation, before S-QV / DoD):
+    SELF-CHECK (v1.7 — GATE-AT-SOURCE, self-correcting; runs after subtopic
+    derivation, before S-QV / DoD; pre-v1.7 stop text in SPEC_HISTORY.md):
       for name in all Topic names + all Subtopic names:
           verdict, reason = question_shape_verdict(name)
           if verdict == 'HARD':
-              HARD STOP: f"Name-shape violation: '{name[:60]}' — {reason}. "
-                         f"Re-extract this item as a proper taxonomy label, not a question."
+              self-correct IN THIS SESSION: re-extract the label from the
+              syllabus text (a captured question-string or an over-long name
+              is always self-repairable — the syllabus is in context), apply
+              the fix, record it in telemetry, and re-run this self-check,
+              within the law's round bound.
           elif verdict == 'WARN':
               review_list.append((name, reason))     # surfaced at S-QV, non-blocking
       # counting/comparison of subtopic triples uses canon_name() on each of
@@ -444,6 +565,20 @@ def question_shape_verdict(name):
       → Same prohibition as Topics (see above). Claude MUST NEVER create
       a Subtopic named "Other", "Others", "Miscellaneous", "General",
       or any residual bin. Every distinct concept = its own named Subtopic.
+
+    RECORDING MANDATE (v1.7 — E5; dissolves the archetype-A3 fork):
+      Every excluded item is RECORDED with its exclusion class
+      (VOCABULARY_LIST / SCOPE_MARKER / FORMAT_QUALIFIER / OPEN_ENDED_TAIL
+      — the closed set in syllabus_provenance.VALID_EXCLUSION_CLASSES) and
+      a one-line reason — NEVER silently omitted. S2-1's "extract ALL
+      items" and these exclusion rules are reconciled BY RECORDING:
+      extraction is total; taxonomy membership is not. A recorded
+      exclusion draws no ITEM_UNMAPPED at PYQApprove (C2 skips it) and is
+      out of the density domain (E1e); an item both excluded and mapped is
+      a build error the S2-3e gate surfaces. Per DECISION D3, exclusion
+      classification is FULLY AUTOMATIC and reported in the approval
+      record (the operator is non-technical by role); the S4 audit habit
+      is where excluded_counts get human eyes.
   ═══════════════════════════════════════════════════════════════════
 
   For each syllabus entry within a Topic, apply this decision tree:
@@ -603,6 +738,16 @@ def question_shape_verdict(name):
     below it UNLESS internal items are clearly distinct question
     types (as with CTET Math Content's 12 labels under "15 Qs").
 
+    ANCHORING RECORD (v1.7 — C3/E5; dissolves the archetype-A2 conflict):
+    Topics whose boundary is assigned by syllabus question counts are
+    recorded as qcount_anchored_topics in taxonomy_draft.json (S2-4) and
+    are OUT of the over-aggregation measurement domain (engine E1e
+    scoping) — the don't-split-below-this-level rule above and the
+    density rule therefore never conflict. Per DECISION D2, an anchored
+    topic that exceeds the per-topic cap still prints a Tier-0
+    informational WARN in the approval record (visibility without
+    blocking), never a finding that can hold.
+
   ─── STEP 3: RECORD TAXONOMY ───
 
   taxonomy = {
@@ -627,10 +772,16 @@ def question_shape_verdict(name):
         "Taxonomy inflation ratio = [X]×. Review all splits for
          Unique Domain Property compliance. Proceed only if each
          split passes Q3 (Unique Domain Check)."
-      ratio > 3.0  → HARD STOP. Print:
-        "Taxonomy inflation ratio = [X]× exceeds 3.0× guardrail.
-         Over-fragmentation will cause classification failures.
-         Re-derive taxonomy with fewer splits."
+      ratio > 3.0  → self-correct IN THIS SESSION (v1.7, GATE-AT-SOURCE;
+        pre-v1.7 stop text in SPEC_HISTORY.md): identify the splits that
+        fail Q3 (Unique Domain Check), merge them back, record each merge
+        in telemetry, and re-measure — within the law's round bound. On
+        exhaustion, deliver AMBER per Framework_PYQDraft S2-3f with the
+        residual ratio named. The thresholds are the engine's
+        (reconcile_taxonomy RATIO_WARN / RATIO_HARDSTOP for this legacy
+        form; the style-aware form's live in syllabus_provenance) — this
+        prose cites them, the numbers above are their current values for
+        the reader, and C4 at PYQApprove remains the backstop.
 
     NEAR-DUPLICATE CHECK (mandatory):
       For every pair of subtopics (S_i, S_j) within the same Topic:
@@ -645,11 +796,36 @@ def question_shape_verdict(name):
       but not covered by any subtopic). No duplicated concepts (claimed
       by 2+ subtopics).
 
-    CATCH-ALL NAME CHECK (mandatory):
-      Scan ALL Topic and Subtopic names against the banned patterns
-      from the CATCH-ALL PROHIBITION rule (above). If ANY match →
-      HARD STOP. Re-derive those items as individual named Topics/Subtopics.
-      This check runs AFTER all other quality gates.
+    CATCH-ALL NAME CHECK (mandatory; v1.7 self-correcting): scan ALL
+      Topic and Subtopic names against the banned patterns from the
+      CATCH-ALL PROHIBITION rule (above). Any match → self-correct: derive
+      those items as individual named Topics/Subtopics, record the fix in
+      telemetry, re-scan — within the law's round bound. This check runs
+      AFTER all other quality gates. Pre-v1.7 stop text in SPEC_HISTORY.md.
+
+  ═══════════════════════════════════════════════════════════════════
+  PRE-DELIVERY GATE (v1.7 — executed by PYQDraft before present_files;
+  order is NORMATIVE per DECISION-map D3 in the release document):
+
+    dedup → exclusions → derivation → S2-3 checks (self-correcting)
+    → density BOTH forms via reconcile_taxonomy.check_topic_density
+      (self-correcting: split the NAMED topics — the items ARE the Topics)
+    → subject-set equality (syllabus_provenance.validate_provenance now
+      verifies normalize-equality of syllabus_subjects vs taxonomy
+      sections, both directions — halt #3 caught at source)
+    → name lengths (every Subject/Topic/Subtopic name < the fence's
+      _NAME_HARD_LEN, i.e. min(80, bc.MAX_HEADING_LEN) — halt #5 caught
+      at source; PYQApprove's gate remains the unchanged backstop)
+    → anchoring gate (S2-3e/S2-3f, budget per the law)
+    → coverage → DoD → deliver (or AMBER-deliver per S2-3f).
+
+    Delivery happens ONLY on all-green or on an explicit AMBER exit with
+    amber_status + telemetry in the artifact. After this gate, every
+    artifact leaving PYQDraft is already guaranteed to pass PYQScan,
+    PYQApprove, PYQSort and PYQCount on STRUCTURE — the downstream checks
+    are backstops that should never fire; when one does on a
+    current-generation draft, the input file is stale (Type-2, A1/F1).
+  ═══════════════════════════════════════════════════════════════════
 
   ─── APPENDIX: 6 PATTERN DIMENSIONS (optional tool) ───
 
@@ -1847,10 +2023,19 @@ Phase 0a:
   ☐ Per-entry decision tree (Q1/Q2/Q3) applied to every syllabus entry
   ☐ Exclusion rules applied (vocabulary lists, scope markers, format qualifiers)
   ☐ Unique Domain Property verified — no two subtopics claim overlapping concepts
-  ☐ Ratio guardrail passed: total_subtopics / syllabus_entries ≤ 3.0×
+  ☐ Ratio guardrail clean or AMBER-flagged (self-corrected within the law's bound)
   ☐ Near-duplicate check passed: no pair with >75% name similarity
   ☐ Coverage check passed: every syllabus concept maps to exactly 1 subtopic
   ☐ Catch-all name check passed: zero Topics/Subtopics match banned patterns
+  ☐ Density BOTH forms (check_topic_density) clean or AMBER-flagged
+  ☐ Per-topic cap clean: no non-anchored topic at/above OVER_AGG_PER_TOPIC_CAP
+  ☐ Subject set verified: syllabus_subjects ≡ taxonomy sections (normalize-equal)
+  ☐ Zero undeclared exclusions: every excluded item carries class + reason
+  ☐ dedup_report emitted whenever merges occurred (never dropped silently)
+  ☐ All names < min(80, bc.MAX_HEADING_LEN)
+  ☐ Duplicate-subject seatbelt clear (C9): no repeated normalized subject name
+  ☐ Telemetry block present (every auto-correction recorded; empty list if none)
+  ☐ spec_generation stamped (reconcile_taxonomy.SPEC_GENERATION)
   ☐ 1:1 Topic=Subtopic check passed: no Topic has a single subtopic with the
     same name UNLESS the syllabus genuinely lists it as a single atomic concept
   ☐ taxonomy_draft.json generated with correct structure
@@ -1974,4 +2159,4 @@ Phase B:
 
 ---
 
-# END OF Framework_PYQCore v1.6
+# END OF Framework_PYQCore v1.7

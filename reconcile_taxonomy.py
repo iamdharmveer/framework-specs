@@ -1,5 +1,41 @@
 """
-reconcile_taxonomy.py v1.3 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+reconcile_taxonomy.py v1.4 — Taxonomy Reconciliation Engine, Framework_PYQAnalyse S4-0
+
+v1.4 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. SCHEMA_VERSION 1.3 -> 1.4.
+    GATE-AT-SOURCE release: the over-aggregation check becomes a SINGLE public
+    function with three call sites, and PYQApprove's checks become a backstop.
+
+    E1  check_topic_density() EXPORTED — one implementation, called by PYQDraft
+        (pre-delivery gate), PYQScan (S3-1 tripwire) and C6 (backstop). BOTH forms:
+        (a) subject-density (constants unchanged) and (b) NEW per-topic form —
+        TOPIC_OVER_AGGREGATION_TOPIC fires when one topic's mapped enumerated-item
+        count reaches OVER_AGG_PER_TOPIC_CAP (closes the UGC-History 4.0-average
+        blind spot: 1x20 + 15x1 averages 2.2 and passes, 20-in-one is caught).
+        DENOMINATOR FIX: density divides by SYLLABUS-ANCHORED topics only (topics
+        reachable from mapped_paths); scan-discovered topics are reported, never
+        counted (kills the dilution that masked RPSC's true 6.0 as 5.25).
+        FINDING DETAIL: every over-cap topic is named with its item count, and
+        crowded_topics rides on the finding for the E3 directive.
+        SCOPING: excluded items and qcount_anchored topics are OUT of the
+        measurement domain; the scoping counts are attested in the C6 ledger note.
+    E2  C2 skips items with a declared `excluded` state; excluded_counts attested.
+    E3  build_approval_record() writes re_derive_directive on HELD: findings,
+        crowded_topics, machine constraints, rejected_fingerprint. Consumed by
+        PYQDraft S2-0 intake — the Approve->Draft loop is now convergent.
+    E4  GRANDFATHERING + grandfather(): a prior record without spec_generation
+        identifies a pre-release lock; NEW_FINDING_CLASSES findings are rewritten
+        to Tier 0 informational, so an INV-6 mode-C replay can never newly HELD
+        the back catalog on a check class that did not exist when it locked.
+    E6  reconcile() input-shape guards: classifications must be dict-of-paper->list
+        (the flattened-list defect observed live), scan_taxonomy dict-of-dict-of-list,
+        ledger a CheckLedger or None. Violations raise with the CORRECT shape stated.
+    E7  DECLARED_AMBER + resolve_declared_amber(): findings matching a draft/scan
+        amber_status residue are resolved Tier 0 BEFORE adjudication (auto_resolved,
+        by=DECLARED_AMBER) — reported, never HELD, and NEVER in the INV-6 replay
+        ledger, so a later non-AMBER re-run judges a recurring finding FRESH.
+    Self-test: T8a fixture updated (items now spread across its 3 topics — the
+    denominator fix makes the old all-in-one-topic shape CORRECTLY fire); T15-T21
+    added for E1-E7. SAFE_DEFAULT gains TOPIC_OVER_AGGREGATION_TOPIC -> RE_DERIVE.
 
 v1.3 — 2026-07-26 — THE RECORD CARRIES THE TAXONOMY, NOT JUST ITS HASH.
     SCHEMA_VERSION 1.2 -> 1.3. GAP-2026-07-25-003 follow-up, and the change that ends
@@ -118,8 +154,24 @@ import json, re, hashlib, unicodedata
 from blueprint_core import taxonomy_fingerprint   # v1.2 — THE canonical fingerprint
 from difflib import SequenceMatcher
 
-ENGINE_VERSION = "reconcile_taxonomy.py v1.3"
-SCHEMA_VERSION = "1.3"
+ENGINE_VERSION = "reconcile_taxonomy.py v1.4"
+SCHEMA_VERSION = "1.4"
+
+# GAP-2026-08-30-TYPE1-HALT-ELIMINATION — generation stamp. Written by
+# save_taxonomy_draft (S2-4) into taxonomy_draft.json and by
+# build_approval_record() into approval_record.json. Its ABSENCE in an artifact
+# is load-bearing: it is what identifies a pre-release artifact for the A1
+# three-case rule, the F1 tripwire mode select, and E4/S3 grandfathering.
+SPEC_GENERATION = "2026-08-30-TYPE1"
+
+# Finding classes INTRODUCED by the 2026-08-30 release. Against a taxonomy
+# locked before it (prior record lacks spec_generation), these are Tier 0
+# informational (E4/S3) — a routine mode-C replay can never newly HELD on them.
+NEW_FINDING_CLASSES = frozenset({"TOPIC_OVER_AGGREGATION_TOPIC"})
+
+# GATE-AT-SOURCE LAW bound (§6.1.4): every self-correction gate runs at most
+# this many constraint-carrying rounds, then exits AMBER — never a dead stop.
+SELF_CORRECTION_MAX_ROUNDS = 3
 
 MIN_PATTERN_SIZE = 3      # MUST match S3-6 refinement threshold
 RATIO_WARN       = 2.0    # S2-3 guardrail (LEGACY C4 form only)
@@ -136,6 +188,12 @@ DUP_SIMILARITY   = 0.75   # S4-4 near-duplicate threshold
 # Topics" — so density is the scale-free measure of departure from it.
 OVER_AGG_ITEMS_PER_TOPIC = 5.0   # >= this many syllabus items per topic => crushed
 OVER_AGG_MIN_ITEMS       = 10    # floor: never judge density on a tiny syllabus
+# v1.4 (E1b, DECISION D1): PER-TOPIC cap — one topic absorbing this many mapped
+# enumerated items is over-aggregated regardless of the subject AVERAGE. The
+# average cannot catch mixed shapes (1 topic x 20 items + 15 x 1 = 2.2 average);
+# the per-topic form can. Same number as the density threshold: one number, one
+# meaning. Topics flagged qcount_anchored (archetype A2) are OUT of this domain.
+OVER_AGG_PER_TOPIC_CAP   = 5
 
 # ── Check registry (INV-7 / INV-8) ───────────────────────────────────
 # ONE source of truth for which checks exist and which are expected per mode.
@@ -257,6 +315,143 @@ def count_pyqs_by_path(classifications):
 
 
 # ══════════════════════════════════════════════════════════════════
+# E1 (GAP-2026-08-30-TYPE1-HALT-ELIMINATION) — THE over-aggregation check.
+# ONE implementation, THREE call sites: PYQDraft pre-delivery gate, PYQScan
+# S3-1 tripwire, and C6 below (backstop). Specs CITE this function and the
+# constants above; they never restate the values (GATE-AT-SOURCE LAW rule 3).
+# ══════════════════════════════════════════════════════════════════
+def _item_excluded(it, excluded_ids):
+    return bool(it.get("excluded")) or (it.get("id") in excluded_ids)
+
+
+def check_topic_density(syllabus_items, taxonomy, *,
+                        qcount_anchored=frozenset(), excluded_ids=frozenset()):
+    """
+    BOTH forms of the over-aggregation check, scale-free and scoped.
+
+      SUBJECT form  — TOPIC_OVER_AGGREGATION when a subject has
+                      >= OVER_AGG_MIN_ITEMS eligible items AND
+                      >= OVER_AGG_ITEMS_PER_TOPIC items per anchored topic.
+      PER-TOPIC form — TOPIC_OVER_AGGREGATION_TOPIC when any single
+                      non-anchored topic's mapped eligible-item count
+                      reaches OVER_AGG_PER_TOPIC_CAP. Needs mapped_paths,
+                      so it measures nothing pre-mapping (C1 sequencing:
+                      the subject form alone runs after S2-3 Step 1; BOTH
+                      forms run at the pre-delivery gate and at S4-0).
+
+    DENOMINATOR (E1c): topics reachable from the items' mapped_paths are
+    SYLLABUS-ANCHORED and form the density denominator. Topics present in
+    the taxonomy but reached by NO item are scan-discovered (or empty) and
+    are reported separately, never counted — scan discovery can no longer
+    dilute draft over-aggregation (RPSC: 6.0 true density, not 5.25).
+    When NO item of a subject carries any mapped_paths (the pre-mapping
+    call from S2-3 Step 1), ALL of that subject's topics anchor.
+
+    SCOPING (E1e): items with a declared exclusion (item['excluded'] set,
+    or id in excluded_ids) and topics named in qcount_anchored are OUT of
+    the measurement domain. Scoping counts ride on each finding's
+    `scoping` key so the C6 ledger note can attest them (INV-8 extension).
+
+    Returns a list of findings in the reconcile() finding shape. Findings
+    additionally carry `crowded_topics`: [{topic, item_count}] — consumed
+    by build_approval_record()'s re_derive_directive (E3).
+    """
+    findings = []
+    anchored_norm = {normalize_label(t) for t in (qcount_anchored or ())}
+    excluded_ids = frozenset(excluded_ids or ())
+
+    items_by_subject = {}
+    for it in (syllabus_items or []):
+        items_by_subject.setdefault(normalize_label(it.get("subject")), []).append(it)
+
+    for sec, topics in (taxonomy or {}).items():
+        nk = normalize_label(sec)
+        subj_items = items_by_subject.get(nk, [])
+        if not subj_items:
+            continue
+        eligible = [it for it in subj_items if not _item_excluded(it, excluded_ids)]
+        n_excluded = len(subj_items) - len(eligible)
+
+        topic_norm = {normalize_label(t): t for t in (topics or {})}
+        # mapped eligible-item count per topic (path component [1] is the Topic)
+        per_topic = {}
+        any_mapped = False
+        for it in eligible:
+            seen_topics = set()
+            for p in (it.get("mapped_paths") or []):
+                comps = p if isinstance(p, (list, tuple)) else None
+                if comps is None or len(comps) < 2:
+                    continue
+                any_mapped = True
+                tkey = normalize_label(comps[1])
+                if tkey in seen_topics:
+                    continue          # one item counts once per topic
+                seen_topics.add(tkey)
+                per_topic[tkey] = per_topic.get(tkey, 0) + 1
+
+        if any_mapped:
+            anchored = [t for t in topic_norm if t in per_topic
+                        and t not in anchored_norm]
+            n_scan_discovered = sum(1 for t in topic_norm
+                                    if t not in per_topic and t not in anchored_norm)
+        else:                          # pre-mapping call (S2-3 Step 1)
+            anchored = [t for t in topic_norm if t not in anchored_norm]
+            n_scan_discovered = 0
+        n_anchored_exempt = sum(1 for t in topic_norm if t in anchored_norm)
+
+        # numerator: eligible items NOT wholly absorbed by qcount-anchored topics
+        def _only_anchored(it):
+            tks = {normalize_label(p[1]) for p in (it.get("mapped_paths") or [])
+                   if isinstance(p, (list, tuple)) and len(p) >= 2}
+            return bool(tks) and tks <= anchored_norm
+        measured_items = [it for it in eligible if not _only_anchored(it)]
+
+        crowded = sorted(
+            # .get(t, t): a mapped path can name a topic ABSENT from the
+            # taxonomy (a C3/C5 destination defect). C6 must still measure and
+            # report — never crash on it — so the normalized name stands in
+            # for the missing display name; C5 flags the ghost itself.
+            ({"topic": topic_norm.get(t, t), "item_count": c}
+             for t, c in per_topic.items()
+             if t not in anchored_norm and c >= OVER_AGG_PER_TOPIC_CAP),
+            key=lambda x: -x["item_count"])
+        scoping = {"excluded_items": n_excluded,
+                   "qcount_anchored_topics": n_anchored_exempt,
+                   "scan_discovered_topics": n_scan_discovered}
+
+        n_items = len(measured_items)
+        density = n_items / max(len(anchored), 1)
+        if n_items >= OVER_AGG_MIN_ITEMS and density >= OVER_AGG_ITEMS_PER_TOPIC:
+            crowd_txt = ("; crowded: " + "; ".join(
+                f"{c['topic']}: {c['item_count']} items" for c in crowded)
+                if crowded else "")
+            disc_txt = (f" ({n_scan_discovered} scan-discovered topic(s) excluded "
+                        f"from the denominator)" if n_scan_discovered else "")
+            findings.append({
+                "id": fingerprint("TOPIC_OVER_AGGREGATION", sec),
+                "class": "TOPIC_OVER_AGGREGATION", "tier": 2, "item": sec,
+                "pyq_count": 0,
+                "detail": f"{len(anchored)} syllabus-anchored topic(s) for "
+                          f"{n_items} syllabus items = {density:.1f} items/topic "
+                          f"(>= {OVER_AGG_ITEMS_PER_TOPIC}) — over-aggregated"
+                          f"{disc_txt}{crowd_txt}.",
+                "crowded_topics": crowded, "scoping": scoping,
+            })
+        for c in crowded:
+            findings.append({
+                "id": fingerprint("TOPIC_OVER_AGGREGATION_TOPIC",
+                                  f"{sec}|{c['topic']}"),
+                "class": "TOPIC_OVER_AGGREGATION_TOPIC", "tier": 2,
+                "item": f"{sec} > {c['topic']}", "pyq_count": 0,
+                "detail": f"topic absorbs {c['item_count']} mapped syllabus items "
+                          f"(cap {OVER_AGG_PER_TOPIC_CAP}) — split it: the items "
+                          f"ARE the Topics (EC-P20).",
+                "crowded_topics": [c], "scoping": scoping,
+            })
+    return findings
+
+
+# ══════════════════════════════════════════════════════════════════
 # HARD INVARIANTS — not overridable by any adjudication verdict
 # ══════════════════════════════════════════════════════════════════
 SAFE_DEFAULT = {
@@ -266,6 +461,7 @@ SAFE_DEFAULT = {
     "PATH_EXTRA":              "RETAIN",
     "NEAR_DUPLICATE":          "RETAIN_BOTH",
     "TOPIC_OVER_AGGREGATION":  "RE_DERIVE",
+    "TOPIC_OVER_AGGREGATION_TOPIC": "RE_DERIVE",
     "RATIO_HARDSTOP":          "RE_DERIVE",
 }
 # Verdicts that destroy information. Permitted only under strict conditions.
@@ -316,7 +512,8 @@ def reconcile(syllabus_items, scan_taxonomy, classifications, exam_config,
               syllabus_subjects=None, group_topic_map=None,
               unanchorable_subjects=None, declared_deviations=None,
               name_canonicalizations=None, syllabus_style=None,
-              mode="FULL", locked_taxonomy=None, ledger=None):
+              mode="FULL", locked_taxonomy=None, ledger=None,
+              qcount_anchored_topics=None):
     """
     syllabus_items   : [{id, subject, raw_text, enumerated, mapped_paths[]}]
     syllabus_subjects: [str] verbatim subject names from S2-1. If None, derived
@@ -352,6 +549,40 @@ def reconcile(syllabus_items, scan_taxonomy, classifications, exam_config,
             "DEGRADED mode requires locked_taxonomy — the taxonomy parsed from "
             "the locked Analysis doc. Without it C3 has no reference and every "
             "taxonomy path is reported as PATH_EXTRA.")
+    # ── E6 (v1.4) INPUT-SHAPE GUARDS — corrective, not diagnostic-only ────
+    # Each message STATES the correct shape, because the observed live defect
+    # (halt #10) was a session passing classifications as a flattened list and
+    # then reading an opaque engine error it could not act on.
+    if classifications is not None and not isinstance(classifications, dict):
+        raise TypeError(
+            "classifications must be a DICT keyed by paper filename, each value "
+            "a LIST of classification rows: {paper: [{q_num, section, topic, "
+            "subtopic, ...}, ...]}. A flattened list of rows is the exact shape "
+            "this guard rejects — rebuild it as {paper_filename: rows} from "
+            "[ExamCode]_classifications.json (S3-8 stores it in that shape).")
+    if isinstance(classifications, dict):
+        for _pk, _pv in classifications.items():
+            if not isinstance(_pv, list):
+                raise TypeError(
+                    f"classifications[{_pk!r}] must be a LIST of classification "
+                    f"rows (got {type(_pv).__name__}). Correct shape: "
+                    f"{{paper_filename: [rows]}}.")
+    if scan_taxonomy is not None and not isinstance(scan_taxonomy, dict):
+        raise TypeError(
+            "scan_taxonomy must be {section: {topic: [subtopic, ...]}} — the "
+            "dict stored at scan_progress.json['taxonomy'] (S3-8).")
+    if isinstance(scan_taxonomy, dict):
+        for _sk, _sv in scan_taxonomy.items():
+            if not isinstance(_sv, dict):
+                raise TypeError(
+                    f"scan_taxonomy[{_sk!r}] must be a DICT of topics (got "
+                    f"{type(_sv).__name__}). Correct shape: "
+                    f"{{section: {{topic: [subtopic, ...]}}}}.")
+    if ledger is not None and not isinstance(ledger, CheckLedger):
+        raise TypeError(
+            f"ledger must be a CheckLedger (or None for the fail-safe HELD "
+            f"path), got {type(ledger).__name__}. Construct CheckLedger() and "
+            f"pass it so INV-7/INV-8 can attest what ran.")
     if ledger is None:
         ledger = CheckLedger()          # local sink; caller proved nothing
     run = EXPECTED_CHECKS[mode]
@@ -399,7 +630,17 @@ def reconcile(syllabus_items, scan_taxonomy, classifications, exam_config,
             claimed.add(normalize_label(p))
     if "C2" in run:
         n0 = len(findings)
+        excluded_counts = {}
         for it in syllabus_items:
+            exc = it.get("excluded")
+            if exc:
+                # E2 (v1.4): a recorded exclusion is a DECLARED state, not data
+                # loss — C2 skips it and the counts are attested below. An item
+                # both excluded AND mapped is a build error validate_provenance
+                # surfaces at Draft (E5); it is never silently resolved here.
+                cls = (exc.get("class") if isinstance(exc, dict) else str(exc)) or "?"
+                excluded_counts[cls] = excluded_counts.get(cls, 0) + 1
+                continue
             if not (it.get("mapped_paths") or []):
                 findings.append({
                     "id": fingerprint("ITEM_UNMAPPED", f"{it.get('subject')}|{it.get('raw_text')}"),
@@ -410,7 +651,9 @@ def reconcile(syllabus_items, scan_taxonomy, classifications, exam_config,
                 })
         ledger.record("C2", domain=len(syllabus_items),
                       inputs_present=bool(syllabus_items),
-                      findings=len(findings) - n0)
+                      findings=len(findings) - n0,
+                      note={"excluded_counts": excluded_counts}
+                           if excluded_counts else None)
 
     # ── C3: extra taxonomy paths (scan discoveries) ───────────
     # DEGRADED: measured against the LOCKED doc taxonomy, not against syllabus
@@ -540,31 +783,32 @@ def reconcile(syllabus_items, scan_taxonomy, classifications, exam_config,
                       findings=len(findings) - n0)
 
     # ── C6: topic over-aggregation (MPPSC/SSC class defect) ───
+    # v1.4 (E1): DELEGATES to check_topic_density() — the SAME function
+    # PYQDraft's pre-delivery gate and PYQScan's S3-1 tripwire call. One
+    # implementation, three call sites. C6 is the BACKSTOP: post-release it
+    # should never fire on a current-generation draft (A1 three-case rule).
     items_by_subject = {}
     for it in syllabus_items:
         items_by_subject.setdefault(normalize_label(it.get("subject")), []).append(it)
     if "C6" in run:
         n0 = len(findings)
-        matched = 0
-        for nk, sec in tax_sections.items():
-            n_topics = len(scan_taxonomy.get(sec, {}) or {})
-            n_items = len(items_by_subject.get(nk, []))
-            if n_items:
-                matched += 1
-            density = n_items / max(n_topics, 1)
-            if n_items >= OVER_AGG_MIN_ITEMS and density >= OVER_AGG_ITEMS_PER_TOPIC:
-                findings.append({
-                    "id": fingerprint("TOPIC_OVER_AGGREGATION", sec),
-                    "class": "TOPIC_OVER_AGGREGATION", "tier": 2, "item": sec, "pyq_count": 0,
-                    "detail": f"{n_topics} topic(s) for {n_items} syllabus items "
-                              f"= {density:.1f} items/topic "
-                              f"(>= {OVER_AGG_ITEMS_PER_TOPIC}) — over-aggregated.",
-                })
+        matched = sum(1 for nk in tax_sections if items_by_subject.get(nk))
+        f6 = check_topic_density(
+            syllabus_items, scan_taxonomy,
+            qcount_anchored=frozenset(qcount_anchored_topics or ()),
+            excluded_ids=frozenset())
+        findings.extend(f6)
+        # E1e scoping attestation (INV-8 domain extension): the note carries
+        # the measurement-domain scoping so the record can prove WHAT was
+        # exempt, not merely that the check ran.
+        _scope = next((f.get("scoping") for f in f6 if f.get("scoping")), None)
+        if _scope is None and qcount_anchored_topics:
+            _scope = {"qcount_anchored_topics": len(qcount_anchored_topics)}
         # Vacuity guard: syllabus items exist but none attached to any taxonomy
         # section => the subject keys never met and C6 measured nothing.
         ledger.record("C6", domain=matched if syllabus_items else len(tax_sections),
                       inputs_present=bool(tax_sections) and bool(syllabus_items),
-                      findings=len(findings) - n0)
+                      findings=len(findings) - n0, note=_scope)
 
     # ── C7: anchoring coverage (v2.17 — surfaces S2-4 anchoring state) ──
     # These are INFORMATIONAL (tier 0). They do not block. They exist so the
@@ -653,13 +897,100 @@ def apply_tier1(findings):
 
 
 # ══════════════════════════════════════════════════════════════════
+# E4 — GRANDFATHERING (§6.4-S3 mechanics)
+# ══════════════════════════════════════════════════════════════════
+def grandfather(findings, prior_record):
+    """
+    Run BETWEEN reconcile() and apply_tier1() (S4-0 invocation, A3).
+
+    A prior approval record that lacks `spec_generation` was written before
+    this release — the taxonomy it locked predates the per-topic form and the
+    exclusion scoping. Findings of NEW_FINDING_CLASSES against it are rewritten
+    to Tier 0 informational: reported, never escalated, never HELD. Without
+    this, the release CREATES Type-1 halts on the back catalog during routine
+    INV-6 mode-C replays — the verified failure mode S3 exists to prevent.
+
+    No prior record (a new exam) or a current-generation prior record: findings
+    pass through unchanged — the new checks enforce in full.
+    """
+    if not prior_record or prior_record.get("spec_generation"):
+        return list(findings)
+    out = []
+    for f in findings:
+        if f.get("class") in NEW_FINDING_CLASSES and f.get("tier") == 2:
+            out.append({**f, "tier": 0, "grandfathered": True,
+                        "detail": (f.get("detail") or "") +
+                        " [GRANDFATHERED: taxonomy locked pre-release — this "
+                        "finding class did not exist then; informational only "
+                        "(E4/S3), never HELD.]"})
+        else:
+            out.append(f)
+    return out
+
+
+# ══════════════════════════════════════════════════════════════════
+# E7 — DECLARED_AMBER resolution (BEFORE adjudication, outside replay)
+# ══════════════════════════════════════════════════════════════════
+def _amber_residues(amber_status):
+    """(class, normalize_label(item)) set from one amber_status or a list."""
+    residues = set()
+    blocks = amber_status if isinstance(amber_status, (list, tuple)) \
+        else [amber_status] if amber_status else []
+    for blk in blocks:
+        for u in (blk or {}).get("unresolved", []):
+            residues.add((u.get("class"), normalize_label(u.get("item"))))
+    return residues
+
+
+def resolve_declared_amber(escalated, amber_status):
+    """
+    Returns (declared, remaining).
+
+    A finding whose (class, normalized item) matches a residue DECLARED in the
+    draft's or scan's amber_status is resolved Tier 0 as DECLARED_AMBER —
+    reported in the record and the S4-4 gate text, never escalated to Tier 2,
+    never HELD. The declared entries belong in `resolved` (auto_resolved),
+    which the INV-6 replay ledger NEVER reads: DECLARED_AMBER resolutions are
+    condition-dependent, keyed to the CURRENT artifact's declaration. On a
+    later mode-C run against a re-derived, non-AMBER draft the same-fingerprint
+    finding is judged FRESH — replaying the waiver would silently pass a
+    now-undeclared defect, INV-6's defect class inverted.
+    """
+    residues = _amber_residues(amber_status)
+    declared, remaining = [], []
+    for f in escalated:
+        keys = {(f.get("class"), normalize_label(str(f.get("item") or "")))}
+        if f.get("subject"):
+            keys.add((f.get("class"), normalize_label(f.get("subject"))))
+        if f.get("syllabus_id"):
+            keys.add((f.get("class"), normalize_label(f.get("syllabus_id"))))
+        if residues & keys:
+            declared.append({**f, "tier": 0, "action": "NOTE",
+                             "by": "DECLARED_AMBER",
+                             "reason": "carried imperfection, declared at gate "
+                                       "exhaustion (AMBER) — Tier 0, reported, "
+                                       "never adjudicated, never replayed (E7)"})
+        else:
+            remaining.append(f)
+    return declared, remaining
+
+
+# ══════════════════════════════════════════════════════════════════
 # TIER 2 — evidence-bound adjudication with replay
 # ══════════════════════════════════════════════════════════════════
-def adjudicate(escalated, verdicts, prior_record=None):
+def adjudicate(escalated, verdicts, prior_record=None, amber_status=None):
     """
     verdicts: {finding_id: {action, confidence, syllabus_quote, syllabus_present, rationale}}
     prior_record: previously persisted approval_record -> replayed verbatim (INV-6).
+    amber_status: DEFENSIVE second filter (E7). The invocation routes declared
+      residues through resolve_declared_amber() BEFORE this stage; passing the
+      same amber_status here guarantees a declared residue can never be
+      adjudicated (and so never enter the replay ledger) even if a caller
+      skipped the resolve step. Matched findings are dropped from this stage —
+      build_approval_record(amber_status=...) still reports them.
     """
+    if amber_status:
+        _, escalated = resolve_declared_amber(escalated, amber_status)
     prior = {}
     if prior_record:
         for e in prior_record.get("adjudications", []):
@@ -795,18 +1126,47 @@ def conservation_check(classifications, taxonomy_after, quarantined_paths=()):
 
 def build_approval_record(exam_code, findings, resolved, adjudications, conservation,
                           mode="FULL", ledger=None, blocked=None, prior_record=None,
-                          final_taxonomy=None):
+                          final_taxonomy=None, amber_status=None,
+                          subject_flags=None, dedup_report=None, telemetry=None):
     """
     mode    : "FULL" | "DEGRADED" — MUST match the mode reconcile() ran under.
     ledger  : the CheckLedger reconcile() attested into. FAIL-SAFE: None means
               nothing can be proven to have run, so every expected check is
               missing and the status is HELD. Unknown is never CLEAN.
     blocked : materialise()'s unmaterialisable actions (INV-9).
+    amber_status : the draft's (and, merged, the scan's) declared AMBER residue
+              (E7/S1). Recorded verbatim; matching adjudications are guarded
+              out of hard[] defensively; the declared_amber summary is derived
+              from `resolved` entries with by == DECLARED_AMBER.
+    subject_flags / dedup_report / telemetry : the draft's E5/S2 provenance
+              blocks (§6.5 handshake map — Approve is their consumer of
+              record). Recorded verbatim; skeletal subjects additionally
+              yield the density_unjudged note. Absence semantics: {} / [] /
+              [] — no flags, no merges, no auto-corrections.
+    v1.4: stamps spec_generation (E4); writes re_derive_directive on HELD (E3).
     """
     if mode not in MODES:
         raise ValueError(f"unknown mode {mode!r}; expected one of {MODES}")
 
-    hard = [a for a in adjudications if a["action"] == "RE_DERIVE"] + \
+    # E4 DEFENSE: against a pre-release lock, a NEW-class adjudication must
+    # never hold — grandfather() upstream makes these Tier 0, but a caller
+    # that skipped it must still not newly HELD the back catalog.
+    _pre_release_lock = bool(prior_record) and not prior_record.get("spec_generation")
+    # E7 DEFENSE: a declared amber residue must never hold, whatever path
+    # brought its adjudication here.
+    _residues = _amber_residues(amber_status)
+
+    def _holds(a):
+        if a["action"] != "RE_DERIVE":
+            return False
+        if _pre_release_lock and a.get("class") in NEW_FINDING_CLASSES:
+            return False
+        if _residues and (a.get("class"),
+                          normalize_label(str(a.get("item") or ""))) in _residues:
+            return False
+        return True
+
+    hard = [a for a in adjudications if _holds(a)] + \
            [f for f in findings if f["class"] == "RATIO_HARDSTOP"]
 
     # D3 (v2.17): INV-5 must GATE the verdict. A failed conservation check
@@ -900,11 +1260,31 @@ def build_approval_record(exam_code, findings, resolved, adjudications, conserva
     _record = {
         "exam_code": exam_code,
         "schema_version": SCHEMA_VERSION,
+        # E4: the generation stamp. Its ABSENCE in a prior record is what
+        # identifies a pre-release lock (grandfathering, F1 tripwire, A1).
+        "spec_generation": SPEC_GENERATION,
         "status": status,
         "mode": mode,
         "engine": "S4-0 reconcile_taxonomy",
         "engine_version": ENGINE_VERSION,
         "checks": checks,
+        # E7/S1: the declared residue, verbatim, and the Tier-0 resolutions it
+        # produced. declared_amber entries live in auto_resolved (below) — NOT
+        # in adjudications — so INV-6 replay can never resurrect a waiver.
+        "amber_status": amber_status,
+        "declared_amber": [r for r in (resolved or [])
+                           if r.get("by") == "DECLARED_AMBER"],
+        # §6.5 handshake — the draft's provenance blocks, carried into the
+        # record verbatim (the S4 operator-audit habit reads them HERE).
+        "subject_flags": subject_flags or {},
+        "dedup_report": dedup_report or [],
+        "telemetry": telemetry or [],
+        # E5/D5: skeletal subjects have too few entries to judge density and
+        # too much content to be small — the record SAYS so (Tier-0 note)
+        # instead of the shape looking silently anomalous downstream.
+        "density_unjudged": sorted(
+            s for s, fl in (subject_flags or {}).items()
+            if isinstance(fl, dict) and fl.get("skeletal")),
         "prior_record_attested": prior_attested,
         "thresholds": thresholds,
         "anchoring": {
@@ -967,6 +1347,40 @@ def build_approval_record(exam_code, findings, resolved, adjudications, conserva
         _record["taxonomy"] = {
             "sections": {sec: {top: list(subs) for top, subs in tops.items()}
                          for sec, tops in final_taxonomy.items()}}
+
+    # ── E3 (v1.4): RE-DERIVE DIRECTIVE — machine-readable, HELD only ──────
+    # Branch B's "re-run PYQDraft" was memoryless: each step runs in a fresh
+    # chat, so the re-run could plausibly reproduce the rejected shape (the
+    # RPSC infinite-loop hazard). The directive names WHICH topics are
+    # crowded, states each constraint, and pins the rejected fingerprint;
+    # PYQDraft S2-0 consumes it as HARD constraints (D1a) — that consumption
+    # is what makes the Approve->Draft loop convergent across sessions.
+    if status == "HELD":
+        _crowded, _seen = [], set()
+        for f in findings:
+            for c in (f.get("crowded_topics") or []):
+                k = normalize_label(c.get("topic"))
+                if k not in _seen:
+                    _seen.add(k)
+                    _crowded.append({"topic": c.get("topic"),
+                                     "item_count": c.get("item_count")})
+        _tier2 = [{"id": f.get("id"), "class": f.get("class"),
+                   "item": f.get("item"), "detail": f.get("detail")}
+                  for f in findings if f.get("tier") == 2]
+        _constraints = [
+            f"topic '{c['topic']}' must be split — its {c['item_count']} "
+            f"syllabus items ARE the Topics (EC-P20)"
+            for c in _crowded]
+        for h in hard:
+            it = str(h.get("item") or "")
+            if it and not any(c["topic"] and c["topic"] in it for c in _crowded):
+                _constraints.append(f"resolve: {it}")
+        _record["re_derive_directive"] = {
+            "findings": _tier2,
+            "crowded_topics": _crowded,
+            "constraints": _constraints,
+            "rejected_fingerprint": _record.get("taxonomy_fingerprint"),
+        }
     return _record
 
 
@@ -1061,8 +1475,14 @@ def _self_test():
     ck("T7f taxonomy NOT mutated", fin == {"Bio": {"T": ["Cells"]}})
 
     # ---- T8 (N-4): C6 scale-relative ----
+    # v1.4 fixture update (E1c): the old shape mapped all 12 items into ONE of
+    # the three topics, which the corrected denominator now CORRECTLY fires on
+    # (T2/T3 were reachable by no item — they diluted the pre-v1.4 measure).
+    # The small-exam protection being proven is a small syllabus SPREAD across
+    # its topics: 12 items over 3 anchored topics = 4.0 < 5.0, and 4 < cap.
     small_items = [{"id": f"S{i}", "subject": "Bio", "raw_text": "t",
-                    "mapped_paths": [["Bio", "T1", "a"]]} for i in range(12)]
+                    "mapped_paths": [["Bio", f"T{i % 3 + 1}", "a"]]}
+                   for i in range(12)]
     small_tax = {"Bio": {"T1": ["a"], "T2": ["b"], "T3": ["c"]}}
     f, led = full(small_items, small_tax, syllabus_subjects=["Bio"])
     ck("T8a small exam not over-aggregated", "TOPIC_OVER_AGGREGATION" not in classes(f))
@@ -1154,7 +1574,204 @@ def _self_test():
     # ---- T13: schema / stamping ----
     rec = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
                                 ledger=_full_ledger())
-    ck("T13a schema 1.3", rec["schema_version"] == "1.3")
+    ck("T13a schema 1.4", rec["schema_version"] == "1.4")
+
+    # ---- T15 (E1b): per-topic form closes the mixed-shape blind spot ----
+    # 1 topic x 20 items + 15 topics x 1 item: average 35/16 = 2.2 PASSES the
+    # subject form; the 20-in-one topic is caught per-topic.
+    mixed_items = ([{"id": f"M{i}", "subject": "His", "raw_text": "t",
+                     "mapped_paths": [["His", "Big", f"s{i}"]]} for i in range(20)]
+                   + [{"id": f"N{i}", "subject": "His", "raw_text": "t",
+                       "mapped_paths": [["His", f"P{i}", "x"]]} for i in range(15)])
+    mixed_tax = {"His": {"Big": [f"s{i}" for i in range(20)],
+                         **{f"P{i}": ["x"] for i in range(15)}}}
+    f15 = check_topic_density(mixed_items, mixed_tax)
+    c15 = {x["class"] for x in f15}
+    ck("T15a subject average passes on the mixed shape",
+       "TOPIC_OVER_AGGREGATION" not in c15)
+    ck("T15b per-topic form catches 20-in-one",
+       "TOPIC_OVER_AGGREGATION_TOPIC" in c15)
+    ck("T15c the crowded topic is NAMED with its count",
+       any(x.get("crowded_topics") == [{"topic": "Big", "item_count": 20}]
+           for x in f15))
+
+    # ---- T16 (E1c): denominator counts syllabus-anchored topics only ----
+    # RPSC shape: 42 items mapped across 7 topics; 1 scan-discovered topic
+    # holds no mapped item. True density 42/7 = 6.0, not 42/8 = 5.25.
+    r_items = [{"id": f"R{i}", "subject": "Zoo", "raw_text": "t",
+                "mapped_paths": [["Zoo", f"T{i % 7}", "x"]]} for i in range(42)]
+    r_tax = {"Zoo": {**{f"T{i}": ["x"] for i in range(7)}, "EcoScan": ["y"]}}
+    f16 = check_topic_density(r_items, r_tax)
+    subj16 = [x for x in f16 if x["class"] == "TOPIC_OVER_AGGREGATION"]
+    ck("T16a scan-discovered topic excluded from the denominator (6.0 fires)",
+       bool(subj16) and "= 6.0 items/topic" in subj16[0]["detail"])
+    ck("T16b the exclusion is reported",
+       subj16 and subj16[0]["scoping"]["scan_discovered_topics"] == 1)
+
+    # ---- T17 (E1e): scoping — anchored topics and excluded items are OUT ----
+    f17 = check_topic_density(mixed_items, mixed_tax, qcount_anchored={"Big"})
+    ck("T17a qcount-anchored topic exempt from the per-topic cap",
+       not any(x["class"] == "TOPIC_OVER_AGGREGATION_TOPIC" for x in f17))
+    x_items = [{"id": f"X{i}", "subject": "His", "raw_text": "t", "excluded":
+                {"class": "VOCABULARY_LIST", "reason": "glossary"},
+                "mapped_paths": []} for i in range(100)]
+    # 100 excluded + 15 spread items: honored exclusion -> 15/15 = 1.0 passes;
+    # a broken exclusion would measure 115/15 = 7.7 and fire.
+    f17b = check_topic_density(x_items + mixed_items[20:], mixed_tax)
+    subj17 = [x for x in f17b if x["class"] == "TOPIC_OVER_AGGREGATION"]
+    ck("T17b excluded items out of the subject-density numerator", not subj17)
+    # E2: C2 skips excluded items and attests the counts
+    led17 = CheckLedger()
+    f17c = reconcile(x_items, {"His": {"T": ["x"]}}, {}, {},
+                     syllabus_subjects=["His"], ledger=led17)
+    ck("T17c C2 emits no ITEM_UNMAPPED for declared exclusions",
+       "ITEM_UNMAPPED" not in {x["class"] for x in f17c})
+    ck("T17d excluded_counts attested in the C2 ledger note",
+       (led17.entries["C2"]["note"] or {}).get("excluded_counts")
+       == {"VOCABULARY_LIST": 100})
+
+    # ---- T18 (E3): HELD record carries the re-derive directive ----
+    crushed = [{"id": f"C{i}", "subject": "Zoo", "raw_text": "t",
+                "mapped_paths": [["Zoo", "T1", "x"]]} for i in range(40)]
+    ctax = {"Zoo": {"T1": ["x"], "T2": ["y"]}}
+    led18 = CheckLedger()
+    f18 = reconcile(crushed, ctax, {}, {}, syllabus_subjects=["Zoo"], ledger=led18)
+    r18, e18 = apply_tier1(f18)
+    a18 = adjudicate(e18, {}, None)
+    rec18 = build_approval_record("X", f18, r18, a18, {"pass": True},
+                                  mode="FULL", ledger=led18, final_taxonomy=ctax)
+    ck("T18a crushed run is HELD", rec18["status"] == "HELD")
+    d18 = rec18.get("re_derive_directive") or {}
+    ck("T18b directive names the crowded topic with its count",
+       {"topic": "T1", "item_count": 40} in d18.get("crowded_topics", []))
+    ck("T18c directive carries actionable constraints",
+       any("must be split" in c for c in d18.get("constraints", [])))
+    ck("T18d directive pins the rejected fingerprint",
+       d18.get("rejected_fingerprint") == rec18.get("taxonomy_fingerprint"))
+    ck("T18e no directive on a clean record",
+       "re_derive_directive" not in build_approval_record(
+           "X", [], [], [], {"pass": True}, mode="FULL", ledger=_full_ledger()))
+
+    # ---- T19 (E4): grandfathering — pre-release lock never newly HELD ----
+    old_rec = {"adjudications": [], "checks": {"executed": list(CHECK_IDS)}}
+    gf = grandfather(f15, old_rec)          # prior record LACKS spec_generation
+    ck("T19a new-class finding rewritten to Tier 0",
+       all(x["tier"] == 0 for x in gf
+           if x["class"] in NEW_FINDING_CLASSES))
+    ck("T19b other findings untouched",
+       [x for x in gf if x["class"] not in NEW_FINDING_CLASSES]
+       == [x for x in f15 if x["class"] not in NEW_FINDING_CLASSES])
+    cur_rec = {"adjudications": [], "spec_generation": SPEC_GENERATION}
+    ck("T19c current-generation prior record: no grandfathering",
+       grandfather(f15, cur_rec) == list(f15))
+    # defensive path: a NEW-class RE_DERIVE adjudication against a pre-release
+    # lock must not hold even when grandfather() was skipped
+    bad_adj = [{"id": "z", "class": "TOPIC_OVER_AGGREGATION_TOPIC",
+                "item": "His > Big", "action": "RE_DERIVE", "by": "TIER2"}]
+    rec19 = build_approval_record("X", [], [], bad_adj, {"pass": True},
+                                  mode="FULL", ledger=_full_ledger(),
+                                  prior_record=old_rec)
+    ck("T19d defensive: pre-release lock + new-class RE_DERIVE != HELD",
+       rec19["status"] != "HELD")
+
+    # ---- T20 (E6): input-shape guards are corrective ----
+    try:
+        reconcile([], {}, [{"q_num": 1}], {}, ledger=CheckLedger())
+        ck("T20a flattened classifications rejected", False)
+    except TypeError as exc:
+        ck("T20a flattened classifications rejected",
+           "dict" in str(exc).lower() and "paper" in str(exc).lower())
+    try:
+        reconcile([], {}, {"p1": {"q": 1}}, {}, ledger=CheckLedger())
+        ck("T20b non-list paper value rejected", False)
+    except TypeError as exc:
+        ck("T20b non-list paper value rejected", "LIST" in str(exc))
+    try:
+        reconcile([], {"A": ["not-a-dict"]}, {}, {}, ledger=CheckLedger())
+        ck("T20c malformed scan_taxonomy rejected", False)
+    except TypeError as exc:
+        ck("T20c malformed scan_taxonomy rejected", "topic" in str(exc).lower())
+    try:
+        reconcile([], {}, {}, {}, ledger="not-a-ledger")
+        ck("T20d non-CheckLedger ledger rejected", False)
+    except TypeError as exc:
+        ck("T20d non-CheckLedger ledger rejected", "CheckLedger" in str(exc))
+
+    # ---- T21 (E7): DECLARED_AMBER — Tier 0, reported, never replayed ----
+    # S1 SHAPE: each unresolved entry carries the finding CLASS the residue
+    # will produce at Approve and its normalized identity — the draft declares
+    # EVERY class its residue yields (subject form AND per-topic form here).
+    amber = {"gate": "density", "rounds": 3,
+             "unresolved": [{"class": "TOPIC_OVER_AGGREGATION", "item": "Zoo",
+                             "detail": "unsplittable under q-count conflict"},
+                            {"class": "TOPIC_OVER_AGGREGATION_TOPIC",
+                             "item": "Zoo > T1",
+                             "detail": "unsplittable under q-count conflict"}]}
+    r21, e21 = apply_tier1(f18)             # f18 escalates TOPIC_OVER_AGGREGATION
+    d21, e21b = resolve_declared_amber(e21, amber)
+    ck("T21a declared residue resolved out of Tier 2",
+       any(x["by"] == "DECLARED_AMBER" for x in d21)
+       and not any(x["class"] == "TOPIC_OVER_AGGREGATION" for x in e21b))
+    a21 = adjudicate(e21b, {}, None)
+    rec21 = build_approval_record("X", f18, r21 + d21, a21, {"pass": True},
+                                  mode="FULL", ledger=led18,
+                                  final_taxonomy=ctax, amber_status=amber)
+    ck("T21b AMBER-declared run locks (not HELD)",
+       rec21["status"] in ("CLEAN", "CLEAN_ADJUDICATED"))
+    ck("T21c declared_amber reported in the record",
+       rec21["declared_amber"] and rec21["amber_status"] == amber)
+    ck("T21d declared entries NEVER enter the replay ledger",
+       not any(a.get("by") == "DECLARED_AMBER" for a in rec21["adjudications"]))
+    # NON-REPLAY: a later mode-C run with a NON-amber draft, using rec21 as the
+    # prior record, must judge the recurring finding FRESH — and hold on it.
+    a21f = adjudicate(e21, {}, rec21)       # no amber_status this time
+    rec21f = build_approval_record("X", f18, r21, a21f, {"pass": True},
+                                   mode="FULL", ledger=led18,
+                                   final_taxonomy=ctax)
+    ck("T21e recurring finding judged FRESH on a non-AMBER re-run (HELD)",
+       rec21f["status"] == "HELD"
+       and not any(a.get("replayed") for a in a21f))
+    # defensive: adjudicate(amber_status=...) alone also never adjudicates it
+    a21d = adjudicate(e21, {}, None, amber_status=amber)
+    ck("T21f adjudicate's defensive filter drops declared residues",
+       not any(x["class"] == "TOPIC_OVER_AGGREGATION" for x in a21d))
+
+    # ---- T22 (v1.4 hardening): ghost destination topic must not crash C6 ----
+    ghost_items = ([{"id": f"G{i}", "subject": "S", "raw_text": "t",
+                     "mapped_paths": [["S", "Ghost Topic", f"x{i}"]]}
+                    for i in range(6)]
+                   + [{"id": f"H{i}", "subject": "S", "raw_text": "t",
+                       "mapped_paths": [["S", "Real", f"y{i}"]]}
+                      for i in range(6)])
+    ghost_tax = {"S": {"Real": [f"y{i}" for i in range(6)]}}
+    try:
+        f22 = check_topic_density(ghost_items, ghost_tax)
+        ck("T22a ghost topic measured, not crashed",
+           any(c["topic"] == "ghost topic" and c["item_count"] == 6
+               for x in f22 for c in (x.get("crowded_topics") or [])))
+    except Exception:
+        ck("T22a ghost topic measured, not crashed", False)
+
+    # ---- T23 (§6.5 handshake): provenance blocks carried into the record ----
+    fl23 = {"GK": {"skeletal": True, "open_ended": True},
+            "Zoo": {"skeletal": False, "open_ended": False}}
+    dr23 = [{"kept": "SYL-001", "kept_text": "x", "merged_from": ["X"],
+             "reason": "exact duplicate (canon-identical)"}]
+    tl23 = [{"check": "density", "round": 1, "action": "split",
+             "before": "1 topic", "after": "3 topics"}]
+    rec23 = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
+                                  ledger=_full_ledger(), subject_flags=fl23,
+                                  dedup_report=dr23, telemetry=tl23)
+    ck("T23a subject_flags / dedup_report / telemetry recorded verbatim",
+       rec23["subject_flags"] == fl23 and rec23["dedup_report"] == dr23
+       and rec23["telemetry"] == tl23)
+    ck("T23b skeletal subject yields the density_unjudged note",
+       rec23["density_unjudged"] == ["GK"])
+    rec23b = build_approval_record("X", [], [], [], {"pass": True}, mode="FULL",
+                                   ledger=_full_ledger())
+    ck("T23c absence semantics: {} / [] / [] / no note",
+       rec23b["subject_flags"] == {} and rec23b["dedup_report"] == []
+       and rec23b["telemetry"] == [] and rec23b["density_unjudged"] == [])
 
     # ---- T13-TAX: the record CARRIES the taxonomy (v1.3, GAP-2026-07-25-003) ----
     # A fingerprint establishes identity and cannot restore content. Until v1.3 four

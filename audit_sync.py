@@ -774,7 +774,8 @@ if _REG is not None:
         _rule = _meta.get('detect')
         if _rule not in ('live_injection_point_call',
                          'budget_spender_upstream_of_partition',
-                         'registry_writer_call'):
+                         'registry_writer_call',
+                         'topic_density_gate_call'):
             rec('LAW-REGISTRY', f"{_law}: unknown detect rule "
                                 f"{_meta.get('detect')!r}; audit_sync cannot derive "
                                 f"the performing set, so the REVERSE direction of "
@@ -800,6 +801,15 @@ if _REG is not None:
                     _performing.add(_f)
                 elif 'DRIVE_LISTING_CACHE' in _t and 'search_files' in _t:
                     _performing.add(_f)
+        elif _rule == 'topic_density_gate_call':
+            # GAP-2026-08-30-TYPE1-HALT-ELIMINATION. A spec performs a
+            # GATE-AT-SOURCE operation when its live text calls (or hosts the
+            # normative statement of) the single over-aggregation gate,
+            # reconcile_taxonomy.check_topic_density. The verifier
+            # (audit_specs_ext H-SELFSTOP) then requires the spec's live text
+            # to be free of the retired self-stop phrasings that gate replaced.
+            _performing = {f for f, t in TXT.items()
+                           if 'check_topic_density' in _live_text(t)}
         elif _rule == 'registry_writer_call':
             # GAP-2026-08-26-REGISTRY-HANDOFF-SEAM. A spec performs a REGISTRY-HANDOFF
             # operation when its live text calls one of the three registry writers.

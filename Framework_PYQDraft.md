@@ -1,4 +1,22 @@
-# Framework_PYQDraft v1.0.1 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# Framework_PYQDraft v1.1.0 — PYQ Step 2a — Taxonomy Building from Syllabus (§2)
+# v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (D1) NEW S2-0
+#   INTAKE RULE: a HELD approval record's re_derive_directive is consumed as
+#   HARD constraints (the memoryless-re-run loop hazard closed); a CLEAN /
+#   CLEAN_ADJUDICATED record demands explicit operator confirmation before
+#   re-deriving a LOCKED taxonomy (contract-protection, Type-2 class); a prior
+#   AMBER draft's unresolved list constrains the re-run. (C9) DUPLICATE-SUBJECT
+#   SEATBELT at S2-1 and save_taxonomy_draft — Type-2, one-touch message, never
+#   merges (the dict-key overwrite silent-data-loss class). (D2) S2-1/S2-3e wire
+#   dedup, exclusions and subject flags to syllabus_provenance E5; build_items
+#   now returns (items, errors, dedup_report). (C8) S2-3f: budget raised to the
+#   law's SELF_CORRECTION_MAX_ROUNDS, retries are constraint-carrying, and
+#   exhaustion exits AMBER with a finding-keyed amber_status + auto-declared
+#   OTHER deviations + data-preserving structural residue (validate_provenance
+#   MUST still pass) — never the pre-v1.1.0 "re-run and report" dead end (moved
+#   verbatim to SPEC_HISTORY.md). (D2/D3) S2-4 schema gains excluded items,
+#   qcount_anchored_topics, subject_flags (skeletal/open_ended), dedup_report,
+#   telemetry, amber_status and spec_generation; S2-6 prints the AMBER residue
+#   when one exists.
 # v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: 2 prose mentions to no-paren form (syllabus_provenance).
@@ -28,6 +46,41 @@
 ---
 
 ## §2 — PHASE 0a: TAXONOMY BUILDING FROM SYLLABUS
+
+### S2-0 — INTAKE RULE (v1.1.0, D1 — runs BEFORE S2-1, every PYQDraft session)
+
+```
+Before S2-1, check project Files for [ExamCode]_approval_record.json.
+
+(a) Status HELD → read record['re_derive_directive'] and treat the rejected
+    fingerprint's shape and EACH constraint as HARD constraints on derivation:
+    every topic in directive['crowded_topics'] MUST be split (the items ARE
+    the Topics — EC-P20), and the re-derived taxonomy MUST NOT reproduce
+    rejected_fingerprint. This consumption is what makes the Approve→Draft
+    loop CONVERGENT across fresh sessions — without it a memoryless re-run
+    can plausibly reproduce the rejected shape (the RPSC_ZOOLOGY hazard).
+    Print, before deriving: "Consuming re-derive directive from
+    [ExamCode]_approval_record.json — [N] constraint(s), [M] crowded topic(s)."
+
+(b) Status CLEAN or CLEAN_ADJUDICATED → the taxonomy is LOCKED. PYQDraft MUST
+    warn and require EXPLICIT operator confirmation before proceeding, because
+    re-deriving a locked taxonomy can silently diverge it from every
+    downstream artifact built on it — the exact danger the PYQApprove R1
+    scoping rule names. This is a CONTRACT-PROTECTION confirmation (Type-2
+    class), not a defect halt. Message (one action):
+      "This exam's taxonomy is already LOCKED ([status], [date if present]).
+       Re-running PYQDraft re-derives it and can diverge every artifact built
+       on it. Reply CONFIRM RE-DERIVE to proceed, or run the next step
+       instead."
+    On confirmation, proceed; the eventual PYQApprove replays per INV-6/mode C.
+
+(c) No record → proceed normally.
+
+ALSO: if a prior [ExamCode]_taxonomy_draft.json in project Files carries a
+non-empty amber_status, its unresolved list is a CONSTRAINT SET for this run —
+each residue must be either resolved or consciously re-declared, never
+silently dropped.
+```
 
 ### S2-1 — Syllabus extraction
 
@@ -129,6 +182,59 @@ TERMINOLOGY NOTE — "Subject" vs "Section":
 
 S2-3 determines which items become Topics vs Subtopics using the
 Topic Integrity Test and 6 Pattern Dimensions.
+
+═══════════════════════════════════════════════════════════════════
+DUPLICATE-SUBJECT SEATBELT (v1.1.0 — C9; TYPE-2 INPUT INTEGRITY,
+NOT a defect-halt mechanism and NOT a multi-phase mode)
+═══════════════════════════════════════════════════════════════════
+SCOPE DECISION (operator guarantee): multi-phase notifications ingested as
+one exam, and exams with no prescribed syllabus, are OPERATOR INPUT ERRORS —
+the operator guarantees one proper single-phase syllabus per ExamCode. No
+multi-phase mode and no syllabus-absent mode exist or may be built; a missing
+syllabus keeps S1-2's existing ask-the-operator behavior.
+
+This ONE guard is retained because the failure it prevents is SILENT data
+loss, not a halt: the taxonomy dict keys by subject name, so a wrongly
+supplied multi-phase document producing two subjects with the same
+normalized name would have the second silently OVERWRITE the first — one
+phase's subjects vanish with C1 passing on the survivor.
+
+RULE: immediately after extracting syllabus_subjects, and again inside
+save_taxonomy_draft (S2-4), run syllabus_provenance.find_duplicate_subjects
+on the list. A non-empty return → STOP AS TYPE-2 with exactly one operator
+action — never proceed, never merge, never prescribe re-derivation:
+
+  "This document appears to contain more than one exam/phase (subject
+   '<name>' appears twice). Provide the single-phase syllabus for this
+   ExamCode and re-run PYQDraft."
+
+Entry dedup (E5) operates WITHIN one subject only, so it can never mask this
+condition. Under the operator guarantee this seatbelt should never fire; its
+existence converts a would-be invisible wrong answer into a one-touch input
+correction.
+
+═══════════════════════════════════════════════════════════════════
+EMISSION WIRING (v1.1.0 — D2; per-item and per-subject E5 states)
+═══════════════════════════════════════════════════════════════════
+S2-1/S2-3e emissions gain, wired to syllabus_provenance E5:
+  * excluded — per S2-3 EXCLUSION RULES' RECORDING MANDATE, each excluded
+    item's emission carries excluded: {class, reason} INSTEAD of 'to'
+    (mutually exclusive; the gate enforces it).
+  * dedup — build_items merges canon-identical entries per subject, and
+    near-identical ones at the C5 threshold (pass
+    reconcile_taxonomy.DUP_SIMILARITY as dup_similarity — cite, never
+    restate). Its dedup_report is carried into save_taxonomy_draft.
+    MULTI-GRANULARITY (archetype A4, DECISION D4): when the same content
+    appears at multiple granularities, prefer the most granular listing
+    from the most authoritative source region; the official document wins
+    on conflict; coaching tables fill gaps; order the authoritative region
+    FIRST in the emissions so the mechanical keep-first rule keeps it.
+  * qcount_anchored_topics — emitted per S2-3 "WHEN SYLLABUS ASSIGNS
+    QUESTION COUNTS" ANCHORING RECORD.
+  * subject flags — syllabus_provenance.detect_subject_flags computes
+    skeletal / open_ended per subject; the caller passes
+    min_items=reconcile_taxonomy.OVER_AGG_MIN_ITEMS (one rulebook — the
+    value is cited from the engine, never restated here).
 ```
 
 ### S2-2 — Exam Pattern extraction
@@ -601,11 +707,28 @@ contract that makes truncation detectable rather than silent.
 ```
 
 ```python
-# S2-3e EXECUTION (replaces hand-built records)
+# S2-3e EXECUTION (replaces hand-built records) — v1.1.0: dedup + exclusions +
+# flags wired (D2); density BOTH forms at the pre-delivery gate (GATE-AT-SOURCE).
 from syllabus_provenance import (build_items, canonicalize_paths,
-                                 validate_provenance, derive_group_topic_map)
+                                 validate_provenance, derive_group_topic_map,
+                                 detect_subject_flags, find_duplicate_subjects)
+from reconcile_taxonomy import (check_topic_density, DUP_SIMILARITY,
+                                OVER_AGG_MIN_ITEMS)
 
-items, build_errors = build_items(emissions, group_topic_map)
+# ANCHORING RECORD input (S2-3 "WHEN SYLLABUS ASSIGNS QUESTION COUNTS"):
+# populated DURING S2-3 derivation — one topic name per syllabus-assigned
+# question-count boundary; stays [] for syllabi that assign none.
+qcount_anchored_topics = []
+
+dups = find_duplicate_subjects(syllabus_subjects)     # C9 seatbelt (Type-2)
+if dups:
+    raise SystemExit(
+        f"This document appears to contain more than one exam/phase "
+        f"(subject '{dups[0]}' appears twice). Provide the single-phase "
+        f"syllabus for this ExamCode and re-run PYQDraft.")
+
+items, build_errors, dedup_report = build_items(emissions, group_topic_map,
+                                                dup_similarity=DUP_SIMILARITY)
 if build_errors:
     raise AnchoringGateFailure(build_errors)          # S2-3f self-correction
 
@@ -618,9 +741,23 @@ ok, errors, warnings, unanchorable = validate_provenance(
 if not ok:
     raise AnchoringGateFailure(errors)                # S2-3f self-correction
 
-# name_fixes must be PASSED to save_taxonomy_draft — it is not a global:
+subject_flags = detect_subject_flags(items, min_items=OVER_AGG_MIN_ITEMS)
+
+# PRE-DELIVERY DENSITY — BOTH forms, the SAME engine function C6 backstops.
+# Any finding => self-correct per the GATE-AT-SOURCE LAW: split the NAMED
+# topics along their syllabus items and re-check, within the law's rounds;
+# telemetry records each round; exhaustion exits AMBER per S2-3f.
+density_findings = check_topic_density(
+    items, taxonomy, qcount_anchored=frozenset(qcount_anchored_topics),
+    excluded_ids=frozenset())
+
+# name_fixes / dedup_report / flags must be PASSED to save_taxonomy_draft —
+# none is a global:
 #   save_taxonomy_draft(taxonomy, exam_config, exam_code, syllabus_subjects,
-#                       items, group_topic_map, name_fixes=name_fixes)
+#                       items, group_topic_map, name_fixes=name_fixes,
+#                       qcount_anchored_topics=qcount_anchored_topics,
+#                       subject_flags=subject_flags, dedup_report=dedup_report,
+#                       telemetry=telemetry, amber_status=amber_status)
 ```
 
 ### S2-3f — GATE FAILURE HANDLING (v2.17, B-FIX — operator never sees a traceback)
@@ -650,26 +787,49 @@ ON AnchoringGateFailure — SELF-CORRECT, DO NOT ESCALATE:
                                    some items got a group, some did not
     Re-run the gate.
 
-  ATTEMPT 2 — if it still fails, re-derive that subject's mapping from S2-3.
+  ATTEMPT 2 — if it still fails, re-derive that subject's mapping from S2-3,
+  CONSUMING attempt 1's error list verbatim (constraint-carrying: every retry
+  reads the prior attempt's specific errors; blind retries are prohibited, and
+  repeating attempt 1's identical fix is prohibited — the law's
+  anti-oscillation guard).
 
-  AFTER 2 FAILED ATTEMPTS — stop. Do NOT loop, do NOT save a partial draft,
-  and do NOT surface the exception. Print the operator message below.
+  ATTEMPT 3 (v1.1.0 — the budget is the law's
+  reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS; the pre-v1.1.0 two-attempt
+  dead end is in SPEC_HISTORY.md) — same constraint-carrying discipline,
+  consuming attempt 2's error list.
 
-OPERATOR MESSAGE (plain language, closed set — this is the ONLY form in which
-this failure may reach the operator):
+  ON EXHAUSTION — AMBER DELIVERY, never a dead-end stop (§6.4-S1 mechanics;
+  the record MUST remain structurally valid or downstream C7/S4-0 consumption
+  breaks):
 
-  "Step 2a could not complete. The syllabus mapping has an issue I could not
-   resolve automatically.
+    1. Each remaining UNDECLARED DEVIATION is auto-declared with
+       rule: OTHER, reason: "AMBER: unresolved after 3 rounds — <original
+       error>".
+    2. Each remaining STRUCTURAL error (missing group_topic_map entry,
+       unresolvable mapped_path) is resolved to its DATA-PRESERVING form:
+       empty mapped_paths for the item — the truthful ITEM_UNMAPPED signal —
+       NEVER an invented path (MAPPING RULE 5).
+    3. The residue list goes into amber_status, FINDING-KEYED (normative
+       shape): {gate, rounds: 3, unresolved: [{class, item, detail}, ...]}
+       where `class` is the finding class the residue will produce at
+       PYQApprove (e.g. TOPIC_OVER_AGGREGATION, TOPIC_OVER_AGGREGATION_TOPIC,
+       ITEM_UNMAPPED) and `item` is the normalize_label-normalized identity
+       (subject name, topic name, or SYL-id) — the SAME keying
+       resolve_declared_amber matches on and fingerprint hashes on. A
+       free-text-only residue is unmatchable and therefore a spec violation:
+       it converts a declared imperfection back into an undeclared one.
+    4. validate_provenance MUST pass on the delivered record. AMBER flags
+       imperfection; it never licenses an invalid artifact.
+    5. Deliver with the Framework_DeliveryFooter F1 AMBER quality-gate
+       footer naming the residue (existing §5 Q0 machinery — no new footer
+       type), the unresolved errors named in taxonomy_draft.json telemetry
+       AND in the delivery message. PYQApprove resolves the matching
+       findings as DECLARED_AMBER Tier 0 (engine E7): the taxonomy still
+       locks; the imperfection stays permanently visible.
 
-   WHAT HAPPENED:
-     [one plain line per error, max 5, jargon removed]
-
-   This is a taxonomy build issue, not something you did, and not something
-   you need to evaluate.
-
-   YOUR NEXT ACTION (1 step):
-   1. Re-run: PYQDraft [ExamCode]
-      If it fails again, report the WHAT HAPPENED lines above."
+  A genuinely unsatisfiable constraint set (e.g. a dedup-merge vs
+  Q-count-anchor conflict) therefore exits AMBER in ≤3 rounds with telemetry
+  naming the conflict, and the PIPELINE CONTINUES.
 
   No traceback. No field names. No stack. No request to judge anything.
 
@@ -703,7 +863,9 @@ class AnchoringGateFailure(Exception):
 
 def save_taxonomy_draft(taxonomy, exam_config, exam_code,
                         syllabus_subjects=None, syllabus_items=None,
-                        group_topic_map=None, name_fixes=None):
+                        group_topic_map=None, name_fixes=None,
+                        qcount_anchored_topics=None, subject_flags=None,
+                        dedup_report=None, telemetry=None, amber_status=None):
     """
     v2.17: persists the SYLLABUS PROVENANCE RECORD alongside the derived
     taxonomy. Without it, Step 2c (PYQApprove) has no machine-readable ground
@@ -723,13 +885,39 @@ def save_taxonomy_draft(taxonomy, exam_config, exam_code,
       Required for CONFORM-OR-DECLARE anchoring (S2-3e). Omit ONLY when the
       syllabus supplies no grouping at all (fully flat).
     """
+    # C9 SEATBELT (v1.1.0 — Type-2, second enforcement point after S2-1).
+    # A duplicate normalized subject would key-collide in `sections` below and
+    # silently delete one phase's subjects with C1 passing on the survivor.
+    from syllabus_provenance import find_duplicate_subjects
+    _dups = find_duplicate_subjects(syllabus_subjects or list(taxonomy))
+    if _dups:
+        raise SystemExit(
+            f"This document appears to contain more than one exam/phase "
+            f"(subject '{_dups[0]}' appears twice). Provide the single-phase "
+            f"syllabus for this ExamCode and re-run PYQDraft.")
+
+    from reconcile_taxonomy import SPEC_GENERATION
     draft = {
         'exam_code': exam_code,
         'version': 'draft',
+        # D2 (v1.1.0): the generation stamp. Written on EVERY current-
+        # generation draft; its ABSENCE is what identifies a pre-release
+        # draft to the PYQScan F1 tripwire and the PYQApprove A1 three-case
+        # rule — omitting it from this producer breaks both consumers.
+        'spec_generation': SPEC_GENERATION,
         'source': 'syllabus + exam pattern',
         'syllabus_subjects': syllabus_subjects or [],
         'syllabus_items': syllabus_items or [],
         'group_topic_map': group_topic_map or [],
+        # v1.1.0 (D2/E5) — absence semantics per the release handshake map:
+        # no anchoring => full C6 domain; flags absent/false => normal
+        # judgment; empty dedup_report => no merges; empty telemetry => no
+        # auto-corrections fired; amber_status None => no residue declared.
+        'qcount_anchored_topics': qcount_anchored_topics or [],
+        'subject_flags': subject_flags or {},
+        'dedup_report': dedup_report or [],
+        'telemetry': telemetry or [],
+        'amber_status': amber_status,
         'sections': {},
         'exam_config': exam_config
     }
@@ -926,6 +1114,13 @@ Print:
    Draft taxonomy: [N] sections, [M] topics, [K] subtopics.
    Syllabus entries: [E]. Ratio: [K/E]× (guardrail: ≤ 3.0×).
    Near-duplicate pairs: [D] (must be 0).
+   Density: [per subject — items/topic, both forms clean | AMBER residue named]
+   Exclusions recorded: [X] ([by class]). Dedup merges: [G]. Flags: [skeletal /
+     open_ended subjects, if any]. Q-count-anchored topics: [list | none].
+   Auto-corrections (telemetry): [T] recorded.
+   [ONLY when amber_status is set — F1 AMBER footer per S2-3f, and:]
+   AMBER: delivered with [U] declared unresolved residue(s): [class — item,
+     one line each]. PYQApprove will report these as DECLARED_AMBER (Tier 0).
 
    Exam config:
      Total questions : [total_questions]
@@ -949,4 +1144,4 @@ Print:
 
 ---
 
-# END OF Framework_PYQDraft v1.0.1
+# END OF Framework_PYQDraft v1.1.0

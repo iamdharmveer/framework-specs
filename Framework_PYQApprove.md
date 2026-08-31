@@ -1,4 +1,18 @@
-# Framework_PYQApprove v1.0.1 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# Framework_PYQApprove v1.1.0 — PYQ Step 2c — Analysis Doc Generation & Approval (§4)
+# v1.1.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (A1) C6's spec
+#   text cites reconcile_taxonomy.check_topic_density — BOTH forms (subject
+#   density + the NEW per-topic cap, finding class TOPIC_OVER_AGGREGATION_TOPIC),
+#   the syllabus-anchored denominator, the excluded/anchored scoping, the
+#   per-topic finding detail — and gains the THREE-CASE reclassification rule
+#   (pre-release generation / DECLARED_AMBER / stale current-generation input).
+#   (A3) the S4-0 INPUTS list extends to qcount_anchored_topics, item excluded
+#   states, amber_status (draft + scan _meta), telemetry and spec_generation,
+#   all passed through; the invocation gains grandfather() (E4/S3) and
+#   resolve_declared_amber() (E7) between reconcile and adjudicate. (A2) Branch
+#   B prints the per-topic crowded list with counts and the re-derive-directive
+#   sentence — the operator action stays exactly one step. Branch A gains the
+#   DECLARED_AMBER lines. C6 is now the BACKSTOP of a check that PYQDraft's
+#   pre-delivery gate already ran at source.
 # v1.0.1 — 2026-08-21 — GAP-2026-08-21-C8-FENCE-BURNDOWN (editorial; no rule
 #   changed). audit_callgraph C8 reported engine calls in untagged fences — 30
 #   across the corpus, invisible behind an 8-line display cap. This file: 1 prose mention to no-paren form (write_analysis_doc).
@@ -47,7 +61,8 @@ EXECUTION
     from reconcile_taxonomy import (reconcile, apply_tier1, adjudicate,
                                     materialise, conservation_check,
                                     build_approval_record, CheckLedger,
-                                    EXPECTED_CHECKS)
+                                    EXPECTED_CHECKS, grandfather,
+                                    resolve_declared_amber)
 
     # mode: "FULL" for R1 modes A and C, "DEGRADED" for R1 mode B.
     ledger = CheckLedger()      # INV-7/INV-8 attestation sink — MANDATORY.
@@ -62,9 +77,26 @@ EXECUTION
                                   name_canonicalizations=name_canonicalizations,
                                   syllabus_style=syllabus_style,
                                   mode=mode, locked_taxonomy=locked_taxonomy,
-                                  ledger=ledger)
+                                  ledger=ledger,
+                                  qcount_anchored_topics=qcount_anchored_topics)
+
+    # v1.1.0 (E4/S3) GRANDFATHERING — BETWEEN reconcile and apply_tier1. A
+    # prior record without spec_generation locked before the 2026-08-30
+    # release; findings of the classes that release introduced are rewritten
+    # to Tier 0 informational so a routine INV-6 mode-C replay can never
+    # newly HELD the back catalog on rules that did not exist at lock time.
+    findings          = grandfather(findings, prior_record)
 
     resolved, escalated = apply_tier1(findings)
+
+    # v1.1.0 (E7) DECLARED_AMBER — BEFORE adjudication. Findings matching a
+    # residue the draft (or scan _meta) DECLARED in amber_status resolve to
+    # Tier 0 (by=DECLARED_AMBER): reported in the record and Branch A, never
+    # HELD, and NEVER entered into the INV-6 replay ledger — the resolution
+    # is condition-dependent on the CURRENT artifact's declaration, so a
+    # later re-run against a non-AMBER draft judges the finding FRESH.
+    declared_amber, escalated = resolve_declared_amber(escalated, amber_status)
+    resolved = resolved + declared_amber
 
     # verdicts: {finding_id: {action, confidence, syllabus_present,
     #                         syllabus_quote, rationale}} — authored by the STEP
@@ -72,7 +104,8 @@ EXECUTION
     #   LEGITIMATE and NOT an error: enforce_invariants() applies the class's
     #   SAFE_DEFAULT. Passing {} is the correct, data-preserving baseline. The
     #   operator is NEVER consulted — Tier 2 is not routed to a human.
-    adjudications     = adjudicate(escalated, verdicts, prior_record)
+    adjudications     = adjudicate(escalated, verdicts, prior_record,
+                                   amber_status=amber_status)
 
     # MATERIALISE — the ONLY step permitted to change the taxonomy, and it may
     # apply ONLY adjudicated actions. Start from scan_taxonomy:
@@ -128,7 +161,20 @@ EXECUTION
                                               mode=mode, ledger=ledger,
                                               blocked=blocked,
                                               prior_record=prior_record,
-                                              final_taxonomy=final_taxonomy)
+                                              final_taxonomy=final_taxonomy,
+                                              amber_status=amber_status,
+                                              subject_flags=subject_flags,
+                                              dedup_report=dedup_report,
+                                              telemetry=telemetry)
+
+    # E3 (v1.1.0): on HELD, build_approval_record writes the machine-readable
+    # field  record['re_derive_directive'] = {findings, crowded_topics,
+    # constraints, rejected_fingerprint}  into [ExamCode]_approval_record.json.
+    # CONSUMER: PYQDraft S2-0 (D1a) — each crowded topic becomes a HARD split
+    # constraint and the re-derived taxonomy must not reproduce
+    # rejected_fingerprint. Absent on CLEAN/CLEAN_ADJUDICATED (its absence IS
+    # the no-prior-HELD signal). This field is what makes Branch B's "re-run
+    # PYQDraft" convergent across fresh sessions.
 
 ROUTING: routes.json MUST route reconcile_taxonomy.py to PYQApprove. NOT OPTIONAL.
          S4-0 cannot execute without it, and an unrouted mandatory engine is the
@@ -145,6 +191,21 @@ INPUTS
   name_canonicalizations taxonomy_draft.json['name_canonicalizations'] (S2-4)
   syllabus_style         taxonomy_draft.json['syllabus_style']         (S2-1e)
   prior_record       [ExamCode]_approval_record.json if present (INV-6 replay)
+  qcount_anchored_topics taxonomy_draft.json['qcount_anchored_topics'] (S2-4, v1.1.0)
+  (item excluded states ride IN syllabus_items — each item's 'excluded' key)
+  amber_status       taxonomy_draft.json['amber_status'] AND, when present,
+                     scan_progress.json['_meta']['amber_status'] — merged as a
+                     LIST when both exist (the engine accepts one or a list)
+  subject_flags      taxonomy_draft.json['subject_flags'] (skeletal /
+                     open_ended per subject — skeletal yields the record's
+                     density_unjudged note; absent => no flags)
+  dedup_report       taxonomy_draft.json['dedup_report'] (carried verbatim
+                     into approval_record.json; absent => no merges)
+  telemetry          taxonomy_draft.json['telemetry'] (carried verbatim into
+                     approval_record.json — the S4 operator-audit habit and
+                     the first-20-exams review read it THERE)
+  spec_generation    taxonomy_draft.json['spec_generation'] (generation stamp —
+                     its ABSENCE marks a pre-release draft; see C6 three-case)
 
   ALL of the above MUST be passed to reconcile(). An artifact produced at S2-4
   and not consumed here is a silent regression: the anchoring state would be
@@ -231,6 +292,35 @@ TIER 0 — DETERMINISTIC RECONCILIATION (no judgment, no human)
      RATIO_WARN -> Tier 0 (informational). RATIO_HARDSTOP -> Tier 2.
   C5 NEAR_DUPLICATE     >75% name similarity within the same Topic     -> Tier 2
   C6 TOPIC_OVER_AGGREGATION  syllabus crushed into too few topics      -> Tier 2
+     TOPIC_OVER_AGGREGATION_TOPIC  one topic absorbs too many items    -> Tier 2
+     v1.1.0: C6 delegates to reconcile_taxonomy.check_topic_density — the
+     SAME function PYQDraft's pre-delivery gate and PYQScan's S3-1 tripwire
+     call (one implementation, three call sites; constants live ONLY in the
+     engine). BOTH forms run: subject density AND the per-topic cap
+     (OVER_AGG_PER_TOPIC_CAP — closes the mixed-shape blind spot the average
+     cannot see). DENOMINATOR: syllabus-anchored topics only — topics
+     reachable from mapped_paths; scan-discovered topics are reported, never
+     counted (they diluted RPSC_ZOOLOGY's true 6.0 to a reported 5.25).
+     SCOPING: items with a declared exclusion and qcount_anchored topics are
+     OUT of the measurement domain; the scoping counts are attested in the C6
+     ledger note (INV-8 extension). Every finding NAMES the crowded topics
+     with their item counts — the raw material of the E3 directive.
+
+     THREE-CASE RULE (v1.1.0 — because the source gate already ran, a C6
+     firing HERE means one of exactly three things):
+       1. taxonomy_draft.json LACKS spec_generation → a PRE-RELEASE draft:
+          the finding is genuine but grandfathered on replay (E4/S3) — on an
+          INV-6 mode-C replay it reports Tier 0 and never newly HOLDS; on a
+          FULL re-run of a pre-release exam the re-derive path applies.
+       2. spec_generation present AND the finding matches an amber_status
+          residue → DECLARED_AMBER (E7): resolved Tier 0 before
+          adjudication, reported in Branch A, never HELD, never replayed.
+       3. spec_generation present AND no matching residue → the draft in
+          project Files is NOT the file the gate passed — STALE INPUT.
+          Type-2 stop naming the file to replace:
+            "The taxonomy_draft.json in project Files does not match
+             current-generation PYQDraft output. Replace it with the latest
+             PYQDraft output and re-run PYQApprove."
      Measured as DENSITY, not as absolute counts: fires when a subject has
      >= 10 syllabus items AND >= 5.0 items per topic. The pre-v1.1 absolute
      rule ("<=4 topics AND >=10 items") encoded ONE exam's scale and false-
@@ -594,6 +684,11 @@ Print:
    Quarantined (below 3-PYQ threshold, recorded in approval_record.json):
      [Subject > Topic > Subtopic]  — [n] PYQs
      ...
+   [v1.1.0 — ONLY when record.declared_amber is non-empty:]
+   Declared imperfections (AMBER at Draft/Scan, carried visibly — Tier 0,
+   resolved as DECLARED_AMBER, never blocking, never replayed):
+     [finding class] — [item]: declared at gate exhaustion (round 3)
+     ...
 
    Files:
    • [ExamCode]_PYQ_Analysis.docx
@@ -617,13 +712,21 @@ Print:
      [finding class] — [item]
        [one-line machine detail]
      ...
+   [v1.1.0 — when any finding carries crowded_topics, add:]
+   Crowded topics (each must be split — its syllabus items ARE the Topics):
+     [Topic] — [item_count] items
+     ...
+   A re-derive directive has been written into
+   [ExamCode]_approval_record.json; re-run PYQDraft — it consumes the
+   directive automatically (S2-0 intake).
 
    This is a taxonomy construction defect, not an operator decision.
    Do NOT upload the Analysis doc. Do NOT run PYQSort.
 
    YOUR NEXT ACTION (1 step):
-   1. Report the HELD line(s) above and re-run: PYQApprove
-      (or re-run PYQDraft if the fix requires taxonomy re-derivation)
+   1. Re-run: PYQDraft [ExamCode]
+      (when no finding requires re-derivation, re-run PYQApprove instead —
+       the HELD lines above say which)
 
    Full detail: [ExamCode]_approval_record.json"
 
@@ -661,4 +764,4 @@ this file forfeits the determinism guarantee.
 
 ---
 
-# END OF Framework_PYQApprove v1.0.1
+# END OF Framework_PYQApprove v1.1.0

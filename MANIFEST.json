@@ -1,5 +1,5 @@
 {
-  "framework_version": "2026.08.30.3",
+  "framework_version": "2026.08.31.1",
   "generated_by": "gen_manifest.py",
   "routes": {
     "PYQPrepare": [
@@ -263,11 +263,11 @@
       "bytes": 1528
     },
     "Framework_PYQApprove.md": {
-      "sha256": "70c9fa47600847b183d89d86d4f311f92a6c0ecdbe7706db32a9789662ea478f",
-      "version_header": "# Framework_PYQApprove v1.0.1 \u2014 PYQ Step 2c \u2014 Analysis Doc Generation & Approval (\u00a74)",
-      "end_sentinel": "# END OF Framework_PYQApprove v1.0.1",
-      "lines": 664,
-      "bytes": 40456
+      "sha256": "580556551b30abbec7cc4d7f620d77caaebf45bb14bf8f4bdc07dcc7afdc94e9",
+      "version_header": "# Framework_PYQApprove v1.1.0 \u2014 PYQ Step 2c \u2014 Analysis Doc Generation & Approval (\u00a74)",
+      "end_sentinel": "# END OF Framework_PYQApprove v1.1.0",
+      "lines": 767,
+      "bytes": 47417
     },
     "Framework_PYQCompress.md": {
       "sha256": "9fdb05a5131e962524d5f6185fab0d835aa1566847bc2b9bf6c48a8d51bc1e10",
@@ -277,11 +277,11 @@
       "bytes": 42936
     },
     "Framework_PYQCore.md": {
-      "sha256": "74fef17f1493e7307a451886d1c96c5b541343aa8c89e3ba90b8158af2187f62",
-      "version_header": "# Framework_PYQCore v1.6 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
-      "end_sentinel": "# END OF Framework_PYQCore v1.6",
-      "lines": 1977,
-      "bytes": 115146
+      "sha256": "1ae9e7b0483ec744bef78e5986b0bc070d2b97813cb6e4985a70f66690ec14d3",
+      "version_header": "# Framework_PYQCore v1.7 \u2014 PYQ Analysis Shared Core (\u00a71, S2-3, \u00a76\u2013\u00a712)",
+      "end_sentinel": "# END OF Framework_PYQCore v1.7",
+      "lines": 2162,
+      "bytes": 127447
     },
     "Framework_PYQCount.md": {
       "sha256": "f00eaf9487fc95e661238d5f842052a0205801fc3d523f67e2ed47776990415b",
@@ -298,11 +298,11 @@
       "bytes": 76072
     },
     "Framework_PYQDraft.md": {
-      "sha256": "b45b1dcb84f8f7adb556787a3cb809a146eaf6bb4c4138ae2fc4b3f470c32a31",
-      "version_header": "# Framework_PYQDraft v1.0.1 \u2014 PYQ Step 2a \u2014 Taxonomy Building from Syllabus (\u00a72)",
-      "end_sentinel": "# END OF Framework_PYQDraft v1.0.1",
-      "lines": 952,
-      "bytes": 46366
+      "sha256": "23dda2880df38e04861f2218ded0b8b8069f7c70a783788cecf864d8ecfd07d0",
+      "version_header": "# Framework_PYQDraft v1.1.0 \u2014 PYQ Step 2a \u2014 Taxonomy Building from Syllabus (\u00a72)",
+      "end_sentinel": "# END OF Framework_PYQDraft v1.1.0",
+      "lines": 1147,
+      "bytes": 59031
     },
     "Framework_PYQExplain.md": {
       "sha256": "e72a491e95970f8e69e9616438c28c8e7a85aeb9ca3aa1a855aa48994ce769fe",
@@ -326,11 +326,11 @@
       "bytes": 200572
     },
     "Framework_PYQScan.md": {
-      "sha256": "b2fe40e10db478755d7c30cb0ea3e86bdef5d3626a433b96bdda27d4fc701acf",
-      "version_header": "# Framework_PYQScan v1.3.3 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
-      "end_sentinel": "# END OF Framework_PYQScan v1.3.3",
-      "lines": 1819,
-      "bytes": 90970
+      "sha256": "2395cad6130780d52f677fd24ecfb035f41d3e4ed770d319ebe3f434100eadd4",
+      "version_header": "# Framework_PYQScan v1.4.0 \u2014 PYQ Step 2b \u2014 Smart Scan for Subtopic Discovery (\u00a73)",
+      "end_sentinel": "# END OF Framework_PYQScan v1.4.0",
+      "lines": 1947,
+      "bytes": 98743
     },
     "Framework_PYQSort.md": {
       "sha256": "a64cffd3b7602eb170b2f02857768fffed5da5f688f941f0a351119873264541",
@@ -396,18 +396,25 @@
       "bytes": 282347
     },
     "reconcile_taxonomy.py": {
-      "sha256": "474d654ffb98c19c3e587cba48d9c64cafa471d6e0fc2af1e6f02a9a8aee0530",
+      "sha256": "b39092aefdee8074ff33f04970c545afb7e091546edb0997a9f11d6b5c4c3dca",
       "version_header": "\"\"\"",
       "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
-      "lines": 1248,
-      "bytes": 68963
+      "lines": 1865,
+      "bytes": 105127
     },
     "syllabus_provenance.py": {
-      "sha256": "f5bb1df6b0de7f66d824ef32c5d55bc22a0b4615691d6a0a53000666b84cd28d",
+      "sha256": "13f285a5eb91aba24280bd142a063a9d77891f8dddd522ee06df9a952dd84d33",
       "version_header": "\"\"\"",
-      "end_sentinel": "    return (not errors), errors, warnings, sorted(unanchorable - anchorable)",
-      "lines": 443,
-      "bytes": 20942
+      "end_sentinel": "    print(__doc__.strip().splitlines()[0])",
+      "lines": 775,
+      "bytes": 39284
+    },
+    "regression_pyq_fixtures.py": {
+      "sha256": "2f74fd14d080d7d52fcfddc4c329507adcb00969428f3e543d0223b9e67f6062",
+      "version_header": "#!/usr/bin/env python3",
+      "end_sentinel": "    sys.exit(0 if _self_test() else 1)",
+      "lines": 403,
+      "bytes": 20330
     },
     "figural_core.py": {
       "sha256": "fcb742958cec9ce4c43688c6c5baea2406344d1c1e2d3be0e263b1b213034166",
@@ -515,18 +522,18 @@
       "bytes": 8503
     },
     "LAW_REGISTRY.json": {
-      "sha256": "c76aaaf14cfb7c860187820c6ed11ef91d5a451561561f6fea65e536d4992630",
+      "sha256": "e7d006c4e2f12382169ef93d88f92f40b5c8916b6683ef01267cd51929d8b24b",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 80,
-      "bytes": 9360
+      "lines": 96,
+      "bytes": 10941
     },
     "SPEC_SECTIONS.json": {
-      "sha256": "2d7d750603c105c4f2d0eca65257b9de52747b9665fa9ea5f06a348c3e914c2e",
+      "sha256": "58a9f5a54a321fe55cb05623fc3f021cc89ce3026f880e7643a3f2e19a18180f",
       "version_header": "{",
       "end_sentinel": "}",
-      "lines": 6996,
-      "bytes": 197452
+      "lines": 7010,
+      "bytes": 197918
     },
     "MUTATION_BUDGETS.json": {
       "sha256": "1f233eb6c45e76639f543fc747392fe0b55d88fc0cc92bfc4d3cf50f4fa8dcab",
@@ -543,11 +550,11 @@
       "bytes": 6600
     },
     "SPEC_HISTORY.md": {
-      "sha256": "1d9fb3f2029468832ece0f53b40438463664d1c14a3dba89c289d52247230b14",
+      "sha256": "8fefd4dc34f1d382788ec57f3d98082b787362e61bdda9b0c9aab75a78257d73",
       "version_header": "# SPEC_HISTORY v1.0 \u2014 per-spec version history, moved off the execution path",
-      "end_sentinel": "# END OF SPEC_HISTORY v1.0",
-      "lines": 4110,
-      "bytes": 302988
+      "end_sentinel": "```",
+      "lines": 4197,
+      "bytes": 306703
     }
   }
 }

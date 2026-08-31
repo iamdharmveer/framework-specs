@@ -1,4 +1,21 @@
-# Framework_PYQScan v1.3.3 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# Framework_PYQScan v1.4.0 — PYQ Step 2b — Smart Scan for Subtopic Discovery (§3)
+# v1.4.0 — 2026-08-30 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION. (F1) S3-1 gains
+#   the GENERATION-AWARE TRIPWIRE: a draft carrying spec_generation is re-checked
+#   with reconcile_taxonomy.check_topic_density on load — an unmatched finding
+#   means the file in project Files is not the file PYQDraft's gate passed
+#   (Type-2 stale-input stop naming the file to replace); a draft WITHOUT
+#   spec_generation predates the release and gets the one-touch "re-run
+#   PYQDraft before scanning" Type-2 stop. S3-6 completion additionally writes
+#   post-refinement subtopic totals + ratio into scan_progress._meta
+#   (informational telemetry — PYQApprove C4 stays the enforcement point).
+#   (F2) scan-created names are GATED AT SOURCE: S3-3 discovery and S3-6 splits
+#   run the S2-3 name gates (question shape, catch-all patterns, the
+#   min(80, bc.MAX_HEADING_LEN) length bound), plus the C5 near-duplicate check
+#   against the receiving Topic's existing subtopics and, for discovered
+#   TOPICS, a collision check against syllabus-anchored topic names —
+#   self-correcting within the law's rounds; exhaustion writes a finding-keyed
+#   amber_status into scan_progress._meta (merged with the draft's at
+#   PYQApprove via engine E7).
 # v1.3.3 — 2026-08-22 — GAP-1A-STEP7-UNBOUND-NAMES Release B. MIN_PATTERN_SIZE
 #   (and its documented pair MIN_QUESTIONS_FOR_SPLIT) hoisted from
 #   run_refinement_pass()'s locals to module scope in the same fence:
@@ -67,6 +84,89 @@ def load_taxonomy_draft(exam_code):
             return json.load(open(path, encoding='utf-8'))
     return None
 
+
+def verify_draft_generation(draft):
+    """F1 TRIPWIRE (v1.4.0 — GATE-AT-SOURCE, generation-aware). Runs at S3-1
+    immediately after load_taxonomy_draft, BEFORE any scanning.
+
+    The pre-delivery gate guarantees every CURRENT-generation draft is
+    structurally clean, so a density finding here can only mean the file on
+    disk is not the file the gate passed. Both exits are Type-2 (input
+    integrity), each with exactly ONE operator action — never a defect halt.
+    """
+    from reconcile_taxonomy import check_topic_density, normalize_label
+    if not draft.get('spec_generation'):
+        raise SystemExit(
+            "This taxonomy draft predates the current rules; re-run PYQDraft "
+            "before scanning. (The draft lacks the generation stamp the "
+            "2026-08-30 release requires; re-deriving takes one step: "
+            "PYQDraft [ExamCode].)")
+    tax = {sec: {t: list(subs) for t, subs in tops.items()}
+           for sec, tops in (draft.get('sections') or {}).items()}
+    findings = check_topic_density(
+        draft.get('syllabus_items') or [], tax,
+        qcount_anchored=frozenset(draft.get('qcount_anchored_topics') or ()))
+    # same (class, normalized item) keying resolve_declared_amber uses (E7)
+    declared = {(u.get('class'), normalize_label(u.get('item')))
+                for u in (draft.get('amber_status') or {}).get('unresolved', [])}
+    residue = [f for f in findings
+               if (f['class'], normalize_label(str(f['item']))) not in declared]
+    if residue:
+        raise SystemExit(
+            "The taxonomy_draft.json in project Files does not match "
+            "current-generation PYQDraft output. Replace it with the latest "
+            "PYQDraft output and re-run PYQScan.")
+
+
+def gate_scan_name(name, kind, taxonomy, section, topic=None, *,
+                   shape_verdict, catch_all):
+    """F2 (v1.4.0 — GATE-AT-SOURCE for SCAN-CREATED names). Called for every
+    S3-3 discovered subtopic/topic name and every S3-6 split name, BEFORE the
+    name enters scan_progress['taxonomy'].
+
+    Returns [] when the name is admissible, else a list of defect strings the
+    CALLER must self-correct (re-derive the name from the question evidence),
+    within reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS rounds per name.
+    EXHAUSTION never stops the scan: the caller keeps the LEAST-BAD candidate,
+    records the residue in scan_progress['_meta']['amber_status'] (same
+    finding-keyed shape as PYQDraft S2-3f: {gate: 'scan_names', rounds,
+    unresolved: [{class, item, detail}]}) — PYQApprove merges it with the
+    draft's amber_status and resolves matching findings as DECLARED_AMBER
+    (engine E7). EVERY correction round the caller performs is ALSO appended
+    to scan_progress['_meta']['telemetry'] in the law's shape
+    ({check: 'scan_names', round, action, before, after}) — GATE-AT-SOURCE
+    LAW rule 5: an unrecorded fix is indistinguishable from a rule that
+    never fired. The S2-3 gates are CITED, not restated: question_shape_verdict
+    and the catch-all patterns live in Framework_PYQCore S2-3 (loaded — PYQScan
+    reads PYQCore per routes); the length bound is the S2-3 fence's
+    _NAME_HARD_LEN = min(80, bc.MAX_HEADING_LEN); the near-dup threshold is
+    reconcile_taxonomy.DUP_SIMILARITY.
+    """
+    from difflib import SequenceMatcher
+    from reconcile_taxonomy import DUP_SIMILARITY, normalize_label
+    import blueprint_core as bc
+    defects = []
+    verdict, reason = shape_verdict(name)               # S2-3 fence (PYQCore)
+    if verdict == 'HARD':
+        defects.append(f'SCAN_NAME_SHAPE: {reason}')
+    if catch_all(name):                                 # S2-3 banned patterns
+        defects.append('SCAN_NAME_CATCH_ALL: banned residual-bin pattern')
+    if len(name) >= min(80, bc.MAX_HEADING_LEN):
+        defects.append('SCAN_NAME_LENGTH: cannot survive the heading round trip')
+    if kind == 'subtopic':
+        for existing in taxonomy.get(section, {}).get(topic, []):
+            r = SequenceMatcher(None, normalize_label(existing),
+                                normalize_label(name)).ratio()
+            if r >= DUP_SIMILARITY:
+                defects.append(f'SCAN_NAME_NEAR_DUP: {r:.2f} vs {existing!r} — '
+                               f'classify into the existing subtopic instead')
+    else:  # discovered TOPIC: must not collide with a syllabus-anchored topic
+        if normalize_label(name) in {normalize_label(t)
+                                     for t in taxonomy.get(section, {})}:
+            defects.append('SCAN_TOPIC_COLLISION: normalized name collides '
+                           'with an existing topic — classify into it instead')
+    return defects
+
 def load_scan_progress(exam_code):
     """Load scan progress for resume across sessions."""
     for base in ['/mnt/project/', '/mnt/user-data/uploads/']:
@@ -110,6 +210,10 @@ def load_count_progress(exam_code):
 
 def init_scan_progress(exam_code, taxonomy_draft):
     """Initialize scan_progress.json from taxonomy_draft.json.
+    v1.4.0 (F1): verify_draft_generation(taxonomy_draft) MUST be called first —
+    this function is the guaranteed entry point of every fresh scan, and a
+    RESUMED scan already passed it at init. The tripwire never scans; it only
+    verifies the draft is current-generation-clean before any batch work.
     TAXONOMY AUTHORITY CHAIN (v1.7):
       Step 2a creates taxonomy_draft.json → uploaded to project knowledge.
       Step 2b modifies taxonomy IN scan_progress.json (not taxonomy_draft.json).
@@ -117,6 +221,7 @@ def init_scan_progress(exam_code, taxonomy_draft):
       taxonomy_draft.json is NEVER modified after Step 2a.
       The authoritative taxonomy after scanning = scan_progress.json['taxonomy'].
     """
+    verify_draft_generation(taxonomy_draft)     # F1 tripwire (Type-2 exits only)
     total_subtopics = sum(
         len(subs) for topics in taxonomy_draft['sections'].values()
         for subs in topics.values()
@@ -1220,6 +1325,16 @@ def run_scan(exam_code, progress, paper_queue, total_available):
                 progress['_meta']['consecutive_empty_batches'] = 0  # HARD RESET
         # Partial batches (context limit) do NOT affect the counter
 
+        # F2 (v1.4.0): every discovered name was admitted through
+        # gate_scan_name BEFORE entering progress['taxonomy'] — a name still
+        # carrying defects after the law's rounds is in _meta.amber_status,
+        # never silently clean; each correction round is in _meta.telemetry.
+        # D6 (§6.5): when taxonomy_draft.subject_flags marks this subject
+        # open_ended, discovery here is EXPECTED — report it as
+        # "expected discovery (open-ended syllabus)" rather than anomalous
+        # growth; skeletal subjects likewise grow by design (density was
+        # never judged — the approval record carries the density_unjudged
+        # note).
         # Log discovery
         progress['discovery_log'].append({
             'batch': batch_num,
@@ -1492,7 +1607,20 @@ def run_refinement_pass(progress, classifications, exam_code):
     })
 
     # 7. Update metadata
+    # F2 (v1.4.0): every split name in refinement_splits passed gate_scan_name
+    # before adoption (same self-correction bound and amber residue path as
+    # batch discovery).
     progress['_meta']['refinement_pass_done'] = True
+    # F1 companion (v1.4.0): post-refinement structural telemetry — VISIBLE at
+    # the artifact that changed, informational only (PYQApprove C4 remains the
+    # enforcement point; this write never gates).
+    _n_subs = sum(len(subs) for tops in taxonomy.values()
+                  for subs in tops.values())
+    _n_entries = progress['_meta'].get('source_taxonomy_subtopics') or 0
+    progress['_meta']['post_refinement_totals'] = {
+        'subtopics': _n_subs,
+        'ratio_vs_draft': round(_n_subs / _n_entries, 2) if _n_entries else None,
+    }
 
     # If refinement found new subtopics, reset consecutive_empty counter
     # because the taxonomy just changed — need to verify stability again
@@ -1816,4 +1944,4 @@ BANNED JSON FIELDS (v1.7 — Claude MUST NOT add any of these):
 
 ---
 
-# END OF Framework_PYQScan v1.3.3
+# END OF Framework_PYQScan v1.4.0

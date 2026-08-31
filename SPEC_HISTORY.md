@@ -4108,3 +4108,90 @@ Current-version entry remains in Framework_ScopedBlueprint.md.
 ---
 
 # END OF SPEC_HISTORY v1.0
+
+## Framework_PYQCore.md — texts superseded by v1.7 (GAP-2026-08-30-TYPE1-HALT-ELIMINATION, 2026-08-30)
+
+### S2-3 PROOF OF CORRECT TOPIC COUNT (v1.6 form — the stranded pre-v1.1 absolute rule; RPSC_ZOOLOGY root cause 1)
+```
+  PROOF OF CORRECT TOPIC COUNT (self-check):
+    After Topic derivation, count the Topics per section.
+    If a section has ≤ 4 Topics but the syllabus listed 10+ items → Topics
+    are over-aggregated. Re-derive. The syllabus items ARE the Topics.
+```
+
+### S2-3 GROUPING Arithmetic example (v1.6 form — superseded per DECISION D8: the example produced exactly the 11-items-one-Topic shape the density check rejects)
+```
+    Example: "Percentage, Ratio, Average, Interest, P&L, Discount,
+             Partnership, Mixture, SDT, Time & Work, Pipes & Cisterns"
+             → Topic "Arithmetic" with each item as a subtopic.
+```
+
+### S2-3 CATCH-ALL PROHIBITION SELF-CHECK (v1.6 form — HARD STOP on Claude's own output, retired per GATE-AT-SOURCE LAW rule 2)
+```
+    SELF-CHECK: after completing Topic derivation for a section,
+    scan all Topic names against the banned patterns. If ANY match
+    → HARD STOP. Re-derive those items as individual Topics.
+```
+
+### S2-3 NAME-SHAPE SELF-CHECK HARD branch (v1.6 form — same retirement)
+```
+          if verdict == 'HARD':
+              HARD STOP: f"Name-shape violation: '{name[:60]}' — {reason}. "
+                         f"Re-extract this item as a proper taxonomy label, not a question."
+```
+
+### question_shape_verdict length branch (v1.6 form — bare 80 bound, superseded by min(80, bc.MAX_HEADING_LEN))
+```
+    if len(n) > 80:
+        return ('HARD', f'{len(n)} chars — far longer than any taxonomy label')
+```
+
+### STEP 3 ratio guardrail (v1.6 form — dead-stop, retired per GATE-AT-SOURCE LAW rule 2)
+```
+      ratio > 3.0  → HARD STOP. Print:
+        "Taxonomy inflation ratio = [X]× exceeds 3.0× guardrail.
+         Over-fragmentation will cause classification failures.
+         Re-derive taxonomy with fewer splits."
+```
+
+### STEP 3 CATCH-ALL NAME CHECK (v1.6 form — same retirement)
+```
+    CATCH-ALL NAME CHECK (mandatory):
+      Scan ALL Topic and Subtopic names against the banned patterns
+      from the CATCH-ALL PROHIBITION rule (above). If ANY match →
+      HARD STOP. Re-derive those items as individual named Topics/Subtopics.
+      This check runs AFTER all other quality gates.
+```
+
+### §12 Phase 0a DoD ratio line (v1.6 form)
+```
+  ☐ Ratio guardrail passed: total_subtopics / syllabus_entries ≤ 3.0×
+```
+
+## Framework_PYQDraft.md — texts superseded by v1.1.0 (GAP-2026-08-30-TYPE1-HALT-ELIMINATION, 2026-08-30)
+
+### S2-3f attempts + operator message (v1.0.1 form — the two-attempt "re-run and report" dead end; halts #7/#8's root, retired per GATE-AT-SOURCE LAW rule 4 in favor of the 3-round constraint-carrying loop with AMBER exhaustion)
+```
+  ATTEMPT 2 — if it still fails, re-derive that subject's mapping from S2-3.
+
+  AFTER 2 FAILED ATTEMPTS — stop. Do NOT loop, do NOT save a partial draft,
+  and do NOT surface the exception. Print the operator message below.
+
+OPERATOR MESSAGE (plain language, closed set — this is the ONLY form in which
+this failure may reach the operator):
+
+  "Step 2a could not complete. The syllabus mapping has an issue I could not
+   resolve automatically.
+
+   WHAT HAPPENED:
+     [one plain line per error, max 5, jargon removed]
+
+   This is a taxonomy build issue, not something you did, and not something
+   you need to evaluate.
+
+   YOUR NEXT ACTION (1 step):
+   1. Re-run: PYQDraft [ExamCode]
+      If it fails again, report the WHAT HAPPENED lines above."
+
+  No traceback. No field names. No stack. No request to judge anything.
+```

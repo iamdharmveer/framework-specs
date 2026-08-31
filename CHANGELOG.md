@@ -1,5 +1,94 @@
 # Changelog
 
+## 2026.08.31.1 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION: GATE-AT-SOURCE — Type-1 halts eliminated from the PYQ pipeline
+
+**One release, §6.2 E1–E7 + §6.3 C1–C9/D1–D3/A1–A3/F1–F2 + §6.4 S1–S5 in full.**
+The GATE-AT-SOURCE LAW is registered (LAW_REGISTRY: GATE-AT-SOURCE-LAW, detect
+rule `topic_density_gate_call`, verifier audit_specs_ext:H-SELFSTOP): every
+structural check runs at the step that creates the artifact, inside a bounded
+self-correcting loop; dead stops on Claude's own output are retired; only
+Type-2 (input-integrity) stops remain, each with exactly one operator action.
+
+**reconcile_taxonomy v1.3 -> v1.4 (SCHEMA 1.3 -> 1.4)** — check_topic_density()
+exported (one implementation, three call sites: Draft pre-delivery, Scan S3-1
+tripwire, Approve C6 backstop); BOTH forms (subject density + NEW per-topic cap
+OVER_AGG_PER_TOPIC_CAP=5, finding class TOPIC_OVER_AGGREGATION_TOPIC);
+syllabus-anchored denominator (scan-discovered topics reported, never counted —
+RPSC's true 6.x, not the diluted 5.25); excluded/qcount scoping attested in the
+C6 ledger note; C2 exclusion-aware with excluded_counts; E6 corrective
+input-shape guards (the flattened-classifications live defect now raises with
+the correct shape stated); grandfather() (pre-release locks never newly HELD on
+NEW_FINDING_CLASSES); resolve_declared_amber() + adjudicate(amber_status=)
+(DECLARED_AMBER: Tier 0, reported, never adjudicated, never replayed);
+build_approval_record stamps spec_generation, records amber_status +
+declared_amber, and writes re_derive_directive on HELD (findings, crowded
+topics, constraints, rejected_fingerprint). Self-test 69 -> 101 (incl. ghost-destination no-crash and handshake-carry pins); record additionally carries subject_flags / dedup_report / telemetry verbatim plus the density_unjudged note (§6.5).
+
+**syllabus_provenance (E5)** — excluded item states (closed class set +
+reason, exclusive with mapping), entry dedup (exact + near at caller-supplied
+DUP_SIMILARITY; dedup_report; within-subject only), detect_subject_flags
+(skeletal per D5 atomic_min=20 / open_ended), find_duplicate_subjects (the C9
+seatbelt detector), validate_provenance subject-set equality both directions +
+exclusivity; build_items returns (items, errors, dedup_report). Self-test added
+(23, incl. the dedup state-guard pin).
+
+**Framework_PYQCore v1.6 -> v1.7** — GATE-AT-SOURCE LAW section; C1 PROOF cites
+the engine (the stranded "≤ 4 Topics" rule retired to SPEC_HISTORY — the RPSC
+root cause); C2 per-topic cap + EC-P20 tie-break; C3 anchoring record; C4
+exclusion recording mandate; catch-all/name-shape/ratio dead-stops ->
+self-correction; _NAME_HARD_LEN = min(80, bc.MAX_HEADING_LEN) at write time;
+catch_all_name_match() single implementation; PRE-DELIVERY GATE (D3 order);
+§12 DoD extended (density both forms, subject set, exclusions, dedup, lengths,
+seatbelt, telemetry, spec_generation).
+
+**Framework_PYQDraft v1.0.1 -> v1.1.0** — S2-0 INTAKE RULE (HELD directive
+consumed as HARD constraints; CLEAN requires "CONFIRM RE-DERIVE"; prior AMBER
+constrains); C9 duplicate-subject seatbelt (Type-2, exact one-touch message) at
+S2-1 + save_taxonomy_draft; emission wiring (excluded / dedup / anchored /
+flags); S2-3e fence updated (seatbelt, 3-tuple build_items, density both forms
+pre-delivery); S2-3f -> 3 constraint-carrying rounds with AMBER exhaustion
+(finding-keyed amber_status; auto-declared OTHER deviations; data-preserving
+structural residue; validate_provenance must pass; pipeline continues); S2-4
+schema + spec_generation stamp; S2-6 AMBER print.
+
+**Framework_PYQApprove v1.0.1 -> v1.1.0** — invocation gains grandfather() +
+resolve_declared_amber() + qcount_anchored_topics/amber_status passthrough;
+INPUTS extended; C6 text cites check_topic_density (both forms, denominator,
+scoping, per-topic detail) + THREE-CASE rule (pre-release / DECLARED_AMBER /
+stale current-generation input); Branch B prints crowded topics + the directive
+sentence (operator action stays 1 step); Branch A prints declared imperfections.
+
+**Framework_PYQScan v1.3.3 -> v1.4.0** — F1 generation-aware tripwire
+(verify_draft_generation at init_scan_progress: unstamped draft -> "re-run
+PYQDraft before scanning"; stamped draft with unmatched density finding ->
+stale-file Type-2); S3-6 writes post_refinement_totals into _meta
+(informational); F2 gate_scan_name for every discovered/split name (S2-3 gates
+cited: shape, catch-all, min(80, MAX_HEADING_LEN), C5 near-dup vs receiving
+topic, discovered-topic collision; exhaustion -> _meta.amber_status, merged at
+Approve via E7).
+
+**Audit fabric** — audit_specs_ext: H-SELFSTOP (retired self-stop phrasings
+policed in live Framework_*.md; 4 self-test fixtures; live corpus clean);
+audit_sync: detect rule topic_density_gate_call. regression_pyq_fixtures.py
+NEW: 25 cross-exam fixtures (39 assertions) covering §7's expected-outcome
+matrix and §9's behavioral criteria — RPSC two-session directive round trip,
+CSIR/UGC-History/CAT/CTET/CUET/GATE/JAM/RRB/CLAT/CA-Foundation shapes, AMBER
+round trip, DECLARED_AMBER non-replay, grandfathering, E6 rejection, C9
+seatbelt, DEGRADED unchanged; tracked in MANIFEST, auto-run by CI discovery.
+
+**§10 DECISION DEFAULTS applied as specified:** D1 per-topic cap = 5 (same
+number as the density threshold). D2 q-count-anchored topics exempt + Tier-0
+WARN when over cap. D3 exclusion classification fully automatic, recorded in
+the approval record. D4 most granular authoritative listing wins dedup
+(order-first mechanics). D5 skeletal atomic_min = 20. D6 open-ended discovery
+expected + existing ≥3-PYQ retention confirms (no new rule needed — engine C3
+already implements). D7 RPSC_ZOOLOGY waits for this release, then re-runs
+PYQDraft (its next PYQApprove writes the directive). D8 Arithmetic example
+revised as split Topics.
+
+**Superseded texts** moved VERBATIM to SPEC_HISTORY.md (eight blocks). routes.json
+UNCHANGED.
+
 ## 2026.08.30.3 — GAP-2026-08-30-LINEART-CLASSIFIER: the size governor's line-art test becomes structural
 
 **corpus_io v1.14 -> v1.15 (_is_line_art() measures (flat_fraction, mode_fraction); _is_line_art() =

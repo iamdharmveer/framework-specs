@@ -358,6 +358,40 @@ def check_z_version(path, text):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+_H_SELFSTOP_PATTERNS = [
+    # Retired self-stop phrasings (GATE-AT-SOURCE LAW rule 2, GAP-2026-08-30-
+    # TYPE1-HALT-ELIMINATION). Each was a dead stop on Claude's OWN output;
+    # each now has a self-correcting replacement. Their reappearance in live
+    # spec text is the drift this check polices. SPEC_HISTORY.md keeps the
+    # superseded texts verbatim and is not audited (not a Framework_*.md).
+    (re.compile(r'Re-derive taxonomy with fewer splits'),
+     'retired ratio dead-stop (v1.7 self-corrects: merge Q3-failing splits)'),
+    (re.compile(r'HARD STOP:?\s*f?"?Name-shape violation'),
+     'retired name-shape dead-stop (v1.7 self-corrects: re-extract the label)'),
+    (re.compile(r'If ANY match\s*(?:→|->)\s*HARD STOP'),
+     'retired catch-all dead-stop (v1.7 self-corrects: derive named Topics)'),
+    (re.compile(r'≤ 4 Topics|<= 4 Topics'),
+     'the stranded pre-v1.1 absolute over-aggregation rule (v1.7 cites '
+     'reconcile_taxonomy.check_topic_density; constants live in the engine)'),
+]
+
+
+def check_h_selfstop(path, text):
+    """H-SELFSTOP (GAP-2026-08-30-TYPE1-HALT-ELIMINATION; LAW_REGISTRY
+    GATE-AT-SOURCE-LAW verifier). Live Framework_*.md text must be free of the
+    retired self-stop phrasings — a reappearance means a spec re-grew a dead
+    stop on Claude's own output, or restated a check the engine owns."""
+    if not os.path.basename(path).startswith('Framework_'):
+        return
+    for pat, why in _H_SELFSTOP_PATTERNS:
+        for m in pat.finditer(text):
+            line = text.count('\n', 0, m.start()) + 1
+            add('H-SELFSTOP', path,
+                f"line {line}: retired self-stop phrasing {m.group(0)!r} — {why}. "
+                f"GATE-AT-SOURCE LAW rule 2: self-correct, never dead-stop on own "
+                f"output; rule 3: cite the engine, never restate the check.")
+
+
 def check_spec_budget(paths):
     """SPEC-BUDGET — GAP-2026-08-16-STEP5-SESSION-EXHAUSTION / G-1, EC-P42.
 
@@ -419,13 +453,14 @@ def main(paths):
         check_x_number(p, t)
         check_y_config(p, t)
         check_z_version(p, t)
+        check_h_selfstop(p, t)
     check_v_sync(texts)
     check_v_scope(texts, known)
     check_spec_budget(paths)
 
     if not ISSUES:
         print(f"✅ audit_specs_ext: 0 issues across {len(texts)} file(s) "
-              f"[V-SYNC W-DECISION X-NUMBER Y-CONFIG Z-VERSION SPEC-BUDGET]")
+              f"[V-SYNC W-DECISION X-NUMBER Y-CONFIG Z-VERSION SPEC-BUDGET H-SELFSTOP]")
         return 0
     by_file = defaultdict(list)
     for chk, f, msg in ISSUES:
@@ -532,6 +567,31 @@ def self_test():
     rc, out = probe_budget(SPEC_BUDGET_BYTES + 5000, trigger='BrandNewStep')
     check("SPEC-BUDGET fires for any uncovered over-threshold trigger (no exemption path exists)",
           rc == 1 and '[SPEC-BUDGET]' in out)
+
+    # H-SELFSTOP (GAP-2026-08-30-TYPE1-HALT-ELIMINATION): fires on each retired
+    # phrasing, silent on clean text and on non-Framework files.
+    rc, out = probe("Framework_H.md",
+        "# Framework_H v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+        "body\nRe-derive taxonomy with fewer splits.\n"
+        "# END OF Framework_H v1.0.0\n")
+    check("H-SELFSTOP fires on retired ratio dead-stop",
+          rc == 1 and 'H-SELFSTOP' in out)
+    rc, out = probe("Framework_H2.md",
+        "# Framework_H2 v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+        "If a section has ≤ 4 Topics but the syllabus listed 10+ items\n"
+        "# END OF Framework_H2 v1.0.0\n")
+    check("H-SELFSTOP fires on the stranded absolute rule",
+          rc == 1 and 'H-SELFSTOP' in out)
+    rc, out = probe("Framework_H3.md",
+        "# Framework_H3 v1.0.0 — t\n# v1.0.0 — 2026-01-01 — x\n"
+        "Density is checked by reconcile_taxonomy.check_topic_density.\n"
+        "# END OF Framework_H3 v1.0.0\n")
+    check("H-SELFSTOP silent on the citing form", rc == 0)
+    rc, out = probe("SPEC_HISTORY_fixture.md",
+        "Re-derive taxonomy with fewer splits.\n")
+    check("H-SELFSTOP silent on non-Framework files",
+          rc == 0 and '0 issues' in out)
+
 
     # The live corpus itself must pass with the standard invocation
     # (specs + engines together, per the V-SCOPE contract).

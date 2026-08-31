@@ -74,6 +74,22 @@
         "WRITER SET IS DERIVED. paper_pipeline.RH_REGISTRY_WRITING_STEPS names the triggers; audit_sync derives the performing SPECS from the corpus text, so a new spec that calls a writer cannot inherit the surface without the MS-14 checks.",
         "HISTORY. Through release 2026.08.26.2 four mock-track steps wrote the registry and one delivered it; MockTestExplain S19-1 HARD-STOPPED on a staged registry while §7A-M called the registry 'the ONLY channel to Step 11'. Every gated paper on every exam was undeliverable by a literal run."
       ]
+    },
+    "GATE-AT-SOURCE-LAW": {
+      "gap": "GAP-2026-08-30-TYPE1-HALT-ELIMINATION",
+      "stated_in": "Framework_PYQCore.md",
+      "requires": "Every structural check a later step enforces on an artifact must run at the step that CREATES the artifact, before delivery, inside a bounded self-correction loop (max reconcile_taxonomy.SELF_CORRECTION_MAX_ROUNDS constraint-carrying rounds; exhaustion exits AMBER with a finding-keyed amber_status — never a dead stop, never a silent green). A HARD STOP on Claude's own output is a spec violation; only input-integrity (Type-2) stops are permitted and each must name exactly one operator action. ONE RULEBOOK: each structural threshold has exactly one implementation in a routed engine — the over-aggregation gate is reconcile_taxonomy.check_topic_density (one implementation, three call sites: PYQDraft pre-delivery, PYQScan S3-1 tripwire, PYQApprove C6 backstop); specs cite it and its constants, never restate values. Every auto-correction and AMBER exit is recorded in telemetry.",
+      "detect": "topic_density_gate_call",
+      "detect_note": "A spec PERFORMS a GATE-AT-SOURCE operation when its live text names check_topic_density — hosting the gate's normative statement (PYQCore), calling it pre-delivery (PYQDraft), at the S3-1 tripwire (PYQScan), or as the C6 backstop (PYQApprove).",
+      "governs": [
+        "Framework_PYQCore.md",
+        "Framework_PYQDraft.md",
+        "Framework_PYQScan.md",
+        "Framework_PYQApprove.md"
+      ],
+      "verified_by": [
+        "audit_specs_ext:H-SELFSTOP"
+      ]
     }
   },
   "_on_partial_remediation": "A GAP remediated in one governed spec MUST be re-verified against EVERY spec in 'governs' before the GAP is closed, and the re-verification must be the CI RUN, not a reading. GAP-2026-08-15-PYQCOUNT-DRIVE-ACQUISITION was closed after fixing Step 4; Step 5 was described in its own changelog as 'the reference implementation' and never re-read against the new contract; Step 5's Drive lane was dead the whole time, could silently emit a deliverable of zero-PYQ scaffolds, and four auditors reported 0 findings. 'Already correct' must mean 're-verified against the new contract', never 'not the file the defect was reported in'."
