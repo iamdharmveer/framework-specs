@@ -1,3 +1,68 @@
+# Deploy: GAP-2026-08-29-STYLE-FIDELITY (rev 2) — release 2026.08.31.2
+
+**Files to commit (20):** `analyse_engine.py` (v2.56), `blueprint_core.py`,
+`corpus_io.py`, `explain_engine.py` (v1.50.0), `paper_pipeline.py`,
+`audit_canonical.py` (v2.26), `audit_seam.py` (v1.4), `mock_sync_audit.py`,
+`spec_sections.py`, `Framework_MockTestAnalyse.md` (v2.56),
+`Framework_MockTestCreate.md` (v5.82), `Framework_MockTestExplain.md` (v1.50.0),
+`Framework_Blueprint.md` (v1.59.0), `Framework_MockDeliver.md` (v1.20.0),
+`Framework_DeliveryFooter.md` (v1.30), `VERSION`, `CHANGELOG.md`,
+`DEPLOY_NOTES.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`, `SPEC_SECTIONS.json`.
+
+Deploy the engines after running each `--self-test` ON THE DEPLOYED BYTES:
+analyse_engine 196, blueprint_core 651, corpus_io 381, explain_engine 193,
+paper_pipeline 185, audit_canonical 336, mock_sync_audit 64, audit_seam 25.
+
+## Operator change: NONE for a project already in flight
+
+Nothing is required of you to deploy this. Every behaviour below is DORMANT
+until you choose to regenerate an exam's Step 5.
+
+| Your project's state | What happens |
+|---|---|
+| Release deployed, exam NOT regenerated | The two new artefacts are absent, so both report `DORMANT: absent`. Every step produces the same bytes as 2026.08.31.1 apart from ONE footer line: `STYLE PROFILE: DORMANT — absent`. Verified by execution (§8.6 proof 1). |
+| Step 5 regenerated (3 files uploaded), OLD blueprint kept | Profile and index go ACTIVE. G-STYLE, G-PYQ-DIST and G-ITEM start recording. Axis-2 classes absent from the old schedule (IDENTIFY, SELECT_PLOT, RANK, widened STATEMENT) cannot be allocated and are recorded as `axis2_schedule_predates_profile`. |
+| Step 5 AND blueprint regenerated | Fully active for the remaining mocks. Delivered mocks are never rewritten; `registry.papers_completed` is preserved, so the new blueprint schedules only what is left. |
+
+**IIT_JAM_CHEMISTRY specifically:** Mocks 1-4 are delivered and are NOT touched,
+re-audited or re-scored. To bring the style layer into Mock 5 onward, re-run
+Step 5 for the exam and upload the three refreshed files
+(`section_rules.md`, `style_profile.json`, `pyq_index.json`) before TestCreate P5.
+If you would rather not, Mock 5 runs exactly as Mock 4 did.
+
+## Known limitation, stated up front
+
+A single-subject MCQ CONTENT exam with no mathematical notation and no NAT/MSQ
+answer types — some LAW and COMMERCE papers — is classified `aptitude` and keeps
+the v2.55 keyword table. That is precisely its v2.55 behaviour, so nothing
+regresses; it simply does not yet gain the measured path. The exams that were
+being actively harmed (science, engineering, medical — anything with notation or
+NAT/MSQ) are all on the measured path. Widening the class test is a later,
+separate change and is NOT smuggled into this release.
+
+## What to watch after regenerating an exam
+
+The S3-18 summary prints `STYLE PROFILE: ACTIVE (n=…, window=…)` or a DORMANT
+reason, and `PYQ INDEX: <n> questions`. A `DORMANT: stale_profile` line names
+both files and means one regeneration is out of step with the other — it is a
+prompt, never a failure. All per-question style records live in the audit
+dossier and `registry.style_gate`; NONE of it appears in a candidate's paper.
+
+**Deploy all 20 files TOGETHER — a partial deploy is detected, not silent.**
+Verified by extracting the bundle into a clean checkout: copying only the `.py`
+and `.md` files while leaving `SPEC_SECTIONS.json` / `VERSION` behind makes
+`audit_specs_ext` fail SPEC-BUDGET and `audit_sync` report a REL-SYNC finding
+immediately. That is the designed behaviour — the manifests and VERSION are part
+of the release, not bookkeeping — but it means a half-copied deploy shows up as
+two red auditors rather than as a subtly wrong pipeline. Copy the whole set, then
+run the self-tests listed above ON THE DEPLOYED BYTES.
+
+**Rollback:** revert all 20 files together. The release is additive, so a
+rollback loses the style layer and nothing else; artefacts left in Project Files
+are simply ignored by the older code.
+
+---
+
 # Deploy: GAP-2026-08-30-LINEART-CLASSIFIER — release 2026.08.30.3
 
 **Files to commit (8):** `corpus_io.py` (v1.15), `Framework_PYQCompress.md` (v2.0.1), `VERSION`,

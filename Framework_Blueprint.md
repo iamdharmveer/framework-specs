@@ -1,4 +1,9 @@
-# Framework_Blueprint v1.58.0 — Universal Mock Test Blueprint Generator
+# Framework_Blueprint v1.59.0 — Universal Mock Test Blueprint Generator
+# v1.59.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: blueprint.json gains the additive
+#   `style_profile_expected` flag (§14) so Step 7 can distinguish EC-22 (a profile that
+#   vanished after planning) from an exam that never had one; the Axis-2 schedule accepts
+#   AXIS2_CLASSES (11). Both additive: zero observations schedule zero, so an exam that
+#   observes none of the new classes produces a byte-identical schedule to v1.58.0.
 # v1.58.0 — 2026-08-29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET + GAP-2026-08-29-PROFILE-
 #   UNSCORED-QUESTIONS (paired with blueprint_core Cluster DP — DP_HARDER_FRAC, dp_harder,
 #   dp_guardrail_bounds, DP_EXAM_WORD, dp_add_paper paper_positions/unscored, DP_TOLERANCE_FRAC 0.30 → 0.50;
@@ -3438,6 +3443,24 @@ difficulty_source = {'mode': None, 'profile_file': (f'{EXAM}_difficulty_profile.
   The delivery footer (MockDeliver §FOOTER-DS) prints one line from this record, so
   a framework preset, a confirmed override and a measured mix can never be mistaken
   for one another.
+
+  STYLE PROFILE EXPECTATION (v1.59.0 — GAP-2026-08-29-STYLE-FIDELITY §6.4). ONE
+  additive field:
+    blueprint['style_profile_expected'] = True | False
+  True iff `{EXAM}_style_profile.json` was present AND ACTIVE at blueprint time.
+  Step 7 reads it for EXACTLY ONE purpose: to tell "this exam never had a style
+  profile" (dormant, ordinary) apart from "the profile that existed when this
+  series was planned has since vanished" (EC-22, recorded in
+  style_gate.events[] as `absent_after_blueprint`). It RECORDS the difference —
+  it never stops, never withholds, and never changes how a question is
+  authored. A pre-v1.59.0 blueprint has no key; Step 7 treats absence as False.
+
+  AXIS-2 CLASSES (v1.59.0). The Axis-2 schedule accepts the extended
+  AXIS2_CLASSES (11 — IDENTIFY, SELECT_PLOT and RANK inserted after SEQUENCE,
+  STATEMENT widened). Schedule computation is UNCHANGED in form: a class with
+  zero observations schedules zero, so on any exam where none of the new
+  classes is observed the schedule is byte-identical to v1.58.0 (EC-26
+  regression pack).
 
 # progressive_mode = True if trigger had '--difficulty progressive', else False
 # (set during trigger parsing in S1-1)
@@ -7758,4 +7781,4 @@ Step 1 is complete and B3 may proceed ONLY when ALL of the following hold:
         difficulty_counts / derive_axis_schedule / slugify remains in this spec —
         single source of truth (v1.28).
 
-# END OF Framework_Blueprint v1.58.0
+# END OF Framework_Blueprint v1.59.0

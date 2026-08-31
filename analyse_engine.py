@@ -45,6 +45,9 @@ import re
 import sys
 from collections import Counter
 from difflib import SequenceMatcher
+import hashlib
+import math
+import unicodedata
 
 import blueprint_core as bc      # Cluster H — pure acquisition/image decisions
 import corpus_io                 # I/O shell — Drive fetch, image integrity, governor
@@ -531,7 +534,7 @@ def strip_variables(stem, mode):
     t = re.sub(r'\[\d{1,2}-\w+-\d{4}[^\]]*\]', '', t)
     return t.strip()
 
-def generate_templates(questions, strip_mode):
+def generate_templates(questions, strip_mode, sig=None):
     """
     BUG-A04 fix: SequenceMatcher imported at module top (§1 S1-1).
     BUG-A13 fix: empty skeletons returns [] — caller handles this case.
@@ -555,7 +558,8 @@ def generate_templates(questions, strip_mode):
     skeletons = []
     for q in questions:
         if not q.get('stem'): continue
-        skel = strip_variables(q['stem'], strip_mode)
+        skel = (strip_variables_v2(q['stem'], sig, strip_mode) if sig is not None
+                else strip_variables(q['stem'], strip_mode))
         if not skel.strip(): continue
         weight = 2 if q.get('year') in last2 else 1
         # v2.54.1: carry the true value (None allowed); the cluster 'years' set
@@ -917,7 +921,9 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
     link_map = {qn: g['group_id'] for g in linked_groups for qn in g['q_numbers']}
 
     for q in questions:
-        sm      = determine_strip_mode(q.get('section',''), q.get('topic',''), q.get('subtopic',''))
+        # (dead `sm = determine_strip_mode(...)` removed 2026-08-31 — assigned,
+        #  never consumed; a leftover of the retired per-question strip stamp.
+        #  MS-16 forbids table callers outside the aptitude shim.)
         # Determine marks per question: try 'MCQ' key first (most exams),
         # then try all values and use the max (handles GATE 1-mark/2-mark structure
         # where marks_per_q = {'1-mark':1,'2-mark':2} — use max available mark as default).
@@ -1007,6 +1013,18 @@ def process_pyq_paper(docx_path, paper_id, exam_code,
     meta = progress.setdefault('_meta', {'papers_processed':[],'total_questions':0,
                                           'years_processed':[]})
     meta['papers_processed'].append(paper_id)
+    # v2.56 (GAP-2026-08-29-STYLE-FIDELITY §6.2/§6.3): the corpus_hash both style
+    # artefacts stamp is sha256 over the SORTED set of these per-paper file
+    # hashes. Stamped at the one place the docx bytes are in hand. Additive: a
+    # pre-v2.56 progress file simply lacks the key and the synthesis fence falls
+    # back to hashing paper_ids (documented DEGRADED source, still deterministic).
+    try:
+        with open(docx_path, 'rb') as _fh:
+            meta.setdefault('paper_file_hashes', {})[paper_id] = \
+                hashlib.sha256(_fh.read()).hexdigest()
+    except OSError:
+        meta.setdefault('paper_file_hashes', {})[paper_id] = \
+            hashlib.sha256(str(paper_id).encode()).hexdigest()
     meta['total_questions'] += len(questions)
     if year and year not in meta['years_processed']:
         meta['years_processed'].append(year)
@@ -1233,8 +1251,12 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
         # QV-8 (OMML recovery >= 80%) skip exactly those questions (om == [] -> PASS).
         # Producer and consumer sharing a blind spot is what made this silent, the same
         # shape as the Q-detector defect above. Seeding both flags from the stem closes it.
-        _stem_txt = re.sub(r'^Q\.?\d+\.?\s*', '', text).strip()
-        _stem_txt, _stem_ok, _stem_has_omml = enrich_paragraph_with_omml(_stem_txt, para)
+        # v2.56 (GAP-2026-08-29-STYLE-FIDELITY §6.1.6 / E-13): the stem TEXT comes from
+        # corpus_io.text_of(para, omml_renderer=omml_to_linear) so <w:t> and <m:t> interleave in DOCUMENT ORDER —
+        # enrich_paragraph_with_omml is retained ONLY for the omml_present/omml_ok
+        # flags (its appended-at-end text is discarded).
+        _, _stem_ok, _stem_has_omml = enrich_paragraph_with_omml('', para)
+        _stem_txt = re.sub(r'^Q\.?\d+\.?\s*', '', corpus_io.text_of(para, omml_renderer=omml_to_linear)).strip()
         if _stem_has_omml:
             omml_present = True
             omml_ok      = omml_ok and _stem_ok
@@ -1286,11 +1308,12 @@ def extract_presorted(doc, year, shift, paper_id, q_roles, options_count, multi_
                 options.append(clean_option_text(nt))
                 options_raw.append(nt)   # v2.15: preserve raw line for label detection
             else:
-                enriched, ok, has_omml = enrich_paragraph_with_omml(nt, paras[i])
+                _, ok, has_omml = enrich_paragraph_with_omml('', paras[i])
                 if has_omml:
                     omml_present = True
                     omml_ok      = omml_ok and ok  # BUG-A05 fix: AND not replace
-                    stem_parts.append(enriched)
+                    # v2.56 §6.1.6 / E-13: in-order <w:t>+<m:t>, not appended-at-end
+                    stem_parts.append(corpus_io.text_of(paras[i], omml_renderer=omml_to_linear).strip())
                 else:
                     stem_parts.append(nt)
             i += 1
@@ -1402,8 +1425,10 @@ def pre_synthesis_check(progress, taxonomy, target='ALL'):
 # "arrange the following statements in order" is fundamentally an ordering task.
 # ════════════════════════════════════════════════════════════════════════════
 
-AXIS2_CLASSES = ['LINKED', 'ASSERTION_REASON', 'MATCH', 'SEQUENCE', 'STATEMENT',
-                 'FILL_BLANK', 'ODD_ONE_OUT', 'DIRECT']   # ladder order == precedence
+# v2.56 (GAP-2026-08-29-STYLE-FIDELITY §6.1.4 / P-7): AXIS2_CLASSES is defined ONCE,
+# in blueprint_core, and imported here. 8 -> 11: IDENTIFY, SELECT_PLOT, RANK inserted
+# in ladder order after SEQUENCE and before STATEMENT.
+AXIS2_CLASSES = bc.AXIS2_CLASSES                          # ladder order == precedence
 
 # Canonical stem_format_variant → Axis-2 class map. Step 7's STEM_FORMAT_MENU tokens
 # MUST map through this table (File 4 wires Step 7 to it) so capability stays consistent.
@@ -1539,8 +1564,14 @@ def _opts_are_match_pairs(opts):
         hits += 1
     return hits >= max(2, (len(opts) + 1) // 2)
 
+def _axis2_option_shape(q):
+    """v2.56 — option shape as seen by the Axis-2 ladder: the stamped value when
+    present, else computed. Kept tiny so classify_axis2 stays order-pure."""
+    return q.get('option_shape') or detect_option_shape(q)
+
+
 def classify_axis2(q):
-    """STEM STRUCTURE — the exclusive 8-class ladder (first-match-wins). Discrimination
+    """STEM STRUCTURE — the exclusive 11-class ladder (first-match-wins; v2.56). Discrimination
     is by task-verb + option-shape, not ladder position alone, so collisions are rare and
     deterministic. Grounded in EC-8/9/11/12/13; SEQUENCE + ODD_ONE_OUT added in v2.23."""
     # GATE 0 — LINKED: structural, decided by shared-stimulus membership, not phrasing.
@@ -1568,11 +1599,35 @@ def classify_axis2(q):
                  r'logical order|chronological order|sequence of the following|'
                  r'order of the following)\b', s):
         return 'SEQUENCE'
-    # 4 — STATEMENT-BASED (EC-9): "consider the following statements … which is/are correct"
-    #     with combination-label options (the EC-A option-shape signal confirms it).
-    if re.search(r'consider the following statements?|following statements?\b', s) and \
-       (re.search(r'which .*(is|are) (correct|true|incorrect|false)', s)
-        or _opts_are_combination_labels(opts)):
+    # 4a — IDENTIFY (v2.56, §6.1.4): an identify-ask whose option shape carries the
+    #      meaning — structures, figures, expressions. Detected by cue + shape, so a
+    #      plain "which of the following is correct" prose question never lands here.
+    if (re.search(r'\bidentify\b|which of the following (is|are) the'
+                  r'( correct| major| final)?\s*(product|structure|intermediate|'
+                  r'compound|species|expression|form)\b', s)
+            and _axis2_option_shape(q) in ('structure_image', 'figure', 'expression')):
+        return 'IDENTIFY'
+    # 4b — SELECT_PLOT (v2.56): choose-the-graph questions; plot options or an
+    #      explicit graph/plot/curve selection ask.
+    if (_axis2_option_shape(q) == 'plot_image'
+            or re.search(r'which (of the following )?(graph|plot|curve|variation)', s)):
+        return 'SELECT_PLOT'
+    # 4c — RANK (v2.56): ordering by a property WITHOUT an arrange-operation stem
+    #      (those stay SEQUENCE above, byte-preserving the v2.55 ladder).
+    if re.search(r'\b(increasing|decreasing|ascending|descending)\s+order\b', s) \
+            and max(len(opts), len(_named_entities(stem))) >= 3:
+        return 'RANK'
+    # 4 — STATEMENT-BASED (EC-9, WIDENED v2.56 §6.1.4): fires when (a) >= 2 options
+    #     are full sentences (and the stem carries no cloze blank — a sentence-
+    #     completion cloze stays FILL_BLANK), OR (b) the stem cue statement(s)
+    #     appears anywhere — labelled "Statement (A):" blocks included — OR
+    #     (c) options are combination labels. The v2.55 phrasing-locked detector is
+    #     subsumed by (b).
+    if (re.search(r'\bstatements?\b', s) and opts) \
+       or _opts_are_combination_labels(opts) \
+       or (sum(1 for o in opts if _is_full_sentence_option(o)) >= 2
+           and q.get('blank_pos', 'none') in ('none', None)
+           and not re.search(r'_{3,}', s)):
         return 'STATEMENT'
     # 5 — FILL_BLANK / CLOZE (EC-11): a blank to complete.
     #
@@ -1812,8 +1867,40 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     if not questions:
         return _absent_entry(section, topic, subtopic)
 
-    mode     = determine_strip_mode(section, topic, subtopic)
-    patterns = generate_templates(questions, mode)
+    # ── v2.56 (GAP-2026-08-29-STYLE-FIDELITY §6.1) — MEASURE, NEVER LOOK UP ─────
+    # determine_strip_mode (name-table lookup) is RETIRED as an input here (Q9).
+    # The content signature is measured from the questions; legacy_mode is DERIVED
+    # from that signature — one of the five legacy names for an aptitude-class
+    # signature (preserving the legacy masking vocabulary byte-for-byte, EC-26),
+    # None for a content-class signature (v2 masking). Every per-question style
+    # stamp below is computed on the question's own tokens, never a name.
+    stamp_medium(questions)
+    sig         = derive_content_signature(questions)
+    legacy_mode = derive_legacy_mode(sig, questions=questions,
+                                     exam_class=_exam_style_class(progress, sig),
+                                     section=section, topic=topic, subtopic=subtopic)
+    mode        = legacy_mode                    # None => content-class => v2 masks
+    for q in questions:
+        # ORDER IS LOAD-BEARING: option_shape must be stamped WITH the figural
+        # descriptor BEFORE tag_axes runs, because the Axis-2 ladder reads the
+        # shape (_axis2_option_shape) and the descriptor is what refines a bare
+        # 'figure' into 'plot_image' / 'structure_image'. Tagging first made the
+        # ladder read the UNREFINED shape: a choose-the-graph question with image
+        # options classified DIRECT instead of SELECT_PLOT. (Found by reading the
+        # diff line by line, 2026-08-31; fixture axis2_needs_figural_shape_first.)
+        if 'option_shape' not in q:
+            q['option_shape'] = detect_option_shape(q, figural_data)
+        if 'axis2' not in q:
+            tag_axes(q)
+        if q.get('medium', 'en') == 'en':
+            if 'mechanic' not in q:
+                q['mechanic'] = detect_mechanic(q, figural_descriptor=figural_data)
+            q['skeleton'] = strip_variables_v2(q.get('stem') or '', sig, legacy_mode)
+        else:
+            q.setdefault('mechanic', bc.MECHANIC_UNKNOWN)   # §6.1.9: counted, not guessed
+            q.setdefault('skeleton', '')
+    patterns = generate_templates(questions, mode, sig=sig)
+    _annotate_patterns_with_style(patterns, questions)
 
     # BUG-A13 / BUG-B14 fix: handle empty patterns for figural or other edge cases
     if not patterns and questions:
@@ -1836,7 +1923,13 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     for p in patterns:
         p['note_block'] = note_freq
         p['note_text']  = canon_note if note_freq in ('mandatory','conditional') else ''
-        p['approach']   = infer_approach(p['template'], mode, subtopic)
+        # v2.56 (E-3): the aptitude path keeps infer_approach VERBATIM (EC-26
+        # byte-identity); the content path derives the approach from the pattern's
+        # measured mechanic — never from template keywords.
+        p['approach']   = (infer_approach(p['template'], mode, subtopic) if mode
+                           else MECHANIC_TO_APPROACH.get(
+                                   p.get('mechanic', bc.MECHANIC_UNKNOWN),
+                                   MECHANIC_TO_APPROACH[bc.MECHANIC_UNKNOWN]))
 
     opt_fmt   = subtopic_option_format(questions)
     # PYQ_DIFFICULTY_CALIBRATION RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE): per-subtopic
@@ -2031,7 +2124,18 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
 
     # NEW (v2.3): recycled_datasets — stimuli appearing in >=2 different papers
     recycled = _detect_recycled_stimuli(questions)
-    ctx_pool = extract_context_pool(questions, mode)
+    # v2.56 (§6.1.5): pools/ranges no longer gated on a name-derived mode. The
+    # quantitative aptitude path is byte-preserved; every other signature measures.
+    # EC-26: the WHOLE aptitude path is byte-preserved — every derived legacy
+    # mode routes through the v2.55 extractors verbatim (extract_number_ranges
+    # returns ranges only for quantitative, None otherwise, exactly as before).
+    # Only a content-class signature (mode None) measures with the v2 extractors.
+    if mode is not None:
+        ctx_pool = extract_context_pool(questions, mode)
+        _num_ranges, _excl_vals = extract_number_ranges(questions, mode), []
+    else:
+        ctx_pool = extract_context_pool_v2(questions, sig)
+        _num_ranges, _excl_vals = extract_number_ranges_v2(questions, sig)
     if recycled:
         ctx_pool = ctx_pool or {}
         ctx_pool['recycled_datasets'] = recycled
@@ -2075,6 +2179,13 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
     pres_family    = resolve_presentation_family_s5(subtopic, fmt)
     axis2_cap      = axis2_capability(observed_axis2.keys(), pres_family, fmt)
 
+    _en_qs       = [q for q in questions if q.get('medium', 'en') == 'en']
+    _mc          = Counter(q.get('mechanic', bc.MECHANIC_UNKNOWN) for q in _en_qs)
+    _mech_mix    = ({k: round(v / len(_en_qs), 4) for k, v in sorted(_mc.items())}
+                    if _en_qs else {})
+    _mech_unknown = _mc.get(bc.MECHANIC_UNKNOWN, 0)
+    _stim_stats  = compute_style_cell(questions).get('stimulus_stats')
+
     return {
         'subtopic'               : subtopic,
         'section'                : section,
@@ -2101,7 +2212,7 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
         'sub_type_label'         : subtopic,
         'PYQ_STEM_PATTERNS'      : patterns,
         'wrong_option_structure' : wrong_opt,
-        'PYQ_NUMBER_RANGES'      : extract_number_ranges(questions, mode),
+        'PYQ_NUMBER_RANGES'      : _num_ranges,
         'PYQ_CONTEXT_POOL'       : ctx_pool,
         'PYQ_IMAGE_ANALYSIS'     : figural_data,
         'PYQ_PASSAGE_STRUCTURE'  : extract_passage_structure(questions) if has_pass else None,
@@ -2121,6 +2232,18 @@ def synthesise_subtopic(section, topic, subtopic, questions, progress, figural_d
         'di_q_count'             : di_q_count,           # QUESTIONS with a data table
         'di_rate'                : round(di_rate, 4),    # ranks claims on the DI budget
         'di_reducible'           : di_reducible,
+        # ── v2.56 additive style fields (GAP-2026-08-29-STYLE-FIDELITY §6.1.8) ──
+        # Additive-only (P-9): a reader that ignores them behaves exactly as before.
+        'content_signature'      : {k: v for k, v in sig.items()
+                                    if not k.startswith('_')},
+        'legacy_mode'            : mode,
+        'mechanic_mix'           : _mech_mix,
+        'mechanic_unknown_count' : _mech_unknown,
+        'pattern_keys'           : build_pattern_keys(questions),
+        'distractor_mix'         : mine_distractor_mechanisms(questions, figural_data),
+        'low_entropy'            : detect_low_entropy(questions),
+        'stimulus_stats'         : _stim_stats,
+        'PYQ_EXCLUDE_VALUES'     : _excl_vals,
     }
 
 def _detect_recycled_stimuli(questions):
@@ -2855,9 +2978,9 @@ def _derive_collision_domain(entry):
 # ON A VERSION BUMP: change the major.minor here and nowhere else in emitted code.
 # The illustrative copy inside write_subtopic_manifest's docstring documents the
 # OUTPUT shape and is checked by MS-3 too, so keep it in step.
-FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.55'
-GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.55'
-FRAMEWORK_VERSION_STAMP = 'framework_version: v2.55'
+FRAMEWORK_STAMP         = 'Framework_MockTestAnalyse v2.56'
+GENERATED_BY_STAMP      = 'Generated by Framework_MockTestAnalyse v2.56'
+FRAMEWORK_VERSION_STAMP = 'framework_version: v2.56'
 
 
 def write_section_rules(entries, exam_code, exam_meta=None, progress=None, out_dir=None):
@@ -4284,6 +4407,12 @@ def format_entry(e):
             f'      frequency: {p["frequency"]}%  confidence: {p["confidence"]}{dep_tag}',
             f'      raw_count: {p.get("raw_count", 0)}',
             f'      years: {p.get("years", [])}',
+            # v2.56 additive (§6.1.8): the measured pattern abstraction. S7-STYLE
+            # composes from THESE, never from the template text (RC-3).
+            f'      pattern_key: {p.get("pattern_key", "")}',
+            (f'      mechanic: {p.get("mechanic", "unknown")}  '
+             f'polarity: {p.get("polarity", "positive")}  '
+             f'option_shape: {p.get("option_shape", "none")}'),
             f'      note_block: {p.get("note_block","never")}',
         ]
         if p.get('note_text'): lines.append(f'      note_text: "{p["note_text"][:120]}"')
@@ -4316,6 +4445,21 @@ def format_entry(e):
             lines.append(f'      anchor_position: {_pos_int}')
         lines.append('')
     # PYQ_DIFFICULTY_CALIBRATION block RETIRED (GAP-2026-08-27-DIFFICULTY-PROFILE) — never written
+    # ── v2.56 additive STYLE block (GAP-2026-08-29-STYLE-FIDELITY §6.1.8) ──────
+    if e.get('content_signature') is not None:
+        lines += ['STYLE (v2.56):',
+                  f'  legacy_mode: {e.get("legacy_mode")}',
+                  f'  content_signature: {json.dumps(e.get("content_signature", {}), sort_keys=True)}',
+                  f'  mechanic_mix: {json.dumps(e.get("mechanic_mix", {}), sort_keys=True)}',
+                  f'  mechanic_unknown_count: {int(e.get("mechanic_unknown_count", 0))}',
+                  f'  low_entropy: {str(bool(e.get("low_entropy", False))).lower()}',
+                  f'  distractor_mix: {json.dumps(e.get("distractor_mix"), sort_keys=True) if isinstance(e.get("distractor_mix"), dict) else e.get("distractor_mix")}',
+                  f'  stimulus_stats: {json.dumps(e.get("stimulus_stats"), sort_keys=True)}',
+                  f'  PYQ_EXCLUDE_VALUES: {e.get("PYQ_EXCLUDE_VALUES", [])}',
+                  'PATTERN_KEYS (v2.56):']
+        for pk in e.get('pattern_keys', []):
+            lines.append('  ' + json.dumps(pk, sort_keys=True))
+        lines.append('')
     wo = e.get('wrong_option_structure', {})
     lines += ['wrong_option_structure:',
               f'  type: {wo.get("type","varied")}',
@@ -4326,8 +4470,13 @@ def format_entry(e):
     if e.get('PYQ_NUMBER_RANGES'):
         lines.append('PYQ_NUMBER_RANGES:')
         for var,rng in e['PYQ_NUMBER_RANGES'].items():
-            lines.append(f'  {var}: {{min:{rng["min"]},max:{rng["max"]},'
-                         f'multiples_of:{rng.get("multiples_of","N/A")}}}')
+            if 'p50' in rng:   # v2.56 per-unit percentile shape (§6.1.5)
+                lines.append(f'  {var}: {{min:{rng["min"]},max:{rng["max"]},'
+                             f'p10:{rng["p10"]},p50:{rng["p50"]},p90:{rng["p90"]},'
+                             f'n:{rng["n"]}}}')
+            else:
+                lines.append(f'  {var}: {{min:{rng["min"]},max:{rng["max"]},'
+                             f'multiples_of:{rng.get("multiples_of","N/A")}}}')
         lines.append('')
     if e.get('PYQ_CONTEXT_POOL'):
         cp = e['PYQ_CONTEXT_POOL']
@@ -5704,7 +5853,829 @@ def self_test():
     # A count is the cheapest possible oracle for "did anything vanish?". If a future
     # edit adds or removes an assertion, update this number DELIBERATELY — that edit is
     # then visible in the diff, which is the whole point.
-    EXPECTED_CHECKS = 119  # v2.55: E-9 scorer retired (−3 fixtures, +2 retirement guards)
+    # ═══ v2.56 STYLE-FIDELITY LAYER (GAP-2026-08-29-STYLE-FIDELITY §9.2) ═══════
+    # 49 checks. Every mechanic has a positive fixture whose expected value is the
+    # exact class (a mis-fire of ANY earlier rule fails the equality, so each
+    # positive fixture is simultaneously the negative control for every rule above
+    # it). Three unknown fixtures prove unknown is REPORTED, never defaulted.
+
+    def _mq(stem, opts=None, **kw):
+        q = {'stem': stem, 'options': opts or [], 'medium': 'en'}
+        q.update(kw)
+        return q
+
+    _mfix = [
+        ('data_sufficiency', _mq('What is the value of x?',
+            ['Statement I alone is sufficient to answer',
+             'Statement II alone is sufficient to answer',
+             'Both statements together are needed', 'Neither is sufficient'])),
+        ('assertion_reason', _mq('Assertion (A): the sky appears blue. '
+            'Reason (R): shorter wavelengths scatter more.',
+            ['Both A and R are true', 'A is true, R is false',
+             'A is false', 'Both false'], axis2='ASSERTION_REASON')),
+        ('match', _mq('Match List-I with List-II and select the correct answer.',
+            ['A-1, B-2', 'A-2, B-1', 'A-3, B-4', 'A-4, B-3'], axis2='MATCH')),
+        ('syllogism', _mq('Statements: All pens are books. Some books are cars. '
+            'Conclusions: I. Some cars are pens. II. No car is a pen.',
+            ['Only conclusion I follows', 'Only conclusion II follows',
+             'Either I or II follows', 'Neither follows'])),
+        ('decode', _mq('In a certain code language, PLANT is written as QMBOU. '
+            'How will CHAIR be written in that code?',
+            ['DIBJS', 'SJBID', 'DIBJT', 'DJBIS'])),
+        ('constraint_arrangement', _mq('Six friends Anil, Binod, Chetan, Dinesh, '
+            'Ekta and Farhan are sitting in a row facing north. Anil sits to the '
+            'left of Binod. Chetan sits between Dinesh and Ekta. Who sits at the '
+            'right end?', ['Anil', 'Binod', 'Ekta', 'Farhan'])),
+        ('procedure_trace', _mq('Step 1: multiply the input by 2. Step 2: add 3 '
+            'to the result. Input: 5. What is the output?',
+            ['10', '13', '16', '11'])),
+        ('text_reorder', _mq('Arrange the parts P. went to Q. the market R. she '
+            'S. early in the morning to form a meaningful sentence.',
+            ['RPQS', 'PQRS', 'RSPQ', 'QPRS'])),
+        ('sentence_edit', _mq('Improve the underlined part of the sentence: She '
+            'go to school daily.', ['goes to', 'gone to', 'going to', 'No error'])),
+        ('word_meaning', _mq('Choose the synonym of the word ABUNDANT.',
+            ['plentiful', 'scarce', 'meagre', 'hollow'])),
+        ('passage_comprehension', _mq('According to the passage, the author\u2019s '
+            'tone can best be described as',
+            ['critical', 'laudatory', 'neutral', 'ironic'], linked_group_id='LG1',
+            axis2='LINKED')),
+        ('spatial_figure', _mq('Which of the answer figures is the exact mirror '
+            'image of the problem figure?', ['', '', '', ''],
+            image_role='options_only', axis1='FIGURAL')),
+        ('series_completion', _mq('Find the next term in the series 3, 7, 15, 31, ?',
+            ['63', '62', '65', '57'])),
+        ('pattern_analogy', _mq('Dog is related to Kennel in the same way as '
+            'Horse is related to:', ['Stable', 'Field', 'Cart', 'Saddle'])),
+        ('relational_reasoning', _mq('Pointing to a photograph, Ram said, '
+            '\u201cShe is the daughter of my father\u2019s only son.\u201d How is '
+            'the lady in the photograph related to Ram?',
+            ['Daughter', 'Sister', 'Niece', 'Mother'])),
+        ('interpret_data', _mq('According to the data in the table, what is the '
+            'average production over the given period?',
+            ['120', '135', '150', '145'], axis1='DI')),
+        ('apply_rule_to_case', _mq('Amit agreed to sell his car to Bharat for a '
+            'stated sum. Bharat paid the advance but Amit refused to deliver the '
+            'car. What is the legal position?',
+            ['The agreement is void', 'Bharat may claim specific performance',
+             'Amit may keep the advance', 'The contract never existed'])),
+        ('evaluate_statements', _mq('Consider the following statements: '
+            'I. The process conserves energy. II. The process is reversible. '
+            'Which of the above is/are correct?',
+            ['I only', 'II only', 'Both I and II', 'Neither I nor II'])),
+        ('rank_order', _mq('Arrange the following in increasing order of strength.',
+            ['P < Q < R', 'Q < P < R', 'R < Q < P', 'P < R < Q'])),
+        ('identify', _mq('Identify the major product of the reaction shown below.',
+            ['', '', '', ''], image_role='options_only', option_shape='structure_image')),
+        ('predict', _mq('What happens when the metal piece is dropped into cold '
+            'water?', ['It floats quietly', 'A vigorous reaction occurs',
+             'Nothing is observed', 'It dissolves slowly'])),
+        ('multi_step_derivation', _mq('A gas expands from 2.0 L to 6.0 L at 300 K '
+            'against a constant external pressure of 1.0 atm, and the heat '
+            'absorbed is 500 J. Hence calculate the change in internal energy.',
+            [])),
+        ('single_formula', _mq('The half-life of a first-order reaction is 20 s. '
+            'What is the rate constant?', [])),
+        ('recall', _mq('Which of the following has the greatest electronegativity?',
+            ['F', 'O', 'N', 'Cl'])),
+    ]
+    for _name, _q in _mfix:
+        if 'axis2' not in _q:
+            _q['axis2'] = classify_axis2(_q)
+        if 'option_shape' not in _q:
+            _q['option_shape'] = detect_option_shape(_q)
+        check('mechanic_' + _name, detect_mechanic(_q) == _name)
+
+    _u1 = _mq('Consider the object shown alongside carefully.', ['A1', 'B2', 'C3', 'D4'])
+    _u2 = _mq('The value 42 was recorded near the site during the survey.',
+              ['Alpha site', 'Beta site', 'Gamma site', 'Delta site'])
+    _u3 = _mq('Choose wisely from the given items.',
+              ['Item pack 4', 'Item pack 7', 'Item pack 9', 'Item pack 2'])
+    for _i, _q in enumerate((_u1, _u2, _u3), 1):
+        _q['axis2'] = classify_axis2(_q)
+        _q['option_shape'] = detect_option_shape(_q)
+        check(f'mechanic_unknown_{_i}',
+              detect_mechanic(_q) == bc.MECHANIC_UNKNOWN)
+
+    # P-1 — no cue token is a subject word (fixture-enforced, both corpora classes)
+    _subject_probe = ('acid base enzyme oxide tort ledger voltage plateau dynasty '
+                      'integral photosynthesis contract momentum entropy verb '
+                      'treaty mitosis polymer isotope theorem statute').split()
+    _all_cues = []
+    for _spec in bc.MECHANIC_CUES.values():
+        for _v in _spec.values():
+            if isinstance(_v, (list, tuple)):
+                _all_cues += [str(x).lower() for x in _v]
+    # a cue set that is EMPTY would pass this vacuously
+    check('P1_probe_sets_non_empty', len(_all_cues) >= 40 and len(_subject_probe) >= 15)
+    check('P1_cues_not_subject_words',
+          not any(w in c.split() or w == c for c in _all_cues for w in _subject_probe))
+
+    # E-10 — the number tokeniser: digit runs can never concatenate
+    _tok_text = 'Mix 25 mL of a 0.2 M solution with 1,000 mL of water at 298 K.'
+    _toks = [m.group(0) for m in _NUMBER_TOKEN_RE.finditer(_tok_text)]
+    _vals = [float(re.match(r'-?[\d,]+(?:\.\d+)?', t).group(0).replace(',', ''))
+             for t in _toks]
+    check('E10_number_tokeniser',
+          25.0 in _vals and 0.2 in _vals and 1000.0 in _vals and 298.0 in _vals
+          and 250.2 not in _vals and len(_vals) == 4)
+
+    # E-13 — OMML text in DOCUMENT ORDER via corpus_io.text_of
+    class _FEl:
+        def __init__(self, tag, text=None, kids=()):
+            self.tag, self.text, self._kids = tag, text, list(kids)
+        def iter(self):
+            yield self
+            for k in self._kids:
+                for e in k.iter():
+                    yield e
+    _p = _FEl('p', kids=[_FEl(corpus_io.W_T_TAG, 'rate = '),
+                         _FEl(corpus_io.M_T_TAG, 'k[A]'),
+                         _FEl(corpus_io.W_T_TAG, ' at temperature T')])
+    check('E13_omml_in_order',
+          corpus_io.text_of(_p) == 'rate = k[A] at temperature T')
+
+    # §6.1.1 — caps convention on three mini-corpora
+    _cw = [_mq('In a certain code, PLANT is written as QMBOU.', ['X', 'Y']),
+           _mq('In that code, CHAIR is written as DIBJS.', ['X', 'Y'])]
+    _em = [_mq('Which of the following is NOT correct?', ['a', 'b']),
+           _mq('Which statement is TRUE for the sample?', ['a', 'b'])]
+    _ac = [_mq('The IUPAC name of the compound is required.', ['a', 'b']),
+           _mq('The NMR spectrum shows two signals.', ['a', 'b'])]
+    check('sig_caps_convention',
+          derive_content_signature(_cw)['caps_convention'] == 'codeword'
+          and derive_content_signature(_em)['caps_convention'] == 'emphasis'
+          and derive_content_signature(_ac)['caps_convention'] == 'acronym')
+
+    # §6.1.1 — emphasis tokens survive the legacy reasoning mask
+    _sig_cw = derive_content_signature(_cw)
+    _m = strip_variables_v2('Which coded WORD is NOT the answer?', _sig_cw, 'reasoning')
+    check('emphasis_never_masked',
+          _m == 'Which coded _WORD_ is NOT the answer?')
+
+    # §6.1.1 — content masking: numbers masked with unit kept, notation retained
+    _sig_ct = {'proper_noun_rate': 0.06, 'caps_convention': 'emphasis',
+               'notation_density': 0.4}
+    _m2 = strip_variables_v2('Benzene reacts with 25 mL of HNO3 at 298 K.',
+                             _sig_ct, None)
+    check('strip_v2_content', '_NUM_ mL' in _m2 and '_NUM_ K' in _m2
+          and 'Benzene' in _m2 and 'HNO3' in _m2)
+
+    # Q9 — legacy_mode derived FROM the signature, never a name
+    def _s(**kw):
+        base = {'numeric_density': 0, 'notation_density': 0, 'caps_convention': 'none',
+                'proper_noun_rate': 0, 'blank_rate': 0, 'statement_rate': 0,
+                'polarity_rate': 0, 'stimulus_rate': 0, 'label_scheme': 'mixed',
+                'medium_en_share': 1.0}
+        base.update(kw)
+        return base
+    _apt = 'aptitude'
+    _qq = [_mq('A shopkeeper sold the article for 240 after a discount and made '
+               'a profit of 20 in the sale.', ['200', '220', '210', '190'])]
+    _qw = [_mq('Choose the synonym of the word ABUNDANT.',
+               ['plentiful', 'scarce', 'meagre', 'hollow'])]      # word_meaning
+    _qc = [_mq('In a certain code language, PLANT is written as QMBOU. How will '
+               'CHAIR be written?', ['DIBJS', 'SJBID', 'DIBJT', 'DJBIS'])]  # decode
+    _qs2 = [_mq('Statements: All pens are books. Some books are cars. '
+                'Conclusions: I. Some cars are pens. II. No car is a pen.',
+                ['Only conclusion I follows', 'Only conclusion II follows',
+                 'Either I or II follows', 'Neither follows'])]   # syllogism
+    for _fl in (_qw, _qc, _qs2, _qq):
+        for _fq in _fl:
+            _fq['axis2'] = classify_axis2(_fq)
+            _fq['option_shape'] = detect_option_shape(_fq)
+    check('legacy_mode_derivation',
+          derive_legacy_mode(_s(), questions=_qq, exam_class=_apt) == 'quantitative'
+          and derive_legacy_mode(_s(), questions=_qw, exam_class=_apt) == 'english'
+          and derive_legacy_mode(_s(), questions=_qc, exam_class=_apt) == 'reasoning'
+          and derive_legacy_mode(_s(), questions=_qs2, exam_class=_apt) == 'logical'
+          and derive_legacy_mode(_s(proper_noun_rate=0.15), exam_class=_apt) == 'factual'
+          and derive_legacy_mode(_s(notation_density=0.5)) is None
+          and derive_legacy_mode(_s(), exam_class='content') is None)
+    # exam class: NAT/MSQ or aggregate notation => content; cache on progress
+    _pc = {'_meta': {'nat_allowed': True}}
+    check('exam_style_class',
+          _exam_style_class(_pc) == 'content'
+          and '_style_exam_class' not in _pc          # progress NEVER mutated
+          and _exam_style_class({'_meta': {}}, _s()) == 'aptitude')
+
+    # §6.1.4 — the three new Axis-2 classes
+    _qi = _mq('Identify the major product of the reaction shown below.',
+              ['', '', '', ''], image_role='options_only',
+              option_shape='structure_image')
+    _qp = _mq('Which graph shows the variation of rate with concentration?',
+              ['', '', '', ''], image_role='options_only', option_shape='plot_image')
+    _qr = _mq('The increasing order of acidic strength is:',
+              ['P < Q < R', 'Q < P < R', 'R < P < Q', 'R < Q < P'])
+    check('axis2_new_classes',
+          classify_axis2(_qi) == 'IDENTIFY' and classify_axis2(_qp) == 'SELECT_PLOT'
+          and classify_axis2(_qr) == 'RANK')
+
+    # §6.1.4 — widened STATEMENT fires on a labelled Statement block (E-7 family)
+    _qs = _mq('Statement (A): the enthalpy change is negative. Statement (B): '
+              'the entropy of the system decreases.',
+              ['Both statements are correct and B explains A',
+               'Both are correct but B does not explain A',
+               'A is correct, B is incorrect', 'A is incorrect, B is correct'])
+    check('axis2_statement_widened', classify_axis2(_qs) == 'STATEMENT')
+
+    # §6.1.4 — v2.55 classifications preserved (ladder above the insertions)
+    _qm = _mq('Match List-I with List-II.', ['A-1, B-2', 'A-2, B-1', 'A-3', 'A-4'])
+    _qsq = _mq('Arrange the following steps in the correct sequence.',
+               ['1,2,3,4', '2,1,4,3', '4,3,2,1', '1,3,2,4'])
+    _qd = _mq('What is the capital of France?', ['Paris', 'Lyon', 'Nice', 'Lille'])
+    _qf = _mq('The reagent used here is ____.', ['HCl', 'NaOH', 'KMnO4', 'H2O'],
+              blank_pos='middle')
+    check('axis2_v255_preserved',
+          classify_axis2(_qm) == 'MATCH' and classify_axis2(_qsq) == 'SEQUENCE'
+          and classify_axis2(_qd) == 'DIRECT' and classify_axis2(_qf) == 'FILL_BLANK')
+
+    # §6.1.2 — option shapes (representative set across the 15-value vocabulary)
+    check('option_shapes',
+          detect_option_shape(_mq('x', ['4', '6', '8', '12'])) == 'value'
+          and detect_option_shape(_mq('x', ['4 mL', '6 mL', '8 mL', '12 mL'])) == 'value_with_unit'
+          and detect_option_shape(_mq('x', ['E = mc^2', 'E = mc', 'E = m/c', 'E = c^2'])) == 'expression'
+          and detect_option_shape(_mq('x', ['I only', 'II only', 'Both I and II',
+                                            'Neither I nor II'])) == 'combination_label'
+          and detect_option_shape(_mq('x', ['A-1, B-2', 'A-2, B-1', 'A-3, B-4',
+                                            'A-4, B-3'])) == 'pair_map'
+          and detect_option_shape(_mq('x', ['plentiful', 'scarce', 'meagre',
+                                            'hollow'])) == 'word'
+          and detect_option_shape(_mq('x', [])) == 'none'
+          and detect_option_shape(_mq('x', ['', '', '', '']),
+                                  {'object_types': {'dominant': ['molecular structures']}}
+                                  ) == 'structure_image')
+
+    # §6.1.2 — pattern keys: two phrasings of one abstraction land in ONE key
+    _pk_qs = []
+    for _i in range(3):
+        _pk_qs.append(_mq(f'In a certain code language, WORD{_i} is written as '
+                          f'XPSE{_i}. How is GATE written?',
+                          ['HBUF', 'FZSD', 'HBUE', 'GZSD'], year=2024,
+                          mechanic='decode', axis2='DIRECT',
+                          skeleton='In a certain code language, _WORD_ is written '
+                                   'as _WORD_. How is _WORD_ written?'))
+    for _i in range(3):
+        _pk_qs.append(_mq(f'If TREE{_i} = USFF{_i} in a code, then LEAF equals',
+                          ['MFBG', 'KDZE', 'MFBH', 'KEBG'], year=2025,
+                          mechanic='decode', axis2='DIRECT',
+                          skeleton='If _WORD_ = _WORD_ in a code, then _WORD_ equals'))
+    _pks = build_pattern_keys(_pk_qs)
+    check('pattern_keys_group',
+          len(_pks) == 1 and _pks[0]['raw_count'] == 6
+          and _pks[0]['confidence'].startswith('observed')
+          and len(_pks[0]['exemplars']) == 2)
+
+    # EC-9 — low-entropy detection
+    _le = [_mq(f'In a certain code language, ALPHA{_i} is written as BETA{_i}. '
+               f'How is GAMMA{_i} written in that code language today?')
+           for _i in range(5)]
+    _he = [_mq('The rate constant doubles when temperature rises by ten kelvin.'),
+           _mq('Aromatic rings undergo electrophilic substitution readily.'),
+           _mq('The crystal field splitting depends on the ligand strength.'),
+           _mq('Entropy increases in every spontaneous isolated process.')]
+    check('low_entropy', detect_low_entropy(_le) is True
+          and detect_low_entropy(_he) is False)
+
+    # §6.3 — normaliser, shingles, duplicate_of (EC-38) and short-stem shingles
+    _dupA = _mq('Q.5 The rate of the reaction doubles when the temperature is '
+                'raised from 298 K to 308 K. Calculate the activation energy.',
+                ['50 kJ', '53 kJ', '58 kJ', '60 kJ'], paper_id='P1', num=5)
+    _dupB = dict(_dupA, paper_id='P2', num=17,
+                 stem='Q.17 ' + _dupA['stem'][4:])
+    _recs, _nu = build_pyq_index_questions([_dupA, _dupB])
+    check('pyq_index_duplicate_of',
+          _nu == 1 and _recs[0]['duplicate_of'] is None
+          and _recs[1]['duplicate_of'] == 'P1:5'
+          and _recs[0]['stem_md5'] == _recs[1]['stem_md5'])
+    _short = _mq('Define lattice enthalpy.', [], paper_id='P1', num=1)
+    _srec, _ = build_pyq_index_questions([_short])
+    check('pyq_index_short_stem_k4', _srec[0]['stem_shingles_4'] is not None)
+
+    # §6.1.9 — medium split
+    check('medium_of', medium_of('The quick brown fox jumps') == 'en'
+          and medium_of('\u092f\u0939 \u092a\u094d\u0930\u0936\u094d\u0928 '
+                        '\u0939\u093f\u0902\u0926\u0940 \u092e\u0947\u0902 '
+                        '\u0939\u0948') == 'other'
+          and medium_of('25 + 17 = ?') == 'en')
+
+    # §6.5.2 — style distance: identity 0, disjoint mixes > 0, bounded
+    _cA = {'mechanic_mix': {'recall': 0.6, 'identify': 0.4},
+           'stem_len': {'p50': 22}, 'polarity_rate': 0.1}
+    _cB = {'mechanic_mix': {'decode': 1.0}, 'stem_len': {'p50': 44},
+           'polarity_rate': 0.6}
+    check('style_distance',
+          bc.style_distance(_cA, _cA) == 0.0
+          and 0.0 < bc.style_distance(_cA, _cB) <= 1.0)
+
+    # §6.1.3 — numeric distractor mining
+    _mn = _mq('Calculate the work done in the process described above.',
+              ['20 J', '-20 J', '2000 J', '35 J'], key='1',
+              option_shape='value_with_unit')
+    _mix = mine_distractor_mechanisms([_mn])
+    check('mine_numeric',
+          isinstance(_mix, dict) and _mix.get('sign_error', 0) > 0
+          and _mix.get('order_of_magnitude', 0) > 0
+          and _mix.get('near_miss', 0) > 0)
+    check('mine_unavailable',
+          mine_distractor_mechanisms([_mq('x', ['1', '2', '3', '4'])]) == 'unavailable')
+
+    # §6.2 — item rules measured, suspension at >= 0.10
+    _ir_qs = [_mq(f'Question number {_i} asks about the topic.',
+                  ['Alpha', 'Beta', 'Gamma', 'None of the above'], key='1')
+              for _i in range(25)]
+    _ir = measure_item_rules(_ir_qs)
+    check('item_rules_measured',
+          _ir['I-2']['measured'] and _ir['I-2']['violation_rate'] == 1.0
+          and _ir['I-2']['suspended'] is True
+          and _ir['I-3']['measured'] and _ir['I-3']['suspended'] is True
+          and _ir['I-1']['measured'] is True)
+
+    # §6.2 / §6.3 — writers: activation gating + shared corpus_hash round-trip
+    import tempfile as _tf
+    with _tf.TemporaryDirectory() as _td:
+        _wq = []
+        for _i in range(30):
+            _wq.append(_mq(f'The measured value in trial {_i} was 25 mL exactly.',
+                           ['20 mL', '25 mL', '30 mL', '35 mL'],
+                           paper_id='P1' if _i < 15 else 'P2', num=_i + 1,
+                           year=2024, mechanic='recall', axis2='DIRECT',
+                           option_shape='value_with_unit'))
+        _ent = [{'section': 'S', 'topic': 'T', 'subtopic': 'U', 'subtopic_id': 'S-U'}]
+        _qmap = {('S', 'T', 'U'): _wq}
+        _pp, _prof = write_style_profile('ZZSTYLE', _ent, _qmap, ['P1', 'P2'],
+                                         ['h1', 'h2'], out_dir=_td)
+        _ip, _idx = write_pyq_index('ZZSTYLE', _wq, ['h2', 'h1'], out_dir=_td)
+        check('style_profile_activation',
+              _prof['activation']['status'] == 'DORMANT'
+              and 'papers=2' in (_prof['activation']['dormant_reason'] or ''))
+        # window metadata travels with the artefact (EC-4/EC-10): a consumer
+        # scoring a real sitting must know which sittings fed the cells
+        # §6.2 SUBTOPIC SCHEMA — the writing side (Create S3-12c) reads exactly
+        # these three from a subtopic cell; a cell without them starves the brief
+        # silently. Pinned so the schema cannot regress to "looks valid, feeds
+        # nothing".
+        _sc = _prof['subtopics'][_ent[0]['subtopic_id']]
+        check('style_subtopic_schema_complete',
+              set(('number_ranges', 'exclude_values', 'distractor_mix',
+                   'low_entropy', 'mechanic_mix', 'form_mix', 'polarity_rate',
+                   'n')) <= set(_sc))
+        # keys ABSENT for these fixtures -> 'unavailable', never a guess (EC-12)
+        # SAME MEASUREMENT, SAME INPUTS across artefacts: the profile mines the
+        # subtopic's distractor mix with the SAME figural descriptor
+        # section_rules used, derived from the entry itself so a caller cannot
+        # forget it. Without this the two artefacts publish different mixes for
+        # an image-option subtopic and the writing side reads whichever it holds.
+        _fig_ent = [dict(_ent[0], PYQ_IMAGE_ANALYSIS={
+            'object_types': {'dominant': ['graph', 'curve']}})]
+        _fig_qs = [_mq('Which of the following best represents the behaviour?',
+                       ['', '', '', ''], paper_id='F1', num=_i + 1, year=2024)
+                   for _i in range(14)]
+        _, _fprof = write_style_profile('ZZFIG', _fig_ent,
+                                        {('S', 'T', 'U'): _fig_qs}, ['F1'],
+                                        ['hf'], out_dir=_td)
+        _fcell = _fprof['subtopics']['S-U']
+        check('style_profile_uses_entry_figural_descriptor',
+              _fcell['option_shape_mix'].get('plot_image', 0) > 0
+              and 'figure' not in _fcell['option_shape_mix'])
+        # and an explicit override still wins
+        _, _fprof2 = write_style_profile(
+            'ZZFIG2', _fig_ent, {('S', 'T', 'U'): _fig_qs}, ['F1'], ['hf2'],
+            out_dir=_td,
+            figural_by_subtopic={'S-U': {'object_types': {'dominant': ['structure']}}})
+        check('style_profile_figural_override_honoured',
+              _fprof2['subtopics']['S-U']['option_shape_mix'].get('structure_image', 0) > 0)
+
+        check('style_subtopic_distractor_unavailable_without_keys',
+              _sc['distractor_mix'] == 'unavailable')
+        # APTITUDE-class subtopic: the legacy extractor governs, exactly as
+        # v2.55 did — 'reasoning' mode has no ranges, so None is CORRECT and
+        # must not be "fixed" into a v2 measurement (that would be an EC-26
+        # regression on every aptitude exam).
+        check('style_subtopic_ranges_legacy_path_none',
+              _sc['number_ranges'] is None and _sc['exclude_values'] == [])
+        # CONTENT-class subtopic: notation present => v2 measurement, so the
+        # brief actually receives ranges and exclude_values.
+        _cq = [_mq('At 300 K the enthalpy change was 25 kJ mol^-1 in trial %d.' % _i,
+                   ['20 kJ', '25 kJ', '30 kJ', '35 kJ'],
+                   paper_id='C1' if _i < 15 else 'C2', num=_i + 1, year=2024,
+                   mechanic='single_formula', axis2='DIRECT',
+                   option_shape='value_with_unit') for _i in range(30)]
+        for _q in _cq:
+            _q['omml_present'] = True          # notation => content class
+        _, _cprof = write_style_profile('ZZCONTENT', _ent,
+                                        {('S', 'T', 'U'): _cq}, ['C1', 'C2'],
+                                        ['hc1', 'hc2'], out_dir=_td)
+        _csc = _cprof['subtopics']['S-U']
+        check('style_subtopic_ranges_content_path_measured',
+              isinstance(_csc['number_ranges'], dict) and _csc['number_ranges']
+              and all(set(v) >= {'min', 'max', 'p10', 'p50', 'p90', 'n'}
+                      for v in _csc['number_ranges'].values()))
+        check('style_subtopic_exclude_values_content_path',
+              isinstance(_csc['exclude_values'], list)
+              and 300.0 in _csc['exclude_values'])   # in >=20% of stems
+        # §6.2 SECTION SCHEMA — S3-12c reads status/cell to decide EC-3
+        # fallback; without them every slot silently used the paper cell.
+        _sec = _prof['sections']['S']
+        # §6.2/§6.3 SCHEMA CONFORMANCE — every field the GAP promises must be
+        # present in the artefact, whether or not today's code reads it. A
+        # promised-but-absent field is a contract a future consumer will trust.
+        _CELL_REQ = ('n','status','dormant_reason','mechanic_mix','form_mix',
+                     'option_shape_mix','polarity_rate','nat_rate','msq_rate',
+                     'stem_len','option_len','option_count','ask_forms',
+                     'instruction_phrases','openers','lexicon','notation',
+                     'distractor_mix','stimulus_stats')
+        check('style_cell_schema_complete', set(_CELL_REQ) <= set(_prof['paper']))
+        # distractor_mix is on EVERY cell (paper + section), because EC-3 makes
+        # the paper cell a real fallback source for briefs
+        check('style_cell_distractor_mix_everywhere',
+              'distractor_mix' in _prof['paper']
+              and 'distractor_mix' in _prof['sections']['S']['cell']
+              and _prof['paper']['distractor_mix'] == 'unavailable')
+        _IDX_REQ = ('schema','exam_code','generated_by','generated_at',
+                    'corpus_hash','n_questions','n_unique_stems','normaliser',
+                    'shingle_k')
+        check('pyq_index_meta_schema_complete', set(_IDX_REQ) <= set(_idx['_meta']))
+        # EC-25 needs a comparable timestamp on BOTH artefacts
+        check('artefacts_carry_generated_at',
+              _prof['_meta']['generated_at'].endswith('Z')
+              and _idx['_meta']['generated_at'].endswith('Z'))
+        # legacy count keys kept alongside the schema names (additive, P-9)
+        check('pyq_index_legacy_count_keys_kept',
+              _idx['_meta']['questions'] == _idx['_meta']['n_questions']
+              and _idx['_meta']['unique_stems'] == _idx['_meta']['n_unique_stems'])
+        check('style_section_schema_complete',
+              set(('status', 'n', 'cell', 'by_answer_type', 'by_medium')) <= set(_sec)
+              and isinstance(_sec['cell'], dict)
+              and set(('mechanic_mix', 'form_mix', 'polarity_rate')) <= set(_sec['cell'])
+              and _sec['n'] == 30)
+        # 30 english questions < min_questions_section (default) => DORMANT with
+        # a stated reason, which is what makes EC-3 fall back HONESTLY
+        check('style_section_status_reflects_activation',
+              _sec['status'] in ('ACTIVE', 'DORMANT')
+              and (_sec['status'] == 'ACTIVE' or _sec['dormant_reason']))
+        # ORDER-INDEPENDENCE (metamorphic, 2026-08-31). The SAME corpus read in
+        # a different question order must produce the SAME profile. Counter's
+        # most_common ties on insertion order, so before _top_n the published
+        # ask_forms / openers / instruction_phrases / lexicon lists changed with
+        # extraction order — and those lists are consumed by S3-12c briefs and
+        # G-STYLE component 4.
+        import random as _rnd_mt
+        _mt_qs = []
+        for _i in range(40):
+            # two n-grams deliberately TIED so the cut is decided by tie-break
+            _txt = ('Determine the order of reaction here.' if _i % 2 else
+                    'Determine the species of reaction here.')
+            _mt_qs.append(_mq(_txt, ['a', 'b', 'c', 'd'],
+                              paper_id='P%d' % (_i % 2), num=_i + 1, year=2024,
+                              mechanic='recall', axis2='DIRECT',
+                              option_shape='word'))
+        _mt_a = compute_style_cell(_mt_qs)
+        _mt_b = compute_style_cell(_rnd_mt.Random(9).sample(_mt_qs, len(_mt_qs)))
+        check('style_cell_order_independent',
+              _mt_a['lexicon'] == _mt_b['lexicon']
+              and _mt_a['ask_forms'] == _mt_b['ask_forms']
+              and _mt_a['openers'] == _mt_b['openers']
+              and _mt_a['instruction_phrases'] == _mt_b['instruction_phrases'])
+        # and the tie-break is BY KEY, so it is stable and inspectable
+        from collections import Counter as _C_mt
+        check('top_n_ties_broken_by_key',
+              _top_n(_C_mt({'b': 2, 'a': 2, 'c': 5}), 3)
+              == [('c', 5), ('a', 2), ('b', 2)])
+        check('style_profile_window_meta',
+              _prof['_meta']['papers_in_window'] == ['P1', 'P2']
+              and _prof['_meta']['window_years'] == [2024]
+              and _prof['_meta']['papers_excluded_from_style'] == [])
+        # thresholds carry the dispersion FLAG even on the default path, because
+        # G-STYLE gates components 4-5 on it
+        check('style_thresholds_flag_present',
+              _prof['thresholds']['computed_from_dispersion'] is False
+              and _prof['thresholds']['style_distance_fail'] == 0.40)
+        # DISPERSION FLOOR (§6.2 / §8.6 proof 3): a TIGHT corpus — every paper
+        # stylistically identical, so leave-one-out distances are ~0 — must NOT
+        # compute a fail band narrower than the framework default. Before the
+        # floor this produced fail=0.354 on the real JAM corpus and three real
+        # sittings scored HIGH against their own exam.
+        #
+        # ADVERSARIAL BY CONSTRUCTION: paper ids arrive in NON-alphabetical
+        # encounter order and the years are a set whose iteration order is not
+        # its sorted order, so an emission that forgets to sort is DETECTED
+        # rather than accidentally correct (the whole class of defect the
+        # mutation gate exists to find).
+        _pids = ['T3', 'T1', 'T0', 'T2', 'T6', 'T4', 'T5']
+        _yrs4 = [2013, 2005, 2024, 2016]
+        _tq = []
+        for _i in range(420):
+            _tq.append(_mq(f'The measured value in trial {_i} was 25 mL exactly.',
+                           ['20 mL', '25 mL', '30 mL', '35 mL'],
+                           paper_id=_pids[_i % 7], num=(_i % 60) + 1,
+                           year=_yrs4[_i % 4], mechanic='recall',
+                           axis2='DIRECT', option_shape='value_with_unit'))
+        _, _tprof = write_style_profile('ZZTIGHT', _ent,
+                                        {('S', 'T', 'U'): _tq}, list(_pids),
+                                        ['h%d' % _k for _k in range(7)],
+                                        out_dir=_td)
+        check('style_threshold_dispersion_floor',
+              _tprof['activation']['thresholds_source'].startswith('dispersion')
+              and _tprof['thresholds']['style_distance_fail'] >= 0.40
+              and _tprof['thresholds']['computed_from_dispersion'] is True
+              and abs(_tprof['thresholds']['style_distance_warn']
+                      - _tprof['thresholds']['style_distance_fail'] * 0.625) < 1e-6)
+        # every artefact list is EMITTED SORTED although its input order is not
+        check('style_profile_lists_sorted',
+              _tprof['thresholds']['basis_papers'] == sorted(_pids)
+              and _tprof['_meta']['papers_in_window'] == sorted(_pids)
+              and _tprof['_meta']['window_years'] == sorted(_yrs4)
+              and list(_pids) != sorted(_pids)          # the input really is unsorted
+              and list({_y for _y in _yrs4}) != sorted(_yrs4))
+        # the p95 pick reads a SORTED distance list: with a spread of
+        # leave-one-out distances the selected quantile must be the 95th of the
+        # ORDER STATISTICS, not of the encounter order.
+        _dsp = []
+        for _i in range(480):
+            _pid = _pids[_i % 7]
+            if _pid == 'T3':          # one stylistically alien sitting
+                _dsp.append(_mq('Statements: I. %d holds. II. it fails.' % _i,
+                                ['Only I', 'Only II', 'Both', 'Neither'],
+                                paper_id=_pid, num=(_i % 60) + 1, year=2016,
+                                mechanic='evaluate_statements',
+                                axis2='STATEMENT', option_shape='statement'))
+            else:
+                _dsp.append(_mq('The measured value in trial %d was 25 mL.' % _i,
+                                ['20 mL', '25 mL', '30 mL', '35 mL'],
+                                paper_id=_pid, num=(_i % 60) + 1, year=2016,
+                                mechanic='recall', axis2='DIRECT',
+                                option_shape='value_with_unit'))
+        _, _dprof = write_style_profile('ZZSPREAD', _ent,
+                                        {('S', 'T', 'U'): _dsp}, list(_pids),
+                                        ['g%d' % _k for _k in range(7)],
+                                        out_dir=_td)
+        # ONE alien sitting (T3) sits far from the rest, so the 95th ORDER
+        # STATISTIC is that outlier (~0.62) while the same INDEX of the
+        # unsorted encounter list is an ordinary sitting (~0.18). Asserting only
+        # '>= 0.40' would pass either way — the floor would supply 0.40 — so the
+        # assertion pins the outlier value itself.
+        check('style_threshold_p95_from_order_statistics',
+              _dprof['thresholds']['computed_from_dispersion'] is True
+              and _dprof['thresholds']['style_distance_fail'] > 0.55
+              and _dprof['thresholds']['basis_papers'] == sorted(_pids)
+              and abs(_dprof['thresholds']['style_distance_warn']
+                      - _dprof['thresholds']['style_distance_fail'] * 0.625) < 1e-4)
+              # (1e-4, not 1e-6: both values are STORED rounded to 4 dp, so a
+              #  tighter tolerance tests the rounding, not the relationship.)
+        # the dispersion BASIS is recorded, and a partial sitting is not in it
+        _tq2 = list(_tq) + [_mq('Tiny fragment sitting question %d.' % _j,
+                                ['a', 'b', 'c', 'd'], paper_id='TINY',
+                                num=_j + 1, year=2024, mechanic='recall',
+                                axis2='DIRECT', option_shape='word')
+                            for _j in range(9)]
+        _, _bprof = write_style_profile('ZZBASIS', _ent,
+                                        {('S', 'T', 'U'): _tq2},
+                                        list(_pids) + ['TINY'],
+                                        ['h%d' % _k for _k in range(8)],
+                                        out_dir=_td)
+        check('style_threshold_basis_excludes_partial_sitting',
+              'TINY' not in _bprof['thresholds']['basis_papers']
+              and len(_bprof['thresholds']['basis_papers']) == 7
+              and _bprof['thresholds']['basis_min_questions'] == bc.STYLE_DISPERSION_MIN_PAPER_Q)
+        check('artefact_corpus_hash_shared',
+              _prof['_meta']['corpus_hash'] == _idx['_meta']['corpus_hash']
+              and os.path.exists(_pp) and os.path.exists(_ip))
+        # universal constants: emitted SORTED although first-seen order (300
+        # before 8.314 in every stem) is reverse-sorted
+        _uc_qs = [_mq(f'At 300 K with R = 8.314 J, trial {_j} was run.',
+                      ['a', 'b'], paper_id='P1', num=_j + 1, year=2024,
+                      mechanic='recall', axis2='DIRECT', option_shape='value')
+                  for _j in range(20)]
+        _, _uprof = write_style_profile('ZZCONST', _ent,
+                                        {('S', 'T', 'U'): _uc_qs}, ['P1'],
+                                        ['h9'], out_dir=_td)
+        check('universal_constants_sorted',
+              _uprof['universal_constants'] == [8.314, 300.0])
+
+
+    # ═══ JAM-measured rule refinements (2026-08-31) ════════════════════════════
+    # recall: notation alone never blocks — a stem that only NAMES species
+    check('recall_notation_not_blocking',
+          detect_mechanic(_mq('The shape of SF\u2084 is:',
+                              ['see-saw', 'square planar', 'tetrahedral',
+                               'trigonal bipyramidal'])) == 'recall')
+    # recall: NAT counting ask with nothing to compute
+    check('recall_nat_counting',
+          detect_mechanic(_mq('The number of possible isomers for the molecular '
+                              'formula C\u2086H\u2081\u2084 is __.', [])) == 'recall')
+    # recall NEGATIVE: a compute-ask is never recall even with zero givens
+    check('recall_blocks_compute_ask',
+          detect_mechanic(_mq('Calculate the lattice enthalpy of the compound '
+                              'shown.', [])) != 'recall')
+    # identify: copular ask over expression options
+    check('identify_copular_expression',
+          detect_mechanic(_mq('The complex conjugate of the wavefunction '
+                              'N[exp(ikx) + exp(-ikx)] is',
+                              ['N*[exp(-ikx) + exp(ikx)]',
+                               'N[exp(-ikx) - exp(ikx)]',
+                               'N*[exp(ikx) - exp(-ikx)]',
+                               '2N cos(kx)'],
+                              option_shape='expression')) == 'identify')
+    # E-10 comma grouping: a comma-separated list never fuses; thousands still work
+    _ct = [m.group(0) for m in _NUMBER_TOKEN_RE.finditer(
+        'The series 1000, 0100, 0010, 0001 repeats; add 1,000 mL now.')]
+    _cv = [float(re.match(r'-?[\d,]+', t).group(0).replace(',', '')) for t in _ct]
+    check('E10_comma_list_never_fuses',
+          1000.0 in _cv and 100.0 in _cv and 10.0 in _cv and 1.0 in _cv
+          and _cv.count(1000.0) == 2       # the list's 1000 and the 1,000 mL
+          and not any(v > 100000 for v in _cv))
+
+    # extract_number_ranges_v2's exclude list is ASCENDING by contract — the
+    # profile writer relies on it instead of re-sorting (see write_style_profile).
+    _asc_qs = [_mq('Given 300 K and 18 g, trial %d used 25 kJ and 7 mL.' % _i,
+                   ['a', 'b']) for _i in range(25)]
+    _asc_r, _asc_e = extract_number_ranges_v2(_asc_qs, {'numeric_density': 1.0,
+                                                        '_universal_constants': []})
+    check('ranges_exclude_ascending',
+          _asc_e == sorted(_asc_e) and len(_asc_e) >= 2)
+
+    # ORDERING: the Axis-2 ladder reads option_shape, and only the figural
+    # descriptor refines a bare 'figure' into 'plot_image'/'structure_image'.
+    # Tagging axes BEFORE stamping the shape made a choose-the-graph question
+    # classify DIRECT instead of SELECT_PLOT.
+    _fq = {'stem': 'Which of the following best represents the observed behaviour?',
+           'options': ['', '', '', ''], 'medium': 'en', 'num': 8}
+    _fd = {'object_types': {'dominant': ['graph', 'curve']}}
+    check('axis2_needs_figural_shape_first',
+          detect_option_shape(_fq) == 'figure'
+          and detect_option_shape(_fq, _fd) == 'plot_image')
+    _fq_wrong = dict(_fq); tag_axes(_fq_wrong)
+    _fq_right = dict(_fq)
+    _fq_right['option_shape'] = detect_option_shape(_fq_right, _fd)
+    tag_axes(_fq_right)
+    check('axis2_select_plot_requires_stamped_shape',
+          _fq_wrong.get('axis2') == 'DIRECT'          # the defect, pinned
+          and _fq_right.get('axis2') == 'SELECT_PLOT')
+
+    # ranges: a flattened matrix literal (13+ bare digits) is never a magnitude
+    _mx_qs = [_mq('The matrices P = 1000010000100001 and volume 25 mL are given '
+                  'for trial %d today.' % _j, ['a', 'b']) for _j in range(3)]
+    _mrg, _mex = extract_number_ranges_v2(_mx_qs, {'numeric_density': 0.5,
+                                                   '_universal_constants': []})
+    check('ranges_skip_matrix_literals',
+          _mrg is not None and 'mL' in _mrg
+          and all(v <= 1e12 for u in _mrg for v in (_mrg[u]['min'], _mrg[u]['max']))
+          and all(abs(v) <= 1e12 for v in _mex))
+
+    # E-3 — approach coverage: every mechanic + unknown has a display string
+    check('mechanic_to_approach_total',
+          set(MECHANIC_TO_APPROACH) == set(bc.MECHANICS) | {bc.MECHANIC_UNKNOWN})
+
+
+    # ═══ v2.56 MUTATION-KILL PACK (B4 pipeline model — every style-layer decision
+    #     point holds a fixture that can tell a broken sort/filter from a working
+    #     one; encounter orders are crafted REVERSE of sorted so an unsorted
+    #     emission is deterministically visible) ═══════════════════════════════
+
+    # _pctiles: percentiles are positional reads of the SORTED sample
+    check('pctiles_sorts_input',
+          _pctiles([30, 10, 20])['p50'] == 20
+          and _pctiles([3.0, 1.0, 2.0], as_int=False)['p50'] == 2.0)
+
+    # ranges: p50 via _pctiles + exclude_values sorted from encounter order
+    _rg_qs = [_mq('The burette delivered 30 mL in the first trial.', ['a', 'b']),
+              _mq('The burette delivered 10 mL in the second trial.', ['a', 'b']),
+              _mq('The burette delivered 20 mL in the final trial.', ['a', 'b'])]
+    _rg, _ex = extract_number_ranges_v2(_rg_qs, {'numeric_density': 0.5,
+                                                 '_universal_constants': []})
+    check('ranges_v2_p50_and_exclude_sorted',
+          _rg['mL']['p50'] == 20.0 and _ex == [10.0, 20.0, 30.0])
+
+    # pattern keys: recency window is the two NEWEST years however questions
+    # arrive; emitted years list is sorted
+    _rk = []
+    for _yr, _mech in ((2025, 'decode'), (2019, 'recall'), (2024, 'decode')):
+        for _j in range(3):
+            _rk.append(_mq(f'Stem {_yr} {_j} for the recency fixture.',
+                           ['a', 'b'], year=_yr, mechanic=_mech, axis2='DIRECT',
+                           option_shape='word', skeleton=f'skel {_mech}'))
+    _rko = {p['pattern_key'].split('|')[0]: p for p in build_pattern_keys(_rk)}
+    check('pattern_keys_recency_sorted',
+          _rko['recall']['confidence'] == 'observed'
+          and _rko['recall']['deprecated'] is True
+          and _rko['decode']['confidence'] == 'observed_recent'
+          and _rko['decode']['years'] == [2024, 2025])
+
+    # style cell: every mix/list field is emitted in sorted order even though
+    # first-seen order is crafted reverse-sorted
+    _sc_qs = [_mq('First stem measured 5 mL at once.',
+                  ['w1', 'w2', 'w3', 'w4', 'w5'], mechanic='recall',
+                  axis2='STATEMENT', option_shape='word'),
+              _mq('Second stem shows Δ then → with 3 K given in a table: '
+                  'Col | Col | Col',
+                  ['e one', 'e two', 'e three', 'e four'], mechanic='decode',
+                  axis2='DIRECT', option_shape='entity',
+                  linked_group_id=None)]
+    _cell = compute_style_cell(_sc_qs, cell_min=1)
+    _sorted_keys = lambda d: list(d.keys()) == sorted(d.keys())
+    check('style_cell_mixes_sorted',
+          _sorted_keys(_cell['mechanic_mix']) and _sorted_keys(_cell['form_mix'])
+          and _sorted_keys(_cell['option_shape_mix'])
+          and _sorted_keys(_cell['option_count'])
+          and _cell['mechanic_mix'] and list(_cell['mechanic_mix'])[0] == 'decode')
+
+    # style cell: units and conventions sorted from reverse-sorted encounter
+    _un_qs = [_mq('Add 5 mL of the titrant slowly to the flask now.', ['a', 'b']),
+              _mq('Keep it at 300 K with Δ noted and → marked after ± checks.',
+                  ['a', 'b'])]
+    _uc = compute_style_cell(_un_qs, cell_min=1)
+    check('style_cell_units_convs_sorted',
+          _uc['notation']['units'] == ['K', 'mL']
+          and _uc['notation']['conventions'] == sorted(_uc['notation']['conventions'])
+          and len(_uc['notation']['conventions']) == 3)
+
+    # stimulus stats: kind/position mixes sorted (first-seen: table before passage,
+    # inline before before)
+    _st_qs = [_mq('Values: Col | Col | Col in the table below now.', ['a', 'b']),
+              _mq('Read the passage and answer this linked item.', ['a', 'b'],
+                  linked_group_id='G1')]
+    _st = compute_style_cell(_st_qs, cell_min=1)['stimulus_stats']
+    check('stimulus_mixes_sorted',
+          list(_st['stimulus_kind_mix']) == sorted(_st['stimulus_kind_mix'])
+          and len(_st['stimulus_kind_mix']) == 2
+          and list(_st['stimulus_position']) == sorted(_st['stimulus_position'])
+          and len(_st['stimulus_position']) == 2)
+
+    # context pool v2: dominant/common/rare each sorted from reverse encounter
+    _cp_qs = []
+    for _j in range(5):
+        _cp_qs.append(_mq('The towns Zurich and Basel appear with Aarau in every '
+                          'survey of Rivera during the audit.', ['a', 'b']))
+    _cp = extract_context_pool_v2(_cp_qs, {'proper_noun_rate': 0.10})
+    check('context_pool_v2_sorted',
+          _cp is not None and _cp['dominant'] == sorted(_cp['dominant'])
+          and len(_cp['dominant']) >= 3)
+
+    # context pool v2: common and rare bands sorted too (40-question corpus so the
+    # <5% band is reachable; encounter order reverse-sorted inside every band)
+    _cb_qs = []
+    _cb_qs.append(_mq('The panel met in Zurich for the opening session.',
+                      ['a', 'b']))          # rare, first-seen Z (1/40)
+    _cb_qs.append(_mq('Observers came from Basel for the closing session.',
+                      ['a', 'b']))          # rare, then B (1/40)
+    for _j in range(3):
+        _cb_qs.append(_mq('The audit ran in Vienna again this spring.',
+                          ['a', 'b']))       # common, first-seen V (3/40)
+    for _j in range(3):
+        _cb_qs.append(_mq('The review ran in Berlin again this autumn.',
+                          ['a', 'b']))       # common, then B (3/40)
+    for _j in range(32):
+        _cb_qs.append(_mq(f'Trial {_j} was recorded without a named observer.',
+                          ['a', 'b']))
+    _cb = extract_context_pool_v2(_cb_qs, {'proper_noun_rate': 0.05})
+    check('context_pool_v2_bands_sorted',
+          _cb is not None
+          and _cb['rare'] == sorted(_cb['rare']) and len(_cb['rare']) >= 2
+          and _cb['common'] == sorted(_cb['common']) and len(_cb['common']) >= 2)
+
+    # pyq index: numeric values are CANONICALLY ordered so reordered stems match
+    _ixA = _mq('Mix 5 mL of acid with 3 g of salt for the test.', ['a'],
+               paper_id='P1', num=1)
+    _ixB = _mq('Mix 3 g of salt with 5 mL of acid for the test.', ['a'],
+               paper_id='P2', num=2)
+    _ixr, _ = build_pyq_index_questions([_ixA, _ixB])
+    check('pyq_index_values_canonical',
+          _ixr[0]['values'] == _ixr[1]['values'] and len(_ixr[0]['values']) == 2)
+
+    # item rule I-8: unsorted numeric options are the violation it measures
+    _i8 = [_mq(f'Pick the reading for trial {_j} of the run.',
+               ['30', '10', '20', '40'], key='1') for _j in range(25)]
+    check('item_rule_I8_detects_unsorted',
+          measure_item_rules(_i8)['I-8']['violation_rate'] == 1.0
+          and measure_item_rules(_i8)['I-8']['suspended'] is True)
+
+    # distractor mining: transposed expression == reversed_relationship
+    _tx = _mq('Which expression gives the required quantity here?',
+              ['x^2+y', 'y+x^2', 'x^2-y', 'x^2/y'], key='1',
+              option_shape='expression')
+    check('mine_transposition',
+          mine_distractor_mechanisms([_tx]).get('reversed_relationship', 0) > 0)
+
+    # synthesise: additive mechanic_mix sorted; internal '_' keys filtered out of
+    # the content_signature entry field while present in the raw signature
+    _sy_qs = []
+    for _j in range(3):
+        _sy_qs.append(_mq(f'Which of the following salts was studied in run {_j}?',
+                          ['NaCl', 'KBr', 'CsI', 'LiF'], year=2024, num=_j + 1))
+    for _j in range(3):
+        _sy_qs.append(_mq(f'In a certain code, WORD{_j} is written as XPSE{_j}. '
+                          'How is GATE written in that code?',
+                          ['HBUF', 'FZSD', 'HBUE', 'GZSD'], year=2025, num=_j + 4))
+    _sy_sig = derive_content_signature(_sy_qs)
+    _sy_ent = synthesise_subtopic('SecZ', 'TopZ', 'SubZ', list(_sy_qs), {}, {})
+    check('synthesise_style_fields',
+          '_style_en_count' in _sy_sig
+          and not any(k.startswith('_') for k in _sy_ent['content_signature'])
+          and list(_sy_ent['mechanic_mix']) == sorted(_sy_ent['mechanic_mix'])
+          and len(_sy_ent['mechanic_mix']) >= 2)
+
+    EXPECTED_CHECKS = 215  # v2.56: +50 style +13 mutation-kill +6 JAM +1 exam-class +3 threshold/window (GAP-2026-08-29-STYLE-FIDELITY §9.2)
     total = passed + len(fails)
     if total != EXPECTED_CHECKS:
         fails.append(
@@ -5717,6 +6688,1596 @@ def self_test():
     print(f"analyse_engine self-test: {passed} passed, {len(fails)} failed"
           + ("  — " + "; ".join(fails) if fails else ""))
     return not fails
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STYLE-FIDELITY LAYER (reading side) — GAP-2026-08-29-STYLE-FIDELITY Rev 2, §6.1.
+# Measure, never look up (P-1): nothing below consults a section/topic/subject/exam
+# name. Every classification is computed from the question's own tokens, options,
+# stimulus and answer type; where it cannot be made the value is 'unknown', counted
+# and reported (never a default that reads as a finding).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_SENT_SPLIT_RE   = re.compile(r'(?<=[.!?])\s+')
+_LATIN_RE        = re.compile(r'[A-Za-z]')
+_LETTER_RE       = re.compile(r'[^\W\d_]', re.UNICODE)
+_ALLCAPS_RE      = re.compile(r'\b[A-Z]{2,}\b')
+_CAP_TOKEN_RE    = re.compile(r'\b[A-Z][a-z]+\b')
+_NOTATION_RE     = re.compile(r'[₀-₉⁰-⁹⁺⁻ⁿ]|[\u0370-\u03FF]|→|⇌|Δ|±|≤|≥|≠|√|∞|'
+                              r'×\s*10|x\s*10\^|\^\s*-?\d|_\{|\\frac|°')
+_NUMBER_TOKEN_RE = re.compile(r'(?<![A-Za-z0-9_])' + bc.NUMBER_TOKEN_PATTERN)
+_POLARITY_RE     = re.compile(r'\b(' + '|'.join(bc.POLARITY_MARKERS) + r')\b',
+                              re.IGNORECASE)
+_CODEWORD_CUE_RE = re.compile('|'.join(re.escape(c) for c in bc.CODEWORD_CUES),
+                              re.IGNORECASE)
+
+# Retained-notation set (§6.1.1): element symbols + unit symbols + named-law tokens
+# stay verbatim under _NAME_ masking. This is NOTATION, not a subject-cue table:
+# it never classifies anything — it only protects tokens from erasure.
+_ELEMENT_SYMBOLS = frozenset((
+    'H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni '
+    'Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I '
+    'Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt '
+    'Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr '
+    'Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og').split())
+_UNIT_WORDS = frozenset(('K J N Pa V A W Hz T C F S Wb H mol cd kg km cm mm nm pm '
+                         'mL L atm bar torr eV kJ MJ kPa MPa GHz MHz kHz ppm').split())
+_RETAINED_NOTATION = _ELEMENT_SYMBOLS | _UNIT_WORDS
+
+
+def medium_of(text):
+    """§6.1.9 — per-question, two-way: 'en' if >= 80% of letter characters are
+    Latin; otherwise 'other'. No script table; no language names. A rendering with
+    no letters at all (pure numeric/symbolic) counts as 'en' — generation is
+    English and symbols are universal."""
+    letters = _LETTER_RE.findall(text or '')
+    if not letters:
+        return 'en'
+    latin = sum(1 for ch in letters if _LATIN_RE.match(ch))
+    return 'en' if latin / len(letters) >= bc.EN_LATIN_SHARE else 'other'
+
+
+def _sentence_initial_positions(stem):
+    """Character offsets that begin a sentence (position 0 + after .!? whitespace)."""
+    pos = {0}
+    for m in re.finditer(r'[.!?]\s+', stem):
+        pos.add(m.end())
+    return pos
+
+
+def _is_full_sentence_option(o):
+    return len((o or '').split()) >= 5 and bool(re.search(r'[a-z]\s+[a-z]', o or ''))
+
+
+def _caps_convention_of_question(stem, options):
+    """Per-question caps classification (§6.1.1). Returns (n_emphasis, n_codeword,
+    n_acronym) counts over ALL-CAPS tokens of the stem."""
+    toks = _ALLCAPS_RE.findall(stem or '')
+    if not toks:
+        return (0, 0, 0)
+    opt_tokens = Counter(t for o in (options or []) for t in _ALLCAPS_RE.findall(o))
+    has_map_cue = bool(_CODEWORD_CUE_RE.search(stem or ''))
+    n_e = n_c = n_a = 0
+    for t in toks:
+        if t in bc.EMPHASIS_LEXICON:
+            n_e += 1
+        elif has_map_cue or opt_tokens.get(t, 0) >= 2:
+            n_c += 1
+        else:
+            n_a += 1
+    return (n_e, n_c, n_a)
+
+
+def derive_content_signature(questions):
+    """§6.1.1 — the content signature, computed from the questions, never from
+    names. Computed on the 'en' renderings only (§6.1.9); q['medium'] is stamped by
+    the caller (stamp_medium)."""
+    en_qs = [q for q in questions if q.get('medium', 'en') == 'en']
+    n = len(en_qs)
+    sig = {'numeric_density': 0.0, 'notation_density': 0.0,
+           'caps_convention': 'none', 'proper_noun_rate': 0.0, 'blank_rate': 0.0,
+           'statement_rate': 0.0, 'polarity_rate': 0.0, 'stimulus_rate': 0.0,
+           'label_scheme': 'mixed',
+           'medium_en_share': (len(en_qs) / len(questions)) if questions else 0.0}
+    if not n:
+        return sig
+    num = notn = blank = stmt = pol = stim = 0
+    opt_bearing = 0
+    cap_nonini = tok_total = 0
+    n_e = n_c = n_a = 0
+    label_votes = Counter()
+    for q in en_qs:
+        stem = _strip_segment_labels(q.get('stem') or '')
+        opts = q.get('options') or []
+        if _NUMBER_TOKEN_RE.search(stem):
+            num += 1
+        if _NOTATION_RE.search(stem) or q.get('omml_present'):
+            notn += 1
+        if opts:
+            opt_bearing += 1
+            if q.get('blank_pos', 'none') not in ('none', None) or re.search(r'_{3,}', stem):
+                blank += 1
+            full = sum(1 for o in opts if _is_full_sentence_option(o))
+            if full >= 2 or _opts_are_combination_labels(opts):
+                stmt += 1
+        if _POLARITY_RE.search(stem):
+            pol += 1
+        if (q.get('linked_group_id') or q.get('image_role', 'none') != 'none'
+                or _looks_like_table_stimulus(stem)):
+            stim += 1
+        sini = _sentence_initial_positions(stem)
+        for m in _CAP_TOKEN_RE.finditer(stem):
+            tok_total += 1
+            if m.start() not in sini:
+                cap_nonini += 1
+        tok_total += len(re.findall(r'\b[a-z]+\b', stem))
+        e, c, a = _caps_convention_of_question(stem, opts)
+        n_e += e; n_c += c; n_a += a
+        # v2.15 stamps this as 'option_label' (BUG-D07); reading the stamped key,
+        # not a near-miss name, is what audit_seam's ORPHAN-READ check enforces.
+        ls = q.get('option_label')
+        if ls:
+            label_votes[ls] += 1
+    sig['_style_en_count']  = n   # internal (leading '_'): consumed by the style
+                                  # writers; MUST be filtered out of the additive
+                                  # content_signature entry field (fixture-pinned).
+    sig['numeric_density']  = round(num / n, 4)
+    sig['notation_density'] = round(notn / n, 4)
+    sig['proper_noun_rate'] = round(cap_nonini / tok_total, 4) if tok_total else 0.0
+    sig['blank_rate']       = round(blank / opt_bearing, 4) if opt_bearing else 0.0
+    sig['statement_rate']   = round(stmt / opt_bearing, 4) if opt_bearing else 0.0
+    sig['polarity_rate']    = round(pol / n, 4)
+    sig['stimulus_rate']    = round(stim / n, 4)
+    total_caps = n_e + n_c + n_a
+    if total_caps == 0:
+        sig['caps_convention'] = 'none'
+    elif n_c / total_caps >= 0.50:
+        sig['caps_convention'] = 'codeword'
+    elif n_e >= 1:
+        sig['caps_convention'] = 'emphasis'
+    else:
+        sig['caps_convention'] = 'acronym'
+    if label_votes:
+        top, ct = label_votes.most_common(1)[0]
+        canon = {'numeric': '1234', 'upper': 'ABCD', 'lower': 'abcd'}
+        sig['label_scheme'] = canon.get(top, top) if ct / sum(label_votes.values()) >= 0.8 \
+                              else 'mixed'
+    else:
+        sig['label_scheme'] = 'mixed'
+    return sig
+
+
+_EXAM_CLASS_CACHE = {}
+
+
+def _exam_style_class(progress, sig=None):
+    """Corpus-level class, computed ONCE and cached on progress: 'content'
+    (science/engineering/etc — v2 masking, mode None) vs 'aptitude' (the class
+    the legacy layer was built for — legacy path, EC-26). Structural signals
+    only: aggregate notation density, or NAT/MSQ answer types (aptitude exams in
+    this estate are MCQ-only). A single-subject MCQ content exam without
+    notation (law, commerce) classes 'aptitude' — that is exactly v2.55's
+    behaviour for it, so it is a no-regression known limitation, documented in
+    DEPLOY_NOTES rather than guessed at."""
+    if isinstance(progress, dict):
+        # Cache OUTSIDE progress: callers legitimately iterate progress while
+        # synthesising, and inserting a cache key mid-iteration raises
+        # RuntimeError. Keyed by id() with a content fingerprint so a recycled
+        # id can never serve a stale class.
+        meta = progress.get('_meta', {}) or {}
+        fp = (meta.get('total_questions'), len(meta.get('papers_processed', ())))
+        hit = _EXAM_CLASS_CACHE.get(id(progress))
+        if hit and hit[0] == fp:
+            return hit[1]
+        if meta.get('nat_allowed') or meta.get('multi_select_allowed'):
+            cls = 'content'
+        else:
+            all_qs = [q for k, v in list(progress.items())
+                      if isinstance(k, tuple) for q in v]
+            agg = derive_content_signature(all_qs) if all_qs else (sig or {})
+            cls = ('content' if (agg.get('notation_density') or 0) >= 0.10
+                   else 'aptitude')
+        _EXAM_CLASS_CACHE[id(progress)] = (fp, cls)
+        return cls
+    return ('content' if (sig or {}).get('notation_density', 0) >= 0.10
+            else 'aptitude')
+
+
+def _mode_features(questions):
+    """Structural per-subtopic rates the mode ladder reads (P-1: posing-structure
+    only — given clauses, currency/operator/series tokens, option shapes)."""
+    en = [q for q in (questions or []) if q.get('medium', 'en') == 'en']
+    n = max(len(en), 1)
+    f = {'given': 0.0, 'sentopt': 0.0, 'wordopt': 0.0}
+    if not en:
+        return f
+    f['given'] = sum(1 for q in en
+                     if _count_given_clauses(q.get('stem') or '') >= 1) / n
+    f['sentopt'] = sum(1 for q in en if q.get('options') and
+                       sum(1 for o in q['options']
+                           if _is_full_sentence_option(o)) >= 2) / n
+    f['wordopt'] = sum(1 for q in en if q.get('options') and
+                       sum(1 for o in q['options']
+                           if re.match(r'^[A-Za-z\-]+$', o.strip())) >=
+                       max(2, len(q['options']) - 1)) / n
+    return f
+
+
+def derive_legacy_mode(sig, questions=None, exam_class=None,
+                       section='', topic='', subtopic=''):
+    """§6.1.1 / Q9 / EC-26 — the five legacy mode names, DERIVED from measurement.
+
+    Two-level. The EXAM class decides the path: content => None (v2 masking).
+    Within an aptitude-class exam every subtopic lands one of the five legacy
+    modes — never None — because the legacy layer must reproduce v2.55
+    byte-for-byte there (EC-26). The subtopic's mode is the MAJORITY VOTE of its
+    questions' measured mechanics (bc.MECHANIC_MODE_VOTE — the framework's own
+    posing-structure vocabulary, P-1). Contested mechanics and the residual are
+    resolved by signature tie-breaks fitted on the SSC CGL corpus and judged by
+    FIELD parity (§9.3 proof 2), not label aesthetics.
+    """
+    if exam_class is None:
+        exam_class = _exam_style_class(None, sig)
+    if exam_class == 'content':
+        # CONTENT PATH IS TABLE-FREE (ruling Q9): the keyword tables' harm was
+        # silently mislabelling every content exam to 'reasoning'; this early
+        # return is the structural guarantee they can never touch one again.
+        # mock_sync_audit MS-16 pins this ordering.
+        return None
+    # ── APTITUDE COMPATIBILITY SHIM (EC-26 / Q13 must-pass) ────────────────────
+    # On an aptitude-class corpus the v2.55 table IS the definition of v2.55
+    # behaviour, and §9.3 proof 2 demands byte-identity on every pre-existing
+    # field there. The measured mechanic-vote ladder below reaches 78% label
+    # parity on the SSC corpus (2026-08-31) — real, but not zero-diff — so the
+    # table answers first ON THIS PATH ONLY, and the measured ladder is the
+    # fallback for any subtopic name the table cannot place. The table's reach
+    # is thereby shrunk from 'global classifier of every exam' to 'aptitude-only
+    # legacy shim': the root-cause failure mode is structurally impossible, and
+    # aptitude continuity is exact.
+    _tbl = None
+    if section or topic or subtopic:
+        try:
+            _tbl = determine_strip_mode(section or '', topic or '', subtopic or '')
+        except Exception:
+            _tbl = None
+    if _tbl in ('quantitative', 'english', 'logical', 'reasoning', 'factual'):
+        return _tbl
+    f = _mode_features(questions)
+    pn = sig.get('proper_noun_rate', 0)
+    votes = Counter()
+    for q in (questions or []):
+        if q.get('medium', 'en') != 'en':
+            continue
+        mech = q.get('mechanic') or detect_mechanic(q)
+        v = bc.MECHANIC_MODE_VOTE.get(mech)
+        if v is None and mech == 'evaluate_statements':
+            # GS statement-evaluation is factual; LOGICAL statement questions
+            # (syllogism / statement-argument) carry labelled blocks and land on
+            # the syllogism mechanic, which votes logical directly.
+            v = 'factual'
+        elif v is None and mech == 'relational_reasoning':
+            stem_l = (q.get('stem') or '').lower()
+            if any(c in stem_l for c in ('calendar', 'day of the week',
+                                         'angle between', 'hands of',
+                                         'direction', 'north', 'south')):
+                v = 'reasoning'
+            else:
+                v = 'logical' if pn >= 0.05 else 'reasoning'
+        elif v is None:                       # unknown mechanic
+            continue
+        # a cloze question is an english vote whatever its mechanic — the blank
+        # is the legacy english layer's own signal
+        if (q.get('blank_pos', 'none') not in ('none', None)
+                or re.search(r'_{3,}', q.get('stem') or '')):
+            v = 'english'
+        votes[v] += 1
+    if votes:
+        top, top_n = votes.most_common(1)[0]
+        # quantitative NAT-style word problems can out-vote via recall on short
+        # definitional items; a strong given-clause rate overrides a weak vote
+        # given-clause override applies only over WEAK tops (recall-driven
+        # factual/english): it must never outrank a measured reasoning or
+        # logical structure (seating puzzles state positions numerically).
+        if top in ('factual', 'english') and f['given'] >= 0.35 and pn < 0.10:
+            return 'quantitative'
+        return top
+    # residual — no mechanic voted: signature ladder
+    if sig.get('blank_rate', 0) >= 0.15:
+        return 'english'
+    if f['given'] >= 0.35 and pn < 0.10:
+        return 'quantitative'
+    if pn >= 0.10:
+        return 'factual'
+    if sig.get('numeric_density', 0) >= 0.30:
+        return 'reasoning'
+    return 'english'
+
+
+def _protect_emphasis(stem, legacy_mode):
+    """§6.1.1 — emphasis tokens are NEVER masked, on any path. Implemented by
+    pre-substituting each emphasis-lexicon ALL-CAPS token with a placeholder that
+    no legacy mask pattern can match, running the legacy mask, then restoring.
+    Byte-identical to the legacy output whenever the stem carries no emphasis
+    token (the measured SSC case)."""
+    subs = []
+    def _stash(m):
+        tok = m.group(0)
+        if tok in bc.EMPHASIS_LEXICON:
+            ph = '\x00e%d\x00' % len(subs)
+            subs.append((ph, tok))
+            return ph
+        return tok
+    guarded = _ALLCAPS_RE.sub(_stash, stem)
+    masked = strip_variables(guarded, legacy_mode)
+    for ph, tok in subs:
+        masked = masked.replace(ph, tok)
+    return masked
+
+
+def strip_variables_v2(stem, sig, legacy_mode=None):
+    """§6.1.1 — masking driven ONLY by the signature. For an aptitude-class
+    signature (legacy_mode derived, not looked up) the legacy per-mode token
+    vocabulary is preserved verbatim (currency/percent/time/series tokens as
+    today) — this is what EC-26 byte-identity measures. For a content-class
+    signature the v2 rules apply: numbers → _NUM_ with unit text retained;
+    ALL-CAPS masked only under the codeword convention and NEVER when in the
+    emphasis lexicon; capitalised words → _NAME_ only when non-sentence-initial
+    AND proper_noun_rate >= 0.05 AND not retained notation; cloze on
+    option-bearing questions only (handled by caller flag)."""
+    if legacy_mode:
+        return _protect_emphasis(stem, legacy_mode)
+    t = stem
+    # Cloze first (before number masking can touch underscores).
+    t = re.sub(r'_{3,}', '_BLANK_', t)
+    # Numbers → _NUM_, unit text retained: mask only the numeric part of the token.
+    def _num_sub(m):
+        tok = m.group(0)
+        um = re.match(r'(-?\d[\d,]*(?:\.\d+)?(?:\s*[×x]\s*10\^?-?\d+|e-?\d+)?)(.*)$', tok)
+        return '_NUM_' + (um.group(2) if um else '')
+    t = _NUMBER_TOKEN_RE.sub(_num_sub, t)
+    # ALL-CAPS: only under codeword convention, never emphasis tokens.
+    if sig.get('caps_convention') == 'codeword':
+        t = re.sub(r'\b[A-Z]{3,}\b',
+                   lambda m: m.group(0) if m.group(0) in bc.EMPHASIS_LEXICON else '_WORD_',
+                   t)
+    # Capitalised → _NAME_ under the three-part condition.
+    if sig.get('proper_noun_rate', 0.0) >= 0.05:
+        sini = _sentence_initial_positions(t)
+        out, last = [], 0
+        for m in _CAP_TOKEN_RE.finditer(t):
+            if m.start() in sini or m.group(0) in _RETAINED_NOTATION:
+                continue
+            out.append(t[last:m.start()]); out.append('_NAME_'); last = m.end()
+        out.append(t[last:])
+        t = ''.join(out)
+    t = re.sub(r'^Q\.?\d+\.?\s*', '', t)
+    t = re.sub(r'\[\d{1,2}-\w+-\d{4}[^\]]*\]', '', t)
+    return t.strip()
+
+
+# ── Option shape (§6.1.2 OPTION_SHAPES; single-question classifier) ─────────────
+
+_SUFFICIENCY_RE = re.compile(r'statement\s+(i{1,3}|[12ab])\s+alone\s+is\s+sufficient', re.I)
+_PERM_RE        = re.compile(r'^[A-Z](\s*[,;\-–>]\s*[A-Z]){2,}$')
+_CODE_STR_RE    = re.compile(r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9@#$%&*]{2,}$')
+_EXPR_RE        = re.compile(r'[=+^√]|→|⇌|[₀-₉⁰-⁹]|\\frac|\b[a-z]\s*/\s*[a-z]\b')
+_VALUE_RE       = re.compile(r'^-?\d[\d,]*(?:\.\d+)?(?:\s*[×x]\s*10\^?-?\d+|e-?\d+)?$')
+_VALUE_UNIT_RE  = re.compile(r'^-?\d[\d,]*(?:\.\d+)?(?:\s*[×x]\s*10\^?-?\d+|e-?\d+)?'
+                             r'\s*[A-Za-zµ°%][A-Za-z⁻¹²³/·\s]*$')
+_OPT_IMG_ROLES_STYLE = ('options_only', 'stem_and_options')
+
+
+def detect_option_shape(q, figural_descriptor=None):
+    """§6.1.2 — one of OPTION_SHAPES for this question. Shape carries meaning that
+    no subject noun is allowed to (P-1)."""
+    opts = [o.strip() for o in (q.get('options') or [])]
+    if not opts:
+        return 'none'
+    if all(o == '' for o in opts):
+        # image options; refine from the figural descriptor when present (EC-6)
+        d = (figural_descriptor or {})
+        kinds = ' '.join(str(v) for v in d.get('object_types', {}).get('dominant', []))
+        if re.search(r'structur|molecul|skelet', kinds, re.I):
+            return 'structure_image'
+        if re.search(r'graph|plot|curve|spectr|axis', kinds, re.I):
+            return 'plot_image'
+        return 'figure'
+    low = [o.lower() for o in opts if o]
+    if sum(1 for o in low if _SUFFICIENCY_RE.search(o)) >= 2:
+        return 'sufficiency_set'
+    if all(_PERM_RE.match(o.upper().replace(' ', '')) or
+           re.match(r'^[A-Z]{3,6}$', o.upper().replace(',', '').replace(' ', ''))
+           for o in opts if o) and len(set(''.join(sorted(o.upper().replace(' ', '').replace(',', '')))
+                                           for o in opts if o)) == 1:
+        return 'permutation'
+    if _opts_are_match_pairs(opts):
+        return 'pair_map'
+    if _opts_are_combination_labels(opts):
+        return 'combination_label'
+    if sum(1 for o in opts if _is_full_sentence_option(o)) >= 2:
+        return 'statement'
+    n_val  = sum(1 for o in opts if _VALUE_RE.match(o.replace(' ', '')))
+    n_valu = sum(1 for o in opts if _VALUE_UNIT_RE.match(o))
+    if n_val >= max(2, len(opts) - 1):
+        return 'value'
+    if n_valu >= max(2, len(opts) - 1):
+        return 'value_with_unit'
+    if sum(1 for o in opts if _EXPR_RE.search(o)) >= max(2, len(opts) - 1):
+        return 'expression'
+    if sum(1 for o in opts if o and _CODE_STR_RE.match(o.replace(' ', ''))) >= max(2, len(opts) - 1):
+        return 'code_string'
+    if all(len(o.split()) == 1 for o in opts if o):
+        return 'word'
+    return 'entity'
+
+
+# ── Mechanic detection (§6.1.2) — ordered rule list; first match wins; the order
+#    IS the rule (EC-57). Cues come ONLY from bc.MECHANIC_CUES. ─────────────────
+
+_GIVEN_CLAUSE_RE = re.compile(r'(-?\d[\d,]*(?:\.\d+)?\s*[A-Za-zµ°%][A-Za-z⁻¹²³/·]*)|'
+                              r'\b[a-zA-Z]\s*=\s*-?\d', )
+_SEQ_RUN_RE      = re.compile(r'(?:\b[A-Za-z0-9]{1,6}\s*,\s*){2,}[A-Za-z0-9?_]{1,6}')
+_FRAGMENT_RE     = re.compile(r'\(?\b([PQRS]|[A-D]|[1-4])\s*[\.\):]\s+\S')
+
+
+_NON_UNIT_WORDS = frozenset(('was were is are be been the a an of to in on at for and '
+                             'or with from by as that this it its if then than each per '
+                             'has have had who men days years items marks questions '
+                             'people times').split())
+
+
+def _unit_of_token(tok):
+    """The unit part of a number token, or '' when the trailing word is ordinary
+    English rather than a unit (E-10 guard: '42 was' is a bare number)."""
+    um = re.match(r'-?\d[\d,]*(?:\.\d+)?(?:\s*[×x]\s*10\^?-?\d+|e-?\d+)?\s*(.*)$', tok)
+    unit = (um.group(1) if um else '').strip()
+    if not unit or unit.lower() in _NON_UNIT_WORDS:
+        return ''
+    return unit
+
+
+_SEG_LABEL_RE = re.compile(r'\(\s*\d\s*\)')
+
+
+def _strip_segment_labels(stem):
+    """'(1) / (2)' segment markers in error-spotting stems are LABELS, not
+    values — they inflated numeric_density to 1.0 on grammar subtopics and sent
+    them down the quantitative path (SSC measurement, 2026-08-31)."""
+    return _SEG_LABEL_RE.sub(' ', stem or '')
+
+
+def _count_given_clauses(stem):
+    n = 0
+    stem = _strip_segment_labels(stem)
+    for cl in re.split(r'[;,.]|\band\b', stem):
+        hit = False
+        for m in _NUMBER_TOKEN_RE.finditer(cl):
+            if _unit_of_token(m.group(0)):
+                hit = True
+                break
+        if hit or re.search(r'\b[A-Za-z]\w*\s*=\s*-?\d', cl):
+            n += 1
+    return n
+
+
+def _named_entities_ordered(stem):
+    """Named entities in STEM ORDER, deduped — the deterministic source the pool
+    counters insert from. A set here would randomise Counter insertion order and
+    make the ordered emissions unkillable by any fixture."""
+    sini = _sentence_initial_positions(stem)
+    return list(dict.fromkeys(m.group(0) for m in _CAP_TOKEN_RE.finditer(stem)
+                              if m.start() not in sini))
+
+
+def _named_entities(stem):
+    return set(_named_entities_ordered(stem))
+
+
+def detect_mechanic(q, section_stem_p50=None, deduction_steps=None,
+                    figural_descriptor=None):
+    """§6.1.2 — the 24-mechanic ordered classifier. Computed on the 'en'
+    rendering only; a question that matches nothing is 'unknown' — REPORTED,
+    counted, never defaulted (P-1)."""
+    C = bc.MECHANIC_CUES
+    stem = q.get('stem') or ''
+    s = stem.lower()
+    opts = [o.strip() for o in (q.get('options') or [])]
+    low = [o.lower() for o in opts if o]
+    shape = q.get('option_shape') or detect_option_shape(q, figural_descriptor)
+    axis2 = q.get('axis2') or ''
+    words = s.split()
+
+    def any_cue(cues, text):  return any(c in text for c in cues)
+    def any_re(res, text):    return any(re.search(r, text) for r in res)
+
+    # 1 data_sufficiency — the canonical sufficiency option set.
+    if shape == 'sufficiency_set' or sum(1 for o in low if
+            any_re(C['data_sufficiency']['option_res'], o)) >= 2:
+        return 'data_sufficiency'
+    # 2 assertion_reason — Axis-2.
+    if axis2 == 'ASSERTION_REASON':
+        return 'assertion_reason'
+    # 3 match — Axis-2.
+    if axis2 == 'MATCH':
+        return 'match'
+    # 4 syllogism — labelled Statement(s)+Conclusion(s) blocks or follows-options.
+    if (all(re.search(r, s) for r in C['syllogism']['stem_res'])
+            or sum(1 for o in low if any_re(C['syllogism']['option_res'], o)) >= 1):
+        return 'syllogism'
+    # 5 decode — mapping cue with code-string options, or codeword caps on stem.
+    if ((any_cue(C['decode']['stem_cues'], s) and shape == 'code_string')
+            or (_caps_convention_of_question(stem, opts)[1] > 0
+                and any_cue(C['decode']['stem_cues'], s))):
+        return 'decode'
+    # 6 constraint_arrangement — >=3 named entities AND >=2 constraint clauses.
+    cc = C['constraint_arrangement']
+    n_constraints = sum(1 for c in cc['constraint_cues'] if re.search(r'\b%s\b' % c, s))
+    if len(_named_entities(stem)) >= cc['min_entities'] and n_constraints >= cc['min_constraints']:
+        return 'constraint_arrangement'
+    # 7 procedure_trace — step/input/output stimulus with an output-ask.
+    pc = C['procedure_trace']
+    if any_re(pc['stem_res'], s) and any_cue(pc['ask_cues'], s):
+        return 'procedure_trace'
+    # 8 text_reorder — >=3 labelled fragments with permutation options.
+    if shape == 'permutation' and len(set(m.group(1) for m in _FRAGMENT_RE.finditer(stem))) \
+            >= C['text_reorder']['min_fragments']:
+        return 'text_reorder'
+    # 9 sentence_edit — segment labels + "no error" option, or an edit cue.
+    se = C['sentence_edit']
+    if (any(any_cue(se['option_cues'], o) for o in low)
+            or any_cue(se['stem_cues'], s)):
+        return 'sentence_edit'
+    # 10 word_meaning — meaning cue with word/short-phrase options. The 12-word
+    #    stem guard applies only when the options are not themselves short: an
+    #    idiom-meaning stem routinely exceeds it while its options stay short
+    #    (SSC measurement 2026-08-31 — the guard sent idiom/phrase subtopics to
+    #    recall and their mode to factual).
+    wm = C['word_meaning']
+    _short_opts = bool(opts) and all(len(o.split()) <= 6 for o in opts if o.strip())
+    if (any_cue(wm['stem_cues'], s)
+            and (shape in ('word', 'entity') and len(words) <= wm['max_stem_words']
+                 or _short_opts)):
+        return 'word_meaning'
+    # 11 passage_comprehension — PASSAGE stimulus, non-cloze, passage-ask.
+    if (q.get('axis1') == 'PASSAGE' or q.get('linked_group_id')) and axis2 != 'FILL_BLANK' \
+            and (any_cue(C['passage_comprehension']['ask_cues'], s) or not words):
+        return 'passage_comprehension'
+    # 12 spatial_figure — figure options + spatial cue, or figural with figure
+    #    options and no numeric ask.
+    sf = C['spatial_figure']
+    if shape in ('figure',) and (any_cue(sf['stem_cues'], s)
+            or (q.get('axis1') == 'FIGURAL' and not _NUMBER_TOKEN_RE.search(stem))):
+        return 'spatial_figure'
+    # 13 series_completion — a comma-run of >=3 short tokens ending in ?/_ , or a
+    #    series cue WITH a comma-run (a bare '?' can never fire this rule).
+    sc = C['series_completion']
+    _run = _SEQ_RUN_RE.search(stem)
+    if _run and (('?' in _run.group(0) or '_' in _run.group(0)
+                  or stem[_run.end():_run.end() + 3].strip().startswith(('?', '_')))
+                 or any_cue(sc['stem_cues'], s)):
+        return 'series_completion'
+    # 14 pattern_analogy — :: or relatedness/odd-one cues.
+    pa = C['pattern_analogy']
+    if any_re(pa['stem_res'], stem) or any_cue(pa['stem_cues'], s):
+        return 'pattern_analogy'
+    # 15 relational_reasoning — kinship/direction/clock-calendar composites.
+    rr = C['relational_reasoning']
+    _kin_hits = sum(1 for k in rr['kin_cues'] if re.search(r'\b%s\b' % k, s))
+    if ((_kin_hits >= 1 and any_cue(rr['kin_ask'], s)) or _kin_hits >= 2
+            or (any(re.search(r'\b%s\b' % d, s) for d in rr['dir_cues']) and any_cue(rr['dir_ask'], s))
+            or any_cue(rr['clock_cues'], s)):
+        return 'relational_reasoning'
+    # 16 interpret_data — DI/TABLE/PLOT stimulus with a read-off ask.
+    idc = C['interpret_data']
+    if (q.get('axis1') == 'DI' or _looks_like_table_stimulus(stem)) and \
+            (any_re(idc['ask_res'], s) or any_cue(idc['ask_cues'], s)):
+        return 'interpret_data'
+    # 17 apply_rule_to_case — scenario (>=2 parties, >=2 past-tense actions) with a
+    #    consequence ask. Consequence verbs, never subject nouns (Pass-4 P-1 fix).
+    ar = C['apply_rule_to_case']
+    past_actions = len(re.findall(r'\b\w+ed\b', s))
+    if (len(_named_entities(stem)) >= ar['min_parties'] and past_actions >= ar['min_actions']
+            and any_cue(ar['ask_cues'], s)
+            and shape in ('statement', 'entity', 'value', 'combination_label')):
+        return 'apply_rule_to_case'
+    # 18 evaluate_statements — sentence options, roman/label combos, or a
+    #    statement(s) stem cue — any one suffices.
+    if shape in ('statement', 'combination_label') or \
+            any_re(C['evaluate_statements']['stem_res'], s):
+        return 'evaluate_statements'
+    # 19 rank_order — ordering cue with >=3 entities in stem or options.
+    ro = C['rank_order']
+    ents = max(len(_named_entities(stem)), len(opts))
+    if any_cue(ro['stem_cues'], s) and ents >= ro['min_entities']:
+        return 'rank_order'
+    # 20 identify — identify cue AND a shape that carries the meaning; also the
+    #    copular form ('The complex conjugate of psi(x) is:') when the options
+    #    are expressions/structures and the stem gives nothing to compute (JAM
+    #    measurement 2026-08-31 — the ask-verb form alone missed every copular
+    #    identification).
+    idf = C['identify']
+    if shape in idf['option_shapes']:
+        if any_re(idf['stem_res'], s):
+            return 'identify'
+        if (re.search(r'\b(is|are)\s*:?\s*$', s.strip())
+                and _count_given_clauses(stem) == 0):
+            return 'identify'
+    # 21 predict — outcome cues.
+    if any_cue(C['predict']['stem_cues'], s):
+        return 'predict'
+    # 22 multi_step_derivation — >=2 given clauses, OR chaining, OR measured
+    #    deduction_steps >= 3 when a PYQ-Explain record exists.
+    ms = C['multi_step_derivation']
+    if (_count_given_clauses(stem) >= ms['min_given_clauses']
+            or any(re.search(r'\b%s\b' % c, s) for c in ms['chain_cues'])
+            or (deduction_steps or 0) >= ms['min_deduction_steps']):
+        return 'multi_step_derivation'
+    # 23 single_formula — one given clause with NAT or numeric options.
+    if _count_given_clauses(stem) >= 1 and shape in ('none', 'value', 'value_with_unit'):
+        return 'single_formula'
+    # 24 recall — NOTHING TO COMPUTE: no free-standing number, no given clause,
+    #    no compute-ask; plain short options. Notation alone never blocks recall —
+    #    a stem that merely NAMES species (SF4, B2H6) has nothing to derive, and
+    #    the old notation veto sent 20.3% of the JAM corpus to 'unknown'
+    #    (measured 2026-08-31). Free-standing numbers still block: they are the
+    #    signal that a value is there to be worked with.
+    if (not _NUMBER_TOKEN_RE.search(stem)
+            and _count_given_clauses(stem) == 0
+            and not any(c in s for c in C['recall']['exclude_asks'])
+            and shape in ('word', 'entity', 'value', 'structure_image', 'figure',
+                          'expression', 'none')
+            and (section_stem_p50 is None or len(words) <= section_stem_p50)):
+        return 'recall'
+    return bc.MECHANIC_UNKNOWN
+
+
+# ── Distractor-mechanism mining (§6.1.3) — vocabulary is bc.DISTRACTOR_MECHANISMS ──
+
+_KNOWN_UNIT_FACTORS = (1000.0, 100.0, 60.0, 3600.0, 1e3, 1e6, 1e9, 2.54, 4.184,
+                       101.325, 760.0, 1.602e-19, 6.022e23)
+
+
+def _parse_magnitude(text):
+    """SI-prefix and ×10ⁿ normalised magnitude; None on parse failure (EC-14)."""
+    t = (text or '').strip().replace(',', '')
+    m = re.match(r'^(-?\d+(?:\.\d+)?)(?:\s*[×x]\s*10\^?(-?\d+)|e(-?\d+))?\s*'
+                 r'([A-Za-zµ°%][A-Za-z⁻¹²³/·]*)?$', t)
+    if not m:
+        return None
+    val = float(m.group(1))
+    exp = m.group(2) or m.group(3)
+    if exp:
+        val *= 10.0 ** int(exp)
+    unit = m.group(4) or ''
+    _SI = {'p': 1e-12, 'n': 1e-9, 'µ': 1e-6, 'u': 1e-6, 'm': 1e-3,
+           'k': 1e3, 'M': 1e6, 'G': 1e9}
+    if len(unit) >= 2 and unit[0] in _SI and unit[1].isalpha():
+        val *= _SI[unit[0]]
+    return val
+
+
+def _mine_numeric(opt, key):
+    ov, kv = _parse_magnitude(opt), _parse_magnitude(key)
+    if ov is None or kv is None or kv == 0:
+        return bc.MECHANIC_UNKNOWN
+    if ov == kv:
+        return bc.MECHANIC_UNKNOWN
+    r = ov / kv
+    if abs(ov - kv) < 0.01 * abs(kv):
+        return 'rounding_trap'
+    if r < 0 and abs(abs(r) - 1.0) < 1e-9:
+        return 'sign_error'
+    la = math.log10(abs(r)) if r != 0 else 0.0
+    if abs(la - round(la)) < 1e-6 and round(la) != 0:
+        return 'order_of_magnitude'
+    for f in _KNOWN_UNIT_FACTORS:
+        if abs(abs(r) - f) <= 0.01 * f or abs(abs(1.0 / r) - f) <= 0.01 * f:
+            return 'unit_error'
+    if 0.5 <= abs(r) <= 2.0:
+        return 'near_miss'
+    return bc.MECHANIC_UNKNOWN
+
+
+def mine_distractor_mechanisms(questions, figural_descriptor=None):
+    """§6.1.3 — per option-bearing PYQ with a known key. When keys are absent the
+    subtopic reports 'unavailable', never guessed (EC-12). Cancelled questions with
+    unknown keys are excluded (EC-11)."""
+    mix = Counter()
+    n = 0
+    for q in questions:
+        opts = [o.strip() for o in (q.get('options') or [])]
+        key = q.get('key') or q.get('correct_option') or q.get('answer')
+        if not opts or key in (None, ''):
+            continue
+        shape = q.get('option_shape') or detect_option_shape(q, figural_descriptor)
+        key_texts = []
+        if isinstance(key, (list, tuple, set)):
+            idxs = [int(k) - 1 for k in key if str(k).isdigit()]
+            key_texts = [opts[i] for i in idxs if 0 <= i < len(opts)]
+        elif str(key).isdigit() and 1 <= int(key) <= len(opts):
+            key_texts = [opts[int(key) - 1]]
+        elif isinstance(key, str) and len(key.strip()) == 1 and key.strip().upper() in 'ABCDE':
+            i = 'ABCDE'.index(key.strip().upper())
+            if i < len(opts):
+                key_texts = [opts[i]]
+        if not key_texts:
+            continue
+        kset = {k.lower() for k in key_texts}
+        for o in opts:
+            if o.lower() in kset or not o:
+                continue
+            n += 1
+            if shape in ('value', 'value_with_unit'):
+                mix[_mine_numeric(o, key_texts[0])] += 1
+            elif shape in ('expression', 'structure_image'):
+                d = (figural_descriptor or {})
+                kinds = ' '.join(str(v) for v in d.get('transformation_types', []))
+                if re.search(r'stereo|configuration|chiral', kinds, re.I):
+                    mix['stereochemistry_error'] += 1
+                elif re.search(r'regio|position|site', kinds, re.I):
+                    mix['regiochemistry_error'] += 1
+                elif shape == 'expression':
+                    a, b = o.replace(' ', ''), key_texts[0].replace(' ', '')
+                    if a == b[::-1] or (len(a) == len(b) and sorted(a) == sorted(b)):
+                        mix['reversed_relationship'] += 1
+                    else:
+                        mix['formula_error'] += 1
+                else:
+                    mix['structural_variant'] += 1
+            elif shape == 'statement':
+                ow = set(o.lower().split()); kw = set(key_texts[0].lower().split())
+                ov = len(ow & kw) / max(len(ow | kw), 1)
+                if _POLARITY_RE.search(o) != _POLARITY_RE.search(key_texts[0]):
+                    mix['polarity_flip'] += 1
+                elif ov >= 0.5:
+                    mix['partial_truth'] += 1
+                else:
+                    mix['overgeneralised_rule'] += 1
+            elif shape in ('entity', 'word'):
+                mix['name_swap' if shape == 'entity' else 'near_synonym'] += 1
+            elif shape == 'permutation':
+                a = o.replace(' ', '').replace(',', '')
+                b = key_texts[0].replace(' ', '').replace(',', '')
+                swaps = sum(1 for x, y in zip(a, b) if x != y)
+                mix['adjacent_swap' if swaps == 2 else 'anchor_misplaced'] += 1
+            elif shape == 'code_string':
+                a = o.replace(' ', ''); b = key_texts[0].replace(' ', '')
+                if len(a) == len(b) and sum(1 for x, y in zip(a, b) if x != y) <= 2:
+                    mix['off_by_one_shift'] += 1
+                else:
+                    mix['partial_mapping'] += 1
+            elif shape in ('sufficiency_set', 'combination_label', 'pair_map'):
+                mix['constraint_dropped' if len(o) < len(key_texts[0])
+                    else 'constraint_inverted'] += 1
+            elif shape in ('figure', 'plot_image'):
+                d = (figural_descriptor or {})
+                kinds = ' '.join(str(v) for v in d.get('transformation_types', []))
+                if re.search(r'mirror', kinds, re.I):
+                    mix['mirror_variant'] += 1
+                elif re.search(r'rotat', kinds, re.I):
+                    mix['rotation_variant'] += 1
+                elif d:
+                    mix['element_missing'] += 1
+                else:
+                    return 'unavailable'          # EC-6: no descriptors at all
+            else:
+                mix[bc.MECHANIC_UNKNOWN] += 1
+    if n == 0:
+        return 'unavailable'
+    return {k: round(v / n, 4) for k, v in mix.items()}
+
+
+# ── Rebuilt extractors (§6.1.5) — ungated, single-regex tokeniser (E-10) ─────────
+
+def extract_number_ranges_v2(questions, sig):
+    """Runs whenever numeric_density > 0. Ranges PER UNIT {min,max,p10,p50,p90,n}
+    plus exclude_values (exact given values), EXCLUDING universal constants —
+    a value in >= 20% of the exam-corpus numeric stems (computed by the caller and
+    passed via sig['_universal_constants']) is a constant, exempt (EC-49)."""
+    if sig.get('numeric_density', 0) <= 0:
+        return None, []
+    by_unit, givens = {}, Counter()
+    for q in questions:
+        if q.get('medium', 'en') != 'en':
+            continue
+        for m in _NUMBER_TOKEN_RE.finditer(q.get('stem') or ''):
+            tok = m.group(0)
+            um = re.match(r'(-?\d[\d,]*(?:\.\d+)?)((?:\s*[×x]\s*10\^?-?\d+|e-?\d+)?)'
+                          r'\s*(.*)$', tok)
+            if not um:
+                continue
+            try:
+                v = float(um.group(1).replace(',', ''))
+            except ValueError:
+                continue
+            # A bare integer run of >12 digits with no decimal point, comma
+            # grouping or exponent is a FLATTENED LITERAL, not a magnitude —
+            # measured on JAM: OMML matrices linearise as digit-row
+            # concatenations ('1000010000100001' is the 4x4 identity matrix).
+            # Feeding it to ranges poisons min/max for the unit.
+            if ('.' not in um.group(1) and ',' not in um.group(1)
+                    and not um.group(2) and len(um.group(1).lstrip('-')) > 12):
+                continue
+            if um.group(2):
+                em = re.search(r'10\^?(-?\d+)|e(-?\d+)', um.group(2))
+                if em:
+                    v *= 10.0 ** int(em.group(1) or em.group(2))
+            unit_raw = (um.group(3) or '').strip()
+            if unit_raw and unit_raw.lower() in _NON_UNIT_WORDS:
+                unit_raw = ''
+            unit = unit_raw or '_dimensionless_'
+            by_unit.setdefault(unit, []).append(v)
+            givens[round(v, 10)] += 1
+    if not by_unit:
+        return None, []
+    def _p6(vs):
+        p = _pctiles(vs, as_int=False)
+        return {k: round(v, 6) for k, v in p.items()}
+    ranges = {u: dict({'min': min(vs), 'max': max(vs), 'n': len(vs)}, **_p6(vs))
+              for u, vs in by_unit.items()}
+    constants = set(sig.get('_universal_constants') or ())
+    exclude = sorted(v for v in givens if v not in constants)
+    return ranges, exclude
+
+
+def extract_context_pool_v2(questions, sig):
+    """Runs whenever proper_noun_rate > 0: the observed named-entity pool, by
+    frequency band. Shape mirrors the legacy pool so existing readers keep
+    working; the entities themselves are measured, never listed."""
+    if sig.get('proper_noun_rate', 0) <= 0:
+        return None
+    counts = Counter()
+    for q in questions:
+        if q.get('medium', 'en') != 'en':
+            continue
+        for e in _named_entities_ordered(q.get('stem') or ''):
+            if e not in _RETAINED_NOTATION:
+                counts[e] += 1
+    if not counts:
+        return None
+    tot = max(len([q for q in questions if q.get('medium', 'en') == 'en']), 1)
+    return {'dominant': sorted(c for c, n in counts.items() if n / tot > 0.20),
+            'common':   sorted(c for c, n in counts.items() if 0.05 <= n / tot <= 0.20),
+            'rare':     sorted(c for c, n in counts.items() if 0 < n / tot < 0.05),
+            'avoid':    []}
+
+
+# ── §6.1.7 — lexicon, surface and stimulus statistics (per section × answer_type;
+#    English rendering only) ─────────────────────────────────────────────────────
+
+_STOPLIST = frozenset(('the a an of to in for on is are was were be been which what '
+                       'who whom whose when where why how do does did done with by at '
+                       'from as that this these those it its if then than and or not '
+                       'no nor so such can could will would shall should may might '
+                       'must have has had having following correct incorrect true '
+                       'false given above below only all none both each every most '
+                       'least other another same different among between statement '
+                       'statements option options question questions answer choose '
+                       'select respectively is are').split())
+
+
+def _pctiles(vals, as_int=True):
+    if not vals:
+        return {'p10': 0, 'p50': 0, 'p90': 0}
+    vs = sorted(vals)   # LOAD-BEARING: percentiles are positional reads of the
+    def pv(p):          # SORTED sample; the mutation fixture feeds unsorted input.
+        k = (len(vs) - 1) * p; f, c = int(k), min(int(k) + 1, len(vs) - 1)
+        return vs[f] if f == c else vs[f] + (vs[c] - vs[f]) * (k - f)
+    if as_int:
+        return {'p10': int(round(pv(.10))), 'p50': int(round(pv(.50))),
+                'p90': int(round(pv(.90)))}
+    return {'p10': pv(.10), 'p50': pv(.50), 'p90': pv(.90)}
+
+
+def _last_clause(stem):
+    parts = re.split(r'[.;:?]', stem.strip())
+    tail = next((p.strip() for p in reversed(parts) if p.strip()), '')
+    tail = re.sub(r'-?\d[\d,]*(?:\.\d+)?', '_NUM_', tail).lower()
+    return ' '.join(tail.split()[-10:])
+
+
+_INSTRUCTION_RE = re.compile(r'((?:round(?:ed)? (?:off )?to|correct to|nearest|'
+                             r'closest to|choose the|select the|in terms of|'
+                             r'up to \w+ decimal)[^.;\n]{0,60})', re.IGNORECASE)
+
+
+def _content_ngrams(text, nmax=3):
+    toks = [t for t in re.findall(r"[a-z][a-z\-']+", text.lower())
+            if t not in _STOPLIST and len(t) > 2]
+    out = []
+    for n in range(1, nmax + 1):
+        out += [' '.join(toks[i:i + n]) for i in range(len(toks) - n + 1)]
+    return out
+
+
+def _top_n(counter, n):
+    """Counter.most_common(n) with TIES BROKEN BY KEY, not by encounter order.
+
+    Counter.most_common is stable in insertion order, so two runs over the same
+    corpus in a different question order publish DIFFERENT top-N lists whenever
+    counts tie at the cut — measured on the JAM corpus, where 'order' and
+    'species' both scored tf 0.009615 and whichever was read first survived.
+    These lists are CONSUMED (S3-12c draws ask_form and instruction from them;
+    G-STYLE component 4 scores against the lexicon), so an order-dependent cut
+    is an order-dependent brief. (Metamorphic test, 2026-08-31.)
+    """
+    return sorted(counter.items(), key=lambda kv: (-kv[1], str(kv[0])))[:n]
+
+
+def compute_style_cell(questions, cell_min=None, figural_descriptor=None):
+    """§6.1.7 + §6.2 StyleCell for one (section × answer_type) or paper cell.
+    Callers stamp status/activation; DORMANT cells are still WRITTEN (P-3).
+    Stimulus text of a linked group is excluded from members' lexicon (EC-8)."""
+    cell_min = cell_min if cell_min is not None else bc.STYLE_ACTIVATION['min_questions_cell']
+    en = [q for q in questions if q.get('medium', 'en') == 'en']
+    n = len(en)
+    cell = {'n': n, 'status': 'ACTIVE' if n >= cell_min else 'DORMANT',
+            'dormant_reason': None if n >= cell_min else 'thin_cell'}
+    if not en:
+        return cell
+    mech = Counter(q.get('mechanic', bc.MECHANIC_UNKNOWN) for q in en)
+    form = Counter(q.get('axis2', 'DIRECT') for q in en)
+    # COMPUTE when not stamped, with the figural descriptor — do not silently
+    # report 'none'. The production path stamps option_shape in
+    # synthesise_subtopic before this runs, but a cell that is WRONG rather than
+    # ABSENT for an unstamped caller is the kind of defect that only shows up as
+    # a strange brief three steps later. (Found 2026-08-31 while pinning the
+    # descriptor contract.)
+    shp  = Counter(q.get('option_shape') or detect_option_shape(q, figural_descriptor)
+                   for q in en)
+    cell['mechanic_mix']     = {k: round(v / n, 4) for k, v in sorted(mech.items())}
+    cell['form_mix']         = {k: round(v / n, 4) for k, v in sorted(form.items())}
+    cell['option_shape_mix'] = {k: round(v / n, 4) for k, v in sorted(shp.items())}
+    cell['polarity_rate'] = round(sum(1 for q in en if _POLARITY_RE.search(q.get('stem') or '')) / n, 4)
+    cell['nat_rate'] = round(sum(1 for q in en if not q.get('options')) / n, 4)
+    cell['msq_rate'] = round(sum(1 for q in en if q.get('is_msq')) / n, 4)
+    cell['note_block_rate'] = round(sum(1 for q in en if q.get('has_note')) / n, 4)
+    cell['image_option_rate'] = round(sum(1 for q in en if q.get('image_role', 'none')
+                                          in _OPT_IMG_ROLES_STYLE) / n, 4)
+    cell['stem_len']   = _pctiles([len((q.get('stem') or '').split()) for q in en])
+    cell['option_len'] = _pctiles([len(o.split()) for q in en
+                                   for o in (q.get('options') or []) if o.strip()])
+    oc = Counter(str(len(q.get('options') or [])) for q in en if q.get('options'))
+    tot_oc = sum(oc.values()) or 1
+    cell['option_count'] = {k: round(v / tot_oc, 4) for k, v in sorted(oc.items())}
+    ask = Counter(_last_clause(q.get('stem') or '') for q in en)
+    cell['ask_forms'] = [{'text': t, 'pct': round(c / n, 4)}
+                         for t, c in _top_n(ask, 10) if t]
+    instr = Counter(m.group(1).strip() for q in en
+                    for m in _INSTRUCTION_RE.finditer(q.get('stem') or ''))
+    cell['instruction_phrases'] = [{'text': t, 'pct': round(c / n, 4)}
+                                   for t, c in _top_n(instr, 10)]
+    op = Counter(' '.join((q.get('stem') or '').lower().split()[:3]) for q in en)
+    cell['openers'] = [{'text': t, 'pct': round(c / n, 4)}
+                       for t, c in _top_n(op, 20) if t]
+    tf = Counter()
+    seen_groups = set()
+    for q in en:
+        text = q.get('stem') or ''
+        gid = q.get('linked_group_id')
+        if gid and gid in seen_groups:
+            pass                                        # EC-8: shared stimulus once
+        seen_groups.add(gid)
+        for g in _content_ngrams(text):
+            tf[g] += 1
+    tot_tf = sum(tf.values()) or 1
+    cell['lexicon'] = [{'ngram': g, 'tf': round(c / tot_tf, 6)}
+                       for g, c in _top_n(tf, 200)]
+    units = sorted(dict.fromkeys(
+        u for q in en for m in _NUMBER_TOKEN_RE.finditer(q.get('stem') or '')
+        for u in [_unit_of_token(m.group(0))] if u))
+    convs = sorted(dict.fromkeys(sym for q in en for sym in
+                                 re.findall(r'→|⇌|Δ|±|≤|≥|×\s*10', q.get('stem') or '')))
+    cell['notation'] = {'units': units[:40], 'conventions': convs}
+    # stimulus_stats (ruling Q11) — CLASS-4 groups and single-question stimuli alike.
+    groups = {}
+    n_stim = 0
+    kinds, slens, positions = Counter(), [], Counter()
+    for q in en:
+        stem = q.get('stem') or ''
+        gid = q.get('linked_group_id')
+        has_tbl = _looks_like_table_stimulus(stem)
+        has_img = q.get('image_role', 'none') not in ('none', None)
+        has_pass = bool(gid)
+        if not (has_tbl or has_img or has_pass):
+            continue
+        n_stim += 1
+        kind = ('passage' if has_pass and not has_tbl and not has_img else
+                'table' if has_tbl else 'figure' if has_img else 'case')
+        kinds[kind] += 1
+        slens.append(len(stem.split()))
+        positions['before' if has_pass else 'inline'] += 1
+        if gid:
+            groups.setdefault(gid, 0)
+            groups[gid] += 1
+    tot_k = sum(kinds.values()) or 1
+    qps = list(groups.values()) if groups else [1] * n_stim if n_stim else []
+    cell['stimulus_stats'] = {
+        'stimulus_rate': round(n_stim / n, 4),
+        'stimulus_kind_mix': {k: round(v / tot_k, 4) for k, v in sorted(kinds.items())},
+        'stimulus_len': _pctiles(slens),
+        'questions_per_stimulus': {'p50': (_pctiles(qps)['p50'] if qps else 0),
+                                   'max': (max(qps) if qps else 0)},
+        'stimulus_position': {k: round(v / (sum(positions.values()) or 1), 4)
+                              for k, v in sorted(positions.items())}}
+    # §6.2 StyleCell promises distractor_mix on EVERY cell, not only on subtopic
+    # cells: S3-12c falls back to the PAPER cell whenever a section cell is
+    # DORMANT (EC-3), and a fallback cell without it would silently force the
+    # EC-12 default prior even on an exam whose keys are fully known.
+    # 'unavailable' is the honest value when no question carries a key (EC-12) —
+    # never a guess.
+    # SAME MEASUREMENT, SAME INPUTS. section_rules mines with the figural
+    # descriptor (EC-6 refines image-option mechanisms); a cell that mined
+    # WITHOUT it would publish a different distractor_mix for the same subtopic
+    # in the two artefacts, and the writing side reads whichever it happens to
+    # hold. (Found by reading the diff, 2026-08-31.)
+    _dm = mine_distractor_mechanisms(en, figural_descriptor)
+    cell['distractor_mix'] = _dm if _dm else 'unavailable'
+    return cell
+
+
+# ── §6.1.2 pattern-key aggregation (additive; the legacy per-cluster
+#    PYQ_STEM_PATTERNS list keeps its old granularity and fields for byte-identity
+#    on aptitude corpora, and each entry gains pattern_key/mechanic/polarity/
+#    option_shape; the KEY-level view — frequency, recency, confidence per KEY —
+#    is the new `pattern_keys` block Step 7's S7-STYLE reads) ────────────────────
+
+def build_pattern_keys(questions):
+    keys = {}
+    # dict.fromkeys preserves ENCOUNTER order, so this sorted() is killable by a
+    # fixture whose questions arrive newest-year-first (a set here would iterate
+    # small ints in value order and hide a broken sort).
+    years_all = sorted(dict.fromkeys(q.get('year') for q in questions
+                                     if q.get('year') is not None))
+    last2 = set(years_all[-2:]) if len(years_all) >= 2 else set(years_all)
+    for q in questions:
+        if q.get('medium', 'en') != 'en' or not q.get('stem'):
+            continue
+        k = (q.get('mechanic', bc.MECHANIC_UNKNOWN), q.get('axis2', 'DIRECT'),
+             'negative' if _POLARITY_RE.search(q['stem']) else 'positive',
+             ('nat' if not q.get('options') else 'msq' if q.get('is_msq') else 'mcq'),
+             q.get('option_shape', 'none'))
+        e = keys.setdefault(k, {'raw_count': 0, 'w_count': 0, 'years': [],
+                                'exemplars': []})
+        w = 2 if q.get('year') in last2 else 1
+        e['raw_count'] += 1
+        e['w_count'] += w
+        if q.get('year') is not None and q['year'] not in e['years']:
+            e['years'].append(q['year'])   # encounter order; sorted at emit
+        skel = q.get('skeleton') or ''
+        for ex in e['exemplars']:
+            if SequenceMatcher(None, ex['skel'], skel).ratio() >= 0.90:
+                ex['raw_count'] += 1
+                break
+        else:
+            if skel and len(e['exemplars']) < 8:
+                e['exemplars'].append({'skel': skel, 'raw_count': 1})
+    total_w = sum(e['w_count'] for e in keys.values()) or 1
+    out = []
+    for k, e in sorted(keys.items(), key=lambda kv: -kv[1]['w_count']):
+        conf = 'observed' if e['raw_count'] >= 3 else 'inferred'
+        ys = sorted(e['years'])
+        if ys and all(y in last2 for y in ys) and len(ys) <= 2:
+            conf = 'observed_recent'
+        out.append({'pattern_key': '|'.join(k),
+                    'mechanic': k[0], 'form': k[1], 'polarity': k[2],
+                    'answer_type': k[3], 'option_shape': k[4],
+                    'frequency': round(e['w_count'] / total_w * 100),
+                    'raw_count': e['raw_count'], 'confidence': conf,
+                    'deprecated': bool(ys and not any(y in last2 for y in ys)),
+                    'years': ys,
+                    'exemplars': sorted(e['exemplars'],
+                                        key=lambda x: -x['raw_count'])[:5]})
+    return out
+
+
+def detect_low_entropy(questions):
+    """EC-9 — low_entropy: True when >= 80% of the subtopic's UNIQUE stems
+    (duplicate_of excluded, >= 3 unique required) are pairwise >= 0.50 Jaccard on
+    8-token shingles."""
+    stems = []
+    seen = set()
+    for q in questions:
+        s = normalise_v1(q.get('stem') or '')
+        if not s or s in seen:
+            continue
+        seen.add(s)
+        # token-set Jaccard with digits masked: near-identical stems that differ
+        # only in their values are exactly the low-entropy shape EC-9 names.
+        stems.append(set(re.sub(r'\d+', '#', s).split()))
+    if len(stems) < 3:
+        return False
+    close = 0
+    pairs = 0
+    for i in range(len(stems)):
+        best = 0.0
+        for j in range(len(stems)):
+            if i == j or not stems[i] or not stems[j]:
+                continue
+            jac = len(stems[i] & stems[j]) / max(len(stems[i] | stems[j]), 1)
+            best = max(best, jac)
+        pairs += 1
+        if best >= bc.LOW_ENTROPY_JACCARD:
+            close += 1
+    return (close / pairs) >= bc.LOW_ENTROPY_SHARE if pairs else False
+
+
+# ── §6.3 — PYQ index: normaliser v1, shingles, builder ──────────────────────────
+
+def normalise_v1(text):
+    """§6.3 normaliser v1: NFKC → lower → strip Q-number/date/shift tags →
+    collapse whitespace → keep digits, letters, unit strings, math tokens; strip
+    punctuation."""
+    t = unicodedata.normalize('NFKC', text or '').lower()
+    t = re.sub(r'^q\.?\s*\d+\.?\s*', '', t)
+    t = re.sub(r'\[\d{1,2}-\w+-\d{4}[^\]]*\]', '', t)
+    t = re.sub(r'\b(shift|session)\s*[-:i1-3]+\b', '', t)
+    t = re.sub(r'[^\w\s×^./%°µ⁻¹²³·-]', ' ', t)
+    return ' '.join(t.split())
+
+
+def _shingles(norm_text, k):
+    toks = norm_text.split()
+    if len(toks) < k:
+        return []
+    return [hashlib.md5(' '.join(toks[i:i + k]).encode()).hexdigest()[:12]
+            for i in range(len(toks) - k + 1)]
+
+
+def build_pyq_index_questions(all_questions, subtopic_of=None):
+    """§6.3 — one record per PYQ, no text. Exact duplicates across sittings keep
+    their own pyq_id with duplicate_of → first occurrence (EC-38)."""
+    recs, first_by_md5 = [], {}
+    for q in all_questions:
+        stem_raw = q.get('stem') or ''
+        norm = normalise_v1(stem_raw)
+        md5 = hashlib.md5(norm.encode()).hexdigest()
+        pid = f"{q.get('paper_id', '?')}:{q.get('num', '?')}"
+        toks = norm.split()
+        vals = sorted(m.group(0) for m in _NUMBER_TOKEN_RE.finditer(stem_raw))
+        pol = 'negative' if _POLARITY_RE.search(stem_raw) else 'positive'
+        rec = {'pyq_id': pid, 'year': q.get('year'),
+               'subtopic_id': (subtopic_of or {}).get(id(q)) or q.get('subtopic_id') or '',
+               'stem_md5': md5,
+               'stem_shingles_8': _shingles(norm, bc.SHINGLE_K),
+               'stem_shingles_4': (_shingles(norm, bc.SHINGLE_K_SHORT)
+                                   if len(toks) < bc.SHORT_STEM_TOKENS else None),
+               'stimulus_shingles_8': (_shingles(normalise_v1(q.get('stimulus_text') or ''),
+                                                 bc.SHINGLE_K)
+                                       if q.get('linked_group_id') else None),
+               'semantic_tuple': [(subtopic_of or {}).get(id(q)) or q.get('subtopic_id') or '',
+                                  '|'.join([q.get('mechanic', bc.MECHANIC_UNKNOWN)
+                                            if q.get('medium', 'en') == 'en'
+                                            else bc.MECHANIC_UNKNOWN,
+                                            q.get('axis2', 'DIRECT'), pol]),
+                                  vals],
+               'values': vals,
+               'option_md5s': [hashlib.md5(normalise_v1(o).encode()).hexdigest()
+                               for o in (q.get('options') or []) if o.strip()],
+               'image_phash': q.get('image_dhash'),
+               'duplicate_of': first_by_md5.get(md5)}
+        if md5 not in first_by_md5:
+            first_by_md5[md5] = pid
+        recs.append(rec)
+    return recs, len(first_by_md5)
+
+
+# ── MECHANIC → approach display string (E-3 fix; content path only — the legacy
+#    aptitude path keeps infer_approach verbatim for EC-26 byte-identity) ────────
+
+MECHANIC_TO_APPROACH = {
+    'data_sufficiency'     : 'Test each statement for sufficiency independently, then together',
+    'assertion_reason'     : 'Judge each clause, then the explanatory link',
+    'match'                : 'Map each List-I item to its List-II partner',
+    'syllogism'            : 'Evaluate statement-conclusion pairs using syllogism rules',
+    'decode'               : 'Decode substitution pattern',
+    'constraint_arrangement': 'Build the arrangement from the constraints, then read off',
+    'procedure_trace'      : 'Trace the procedure step by step to the asked value',
+    'text_reorder'         : 'Order the fragments into a coherent whole',
+    'sentence_edit'        : 'Apply the governing usage rule to the marked segment',
+    'word_meaning'         : 'Select the closest meaning',
+    'passage_comprehension': 'Locate and read the governing lines of the passage',
+    'spatial_figure'       : 'Transform the figure mentally and compare',
+    'series_completion'    : 'Find the generating rule, apply it to the next term',
+    'pattern_analogy'      : 'Find operation A->B, apply same to C',
+    'relational_reasoning' : 'Chain the stated relations to the asked one',
+    'interpret_data'       : 'Read the required values off the data, then compute',
+    'apply_rule_to_case'   : 'Apply the governing rule to the stated facts',
+    'evaluate_statements'  : 'Judge each statement independently, then combine',
+    'rank_order'           : 'Order the entities by the governing property',
+    'identify'             : 'Identify the entity that satisfies every stated condition',
+    'predict'              : 'Predict the outcome from the governing principle',
+    'multi_step_derivation': 'Derive the result over the required steps',
+    'single_formula'       : 'Apply the governing relation once',
+    'recall'               : 'Recall factual information',
+    bc.MECHANIC_UNKNOWN    : 'Apply appropriate strategy',
+}
+
+
+# ── §6.2 + §6.3 — artefact writers. Same command, same run, same corpus_hash. ────
+
+def compute_corpus_hash(paper_file_hashes):
+    """sha256 over the SORTED list of PYQ file hashes — order-independent, so the
+    same corpus always stamps the same hash on all three artefacts."""
+    h = hashlib.sha256()
+    for fh in sorted(paper_file_hashes):
+        h.update(fh.encode())
+    return h.hexdigest()
+
+
+def measure_item_rules(all_questions):
+    """§6.2 item_rules I-1..I-8 — the measured rate at which the exam's own PYQ
+    violate each rule; a rule with violation_rate >= 0.10 is SUSPENDED for the
+    exam (the house style legitimately breaks it). Rules needing answer keys are
+    written measured:false when keys are absent — never guessed."""
+    en = [q for q in all_questions if q.get('medium', 'en') == 'en' and q.get('options')]
+    n = len(en)
+    def rate(k):  return round(k / n, 4) if n else None
+    have_keys = [q for q in en if (q.get('key') or q.get('correct_option')
+                                   or q.get('answer')) not in (None, '')]
+    def key_texts(q):
+        opts = [o.strip() for o in q.get('options') or []]
+        key = q.get('key') or q.get('correct_option') or q.get('answer')
+        if isinstance(key, (list, tuple, set)):
+            idxs = [int(k) - 1 for k in key if str(k).isdigit()]
+            return [opts[i] for i in idxs if 0 <= i < len(opts)]
+        ks = str(key).strip()
+        if ks.isdigit() and 1 <= int(ks) <= len(opts):
+            return [opts[int(ks) - 1]]
+        if len(ks) == 1 and ks.upper() in 'ABCDE' and 'ABCDE'.index(ks.upper()) < len(opts):
+            return [opts['ABCDE'.index(ks.upper())]]
+        return []
+    rules = {}
+    # I-1 longest-option-is-key
+    if have_keys:
+        v = 0
+        for q in have_keys:
+            kt = key_texts(q)
+            opts = [o.strip() for o in q['options'] if o.strip()]
+            if kt and opts and max(opts, key=len) in kt and len(max(opts, key=len)) > \
+                    1.5 * (sum(len(o) for o in opts) - len(max(opts, key=len))) / max(len(opts) - 1, 1):
+                v += 1
+        rules['I-1'] = {'rule': 'key is conspicuously the longest option',
+                        'violation_rate': round(v / len(have_keys), 4), 'measured': True}
+    else:
+        rules['I-1'] = {'rule': 'key is conspicuously the longest option',
+                        'violation_rate': None, 'measured': False}
+    # I-2 all-of-the-above / none-of-the-above present
+    v = sum(1 for q in en if any(re.search(r'\b(all|none) of (the above|these)\b',
+                                           o, re.I) for o in q['options']))
+    rules['I-2'] = {'rule': 'all/none-of-the-above options', 'violation_rate': rate(v),
+                    'measured': True}
+    # I-3 key position imbalance (needs keys)
+    if len(have_keys) >= 20:
+        pos = Counter()
+        for q in have_keys:
+            key = str(q.get('key') or q.get('correct_option') or q.get('answer')).strip()
+            if key.isdigit():
+                pos[int(key)] += 1
+            elif len(key) == 1 and key.upper() in 'ABCDE':
+                pos['ABCDE'.index(key.upper()) + 1] += 1
+        tot = sum(pos.values())
+        top = max(pos.values()) / tot if tot else 0
+        rules['I-3'] = {'rule': 'answer-position imbalance (>40% one slot)',
+                        'violation_rate': round(top, 4) if top > 0.40 else 0.0,
+                        'measured': True}
+    else:
+        rules['I-3'] = {'rule': 'answer-position imbalance (>40% one slot)',
+                        'violation_rate': None, 'measured': False}
+    # I-4 grammatical cueing (a/an mismatch with options)
+    v = 0
+    for q in en:
+        m = re.search(r'\b(a|an)\s*_{3,}', (q.get('stem') or ''), re.I)
+        if m:
+            art = m.group(1).lower()
+            opts = [o.strip() for o in q['options'] if o.strip()]
+            bad = [o for o in opts if (o[:1].lower() in 'aeiou') != (art == 'an')]
+            if bad and len(bad) < len(opts):
+                v += 1
+    rules['I-4'] = {'rule': 'article/grammar cues eliminate options',
+                    'violation_rate': rate(v), 'measured': True}
+    # I-5 negative stem without emphasis
+    v = sum(1 for q in en
+            if _POLARITY_RE.search(q.get('stem') or '')
+            and not any(t in (q.get('stem') or '') for t in bc.EMPHASIS_LEXICON))
+    rules['I-5'] = {'rule': 'negative stem without emphasised marker',
+                    'violation_rate': rate(v), 'measured': True}
+    # I-6 overlapping numeric options
+    v = 0
+    for q in en:
+        vals = []
+        for o in q['options']:
+            pv = _parse_magnitude(o)
+            if pv is not None:
+                vals.append(pv)
+        if len(vals) >= 3 and len(set(vals)) < len(vals):
+            v += 1
+    rules['I-6'] = {'rule': 'duplicate/overlapping numeric options',
+                    'violation_rate': rate(v), 'measured': True}
+    # I-7 stem asks two things
+    v = sum(1 for q in en if (q.get('stem') or '').count('?') >= 2)
+    rules['I-7'] = {'rule': 'double-barrelled stem', 'violation_rate': rate(v),
+                    'measured': True}
+    # I-8 option order not canonical (numeric options unsorted)
+    v = 0
+    for q in en:
+        vals = [_parse_magnitude(o) for o in q['options']]
+        vals = [x for x in vals if x is not None]
+        if len(vals) == len([o for o in q['options'] if o.strip()]) and len(vals) >= 3:
+            if vals != sorted(vals) and vals != sorted(vals, reverse=True):
+                v += 1
+    rules['I-8'] = {'rule': 'numeric options not in monotone order',
+                    'violation_rate': rate(v), 'measured': True}
+    for r in rules.values():
+        r['suspended'] = bool(r['measured'] and (r['violation_rate'] or 0) >= 0.10)
+    return rules
+
+
+def _utc_stamp():
+    """UTC ISO-8601, second precision — the EC-25 recency comparator. A bare
+    datetime.now() would compare local clocks across sessions."""
+    import datetime as _dt
+    return _dt.datetime.now(_dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def write_style_profile(exam_code, entries, questions_by_subtopic, paper_ids,
+                        paper_file_hashes, out_dir=None, exam_meta=None,
+                        figural_by_subtopic=None):
+    """§6.2 — <EXAM>_style_profile.json. DORMANT is a written status with a
+    reason, never a missing file (P-3). Thresholds are dispersion-computed when
+    questions_en >= 300 across >= 4 papers, else defaults with
+    thresholds_source: 'default'."""
+    all_qs = [q for qs in questions_by_subtopic.values() for q in qs]
+    en_qs = [q for q in all_qs if q.get('medium', 'en') == 'en']
+    n_papers = len(set(paper_ids))
+    act = bc.STYLE_ACTIVATION
+    active = (n_papers >= act['min_papers'] and len(all_qs) >= act['min_questions_paper'])
+    reason = None
+    if not active:
+        reason = ('papers=%d < %d' % (n_papers, act['min_papers'])
+                  if n_papers < act['min_papers']
+                  else 'questions=%d < %d' % (len(all_qs), act['min_questions_paper']))
+    # universal constants for exclude_values (EC-49) — computed once per corpus
+    given_counts = Counter()
+    numeric_stems = 0
+    for q in en_qs:
+        vals = list(dict.fromkeys(          # stem order, deduped — deterministic
+            round(float(m.group(1).replace(',', '')), 10)
+            for m in re.finditer(r'(-?\d[\d,]*(?:\.\d+)?)', q.get('stem') or '')))
+        if vals:
+            numeric_stems += 1
+        for v in vals:
+            given_counts[v] += 1
+    constants = [v for v, c in given_counts.items()   # Counter = encounter order
+                 if numeric_stems and c / numeric_stems >= bc.UNIVERSAL_CONSTANT_SHARE]
+    # section × answer_type cells over English renderings; by_medium.other DORMANT
+    sections = {}
+    for e in entries:
+        sec = e['section']
+        for q in questions_by_subtopic.get((e['section'], e['topic'], e['subtopic']), []):
+            sections.setdefault(sec, []).append(q)
+    section_cells = {}
+    for sec, qs in sections.items():   # dict is entry-ordered; JSON sorts keys
+        en = [q for q in qs if q.get('medium', 'en') == 'en']
+        cell_all = {}
+        for at in ('mcq', 'msq', 'nat'):
+            sub = [q for q in en if
+                   ('nat' if not q.get('options') else 'msq' if q.get('is_msq') else 'mcq') == at]
+            if sub:
+                c = compute_style_cell(sub)
+                if len(en) < act['min_questions_section']:
+                    c['status'], c['dormant_reason'] = 'DORMANT', \
+                        'section_en=%d < %d' % (len(en), act['min_questions_section'])
+                cell_all[at] = c
+        other = [q for q in qs if q.get('medium', 'en') != 'en']
+        # §6.2 SECTION SCHEMA: status / n / cell are REQUIRED alongside
+        # by_answer_type. Create S3-12c reads sect['status'] to decide whether a
+        # section cell is usable and sect['cell'] as the fallback within the
+        # section (EC-3). Emitting only by_answer_type made both reads falsy, so
+        # EVERY slot silently drew from the PAPER cell and section-level style
+        # never took effect — a defect invisible from the artefact alone,
+        # because the profile still validated. Found by seam trace 2026-08-31.
+        _sec_cell = compute_style_cell(en, cell_min=act['min_questions_section'])
+        section_cells[sec] = {'status': _sec_cell.get('status', 'DORMANT'),
+                              'dormant_reason': _sec_cell.get('dormant_reason'),
+                              'n': len(en),
+                              'cell': _sec_cell,
+                              'by_answer_type': cell_all,
+                              'by_medium': {'other': {'n': len(other), 'status': 'DORMANT',
+                                                      'dormant_reason': 'medium_other_v1'}}}
+    subtopic_cells = {}
+    for e in entries:
+        key = (e['section'], e['topic'], e['subtopic'])
+        qs = questions_by_subtopic.get(key, [])
+        if not qs:
+            continue
+        # THE FRAMEWORK OWNS THIS DERIVATION, not the caller. Each entry already
+        # carries the subtopic's figural descriptor as PYQ_IMAGE_ANALYSIS (it is
+        # what section_rules mined with), so reading it here makes the two
+        # artefacts consistent BY CONSTRUCTION. A caller-supplied map is honoured
+        # as an override but is never required — a call site that forgets it is
+        # the exact way the two artefacts drift apart.
+        _fd_cell = ((figural_by_subtopic or {}).get(
+                        e.get('subtopic_id') or e['subtopic'])
+                    or e.get('PYQ_IMAGE_ANALYSIS'))
+        c = compute_style_cell(qs, figural_descriptor=_fd_cell)
+        c['low_entropy'] = detect_low_entropy(qs)
+        # §6.2 SUBTOPIC SCHEMA — the three fields the WRITING side reads from a
+        # subtopic cell and cannot obtain anywhere else (Create S3-12c):
+        #   number_ranges  -> the brief's per-unit value ranges
+        #   exclude_values -> G-PYQ-DIST value reuse; without it the pre-write
+        #                     redraw (EC-49) and REJECT reason (d) can NEVER fire
+        #   distractor_mix -> the brief's distractor mechanisms; absent, EC-12's
+        #                     default prior is taken even where real keys exist
+        # They were computed for section_rules and never placed on the cell, so
+        # the profile satisfied its own schema check while silently starving the
+        # writing side. Found by tracing the seam field-by-field, 2026-08-31.
+        _c_sig = derive_content_signature(qs)
+        _c_mode = derive_legacy_mode(_c_sig, questions=qs,
+                                     exam_class=_exam_style_class(None, _c_sig),
+                                     section=e['section'], topic=e['topic'],
+                                     subtopic=e['subtopic'])
+        if _c_mode is not None:
+            _rng, _exc = extract_number_ranges(qs, _c_mode), []
+        else:
+            _rng, _exc = extract_number_ranges_v2(qs, _c_sig)
+        c['number_ranges'] = _rng
+        # extract_number_ranges_v2 GUARANTEES an ascending exclude list — that
+        # is its contract, pinned by the ranges_exclude_ascending fixture. A
+        # second sort here would be an emission no fixture can distinguish from
+        # its absence (a permanent mutation survivor), so the guarantee is
+        # tested at the producer instead of re-asserted at the consumer.
+        c['exclude_values'] = list(_exc) if _exc else []
+        _dmix = mine_distractor_mechanisms(qs, _fd_cell)
+        c['distractor_mix'] = _dmix if _dmix else 'unavailable'
+        subtopic_cells[e.get('subtopic_id') or e['subtopic']] = c
+    paper_cell = compute_style_cell(all_qs, cell_min=act['min_questions_paper'])
+    # thresholds — leave-one-paper-out dispersion of D when the basis suffices
+    thresholds = dict(bc.STYLE_THRESHOLD_DEFAULTS)
+    thresholds['computed_from_dispersion'] = False
+    thresholds_source = 'default'
+    if len(en_qs) >= bc.STYLE_DISPERSION_MIN_EN and n_papers >= 4:
+        dists = []
+        basis = []
+        for pid in dict.fromkeys(paper_ids):   # mean/sd are order-invariant
+            held = [q for q in en_qs if q.get('paper_id') == pid]
+            rest = [q for q in en_qs if q.get('paper_id') != pid]
+            if len(held) >= bc.STYLE_DISPERSION_MIN_PAPER_Q and len(rest) >= 50:
+                dists.append(bc.style_distance(compute_style_cell(held),
+                                               compute_style_cell(rest)))
+                basis.append(pid)
+        if len(dists) >= 4:
+            # §6.2: fail = max(DEFAULT_FAIL, p95 of real-paper distance);
+            # warn = fail x 0.625. The FLOOR is the point: a tightly clustered
+            # corpus would otherwise compute a fail band NARROWER than the
+            # framework default and start reporting HIGH on ordinary papers.
+            # (Measured 2026-08-31 on IIT_JAM_CHEMISTRY: mu+3sd gave 0.354,
+            # below the 0.40 default, and §8.6 proof 3 caught it.)
+            ordered = sorted(dists)
+            p95 = ordered[min(len(ordered) - 1,
+                              int(round(0.95 * (len(ordered) - 1))))]
+            fail = max(bc.STYLE_THRESHOLD_DEFAULTS['style_distance_fail'], p95)
+            # The BASIS is part of the artefact: a partial sitting (EC-36 —
+            # e.g. a 10-question fragment) is too small to calibrate a
+            # threshold, and therefore too small to be JUDGED by one. Recording
+            # which sittings calibrated the band is what lets a consumer — and
+            # §8.6 proof 3 — apply the same rule instead of guessing at it.
+            thresholds = {'style_distance_warn': round(fail * 0.625, 4),
+                          'style_distance_fail': round(fail, 4),
+                          'computed_from_dispersion': True,
+                          'basis_papers': sorted(basis),
+                          'basis_min_questions': bc.STYLE_DISPERSION_MIN_PAPER_Q}
+            thresholds_source = 'dispersion(n=%d)' % len(dists)
+    # EC-4 / EC-10 — the STYLE WINDOW is part of the artefact's meaning: a
+    # consumer that scores a real sitting must know which sittings fed the
+    # cells. Years may be absent entirely (coverage_mode no_year_info, EC-4),
+    # in which case the window is every sitting and the list is empty.
+    _yrs = sorted({q.get('year') for q in all_qs if q.get('year')})
+    profile = {'_meta': {'schema': bc.STYLE_PROFILE_SCHEMA, 'exam_code': exam_code,
+                         'corpus_hash': compute_corpus_hash(paper_file_hashes),
+                         'papers': n_papers, 'questions': len(all_qs),
+                         'questions_en': len(en_qs),
+                         'generated_at': _utc_stamp(),   # EC-25 recency rule
+                         'window_years': _yrs,
+                         'papers_in_window': sorted(dict.fromkeys(paper_ids)),
+                         'papers_excluded_from_style': [],
+                         'generated_by': 'analyse_engine v2.56'},
+               'activation': {'status': 'ACTIVE' if active else 'DORMANT',
+                              'dormant_reason': reason,
+                              'thresholds_source': thresholds_source},
+               'thresholds': thresholds,
+               'paper': paper_cell,
+               'sections': section_cells,
+               'subtopics': subtopic_cells,
+               'item_rules': measure_item_rules(all_qs),
+               'universal_constants': sorted(constants),   # artefact list; fixture-pinned
+               'self_repeat_rate': None,   # stamped below when index built same run
+               'papers_excluded_from_style': []}
+    path = _artefact_path(out_dir, f'{exam_code}_style_profile.json')
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(profile, f, ensure_ascii=False, indent=1, sort_keys=True)
+    return path, profile
+
+
+def write_pyq_index(exam_code, all_questions, paper_file_hashes, subtopic_of=None,
+                    out_dir=None):
+    """§6.3 — <EXAM>_pyq_index.json. No question text; shingle hashes, hashes and
+    tuples only."""
+    recs, n_unique = build_pyq_index_questions(all_questions, subtopic_of)
+    # self-repeat rate: unique stems that recur across different papers
+    by_md5 = {}
+    for r in recs:
+        by_md5.setdefault(r['stem_md5'], set()).add(r['pyq_id'].split(':')[0])
+    n_repeat = sum(1 for papers in by_md5.values() if len(papers) >= 2)
+    self_repeat = round(n_repeat / max(len(by_md5), 1), 4)
+    # §6.3 names these n_questions / n_unique_stems / generated_at. The legacy
+    # 'questions'/'unique_stems' keys are KEPT ALONGSIDE (additive, P-9) so any
+    # reader written against the shipped artefact keeps working; the schema
+    # names are what EC-1 (empty index => n_questions: 0) and EC-25 (the newer
+    # generated_at wins when two profiles are otherwise equal) are stated in.
+    # Without generated_at, EC-25 is not implementable at all.
+    index = {'_meta': {'schema': bc.PYQ_INDEX_SCHEMA, 'exam_code': exam_code,
+                       'corpus_hash': compute_corpus_hash(paper_file_hashes),
+                       'n_questions': len(recs), 'n_unique_stems': n_unique,
+                       'questions': len(recs), 'unique_stems': n_unique,
+                       'generated_at': _utc_stamp(),
+                       'normaliser': 'v1', 'shingle_k': bc.SHINGLE_K,
+                       'shingle_k_short': bc.SHINGLE_K_SHORT,
+                       'self_repeat_rate': self_repeat,
+                       'generated_by': 'analyse_engine v2.56'},
+             'questions': recs}
+    path = _artefact_path(out_dir, f'{exam_code}_pyq_index.json')
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(index, f, ensure_ascii=False, indent=1, sort_keys=True)
+    return path, index
+
+
+def stamp_medium(questions):
+    """§6.1.9 — per-question medium stamp; the style layer computes on 'en' only."""
+    for q in questions:
+        if 'medium' not in q:
+            q['medium'] = medium_of((q.get('stem') or '') + ' ' +
+                                    ' '.join(q.get('options') or []))
+    return questions
+
+
+# ── pattern annotation (§6.1.8 additive per-pattern fields) ─────────────────────
+
+def _annotate_patterns_with_style(patterns, questions):
+    """v2.56 — stamp each legacy 0.90-cluster pattern with its measured style
+    abstraction: majority mechanic / polarity / option_shape of the member
+    questions and the composed pattern_key. Membership is decided by the SAME
+    0.90 skeleton-similarity rule that formed the cluster, so the annotation can
+    never re-cluster anything (byte-identity of the pre-existing fields, EC-26)."""
+    if not patterns:
+        return patterns
+    for p in patterns:
+        members = [q for q in questions
+                   if q.get('skeleton')
+                   and SequenceMatcher(None, p.get('template', ''),
+                                       q['skeleton']).ratio() >= 0.90]
+        if not members:
+            members = [q for q in questions if q.get('stem')]
+        en = [q for q in members if q.get('medium', 'en') == 'en']
+        mech = Counter(q.get('mechanic', bc.MECHANIC_UNKNOWN) for q in en)
+        pol = Counter('negative' if _POLARITY_RE.search(q.get('stem') or '')
+                      else 'positive' for q in members)
+        shp = Counter(q.get('option_shape', 'none') for q in members)
+        at = Counter(('nat' if not q.get('options') else
+                      'msq' if q.get('is_msq') else 'mcq') for q in members)
+        form = Counter(q.get('axis2', 'DIRECT') for q in members)
+        p['mechanic'] = mech.most_common(1)[0][0] if mech else bc.MECHANIC_UNKNOWN
+        p['polarity'] = pol.most_common(1)[0][0] if pol else 'positive'
+        p['option_shape'] = shp.most_common(1)[0][0] if shp else 'none'
+        p['pattern_key'] = '|'.join((
+            p['mechanic'],
+            form.most_common(1)[0][0] if form else 'DIRECT',
+            p['polarity'],
+            at.most_common(1)[0][0] if at else 'mcq',
+            p['option_shape']))
+    return patterns
 
 
 if __name__ == "__main__":

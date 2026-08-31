@@ -247,7 +247,8 @@ def reads(txt):
 # The registry is SHARED across series (ScopedBlueprint §9), so an ordinal key ('1')
 # collides between MOCK:M01, SUBJ:PHYS:01 and SUBJ:CHEM:01. Each must be written under
 # a paper_id key; the ordinal key is permitted ALONGSIDE it (MOCK-series back-compat).
-PER_PAPER_CONTAINERS = ('options_by_q', 'axis1_paper', 'axis3_paper')
+PER_PAPER_CONTAINERS = ('options_by_q', 'axis1_paper', 'axis3_paper',
+                        'style_obs_by_q')   # v1.4 — GAP-2026-08-29 §6.5.5
 
 _ORDINAL_WRITE = r"\[\s*str\(\s*(?:N|mock[a-z_]*)\s*\)\s*\]\s*="
 _PAPERID_WRITE = r"\[\s*_?[a-z0-9_]*p(?:aper_)?id[a-z0-9_]*\s*\]\s*="

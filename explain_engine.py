@@ -2644,6 +2644,79 @@ def _make_sample_paper(path, cfg, nq=6):
     doc.save(path)
     return path
 
+# ── §7A-S STYLE RE-MEASURE (v1.50.0, GAP-2026-08-29 §6.6) ────────────────────
+STYLE_REMEASURE_FIELDS = ('mechanic', 'form', 'polarity', 'answer_type',
+                          'option_shape', 'stem_words')
+
+
+def style_remeasure(step7_obs_by_q, delivered_obs_by_q, *,
+                    profile_status='ACTIVE', profile_hash=None,
+                    batch_state_hash=None):
+    """Compare Step-7's recorded style_obs against a re-measurement of the
+    DELIVERED question. Pure: measurement happens in the caller (the same
+    analyse-side functions Step 7 used — never a second implementation), this
+    decides dormancy and assembles the record.
+
+    ADVISORY ALWAYS (P-4): the return value has no verdict that can withhold a
+    paper. Returns the §7A-S record shape."""
+    def _rec(status, reason=None, **kw):
+        r = {'status': status, 'reason': reason, 'n_questions': 0,
+             'mismatches': {}, 'total_mismatches': 0, 'questions': []}
+        r.update(kw)
+        return r
+    # HOSTILE INPUT: the sidecar is a file on disk. A corrupt shape must make
+    # §7A-S DORMANT, never raise — this runs at Step 9 on a delivered paper, and
+    # ruling P-4 forbids a style check stopping any step. (Found by reading the
+    # diff, 2026-08-31: a list/str/int sidecar raised.)
+    if not isinstance(step7_obs_by_q, dict):
+        return _rec('DORMANT', 'sidecar_unreadable')
+    if delivered_obs_by_q is not None and not isinstance(delivered_obs_by_q, dict):
+        return _rec('DORMANT', 'remeasurement_unreadable')
+    if str(profile_status).upper() != 'ACTIVE':
+        return _rec('DORMANT', 'profile_dormant')
+    if (batch_state_hash is not None and profile_hash is not None
+            and batch_state_hash != profile_hash):
+        # the profile CHANGED between authoring and explaining; a mismatch count
+        # computed across two different profiles is not a finding about the paper
+        return _rec('DORMANT', 'hash_mismatch')
+    if not step7_obs_by_q:
+        return _rec('DORMANT', 'pre_v582_paper')
+    rows, per_field, compared = [], {}, 0
+    for q in sorted(step7_obs_by_q, key=lambda x: (len(str(x)), str(x))):
+        a = step7_obs_by_q.get(q)
+        a = a if isinstance(a, dict) else {}
+        b = (delivered_obs_by_q or {}).get(q)
+        b = b if isinstance(b, dict) else {}
+        if not b:
+            continue
+        compared += 1
+        for f in STYLE_REMEASURE_FIELDS:
+            if f in a and f in b and a[f] != b[f]:
+                rows.append({'q': q, 'field': f, 'step7': a[f], 'step9': b[f]})
+                per_field[f] = per_field.get(f, 0) + 1
+    # n_compared is REPORTED SEPARATELY: a record that says n_questions=60 while
+    # only 12 were re-measurable overstates its own coverage, and a reader cannot
+    # tell "no mismatches" from "nothing was checked".
+    return _rec('MEASURED', None, n_questions=len(step7_obs_by_q),
+                n_compared=compared, mismatches=per_field,
+                total_mismatches=len(rows), questions=rows)
+
+
+def distractor_type_disagreements(authored, explained):
+    """§6.6 P-series: authored type is the DEFAULT diagnosis; Step 9 re-derives
+    independently (RE-6) and RECORDS both on disagreement — never edits the
+    question (RE-3), never silently overrides."""
+    out = []
+    for label in sorted(set(authored or {}) | set(explained or {})):
+        a = (authored or {}).get(label)
+        a = a.get('type') if isinstance(a, dict) else a
+        e = (explained or {}).get(label)
+        e = e.get('type') if isinstance(e, dict) else e
+        if a and e and a != e:
+            out.append({'option': label, 'authored_type': a, 'explained_type': e})
+    return out
+
+
 def self_test():
     results = []
     def check(name, cond):
@@ -3861,6 +3934,81 @@ def self_test():
               ex == [] and subj is None and warn is None)
     except Exception as e:
         check('V31-DISCOVERY-EXAM-ONLY', False); print('   discovery:', repr(e))
+
+    # ── §7A-S STYLE RE-MEASURE (v1.50.0) ─────────────────────────────────────
+    _s7 = {1: {'mechanic': 'recall', 'form': 'DIRECT', 'polarity': False,
+               'option_shape': 'word', 'stem_words': 12},
+           2: {'mechanic': 'identify', 'form': 'DIRECT', 'polarity': False,
+               'option_shape': 'expression', 'stem_words': 20}}
+    _s9_same = {1: dict(_s7[1]), 2: dict(_s7[2])}
+    _sr = style_remeasure(_s7, _s9_same)
+    check('7AS_clean_paper', _sr['status'] == 'MEASURED'
+          and _sr['total_mismatches'] == 0 and _sr['n_questions'] == 2
+          and _sr['questions'] == [])
+    _s9_drift = {1: dict(_s7[1], mechanic='identify'),
+                 2: dict(_s7[2], polarity=True, option_shape='word')}
+    _sr = style_remeasure(_s7, _s9_drift)
+    check('7AS_mismatches_counted_per_field',
+          _sr['total_mismatches'] == 3
+          and _sr['mismatches'] == {'mechanic': 1, 'polarity': 1, 'option_shape': 1}
+          and _sr['questions'][0] == {'q': 1, 'field': 'mechanic',
+                                     'step7': 'recall', 'step9': 'identify'})
+    # ADVISORY: even a fully divergent paper yields no blocking verdict
+    check('7AS_never_blocks',
+          set(style_remeasure(_s7, _s9_drift)) ==
+          {'status', 'reason', 'n_questions', 'n_compared', 'mismatches',
+           'total_mismatches', 'questions'}
+          # the record shape carries NO verdict/blocking field of any kind
+          and not ({'verdict', 'blocked', 'halt', 'fail'}
+                   & set(style_remeasure(_s7, _s9_drift))))
+    # dormancy: three distinct reasons, each recorded, none a stop
+    check('7AS_dormant_profile',
+          style_remeasure(_s7, _s9_same, profile_status='DORMANT')['reason']
+          == 'profile_dormant')
+    check('7AS_dormant_hash_mismatch',
+          style_remeasure(_s7, _s9_same, profile_hash='a',
+                          batch_state_hash='b')['reason'] == 'hash_mismatch'
+          and style_remeasure(_s7, _s9_same, profile_hash='a',
+                              batch_state_hash='a')['status'] == 'MEASURED')
+    check('7AS_dormant_pre_v582',
+          style_remeasure({}, _s9_same)['reason'] == 'pre_v582_paper')
+    # a question Step 9 could not measure is SKIPPED, never counted as a mismatch
+    check('7AS_unmeasured_question_skipped',
+          style_remeasure(_s7, {1: dict(_s7[1])})['total_mismatches'] == 0)
+    # P-series: disagreements RECORD BOTH, agreements are silent
+    # HOSTILE SIDECAR: a corrupt shape is DORMANT, never a raise (P-4)
+    _hostile7 = []
+    _hostile_probed = ([], 'x', 7, 0.5, set())
+    for _bad in _hostile_probed:
+        try:
+            _r7 = style_remeasure(_bad, _s9_same)
+            if _r7['status'] != 'DORMANT':
+                _hostile7.append(('step7', _bad))
+        except Exception:
+            _hostile7.append(('step7 RAISED', _bad))
+        try:
+            _r8 = style_remeasure(_s7, _bad)
+            if _r8['status'] != 'DORMANT':
+                _hostile7.append(('step9', _bad))
+        except Exception:
+            _hostile7.append(('step9 RAISED', _bad))
+    check('7AS_hostile_corpus_non_empty', len(_hostile_probed) >= 5)
+    check('7AS_hostile_sidecar_is_dormant_never_raises', not _hostile7)
+    # COVERAGE HONESTY: n_compared says how many were actually re-measured, so
+    # "0 mismatches" cannot be confused with "nothing was checked"
+    _rp = style_remeasure({1: {'mechanic': 'a'}, 2: {'mechanic': 'b'},
+                           3: {'mechanic': 'c'}}, {1: {'mechanic': 'a'}})
+    check('7AS_reports_compared_count',
+          _rp['n_questions'] == 3 and _rp['n_compared'] == 1
+          and _rp['total_mismatches'] == 0)
+    check('7AS_distractor_disagreement_records_both',
+          distractor_type_disagreements(
+              {'B': {'type': 'near_miss'}, 'C': {'type': 'sign_error'}},
+              {'B': {'type': 'same_family'}, 'C': {'type': 'sign_error'}})
+          == [{'option': 'B', 'authored_type': 'near_miss',
+               'explained_type': 'same_family'}])
+    check('7AS_distractor_absent_side_is_not_a_disagreement',
+          distractor_type_disagreements({'B': {'type': 'near_miss'}}, {}) == [])
 
     passed = sum(1 for _, ok in results if ok)
     total = len(results)

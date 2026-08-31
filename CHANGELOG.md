@@ -1,5 +1,318 @@
 # Changelog
 
+## 2026.08.31.2 — GAP-2026-08-29-STYLE-FIDELITY (rev 2): exam-authentic style, measured from each exam's own PYQ
+
+**ONE release, whole estate (~500 exam codes), built in two internal stages:
+reading side (Step 5) first, then the writing side (Steps 6/7/9/11) against the
+real artefacts it produces.** Additive throughout: no step gains a hard stop, no
+delivered mock is re-audited, and an exam that is never regenerated behaves
+byte-identically to 2026.08.31.1 except for one footer status line (§8.6 proof 1,
+executed).
+
+### The defect this closes
+
+Step 5's style layer classified every exam through a KEYWORD LOOKUP TABLE
+(`determine_strip_mode`) built for aptitude and GS papers. Any exam whose section
+names it did not recognise — every science, engineering, medical, law and
+commerce exam in the estate — fell through to a default `reasoning` mode. That
+one mislabel then corrupted everything downstream of it: masking, template
+clustering, distractor mining and frequency data. The tables never announced a
+failure, because falling through to a default is not an error.
+
+**The fix is structural, not a bigger table.** `derive_legacy_mode` now returns
+`None` for a content-class exam BEFORE any table access, so a content exam can
+no longer reach the keyword tables at all; masking runs from the measured
+content signature. The ordering is pinned by a new auditor check
+(`mock_sync_audit` MS-16 CONTENT-PATH-TABLE-FREE) with a caller whitelist, so a
+future edit cannot quietly reintroduce the path. Measured on the real
+IIT_JAM_CHEMISTRY corpus (22 sittings, 1,005 questions): all 119 subtopics now
+derive `legacy_mode: None`, and `mechanic == unknown` fell from 20.3% to 9.3%.
+
+### Aptitude compatibility shim — a deliberate, bounded exception
+
+On an APTITUDE-class exam the v2.55 table IS the definition of v2.55 behaviour,
+and ruling EC-26/Q13 requires byte-identity there. The measured mechanic-vote
+ladder built for this release reaches ~78% label parity against that table on the
+SSC CGL corpus — real, but not zero-diff. The table therefore still answers FIRST
+on the aptitude path only, with the measured ladder as the fallback for names it
+cannot place. Its reach is thereby reduced from "global classifier of every exam"
+to "aptitude-only legacy shim": the root-cause failure mode is structurally
+impossible, and aptitude continuity is exact by construction.
+
+KNOWN LIMITATION, stated rather than discovered later: a single-subject MCQ
+CONTENT exam with no notation and no NAT/MSQ (some law and commerce papers)
+classes as `aptitude` and keeps the v2.55 table. That is exactly its v2.55
+behaviour — a no-regression limitation, not a new defect. See DEPLOY_NOTES.
+
+### Reading side — Framework_MockTestAnalyse v2.55 -> v2.56
+
+- Content signature (`derive_content_signature`) replaces keyword modes: numeric
+  and notation density, caps convention, proper-noun/blank/statement/polarity
+  rates, label scheme, medium share. Masking (`strip_variables_v2`) is driven by
+  the signature alone; emphasis markers are preserved (never masked to `_WORD_`)
+  and the template records `polarity` instead.
+- Mechanic taxonomy: 24 mechanics + `unknown`, an ordered rule list over posing
+  structure only — no subject words anywhere (P-1).
+- Clustering by `pattern_key` = (mechanic, form, polarity, answer_type,
+  option_shape) with per-key frequency, recency and confidence.
+- Two new artefacts: `{EXAM}_style_profile.json` (schema 1) and
+  `{EXAM}_pyq_index.json` (schema 1), sharing the section_rules `corpus_hash`.
+  DORMANT is a WRITTEN STATUS with a reason, never a missing file.
+- Thresholds are dispersion-computed (leave-one-paper-out) with `fail =
+  max(0.40, p95)`. The FLOOR matters: without it a tightly clustered corpus
+  computes a band narrower than the framework default and real papers start
+  scoring HIGH against their own exam — measured at 0.354 on JAM, caught by §8.6
+  proof 3. `thresholds.basis_papers` records which sittings calibrated the band;
+  a partial sitting (EC-36) calibrates nothing and is judged by nothing.
+
+### Writing side — Create v5.81 -> v5.82, Blueprint v1.58.0 -> v1.59.0, Explain v1.49.0 -> v1.50.0, MockDeliver v1.19.0 -> v1.20.0, DeliveryFooter v1.29 -> v1.30
+
+- **S3-2b** loads profile + index; every failure mode resolves to DORMANT with a
+  distinct recorded reason (absent, absent_after_blueprint, stale_profile,
+  schema_invalid, unreadable_profile, thin_corpus) — executed across all eight
+  paths, none raises.
+- **S3-12c** draws a deterministic authoring brief per slot, seed
+  `sha256(exam·paper·corpus_hash·qnum)`, frozen in `batch_state.style_briefs`.
+- **S7-STYLE** authors to the brief and measures what was written, with the Q19
+  RETRY BUDGET (2 attempts/question, `ceil(0.20 × total)` per paper). Worst case
+  on a 60-question paper is exactly 72 generations — measured, after fixing an
+  off-by-one that charged a retry after the final attempt and drained the budget
+  at twice the real rate.
+- **S3-5b (EC-29)** recomputes legacy L2 `semantic_tuples` IN MEMORY so dedup
+  compares like-for-like across the switchover; `registry.json` is never
+  rewritten (S13-4 remains the single writer).
+- **S4-11** 44 -> 47 items. Items 45-47 (G-STYLE, G-PYQ-DIST, G-ITEM) are
+  ADVISORY BY CONSTRUCTION: they record a verdict and can never fail a batch or
+  withhold a paper. The checklist's own count is now enforced by MS-4 rather
+  than asserted in prose.
+- **§7A-S** (Step 9) re-measures style from the DELIVERED bytes and records
+  mismatches; single-writer on `style_gate.remeasure[paper_id]`.
+- **§FOOTER-STYLE** adds EXACTLY ONE line to the delivered document. No
+  per-question detail, no similarity figure, no gate verdict ever reaches a
+  candidate's paper (ruling Q15) — enforced by the engine dropping unknown keys,
+  with a fixture that passes it a rich record and proves nothing leaks.
+
+### Auditors
+
+New twins in `audit_canonical` (v2.26): **A-STYLE**, **A-PYQDIST**, **A-ITEM** —
+each recomputes its claim from the dossier and artefacts, each advisory, each
+DORMANT-but-reported without its inputs. `AUTH_GATE_FLOOR` 35 -> 84 (ratchet
+only). `audit_seam` v1.4 gains `style_obs_by_q` as a paper_id-keyed container.
+`mock_sync_audit` gains MS-16 and the S4-11 count tripwire.
+
+### Corpus-driven engine fixes (found by running real papers, not by review)
+
+- `corpus_io.extract_images`: a ZIP entry for the directory itself
+  (`word/media/`) raised IsADirectoryError and killed extraction for an entire
+  paper (observed on the 2026 JAM sitting).
+- **IMG-5 rescoped**: a media part is a required renderable only if the document
+  REFERENCES it. Word's `a14:imgLayer` JPEG-XR alternates (20 in the 2025 JAM
+  sitting) are unreadable by design and never displayed; they are now reported,
+  not fatal. A blip-referenced unreadable part still fails.
+- `corpus_io.text_of` gained an OMML renderer hook so equations are linearised
+  IN READING ORDER (`sqrt(2)` no longer degrades to `2`), and now renders
+  `w:br`/`w:cr`/`w:tab` — dropping soft breaks was gluing passage words together
+  and corrupting `_SERIES_` masking.
+- Number tokeniser: strict thousands grouping. `\d[\d,]*` fused a
+  comma-separated list into one 15-digit number.
+- Flattened OMML matrices (>12 bare digits) are literals, never magnitudes.
+- Recall's notation veto removed: a stem that merely NAMES species (SF4, B2H6)
+  has nothing to derive. This alone was 11 points of the `unknown` rate.
+
+### Pre-deployment review — six contract breaks found and fixed
+
+A final line-by-line seam trace (every field, producer to consumer, against real
+artefacts rather than by reading) found six defects that every other gate had
+passed, because each one produced a VALID artefact that simply failed to carry
+data the next step needed:
+
+1. **Subtopic cells were missing `number_ranges`, `exclude_values` and
+   `distractor_mix`** — all three read by Create S3-12c. Consequence: the
+   G-PYQ-DIST value-reuse REJECT and the EC-49 pre-write redraw could NEVER
+   fire, and EC-12's default distractor prior was taken even where real keys
+   existed.
+2. **Section entries were missing `status`, `n` and `cell`** — read by S3-12c to
+   decide the EC-3 fallback. Both reads returned falsy, so EVERY slot silently
+   drew from the paper cell and section-level style never took effect.
+3. **`distractor_mix` was absent from the paper/section StyleCells**, which are
+   the EC-3 fallback source for briefs.
+4. **`_meta.generated_at` was absent from both artefacts** — EC-25 ("the newer
+   file wins when two profiles are otherwise equal") was not implementable.
+5. **The index `_meta` used `questions`/`unique_stems`** where §6.3 names
+   `n_questions`/`n_unique_stems` (EC-1 states an empty index as
+   `n_questions: 0`). Both spellings now ship; the legacy pair is kept so any
+   reader written against the shipped artefact keeps working.
+6. **Window metadata (`window_years`, `papers_in_window`,
+   `papers_excluded_from_style`) was absent**, so a consumer scoring a real
+   sitting could not tell which sittings fed the cells (EC-4 / EC-10).
+
+Each is pinned by a fixture that fails without the fix, and both corpora now
+show FULL §6.2/§6.3 schema conformance — every field the GAP promises exists in
+the real artefacts, whether or not today's code reads it.
+
+### Adversarial review round — four techniques example-based testing cannot reach
+
+The first two review rounds were EXAMPLE-BASED: they check the cases someone
+thought of. A third round applied four methods that find the cases nobody
+thought of, and each found something:
+
+**1. Hash-seed determinism.** The synthesis was run under three different
+`PYTHONHASHSEED` values and the artefacts compared byte for byte. Result: the
+two new artefacts are identical modulo the intentional `generated_at`
+timestamp, and idempotent across repeat runs.
+
+**2. Property-based fuzz (20,000 random cases, 8 invariant families).** Found
+that `lexicon_cov` was UNCLAMPED: a malformed coverage value from the caller
+pushed a G-STYLE component — and D itself — outside [0,1], which §6.5.2 states
+is bounded. A negative component masks real divergence; one above 1 fabricates a
+HIGH verdict. All components and D are now clamped, NaN maps to 1.0 (maximally
+distant, never silently zero), and 12,000 re-run cases including infinities and
+1e300 show zero violations.
+
+**3. Malformed-input fuzz (107 hostile profiles).** Found FIVE inputs that made
+the loader RAISE instead of going dormant — `_meta` or `thresholds` as a
+str/int, and non-numeric threshold values — each a direct violation of ruling
+P-4 ("never a stop"). The validators are now written against a hostile file, and
+`load_style_artefacts` runs under a last-resort guard so an unanticipated shape
+becomes `DORMANT: unreadable_profile (<ExceptionType>)` rather than a traceback.
+All 107 now resolve to a recorded ACTIVE/DORMANT status.
+
+**4. Metamorphic testing.** Found that the same corpus read in a DIFFERENT
+QUESTION ORDER published different `ask_forms`, `openers`, `instruction_phrases`
+and `lexicon` lists: `Counter.most_common` breaks ties by insertion order, so
+whichever of two equally-frequent n-grams was read first survived the cut
+(measured: 'order' vs 'species', both tf 0.009615). Those lists are CONSUMED —
+S3-12c draws ask-forms and instructions from them, G-STYLE component 4 scores
+against the lexicon — so an order-dependent cut is an order-dependent brief, and
+two profiles claiming the same `corpus_hash` could differ. A `_top_n` helper now
+breaks ties BY KEY; five independent shuffles produce identical profiles.
+
+A fifth technique, arity checking, verified all 89 engine calls in every spec
+fence against the live signatures: 0 mismatches. The corpus AC gate also caught
+a single-exit violation introduced by the hardened validator, fixed by hoisting
+the numeric helper to module level.
+
+### Line-by-line diff read — three more defects
+
+The automated rounds check what someone thought to check. The final pass was a
+manual read of every PRODUCTION hunk in the release diff (20 non-fixture hunks in
+analyse_engine alone). It found three things no gate had:
+
+1. **Axis-2 tagged before the figural shape was stamped.** `classify_axis2` reads
+   `option_shape`, and ONLY the figural descriptor refines a bare `figure` into
+   `plot_image` / `structure_image`. Tagging first made the ladder read the
+   unrefined shape: a choose-the-graph question classified **DIRECT instead of
+   SELECT_PLOT**. Order corrected; both states pinned by fixture.
+2. **The same measurement computed three ways, two of them descriptor-blind.**
+   `section_rules` mined distractor mechanisms WITH the figural descriptor while
+   the profile's cell and subtopic mined WITHOUT it, so the two artefacts could
+   publish different mixes for the same image-option subtopic. The profile writer
+   now derives the descriptor from the entry's own `PYQ_IMAGE_ANALYSIS`, making
+   the artefacts consistent BY CONSTRUCTION rather than by the caller
+   remembering.
+3. **`compute_style_cell` silently reported `option_shape: none`** for any caller
+   that passed unstamped questions, instead of computing the shape. Production
+   stamps first, so this never fired there — but a cell that is WRONG rather than
+   ABSENT is the defect shape that surfaces three steps later as a strange brief.
+
+### Final line-by-line read of the remaining six engines and the spec diff
+
+The previous pass read analyse_engine only. This one read every remaining
+production hunk — corpus_io, blueprint_core, paper_pipeline, explain_engine,
+audit_canonical — and all 781 changed spec lines. Six more findings:
+
+1. **Text inside an equation was DISPLACED.** OOXML permits a `<w:t>` run inside
+   an `<m:oMath>`; `text_of`'s renderer path skipped only `<m:t>`, so that run
+   reappeared AFTER the rendered equation — `Given xwhere2` became
+   `Given x2where`. Words in the wrong place read as real text; that is worse
+   than losing them. The whole equation subtree is now consumed atomically, by
+   ANCESTRY rather than by collecting ids (lxml creates a new proxy object per
+   access, so an id-set silently skipped an unrelated run — measured).
+2. **P-7 violated by this release itself.** `MAX_ATTEMPTS_PER_Q`,
+   `PYQ_TEXTUAL_*` and `PYQ_IMAGE_DHASH_MAX` restated values that
+   `RETRY_BUDGET`, `PYQ_DIST_TEXTUAL` and `PYQ_IMAGE_DHASH_REJECT` already
+   define. Values agreed today; two sources of truth for one threshold is how
+   they drift. All six are now ALIASES, with a tripwire asserting identity.
+3. **A corrupt registry value crashed the Step 11 footer** — the most expensive
+   place to raise, with the paper already written and staged. Non-records are
+   now treated as no record.
+4. **§7A-S raised on a malformed sidecar** (list/str/int), violating P-4 at
+   Step 9. Corrupt shapes are now `sidecar_unreadable` /
+   `remeasurement_unreadable`, recorded and never raised.
+5. **§7A-S overstated its own coverage**: `n_questions` counted Step-7 records,
+   so a record could report 60 questions and zero mismatches when only 12 were
+   re-measurable — indistinguishable from "the paper matched". `n_compared` is
+   now reported alongside.
+6. **The three audit twins raised on hostile dossier/index shapes.**
+   `_safe_gate` converts a raise into a FAIL, and a FAIL from an ADVISORY twin
+   can flip the audit exit code and withhold a paper — the exact P-4 violation
+   the twins exist to avoid. All three now resolve every malformed shape to a
+   recorded WARN, pinned by a fixture over fourteen hostile inputs.
+
+**And one broken handshake:** `Framework_MockDeliver` step 3d read
+`style_gate.paper[paper_id]['profile_meta']`, which NO step wrote — so Step 11
+would have printed nothing even for an ACTIVE profile. `style_gate_record_paper`
+now takes and preserves `profile_meta`, a `style_gate_profile_meta` accessor is
+the single reader-side entry point, and both specs were corrected to use it.
+
+### Fixture audit and 20-mock series replay (the last two untested surfaces)
+
+**FIXTURE AUDIT — testing the tests.** The ~4,000 lines of fixture code added by
+this release had never been re-read. Scanned all 156 new `check()` calls for
+can't-fail patterns, then BROKE each production function and confirmed the
+fixture naming it actually fails (13 probe pairs; 12 detected directly, the 13th
+verified against its real subject — component gating rather than js_distance).
+
+Two findings:
+- **Three fixtures passed vacuously when lxml was absent.** The `except
+  ImportError` arm emitted `check(name, True)` under the SAME names, so the
+  printed result was identical whether the fixtures ran or not — the exact
+  ENV-SKEW failure this file already documents. lxml is a hard transitive
+  dependency (python-docx is built on it), so its absence is a broken
+  environment: it now FAILS loudly and the three fixtures do not run, which the
+  passed/total line makes visible.
+- **Four assertions of the form `not <list>` could pass with an empty probe
+  corpus.** Each now carries a non-emptiness oracle asserting the loop that
+  fills the list actually iterated.
+
+The suite's own `EXPECTED_CHECKS` meta-assertion caught the added checks and
+demanded a deliberate count update — the mechanism working exactly as designed.
+
+**20-MOCK SERIES REPLAY.** Ran the complete per-paper lifecycle twenty times
+against the REAL JAM profile and index, carrying ONE registry forward — the
+properties that cannot fail on paper 1 and only fail on paper 12 or 20:
+
+| Property | Result |
+|---|---|
+| registry growth | LINEAR (354 B/paper, 414 B → 7,156 B); a container that accumulated history would grow quadratically |
+| container keys | all `paper_id`-keyed; no ordinal collisions across 20 papers |
+| retry budget | spent PER PAPER and reset — a leak would starve paper 2 onward |
+| adversarial run (EVERY question rejected) | exactly 72 generations per paper (60 + budget 12) on all 20, `accepted_on: budget` throughout |
+| frozen briefs | paper 7 re-drawn from scratch reproduces byte-identically (resume) |
+| cross-paper | same qnum in different papers draws DIFFERENT briefs (seed includes paper_id) |
+| EC-19 / EC-20 / EC-22 mid-series | profile change → `stale_profile`; vanish → `absent_after_blueprint`; dormant paper draws no briefs and prints the dormant footer |
+| single-writer | Step 9 writes `remeasure` only; `paper`/`events`/`retries_used` untouched |
+
+Zero invariant violations in either replay. Both are now permanent fixtures
+(paper_pipeline: 20-paper series; blueprint_core: per-paper budget over a
+series), so a future edit that reintroduces cross-paper leakage fails CI.
+
+### Acceptance (§9.3) — measured on BOTH corpora, not asserted
+
+IIT_JAM_CHEMISTRY (content, 22 sittings / 1,005 Q): clustering 30.2% singletons
+(<40%), observed confidence 35.7% (>30%), mechanic unknown 9.3% (<=10%),
+STATEMENT subtopics 57 (>=25, baseline 4), 428 range blocks with 0 ordering
+violations and 0 fused runs, polarity 621/621. SSC_CGL (aptitude, 4 sittings /
+400 Q): the v2.55-vs-v2.56 `section_rules.md` diff decomposes to 2 version
+stamps, 2,497 additive lines, 59 designed Axis-2 hunks, 2 emphasis-preservation
+hunks, 14 OMML-in-order hunks, 7 derived stats — and ZERO unexplained
+differences on any pre-existing field.
+
+§8.6 proofs 1-4 all pass: dormant identity (byte-identical but one footer line),
+aptitude regression (0 unexplained), real-paper self-pass (0 sittings over
+`fail` on either corpus), scale (index load 7 ms vs 5 s budget; 60-question
+paper check 1 ms vs 50 ms).
+
 ## 2026.08.31.1 — GAP-2026-08-30-TYPE1-HALT-ELIMINATION: GATE-AT-SOURCE — Type-1 halts eliminated from the PYQ pipeline
 
 **One release, §6.2 E1–E7 + §6.3 C1–C9/D1–D3/A1–A3/F1–F2 + §6.4 S1–S5 in full.**

@@ -188,7 +188,10 @@ def W_(t):  return f'{{{W}}}{t}'
 def M_(t):  return f'{{{M}}}{t}'
 
 # ---- v2.6 constants (MANDATE A / S5-1A) ------------------------------------
-AUTH_GATE_FLOOR   = 35    # P1: the self-test must exercise >= this many fixtures.
+AUTH_GATE_FLOOR   = 84    # P1: the self-test must exercise >= this many fixtures.
+                          # RATCHET ONLY (never lowered). 35 -> 84 with the v2.26
+                          # style twins (GAP-2026-08-29 §6.5.6): A-STYLE x6,
+                          # A-PYQDIST x5, A-ITEM x4, wiring/CLI x4.
 EVIDENCE_MIN_BYTES = 100  # S5-1A C6: a montage evidence file must be a real raster.
 
 # ---- result accumulator ----------------------------------------------------
@@ -491,6 +494,10 @@ def load_sources(args):
     src['manifest']  = json.load(open(args.manifest,  encoding='utf-8')) if args.manifest  else {}
     src['rules_txt'] = open(args.rules, encoding='utf-8').read() if args.rules else ''
     src['profile']   = json.load(open(args.profile,  encoding='utf-8')) if getattr(args, 'profile', None) else {}
+    src['style_profile'] = (json.load(open(args.style_profile, encoding='utf-8'))
+                            if getattr(args, 'style_profile', None) else None)
+    src['pyq_index'] = (json.load(open(args.pyq_index, encoding='utf-8'))
+                        if getattr(args, 'pyq_index', None) else None)
     bp = src['blueprint']
     src['total_questions'] = bp.get('total_questions')
     src['sections'] = bp.get('sections', [])
@@ -3869,6 +3876,193 @@ def restore_checkpoint(zip_path, into_dir, docx_path=None, exam=None, mockN=None
     return man, state_path, evidence_dir
 
 
+# ── v2.26 STYLE TWINS (GAP-2026-08-29-STYLE-FIDELITY §6.5) — advisory, dossier-fed
+
+def gate_style(src):
+    """A-STYLE — recompute the paper-level G-STYLE distance from the dossier's
+    per-question style_obs against the style profile's paper cell, and compare
+    with the registry's style_gate.paper record when present. DORMANT-but-
+    reported without the profile or the dossier. NEVER a FAIL: verdicts are
+    PASS / WARN / HIGH, all advisory (P-4)."""
+    import blueprint_core as bc      # local: matches the file's
+                                    # import-order discipline (v2.21.9)
+    prof = src.get('style_profile')
+    dossier = src.get('dossier')
+    if not prof:
+        _warn('A-STYLE', 'DORMANT — style profile not supplied (--style-profile).')
+        return
+    if not dossier:
+        _warn('A-STYLE', 'DORMANT — dossier absent; per-question style_obs '
+                         'cannot be recomputed (run with --dossier).')
+        return
+    # HOSTILE SHAPES: dossier and profile are FILES. A raise here becomes a FAIL
+    # line via _safe_gate, and a FAIL from an ADVISORY twin can flip the audit
+    # exit code and withhold a paper — precisely what P-4 forbids. Anything not
+    # the expected shape is DORMANT-with-reason. (Read-the-diff, 2026-08-31.)
+    if not isinstance(dossier, dict):
+        _warn('A-STYLE', 'DORMANT — dossier is not an object; nothing to recompute.')
+        return
+    if not isinstance(prof, dict):
+        _warn('A-STYLE', 'DORMANT — style profile is not an object.')
+        return
+    obs_q = [d.get('style_obs') for d in dossier.values()
+             if isinstance(d, dict) and isinstance(d.get('style_obs'), dict)]
+    if not obs_q:
+        _warn('A-STYLE', 'DORMANT — dossier carries no style_obs '
+                         '(pre-v5.82 paper or dormant authoring run).')
+        return
+    from collections import Counter as _C
+    n = len(obs_q)
+    observed = {
+        'mechanic_mix': {k: v / n for k, v in
+                         _C(o.get('mechanic') or 'unknown' for o in obs_q).items()},
+        'form_mix': {k: v / n for k, v in
+                     _C(o.get('form') or 'DIRECT' for o in obs_q).items()},
+        'polarity_rate': sum(1 for o in obs_q if o.get('polarity')) / n,
+        'lexicon_cov': (sum(float(o.get('lexicon_cov') or 0.0) for o in obs_q) / n),
+        'stimulus_kind_mix': {k: v / n for k, v in
+                              _C((o.get('stimulus') or {}).get('kind')
+                                 for o in obs_q
+                                 if o.get('stimulus')).items()},
+        'stimulus_rate': sum(1 for o in obs_q if o.get('stimulus')) / n,
+    }
+    cell = prof.get('paper')
+    cell = cell if isinstance(cell, dict) else {}
+    thr = prof.get('thresholds')
+    thr = thr if isinstance(thr, dict) else {}
+    disp = bool(thr.get('computed_from_dispersion'))
+    D, comps = bc.g_style_distance(observed, cell, dispersion_ok=disp, paper_n=n)
+    warn = float(thr.get('style_distance_warn') or 0.25)
+    fail = float(thr.get('style_distance_fail') or 0.40)
+    verdict = bc.g_style_verdict(D, warn, fail)
+    reg = src.get('registry') or {}
+    rec = ((reg.get('style_gate') or {}).get('paper') or {}).get(
+        src.get('_paper_id') or '', None)
+    drift = ''
+    if isinstance(rec, dict) and 'D' in rec and abs(float(rec['D']) - D) > 0.05:
+        drift = (f" REGISTRY DRIFT: Step-7 recorded D={float(rec['D']):.3f}, "
+                 f"recomputed {D:.3f}.")
+    msg = (f'D={D:.3f} ({verdict}; warn {warn:.3f} / fail {fail:.3f}; '
+           f"components {', '.join(f'{k}={comps[k]:.3f}' for k in comps['_active'])}"
+           f'; n={n}).{drift}')
+    (_ok if verdict == 'PASS' and not drift else _warn)('A-STYLE', msg)
+
+
+def gate_pyqdist(src):
+    """A-PYQDIST — recompute per-question textual distance from the PYQ index
+    via the inverted shingle lookup and compare against the dossier's pyq_dist
+    records. The byte-level proof of the R1 gate (§6.5.3). Advisory; DORMANT
+    without index or dossier."""
+    import blueprint_core as bc      # local: matches the file's
+                                    # import-order discipline (v2.21.9)
+    idx = src.get('pyq_index')
+    dossier = src.get('dossier')
+    if not isinstance(idx, dict) or not isinstance(idx.get('questions'), list) \
+            or not idx['questions']:
+        _warn('A-PYQDIST', 'DORMANT — PYQ index not supplied, malformed or empty '
+                           '(--pyq-index).')
+        return
+    if not isinstance(dossier, dict) or not dossier:
+        _warn('A-PYQDIST', 'DORMANT — dossier absent or malformed (run with --dossier).')
+        return
+    import hashlib as _h
+    _recs = [r for r in idx['questions']
+             if isinstance(r, dict) and r.get('pyq_id')]
+    if not _recs:
+        _warn('A-PYQDIST', 'DORMANT — index carries no well-formed question records.')
+        return
+    inv = {}
+    for r in _recs:
+        for sh in (r.get('stem_shingles_8') or ()):
+            inv.setdefault(sh, []).append(r['pyq_id'])
+    shingles_by_pyq = {r['pyq_id']: set(r.get('stem_shingles_8') or ())
+                       for r in _recs}
+    def _shingles(text, k=8):
+        toks = re.findall(r'[a-z0-9]+', (text or '').lower())
+        return {_h.md5(' '.join(toks[i:i + k]).encode()).hexdigest()[:12]
+                for i in range(max(len(toks) - k + 1, 0))} or set()
+    checked = mism = over = 0
+    worst = 0.0
+    for qn, d in sorted(dossier.items()):
+        if not isinstance(d, dict):
+            continue
+        rec = d.get('pyq_dist')
+        stem = d.get('stem_text') or d.get('stem') or ''
+        if not isinstance(rec, dict) or 'max_textual' not in rec or not stem:
+            continue
+        sh = _shingles(stem)
+        cand = _C = {}
+        cand = {}
+        for s in sh:
+            for pid in inv.get(s, ()):
+                cand[pid] = cand.get(pid, 0) + 1
+        best = 0.0
+        for pid, shared in cand.items():
+            if shared < 2:
+                continue
+            ps = shingles_by_pyq[pid]
+            j = len(sh & ps) / max(len(sh | ps), 1)
+            best = max(best, j)
+        checked += 1
+        worst = max(worst, best)
+        if abs(best - float(rec['max_textual'])) > 0.05:
+            mism += 1
+        if best >= bc.PYQ_TEXTUAL_REJECT:
+            over += 1
+    if not checked:
+        _warn('A-PYQDIST', 'DORMANT — dossier carries no pyq_dist records '
+                           '(pre-v5.82 paper).')
+        return
+    if mism == 0 and over == 0:
+        _ok('A-PYQDIST', f'{checked} questions recomputed against '
+                         f'{len(_recs)} PYQ; max textual {worst:.3f}; '
+                         f'0 record mismatches, 0 over REJECT threshold.')
+    else:
+        _warn('A-PYQDIST', f'{checked} recomputed: {mism} record mismatch(es) '
+                           f'(>0.05), {over} at/over the REJECT threshold '
+                           f'{bc.PYQ_TEXTUAL_REJECT}; max textual {worst:.3f}. '
+                           f'Advisory (P-4) — details belong in the dossier.')
+
+
+def gate_item(blocks, src):
+    """A-ITEM — recompute the mechanically checkable item rules from the
+    DELIVERED blocks: I-2 homogeneity, I-3 single-key equivalence, I-4
+    combination hygiene (I-6 authored-mechanism presence is dossier-fed; I-7 is
+    the existing K-BAL gate; I-1/I-5/I-8 are Layer-1-only by design). Rules the
+    exam's own PYQ violate at >=10% arrive SUSPENDED from the style profile and
+    are recorded, not judged (ruling Q6). Advisory."""
+    import blueprint_core as bc      # local: matches the file's
+                                    # import-order discipline (v2.21.9)
+    prof = src.get('style_profile') or {}
+    ir = prof.get('item_rules') or {}
+    shape_mix = ((prof.get('paper') or {}).get('option_shape_mix')) or {}
+    sus = {k for k, v in ir.items() if isinstance(v, dict) and v.get('suspended')}
+    counts = {'I-2': {'PASS': 0, 'WARN': 0, 'NA': 0},
+              'I-3': {'PASS': 0, 'WARN': 0, 'NA': 0},
+              'I-4': {'PASS': 0, 'WARN': 0, 'NA': 0},
+              'I-6': {'PASS': 0, 'WARN': 0, 'NA': 0}}
+    dossier = src.get('dossier') or {}
+    for b in blocks:
+        if not isinstance(b, dict):
+            continue                      # a malformed block is not a finding
+        opts = b.get('options')
+        opts = opts if isinstance(opts, list) else []
+        counts['I-2'][bc.item_I2_homogeneous(opts, b.get('option_shape') or '')] += 1
+        counts['I-3'][bc.item_I3_single_key(opts, 0) if opts else 'NA'] += 1
+        counts['I-4'][bc.item_I4_combination_hygiene(opts, shape_mix)] += 1
+        d = dossier.get(str(b.get('qnum'))) or dossier.get(b.get('qnum')) or {}
+        dm = d.get('distractor_mechanisms') if isinstance(d, dict) else None
+        counts['I-6']['PASS' if dm else ('NA' if not dossier else 'WARN')] += 1
+    parts, warns = [], 0
+    for rule, c in counts.items():
+        tag = ' SUSPENDED' if rule in sus else ''
+        parts.append(f"{rule}{tag}: {c['PASS']}P/{c['WARN']}W/{c['NA']}NA")
+        if rule not in sus:
+            warns += c['WARN']
+    msg = '; '.join(parts) + ' (I-7 = A-KBAL; I-1/I-5/I-8 Layer-1-only). Advisory.'
+    (_ok if warns == 0 else _warn)('A-ITEM', msg)
+
+
 def run_audit(args):
     _reset()
     src = load_sources(args)
@@ -3923,6 +4117,9 @@ def run_audit(args):
     _safe_gate('A-DGATE', gate_dgate, src)     # v2.19 — difficulty_gate record legality; dormant unless --registry
     _safe_gate('A-CLUSTER', gate_cluster, src, blocks)  # v2.23 — R19 adjacency; dormant without a q->subtopic source
     _safe_gate('A-DPROFILE', gate_dprofile, src)  # v2.21 — difficulty profile + blueprint difficulty_source
+    _safe_gate('A-STYLE', gate_style, src)        # v2.26 — G-STYLE twin; dormant without --style-profile/--dossier
+    _safe_gate('A-PYQDIST', gate_pyqdist, src)    # v2.26 — G-PYQ-DIST twin; dormant without --pyq-index/--dossier
+    _safe_gate('A-ITEM', gate_item, blocks, src)  # v2.26 — I-2/I-3/I-4/I-6 recompute; advisory
     rc = print_results()
     # v2.6 — S5-1A COMPLETION GATE: Phase-3 mechanical Part-B/§7 enforcement.
     if getattr(args, 'audit_state', None):
@@ -5260,6 +5457,198 @@ def self_test():
     check('A-DGATE-unarmed-is-dormant-OK-and-says-so',
           [(l, 'dormant' in m) for l, c, m in RESULTS if c == 'A-DGATE'] == [('OK', True)])
     check('A-DGATE-is-wired-into-run_audit', 'gate_dgate' in _runner and "'A-DGATE'" in _runner)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # v2.26 STYLE TWINS — A-STYLE / A-PYQDIST / A-ITEM
+    #   Every twin is ADVISORY by construction (P-4): it may emit OK or WARN and
+    #   must never FAIL, because a style verdict can never withhold a paper. The
+    #   fixtures below therefore assert the LABEL as well as the verdict text —
+    #   a twin that starts failing is a defect in the twin, not a finding.
+    # ══════════════════════════════════════════════════════════════════════════
+    import hashlib as _sh_h
+
+    def _sp(**kw):
+        base = {'_meta': {'exam_code': 'X', 'corpus_hash': 'h', 'schema': 1},
+                'activation': {}, 'sections': {}, 'subtopics': {},
+                'item_rules': {}, 'paper': {'mechanic_mix': {'recall': 1.0},
+                                            'form_mix': {'DIRECT': 1.0},
+                                            'polarity_rate': 0.0,
+                                            'stimulus_kind_mix': {},
+                                            'stimulus_rate': 0.0,
+                                            'option_shape_mix': {'word': 1.0}},
+                'thresholds': {'style_distance_warn': 0.25,
+                               'style_distance_fail': 0.40}}
+        base.update(kw)
+        return base
+
+    def _dos(mechs, form='DIRECT', polarity=False, **extra):
+        d = {}
+        for i, m in enumerate(mechs, 1):
+            d[str(i)] = {'style_obs': {'mechanic': m, 'form': form,
+                                       'polarity': polarity, 'lexicon_cov': 1.0}}
+            d[str(i)].update(extra)
+        return d
+
+    def _style_run(src_d):
+        _reset(); gate_style(src_d)
+        return [(l, m) for l, c, m in RESULTS if c == 'A-STYLE']
+
+    # matching paper -> D = 0 -> PASS, emitted OK
+    _r = _style_run({'style_profile': _sp(), 'dossier': _dos(['recall'] * 12)})
+    check('A-STYLE-matching-paper-passes',
+          len(_r) == 1 and _r[0][0] == 'OK' and 'D=0.000' in _r[0][1]
+          and '(PASS' in _r[0][1])
+    # ONE maxed component out of three is D=1/3 -> WARN, not HIGH: the mean is
+    # the point of the metric, so a single divergent axis must not read as a
+    # crisis (verified against g_style_distance, not assumed).
+    _r = _style_run({'style_profile': _sp(), 'dossier': _dos(['match'] * 12)})
+    check('A-STYLE-one-divergent-axis-is-WARN',
+          len(_r) == 1 and _r[0][0] == 'WARN' and '(WARN' in _r[0][1]
+          and 'D=0.333' in _r[0][1])
+    # mechanic AND form divergent, polarity absent from the cell -> D > fail
+    _r = _style_run({'style_profile': _sp(),
+                     'dossier': _dos(['match'] * 12, form='MATCH',
+                                     polarity=True)})
+    check('A-STYLE-divergent-paper-is-HIGH-never-FAIL',
+          len(_r) == 1 and _r[0][0] == 'WARN' and '(HIGH' in _r[0][1])
+    # registry drift is reported even when the recomputed verdict is PASS
+    _r = _style_run({'style_profile': _sp(), 'dossier': _dos(['recall'] * 12),
+                     'registry': {'style_gate': {'paper': {'P1': {'D': 0.9}}}},
+                     '_paper_id': 'P1'})
+    check('A-STYLE-registry-drift-reported',
+          len(_r) == 1 and _r[0][0] == 'WARN' and 'REGISTRY DRIFT' in _r[0][1])
+    # dormancy: no profile / no dossier / no style_obs — three distinct reasons
+    check('A-STYLE-dormant-without-profile',
+          _style_run({'dossier': _dos(['recall'])})[0][0] == 'WARN'
+          and 'style profile not supplied' in _style_run({'dossier': _dos(['recall'])})[0][1])
+    check('A-STYLE-dormant-without-dossier',
+          'dossier absent' in _style_run({'style_profile': _sp()})[0][1])
+    check('A-STYLE-dormant-without-style_obs',
+          'no style_obs' in _style_run({'style_profile': _sp(),
+                                        'dossier': {'1': {'stem_text': 'x'}}})[0][1])
+
+    # ── A-PYQDIST ────────────────────────────────────────────────────────────
+    def _shg(text, k=8):
+        toks = re.findall(r'[a-z0-9]+', text.lower())
+        return [_sh_h.md5(' '.join(toks[i:i + k]).encode()).hexdigest()[:12]
+                for i in range(max(len(toks) - k + 1, 0))]
+    _pyq_stem = ('the rate constant doubles when the temperature rises from '
+                 'two hundred and ninety eight kelvin to three hundred kelvin')
+    _idx = {'_meta': {'exam_code': 'X', 'corpus_hash': 'h'},
+            'questions': [{'pyq_id': 'p:1', 'stem_shingles_8': _shg(_pyq_stem)}]}
+
+    def _pyq_run(src_d):
+        _reset(); gate_pyqdist(src_d)
+        return [(l, m) for l, c, m in RESULTS if c == 'A-PYQDIST']
+
+    # a DISTINCT stem: recomputed distance ~0, record agrees -> OK
+    _r = _pyq_run({'pyq_index': _idx,
+                   'dossier': {'1': {'stem_text': 'what is the shape of the '
+                                                  'molecule shown in the figure',
+                                     'pyq_dist': {'max_textual': 0.0}}}})
+    check('A-PYQDIST-distinct-stem-certifies',
+          len(_r) == 1 and _r[0][0] == 'OK' and '0 record mismatches' in _r[0][1])
+    # a COPIED stem whose record claims 0.0: mismatch AND over threshold
+    _r = _pyq_run({'pyq_index': _idx,
+                   'dossier': {'1': {'stem_text': _pyq_stem,
+                                     'pyq_dist': {'max_textual': 0.0}}}})
+    check('A-PYQDIST-copied-stem-with-false-record-warns',
+          len(_r) == 1 and _r[0][0] == 'WARN'
+          and '1 record mismatch' in _r[0][1] and '1 at/over' in _r[0][1])
+    # the SAME copied stem with an honest record: recompute agrees, but the
+    # question is still over the REJECT threshold and must be reported
+    _r = _pyq_run({'pyq_index': _idx,
+                   'dossier': {'1': {'stem_text': _pyq_stem,
+                                     'pyq_dist': {'max_textual': 1.0}}}})
+    check('A-PYQDIST-honest-record-still-reports-over-threshold',
+          _r[0][0] == 'WARN' and '0 record mismatch' in _r[0][1]
+          and '1 at/over' in _r[0][1])
+    check('A-PYQDIST-dormant-without-index',
+          'index not supplied' in _pyq_run({'dossier': {}})[0][1])
+    check('A-PYQDIST-dormant-without-records',
+          'no pyq_dist records' in _pyq_run(
+              {'pyq_index': _idx, 'dossier': {'1': {'stem_text': 'x'}}})[0][1])
+
+    # ── A-ITEM ───────────────────────────────────────────────────────────────
+    def _item_run(blocks, src_d):
+        _reset(); gate_item(blocks, src_d)
+        return [(l, m) for l, c, m in RESULTS if c == 'A-ITEM']
+
+    _clean_blocks = [{'qnum': 1, 'option_shape': 'word',
+                      'options': ['alpha', 'beta', 'gamma', 'delta']}]
+    _r = _item_run(_clean_blocks, {'style_profile': _sp(),
+                                   'dossier': {'1': {'distractor_mechanisms':
+                                                     {'B': {'type': 'near_miss'}}}}})
+    check('A-ITEM-clean-paper-certifies',
+          len(_r) == 1 and _r[0][0] == 'OK' and 'I-2: 1P/0W' in _r[0][1])
+    # heterogeneous options (I-2) + duplicate options (I-3) + unpermitted
+    # 'None of the above' (I-4) + missing authored mechanisms (I-6)
+    _bad_blocks = [{'qnum': 1, 'option_shape': 'word',
+                    'options': ['a b c d e f g h', 'x', 'x', 'None of the above']}]
+    _r = _item_run(_bad_blocks, {'style_profile': _sp(),
+                                 'dossier': {'1': {'stem_text': 'q'}}})
+    check('A-ITEM-violations-warn-never-fail',
+          len(_r) == 1 and _r[0][0] == 'WARN'
+          and 'I-2: 0P/1W' in _r[0][1] and 'I-3: 0P/1W' in _r[0][1]
+          and 'I-4: 0P/1W' in _r[0][1] and 'I-6: 0P/1W' in _r[0][1])
+    # ruling Q6: a rule the exam's own PYQ violate is SUSPENDED — reported,
+    # never counted against the paper
+    _r = _item_run(_bad_blocks,
+                   {'style_profile': _sp(item_rules={'I-2': {'suspended': True},
+                                                     'I-3': {'suspended': True},
+                                                     'I-4': {'suspended': True},
+                                                     'I-6': {'suspended': True}}),
+                    'dossier': {'1': {'stem_text': 'q'}}})
+    check('A-ITEM-suspended-rules-are-reported-not-judged',
+          _r[0][0] == 'OK' and 'I-2 SUSPENDED' in _r[0][1]
+          and 'I-4 SUSPENDED' in _r[0][1])
+
+    # HOSTILE SHAPES: every twin runs on FILES at Final Assembly. A raise becomes
+    # a FAIL via _safe_gate, and a FAIL from an ADVISORY twin can flip the exit
+    # code and withhold a paper — the exact P-4 violation. Every malformed shape
+    # must resolve to a recorded WARN instead.
+    _hostile_srcs = [
+        {'style_profile': _sp(), 'dossier': [1, 2]},
+        {'style_profile': _sp(), 'dossier': 'xx'},
+        {'style_profile': [], 'dossier': {'1': {'style_obs': {}}}},
+        {'style_profile': _sp(), 'dossier': {'1': {'style_obs': 'x'}}},
+        {'style_profile': _sp(thresholds='nope'), 'dossier': _dos(['recall'] * 12)},
+        {'style_profile': _sp(paper='nope'), 'dossier': _dos(['recall'] * 12)},
+        {'pyq_index': {'_meta': {}, 'questions': 'x'}, 'dossier': {'1': {}}},
+        {'pyq_index': {'_meta': {}, 'questions': [1, 2]}, 'dossier': {'1': {}}},
+        {'pyq_index': _idx, 'dossier': {'1': {'stem_text': 'a', 'pyq_dist': 'x'}}},
+        {'pyq_index': _idx, 'dossier': 'notadict'},
+    ]
+    _twin_faults = []
+    for _hs in _hostile_srcs:
+        for _fn, _code in ((gate_style, 'A-STYLE'), (gate_pyqdist, 'A-PYQDIST')):
+            try:
+                _reset(); _fn(_hs)
+                if any(l == 'FAIL' for l, c, _ in RESULTS if c == _code):
+                    _twin_faults.append((_code, 'FAIL', str(_hs)[:40]))
+            except Exception as _e:
+                _twin_faults.append((_code, type(_e).__name__, str(_hs)[:40]))
+    for _hb in ([{'qnum': 1, 'options': 'notalist'}], [{'qnum': 1}], ['notadict'], []):
+        try:
+            _reset(); gate_item(_hb, {'style_profile': _sp(), 'dossier': {}})
+            if any(l == 'FAIL' for l, c, _ in RESULTS if c == 'A-ITEM'):
+                _twin_faults.append(('A-ITEM', 'FAIL', str(_hb)[:40]))
+        except Exception as _e:
+            _twin_faults.append(('A-ITEM', type(_e).__name__, str(_hb)[:40]))
+    check('style-twin-hostile-corpus-non-empty', len(_hostile_srcs) >= 10)
+    check('style-twins-never-raise-or-FAIL-on-hostile-input', not _twin_faults)
+
+    # wiring tripwires — a twin that is never called is green by accident
+    check('A-STYLE-is-wired-into-run_audit',
+          'gate_style' in _runner and "'A-STYLE'" in _runner)
+    check('A-PYQDIST-is-wired-into-run_audit',
+          'gate_pyqdist' in _runner and "'A-PYQDIST'" in _runner)
+    check('A-ITEM-is-wired-into-run_audit',
+          'gate_item' in _runner and "'A-ITEM'" in _runner)
+    # and the CLI must be able to supply their inputs
+    _main_src = _insp.getsource(main)
+    check('style-twin-CLI-args-exist',
+          "'--style-profile'" in _main_src and "'--pyq-index'" in _main_src)
     # ── A-DPROFILE (v2.21) ──
     import blueprint_core as _bcp
     _DL = ['Easy', 'Medium', 'Hard']
@@ -8321,6 +8710,10 @@ def main():
     ap.add_argument('--blueprint'); ap.add_argument('--rules')
     ap.add_argument('--manifest');  ap.add_argument('--registry')
     ap.add_argument('--profile', help='[ExamCode]_difficulty_profile.json (A-DPROFILE; v2.21)')
+    ap.add_argument('--style-profile', dest='style_profile',
+                    help='[ExamCode]_style_profile.json (A-STYLE twin; v2.26 GAP-2026-08-29)')
+    ap.add_argument('--pyq-index', dest='pyq_index',
+                    help='[ExamCode]_pyq_index.json (A-PYQDIST twin; v2.26)')
     ap.add_argument('--mockN', type=int)
     ap.add_argument('--through-q', dest='through_q', type=int,
                     help='PARTIAL-PAPER MODE (v2.23): audit an intermediate batch '

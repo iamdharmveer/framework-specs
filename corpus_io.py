@@ -1213,8 +1213,15 @@ def extract_images(path, outdir):
     for n in z.namelist():
         if not MEDIA_RE.match(n):
             continue
-        raw = z.read(n)
         base = os.path.basename(n)
+        if not base:
+            # A ZIP may store the directory itself ('word/media/') as an entry —
+            # observed on IIT_JAM_CHEMISTRY_15-Feb-2026.docx. basename('' ) makes
+            # fp the outdir and open(fp,'wb') raises IsADirectoryError, killing
+            # extraction for the whole paper. A directory entry carries no bytes
+            # worth reporting; skip it. (v1.x fixture: extract_images_dir_entry)
+            continue
+        raw = z.read(n)
         fp = os.path.join(outdir, base)
         with open(fp, 'wb') as fh:
             fh.write(raw)
@@ -1305,6 +1312,16 @@ def verify_images(path, extracted=None, mapping=None, expected_size=None,
     preamble = len(mapping.get(PREAMBLE, []))
     mapped = sum(len(v) for k, v in mapping.items() if k != PREAMBLE)
 
+    # IMG-5 scope (2026-08-31, observed on IIT_JAM_CHEMISTRY_02-Feb-2025.docx):
+    # a media part is a REQUIRED renderable only if the document references it as
+    # an <a:blip> fill or <v:imagedata> — exactly the reference set count_image_refs
+    # counts and IMG-2/IMG-3/IMG-4 already gate on. Word additionally stores
+    # JPEG-XR alternates (hdphotoN.wdp) referenced ONLY via <a14:imgLayer>; PIL
+    # cannot open them, but no reader ever sees them — every visible drawing has
+    # a raster blip. Failing the paper on an alternate layer blocks a corpus that
+    # renders perfectly; unreferenced unreadables are REPORTED via stats instead.
+    _referenced = set(per_part)
+    _unreadable_all = [k for k, v in extracted.items() if v['kind'] == 'unreadable']
     verdicts = bc.image_gate_verdict(
         actual_size=os.path.getsize(path),
         expected_size=expected_size,
@@ -1313,7 +1330,7 @@ def verify_images(path, extracted=None, mapping=None, expected_size=None,
         mapped=mapped,
         preamble=preamble,
         body_refs=body_refs,
-        unreadable=[k for k, v in extracted.items() if v['kind'] == 'unreadable'])
+        unreadable=[k for k in _unreadable_all if k in _referenced])
 
     if map_error:
         verdicts['IMG-4'] = f'FAIL document could not be read for mapping — {map_error}'
@@ -1326,7 +1343,11 @@ def verify_images(path, extracted=None, mapping=None, expected_size=None,
         'preamble': preamble,
         'header_footer': all_refs - body_refs,
         'vector': sum(1 for v in extracted.values() if v['kind'] == 'vector'),
-        'unreadable': sum(1 for v in extracted.values() if v['kind'] == 'unreadable'),
+        'unreadable': sum(1 for k in _unreadable_all if k in _referenced),
+        # alternate layers (e.g. a14:imgLayer JPEG-XR): unreadable but never
+        # displayed — reported, not fatal
+        'alternate_unreadable': sum(1 for k in _unreadable_all
+                                    if k not in _referenced),
         'questions_with_images': len([k for k in mapping if k != PREAMBLE]),
         'dangling': dangling_media_targets(z),
     }
@@ -1833,9 +1854,13 @@ def is_option(text, para=None):
 
 W_T_TAG = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'
 M_T_TAG = '{http://schemas.openxmlformats.org/officeDocument/2006/math}t'
+M_OMATH_TAG = '{http://schemas.openxmlformats.org/officeDocument/2006/math}oMath'
+W_BR_TAG  = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}br'
+W_CR_TAG  = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}cr'
+W_TAB_TAG = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}tab'
 
 
-def text_of(para):
+def text_of(para, omml_renderer=None):
     """Canonical VISIBLE text of a paragraph — every <w:t> AND <m:t> descendant,
     concatenated in document order. (GAP-2026-08-07-OMML, remedy M3.)
 
@@ -1857,9 +1882,52 @@ def text_of(para):
     if it is None:
         return ''
     out = []
+    # w:br / w:cr render as newline and w:tab as tab, exactly as python-docx
+    # p.text does — dropping them glues words across soft line breaks
+    # ('blank.Postcolonial', measured on the SSC passage corpus 2026-08-31) and
+    # silently breaks _SERIES_ masking and word counts downstream.
+    _BREAKS = {W_BR_TAG: '\n', W_CR_TAG: '\n', W_TAB_TAG: '\t'}
+    if omml_renderer is not None:
+        # v2.56 §6.1.6 / E-13: emit the LINEARISED equation at its reading
+        # position and skip its raw <m:t> glyphs. Reading glyphs alone loses the
+        # structure a reader sees — 'sqrt(2)' degrades to '2', a fraction to a
+        # digit run (measured on the SSC corpus, 2026-08-31). Callers that use
+        # text for dedupe keys keep the default (renderer=None) so existing keys
+        # never shift.
+        # The WHOLE equation subtree is consumed by the renderer, not just its
+        # <m:t> glyphs: OOXML permits a <w:t> run INSIDE an <m:oMath>, and
+        # skipping only <m:t> emitted that run AFTER the rendered equation —
+        # 'Given xwhere2' became 'Given x2where'. Displaced words inside an
+        # equation are worse than lost ones: they read as real text in the wrong
+        # place. (Found by reading the diff, 2026-08-31.)
+        # Membership is tested by ANCESTRY, not by collecting ids: lxml creates
+        # a NEW proxy object on each access, so id() is not stable across a
+        # traversal and an id-set silently skips unrelated runs (measured: the
+        # trailing ' now.' vanished). iterancestors is the stable question.
+        def _inside_math(el):
+            anc = getattr(el, 'iterancestors', None)
+            if anc is None:              # non-lxml element (test doubles)
+                return False
+            return any(getattr(a, 'tag', None) == M_OMATH_TAG for a in anc())
+        for e in it():
+            tag = getattr(e, 'tag', None)
+            if tag == M_OMATH_TAG:
+                if not _inside_math(e):          # nested oMath: outer wins
+                    out.append(omml_renderer(e))
+                continue
+            if _inside_math(e):
+                continue                          # consumed by the equation
+            if tag == W_T_TAG:
+                out.append(e.text or '')
+            elif tag in _BREAKS:
+                out.append(_BREAKS[tag])
+        return ''.join(out)
     for e in it():
-        if getattr(e, 'tag', None) in (W_T_TAG, M_T_TAG):
+        tag = getattr(e, 'tag', None)
+        if tag in (W_T_TAG, M_T_TAG):
             out.append(e.text or '')
+        elif tag in _BREAKS:
+            out.append(_BREAKS[tag])
     return ''.join(out)
 
 
@@ -5416,6 +5484,121 @@ def self_test():
             check('chem_drawfn_colour_roles', 'No module' in str(_e2))
     else:
         check('chem_rdkit_absent_is_soft', _c1 is None and _r1 == 'rdkit_unavailable')
+
+    # ── text_of omml_renderer: structure in place, raw glyphs skipped ─────────
+    # lxml is a HARD dependency (python-docx is built on it), so its absence is a
+    # broken environment, not a tolerable one. The old fallback emitted
+    # check(name, True) on ImportError — three fixtures passing while testing
+    # nothing, with the same names and the same total, so the printed result was
+    # identical either way. That is the ENV-SKEW lesson this file already
+    # records. Now the absence FAILS loudly and the three fixtures simply do not
+    # run, which the passed/total line makes visible.
+    try:
+        from lxml import etree as _et5
+        _lxml_ok = True
+    except ImportError:
+        _lxml_ok = False
+    check('lxml_present_for_text_of_fixtures', _lxml_ok)
+    if _lxml_ok:
+        _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        _M = 'http://schemas.openxmlformats.org/officeDocument/2006/math'
+        _xml5 = ('<w:p xmlns:w="%s" xmlns:m="%s">'
+                 '<w:r><w:t>Find </w:t></w:r>'
+                 '<m:oMath><m:r><m:t>x</m:t></m:r><m:r><m:t>2</m:t></m:r></m:oMath>'
+                 '<w:r><w:t> now.</w:t></w:r></w:p>' % (_W, _M))
+        _p5 = _et5.fromstring(_xml5)
+        _plain = text_of(_p5)
+        _rend  = text_of(_p5, omml_renderer=lambda e: '[EQ]')
+        check('text_of_omml_renderer',
+              _plain == 'Find x2 now.' and _rend == 'Find [EQ] now.')
+        _xml6 = ('<w:p xmlns:w="%s"><w:r><w:t>line one</w:t><w:br/>'
+                 '<w:t>line two</w:t></w:r></w:p>' % _W)
+        _p6 = _et5.fromstring(_xml6)
+        check('text_of_soft_breaks',
+              text_of(_p6) == 'line one\nline two'
+              and text_of(_p6, omml_renderer=lambda e: '') == 'line one\nline two')
+        # OOXML allows a <w:t> run INSIDE an <m:oMath>. The renderer consumes
+        # the WHOLE subtree, so that run must not reappear after the equation
+        # (which reordered the sentence: 'xwhere2' -> 'x2where').
+        _xml7 = ('<w:p xmlns:w="%s" xmlns:m="%s"><w:r><w:t>Given </w:t></w:r>'
+                 '<m:oMath><m:r><m:t>x</m:t></m:r>'
+                 '<w:r><w:t>INSIDE</w:t></w:r>'
+                 '<m:r><m:t>2</m:t></m:r></m:oMath>'
+                 '<w:r><w:t> end.</w:t></w:r></w:p>') % (_W, _M)
+        _p7 = _et5.fromstring(_xml7)
+        check('text_of_omml_subtree_consumed_atomically',
+              text_of(_p7, omml_renderer=lambda e: '[EQ]') == 'Given [EQ] end.'
+              and 'INSIDE' not in text_of(_p7, omml_renderer=lambda e: '[EQ]')
+              and 'INSIDE' in text_of(_p7))          # default path unchanged
+
+    import tempfile as _tf2, io as _io2
+    # ── IMG-5 scope: alternate-layer unreadables are reported, never fatal ─────
+    # (field case: 20 hdphotoN.wdp parts referenced only via a14:imgLayer; every
+    # visible drawing carried a raster blip. Old scope failed the whole paper.)
+    with _tf2.TemporaryDirectory() as _td5:
+        _zp5 = os.path.join(_td5, 'wdp.docx')
+        from PIL import Image as _Im5
+        _b5 = _io2.BytesIO()
+        _Im5.new('RGB', (2, 2), (200, 30, 30)).save(_b5, 'PNG')
+        _png5 = _b5.getvalue()
+        _doc5 = ('<?xml version="1.0"?><w:document '
+                 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
+                 'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" '
+                 'xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" '
+                 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+                 '<w:body><w:p><w:r><w:t>Q.1 See figure</w:t></w:r></w:p>'
+                 '<w:p><w:r><a:blip r:embed="rId1"/>'
+                 '<a14:imgLayer r:embed="rId2"/></w:r></w:p>'
+                 '</w:body></w:document>')
+        _rel5 = ('<?xml version="1.0"?><Relationships '
+                 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                 '<Relationship Id="rId1" Type="t" Target="media/image1.png"/>'
+                 '<Relationship Id="rId2" Type="t" Target="media/hdphoto1.wdp"/>'
+                 '</Relationships>')
+        import zipfile as _zf5
+        with _zf5.ZipFile(_zp5, 'w') as _z5:
+            _z5.writestr('word/document.xml', _doc5)
+            _z5.writestr('word/_rels/document.xml.rels', _rel5)
+            _z5.writestr('word/media/image1.png', _png5)
+            _z5.writestr('word/media/hdphoto1.wdp', b'II\xbc\x01 not-a-raster')
+        _v5, _s5 = verify_images(_zp5, workdir=os.path.join(_td5, 'w'))
+        check('img5_alternate_layer_not_fatal',
+              str(_v5['IMG-5']).startswith('PASS')
+              and _s5['alternate_unreadable'] == 1 and _s5['unreadable'] == 0)
+        # negative control: the SAME unreadable part, blip-referenced -> FAIL
+        _doc5b = _doc5.replace('<a14:imgLayer r:embed="rId2"/>',
+                               '<a:blip r:embed="rId2"/>')
+        _zp5b = os.path.join(_td5, 'wdp_blip.docx')
+        with _zf5.ZipFile(_zp5b, 'w') as _z5:
+            _z5.writestr('word/document.xml', _doc5b)
+            _z5.writestr('word/_rels/document.xml.rels', _rel5)
+            _z5.writestr('word/media/image1.png', _png5)
+            _z5.writestr('word/media/hdphoto1.wdp', b'II\xbc\x01 not-a-raster')
+        _v5b, _s5b = verify_images(_zp5b, workdir=os.path.join(_td5, 'wb'))
+        check('img5_referenced_unreadable_still_fails',
+              str(_v5b['IMG-5']).startswith('FAIL') and _s5b['unreadable'] == 1)
+
+    # ── extract_images: explicit ZIP directory entry must not kill extraction ──
+    # Observed in the field (IIT_JAM_CHEMISTRY_15-Feb-2026.docx): the archive
+    # stores 'word/media/' itself as an entry; basename('') made fp the outdir
+    # and open(fp,'wb') raised IsADirectoryError for the WHOLE paper.
+    import zipfile as _zf, tempfile as _tf
+    with _tf.TemporaryDirectory() as _td:
+        _zp = os.path.join(_td, 'dirent.docx')
+        _png = (b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
+                b'\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89'
+                b'\x00\x00\x00\rIDATx\x9cc\xf8\xcf\xc0\xf0\x1f\x00\x05'
+                b'\x05\x02\x00_\xc8\xf1\xd2\x00\x00\x00\x00IEND\xaeB`\x82')
+        with _zf.ZipFile(_zp, 'w') as _z:
+            _z.writestr('word/media/', b'')          # the directory entry itself
+            _z.writestr('word/media/image1.png', _png)
+        try:
+            _res = extract_images(_zp, os.path.join(_td, 'imgout'))
+            check('extract_images_dir_entry',
+                  isinstance(_res, dict) and len(_res) == 1
+                  and 'image1.png' in next(iter(_res)))
+        except OSError as _ex:
+            check('extract_images_dir_entry', False)
 
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:

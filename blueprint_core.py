@@ -7589,6 +7589,236 @@ PYQ_IMAGE_ANALYSIS:
           and dp_round_pct({_L[0]: 20, _L[1]: 50, _L[2]: 30}, _L) == {_L[0]: 20, _L[1]: 50, _L[2]: 30}
           and _dperr(lambda: dp_round_pct({_L[0]: 20, _L[1]: 50, _L[2]: 31}, _L)))
 
+    # ═══ WRITING-SIDE STYLE LAYER (v5.82 §6.5) — killed-mutant pack ═══════════
+    import random as _rnd
+
+    # RETRY_BUDGET: framework constants (Q19)
+    check('w_budget_constants', MAX_ATTEMPTS_PER_Q == 2
+          and max_retries_per_paper(60) == 12 and max_retries_per_paper(100) == 20
+          and max_retries_per_paper(61) == 13)      # ceil, not round
+
+    # P-7 SINGLE DEFINITION: the writing-side names are ALIASES of the canonical
+    # constants, never copies. A copy is how two thresholds that must agree drift
+    # apart in a later tuning pass. (Found by reading the diff, 2026-08-31: this
+    # release had introduced literal duplicates of all six.)
+    check('w_thresholds_are_aliases_not_copies',
+          MAX_ATTEMPTS_PER_Q is RETRY_BUDGET['MAX_ATTEMPTS_PER_Q']
+          and PYQ_TEXTUAL_REJECT is PYQ_DIST_TEXTUAL['reject']
+          and PYQ_TEXTUAL_WARN is PYQ_DIST_TEXTUAL['warn']
+          and PYQ_TEXTUAL_REJECT_LOWE is PYQ_DIST_TEXTUAL['reject_low_entropy']
+          and PYQ_TEXTUAL_WARN_LOWE is PYQ_DIST_TEXTUAL['warn_low_entropy']
+          and PYQ_IMAGE_DHASH_MAX is PYQ_IMAGE_DHASH_REJECT)
+    # and the budget function reads the FRACTION from the dict
+    check('w_budget_reads_canonical_fraction',
+          max_retries_per_paper(100)
+          == __import__('math').ceil(
+              RETRY_BUDGET['MAX_RETRIES_PER_PAPER_FRACTION'] * 100))
+
+    # textual verdict bands, both entropy regimes; boundary INCLUSIVE at reject
+    check('w_pyq_textual_bands',
+          pyq_textual_verdict(0.50) == 'REJECT' and pyq_textual_verdict(0.49) == 'WARN'
+          and pyq_textual_verdict(0.35) == 'WARN' and pyq_textual_verdict(0.34) == 'PASS'
+          and pyq_textual_verdict(0.64, low_entropy=True) == 'WARN'
+          and pyq_textual_verdict(0.65, low_entropy=True) == 'REJECT')
+
+    # priors: every token frozen-vocabulary, every shape covered, NAT = 2 pitfalls
+    _dp_all = {t for v in DISTRACTOR_DEFAULT_PRIOR.values() for t in v}
+    check('w_distractor_prior_vocab',
+          not (_dp_all - set(DISTRACTOR_MECHANISMS))
+          and len(DISTRACTOR_DEFAULT_PRIOR['none']) == 2
+          and default_distractor_prior('no_such_shape') == ('near_miss', 'same_family'))
+
+    # JS distance: identity 0, disjoint 1, symmetric, renormalising
+    check('w_js_distance',
+          js_distance({'a': 2, 'b': 2}, {'a': 1, 'b': 1}) < 1e-9
+          and abs(js_distance({'a': 1}, {'b': 1}) - 1.0) < 1e-9
+          and abs(js_distance({'a': 3, 'b': 1}, {'a': 1, 'b': 3})
+                  - js_distance({'a': 1, 'b': 3}, {'a': 3, 'b': 1})) < 1e-12
+          and js_distance({}, {}) == 0.0)
+
+    # G-STYLE: components 4-5 excluded without dispersion/paper_n; D changes when included
+    _obs = {'mechanic_mix': {'recall': 1.0}, 'form_mix': {'DIRECT': 1.0},
+            'polarity_rate': 0.0, 'lexicon_cov': 0.0,
+            'stimulus_kind_mix': {}, 'stimulus_rate': 0.0}
+    _cell = {'mechanic_mix': {'recall': 1.0}, 'form_mix': {'DIRECT': 1.0},
+             'polarity_rate': 0.0, 'stimulus_kind_mix': {}, 'stimulus_rate': 0.0}
+    _d3, _c3 = g_style_distance(_obs, _cell, dispersion_ok=False, paper_n=60)
+    _d5, _c5 = g_style_distance(_obs, _cell, dispersion_ok=True, paper_n=60)
+    _d5s, _ = g_style_distance(_obs, _cell, dispersion_ok=True, paper_n=11)
+    check('w_gstyle_component_gating',
+          _c3['_active'] == ['mechanic', 'form', 'polarity'] and _d3 < 1e-9
+          and len(_c5['_active']) == 5 and _d5 > 0.15     # lexicon_cov 0 -> deficit 1/5
+          and _d5s < 1e-9)                                 # paper_n < 12 excludes again
+    # polarity component: divisor floors at 0.10 and caps at 1
+    _dp, _cp = g_style_distance(dict(_obs, polarity_rate=0.5), _cell,
+                                dispersion_ok=False, paper_n=60)
+    check('w_gstyle_polarity_cap', _cp['polarity'] == 1.0 and abs(_dp - 1/3) < 1e-9)
+    # BOUNDEDNESS IS THE CONTRACT (§6.5.2). A malformed lexicon_cav from the
+    # caller must never move D outside [0,1] — otherwise a coverage bug becomes
+    # a fabricated HIGH verdict or a masked divergence. Found by property fuzz.
+    _obs_bad_hi = dict(_obs, lexicon_cov=3.5)      # >1: deficit would go negative
+    _obs_bad_lo = dict(_obs, lexicon_cov=-2.0)     # <0: deficit would exceed 1
+    _dhi, _chi = g_style_distance(_obs_bad_hi, _cell, dispersion_ok=True, paper_n=60)
+    _dlo, _clo = g_style_distance(_obs_bad_lo, _cell, dispersion_ok=True, paper_n=60)
+    check('w_gstyle_components_clamped',
+          0.0 <= _chi['lexicon'] <= 1.0 and 0.0 <= _clo['lexicon'] <= 1.0
+          and _chi['lexicon'] == 0.0 and _clo['lexicon'] == 1.0
+          and 0.0 <= _dhi <= 1.0 and 0.0 <= _dlo <= 1.0)
+    # NaN is maximally distant, never silently zero (which would read as agreement)
+    check('w_gstyle_nan_is_max_distance',
+          _clamp01(float('nan')) == 1.0
+          and g_style_distance(dict(_obs, lexicon_cov=float('nan')), _cell,
+                               dispersion_ok=True, paper_n=60)[1]['lexicon'] == 1.0)
+    # D itself is bounded even when every component is maxed
+    _worst = {'mechanic_mix': {'z': 1.0}, 'form_mix': {'z': 1.0},
+              'polarity_rate': 99.0, 'lexicon_cov': -99.0,
+              'stimulus_kind_mix': {'z': 1.0}, 'stimulus_rate': 99.0}
+    _dw, _ = g_style_distance(_worst, _cell, dispersion_ok=True, paper_n=60)
+    check('w_gstyle_D_bounded', 0.0 <= _dw <= 1.0)
+
+    check('w_gstyle_verdicts',
+          g_style_verdict(0.25, 0.25, 0.40) == 'PASS'
+          and g_style_verdict(0.26, 0.25, 0.40) == 'WARN'
+          and g_style_verdict(0.40, 0.25, 0.40) == 'WARN'
+          and g_style_verdict(0.41, 0.25, 0.40) == 'HIGH')
+
+    # best-attempt ordering: rejects, then max_textual, then MOST matches, stable
+    _atts = [{'reject_reasons': ['a'], 'max_textual': 0.1, 'brief_matches': 6},
+             {'reject_reasons': [], 'max_textual': 0.4, 'brief_matches': 2},
+             {'reject_reasons': [], 'max_textual': 0.4, 'brief_matches': 5},
+             {'reject_reasons': [], 'max_textual': 0.2, 'brief_matches': 1}]
+    check('w_best_attempt', select_best_attempt(_atts) == 3
+          and select_best_attempt(_atts[:3]) == 2
+          and select_best_attempt([_atts[1], dict(_atts[1])]) == 0)
+
+    # ── LONG-HORIZON BUDGET: 20 papers, every question rejected ──────────────
+    # The budget must be spent PER PAPER and reset for the next one. A budget
+    # that leaked across papers would starve paper 2 onward — invisible on a
+    # single-paper test. (Replayed 2026-08-31: 20 x 60 slots, 72 generations
+    # per paper exactly.)
+    _bud20 = max_retries_per_paper(60)
+    _tot20 = 0
+    for _p20 in range(20):
+        _used = 0                                   # a NEW paper starts at zero
+        for _q20 in range(60):
+            _gens = 0
+            for _att in range(MAX_ATTEMPTS_PER_Q):
+                _gens += 1
+                if _att == MAX_ATTEMPTS_PER_Q - 1 or _used >= _bud20:
+                    break
+                _used += 1
+            _tot20 += _gens
+        if _used != _bud20:
+            _tot20 = -1
+            break
+    check('w_budget_is_per_paper_over_a_series',
+          _bud20 == 12 and _tot20 == 20 * (60 + 12))
+
+    # brief seed: deterministic and input-sensitive
+    check('w_brief_seed',
+          brief_seed('X', 'P1', 'h', 7) == brief_seed('X', 'P1', 'h', 7)
+          and brief_seed('X', 'P1', 'h', 7) != brief_seed('X', 'P1', 'h', 8)
+          and brief_seed('X', 'P1', 'h', 7) != brief_seed('X', 'P2', 'h', 7))
+
+    # weighted_draw: unknown renormalised away, restriction honoured, empty -> None,
+    # deterministic under a seeded rng
+    _r1, _r2 = _rnd.Random(5), _rnd.Random(5)
+    _mx = {'recall': 0.5, 'unknown': 0.5, 'match': 0.0}
+    check('w_weighted_draw',
+          weighted_draw(_mx, _r1) == 'recall'
+          and weighted_draw(_mx, _r2, restrict={'match'}) is None
+          and weighted_draw({}, _rnd.Random(1)) is None
+          and weighted_draw({'a': 1, 'b': 1}, _rnd.Random(3))
+              == weighted_draw({'b': 1, 'a': 1}, _rnd.Random(3)))
+
+    # G-ITEM rules
+    check('w_I1', item_I1_stem_key_cluing(
+              'The boiling point of ethanol rises with pressure.',
+              ['boiling point shifts', 'colour change', 'mass loss', 'odour'], 0) == 'WARN'
+          and item_I1_stem_key_cluing('Pick the odd one.',
+              ['apple', 'stone', 'pear', 'plum'], 1) == 'PASS'
+          and item_I1_stem_key_cluing('x', [], None) == 'NA')
+    check('w_I2', item_I2_homogeneous(['one two three four five', 'a b', 'c d', 'e f'],
+                                      'word') == 'WARN'
+          and item_I2_homogeneous(['one two', 'a b', 'c d', 'e f'], 'word') == 'PASS'
+          and item_I2_homogeneous(['long statement here ok', 'x'], 'statement') == 'NA')
+    check('w_I3', item_I3_single_key(['1,000', '1000', '10', '1'], 0) == 'WARN'
+          and item_I3_single_key([' Cat ', 'cat', 'dog'], 0) == 'WARN'
+          and item_I3_single_key(['1', '2', '3', '4'], 0) == 'PASS'
+          and item_I3_single_key(['x'], 0) == 'NA')
+    check('w_I4', item_I4_combination_hygiene(['a', 'b', 'None of the above'],
+                                              {'combination_label': 0.0}) == 'WARN'
+          and item_I4_combination_hygiene(['a', 'b', 'None of the above'],
+                                          {'combination_label': 0.02}) == 'PASS'
+          and item_I4_combination_hygiene(['a', 'b'], {}) == 'PASS')
+    check('w_I5', item_I5_negative_stem('Which is NOT correct?', True) == 'PASS'
+          and item_I5_negative_stem('Which is NOT correct?', False) == 'WARN'
+          and item_I5_negative_stem('Which is NOT never right?', True) == 'WARN'
+          and item_I5_negative_stem('Pick the best.', True) == 'WARN')
+    check('w_I8', item_I8_stem_completeness('Which of the following', ['a']) == 'WARN'
+          and item_I8_stem_completeness('What is the capital of France?',
+                                        ['Paris', 'Lyon']) == 'PASS'
+          and item_I8_stem_completeness('Compute the value.',
+                                        ['given x=3 use it', 'b']) == 'WARN')
+
+    # schema validators
+    _prof_ok = {'_meta': {'exam_code': 'X', 'corpus_hash': 'h', 'schema': 1},
+                'activation': {}, 'paper': {}, 'sections': {}, 'subtopics': {},
+                'item_rules': {}, 'thresholds': {'style_distance_warn': 0.25,
+                                                 'style_distance_fail': 0.40}}
+    _prof_bad = {k: v for k, v in _prof_ok.items() if k != 'subtopics'}
+    # HOSTILE-FILE CONTRACT (P-4): a corrupted profile makes the layer DORMANT,
+    # never stops the step. The validator must therefore NEVER RAISE, whatever
+    # types it is handed. (Malformed-input fuzz 2026-08-31: five inputs used to
+    # crash the loader here.)
+    _hostile = [None, [], 'str', 42, {}, {'_meta': 'str'}, {'_meta': 42},
+                {'thresholds': 'str'}, {'thresholds': 42},
+                {'thresholds': {'style_distance_warn': 'x',
+                                'style_distance_fail': 'y'}},
+                {'thresholds': {'style_distance_warn': float('nan'),
+                                'style_distance_fail': 1}},
+                {'thresholds': {'style_distance_warn': float('inf'),
+                                'style_distance_fail': 1}},
+                {'sections': []}, {'subtopics': 'x'}, {'paper': 7}]
+    _raised = []
+    for _h in _hostile:
+        try:
+            _r = validate_style_profile(_h)
+            if not isinstance(_r, list):
+                _raised.append(('non-list', _h))
+        except Exception as _e:
+            _raised.append((type(_e).__name__, _h))
+        try:
+            _r2 = validate_pyq_index(_h)
+            if not isinstance(_r2, list):
+                _raised.append(('idx non-list', _h))
+        except Exception as _e:
+            _raised.append(('idx ' + type(_e).__name__, _h))
+    check('w_hostile_corpus_non_empty', len(_hostile) >= 12)
+    check('w_validators_never_raise_on_hostile_input', not _raised)
+    # a wrong-typed container is REPORTED, not ignored
+    check('w_validator_reports_type_confusion',
+          any('_meta is str' in p for p in validate_style_profile({'_meta': 'x'}))
+          and any('not numeric' in p for p in validate_style_profile(
+              {'thresholds': {'style_distance_warn': 'x',
+                              'style_distance_fail': 'y'}})))
+    check('w_finite_float',
+          _finite_float('3.5') == 3.5 and _finite_float(None) is None
+          and _finite_float('x') is None and _finite_float(float('nan')) is None
+          and _finite_float(float('inf')) is None and _finite_float(0) == 0.0)
+
+    check('w_profile_schema', validate_style_profile(_prof_ok) == []
+          and any('subtopics' in p for p in validate_style_profile(_prof_bad))
+          and any('warn < fail' in p for p in validate_style_profile(
+              dict(_prof_ok, thresholds={'style_distance_warn': 0.5,
+                                         'style_distance_fail': 0.4}))))
+    _idx_ok = {'_meta': {'exam_code': 'X', 'corpus_hash': 'h'},
+               'questions': [{'pyq_id': 'p:1'}]}
+    check('w_index_schema', validate_pyq_index(_idx_ok) == []
+          and any('pyq_id' in p for p in validate_pyq_index(
+              {'_meta': {'exam_code': 'X', 'corpus_hash': 'h'},
+               'questions': [{'stem_md5': 'x'}]})))
+
     print(f"SELF-TEST: {passed}/{total} PASS")
     if fails:
         print("FAILED: " + ", ".join(fails))
@@ -8545,6 +8775,654 @@ def difficulty_obs_diversity(questions, difficulty_labels,
                 f"{'…' if modal_n > 12 else ''}). Re-run Step 7 CHECK 3c with "
                 f"honest per-question counts.")
     return fails
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STYLE-FIDELITY LAYER CONSTANTS — GAP-2026-08-29-STYLE-FIDELITY Rev 2 (§6.1.2,
+# §6.1.3, §6.1.4, §6.2, §6.3, §6.5.1). SINGLE DEFINITION (P-7): every other engine
+# imports these; audit_seam fails a duplicate definition; mock_sync_audit pins the
+# counts and the MECHANIC order. No token below names a subject — every cue is a
+# posing-structure word (P-1, fixture-enforced).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+STYLE_PROFILE_SCHEMA = 1          # §6.2  — readers DORMANT on mismatch (§8.2)
+PYQ_INDEX_SCHEMA     = 1          # §6.3
+
+# Q19 — framework constants, never per-exam:
+RETRY_BUDGET = {'MAX_ATTEMPTS_PER_Q': 2,            # one retry
+                'MAX_RETRIES_PER_PAPER_FRACTION': 0.20}
+
+STYLE_ACTIVATION = {'min_papers': 3, 'min_questions_paper': 150,
+                    'min_questions_section': 30, 'min_questions_cell': 12}
+
+STYLE_THRESHOLD_DEFAULTS = {'style_distance_warn': 0.25, 'style_distance_fail': 0.40}
+STYLE_DISPERSION_MIN_EN  = 300    # §6.2 — dispersion-computed thresholds need >= this
+STYLE_DISPERSION_MIN_PAPER_Q = 20  # §6.2 — a sitting below this cannot calibrate a
+                                   # threshold (EC-36 partial papers), and is therefore
+                                   # not judged by one in the §8.6 proof-3 self-pass
+
+UNIVERSAL_CONSTANT_SHARE = 0.20   # §6.1.5 / EC-49 — a value in >= 20% of numeric stems
+                                  # is a constant, exempt from exclude_values
+LOW_ENTROPY_JACCARD      = 0.50   # EC-9
+LOW_ENTROPY_SHARE        = 0.80   # EC-9 — share of unique stems pairwise >= JACCARD
+EN_LATIN_SHARE           = 0.80   # §6.1.9 — per-question rendering is 'en' at >= 80%
+
+PYQ_DIST_TEXTUAL = {'reject': 0.50, 'warn': 0.35,                    # §6.5.3
+                    'reject_low_entropy': 0.65, 'warn_low_entropy': 0.35}
+PYQ_IMAGE_DHASH_REJECT = 25                                           # §6.5.3
+SHINGLE_K, SHINGLE_K_SHORT, SHORT_STEM_TOKENS = 8, 4, 12              # §6.3 / EC-50
+CANDIDATE_MIN_SHARED_SHINGLES = 2                                     # §6.3 lookup
+
+# §6.1.1 — the emphasis lexicon. An ALL-CAPS token in this set is NEVER masked.
+EMPHASIS_LEXICON = frozenset({'NOT', 'CORRECT', 'INCORRECT', 'TRUE', 'FALSE',
+                              'EXCEPT', 'ONLY', 'ALL', 'NONE', 'LEAST', 'MOST',
+                              'CANNOT', 'NEVER', 'ALWAYS'})
+
+# §6.1.1 — codeword mapping cues (posing-structure, not subject).
+CODEWORD_CUES = ('coded as', 'written as', 'is written', 'stands for',
+                 'is called', 'means', 'code for')
+
+# Polarity markers (§6.1.1 signature; any case).
+POLARITY_MARKERS = ('NOT', 'INCORRECT', 'FALSE', 'EXCEPT', 'CANNOT', 'LEAST', 'NEVER')
+
+# ── OPTION_SHAPES — 15 values (§6.1.2; §10.3 pins the count) ─────────────────────
+OPTION_SHAPES = ('value', 'value_with_unit', 'expression', 'statement', 'entity',
+                 'word', 'code_string', 'permutation', 'figure', 'structure_image',
+                 'plot_image', 'combination_label', 'pair_map', 'sufficiency_set',
+                 'none')
+
+# ── AXIS2_CLASSES — 8 → 11 (§6.1.4). New classes inserted in ladder order after
+#    SEQUENCE and before STATEMENT. THIS is now the single definition (P-7);
+#    analyse_engine imports it. Ladder order == precedence.
+AXIS2_CLASSES = ['LINKED', 'ASSERTION_REASON', 'MATCH', 'SEQUENCE',
+                 'IDENTIFY', 'SELECT_PLOT', 'RANK',
+                 'STATEMENT', 'FILL_BLANK', 'ODD_ONE_OUT', 'DIRECT']
+
+# ── MECHANICS — 24 + 'unknown' (§6.1.2; order IS the detection rule) ─────────────
+MECHANICS = ('data_sufficiency', 'assertion_reason', 'match', 'syllogism', 'decode',
+             'constraint_arrangement', 'procedure_trace', 'text_reorder',
+             'sentence_edit', 'word_meaning', 'passage_comprehension',
+             'spatial_figure', 'series_completion', 'pattern_analogy',
+             'relational_reasoning', 'interpret_data', 'apply_rule_to_case',
+             'evaluate_statements', 'rank_order', 'identify', 'predict',
+             'multi_step_derivation', 'single_formula', 'recall')
+MECHANIC_UNKNOWN = 'unknown'
+
+# ── MECHANIC_CUES — the cue lexicons, one constant, order pinned by
+#    mock_sync_audit (EC-57). Every entry is a posing-structure token (P-1).
+#    Detection logic lives in analyse_engine.detect_mechanic; the CUES here are the
+#    only lexical material it may consult.
+MECHANIC_CUES = {
+    'data_sufficiency'     : {'option_res': [r'statement\s+(i{1,3}|[12ab])\s+alone\s+is\s+sufficient']},
+    'assertion_reason'     : {'axis2': 'ASSERTION_REASON'},
+    'match'                : {'axis2': 'MATCH'},
+    'syllogism'            : {'stem_res': [r'\bstatements?\s*:', r'\bconclusions?\s*:'],
+                              'option_res': [r'only\s+conclusion\s+(i|ii|1|2)\s+follows']},
+    'decode'               : {'stem_cues': list(CODEWORD_CUES)},
+    'constraint_arrangement': {'constraint_cues': ['sits', 'sitting', 'left', 'right',
+                               'between', 'adjacent', 'opposite', 'above', 'below',
+                               'immediate', 'facing', 'floor', 'row'],
+                               'min_entities': 3, 'min_constraints': 2},
+    'procedure_trace'      : {'stem_res': [r'\bstep\s+(i|1)\b', r'\binput\s*:', r'\boutput\s*:'],
+                              'ask_cues': ['output', 'value', 'result']},
+    'text_reorder'         : {'min_fragments': 3},
+    'sentence_edit'        : {'stem_cues': ['improve', 'substitute', 'correct form',
+                               'appropriate form', 'underlined', 'error', 'active',
+                               'passive', 'direct', 'indirect', 'spelt', 'spelling'],
+                              'option_cues': ['no error']},
+    'word_meaning'         : {'stem_cues': ['synonym', 'antonym', 'meaning', 'opposite',
+                               'idiom', 'phrase', 'one word', 'nearest', 'closest in meaning'],
+                              'max_stem_words': 12},
+    'passage_comprehension': {'ask_cues': ['passage', 'author', 'tone', 'infer',
+                               'imply', 'according to']},
+    'spatial_figure'       : {'stem_cues': ['mirror', 'water image', 'embedded', 'hidden',
+                               'folded', 'unfolded', 'dice', 'cube', 'paper', 'count',
+                               'triangles', 'squares', 'rotated']},
+    'series_completion'    : {'stem_cues': ['next', 'missing', 'complete the series',
+                               'wrong term', 'comes next'], 'min_seq_tokens': 3},
+    'pattern_analogy'      : {'stem_res': [r'::'],
+                              'stem_cues': ['is related to', 'in the same way',
+                               'odd one out', 'does not belong',
+                               'different from the others', 'find the odd']},
+    'relational_reasoning' : {'kin_cues': ['father', 'mother', 'son', 'daughter',
+                               'brother', 'sister', 'uncle', 'wife', 'husband'],
+                              'kin_ask': ['how is', 'related'],
+                              'dir_cues': ['north', 'south', 'east', 'west', 'turns',
+                               'km', 'metres'],
+                              'dir_ask': ['how far', 'which direction', 'distance'],
+                              'clock_cues': ['angle between', 'day of the week',
+                               'calendar', 'hands of']},
+    'interpret_data'       : {'ask_res': [r'from\s+the\s+(table|graph|chart)',
+                               r'according\s+to\s+the\s+data'],
+                              'ask_cues': ['percentage', 'ratio', 'average', 'total']},
+    'apply_rule_to_case'   : {'ask_cues': ['liable', 'valid', 'void', 'entitled',
+                               'permissible', 'allowed', 'consequence', 'position',
+                               'what will be'],
+                              'min_parties': 2, 'min_actions': 2},
+    'evaluate_statements'  : {'stem_res': [r'\bstatements?\b']},
+    'rank_order'           : {'stem_cues': ['increasing', 'decreasing', 'order of',
+                               'rank', 'ascending', 'descending', 'arrange'],
+                              'min_entities': 3},
+    'identify'             : {'stem_res': [r'\bidentify\b',
+                               r'which of the following (is|are) the( correct| major| final)?'],
+                              'option_shapes': ['structure_image', 'figure', 'expression']},
+    'predict'              : {'stem_cues': ['will', 'would', 'is expected to',
+                               'what happens', 'resulting', 'obtained when', 'outcome',
+                               'final state']},
+    'multi_step_derivation': {'chain_cues': ['hence', 'then', 'subsequently',
+                               'thereafter', 'after which'],
+                              'min_given_clauses': 2, 'min_deduction_steps': 3},
+    'single_formula'       : {'given_clauses': 1},
+    'recall'               : {'exclude_asks': ['calculate', 'compute',
+                               'determine the value', 'evaluate the',
+                               'find the value']},   # residual: nothing to
+                              # compute — no free-standing number, no given
+                              # clause, no compute-ask. NOTATION alone never
+                              # blocks recall: a stem that merely NAMES species
+                              # has nothing to derive (JAM measurement,
+                              # 2026-08-31: the notation veto sent 20.3% of a
+                              # content corpus to 'unknown').
+}
+MECHANIC_ORDER = tuple(MECHANICS)   # pinned; a re-order without a fixture pair FAILS audit
+
+# ── DISTRACTOR_MECHANISMS — the FROZEN single vocabulary (P-7): the Explain §9
+#    error-type taxonomy (19) PLUS the §6.1.3 mining-only labels (15) = 34.
+#    'unknown' is the reported sentinel, outside the constant. §10.3 pins 34.
+EXPLAIN_S9_TYPES = ('value_swap', 'sign_error', 'unit_error', 'off_by_one',
+                    'partial_truth', 'process_confusion', 'reversed_relationship',
+                    'name_swap', 'formula_error', 'rounding_trap', 'polarity_flip',
+                    'wrong_condition', 'regiochemistry_error', 'stereochemistry_error',
+                    'mechanism_confusion', 'electron_count_error', 'symmetry_error',
+                    'overgeneralised_rule', 'concept_reversal')
+
+MINING_ONLY_LABELS = ('near_miss', 'order_of_magnitude', 'structural_variant',
+                      'same_family', 'near_synonym', 'grammatical_variant',
+                      'adjacent_swap', 'anchor_misplaced', 'off_by_one_shift',
+                      'partial_mapping', 'constraint_dropped', 'constraint_inverted',
+                      'mirror_variant', 'rotation_variant', 'element_missing')
+
+DISTRACTOR_MECHANISMS = EXPLAIN_S9_TYPES + MINING_ONLY_LABELS   # 34, frozen
+
+# §6.1.3 — every mining-only label maps onto the §9 type used for authoring and
+# explanation. Documented here, imported by explain_engine and paper_pipeline.
+MINING_TO_EXPLAIN = {
+    'near_miss'          : 'process_confusion',
+    'order_of_magnitude' : 'unit_error',
+    'structural_variant' : 'mechanism_confusion',
+    'same_family'        : 'name_swap',
+    'near_synonym'       : 'partial_truth',
+    'grammatical_variant': 'overgeneralised_rule',
+    'adjacent_swap'      : 'off_by_one',
+    'anchor_misplaced'   : 'off_by_one',
+    'off_by_one_shift'   : 'off_by_one',
+    'partial_mapping'    : 'partial_truth',
+    'constraint_dropped' : 'partial_truth',
+    'constraint_inverted': 'reversed_relationship',
+    'mirror_variant'     : 'symmetry_error',
+    'rotation_variant'   : 'symmetry_error',
+    'element_missing'    : 'partial_truth',
+}
+
+# §6.1.5 — the number tokeniser: sign, digits with thousands separators, decimal
+# part, exponent, optional trailing unit — ONE token; digit runs can never
+# concatenate (E-10). Compiled once here; analyse_engine imports it.
+# Integer part: STRICT thousands grouping ('1,000') or a plain digit run — never
+# `\d[\d,]*`, which fuses a comma-separated list ('1000, 0100, 0010' -> one
+# 15-digit number; observed on the JAM corpus as a PYQ_NUMBER_RANGES entry of
+# 1000010000100001). E-10's no-concatenation guarantee applies across commas too.
+NUMBER_TOKEN_PATTERN = (r'-?(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?'
+                        r'(?:\s*[×x]\s*10\^?-?\d+|e-?\d+)?'
+                        r'(?:\s*[A-Za-zµ°%][A-Za-z⁻¹²³/·]*)?')
+
+# ── MECHANIC -> legacy-mode VOTE (EC-26 derivation, §6.1.1) ────────────────────
+# The five legacy display modes are derived from the subtopic's MEASURED
+# mechanic votes — the framework's own posing-structure vocabulary — never from
+# names (P-1/Q9). 'evaluate_statements' and 'relational_reasoning' are
+# CONTESTED: the legacy tables split them by proper-noun context, so they vote
+# via the tie-break rules in analyse_engine.derive_legacy_mode.
+MECHANIC_MODE_VOTE = {
+    'word_meaning': 'english', 'sentence_edit': 'english',
+    'text_reorder': 'english', 'passage_comprehension': 'english',
+    'decode': 'reasoning', 'series_completion': 'reasoning',
+    'pattern_analogy': 'reasoning', 'spatial_figure': 'reasoning',
+    'constraint_arrangement': 'reasoning', 'procedure_trace': 'reasoning',
+    'data_sufficiency': 'reasoning',
+    'syllogism': 'logical', 'assertion_reason': 'logical',
+    'interpret_data': 'quantitative', 'single_formula': 'quantitative',
+    'multi_step_derivation': 'quantitative',
+    'recall': 'factual', 'identify': 'factual', 'predict': 'factual',
+    'match': 'factual', 'rank_order': 'factual',
+    'apply_rule_to_case': 'logical',
+    # contested — resolved by tie-break, listed for completeness:
+    'evaluate_statements': None, 'relational_reasoning': None,
+}
+
+# ── WRITING-SIDE STYLE LAYER (GAP-2026-08-29-STYLE-FIDELITY §6.5, v5.82) ──────
+# Pure decision functions consumed by the Create spec fences (S3-2b, S3-12c,
+# S7-STYLE, G-STYLE, G-PYQ-DIST, G-ITEM) and recomputed verbatim by the
+# audit_canonical twins. NOTHING here blocks, prints, or touches a file.
+
+# RETRY_BUDGET (ruling Q19). DERIVED from the single RETRY_BUDGET definition
+# above — NOT restated. Two sources of truth for one threshold is how they drift:
+# someone tunes the dict and the writing side keeps the old literal. P-7 is the
+# rule the file's own header states; this is the alias that honours it.
+MAX_ATTEMPTS_PER_Q = RETRY_BUDGET['MAX_ATTEMPTS_PER_Q']
+
+def max_retries_per_paper(total_questions):
+    """ceil(FRACTION x total) — 12 on a 60-Q paper (ruling Q19)."""
+    import math
+    return math.ceil(RETRY_BUDGET['MAX_RETRIES_PER_PAPER_FRACTION']
+                     * int(total_questions))
+
+
+# G-PYQ-DIST textual thresholds (§6.5.3); EC-9 widens WARN/REJECT for
+# low-entropy subtopics only. Lower than L1's 0.75/0.60 by design: PYQ text is
+# what R1 forbids resembling.
+# DERIVED from PYQ_DIST_TEXTUAL / PYQ_IMAGE_DHASH_REJECT (P-7 single definition).
+PYQ_TEXTUAL_REJECT      = PYQ_DIST_TEXTUAL['reject']
+PYQ_TEXTUAL_WARN        = PYQ_DIST_TEXTUAL['warn']
+PYQ_TEXTUAL_REJECT_LOWE = PYQ_DIST_TEXTUAL['reject_low_entropy']
+PYQ_TEXTUAL_WARN_LOWE   = PYQ_DIST_TEXTUAL['warn_low_entropy']
+PYQ_IMAGE_DHASH_MAX     = PYQ_IMAGE_DHASH_REJECT
+
+def pyq_textual_verdict(jaccard, low_entropy=False):
+    """PASS | WARN | REJECT for the textual Jaccard against the nearest PYQ."""
+    rej = PYQ_TEXTUAL_REJECT_LOWE if low_entropy else PYQ_TEXTUAL_REJECT
+    warn = PYQ_TEXTUAL_WARN_LOWE if low_entropy else PYQ_TEXTUAL_WARN
+    if jaccard >= rej:
+        return 'REJECT'
+    if jaccard >= warn:
+        return 'WARN'
+    return 'PASS'
+
+
+# EC-12 — PYQ keys unavailable: the §9 default distractor prior PER OPTION
+# SHAPE (documented table). Tokens are DISTRACTOR_MECHANISMS members.
+DISTRACTOR_DEFAULT_PRIOR = {
+    'value':            ('unit_error', 'sign_error', 'order_of_magnitude'),
+    'value_with_unit':  ('unit_error', 'order_of_magnitude', 'rounding_trap'),
+    'entity':           ('same_family', 'near_miss', 'name_swap'),
+    'word':             ('near_synonym', 'same_family', 'concept_reversal'),
+    'expression':       ('sign_error', 'adjacent_swap', 'formula_error'),
+    'statement':        ('overgeneralised_rule', 'constraint_dropped', 'partial_truth'),
+    'figure':           ('mirror_variant', 'rotation_variant', 'symmetry_error'),
+    'structure_image':  ('structural_variant', 'mirror_variant', 'same_family'),
+    'combination_label':('partial_truth', 'overgeneralised_rule', 'constraint_dropped'),
+    'permutation':      ('adjacent_swap', 'off_by_one_shift', 'partial_mapping'),
+    'none':             ('sign_error', 'order_of_magnitude'),      # NAT pitfalls
+}
+# Every token above is a DISTRACTOR_MECHANISMS member — tripwired in self_test.
+
+def default_distractor_prior(option_shape):
+    """EC-12: mechanisms drawn when distractor_mix is 'unavailable'."""
+    return DISTRACTOR_DEFAULT_PRIOR.get(option_shape,
+                                        ('near_miss', 'same_family'))
+
+
+def _clamp01(x):
+    """Bound a component to [0,1]. NaN maps to 1.0 — an uncomputable component
+    is maximally distant, never silently zero (which would read as agreement)."""
+    x = float(x)
+    if x != x:            # NaN
+        return 1.0
+    return 0.0 if x < 0.0 else (1.0 if x > 1.0 else x)
+
+
+def js_distance(p, q):
+    """Base-2 Jensen–Shannon DISTANCE (sqrt of the divergence) in [0,1] over two
+    dicts of category→mass. Missing keys are 0; masses are renormalised."""
+    import math
+    keys = set(p) | set(q)
+    if not keys:
+        return 0.0
+    sp = sum(max(p.get(k, 0.0), 0.0) for k in keys) or 1.0
+    sq = sum(max(q.get(k, 0.0), 0.0) for k in keys) or 1.0
+    def _kl(a, m):
+        s = 0.0
+        for k in keys:
+            av = max(a.get(k, 0.0), 0.0) / (sp if a is p else sq)
+            mv = m[k]
+            if av > 0 and mv > 0:
+                s += av * math.log2(av / mv)
+        return s
+    m = {k: 0.5 * (max(p.get(k, 0.0), 0.0) / sp + max(q.get(k, 0.0), 0.0) / sq)
+         for k in keys}
+    div = 0.5 * _kl(p, m) + 0.5 * _kl(q, m)
+    return math.sqrt(max(div, 0.0))
+
+
+def g_style_distance(observed, cell, *, dispersion_ok, band_conditioning='none',
+                     paper_n=0):
+    """§6.5.2 — distance D between the paper-so-far and a profile cell.
+
+    observed / cell both carry: mechanic_mix, form_mix, polarity_rate,
+    lexicon_cov (observed only: tf-weighted coverage fraction),
+    stimulus_kind_mix, stimulus_rate. Components 4–5 join D only when
+    dispersion_ok AND paper_n >= 12 (else recorded, excluded — the fixed
+    0.25/0.40 defaults were never calibrated against them).
+    Returns (D, components dict)."""
+    comps = {}
+    comps['mechanic'] = js_distance(observed.get('mechanic_mix') or {},
+                                    cell.get('mechanic_mix') or {})
+    comps['form'] = js_distance(observed.get('form_mix') or {},
+                                cell.get('form_mix') or {})
+    pr = float(cell.get('polarity_rate') or 0.0)
+    po = float(observed.get('polarity_rate') or 0.0)
+    comps['polarity'] = min(abs(pr - po) / max(pr, 0.10), 1.0)
+    # EVERY component is bounded to [0,1] by contract (§6.5.2: "the mean of five
+    # bounded components in [0,1]"), so D is too. lexicon_cov arrives from the
+    # CALLER's tf-weighted coverage computation; an out-of-range value there
+    # (>1 from double-counting, <0 from a signed deficit) would otherwise push a
+    # component — and D with it — outside the range the thresholds are defined
+    # on, fabricating a HIGH verdict or masking a real divergence. Clamping is
+    # the contract, not defensive noise. (Found by property fuzz 2026-08-31:
+    # 958/20,000 random cases produced an out-of-range lexicon component.)
+    comps['lexicon'] = _clamp01(1.0 - float(observed.get('lexicon_cov') or 0.0))
+    srate_c = float(cell.get('stimulus_rate') or 0.0)
+    srate_o = float(observed.get('stimulus_rate') or 0.0)
+    comps['stimulus'] = _clamp01(
+        0.5 * js_distance(observed.get('stimulus_kind_mix') or {},
+                          cell.get('stimulus_kind_mix') or {})
+        + 0.5 * min(abs(srate_c - srate_o), 1.0))
+    active = ['mechanic', 'form', 'polarity']
+    if dispersion_ok and paper_n >= 12:
+        active += ['lexicon', 'stimulus']
+    comps['_active'] = list(active)
+    comps['_band_conditioning'] = band_conditioning
+    D = _clamp01(sum(comps[k] for k in active) / len(active))
+    return D, comps
+
+
+def g_style_verdict(D, warn, fail):
+    """PASS | WARN | HIGH — the third verdict never blocks (P-4)."""
+    if D <= warn:
+        return 'PASS'
+    if D <= fail:
+        return 'WARN'
+    return 'HIGH'
+
+
+def select_best_attempt(attempts):
+    """Q19 budget exhaustion: best = fewest REJECT reasons, then lowest
+    max_textual, then MOST brief fields matched. attempts: list of dicts with
+    reject_reasons (list), max_textual (float), brief_matches (int). Returns
+    the index of the best attempt (stable on ties: first)."""
+    def keyf(i_a):
+        i, a = i_a
+        return (len(a.get('reject_reasons') or ()),
+                float(a.get('max_textual') or 0.0),
+                -int(a.get('brief_matches') or 0),
+                i)
+    return min(enumerate(attempts), key=keyf)[0]
+
+
+def brief_seed(exam_code, paper_id, corpus_hash, qnum):
+    """S3-12c determinism: sha256(exam · paper · corpus_hash · qnum)."""
+    import hashlib
+    return int(hashlib.sha256(
+        f'{exam_code}\x1f{paper_id}\x1f{corpus_hash}\x1f{qnum}'.encode()
+    ).hexdigest()[:16], 16)
+
+
+def weighted_draw(mix, rng, *, drop=('unknown',), restrict=None):
+    """One deterministic draw from a category→mass dict with the 'unknown' mass
+    renormalised away and an optional permitted-set restriction. Returns None
+    when nothing has mass (caller falls back to baseline authoring)."""
+    items = [(k, max(float(v), 0.0)) for k, v in sorted((mix or {}).items())
+             if k not in (drop or ()) and (restrict is None or k in restrict)]
+    total = sum(w for _, w in items)
+    if total <= 0:
+        return None
+    x = rng.random() * total
+    acc = 0.0
+    for k, w in items:
+        acc += w
+        if x <= acc:
+            return k
+    return items[-1][0]
+
+
+# ── G-ITEM (§6.5.4) — mechanically checkable Haladyna–Downing–Rodriguez rules.
+# Each returns 'PASS' | 'WARN' | 'NA'; SUSPENDED is applied by the caller from
+# item_rules[I-n].suspended (measured at >=10% exam violation, ruling Q6).
+
+_I2_EXEMPT_SHAPES = ('statement', 'structure_image', 'figure', 'permutation')
+
+def item_I1_stem_key_cluing(stem, options, key_index):
+    """No content n-gram (len>=2) unique to the key that also appears in the stem."""
+    if not options or key_index is None or key_index >= len(options):
+        return 'NA'
+    def _grams(text):
+        toks = [t for t in re.findall(r'[a-z0-9]+', (text or '').lower())
+                if len(t) > 2]
+        return {' '.join(toks[i:i + 2]) for i in range(len(toks) - 1)}
+    stem_g = _grams(stem)
+    key_g = _grams(options[key_index])
+    other_g = set()
+    for i, o in enumerate(options):
+        if i != key_index:
+            other_g |= _grams(o)
+    leak = (key_g - other_g) & stem_g
+    return 'WARN' if leak else 'PASS'
+
+
+def item_I2_homogeneous(options, option_shape):
+    """Longest <= 2x shortest (words), unless the shape is exempt."""
+    if not options or option_shape in _I2_EXEMPT_SHAPES:
+        return 'NA'
+    lens = [max(len((o or '').split()), 1) for o in options]
+    return 'PASS' if max(lens) <= 2 * min(lens) else 'WARN'
+
+
+def item_I3_single_key(options, key_index, nat_tolerance=None):
+    """No two options equivalent (numeric within tolerance-equivalent rounding;
+    string after normalisation)."""
+    if not options or len(options) < 2:
+        return 'NA'
+    def _norm(o):
+        return re.sub(r'\s+', ' ', (o or '').strip().lower())
+    def _num(o):
+        m = re.fullmatch(r'-?[\d,]+(?:\.\d+)?', _norm(o).replace(' ', ''))
+        return float(m.group(0).replace(',', '')) if m else None
+    seen = {}
+    for i, o in enumerate(options):
+        n = _num(o)
+        k = ('num', round(n, 6)) if n is not None else ('str', _norm(o))
+        if k in seen:
+            return 'WARN'
+        seen[k] = i
+    return 'PASS'
+
+
+_I4_COMBO_RE = re.compile(r'\b(all|none) of the above\b|\bboth\s+[A-D1-4]\s+and\s+[A-D1-4]\b',
+                          re.I)
+
+def item_I4_combination_hygiene(options, option_shape_mix):
+    """'all/none of the above' / 'both A and B' only when the exam's own
+    option_shape_mix shows combination labels."""
+    if not options:
+        return 'NA'
+    has_combo = any(_I4_COMBO_RE.search(o or '') for o in options)
+    if not has_combo:
+        return 'PASS'
+    permitted = float((option_shape_mix or {}).get('combination_label', 0.0)) > 0.0
+    return 'PASS' if permitted else 'WARN'
+
+
+def item_I5_negative_stem(stem, brief_polarity, conventions=()):
+    """Negative only when the brief says so; marker emphasised per the exam's
+    own convention; never double negatives."""
+    s = stem or ''
+    markers = re.findall(r'\b(NOT|INCORRECT|FALSE|EXCEPT|CANNOT|LEAST|NEVER)\b', s,
+                         re.I)
+    if not markers:
+        return 'PASS' if not brief_polarity else 'WARN'   # brief wanted negative
+    if not brief_polarity:
+        return 'WARN'                                     # negative unasked
+    if len(markers) >= 2:
+        return 'WARN'                                     # double negative
+    caps_ok = any(m.isupper() for m in markers)
+    return 'PASS' if caps_ok or not conventions else 'WARN'
+
+
+def item_I8_stem_completeness(stem, options):
+    """Answerable without the options; options never carry givens. Mechanical
+    slice: the stem must not END on a dangling connective, and no option may
+    introduce a 'given/if' clause."""
+    s = (stem or '').strip().rstrip('?:.').strip()
+    if re.search(r'\b(of the following|which of these)\s*$', s, re.I):
+        return 'WARN'
+    for o in options or ():
+        if re.search(r'\b(given|if)\b.*=', o or '', re.I):
+            return 'WARN'
+    return 'PASS'
+
+
+# ── Schema validators (S3-2b) — shape checks, never content edits. ────────────
+STYLE_PROFILE_REQUIRED = ('_meta', 'activation', 'paper', 'sections',
+                          'subtopics', 'item_rules', 'thresholds')
+PYQ_INDEX_REQUIRED = ('_meta', 'questions')
+
+def _finite_float(v):
+    """float(v) or None — None for anything non-numeric, NaN or infinite. Lives
+    at module level rather than nested inside the validators so those remain
+    SINGLE-EXIT aggregators (corpus check AC): a nested helper's `return` is
+    indistinguishable from an early exit of the function that accumulates."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f in (float('inf'), float('-inf')):
+        return None
+    return f
+
+
+def validate_style_profile(prof):
+    """[] when structurally sound, else a list of problems (advisory).
+
+    NEVER RAISES. This is the gate that keeps ruling P-4 true: a corrupted
+    profile on disk must make the style layer DORMANT, never stop the step. It
+    is therefore written against a HOSTILE file — every container may be the
+    wrong type, every number may be a string or NaN. (Malformed-input fuzz
+    2026-08-31 found five inputs that crashed the loader here: _meta and
+    thresholds as a str/int, and non-numeric threshold values.)
+    """
+    problems = []
+    if not isinstance(prof, dict):
+        return ['profile is not an object']
+    for k in STYLE_PROFILE_REQUIRED:
+        if k not in prof:
+            problems.append(f'missing key: {k}')
+    for k in ('_meta', 'thresholds', 'paper', 'sections', 'subtopics',
+              'activation', 'item_rules'):
+        if k in prof and not isinstance(prof[k], dict):
+            problems.append(f'{k} is {type(prof[k]).__name__}, expected object')
+    meta = prof.get('_meta')
+    meta = meta if isinstance(meta, dict) else {}
+    for k in ('exam_code', 'corpus_hash', 'schema'):
+        if not meta.get(k):
+            problems.append(f'_meta.{k} absent')
+    thr = prof.get('thresholds')
+    thr = thr if isinstance(thr, dict) else {}
+    w = _finite_float(thr.get('style_distance_warn'))
+    f_ = _finite_float(thr.get('style_distance_fail'))
+    if w is None or f_ is None:
+        problems.append('thresholds not numeric')
+    elif not (0 < w < f_ <= 1.0):
+        problems.append('thresholds not 0 < warn < fail <= 1')
+    return problems
+
+
+def validate_pyq_index(idx):
+    """[] when structurally sound, else a list of problems. NEVER RAISES —
+    same hostile-file contract as validate_style_profile."""
+    problems = []
+    if not isinstance(idx, dict):
+        return ['index is not an object']
+    for k in PYQ_INDEX_REQUIRED:
+        if k not in idx:
+            problems.append(f'missing key: {k}')
+    if '_meta' in idx and not isinstance(idx['_meta'], dict):
+        problems.append(f"_meta is {type(idx['_meta']).__name__}, expected object")
+    meta = idx.get('_meta')
+    meta = meta if isinstance(meta, dict) else {}
+    for k in ('exam_code', 'corpus_hash'):
+        if not meta.get(k):
+            problems.append(f'_meta.{k} absent')
+    qs = idx.get('questions')
+    if not isinstance(qs, list):
+        problems.append('questions is not a list')
+    elif qs and not all(isinstance(q, dict) and q.get('pyq_id') for q in qs[:50]):
+        problems.append('questions[0..50] carry no pyq_id')
+    return problems
+
+
+# END STYLE-FIDELITY LAYER CONSTANTS
+
+
+# ── G-STYLE distance D (§6.5.2) — SINGLE DEFINITION (P-7). Step 5 uses it for
+#    dispersion-computed thresholds and §8.6 proof 3; Step 7's G-STYLE gate and
+#    the audit twin A-STYLE call the same function. Five components, equal
+#    weights, each in [0,1]; D in [0,1].
+#      1. mechanic_mix      — Jensen–Shannon distance
+#      2. form_mix          — Jensen–Shannon distance
+#      3. option_shape_mix  — Jensen–Shannon distance
+#      4. lengths           — mean relative p50 gap of stem_len and option_len
+#      5. rates             — mean absolute gap of polarity/nat/msq/image rates
+#    A component absent from BOTH cells contributes 0; absent from ONE side
+#    contributes its full weight share (a missing mix is itself a style gap).
+
+def _js_distance(p, q):
+    keys = set(p) | set(q)
+    if not keys:
+        return 0.0
+    import math as _m
+    sp = sum(p.values()) or 1.0
+    sq = sum(q.values()) or 1.0
+    kl_pm = kl_qm = 0.0
+    for k in keys:
+        a = (p.get(k, 0.0)) / sp
+        b = (q.get(k, 0.0)) / sq
+        m = (a + b) / 2.0
+        if a > 0:
+            kl_pm += a * _m.log2(a / m)
+        if b > 0:
+            kl_qm += b * _m.log2(b / m)
+    return min(1.0, ((kl_pm + kl_qm) / 2.0) ** 0.5)
+
+
+def style_distance(cell_obs, cell_ref):
+    """D(observed StyleCell, reference StyleCell) — 0 identical, 1 maximal."""
+    comps = []
+    for mix in ('mechanic_mix', 'form_mix', 'option_shape_mix'):
+        a, b = cell_obs.get(mix), cell_ref.get(mix)
+        if a is None and b is None:
+            comps.append(0.0)
+        elif not a or not b:
+            comps.append(1.0)
+        else:
+            comps.append(_js_distance(a, b))
+    lens = []
+    for fld in ('stem_len', 'option_len'):
+        a = (cell_obs.get(fld) or {}).get('p50')
+        b = (cell_ref.get(fld) or {}).get('p50')
+        if a is None and b is None:
+            continue
+        if not a or not b:
+            lens.append(1.0)
+        else:
+            lens.append(min(1.0, abs(a - b) / float(max(a, b))))
+    comps.append(sum(lens) / len(lens) if lens else 0.0)
+    rates = []
+    for fld in ('polarity_rate', 'nat_rate', 'msq_rate', 'image_option_rate'):
+        a, b = cell_obs.get(fld), cell_ref.get(fld)
+        if a is None and b is None:
+            continue
+        rates.append(min(1.0, abs((a or 0.0) - (b or 0.0))))
+    comps.append(sum(rates) / len(rates) if rates else 0.0)
+    return round(sum(comps) / len(comps), 4)
 
 
 if __name__ == '__main__':

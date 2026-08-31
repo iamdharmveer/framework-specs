@@ -959,6 +959,113 @@ def _self_test():
     # quoting the banner reads PASS over broken work — the false-clean-banner shape
     # (GAP-2026-07-26-003). A banner printed before the last check is a lie by
     # construction, regardless of what the checks say.
+    # ── style_gate container (v5.82 §6.5.5) ──────────────────────────────────
+    _rsg = {}
+    ensure_style_gate(_rsg)
+    ck('sg_birth_shape', set(_rsg['style_gate']) == set(STYLE_GATE_KEYS)
+       and _rsg['style_gate']['events'] == [])
+    _rsg['style_gate']['paper']['P1'] = {'D': 0.1}
+    ensure_style_gate(_rsg)                          # idempotent: never reshapes
+    ck('sg_idempotent', _rsg['style_gate']['paper'] == {'P1': {'D': 0.1}})
+    style_gate_record_paper(_rsg, 'P2', {'D': 0.3, 'verdict': 'WARN'})
+    ck('sg_paper_keyed', _rsg['style_gate']['paper']['P2']['verdict'] == 'WARN')
+    # profile_meta: Step 11 reads it (§FOOTER-STYLE); without a writer the
+    # delivered footer is silent even on an ACTIVE profile
+    style_gate_record_paper(_rsg, 'P3', {'D': 0.2, 'verdict': 'PASS'},
+                            profile_meta={'status': 'ACTIVE', 'schema': 1,
+                                          'corpus_hash': 'abcdef0123'})
+    ck('sg_profile_meta_written_and_read',
+       style_gate_profile_meta(_rsg, 'P3')['status'] == 'ACTIVE'
+       and style_footer_line(style_gate_profile_meta(_rsg, 'P3'))
+           == ['STYLE PROFILE: ACTIVE (schema 1, corpus abcdef01)'])
+    # a later verdict update must NOT erase it
+    style_gate_record_paper(_rsg, 'P3', {'D': 0.4, 'verdict': 'WARN'})
+    ck('sg_profile_meta_survives_verdict_update',
+       style_gate_profile_meta(_rsg, 'P3')['status'] == 'ACTIVE'
+       and _rsg['style_gate']['paper']['P3']['verdict'] == 'WARN')
+    # ── LONG-HORIZON: a 20-paper series in ONE registry ──────────────────────
+    # These properties cannot fail on paper 1; they fail on paper 12 or 20.
+    # (Replayed end to end 2026-08-31: 20 papers x 60 questions, both a clean
+    # run and one where EVERY question is rejected.)
+    _ser = {}
+    ensure_style_gate(_ser)
+    _meta20 = {'status': 'ACTIVE', 'schema': 1, 'corpus_hash': 'abc12345def'}
+    _sizes = []
+    for _n in range(1, 21):
+        _pid = 'M%02d' % _n
+        style_gate_record_paper(_ser, _pid, {'D': 0.2, 'verdict': 'PASS'},
+                                profile_meta=_meta20)
+        style_gate_retries(_ser, _pid, used=12)
+        style_gate_remeasure(_ser, _pid, {'status': 'MEASURED',
+                                          'total_mismatches': 0})
+        if _n % 5 == 0:
+            style_gate_event(_ser, _pid, 'profile_reloaded', 'abc12345')
+        _sizes.append(len(repr(_ser)))
+    _sg20 = _ser['style_gate']
+    ck('sg_series_containers_are_per_paper',
+       len(_sg20['paper']) == 20 and len(_sg20['retries_used']) == 20
+       and len(_sg20['remeasure']) == 20
+       and all(_k.startswith('M') for _k in _sg20['paper']))
+    ck('sg_series_shape_never_drifts',
+       set(_sg20) == set(STYLE_GATE_KEYS))
+    ck('sg_series_retries_are_per_paper_not_global',
+       set(_sg20['retries_used'].values()) == {12})
+    ck('sg_series_profile_meta_survives_every_paper',
+       all(style_gate_profile_meta(_ser, 'M%02d' % _i) == _meta20
+           for _i in range(1, 21)))
+    # growth must be LINEAR: a per-paper container that accidentally accumulates
+    # the whole history grows quadratically and only shows up late in a series
+    _d20 = [_sizes[_i + 1] - _sizes[_i] for _i in range(len(_sizes) - 1)]
+    ck('sg_series_growth_is_linear', max(_d20) <= 2 * min(_d20))
+    # events are append-only and never displace the keyed containers
+    ck('sg_series_events_append_only',
+       len(_sg20['events']) == 4
+       and all(isinstance(_e, dict) and _e.get('paper_id') for _e in _sg20['events']))
+
+    ck('sg_profile_meta_absent_is_none',
+       style_gate_profile_meta(_rsg, 'P9') is None
+       and style_gate_profile_meta({}, 'P1') is None
+       and style_footer_line(style_gate_profile_meta({}, 'P1')) == [])
+    style_gate_event(_rsg, 'P2', 'profile_changed_during_paper', 'hash x->y')
+    ck('sg_event_append', _rsg['style_gate']['events'][-1]['kind']
+       == 'profile_changed_during_paper')
+    ck('sg_retries_roundtrip', style_gate_retries(_rsg, 'P2') == 0
+       and (style_gate_retries(_rsg, 'P2', used=5) or True)
+       and style_gate_retries(_rsg, 'P2') == 5
+       and style_gate_retries(_rsg, 'P9') == 0)
+    style_gate_remeasure(_rsg, 'P2', {'mismatches': 0})
+    ck('sg_remeasure_single_writer_slot',
+       _rsg['style_gate']['remeasure'] == {'P2': {'mismatches': 0}}
+       and _rsg['style_gate']['paper']['P2']['verdict'] == 'WARN')
+
+    # ── §FOOTER-STYLE (v1.30) — exactly ONE line, never more (P-11/Q15) ──────
+    ck('footer_style_active',
+       style_footer_line({'status': 'ACTIVE', 'schema': 1,
+                          'corpus_hash': 'abcdef0123456789'})
+       == ['STYLE PROFILE: ACTIVE (schema 1, corpus abcdef01)'])
+    ck('footer_style_dormant',
+       style_footer_line({'status': 'DORMANT', 'reason': 'thin_corpus'})
+       == ['STYLE PROFILE: DORMANT — thin_corpus'])
+    ck('footer_style_absent_emits_nothing',
+       style_footer_line(None) == [] and style_footer_line({}) == [])
+    ck('footer_style_dormant_without_reason_still_one_line',
+       style_footer_line({'status': 'DORMANT'})
+       == ['STYLE PROFILE: DORMANT — unspecified'])
+    # Q15: no similarity figure, no verdict, no question number ever reaches the
+    # delivered footer, whatever the caller passes in.
+    _fl = style_footer_line({'status': 'ACTIVE', 'schema': 1,
+                             'corpus_hash': 'deadbeefcafe',
+                             'max_textual': 0.62, 'verdict': 'HIGH',
+                             'nearest_pyq_id': 'p:17'})
+    # a CORRUPT registry value is "no record", never a traceback: this runs at
+    # Step 11 with the paper already staged
+    ck('footer_style_survives_corrupt_record',
+       all(style_footer_line(_bad) == []
+           for _bad in ([], 'str', 42, 0, set())))
+    ck('footer_style_leaks_nothing',
+       len(_fl) == 1 and '0.62' not in _fl[0] and 'HIGH' not in _fl[0]
+       and 'p:17' not in _fl[0])
+
     print(f"SELF-TEST: {p}/{p + f} PASS"
           + ("" if not f else f"  ({f} FAILED: " + ", ".join(_failed) + ")"))
     return f == 0
@@ -1833,6 +1940,34 @@ def dg_footer_lines(rec):
     return lines
 
 
+def style_footer_line(profile_meta):
+    """§FOOTER-STYLE (DeliveryFooter v1.30, GAP-2026-08-29 §6.7): the ONLY source
+    of the delivered document's style line, and there is EXACTLY ONE (P-11).
+
+      ACTIVE   -> "STYLE PROFILE: ACTIVE (schema <n>, corpus <hash8>)"
+      DORMANT  -> "STYLE PROFILE: DORMANT — <reason>"
+
+    NOTHING else about style reaches the delivered paper: no per-question
+    detail, no similarity figures, no G-* verdicts (ruling Q15). All of that
+    lives in the audit dossier and the registry. Returns a list of exactly one
+    line, or [] when the caller has no style record at all (a pre-v5.82 paper
+    delivers exactly as it did before)."""
+    # A corrupt registry value must not raise HERE. This runs at Step 11, after
+    # the paper is written and staged: a traceback at delivery is the most
+    # expensive possible failure of an ADVISORY line. Anything that is not a
+    # record is treated as no record. (Found by reading the diff, 2026-08-31 —
+    # a str or int in style_gate crashed the footer.)
+    if not isinstance(profile_meta, dict) or not profile_meta:
+        return []
+    status = str(profile_meta.get('status') or '').upper()
+    if status == 'ACTIVE':
+        schema = profile_meta.get('schema', 1)
+        h = str(profile_meta.get('corpus_hash') or '')[:8] or 'unknown'
+        return [f'STYLE PROFILE: ACTIVE (schema {schema}, corpus {h})']
+    reason = profile_meta.get('reason') or 'unspecified'
+    return [f'STYLE PROFILE: DORMANT — {reason}']
+
+
 # ── fleet recovery (gap §9) — pure core; the I/O wrapper lives in __main__ ────────
 def dg_fleet_heal(reg, *, apply):
     """Scan one registry dict. Returns {'illegal': [...], 'healed': [...],
@@ -1922,6 +2057,73 @@ RH_REGISTRY_WRITING_STEPS = frozenset({
 class RHIllegalHandoff(ValueError):
     """A handoff request the law cannot honour (unknown step, report on a non-final
     batch, a changed registry the caller tried to withhold). Always a caller bug."""
+
+
+# ── style_gate registry container (GAP-2026-08-29-STYLE-FIDELITY §6.5.5) ──────
+STYLE_GATE_KEYS = ('paper', 'events', 'retries_used', 'remeasure')
+
+def ensure_style_gate(registry):
+    """Create the style_gate container AT BIRTH (Step 7). Additive and
+    idempotent: an existing container is never reshaped, missing sub-keys are
+    added empty. Absence in an older registry is OK (EC-18) — this is the only
+    place that creates it. Single-writer discipline: Step 7 writes paper/
+    events/retries_used; Step 9 writes remeasure ONLY."""
+    sg = registry.setdefault('style_gate', {})
+    if not isinstance(sg, dict):
+        return sg
+    sg.setdefault('paper', {})
+    sg.setdefault('events', [])
+    sg.setdefault('retries_used', {})
+    sg.setdefault('remeasure', {})
+    return sg
+
+
+def style_gate_record_paper(registry, paper_id, verdict, profile_meta=None):
+    """Step 7 Final Assembly: the paper-level G-STYLE record, keyed by
+    paper_id (KEY-SHAPE).
+
+    `profile_meta` is the S3-2b record {status, schema, corpus_hash, reason}.
+    It is stored HERE because Step 11 reads it to print the one footer line
+    (§FOOTER-STYLE): without it the delivered footer is silent even on an ACTIVE
+    profile, and the read has no writer at all. (Orphan-read found by reading the
+    spec diff, 2026-08-31.) An existing profile_meta is preserved when the caller
+    passes None, so a later verdict update cannot erase it."""
+    rec = dict(verdict) if isinstance(verdict, dict) else {'verdict': verdict}
+    prev = ensure_style_gate(registry)['paper'].get(paper_id)
+    if profile_meta is None and isinstance(prev, dict):
+        profile_meta = prev.get('profile_meta')
+    if profile_meta is not None:
+        rec['profile_meta'] = profile_meta
+    ensure_style_gate(registry)['paper'][paper_id] = rec
+
+
+def style_gate_profile_meta(registry, paper_id):
+    """The S3-2b record Step 11 prints from, or None. The ONE reader-side
+    accessor, so MockDeliver never reaches into the container shape by hand."""
+    rec = ((registry or {}).get('style_gate') or {}).get('paper', {}).get(paper_id)
+    return rec.get('profile_meta') if isinstance(rec, dict) else None
+
+
+def style_gate_event(registry, paper_id, kind, detail=''):
+    """Append-only event log (EC-19/EC-22): profile_changed_during_paper,
+    absent_after_blueprint, …"""
+    ensure_style_gate(registry)['events'].append(
+        {'paper_id': paper_id, 'kind': kind, 'detail': detail})
+
+
+def style_gate_retries(registry, paper_id, used=None):
+    """Read (used=None) or persist the per-paper retry counter — survives
+    batches and resume (Q19)."""
+    sg = ensure_style_gate(registry)
+    if used is not None:
+        sg['retries_used'][paper_id] = int(used)
+    return int(sg['retries_used'].get(paper_id, 0))
+
+
+def style_gate_remeasure(registry, paper_id, record):
+    """STEP 9 ONLY (single-writer, §6.6). Everything else in style_gate belongs
+    to Step 7."""
+    ensure_style_gate(registry)['remeasure'][paper_id] = record
 
 
 def registry_fingerprint(reg):

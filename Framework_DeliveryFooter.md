@@ -1,4 +1,8 @@
-# Framework_DeliveryFooter v1.29 — Universal Delivery Footer (F1/F2) Contract
+# Framework_DeliveryFooter v1.30 — Universal Delivery Footer (F1/F2) Contract
+# v1.30 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: §FOOTER-STYLE defines the single style-profile status line
+#   (ACTIVE with schema + corpus hash8, or DORMANT with a reason). pp.style_footer_line is
+#   its ONLY source; the engine drops unknown keys, so a richer record cannot widen the
+#   footer.
 # v1.29 — 2026-08-27 — REPAIR-RETIRED-2026-08-27 (operator decision; paired with
 #   paper_pipeline v5.76, MockTestCreate v5.76, MockTestExplain v1.47.0, MockDeliver
 #   v1.18.0). The four *Repair triggers are RETIRED: §3 blocks STEP 7-R and STEP 9-R are
@@ -491,6 +495,26 @@ never compose them by hand. The set it returns, by record state:
 A legacy paper (no record) prints nothing. A HEALED registry is ALWAYS disclosed:
 a registry healed by pp.dg_preflight must never look identical to one that was
 always clean (MockTestExplain §6A-4: silent degradation is the worse failure).
+
+§FOOTER-STYLE — STYLE-PROFILE STATUS LINE (v1.30 — GAP-2026-08-29-STYLE-FIDELITY
+§6.7). Immediately after the §FOOTER-DG lines of the Step 11 F2 footer, print
+EVERY string returned by
+    pp.style_footer_line(style_meta)
+one per line, each prefixed "ℹ️ ", where `style_meta` is the Step-7 record
+{status, schema, corpus_hash, reason}. The engine is the ONLY source of this
+line — never compose it by hand. The set it returns:
+    ACTIVE   → "STYLE PROFILE: ACTIVE (schema 1, corpus <hash8>)"
+    DORMANT  → "STYLE PROFILE: DORMANT — <reason>"
+    no record (pre-v5.82 paper) → nothing
+
+EXACTLY ONE LINE, AND NOTHING ELSE (P-11 / ruling Q15). No per-question detail,
+no similarity figure, no nearest-PYQ id, no G-STYLE / G-PYQ-DIST / G-ITEM
+verdict ever reaches the delivered document — a candidate reading the paper
+learns that a style profile was in force, not how any individual question
+scored against it. Every one of those records lives in the audit dossier and
+the registry (`style_gate`), which are internal artefacts and never staged.
+The engine drops unknown keys by construction, so passing a richer dict cannot
+widen the footer.
 
 ═══════════════════════════════════════════════════════════════════════
 NOTES PIPELINE (NB / NC / NA / ND)

@@ -1,4 +1,8 @@
-# Framework_MockDeliver v1.19.0 — Universal Mock Test Tagger & Delivery Engine
+# Framework_MockDeliver v1.20.0 — Universal Mock Test Tagger & Delivery Engine
+# v1.20.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: step 3d prints the ONE style-profile status line from
+#   pp.style_footer_line (§FOOTER-STYLE). No per-question detail, no similarity figure and
+#   no G-* verdict ever reaches the delivered document (P-11 / ruling Q15); an absent
+#   record is a legacy paper and prints nothing.
 # v1.19.0 — 2026-08-29 — GAP-2026-08-29-DIFFICULTY-HARDER-PRESET (paired with Blueprint
 #   v1.58.0 S7-0, blueprint_core Cluster DP, audit_canonical v2.24). §FOOTER-DS item 3c
 #   gains the mode 'profile_harder' → "Difficulty mix: measured from [k] sittings
@@ -388,6 +392,22 @@ Parse:
           whole percentage; the sentence never carries an exam value.)
        Never invent a mode; a value outside this set is a data defect → HARD STOP
        naming blueprint.json.
+
+    3d. STYLE-PROFILE STATUS LINE (v1.20.0 — GAP-2026-08-29-STYLE-FIDELITY §6.7;
+       §FOOTER-STYLE). Read the Step-7 style record from the registry
+       via pp.style_gate_profile_meta(reg, paper_id) — the ONE reader-side
+       accessor, so this step never reaches into the container shape by hand —
+       and print EVERY string returned by pp.style_footer_line(style_meta),
+       one per line,
+       after the §FOOTER-DG lines. The engine is the ONLY source of this line:
+         ACTIVE  → "STYLE PROFILE: ACTIVE (schema 1, corpus [hash8])"
+         DORMANT → "STYLE PROFILE: DORMANT — [reason]"
+         no record (pre-v5.82 paper) → print nothing (legacy series)
+       EXACTLY ONE LINE (P-11 / ruling Q15). The per-question style, PYQ-distance
+       and item-rule records are internal: they live in the audit dossier and the
+       registry `style_gate` container, never in the delivered document. An
+       absent record is a legacy paper, NEVER a defect and NEVER a stop — the
+       style layer cannot withhold a paper in any state (P-4).
 
      "registry.json has no question_index entry for Mock [N].
       Run MockCreate for Mock [N] first."
@@ -1947,4 +1967,4 @@ future edit to this step:
   7. mc:AlternateContent requiring a drawing namespace (Requires="wps" etc.) that
      got stripped -> avoided by NOT calling cleanup_namespaces (FIX 1).
 
-# END OF Framework_MockDeliver v1.19.0
+# END OF Framework_MockDeliver v1.20.0

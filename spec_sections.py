@@ -48,6 +48,17 @@ FINAL_ONLY_PREFIXES = {
     # FINAL-only. The reduction is deliberately small — the durable property is
     # has_read_set, which covers the MockExplain/TestExplain route's SPEC-BUDGET
     # by design instead of by residual headroom.
+    # v4 (2026-08-31, GAP-2026-08-29-STYLE-FIDELITY): the F2 CLOSING SECTIONS of
+    # the footer contract. §FOOTER-DG and §FOOTER-STYLE describe lines that exist
+    # ONLY in the F2 (final-delivery) footer — a non-final batch emits F1, which
+    # carries neither — and §5/§6 are the end-of-run decision aids. They are read
+    # at Final Assembly and nowhere else. This declaration is what covers the
+    # PYQExplain route's SPEC-BUDGET (its own spec has no final-only content: it
+    # is per-batch law end to end), and it is a real reduction rather than
+    # residual headroom.
+    'Framework_DeliveryFooter.md': (
+        '## §5 —', '## §6 —',
+    ),
     'Framework_MockTestExplain.md': (
         '## §20', '## §22', '## APPENDIX A',
     ),

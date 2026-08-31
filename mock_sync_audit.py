@@ -243,6 +243,46 @@ def check_count_claims(read=_read):
                 problems.append(f"{spec} L{i}: literal deliverable count claim "
                                 f"({line.strip()[:60]!r}) — the expected set "
                                 f"must be DERIVED, never a hardcoded count")
+    # v5.82 — the S4-11 checklist asserts its own length in prose. A count that
+    # disagrees with the items actually listed is how a gate gets added and
+    # silently not run (GAP-2026-08-29 §6.5.6 makes the count normative).
+    problems += _s411_count_problems(read)
+    return problems
+
+
+_S411_ITEM_RE = re.compile(r'^\s*\[ \]\s+G-')
+_S411_CLAIM_RE = re.compile(r'\b(?:All|Items\s+1-)\s*(\d+)\s+items?\b')
+
+
+def _s411_count_problems(read=_read):
+    """The S4-11 checklist's prose count(s) must equal the '[ ] G-' items listed
+    between the checklist heading and the closing fence."""
+    try:
+        text = read('Framework_MockTestCreate.md')
+    except FileNotFoundError:
+        return []
+    lines = text.split('\n')
+    starts = [i for i, l in enumerate(lines)
+              if re.match(r'^#{2,4}\s+S4-11\b', l)]
+    if not starts:
+        return []
+    i0 = starts[0]
+    i1 = next((i for i in range(i0 + 1, len(lines))
+               if re.match(r'^#{2,4}\s+S4-1[2-9]\b', lines[i])), len(lines))
+    seg = lines[i0:i1]
+    listed = sum(1 for l in seg if _S411_ITEM_RE.match(l))
+    problems = []
+    claims = []
+    for l in seg:
+        for m in _S411_CLAIM_RE.finditer(l):
+            claims.append(int(m.group(1)))
+    if not claims:
+        problems.append('Framework_MockTestCreate.md S4-11: no checklist count '
+                        'claim found — the length must be asserted in prose')
+    total_claim = max(claims) if claims else None
+    if total_claim is not None and total_claim != listed:
+        problems.append(f'Framework_MockTestCreate.md S4-11: prose claims '
+                        f'{total_claim} items but {listed} are listed')
     return problems
 
 
@@ -389,6 +429,7 @@ def check_version_pins(read=_read, root=None):
 
 _DELIV_NAME_RE = (r'(section_rules\.md|subtopic_manifest\.json|'
                   r'PYQ_Frequency\.xlsx|exam_config\.json|taxonomy\.xlsx|'
+                  r'style_profile\.json|pyq_index\.json|'
                   r'analysis_progress\.json|analysis_summary\.md)')
 
 _VAR_HINTS = [('rules', 'section_rules.md'),
@@ -396,6 +437,10 @@ _VAR_HINTS = [('rules', 'section_rules.md'),
               ('xlsx', 'PYQ_Frequency.xlsx'),
               ('ecfg', 'exam_config.json'),
               ('tax', 'taxonomy.xlsx'),
+              # v2.56 (GAP-2026-08-29-STYLE-FIDELITY §6.1.8): the two same-run
+              # style artefacts are part of the mandatory delivery set.
+              ('profile', 'style_profile.json'),
+              ('index', 'pyq_index.json'),
               ('progress', 'analysis_progress.json'),
               ('summary', 'analysis_summary.md')]
 
@@ -761,6 +806,60 @@ def check_retired_triggers(read=_read):
     return problems
 
 
+# ── MS-16 ───────────────────────────────────────────────────────────────
+def check_content_path_table_free(read=_read):
+    """Q9 / GAP-2026-08-29-STYLE-FIDELITY. The five legacy mode names are retired
+    as INPUTS for content-class exams: the keyword tables' failure mode was
+    silently classifying every content exam as 'reasoning' and corrupting all
+    downstream style extraction. Structural pin, checked on the ENGINE SOURCE:
+
+      1. In analyse_engine.derive_legacy_mode, the content-class early return
+         (`return None`) must appear BEFORE any reference to
+         determine_strip_mode — so the table is unreachable on the content path
+         no matter how the aptitude shim evolves.
+      2. determine_strip_mode may be CALLED from exactly its own definitions and
+         derive_legacy_mode (the aptitude compatibility shim). A new caller is a
+         regression toward the root cause.
+    """
+    problems = []
+    try:
+        eng = read('analyse_engine.py')
+    except FileNotFoundError:
+        return ["analyse_engine.py missing"]
+    m = re.search(r'def derive_legacy_mode\(.*?(?=\ndef |\n# ─)', eng, re.S)
+    if not m:
+        return ["derive_legacy_mode not found in analyse_engine.py"]
+    body = m.group(0)
+    ret_none = body.find('return None')
+    tbl_ref  = body.find('determine_strip_mode')
+    if ret_none == -1:
+        problems.append("MS-16: derive_legacy_mode has no content-class `return None`")
+    elif tbl_ref != -1 and tbl_ref < ret_none:
+        problems.append("MS-16: determine_strip_mode is referenced BEFORE the "
+                        "content-class early return — the table can reach a "
+                        "content exam")
+    # self_test bodies legitimately CALL the function to test it — exclude them
+    st = re.search(r'def self_test\(.*?(?=\ndef |\Z)', eng, re.S)
+    test_ctx = st.group(0) if st else ''
+    # the engine's own determine_strip_mode is a thin delegation to
+    # blueprint_core (GAP-2026-07-25-002) — its body is the definition, not a
+    # caller
+    dg = re.search(r'def determine_strip_mode\(.*?(?=\ndef |\n# ─)', eng, re.S)
+    if dg:
+        test_ctx += dg.group(0)
+    callers = []
+    for i, line in enumerate(eng.split('\n'), 1):
+        if 'determine_strip_mode(' in line and 'def determine_strip_mode' not in line:
+            callers.append((i, line.strip()))
+    allowed_ctx = m.group(0)
+    for i, line in callers:
+        if line.startswith('#') or line in allowed_ctx or line in test_ctx:
+            continue
+        problems.append(f"MS-16: analyse_engine.py L{i}: new determine_strip_mode "
+                        f"caller outside the aptitude shim: {line[:70]!r}")
+    return problems
+
+
 ALL_CHECKS = [
     ('MS-1 PIN-FLOOR', check_pin_floor),
     ('MS-2 RETIRED-NAMES', check_retired_names),
@@ -777,6 +876,7 @@ ALL_CHECKS = [
     ('MS-13 PROBE-SELECTION', check_probe_selection),
     ('MS-14 REGISTRY-HANDOFF', check_registry_handoff),
     ('MS-15 RETIRED-TRIGGERS', check_retired_triggers),
+    ('MS-16 CONTENT-PATH-TABLE-FREE', check_content_path_table_free),
 ]
 
 
@@ -1152,6 +1252,65 @@ def self_test():
     check('ms15_pipeline_registration_flagged',
           any('validate_framework_md.py' in x for x in check_retired_triggers(read=fake_reader(_rt_pipe))))
     check('ms15_is_registered', any(n.startswith('MS-15') for n, _ in ALL_CHECKS))
+
+    # ── MS-16 — Q9 content-path pin ──────────────────────────────────────────
+    _eng_ok = (
+        "def derive_legacy_mode(sig):\n"
+        "    if exam_class == 'content':\n"
+        "        return None\n"
+        "    x = determine_strip_mode(a, b, c)\n"
+        "    return x\n"
+        "def other():\n"
+        "    pass\n")
+    _eng_bad = (
+        "def derive_legacy_mode(sig):\n"
+        "    x = determine_strip_mode(a, b, c)\n"
+        "    if exam_class == 'content':\n"
+        "        return None\n"
+        "    return x\n"
+        "def other():\n"
+        "    pass\n")
+    _eng_leak = _eng_ok + "def rogue():\n    return determine_strip_mode(s, t, u)\n"
+    def _rd(text):
+        def _r(name):
+            if name == 'analyse_engine.py':
+                return text
+            raise FileNotFoundError(name)
+        return _r
+    check('ms16_ok_shape_passes',
+          check_content_path_table_free(read=_rd(_eng_ok)) == [])
+    check('ms16_table_before_return_fails',
+          any('BEFORE' in p for p in check_content_path_table_free(read=_rd(_eng_bad))))
+    check('ms16_new_caller_fails',
+          any('new determine_strip_mode caller' in p
+              for p in check_content_path_table_free(read=_rd(_eng_leak))))
+    check('ms16_is_registered', any(n.startswith('MS-16') for n, _ in ALL_CHECKS))
+
+    # ── MS-4 — S4-11 checklist count tripwire (v5.82 §6.5.6) ─────────────────
+    _s411_ok = ("## S4-11 — Gate Checklist\n"
+                "  [ ] G-A: x\n  [ ] G-B: y\n  [ ] G-C: z\n"
+                "  Items 1-2 must PASS.\n  All 3 items are RUN; item 3 records.\n"
+                "## S4-12 — next\n")
+    def _rd411(text):
+        def _r(name):
+            if name == 'Framework_MockTestCreate.md':
+                return text
+            raise FileNotFoundError(name)
+        return _r
+    check('ms4_s411_count_agrees', _s411_count_problems(read=_rd411(_s411_ok)) == [])
+    check('ms4_s411_miscount_caught',
+          any('prose claims 4 items but 3' in p for p in _s411_count_problems(
+              read=_rd411(_s411_ok.replace('All 3 items', 'All 4 items')))))
+    check('ms4_s411_dropped_item_caught',
+          any('but 2 are listed' in p for p in _s411_count_problems(
+              read=_rd411(_s411_ok.replace('  [ ] G-C: z\n', '')))))
+    check('ms4_s411_missing_claim_caught',
+          any('no checklist count claim' in p for p in _s411_count_problems(
+              read=_rd411(_s411_ok.replace('  All 3 items are RUN; item 3 records.\n', '')))))
+    # a '#   S4-11 ...' CHANGELOG COMMENT must never be mistaken for the heading
+    check('ms4_s411_comment_is_not_the_heading',
+          _s411_count_problems(read=_rd411(
+              "#   S4-11 gains its 44th item, see below\n" + _s411_ok)) == [])
     def _no_routes(): raise FileNotFoundError('routes.json')
     check('ms14_missing_routes_flagged',
           any('routes.json' in x for x in check_registry_handoff(read=fake_reader(_ok), routes_read=_no_routes)))

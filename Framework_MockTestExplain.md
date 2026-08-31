@@ -1,4 +1,10 @@
-# Framework_MockTestExplain v1.49.0
+# Framework_MockTestExplain v1.50.0
+# v1.50.0 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: §7A-S STYLE RE-MEASURE (advisory). Step 9 recomputes
+#   style_obs from the DELIVERED bytes and records mismatches against Step 7's record;
+#   three dormancy reasons (profile_dormant, hash_mismatch, pre_v582_paper). Single-writer:
+#   Step 9 writes style_gate.remeasure[paper_id] and nothing else in that container. The
+#   P-series takes the authored distractor type as its default diagnosis, re-derives
+#   independently (RE-6), and RECORDS BOTH on disagreement — never edits the question.
 # v1.49.0 — 2026-08-30 — GAP-2026-08-30-EXPLAIN-COLOUR-BINDING (paired with explain_engine
 #   v2.11, Framework_PYQExplain v2.21, routes.json: figural_core.py + corpus_io.py routed to
 #   MockExplain / TestExplain / PYQExplain; SHARED_RULES_VERSION 1.5 → 1.6). Explanation
@@ -1950,6 +1956,59 @@ execution path — it does not shrink, soften or delete them.
                                    (+ " · registry healed: <field> a→b" when
                                     pp.dg_preflight returned a disclosure)
 
+## §7A-S — STYLE RE-MEASURE (v1.50.0 — ADVISORY, GAP-2026-08-29-STYLE-FIDELITY §6.6)
+
+  Mirrors §7A-M's RECORD SHAPE and nothing else: §7A-M gates delivery, §7A-S
+  never does. Step 9 is the only step that reads the DELIVERED BYTES blind to
+  the authoring plan, so it is the only place a style claim can be checked
+  against what actually shipped — but a style verdict can never withhold a
+  paper (P-4), so every finding here is recorded and disclosed, never blocking.
+
+  WHAT IS RE-MEASURED. For each question in the delivered document, recompute
+  `style_obs` from the bytes — mechanic, form, polarity, answer_type,
+  option_shape, stem_words — using the SAME analyse-side functions Step 7 used
+  (bc/analyse_engine measurement, never a second implementation: a private copy
+  is how two honest counters start disagreeing for reasons neither can see).
+  Compare with the Step-7 record in the sidecar / dossier. Record per question:
+  `{q, field, step7, step9}` for every mismatch; count them per field.
+
+  DORMANCY (recorded with a reason, never a stop):
+    - the style profile is absent or DORMANT for this exam        → `profile_dormant`
+    - `batch_state.style_profile_hash` != the loaded profile hash → `hash_mismatch`
+      (the profile CHANGED between authoring and explaining; a mismatch count
+      computed across two different profiles is not a finding about the paper,
+      so it is never reported as one)
+    - the sidecar carries no `style_obs` (pre-v5.82 paper)        → `pre_v582_paper`
+    - the sidecar is present but STRUCTURALLY CORRUPT             → `sidecar_unreadable`
+    - the re-measurement input is structurally corrupt            → `remeasurement_unreadable`
+      (a file on disk is hostile input, and P-4 forbids a style check stopping
+       Step 9 — a corrupt shape is RECORDED, never raised)
+
+  SINGLE-WRITER. Step 9 writes `style_gate.remeasure[paper_id]` and NOTHING
+  ELSE in the `style_gate` container (paper/events/retries_used belong to Step
+  7, S13-4). The engine helper is `paper_pipeline.style_gate_remeasure`, which
+  writes only that key.
+
+  RECORD SHAPE (registry `style_gate.remeasure[paper_id]`):
+    {"status": "MEASURED"|"DORMANT", "reason": null|"<dormancy reason>",
+     "n_questions": int,        # questions Step 7 recorded
+     "n_compared": int,         # of those, how many Step 9 could re-measure
+     "mismatches": {"<field>": int}, "total_mismatches": int,
+     "questions": [{"q": int, "field": "...", "step7": "...", "step9": "..."}]}
+
+  n_compared IS REPORTED SEPARATELY on purpose. A record saying n_questions=60
+  with zero mismatches, when only 12 questions were actually re-measurable,
+  tells a reader the paper matched when almost nothing was checked. The two
+  counts together are the only honest form of "no mismatches".
+
+  P-SERIES DISTRACTOR TYPES. Load the Step-7 sidecar `distractor_mechanisms`;
+  for each wrong option the AUTHORED type is the default §9 diagnosis. Step 9
+  re-derives independently (RE-6); on disagreement RECORD BOTH (`authored_type`,
+  `explained_type`) in the batch report and registry — never edit the question
+  (RE-3), never silently override. Pre-fix papers (no `distractor_mechanisms`)
+  keep the S8-5 back-derivation unchanged and get ONE batch-report line:
+  "authored mechanisms absent (pre-v5.81 paper)".
+
 ## §7A-R — RETIRED (v1.47.0 — REPAIR-RETIRED-2026-08-27, operator decision)
 
   The repair mode this section once defined is RETIRED: the two Step 9-R
@@ -3391,5 +3450,5 @@ ee.build_report_docx(f'/mnt/user-data/outputs/{EXAMCODE}_{PAPER_SLUG}{pp.RH_REPO
 # file WINS (it carries hard-won, exam-tested fixes); both are loaded at P1 via
 # parse_learnings and applied per §24. A learnings rule NEVER overrides coverage/§18/the
 # batch law (RE-0). Deliver the full merged spec on every edit — never a patch.
-# END OF Framework_MockTestExplain v1.49.0
+# END OF Framework_MockTestExplain v1.50.0
 # ════════════════════════════════════════════════════════════════════════

@@ -1,4 +1,14 @@
-# Framework_MockTestCreate v5.81
+# Framework_MockTestCreate v5.82
+# v5.82 — 2026-08-31 — GAP-2026-08-29-STYLE-FIDELITY: the writing side of the style layer.
+#   S3-2b loads {EXAM}_style_profile.json + {EXAM}_pyq_index.json (every failure mode
+#   DORMANT with a recorded reason — never a stop, P-4); S3-12c draws a deterministic
+#   authoring BRIEF per slot (seed = sha256(exam·paper·corpus_hash·qnum), frozen in
+#   batch_state.style_briefs, EC-19); S7-STYLE authors to the brief and measures what was
+#   written, with the Q19 RETRY BUDGET (MAX_ATTEMPTS_PER_Q=2, MAX_RETRIES_PER_PAPER=
+#   ceil(0.20×total) — 72 generations worst case on a 60-Q paper, measured); S4-11 gains
+#   items 45-47 (G-STYLE, G-PYQ-DIST, G-ITEM), all three ADVISORY BY CONSTRUCTION — they
+#   record their verdict and can never fail a batch or withhold a paper. Every decision
+#   constant lives in blueprint_core; nothing here is a hand table.
 # v5.81 — 2026-08-30 — GAP-2026-08-30-FITTER-ASPECT (figural_core; audit_canonical v2.25;
 #   this spec Q10.6-Q10.8). THREE DEFECTS, found by rendering every figure family through
 #   the deployed v5.80 engine: (1) figural_core.apply_data_window() (v5.55) forced the data
@@ -1739,6 +1749,109 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   # learnings_bans added to quality gate checks during generation
   ```
 
+## S3-2b — Load the style profile and PYQ index (v5.82 — GAP-2026-08-29-STYLE-FIDELITY §6.5.1)
+
+  Loads two DATA artefacts written by Step 5. NEVER A STOP OF ANY KIND (P-4):
+  every failure mode below resolves to DORMANT with a recorded reason, and a
+  dormant run is byte-identical to the pre-v5.82 baseline (§8.6 proof 1).
+
+  ```python
+  # ── S3-2b (executable) ──────────────────────────────────────────────────
+  import json, os, blueprint_core as bc
+
+  def load_style_artefacts(exam_code, section_rules_meta, blueprint,
+                           project_dir='/mnt/project'):
+      """Returns (profile, index, style_meta). profile/index are None when
+      dormant; style_meta always carries {status, reason, schema, corpus_hash}
+      and is what §FOOTER-STYLE and the registry record."""
+      def _dormant(reason):
+          return None, None, {'status': 'DORMANT', 'reason': reason,
+                              'schema': None, 'corpus_hash': None}
+      # P-4 IS ABSOLUTE. Every shape below is validated, but a file on disk is
+      # hostile input and the cost of being wrong once is a HALTED STEP. The
+      # whole body therefore runs under a last-resort guard: an unanticipated
+      # shape becomes DORMANT with the exception named, never a traceback.
+      try:
+          return _load_style_artefacts_inner(exam_code, section_rules_meta,
+                                             blueprint, project_dir, _dormant)
+      except Exception as e:
+          return _dormant(f'unreadable_profile ({type(e).__name__})')
+
+
+  def _load_style_artefacts_inner(exam_code, section_rules_meta, blueprint,
+                                  project_dir, _dormant):
+      p_path = os.path.join(project_dir, f'{exam_code}_style_profile.json')
+      i_path = os.path.join(project_dir, f'{exam_code}_pyq_index.json')
+      profile = index = None
+      if os.path.exists(p_path):
+          try:
+              profile = json.load(open(p_path, encoding='utf-8'))
+          except Exception as e:
+              return _dormant(f'unreadable_profile ({type(e).__name__})')
+      if os.path.exists(i_path):
+          try:
+              index = json.load(open(i_path, encoding='utf-8'))
+          except Exception as e:
+              index = None
+      if profile is None:
+          # EC-22: the blueprint EXPECTED a profile and it is gone — recorded,
+          # never a stop.
+          reason = ('absent_after_blueprint'
+                    if (blueprint or {}).get('style_profile_expected')
+                    else 'absent')
+          return None, index, {'status': 'DORMANT', 'reason': reason,
+                               'schema': None, 'corpus_hash': None}
+      problems = bc.validate_style_profile(profile)
+      if problems:
+          return _dormant('schema_invalid: ' + '; '.join(problems[:2]))
+      meta = profile.get('_meta')
+      meta = meta if isinstance(meta, dict) else {}
+      if meta.get('exam_code') != exam_code:
+          return _dormant('exam_code_mismatch')
+      sr_hash = (section_rules_meta or {}).get('corpus_hash')
+      if sr_hash and meta.get('corpus_hash') != sr_hash:
+          # EC-20 — one regeneration is the remedy; name BOTH files.
+          return _dormant(f"stale_profile (style_profile corpus "
+                          f"{str(meta.get('corpus_hash'))[:8]} != section_rules "
+                          f"{str(sr_hash)[:8]})")
+      paper = profile.get('paper')
+      paper = paper if isinstance(paper, dict) else {}
+      if str(paper.get('status', 'ACTIVE')).upper() == 'DORMANT':
+          return _dormant(paper.get('dormant_reason') or 'thin_corpus')
+      if index is not None and bc.validate_pyq_index(index):
+          index = None                       # malformed index: dormant, profile stands
+      if index is not None:
+          i_meta = index.get('_meta')
+          i_meta = i_meta if isinstance(i_meta, dict) else {}
+          if (i_meta.get('exam_code') != exam_code
+                  or (sr_hash and i_meta.get('corpus_hash') != sr_hash)):
+              index = None
+      return profile, index, {'status': 'ACTIVE', 'reason': None,
+                              'schema': meta.get('schema', 1),
+                              'corpus_hash': meta.get('corpus_hash')}
+  ```
+
+  RECORD style_meta INTO THE REGISTRY. At Final Assembly Step 7 calls
+  pp.style_gate_record_paper(reg, paper_id, verdict, profile_meta=style_meta).
+  Step 11 reads it back through pp.style_gate_profile_meta to print the single
+  footer line (§FOOTER-STYLE); without this write the delivered footer is silent
+  even on an ACTIVE profile. A later verdict update preserves it.
+
+  S3-18 PRINTS one line for each (and the registry records style_meta):
+    "STYLE PROFILE: ACTIVE (n=[questions], window=[years])" | "DORMANT: [reason]"
+    "PYQ INDEX: [n] questions, loaded [t] s"                | "DORMANT: absent"
+
+  EC-19 RESUME. batch_state.style_profile_hash pins the profile the paper
+  STARTED on. When the file on disk differs at resume, the session CONTINUES on
+  the FROZEN briefs and the frozen index snapshot; the difference is recorded in
+  style_gate.events[] as `profile_changed_during_paper`. A paper that started
+  DORMANT stays dormant to its Final Assembly even if a profile appears
+  mid-paper — a paper is authored under ONE style regime or none.
+
+  EC-25. When two profiles are otherwise equal, the one with the newer
+  `generated_at` wins (PYQExplain having since added keys makes distractor_mix
+  available where it was 'unavailable').
+
 ## S3-3 — Load section_rules.md — read ALL fields
 
   (Unchanged from v1.0 — see §3 S3-3 in v1.0 spec for full field list)
@@ -1853,6 +1966,63 @@ sections off the per-batch execution path — it does not shrink, soften or dele
       return [u for u in snap.get('semantic_usage', []) if u.get('subtopic_id') == sid]
   ```
   Guard script uses snapshot. Live registry never modified during generation.
+
+  ### S3-5b — EC-29: like-for-like L2 across the switchover (v5.82)
+
+  A series already in progress carries registry `semantic_tuples` whose second
+  element is the LEGACY `approach` string; questions written from v5.82 carry
+  `mechanic|form|polarity`. Comparing the two shapes directly would silently
+  stop detecting semantic repeats at exactly the mock where the switchover
+  happened — the failure would look like "no duplicates found", which is the
+  worst shape a dedup failure can take.
+
+  At S3-5, for every legacy entry, RECOMPUTE the new shape IN MEMORY from the
+  entry's stored `stem_texts`, using the same measurement functions Step 5 uses
+  (never a second implementation). The stored `registry.json` is NEVER rewritten
+  — S13-4 remains the single writer, and Final Assembly commits new entries in
+  the NEW shape only.
+
+  ```python
+  # ── S3-5b (executable) ──────────────────────────────────────────────────
+  import analyse_engine as ae
+
+  _LEGACY_APPROACHES = set()          # any non-'a|b|c' second element is legacy
+
+  def _is_new_shape(tup):
+      mid = tup[1] if isinstance(tup, (list, tuple)) and len(tup) > 1 else None
+      return isinstance(mid, str) and mid.count('|') == 2
+
+  def upgrade_legacy_tuples(snapshot, stem_by_key=None):
+      """Return a NEW list of semantic tuples in the v5.82 shape. Legacy entries
+      are recomputed from their stem text; entries already in the new shape pass
+      through untouched. Pure — `snapshot` is never mutated."""
+      out, upgraded, unrecoverable = [], 0, 0
+      for t in snapshot.get('semantic_tuples', []) or []:
+          if not isinstance(t, (list, tuple)) or len(t) < 3 or _is_new_shape(t):
+              out.append(t)
+              continue
+          stem = (stem_by_key or {}).get(tuple(t[:1]) + (t[2] if isinstance(t[2], str)
+                                                         else '',))
+          if not stem:
+              # No stored stem for this entry: keep the legacy tuple AS-IS.
+              # A tuple that cannot be recomputed still matches its own kind,
+              # so the loss is confined to cross-shape comparison and is
+              # RECORDED rather than papered over with a fabricated mechanic.
+              out.append(t)
+              unrecoverable += 1
+              continue
+          q = {'stem': stem, 'options': [], 'medium': 'en'}
+          q['axis2'] = ae.classify_axis2(q)
+          q['option_shape'] = ae.detect_option_shape(q)
+          mech = ae.detect_mechanic(q)
+          pol = 'negative' if ae._POLARITY_RE.search(stem) else 'positive'
+          out.append([t[0], f"{mech}|{q['axis2']}|{pol}", t[2]])
+          upgraded += 1
+      return out, {'upgraded': upgraded, 'unrecoverable': unrecoverable}
+  ```
+
+  RECORDED at S3-18: "L2 legacy tuples upgraded in memory: [n] ([u] without a
+  stored stem, compared in their own shape)." Never a stop.
 
 ## S3-6 — ExamCode cross-verification
 
@@ -2207,6 +2377,101 @@ sections off the per-batch execution path — it does not shrink, soften or dele
   stimulus group (R-LINKED Model B) is emitted as one contiguous block and is
   R19-exempt INSIDE the block; a `q_count` that is not a multiple of the
   group size is a PlacementError, never a silent split.
+
+## S3-12c — Draw the authoring brief per slot (v5.82 — GAP-2026-08-29-STYLE-FIDELITY §6.5.1)
+
+  Extends the S3-12b placement plan. For EVERY slot the engine draws an
+  authoring BRIEF from the style profile cell — section x answer_type, falling
+  back to the PAPER cell when the section cell is DORMANT (EC-3). Runs only
+  when the profile loaded ACTIVE at S3-2b; otherwise every brief is None and
+  Step 7 authors exactly as it did before (P-4: dormancy is baseline
+  behaviour, never a stop, never a degraded paper).
+
+  DETERMINISM IS THE CONTRACT. The draw seed is
+  bc.brief_seed(exam_code, paper_id, corpus_hash, qnum) =
+  sha256(exam · paper · corpus_hash · qnum), so a re-run on the same inputs
+  draws the same briefs, and S4-12 resume reproduces them byte-identically.
+  Briefs are PERSISTED in batch_state.style_briefs[qnum] and FROZEN exactly
+  like the placement plan (EC-19): a profile that changes mid-paper is
+  recorded in style_gate.events[] as `profile_changed_during_paper` and the
+  session CONTINUES on the frozen briefs.
+
+  ```python
+  # ── S3-12c (executable) ─────────────────────────────────────────────────
+  import random, blueprint_core as bc
+
+  def draw_style_brief(profile, section, answer_type, subtopic_id,
+                       exam_code, paper_id, corpus_hash, qnum,
+                       axis2_allowed=None, permitted_mechanics=None):
+      """One frozen authoring brief, or None when the profile is dormant."""
+      if not profile or (profile.get('_meta') or {}).get('status') == 'DORMANT':
+          return None
+      sect = ((profile.get('sections') or {}).get(section) or {})
+      cell = None
+      if str(sect.get('status', '')).upper() == 'ACTIVE':
+          cell = ((sect.get('by_answer_type') or {}).get(answer_type)
+                  or sect.get('cell'))
+      if not cell:                       # EC-3 — section thin: use the paper cell
+          cell = profile.get('paper') or {}
+      if not cell:
+          return None
+      rng = random.Random(bc.brief_seed(exam_code, paper_id, corpus_hash, qnum))
+      sub = (profile.get('subtopics') or {}).get(subtopic_id) or {}
+
+      mech = bc.weighted_draw(cell.get('mechanic_mix'), rng,
+                              restrict=permitted_mechanics)
+      form = bc.weighted_draw(cell.get('form_mix'), rng, restrict=axis2_allowed)
+      # polarity: Bernoulli at min(cell rate, the subtopic's own negative
+      # frequency); forced to 0 when I-5 is live and the cell never goes negative
+      p_pol = min(float(cell.get('polarity_rate') or 0.0),
+                  float(sub.get('polarity_rate')
+                        if sub.get('polarity_rate') is not None else 1.0))
+      item_rules = profile.get('item_rules') or {}
+      i5_live = not ((item_rules.get('I-5') or {}).get('suspended'))
+      if i5_live and float(cell.get('polarity_rate') or 0.0) == 0.0:
+          p_pol = 0.0
+      shape = bc.weighted_draw(cell.get('option_shape_mix'), rng)
+
+      dmix = sub.get('distractor_mix')
+      if dmix == 'unavailable' or not dmix:
+          mechs, prior = list(bc.default_distractor_prior(shape or 'none')), 'default'
+      else:
+          mechs, prior = [], None
+          for _ in range(3):
+              t = bc.weighted_draw(dmix, rng)
+              if t:
+                  mechs.append(t)
+      def _pick(seq):
+          seq = [s for s in (seq or ()) if s]
+          return rng.choice(seq) if seq else None
+      stem_len = cell.get('stem_len') or {}
+      return {
+          'brief_id': f"{section}|{answer_type}|{subtopic_id}|{qnum}",
+          'mechanic': mech, 'form': form,
+          'polarity': rng.random() < p_pol,
+          'option_shape': shape,
+          'option_count': bc.weighted_draw(cell.get('option_count'), rng),
+          'stem_len_band': (stem_len.get('p10'), stem_len.get('p90')),
+          'ask_form': (_pick([a.get('text') for a in (cell.get('ask_forms') or ())])),
+          'instruction': (_pick([i.get('text')
+                                 for i in (cell.get('instruction_phrases') or ())])),
+          'distractor_mechanisms': mechs, 'distractor_prior': prior,
+          'number_ranges': sub.get('number_ranges'),
+          'exclude_values': sub.get('exclude_values') or [],
+          'low_entropy': bool(sub.get('low_entropy')),
+          'stimulus': (rng.random()
+                       < float((cell.get('stimulus_stats') or {}).get('stimulus_rate') or 0.0)),
+      }
+  ```
+
+  A CLASS-4 LINKED GROUP draws its STIMULUS brief ONCE for the group; each
+  member then draws its own question brief on its own seed.
+
+  BAND CONDITIONING (EC-33/EC-35): `permitted_mechanics` is the set a mechanic
+  is allowed in for this slot's difficulty band — a mechanic is permitted in
+  band B when the exam's own PYQ show it in band B at >= 5% of that band's
+  questions, per the difficulty profile. When the difficulty profile is
+  DORMANT every mechanic is permitted in every band. NEVER a hand table.
 
 ## S3-13 — Build answer position budget (PRE-Q1 — v2.0 GAP-08 fix)
 
@@ -3427,7 +3692,33 @@ sections off the per-batch execution path — it does not shrink, soften or dele
                   MSQ/NAT instruction remains INSIDE the Q.N line; MATCH lists
                   remain REAL tables, never sub-part lines. (S10-2b) HARD FAIL.
 
-  All 44 items must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  [ ] G-STYLE: (v5.82, ADVISORY) Paper-so-far style distance D against the
+                  profile cell (section x answer_type, falling back to the paper
+                  cell): mean of mechanic-mix JS, form-mix JS, polarity delta,
+                  and — only when the profile's thresholds are
+                  computed_from_dispersion and this cell has >= 12 questions in
+                  the paper-so-far — lexicon-coverage deficit and stimulus
+                  deficit. Verdict PASS / WARN / HIGH. RECORD ONLY: HIGH never
+                  fails the batch and never withholds a paper (P-4). DORMANT
+                  (recorded, with reason) when the profile is absent or stale.
+  [ ] G-PYQ-DIST: (v5.82, ADVISORY) Every question's textual Jaccard against the
+                  PYQ index via the inverted shingle lookup, plus semantic-tuple
+                  equality, value reuse and image dHash. REJECT-and-regenerate is
+                  BUDGETED (MAX_ATTEMPTS_PER_Q = 2, MAX_RETRIES_PER_PAPER =
+                  ceil(0.20 x total)); on exhaustion the best attempt is ACCEPTED
+                  and pyq_dist.accepted_on = "budget" is recorded. Records land
+                  in the sidecar, dossier and registry — NEVER in the delivered
+                  footer (Q15). Cannot be disabled (EC-30). DORMANT only when the
+                  index is absent.
+  [ ] G-ITEM (I-1..I-8): (v5.82, ADVISORY) The universal item-writing rules,
+                  each SUSPENDED for this exam when the exam's own PYQ violate it
+                  at >= 10% (item_rules[I-n].suspended, ruling Q6). Verdicts are
+                  recorded per question in style_obs.item_flags; a WARN never
+                  fails the batch. NAT-only cells record NA, not PASS (EC-7).
+
+  Items 1-44 must PASS. If any FAIL: fix in this batch, re-check, then deliver.
+  All 47 items are RUN; items 45-47 (G-STYLE, G-PYQ-DIST, G-ITEM) RECORD their
+  verdict and never fail the batch — they are advisory by construction (P-4).
   ```
 
 ## S4-12 — Session recovery / resume (v3.0)
@@ -4943,6 +5234,129 @@ def widen_scenario_space(subtopic_data, exhausted_source):
     Axis-3 had a budget and neither had a spender or a gate, and nothing in the framework
     was capable of noticing.
 
+## S7-STYLE — Author to the brief, measure what was written (v5.82 — GAP-2026-08-29-STYLE-FIDELITY §6.5.1/§6.5.3)
+
+  Runs per slot, immediately after the question is written and BEFORE
+  S7-NEW-A's sidecar write. Dormant (every step below skipped, `style_obs`
+  still measured and recorded) when S3-2b returned DORMANT.
+
+  THE BRIEF IS A CONSTRAINT, NOT A TEMPLATE. The frozen S3-12c brief is placed
+  in the generation prompt as constraints. SOURCE 1 (S7-CONCEPT) scenario seeds
+  are `pattern_key` ABSTRACTIONS ordered by frequency; the exemplar SKELETONS
+  are NEVER shown to the generator (P-6) — the generator learns the shape of
+  the exam's questions, never their words.
+
+  REJECT-AND-REGENERATE REASONS — EXHAUSTIVE, no others exist:
+    (a) measured mechanic != brief          (e) G-PYQ-DIST textual >= REJECT
+    (b) measured form != brief              (f) semantic tuple equality
+    (c) measured polarity != brief          (g) image dHash within 25
+    (d) a numeric given in exclude_values   (normally prevented pre-write, EC-49)
+
+  RECORD-ONLY, NEVER A REJECT: option_shape != brief · stem length outside
+  p10–p90 · ask-form not from the cell · lexicon coverage · option_count ·
+  stimulus shape · EVERY G-ITEM verdict · EVERY G-STYLE verdict. The
+  distinction is deliberate: a rejection costs a generation, so only the
+  properties the brief can actually pin are allowed to spend one.
+
+  ```python
+  # ── S7-STYLE (executable) ───────────────────────────────────────────────
+  import blueprint_core as bc
+
+  def evaluate_attempt(q_obs, brief, pyq_dist, *, low_entropy=False):
+      """Which of the seven REJECT reasons this attempt trips. Pure."""
+      if not brief:
+          return []                     # dormant: nothing to reject against
+      r = []
+      if brief.get('mechanic') and q_obs.get('mechanic') != brief['mechanic']:
+          r.append('mechanic')
+      if brief.get('form') and q_obs.get('form') != brief['form']:
+          r.append('form')
+      if brief.get('polarity') is not None \
+              and bool(q_obs.get('polarity')) != bool(brief['polarity']):
+          r.append('polarity')
+      excl = set(brief.get('exclude_values') or ())
+      if excl & set(q_obs.get('numeric_givens') or ()):
+          r.append('exclude_value')
+      pd = pyq_dist or {}
+      if bc.pyq_textual_verdict(float(pd.get('max_textual') or 0.0),
+                                low_entropy=low_entropy) == 'REJECT':
+          r.append('pyq_textual')
+      if pd.get('semantic_equal'):
+          r.append('pyq_semantic')
+      if pd.get('image_dhash') is not None \
+              and int(pd['image_dhash']) <= bc.PYQ_IMAGE_DHASH_MAX:
+          r.append('pyq_image')
+      return r
+
+  def brief_match_count(q_obs, brief):
+      """How many brief fields this attempt matched — the third tie-break when
+      the budget is exhausted (ruling Q19)."""
+      if not brief:
+          return 0
+      n = 0
+      for f in ('mechanic', 'form', 'option_shape'):
+          if brief.get(f) and q_obs.get(f) == brief[f]:
+              n += 1
+      if brief.get('polarity') is not None \
+              and bool(q_obs.get('polarity')) == bool(brief['polarity']):
+          n += 1
+      lo, hi = (brief.get('stem_len_band') or (None, None))
+      if lo and hi and lo <= int(q_obs.get('stem_words') or 0) <= hi:
+          n += 1
+      if brief.get('ask_form') and brief['ask_form'] in (q_obs.get('ask_form') or ''):
+          n += 1
+      return n
+
+  def author_slot(generate, measure, brief, *, qnum, total_questions,
+                  retries_used, low_entropy=False):
+      """The budgeted authoring loop (ruling Q19). Returns
+      (question, style_obs, pyq_dist, retries_used). NEVER raises, NEVER stops:
+      on budget exhaustion the BEST attempt is ACCEPTED and said so."""
+      budget = bc.max_retries_per_paper(total_questions)
+      attempts = []
+      for attempt_i in range(bc.MAX_ATTEMPTS_PER_Q):
+          q = generate(brief, attempt_i)
+          obs, pdist = measure(q)
+          reasons = evaluate_attempt(obs, brief, pdist, low_entropy=low_entropy)
+          attempts.append({'q': q, 'obs': obs, 'pyq_dist': pdist,
+                           'reject_reasons': reasons,
+                           'max_textual': float((pdist or {}).get('max_textual') or 0.0),
+                           'brief_matches': brief_match_count(obs, brief)})
+          if not reasons:
+              obs['accepted_on'] = 'first' if attempt_i == 0 else 'retry'
+              (pdist or {}).setdefault('accepted_on', obs['accepted_on'])
+              return q, obs, pdist, retries_used
+          # A RETRY IS CHARGED ONLY WHEN ONE ACTUALLY FOLLOWS. Charging after
+          # the final attempt would spend the paper's budget at twice the real
+          # rate (measured: 66 generations on a 60-Q paper instead of the 72
+          # the budget allows, because the budget ran out after 6 questions).
+          if attempt_i == bc.MAX_ATTEMPTS_PER_Q - 1 or retries_used >= budget:
+              break
+          retries_used += 1
+      best = attempts[bc.select_best_attempt(attempts)]
+      best['obs']['accepted_on'] = 'budget'
+      (best['pyq_dist'] or {}).setdefault('accepted_on', 'budget')
+      return best['q'], best['obs'], best['pyq_dist'], retries_used
+  ```
+
+  BUDGET ARITHMETIC (worst case, 60-Q paper): MAX_ATTEMPTS_PER_Q = 2 and
+  MAX_RETRIES_PER_PAPER = ceil(0.20 x 60) = 12, so at most 72 generations.
+  The expected case is far lower because the two dominant rejection causes are
+  PREVENTED before writing: values are drawn outside `exclude_values`, and the
+  brief is fixed before generation. The budget covers style and PYQ-distance
+  rejections ONLY — the pre-existing scenario, difficulty and G-DEDUP loops
+  keep their own bounds unchanged (P-9).
+
+  EC-21. A subtopic with a tiny value space exhausts the budget; the best
+  attempt is ACCEPTED with `pyq_dist.accepted_on = "budget"`, `nearest_pyq_id`
+  and `max_textual` recorded in the sidecar, dossier and registry. NOTHING is
+  printed in the delivered footer (ruling Q15). EC-9's low-entropy widening
+  applies automatically on the next regeneration when the PYQ set itself is
+  repetitive.
+
+  EC-30. G-PYQ-DIST cannot be disabled by any instruction — it costs ~2 ms per
+  paper, so there is nothing to skip, and the record is ALWAYS written.
+
 ## S7-NEW-A — Per-question answer key sidecar write (v2.0 GAP-18 fix; v3.3 concept map; v5.52 mandatory concept_map)
 
   IMMEDIATELY after each question is accepted and added to docx:
@@ -4965,7 +5379,18 @@ def widen_scenario_space(subtopic_data, exhausted_source):
                           nat_instr_in_stem=False,
                           nat_grading_type=None, nat_grading_value=None,
                           stem_precision=None,
-                          subtopic_id, difficulty, difficulty_obs):
+                          subtopic_id, difficulty, difficulty_obs,
+                          style_obs, distractor_mechanisms, pyq_dist):
+      # v5.82 (GAP-2026-08-29-STYLE-FIDELITY §6.5.5): the three style fields are
+      # keyword-only with NO default, on the v5.52 argument exactly and for the
+      # same reason — a default lets a call site silently persist `null` and the
+      # omission is only discovered mocks later. A DORMANT run still passes all
+      # three EXPLICITLY: style_obs is always measurable (mechanic/form/polarity/
+      # answer_type/option_shape come from the written question, not from the
+      # profile) and carries brief_id: None, matched_brief: None; pyq_dist is
+      # {'status': 'dormant', 'reason': ...}; distractor_mechanisms is the
+      # authored mapping, or {} on a paper whose options carry no authored types
+      # (I-6 then records `unknown` and the question proceeds — never a halt).
       # v5.60 (GAP-2026-08-21-DIFFICULTY-STICKER-LABELS): difficulty_obs is
       # keyword-only with NO default, on the v5.52 argument exactly — a default
       # would let a call site silently persist a label with no evidence, which
@@ -5009,6 +5434,16 @@ def widen_scenario_space(subtopic_data, exhausted_source):
           # verbatim into registry.question_index by final_assembly v1.6 so the
           # audit can recompute label == assess_difficulty(obs) forever.
           "difficulty_obs": difficulty_obs,
+          # v5.82 (GAP-2026-08-29-STYLE-FIDELITY §6.5.5). Three ADDITIVE fields,
+          # carried verbatim into registry.question_index alongside
+          # difficulty_obs so the audit twins (A-STYLE, A-PYQDIST, A-ITEM) can
+          # recompute every claim from the record forever. A DORMANT run writes
+          # all three: style_obs is measured from the WRITTEN question and does
+          # not need a profile; brief_id/matched_brief are None; pyq_dist is
+          # {'status': 'dormant', 'reason': ...}.
+          "style_obs": style_obs,
+          "distractor_mechanisms": distractor_mechanisms,
+          "pyq_dist": pyq_dist,
           "concept_group": concept_group,
           "scenario_key": scenario_key,
           "subtopic_class": subtopic_class,          # CLASS1..CLASS4
@@ -9355,7 +9790,7 @@ NOTE: The footer renders AFTER the S13-9 handoff message. Sequence is:
 #   Final Assembly); it never touches `status` or `repair_rounds_used`.
 #   History of the retired section: SPEC_HISTORY.md (section §S16 archived verbatim) and CHANGELOG.md 2026.08.27.3.
 
-# END OF Framework_MockTestCreate v5.81
+# END OF Framework_MockTestCreate v5.82
 # Version: 5.8 | Date: 2026-07-04
 # (Full per-version rationale was RELOCATED 2026-07-31 to CHANGELOG.md, section
 #  'ARCHIVE — Framework_MockTestCreate' — that archive is authoritative for history.
