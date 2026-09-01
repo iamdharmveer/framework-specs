@@ -1,5 +1,59 @@
 """
-notes_core.py v2.11 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+notes_core.py v2.12 — Shared engine for the Notes pipeline (Steps NB/NC/NA/ND).
+
+v2.12 — 2026-09-01 — THE RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; pairs
+    with Framework_NotesCreate v2.9.0 §4 B7/B7a, Framework_NotesAudit v3.7.0 §5
+    G-14; notes_docx >= v1.7, notes_audit >= v2.9). The Recall Check (B7) had
+    a FORMAT contract and no CONTENT contract: nothing anywhere defined how
+    many Recall questions a unit carries, which concepts they cover, their
+    order, their difficulty, or where their distractors come from — the
+    declared-property-without-a-definition defect class of
+    GAP-2026-08-21-DIFFICULTY-STICKER-LABELS, on the one section built for the
+    student to self-test. This engine now carries the contract, derived
+    entirely from data every exam already has (the bank slice, the registry
+    order map, and — when present — the exam's own difficulty profile), so NC
+    authors to it and NA G-14 gates it and the two can never drift (the
+    coverage_target_for / integration_target_for idiom, third instance):
+      recall_target_for        — the unit's RECALL CONTRACT: required types,
+                                 figure-item demand, EARLIER-only cumulative
+                                 partners (unit_order; I-4 backward-only by
+                                 construction), the near-miss demand, and the
+                                 four-rung DIFFICULTY LADDER (concept tag ->
+                                 subtopic (profile) -> topic -> exam -> neutral)
+                                 with every rung's evidence count.
+      recall_cumulative_min    — ceil(core / RECALL_CUMULATIVE_DIVISOR), floor
+                                 RECALL_CUMULATIVE_FLOOR, 0 without an earlier
+                                 subtopic, capped by RECALL_CEILING.
+      recall_expected_band     — the ONE band resolver (author and gate call
+                                 it): nearest rung with evidence, near-miss +1
+                                 band, MSQ/NAT floor from the shared rubric.
+      recall_verify_difficulty / recall_authoring_profile — thin wrappers over
+                                 blueprint_core.verify_difficulty_obs /
+                                 difficulty_authoring_profile — the SAME rubric
+                                 Step 7 labels mock questions with and PYQExplain
+                                 profiles real PYQs with. Imported LAZILY: absence
+                                 is reported as dormant, never a crash.
+      difficulty_profile_load  — reads [ExamCode]_difficulty_profile.json; NEVER
+                                 raises (None + reason on any defect: the
+                                 O-5 owner rule that a missing/partial profile
+                                 never blocks a unit).
+      recall_exam_mix_check    — the shipped set's band mix vs the exam's
+                                 measured paper-level mix, ±RECALL_EXAM_MIX_
+                                 TOLERANCE items per band; dormant without a
+                                 profile.
+      recall_multi_concept_required / recall_is_multi_concept — R-12: where the
+                                 exam's own questions combine concepts (a
+                                 top-band PYQ) or the unit teaches >= 2 concepts,
+                                 >= 1 Recall combines concepts, read from the
+                                 rubric-verified axiom_concepts observation.
+      scenario_key / is_clone  — content-token set of a stem and the Jaccard
+                                 clone test (RECALL_CLONE_JACCARD) behind the
+                                 no-clone rule (NC §4 B7a R-7).
+      normalize_complexity     — bank `complexity` tag -> exam band label.
+    Constants RECALL_* are spec-lock-pinned (forward + reverse halves); the
+    specs restate NONE of the numbers outside the gap entry. ADDITIVE: every
+    existing unit keeps its Recall Check byte-identical; a registry unit with
+    no recall_contract record leaves G-14 DORMANT (reported).
 
 v2.11 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3 of the figure-colour
     programme; pairs with Framework_NotesCreate v2.8.0 §6 F-4a and
@@ -370,7 +424,7 @@ v1.1 — 2026-08-08 — Refinement gates: colour map, PROSE_BAN, math scans,
     type canonicalisation, registry 1.1 migration.
 v1.0 — 2026-08-08 — Initial release.
 """
-import hashlib, json, os, re, zipfile
+import copy, hashlib, json, os, re, zipfile
 import syllabus_provenance
 from datetime import datetime, timezone
 
@@ -389,6 +443,30 @@ TIER_PAGE_BANDS = {"TIER-1": (6, 15), "TIER-2": (4, 8), "TIER-3": (2, 5)}
 # a unit cannot honestly carry; it is the single tuning knob of the coverage
 # contract and lives HERE so specs defer to it instead of restating numbers.
 COVERAGE_CONCEPT_CEILING = 6
+
+# v2.12: THE RECALL CONTRACT constants (GAP-2026-09-01-RECALL-CONTRACT). The
+# engine is the SINGLE AUTHORITY; Framework_NotesCreate §4 B7a and
+# Framework_NotesAudit §5 G-14 defer to these names and restate no number.
+RECALL_CORE_PER_CONCEPT = 1          # exactly one core Recall per concept section
+RECALL_CUMULATIVE_DIVISOR = 3        # cumulative = ceil(core / divisor) ...
+RECALL_CUMULATIVE_FLOOR = 2          # ... but never fewer than this when an earlier subtopic exists
+RECALL_NEAR_MISS_MIN = 1             # >= 1 discrimination item
+RECALL_MULTI_CONCEPT_MIN_AXIOMS = 2  # a multi-concept Recall combines >= this many concepts (difficulty_obs.axiom_concepts)
+RECALL_CEILING = 15                  # hard ceiling on the whole Recall set
+RECALL_MIN_PYQ_FOR_TAG_BAND = 3      # a concept tag needs this many PYQs to set its own band
+RECALL_EXAM_MIX_TOLERANCE = 1        # ± items per band against the exam's measured mix
+RECALL_CLONE_JACCARD = 0.6           # stem content-token overlap at/above which a Recall clones an Example
+RECALL_NEUTRAL_BAND_INDEX = 1        # the middle label when no evidence exists anywhere
+DIFFICULTY_LABELS_DEFAULT = ("Easy", "Medium", "Hard")
+# bank `complexity` is a free-text human tag from PYQPrepare; these aliases
+# map it onto the exam's 3-label vocabulary by POSITION (0 = bottom band).
+COMPLEXITY_ALIASES = {
+    0: ("easy", "simple", "e", "low", "basic", "l1", "1"),
+    1: ("medium", "moderate", "m", "mid", "average", "l2", "2"),
+    2: ("hard", "difficult", "tough", "h", "high", "l3", "3"),
+}
+RECALL_BASES = ("concept", "partner", "subtopic", "topic", "exam", "neutral")
+RECALL_SCOPES = ("core", "cumulative")
 
 # v2.3: the specs now cite 2.1 (Framework_NotesAudit v3.0.0 /
 # Framework_NotesCreate v2.3.0), so the engine emits it. P1 deliberately held
@@ -738,6 +816,35 @@ def transition(reg, unit_code_, new_state, **extra):
     u.update(extra)
     u["history"].append({"at": _now(), "event": new_state, **extra})
     return u
+
+
+REGISTRY_CARRY_FIELDS = ("state", "notes_version", "audit", "artifacts", "history",
+                         "draft_ref", "final_ref", "audit_summary", "recall_contract")
+
+
+def registry_carry_over(new_reg, prior_reg):
+    """v2.12 — THE ONE carry-over list for an NB re-run (Framework_NotesBlueprint
+    §7). registry_init writes every unit BLUEPRINTED with the downstream fields
+    None; before this function the §7 promise "existing unit states preserved"
+    had no engine behind it, so a re-blueprint silently reset draft_ref /
+    final_ref / audit_summary — and would have reset recall_contract, leaving
+    G-14 dormant on a unit NC had already drafted. For every unit of new_reg
+    whose sid key also exists in prior_reg, copy REGISTRY_CARRY_FIELDS from the
+    prior record (a None prior value never overwrites a fresh default). Units
+    new to the manifest keep their fresh BLUEPRINTED record; prior units absent
+    from new_reg are NOT copied (NB §7 ORPHANED — reported, never re-created
+    here). Returns the sorted list of carried sid keys. Pure: no I/O."""
+    carried = []
+    prior_units = (prior_reg or {}).get("units") or {}
+    for key, u in (new_reg.get("units") or {}).items():
+        pu = prior_units.get(key)
+        if not isinstance(pu, dict):
+            continue
+        for f in REGISTRY_CARRY_FIELDS:
+            if pu.get(f) is not None:
+                u[f] = copy.deepcopy(pu[f])
+        carried.append(key)
+    return sorted(carried)
 
 
 def load_blueprint(path):
@@ -1599,6 +1706,429 @@ def integration_target_for(bank, subject, topic, subtopic, unit_order=None):
             "pyq_count": sum(len(f["bank_ids"]) for f in out)}
 
 
+# ------------------------------------------------------------ recall contract
+# v2.12 — GAP-2026-09-01-RECALL-CONTRACT. Everything below is deterministic:
+# no clock, no randomness, no I/O except difficulty_profile_load (which never
+# raises). blueprint_core is imported LAZILY inside the three wrappers only —
+# it is routed to NotesCreate/NotesAudit from this release, but its absence is
+# reported as dormant rather than crashing a unit (the G-7a discipline).
+
+_STOP = frozenset("""a an and are as at be by for from has have if in into is it its of on
+or that the their this to was were which will with when what where who
+find calculate determine compute given following statement statements
+correct incorrect true false not except which one option options value
+""".split())
+_TOKEN_RE = re.compile(r"[a-z][a-z0-9_]+")
+
+
+def normalize_complexity(raw, labels=DIFFICULTY_LABELS_DEFAULT):
+    """A bank question's free-text `complexity` tag -> one of `labels` (by band
+    position) or None when it names no band. Case/space-insensitive; an exact
+    label name always wins over the alias table."""
+    if raw is None:
+        return None
+    t = " ".join(str(raw).lower().split())
+    if not t:
+        return None
+    labs = list(labels or DIFFICULTY_LABELS_DEFAULT)
+    if len(labs) != 3:
+        return None
+    for i, lab in enumerate(labs):
+        if t == str(lab).lower():
+            return labs[i]
+    for i, names in COMPLEXITY_ALIASES.items():
+        if t in names:
+            return labs[i]
+    return None
+
+
+def _band_counts_from(values, labels):
+    counts = {lab: 0 for lab in labels}
+    for v in values:
+        if isinstance(v, str) and v in counts:     # a non-string "band" is junk, not a band
+            counts[v] += 1
+    return counts
+
+
+def _mode_band(counts, labels):
+    """Modal band; ties resolve to the HARDER band (the contract never
+    under-demands). None when nothing was counted."""
+    total = sum(counts.get(lab, 0) for lab in labels)
+    if not total:
+        return None
+    best, best_n = None, -1
+    for lab in labels:                      # ascending difficulty ...
+        n = counts.get(lab, 0)
+        if n >= best_n and n > 0:           # ... so >= keeps the later (harder) label on a tie
+            best, best_n = lab, n
+    return best
+
+
+def difficulty_profile_load(path, exam_code=None):
+    """Read [ExamCode]_difficulty_profile.json for the Recall contract.
+
+    NEVER RAISES (owner rule O-5, 2026-09-01: a missing or partial profile never
+    blocks a unit). Returns (profile, None) or (None, reason). The profile is
+    checked with blueprint_core.dp_check_profile against its OWN _meta labels —
+    the Notes route has no exam_config; the exam_code check runs when given."""
+    if not path or not os.path.exists(path):
+        return (None, "difficulty profile absent")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            prof = json.load(fh)
+    except Exception as exc:                        # pragma: no cover - defensive
+        return (None, f"difficulty profile unreadable: {exc}")
+    try:
+        import blueprint_core as _bc
+    except ImportError:
+        return (None, "blueprint_core unavailable — rubric dormant")
+    try:
+        labels = (prof.get("_meta") or {}).get("difficulty_labels")
+        code = exam_code if exam_code is not None else (prof.get("_meta") or {}).get("exam_code")
+        _bc.dp_check_profile(prof, code, labels)
+    except Exception as exc:
+        return (None, f"difficulty profile rejected: {exc}")
+    return (prof, None)
+
+
+def _profile_band_counts(profile, labels, subtopic_id=None):
+    """{label: count} over the profile's DP window (the SAME cycles the mock flow
+    reads), filtered to one subtopic_id when given, else paper-level."""
+    out = {lab: 0 for lab in labels}
+    if not profile:
+        return out
+    try:
+        import blueprint_core as _bc
+        cycles = _bc.dp_window(profile)
+    except Exception:
+        return out
+    for c in cycles:
+        for key in c.get("papers", []):
+            qs = ((profile.get("papers") or {}).get(key) or {}).get("questions") or {}
+            for _q, rec in (qs.items() if isinstance(qs, dict) else ()):
+                if not isinstance(rec, dict):
+                    continue                     # a corrupted question record carries no evidence
+                if subtopic_id is not None and str(rec.get("subtopic_id") or "") != str(subtopic_id):
+                    continue
+                try:
+                    band = _bc.band_for_score(int(rec.get("score")), list(labels))
+                except Exception:
+                    band = None
+                if band in out:
+                    out[band] += 1
+    return out
+
+
+def _rung(counts, labels, source):
+    band = _mode_band(counts, labels)
+    return {"band": band, "count": sum(counts.values()), "counts": counts,
+            "source": source} if band else None
+
+
+def recall_target_for(bank, subject, topic, subtopic, unit_order=None,
+                      allowed_types=(), profile=None, subtopic_id=None,
+                      difficulty_labels=None):
+    """v2.12 — the unit's RECALL CONTRACT (G-14's single authority; NC §4 B7a
+    authors to it, NA §5 G-14 gates it, so author and gate can never disagree —
+    the coverage_target_for idiom).
+
+    Composition (owner decisions 2026-09-01, SPREAD NOT COUNT): one core Recall
+    per concept section; every attested type once; a figure-reading item iff the
+    slice attests figures; cumulative items ONLY from EARLIER subtopics of the
+    SAME Section (unit_order — the ONE order map, unit_order_from_registry);
+    >= 1 near-miss.
+    Difficulty (owner rule O-4: the same scale as the real paper) is a LADDER of
+    rungs, each carrying its evidence so the nearest rung with evidence decides
+    and the basis is reported, never silent (O-5):
+      difficulty_by_tag   per normalized concept_tag from the bank slice's
+                          `complexity` — a band only at >= RECALL_MIN_PYQ_FOR_TAG_BAND
+      difficulty_by_partner per EARLIER same-section partner: the partner's own
+                          bank complexity mode (a cumulative item's evidence)
+      difficulty_subtopic the exam's OWN rubric-measured band mix for this
+                          subtopic_id over the profile's default cycle window
+      difficulty_topic    the bank's complexity mode over the whole parent topic
+      difficulty_exam     the profile's paper-level mix over the same window
+      difficulty_neutral  labels[RECALL_NEUTRAL_BAND_INDEX]
+    Deterministic — no clock, no randomness (NA §8)."""
+    labels = list(difficulty_labels or (((profile or {}).get("_meta") or {}).get("difficulty_labels")
+                                        or DIFFICULTY_LABELS_DEFAULT))
+    if len(labels) != 3:
+        labels = list(DIFFICULTY_LABELS_DEFAULT)
+    qs = bank_questions_for(bank, subject, topic, subtopic)
+    own = subtopic_key(subject, topic, subtopic)
+    types = {str(q.get("type", "")).upper() for q in qs} & set(CANONICAL_TYPES)
+    if allowed_types:
+        types &= {str(t).upper() for t in allowed_types}
+    # earlier subtopics of the SAME Section ONLY (I-4 backward-only by construction)
+    partners, order_known = [], False
+    if unit_order and own in unit_order:
+        order_known = True
+        mine = unit_order[own]
+        # EARLIER and in the SAME Section (subject): ordinal (s, t, nn) with the
+        # same s and a smaller tuple. Cross-subject revision is never demanded.
+        partners = sorted((k for k, o in unit_order.items()
+                           if o < mine and o[0] == mine[0]),
+                          key=lambda k: unit_order[k])
+    # difficulty ladder
+    by_tag, tag_n = {}, {}
+    for q in qs:
+        band = normalize_complexity(q.get("complexity"), labels)
+        for t in (q.get("concept_tags") or ()):
+            t = " ".join(str(t).lower().split())
+            if not t:
+                continue
+            d = by_tag.setdefault(t, {lab: 0 for lab in labels})
+            tag_n[t] = tag_n.get(t, 0) + 1
+            if band:
+                d[band] += 1
+    diff_by_tag = {}
+    for t, counts in sorted(by_tag.items()):
+        n = tag_n[t]                        # PYQs carrying the tag, banded or not
+        diff_by_tag[t] = {"band": _mode_band(counts, labels) if n >= RECALL_MIN_PYQ_FOR_TAG_BAND else None,
+                          "count": n, "counts": counts}
+    sub_counts = _profile_band_counts(profile, labels, subtopic_id) if (profile and subtopic_id) else {lab: 0 for lab in labels}
+    own_topic = own.rsplit("|||", 1)[0]
+    topic_vals = [normalize_complexity(q.get("complexity"), labels)
+                  for q in bank.get("questions", [])
+                  if subtopic_key(q["subject"], q["topic"], q["subtopic"]).rsplit("|||", 1)[0]
+                  == own_topic]
+    topic_counts = _band_counts_from(topic_vals, labels)
+    # v2.12 — a CUMULATIVE Recall tests a PARTNER's concept, so its band must
+    # stand on the PARTNER's evidence: the partner's own bank slice complexity
+    # mode (found by the dry run of 2026-09-01: resolving it on THIS unit's
+    # subtopic rung forced an easy revision item up to the unit's band).
+    by_partner = {}
+    for pk in partners:
+        vals = [normalize_complexity(q.get("complexity"), labels)
+                for q in bank.get("questions", [])
+                if subtopic_key(q["subject"], q["topic"], q["subtopic"]) == pk]
+        by_partner[pk] = _rung(_band_counts_from(vals, labels), labels, "bank")
+    exam_counts = _profile_band_counts(profile, labels) if profile else {lab: 0 for lab in labels}
+    exam_rung = _rung(exam_counts, labels, "profile")
+    if exam_rung:
+        n = exam_rung["count"]
+        exam_rung["pct"] = {lab: (100 * exam_counts[lab] / n) for lab in labels}
+    return {"core_per_concept": RECALL_CORE_PER_CONCEPT,
+            "required_types": sorted(types),
+            "requires_figure_item": any(q.get("figure") for q in qs),
+            # R-12 (owner question 2026-09-01: "real exam questions combine 2-3
+            # concepts"): the slice attests a top-band question — on the shared
+            # rubric a top-band item IS a multi-concept derivation — so the
+            # self-test must carry >= 1 Recall combining concepts. The second
+            # trigger (>= 2 concept sections in the document) is decided by the
+            # gate from the model, since the bank cannot see the section count.
+            "requires_multi_concept_item": any(
+                normalize_complexity(q.get("complexity"), labels) == labels[-1] for q in qs),
+            "multi_concept_min_axioms": RECALL_MULTI_CONCEPT_MIN_AXIOMS,
+            "cumulative_divisor": RECALL_CUMULATIVE_DIVISOR,
+            "cumulative_floor": RECALL_CUMULATIVE_FLOOR,
+            "cumulative_partners": partners,
+            "order_known": order_known,
+            "near_miss_min": RECALL_NEAR_MISS_MIN,
+            "ceiling": RECALL_CEILING,
+            "pyq_count": len(qs),
+            "difficulty_labels": labels,
+            "difficulty_by_tag": diff_by_tag,
+            "difficulty_by_partner": by_partner,
+            "difficulty_subtopic": _rung(sub_counts, labels, "profile"),
+            "difficulty_topic": _rung(topic_counts, labels, "bank"),
+            "difficulty_exam": exam_rung,
+            "difficulty_neutral": labels[RECALL_NEUTRAL_BAND_INDEX],
+            "profile_present": bool(profile)}
+
+
+def recall_is_multi_concept(item, target=None):
+    """R-12: does this Recall combine concepts? Read from the SAME recorded
+    derivation the rubric verifies (difficulty_obs.axiom_concepts >=
+    multi_concept_min_axioms), so author, builder and gate agree by construction.
+    Junk observations are not evidence -> False."""
+    try:
+        thr = int((target or {}).get("multi_concept_min_axioms") or RECALL_MULTI_CONCEPT_MIN_AXIOMS)
+    except (TypeError, ValueError):
+        thr = RECALL_MULTI_CONCEPT_MIN_AXIOMS      # a junk threshold falls back to the engine constant
+    obs = (item or {}).get("difficulty_obs") if isinstance(item, dict) else None
+    if not isinstance(obs, dict):
+        return False
+    try:
+        return int(obs.get("axiom_concepts")) >= thr
+    except (TypeError, ValueError):
+        return False
+
+
+def recall_multi_concept_required(target, concept_count):
+    """R-12 trigger: the slice attests a top-band question OR the document has
+    >= 2 concept sections. A single-concept subtopic with no top-band evidence
+    demands nothing (no evidence, no demand)."""
+    return bool((target or {}).get("requires_multi_concept_item")) or int(concept_count) >= 2
+
+
+def recall_cumulative_min(core_count, target):
+    """How many cumulative (earlier-subtopic) Recalls the set must carry.
+    0 when the unit has no earlier subtopic (nothing exists to combine with);
+    else max(floor, ceil(core / divisor)), reduced toward the floor so that
+    core + cumulative <= ceiling where that is attainable. Returns (n,
+    ceiling_attainable)."""
+    core = int(core_count)
+    if not target.get("cumulative_partners"):
+        return (0, core <= int(target.get("ceiling", RECALL_CEILING)))
+    div = int(target.get("cumulative_divisor", RECALL_CUMULATIVE_DIVISOR))
+    floor = int(target.get("cumulative_floor", RECALL_CUMULATIVE_FLOOR))
+    ceil_ = int(target.get("ceiling", RECALL_CEILING))
+    n = max(floor, -(-core // div))
+    if core + n > ceil_:
+        n = max(floor, ceil_ - core)
+    return (n, core + n <= ceil_)
+
+
+def _qtype_floor_index(qtype, labels):
+    """MSQ/NAT cannot honestly reach the bottom band (the shared rubric's qtype
+    floor). Mirrors blueprint_core.difficulty_min_band; falls back to the same
+    arithmetic when the rubric is unavailable."""
+    try:
+        import blueprint_core as _bc
+        b = _bc.difficulty_min_band(str(qtype or "mcq").lower(), list(labels))
+        if b in labels:
+            return labels.index(b)
+    except Exception:
+        pass
+    return 1 if str(qtype or "").upper() in ("MSQ", "NAT") else 0
+
+
+def recall_expected_band(target, tags=(), is_near_miss=False, qtype="MCQ",
+                         scope="core", partner=None):
+    """THE ONE band resolver (NC authors to it; NA G-14 re-derives it).
+    Returns (label, basis). CORE rung order: the harder band among the item's
+    declared concept tags that carry a band -> subtopic (profile) -> topic
+    (bank) -> exam (profile) -> neutral. CUMULATIVE rung order: the PARTNER's
+    own bank complexity mode -> topic -> exam -> neutral — this unit's concept
+    and subtopic rungs are evidence about THIS unit and never decide a
+    partner's item. A near-miss item is ONE band above its base (capped at
+    the top). The MSQ/NAT floor is applied last."""
+    labels = list(target.get("difficulty_labels") or DIFFICULTY_LABELS_DEFAULT)
+    if len(labels) != 3:                # the rubric is a 3-band scale; anything else is not a vocabulary
+        labels = list(DIFFICULTY_LABELS_DEFAULT)
+    idx, basis = None, None
+    cumulative = (scope == "cumulative")
+    if cumulative:
+        pk = _partner_key_norm(partner)
+        r = (target.get("difficulty_by_partner") or {}).get(pk)
+        if r and r.get("band") in labels:
+            idx, basis = labels.index(r["band"]), "partner"
+    else:
+        by_tag = target.get("difficulty_by_tag") or {}
+        if isinstance(tags, str):
+            tags = (tags,)
+        elif not isinstance(tags, (list, tuple, set, frozenset)):
+            tags = ()                   # a corrupted declaration carries no tag evidence
+        for t in tags:
+            t = " ".join(str(t).lower().split())
+            b = (by_tag.get(t) or {}).get("band")
+            if b in labels:
+                i = labels.index(b)
+                if idx is None or i > idx:
+                    idx, basis = i, "concept"
+    if idx is None:
+        rungs = (("difficulty_topic", "topic"), ("difficulty_exam", "exam")) if cumulative else \
+                (("difficulty_subtopic", "subtopic"), ("difficulty_topic", "topic"),
+                 ("difficulty_exam", "exam"))
+        for key, name in rungs:
+            r = target.get(key)
+            if r and r.get("band") in labels:
+                idx, basis = labels.index(r["band"]), name
+                break
+    if idx is None:
+        idx, basis = RECALL_NEUTRAL_BAND_INDEX, "neutral"
+    if is_near_miss:
+        idx = min(idx + 1, len(labels) - 1)
+    idx = min(max(idx, _qtype_floor_index(qtype, labels)), len(labels) - 1)
+    return (labels[idx], basis)
+
+
+def _partner_key_norm(partner):
+    """A declared partner — a manifest scope 'Subject::Topic::Sub Topic Name'
+    or an already-normalized subtopic_key — as the subtopic_key the target's
+    cumulative_partners / difficulty_by_partner carry. Junk stays a string."""
+    p = str(partner or "")
+    if "|||" in p:
+        return p
+    parts = [x.strip() for x in p.split("::")]
+    if len(parts) == 3 and all(parts):
+        return subtopic_key(*parts)
+    return p
+
+
+def recall_verify_difficulty(label, obs, labels=DIFFICULTY_LABELS_DEFAULT):
+    """label == the shared rubric's band for the recorded observations?
+    Wraps blueprint_core.verify_difficulty_obs — the SAME check Step 7's G-DIFF
+    and A-QINDEX check 8 run. Returns (ok, measured, dormant_reason)."""
+    try:
+        import blueprint_core as _bc
+    except ImportError:
+        return (True, None, "blueprint_core unavailable — rubric dormant")
+    ok, measured = _bc.verify_difficulty_obs(label, obs, list(labels))
+    if measured is None:
+        return (True, None, "observations unusable — rubric fall-through")
+    return (bool(ok), measured, None)
+
+
+def recall_authoring_profile(band, qtype, labels=DIFFICULTY_LABELS_DEFAULT):
+    """The observation targets that land a Recall of `qtype` IN `band` —
+    blueprint_core.difficulty_authoring_profile, or None when the rubric is
+    unavailable (NC then authors to the band by judgement and G-14 reports
+    the rubric dormant)."""
+    try:
+        import blueprint_core as _bc
+    except ImportError:
+        return None
+    return _bc.difficulty_authoring_profile(band, str(qtype or "mcq").lower(), list(labels))
+
+
+def scenario_key(text):
+    """Content-token set of a stem (lower-case alphabetic tokens minus a small
+    stoplist and pure numbers) — the deterministic proxy behind the no-clone
+    rule. Numbers are dropped on purpose: fresh numbers alone do not make a
+    fresh scenario."""
+    return frozenset(t for t in _TOKEN_RE.findall(str(text or "").lower())
+                     if t not in _STOP and len(t) > 2)
+
+
+def is_clone(key_a, key_b, threshold=None):
+    """Jaccard(key_a, key_b) >= RECALL_CLONE_JACCARD -> the two stems share a
+    scenario. Two empty keys are not a clone (nothing to compare)."""
+    a, b = frozenset(key_a or ()), frozenset(key_b or ())
+    if not a or not b:
+        return False
+    thr = RECALL_CLONE_JACCARD if threshold is None else threshold
+    return len(a & b) / len(a | b) >= thr
+
+
+def recall_exam_mix_check(bands, target):
+    """The shipped set's band counts vs the exam's measured paper-level mix
+    (target['difficulty_exam']['pct']) applied to the set size, largest
+    remainder, ±RECALL_EXAM_MIX_TOLERANCE items per band. Returns
+    (findings, expected|None). expected None == dormant (no profile mix)."""
+    ex = target.get("difficulty_exam")
+    labels = list(target.get("difficulty_labels") or DIFFICULTY_LABELS_DEFAULT)
+    if not ex or not ex.get("pct") or not bands:
+        return ([], None)
+    n = len(bands)
+    raw = {lab: n * float(ex["pct"].get(lab, 0)) / 100.0 for lab in labels}
+    exp = {lab: int(raw[lab]) for lab in labels}
+    rem = n - sum(exp.values())
+    for lab in sorted(labels, key=lambda l: (-(raw[l] - exp[l]), labels.index(l))):
+        if rem <= 0:
+            break
+        exp[lab] += 1
+        rem -= 1
+    actual = _band_counts_from(bands, labels)
+    findings = []
+    for lab in labels:
+        if abs(actual[lab] - exp[lab]) > RECALL_EXAM_MIX_TOLERANCE:
+            findings.append(f"Recall set carries {actual[lab]} {lab} item(s) but the exam's "
+                            f"measured mix expects {exp[lab]} of {n} (±{RECALL_EXAM_MIX_TOLERANCE})")
+    return (findings, exp)
+
+
 def derive_taxonomy_counts(bank, latest_years=3):
     """Owner decision 5(i): subtopic-wise pyq_count and recent-N-year counts
     computed DIRECTLY from the ingested bank — the separate PYQ Analysis doc is
@@ -2322,6 +2852,263 @@ def self_test():
     check("blueprint 1.0 migrate gains taxonomy_ref default",
           bp["taxonomy_ref"] is None and bp["units"][0]["sid"] is None)
 
+    # ---- v2.12 RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT) ----------
+    # Every finding G-14 / validate_model can emit has a fixture here or in the
+    # notes_docx / notes_audit suites that kills its mutant (MUTATION_BUDGETS
+    # policy: a new gate ships with fixtures that kill its own mutants).
+    check("recall: complexity aliases map by band position; unknown -> None",
+          normalize_complexity("Simple") == "Easy"
+          and normalize_complexity(" MODERATE ") == "Medium"
+          and normalize_complexity("tough", ("L", "M", "H")) == "H"
+          and normalize_complexity("H", ("L", "M", "H")) == "H"
+          and normalize_complexity("banana") is None
+          and normalize_complexity(None) is None)
+    check("recall: modal band resolves ties to the HARDER band, None on empty",
+          _mode_band({"Easy": 2, "Medium": 2, "Hard": 0}, ["Easy", "Medium", "Hard"]) == "Medium"
+          and _mode_band({"Easy": 3, "Medium": 1, "Hard": 1}, ["Easy", "Medium", "Hard"]) == "Easy"
+          and _mode_band({"Easy": 0, "Medium": 0, "Hard": 0}, ["Easy", "Medium", "Hard"]) is None)
+    rb = bank_new("RC")
+    bank_add_paper(rb, "kr", "2025-02-01", 2025, "..r..docx", 6)
+    for i, (typ, cx, tags, fig) in enumerate([
+            ("MCQ", "Medium", ["km"], []), ("MCQ", "Medium", ["km"], []),
+            ("NAT", "Hard", ["km"], ["f.png"]), ("MCQ", "Easy", ["vmax"], []),
+            ("MSQ", "Hard", ["vmax"], []), ("MCQ", None, ["lineweaver"], [])], 1):
+        bank_add_question(rb, dict(bank_id=f"R{i}", paper_key="kr",
+            exam_date="2025-02-01", exam_year=2025, q_no=i, type=typ,
+            complexity=cx, concept_tags=tags, stem_figures=fig,
+            subject="Bio", topic="Enzymes", subtopic="Kinetics",
+            stem=f"s{i}", correct_answer="1"))
+    bank_add_question(rb, dict(bank_id="R7", paper_key="kr",
+        exam_date="2025-02-01", exam_year=2025, q_no=7, type="MCQ",
+        complexity="Hard", subject="Bio", topic="Enzymes",
+        subtopic="Inhibition", stem="s7", correct_answer="2"))
+    bank_add_question(rb, dict(bank_id="R8", paper_key="kr",
+        exam_date="2025-02-01", exam_year=2025, q_no=8, type="MCQ",
+        complexity="Easy", subject="Bio", topic="Enzymes",
+        subtopic="Classification", stem="s8", correct_answer="3"))
+    r_order = unit_order_from_registry({"units": {
+        "a": {"unit_code": "RC_S1_T1_ST01", "section": "Bio", "topic": "Enzymes", "name": "Classification"},
+        "b": {"unit_code": "RC_S1_T1_ST02", "section": "Bio", "topic": "Enzymes", "name": "Kinetics"},
+        "c": {"unit_code": "RC_S1_T1_ST03", "section": "Bio", "topic": "Enzymes", "name": "Inhibition"},
+        "z": {"unit_code": "RC_S0_T9_ST01", "section": "Chem", "topic": "Acids", "name": "pH"}}})
+    rt = recall_target_for(rb, "Bio", "Enzymes", "Kinetics", unit_order=r_order,
+                           allowed_types=("MCQ", "MSQ", "NAT"))
+    check("recall_target_for: types, figure demand, EARLIER + SAME-SECTION partners "
+          "(the earlier Chem unit is excluded), spec-lock constants echoed",
+          rt["required_types"] == ["MCQ", "MSQ", "NAT"]
+          and rt["requires_figure_item"] is True and rt["order_known"] is True
+          and rt["cumulative_partners"] == [subtopic_key("Bio", "Enzymes", "Classification")]
+          and rt["ceiling"] == RECALL_CEILING and rt["near_miss_min"] == RECALL_NEAR_MISS_MIN
+          and rt["pyq_count"] == 6 and rt["profile_present"] is False)
+    check("recall_target_for: tag band only at >= RECALL_MIN_PYQ_FOR_TAG_BAND "
+          "(km: 3 PYQs -> Medium; vmax: 2 -> None; untagged complexity ignored)",
+          rt["difficulty_by_tag"]["km"]["band"] == "Medium"
+          and rt["difficulty_by_tag"]["km"]["count"] == 3
+          and rt["difficulty_by_tag"]["vmax"]["band"] is None
+          and rt["difficulty_by_tag"]["lineweaver"]["count"] == 1)
+    check("recall_target_for: topic rung spans the WHOLE parent topic (8 PYQs, 7 banded; "
+          "Hard 3 vs Medium 2 vs Easy 2 -> Hard); subtopic/exam rungs absent without a profile",
+          rt["difficulty_topic"]["band"] == "Hard" and rt["difficulty_topic"]["count"] == 7
+          and rt["difficulty_topic"]["counts"] == {"Easy": 2, "Medium": 2, "Hard": 3}
+          and rt["difficulty_subtopic"] is None and rt["difficulty_exam"] is None
+          and rt["difficulty_neutral"] == "Medium")
+    rt_first = recall_target_for(rb, "Bio", "Enzymes", "Classification", unit_order=r_order)
+    rt_none = recall_target_for(rb, "Bio", "Enzymes", "Kinetics")
+    check("recall_target_for: first subtopic has NO partners; order-less caller "
+          "reports order_known False (cumulative dormant)",
+          rt_first["cumulative_partners"] == [] and rt_first["order_known"] is True
+          and rt_none["cumulative_partners"] == [] and rt_none["order_known"] is False)
+    check("R-12: the slice attests a top-band question -> multi-concept item required; "
+          "a slice without one leaves the flag False; the trigger also fires on >= 2 "
+          "concept sections; a single-concept unit with no Hard evidence demands nothing",
+          rt["requires_multi_concept_item"] is True
+          and rt["multi_concept_min_axioms"] == RECALL_MULTI_CONCEPT_MIN_AXIOMS
+          and (lambda t0: t0["requires_multi_concept_item"] is False
+                          and recall_multi_concept_required(t0, 1) is False
+                          and recall_multi_concept_required(t0, 2) is True)(
+                  recall_target_for(rb, "Bio", "Enzymes", "NoHardHere"))
+          and recall_target_for(rb, "Bio", "Enzymes", "Classification")["requires_multi_concept_item"] is False
+          and recall_multi_concept_required(rt, 1) is True)
+    check("R-12: recall_is_multi_concept reads the rubric-verified axiom_concepts; "
+          "junk is not evidence",
+          recall_is_multi_concept({"difficulty_obs": {"axiom_concepts": 2}}) is True
+          and recall_is_multi_concept({"difficulty_obs": {"axiom_concepts": 1}}) is False
+          and recall_is_multi_concept({"difficulty_obs": {"axiom_concepts": "x"}}) is False
+          and recall_is_multi_concept({"difficulty_obs": None}) is False
+          and recall_is_multi_concept({}) is False
+          and recall_is_multi_concept({"difficulty_obs": {"axiom_concepts": 3}},
+                                      {"multi_concept_min_axioms": 4}) is False
+          and recall_is_multi_concept({"difficulty_obs": {"axiom_concepts": 2}},
+                                      {"multi_concept_min_axioms": None}) is True
+          and recall_is_multi_concept({"difficulty_obs": {"axiom_concepts": 2}},
+                                      {"multi_concept_min_axioms": "x"}) is True
+          and recall_is_multi_concept("junk") is False)
+    check("recall_cumulative_min: ceil(core/3) floor 2; 0 without partners; "
+          "ceiling yields when unattainable",
+          recall_cumulative_min(6, rt) == (2, True) and recall_cumulative_min(7, rt) == (3, True)
+          and recall_cumulative_min(6, rt_first) == (0, True)
+          and recall_cumulative_min(13, rt) == (2, True)
+          and recall_cumulative_min(14, rt) == (2, False))
+    check("recall_expected_band: a CUMULATIVE item stands on the PARTNER's own bank "
+          "evidence (Classification: 1 Easy PYQ -> Easy, while the rest of the topic is "
+          "Hard), never on this unit's concept or subtopic rung; an unknown partner falls "
+          "to topic/exam/neutral",
+          rt["difficulty_by_partner"][subtopic_key("Bio", "Enzymes", "Classification")]["band"] == "Easy"
+          and rt["difficulty_by_partner"][subtopic_key("Bio", "Enzymes", "Classification")]["count"] == 1
+          and recall_expected_band(rt, ["km"], scope="cumulative",
+                                   partner="Bio::Enzymes::Classification") == ("Easy", "partner")
+          and recall_expected_band(rt, [], scope="cumulative", qtype="MSQ",
+                                   partner="Bio::Enzymes::Classification") == ("Medium", "partner")
+          and recall_expected_band(rt, [], scope="cumulative", partner="Bio::Enzymes::Nope")
+              == ("Hard", "topic")
+          and recall_expected_band({"difficulty_labels": ["Easy", "Medium", "Hard"],
+                                    "difficulty_subtopic": {"band": "Easy"}}, [],
+                                   scope="cumulative", partner="x") == ("Medium", "neutral"))
+    check("recall_expected_band: a non-3-label vocabulary falls back to the default "
+          "labels (never an index error)",
+          recall_expected_band({"difficulty_labels": ["A"]}, [], True, "NAT") == ("Hard", "neutral")
+          and recall_expected_band({"difficulty_labels": []}, []) == ("Medium", "neutral"))
+    check("recall_expected_band: across two BANDED tags the HARDER one decides (Easy + Hard -> Hard)",
+          recall_expected_band({"difficulty_labels": ["Easy", "Medium", "Hard"],
+                                "difficulty_by_tag": {"a": {"band": "Easy"}, "b": {"band": "Hard"}}},
+                               ["a", "b"]) == ("Hard", "concept")
+          and recall_expected_band({"difficulty_labels": ["Easy", "Medium", "Hard"],
+                                    "difficulty_by_tag": {"a": {"band": "Easy"}, "b": {"band": "Hard"}}},
+                                   ["b", "a"]) == ("Hard", "concept"))
+    check("is_clone: the threshold is INCLUSIVE (Jaccard exactly RECALL_CLONE_JACCARD is a clone; "
+          "just below is not); an explicit threshold overrides",
+          is_clone(frozenset("abcde"), frozenset("abcxy"), threshold=0.6) is False   # 3/7 = 0.43
+          and is_clone(frozenset("abc"), frozenset("abcde"), threshold=0.6) is True  # 3/5 = 0.60 exactly
+          and is_clone(frozenset("abc"), frozenset("abcd"), threshold=0.75) is True  # 3/4 exactly
+          and is_clone(frozenset("abc"), frozenset("abcd"), threshold=0.76) is False)
+    check("recall_cumulative_min: the FLOOR binds when ceil(core/divisor) is below it "
+          "(core 1 -> 2, core 3 -> 2, core 4 -> 2, core 7 -> 3)",
+          recall_cumulative_min(1, rt) == (2, True) and recall_cumulative_min(3, rt) == (2, True)
+          and recall_cumulative_min(4, rt) == (2, True) and recall_cumulative_min(7, rt) == (3, True))
+    check("scenario_key: drops stopwords, pure numbers and tokens of <= 2 letters; keeps content words",
+          scenario_key("An enzyme at 20 mM km; the Vmax is 7") == frozenset({"enzyme", "vmax"}))
+    check("recall_expected_band: a string tag is one tag; a non-list tag value is "
+          "no evidence (never a crash)",
+          recall_expected_band(rt, "km") == ("Medium", "concept")
+          and recall_expected_band(rt, 3.5) == ("Hard", "topic")
+          and recall_expected_band(rt, {"km": 1}) == ("Hard", "topic"))
+    check("recall_expected_band: concept rung wins; harder tag wins across tags; "
+          "near-miss +1 capped; MSQ/NAT floor; neutral when nothing carries a band",
+          recall_expected_band(rt, ["km"]) == ("Medium", "concept")
+          and recall_expected_band(rt, ["km"], is_near_miss=True) == ("Hard", "concept")
+          and recall_expected_band(rt, ["vmax"]) == ("Hard", "topic")
+          and recall_expected_band(rt, ["km", "vmax"]) == ("Medium", "concept")
+          and recall_expected_band(rt_none, [], qtype="NAT")[0] == "Hard"
+          and recall_expected_band({"difficulty_labels": ["Easy", "Medium", "Hard"]}, [], qtype="MCQ")
+              == ("Medium", "neutral")
+          and recall_expected_band({"difficulty_labels": ["Easy", "Medium", "Hard"],
+                                    "difficulty_by_tag": {"x": {"band": "Easy"}}}, ["x"], qtype="MSQ")
+              == ("Medium", "concept"))
+    # difficulty profile — the SAME file the mock flow reads; fixture shaped as
+    # blueprint_core.dp_add_paper writes it (schema 1, _meta, papers/questions).
+    import tempfile as _tf2, json as _json2
+    _prof = {"_meta": {"schema": 1, "exam_code": "RC",
+                       "difficulty_labels": ["Easy", "Medium", "Hard"],
+                       "band_edges": {"easy_max": 2, "medium_max": 5},
+                       "written_by": "t", "updated_at": ""},
+             "papers": {"01-Feb-2025": {"source_file": "RC_01-Feb-2025.docx", "date": "01-Feb-2025",
+                                        "session": "", "q_total": 3, "q_scored": 3, "unscored": {},
+                                        "explained_at": "",
+                                        "questions": {"1": {"subtopic_id": "b", "score": 7, "qtype": "mcq"},
+                                                      "2": {"subtopic_id": "b", "score": 4, "qtype": "mcq"},
+                                                      "3": {"subtopic_id": "c", "score": 1, "qtype": "mcq"}}}},
+             "excluded_papers": {}, "summary_at_write": {}}
+    _pp = os.path.join(_tf2.mkdtemp(), "RC_difficulty_profile.json")
+    with open(_pp, "w", encoding="utf-8") as _fh:
+        _json2.dump(_prof, _fh)
+    _pl, _pr = difficulty_profile_load(_pp, "RC")
+    check("difficulty_profile_load: a well-formed profile loads; wrong exam, "
+          "missing file and unreadable JSON return (None, reason) — NEVER raise",
+          _pl is not None and _pr is None
+          and difficulty_profile_load(_pp, "OTHER")[0] is None
+          and "OTHER" in difficulty_profile_load(_pp, "OTHER")[1]
+          and difficulty_profile_load(_pp + ".missing", "RC") == (None, "difficulty profile absent")
+          and (lambda q: (open(q, "w").write("{not json"), difficulty_profile_load(q, "RC")[0] is None)[1])(_pp + ".bad"))
+    rtp = recall_target_for(rb, "Bio", "Enzymes", "Kinetics", unit_order=r_order,
+                            profile=_pl, subtopic_id="b")
+    check("recall_target_for + profile: subtopic rung is the rubric-measured mix "
+          "for THIS sid (Hard 1, Medium 1 -> tie -> Hard); exam rung is paper-level "
+          "with pct; profile_present reported",
+          rtp["difficulty_subtopic"]["band"] == "Hard" and rtp["difficulty_subtopic"]["count"] == 2
+          and rtp["difficulty_exam"]["count"] == 3
+          and abs(rtp["difficulty_exam"]["pct"]["Easy"] - 100 / 3) < 1e-9
+          and rtp["profile_present"] is True
+          and recall_expected_band(rtp, ["vmax"]) == ("Hard", "subtopic"))
+    _corrupt = {"_meta": _prof["_meta"], "excluded_papers": {}, "summary_at_write": {},
+                "papers": {"01-Feb-2025": {"date": "01-Feb-2025", "questions":
+                           {"1": {"subtopic_id": "b", "score": None}, "2": {"score": "zz"},
+                            "3": 5, "4": {"subtopic_id": "b", "score": 7}}}}}
+    _rtc = recall_target_for(rb, "Bio", "Enzymes", "Kinetics", profile=_corrupt, subtopic_id="b")
+    check("profile rungs: corrupted question records (None / non-numeric score, non-dict) "
+          "are skipped, never a crash; the one sound record still counts",
+          _rtc["difficulty_subtopic"]["count"] == 1 and _rtc["difficulty_subtopic"]["band"] == "Hard"
+          and _rtc["difficulty_exam"]["count"] == 1)
+    check("recall_exam_mix_check: a non-string band value is junk, not a band (never a crash)",
+          recall_exam_mix_check([["Hard"], {"a": 1}, "Hard"], rtp)
+          == ([], {"Easy": 1, "Medium": 1, "Hard": 1}))
+    _fm, _ex = recall_exam_mix_check(["Easy", "Medium", "Hard", "Hard", "Hard", "Hard"], rtp)
+    check("recall_exam_mix_check: largest-remainder expectation, ±tolerance, "
+          "a finding names the band; dormant (None) without a profile mix",
+          _ex == {"Easy": 2, "Medium": 2, "Hard": 2} and len(_fm) == 1 and "Hard" in _fm[0]
+          and recall_exam_mix_check(["Easy", "Medium", "Hard", "Hard"], rtp)[0] == []
+          and recall_exam_mix_check(["Easy"], rt) == ([], None))
+    _ok1, _m1, _d1 = recall_verify_difficulty(
+        "Medium", {"question_class": ["C-COMPUTATIONAL"], "deduction_steps": 2,
+                   "axiom_concepts": 1, "speed_hack_exists": False,
+                   "is_negative": False, "qtype": "mcq"})
+    _ok2, _m2, _d2 = recall_verify_difficulty(
+        "Easy", {"question_class": ["C-COMPUTATIONAL"], "deduction_steps": 2,
+                 "axiom_concepts": 1, "speed_hack_exists": False,
+                 "is_negative": False, "qtype": "mcq"})
+    check("recall_verify_difficulty: agrees with the shared rubric; a label the "
+          "evidence contradicts is ok=False with the measured band; empty obs is dormant",
+          _ok1 is True and _m1 == "Medium" and _d1 is None
+          and _ok2 is False and _m2 == "Medium"
+          and recall_verify_difficulty("Hard", {})[2] is not None)
+    check("recall_authoring_profile: the rubric's authoring targets for a band/qtype",
+          (recall_authoring_profile("Hard", "MCQ") or {}).get("steps", (0,))[0] >= 3
+          and recall_authoring_profile("Nope", "MCQ") is None)
+    check("scenario_key / is_clone: same scenario with fresh numbers IS a clone; "
+          "a changed context is not; empty keys never clone",
+          is_clone(scenario_key("An enzyme reaction reaches half its maximum rate at 20 mM substrate; find Km"),
+                   scenario_key("An enzyme reaction reaches half its maximum rate at 35 mM substrate; find Km"))
+          and not is_clone(scenario_key("An enzyme reaction reaches half its maximum rate at 20 mM substrate; find Km"),
+                           scenario_key("A competitive inhibitor doubles the apparent Km; what happens to Vmax"))
+          and not is_clone(scenario_key(""), scenario_key("")))
+
+    _new = registry_init("EX", "h", "G", [
+        {"sid": "a", "unit_code": "EX_S1_T1_ST01", "name": "A", "role": "PYQ_WEIGHTED", "tier": "TIER-1"},
+        {"sid": "b", "unit_code": "EX_S1_T1_ST02", "name": "B", "role": "PYQ_WEIGHTED", "tier": "TIER-2"},
+        {"sid": "new", "unit_code": "EX_S1_T1_ST03", "name": "N", "role": "COVERAGE", "tier": "TIER-3"}])
+    _prior = {"units": {
+        "a": {"state": "DRAFTED", "notes_version": "0.1", "draft_ref": {"sha256": "aa"},
+              "recall_contract": {"items": [{"scope": "core"}]}, "history": [{"event": "X"}],
+              "final_ref": None},
+        "gone": {"state": "DELIVERED", "recall_contract": {"items": []}}}}
+    _c = registry_carry_over(_new, _prior)
+    check("registry_carry_over: NB re-run carries state/draft_ref/recall_contract "
+          "onto matching sids; None never overwrites; new sids stay fresh; orphans "
+          "are not re-created",
+          _c == ["a"]
+          and _new["units"]["a"]["state"] == "DRAFTED"
+          and _new["units"]["a"]["draft_ref"] == {"sha256": "aa"}
+          and _new["units"]["a"]["recall_contract"] == {"items": [{"scope": "core"}]}
+          and _new["units"]["a"]["final_ref"] is None
+          and _new["units"]["b"]["state"] == "BLUEPRINTED"
+          and _new["units"]["b"]["recall_contract"] is None if "recall_contract" in _new["units"]["b"] else True
+          and "gone" not in _new["units"]
+          and registry_carry_over(_new, None) == []
+          and REGISTRY_CARRY_FIELDS[-1] == "recall_contract")
+    _prior["units"]["a"]["recall_contract"]["items"].append({"scope": "cumulative"})
+    check("registry_carry_over: copies are deep (a later edit to the prior record "
+          "does not leak into the new registry)",
+          len(_new["units"]["a"]["recall_contract"]["items"]) == 1)
+
     # ---- v2.1 SPEC-LOCK (defect-class tripwire) --------------------------
     # FORWARD half: every literal a Framework_Notes* spec restates in prose is
     # PINNED here to its documented value, so a moving ENGINE constant fails the
@@ -2401,6 +3188,16 @@ def self_test():
                               "TIER-3": (2, 5)})
     check("spec-lock: NA §5 G-12 concept-spread clamp",
           COVERAGE_CONCEPT_CEILING == 6)
+    check("spec-lock: NC §4 B7a / NA §5 G-14 recall-contract constants",
+          RECALL_CORE_PER_CONCEPT == 1 and RECALL_CUMULATIVE_DIVISOR == 3
+          and RECALL_CUMULATIVE_FLOOR == 2 and RECALL_NEAR_MISS_MIN == 1
+          and RECALL_CEILING == 15 and RECALL_MIN_PYQ_FOR_TAG_BAND == 3
+          and RECALL_MULTI_CONCEPT_MIN_AXIOMS == 2
+          and RECALL_EXAM_MIX_TOLERANCE == 1 and RECALL_CLONE_JACCARD == 0.6
+          and RECALL_NEUTRAL_BAND_INDEX == 1
+          and DIFFICULTY_LABELS_DEFAULT == ("Easy", "Medium", "Hard")
+          and RECALL_BASES == ("concept", "partner", "subtopic", "topic", "exam", "neutral")
+          and RECALL_SCOPES == ("core", "cumulative"))
     check("spec-lock: schema strings as the specs cite them",
           REGISTRY_SCHEMA == "notes-registry/2.1"
           and BLUEPRINT_SCHEMA == "notes-blueprint/2.0"
@@ -2563,6 +3360,18 @@ def self_test():
     check("spec-lock/reverse: NC §5 D-1 word counts == the engine constants",
           [int(x) for x in re.findall(r"\d+", _d5)]
           == [BULLET_TARGET_WORDS, BULLET_HARD_CAP_WORDS])
+
+    _b7 = _spec.split("B7a RECALL CONTRACT", 1)[1].split("B8 ", 1)[0]
+    check("spec-lock/reverse: NC §4 B7a defers to recall_target_for / "
+          "recall_expected_band / recall_cumulative_min and names the ladder rungs",
+          "notes_core.recall_target_for" in _b7
+          and "notes_core.recall_expected_band" in _b7
+          and "notes_core.recall_cumulative_min" in _b7
+          and all(r in _b7 for r in RECALL_BASES))
+    check("spec-lock/reverse: NC §4 B7a restates NO recall-contract number "
+          "(RECALL_CEILING / floor / divisor live in the engine)",
+          not re.search(r"\bceiling(?: of| is| =)?\s+\d+", _b7, re.I)
+          and not re.search(r"\bfloor(?: of| is| =)?\s+\d+", _b7, re.I))
 
     print(f"notes_core self-test: {passed} passed, {len(fails)} failed"
           + (" — " + "; ".join(fails) if fails else ""))

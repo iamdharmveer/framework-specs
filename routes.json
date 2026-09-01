@@ -163,6 +163,7 @@
   "syllabus_provenance.py",
   "notes_docx.py",
   "t3_mathcomp.py",
+  "blueprint_core.py",
   "Framework_DeliveryFooter.md"
  ],
  "NotesAudit": [
@@ -172,12 +173,14 @@
   "notes_audit.py",
   "notes_docx.py",
   "t3_mathcomp.py",
+  "blueprint_core.py",
   "Framework_DeliveryFooter.md"
  ],
  "NotesDeliver": [
   "Framework_NotesDeliver.md",
   "notes_core.py",
   "syllabus_provenance.py",
+  "blueprint_core.py",
   "Framework_DeliveryFooter.md"
  ]
 }

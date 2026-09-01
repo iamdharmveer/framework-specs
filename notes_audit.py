@@ -1,5 +1,30 @@
 """
-notes_audit.py v2.8 — Engine for Notes Step NA (Framework_NotesAudit).
+notes_audit.py v2.9 — Engine for Notes Step NA (Framework_NotesAudit).
+
+v2.9 — 2026-09-01 — G-14 RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; pairs
+    with Framework_NotesAudit v3.7.0 §5 G-14, Framework_NotesCreate v2.9.0 §4
+    B7a, notes_core v2.12, notes_docx v1.7). gate_recall_contract(model, target,
+    meta) gates the shipped Recall Check against the SAME bank-derived target NC
+    authored to (notes_core.recall_target_for — the coverage_target_for idiom,
+    third instance) plus the author's declarations read from the registry unit
+    record (recall_contract, NC §9A — the document cannot carry them, F-6/W-4).
+    HARD: item count == declared count; every concept section has a core
+    Recall; every required type appears; a figure-reading item where the slice
+    attests figures; cumulative count >= notes_core.recall_cumulative_min and
+    every partner EARLIER (cumulative_partners); >= near_miss_min near-miss;
+    interleaved order; no clone of a worked Example; each declared band ==
+    notes_core.recall_expected_band (the ONE resolver) and == the shared
+    rubric's band for the recorded observations (recall_verify_difficulty —
+    the same check Step 7's G-DIFF and A-QINDEX 8 run); the set's band mix
+    within the exam's measured paper-level mix (recall_exam_mix_check) when a
+    profile exists. ADVISORY (meta): items whose distractors declare no Trap
+    Box provenance; rubric fall-throughs; the basis distribution; ceiling
+    overshoot where unattainable. DORMANT (reported, never blocking): no target
+    (bank-less caller), or a unit whose registry carries no recall_contract
+    record (a draft built before NC v2.9.0) — the G-13 grandfathering idiom.
+    terminal_regate gains recall_target= / recall_meta= and reports G-14
+    beside the other gates; a non-dormant G-14 failure blocks like any hard
+    gate. Every finding has a fixture that kills its mutant.
 
 v2.8 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3). G-7a gains an
     ADVISORY figure-palette meta: figure_palette_meta(docx_path) counts the
@@ -276,7 +301,7 @@ MAX_REGENERATIONS = 3            # spec §4 L-3
 # cross-step sync auditor compares this tuple against the identifiers the NA
 # spec names, and a gate present in one and absent from the other is a finding.
 GATES = ("G-1", "G-2a", "G-2b", "G-2c", "G-3", "G-4", "G-5", "G-6",
-         "G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12", "G-13")
+         "G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12", "G-13", "G-14")
 
 KEY_CORRECTION_TIERS = ("BANK_SELF_CONTRADICTS", "JUDGEMENT")
 
@@ -1162,10 +1187,192 @@ def gate_integration(model, target):
     return (not findings, findings, meta)
 
 
+def gate_recall_contract(model, target, meta):
+    """G-14 — RECALL CONTRACT (v2.9). target = notes_core.recall_target_for on
+    the unit's bank slice (+ unit_order, + the difficulty profile when present);
+    meta = the registry unit record's recall_contract (NC §9A), whose "items"
+    list carries the author's per-Recall declarations in document order.
+
+    The model's Recall blocks are matched to meta["items"] by position (j).
+    Findings are HARD (blocking) unless noted. Returns (ok, findings, meta)."""
+    if target is None:
+        return (True, ["no recall target supplied — gate DORMANT but reported "
+                       "(build the target with notes_core.recall_target_for)"],
+                {"dormant": True, "reason": "no target"})
+    items = (meta or {}).get("items") if isinstance(meta, dict) else None
+    if not items:
+        return (True, ["registry unit record carries no recall_contract — the "
+                       "draft predates NotesCreate v2.9.0; gate DORMANT but "
+                       "reported (re-draft at NC to activate)"],
+                {"dormant": True, "reason": "no recall_contract record"})
+    import notes_docx
+    blocks = model.get("blocks", [])
+    recalls = [(i, b) for i, b in enumerate(blocks) if b.get("type") == "recall"]
+    findings = []
+    labels = list(target.get("difficulty_labels") or notes_core.DIFFICULTY_LABELS_DEFAULT)
+    # A RECORD EXISTS, so it is audited, never trusted: a malformed record is a
+    # HARD finding (the declarations cannot describe the file), not dormancy.
+    if not isinstance(items, list) or not all(isinstance(d, dict) for d in items):
+        return (False, ["registry recall_contract.items is malformed (must be a list "
+                        "of per-Recall declaration dicts) — the record cannot describe "
+                        "the shipped file; NC §9A rewrites it on the next draft"],
+                {"dormant": False, "items": 0, "malformed": True})
+    if len(recalls) != len(items):
+        findings.append(f"document carries {len(recalls)} Recall item(s) but the "
+                        f"registry recall_contract declares {len(items)} — the "
+                        f"declarations no longer describe the shipped file")
+    n = min(len(recalls), len(items))
+    merged = []
+    for j in range(n):
+        d = dict(items[j])
+        d["qtype"] = (recalls[j][1].get("qtype") or d.get("qtype") or "").upper()
+        d["stem_key"] = notes_core.scenario_key(notes_docx._runs_text(recalls[j][1].get("stem", [])))
+        merged.append(d)
+    ol = notes_docx.outline_of(model)
+    concept_numbers = [num for (bi, num, _lab) in ol["l2"] if blocks[bi]["type"] == "concept"]
+    concept_labels = {num: lab for (bi, num, lab) in ol["l2"] if blocks[bi]["type"] == "concept"}
+    concept_figs = {num for (bi, num, _lab) in ol["l2"] if blocks[bi]["type"] == "concept"
+                    and any(c.get("k") == "figure" for c in blocks[bi].get("content", []))}
+    core = [d for d in merged if d.get("scope") == "core"]
+    cum = [d for d in merged if d.get("scope") == "cumulative"]
+    # field shape + CURRENT-number resolution (W-1: NA edits renumber sections)
+    for j, d in enumerate(merged, 1):
+        if d.get("scope") not in notes_core.RECALL_SCOPES:
+            findings.append(f"Recall {j}: declared scope {d.get('scope')!r} is not one "
+                            f"of {notes_core.RECALL_SCOPES} (NC §4 B7a)")
+        if d.get("scope") == "core" and str(d.get("concept_ref")) not in concept_numbers:
+            findings.append(f"Recall {j}: concept_ref {d.get('concept_ref')!r} does not "
+                            f"resolve to a CURRENT concept outline number — stale after a "
+                            f"renumbering edit, or never valid (NC §4 B7a R-1 / W-1)")
+        if d.get("reads_figure") and str(d.get("reads_figure")) not in concept_numbers:
+            findings.append(f"Recall {j}: reads_figure {d.get('reads_figure')!r} does not "
+                            f"resolve to a CURRENT concept outline number (NC §4 B7a R-3 / W-1)")
+    # R-1 coverage
+    covered = {str(d.get("concept_ref")) for d in core}
+    for num in concept_numbers:
+        if num not in covered:
+            findings.append(f"concept {num} '{concept_labels[num]}' has no core "
+                            f"Recall (NC §4 B7a R-1)")
+    # R-2 types
+    types_present = {d["qtype"] for d in merged if d["qtype"]}
+    for rt in target.get("required_types", []):
+        if rt not in types_present:
+            findings.append(f"the unit's own bank attests question type {rt} but "
+                            f"no Recall uses it (NC §4 B7a R-2)")
+    # R-3 figure item
+    fig_items = [d for d in merged if d.get("reads_figure")]
+    if target.get("requires_figure_item"):
+        if not any(str(d.get("reads_figure")) in concept_figs for d in fig_items):
+            findings.append("the unit's own bank attests figure-based questions but "
+                            "no Recall reads a figure rendered in a concept section "
+                            "(NC §4 B7a R-3)")
+    # R-4 cumulative
+    need_cum, attainable = notes_core.recall_cumulative_min(len(core), target)
+    if target.get("order_known"):
+        if len(cum) < need_cum:
+            findings.append(f"Recall set carries {len(cum)} cumulative item(s) but "
+                            f"the unit's teaching position demands {need_cum} "
+                            f"(notes_core.recall_cumulative_min; NC §4 B7a R-4)")
+        allowed = set(target.get("cumulative_partners") or [])
+        for d in cum:
+            pk = _partner_key(d.get("partner"))
+            if pk not in allowed:
+                findings.append(f"cumulative Recall names partner {d.get('partner')!r}, "
+                                f"which is not an EARLIER subtopic of this unit "
+                                f"(NC §4 B7a R-4 / I-4 backward-only)")
+    # R-5 near-miss
+    nm = sum(1 for d in merged if d.get("is_near_miss"))
+    if merged and nm < int(target.get("near_miss_min", 0)):
+        findings.append(f"Recall set carries {nm} near-miss discrimination item(s); "
+                        f"the contract demands {target.get('near_miss_min')} "
+                        f"(NC §4 B7a R-5)")
+    # R-12 multi-concept: the slice attests a top-band question OR the document
+    # teaches >= 2 concept sections -> >= 1 Recall combines concepts, read from
+    # the rubric-verified axiom_concepts observation.
+    multi = sum(1 for d in merged if notes_core.recall_is_multi_concept(d, target))
+    if merged and notes_core.recall_multi_concept_required(target, len(concept_numbers)) and multi == 0:
+        why = ("the unit's own bank attests a top-band question" if target.get("requires_multi_concept_item")
+               else f"the unit teaches {len(concept_numbers)} concept sections")
+        findings.append(f"{why} but no Recall combines concepts "
+                        f"(difficulty_obs.axiom_concepts >= "
+                        f"{target.get('multi_concept_min_axioms', notes_core.RECALL_MULTI_CONCEPT_MIN_AXIOMS)}) "
+                        f"— real exam questions apply 2-3 concepts at once (NC §4 B7a R-12)")
+    # R-6 ceiling (hard where attainable, advisory otherwise)
+    over_unattainable = False
+    if len(merged) > int(target.get("ceiling", notes_core.RECALL_CEILING)):
+        if attainable:
+            findings.append(f"Recall set has {len(merged)} items, over the engine "
+                            f"ceiling {target.get('ceiling')} (NC §4 B7a R-6)")
+        else:
+            over_unattainable = True
+    # R-7 no clone
+    ex_keys = [(ei, notes_core.scenario_key(notes_docx._runs_text(b.get("stem", []))))
+               for ei, b in enumerate((b for b in blocks if b.get("type") == "example"), 1)]
+    for j, d in enumerate(merged, 1):
+        for ei, ek in ex_keys:
+            if notes_core.is_clone(d["stem_key"], ek):
+                findings.append(f"Recall {j} clones Example {ei}'s scenario (NC §4 B7a R-7)")
+    # R-8 interleaved
+    for k in range(1, len(merged)):
+        if notes_docx._recall_identity(merged[k]) == notes_docx._recall_identity(merged[k - 1]):
+            findings.append(f"Recall {k} and Recall {k + 1} share one identity — "
+                            f"interleave (NC §4 B7a R-8)")
+    # R-10 difficulty — the ONE resolver, then the shared rubric
+    bases, rubric_dormant, bands = {}, [], []
+    for j, d in enumerate(merged, 1):
+        exp_band, basis = notes_core.recall_expected_band(
+            target, d.get("concept_tags") or (), bool(d.get("is_near_miss")), d["qtype"],
+            scope=d.get("scope"), partner=d.get("partner"))
+        bases[basis] = bases.get(basis, 0) + 1
+        declared = d.get("difficulty_band")
+        if not isinstance(declared, str):
+            declared = str(declared)             # junk is compared as text and fails honestly
+        bands.append(declared)
+        if declared != exp_band:
+            findings.append(f"Recall {j} declares band {declared!r} but the evidence "
+                            f"ladder resolves {exp_band!r} on the {basis} rung "
+                            f"(notes_core.recall_expected_band; NC §4 B7a R-10)")
+        ok_r, measured, dormant = notes_core.recall_verify_difficulty(
+            declared, d.get("difficulty_obs"), labels)
+        if dormant:
+            rubric_dormant.append(j)
+        elif not ok_r:
+            findings.append(f"Recall {j} is labelled {declared!r} but its recorded "
+                            f"derivation measures {measured!r} on the shared rubric "
+                            f"(notes_core.recall_verify_difficulty; NC §4 B7a R-10) — "
+                            f"a label the evidence contradicts never ships")
+    mix_findings, mix_expected = notes_core.recall_exam_mix_check(bands, target)
+    findings.extend(mix_findings)
+    # R-9 provenance is advisory
+    no_trap = [j for j, d in enumerate(merged, 1)
+               if d.get("scope") == "core" and not d.get("trap_refs")]
+    out_meta = {"dormant": False, "items": len(merged), "core": len(core),
+                "cumulative": len(cum), "cumulative_required": need_cum,
+                "near_miss": nm, "multi_concept": multi,
+                "types_present": sorted(types_present),
+                "types_required": list(target.get("required_types", [])),
+                "figure_items": len(fig_items),
+                "basis_distribution": bases,
+                "rubric_dormant_items": rubric_dormant,
+                "no_trap_provenance": no_trap,
+                "ceiling_unattainable": over_unattainable,
+                "exam_mix_expected": mix_expected,
+                "profile_present": bool(target.get("profile_present"))}
+    return (not findings, findings, out_meta)
+
+
+def _partner_key(partner):
+    """A cumulative item's partner, normalized to the subtopic_key the target's
+    cumulative_partners carry — the ONE normaliser (notes_core._partner_key_norm),
+    so the gate and the band resolver can never read a partner differently."""
+    return notes_core._partner_key_norm(partner)
+
+
 def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
                     expected_omml=0, orphan_allowed=(), allowed_types=(),
                     syllabus_terms=None, coverage_target=None,
-                    integration_target=None):
+                    integration_target=None, recall_target=None,
+                    recall_meta=None):
     """G-11 — THE TERMINAL RE-GATE. Run EVERY mechanical gate over the bytes
     that will ship, and hash them.
 
@@ -1231,6 +1438,12 @@ def terminal_regate(docx_path, model, *, tier, page_count, exemptions=(),
     ok_g, f_g, m_g = gate_integration(model, integration_target)
     g["G-13"] = {"ok": ok_g, "findings": f_g, "meta": m_g,
                  "dormant": bool(m_g.get("dormant"))}
+    # v2.9: G-14 RECALL CONTRACT. BLOCKING when a target AND the registry's
+    # recall_contract record are supplied; DORMANT-but-reported without either
+    # (a bank-less caller, or a draft built before NC v2.9.0).
+    ok_rc, f_rc, m_rc = gate_recall_contract(model, recall_target, recall_meta)
+    g["G-14"] = {"ok": ok_rc, "findings": f_rc, "meta": m_rc,
+                 "dormant": bool(m_rc.get("dormant"))}
     sha = notes_core.file_sha256(docx_path)
     # G-11 IS this function: the assertion that everything above ran against
     # the file that will ship, not against the pre-patch draft. Recorded as a
@@ -1759,6 +1972,224 @@ def self_test():
           summ["final_ref"]["sha256"].startswith("ffff"))
     check("audit_summary is JSON-serialisable for the registry",
           isinstance(json.dumps(summ), str))
+
+    # ---- v2.9: G-14 RECALL CONTRACT ------------------------------------
+    # A two-concept model with Examples, a figure in concept 2, and four
+    # contract-bearing Recalls (core 3.1, cumulative, core 3.2 near-miss reading
+    # the figure, cumulative) — plus the registry record NC §9A writes.
+    def rc_model():
+        mm = demo_model()
+        b = mm["blocks"]          # [title, concept, example, key_points]
+        mm["blocks"] = [
+            b[0],
+            {"type": "concept", "name": "Michaelis constant",
+             "content": [{"k": "bullet", "runs": T("Km is the half-saturation substrate level.")}]},
+            {"type": "example", "qtype": "MCQ",
+             "stem": T("At which substrate level does the rate reach half its ceiling?"),
+             "options": [T("a"), T("b"), T("c"), T("d")], "answer": "2",
+             "explanation": [T("By definition of the constant.")],
+             "why_wrong": [T("a is the ceiling."), T("c doubles it."), T("d halves it.")],
+             "objective": T("Read the constant off the curve.")},
+            {"type": "key_points", "bullets": [T("Half-saturation defines the constant.")]},
+            {"type": "concept", "name": "Saturation",
+             "content": [{"k": "bullet", "runs": T("Rate saturates as substrate concentration rises.")},
+                         {"k": "figure", "image": _tiny_png(), "label": "Saturation curve"}]},
+            b[2], b[3],
+            {"type": "trap", "bullets": [T("Mixing the constant with the ceiling rate.")]},
+        ]
+        return mm
+
+    def rc_recall(j, **over):
+        r = {"type": "recall", "qtype": "MCQ", "stem": T(f"Recall stem number {j} on kinetics topic {j}"),
+             "options": [T("a"), T("b"), T("c"), T("d")], "answer": "1"}
+        r.update(over)
+        return r
+
+    obs_med = {"question_class": ["C-COMPUTATIONAL"], "deduction_steps": 2,
+               "axiom_concepts": 1, "speed_hack_exists": False,
+               "is_negative": False, "qtype": "mcq"}
+    obs_hard = {"question_class": ["C-COMPUTATIONAL", "C-LINKED"], "deduction_steps": 5,
+                "axiom_concepts": 2, "speed_hack_exists": False,
+                "is_negative": False, "qtype": "mcq"}
+    partner_scope = "Bio::Enzymes::Classification"
+    partner_key = notes_core.subtopic_key("Bio", "Enzymes", "Classification")
+    rc_items = [
+        {"scope": "core", "concept_ref": "3.1", "concept_tags": ["km"], "is_near_miss": False,
+         "reads_figure": None, "trap_refs": [0], "difficulty_band": "Medium",
+         "difficulty_basis": "concept", "difficulty_obs": obs_med, "anchor_bank_id": "R1"},
+        {"scope": "cumulative", "partner": partner_scope, "concept_tags": [], "is_near_miss": False,
+         "reads_figure": None, "trap_refs": [], "difficulty_band": "Medium",
+         "difficulty_basis": "neutral", "difficulty_obs": obs_med, "anchor_bank_id": None},
+        {"scope": "core", "concept_ref": "3.2", "concept_tags": ["km"], "is_near_miss": True,
+         "reads_figure": "3.2", "trap_refs": [0], "difficulty_band": "Hard",
+         "difficulty_basis": "concept", "difficulty_obs": obs_hard, "anchor_bank_id": "R3"},
+        {"scope": "cumulative", "partner": partner_scope, "concept_tags": [], "is_near_miss": False,
+         "reads_figure": None, "trap_refs": [], "difficulty_band": "Medium",
+         "difficulty_basis": "neutral", "difficulty_obs": obs_med, "anchor_bank_id": None},
+    ]
+    rc_target = {"core_per_concept": 1, "required_types": ["MCQ"],
+                 "requires_figure_item": True, "cumulative_divisor": 3,
+                 "cumulative_floor": 2, "cumulative_partners": [partner_key],
+                 "order_known": True, "near_miss_min": 1, "ceiling": 15,
+                 "pyq_count": 4, "difficulty_labels": ["Easy", "Medium", "Hard"],
+                 "difficulty_by_tag": {"km": {"band": "Medium", "count": 3}},
+                 "difficulty_subtopic": None, "difficulty_topic": None,
+                 "difficulty_exam": None, "difficulty_neutral": "Medium",
+                 "profile_present": False}
+    mrc = rc_model()
+    mrc["blocks"] += [rc_recall(j + 1) for j in range(4)]
+    ok14, f14, m14 = gate_recall_contract(mrc, rc_target, {"items": rc_items})
+    check("G-14 passes a Recall set that meets every rule of the contract",
+          ok14 and m14["core"] == 2 and m14["cumulative"] == 2
+          and m14["near_miss"] == 1 and m14["figure_items"] == 1
+          and m14["basis_distribution"] == {"concept": 2, "neutral": 2}, )
+    check("G-14 treats a MALFORMED registry record as a hard finding, never a crash "
+          "and never dormancy (a record exists, so it is audited)",
+          all((lambda r: r[0] is False and r[2].get("malformed") is True)(
+                  gate_recall_contract(mrc, rc_target, {"items": bad}))
+              for bad in ("bad", 3, {"a": 1}, [1, 2], ["x"], [rc_items[0], None])))
+    check("G-14 tolerates junk field VALUES inside a declaration (findings, not a crash)",
+          (lambda r: r[0] is False and isinstance(r[1], list))(
+              gate_recall_contract(mrc, rc_target, {"items": [
+                  {"scope": 3.5, "concept_ref": {}, "partner": [], "concept_tags": 3.5,
+                   "is_near_miss": ("a",), "reads_figure": "extra", "trap_refs": None,
+                   "difficulty_band": 3.5, "difficulty_obs": "x"}] + rc_items[1:]})))
+    check("G-14 target-less call is DORMANT and reported",
+          gate_recall_contract(mrc, None, {"items": rc_items})[2].get("dormant") is True)
+    check("G-14 without a registry recall_contract record is DORMANT (pre-v2.9.0 "
+          "draft), never a block",
+          gate_recall_contract(mrc, rc_target, None)[2].get("dormant") is True
+          and gate_recall_contract(mrc, rc_target, {"items": []})[0] is True)
+
+    def bad14(items_mut=None, model_mut=None, target_mut=None):
+        it = copy.deepcopy(rc_items); mm = copy.deepcopy(mrc); tg = copy.deepcopy(rc_target)
+        if items_mut: items_mut(it)
+        if model_mut: model_mut(mm)
+        if target_mut: target_mut(tg)
+        okb, fb, _ = gate_recall_contract(mm, tg, {"items": it})
+        return (not okb, fb)
+
+    def has(res, needle):
+        return res[0] and any(needle in x for x in res[1])
+
+    check("G-14 catches a count mismatch between document and record",
+          has(bad14(items_mut=lambda it: it.pop()), "declares 3"))
+    check("G-14 R-1 catches a concept with no core Recall",
+          has(bad14(items_mut=lambda it: it[0].update(concept_ref="3.2", is_near_miss=False,
+                                                    difficulty_band="Medium")),
+              "has no core Recall"))
+    check("G-14 catches an unknown scope and a STALE concept_ref / reads_figure "
+          "(W-1: an NA edit renumbered the sections)",
+          has(bad14(items_mut=lambda it: it[1].update(scope="extra")), "scope 'extra'")
+          and has(bad14(items_mut=lambda it: it[0].update(concept_ref="3.7")),
+                  "does not resolve to a CURRENT concept outline number")
+          and has(bad14(items_mut=lambda it: it[2].update(reads_figure="3.7")),
+                  "reads_figure '3.7' does not resolve"))
+    check("G-14 R-2 catches an attested type no Recall uses",
+          has(bad14(target_mut=lambda tg: tg.update(required_types=["MCQ", "NAT"])),
+              "question type NAT"))
+    check("G-14 R-3 catches a figure-attested slice with no figure-reading Recall",
+          has(bad14(items_mut=lambda it: it[2].update(reads_figure=None)),
+              "no Recall reads a figure")
+          and has(bad14(items_mut=lambda it: it[2].update(reads_figure="3.1")),
+                  "no Recall reads a figure"))
+    check("G-14 R-4 catches too few cumulative items and a partner that is not EARLIER",
+          has(bad14(items_mut=lambda it: it.__setitem__(3, dict(it[3], scope="core", concept_ref="3.1",
+                                                                   difficulty_band="Medium")),
+                    model_mut=lambda mm: mm["blocks"].__setitem__(-1, rc_recall(9))),
+              "demands 2")
+          and has(bad14(items_mut=lambda it: it[1].update(partner="Bio::Enzymes::Zeta")),
+                  "not an EARLIER subtopic"))
+    check("G-14 R-4 is dormant on an order-less target (no partner check, no count demand)",
+          not bad14(items_mut=lambda it: it[1].update(partner="Bio::Enzymes::Zeta"),
+                    target_mut=lambda tg: tg.update(order_known=False, cumulative_partners=[]))[0])
+    check("G-14 R-5 catches a set with no near-miss item",
+          has(bad14(items_mut=lambda it: it[2].update(is_near_miss=False, difficulty_band="Medium",
+                                                    difficulty_obs=obs_med)),
+              "near-miss"))
+    check("G-14 R-12 catches a multi-concept-demanding unit whose Recalls all use one concept "
+          "(two concept sections; and separately a top-band bank trigger)",
+          has(bad14(items_mut=lambda it: (it[2].update(difficulty_band="Medium", difficulty_obs=obs_med),
+                                          it[3].update(is_near_miss=True, difficulty_band="Hard",
+                                                       difficulty_obs=dict(obs_hard, axiom_concepts=1,
+                                                                           deduction_steps=6)))),
+              "no Recall combines concepts"))
+    check("G-14 R-12 fires on the BANK trigger alone (single concept section, top-band PYQ attested)",
+          (lambda mm, it, tg: (lambda r: r[0] is False and any("top-band" in x for x in r[1]))(
+                                gate_recall_contract(mm, tg, {"items": it})))(
+              (lambda mm: (mm["blocks"].__delitem__(slice(1, 4)), mm)[1])(copy.deepcopy(mrc)),
+              [dict(rc_items[2], concept_ref="3.1", reads_figure="3.1", is_near_miss=True,
+                    difficulty_band="Hard", difficulty_obs=dict(obs_hard, axiom_concepts=1, deduction_steps=6)),
+               dict(rc_items[1]), dict(rc_items[0], concept_ref="3.1", difficulty_band="Medium"),
+               dict(rc_items[3])],
+              dict(rc_target, requires_multi_concept_item=True)))
+    check("G-14 R-6: an UNATTAINABLE ceiling (concept count alone exceeds it) is META, "
+          "never a finding — the overshoot is disclosed, not blocked",
+          (lambda r: r[2]["ceiling_unattainable"] is True
+                     and not any("over the engine ceiling" in x for x in r[1]))(
+              gate_recall_contract(mrc, dict(rc_target, ceiling=3, cumulative_partners=[pk_ for pk_ in rc_target["cumulative_partners"]]),
+                                   {"items": rc_items})))
+    check("G-14 R-12 stays silent for a single-concept unit with no top-band evidence",
+          (lambda mm, it, tg: gate_recall_contract(mm, tg, {"items": it})[2].get("multi_concept") == 0
+                              and not any("R-12" in x for x in gate_recall_contract(mm, tg, {"items": it})[1]))(
+              (lambda mm: (mm["blocks"].__delitem__(slice(1, 4)), mm)[1])(copy.deepcopy(mrc)),
+              [dict(rc_items[2], concept_ref="3.1", reads_figure="3.1", is_near_miss=True,
+                    difficulty_band="Hard", difficulty_obs=dict(obs_hard, axiom_concepts=1, deduction_steps=6)),
+               dict(rc_items[1]), dict(rc_items[0], concept_ref="3.1", difficulty_band="Medium"),
+               dict(rc_items[3])],
+              dict(rc_target, requires_multi_concept_item=False)))
+    def over_ceiling(it):
+        for k in range(12):
+            it.append(dict(rc_items[1 if k % 2 else 0], difficulty_band="Medium",
+                           difficulty_obs=obs_med))
+    def over_ceiling_model(mm):
+        mm["blocks"] += [rc_recall(20 + k, stem=T(f"Extra stem {k} distinct wording {k} here")) for k in range(12)]
+    check("G-14 R-6 catches a set over the engine ceiling where attainable",
+          has(bad14(items_mut=over_ceiling, model_mut=over_ceiling_model), "over the engine ceiling"))
+    check("G-14 R-7 catches a Recall that clones a worked Example",
+          has(bad14(model_mut=lambda mm: mm["blocks"][-4].update(
+                  stem=T("At which substrate level does the rate reach half its ceiling value?"))),
+              "clones Example 1"))
+    check("G-14 R-8 catches two consecutive Recalls of one identity",
+          has(bad14(items_mut=lambda it: (it.__setitem__(1, dict(it[0])), it.__setitem__(2, dict(rc_items[1])),
+                                          it.__setitem__(3, dict(rc_items[2])))),
+              "share one identity"))
+    check("G-14 R-10 catches a declared band the evidence ladder does not resolve",
+          has(bad14(items_mut=lambda it: it[0].update(difficulty_band="Hard", difficulty_obs=obs_hard)),
+              "resolves 'Medium' on the concept rung"))
+    check("G-14 R-10 catches a label the shared rubric contradicts",
+          has(bad14(items_mut=lambda it: it[2].update(difficulty_obs=obs_med)),
+              "measures 'Medium' on the shared rubric"))
+    check("G-14 reports a rubric fall-through as ADVISORY meta, not a finding",
+          (lambda res: res[0] is True and res[2]["rubric_dormant_items"] == [1])(
+              gate_recall_contract(mrc, rc_target,
+                                   {"items": [dict(rc_items[0], difficulty_obs=None)] + rc_items[1:]})))
+    check("G-14 exam-mix finding when a profile mix exists and the set departs from it",
+          has(bad14(target_mut=lambda tg: tg.update(
+                  difficulty_exam={"band": "Easy", "count": 9,
+                                   "pct": {"Easy": 100.0, "Medium": 0.0, "Hard": 0.0}})),
+              "measured mix expects"))
+    check("G-14 R-9 provenance is ADVISORY: a core Recall without trap_refs is listed in meta only",
+          (lambda res: res[0] is True and res[2]["no_trap_provenance"] == [1])(
+              gate_recall_contract(mrc, rc_target,
+                                   {"items": [dict(rc_items[0], trap_refs=[])] + rc_items[1:]})))
+    # terminal re-gate wiring
+    gates_rc = terminal_regate(good, m, tier="TIER-2", page_count=5, expected_omml=1)
+    check("v2.9: a target-less re-gate reports G-14 DORMANT and does not block on it",
+          gates_rc["G-14"]["dormant"] is True and "G-14" not in gates_rc["_blocking_failures"])
+    mrc_docx = tempfile.mktemp(suffix=".docx")
+    notes_docx.build(mrc, mrc_docx)
+    gates_rc_bad = terminal_regate(mrc_docx, mrc, tier="TIER-2", page_count=5, expected_omml=1,
+                                   recall_target=rc_target,
+                                   recall_meta={"items": rc_items[:3]})
+    check("v2.9: a violated recall contract BLOCKS the terminal re-gate",
+          not gates_rc_bad["_ok"] and "G-14" in gates_rc_bad["_blocking_failures"])
+    gates_rc_ok = terminal_regate(mrc_docx, mrc, tier="TIER-2", page_count=5, expected_omml=1,
+                                  recall_target=rc_target, recall_meta={"items": rc_items})
+    check("v2.9: a satisfied recall contract does not block",
+          "G-14" not in gates_rc_ok["_blocking_failures"] and gates_rc_ok["G-14"]["ok"])
+    check("GATES lists G-14 and every report key is in GATES",
+          "G-14" in GATES and all(k in GATES for k in gates_rc_ok if k.startswith("G-")))
 
     # ---- idempotence bookkeeping ---------------------------------------
     r5 = new_report("U", "0.2")

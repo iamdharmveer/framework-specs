@@ -1,5 +1,14 @@
 """
-notes_sync_audit.py v1.1 — CROSS-STEP SYNC AUDITOR for the Notes pipeline.
+notes_sync_audit.py v1.2 — CROSS-STEP SYNC AUDITOR for the Notes pipeline.
+
+v1.2 — 2026-09-01 — GAP-2026-09-01-RECALL-CONTRACT. Fixture-only: the S-5
+    mutation anchor tracks the NA spec's companion line (notes_core >= v2.12
+    from Framework_NotesAudit v3.7.0) and the S-2 engine-side anchor tracks
+    notes_audit.GATES (G-14 added); S-6's HANDSHAKE table gains
+    recall_contract (NC -> NA). The checks themselves are unchanged — a spec
+    anchor the fixture cannot find is a loud AssertionError, never a silent
+    pass (GAP-2026-08-23-AUDITSYNC-FIXTURE-STALE discipline). Live audit of
+    this release: 0 findings, 17 gates (G-14 added), 5 schemas.
 
 v1.1 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3). S-4's colour
     authority widens from LEVEL_COLORS/BOX_COLORS (document colours) to ALSO
@@ -100,6 +109,9 @@ HANDSHAKE = [
     ("audit_summary", "NA", ("ND",)),
     ("taxonomy_ref", "NB", ("NC", "NA")),
     ("bank_ref", "NB", ("NC", "NA")),
+    # v1.2 — GAP-2026-09-01-RECALL-CONTRACT: the author's Recall declarations,
+    # written by NC (§9A) and the ONLY place NA G-14 can read them.
+    ("recall_contract", "NC", ("NA",)),
 ]
 
 
@@ -475,7 +487,7 @@ def self_test():
     check("S-4 still fires on a figure hex outside FIGURE_PALETTE",
           fires("S-4", mutated("NC", "C25604", "C25605"), contains="C25605"))
     check("S-5 fires on a companion version higher than the engine",
-          fires("S-5", mutated("NA", "notes_core.py  >= v2.10",
+          fires("S-5", mutated("NA", "notes_core.py  >= v2.12",
                                "notes_core.py  >= v9.9")))
     check("S-6 fires when a consumer stops naming a handed-over artifact",
           fires("S-6", mutated("ND", "final_ref", "REMOVED_REF", count=0)))
@@ -491,8 +503,8 @@ def self_test():
           "notes_audit.GATES",
           fires("S-2", mutated_engine(
               "notes_audit.py",
-              '"G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12", "G-13")',
-              '"G-7a", "G-8", "G-9", "G-10", "G-11", "G-12", "G-13")',
+              '"G-7a", "G-7b", "G-8", "G-9", "G-10", "G-11", "G-12", "G-13", "G-14")',
+              '"G-7a", "G-8", "G-9", "G-10", "G-11", "G-12", "G-13", "G-14")',
               count=1)))
     check("S-3 fires the OTHER way: an engine emits a schema no spec cites",
           fires("S-3", mutated_engine(
@@ -502,8 +514,8 @@ def self_test():
     check("S-2 fires the OTHER way: notes_audit.GATES lists a gate no spec "
           "describes",
           fires("S-2", mutated_engine(
-              "notes_audit.py", '"G-12", "G-13")',
-              '"G-12", "G-13", "G-99")',
+              "notes_audit.py", '"G-13", "G-14")',
+              '"G-13", "G-14", "G-99")',
               count=1), contains="never describes"))
     check("S-3 fires on an EMITTED schema that no spec cites",
           fires("S-3", mutated_engine(
@@ -522,8 +534,8 @@ def self_test():
           "audit (the auditor's own defect: import_module returns whatever "
           "is already loaded)",
           fires("S-2", mutated_engine(
-              "notes_audit.py", '"G-12", "G-13")',
-              '"G-12", "G-13", "G-98")',
+              "notes_audit.py", '"G-13", "G-14")',
+              '"G-13", "G-14", "G-98")',
               count=1), contains="G-98"))
     check("a clean copy of the repo still passes (no false positive from the "
           "harness itself)", mutated("NA", "G-7b", "G-7b")[0])

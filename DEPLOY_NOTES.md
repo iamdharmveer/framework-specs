@@ -1,3 +1,45 @@
+# Deploy: GAP-2026-09-01-RECALL-CONTRACT — release 2026.09.01.1
+
+**Files to commit (15):** `notes_core.py` (v2.12), `notes_docx.py` (v1.7),
+`notes_audit.py` (v2.9), `notes_sync_audit.py` (v1.2),
+`Framework_NotesCreate.md` (v2.9.0), `Framework_NotesAudit.md` (v3.7.0),
+`Framework_NotesBlueprint.md` (v3.2.0 — §7 carry-over now an engine call),
+`routes.json`, `VERSION`, `CHANGELOG.md`, `DEPLOY_NOTES.md`,
+`docs/ACCEPTANCE_TEST.md`, `MANIFEST.json`, `SPEC_MANIFEST.json`,
+`SPEC_SECTIONS.json`. (`SHA256SUMS.txt` lists the release set for a
+byte-check after upload.)
+
+Deploy the engines after running each `--self-test` ON THE DEPLOYED BYTES:
+notes_core 224, notes_docx 107, notes_audit 169, notes_sync_audit 19,
+notes_blueprint 31 (unchanged). Then `python3 bootstrap.py` must print
+`FRAMEWORK 2026.09.01.1 VERIFIED — 53/53`.
+
+## Operator change: NONE for a unit already in flight
+
+| Your unit's state | What happens |
+|---|---|
+| Drafted before this release, audited after it | NA G-14 reports `DORMANT — no recall_contract record`; every other gate is identical to v3.6.0; the unit certifies as before. Disclosed in the §9 chat line. |
+| Drafted after this release | NC computes the Recall contract, authors to it, verifies every band on the shared rubric, writes `recall_contract` to the registry unit record; NA G-14 gates the shipped set. The rendered Recall box is byte-identical to before (Answer under the options; nothing new printed). |
+| `[ExamCode]_difficulty_profile.json` absent from Files | Per-item bands still resolve from the bank; the exam-wide mix check is dormant; the chat line and footer say `difficulty profile absent — exam-wide mix check dormant`. No stop. |
+| Profile present but the subtopic has no scored question in its window | The subtopic rung is skipped; the band resolves on the topic/exam/neutral rung and names it. No stop. |
+| NotesBlueprint re-run after units were drafted / audited | `registry_carry_over` keeps state, draft_ref, final_ref, audit_summary and recall_contract on every surviving sid. Before this release a re-run reset them. |
+
+**Routing change:** `blueprint_core.py` is now routed to NotesCreate,
+NotesAudit and NotesDeliver because `notes_core` imports it (lazily) for the
+shared difficulty rubric. The NotesDeliver route gains the file only so the
+verified clone matches the import graph; ND calls none of the new functions.
+
+## What this does NOT do (stated up front)
+
+Difficulty is guaranteed in STRUCTURE — a Recall measures its band on the same
+rubric as the real paper — not yet in OUTCOME. Student attempt data from the
+portal is the only source of the latter; a later `NotesCalibrate` input can
+feed it back. Trap-Box provenance is advisory (free-text). The ceiling and the
+cumulative share are engine constants chosen on indirect research evidence and
+are meant to be tuned from data, never re-typed into a spec.
+
+---
+
 # Deploy: GAP-2026-08-29-STYLE-FIDELITY (rev 2) — release 2026.08.31.2
 
 **Files to commit (20):** `analyse_engine.py` (v2.56), `blueprint_core.py`,

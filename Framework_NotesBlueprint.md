@@ -1,4 +1,16 @@
-# Framework_NotesBlueprint v3.1.1 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# Framework_NotesBlueprint v3.2.0 — Notes Pipeline Step NB (Ingest Base + Blueprint + Bank)
+# v3.2.0 — 2026-09-01 — REGISTRY CARRY-OVER HAS AN ENGINE (GAP-2026-09-01-RECALL-CONTRACT;
+#   notes_core v2.12). §7 promised "existing unit states preserved" on a re-run, but
+#   O-3 writes the registry through notes_core.registry_init, which sets every unit
+#   BLUEPRINTED with draft_ref / final_ref / audit_summary None — the promise had no
+#   engine behind it, and the new per-unit recall_contract (Framework_NotesCreate
+#   v2.9.0 §9A, the ONLY place NotesAudit G-14 can read NC's declarations) would have
+#   been silently reset too. §7 now names notes_core.registry_carry_over(reg, prior_reg)
+#   — the ONE carry-over list (notes_core.REGISTRY_CARRY_FIELDS: state, notes_version,
+#   audit, artifacts, history, draft_ref, final_ref, audit_summary, recall_contract),
+#   deep-copied onto matching sid keys; new sids stay BLUEPRINTED; orphans are
+#   reported (§7), never re-created. Additive: a first-ever NB run has no prior
+#   registry and behaves byte-identically.
 # v3.1.1 — 2026-08-14 — TAG SWEEP + PARTNER RESOLUTION + ORPHANED-FILING
 #   (independent fresh-eyes review + 400-trial property fuzz; pairs with
 #   notes_core v2.9, Framework_NotesCreate v2.6.2, Framework_NotesAudit
@@ -28,7 +40,9 @@
 # [ExamCode] project | Notes Step NB | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py >= v2.9 — fully-resolved filing + unresolved reporting
+#   notes_core.py >= v2.12 — registry_carry_over + REGISTRY_CARRY_FIELDS (§7's
+#                           ONE carry-over list, v2.12); fully-resolved filing +
+#                           unresolved reporting
 #                           (v2.9; the §7 TAG SWEEP / ORPHANED-FILING side);
 #                           notes-pyq-bank/1.2: bank_add_question accepts and
 #                           validates the optional integration_partners field
@@ -396,7 +410,13 @@ every unit STALE=true (state preserved) and the summary lists the diff; unit
 identity is the sid, so a re-run against a changed manifest PRESERVES every
 existing unit's sid key, numbering (§1A A-3 — assign_numbering is fed the prior
 registry's numbers) and state. New manifest sids enter BLUEPRINTED with appended
-numbers. ORPHANED: a registry sid no longer present in the manifest is REPORTED
+numbers. THE CARRY-OVER IS AN ENGINE CALL (v3.2.0): after O-3 writes the fresh
+registry, NB runs notes_core.registry_carry_over(reg, prior_reg) with the prior
+notes_registry.json from project Files (when one exists) and saves the result —
+notes_core.REGISTRY_CARRY_FIELDS is the ONE list of what survives (state,
+notes_version, audit, artifacts, history, draft_ref, final_ref, audit_summary,
+recall_contract); NB never hand-copies a field. The carried sid list is named in
+the chat summary. ORPHANED: a registry sid no longer present in the manifest is REPORTED
 (with its state) and NEVER deleted — the owner decides; a renamed subtopic
 upstream arrives as remove+add (slug-derived sids), which the report makes
 visible side by side. ORPHANED-FILING (v3.1.1): the ORPHANED report also
@@ -496,4 +516,4 @@ E-16 Two subtopics with the SAME display name under different topics -> distinct
 
 ---
 
-# END OF Framework_NotesBlueprint v3.1.1
+# END OF Framework_NotesBlueprint v3.2.0

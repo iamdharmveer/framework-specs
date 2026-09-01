@@ -1,4 +1,33 @@
-# Framework_NotesCreate v2.8.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# Framework_NotesCreate v2.9.0 — Notes Pipeline Step NC (Subtopic Notes Drafting)
+# v2.9.0 — 2026-09-01 — GAP-2026-09-01-RECALL-CONTRACT (owner decisions of the
+#   2026-09-01 design session; notes_core v2.12, notes_docx v1.7, notes_audit v2.9,
+#   Framework_NotesAudit v3.7.0 §5 G-14). THE DEFECT: §4 B7 fixed the Recall Check's
+#   FORMAT and nothing anywhere defined its CONTENT — how many questions, which
+#   concepts, what order, how hard, where the distractors come from. The count was
+#   SME judgement here and then FROZEN by NA (§4 there, "FORBIDDEN — changing the
+#   NUMBER"). The one section built for the student to self-test was the only
+#   section with no contract — the declared-property-without-a-definition class of
+#   GAP-2026-08-21-DIFFICULTY-STICKER-LABELS. THE FIX: §4 B7a, a bank-derived
+#   contract in the coverage_target_for idiom (third instance after B3a and B4a):
+#   notes_core.recall_target_for is the single authority NC authors to and G-14
+#   gates, so author and gate cannot drift. SPREAD NOT COUNT (owner, 2026-08-13,
+#   applied to Recall): one core Recall per concept section; every attested type;
+#   a figure-reading item iff the slice attests figures; cumulative items ONLY
+#   from EARLIER subtopics (unit_order — I-4 backward-only by construction); >= 1
+#   near-miss discrimination item; >= 1 concept-COMBINING item where the exam or
+#   the unit's breadth demands it (R-12); interleaved order; NO clone of a worked
+#   Example; distractors from the Trap Box. DIFFICULTY ON THE EXAM'S OWN SCALE
+#   (owner O-4): the SAME rubric Step 7 labels mock questions with and PYQExplain
+#   profiles real PYQs with (blueprint_core, now routed here through notes_core
+#   wrappers), the SAME [ExamCode]_difficulty_profile.json, the SAME
+#   author-to-band / verify / re-verify discipline. A missing or partial profile
+#   NEVER blocks a unit (owner O-5): the band stands on the nearest rung of a
+#   disclosed evidence ladder. WHAT DID NOT CHANGE (owner O-2/O-3): the rendered
+#   Recall box is byte-identical — Answer immediately after the options (the IFAS
+#   portal hides it), no explanation, no key table, no attempt log, no confidence
+#   tick (portal features). The contract lives in UNPRINTED model fields and in
+#   the registry unit record (§9A recall_contract). ADDITIVE: every existing unit
+#   keeps its Recall Check; G-14 is DORMANT on a registry unit with no record.
 # v2.8.0 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3 of the figure-colour
 #   programme; notes_core v2.11, notes_audit v2.8, Framework_NotesAudit v3.6.0). F-4
 #   figures and the B8 mind map had NO render recipe — no palette, no dpi, no size — so
@@ -24,14 +53,23 @@
 # [ExamCode] project | Notes Step NC | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_docx.py >= v1.5 — the SHARED builder. NC constructs the .docx ONLY
+#   notes_docx.py >= v1.7 — the SHARED builder. NC constructs the .docx ONLY
 #                           through notes_docx.build (section 4A); it never
 #                           hand-rolls a paragraph, colour, border or line rule.
+#                           v1.7 accepts the UNPRINTED recall-contract fields on
+#                           Recall blocks (schema notes-content/1.1) and
+#                           validate_model enforces §4 B7a at construction;
 #                           v1.5 carries the full SPACING RHYTHM (§4 tail —
 #                           context-sized gaps, one post-assembly pass);
 #                           v1.3 adds the why_wrong / objective fields (§4 B3)
 #                           and validate_model's per-option-count enforcement
-#   notes_core.py >= v2.10 — format_mix + format_by_concept in
+#   notes_core.py >= v2.12 — THE RECALL CONTRACT (§4 B7a): recall_target_for,
+#                           recall_cumulative_min, recall_expected_band,
+#                           recall_verify_difficulty, recall_authoring_profile,
+#                           difficulty_profile_load, recall_exam_mix_check,
+#                           scenario_key / is_clone, normalize_complexity and
+#                           the spec-lock-pinned RECALL_* constants (v2.12);
+#                           format_mix + format_by_concept in
 #                           coverage_target_for (§4 B3a's FORMAT CONTRACT,
 #                           v2.10); fully-resolved filing + unresolved reporting +
 #                           duplicate-name qualification (v2.9);
@@ -126,6 +164,14 @@ confirmed in the chat line as: <Sub Topic Name> (<sid>).
    that signals a subtopic-key mismatch or a genuinely empty subtopic, also
    handled at NB, not by drafting. The unit's bank join uses the unit's stored
    manifest triple (section, topic, name) through bank_questions_for as before.
+2a. (v2.9.0) THE DIFFICULTY PROFILE. NC also reads
+   [ExamCode]_difficulty_profile.json from project Files WHEN PRESENT, through
+   notes_core.difficulty_profile_load(path, exam_code) — the SAME file the mock
+   flow's TestCreate/MockBlueprint read (Framework_Blueprint §7), never a Notes
+   copy of it. The loader NEVER raises: absence, a foreign exam code, a
+   malformed file or a rejected schema each return (None, reason), the reason
+   is carried into the §9 chat line, and the unit proceeds on the lower rungs of
+   the §4 B7a difficulty ladder. The profile is never required (owner O-5).
 3. The concept map (concept → bank_ids → weight) orders the concept sections and
    sets depth. It is built from the selected bank records (concept_tags + stem
    content) and is INTERNAL ONLY: no frequency marker, star, count, anchor, or
@@ -326,8 +372,166 @@ ONLY — never in the document (§7). Actual PYQ text is never reproduced.
   B7  RECALL CHECK — exam-format questions IDENTICAL to the B3 template
       minus Explanation, SPEED HACK, the distractor autopsy AND the Objective:
       same box style, titled "Recall j", stem + options (where typed) + bold
-      Answer. Types from the allowed set. validate_model and G-5 reject a
-      Recall that carries any of those four teaching elements.
+      Answer IMMEDIATELY after the options. Types from the allowed set.
+      validate_model and G-5 reject a Recall that carries any of those four
+      teaching elements. THE RENDERED BOX IS UNCHANGED BY v2.9.0 (owner
+      decisions O-2/O-3, 2026-09-01): the Answer stays directly under the
+      options because the IFAS portal hides it in its own element until the
+      student commits; no answer-key table, no attempt log, no re-attempt
+      schedule and no confidence tick are ever printed — the portal owns those.
+      Everything B7a adds is UNPRINTED (model fields + registry).
+  B7a RECALL CONTRACT (v2.9.0 — GAP-2026-09-01-RECALL-CONTRACT; what "the
+      right Recall Check" MEANS, so the student self-tests every concept at
+      the exam's own difficulty before the next subtopic). Before drafting
+      any Recall, compute the unit's contract:
+        unit_order = notes_core.unit_order_from_registry(registry)
+        profile, why = notes_core.difficulty_profile_load(
+                           "/mnt/project/<EXAM>_difficulty_profile.json", exam_code)
+        rtarget    = notes_core.recall_target_for(bank, subject, topic,
+                         subtopic, unit_order, allowed_types,
+                         profile=profile, subtopic_id=sid)
+      and author to it. The ENGINE is the single authority for every number
+      in this contract (the RECALL_* constants, spec-lock-pinned); this spec
+      restates none. NotesAudit G-14 derives the SAME target from the same
+      inputs and gates the shipped file, so author and gate cannot drift.
+        R-1 COVERAGE — exactly rtarget["core_per_concept"] core Recall per
+            concept section, integration sections (B4a) included. Never a
+            second Recall on a scenario an existing one already tests: SPREAD,
+            NOT COUNT (owner decision 2026-08-13) applies to Recall exactly as
+            to Examples — N clones satisfy any count while testing one thing.
+        R-2 TYPES — every type in rtarget["required_types"] appears at least
+            once across the set (format-matching to the real exam; a
+            single-type exam yields a single-type set). Type names are never
+            printed (§7 ban 1).
+        R-3 FIGURE — when rtarget["requires_figure_item"], at least one Recall
+            READS a figure already rendered in a concept section (Recall boxes
+            carry no images): its stem refers to that section's figure by
+            outline number ("the graph in n.k") and the item declares
+            reads_figure = "n.k". Reading a figure is a separate skill from
+            knowing the theory (FMT-1 logic, extended to self-test).
+        R-4 CUMULATIVE — items drawn ONLY from rtarget["cumulative_partners"]:
+            the EARLIER subtopics of the SAME Section (subject) in the persisted
+            teaching order (unit_order, the ONE order map; I-4 backward-only by
+            construction — a Physics unit never revises Chemistry). Their count
+            is notes_core.recall_cumulative_min(core_count, rtarget). A unit
+            with no earlier subtopic ships none (nothing earlier exists);
+            an order-less target (order_known False) makes the cumulative rule
+            dormant and reported, never a demand. Partner vocabulary is
+            ordinary syllabus vocabulary; every §7 ban applies to every word.
+        R-5 NEAR-MISS — at least rtarget["near_miss_min"] item(s) is a
+            DISCRIMINATION item: superficially similar to a core concept,
+            solved by a different method (a cumulative item may be the one).
+            This is the item the interleaving evidence is strongest for and
+            it is never optional.
+        R-6 CEILING — the whole set stays within rtarget["ceiling"]; when the
+            concept count alone makes that unattainable, recall_cumulative_min
+            holds the cumulative items at their floor and the overshoot is
+            REPORTED, never silently trimmed.
+        R-7 NO CLONES — a Recall never reuses a worked Example's scenario. It
+            changes at least TWO of: context, direction (forward <-> inverse),
+            given/asked quantities, representation (text <-> figure <-> table).
+            Mechanical proxy: notes_core.is_clone(notes_core.scenario_key(
+            recall stem), scenario_key(example stem)) must be False for every
+            Example in the unit — fresh numbers alone never pass (numbers are
+            dropped from the key). At least one Recall per concept keeps the
+            exam's exact format for that concept (format-congruence).
+        R-8 INTERLEAVED ORDER — no two consecutive Recalls share an identity
+            (core: the same concept_ref; cumulative: the same partner); cumulative
+            items are dispersed through the sequence, never grouped at the end.
+        R-9 DISTRACTORS FROM THE TRAP BOX — every wrong option of a core
+            Recall is one of the unit's documented recurring error patterns
+            (B5); the item declares trap_refs (0-based B5 bullet indexes).
+            Arbitrary distractors are not permitted. Provenance is free-text
+            and therefore ADVISORY at G-14, never a block.
+        R-10 DIFFICULTY ON THE EXAM'S OWN SCALE (owner O-4) — the mock flow's
+            three-step guarantee, applied to Recall:
+            (1) TARGET. Each Recall declares the concept_tags (bank tags) it
+                tests, its scope and (cumulative) its partner, and whether it
+                is the near-miss; its band is
+                  band, basis = notes_core.recall_expected_band(rtarget, tags,
+                                    is_near_miss, qtype, scope=scope,
+                                    partner=partner)
+                — the ONE resolver, which walks the EVIDENCE LADDER and names
+                the rung it stood on (basis, one of notes_core.RECALL_BASES):
+                  concept   CORE items: the harder modal `complexity` among the
+                            declared tags, each tag counting only with enough
+                            PYQs
+                  partner   CUMULATIVE items: the PARTNER subtopic's own bank
+                            complexity mode — a revision item tests the
+                            partner's concept, so the partner's evidence
+                            decides; this unit's concept and subtopic rungs are
+                            evidence about THIS unit and never decide it
+                  subtopic  CORE items: the exam's own rubric-measured mix for
+                            THIS sid over the profile's DEFAULT cycle window
+                            (blueprint_core.DP_CYCLES_WINDOW sittings — the mock
+                            flow's default; the Notes route carries no
+                            exam_config, so a per-exam cycle gap is not read)
+                  topic     the bank's complexity mode over the whole parent
+                            topic (both scopes)
+                  exam      the profile's paper-level mix over the same window
+                            (both scopes)
+                  neutral   the middle label, when no evidence exists anywhere
+                A near-miss item is ONE band above its base. MSQ/NAT never sit
+                in the bottom band (the shared rubric's qtype floor). The
+                basis of EVERY item is reported in the §9 chat line, so a
+                fallback is disclosed, never silent (owner O-5).
+            (2) DEFINITION. The Recall is authored to
+                  notes_core.recall_authoring_profile(band, qtype, labels)
+                — the observation targets that make the SHARED rubric
+                (blueprint_core.assess_difficulty, the definition of a label
+                on every pipeline) land in the band — and its derivation is
+                recorded as difficulty_obs (question_class, deduction_steps,
+                axiom_concepts, speed_hack_exists, is_negative, qtype), the
+                Step-7 CHECK 3c shape.
+            (3) ACCEPT/REJECT. notes_core.recall_verify_difficulty(band, obs,
+                labels) must agree — up to six re-authorings, then that ONE
+                item HARD STOPS the run with the measured band named; a label
+                the evidence contradicts never ships and is never silently
+                relabelled. NA G-14 re-runs the identical check on the shipped
+                set. DRIFT-TO-EASY is the failure this closes: a stem that
+                announces the method the real question made the student
+                recognise scores below its band and is rewritten.
+            EXAM-WIDE MIX — when the profile is present, the whole set's band
+            counts are checked against the exam's measured paper-level mix by
+            notes_core.recall_exam_mix_check(bands, rtarget) (largest
+            remainder, ± the engine tolerance per band). Absent a profile the
+            check is dormant and disclosed.
+        R-11 FALLBACK IS DISCLOSED, NEVER SILENT (owner O-5). Profile absent
+            -> per-item bands still resolve from the bank rungs; the exam-wide
+            check is dormant; the §9 line says so. A concept with too few
+            PYQs, or none (a D-6 syllabus/BRIDGE concept), resolves on the
+            subtopic/topic/exam/neutral rungs with its basis named. A TIER-3
+            unit (no PYQs) still ships B7 (it is in the B6–B8 set TIER-3
+            keeps; only worked Examples need PYQ evidence): its bands resolve
+            on the lower rungs and every basis is named.
+        R-12 MULTI-CONCEPT (owner question, 2026-09-01: real exam questions
+            apply two or three concepts at once). When
+            notes_core.recall_multi_concept_required(rtarget, concept_count)
+            is True — the unit's own PYQs include a top-band question (on the
+            shared rubric a top-band item IS a multi-concept derivation), OR the
+            document teaches two or more concept sections — at least ONE Recall
+            combines concepts (a core item combines concepts of this unit; a
+            cumulative item may combine a partner concept with one of this
+            unit): its recorded derivation carries
+            axiom_concepts >= the engine minimum, and
+            notes_core.recall_is_multi_concept(item, rtarget) reads that SAME
+            rubric-verified observation, so author, builder and gate agree by
+            construction. A single-concept subtopic with no top-band evidence
+            demands nothing (no evidence, no demand). The near-miss item (R-5)
+            and an integration section's Recall (B4a) are natural carriers, but
+            any Recall may be the one.
+      THE MODEL FIELDS (unprinted; notes_docx schema notes-content/1.1; the
+      rendered box is byte-identical to notes-content/1.0): on every Recall
+      block — scope ("core" | "cumulative"), concept_ref (core: the outline
+      number "n.k" of the concept section it tests), partner (cumulative: the
+      partner subtopic's manifest scope), concept_tags, is_near_miss,
+      reads_figure ("n.k" or null), trap_refs, difficulty_band,
+      difficulty_basis, difficulty_obs, anchor_bank_id (the PYQ whose
+      structure it mirrors; §3 bank-and-registry-only like every anchor).
+      notes_docx.validate_model enforces R-1, R-6, R-7, R-8, R-12 (its
+      section-count trigger; the bank trigger is G-14's) and the field
+      shape at construction whenever ANY Recall block carries the fields; a
+      model with none (pre-v2.9.0) validates exactly as before.
   B8  MIND MAP — auto-generated concept graph, last page, obeying §6 F-4.
       SUBTOPIC-ONLY (v2.6.0, owner decision): the graph maps THIS subtopic's
       core concepts only — B4a integration sections and their merged
@@ -355,7 +559,8 @@ example stacks (§4 B4a I-7: the inbound fused questions ARE the evidence).
 
 ## §4A — CONSTRUCTION (the shared builder is the single authority)
 NC does not write .docx code. It assembles a CONTENT MODEL (notes_docx schema
-"notes-content/1.0") describing WHAT the notes say, then calls
+"notes-content/1.1" from v2.9.0; "notes-content/1.0" models are still
+accepted and validate exactly as before) describing WHAT the notes say, then calls
 notes_docx.build(model, path). notes_docx.validate_model runs first and HARD
 FAILS on a structural or content defect, so the classes below cannot reach a
 built file at all:
@@ -368,6 +573,13 @@ built file at all:
     count does not equal the number of wrong options (MCQ 3; MSQ 4 − #correct;
     NAT >= 1 trap value) — the §4 B3 per-option contract; and a Recall that
     carries an autopsy or an Objective;
+  - (v2.9.0, only when the model carries §4 B7a fields) a concept section with
+    no core Recall; two consecutive Recalls of one identity; a Recall whose
+    scenario clones a worked Example (notes_core.is_clone); a Recall set over
+    the engine ceiling where the ceiling is attainable; a unit with two or more
+    concept sections and no concept-combining Recall (R-12); a Recall with an
+    unknown scope, a concept_ref that is not a concept outline number, a
+    missing difficulty_band or an empty difficulty_obs;
   - an unbraced multi-character math script. "V_max" is LaTeX for V-subscript-m
     followed by the letters "ax": t3_compile renders it exactly that way, it is
     correct XML, every math gate passes, and it is visibly wrong on a student's
@@ -522,17 +734,29 @@ THE TWO ARTIFACTS ARE HANDED OVER DIFFERENTLY, and the footer badges say so:
   - notes_registry.json -> "Replace in Project Files". NA reads it from there,
     and it is where draft_ref lives.
 
-## §9A — DRAFT PROVENANCE (draft_ref)
+## §9A — DRAFT PROVENANCE (draft_ref) AND THE RECALL RECORD (recall_contract)
 After building the draft, NC records
     reg["units"][sid]["draft_ref"] = notes_core.docx_ref_for(draft_path)
 ({filename, sha256, bytes, generated}) and saves the registry. This is the
 ONLY evidence NA has that the document attached to its trigger is the document
 NC produced: with a Project-Files handoff the chain was implicit, and with an
 attachment there is no chain at all unless it is recorded here. NA section 0B
-P-3 compares against it and HARD STOPS on a mismatch. A unit whose draft_ref is
+P-3 compares against it and HARD STOPS on a mismatch.
+v2.9.0: NC ALSO records
+    reg["units"][sid]["recall_contract"] = {"items": [ ... ],
+                                             "profile": {"present": bool, "reason": why},
+                                             "exam_mix_expected": ...}
+where items is the §4 B7a field set of every Recall block in DOCUMENT ORDER
+(j = 1-based position; concept_ref, scope, partner, concept_tags,
+is_near_miss, reads_figure, trap_refs, difficulty_band, difficulty_basis,
+difficulty_obs, anchor_bank_id). The DOCUMENT never carries these (§7 / F-6),
+so the registry is the ONLY place NA G-14 can read the author's declarations
+— exactly as draft_ref is the only chain to the attachment. A unit whose
+record is absent (a draft built before v2.9.0) leaves G-14 DORMANT (reported)
+until the unit is re-drafted here. A unit whose draft_ref is
 absent (a draft built before v2.3.0) is re-run at NC — cheap, since the bank
 and blueprint are untouched.
 
 ---
 
-# END OF Framework_NotesCreate v2.8.0
+# END OF Framework_NotesCreate v2.9.0

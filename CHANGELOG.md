@@ -1,5 +1,143 @@
 # Changelog
 
+## 2026.09.01.1 — GAP-2026-09-01-RECALL-CONTRACT: the Recall Check becomes a bank-derived, difficulty-gated contract
+
+**Notes pipeline only (NB §7 / NC / NA). Steps 5–11 untouched. Additive throughout:** no
+step gains a new hard stop on legacy data; every already-drafted unit keeps its
+Recall Check byte-identical; the new gate is DORMANT (reported) on any registry
+unit whose draft predates this release. Owner decisions recorded 2026-09-01
+(O-1 composition, O-2 answer stays under the options — the IFAS portal hides it,
+O-3 no re-attempt schedule in the document — portal feature, O-4 difficulty on
+the exam's own scale exactly as TestCreate ensures it, O-5 a missing/partial
+difficulty profile never blocks a unit).
+
+### The defect this closes
+
+`Framework_NotesCreate` §4 B7 fixed the Recall Check's FORMAT and
+`Framework_NotesAudit` G-5/G-10 gated that format and the counter. **Nothing
+anywhere defined its CONTENT** — how many questions, which concepts, what
+order, how hard, where the distractors come from — and NA then FROZE whatever
+count NC chose. The one section built for the student to self-test was the only
+section in the document with no contract: the declared-property-without-a-
+definition class of GAP-2026-08-21-DIFFICULTY-STICKER-LABELS. Measured against
+the learning-science evidence (Advanced Research report, 2026-09-01), an
+uncontracted Recall Check can miss concepts, block instead of interleave, clone
+the worked Examples, and drift easier than the real paper — all preventable
+mechanically.
+
+### The fix — one contract, one authority, two enforcement layers
+
+- **notes_core v2.12** carries the contract (the `coverage_target_for` idiom,
+  third instance): `recall_target_for` (required types, figure-item demand,
+  EARLIER-only cumulative partners from `unit_order_from_registry`, near-miss
+  demand, the R-12 multi-concept demand (`recall_multi_concept_required` /
+  `recall_is_multi_concept` — a top-band PYQ or >= 2 concept sections -> >= 1
+  Recall combining concepts, read from the rubric-verified axiom_concepts),
+  the DIFFICULTY LADDER — core: concept → subtopic (profile) → topic →
+  exam → neutral; cumulative: partner → topic → exam → neutral — with every
+  rung's evidence), `recall_cumulative_min`,
+  `recall_expected_band` (the ONE band resolver), `recall_verify_difficulty` /
+  `recall_authoring_profile` (thin wrappers over `blueprint_core`'s
+  `verify_difficulty_obs` / `difficulty_authoring_profile` — the SAME rubric
+  Step 7 labels mock questions with and PYQExplain profiles real PYQs with),
+  `difficulty_profile_load` (reads `[ExamCode]_difficulty_profile.json`; NEVER
+  raises), `recall_exam_mix_check`, `scenario_key` / `is_clone`,
+  `normalize_complexity`. RECALL_* constants are spec-lock-pinned, forward and
+  reverse; the specs restate none of the numbers.
+- **notes_docx v1.7** — schema notes-content/1.1: a Recall block MAY carry the
+  UNPRINTED contract fields; build() never reads them (byte-identity with and
+  without them is fixtured — O-2 holds by test); parse() never emits them;
+  validate_model enforces the structural half at construction (R-1 coverage,
+  R-6 ceiling, R-7 no-clone, R-8 interleave, field shape) only when a Recall
+  carries the fields — a 1.0 model validates exactly as before.
+- **notes_audit v2.9 — G-14 RECALL CONTRACT** (`gate_recall_contract`), wired
+  into `terminal_regate` (`recall_target=`, `recall_meta=`). Reads the author's
+  declarations from the registry unit record `recall_contract` (NC §9A — the
+  document cannot carry them, F-6/W-4). HARD: count, coverage, types, figure
+  item, cumulative count + EARLIER-only partners, near-miss, ceiling, no clone,
+  interleave, band == ladder AND band == rubric, exam-wide mix when a profile
+  exists. ADVISORY: Trap-Box provenance, rubric fall-throughs, basis
+  distribution. DORMANT: no target, or no `recall_contract` record.
+- **Framework_NotesCreate v2.8.0 → v2.9.0**: §1 2a profile ingest; §4 B7
+  (format unchanged, portal decisions recorded) + new **§4 B7a** R-1…R-11; §4A;
+  §9A `recall_contract` record; schema 1.1 cited.
+- **Framework_NotesAudit v3.6.0 → v3.7.0**: §0A profile input; §2A net-ADD
+  licence extended to a G-14 hard finding; §5 **G-14**; G-11 non-blocking list;
+  §9 recall line (basis distribution, profile status, dormancy).
+- **Framework_NotesBlueprint v3.1.1 → v3.2.0** + **notes_core.registry_carry_over**:
+  §7 promised "existing unit states preserved" on a re-run, but O-3 writes the
+  registry through `registry_init` (every unit BLUEPRINTED, downstream fields
+  None) — the promise had no engine, and a re-blueprint would silently reset
+  draft_ref / final_ref / audit_summary AND the new recall_contract (leaving
+  G-14 dormant on an already-drafted unit). `REGISTRY_CARRY_FIELDS` is now the
+  ONE carry-over list; NB §7 calls it. Found by the pre-deploy handshake review.
+- **routes.json**: `blueprint_core.py` routed to NotesCreate / NotesAudit /
+  NotesDeliver (CORPUS CHECK AI caught the dependency the moment notes_core
+  imported it — the validator, not a reviewer, found it).
+
+### Difficulty — the mock flow's three-step guarantee, applied to Recall (O-4)
+
+1. TARGET from evidence: each Recall declares its concept tags; the ladder
+   resolves the band on the nearest rung WITH evidence and names the rung.
+   Near-miss = one band above. MSQ/NAT never sit in the bottom band (the shared
+   rubric's qtype floor).
+2. DEFINITION: authored to `difficulty_authoring_profile`; derivation recorded as
+   `difficulty_obs` (the Step-7 CHECK 3c shape).
+3. ACCEPT/REJECT: `verify_difficulty_obs` must agree at NC (≤ 6 re-authorings,
+   then that one item hard-stops — never a silent relabel) and again at NA G-14.
+
+Evidence ladder when data is thin (O-5) — always disclosed, never silent:
+concept tag (≥ RECALL_MIN_PYQ_FOR_TAG_BAND PYQs) → the profile's rubric-measured
+mix for THIS subtopic → the bank's topic mode → the profile's paper-level mix →
+the neutral middle label. Profile absent: per-item bands still resolve from the
+bank rungs; the exam-wide check is dormant; the §9 line says so. TIER-3 units
+still ship B7 (it is in the B6–B8 set they keep) on the lower rungs.
+
+### Hardening from the pre-deploy review (same release)
+
+Two review passes and a 4,500-trial adversarial fuzz (junk registry records,
+junk model fields, corrupted profile files, non-3-label vocabularies) closed
+seven defects before deploy: a §9A sentence that had attached draft_ref's
+justification to the wrong record; cumulative partners now restricted to the
+SAME Section (a Physics unit never revises Chemistry); G-14 now flags an
+unknown scope and a STALE concept_ref / reads_figure (W-1: an NA edit that
+renumbers sections invalidates registry numbers — the gate catches it, NA
+rewrites the record); a CUMULATIVE item's band now stands on the PARTNER
+subtopic's own bank evidence (the end-to-end dry run showed this unit's
+subtopic rung forcing an easy revision item up to the unit's band — the author
+could never satisfy the rubric); a malformed registry record is a HARD finding, never a
+crash and never dormancy; a non-string band, a non-list tag value and a
+corrupted profile question record are junk-not-evidence, never a crash; the
+band resolver clamps any non-3-label vocabulary to the default; S-6's
+HANDSHAKE table now guards recall_contract (NC -> NA). Every fix has a fixture.
+
+MUTATION KILL TEST (final pre-deploy pass): every finding emission added by this
+release (27 in gate_recall_contract and _recall_contract_findings) and 24
+hand-chosen logic mutants across the new notes_core / notes_docx / notes_audit
+code (operator flips, guard removals, dormancy wiring, schema acceptance) were
+each neutralised in isolation — a self-test fails for EVERY one. Six mutants
+survived the first run and each received a fixture (partner rung distinct from
+the topic mode; top-band trigger negative case; harder-tag ordering both ways;
+token-length rule; inclusive clone threshold; cumulative floor; unattainable
+ceiling as meta; bank-only R-12 trigger; scope-aware identity).
+
+### Stated limitations
+
+Difficulty is guaranteed in STRUCTURE (the item measures its band on the same
+rubric as the real paper), not yet in OUTCOME (student attempt data — a later
+portal-fed calibration input). Bank `complexity` is a human tag; tags with too
+few PYQs fall to the next rung and say so. Trap-Box provenance is free-text and
+therefore advisory. The ceiling and the ⅓ cumulative share are pragmatic
+defaults with indirect research backing; they live in the engine to be tuned
+from data.
+
+### Verification (this release)
+
+notes_core 224/224 · notes_docx 107/107 · notes_audit 169/169 · notes_sync_audit
+0 findings · validate_framework_md 0 issues / 23 specs · audit_deep 0 ·
+audit_callgraph 0 · audit_sync 0 · audit_specs_ext 0 · audit_seam 0 ·
+mock_sync_audit OK · check_triggers OK · spec_name_audit no new findings.
+
 ## 2026.08.31.2 — GAP-2026-08-29-STYLE-FIDELITY (rev 2): exam-authentic style, measured from each exam's own PYQ
 
 **ONE release, whole estate (~500 exam codes), built in two internal stages:

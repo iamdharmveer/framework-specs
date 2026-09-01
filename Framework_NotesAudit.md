@@ -1,4 +1,29 @@
-# Framework_NotesAudit v3.6.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# Framework_NotesAudit v3.7.0 — Notes Pipeline Step NA (Closed-Book Audit + Remediation)
+# v3.7.0 — 2026-09-01 — G-14 RECALL CONTRACT (GAP-2026-09-01-RECALL-CONTRACT; owner
+#   decisions of the 2026-09-01 design session; notes_audit v2.9, notes_core v2.12,
+#   notes_docx v1.7, Framework_NotesCreate v2.9.0 §4 B7a). THE DEFECT: the Recall Check
+#   was the only section in the document with no content contract — G-5 gated its
+#   FORMAT and G-10 its counter, and this spec then FROZE whatever count NC chose (§2A
+#   "FORBIDDEN — changing the NUMBER"). THE FIX: §5 G-14 (notes_audit.gate_recall_contract)
+#   gates the shipped Recall set against the SAME bank-derived target NC authored to
+#   (notes_core.recall_target_for — the G-12/G-13 idiom, one authority, no drift) plus
+#   the author's per-item declarations read from the registry unit record
+#   (recall_contract, NC §9A) — the document cannot carry them (§7 / W-4), so the
+#   registry is their only home, exactly as it is draft_ref's. HARD: coverage (one core
+#   Recall per concept), attested types, the figure-reading item, EARLIER-only
+#   cumulative items at the engine's count, the near-miss item, the concept-combining
+#   item where the exam or the unit's breadth demands it (R-12), interleaved order,
+#   no clone of a worked Example, and DIFFICULTY ON THE EXAM'S OWN SCALE (owner O-4): each
+#   band == notes_core.recall_expected_band (the ONE resolver over the disclosed evidence
+#   ladder) AND == the shared rubric's band for the recorded derivation
+#   (notes_core.recall_verify_difficulty — the same check Step 7's G-DIFF and A-QINDEX 8
+#   run), and the set's mix within the exam's measured paper-level mix when the
+#   difficulty profile is present. ADVISORY: Trap-Box provenance, rubric fall-throughs,
+#   basis distribution. DORMANT (reported): a registry unit with no recall_contract
+#   record — a draft built before NC v2.9.0 — the G-13 grandfathering idiom; a
+#   pre-upgrade unit re-run here yields identical gates otherwise. §2A: a G-14 hard
+#   finding joins G-12/G-13 as a licence for a net ADD of Recall items; one-for-one
+#   replacement remains the default. The rendered Recall box is unchanged (owner O-2/O-3).
 # v3.6.0 — 2026-08-30 — GAP-2026-08-30-NOTES-FIGURE-CONTRACT (P3; notes_audit v2.8,
 #   notes_core v2.11, Framework_NotesCreate v2.8.0 §6 F-4a). §1's v3.0.0 re-render clause
 #   named figural_core, which is NOT routed to NA — the clause was non-executable. It now
@@ -29,7 +54,12 @@
 # [ExamCode] project | Notes Step NA | Exam-agnostic
 #
 # MINIMUM COMPANION VERSIONS:
-#   notes_core.py  >= v2.10 — format_mix + format_by_concept in
+#   notes_core.py  >= v2.12 — THE RECALL CONTRACT (§5 G-14): recall_target_for,
+#                            recall_cumulative_min, recall_expected_band,
+#                            recall_verify_difficulty, recall_exam_mix_check,
+#                            difficulty_profile_load, scenario_key / is_clone
+#                            and the RECALL_* constants (v2.12); plus
+#                            format_mix + format_by_concept in
 #                            coverage_target_for (§5 G-12's format
 #                            contract, v2.10); plus (v2.9)
 #                            fully-resolved filing, unresolved reporting,
@@ -48,14 +78,19 @@
 #                            integration_target_for (§5 G-13's bank-derived
 #                            contract, v2.7 — latest-partner filing;
 #                            grandfathered-dormant for pre-1.2 banks)
-#   notes_docx.py  >= v1.3 — the SHARED builder/parser: build/parse/
-#                            validate_model/outline_of. Derived numbering and
+#   notes_docx.py  >= v1.7 — the SHARED builder/parser: build/parse/
+#                            validate_model/outline_of; v1.7 accepts schema
+#                            notes-content/1.1 (the unprinted §4 B7a Recall
+#                            fields — never rendered, never parsed back; the
+#                            round trip is untouched). Derived numbering and
 #                            the STRICT byte-identical round trip are its
 #                            guarantees; parse takes exam_code/tier (W-4). v1.3
 #                            adds the why_wrong/objective fields (§4 B3) that
 #                            parse recovers and the round trip preserves
-#   notes_audit.py >= v2.7 — G-12 format-contract enforcement (the
-#                            figure+Example pairing, v2.7); plus (v2.6)
+#   notes_audit.py >= v2.9 — gate_recall_contract (§5 G-14, v2.9) and the
+#                            recall_target= / recall_meta= arguments of
+#                            terminal_regate; plus G-12 format-contract
+#                            enforcement (the figure+Example pairing, v2.7); plus (v2.6)
 #                            display_norm Combines matching + unresolved
 #                            advisory in gate_integration (v2.6); plus
 #                            SOLVABLE_KEY_CORRECTED, classify_key_conflict,
@@ -113,7 +148,12 @@ fuzzy-picks. The resolved unit is confirmed in chat as
                             than one STOPS and lists them — NA never picks.
   PROJECT FILES           : notes_pyq_bank.json, notes_blueprint.json,
                             notes_registry.json, and (when present)
-                            [ExamCode]_subtopic_manifest.json.
+                            [ExamCode]_subtopic_manifest.json and (v3.7.0)
+                            [ExamCode]_difficulty_profile.json — the SAME file
+                            the mock flow reads, loaded through
+                            notes_core.difficulty_profile_load, which NEVER
+                            raises: absence or rejection is a (None, reason)
+                            carried into §9, never a stop (owner O-5).
 The attachment is READ-ONLY on disk. NA copies it to a working directory
 before doing anything else; it never edits the uploaded file in place, and it
 writes its output to the outputs directory.
@@ -302,9 +342,12 @@ SCOPE OF THE WRITE:
   FORBIDDEN — changing the NUMBER of Examples or Recall items as bounded
     IMPROVEMENT (a net add or remove moves the global j sequence and voids
     G-5's type-coverage proof; replacement is not addition). A net ADD is
-    licensed ONLY by a G-12 or G-13 hard finding — a bank-attested type, a
-    concept spread the existing stack cannot cover, or (v3.4.0) an attested
-    fusion with no integration section to teach it — because numbering is
+    licensed ONLY by a G-12, G-13 or (v3.7.0) G-14 hard finding — a
+    bank-attested type, a concept spread the existing stack cannot cover,
+    (v3.4.0) an attested fusion with no integration section to teach it, or
+    (v3.7.0) a Recall-contract demand the shipped set cannot meet (a concept
+    with no core Recall, a missing type / figure-reading / near-miss item, or
+    a cumulative count below notes_core.recall_cumulative_min) — because numbering is
     derived (W-1) and G-11 re-gates the result; a net REMOVE is never
     licensed outside §4 L-2 full regeneration. Also FORBIDDEN: changing any Answer
     except through section 3A; DELETING an Example's distractor autopsy or its
@@ -609,6 +652,89 @@ pass.
       target reads the BANK. A fused question that is genuinely corrupt
       still quarantines through §4 L-1..L-4 on its own merits, exactly as
       before.
+  G-14 RECALL CONTRACT (notes_audit.gate_recall_contract) — v3.7.0, BLOCKING.
+      THE TARGET is notes_core.recall_target_for over the unit's bank slice,
+      with unit_order = notes_core.unit_order_from_registry(registry) (the
+      ONE order builder) and the difficulty profile when present, computed by
+      NA itself — the SAME contract NC §4 B7a authored to; one authority, no
+      drift (the G-12 idiom, third instance). THE DECLARATIONS are the
+      registry unit record's recall_contract (NC §9A): the author's per-item
+      fields in document order, matched to the model's Recall blocks by
+      position. The document itself carries none of this (§7 / W-4), so the
+      registry is the only chain — as it is for draft_ref.
+      HARD (findings, blocking):
+        - item count in the document == declared count;
+        - every concept section has a core Recall (R-1 — SPREAD, NOT COUNT:
+          no minimum count exists; one per concept is the whole demand);
+        - every question type the slice attests appears in >= 1 Recall (R-2);
+        - a Recall reads a figure rendered in a concept section when the slice
+          attests figures (R-3; Recall boxes carry no images, so reads_figure
+          names the concept's outline number and the gate checks that concept
+          carries a figure content item);
+        - every declared scope is one of notes_core.RECALL_SCOPES, every core
+          concept_ref and every reads_figure resolves to a concept section's
+          CURRENT outline number (W-1: an NA edit that adds or removes a
+          concept block renumbers every section after it, so a registry
+          concept_ref written by NC can go stale — the gate catches it and
+          NA rewrites the record before G-11);
+        - cumulative items >= notes_core.recall_cumulative_min(core, target)
+          and every partner a member of target["cumulative_partners"] — the
+          EARLIER subtopics of the SAME Section only (R-4; backward-only by
+          construction). Both
+          checks are DORMANT on an order-less target (order_known False), and
+          a first subtopic demands none;
+        - >= target["near_miss_min"] item(s) declared near-miss (R-5);
+        - >= 1 Recall combining concepts when
+          notes_core.recall_multi_concept_required(target, concept sections)
+          — the slice attests a top-band question, or the unit teaches >= 2
+          concept sections; read from the rubric-verified axiom_concepts via
+          notes_core.recall_is_multi_concept (R-12 — real exam questions apply
+          2-3 concepts at once; a single-concept unit with no top-band evidence
+          demands nothing);
+        - the set within target["ceiling"] where attainable (R-6; where the
+          concept count alone exceeds it, the overshoot is meta, not a block);
+        - no Recall clones a worked Example's scenario (R-7 —
+          notes_core.is_clone over notes_core.scenario_key of both stems);
+        - no two consecutive Recalls share an identity (R-8 — core: the same
+          concept_ref; cumulative: the same partner);
+        - DIFFICULTY (R-10, owner O-4 — the mock flow's guarantee, applied
+          here): for every item, the declared band == notes_core.
+          recall_expected_band(target, its concept_tags, is_near_miss, qtype,
+          scope, partner) — the ONE resolver, walking the evidence ladder
+          (core: concept -> subtopic -> topic -> exam -> neutral; cumulative:
+          partner -> topic -> exam -> neutral) and naming the rung — AND the declared
+          band == the shared rubric's band for the recorded difficulty_obs
+          (notes_core.recall_verify_difficulty, the SAME check Step 7's G-DIFF
+          and A-QINDEX check 8 run). A label the evidence contradicts never
+          ships. When the profile is present, the whole set's band counts sit
+          within the exam's measured paper-level mix
+          (notes_core.recall_exam_mix_check); without it the check is dormant
+          and disclosed.
+      ADVISORY, in meta, never blocking: no_trap_provenance (core Recalls
+      whose wrong options declare no Trap-Box index — R-9 is free-text
+      provenance and cannot block); rubric_dormant_items (an obs the rubric
+      cannot score — fall-through, never a false FAIL); basis_distribution
+      (how many items stood on each ladder rung — the §9 disclosure);
+      ceiling_unattainable; exam_mix_expected; profile_present.
+      DORMANT, never blocking, always reported: a target-less call (bank-less
+      engine callers only — a live NA always has the bank), and a registry
+      unit with NO recall_contract record: the draft predates NotesCreate
+      v2.9.0, so the gate could not have anything to check. UNLIKE G-12,
+      that dormancy IS a legitimate live-NA outcome (the G-13 grandfathering
+      idiom): it is disclosed in the §9 chat line and the unit certifies on
+      the other gates; the contract activates at the unit's next NC draft.
+      REMEDIATION ROUTING: a G-14 finding is a SELF-TEST gap in B7. A wrong
+      band or a clone is fixed by one-for-one replacement (the item is
+      re-authored to notes_core.recall_authoring_profile for its band and
+      re-verified); a missing concept / type / figure / near-miss / cumulative
+      item is the §2A net-ADD licence (v3.7.0). After ANY change to a Recall,
+      NA rewrites the registry's recall_contract items to match the shipped
+      order — G-11 re-gates against the rewritten record, so declarations and
+      document never diverge in a certified unit. Every change is logged.
+      DIFFICULTY IS GUARANTEED IN STRUCTURE, NOT YET IN OUTCOME (stated
+      limitation): both flows prove a question MEASURES its band on the shared
+      rubric; whether students find it equally hard is known only from portal
+      attempt data, which a later calibration input may feed back.
   G-11 TERMINAL RE-GATE (notes_audit.terminal_regate) — MANDATORY, LAST.
       After the final edit, re-run the FULL solve across the unit's §2
       CERTIFICATION SET (v3.4.2 — audit_questions_for; through v3.4.1 this
@@ -619,17 +745,17 @@ pass.
       certifies a file that no longer exists: a correction that fixes Q7 and
       breaks Q12's cross-reference is exactly what a pre-patch certification
       misses. Only G-9 (advisory), a DORMANT G-7a, a target-less DORMANT
-      G-12 and a DORMANT G-13 (target-less or grandfathered) are
-      non-blocking.
+      G-12, a DORMANT G-13 (target-less or grandfathered) and a DORMANT G-14
+      (target-less or no recall_contract record) are non-blocking.
       G-11 is itself REPORTED as a gate, carrying the certified sha256 and the
       number of gates run, so audit_summary shows plainly WHICH bytes were
       certified rather than asserting it in prose alone. Every identifier in
       notes_audit.GATES appears in the report; notes_sync_audit.py checks that
       this list and this section still agree.
-      Gate identifiers are HISTORICAL, not positional: G-12 and G-13 were
-      added after G-11 existed and are deliberately listed above it, because
-      G-11 is the terminal re-gate and MUST remain last — "EVERY gate above"
-      includes G-12 and G-13.
+      Gate identifiers are HISTORICAL, not positional: G-12, G-13 and G-14
+      were added after G-11 existed and are deliberately listed above it,
+      because G-11 is the terminal re-gate and MUST remain last — "EVERY gate
+      above" includes G-12, G-13 and G-14.
 
 ## §6 — REPORT AND STATE
 There is NO .md audit report. The report OBJECT (notes_audit.new_report) is
@@ -702,8 +828,16 @@ named with its header unit — so the operator always sees why this unit's
 question count differs from its taxonomy row. Also (v3.4.2): every
 unresolved-evidence entry (bank_id + the unknown partner string — "fix at
 the next NotesBlueprint run") and every ORPHANED-FILING deferral (§2 —
-"certification pending orphan resolution"), named individually.
+"certification pending orphan resolution"), named individually. Also
+(v3.7.0) the §5 G-14 recall line: items shipped (core / cumulative / near-miss
+/ figure-reading / concept-combining), the difficulty basis distribution (how many items resolved
+on the concept, partner, subtopic, topic, exam and neutral rungs — a fallback is
+DISCLOSED, never silent, owner O-5), the profile status (present, or absent /
+rejected with the loader's reason and "exam-wide mix check dormant"), any
+rubric fall-through items, any no-provenance items, a DORMANT G-14 stated
+plainly when the draft predates NC v2.9.0, and every G-14-driven replacement
+or licensed net ADD named individually.
 
 ---
 
-# END OF Framework_NotesAudit v3.6.0
+# END OF Framework_NotesAudit v3.7.0

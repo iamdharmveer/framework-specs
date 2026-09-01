@@ -1,5 +1,28 @@
 """
-notes_docx.py v1.6 — SHARED Notes document builder/parser (Steps NC and NA).
+notes_docx.py v1.7 — SHARED Notes document builder/parser (Steps NC and NA).
+
+v1.7 — 2026-09-01 — RECALL CONTRACT FIELDS + CONSTRUCTION-TIME ENFORCEMENT
+    (GAP-2026-09-01-RECALL-CONTRACT; pairs with notes_core v2.12,
+    Framework_NotesCreate v2.9.0 §4 B7a, Framework_NotesAudit v3.7.0 §5 G-14).
+    Schema notes-content/1.0 -> 1.1. A Recall block MAY now carry the UNPRINTED
+    contract fields — scope, concept_ref, partner, concept_tags, is_near_miss,
+    reads_figure, trap_refs, difficulty_band, difficulty_basis, difficulty_obs,
+    anchor_bank_id (RECALL_CONTRACT_FIELDS). NOTHING RENDERS DIFFERENTLY: build()
+    never reads them, so a 1.1 model and its 1.0 twin produce byte-identical
+    document.xml (fixtured), parse() recovers a model without them (the
+    document cannot carry pipeline metadata — F-6 / W-4), and the W-3 round
+    trip is untouched. validate_model enforces the STRUCTURAL half of §4 B7a
+    at construction whenever ANY Recall block carries the fields (a model with
+    none validates exactly as before — additive): every concept section has a
+    core Recall (R-1); no two consecutive Recalls share an identity (R-8); no
+    Recall clones a worked Example's scenario (R-7, notes_core.is_clone); the
+    set stays within notes_core.RECALL_CEILING where attainable (R-6); a unit
+    with >= 2 concept sections carries >= 1 Recall combining concepts (R-12,
+    notes_core.recall_is_multi_concept); and the field shape (scope in RECALL_SCOPES, concept_ref a concept outline number,
+    partner on a cumulative item, difficulty_band present, difficulty_obs a
+    non-empty dict). The bank-dependent half (types, figure item, cumulative
+    count, near-miss, difficulty bands, exam mix) is NA G-14's — the builder
+    has no bank. Every finding here has a fixture that kills its mutant.
 
 v1.6 — 2026-08-15 — RHYTHM SIZES FIXTURED + A REPRODUCIBLE SELF-TEST COUNT
     (release-manager review of 2026.08.15.3; two findings, neither affecting
@@ -188,8 +211,15 @@ from docx.shared import Pt, RGBColor, Cm, Emu
 import notes_core
 import t3_mathcomp
 
-SCHEMA = "notes-content/1.0"
-MODEL_SCHEMAS_ACCEPTED = ("notes-content/1.0",)
+SCHEMA = "notes-content/1.1"
+MODEL_SCHEMAS_ACCEPTED = ("notes-content/1.0", "notes-content/1.1")
+# v1.7 — the UNPRINTED recall-contract fields a Recall block may carry
+# (Framework_NotesCreate §4 B7a). build() never reads them; parse() never
+# emits them; the registry (NC §9A recall_contract) is where NA reads them.
+RECALL_CONTRACT_FIELDS = ("scope", "concept_ref", "partner", "concept_tags",
+                          "is_near_miss", "reads_figure", "trap_refs",
+                          "difficulty_band", "difficulty_basis",
+                          "difficulty_obs", "anchor_bank_id")
 
 # Rendering constants OWNED HERE (the specs defer to this engine, as they defer
 # to notes_core for filenames).  Colours come from notes_core so there is one
@@ -647,7 +677,86 @@ def validate_model(model):
         if nxt is None:
             f.append(f"concept '{b.get('name')}' has no KEY POINTS box "
                      f"after its example stack (§4 B4)")
+
+    # v1.7 — §4 B7a RECALL CONTRACT, structural half. Runs ONLY when at least
+    # one Recall block carries the contract fields (a pre-v2.9.0 model has
+    # none and validates exactly as before). The bank-dependent half is G-14.
+    recalls = [(i, b) for i, b in enumerate(blocks) if b["type"] == "recall"]
+    if any(any(k in b for k in RECALL_CONTRACT_FIELDS) for _i, b in recalls):
+        f.extend(_recall_contract_findings(model, blocks, recalls))
     return (not f, f)
+
+
+def _recall_identity(b):
+    """The identity two consecutive Recalls may not share (§4 B7a R-8)."""
+    if b.get("scope") == "cumulative":
+        return ("cumulative", str(b.get("partner") or ""))
+    return ("core", str(b.get("concept_ref") or ""))
+
+
+def _recall_contract_findings(model, blocks, recalls):
+    """§4 B7a R-1 / R-6 / R-7 / R-8 + field shape, from the model alone."""
+    f = []
+    ol = outline_of(model)
+    concept_numbers = {num for (bi, num, _lab) in ol["l2"]
+                       if blocks[bi]["type"] == "concept"}
+    for j, (i, b) in enumerate(recalls, 1):
+        scope = b.get("scope")
+        if scope not in notes_core.RECALL_SCOPES:
+            f.append(f"Recall {j}: scope {scope!r} is not one of "
+                     f"{notes_core.RECALL_SCOPES} (§4 B7a)")
+        if scope == "core" and str(b.get("concept_ref") or "") not in concept_numbers:
+            f.append(f"Recall {j}: concept_ref {b.get('concept_ref')!r} is not "
+                     f"the outline number of a concept section (§4 B7a R-1)")
+        if scope == "cumulative" and not b.get("partner"):
+            f.append(f"Recall {j}: a cumulative Recall must name its partner "
+                     f"subtopic (§4 B7a R-4)")
+        if not b.get("difficulty_band"):
+            f.append(f"Recall {j}: missing difficulty_band (§4 B7a R-10)")
+        if not isinstance(b.get("difficulty_obs"), dict) or not b.get("difficulty_obs"):
+            f.append(f"Recall {j}: difficulty_obs must be a non-empty dict — "
+                     f"the rubric cannot verify a label with no evidence (§4 B7a R-10)")
+        rf = b.get("reads_figure")
+        if rf and str(rf) not in concept_numbers:
+            f.append(f"Recall {j}: reads_figure {rf!r} is not a concept outline "
+                     f"number (§4 B7a R-3)")
+    # R-1 every concept section has a core Recall
+    covered = {str(b.get("concept_ref")) for _i, b in recalls if b.get("scope") == "core"}
+    for (bi, num, lab) in ol["l2"]:
+        if blocks[bi]["type"] == "concept" and num not in covered:
+            f.append(f"concept {num} '{lab}' has no core Recall (§4 B7a R-1 — "
+                     f"every concept is self-tested once)")
+    # R-8 interleaved: no two consecutive Recalls of one identity
+    for k in range(1, len(recalls)):
+        if _recall_identity(recalls[k][1]) == _recall_identity(recalls[k - 1][1]):
+            f.append(f"Recall {k} and Recall {k + 1} share one identity "
+                     f"{_recall_identity(recalls[k][1])} — interleave (§4 B7a R-8)")
+    # R-7 no clone of a worked Example
+    ex_keys = [(ei, notes_core.scenario_key(_runs_text(b.get("stem", []))))
+               for ei, (_i, b) in enumerate(
+                   ((i, b) for i, b in enumerate(blocks) if b["type"] == "example"), 1)]
+    for j, (i, b) in enumerate(recalls, 1):
+        rk = notes_core.scenario_key(_runs_text(b.get("stem", [])))
+        for ei, ek in ex_keys:
+            if notes_core.is_clone(rk, ek):
+                f.append(f"Recall {j} clones Example {ei}'s scenario (§4 B7a R-7 — "
+                         f"change context, direction, quantities or representation)")
+    # R-12 multi-concept (the builder sees the section count; the top-band
+    # bank trigger is G-14's — the builder has no bank)
+    if len(concept_numbers) >= 2 and recalls and not any(
+            notes_core.recall_is_multi_concept(b) for _i, b in recalls):
+        f.append(f"unit teaches {len(concept_numbers)} concept sections but no Recall "
+                 f"combines concepts (difficulty_obs.axiom_concepts >= "
+                 f"{notes_core.RECALL_MULTI_CONCEPT_MIN_AXIOMS}) — §4 B7a R-12")
+    # R-6 ceiling where attainable
+    core_n = sum(1 for _i, b in recalls if b.get("scope") == "core")
+    partners_exist = any(b.get("scope") == "cumulative" for _i, b in recalls)
+    attainable = core_n + (notes_core.RECALL_CUMULATIVE_FLOOR if partners_exist else 0) \
+        <= notes_core.RECALL_CEILING
+    if attainable and len(recalls) > notes_core.RECALL_CEILING:
+        f.append(f"Recall set has {len(recalls)} items, over the engine ceiling "
+                 f"notes_core.RECALL_CEILING={notes_core.RECALL_CEILING} (§4 B7a R-6)")
+    return f
 
 
 # ------------------------------------------------------------------ build
@@ -1331,6 +1440,107 @@ def self_test():
     m = demo_model()
     ok, findings = validate_model(m)
     check("valid demo model passes validation", ok)
+
+    # ---- v1.7: §4 B7a RECALL CONTRACT, structural half ---------------------
+    def contract_recall(**over):
+        r = {"type": "recall", "qtype": "MCQ", "stem": T("Which is true?"),
+             "options": [T("a"), T("b"), T("c"), T("d")], "answer": "3",
+             "scope": "core", "concept_ref": "3.1", "concept_tags": ["km"],
+             "is_near_miss": False, "reads_figure": None, "trap_refs": [0],
+             "difficulty_band": "Medium", "difficulty_basis": "concept",
+             "difficulty_obs": {"question_class": ["C-COMPUTATIONAL"],
+                                "deduction_steps": 2, "axiom_concepts": 1,
+                                "speed_hack_exists": False, "is_negative": False,
+                                "qtype": "mcq"},
+             "anchor_bank_id": "R1"}
+        r.update(over)
+        return r
+
+    mc = copy.deepcopy(m)
+    mc["blocks"][-1] = contract_recall()
+    mc["blocks"].append(contract_recall(scope="cumulative", partner="Bio::Enzymes::Classification",
+                                        concept_ref=None, stem=T("Name the class of hydrolases.")))
+    check("v1.7: a model carrying the contract fields validates when every rule holds",
+          validate_model(mc)[0] and mc["schema"] == "notes-content/1.1")
+    check("v1.7: a 1.0 model with no contract fields validates exactly as before",
+          validate_model(dict(m, schema="notes-content/1.0"))[0])
+    import tempfile as _tf3
+    _d3 = _tf3.mkdtemp()
+    _plain = copy.deepcopy(mc)
+    for b in _plain["blocks"]:
+        if b["type"] == "recall":
+            for k in RECALL_CONTRACT_FIELDS:
+                b.pop(k, None)
+    build(mc, os.path.join(_d3, "with.docx"))
+    build(_plain, os.path.join(_d3, "without.docx"))
+    check("v1.7: contract fields change NOTHING in the rendered document "
+          "(byte-identical document.xml with and without them — owner O-2)",
+          document_xml(os.path.join(_d3, "with.docx"))
+          == document_xml(os.path.join(_d3, "without.docx")))
+    _pm = parse(os.path.join(_d3, "with.docx"), exam_code="EX", tier="TIER-1")
+    check("v1.7: parse() never invents contract fields (the document cannot "
+          "carry them — F-6 / W-4); the registry is their only home",
+          not any(k in b for b in _pm["blocks"] if b["type"] == "recall"
+                  for k in RECALL_CONTRACT_FIELDS))
+
+    def bad(mutator, needle):
+        mm = copy.deepcopy(mc)
+        mutator(mm)
+        okb, fb = validate_model(mm)
+        return (not okb) and any(needle in x for x in fb)
+
+    check("v1.7 R-1: a concept section with no core Recall is rejected",
+          bad(lambda mm: mm["blocks"][-2].update(concept_ref="3.9", scope="core"),
+              "has no core Recall")
+          and bad(lambda mm: mm["blocks"][-2].update(concept_ref="3.9"),
+                  "not the outline number of a concept section"))
+    check("v1.7 R-8: two consecutive Recalls of one identity are rejected",
+          bad(lambda mm: mm["blocks"].append(contract_recall(
+                  scope="cumulative", partner="Bio::Enzymes::Classification",
+                  concept_ref=None, stem=T("State one property of proteases."))),
+              "share one identity"))
+    check("v1.7 R-8: identity is scope-aware — a core Recall and a cumulative Recall are "
+          "never 'the same identity' even with equal reference strings",
+          _recall_identity({"scope": "core", "concept_ref": "X"})
+          != _recall_identity({"scope": "cumulative", "partner": "X"})
+          and _recall_identity({"scope": "cumulative", "partner": "P", "concept_ref": "3.1"})
+          == ("cumulative", "P"))
+    check("v1.7 R-7: a Recall cloning a worked Example's scenario is rejected",
+          bad(lambda mm: mm["blocks"][-2].update(
+                  stem=[{"t": "text", "s": "For the region "},
+                        {"t": "math", "latex": "\\frac{V_{max}[S]}{K_m+[S]}"},
+                        {"t": "text", "s": " which holds?"}]),
+              "clones Example 1"))
+    def sixteen(mm):
+        mm["blocks"] = mm["blocks"][:-2]
+        for k in range(8):
+            mm["blocks"].append(contract_recall(stem=T(f"Core question number {k} about kinetics {k}")))
+            mm["blocks"].append(contract_recall(scope="cumulative", concept_ref=None,
+                                                partner="Bio::Enzymes::Classification",
+                                                stem=T(f"Partner question number {k} about classes {k}")))
+    check("v1.7 R-6: a Recall set over notes_core.RECALL_CEILING is rejected "
+          "where the ceiling is attainable",
+          bad(sixteen, "over the engine ceiling"))
+    two = copy.deepcopy(mc)
+    two["blocks"].insert(4, {"type": "concept", "name": "Turnover",
+                             "content": [{"k": "bullet", "runs": T("kcat counts conversions per second.")}]})
+    two["blocks"].insert(5, {"type": "key_points", "bullets": [T("Turnover is per site.")]})
+    two["blocks"].append(contract_recall(concept_ref="3.2", stem=T("Turnover of a saturated site is what quantity")))
+    two["blocks"][-1], two["blocks"][-2] = two["blocks"][-2], two["blocks"][-1]   # keep identities interleaved
+    ok2, f2 = validate_model(two)
+    check("v1.7 R-12: a two-concept unit with no concept-combining Recall is rejected; "
+          "the one-concept demo demands nothing",
+          (not ok2) and any("R-12" in x for x in f2) and validate_model(mc)[0])
+    two["blocks"][-1]["difficulty_obs"] = dict(two["blocks"][-1]["difficulty_obs"], axiom_concepts=2)
+    check("v1.7 R-12: one Recall recording axiom_concepts >= 2 satisfies it",
+          validate_model(two)[0])
+    check("v1.7 field shape: unknown scope / partnerless cumulative / missing "
+          "band / empty obs / bad reads_figure are each rejected",
+          bad(lambda mm: mm["blocks"][-2].update(scope="extra"), "scope 'extra'")
+          and bad(lambda mm: mm["blocks"][-1].update(partner=""), "must name its partner")
+          and bad(lambda mm: mm["blocks"][-2].update(difficulty_band=""), "missing difficulty_band")
+          and bad(lambda mm: mm["blocks"][-2].update(difficulty_obs={}), "difficulty_obs must be a non-empty dict")
+          and bad(lambda mm: mm["blocks"][-2].update(reads_figure="9.9"), "reads_figure '9.9'"))
 
     # ---- v1.3: distractor autopsy + Educational Objective (§4 B3) --------
     noobj = copy.deepcopy(m)
